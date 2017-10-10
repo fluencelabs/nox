@@ -2,27 +2,27 @@ package fluence.kad
 
 import java.util.Base64
 
-import cats.{Monoid, Order, Show}
+import cats.{ Monoid, Order, Show }
 
 /**
-  * Kademlia Key is 160 bits (sha-1 length) in byte array.
-  * We use value case class for type safety, and typeclasses for ops.
-  *
-  * @param id ID
-  */
+ * Kademlia Key is 160 bits (sha-1 length) in byte array.
+ * We use value case class for type safety, and typeclasses for ops.
+ *
+ * @param id ID
+ */
 final case class Key(id: Array[Byte]) extends AnyVal {
   /**
-    * Number of leading zeros
-    * @return
-    */
+   * Number of leading zeros
+   * @return
+   */
   def zerosPrefixLen: Int = {
     val idx = id.indexWhere(_ != 0)
-    if(idx < 0) {
+    if (idx < 0) {
       Key.BitLength
     } else {
       var i: Byte = id(idx)
       var lz = 8
-      while(i != 0) {
+      while (i != 0) {
         lz -= 1
         i = (i >>> 1).toByte
       }
@@ -39,10 +39,10 @@ object Key {
   implicit object XorDistanceMonoid extends Monoid[Key] {
     override val empty: Key = Key(Array.ofDim[Byte](Length)) // filled with zeros
 
-    override def combine(x: Key, y: Key): Key = Key{
+    override def combine(x: Key, y: Key): Key = Key {
       var i = 0
       val ret = Array.ofDim[Byte](Length)
-      while(i < Length) {
+      while (i < Length) {
         ret(i) = (x.id(i) ^ y.id(i)).toByte
         i += 1
       }
@@ -54,11 +54,11 @@ object Key {
   implicit object OrderedKeys extends Order[Key] {
     override def compare(x: Key, y: Key): Int = {
       var i = 0
-      while(i < Length) {
-        if(x.id(i) != y.id(i)) {
+      while (i < Length) {
+        if (x.id(i) != y.id(i)) {
           return x.id(i).compareTo(y.id(i))
         }
-          i += 1
+        i += 1
       }
       0
     }
@@ -68,6 +68,5 @@ object Key {
     override def show(f: Key): String =
       Base64.getEncoder.encodeToString(f.id)
   }
-
 
 }

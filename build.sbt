@@ -29,6 +29,7 @@ val frees = "io.frees" %% "freestyle" % FreesV
 val monix = "io.monix" %% "monix" % MonixV
 val monixCats = "io.monix" %% "monix-cats" % MonixV
 val cats = "org.typelevel" %% "cats" % "0.9.0"
+val cats1 = "org.typelevel" %% "cats-core" % "1.0.0-MF"
 
 val paradise = addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full)
 
@@ -59,7 +60,7 @@ lazy val `kademlia` = project.in(file("kademlia"))
   scalaV,
   scalariformPrefs,
   libraryDependencies ++= Seq(
-    cats,
+    cats1,
     scalatest
   )
 )

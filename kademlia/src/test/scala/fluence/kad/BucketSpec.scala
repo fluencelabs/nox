@@ -1,12 +1,12 @@
 package fluence.kad
 
 import cats.Id
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 import cats.instances.try_._
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{ Failure, Success, Try }
 
-class BucketSpec extends WordSpec with Matchers{
+class BucketSpec extends WordSpec with Matchers {
 
   "kademlia bucket" should {
 
