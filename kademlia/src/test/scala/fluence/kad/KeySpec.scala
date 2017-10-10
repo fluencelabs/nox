@@ -1,7 +1,7 @@
 package fluence.kad
 
-import cats.kernel.{ Eq, Monoid }
-import org.scalatest.{ Matchers, WordSpec }
+import cats.kernel.{Eq, Monoid}
+import org.scalatest.{Matchers, WordSpec}
 import cats.syntax.monoid._
 import cats.syntax.order._
 

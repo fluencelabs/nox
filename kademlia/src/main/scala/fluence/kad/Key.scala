@@ -2,19 +2,21 @@ package fluence.kad
 
 import java.util.Base64
 
-import cats.{ Monoid, Order, Show }
+import cats.{Monoid, Order, Show}
+import cats.syntax.monoid._
 
 /**
- * Kademlia Key is 160 bits (sha-1 length) in byte array.
- * We use value case class for type safety, and typeclasses for ops.
- *
- * @param id ID
- */
+  * Kademlia Key is 160 bits (sha-1 length) in byte array.
+  * We use value case class for type safety, and typeclasses for ops.
+  *
+  * @param id ID
+  */
 final case class Key(id: Array[Byte]) extends AnyVal {
   /**
-   * Number of leading zeros
-   * @return
-   */
+    * Number of leading zeros
+    *
+    * @return
+    */
   def zerosPrefixLen: Int = {
     val idx = id.indexWhere(_ != 0)
     if (idx < 0) {
@@ -63,6 +65,13 @@ object Key {
       0
     }
   }
+
+  // Order relative to a distinct key
+  def relativeOrder(key: Key): Order[Key] =
+    (x, y) => OrderedKeys.compare(x |+| key, y |+| key)
+
+  def relativeOrdering(key: Key): Ordering[Key] =
+    relativeOrder(key).compare(_, _)
 
   implicit object ShowKeyBase64 extends Show[Key] {
     override def show(f: Key): String =
