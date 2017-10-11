@@ -164,10 +164,12 @@ object RoutingTable {
       val siblingsStream =
         rt.siblings.toStream.sorted
 
-      def combine(left: Stream[Contact], right: Stream[Contact]): Stream[Contact] = (left, right) match {
-        case (hl #:: tl, hr #:: _) if ordering.lt(hl, hr)     ⇒ Stream(hl).append(combine(tl, right))
-        case (hl #:: _, hr #:: tr) if ordering.gt(hl, hr)     ⇒ Stream(hr).append(combine(left, tr))
-        case (hl #:: tl, hr #:: tr) if ordering.equiv(hl, hr) ⇒ Stream(hr).append(combine(tl, tr))
+      def combine(left: Stream[Contact], right: Stream[Contact], seen: Set[String] = Set.empty): Stream[Contact] = (left, right) match {
+        case (hl #:: tl, _) if seen(hl.key.show)     ⇒ combine(tl, right, seen)
+        case (_, hr #:: tr) if seen(hr.key.show)     ⇒ combine(left, tr, seen)
+        case (hl #:: tl, hr #:: _) if ordering.lt(hl, hr)     ⇒ Stream(hl).append(combine(tl, right, seen + hl.key.show))
+        case (hl #:: _, hr #:: tr) if ordering.gt(hl, hr)     ⇒ Stream(hr).append(combine(left, tr, seen + hr.key.show))
+        case (hl #:: tl, hr #:: tr) if ordering.equiv(hl, hr) ⇒ Stream(hr).append(combine(tl, tr, seen + hr.key.show))
         case (Stream.Empty, _)                                ⇒ right
         case (_, Stream.Empty)                                ⇒ left
       }
@@ -282,11 +284,12 @@ object RoutingTable {
 
       // Perform local lookup
       val (_, closestSeq0) = lookup[Id](key).run(rt)
+      val closest = closestSeq0.take(parallelism)
 
       // We perform lookup on $parallelism disjoint paths
       // To ensure paths are disjoint, we keep the sole set of visited contacts
       // To synchronize the set, we iterate over $parallelism distinct shortlists
-      iterate(shortlistEmpty ++ closestSeq0.take(parallelism), Set.empty, closestSeq0.take(parallelism).map(shortlistEmpty + _))
+      iterate(shortlistEmpty ++ closest, Set.empty, closest.map(shortlistEmpty + _))
     }.map(_.take(neighbors))
   }
 

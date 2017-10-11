@@ -22,13 +22,7 @@ final case class Key(id: Array[Byte]) extends AnyVal {
     if (idx < 0) {
       Key.BitLength
     } else {
-      var i: Byte = id(idx)
-      var lz = 8
-      while (i != 0) {
-        lz -= 1
-        i = (i >>> 1).toByte
-      }
-      lz + 8 * idx
+      Integer.numberOfLeadingZeros(id(idx)) + 8 * (idx-3)
     }
   }
 }

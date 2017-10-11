@@ -1,17 +1,30 @@
 package fluence.kad
 
+import java.nio.ByteBuffer
+
 import cats.{ Id, Show }
 import cats.kernel.Monoid
 import cats.instances.try_._
-import cats.syntax.show._
-import cats.syntax.monoid._
 import org.scalatest.{ Matchers, WordSpec }
 
 import scala.language.implicitConversions
 import scala.util.{ Failure, Random, Success, Try }
 
 class RoutingTableSpec extends WordSpec with Matchers {
-  "kademlia routing table" should {
+  implicit def key(i: Long): Key = Key(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
+    val buffer = ByteBuffer.allocate(java.lang.Long.BYTES)
+    buffer.putLong(i)
+    buffer.array()
+  }))
+
+  implicit def toLong(k: Key): Long = {
+    val buffer = ByteBuffer.allocate(java.lang.Long.BYTES)
+    buffer.put(k.id.takeRight(java.lang.Long.BYTES))
+    buffer.flip()
+    buffer.getLong()
+  }
+
+  "kademlia routing table (with single byte keys)" should {
     implicit def key(i: Int): Key = Key(Array.concat(Array.ofDim[Byte](Key.Length - 1), Array(i.toByte)))
 
     implicit def toInt(k: Key): Int = k.id.last.toInt
@@ -132,7 +145,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
             val Success(neighbors) = lookupIterative(k, i, 10)
 
-            val hasK = neighbors.map(_.key.id.last.toInt).contains(k)
+            val hasK = neighbors.map(c ⇒ c.key: Int).contains(k)
 
             neighbors.size shouldBe 10
             hasK shouldBe true
@@ -140,5 +153,85 @@ class RoutingTableSpec extends WordSpec with Matchers {
           }
       }
     }
+  }
+
+  "routing table (with Long key)" should {
+    "lookup nodes remotely" in {
+      val nodes = collection.mutable.Map.empty[Long, RoutingTable]
+
+      val random = new Random(253)
+
+      val ids = Stream.fill(125)(random.nextLong()).toVector
+
+      def ping(c: Contact): Try[Contact] =
+        Success(c).filter(_ ⇒ random.nextBoolean())
+
+      def lookup(onNode: Long): (Key, Int) ⇒ Try[Seq[Contact]] =
+        (k, n) ⇒
+          Try(nodes(onNode)).flatMap(RoutingTable.lookup[Try](k).run(_)).map(_._2.take(n))
+
+      def lookupIterative(node: Long, on: Long, num: Int): Try[Seq[Contact]] =
+        Try(nodes(on)).flatMap { rt ⇒
+          RoutingTable.lookupIterative[Try](node, num, 3, ping, (c, k, i) ⇒ lookup(c.key: Long)(k, i))
+            .run(rt).map {
+              case (rt1, nds) ⇒
+                nodes(on) = rt1
+                nds
+            }
+        }
+
+      def register(i: Long, on: Long) = {
+        // register on known node
+        nodes(i) = RoutingTable.update[Try](Contact(on), ping).run(nodes(i)).get._1
+
+        lookupIterative(i, on, 20).recoverWith{
+          case t =>
+            t.printStackTrace()
+            Failure(t)
+        }.foreach { cls0 ⇒
+          // on's node is changed, save it
+          nodes(on) =
+            RoutingTable.update[Try](Contact(i), ping).run(nodes(on)).get._1
+
+          // save found neighbors on i
+          nodes(i) = cls0.foldLeft(nodes(i)) {
+            case (rt1, n) ⇒
+              RoutingTable.update[Try](n, ping).run(rt1).get._1
+          }
+
+          // save this node on neighbors
+          cls0.map(c => c.key: Long).foreach {ck =>
+            nodes(ck) = RoutingTable.update[Try](Contact(i), ping).run(nodes(ck)).get._1
+          }
+        }
+      }
+
+      // Prepare empty routing tables
+      ids.foreach(i ⇒ nodes(i) = RoutingTable(i, 1024, 64))
+
+      val idsToRegisterOn = ids.head :: ids.drop(1).head :: Nil
+
+      ids.foreach { i ⇒
+        // Real life situation: register all nodes with a small number of known seeds
+        idsToRegisterOn.foreach(register(i, _))
+        if(i != idsToRegisterOn.head) nodes(i).siblings should be('nonEmpty)
+      }
+
+      // We omit too small keys as bits density is too high
+      random.shuffle(ids).take(77).foreach { i ⇒
+        random.shuffle(ids).take(77).filter(_ != i)
+          .foreach { k ⇒
+            (nodes(i).nodeId: Long) shouldBe i
+
+            val Success(neighbors) = lookupIterative(k, i, 10)
+
+            val hasK = neighbors.map(c ⇒ c.key: Long).contains(k)
+
+            neighbors.size shouldBe 10
+            hasK shouldBe true
+          }
+      }
+    }
+
   }
 }
