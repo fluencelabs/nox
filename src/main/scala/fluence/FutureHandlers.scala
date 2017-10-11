@@ -12,7 +12,7 @@ object FutureHandlers {
 
   implicit val validationHandler = new Validate.Handler[Future] {
     override def minSize(s: String, n: Int): Future[Boolean] = Future(s.size >= n)
-    override def hasNumber(s: String): Future[Boolean] = Future(s.exists(c => "0123456789".contains(c)))
+    override def hasNumber(s: String): Future[Boolean] = Future(s.exists(c ⇒ "0123456789".contains(c)))
   }
   // validationHandler: Validation.Handler[scala.concurrent.Future] = $anon$1@3011acde
 

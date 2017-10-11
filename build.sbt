@@ -1,17 +1,16 @@
-import com.typesafe.sbt.SbtScalariform.ScalariformKeys
 import scalariform.formatter.preferences._
 
-val scalariformPrefs =
-  ScalariformKeys.preferences := ScalariformKeys.preferences.value
-    .setPreference(AlignSingleLineCaseStatements, true)
-    .setPreference(DoubleIndentConstructorArguments, true)
-    .setPreference(DanglingCloseParenthesis, Preserve)
+val scalariformPrefs = scalariformPreferences := scalariformPreferences.value
+  .setPreference(AlignParameters, true)
+  .setPreference(AlignSingleLineCaseStatements, true)
+  .setPreference(DoubleIndentConstructorArguments, true)
+  .setPreference(PreserveSpaceBeforeArguments, true)
+  .setPreference(RewriteArrowSymbols, true)
+  .setPreference(AlignSingleLineCaseStatements, true)
+  .setPreference(DoubleIndentConstructorArguments, true)
+  .setPreference(DanglingCloseParenthesis, Preserve)
 
-Seq(scalariformPrefs)
-
-//enablePlugins(JavaServerAppPackaging)
-
-
+scalariformPrefs
 
 name := "node"
 
@@ -35,32 +34,31 @@ val paradise = addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cros
 
 
 lazy val `fluence` = project.in(file("."))
-    .settings(
-      scalaV,
-      paradise,
-      libraryDependencies ++= Seq(
-        frees,
-        monix,
-        monixCats,
-        scalatest
-      )
+  .settings(
+    scalaV,
+    paradise,
+    libraryDependencies ++= Seq(
+      frees,
+      monix,
+      monixCats,
+      scalatest
     )
+  )
 
 lazy val `hack` = project.in(file("hack"))
-.settings(
-  scalaV,
-  libraryDependencies ++= Seq(
-    "net.sf.ntru" % "ntru" % "1.2",
-    scalatest
+  .settings(
+    scalaV,
+    libraryDependencies ++= Seq(
+      "net.sf.ntru" % "ntru" % "1.2",
+      scalatest
+    )
   )
-)
 
 lazy val `kademlia` = project.in(file("kademlia"))
-.settings(
-  scalaV,
-  scalariformPrefs,
-  libraryDependencies ++= Seq(
-    cats1,
-    scalatest
+  .settings(
+    scalaV,
+    libraryDependencies ++= Seq(
+      cats1,
+      scalatest
+    )
   )
-)

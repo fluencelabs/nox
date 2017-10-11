@@ -28,8 +28,8 @@ class KVStoreSpec extends WordSpec with Matchers with ScalaFutures with Eventual
       val KV = implicitly[KVStore[F]]
 
       get[F](k).flatMap {
-        case Some(`v`) => FreeS.pure(false)
-        case _         => KV.put(k.getBytes("UTF-8"), v.getBytes("UTF-8"))
+        case Some(`v`) ⇒ FreeS.pure(false)
+        case _         ⇒ KV.put(k.getBytes("UTF-8"), v.getBytes("UTF-8"))
       }
 
     }
