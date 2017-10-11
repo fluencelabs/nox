@@ -11,27 +11,27 @@ import cats.syntax.functor._
 import scala.collection.immutable.SortedSet
 import scala.language.higherKinds
 
-case class RoutingTable private (
+case class RoutingTable[C] private (
     nodeId:      Key,
-    buckets:     IndexedSeq[Bucket],
-    siblings:    SortedSet[Contact],
+    buckets:     IndexedSeq[Bucket[C]],
+    siblings:    SortedSet[Node[C]],
     maxSiblings: Int
 )
 
 object RoutingTable {
 
-  implicit def show(implicit bs: Show[Bucket], ks: Show[Key]): Show[RoutingTable] =
+  implicit def show[C](implicit bs: Show[Bucket[C]], ks: Show[Key]): Show[RoutingTable[C]] =
     rt ⇒ s"RoutingTable(${ks.show(rt.nodeId)})" +
       rt.buckets.zipWithIndex.filter(_._1.nonEmpty).map {
         case (b, i) ⇒ s"$i(${Integer.toBinaryString(i)}):${bs.show(b)}"
       }.mkString(":\n", "\n", "") +
       rt.siblings.toSeq.map(_.key).map(ks.show).mkString(s"\nSiblings: ${rt.siblings.size}\n\t", "\n\t", "")
 
-  def apply(nodeId: Key, maxBucketSize: Int, maxSiblings: Int) =
+  def apply[C](nodeId: Key, maxBucketSize: Int, maxSiblings: Int) =
     new RoutingTable(
       nodeId,
-      Vector.fill(Key.BitLength)(Bucket(maxBucketSize)),
-      SortedSet.empty[Contact]((x, y) ⇒ (x.key |+| nodeId) compare (y.key |+| nodeId)),
+      Vector.fill(Key.BitLength)(Bucket[C](maxBucketSize)),
+      SortedSet.empty[Node[C]](Node.relativeOrdering(nodeId)),
       maxSiblings
     )
 
@@ -41,23 +41,23 @@ object RoutingTable {
    * @tparam F StateT effect
    * @return
    */
-  def table[F[_]: Applicative]: StateT[F, RoutingTable, RoutingTable] =
+  def table[F[_]: Applicative, C]: StateT[F, RoutingTable[C], RoutingTable[C]] =
     StateT.get
 
   /**
    * Locates the bucket responsible for given contact, and updates it using given ping function
    *
-   * @param contact Contact to update
-   * @param ping    Function that pings the contact to check if it's alive
+   * @param node Contact to update
+   * @param rpc    Function that pings the contact to check if it's alive
    * @param ME      Monad error instance
    * @tparam F StateT effect
    * @return
    */
-  def update[F[_]](contact: Contact, ping: Contact ⇒ F[Contact])(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable, Unit] =
-    table[F].flatMap { rt ⇒
-      if (rt.nodeId === contact.key) StateT.pure(())
+  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRPC[F, C])(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], Unit] =
+    table[F, C].flatMap { rt ⇒
+      if (rt.nodeId === node.key) StateT.pure(())
       else {
-        val idx = (contact.key |+| rt.nodeId).zerosPrefixLen
+        val idx = (node.key |+| rt.nodeId).zerosPrefixLen
 
         val bucket = rt.buckets(idx)
 
@@ -65,29 +65,29 @@ object RoutingTable {
           // Update bucket, performing ping if necessary
           updatedBucketUnit ← StateT.lift(
             Bucket
-              .update[F](contact, ping)
+              .update[F, C](node, rpc)
               .run(bucket)
           )
 
           // Save updated bucket to routing table
           _ ← StateT.set(rt.copy(
             buckets = rt.buckets.updated(idx, updatedBucketUnit._1),
-            siblings = (rt.siblings + contact).take(rt.maxSiblings)
+            siblings = (rt.siblings + node).take(rt.maxSiblings)
           ))
         } yield ()
       }
     }
 
   // As we see nodes, update routing table
-  def updateList[F[_]](
-    pending: List[Contact],
-    ping:    Contact ⇒ F[Contact],
-    checked: List[Contact]        = Nil
-  )(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable, List[Contact]] =
+  def updateList[F[_], C](
+    pending: List[Node[C]],
+    rpc:    C ⇒ KademliaRPC[F, C],
+    checked: List[Node[C]]  = Nil
+  )(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], List[Node[C]]] =
     pending match {
       case a :: tail ⇒
-        update(a, ping).flatMap(_ ⇒
-          updateList(tail, ping, a :: checked)
+        update(a, rpc).flatMap(_ ⇒
+          updateList(tail, rpc, a :: checked)
         )
 
       case Nil ⇒
@@ -101,16 +101,16 @@ object RoutingTable {
    * @tparam F StateT effect
    * @return
    */
-  def find[F[_]: Monad](key: Key): StateT[F, RoutingTable, Option[Contact]] =
-    table[F].flatMap { rt ⇒
-      if (rt.nodeId === key) StateT lift Option.empty[Contact].pure[F]
+  def find[F[_]: Monad, C](key: Key): StateT[F, RoutingTable[C], Option[Node[C]]] =
+    table[F, C].flatMap { rt ⇒
+      if (rt.nodeId === key) StateT lift Option.empty[Node[C]].pure[F]
       else {
         // Lookup sibling, then buckets if nothing found
         findSibling(key).flatMapF {
           case r if r.isDefined ⇒ r.pure[F]
           case _ ⇒
             val idx = (key |+| rt.nodeId).zerosPrefixLen
-            Bucket.find[F](key).run(rt.buckets(idx)).map(_._2)
+            Bucket.find[F, C](key).run(rt.buckets(idx)).map(_._2)
         }
       }
     }
@@ -122,8 +122,8 @@ object RoutingTable {
    * @tparam F StateT effect
    * @return
    */
-  def findSibling[F[_]: Monad](key: Key): StateT[F, RoutingTable, Option[Contact]] =
-    table[F].map(rt ⇒
+  def findSibling[F[_]: Monad, C](key: Key): StateT[F, RoutingTable[C], Option[Node[C]]] =
+    table[F, C].map(rt ⇒
       rt.siblings.find(_.key === key)
     )
 
@@ -134,10 +134,10 @@ object RoutingTable {
    * @tparam F StateT effect
    * @return
    */
-  def lookup[F[_]: Monad](key: Key): StateT[F, RoutingTable, Stream[Contact]] =
-    table[F].flatMap { rt ⇒
+  def lookup[F[_]: Monad, C](key: Key): StateT[F, RoutingTable[C], Stream[Node[C]]] =
+    table[F, C].flatMap { rt ⇒
 
-      implicit val ordering: Ordering[Contact] = Contact.relativeOrdering(key)
+      implicit val ordering: Ordering[Node[C]] = Node.relativeOrdering(key)
 
       // Build stream of neighbors, taken from buckets
       val bucketsStream = {
@@ -154,7 +154,7 @@ object RoutingTable {
           .flatMap(
             // Take contacts from the bucket, and sort them
             rt.buckets(_)
-              .contacts
+              .nodes
               .sorted
               .toStream
           )
@@ -164,12 +164,12 @@ object RoutingTable {
       val siblingsStream =
         rt.siblings.toStream.sorted
 
-      def combine(left: Stream[Contact], right: Stream[Contact], seen: Set[String] = Set.empty): Stream[Contact] = (left, right) match {
-        case (hl #:: tl, _) if seen(hl.key.show)     ⇒ combine(tl, right, seen)
-        case (_, hr #:: tr) if seen(hr.key.show)     ⇒ combine(left, tr, seen)
-        case (hl #:: tl, hr #:: _) if ordering.lt(hl, hr)     ⇒ Stream(hl).append(combine(tl, right, seen + hl.key.show))
-        case (hl #:: _, hr #:: tr) if ordering.gt(hl, hr)     ⇒ Stream(hr).append(combine(left, tr, seen + hr.key.show))
-        case (hl #:: tl, hr #:: tr) if ordering.equiv(hl, hr) ⇒ Stream(hr).append(combine(tl, tr, seen + hr.key.show))
+      def combine(left: Stream[Node[C]], right: Stream[Node[C]], seen: Set[String] = Set.empty): Stream[Node[C]] = (left, right) match {
+        case (hl #:: tl, _) if seen(hl.key.show)              ⇒ combine(tl, right, seen)
+        case (_, hr #:: tr) if seen(hr.key.show)              ⇒ combine(left, tr, seen)
+        case (hl #:: tl, hr #:: _) if ordering.lt(hl, hr)     ⇒ hl #:: combine(tl, right, seen + hl.key.show)
+        case (hl #:: _, hr #:: tr) if ordering.gt(hl, hr)     ⇒ hr #:: combine(left, tr, seen + hr.key.show)
+        case (hl #:: tl, hr #:: tr) if ordering.equiv(hl, hr) ⇒ hr #:: combine(tl, tr, seen + hr.key.show)
         case (Stream.Empty, _)                                ⇒ right
         case (_, Stream.Empty)                                ⇒ left
       }
@@ -209,37 +209,35 @@ object RoutingTable {
    * @param key          Key to find neighbors for
    * @param neighbors    A number of contacts to return
    * @param parallelism  A number of requests performed in parallel
-   * @param ping         Function to perform pings, when updating routing table with newly seen nodes
-   * @param lookupRemote Function to perform request to remote contact
+   * @param rpc Function to perform request to remote contact
    * @param ME           Monad Error for StateT effect
    * @tparam F StateT effect
    * @return
    */
-  def lookupIterative[F[_]](
+  def lookupIterative[F[_], C](
     key:       Key,
     neighbors: Int,
 
     parallelism: Int,
 
-    ping:         Contact ⇒ F[Contact],
-    lookupRemote: (Contact, Key, Int) ⇒ F[Seq[Contact]]
+    rpc: C => KademliaRPC[F, C]
 
-  )(implicit ME: MonadError[F, Throwable], sk: Show[Key]): StateT[F, RoutingTable, Seq[Contact]] = {
+  )(implicit ME: MonadError[F, Throwable], sk: Show[Key]): StateT[F, RoutingTable[C], Seq[Node[C]]] = {
     // Import for Traverse
     import cats.instances.list._
 
-    implicit val ordering: Ordering[Contact] = Contact.relativeOrdering(key)
+    implicit val ordering: Ordering[Node[C]] = Node.relativeOrdering(key)
 
-    case class AdvanceData(shortlist: SortedSet[Contact], probed: Set[String], hasNext: Boolean)
+    case class AdvanceData(shortlist: SortedSet[Node[C]], probed: Set[String], hasNext: Boolean)
 
     // Query $parallelism more nodes, looking for better results
-    def advance(shortlist: SortedSet[Contact], probed: Set[String]): StateT[F, RoutingTable, AdvanceData] = {
+    def advance(shortlist: SortedSet[Node[C]], probed: Set[String]): StateT[F, RoutingTable[C], AdvanceData] = {
       // Take $parallelism unvisited nodes to perform lookups on
       val handle = shortlist.filter(c ⇒ !probed(c.key.show)).take(parallelism).toList
 
       // If handle is empty, return
       if (handle.isEmpty || shortlist.isEmpty) {
-        StateT.pure[F, RoutingTable, AdvanceData](AdvanceData(shortlist, probed, hasNext = false))
+        StateT.pure[F, RoutingTable[C], AdvanceData](AdvanceData(shortlist, probed, hasNext = false))
       } else {
 
         // The closest node -- we're trying to improve this result
@@ -250,26 +248,26 @@ object RoutingTable {
 
         // Fetch remote lookups into F; filter previously seen nodes
         val remote0X = Traverse[List].sequence(handle.map { c ⇒
-          lookupRemote(c, key, neighbors)
-        }).map[List[Contact]](
+          rpc(c.contact).lookup(key)
+        }).map[List[Node[C]]](
           _.flatten
             .filterNot(c ⇒ updatedProbed(c.key.show)) // Filter away already seen nodes
         )
 
-        StateT.lift[F, RoutingTable, List[Contact]](remote0X)
-          .flatMap(updateList(_, ping)) // Update routing table
+        StateT.lift[F, RoutingTable[C], List[Node[C]]](remote0X)
+          .flatMap(updateList(_, rpc)) // Update routing table
           .map {
             remotes ⇒
               val updatedShortlist = shortlist ++
-                remotes.filter(c ⇒ shortlist.size < neighbors || (c.key |+| key) < (shortlist.head.key |+| key))
+                remotes.filter(c ⇒ shortlist.size < neighbors || ordering.lt(c, shortlist.head))
 
               AdvanceData(updatedShortlist, updatedProbed, hasNext = true)
           }
       }
     }
 
-    def iterate(collected: SortedSet[Contact], probed: Set[String], data: Stream[SortedSet[Contact]]): StateT[F, RoutingTable, Seq[Contact]] =
-      if (data.isEmpty) StateT.pure[F, RoutingTable, Seq[Contact]](collected.toSeq)
+    def iterate(collected: SortedSet[Node[C]], probed: Set[String], data: Stream[SortedSet[Node[C]]]): StateT[F, RoutingTable[C], Seq[Node[C]]] =
+      if (data.isEmpty) StateT.pure[F, RoutingTable[C], Seq[Node[C]]](collected.toSeq)
       else {
         val d #:: tail = data
         advance(d, probed).flatMap { updatedData ⇒
@@ -279,11 +277,11 @@ object RoutingTable {
         }
       }
 
-    table[F].flatMap { rt ⇒
-      val shortlistEmpty = SortedSet.empty[Contact]
+    table[F, C].flatMap { rt ⇒
+      val shortlistEmpty = SortedSet.empty[Node[C]]
 
       // Perform local lookup
-      val (_, closestSeq0) = lookup[Id](key).run(rt)
+      val (_, closestSeq0) = lookup[Id, C](key).run(rt)
       val closest = closestSeq0.take(parallelism)
 
       // We perform lookup on $parallelism disjoint paths

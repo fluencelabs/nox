@@ -22,7 +22,7 @@ final case class Key(id: Array[Byte]) extends AnyVal {
     if (idx < 0) {
       Key.BitLength
     } else {
-      Integer.numberOfLeadingZeros(id(idx)) + 8 * (idx-3)
+      Integer.numberOfLeadingZeros(id(idx)) + 8 * (idx - 3)
     }
   }
 }
