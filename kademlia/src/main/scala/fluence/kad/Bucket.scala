@@ -61,7 +61,7 @@ object Bucket {
    * @tparam F StateT effect
    * @return updated Bucket
    */
-  def update[F[_], C](node: Node[C], rpc: C => KademliaRPC[F, C])(implicit ME: MonadError[F, Throwable]): StateT[F, Bucket[C], Unit] = {
+  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRPC[F, C])(implicit ME: MonadError[F, Throwable]): StateT[F, Bucket[C], Unit] = {
     bucket[F, C].flatMap { b ⇒
       find[F, C](node.key).flatMap {
         case Some(c) ⇒

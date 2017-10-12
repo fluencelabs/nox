@@ -17,7 +17,7 @@ class BucketSpec extends WordSpec with Matchers {
       val k1 = Key(Array.fill(Key.Length)(2: Byte))
       val k2 = Key(Array.fill(Key.Length)(3: Byte))
 
-      val failRPC = (_: Byte) => new KademliaRPC[Try, Byte] {
+      val failRPC = (_: Byte) ⇒ new KademliaRPC[Try, Byte] {
         override def ping() = Failure(new NoSuchElementException)
 
         override def lookup(key: Key) = ???
@@ -25,7 +25,7 @@ class BucketSpec extends WordSpec with Matchers {
         override def lookupIterative(key: Key) = ???
       }
 
-      val successRPC = (c: Byte) => new KademliaRPC[Try, Byte] {
+      val successRPC = (c: Byte) ⇒ new KademliaRPC[Try, Byte] {
         override def ping() = Success(Node(Key(Array.fill(Key.Length)(c)), c))
 
         override def lookup(key: Key) = ???

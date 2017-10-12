@@ -5,10 +5,10 @@ import java.nio.ByteBuffer
 import cats.Id
 import cats.kernel.Monoid
 import cats.instances.try_._
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 
 import scala.language.implicitConversions
-import scala.util.{Failure, Success, Try}
+import scala.util.{ Failure, Success, Try }
 
 class RoutingTableSpec extends WordSpec with Matchers {
   implicit def key(i: Long): Key = Key(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
@@ -25,7 +25,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
   }
 
   "kademlia routing table (non-iterative)" should {
-    val failLocalRPC = (_: Long) => new KademliaRPC[Try, Long] {
+    val failLocalRPC = (_: Long) ⇒ new KademliaRPC[Try, Long] {
       override def ping() = Failure(new NoSuchElementException)
 
       override def lookup(key: Key) = ???
@@ -33,7 +33,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       override def lookupIterative(key: Key) = ???
     }
 
-    val successLocalRPC = (c: Long) => new KademliaRPC[Try, Long] {
+    val successLocalRPC = (c: Long) ⇒ new KademliaRPC[Try, Long] {
       override def ping() = Success(Node(c, c))
 
       override def lookup(key: Key) = ???
