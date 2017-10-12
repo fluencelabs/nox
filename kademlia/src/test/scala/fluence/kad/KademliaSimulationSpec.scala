@@ -4,12 +4,12 @@ import java.nio.ByteBuffer
 
 import cats.Show
 import cats.data.StateT
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 import cats.instances.try_._
 import cats.syntax.show._
 
 import scala.language.implicitConversions
-import scala.util.{Random, Success, Try}
+import scala.util.{ Random, Success, Try }
 
 class KademliaSimulationSpec extends WordSpec with Matchers {
   implicit def key(i: Long): Key = Key(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
@@ -25,8 +25,8 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
     buffer.getLong()
   }
 
-  implicit val sk: Show[Key] = k => Console.CYAN + java.lang.Long.toBinaryString(k: Long).reverse.padTo(64, '-').reverse + Console.RESET
-  implicit val sn: Show[Node[Long]] = n => s"Node(${n.key.show}, ${n.contact})"
+  implicit val sk: Show[Key] = k ⇒ Console.CYAN + java.lang.Long.toBinaryString(k: Long).reverse.padTo(64, '-').reverse + Console.RESET
+  implicit val sn: Show[Node[Long]] = n ⇒ s"Node(${n.key.show}, ${n.contact})"
 
   class KademliaTry(nodeKey: Key, alpha: Int, k: Int, getKademlia: Long ⇒ Kademlia[Try, Long]) extends Kademlia[Try, Long](alpha, k) {
     private var state = RoutingTable[Long](nodeKey, k, k)

@@ -2,7 +2,7 @@ package fluence.kad
 
 import java.util.Base64
 
-import cats.{Monoid, Order, Show}
+import cats.{ Monoid, Order, Show }
 import cats.syntax.monoid._
 
 /**

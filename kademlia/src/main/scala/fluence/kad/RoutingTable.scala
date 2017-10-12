@@ -294,14 +294,14 @@ object RoutingTable {
   }
 
   /**
-    * Joins network with known peers
-    * @param peers List of known peer contacts (assuming that Kademlia ID is unknown)
-    * @param rpc RPC for remote nodes call
-    * @param ME Monad error
-    * @tparam F Effect
-    * @tparam C Type for node contact data
-    * @return
-    */
+   * Joins network with known peers
+   * @param peers List of known peer contacts (assuming that Kademlia ID is unknown)
+   * @param rpc RPC for remote nodes call
+   * @param ME Monad error
+   * @tparam F Effect
+   * @tparam C Type for node contact data
+   * @return
+   */
   def join[F[_], C](peers: Seq[C], rpc: C ⇒ KademliaRPC[F, C])(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], Unit] =
     table[F, C].flatMap { rt ⇒
       // Hint for IDEA
@@ -314,28 +314,29 @@ object RoutingTable {
         StateT.lift[F, RoutingTable[C], List[Node[C]]]{
           // Try to ping the peer; if no pings are performed, join is failed
           rpc(peer).ping().attempt.flatMap {
-            case Right(peerNode) => // Ping successful, lookup node's neighbors
+            case Right(peerNode) ⇒ // Ping successful, lookup node's neighbors
               rpc(peer).lookupIterative(rt.nodeId).attempt.flatMap {
-                case Right(neighbors) =>
+                case Right(neighbors) ⇒
                   // Peer returned neighbors, promote this node to all of them
                   Traverse[List].traverse(neighbors.toList)(n ⇒
                     // Any ping could fail; then don't remember the node
                     rpc(n.contact).ping().attempt
-                  ).map(ns => peerNode :: ns.collect{case Right(n) => n})
+                  ).map(ns ⇒ peerNode :: ns.collect{ case Right(n) ⇒ n })
 
-                case Left(_) => (peerNode :: Nil).pure[F]
+                case Left(_) ⇒ (peerNode :: Nil).pure[F]
               }
 
-            case Left(_) => List.empty[Node[C]].pure[F]
-          }}.flatMap(
+            case Left(_) ⇒ List.empty[Node[C]].pure[F]
+          }
+        }.flatMap(
           // Save discovered nodes to the routing table
           updateList(_, rpc)
         )
       }
     }.map(_.flatten.nonEmpty).flatMapF {
-      case true => // At least joined to a single node
+      case true ⇒ // At least joined to a single node
         ().pure[F]
-      case false => // Can't join to any node
+      case false ⇒ // Can't join to any node
         ME.raiseError[Unit](new RuntimeException("Can't join any node among known peers"))
     }
 

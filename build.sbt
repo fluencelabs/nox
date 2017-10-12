@@ -6,7 +6,6 @@ val scalariformPrefs = scalariformPreferences := scalariformPreferences.value
   .setPreference(DoubleIndentConstructorArguments, true)
   .setPreference(PreserveSpaceBeforeArguments, true)
   .setPreference(RewriteArrowSymbols, true)
-  .setPreference(AlignSingleLineCaseStatements, true)
   .setPreference(DoubleIndentConstructorArguments, true)
   .setPreference(DanglingCloseParenthesis, Preserve)
 
@@ -59,6 +58,7 @@ lazy val `hack` = project.in(file("hack"))
 lazy val `kademlia` = project.in(file("kademlia"))
   .settings(
     scalaV,
+    scalariformPrefs,
     libraryDependencies ++= Seq(
       cats1,
       scalatest
