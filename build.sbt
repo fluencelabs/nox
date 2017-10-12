@@ -20,6 +20,8 @@ val scalaV = scalaVersion := "2.12.3"
 
 scalaV
 
+scalacOptions += "-Ypartial-unification"
+
 val FreesV = "0.3.1"
 val MonixV = "2.3.0"
 

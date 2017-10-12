@@ -8,7 +8,6 @@ import cats.syntax.applicative._
 import cats.syntax.show._
 import cats.syntax.functor._
 import cats.syntax.applicativeError._
-import cats.syntax.monad._
 import cats.syntax.flatMap._
 
 import scala.collection.immutable.SortedSet

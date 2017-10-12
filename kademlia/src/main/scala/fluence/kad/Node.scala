@@ -2,7 +2,10 @@ package fluence.kad
 
 import cats.Order
 
-case class Node[C](key: Key, contact: C)
+case class Node[C](
+                    key: Key,
+                    contact: C
+                  )
 
 object Node {
   def relativeOrder[C](key: Key): Order[Node[C]] = new Order[Node[C]] {

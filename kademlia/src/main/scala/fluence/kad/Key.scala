@@ -2,7 +2,7 @@ package fluence.kad
 
 import java.util.Base64
 
-import cats.{ Monoid, Order, Show }
+import cats.{Monoid, Order, Show}
 import cats.syntax.monoid._
 
 /**
@@ -52,7 +52,7 @@ object Key {
       var i = 0
       while (i < Length) {
         if (x.id(i) != y.id(i)) {
-          return x.id(i).compareTo(y.id(i))
+          return x.id(i).abs compareTo y.id(i).abs
         }
         i += 1
       }
