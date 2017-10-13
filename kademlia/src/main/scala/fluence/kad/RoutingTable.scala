@@ -1,6 +1,6 @@
 package fluence.kad
 
-import cats.{Applicative, Id, Monad, MonadError, Show, Traverse}
+import cats.{ Applicative, Id, Monad, MonadError, Show, Traverse }
 import cats.data.StateT
 import cats.syntax.monoid._
 import cats.syntax.order._
@@ -52,7 +52,7 @@ object RoutingTable {
    *
    * @param node Contact to update
    * @param rpc    Function that pings the contact to check if it's alive
-    *               @param pingTimeout Duration when no ping requests are made by the bucket, to avoid overflows
+   * @param pingTimeout Duration when no ping requests are made by the bucket, to avoid overflows
    * @param ME      Monad error instance
    * @tparam F StateT effect
    * @return
@@ -84,10 +84,10 @@ object RoutingTable {
 
   // As we see nodes, update routing table
   def updateList[F[_], C](
-    pending: List[Node[C]],
-    rpc:     C ⇒ KademliaRPC[F, C],
+    pending:     List[Node[C]],
+    rpc:         C ⇒ KademliaRPC[F, C],
     pingTimeout: Duration,
-    checked: List[Node[C]]         = Nil
+    checked:     List[Node[C]]         = Nil
   )(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], List[Node[C]]] =
     pending match {
       case a :: tail ⇒
@@ -179,7 +179,7 @@ object RoutingTable {
         case (_, Stream.Empty)                                ⇒ left
       }
 
-      // Combine stream
+      // Combine stream, taking closer nodes first
       val combined = combine(siblingsStream, bucketsStream)
 
       StateT pure combined
@@ -215,7 +215,7 @@ object RoutingTable {
    * @param neighbors    A number of contacts to return
    * @param parallelism  A number of requests performed in parallel
    * @param rpc Function to perform request to remote contact
-    *            @param pingTimeout Duration to prevent too frequent ping requests from buckets
+   * @param pingTimeout Duration to prevent too frequent ping requests from buckets
    * @param ME           Monad Error for StateT effect
    * @tparam F StateT effect
    * @return
@@ -303,7 +303,7 @@ object RoutingTable {
    * Joins network with known peers
    * @param peers List of known peer contacts (assuming that Kademlia ID is unknown)
    * @param rpc RPC for remote nodes call
-    *            @param pingTimeout Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
+   * @param pingTimeout Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
    * @param ME Monad error
    * @tparam F Effect
    * @tparam C Type for node contact data

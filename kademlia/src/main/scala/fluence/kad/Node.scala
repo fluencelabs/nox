@@ -5,9 +5,9 @@ import java.time.Instant
 import cats.Order
 
 case class Node[C](
-    key:     Key,
+    key:      Key,
     lastSeen: Instant,
-    contact: C
+    contact:  C
 )
 
 object Node {

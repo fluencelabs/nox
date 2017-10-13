@@ -13,14 +13,14 @@ import scala.language.higherKinds
  * Kademlia interface for current node and all Kademlia-related RPC calls, both incoming and outgoing
  * @param Alpha Parallelism factor
  * @param K Max size of bucket, max size of siblings, number of lookup results returned
-  *          @param pingTimeout Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
+ *          @param pingTimeout Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
  * @param ME Monad error
  * @tparam F Effect
  * @tparam C Contact info
  */
 abstract class Kademlia[F[_], C](
-    val Alpha: Int,
-    val K:     Int,
+    val Alpha:       Int,
+    val K:           Int,
     val pingTimeout: Duration
 
 )(implicit ME: MonadError[F, Throwable]) {

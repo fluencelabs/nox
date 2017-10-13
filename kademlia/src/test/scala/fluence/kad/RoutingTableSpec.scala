@@ -6,11 +6,11 @@ import java.time.Instant
 import cats.Id
 import cats.kernel.Monoid
 import cats.instances.try_._
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 
 import scala.concurrent.duration._
 import scala.language.implicitConversions
-import scala.util.{Failure, Success, Try}
+import scala.util.{ Failure, Success, Try }
 
 class RoutingTableSpec extends WordSpec with Matchers {
   implicit def key(i: Long): Key = Key(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
