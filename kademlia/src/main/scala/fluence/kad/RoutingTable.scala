@@ -11,6 +11,7 @@ import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 
 import scala.collection.immutable.SortedSet
+import scala.concurrent.duration.Duration
 import scala.language.higherKinds
 
 case class RoutingTable[C] private (
@@ -51,11 +52,12 @@ object RoutingTable {
    *
    * @param node Contact to update
    * @param rpc    Function that pings the contact to check if it's alive
+   * @param pingTimeout Duration when no ping requests are made by the bucket, to avoid overflows
    * @param ME      Monad error instance
    * @tparam F StateT effect
    * @return
    */
-  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRPC[F, C])(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], Unit] =
+  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration)(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], Unit] =
     table[F, C].flatMap { rt ⇒
       if (rt.nodeId === node.key) StateT.pure(())
       else {
@@ -67,7 +69,7 @@ object RoutingTable {
           // Update bucket, performing ping if necessary
           updatedBucketUnit ← StateT.lift(
             Bucket
-              .update[F, C](node, rpc)
+              .update[F, C](node, rpc, pingTimeout)
               .run(bucket)
           )
 
@@ -82,14 +84,15 @@ object RoutingTable {
 
   // As we see nodes, update routing table
   def updateList[F[_], C](
-    pending: List[Node[C]],
-    rpc:     C ⇒ KademliaRPC[F, C],
-    checked: List[Node[C]]         = Nil
+    pending:     List[Node[C]],
+    rpc:         C ⇒ KademliaRPC[F, C],
+    pingTimeout: Duration,
+    checked:     List[Node[C]]         = Nil
   )(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], List[Node[C]]] =
     pending match {
       case a :: tail ⇒
-        update(a, rpc).flatMap(_ ⇒
-          updateList(tail, rpc, a :: checked)
+        update(a, rpc, pingTimeout).flatMap(_ ⇒
+          updateList(tail, rpc, pingTimeout, a :: checked)
         )
 
       case Nil ⇒
@@ -176,7 +179,7 @@ object RoutingTable {
         case (_, Stream.Empty)                                ⇒ left
       }
 
-      // Combine stream
+      // Combine stream, taking closer nodes first
       val combined = combine(siblingsStream, bucketsStream)
 
       StateT pure combined
@@ -212,6 +215,7 @@ object RoutingTable {
    * @param neighbors    A number of contacts to return
    * @param parallelism  A number of requests performed in parallel
    * @param rpc Function to perform request to remote contact
+   * @param pingTimeout Duration to prevent too frequent ping requests from buckets
    * @param ME           Monad Error for StateT effect
    * @tparam F StateT effect
    * @return
@@ -222,7 +226,9 @@ object RoutingTable {
 
     parallelism: Int,
 
-    rpc: C ⇒ KademliaRPC[F, C]
+    rpc: C ⇒ KademliaRPC[F, C],
+
+    pingTimeout: Duration
 
   )(implicit ME: MonadError[F, Throwable], sk: Show[Key]): StateT[F, RoutingTable[C], Seq[Node[C]]] = {
     // Import for Traverse
@@ -257,7 +263,7 @@ object RoutingTable {
         )
 
         StateT.lift[F, RoutingTable[C], List[Node[C]]](remote0X)
-          .flatMap(updateList(_, rpc)) // Update routing table
+          .flatMap(updateList(_, rpc, pingTimeout)) // Update routing table
           .map {
             remotes ⇒
               val updatedShortlist = shortlist ++
@@ -297,12 +303,13 @@ object RoutingTable {
    * Joins network with known peers
    * @param peers List of known peer contacts (assuming that Kademlia ID is unknown)
    * @param rpc RPC for remote nodes call
+   * @param pingTimeout Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
    * @param ME Monad error
    * @tparam F Effect
    * @tparam C Type for node contact data
    * @return
    */
-  def join[F[_], C](peers: Seq[C], rpc: C ⇒ KademliaRPC[F, C])(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], Unit] =
+  def join[F[_], C](peers: Seq[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration)(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], Unit] =
     table[F, C].flatMap { rt ⇒
       // Hint for IDEA
       type G[A] = StateT[F, RoutingTable[C], A]
@@ -330,7 +337,7 @@ object RoutingTable {
           }
         }.flatMap(
           // Save discovered nodes to the routing table
-          updateList(_, rpc)
+          updateList(_, rpc, pingTimeout)
         )
       }
     }.map(_.flatten.nonEmpty).flatMapF {

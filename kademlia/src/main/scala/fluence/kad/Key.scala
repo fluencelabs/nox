@@ -22,9 +22,12 @@ final case class Key(id: Array[Byte]) extends AnyVal {
     if (idx < 0) {
       Key.BitLength
     } else {
+      // Integer's size is 32 bits, so -8*3
       Integer.numberOfLeadingZeros(id(idx)) + 8 * (idx - 3)
     }
   }
+
+  override def toString: String = Key.ShowKeyBase64.show(this)
 }
 
 object Key {
@@ -52,6 +55,7 @@ object Key {
       var i = 0
       while (i < Length) {
         if (x.id(i) != y.id(i)) {
+          // https://github.com/JoshuaKissoon/Kademlia/blob/master/src/kademlia/node/KeyComparator.java#L42
           return x.id(i).abs compareTo y.id(i).abs
         }
         i += 1

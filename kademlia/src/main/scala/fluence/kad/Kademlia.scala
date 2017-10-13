@@ -6,19 +6,22 @@ import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 
+import scala.concurrent.duration.Duration
 import scala.language.higherKinds
 
 /**
  * Kademlia interface for current node and all Kademlia-related RPC calls, both incoming and outgoing
  * @param Alpha Parallelism factor
  * @param K Max size of bucket, max size of siblings, number of lookup results returned
+ *          @param pingTimeout Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
  * @param ME Monad error
  * @tparam F Effect
  * @tparam C Contact info
  */
 abstract class Kademlia[F[_], C](
-    val Alpha: Int,
-    val K:     Int
+    val Alpha:       Int,
+    val K:           Int,
+    val pingTimeout: Duration
 
 )(implicit ME: MonadError[F, Throwable]) {
   self ⇒
@@ -50,7 +53,7 @@ abstract class Kademlia[F[_], C](
    * @return
    */
   def update(node: Node[C]): F[Unit] =
-    run(RoutingTable.update(node, rpc))
+    run(RoutingTable.update(node, rpc, pingTimeout))
 
   /**
    * Returns KademliaRPC instance to handle incoming RPC requests
@@ -89,7 +92,7 @@ abstract class Kademlia[F[_], C](
     override def lookupIterative(key: Key): F[Seq[Node[C]]] =
       for {
         _ ← updateFrom
-        nodes ← run(RoutingTable.lookupIterative[F, C](key, K, Alpha, rpc))
+        nodes ← run(RoutingTable.lookupIterative[F, C](key, K, Alpha, rpc, pingTimeout))
       } yield nodes
   }
 
@@ -99,5 +102,5 @@ abstract class Kademlia[F[_], C](
    * @return
    */
   def join(peers: Seq[C]): F[Unit] =
-    run(RoutingTable.join(peers, rpc))
+    run(RoutingTable.join(peers, rpc, pingTimeout))
 }

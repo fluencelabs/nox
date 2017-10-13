@@ -50,8 +50,8 @@ class KeySpec extends WordSpec with Matchers {
 
     "sort keys" in {
 
-      Key(Array.fill(Key.Length)(81: Byte)).compare(Monoid[Key].empty) should be.>(0)
-      Key(Array.fill(Key.Length)(31: Byte)).compare(Key(Array.fill(Key.Length)(82: Byte))) should be.<(0)
+      Key(Array.fill(Key.Length)(81: Byte)).compare(Monoid[Key].empty) should be > 0
+      Key(Array.fill(Key.Length)(31: Byte)).compare(Key(Array.fill(Key.Length)(82: Byte))) should be < 0
 
     }
 
