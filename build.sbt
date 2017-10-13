@@ -29,7 +29,9 @@ val frees = "io.frees" %% "freestyle" % FreesV
 val monix = "io.monix" %% "monix" % MonixV
 val monixCats = "io.monix" %% "monix-cats" % MonixV
 val cats = "org.typelevel" %% "cats" % "0.9.0"
+
 val cats1 = "org.typelevel" %% "cats-core" % "1.0.0-MF"
+val monix3 = "io.monix" %% "monix" % "3.0.0-M1"
 
 val paradise = addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full)
 
@@ -64,3 +66,13 @@ lazy val `kademlia` = project.in(file("kademlia"))
       scalatest
     )
   )
+
+lazy val `network` = project.in(file("network"))
+.settings(
+  scalaV,
+  scalariformPrefs,
+  libraryDependencies ++= Seq(
+    monix3,
+    scalatest
+  )
+).dependsOn(`kademlia`).aggregate(`kademlia`)

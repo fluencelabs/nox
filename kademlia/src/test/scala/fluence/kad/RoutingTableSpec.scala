@@ -1,14 +1,16 @@
 package fluence.kad
 
 import java.nio.ByteBuffer
+import java.time.Instant
 
 import cats.Id
 import cats.kernel.Monoid
 import cats.instances.try_._
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
+import scala.concurrent.duration._
 import scala.language.implicitConversions
-import scala.util.{ Failure, Success, Try }
+import scala.util.{Failure, Success, Try}
 
 class RoutingTableSpec extends WordSpec with Matchers {
   implicit def key(i: Long): Key = Key(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
@@ -24,6 +26,9 @@ class RoutingTableSpec extends WordSpec with Matchers {
     buffer.getLong()
   }
 
+  private val pingDuration = Duration.Undefined
+  private def now = Instant.now()
+
   "kademlia routing table (non-iterative)" should {
     val failLocalRPC = (_: Long) ⇒ new KademliaRPC[Try, Long] {
       override def ping() = Failure(new NoSuchElementException)
@@ -34,7 +39,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
     }
 
     val successLocalRPC = (c: Long) ⇒ new KademliaRPC[Try, Long] {
-      override def ping() = Success(Node(c, c))
+      override def ping() = Success(Node(c, now, c))
 
       override def lookup(key: Key) = ???
 
@@ -54,7 +59,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
       val rt6 = (1l to 5l).foldLeft(rt0) {
         case (rt, i) ⇒
-          val Success((rtU, _)) = RoutingTable.update[Try, Long](Node(i, i), failLocalRPC).run(rt)
+          val Success((rtU, _)) = RoutingTable.update[Try, Long](Node(i, now, i), failLocalRPC, pingDuration).run(rt)
 
           (1l to i).foreach { n ⇒
             RoutingTable.find[Id, Long](n).run(rtU)._2 should be('defined)
@@ -63,11 +68,11 @@ class RoutingTableSpec extends WordSpec with Matchers {
           rtU
       }
 
-      val Success((rt7, _)) = RoutingTable.update[Try, Long](Node(6l, 6l), failLocalRPC).run(rt6)
+      val Success((rt7, _)) = RoutingTable.update[Try, Long](Node(6l, now, 6l), failLocalRPC, pingDuration).run(rt6)
 
       RoutingTable.find[Id, Long](4l).run(rt7)._2 should be('empty)
 
-      val Success((rt8, _)) = RoutingTable.update[Try, Long](Node(6l, 6l), successLocalRPC).run(rt6)
+      val Success((rt8, _)) = RoutingTable.update[Try, Long](Node(6l, now, 6l), successLocalRPC, pingDuration).run(rt6)
 
       RoutingTable.find[Id, Long](4l).run(rt8)._2 should be('defined)
 
@@ -76,7 +81,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
     "lookup nodes correctly" in {
       val rt10 = (1l to 10l).foldLeft(RoutingTable[Long](Monoid[Key].empty, 2, 2)) {
         case (rtb, i) ⇒
-          val Success((rtU, _)) = RoutingTable.update[Try, Long](Node(i, i), successLocalRPC).run(rtb)
+          val Success((rtU, _)) = RoutingTable.update[Try, Long](Node(i, now, i), successLocalRPC, pingDuration).run(rtb)
 
           rtU
       }
@@ -87,7 +92,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       // Our implicit Int-to-Key conversion doesn't allow larger numbers
       val rt127 = (1l to 127l).foldLeft(RoutingTable[Long](Monoid[Key].empty, 10, 10)) {
         case (rtb, i) ⇒
-          val Success((rtU, _)) = RoutingTable.update[Try, Long](Node(i, i), successLocalRPC).run(rtb)
+          val Success((rtU, _)) = RoutingTable.update[Try, Long](Node(i, now, i), successLocalRPC, pingDuration).run(rtb)
 
           rtU
       }

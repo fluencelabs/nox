@@ -1,15 +1,17 @@
 package fluence.kad
 
-import cats.{ Applicative, MonadError, Show }
+import cats.{Applicative, MonadError, Show}
 import cats.data.StateT
 import cats.syntax.eq._
 import cats.syntax.flatMap._
 import cats.syntax.applicativeError._
 import cats.syntax.applicative._
 
+import scala.collection.immutable.Queue
+import scala.concurrent.duration.Duration
 import scala.language.higherKinds
 
-case class Bucket[C](maxSize: Int, nodes: Seq[Node[C]] = List.empty) {
+case class Bucket[C](maxSize: Int, nodes: Queue[Node[C]] = Queue.empty) {
   lazy val isFull: Boolean = nodes.size >= maxSize
 
   lazy val size: Int = nodes.size
@@ -61,23 +63,35 @@ object Bucket {
    * @tparam F StateT effect
    * @return updated Bucket
    */
-  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRPC[F, C])(implicit ME: MonadError[F, Throwable]): StateT[F, Bucket[C], Unit] = {
+  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration)(implicit ME: MonadError[F, Throwable]): StateT[F, Bucket[C], Unit] = {
     bucket[F, C].flatMap { b ⇒
       find[F, C](node.key).flatMap {
         case Some(c) ⇒
           // put contact on top
-          StateT set b.copy(nodes = node +: b.nodes.filterNot(_.key === c.key))
-        case None if b.isFull ⇒
+          StateT set b.copy(nodes = b.nodes.filterNot(_.key === c.key).enqueue(node))
+
+        case None if b.isFull ⇒ // Bucket is full, so we should check if we can drop the last node
+
           // ping last, if pong, put last on top and drop contact, if not, drop last and put contact on top
-          StateT setF rpc(b.nodes.last.contact).ping().attempt.flatMap {
-            case Left(_) ⇒
-              b.copy(nodes = node +: b.nodes.dropRight(1)).pure
-            case Right(updatedLastContact) ⇒
-              b.copy(nodes = updatedLastContact +: b.nodes.dropRight(1)).pure
+          val (last, nodes) = b.nodes.dequeue
+
+          // The last contact in the queue is the oldest
+          // If it's still very fresh, drop incoming node without pings
+          if(pingTimeout.isFinite() && java.time.Duration.between(last.lastSeen, node.lastSeen).toMillis >= pingTimeout.toMillis) {
+            StateT.pure(())
+          } else {
+
+            StateT setF rpc(last.contact).ping().attempt.flatMap {
+              case Left(_) ⇒
+                b.copy(nodes = nodes.enqueue(node)).pure
+              case Right(updatedLastContact) ⇒
+                b.copy(nodes = nodes.enqueue(updatedLastContact)).pure
+            }
           }
+
         case None ⇒
           // put contact on top
-          StateT set b.copy(nodes = node +: b.nodes)
+          StateT set b.copy(nodes = b.nodes.enqueue(node))
       }
     }
   }
