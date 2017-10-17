@@ -25,17 +25,17 @@ class BucketSpec extends WordSpec with Matchers {
       val failRPC = (_: Byte) ⇒ new KademliaRPC[Try, Byte] {
         override def ping() = Failure(new NoSuchElementException)
 
-        override def lookup(key: Key) = ???
+        override def lookup(key: Key, numberOfNodes: Int) = ???
 
-        override def lookupIterative(key: Key) = ???
+        override def lookupIterative(key: Key, numberOfNodes: Int) = ???
       }
 
       val successRPC = (c: Byte) ⇒ new KademliaRPC[Try, Byte] {
         override def ping() = Success(Node(Key(Array.fill(Key.Length)(c)), Instant.now(), c))
 
-        override def lookup(key: Key) = ???
+        override def lookup(key: Key, numberOfNodes: Int) = ???
 
-        override def lookupIterative(key: Key) = ???
+        override def lookupIterative(key: Key, numberOfNodes: Int) = ???
       }
 
       // By default, bucket is empty

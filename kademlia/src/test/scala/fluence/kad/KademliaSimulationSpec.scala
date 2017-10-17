@@ -44,8 +44,36 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
     override def ownContact: Node[Long] = Node[Long](nodeKey, now, nodeKey)
 
-    override def rpc(contact: Long): KademliaRPC[Try, Long] =
-      getKademlia(contact).handleRPC(ownContact)
+    override def rpc(contact: Long): KademliaRPC[Try, Long] = new KademliaRPC[Try, Long] {
+      val kad = getKademlia(contact)
+
+      /**
+       * Ping the contact, get its actual Node status, or fail
+       *
+       * @return
+       */
+      override def ping() =
+        kad.update(ownContact).flatMap(_ ⇒ kad.handleRPC.ping())
+
+      /**
+       * Perform a local lookup for a key, return K closest known nodes
+       *
+       * @param key Key to lookup
+       * @return
+       */
+      override def lookup(key: Key, numberOfNodes: Int) =
+        kad.update(ownContact).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes))
+
+      /**
+       * Perform an iterative lookup for a key, return K closest known nodes
+       *
+       * @param key Key to lookup
+       * @return
+       */
+      override def lookupIterative(key: Key, numberOfNodes: Int) =
+        kad.update(ownContact).flatMap(_ ⇒ kad.handleRPC.lookupIterative(key, numberOfNodes))
+
+    }
 
     override protected def run[T](mod: StateT[Try, RoutingTable[Long], T]): Try[T] =
       mod.run(state).map {
@@ -79,7 +107,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       random.shuffle(nodes).take(P).foreach {
         case (i, ki) ⇒
           random.shuffle(nodes.values).take(P).foreach { kj ⇒
-            val Success(neighbors) = kj.handleRPC().lookupIterative(i)
+            val Success(neighbors) = kj.handleRPC.lookupIterative(i, K)
 
             neighbors.size shouldBe (K min N)
             neighbors.map(_.contact) should contain(i)

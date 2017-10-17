@@ -33,17 +33,17 @@ class RoutingTableSpec extends WordSpec with Matchers {
     val failLocalRPC = (_: Long) ⇒ new KademliaRPC[Try, Long] {
       override def ping() = Failure(new NoSuchElementException)
 
-      override def lookup(key: Key) = ???
+      override def lookup(key: Key, numberOfNodes: Int) = ???
 
-      override def lookupIterative(key: Key) = ???
+      override def lookupIterative(key: Key, numberOfNodes: Int) = ???
     }
 
     val successLocalRPC = (c: Long) ⇒ new KademliaRPC[Try, Long] {
       override def ping() = Success(Node(c, now, c))
 
-      override def lookup(key: Key) = ???
+      override def lookup(key: Key, numberOfNodes: Int) = ???
 
-      override def lookupIterative(key: Key) = ???
+      override def lookupIterative(key: Key, numberOfNodes: Int) = ???
     }
 
     "not fail when requesting its own key" in {
@@ -76,6 +76,8 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
       RoutingTable.find[Id, Long](4l).run(rt8)._2 should be('defined)
 
+      rt8.siblings.nodes.toList.map(_.contact) shouldBe List(1l, 2l)
+
     }
 
     "lookup nodes correctly" in {
@@ -87,9 +89,8 @@ class RoutingTableSpec extends WordSpec with Matchers {
       }
 
       val (_, nbs10) = RoutingTable.lookup[Id, Long](100l).run(rt10)
-      nbs10.size should be.>=(7)
+      nbs10.size should be >= 7
 
-      // Our implicit Int-to-Key conversion doesn't allow larger numbers
       val rt127 = (1l to 127l).foldLeft(RoutingTable[Long](Monoid[Key].empty, 10, 10)) {
         case (rtb, i) ⇒
           val Success((rtU, _)) = RoutingTable.update[Try, Long](Node(i, now, i), successLocalRPC, pingDuration).run(rtb)
@@ -99,8 +100,10 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
       (1l to 127l).foreach { i ⇒
         val (_, nbs127) = RoutingTable.lookup[Id, Long](i).run(rt127)
-        nbs127.size should be.>=(10)
+        nbs127.size should be >= 10
       }
+
+      rt127.siblings.nodes.toList.map(_.contact) shouldBe (1l to 10l).toList
     }
   }
 }

@@ -2,7 +2,7 @@ package fluence.kad
 
 import java.time.Instant
 
-import cats.Order
+import cats.{ Order, Show }
 
 case class Node[C](
     key:      Key,
@@ -11,6 +11,9 @@ case class Node[C](
 )
 
 object Node {
+  implicit def show[C](implicit ks: Show[Key], cs: Show[C]): Show[Node[C]] =
+    n ⇒ s"Node(${ks.show(n.key)}, ${n.lastSeen}, ${cs.show(n.contact)})"
+
   def relativeOrder[C](key: Key): Order[Node[C]] = new Order[Node[C]] {
     private val order = Key.relativeOrder(key)
 

@@ -19,6 +19,9 @@ case class Bucket[C](maxSize: Int, nodes: Queue[Node[C]] = Queue.empty) {
   def isEmpty: Boolean = nodes.isEmpty
 
   def nonEmpty: Boolean = nodes.nonEmpty
+
+  def find(key: Key): Option[Node[C]] =
+    nodes.find(_.key === key)
 }
 
 object Bucket {
@@ -44,9 +47,7 @@ object Bucket {
    * @return optional found contact
    */
   def find[F[_]: Applicative, C](key: Key): StateT[F, Bucket[C], Option[Node[C]]] =
-    bucket[F, C].map { b ⇒
-      b.nodes.find(_.key === key)
-    }
+    bucket[F, C].map(_.find(key))
 
   /**
    * Performs bucket update.
