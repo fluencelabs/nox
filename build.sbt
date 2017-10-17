@@ -23,6 +23,8 @@ scalacOptions += "-Ypartial-unification"
 
 val FreesV = "0.3.1"
 val MonixV = "2.3.0"
+val RocksDbV = "5.5.1"
+val TypeSafeConfV = "1.3.2"
 
 val scalatest = "org.scalatest" %% "scalatest" % "3.0.2" % Test
 val frees = "io.frees" %% "freestyle" % FreesV
@@ -32,6 +34,9 @@ val cats = "org.typelevel" %% "cats" % "0.9.0"
 
 val cats1 = "org.typelevel" %% "cats-core" % "1.0.0-MF"
 val monix3 = "io.monix" %% "monix" % "3.0.0-M1"
+
+val rocksDb = "org.rocksdb" % "rocksdbjni" % RocksDbV
+val typeSafeConfig = "com.typesafe" % "config" % TypeSafeConfV
 
 val paradise = addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full)
 
@@ -68,11 +73,24 @@ lazy val `kademlia` = project.in(file("kademlia"))
   )
 
 lazy val `network` = project.in(file("network"))
-.settings(
-  scalaV,
-  scalariformPrefs,
-  libraryDependencies ++= Seq(
-    monix3,
-    scalatest
+  .settings(
+    scalaV,
+    scalariformPrefs,
+    libraryDependencies ++= Seq(
+      monix3,
+      scalatest
+    )
+  ).dependsOn(`kademlia`).aggregate(`kademlia`)
+
+
+lazy val `storage` = project.in(file("storage"))
+  .settings(
+    scalaV,
+    scalariformPrefs,
+    libraryDependencies ++= Seq(
+      rocksDb,
+      typeSafeConfig,
+      monix3,
+      scalatest
+    )
   )
-).dependsOn(`kademlia`).aggregate(`kademlia`)
