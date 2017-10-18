@@ -23,8 +23,9 @@ scalacOptions += "-Ypartial-unification"
 
 val FreesV = "0.3.1"
 val MonixV = "2.3.0"
-val RocksDbV = "5.5.1"
+val RocksDbV = "5.8.0"
 val TypeSafeConfV = "1.3.2"
+val FicusV = "1.4.2"
 
 val scalatest = "org.scalatest" %% "scalatest" % "3.0.2" % Test
 val frees = "io.frees" %% "freestyle" % FreesV
@@ -37,6 +38,7 @@ val monix3 = "io.monix" %% "monix" % "3.0.0-M1"
 
 val rocksDb = "org.rocksdb" % "rocksdbjni" % RocksDbV
 val typeSafeConfig = "com.typesafe" % "config" % TypeSafeConfV
+val ficus = "com.iheart" %% "ficus" % FicusV
 
 val paradise = addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full)
 
@@ -90,6 +92,7 @@ lazy val `storage` = project.in(file("storage"))
     libraryDependencies ++= Seq(
       rocksDb,
       typeSafeConfig,
+      ficus,
       monix3,
       scalatest
     )
