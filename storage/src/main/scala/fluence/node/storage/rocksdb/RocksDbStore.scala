@@ -1,12 +1,13 @@
-package fluence.storage.core
+package fluence.node.storage.rocksdb
 
 import java.io.File
 
 import com.typesafe.config.ConfigFactory
-import fluence.storage.core.RocksDbStore._
+import fluence.node.storage.KVStore
+import fluence.node.storage.rocksdb.RocksDbStore._
 import monix.eval.Task
 import monix.reactive.Observable
-import org.rocksdb.{Options, RocksDB}
+import org.rocksdb.{Options, ReadOptions, RocksDB}
 
 import scala.reflect.io.Path
 import scala.util.Try
@@ -16,7 +17,7 @@ import scala.util.Try
  * For each dataSet will be created new RocksDB instance in a separate folder.
  * All defaults for all instances are stored in the typeSafe config (see ''reference.conf''),
  * you can overload them into ''application.conf''
- * '''Note: only single thread should write to DB''', reading database allowed to multiply threads.
+ * '''Note: only single thread should write to DB''', but reading database allowed to multiply threads.
  *
  * @param dataSet   some bag for pairs (K, V)
  * @param db        instance of RocksDbJava driver
@@ -40,14 +41,14 @@ class RocksDbStore(
   }
 
   /**
-   * Puts key value pair (K, V).
+   * Puts key value pair (K, V). Put is synchronous operation.
    * '''Note that concurrent writing is not supported!'''
    *
    * @param key   the specified key to be inserted
    * @param value the value associated with the specified key
    */
   override def put(key: Key, value: Value): Task[Unit] = {
-    Task(db.put(key, value))
+    Task.now(db.put(key, value))
   }
 
   /**
@@ -56,7 +57,7 @@ class RocksDbStore(
    * @param key key to delete within database
    */
   override def remove(key: Key): Task[Unit] = {
-    Task(db.delete(key))
+    Task.evalOnce(db.delete(key))
   }
 
   /**
@@ -64,11 +65,26 @@ class RocksDbStore(
    *
    * @return cursor of founded pairs (K,V)
    */
-  override def traverse(): Observable[(Key, Value)] = ???
+  override def traverse(): Observable[(Key, Value)] = {
 
-  /**
-   * Users should always explicitly call close() methods os this entity!
-   */
+    lazy val snapshot = db.getSnapshot
+    lazy val options = new ReadOptions()
+
+    Observable(Array.emptyByteArray -> Array.emptyByteArray)
+      .doOnSubscribe { () =>
+        options.setSnapshot(snapshot)  // take a snapshot only when subscribing appears
+        options.setTailing(true)       // sequential read optimization
+      }
+      .doAfterTerminate { _ =>
+        db.releaseSnapshot(snapshot)
+        snapshot.close()
+        options.close()
+      }
+      .flatMap( _ => Observable.fromIterator(new RocksDbScalaIterator(db.newIterator(options))))
+
+  }
+
+  /** Users should always explicitly call close() methods for this entity! */
   override def close(): Unit = {
     db.close()
     dbOptions.close()

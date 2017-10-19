@@ -1,4 +1,4 @@
-package fluence.storage.core
+package fluence.node.storage
 
 /**
  * Key-value storage api interface.
