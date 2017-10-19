@@ -44,6 +44,7 @@ class RocksDbScalaIterator(rocksIterator: RocksIterator) extends Iterator[(Array
 
 object RocksDbScalaIterator {
   def apply(rocksIterator: RocksIterator): RocksDbScalaIterator = {
+    require(rocksIterator != null, "rockIterator should not be null.")
     new RocksDbScalaIterator(rocksIterator)
   }
 }
