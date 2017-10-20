@@ -5,9 +5,9 @@ import java.io.File
 import com.typesafe.config.ConfigFactory
 import fluence.node.storage.KVStore
 import fluence.node.storage.rocksdb.RocksDbStore._
-import monix.eval.Task
+import monix.eval.{ Task, TaskSemaphore }
 import monix.reactive.Observable
-import org.rocksdb.{Options, ReadOptions, RocksDB}
+import org.rocksdb.{ Options, ReadOptions, RocksDB }
 
 import scala.reflect.io.Path
 import scala.util.Try
@@ -29,6 +29,8 @@ class RocksDbStore(
     private val dbOptions: Options
 ) extends KVStore[Key, Value, Task, Observable] with AutoCloseable {
 
+  private val semaphore = TaskSemaphore(1)
+
   // todo logging
 
   /**
@@ -48,7 +50,7 @@ class RocksDbStore(
    * @param value the value associated with the specified key
    */
   override def put(key: Key, value: Value): Task[Unit] = {
-    Task.now(db.put(key, value))
+    semaphore.greenLight(Task(db.put(key, value)))
   }
 
   /**
@@ -71,16 +73,16 @@ class RocksDbStore(
     lazy val options = new ReadOptions()
 
     Observable(Array.emptyByteArray -> Array.emptyByteArray)
-      .doOnSubscribe { () =>
-        options.setSnapshot(snapshot)  // take a snapshot only when subscribing appears
-        options.setTailing(true)       // sequential read optimization
+      .doOnSubscribe { () ⇒
+        options.setSnapshot(snapshot) // take a snapshot only when subscribing appears
+        options.setTailing(true) // sequential read optimization
       }
-      .doAfterTerminate { _ =>
+      .doAfterTerminate { _ ⇒
         db.releaseSnapshot(snapshot)
         snapshot.close()
         options.close()
       }
-      .flatMap( _ => Observable.fromIterator(new RocksDbScalaIterator(db.newIterator(options))))
+      .flatMap(_ ⇒ Observable.fromIterator(new RocksDbScalaIterator(db.newIterator(options))))
 
   }
 
@@ -89,6 +91,7 @@ class RocksDbStore(
     db.close()
     dbOptions.close()
   }
+
 }
 
 object RocksDbStore {

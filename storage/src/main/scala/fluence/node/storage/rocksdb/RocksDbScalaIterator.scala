@@ -2,7 +2,6 @@ package fluence.node.storage.rocksdb
 
 import org.rocksdb.RocksIterator
 
-
 /**
  * Adopt [[org.rocksdb.RocksIterator]] to scala [[Iterator]] api.
  * If [[RocksDbScalaIterator#hasNext()]] return false, this iterator will be closed [[RocksIterator]] automatically.
@@ -40,7 +39,6 @@ class RocksDbScalaIterator(rocksIterator: RocksIterator) extends Iterator[(Array
     false
   }
 }
-
 
 object RocksDbScalaIterator {
   def apply(rocksIterator: RocksIterator): RocksDbScalaIterator = {
