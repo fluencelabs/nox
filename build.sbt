@@ -44,7 +44,6 @@ val mockito = "org.mockito" % "mockito-core" % MockitoV % Test
 
 val paradise = addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full)
 
-
 lazy val `fluence` = project.in(file("."))
   .settings(
     scalaV,
@@ -55,6 +54,11 @@ lazy val `fluence` = project.in(file("."))
       monixCats,
       scalatest
     )
+  ).aggregate(
+    `hack`,
+    `kademlia`,
+    `network`,
+    `storage`
   )
 
 lazy val `hack` = project.in(file("hack"))

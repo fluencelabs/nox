@@ -7,6 +7,7 @@ import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{ times, verify }
 import org.mockito.{ ArgumentMatchers, Mockito }
 import org.rocksdb._
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 
@@ -14,9 +15,9 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.reflect.io.Path
 
-class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockitoSugar {
+class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockitoSugar with ScalaFutures {
 
-  val testFolder = System.getProperty("java.io.tmpdir") + "/RocksDbStoreSpec"
+  val testFolder: String = System.getProperty("java.io.tmpdir") + "/RocksDbStoreSpec"
   System.setProperty("fluence.node.storage.root", testFolder)
 
   "RocksDbStore" should {
@@ -43,7 +44,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
       testScheduler.tick(5.seconds)
 
-      val case1Result = Await.result(case1, 5.seconds)
+      val case1Result = case1.futureValue
       case1Result should contain theSameElementsInOrderAs Seq(null, (), val1)
 
       // check update
@@ -57,7 +58,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
       testScheduler.tick(5.seconds)
 
-      val case2Result = Await.result(case2, 5.seconds)
+      val case2Result = case2.futureValue
       case2Result should contain theSameElementsInOrderAs Seq((), val2, (), newVal2)
 
       // check delete
@@ -70,7 +71,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
       testScheduler.tick(5.seconds)
 
-      val case3Result = Await.result(case3, 5.seconds)
+      val case3Result = case3.futureValue
       case3Result should contain theSameElementsInOrderAs Seq(val1, (), null)
 
       // check traverse
@@ -82,7 +83,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
       testScheduler.tick(5.seconds)
 
-      val traverseResult = Await.result(case4, 5.seconds)
+      val traverseResult = case4.futureValue
       bytesToStr(traverseResult) should contain theSameElementsAs bytesToStr(manyPairs)
 
     }
@@ -101,15 +102,14 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       }
 
       // make sure that all entries are in DB
-      val future = Task.gather(batchInsert).runAsync.andThen {
-        case _ ⇒
-          store.traverse()
-            .toListL
-            .runAsync
-            .foreach(all ⇒ all should have size 100)
-      }
 
-      Await.result(future, 5.seconds)
+      Task.gather(batchInsert).runAsync.futureValue
+
+      store.traverse()
+        .toListL
+        .runAsync
+        .futureValue should have size 100
+
     }
   }
 
