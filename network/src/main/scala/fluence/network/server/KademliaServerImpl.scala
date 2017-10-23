@@ -1,10 +1,11 @@
-package fluence.network
+package fluence.network.server
 
 import java.net.InetAddress
 import java.time.Instant
 
 import com.google.protobuf.ByteString
 import fluence.kad.{ Kademlia, Key }
+import fluence.network.Contact
 import fluence.network.proto.kademlia._
 import monix.eval.Task
 import monix.execution.Scheduler
@@ -13,7 +14,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
-class KademliaService(kad: Kademlia[Task, Contact])(implicit sc: Scheduler) extends KademliaGrpc.Kademlia {
+class KademliaServerImpl(kad: Kademlia[Task, Contact])(implicit sc: Scheduler) extends KademliaGrpc.Kademlia {
   private val log = LoggerFactory.getLogger(getClass)
 
   private implicit def ncToNode(nc: fluence.kad.Node[Contact]): Node =

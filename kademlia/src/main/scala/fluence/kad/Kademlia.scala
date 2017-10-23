@@ -52,7 +52,7 @@ abstract class Kademlia[F[_], C](
    * How to promote this node to others
    * @return
    */
-  def ownContact: Node[C]
+  def ownContact: F[Node[C]]
 
   /**
    * Update RoutingTable with a freshly seen node
@@ -78,7 +78,7 @@ abstract class Kademlia[F[_], C](
      * @return
      */
     override def ping(): F[Node[C]] =
-      ownContact.pure[F]
+      ownContact
 
     /**
      * Perform local lookup

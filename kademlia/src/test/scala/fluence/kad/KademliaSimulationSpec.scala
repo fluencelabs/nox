@@ -5,7 +5,7 @@ import java.time.Instant
 
 import cats.Show
 import cats.data.StateT
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 import cats.syntax.show._
 import monix.eval.Coeval
 
@@ -31,59 +31,59 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
   private def now = Instant.now()
 
   /**
-    * In general, Kademlia network can't work correctly with a single thread, in blocking fashion.
-    * It's possible that node A pings B, B pings A in return, A pings B and so on until stack overflows.
-    *
-    * @param nodeKey
-    * @param alpha
-    * @param k
-    * @param getKademlia
-    */
+   * In general, Kademlia network can't work correctly with a single thread, in blocking fashion.
+   * It's possible that node A pings B, B pings A in return, A pings B and so on until stack overflows.
+   *
+   * @param nodeKey
+   * @param alpha
+   * @param k
+   * @param getKademlia
+   */
   class KademliaCoeval(nodeKey: Key, alpha: Int, k: Int, getKademlia: Long ⇒ Kademlia[Coeval, Long]) extends Kademlia[Coeval, Long](alpha, k, pingDuration) {
     private var state = RoutingTable[Long](nodeKey, k, k)
 
     def routingTable: RoutingTable[Long] = state
 
-    override def ownContact: Node[Long] = Node[Long](nodeKey, now, nodeKey)
+    override def ownContact: Coeval[Node[Long]] = Coeval(Node[Long](nodeKey, now, nodeKey))
 
     override def rpc(contact: Long): KademliaRPC[Coeval, Long] = new KademliaRPC[Coeval, Long] {
       val kad = getKademlia(contact)
 
       /**
-        * Ping the contact, get its actual Node status, or fail
-        *
-        * @return
-        */
+       * Ping the contact, get its actual Node status, or fail
+       *
+       * @return
+       */
       override def ping() =
-        kad.update(ownContact).flatMap(_ ⇒ kad.handleRPC.ping())
+        kad.update(ownContact.value).flatMap(_ ⇒ kad.handleRPC.ping())
 
       /**
-        * Perform a local lookup for a key, return K closest known nodes
-        *
-        * @param key Key to lookup
-        * @return
-        */
+       * Perform a local lookup for a key, return K closest known nodes
+       *
+       * @param key Key to lookup
+       * @return
+       */
       override def lookup(key: Key, numberOfNodes: Int) =
-        kad.update(ownContact).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes))
+        kad.update(ownContact.value).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes))
 
       /**
-        * Perform an iterative lookup for a key, return K closest known nodes
-        *
-        * @param key Key to lookup
-        * @return
-        */
+       * Perform an iterative lookup for a key, return K closest known nodes
+       *
+       * @param key Key to lookup
+       * @return
+       */
       override def lookupIterative(key: Key, numberOfNodes: Int) =
-        kad.update(ownContact).flatMap(_ ⇒ kad.handleRPC.lookupIterative(key, numberOfNodes))
+        kad.update(ownContact.value).flatMap(_ ⇒ kad.handleRPC.lookupIterative(key, numberOfNodes))
 
     }
 
     /**
-      * Run some stateful operation, possibly mutating it
-      *
-      * @param mod Operation
-      * @tparam T Return type
-      * @return
-      */
+     * Run some stateful operation, possibly mutating it
+     *
+     * @param mod Operation
+     * @tparam T Return type
+     * @return
+     */
     override protected def run[T](mod: StateT[Coeval, RoutingTable[Long], T], l: String): Coeval[T] =
       mod.run(state).map {
         case (rt, v) ⇒
@@ -92,13 +92,13 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       }.run
 
     /**
-      * Non-blocking read request
-      *
-      * @param getter Getter for routing table
-      * @tparam T Return type
-      * @return
-      */
-    override protected def read[T](getter: RoutingTable[Long] => T): Coeval[T] =
+     * Non-blocking read request
+     *
+     * @param getter Getter for routing table
+     * @tparam T Return type
+     * @return
+     */
+    override protected def read[T](getter: RoutingTable[Long] ⇒ T): Coeval[T] =
       Coeval.now(getter(state))
   }
 

@@ -23,7 +23,6 @@ scalacOptions += "-Ypartial-unification"
 
 val FreesV = "0.3.1"
 val MonixV = "2.3.0"
-val Fs2V = "0.10.0-M6"
 
 val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
 val log4j2 = "org.apache.logging.log4j" %% "log4j-api-scala" % "2.9.1"
@@ -35,8 +34,7 @@ val cats = "org.typelevel" %% "cats" % "0.9.0"
 
 val cats1 = "org.typelevel" %% "cats-core" % "1.0.0-MF"
 val monix3 = "io.monix" %% "monix" % "3.0.0-M1"
-val fs2 = "co.fs2" %% "fs2-core" % Fs2V
-val fs2io = "co.fs2" %% "fs2-io" % Fs2V
+val shapeless = "com.chuusai" %% "shapeless" % "2.3.2"
 
 val paradise = addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full)
 
@@ -91,6 +89,7 @@ lazy val `network` = project.in(file("network"))
   grpc,
   libraryDependencies ++= Seq(
     monix3,
+    shapeless,
     "org.bitlet" % "weupnp" % "0.1.+",
     scalatest
   )

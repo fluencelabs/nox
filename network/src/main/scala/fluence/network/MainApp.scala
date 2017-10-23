@@ -2,42 +2,46 @@ package fluence.network
 
 import java.net.InetAddress
 import java.nio.ByteBuffer
-import java.security.MessageDigest
 
 import fluence.kad._
-import fluence.network.proto.kademlia.KademliaGrpc
+import fluence.network.proto.kademlia.{ Header, KademliaGrpc }
 import io.grpc.ServerBuilder
 import monix.execution.Scheduler.Implicits.global
 import cats.syntax.show._
+import fluence.network.client.{ KademliaClient, NetworkClient }
+import fluence.network.server.{ KademliaServerImpl, KademliaService, NetworkServer, UPnP }
+import monix.eval.Task
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.Await
 import scala.io.StdIn
-import scala.util.{ Failure, Success }
+import scala.util.{ Failure, Random, Success }
+import scala.concurrent.duration._
 
 object MainApp extends App {
 
   val log = LoggerFactory.getLogger(getClass)
 
-  println("port?")
+  val port100 = Random.nextInt(100)
 
-  val port = StdIn.readInt()
+  val serverBuilder = NetworkServer.builder(1000 + port100, 56000 + port100)
 
-  val addr = InetAddress.getLocalHost
+  val kb = Array.ofDim[Byte](100)
+  Random.nextBytes(kb)
 
-  val md = MessageDigest.getInstance("SHA-1")
-  val key = Key(md.digest(Array.concat(ByteBuffer.allocate(Integer.BYTES).putInt(port).array(), addr.getAddress)))
+  val key = Key.sha1(kb)
 
-  log.info("Key: " + key)
-  log.info("Key size: " + key.id.length)
+  val header = Task(Option(Header()))
 
-  val kad = new KademliaG(key, Contact(addr, port))
+  val client = NetworkClient.builder
+    .add(KademliaClient.register(header))
+    .build
 
-  val server = ServerBuilder
-    .forPort(port)
-    .addService(
-      KademliaGrpc.bindService(new KademliaService(kad), global)
-    )
-    .build.start
+  val kad = new KademliaService(key, serverBuilder.contact, KademliaClient(client))
+
+  val server = serverBuilder
+    .add(KademliaGrpc.bindService(new KademliaServerImpl(kad), global))
+    .build
 
   sys.addShutdownHook {
     log.warn("*** shutting down gRPC server since JVM is shutting down")
@@ -53,7 +57,7 @@ object MainApp extends App {
       case "j" | "join" ⇒
         println("join port?")
         val p = StdIn.readInt()
-        kad.join(Seq(Contact(addr, p))).runAsync.onComplete{
+        kad.join(Seq(Contact(InetAddress.getLocalHost, p))).runAsync.onComplete{
           case Success(_) ⇒ println("ok")
           case Failure(e) ⇒
             println(e)
@@ -71,6 +75,4 @@ object MainApp extends App {
       case _ ⇒
     }
   }
-
-  server.awaitTermination()
 }
