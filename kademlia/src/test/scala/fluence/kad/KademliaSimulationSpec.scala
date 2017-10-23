@@ -8,12 +8,13 @@ import cats.data.StateT
 import org.scalatest.{ Matchers, WordSpec }
 import cats.syntax.show._
 import monix.eval.Coeval
+import org.scalatest.concurrent.Eventually
 
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 import scala.util.Random
 
-class KademliaSimulationSpec extends WordSpec with Matchers {
+class KademliaSimulationSpec extends WordSpec with Matchers with Eventually {
   implicit def key(i: Long): Key = Key(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
     val buffer = ByteBuffer.allocate(java.lang.Long.BYTES)
     buffer.putLong(i)
@@ -126,10 +127,12 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       random.shuffle(nodes).take(P).foreach {
         case (i, ki) ⇒
           random.shuffle(nodes.values).take(P).foreach { kj ⇒
-            val neighbors = kj.handleRPC.lookupIterative(i, K).value
+            eventually {
+              val neighbors = kj.handleRPC.lookupIterative(i, K).value
 
-            neighbors.size shouldBe (K min N)
-            neighbors.map(_.contact) should contain(i)
+              neighbors.size shouldBe (K min N)
+              neighbors.map(_.contact) should contain(i)
+            }
           }
       }
     }

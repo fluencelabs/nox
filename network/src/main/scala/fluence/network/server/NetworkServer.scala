@@ -8,8 +8,8 @@ import monix.eval.Task
 import monix.execution.Scheduler.Implicits._
 
 class NetworkServer private (
-    server:   Server,
-    contact:  Task[Contact],
+    server:     Server,
+    contact:    Task[Contact],
     onShutdown: Task[Unit]
 ) {
   def start(): Unit = {
@@ -21,7 +21,6 @@ class NetworkServer private (
     onShutdown.runSyncMaybe
     server.awaitTermination()
   }
-
 
 }
 
