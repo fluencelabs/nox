@@ -3,16 +3,15 @@ package fluence.node.storage.rocksdb
 import com.typesafe.config.ConfigFactory
 import monix.eval.Task
 import monix.execution.schedulers.TestScheduler
-import monix.execution.{ExecutionModel, Scheduler}
+import monix.execution.{ ExecutionModel, Scheduler }
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{times, verify}
-import org.mockito.{ArgumentMatchers, Mockito}
+import org.mockito.Mockito.{ times, verify }
+import org.mockito.{ ArgumentMatchers, Mockito }
 import org.rocksdb._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
+import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.reflect.io.Path
 
@@ -133,9 +132,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
         verify(db, times(0)).getSnapshot
         verify(db, times(0)).newIterator(any[ReadOptions])
 
-        val first = stream.foreach(println)
-
-        Await.ready(first, 1.seconds)
+        stream.foreach(println).futureValue
 
         verify(db, times(1)).getSnapshot
         verify(db, times(1)).newIterator(ArgumentMatchers.any[ReadOptions])
@@ -157,6 +154,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       override def key(): Array[Byte] = s"key$cursor".getBytes()
       override def next(): Unit = cursor += 1
       override def isValid: Boolean = cursor <= limit
+      override def close(): Unit = ()
     }
 
   }

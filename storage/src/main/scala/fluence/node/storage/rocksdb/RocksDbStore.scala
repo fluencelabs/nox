@@ -2,7 +2,7 @@ package fluence.node.storage.rocksdb
 
 import java.io.File
 
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{ Config, ConfigFactory }
 import fluence.node.storage.KVStore
 import fluence.node.storage.rocksdb.RocksDbStore._
 import monix.eval.{ Task, TaskSemaphore }
@@ -29,7 +29,7 @@ class RocksDbStore(
     private val dbOptions: Options
 ) extends KVStore[Key, Value, Task, Observable] with AutoCloseable {
 
-  private val semaphore = TaskSemaphore(1)
+  private val writeMutex = TaskSemaphore(1)
 
   // todo logging
 
@@ -50,16 +50,17 @@ class RocksDbStore(
    * @param value the value associated with the specified key
    */
   override def put(key: Key, value: Value): Task[Unit] = {
-    semaphore.greenLight(Task(db.put(key, value)))
+    writeMutex.greenLight(Task(db.put(key, value)))
   }
 
   /**
    * Removes pair (K, V) for specified key.
+   * '''Note that concurrent writing is not supported!'''
    *
    * @param key key to delete within database
    */
   override def remove(key: Key): Task[Unit] = {
-    Task.evalOnce(db.delete(key))
+    writeMutex.greenLight(Task(db.delete(key)))
   }
 
   /**
@@ -122,18 +123,18 @@ object RocksDbStore {
     }
   }
 
-  private def createOptionsFromConfig(conf: Config, root: Path): Options = {
+  private def createOptionsFromConfig(conf: StoreConf, root: Path): Options = {
     val opt = new Options()
     opt.setCreateIfMissing(conf.createIfMissing)
     opt
   }
 
-  private def readConfig(name: String, conf: com.typesafe.config.Config): Config = {
+  private def readConfig(name: String, conf: Config): StoreConf = {
     import net.ceedubs.ficus.Ficus._
     import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-    conf.as[Config](name)
+    conf.as[StoreConf](name)
   }
 
 }
 
-case class Config(dataDir: String, createIfMissing: Boolean)
+case class StoreConf(dataDir: String, createIfMissing: Boolean)
