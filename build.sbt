@@ -26,6 +26,7 @@ val MonixV = "2.3.0"
 val Fs2V = "0.10.0-M6"
 
 val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
+val log4j2 = "org.apache.logging.log4j" %% "log4j-api-scala" % "2.9.1"
 val scalatest = "org.scalatest" %% "scalatest" % "3.0.3" % Test
 val frees = "io.frees" %% "freestyle" % FreesV
 val monix = "io.monix" %% "monix" % MonixV
@@ -78,7 +79,8 @@ lazy val `kademlia` = project.in(file("kademlia"))
     libraryDependencies ++= Seq(
       cats1,
       logback,
-      scalatest
+      scalatest,
+      monix3 % Test
     )
   )
 
