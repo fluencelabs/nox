@@ -123,18 +123,18 @@ object RocksDbStore {
     }
   }
 
-  private def createOptionsFromConfig(conf: StoreConf, root: Path): Options = {
+  private def createOptionsFromConfig(conf: RocksDbConf, root: Path): Options = {
     val opt = new Options()
     opt.setCreateIfMissing(conf.createIfMissing)
     opt
   }
 
-  private def readConfig(name: String, conf: Config): StoreConf = {
+  private def readConfig(name: String, conf: Config): RocksDbConf = {
     import net.ceedubs.ficus.Ficus._
     import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-    conf.as[StoreConf](name)
+    conf.as[RocksDbConf](name)
   }
 
 }
 
-case class StoreConf(dataDir: String, createIfMissing: Boolean)
+case class RocksDbConf(dataDir: String, createIfMissing: Boolean)
