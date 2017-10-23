@@ -72,7 +72,7 @@ class RocksDbStore(
     lazy val snapshot = db.getSnapshot
     lazy val options = new ReadOptions()
 
-    Observable(Array.emptyByteArray -> Array.emptyByteArray)
+    Observable(())
       .doOnSubscribe { () ⇒
         options.setSnapshot(snapshot) // take a snapshot only when subscribing appears
         options.setTailing(true) // sequential read optimization
@@ -101,8 +101,11 @@ object RocksDbStore {
 
   val ConfigPath = "fluence.node.storage.rocksDb"
 
-  def apply(dataSet: String): Try[RocksDbStore] = {
-    val config = getConfig(ConfigPath, dataSet)
+  def apply(dataSet: String): Try[RocksDbStore] =
+    apply(dataSet, ConfigFactory.load(ConfigPath))
+
+  def apply(dataSet: String, conf: com.typesafe.config.Config): Try[RocksDbStore] = {
+    val config = readConfig(ConfigPath, conf)
     val dbRoot = s"${config.dataDir}/$dataSet"
     val options = createOptionsFromConfig(config, Path(dbRoot))
 
@@ -125,10 +128,10 @@ object RocksDbStore {
     opt
   }
 
-  private def getConfig(name: String, dataSet: String): Config = {
+  private def readConfig(name: String, conf: com.typesafe.config.Config): Config = {
     import net.ceedubs.ficus.Ficus._
     import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-    ConfigFactory.load(ConfigPath).as[Config](name)
+    conf.as[Config](name)
   }
 
 }

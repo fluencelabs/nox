@@ -1,15 +1,16 @@
 package fluence.node.storage.rocksdb
 
+import com.typesafe.config.ConfigFactory
 import monix.eval.Task
 import monix.execution.schedulers.TestScheduler
-import monix.execution.{ ExecutionModel, Scheduler }
+import monix.execution.{ExecutionModel, Scheduler}
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{ times, verify }
-import org.mockito.{ ArgumentMatchers, Mockito }
+import org.mockito.Mockito.{times, verify}
+import org.mockito.{ArgumentMatchers, Mockito}
 import org.rocksdb._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -17,8 +18,8 @@ import scala.reflect.io.Path
 
 class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockitoSugar with ScalaFutures {
 
-  val testFolder: String = System.getProperty("java.io.tmpdir") + "/RocksDbStoreSpec"
-  System.setProperty("fluence.node.storage.root", testFolder)
+  private val testFolder: String = System.getProperty("java.io.tmpdir") + "/RocksDbStoreSpec"
+  private val conf = ConfigFactory.parseString(s"fluence.node.storage.root: $testFolder").withFallback(ConfigFactory.load())
 
   "RocksDbStore" should {
     "performs all operations correctly" in {
@@ -26,7 +27,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
       implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
-      val store = RocksDbStore("test2").get
+      val store = RocksDbStore("test2", conf).get
 
       val key1 = "key1".getBytes()
       val val1 = "val1".getBytes()
@@ -93,7 +94,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
     "be always single-threaded" in {
       implicit val scheduler: Scheduler = Scheduler(ExecutionModel.AlwaysAsyncExecution)
 
-      val store = RocksDbStore("test1").get
+      val store = RocksDbStore("test1", conf).get
 
       // execute 100 concurrent put to database
       // if putting will be concurrent, then RocksDb raise an Exception
