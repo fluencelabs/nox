@@ -1,19 +1,16 @@
 package fluence.network
 
 import java.net.InetAddress
-import java.nio.ByteBuffer
 
 import fluence.kad._
 import fluence.network.proto.kademlia.{ Header, KademliaGrpc }
-import io.grpc.ServerBuilder
 import monix.execution.Scheduler.Implicits.global
 import cats.syntax.show._
 import fluence.network.client.{ KademliaClient, NetworkClient }
-import fluence.network.server.{ KademliaServerImpl, KademliaService, NetworkServer, UPnP }
+import fluence.network.server.{ KademliaServerImpl, KademliaService, NetworkServer }
 import monix.eval.Task
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Await
 import scala.io.StdIn
 import scala.util.{ Failure, Random, Success }
 import scala.concurrent.duration._
@@ -31,13 +28,13 @@ object MainApp extends App {
 
   val key = Key.sha1(kb)
 
-  val header = Task(Option(Header()))
+  val header = Task(Header())
 
   val client = NetworkClient.builder
     .add(KademliaClient.register(header))
     .build
 
-  val kad = new KademliaService(key, serverBuilder.contact, KademliaClient(client))
+  val kad = new KademliaService(key, serverBuilder.contact, KademliaClient(client), k = 16)
 
   val server = serverBuilder
     .add(KademliaGrpc.bindService(new KademliaServerImpl(kad), global))
@@ -45,7 +42,7 @@ object MainApp extends App {
 
   sys.addShutdownHook {
     log.warn("*** shutting down gRPC server since JVM is shutting down")
-    server.shutdown()
+    server.shutdown(10.seconds)
     log.warn("*** server shut down")
   }
 

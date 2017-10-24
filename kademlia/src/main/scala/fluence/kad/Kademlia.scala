@@ -5,6 +5,7 @@ import cats.data.StateT
 import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.eq._
 
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
@@ -24,6 +25,8 @@ abstract class Kademlia[F[_], C](
     val pingTimeout: Duration
 )(implicit ME: MonadError[F, Throwable]) {
   self ⇒
+
+  val key: Key
 
   /**
    * Run some stateful operation, possibly mutating it
@@ -61,9 +64,9 @@ abstract class Kademlia[F[_], C](
    */
   def update(node: Node[C]): F[Unit] =
     read(_.initialized).flatMap {
-      case true ⇒
+      case true if node.key =!= key ⇒
         run(RoutingTable.update(node, rpc, pingTimeout), "update")
-      case false ⇒
+      case _ ⇒
         ().pure[F]
     }
 

@@ -4,9 +4,7 @@ package fluence.network.proto;
 
 message Header {
     Node from = 1;
-    bytes to = 2;
-    int64 timestamp = 3;
-    bool promote = 4;
+    bool advertize = 2;
 }
 
 message Node {

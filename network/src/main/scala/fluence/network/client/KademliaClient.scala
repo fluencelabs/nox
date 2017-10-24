@@ -9,7 +9,6 @@ import fluence.network.{ Contact, proto }
 import fluence.network.proto.kademlia.{ Header, KademliaGrpc, LookupRequest, PingRequest }
 import io.grpc.{ CallOptions, ManagedChannel }
 import monix.eval.Task
-import org.slf4j.LoggerFactory
 import shapeless._
 
 import scala.language.implicitConversions
@@ -19,9 +18,7 @@ import scala.language.implicitConversions
  * @param header Header to pass with all requests
  * @param stub GRPC Kademlia Stub
  */
-class KademliaClient(header: Task[Option[Header]], stub: KademliaGrpc.KademliaStub) extends KademliaRPC[Task, Contact] {
-
-  private val log = LoggerFactory.getLogger(getClass)
+class KademliaClient(header: Task[Header], stub: KademliaGrpc.KademliaStub) extends KademliaRPC[Task, Contact] {
 
   private implicit def nToNc(n: proto.kademlia.Node): Node[Contact] = Node[Contact](
     Key(n.id.toByteArray),
@@ -40,8 +37,7 @@ class KademliaClient(header: Task[Option[Header]], stub: KademliaGrpc.KademliaSt
   override def ping(): Task[Node[Contact]] =
     for {
       h ← header
-      _ = log.debug("Querying ping to: {}", h.map(_.to))
-      n ← Task.deferFuture(stub.ping(PingRequest(h)))
+      n ← Task.deferFuture(stub.ping(PingRequest(Some(h))))
     } yield n: Node[Contact]
 
   /**
@@ -53,8 +49,7 @@ class KademliaClient(header: Task[Option[Header]], stub: KademliaGrpc.KademliaSt
   override def lookup(key: Key, numberOfNodes: Int): Task[Seq[Node[Contact]]] =
     for {
       h ← header
-      _ = log.debug(s"Calling lookup($key, $numberOfNodes) to: {}", h.map(_.to))
-      res ← Task.deferFuture(stub.lookup(LookupRequest(h, ByteString.copyFrom(key.id), numberOfNodes)))
+      res ← Task.deferFuture(stub.lookup(LookupRequest(Some(h), ByteString.copyFrom(key.id), numberOfNodes)))
     } yield res.nodes.map(n ⇒ n: Node[Contact])
 
   /**
@@ -66,8 +61,7 @@ class KademliaClient(header: Task[Option[Header]], stub: KademliaGrpc.KademliaSt
   override def lookupIterative(key: Key, numberOfNodes: Int): Task[Seq[Node[Contact]]] =
     for {
       h ← header
-      _ = log.debug(s"Calling lookup iterative($key, $numberOfNodes) to: {}", h.map(_.to))
-      res ← Task.deferFuture(stub.lookupIterative(LookupRequest(h, ByteString.copyFrom(key.id), numberOfNodes)))
+      res ← Task.deferFuture(stub.lookupIterative(LookupRequest(Some(h), ByteString.copyFrom(key.id), numberOfNodes)))
     } yield res.nodes.map(n ⇒ n: Node[Contact])
 
 }
@@ -80,7 +74,7 @@ object KademliaClient {
    * @param callOptions Call options
    * @return
    */
-  def register(header: Task[Option[Header]])(channel: ManagedChannel, callOptions: CallOptions): KademliaClient =
+  def register(header: Task[Header])(channel: ManagedChannel, callOptions: CallOptions): KademliaClient =
     new KademliaClient(header, new KademliaGrpc.KademliaStub(channel, callOptions))
 
   /**

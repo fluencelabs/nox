@@ -325,7 +325,7 @@ object RoutingTable {
               rpc(peer).lookupIterative(rt.nodeId, numberOfNodes).attempt.flatMap {
                 case Right(neighbors) ⇒
                   // Peer returned neighbors, promote this node to all of them
-                  Traverse[List].traverse(neighbors.toList)(n ⇒
+                  Traverse[List].traverse(neighbors.filterNot(_.key === rt.nodeId).toList)(n ⇒
                     // Any ping could fail; then don't remember the node
                     rpc(n.contact).ping().attempt
                   ).map(ns ⇒ peerNode :: ns.collect{ case Right(n) ⇒ n })

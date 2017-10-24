@@ -35,17 +35,17 @@ class KademliaSimulationSpec extends WordSpec with Matchers with Eventually {
    * In general, Kademlia network can't work correctly with a single thread, in blocking fashion.
    * It's possible that node A pings B, B pings A in return, A pings B and so on until stack overflows.
    *
-   * @param nodeKey
+   * @param key
    * @param alpha
    * @param k
    * @param getKademlia
    */
-  class KademliaCoeval(nodeKey: Key, alpha: Int, k: Int, getKademlia: Long ⇒ Kademlia[Coeval, Long]) extends Kademlia[Coeval, Long](alpha, k, pingDuration) {
-    private var state = RoutingTable[Long](nodeKey, k, k)
+  class KademliaCoeval(override val key: Key, alpha: Int, k: Int, getKademlia: Long ⇒ Kademlia[Coeval, Long]) extends Kademlia[Coeval, Long](alpha, k, pingDuration) {
+    private var state = RoutingTable[Long](key, k, k)
 
     def routingTable: RoutingTable[Long] = state
 
-    override def ownContact: Coeval[Node[Long]] = Coeval(Node[Long](nodeKey, now, nodeKey))
+    override def ownContact: Coeval[Node[Long]] = Coeval(Node[Long](key, now, key))
 
     override def rpc(contact: Long): KademliaRPC[Coeval, Long] = new KademliaRPC[Coeval, Long] {
       val kad = getKademlia(contact)

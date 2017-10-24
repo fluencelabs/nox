@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
-class KademliaService(val key: Key, contact: Task[Contact], client: Contact ⇒ KademliaClient) extends Kademlia[Task, Contact](Alpha = 3, K = 2, pingTimeout = 1.second) {
+class KademliaService(override val key: Key, contact: Task[Contact], client: Contact ⇒ KademliaClient, k: Int, alpha: Int = 3) extends Kademlia[Task, Contact](Alpha = alpha, K = k, pingTimeout = 1.second) {
 
   private val readState = AtomicAny(RoutingTable[Contact](key, K, K))
 
@@ -30,14 +30,14 @@ class KademliaService(val key: Key, contact: Task[Contact], client: Contact ⇒ 
    * @return
    */
   override protected def run[T](mod: StateT[Task, RoutingTable[Contact], T], l: String): Task[T] = {
-    log.info(s"Asking for green light... to perform $l")
+    log.info(s"$key / Asking for green light... to perform $l")
     semaphore.greenLight(for {
       rt ← state.take
       _ ← Task.now(log.info("Received RoutingTable, going to update it"))
       rtv ← mod.run(rt)
       _ ← state.put(rtv._1)
     } yield {
-      log.info("RoutingTable updated")
+      log.info(s"$key / RoutingTable updated")
       readState.set(rtv._1)
       rtv._2
     })

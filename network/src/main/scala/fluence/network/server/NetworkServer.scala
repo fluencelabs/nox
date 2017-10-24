@@ -7,6 +7,9 @@ import io.grpc.{ Server, ServerBuilder, ServerServiceDefinition }
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits._
 
+import scala.concurrent.Await
+import scala.concurrent.duration.FiniteDuration
+
 /**
  * Server wrapper
  * @param server grpc Server instance
@@ -27,9 +30,9 @@ class NetworkServer private (
   /**
    * Shut the server down, release ports
    */
-  def shutdown(): Unit = {
+  def shutdown(timeout: FiniteDuration): Unit = {
     server.shutdown()
-    onShutdown.runSyncMaybe
+    Await.ready(onShutdown.runAsync, timeout)
     server.awaitTermination()
   }
 
