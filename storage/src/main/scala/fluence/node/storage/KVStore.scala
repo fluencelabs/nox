@@ -18,6 +18,7 @@ trait KVStore[K, V, F[_], FS[_]] {
 
   /**
    * Puts key value pair (K, V).
+   * Update existing value if it's present.
    * @param key - the specified key to be inserted
    * @param value - the value associated with the specified key
    */
