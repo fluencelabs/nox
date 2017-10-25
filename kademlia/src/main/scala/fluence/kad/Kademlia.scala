@@ -31,10 +31,11 @@ abstract class Kademlia[F[_], C](
   /**
    * Run some stateful operation, possibly mutating it
    * @param mod Operation
+   * @param logMessage A log message to show why the lock over this RoutingTable have been acquired
    * @tparam T Return type
    * @return
    */
-  protected def run[T](mod: StateT[F, RoutingTable[C], T], l: String): F[T]
+  protected def run[T](mod: StateT[F, RoutingTable[C], T], logMessage: String): F[T]
 
   /**
    * Non-blocking read request

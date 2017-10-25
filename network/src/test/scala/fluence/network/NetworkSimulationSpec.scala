@@ -57,7 +57,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
   }
 
   "Network simulation" should {
-    "launch 20 nodes" in {
+    "launch 20 nodes" ignore {
       servers.foreach { s ⇒
         s.start().runAsync.futureValue
       }
