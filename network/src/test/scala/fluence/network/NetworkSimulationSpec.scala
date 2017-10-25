@@ -65,7 +65,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       val firstContact = servers.head.server.contact.runAsync.futureValue
       val secondContact = servers.tail.head.server.contact.runAsync.futureValue
 
-      servers.foreach{s =>
+      servers.foreach{ s ⇒
         println(Console.BLUE + s"Join: ${s.kad.key}" + Console.RESET)
         s.kad.join(Seq(firstContact, secondContact)).runAsync.futureValue
       }

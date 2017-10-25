@@ -27,9 +27,8 @@ object Siblings {
   implicit def show[C](implicit ks: Show[Key]): Show[Siblings[C]] =
     s ⇒ s.nodes.toSeq.map(_.key).map(ks.show).mkString(s"\nSiblings: ${s.size}\n\t", "\n\t", "")
 
-  def apply[C](nodeId: Key, maxSize: Int): Siblings[C] =
-    {
-      implicit val ordering: Ordering[Node[C]] = Node.relativeOrdering(nodeId)
-      new Siblings[C](SortedSet.empty, maxSize)
-    }
+  def apply[C](nodeId: Key, maxSize: Int): Siblings[C] = {
+    implicit val ordering: Ordering[Node[C]] = Node.relativeOrdering(nodeId)
+    new Siblings[C](SortedSet.empty, maxSize)
+  }
 }

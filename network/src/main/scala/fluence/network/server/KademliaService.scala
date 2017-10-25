@@ -14,13 +14,13 @@ import scala.concurrent.duration._
 import scala.language.implicitConversions
 
 class KademliaService(
-                       override val key: Key,
-                       contact: Task[Contact],
-                       client: Contact ⇒ KademliaClient,
-                       k: Int,
-                       alpha: Int = 3,
-                       pingTimeout: Duration = 1.second
-                     ) extends Kademlia[Task, Contact](Alpha = alpha, K = k, pingTimeout = pingTimeout) {
+    override val key: Key,
+    contact:          Task[Contact],
+    client:           Contact ⇒ KademliaClient,
+    k:                Int,
+    alpha:            Int                      = 3,
+    pingTimeout:      Duration                 = 1.second
+) extends Kademlia[Task, Contact](Alpha = alpha, K = k, pingTimeout = pingTimeout) {
 
   private val readState = AtomicAny(RoutingTable[Contact](key, K, K))
 
