@@ -23,7 +23,7 @@ final case class Key(id: Array[Byte]) extends AnyVal {
     if (idx < 0) {
       Key.BitLength
     } else {
-      Integer.numberOfLeadingZeros(java.lang.Byte.toUnsignedInt(id(idx))) + 8 * (idx - 3)
+      Integer.numberOfLeadingZeros(java.lang.Byte.toUnsignedInt(id(idx))) + java.lang.Byte.SIZE * (idx - 3)
     }
   }
 
