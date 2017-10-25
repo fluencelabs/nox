@@ -100,13 +100,13 @@ object RocksDbStore {
   type Key = Array[Byte]
   type Value = Array[Byte]
 
-  val ConfigPath = "fluence.node.storage.rocksDb"
-
   def apply(dataSet: String): Try[RocksDbStore] =
-    apply(dataSet, ConfigFactory.load(ConfigPath))
+    apply(dataSet)
 
-  def apply(dataSet: String, conf: com.typesafe.config.Config): Try[RocksDbStore] = {
-    val config = readConfig(ConfigPath, conf)
+  def apply(dataSet: String, conf: Config): Try[RocksDbStore] =
+    apply(dataSet, RocksDbConf.read(conf = conf))
+
+  def apply(dataSet: String, config: RocksDbConf): Try[RocksDbStore] = {
     val dbRoot = s"${config.dataDir}/$dataSet"
     val options = createOptionsFromConfig(config, Path(dbRoot))
 
@@ -128,13 +128,16 @@ object RocksDbStore {
     opt.setCreateIfMissing(conf.createIfMissing)
     opt
   }
+}
 
-  private def readConfig(name: String, conf: Config): RocksDbConf = {
+case class RocksDbConf(dataDir: String, createIfMissing: Boolean)
+
+object RocksDbConf {
+  val ConfigPath = "fluence.node.storage.rocksDb"
+
+  def read(name: String = ConfigPath, conf: Config = ConfigFactory.load()): RocksDbConf = {
     import net.ceedubs.ficus.Ficus._
     import net.ceedubs.ficus.readers.ArbitraryTypeReader._
     conf.as[RocksDbConf](name)
   }
-
 }
-
-case class RocksDbConf(dataDir: String, createIfMissing: Boolean)

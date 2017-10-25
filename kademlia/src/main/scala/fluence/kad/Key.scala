@@ -1,5 +1,6 @@
 package fluence.kad
 
+import java.security.MessageDigest
 import java.util.Base64
 
 import cats.{ Monoid, Order, Show }
@@ -22,8 +23,7 @@ final case class Key(id: Array[Byte]) extends AnyVal {
     if (idx < 0) {
       Key.BitLength
     } else {
-      // Integer's size is 32 bits, so -8*3
-      Integer.numberOfLeadingZeros(id(idx)) + 8 * (idx - 3)
+      Integer.numberOfLeadingZeros(java.lang.Byte.toUnsignedInt(id(idx))) + java.lang.Byte.SIZE * (idx - 3)
     }
   }
 
@@ -74,6 +74,16 @@ object Key {
   implicit object ShowKeyBase64 extends Show[Key] {
     override def show(f: Key): String =
       Base64.getEncoder.encodeToString(f.id)
+  }
+
+  /**
+   * Calculates sha-1 hash of the payload, and wraps it with Key
+   * @param bytes
+   * @return
+   */
+  def sha1(bytes: Array[Byte]): Key = {
+    val md = MessageDigest.getInstance("SHA-1")
+    Key(md.digest(bytes))
   }
 
 }

@@ -9,6 +9,7 @@ import cats.syntax.show._
 import cats.syntax.functor._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
+import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.Duration
@@ -17,25 +18,26 @@ import scala.language.higherKinds
 case class RoutingTable[C] private (
     nodeId:      Key,
     buckets:     IndexedSeq[Bucket[C]],
-    siblings:    SortedSet[Node[C]],
-    maxSiblings: Int
+    siblings:    Siblings[C],
+    initialized: Boolean
 )
 
 object RoutingTable {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   implicit def show[C](implicit bs: Show[Bucket[C]], ks: Show[Key]): Show[RoutingTable[C]] =
     rt ⇒ s"RoutingTable(${ks.show(rt.nodeId)})" +
       rt.buckets.zipWithIndex.filter(_._1.nonEmpty).map {
         case (b, i) ⇒ s"$i(${Integer.toBinaryString(i)}):${bs.show(b)}"
-      }.mkString(":\n", "\n", "") +
-      rt.siblings.toSeq.map(_.key).map(ks.show).mkString(s"\nSiblings: ${rt.siblings.size}\n\t", "\n\t", "")
+      }.mkString(":\n", "\n", "") + rt.siblings.show
 
   def apply[C](nodeId: Key, maxBucketSize: Int, maxSiblings: Int) =
     new RoutingTable(
       nodeId,
       Vector.fill(Key.BitLength)(Bucket[C](maxBucketSize)),
-      SortedSet.empty[Node[C]](Node.relativeOrdering(nodeId)),
-      maxSiblings
+      Siblings[C](nodeId, maxSiblings),
+      initialized = false
     )
 
   /**
@@ -76,7 +78,7 @@ object RoutingTable {
           // Save updated bucket to routing table
           _ ← StateT.set(rt.copy(
             buckets = rt.buckets.updated(idx, updatedBucketUnit._1),
-            siblings = (rt.siblings + node).take(rt.maxSiblings)
+            siblings = rt.siblings.add(node)
           ))
         } yield ()
       }
@@ -128,9 +130,7 @@ object RoutingTable {
    * @return
    */
   def findSibling[F[_]: Monad, C](key: Key): StateT[F, RoutingTable[C], Option[Node[C]]] =
-    table[F, C].map(rt ⇒
-      rt.siblings.find(_.key === key)
-    )
+    table[F, C].map(_.siblings.find(key))
 
   /**
    * Performs local lookup for the key, returning a stream of closest known nodes to it
@@ -167,7 +167,7 @@ object RoutingTable {
 
       // Stream of neighbors, taken from siblings
       val siblingsStream =
-        rt.siblings.toStream.sorted
+        rt.siblings.nodes.toStream.sorted
 
       def combine(left: Stream[Node[C]], right: Stream[Node[C]], seen: Set[String] = Set.empty): Stream[Node[C]] = (left, right) match {
         case (hl #:: tl, _) if seen(hl.key.show)              ⇒ combine(tl, right, seen)
@@ -256,7 +256,7 @@ object RoutingTable {
 
         // Fetch remote lookups into F; filter previously seen nodes
         val remote0X = Traverse[List].sequence(handle.map { c ⇒
-          rpc(c.contact).lookup(key)
+          rpc(c.contact).lookup(key, neighbors)
         }).map[List[Node[C]]](
           _.flatten
             .filterNot(c ⇒ updatedProbed(c.key.show)) // Filter away already seen nodes
@@ -309,7 +309,7 @@ object RoutingTable {
    * @tparam C Type for node contact data
    * @return
    */
-  def join[F[_], C](peers: Seq[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration)(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], Unit] =
+  def join[F[_], C](peers: Seq[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration, numberOfNodes: Int)(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], Unit] =
     table[F, C].flatMap { rt ⇒
       // Hint for IDEA
       type G[A] = StateT[F, RoutingTable[C], A]
@@ -322,29 +322,33 @@ object RoutingTable {
           // Try to ping the peer; if no pings are performed, join is failed
           rpc(peer).ping().attempt.flatMap {
             case Right(peerNode) ⇒ // Ping successful, lookup node's neighbors
-              rpc(peer).lookupIterative(rt.nodeId).attempt.flatMap {
+              rpc(peer).lookupIterative(rt.nodeId, numberOfNodes).attempt.flatMap {
                 case Right(neighbors) ⇒
                   // Peer returned neighbors, promote this node to all of them
-                  Traverse[List].traverse(neighbors.toList)(n ⇒
+                  Traverse[List].traverse(neighbors.filterNot(_.key === rt.nodeId).toList)(n ⇒
                     // Any ping could fail; then don't remember the node
                     rpc(n.contact).ping().attempt
                   ).map(ns ⇒ peerNode :: ns.collect{ case Right(n) ⇒ n })
 
-                case Left(_) ⇒ (peerNode :: Nil).pure[F]
+                case Left(e) ⇒
+                  log.warn(s"Can't perform lookup for $peer during join", e)
+                  (peerNode :: Nil).pure[F]
               }
 
-            case Left(_) ⇒ List.empty[Node[C]].pure[F]
+            case Left(e) ⇒
+              log.warn(s"Can't perform ping for $peer during join", e)
+              List.empty[Node[C]].pure[F]
           }
         }.flatMap(
           // Save discovered nodes to the routing table
           updateList(_, rpc, pingTimeout)
         )
       }
-    }.map(_.flatten.nonEmpty).flatMapF {
+    }.map(_.flatten.nonEmpty).flatMap{
       case true ⇒ // At least joined to a single node
-        ().pure[F]
+        StateT.modify[F, RoutingTable[C]](_.copy(initialized = true))
       case false ⇒ // Can't join to any node
-        ME.raiseError[Unit](new RuntimeException("Can't join any node among known peers"))
+        StateT.lift(ME.raiseError[Unit](new RuntimeException("Can't join any node among known peers")))
     }
 
 }

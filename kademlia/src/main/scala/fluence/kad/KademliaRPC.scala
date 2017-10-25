@@ -19,13 +19,13 @@ trait KademliaRPC[F[_], C] {
    * @param key Key to lookup
    * @return
    */
-  def lookup(key: Key): F[Seq[Node[C]]]
+  def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[C]]]
 
   /**
    * Perform an iterative lookup for a key, return K closest known nodes
    * @param key Key to lookup
    * @return
    */
-  def lookupIterative(key: Key): F[Seq[Node[C]]]
+  def lookupIterative(key: Key, numberOfNodes: Int): F[Seq[Node[C]]]
 
 }

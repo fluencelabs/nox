@@ -1,6 +1,5 @@
 package fluence.node.storage.rocksdb
 
-import com.typesafe.config.ConfigFactory
 import monix.eval.Task
 import monix.execution.schedulers.TestScheduler
 import monix.execution.{ ExecutionModel, Scheduler }
@@ -17,8 +16,8 @@ import scala.reflect.io.Path
 
 class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockitoSugar with ScalaFutures {
 
-  private val testFolder: String = System.getProperty("java.io.tmpdir") + "/RocksDbStoreSpec"
-  private val conf = ConfigFactory.parseString(s"fluence.node.storage.root: $testFolder").withFallback(ConfigFactory.load())
+  private val conf = RocksDbConf.read()
+  assert(conf.dataDir.startsWith(System.getProperty("java.io.tmpdir")))
 
   "RocksDbStore" should {
     "performs all operations correctly" in {
@@ -164,6 +163,6 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   }
 
   override protected def afterAll(): Unit = {
-    Path(testFolder).deleteRecursively()
+    Path(conf.dataDir).deleteRecursively()
   }
 }

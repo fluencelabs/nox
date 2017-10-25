@@ -45,7 +45,7 @@ class KeySpec extends WordSpec with Matchers {
 
       (k !== Monoid[Key].empty) shouldBe true
 
-      k.zerosPrefixLen shouldBe 72
+      k.zerosPrefixLen shouldBe 96
     }
 
     "sort keys" in {
