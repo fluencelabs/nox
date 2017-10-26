@@ -60,7 +60,9 @@ lazy val `fluence` = project.in(file("."))
     `hack`,
     `kademlia`,
     `network`,
-    `storage`
+    `storage`,
+    `b-tree`,
+    `crypto`
   )
 
 lazy val `hack` = project.in(file("hack"))
@@ -110,5 +112,26 @@ lazy val `storage` = project.in(file("storage"))
       monix3,
       scalatest,
       mockito
+    )
+  )
+
+lazy val `b-tree` = project.in(file("b-tree"))
+  .settings(
+    scalaV,
+    scalariformPrefs,
+    libraryDependencies ++= Seq(
+      typeSafeConfig,
+      ficus,
+      monix3,
+      scalatest
+    )
+  ).dependsOn(`storage`, `crypto`).aggregate(`storage`, `crypto`)
+
+lazy val `crypto` = project.in(file("crypto"))
+  .settings(
+    scalaV,
+    scalariformPrefs,
+    libraryDependencies ++= Seq(
+      scalatest
     )
   )
