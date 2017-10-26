@@ -25,7 +25,6 @@ val RocksDbV = "5.8.0"
 val TypeSafeConfV = "1.3.2"
 val FicusV = "1.4.2"
 val MockitoV = "2.11.0"
-val ScodecV = "1.10.3"
 
 val logback = "ch.qos.logback" % "logback-classic" % "1.2.+"
 
