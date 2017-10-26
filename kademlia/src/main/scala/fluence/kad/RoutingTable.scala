@@ -1,6 +1,6 @@
 package fluence.kad
 
-import cats.{ Applicative, Id, Monad, MonadError, Show, Traverse }
+import cats.{Applicative, MonadError, Show, Traverse}
 import cats.data.StateT
 import cats.syntax.monoid._
 import cats.syntax.order._
@@ -17,10 +17,65 @@ import scala.language.higherKinds
 
 case class RoutingTable[C] private (
     nodeId:      Key,
-    buckets:     IndexedSeq[Bucket[C]],
-    siblings:    Siblings[C],
-    initialized: Boolean
-)
+    siblings:    Siblings[C]
+) {
+
+  /**
+    * Tries to route a key to a Contact, if it's known locally
+    *
+    * @param key Key to lookup
+    */
+  def find(key: Key)(implicit BR: Bucket.ReadOps[C]): Option[Node[C]] =
+    siblings.find(key).orElse(BR.read(nodeId |+| key).find(key))
+
+  /**
+    * Performs local lookup for the key, returning a stream of closest known nodes to it
+    *
+    * @param key Key to lookup
+    * @return
+    */
+  def lookup(key: Key)(implicit BR: Bucket.ReadOps[C]): Stream[Node[C]] =
+    {
+
+      implicit val ordering: Ordering[Node[C]] = Node.relativeOrdering(key)
+
+      // Build stream of neighbors, taken from buckets
+      val bucketsStream = {
+        // Base index: nodes as far from this one as the target key is
+        val idx = (nodeId |+| key).zerosPrefixLen
+
+        // Diverging stream of indices, going left (far from current node) then right (closer), like 5 4 6 3 7 ...
+        Stream(idx)
+          .filter(_ < Key.BitLength) // In case current node is given, this will remove IndexOutOfBoundsException
+          .append(Stream.from(1).takeWhile(i ⇒ idx + i < Key.BitLength || idx - i >= 0).flatMap { i ⇒
+          (if (idx - i >= 0) Stream(idx - i) else Stream.empty) append
+            (if (idx + i < Key.BitLength) Stream(idx + i) else Stream.empty)
+        })
+          .flatMap(idx =>
+            // Take contacts from the bucket, and sort them
+            BR.read(idx).stream
+          )
+      }
+
+      // Stream of neighbors, taken from siblings
+      val siblingsStream =
+        siblings.nodes.toStream.sorted
+
+      def combine(left: Stream[Node[C]], right: Stream[Node[C]], seen: Set[String] = Set.empty): Stream[Node[C]] = (left, right) match {
+        case (hl #:: tl, _) if seen(hl.key.show)              ⇒ combine(tl, right, seen)
+        case (_, hr #:: tr) if seen(hr.key.show)              ⇒ combine(left, tr, seen)
+        case (hl #:: tl, hr #:: _) if ordering.lt(hl, hr)     ⇒ hl #:: combine(tl, right, seen + hl.key.show)
+        case (hl #:: _, hr #:: tr) if ordering.gt(hl, hr)     ⇒ hr #:: combine(left, tr, seen + hr.key.show)
+        case (hl #:: tl, hr #:: tr) if ordering.equiv(hl, hr) ⇒ hr #:: combine(tl, tr, seen + hr.key.show)
+        case (Stream.Empty, _)                                ⇒ right
+        case (_, Stream.Empty)                                ⇒ left
+      }
+
+      // Combine stream, taking closer nodes first
+      combine(siblingsStream, bucketsStream)
+    }
+
+}
 
 object RoutingTable {
 
@@ -28,16 +83,12 @@ object RoutingTable {
 
   implicit def show[C](implicit bs: Show[Bucket[C]], ks: Show[Key]): Show[RoutingTable[C]] =
     rt ⇒ s"RoutingTable(${ks.show(rt.nodeId)})" +
-      rt.buckets.zipWithIndex.filter(_._1.nonEmpty).map {
-        case (b, i) ⇒ s"$i(${Integer.toBinaryString(i)}):${bs.show(b)}"
-      }.mkString(":\n", "\n", "") + rt.siblings.show
+      rt.siblings.show
 
-  def apply[C](nodeId: Key, maxBucketSize: Int, maxSiblings: Int) =
+  def apply[C](nodeId: Key, maxSiblings: Int) =
     new RoutingTable(
       nodeId,
-      Vector.fill(Key.BitLength)(Bucket[C](maxBucketSize)),
-      Siblings[C](nodeId, maxSiblings),
-      initialized = false
+      Siblings[C](nodeId, maxSiblings)
     )
 
   /**
@@ -59,25 +110,22 @@ object RoutingTable {
    * @tparam F StateT effect
    * @return
    */
-  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration)(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], Unit] =
+  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration)(
+    implicit ME: MonadError[F, Throwable],
+    B: Bucket.WriteOps[F, C]): StateT[F, RoutingTable[C], Unit] =
     table[F, C].flatMap { rt ⇒
       if (rt.nodeId === node.key) StateT.pure(())
       else {
-        val idx = (node.key |+| rt.nodeId).zerosPrefixLen
 
-        val bucket = rt.buckets(idx)
 
         for {
           // Update bucket, performing ping if necessary
-          updatedBucketUnit ← StateT.lift(
-            Bucket
-              .update[F, C](node, rpc, pingTimeout)
-              .run(bucket)
+          _ ← StateT.lift[F, RoutingTable[C], Boolean](
+            B.update((node.key |+| rt.nodeId).zerosPrefixLen, node, rpc, pingTimeout)
           )
 
           // Save updated bucket to routing table
           _ ← StateT.set(rt.copy(
-            buckets = rt.buckets.updated(idx, updatedBucketUnit._1),
             siblings = rt.siblings.add(node)
           ))
         } yield ()
@@ -90,7 +138,7 @@ object RoutingTable {
     rpc:         C ⇒ KademliaRPC[F, C],
     pingTimeout: Duration,
     checked:     List[Node[C]]         = Nil
-  )(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], List[Node[C]]] =
+  )(implicit ME: MonadError[F, Throwable], BW: Bucket.WriteOps[F, C]): StateT[F, RoutingTable[C], List[Node[C]]] =
     pending match {
       case a :: tail ⇒
         update(a, rpc, pingTimeout).flatMap(_ ⇒
@@ -99,90 +147,6 @@ object RoutingTable {
 
       case Nil ⇒
         StateT.pure(checked)
-    }
-
-  /**
-   * Tries to route a key to a Contact, if it's known locally
-   *
-   * @param key Key to lookup
-   * @tparam F StateT effect
-   * @return
-   */
-  def find[F[_]: Monad, C](key: Key): StateT[F, RoutingTable[C], Option[Node[C]]] =
-    table[F, C].flatMap { rt ⇒
-      if (rt.nodeId === key) StateT lift Option.empty[Node[C]].pure[F]
-      else {
-        // Lookup sibling, then buckets if nothing found
-        findSibling(key).flatMapF {
-          case r if r.isDefined ⇒ r.pure[F]
-          case _ ⇒
-            val idx = (key |+| rt.nodeId).zerosPrefixLen
-            Bucket.find[F, C](key).run(rt.buckets(idx)).map(_._2)
-        }
-      }
-    }
-
-  /**
-   * Tries to find a local sibling of this node
-   *
-   * @param key Key to lookup
-   * @tparam F StateT effect
-   * @return
-   */
-  def findSibling[F[_]: Monad, C](key: Key): StateT[F, RoutingTable[C], Option[Node[C]]] =
-    table[F, C].map(_.siblings.find(key))
-
-  /**
-   * Performs local lookup for the key, returning a stream of closest known nodes to it
-   *
-   * @param key Key to lookup
-   * @tparam F StateT effect
-   * @return
-   */
-  def lookup[F[_]: Monad, C](key: Key): StateT[F, RoutingTable[C], Stream[Node[C]]] =
-    table[F, C].flatMap { rt ⇒
-
-      implicit val ordering: Ordering[Node[C]] = Node.relativeOrdering(key)
-
-      // Build stream of neighbors, taken from buckets
-      val bucketsStream = {
-        // Base index: nodes as far from this one as the target key is
-        val idx = (rt.nodeId |+| key).zerosPrefixLen
-
-        // Diverging stream of indices, going left (far from current node) then right (closer), like 5 4 6 3 7 ...
-        Stream(idx)
-          .filter(_ < Key.BitLength) // In case current node is given, this will remove IndexOutOfBoundsException
-          .append(Stream.from(1).takeWhile(i ⇒ idx + i < Key.BitLength || idx - i >= 0).flatMap { i ⇒
-            (if (idx - i >= 0) Stream(idx - i) else Stream.empty) append
-              (if (idx + i < Key.BitLength) Stream(idx + i) else Stream.empty)
-          })
-          .flatMap(
-            // Take contacts from the bucket, and sort them
-            rt.buckets(_)
-              .nodes
-              .sorted
-              .toStream
-          )
-      }
-
-      // Stream of neighbors, taken from siblings
-      val siblingsStream =
-        rt.siblings.nodes.toStream.sorted
-
-      def combine(left: Stream[Node[C]], right: Stream[Node[C]], seen: Set[String] = Set.empty): Stream[Node[C]] = (left, right) match {
-        case (hl #:: tl, _) if seen(hl.key.show)              ⇒ combine(tl, right, seen)
-        case (_, hr #:: tr) if seen(hr.key.show)              ⇒ combine(left, tr, seen)
-        case (hl #:: tl, hr #:: _) if ordering.lt(hl, hr)     ⇒ hl #:: combine(tl, right, seen + hl.key.show)
-        case (hl #:: _, hr #:: tr) if ordering.gt(hl, hr)     ⇒ hr #:: combine(left, tr, seen + hr.key.show)
-        case (hl #:: tl, hr #:: tr) if ordering.equiv(hl, hr) ⇒ hr #:: combine(tl, tr, seen + hr.key.show)
-        case (Stream.Empty, _)                                ⇒ right
-        case (_, Stream.Empty)                                ⇒ left
-      }
-
-      // Combine stream, taking closer nodes first
-      val combined = combine(siblingsStream, bucketsStream)
-
-      StateT pure combined
     }
 
   /**
@@ -230,7 +194,7 @@ object RoutingTable {
 
     pingTimeout: Duration
 
-  )(implicit ME: MonadError[F, Throwable], sk: Show[Key]): StateT[F, RoutingTable[C], Seq[Node[C]]] = {
+  )(implicit ME: MonadError[F, Throwable], BW: Bucket.WriteOps[F, C], sk: Show[Key]): StateT[F, RoutingTable[C], Seq[Node[C]]] = {
     // Import for Traverse
     import cats.instances.list._
 
@@ -289,7 +253,7 @@ object RoutingTable {
       val shortlistEmpty = SortedSet.empty[Node[C]]
 
       // Perform local lookup
-      val (_, closestSeq0) = lookup[Id, C](key).run(rt)
+      val closestSeq0 = rt.lookup(key)
       val closest = closestSeq0.take(parallelism)
 
       // We perform lookup on $parallelism disjoint paths
@@ -309,7 +273,8 @@ object RoutingTable {
    * @tparam C Type for node contact data
    * @return
    */
-  def join[F[_], C](peers: Seq[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration, numberOfNodes: Int)(implicit ME: MonadError[F, Throwable]): StateT[F, RoutingTable[C], Unit] =
+  def join[F[_], C](peers: Seq[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration, numberOfNodes: Int)
+                   (implicit ME: MonadError[F, Throwable], BW: Bucket.WriteOps[F, C]): StateT[F, RoutingTable[C], Unit] =
     table[F, C].flatMap { rt ⇒
       // Hint for IDEA
       type G[A] = StateT[F, RoutingTable[C], A]
@@ -346,7 +311,7 @@ object RoutingTable {
       }
     }.map(_.flatten.nonEmpty).flatMap{
       case true ⇒ // At least joined to a single node
-        StateT.modify[F, RoutingTable[C]](_.copy(initialized = true))
+        StateT.pure(().pure[F])
       case false ⇒ // Can't join to any node
         StateT.lift(ME.raiseError[Unit](new RuntimeException("Can't join any node among known peers")))
     }

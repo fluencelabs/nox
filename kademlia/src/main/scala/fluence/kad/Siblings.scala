@@ -1,9 +1,9 @@
 package fluence.kad
 
 import cats.Show
+import cats.syntax.eq._
 
 import scala.collection.SortedSet
-import cats.syntax.eq._
 
 case class Siblings[C] private (nodes: SortedSet[Node[C]], maxSize: Int) {
 

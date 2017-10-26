@@ -3,11 +3,11 @@ package fluence.kad
 import java.time.Instant
 
 import cats.Id
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 import cats.instances.try_._
 
 import scala.concurrent.duration._
-import scala.util.{ Failure, Success, Try }
+import scala.util.{Failure, Success, Try}
 
 class BucketSpec extends WordSpec with Matchers {
 

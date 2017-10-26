@@ -1,10 +1,9 @@
 package fluence.kad
 
-import cats.{ Id, MonadError }
+import cats.MonadError
 import cats.data.StateT
 import cats.syntax.applicative._
 import cats.syntax.functor._
-import cats.syntax.flatMap._
 import cats.syntax.eq._
 
 import scala.concurrent.duration.Duration
@@ -23,7 +22,7 @@ abstract class Kademlia[F[_], C](
     val Alpha:       Int,
     val K:           Int,
     val pingTimeout: Duration
-)(implicit ME: MonadError[F, Throwable]) {
+)(implicit ME: MonadError[F, Throwable], B: Bucket.WriteOps[F, C]) {
   self ⇒
 
   val key: Key
@@ -64,10 +63,9 @@ abstract class Kademlia[F[_], C](
    * @return
    */
   def update(node: Node[C]): F[Unit] =
-    read(_.initialized).flatMap {
-      case true if node.key =!= key ⇒
-        run(RoutingTable.update(node, rpc, pingTimeout), "update")
-      case _ ⇒
+    if(node.key =!= key) {
+      run(RoutingTable.update(node, rpc, pingTimeout), "update")
+    } else {
         ().pure[F]
     }
 
@@ -90,9 +88,7 @@ abstract class Kademlia[F[_], C](
      * @return
      */
     override def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
-      for {
-        nodes ← read(rt ⇒ RoutingTable.lookup[Id, C](key).run(rt)._2)
-      } yield nodes.take(numberOfNodes)
+      read(_.lookup(key)).map(_.take(numberOfNodes))
 
     /**
      * Perform iterative lookup
@@ -100,12 +96,7 @@ abstract class Kademlia[F[_], C](
      * @return
      */
     override def lookupIterative(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
-      read(_.initialized).flatMap {
-        case true ⇒
           run(RoutingTable.lookupIterative[F, C](key, numberOfNodes, Alpha, rpc, pingTimeout), "lookup iterative")
-        case false ⇒
-          Seq.empty[Node[C]].pure[F]
-      }
   }
 
   /**
