@@ -49,6 +49,7 @@ val grpc = Seq(
     "com.trueaccord.scalapb" %% "scalapb-runtime-grpc" % com.trueaccord.scalapb.compiler.Version.scalapbVersion
   )
 )
+val chill = "com.twitter" %% "chill" % "0.9.2"
 
 lazy val `fluence` = project.in(file("."))
   .settings(
@@ -123,6 +124,7 @@ lazy val `b-tree` = project.in(file("b-tree"))
       typeSafeConfig,
       ficus,
       monix3,
+      chill,
       scalatest
     )
   ).dependsOn(`storage`, `crypto`).aggregate(`storage`, `crypto`)
