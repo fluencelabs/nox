@@ -1,4 +1,4 @@
-package fluence.btree.crypto
+package fluence.crypto
 
 /**
  * No operation implementation. Do nothing, just return the same value.

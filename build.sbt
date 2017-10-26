@@ -62,6 +62,7 @@ lazy val `fluence` = project.in(file("."))
     `network`,
     `storage`,
     `b-tree`,
+    `crypto`
   )
 
 lazy val `hack` = project.in(file("hack"))
@@ -124,4 +125,13 @@ lazy val `b-tree` = project.in(file("b-tree"))
       monix3,
       scalatest
     )
-  ).dependsOn(`storage`).aggregate(`storage`)
+  ).dependsOn(`storage`, `crypto`).aggregate(`storage`, `crypto`)
+
+lazy val `crypto` = project.in(file("crypto"))
+  .settings(
+    scalaV,
+    scalariformPrefs,
+    libraryDependencies ++= Seq(
+      scalatest
+    )
+  )

@@ -1,4 +1,4 @@
-package fluence.btree.hash
+package fluence.hash
 
 import java.security.MessageDigest
 import JdkCryptoHash._
