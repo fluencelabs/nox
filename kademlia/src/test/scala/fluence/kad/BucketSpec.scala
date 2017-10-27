@@ -2,12 +2,11 @@ package fluence.kad
 
 import java.time.Instant
 
-import cats.Id
+import cats.data.StateT
 import org.scalatest.{Matchers, WordSpec}
-import cats.instances.try_._
+import monix.eval.Coeval
 
 import scala.concurrent.duration._
-import scala.util.{Failure, Success, Try}
 
 class BucketSpec extends WordSpec with Matchers {
 
@@ -15,23 +14,38 @@ class BucketSpec extends WordSpec with Matchers {
 
     val pingDuration = Duration.Undefined
 
+    type C = Int
+    type F[A] = StateT[Coeval, Bucket[C], A]
+
+    implicit class BucketOps(state: Bucket[C]) extends Bucket.WriteOps[F, C] {
+      override protected def run[T](bucketId: Int, mod: StateT[F, Bucket[C], T]): F[T] =
+          mod.run(state).flatMap{
+            case (s, v) =>
+              StateT.set[Coeval, Bucket[C]](s).map(_ => v)
+          }
+
+      override def read(bucketId: Int): Bucket[C] =
+        state
+    }
+
+
     "update contacts" in {
 
-      val b0 = Bucket[Byte](2)
+      val b0 = Bucket[C](2)
       val k0 = Key(Array.fill(Key.Length)(1: Byte))
       val k1 = Key(Array.fill(Key.Length)(2: Byte))
       val k2 = Key(Array.fill(Key.Length)(3: Byte))
 
-      val failRPC = (_: Byte) ⇒ new KademliaRPC[Try, Byte] {
-        override def ping() = Failure(new NoSuchElementException)
+      val failRPC = (_: C) ⇒ new KademliaRPC[F, C] {
+        override def ping() = StateT.lift(Coeval.raiseError(new NoSuchElementException))
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
 
         override def lookupIterative(key: Key, numberOfNodes: Int) = ???
       }
 
-      val successRPC = (c: Byte) ⇒ new KademliaRPC[Try, Byte] {
-        override def ping() = Success(Node(Key(Array.fill(Key.Length)(c)), Instant.now(), c))
+      val successRPC = (c: C) ⇒ new KademliaRPC[F, C] {
+        override def ping() = StateT.lift(Coeval(Node(Key(Array.fill(Key.Length)(c.toByte)), Instant.now(), c)))
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
 
@@ -39,32 +53,32 @@ class BucketSpec extends WordSpec with Matchers {
       }
 
       // By default, bucket is empty
-      Bucket.find[Id, Byte](k0).run(b0)._2 should be('empty)
+      b0.find(k0) should be('empty)
 
       // Adding one contact, bucket should save it
-      val Success((b1, _)) = Bucket.update[Try, Byte](Node(k0, Instant.now(), 1), failRPC, pingDuration).run(b0)
+      val (b1, true) = b0.update(0, Node[C](k0, Instant.now(), 1), failRPC, pingDuration).run(b0).value
 
-      Bucket.find[Id, Byte](k0).run(b1)._2 should be('defined)
+      b1.find(k0) should be('defined)
 
       // Adding second contact, bucket should save it
-      val Success((b2, _)) = Bucket.update[Try, Byte](Node(k1, Instant.now(), 2), failRPC, pingDuration).run(b1)
+      val (b2, true) = b1.update(0, Node(k1, Instant.now(), 2), failRPC, pingDuration).run(b1).value
 
-      Bucket.find[Id, Byte](k0).run(b2)._2 should be('defined)
-      Bucket.find[Id, Byte](k1).run(b2)._2 should be('defined)
+      b2.find(k0) should be('defined)
+      b2.find(k1) should be('defined)
 
       // Adding third contact, bucket is full, so if the least recent item is not responding, drop it
-      val Success((b3, _)) = Bucket.update[Try, Byte](Node(k2, Instant.now(), 3), failRPC, pingDuration).run(b2)
+      val (b3, true) = b2.update(0, Node(k2, Instant.now(), 3), failRPC, pingDuration).run(b2).value
 
-      Bucket.find[Id, Byte](k0).run(b3)._2 should be('empty)
-      Bucket.find[Id, Byte](k1).run(b3)._2 should be('defined)
-      Bucket.find[Id, Byte](k2).run(b3)._2 should be('defined)
+      b3.find(k0) should be('empty)
+      b3.find(k1) should be('defined)
+      b3.find(k2) should be('defined)
 
       // Adding third contact, bucket is full, so if the least recent item is responding, drop the new contact
-      val Success((b4, _)) = Bucket.update[Try, Byte](Node(k2, Instant.now(), 3), successRPC, pingDuration).run(b2)
+      val (b4, false) = b2.update(0, Node(k2, Instant.now(), 3), successRPC, pingDuration).run(b2).value
 
-      Bucket.find[Id, Byte](k0).run(b4)._2 should be('defined)
-      Bucket.find[Id, Byte](k1).run(b4)._2 should be('defined)
-      Bucket.find[Id, Byte](k2).run(b4)._2 should be('empty)
+      b4.find(k0) should be('defined)
+      b4.find(k1) should be('defined)
+      b4.find(k2) should be('empty)
     }
 
   }

@@ -1,9 +1,12 @@
 package fluence.kad
 
-import cats.Show
+import cats.{Applicative, Show}
+import cats.data.StateT
 import cats.syntax.eq._
+import cats.syntax.functor._
 
 import scala.collection.SortedSet
+import scala.language.higherKinds
 
 case class Siblings[C] private (nodes: SortedSet[Node[C]], maxSize: Int) {
 
@@ -30,5 +33,16 @@ object Siblings {
   def apply[C](nodeId: Key, maxSize: Int): Siblings[C] = {
     implicit val ordering: Ordering[Node[C]] = Node.relativeOrdering(nodeId)
     new Siblings[C](SortedSet.empty, maxSize)
+  }
+
+  trait ReadOps[C] {
+    def read: Siblings[C]
+  }
+
+  trait WriteOps[F[_], C] extends ReadOps[C] {
+    protected def run[T](mod: StateT[F, Siblings[C], T]): F[T]
+
+    def add(node: Node[C])(implicit F: Applicative[F]): F[Boolean] =
+      run(StateT.modify(identity)).map(_ => read.contains(node.key))
   }
 }
