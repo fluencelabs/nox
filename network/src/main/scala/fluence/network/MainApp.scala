@@ -34,7 +34,7 @@ object MainApp extends App {
     .add(KademliaClient.register(header))
     .build
 
-  val kad = new KademliaService(key, serverBuilder.contact, KademliaClient(client), k = 16)
+  val kad = new KademliaService(key, serverBuilder.contact, KademliaClient(client), k = 16, parallelism = 3, pingTimeout = 1.second)
 
   val server = serverBuilder
     .add(KademliaGrpc.bindService(new KademliaServerImpl(kad), global))
@@ -54,7 +54,7 @@ object MainApp extends App {
       case "j" | "join" ⇒
         println("join port?")
         val p = StdIn.readInt()
-        kad.join(Seq(Contact(InetAddress.getLocalHost, p))).runAsync.onComplete{
+        kad.join(Seq(Contact(InetAddress.getLocalHost, p)), 16).runAsync.onComplete{
           case Success(_) ⇒ println("ok")
           case Failure(e) ⇒
             println(e)

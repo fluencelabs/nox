@@ -27,7 +27,7 @@ class KademliaServerImpl(kad: Kademlia[Task, Contact])(implicit sc: Scheduler) e
       .map(_.id)
       .filter(_.size() == Key.Length)
       .map(bs ⇒ Key(bs.toByteArray))
-      .exists(_ === kad.key)
+      .exists(_ === kad.nodeId)
 
   private def runIfNotSelf[T](optHeader: Option[Header], task: Task[T]): Future[T] =
     if (isFromSelf(optHeader)) {
@@ -49,12 +49,12 @@ class KademliaServerImpl(kad: Kademlia[Task, Contact])(implicit sc: Scheduler) e
         InetAddress.getByAddress(n.ip.toByteArray),
         n.port
       )
-    )).fold(Task.unit)(kad.update).runAsync
+    )).fold(Task.now(false))(kad.update).runAsync
   }
 
   override def ping(request: PingRequest): Future[Node] =
     {
-      log.info(s"${kad.key} / Incoming ping: from {}", request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
+      log.info(s"${kad.nodeId} / Incoming ping: from {}", request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
 
       runIfNotSelf(
         request.header,
@@ -73,7 +73,7 @@ class KademliaServerImpl(kad: Kademlia[Task, Contact])(implicit sc: Scheduler) e
 
   override def lookup(request: LookupRequest): Future[NodesResponse] =
     {
-      log.info(s"${kad.key} / Incoming lookup: for {}, from {}", Key(request.key.toByteArray), request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
+      log.info(s"${kad.nodeId} / Incoming lookup: for {}, from {}", Key(request.key.toByteArray), request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
 
       runIfNotSelf(
         request.header,
@@ -93,7 +93,7 @@ class KademliaServerImpl(kad: Kademlia[Task, Contact])(implicit sc: Scheduler) e
 
   override def lookupIterative(request: LookupRequest): Future[NodesResponse] =
     {
-      log.info(s"${kad.key} / Incoming lookup iterative: for {}, from {}", Key(request.key.toByteArray), request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
+      log.info(s"${kad.nodeId} / Incoming lookup iterative: for {}, from {}", Key(request.key.toByteArray), request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
 
       runIfNotSelf(
         request.header,
