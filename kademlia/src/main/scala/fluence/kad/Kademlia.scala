@@ -12,18 +12,16 @@ import scala.language.higherKinds
 
 /**
  * Kademlia interface for current node and all Kademlia-related RPC calls, both incoming and outgoing
- * @param Alpha Parallelism factor
- * @param K Max size of bucket, max size of siblings, number of lookup results returned
+ * @param parallelism Parallelism factor (named Alpha in paper)
  * @param pingTimeout Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
  * @param ME Monad error
  * @tparam F Effect
  * @tparam C Contact info
  */
 abstract class Kademlia[F[_], C](
-                                val nodeId: Key,
-    val Alpha:       Int,
-    val K:           Int,
-    val pingTimeout: Duration
+                                  val nodeId: Key,
+                                  parallelism:       Int,
+                                  val pingTimeout: Duration
 )(implicit ME: MonadError[F, Throwable], BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F,C]) {
   self ⇒
 
@@ -75,7 +73,7 @@ abstract class Kademlia[F[_], C](
      * @return
      */
     override def lookupIterative(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
-      nodeId.lookupIterative(key, numberOfNodes, Alpha, rpc, pingTimeout)
+      nodeId.lookupIterative(key, numberOfNodes, parallelism, rpc, pingTimeout)
   }
 
   /**
@@ -83,6 +81,6 @@ abstract class Kademlia[F[_], C](
    * @param peers Peers contact info
    * @return
    */
-  def join(peers: Seq[C]): F[Unit] =
-    nodeId.join(peers, rpc, pingTimeout, K)
+  def join(peers: Seq[C], numberOfNodes: Int): F[Unit] =
+    nodeId.join(peers, rpc, pingTimeout, numberOfNodes)
 }

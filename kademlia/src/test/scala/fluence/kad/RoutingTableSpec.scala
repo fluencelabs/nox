@@ -3,18 +3,15 @@ package fluence.kad
 import java.nio.ByteBuffer
 import java.time.Instant
 
-import cats.Id
 import cats.data.StateT
-import cats.kernel.Monoid
-import cats.instances.try_._
+import fluence.kad.RoutingTable._
 import monix.eval.Coeval
 import monix.execution.atomic.Atomic
 import org.scalatest.{Matchers, WordSpec}
-import RoutingTable._
+
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
 import scala.language.implicitConversions
-import scala.util.{Failure, Success, Try}
 
 class RoutingTableSpec extends WordSpec with Matchers {
   implicit def key(i: Long): Key = Key(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
@@ -31,6 +28,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
   }
 
   private val pingDuration = Duration.Undefined
+
   private def now = Instant.now()
 
   "kademlia routing table (non-iterative)" should {
@@ -64,6 +62,9 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
         override def read(bucketId: Int) =
           buckets.getOrElseUpdate(bucketId, Bucket(maxBucketSize))
+
+        override def toString: String =
+          buckets.toString()
       }
 
     def siblingsOps(nodeId: Key, maxSiblingsSize: Int): Siblings.WriteOps[Coeval, Long] =
@@ -79,6 +80,9 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
         override def read =
           state.get
+
+        override def toString: String =
+          state.get.toString
       }
 
     "not fail when requesting its own key" in {
@@ -97,19 +101,28 @@ class RoutingTableSpec extends WordSpec with Matchers {
       implicit val so = siblingsOps(nodeId, 2)
 
       (1l to 5l).foreach { i =>
-        nodeId.update(Node(i, now, i), failLocalRPC, pingDuration)
-          (1l to i).foreach { n ⇒
-            nodeId.find(n) should be('defined)
-          }
+        nodeId.update(Node(i, now, i), failLocalRPC, pingDuration).run
+        (1l to i).foreach { n ⇒
+          nodeId.find(n) should be('defined)
+        }
       }
-
-      nodeId.update(Node(6l, now, 6l), successLocalRPC, pingDuration).value shouldBe true
 
       nodeId.find(4l) should be('defined)
 
-      nodeId.update(Node(6l, now, 6l), failLocalRPC, pingDuration)
+      nodeId.update(Node(6l, now, 6l), failLocalRPC, pingDuration).value shouldBe true
 
       nodeId.find(4l) should be('empty)
+      nodeId.find(6l) should be('defined)
+
+      nodeId.update(Node(4l, now, 4l), successLocalRPC, pingDuration).value shouldBe false
+
+      nodeId.find(4l) should be('empty)
+      nodeId.find(6l) should be('defined)
+
+      nodeId.update(Node(4l, now, 4l), failLocalRPC, pingDuration).value shouldBe true
+
+      nodeId.find(4l) should be('defined)
+      nodeId.find(6l) should be('empty)
 
       so.read.nodes.toList.map(_.contact) shouldBe List(1l, 2l)
 
@@ -118,11 +131,11 @@ class RoutingTableSpec extends WordSpec with Matchers {
     "lookup nodes correctly" in {
       val nodeId: Key = 0l
       implicit val bo = bucketOps(2)
-      implicit val so = siblingsOps(nodeId, 2)
+      implicit val so = siblingsOps(nodeId, 10)
 
       (1l to 10l).foreach {
         i ⇒
-          nodeId.update(Node(i, now, i), successLocalRPC, pingDuration)
+          nodeId.update(Node(i, now, i), successLocalRPC, pingDuration).run
       }
 
       val nbs10 = nodeId.lookup(100l)
@@ -130,7 +143,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
       (1l to 127l).foreach {
         i ⇒
-          nodeId.update(Node(i, now, i), successLocalRPC, pingDuration)
+          nodeId.update(Node(i, now, i), successLocalRPC, pingDuration).run
       }
 
       (1l to 127l).foreach { i ⇒

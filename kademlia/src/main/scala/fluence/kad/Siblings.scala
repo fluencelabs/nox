@@ -43,6 +43,6 @@ object Siblings {
     protected def run[T](mod: StateT[F, Siblings[C], T]): F[T]
 
     def add(node: Node[C])(implicit F: Applicative[F]): F[Boolean] =
-      run(StateT.modify(identity)).map(_ => read.contains(node.key))
+      run(StateT.modify(_.add(node))).map(_ => read.contains(node.key))
   }
 }

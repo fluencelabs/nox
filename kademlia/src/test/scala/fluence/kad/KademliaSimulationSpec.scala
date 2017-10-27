@@ -5,10 +5,10 @@ import java.time.Instant
 
 import cats.Show
 import cats.data.StateT
-import org.scalatest.{Matchers, WordSpec}
 import cats.syntax.show._
 import monix.eval.Coeval
 import monix.execution.atomic.Atomic
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
@@ -63,38 +63,38 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
   private def now = Instant.now()
 
   /**
-   * In general, Kademlia network can't work correctly with a single thread, in blocking fashion.
-   * It's possible that node A pings B, B pings A in return, A pings B and so on until stack overflows.
-   */
-  class KademliaCoeval(nodeId: Key, alpha: Int, k: Int, getKademlia: Long ⇒ Kademlia[Coeval, Long])(implicit BW: Bucket.WriteOps[Coeval, Long], SW: Siblings.WriteOps[Coeval, Long]) extends Kademlia[Coeval, Long](nodeId, alpha, k, pingDuration) {
+    * In general, Kademlia network can't work correctly with a single thread, in blocking fashion.
+    * It's possible that node A pings B, B pings A in return, A pings B and so on until stack overflows.
+    */
+  class KademliaCoeval(nodeId: Key, alpha: Int, k: Int, getKademlia: Long ⇒ Kademlia[Coeval, Long])(implicit BW: Bucket.WriteOps[Coeval, Long], SW: Siblings.WriteOps[Coeval, Long]) extends Kademlia[Coeval, Long](nodeId, alpha, pingDuration) {
     override def ownContact: Coeval[Node[Long]] = Coeval(Node[Long](nodeId, now, nodeId))
 
     override def rpc(contact: Long): KademliaRPC[Coeval, Long] = new KademliaRPC[Coeval, Long] {
       val kad = getKademlia(contact)
 
       /**
-       * Ping the contact, get its actual Node status, or fail
-       *
-       * @return
-       */
+        * Ping the contact, get its actual Node status, or fail
+        *
+        * @return
+        */
       override def ping() =
         kad.update(ownContact.value).flatMap(_ ⇒ kad.handleRPC.ping())
 
       /**
-       * Perform a local lookup for a key, return K closest known nodes
-       *
-       * @param key Key to lookup
-       * @return
-       */
+        * Perform a local lookup for a key, return K closest known nodes
+        *
+        * @param key Key to lookup
+        * @return
+        */
       override def lookup(key: Key, numberOfNodes: Int) =
         kad.update(ownContact.value).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes))
 
       /**
-       * Perform an iterative lookup for a key, return K closest known nodes
-       *
-       * @param key Key to lookup
-       * @return
-       */
+        * Perform an iterative lookup for a key, return K closest known nodes
+        *
+        * @param key Key to lookup
+        * @return
+        */
       override def lookupIterative(key: Key, numberOfNodes: Int) =
         kad.update(ownContact.value).flatMap(_ ⇒ kad.handleRPC.lookupIterative(key, numberOfNodes))
 
@@ -122,17 +122,17 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
       val peers = nodes.keys.take(2).toSeq
 
-      nodes.values.foreach(_.join(peers))
+      nodes.values.foreach(_.join(peers, K).run)
 
       random.shuffle(nodes).take(P).foreach {
         case (i, ki) ⇒
           random.shuffle(nodes.values).take(P).foreach { kj ⇒
 
-              val neighbors = kj.handleRPC.lookupIterative(i, K).value
+            val neighbors = kj.handleRPC.lookupIterative(i, K).value
 
-              neighbors.size shouldBe (K min N)
-              neighbors.map(_.contact) should contain(i)
-            }
+            neighbors.size shouldBe (K min N)
+            neighbors.map(_.contact) should contain(i)
+          }
       }
     }
   }
