@@ -8,7 +8,7 @@ import org.objenesis.strategy.StdInstantiatorStrategy
  * This class required for [[com.twitter.chill.KryoPool]].
  * @param classesToReg additional classes for registration
  */
-case class StrictKryoInstantiator(classesToReg: Seq[Class[_]], registerRequired: Boolean) extends KryoInstantiator {
+case class KryoFactory(classesToReg: Seq[Class[_]], registerRequired: Boolean) extends KryoInstantiator {
 
   override def newKryo(): KryoBase = {
     val kryo = new KryoBase()

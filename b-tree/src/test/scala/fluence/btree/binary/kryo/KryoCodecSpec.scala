@@ -10,7 +10,7 @@ class KryoCodecSpec extends WordSpec with Matchers {
   "encode" should {
     "fail" when {
       "param in registered" in {
-        val codec = KryoCodec(Nil)
+        val codec = KryoCodec(Nil, registerRequired = true)
 
         assertThrows[Throwable] {
           codec.encode(testClass)

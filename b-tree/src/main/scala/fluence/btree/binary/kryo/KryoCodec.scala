@@ -28,11 +28,11 @@ object KryoCodec {
   }
 
   private def newKryoPool(
-    register: Seq[Class[_]],
+    registerClasses:  Seq[Class[_]],
     registerRequired: Boolean,
-    poolSize: Int = Runtime.getRuntime.availableProcessors
+    poolSize:         Int           = Runtime.getRuntime.availableProcessors
   ): KryoPool = {
-    KryoPool.withByteArrayOutputStream(poolSize, StrictKryoInstantiator(register, registerRequired))
+    KryoPool.withByteArrayOutputStream(poolSize, KryoFactory(registerClasses, registerRequired))
   }
 
 }
