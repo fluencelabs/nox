@@ -20,18 +20,24 @@ class KryoCodecSpec extends WordSpec with Matchers {
   }
 
   "encode and decode" should {
-    "be inverse functions" in {
+    "be inverse functions" when {
+      "object defined" in {
+        val codec = KryoCodec(Seq(classOf[TestClass], classOf[Array[Byte]], classOf[Array[Array[Byte]]]))
 
-      val codec = KryoCodec(Seq(classOf[TestClass], classOf[Array[Byte]], classOf[Array[Array[Byte]]]))
+        val result: TestClass = codec.decode[TestClass](codec.encode(testClass))
 
-      val result = codec.decode(codec.encode(testClass))
+        result shouldBe a[TestClass]
+        val r = result.asInstanceOf[TestClass]
+        r.str shouldBe "one"
+        r.num shouldBe 2
+        r.blob should contain theSameElementsAs testBlob
+      }
 
-      result shouldBe a[TestClass]
-      val r = result.asInstanceOf[TestClass]
-      r.str shouldBe "one"
-      r.num shouldBe 2
-      r.blob should contain theSameElementsAs testBlob
-
+      "object is null" in {
+        val codec = KryoCodec(Seq(classOf[TestClass], classOf[Array[Byte]], classOf[Array[Array[Byte]]]))
+        val result: TestClass = codec.decode[TestClass](codec.encode(null))
+        result shouldBe null
+      }
     }
   }
 

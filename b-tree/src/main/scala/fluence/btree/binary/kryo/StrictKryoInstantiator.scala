@@ -8,11 +8,11 @@ import org.objenesis.strategy.StdInstantiatorStrategy
  * This class required for [[com.twitter.chill.KryoPool]].
  * @param classesToReg additional classes for registration
  */
-case class StrictKryoInstantiator(classesToReg: Seq[Class[_]]) extends KryoInstantiator {
+case class StrictKryoInstantiator(classesToReg: Seq[Class[_]], registerRequired: Boolean) extends KryoInstantiator {
 
   override def newKryo(): KryoBase = {
     val kryo = new KryoBase()
-    kryo.setRegistrationRequired(true)
+    kryo.setRegistrationRequired(registerRequired)
     kryo.setInstantiatorStrategy(new StdInstantiatorStrategy())
     new AllScalaRegistrar()(kryo)
     // in future will be able to create specific fast serializer for each class
