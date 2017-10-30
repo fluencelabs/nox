@@ -15,8 +15,6 @@ import cats.syntax.monoid._
 final case class Key(id: Array[Byte]) extends AnyVal {
   /**
    * Number of leading zeros
-   *
-   * @return
    */
   def zerosPrefixLen: Int = {
     val idx = id.indexWhere(_ != 0)

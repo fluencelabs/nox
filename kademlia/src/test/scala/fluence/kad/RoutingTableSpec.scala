@@ -7,7 +7,7 @@ import cats.data.StateT
 import fluence.kad.RoutingTable._
 import monix.eval.Coeval
 import monix.execution.atomic.Atomic
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
@@ -55,7 +55,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
         override protected def run[T](bucketId: Int, mod: StateT[Coeval, Bucket[Long], T]) =
           mod.run(read(bucketId)).map {
-            case (b, v) =>
+            case (b, v) ⇒
               buckets(bucketId) = b
               v
           }
@@ -73,7 +73,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
         override protected def run[T](mod: StateT[Coeval, Siblings[Long], T]) =
           mod.run(read).map {
-            case (s, v) =>
+            case (s, v) ⇒
               state.set(s)
               v
           }
@@ -100,7 +100,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       implicit val bo = bucketOps(2)
       implicit val so = siblingsOps(nodeId, 2)
 
-      (1l to 5l).foreach { i =>
+      (1l to 5l).foreach { i ⇒
         nodeId.update(Node(i, now, i), failLocalRPC, pingDuration).run
         (1l to i).foreach { n ⇒
           nodeId.find(n) should be('defined)

@@ -3,7 +3,7 @@ package fluence.kad
 import java.time.Instant
 
 import cats.data.StateT
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 import monix.eval.Coeval
 
 import scala.concurrent.duration._
@@ -19,15 +19,14 @@ class BucketSpec extends WordSpec with Matchers {
 
     implicit class BucketOps(state: Bucket[C]) extends Bucket.WriteOps[F, C] {
       override protected def run[T](bucketId: Int, mod: StateT[F, Bucket[C], T]): F[T] =
-          mod.run(state).flatMap{
-            case (s, v) =>
-              StateT.set[Coeval, Bucket[C]](s).map(_ => v)
-          }
+        mod.run(state).flatMap{
+          case (s, v) ⇒
+            StateT.set[Coeval, Bucket[C]](s).map(_ ⇒ v)
+        }
 
       override def read(bucketId: Int): Bucket[C] =
         state
     }
-
 
     "update contacts" in {
 

@@ -4,27 +4,37 @@ import java.time.Instant
 
 import cats.data.StateT
 import fluence.kad._
-import fluence.network.Contact
-import fluence.network.client.KademliaClient
 import monix.eval.instances.ApplicativeStrategy
-import monix.eval.{MVar, Task, TaskSemaphore}
+import monix.eval.{ MVar, Task }
 import monix.execution.atomic.AtomicAny
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
-class KademliaService(
-    nodeId: Key,
-    contact:          Task[Contact],
-    client:           Contact ⇒ KademliaClient,
-    k:                Int,
-    parallelism:            Int            ,
-    pingTimeout:      Duration
-) extends Kademlia[Task, Contact](nodeId, parallelism, pingTimeout)(
+/**
+ * Kademlia service to be launched as a singleton on local node
+ * @param nodeId Current node ID
+ * @param contact Node's contact to advertise
+ * @param client Getter for RPC calling of another nodes
+ * @param maxSiblingsSize Maximum number of siblings to store, e.g. K * Alpha
+ * @param maxBucketSize Maximum size of a bucket, usually K
+ * @param parallelism Parallelism factor (named Alpha in paper)
+ * @param pingTimeout Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
+ * @tparam C Contact info
+ */
+class KademliaService[C](
+    nodeId:          Key,
+    contact:         Task[C],
+    client:          C ⇒ KademliaRPC[Task, C],
+    maxSiblingsSize: Int,
+    maxBucketSize:   Int,
+    parallelism:     Int,
+    pingTimeout:     Duration
+) extends Kademlia[Task, C](nodeId, parallelism, pingTimeout)(
   Task.catsInstances(ApplicativeStrategy.Parallel),
-  KademliaService.bucketOps(k),
-  KademliaService.siblingsOps(nodeId, k)
+  KademliaService.bucketOps(maxBucketSize),
+  KademliaService.siblingsOps(nodeId, maxSiblingsSize)
 ) {
   /**
    * Returns a network wrapper around a contact C, allowing querying it with Kademlia protocol
@@ -32,60 +42,82 @@ class KademliaService(
    * @param contact Description on how to connect to remote node
    * @return
    */
-  override def rpc(contact: Contact): KademliaRPC[Task, Contact] = client(contact)
+  override def rpc(contact: C): KademliaRPC[Task, C] = client(contact)
 
   /**
    * How to promote this node to others
    *
    * @return
    */
-  override def ownContact: Task[Node[Contact]] =
+  override def ownContact: Task[Node[C]] =
     contact.map(c ⇒ Node(nodeId, Instant.now(), c))
 
 }
 
 object KademliaService {
-  def bucketOps(maxBucketSize: Int): Bucket.WriteOps[Task, Contact] =
-    new Bucket.WriteOps[Task, Contact] {
-      private val writeState = TrieMap.empty[Int, MVar[Bucket[Contact]]]
-      private val readState = TrieMap.empty[Int, Bucket[Contact]]
-      private val semaphore = TrieMap.empty[Int, TaskSemaphore]
-
-      override protected def run[T](bucketId: Int, mod: StateT[Task, Bucket[Contact], T]): Task[T] =
-        semaphore.getOrElseUpdate(bucketId, TaskSemaphore(1)).greenLight(
-          for {
-            bucket <- writeState.getOrElseUpdate(bucketId, MVar(read(bucketId))).read
-            bv <- mod.run(bucket)
-            _ <- writeState(bucketId).put(bv._1)
-          } yield {
-            readState(bucketId) = bv._1
-            bv._2
-          }
-        )
-
-      override def read(bucketId: Int): Bucket[Contact] =
-        readState.getOrElseUpdate(bucketId, Bucket[Contact](maxBucketSize))
+  /**
+   * Performs atomic update on a MVar, blocking asynchronously if another update is in progress
+   *
+   * @param mvar State variable
+   * @param mod Modifier
+   * @param updateRead Callback to update read model
+   * @tparam S State
+   * @tparam T Return value
+   */
+  private def runOnMVar[S, T](mvar: MVar[S], mod: StateT[Task, S, T], updateRead: S ⇒ Unit): Task[T] =
+    mvar.take.flatMap { init ⇒
+      // Run modification
+      mod.run(init).onErrorHandleWith { err ⇒
+        // In case modification failed, write initial value back to MVar
+        mvar.put(init).flatMap(_ ⇒ Task.raiseError(err))
+      }
+    }.flatMap {
+      case (updated, value) ⇒
+        // Update read and write states
+        updateRead(updated)
+        mvar.put(updated).map(_ ⇒ value)
     }
 
-  def siblingsOps(nodeId: Key, maxSiblings: Int): Siblings.WriteOps[Task, Contact] =
-    new Siblings.WriteOps[Task, Contact] {
-      private val readState = AtomicAny(Siblings[Contact](nodeId, maxSiblings))
-      private val writeState = MVar(Siblings[Contact](nodeId, maxSiblings))
-      private val semaphore = TaskSemaphore(1)
+  /**
+   * Builds asynchronous bucket ops with $maxBucketSize nodes in each bucket
+   * @param maxBucketSize Max number of nodes in each bucket
+   * @tparam C Node contacts type
+   */
+  def bucketOps[C](maxBucketSize: Int): Bucket.WriteOps[Task, C] =
+    new Bucket.WriteOps[Task, C] {
+      private val writeState = TrieMap.empty[Int, MVar[Bucket[C]]]
+      private val readState = TrieMap.empty[Int, Bucket[C]]
 
-      override protected def run[T](mod: StateT[Task, Siblings[Contact], T]): Task[T] =
-        semaphore.greenLight(
-          for {
-            siblings <- writeState.read
-            sv <- mod.run(siblings)
-            _ <- writeState.put(sv._1)
-          } yield {
-            readState.set(sv._1)
-            sv._2
-          }
+      override protected def run[T](bucketId: Int, mod: StateT[Task, Bucket[C], T]): Task[T] =
+        runOnMVar(
+          writeState.getOrElseUpdate(bucketId, MVar(read(bucketId))),
+          mod,
+          readState.update(bucketId, _: Bucket[C])
         )
 
-      override def read: Siblings[Contact] =
+      override def read(bucketId: Int): Bucket[C] =
+        readState.getOrElseUpdate(bucketId, Bucket[C](maxBucketSize))
+    }
+
+  /**
+   * Builds asynchronous sibling ops with $maxSiblings nodes max
+   * @param nodeId Siblings are sorted by distance to this nodeId
+   * @param maxSiblings Max number of closest siblings to store
+   * @tparam C Node contacts type
+   */
+  def siblingsOps[C](nodeId: Key, maxSiblings: Int): Siblings.WriteOps[Task, C] =
+    new Siblings.WriteOps[Task, C] {
+      private val readState = AtomicAny(Siblings[C](nodeId, maxSiblings))
+      private val writeState = MVar(Siblings[C](nodeId, maxSiblings))
+
+      override protected def run[T](mod: StateT[Task, Siblings[C], T]): Task[T] =
+        runOnMVar(
+          writeState,
+          mod,
+          readState.set
+        )
+
+      override def read: Siblings[C] =
         readState.get
     }
 }

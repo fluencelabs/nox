@@ -34,7 +34,9 @@ object MainApp extends App {
     .add(KademliaClient.register(header))
     .build
 
-  val kad = new KademliaService(key, serverBuilder.contact, KademliaClient(client), k = 16, parallelism = 3, pingTimeout = 1.second)
+  val K = 16
+
+  val kad = new KademliaService(key, serverBuilder.contact, KademliaClient(client), maxBucketSize = K, maxSiblingsSize = K, parallelism = 3, pingTimeout = 1.second)
 
   val server = serverBuilder
     .add(KademliaGrpc.bindService(new KademliaServerImpl(kad), global))

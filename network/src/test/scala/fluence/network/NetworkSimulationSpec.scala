@@ -40,7 +40,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     private val kademliaClient = KademliaClient(client)
 
-    val kad = new KademliaService(key, serverBuilder.contact, kademliaClient, 8, 3, 1.second)
+    val kad = new KademliaService(key, serverBuilder.contact, kademliaClient, 8, 8, 3, 1.second)
 
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServerImpl(kad), global))
@@ -71,7 +71,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       }
 
       servers.foreach { s ⇒
-        servers.map(_.key).foreach { k ⇒
+        servers.map(_.key).filterNot(_ === s.key).foreach { k ⇒
           val li = s.kad.handleRPC.lookupIterative(k, 8).runAsync
             .futureValue.map(_.key)
 

@@ -1,10 +1,8 @@
 package fluence.kad
 
 import cats.MonadError
-import cats.data.StateT
 import cats.syntax.applicative._
 import cats.syntax.functor._
-import cats.syntax.eq._
 import RoutingTable._
 
 import scala.concurrent.duration.Duration
@@ -19,10 +17,10 @@ import scala.language.higherKinds
  * @tparam C Contact info
  */
 abstract class Kademlia[F[_], C](
-                                  val nodeId: Key,
-                                  parallelism:       Int,
-                                  val pingTimeout: Duration
-)(implicit ME: MonadError[F, Throwable], BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F,C]) {
+    val nodeId:      Key,
+    parallelism:     Int,
+    val pingTimeout: Duration
+)(implicit ME: MonadError[F, Throwable], BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C]) {
   self ⇒
 
   /**
@@ -44,7 +42,7 @@ abstract class Kademlia[F[_], C](
    * @return
    */
   def update(node: Node[C]): F[Boolean] =
-      nodeId.update(node, rpc, pingTimeout)
+    nodeId.update(node, rpc, pingTimeout)
 
   /**
    * Returns KademliaRPC instance to handle incoming RPC requests
@@ -65,7 +63,7 @@ abstract class Kademlia[F[_], C](
      * @return
      */
     override def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
-      ().pure[F].map(_ => nodeId.lookup(key).take(numberOfNodes))
+      ().pure[F].map(_ ⇒ nodeId.lookup(key).take(numberOfNodes))
 
     /**
      * Perform iterative lookup
