@@ -38,14 +38,14 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       override protected def run[T](bucketId: Int, mod: StateT[Coeval, Bucket[Long], T]) = {
         require(!locks(bucketId), s"Bucket $bucketId must be not locked")
         locks(bucketId) = true
-        println(s"Bucket $bucketId locked")
+        //println(s"Bucket $bucketId locked")
 
         mod.run(read(bucketId)).map {
           case (b, v) ⇒
             buckets(bucketId) = b
             v
         }.doOnFinish{ _ ⇒
-          println(s"Bucket $bucketId unlocked")
+          //println(s"Bucket $bucketId unlocked")
           Coeval.now(locks.update(bucketId, false))
         }
       }
@@ -89,8 +89,6 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
       /**
        * Ping the contact, get its actual Node status, or fail
-       *
-       * @return
        */
       override def ping() =
         kad.update(ownContact.value).flatMap(_ ⇒ kad.handleRPC.ping())
@@ -99,7 +97,6 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
        * Perform a local lookup for a key, return K closest known nodes
        *
        * @param key Key to lookup
-       * @return
        */
       override def lookup(key: Key, numberOfNodes: Int) =
         kad.update(ownContact.value).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes))
@@ -108,7 +105,6 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
        * Perform an iterative lookup for a key, return K closest known nodes
        *
        * @param key Key to lookup
-       * @return
        */
       override def lookupIterative(key: Key, numberOfNodes: Int) =
         kad.update(ownContact.value).flatMap(_ ⇒ kad.handleRPC.lookupIterative(key, numberOfNodes))
@@ -121,7 +117,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       // Kademlia's K
       val K = 16
       // Number of nodes in simulation
-      val N = 200
+      val N = K*2
       // Size of probe
       val P = 25
 
@@ -130,7 +126,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
         Stream.fill(N)(random.nextLong())
           .foldLeft(Map.empty[Long, KademliaCoeval]) {
             case (acc, n) ⇒
-              acc + (n -> new KademliaCoeval(n, 3, K, nodes(_))(bucketOps(K), siblingsOps(n, K)))
+              acc + (n -> new KademliaCoeval(n, 3, K, nodes(_))(bucketOps(K), siblingsOps(n, K*3)))
           }
 
       val peers = nodes.keys.take(2).toSeq
@@ -146,7 +142,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
       random.shuffle(nodes).take(P).foreach {
         case (i, ki) ⇒
-          random.shuffle(nodes.values).take(P).foreach { kj ⇒
+          random.shuffle(nodes.values).take(P).filterNot(_.nodeId === ki.nodeId).foreach { kj ⇒
 
             val neighbors = kj.handleRPC.lookupIterative(i, K).value
 

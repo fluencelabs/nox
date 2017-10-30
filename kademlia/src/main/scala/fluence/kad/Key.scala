@@ -1,18 +1,22 @@
 package fluence.kad
 
+import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.Base64
+import java.lang.Byte.toUnsignedInt
 
-import cats.{ Monoid, Order, Show }
+import cats.{Monoid, Order, Show}
 import cats.syntax.monoid._
 
 /**
  * Kademlia Key is 160 bits (sha-1 length) in byte array.
  * We use value case class for type safety, and typeclasses for ops.
  *
- * @param id ID
+ * @param origin ID wrapped with ByteBuffer
  */
-final case class Key(id: Array[Byte]) extends AnyVal {
+final case class Key(origin: ByteBuffer) extends AnyVal {
+  def id: Array[Byte] = origin.array()
+
   /**
    * Number of leading zeros
    */
@@ -21,7 +25,7 @@ final case class Key(id: Array[Byte]) extends AnyVal {
     if (idx < 0) {
       Key.BitLength
     } else {
-      Integer.numberOfLeadingZeros(java.lang.Byte.toUnsignedInt(id(idx))) + java.lang.Byte.SIZE * (idx - 3)
+      Integer.numberOfLeadingZeros(toUnsignedInt(id(idx))) + java.lang.Byte.SIZE * (idx - 3)
     }
   }
 
@@ -34,7 +38,7 @@ object Key {
 
   // XOR Monoid is used for Kademlia distance
   implicit object XorDistanceMonoid extends Monoid[Key] {
-    override val empty: Key = Key(Array.ofDim[Byte](Length)) // filled with zeros
+    override val empty: Key = Key(ByteBuffer.wrap(Array.ofDim[Byte](Length))) // filled with zeros
 
     override def combine(x: Key, y: Key): Key = Key {
       var i = 0
@@ -43,7 +47,7 @@ object Key {
         ret(i) = (x.id(i) ^ y.id(i)).toByte
         i += 1
       }
-      ret
+      ByteBuffer.wrap(ret)
     }
   }
 
@@ -53,8 +57,7 @@ object Key {
       var i = 0
       while (i < Length) {
         if (x.id(i) != y.id(i)) {
-          // https://github.com/JoshuaKissoon/Kademlia/blob/master/src/kademlia/node/KeyComparator.java#L42
-          return x.id(i).abs compareTo y.id(i).abs
+          return toUnsignedInt(x.id(i)) compareTo toUnsignedInt(y.id(i))
         }
         i += 1
       }
@@ -83,5 +86,7 @@ object Key {
     val md = MessageDigest.getInstance("SHA-1")
     Key(md.digest(bytes))
   }
+
+  def apply(bytes: Array[Byte]): Key = Key(ByteBuffer.wrap(bytes))
 
 }

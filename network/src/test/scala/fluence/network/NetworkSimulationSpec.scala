@@ -57,7 +57,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
   }
 
   "Network simulation" should {
-    "launch 20 nodes" in {
+    "launch 20 nodes and join network" in {
       servers.foreach { s ⇒
         s.start().runAsync.futureValue
       }
@@ -70,6 +70,9 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
         s.kad.join(Seq(firstContact, secondContact), 8).runAsync.futureValue
       }
 
+    }
+
+    "Find itself by lookup iterative" in {
       servers.foreach { s ⇒
         servers.map(_.key).filterNot(_ === s.key).foreach { k ⇒
           val li = s.kad.handleRPC.lookupIterative(k, 8).runAsync
@@ -77,7 +80,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
           li should be('nonEmpty)
 
-          println(Console.MAGENTA + li + Console.RESET)
+          //println(Console.MAGENTA + li + Console.RESET)
 
           li.exists(Key.OrderedKeys.eqv(_, k)) shouldBe true
         }

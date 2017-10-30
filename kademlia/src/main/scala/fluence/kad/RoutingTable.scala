@@ -96,7 +96,7 @@ object RoutingTable {
     def update(node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration): F[Boolean] =
       if (nodeId === node.key) false.pure[F]
       else {
-        log.debug("Update node: " + node.key)
+        //log.debug("Update node: " + node.key)
         for {
           // Update bucket, performing ping if necessary
           savedToBuckets ← BW.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingTimeout)
@@ -205,7 +205,7 @@ object RoutingTable {
             .map {
               remotes ⇒
                 val updatedShortlist = shortlist ++
-                  remotes.filter(c ⇒ shortlist.size < neighbors || ordering.lt(c, shortlist.head))
+                  remotes.filter(c ⇒ (shortlist.size < neighbors || ordering.lt(c, shortlist.head)) && c.key =!= nodeId)
 
                 AdvanceData(updatedShortlist, updatedProbed, hasNext = true)
             }
