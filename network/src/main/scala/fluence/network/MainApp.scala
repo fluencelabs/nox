@@ -48,6 +48,10 @@ object MainApp extends App {
     log.warn("*** server shut down")
   }
 
+  server.start().runAsync
+
+  server.contact.foreach(println)
+
   while (true) {
 
     println("join(j) / lookup(l)")
@@ -71,6 +75,11 @@ object MainApp extends App {
             println(e)
             e.printStackTrace()
         }
+
+      case "q" | "quit" | "x" | "exit" =>
+        println("exit")
+        System.exit(0)
+
       case _ ⇒
     }
   }

@@ -117,7 +117,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       // Kademlia's K
       val K = 16
       // Number of nodes in simulation
-      val N = K * 2
+      val N = 200
       // Size of probe
       val P = 25
 
@@ -126,7 +126,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
         Stream.fill(N)(random.nextLong())
           .foldLeft(Map.empty[Long, KademliaCoeval]) {
             case (acc, n) ⇒
-              acc + (n -> new KademliaCoeval(n, 3, K, nodes(_))(bucketOps(K), siblingsOps(n, K * 3)))
+              acc + (n -> new KademliaCoeval(n, 3, K, nodes(_))(bucketOps(K), siblingsOps(n, K)))
           }
 
       val peers = nodes.keys.take(2).toSeq
