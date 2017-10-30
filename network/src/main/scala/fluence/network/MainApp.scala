@@ -36,7 +36,7 @@ object MainApp extends App {
 
   val K = 16
 
-  val kad = new KademliaService(key, serverBuilder.contact, KademliaClient(client), maxBucketSize = K, maxSiblingsSize = K, parallelism = 3, pingTimeout = 1.second)
+  val kad = new KademliaService(key, serverBuilder.contact, KademliaClient(client), maxBucketSize = K, maxSiblingsSize = K, parallelism = 3, pingExpiresIn = 1.second)
 
   val server = serverBuilder
     .add(KademliaGrpc.bindService(new KademliaServerImpl(kad), global))
@@ -76,7 +76,7 @@ object MainApp extends App {
             e.printStackTrace()
         }
 
-      case "q" | "quit" | "x" | "exit" =>
+      case "q" | "quit" | "x" | "exit" ⇒
         println("exit")
         System.exit(0)
 

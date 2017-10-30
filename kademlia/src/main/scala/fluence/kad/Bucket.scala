@@ -44,12 +44,12 @@ case class Bucket[C](maxSize: Int, nodes: Queue[Node[C]] = Queue.empty) {
   /**
    * Checks if the bucket should be updated (hence blocked for update) with the fresh node
    * @param node Node
-   * @param pingTimeout Duration to ignore updates for a node
+   * @param pingExpiresIn Duration to ignore updates for a node
    */
-  def shouldUpdate(node: Node[C], pingTimeout: Duration): Boolean =
+  def shouldUpdate(node: Node[C], pingExpiresIn: Duration): Boolean =
     find(node.key).fold(true)(n ⇒
-      !pingTimeout.isFinite() ||
-        java.time.Duration.between(n.lastSeen, node.lastSeen).toMillis >= pingTimeout.toMillis
+      !pingExpiresIn.isFinite() ||
+        java.time.Duration.between(n.lastSeen, node.lastSeen).toMillis >= pingExpiresIn.toMillis
     )
 }
 
@@ -76,7 +76,7 @@ object Bucket {
    * @tparam F StateT effect
    * @return updated Bucket, and true if bucket was updated with this node, false if it wasn't
    */
-  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration)(implicit ME: MonadError[F, Throwable]): StateT[F, Bucket[C], Boolean] = {
+  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingExpiresIn: Duration)(implicit ME: MonadError[F, Throwable]): StateT[F, Bucket[C], Boolean] = {
     StateT.get[F, Bucket[C]].flatMap { b ⇒
       b.find(node.key) match {
         case Some(c) ⇒
@@ -90,7 +90,7 @@ object Bucket {
 
           // The last contact in the queue is the oldest
           // If it's still very fresh, drop incoming node without pings
-          if (pingTimeout.isFinite() && java.time.Duration.between(last.lastSeen, node.lastSeen).toMillis <= pingTimeout.toMillis) {
+          if (pingExpiresIn.isFinite() && java.time.Duration.between(last.lastSeen, node.lastSeen).toMillis <= pingExpiresIn.toMillis) {
             StateT.pure(false)
           } else {
 
@@ -150,13 +150,13 @@ object Bucket {
      * @param bucketId Bucket ID
      * @param node Fresh node
      * @param rpc RPC caller for Kademlia functions
-     * @param pingTimeout Duration for the ping to be considered relevant
+     * @param pingExpiresIn Duration for the ping to be considered relevant
      * @param ME Monad error instance for the effect
      * @return True if node is updated in a bucket, false otherwise
      */
-    def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration)(implicit ME: MonadError[F, Throwable]): F[Boolean] =
-      if (read(bucketId).shouldUpdate(node, pingTimeout)) {
-        run(bucketId, Bucket.update(node, rpc, pingTimeout))
+    def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingExpiresIn: Duration)(implicit ME: MonadError[F, Throwable]): F[Boolean] =
+      if (read(bucketId).shouldUpdate(node, pingExpiresIn)) {
+        run(bucketId, Bucket.update(node, rpc, pingExpiresIn))
       } else {
         false.pure[F]
       }

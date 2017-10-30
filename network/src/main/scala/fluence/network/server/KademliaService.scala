@@ -20,7 +20,7 @@ import scala.language.implicitConversions
  * @param maxSiblingsSize Maximum number of siblings to store, e.g. K * Alpha
  * @param maxBucketSize Maximum size of a bucket, usually K
  * @param parallelism Parallelism factor (named Alpha in paper)
- * @param pingTimeout Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
+ * @param pingExpiresIn Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
  * @tparam C Contact info
  */
 class KademliaService[C](
@@ -30,8 +30,8 @@ class KademliaService[C](
     maxSiblingsSize: Int,
     maxBucketSize:   Int,
     parallelism:     Int,
-    pingTimeout:     Duration
-) extends Kademlia[Task, C](nodeId, parallelism, pingTimeout)(
+    pingExpiresIn:   Duration
+) extends Kademlia[Task, C](nodeId, parallelism, pingExpiresIn)(
   Task.catsInstances(ApplicativeStrategy.Parallel),
   KademliaService.bucketOps(maxBucketSize),
   KademliaService.siblingsOps(nodeId, maxSiblingsSize)

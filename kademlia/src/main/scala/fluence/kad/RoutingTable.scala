@@ -90,16 +90,16 @@ object RoutingTable {
      *
      * @param node        Contact to update
      * @param rpc         Function that pings the contact to check if it's alive
-     * @param pingTimeout Duration when no ping requests are made by the bucket, to avoid overflows
+     * @param pingExpiresIn Duration when no ping requests are made by the bucket, to avoid overflows
      * @return True if the node is saved into routing table
      */
-    def update(node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration): F[Boolean] =
+    def update(node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingExpiresIn: Duration): F[Boolean] =
       if (nodeId === node.key) false.pure[F]
       else {
         //log.debug("Update node: " + node.key)
         for {
           // Update bucket, performing ping if necessary
-          savedToBuckets ← BW.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingTimeout)
+          savedToBuckets ← BW.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingExpiresIn)
 
           // Update siblings
           savedToSiblings ← SW.add(node)
@@ -110,15 +110,15 @@ object RoutingTable {
     // As we see nodes, update routing table
     // TODO: we can group nodes by bucketId, and run updates in parallel with Traverse
     private def updateList(
-      pending:     List[Node[C]],
-      rpc:         C ⇒ KademliaRPC[F, C],
-      pingTimeout: Duration,
-      checked:     List[Node[C]]         = Nil
+      pending:       List[Node[C]],
+      rpc:           C ⇒ KademliaRPC[F, C],
+      pingExpiresIn: Duration,
+      checked:       List[Node[C]]         = Nil
     ): F[List[Node[C]]] =
       pending match {
         case a :: tail ⇒
-          update(a, rpc, pingTimeout).flatMap { b ⇒
-            updateList(tail, rpc, pingTimeout, a :: checked)
+          update(a, rpc, pingExpiresIn).flatMap { b ⇒
+            updateList(tail, rpc, pingExpiresIn, a :: checked)
           }
 
         case Nil ⇒
@@ -155,7 +155,7 @@ object RoutingTable {
      * @param neighbors   A number of contacts to return
      * @param parallelism A number of requests performed in parallel
      * @param rpc         Function to perform request to remote contact
-     * @param pingTimeout Duration to prevent too frequent ping requests from buckets
+     * @param pingExpiresIn Duration to prevent too frequent ping requests from buckets
      * @return
      */
     def lookupIterative(
@@ -166,7 +166,7 @@ object RoutingTable {
 
       rpc: C ⇒ KademliaRPC[F, C],
 
-      pingTimeout: Duration
+      pingExpiresIn: Duration
 
     ): F[Seq[Node[C]]] = {
       // Import for Traverse
@@ -201,7 +201,7 @@ object RoutingTable {
           )
 
           remote0X
-            .flatMap(updateList(_, rpc, pingTimeout)) // Update routing table
+            .flatMap(updateList(_, rpc, pingExpiresIn)) // Update routing table
             .map {
               remotes ⇒
                 val updatedShortlist = shortlist ++
