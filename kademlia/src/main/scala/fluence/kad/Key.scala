@@ -5,7 +5,7 @@ import java.security.MessageDigest
 import java.util.Base64
 import java.lang.Byte.toUnsignedInt
 
-import cats.{Monoid, Order, Show}
+import cats.{ Monoid, Order, Show }
 import cats.syntax.monoid._
 
 /**
