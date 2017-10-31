@@ -15,6 +15,7 @@ import cats.syntax.eq._
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
+// TODO: cover with tests
 class KademliaServerImpl(kad: Kademlia[Task, Contact])(implicit sc: Scheduler) extends KademliaGrpc.Kademlia {
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -27,11 +28,11 @@ class KademliaServerImpl(kad: Kademlia[Task, Contact])(implicit sc: Scheduler) e
       .map(_.id)
       .filter(_.size() == Key.Length)
       .map(bs ⇒ Key(bs.toByteArray))
-      .exists(_ === kad.key)
+      .exists(_ === kad.nodeId)
 
   private def runIfNotSelf[T](optHeader: Option[Header], task: Task[T]): Future[T] =
     if (isFromSelf(optHeader)) {
-      log.warn("Dropping request as it's from self node")
+      log.debug("Dropping request as it's from self node")
       Future.failed[T](new IllegalArgumentException("Can't handle requests from self"))
     } else {
       update(optHeader) // no need to track results
@@ -49,65 +50,62 @@ class KademliaServerImpl(kad: Kademlia[Task, Contact])(implicit sc: Scheduler) e
         InetAddress.getByAddress(n.ip.toByteArray),
         n.port
       )
-    )).fold(Task.unit)(kad.update).runAsync
+    )).fold(Task.now(false))(kad.update).runAsync
   }
 
-  override def ping(request: PingRequest): Future[Node] =
-    {
-      log.info(s"${kad.key} / Incoming ping: from {}", request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
+  override def ping(request: PingRequest): Future[Node] = {
+    log.debug(s"${kad.nodeId} / Incoming ping: from {}", request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
 
-      runIfNotSelf(
-        request.header,
-        kad.handleRPC
-          .ping()
-          .map(nc ⇒ nc: Node)
-          .map{ n ⇒ log.info(s"Ping reply: {}", n); n }
+    runIfNotSelf(
+      request.header,
+      kad.handleRPC
+        .ping()
+        .map(nc ⇒ nc: Node)
+        .map{ n ⇒ log.debug(s"Ping reply: {}", n); n }
 
-          .onErrorRecoverWith{
-            case e ⇒
-              log.error("Can't reply on ping!", e)
-              Task.raiseError(e)
-          }
-      )
-    }
+        .onErrorRecoverWith{
+          case e ⇒
+            log.warn("Can't reply on ping!", e)
+            Task.raiseError(e)
+        }
+    )
+  }
 
-  override def lookup(request: LookupRequest): Future[NodesResponse] =
-    {
-      log.info(s"${kad.key} / Incoming lookup: for {}, from {}", Key(request.key.toByteArray), request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
+  override def lookup(request: LookupRequest): Future[NodesResponse] = {
+    log.debug(s"${kad.nodeId} / Incoming lookup: for {}, from {}", Key(request.key.toByteArray), request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
 
-      runIfNotSelf(
-        request.header,
-        kad.handleRPC
-          .lookup(Key(request.key.toByteArray), request.numberOfNodes)
-          .map{ n ⇒ log.info(s"Lookup reply: {}", n); n }
-          .map(_.map(nc ⇒ nc: Node))
-          .map(NodesResponse(_))
+    runIfNotSelf(
+      request.header,
+      kad.handleRPC
+        .lookup(Key(request.key.toByteArray), request.numberOfNodes)
+        .map{ n ⇒ log.debug(s"Lookup reply: {}", n); n }
+        .map(_.map(nc ⇒ nc: Node))
+        .map(NodesResponse(_))
 
-          .onErrorRecoverWith{
-            case e ⇒
-              log.error("Can't reply on lookup!", e)
-              Task.raiseError(e)
-          }
-      )
-    }
+        .onErrorRecoverWith{
+          case e ⇒
+            log.warn("Can't reply on lookup!", e)
+            Task.raiseError(e)
+        }
+    )
+  }
 
-  override def lookupIterative(request: LookupRequest): Future[NodesResponse] =
-    {
-      log.info(s"${kad.key} / Incoming lookup iterative: for {}, from {}", Key(request.key.toByteArray), request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
+  override def lookupIterative(request: LookupRequest): Future[NodesResponse] = {
+    log.debug(s"${kad.nodeId} / Incoming lookup iterative: for {}, from {}", Key(request.key.toByteArray), request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
 
-      runIfNotSelf(
-        request.header,
-        kad.handleRPC
-          .lookupIterative(Key(request.key.toByteArray), request.numberOfNodes)
-          .map{ n ⇒ log.info(s"Reply to lookupIterative: $n"); n }
-          .map(_.map(nc ⇒ nc: Node))
-          .map(NodesResponse(_))
+    runIfNotSelf(
+      request.header,
+      kad.handleRPC
+        .lookupIterative(Key(request.key.toByteArray), request.numberOfNodes)
+        .map{ n ⇒ log.debug(s"Reply to lookupIterative: $n"); n }
+        .map(_.map(nc ⇒ nc: Node))
+        .map(NodesResponse(_))
 
-          .onErrorRecoverWith{
-            case e ⇒
-              log.error("can't reply on lookup iterative!", e)
-              Task.raiseError(e)
-          }
-      )
-    }
+        .onErrorRecoverWith{
+          case e ⇒
+            log.warn("can't reply on lookup iterative!", e)
+            Task.raiseError(e)
+        }
+    )
+  }
 }
