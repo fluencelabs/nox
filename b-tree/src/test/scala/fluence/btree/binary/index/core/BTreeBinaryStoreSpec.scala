@@ -18,7 +18,7 @@ class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
-      val store = BTreeBinaryStore[Long, String, Task](InMemoryKVStore(), KryoCodec())
+      val store = BTreeBinaryStore[Long, String](InMemoryKVStore(), KryoCodec(), KryoCodec())
 
       val node1 = "node1"
       val node1Idx = 2L
@@ -26,10 +26,21 @@ class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
       val node2new = "node2"
       val node2Idx = 3L
 
+      // check read absent node
+
+      val case0 = store.get(node1Idx).runAsync
+
+      testScheduler.tick(5.seconds)
+
+      val case0Result = case0.eitherValue
+      case0Result.map {
+        case left: Left[IllegalArgumentException, _] ⇒ succeed
+        case _                                       ⇒ fail()
+      }
+
       // check write and read
 
       val case1 = Task.sequence(Seq(
-        store.get(node1Idx),
         store.put(node1Idx, node1),
         store.get(node1Idx)
       )).runAsync
@@ -37,7 +48,7 @@ class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
       testScheduler.tick(5.seconds)
 
       val case1Result = case1.futureValue
-      case1Result should contain theSameElementsInOrderAs Seq(null, (), node1)
+      case1Result should contain theSameElementsInOrderAs Seq((), node1)
 
       // check update
 

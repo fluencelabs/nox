@@ -1,36 +1,52 @@
 package fluence.btree.core
 
-import cats.Functor
 import fluence.btree.binary.Codec
 import fluence.node.storage.KVStore
+import monix.eval.{ Coeval, Task }
 import monix.reactive.Observable
 
 /**
  * Base implementation of [[BTreeStore]] for storing into binary KVStore.
  * @param kvStore key value store for persisting binary data
- * @param codec serializer for getting binary view for node and node id
+ * @param idCodec serializer for getting binary view for node id
+ * @param nodeCodec serializer for getting binary view for node
  * @tparam Id type of node id
  * @tparam Node type of node
- * @tparam F - box for returning value
  */
-class BTreeBinaryStore[Id, Node, F[_]: Functor](
-    kvStore: KVStore[Array[Byte], Array[Byte], F, Observable],
-    codec:   Codec[Any, Array[Byte]]
-) extends BTreeStore[Id, Node, F] {
+class BTreeBinaryStore[Id, Node](
+    kvStore:   KVStore[Array[Byte], Array[Byte], Task, Observable],
+    idCodec:   Codec[Id, Array[Byte], Option],
+    nodeCodec: Codec[Node, Array[Byte], Option]
+) extends BTreeStore[Id, Node, Task] {
 
-  override def get(key: Id): F[Node] = {
-    Functor[F].map(kvStore.get(codec.encode(key)))(b ⇒ codec.decodeAs[Node](b))
+  override def get(id: Id): Task[Node] = {
+    idCodec.encode(id)
+      .map(binId ⇒ {
+        kvStore.get(binId)
+          .flatMap(binNode ⇒ {
+            nodeCodec.decode(binNode)
+              .map(Task.now)
+              .getOrElse(Task.raiseError(new IllegalArgumentException(s"Cant get node from binary view for binNode = $binNode")))
+          })
+      })
+      .getOrElse(Task.raiseError(new IllegalArgumentException(s"Cant get binary view for id = $id")))
   }
 
-  override def put(key: Id, node: Node): F[Unit] = {
-    kvStore.put(codec.encode(key), codec.encode(node))
+  override def put(id: Id, node: Node): Task[Unit] = {
+    val result = for {
+      binId ← idCodec.encode(id)
+      binNode ← nodeCodec.encode(node)
+    } yield kvStore.put(binId, binNode)
+    result.getOrElse(Task.raiseError(new IllegalArgumentException(s"Cant get binary view for id = $id or node = $node")))
   }
+
 }
 
 object BTreeBinaryStore {
-  def apply[Id, Node, F[_]: Functor](
-    kvStore: KVStore[Array[Byte], Array[Byte], F, Observable],
-    codec:   Codec[Any, Array[Byte]]
-  ): BTreeBinaryStore[Id, Node, F] =
-    new BTreeBinaryStore(kvStore, codec)
+  def apply[Id, Node](
+    kvStore:   KVStore[Array[Byte], Array[Byte], Task, Observable],
+    idCodec:   Codec[Id, Array[Byte], Option],
+    nodeCodec: Codec[Node, Array[Byte], Option]
+  ): BTreeBinaryStore[Id, Node] =
+    new BTreeBinaryStore(kvStore, idCodec, nodeCodec)
 }

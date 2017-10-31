@@ -10,7 +10,7 @@ class KryoCodecSpec extends WordSpec with Matchers {
   "encode" should {
     "fail" when {
       "param in registered" in {
-        val codec = KryoCodec(Nil, registerRequired = true)
+        val codec = KryoCodec[TestClass](Nil, registerRequired = true)
 
         assertThrows[Throwable] {
           codec.encode(testClass)
@@ -22,21 +22,19 @@ class KryoCodecSpec extends WordSpec with Matchers {
   "encode and decode" should {
     "be inverse functions" when {
       "object defined" in {
-        val codec = KryoCodec(Seq(classOf[TestClass], classOf[Array[Byte]], classOf[Array[Array[Byte]]]))
+        val codec = KryoCodec[TestClass](Seq(classOf[TestClass], classOf[Array[Byte]], classOf[Array[Array[Byte]]]))
 
-        val result: TestClass = codec.decodeAs[TestClass](codec.encode(testClass))
+        val result = codec.encode(testClass).flatMap(codec.decode).get
 
-        result shouldBe a[TestClass]
-        val r = result.asInstanceOf[TestClass]
-        r.str shouldBe "one"
-        r.num shouldBe 2
-        r.blob should contain theSameElementsAs testBlob
+        result.str shouldBe "one"
+        result.num shouldBe 2
+        result.blob should contain theSameElementsAs testBlob
       }
 
       "object is null" in {
-        val codec = KryoCodec(Seq(classOf[TestClass], classOf[Array[Byte]], classOf[Array[Array[Byte]]]))
-        val result: TestClass = codec.decodeAs[TestClass](codec.encode(null))
-        result shouldBe null
+        val codec = KryoCodec[TestClass](Seq(classOf[TestClass], classOf[Array[Byte]], classOf[Array[Array[Byte]]]))
+        val result = codec.encode(null).flatMap(codec.decode)
+        result shouldBe None
       }
     }
   }
@@ -44,8 +42,8 @@ class KryoCodecSpec extends WordSpec with Matchers {
   "encode" should {
     "don't write full class name to binary representation" when {
       "class registered" in {
-        val codec = KryoCodec(Seq(classOf[TestClass], classOf[Array[Byte]], classOf[Array[Array[Byte]]]))
-        val encoded = new String(codec.encode(testClass))
+        val codec = KryoCodec[TestClass](Seq(classOf[TestClass], classOf[Array[Byte]], classOf[Array[Array[Byte]]]), registerRequired = true)
+        val encoded = codec.encode(testClass).map(new String(_)).get
         val reasonableMaxSize = 20 // bytes
         encoded should not contain "TestClass"
         encoded.length should be < reasonableMaxSize
