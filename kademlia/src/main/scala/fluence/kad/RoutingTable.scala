@@ -6,7 +6,6 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.monoid._
 import cats.syntax.order._
-import cats.syntax.show._
 import cats.{ MonadError, Traverse }
 import org.slf4j.LoggerFactory
 
@@ -81,10 +80,7 @@ object RoutingTable {
     }
   }
 
-  implicit class WriteOps[F[_], C](nodeId: Key)(implicit
-      BW: Bucket.WriteOps[F, C],
-                                                SW: Siblings.WriteOps[F, C],
-                                                ME: MonadError[F, Throwable]) {
+  implicit class WriteOps[F[_], C](nodeId: Key)(implicit BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C], ME: MonadError[F, Throwable]) {
     /**
      * Locates the bucket responsible for given contact, and updates it using given ping function
      *

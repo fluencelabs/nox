@@ -36,6 +36,8 @@ object Key {
   val Length = 20
   val BitLength: Int = Length * 8
 
+  // TODO should we wrap implicits with Implicits object?
+
   // XOR Monoid is used for Kademlia distance
   implicit object XorDistanceMonoid extends Monoid[Key] {
     override val empty: Key = Key(ByteBuffer.wrap(Array.ofDim[Byte](Length))) // filled with zeros

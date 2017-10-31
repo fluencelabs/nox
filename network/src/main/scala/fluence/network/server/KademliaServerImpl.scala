@@ -15,6 +15,7 @@ import cats.syntax.eq._
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
+// TODO: cover with tests
 class KademliaServerImpl(kad: Kademlia[Task, Contact])(implicit sc: Scheduler) extends KademliaGrpc.Kademlia {
   private val log = LoggerFactory.getLogger(getClass)
 

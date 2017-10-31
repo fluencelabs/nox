@@ -12,6 +12,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
+// TODO: write unit tests
 /**
  * Kademlia service to be launched as a singleton on local node
  * @param nodeId Current node ID
