@@ -24,7 +24,7 @@ class KryoCodecSpec extends WordSpec with Matchers {
       "object defined" in {
         val codec = KryoCodec(Seq(classOf[TestClass], classOf[Array[Byte]], classOf[Array[Array[Byte]]]))
 
-        val result: TestClass = codec.decode[TestClass](codec.encode(testClass))
+        val result: TestClass = codec.decodeAs[TestClass](codec.encode(testClass))
 
         result shouldBe a[TestClass]
         val r = result.asInstanceOf[TestClass]
@@ -35,7 +35,7 @@ class KryoCodecSpec extends WordSpec with Matchers {
 
       "object is null" in {
         val codec = KryoCodec(Seq(classOf[TestClass], classOf[Array[Byte]], classOf[Array[Array[Byte]]]))
-        val result: TestClass = codec.decode[TestClass](codec.encode(null))
+        val result: TestClass = codec.decodeAs[TestClass](codec.encode(null))
         result shouldBe null
       }
     }

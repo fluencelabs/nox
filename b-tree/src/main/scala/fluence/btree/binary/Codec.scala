@@ -9,6 +9,8 @@ trait Codec[O, B] {
 
   def encode(obj: O): B
 
-  def decode[T](binary: B): T
+  def decode(binary: B): O
+
+  def decodeAs[T](binary: B): T
 
 }

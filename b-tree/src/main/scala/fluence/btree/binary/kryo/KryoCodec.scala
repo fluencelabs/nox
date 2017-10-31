@@ -12,8 +12,12 @@ class KryoCodec(kryoPool: KryoPool) extends Codec[Any, Array[Byte]] {
     kryoPool.toBytesWithClass(obj)
   }
 
-  override def decode[T](binary: Array[Byte]): T = {
-    (if (binary == null) null else kryoPool.fromBytes(binary)).asInstanceOf[T]
+  override def decode(binary: Array[Byte]): Any = {
+    if (binary == null) null else kryoPool.fromBytes(binary)
+  }
+
+  override def decodeAs[T](binary: Array[Byte]): T = {
+    decode(binary).asInstanceOf[T]
   }
 }
 

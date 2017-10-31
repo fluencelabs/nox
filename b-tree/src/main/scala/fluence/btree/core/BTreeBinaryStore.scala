@@ -19,7 +19,7 @@ class BTreeBinaryStore[Id, Node, F[_]: Functor](
 ) extends BTreeStore[Id, Node, F] {
 
   override def get(key: Id): F[Node] = {
-    Functor[F].map(kvStore.get(codec.encode(key)))(b ⇒ codec.decode[Node](b))
+    Functor[F].map(kvStore.get(codec.encode(key)))(b ⇒ codec.decodeAs[Node](b))
   }
 
   override def put(key: Id, node: Node): F[Unit] = {
