@@ -124,6 +124,7 @@ lazy val `b-tree` = project.in(file("b-tree"))
       typeSafeConfig,
       ficus,
       monix3,
+      shapeless,
       chill,
       scalatest
     )

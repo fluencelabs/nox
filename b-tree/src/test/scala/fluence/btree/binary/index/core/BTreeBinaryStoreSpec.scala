@@ -1,6 +1,6 @@
 package fluence.btree.binary.index.core
 
-import fluence.btree.binary.kryo.KryoCodec
+import fluence.btree.binary.kryo.KryoCodecs
 import fluence.btree.core.BTreeBinaryStore
 import fluence.node.storage.InMemoryKVStore
 import monix.eval.Task
@@ -14,11 +14,14 @@ import scala.concurrent.duration._
 class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
   "BTreeBinaryStore" should {
+    val codecs = KryoCodecs().add[String].add[Long].build[Task]()
+    import codecs._
+
     "performs all operations correctly" in {
 
       implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
-      val store = BTreeBinaryStore[Long, String](InMemoryKVStore(), KryoCodec(), KryoCodec())
+      val store = new BTreeBinaryStore[Long, String, Task](InMemoryKVStore())
 
       val node1 = "node1"
       val node1Idx = 2L
