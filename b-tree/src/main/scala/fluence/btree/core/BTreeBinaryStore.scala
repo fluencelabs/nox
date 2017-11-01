@@ -11,10 +11,11 @@ import scala.language.higherKinds
 
 /**
  * Base implementation of [[BTreeStore]] for storing into binary KVStore.
- * @param kvStore key value store for persisting binary data
- * @param idCodec serializer for getting binary view for node id
+ *
+ * @param kvStore   key value store for persisting binary data
+ * @param idCodec   serializer for getting binary view for node id
  * @param nodeCodec serializer for getting binary view for node
- * @tparam Id type of node id
+ * @tparam Id   type of node id
  * @tparam Node type of node
  */
 class BTreeBinaryStore[Id, Node, F[_]](

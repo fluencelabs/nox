@@ -48,11 +48,22 @@ object KryoCodecs {
    */
   class Builder[L <: HList] private[KryoCodecs] (klasses: Seq[Class[_]]) {
     /**
-     * Register a new class T, referred by type, to Kryo
+     * Register a new case class T to Kryo
+     * @tparam T Type to add
+     * @tparam S Generic representation of T
+     * @param gen Generic representation of case type T
+     * @param sa Presence of all types of S inside L
+     * @return Extended builder
+     */
+    def addCase[T, S <: HList](klass: Class[T])(implicit gen: Generic.Aux[T, S], sa: ops.hlist.SelectAll[L, S]): Builder[T :: L] =
+      new Builder[T :: L](klasses :+ klass)
+
+    /**
+     * Register a primitive type T to Kryo
      * @tparam T Type to add
      * @return Extended builder
      */
-    def add[T: ClassTag: Generic]: Builder[T :: L] =
+    def add[T: ClassTag]: Builder[T :: L] =
       new Builder[T :: L](klasses :+ implicitly[ClassTag[T]].runtimeClass)
 
     /**
@@ -74,6 +85,6 @@ object KryoCodecs {
   /**
    * Prepares a fresh builder
    */
-  def apply(): Builder[HNil] =
-    new Builder(Vector.empty)
+  def apply(): Builder[Array[Byte] :: Long :: String :: HNil] =
+    new Builder[HNil](Vector.empty).add[String].add[Long].add[Array[Byte]]
 }

@@ -14,7 +14,9 @@ import scala.concurrent.duration._
 class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
   "BTreeBinaryStore" should {
-    val codecs = KryoCodecs().add[String].add[Long].build[Task]()
+    val codecs =
+      KryoCodecs()
+        .build[Task]()
     import codecs._
 
     "performs all operations correctly" in {

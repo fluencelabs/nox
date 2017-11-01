@@ -9,7 +9,9 @@ class KryoCodecsSpec extends WordSpec with Matchers {
   val testClass = TestClass("one", 2, testBlob)
 
   private val testCodecs =
-    KryoCodecs().add[TestClass].add[Array[Array[Byte]]].add[Array[Byte]].build[Coeval]()
+    KryoCodecs()
+      .add[Array[Array[Byte]]]
+      .addCase(classOf[TestClass]).build[Coeval]()
 
   "encode and decode" should {
     "be inverse functions" when {
