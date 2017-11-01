@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 
+// TODO: find a way to cover with tests: mock external upnp, check our logic
 /**
  * UPnP port forwarding utility
  * @param clientName Client name to register on gateway

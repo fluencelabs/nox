@@ -11,7 +11,7 @@
         <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
             <maxFileSize>10MB</maxFileSize>
         </triggeringPolicy>
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder" />
+        <!--encoder class="net.logstash.logback.encoder.LogstashEncoder" /-->
     </appender>
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
