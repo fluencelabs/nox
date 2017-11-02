@@ -17,9 +17,9 @@ import scala.concurrent.duration.FiniteDuration
  * @param onShutdown Callback to launch on shutdown
  */
 class NetworkServer private (
-    server:      Server,
+    server: Server,
     val contact: Task[Contact],
-    onShutdown:  Task[Unit]
+    onShutdown: Task[Unit]
 ) {
   /**
    * Launch server, grab ports, or fail

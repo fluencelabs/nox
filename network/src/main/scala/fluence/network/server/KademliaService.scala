@@ -25,13 +25,13 @@ import scala.language.implicitConversions
  * @tparam C Contact info
  */
 class KademliaService[C](
-    nodeId:          Key,
-    contact:         Task[C],
-    client:          C ⇒ KademliaRPC[Task, C],
+    nodeId: Key,
+    contact: Task[C],
+    client: C ⇒ KademliaRPC[Task, C],
     maxSiblingsSize: Int,
-    maxBucketSize:   Int,
-    parallelism:     Int,
-    pingExpiresIn:   Duration
+    maxBucketSize: Int,
+    parallelism: Int,
+    pingExpiresIn: Duration
 ) extends Kademlia[Task, C](nodeId, parallelism, pingExpiresIn)(
   Task.catsInstances(ApplicativeStrategy.Parallel),
   KademliaService.bucketOps(maxBucketSize),

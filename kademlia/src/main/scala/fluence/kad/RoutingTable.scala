@@ -20,7 +20,7 @@ import scala.language.higherKinds
 object RoutingTable {
   private val log = LoggerFactory.getLogger(getClass)
 
-  implicit class ReadOps[C: Bucket.ReadOps: Siblings.ReadOps](nodeId: Key) {
+  implicit class ReadOps[C : Bucket.ReadOps : Siblings.ReadOps](nodeId: Key) {
     private def SR = implicitly[Siblings.ReadOps[C]]
 
     private def BR = implicitly[Bucket.ReadOps[C]]
@@ -106,10 +106,10 @@ object RoutingTable {
     // As we see nodes, update routing table
     // TODO: we can group nodes by bucketId, and run updates in parallel with Traverse
     private def updateList(
-      pending:       List[Node[C]],
-      rpc:           C ⇒ KademliaRPC[F, C],
+      pending: List[Node[C]],
+      rpc: C ⇒ KademliaRPC[F, C],
       pingExpiresIn: Duration,
-      checked:       List[Node[C]]         = Nil
+      checked: List[Node[C]] = Nil
     ): F[List[Node[C]]] =
       pending match {
         case a :: tail ⇒
@@ -155,7 +155,7 @@ object RoutingTable {
      * @return
      */
     def lookupIterative(
-      key:       Key,
+      key: Key,
       neighbors: Int,
 
       parallelism: Int,

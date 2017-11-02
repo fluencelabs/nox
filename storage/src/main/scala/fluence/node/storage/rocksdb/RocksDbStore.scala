@@ -24,8 +24,8 @@ import scala.util.Try
  * @param dbOptions needed for run [[dbOptions.close]] simultaneously with [[db.close]].
  */
 class RocksDbStore(
-    val dataSet:           String,
-    val db:                RocksDB,
+    val dataSet: String,
+    val db: RocksDB,
     private val dbOptions: Options
 ) extends KVStore[Key, Value, Task, Observable] with AutoCloseable {
 

@@ -19,8 +19,8 @@ import scala.concurrent.duration.Duration
  * @param discoverTimeout Devices discovery timeout
  */
 class UPnP(
-    clientName:      String   = "Fluence",
-    protocol:        String   = "TCP",
+    clientName: String = "Fluence",
+    protocol: String = "TCP",
     httpReadTimeout: Duration = Duration.Undefined,
     discoverTimeout: Duration = Duration.Undefined
 ) {

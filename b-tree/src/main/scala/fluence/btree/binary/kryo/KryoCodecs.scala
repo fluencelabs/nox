@@ -63,7 +63,7 @@ object KryoCodecs {
      * @tparam T Type to add
      * @return Extended builder
      */
-    def add[T: ClassTag]: Builder[T :: L] =
+    def add[T : ClassTag]: Builder[T :: L] =
       new Builder[T :: L](klasses :+ implicitly[ClassTag[T]].runtimeClass)
 
     /**

@@ -7,7 +7,7 @@ package fluence.btree.index
  *               0.25 means that each node except root should contains between 25% and 100% children.
  */
 case class BTreeConfig(
-    arity: Int   = 8,
+    arity: Int = 8,
     alpha: Float = 0.25F
 ) {
 

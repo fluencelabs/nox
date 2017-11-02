@@ -3,7 +3,7 @@ package fluence.network.server
 import com.typesafe.config.{ Config, ConfigFactory }
 
 case class ServerConf(
-    localPort:    Int,
+    localPort: Int,
     externalPort: Option[Int]
 )
 
