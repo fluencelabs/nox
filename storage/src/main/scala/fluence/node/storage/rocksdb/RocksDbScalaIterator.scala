@@ -5,7 +5,7 @@ import org.rocksdb.RocksIterator
 /**
  * Adopt [[org.rocksdb.RocksIterator]] to scala [[Iterator]] api.
  * If [[RocksDbScalaIterator#hasNext()]] return false, this iterator will be closed [[RocksIterator]] automatically.
- * '''Note! Before using this iterator should be eval method [[this#start()]]'''
+ * '''Note! Before using this iterator should be invoked method [[this#start()]]'''
  *
  * @param rocksIterator rocksDB iterator (cursor)
  */

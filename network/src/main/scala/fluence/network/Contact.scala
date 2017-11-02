@@ -5,7 +5,7 @@ import java.net.InetAddress
 import cats.Show
 
 case class Contact(
-    ip:   InetAddress,
+    ip: InetAddress,
     port: Int
 )
 

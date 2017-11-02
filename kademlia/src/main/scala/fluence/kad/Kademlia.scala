@@ -17,8 +17,8 @@ import scala.language.higherKinds
  * @tparam C Contact info
  */
 abstract class Kademlia[F[_], C](
-    val nodeId:      Key,
-    parallelism:     Int,
+    val nodeId: Key,
+    parallelism: Int,
     val pingTimeout: Duration
 )(implicit ME: MonadError[F, Throwable], BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C]) {
   self ⇒

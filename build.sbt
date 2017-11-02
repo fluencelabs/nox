@@ -1,13 +1,13 @@
 import scalariform.formatter.preferences._
 
 val scalariformPrefs = scalariformPreferences := scalariformPreferences.value
-  .setPreference(AlignParameters, true)
   .setPreference(AlignSingleLineCaseStatements, true)
   .setPreference(DoubleIndentConstructorArguments, true)
   .setPreference(PreserveSpaceBeforeArguments, true)
   .setPreference(RewriteArrowSymbols, true)
   .setPreference(DoubleIndentConstructorArguments, true)
   .setPreference(DanglingCloseParenthesis, Preserve)
+  .setPreference(SpaceBeforeContextColon, true)
 
 scalariformPrefs
 

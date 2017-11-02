@@ -12,9 +12,9 @@ import cats.{ Order, Show }
  * @tparam C Contact info
  */
 case class Node[C](
-    key:      Key,
+    key: Key,
     lastSeen: Instant,
-    contact:  C
+    contact: C
 )
 
 object Node {

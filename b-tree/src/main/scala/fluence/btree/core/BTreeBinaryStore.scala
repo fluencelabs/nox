@@ -19,10 +19,12 @@ import scala.language.higherKinds
  * @tparam Node type of node
  */
 class BTreeBinaryStore[Id, Node, F[_]](
-    kvStore: KVStore[Array[Byte], Array[Byte], F, Observable])(implicit
+    kvStore: KVStore[Array[Byte], Array[Byte], F, Observable]
+)(
+    implicit
     idCodec: Codec[Id, Array[Byte], F],
-                                                               nodeCodec: Codec[Node, Array[Byte], F],
-                                                               F:         MonadError[F, Throwable]
+    nodeCodec: Codec[Node, Array[Byte], F],
+    F: MonadError[F, Throwable]
 ) extends BTreeStore[Id, Node, F] {
 
   override def get(id: Id): F[Node] =
