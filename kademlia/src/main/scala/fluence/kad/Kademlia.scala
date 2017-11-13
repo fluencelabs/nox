@@ -1,6 +1,6 @@
 package fluence.kad
 
-import cats.MonadError
+import cats.{ MonadError, Parallel }
 import cats.syntax.applicative._
 import cats.syntax.functor._
 import RoutingTable._
@@ -20,7 +20,7 @@ abstract class Kademlia[F[_], C](
     val nodeId: Key,
     parallelism: Int,
     val pingTimeout: Duration
-)(implicit ME: MonadError[F, Throwable], BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C]) {
+)(implicit ME: MonadError[F, Throwable], P: Parallel[F, F], BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C]) {
   self ⇒
 
   /**

@@ -6,7 +6,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.monoid._
 import cats.syntax.order._
-import cats.{ MonadError, Traverse }
+import cats.{ MonadError, Parallel }
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.SortedSet
@@ -80,7 +80,7 @@ object RoutingTable {
     }
   }
 
-  implicit class WriteOps[F[_], C](nodeId: Key)(implicit BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C], ME: MonadError[F, Throwable]) {
+  implicit class WriteOps[F[_], C](nodeId: Key)(implicit BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C], ME: MonadError[F, Throwable], P: Parallel[F, F]) {
     /**
      * Locates the bucket responsible for given contact, and updates it using given ping function
      *
@@ -189,9 +189,9 @@ object RoutingTable {
           val updatedProbed = probed ++ handle.map(_.key)
 
           // Fetch remote lookups into F; filter previously seen nodes
-          val remote0X = Traverse[List].sequence(handle.map { c ⇒
+          val remote0X = Parallel.parTraverse(handle) { c ⇒
             rpc(c.contact).lookup(key, neighbors)
-          }).map[List[Node[C]]](
+          }.map[List[Node[C]]](
             _.flatten
               .filterNot(c ⇒ updatedProbed(c.key)) // Filter away already seen nodes
           )
@@ -243,7 +243,7 @@ object RoutingTable {
     def join(peers: Seq[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration, numberOfNodes: Int): F[Unit] = {
       import cats.instances.list._
 
-      Traverse[List].traverse(peers.toList) { peer: C ⇒
+      Parallel.parTraverse(peers.toList) { peer: C ⇒
         // For each peer
         // Try to ping the peer; if no pings are performed, join is failed
         rpc(peer).ping().attempt.flatMap[Option[(Node[C], List[Node[C]])]] {
@@ -280,7 +280,7 @@ object RoutingTable {
 
           val ns = peerNeighbors.flatMap(_._2).groupBy(_.key).mapValues(_.head).values.filterNot(n ⇒ peerSet(n.key)).toList
 
-          Traverse[List].traverse(
+          Parallel.parTraverse(
             ns
           )(p ⇒ rpc(p.contact).ping().attempt).map(_.collect {
             case Right(n) ⇒ n

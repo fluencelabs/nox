@@ -3,6 +3,7 @@ package fluence.kad
 import java.nio.ByteBuffer
 import java.time.Instant
 
+import cats.{ Applicative, Monad, Parallel, ~> }
 import cats.data.StateT
 import fluence.kad.RoutingTable._
 import monix.eval.Coeval
@@ -32,6 +33,18 @@ class RoutingTableSpec extends WordSpec with Matchers {
   private def now = Instant.now()
 
   "kademlia routing table (non-iterative)" should {
+
+    implicit val par: Parallel[Coeval, Coeval] = new Parallel[Coeval, Coeval] {
+      override def applicative = Applicative[Coeval]
+
+      override def monad = Monad[Coeval]
+
+      override def sequential: Coeval ~> Coeval = new (Coeval ~> Coeval) {
+        override def apply[A](fa: Coeval[A]) = fa
+      }
+
+      override def parallel = sequential
+    }
 
     val failLocalRPC = (_: Long) ⇒ new KademliaRPC[Coeval, Long] {
       override def ping() = Coeval.raiseError(new NoSuchElementException)

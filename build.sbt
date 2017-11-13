@@ -11,11 +11,11 @@ val scalariformPrefs = scalariformPreferences := scalariformPreferences.value
 
 scalariformPrefs
 
-name := "node"
+name := "fluence"
 
 version := "0.1"
 
-val scalaV = scalaVersion := "2.12.3"
+val scalaV = scalaVersion := "2.12.4"
 
 scalaV
 
@@ -28,8 +28,8 @@ val MockitoV = "2.11.0"
 
 val logback = "ch.qos.logback" % "logback-classic" % "1.2.+"
 
-val cats1 = "org.typelevel" %% "cats-core" % "1.0.0-MF"
-val monix3 = "io.monix" %% "monix" % "3.0.0-M1"
+val cats1 = "org.typelevel" %% "cats-core" % "1.0.0-RC1"
+val monix3 = "io.monix" %% "monix" % "3.0.0-M2"
 val shapeless = "com.chuusai" %% "shapeless" % "2.3.+"
 
 val rocksDb = "org.rocksdb" % "rocksdbjni" % RocksDbV
@@ -54,6 +54,7 @@ val chill = "com.twitter" %% "chill" % "0.9.2"
 lazy val `fluence` = project.in(file("."))
   .settings(
     scalaV,
+    scalariformPrefs,
     libraryDependencies ++= Seq(
       scalatest
     )

@@ -3,7 +3,7 @@ package fluence.kad
 import java.nio.ByteBuffer
 import java.time.Instant
 
-import cats.Show
+import cats.{ Applicative, Monad, Parallel, Show, ~> }
 import cats.data.StateT
 import cats.syntax.show._
 import monix.eval.Coeval
@@ -24,6 +24,18 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
   implicit def toLong(k: Key): Long =
     ByteBuffer.wrap(k.id.takeRight(java.lang.Long.BYTES)).getLong
+
+  implicit val par: Parallel[Coeval, Coeval] = new Parallel[Coeval, Coeval] {
+    override def applicative = Applicative[Coeval]
+
+    override def monad = Monad[Coeval]
+
+    override def sequential: Coeval ~> Coeval = new (Coeval ~> Coeval) {
+      override def apply[A](fa: Coeval[A]) = fa
+    }
+
+    override def parallel = sequential
+  }
 
   implicit val sk: Show[Key] = k ⇒ Console.CYAN + java.lang.Long.toBinaryString(k: Long).reverse.padTo(64, '-').reverse + Console.RESET
   implicit val sn: Show[Node[Long]] = n ⇒ s"Node(${n.key.show}, ${n.contact})"

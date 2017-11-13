@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.data.StateT
 import fluence.kad._
-import monix.eval.instances.ApplicativeStrategy
+import cats.{ MonadError, Parallel }
 import monix.eval.{ MVar, Task }
 import monix.execution.atomic.AtomicAny
 
@@ -33,7 +33,8 @@ class KademliaService[C](
     parallelism: Int,
     pingExpiresIn: Duration
 ) extends Kademlia[Task, C](nodeId, parallelism, pingExpiresIn)(
-  Task.catsInstances(ApplicativeStrategy.Parallel),
+  implicitly[MonadError[Task, Throwable]],
+  implicitly[Parallel[Task, Task]],
   KademliaService.bucketOps(maxBucketSize),
   KademliaService.siblingsOps(nodeId, maxSiblingsSize)
 ) {
