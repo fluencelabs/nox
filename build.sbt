@@ -8,6 +8,7 @@ val scalariformPrefs = scalariformPreferences := scalariformPreferences.value
   .setPreference(DoubleIndentConstructorArguments, true)
   .setPreference(DanglingCloseParenthesis, Preserve)
   .setPreference(SpaceBeforeContextColon, true)
+  .setPreference(NewlineAtEndOfFile, true)
 
 scalariformPrefs
 
@@ -19,7 +20,9 @@ val scalaV = scalaVersion := "2.12.4"
 
 scalaV
 
-scalacOptions += "-Ypartial-unification"
+scalacOptions in Compile ++= Seq("-Ypartial-unification", "-Xdisable-assertions")
+
+javaOptions in Test ++= Seq("-ea")
 
 val RocksDbV = "5.8.0"
 val TypeSafeConfV = "1.3.2"
@@ -63,7 +66,8 @@ lazy val `fluence` = project.in(file("."))
     `kademlia`,
     `network`,
     `storage`,
-    `b-tree`,
+    `b-tree-client`,
+    `b-tree-server`,
     `crypto`
   )
 
@@ -117,7 +121,18 @@ lazy val `storage` = project.in(file("storage"))
     )
   )
 
-lazy val `b-tree` = project.in(file("b-tree"))
+lazy val `b-tree-client` = project.in(file("b-tree-client"))
+  .settings(
+    scalaV,
+    scalariformPrefs,
+    libraryDependencies ++= Seq(
+      monix3,
+      logback,
+      scalatest
+    )
+  ).dependsOn(`crypto`).aggregate(`crypto`)
+
+lazy val `b-tree-server` = project.in(file("b-tree-server"))
   .settings(
     scalaV,
     scalariformPrefs,
@@ -127,9 +142,10 @@ lazy val `b-tree` = project.in(file("b-tree"))
       monix3,
       shapeless,
       chill,
+      logback,
       scalatest
     )
-  ).dependsOn(`storage`, `crypto`).aggregate(`storage`, `crypto`)
+  ).dependsOn(`storage`, `b-tree-client`).aggregate(`storage`, `b-tree-client`)
 
 lazy val `crypto` = project.in(file("crypto"))
   .settings(

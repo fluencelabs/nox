@@ -1,0 +1,16 @@
+<!-- TRACE > DEBUG > INFO > WARN > ERROR > FATAL > ALL -->
+<configuration>
+
+    <property name="LOGGING_FILE" value="data_collector"/>
+    <include resource="logging_pattern.xml"/>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{mm:ss.SSS} %highlight(%-5level) [%-16.16logger{5}] - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="OFF">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
