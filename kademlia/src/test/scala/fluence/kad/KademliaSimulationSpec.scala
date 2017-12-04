@@ -7,7 +7,7 @@ import cats.{ Applicative, Monad, Parallel, Show, ~> }
 import cats.data.StateT
 import cats.syntax.show._
 import monix.eval.Coeval
-import monix.execution.atomic.{ Atomic, AtomicBoolean }
+import monix.execution.atomic.{ Atomic, AtomicBoolean, AtomicInt }
 import org.scalatest.{ Matchers, WordSpec }
 
 import scala.collection.concurrent.TrieMap
@@ -114,6 +114,14 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
         kad.update(ownContact.value).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes))
 
       /**
+       * Perform a local lookup for a key, return K closest known nodes, going away from the second key
+       *
+       * @param key Key to lookup
+       */
+      override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) =
+        kad.update(ownContact.value).flatMap(_ ⇒ kad.handleRPC.lookupAway(key, moveAwayFrom, numberOfNodes))
+
+      /**
        * Perform an iterative lookup for a key, return K closest known nodes
        *
        * @param key Key to lookup
@@ -162,6 +170,76 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
             neighbors.map(_.contact) should contain(i)
           }
       }
+    }
+
+    // pre-building a network the same way as it's done above
+    // Kademlia's K
+    val K = 16
+    // Number of nodes in simulation
+    val N = 400
+    // Size of probe
+    val P = 25
+
+    val random = new Random(1000004)
+    lazy val nodes: Map[Long, KademliaCoeval] =
+      Stream.fill(N)(random.nextLong())
+        .foldLeft(Map.empty[Long, KademliaCoeval]) {
+          case (acc, n) ⇒
+            acc + (n -> new KademliaCoeval(n, 3, K, nodes(_))(bucketOps(K), siblingsOps(n, K)))
+        }
+
+    val peers = nodes.keys.take(2).toSeq
+
+    nodes.values.foreach(_.join(peers, K).run.value)
+
+    "callIterative: make no more requests then limit in callIterative" in {
+      val kad = nodes.drop(N / 4).head._2
+
+      val counter = AtomicInt(0)
+
+      kad.callIterative(
+        nodes.last._1,
+        _ ⇒ Coeval(counter.increment()).flatMap(_ ⇒ Coeval.raiseError(new NoSuchElementException())),
+        K min P,
+        K max P max (N / 3)
+      ).value shouldBe empty
+
+      counter.get shouldBe (K max P max (N / 3))
+    }
+
+    "callIterative: make no less requests then num+parallelism in idempotent callIterative" in {
+      val kad = nodes.drop(N / 3).head._2
+
+      val counter = AtomicInt(0)
+      val numToFind = K min P
+
+      kad.callIterative(
+        nodes.last._1,
+        _ ⇒ Coeval(counter.increment()),
+        K min P,
+        K max P max (N / 3),
+        isIdempotentFn = true
+      ).value.size shouldBe counter.get
+
+      counter.get should be <= (numToFind + 3)
+      counter.get should be >= numToFind
+    }
+
+    "callIterative: make num calls in non-idempotent callIterative" in {
+      val kad = nodes.drop(N / 3).head._2
+
+      val counter = AtomicInt(0)
+      val numToFind = K min P
+
+      kad.callIterative(
+        nodes.last._1,
+        _ ⇒ Coeval(counter.increment()),
+        K min P,
+        K max P max (N / 3),
+        isIdempotentFn = false
+      ).value.size shouldBe numToFind
+
+      counter.get shouldBe numToFind
     }
   }
 }

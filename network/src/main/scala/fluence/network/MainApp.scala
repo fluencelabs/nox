@@ -1,43 +1,64 @@
 package fluence.network
 
-import java.net.InetAddress
-
-import fluence.kad._
-import fluence.network.proto.kademlia.{ Header, KademliaGrpc }
-import monix.execution.Scheduler.Implicits.global
 import cats.syntax.show._
+import fluence.kad._
 import fluence.network.client.{ KademliaClient, NetworkClient }
+import fluence.network.proto.kademlia.KademliaGrpc
 import fluence.network.server.{ KademliaServerImpl, KademliaService, NetworkServer }
-import monix.eval.Task
+import monix.execution.Scheduler.Implicits.global
 import org.slf4j.LoggerFactory
 
-import scala.io.StdIn
-import scala.util.{ Failure, Random, Success }
 import scala.concurrent.duration._
+import scala.io.StdIn
+import scala.util.{ Failure, Success }
 
 object MainApp extends App {
+  // get port from config
+  // get kademlia constants from config
+
+  // get key seed from config
+
+  // launch app
+
+  // take (external) connection info
+  // serialize ip and port
+  // base64 it
+  // println: it's a seed
+
+  // invite to join this node with a seed
+
+  // operations:
+  //   join other seed
+  //   get seed
+  //   find a node by a (raw) key
+  //   send a message by a (raw) key
+  // once message is received, println (from, message) with a color
 
   val log = LoggerFactory.getLogger(getClass)
 
-  val port100 = Random.nextInt(100)
+  val serverBuilder = NetworkServer.builder
 
-  val serverBuilder = NetworkServer.builder(1000 + port100, 56000 + port100)
+  // For demo purposes
+  val rawKey = StdIn.readLine(Console.CYAN + "Who are you?\n> " + Console.RESET)
 
-  val kb = Array.ofDim[Byte](100)
-  Random.nextBytes(kb)
+  val key = Key.sha1(rawKey.getBytes)
 
-  val key = Key.sha1(kb)
+  val header = serverBuilder.header(key)
 
-  val header = Task(Header())
-
+  // We have only Kademlia service client
   val client = NetworkClient.builder
     .add(KademliaClient.register(header))
     .build
 
-  val K = 16
+  // This is a server service, not a client
+  val kad = new KademliaService(
+    key,
+    serverBuilder.contact,
+    KademliaClient(client),
+    KademliaConf.read()
+  )
 
-  val kad = new KademliaService(key, serverBuilder.contact, KademliaClient(client), maxBucketSize = K, maxSiblingsSize = K, parallelism = 3, pingExpiresIn = 1.second)
-
+  // Add server (with kademlia inside), build
   val server = serverBuilder
     .add(KademliaGrpc.bindService(new KademliaServerImpl(kad), global))
     .build
@@ -48,36 +69,58 @@ object MainApp extends App {
     log.warn("*** server shut down")
   }
 
-  server.start().runAsync
+  server.start().attempt.runAsync.foreach {
+    case Left(err) ⇒
+      log.error("Can't launch server", err)
 
-  server.contact.foreach(println)
+    case Right(_) ⇒
+      log.info("Server launched")
+
+      server.contact.foreach{ contact ⇒
+        println("Your contact is: " + contact.show)
+        println("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
+      }
+  }
+
+  def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
 
   while (true) {
 
-    println("join(j) / lookup(l)")
+    cmd("join(j) / lookup(l)")
 
     StdIn.readLine() match {
       case "j" | "join" ⇒
-        println("join port?")
-        val p = StdIn.readInt()
-        kad.join(Seq(Contact(InetAddress.getLocalHost, p)), 16).runAsync.onComplete{
-          case Success(_) ⇒ println("ok")
-          case Failure(e) ⇒
-            println(e)
-            e.printStackTrace()
+        cmd("join seed?")
+        val p = StdIn.readLine()
+        Contact.readB64seed(p).attempt.value match {
+          case Left(err) ⇒
+            log.error("Can't read the seed", err)
+
+          case Right(c) ⇒
+            kad.join(Seq(c), 16).runAsync.onComplete {
+              case Success(_) ⇒ cmd("ok")
+              case Failure(e) ⇒
+                log.error("Can't join", e)
+            }
         }
 
       case "l" | "lookup" ⇒
-        println("lookup myself")
-        kad.handleRPC.lookup(Key.XorDistanceMonoid.empty, 10).map(_.map(_.show).mkString("\n")).map(println).runAsync.onComplete{
-          case Success(_) ⇒ println("ok")
-          case Failure(e) ⇒
-            println(e)
-            e.printStackTrace()
-        }
+        cmd("lookup myself")
+        kad.handleRPC
+          .lookup(Key.XorDistanceMonoid.empty, 10)
+          .map(_.map(_.show).mkString("\n"))
+          .map(println)
+          .runAsync.onComplete {
+            case Success(_) ⇒ println("ok")
+            case Failure(e) ⇒
+              log.error("Can't lookup", e)
+          }
+
+      case "s" | "seed" ⇒
+        server.contact.map(_.b64seed).runAsync.foreach(cmd)
 
       case "q" | "quit" | "x" | "exit" ⇒
-        println("exit")
+        cmd("exit")
         System.exit(0)
 
       case _ ⇒

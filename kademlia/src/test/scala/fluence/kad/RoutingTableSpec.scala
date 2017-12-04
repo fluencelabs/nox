@@ -50,6 +50,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       override def ping() = Coeval.raiseError(new NoSuchElementException)
 
       override def lookup(key: Key, numberOfNodes: Int) = ???
+      override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
 
       override def lookupIterative(key: Key, numberOfNodes: Int) = ???
     }
@@ -58,6 +59,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       override def ping() = Coeval(Node(c, now, c))
 
       override def lookup(key: Key, numberOfNodes: Int) = ???
+      override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
 
       override def lookupIterative(key: Key, numberOfNodes: Int) = ???
     }

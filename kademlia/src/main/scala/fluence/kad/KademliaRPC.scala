@@ -20,6 +20,12 @@ trait KademliaRPC[F[_], C] {
   def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[C]]]
 
   /**
+   * Perform a local lookup for a key, return K closest known nodes, going away from the second key
+   * @param key Key to lookup
+   */
+  def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[C]]]
+
+  /**
    * Perform an iterative lookup for a key, return K closest known nodes
    * @param key Key to lookup
    */

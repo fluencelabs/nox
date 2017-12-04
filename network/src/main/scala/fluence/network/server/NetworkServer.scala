@@ -2,6 +2,9 @@ package fluence.network.server
 
 import java.net.InetAddress
 
+import com.google.protobuf.ByteString
+import fluence.kad.Key
+import fluence.network.proto.kademlia.{ Header, Node }
 import fluence.network.Contact
 import io.grpc.{ Server, ServerBuilder, ServerServiceDefinition }
 import monix.eval.Task
@@ -55,6 +58,24 @@ object NetworkServer {
      */
     def add(service: ServerServiceDefinition): Builder =
       new Builder(contact, shutdown, localPort, service :: services)
+
+    /**
+     * The header to be sent with each outgoing request
+     * @param key Node key
+     * @param advertize Whether to advertize this node with requests or not
+     */
+    def header(key: Key, advertize: Boolean = true): Task[Header] =
+      contact.map(c ⇒
+        Header(
+          from = Some(
+            Node(
+              id = ByteString.copyFrom(key.id),
+              ip = ByteString.copyFrom(c.ip.getAddress),
+              port = c.port
+            )
+          ),
+          advertize = true
+        ))
 
     /**
      * Build grpc server with all the defined services

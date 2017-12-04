@@ -28,8 +28,17 @@ message LookupRequest{
     int32 numberOfNodes = 3;
 }
 
+message LookupAwayRequest{
+    Header header = 1;
+
+    bytes key = 2;
+    bytes moveAwayFrom = 3;
+    int32 numberOfNodes = 4;
+}
+
 service Kademlia {
     rpc ping(PingRequest) returns (Node);
     rpc lookup(LookupRequest) returns (NodesResponse);
     rpc lookupIterative(LookupRequest) returns (NodesResponse);
+    rpc lookupAway(LookupAwayRequest) returns (NodesResponse);
 }

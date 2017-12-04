@@ -6,7 +6,7 @@ import java.time.Instant
 import com.google.protobuf.ByteString
 import fluence.kad.{ KademliaRPC, Key, Node }
 import fluence.network.{ Contact, proto }
-import fluence.network.proto.kademlia.{ Header, KademliaGrpc, LookupRequest, PingRequest }
+import fluence.network.proto.kademlia._
 import io.grpc.{ CallOptions, ManagedChannel }
 import monix.eval.Task
 import shapeless._
@@ -64,6 +64,18 @@ class KademliaClient(header: Task[Header], stub: KademliaGrpc.KademliaStub) exte
       res ← Task.deferFuture(stub.lookupIterative(LookupRequest(Some(h), ByteString.copyFrom(key.id), numberOfNodes)))
     } yield res.nodes.map(n ⇒ n: Node[Contact])
 
+  /**
+   * Perform a local lookup for a key, return K closest known nodes, going away from the second key
+   *
+   * @param key Key to lookup
+   */
+  override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): Task[Seq[Node[Contact]]] =
+    for {
+      h ← header
+      res ← Task.deferFuture(
+        stub.lookupAway(LookupAwayRequest(Some(h), ByteString.copyFrom(key.id), ByteString.copyFrom(moveAwayFrom.id), numberOfNodes))
+      )
+    } yield res.nodes.map(n ⇒ n: Node[Contact])
 }
 
 object KademliaClient {

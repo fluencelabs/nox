@@ -5,11 +5,11 @@ import java.time.Instant
 import cats.data.StateT
 import fluence.kad._
 import cats.{ MonadError, Parallel }
+import fluence.network.KademliaConf
 import monix.eval.{ MVar, Task }
 import monix.execution.atomic.AtomicAny
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.duration._
 import scala.language.implicitConversions
 
 // TODO: write unit tests
@@ -18,25 +18,19 @@ import scala.language.implicitConversions
  * @param nodeId Current node ID
  * @param contact Node's contact to advertise
  * @param client Getter for RPC calling of another nodes
- * @param maxSiblingsSize Maximum number of siblings to store, e.g. K * Alpha
- * @param maxBucketSize Maximum size of a bucket, usually K
- * @param parallelism Parallelism factor (named Alpha in paper)
- * @param pingExpiresIn Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
+ * @param conf Kademlia conf
  * @tparam C Contact info
  */
 class KademliaService[C](
     nodeId: Key,
     contact: Task[C],
     client: C ⇒ KademliaRPC[Task, C],
-    maxSiblingsSize: Int,
-    maxBucketSize: Int,
-    parallelism: Int,
-    pingExpiresIn: Duration
-) extends Kademlia[Task, C](nodeId, parallelism, pingExpiresIn)(
+    conf: KademliaConf
+) extends Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn)(
   implicitly[MonadError[Task, Throwable]],
   implicitly[Parallel[Task, Task]],
-  KademliaService.bucketOps(maxBucketSize),
-  KademliaService.siblingsOps(nodeId, maxSiblingsSize)
+  KademliaService.bucketOps(conf.maxBucketSize),
+  KademliaService.siblingsOps(nodeId, conf.maxSiblingsSize)
 ) {
   /**
    * Returns a network wrapper around a contact C, allowing querying it with Kademlia protocol

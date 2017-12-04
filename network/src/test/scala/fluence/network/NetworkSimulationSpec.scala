@@ -40,7 +40,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     private val kademliaClient = KademliaClient(client)
 
-    val kad = new KademliaService(key, serverBuilder.contact, kademliaClient, 8, 8, 3, 1.second)
+    val kad = new KademliaService(key, serverBuilder.contact, kademliaClient, KademliaConf(8, 8, 3, 1.second))
 
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServerImpl(kad), global))

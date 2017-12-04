@@ -40,6 +40,8 @@ class BucketSpec extends WordSpec with Matchers {
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
 
+        override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???
+
         override def lookupIterative(key: Key, numberOfNodes: Int) = ???
       }
 
@@ -47,6 +49,7 @@ class BucketSpec extends WordSpec with Matchers {
         override def ping() = StateT.lift(Coeval(Node(Key(Array.fill(Key.Length)(c.toByte)), Instant.now(), c)))
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
+        override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???
 
         override def lookupIterative(key: Key, numberOfNodes: Int) = ???
       }

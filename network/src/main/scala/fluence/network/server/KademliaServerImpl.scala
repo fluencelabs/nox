@@ -90,6 +90,25 @@ class KademliaServerImpl(kad: Kademlia[Task, Contact])(implicit sc: Scheduler) e
     )
   }
 
+  override def lookupAway(request: LookupAwayRequest): Future[NodesResponse] = {
+    log.debug(s"${kad.nodeId} / Incoming lookupAway: for {}, from {}", Key(request.key.toByteArray), request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
+
+    runIfNotSelf(
+      request.header,
+      kad.handleRPC
+        .lookupAway(Key(request.key.toByteArray), Key(request.moveAwayFrom.toByteArray), request.numberOfNodes)
+        .map{ n ⇒ log.debug(s"LookupAway reply: {}", n); n }
+        .map(_.map(nc ⇒ nc: Node))
+        .map(NodesResponse(_))
+
+        .onErrorRecoverWith{
+          case e ⇒
+            log.warn("Can't reply on lookup!", e)
+            Task.raiseError(e)
+        }
+    )
+  }
+
   override def lookupIterative(request: LookupRequest): Future[NodesResponse] = {
     log.debug(s"${kad.nodeId} / Incoming lookup iterative: for {}, from {}", Key(request.key.toByteArray), request.header.flatMap(_.from).map(_.id.toByteArray).map(Key(_)))
 
