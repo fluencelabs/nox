@@ -138,6 +138,7 @@ object RoutingTable {
      * @param nodes List of new nodes
      * @param rpc   Function to perform request to remote contact
      * @param pingExpiresIn Duration when no ping requests are made by the bucket, to avoid overflows
+     * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
      * @return The same list of `nodes`
      */
     def updateList(

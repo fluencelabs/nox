@@ -1,12 +1,12 @@
 package fluence.network.server
 
 import java.net.InetAddress
+import java.time.Instant
 
-import com.google.protobuf.ByteString
 import fluence.kad.Key
-import fluence.network.proto.kademlia.{ Header, Node }
 import fluence.network.Contact
-import io.grpc.{ Server, ServerBuilder, ServerServiceDefinition }
+import fluence.network.client.ClientConf
+import io.grpc._
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits._
 
@@ -50,32 +50,75 @@ object NetworkServer {
    * @param localPort Local port to launch server on
    * @param services GRPC services definitions
    */
-  class Builder(val contact: Task[Contact], shutdown: Task[Unit], localPort: Int, services: List[ServerServiceDefinition]) {
+  class Builder(
+      val contact: Task[Contact],
+      shutdown: Task[Unit],
+      localPort: Int,
+      services: List[ServerServiceDefinition],
+      interceptors: List[ServerInterceptor]) {
     /**
      * Add new grpc service to the server
      * @param service Service definition
-     * @return
      */
     def add(service: ServerServiceDefinition): Builder =
-      new Builder(contact, shutdown, localPort, service :: services)
+      new Builder(contact, shutdown, localPort, service :: services, interceptors)
 
     /**
-     * The header to be sent with each outgoing request
-     * @param key Node key
-     * @param advertize Whether to advertize this node with requests or not
+     * Registers an interceptor.
+     * Marked private, as it's easy to do weird things while writing interceptor.
+     * But could be made public if necessary.
+     *
+     * @param interceptor Interceptor for incoming requests and messages
      */
-    def header(key: Key, advertize: Boolean = true): Task[Header] =
-      contact.map(c ⇒
-        Header(
-          from = Some(
-            Node(
-              id = ByteString.copyFrom(key.id),
-              ip = ByteString.copyFrom(c.ip.getAddress),
-              port = c.port
-            )
-          ),
-          advertize = true
-        ))
+    private def addInterceptor(interceptor: ServerInterceptor): Builder =
+      new Builder(contact, shutdown, localPort, services, interceptor :: interceptors)
+
+    private def readStringHeader(name: String, headers: Metadata): Option[String] =
+      Option(headers.get(Metadata.Key.of(name, Metadata.ASCII_STRING_MARSHALLER)))
+
+    /**
+     * Register a callback to be called each time a node is active
+     * @param cb To be called on ready and on each message
+     * @param clientConf Conf to get header names from
+     */
+    def onNodeActivity(cb: fluence.kad.Node[Contact] ⇒ Task[Any], clientConf: ClientConf = ClientConf.read()): Builder =
+      addInterceptor(new ServerInterceptor {
+        override def interceptCall[ReqT, RespT](call: ServerCall[ReqT, RespT], headers: Metadata, next: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
+          val remoteKey =
+            readStringHeader(clientConf.keyHeader, headers).flatMap {
+              b64key ⇒ Key.readB64(b64key).toOption
+            }
+
+          // TODO: check that contact IP matches request source, if it's possible
+          val remoteContact =
+            readStringHeader(clientConf.contactHeader, headers).flatMap {
+              b64contact ⇒ Contact.readB64seed(b64contact).attempt.value.toOption
+            }
+
+          def remoteNode: Option[fluence.kad.Node[Contact]] =
+            for {
+              k ← remoteKey
+              c ← remoteContact
+            } yield fluence.kad.Node(k, Instant.now(), c)
+
+          def runCb(): Unit = remoteNode.map(cb).foreach(_.runAsync)
+
+          val listener = next.startCall(call, headers)
+
+          new ForwardingServerCallListener.SimpleForwardingServerCallListener[ReqT](listener) {
+
+            override def onMessage(message: ReqT): Unit = {
+              runCb()
+              super.onMessage(message)
+            }
+
+            override def onReady(): Unit = {
+              runCb()
+              super.onReady()
+            }
+          }
+        }
+      })
 
     /**
      * Build grpc server with all the defined services
@@ -86,7 +129,11 @@ object NetworkServer {
         {
           val sb = ServerBuilder
             .forPort(localPort)
+
           services.foreach(sb.addService)
+
+          interceptors.reverseIterator.foreach(sb.intercept)
+
           sb.build()
         },
         contact,
@@ -100,7 +147,7 @@ object NetworkServer {
    * @return
    */
   def builder(localPort: Int): Builder =
-    new Builder(Task.now(Contact(InetAddress.getLocalHost, localPort)), Task.unit, localPort, Nil)
+    new Builder(Task.now(Contact(InetAddress.getLocalHost, localPort)), Task.unit, localPort, Nil, Nil)
 
   /**
    * Builder for a local port, with upnp used to provide external port
@@ -112,7 +159,7 @@ object NetworkServer {
   def builder(localPort: Int, externalPort: Int, uPnP: UPnP = new UPnP()): Builder =
     new Builder(uPnP.addPort(externalPort, localPort).memoizeOnSuccess.onErrorRecover{
       case _ ⇒ Contact(InetAddress.getLocalHost, localPort)
-    }, uPnP.deletePort(externalPort).memoizeOnSuccess, localPort, Nil)
+    }, uPnP.deletePort(externalPort).memoizeOnSuccess, localPort, Nil, Nil)
 
   /**
    * Builder for config object

@@ -8,6 +8,8 @@ import java.lang.Byte.toUnsignedInt
 import cats.{ Monoid, Order, Show }
 import cats.syntax.monoid._
 
+import scala.util.Try
+
 /**
  * Kademlia Key is 160 bits (sha-1 length) in byte array.
  * We use value case class for type safety, and typeclasses for ops.
@@ -29,7 +31,9 @@ final case class Key(origin: ByteBuffer) extends AnyVal {
     }
   }
 
-  override def toString: String = Key.ShowKeyBase64.show(this)
+  def b64: String = Base64.getEncoder.encodeToString(id)
+
+  override def toString: String = b64
 }
 
 object Key {
@@ -75,14 +79,17 @@ object Key {
     relativeOrder(key).compare(_, _)
 
   implicit object ShowKeyBase64 extends Show[Key] {
-    override def show(f: Key): String =
-      Base64.getEncoder.encodeToString(f.id)
+    override def show(f: Key): String = f.b64
   }
 
   /**
+   * Tries to read base64 form of Kademlia key
+   */
+  def readB64(str: String): Try[Key] = Try(Base64.getDecoder.decode(str)).filter(_.length == Length).map(apply)
+
+  /**
    * Calculates sha-1 hash of the payload, and wraps it with Key
-   * @param bytes
-   * @return
+   * @param bytes Bytes to hash
    */
   def sha1(bytes: Array[Byte]): Key = {
     val md = MessageDigest.getInstance("SHA-1")

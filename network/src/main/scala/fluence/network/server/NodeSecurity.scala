@@ -2,7 +2,8 @@ package fluence.network.server
 
 import cats.Applicative
 import cats.syntax.applicative._
-import fluence.kad.Node
+import cats.syntax.eq._
+import fluence.kad.{ Key, Node }
 import fluence.network.Contact
 
 import scala.language.higherKinds
@@ -10,16 +11,17 @@ import scala.language.higherKinds
 object NodeSecurity {
 
   /**
-   * Checks if Node[Contact] is correct in terms of IP accessibility and signatures so that it's safe to save it
-   * into RoutingTable
+   * Checks if a node can be saved to RoutingTable
+   * TODO: crypto checks
    *
-   * @param acceptLocal Set to true to test network on localhost
+   * @param acceptLocal If true, local addresses will be accepted; should be used only in testing
    * @tparam F Effect
-   * @return Function to be called on each node prior to saving it to RoutingTable; returns F[ true ] if it's safe to save it
+   * @return Function to be called for each node prior to updating RoutingTable; returns F[true] if checks passed
    */
-  def canBeSaved[F[_] : Applicative](acceptLocal: Boolean): Node[Contact] ⇒ F[Boolean] =
+  def canBeSaved[F[_] : Applicative](self: Key, acceptLocal: Boolean): Node[Contact] ⇒ F[Boolean] =
     node ⇒ {
-      (acceptLocal || !node.contact.isLocal).pure[F]
+      if (node.key === self) false.pure[F]
+      else (acceptLocal || !node.contact.isLocal).pure[F]
     }
 
 }

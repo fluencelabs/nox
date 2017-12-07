@@ -2,11 +2,6 @@ syntax = "proto3";
 
 package fluence.network.proto;
 
-message Header {
-    Node from = 1;
-    bool advertize = 2;
-}
-
 message Node {
     bytes id = 1;
     bytes ip = 2;
@@ -18,22 +13,17 @@ message NodesResponse {
 }
 
 message PingRequest {
-    Header header = 1;
 }
 
 message LookupRequest{
-    Header header = 1;
-
-    bytes key = 2;
-    int32 numberOfNodes = 3;
+    bytes key = 1;
+    int32 numberOfNodes = 2;
 }
 
 message LookupAwayRequest{
-    Header header = 1;
-
-    bytes key = 2;
-    bytes moveAwayFrom = 3;
-    int32 numberOfNodes = 4;
+    bytes key = 1;
+    bytes moveAwayFrom = 2;
+    int32 numberOfNodes = 3;
 }
 
 service Kademlia {

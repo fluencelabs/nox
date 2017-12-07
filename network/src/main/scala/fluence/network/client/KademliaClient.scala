@@ -15,10 +15,9 @@ import scala.language.implicitConversions
 
 /**
  * Implementation of KademliaClient over GRPC, with Task and Contact
- * @param header Header to pass with all requests
  * @param stub GRPC Kademlia Stub
  */
-class KademliaClient(header: Task[Header], stub: KademliaGrpc.KademliaStub) extends KademliaRPC[Task, Contact] {
+class KademliaClient(stub: KademliaGrpc.KademliaStub) extends KademliaRPC[Task, Contact] {
 
   private implicit def nToNc(n: proto.kademlia.Node): Node[Contact] = Node[Contact](
     Key(n.id.toByteArray),
@@ -36,8 +35,7 @@ class KademliaClient(header: Task[Header], stub: KademliaGrpc.KademliaStub) exte
    */
   override def ping(): Task[Node[Contact]] =
     for {
-      h ← header
-      n ← Task.deferFuture(stub.ping(PingRequest(Some(h))))
+      n ← Task.deferFuture(stub.ping(PingRequest()))
     } yield n: Node[Contact]
 
   /**
@@ -48,8 +46,7 @@ class KademliaClient(header: Task[Header], stub: KademliaGrpc.KademliaStub) exte
    */
   override def lookup(key: Key, numberOfNodes: Int): Task[Seq[Node[Contact]]] =
     for {
-      h ← header
-      res ← Task.deferFuture(stub.lookup(LookupRequest(Some(h), ByteString.copyFrom(key.id), numberOfNodes)))
+      res ← Task.deferFuture(stub.lookup(LookupRequest(ByteString.copyFrom(key.id), numberOfNodes)))
     } yield res.nodes.map(n ⇒ n: Node[Contact])
 
   /**
@@ -60,8 +57,7 @@ class KademliaClient(header: Task[Header], stub: KademliaGrpc.KademliaStub) exte
    */
   override def lookupIterative(key: Key, numberOfNodes: Int): Task[Seq[Node[Contact]]] =
     for {
-      h ← header
-      res ← Task.deferFuture(stub.lookupIterative(LookupRequest(Some(h), ByteString.copyFrom(key.id), numberOfNodes)))
+      res ← Task.deferFuture(stub.lookupIterative(LookupRequest(ByteString.copyFrom(key.id), numberOfNodes)))
     } yield res.nodes.map(n ⇒ n: Node[Contact])
 
   /**
@@ -71,9 +67,8 @@ class KademliaClient(header: Task[Header], stub: KademliaGrpc.KademliaStub) exte
    */
   override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): Task[Seq[Node[Contact]]] =
     for {
-      h ← header
       res ← Task.deferFuture(
-        stub.lookupAway(LookupAwayRequest(Some(h), ByteString.copyFrom(key.id), ByteString.copyFrom(moveAwayFrom.id), numberOfNodes))
+        stub.lookupAway(LookupAwayRequest(ByteString.copyFrom(key.id), ByteString.copyFrom(moveAwayFrom.id), numberOfNodes))
       )
     } yield res.nodes.map(n ⇒ n: Node[Contact])
 }
@@ -81,13 +76,12 @@ class KademliaClient(header: Task[Header], stub: KademliaGrpc.KademliaStub) exte
 object KademliaClient {
   /**
    * Shorthand to register KademliaClient inside NetworkClient
-   * @param header Header to pass with all requests
    * @param channel Channel to remote node
    * @param callOptions Call options
    * @return
    */
-  def register(header: Task[Header])(channel: ManagedChannel, callOptions: CallOptions): KademliaClient =
-    new KademliaClient(header, new KademliaGrpc.KademliaStub(channel, callOptions))
+  def register()(channel: ManagedChannel, callOptions: CallOptions): KademliaClient =
+    new KademliaClient(new KademliaGrpc.KademliaStub(channel, callOptions))
 
   /**
    * Kademlia client summoner for NetworkClient

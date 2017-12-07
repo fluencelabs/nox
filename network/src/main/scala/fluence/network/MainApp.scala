@@ -44,11 +44,9 @@ object MainApp extends App {
 
   val key = Key.sha1(rawKey.getBytes)
 
-  val header = serverBuilder.header(key)
-
   // We have only Kademlia service client
-  val client = NetworkClient.builder
-    .add(KademliaClient.register(header))
+  val client = NetworkClient.builder(key, serverBuilder.contact)
+    .add(KademliaClient.register())
     .build
 
   // This is a server service, not a client
@@ -57,12 +55,13 @@ object MainApp extends App {
     serverBuilder.contact,
     KademliaClient(client),
     KademliaConf.read(),
-    NodeSecurity.canBeSaved[Task](acceptLocal = ServerConf.read().acceptLocal)
+    NodeSecurity.canBeSaved[Task](key, acceptLocal = ServerConf.read().acceptLocal)
   )
 
   // Add server (with kademlia inside), build
   val server = serverBuilder
     .add(KademliaGrpc.bindService(new KademliaServerImpl(kad), global))
+    .onNodeActivity(kad.update)
     .build
 
   sys.addShutdownHook {

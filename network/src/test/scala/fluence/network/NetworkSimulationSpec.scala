@@ -1,11 +1,8 @@
 package fluence.network
 
-import java.net.InetAddress
-
-import com.google.protobuf.ByteString
 import fluence.kad.Key
 import fluence.network.client.{ KademliaClient, NetworkClient }
-import fluence.network.proto.kademlia.{ Header, KademliaGrpc }
+import fluence.network.proto.kademlia.KademliaGrpc
 import fluence.network.server.{ KademliaServerImpl, KademliaService, NetworkServer, NodeSecurity }
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
@@ -23,34 +20,28 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     private val serverBuilder = NetworkServer.builder(localPort)
 
-    private val bsk = ByteString.copyFrom(key.id)
-    private val bsip = ByteString.copyFrom(InetAddress.getLocalHost.getAddress)
-
-    private val header = serverBuilder.contact.map(c ⇒ Header(
-      from = Some(fluence.network.proto.kademlia.Node(
-        id = bsk,
-        ip = bsip,
-        port = c.port
-      )),
-      advertize = true
-    ))
-
-    private val client = NetworkClient.builder
-      .add(KademliaClient.register(header))
+    private val client = NetworkClient.builder(key, serverBuilder.contact)
+      .add(KademliaClient.register())
       .build
 
-    private val kademliaClient = KademliaClient(client)
+    val kademliaClient = KademliaClient(client)
 
     val kad = new KademliaService(
       key,
       serverBuilder.contact,
       kademliaClient,
       KademliaConf(8, 8, 3, 1.second),
-      NodeSecurity.canBeSaved[Task](acceptLocal = true))
+
+      NodeSecurity.canBeSaved[Task](key, acceptLocal = true))
 
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServerImpl(kad), global))
+      .onNodeActivity(kad.update)
       .build
+
+    def nodeId = key
+
+    def join(peers: Seq[Contact], numOfNodes: Int) = kad.join(peers, numOfNodes)
 
     def start() = server.start()
 
@@ -72,8 +63,8 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       val secondContact = servers.tail.head.server.contact.runAsync.futureValue
 
       servers.foreach{ s ⇒
-        println(Console.BLUE + s"Join: ${s.kad.nodeId}" + Console.RESET)
-        s.kad.join(Seq(firstContact, secondContact), 8).runAsync.futureValue
+        println(Console.BLUE + s"Join: ${s.nodeId}" + Console.RESET)
+        s.join(Seq(firstContact, secondContact), 8).runAsync.futureValue
       }
 
     }
