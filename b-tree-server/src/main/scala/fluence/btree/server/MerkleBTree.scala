@@ -136,7 +136,7 @@ class MerkleBTree private[server] (
   /*** Entry point for any Get operations. */
   private def getForRoot(root: Node, key: Key): Task[ReadResults] = {
     log.debug(s"(${key.show}) Get starts")
-    getForNode(root, key, MerklePath(Array.empty[NodeProof]))
+    getForNode(root, key, MerklePath.empty)
   }
 
   private def getForNode(root: Node, key: Key, mPath: MerklePath): Task[ReadResults] = {
@@ -159,7 +159,7 @@ class MerkleBTree private[server] (
     searchChild(branch, key)
       .flatMap {
         case (idx, child) ⇒
-          val newPath = mPath.add(NodeProof(branch.childsChecksums, idx))
+          val newPath = mPath.add(branch.toProof(idx))
           getForNode(child, key, newPath)
       }
   }
@@ -180,11 +180,11 @@ class MerkleBTree private[server] (
       .indexOf(key, leaf.keys)
       .map {
         case Found(idx) ⇒
-          val newPath = mPath.add(NodeProof(leaf.kvChecksums, idx))
+          val newPath = mPath.add(leaf.toProof(idx))
           ReadResults(key, Some(leaf.values(idx)), newPath)
         case InsertionPoint(idx) ⇒
           // if searched element not found returns -1 as in substitutionIdx
-          val newPath = mPath.add(NodeProof(leaf.kvChecksums, -1))
+          val newPath = mPath.add(leaf.toProof(-1))
           ReadResults(key, None, newPath)
       }
   }
@@ -342,7 +342,7 @@ class MerkleBTree private[server] (
         val isInsertToTheLeft = searchedValueIdx < left.size
         val affectedLeaf = if (isInsertToTheLeft) left else right
         val affectedLeafIdx = if (isInsertToTheLeft) searchedValueIdx else searchedValueIdx - left.size
-        val merklePath = MerklePath(Array(NodeProof(affectedLeaf.kvChecksums, affectedLeafIdx)))
+        val merklePath = MerklePath(Array(affectedLeaf.toProof(affectedLeafIdx)))
 
         if (isRoot) {
           // there is no parent, root leaf was splitted
@@ -350,7 +350,7 @@ class MerkleBTree private[server] (
           val newParent = createBranch(popUpKey, ChildRef(leftId, left.checksum), ChildRef(rightId, right.checksum))
           val affectedParentIdx = if (isInsertToTheLeft) 0 else 1
           PutCtx(
-            newStateProof = MerklePath(NodeProof(newParent.childsChecksums, affectedParentIdx) +: merklePath.path),
+            newStateProof = MerklePath(newParent.toProof(affectedParentIdx) +: merklePath.path),
             putTask = PutTask(
               nodesToSave = Seq(NodeWithId(leftId, left), NodeWithId(rightId, right), NodeWithId(RootId, newParent)),
               increaseDepth = true  // if splitting root-leaf appears - increase depth of tree
@@ -366,7 +366,7 @@ class MerkleBTree private[server] (
         }
       } else {
         PutCtx(
-          newStateProof = MerklePath(Array(NodeProof(newLeaf.kvChecksums, searchedValueIdx))),
+          newStateProof = MerklePath(Array(newLeaf.toProof(searchedValueIdx))),
           updateParentFn = updatedAfterChildChanging(newLeaf.checksum),
           putTask = PutTask(nodesToSave = Seq(NodeWithId(leafId, newLeaf)))
         )
@@ -404,7 +404,7 @@ class MerkleBTree private[server] (
           val isInsertToTheLeft = nextChildIdx < left.size
           val affectedBranch = if (isInsertToTheLeft) left else right
           val affectedBranchIdx = if (isInsertToTheLeft) nextChildIdx else nextChildIdx - left.size
-          val newMerklePath = MerklePath(NodeProof(affectedBranch.childsChecksums, affectedBranchIdx) +: merklePath.path)
+          val newMerklePath = MerklePath(affectedBranch.toProof(affectedBranchIdx) +: merklePath.path)
 
           if (isRoot) {
             // there was no parent, root node was splitting
@@ -413,7 +413,7 @@ class MerkleBTree private[server] (
             val affectedNewParentIdx = if (isInsertToTheLeft) 0 else 1
 
             PutCtx(
-              newStateProof = MerklePath(NodeProof(newParent.childsChecksums, affectedNewParentIdx) +: newMerklePath.path),
+              newStateProof = MerklePath(newParent.toProof(affectedNewParentIdx) +: newMerklePath.path),
               putTask = PutTask(
                 nodesToSave = nodesToSave ++ Seq(NodeWithId(leftId, left), NodeWithId(rightId, right), NodeWithId(RootId, newParent)),
                 increaseDepth = true // if splitting root node appears - increase depth of the tree
@@ -429,7 +429,7 @@ class MerkleBTree private[server] (
           }
         } else {
           PutCtx(
-            newStateProof = MerklePath(NodeProof(branch.childsChecksums, nextChildIdx) +: merklePath.path),
+            newStateProof = MerklePath(branch.toProof(nextChildIdx) +: merklePath.path),
             updateParentFn = updatedAfterChildChanging(branch.checksum),
             putTask = PutTask(nodesToSave :+ NodeWithId(branchId, branch))
           )
@@ -536,9 +536,9 @@ class MerkleBTree private[server] (
 
   /** Creates [[MerklePath]] from all visited branches from ''trail'' and specified leaf  */
   private def createPath(leaf: Leaf, searchedIdx: Int, trail: Trail): MerklePath = {
-    val leafProof = NodeProof(leaf.kvChecksums, searchedIdx)
+    val leafProof = leaf.toProof(searchedIdx)
     val branchesProof = trail.branches.map {
-      case PathElem(_, branch, substitutionIdx) ⇒ NodeProof(branch.childsChecksums, substitutionIdx)
+      case PathElem(_, branch, substitutionIdx) ⇒ branch.toProof(substitutionIdx)
     }
     MerklePath(branchesProof :+ leafProof)
   }

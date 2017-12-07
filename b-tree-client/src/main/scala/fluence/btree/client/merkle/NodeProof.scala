@@ -1,33 +1,70 @@
 package fluence.btree.client.merkle
 
+import fluence.btree.client.common.BytesOps
+import fluence.hash.CryptoHasher
+
 /**
  * Contains all information needed for recalculating checksum of node with substituting child's checksum, for verifying
- * state of the node or recalculating checksum of the node.
+ * child's checksum or recalculating checksum of the node.
+ */
+trait NodeProof {
+
+  /**
+   * Calculates checksum of current ''NodeProof''.
+   *
+   * @param cryptoHasher Hash service uses for calculating nodes checksums.
+   * @param checksumForSubstitution Child's checksum for substitution to ''childrenChecksums''
+   * @return Checksum of current ''NodeProof''
+   */
+  def calcChecksum(
+    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
+    checksumForSubstitution: Option[Array[Byte]]
+  ): Array[Byte]
+
+}
+
+/**
+ * ''GeneralNodeProof'' contains 2 part:
+ *    ''stateChecksum'' - a checksum of node state, which is not related to the checksums of node children
+ *    ''childrenChecksums'' - an array of childs checksums, which participates in the substitution
+ * GenerateNodeProof's checksum is a hash of ''stateChecksum'' and ''childrenChecksums''
  *
  * For leaf ''childrenChecksums'' is sequence with checksums of each 'key-value' pair of this leaf and ''substitutionIdx''
  * is index for inserting checksum of 'key-value' pair.
+ *
  * For branch ''childrenChecksums'' is sequence with checksums for each children of this branch and ''substitutionIdx''
  * is index for inserting checksum of child.
  *
- * @param childrenChecksums Checksums of all node children.
- * @param substitutionIdx   Index for substitution
+ * @param stateChecksum     A checksum of node state, which is not related to the checksums of children
+ * @param childrenChecksums Checksums of all node children
+ * @param substitutionIdx   Index for substitution some child checksum to ''childrenChecksums''
  */
-class NodeProof private (val childrenChecksums: Array[Array[Byte]], val substitutionIdx: Int) {
+case class GeneralNodeProof(
+    stateChecksum: Array[Byte],
+    childrenChecksums: Array[Array[Byte]],
+    substitutionIdx: Int
+) extends NodeProof {
+
+  override def calcChecksum(
+    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
+    checksumForSubstitution: Option[Array[Byte]]
+  ): Array[Byte] = {
+
+    checksumForSubstitution match {
+      case None ⇒
+        // if checksum for substitution isn't defined just calculate node checksum
+        cryptoHasher.hash(Array.concat(stateChecksum, childrenChecksums.flatten))
+      case Some(checksum) ⇒
+        // if checksum is defined substitute it to childsChecksum and calculate node checksum
+        val updatedArray = BytesOps.rewriteValue(childrenChecksums, checksum, substitutionIdx)
+        cryptoHasher.hash(Array.concat(stateChecksum, updatedArray.flatten))
+    }
+
+  }
+
   override def toString: String = {
-    "NodeProof(checksums=" + childrenChecksums.map(new String(_)).mkString("[", ",", "]") + "subIdx=" + substitutionIdx
+    s"NodeProof(stateChecksum=${new String(stateChecksum)}," +
+      s"checksums=${childrenChecksums.map(new String(_)).mkString("[", ",", "]")},subIdx=$substitutionIdx)"
   }
-}
 
-object NodeProof {
-  def unapply(proof: NodeProof): Option[(Array[Array[Byte]], Int)] =
-    Some(proof.childrenChecksums → proof.substitutionIdx)
-
-  /** Create NodeProof with copy of  ''nodeChildrenHash''. */
-  def apply(childrenChecksums: Array[Array[Byte]], substitutionIdx: Int): NodeProof = {
-    /* We copy array cause this entity will be going outside the tree and it is possible change tree state via this object.
-       But this may be changed in the future for performance reason*/
-    val arrayCopy = new Array[Array[Byte]](childrenChecksums.length)
-    Array.copy(childrenChecksums, 0, arrayCopy, 0, childrenChecksums.length)
-    new NodeProof(arrayCopy, substitutionIdx)
-  }
 }

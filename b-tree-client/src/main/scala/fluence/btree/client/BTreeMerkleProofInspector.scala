@@ -16,9 +16,9 @@ import org.slf4j.LoggerFactory
  * @param merkleProof Manager poof service for calculating merkle root
  * @param cryptoHash  Hash provider
  */
-class BTreeMerkleProofArbiter(merkleProof: MerkleRootCalculator, cryptoHash: CryptoHasher[Array[Byte], Array[Byte]]) {
+class BTreeMerkleProofInspector(merkleProof: MerkleRootCalculator, cryptoHash: CryptoHasher[Array[Byte], Array[Byte]]) {
 
-  import BTreeMerkleProofArbiter._
+  import BTreeMerkleProofInspector._
 
   /**
    * Verifies state of Btree and returned values.
@@ -65,12 +65,12 @@ class BTreeMerkleProofArbiter(merkleProof: MerkleRootCalculator, cryptoHash: Cry
 
 }
 
-object BTreeMerkleProofArbiter {
+object BTreeMerkleProofInspector {
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  def apply(cryptoHash: CryptoHasher[Array[Byte], Array[Byte]]): BTreeMerkleProofArbiter =
-    new BTreeMerkleProofArbiter(new MerkleRootCalculator(cryptoHash), cryptoHash)
+  def apply(cryptoHash: CryptoHasher[Array[Byte], Array[Byte]]): BTreeMerkleProofInspector =
+    new BTreeMerkleProofInspector(new MerkleRootCalculator(cryptoHash), cryptoHash)
 
   // used for comparing two merkle roots
   implicit private val keyEq: Eq[Array[Byte]] = {

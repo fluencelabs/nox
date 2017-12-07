@@ -2,7 +2,7 @@ package fluence.btree.server
 
 import java.nio.ByteBuffer
 
-import fluence.btree.client.{ BTreeMerkleProofArbiter, Key, Value, WriteResults }
+import fluence.btree.client.{ BTreeMerkleProofInspector, Key, Value, WriteResults }
 import fluence.btree.server.binary.BTreeBinaryStore
 import fluence.btree.server.binary.kryo.KryoCodecs
 import fluence.btree.server.core._
@@ -58,7 +58,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
   //    val hasher = JdkCryptoHash.Sha256
   val hasher = TestCryptoHasher
   val nodeOp = NodeOps(hasher)
-  val btreeProof = BTreeMerkleProofArbiter(hasher)
+  val inspector = BTreeMerkleProofInspector(hasher)
 
   "put" should {
     "correct insert new value" when {
@@ -73,7 +73,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         // check returned result
         result.key shouldBe key1
         result.value shouldBe value1
-        btreeProof.verifyPut(result, clientMerkleRoot) shouldBe true
+        inspector.verifyPut(result, clientMerkleRoot) shouldBe true
 
         // check tree state
         tree.getDepth shouldBe 1
@@ -90,7 +90,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
         // put first value
         val firstPutResult = wait(tree.put(key2, value2))
-        val clientMerkleRoot = btreeProof.calcNewMerkleRoot(firstPutResult)
+        val clientMerkleRoot = inspector.calcNewMerkleRoot(firstPutResult)
 
         // put second value
         val result = wait(tree.put(key1, value1))
@@ -98,7 +98,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         // check returned result
         result.key shouldBe key1
         result.value shouldBe value1
-        btreeProof.verifyPut(result, clientMerkleRoot) shouldBe true
+        inspector.verifyPut(result, clientMerkleRoot) shouldBe true
 
         // check tree state
         tree.getDepth shouldBe 1
@@ -252,14 +252,14 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
         // put first value
         val firstResult = wait(tree.put(key1, value1))
-        val firstMerkleRoot = btreeProof.calcNewMerkleRoot(firstResult)
+        val firstMerkleRoot = inspector.calcNewMerkleRoot(firstResult)
         // put second value
         val secondResult = wait(tree.put(key1, value2))
 
         // check returned result
         secondResult.key shouldBe key1
         secondResult.value shouldBe value2
-        btreeProof.verifyPut(secondResult, firstMerkleRoot) shouldBe true
+        inspector.verifyPut(secondResult, firstMerkleRoot) shouldBe true
 
         // check tree state
         tree.getDepth shouldBe 1
@@ -314,7 +314,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         result.value.get shouldBe value1
         result.proof.path should have size 1
         val merkleRoot = wait(tree.getMerkleRoot)
-        btreeProof.verifyGet(result, merkleRoot) shouldBe true
+        inspector.verifyGet(result, merkleRoot) shouldBe true
 
       }
 
@@ -334,7 +334,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         result.value.get shouldBe value3
         result.proof.path should have size 1
         val merkleRoot = wait(tree.getMerkleRoot)
-        btreeProof.verifyGet(result, merkleRoot) shouldBe true
+        inspector.verifyGet(result, merkleRoot) shouldBe true
       }
 
       "value found in huge tree" in {
@@ -361,19 +361,19 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
         minResult.key shouldBe minKey
         minResult.value.get shouldBe "v0001".getBytes
-        btreeProof.verifyGet(minResult, merkleRoot) shouldBe true
+        inspector.verifyGet(minResult, merkleRoot) shouldBe true
 
         midResult.key shouldBe midKey
         midResult.value.get shouldBe "v0256".getBytes
-        btreeProof.verifyGet(midResult, merkleRoot) shouldBe true
+        inspector.verifyGet(midResult, merkleRoot) shouldBe true
 
         maxResult.key shouldBe maxKey
         maxResult.value.get shouldBe "v0512".getBytes
-        btreeProof.verifyGet(maxResult, merkleRoot) shouldBe true
+        inspector.verifyGet(maxResult, merkleRoot) shouldBe true
 
         absentResult.key shouldBe absentKey
         absentResult.value shouldBe None
-        btreeProof.verifyGet(absentResult, merkleRoot) shouldBe true
+        inspector.verifyGet(absentResult, merkleRoot) shouldBe true
       }
 
     }
@@ -393,7 +393,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         result.key shouldBe key1
         result.value.get shouldBe value1
         val merkleRoot = wait(tree.getMerkleRoot)
-        btreeProof.verifyGet(result, merkleRoot)
+        inspector.verifyGet(result, merkleRoot)
       }
     }
 
@@ -422,19 +422,19 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
       minResult.key shouldBe minKey
       minResult.value.get shouldBe "v0001".getBytes
-      btreeProof.verifyGet(minResult, merkleRoot) shouldBe true
+      inspector.verifyGet(minResult, merkleRoot) shouldBe true
 
       midResult.key shouldBe midKey
       midResult.value.get shouldBe "v0512".getBytes
-      btreeProof.verifyGet(midResult, merkleRoot) shouldBe true
+      inspector.verifyGet(midResult, merkleRoot) shouldBe true
 
       maxResult.key shouldBe maxKey
       maxResult.value.get shouldBe "v1024".getBytes
-      btreeProof.verifyGet(maxResult, merkleRoot) shouldBe true
+      inspector.verifyGet(maxResult, merkleRoot) shouldBe true
 
       absentResult.key shouldBe absentKey
       absentResult.value shouldBe None
-      btreeProof.verifyGet(absentResult, merkleRoot) shouldBe true
+      inspector.verifyGet(absentResult, merkleRoot) shouldBe true
 
     }
 
@@ -469,19 +469,19 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
       minResult.key shouldBe minKey
       minResult.value.get shouldBe "v0001".getBytes
-      btreeProof.verifyGet(minResult, merkleRoot) shouldBe true
+      inspector.verifyGet(minResult, merkleRoot) shouldBe true
 
       midResult.key shouldBe midKey
       midResult.value.get shouldBe "v0512".getBytes
-      btreeProof.verifyGet(midResult, merkleRoot) shouldBe true
+      inspector.verifyGet(midResult, merkleRoot) shouldBe true
 
       maxResult.key shouldBe maxKey
       maxResult.value.get shouldBe "v1024".getBytes
-      btreeProof.verifyGet(maxResult, merkleRoot) shouldBe true
+      inspector.verifyGet(maxResult, merkleRoot) shouldBe true
 
       absentResult.key shouldBe absentKey
       absentResult.value shouldBe None
-      btreeProof.verifyGet(absentResult, merkleRoot) shouldBe true
+      inspector.verifyGet(absentResult, merkleRoot) shouldBe true
 
     }
 
@@ -543,8 +543,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
   private def checkAllPutProofs(results: Seq[WriteResults]): Unit = {
     results.sliding(2).foreach {
       case Seq(prev, next) ⇒
-        val prevRoot = btreeProof.calcNewMerkleRoot(prev)
-        if (btreeProof.verifyPut(next, prevRoot)) {
+        val prevRoot = inspector.calcNewMerkleRoot(prev)
+        if (inspector.verifyPut(next, prevRoot)) {
           succeed
         } else {
           fail(s"verify for hashes failed: " +

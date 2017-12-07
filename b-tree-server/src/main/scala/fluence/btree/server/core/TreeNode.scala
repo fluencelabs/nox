@@ -1,17 +1,19 @@
 package fluence.btree.server.core
 
+import fluence.btree.client.merkle.NodeProof
+
 /**
  * The root of tree elements hierarchy.
  */
 sealed trait TreeNode[K] {
 
-  /* Stored search keys */
+  /** Stored search keys */
   val keys: Array[K]
 
-  /* Number of keys inside this tree node (optimization) */
+  /** Number of keys inside this tree node (optimization) */
   val size: Int
 
-  /* Digest of this node state */
+  /** Digest of this node state */
   val checksum: Array[Byte]
 }
 
@@ -73,6 +75,13 @@ object LeafNode {
      */
     def split: (LeafNode[K, V], LeafNode[K, V])
 
+    /**
+     * Returns node proof for current node
+     *
+     * @param substitutionIdx   Index for substitution childs checksum
+     */
+    def toProof(substitutionIdx: Int): NodeProof
+
   }
 
 }
@@ -132,6 +141,13 @@ object BranchNode {
      * @return tuple with 2 branch node
      */
     def split: (BranchNode[K, C], BranchNode[K, C])
+
+    /**
+     * Returns node proof for current node
+     *
+     * @param substitutionIdx   Index for substitution childs checksum
+     */
+    def toProof(substitutionIdx: Int): NodeProof
 
   }
 

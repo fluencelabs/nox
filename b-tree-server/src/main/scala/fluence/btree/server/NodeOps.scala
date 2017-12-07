@@ -1,6 +1,7 @@
 package fluence.btree.server
 
 import cats.syntax.show._
+import fluence.btree.client.merkle.{ GeneralNodeProof, NodeProof }
 import fluence.btree.client.{ Key, Value }
 import fluence.btree.server.MerkleBTreeShow._
 import fluence.btree.server.core.{ BranchNode, ChildRef, LeafNode }
@@ -57,6 +58,10 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
       leftLeaf → rightLeaf
     }
 
+    override def toProof(substitutionIdx: Int): NodeProof = {
+      GeneralNodeProof(Array.emptyByteArray, getKvChecksums(leaf.keys, leaf.values), substitutionIdx)
+    }
+
   }
 
   implicit class BranchOps(branch: Branch) extends BranchNode.Ops[Key, NodeId] {
@@ -106,6 +111,10 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
         checksum = getBranchChecksum(branch.keys, newChildsChecksums))
     }
 
+    override def toProof(substitutionIdx: Int): NodeProof = {
+      GeneralNodeProof(cryptoHasher.hash(branch.keys.flatten), branch.childsChecksums, substitutionIdx)
+    }
+
   }
 
   /** Create new leaf with specified ''key'' and ''value''.*/
@@ -124,22 +133,20 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
     BranchNode(keys, children, childsChecksums, 1, getBranchChecksum(keys, childsChecksums))
   }
 
-  /** Checksum of leaf is the hash of all key value checksums */
-  def getLeafChecksum(hashedValues: Array[Hash]): Hash = {
-    cryptoHasher.hash(hashedValues.flatten)
-  }
-
-  /** Checksum of branch node is the hash of all child's checksums */
-  def getBranchChecksum(keys: Array[Key], childsHashes: Array[Hash]): Hash = {
-    // todo change checksum implementation in the next PR, keys is required into calculating branch checksum
-    cryptoHasher.hash(childsHashes.flatten)
-    //    cryptoHasher.hash(Array.concat(keys.flatten, childsHashes.flatten))
-  }
-
   /** Returns array of checksums for each key-value pair */
   private[server] def getKvChecksums(keys: Array[Key], values: Array[Value]): Array[Hash] = {
     keys.zip(values).map { case (key, value) ⇒ cryptoHasher.hash(key, value) }
   }
+
+  /** Returns checksum of leaf */
+  def getLeafChecksum(hashedValues: Array[Hash]): Hash =
+    GeneralNodeProof(Array.emptyByteArray, hashedValues, -1)
+      .calcChecksum(cryptoHasher, None)
+
+  /** Returns checksum of branch node */
+  def getBranchChecksum(keys: Array[Key], childsChecksums: Array[Hash]): Hash =
+    GeneralNodeProof(cryptoHasher.hash(keys.flatten), childsChecksums, -1)
+      .calcChecksum(cryptoHasher, None)
 
   /**
    * Returns updated copy of array with the updated element for ''insIdx'' index.
