@@ -10,7 +10,6 @@ import monix.eval.Coeval
 import monix.execution.atomic.{ Atomic, AtomicBoolean, AtomicInt }
 import org.scalatest.{ Matchers, WordSpec }
 
-import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 import scala.util.Random
@@ -37,15 +36,18 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
     override def parallel = sequential
   }
 
-  implicit val sk: Show[Key] = k ⇒ Console.CYAN + java.lang.Long.toBinaryString(k: Long).reverse.padTo(64, '-').reverse + Console.RESET
-  implicit val sn: Show[Node[Long]] = n ⇒ s"Node(${n.key.show}, ${n.contact})"
+  implicit val sk: Show[Key] =
+    (k: Key) ⇒ Console.CYAN + java.lang.Long.toBinaryString(k: Long).reverse.padTo(64, '-').reverse + Console.RESET
+
+  implicit val sn: Show[Node[Long]] =
+    (n: Node[Long]) ⇒ s"Node(${n.key.show}, ${n.contact})"
 
   private val pingDuration = 1.second
 
   def bucketOps(maxBucketSize: Int): Bucket.WriteOps[Coeval, Long] =
     new Bucket.WriteOps[Coeval, Long] {
-      private val buckets = TrieMap.empty[Int, Bucket[Long]]
-      private val locks = TrieMap.empty[Int, Boolean].withDefaultValue(false)
+      private val buckets = collection.mutable.Map.empty[Int, Bucket[Long]]
+      private val locks = collection.mutable.Map.empty[Int, Boolean].withDefaultValue(false)
 
       override protected def run[T](bucketId: Int, mod: StateT[Coeval, Bucket[Long], T]) = {
         require(!locks(bucketId), s"Bucket $bucketId must be not locked")
@@ -93,7 +95,9 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
    * In general, Kademlia network can't work correctly with a single thread, in blocking fashion.
    * It's possible that node A pings B, B pings A in return, A pings B and so on until stack overflows.
    */
-  class KademliaCoeval(nodeId: Key, alpha: Int, k: Int, getKademlia: Long ⇒ Kademlia[Coeval, Long])(implicit BW: Bucket.WriteOps[Coeval, Long], SW: Siblings.WriteOps[Coeval, Long]) extends Kademlia[Coeval, Long](nodeId, alpha, pingDuration) {
+  class KademliaCoeval(nodeId: Key, alpha: Int, k: Int, getKademlia: Long ⇒ Kademlia[Coeval, Long])(implicit BW: Bucket.WriteOps[Coeval, Long], SW: Siblings.WriteOps[Coeval, Long])
+    extends Kademlia[Coeval, Long](nodeId, alpha, pingDuration, _ ⇒ Coeval(true)) {
+
     override def ownContact: Coeval[Node[Long]] = Coeval(Node[Long](nodeId, now, nodeId))
 
     override def rpc(contact: Long): KademliaRPC[Coeval, Long] = new KademliaRPC[Coeval, Long] {

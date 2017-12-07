@@ -6,7 +6,8 @@ import com.google.protobuf.ByteString
 import fluence.kad.Key
 import fluence.network.client.{ KademliaClient, NetworkClient }
 import fluence.network.proto.kademlia.{ Header, KademliaGrpc }
-import fluence.network.server.{ KademliaServerImpl, KademliaService, NetworkServer }
+import fluence.network.server.{ KademliaServerImpl, KademliaService, NetworkServer, NodeSecurity }
+import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
@@ -40,7 +41,12 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     private val kademliaClient = KademliaClient(client)
 
-    val kad = new KademliaService(key, serverBuilder.contact, kademliaClient, KademliaConf(8, 8, 3, 1.second))
+    val kad = new KademliaService(
+      key,
+      serverBuilder.contact,
+      kademliaClient,
+      KademliaConf(8, 8, 3, 1.second),
+      NodeSecurity.canBeSaved[Task](acceptLocal = true))
 
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServerImpl(kad), global))

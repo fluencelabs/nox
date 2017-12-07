@@ -13,8 +13,10 @@ import scala.language.higherKinds
 /**
  * Kademlia interface for current node and all Kademlia-related RPC calls, both incoming and outgoing
  *
+ * @param nodeId Current node's Kademlia key
  * @param parallelism   Parallelism factor (named Alpha in paper)
  * @param pingExpiresIn Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
+ * @param checkNode Check node correctness, e.g. signatures are correct, ip is public, etc.
  * @param ME            Monad error
  * @tparam F Effect
  * @tparam C Contact info
@@ -22,7 +24,8 @@ import scala.language.higherKinds
 abstract class Kademlia[F[_], C](
     val nodeId: Key,
     parallelism: Int,
-    val pingExpiresIn: Duration
+    val pingExpiresIn: Duration,
+    checkNode: Node[C] ⇒ F[Boolean]
 )(implicit ME: MonadError[F, Throwable], P: Parallel[F, F], BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C]) {
   self ⇒
 
@@ -46,7 +49,7 @@ abstract class Kademlia[F[_], C](
    * @return true if node is present in routing table after update, false if it's dropped
    */
   def update(node: Node[C]): F[Boolean] =
-    nodeId.update(node, rpc, pingExpiresIn)
+    nodeId.update(node, rpc, pingExpiresIn, checkNode)
 
   /**
    * @return KademliaRPC instance to handle incoming RPC requests
@@ -89,7 +92,7 @@ abstract class Kademlia[F[_], C](
      * @return key's neighborhood
      */
     override def lookupIterative(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
-      nodeId.lookupIterative(key, numberOfNodes, parallelism, rpc, pingExpiresIn)
+      nodeId.lookupIterative(key, numberOfNodes, parallelism, rpc, pingExpiresIn, checkNode)
   }
 
   /**
@@ -105,7 +108,7 @@ abstract class Kademlia[F[_], C](
    * @return Sequence of nodes with corresponding successful replies, should be >= numToCollect in case of success
    */
   def callIterative[A](key: Key, fn: Node[C] ⇒ F[A], numToCollect: Int, maxNumOfCalls: Int, isIdempotentFn: Boolean = true): F[Seq[(Node[C], A)]] =
-    nodeId.callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn, rpc, pingExpiresIn)
+    nodeId.callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn, rpc, pingExpiresIn, checkNode)
 
   /**
    * Joins the Kademlia network by a list of known peers. Fails if no join operations performed successfully
@@ -114,5 +117,5 @@ abstract class Kademlia[F[_], C](
    * @return
    */
   def join(peers: Seq[C], numberOfNodes: Int): F[Unit] =
-    nodeId.join(peers, rpc, pingExpiresIn, numberOfNodes)
+    nodeId.join(peers, rpc, pingExpiresIn, numberOfNodes, checkNode)
 }

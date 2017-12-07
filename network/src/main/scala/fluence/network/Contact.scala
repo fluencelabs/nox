@@ -9,13 +9,23 @@ case class Contact(
     ip: InetAddress,
     port: Int
 ) {
-  lazy val b64seed: String = {
+  lazy val b64seed: String =
     new String(java.util.Base64.getEncoder.encode(Array.concat(ip.getAddress, {
       val bb = java.nio.ByteBuffer.allocate(Integer.BYTES)
       bb.putInt(port)
       bb.array()
     })))
-  }
+
+  lazy val isLocal: Boolean =
+    ip.isLoopbackAddress ||
+      ip.isAnyLocalAddress ||
+      ip.isLinkLocalAddress ||
+      ip.isSiteLocalAddress ||
+      ip.isMCSiteLocal ||
+      ip.isMCGlobal ||
+      ip.isMCLinkLocal ||
+      ip.isMCNodeLocal ||
+      ip.isMCOrgLocal
 }
 
 object Contact {

@@ -4,7 +4,8 @@ import cats.syntax.show._
 import fluence.kad._
 import fluence.network.client.{ KademliaClient, NetworkClient }
 import fluence.network.proto.kademlia.KademliaGrpc
-import fluence.network.server.{ KademliaServerImpl, KademliaService, NetworkServer }
+import fluence.network.server._
+import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.slf4j.LoggerFactory
 
@@ -55,7 +56,8 @@ object MainApp extends App {
     key,
     serverBuilder.contact,
     KademliaClient(client),
-    KademliaConf.read()
+    KademliaConf.read(),
+    NodeSecurity.canBeSaved[Task](acceptLocal = ServerConf.read().acceptLocal)
   )
 
   // Add server (with kademlia inside), build

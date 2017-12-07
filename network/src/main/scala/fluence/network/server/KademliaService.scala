@@ -19,14 +19,16 @@ import scala.language.implicitConversions
  * @param contact Node's contact to advertise
  * @param client Getter for RPC calling of another nodes
  * @param conf Kademlia conf
+ * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
  * @tparam C Contact info
  */
 class KademliaService[C](
     nodeId: Key,
     contact: Task[C],
     client: C ⇒ KademliaRPC[Task, C],
-    conf: KademliaConf
-) extends Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn)(
+    conf: KademliaConf,
+    checkNode: Node[C] ⇒ Task[Boolean]
+) extends Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
   implicitly[MonadError[Task, Throwable]],
   implicitly[Parallel[Task, Task]],
   KademliaService.bucketOps(conf.maxBucketSize),

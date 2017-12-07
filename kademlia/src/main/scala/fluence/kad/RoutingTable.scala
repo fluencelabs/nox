@@ -10,7 +10,9 @@ import cats.instances.list._
 import cats.{ MonadError, Parallel }
 import org.slf4j.LoggerFactory
 
+import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
 
@@ -81,6 +83,13 @@ object RoutingTable {
       combine(siblingsStream, bucketsStream)
     }
 
+    /**
+     * Perform a lookup in local RoutingTable for a key,
+     * return `numberOfNodes` closest known nodes, going away from the second key
+     *
+     * @param key Key to lookup
+     * @param moveAwayFrom Key to move away
+     */
     def lookupAway(key: Key, moveAwayFrom: Key): Stream[Node[C]] =
       lookup(key).filter(n ⇒ (n.key |+| key) < (n.key |+| moveAwayFrom))
   }
@@ -94,41 +103,86 @@ object RoutingTable {
      * Locates the bucket responsible for given contact, and updates it using given ping function
      *
      * @param node        Contact to update
-     * @param rpc         Function that pings the contact to check if it's alive
+     * @param rpc           Function to perform request to remote contact
      * @param pingExpiresIn Duration when no ping requests are made by the bucket, to avoid overflows
+     * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
      * @return True if the node is saved into routing table
      */
-    def update(node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingExpiresIn: Duration): F[Boolean] =
+    def update(node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingExpiresIn: Duration, checkNode: Node[C] ⇒ F[Boolean]): F[Boolean] =
       if (nodeId === node.key) false.pure[F]
       else {
-        //log.debug("Update node: " + node.key)
-        for {
-          // Update bucket, performing ping if necessary
-          savedToBuckets ← BW.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingExpiresIn)
+        checkNode(node).attempt.flatMap {
+          case Right(true) ⇒
+            log.trace("Update node: {}", node.key)
+            for {
+              // Update bucket, performing ping if necessary
+              savedToBuckets ← BW.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingExpiresIn)
 
-          // Update siblings
-          savedToSiblings ← SW.add(node)
+              // Update siblings
+              savedToSiblings ← SW.add(node)
 
-        } yield savedToBuckets || savedToSiblings
+            } yield savedToBuckets || savedToSiblings
+
+          case Left(err) ⇒
+            log.trace(s"Node check failed with an exception for $node", err)
+            false.pure[F]
+
+          case _ ⇒
+            false.pure[F]
+        }
       }
 
-    // As we see nodes, update routing table
-    // TODO: we can group nodes by bucketId, and run updates in parallel with Traverse
-    private def updateList(
-      pending: List[Node[C]],
+    /**
+     * Update RoutingTable with a list of fresh nodes
+     *
+     * @param nodes List of new nodes
+     * @param rpc   Function to perform request to remote contact
+     * @param pingExpiresIn Duration when no ping requests are made by the bucket, to avoid overflows
+     * @return The same list of `nodes`
+     */
+    def updateList(
+      nodes: List[Node[C]],
       rpc: C ⇒ KademliaRPC[F, C],
       pingExpiresIn: Duration,
-      checked: List[Node[C]] = Nil
-    ): F[List[Node[C]]] =
-      pending match {
-        case a :: tail ⇒
-          update(a, rpc, pingExpiresIn).flatMap { b ⇒
-            updateList(tail, rpc, pingExpiresIn, a :: checked)
+      checkNode: Node[C] ⇒ F[Boolean]
+    ): F[List[Node[C]]] = {
+      // From iterable of groups, make list of list of items from different groups
+      @tailrec
+      def rearrange(groups: Iterable[List[Node[C]]], agg: List[List[Node[C]]] = Nil): List[List[Node[C]]] = {
+        if (groups.isEmpty) agg
+        else {
+          val current = ListBuffer[Node[C]]()
+          val next = ListBuffer[List[Node[C]]]()
+          groups.foreach {
+            case head :: Nil ⇒
+              current.append(head)
+            case head :: tail ⇒
+              current.append(head)
+              next.append(tail)
+            case _ ⇒
           }
-
-        case Nil ⇒
-          checked.pure[F]
+          rearrange(next.toList, current.toList :: agg)
+        }
       }
+
+      // Update each portion in parallel
+      def updateParPortions(portions: List[List[Node[C]]], agg: List[Node[C]] = Nil): F[List[Node[C]]] = portions match {
+        case Nil         ⇒ agg.pure[F]
+        case Nil :: tail ⇒ updateParPortions(tail, agg)
+        case portion :: tail ⇒
+          Parallel.parTraverse(portion)(update(_, rpc, pingExpiresIn, checkNode)).flatMap(_ ⇒
+            updateParPortions(tail, portion ::: agg)
+          )
+      }
+
+      updateParPortions(
+        // Rearrange in portions with distinct bucket ids, so that it's possible to update it in parallel
+        rearrange(
+          // Group by bucketId, so that each group should never be updated in parallel
+          nodes.groupBy(p ⇒ (p.key |+| nodeId).zerosPrefixLen).values
+        )
+      ).map(_ ⇒ nodes)
+    }
 
     /**
      * The search begins by selecting alpha contacts from the non-empty k-bucket closest to the bucket appropriate
@@ -161,6 +215,7 @@ object RoutingTable {
      * @param parallelism A number of requests performed in parallel
      * @param rpc         Function to perform request to remote contact
      * @param pingExpiresIn Duration to prevent too frequent ping requests from buckets
+     * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
      * @return
      */
     def lookupIterative(
@@ -171,7 +226,8 @@ object RoutingTable {
 
       rpc: C ⇒ KademliaRPC[F, C],
 
-      pingExpiresIn: Duration
+      pingExpiresIn: Duration,
+      checkNode: Node[C] ⇒ F[Boolean]
 
     ): F[Seq[Node[C]]] = {
       // Import for Traverse
@@ -206,7 +262,7 @@ object RoutingTable {
           )
 
           remote0X
-            .flatMap(updateList(_, rpc, pingExpiresIn)) // Update routing table
+            .flatMap(updateList(_, rpc, pingExpiresIn, checkNode)) // Update routing table
             .map {
               remotes ⇒
                 val updatedShortlist = shortlist ++
@@ -257,6 +313,7 @@ object RoutingTable {
      *                       that only the successfully replied nodes have actually changed its state.
      * @param rpc Used to perform lookups
      * @param pingExpiresIn Duration to prevent too frequent ping requests from buckets
+     * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
      * @tparam A Return type
      * @return Pairs of unique nodes that has given reply, and replies.
      *         Size is <= `numToCollect` for non-idempotent `fn`,
@@ -274,9 +331,10 @@ object RoutingTable {
       isIdempotentFn: Boolean,
 
       rpc: C ⇒ KademliaRPC[F, C],
-      pingExpiresIn: Duration
+      pingExpiresIn: Duration,
+      checkNode: Node[C] ⇒ F[Boolean]
     ): F[Seq[(Node[C], A)]] =
-      lookupIterative(key, numToCollect max parallelism, parallelism, rpc, pingExpiresIn).flatMap {
+      lookupIterative(key, numToCollect max parallelism, parallelism, rpc, pingExpiresIn, checkNode).flatMap {
         prefetchedNodes ⇒
 
           // Lazy stream that takes nodes from the right
@@ -404,9 +462,10 @@ object RoutingTable {
      * @param rpc           RPC for remote nodes call
      * @param pingTimeout   Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
      * @param numberOfNodes How many nodes to lookupIterative for each peer
+     * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
      * @return F[Unit], possibly a failure if were not able to join any node
      */
-    def join(peers: Seq[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration, numberOfNodes: Int): F[Unit] =
+    def join(peers: Seq[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration, numberOfNodes: Int, checkNode: Node[C] ⇒ F[Boolean]): F[Unit] =
       Parallel.parTraverse(peers.toList) { peer: C ⇒
         // For each peer
         // Try to ping the peer; if no pings are performed, join is failed
@@ -453,7 +512,7 @@ object RoutingTable {
         }.flatMap { ns ⇒
           // Save discovered nodes to the routing table
           log.info("Discovered neighbors: " + ns.map(_.key))
-          updateList(ns, rpc, pingTimeout)
+          updateList(ns, rpc, pingTimeout, checkNode)
         }.map(_.nonEmpty).flatMap {
           case true ⇒ // At least joined to a single node
             log.info("Joined! " + Console.GREEN + nodeId + Console.RESET)

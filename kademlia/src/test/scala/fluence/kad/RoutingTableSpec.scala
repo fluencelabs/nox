@@ -64,6 +64,8 @@ class RoutingTableSpec extends WordSpec with Matchers {
       override def lookupIterative(key: Key, numberOfNodes: Int) = ???
     }
 
+    val checkNode: Node[Long] ⇒ Coeval[Boolean] = _ ⇒ Coeval(true)
+
     def bucketOps(maxBucketSize: Int): Bucket.WriteOps[Coeval, Long] =
       new Bucket.WriteOps[Coeval, Long] {
         private val buckets = TrieMap.empty[Int, Bucket[Long]]
@@ -116,7 +118,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       implicit val so = siblingsOps(nodeId, 2)
 
       (1l to 5l).foreach { i ⇒
-        nodeId.update(Node(i, now, i), failLocalRPC, pingDuration).run
+        nodeId.update(Node(i, now, i), failLocalRPC, pingDuration, checkNode).run
         (1l to i).foreach { n ⇒
           nodeId.find(n) should be('defined)
         }
@@ -124,17 +126,17 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
       nodeId.find(4l) should be('defined)
 
-      nodeId.update(Node(6l, now, 6l), failLocalRPC, pingDuration).value shouldBe true
+      nodeId.update(Node(6l, now, 6l), failLocalRPC, pingDuration, checkNode).value shouldBe true
 
       nodeId.find(4l) should be('empty)
       nodeId.find(6l) should be('defined)
 
-      nodeId.update(Node(4l, now, 4l), successLocalRPC, pingDuration).value shouldBe false
+      nodeId.update(Node(4l, now, 4l), successLocalRPC, pingDuration, checkNode).value shouldBe false
 
       nodeId.find(4l) should be('empty)
       nodeId.find(6l) should be('defined)
 
-      nodeId.update(Node(4l, now, 4l), failLocalRPC, pingDuration).value shouldBe true
+      nodeId.update(Node(4l, now, 4l), failLocalRPC, pingDuration, checkNode).value shouldBe true
 
       nodeId.find(4l) should be('defined)
       nodeId.find(6l) should be('empty)
@@ -150,7 +152,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
       (1l to 10l).foreach {
         i ⇒
-          nodeId.update(Node(i, now, i), successLocalRPC, pingDuration).run
+          nodeId.update(Node(i, now, i), successLocalRPC, pingDuration, checkNode).run
       }
 
       val nbs10 = nodeId.lookup(100l)
@@ -158,7 +160,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
       (1l to 127l).foreach {
         i ⇒
-          nodeId.update(Node(i, now, i), successLocalRPC, pingDuration).run
+          nodeId.update(Node(i, now, i), successLocalRPC, pingDuration, checkNode).run
       }
 
       (1l to 127l).foreach { i ⇒

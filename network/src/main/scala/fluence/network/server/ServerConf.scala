@@ -4,7 +4,8 @@ import com.typesafe.config.{ Config, ConfigFactory }
 
 case class ServerConf(
     localPort: Int,
-    externalPort: Option[Int]
+    externalPort: Option[Int],
+    acceptLocal: Boolean
 )
 
 object ServerConf {
