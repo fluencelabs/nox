@@ -1,6 +1,6 @@
 package fluence.btree.server.binary
 
-import fluence.btree.server.binary.kryo.KryoCodecs
+import fluence.node.binary.kryo.KryoCodecs
 import fluence.node.storage.InMemoryKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel

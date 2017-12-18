@@ -15,7 +15,8 @@ import scala.collection.concurrent
  * The keys are wrapped around ByteBuffer for valid hashCode() and equals methods.
  *
  */
-class InMemoryKVStore(db: concurrent.Map[ByteBuffer, Value]) extends KVStore[Key, Value, Task, Observable] {
+class InMemoryKVStore(db: concurrent.Map[ByteBuffer, Value])
+  extends KVStore[Task, Key, Value] with TraversableKVStore[Observable, Key, Value] {
 
   /**
    * Gets stored value for specified key.

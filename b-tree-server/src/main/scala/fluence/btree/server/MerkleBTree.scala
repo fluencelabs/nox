@@ -7,7 +7,7 @@ import cats.syntax.show._
 import fluence.btree.client.merkle.{ MerklePath, NodeProof }
 import fluence.btree.client.{ Key, ReadResults, Value, WriteResults }
 import fluence.btree.server.binary.BTreeBinaryStore
-import fluence.btree.server.binary.kryo.KryoCodecs
+import fluence.node.binary.kryo.KryoCodecs
 import fluence.btree.server.core.TreePath.PathElem
 import fluence.btree.server.core.{ NodeWithId, _ }
 import fluence.node.storage.rocksdb.RocksDbStore
@@ -144,6 +144,7 @@ class MerkleBTree private[server] (
       return Task(ReadResults(key, None, mPath))
     }
 
+    // TODO: fix unchecked error
     root match {
       case leaf: Leaf ⇒
         getForLeaf(leaf, key, mPath)
@@ -212,6 +213,7 @@ class MerkleBTree private[server] (
   }
 
   private def putForNode(key: Key, value: Value, id: NodeId, node: Node, trail: Trail): Task[WriteResults] = {
+    // TODO: fix unchecked error
     node match {
       case leaf: Leaf ⇒
         putForLeaf(key, value, id, leaf, trail)

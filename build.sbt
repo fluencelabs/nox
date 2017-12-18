@@ -116,6 +116,8 @@ lazy val `storage` = project.in(file("storage"))
       typeSafeConfig,
       ficus,
       monix3,
+      shapeless,
+      chill,
       scalatest,
       mockito
     )
@@ -140,8 +142,6 @@ lazy val `b-tree-server` = project.in(file("b-tree-server"))
       typeSafeConfig,
       ficus,
       monix3,
-      shapeless,
-      chill,
       logback,
       scalatest
     )

@@ -4,8 +4,8 @@ import cats.MonadError
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.btree.server.core.BTreeStore
+import fluence.node.binary.Codec
 import fluence.node.storage.KVStore
-import monix.reactive.Observable
 
 import scala.language.higherKinds
 
@@ -20,11 +20,11 @@ import scala.language.higherKinds
  * @tparam F - Box for returning value
  */
 class BTreeBinaryStore[Id, Node, F[_]](
-    kvStore: KVStore[Array[Byte], Array[Byte], F, Observable]
+    kvStore: KVStore[F, Array[Byte], Array[Byte]]
 )(
     implicit
-    idCodec: Codec[Id, Array[Byte], F],
-    nodeCodec: Codec[Node, Array[Byte], F],
+    idCodec: Codec[F, Id, Array[Byte]],
+    nodeCodec: Codec[F, Node, Array[Byte]],
     F: MonadError[F, Throwable]
 ) extends BTreeStore[Id, Node, F] {
 

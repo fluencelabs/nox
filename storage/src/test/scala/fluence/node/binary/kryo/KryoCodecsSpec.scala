@@ -1,4 +1,4 @@
-package fluence.btree.server.binary.kryo
+package fluence.node.binary.kryo
 
 import monix.eval.Coeval
 import org.scalatest.{ Matchers, WordSpec }

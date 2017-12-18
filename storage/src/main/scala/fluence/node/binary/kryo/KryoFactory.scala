@@ -1,4 +1,4 @@
-package fluence.btree.server.binary.kryo
+package fluence.node.binary.kryo
 
 import com.twitter.chill.{ AllScalaRegistrar, KryoBase, KryoInstantiator }
 import org.objenesis.strategy.StdInstantiatorStrategy
@@ -9,7 +9,7 @@ import org.objenesis.strategy.StdInstantiatorStrategy
  * @param classesToReg additional classes for registration
  * @param registrationRequired if true, an exception is thrown when an unregistered class is encountered.
  */
-case class KryoFactory(classesToReg: Seq[Class[_]], registrationRequired: Boolean) extends KryoInstantiator {
+private[kryo] case class KryoFactory(classesToReg: Seq[Class[_]], registrationRequired: Boolean) extends KryoInstantiator {
 
   override def newKryo(): KryoBase = {
     val kryo = new KryoBase()

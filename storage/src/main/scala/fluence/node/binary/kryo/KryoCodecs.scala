@@ -1,9 +1,9 @@
-package fluence.btree.server.binary.kryo
+package fluence.node.binary.kryo
 
 import cats.ApplicativeError
 import cats.syntax.applicative._
 import com.twitter.chill.KryoPool
-import fluence.btree.server.binary.Codec
+import fluence.node.binary.Codec
 import shapeless._
 
 import scala.language.higherKinds
@@ -16,7 +16,7 @@ import scala.reflect.ClassTag
  * @tparam L List of classes registered with kryo
  * @tparam F Effect
  */
-class KryoCodecs[L <: HList, F[_]] private (pool: KryoPool)(implicit F: ApplicativeError[F, Throwable]) {
+class KryoCodecs[F[_], L <: HList] private (pool: KryoPool)(implicit F: ApplicativeError[F, Throwable]) {
 
   /**
    * Returns a codec for any registered type
@@ -24,8 +24,8 @@ class KryoCodecs[L <: HList, F[_]] private (pool: KryoPool)(implicit F: Applicat
    * @tparam T Object type
    * @return Freshly created Codec with Kryo inside
    */
-  implicit def codec[T](implicit sel: ops.hlist.Selector[L, T]): Codec[T, Array[Byte], F] =
-    new Codec[T, Array[Byte], F] {
+  implicit def codec[T](implicit sel: ops.hlist.Selector[L, T]): Codec[F, T, Array[Byte]] =
+    new Codec[F, T, Array[Byte]] {
       override def encode(obj: T): F[Array[Byte]] =
         Option(obj) match {
           case Some(o) ⇒
@@ -73,8 +73,8 @@ object KryoCodecs {
      * @tparam F Effect type
      * @return Configured instance of KryoCodecs
      */
-    def build[F[_]](poolSize: Int = Runtime.getRuntime.availableProcessors)(implicit F: ApplicativeError[F, Throwable]): KryoCodecs[L, F] =
-      new KryoCodecs[L, F](
+    def build[F[_]](poolSize: Int = Runtime.getRuntime.availableProcessors)(implicit F: ApplicativeError[F, Throwable]): KryoCodecs[F, L] =
+      new KryoCodecs[F, L](
         KryoPool.withByteArrayOutputStream(
           poolSize,
           KryoFactory(klasses, registrationRequired = true) // registrationRequired should never be needed, as codec derivation is typesafe

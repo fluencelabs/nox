@@ -1,39 +1,83 @@
 package fluence.node.storage
 
+import cats.Monad
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import fluence.node.binary.Codec
+
+import scala.language.higherKinds
+
 /**
  * Key-value storage api interface.
  *
- * @tparam K - type of keys
- * @tparam V - type of stored values
- * @tparam F - box for returning value
- * @tparam FS - box for returning stream(cursor) of value
+ * @tparam K The type of keys
+ * @tparam V The type of stored values
+ * @tparam F A box for returning value
  */
-trait KVStore[K, V, F[_], FS[_]] {
+trait KVStore[F[_], K, V] {
 
   /**
    * Gets stored value for specified key.
-   * @param key - the key retrieve the value.
+   * @param key The key retrieve the value.
    */
   def get(key: K): F[V]
 
   /**
    * Puts key value pair (K, V).
    * Update existing value if it's present.
-   * @param key - the specified key to be inserted
-   * @param value - the value associated with the specified key
+   * @param key The specified key to be inserted
+   * @param value The value associated with the specified key
    */
   def put(key: K, value: V): F[Unit]
 
   /**
    * Removes pair (K, V) for specified key.
-   * @param key - key to delete within database
+   * @param key The key to delete within database
    */
   def remove(key: K): F[Unit]
 
-  /**
-   * Return all pairs (K, V) for specified dataSet.
-   * @return cursor to founded pairs (K,V)
-   */
-  def traverse(): FS[(K, V)]
+}
 
+object KVStore {
+  implicit def transform[F[_] : Monad, K, K1, V, V1](store: KVStore[F, K, V])(implicit
+    kCodec: Codec[F, K1, K],
+    vCodec: Codec[F, V1, V]): KVStore[F, K1, V1] =
+    new KVStore[F, K1, V1] {
+      /**
+       * Gets stored value for specified key.
+       *
+       * @param key The key retrieve the value.
+       */
+      override def get(key: K1): F[V1] =
+        for {
+          k ← kCodec.encode(key)
+          v ← store.get(k)
+          v1 ← vCodec.decode(v)
+        } yield v1
+
+      /**
+       * Puts key value pair (K, V).
+       * Update existing value if it's present.
+       *
+       * @param key   The specified key to be inserted
+       * @param value The value associated with the specified key
+       */
+      override def put(key: K1, value: V1): F[Unit] =
+        for {
+          k ← kCodec.encode(key)
+          v ← vCodec.encode(value)
+          _ ← store.put(k, v)
+        } yield ()
+
+      /**
+       * Removes pair (K, V) for specified key.
+       *
+       * @param key The key to delete within database
+       */
+      override def remove(key: K1): F[Unit] =
+        for {
+          k ← kCodec.encode(key)
+          _ ← store.remove(k)
+        } yield ()
+    }
 }

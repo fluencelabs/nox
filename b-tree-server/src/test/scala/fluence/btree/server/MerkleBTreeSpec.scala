@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 
 import fluence.btree.client.{ BTreeMerkleProofInspector, Key, Value, WriteResults }
 import fluence.btree.server.binary.BTreeBinaryStore
-import fluence.btree.server.binary.kryo.KryoCodecs
+import fluence.node.binary.kryo.KryoCodecs
 import fluence.btree.server.core._
 import fluence.hash.TestCryptoHasher
 import fluence.node.storage.InMemoryKVStore

@@ -3,7 +3,7 @@ package fluence.node.storage.rocksdb
 import java.io.File
 
 import com.typesafe.config.{ Config, ConfigFactory }
-import fluence.node.storage.KVStore
+import fluence.node.storage.{ KVStore, TraversableKVStore }
 import fluence.node.storage.rocksdb.RocksDbStore._
 import monix.eval.{ Task, TaskSemaphore }
 import monix.reactive.Observable
@@ -27,7 +27,7 @@ class RocksDbStore(
     val dataSet: String,
     val db: RocksDB,
     private val dbOptions: Options
-) extends KVStore[Key, Value, Task, Observable] with AutoCloseable {
+) extends KVStore[Task, Key, Value] with TraversableKVStore[Observable, Key, Value] with AutoCloseable {
 
   private val writeMutex = TaskSemaphore(1)
 
