@@ -10,19 +10,26 @@ val scalariformPrefs = scalariformPreferences := scalariformPreferences.value
   .setPreference(SpaceBeforeContextColon, true)
   .setPreference(NewlineAtEndOfFile, true)
 
-scalariformPrefs
-
 name := "fluence"
 
 version := "0.1"
 
 val scalaV = scalaVersion := "2.12.4"
 
-scalaV
-
 scalacOptions in Compile ++= Seq("-Ypartial-unification", "-Xdisable-assertions")
 
 javaOptions in Test ++= Seq("-ea")
+
+val commons = Seq(
+  scalaV,
+  scalariformPrefs,
+  organizationName := "Fluence Labs Limited",
+  organizationHomepage := Some(new URL("https://fluence.ai")),
+  startYear := Some(2017),
+  licenses += ("AGPL-3.0", new URL("http://www.gnu.org/licenses/agpl-3.0.en.html"))
+)
+
+commons
 
 val RocksDbV = "5.8.0"
 val TypeSafeConfV = "1.3.2"
@@ -55,35 +62,23 @@ val grpc = Seq(
 val chill = "com.twitter" %% "chill" % "0.9.2"
 
 lazy val `fluence` = project.in(file("."))
+    .settings(commons)
   .settings(
-    scalaV,
-    scalariformPrefs,
     libraryDependencies ++= Seq(
       scalatest
     )
   ).aggregate(
-    `hack`,
-    `kademlia`,
-    `network`,
-    `storage`,
-    `b-tree-client`,
-    `b-tree-server`,
-    `crypto`
-  )
-
-lazy val `hack` = project.in(file("hack"))
-  .settings(
-    scalaV,
-    libraryDependencies ++= Seq(
-      "net.sf.ntru" % "ntru" % "1.2",
-      scalatest
-    )
-  )
+  `kademlia`,
+  `network`,
+  `storage`,
+  `b-tree-client`,
+  `b-tree-server`,
+  `crypto`
+)
 
 lazy val `kademlia` = project.in(file("kademlia"))
+  .settings(commons)
   .settings(
-    scalaV,
-    scalariformPrefs,
     libraryDependencies ++= Seq(
       cats1,
       logback,
@@ -93,24 +88,22 @@ lazy val `kademlia` = project.in(file("kademlia"))
   )
 
 lazy val `network` = project.in(file("network"))
-.settings(
-  scalaV,
-  scalariformPrefs,
-  grpc,
-  libraryDependencies ++= Seq(
-    monix3,
-    shapeless,
-    typeSafeConfig,
-    ficus,
-    "org.bitlet" % "weupnp" % "0.1.+",
-    scalatest
-  )
-).dependsOn(`kademlia`).aggregate(`kademlia`)
+  .settings(commons)
+  .settings(
+    grpc,
+    libraryDependencies ++= Seq(
+      monix3,
+      shapeless,
+      typeSafeConfig,
+      ficus,
+      "org.bitlet" % "weupnp" % "0.1.+",
+      scalatest
+    )
+  ).dependsOn(`kademlia`).aggregate(`kademlia`)
 
 lazy val `storage` = project.in(file("storage"))
+  .settings(commons)
   .settings(
-    scalaV,
-    scalariformPrefs,
     libraryDependencies ++= Seq(
       rocksDb,
       typeSafeConfig,
@@ -124,9 +117,8 @@ lazy val `storage` = project.in(file("storage"))
   )
 
 lazy val `b-tree-client` = project.in(file("b-tree-client"))
+  .settings(commons)
   .settings(
-    scalaV,
-    scalariformPrefs,
     libraryDependencies ++= Seq(
       monix3,
       logback,
@@ -135,9 +127,8 @@ lazy val `b-tree-client` = project.in(file("b-tree-client"))
   ).dependsOn(`crypto`).aggregate(`crypto`)
 
 lazy val `b-tree-server` = project.in(file("b-tree-server"))
+  .settings(commons)
   .settings(
-    scalaV,
-    scalariformPrefs,
     libraryDependencies ++= Seq(
       typeSafeConfig,
       ficus,
@@ -148,9 +139,8 @@ lazy val `b-tree-server` = project.in(file("b-tree-server"))
   ).dependsOn(`storage`, `b-tree-client`).aggregate(`storage`, `b-tree-client`)
 
 lazy val `crypto` = project.in(file("crypto"))
+  .settings(commons)
   .settings(
-    scalaV,
-    scalariformPrefs,
     libraryDependencies ++= Seq(
       scalatest
     )
