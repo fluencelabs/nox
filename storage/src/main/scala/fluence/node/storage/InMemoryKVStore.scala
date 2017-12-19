@@ -13,7 +13,7 @@ import scala.collection.concurrent
 /**
  * In memory implementation of [[KVStore]].
  * The keys are wrapped around ByteBuffer for valid hashCode() and equals methods.
- *
+ * TODO: consider either moving to tests folder, or replacing with [[TrieMapKVStore]]
  */
 class InMemoryKVStore(db: concurrent.Map[ByteBuffer, Value])
   extends KVStore[Task, Key, Value] with TraversableKVStore[Observable, Key, Value] {
@@ -24,7 +24,10 @@ class InMemoryKVStore(db: concurrent.Map[ByteBuffer, Value])
    * @param key the key retrieve the value.
    */
   override def get(key: Key): Task[Value] = {
-    Task(db.getOrElse(key, null))
+    Task.delay(db.get(key)).flatMap {
+      case Some(v) ⇒ Task.now(v)
+      case None    ⇒ Task.raiseError(KVStore.KeyNotFound)
+    }
   }
 
   /**

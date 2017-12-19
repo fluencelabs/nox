@@ -36,7 +36,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       // check write and read
 
       val case1 = Task.sequence(Seq(
-        store.get(key1),
+        store.get(key1).attempt.map(_.toOption),
         store.put(key1, val1),
         store.get(key1)
       )).runAsync
@@ -44,7 +44,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       testScheduler.tick(5.seconds)
 
       val case1Result = case1.futureValue
-      case1Result should contain theSameElementsInOrderAs Seq(null, (), val1)
+      case1Result should contain theSameElementsInOrderAs Seq(None, (), val1)
 
       // check update
 
@@ -65,13 +65,13 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val case3 = Task.sequence(Seq(
         store.get(key1),
         store.remove(key1),
-        store.get(key1)
+        store.get(key1).attempt.map(_.toOption)
       )).runAsync
 
       testScheduler.tick(5.seconds)
 
       val case3Result = case3.futureValue
-      case3Result should contain theSameElementsInOrderAs Seq(val1, (), null)
+      case3Result should contain theSameElementsInOrderAs Seq(val1, (), None)
 
       // check traverse
 

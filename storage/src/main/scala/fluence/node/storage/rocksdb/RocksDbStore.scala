@@ -39,7 +39,10 @@ class RocksDbStore(
    * @param key the key retrieve the value.
    */
   override def get(key: Key): Task[Value] = {
-    Task(db.get(key))
+    Task.eval(Option(db.get(key))).flatMap {
+      case Some(v) ⇒ Task.now(v)
+      case None    ⇒ Task.raiseError(KVStore.KeyNotFound)
+    }
   }
 
   /**

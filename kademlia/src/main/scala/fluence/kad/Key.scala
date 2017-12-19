@@ -4,6 +4,7 @@ import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.Base64
 import java.lang.Byte.toUnsignedInt
+import java.nio.charset.Charset
 
 import cats.{ Monoid, Order, Show }
 import cats.syntax.monoid._
@@ -95,6 +96,8 @@ object Key {
     val md = MessageDigest.getInstance("SHA-1")
     Key(md.digest(bytes))
   }
+
+  def fromString(str: String, charset: Charset = Charset.defaultCharset()): Key = sha1(str.getBytes)
 
   def apply(bytes: Array[Byte]): Key = Key(ByteBuffer.wrap(bytes))
 

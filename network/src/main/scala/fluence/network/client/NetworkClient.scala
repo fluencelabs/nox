@@ -80,23 +80,25 @@ class NetworkClient[CL <: HList](
                 appExecutor: Executor,
                 applier: CallCredentials.MetadataApplier): Unit = {
 
-                addHeaders.attempt.foreach {
+                val setHeaders = (headers: Map[String, String]) ⇒ {
+                  log.trace("Writing metadata: {}", headers)
+                  val md = new Metadata()
+                  headers.foreach {
+                    case (k, v) ⇒
+                      md.put(Metadata.Key.of(k, Metadata.ASCII_STRING_MARSHALLER), v)
+                  }
+                  applier.apply(md)
+                }
+
+                // As addHeaders is memoized on success, this is effectively synchronous; see [[Task.runAsync]]
+                addHeaders.attempt.runAsync.foreach {
                   case Right(headers) ⇒
-                    log.trace("Writing metadata: {}", headers)
-                    val md = new Metadata()
-                    headers.foreach {
-                      case (k, v) ⇒
-                        md.put(Metadata.Key.of(k, Metadata.ASCII_STRING_MARSHALLER), v)
-                    }
-                    applier.apply(md)
+                    setHeaders(headers)
 
                   case Left(err) ⇒
                     log.error("Cannot build network request headers!", err)
                     applier.fail(Status.UNKNOWN)
                 }
-              }.onComplete {
-                r ⇒
-                  r.failed.foreach(log.error("Can't write headers", _))
               }
 
               override def thisUsesUnstableApi(): Unit = ()

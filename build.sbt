@@ -35,12 +35,15 @@ val RocksDbV = "5.8.0"
 val TypeSafeConfV = "1.3.2"
 val FicusV = "1.4.2"
 val MockitoV = "2.11.0"
+val MonocleV = "1.5.0-cats-M2"
 
 val logback = "ch.qos.logback" % "logback-classic" % "1.2.+"
 
 val cats1 = "org.typelevel" %% "cats-core" % "1.0.0-RC1"
 val monix3 = "io.monix" %% "monix" % "3.0.0-M2"
 val shapeless = "com.chuusai" %% "shapeless" % "2.3.+"
+val monocle = "com.github.julien-truffaut" %% "monocle-core" % MonocleV
+val monocleMacro = "com.github.julien-truffaut" %% "monocle-macro" % MonocleV
 
 val rocksDb = "org.rocksdb" % "rocksdbjni" % RocksDbV
 val typeSafeConfig = "com.typesafe" % "config" % TypeSafeConfV
@@ -68,13 +71,14 @@ lazy val `fluence` = project.in(file("."))
       scalatest
     )
   ).aggregate(
-  `kademlia`,
-  `network`,
-  `storage`,
-  `b-tree-client`,
-  `b-tree-server`,
-  `crypto`
-)
+    `kademlia`,
+    `network`,
+    `storage`,
+    `b-tree-client`,
+    `b-tree-server`,
+    `crypto`,
+    `dataset`
+  )
 
 lazy val `kademlia` = project.in(file("kademlia"))
   .settings(commons)
@@ -87,6 +91,7 @@ lazy val `kademlia` = project.in(file("kademlia"))
     )
   )
 
+// TODO: separate API from grpc implementation
 lazy val `network` = project.in(file("network"))
   .settings(commons)
   .settings(
@@ -101,6 +106,7 @@ lazy val `network` = project.in(file("network"))
     )
   ).dependsOn(`kademlia`).aggregate(`kademlia`)
 
+// TODO: separate API from implementation for both serialization and rocksDB
 lazy val `storage` = project.in(file("storage"))
   .settings(commons)
   .settings(
@@ -145,3 +151,14 @@ lazy val `crypto` = project.in(file("crypto"))
       scalatest
     )
   )
+
+// TODO: separate API from implementation
+lazy val `dataset` = project.in(file("dataset"))
+  .settings(
+    scalaV,
+    scalariformPrefs,
+    libraryDependencies ++= Seq(
+      cats1,
+      scalatest
+    )
+  ).dependsOn(`storage`, `kademlia`)

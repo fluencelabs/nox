@@ -12,6 +12,7 @@ import scala.concurrent.Future
 import scala.language.implicitConversions
 
 // TODO: cover with tests
+// TODO: deduplicate Task[T] => Future[T] running, with automatic logging
 class KademliaServerImpl(kad: Kademlia[Task, Contact])(implicit sc: Scheduler) extends KademliaGrpc.Kademlia {
   private val log = LoggerFactory.getLogger(getClass)
 

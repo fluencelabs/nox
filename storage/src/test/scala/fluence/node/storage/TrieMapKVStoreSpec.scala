@@ -1,22 +1,28 @@
 package fluence.node.storage
 
+import java.nio.ByteBuffer
+
+import cats.~>
 import fluence.node.storage.InMemoryKVStore._
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler
+import monix.reactive.Observable
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{ Matchers, WordSpec }
 
 import scala.concurrent.duration._
 
-class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
+class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
   "InMemoryKVStore" should {
     "performs all operations correctly" in {
 
       implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
-      val store = InMemoryKVStore()
+      val store = TrieMapKVStore.withTraverse[Task, Observable, ByteBuffer, Array[Byte]](new (Iterator ~> Observable) {
+        override def apply[A](fa: Iterator[A]): Observable[A] = Observable.fromIterator(fa)
+      })
 
       val key1 = "key1".getBytes()
       val val1 = "val1".getBytes()
@@ -74,7 +80,9 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       testScheduler.tick(5.seconds)
 
       val traverseResult = case4.futureValue
-      bytesToStr(traverseResult) should contain theSameElementsAs bytesToStr(manyPairs)
+      bytesToStr(traverseResult.map{
+        case (bb, v) ⇒ bb.array() -> v
+      }) should contain theSameElementsAs bytesToStr(manyPairs)
 
     }
   }
