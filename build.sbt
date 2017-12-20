@@ -1,3 +1,5 @@
+import de.heikoseeberger.sbtheader.License
+
 import scalariform.formatter.preferences._
 
 val scalariformPrefs = scalariformPreferences := scalariformPreferences.value
@@ -26,10 +28,13 @@ val commons = Seq(
   organizationName := "Fluence Labs Limited",
   organizationHomepage := Some(new URL("https://fluence.ai")),
   startYear := Some(2017),
-  licenses += ("AGPL-3.0", new URL("http://www.gnu.org/licenses/agpl-3.0.en.html"))
+  licenses += ("AGPL-3.0", new URL("http://www.gnu.org/licenses/agpl-3.0.en.html")),
+  headerLicense := Some(License.AGPLv3("2017", organizationName.value))
 )
 
 commons
+
+enablePlugins(AutomateHeaderPlugin)
 
 val RocksDbV = "5.8.0"
 val TypeSafeConfV = "1.3.2"
@@ -65,7 +70,7 @@ val grpc = Seq(
 val chill = "com.twitter" %% "chill" % "0.9.2"
 
 lazy val `fluence` = project.in(file("."))
-    .settings(commons)
+  .settings(commons)
   .settings(
     libraryDependencies ++= Seq(
       scalatest
@@ -78,7 +83,7 @@ lazy val `fluence` = project.in(file("."))
     `b-tree-server`,
     `crypto`,
     `dataset`
-  )
+  ).enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia` = project.in(file("kademlia"))
   .settings(commons)
@@ -154,9 +159,8 @@ lazy val `crypto` = project.in(file("crypto"))
 
 // TODO: separate API from implementation
 lazy val `dataset` = project.in(file("dataset"))
+  .settings(commons)
   .settings(
-    scalaV,
-    scalariformPrefs,
     libraryDependencies ++= Seq(
       cats1,
       scalatest
