@@ -53,4 +53,27 @@ class BytesOpsSpec extends WordSpec with Matchers {
     }
   }
 
+  "insertValue" should {
+    "throw exception" when {
+      "idx out of bound" in {
+        intercept[ArrayIndexOutOfBoundsException] {
+          BytesOps.insertValue(Array("A".getBytes), "A".getBytes, 10) shouldBe Array.empty[Array[Byte]]
+        }
+      }
+    }
+
+    "copy source array and insert value" when {
+      "source array is empty" in {
+        BytesOps.insertValue(Array.empty[Array[Byte]], "A".getBytes, 0) shouldBe Array("A".getBytes)
+      }
+
+      "array if filled" in {
+        val source = Array("A".getBytes, "B".getBytes, "C".getBytes)
+        val updatedSource = BytesOps.insertValue(source, "X".getBytes, 1)
+        updatedSource eq source shouldBe false
+        updatedSource should contain theSameElementsInOrderAs Array("A".getBytes, "X".getBytes, "B".getBytes, "C".getBytes)
+      }
+    }
+  }
+
 }

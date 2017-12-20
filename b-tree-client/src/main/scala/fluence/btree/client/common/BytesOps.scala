@@ -20,9 +20,20 @@ object BytesOps {
    * We choose variant with array copying for prevent changing input parameters.
    * Work with mutable structures is more error-prone. It may be changed in the future by performance reason.
    */
-  def rewriteValue(array: Array[Bytes], insBytes: Bytes, insIdx: Int): Array[Bytes] = {
+  def rewriteValue(array: Array[Bytes], newElement: Bytes, idx: Int): Array[Bytes] = {
     val newArray = copyOf(array)
-    newArray(insIdx) = insBytes
+    newArray(idx) = newElement
+    newArray
+  }
+
+  /**
+   * Returns updated shallow copy of array with the inserted element at the specified position(''insIdx'').
+   * Current array will grow up by one.
+   */
+  def insertValue(array: Array[Bytes], newElement: Bytes, idx: Int): Array[Bytes] = {
+    val newArray = util.Arrays.copyOf(array, array.length + 1)
+    Array.copy(array, idx, newArray, idx + 1, array.length - idx)
+    newArray(idx) = newElement
     newArray
   }
 

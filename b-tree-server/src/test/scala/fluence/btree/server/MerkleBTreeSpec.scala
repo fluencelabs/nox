@@ -2,11 +2,13 @@ package fluence.btree.server
 
 import java.nio.ByteBuffer
 
-import fluence.btree.client.{ BTreeMerkleProofInspector, Key, Value, WriteResults }
+import fluence.btree.client.merkle.MerkleRootCalculator
+import fluence.btree.client.network._
+import fluence.btree.client.{ BTreeVerifier, Key, Value }
 import fluence.btree.server.binary.BTreeBinaryStore
-import fluence.node.binary.kryo.KryoCodecs
-import fluence.btree.server.core._
+import fluence.btree.server.network.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.hash.TestCryptoHasher
+import fluence.node.binary.kryo.KryoCodecs
 import fluence.node.storage.InMemoryKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -14,6 +16,7 @@ import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{ Matchers, WordSpec }
 
+import scala.collection.Searching.{ Found, InsertionPoint }
 import scala.concurrent.duration._
 import scala.math.Ordering
 import scala.util.Random
@@ -53,52 +56,57 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
     .addCase(classOf[Leaf])
     .addCase(classOf[Branch])
     .build[Task]()
+
   import codecs._
 
   //    val hasher = JdkCryptoHash.Sha256
   val hasher = TestCryptoHasher
   val nodeOp = NodeOps(hasher)
-  val inspector = BTreeMerkleProofInspector(hasher)
+  val inspector = BTreeVerifier(hasher)
+  private val mRootCalculator = MerkleRootCalculator(hasher)
 
   "put" should {
+    "show error from client or network" when {
+      "something wrong with sending leaf to client" in {
+        implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+        val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
+        val tree = new MerkleBTree(Config, store, nodeOp)
+
+        val result = wait(Task.sequence(failedPutCmd(1 to 1, classOf[LeafResponse]) map { cmd ⇒ tree.put(cmd) }).failed)
+        result.getMessage shouldBe "Client unavailable"
+      }
+
+      "something wrong with verifying changes by client" in {
+        implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+        val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
+        val tree = new MerkleBTree(Config, store, nodeOp)
+
+        val result = wait(Task.sequence(failedPutCmd(1 to 1, classOf[VerifySimplePutResponse]) map { cmd ⇒ tree.put(cmd) }).failed)
+
+        result.getMessage shouldBe "Client unavailable"
+
+      }
+    }
     "correct insert new value" when {
       "tree is empty" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(Config, store, LocalRouter[Key, Task], nodeOp)
-        val clientMerkleRoot = Array.emptyByteArray
+        val tree = new MerkleBTree(Config, store, nodeOp)
 
-        val result = wait(tree.put(key1, value1))
-
-        // check returned result
-        result.key shouldBe key1
-        result.value shouldBe value1
-        inspector.verifyPut(result, clientMerkleRoot) shouldBe true
+        wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
 
         // check tree state
         tree.getDepth shouldBe 1
         val root = wait(tree.getRoot).asInstanceOf[Leaf]
         checkLeaf(Array(key1), Array(value1), root)
-
       }
 
       "tree contains 1 element, insertion key is less than key in tree" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val router = LocalRouter[Key, Task]
-        val tree = new MerkleBTree(Config, store, router, nodeOp)
+        val tree = new MerkleBTree(Config, store, nodeOp)
 
-        // put first value
-        val firstPutResult = wait(tree.put(key2, value2))
-        val clientMerkleRoot = inspector.calcNewMerkleRoot(firstPutResult)
-
-        // put second value
-        val result = wait(tree.put(key1, value1))
-
-        // check returned result
-        result.key shouldBe key1
-        result.value shouldBe value1
-        inspector.verifyPut(result, clientMerkleRoot) shouldBe true
+        wait(Task.sequence(putCmd(2 to (1, -1)) map { cmd ⇒ tree.put(cmd) }))
 
         // check tree state
         tree.getDepth shouldBe 1
@@ -110,19 +118,12 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       "tree contains 1 element, insertion key is more than key in tree" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(Config, store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(Config, store, nodeOp)
 
-        val firstPutResult = wait(tree.put(key1, value1))
-        val secondPutResult = wait(tree.put(key2, value2))
-
-        // check returned result
-        secondPutResult.key shouldBe key2
-        secondPutResult.value shouldBe value2
-        checkAllPutProofs(Seq(firstPutResult, secondPutResult))
+        wait(Task.sequence(putCmd(1 to 2) map { cmd ⇒ tree.put(cmd) }))
 
         // check tree state
         tree.getDepth shouldBe 1
-
         val root = wait(tree.getRoot).asInstanceOf[Leaf]
         checkLeaf(Array(key1, key2), Array(value1, value2), root)
         checkNodeValidity(root)
@@ -131,14 +132,11 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       "tree has filled root-leaf" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, nodeOp)
 
-        val putTasks = (1 to 5) map { i ⇒ tree.put(f"k$i%04d".getBytes(), f"v$i%04d".getBytes()) }
-        val results = wait(Task.sequence(putTasks))
+        wait(Task.sequence(putCmd(1 to 5) map { cmd ⇒ tree.put(cmd) }))
 
         tree.getDepth shouldBe 2
-        checkAllPutProofs(results)
-
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
         checkTree(Array(key2), Array(1, 2), root)
@@ -152,12 +150,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       "many put operation with ascending keys (only leaf is spiting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, nodeOp)
 
-        val putTasks = (1 to 11) map { i ⇒ tree.put(f"k$i%04d".getBytes(), f"v$i%04d".getBytes()) }
-
-        val results = wait(Task.sequence(putTasks))
-        checkAllPutProofs(results)
+        wait(Task.sequence(putCmd(1 to 11) map { cmd ⇒ tree.put(cmd) }))
 
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
@@ -172,12 +167,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       "many put operation with descending keys (only leaf is spiting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, nodeOp)
 
-        val putTasks = (11 to (1, -1)) map { i ⇒ tree.put(f"k$i%04d".getBytes(), f"v$i%04d".getBytes()) }
-
-        val results = wait(Task.sequence(putTasks))
-        checkAllPutProofs(results)
+        wait(Task.sequence(putCmd(11 to (1, -1)) map { cmd ⇒ tree.put(cmd) }))
 
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
@@ -191,12 +183,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       "many put operation with ascending keys (leafs and trees are splitting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, nodeOp)
 
-        val putTasks = (1 to 32) map { i ⇒ tree.put(f"k$i%04d".getBytes(), f"v$i%04d".getBytes()) }
-
-        val results = wait(Task.sequence(putTasks))
-        checkAllPutProofs(results)
+        wait(Task.sequence(putCmd(1 to 32) map { cmd ⇒ tree.put(cmd) }))
 
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
@@ -209,12 +198,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       "many put operation with descending keys (leafs and trees are splitting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, nodeOp)
 
-        val putTasks = (32 to (1, -1)) map { i ⇒ tree.put(f"k$i%04d".getBytes(), f"v$i%04d".getBytes()) }
-
-        val results = wait(Task.sequence(putTasks))
-        checkAllPutProofs(results)
+        wait(Task.sequence(putCmd(32 to (1, -1)) map { cmd ⇒ tree.put(cmd) }))
 
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
@@ -227,13 +213,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       "many put operation with random keys (leafs and trees are splitting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, nodeOp)
 
-        val seq = Random.shuffle(1 to 32)
-        val putTasks = seq map { i ⇒ tree.put(f"k$i%04d".getBytes(), f"v$i%04d".getBytes()) }
-
-        val results = wait(Task.sequence(putTasks))
-        checkAllPutProofs(results)
+        wait(Task.sequence(putCmd(Random.shuffle(1 to 32)) map { cmd ⇒ tree.put(cmd) }))
 
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
@@ -248,18 +230,10 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       "tree has 1 element" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(Config, store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(Config, store, nodeOp)
 
-        // put first value
-        val firstResult = wait(tree.put(key1, value1))
-        val firstMerkleRoot = inspector.calcNewMerkleRoot(firstResult)
-        // put second value
-        val secondResult = wait(tree.put(key1, value2))
-
-        // check returned result
-        secondResult.key shouldBe key1
-        secondResult.value shouldBe value2
-        inspector.verifyPut(secondResult, firstMerkleRoot) shouldBe true
+        wait(tree.put(new PutCommandImpl[Task](mRootCalculator, { _ ⇒ Task(Some(PutRequest(key1, value1, InsertionPoint(0)))) })))
+        wait(tree.put(new PutCommandImpl[Task](mRootCalculator, { _ ⇒ Task(Some(PutRequest(key1, value2, Found(0)))) })))
 
         // check tree state
         tree.getDepth shouldBe 1
@@ -270,110 +244,84 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       "tree has filled root-leaf" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, nodeOp)
 
-        val putTasks = (1 to 4) map { i ⇒ tree.put(f"k$i%04d".getBytes(), f"v$i%04d".getBytes()) }
-        val results = wait(Task.sequence(putTasks))
-
-        checkAllPutProofs(results) // check proofs before update
-        val updateResult = wait(tree.put(key2, value5))
-        checkAllPutProofs(results :+ updateResult) // check proofs after update
+        wait(Task.sequence(putCmd(1 to 4) map { cmd ⇒ tree.put(cmd) }))
+        wait(tree.put(new PutCommandImpl[Task](mRootCalculator, { _ ⇒ Task(Some(PutRequest(key2, value5, Found(1)))) })))
 
         tree.getDepth shouldBe 1
         val root = wait(tree.getRoot).asInstanceOf[Leaf]
         checkLeaf(Array(key1, key2, key3, key4), Array(value1, value5, value3, value4), root)
       }
-
     }
   }
 
   "get" should {
+    "show error from client or network" when {
+      "something wrong with sending leaf to client" in {
+        implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+        val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
+        val tree = new MerkleBTree(Config, store, nodeOp)
+
+        val result = wait(tree.get(failedGetCmd(key1, classOf[LeafResponse])).failed)
+        result.getMessage shouldBe "Client unavailable"
+      }
+
+      "something wrong with searching next child" in {
+        implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+        val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
+        val tree = new MerkleBTree(Config, store, nodeOp)
+
+        wait(Task.sequence(putCmd(1 to 5) map { cmd ⇒ tree.put(cmd) }))
+        val result = wait(tree.get(failedGetCmd(key1, classOf[NextChildSearchResponse])).failed)
+        result.getMessage shouldBe "Client unavailable"
+
+      }
+    }
+
     "return empty result" when {
       "value not found" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(Config, store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(Config, store, nodeOp)
 
-        val result = wait(tree.get(key1))
-
-        result.key shouldBe key1
-        result.value shouldBe None
-        result.proof.path shouldBe Array()
+        wait(tree.get(getCmd(key1, { result ⇒ result shouldBe None })))
       }
 
       "value found in root-leaf with one value" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(Config, store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(Config, store, nodeOp)
 
-        wait(tree.put(key1, value1))
-
-        val result = wait(tree.get(key1))
-
-        result.key shouldBe key1
-        result.value.get shouldBe value1
-        result.proof.path should have size 1
-        val merkleRoot = wait(tree.getMerkleRoot)
-        inspector.verifyGet(result, merkleRoot) shouldBe true
-
+        wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
+        wait(tree.get(getCmd(key1, { result ⇒ result.get shouldBe value1 })))
       }
 
       "value found in filled root-leaf" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(Config, store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(Config, store, nodeOp)
 
-        wait(tree.put(key1, value1))
-        wait(tree.put(key2, value2))
-        wait(tree.put(key3, value3))
-        wait(tree.put(key4, value4))
-
-        val result = wait(tree.get(key3))
-
-        result.key shouldBe key3
-        result.value.get shouldBe value3
-        result.proof.path should have size 1
-        val merkleRoot = wait(tree.getMerkleRoot)
-        inspector.verifyGet(result, merkleRoot) shouldBe true
+        wait(Task.sequence(putCmd(1 to 4) map { cmd ⇒ tree.put(cmd) }))
+        wait(tree.get(getCmd(key3, { result ⇒ result.get shouldBe value3 })))
       }
 
       "value found in huge tree" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(Config, store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(Config, store, nodeOp)
 
-        val seq = Random.shuffle(1 to 512)
-        val putTasks = seq map { i ⇒ tree.put(f"k$i%04d".getBytes(), f"v$i%04d".getBytes()) }
-
-        val putResults = wait(Task.gather(putTasks))
+        wait(Task.sequence(putCmd(Random.shuffle(1 to 512)) map { cmd ⇒ tree.put(cmd) }))
 
         val minKey = "k0001".getBytes
         val midKey = "k0256".getBytes
         val maxKey = "k0512".getBytes
         val absentKey = "k2048".getBytes
 
-        val minResult = wait(tree.get(minKey))
-        val midResult = wait(tree.get(midKey))
-        val maxResult = wait(tree.get(maxKey))
-        val absentResult = wait(tree.get(absentKey))
-
-        val merkleRoot = wait(tree.getMerkleRoot)
-
-        minResult.key shouldBe minKey
-        minResult.value.get shouldBe "v0001".getBytes
-        inspector.verifyGet(minResult, merkleRoot) shouldBe true
-
-        midResult.key shouldBe midKey
-        midResult.value.get shouldBe "v0256".getBytes
-        inspector.verifyGet(midResult, merkleRoot) shouldBe true
-
-        maxResult.key shouldBe maxKey
-        maxResult.value.get shouldBe "v0512".getBytes
-        inspector.verifyGet(maxResult, merkleRoot) shouldBe true
-
-        absentResult.key shouldBe absentKey
-        absentResult.value shouldBe None
-        inspector.verifyGet(absentResult, merkleRoot) shouldBe true
+        wait(tree.get(getCmd(minKey, { result ⇒ result.get shouldBe "v0001".getBytes })))
+        wait(tree.get(getCmd(midKey, { result ⇒ result.get shouldBe "v0256".getBytes })))
+        wait(tree.get(getCmd(maxKey, { result ⇒ result.get shouldBe "v0512".getBytes })))
+        wait(tree.get(getCmd(absentKey, { result ⇒ result shouldBe None })))
       }
 
     }
@@ -385,28 +333,20 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       "put key1, get key1" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-        val tree = new MerkleBTree(Config, store, LocalRouter[Key, Task], nodeOp)
+        val tree = new MerkleBTree(Config, store, nodeOp)
 
-        wait(tree.put(key1, value1))
-        val result = wait(tree.get(key1))
-
-        result.key shouldBe key1
-        result.value.get shouldBe value1
-        val merkleRoot = wait(tree.getMerkleRoot)
-        inspector.verifyGet(result, merkleRoot)
+        wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
+        wait(tree.get(getCmd(key1, { result ⇒ result.get shouldBe value1 })))
       }
     }
 
     "put many value in random order and get theirs" in {
       implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
       val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-      val tree = new MerkleBTree(MerkleBTreeConfig(arity = Arity), store, LocalRouter[Key, Task], nodeOp)
+      val tree = new MerkleBTree(MerkleBTreeConfig(arity = Arity), store, nodeOp)
 
-      val seq = Random.shuffle(1 to 1024)
-      val putTasks = seq map { i ⇒ tree.put(f"k$i%04d".getBytes(), f"v$i%04d".getBytes()) }
+      wait(Task.sequence(putCmd(Random.shuffle(1 to 1024)) map { cmd ⇒ tree.put(cmd) }))
 
-      val results = wait(Task.sequence(putTasks))
-      checkAllPutProofs(results)
       tree.getDepth should be >= 5
 
       val minKey = "k0001".getBytes
@@ -414,45 +354,23 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       val maxKey = "k1024".getBytes
       val absentKey = "k2048".getBytes
 
-      val minResult = wait(tree.get(minKey))
-      val midResult = wait(tree.get(midKey))
-      val maxResult = wait(tree.get(maxKey))
-      val absentResult = wait(tree.get(absentKey))
-      val merkleRoot = wait(tree.getMerkleRoot)
-
-      minResult.key shouldBe minKey
-      minResult.value.get shouldBe "v0001".getBytes
-      inspector.verifyGet(minResult, merkleRoot) shouldBe true
-
-      midResult.key shouldBe midKey
-      midResult.value.get shouldBe "v0512".getBytes
-      inspector.verifyGet(midResult, merkleRoot) shouldBe true
-
-      maxResult.key shouldBe maxKey
-      maxResult.value.get shouldBe "v1024".getBytes
-      inspector.verifyGet(maxResult, merkleRoot) shouldBe true
-
-      absentResult.key shouldBe absentKey
-      absentResult.value shouldBe None
-      inspector.verifyGet(absentResult, merkleRoot) shouldBe true
+      wait(tree.get(getCmd(minKey, { result ⇒ result.get shouldBe "v0001".getBytes })))
+      wait(tree.get(getCmd(midKey, { result ⇒ result.get shouldBe "v0512".getBytes })))
+      wait(tree.get(getCmd(maxKey, { result ⇒ result.get shouldBe "v1024".getBytes })))
+      wait(tree.get(getCmd(absentKey, { result ⇒ result shouldBe None })))
 
     }
 
     "put twice many value in random order and get theirs" in {
       implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
       val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-      val tree = new MerkleBTree(MerkleBTreeConfig(arity = Arity), store, LocalRouter[Key, Task], nodeOp)
-
-      val seq = Random.shuffle(1 to 1024)
-      val putTasks = seq map { i ⇒ tree.put(f"k$i%04d".getBytes(), f"v$i%04d".getBytes()) }
+      val tree = new MerkleBTree(MerkleBTreeConfig(arity = Arity), store, nodeOp)
 
       // put 1024 elements
-      val results1 = wait(Task.sequence(putTasks))
-      checkAllPutProofs(results1)
+      wait(Task.sequence(putCmd(Random.shuffle(1 to 1024)) map { cmd ⇒ tree.put(cmd) }))
 
       // put 1024 elements again
-      val results2 = wait(Task.sequence(putTasks))
-      checkAllPutProofs(results2)
+      wait(Task.sequence(putCmd(Random.shuffle(1 to 1024)) map { cmd ⇒ tree.put(cmd) }))
 
       tree.getDepth should be >= 5
 
@@ -461,28 +379,10 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       val maxKey = "k1024".getBytes
       val absentKey = "k2048".getBytes
 
-      val minResult = wait(tree.get(minKey))
-      val midResult = wait(tree.get(midKey))
-      val maxResult = wait(tree.get(maxKey))
-      val absentResult = wait(tree.get(absentKey))
-      val merkleRoot = wait(tree.getMerkleRoot)
-
-      minResult.key shouldBe minKey
-      minResult.value.get shouldBe "v0001".getBytes
-      inspector.verifyGet(minResult, merkleRoot) shouldBe true
-
-      midResult.key shouldBe midKey
-      midResult.value.get shouldBe "v0512".getBytes
-      inspector.verifyGet(midResult, merkleRoot) shouldBe true
-
-      maxResult.key shouldBe maxKey
-      maxResult.value.get shouldBe "v1024".getBytes
-      inspector.verifyGet(maxResult, merkleRoot) shouldBe true
-
-      absentResult.key shouldBe absentKey
-      absentResult.value shouldBe None
-      inspector.verifyGet(absentResult, merkleRoot) shouldBe true
-
+      wait(tree.get(getCmd(minKey, { result ⇒ result.get shouldBe "v0001".getBytes })))
+      wait(tree.get(getCmd(midKey, { result ⇒ result.get shouldBe "v0512".getBytes })))
+      wait(tree.get(getCmd(maxKey, { result ⇒ result.get shouldBe "v1024".getBytes })))
+      wait(tree.get(getCmd(absentKey, { result ⇒ result shouldBe None })))
     }
 
   }
@@ -534,25 +434,103 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
     node.checksum should not be empty
   }
 
-  private def createTree(config: MerkleBTreeConfig = Config) = {
-    val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
-    val router = LocalRouter[Key, Task]
-    new MerkleBTree(config, store, router, nodeOp)
+  /** Creates Seq of PutCommand for specified Range of key indexes. */
+  private def putCmd(seq: Seq[Int]): Seq[PutCommandImpl[Task]] = {
+
+    seq map { i ⇒
+      new PutCommandImpl[Task](
+        mRootCalculator, {
+        case LeafResponse(keys, _) ⇒
+          import scala.collection.Searching._
+          Task(Some(PutRequest(f"k$i%04d".getBytes(), f"v$i%04d".getBytes(), keys.search(f"k$i%04d".getBytes()))))
+        case NextChildSearchResponse(keys, _) ⇒
+          import scala.collection.Searching._
+          Task(Some(ResumeSearchRequest(keys.search(f"k$i%04d".getBytes()).insertionPoint)))
+        case VerifySimplePutResponse(mRoot) ⇒
+          Task(Some(Confirm))
+        case VerifyPutWithRebalancingResponse(mPath) ⇒
+          Task(Some(Confirm))
+      })
+    }
   }
 
-  private def checkAllPutProofs(results: Seq[WriteResults]): Unit = {
-    results.sliding(2).foreach {
-      case Seq(prev, next) ⇒
-        val prevRoot = inspector.calcNewMerkleRoot(prev)
-        if (inspector.verifyPut(next, prevRoot)) {
-          succeed
-        } else {
-          fail(s"verify for hashes failed: " +
-            s"prev=${prev.newStateProof} " +
-            s"next=${next.oldStateProof} " +
-            s"with keys ${new String(prev.key)} ${new String(next.key)}")
-        }
+  /**
+   * Creates Seq of PutCommand for specified Range of key indexes and raise exception
+   * for specified BTreeServerResponse type.
+   */
+  private def failedPutCmd[T <: BTreeServerResponse](
+    seq: Seq[Int],
+    failWhenReceive: Class[T],
+    errMsg: String = "Client unavailable"
+  ): Seq[PutCommandImpl[Task]] = {
+    seq map { i ⇒
+      new PutCommandImpl[Task](
+        mRootCalculator, {
+        case LeafResponse(keys, _) ⇒
+          if (failWhenReceive == classOf[LeafResponse]) {
+            Task.raiseError(new Exception(errMsg))
+          } else {
+            import scala.collection.Searching._
+            Task(Some(PutRequest(f"k$i%04d".getBytes(), f"v$i%04d".getBytes(), keys.search(f"k$i%04d".getBytes()))))
+          }
+        case NextChildSearchResponse(keys, _) ⇒
+          if (failWhenReceive == classOf[NextChildSearchResponse]) {
+            Task.raiseError(new Exception(errMsg))
+          } else {
+            import scala.collection.Searching._
+            Task(Some(ResumeSearchRequest(keys.search(f"k$i%04d".getBytes()).insertionPoint)))
+          }
+        case VerifySimplePutResponse(_) | VerifyPutWithRebalancingResponse(_) ⇒
+          if (failWhenReceive == classOf[VerifySimplePutResponse] || failWhenReceive == classOf[VerifyPutWithRebalancingResponse]) {
+            Task.raiseError(new Exception(errMsg))
+          } else {
+            Task(Some(Confirm))
+          }
+      })
     }
+
+  }
+
+  /** Search value for specified key and return callback for searched result */
+  private def getCmd(key: Key, resultFn: Option[Value] ⇒ Unit): GetCommandImpl[Task] = {
+    new GetCommandImpl[Task]({
+      case NextChildSearchResponse(keys, _) ⇒
+        import scala.collection.Searching._
+        Task(Some(ResumeSearchRequest(keys.search(key).insertionPoint)))
+      case LeafResponse(keys, values) ⇒
+        import scala.collection.Searching._
+        keys.search(key) match {
+          case Found(i) ⇒
+            resultFn(Some(values(i)))
+            Task(None)
+          case InsertionPoint(_) ⇒
+            resultFn(None)
+            Task(None)
+        }
+    })
+  }
+
+  /** Search value for specified key and raise exception for specified BTreeServerResponse type */
+  private def failedGetCmd[T](
+    key: Key,
+    failWhenReceive: Class[T],
+    errMsg: String = "Client unavailable"
+  ): GetCommandImpl[Task] = {
+    new GetCommandImpl[Task]({
+      case NextChildSearchResponse(keys, _) ⇒
+        if (failWhenReceive == classOf[NextChildSearchResponse]) {
+          Task.raiseError(new Exception(errMsg))
+        } else {
+          import scala.collection.Searching._
+          Task(Some(ResumeSearchRequest(keys.search(key).insertionPoint)))
+        }
+      case LeafResponse(keys, _) ⇒
+        if (failWhenReceive == classOf[LeafResponse]) {
+          Task.raiseError(new Exception(errMsg))
+        } else {
+          Task(None)
+        }
+    })
   }
 
 }

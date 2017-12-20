@@ -7,7 +7,7 @@ import fluence.hash.CryptoHasher
  * Contains all information needed for recalculating checksum of node with substituting child's checksum, for verifying
  * child's checksum or recalculating checksum of the node.
  */
-trait NodeProof {
+sealed trait NodeProof {
 
   /**
    * Calculates checksum of current ''NodeProof''.
