@@ -1,5 +1,7 @@
 # Fluence — the encrypted decentralized storage for structured data
 
+[![Build Status](https://travis-ci.org/fluencelabs/fluence.svg?branch=master)](https://travis-ci.org/fluencelabs/fluence)
+
 ## Welcome to Fluence!
 
 This repository contains codebase for the Fluence project. You can fork it, test it, check for bugs, authenticity etc.
