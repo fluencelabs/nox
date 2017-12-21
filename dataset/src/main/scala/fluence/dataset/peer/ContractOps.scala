@@ -62,6 +62,12 @@ abstract class ContractOps[C](contract: C, contractSignature: ContractSignature[
   def participantsRequired: Int
 
   /**
+   * Given that this contract is a sealed offer, and contractsWithSigns is a list of signed offers,
+   * produce a contract with full list of participants and theirs signatures, or fail if any check fails
+   */
+  def collectParticipantSignatures[F[_]](contractsWithSigns: Seq[C])(implicit F: MonadError[F, Throwable]): F[C]
+
+  /**
    * Checks disk space availability
    *
    * @return Nothing on success, failed F on error
@@ -84,6 +90,12 @@ abstract class ContractOps[C](contract: C, contractSignature: ContractSignature[
    * @return Whether this contract offer was signed by this node and client, but participants list is not sealed yet
    */
   def isSignedOffer: Boolean =
+    isSignedParticipant && nodeParticipates
+
+  /**
+   * @return Whether this contract offer was signed by a single node and client, but participants list is not sealed yet
+   */
+  def isSignedParticipant: Boolean =
     participants.size == 1 &&
       contractSignature.offerSealed[Try](contract).isSuccess &&
       nodeParticipates &&

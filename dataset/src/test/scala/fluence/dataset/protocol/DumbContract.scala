@@ -1,8 +1,8 @@
 package fluence.dataset.protocol
 
-import cats.{Applicative, ApplicativeError, Eq, MonadError}
+import cats.{ Applicative, ApplicativeError, Eq, MonadError }
 import cats.syntax.applicative._
-import fluence.dataset.peer.{ContractOps, ContractSignature}
+import fluence.dataset.peer.{ ContractOps, ContractSignature }
 import fluence.kad.Key
 
 import scala.language.higherKinds
@@ -14,7 +14,8 @@ case class DumbContract(
     offerSealed: Boolean = false,
     participantsSealed: Boolean = false,
     version: Int = 0,
-    allocationPossible: Boolean = true
+    allocationPossible: Boolean = true,
+    participantsRequired: Int = 1
 )
 
 object DumbContract {
@@ -87,6 +88,20 @@ object DumbContract {
      * List of participating nodes Kademlia keys
      */
     override def participants: Set[Key] = c.participants
+
+    /**
+     * How many participants (=replicas) is required for the contract
+     */
+    override def participantsRequired: Int = c.participantsRequired
+
+    /**
+     * Given that this contract is a sealed offer, and contractsWithSigns is a list of signed offers,
+     * produce a contract with full list of participants and theirs signatures, or fail if any check fails
+     */
+    override def collectParticipantSignatures[F[_]](contractsWithSigns: Seq[DumbContract])(implicit F: MonadError[F, Throwable]): F[DumbContract] =
+      // TODO: check that contracts match, and that each contractWithSign has a sole participant
+      F.pure(c.copy(participants = c.participants ++ contractsWithSigns.flatMap(_.participants)))
+
   }
 
   implicit val eq: Eq[DumbContract] = Eq.fromUniversalEquals

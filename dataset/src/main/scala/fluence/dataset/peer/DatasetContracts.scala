@@ -21,7 +21,6 @@ import cats.{ Eq, MonadError, Parallel }
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
 import cats.syntax.functor._
-import cats.syntax.applicativeError._
 import cats.instances.list._
 import fluence.dataset.protocol._
 import fluence.kad.{ Kademlia, Key }
@@ -42,51 +41,64 @@ abstract class DatasetContracts[F[_], Contract, Contact](
 )(implicit ME: MonadError[F, Throwable], eq: Eq[Contract], P: Parallel[F, F])
   extends ContractsAllocatorApi[F, Contract] {
 
+  /**
+   * Local cache -- should be used to reply on ContractsCacheRpc requests
+   */
   val cache: ContractsCacheRpc[F, Contract] =
     new ContractsCache(storage, contractOps, cacheTtl)
 
+  // Network wrapper -- allows ContractsCacheRpc requests to a remote Contact
   def cacheRpc(contact: Contact): ContractsCacheRpc[F, Contract]
 
   val allocator: ContractAllocatorRpc[F, Contract] =
     new ContractAllocator[F, Contract](storage, contractOps, createDataset)
 
-  def allocatorRpc(contact: Contact): ContractAllocator[F, Contract]
+  // Network wrapper -- allows ContractAllocatorRpc requests to a remote Contact
+  def allocatorRpc(contact: Contact): ContractAllocatorRpc[F, Contract]
 
+  /**
+   * Search nodes to offer contract, collect participants, allocate dataset on them
+   *
+   * @param contract Contract to allocate
+   * @param sealParticipants Client's callback to seal list of participants with a signature
+   * @return Sealed contract with a list of participants, or failure
+   */
   override def allocate(contract: Contract, sealParticipants: Contract ⇒ F[Contract]): F[Contract] = {
     // Check if contract is already known, return it immediately if it is
     val co = contractOps(contract)
-    import co.{ id, participantsRequired }
+    import co.{ id, participantsRequired, collectParticipantSignatures }
     cache.find(id).flatMap {
       case Some(c) ⇒ c.pure[F]
 
       case None ⇒
         kademlia.callIterative[Contract](
           id,
-          nc ⇒ allocatorRpc(nc.contact).offer(contract), // TODO: check contract signatures in response
+          nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap{
+            case c if contractOps(c).isSignedParticipant ⇒ c.pure[F]
+            case _                                       ⇒ ME.raiseError(DatasetContracts.NotFound)
+          },
           participantsRequired,
           maxAllocateRequests(participantsRequired),
           isIdempotentFn = false
         ).flatMap {
             case agreements if agreements.lengthCompare(participantsRequired) == 0 ⇒
-              val contractToSeal = agreements.foldLeft(contract){
-                case (acc, (_, add)) ⇒ add // TODO: merge participants
-              }
-              sealParticipants(contractToSeal).flatMap {
+
+              collectParticipantSignatures[F](agreements.map(_._2)).flatMap(contractToSeal ⇒
+                sealParticipants(contractToSeal)
+              ).flatMap {
                 sealedContract ⇒
-                  Parallel.parSequence[List, F, F, Either[Throwable, Contract]](
+                  Parallel.parSequence[List, F, F, Contract](
                     agreements
                       .map(_._1.contact)
-                      .map(c ⇒ allocatorRpc(c).allocate(sealedContract).attempt)
+                      .map(c ⇒ allocatorRpc(c).allocate(sealedContract)) // In case any allocation failed, failure will be propagated
                       .toList
                   )
               }.flatMap {
-                case signatures if signatures.nonEmpty && signatures.forall(_.isRight) ⇒
-                  // TODO: this is ugly!
-                  signatures.head.toOption.get.pure[F]
+                case c :: _ ⇒
+                  c.pure[F]
 
-                case signatures ⇒
-                  // TODO: what to do if some nodes signed an offer, but didn't perform allocation?
-                  ME.raiseError(DatasetContracts.CantFindEnoughNodes(signatures.count(_.isRight)))
+                case Nil ⇒ // Should never happen
+                  ME.raiseError(DatasetContracts.CantFindEnoughNodes(0))
               }
 
             case agreements ⇒

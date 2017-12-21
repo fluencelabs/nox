@@ -21,8 +21,28 @@ import fluence.kad.Key
 
 import scala.language.higherKinds
 
+/**
+ * Client-level API for finding and allocating dataset contracts
+ *
+ * @tparam F Effect
+ * @tparam Contract Contract
+ */
 trait ContractsAllocatorApi[F[_], Contract] {
+  /**
+   * According with contract, offers contract to participants, then seals the list of agreements on client side
+   * and performs allocation. In case of any error, result is a failure
+   *
+   * @param contract Contract to allocate
+   * @param sealParticipants Client's callback to seal list of participants with a signature
+   * @return Sealed contract with a list of participants, or failure
+   */
   def allocate(contract: Contract, sealParticipants: Contract ⇒ F[Contract]): F[Contract]
 
+  /**
+   * Tries to find a contract by its Kademlia key, or fails
+   *
+   * @param key Dataset ID
+   * @return Found contract, or failure
+   */
   def find(key: Key): F[Contract]
 }

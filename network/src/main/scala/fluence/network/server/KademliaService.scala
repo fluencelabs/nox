@@ -40,11 +40,11 @@ import scala.language.implicitConversions
  * @tparam C Contact info
  */
 class KademliaService[C](
-                          nodeId: Key,
-                          contact: Task[C],
-                          client: C ⇒ KademliaRpc[Task, C],
-                          conf: KademliaConf,
-                          checkNode: Node[C] ⇒ Task[Boolean]
+    nodeId: Key,
+    contact: Task[C],
+    client: C ⇒ KademliaRpc[Task, C],
+    conf: KademliaConf,
+    checkNode: Node[C] ⇒ Task[Boolean]
 ) extends Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
   implicitly[MonadError[Task, Throwable]],
   implicitly[Parallel[Task, Task]],

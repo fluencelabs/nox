@@ -1,10 +1,10 @@
 package fluence.dataset.protocol
 
 import cats.effect.IO
-import fluence.dataset.peer.{ContractAllocator, ContractRecord, ContractsCache}
+import fluence.dataset.peer.{ ContractAllocator, ContractRecord, ContractsCache }
 import fluence.kad.Key
-import fluence.node.storage.{KVStore, TrieMapKVStore}
-import org.scalatest.{Matchers, WordSpec}
+import fluence.node.storage.{ KVStore, TrieMapKVStore }
+import org.scalatest.{ Matchers, WordSpec }
 
 import scala.language.higherKinds
 import scala.concurrent.duration._
