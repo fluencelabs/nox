@@ -46,7 +46,7 @@ case class PutCommandImpl[F[_]](
       .map { case Some(PutRequest(key, value, searchResult)) ⇒ PutDetails(key, value, searchResult) }
   }
 
-  override def submitMerklePath(merklePath: MerklePath, wasSplitting: Boolean): F[Unit] = {
+  override def verifyChanges(merklePath: MerklePath, wasSplitting: Boolean): F[Unit] = {
     val response = if (wasSplitting)
       VerifyPutWithRebalancingResponse(merklePath)
     else

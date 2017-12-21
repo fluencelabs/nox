@@ -9,6 +9,11 @@ class GeneralNodeProofSpec extends WordSpec with Matchers {
 
   "calcChecksum" should {
     "calculate correct checksum" when {
+      "stateChecksum is empty, childsChecksums is empty, substitution checksum is None" in {
+        val result = GeneralNodeProof(Array.emptyByteArray, Array.empty, 1)
+          .calcChecksum(testHasher, None)
+        result shouldBe Array.emptyByteArray
+      }
       "stateChecksum is empty, substitution checksum is None" in {
         val result = GeneralNodeProof(Array.emptyByteArray, Array("A".getBytes, "B".getBytes, "C".getBytes), 1)
           .calcChecksum(testHasher, None)

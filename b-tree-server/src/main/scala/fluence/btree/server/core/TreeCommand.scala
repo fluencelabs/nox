@@ -81,6 +81,6 @@ trait PutCommand[F[_], K, V] extends TreeCommand[F, K] {
    * @param merklePath   Tree path traveled in tree from root to leaf
    * @param wasSplitting Indicator of the fact that during putting there was a rebalancing
    */
-  def submitMerklePath(merklePath: MerklePath, wasSplitting: Boolean): F[Unit]
+  def verifyChanges(merklePath: MerklePath, wasSplitting: Boolean): F[Unit]
 
 }

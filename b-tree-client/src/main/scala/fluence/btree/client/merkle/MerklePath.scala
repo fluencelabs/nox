@@ -25,7 +25,7 @@ package fluence.btree.client.merkle
 case class MerklePath(path: Seq[NodeProof]) {
 
   override def toString: String = {
-    "MerklePath(path=" + path.mkString("[", ",", "]")
+    "MerklePath(path=" + path.mkString("[", ",", "])")
   }
 
   /**

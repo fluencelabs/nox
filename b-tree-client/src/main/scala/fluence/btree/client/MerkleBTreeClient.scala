@@ -42,7 +42,7 @@ import scala.collection.Searching.{ Found, SearchResult }
  * @param valueCrypt  Encrypting/decrypting provider for ''value''
  * @param verifier    Arbiter for checking correctness of Btree server responses.
  */
-class MerkleBTreeClient[F[_], K, V](
+class MerkleBTreeClient[F[_], K, V] private (
     clientState: Atomic[ClientState],
     bTreeRpc: BTreeRpc[F],
     keyCrypt: Crypt[K, Array[Byte]],
@@ -66,7 +66,7 @@ class MerkleBTreeClient[F[_], K, V](
   ) extends GetState[F] with GetCallbacks[F] {
 
     // case when server asks next child
-    def nextChild(keys: Array[Key], childsChecksums: Array[Bytes]): F[(GetState[F], Int)] = {
+    def nextChild(keys: Array[Key], childsChecksums: Array[Bytes]): F[(GetCallbacks[F], Int)] = {
       processSearch(key, merkleRoot, merklePath, keys, childsChecksums)
         .map {
           case (newMPath, foundIdx) ⇒
@@ -117,7 +117,7 @@ class MerkleBTreeClient[F[_], K, V](
   ) extends PutState[F] with PutCallbacks[F] {
 
     // case when server asks next child
-    override def nextChild(keys: Array[Key], childsChecksums: Array[Bytes]): F[(PutState[F], Int)] = {
+    override def nextChild(keys: Array[Key], childsChecksums: Array[Bytes]): F[(PutCallbacks[F], Int)] = {
       processSearch(key, merkleRoot, merklePath, keys, childsChecksums)
         .map {
           case (newMPath, foundIdx) ⇒
@@ -127,7 +127,7 @@ class MerkleBTreeClient[F[_], K, V](
     }
 
     // case when server returns founded leaf
-    override def submitLeaf(keys: Array[Key], values: Array[Value]): F[(PutState[F], PutDetails)] = {
+    override def submitLeaf(keys: Array[Key], values: Array[Value]): F[(PutCallbacks[F], PutDetails)] = {
       val leafProof = verifier.getLeafProof(keys, values)
       if (verifier.checkProof(leafProof, merkleRoot, merklePath)) {
         val searchResult = binarySearch(key, keys)
@@ -154,7 +154,7 @@ class MerkleBTreeClient[F[_], K, V](
     }
 
     // case when server asks verify made changes
-    override def verifyChanges(serverMerkleRoot: Bytes, wasSplitting: Boolean): F[PutState[F]] = {
+    override def verifyChanges(serverMerkleRoot: Bytes, wasSplitting: Boolean): F[PutCallbacks[F]] = {
 
       putDetails match {
         case Some(details) ⇒
@@ -267,14 +267,14 @@ object MerkleBTreeClient {
   private val log = LoggerFactory.getLogger(getClass)
 
   def apply[F[_], K, V](
-    initClientState: ClientState,
+    initClientState: Option[ClientState],
     bTreeRpc: BTreeRpc[F],
     keyCrypt: Crypt[K, Array[Byte]],
     valueCrypt: Crypt[V, Array[Byte]],
     cryptoHasher: CryptoHasher[Bytes, Bytes]
   )(implicit ME: MonadError[F, Throwable], ord: Ordering[K]): MerkleBTreeClient[F, K, V] = {
     new MerkleBTreeClient[F, K, V](
-      Atomic(initClientState),
+      Atomic(initClientState.getOrElse(ClientState(Array.emptyByteArray))),
       bTreeRpc,
       keyCrypt,
       valueCrypt,

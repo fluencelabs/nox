@@ -21,7 +21,7 @@ import java.nio.ByteBuffer
 
 import cats.syntax.show._
 import fluence.btree.client.core.PutDetails
-import fluence.btree.client.merkle.MerklePath
+import fluence.btree.client.merkle.{ GeneralNodeProof, MerklePath }
 import fluence.btree.client.{ Key, Value }
 import fluence.btree.server.binary.BTreeBinaryStore
 import fluence.btree.server.core.TreePath.PathElem
@@ -193,7 +193,8 @@ class MerkleBTree private[server](
         .flatMap { case PutDetails(key, value, _) ⇒
           val newLeaf = createLeaf(key, value)
           // send the merkle path to the client for verification
-          cmd.submitMerklePath(MerklePath.empty, wasSplitting = false)
+          val leafProof = GeneralNodeProof(Array.emptyByteArray, newLeaf.kvChecksums, 0)
+          cmd.verifyChanges(MerklePath(Seq(leafProof)), wasSplitting = false)
             .flatMap(_ ⇒
                commitNewState(PutTask(nodesToSave = Seq(NodeWithId(RootId, newLeaf)), increaseDepth = true))
             )
@@ -261,7 +262,7 @@ class MerkleBTree private[server](
         // makes all transformations over the copy of tree
         val (newStateProof, putTask) = logicalPut(leafId, updatedLeaf, putDetails.searchResult.insertionPoint, trail)
         // after all the logical operations, we need to send the merkle path to the client for verification
-        cmd.submitMerklePath(newStateProof, putTask.wasSplitting)
+        cmd.verifyChanges(newStateProof, putTask.wasSplitting)
           .flatMap { _ ⇒
             // persist all changes
             commitNewState(putTask)

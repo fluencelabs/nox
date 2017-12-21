@@ -70,7 +70,8 @@ case class GeneralNodeProof(
     checksumForSubstitution match {
       case None ⇒
         // if checksum for substitution isn't defined just calculate node checksum
-        cryptoHasher.hash(Array.concat(stateChecksum, childrenChecksums.flatten))
+        val array = Array.concat(stateChecksum, childrenChecksums.flatten)
+        if (array.isEmpty) array else cryptoHasher.hash(array)
       case Some(checksum) ⇒
         // if checksum is defined substitute it to childsChecksum and calculate node checksum
         val updatedArray = BytesOps.rewriteValue(childrenChecksums, checksum, substitutionIdx)
