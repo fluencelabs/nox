@@ -125,7 +125,7 @@ object RoutingTable {
      * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
      * @return True if the node is saved into routing table
      */
-    def update(node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingExpiresIn: Duration, checkNode: Node[C] ⇒ F[Boolean]): F[Boolean] =
+    def update(node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration, checkNode: Node[C] ⇒ F[Boolean]): F[Boolean] =
       if (nodeId === node.key) false.pure[F]
       else {
         checkNode(node).attempt.flatMap {
@@ -160,7 +160,7 @@ object RoutingTable {
      */
     def updateList(
       nodes: List[Node[C]],
-      rpc: C ⇒ KademliaRPC[F, C],
+      rpc: C ⇒ KademliaRpc[F, C],
       pingExpiresIn: Duration,
       checkNode: Node[C] ⇒ F[Boolean]
     ): F[List[Node[C]]] = {
@@ -242,7 +242,7 @@ object RoutingTable {
 
       parallelism: Int,
 
-      rpc: C ⇒ KademliaRPC[F, C],
+      rpc: C ⇒ KademliaRpc[F, C],
 
       pingExpiresIn: Duration,
       checkNode: Node[C] ⇒ F[Boolean]
@@ -348,7 +348,7 @@ object RoutingTable {
       maxNumOfCalls: Int,
       isIdempotentFn: Boolean,
 
-      rpc: C ⇒ KademliaRPC[F, C],
+      rpc: C ⇒ KademliaRpc[F, C],
       pingExpiresIn: Duration,
       checkNode: Node[C] ⇒ F[Boolean]
     ): F[Seq[(Node[C], A)]] =
@@ -483,7 +483,7 @@ object RoutingTable {
      * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
      * @return F[Unit], possibly a failure if were not able to join any node
      */
-    def join(peers: Seq[C], rpc: C ⇒ KademliaRPC[F, C], pingTimeout: Duration, numberOfNodes: Int, checkNode: Node[C] ⇒ F[Boolean]): F[Unit] =
+    def join(peers: Seq[C], rpc: C ⇒ KademliaRpc[F, C], pingTimeout: Duration, numberOfNodes: Int, checkNode: Node[C] ⇒ F[Boolean]): F[Unit] =
       Parallel.parTraverse(peers.toList) { peer: C ⇒
         // For each peer
         // Try to ping the peer; if no pings are performed, join is failed

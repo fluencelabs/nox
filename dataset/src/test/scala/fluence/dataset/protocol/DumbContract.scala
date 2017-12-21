@@ -1,7 +1,8 @@
-package fluence.dataset.allocate
+package fluence.dataset.protocol
 
-import cats.{ Applicative, ApplicativeError, Eq, MonadError }
+import cats.{Applicative, ApplicativeError, Eq, MonadError}
 import cats.syntax.applicative._
+import fluence.dataset.peer.{ContractOps, ContractSignature}
 import fluence.kad.Key
 
 import scala.language.higherKinds

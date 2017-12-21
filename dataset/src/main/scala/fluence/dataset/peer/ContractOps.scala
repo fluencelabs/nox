@@ -15,12 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.allocate
+package fluence.dataset.peer
 
-import cats.{ Id, Monad, MonadError }
 import cats.instances.try_._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.{ Id, MonadError }
 import fluence.kad.Key
 
 import scala.language.higherKinds
@@ -55,6 +55,11 @@ abstract class ContractOps[C](contract: C, contractSignature: ContractSignature[
    * List of participating nodes Kademlia keys
    */
   def participants: Set[Key]
+
+  /**
+   * How many participants (=replicas) is required for the contract
+   */
+  def participantsRequired: Int
 
   /**
    * Checks disk space availability

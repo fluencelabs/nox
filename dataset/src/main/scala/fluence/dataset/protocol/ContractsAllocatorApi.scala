@@ -15,15 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.allocate
+package fluence.dataset.protocol
 
-import java.time.Instant
+import fluence.kad.Key
 
-/**
- * Wrapper for internal node's contracts cache with lastUpdated timestamp to invalidate caches
- *
- * @tparam C contract's type
- */
-private[dataset] case class ContractRecord[C](
-    contract: C,
-    lastUpdated: Instant = Instant.now())
+import scala.language.higherKinds
+
+trait ContractsAllocatorApi[F[_], Contract] {
+  def allocate(contract: Contract, sealParticipants: Contract ⇒ F[Contract]): F[Contract]
+
+  def find(key: Key): F[Contract]
+}

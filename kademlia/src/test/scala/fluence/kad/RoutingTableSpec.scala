@@ -46,7 +46,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       override def parallel = sequential
     }
 
-    val failLocalRPC = (_: Long) ⇒ new KademliaRPC[Coeval, Long] {
+    val failLocalRPC = (_: Long) ⇒ new KademliaRpc[Coeval, Long] {
       override def ping() = Coeval.raiseError(new NoSuchElementException)
 
       override def lookup(key: Key, numberOfNodes: Int) = ???
@@ -55,7 +55,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       override def lookupIterative(key: Key, numberOfNodes: Int) = ???
     }
 
-    val successLocalRPC = (c: Long) ⇒ new KademliaRPC[Coeval, Long] {
+    val successLocalRPC = (c: Long) ⇒ new KademliaRpc[Coeval, Long] {
       override def ping() = Coeval(Node(c, now, c))
 
       override def lookup(key: Key, numberOfNodes: Int) = ???

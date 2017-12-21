@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.allocate
+package fluence.dataset.peer
 
 import java.time.Instant
 
@@ -24,6 +24,7 @@ import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.dataset.protocol.ContractsCacheRpc
 import fluence.kad.Key
 import fluence.node.storage.KVStore
 
@@ -43,7 +44,7 @@ import scala.language.{ higherKinds, implicitConversions }
 class ContractsCache[F[_], C](
     storage: KVStore[F, Key, ContractRecord[C]],
     contractOps: C ⇒ ContractOps[C],
-    cacheTtl: FiniteDuration)(implicit ME: MonadError[F, Throwable]) extends ContractsCacheRPC[F, C] {
+    cacheTtl: FiniteDuration)(implicit ME: MonadError[F, Throwable]) extends ContractsCacheRpc[F, C] {
 
   private lazy val ttlMillis = cacheTtl.toMillis
 

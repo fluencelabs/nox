@@ -21,7 +21,7 @@ import java.net.InetAddress
 import java.time.Instant
 
 import com.google.protobuf.ByteString
-import fluence.kad.{ KademliaRPC, Key, Node }
+import fluence.kad.{ KademliaRpc, Key, Node }
 import fluence.network.{ Contact, proto }
 import fluence.network.proto.kademlia._
 import io.grpc.{ CallOptions, ManagedChannel }
@@ -34,7 +34,7 @@ import scala.language.implicitConversions
  * Implementation of KademliaClient over GRPC, with Task and Contact
  * @param stub GRPC Kademlia Stub
  */
-class KademliaClient(stub: KademliaGrpc.KademliaStub) extends KademliaRPC[Task, Contact] {
+class KademliaClient(stub: KademliaGrpc.KademliaStub) extends KademliaRpc[Task, Contact] {
 
   private implicit def nToNc(n: proto.kademlia.Node): Node[Contact] = Node[Contact](
     Key(n.id.toByteArray),

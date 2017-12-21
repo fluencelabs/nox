@@ -1,9 +1,11 @@
-package fluence.dataset.allocate
+package fluence.dataset.protocol
 
 import cats.effect.IO
+import fluence.dataset.peer.{ContractAllocator, ContractRecord, ContractsCache}
 import fluence.kad.Key
-import fluence.node.storage.{ KVStore, TrieMapKVStore }
-import org.scalatest.{ Matchers, WordSpec }
+import fluence.node.storage.{KVStore, TrieMapKVStore}
+import org.scalatest.{Matchers, WordSpec}
+
 import scala.language.higherKinds
 import scala.concurrent.duration._
 
@@ -22,7 +24,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   val store: KVStore[IO, Key, ContractRecord[DumbContract]] =
     TrieMapKVStore()
 
-  val allocator: ContractAllocatorRPC[IO, DumbContract] = new ContractAllocator[IO, DumbContract](
+  val allocator: ContractAllocatorRpc[IO, DumbContract] = new ContractAllocator[IO, DumbContract](
     store, DumbContract.ops(nodeId), createDS
   )
 

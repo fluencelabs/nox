@@ -93,7 +93,7 @@ object Bucket {
    * @tparam F StateT effect
    * @return updated Bucket, and true if bucket was updated with this node, false if it wasn't
    */
-  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingExpiresIn: Duration)(implicit ME: MonadError[F, Throwable]): StateT[F, Bucket[C], Boolean] = {
+  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration)(implicit ME: MonadError[F, Throwable]): StateT[F, Bucket[C], Boolean] = {
     StateT.get[F, Bucket[C]].flatMap { b ⇒
       b.find(node.key) match {
         case Some(c) ⇒
@@ -171,7 +171,7 @@ object Bucket {
      * @param ME Monad error instance for the effect
      * @return True if node is updated in a bucket, false otherwise
      */
-    def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRPC[F, C], pingExpiresIn: Duration)(implicit ME: MonadError[F, Throwable]): F[Boolean] =
+    def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration)(implicit ME: MonadError[F, Throwable]): F[Boolean] =
       if (read(bucketId).shouldUpdate(node, pingExpiresIn)) {
         run(bucketId, Bucket.update(node, rpc, pingExpiresIn))
       } else {

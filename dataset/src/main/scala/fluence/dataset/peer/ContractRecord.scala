@@ -15,33 +15,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.allocate
+package fluence.dataset.peer
 
-import fluence.kad.Key
-import scala.language.higherKinds
+import java.time.Instant
 
 /**
- * RPC for node's local cache for contracts
+ * Wrapper for internal node's contracts cache with lastUpdated timestamp to invalidate caches
  *
- * @tparam F Effect
- * @tparam C Contract
+ * @tparam C contract's type
  */
-trait ContractsCacheRPC[F[_], C] {
-
-  /**
-   * Tries to find a contract in local cache
-   *
-   * @param id Dataset ID
-   * @return Optional locally found contract
-   */
-  def find(id: Key): F[Option[C]]
-
-  /**
-   * Ask node to cache the contract
-   *
-   * @param contract Contract to cache
-   * @return If the contract is cached or not
-   */
-  def cache(contract: C): F[Boolean]
-
-}
+private[dataset] case class ContractRecord[C](
+    contract: C,
+    lastUpdated: Instant = Instant.now())

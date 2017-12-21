@@ -52,7 +52,7 @@ abstract class Kademlia[F[_], C](
    * @param contact Description on how to connect to remote node
    * @return
    */
-  def rpc(contact: C): KademliaRPC[F, C]
+  def rpc(contact: C): KademliaRpc[F, C]
 
   /**
    * How to promote this node to others
@@ -71,7 +71,7 @@ abstract class Kademlia[F[_], C](
   /**
    * @return KademliaRPC instance to handle incoming RPC requests
    */
-  val handleRPC: KademliaRPC[F, C] = new KademliaRPC[F, C] {
+  val handleRPC: KademliaRpc[F, C] = new KademliaRpc[F, C] {
 
     /**
      * Respond for a ping with node's own contact data

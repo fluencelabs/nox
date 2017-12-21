@@ -1,9 +1,11 @@
-package fluence.dataset.allocate
+package fluence.dataset.protocol
 
+import fluence.dataset.peer.{ContractRecord, ContractsCache}
 import fluence.kad.Key
-import fluence.node.storage.{ KVStore, TrieMapKVStore }
+import fluence.node.storage.{KVStore, TrieMapKVStore}
 import monix.eval.Coeval
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
+
 import scala.concurrent.duration._
 
 class ContractsCacheSpec extends WordSpec with Matchers {

@@ -24,7 +24,7 @@ import scala.language.higherKinds
  * @tparam F An effect, with MonadError
  * @tparam C Type for contact data
  */
-trait KademliaRPC[F[_], C] {
+trait KademliaRpc[F[_], C] {
   /**
    * Ping the contact, get its actual Node status, or fail
    */

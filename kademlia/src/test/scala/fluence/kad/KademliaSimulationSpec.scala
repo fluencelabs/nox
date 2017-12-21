@@ -100,7 +100,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
     override def ownContact: Coeval[Node[Long]] = Coeval(Node[Long](nodeId, now, nodeId))
 
-    override def rpc(contact: Long): KademliaRPC[Coeval, Long] = new KademliaRPC[Coeval, Long] {
+    override def rpc(contact: Long): KademliaRpc[Coeval, Long] = new KademliaRpc[Coeval, Long] {
       val kad = getKademlia(contact)
 
       /**

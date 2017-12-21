@@ -15,30 +15,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.allocate
+package fluence.dataset.protocol
 
+import fluence.kad.Key
 import scala.language.higherKinds
 
 /**
- * Remotely-accessible interface to negotiate allocation of a dataset contract
+ * RPC for node's local cache for contracts
+ *
  * @tparam F Effect
  * @tparam C Contract
  */
-trait ContractAllocatorRPC[F[_], C] {
-  /**
-   * Offer a contract. Node should check and preallocate required resources, save offer, and sign it
-   *
-   * @param contract A blank contract
-   * @return Signed contract, or F is an error
-   */
-  def offer(contract: C): F[C]
+trait ContractsCacheRpc[F[_], C] {
 
   /**
-   * Allocate dataset: store the contract, create storage structures, form cluster
+   * Tries to find a contract in local cache
    *
-   * @param contract A sealed contract with all nodes and client signatures
-   * @return Allocated contract
+   * @param id Dataset ID
+   * @return Optional locally found contract
    */
-  def allocate(contract: C): F[C]
+  def find(id: Key): F[Option[C]]
+
+  /**
+   * Ask node to cache the contract
+   *
+   * @param contract Contract to cache
+   * @return If the contract is cached or not
+   */
+  def cache(contract: C): F[Boolean]
 
 }

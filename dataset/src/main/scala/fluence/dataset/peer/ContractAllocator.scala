@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.allocate
+package fluence.dataset.peer
 
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
@@ -23,6 +23,7 @@ import cats.syntax.eq._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ Eq, MonadError }
+import fluence.dataset.protocol.ContractAllocatorRpc
 import fluence.kad.Key
 import fluence.node.storage.KVStore
 
@@ -43,7 +44,7 @@ class ContractAllocator[F[_], C](
     storage: KVStore[F, Key, ContractRecord[C]],
     contractOps: C ⇒ ContractOps[C],
     createDataset: C ⇒ F[Unit]
-)(implicit ME: MonadError[F, Throwable], eq: Eq[C]) extends ContractAllocatorRPC[F, C] {
+)(implicit ME: MonadError[F, Throwable], eq: Eq[C]) extends ContractAllocatorRpc[F, C] {
 
   private implicit def toOps(contract: C): ContractOps[C] = contractOps(contract)
 
