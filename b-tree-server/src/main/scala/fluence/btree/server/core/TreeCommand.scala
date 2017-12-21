@@ -17,6 +17,7 @@
 
 package fluence.btree.server.core
 
+import fluence.btree.client.core.PutDetails
 import fluence.btree.client.merkle.MerklePath
 
 /**

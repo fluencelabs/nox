@@ -19,6 +19,7 @@ package fluence.btree.server.network.commands
 
 import cats.MonadError
 import cats.syntax.functor._
+import fluence.btree.client.core.PutDetails
 import fluence.btree.client.merkle.{ MerklePath, MerkleRootCalculator }
 import fluence.btree.client.network._
 import fluence.btree.client.{ Key, Value }

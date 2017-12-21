@@ -19,7 +19,7 @@ package fluence.btree.server
 
 import cats.Show
 import cats.syntax.show._
-import fluence.btree.server.core.PutDetails
+import fluence.btree.client.core.PutDetails
 
 /**
  * ''Show'' type class implementations for [[MerkleBTree]] entities.

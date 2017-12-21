@@ -20,6 +20,7 @@ package fluence.btree.server
 import java.nio.ByteBuffer
 
 import cats.syntax.show._
+import fluence.btree.client.core.PutDetails
 import fluence.btree.client.merkle.MerklePath
 import fluence.btree.client.{ Key, Value }
 import fluence.btree.server.binary.BTreeBinaryStore
