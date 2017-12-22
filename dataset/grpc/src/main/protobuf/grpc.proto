@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package fluence.dataset;
+
+message FindRequest {
+    bytes id = 1;
+}
+
+message CacheResponse {
+    bool cached = 1;
+}
+
+message Contract {
+    bytes id = 1;
+    repeated bytes participants = 2;
+}
+
+service ContractAllocator {
+    rpc offer(Contract) returns(Contract);
+    rpc allocate(Contract) returns(Contract);
+}
+
+service ContractsCache {
+    rpc find(FindRequest) returns(Contract);
+    rpc cache(Contract) returns(CacheResponse);
+}
+
+service DatasetContractsApi {
+    rpc allocate( stream Contract ) returns(stream Contract);
+    rpc find(FindRequest) returns(Contract);
+}
