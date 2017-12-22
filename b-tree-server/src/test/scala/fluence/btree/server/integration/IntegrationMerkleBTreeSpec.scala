@@ -71,7 +71,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
   //      private val hasher = JdkCryptoHasher.Sha256
   private val hasher = TestCryptoHasher
 
-  private def createBTReeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[Task, String, String] = {
+  private def createBTReeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String, String] = {
     val keyCrypt = NoOpCrypt.forString
     val valueCrypt = NoOpCrypt.forString
     MerkleBTreeClient(clientState, new LocalBTreeRpc(createBTRee(), hasher), keyCrypt, valueCrypt, hasher)

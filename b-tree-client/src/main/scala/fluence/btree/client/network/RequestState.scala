@@ -17,6 +17,8 @@
 
 package fluence.btree.client.network
 
+import fluence.btree.client.Value
+
 /**
  * State of any request from client to server.
  */
@@ -25,9 +27,19 @@ sealed trait RequestState
 /**
  * State for each 'Get' request to remote BTree. One ''GetState'' corresponds to one series of round trip requests
  */
-trait GetState[F[_]] extends RequestState
+trait GetState[F[_]] extends RequestState {
+
+  /** Returns result of 'get' operation. */
+  def getFoundValue: F[Option[Value]]
+
+}
 
 /**
  * State for each 'Put' request to remote BTree. One ''PutState'' corresponds to one series of round trip requests
  */
-trait PutState[F[_]] extends RequestState
+trait PutState[F[_]] extends RequestState {
+
+  /** Returns old value that has been stored in tree before current 'put' operation. */
+  def getOldValue: F[Option[Value]]
+
+}

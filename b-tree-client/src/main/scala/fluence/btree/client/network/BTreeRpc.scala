@@ -21,11 +21,12 @@ import fluence.btree.client.core.PutDetails
 import fluence.btree.client.network.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.client.{ Bytes, Key, Value }
 
+// todo docs
 trait BTreeRpc[F[_]] {
 
-  def get(callbacks: GetCallbacks[F]): F[Option[Value]]
+  def get(callbacks: GetCallbacks[F]): F[Unit]
 
-  def put(callbacks: PutCallbacks[F]): F[Option[Value]]
+  def put(callbacks: PutCallbacks[F]): F[Unit]
 
 }
 
@@ -34,26 +35,26 @@ object BTreeRpc {
   trait GetCallbacks[F[_]] {
 
     // case when server asks next child
-    def nextChild(keys: Array[Key], childsChecksums: Array[Bytes]): F[(GetCallbacks[F], Int)]
+    def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): F[Int]
 
     // case when server returns founded leaf
-    def submitLeaf(keys: Array[Key], values: Array[Value]): F[Option[Value]]
+    def submitLeaf(keys: Array[Key], values: Array[Value]): F[Unit]
 
   }
 
   trait PutCallbacks[F[_]] {
 
     // case when server asks next child
-    def nextChild(keys: Array[Key], childsChecksums: Array[Bytes]): F[(PutCallbacks[F], Int)]
+    def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): F[Int]
 
     // case when server returns founded leaf
-    def submitLeaf(keys: Array[Key], values: Array[Value]): F[(PutCallbacks[F], PutDetails)]
+    def putDetails(keys: Array[Key], values: Array[Value]): F[PutDetails]
 
     // case when server asks verify made changes
-    def verifyChanges(serverMerkleRoot: Bytes, wasSplitting: Boolean): F[PutCallbacks[F]]
+    def verifyChanges(serverMerkleRoot: Bytes, wasSplitting: Boolean): F[Unit]
 
     // case when server confirmed changes persisted
-    def changesStored(): F[Option[Value]]
+    def changesStored(): F[Unit]
 
   }
 

@@ -471,7 +471,7 @@ class MerkleBTree private[server](
    * @param putTask Pool of changed nodes
    */
   private def commitNewState(putTask: PutTask): Task[Unit] = {
-    log.debug(s"commitNewState for nodes=${putTask.nodesToSave}")
+    log.debug(s"commitNewState for nodes=${putTask.nodesToSave.map(_.show)}")
     // todo start transaction
     Task.gatherUnordered(putTask.nodesToSave.map { case NodeWithId(id, node) ⇒ saveNode(id, node) })
       .foreachL(_ ⇒ if (putTask.increaseDepth) this.depth.increment())
