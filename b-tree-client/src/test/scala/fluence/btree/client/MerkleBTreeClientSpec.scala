@@ -1,6 +1,6 @@
 package fluence.btree.client
 
-import fluence.btree.client.core.ClientState
+import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.client.network._
 import fluence.crypto.NoOpCrypt
 import fluence.hash.TestCryptoHasher
@@ -28,54 +28,50 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
   "get" should {
     "returns error" when {
-      "network returns error" in {
+      "btreeRpc returns error" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
         val error = new IllegalArgumentException("Broken pipe")
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            Task.raiseError(error) // server returns error
-          }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] = Task.raiseError(error) // server returns error
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] = ???
         }
-        val client = createClient(network, "H<H<k1>>")
+
+        val client = createClient(btreeRpc, "H<H<k1>>")
         val exception = wait(client.get(key1).failed)
         exception.getMessage shouldBe error.getMessage
       }
 
       "verifying server NextChildSearchResponse was failed" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            state match {
-              case GetState(_, _, _, InitGetRequest) ⇒ // server returns branch node with invalid keys for searching
-                val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k3v3>H<k4v4>>".getBytes)
-                Task(state → NextChildSearchResponse(Array("unexpected key returned from server".getBytes), childChecksums))
-              case _ ⇒ ??? // not needed for this test case
-            }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] = {
+            val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k3v3>H<k4v4>>".getBytes)
+            callbacks
+              .nextChildIndex(Array("unexpected key returned from server".getBytes), childChecksums)
+              .map(_ ⇒ ())
           }
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] = ???
         }
 
-        val client = createClient(network, "H<H<k1v1>>")
+        val client = createClient(btreeRpc, "H<H<k1v1>>")
         val exception = wait(client.get(key1).failed)
         exception.getMessage should startWith("Checksum of branch didn't pass verifying")
       }
 
       "verifying server LeafResponse was failed" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            state match {
-              case GetState(_, _, _, InitGetRequest) ⇒ // server returns leaf node with invalid keys for searching
-                Task(state, LeafResponse(
-                  Array(key1.getBytes, "unexpected key returned from server".getBytes),
-                  Array(val1.getBytes, val2.getBytes)
-                ))
-            }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] = {
+            callbacks
+              .submitLeaf(
+                Array(key1.getBytes, "unexpected key returned from server".getBytes),
+                Array(val1.getBytes, val2.getBytes)
+              )
           }
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] = ???
         }
-        val client = createClient(network, "H<H<k1v1>H<k2v2>>")
+
+        val client = createClient(btreeRpc, "H<H<k1v1>H<k2v2>>")
         val exception = wait(client.get(key1).failed)
         exception.getMessage should startWith("Checksum of leaf didn't pass verifying")
       }
@@ -85,16 +81,13 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
     "returns None" when {
       "key isn't found" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            state match {
-              case GetState(_, _, _, InitGetRequest) ⇒ // server returns root-leaf with one key/value
-                Task(state, LeafResponse(Array(key1.getBytes), Array(val1.getBytes)))
-            }
-          }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] =
+            callbacks.submitLeaf(Array(key1.getBytes), Array(val1.getBytes))
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] = ???
         }
-        val client = createClient(network, "H<H<k1v1>>")
+
+        val client = createClient(btreeRpc, "H<H<k1v1>>")
         val result = wait(client.get(key2))
         result shouldBe None
       }
@@ -103,36 +96,31 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
     "returns founded result" when {
       "key was found in Root" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            state match {
-              case GetState(_, _, _, InitGetRequest) ⇒ // server returns root-leaf with one key/value
-                Task(state → LeafResponse(Array(key1.getBytes), Array(val1.getBytes)))
-            }
-          }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] =
+            callbacks.submitLeaf(Array(key1.getBytes), Array(val1.getBytes))
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] = ???
         }
-        val client = createClient(network, "H<H<k1v1>>")
+
+        val client = createClient(btreeRpc, "H<H<k1v1>>")
         val result = wait(client.get(key1))
         result.get shouldBe val1
       }
 
       "key was found at the second level of tree" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            state match {
-              case GetState(_, _, _, InitGetRequest) ⇒ // server returns root-branch with one key and two children
-                val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k3v3>H<k4v4>>".getBytes)
-                Task(state → NextChildSearchResponse(Array(key2.getBytes), childChecksums))
-              case GetState(_, _, _, ResumeSearchRequest(0)) ⇒ // server returns root-leaf with two key/value
-                Task(state, LeafResponse(Array(key1.getBytes, key2.getBytes), Array(val1.getBytes, val2.getBytes)))
-            }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] = {
+            val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k3v3>H<k4v4>>".getBytes)
+            for {
+              _ ← callbacks.nextChildIndex(Array(key2.getBytes), childChecksums)
+              _ ← callbacks.submitLeaf(Array(key1.getBytes, key2.getBytes), Array(val1.getBytes, val2.getBytes))
+            } yield ()
           }
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] = ???
         }
 
-        val client = createClient(network, "H<H<k2>H<H<k1v1>H<k2v2>>H<H<k3v3>H<k4v4>>>")
+        val client = createClient(btreeRpc, "H<H<k2>H<H<k1v1>H<k2v2>>H<H<k3v3>H<k4v4>>>")
         val result = wait(client.get(key1))
         result.get shouldBe val1
       }
@@ -141,146 +129,126 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
   "put" should {
     "returns error" when {
-      "network returns error" in {
+      "btreeRpc returns error" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
         val error = new IllegalArgumentException("Broken pipe")
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            Task.raiseError(error) // server returns error
-          }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] = ???
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] =
+            Task.raiseError(error)
         }
-        val client = createClient(network, "H<H<k1>>")
+
+        val client = createClient(btreeRpc, "H<H<k1>>")
         val exception = wait(client.put(key1, val1).failed)
         exception.getMessage shouldBe error.getMessage
       }
 
       "verifying server NextChildSearchResponse was failed" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            state match {
-              case PutState(_, _, _, _, InitPutRequest, _) ⇒ // server returns root with invalid keys for searching
-                val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k3v3>H<k4v4>>".getBytes)
-                Task(state → NextChildSearchResponse(Array("unexpected key returned from server".getBytes), childChecksums))
-              case _ ⇒ ??? // not needed for this test case
-            }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] = ???
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] = {
+            val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k3v3>H<k4v4>>".getBytes)
+            callbacks.nextChildIndex(Array("unexpected key returned from server".getBytes), childChecksums).map(_ ⇒ ())
           }
         }
 
-        val client = createClient(network, "H<H<k1v1>>")
+        val client = createClient(btreeRpc, "H<H<k1v1>>")
         val exception = wait(client.put(key1, val1).failed)
         exception.getMessage should startWith("Checksum of branch didn't pass verifying")
       }
 
       "verifying server LeafResponse was failed" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            state match {
-              case PutState(_, _, _, _, InitPutRequest, _) ⇒ // server returns leaf with invalid keys for searching
-                Task(state, LeafResponse(
-                  Array(key1.getBytes, "unexpected key returned from server".getBytes),
-                  Array(val1.getBytes, val2.getBytes)
-                ))
-            }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] = ???
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] = {
+            callbacks.putDetails(
+              Array(key1.getBytes, "unexpected key returned from server".getBytes),
+              Array(val1.getBytes, val2.getBytes)
+            ).map(_ ⇒ ())
           }
         }
-        val client = createClient(network, "H<H<k1v1>H<k2v2>>")
+
+        val client = createClient(btreeRpc, "H<H<k1v1>H<k2v2>>")
         val exception = wait(client.put(key1, val1).failed)
         exception.getMessage should startWith("Checksum of leaf didn't pass verifying")
       }
-
     }
 
     "put new key/value to tree" when {
       "key ins't present in tree (root inserting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            state match {
-              case PutState(_, _, _, _, InitPutRequest, _) ⇒ // server returns root-leaf with one key/value
-                Task(state, LeafResponse(Array(key1.getBytes), Array(val1.getBytes)))
-              case PutState(_, _, _, _, PutRequest(_, _, _), _) ⇒ // server inserts new value and asks confirmation
-                Task(state, VerifySimplePutResponse("H<H<k1v1>H<k2v2>>".getBytes))
-              case PutState(_, _, _, _, Confirm, _) ⇒ // server accepts confirmation
-                Task(state, ConfirmAccepted)
-            }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] = ???
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] = {
+            for {
+              _ ← callbacks.putDetails(Array(key1.getBytes), Array(val1.getBytes))
+              _ ← callbacks.verifyChanges("H<H<k1v1>H<k2v2>>".getBytes, wasSplitting = false)
+              _ ← callbacks.changesStored()
+            } yield ()
           }
         }
-        val client = createClient(network, "H<H<k1v1>>")
+
+        val client = createClient(btreeRpc, "H<H<k1v1>>")
         val result = wait(client.put(key2, val2))
         result shouldBe None
       }
 
       "key was found in tree (root inserting) " in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            state match {
-              case PutState(_, _, _, _, InitPutRequest, _) ⇒ // server returns root-branch with one key and two children
-                Task(state, LeafResponse(Array(key1.getBytes), Array(val1.getBytes)))
-              case PutState(_, _, _, _, PutRequest(_, _, _), _) ⇒ // server rewrite old value with the new value and asks confirmation
-                Task(state, VerifySimplePutResponse("H<H<k1v2>>".getBytes))
-              case PutState(_, _, _, _, Confirm, _) ⇒ // server accepts confirmation
-                Task(state, ConfirmAccepted)
-            }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] = ???
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] = {
+            for {
+              _ ← callbacks.putDetails(Array(key1.getBytes), Array(val1.getBytes))
+              _ ← callbacks.verifyChanges("H<H<k1v2>>".getBytes, wasSplitting = false)
+              _ ← callbacks.changesStored()
+            } yield ()
           }
         }
 
-        val client = createClient(network, "H<H<k1v1>>")
+        val client = createClient(btreeRpc, "H<H<k1v1>>")
         val result = wait(client.put(key1, val2))
         result.get shouldBe val1 // val1 is old value that was rewrited
       }
 
       "key ins't present in tree (second level inserting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            state match {
-              case PutState(_, _, _, _, InitPutRequest, _) ⇒ // server returns root with key2 for define next child
-                val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k4v4>H<k5v5>>".getBytes)
-                Task(state → NextChildSearchResponse(Array(key2.getBytes), childChecksums))
-              case PutState(_, _, _, _, ResumeSearchRequest(1), _) ⇒ // server returns founded leaf to client
-                Task(state, LeafResponse(Array(key4.getBytes, key5.getBytes), Array(val4.getBytes, val5.getBytes)))
-              case PutState(_, _, _, _, PutRequest(_, _, _), _) ⇒ // server inserts new value and asks confirmation
-                Task(state, VerifySimplePutResponse("H<H<k2>H<H<k1v1>H<k2v2>>H<H<k3v3>H<k4v4>H<k5v5>>>".getBytes))
-              case PutState(_, _, _, _, Confirm, _) ⇒ // server accepts confirmation
-                Task(state, ConfirmAccepted)
-            }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] = ???
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] = {
+            val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k4v4>H<k5v5>>".getBytes)
+            for {
+              _ ← callbacks.nextChildIndex(Array(key2.getBytes), childChecksums)
+              _ ← callbacks.putDetails(Array(key4.getBytes, key5.getBytes), Array(val4.getBytes, val5.getBytes))
+              _ ← callbacks.verifyChanges("H<H<k2>H<H<k1v1>H<k2v2>>H<H<k3v3>H<k4v4>H<k5v5>>>".getBytes, wasSplitting = false)
+              _ ← callbacks.changesStored()
+            } yield ()
           }
         }
 
-        val client = createClient(network, "H<H<k2>H<H<k1v1>H<k2v2>>H<H<k4v4>H<k5v5>>>")
+        val client = createClient(btreeRpc, "H<H<k2>H<H<k1v1>H<k2v2>>H<H<k4v4>H<k5v5>>>")
         val result = wait(client.put(key3, val3))
         result shouldBe None
       }
 
       "key was present in tree (second level inserting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
-        val network = new BTreeClientNetwork[Task, String, String] {
-          override def doRequest(state: RequestState): Task[(RequestState, BTreeServerResponse)] = {
-            state match {
-              case PutState(_, _, _, _, InitPutRequest, _) ⇒ // server returns root with key2 for define next child
-                val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k4v4>H<k5v5>>".getBytes)
-                Task(state → NextChildSearchResponse(Array(key2.getBytes), childChecksums))
-              case PutState(_, _, _, _, ResumeSearchRequest(1), _) ⇒ // server returns founded leaf to client
-                Task(state, LeafResponse(Array(key4.getBytes, key5.getBytes), Array(val4.getBytes, val5.getBytes)))
-              case PutState(_, _, _, _, PutRequest(_, _, _), _) ⇒ // server inserts new value and asks confirmation
-                Task(state, VerifySimplePutResponse("H<H<k2>H<H<k1v1>H<k2v2>>H<H<k4v3>H<k5v5>>>".getBytes))
-              case PutState(_, _, _, _, Confirm, _) ⇒ // server accepts confirmation
-                Task(state, ConfirmAccepted)
-            }
+        val btreeRpc = new BTreeRpc[Task] {
+          override def get(callbacks: BTreeRpc.GetCallbacks[Task]): Task[Unit] = ???
+          override def put(callbacks: BTreeRpc.PutCallbacks[Task]): Task[Unit] = {
+            val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k4v4>H<k5v5>>".getBytes)
+            for {
+              _ ← callbacks.nextChildIndex(Array(key2.getBytes), childChecksums)
+              _ ← callbacks.putDetails(Array(key4.getBytes, key5.getBytes), Array(val4.getBytes, val5.getBytes))
+              _ ← callbacks.verifyChanges("H<H<k2>H<H<k1v1>H<k2v2>>H<H<k4v3>H<k5v5>>>".getBytes, wasSplitting = false)
+              _ ← callbacks.changesStored()
+            } yield ()
           }
         }
 
-        val client = createClient(network, "H<H<k2>H<H<k1v1>H<k2v2>>H<H<k4v4>H<k5v5>>>")
+        val client = createClient(btreeRpc, "H<H<k2>H<H<k1v1>H<k2v2>>H<H<k4v4>H<k5v5>>>")
         val result = wait(client.put(key4, val3))
         result.get shouldBe val4 // val4 is old value that was rewrited
       }
@@ -295,10 +263,10 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
     async.futureValue
   }
 
-  private def createClient(network: BTreeClientNetwork[Task, String, String], mRoot: String) = {
-    MerkleBTreeClient[Task, String, String](
-      ClientState(mRoot.getBytes),
-      network,
+  private def createClient(bTreeRpc: BTreeRpc[Task], mRoot: String) = {
+    MerkleBTreeClient[String, String](
+      Some(ClientState(mRoot.getBytes)),
+      bTreeRpc,
       NoOpCrypt.forString,
       NoOpCrypt.forString,
       TestCryptoHasher

@@ -17,10 +17,10 @@
 
 package fluence.btree.client
 
-import cats.MonadError
+import cats.syntax.show._
 import fluence.btree.client.MerkleBTreeClient._
 import fluence.btree.client.common.BytesOps
-import fluence.btree.client.core.{ ClientState, PutDetails, SearchTree }
+import fluence.btree.client.core.{ PutDetails, SearchTree }
 import fluence.btree.client.merkle.MerklePath
 import fluence.btree.client.network.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.client.network._
@@ -33,7 +33,7 @@ import scala.collection.Searching.{ Found, SearchResult }
 
 /**
  * Base implementation of [[SearchTree]] to calls for a remote MerkleBTree.
- * '''Note that this version is single-thread, you can reads concurrent, but not write.'''
+ * '''Note that this version is single-thread for Put operation, and multi-thread for Get operation.'''
  *
  * @param clientState General state holder for btree client
  * @param bTreeRpc    BTree rpc service.
@@ -64,12 +64,15 @@ class MerkleBTreeClient[K, V] private (
 
     /** Tree path traveled on the server. Updatable for round trip session */
     private val merklePathMVar: MVar[MerklePath] = MVar(MerklePath.empty)
+
     /** Result of this get request. Updatable for round trip session */
     private val foundValueMVar: MVar[Option[Value]] = MVar.empty
 
     // case when server asks next child
     def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = {
       merklePathMVar.take.flatMap { mPath ⇒
+        log.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
+
         processSearch(key, merkleRoot, mPath, keys, childsChecksums)
           .flatMap { case (newMPath, foundIdx) ⇒
             merklePathMVar
@@ -82,12 +85,13 @@ class MerkleBTreeClient[K, V] private (
     // case when server returns founded leaf
     def submitLeaf(keys: Array[Key], values: Array[Value]): Task[Unit] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        val leafProof = verifier.getLeafProof(keys, values)
+        log.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
 
+        val leafProof = verifier.getLeafProof(keys, values)
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
           val value = binarySearch(key, keys) match {
             case Found(idx) ⇒
-              log.debug(s"For key=$key was found corresponded value")
+              log.debug(s"For key=$key was found corresponded value with idx=$idx")
               Option(values(idx))
             case _ ⇒
               log.debug(s"For key=$key corresponded value is missing")
@@ -111,9 +115,9 @@ class MerkleBTreeClient[K, V] private (
   /**
    * State for each 'Put' request to remote BTree. One ''PutState'' corresponds to one series of round trip requests
    *
-   * @param key            The search plain text ''key''
-   * @param value          Plain text ''value'' to be inserted to server BTree
-   * @param merkleRoot     Copy of client merkle root at the beginning of the request
+   * @param key         The search plain text ''key''
+   * @param value       Plain text ''value'' to be inserted to server BTree
+   * @param merkleRoot Copy of client merkle root at the beginning of the request
    */
   case class PutStateImpl private(
     key: K,
@@ -123,16 +127,21 @@ class MerkleBTreeClient[K, V] private (
 
     /** Tree path traveled on the server */
     private val merklePathMVar : MVar[MerklePath] = MVar(MerklePath.empty)
+
     /** All details needed for putting key and value to BTree */
     private val putDetailsMVar : MVar[Option[PutDetails]] = MVar.empty
+
     /** An old value that will be rewritten or None if key for putting wasn't present in B Tree */
     private val oldCipherValueMVar: MVar[Option[Value]] = MVar.empty
+
     /** New valid client merkle root */
     private val newMerkleRoot: MVar[Bytes] = MVar.empty
 
     // case when server asks next child
     override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = {
       merklePathMVar.take.flatMap { mPath ⇒
+        log.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
+
         processSearch(key, merkleRoot, mPath, keys, childsChecksums)
           .flatMap { case (newMPath, foundIdx) ⇒
             merklePathMVar
@@ -144,29 +153,29 @@ class MerkleBTreeClient[K, V] private (
 
     // case when server returns founded leaf
     override def putDetails(keys: Array[Key], values: Array[Value]): Task[PutDetails] = {
-
       merklePathMVar.take.flatMap { mPath ⇒
+        log.debug(s"putDetails starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
+
         val leafProof = verifier.getLeafProof(keys, values)
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
           val searchResult = binarySearch(key, keys)
-          val nodeProofAfterPut = leafProof.copy(substitutionIdx = searchResult.insertionPoint)
+          val nodeProofWithIdx = leafProof.copy(substitutionIdx = searchResult.insertionPoint)
           val prevValue = searchResult match {
             case Found(idx) ⇒
-              log.debug(s"For key=$key, value=$value will be perform update, because key isn't present in tree")
+              log.debug(s"For key=$key, value=$value will be perform update, because key is present in tree by idx=$idx")
               Some(values(idx))
             case _ ⇒
-              log.debug(s"For key=$key, value=$value will be perform insert, because key is present in tree")
+              log.debug(s"For key=$key, value=$value will be perform insert, because key isn't present in tree")
               None
           }
-          val newPutDetails = PutDetails(keyCrypt.encrypt(key), valueCrypt.encrypt(value), searchResult)
+          val putDetails = PutDetails(keyCrypt.encrypt(key), valueCrypt.encrypt(value), searchResult)
 
-          val res: Task[PutDetails] = for {
-            _ ← putDetailsMVar.put(Some(newPutDetails))
+          for {
+            _ ← putDetailsMVar.put(Some(putDetails))
             _ ← oldCipherValueMVar.put(prevValue)
-            _ ← merklePathMVar.put(mPath.add(nodeProofAfterPut))
-          } yield newPutDetails
+            _ ← merklePathMVar.put(mPath.add(nodeProofWithIdx))
+          } yield putDetails
 
-          res
         } else {
           Task.raiseError(new IllegalStateException(
             s"Checksum of leaf didn't pass verifying for key=$key, Leaf($keys, $values)"
@@ -176,23 +185,24 @@ class MerkleBTreeClient[K, V] private (
     }
 
     // case when server asks verify made changes
-    override def verifyChanges(serverMerkleRoot: Bytes, wasSplitting: Boolean): Task[Unit] = {
+    override def verifyChanges(serverMRoot: Bytes, wasSplitting: Boolean): Task[Unit] = {
       for {
         mPath ← merklePathMVar.read
         optDetails ← putDetailsMVar.read
         _ ← {
+          log.debug(s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=$serverMRoot")
+
           optDetails match {
             case Some(details) ⇒
-              Task {
-                verifier.newMerkleRoot(mPath, details, serverMerkleRoot, wasSplitting)
-              }.flatMap {
-                case None ⇒ // server was failed verification
-                  Task.raiseError(new IllegalStateException(
-                    s"Server 'put response' didn't pass verifying for state=$this, serverMRoot=$serverMerkleRoot"
-                  ))
-                case Some(newMRoot) ⇒ // all is fine, send Confirm to server
-                  newMerkleRoot.put(newMRoot)
-              }
+              Task(verifier.newMerkleRoot(mPath, details, serverMRoot, wasSplitting))
+                .flatMap {
+                  case None ⇒ // server was failed verification
+                    Task.raiseError(new IllegalStateException(
+                      s"Server 'put response' didn't pass verifying for state=$this, serverMRoot=$serverMRoot"
+                    ))
+                  case Some(newMRoot) ⇒ // all is fine, send Confirm to server
+                    newMerkleRoot.put(newMRoot)
+                }
             case None ⇒
               Task.raiseError(new IllegalStateException(
                 s"Client put details isn't defined, it's should be defined at previous step"
@@ -207,11 +217,16 @@ class MerkleBTreeClient[K, V] private (
     override def changesStored(): Task[Unit] = {
       // change global client state with new merkle root
       newMerkleRoot.take
-        .flatMap { newMRoot ⇒ println(s"new root $newMRoot"); clientStateMVar.put(ClientState(newMRoot)) }
+        .flatMap { newMRoot ⇒
+          log.debug(s"changesStored starts for key=$key, newMRoot=$newMRoot")
+
+          clientStateMVar.put(ClientState(newMRoot))
+        }
     }
 
     // return old tree value for search key
-    override def getOldValue: Task[Option[Value]] = oldCipherValueMVar.read
+    override def getOldValue: Task[Option[Value]] =
+      oldCipherValueMVar.read
   }
 
   /**
@@ -241,14 +256,19 @@ class MerkleBTreeClient[K, V] private (
   def put(key: K, value: V): Task[Option[V]] = {
     log.debug(s"Put starts put for key=$key, value=$value")
 
-    for {
+    val res = for {
       clientState ← clientStateMVar.take
       state = PutStateImpl(key, value, BytesOps.copyOf(clientState.merkleRoot))
-      _ ← bTreeRpc.put(state).onErrorHandle(_ ⇒ clientStateMVar.put(clientState)) // return old value to clientStateMVar
+      _ ← bTreeRpc.put(state) // return old value to clientStateMVar
       result ← state.getOldValue
     } yield
       decryptValue(result)
 
+    res.doOnFinish {
+      // in error case we should return old value of clientState back
+      case Some(e) ⇒ clientStateMVar.put(clientState)
+      case _ ⇒ Task(())
+    }
   }
 
   def delete(key: K): Task[Option[V]] = ???
@@ -316,5 +336,10 @@ object MerkleBTreeClient {
       BTreeVerifier(cryptoHasher)
     )
   }
+
+  /**
+   * Global state of BTree client.
+   */
+  case class ClientState(merkleRoot: Bytes)
 
 }

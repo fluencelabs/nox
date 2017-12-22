@@ -2,7 +2,7 @@ package fluence.btree.server.integration
 
 import java.nio.ByteBuffer
 
-import fluence.btree.client.core.ClientState
+import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.client.{ Key, MerkleBTreeClient, Value }
 import fluence.btree.server._
 import fluence.btree.server.binary.BTreeBinaryStore
