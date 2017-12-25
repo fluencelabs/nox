@@ -22,7 +22,8 @@ import java.time.Instant
 import cats.{ Order, Show }
 
 /**
- * Kademlia's Node representation
+ * Kademlia's Node representation.
+ *
  * @param key Key
  * @param lastSeen When was the node last seen
  * @param contact Description on how to contact the node over network
@@ -39,7 +40,8 @@ object Node {
     n ⇒ s"Node(${ks.show(n.key)}, ${n.lastSeen}, ${cs.show(n.contact)})"
 
   /**
-   * Builds order by distance relative to target node
+   * Builds order by distance relative to target node.
+   *
    * @param key Node to calculate distance against
    * @tparam C Contact type
    */

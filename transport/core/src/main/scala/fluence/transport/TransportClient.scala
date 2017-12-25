@@ -5,7 +5,7 @@ import shapeless.{ HList, ops }
 
 trait TransportClient[CL <: HList] {
   /**
-   * Returns a service stub for a particular contact
+   * Returns a service stub for a particular contact.
    *
    * @param contact To open service for
    * @param sel     Implicit selector from HList

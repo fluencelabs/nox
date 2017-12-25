@@ -27,7 +27,7 @@ import scala.language.higherKinds
 object TransportSecurity {
 
   /**
-   * Checks if a node can be saved to RoutingTable
+   * Checks if a node can be saved to RoutingTable.
    * TODO: crypto checks
    *
    * @param acceptLocal If true, local addresses will be accepted; should be used only in testing

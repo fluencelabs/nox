@@ -17,12 +17,11 @@
 
 package fluence.dataset.node
 
-import cats.{ Eq, MonadError, Parallel }
-import cats.syntax.flatMap._
-import cats.syntax.applicative._
-import cats.syntax.functor._
 import cats.instances.list._
-import fluence.dataset.node._
+import cats.syntax.applicative._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{ Eq, MonadError, Parallel }
 import fluence.dataset.node.contract.{ ContractAllocator, ContractOps, ContractRecord, ContractsCache }
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsAllocatorApi, ContractsCacheRpc }
 import fluence.kad.Kademlia
@@ -64,23 +63,23 @@ abstract class DatasetContracts[F[_], Contract, Contact](
   def allocatorRpc(contact: Contact): ContractAllocatorRpc[F, Contract]
 
   /**
-   * Search nodes to offer contract, collect participants, allocate dataset on them
+   * Search nodes to offer contract, collect participants, allocate dataset on them.
    *
-   * @param contract Contract to allocate
+   * @param contract         Contract to allocate
    * @param sealParticipants Client's callback to seal list of participants with a signature
    * @return Sealed contract with a list of participants, or failure
    */
   override def allocate(contract: Contract, sealParticipants: Contract ⇒ F[Contract]): F[Contract] = {
     // Check if contract is already known, return it immediately if it is
     val co = contractOps(contract)
-    import co.{ id, participantsRequired, collectParticipantSignatures }
+    import co.{ collectParticipantSignatures, id, participantsRequired }
     cache.find(id).flatMap {
       case Some(c) ⇒ c.pure[F]
 
       case None ⇒
         kademlia.callIterative[Contract](
           id,
-          nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap{
+          nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap {
             case c if contractOps(c).isSignedParticipant ⇒ c.pure[F]
             case _                                       ⇒ ME.raiseError(DatasetContracts.NotFound)
           },
@@ -115,7 +114,7 @@ abstract class DatasetContracts[F[_], Contract, Contact](
   }
 
   /**
-   * Try to find dataset's contract by dataset's kademlia id, or fail
+   * Try to find dataset's contract by dataset's kademlia id, or fail.
    *
    * @param key Dataset ID
    */
@@ -129,10 +128,10 @@ abstract class DatasetContracts[F[_], Contract, Contact](
         case None ⇒
           // Try to lookup in the neighborhood
           // TODO: if contract is found "too far" from the neighborhood, ask key's neighbors to cache contract
-          kademlia.callIterative[Contract](key, nc ⇒ cacheRpc(nc.contact).find(key).flatMap{
+          kademlia.callIterative[Contract](key, nc ⇒ cacheRpc(nc.contact).find(key).flatMap {
             case Some(v) ⇒ v.pure[F]
             case None    ⇒ ME.raiseError(DatasetContracts.NotFound)
-          }, 1, maxFindRequests, isIdempotentFn = true).flatMap{
+          }, 1, maxFindRequests, isIdempotentFn = true).flatMap {
             case sq if sq.nonEmpty ⇒
               // Contract is found; for the case several different versions are returned, find the most recent
               val contract = sq.map(_._2).maxBy(contractOps(_).version)
@@ -148,6 +147,9 @@ abstract class DatasetContracts[F[_], Contract, Contact](
 }
 
 object DatasetContracts {
+
   case object NotFound extends NoStackTrace
+
   case class CantFindEnoughNodes(nodesFound: Int) extends NoStackTrace
+
 }

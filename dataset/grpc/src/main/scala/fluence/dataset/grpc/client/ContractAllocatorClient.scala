@@ -17,6 +17,7 @@
 
 package fluence.dataset.grpc.client
 
+import cats.syntax.functor._
 import cats.{ Functor, ~> }
 import fluence.dataset.grpc.Contract
 import fluence.dataset.grpc.ContractAllocatorGrpc.ContractAllocatorStub
@@ -24,7 +25,6 @@ import fluence.dataset.protocol.ContractAllocatorRpc
 
 import scala.concurrent.Future
 import scala.language.higherKinds
-import cats.syntax.functor._
 
 class ContractAllocatorClient[F[_] : Functor, C](
     stub: ContractAllocatorStub,
@@ -32,8 +32,9 @@ class ContractAllocatorClient[F[_] : Functor, C](
     deserialize: Contract ⇒ C
 )(implicit run: Future ~> F)
   extends ContractAllocatorRpc[F, C] {
+
   /**
-   * Offer a contract. Node should check and preallocate required resources, save offer, and sign it
+   * Offer a contract. Node should check and preallocate required resources, save offer, and sign it.
    *
    * @param contract A blank contract
    * @return Signed contract, or F is an error
@@ -42,7 +43,7 @@ class ContractAllocatorClient[F[_] : Functor, C](
     run(stub.offer(serialize(contract))).map(deserialize)
 
   /**
-   * Allocate dataset: store the contract, create storage structures, form cluster
+   * Allocate dataset: store the contract, create storage structures, form cluster.
    *
    * @param contract A sealed contract with all nodes and client signatures
    * @return Allocated contract

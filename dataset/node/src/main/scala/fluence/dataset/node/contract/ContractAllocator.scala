@@ -30,7 +30,7 @@ import fluence.node.storage.KVStore
 import scala.language.{ higherKinds, implicitConversions }
 
 /**
- * Performs contracts allocation on local node
+ * Performs contracts allocation on local node.
  *
  * @param storage Contracts storage
  * @param contractOps Contract ops
@@ -49,7 +49,7 @@ class ContractAllocator[F[_], C](
   private implicit def toOps(contract: C): ContractOps[C] = contractOps(contract)
 
   /**
-   * Try to allocate a contract
+   * Try to allocate a contract.
    *
    * @param contract A sealed contract with all nodes and client signatures
    * @return Allocated contract
@@ -79,7 +79,7 @@ class ContractAllocator[F[_], C](
       }
 
   /**
-   * Offer a contract to node
+   * Offer a contract to node.
    *
    * @param contract A blank contract
    * @return Signed contract, or F is an error

@@ -106,7 +106,8 @@ object Key {
   def readB64(str: String): Try[Key] = Try(Base64.getDecoder.decode(str)).filter(_.length == Length).map(apply)
 
   /**
-   * Calculates sha-1 hash of the payload, and wraps it with Key
+   * Calculates sha-1 hash of the payload, and wraps it with Key.
+   *
    * @param bytes Bytes to hash
    */
   def sha1(bytes: Array[Byte]): Key = {

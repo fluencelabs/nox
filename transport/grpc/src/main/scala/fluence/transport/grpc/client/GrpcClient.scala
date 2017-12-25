@@ -30,7 +30,7 @@ import shapeless._
 import scala.collection.concurrent.TrieMap
 
 /**
- * Network Client caches managed channels to remote contacts, and service accesses to them
+ * Network Client caches managed channels to remote contacts, and service accesses to them.
  *
  * @param buildStubs Build service stubs for a channel and call options
  * @param addHeaders Headers to be added to request. Keys must be valid ASCII string, see [[Metadata.Key]]
@@ -52,7 +52,7 @@ class GrpcClient[CL <: HList](
   private val serviceStubs = TrieMap.empty[String, CL]
 
   /**
-   * Convert Contact to a string key, to be used as a key in maps
+   * Convert Contact to a string key, to be used as a key in maps.
    *
    * @param contact Contact
    */
@@ -60,7 +60,7 @@ class GrpcClient[CL <: HList](
     contact.b64seed
 
   /**
-   * Returns cached or brand new ManagedChannel for a contact
+   * Returns cached or brand new ManagedChannel for a contact.
    *
    * @param contact to open channel for
    */
@@ -76,7 +76,7 @@ class GrpcClient[CL <: HList](
     )
 
   /**
-   * Returns cached or brand new services HList for a contact
+   * Returns cached or brand new services HList for a contact.
    *
    * @param contact to open channel and build service stubs for
    * @return HList of services for contact
@@ -124,7 +124,7 @@ class GrpcClient[CL <: HList](
     )
 
   /**
-   * Returns a service stub for a particular contact
+   * Returns a service stub for a particular contact.
    *
    * @param contact To open service for
    * @param sel     Implicit selector from HList
@@ -138,7 +138,7 @@ class GrpcClient[CL <: HList](
 object GrpcClient {
 
   /**
-   * Builder for NetworkClient
+   * Builder for NetworkClient.
    *
    * @param buildStubs Builds all the known services for the channel and call ops
    * @param syncHeaders    Headers to pass with every request, known in advance
@@ -152,7 +152,7 @@ object GrpcClient {
     self ⇒
 
     /**
-     * Register a new service in the builder
+     * Register a new service in the builder.
      *
      * @param buildStub E.g. `new ServiceStub(_, _)`
      * @tparam T Type of the service
@@ -161,7 +161,7 @@ object GrpcClient {
       new Builder[T :: CL]((ch, co) ⇒ buildStub(ch, co) :: self.buildStubs(ch, co), syncHeaders, asyncHeaders)
 
     /**
-     * Add a header that will be passed with every request
+     * Add a header that will be passed with every request.
      *
      * @param name  Header name, see [[Metadata.Key]] class comment for constraints
      * @param value Header value
@@ -170,7 +170,8 @@ object GrpcClient {
       new Builder(buildStubs, syncHeaders + (name -> value), asyncHeaders)
 
     /**
-     * Adds a header asynchronously. Will be executed only once
+     * Adds a header asynchronously. Will be executed only once.
+     *
      * @param header Header to add
      */
     def addAsyncHeader(header: Task[(String, String)]): Builder[CL] =
@@ -180,7 +181,7 @@ object GrpcClient {
       } yield hs + h)
 
     /**
-     * Returns built NetworkClient
+     * Returns built NetworkClient.
      *
      * @return
      */
@@ -188,12 +189,13 @@ object GrpcClient {
   }
 
   /**
-   * An empty builder
+   * An empty builder.
    */
   val builder: Builder[HNil] = new Builder[HNil]((_: ManagedChannel, _: CallOptions) ⇒ HNil, Map.empty, Task.now(Map.empty))
 
   /**
-   * Builder with pre-defined credential headers
+   * Builder with pre-defined credential headers.
+   *
    * @param key This node's Kademlia key
    * @param contact This node's contact
    * @param conf Client config object

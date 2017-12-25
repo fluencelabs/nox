@@ -31,7 +31,8 @@ import scala.language.implicitConversions
 
 // TODO: write unit tests
 /**
- * Kademlia service to be launched as a singleton on local node
+ * Kademlia service to be launched as a singleton on local node.
+ *
  * @param nodeId Current node ID
  * @param contact Node's contact to advertise
  * @param client Getter for RPC calling of another nodes
@@ -52,7 +53,7 @@ class KademliaService[C](
   KademliaService.siblingsOps(nodeId, conf.maxSiblingsSize)
 ) {
   /**
-   * Returns a network wrapper around a contact C, allowing querying it with Kademlia protocol
+   * Returns a network wrapper around a contact C, allowing querying it with Kademlia protocol.
    *
    * @param contact Description on how to connect to remote node
    * @return
@@ -60,7 +61,7 @@ class KademliaService[C](
   override def rpc(contact: C): KademliaRpc[Task, C] = client(contact)
 
   /**
-   * How to promote this node to others
+   * How to promote this node to others.
    *
    * @return
    */
@@ -71,7 +72,7 @@ class KademliaService[C](
 
 object KademliaService {
   /**
-   * Performs atomic update on a MVar, blocking asynchronously if another update is in progress
+   * Performs atomic update on a MVar, blocking asynchronously if another update is in progress.
    *
    * @param mvar State variable
    * @param mod Modifier
@@ -94,7 +95,8 @@ object KademliaService {
     }
 
   /**
-   * Builds asynchronous bucket ops with $maxBucketSize nodes in each bucket
+   * Builds asynchronous bucket ops with $maxBucketSize nodes in each bucket.
+   *
    * @param maxBucketSize Max number of nodes in each bucket
    * @tparam C Node contacts type
    */
@@ -115,7 +117,8 @@ object KademliaService {
     }
 
   /**
-   * Builds asynchronous sibling ops with $maxSiblings nodes max
+   * Builds asynchronous sibling ops with $maxSiblings nodes max.
+   *
    * @param nodeId Siblings are sorted by distance to this nodeId
    * @param maxSiblings Max number of closest siblings to store
    * @tparam C Node contacts type

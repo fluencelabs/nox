@@ -16,16 +16,16 @@ message Contract {
 }
 
 service ContractAllocator {
-    rpc offer(Contract) returns(Contract);
-    rpc allocate(Contract) returns(Contract);
+    rpc offer (Contract) returns (Contract);
+    rpc allocate (Contract) returns (Contract);
 }
 
 service ContractsCache {
-    rpc find(FindRequest) returns(Contract);
-    rpc cache(Contract) returns(CacheResponse);
+    rpc find (FindRequest) returns (Contract);
+    rpc cache (Contract) returns (CacheResponse);
 }
 
 service DatasetContractsApi {
-    rpc allocate( stream Contract ) returns(stream Contract);
-    rpc find(FindRequest) returns(Contract);
+    rpc allocate (stream Contract) returns (stream Contract);
+    rpc find (FindRequest) returns (Contract);
 }

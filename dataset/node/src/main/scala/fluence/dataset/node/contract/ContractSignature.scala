@@ -22,13 +22,14 @@ import cats.{ Applicative, ApplicativeError }
 import scala.language.higherKinds
 
 /**
- * Performs signature checks & writes for contract
+ * Performs signature checks & writes for contract.
  *
  * @tparam C contract
  */
 trait ContractSignature[C] {
+
   /**
-   * Check that this is an offer, and it's sealed by client
+   * Check that this is an offer, and it's sealed by client.
    *
    * @param contract Contract offer
    * @return Error or nothing
@@ -36,7 +37,7 @@ trait ContractSignature[C] {
   def offerSealed[F[_]](contract: C)(implicit F: ApplicativeError[F, Throwable]): F[Unit]
 
   /**
-   * Check that this is an offer, and current node has signed it
+   * Check that this is an offer, and current node has signed it.
    *
    * @param contract Contract offer
    * @return Error or nothing
@@ -44,7 +45,7 @@ trait ContractSignature[C] {
   def offerSigned[F[_]](contract: C)(implicit F: ApplicativeError[F, Throwable]): F[Unit]
 
   /**
-   * Add this node to list of contract's participants, with node's signature
+   * Add this node to list of contract's participants, with node's signature.
    *
    * @param contract Contract offer
    * @return Updated contract with a signature

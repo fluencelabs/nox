@@ -17,14 +17,14 @@
 
 package fluence.dataset.grpc.client
 
-import cats.{ MonadError, ~> }
-import com.google.protobuf.ByteString
-import fluence.dataset.grpc.{ Contract, FindRequest }
-import fluence.dataset.grpc.ContractsCacheGrpc.ContractsCacheStub
-import fluence.dataset.protocol.ContractsCacheRpc
-import fluence.kad.protocol.Key
 import cats.syntax.applicativeError._
 import cats.syntax.functor._
+import cats.{ MonadError, ~> }
+import com.google.protobuf.ByteString
+import fluence.dataset.grpc.ContractsCacheGrpc.ContractsCacheStub
+import fluence.dataset.grpc.{ Contract, FindRequest }
+import fluence.dataset.protocol.ContractsCacheRpc
+import fluence.kad.protocol.Key
 
 import scala.concurrent.Future
 import scala.language.higherKinds
@@ -34,8 +34,9 @@ class ContractsCacheClient[F[_], C](
     serialize: C ⇒ Contract,
     deserialize: Contract ⇒ C)(implicit run: Future ~> F, F: MonadError[F, Throwable])
   extends ContractsCacheRpc[F, C] {
+
   /**
-   * Tries to find a contract in local cache
+   * Tries to find a contract in local cache.
    *
    * @param id Dataset ID
    * @return Optional locally found contract
@@ -48,7 +49,7 @@ class ContractsCacheClient[F[_], C](
       }
 
   /**
-   * Ask node to cache the contract
+   * Ask node to cache the contract.
    *
    * @param contract Contract to cache
    * @return If the contract is cached or not

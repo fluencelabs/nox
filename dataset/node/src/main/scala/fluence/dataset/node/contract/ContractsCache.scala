@@ -32,7 +32,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.language.{ higherKinds, implicitConversions }
 
 /**
- * Contracts cache
+ * Contracts cache.
  *
  * @param nodeId Current node id, to check participation
  * @param storage     Contracts storage
@@ -56,13 +56,14 @@ class ContractsCache[F[_], C](
 
   // TODO: remove Instant.now() usage
   private def isExpired(cr: ContractRecord[C]): Boolean =
-    !cr.contract.participants.contains(nodeId) && java.time.Duration.between(cr.lastUpdated, Instant.now()).toMillis >= ttlMillis
+    !cr.contract.participants.contains(nodeId) &&
+      java.time.Duration.between(cr.lastUpdated, Instant.now()).toMillis >= ttlMillis
 
   private def canBeCached(contract: C): Boolean =
     cacheEnabled && contract.isActiveContract && !contract.participants.contains(nodeId)
 
   /**
-   * Find a contract in local storage
+   * Find a contract in local storage.
    *
    * @param id Dataset ID
    * @return Optional locally found contract
@@ -82,7 +83,7 @@ class ContractsCache[F[_], C](
     }
 
   /**
-   * Ask to add contract to local storage
+   * Ask to add contract to local storage.
    *
    * @param contract Contract to cache
    * @return If the contract is cached or not

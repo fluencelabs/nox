@@ -16,26 +16,38 @@
  */
 
 package fluence.dataset.grpc.client
+
 import java.util.concurrent.atomic.AtomicBoolean
 
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import cats.{ Monad, ~> }
+import com.google.protobuf.ByteString
 import fluence.dataset.grpc
 import fluence.dataset.grpc.{ Contract, FindRequest }
 import fluence.dataset.protocol.ContractsAllocatorApi
 import fluence.kad.protocol.Key
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ Future, Promise }
 import scala.language.higherKinds
 
+/**
+ * User-facing ContractsAllocatorApi client.
+ *
+ * @param stub        GRPC stub for DatasetContracts API
+ * @param serialize   Serialize domain-level Contract to Grpc
+ * @param deserialize Deserialize from Grpc to domain-level Contract
+ * @param run         Run scala future to get F
+ * @tparam F Effect
+ * @tparam C Domain-level Contract type
+ */
 class ContractsAllocatorApiClient[F[_] : Monad, C](
     stub: grpc.DatasetContractsApiGrpc.DatasetContractsApiStub,
     serialize: C ⇒ Contract,
     deserialize: Contract ⇒ C)(implicit run: Future ~> F)
   extends ContractsAllocatorApi[F, C] {
+
   /**
    * According with contract, offers contract to participants, then seals the list of agreements on client side
    * and performs allocation. In case of any error, result is a failure
@@ -51,20 +63,18 @@ class ContractsAllocatorApiClient[F[_] : Monad, C](
 
     val str = stub.allocate(new StreamObserver[Contract] {
       override def onError(t: Throwable): Unit =
-        if (waitingFinalized.get()) finalized.failure(t)
-        else {
+        if (!waitingFinalized.getAndSet(true))
           withParticipants.failure(t)
-          waitingFinalized.set(true)
-        }
+        else
+          finalized.failure(t)
 
       override def onCompleted(): Unit = ()
 
       override def onNext(value: Contract): Unit =
-        if (waitingFinalized.get()) finalized.success(value)
-        else {
+        if (!waitingFinalized.getAndSet(true))
           withParticipants.success(value)
-          waitingFinalized.set(true)
-        }
+        else
+          finalized.success(value)
     })
 
     str.onNext(serialize(contract))
@@ -78,7 +88,7 @@ class ContractsAllocatorApiClient[F[_] : Monad, C](
   }
 
   /**
-   * Tries to find a contract by its Kademlia key, or fails
+   * Tries to find a contract by its Kademlia key, or fails.
    *
    * @param key Dataset ID
    * @return Found contract, or failure

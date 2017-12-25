@@ -31,7 +31,8 @@ import scala.concurrent.Future
 import scala.language.{ higherKinds, implicitConversions }
 
 /**
- * Implementation of KademliaClient over GRPC, with Task and Contact
+ * Implementation of KademliaClient over GRPC, with Task and Contact.
+ *
  * @param stub GRPC Kademlia Stub
  */
 class KademliaClient[F[_] : Monad](stub: grpc.KademliaGrpc.KademliaStub, run: Future ~> F) extends KademliaRpc[F, Contact] {
@@ -91,8 +92,10 @@ class KademliaClient[F[_] : Monad](stub: grpc.KademliaGrpc.KademliaStub, run: Fu
 }
 
 object KademliaClient {
+
   /**
-   * Shorthand to register KademliaClient inside NetworkClient
+   * Shorthand to register KademliaClient inside NetworkClient.
+   *
    * @param channel Channel to remote node
    * @param callOptions Call options
    * @return

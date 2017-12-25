@@ -17,22 +17,33 @@
 
 package fluence.dataset.grpc.server
 
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import cats.{ MonadError, ~> }
 import fluence.dataset.grpc.{ CacheResponse, Contract, ContractsCacheGrpc, FindRequest }
 import fluence.dataset.protocol.ContractsCacheRpc
 import fluence.kad.protocol.Key
-import cats.syntax.flatMap._
-import cats.syntax.functor._
+
 import scala.concurrent.Future
 import scala.language.higherKinds
 
+/**
+ * ContractsCache GRPC server implementation.
+ *
+ * @param cache Delegate implementation
+ * @param serialize Serialize from domain-level Contract to GRPC DTO
+ * @param deserialize Deserialize GRPC DTO into domain-level Contract
+ * @param F MonadError instance
+ * @param run Runs F and produces Future
+ * @tparam F Effect
+ * @tparam C Do,ain-level Contract
+ */
 class ContractsCacheServer[F[_], C](
     cache: ContractsCacheRpc[F, C],
     serialize: C ⇒ Contract,
-    deserialize: Contract ⇒ C
-
-)(implicit F: MonadError[F, Throwable], run: F ~> Future)
+    deserialize: Contract ⇒ C)(implicit F: MonadError[F, Throwable], run: F ~> Future)
   extends ContractsCacheGrpc.ContractsCache {
+
   override def find(request: FindRequest): Future[Contract] =
     run(cache.find(Key(request.id.asReadOnlyByteBuffer())).flatMap[Contract] {
       case Some(c) ⇒ F.pure(serialize(c))

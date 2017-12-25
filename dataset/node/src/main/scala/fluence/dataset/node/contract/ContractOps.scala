@@ -24,7 +24,7 @@ import scala.language.higherKinds
 import scala.util.Try
 
 /**
- * Common operations for contract allocation and caching
+ * Common operations for contract allocation and caching.
  *
  * @param contract The contract
  * @param contractSignature Signature checker & signer service
@@ -35,12 +35,12 @@ abstract class ContractOps[C](contract: C, contractSignature: ContractSignature[
 
   /**
    * Given that this contract is a sealed offer, and contractsWithSigns is a list of signed offers,
-   * produce a contract with full list of participants and theirs signatures, or fail if any check fails
+   * produce a contract with full list of participants and theirs signatures, or fail if any check fails.
    */
   def collectParticipantSignatures[F[_]](contractsWithSigns: Seq[C])(implicit F: MonadError[F, Throwable]): F[C]
 
   /**
-   * Checks disk space availability
+   * Checks disk space availability.
    *
    * @return Nothing on success, failed F on error
    */
@@ -81,7 +81,7 @@ abstract class ContractOps[C](contract: C, contractSignature: ContractSignature[
     contractSignature.participantsSealed[Try](contract).isSuccess
 
   /**
-   * Sign a blank offer by current node
+   * Sign a blank offer by current node.
    *
    * @return Signed offer
    */
