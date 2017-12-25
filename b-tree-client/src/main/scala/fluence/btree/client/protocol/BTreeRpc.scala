@@ -47,12 +47,11 @@ trait BTreeRpc[F[_]] {
 object BTreeRpc {
 
   /**
-   * Wrapper for all callback needed for ''Get'' operation to the BTree.
-   * Each callback corresponds to operation needed btree for traversing and getting value.
+   * Base parent for all callback wrappers needed for any operation to the BTree.
    *
    * @tparam F An effect, with MonadError
    */
-  trait GetCallbacks[F[_]] {
+  trait SearchCallback[F[_]] {
 
     /**
      * Server asks next child node index.
@@ -61,6 +60,16 @@ object BTreeRpc {
      * @param childsChecksums  All children checksums of current branch
      */
     def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): F[Int]
+
+  }
+
+  /**
+   * Wrapper for all callback needed for ''Get'' operation to the BTree.
+   * Each callback corresponds to operation needed btree for traversing and getting value.
+   *
+   * @tparam F An effect, with MonadError
+   */
+  trait GetCallbacks[F[_]] extends SearchCallback[F] {
 
     /**
      * Server sends founded leaf details.
@@ -78,15 +87,7 @@ object BTreeRpc {
    *
    * @tparam F An effect, with MonadError
    */
-  trait PutCallbacks[F[_]] {
-
-    /**
-     * Server asks next child node index.
-     *
-     * @param keys              Keys of current branch for searching index
-     * @param childsChecksums  All children checksums of current branch
-     */
-    def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): F[Int]
+  trait PutCallbacks[F[_]] extends SearchCallback[F] {
 
     /**
      * Server sends founded leaf details.

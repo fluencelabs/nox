@@ -1,11 +1,14 @@
-package fluence.btree.server.integration
+package fluence.btree.server
 
 import java.nio.ByteBuffer
 
 import fluence.btree.client.MerkleBTreeClient.ClientState
+import fluence.btree.client.merkle.MerkleRootCalculator
+import fluence.btree.client.protocol.BTreeRpc
+import fluence.btree.client.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.client.{ Key, MerkleBTreeClient, Value }
-import fluence.btree.server._
 import fluence.btree.server.binary.BTreeBinaryStore
+import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.crypto.NoOpCrypt
 import fluence.hash.TestCryptoHasher
 import fluence.node.binary.kryo.KryoCodecs
@@ -74,7 +77,19 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
   private def createBTReeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String, String] = {
     val keyCrypt = NoOpCrypt.forString
     val valueCrypt = NoOpCrypt.forString
-    MerkleBTreeClient(clientState, new LocalBTreeRpc(createBTRee(), hasher), keyCrypt, valueCrypt, hasher)
+    val bTree = createBTRee()
+    MerkleBTreeClient(
+      clientState,
+      new BTreeRpc[Task] {
+        override def get(getCallbacks: GetCallbacks[Task]): Task[Unit] =
+          bTree.get(new GetCommandImpl[Task](getCallbacks))
+        override def put(putCallback: PutCallbacks[Task]): Task[Unit] =
+          bTree.put(new PutCommandImpl[Task](MerkleRootCalculator(hasher), putCallback))
+      },
+      keyCrypt,
+      valueCrypt,
+      hasher
+    )
   }
 
   private def createBTRee(): MerkleBTree = {

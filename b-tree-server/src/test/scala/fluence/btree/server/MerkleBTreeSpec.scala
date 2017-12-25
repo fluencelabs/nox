@@ -2,11 +2,12 @@ package fluence.btree.server
 
 import java.nio.ByteBuffer
 
+import fluence.btree.client.core.PutDetails
 import fluence.btree.client.merkle.MerkleRootCalculator
-import fluence.btree.client.network._
-import fluence.btree.client.{ BTreeVerifier, Key, Value }
+import fluence.btree.client.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
+import fluence.btree.client.{ BTreeVerifier, Bytes, Key, Value }
 import fluence.btree.server.binary.BTreeBinaryStore
-import fluence.btree.server.network.commands.{ GetCommandImpl, PutCommandImpl }
+import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.hash.TestCryptoHasher
 import fluence.node.binary.kryo.KryoCodecs
 import fluence.node.storage.InMemoryKVStore
@@ -72,7 +73,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
         val tree = new MerkleBTree(Config, store, nodeOp)
 
-        val result = wait(Task.sequence(failedPutCmd(1 to 1, classOf[LeafResponse]) map { cmd ⇒ tree.put(cmd) }).failed)
+        val result = wait(Task.sequence(failedPutCmd(1 to 1, PutDetailsStage) map { cmd ⇒ tree.put(cmd) }).failed)
         result.getMessage shouldBe "Client unavailable"
       }
 
@@ -81,7 +82,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
         val tree = new MerkleBTree(Config, store, nodeOp)
 
-        val result = wait(Task.sequence(failedPutCmd(1 to 1, classOf[VerifySimplePutResponse]) map { cmd ⇒ tree.put(cmd) }).failed)
+        val result = wait(Task.sequence(failedPutCmd(1 to 1, VerifyChangesStage) map { cmd ⇒ tree.put(cmd) }).failed)
 
         result.getMessage shouldBe "Client unavailable"
 
@@ -232,8 +233,16 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
         val tree = new MerkleBTree(Config, store, nodeOp)
 
-        wait(tree.put(new PutCommandImpl[Task](mRootCalculator, { _ ⇒ Task(Some(PutRequest(key1, value1, InsertionPoint(0)))) })))
-        wait(tree.put(new PutCommandImpl[Task](mRootCalculator, { _ ⇒ Task(Some(PutRequest(key1, value2, Found(0)))) })))
+        wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
+        wait(tree.put(new PutCommandImpl[Task](mRootCalculator, new PutCallbacks[Task] {
+          override def putDetails(
+            keys: Array[Key],
+            values: Array[Value]
+          ): Task[PutDetails] = Task(PutDetails(key1, value2, Found(0)))
+          override def verifyChanges(serverMerkleRoot: Bytes, wasSplitting: Boolean): Task[Unit] = Task(())
+          override def changesStored(): Task[Unit] = Task(())
+          override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = ???
+        })))
 
         // check tree state
         tree.getDepth shouldBe 1
@@ -247,7 +256,15 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val tree = new MerkleBTree(MerkleBTreeConfig(arity = 4), store, nodeOp)
 
         wait(Task.sequence(putCmd(1 to 4) map { cmd ⇒ tree.put(cmd) }))
-        wait(tree.put(new PutCommandImpl[Task](mRootCalculator, { _ ⇒ Task(Some(PutRequest(key2, value5, Found(1)))) })))
+        wait(tree.put(new PutCommandImpl[Task](mRootCalculator, new PutCallbacks[Task] {
+          override def putDetails(
+            keys: Array[Key],
+            values: Array[Value]
+          ): Task[PutDetails] = Task(PutDetails(key2, value5, Found(1)))
+          override def verifyChanges(serverMerkleRoot: Bytes, wasSplitting: Boolean): Task[Unit] = Task(())
+          override def changesStored(): Task[Unit] = Task(())
+          override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = ???
+        })))
 
         tree.getDepth shouldBe 1
         val root = wait(tree.getRoot).asInstanceOf[Leaf]
@@ -263,7 +280,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
         val tree = new MerkleBTree(Config, store, nodeOp)
 
-        val result = wait(tree.get(failedGetCmd(key1, classOf[LeafResponse])).failed)
+        val result = wait(tree.get(failedGetCmd(key1, SendLeafStage)).failed)
         result.getMessage shouldBe "Client unavailable"
       }
 
@@ -273,7 +290,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val tree = new MerkleBTree(Config, store, nodeOp)
 
         wait(Task.sequence(putCmd(1 to 5) map { cmd ⇒ tree.put(cmd) }))
-        val result = wait(tree.get(failedGetCmd(key1, classOf[NextChildSearchResponse])).failed)
+        val result = wait(tree.get(failedGetCmd(key1, NextChildIndexStage)).failed)
         result.getMessage shouldBe "Client unavailable"
 
       }
@@ -439,97 +456,108 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
     seq map { i ⇒
       new PutCommandImpl[Task](
-        mRootCalculator, {
-        case LeafResponse(keys, _) ⇒
-          import scala.collection.Searching._
-          Task(Some(PutRequest(f"k$i%04d".getBytes(), f"v$i%04d".getBytes(), keys.search(f"k$i%04d".getBytes()))))
-        case NextChildSearchResponse(keys, _) ⇒
-          import scala.collection.Searching._
-          Task(Some(ResumeSearchRequest(keys.search(f"k$i%04d".getBytes()).insertionPoint)))
-        case VerifySimplePutResponse(mRoot) ⇒
-          Task(Some(Confirm))
-        case VerifyPutWithRebalancingResponse(mPath) ⇒
-          Task(Some(Confirm))
+        mRootCalculator, new PutCallbacks[Task] {
+        import scala.collection.Searching._
+        override def putDetails(keys: Array[Key], values: Array[Value]): Task[PutDetails] =
+          Task(PutDetails(f"k$i%04d".getBytes(), f"v$i%04d".getBytes(), keys.search(f"k$i%04d".getBytes())))
+        override def verifyChanges(serverMerkleRoot: Bytes, wasSplitting: Boolean): Task[Unit] =
+          Task(())
+        override def changesStored(): Task[Unit] =
+          Task(())
+        override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] =
+          Task(keys.search(f"k$i%04d".getBytes()).insertionPoint)
       })
     }
   }
+
+  private sealed trait PutStage
+  private case object NextChildIndexStage extends PutStage with GetStage
+  private case object PutDetailsStage extends PutStage
+  private case object VerifyChangesStage extends PutStage
+  private case object ChangesStoredStage extends PutStage
 
   /**
    * Creates Seq of PutCommand for specified Range of key indexes and raise exception
    * for specified BTreeServerResponse type.
    */
-  private def failedPutCmd[T <: BTreeServerResponse](
+  private def failedPutCmd[T](
     seq: Seq[Int],
-    failWhenReceive: Class[T],
+    stageOfFail: PutStage,
     errMsg: String = "Client unavailable"
   ): Seq[PutCommandImpl[Task]] = {
     seq map { i ⇒
       new PutCommandImpl[Task](
-        mRootCalculator, {
-        case LeafResponse(keys, _) ⇒
-          if (failWhenReceive == classOf[LeafResponse]) {
+        mRootCalculator, new PutCallbacks[Task] {
+        import scala.collection.Searching._
+        override def putDetails(keys: Array[Key], values: Array[Value]): Task[PutDetails] = {
+          if (stageOfFail == PutDetailsStage)
             Task.raiseError(new Exception(errMsg))
-          } else {
-            import scala.collection.Searching._
-            Task(Some(PutRequest(f"k$i%04d".getBytes(), f"v$i%04d".getBytes(), keys.search(f"k$i%04d".getBytes()))))
-          }
-        case NextChildSearchResponse(keys, _) ⇒
-          if (failWhenReceive == classOf[NextChildSearchResponse]) {
+          else
+            Task(PutDetails(f"k$i%04d".getBytes(), f"v$i%04d".getBytes(), keys.search(f"k$i%04d".getBytes())))
+        }
+        override def verifyChanges(serverMerkleRoot: Bytes, wasSplitting: Boolean): Task[Unit] = {
+          if (stageOfFail == VerifyChangesStage)
             Task.raiseError(new Exception(errMsg))
-          } else {
-            import scala.collection.Searching._
-            Task(Some(ResumeSearchRequest(keys.search(f"k$i%04d".getBytes()).insertionPoint)))
-          }
-        case VerifySimplePutResponse(_) | VerifyPutWithRebalancingResponse(_) ⇒
-          if (failWhenReceive == classOf[VerifySimplePutResponse] || failWhenReceive == classOf[VerifyPutWithRebalancingResponse]) {
+          else
+            Task(())
+        }
+        override def changesStored(): Task[Unit] = {
+          if (stageOfFail == ChangesStoredStage)
             Task.raiseError(new Exception(errMsg))
-          } else {
-            Task(Some(Confirm))
-          }
+          else
+            Task(())
+        }
+        override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = {
+          if (stageOfFail == NextChildIndexStage)
+            Task.raiseError(new Exception(errMsg))
+          else
+            Task(keys.search(f"k$i%04d".getBytes()).insertionPoint)
+        }
       })
     }
-
   }
 
   /** Search value for specified key and return callback for searched result */
   private def getCmd(key: Key, resultFn: Option[Value] ⇒ Unit): GetCommandImpl[Task] = {
-    new GetCommandImpl[Task]({
-      case NextChildSearchResponse(keys, _) ⇒
-        import scala.collection.Searching._
-        Task(Some(ResumeSearchRequest(keys.search(key).insertionPoint)))
-      case LeafResponse(keys, values) ⇒
-        import scala.collection.Searching._
+    new GetCommandImpl[Task](new GetCallbacks[Task] {
+      import scala.collection.Searching._
+      override def submitLeaf(keys: Array[Key], values: Array[Value]): Task[Unit] = {
         keys.search(key) match {
           case Found(i) ⇒
             resultFn(Some(values(i)))
-            Task(None)
-          case InsertionPoint(_) ⇒
+          case _ ⇒
             resultFn(None)
-            Task(None)
         }
+        Task(())
+      }
+      override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] =
+        Task(keys.search(key).insertionPoint)
+
     })
   }
+  private sealed trait GetStage
+  private case object SendLeafStage extends GetStage
 
   /** Search value for specified key and raise exception for specified BTreeServerResponse type */
   private def failedGetCmd[T](
     key: Key,
-    failWhenReceive: Class[T],
+    stageOfFail: GetStage,
     errMsg: String = "Client unavailable"
   ): GetCommandImpl[Task] = {
-    new GetCommandImpl[Task]({
-      case NextChildSearchResponse(keys, _) ⇒
-        if (failWhenReceive == classOf[NextChildSearchResponse]) {
+    new GetCommandImpl[Task](new GetCallbacks[Task] {
+      import scala.collection.Searching._
+      override def submitLeaf(keys: Array[Key], values: Array[Value]): Task[Unit] = {
+        if (stageOfFail == SendLeafStage)
           Task.raiseError(new Exception(errMsg))
-        } else {
-          import scala.collection.Searching._
-          Task(Some(ResumeSearchRequest(keys.search(key).insertionPoint)))
-        }
-      case LeafResponse(keys, _) ⇒
-        if (failWhenReceive == classOf[LeafResponse]) {
+        else
+          Task(())
+      }
+      override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = {
+        if (stageOfFail == NextChildIndexStage)
           Task.raiseError(new Exception(errMsg))
-        } else {
-          Task(None)
-        }
+        else
+          Task(keys.search(key).insertionPoint)
+      }
     })
   }
 
