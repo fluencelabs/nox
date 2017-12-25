@@ -73,41 +73,41 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val minKey = "k0001"
-        val midKey = "k0512"
-        val maxKey = "k1024"
-        val absentKey = "k4096"
+        val midKey = "k0256"
+        val maxKey = "k0512"
+        val absentKey = "k2048"
 
         val client = createBTReeClient()
 
         // insert 1024 unique values
         val resultMap = wait(Task.gather(
-          Random.shuffle(1 to 1024)
+          Random.shuffle(1 to 512)
             .map(i ⇒ client.put(f"k$i%04d", f"v$i%04d")))
         )
 
-        resultMap should have size 1024
+        resultMap should have size 512
         resultMap should contain only None
 
         // get some values
         wait(client.get(minKey)) shouldBe Some("v0001")
-        wait(client.get(midKey)) shouldBe Some("v0512")
-        wait(client.get(maxKey)) shouldBe Some("v1024")
+        wait(client.get(midKey)) shouldBe Some("v0256")
+        wait(client.get(maxKey)) shouldBe Some("v0512")
         wait(client.get(absentKey)) shouldBe None
 
         // insert 1024 new and 1024 duplicated values
         val result2Map = wait(Task.gather(
-          Random.shuffle(1 to 2048)
+          Random.shuffle(1 to 1024)
             .map(i ⇒ client.put(f"k$i%04d", f"v$i%04d new")))
         )
 
-        result2Map should have size 2048
-        result2Map.filter(_.isDefined) should have size 1024
-        result2Map.filter(_.isDefined) should contain allElementsOf (1 to 1024).map(i ⇒ Some(f"v$i%04d"))
+        result2Map should have size 1024
+        result2Map.filter(_.isDefined) should have size 512
+        result2Map.filter(_.isDefined) should contain allElementsOf (1 to 512).map(i ⇒ Some(f"v$i%04d"))
 
         // get some values
         wait(client.get(minKey)) shouldBe Some("v0001 new")
-        wait(client.get(midKey)) shouldBe Some("v0512 new")
-        wait(client.get(maxKey)) shouldBe Some("v1024 new")
+        wait(client.get(midKey)) shouldBe Some("v0256 new")
+        wait(client.get(maxKey)) shouldBe Some("v0512 new")
         wait(client.get(absentKey)) shouldBe None
       }
 
