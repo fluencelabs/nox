@@ -76,16 +76,14 @@ lazy val `fluence` = project.in(file("."))
       scalatest
     )
   ).aggregate(
-    `kademlia`,
-    `network`,
-    `storage`,
-    `b-tree-client`,
-    `b-tree-server`,
-    `crypto`,
-    `dataset`
-  ).enablePlugins(AutomateHeaderPlugin)
+  `node`,
+  `storage`,
+  `b-tree-client`,
+  `b-tree-server`,
+  `crypto`
+).enablePlugins(AutomateHeaderPlugin)
 
-lazy val `kademlia` = project.in(file("kademlia"))
+lazy val `kademlia-node` = project.in(file("kademlia/node"))
   .settings(commons)
   .settings(
     libraryDependencies ++= Seq(
@@ -94,10 +92,21 @@ lazy val `kademlia` = project.in(file("kademlia"))
       scalatest,
       monix3 % Test
     )
+  ).dependsOn(`kademlia-protocol`).aggregate(`kademlia-protocol`)
+
+lazy val `kademlia-protocol` = project.in(file("kademlia/protocol"))
+  .settings(commons)
+  .settings(
+    libraryDependencies += cats1
   )
 
-// TODO: separate API from grpc implementation
-lazy val `network` = project.in(file("network"))
+lazy val `kademlia-grpc` = project.in(file("kademlia/grpc"))
+  .settings(commons)
+  .settings(
+    grpc
+  ).dependsOn(`kademlia-protocol`).aggregate(`kademlia-protocol`)
+
+lazy val `transport-grpc` = project.in(file("transport/grpc"))
   .settings(commons)
   .settings(
     grpc,
@@ -106,10 +115,20 @@ lazy val `network` = project.in(file("network"))
       shapeless,
       typeSafeConfig,
       ficus,
+      logback,
       "org.bitlet" % "weupnp" % "0.1.+",
       scalatest
     )
-  ).dependsOn(`kademlia`).aggregate(`kademlia`)
+  ).dependsOn(`transport-core`)
+
+lazy val `transport-core` = project.in(file("transport/core"))
+  .settings(commons)
+  .settings(
+    libraryDependencies ++= Seq(
+      cats1,
+      shapeless
+    )
+  ).dependsOn(`kademlia-protocol`).aggregate(`kademlia-protocol`)
 
 // TODO: separate API from implementation for both serialization and rocksDB
 lazy val `storage` = project.in(file("storage"))
@@ -158,11 +177,34 @@ lazy val `crypto` = project.in(file("crypto"))
   )
 
 // TODO: separate API from implementation
-lazy val `dataset` = project.in(file("dataset"))
+lazy val `dataset-node` = project.in(file("dataset/node"))
   .settings(commons)
   .settings(
     libraryDependencies ++= Seq(
       cats1,
       scalatest
     )
-  ).dependsOn(`storage`, `kademlia`)
+  ).dependsOn(`storage`, `kademlia-node`, `dataset-protocol`)
+
+lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
+  .settings(commons)
+  .dependsOn(`kademlia-protocol`).aggregate(`kademlia-protocol`)
+
+lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
+  .settings(commons)
+  .settings(
+    grpc,
+    libraryDependencies ++= Seq(
+      cats1
+    )
+  ).dependsOn(`dataset-protocol`).aggregate(`dataset-protocol`)
+
+lazy val `node` = project.in(file("node"))
+  .settings(commons)
+  .settings(
+    libraryDependencies ++= Seq(
+      scalatest
+    )
+  )
+  .dependsOn(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`)
+  .aggregate(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`)
