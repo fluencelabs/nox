@@ -12,16 +12,18 @@ import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.crypto.NoOpCrypt
 import fluence.hash.JdkCryptoHasher
 import fluence.node.binary.kryo.KryoCodecs
-import fluence.node.storage.InMemoryKVStore
+import fluence.node.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{ Matchers, WordSpec }
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
 import scala.math.Ordering
 import scala.util.Random
+import scala.util.hashing.MurmurHash3
 
 class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
@@ -156,7 +158,8 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
     val Arity = 4
     val Alpha = 0.25F
 
-    val store = new BTreeBinaryStore[NodeId, Node, Task](InMemoryKVStore())
+    val tMap = new TrieMap[Array[Byte], Array[Byte]](MurmurHash3.arrayHashing, Equiv.fromComparator(BytesOrdering))
+    val store = new BTreeBinaryStore[NodeId, Node, Task](new TrieMapKVStore[Task, Key, Value](tMap))
     new MerkleBTree(MerkleBTreeConfig(arity = Arity, alpha = Alpha), store, NodeOps(hasher))
   }
 
