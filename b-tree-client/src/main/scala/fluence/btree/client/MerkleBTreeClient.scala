@@ -20,10 +20,10 @@ package fluence.btree.client
 import cats.syntax.show._
 import fluence.btree.client.MerkleBTreeClient._
 import fluence.btree.client.common.BytesOps
-import fluence.btree.client.core.{ PutDetails, SearchTree }
+import fluence.btree.client.core.{ GetState, PutDetails, PutState, SearchTree }
 import fluence.btree.client.merkle.MerklePath
-import fluence.btree.client.network.BTreeRpc.{ GetCallbacks, PutCallbacks }
-import fluence.btree.client.network._
+import fluence.btree.client.protocol.BTreeRpc
+import fluence.btree.client.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.crypto.Crypt
 import fluence.hash.CryptoHasher
 import monix.eval.{ MVar, Task }

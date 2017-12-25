@@ -2,8 +2,8 @@ package fluence.btree.server.integration
 
 import fluence.btree.client.core.PutDetails
 import fluence.btree.client.merkle.{ MerklePath, MerkleRootCalculator }
-import fluence.btree.client.network.BTreeRpc
-import fluence.btree.client.network.BTreeRpc.{ GetCallbacks, PutCallbacks }
+import fluence.btree.client.protocol.BTreeRpc
+import fluence.btree.client.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.client.{ Bytes, Key, Value }
 import fluence.btree.server.MerkleBTree
 import fluence.btree.server.core.{ BranchNode, GetCommand, LeafNode, PutCommand }

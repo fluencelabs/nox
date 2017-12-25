@@ -1,7 +1,7 @@
 package fluence.btree.client
 
 import fluence.btree.client.MerkleBTreeClient.ClientState
-import fluence.btree.client.network._
+import fluence.btree.client.protocol.BTreeRpc
 import fluence.crypto.NoOpCrypt
 import fluence.hash.TestCryptoHasher
 import monix.eval.Task

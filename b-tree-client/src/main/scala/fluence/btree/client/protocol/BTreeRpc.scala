@@ -15,10 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.btree.client.network
+package fluence.btree.client.protocol
 
 import fluence.btree.client.core.PutDetails
-import fluence.btree.client.network.BTreeRpc.{ GetCallbacks, PutCallbacks }
+import fluence.btree.client.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.client.{ Bytes, Key, Value }
 
 /**
