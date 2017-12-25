@@ -10,7 +10,7 @@ import fluence.btree.client.{ Key, MerkleBTreeClient, Value }
 import fluence.btree.server.binary.BTreeBinaryStore
 import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.crypto.NoOpCrypt
-import fluence.hash.TestCryptoHasher
+import fluence.hash.JdkCryptoHasher
 import fluence.node.binary.kryo.KryoCodecs
 import fluence.node.storage.InMemoryKVStore
 import monix.eval.Task
@@ -21,8 +21,11 @@ import org.scalatest.{ Matchers, WordSpec }
 
 import scala.concurrent.duration._
 import scala.math.Ordering
+import scala.util.Random
 
 class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
+
+  // todo add real encryption for keys and values
 
   implicit object BytesOrdering extends Ordering[Array[Byte]] {
     override def compare(x: Array[Byte], y: Array[Byte]): Int = ByteBuffer.wrap(x).compareTo(ByteBuffer.wrap(y))
@@ -62,17 +65,58 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         res1 shouldBe None
         res2 shouldBe None
         res3 shouldBe Some(val1)
-
       }
+
+      "put many value in random order and get theirs" in {
+        implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+
+        val minKey = "k0001"
+        val midKey = "k0512"
+        val maxKey = "k1024"
+        val absentKey = "k4096"
+
+        val client = createBTReeClient()
+
+        // insert 1024 unique values
+        val resultMap = wait(Task.gather(
+          Random.shuffle(1 to 1024)
+            .map(i ⇒ client.put(f"k$i%04d", f"v$i%04d")))
+        )
+
+        resultMap should have size 1024
+        resultMap should contain only None
+
+        // get some values
+        wait(client.get(minKey)) shouldBe Some("v0001")
+        wait(client.get(midKey)) shouldBe Some("v0512")
+        wait(client.get(maxKey)) shouldBe Some("v1024")
+        wait(client.get(absentKey)) shouldBe None
+
+        // insert 1024 new and 1024 duplicated values
+        val result2Map = wait(Task.gather(
+          Random.shuffle(1 to 2048)
+            .map(i ⇒ client.put(f"k$i%04d", f"v$i%04d new")))
+        )
+
+        result2Map should have size 2048
+        result2Map.filter(_.isDefined) should have size 1024
+        result2Map.filter(_.isDefined) should contain allElementsOf (1 to 1024).map(i ⇒ Some(f"v$i%04d"))
+
+        // get some values
+        wait(client.get(minKey)) shouldBe Some("v0001 new")
+        wait(client.get(midKey)) shouldBe Some("v0512 new")
+        wait(client.get(maxKey)) shouldBe Some("v1024 new")
+        wait(client.get(absentKey)) shouldBe None
+      }
+
     }
 
-    // todo add many test cases
   }
 
   /* util methods */
 
-  //      private val hasher = JdkCryptoHasher.Sha256
-  private val hasher = TestCryptoHasher
+  private val hasher = JdkCryptoHasher.Sha256
+  //  private val hasher = TestCryptoHasher
 
   private def createBTReeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String, String] = {
     val keyCrypt = NoOpCrypt.forString
