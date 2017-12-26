@@ -36,9 +36,9 @@ import scala.util.Try
  * you can overload them into ''application.conf''
  * '''Note: only single thread should write to DB''', but reading database allowed to multiply threads.
  *
- * @param dataSet   some bag for pairs (K, V)
- * @param db        instance of RocksDbJava driver
- * @param dbOptions needed for run [[dbOptions.close]] simultaneously with [[db.close]].
+ * @param dataSet   Some bag for pairs (K, V)
+ * @param db        Instance of RocksDbJava driver
+ * @param dbOptions Needed for run [[dbOptions.close]] simultaneously with [[db.close]].
  */
 class RocksDbStore(
     val dataSet: String,
@@ -53,7 +53,7 @@ class RocksDbStore(
   /**
    * Gets stored value for specified key.
    *
-   * @param key the key retrieve the value.
+   * @param key The key retrieve the value.
    */
   override def get(key: Key): Task[Value] = {
     Task.eval(Option(db.get(key))).flatMap {
@@ -77,7 +77,7 @@ class RocksDbStore(
    * Removes pair (K, V) for specified key.
    * '''Note that concurrent writing is not supported!'''
    *
-   * @param key key to delete within database
+   * @param key Key to delete within database
    */
   override def remove(key: Key): Task[Unit] = {
     writeMutex.greenLight(Task(db.delete(key)))
@@ -86,7 +86,7 @@ class RocksDbStore(
   /**
    * Return all pairs (K, V) for specified dataSet.
    *
-   * @return cursor of founded pairs (K,V)
+   * @return Cursor for found pairs (K,V)
    */
   override def traverse(): Observable[(Key, Value)] = {
 
