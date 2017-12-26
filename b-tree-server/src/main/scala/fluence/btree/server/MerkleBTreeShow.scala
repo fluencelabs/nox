@@ -48,7 +48,7 @@ object MerkleBTreeShow {
     Show.show((pd: PutDetails) ⇒ s"""PutDetails(${sb.show(pd.key)}, ${sb.show(pd.value)}, ${pd.searchResult})""")
   }
 
-  implicit def showNoneWithId(implicit sn: Show[Node]): Show[NodeWithId[NodeId, Node]] = {
+  implicit def showNodeWithId(implicit sn: Show[Node]): Show[NodeWithId[NodeId, Node]] = {
     Show.show((n: NodeWithId[NodeId, Node]) ⇒ s"""NodeWithId(${n.id}, ${sn.show(n.node)})""")
   }
 

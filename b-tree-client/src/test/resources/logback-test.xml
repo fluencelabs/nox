@@ -10,7 +10,7 @@
         </encoder>
     </appender>
 
-    <root level="TRACE">
+    <root level="OFF">
         <appender-ref ref="STDOUT"/>
     </root>
 </configuration>

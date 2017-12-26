@@ -49,7 +49,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
       "get from empty tree" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
-        val client = createBTReeClient()
+        val client = createBTreeClient()
 
         val result = wait(client.get(key1))
         result shouldBe None
@@ -58,7 +58,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
       "put key1, get key1 from empty tree" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
-        val client = createBTReeClient()
+        val client = createBTreeClient()
 
         val res1 = wait(client.get(key1))
         val res2 = wait(client.put(key1, val1))
@@ -77,7 +77,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val maxKey = "k0512"
         val absentKey = "k2048"
 
-        val client = createBTReeClient()
+        val client = createBTreeClient()
 
         // insert 1024 unique values
         val resultMap = wait(Task.gather(
@@ -120,10 +120,10 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
   private val hasher = JdkCryptoHasher.Sha256
   //  private val hasher = TestCryptoHasher
 
-  private def createBTReeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String, String] = {
+  private def createBTreeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String, String] = {
     val keyCrypt = NoOpCrypt.forString
     val valueCrypt = NoOpCrypt.forString
-    val bTree = createBTRee()
+    val bTree = createBTree()
     MerkleBTreeClient(
       clientState,
       new BTreeRpc[Task] {
@@ -138,7 +138,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
     )
   }
 
-  private def createBTRee(): MerkleBTree = {
+  private def createBTree(): MerkleBTree = {
 
     val codecs = KryoCodecs()
       .add[Key]
