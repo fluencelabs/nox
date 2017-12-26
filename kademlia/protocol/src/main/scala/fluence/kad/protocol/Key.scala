@@ -104,11 +104,13 @@ object Key {
 
   /**
    * Tries to read base64 form of Kademlia key
+   * TODO: ApplicativeError
    */
   def readB64(str: String): Try[Key] = Try(Base64.getDecoder.decode(str)).filter(_.length == Length).map(apply)
 
   /**
    * Calculates sha-1 hash of the payload, and wraps it with Key.
+   * TODO: Applicative
    *
    * @param bytes Bytes to hash
    */
@@ -117,10 +119,13 @@ object Key {
     Key(md.digest(bytes))
   }
 
+  // TODO: applicative
   def fromString(str: String, charset: Charset = Charset.defaultCharset()): Key = sha1(str.getBytes)
 
+  // TODO: ApplicativeError
   def fromBuffer(bb: ByteBuffer): Key = new Key(bb)
 
+  // TODO: ApplicativeError
   def apply(bytes: Array[Byte]): Key = Key(ByteBuffer.wrap(bytes))
 
   implicit def bytesCodec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, Array[Byte]] =
