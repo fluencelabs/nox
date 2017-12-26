@@ -56,13 +56,14 @@ object CryptoSearching {
     @tailrec
     private def binarySearchRec[B](elem: B, from: Int, to: Int, ordering: Ordering[B], decrypt: A ⇒ B): SearchResult = {
 
-      if (from == to) return InsertionPoint(from)
-
-      val idx = from + (to - from - 1) / 2
-      math.signum(ordering.compare(elem, decrypt(coll(idx)))) match {
-        case -1 ⇒ binarySearchRec(elem, from, idx, ordering, decrypt)
-        case 1  ⇒ binarySearchRec(elem, idx + 1, to, ordering, decrypt)
-        case _  ⇒ Found(idx)
+      if (from == to) InsertionPoint(from)
+      else {
+        val idx = from + (to - from - 1) / 2
+        math.signum(ordering.compare(elem, decrypt(coll(idx)))) match {
+          case -1 ⇒ binarySearchRec(elem, from, idx, ordering, decrypt)
+          case 1  ⇒ binarySearchRec(elem, idx + 1, to, ordering, decrypt)
+          case _  ⇒ Found(idx)
+        }
       }
     }
   }
