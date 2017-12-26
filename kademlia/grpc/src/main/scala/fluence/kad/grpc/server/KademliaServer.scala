@@ -36,7 +36,7 @@ class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(implicit
     keyCodec: Codec[F, Key, Array[Byte]],
     run: F ~> Future) extends KademliaGrpc.Kademlia {
 
-  private val streamCodec = Codec[F, Stream[protocol.Node[Contact]], Stream[Node]]
+  private val streamCodec = Codec.codec[F, Stream[protocol.Node[Contact]], Stream[Node]]
 
   override def ping(request: PingRequest): Future[Node] =
     run(

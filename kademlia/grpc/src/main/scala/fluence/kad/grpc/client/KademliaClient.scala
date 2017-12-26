@@ -41,7 +41,7 @@ class KademliaClient[F[_] : Monad](stub: grpc.KademliaGrpc.KademliaStub)(implici
 
   import cats.instances.stream._
 
-  private val streamCodec = Codec[F, Stream[protocol.Node[Contact]], Stream[grpc.Node]]
+  private val streamCodec = Codec.codec[F, Stream[protocol.Node[Contact]], Stream[grpc.Node]]
 
   private val bsKey = keyCodec.direct.map(ByteString.copyFrom)
 

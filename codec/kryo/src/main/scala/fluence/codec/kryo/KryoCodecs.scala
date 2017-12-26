@@ -42,18 +42,13 @@ class KryoCodecs[F[_], L <: HList] private (pool: KryoPool)(implicit F: Applicat
    * @return Freshly created Codec with Kryo inside
    */
   implicit def codec[T](implicit sel: ops.hlist.Selector[L, T]): Codec[F, T, Array[Byte]] =
-    new Codec[F, T, Array[Byte]] {
-      override def encode(obj: T): F[Array[Byte]] =
-        Option(obj) match {
-          case Some(o) ⇒
-            pool.toBytesWithClass(o).pure[F]
-          case None ⇒
-            F.raiseError[Array[Byte]](new NullPointerException("Obj is null, encoding is impossible"))
-        }
-
-      override def decode(binary: Array[Byte]): F[T] =
-        F.catchNonFatal(pool.fromBytes(binary).asInstanceOf[T])
-    }
+    Codec(
+      obj ⇒ Option(obj) match {
+        case Some(o) ⇒
+          pool.toBytesWithClass(o).pure[F]
+        case None ⇒
+          F.raiseError[Array[Byte]](new NullPointerException("Obj is null, encoding is impossible"))
+      }, binary ⇒ F.catchNonFatal(pool.fromBytes(binary).asInstanceOf[T]))
 }
 
 object KryoCodecs {

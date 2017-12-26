@@ -17,6 +17,8 @@
 
 package fluence.dataset.grpc.server
 
+import java.nio.ByteBuffer
+
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ MonadError, ~> }
@@ -38,15 +40,22 @@ import scala.language.higherKinds
  * @tparam C Do,ain-level Contract
  */
 class ContractsCacheServer[F[_], C](
-    cache: ContractsCacheRpc[F, C])(implicit F: MonadError[F, Throwable], codec: Codec[F, C, Contract], run: F ~> Future)
+    cache: ContractsCacheRpc[F, C])(implicit
+    F: MonadError[F, Throwable],
+    codec: Codec[F, C, Contract],
+    keyCodec: Codec[F, Key, ByteBuffer],
+    run: F ~> Future)
   extends ContractsCacheGrpc.ContractsCache {
 
   override def find(request: FindRequest): Future[Contract] =
     run(
-      cache.find(Key(request.id.asReadOnlyByteBuffer())).flatMap[Contract] {
-        case Some(c) ⇒ codec.encode(c)
-        case None    ⇒ F.raiseError(new NoSuchElementException(""))
-      }
+      for {
+        k ← keyCodec.decode(request.id.asReadOnlyByteBuffer())
+        resp ← cache.find(k).flatMap[Contract] {
+          case Some(c) ⇒ codec.encode(c)
+          case None    ⇒ F.raiseError(new NoSuchElementException(""))
+        }
+      } yield resp
     )
 
   override def cache(request: Contract): Future[CacheResponse] =

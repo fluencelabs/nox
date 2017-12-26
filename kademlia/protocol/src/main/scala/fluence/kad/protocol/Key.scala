@@ -24,6 +24,7 @@ import java.security.MessageDigest
 import java.util.Base64
 
 import cats.syntax.monoid._
+import cats.syntax.applicative._
 import cats.{ ApplicativeError, Monoid, Order, Show }
 import fluence.codec.Codec
 
@@ -129,23 +130,12 @@ object Key {
   def apply(bytes: Array[Byte]): Key = Key(ByteBuffer.wrap(bytes))
 
   implicit def bytesCodec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, Array[Byte]] =
-    new Codec[F, Key, Array[Byte]] {
-      override def encode(obj: Key): F[Array[Byte]] = F.pure(obj.id)
-
-      override def decode(binary: Array[Byte]): F[Key] = F.catchNonFatal(Key(ByteBuffer.wrap(binary)))
-    }
+    Codec(_.id.pure[F], b ⇒ F.catchNonFatal(Key(ByteBuffer.wrap(b))))
 
   implicit def b64Codec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, String] =
-    new Codec[F, Key, String] {
-      override def encode(obj: Key): F[String] = F.pure(obj.b64)
-
-      override def decode(binary: String): F[Key] = F.fromTry(Key.readB64(binary))
-    }
+    Codec(_.b64.pure[F], b ⇒ F.fromTry(Key.readB64(b)))
 
   implicit def bufferCodec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, ByteBuffer] =
-    new Codec[F, Key, ByteBuffer] {
-      override def encode(obj: Key): F[ByteBuffer] = F.pure(obj.origin)
+    Codec(_.origin.pure[F], b ⇒ F.catchNonFatal(Key(b)))
 
-      override def decode(binary: ByteBuffer): F[Key] = F.catchNonFatal(Key(binary))
-    }
 }
