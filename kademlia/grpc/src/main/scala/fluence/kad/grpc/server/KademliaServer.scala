@@ -18,8 +18,10 @@
 package fluence.kad.grpc.server
 
 import cats.syntax.functor._
+import cats.instances.stream._
 import cats.{ MonadError, ~> }
-import com.google.protobuf.ByteString
+import cats.syntax.flatMap._
+import fluence.codec.Codec
 import fluence.kad.grpc._
 import fluence.kad.protocol
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
@@ -28,38 +30,48 @@ import scala.concurrent.Future
 import scala.language.{ higherKinds, implicitConversions }
 
 // TODO: cover with tests
-class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(implicit F: MonadError[F, Throwable], run: F ~> Future) extends KademliaGrpc.Kademlia {
+class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(implicit
+    F: MonadError[F, Throwable],
+    codec: Codec[F, protocol.Node[Contact], Node],
+    keyCodec: Codec[F, Key, Array[Byte]],
+    run: F ~> Future) extends KademliaGrpc.Kademlia {
 
-  private implicit def ncToNode(nc: protocol.Node[Contact]): Node =
-    Node(id = ByteString.copyFrom(nc.key.id), ByteString.copyFrom(nc.contact.ip.getAddress), nc.contact.port)
+  private val streamCodec = Codec[F, Stream[protocol.Node[Contact]], Stream[Node]]
 
   override def ping(request: PingRequest): Future[Node] =
     run(
-      kademlia.ping().map(nc ⇒ nc: Node)
+      kademlia.ping().flatMap(codec.encode)
     )
 
   override def lookup(request: LookupRequest): Future[NodesResponse] =
     run(
-      kademlia
-        .lookup(Key(request.key.toByteArray), request.numberOfNodes)
-        .map(_.map(nc ⇒ nc: Node))
-        .map(NodesResponse(_))
+      for {
+        key ← keyCodec.decode(request.key.toByteArray)
+        ns ← kademlia
+          .lookup(key, request.numberOfNodes)
+        resp ← streamCodec.encode(ns.toStream)
+      } yield NodesResponse(resp)
     )
 
   override def lookupAway(request: LookupAwayRequest): Future[NodesResponse] =
     run(
-      kademlia
-        .lookupAway(Key(request.key.toByteArray), Key(request.moveAwayFrom.toByteArray), request.numberOfNodes)
-        .map(_.map(nc ⇒ nc: Node))
-        .map(NodesResponse(_))
+      for {
+        key ← keyCodec.decode(request.key.toByteArray)
+        moveAwayKey ← keyCodec.decode(request.moveAwayFrom.toByteArray)
+        ns ← kademlia
+          .lookupAway(key, moveAwayKey, request.numberOfNodes)
+        resp ← streamCodec.encode(ns.toStream)
+      } yield NodesResponse(resp)
     )
 
   override def lookupIterative(request: LookupRequest): Future[NodesResponse] =
     run(
-      kademlia
-        .lookupIterative(Key(request.key.toByteArray), request.numberOfNodes)
-        .map(_.map(nc ⇒ nc: Node))
-        .map(NodesResponse(_))
+      for {
+        key ← keyCodec.decode(request.key.toByteArray)
+        ns ← kademlia
+          .lookupIterative(key, request.numberOfNodes)
+        resp ← streamCodec.encode(ns.toStream)
+      } yield NodesResponse(resp)
     )
 
 }

@@ -48,6 +48,8 @@ object NodeApp extends App {
     override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
   }
 
+  implicit val kadCodec = fluence.kad.grpc.KademliaNodeCodec[Task]
+
   val serverBuilder = GrpcServer.builder
 
   // For demo purposes

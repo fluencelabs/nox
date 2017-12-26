@@ -7,8 +7,8 @@ import fluence.btree.client.network._
 import fluence.btree.client.{ BTreeVerifier, Key, Value }
 import fluence.btree.server.binary.BTreeBinaryStore
 import fluence.btree.server.network.commands.{ GetCommandImpl, PutCommandImpl }
+import fluence.codec.kryo.KryoCodecs
 import fluence.hash.TestCryptoHasher
-import fluence.node.binary.kryo.KryoCodecs
 import fluence.node.storage.InMemoryKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel

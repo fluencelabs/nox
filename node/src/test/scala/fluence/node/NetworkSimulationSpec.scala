@@ -1,7 +1,7 @@
 package fluence.node
 
 import cats.~>
-import fluence.kad.grpc.KademliaGrpc
+import fluence.kad.grpc.{ KademliaGrpc, KademliaNodeCodec }
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
@@ -28,6 +28,8 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
   implicit val runTask = new (Task ~> Future) {
     override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
   }
+
+  implicit val kadCodec = KademliaNodeCodec[Task]
 
   class Node(val key: Key, val localPort: Int) {
 

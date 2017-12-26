@@ -15,12 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node.binary.kryo
+package fluence.codec.kryo
 
 import cats.ApplicativeError
 import cats.syntax.applicative._
 import com.twitter.chill.KryoPool
-import fluence.node.binary.Codec
+import fluence.codec.Codec
 import shapeless._
 
 import scala.language.higherKinds

@@ -19,8 +19,10 @@ package fluence.dataset.grpc.client
 
 import cats.syntax.applicativeError._
 import cats.syntax.functor._
+import cats.syntax.flatMap._
 import cats.{ MonadError, ~> }
 import com.google.protobuf.ByteString
+import fluence.codec.Codec
 import fluence.dataset.grpc.ContractsCacheGrpc.ContractsCacheStub
 import fluence.dataset.grpc.{ Contract, FindRequest }
 import fluence.dataset.protocol.ContractsCacheRpc
@@ -30,9 +32,7 @@ import scala.concurrent.Future
 import scala.language.higherKinds
 
 class ContractsCacheClient[F[_], C](
-    stub: ContractsCacheStub,
-    serialize: C ⇒ Contract,
-    deserialize: Contract ⇒ C)(implicit run: Future ~> F, F: MonadError[F, Throwable])
+    stub: ContractsCacheStub)(implicit codec: Codec[F, C, Contract], run: Future ~> F, F: MonadError[F, Throwable])
   extends ContractsCacheRpc[F, C] {
 
   /**
@@ -44,7 +44,8 @@ class ContractsCacheClient[F[_], C](
   override def find(id: Key): F[Option[C]] =
     run(
       stub.find(FindRequest(ByteString.copyFrom(id.origin)))
-    ).map(c ⇒ Option(deserialize(c))).recover {
+    ).flatMap(codec.decode)
+      .map(c ⇒ Option(c)).recover {
         case _ ⇒ None
       }
 
@@ -55,7 +56,8 @@ class ContractsCacheClient[F[_], C](
    * @return If the contract is cached or not
    */
   override def cache(contract: C): F[Boolean] =
-    run(
-      stub.cache(serialize(contract))
-    ).map(_.cached)
+    for {
+      c ← codec.encode(contract)
+      resp ← run(stub.cache(c))
+    } yield resp.cached
 }

@@ -21,17 +21,17 @@ import java.nio.ByteBuffer
 
 import cats.syntax.show._
 import fluence.btree.client.merkle.MerklePath
-import fluence.btree.client.{ Key, Value }
+import fluence.btree.client.{Key, Value}
 import fluence.btree.server.binary.BTreeBinaryStore
 import fluence.btree.server.core.TreePath.PathElem
-import fluence.btree.server.core.{ NodeWithId, _ }
-import fluence.node.binary.kryo.KryoCodecs
+import fluence.btree.server.core.{NodeWithId, _}
+import fluence.codec.kryo.KryoCodecs
 import fluence.node.storage.rocksdb.RocksDbStore
-import monix.eval.{ Task, TaskSemaphore }
-import monix.execution.atomic.{ AtomicInt, AtomicLong }
+import monix.eval.{Task, TaskSemaphore}
+import monix.execution.atomic.{AtomicInt, AtomicLong}
 import org.slf4j.LoggerFactory
 
-import scala.collection.Searching.{ Found, InsertionPoint }
+import scala.collection.Searching.{Found, InsertionPoint}
 
 /**
  * This class implements a search tree, which allows to run queries over encrypted data. This code based on research paper:

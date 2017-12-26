@@ -20,7 +20,7 @@ package fluence.node.storage
 import cats.Monad
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.node.binary.Codec
+import fluence.codec.Codec
 
 import scala.language.higherKinds
 import scala.util.control.NoStackTrace
