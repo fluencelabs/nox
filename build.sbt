@@ -25,6 +25,8 @@ javaOptions in Test ++= Seq("-ea")
 val commons = Seq(
   scalaV,
   scalariformPrefs,
+  fork in test := true,
+  parallelExecution in Test := false,
   organizationName := "Fluence Labs Limited",
   organizationHomepage := Some(new URL("https://fluence.ai")),
   startYear := Some(2017),
