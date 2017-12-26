@@ -1,16 +1,25 @@
 package fluence.btree.server.binary
 
+import java.nio.ByteBuffer
+
 import fluence.node.binary.kryo.KryoCodecs
-import fluence.node.storage.InMemoryKVStore
+import fluence.node.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{ Matchers, WordSpec }
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
+import scala.math.Ordering
+import scala.util.hashing.MurmurHash3
 
 class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
+
+  private object BytesOrdering extends Ordering[Array[Byte]] {
+    override def compare(x: Array[Byte], y: Array[Byte]): Int = ByteBuffer.wrap(x).compareTo(ByteBuffer.wrap(y))
+  }
 
   "BTreeBinaryStore" should {
     val codecs =
@@ -22,7 +31,8 @@ class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
-      val store = new BTreeBinaryStore[Long, String, Task](InMemoryKVStore())
+      val trieMap = new TrieMap[Array[Byte], Array[Byte]](MurmurHash3.arrayHashing, Equiv.fromComparator(BytesOrdering))
+      val store = new BTreeBinaryStore[Long, String, Task](new TrieMapKVStore(trieMap))
 
       val node1 = "node1"
       val node1Idx = 2L
