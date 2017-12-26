@@ -19,7 +19,8 @@ package fluence.btree.server
 
 import cats.Show
 import cats.syntax.show._
-import fluence.btree.server.core.PutDetails
+import fluence.btree.client.core.PutDetails
+import fluence.btree.server.core.NodeWithId
 
 /**
  * ''Show'' type class implementations for [[MerkleBTree]] entities.
@@ -45,6 +46,10 @@ object MerkleBTreeShow {
 
   implicit def showPutDetails(implicit sb: Show[Array[Byte]]): Show[PutDetails] = {
     Show.show((pd: PutDetails) ⇒ s"""PutDetails(${sb.show(pd.key)}, ${sb.show(pd.value)}, ${pd.searchResult})""")
+  }
+
+  implicit def showNodeWithId(implicit sn: Show[Node]): Show[NodeWithId[NodeId, Node]] = {
+    Show.show((n: NodeWithId[NodeId, Node]) ⇒ s"""NodeWithId(${n.id}, ${sn.show(n.node)})""")
   }
 
   implicit def showNode(implicit st: Show[Branch], sl: Show[Leaf]): Show[Node] = {
