@@ -18,7 +18,7 @@
 package fluence.codec
 
 import cats.data.Kleisli
-import cats.{ Applicative, Traverse }
+import cats.{ Applicative, FlatMap, Traverse }
 import cats.syntax.applicative._
 
 import scala.language.{ higherKinds, implicitConversions }
@@ -31,7 +31,7 @@ import scala.language.{ higherKinds, implicitConversions }
  * @tparam F Encoding/decoding effect
  */
 trait Codec[F[_], O, B] {
-
+  self ⇒
   def encode(obj: O): F[B]
 
   def decode(binary: B): F[O]
@@ -40,6 +40,11 @@ trait Codec[F[_], O, B] {
 
   val inverse: Kleisli[F, B, O] = Kleisli(decode)
 
+  def andThen[C](other: Codec[F, B, C])(implicit F: FlatMap[F]): Codec[F, O, C] = new Codec[F, O, C] {
+    override def encode(obj: O): F[C] = (self.direct andThen other.direct).run(obj)
+
+    override def decode(binary: C): F[O] = (other.inverse andThen self.inverse).run(binary)
+  }
 }
 
 object Codec {
