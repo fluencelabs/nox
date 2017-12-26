@@ -34,7 +34,7 @@ import scala.language.higherKinds
  * @param nodeCodec Node binary serializer
  * @tparam Id   The type of node id
  * @tparam Node The type of node
- * @tparam F - Box for returning value
+ * @tparam F Box for returning value
  */
 class BTreeBinaryStore[Id, Node, F[_]](
     kvStore: KVStore[F, Array[Byte], Array[Byte]]

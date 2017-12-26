@@ -15,43 +15,39 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.btree.server.network.commands
+package fluence.btree.server.commands
 
 import cats.MonadError
-import cats.syntax.functor._
+import fluence.btree.client.core.PutDetails
 import fluence.btree.client.merkle.{ MerklePath, MerkleRootCalculator }
-import fluence.btree.client.network._
+import fluence.btree.client.protocol.BTreeRpc.PutCallbacks
 import fluence.btree.client.{ Key, Value }
 import fluence.btree.server.Leaf
 import fluence.btree.server.core._
+import cats.syntax.flatMap._
 
 /**
  * Command for putting key and value to the BTree.
  *
- * @param askRequiredDetails A function that ask client to give some required details for the next step
+ * @param merkleRootCalculator A function that ask client to give some required details for the next step
+ * @param putCallbacks          A pack of functions that ask client to give some required details for the next step
  * @tparam F The type of effect, box for returning value
  */
 case class PutCommandImpl[F[_]](
     merkleRootCalculator: MerkleRootCalculator,
-    askRequiredDetails: (BTreeServerResponse) ⇒ F[Option[BTreeClientRequest]]
-)(implicit ME: MonadError[F, Throwable]) extends BaseCommand[F](askRequiredDetails) with PutCommand[F, Key, Value] {
+    putCallbacks: PutCallbacks[F]
+)(implicit ME: MonadError[F, Throwable]) extends BaseSearchCommand[F](putCallbacks) with PutCommand[F, Key, Value] {
 
   def putDetails(leaf: Option[Leaf]): F[PutDetails] = {
-    val response =
-      leaf.map(l ⇒ LeafResponse(l.keys, l.values))
-        .getOrElse(LeafResponse(Array.empty[Key], Array.empty[Value]))
+    val (keys, values) =
+      leaf.map(l ⇒ l.keys → l.values)
+        .getOrElse(Array.empty[Key] → Array.empty[Value])
 
-    askRequiredDetails(response)
-      .map { case Some(PutRequest(key, value, searchResult)) ⇒ PutDetails(key, value, searchResult) }
+    putCallbacks.putDetails(keys, values)
   }
 
-  override def submitMerklePath(merklePath: MerklePath, wasSplitting: Boolean): F[Unit] = {
-    val response = if (wasSplitting)
-      VerifyPutWithRebalancingResponse(merklePath)
-    else
-      VerifySimplePutResponse(merkleRootCalculator.calcMerkleRoot(merklePath))
-
-    askRequiredDetails(response)
-      .map(_ ⇒ ())
+  override def verifyChanges(merklePath: MerklePath, wasSplitting: Boolean): F[Unit] = {
+    putCallbacks.verifyChanges(merkleRootCalculator.calcMerkleRoot(merklePath), wasSplitting)
+      .flatMap { _ ⇒ putCallbacks.changesStored() }
   }
 }

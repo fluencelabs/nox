@@ -23,8 +23,8 @@ import cats.kernel.Eq
 import cats.syntax.eq._
 import cats.syntax.show._
 import fluence.btree.client.common.BytesOps
+import fluence.btree.client.core.PutDetails
 import fluence.btree.client.merkle.{ GeneralNodeProof, MerklePath, MerkleRootCalculator, NodeProof }
-import fluence.btree.client.network._
 import fluence.hash.CryptoHasher
 import org.slf4j.LoggerFactory
 
@@ -94,17 +94,28 @@ class BTreeVerifier(
    * Returns Some(newRoot) if server pass verifying, None otherwise.
    * Client can update merkle root if this method returns true.
    *
-   * @param merklePath  Clients merkle path
-   * @param putRequest  Clients put request submitted to server
-   * @param putResponse A response from server, for verifying put operation
+   * @param clientMPath Clients merkle path
    */
-  def newMerkleRoot(merklePath: MerklePath, putRequest: PutRequest, putResponse: VerifyChanges): Option[Bytes] = {
-    putResponse match {
-      case putResponse: VerifySimplePutResponse ⇒
-        verifyPut(merklePath, putRequest, putResponse)
-      case putResponse: VerifyPutWithRebalancingResponse ⇒
-        verifyPut(merklePath, putRequest, putResponse)
+  def newMerkleRoot(
+    clientMPath: MerklePath,
+    putDetails: PutDetails,
+    serverMRoot: Bytes,
+    wasSplitting: Boolean
+  ): Option[Bytes] = {
+
+    val newMerkleRoot = if (wasSplitting) {
+      verifyPutWithRebalancing(clientMPath, putDetails, serverMRoot)
+    } else {
+      verifySimplePut(clientMPath, putDetails)
     }
+
+    if (newMerkleRoot === serverMRoot) {
+      Some(newMerkleRoot)
+    } else {
+      log.debug(s"New client mRoot=${newMerkleRoot.show} != server mRoot=${serverMRoot.show}")
+      None
+    }
+
   }
 
   /**
@@ -112,37 +123,28 @@ class BTreeVerifier(
    * Client can update merkle root if this method returns true.
    * @return Returns Some(newRoot) if server pass verifying, None otherwise.
    */
-  private def verifyPut(mPath: MerklePath, putReq: PutRequest, putRes: VerifySimplePutResponse): Option[Bytes] = {
+  private def verifySimplePut(clientMPath: MerklePath, putDetails: PutDetails): Bytes = {
 
-    val newMerkleRoot =
-      putReq match {
-        case PutRequest(cipherKey, cipherValue, Found(_)) ⇒
-          val keyValChecksum = cryptoHasher.hash(cipherKey, cipherValue)
-          merkleRootCalculator.calcMerkleRoot(mPath, keyValChecksum)
+    putDetails match {
+      case PutDetails(cipherKey, cipherValue, Found(_)) ⇒
+        val keyValChecksum = cryptoHasher.hash(cipherKey, cipherValue)
+        merkleRootCalculator.calcMerkleRoot(clientMPath, keyValChecksum)
 
-        case PutRequest(cipherKey, cipherValue, InsertionPoint(_)) ⇒
-          val keyValChecksum = cryptoHasher.hash(cipherKey, cipherValue)
+      case PutDetails(cipherKey, cipherValue, InsertionPoint(_)) ⇒
+        val keyValChecksum = cryptoHasher.hash(cipherKey, cipherValue)
 
-          val mPathAfterInserting = mPath.path
-            .lastOption
-            .map {
-              case proof @ GeneralNodeProof(_, childrenChecksums, idx) ⇒
-                val lastProofAfterInserting =
-                  proof.copy(childrenChecksums = BytesOps.insertValue(childrenChecksums, keyValChecksum, idx))
-                MerklePath(mPath.path.init :+ lastProofAfterInserting)
-            }
-            .getOrElse(MerklePath(Seq(GeneralNodeProof(Array.emptyByteArray, Array(keyValChecksum), 0))))
+        val mPathAfterInserting = clientMPath.path
+          .lastOption
+          .map {
+            case proof @ GeneralNodeProof(_, childrenChecksums, idx) ⇒
+              val lastProofAfterInserting =
+                proof.copy(childrenChecksums = BytesOps.insertValue(childrenChecksums, keyValChecksum, idx))
+              MerklePath(clientMPath.path.init :+ lastProofAfterInserting)
+          }
+          .getOrElse(MerklePath(Seq(GeneralNodeProof(Array.emptyByteArray, Array(keyValChecksum), 0))))
 
-          merkleRootCalculator.calcMerkleRoot(mPathAfterInserting)
-      }
-
-    if (newMerkleRoot === putRes.merkleRoot) {
-      Some(newMerkleRoot)
-    } else {
-      log.debug(s"New client mRoot=${newMerkleRoot.show} != server mRoot=${putRes.merkleRoot.show}")
-      None
+        merkleRootCalculator.calcMerkleRoot(mPathAfterInserting)
     }
-
   }
 
   /**
@@ -150,11 +152,15 @@ class BTreeVerifier(
    * Client can update merkle root if this method returns true.
    * @return Returns Some(newRoot) if server pass verifying, None otherwise.
    */
-  private def verifyPut(mPath: MerklePath, putReq: PutRequest, putRes: VerifyPutWithRebalancingResponse): Option[Bytes] = {
+  private def verifyPutWithRebalancing(
+    clientMPath: MerklePath,
+    putDetails: PutDetails,
+    serverMRoot: Bytes
+  ): Bytes = {
 
     // todo implement and write tests !!! This methods returns only new merkle root and doesn't verify server response
 
-    Some(merkleRootCalculator.calcMerkleRoot(putRes.merklePath))
+    serverMRoot
   }
 
   /**

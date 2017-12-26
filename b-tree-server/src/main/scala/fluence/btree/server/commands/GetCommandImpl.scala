@@ -15,11 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.btree.server.network.commands
+package fluence.btree.server.commands
 
 import cats.MonadError
-import cats.syntax.functor._
-import fluence.btree.client.network._
+import fluence.btree.client.protocol.BTreeRpc.GetCallbacks
 import fluence.btree.client.{ Key, Value }
 import fluence.btree.server.core.{ GetCommand, LeafNode }
 
@@ -27,21 +26,18 @@ import fluence.btree.server.core.{ GetCommand, LeafNode }
  * Command for searching some value in BTree (by client search key).
  * Search key is stored at the client. BTree server will never know search key.
  *
- * @param askRequiredDetails A function that ask client to give some required details for the next step
- *
+ * @param getCallbacks A pack of functions that ask client to give some required details for the next step
  * @tparam F The type of effect, box for returning value
  */
-class GetCommandImpl[F[_]](
-    askRequiredDetails: (BTreeServerResponse) ⇒ F[Option[BTreeClientRequest]]
-)(implicit ME: MonadError[F, Throwable]) extends BaseCommand[F](askRequiredDetails) with GetCommand[F, Key, Value] {
+class GetCommandImpl[F[_]](getCallbacks: GetCallbacks[F])(implicit ME: MonadError[F, Throwable])
+  extends BaseSearchCommand[F](getCallbacks) with GetCommand[F, Key, Value] {
 
   override def submitLeaf(leaf: Option[LeafNode[Key, Value]]): F[Unit] = {
-    val response =
-      leaf.map(l ⇒ LeafResponse(l.keys, l.values))
-        .getOrElse(LeafResponse(Array.empty[Key], Array.empty[Value]))
+    val (keys, values) =
+      leaf.map(l ⇒ l.keys → l.values)
+        .getOrElse(Array.empty[Key] → Array.empty[Value])
 
-    askRequiredDetails(response)
-      .map(_ ⇒ ())
+    getCallbacks.submitLeaf(keys, values)
   }
 
 }

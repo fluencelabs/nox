@@ -20,18 +20,19 @@ package fluence.btree.server
 import java.nio.ByteBuffer
 
 import cats.syntax.show._
-import fluence.btree.client.merkle.MerklePath
-import fluence.btree.client.{Key, Value}
+import fluence.btree.client.core.PutDetails
+import fluence.btree.client.merkle.{ GeneralNodeProof, MerklePath }
+import fluence.btree.client.{ Key, Value }
 import fluence.btree.server.binary.BTreeBinaryStore
 import fluence.btree.server.core.TreePath.PathElem
-import fluence.btree.server.core.{NodeWithId, _}
-import fluence.codec.kryo.KryoCodecs
+import fluence.btree.server.core.{ NodeWithId, _ }
+import fluence.node.binary.kryo.KryoCodecs
 import fluence.node.storage.rocksdb.RocksDbStore
-import monix.eval.{Task, TaskSemaphore}
-import monix.execution.atomic.{AtomicInt, AtomicLong}
+import monix.eval.{ Task, TaskSemaphore }
+import monix.execution.atomic.{ AtomicInt, AtomicLong }
 import org.slf4j.LoggerFactory
 
-import scala.collection.Searching.{Found, InsertionPoint}
+import scala.collection.Searching.{ Found, InsertionPoint }
 
 /**
  * This class implements a search tree, which allows to run queries over encrypted data. This code based on research paper:
@@ -192,7 +193,8 @@ class MerkleBTree private[server](
         .flatMap { case PutDetails(key, value, _) ⇒
           val newLeaf = createLeaf(key, value)
           // send the merkle path to the client for verification
-          cmd.submitMerklePath(MerklePath.empty, wasSplitting = false)
+          val leafProof = GeneralNodeProof(Array.emptyByteArray, newLeaf.kvChecksums, 0)
+          cmd.verifyChanges(MerklePath(Seq(leafProof)), wasSplitting = false)
             .flatMap(_ ⇒
                commitNewState(PutTask(nodesToSave = Seq(NodeWithId(RootId, newLeaf)), increaseDepth = true))
             )
@@ -260,7 +262,7 @@ class MerkleBTree private[server](
         // makes all transformations over the copy of tree
         val (newStateProof, putTask) = logicalPut(leafId, updatedLeaf, putDetails.searchResult.insertionPoint, trail)
         // after all the logical operations, we need to send the merkle path to the client for verification
-        cmd.submitMerklePath(newStateProof, putTask.wasSplitting)
+        cmd.verifyChanges(newStateProof, putTask.wasSplitting)
           .flatMap { _ ⇒
             // persist all changes
             commitNewState(putTask)
@@ -469,7 +471,7 @@ class MerkleBTree private[server](
    * @param putTask Pool of changed nodes
    */
   private def commitNewState(putTask: PutTask): Task[Unit] = {
-    log.debug(s"commitNewState for nodes=${putTask.nodesToSave}")
+    log.debug(s"commitNewState for nodes=${putTask.nodesToSave.map(_.show)}")
     // todo start transaction
     Task.gatherUnordered(putTask.nodesToSave.map { case NodeWithId(id, node) ⇒ saveNode(id, node) })
       .foreachL(_ ⇒ if (putTask.increaseDepth) this.depth.increment())

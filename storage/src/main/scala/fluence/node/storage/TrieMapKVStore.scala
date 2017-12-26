@@ -22,8 +22,9 @@ import cats.{ ApplicativeError, Eval, ~> }
 import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
 
-class TrieMapKVStore[F[_], K, V](implicit F: ApplicativeError[F, Throwable]) extends KVStore[F, K, V] {
-  private val data: TrieMap[K, V] = TrieMap.empty
+class TrieMapKVStore[F[_], K, V](
+    private val data: TrieMap[K, V] = TrieMap.empty[K, V]
+)(implicit F: ApplicativeError[F, Throwable]) extends KVStore[F, K, V] {
 
   protected def iterator: Iterator[(K, V)] = data.iterator
 

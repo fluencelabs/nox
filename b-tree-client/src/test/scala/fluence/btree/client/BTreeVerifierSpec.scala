@@ -1,7 +1,7 @@
 package fluence.btree.client
 
+import fluence.btree.client.core.PutDetails
 import fluence.btree.client.merkle.{ GeneralNodeProof, MerklePath }
-import fluence.btree.client.network.{ PutRequest, VerifySimplePutResponse }
 import fluence.hash.TestCryptoHasher
 import org.scalatest.{ Matchers, WordSpec }
 
@@ -88,67 +88,62 @@ class BTreeVerifierSpec extends WordSpec with Matchers {
     "return new merkle root for simple put operation" when {
 
       "putting into empty tree" in {
-        val merklePath = MerklePath.empty
-        val putRequest = PutRequest(key1, val1, InsertionPoint(0))
-        val putResponse = VerifySimplePutResponse("H<H<k1v1>>".getBytes)
+        val clientMPath = MerklePath.empty
+        val putDetails = PutDetails(key1, val1, InsertionPoint(0))
+        val serverMRoot = "H<H<k1v1>>".getBytes
 
-        verifier.newMerkleRoot(merklePath, putRequest, putResponse)
+        verifier.newMerkleRoot(clientMPath, putDetails, serverMRoot, wasSplitting = false)
       }
       "insert new value" in {
-        val merklePath = MerklePath(Seq(GeneralNodeProof(Array.emptyByteArray, Array("H<k2v2>".getBytes), 0)))
-        val putRequest = PutRequest(key1, val1, InsertionPoint(0))
-        val expectedMRoot = "H<H<k1v1>H<k2v2>>".getBytes
-        val putResponse = VerifySimplePutResponse(expectedMRoot)
+        val clientMPath = MerklePath(Seq(GeneralNodeProof(Array.emptyByteArray, Array("H<k2v2>".getBytes), 0)))
+        val putDetails = PutDetails(key1, val1, InsertionPoint(0))
+        val serverMRoot = "H<H<k1v1>H<k2v2>>".getBytes
 
-        val result = verifier.newMerkleRoot(merklePath, putRequest, putResponse)
-        result.get shouldBe expectedMRoot
+        val result = verifier.newMerkleRoot(clientMPath, putDetails, serverMRoot, wasSplitting = false)
+        result.get shouldBe serverMRoot
       }
       "rewrite old value with new value" in {
-        val merklePath = MerklePath(Seq(GeneralNodeProof(Array.emptyByteArray, Array("H<k2v2>".getBytes), 0)))
-        val putRequest = PutRequest(key2, val3, Found(0))
-        val expectedMRoot = "H<H<k2v3>>".getBytes
-        val putResponse = VerifySimplePutResponse(expectedMRoot)
+        val clientMerklePath = MerklePath(Seq(GeneralNodeProof(Array.emptyByteArray, Array("H<k2v2>".getBytes), 0)))
+        val putDetails = PutDetails(key2, val3, Found(0))
+        val serverMRoot = "H<H<k2v3>>".getBytes
 
-        val result = verifier.newMerkleRoot(merklePath, putRequest, putResponse)
-        result.get shouldBe expectedMRoot
+        val result = verifier.newMerkleRoot(clientMerklePath, putDetails, serverMRoot, wasSplitting = false)
+        result.get shouldBe serverMRoot
       }
 
       "rewrite old value with new value in second tree lvl" in {
         val rootChildsChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k4v4>H<k5v5>>".getBytes)
         val rootProof = verifier.getBranchProof(Array(key2), rootChildsChecksums, 0)
         val leafProof = GeneralNodeProof(Array.emptyByteArray, Array("H<k1v1>".getBytes, "H<k2v2>".getBytes), 1)
-        val merklePath = MerklePath(Seq(rootProof, leafProof))
-        val putRequest = PutRequest(key2, val3, Found(0))
-        val expectedMRoot = "H<H<k2>H<H<k1v1>H<k2v3>>H<H<k4v4>H<k5v5>>>".getBytes
-        val putResponse = VerifySimplePutResponse(expectedMRoot)
+        val clientMerklePath = MerklePath(Seq(rootProof, leafProof))
+        val putDetails = PutDetails(key2, val3, Found(0))
+        val serverMRoot = "H<H<k2>H<H<k1v1>H<k2v3>>H<H<k4v4>H<k5v5>>>".getBytes
 
-        val result = verifier.newMerkleRoot(merklePath, putRequest, putResponse)
-        result.get shouldBe expectedMRoot
+        val result = verifier.newMerkleRoot(clientMerklePath, putDetails, serverMRoot, wasSplitting = false)
+        result.get shouldBe serverMRoot
       }
 
       "insert new value in second tree lvl" in {
         val rootChildsChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k4v4>H<k5v5>>".getBytes)
         val rootProof = verifier.getBranchProof(Array(key2), rootChildsChecksums, 1)
         val leafProof = GeneralNodeProof(Array.emptyByteArray, Array("H<k4v4>".getBytes, "H<k5v5>".getBytes), 0)
-        val merklePath = MerklePath(Seq(rootProof, leafProof))
-        val putRequest = PutRequest(key3, val3, InsertionPoint(0))
-        val expectedMRoot = "H<H<k2>H<H<k1v1>H<k2v2>>H<H<k3v3>H<k4v4>H<k5v5>>>".getBytes
-        val putResponse = VerifySimplePutResponse(expectedMRoot)
+        val clientMerklePath = MerklePath(Seq(rootProof, leafProof))
+        val putDetails = PutDetails(key3, val3, InsertionPoint(0))
+        val serverMRoot = "H<H<k2>H<H<k1v1>H<k2v2>>H<H<k3v3>H<k4v4>H<k5v5>>>".getBytes
 
-        val result = verifier.newMerkleRoot(merklePath, putRequest, putResponse)
-        result.get shouldBe expectedMRoot
+        val result = verifier.newMerkleRoot(clientMerklePath, putDetails, serverMRoot, wasSplitting = false)
+        result.get shouldBe serverMRoot
       }
 
     }
 
     "return None for simple put operation" when {
       "server mRoot != client mRoot" in {
-        val merklePath = MerklePath(Seq(GeneralNodeProof(Array.emptyByteArray, Array("H<k2v2>".getBytes), 0)))
-        val putRequest = PutRequest(key1, val1, InsertionPoint(0))
-        val expectedMRoot = "wrong_root".getBytes
-        val putResponse = VerifySimplePutResponse(expectedMRoot)
+        val clientMerklePath = MerklePath(Seq(GeneralNodeProof(Array.emptyByteArray, Array("H<k2v2>".getBytes), 0)))
+        val putDetails = PutDetails(key1, val1, InsertionPoint(0))
+        val serverMRoot = "wrong_root".getBytes
 
-        val result = verifier.newMerkleRoot(merklePath, putRequest, putResponse)
+        val result = verifier.newMerkleRoot(clientMerklePath, putDetails, serverMRoot, wasSplitting = false)
         result shouldBe None
       }
 
