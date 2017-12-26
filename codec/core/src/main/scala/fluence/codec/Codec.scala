@@ -36,6 +36,10 @@ trait Codec[F[_], O, B] {
 
   def decode(binary: B): F[O]
 
+  val direct: Kleisli[F, O, B] = Kleisli(encode)
+
+  val inverse: Kleisli[F, B, O] = Kleisli(decode)
+
 }
 
 object Codec {
@@ -54,10 +58,6 @@ object Codec {
       override def decode(binary: G[B]): F[G[O]] =
         Traverse[G].traverse[F, B, O](binary)(codec.decode)
     }
-
-  implicit def toRightKleisli[F[_], O, B](codec: Codec[F, O, B]): Kleisli[F, O, B] = Kleisli(codec.encode)
-
-  implicit def toLeftKleisli[F[_], O, B](codec: Codec[F, O, B]): Kleisli[F, B, O] = Kleisli(codec.decode)
 
   def apply[F[_], O, B](implicit codec: Codec[F, O, B]): Codec[F, O, B] = codec
 

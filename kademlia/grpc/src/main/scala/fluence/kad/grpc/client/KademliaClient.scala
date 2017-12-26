@@ -17,15 +17,13 @@
 
 package fluence.kad.grpc.client
 
-import cats.data.Kleisli
-import cats.syntax.functor._
 import cats.syntax.flatMap._
-import cats.{ Applicative, Monad, ~> }
+import cats.syntax.functor._
+import cats.{ Monad, ~> }
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
-import fluence.kad.grpc.KademliaNodeCodec
-import fluence.kad.{ grpc, protocol }
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
+import fluence.kad.{ grpc, protocol }
 import io.grpc.{ CallOptions, ManagedChannel }
 
 import scala.concurrent.Future
@@ -40,11 +38,12 @@ class KademliaClient[F[_] : Monad](stub: grpc.KademliaGrpc.KademliaStub)(implici
     codec: Codec[F, protocol.Node[Contact], grpc.Node],
     keyCodec: Codec[F, Key, Array[Byte]],
     run: Future ~> F) extends KademliaRpc[F, Contact] {
+
   import cats.instances.stream._
 
   private val streamCodec = Codec[F, Stream[protocol.Node[Contact]], Stream[grpc.Node]]
 
-  private val bsKey = (keyCodec: Kleisli[F, Key, Array[Byte]]).map(ByteString.copyFrom)
+  private val bsKey = keyCodec.direct.map(ByteString.copyFrom)
 
   /**
    * Ping the contact, get its actual Node status, or fail
@@ -103,10 +102,13 @@ object KademliaClient {
   /**
    * Shorthand to register KademliaClient inside NetworkClient.
    *
-   * @param channel Channel to remote node
+   * @param channel     Channel to remote node
    * @param callOptions Call options
    */
-  def register[F[_] : Monad]()(channel: ManagedChannel, callOptions: CallOptions)(implicit codec: Codec[F, protocol.Node[Contact], grpc.Node], keyCodec: Codec[F, Key, Array[Byte]], run: Future ~> F): KademliaClient[F] =
+  def register[F[_] : Monad]()(channel: ManagedChannel, callOptions: CallOptions)(implicit
+    codec: Codec[F, protocol.Node[Contact], grpc.Node],
+    keyCodec: Codec[F, Key, Array[Byte]],
+    run: Future ~> F): KademliaClient[F] =
     new KademliaClient(new grpc.KademliaGrpc.KademliaStub(channel, callOptions))
 
 }
