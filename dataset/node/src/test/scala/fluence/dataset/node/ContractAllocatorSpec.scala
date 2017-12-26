@@ -5,6 +5,7 @@ import fluence.dataset.node.contract.{ ContractAllocator, ContractRecord, Contra
 import fluence.dataset.protocol.ContractAllocatorRpc
 import fluence.kad.protocol.Key
 import fluence.node.storage.{ KVStore, TrieMapKVStore }
+import monix.eval.Coeval
 import org.scalatest.{ Matchers, WordSpec }
 
 import scala.language.higherKinds
@@ -14,6 +15,8 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   @volatile var denyDS: Set[Key] = Set.empty
 
   @volatile var dsCreated: Set[Key] = Set.empty
+
+  def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
 
   val nodeId: Key = Key.XorDistanceMonoid.empty
 
@@ -34,17 +37,17 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   "contract allocator" should {
 
     "reject offer with wrong signature" in {
-      val contract = DumbContract(Key.fromString("dumb0"), 1)
+      val contract = DumbContract(unsafeKey("dumb0"), 1)
       allocator.offer(contract).attempt.unsafeRunSync().isLeft shouldBe true
     }
 
     "reject offer with unsufficent resources" in {
-      val contract = DumbContract(Key.fromString("should reject"), 1, offerSealed = true, allocationPossible = false)
+      val contract = DumbContract(unsafeKey("should reject"), 1, offerSealed = true, allocationPossible = false)
       allocator.offer(contract).attempt.unsafeRunSync().isLeft shouldBe true
     }
 
     "accept offer (idempotently)" in {
-      val contract = DumbContract(Key.fromString("should accept"), 1, offerSealed = true)
+      val contract = DumbContract(unsafeKey("should accept"), 1, offerSealed = true)
       val accepted = allocator.offer(contract).unsafeRunSync()
 
       accepted.participants should contain(nodeId)
@@ -55,7 +58,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
     }
 
     "update accepted offer" in {
-      val contract = DumbContract(Key.fromString("should update"), 1, offerSealed = true)
+      val contract = DumbContract(unsafeKey("should update"), 1, offerSealed = true)
       val v1 = allocator.offer(contract).unsafeRunSync()
 
       v1.participants should contain(nodeId)
@@ -69,25 +72,25 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
     }
 
     "not return (accepted) offer from cache" in {
-      val contract = DumbContract(Key.fromString("should accept, but not return"), 1, offerSealed = true)
+      val contract = DumbContract(unsafeKey("should accept, but not return"), 1, offerSealed = true)
       val accepted = allocator.offer(contract).unsafeRunSync()
 
       cache.find(accepted.id).unsafeRunSync() should be('empty)
     }
 
     "reject allocation when not in the list of participants" in {
-      val contract = DumbContract(Key.fromString("should not allocate, as not a participant"), 1, offerSealed = true)
+      val contract = DumbContract(unsafeKey("should not allocate, as not a participant"), 1, offerSealed = true)
       allocator.allocate(contract).attempt.unsafeRunSync().isLeft shouldBe true
 
       val c2 = DumbContract(
-        Key.fromString("should not allocate, as not a participant, even with a list of participants"),
+        unsafeKey("should not allocate, as not a participant, even with a list of participants"),
         1, offerSealed = true,
         participants = Set(contract.id))
       allocator.allocate(c2).attempt.unsafeRunSync().isLeft shouldBe true
     }
 
     "reject allocation on the same conditions as it was an offer" in {
-      val offer = DumbContract(Key.fromString("should accept offer, but reject allocation"), 1, offerSealed = true)
+      val offer = DumbContract(unsafeKey("should accept offer, but reject allocation"), 1, offerSealed = true)
       val accepted = allocator.offer(offer).unsafeRunSync()
 
       allocator.allocate(accepted).attempt.unsafeRunSync().isLeft shouldBe true
@@ -98,7 +101,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
     }
 
     "allocate (idempotently) and return from cache" in {
-      val offer = DumbContract(Key.fromString("should accept offer and allocate"), 1, offerSealed = true)
+      val offer = DumbContract(unsafeKey("should accept offer and allocate"), 1, offerSealed = true)
       val accepted = allocator.offer(offer).unsafeRunSync().copy(participantsSealed = true)
       val contract = allocator.allocate(accepted).unsafeRunSync()
 

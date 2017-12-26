@@ -20,6 +20,7 @@ package fluence.transport.grpc.server
 import java.net.InetAddress
 import java.time.Instant
 
+import cats.instances.try_._
 import fluence.kad.protocol
 import fluence.kad.protocol.{ Contact, Key, Node }
 import fluence.transport.TransportServer
@@ -30,6 +31,7 @@ import monix.execution.Scheduler.Implicits._
 
 import scala.concurrent.Await
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Try
 
 /**
  * Server wrapper
@@ -104,7 +106,7 @@ object GrpcServer {
         override def interceptCall[ReqT, RespT](call: ServerCall[ReqT, RespT], headers: Metadata, next: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
           val remoteKey =
             readStringHeader(clientConf.keyHeader, headers).flatMap {
-              b64key ⇒ Key.readB64(b64key).toOption
+              b64key ⇒ Key.fromB64[Try](b64key).toOption
             }
 
           // TODO: check that contact IP matches request source, if it's possible

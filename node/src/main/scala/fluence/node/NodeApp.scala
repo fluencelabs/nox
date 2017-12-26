@@ -18,13 +18,14 @@
 package fluence.node
 
 import cats.~>
+import cats.instances.try_._
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.GrpcClient
-import fluence.transport.grpc.server.{ GrpcServerConf, GrpcServer }
+import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.eval.{ Coeval, Task }
 import org.slf4j.LoggerFactory
 import cats.syntax.show._
@@ -32,7 +33,7 @@ import cats.syntax.show._
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.io.StdIn
-import scala.util.{ Failure, Success }
+import scala.util.{ Failure, Success, Try }
 import monix.execution.Scheduler.Implicits.global
 
 object NodeApp extends App {
@@ -55,7 +56,7 @@ object NodeApp extends App {
   // For demo purposes
   val rawKey = StdIn.readLine(Console.CYAN + "Who are you?\n> " + Console.RESET)
 
-  val key = Key.sha1(rawKey.getBytes)
+  val key = Key.fromString[Try](rawKey).get
 
   // We have only Kademlia service client
   val client = GrpcClient.builder(key, serverBuilder.contact)

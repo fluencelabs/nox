@@ -16,11 +16,11 @@ import scala.language.implicitConversions
 import scala.util.Random
 
 class KademliaSimulationSpec extends WordSpec with Matchers {
-  implicit def key(i: Long): Key = Key(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
+  implicit def key(i: Long): Key = Key.fromBytes[Coeval](Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
     val buffer = ByteBuffer.allocate(java.lang.Long.BYTES)
     buffer.putLong(i)
     buffer.array()
-  }))
+  })).value
 
   implicit def toLong(k: Key): Long =
     ByteBuffer.wrap(k.id.takeRight(java.lang.Long.BYTES)).getLong

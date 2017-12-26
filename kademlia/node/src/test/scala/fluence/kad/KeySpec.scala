@@ -7,6 +7,7 @@ import org.scalatest.{ Matchers, WordSpec }
 import cats.syntax.monoid._
 import cats.syntax.order._
 import fluence.kad.protocol.Key
+import monix.eval.Coeval
 
 import scala.language.implicitConversions
 
@@ -14,11 +15,11 @@ class KeySpec extends WordSpec with Matchers {
 
   "kademlia key" should {
 
-    implicit def key(i: Long): Key = Key(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
+    implicit def key(i: Long): Key = Key.fromBytes[Coeval](Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
       val buffer = ByteBuffer.allocate(java.lang.Long.BYTES)
       buffer.putLong(i)
       buffer.array()
-    }))
+    })).value
 
     implicit def toLong(k: Key): Long = {
       val buffer = ByteBuffer.allocate(java.lang.Long.BYTES)
@@ -29,7 +30,7 @@ class KeySpec extends WordSpec with Matchers {
 
     "have correct XOR monoid" in {
 
-      val id = Key(Array.fill(Key.Length)(81: Byte))
+      val id = Key.fromBytes[Coeval](Array.fill(Key.Length)(81: Byte)).value
       val eqv = Eq[Key].eqv(_, _) // as we can't simply compare byte arrays
 
       eqv(Monoid[Key].empty |+| id, id) shouldBe true
@@ -39,9 +40,9 @@ class KeySpec extends WordSpec with Matchers {
 
     "count leading zeros" in {
       Monoid[Key].empty.zerosPrefixLen shouldBe Key.BitLength
-      Key(Array.fill(Key.Length)(81: Byte)).zerosPrefixLen shouldBe 1
-      Key(Array.fill(Key.Length)(1: Byte)).zerosPrefixLen shouldBe 7
-      Key(Array.concat(Array.ofDim[Byte](1), Array.fill(Key.Length - 1)(81: Byte))).zerosPrefixLen shouldBe 9
+      Key.fromBytes[Coeval](Array.fill(Key.Length)(81: Byte)).value.zerosPrefixLen shouldBe 1
+      Key.fromBytes[Coeval](Array.fill(Key.Length)(1: Byte)).value.zerosPrefixLen shouldBe 7
+      Key.fromBytes[Coeval](Array.concat(Array.ofDim[Byte](1), Array.fill(Key.Length - 1)(81: Byte))).value.zerosPrefixLen shouldBe 9
 
       val k = (5653605169450630095l: Key) |+| (-4904931527322633638l: Key)
 
@@ -52,8 +53,9 @@ class KeySpec extends WordSpec with Matchers {
 
     "sort keys" in {
 
-      Key(Array.fill(Key.Length)(81: Byte)).compare(Monoid[Key].empty) should be > 0
-      Key(Array.fill(Key.Length)(31: Byte)).compare(Key(Array.fill(Key.Length)(82: Byte))) should be < 0
+      Key.fromBytes[Coeval](Array.fill(Key.Length)(81: Byte)).value.compare(Monoid[Key].empty) should be > 0
+      Key.fromBytes[Coeval](Array.fill(Key.Length)(31: Byte)).value
+        .compare(Key.fromBytes[Coeval](Array.fill(Key.Length)(82: Byte)).value) should be < 0
 
     }
 

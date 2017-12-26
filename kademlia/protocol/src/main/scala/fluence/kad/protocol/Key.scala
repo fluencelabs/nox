@@ -25,10 +25,10 @@ import java.util.Base64
 
 import cats.syntax.monoid._
 import cats.syntax.applicative._
-import cats.{ ApplicativeError, Monoid, Order, Show }
+import cats.syntax.flatMap._
+import cats.{ ApplicativeError, MonadError, Monoid, Order, Show }
 import fluence.codec.Codec
 
-import scala.util.Try
 import scala.language.higherKinds
 
 /**
@@ -37,7 +37,7 @@ import scala.language.higherKinds
  *
  * @param origin ID wrapped with ByteBuffer
  */
-final case class Key(origin: ByteBuffer) extends AnyVal {
+final case class Key private (origin: ByteBuffer) extends AnyVal {
   def id: Array[Byte] = origin.array()
 
   /**
@@ -104,38 +104,42 @@ object Key {
   }
 
   /**
-   * Tries to read base64 form of Kademlia key
-   * TODO: ApplicativeError
+   * Tries to read base64 form of Kademlia key.
    */
-  def readB64(str: String): Try[Key] = Try(Base64.getDecoder.decode(str)).filter(_.length == Length).map(apply)
+  def fromB64[F[_]](str: String)(implicit F: MonadError[F, Throwable]): F[Key] =
+    F.catchNonFatal(Base64.getDecoder.decode(str))
+      .flatMap(fromBytes[F])
 
   /**
    * Calculates sha-1 hash of the payload, and wraps it with Key.
-   * TODO: Applicative
    *
    * @param bytes Bytes to hash
    */
-  def sha1(bytes: Array[Byte]): Key = {
-    val md = MessageDigest.getInstance("SHA-1")
-    Key(md.digest(bytes))
-  }
+  def sha1[F[_]](bytes: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Key] =
+    F.catchNonFatal{
+      val md = MessageDigest.getInstance("SHA-1")
+      md.digest(bytes)
+    }.flatMap(fromBytes[F])
 
-  // TODO: applicative
-  def fromString(str: String, charset: Charset = Charset.defaultCharset()): Key = sha1(str.getBytes)
+  def fromString[F[_]](str: String, charset: Charset = Charset.defaultCharset())(implicit F: MonadError[F, Throwable]): F[Key] =
+    sha1(str.getBytes)
 
-  // TODO: ApplicativeError
-  def fromBuffer(bb: ByteBuffer): Key = new Key(bb)
+  def fromBuffer[F[_]](bb: ByteBuffer)(implicit F: ApplicativeError[F, Throwable]): F[Key] =
+    F.catchNonFatal{
+      require(bb.array().length == Length, s"Key's length should be $Length bytes")
+      new Key(bb)
+    }
 
-  // TODO: ApplicativeError
-  def apply(bytes: Array[Byte]): Key = Key(ByteBuffer.wrap(bytes))
+  def fromBytes[F[_]](bytes: Array[Byte])(implicit F: ApplicativeError[F, Throwable]): F[Key] =
+    fromBuffer(ByteBuffer.wrap(bytes))
 
   implicit def bytesCodec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, Array[Byte]] =
-    Codec(_.id.pure[F], b ⇒ F.catchNonFatal(Key(ByteBuffer.wrap(b))))
+    Codec(_.id.pure[F], fromBytes[F])
 
-  implicit def b64Codec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, String] =
-    Codec(_.b64.pure[F], b ⇒ F.fromTry(Key.readB64(b)))
+  implicit def b64Codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Key, String] =
+    Codec(_.b64.pure[F], fromB64[F])
 
   implicit def bufferCodec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, ByteBuffer] =
-    Codec(_.origin.pure[F], b ⇒ F.catchNonFatal(Key(b)))
+    Codec(_.origin.pure[F], fromBuffer[F])
 
 }
