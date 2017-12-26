@@ -18,8 +18,9 @@
 package fluence.dataset.grpc.server
 
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicBoolean
 
-import cats.{ Monad, ~> }
+import cats.{ MonadError, ~> }
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.codec.Codec
@@ -28,26 +29,52 @@ import fluence.dataset.protocol.ContractsAllocatorApi
 import fluence.kad.protocol.Key
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.Future
+import scala.concurrent.{ Future, Promise }
 import scala.language.higherKinds
 
 class ContractsAllocatorApiServer[F[_], C](
     api: ContractsAllocatorApi[F, C]
 )(implicit
-    F: Monad[F],
+    F: MonadError[F, Throwable],
     codec: Codec[F, C, Contract],
     keyCodec: Codec[F, Key, ByteBuffer],
-    run: F ~> Future)
+    run: F ~> Future,
+    hold: Future ~> F)
   extends DatasetContractsApiGrpc.DatasetContractsApi {
 
-  // TODO: implement
   override def allocate(responseObserver: StreamObserver[Contract]): StreamObserver[Contract] =
     new StreamObserver[Contract] {
-      override def onError(t: Throwable): Unit = ???
+      private val initialReceived = new AtomicBoolean(false)
+      private val callbackPromise = Promise[Contract]()
 
-      override def onCompleted(): Unit = ???
+      override def onError(t: Throwable): Unit =
+        if (initialReceived.get()) responseObserver.onError(t)
+        else callbackPromise.tryFailure(t)
 
-      override def onNext(value: Contract): Unit = ???
+      override def onCompleted(): Unit =
+        callbackPromise.tryFailure(new IllegalArgumentException("Stream completed before callback was processed"))
+
+      override def onNext(value: Contract): Unit =
+        if (!initialReceived.getAndSet(true))
+          run(
+            for {
+              c ← codec.decode(value)
+              allocated ← api.allocate(
+                c,
+                signed ⇒
+                  for {
+                    binSigned ← codec.encode(signed)
+                    _ ← F.catchNonFatal(responseObserver.onNext(binSigned))
+                    clientSealed ← hold(callbackPromise.future)
+                    clientRaw ← codec.decode(clientSealed)
+                  } yield clientRaw
+              )
+              resp ← codec.encode(allocated)
+              _ ← F.catchNonFatal(responseObserver.onNext(resp))
+              _ ← F.catchNonFatal(responseObserver.onCompleted())
+            } yield ()
+          )
+        else callbackPromise.trySuccess(value)
     }
 
   override def find(request: FindRequest): Future[Contract] =

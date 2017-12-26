@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import cats.data.Kleisli
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ Monad, ~> }
+import cats.{ MonadError, ~> }
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.dataset.grpc
@@ -43,8 +43,9 @@ import scala.language.higherKinds
  * @tparam F Effect
  * @tparam C Domain-level Contract type
  */
-class ContractsAllocatorApiClient[F[_] : Monad, C](
+class ContractsAllocatorApiClient[F[_], C](
     stub: grpc.DatasetContractsApiGrpc.DatasetContractsApiStub)(implicit
+    F: MonadError[F, Throwable],
     codec: Codec[F, C, Contract],
     keyK: Kleisli[F, Key, ByteBuffer],
     run: Future ~> F)
@@ -93,6 +94,8 @@ class ContractsAllocatorApiClient[F[_] : Monad, C](
       _ = str.onNext(sealedBin)
       finalizedContract ← run(finalized.future)
       finalizedRaw ← codec.decode(finalizedContract)
+
+      _ ← F.catchNonFatal(str.onCompleted())
     } yield finalizedRaw
   }
 

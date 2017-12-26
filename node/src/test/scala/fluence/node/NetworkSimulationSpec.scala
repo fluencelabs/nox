@@ -8,7 +8,7 @@ import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.GrpcServer
-import monix.eval.Task
+import monix.eval.{ Coeval, Task }
 import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
@@ -65,7 +65,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   private val servers = (0 to 20).map { n ⇒
     val port = 3200 + n
-    new Node(Key.sha1(Integer.toBinaryString(port).getBytes), port)
+    new Node(Key.sha1[Coeval](Integer.toBinaryString(port).getBytes).value, port)
   }
 
   "Network simulation" should {
