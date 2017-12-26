@@ -3,7 +3,6 @@ package fluence.node.storage
 import java.nio.ByteBuffer
 
 import cats.~>
-import fluence.node.storage.InMemoryKVStore._
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler
@@ -15,7 +14,12 @@ import scala.concurrent.duration._
 
 class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
-  "InMemoryKVStore" should {
+  type Key = Array[Byte]
+  type Value = Array[Byte]
+
+  implicit def wrapBytes(bytes: Array[Byte]): ByteBuffer = ByteBuffer.wrap(bytes)
+
+  "TrieMapKVStore" should {
     "performs all operations correctly" in {
 
       implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)

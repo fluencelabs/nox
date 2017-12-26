@@ -68,7 +68,7 @@ object TrieMapKVStore {
       /**
        * Return all pairs (K, V) for specified dataSet.
        *
-       * @return cursor to founded pairs (K,V)
+       * @return Cursor for found pairs (K,V)
        */
       override def traverse(): FS[(K, V)] = fromIterator(iterator)
     }
