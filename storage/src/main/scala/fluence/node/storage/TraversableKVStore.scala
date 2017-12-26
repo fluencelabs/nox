@@ -30,7 +30,8 @@ trait TraversableKVStore[FS[_], K, V] {
 
   /**
    * Return all pairs (K, V) for specified dataSet.
-   * @return cursor to founded pairs (K,V)
+   *
+   * @return Cursor for found pairs (K,V)
    */
   def traverse(): FS[(K, V)]
 }
