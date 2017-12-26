@@ -34,17 +34,19 @@ object KademliaNodeCodec {
   implicit def apply[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
     Codec(
       obj ⇒ Node(
-      id = ByteString.copyFrom(obj.key.id),
-      ByteString.copyFrom(obj.contact.ip.getAddress),
-      obj.contact.port
-    ).pure[F],
-      binary ⇒ Key.fromBuffer(binary.id.asReadOnlyByteBuffer())
+        id = ByteString.copyFrom(obj.key.id),
+        ByteString.copyFrom(obj.contact.ip.getAddress),
+        obj.contact.port
+      ).pure[F],
+      binary ⇒ Key.fromBytes(binary.id.toByteArray)
         .map(k ⇒ protocol.Node[Contact](
           k,
-          Instant.now(), // TODO: consider removing it
+          // TODO: consider removing Instant.now(). It could be really incorrect, as nodes taken from lookup replies are not seen at the moment
+          Instant.now(),
           Contact(
             InetAddress.getByAddress(binary.ip.toByteArray),
             binary.port
           )
-        )))
+        ))
+    )
 }

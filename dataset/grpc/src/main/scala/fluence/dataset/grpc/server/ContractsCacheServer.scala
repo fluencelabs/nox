@@ -17,8 +17,7 @@
 
 package fluence.dataset.grpc.server
 
-import java.nio.ByteBuffer
-
+import cats.data.Kleisli
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ MonadError, ~> }
@@ -43,14 +42,14 @@ class ContractsCacheServer[F[_], C](
     cache: ContractsCacheRpc[F, C])(implicit
     F: MonadError[F, Throwable],
     codec: Codec[F, C, Contract],
-    keyCodec: Codec[F, Key, ByteBuffer],
+    keyK: Kleisli[F, Array[Byte], Key],
     run: F ~> Future)
   extends ContractsCacheGrpc.ContractsCache {
 
   override def find(request: FindRequest): Future[Contract] =
     run(
       for {
-        k ← keyCodec.decode(request.id.asReadOnlyByteBuffer())
+        k ← keyK(request.id.toByteArray)
         resp ← cache.find(k).flatMap[Contract] {
           case Some(c) ⇒ codec.encode(c)
           case None    ⇒ F.raiseError(new NoSuchElementException(""))

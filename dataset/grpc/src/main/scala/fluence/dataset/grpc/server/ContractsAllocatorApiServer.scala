@@ -17,9 +17,9 @@
 
 package fluence.dataset.grpc.server
 
-import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
+import cats.data.Kleisli
 import cats.{ MonadError, ~> }
 import cats.syntax.functor._
 import cats.syntax.flatMap._
@@ -37,7 +37,7 @@ class ContractsAllocatorApiServer[F[_], C](
 )(implicit
     F: MonadError[F, Throwable],
     codec: Codec[F, C, Contract],
-    keyCodec: Codec[F, Key, ByteBuffer],
+    keyK: Kleisli[F, Array[Byte], Key],
     run: F ~> Future,
     hold: Future ~> F)
   extends DatasetContractsApiGrpc.DatasetContractsApi {
@@ -80,7 +80,7 @@ class ContractsAllocatorApiServer[F[_], C](
   override def find(request: FindRequest): Future[Contract] =
     run(
       for {
-        k ← keyCodec.decode(request.id.asReadOnlyByteBuffer())
+        k ← keyK(request.id.toByteArray)
         contract ← api.find(k)
         resp ← codec.encode(contract)
       } yield resp
