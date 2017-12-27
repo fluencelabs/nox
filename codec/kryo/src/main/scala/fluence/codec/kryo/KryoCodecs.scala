@@ -17,8 +17,8 @@
 
 package fluence.codec.kryo
 
-import cats.ApplicativeError
-import cats.syntax.applicative._
+import cats.MonadError
+import cats.syntax.flatMap._
 import com.twitter.chill.KryoPool
 import fluence.codec.Codec
 import shapeless._
@@ -33,7 +33,7 @@ import scala.reflect.ClassTag
  * @tparam L List of classes registered with kryo
  * @tparam F Effect
  */
-class KryoCodecs[F[_], L <: HList] private (pool: KryoPool)(implicit F: ApplicativeError[F, Throwable]) {
+class KryoCodecs[F[_], L <: HList] private (pool: KryoPool)(implicit F: MonadError[F, Throwable]) {
 
   /**
    * Returns a codec for any registered type
@@ -45,7 +45,10 @@ class KryoCodecs[F[_], L <: HList] private (pool: KryoPool)(implicit F: Applicat
     Codec(
       obj ⇒ Option(obj) match {
         case Some(o) ⇒
-          pool.toBytesWithClass(o).pure[F]
+          F.catchNonFatal(Option(pool.toBytesWithClass(o))).flatMap {
+            case Some(v) ⇒ F.pure(v)
+            case None    ⇒ F.raiseError(new NullPointerException("Obj is encoded into null"))
+          }
         case None ⇒
           F.raiseError[Array[Byte]](new NullPointerException("Obj is null, encoding is impossible"))
       }, binary ⇒ F.catchNonFatal(pool.fromBytes(binary).asInstanceOf[T]))
@@ -85,7 +88,7 @@ object KryoCodecs {
      * @tparam F Effect type
      * @return Configured instance of KryoCodecs
      */
-    def build[F[_]](poolSize: Int = Runtime.getRuntime.availableProcessors)(implicit F: ApplicativeError[F, Throwable]): KryoCodecs[F, L] =
+    def build[F[_]](poolSize: Int = Runtime.getRuntime.availableProcessors)(implicit F: MonadError[F, Throwable]): KryoCodecs[F, L] =
       new KryoCodecs[F, L](
         KryoPool.withByteArrayOutputStream(
           poolSize,
