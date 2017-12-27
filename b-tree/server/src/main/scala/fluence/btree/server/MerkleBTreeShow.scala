@@ -44,8 +44,8 @@ object MerkleBTreeShow {
   }
 
   implicit def showNode(implicit st: Show[Branch], sl: Show[Leaf]): Show[Node] = {
-    case t: Branch ⇒ st.show(t)
-    case l: Leaf   ⇒ sl.show(l)
+    case t: Branch @unchecked ⇒ st.show(t)
+    case l: Leaf @unchecked   ⇒ sl.show(l)
   }
 
 }

@@ -420,11 +420,11 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
   private def checkNodeValidity(node: Node, min: Int = MinSize, max: Int = MaxSize): Unit = {
     node match {
-      case tree: Branch ⇒
+      case tree: Branch @unchecked ⇒
         checkNodeSize(tree, min, max)
         checkOrderOfKeys(tree.keys)
         tree.children.length should be >= tree.size
-      case leaf: Node ⇒
+      case leaf: Node @unchecked ⇒
         checkNodeSize(leaf, min, max)
         checkOrderOfKeys(leaf.keys)
         leaf.checksum should not be empty

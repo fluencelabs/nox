@@ -42,11 +42,11 @@ import scala.collection.Searching.{ Found, SearchResult }
  * @param verifier    Arbiter for checking correctness of Btree server responses.
  */
 class MerkleBTreeClient[K, V] private (
-  clientState: ClientState,
-  bTreeRpc: BTreeRpc[Task],
-  keyCrypt: Crypt[K, Array[Byte]],
-  valueCrypt: Crypt[V, Array[Byte]],
-  verifier: BTreeVerifier
+    clientState: ClientState,
+    bTreeRpc: BTreeRpc[Task],
+    keyCrypt: Crypt[K, Array[Byte]],
+    valueCrypt: Crypt[V, Array[Byte]],
+    verifier: BTreeVerifier
 )(implicit ord: Ordering[K]) extends SearchTree[Task, K, V] {
 
   private val clientStateMVar = MVar(clientState)
@@ -58,8 +58,8 @@ class MerkleBTreeClient[K, V] private (
    * @param merkleRoot Copy of client merkle root at the beginning of the request. Constant for round trip session.
    */
   case class GetStateImpl(
-    key: K,
-    merkleRoot: Array[Byte],
+      key: K,
+      merkleRoot: Array[Byte]
   ) extends GetState[Task] with GetCallbacks[Task] {
 
     /** Tree path traveled on the server. Updatable for round trip session */
@@ -74,10 +74,11 @@ class MerkleBTreeClient[K, V] private (
         log.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
 
         processSearch(key, merkleRoot, mPath, keys, childsChecksums)
-          .flatMap { case (newMPath, foundIdx) ⇒
-            merklePathMVar
-              .put(newMPath)
-              .map(_ ⇒ foundIdx)
+          .flatMap {
+            case (newMPath, foundIdx) ⇒
+              merklePathMVar
+                .put(newMPath)
+                .map(_ ⇒ foundIdx)
           }
       }
     }
@@ -119,17 +120,17 @@ class MerkleBTreeClient[K, V] private (
    * @param value       Plain text ''value'' to be inserted to server BTree
    * @param merkleRoot Copy of client merkle root at the beginning of the request
    */
-  case class PutStateImpl private(
-    key: K,
-    value: V,
-    merkleRoot: Bytes
+  case class PutStateImpl private (
+      key: K,
+      value: V,
+      merkleRoot: Bytes
   ) extends PutState[Task] with PutCallbacks[Task] {
 
     /** Tree path traveled on the server */
-    private val merklePathMVar : MVar[MerklePath] = MVar(MerklePath.empty)
+    private val merklePathMVar: MVar[MerklePath] = MVar(MerklePath.empty)
 
     /** All details needed for putting key and value to BTree */
-    private val putDetailsMVar : MVar[Option[PutDetails]] = MVar.empty
+    private val putDetailsMVar: MVar[Option[PutDetails]] = MVar.empty
 
     /** An old value that will be rewritten or None if key for putting wasn't present in B Tree */
     private val oldCipherValueMVar: MVar[Option[Value]] = MVar.empty
@@ -143,10 +144,11 @@ class MerkleBTreeClient[K, V] private (
         log.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
 
         processSearch(key, merkleRoot, mPath, keys, childsChecksums)
-          .flatMap { case (newMPath, foundIdx) ⇒
-            merklePathMVar
-              .put(newMPath)
-              .map(_ ⇒ foundIdx)
+          .flatMap {
+            case (newMPath, foundIdx) ⇒
+              merklePathMVar
+                .put(newMPath)
+                .map(_ ⇒ foundIdx)
           }
       }
     }
@@ -242,8 +244,7 @@ class MerkleBTreeClient[K, V] private (
       state = GetStateImpl(key, BytesOps.copyOf(clientState.merkleRoot))
       _ ← bTreeRpc.get(state)
       result ← state.getFoundValue
-    } yield
-      decryptValue(result)
+    } yield decryptValue(result)
 
   }
 
@@ -261,13 +262,12 @@ class MerkleBTreeClient[K, V] private (
       state = PutStateImpl(key, value, BytesOps.copyOf(clientState.merkleRoot))
       _ ← bTreeRpc.put(state) // return old value to clientStateMVar
       result ← state.getOldValue
-    } yield
-      decryptValue(result)
+    } yield decryptValue(result)
 
     res.doOnFinish {
       // in error case we should return old value of clientState back
       case Some(e) ⇒ clientStateMVar.put(clientState)
-      case _ ⇒ Task(())
+      case _       ⇒ Task(())
     }
   }
 

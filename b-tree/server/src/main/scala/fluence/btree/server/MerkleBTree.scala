@@ -57,7 +57,7 @@ import scala.collection.Searching.{ Found, InsertionPoint }
  * @param store   BTree persistence store for persisting tree nodes
  * @param nodeOps Operations performed on nodes
  */
-class MerkleBTree private[server](
+class MerkleBTree private[server] (
     conf: MerkleBTreeConfig,
     store: BTreeStore[Task, NodeId, Node],
     nodeOps: NodeOps
@@ -117,7 +117,7 @@ class MerkleBTree private[server](
     globalMutex.greenLight(getRoot.flatMap(root ⇒ putForRoot(root, cmd)))
   }
 
-  def getDepth: Int = depth.get  // todo remove depth or move to root node
+  def getDepth: Int = depth.get // todo remove depth or move to root node
 
   def getMerkleRoot: Task[Hash] = getRoot.map(_.checksum)
 
@@ -152,11 +152,10 @@ class MerkleBTree private[server](
       return cmd.submitLeaf(None) // This is the terminal action, nothing to find in empty tree
     }
 
-    // TODO: fix unchecked error
     root match {
-      case leaf: Leaf ⇒
+      case leaf: Leaf @unchecked ⇒
         getForLeaf(leaf, cmd)
-      case branch: Branch ⇒
+      case branch: Branch @unchecked ⇒
         getForBranch(branch, cmd)
     }
   }
@@ -189,14 +188,15 @@ class MerkleBTree private[server](
       log.debug(s"Root is empty")
 
       cmd.putDetails(None)
-        .flatMap { case PutDetails(key, value, _) ⇒
-          val newLeaf = createLeaf(key, value)
-          // send the merkle path to the client for verification
-          val leafProof = GeneralNodeProof(Array.emptyByteArray, newLeaf.kvChecksums, 0)
-          cmd.verifyChanges(MerklePath(Seq(leafProof)), wasSplitting = false)
-            .flatMap(_ ⇒
-               commitNewState(PutTask(nodesToSave = Seq(NodeWithId(RootId, newLeaf)), increaseDepth = true))
-            )
+        .flatMap {
+          case PutDetails(key, value, _) ⇒
+            val newLeaf = createLeaf(key, value)
+            // send the merkle path to the client for verification
+            val leafProof = GeneralNodeProof(Array.emptyByteArray, newLeaf.kvChecksums, 0)
+            cmd.verifyChanges(MerklePath(Seq(leafProof)), wasSplitting = false)
+              .flatMap(_ ⇒
+                commitNewState(PutTask(nodesToSave = Seq(NodeWithId(RootId, newLeaf)), increaseDepth = true))
+              )
         }
     } else {
       putForNode(cmd, RootId, root, TreePath.empty)
@@ -204,11 +204,10 @@ class MerkleBTree private[server](
   }
 
   private def putForNode(cmd: Put, id: NodeId, node: Node, trail: Trail): Task[Unit] = {
-    // TODO: fix unchecked error
     node match {
-      case leaf: Leaf ⇒
+      case leaf: Leaf @unchecked ⇒
         putForLeaf(cmd, id, leaf, trail)
-      case branch: Branch ⇒
+      case branch: Branch @unchecked ⇒
         putForBranch(cmd, id, branch, trail)
     }
   }
@@ -294,9 +293,9 @@ class MerkleBTree private[server](
      * @param updateParentFn Function-mutator that will be applied to parent of current node
      */
     case class PutCtx(
-      newStateProof: MerklePath,
-      updateParentFn: PathElem[NodeId, Branch] ⇒ PathElem[NodeId, Branch] = identity,
-      putTask: PutTask
+        newStateProof: MerklePath,
+        updateParentFn: PathElem[NodeId, Branch] ⇒ PathElem[NodeId, Branch] = identity,
+        putTask: PutTask
     )
 
     /**
@@ -527,7 +526,7 @@ class MerkleBTree private[server](
     val lt: (Key, Key) ⇒ Boolean = (x, y) ⇒ ByteBuffer.wrap(x).compareTo(ByteBuffer.wrap(y)) < 0
     node.keys.sliding(2).forall {
       case Array(prev, next) ⇒ lt(prev, next)
-      case _ ⇒ true
+      case _                 ⇒ true
     }
   }
 
@@ -545,7 +544,7 @@ object MerkleBTree {
    */
   def apply(
     treeId: String,
-    conf: MerkleBTreeConfig = MerkleBTreeConfig.read(),
+    conf: MerkleBTreeConfig = MerkleBTreeConfig.read()
   ): MerkleBTree = {
     new MerkleBTree(conf, defaultStore(treeId), NodeOps())
   }
@@ -583,9 +582,9 @@ object MerkleBTree {
    * @param wasSplitting Indicator of the fact that during putting there was a rebalancing
    */
   case class PutTask(
-    nodesToSave: Seq[NodeWithId[NodeId, Node]],
-    increaseDepth: Boolean = false,
-    wasSplitting: Boolean = false
+      nodesToSave: Seq[NodeWithId[NodeId, Node]],
+      increaseDepth: Boolean = false,
+      wasSplitting: Boolean = false
   )
 
 }
