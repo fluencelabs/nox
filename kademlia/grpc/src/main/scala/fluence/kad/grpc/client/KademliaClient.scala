@@ -17,14 +17,13 @@
 
 package fluence.kad.grpc.client
 
-import java.net.InetAddress
-import java.time.Instant
-
+import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ Monad, ~> }
 import com.google.protobuf.ByteString
-import fluence.kad.grpc
+import fluence.codec.Codec
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
+import fluence.kad.{ grpc, protocol }
 import io.grpc.{ CallOptions, ManagedChannel }
 
 import scala.concurrent.Future
@@ -35,16 +34,16 @@ import scala.language.{ higherKinds, implicitConversions }
  *
  * @param stub GRPC Kademlia Stub
  */
-class KademliaClient[F[_] : Monad](stub: grpc.KademliaGrpc.KademliaStub, run: Future ~> F) extends KademliaRpc[F, Contact] {
+class KademliaClient[F[_] : Monad](stub: grpc.KademliaGrpc.KademliaStub)(implicit
+    codec: Codec[F, protocol.Node[Contact], grpc.Node],
+    keyCodec: Codec[F, Key, Array[Byte]],
+    run: Future ~> F) extends KademliaRpc[F, Contact] {
 
-  private implicit def nToNc(n: grpc.Node): Node[Contact] = Node[Contact](
-    Key(n.id.toByteArray),
-    Instant.now(),
-    Contact(
-      InetAddress.getByAddress(n.ip.toByteArray),
-      n.port
-    )
-  )
+  import cats.instances.stream._
+
+  private val streamCodec = Codec.codec[F, Stream[protocol.Node[Contact]], Stream[grpc.Node]]
+
+  private val bsKey = keyCodec.direct.map(ByteString.copyFrom)
 
   /**
    * Ping the contact, get its actual Node status, or fail
@@ -54,7 +53,8 @@ class KademliaClient[F[_] : Monad](stub: grpc.KademliaGrpc.KademliaStub, run: Fu
   override def ping(): F[Node[Contact]] =
     for {
       n ← run(stub.ping(grpc.PingRequest()))
-    } yield n: Node[Contact]
+      nc ← codec.decode(n)
+    } yield nc
 
   /**
    * Perform a local lookup for a key, return K closest known nodes
@@ -64,8 +64,10 @@ class KademliaClient[F[_] : Monad](stub: grpc.KademliaGrpc.KademliaStub, run: Fu
    */
   override def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[Contact]]] =
     for {
-      res ← run(stub.lookup(grpc.LookupRequest(ByteString.copyFrom(key.id), numberOfNodes)))
-    } yield res.nodes.map(n ⇒ n: Node[Contact])
+      k ← bsKey(key)
+      res ← run(stub.lookup(grpc.LookupRequest(k, numberOfNodes)))
+      resDec ← streamCodec.decode(res.nodes.toStream)
+    } yield resDec
 
   /**
    * Perform an iterative lookup for a key, return K closest known nodes
@@ -75,8 +77,10 @@ class KademliaClient[F[_] : Monad](stub: grpc.KademliaGrpc.KademliaStub, run: Fu
    */
   override def lookupIterative(key: Key, numberOfNodes: Int): F[Seq[Node[Contact]]] =
     for {
-      res ← run(stub.lookupIterative(grpc.LookupRequest(ByteString.copyFrom(key.id), numberOfNodes)))
-    } yield res.nodes.map(n ⇒ n: Node[Contact])
+      k ← bsKey(key)
+      res ← run(stub.lookupIterative(grpc.LookupRequest(k, numberOfNodes)))
+      resDec ← streamCodec.decode(res.nodes.toStream)
+    } yield resDec
 
   /**
    * Perform a local lookup for a key, return K closest known nodes, going away from the second key
@@ -85,22 +89,26 @@ class KademliaClient[F[_] : Monad](stub: grpc.KademliaGrpc.KademliaStub, run: Fu
    */
   override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[Contact]]] =
     for {
+      k ← bsKey(key)
+      moveAwayK ← bsKey(moveAwayFrom)
       res ← run(
-        stub.lookupAway(grpc.LookupAwayRequest(ByteString.copyFrom(key.id), ByteString.copyFrom(moveAwayFrom.id), numberOfNodes))
+        stub.lookupAway(grpc.LookupAwayRequest(k, moveAwayK, numberOfNodes))
       )
-    } yield res.nodes.map(n ⇒ n: Node[Contact])
+      resDec ← streamCodec.decode(res.nodes.toStream)
+    } yield resDec
 }
 
 object KademliaClient {
-
   /**
    * Shorthand to register KademliaClient inside NetworkClient.
    *
-   * @param channel Channel to remote node
+   * @param channel     Channel to remote node
    * @param callOptions Call options
-   * @return
    */
-  def register[F[_] : Monad]()(channel: ManagedChannel, callOptions: CallOptions)(implicit run: Future ~> F): KademliaClient[F] =
-    new KademliaClient(new grpc.KademliaGrpc.KademliaStub(channel, callOptions), run)
+  def register[F[_] : Monad]()(channel: ManagedChannel, callOptions: CallOptions)(implicit
+    codec: Codec[F, protocol.Node[Contact], grpc.Node],
+    keyCodec: Codec[F, Key, Array[Byte]],
+    run: Future ~> F): KademliaClient[F] =
+    new KademliaClient(new grpc.KademliaGrpc.KademliaStub(channel, callOptions))
 
 }

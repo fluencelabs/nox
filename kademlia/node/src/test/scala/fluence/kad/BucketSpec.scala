@@ -32,9 +32,9 @@ class BucketSpec extends WordSpec with Matchers {
     "update contacts" in {
 
       val b0 = Bucket[C](2)
-      val k0 = Key(Array.fill(Key.Length)(1: Byte))
-      val k1 = Key(Array.fill(Key.Length)(2: Byte))
-      val k2 = Key(Array.fill(Key.Length)(3: Byte))
+      val k0 = Key.fromBytes[Coeval](Array.fill(Key.Length)(1: Byte)).value
+      val k1 = Key.fromBytes[Coeval](Array.fill(Key.Length)(2: Byte)).value
+      val k2 = Key.fromBytes[Coeval](Array.fill(Key.Length)(3: Byte)).value
 
       val failRPC = (_: C) ⇒ new KademliaRpc[F, C] {
         override def ping() = StateT.lift(Coeval.raiseError(new NoSuchElementException))
@@ -47,7 +47,7 @@ class BucketSpec extends WordSpec with Matchers {
       }
 
       val successRPC = (c: C) ⇒ new KademliaRpc[F, C] {
-        override def ping() = StateT.lift(Coeval(Node(Key(Array.fill(Key.Length)(c.toByte)), Instant.now(), c)))
+        override def ping() = StateT.lift(Coeval(Node(Key.fromBytes[Coeval](Array.fill(Key.Length)(c.toByte)).value, Instant.now(), c)))
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
         override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???

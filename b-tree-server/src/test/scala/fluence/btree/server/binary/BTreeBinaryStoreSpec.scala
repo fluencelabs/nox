@@ -2,7 +2,7 @@ package fluence.btree.server.binary
 
 import java.nio.ByteBuffer
 
-import fluence.node.binary.kryo.KryoCodecs
+import fluence.codec.kryo.KryoCodecs
 import fluence.node.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel

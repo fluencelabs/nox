@@ -17,12 +17,15 @@
 
 package fluence.dataset.grpc.client
 
+import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
+import cats.data.Kleisli
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ Monad, ~> }
+import cats.{ MonadError, ~> }
 import com.google.protobuf.ByteString
+import fluence.codec.Codec
 import fluence.dataset.grpc
 import fluence.dataset.grpc.{ Contract, FindRequest }
 import fluence.dataset.protocol.ContractsAllocatorApi
@@ -36,17 +39,19 @@ import scala.language.higherKinds
  * User-facing ContractsAllocatorApi client.
  *
  * @param stub        GRPC stub for DatasetContracts API
- * @param serialize   Serialize domain-level Contract to Grpc
- * @param deserialize Deserialize from Grpc to domain-level Contract
  * @param run         Run scala future to get F
  * @tparam F Effect
  * @tparam C Domain-level Contract type
  */
-class ContractsAllocatorApiClient[F[_] : Monad, C](
-    stub: grpc.DatasetContractsApiGrpc.DatasetContractsApiStub,
-    serialize: C ⇒ Contract,
-    deserialize: Contract ⇒ C)(implicit run: Future ~> F)
+class ContractsAllocatorApiClient[F[_], C](
+    stub: grpc.DatasetContractsApiGrpc.DatasetContractsApiStub)(implicit
+    F: MonadError[F, Throwable],
+    codec: Codec[F, C, Contract],
+    keyK: Kleisli[F, Key, ByteBuffer],
+    run: Future ~> F)
   extends ContractsAllocatorApi[F, C] {
+
+  private val keyBS = keyK.map(ByteString.copyFrom)
 
   /**
    * According with contract, offers contract to participants, then seals the list of agreements on client side
@@ -77,14 +82,21 @@ class ContractsAllocatorApiClient[F[_] : Monad, C](
           finalized.success(value)
     })
 
-    str.onNext(serialize(contract))
-
     for {
+      c ← codec.encode(contract)
+      _ = str.onNext(c)
       fullContract ← run(withParticipants.future)
-      sealedContract ← sealParticipants(deserialize(fullContract))
-      _ = str.onNext(serialize(sealedContract))
+      fcRaw ← codec.decode(fullContract)
+
+      sealedContract ← sealParticipants(fcRaw)
+      sealedBin ← codec.encode(sealedContract)
+
+      _ = str.onNext(sealedBin)
       finalizedContract ← run(finalized.future)
-    } yield deserialize(finalizedContract)
+      finalizedRaw ← codec.decode(finalizedContract)
+
+      _ ← F.catchNonFatal(str.onCompleted())
+    } yield finalizedRaw
   }
 
   /**
@@ -94,5 +106,9 @@ class ContractsAllocatorApiClient[F[_] : Monad, C](
    * @return Found contract, or failure
    */
   override def find(key: Key): F[C] =
-    run(stub.find(FindRequest(ByteString.copyFrom(key.origin)))).map(deserialize)
+    for {
+      k ← keyBS(key)
+      resp ← run(stub.find(FindRequest(k)))
+      raw ← codec.decode(resp)
+    } yield raw
 }

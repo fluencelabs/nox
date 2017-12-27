@@ -18,7 +18,9 @@
 package fluence.dataset.grpc.client
 
 import cats.syntax.functor._
-import cats.{ Functor, ~> }
+import cats.syntax.flatMap._
+import cats.{ Monad, ~> }
+import fluence.codec.Codec
 import fluence.dataset.grpc.Contract
 import fluence.dataset.grpc.ContractAllocatorGrpc.ContractAllocatorStub
 import fluence.dataset.protocol.ContractAllocatorRpc
@@ -26,11 +28,9 @@ import fluence.dataset.protocol.ContractAllocatorRpc
 import scala.concurrent.Future
 import scala.language.higherKinds
 
-class ContractAllocatorClient[F[_] : Functor, C](
-    stub: ContractAllocatorStub,
-    serialize: C ⇒ Contract,
-    deserialize: Contract ⇒ C
-)(implicit run: Future ~> F)
+class ContractAllocatorClient[F[_] : Monad, C](
+    stub: ContractAllocatorStub
+)(implicit codec: Codec[F, C, Contract], run: Future ~> F)
   extends ContractAllocatorRpc[F, C] {
 
   /**
@@ -40,7 +40,11 @@ class ContractAllocatorClient[F[_] : Functor, C](
    * @return Signed contract, or F is an error
    */
   override def offer(contract: C): F[C] =
-    run(stub.offer(serialize(contract))).map(deserialize)
+    for {
+      offer ← codec.encode(contract)
+      resp ← run(stub.offer(offer))
+      contract ← codec.decode(resp)
+    } yield contract
 
   /**
    * Allocate dataset: store the contract, create storage structures, form cluster.
@@ -49,5 +53,10 @@ class ContractAllocatorClient[F[_] : Functor, C](
    * @return Allocated contract
    */
   override def allocate(contract: C): F[C] =
-    run(stub.allocate(serialize(contract))).map(deserialize)
+    for {
+      offer ← codec.encode(contract)
+      resp ← run(stub.allocate(offer))
+      contract ← codec.decode(resp)
+    } yield contract
+
 }

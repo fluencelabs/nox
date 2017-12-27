@@ -26,7 +26,7 @@ import fluence.btree.client.{ Key, Value }
 import fluence.btree.server.binary.BTreeBinaryStore
 import fluence.btree.server.core.TreePath.PathElem
 import fluence.btree.server.core.{ NodeWithId, _ }
-import fluence.node.binary.kryo.KryoCodecs
+import fluence.codec.kryo.KryoCodecs
 import fluence.node.storage.rocksdb.RocksDbStore
 import monix.eval.{ Task, TaskSemaphore }
 import monix.execution.atomic.{ AtomicInt, AtomicLong }

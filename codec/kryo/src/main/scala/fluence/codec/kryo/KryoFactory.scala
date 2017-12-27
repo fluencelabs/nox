@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node.binary.kryo
+package fluence.codec.kryo
 
 import com.twitter.chill.{ AllScalaRegistrar, KryoBase, KryoInstantiator }
 import org.objenesis.strategy.StdInstantiatorStrategy

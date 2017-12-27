@@ -25,6 +25,8 @@ javaOptions in Test ++= Seq("-ea")
 val commons = Seq(
   scalaV,
   scalariformPrefs,
+  fork in test := true,
+  parallelExecution in Test := false,
   organizationName := "Fluence Labs Limited",
   organizationHomepage := Some(new URL("https://fluence.ai")),
   startYear := Some(2017),
@@ -83,6 +85,24 @@ lazy val `fluence` = project.in(file("."))
   `crypto`
 ).enablePlugins(AutomateHeaderPlugin)
 
+lazy val `codec-core` = project.in(file("codec/core"))
+.settings(commons)
+.settings(
+  libraryDependencies ++= Seq(
+    cats1
+  )
+)
+
+lazy val `codec-kryo` = project.in(file("codec/kryo"))
+.settings(commons)
+.settings(
+  libraryDependencies ++= Seq(
+    chill,
+    shapeless,
+    scalatest
+  )
+).dependsOn(`codec-core`).aggregate(`codec-core`)
+
 lazy val `kademlia-node` = project.in(file("kademlia/node"))
   .settings(commons)
   .settings(
@@ -98,13 +118,13 @@ lazy val `kademlia-protocol` = project.in(file("kademlia/protocol"))
   .settings(commons)
   .settings(
     libraryDependencies += cats1
-  )
+  ).dependsOn(`codec-core`)
 
 lazy val `kademlia-grpc` = project.in(file("kademlia/grpc"))
   .settings(commons)
   .settings(
     grpc
-  ).dependsOn(`kademlia-protocol`).aggregate(`kademlia-protocol`)
+  ).dependsOn(`kademlia-protocol`, `codec-core`).aggregate(`kademlia-protocol`)
 
 lazy val `transport-grpc` = project.in(file("transport/grpc"))
   .settings(commons)
@@ -140,11 +160,10 @@ lazy val `storage` = project.in(file("storage"))
       ficus,
       monix3,
       shapeless,
-      chill,
       scalatest,
       mockito
     )
-  )
+  ).dependsOn(`codec-core`).aggregate(`codec-core`)
 
 lazy val `b-tree-client` = project.in(file("b-tree-client"))
   .settings(commons)
@@ -166,7 +185,7 @@ lazy val `b-tree-server` = project.in(file("b-tree-server"))
       logback,
       scalatest
     )
-  ).dependsOn(`storage`, `b-tree-client`).aggregate(`storage`, `b-tree-client`)
+  ).dependsOn(`storage`, `b-tree-client`, `codec-kryo`).aggregate(`storage`, `b-tree-client`, `codec-kryo`)
 
 lazy val `crypto` = project.in(file("crypto"))
   .settings(commons)
@@ -176,7 +195,6 @@ lazy val `crypto` = project.in(file("crypto"))
     )
   )
 
-// TODO: separate API from implementation
 lazy val `dataset-node` = project.in(file("dataset/node"))
   .settings(commons)
   .settings(
@@ -197,7 +215,7 @@ lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
     libraryDependencies ++= Seq(
       cats1
     )
-  ).dependsOn(`dataset-protocol`).aggregate(`dataset-protocol`)
+  ).dependsOn(`dataset-protocol`, `codec-core`).aggregate(`dataset-protocol`)
 
 lazy val `node` = project.in(file("node"))
   .settings(commons)

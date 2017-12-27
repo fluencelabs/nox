@@ -1,14 +1,14 @@
 package fluence.node
 
 import cats.~>
-import fluence.kad.grpc.KademliaGrpc
+import fluence.kad.grpc.{ KademliaGrpc, KademliaNodeCodec }
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.GrpcServer
-import monix.eval.Task
+import monix.eval.{ Coeval, Task }
 import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
@@ -28,6 +28,8 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
   implicit val runTask = new (Task ~> Future) {
     override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
   }
+
+  implicit val kadCodec = KademliaNodeCodec[Task]
 
   class Node(val key: Key, val localPort: Int) {
 
@@ -63,7 +65,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   private val servers = (0 to 20).map { n ⇒
     val port = 3200 + n
-    new Node(Key.sha1(Integer.toBinaryString(port).getBytes), port)
+    new Node(Key.sha1[Coeval](Integer.toBinaryString(port).getBytes).value, port)
   }
 
   "Network simulation" should {

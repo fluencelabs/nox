@@ -21,7 +21,7 @@ import cats.MonadError
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.btree.server.core.BTreeStore
-import fluence.node.binary.Codec
+import fluence.codec.Codec
 import fluence.node.storage.KVStore
 
 import scala.language.higherKinds
