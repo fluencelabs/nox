@@ -10,7 +10,7 @@ object BTreeCommonShow {
   implicit val showBytes: Show[Array[Byte]] =
     (b: Array[Byte]) ⇒ new String(b)
 
-  implicit def showBytes(implicit sb: Show[Array[Byte]]): Show[Array[Array[Byte]]] =
+  implicit def showArrayOfBytes(implicit sb: Show[Array[Byte]]): Show[Array[Array[Byte]]] =
     Show.show((array: Array[Array[Byte]]) ⇒ array.map(sb.show).mkString("[", ",", "]"))
 
   implicit def showPutDetails(implicit sb: Show[Array[Byte]]): Show[PutDetails] = {
