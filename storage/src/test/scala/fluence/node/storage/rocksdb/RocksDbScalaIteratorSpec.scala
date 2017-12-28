@@ -3,8 +3,7 @@ package fluence.node.storage.rocksdb
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.rocksdb.RocksIterator
-import org.scalatest.{Matchers, WordSpec}
-
+import org.scalatest.{ Matchers, WordSpec }
 
 class RocksDbScalaIteratorSpec extends WordSpec with Matchers {
 
@@ -26,9 +25,9 @@ class RocksDbScalaIteratorSpec extends WordSpec with Matchers {
 
       val result = iterator.toList
 
-      result should contain inOrder(
+      result should contain inOrder (
         Key1 → Value1,
-        Key2 → Value2,
+        Key2 → Value2
       )
       verify(rocksIterator, Mockito.times(1)).seekToFirst()
       verify(rocksIterator, Mockito.times(2)).next()
