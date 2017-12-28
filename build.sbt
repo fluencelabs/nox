@@ -180,8 +180,7 @@ lazy val `b-tree-common` = project.in(file("b-tree/common"))
   .settings(commons)
   .settings(
     libraryDependencies ++= Seq(
-      monix3,
-      logback,
+      cats1,
       scalatest
     )
   ).dependsOn(`crypto`)
