@@ -3,18 +3,18 @@ package fluence.btree.server
 import java.nio.ByteBuffer
 
 import fluence.btree.common.merkle.MerkleRootCalculator
-import fluence.btree.common.{ Bytes, Key, PutDetails, Value }
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
-import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
-import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
+import fluence.btree.common.{Bytes, Key, PutDetails, Value}
+import fluence.btree.protocol.BTreeRpc.{GetCallbacks, PutCallbacks}
+import fluence.btree.server.commands.{GetCommandImpl, PutCommandImpl}
+import fluence.btree.server.core.{BTreeBinaryStore, NodeOps}
 import fluence.hash.TestCryptoHasher
 import fluence.codec.kryo.KryoCodecs
-import fluence.node.storage.TrieMapKVStore
+import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.Searching.Found
 import scala.collection.concurrent.TrieMap

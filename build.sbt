@@ -86,22 +86,22 @@ lazy val `fluence` = project.in(file("."))
 ).enablePlugins(AutomateHeaderPlugin)
 
 lazy val `codec-core` = project.in(file("codec/core"))
-.settings(commons)
-.settings(
-  libraryDependencies ++= Seq(
-    cats1
+  .settings(commons)
+  .settings(
+    libraryDependencies ++= Seq(
+      cats1
+    )
   )
-)
 
 lazy val `codec-kryo` = project.in(file("codec/kryo"))
-.settings(commons)
-.settings(
-  libraryDependencies ++= Seq(
-    chill,
-    shapeless,
-    scalatest
-  )
-).dependsOn(`codec-core`).aggregate(`codec-core`)
+  .settings(commons)
+  .settings(
+    libraryDependencies ++= Seq(
+      chill,
+      shapeless,
+      scalatest
+    )
+  ).dependsOn(`codec-core`).aggregate(`codec-core`)
 
 lazy val `kademlia-node` = project.in(file("kademlia/node"))
   .settings(commons)
@@ -150,8 +150,16 @@ lazy val `transport-core` = project.in(file("transport/core"))
     )
   ).dependsOn(`kademlia-protocol`).aggregate(`kademlia-protocol`)
 
-// TODO: separate API from implementation for both serialization and rocksDB
-lazy val `storage` = project.in(file("storage"))
+lazy val `storage` = project.in(file("storage/core"))
+  .settings(commons)
+  .settings(
+    libraryDependencies ++= Seq(
+      scalatest,
+      monix3 % Test
+    )
+  ).dependsOn(`codec-core`).aggregate(`codec-core`)
+
+lazy val `storage-rocksdb` = project.in(file("storage/rocksdb"))
   .settings(commons)
   .settings(
     libraryDependencies ++= Seq(
@@ -159,11 +167,10 @@ lazy val `storage` = project.in(file("storage"))
       typeSafeConfig,
       ficus,
       monix3,
-      shapeless,
       scalatest,
       mockito
     )
-  ).dependsOn(`codec-core`).aggregate(`codec-core`)
+  ).dependsOn(`storage`).aggregate(`storage`)
 
 lazy val `b-tree-client` = project.in(file("b-tree/client"))
   .settings(commons)
@@ -174,7 +181,7 @@ lazy val `b-tree-client` = project.in(file("b-tree/client"))
       scalatest
     )
   ).dependsOn(`b-tree-common`, `b-tree-protocol`)
-   .aggregate(`b-tree-common`, `b-tree-protocol`)
+  .aggregate(`b-tree-common`, `b-tree-protocol`)
 
 lazy val `b-tree-common` = project.in(file("b-tree/common"))
   .settings(commons)
@@ -200,8 +207,8 @@ lazy val `b-tree-server` = project.in(file("b-tree/server"))
       logback,
       scalatest
     )
-  ).dependsOn(`storage`, `codec-kryo`, `b-tree-common`, `b-tree-protocol`, `b-tree-client` % "compile->test")
-   .aggregate(`b-tree-common`, `b-tree-protocol`)
+  ).dependsOn(`storage-rocksdb`, `codec-kryo`, `b-tree-common`, `b-tree-protocol`, `b-tree-client` % "compile->test")
+  .aggregate(`b-tree-common`, `b-tree-protocol`)
 
 lazy val `crypto` = project.in(file("crypto"))
   .settings(commons)

@@ -26,7 +26,7 @@ import fluence.dataset.node.contract.{ ContractAllocator, ContractOps, ContractR
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsAllocatorApi, ContractsCacheRpc }
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
-import fluence.node.storage.KVStore
+import fluence.storage.KVStore
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds

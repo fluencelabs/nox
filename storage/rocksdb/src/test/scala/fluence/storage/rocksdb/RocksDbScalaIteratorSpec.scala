@@ -1,4 +1,4 @@
-package fluence.node.storage.rocksdb
+package fluence.storage.rocksdb
 
 import org.mockito.Mockito
 import org.mockito.Mockito._

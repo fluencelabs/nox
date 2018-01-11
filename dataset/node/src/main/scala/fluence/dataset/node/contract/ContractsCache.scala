@@ -26,7 +26,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.dataset.protocol.ContractsCacheRpc
 import fluence.kad.protocol.Key
-import fluence.node.storage.KVStore
+import fluence.storage.KVStore
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.{ higherKinds, implicitConversions }
