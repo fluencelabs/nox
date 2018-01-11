@@ -27,7 +27,7 @@ import fluence.transport.TransportServer
 import fluence.transport.grpc.client.GrpcClientConf
 import io.grpc._
 import monix.eval.{ Coeval, Task }
-import monix.execution.Scheduler.Implicits._
+import monix.execution.Scheduler.Implicits.global
 
 import scala.concurrent.Await
 import scala.concurrent.duration.FiniteDuration

@@ -38,16 +38,16 @@ commons
 
 enablePlugins(AutomateHeaderPlugin)
 
-val RocksDbV = "5.8.0"
+val RocksDbV = "5.9.2"
 val TypeSafeConfV = "1.3.2"
-val FicusV = "1.4.2"
-val MockitoV = "2.11.0"
-val MonocleV = "1.5.0-cats-M2"
+val FicusV = "1.4.3"
+val MockitoV = "2.13.0"
+val MonocleV = "1.5.0-cats"
 
 val logback = "ch.qos.logback" % "logback-classic" % "1.2.+"
 
-val cats1 = "org.typelevel" %% "cats-core" % "1.0.0-RC1"
-val monix3 = "io.monix" %% "monix" % "3.0.0-M2"
+val cats1 = "org.typelevel" %% "cats-core" % "1.0.0-RC2"
+val monix3 = "io.monix" %% "monix" % "3.0.0-M3"
 val shapeless = "com.chuusai" %% "shapeless" % "2.3.+"
 val monocle = "com.github.julien-truffaut" %% "monocle-core" % MonocleV
 val monocleMacro = "com.github.julien-truffaut" %% "monocle-macro" % MonocleV
