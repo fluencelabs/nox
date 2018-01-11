@@ -1,4 +1,4 @@
-package fluence.node.storage.rocksdb
+package fluence.storage.rocksdb
 
 import monix.eval.Task
 import monix.execution.schedulers.TestScheduler

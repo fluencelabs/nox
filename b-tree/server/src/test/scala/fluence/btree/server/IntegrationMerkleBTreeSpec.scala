@@ -13,7 +13,7 @@ import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
 import fluence.crypto.NoOpCrypt
 import fluence.hash.JdkCryptoHasher
 import fluence.codec.kryo.KryoCodecs
-import fluence.node.storage.TrieMapKVStore
+import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler

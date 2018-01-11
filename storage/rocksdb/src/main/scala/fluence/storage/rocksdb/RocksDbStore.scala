@@ -15,13 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node.storage.rocksdb
+package fluence.storage.rocksdb
 
 import java.io.File
 
 import com.typesafe.config.{ Config, ConfigFactory }
-import fluence.node.storage.{ KVStore, TraversableKVStore }
-import fluence.node.storage.rocksdb.RocksDbStore._
+import RocksDbStore._
+import fluence.storage.{ KVStore, TraversableKVStore }
 import monix.eval.{ Task, TaskSemaphore }
 import monix.reactive.Observable
 import org.rocksdb.{ Options, ReadOptions, RocksDB }

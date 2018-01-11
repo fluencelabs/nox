@@ -1,4 +1,4 @@
-package fluence.node.storage
+package fluence.storage
 
 import java.nio.ByteBuffer
 

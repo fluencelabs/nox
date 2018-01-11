@@ -3,7 +3,7 @@ package fluence.btree.server.core
 import java.nio.ByteBuffer
 
 import fluence.codec.kryo.KryoCodecs
-import fluence.node.storage.TrieMapKVStore
+import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler

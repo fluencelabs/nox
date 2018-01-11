@@ -9,7 +9,7 @@ import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
 import fluence.hash.TestCryptoHasher
 import fluence.codec.kryo.KryoCodecs
-import fluence.node.storage.TrieMapKVStore
+import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler

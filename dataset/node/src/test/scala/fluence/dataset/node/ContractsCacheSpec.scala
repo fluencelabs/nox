@@ -2,7 +2,7 @@ package fluence.dataset.node
 
 import fluence.dataset.node.contract.{ ContractRecord, ContractsCache }
 import fluence.kad.protocol.Key
-import fluence.node.storage.{ KVStore, TrieMapKVStore }
+import fluence.storage.{ KVStore, TrieMapKVStore }
 import monix.eval.Coeval
 import org.scalatest.{ Matchers, WordSpec }
 

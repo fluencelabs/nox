@@ -25,7 +25,7 @@ import cats.syntax.functor._
 import cats.{ Eq, MonadError }
 import fluence.dataset.protocol.ContractAllocatorRpc
 import fluence.kad.protocol.Key
-import fluence.node.storage.KVStore
+import fluence.storage.KVStore
 
 import scala.language.{ higherKinds, implicitConversions }
 

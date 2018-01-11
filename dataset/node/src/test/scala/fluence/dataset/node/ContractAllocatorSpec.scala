@@ -4,7 +4,7 @@ import cats.effect.IO
 import fluence.dataset.node.contract.{ ContractAllocator, ContractRecord, ContractsCache }
 import fluence.dataset.protocol.ContractAllocatorRpc
 import fluence.kad.protocol.Key
-import fluence.node.storage.{ KVStore, TrieMapKVStore }
+import fluence.storage.{ KVStore, TrieMapKVStore }
 import monix.eval.Coeval
 import org.scalatest.{ Matchers, WordSpec }
 

@@ -27,7 +27,7 @@ import fluence.btree.server.MerkleBTreeShow._
 import fluence.btree.server.core.TreePath.PathElem
 import fluence.codec.kryo.KryoCodecs
 import fluence.btree.server.core._
-import fluence.node.storage.rocksdb.RocksDbStore
+import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.{ Task, TaskSemaphore }
 import monix.execution.atomic.{ AtomicInt, AtomicLong }
 import org.slf4j.LoggerFactory
