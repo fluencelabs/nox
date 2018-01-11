@@ -8,7 +8,7 @@ import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._

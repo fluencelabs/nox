@@ -1,13 +1,12 @@
 package fluence.dataset.node
 
 import cats.effect.IO
-import fluence.dataset.node.contract.{ContractAllocator, ContractRecord, ContractsCache}
+import fluence.dataset.node.contract.{ ContractAllocator, ContractRecord, ContractsCache }
 import fluence.dataset.protocol.ContractAllocatorRpc
 import fluence.kad.protocol.Key
-import fluence.node.storage.TrieMapKVStore
-import fluence.storage.{KVStore, TrieMapKVStore}
+import fluence.storage.{ KVStore, TrieMapKVStore }
 import monix.eval.Coeval
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 
 import scala.language.higherKinds
 import scala.concurrent.duration._

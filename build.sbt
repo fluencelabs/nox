@@ -223,6 +223,7 @@ lazy val `dataset-node` = project.in(file("dataset/node"))
   .settings(
     libraryDependencies ++= Seq(
       cats1,
+      monix3 % Test,
       scalatest
     )
   ).dependsOn(`storage`, `kademlia-node`, `dataset-protocol`)
