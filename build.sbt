@@ -57,7 +57,8 @@ val typeSafeConfig = "com.typesafe" % "config" % TypeSafeConfV
 val ficus = "com.iheart" %% "ficus" % FicusV
 
 val mockito = "org.mockito" % "mockito-core" % MockitoV % Test
-val scalatest = "org.scalatest" %% "scalatest" % "3.0.+" % Test
+val scalatestKit = "org.scalatest" %% "scalatest" % "3.0.+"
+val scalatest = scalatestKit % Test
 
 val grpc = Seq(
   PB.targets in Compile := Seq(
@@ -112,7 +113,8 @@ lazy val `kademlia-node` = project.in(file("kademlia/node"))
       scalatest,
       monix3 % Test
     )
-  ).dependsOn(`kademlia-protocol`).aggregate(`kademlia-protocol`)
+  ).dependsOn(`kademlia-protocol`)
+  .aggregate(`kademlia-protocol`)
 
 lazy val `kademlia-protocol` = project.in(file("kademlia/protocol"))
   .settings(commons)
@@ -120,11 +122,21 @@ lazy val `kademlia-protocol` = project.in(file("kademlia/protocol"))
     libraryDependencies += cats1
   ).dependsOn(`codec-core`)
 
+lazy val `kademlia-testkit` = project.in(file("kademlia/testkit"))
+.settings(commons)
+.settings(
+  libraryDependencies ++= Seq(
+    scalatestKit,
+    monix3
+  )
+).dependsOn(`kademlia-node`)
+
 lazy val `kademlia-grpc` = project.in(file("kademlia/grpc"))
   .settings(commons)
   .settings(
     grpc
-  ).dependsOn(`kademlia-protocol`, `codec-core`).aggregate(`kademlia-protocol`)
+  ).dependsOn(`kademlia-protocol`, `codec-core`, `kademlia-testkit` % Test)
+  .aggregate(`kademlia-protocol`)
 
 lazy val `transport-grpc` = project.in(file("transport/grpc"))
   .settings(commons)
@@ -226,7 +238,7 @@ lazy val `dataset-node` = project.in(file("dataset/node"))
       monix3 % Test,
       scalatest
     )
-  ).dependsOn(`storage`, `kademlia-node`, `dataset-protocol`)
+  ).dependsOn(`storage`, `kademlia-node`, `kademlia-testkit` % Test, `dataset-protocol`)
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
   .settings(commons)
@@ -250,3 +262,7 @@ lazy val `node` = project.in(file("node"))
   )
   .dependsOn(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`)
   .aggregate(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`)
+
+// TODO: add enough dependencies for client-node communications
+lazy val `client` = project.in(file("client"))
+  .settings(commons)

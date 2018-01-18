@@ -32,6 +32,21 @@ import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 import scala.util.control.NoStackTrace
 
+/**
+ * Client-facing API for contracts allocation
+ *
+ * @param nodeId Current node's Kademlia Key
+ * @param storage Cache storage
+ * @param contractOps Contract ops
+ * @param createDataset Cluster initialization callback
+ * @param maxFindRequests Max number of network requests to perform during the find op
+ * @param maxAllocateRequests participantsRequired => maxNum of network requests to collect that number of participants
+ * @param cacheTtl Cache TTL
+ * @param kademlia Kademlia service
+ * @tparam F Effect
+ * @tparam Contract Contract
+ * @tparam Contact Kademlia's Contact
+ */
 abstract class DatasetContracts[F[_], Contract, Contact](
     nodeId: Key,
     storage: KVStore[F, Key, ContractRecord[Contract]],
@@ -73,44 +88,49 @@ abstract class DatasetContracts[F[_], Contract, Contact](
     // Check if contract is already known, return it immediately if it is
     val co = contractOps(contract)
     import co.{ collectParticipantSignatures, id, participantsRequired }
-    cache.find(id).flatMap {
-      case Some(c) ⇒ c.pure[F]
 
-      case None ⇒
-        kademlia.callIterative[Contract](
-          id,
-          nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap {
-            case c if contractOps(c).isSignedParticipant ⇒ c.pure[F]
-            case _                                       ⇒ ME.raiseError(DatasetContracts.NotFound)
-          },
-          participantsRequired,
-          maxAllocateRequests(participantsRequired),
-          isIdempotentFn = false
-        ).flatMap {
-            case agreements if agreements.lengthCompare(participantsRequired) == 0 ⇒
+    if (!co.isBlankOffer) {
+      ME.raiseError(DatasetContracts.IncorrectOfferContract)
+    } else
+      cache.find(id).flatMap {
+        case Some(c) ⇒ c.pure[F]
 
-              collectParticipantSignatures[F](agreements.map(_._2)).flatMap(contractToSeal ⇒
-                sealParticipants(contractToSeal)
-              ).flatMap {
-                sealedContract ⇒
-                  Parallel.parSequence[List, F, F, Contract](
-                    agreements
-                      .map(_._1.contact)
-                      .map(c ⇒ allocatorRpc(c).allocate(sealedContract)) // In case any allocation failed, failure will be propagated
-                      .toList
-                  )
-              }.flatMap {
-                case c :: _ ⇒
-                  c.pure[F]
+        case None ⇒
+          kademlia.callIterative[Contract](
+            id,
+            nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap {
+              case c if contractOps(c).isSignedParticipant ⇒ c.pure[F]
+              case _                                       ⇒ ME.raiseError(DatasetContracts.NotFound)
+            },
+            participantsRequired,
+            maxAllocateRequests(participantsRequired),
+            isIdempotentFn = false
+          ).flatMap {
+              case agreements if agreements.lengthCompare(participantsRequired) == 0 ⇒
 
-                case Nil ⇒ // Should never happen
-                  ME.raiseError(DatasetContracts.CantFindEnoughNodes(0))
-              }
+                collectParticipantSignatures[F](agreements.map(_._2)).flatMap(contractToSeal ⇒
+                  sealParticipants(contractToSeal)
+                ).flatMap {
+                  sealedContract ⇒
+                    println(sealedContract)
+                    Parallel.parSequence[List, F, F, Contract](
+                      agreements
+                        .map(_._1.contact)
+                        .map(c ⇒ allocatorRpc(c).allocate(sealedContract)) // In case any allocation failed, failure will be propagated
+                        .toList
+                    )
+                }.flatMap {
+                  case c :: _ ⇒
+                    c.pure[F]
 
-            case agreements ⇒
-              ME.raiseError(DatasetContracts.CantFindEnoughNodes(agreements.size))
-          }
-    }
+                  case Nil ⇒ // Should never happen
+                    ME.raiseError(DatasetContracts.CantFindEnoughNodes(-1))
+                }
+
+              case agreements ⇒
+                ME.raiseError(DatasetContracts.CantFindEnoughNodes(agreements.size))
+            }
+      }
   }
 
   /**
@@ -147,6 +167,8 @@ abstract class DatasetContracts[F[_], Contract, Contact](
 }
 
 object DatasetContracts {
+
+  case object IncorrectOfferContract extends NoStackTrace
 
   case object NotFound extends NoStackTrace
 

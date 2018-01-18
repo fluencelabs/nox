@@ -9,7 +9,7 @@ import scala.language.higherKinds
 
 case class DumbContract(
     id: Key,
-    size: Int,
+    requiredStorageSize: Int,
     participants: Set[Key] = Set.empty,
     offerSealed: Boolean = false,
     participantsSealed: Boolean = false,
@@ -46,7 +46,7 @@ object DumbContract {
      * @return Error or nothing
      */
     override def participantsSealed[F[_]](contract: DumbContract)(implicit F: ApplicativeError[F, Throwable]): F[Unit] =
-      if (contract.participantsSealed && contract.participants.size == contract.size) F.pure(()) else F.raiseError(new IllegalArgumentException("Not sealed"))
+      if (contract.participantsSealed && contract.participants.size == contract.participantsRequired) F.pure(()) else F.raiseError(new IllegalArgumentException("Not sealed"))
 
     /**
      * Check that this is an offer, and it's sealed by client

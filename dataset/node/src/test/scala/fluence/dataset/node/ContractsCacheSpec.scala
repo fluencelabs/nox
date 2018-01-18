@@ -30,12 +30,12 @@ class ContractsCacheSpec extends WordSpec with Matchers {
 
     }
 
-    "reject caching contracts where node participates" ignore {
+    "reject caching contracts where node participates" in {
       cache.cache(DumbContract(unsafeKey("reject3"), 1, participants = Set(nodeId), participantsSealed = true)).value shouldBe false
 
     }
 
-    "cache and update correct contracts" ignore {
+    "cache and update correct contracts" in {
       val v1 = DumbContract(unsafeKey("accept"), 1, Set(unsafeKey("some node")), participantsSealed = true)
       cache.cache(v1).value shouldBe true
 

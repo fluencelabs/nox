@@ -70,7 +70,6 @@ abstract class ContractOps[C](contract: C, contractSignature: ContractSignature[
   def isSignedParticipant: Boolean =
     participants.size == 1 &&
       contractSignature.offerSealed[Try](contract).isSuccess &&
-      nodeParticipates &&
       version == 0 &&
       contractSignature.participantsSealed[Try](contract).isFailure
 

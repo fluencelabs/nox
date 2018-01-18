@@ -62,13 +62,13 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       val v1 = allocator.offer(contract).unsafeRunSync()
 
       v1.participants should contain(nodeId)
-      v1.size shouldBe 1
+      v1.requiredStorageSize shouldBe 1
 
       store.get(v1.id).unsafeRunSync().contract shouldBe v1.copy(participants = Set.empty)
 
-      val v2 = allocator.offer(contract.copy(size = 2)).unsafeRunSync()
+      val v2 = allocator.offer(contract.copy(requiredStorageSize = 2)).unsafeRunSync()
       v2.participants should contain(nodeId)
-      v2.size shouldBe 2
+      v2.requiredStorageSize shouldBe 2
     }
 
     "not return (accepted) offer from cache" in {
