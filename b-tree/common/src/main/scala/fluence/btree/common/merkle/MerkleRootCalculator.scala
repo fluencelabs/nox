@@ -17,7 +17,7 @@
 
 package fluence.btree.common.merkle
 
-import fluence.hash.CryptoHasher
+import fluence.crypto.hash.CryptoHasher
 
 /**
  * Merkle proof service that allows calculate merkle root from merkle path.

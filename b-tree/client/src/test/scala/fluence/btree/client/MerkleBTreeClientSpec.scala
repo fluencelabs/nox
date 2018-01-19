@@ -2,8 +2,8 @@ package fluence.btree.client
 
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.protocol.BTreeRpc
-import fluence.crypto.NoOpCrypt
-import fluence.hash.TestCryptoHasher
+import fluence.crypto.cipher.NoOpCrypt
+import fluence.crypto.hash.TestCryptoHasher
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler

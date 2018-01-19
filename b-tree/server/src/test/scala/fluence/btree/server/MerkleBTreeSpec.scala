@@ -7,7 +7,7 @@ import fluence.btree.common.{ Bytes, Key, PutDetails, Value }
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
-import fluence.hash.TestCryptoHasher
+import fluence.crypto.hash.TestCryptoHasher
 import fluence.codec.kryo.KryoCodecs
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task

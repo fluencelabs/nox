@@ -1,8 +1,9 @@
 package fluence.crypto
 
-import org.scalatest.{ Matchers, WordSpec }
+import fluence.crypto.cipher.NoOpCrypt
+import org.scalatest.{Matchers, WordSpec}
 
-import scala.collection.Searching.{ Found, InsertionPoint }
+import scala.collection.Searching.{Found, InsertionPoint}
 
 class CryptoSearchingSpec extends WordSpec with Matchers {
 
@@ -14,7 +15,7 @@ class CryptoSearchingSpec extends WordSpec with Matchers {
       val plainTextElements = Array("A", "B", "C", "D", "E")
       val encryptedElements = plainTextElements.map(crypt.encrypt)
 
-      import CryptoSearching._
+      import fluence.crypto.cipher.CryptoSearching._
       implicit val decryptFn: (Array[Byte]) ⇒ String = crypt.decrypt
 
       encryptedElements.binarySearch("B") shouldBe Found(1)

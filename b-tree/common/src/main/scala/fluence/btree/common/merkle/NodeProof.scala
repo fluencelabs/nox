@@ -18,7 +18,7 @@
 package fluence.btree.common.merkle
 
 import fluence.btree.common.BytesOps
-import fluence.hash.CryptoHasher
+import fluence.crypto.hash.CryptoHasher
 
 /**
  * Contains all information needed for recalculating checksum of node with substituting child's checksum, for verifying

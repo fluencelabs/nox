@@ -1,11 +1,15 @@
 package fluence.dataset.node
 
+import java.nio.ByteBuffer
+
 import cats.effect.IO
-import fluence.dataset.node.contract.{ ContractAllocator, ContractRecord, ContractsCache }
+import fluence.crypto.keypair.KeyPair
+import fluence.crypto.signature.{ Signature, SignatureChecker, Signer }
+import fluence.dataset.BasicContract
+import fluence.dataset.node.contract.ContractRecord
 import fluence.dataset.protocol.ContractAllocatorRpc
 import fluence.kad.protocol.Key
 import fluence.storage.{ KVStore, TrieMapKVStore }
-import monix.eval.Coeval
 import org.scalatest.{ Matchers, WordSpec }
 
 import scala.language.higherKinds
@@ -16,93 +20,123 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
   @volatile var dsCreated: Set[Key] = Set.empty
 
-  def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
+  val keypair = KeyPair.fromBytes(Array.emptyByteArray, Array.emptyByteArray)
 
-  val nodeId: Key = Key.XorDistanceMonoid.empty
+  val nodeId: Key = Key.fromPublicKey[IO](keypair.publicKey).unsafeRunSync()
 
-  val createDS: DumbContract ⇒ IO[Unit] = c ⇒ {
+  val signer = new Signer.DumbSigner(keypair)
+
+  val checker = SignatureChecker.DumbChecker
+
+  val createDS: BasicContract ⇒ IO[Unit] = c ⇒ {
     if (denyDS(c.id)) IO.raiseError(new IllegalArgumentException(s"Can't create dataset for ${c.id}"))
     else IO(dsCreated += c.id)
   }
 
-  val store: KVStore[IO, Key, ContractRecord[DumbContract]] =
+  val checkAllocationPossible: BasicContract ⇒ IO[Unit] =
+    c ⇒
+      if (c.version == 0) IO.unit
+      else IO.raiseError(new IllegalArgumentException("allocation not possible"))
+
+  val store: KVStore[IO, Key, ContractRecord[BasicContract]] =
     TrieMapKVStore()
 
-  val allocator: ContractAllocatorRpc[IO, DumbContract] = new ContractAllocator[IO, DumbContract](
-    store, DumbContract.ops(nodeId), createDS
+  val allocator: ContractAllocatorRpc[IO, BasicContract] = new ContractAllocator[IO, BasicContract](
+    nodeId, store, createDS, checkAllocationPossible, checker, signer
   )
 
-  val cache: ContractsCache[IO, DumbContract] = new ContractsCache[IO, DumbContract](nodeId, store, DumbContract.ops(nodeId), 1.minute)
+  val cache: ContractsCache[IO, BasicContract] =
+    new ContractsCache[IO, BasicContract](nodeId, store, checker, 1.minute)
+
+  def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
+    val s = offerSigner(seed)
+    BasicContract.offer(Key.fromPublicKey[IO](s.publicKey).unsafeRunSync(), participantsRequired, s)
+  }
+
+  def offerSigner(seed: String) = {
+    new Signer.DumbSigner(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
+  }
 
   "contract allocator" should {
 
     "reject offer with wrong signature" in {
-      val contract = DumbContract(unsafeKey("dumb0"), 1)
+      val contract = offer("dumb0").copy(offerSeal = Signature(KeyPair.Public(ByteBuffer.wrap(Array.emptyByteArray)), ByteBuffer.wrap(Array.emptyByteArray)))
       allocator.offer(contract).attempt.unsafeRunSync().isLeft shouldBe true
     }
 
     "reject offer with unsufficent resources" in {
-      val contract = DumbContract(unsafeKey("should reject"), 1, offerSealed = true, allocationPossible = false)
+      val contract = offer("should reject").copy(version = -1)
       allocator.offer(contract).attempt.unsafeRunSync().isLeft shouldBe true
     }
 
     "accept offer (idempotently)" in {
-      val contract = DumbContract(unsafeKey("should accept"), 1, offerSealed = true)
+      val contract = offer("should accept")
       val accepted = allocator.offer(contract).unsafeRunSync()
 
-      accepted.participants should contain(nodeId)
+      accepted.participants.keySet should contain(nodeId)
 
       allocator.offer(contract).unsafeRunSync() shouldBe accepted
 
-      store.get(accepted.id).unsafeRunSync().contract shouldBe accepted.copy(participants = Set.empty)
+      store.get(accepted.id).unsafeRunSync().contract shouldBe accepted.copy(participants = Map.empty)
     }
 
     "update accepted offer" in {
-      val contract = DumbContract(unsafeKey("should update"), 1, offerSealed = true)
+      val contract = offer("should update")
       val v1 = allocator.offer(contract).unsafeRunSync()
 
-      v1.participants should contain(nodeId)
-      v1.size shouldBe 1
+      v1.participants.keySet should contain(nodeId)
+      /*
+      TODO: update the test when there's any data in the contract
+      v1.requiredStorageSize shouldBe 1
 
       store.get(v1.id).unsafeRunSync().contract shouldBe v1.copy(participants = Set.empty)
 
-      val v2 = allocator.offer(contract.copy(size = 2)).unsafeRunSync()
+      val v2 = allocator.offer(contract.copy(requiredStorageSize = 2)).unsafeRunSync()
       v2.participants should contain(nodeId)
-      v2.size shouldBe 2
+      v2.requiredStorageSize shouldBe 2
+      */
     }
 
     "not return (accepted) offer from cache" in {
-      val contract = DumbContract(unsafeKey("should accept, but not return"), 1, offerSealed = true)
+      val contract = offer("should accept, but not return")
       val accepted = allocator.offer(contract).unsafeRunSync()
 
       cache.find(accepted.id).unsafeRunSync() should be('empty)
     }
 
     "reject allocation when not in the list of participants" in {
-      val contract = DumbContract(unsafeKey("should not allocate, as not a participant"), 1, offerSealed = true)
+      val contract = offer("should not allocate, as not a participant")
       allocator.allocate(contract).attempt.unsafeRunSync().isLeft shouldBe true
 
-      val c2 = DumbContract(
-        unsafeKey("should not allocate, as not a participant, even with a list of participants"),
-        1, offerSealed = true,
-        participants = Set(contract.id))
+      val s2 = offerSigner("signer some")
+      import fluence.dataset.contract.ContractWrite._
+
+      val c2 = offer("should not allocate, as not a participant, even with a list of participants")
+        .signOffer(Key.fromPublicKey[IO](s2.publicKey).unsafeRunSync(), s2)
+
       allocator.allocate(c2).attempt.unsafeRunSync().isLeft shouldBe true
     }
 
     "reject allocation on the same conditions as it was an offer" in {
-      val offer = DumbContract(unsafeKey("should accept offer, but reject allocation"), 1, offerSealed = true)
-      val accepted = allocator.offer(offer).unsafeRunSync()
+      val offerC = offer("should accept offer, but reject allocation")
+      val signer = offerSigner("should accept offer, but reject allocation")
+      val accepted = allocator.offer(offerC).unsafeRunSync()
+
+      import fluence.dataset.contract.ContractWrite._
 
       allocator.allocate(accepted).attempt.unsafeRunSync().isLeft shouldBe true
-      allocator.allocate(accepted.copy(participantsSealed = true, allocationPossible = false)).attempt.unsafeRunSync().isLeft shouldBe true
+      allocator.allocate(accepted.sealParticipants(signer).copy(version = -1)).attempt.unsafeRunSync().isLeft shouldBe true
 
-      denyDS += offer.id
-      allocator.allocate(accepted.copy(participantsSealed = true)).attempt.unsafeRunSync().isLeft shouldBe true
+      denyDS += offerC.id
+      allocator.allocate(accepted.sealParticipants(signer)).attempt.unsafeRunSync().isLeft shouldBe true
     }
 
     "allocate (idempotently) and return from cache" in {
-      val offer = DumbContract(unsafeKey("should accept offer and allocate"), 1, offerSealed = true)
-      val accepted = allocator.offer(offer).unsafeRunSync().copy(participantsSealed = true)
+      import fluence.dataset.contract.ContractWrite._
+
+      val offerC = offer("should accept offer and allocate")
+      val signer = offerSigner("should accept offer and allocate")
+      val accepted = allocator.offer(offerC).unsafeRunSync().sealParticipants(signer)
       val contract = allocator.allocate(accepted).unsafeRunSync()
 
       contract shouldBe accepted

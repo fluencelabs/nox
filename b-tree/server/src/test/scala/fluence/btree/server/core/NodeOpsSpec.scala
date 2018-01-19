@@ -2,7 +2,7 @@ package fluence.btree.server.core
 
 import fluence.btree.common.{ Key, Value }
 import fluence.btree.server.NodeId
-import fluence.hash.TestCryptoHasher
+import fluence.crypto.hash.TestCryptoHasher
 import org.scalatest.{ Matchers, WordSpec }
 
 class NodeOpsSpec extends WordSpec with Matchers {
