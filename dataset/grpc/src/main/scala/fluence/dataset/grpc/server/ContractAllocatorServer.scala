@@ -21,7 +21,7 @@ import cats.{ Monad, ~> }
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.codec.Codec
-import fluence.dataset.grpc.{ Contract, ContractAllocatorGrpc }
+import fluence.dataset.grpc.{ BasicContract, ContractAllocatorGrpc }
 import fluence.dataset.protocol.ContractAllocatorRpc
 
 import scala.concurrent.Future
@@ -29,11 +29,11 @@ import scala.language.higherKinds
 
 class ContractAllocatorServer[F[_], C](contractAllocator: ContractAllocatorRpc[F, C])(implicit
     F: Monad[F],
-    codec: Codec[F, C, Contract],
+    codec: Codec[F, C, BasicContract],
     run: F ~> Future)
   extends ContractAllocatorGrpc.ContractAllocator {
 
-  override def offer(request: Contract): Future[Contract] =
+  override def offer(request: BasicContract): Future[BasicContract] =
     run(
       for {
         c ← codec.decode(request)
@@ -42,7 +42,7 @@ class ContractAllocatorServer[F[_], C](contractAllocator: ContractAllocatorRpc[F
       } yield resp
     )
 
-  override def allocate(request: Contract): Future[Contract] =
+  override def allocate(request: BasicContract): Future[BasicContract] =
     run(
       for {
         c ← codec.decode(request)

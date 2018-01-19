@@ -18,13 +18,13 @@
 package fluence.dataset.grpc.client
 
 import cats.syntax.applicativeError._
-import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import cats.{ MonadError, ~> }
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.dataset.grpc.ContractsCacheGrpc.ContractsCacheStub
-import fluence.dataset.grpc.{ Contract, FindRequest }
+import fluence.dataset.grpc.{ BasicContract, FindRequest }
 import fluence.dataset.protocol.ContractsCacheRpc
 import fluence.kad.protocol.Key
 
@@ -32,7 +32,7 @@ import scala.concurrent.Future
 import scala.language.higherKinds
 
 class ContractsCacheClient[F[_], C](
-    stub: ContractsCacheStub)(implicit codec: Codec[F, C, Contract], run: Future ~> F, F: MonadError[F, Throwable])
+    stub: ContractsCacheStub)(implicit codec: Codec[F, C, BasicContract], run: Future ~> F, F: MonadError[F, Throwable])
   extends ContractsCacheRpc[F, C] {
 
   /**

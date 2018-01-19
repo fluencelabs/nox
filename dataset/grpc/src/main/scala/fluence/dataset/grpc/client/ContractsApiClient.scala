@@ -27,7 +27,7 @@ import cats.{ MonadError, ~> }
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.dataset.grpc
-import fluence.dataset.grpc.{ Contract, FindRequest }
+import fluence.dataset.grpc.{ BasicContract, FindRequest }
 import fluence.dataset.protocol.ContractsApi
 import fluence.kad.protocol.Key
 import io.grpc.stub.StreamObserver
@@ -46,7 +46,7 @@ import scala.language.higherKinds
 class ContractsApiClient[F[_], C](
     stub: grpc.DatasetContractsApiGrpc.DatasetContractsApiStub)(implicit
     F: MonadError[F, Throwable],
-    codec: Codec[F, C, Contract],
+    codec: Codec[F, C, BasicContract],
     keyK: Kleisli[F, Key, ByteBuffer],
     run: Future ~> F)
   extends ContractsApi[F, C] {
@@ -62,11 +62,11 @@ class ContractsApiClient[F[_], C](
    * @return Sealed contract with a list of participants, or failure
    */
   override def allocate(contract: C, sealParticipants: C ⇒ F[C]): F[C] = {
-    val withParticipants = Promise[Contract]()
-    val finalized = Promise[Contract]()
+    val withParticipants = Promise[BasicContract]()
+    val finalized = Promise[BasicContract]()
     val waitingFinalized = new AtomicBoolean(false)
 
-    val str = stub.allocate(new StreamObserver[Contract] {
+    val str = stub.allocate(new StreamObserver[BasicContract] {
       override def onError(t: Throwable): Unit =
         if (!waitingFinalized.getAndSet(true))
           withParticipants.failure(t)
@@ -75,7 +75,7 @@ class ContractsApiClient[F[_], C](
 
       override def onCompleted(): Unit = ()
 
-      override def onNext(value: Contract): Unit =
+      override def onNext(value: BasicContract): Unit =
         if (!waitingFinalized.getAndSet(true))
           withParticipants.success(value)
         else

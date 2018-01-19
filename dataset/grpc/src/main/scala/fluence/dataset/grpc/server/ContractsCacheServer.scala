@@ -22,7 +22,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ MonadError, ~> }
 import fluence.codec.Codec
-import fluence.dataset.grpc.{ CacheResponse, Contract, ContractsCacheGrpc, FindRequest }
+import fluence.dataset.grpc._
 import fluence.dataset.protocol.ContractsCacheRpc
 import fluence.kad.protocol.Key
 
@@ -41,23 +41,23 @@ import scala.language.higherKinds
 class ContractsCacheServer[F[_], C](
     cache: ContractsCacheRpc[F, C])(implicit
     F: MonadError[F, Throwable],
-    codec: Codec[F, C, Contract],
+    codec: Codec[F, C, BasicContract],
     keyK: Kleisli[F, Array[Byte], Key],
     run: F ~> Future)
   extends ContractsCacheGrpc.ContractsCache {
 
-  override def find(request: FindRequest): Future[Contract] =
+  override def find(request: FindRequest): Future[BasicContract] =
     run(
       for {
         k ← keyK(request.id.toByteArray)
-        resp ← cache.find(k).flatMap[Contract] {
+        resp ← cache.find(k).flatMap[BasicContract] {
           case Some(c) ⇒ codec.encode(c)
           case None    ⇒ F.raiseError(new NoSuchElementException(""))
         }
       } yield resp
     )
 
-  override def cache(request: Contract): Future[CacheResponse] =
+  override def cache(request: BasicContract): Future[CacheResponse] =
     run(
       for {
         c ← codec.decode(request)

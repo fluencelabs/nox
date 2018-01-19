@@ -17,11 +17,11 @@
 
 package fluence.dataset.grpc.client
 
-import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import cats.{ Monad, ~> }
 import fluence.codec.Codec
-import fluence.dataset.grpc.Contract
+import fluence.dataset.grpc.BasicContract
 import fluence.dataset.grpc.ContractAllocatorGrpc.ContractAllocatorStub
 import fluence.dataset.protocol.ContractAllocatorRpc
 
@@ -30,7 +30,7 @@ import scala.language.higherKinds
 
 class ContractAllocatorClient[F[_] : Monad, C](
     stub: ContractAllocatorStub
-)(implicit codec: Codec[F, C, Contract], run: Future ~> F)
+)(implicit codec: Codec[F, C, BasicContract], run: Future ~> F)
   extends ContractAllocatorRpc[F, C] {
 
   /**

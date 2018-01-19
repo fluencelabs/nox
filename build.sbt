@@ -127,7 +127,6 @@ lazy val `kademlia-grpc` = project.in(file("kademlia/grpc"))
   .settings(
     grpc
   ).dependsOn(`kademlia-protocol`, `codec-core`, `kademlia-testkit` % Test)
-  .aggregate(`kademlia-protocol`)
 
 lazy val `transport-grpc` = project.in(file("transport/grpc"))
   .settings(commons)
@@ -243,7 +242,7 @@ lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
     libraryDependencies ++= Seq(
       scalatest
     )
-  ).dependsOn(`dataset-protocol`, `codec-core`).aggregate(`dataset-protocol`)
+  ).dependsOn(`dataset-client`, `codec-core`).aggregate(`dataset-protocol`)
 
 lazy val `dataset-client` = project.in(file("dataset/client"))
   .settings(commons)
