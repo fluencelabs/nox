@@ -106,8 +106,10 @@ abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact]
           kademlia.callIterative[Contract](
             contract.id,
             nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap {
-              case c if contract.participantSigned(nodeId, checker) ⇒ c.pure[F]
-              case _ ⇒ ME.raiseError(Contracts.NotFound)
+              case c if c.participantSigned(nc.key, checker) ⇒
+                c.pure[F]
+              case _ ⇒
+                ME.raiseError(Contracts.NotFound)
             },
             contract.participantsRequired,
             maxAllocateRequests(contract.participantsRequired),
