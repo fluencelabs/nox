@@ -28,7 +28,7 @@ import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.dataset.grpc
 import fluence.dataset.grpc.{ Contract, FindRequest }
-import fluence.dataset.protocol.ContractsAllocatorApi
+import fluence.dataset.protocol.ContractsApi
 import fluence.kad.protocol.Key
 import io.grpc.stub.StreamObserver
 
@@ -43,13 +43,13 @@ import scala.language.higherKinds
  * @tparam F Effect
  * @tparam C Domain-level Contract type
  */
-class ContractsAllocatorApiClient[F[_], C](
+class ContractsApiClient[F[_], C](
     stub: grpc.DatasetContractsApiGrpc.DatasetContractsApiStub)(implicit
     F: MonadError[F, Throwable],
     codec: Codec[F, C, Contract],
     keyK: Kleisli[F, Key, ByteBuffer],
     run: Future ~> F)
-  extends ContractsAllocatorApi[F, C] {
+  extends ContractsApi[F, C] {
 
   private val keyBS = keyK.map(ByteString.copyFrom)
 

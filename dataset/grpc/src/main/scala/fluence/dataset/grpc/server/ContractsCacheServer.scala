@@ -36,7 +36,7 @@ import scala.language.higherKinds
  * @param F MonadError instance
  * @param run Runs F and produces Future
  * @tparam F Effect
- * @tparam C Do,ain-level Contract
+ * @tparam C Domain-level Contract
  */
 class ContractsCacheServer[F[_], C](
     cache: ContractsCacheRpc[F, C])(implicit

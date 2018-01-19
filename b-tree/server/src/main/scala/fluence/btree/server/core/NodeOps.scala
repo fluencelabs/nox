@@ -23,7 +23,7 @@ import fluence.btree.common.merkle.{ GeneralNodeProof, NodeProof }
 import fluence.btree.common.{ Key, Value }
 import fluence.btree.server.MerkleBTreeShow._
 import fluence.btree.server._
-import fluence.hash.{ CryptoHasher, JdkCryptoHasher }
+import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 
 import scala.reflect.ClassTag
 

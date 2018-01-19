@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.hash
+package fluence.crypto.hash
 
 import java.security.MessageDigest
 

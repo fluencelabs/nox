@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto
+package fluence.crypto.cipher
 
 import scala.annotation.tailrec
 import scala.collection.Searching.{ Found, InsertionPoint, SearchResult }

@@ -25,7 +25,7 @@ import cats.syntax.show._
 import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common._
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath, MerkleRootCalculator, NodeProof }
-import fluence.hash.CryptoHasher
+import fluence.crypto.hash.CryptoHasher
 import org.slf4j.LoggerFactory
 
 import scala.collection.Searching.{ Found, InsertionPoint }

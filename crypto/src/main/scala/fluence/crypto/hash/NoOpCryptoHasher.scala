@@ -15,23 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node.contract
+package fluence.crypto.hash
 
-trait ContractParticipantOps[C] {
-  /**
-   * @return true if current node participates in this contract
-   */
-  def nodeParticipates: Boolean
+/**
+ * No operation implementation. Do nothing, just return the same value.
+ */
+object NoOpCryptoHasher extends CryptoHasher[Array[Byte], Array[Byte]] {
 
-  /**
-   * Sign a blank offer by current node
-   *
-   * @return Signed offer
-   */
-  def signOffer: C
+  override def hash(msg: Array[Byte]): Array[Byte] = msg
 
-  /**
-   * @return Whether this contract offer was signed by this node and client, but participants list is not sealed yet
-   */
-  def isSignedOffer: Boolean
+  override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Array[Byte] = msg1 ++ msgN.flatten
 }

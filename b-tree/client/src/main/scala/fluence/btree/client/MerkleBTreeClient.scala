@@ -24,8 +24,8 @@ import fluence.btree.common._
 import fluence.btree.common.merkle.MerklePath
 import fluence.btree.protocol.BTreeRpc
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
-import fluence.crypto.Crypt
-import fluence.hash.CryptoHasher
+import fluence.crypto.cipher.Crypt
+import fluence.crypto.hash.CryptoHasher
 import monix.eval.{ MVar, Task }
 import org.slf4j.LoggerFactory
 
@@ -274,7 +274,7 @@ class MerkleBTreeClient[K, V] private (
   def delete(key: K): Task[Option[V]] = ???
 
   private def binarySearch(key: K, keys: Array[Key]): SearchResult = {
-    import fluence.crypto.CryptoSearching._
+    import fluence.crypto.cipher.CryptoSearching._
     implicit val decrypt: Key ⇒ K = keyCrypt.decrypt
     keys.binarySearch(key)
   }

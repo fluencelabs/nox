@@ -1,6 +1,6 @@
 package fluence.btree.common.merkle
 
-import fluence.hash.TestCryptoHasher
+import fluence.crypto.hash.TestCryptoHasher
 import org.scalatest.{ Matchers, WordSpec }
 
 class GeneralNodeProofSpec extends WordSpec with Matchers {

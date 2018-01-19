@@ -2,7 +2,7 @@ package fluence.btree.client
 
 import fluence.btree.common.PutDetails
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
-import fluence.hash.TestCryptoHasher
+import fluence.crypto.hash.TestCryptoHasher
 import org.scalatest.{ Matchers, WordSpec }
 
 import scala.collection.Searching.{ Found, InsertionPoint }

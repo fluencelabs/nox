@@ -28,8 +28,10 @@ import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.{ ApplicativeError, MonadError, Monoid, Order, Show }
 import fluence.codec.Codec
+import fluence.crypto.keypair.KeyPair
 
 import scala.language.higherKinds
+import scala.util.Try
 
 /**
  * Kademlia Key is 160 bits (sha-1 length) in byte array.
@@ -52,7 +54,8 @@ final case class Key private (origin: ByteBuffer) extends AnyVal {
     }
   }
 
-  def b64: String = Base64.getEncoder.encodeToString(id)
+  def b64: String =
+    Base64.getEncoder.encodeToString(id)
 
   override def toString: String = b64
 }
@@ -111,6 +114,19 @@ object Key {
       .flatMap(fromBytes[F])
 
   /**
+   * Checks that given key is produced form that publicKey
+   *
+   * @param key Kademlia Key, should be sha1 of publicKey
+   * @param publicKey Public Key
+   * @return
+   */
+  def checkPublicKey(key: Key, publicKey: KeyPair.Public): Boolean = {
+    import cats.instances.try_._
+    import cats.syntax.eq._
+    sha1[Try](publicKey.value.array()).filter(_ === key).isSuccess
+  }
+
+  /**
    * Calculates sha-1 hash of the payload, and wraps it with Key.
    *
    * @param bytes Bytes to hash
@@ -120,6 +136,12 @@ object Key {
       val md = MessageDigest.getInstance("SHA-1")
       md.digest(bytes)
     }.flatMap(fromBytes[F])
+
+  def fromKeyPair[F[_]](keyPair: KeyPair)(implicit F: MonadError[F, Throwable]): F[Key] =
+    fromPublicKey(keyPair.publicKey)
+
+  def fromPublicKey[F[_]](publicKey: KeyPair.Public)(implicit F: MonadError[F, Throwable]): F[Key] =
+    sha1(publicKey.value.array())
 
   def fromString[F[_]](str: String, charset: Charset = Charset.defaultCharset())(implicit F: MonadError[F, Throwable]): F[Key] =
     sha1(str.getBytes)

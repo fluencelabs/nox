@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node.contract
+package fluence.dataset.node
 
 import java.time.Instant
 
@@ -24,6 +24,9 @@ import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.crypto.signature.SignatureChecker
+import fluence.dataset.contract.ContractRead
+import fluence.dataset.node.contract.ContractRecord
 import fluence.dataset.protocol.ContractsCacheRpc
 import fluence.kad.protocol.Key
 import fluence.storage.KVStore
@@ -36,23 +39,23 @@ import scala.language.{ higherKinds, implicitConversions }
  *
  * @param nodeId Current node id, to check participation
  * @param storage     Contracts storage
- * @param contractOps Contract read ops
+ * @param checker Signature checker
  * @param cacheTtl    Cache time-to-live
  * @param ME          Monad error
  * @tparam F Effect
  * @tparam C Contract
  */
-class ContractsCache[F[_], C](
+class ContractsCache[F[_], C : ContractRead](
     nodeId: Key,
     storage: KVStore[F, Key, ContractRecord[C]],
-    contractOps: C ⇒ ContractReadOps[C],
+    checker: SignatureChecker,
     cacheTtl: FiniteDuration)(implicit ME: MonadError[F, Throwable]) extends ContractsCacheRpc[F, C] {
+
+  import ContractRead._
 
   private lazy val ttlMillis = cacheTtl.toMillis
 
   private lazy val cacheEnabled = ttlMillis > 0
-
-  private implicit def toOps(contract: C): ContractReadOps[C] = contractOps(contract)
 
   // TODO: remove Instant.now() usage
   private def isExpired(cr: ContractRecord[C]): Boolean =
@@ -60,7 +63,7 @@ class ContractsCache[F[_], C](
       java.time.Duration.between(cr.lastUpdated, Instant.now()).toMillis >= ttlMillis
 
   private def canBeCached(contract: C): Boolean =
-    cacheEnabled && contract.isActiveContract && !contract.participants.contains(nodeId)
+    cacheEnabled && contract.isActiveContract(checker) && !contract.participants.contains(nodeId)
 
   /**
    * Find a contract in local storage.
@@ -78,7 +81,7 @@ class ContractsCache[F[_], C](
       case optCr ⇒
         optCr
           .map(_.contract)
-          .filterNot(_.isBlankOffer)
+          .filterNot(_.isBlankOffer(checker))
           .pure[F]
     }
 

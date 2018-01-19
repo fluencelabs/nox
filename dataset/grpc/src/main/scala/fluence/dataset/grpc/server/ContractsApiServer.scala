@@ -25,15 +25,15 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.codec.Codec
 import fluence.dataset.grpc.{ Contract, DatasetContractsApiGrpc, FindRequest }
-import fluence.dataset.protocol.ContractsAllocatorApi
+import fluence.dataset.protocol.ContractsApi
 import fluence.kad.protocol.Key
 import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ Future, Promise }
 import scala.language.higherKinds
 
-class ContractsAllocatorApiServer[F[_], C](
-    api: ContractsAllocatorApi[F, C]
+class ContractsApiServer[F[_], C](
+    api: ContractsApi[F, C]
 )(implicit
     F: MonadError[F, Throwable],
     codec: Codec[F, C, Contract],

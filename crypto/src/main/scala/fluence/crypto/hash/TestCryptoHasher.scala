@@ -15,14 +15,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.hash
+package fluence.crypto.hash
 
-/**
- * No operation implementation. Do nothing, just return the same value.
- */
-object NoOpCryptoHasher extends CryptoHasher[Array[Byte], Array[Byte]] {
+/** For testing and debugging. The result is human readable. */
+object TestCryptoHasher extends CryptoHasher[Array[Byte], Array[Byte]] {
 
-  override def hash(msg: Array[Byte]): Array[Byte] = msg
+  override def hash(msg: Array[Byte]): Array[Byte] = {
+    ("H<" + new String(msg) + ">").getBytes()
+  }
 
-  override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Array[Byte] = msg1 ++ msgN.flatten
+  override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Array[Byte] = {
+    hash(msg1 ++ msgN.flatten)
+  }
+
 }

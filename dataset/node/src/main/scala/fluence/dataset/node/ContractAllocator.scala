@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node.contract
+package fluence.dataset.node
 
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
@@ -23,6 +23,9 @@ import cats.syntax.eq._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ Eq, MonadError }
+import fluence.crypto.signature.{ SignatureChecker, Signer }
+import fluence.dataset.contract.{ ContractRead, ContractWrite }
+import fluence.dataset.node.contract.ContractRecord
 import fluence.dataset.protocol.ContractAllocatorRpc
 import fluence.kad.protocol.Key
 import fluence.storage.KVStore
@@ -33,20 +36,23 @@ import scala.language.{ higherKinds, implicitConversions }
  * Performs contracts allocation on local node.
  *
  * @param storage Contracts storage
- * @param contractOps Contract ops
  * @param createDataset Callback to create a dataset for a successfully allocated contract
  * @param ME Monad error
  * @param eq Contracts equality
  * @tparam F Effect
  * @tparam C Contract
  */
-class ContractAllocator[F[_], C](
+class ContractAllocator[F[_], C : ContractRead : ContractWrite](
+    nodeId: Key,
     storage: KVStore[F, Key, ContractRecord[C]],
-    contractOps: C ⇒ ContractOps[C],
-    createDataset: C ⇒ F[Unit]
+    createDataset: C ⇒ F[Unit],
+    checkAllocationPossible: C ⇒ F[Unit],
+    checker: SignatureChecker,
+    signer: Signer
 )(implicit ME: MonadError[F, Throwable], eq: Eq[C]) extends ContractAllocatorRpc[F, C] {
 
-  private implicit def toOps(contract: C): ContractOps[C] = contractOps(contract)
+  import ContractRead._
+  import ContractWrite._
 
   /**
    * Try to allocate a contract.
@@ -55,13 +61,13 @@ class ContractAllocator[F[_], C](
    * @return Allocated contract
    */
   override def allocate(contract: C): F[C] =
-    if (!contract.nodeParticipates)
+    if (!contract.participantSigned(nodeId, checker))
       ME.raiseError(new IllegalArgumentException("Contract should be offered to this node and signed by it prior to allocation"))
-    else if (!contract.isActiveContract)
+    else if (!contract.isActiveContract(checker))
       ME.raiseError(new IllegalArgumentException("Contract should be active -- sealed by client"))
     else
       storage.get(contract.id).attempt.map(_.toOption).flatMap {
-        case Some(cr) if !cr.contract.isBlankOffer ⇒
+        case Some(cr) if !cr.contract.isBlankOffer(checker) ⇒
           cr.contract.pure[F]
 
         case crOpt ⇒
@@ -69,7 +75,7 @@ class ContractAllocator[F[_], C](
             _ ← crOpt.fold(().pure[F])(_ ⇒
               storage.remove(contract.id)
             )
-            _ ← contract.checkAllocationPossible
+            _ ← checkAllocationPossible(contract)
             _ ← storage.put(contract.id, ContractRecord(contract))
             _ ← createDataset(contract).onError {
               case e ⇒
@@ -85,20 +91,20 @@ class ContractAllocator[F[_], C](
    * @return Signed contract, or F is an error
    */
   override def offer(contract: C): F[C] =
-    if (!contract.isBlankOffer) {
+    if (!contract.isBlankOffer(checker)) {
       ME.raiseError(new IllegalArgumentException("This is not a valid blank offer"))
     } else {
-      def signedContract: C = contract.signOffer
+      def signedContract: C = contract.signOffer(nodeId, signer)
 
       storage.get(contract.id).attempt.map(_.toOption).flatMap {
-        case Some(cr) if cr.contract.isBlankOffer && cr.contract =!= contract ⇒ // contract preallocated for id, but it's changed now
+        case Some(cr) if cr.contract.isBlankOffer(checker) && cr.contract =!= contract ⇒ // contract preallocated for id, but it's changed now
           for {
             _ ← storage.remove(contract.id)
-            _ ← contract.checkAllocationPossible
+            _ ← checkAllocationPossible(contract)
             _ ← storage.put(contract.id, ContractRecord(contract))
           } yield signedContract
 
-        case Some(cr) if cr.contract.isBlankOffer ⇒ // contracts are equal
+        case Some(cr) if cr.contract.isBlankOffer(checker) ⇒ // contracts are equal
           signedContract.pure[F]
 
         case Some(_) ⇒
@@ -106,7 +112,7 @@ class ContractAllocator[F[_], C](
 
         case None ⇒
           for {
-            _ ← contract.checkAllocationPossible
+            _ ← checkAllocationPossible(contract)
             _ ← storage.put(contract.id, ContractRecord(contract))
           } yield signedContract
 

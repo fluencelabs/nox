@@ -15,18 +15,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto
+package fluence.crypto.hash
 
 /**
- * Base interface for encrypting/decrypting.
- *
- * @tparam P The type of plain text, input
- * @tparam C The type of cipher text, output
+ * Base interface for hashing.
+ * @tparam M type of message for hashing
+ * @tparam H type of hashed message
  */
-trait Crypt[P, C] {
+trait CryptoHasher[M, H] {
 
-  def encrypt(plainText: P): C
+  def hash(msg: M): H
 
-  def decrypt(cipherText: C): P
+  def hash(msg1: M, msgN: M*): H
 
 }

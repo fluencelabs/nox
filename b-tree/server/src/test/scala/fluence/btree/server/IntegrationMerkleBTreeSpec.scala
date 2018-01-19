@@ -5,20 +5,20 @@ import java.nio.ByteBuffer
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.common.merkle.MerkleRootCalculator
-import fluence.btree.common.{ Key, Value }
+import fluence.btree.common.{Key, Value}
 import fluence.btree.protocol.BTreeRpc
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
-import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
-import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
-import fluence.crypto.NoOpCrypt
-import fluence.hash.JdkCryptoHasher
+import fluence.btree.protocol.BTreeRpc.{GetCallbacks, PutCallbacks}
+import fluence.btree.server.commands.{GetCommandImpl, PutCommandImpl}
+import fluence.btree.server.core.{BTreeBinaryStore, NodeOps}
+import fluence.crypto.hash.JdkCryptoHasher
 import fluence.codec.kryo.KryoCodecs
+import fluence.crypto.cipher.NoOpCrypt
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._

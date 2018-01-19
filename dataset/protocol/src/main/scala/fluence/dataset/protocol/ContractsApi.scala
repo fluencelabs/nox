@@ -27,7 +27,7 @@ import scala.language.higherKinds
  * @tparam F Effect
  * @tparam Contract Contract
  */
-trait ContractsAllocatorApi[F[_], Contract] {
+trait ContractsApi[F[_], Contract] {
   /**
    * According with contract, offers contract to participants, then seals the list of agreements on client side
    * and performs allocation. In case of any error, result is a failure
