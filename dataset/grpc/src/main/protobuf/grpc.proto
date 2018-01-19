@@ -10,22 +10,38 @@ message CacheResponse {
     bool cached = 1;
 }
 
-message Contract {
+message Participant {
     bytes id = 1;
-    repeated bytes participants = 2;
+    bytes publicKey = 2;
+    bytes signature = 3;
+}
+
+message BasicContract {
+    bytes id = 1;
+    bytes publicKey = 2;
+
+    int32 participantsRequired = 10;
+
+    bytes offerSeal = 20;
+
+    repeated Participant participants = 30;
+
+    bytes participantsSeal = 31;
+
+    int64 version = 40;
 }
 
 service ContractAllocator {
-    rpc offer (Contract) returns (Contract);
-    rpc allocate (Contract) returns (Contract);
+    rpc offer (BasicContract) returns (BasicContract);
+    rpc allocate (BasicContract) returns (BasicContract);
 }
 
 service ContractsCache {
-    rpc find (FindRequest) returns (Contract);
-    rpc cache (Contract) returns (CacheResponse);
+    rpc find (FindRequest) returns (BasicContract);
+    rpc cache (BasicContract) returns (CacheResponse);
 }
 
 service DatasetContractsApi {
-    rpc allocate (stream Contract) returns (stream Contract);
-    rpc find (FindRequest) returns (Contract);
+    rpc allocate (stream BasicContract) returns (stream BasicContract);
+    rpc find (FindRequest) returns (BasicContract);
 }

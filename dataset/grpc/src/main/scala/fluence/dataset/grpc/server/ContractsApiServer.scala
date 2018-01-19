@@ -24,7 +24,7 @@ import cats.{ MonadError, ~> }
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.codec.Codec
-import fluence.dataset.grpc.{ Contract, DatasetContractsApiGrpc, FindRequest }
+import fluence.dataset.grpc.{ BasicContract, DatasetContractsApiGrpc, FindRequest }
 import fluence.dataset.protocol.ContractsApi
 import fluence.kad.protocol.Key
 import io.grpc.stub.StreamObserver
@@ -36,16 +36,16 @@ class ContractsApiServer[F[_], C](
     api: ContractsApi[F, C]
 )(implicit
     F: MonadError[F, Throwable],
-    codec: Codec[F, C, Contract],
+    codec: Codec[F, C, BasicContract],
     keyK: Kleisli[F, Array[Byte], Key],
     run: F ~> Future,
     hold: Future ~> F)
   extends DatasetContractsApiGrpc.DatasetContractsApi {
 
-  override def allocate(responseObserver: StreamObserver[Contract]): StreamObserver[Contract] =
-    new StreamObserver[Contract] {
+  override def allocate(responseObserver: StreamObserver[BasicContract]): StreamObserver[BasicContract] =
+    new StreamObserver[BasicContract] {
       private val initialReceived = new AtomicBoolean(false)
-      private val callbackPromise = Promise[Contract]()
+      private val callbackPromise = Promise[BasicContract]()
 
       override def onError(t: Throwable): Unit =
         if (initialReceived.get()) responseObserver.onError(t)
@@ -54,7 +54,7 @@ class ContractsApiServer[F[_], C](
       override def onCompleted(): Unit =
         callbackPromise.tryFailure(new IllegalArgumentException("Stream completed before callback was processed"))
 
-      override def onNext(value: Contract): Unit =
+      override def onNext(value: BasicContract): Unit =
         if (!initialReceived.getAndSet(true))
           run(
             for {
@@ -77,7 +77,7 @@ class ContractsApiServer[F[_], C](
         else callbackPromise.trySuccess(value)
     }
 
-  override def find(request: FindRequest): Future[Contract] =
+  override def find(request: FindRequest): Future[BasicContract] =
     run(
       for {
         k ← keyK(request.id.toByteArray)
