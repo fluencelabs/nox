@@ -41,6 +41,7 @@ service ContractsCache {
     rpc cache (BasicContract) returns (CacheResponse);
 }
 
+// TODO: rename it to ClusterContractsApi or smth like that
 service DatasetContractsApi {
     rpc allocate (stream BasicContract) returns (stream BasicContract);
     rpc find (FindRequest) returns (BasicContract);

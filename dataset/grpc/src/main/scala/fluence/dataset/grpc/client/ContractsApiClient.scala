@@ -31,6 +31,7 @@ import fluence.dataset.grpc.{ BasicContract, FindRequest }
 import fluence.dataset.protocol.ContractsApi
 import fluence.kad.protocol.Key
 import io.grpc.stub.StreamObserver
+import io.grpc.{ CallOptions, ManagedChannel }
 
 import scala.concurrent.{ Future, Promise }
 import scala.language.higherKinds
@@ -38,8 +39,8 @@ import scala.language.higherKinds
 /**
  * User-facing ContractsAllocatorApi client.
  *
- * @param stub        GRPC stub for DatasetContracts API
- * @param run         Run scala future to get F
+ * @param stub GRPC stub for DatasetContracts API
+ * @param run  Run scala future to get F
  * @tparam F Effect
  * @tparam C Domain-level Contract type
  */
@@ -111,4 +112,20 @@ class ContractsApiClient[F[_], C](
       resp ← run(stub.find(FindRequest(k)))
       raw ← codec.decode(resp)
     } yield raw
+}
+
+object ContractsApiClient {
+  /**
+   * Shorthand to register inside NetworkClient.
+   *
+   * @param channel     Channel to remote node
+   * @param callOptions Call options
+   */
+  def register[F[_], C]()(channel: ManagedChannel, callOptions: CallOptions)(implicit
+    F: MonadError[F, Throwable],
+    codec: Codec[F, C, BasicContract],
+    keyK: Kleisli[F, Key, ByteBuffer],
+    run: Future ~> F): ContractsApi[F, C] =
+    new ContractsApiClient[F, C](new grpc.DatasetContractsApiGrpc.DatasetContractsApiStub(channel, callOptions))
+
 }

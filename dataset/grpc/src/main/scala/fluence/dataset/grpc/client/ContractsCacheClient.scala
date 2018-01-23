@@ -20,13 +20,14 @@ package fluence.dataset.grpc.client
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ MonadError, ~> }
+import cats.{ Monad, MonadError, ~> }
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.dataset.grpc.ContractsCacheGrpc.ContractsCacheStub
-import fluence.dataset.grpc.{ BasicContract, FindRequest }
+import fluence.dataset.grpc.{ BasicContract, ContractsCacheGrpc, FindRequest }
 import fluence.dataset.protocol.ContractsCacheRpc
 import fluence.kad.protocol.Key
+import io.grpc.{ CallOptions, ManagedChannel }
 
 import scala.concurrent.Future
 import scala.language.higherKinds
@@ -60,4 +61,18 @@ class ContractsCacheClient[F[_], C](
       c ← codec.encode(contract)
       resp ← run(stub.cache(c))
     } yield resp.cached
+}
+
+object ContractsCacheClient {
+  /**
+   * Shorthand to register inside NetworkClient.
+   *
+   * @param channel     Channel to remote node
+   * @param callOptions Call options
+   */
+  def register[F[_], C]()(channel: ManagedChannel, callOptions: CallOptions)(implicit
+    codec: Codec[F, C, BasicContract],
+    run: Future ~> F,
+    F: MonadError[F, Throwable]): ContractsCacheRpc[F, C] =
+    new ContractsCacheClient[F, C](new ContractsCacheGrpc.ContractsCacheStub(channel, callOptions))
 }

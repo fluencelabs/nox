@@ -36,6 +36,7 @@ import scala.util.control.NoStackTrace
 
 /**
  * Client-facing API for contracts allocation
+ * TODO rename it
  *
  * @param nodeId Current node's Kademlia Key
  * @param storage Cache storage
