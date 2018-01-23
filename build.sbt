@@ -259,11 +259,12 @@ lazy val `node` = project.in(file("node"))
       scalatest
     )
   )
-  .dependsOn(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`)
+  .dependsOn(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`, `client`)
   .aggregate(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`)
 
 // TODO: add enough dependencies for client-node communications
+// TODO: grpc is only for JVM: transport should be more abstract
 lazy val `client` = project.in(file("client"))
   .settings(commons)
-  .dependsOn(`dataset-client`)
+  .dependsOn(`dataset-client`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`)
   .aggregate(`dataset-client`)

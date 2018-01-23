@@ -21,9 +21,10 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ Monad, ~> }
 import fluence.codec.Codec
-import fluence.dataset.grpc.BasicContract
+import fluence.dataset.grpc.{ BasicContract, ContractAllocatorGrpc }
 import fluence.dataset.grpc.ContractAllocatorGrpc.ContractAllocatorStub
 import fluence.dataset.protocol.ContractAllocatorRpc
+import io.grpc.{ CallOptions, ManagedChannel }
 
 import scala.concurrent.Future
 import scala.language.higherKinds
@@ -58,5 +59,19 @@ class ContractAllocatorClient[F[_] : Monad, C](
       resp ← run(stub.allocate(offer))
       contract ← codec.decode(resp)
     } yield contract
+
+}
+
+object ContractAllocatorClient {
+  /**
+   * Shorthand to register inside NetworkClient.
+   *
+   * @param channel     Channel to remote node
+   * @param callOptions Call options
+   */
+  def register[F[_] : Monad, C]()(channel: ManagedChannel, callOptions: CallOptions)(implicit
+    codec: Codec[F, C, BasicContract],
+    run: Future ~> F): ContractAllocatorRpc[F, C] =
+    new ContractAllocatorClient[F, C](new ContractAllocatorGrpc.ContractAllocatorStub(channel, callOptions))
 
 }

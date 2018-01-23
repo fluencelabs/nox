@@ -33,9 +33,9 @@ import scala.language.{ higherKinds, implicitConversions }
 final case class Codec[F[_], A, B](encode: A ⇒ F[B], decode: B ⇒ F[A]) {
   self ⇒
 
-  val direct: Kleisli[F, A, B] = Kleisli(encode)
+  implicit val direct: Kleisli[F, A, B] = Kleisli(encode)
 
-  val inverse: Kleisli[F, B, A] = Kleisli(decode)
+  implicit val inverse: Kleisli[F, B, A] = Kleisli(decode)
 
   def andThen[C](other: Codec[F, B, C])(implicit F: FlatMap[F]): Codec[F, A, C] =
     Codec((self.direct andThen other.direct).run, (other.inverse andThen self.inverse).run)
@@ -47,6 +47,12 @@ object Codec {
 
   implicit def traverseCodec[F[_] : Applicative, G[_] : Traverse, O, B](implicit codec: Codec[F, O, B]): Codec[F, G[O], G[B]] =
     Codec[F, G[O], G[B]](Traverse[G].traverse[F, O, B](_)(codec.encode), Traverse[G].traverse[F, B, O](_)(codec.decode))
+
+  implicit def toDirect[F[_], A, B](implicit cod: Codec[F, A, B]): Kleisli[F, A, B] =
+    cod.direct
+
+  implicit def toInverse[F[_], A, B](implicit cod: Codec[F, A, B]): Kleisli[F, B, A] =
+    cod.inverse
 
   def codec[F[_], O, B](implicit codec: Codec[F, O, B]): Codec[F, O, B] = codec
 
