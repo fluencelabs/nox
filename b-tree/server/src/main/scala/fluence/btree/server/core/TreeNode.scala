@@ -17,6 +17,7 @@
 
 package fluence.btree.server.core
 
+import fluence.btree.common.Hash
 import fluence.btree.common.merkle.NodeProof
 
 /**
@@ -31,28 +32,33 @@ sealed trait TreeNode[K] {
   val size: Int
 
   /** Digest of this node state */
-  val checksum: Array[Byte]
+  val checksum: Hash
 }
 
 /**
- * A leaf element of tree, contains stored values. All leaves are located at the same depth (maximum depth) in the tree.
- * Keys and values are in a one to one relationship. (keys.size == values.size == size)
+ * A leaf element of tree, contains references of stored values with corresponded keys and other supporting data.
+ * All leaves are located at the same depth (maximum depth) in the tree.
+ * All arrays are in a one to one relationship. It means that:
+ * {{{keys.size == checksumsOfValues.size == checksumsOfValues.size == checksumsOfKv.size == size }}}
  *
- * @param keys         Search keys
- * @param values       Stored values
- * @param kvChecksums Array of checksums for each key value pair
- * @param size         Number of keys (or values) inside this leaf (optimization)
- * @param checksum    Hash of leaf state
+ * @param keys                Search keys
+ * @param valuesReferences   Stored values references
+ * @param valuesChecksums    Array of checksums for each encrypted stored value (Not a checksum of value reference!)
+ * @param checksumsOfKv      Array of checksums for each key and checksumsOfValue pair.
+ *                             'hash(key+checksumsOfValue)' (optimization)
+ * @param size                Number of keys inside this leaf. Actually size of each array in leaf. (optimization)
+ * @param checksum           Hash of leaf state (hash of concatenated checksumsOfKv)
  *
  * @tparam K The type of search key
  * @tparam V The Type of stored value
  */
 case class LeafNode[K, V](
     override val keys: Array[K],
-    values: Array[V],
-    kvChecksums: Array[Array[Byte]],
+    valuesReferences: Array[V],
+    valuesChecksums: Array[Hash],
+    checksumsOfKv: Array[Hash],
     override val size: Int,
-    override val checksum: Array[Byte]
+    override val checksum: Hash
 ) extends TreeNode[K]
 
 object LeafNode {
@@ -61,28 +67,29 @@ object LeafNode {
   trait Ops[K, V] {
 
     /**
-     * Updates leaf with new ''key'' and ''value''. Rewrites a key-value pair at the specified index position in the leaf.
-     * Old key-value pair will be overwritten with new key-value pair. Index should be between 0 and size of leaf.
-     * Doesn't change the original leaf: returns a new leaf instead.
-     *
-     * @param key   New key for updating
-     * @param value New value for updating
-     * @param idx   Index for rewriting key and value
-     * @return updated leaf with new key and value
-     */
-    def rewriteKv(key: K, value: V, idx: Int): LeafNode[K, V]
-
-    /**
-     * Updates leaf with insert new ''key'' and ''value''. Inserts a key-value pair at the specified index position in the leaf.
-     * New key-value pair will be placed at the specified index position, size of leaf will be increased by one.
+     * Updates leaf with new data. Rewrites elements at the specified index position in the leaf.
      * Index should be between 0 and size of leaf. Doesn't change the original leaf: returns a new leaf instead.
      *
-     * @param key   New key for inserting
-     * @param value New value for inserting
-     * @param idx   Index for insertion key and value
-     * @return updated leaf with inserted new key and value
+     * @param key            New Key for updating
+     * @param valueRef       New Value Reference for updating
+     * @param valueChecksum New Value Checksum for updating
+     * @param idx            Index for rewriting
+     * @return updated leaf
      */
-    def insertKv(key: K, value: V, idx: Int): LeafNode[K, V]
+    def rewrite(key: K, valueRef: V, valueChecksum: Hash, idx: Int): LeafNode[K, V]
+
+    /**
+     * Updates leaf with insert new data. Inserts elements at the specified index position in the leaf.
+     * New elements will be placed at the specified index position, size of leaf will be increased by one.
+     * Index should be between 0 and size of leaf. Doesn't change the original leaf: returns a new leaf instead.
+     *
+     * @param key             New key for inserting
+     * @param valueRef       New Value Reference for updating
+     * @param valueChecksum  New Value Checksum for updating
+     * @param idx             Index for insertion
+     * @return updated leaf
+     */
+    def insert(key: K, valueRef: V, valueChecksum: Hash, idx: Int): LeafNode[K, V]
 
     /**
      * Splits leaf into two approximately equal parts.
@@ -104,14 +111,13 @@ object LeafNode {
 }
 
 /**
- * Branch node of tree, do not contains values, contains references to child nodes.
- * Сan not be placed at maximum depth of tree.
+ * Branch node of tree, do not contains any business values, contains references to children nodes.
  * Number of children == number of keys in all branches except last(rightmost) for any tree level.
  * The rightmost branch contain (size + 1) children.
  *
  * @param keys              Search keys
- * @param children         References to children
- * @param childsChecksums Checksum of all children (optimization)
+ * @param childsReferences Children references
+ * @param childsChecksums  Array of checksums for each child node (Not a checksum of child reference!) (optimization)
  * @param size              Number of keys inside this branch (optimization)
  * @param checksum         Hash of branch state
  *
@@ -120,10 +126,10 @@ object LeafNode {
  */
 case class BranchNode[K, C](
     override val keys: Array[K],
-    children: Array[C],
-    childsChecksums: Array[Array[Byte]],
+    childsReferences: Array[C],
+    childsChecksums: Array[Hash],
     override val size: Int,
-    override val checksum: Array[Byte]
+    override val checksum: Hash
 ) extends TreeNode[K]
 
 object BranchNode {

@@ -32,11 +32,12 @@ object MerkleBTreeShow {
     Show.show((array: Array[Long]) ⇒ array.mkString("[", ",", "]"))
 
   implicit def showBranch(implicit sb: Show[Array[Array[Byte]]], sl: Show[Array[Long]]): Show[Branch] = {
-    Show.show((t: Branch) ⇒ s"""Branch(${sb.show(t.keys)}, ${sl.show(t.children)}, ${t.size}, ${t.checksum.show})""")
+    Show.show((t: Branch) ⇒ s"""Branch(${sb.show(t.keys)}, ${sl.show(t.childsReferences)}, ${t.size}, ${t.checksum.show})""")
   }
 
   implicit def showLeaf(implicit sb: Show[Array[Array[Byte]]], sl: Show[Array[Long]]): Show[Leaf] = {
-    Show.show((l: Leaf) ⇒ s"""Leaf(${sb.show(l.keys)}, ${sb.show(l.values)}, ${l.size}, ${l.checksum.show})""")
+    Show.show((l: Leaf) ⇒ s"""Leaf(${sb.show(l.keys)}, ${sl.show(l.valuesReferences)},
+         ${sb.show(l.valuesChecksums)}, ${l.size}, ${l.checksum.show})""")
   }
 
   implicit def showNodeWithId(implicit sn: Show[Node]): Show[NodeWithId[NodeId, Node]] = {

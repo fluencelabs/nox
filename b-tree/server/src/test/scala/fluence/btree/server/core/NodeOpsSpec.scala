@@ -1,79 +1,96 @@
 package fluence.btree.server.core
 
-import fluence.btree.common.{ Key, Value }
-import fluence.btree.server.NodeId
+import fluence.btree.common.{ Bytes, Hash, Key }
+import fluence.btree.server.{ Leaf, NodeId }
 import fluence.crypto.hash.TestCryptoHasher
 import org.scalatest.{ Matchers, WordSpec }
 
 class NodeOpsSpec extends WordSpec with Matchers {
 
-  type Bytes = Array[Byte]
-
   private val nodeOps = NodeOps(TestCryptoHasher)
   import nodeOps._
 
   private val key1 = "k1".getBytes()
-  private val val1 = "v1".getBytes()
-  private val key2 = "k2".getBytes()
-  private val val2 = "v2".getBytes()
-  private val key3 = "k3".getBytes()
-  private val val3 = "v3".getBytes()
-  private val key4 = "k4".getBytes()
-  private val val4 = "v4".getBytes()
-  private val key5 = "k5".getBytes()
-  private val val5 = "v5".getBytes()
-  private val key6 = "k6".getBytes()
-  private val val6 = "v6".getBytes()
-  private val key7 = "k7".getBytes()
-  private val val7 = "v7".getBytes()
+  private val val1Ref = 1l
+  private val val1Checksum = "H<v1>".getBytes()
 
-  private val kV1Hash = "H<k1v1>".getBytes()
-  private val kV2Hash = "H<k2v2>".getBytes()
-  private val kV3Hash = "H<k3v3>".getBytes()
-  private val kV4Hash = "H<k4v4>".getBytes()
-  private val kV5Hash = "H<k5v5>".getBytes()
-  private val kV6Hash = "H<k6v6>".getBytes()
-  private val kV7Hash = "H<k7v7>".getBytes()
-  private val kV8Hash = "H<k8v8>".getBytes()
+  private val key2 = "k2".getBytes()
+  private val val2Ref = 2l
+  private val val2Checksum = "H<v2>".getBytes()
+
+  private val key3 = "k3".getBytes()
+  private val val3Ref = 3l
+  private val val3Checksum = "H<v3>".getBytes()
+
+  private val key4 = "k4".getBytes()
+  private val val4Ref = 4l
+  private val val4Checksum = "H<v4>".getBytes()
+
+  private val key5 = "k5".getBytes()
+  private val val5Ref = 5l
+  private val val5Checksum = "H<v5>".getBytes()
+
+
+  private val key6 = "k6".getBytes()
+  private val val6Ref = 6l
+  private val val6Checksum = "H<v6>".getBytes()
+
+
+  private val key7 = "k7".getBytes()
+  private val val7Ref = 7l
+  private val val7Checksum = "H<v7>".getBytes()
+
+  private val kV1Hash = "H<k1H<v1>>".getBytes()
+  private val kV2Hash = "H<k2H<v2>>".getBytes()
+  private val kV3Hash = "H<k3H<v3>>".getBytes()
+  private val kV4Hash = "H<k4H<v4>>".getBytes()
+  private val kV5Hash = "H<k5H<v5>>".getBytes()
+  private val kV6Hash = "H<k6H<v6>>".getBytes()
+  private val kV7Hash = "H<k7H<v7>>".getBytes()
+  private val kV8Hash = "H<k8H<v8>>".getBytes()
 
   "LeafOps.rewriteValue" should {
     def keys = Array(key2, key4, key6)
-    def values = Array(val2, val4, val6)
+    def valuesRefs = Array(val2Ref, val4Ref, val6Ref)
+    def valuesChecksums = Array(val2Checksum, val4Checksum, val6Checksum)
 
     "rewrite value and return updated leaf" when {
       "rewrite head" in {
-        val leaf = newLeaf(keys, values)
-        val updatedLeaf = leaf.rewriteKv(key1, val1, 0)
+        val leaf = newLeaf(keys, valuesRefs, valuesChecksums)
+        val updatedLeaf = leaf.rewrite(key1, val1Ref, val1Checksum, 0)
 
         updatedLeaf.keys should contain theSameElementsInOrderAs Array(key1, key4, key6)
-        updatedLeaf.values should contain theSameElementsInOrderAs Array(val1, val4, val6)
+        updatedLeaf.valuesReferences should contain theSameElementsInOrderAs Array(val1Ref, val4Ref, val6Ref)
+        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val1Checksum, val4Checksum, val6Checksum)
         checkLeafHashes(updatedLeaf, Array(kV1Hash, kV4Hash, kV6Hash), leaf.size)
       }
       "rewrite mid" in {
-        val leaf = newLeaf(keys, values)
-        val updatedLeaf = leaf.rewriteKv(key5, val5, 1)
+        val leaf = newLeaf(keys, valuesRefs, valuesChecksums)
+        val updatedLeaf = leaf.rewrite(key5, val5Ref, val5Checksum, 1)
 
         updatedLeaf.keys should contain theSameElementsInOrderAs Array(key2, key5, key6)
-        updatedLeaf.values should contain theSameElementsInOrderAs Array(val2, val5, val6)
+        updatedLeaf.valuesReferences should contain theSameElementsInOrderAs Array(val2Ref, val5Ref, val6Ref)
+        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val2Checksum, val5Checksum, val6Checksum)
         checkLeafHashes(updatedLeaf, Array(kV2Hash, kV5Hash, kV6Hash), leaf.size)
       }
       "rewrite last" in {
-        val leaf = newLeaf(keys, values)
-        val updatedLeaf = leaf.rewriteKv(key7, val7, 2)
+        val leaf = newLeaf(keys, valuesRefs, valuesChecksums)
+        val updatedLeaf = leaf.rewrite(key7, val7Ref, val7Checksum, 2)
 
         updatedLeaf.keys should contain theSameElementsInOrderAs Array(key2, key4, key7)
-        updatedLeaf.values should contain theSameElementsInOrderAs Array(val2, val4, val7)
+        updatedLeaf.valuesReferences should contain theSameElementsInOrderAs Array(val2Ref, val4Ref, val7Ref)
+        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val2Checksum, val4Checksum, val7Checksum)
         checkLeafHashes(updatedLeaf, Array(kV2Hash, kV4Hash, kV7Hash), leaf.size)
       }
     }
 
     "fail when idx out of bounds" in {
-      val leaf = newLeaf(keys, values)
+      val leaf = newLeaf(keys, valuesRefs, valuesChecksums)
       intercept[Throwable] {
-        leaf.rewriteKv(key7, val7, -1)
+        leaf.rewrite(key7, val7Ref, val7Checksum, -1)
       }
       intercept[Throwable] {
-        leaf.rewriteKv(key7, val7, 10)
+        leaf.rewrite(key7, val7Ref, val7Checksum, 10)
       }
     }
 
@@ -82,66 +99,75 @@ class NodeOpsSpec extends WordSpec with Matchers {
   "LeafOps.insertValue" should {
 
     def keys = Array(key2, key4, key6)
-    def values = Array(val2, val4, val6)
+    def valuesRefs = Array(val2Ref, val4Ref, val6Ref)
+    def valuesChecksums = Array(val2Checksum, val4Checksum, val6Checksum)
 
     "insert value and return updated leaf" when {
       "insertion to head" in {
-        val leaf = newLeaf(keys, values)
-        val updatedLeaf = leaf.insertKv(key1, val1, 0)
+        val leaf = newLeaf(keys, valuesRefs, valuesChecksums)
+        val updatedLeaf = leaf.insert(key1, val1Ref, val1Checksum, 0)
 
         updatedLeaf.keys should contain theSameElementsInOrderAs Array(key1, key2, key4, key6)
-        updatedLeaf.values should contain theSameElementsInOrderAs Array(val1, val2, val4, val6)
+        updatedLeaf.valuesReferences should contain theSameElementsInOrderAs Array(val1Ref, val2Ref, val4Ref, val6Ref)
+        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val1Checksum, val2Checksum, val4Checksum, val6Checksum)
         checkLeafHashes(updatedLeaf, Array(kV1Hash, kV2Hash, kV4Hash, kV6Hash), leaf.size + 1)
       }
       "insertion to body" in {
-        val leaf = newLeaf(keys, values)
-        val updatedLeaf = leaf.insertKv(key3, val3, 1)
+        val leaf = newLeaf(keys, valuesRefs, valuesChecksums)
+        val updatedLeaf = leaf.insert(key3, val3Ref, val3Checksum, 1)
 
         updatedLeaf.keys should contain theSameElementsInOrderAs Array(key2, key3, key4, key6)
-        updatedLeaf.values should contain theSameElementsInOrderAs Array(val2, val3, val4, val6)
+        updatedLeaf.valuesReferences should contain theSameElementsInOrderAs Array(val2Ref, val3Ref, val4Ref, val6Ref)
+        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val2Checksum, val3Checksum, val4Checksum, val6Checksum)
         checkLeafHashes(updatedLeaf, Array(kV2Hash, kV3Hash, kV4Hash, kV6Hash), leaf.size + 1)
       }
       "insertion to tail" in {
-        val leaf = newLeaf(keys, values)
-        val updatedLeaf = leaf.insertKv(key7, val7, 3)
+        val leaf = newLeaf(keys, valuesRefs, valuesChecksums)
+        val updatedLeaf = leaf.insert(key7, val7Ref, val7Checksum, 3)
 
         updatedLeaf.keys should contain theSameElementsInOrderAs Array(key2, key4, key6, key7)
-        updatedLeaf.values should contain theSameElementsInOrderAs Array(val2, val4, val6, val7)
+        updatedLeaf.valuesReferences should contain theSameElementsInOrderAs Array(val2Ref, val4Ref, val6Ref, val7Ref)
+        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val2Checksum, val4Checksum, val6Checksum, val7Checksum)
         checkLeafHashes(updatedLeaf, Array(kV2Hash, kV4Hash, kV6Hash, kV7Hash), leaf.size + 1)
       }
     }
 
     "fail when idx out of bounds" in {
-      val leaf = newLeaf(keys, values)
+      val leaf = newLeaf(keys, valuesRefs, valuesChecksums)
       intercept[Throwable] {
-        leaf.insertKv(key7, val7, -1)
+        leaf.insert(key7, val7Ref, val7Checksum, -1)
       }
       intercept[Throwable] {
-        leaf.insertKv(key7, val7, 10)
+        leaf.insert(key7, val7Ref, val7Checksum, 10)
       }
     }
   }
 
   "LeafOps.split" should {
     def keys = Array(key1, key2, key3, key4, key5)
-    def values = Array(val1, val2, val3, val4, val5)
+    def valuesRefs = Array(val1Ref, val2Ref, val3Ref, val4Ref, val5Ref)
+    def valuesChecksums = Array(val1Checksum, val2Checksum, val3Checksum, val4Checksum, val5Checksum)
+
+
     "split leaf in half" in {
-      val leaf = newLeaf(keys, values)
+      val leaf = newLeaf(keys, valuesRefs, valuesChecksums)
 
       val (left, right) = leaf.split
 
       left.keys should contain theSameElementsInOrderAs Array(key1, key2)
-      left.values should contain theSameElementsInOrderAs Array(val1, val2)
+      left.valuesReferences should contain theSameElementsInOrderAs Array(val1Ref, val2Ref)
+      left.valuesChecksums should contain theSameElementsInOrderAs Array(val1Checksum, val2Checksum)
       checkLeafHashes(left, Array(kV1Hash, kV2Hash), leaf.size / 2)
 
       right.keys should contain theSameElementsInOrderAs Array(key3, key4, key5)
-      right.values should contain theSameElementsInOrderAs Array(val3, val4, val5)
+      right.valuesReferences should contain theSameElementsInOrderAs Array(val3Ref, val4Ref, val5Ref)
+      right.valuesChecksums should contain theSameElementsInOrderAs Array(val3Checksum, val4Checksum, val5Checksum)
       checkLeafHashes(right, Array(kV3Hash, kV4Hash, kV5Hash), (leaf.size / 2) + 1)
 
     }
     "fail if leaf size is even" in {
       intercept[Throwable] {
-        newLeaf(Array(key1, key2), Array(val1, val2)).split
+        newLeaf(Array(key1, key2), Array(val1Ref, val2Ref), Array(val1Checksum, val2Checksum)).split
       }
     }
   }
@@ -163,7 +189,7 @@ class NodeOpsSpec extends WordSpec with Matchers {
         val updatedTree = tree.insertChild(key1, ChildRef(1L, child1Hash), 0)
 
         updatedTree.keys should contain theSameElementsInOrderAs Array(key1, key2)
-        updatedTree.children should contain theSameElementsInOrderAs Array(1L, 2L)
+        updatedTree.childsReferences should contain theSameElementsInOrderAs Array(1L, 2L)
         checkTreeHashes(updatedTree, Array(child1Hash, child2Hash), tree.size + 1)
       }
 
@@ -172,7 +198,7 @@ class NodeOpsSpec extends WordSpec with Matchers {
         val updatedTree = tree.insertChild(key1, ChildRef(1L, child1Hash), 0)
 
         updatedTree.keys should contain theSameElementsInOrderAs Array(key1, key2)
-        updatedTree.children should contain theSameElementsInOrderAs Array(1L, 2L, 4L)
+        updatedTree.childsReferences should contain theSameElementsInOrderAs Array(1L, 2L, 4L)
         checkTreeHashes(updatedTree, Array(child1Hash, child2Hash, child4Hash), tree.size + 1)
       }
 
@@ -182,7 +208,7 @@ class NodeOpsSpec extends WordSpec with Matchers {
         val updatedTree = tree.insertChild(key3, ChildRef(3L, child3Hash), -1)
 
         updatedTree.keys should contain theSameElementsInOrderAs Array(key2, key3)
-        updatedTree.children should contain theSameElementsInOrderAs Array(2L, 3L, 4L)
+        updatedTree.childsReferences should contain theSameElementsInOrderAs Array(2L, 3L, 4L)
         checkTreeHashes(updatedTree, Array(child2Hash, child3Hash, child4Hash), tree.size + 1)
       }
 
@@ -195,7 +221,7 @@ class NodeOpsSpec extends WordSpec with Matchers {
         val updatedTree = tree.insertChild(key1, ChildRef(1L, child1Hash), 0)
 
         updatedTree.keys should contain theSameElementsInOrderAs Array(key1, key2, key4, key6)
-        updatedTree.children should contain theSameElementsInOrderAs Array(1L, 2L, 4L, 6L, 8L)
+        updatedTree.childsReferences should contain theSameElementsInOrderAs Array(1L, 2L, 4L, 6L, 8L)
         checkTreeHashes(updatedTree, child1Hash +: childrenHashes, tree.size + 1)
       }
 
@@ -204,7 +230,7 @@ class NodeOpsSpec extends WordSpec with Matchers {
         val updatedTree = tree.insertChild(key3, ChildRef(3L, child3Hash), 1)
 
         updatedTree.keys should contain theSameElementsInOrderAs Array(key2, key3, key4, key6)
-        updatedTree.children should contain theSameElementsInOrderAs Array(2L, 3L, 4L, 6L, 8L)
+        updatedTree.childsReferences should contain theSameElementsInOrderAs Array(2L, 3L, 4L, 6L, 8L)
         checkTreeHashes(updatedTree, Array(child2Hash, child3Hash, child4Hash, child6Hash, child8Hash), tree.size + 1)
       }
 
@@ -213,7 +239,7 @@ class NodeOpsSpec extends WordSpec with Matchers {
         val updatedTree = tree.insertChild(key5, ChildRef(5L, child5Hash), 2)
 
         updatedTree.keys should contain theSameElementsInOrderAs Array(key2, key4, key5, key6)
-        updatedTree.children should contain theSameElementsInOrderAs Array(2L, 4L, 5L, 6L, 8L)
+        updatedTree.childsReferences should contain theSameElementsInOrderAs Array(2L, 4L, 5L, 6L, 8L)
         checkTreeHashes(updatedTree, Array(child2Hash, child4Hash, child5Hash, child6Hash, child8Hash), tree.size + 1)
       }
       // important test case, guided key is rightmost child or rightmost parent tree
@@ -222,7 +248,7 @@ class NodeOpsSpec extends WordSpec with Matchers {
         val updatedTree = tree.insertChild(key7, ChildRef(7L, child7Hash), -1)
 
         updatedTree.keys should contain theSameElementsInOrderAs Array(key2, key4, key6, key7)
-        updatedTree.children should contain theSameElementsInOrderAs Array(2L, 4L, 6L, 7L, 8L)
+        updatedTree.childsReferences should contain theSameElementsInOrderAs Array(2L, 4L, 6L, 7L, 8L)
         checkTreeHashes(updatedTree, Array(child2Hash, child4Hash, child6Hash, child7Hash, child8Hash), tree.size + 1)
       }
     }
@@ -268,11 +294,11 @@ class NodeOpsSpec extends WordSpec with Matchers {
         val (left, right) = tree.split
 
         left.keys should contain theSameElementsInOrderAs Array(key1, key2)
-        left.children should contain theSameElementsInOrderAs Array(1L, 2L)
+        left.childsReferences should contain theSameElementsInOrderAs Array(1L, 2L)
         checkTreeHashes(left, Array(child1Hash, child2Hash), 2)
 
         right.keys should contain theSameElementsInOrderAs Array(key3, key4)
-        right.children should contain theSameElementsInOrderAs Array(3L, 4L)
+        right.childsReferences should contain theSameElementsInOrderAs Array(3L, 4L)
         checkTreeHashes(right, Array(child3Hash, child4Hash), 2)
       }
       "tree is the last on this lvl (keys.size + 1 == children.size)" in {
@@ -284,11 +310,11 @@ class NodeOpsSpec extends WordSpec with Matchers {
         val (left, right) = tree.split
 
         left.keys should contain theSameElementsInOrderAs Array(key1, key2)
-        left.children should contain theSameElementsInOrderAs Array(1L, 2L)
+        left.childsReferences should contain theSameElementsInOrderAs Array(1L, 2L)
         checkTreeHashes(left, Array(child1Hash, child2Hash), 2)
 
         right.keys should contain theSameElementsInOrderAs Array(key3, key4)
-        right.children should contain theSameElementsInOrderAs Array(3L, 4L, 5L)
+        right.childsReferences should contain theSameElementsInOrderAs Array(3L, 4L, 5L)
         checkTreeHashes(right, Array(child3Hash, child4Hash, child5Hash), 2)
 
       }
@@ -297,12 +323,13 @@ class NodeOpsSpec extends WordSpec with Matchers {
 
   "NodeOps.createLeaf" should {
     "just create a valid leaf" in {
-      val leaf = createLeaf(key1, val1)
+      val leaf = createLeaf(key1, val1Ref, val1Checksum)
 
       leaf.keys should contain theSameElementsInOrderAs Array(key1)
-      leaf.values should contain theSameElementsInOrderAs Array(val1)
+      leaf.valuesReferences should contain theSameElementsInOrderAs Array(val1Ref)
+      leaf.valuesChecksums should contain theSameElementsInOrderAs Array(val1Checksum)
       leaf.size shouldBe 1
-      leaf.checksum shouldBe getLeafChecksum(getKvChecksums(Array(key1), Array(val1)))
+      leaf.checksum shouldBe getLeafChecksum(getKvChecksums(Array(key1), Array(val1Checksum)))
     }
   }
 
@@ -311,17 +338,17 @@ class NodeOpsSpec extends WordSpec with Matchers {
       val tree = createBranch(key1, ChildRef(1L, child1Hash), ChildRef(2L, child2Hash))
 
       tree.keys should contain theSameElementsInOrderAs Array(key1)
-      tree.children should contain theSameElementsInOrderAs Array(1L, 2L)
+      tree.childsReferences should contain theSameElementsInOrderAs Array(1L, 2L)
       checkTreeHashes(tree, Array(child1Hash, child2Hash), 1)
     }
   }
 
   private def checkLeafHashes(
-    updatedLeaf: LeafNode[Key, Value],
+    updatedLeaf: Leaf,
     expectedKVHashes: Array[Bytes],
     expectedSize: Int
   ) = {
-    updatedLeaf.kvChecksums should contain theSameElementsInOrderAs expectedKVHashes
+    updatedLeaf.checksumsOfKv should contain theSameElementsInOrderAs expectedKVHashes
     updatedLeaf.checksum shouldBe getLeafChecksum(expectedKVHashes)
     updatedLeaf.size shouldBe expectedSize
   }
@@ -336,9 +363,9 @@ class NodeOpsSpec extends WordSpec with Matchers {
     updatedTree.size shouldBe expectedSize
   }
 
-  private def newLeaf(keys: Array[Bytes], values: Array[Bytes]): LeafNode[Bytes, Bytes] = {
-    val kvHashes = getKvChecksums(keys, values)
-    LeafNode(keys, values, kvHashes, keys.length, getLeafChecksum(kvHashes))
+  private def newLeaf(keys: Array[Bytes], valuesRef: Array[Long], valuesChecksums: Array[Hash]): Leaf = {
+    val kvHashes = getKvChecksums(keys, valuesChecksums)
+    LeafNode(keys, valuesRef, valuesChecksums, kvHashes, keys.length, getLeafChecksum(kvHashes))
   }
 
   private def newTree(keys: Array[Bytes], children: Array[Long], childrenHashes: Array[Bytes]): BranchNode[Bytes, Long] = {

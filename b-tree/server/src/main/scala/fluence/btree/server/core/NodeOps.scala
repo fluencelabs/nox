@@ -20,7 +20,7 @@ package fluence.btree.server.core
 import cats.syntax.show._
 import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common.merkle.{ GeneralNodeProof, NodeProof }
-import fluence.btree.common.{ Key, Value }
+import fluence.btree.common.{ Hash, Key, ValueRef }
 import fluence.btree.server.MerkleBTreeShow._
 import fluence.btree.server._
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
@@ -34,26 +34,28 @@ import scala.reflect.ClassTag
  */
 private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]]) {
 
-  implicit class LeafOps(leaf: Leaf) extends LeafNode.Ops[Key, Value] {
+  implicit class LeafOps(leaf: Leaf) extends LeafNode.Ops[Key, ValueRef] {
 
-    override def rewriteKv(key: Key, value: Value, idx: Int): Leaf = {
+    override def rewrite(key: Key, valueRef: ValueRef, valueChecksum: Hash, idx: Int): Leaf = {
       assert(idx >= 0 && idx <= leaf.size, "Index should be between 0 and size of leaf")
-      val keys = rewriteValueInArray(leaf.keys, key, idx)
-      val values = rewriteValueInArray(leaf.values, value, idx)
-      val kvChecksums: Array[Hash] = getKvChecksums(keys, values)
-      val leafChecksum: Hash = getLeafChecksum(kvChecksums)
+      val keys = rewriteElementInArray(leaf.keys, key, idx)
+      val vReferences = rewriteElementInArray(leaf.valuesReferences, valueRef, idx)
+      val vChecksums = rewriteElementInArray(leaf.valuesChecksums, valueChecksum, idx)
+      val kvChecksums = getKvChecksums(keys, vChecksums)
+      val leafChecksum = getLeafChecksum(kvChecksums)
 
-      LeafNode(keys, values, kvChecksums, keys.length, leafChecksum)
+      LeafNode(keys, vReferences, vChecksums, kvChecksums, keys.length, leafChecksum)
     }
 
-    override def insertKv(key: Key, value: Value, idx: Int): Leaf = {
+    override def insert(key: Key, valueRef: ValueRef, valueChecksum: Hash, idx: Int): Leaf = {
       assert(idx >= 0 && idx <= leaf.size, "Index should be between 0 and size of leaf")
-      val keys: Array[Key] = insertValueToArray(leaf.keys, key, idx)
-      val values: Array[Value] = insertValueToArray(leaf.values, value, idx)
-      val kvChecksums: Array[Hash] = getKvChecksums(keys, values)
-      val leafChecksum: Hash = getLeafChecksum(kvChecksums)
+      val keys = insertElementToArray(leaf.keys, key, idx)
+      val vReferences = insertElementToArray(leaf.valuesReferences, valueRef, idx)
+      val vChecksums = insertElementToArray(leaf.valuesChecksums, valueChecksum, idx)
+      val kvChecksums = getKvChecksums(keys, vChecksums)
+      val leafChecksum = getLeafChecksum(kvChecksums)
 
-      LeafNode(keys, values, kvChecksums, keys.length, leafChecksum)
+      LeafNode(keys, vReferences, vChecksums, kvChecksums, keys.length, leafChecksum)
     }
 
     override def split: (Leaf, Leaf) = {
@@ -61,23 +63,24 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
 
       val splitIdx = leaf.size / 2
       val (leftKeys, rightKeys) = leaf.keys.splitAt(splitIdx)
-      val (leftValues, rightValues) = leaf.values.splitAt(splitIdx)
+      val (leftVRefs, rightVRefs) = leaf.valuesReferences.splitAt(splitIdx)
+      val (leftVChecksums, rightVChecksums) = leaf.valuesChecksums.splitAt(splitIdx)
 
-      val leftLeafKvChecksums = getKvChecksums(leftKeys, leftValues)
-      val rightLeafKvChecksums = getKvChecksums(rightKeys, rightValues)
+      val leftLeafKvChecksums = getKvChecksums(leftKeys, leftVChecksums)
+      val rightLeafKvChecksums = getKvChecksums(rightKeys, rightVChecksums)
 
       val leftLeaf = LeafNode(
-        leftKeys, leftValues, leftLeafKvChecksums, leftKeys.length, getLeafChecksum(leftLeafKvChecksums)
+        leftKeys, leftVRefs, leftVChecksums, leftLeafKvChecksums, leftKeys.length, getLeafChecksum(leftLeafKvChecksums)
       )
       val rightLeaf = LeafNode(
-        rightKeys, rightValues, rightLeafKvChecksums, rightKeys.length, getLeafChecksum(rightLeafKvChecksums)
+        rightKeys, rightVRefs, rightVChecksums, rightLeafKvChecksums, rightKeys.length, getLeafChecksum(rightLeafKvChecksums)
       )
 
       leftLeaf → rightLeaf
     }
 
     override def toProof(substitutionIdx: Int): NodeProof = {
-      GeneralNodeProof(Array.emptyByteArray, getKvChecksums(leaf.keys, leaf.values), substitutionIdx)
+      GeneralNodeProof(Array.emptyByteArray, leaf.checksumsOfKv, substitutionIdx)
     }
 
   }
@@ -94,9 +97,9 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
         insIdx
       }
 
-      val keys: Array[Key] = insertValueToArray(branch.keys, key, idx)
-      val children: Array[NodeId] = insertValueToArray(branch.children, childRef.id, idx)
-      val childsChecksums = insertValueToArray(branch.childsChecksums, childRef.checksum, idx)
+      val keys: Array[Key] = insertElementToArray(branch.keys, key, idx)
+      val children: Array[NodeId] = insertElementToArray(branch.childsReferences, childRef.id, idx)
+      val childsChecksums = insertElementToArray(branch.childsChecksums, childRef.checksum, idx)
       val nodeChecksum: Hash = getBranchChecksum(keys, childsChecksums)
 
       BranchNode(keys, children, childsChecksums, keys.length, nodeChecksum)
@@ -105,7 +108,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
     override def split: (Branch, Branch) = {
       val splitIdx = branch.size / 2
       val (leftKeys, rightKeys) = branch.keys.splitAt(splitIdx)
-      val (leftChildren, rightChildren) = branch.children.splitAt(splitIdx)
+      val (leftChildren, rightChildren) = branch.childsReferences.splitAt(splitIdx)
       val (leftChildsChecksums, rightChildsChecksums) = branch.childsChecksums.splitAt(splitIdx)
 
       val leftBranch = BranchNode(
@@ -120,10 +123,10 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
 
     /** Returns ''true'' if current branch is rightmost (the last) on this level of tree, ''false'' otherwise. */
     private def isRightmost(branch: Branch): Boolean =
-      branch.children.length > branch.size
+      branch.childsReferences.length > branch.size
 
     override def updateChildChecksum(newChildHash: Array[Byte], idx: Int): BranchNode[Key, NodeId] = {
-      val newChildsChecksums = rewriteValueInArray(branch.childsChecksums, newChildHash, idx)
+      val newChildsChecksums = rewriteElementInArray(branch.childsChecksums, newChildHash, idx)
       branch.copy(
         childsChecksums = newChildsChecksums,
         checksum = getBranchChecksum(branch.keys, newChildsChecksums))
@@ -136,11 +139,12 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
   }
 
   /** Create new leaf with specified ''key'' and ''value''.*/
-  def createLeaf(key: Key, value: Value): Leaf = {
+  def createLeaf(key: Key, valueRef: ValueRef, valueChecksum: Hash): Leaf = {
     val keys = Array(key)
-    val values = Array(value)
-    val kvChecksums = getKvChecksums(keys, values)
-    LeafNode(keys, values, kvChecksums, 1, getLeafChecksum(kvChecksums))
+    val vReferences = Array(valueRef)
+    val vChecksums = Array(valueChecksum)
+    val kvChecksums = getKvChecksums(keys, vChecksums)
+    LeafNode(keys, vReferences, vChecksums, kvChecksums, 1, getLeafChecksum(kvChecksums))
   }
 
   /** Create new branch node with specified ''key'' and 2 child nodes. */
@@ -152,7 +156,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
   }
 
   /** Returns array of checksums for each key-value pair */
-  private[server] def getKvChecksums(keys: Array[Key], values: Array[Value]): Array[Hash] = {
+  private[server] def getKvChecksums(keys: Array[Key], values: Array[Hash]): Array[Hash] = {
     keys.zip(values).map { case (key, value) ⇒ cryptoHasher.hash(key, value) }
   }
 
@@ -171,7 +175,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
    * We choose variant with array copying for prevent changing input parameters.
    * Work with mutable structures is more error-prone. It may be changed in the future by performance reason.
    */
-  private def rewriteValueInArray[T : ClassTag](array: Array[T], insElem: T, insIdx: Int): Array[T] = {
+  private def rewriteElementInArray[T : ClassTag](array: Array[T], insElem: T, insIdx: Int): Array[T] = {
     // todo perhaps, more optimal implementation might be needed with array mutation in the future
     val newArray = Array.ofDim[T](array.length)
     Array.copy(array, 0, newArray, 0, array.length)
@@ -180,7 +184,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
   }
 
   /** Returns updated copy of array with the inserted element for ''insIdx'' index. */
-  private def insertValueToArray[T : ClassTag](array: Array[T], insElem: T, insIdx: Int): Array[T] = {
+  private def insertElementToArray[T : ClassTag](array: Array[T], insElem: T, insIdx: Int): Array[T] = {
     val newArray = Array.ofDim[T](array.length + 1)
     Array.copy(array, 0, newArray, 0, insIdx)
     Array.copy(array, insIdx, newArray, insIdx + 1, array.length - insIdx)

@@ -65,7 +65,7 @@ trait GetCommand[F[_], K, V] extends TreeCommand[F, K] {
  *
  * @tparam F The type of effect, box for returning value
  * @tparam K The type of search key
- * @tparam V The type of value
+ * @tparam V The type of value stored to leaf
  */
 trait PutCommand[F[_], K, V] extends TreeCommand[F, K] {
 

@@ -84,7 +84,7 @@ class BTreeVerifier(
    * @param keys   Keys of leaf for verify
    * @param values Values of leaf for verify
    */
-  def getLeafProof(keys: Array[Key], values: Array[Value]): GeneralNodeProof = {
+  def getLeafProof(keys: Array[Key], values: Array[Hash]): GeneralNodeProof = {
     val childsChecksums = keys.zip(values).map { case (key, value) ⇒ cryptoHasher.hash(key, value) }
     GeneralNodeProof(Array.emptyByteArray, childsChecksums, -1)
   }
