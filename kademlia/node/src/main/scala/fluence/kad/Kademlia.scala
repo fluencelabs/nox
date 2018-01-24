@@ -19,8 +19,6 @@ package fluence.kad
 
 import cats.syntax.applicative._
 import cats.syntax.functor._
-import cats.syntax.monoid._
-import cats.syntax.order._
 import cats.{ MonadError, Parallel }
 import fluence.kad.RoutingTable._
 import fluence.kad.protocol.{ KademliaRpc, Key, Node }

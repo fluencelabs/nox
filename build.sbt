@@ -257,10 +257,13 @@ lazy val `node` = project.in(file("node"))
   .settings(
     libraryDependencies ++= Seq(
       scalatest
-    )
+    ),
+    mainClass := Some("fluence.node.NodeApp"),
+    packageName in Docker := "fluencelabs/node"
   )
   .dependsOn(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`, `client`)
-  .aggregate(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`)
+  .aggregate(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`, `client`)
+  .enablePlugins(JavaAppPackaging, DockerPlugin)
 
 // TODO: add enough dependencies for client-node communications
 // TODO: grpc is only for JVM: transport should be more abstract
