@@ -41,7 +41,7 @@ class NodeComposer(keyPair: KeyPair, conf: GrpcServerConf = GrpcServerConf.read(
   private val keyC = Key.bytesCodec[Task]
   import keyC.inverse
 
-  private val serverBuilder = GrpcServer.builder
+  private val serverBuilder = GrpcServer.builder(conf)
 
   val key = Key.fromKeyPair[Try](keyPair).get
 
@@ -54,7 +54,7 @@ class NodeComposer(keyPair: KeyPair, conf: GrpcServerConf = GrpcServerConf.read(
     serverBuilder.contact,
     client.service[KademliaClient[Task]],
     KademliaConf.read(),
-    TransportSecurity.canBeSaved[Task](key, acceptLocal = GrpcServerConf.read().acceptLocal)
+    TransportSecurity.canBeSaved[Task](key, acceptLocal = conf.acceptLocal)
   )
 
   val contractsApi = new Contracts[Task, BasicContract, Contact](
@@ -79,9 +79,9 @@ class NodeComposer(keyPair: KeyPair, conf: GrpcServerConf = GrpcServerConf.read(
   // Add server (with kademlia inside), build
   val server = serverBuilder
     .add(KademliaGrpc.bindService(new KademliaServer[Task](kad.handleRPC), global))
-    .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](cache = contractsApi.cache), global))
-    .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractAllocator = contractsApi.allocator), global))
-    .add(DatasetContractsApiGrpc.bindService(new ContractsApiServer[Task, BasicContract](api = contractsApi), global))
+    .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsApi.cache), global))
+    .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractsApi.allocator), global))
+    .add(DatasetContractsApiGrpc.bindService(new ContractsApiServer[Task, BasicContract](contractsApi), global))
     .onNodeActivity(kad.update)
     .build
 

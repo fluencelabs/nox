@@ -19,6 +19,7 @@ package fluence.dataset.contract
 
 import fluence.crypto.signature.{ Signature, SignatureChecker }
 import fluence.kad.protocol.Key
+import scodec.bits.ByteVector
 
 /**
  * Abstracts out read operations for the contract
@@ -64,7 +65,7 @@ trait ContractRead[C] {
    *
    * @param contract Contract
    */
-  def getOfferBytes(contract: C): Array[Byte]
+  def getOfferBytes(contract: C): ByteVector
 
   /**
    * Returns client's signature for offer bytes
@@ -95,7 +96,7 @@ object ContractRead {
 
     def participantSignature(participant: Key): Option[Signature] = read.participantSignature(contract, participant)
 
-    def getOfferBytes: Array[Byte] = read.getOfferBytes(contract)
+    def getOfferBytes: ByteVector = read.getOfferBytes(contract)
 
     def offerSeal: Signature = read.offerSeal(contract)
 
@@ -104,14 +105,14 @@ object ContractRead {
     /**
      * Returns participants bytes representation to be sealed by client
      */
-    def getParticipantsBytes: Array[Byte] =
+    def getParticipantsBytes: ByteVector =
       // TODO: review, document & optimize
-      Array.concat(id.id +: participants
+      participants
         .toSeq
         .sorted(Key.relativeOrdering(id))
         .map(k ⇒
-          participantSignature(k).fold(Array.emptyByteArray)(_.sign.array())
-        ): _*)
+          participantSignature(k).fold(ByteVector.empty)(_.sign)
+        ).foldLeft(id.value)(_ ++ _)
 
     // TODO: having checks return Boolean is very handy, but obscure; should add F[_]: ApplicativeError versions to propagate failures
 

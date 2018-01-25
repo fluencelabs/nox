@@ -18,8 +18,9 @@
 package fluence.codec
 
 import cats.data.Kleisli
-import cats.{ Applicative, FlatMap, Traverse }
+import cats.{ Applicative, ApplicativeError, FlatMap, Traverse }
 import cats.syntax.applicative._
+import scodec.bits.ByteVector
 
 import scala.language.{ higherKinds, implicitConversions }
 
@@ -39,6 +40,11 @@ final case class Codec[F[_], A, B](encode: A ⇒ F[B], decode: B ⇒ F[A]) {
 
   def andThen[C](other: Codec[F, B, C])(implicit F: FlatMap[F]): Codec[F, A, C] =
     Codec((self.direct andThen other.direct).run, (other.inverse andThen self.inverse).run)
+
+  def compose[C](other: Codec[F, C, A])(implicit F: FlatMap[F]): Codec[F, C, B] =
+    Codec((other.direct andThen self.direct).run, (self.inverse andThen other.inverse).run)
+
+  def swap: Codec[F, B, A] = Codec(decode, encode)
 }
 
 object Codec {
@@ -53,6 +59,23 @@ object Codec {
 
   implicit def toInverse[F[_], A, B](implicit cod: Codec[F, A, B]): Kleisli[F, B, A] =
     cod.inverse
+
+  implicit def swap[F[_], A, B](implicit cod: Codec[F, A, B]): Codec[F, B, A] =
+    Codec[F, B, A](cod.decode, cod.encode)
+
+  implicit def byteVectorArray[F[_] : Applicative]: Codec[F, Array[Byte], ByteVector] =
+    pure(ByteVector.apply, _.toArray)
+
+  // TODO: descriptive error
+  implicit def byteVectorB64[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, String, ByteVector] =
+    Codec(
+      str ⇒
+        ByteVector.fromBase64(str).fold[F[ByteVector]](
+          F.raiseError(new IllegalArgumentException(s"Given string is not valid b64: $str"))
+        )(_.pure[F]),
+
+      _.toBase64.pure[F]
+    )
 
   def codec[F[_], O, B](implicit codec: Codec[F, O, B]): Codec[F, O, B] = codec
 

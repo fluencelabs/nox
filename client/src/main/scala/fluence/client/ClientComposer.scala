@@ -32,8 +32,6 @@ object ClientComposer {
 
   def grpc[F[_]](builder: GrpcClient.Builder[HNil])(implicit F: MonadError[F, Throwable], run: Future ~> F) =
     {
-      val keyC = fluence.kad.protocol.Key.bufferCodec
-      import keyC.direct
       import fluence.kad.grpc.KademliaNodeCodec.{ apply ⇒ nodeCodec }
       import fluence.dataset.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
 

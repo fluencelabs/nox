@@ -23,6 +23,7 @@ import cats.Eq
 import fluence.crypto.signature.{ Signature, Signer }
 import fluence.dataset.contract.{ ContractRead, ContractWrite }
 import fluence.kad.protocol.Key
+import scodec.bits.ByteVector
 
 /**
  *
@@ -50,12 +51,12 @@ case class BasicContract(
 object BasicContract {
 
   case class Offer(participantsRequired: Int) {
-    lazy val getBytes: Array[Byte] = {
+    lazy val getBytes: ByteVector = {
       val buffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
       buffer.putInt(participantsRequired)
 
-      buffer.array()
+      ByteVector(buffer.array())
     }
   }
 
@@ -124,7 +125,7 @@ object BasicContract {
      *
      * @param contract Contract
      */
-    override def getOfferBytes(contract: BasicContract): Array[Byte] =
+    override def getOfferBytes(contract: BasicContract): ByteVector =
       contract.offer.getBytes
 
     /**

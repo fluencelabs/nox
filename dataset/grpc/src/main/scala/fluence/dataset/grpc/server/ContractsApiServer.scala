@@ -64,8 +64,11 @@ class ContractsApiServer[F[_], C](
                 signed ⇒
                   for {
                     binSigned ← codec.encode(signed)
+                    _ = println("signed: " + signed)
+                    _ = println("bin signed " + new String(java.util.Base64.getEncoder.encode(binSigned.id.toByteArray)))
                     _ ← F.catchNonFatal(responseObserver.onNext(binSigned))
                     clientSealed ← hold(callbackPromise.future)
+                    _ = println("client sealed " + clientSealed)
                     clientRaw ← codec.decode(clientSealed)
                   } yield clientRaw
               )

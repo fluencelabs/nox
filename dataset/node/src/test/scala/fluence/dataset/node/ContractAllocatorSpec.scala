@@ -11,6 +11,7 @@ import fluence.dataset.protocol.ContractAllocatorRpc
 import fluence.kad.protocol.Key
 import fluence.storage.{ KVStore, TrieMapKVStore }
 import org.scalatest.{ Matchers, WordSpec }
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 import scala.concurrent.duration._
@@ -60,7 +61,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   "contract allocator" should {
 
     "reject offer with wrong signature" in {
-      val contract = offer("dumb0").copy(offerSeal = Signature(KeyPair.Public(ByteBuffer.wrap(Array.emptyByteArray)), ByteBuffer.wrap(Array.emptyByteArray)))
+      val contract = offer("dumb0").copy(offerSeal = Signature(KeyPair.Public(ByteVector.empty), ByteVector.empty))
       allocator.offer(contract).attempt.unsafeRunSync().isLeft shouldBe true
     }
 

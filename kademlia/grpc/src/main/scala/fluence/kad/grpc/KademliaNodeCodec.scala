@@ -20,7 +20,7 @@ package fluence.kad.grpc
 import java.net.InetAddress
 import java.time.Instant
 
-import cats.ApplicativeError
+import cats.MonadError
 import cats.syntax.functor._
 import cats.syntax.applicative._
 import fluence.codec.Codec
@@ -31,7 +31,7 @@ import com.google.protobuf.ByteString
 import scala.language.higherKinds
 
 object KademliaNodeCodec {
-  implicit def apply[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
+  implicit def apply[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
     Codec(
       obj ⇒ Node(
         id = ByteString.copyFrom(obj.key.id),

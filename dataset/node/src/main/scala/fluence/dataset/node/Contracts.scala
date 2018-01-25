@@ -17,6 +17,8 @@
 
 package fluence.dataset.node
 
+import java.util.Base64
+
 import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
@@ -96,7 +98,6 @@ abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact]
    */
   override def allocate(contract: Contract, sealParticipants: Contract ⇒ F[Contract]): F[Contract] = {
     // Check if contract is already known, return it immediately if it is
-
     if (!contract.isBlankOffer(checker)) {
       ME.raiseError(Contracts.IncorrectOfferContract)
     } else
@@ -104,12 +105,15 @@ abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact]
         case Some(c) ⇒ c.pure[F]
 
         case None ⇒
+          println("ci")
           kademlia.callIterative[Contract](
             contract.id,
             nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap {
               case c if c.participantSigned(nc.key, checker) ⇒
+                println("signed")
                 c.pure[F]
               case _ ⇒
+                println("not found")
                 ME.raiseError(Contracts.NotFound)
             },
             contract.participantsRequired,
@@ -117,12 +121,14 @@ abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact]
             isIdempotentFn = false
           ).flatMap {
               case agreements if agreements.lengthCompare(contract.participantsRequired) == 0 ⇒
-
+                println("enough")
                 contract.addParticipants(checker, agreements.map(_._2))
-                  .flatMap(contractToSeal ⇒
+                  .flatMap { contractToSeal ⇒
+                    println("going to seal " + contractToSeal)
                     sealParticipants(contractToSeal)
-                  ).flatMap {
+                  }.flatMap {
                     sealedContract ⇒
+                      println("sealed successfully! " + sealedContract)
                       Parallel.parSequence[List, F, F, Contract](
                         agreements
                           .map(_._1.contact)
@@ -131,6 +137,7 @@ abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact]
                       )
                   }.flatMap {
                     case c :: _ ⇒
+                      println("ok")
                       c.pure[F]
 
                     case Nil ⇒ // Should never happen
@@ -138,6 +145,7 @@ abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact]
                   }
 
               case agreements ⇒
+                println("fuck later")
                 ME.raiseError(Contracts.CantFindEnoughNodes(agreements.size))
             }
       }
