@@ -21,10 +21,12 @@ import cats.syntax.functor._
 import cats.instances.stream._
 import cats.{ MonadError, ~> }
 import cats.syntax.flatMap._
+import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.kad.grpc._
 import fluence.kad.protocol
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
+import fluence.transport.grpc.GrpcCodecs._
 
 import scala.concurrent.Future
 import scala.language.{ higherKinds, implicitConversions }
@@ -33,10 +35,11 @@ import scala.language.{ higherKinds, implicitConversions }
 class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(implicit
     F: MonadError[F, Throwable],
     codec: Codec[F, protocol.Node[Contact], Node],
-    keyCodec: Codec[F, Key, Array[Byte]],
     run: F ~> Future) extends KademliaGrpc.Kademlia {
 
   private val streamCodec = Codec.codec[F, Stream[protocol.Node[Contact]], Stream[Node]]
+
+  private val keyCodec = Codec.codec[F, Key, ByteString]
 
   override def ping(request: PingRequest): Future[Node] =
     run(
@@ -46,7 +49,7 @@ class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(implicit
   override def lookup(request: LookupRequest): Future[NodesResponse] =
     run(
       for {
-        key ← keyCodec.decode(request.key.toByteArray)
+        key ← keyCodec.decode(request.key)
         ns ← kademlia
           .lookup(key, request.numberOfNodes)
         resp ← streamCodec.encode(ns.toStream)
@@ -56,8 +59,8 @@ class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(implicit
   override def lookupAway(request: LookupAwayRequest): Future[NodesResponse] =
     run(
       for {
-        key ← keyCodec.decode(request.key.toByteArray)
-        moveAwayKey ← keyCodec.decode(request.moveAwayFrom.toByteArray)
+        key ← keyCodec.decode(request.key)
+        moveAwayKey ← keyCodec.decode(request.moveAwayFrom)
         ns ← kademlia
           .lookupAway(key, moveAwayKey, request.numberOfNodes)
         resp ← streamCodec.encode(ns.toStream)
@@ -67,7 +70,7 @@ class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(implicit
   override def lookupIterative(request: LookupRequest): Future[NodesResponse] =
     run(
       for {
-        key ← keyCodec.decode(request.key.toByteArray)
+        key ← keyCodec.decode(request.key)
         ns ← kademlia
           .lookupIterative(key, request.numberOfNodes)
         resp ← streamCodec.encode(ns.toStream)

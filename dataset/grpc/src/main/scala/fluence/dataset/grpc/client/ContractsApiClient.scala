@@ -17,10 +17,8 @@
 
 package fluence.dataset.grpc.client
 
-import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
-import cats.data.Kleisli
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ MonadError, ~> }
@@ -32,6 +30,7 @@ import fluence.dataset.protocol.ContractsApi
 import fluence.kad.protocol.Key
 import io.grpc.stub.StreamObserver
 import io.grpc.{ CallOptions, ManagedChannel }
+import fluence.transport.grpc.GrpcCodecs._
 
 import scala.concurrent.{ Future, Promise }
 import scala.language.higherKinds
@@ -48,11 +47,10 @@ class ContractsApiClient[F[_], C](
     stub: grpc.DatasetContractsApiGrpc.DatasetContractsApiStub)(implicit
     F: MonadError[F, Throwable],
     codec: Codec[F, C, BasicContract],
-    keyK: Kleisli[F, Key, ByteBuffer],
     run: Future ~> F)
   extends ContractsApi[F, C] {
 
-  private val keyBS = keyK.map(ByteString.copyFrom)
+  private val keyBS = Codec.codec[F, ByteString, Key].inverse
 
   /**
    * According with contract, offers contract to participants, then seals the list of agreements on client side
@@ -124,7 +122,6 @@ object ContractsApiClient {
   def register[F[_], C]()(channel: ManagedChannel, callOptions: CallOptions)(implicit
     F: MonadError[F, Throwable],
     codec: Codec[F, C, BasicContract],
-    keyK: Kleisli[F, Key, ByteBuffer],
     run: Future ~> F): ContractsApi[F, C] =
     new ContractsApiClient[F, C](new grpc.DatasetContractsApiGrpc.DatasetContractsApiStub(channel, callOptions))
 

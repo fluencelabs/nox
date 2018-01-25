@@ -96,7 +96,6 @@ abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact]
    */
   override def allocate(contract: Contract, sealParticipants: Contract ⇒ F[Contract]): F[Contract] = {
     // Check if contract is already known, return it immediately if it is
-
     if (!contract.isBlankOffer(checker)) {
       ME.raiseError(Contracts.IncorrectOfferContract)
     } else
@@ -117,11 +116,10 @@ abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact]
             isIdempotentFn = false
           ).flatMap {
               case agreements if agreements.lengthCompare(contract.participantsRequired) == 0 ⇒
-
                 contract.addParticipants(checker, agreements.map(_._2))
-                  .flatMap(contractToSeal ⇒
+                  .flatMap { contractToSeal ⇒
                     sealParticipants(contractToSeal)
-                  ).flatMap {
+                  }.flatMap {
                     sealedContract ⇒
                       Parallel.parSequence[List, F, F, Contract](
                         agreements

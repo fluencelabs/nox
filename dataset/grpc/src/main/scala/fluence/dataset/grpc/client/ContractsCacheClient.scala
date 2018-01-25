@@ -20,7 +20,7 @@ package fluence.dataset.grpc.client
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ Monad, MonadError, ~> }
+import cats.{ MonadError, ~> }
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.dataset.grpc.ContractsCacheGrpc.ContractsCacheStub
@@ -28,6 +28,7 @@ import fluence.dataset.grpc.{ BasicContract, ContractsCacheGrpc, FindRequest }
 import fluence.dataset.protocol.ContractsCacheRpc
 import fluence.kad.protocol.Key
 import io.grpc.{ CallOptions, ManagedChannel }
+import fluence.transport.grpc.GrpcCodecs._
 
 import scala.concurrent.Future
 import scala.language.higherKinds
@@ -43,12 +44,14 @@ class ContractsCacheClient[F[_], C](
    * @return Optional locally found contract
    */
   override def find(id: Key): F[Option[C]] =
-    run(
-      stub.find(FindRequest(ByteString.copyFrom(id.origin)))
-    ).flatMap(codec.decode)
-      .map(c ⇒ Option(c)).recover {
-        case _ ⇒ None
-      }
+    (for {
+      idBs ← Codec.codec[F, ByteString, Key].decode(id)
+      req = FindRequest(idBs)
+      resRaw ← run(stub.find(req))
+      res ← codec.decode(resRaw)
+    } yield Option(res)).recover {
+      case _ ⇒ None
+    }
 
   /**
    * Ask node to cache the contract.

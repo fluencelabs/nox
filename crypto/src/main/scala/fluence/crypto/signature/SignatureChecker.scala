@@ -1,14 +1,14 @@
 package fluence.crypto.signature
 
-import java.nio.ByteBuffer
+import scodec.bits.ByteVector
 
 trait SignatureChecker {
-  def check(signature: Signature, plain: Array[Byte]): Boolean
+  def check(signature: Signature, plain: ByteVector): Boolean
 }
 
 object SignatureChecker {
   case object DumbChecker extends SignatureChecker {
-    override def check(signature: Signature, plain: Array[Byte]): Boolean =
-      signature.sign == ByteBuffer.wrap(plain.reverse)
+    override def check(signature: Signature, plain: ByteVector): Boolean =
+      signature.sign == plain.reverse
   }
 }

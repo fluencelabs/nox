@@ -51,6 +51,7 @@ val monix3 = "io.monix" %% "monix" % "3.0.0-M3"
 val shapeless = "com.chuusai" %% "shapeless" % "2.3.+"
 val monocle = "com.github.julien-truffaut" %% "monocle-core" % MonocleV
 val monocleMacro = "com.github.julien-truffaut" %% "monocle-macro" % MonocleV
+val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.5"
 
 val rocksDb = "org.rocksdb" % "rocksdbjni" % RocksDbV
 val typeSafeConfig = "com.typesafe" % "config" % TypeSafeConfV
@@ -81,6 +82,7 @@ lazy val `codec-core` = project.in(file("codec/core"))
   .settings(commons)
   .settings(
     libraryDependencies ++= Seq(
+      scodecBits,
       cats1
     )
   )
@@ -110,7 +112,10 @@ lazy val `kademlia-node` = project.in(file("kademlia/node"))
 lazy val `kademlia-protocol` = project.in(file("kademlia/protocol"))
   .settings(commons)
   .settings(
-    libraryDependencies += cats1
+    libraryDependencies ++= Seq(
+      scodecBits,
+      cats1
+    )
   ).dependsOn(`codec-core`, `crypto`)
 
 lazy val `kademlia-testkit` = project.in(file("kademlia/testkit"))
@@ -126,7 +131,7 @@ lazy val `kademlia-grpc` = project.in(file("kademlia/grpc"))
   .settings(commons)
   .settings(
     grpc
-  ).dependsOn(`kademlia-protocol`, `codec-core`, `kademlia-testkit` % Test)
+  ).dependsOn(`transport-grpc`, `kademlia-protocol`, `codec-core`, `kademlia-testkit` % Test)
 
 lazy val `transport-grpc` = project.in(file("transport/grpc"))
   .settings(commons)
@@ -141,7 +146,7 @@ lazy val `transport-grpc` = project.in(file("transport/grpc"))
       "org.bitlet" % "weupnp" % "0.1.+",
       scalatest
     )
-  ).dependsOn(`transport-core`)
+  ).dependsOn(`transport-core`, `codec-core`)
 
 lazy val `transport-core` = project.in(file("transport/core"))
   .settings(commons)
@@ -217,6 +222,7 @@ lazy val `crypto` = project.in(file("crypto"))
   .settings(
     libraryDependencies ++= Seq(
       cats1,
+      scodecBits,
       scalatest
     )
   )
@@ -242,7 +248,7 @@ lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
     libraryDependencies ++= Seq(
       scalatest
     )
-  ).dependsOn(`dataset-client`, `codec-core`).aggregate(`dataset-protocol`)
+  ).dependsOn(`dataset-client`, `codec-core`, `transport-grpc`).aggregate(`dataset-protocol`)
 
 lazy val `dataset-client` = project.in(file("dataset/client"))
   .settings(commons)
@@ -257,10 +263,13 @@ lazy val `node` = project.in(file("node"))
   .settings(
     libraryDependencies ++= Seq(
       scalatest
-    )
+    ),
+    mainClass := Some("fluence.node.NodeApp"),
+    packageName in Docker := "fluencelabs/node"
   )
   .dependsOn(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`, `client`)
-  .aggregate(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`)
+  .aggregate(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`, `client`)
+  .enablePlugins(JavaAppPackaging, DockerPlugin)
 
 // TODO: add enough dependencies for client-node communications
 // TODO: grpc is only for JVM: transport should be more abstract

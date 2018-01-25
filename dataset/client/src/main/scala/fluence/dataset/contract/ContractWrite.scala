@@ -17,7 +17,7 @@
 
 package fluence.dataset.contract
 
-import cats.MonadError
+import cats.{ Contravariant, Functor, Invariant, MonadError }
 import cats.syntax.flatMap._
 import fluence.crypto.signature.{ Signature, SignatureChecker, Signer }
 import fluence.kad.protocol.Key
@@ -33,6 +33,20 @@ trait ContractWrite[C] {
 }
 
 object ContractWrite {
+  implicit object inv extends Invariant[ContractWrite] {
+    override def imap[A, B](fa: ContractWrite[A])(f: A ⇒ B)(g: B ⇒ A): ContractWrite[B] =
+      new ContractWrite[B] {
+        override def setOfferSeal(contract: B, signature: Signature): B =
+          f(fa.setOfferSeal (g(contract), signature))
+
+        override def setOfferSignature(contract: B, participant: Key, signature: Signature): B =
+          f(fa.setOfferSignature(g(contract), participant, signature))
+
+        override def setParticipantsSeal(contract: B, signature: Signature): B =
+          f(fa.setParticipantsSeal(g(contract), signature))
+      }
+  }
+
   implicit class WriteOps[C](contract: C)(implicit read: ContractRead[C], write: ContractWrite[C]) {
     import ContractRead.ReadOps
 

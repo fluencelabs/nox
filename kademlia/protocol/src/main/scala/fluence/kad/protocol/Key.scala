@@ -18,10 +18,8 @@
 package fluence.kad.protocol
 
 import java.lang.Byte.toUnsignedInt
-import java.nio.ByteBuffer
 import java.nio.charset.Charset
 import java.security.MessageDigest
-import java.util.Base64
 
 import cats.syntax.monoid._
 import cats.syntax.applicative._
@@ -29,6 +27,7 @@ import cats.syntax.flatMap._
 import cats.{ ApplicativeError, MonadError, Monoid, Order, Show }
 import fluence.codec.Codec
 import fluence.crypto.keypair.KeyPair
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -37,10 +36,10 @@ import scala.util.Try
  * Kademlia Key is 160 bits (sha-1 length) in byte array.
  * We use value case class for type safety, and typeclasses for ops.
  *
- * @param origin ID wrapped with ByteBuffer
+ * @param value ID wrapped with ByteVector
  */
-final case class Key private (origin: ByteBuffer) extends AnyVal {
-  def id: Array[Byte] = origin.array()
+final case class Key private (value: ByteVector) extends AnyVal {
+  def id: Array[Byte] = value.toArray
 
   /**
    * Number of leading zeros
@@ -54,8 +53,7 @@ final case class Key private (origin: ByteBuffer) extends AnyVal {
     }
   }
 
-  def b64: String =
-    Base64.getEncoder.encodeToString(id)
+  def b64: String = value.toBase64
 
   override def toString: String = b64
 }
@@ -64,21 +62,11 @@ object Key {
   val Length = 20
   val BitLength: Int = Length * 8
 
-  // TODO should we wrap implicits with Implicits object?
-
   // XOR Monoid is used for Kademlia distance
   implicit object XorDistanceMonoid extends Monoid[Key] {
-    override val empty: Key = Key(ByteBuffer.wrap(Array.ofDim[Byte](Length))) // filled with zeros
+    override val empty: Key = Key(ByteVector.fill(Length)(0: Byte)) // filled with zeros
 
-    override def combine(x: Key, y: Key): Key = Key {
-      var i = 0
-      val ret = Array.ofDim[Byte](Length)
-      while (i < Length) {
-        ret(i) = (x.id(i) ^ y.id(i)).toByte
-        i += 1
-      }
-      ByteBuffer.wrap(ret)
-    }
+    override def combine(x: Key, y: Key): Key = Key(x.value ^ y.value)
   }
 
   // Kademlia keys are ordered, low order byte is the most significant
@@ -110,8 +98,7 @@ object Key {
    * Tries to read base64 form of Kademlia key.
    */
   def fromB64[F[_]](str: String)(implicit F: MonadError[F, Throwable]): F[Key] =
-    F.catchNonFatal(Base64.getDecoder.decode(str))
-      .flatMap(fromBytes[F])
+    b64Codec[F].decode(str)
 
   /**
    * Checks that given key is produced form that publicKey
@@ -123,11 +110,12 @@ object Key {
   def checkPublicKey(key: Key, publicKey: KeyPair.Public): Boolean = {
     import cats.instances.try_._
     import cats.syntax.eq._
-    sha1[Try](publicKey.value.array()).filter(_ === key).isSuccess
+    sha1[Try](publicKey.value.toArray).filter(_ === key).isSuccess
   }
 
   /**
    * Calculates sha-1 hash of the payload, and wraps it with Key.
+   * TODO: use hasher from crypto
    *
    * @param bytes Bytes to hash
    */
@@ -141,27 +129,25 @@ object Key {
     fromPublicKey(keyPair.publicKey)
 
   def fromPublicKey[F[_]](publicKey: KeyPair.Public)(implicit F: MonadError[F, Throwable]): F[Key] =
-    sha1(publicKey.value.array())
+    sha1(publicKey.value.toArray)
 
   def fromString[F[_]](str: String, charset: Charset = Charset.defaultCharset())(implicit F: MonadError[F, Throwable]): F[Key] =
     sha1(str.getBytes)
 
-  def fromBuffer[F[_]](bb: ByteBuffer)(implicit F: ApplicativeError[F, Throwable]): F[Key] =
-    F.catchNonFatal{
-      require(bb.array().length == Length, s"Key's length should be $Length bytes")
-      new Key(bb)
-    }
+  def fromBytes[F[_]](bytes: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Key] =
+    bytesCodec[F].decode(bytes)
 
-  def fromBytes[F[_]](bytes: Array[Byte])(implicit F: ApplicativeError[F, Throwable]): F[Key] =
-    fromBuffer(ByteBuffer.wrap(bytes))
-
-  implicit def bytesCodec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, Array[Byte]] =
-    Codec(_.id.pure[F], fromBytes[F])
+  implicit def bytesCodec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Key, Array[Byte]] =
+    vectorCodec[F] andThen Codec.codec[F, ByteVector, Array[Byte]]
 
   implicit def b64Codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Key, String] =
-    Codec(_.b64.pure[F], fromB64[F])
+    vectorCodec[F] andThen Codec.codec[F, ByteVector, String]
 
-  implicit def bufferCodec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, ByteBuffer] =
-    Codec(_.origin.pure[F], fromBuffer[F])
-
+  implicit def vectorCodec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, ByteVector] =
+    Codec(
+      _.value.pure[F],
+      vec ⇒
+        if (vec.size == Length) Key(vec).pure[F]
+        else F.raiseError(new IllegalArgumentException(s"Key length in bytes must be $Length, but ${vec.size} given"))
+    )
 }
