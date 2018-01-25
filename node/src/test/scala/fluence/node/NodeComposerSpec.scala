@@ -34,7 +34,7 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
   private val pureClient = ClientComposer.grpc[Future](GrpcClient.builder)
 
   private val servers = (0 to 20).map { n ⇒
-    val port = 3300 + n
+    val port = 3100 + n
 
     val seedBytes = {
       val bb = ByteBuffer.allocate(Integer.BYTES)
