@@ -15,16 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.btree.common
+package fluence.btree.server.core
 
-import scala.collection.Searching.SearchResult
+import fluence.btree.common.{ ClientPutDetails, ValueRef }
 
 /**
- * Structure for holding all details needed for putting key and value to BTree.
+ * Structure for holding all details needed for putting new record to Btree index.
  *
- * @param key          The key that will be placed to the BTree
- * @param value        The value that will be placed to the BTree
- * @param searchResult A result of searching client key in server leaf keys. Contains an index
- *                     for putting specified key and value
+ * @param clientPutDetails  Structure for holding all client details needed for putting key and valueChecksums to Btree
+ * @param valRefProvider    Generates new value reference
  */
-case class PutDetails(key: Key, value: Value, searchResult: SearchResult)
+case class BTreePutDetails(clientPutDetails: ClientPutDetails, private val valRefProvider: () ⇒ ValueRef)

@@ -17,7 +17,7 @@
 
 package fluence.btree.client
 
-import fluence.btree.common.Value
+import fluence.btree.common.{ Bytes, Hash }
 
 import scala.language.higherKinds
 
@@ -32,7 +32,7 @@ sealed trait RequestState
 trait GetState[F[_]] extends RequestState {
 
   /** Returns result of 'get' operation. */
-  def getFoundValue: F[Option[Value]]
+  def getFoundValue: F[Option[Hash]] // todo this should be removed in the next task
 
 }
 
@@ -42,6 +42,6 @@ trait GetState[F[_]] extends RequestState {
 trait PutState[F[_]] extends RequestState {
 
   /** Returns old value that has been stored in tree before current 'put' operation. */
-  def getOldValue: F[Option[Value]]
+  def getOldValue: F[Option[Bytes]] // todo this should be removed in the next task
 
 }

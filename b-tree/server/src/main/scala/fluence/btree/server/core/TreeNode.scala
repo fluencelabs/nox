@@ -41,13 +41,13 @@ sealed trait TreeNode[K] {
  * All arrays are in a one to one relationship. It means that:
  * {{{keys.size == checksumsOfValues.size == checksumsOfValues.size == checksumsOfKv.size == size }}}
  *
- * @param keys                Search keys
- * @param valuesReferences   Stored values references
- * @param valuesChecksums    Array of checksums for each encrypted stored value (Not a checksum of value reference!)
- * @param checksumsOfKv      Array of checksums for each key and checksumsOfValue pair.
- *                             'hash(key+checksumsOfValue)' (optimization)
- * @param size                Number of keys inside this leaf. Actually size of each array in leaf. (optimization)
- * @param checksum           Hash of leaf state (hash of concatenated checksumsOfKv)
+ * @param keys              Search keys
+ * @param valuesReferences Stored values references
+ * @param valuesChecksums  Array of checksums for each encrypted stored value (Not a checksum of value reference!)
+ * @param kvChecksums      Array of checksums for each key and checksumsOfValue pair.
+ *                           'hash(key+checksumsOfValue)' (optimization)
+ * @param size              Number of keys inside this leaf. Actually size of each array in leaf. (optimization)
+ * @param checksum         Hash of leaf state (hash of concatenated checksumsOfKv)
  *
  * @tparam K The type of search key
  * @tparam V The Type of stored value
@@ -56,7 +56,7 @@ case class LeafNode[K, V](
     override val keys: Array[K],
     valuesReferences: Array[V],
     valuesChecksums: Array[Hash],
-    checksumsOfKv: Array[Hash],
+    kvChecksums: Array[Hash],
     override val size: Int,
     override val checksum: Hash
 ) extends TreeNode[K]

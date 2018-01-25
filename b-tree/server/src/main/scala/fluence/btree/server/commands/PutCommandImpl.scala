@@ -19,8 +19,9 @@ package fluence.btree.server.commands
 
 import cats.MonadError
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.btree.common.merkle.{ MerklePath, MerkleRootCalculator }
-import fluence.btree.common.{ Key, PutDetails, Value }
+import fluence.btree.common.{ Hash, Key, ValueRef }
 import fluence.btree.protocol.BTreeRpc.PutCallbacks
 import fluence.btree.server.Leaf
 import fluence.btree.server.core._
@@ -32,19 +33,23 @@ import scala.language.higherKinds
  *
  * @param merkleRootCalculator A function that ask client to give some required details for the next step
  * @param putCallbacks          A pack of functions that ask client to give some required details for the next step
+ * @param valueRefProvider      A function for getting next value reference
  * @tparam F The type of effect, box for returning value
  */
 case class PutCommandImpl[F[_]](
     merkleRootCalculator: MerkleRootCalculator,
-    putCallbacks: PutCallbacks[F]
-)(implicit ME: MonadError[F, Throwable]) extends BaseSearchCommand[F](putCallbacks) with PutCommand[F, Key, Value] {
+    putCallbacks: PutCallbacks[F],
+    valueRefProvider: () ⇒ ValueRef
+)(implicit ME: MonadError[F, Throwable]) extends BaseSearchCommand[F](putCallbacks) with PutCommand[F, Key, ValueRef] {
 
-  def putDetails(leaf: Option[Leaf]): F[PutDetails] = {
-    val (keys, values) =
-      leaf.map(l ⇒ l.keys → l.values)
-        .getOrElse(Array.empty[Key] → Array.empty[Value])
+  def putDetails(leaf: Option[Leaf]): F[BTreePutDetails] = {
+    val (keys, valuesChecksums) =
+      leaf.map(l ⇒ l.keys → l.valuesChecksums)
+        .getOrElse(Array.empty[Key] → Array.empty[Hash])
 
-    putCallbacks.putDetails(keys, values)
+    putCallbacks
+      .putDetails(keys, valuesChecksums)
+      .map(clientPutDetails ⇒ BTreePutDetails(clientPutDetails, valueRefProvider))
   }
 
   override def verifyChanges(merklePath: MerklePath, wasSplitting: Boolean): F[Unit] = {

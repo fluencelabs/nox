@@ -18,8 +18,8 @@
 package fluence.btree.server
 
 import cats.Show
-import cats.syntax.show._
-import fluence.btree.server.core.NodeWithId
+import fluence.btree.common.{ ClientPutDetails, Hash, Key, ValueRef }
+import fluence.btree.server.core.{ BTreePutDetails, NodeWithId }
 
 /**
  * ''Show'' type class implementations for [[MerkleBTree]] entities.
@@ -28,20 +28,29 @@ object MerkleBTreeShow {
 
   import fluence.btree.common.BTreeCommonShow._
 
-  implicit def showLongArray: Show[Array[Long]] =
-    Show.show((array: Array[Long]) ⇒ array.mkString("[", ",", "]"))
-
-  implicit def showBranch(implicit sb: Show[Array[Array[Byte]]], sl: Show[Array[Long]]): Show[Branch] = {
-    Show.show((t: Branch) ⇒ s"""Branch(${sb.show(t.keys)}, ${sl.show(t.childsReferences)}, ${t.size}, ${t.checksum.show})""")
+  implicit def showBTreePutDetails(implicit cpd: Show[ClientPutDetails], svr: Show[ValueRef]): Show[BTreePutDetails] = {
+    Show.show((bpd: BTreePutDetails) ⇒
+      s"BTreePutDetails(${cpd.show(bpd.clientPutDetails)})"
+    )
+  }
+  implicit def showBranch(implicit sak: Show[Array[Key]], sani: Show[Array[NodeId]], sh: Show[Hash]): Show[Branch] = {
+    Show.show((t: Branch) ⇒
+      s"Branch(${sak.show(t.keys)}, ${sani.show(t.childsReferences)}, ${t.size}, ${sh.show(t.checksum)})"
+    )
   }
 
-  implicit def showLeaf(implicit sb: Show[Array[Array[Byte]]], sl: Show[Array[Long]]): Show[Leaf] = {
-    Show.show((l: Leaf) ⇒ s"""Leaf(${sb.show(l.keys)}, ${sl.show(l.valuesReferences)},
-         ${sb.show(l.valuesChecksums)}, ${l.size}, ${l.checksum.show})""")
+  implicit def showLeaf(
+    implicit
+    sak: Show[Array[Key]], savr: Show[Array[ValueRef]], sah: Show[Array[Hash]], sh: Show[Hash]
+  ): Show[Leaf] = {
+    Show.show((l: Leaf) ⇒
+      s"""Leaf(${sak.show(l.keys)}, ${savr.show(l.valuesReferences)}, ${sah.show(l.valuesChecksums)},
+         ${l.size}, ${sh.show(l.checksum)})"""
+    )
   }
 
-  implicit def showNodeWithId(implicit sn: Show[Node]): Show[NodeWithId[NodeId, Node]] = {
-    Show.show((n: NodeWithId[NodeId, Node]) ⇒ s"""NodeWithId(${n.id}, ${sn.show(n.node)})""")
+  implicit def showNodeWithId(implicit sn: Show[Node], sni: Show[NodeId]): Show[NodeWithId[NodeId, Node]] = {
+    Show.show((n: NodeWithId[NodeId, Node]) ⇒ s"""NodeWithId(${sni.show(n.id)}, ${sn.show(n.node)})""")
   }
 
   implicit def showNode(implicit st: Show[Branch], sl: Show[Leaf]): Show[Node] = {

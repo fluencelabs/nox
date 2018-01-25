@@ -80,7 +80,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
     }
 
     override def toProof(substitutionIdx: Int): NodeProof = {
-      GeneralNodeProof(Array.emptyByteArray, leaf.checksumsOfKv, substitutionIdx)
+      GeneralNodeProof(Array.emptyByteArray, leaf.kvChecksums, substitutionIdx)
     }
 
   }
@@ -137,6 +137,10 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
     }
 
   }
+
+  /** Creates empty leaf node. */
+  def createEmptyLeaf: Leaf =
+    LeafNode(Array.empty[Key], Array.empty[ValueRef], Array.empty[Hash], Array.empty[Hash], 0, Array.emptyByteArray)
 
   /** Create new leaf with specified ''key'' and ''value''.*/
   def createLeaf(key: Key, valueRef: ValueRef, valueChecksum: Hash): Leaf = {

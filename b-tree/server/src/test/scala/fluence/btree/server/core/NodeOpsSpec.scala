@@ -30,11 +30,9 @@ class NodeOpsSpec extends WordSpec with Matchers {
   private val val5Ref = 5l
   private val val5Checksum = "H<v5>".getBytes()
 
-
   private val key6 = "k6".getBytes()
   private val val6Ref = 6l
   private val val6Checksum = "H<v6>".getBytes()
-
 
   private val key7 = "k7".getBytes()
   private val val7Ref = 7l
@@ -147,7 +145,6 @@ class NodeOpsSpec extends WordSpec with Matchers {
     def keys = Array(key1, key2, key3, key4, key5)
     def valuesRefs = Array(val1Ref, val2Ref, val3Ref, val4Ref, val5Ref)
     def valuesChecksums = Array(val1Checksum, val2Checksum, val3Checksum, val4Checksum, val5Checksum)
-
 
     "split leaf in half" in {
       val leaf = newLeaf(keys, valuesRefs, valuesChecksums)
@@ -348,7 +345,7 @@ class NodeOpsSpec extends WordSpec with Matchers {
     expectedKVHashes: Array[Bytes],
     expectedSize: Int
   ) = {
-    updatedLeaf.checksumsOfKv should contain theSameElementsInOrderAs expectedKVHashes
+    updatedLeaf.kvChecksums should contain theSameElementsInOrderAs expectedKVHashes
     updatedLeaf.checksum shouldBe getLeafChecksum(expectedKVHashes)
     updatedLeaf.size shouldBe expectedSize
   }
