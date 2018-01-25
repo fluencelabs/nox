@@ -19,15 +19,16 @@ package fluence.dataset.grpc.server
 
 import java.util.concurrent.atomic.AtomicBoolean
 
-import cats.data.Kleisli
 import cats.{ MonadError, ~> }
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.dataset.grpc.{ BasicContract, DatasetContractsApiGrpc, FindRequest }
 import fluence.dataset.protocol.ContractsApi
 import fluence.kad.protocol.Key
 import io.grpc.stub.StreamObserver
+import fluence.transport.grpc.GrpcCodecs._
 
 import scala.concurrent.{ Future, Promise }
 import scala.language.higherKinds
@@ -37,10 +38,11 @@ class ContractsApiServer[F[_], C](
 )(implicit
     F: MonadError[F, Throwable],
     codec: Codec[F, C, BasicContract],
-    keyK: Kleisli[F, Array[Byte], Key],
     run: F ~> Future,
     hold: Future ~> F)
   extends DatasetContractsApiGrpc.DatasetContractsApi {
+
+  private val keyK = Codec.codec[F, Key, ByteString]
 
   override def allocate(responseObserver: StreamObserver[BasicContract]): StreamObserver[BasicContract] =
     new StreamObserver[BasicContract] {
@@ -64,11 +66,8 @@ class ContractsApiServer[F[_], C](
                 signed ⇒
                   for {
                     binSigned ← codec.encode(signed)
-                    _ = println("signed: " + signed)
-                    _ = println("bin signed " + new String(java.util.Base64.getEncoder.encode(binSigned.id.toByteArray)))
                     _ ← F.catchNonFatal(responseObserver.onNext(binSigned))
                     clientSealed ← hold(callbackPromise.future)
-                    _ = println("client sealed " + clientSealed)
                     clientRaw ← codec.decode(clientSealed)
                   } yield clientRaw
               )
@@ -83,7 +82,7 @@ class ContractsApiServer[F[_], C](
   override def find(request: FindRequest): Future[BasicContract] =
     run(
       for {
-        k ← keyK(request.id.toByteArray)
+        k ← keyK.decode(request.id)
         contract ← api.find(k)
         resp ← codec.encode(contract)
       } yield resp
