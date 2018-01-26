@@ -94,7 +94,6 @@ object ContractsCacheStore {
             offerSealVec ← strVec.decode(offerSealBS)
 
             participants ← Traverse[List].traverse(g.participants.toList){ p ⇒
-              println("read p, id length = " + p.id.size())
               for {
                 k ← keyC.decode(p.id)
                 kp ← pubKeyC.decode(p.publicKey)
@@ -130,7 +129,7 @@ object ContractsCacheStore {
       )
     }
 
-  def apply(): KVStore[Task, Key, ContractRecord[BasicContract]] = {
+  def apply(storeName: String): KVStore[Task, Key, ContractRecord[BasicContract]] = {
     import Key.bytesCodec
 
     implicit val contractRecordCodec: Codec[Task, ContractRecord[BasicContract], Array[Byte]] =
@@ -139,6 +138,14 @@ object ContractsCacheStore {
         bytes ⇒ Task(BasicContractCache.parseFrom(bytes))
       )
 
-    RocksDbStore("fluence:contractsCache").get
+    RocksDbStore(storeName).toEither match {
+      case Right(store) ⇒
+        store
+      case Left(err) ⇒
+        println(Console.RED)
+        err.printStackTrace()
+        print(Console.RESET)
+        throw err
+    }
   }
 }

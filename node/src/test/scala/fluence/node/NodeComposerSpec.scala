@@ -42,7 +42,11 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
       bb.array()
     }
 
-    new NodeComposer(KeyPair.fromBytes(seedBytes, seedBytes), GrpcServerConf(localPort = port, externalPort = None, acceptLocal = true))
+    new NodeComposer(
+      KeyPair.fromBytes(seedBytes, seedBytes),
+      GrpcServerConf(localPort = port, externalPort = None, acceptLocal = true),
+      "node_cache_" + n
+    )
   }
 
   "Node composer simulation" should {

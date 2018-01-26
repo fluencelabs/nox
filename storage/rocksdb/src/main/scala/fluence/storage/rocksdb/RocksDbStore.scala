@@ -121,7 +121,7 @@ object RocksDbStore {
   type Value = Array[Byte]
 
   def apply(dataSet: String): Try[RocksDbStore] =
-    apply(dataSet)
+    apply(dataSet, ConfigFactory.load())
 
   def apply(dataSet: String, conf: Config): Try[RocksDbStore] =
     apply(dataSet, RocksDbConf.read(conf = conf))
