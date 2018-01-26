@@ -42,7 +42,11 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
       bb.array()
     }
 
-    new NodeComposer(KeyPair.fromBytes(seedBytes, seedBytes), GrpcServerConf(localPort = port, externalPort = None, acceptLocal = true))
+    new NodeComposer(
+      KeyPair.fromBytes(seedBytes, seedBytes),
+      GrpcServerConf(localPort = port, externalPort = None, acceptLocal = true),
+      "node_cache_" + n
+    )
   }
 
   "Node composer simulation" should {
@@ -85,20 +89,17 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
       val kp = KeyPair.fromBytes(seed, seed)
       val key = Key.fromKeyPair[Future](kp).futureValue
       val signer = new signature.Signer.DumbSigner(kp)
-      val offer = BasicContract.offer(key, participantsRequired = 1, signer = signer)
+      val offer = BasicContract.offer(key, participantsRequired = 4, signer = signer)
 
       offer.checkOfferSeal(SignatureChecker.DumbChecker) shouldBe true
 
-      println("going to allocate, signature: " + offer.offerSeal.sign.toBase64)
-
       val accepted = contractsApi.allocate(offer, bc ⇒
         {
-          println("asking to seal participants " + bc)
           Future successful bc.sealParticipants(signer)
         }
       ).futureValue
 
-      accepted.participants.size shouldBe 1
+      accepted.participants.size shouldBe 4
 
       contractsApi.find(key).futureValue shouldBe accepted
 

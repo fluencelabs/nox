@@ -98,7 +98,6 @@ object BasicContractCodec {
             offerSealVec ← strVec.decode(offerSealBS)
 
             participants ← Traverse[List].traverse(g.participants.toList){ p ⇒
-              println("read p, id length = " + p.id.size())
               for {
                 k ← keyC.decode(p.id)
                 kp ← pubKeyC.decode(p.publicKey)

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package fluence.node;
+
+message Participant {
+    bytes id = 1;
+    bytes publicKey = 2;
+    bytes signature = 3;
+}
+
+message BasicContractCache {
+    bytes id = 1;
+    bytes publicKey = 2;
+
+    int32 participantsRequired = 10;
+
+    bytes offerSeal = 20;
+
+    repeated Participant participants = 30;
+
+    bytes participantsSeal = 31;
+
+    int64 version = 40;
+
+    int64 lastUpdated = 100;
+}

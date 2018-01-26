@@ -30,13 +30,17 @@ class BasicContractCodecSpec extends WordSpec with Matchers {
 
     "be invariant for direct+inverse op" in {
 
+      import fluence.dataset.contract.ContractWrite._
+
       val seed = "seed".getBytes()
       val keyPair = KeyPair.fromBytes(seed, seed)
       val signer = new signature.Signer.DumbSigner(keyPair)
       val key = Key.fromKeyPair(keyPair).get
 
       Seq(
-        BC.offer(key, 1, signer)
+        BC.offer(key, 1, signer),
+        BC.offer(key, 1, signer).signOffer(key, signer),
+        BC.offer(key, 1, signer).signOffer(key, signer).sealParticipants(signer)
       ).foreach(checkInvariance)
 
     }

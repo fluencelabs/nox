@@ -17,21 +17,20 @@
 
 package fluence.node
 
-import cats.~>
 import cats.instances.try_._
+import cats.~>
 import fluence.client.ClientComposer
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
-import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetContractsApiGrpc }
 import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsApiServer, ContractsCacheServer }
+import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetContractsApiGrpc }
 import fluence.dataset.node.Contracts
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
-import fluence.storage.TrieMapKVStore
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
@@ -42,7 +41,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Try
 
-class NodeComposer(keyPair: KeyPair, conf: GrpcServerConf = GrpcServerConf.read()) {
+class NodeComposer(keyPair: KeyPair, conf: GrpcServerConf = GrpcServerConf.read(), contractsCacheStoreName: String = "fluence_contractsCache") {
 
   private implicit val runFuture = new (Future ~> Task) {
     override def apply[A](fa: Future[A]): Task[A] = Task.deferFuture(fa)
@@ -56,6 +55,7 @@ class NodeComposer(keyPair: KeyPair, conf: GrpcServerConf = GrpcServerConf.read(
   private implicit val kadCodec = fluence.kad.grpc.KademliaNodeCodec[Task]
   private implicit val contractCodec = fluence.dataset.grpc.BasicContractCodec.codec[Task]
   private val keyC = Key.bytesCodec[Task]
+
   import keyC.inverse
 
   private val serverBuilder = GrpcServer.builder(conf)
@@ -76,7 +76,7 @@ class NodeComposer(keyPair: KeyPair, conf: GrpcServerConf = GrpcServerConf.read(
 
   val contractsApi = new Contracts[Task, BasicContract, Contact](
     nodeId = key,
-    storage = TrieMapKVStore(), // TODO: cache persistence
+    storage = ContractsCacheStore(contractsCacheStoreName),
     createDataset = _ ⇒ Task.unit, // TODO: dataset creation
     checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
     maxFindRequests = 100,

@@ -61,12 +61,17 @@ val mockito = "org.mockito" % "mockito-core" % MockitoV % Test
 val scalatestKit = "org.scalatest" %% "scalatest" % "3.0.+"
 val scalatest = scalatestKit % Test
 
-val grpc = Seq(
+val protobuf = Seq(
   PB.targets in Compile := Seq(
     scalapb.gen() -> (sourceManaged in Compile).value
   ),
   libraryDependencies ++= Seq(
-    "com.trueaccord.scalapb" %% "scalapb-runtime" % com.trueaccord.scalapb.compiler.Version.scalapbVersion % "protobuf",
+    "com.trueaccord.scalapb" %% "scalapb-runtime" % com.trueaccord.scalapb.compiler.Version.scalapbVersion % "protobuf"
+  )
+)
+
+val grpc = protobuf ++ Seq(
+  libraryDependencies ++= Seq(
     "io.grpc" % "grpc-netty" % com.trueaccord.scalapb.compiler.Version.grpcJavaVersion,
     "com.trueaccord.scalapb" %% "scalapb-runtime-grpc" % com.trueaccord.scalapb.compiler.Version.scalapbVersion
   )
@@ -261,6 +266,7 @@ lazy val `dataset-client` = project.in(file("dataset/client"))
 lazy val `node` = project.in(file("node"))
   .settings(commons)
   .settings(
+    protobuf,
     libraryDependencies ++= Seq(
       scalatest
     ),
