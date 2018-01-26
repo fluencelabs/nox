@@ -17,21 +17,28 @@
 
 package fluence.node
 
+import java.nio.ByteBuffer
+import java.time.Instant
+
 import cats.~>
 import cats.instances.try_._
+import com.google.protobuf.CodedOutputStream
+import com.google.protobuf.Internal.ProtobufList
 import fluence.client.ClientComposer
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
-import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetContractsApiGrpc }
+import fluence.dataset.grpc.{ BasicContractCodec, ContractAllocatorGrpc, ContractsCacheGrpc, DatasetContractsApiGrpc }
 import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsApiServer, ContractsCacheServer }
 import fluence.dataset.node.Contracts
+import fluence.dataset.node.contract.ContractRecord
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
-import fluence.storage.TrieMapKVStore
+import fluence.storage.{ KVStore, TrieMapKVStore }
+import fluence.storage.rocksdb.RocksDbStore
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
@@ -43,6 +50,8 @@ import scala.concurrent.duration._
 import scala.util.Try
 
 class NodeComposer(keyPair: KeyPair, conf: GrpcServerConf = GrpcServerConf.read()) {
+
+  import fluence.codec.Codec
 
   private implicit val runFuture = new (Future ~> Task) {
     override def apply[A](fa: Future[A]): Task[A] = Task.deferFuture(fa)
@@ -76,7 +85,7 @@ class NodeComposer(keyPair: KeyPair, conf: GrpcServerConf = GrpcServerConf.read(
 
   val contractsApi = new Contracts[Task, BasicContract, Contact](
     nodeId = key,
-    storage = TrieMapKVStore(), // TODO: cache persistence
+    storage = ContractsCacheStore(),
     createDataset = _ ⇒ Task.unit, // TODO: dataset creation
     checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
     maxFindRequests = 100,
