@@ -211,8 +211,8 @@ class MerkleBTreeClient[K] private (
    *
    * @param key Plain text key
    */
-  override def getCmd(key: K): Task[GetCallbacks[Task]] = {
-    log.debug(s"GetCmd starts for key=$key")
+  override def getCallbacks(key: K): Task[GetCallbacks[Task]] = {
+    log.debug(s"getCallbacks starts for key=$key")
 
     for {
       clientState ← clientStateMVar.read
@@ -226,8 +226,8 @@ class MerkleBTreeClient[K] private (
    * @param key             Plain text key
    * @param valueChecksum  Checksum of encrypted value to be store
    */
-  override def putCmd(key: K, valueChecksum: Hash): Task[PutCallbacks[Task]] = {
-    log.debug(s"PutCmd starts put for key=$key, value=$valueChecksum")
+  override def putCallbacks(key: K, valueChecksum: Hash): Task[PutCallbacks[Task]] = {
+    log.debug(s"putCallbacks starts put for key=$key, value=$valueChecksum")
 
     val putCallbacks = for {
       clientState ← clientStateMVar.take
@@ -245,7 +245,7 @@ class MerkleBTreeClient[K] private (
    *
    * @param key Plain text key
    */
-  override def removeCmd(key: K): Task[RemoveCallback[Task]] = ???
+  override def removeCallbacks(key: K): Task[RemoveCallback[Task]] = ???
 
   private def binarySearch(key: K, keys: Array[Key]): SearchResult = {
     import fluence.crypto.cipher.CryptoSearching._

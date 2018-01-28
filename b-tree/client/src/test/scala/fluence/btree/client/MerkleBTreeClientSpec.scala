@@ -32,10 +32,10 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k1v1-cs>>")
-        val getCmd = wait(client.getCmd(key1))
+        val getCallbacks = wait(client.getCallbacks(key1))
         val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k3v3>H<k4v4>>".getBytes)
         val result = wait(
-          getCmd
+          getCallbacks
             .nextChildIndex(Array("unexpected key returned from server".getBytes), childChecksums)
             .map(_ ⇒ ()).failed
         )
@@ -47,10 +47,10 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k1v1>H<k2v2-cs>>")
-        val getCmd = wait(client.getCmd(key1))
+        val getCallbacks = wait(client.getCallbacks(key1))
 
         val result = wait(
-          getCmd
+          getCallbacks
             .submitLeaf(
               Array(key1.getBytes, "unexpected key returned from server".getBytes),
               Array(val1Hash.getBytes, val2Hash.getBytes)
@@ -66,9 +66,9 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
       "key isn't found" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k1v1-cs>>")
-        val getCmd = wait(client.getCmd(key2))
+        val getCallbacks = wait(client.getCallbacks(key2))
 
-        val result = wait(getCmd.submitLeaf(Array(key1.getBytes), Array(val1Hash.getBytes)))
+        val result = wait(getCallbacks.submitLeaf(Array(key1.getBytes), Array(val1Hash.getBytes)))
 
         result shouldBe None
       }
@@ -78,9 +78,9 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
       "key was found in Root" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k1v1-cs>>")
-        val getCmd = wait(client.getCmd(key1))
+        val getCallbacks = wait(client.getCallbacks(key1))
 
-        val result = wait(getCmd.submitLeaf(Array(key1.getBytes), Array(val1Hash.getBytes)))
+        val result = wait(getCallbacks.submitLeaf(Array(key1.getBytes), Array(val1Hash.getBytes)))
 
         result shouldBe Some(0)
       }
@@ -88,13 +88,13 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
       "key was found at the second level of tree" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k3v3-cs>H<k4v4-cs>>>")
-        val getCmd = wait(client.getCmd(key1))
+        val getCallbacks = wait(client.getCallbacks(key1))
         val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".getBytes, "H<H<k3v3-cs>H<k4v4-cs>>".getBytes)
 
         val result = wait(
           for {
-            _ ← getCmd.nextChildIndex(Array(key2.getBytes), childChecksums)
-            idx ← getCmd.submitLeaf(Array(key1.getBytes, key2.getBytes), Array(val1Hash.getBytes, val2Hash.getBytes))
+            _ ← getCallbacks.nextChildIndex(Array(key2.getBytes), childChecksums)
+            idx ← getCallbacks.submitLeaf(Array(key1.getBytes, key2.getBytes), Array(val1Hash.getBytes, val2Hash.getBytes))
           } yield idx
         )
 
@@ -109,10 +109,10 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k1v1>>")
-        val putCmd = wait(client.putCmd(key1, val1Hash.getBytes))
+        val putCallbacks = wait(client.putCallbacks(key1, val1Hash.getBytes))
 
         val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k3v3>H<k4v4>>".getBytes)
-        val result = wait(putCmd.nextChildIndex(Array("unexpected key returned from server".getBytes), childChecksums).failed)
+        val result = wait(putCallbacks.nextChildIndex(Array("unexpected key returned from server".getBytes), childChecksums).failed)
 
         result.getMessage should startWith("Checksum of branch didn't pass verifying")
       }
@@ -121,9 +121,9 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k1v1>H<k2v2>>")
-        val putCmd = wait(client.putCmd(key1, val1Hash.getBytes))
+        val putCallbacks = wait(client.putCallbacks(key1, val1Hash.getBytes))
 
-        val result = wait(putCmd.putDetails(
+        val result = wait(putCallbacks.putDetails(
           Array(key1.getBytes, "unexpected key returned from server".getBytes),
           Array(val1Hash.getBytes, val2Hash.getBytes)
         ).failed)
@@ -136,13 +136,13 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
       "key ins't present in tree (root inserting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k1v1-cs>>")
-        val putCmd = wait(client.putCmd(key2, val2Hash.getBytes))
+        val putCallbacks = wait(client.putCallbacks(key2, val2Hash.getBytes))
 
         wait(
           for {
-            _ ← putCmd.putDetails(Array(key1.getBytes), Array(val1Hash.getBytes))
-            _ ← putCmd.verifyChanges("H<H<k1v1-cs>H<k2v2-cs>>".getBytes, wasSplitting = false)
-            _ ← putCmd.changesStored()
+            _ ← putCallbacks.putDetails(Array(key1.getBytes), Array(val1Hash.getBytes))
+            _ ← putCallbacks.verifyChanges("H<H<k1v1-cs>H<k2v2-cs>>".getBytes, wasSplitting = false)
+            _ ← putCallbacks.changesStored()
           } yield ()
         ) shouldBe ()
       }
@@ -150,13 +150,13 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
       "key was found in tree (root inserting) " in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k1v1-cs>>")
-        val putCmd = wait(client.putCmd(key1, val2Hash.getBytes))
+        val putCallbacks = wait(client.putCallbacks(key1, val2Hash.getBytes))
 
         wait(
           for {
-            _ ← putCmd.putDetails(Array(key1.getBytes), Array(val1Hash.getBytes))
-            _ ← putCmd.verifyChanges("H<H<k1v2-cs>>".getBytes, wasSplitting = false)
-            _ ← putCmd.changesStored()
+            _ ← putCallbacks.putDetails(Array(key1.getBytes), Array(val1Hash.getBytes))
+            _ ← putCallbacks.verifyChanges("H<H<k1v2-cs>>".getBytes, wasSplitting = false)
+            _ ← putCallbacks.changesStored()
           } yield ()
         ) shouldBe ()
       }
@@ -164,15 +164,15 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
       "key ins't present in tree (second level inserting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v4-cs>H<k5v5-cs>>>")
-        val putCmd = wait(client.putCmd(key3, val3Hash.getBytes))
+        val putCallbacks = wait(client.putCallbacks(key3, val3Hash.getBytes))
 
         val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".getBytes, "H<H<k4v4-cs>H<k5v5-cs>>".getBytes)
         val result = wait(
           for {
-            _ ← putCmd.nextChildIndex(Array(key2.getBytes), childChecksums)
-            _ ← putCmd.putDetails(Array(key4.getBytes, key5.getBytes), Array(val4Hash.getBytes, val5Hash.getBytes))
-            _ ← putCmd.verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k3v3-cs>H<k4v4-cs>H<k5v5-cs>>>".getBytes, wasSplitting = false)
-            _ ← putCmd.changesStored()
+            _ ← putCallbacks.nextChildIndex(Array(key2.getBytes), childChecksums)
+            _ ← putCallbacks.putDetails(Array(key4.getBytes, key5.getBytes), Array(val4Hash.getBytes, val5Hash.getBytes))
+            _ ← putCallbacks.verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k3v3-cs>H<k4v4-cs>H<k5v5-cs>>>".getBytes, wasSplitting = false)
+            _ ← putCallbacks.changesStored()
           } yield ()
         ) shouldBe ()
       }
@@ -181,14 +181,14 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v4-cs>H<k5v5-cs>>>")
-        val putCmd = wait(client.putCmd(key4, val3Hash.getBytes))
+        val putCallbacks = wait(client.putCallbacks(key4, val3Hash.getBytes))
         val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".getBytes, "H<H<k4v4-cs>H<k5v5-cs>>".getBytes)
         wait(
           for {
-            _ ← putCmd.nextChildIndex(Array(key2.getBytes), childChecksums)
-            _ ← putCmd.putDetails(Array(key4.getBytes, key5.getBytes), Array(val4Hash.getBytes, val5Hash.getBytes))
-            _ ← putCmd.verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v3-cs>H<k5v5-cs>>>".getBytes, wasSplitting = false)
-            _ ← putCmd.changesStored()
+            _ ← putCallbacks.nextChildIndex(Array(key2.getBytes), childChecksums)
+            _ ← putCallbacks.putDetails(Array(key4.getBytes, key5.getBytes), Array(val4Hash.getBytes, val5Hash.getBytes))
+            _ ← putCallbacks.verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v3-cs>H<k5v5-cs>>>".getBytes, wasSplitting = false)
+            _ ← putCallbacks.changesStored()
           } yield ()
         ) shouldBe ()
       }

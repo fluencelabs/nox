@@ -192,7 +192,7 @@ lazy val `b-tree-client` = project.in(file("b-tree/client"))
       logback,
       scalatest
     )
-  ).dependsOn(`b-tree-common`, `b-tree-protocol`, `dataset-protocol`)
+  ).dependsOn(`b-tree-common`, `b-tree-protocol`)
   .aggregate(`b-tree-common`, `b-tree-protocol`)
 
 lazy val `b-tree-common` = project.in(file("b-tree/common"))

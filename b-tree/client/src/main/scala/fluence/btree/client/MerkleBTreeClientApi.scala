@@ -35,7 +35,7 @@ trait MerkleBTreeClientApi[F[_], K] {
    *
    * @param key Plain text key
    */
-  def getCmd(key: K): F[GetCallbacks[F]]
+  def getCallbacks(key: K): F[GetCallbacks[F]]
 
   /**
    * Returns callbacks for saving encrypted ''key'' and ''value'' into remote MerkleBTree.
@@ -43,13 +43,13 @@ trait MerkleBTreeClientApi[F[_], K] {
    * @param key             Plain text key
    * @param valueChecksum  Checksum of encrypted value to be store
    */
-  def putCmd(key: K, valueChecksum: Hash): F[PutCallbacks[F]]
+  def putCallbacks(key: K, valueChecksum: Hash): F[PutCallbacks[F]]
 
   /**
    * Returns callbacks for deleting ''key value pair'' into remote MerkleBTree by specifying plain text key.
    *
    * @param key Plain text key
    */
-  def removeCmd(key: K): F[RemoveCallback[F]]
+  def removeCallbacks(key: K): F[RemoveCallback[F]]
 
 }

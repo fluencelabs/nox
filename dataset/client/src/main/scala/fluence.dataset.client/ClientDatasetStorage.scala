@@ -37,7 +37,7 @@ import scala.language.higherKinds
  * @tparam K The type of keys
  * @tparam V The type of stored values
  */
-class ClientDatasetStorage[F[_], K, V]( // todo write test
+class ClientDatasetStorage[F[_], K, V]( // todo write integration test
     bTreeIndex: MerkleBTreeClientApi[F, K],
     storageRpc: DatasetStorageRpc[F],
     valueCrypt: Crypt[V, Array[Byte]],
@@ -47,7 +47,7 @@ class ClientDatasetStorage[F[_], K, V]( // todo write test
   override def get(key: K): F[Option[V]] = {
 
     for {
-      getCmd ← bTreeIndex.getCmd(key)
+      getCmd ← bTreeIndex.getCallbacks(key)
       serverResponse ← storageRpc.get(getCmd)
     } yield serverResponse.map(valueCrypt.decrypt)
 
@@ -61,7 +61,7 @@ class ClientDatasetStorage[F[_], K, V]( // todo write test
     val encryptedValueHash = hasher.hash(encryptedValue)
 
     for {
-      putCmd ← bTreeIndex.putCmd(key, encryptedValueHash)
+      putCmd ← bTreeIndex.putCallbacks(key, encryptedValueHash)
       serverResponse ← storageRpc.put(putCmd, encryptedValue)
     } yield serverResponse.map(valueCrypt.decrypt)
 
@@ -73,7 +73,7 @@ class ClientDatasetStorage[F[_], K, V]( // todo write test
     // todo start transaction
 
     for {
-      removeCmd ← bTreeIndex.removeCmd(key)
+      removeCmd ← bTreeIndex.removeCallbacks(key)
       serverResponse ← storageRpc.remove(removeCmd)
     } yield serverResponse.map(valueCrypt.decrypt)
 
