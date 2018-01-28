@@ -18,7 +18,7 @@
 package fluence.btree.server.commands
 
 import cats.MonadError
-import fluence.btree.common.{ Key, Value }
+import fluence.btree.common.{ Hash, Key, ValueRef }
 import fluence.btree.protocol.BTreeRpc.GetCallbacks
 import fluence.btree.server.core.{ GetCommand, LeafNode }
 
@@ -32,14 +32,14 @@ import scala.language.higherKinds
  * @tparam F The type of effect, box for returning value
  */
 class GetCommandImpl[F[_]](getCallbacks: GetCallbacks[F])(implicit ME: MonadError[F, Throwable])
-  extends BaseSearchCommand[F](getCallbacks) with GetCommand[F, Key, Value] {
+  extends BaseSearchCommand[F](getCallbacks) with GetCommand[F, Key, ValueRef] {
 
-  override def submitLeaf(leaf: Option[LeafNode[Key, Value]]): F[Unit] = {
-    val (keys, values) =
-      leaf.map(l ⇒ l.keys → l.values)
-        .getOrElse(Array.empty[Key] → Array.empty[Value])
+  override def submitLeaf(leaf: Option[LeafNode[Key, ValueRef]]): F[Option[Int]] = {
+    val (keys, valuesChecksums) =
+      leaf.map(l ⇒ l.keys → l.valuesChecksums)
+        .getOrElse(Array.empty[Key] → Array.empty[Hash])
 
-    getCallbacks.submitLeaf(keys, values)
+    getCallbacks.submitLeaf(keys, valuesChecksums)
   }
 
 }

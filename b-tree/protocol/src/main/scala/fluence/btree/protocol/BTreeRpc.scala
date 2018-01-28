@@ -17,7 +17,7 @@
 
 package fluence.btree.protocol
 
-import fluence.btree.common.{ Bytes, Key, PutDetails, Value }
+import fluence.btree.common.{ ClientPutDetails, Hash, Key }
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 
 import scala.language.higherKinds
@@ -60,7 +60,7 @@ object BTreeRpc {
      * @param keys              Keys of current branch for searching index
      * @param childsChecksums  All children checksums of current branch
      */
-    def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): F[Int]
+    def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int]
 
   }
 
@@ -75,10 +75,11 @@ object BTreeRpc {
     /**
      * Server sends founded leaf details.
      *
-     * @param keys    Keys of current leaf
-     * @param values  Values of current leaf
+     * @param keys              Keys of current leaf
+     * @param valuesChecksums  Checksums of values for current leaf
+     * @return index of searched value, or None if key wasn't found
      */
-    def submitLeaf(keys: Array[Key], values: Array[Value]): F[Unit]
+    def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Option[Int]]
 
   }
 
@@ -93,10 +94,10 @@ object BTreeRpc {
     /**
      * Server sends founded leaf details.
      *
-     * @param keys    Keys of current leaf
-     * @param values  Values of current leaf
+     * @param keys              Keys of current leaf
+     * @param valuesChecksums  Checksums of values for current leaf
      */
-    def putDetails(keys: Array[Key], values: Array[Value]): F[PutDetails]
+    def putDetails(keys: Array[Key], valuesChecksums: Array[Hash]): F[ClientPutDetails]
 
     /**
      * Server sends new merkle root to client for approve made changes.
@@ -104,7 +105,7 @@ object BTreeRpc {
      * @param serverMerkleRoot New merkle root after putting key/value
      * @param wasSplitting      'True' id server performed tree rebalancing, 'False' otherwise
      */
-    def verifyChanges(serverMerkleRoot: Bytes, wasSplitting: Boolean): F[Unit]
+    def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[Unit]
 
     /**
      * Server confirms that all changes was persisted.

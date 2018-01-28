@@ -19,13 +19,16 @@ package fluence.btree
 
 package object common {
 
-  /* Cipher key */
+  /* Ciphered key */
   type Key = Array[Byte]
 
-  /* Cipher value */
-  type Value = Array[Byte]
+  /* Ciphered value reference */
+  type ValueRef = Long
 
   /* Alias for bytes array */
   type Bytes = Array[Byte]
+
+  /* Any hashed data */
+  type Hash = Array[Byte]
 
 }

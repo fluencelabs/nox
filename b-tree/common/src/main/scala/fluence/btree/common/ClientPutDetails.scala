@@ -15,24 +15,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.btree
+package fluence.btree.common
 
-import fluence.btree.common.{ Key, ValueRef }
-import fluence.btree.server.core.{ BranchNode, LeafNode, NodeWithId, _ }
-import monix.eval.Task
+import scala.collection.Searching.SearchResult
 
-package object server {
-
-  type NodeId = Long
-
-  type Node = TreeNode[Key]
-  type Branch = BranchNode[Key, NodeId]
-  type Leaf = LeafNode[Key, ValueRef]
-
-  type NodeAndId = NodeWithId[NodeId, Node]
-  type Trail = TreePath[NodeId, Branch]
-
-  type Get = GetCommand[Task, Key, ValueRef]
-  type Put = PutCommand[Task, Key, ValueRef]
-
-}
+/**
+ * Structure for holding all client details needed for putting key and value to BTree.
+ *
+ * @param key           The key that will be placed to the BTree
+ * @param valChecksum  The value checksum that will be placed to the BTree
+ * @param searchResult  A result of searching client key in server leaf keys. Contains an index
+ *                       for putting specified key and value
+ */
+case class ClientPutDetails(key: Key, valChecksum: Hash, searchResult: SearchResult)

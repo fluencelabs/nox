@@ -81,11 +81,12 @@ class BTreeVerifier(
   /**
    * Returns [[NodeProof]] for branch details from server.
    *
-   * @param keys   Keys of leaf for verify
-   * @param values Values of leaf for verify
+   * @param keys              Keys of leaf for verify
+   * @param valuesChecksums  Checksums of leaf values for verify
    */
-  def getLeafProof(keys: Array[Key], values: Array[Value]): GeneralNodeProof = {
-    val childsChecksums = keys.zip(values).map { case (key, value) ⇒ cryptoHasher.hash(key, value) }
+  def getLeafProof(keys: Array[Key], valuesChecksums: Array[Hash]): GeneralNodeProof = {
+    val childsChecksums =
+      keys.zip(valuesChecksums).map { case (key, valChecksum) ⇒ cryptoHasher.hash(key, valChecksum) }
     GeneralNodeProof(Array.emptyByteArray, childsChecksums, -1)
   }
 
@@ -98,7 +99,7 @@ class BTreeVerifier(
    */
   def newMerkleRoot(
     clientMPath: MerklePath,
-    putDetails: PutDetails,
+    putDetails: ClientPutDetails,
     serverMRoot: Bytes,
     wasSplitting: Boolean
   ): Option[Bytes] = {
@@ -123,15 +124,15 @@ class BTreeVerifier(
    * Client can update merkle root if this method returns true.
    * @return Returns Some(newRoot) if server pass verifying, None otherwise.
    */
-  private def verifySimplePut(clientMPath: MerklePath, putDetails: PutDetails): Bytes = {
+  private def verifySimplePut(clientMPath: MerklePath, putDetails: ClientPutDetails): Bytes = {
 
     putDetails match {
-      case PutDetails(cipherKey, cipherValue, Found(_)) ⇒
-        val keyValChecksum = cryptoHasher.hash(cipherKey, cipherValue)
+      case ClientPutDetails(cipherKey, valChecksum, Found(_)) ⇒
+        val keyValChecksum = cryptoHasher.hash(cipherKey, valChecksum)
         merkleRootCalculator.calcMerkleRoot(clientMPath, keyValChecksum)
 
-      case PutDetails(cipherKey, cipherValue, InsertionPoint(_)) ⇒
-        val keyValChecksum = cryptoHasher.hash(cipherKey, cipherValue)
+      case ClientPutDetails(cipherKey, valChecksum, InsertionPoint(_)) ⇒
+        val keyValChecksum = cryptoHasher.hash(cipherKey, valChecksum)
 
         val mPathAfterInserting = clientMPath.path
           .lastOption
@@ -154,7 +155,7 @@ class BTreeVerifier(
    */
   private def verifyPutWithRebalancing(
     clientMPath: MerklePath,
-    putDetails: PutDetails,
+    putDetails: ClientPutDetails,
     serverMRoot: Bytes
   ): Bytes = {
 

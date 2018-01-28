@@ -22,7 +22,7 @@ import java.nio.ByteBuffer
 import cats.syntax.show._
 import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
-import fluence.btree.common.{ Key, PutDetails, Value }
+import fluence.btree.common.{ ClientPutDetails, Hash, Key, ValueRef }
 import fluence.btree.server.MerkleBTreeShow._
 import fluence.btree.server.core.TreePath.PathElem
 import fluence.codec.kryo.KryoCodecs
@@ -91,8 +91,9 @@ class MerkleBTree private[server] (
    * Get have O(log,,arity,,n) algorithmic complexity.
    *
    * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
+   * @return reference to value that corresponds search Key, or None if Key was not found in tree
    */
-  def get(cmd: Get): Task[Unit] = {
+  def get(cmd: Get): Task[Option[ValueRef]] = {
     globalMutex.greenLight(getRoot.flatMap(root ⇒ getForRoot(root, cmd)))
   }
 
@@ -112,14 +113,16 @@ class MerkleBTree private[server] (
    * Put have O(log,,arity,,n) algorithmic complexity.
    *
    * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
+   * @return reference to value that corresponds search Key. In update case will be returned old reference,
+   *          in insert case will be created new reference to value
    */
-  def put(cmd: Put): Task[Unit] = {
+  def put(cmd: Put): Task[ValueRef] = { // todo should be returned Option[valRef] perhaps
     globalMutex.greenLight(getRoot.flatMap(root ⇒ putForRoot(root, cmd)))
   }
 
   def getDepth: Int = depth.get // todo remove depth or move to root node
 
-  def getMerkleRoot: Task[Hash] = getRoot.map(_.checksum)
+  def getMerkleRoot: Task[Hash] = getRoot.map(_.checksum) // todo add merkle root "min" and "max" boundaries
 
   /* Private methods */
 
@@ -130,7 +133,7 @@ class MerkleBTree private[server] (
   private[btree] def getRoot: Task[Node] = {
     Task(getDepth).flatMap {
       case 0 ⇒
-        val emptyLeaf = LeafNode(Array.empty[Key], Array.empty[Value], Array.empty[Hash], 0, Array.emptyByteArray)
+        val emptyLeaf = nodeOps.createEmptyLeaf
         commitNewState(PutTask(Seq(NodeWithId(RootId, emptyLeaf))))
           .map(_ ⇒ emptyLeaf)
       case _ ⇒
@@ -142,14 +145,14 @@ class MerkleBTree private[server] (
   /* GET */
 
   /** Entry point for any Get operations. */
-  private def getForRoot(root: Node, cmd: Get): Task[Unit] = {
+  private def getForRoot(root: Node, cmd: Get): Task[Option[ValueRef]] = {
     log.debug(s"Get starts")
     getForNode(root, cmd)
   }
 
-  private def getForNode(root: Node, cmd: Get): Task[Unit] = {
+  private def getForNode(root: Node, cmd: Get): Task[Option[ValueRef]] = {
     if (isEmpty(root)) {
-      return cmd.submitLeaf(None) // This is the terminal action, nothing to find in empty tree
+      return cmd.submitLeaf(None).map(_ ⇒ None) // This is the terminal action, nothing to find in empty tree
     }
 
     root match {
@@ -161,7 +164,7 @@ class MerkleBTree private[server] (
   }
 
   /** '''Method makes remote call!''' This method makes step down the tree. */
-  private def getForBranch(branch: Branch, cmd: Get): Task[Unit] = {
+  private def getForBranch(branch: Branch, cmd: Get): Task[Option[ValueRef]] = {
     log.debug(s"Get for branch=${branch.show}")
 
     searchChild(branch, cmd)
@@ -172,15 +175,16 @@ class MerkleBTree private[server] (
   }
 
   /** '''Method makes remote call!'''. This is the terminal method. */
-  private def getForLeaf(leaf: Leaf, cmd: Get): Task[Unit] = {
+  private def getForLeaf(leaf: Leaf, cmd: Get): Task[Option[ValueRef]] = {
     log.debug(s"Get for leaf=${leaf.show}")
     cmd.submitLeaf(Some(leaf))
+      .map(_.map(leaf.valuesReferences)) // get value ref from leaf by searched index
   }
 
   /* PUT */
 
   /** Entry point for any put operations. */
-  private def putForRoot(root: Node, cmd: Put): Task[Unit] = {
+  private def putForRoot(root: Node, cmd: Put): Task[ValueRef] = {
     log.debug(s"Put starts")
 
     // if root is empty don't need to finding slot for putting
@@ -189,21 +193,22 @@ class MerkleBTree private[server] (
 
       cmd.putDetails(None)
         .flatMap {
-          case PutDetails(key, value, _) ⇒
-            val newLeaf = createLeaf(key, value)
+          case BTreePutDetails(ClientPutDetails(key, valChecksum, _), valRefProvider) ⇒
+            val newValRef = valRefProvider()
+            val newLeaf = createLeaf(key, newValRef, valChecksum)
             // send the merkle path to the client for verification
             val leafProof = GeneralNodeProof(Array.emptyByteArray, newLeaf.kvChecksums, 0)
             cmd.verifyChanges(MerklePath(Seq(leafProof)), wasSplitting = false)
-              .flatMap(_ ⇒
+              .flatMap { _ ⇒
                 commitNewState(PutTask(nodesToSave = Seq(NodeWithId(RootId, newLeaf)), increaseDepth = true))
-              )
+              }.map(_ ⇒ newValRef)
         }
     } else {
       putForNode(cmd, RootId, root, TreePath.empty)
     }
   }
 
-  private def putForNode(cmd: Put, id: NodeId, node: Node, trail: Trail): Task[Unit] = {
+  private def putForNode(cmd: Put, id: NodeId, node: Node, trail: Trail): Task[ValueRef] = {
     node match {
       case leaf: Leaf @unchecked ⇒
         putForLeaf(cmd, id, leaf, trail)
@@ -221,12 +226,12 @@ class MerkleBTree private[server] (
    * @param branch   Walk-through branch node
    * @param trail    The path traversed from the root
    */
-  private def putForBranch(cmd: Put, branchId: NodeId, branch: Branch, trail: Trail): Task[Unit] = {
+  private def putForBranch(cmd: Put, branchId: NodeId, branch: Branch, trail: Trail): Task[ValueRef] = {
     log.debug(s"Put to branch=${branch.show}, id=$branchId")
 
     cmd.nextChildIndex(branch)
       .flatMap(searchedIdx ⇒ {
-        val childId = branch.children(searchedIdx)
+        val childId = branch.childsReferences(searchedIdx)
         store.get(childId)
           .flatMap { child ⇒
             val newTrail = trail.addBranch(branchId, branch, searchedIdx)
@@ -251,20 +256,21 @@ class MerkleBTree private[server] (
     leafId: NodeId,
     leaf: Leaf,
     trail: Trail
-  ): Task[Unit] = {
+  ): Task[ValueRef] = {
     log.debug(s"Put to leaf=${leaf.show}, id=$leafId")
 
     cmd.putDetails(Some(leaf))
-      .flatMap { putDetails: PutDetails ⇒
-        val updatedLeaf = updateLeaf(putDetails, leaf)
+      .flatMap { putDetails: BTreePutDetails ⇒
+        val (updatedLeaf, valueRef) = updateLeaf(putDetails, leaf)
         // makes all transformations over the copy of tree
-        val (newStateProof, putTask) = logicalPut(leafId, updatedLeaf, putDetails.searchResult.insertionPoint, trail)
+        val (newStateProof, putTask) =
+          logicalPut(leafId, updatedLeaf, putDetails.clientPutDetails.searchResult.insertionPoint, trail)
         // after all the logical operations, we need to send the merkle path to the client for verification
         cmd.verifyChanges(newStateProof, putTask.wasSplitting)
           .flatMap { _ ⇒
             // persist all changes
             commitNewState(putTask)
-          }
+          }.map(_ ⇒ valueRef)
       }
   }
 
@@ -482,16 +488,18 @@ class MerkleBTree private[server] (
    *
    * @return Updated leaf with new ''key'' and ''value''
    */
-  private def updateLeaf(putDetails: PutDetails, leaf: Leaf): Leaf = {
+  private def updateLeaf(putDetails: BTreePutDetails, leaf: Leaf): (Leaf, ValueRef) = {
     log.debug(s"Update leaf=${leaf.show}, putDetails=${putDetails.show}")
 
-    putDetails.searchResult match {
-      case Found(idxOfUpdate) ⇒
+    putDetails match {
+      case BTreePutDetails(ClientPutDetails(key, valChecksum, Found(idxOfUpdate)), _) ⇒
         // key was founded in this Leaf, update leaf with new value
-        leaf.rewriteKv(putDetails.key, putDetails.value, idxOfUpdate)
-      case InsertionPoint(indexOfInsert) ⇒
+        val oldValueRef = leaf.valuesReferences(idxOfUpdate)
+        leaf.rewrite(key, oldValueRef, valChecksum, idxOfUpdate) → oldValueRef
+      case BTreePutDetails(ClientPutDetails(key, valChecksum, InsertionPoint(indexOfInsert)), valRefProvider) ⇒
         // key wan't found in this Leaf, insert new value to the leaf
-        leaf.insertKv(putDetails.key, putDetails.value, indexOfInsert)
+        val newValueRef = valRefProvider()
+        leaf.insert(key, newValueRef, valChecksum, indexOfInsert) -> newValueRef
     }
   }
 
@@ -516,7 +524,7 @@ class MerkleBTree private[server] (
   private def searchChild(branch: Branch, cmd: TreeCommand[Task, Key]): Task[(Int, Node)] = {
     cmd.nextChildIndex(branch)
       .flatMap(searchedIdx ⇒ {
-        val childId = branch.children(searchedIdx)
+        val childId = branch.childsReferences(searchedIdx)
         store.get(childId).map(searchedIdx → _)
       })
   }
@@ -558,8 +566,8 @@ object MerkleBTree {
     val codecs = KryoCodecs()
       .add[Key]
       .add[Array[Key]]
-      .add[Value]
-      .add[Array[Value]]
+      .add[Hash]
+      .add[Array[Hash]]
       .add[NodeId]
       .add[Array[NodeId]]
 

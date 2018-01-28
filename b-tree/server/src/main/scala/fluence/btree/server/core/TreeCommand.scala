@@ -17,7 +17,6 @@
 
 package fluence.btree.server.core
 
-import fluence.btree.common.PutDetails
 import fluence.btree.common.merkle.MerklePath
 
 import scala.language.higherKinds
@@ -52,12 +51,13 @@ trait TreeCommand[F[_], K] {
 trait GetCommand[F[_], K, V] extends TreeCommand[F, K] {
 
   /**
-   * Sends founded leaf with all keys and values to client.
+   * Sends founded leaf with all keys and checksums of values to client.
    * If tree hasn't any leaf sends None.
    *
    * @param leaf Current leaf node of tree
+   * @return index of searched value, or None if key wasn't found
    */
-  def submitLeaf(leaf: Option[LeafNode[K, V]]): F[Unit]
+  def submitLeaf(leaf: Option[LeafNode[K, V]]): F[Option[Int]]
 }
 
 /**
@@ -65,7 +65,7 @@ trait GetCommand[F[_], K, V] extends TreeCommand[F, K] {
  *
  * @tparam F The type of effect, box for returning value
  * @tparam K The type of search key
- * @tparam V The type of value
+ * @tparam V The type of value stored to leaf
  */
 trait PutCommand[F[_], K, V] extends TreeCommand[F, K] {
 
@@ -75,7 +75,7 @@ trait PutCommand[F[_], K, V] extends TreeCommand[F, K] {
    * @param leaf Values for calculating current node checksum on the client and find index to insert.
    * @return  Data structure with putting details.
    */
-  def putDetails(leaf: Option[LeafNode[K, V]]): F[PutDetails]
+  def putDetails(leaf: Option[LeafNode[K, V]]): F[BTreePutDetails]
 
   /**
    * Sends merkle path to client after putting key-value pair into the tree.

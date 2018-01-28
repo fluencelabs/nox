@@ -24,14 +24,19 @@ import cats.Show
  */
 object BTreeCommonShow {
 
-  implicit val showBytes: Show[Array[Byte]] =
-    (b: Array[Byte]) ⇒ new String(b)
+  implicit val showBytes: Show[Array[Byte]] = (b: Array[Byte]) ⇒ new String(b)
+  implicit val showLong: Show[Long] = Show.fromToString[Long]
 
-  implicit def showArrayOfBytes(implicit sb: Show[Array[Byte]]): Show[Array[Array[Byte]]] =
-    Show.show((array: Array[Array[Byte]]) ⇒ array.map(sb.show).mkString("[", ",", "]"))
+  implicit def showArray[T](implicit sb: Show[T]): Show[Array[T]] =
+    Show.show((array: Array[T]) ⇒ array.map(sb.show).mkString("[", ",", "]"))
 
-  implicit def showPutDetails(implicit sb: Show[Array[Byte]]): Show[PutDetails] = {
-    Show.show((pd: PutDetails) ⇒ s"""PutDetails(${sb.show(pd.key)}, ${sb.show(pd.value)}, ${pd.searchResult})""")
+  implicit def showArrayOfBytes(implicit sk: Show[Array[Byte]]): Show[Array[Array[Byte]]] = showArray(showBytes)
+  implicit def showArrayOfLong(implicit svr: Show[Array[Long]]): Show[Array[Long]] = showArray(showLong)
+
+  implicit def showPutDetails(implicit sk: Show[Key], svr: Show[ValueRef], sh: Show[Hash]): Show[ClientPutDetails] = {
+    Show.show((pd: ClientPutDetails) ⇒
+      s"ClientPutDetails(${sk.show(pd.key)}, ${sh.show(pd.valChecksum)}, ${pd.searchResult})"
+    )
   }
 
 }

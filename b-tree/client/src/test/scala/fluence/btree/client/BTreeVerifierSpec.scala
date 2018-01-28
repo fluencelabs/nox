@@ -1,6 +1,6 @@
 package fluence.btree.client
 
-import fluence.btree.common.PutDetails
+import fluence.btree.common.ClientPutDetails
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
 import fluence.crypto.hash.TestCryptoHasher
 import org.scalatest.{ Matchers, WordSpec }
@@ -89,14 +89,14 @@ class BTreeVerifierSpec extends WordSpec with Matchers {
 
       "putting into empty tree" in {
         val clientMPath = MerklePath.empty
-        val putDetails = PutDetails(key1, val1, InsertionPoint(0))
+        val putDetails = ClientPutDetails(key1, val1, InsertionPoint(0))
         val serverMRoot = "H<H<k1v1>>".getBytes
 
         verifier.newMerkleRoot(clientMPath, putDetails, serverMRoot, wasSplitting = false)
       }
       "insert new value" in {
         val clientMPath = MerklePath(Seq(GeneralNodeProof(Array.emptyByteArray, Array("H<k2v2>".getBytes), 0)))
-        val putDetails = PutDetails(key1, val1, InsertionPoint(0))
+        val putDetails = ClientPutDetails(key1, val1, InsertionPoint(0))
         val serverMRoot = "H<H<k1v1>H<k2v2>>".getBytes
 
         val result = verifier.newMerkleRoot(clientMPath, putDetails, serverMRoot, wasSplitting = false)
@@ -104,7 +104,7 @@ class BTreeVerifierSpec extends WordSpec with Matchers {
       }
       "rewrite old value with new value" in {
         val clientMerklePath = MerklePath(Seq(GeneralNodeProof(Array.emptyByteArray, Array("H<k2v2>".getBytes), 0)))
-        val putDetails = PutDetails(key2, val3, Found(0))
+        val putDetails = ClientPutDetails(key2, val3, Found(0))
         val serverMRoot = "H<H<k2v3>>".getBytes
 
         val result = verifier.newMerkleRoot(clientMerklePath, putDetails, serverMRoot, wasSplitting = false)
@@ -116,7 +116,7 @@ class BTreeVerifierSpec extends WordSpec with Matchers {
         val rootProof = verifier.getBranchProof(Array(key2), rootChildsChecksums, 0)
         val leafProof = GeneralNodeProof(Array.emptyByteArray, Array("H<k1v1>".getBytes, "H<k2v2>".getBytes), 1)
         val clientMerklePath = MerklePath(Seq(rootProof, leafProof))
-        val putDetails = PutDetails(key2, val3, Found(0))
+        val putDetails = ClientPutDetails(key2, val3, Found(0))
         val serverMRoot = "H<H<k2>H<H<k1v1>H<k2v3>>H<H<k4v4>H<k5v5>>>".getBytes
 
         val result = verifier.newMerkleRoot(clientMerklePath, putDetails, serverMRoot, wasSplitting = false)
@@ -128,7 +128,7 @@ class BTreeVerifierSpec extends WordSpec with Matchers {
         val rootProof = verifier.getBranchProof(Array(key2), rootChildsChecksums, 1)
         val leafProof = GeneralNodeProof(Array.emptyByteArray, Array("H<k4v4>".getBytes, "H<k5v5>".getBytes), 0)
         val clientMerklePath = MerklePath(Seq(rootProof, leafProof))
-        val putDetails = PutDetails(key3, val3, InsertionPoint(0))
+        val putDetails = ClientPutDetails(key3, val3, InsertionPoint(0))
         val serverMRoot = "H<H<k2>H<H<k1v1>H<k2v2>>H<H<k3v3>H<k4v4>H<k5v5>>>".getBytes
 
         val result = verifier.newMerkleRoot(clientMerklePath, putDetails, serverMRoot, wasSplitting = false)
@@ -140,7 +140,7 @@ class BTreeVerifierSpec extends WordSpec with Matchers {
     "return None for simple put operation" when {
       "server mRoot != client mRoot" in {
         val clientMerklePath = MerklePath(Seq(GeneralNodeProof(Array.emptyByteArray, Array("H<k2v2>".getBytes), 0)))
-        val putDetails = PutDetails(key1, val1, InsertionPoint(0))
+        val putDetails = ClientPutDetails(key1, val1, InsertionPoint(0))
         val serverMRoot = "wrong_root".getBytes
 
         val result = verifier.newMerkleRoot(clientMerklePath, putDetails, serverMRoot, wasSplitting = false)
