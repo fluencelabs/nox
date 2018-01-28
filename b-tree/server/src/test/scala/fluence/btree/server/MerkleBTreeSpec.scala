@@ -92,13 +92,15 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
       }
     }
+
     "correct insert new value" when {
       "tree is empty" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val tree: MerkleBTree = createTree()
 
-        wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
+        val putRes = wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
 
+        putRes shouldBe Seq(1l)
         // check tree state
         tree.getDepth shouldBe 1
         val root = wait(tree.getRoot).asInstanceOf[Leaf]
@@ -109,8 +111,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val tree: MerkleBTree = createTree()
 
-        wait(Task.sequence(putCmd(2 to (1, -1)) map { cmd ⇒ tree.put(cmd) }))
+        val putRes = wait(Task.sequence(putCmd(2 to (1, -1)) map { cmd ⇒ tree.put(cmd) }))
 
+        putRes shouldBe Seq(1l, 2l)
         // check tree state
         tree.getDepth shouldBe 1
         val root = wait(tree.getRoot).asInstanceOf[Leaf]
@@ -122,8 +125,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val tree: MerkleBTree = createTree()
 
-        wait(Task.sequence(putCmd(1 to 2) map { cmd ⇒ tree.put(cmd) }))
+        val putRes = wait(Task.sequence(putCmd(1 to 2) map { cmd ⇒ tree.put(cmd) }))
 
+        putRes shouldBe Seq(1l, 2l)
         // check tree state
         tree.getDepth shouldBe 1
         val root = wait(tree.getRoot).asInstanceOf[Leaf]
@@ -136,8 +140,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val store = createTreeStore
         val tree: MerkleBTree = createTree(store)
 
-        wait(Task.sequence(putCmd(1 to 5) map { cmd ⇒ tree.put(cmd) }))
+        val putRes = wait(Task.sequence(putCmd(1 to 5) map { cmd ⇒ tree.put(cmd) }))
 
+        putRes shouldBe Seq(1l, 2l, 3l, 4l, 5l)
         tree.getDepth shouldBe 2
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
@@ -154,8 +159,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val store = createTreeStore
         val tree: MerkleBTree = createTree(store)
 
-        wait(Task.sequence(putCmd(1 to 11) map { cmd ⇒ tree.put(cmd) }))
+        val putRes = wait(Task.sequence(putCmd(1 to 11) map { cmd ⇒ tree.put(cmd) }))
 
+        putRes shouldBe (1 to 11).map(_.toLong)
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
 
@@ -171,8 +177,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val store = createTreeStore
         val tree: MerkleBTree = createTree(store)
 
-        wait(Task.sequence(putCmd(11 to (1, -1)) map { cmd ⇒ tree.put(cmd) }))
+        val putRes = wait(Task.sequence(putCmd(11 to (1, -1)) map { cmd ⇒ tree.put(cmd) }))
 
+        putRes shouldBe (1 to 11).map(_.toLong)
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
 
@@ -187,8 +194,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val store = createTreeStore
         val tree: MerkleBTree = createTree(store)
 
-        wait(Task.sequence(putCmd(1 to 32) map { cmd ⇒ tree.put(cmd) }))
+        val putRes = wait(Task.sequence(putCmd(1 to 32) map { cmd ⇒ tree.put(cmd) }))
 
+        putRes shouldBe (1 to 32).map(_.toLong)
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
 
@@ -202,8 +210,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val store = createTreeStore
         val tree: MerkleBTree = createTree(store)
 
-        wait(Task.sequence(putCmd(32 to (1, -1)) map { cmd ⇒ tree.put(cmd) }))
+        val putRes = wait(Task.sequence(putCmd(32 to (1, -1)) map { cmd ⇒ tree.put(cmd) }))
 
+        putRes shouldBe (1 to 32).map(_.toLong)
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
 
@@ -217,8 +226,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val store = createTreeStore
         val tree: MerkleBTree = createTree(store)
 
-        wait(Task.sequence(putCmd(Random.shuffle(1 to 32)) map { cmd ⇒ tree.put(cmd) }))
+        val putRes = wait(Task.sequence(putCmd(Random.shuffle(1 to 32)) map { cmd ⇒ tree.put(cmd) }))
 
+        putRes should contain allElementsOf (1 to 32).map(_.toLong)
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
 
@@ -233,8 +243,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val tree: MerkleBTree = createTree()
 
-        wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
-        wait(tree.put(new PutCommandImpl[Task](mRootCalculator, new PutCallbacks[Task] {
+        val putRes1 = wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
+        val putRes2 = wait(tree.put(new PutCommandImpl[Task](mRootCalculator, new PutCallbacks[Task] {
           override def putDetails(
             keys: Array[Key],
             values: Array[Hash]
@@ -244,6 +254,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
           override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = ???
         }, () ⇒ 2l)))
 
+        putRes1 shouldBe Seq(1l)
+        putRes2 shouldBe 1l
         // check tree state
         tree.getDepth shouldBe 1
         val root = wait(tree.getRoot).asInstanceOf[Leaf]
@@ -254,8 +266,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val tree: MerkleBTree = createTree()
 
-        wait(Task.sequence(putCmd(1 to 4) map { cmd ⇒ tree.put(cmd) }))
-        wait(tree.put(new PutCommandImpl[Task](mRootCalculator, new PutCallbacks[Task] {
+        val putRes1 = wait(Task.sequence(putCmd(1 to 4) map { cmd ⇒ tree.put(cmd) }))
+        val putRes2 = wait(tree.put(new PutCommandImpl[Task](mRootCalculator, new PutCallbacks[Task] {
           val idx = Atomic(0L)
 
           override def putDetails(
@@ -267,6 +279,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
           override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = ???
         }, () ⇒ 5l)))
 
+        putRes1 shouldBe Seq(1l, 2l, 3l, 4l)
+        putRes2 shouldBe 2l
         tree.getDepth shouldBe 1
         val root = wait(tree.getRoot).asInstanceOf[Leaf] // valRef2 is old ref - it's correct behaviour
         checkLeaf(Array(key1, key2, key3, key4), Array(valRef1, valRef2, valRef3, valRef4), Array(value1, value5, value3, value4), root)
@@ -300,7 +314,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val tree: MerkleBTree = createTree()
 
-        wait(tree.get(getCmd(key1, { result ⇒ result shouldBe None })))
+        wait(tree.get(getCmd(key1, { result ⇒ result shouldBe None }))) shouldBe None
       }
 
       "value found in root-leaf with one value" in {
@@ -346,8 +360,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val tree: MerkleBTree = createTree()
 
-        wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
-        wait(tree.get(getCmd(key1, { result ⇒ result.get shouldBe value1 })))
+        val putRes = wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
+        val getRes = wait(tree.get(getCmd(key1, { result ⇒ result.get shouldBe value1 })))
+        putRes.head shouldBe getRes.get
       }
     }
 
@@ -364,10 +379,10 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       val maxKey = "k1024".getBytes
       val absentKey = "k2048".getBytes
 
-      wait(tree.get(getCmd(minKey, { result ⇒ result.get shouldBe "v0001".getBytes })))
-      wait(tree.get(getCmd(midKey, { result ⇒ result.get shouldBe "v0512".getBytes })))
-      wait(tree.get(getCmd(maxKey, { result ⇒ result.get shouldBe "v1024".getBytes })))
-      wait(tree.get(getCmd(absentKey, { result ⇒ result shouldBe None })))
+      wait(tree.get(getCmd(minKey, { result ⇒ result.get shouldBe "v0001".getBytes }))) shouldBe defined
+      wait(tree.get(getCmd(midKey, { result ⇒ result.get shouldBe "v0512".getBytes }))) shouldBe defined
+      wait(tree.get(getCmd(maxKey, { result ⇒ result.get shouldBe "v1024".getBytes }))) shouldBe defined
+      wait(tree.get(getCmd(absentKey, { result ⇒ result shouldBe None }))) shouldBe None
 
     }
 
@@ -376,10 +391,12 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       val tree: MerkleBTree = createTree()
 
       // put 1024 elements
-      wait(Task.sequence(putCmd(Random.shuffle(1 to 1024)) map { cmd ⇒ tree.put(cmd) }))
+      val putRes1 = wait(Task.sequence(putCmd(Random.shuffle(1 to 1024)) map { cmd ⇒ tree.put(cmd) }))
 
       // put 1024 elements again
-      wait(Task.sequence(putCmd(Random.shuffle(1 to 1024)) map { cmd ⇒ tree.put(cmd) }))
+      val putRes2 = wait(Task.sequence(putCmd(Random.shuffle(1 to 1024)) map { cmd ⇒ tree.put(cmd) }))
+
+      putRes1 should contain allElementsOf putRes2
 
       tree.getDepth should be >= 5
 
@@ -388,10 +405,10 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       val maxKey = "k1024".getBytes
       val absentKey = "k2048".getBytes
 
-      wait(tree.get(getCmd(minKey, { result ⇒ result.get shouldBe "v0001".getBytes })))
-      wait(tree.get(getCmd(midKey, { result ⇒ result.get shouldBe "v0512".getBytes })))
-      wait(tree.get(getCmd(maxKey, { result ⇒ result.get shouldBe "v1024".getBytes })))
-      wait(tree.get(getCmd(absentKey, { result ⇒ result shouldBe None })))
+      wait(tree.get(getCmd(minKey, { result ⇒ result.get shouldBe "v0001".getBytes }))) shouldBe defined
+      wait(tree.get(getCmd(midKey, { result ⇒ result.get shouldBe "v0512".getBytes }))) shouldBe defined
+      wait(tree.get(getCmd(maxKey, { result ⇒ result.get shouldBe "v1024".getBytes }))) shouldBe defined
+      wait(tree.get(getCmd(absentKey, { result ⇒ result shouldBe None }))) shouldBe None
     }
 
   }
