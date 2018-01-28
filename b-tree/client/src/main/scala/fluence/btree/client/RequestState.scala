@@ -17,8 +17,6 @@
 
 package fluence.btree.client
 
-import fluence.btree.common.{ Bytes, Hash }
-
 import scala.language.higherKinds
 
 /**
@@ -27,21 +25,11 @@ import scala.language.higherKinds
 sealed trait RequestState
 
 /**
- * State for each 'Get' request to remote BTree. One ''GetState'' corresponds to one series of round trip requests
+ * State for each 'Get' request to remote BTree. One ''GetState'' corresponds to one series of round trip requests.
  */
-trait GetState[F[_]] extends RequestState {
-
-  /** Returns result of 'get' operation. */
-  def getFoundValue: F[Option[Hash]] // todo this should be removed in the next task
-
-}
+trait GetState[F[_]] extends RequestState
 
 /**
- * State for each 'Put' request to remote BTree. One ''PutState'' corresponds to one series of round trip requests
+ * State for each 'Put' request to remote BTree. One ''PutState'' corresponds to one series of round trip requests.
  */
-trait PutState[F[_]] extends RequestState {
-
-  /** Returns old value that has been stored in tree before current 'put' operation. */
-  def getOldValue: F[Option[Bytes]] // todo this should be removed in the next task
-
-}
+trait PutState[F[_]] extends RequestState
