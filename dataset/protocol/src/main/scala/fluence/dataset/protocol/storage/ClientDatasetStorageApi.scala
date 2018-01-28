@@ -14,6 +14,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package fluence.dataset.protocol.storage
 
 import scala.language.higherKinds
@@ -25,7 +26,7 @@ import scala.language.higherKinds
  * @tparam K The type of keys
  * @tparam V The type of stored values
  */
-trait DatasetStorageApi[F[_], K, V] {
+trait ClientDatasetStorageApi[F[_], K, V] {
 
   /**
    * Gets stored value for specified key.
@@ -40,7 +41,7 @@ trait DatasetStorageApi[F[_], K, V] {
    *
    * @param key The specified key to be inserted
    * @param value The value associated with the specified key
-   * @return if old value was overridden returns old value, None otherwise.
+   * @return returns old value if old value was overridden, None otherwise.
    */
   def put(key: K, value: V): F[Option[V]]
 

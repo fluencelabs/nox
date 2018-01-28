@@ -244,7 +244,7 @@ lazy val `dataset-node` = project.in(file("dataset/node"))
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
   .settings(commons)
-  .dependsOn(`kademlia-protocol`).aggregate(`kademlia-protocol`)
+  .dependsOn(`kademlia-protocol`, `b-tree-protocol`).aggregate(`kademlia-protocol`)
 
 lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
   .settings(commons)
