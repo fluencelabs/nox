@@ -31,25 +31,25 @@ trait DatasetStorageRpc[F[_]] {
   /**
    * Initiates ''Get'' operation in remote MerkleBTree.
    *
-   * @param getCmd Wrapper for all callback needed for ''Get'' operation to the BTree
+   * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  def get(getCmd: GetCallbacks[F]): F[Option[Array[Byte]]]
+  def get(getCallbacks: GetCallbacks[F]): F[Option[Array[Byte]]]
 
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.
    *
-   * @param putCmd Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param putCallback Wrapper for all callback needed for ''Put'' operation to the BTree.
    * @return returns old value if old value was overridden, None otherwise.
    */
-  def put(putCmd: PutCallbacks[F], encryptedValue: Array[Byte]): F[Option[Array[Byte]]]
+  def put(putCallback: PutCallbacks[F], encryptedValue: Array[Byte]): F[Option[Array[Byte]]]
 
   /**
    * Initiates ''Remove'' operation in remote MerkleBTree.
    *
-   * @param removeCmd Wrapper for all callback needed for ''Remove'' operation to the BTree.
+   * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
    * @return returns old value that was deleted, None if nothing was deleted.
    */
-  def remove(removeCmd: RemoveCallback[F]): F[Option[Array[Byte]]]
+  def remove(removeCallbacks: RemoveCallback[F]): F[Option[Array[Byte]]]
 
 }

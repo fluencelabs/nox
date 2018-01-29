@@ -23,7 +23,7 @@ import fluence.btree.common.merkle.{ GeneralNodeProof, NodeProof }
 import fluence.btree.common.{ Hash, Key, ValueRef }
 import fluence.btree.server.MerkleBTreeShow._
 import fluence.btree.server._
-import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
+import fluence.crypto.hash.CryptoHasher
 
 import scala.reflect.ClassTag
 
@@ -200,7 +200,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
 
 private[server] object NodeOps {
 
-  def apply(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256): NodeOps = {
+  def apply(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]]): NodeOps = {
     new NodeOps(cryptoHasher)
   }
 

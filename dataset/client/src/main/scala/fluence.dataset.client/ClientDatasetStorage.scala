@@ -55,8 +55,6 @@ class ClientDatasetStorage[F[_], K, V]( // todo write integration test
 
   override def put(key: K, value: V): F[Option[V]] = {
 
-    // todo start transaction
-
     val encryptedValue = valueCrypt.encrypt(value)
     val encryptedValueHash = hasher.hash(encryptedValue)
 
@@ -65,19 +63,14 @@ class ClientDatasetStorage[F[_], K, V]( // todo write integration test
       serverResponse ← storageRpc.put(putCmd, encryptedValue)
     } yield serverResponse.map(valueCrypt.decrypt)
 
-    // todo end transaction, revert all changes if error appears
   }
 
   override def remove(key: K): F[Option[V]] = {
-
-    // todo start transaction
 
     for {
       removeCmd ← bTreeIndex.removeCallbacks(key)
       serverResponse ← storageRpc.remove(removeCmd)
     } yield serverResponse.map(valueCrypt.decrypt)
-
-    // todo end transaction, revert all changes if error appears
 
   }
 
