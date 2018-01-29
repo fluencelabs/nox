@@ -240,11 +240,11 @@ lazy val `dataset-node` = project.in(file("dataset/node"))
       monix3 % Test,
       scalatest
     )
-  ).dependsOn(`storage`, `kademlia-node`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`)
+  ).dependsOn(`storage`, `kademlia-node`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`)
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
   .settings(commons)
-  .dependsOn(`kademlia-protocol`).aggregate(`kademlia-protocol`)
+  .dependsOn(`kademlia-protocol`, `b-tree-protocol`).aggregate(`kademlia-protocol`)
 
 lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
   .settings(commons)
@@ -259,6 +259,8 @@ lazy val `dataset-client` = project.in(file("dataset/client"))
   .settings(commons)
   .settings(
     libraryDependencies ++= Seq(
+      cats1,
+      monix3 % Test,
       scalatest
     )
   ).dependsOn(`dataset-protocol`, `crypto`, `b-tree-client`)

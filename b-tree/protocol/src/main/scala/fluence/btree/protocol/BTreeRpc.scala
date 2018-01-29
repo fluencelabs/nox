@@ -18,32 +18,8 @@
 package fluence.btree.protocol
 
 import fluence.btree.common.{ ClientPutDetails, Hash, Key }
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 
 import scala.language.higherKinds
-
-/**
- * An interface to calls for a remote BTree server.
- *
- * @tparam F An effect, with MonadError
- */
-trait BTreeRpc[F[_]] {
-
-  /**
-   * Initiates ''Get'' operation in remote MerkleBTree.
-   *
-   * @param callbacks Wrapper for all callback needed for ''Get'' operation to the BTree
-   */
-  def get(callbacks: GetCallbacks[F]): F[Unit]
-
-  /**
-   * Initiates ''Put'' operation in remote MerkleBTree.
-   *
-   * @param callbacks Wrapper for all callback needed for ''Put'' operation to the BTree.
-   */
-  def put(callbacks: PutCallbacks[F]): F[Unit]
-
-}
 
 object BTreeRpc {
 
@@ -113,5 +89,8 @@ object BTreeRpc {
     def changesStored(): F[Unit]
 
   }
+
+  // not ready yet
+  trait RemoveCallback[F[_]] extends SearchCallback[F]
 
 }
