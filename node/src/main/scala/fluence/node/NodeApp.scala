@@ -18,6 +18,7 @@
 package fluence.node
 
 import cats.syntax.show._
+import com.typesafe.config.ConfigFactory
 import fluence.crypto.keypair.KeyPair
 import fluence.kad.protocol.{ Contact, Key }
 import monix.eval.Coeval
@@ -30,6 +31,8 @@ import scala.util.{ Failure, Success }
 object NodeApp extends App {
 
   val log = LoggerFactory.getLogger(getClass)
+
+  println(Console.CYAN + "Git Commit Hash: " + ConfigFactory.load().getString("fluence.gitHash") + Console.RESET)
 
   // For demo purposes
   val keySeed = StdIn.readLine(Console.CYAN + "Who are you?\n> " + Console.RESET).getBytes()

@@ -1,6 +1,13 @@
-sudo: false
+sudo: required
+
 language: scala
 scala:
    - 2.12.4
 jdk:
   - oraclejdk8
+
+after_success:
+  - if [ "$TRAVIS_BRANCH" == "master" ]; then
+    docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD";
+    sbt node/docker:publish;
+    fi
