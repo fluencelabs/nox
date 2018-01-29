@@ -6,13 +6,11 @@ import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.common.{ Hash, Key }
-import fluence.btree.protocol.BTreeRpc
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
-import fluence.crypto.hash.JdkCryptoHasher
 import fluence.codec.kryo.KryoCodecs
 import fluence.crypto.cipher.NoOpCrypt
+import fluence.crypto.hash.{ JdkCryptoHasher, TestCryptoHasher }
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -29,7 +27,9 @@ import scala.util.hashing.MurmurHash3
 
 class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
-  // todo add real encryption for keys and values
+  private val hasher = JdkCryptoHasher.Sha256
+//    private val hasher = TestCryptoHasher
+  private val mRCalc = MerkleRootCalculator(hasher)
 
   implicit object BytesOrdering extends Ordering[Array[Byte]] {
     override def compare(x: Array[Byte], y: Array[Byte]): Int = ByteBuffer.wrap(x).compareTo(ByteBuffer.wrap(y))
@@ -50,67 +50,125 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
     "save and return correct results" when {
       "get from empty tree" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
         val client = createBTreeClient()
+        val bTree = createBTree()
 
-        val result = wait(client.get(key1))
-        result shouldBe None
+        val result = for {
+          cmd <- client.getCallbacks(key1)
+          res ← bTree.get(new GetCommandImpl(cmd))
+        } yield res shouldBe None
+
+        wait(result)
       }
 
       "put key1, get key1 from empty tree" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
         val client = createBTreeClient()
+        val bTree = createBTree()
+        val counter = Atomic(0L)
 
-        val res1 = wait(client.get(key1))
-        val res2 = wait(client.put(key1, val1.getBytes))
-        val res3 = wait(client.get(key1))
+        val result = for {
+          getCb1 ← client.getCallbacks(key1)
+          res1 ← bTree.get(new GetCommandImpl(getCb1))
+          putCb ← client.putCallbacks(key1, val1.getBytes)
+          res2 ← bTree.put(new PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
+          getCb2 ← client.getCallbacks(key1)
+          res3 ← bTree.get(new GetCommandImpl(getCb2))
+        } yield {
+          res1 shouldBe None
+          res2 shouldBe 1l
+          res3 shouldBe Some(1l)
+        }
 
-        res1 shouldBe None
-        res2 shouldBe None
-        res3.get shouldBe val1.getBytes
+        wait(result)
+
       }
 
       "put many value in random order and get theirs" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
-
         val minKey = "k0001"
         val midKey = "k0256"
         val maxKey = "k0512"
         val absentKey = "k2048"
 
         val client = createBTreeClient()
+        val bTree = createBTree()
+        val counter = Atomic(0L)
 
         // insert 1024 unique values
-        val resultMap = wait(Task.gather(
-          Random.shuffle(1 to 512)
-            .map(i ⇒ client.put(f"k$i%04d", f"v$i%04d".getBytes)))
-        )
 
-        resultMap should have size 512
-        resultMap should contain only None
+        val putRes1 = wait(Task.gather(
+          Random.shuffle(1 to 512).map(i ⇒ {
+            for {
+              putCb <- client.putCallbacks(f"k$i%04d", f"v$i%04d".getBytes)
+              res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
+            } yield res
+          })
+        ))
 
-        // get some values
-        wait(client.get(minKey)).get shouldBe "v0001".getBytes
-        wait(client.get(midKey)).get shouldBe "v0256".getBytes
-        wait(client.get(maxKey)).get shouldBe "v0512".getBytes
-        wait(client.get(absentKey)) shouldBe None
-
-        // insert 1024 new and 1024 duplicated values
-        val result2Map = wait(Task.gather(
-          Random.shuffle(1 to 1024)
-            .map(i ⇒ client.put(f"k$i%04d", f"v$i%04d new".getBytes)))
-        )
-
-        result2Map should have size 1024
-        result2Map.filter(_.isDefined) should have size 512
-        result2Map.filter(_.isDefined).map(_.get) should contain allElementsOf (1 to 512).map(i ⇒ f"v$i%04d".getBytes)
+        putRes1 should have size 512
+        putRes1 should contain allElementsOf(1 to 512)
 
         // get some values
-        wait(client.get(minKey)).get shouldBe "v0001 new".getBytes
-        wait(client.get(midKey)).get shouldBe "v0256 new".getBytes
-        wait(client.get(maxKey)).get shouldBe "v0512 new".getBytes
-        wait(client.get(absentKey)) shouldBe None
+
+        val min = wait(for {
+            getMinCb ← client.getCallbacks(minKey)
+            min ← bTree.get(new GetCommandImpl(getMinCb))
+        } yield min)
+        val mid = wait(for {
+            getMidCb ← client.getCallbacks(midKey)
+            mid ← bTree.get(new GetCommandImpl(getMidCb))
+        } yield mid)
+        val max = wait(for {
+            getMaxCb ← client.getCallbacks(maxKey)
+            max ← bTree.get(new GetCommandImpl(getMaxCb))
+        } yield max)
+        val absent = wait(for {
+            getAbsentCb ← client.getCallbacks(absentKey)
+            absent ← bTree.get(new GetCommandImpl(getAbsentCb))
+        } yield absent)
+
+        min shouldBe defined
+        mid shouldBe defined
+        max shouldBe defined
+        absent shouldBe None
+
+        // insert 512 new and 512 duplicated values
+        val putRes2 = wait(Task.gather(
+          Random.shuffle(1 to 1024).map(i ⇒ {
+            for {
+              putCb <- client.putCallbacks(f"k$i%04d", f"v$i%04d new".getBytes)
+              res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
+            } yield res
+          })
+        ))
+
+        putRes2 should have size 1024
+        putRes2 should contain allElementsOf(1 to 1024)
+
+        // get some values
+        val minNew = wait(for {
+          getMinCb ← client.getCallbacks(minKey)
+          min ← bTree.get(new GetCommandImpl(getMinCb))
+        } yield min)
+        val midNew = wait(for {
+          getMidCb ← client.getCallbacks(midKey)
+          mid ← bTree.get(new GetCommandImpl(getMidCb))
+        } yield mid)
+        val maxNew = wait(for {
+          getMaxCb ← client.getCallbacks(maxKey)
+          max ← bTree.get(new GetCommandImpl(getMaxCb))
+        } yield max)
+        val absentNew = wait(for {
+          getAbsentCb ← client.getCallbacks(absentKey)
+          absent ← bTree.get(new GetCommandImpl(getAbsentCb))
+        } yield absent)
+
+        minNew shouldBe min
+        midNew shouldBe mid
+        maxNew shouldBe defined
+        absentNew shouldBe None
+        
       }
 
     }
@@ -119,22 +177,12 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
   /* util methods */
 
-  private val hasher = JdkCryptoHasher.Sha256
-  //  private val hasher = TestCryptoHasher
-
   private def createBTreeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String] = {
     val keyCrypt = NoOpCrypt.forString
     val valueCrypt = NoOpCrypt.forString
-    val bTree = createBTree()
     val idx = Atomic(0l)
     MerkleBTreeClient(
       clientState,
-      new BTreeRpc[Task] {
-        override def get(getCallbacks: GetCallbacks[Task]): Task[Unit] =
-          bTree.get(new GetCommandImpl[Task](getCallbacks)).map(_ ⇒ ())
-        override def put(putCallback: PutCallbacks[Task]): Task[Unit] =
-          bTree.put(new PutCommandImpl[Task](MerkleRootCalculator(hasher), putCallback, () ⇒ idx.incrementAndGet())).map(_ ⇒ ())
-      },
       keyCrypt,
       hasher
     )

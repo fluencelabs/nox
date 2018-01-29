@@ -22,8 +22,7 @@ import fluence.btree.client.MerkleBTreeClient._
 import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common._
 import fluence.btree.common.merkle.MerklePath
-import fluence.btree.protocol.BTreeRpc
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
+import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks, RemoveCallback }
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import monix.eval.{ MVar, Task }
@@ -32,20 +31,18 @@ import org.slf4j.LoggerFactory
 import scala.collection.Searching.{ Found, SearchResult }
 
 /**
- * Base implementation of [[SearchTree]] to calls for a remote MerkleBTree.
+ * Base implementation of [[MerkleBTreeClientApi]] to calls for a remote MerkleBTree.
  * '''Note that this version is single-thread for Put operation, and multi-thread for Get operation.'''
  *
  * @param clientState General state holder for btree client
- * @param bTreeRpc    BTree rpc service.
  * @param keyCrypt    Encrypting/decrypting provider for ''key''
  * @param verifier    Arbiter for checking correctness of Btree server responses.
  */
 class MerkleBTreeClient[K] private (
     clientState: ClientState,
-    bTreeRpc: BTreeRpc[Task],
     keyCrypt: Crypt[K, Array[Byte]],
     verifier: BTreeVerifier
-)(implicit ord: Ordering[K]) {
+)(implicit ord: Ordering[K]) extends MerkleBTreeClientApi[Task, K] {
 
   private val clientStateMVar = MVar(clientState)
 
@@ -62,9 +59,6 @@ class MerkleBTreeClient[K] private (
 
     /** Tree path traveled on the server. Updatable for round trip session */
     private val merklePathMVar: MVar[MerklePath] = MVar(MerklePath.empty)
-
-    /** Result of this get request. Updatable for round trip session */
-    private val foundValueChecksumMVar: MVar[Option[Hash]] = MVar.empty // todo it should be removed in next time
 
     // case when server asks next child
     def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = {
@@ -98,9 +92,7 @@ class MerkleBTreeClient[K] private (
               None
           }
 
-          Task.gather(
-            Seq(foundValueChecksumMVar.put(searchedIdx.map(valuesChecksums)), merklePathMVar.put(mPath.add(leafProof)))
-          ).map(_ ⇒ searchedIdx)
+          merklePathMVar.put(mPath.add(leafProof)).map(_ ⇒ searchedIdx)
         } else {
           Task.raiseError(new IllegalStateException(
             s"Checksum of leaf didn't pass verifying for key=$key, Leaf($keys, $valuesChecksums)"
@@ -109,8 +101,6 @@ class MerkleBTreeClient[K] private (
       }
     }
 
-    override def getFoundValue: Task[Option[Hash]] =
-      foundValueChecksumMVar.take
   }
 
   /**
@@ -131,9 +121,6 @@ class MerkleBTreeClient[K] private (
 
     /** All details needed for putting key and value to BTree */
     private val putDetailsMVar: MVar[Option[ClientPutDetails]] = MVar.empty
-
-    /** An old value that will be rewritten or None if key for putting wasn't present in B Tree */
-    private val oldCipherValueMVar: MVar[Option[Hash]] = MVar.empty
 
     /** New valid client merkle root */
     private val newMerkleRoot: MVar[Bytes] = MVar.empty
@@ -162,19 +149,10 @@ class MerkleBTreeClient[K] private (
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
           val searchResult = binarySearch(key, keys)
           val nodeProofWithIdx = leafProof.copy(substitutionIdx = searchResult.insertionPoint)
-          val prevValue = searchResult match {
-            case Found(idx) ⇒
-              log.debug(s"Start update for key=$key, valHash=$valueChecksum, because key is present in tree by idx=$idx")
-              Some(values(idx))
-            case _ ⇒
-              log.debug(s"Start insert for key=$key, valHash=$valueChecksum, because key isn't present in tree")
-              None
-          }
           val putDetails = ClientPutDetails(keyCrypt.encrypt(key), valueChecksum, searchResult)
 
           for {
             _ ← putDetailsMVar.put(Some(putDetails))
-            _ ← oldCipherValueMVar.put(prevValue)
             _ ← merklePathMVar.put(mPath.add(nodeProofWithIdx))
           } yield putDetails
 
@@ -226,49 +204,48 @@ class MerkleBTreeClient[K] private (
         }
     }
 
-    // return old value checksum for search key
-    override def getOldValue: Task[Option[Hash]] =
-      oldCipherValueMVar.read
   }
 
   /**
-   * Finds ''value'' for specified ''key'' in remote MerkleBTree and returns decrypted ''value''.
+   * Returns callbacks for finding ''value'' for specified ''key'' in remote MerkleBTree.
    *
    * @param key Plain text key
    */
-  def get(key: K): Task[Option[Hash]] = { // todo return type will be changed in next task
-    log.debug(s"Get starts for key=$key")
+  override def getCallbacks(key: K): Task[GetCallbacks[Task]] = {
+    log.debug(s"getCallbacks starts for key=$key")
 
     for {
       clientState ← clientStateMVar.read
-      state = GetStateImpl(key, BytesOps.copyOf(clientState.merkleRoot))
-      _ ← bTreeRpc.get(state)
-      result ← state.getFoundValue
-    } yield result
+    } yield GetStateImpl(key, BytesOps.copyOf(clientState.merkleRoot))
 
   }
 
   /**
-   * Save encrypted ''key'' and ''value'' into remote MerkleBTree.
+   * Returns callbacks for saving encrypted ''key'' and ''value'' into remote MerkleBTree.
    *
    * @param key             Plain text key
    * @param valueChecksum  Checksum of encrypted value to be store
    */
-  def put(key: K, valueChecksum: Hash): Task[Option[Hash]] = { // todo return type will be changed in next task
-    log.debug(s"Put starts put for key=$key, value=$valueChecksum")
+  override def putCallbacks(key: K, valueChecksum: Hash): Task[PutCallbacks[Task]] = {
+    log.debug(s"putCallbacks starts put for key=$key, value=$valueChecksum")
 
-    val res = for {
+    val putCallbacks = for {
       clientState ← clientStateMVar.take
-      state = PutStateImpl(key, valueChecksum, BytesOps.copyOf(clientState.merkleRoot))
-      _ ← bTreeRpc.put(state) // return old value to clientStateMVar
-      result ← state.getOldValue
-    } yield result
-    res.doOnFinish {
+    } yield PutStateImpl(key, valueChecksum, BytesOps.copyOf(clientState.merkleRoot))
+
+    putCallbacks.doOnFinish {
       // in error case we should return old value of clientState back
       case Some(e) ⇒ clientStateMVar.put(clientState)
       case _       ⇒ Task(())
     }
   }
+
+  /**
+   * Returns callbacks for deleting ''key value pair'' into remote MerkleBTree by specifying plain text key.
+   *
+   * @param key Plain text key
+   */
+  override def removeCallbacks(key: K): Task[RemoveCallback[Task]] = ???
 
   private def binarySearch(key: K, keys: Array[Key]): SearchResult = {
     import fluence.crypto.cipher.CryptoSearching._
@@ -316,13 +293,11 @@ object MerkleBTreeClient {
 
   def apply[K](
     initClientState: Option[ClientState],
-    bTreeRpc: BTreeRpc[Task],
     keyCrypt: Crypt[K, Array[Byte]],
     cryptoHasher: CryptoHasher[Bytes, Bytes]
   )(implicit ord: Ordering[K]): MerkleBTreeClient[K] = {
     new MerkleBTreeClient[K](
       initClientState.getOrElse(ClientState(Array.emptyByteArray)),
-      bTreeRpc,
       keyCrypt,
       BTreeVerifier(cryptoHasher)
     )
