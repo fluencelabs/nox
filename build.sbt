@@ -1,5 +1,5 @@
 import de.heikoseeberger.sbtheader.License
-
+import com.typesafe.sbt.packager.docker._
 import scalariform.formatter.preferences._
 
 val scalariformPrefs = scalariformPreferences := scalariformPreferences.value
@@ -273,13 +273,17 @@ lazy val `node` = project.in(file("node"))
       scalatest
     ),
     mainClass := Some("fluence.node.NodeApp"),
-    packageName in Docker := "fluencelabs/node"
+    packageName in Docker := "fluencelabs/node",
+    dockerCommands ++= Seq(
+      Cmd("ENV", "FLUENCE_GIT_HASH", sys.process.Process("git rev-parse HEAD").lineStream_!.head)
+    ),
+    version in Docker := sys.process.Process("git rev-parse HEAD").lineStream_!.head,
+    dockerUpdateLatest := (sys.process.Process("git rev-parse --abbrev-ref HEAD").lineStream_!.head == "master")
   )
   .dependsOn(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`, `client`)
   .aggregate(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`, `client`)
   .enablePlugins(JavaAppPackaging, DockerPlugin)
 
-// TODO: add enough dependencies for client-node communications
 // TODO: grpc is only for JVM: transport should be more abstract
 lazy val `client` = project.in(file("client"))
   .settings(commons)
