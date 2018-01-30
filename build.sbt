@@ -244,7 +244,8 @@ lazy val `dataset-node` = project.in(file("dataset/node"))
       monix3 % Test,
       scalatest
     )
-  ).dependsOn(`storage`, `kademlia-node`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`)
+  ).dependsOn(`storage`, `kademlia-node`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
+              `dataset-client` % "compile->test")
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
   .settings(commons)

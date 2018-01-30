@@ -10,7 +10,7 @@ import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
 import fluence.codec.kryo.KryoCodecs
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.{ JdkCryptoHasher, TestCryptoHasher }
+import fluence.crypto.hash.JdkCryptoHasher
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -55,7 +55,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
         val result = for {
           cmd <- client.getCallbacks(key1)
-          res ← bTree.get(new GetCommandImpl(cmd))
+          res ← bTree.get(GetCommandImpl(cmd))
         } yield res shouldBe None
 
         wait(result)
@@ -69,11 +69,11 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
         val result = for {
           getCb1 ← client.getCallbacks(key1)
-          res1 ← bTree.get(new GetCommandImpl(getCb1))
+          res1 ← bTree.get(GetCommandImpl(getCb1))
           putCb ← client.putCallbacks(key1, val1.getBytes)
-          res2 ← bTree.put(new PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
+          res2 ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
           getCb2 ← client.getCallbacks(key1)
-          res3 ← bTree.get(new GetCommandImpl(getCb2))
+          res3 ← bTree.get(GetCommandImpl(getCb2))
         } yield {
           res1 shouldBe None
           res2 shouldBe 1l
@@ -113,19 +113,19 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
         val min = wait(for {
             getMinCb ← client.getCallbacks(minKey)
-            min ← bTree.get(new GetCommandImpl(getMinCb))
+            min ← bTree.get(GetCommandImpl(getMinCb))
         } yield min)
         val mid = wait(for {
             getMidCb ← client.getCallbacks(midKey)
-            mid ← bTree.get(new GetCommandImpl(getMidCb))
+            mid ← bTree.get(GetCommandImpl(getMidCb))
         } yield mid)
         val max = wait(for {
             getMaxCb ← client.getCallbacks(maxKey)
-            max ← bTree.get(new GetCommandImpl(getMaxCb))
+            max ← bTree.get(GetCommandImpl(getMaxCb))
         } yield max)
         val absent = wait(for {
             getAbsentCb ← client.getCallbacks(absentKey)
-            absent ← bTree.get(new GetCommandImpl(getAbsentCb))
+            absent ← bTree.get(GetCommandImpl(getAbsentCb))
         } yield absent)
 
         min shouldBe defined
@@ -149,19 +149,19 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         // get some values
         val minNew = wait(for {
           getMinCb ← client.getCallbacks(minKey)
-          min ← bTree.get(new GetCommandImpl(getMinCb))
+          min ← bTree.get(GetCommandImpl(getMinCb))
         } yield min)
         val midNew = wait(for {
           getMidCb ← client.getCallbacks(midKey)
-          mid ← bTree.get(new GetCommandImpl(getMidCb))
+          mid ← bTree.get(GetCommandImpl(getMidCb))
         } yield mid)
         val maxNew = wait(for {
           getMaxCb ← client.getCallbacks(maxKey)
-          max ← bTree.get(new GetCommandImpl(getMaxCb))
+          max ← bTree.get(GetCommandImpl(getMaxCb))
         } yield max)
         val absentNew = wait(for {
           getAbsentCb ← client.getCallbacks(absentKey)
-          absent ← bTree.get(new GetCommandImpl(getAbsentCb))
+          absent ← bTree.get(GetCommandImpl(getAbsentCb))
         } yield absent)
 
         minNew shouldBe min
@@ -179,8 +179,6 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
   private def createBTreeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String] = {
     val keyCrypt = NoOpCrypt.forString
-    val valueCrypt = NoOpCrypt.forString
-    val idx = Atomic(0l)
     MerkleBTreeClient(
       clientState,
       keyCrypt,

@@ -538,7 +538,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
   /** Search value for specified key and return callback for searched result */
   private def getCmd(key: Key, resultFn: Option[Hash] ⇒ Unit = { _ ⇒ () }): Get = {
-    new GetCommandImpl[Task](new GetCallbacks[Task] {
+    GetCommandImpl[Task](new GetCallbacks[Task] {
       import scala.collection.Searching._
       override def submitLeaf(keys: Array[Key], values: Array[Hash]): Task[Option[Int]] = {
         val result = keys.search(key) match {
@@ -565,7 +565,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
     stageOfFail: GetStage,
     errMsg: String = "Client unavailable"
   ): Get = {
-    new GetCommandImpl[Task](new GetCallbacks[Task] {
+    GetCommandImpl[Task](new GetCallbacks[Task] {
       import scala.collection.Searching._
       override def submitLeaf(keys: Array[Key], values: Array[Hash]): Task[Option[Int]] = {
         if (stageOfFail == SendLeafStage)

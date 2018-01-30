@@ -25,8 +25,9 @@ import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
 import fluence.btree.common.{ ClientPutDetails, Hash, Key, ValueRef }
 import fluence.btree.server.MerkleBTreeShow._
 import fluence.btree.server.core.TreePath.PathElem
-import fluence.codec.kryo.KryoCodecs
 import fluence.btree.server.core._
+import fluence.codec.kryo.KryoCodecs
+import fluence.crypto.hash.CryptoHasher
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.{ Task, TaskSemaphore }
 import monix.execution.atomic.{ AtomicInt, AtomicLong }
@@ -116,7 +117,7 @@ class MerkleBTree private[server] (
    * @return reference to value that corresponds search Key. In update case will be returned old reference,
    *          in insert case will be created new reference to value
    */
-  def put(cmd: Put): Task[ValueRef] = { // todo should be returned Option[valRef] perhaps
+  def put(cmd: Put): Task[ValueRef] = {
     globalMutex.greenLight(getRoot.flatMap(root ⇒ putForRoot(root, cmd)))
   }
 
@@ -547,14 +548,16 @@ object MerkleBTree {
   /**
    * Creates new instance of MerkleBTree.
    *
-   * @param treeId     Any unique name of this tree (actually will be created RockDb instance with data folder == id)
-   * @param conf       MerkleBTree config
+   * @param treeId        Any unique name of this tree (actually will be created RockDb instance with data folder == id)
+   * @param cryptoHasher Hash service uses for calculating nodes checksums.
+   * @param conf          MerkleBTree config
    */
   def apply(
     treeId: String,
+    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     conf: MerkleBTreeConfig = MerkleBTreeConfig.read()
   ): MerkleBTree = {
-    new MerkleBTree(conf, defaultStore(treeId), NodeOps())
+    new MerkleBTree(conf, defaultStore(treeId), NodeOps(cryptoHasher))
   }
 
   /**

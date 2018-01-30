@@ -31,7 +31,7 @@ import scala.language.higherKinds
  * @param getCallbacks A pack of functions that ask client to give some required details for the next step
  * @tparam F The type of effect, box for returning value
  */
-class GetCommandImpl[F[_]](getCallbacks: GetCallbacks[F])(implicit ME: MonadError[F, Throwable])
+case class GetCommandImpl[F[_]](getCallbacks: GetCallbacks[F])(implicit ME: MonadError[F, Throwable])
   extends BaseSearchCommand[F](getCallbacks) with GetCommand[F, Key, ValueRef] {
 
   override def submitLeaf(leaf: Option[LeafNode[Key, ValueRef]]): F[Option[Int]] = {
