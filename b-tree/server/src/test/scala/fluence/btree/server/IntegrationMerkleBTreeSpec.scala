@@ -28,7 +28,7 @@ import scala.util.hashing.MurmurHash3
 class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
   private val hasher = JdkCryptoHasher.Sha256
-//    private val hasher = TestCryptoHasher
+  //    private val hasher = TestCryptoHasher
   private val mRCalc = MerkleRootCalculator(hasher)
 
   implicit object BytesOrdering extends Ordering[Array[Byte]] {
@@ -54,7 +54,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val bTree = createBTree()
 
         val result = for {
-          getCb <- client.initGet(key1)
+          getCb ← client.initGet(key1)
           res ← bTree.get(GetCommandImpl(getCb))
         } yield res shouldBe None
 
@@ -100,32 +100,32 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val putRes1 = wait(Task.gather(
           Random.shuffle(1 to 512).map(i ⇒ {
             for {
-              putCb <- client.initPut(f"k$i%04d", f"v$i%04d".getBytes)
+              putCb ← client.initPut(f"k$i%04d", f"v$i%04d".getBytes)
               res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
             } yield res
           })
         ))
 
         putRes1 should have size 512
-        putRes1 should contain allElementsOf(1 to 512)
+        putRes1 should contain allElementsOf (1 to 512)
 
         // get some values
 
         val min = wait(for {
-            getMinCb ← client.initGet(minKey)
-            min ← bTree.get(GetCommandImpl(getMinCb))
+          getMinCb ← client.initGet(minKey)
+          min ← bTree.get(GetCommandImpl(getMinCb))
         } yield min)
         val mid = wait(for {
-            getMidCb ← client.initGet(midKey)
-            mid ← bTree.get(GetCommandImpl(getMidCb))
+          getMidCb ← client.initGet(midKey)
+          mid ← bTree.get(GetCommandImpl(getMidCb))
         } yield mid)
         val max = wait(for {
-            getMaxCb ← client.initGet(maxKey)
-            max ← bTree.get(GetCommandImpl(getMaxCb))
+          getMaxCb ← client.initGet(maxKey)
+          max ← bTree.get(GetCommandImpl(getMaxCb))
         } yield max)
         val absent = wait(for {
-            getAbsentCb ← client.initGet(absentKey)
-            absent ← bTree.get(GetCommandImpl(getAbsentCb))
+          getAbsentCb ← client.initGet(absentKey)
+          absent ← bTree.get(GetCommandImpl(getAbsentCb))
         } yield absent)
 
         min shouldBe defined
@@ -137,14 +137,14 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val putRes2 = wait(Task.gather(
           Random.shuffle(1 to 1024).map(i ⇒ {
             for {
-              putCb <- client.initPut(f"k$i%04d", f"v$i%04d new".getBytes)
+              putCb ← client.initPut(f"k$i%04d", f"v$i%04d new".getBytes)
               res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
             } yield res
           })
         ))
 
         putRes2 should have size 1024
-        putRes2 should contain allElementsOf(1 to 1024)
+        putRes2 should contain allElementsOf (1 to 1024)
 
         // get some values
         val minNew = wait(for {
@@ -168,7 +168,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         midNew shouldBe mid
         maxNew shouldBe defined
         absentNew shouldBe None
-        
+
       }
 
     }
