@@ -54,8 +54,8 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val bTree = createBTree()
 
         val result = for {
-          cmd <- client.getCallbacks(key1)
-          res ← bTree.get(GetCommandImpl(cmd))
+          getCb <- client.initGet(key1)
+          res ← bTree.get(GetCommandImpl(getCb))
         } yield res shouldBe None
 
         wait(result)
@@ -68,11 +68,11 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val counter = Atomic(0L)
 
         val result = for {
-          getCb1 ← client.getCallbacks(key1)
+          getCb1 ← client.initGet(key1)
           res1 ← bTree.get(GetCommandImpl(getCb1))
-          putCb ← client.putCallbacks(key1, val1.getBytes)
+          putCb ← client.initPut(key1, val1.getBytes)
           res2 ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
-          getCb2 ← client.getCallbacks(key1)
+          getCb2 ← client.initGet(key1)
           res3 ← bTree.get(GetCommandImpl(getCb2))
         } yield {
           res1 shouldBe None
@@ -100,7 +100,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val putRes1 = wait(Task.gather(
           Random.shuffle(1 to 512).map(i ⇒ {
             for {
-              putCb <- client.putCallbacks(f"k$i%04d", f"v$i%04d".getBytes)
+              putCb <- client.initPut(f"k$i%04d", f"v$i%04d".getBytes)
               res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
             } yield res
           })
@@ -112,19 +112,19 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         // get some values
 
         val min = wait(for {
-            getMinCb ← client.getCallbacks(minKey)
+            getMinCb ← client.initGet(minKey)
             min ← bTree.get(GetCommandImpl(getMinCb))
         } yield min)
         val mid = wait(for {
-            getMidCb ← client.getCallbacks(midKey)
+            getMidCb ← client.initGet(midKey)
             mid ← bTree.get(GetCommandImpl(getMidCb))
         } yield mid)
         val max = wait(for {
-            getMaxCb ← client.getCallbacks(maxKey)
+            getMaxCb ← client.initGet(maxKey)
             max ← bTree.get(GetCommandImpl(getMaxCb))
         } yield max)
         val absent = wait(for {
-            getAbsentCb ← client.getCallbacks(absentKey)
+            getAbsentCb ← client.initGet(absentKey)
             absent ← bTree.get(GetCommandImpl(getAbsentCb))
         } yield absent)
 
@@ -137,7 +137,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val putRes2 = wait(Task.gather(
           Random.shuffle(1 to 1024).map(i ⇒ {
             for {
-              putCb <- client.putCallbacks(f"k$i%04d", f"v$i%04d new".getBytes)
+              putCb <- client.initPut(f"k$i%04d", f"v$i%04d new".getBytes)
               res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
             } yield res
           })
@@ -148,19 +148,19 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
         // get some values
         val minNew = wait(for {
-          getMinCb ← client.getCallbacks(minKey)
+          getMinCb ← client.initGet(minKey)
           min ← bTree.get(GetCommandImpl(getMinCb))
         } yield min)
         val midNew = wait(for {
-          getMidCb ← client.getCallbacks(midKey)
+          getMidCb ← client.initGet(midKey)
           mid ← bTree.get(GetCommandImpl(getMidCb))
         } yield mid)
         val maxNew = wait(for {
-          getMaxCb ← client.getCallbacks(maxKey)
+          getMaxCb ← client.initGet(maxKey)
           max ← bTree.get(GetCommandImpl(getMaxCb))
         } yield max)
         val absentNew = wait(for {
-          getAbsentCb ← client.getCallbacks(absentKey)
+          getAbsentCb ← client.initGet(absentKey)
           absent ← bTree.get(GetCommandImpl(getAbsentCb))
         } yield absent)
 
