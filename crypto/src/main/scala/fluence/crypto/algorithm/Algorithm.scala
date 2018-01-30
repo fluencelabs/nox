@@ -19,9 +19,10 @@ package fluence.crypto.algorithm
 
 import java.security.SecureRandom
 
+import cats.MonadError
 import fluence.crypto.keypair.KeyPair
 
 trait Algorithm {
-  def generateKeyPair(random: SecureRandom): KeyPair
-  def generateKeyPair(): KeyPair
+  def generateKeyPair[F[_]](random: SecureRandom)(implicit F: MonadError[F, CryptoErr]): F[KeyPair]
+  def generateKeyPair[F[_]]()(implicit F: MonadError[F, CryptoErr]): F[KeyPair]
 }

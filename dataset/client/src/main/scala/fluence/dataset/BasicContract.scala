@@ -19,9 +19,11 @@ package fluence.dataset
 
 import java.nio.ByteBuffer
 
-import cats.Eq
-import fluence.crypto.signature.{ Signature, Signer }
-import fluence.dataset.contract.{ ContractRead, ContractWrite }
+import cats.{Eq, MonadError}
+import cats.syntax.all._
+import fluence.crypto.algorithm.CryptoErr
+import fluence.crypto.signature.{Signature, Signer}
+import fluence.dataset.contract.{ContractRead, ContractWrite}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
@@ -60,11 +62,12 @@ object BasicContract {
     }
   }
 
-  def offer(id: Key, participantsRequired: Int, signer: Signer): BasicContract =
+  def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(implicit F: MonadError[F, CryptoErr]): F[BasicContract] =
     {
-      val offer = Offer(participantsRequired)
-      val signature = signer.sign(offer.getBytes)
-      BasicContract(id, offer, signature, Map.empty, None, 0)
+      for {
+        offer <- F.pure(Offer(participantsRequired))
+        signature <- signer.sign(offer.getBytes)
+      } yield BasicContract(id, offer, signature, Map.empty, None, 0)
     }
 
   // TODO: there should be contract laws, like "init empty - not signed -- sign offer -- signed, no participants -- add participant -- ..."

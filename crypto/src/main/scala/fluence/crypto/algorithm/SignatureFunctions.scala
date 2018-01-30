@@ -17,11 +17,12 @@
 
 package fluence.crypto.algorithm
 
+import cats.MonadError
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
 import scodec.bits.ByteVector
 
 trait SignatureFunctions extends Algorithm {
-  def sign(keyPair: KeyPair, message: ByteVector): Signature
+  def sign[F[_]](keyPair: KeyPair, message: ByteVector)(implicit F: MonadError[F, CryptoErr]): F[Signature]
   def verify(signature: Signature, message: ByteVector): Boolean
 }
