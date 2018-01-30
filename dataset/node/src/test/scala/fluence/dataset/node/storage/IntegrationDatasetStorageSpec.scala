@@ -201,9 +201,9 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
       }
   }
 
-  private def createClientDbDriver(dbName: String): ClientDatasetStorage[String, User] = {
+  private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] = {
     new ClientDatasetStorage(
-      createBTreeClient(),
+      createBTreeClient(clientState),
       createStorageRpc(dbName),
       valueCrypt,
       hasher
