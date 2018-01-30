@@ -2,6 +2,7 @@ package fluence.dataset.node.storage
 
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
+import fluence.btree.common.Bytes
 import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.JdkCryptoHasher
@@ -13,7 +14,6 @@ import monix.execution.ExecutionModel
 import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterEach, Matchers, WordSpec }
 
 import scala.concurrent.duration.{ FiniteDuration, _ }
@@ -56,9 +56,10 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
           }
         )
 
+        val counter = Atomic(0L)
         val clientWithCorruption: ClientDatasetStorage[String, User] = new ClientDatasetStorage(
           createBTreeClient(),
-          createStorageRpcWithNetworkError("test0"),
+          createStorageRpcWithNetworkError("test0", mr ⇒ counter.incrementAndGet()),
           valueCryptWithCorruption,
           hasher
         )
@@ -75,6 +76,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         wait(clientWithCorruption.put(key3, val3).failed).getMessage shouldBe "some network error"
         wait(clientWithCorruption.get(key1)) shouldBe Some(val1)
 
+        counter.get shouldBe 2L
       }
 
     }
@@ -154,6 +156,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
         val client = createClientDbDriver("test4")
         val N = 128
+        val changesCounter = Atomic(0l)
 
         val result = wait(Task.gather(
           Random.shuffle(1 to N).map(i ⇒ {
@@ -198,26 +201,26 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
       }
   }
 
-  private def createClientDbDriver(dbName: String): ClientDatasetStorage[String, User] = {
+  private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] = {
     new ClientDatasetStorage(
-      createBTreeClient(),
+      createBTreeClient(clientState),
       createStorageRpc(dbName),
       valueCrypt,
       hasher
     )
   }
 
-  private def createStorageRpcWithNetworkError(dbName: String): DatasetStorageRpc[Task] = {
+  private def createStorageRpcWithNetworkError(dbName: String, counter: Bytes ⇒ Unit): DatasetStorageRpc[Task] = {
     val origin = createDatasetStorage(dbName)
     new DatasetStorageRpc[Task] {
       override def remove(removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
         origin.remove(removeCallbacks)
       }
-      override def put(putCallback: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] = {
+      override def put(putCallback: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte], onMRChange: Bytes ⇒ Unit = _ ⇒ ()): Task[Option[Array[Byte]]] = {
         if (new String(encryptedValue) == "ENC[Alan,33]") {
           Task.raiseError(new IllegalStateException("some network error"))
         } else {
-          origin.put(putCallback, encryptedValue)
+          origin.put(putCallback, encryptedValue, counter)
         }
       }
       override def get(getCallbacks: BTreeRpc.GetCallbacks[Task]): Task[Option[Array[Byte]]] =
