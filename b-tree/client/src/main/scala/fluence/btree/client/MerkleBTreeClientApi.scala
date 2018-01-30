@@ -18,7 +18,6 @@
 package fluence.btree.client
 
 import fluence.btree.common.Hash
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks, RemoveCallback }
 
 import scala.language.higherKinds
 
@@ -31,25 +30,26 @@ import scala.language.higherKinds
 trait MerkleBTreeClientApi[F[_], K] {
 
   /**
-   * Returns callbacks for finding ''value'' for specified ''key'' in remote MerkleBTree.
+   * Returns ''GetState'' with callbacks for finding ''value'' for specified ''key'' in remote MerkleBTree.
    *
    * @param key Plain text key
    */
-  def getCallbacks(key: K): F[GetCallbacks[F]]
+  def initGet(key: K): F[GetState[F]]
 
   /**
-   * Returns callbacks for saving encrypted ''key'' and ''value'' into remote MerkleBTree.
+   * Returns ''PutState'' with callbacks for saving encrypted ''key'' and ''value'' into remote MerkleBTree.
    *
    * @param key             Plain text key
    * @param valueChecksum  Checksum of encrypted value to be store
    */
-  def putCallbacks(key: K, valueChecksum: Hash): F[PutCallbacks[F]]
+  def initPut(key: K, valueChecksum: Hash): F[PutState[F]]
 
   /**
-   * Returns callbacks for deleting ''key value pair'' into remote MerkleBTree by specifying plain text key.
+   * Returns ''RemoveState'' with callbacks for deleting ''key value pair'' into remote MerkleBTree by
+   * specifying plain text key.
    *
    * @param key Plain text key
    */
-  def removeCallbacks(key: K): F[RemoveCallback[F]]
+  def removeState(key: K): F[RemoveState[F]]
 
 }

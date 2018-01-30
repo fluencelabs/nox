@@ -1,9 +1,9 @@
 package fluence.crypto
 
 import fluence.crypto.cipher.NoOpCrypt
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 
-import scala.collection.Searching.{Found, InsertionPoint}
+import scala.collection.Searching.{ Found, InsertionPoint }
 
 class CryptoSearchingSpec extends WordSpec with Matchers {
 

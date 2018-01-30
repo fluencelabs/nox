@@ -17,13 +17,11 @@
 
 package fluence.dataset.client
 
-import cats.MonadError
-import cats.syntax.flatMap._
-import cats.syntax.functor._
 import fluence.btree.client.MerkleBTreeClientApi
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.storage.{ ClientDatasetStorageApi, DatasetStorageRpc }
+import monix.eval.Task
 
 import scala.language.higherKinds
 
@@ -33,42 +31,52 @@ import scala.language.higherKinds
  * @param bTreeIndex  An interface to dataset index.
  * @param storageRpc  Remotely-accessible interface to all dataset storage operation.
  *
- * @tparam F A box for returning value
  * @tparam K The type of keys
  * @tparam V The type of stored values
  */
-class ClientDatasetStorage[F[_], K, V]( // todo write integration test
-    bTreeIndex: MerkleBTreeClientApi[F, K],
-    storageRpc: DatasetStorageRpc[F],
+class ClientDatasetStorage[K, V](
+    bTreeIndex: MerkleBTreeClientApi[Task, K],
+    storageRpc: DatasetStorageRpc[Task],
     valueCrypt: Crypt[V, Array[Byte]],
     hasher: CryptoHasher[Array[Byte], Array[Byte]]
-)(implicit ME: MonadError[F, Throwable]) extends ClientDatasetStorageApi[F, K, V] {
+) extends ClientDatasetStorageApi[Task, K, V] {
 
-  override def get(key: K): F[Option[V]] = {
+  override def get(key: K): Task[Option[V]] = {
 
     for {
-      getCmd ← bTreeIndex.getCallbacks(key)
-      serverResponse ← storageRpc.get(getCmd)
+      getCallbacks ← bTreeIndex.initGet(key)
+      serverResponse ← {
+        storageRpc.get(getCallbacks)
+          .doOnFinish { _ ⇒ getCallbacks.recoverState() }
+      }
     } yield serverResponse.map(valueCrypt.decrypt)
 
   }
 
-  override def put(key: K, value: V): F[Option[V]] = {
-
-    val encryptedValue = valueCrypt.encrypt(value)
-    val encryptedValueHash = hasher.hash(encryptedValue)
+  override def put(key: K, value: V): Task[Option[V]] = {
 
     for {
-      putCmd ← bTreeIndex.putCallbacks(key, encryptedValueHash)
-      serverResponse ← storageRpc.put(putCmd, encryptedValue)
+      // todo crypt and hasher should be with effect, they can throw exceptions
+      encValue ← Task(valueCrypt.encrypt(value))
+      encValueHash ← Task(hasher.hash(encValue))
+      putCallbacks ← bTreeIndex.initPut(key, encValueHash)
+      serverResponse ← {
+        storageRpc
+          .put(putCallbacks, encValue)
+          .doOnFinish {
+            // in error case we should return old value of clientState back
+            case Some(e) ⇒ putCallbacks.recoverState()
+            case x       ⇒ Task()
+          }
+      }
     } yield serverResponse.map(valueCrypt.decrypt)
 
   }
 
-  override def remove(key: K): F[Option[V]] = {
+  override def remove(key: K): Task[Option[V]] = {
 
     for {
-      removeCmd ← bTreeIndex.removeCallbacks(key)
+      removeCmd ← bTreeIndex.removeState(key)
       serverResponse ← storageRpc.remove(removeCmd)
     } yield serverResponse.map(valueCrypt.decrypt)
 
