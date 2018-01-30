@@ -19,7 +19,7 @@ package fluence.dataset.node.storage
 
 import java.nio.ByteBuffer
 
-import fluence.btree.common.ValueRef
+import fluence.btree.common.{ Bytes, ValueRef }
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.protocol.BTreeRpc
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
@@ -71,10 +71,16 @@ class DatasetStorage private (
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.
    *
-   * @param putCallbacks Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param encryptedValue Encrypted value.
+   * @param onMRChange      Callback that will be called when merkle root change
    * @return returns old value if old value was overridden, None otherwise.
    */
-  override def put(putCallbacks: PutCallbacks[Task], encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] = {
+  override def put(
+    putCallbacks: PutCallbacks[Task],
+    encryptedValue: Array[Byte],
+    onMRChange: Bytes ⇒ Unit
+  ): Task[Option[Array[Byte]]] = {
 
     // todo start transaction
 
@@ -85,6 +91,7 @@ class DatasetStorage private (
       oldVal ← kVStore.get(valRef).attempt.map(_.toOption)
       // save new blob to kvStore
       _ ← kVStore.put(valRef, encryptedValue)
+      _ ← bTreeIndex.getMerkleRoot.map(onMRChange)
     } yield oldVal
 
     // todo end transaction, revert all changes if error appears

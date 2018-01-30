@@ -17,6 +17,7 @@
 
 package fluence.dataset.protocol.storage
 
+import fluence.btree.common.Bytes
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks, RemoveCallback }
 
 import scala.language.higherKinds
@@ -39,10 +40,12 @@ trait DatasetStorageRpc[F[_]] {
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.
    *
-   * @param putCallback Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param putCallback     Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param encryptedValue  Encrypted value.
+   * @param onMRChange      Callback that will be called when merkle root change
    * @return returns old value if old value was overridden, None otherwise.
    */
-  def put(putCallback: PutCallbacks[F], encryptedValue: Array[Byte]): F[Option[Array[Byte]]]
+  def put(putCallback: PutCallbacks[F], encryptedValue: Array[Byte], onMRChange: Bytes ⇒ Unit = _ ⇒ ()): F[Option[Array[Byte]]]
 
   /**
    * Initiates ''Remove'' operation in remote MerkleBTree.
