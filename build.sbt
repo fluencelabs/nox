@@ -61,14 +61,18 @@ lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
   .dependsOn(`kademlia-protocol`, `b-tree-protocol`)
 
 lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
-  .dependsOn(`dataset-client`, `codec-core`, `transport-grpc`)
+  .dependsOn(`dataset-client`, `transport-grpc`)
 
 lazy val `dataset-client` = project.in(file("dataset/client"))
   .dependsOn(`dataset-protocol`, `crypto`, `b-tree-client`)
 
+lazy val `info-protocol` = project.in(file("info/protocol"))
+lazy val `info-grpc` = project.in(file("info/grpc")).dependsOn(`info-protocol`, `transport-grpc`)
+lazy val `info-node` = project.in(file("info/node")).dependsOn(`info-protocol`)
+
 lazy val `node` = project
-  .dependsOn(`transport-grpc`, `kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`, `client`)
+  .dependsOn(`kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`, `info-grpc`, `info-node`, `client`)
 
 // TODO: grpc is only for JVM: transport should be more abstract
 lazy val `client` = project.in(file("client"))
-  .dependsOn(`dataset-client`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`)
+  .dependsOn(`dataset-client`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `info-grpc`)
