@@ -39,7 +39,6 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   private val val5 = User("Sam", 35)
 
   "put and get" should {
-
     "return error and recover client state" when {
       "data corruption appears in get methods" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
