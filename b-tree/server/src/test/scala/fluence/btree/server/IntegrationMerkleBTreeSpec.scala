@@ -67,20 +67,26 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val bTree = createBTree()
         val counter = Atomic(0L)
 
-        val result = for {
+        val res1 = wait(for {
           getCb1 ← client.initGet(key1)
           res1 ← bTree.get(GetCommandImpl(getCb1))
+          _ ← getCb1.recoverState()
+        } yield res1)
+
+        val res2 = wait(for {
           putCb ← client.initPut(key1, val1.getBytes)
           res2 ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
+        } yield res2)
+
+        val res3 = wait(for {
           getCb2 ← client.initGet(key1)
           res3 ← bTree.get(GetCommandImpl(getCb2))
-        } yield {
-          res1 shouldBe None
-          res2 shouldBe 1l
-          res3 shouldBe Some(1l)
-        }
+          _ ← getCb2.recoverState()
+        } yield res3)
 
-        wait(result)
+        res1 shouldBe None
+        res2 shouldBe 1l
+        res3 shouldBe Some(1l)
 
       }
 
@@ -114,18 +120,22 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val min = wait(for {
           getMinCb ← client.initGet(minKey)
           min ← bTree.get(GetCommandImpl(getMinCb))
+          _ ← getMinCb.recoverState()
         } yield min)
         val mid = wait(for {
           getMidCb ← client.initGet(midKey)
           mid ← bTree.get(GetCommandImpl(getMidCb))
+          _ ← getMidCb.recoverState()
         } yield mid)
         val max = wait(for {
           getMaxCb ← client.initGet(maxKey)
           max ← bTree.get(GetCommandImpl(getMaxCb))
+          _ ← getMaxCb.recoverState()
         } yield max)
         val absent = wait(for {
           getAbsentCb ← client.initGet(absentKey)
           absent ← bTree.get(GetCommandImpl(getAbsentCb))
+          _ ← getAbsentCb.recoverState()
         } yield absent)
 
         min shouldBe defined
@@ -150,18 +160,22 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val minNew = wait(for {
           getMinCb ← client.initGet(minKey)
           min ← bTree.get(GetCommandImpl(getMinCb))
+          _ ← getMinCb.recoverState()
         } yield min)
         val midNew = wait(for {
           getMidCb ← client.initGet(midKey)
           mid ← bTree.get(GetCommandImpl(getMidCb))
+          _ ← getMidCb.recoverState()
         } yield mid)
         val maxNew = wait(for {
           getMaxCb ← client.initGet(maxKey)
           max ← bTree.get(GetCommandImpl(getMaxCb))
+          _ ← getMaxCb.recoverState()
         } yield max)
         val absentNew = wait(for {
           getAbsentCb ← client.initGet(absentKey)
           absent ← bTree.get(GetCommandImpl(getAbsentCb))
+          _ ← getAbsentCb.recoverState()
         } yield absent)
 
         minNew shouldBe min

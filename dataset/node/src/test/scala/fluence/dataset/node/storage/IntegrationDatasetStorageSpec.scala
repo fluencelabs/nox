@@ -4,7 +4,7 @@ import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.TestCryptoHasher
+import fluence.crypto.hash.JdkCryptoHasher
 import fluence.dataset.client.ClientDatasetStorage
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.storage.rocksdb.RocksDbConf
@@ -13,6 +13,7 @@ import monix.execution.ExecutionModel
 import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterEach, Matchers, WordSpec }
 
 import scala.concurrent.duration.{ FiniteDuration, _ }
@@ -24,8 +25,8 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   case class User(name: String, age: Int)
 
   private val blobIdCounter = Atomic(0L)
-  //  private val hasher = JdkCryptoHasher.Sha256
-  private val hasher = TestCryptoHasher
+  private val hasher = JdkCryptoHasher.Sha256
+  //  private val hasher = TestCryptoHasher
 
   private val key1 = "k0001"
   private val val1 = User("Rico", 31)

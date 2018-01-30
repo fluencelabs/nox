@@ -123,6 +123,8 @@ object DatasetStorage {
     datasetId: String,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     refProvider: () ⇒ ValueRef
+  // todo put MerkleRoot
+  // todo onMerkleRootChange callback
   ): Try[DatasetStorage] = {
 
     // todo create direct and more faster codec for Long
