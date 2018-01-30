@@ -132,15 +132,15 @@ class MerkleBTree private[server] (
   private def hasOverflow(node: Node): Boolean = node.size > MaxDegree
 
   private[btree] def getRoot: Task[Node] = {
-    Task(getDepth).flatMap {
-      case 0 ⇒
-        val emptyLeaf = nodeOps.createEmptyLeaf
-        commitNewState(PutTask(Seq(NodeWithId(RootId, emptyLeaf))))
-          .map(_ ⇒ emptyLeaf)
-      case _ ⇒
-        store.get(RootId)
-
-    }
+    store.get(RootId).attempt.map(_.toOption)
+      .flatMap {
+        case Some(node) ⇒
+          Task(node)
+        case None ⇒
+          val emptyLeaf = nodeOps.createEmptyLeaf
+          commitNewState(PutTask(Seq(NodeWithId(RootId, emptyLeaf))))
+            .map(_ ⇒ emptyLeaf)
+      }
   }
 
   /* GET */

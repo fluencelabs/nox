@@ -17,6 +17,7 @@
 
 package fluence.btree.client
 
+import cats.Show
 import cats.syntax.show._
 import fluence.btree.client.MerkleBTreeClient._
 import fluence.btree.common.BTreeCommonShow._
@@ -34,17 +35,17 @@ import scala.collection.Searching.{ Found, SearchResult }
  * Base implementation of [[MerkleBTreeClientApi]] to calls for a remote MerkleBTree.
  * '''Note that this version is single-thread for Put operation, and multi-thread for Get operation.'''
  *
- * @param clientState General state holder for btree client
+ * @param initClientState General state holder for btree client
  * @param keyCrypt    Encrypting/decrypting provider for ''key''
  * @param verifier    Arbiter for checking correctness of Btree server responses.
  */
 class MerkleBTreeClient[K] private (
-    clientState: ClientState,
+    initClientState: ClientState,
     keyCrypt: Crypt[K, Array[Byte]],
     verifier: BTreeVerifier
 )(implicit ord: Ordering[K]) extends MerkleBTreeClientApi[Task, K] {
 
-  private val clientStateMVar = MVar(clientState)
+  private val clientStateMVar = MVar(initClientState)
 
   /**
    * State for each 'Get' request to remote BTree. One ''GetState'' corresponds to one series of round trip requests
@@ -78,7 +79,7 @@ class MerkleBTreeClient[K] private (
     // case when server returns founded leaf
     def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): Task[Option[Int]] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        log.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
+        log.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=${keys.map(_.show).mkString(",")}")
 
         val leafProof = verifier.getLeafProof(keys, valuesChecksums)
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
@@ -95,10 +96,16 @@ class MerkleBTreeClient[K] private (
           merklePathMVar.put(mPath.add(leafProof)).map(_ ⇒ searchedIdx)
         } else {
           Task.raiseError(new IllegalStateException(
-            s"Checksum of leaf didn't pass verifying for key=$key, Leaf($keys, $valuesChecksums)"
+            s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.map(_.show).mkString(",")}, " +
+              s"${valuesChecksums.map(_.show).mkString(",")})"
           ))
         }
       }
+    }
+
+    override def recoverState(): Task[Unit] = {
+      log.debug(s"Recover client state for get; mRoot=${merkleRoot.show}")
+      clientStateMVar.put(ClientState(merkleRoot))
     }
 
   }
@@ -204,6 +211,11 @@ class MerkleBTreeClient[K] private (
         }
     }
 
+    override def recoverState(): Task[Unit] = {
+      log.debug(s"Recover client state for put; mRoot=${merkleRoot.show}")
+      clientStateMVar.put(ClientState(merkleRoot))
+    }
+
   }
 
   /**
@@ -211,11 +223,11 @@ class MerkleBTreeClient[K] private (
    *
    * @param key Plain text key
    */
-  override def getCallbacks(key: K): Task[GetCallbacks[Task]] = {
-    log.debug(s"getCallbacks starts for key=$key")
+  override def initGet(key: K): Task[GetState[Task]] = {
+    log.debug(s"initGet starts for key=$key")
 
     for {
-      clientState ← clientStateMVar.read
+      clientState ← clientStateMVar.take
     } yield GetStateImpl(key, BytesOps.copyOf(clientState.merkleRoot))
 
   }
@@ -226,18 +238,13 @@ class MerkleBTreeClient[K] private (
    * @param key             Plain text key
    * @param valueChecksum  Checksum of encrypted value to be store
    */
-  override def putCallbacks(key: K, valueChecksum: Hash): Task[PutCallbacks[Task]] = {
-    log.debug(s"putCallbacks starts put for key=$key, value=$valueChecksum")
+  override def initPut(key: K, valueChecksum: Hash): Task[PutState[Task]] = {
+    log.debug(s"initPut starts put for key=$key, value=${valueChecksum.show}")
 
-    val putCallbacks = for {
+    for {
       clientState ← clientStateMVar.take
     } yield PutStateImpl(key, valueChecksum, BytesOps.copyOf(clientState.merkleRoot))
 
-    putCallbacks.doOnFinish {
-      // in error case we should return old value of clientState back
-      case Some(e) ⇒ clientStateMVar.put(clientState)
-      case _       ⇒ Task(())
-    }
   }
 
   /**
@@ -245,7 +252,7 @@ class MerkleBTreeClient[K] private (
    *
    * @param key Plain text key
    */
-  override def removeCallbacks(key: K): Task[RemoveCallback[Task]] = ???
+  override def removeState(key: K): Task[RemoveState[Task]] = ???
 
   private def binarySearch(key: K, keys: Array[Key]): SearchResult = {
     import fluence.crypto.cipher.CryptoSearching._
@@ -307,5 +314,9 @@ object MerkleBTreeClient {
    * Global state of BTree client.
    */
   case class ClientState(merkleRoot: Bytes)
+
+  implicit def showState(implicit sb: Show[Bytes]): Show[ClientState] = {
+    Show.show(cs ⇒ s"ClientState(${sb.show(cs.merkleRoot)})")
+  }
 
 }

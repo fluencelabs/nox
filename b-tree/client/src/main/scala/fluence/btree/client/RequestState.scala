@@ -17,19 +17,34 @@
 
 package fluence.btree.client
 
+import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks, RemoveCallback }
+import monix.eval.Task
+
 import scala.language.higherKinds
 
 /**
  * State of any request from client to server.
  */
-sealed trait RequestState
+sealed trait RequestState {
+
+  /**
+   * Returns the state into a consistent state.
+   */
+  def recoverState(): Task[Unit]
+
+}
 
 /**
  * State for each 'Get' request to remote BTree. One ''GetState'' corresponds to one series of round trip requests.
  */
-trait GetState[F[_]] extends RequestState
+trait GetState[F[_]] extends RequestState with GetCallbacks[F]
 
 /**
  * State for each 'Put' request to remote BTree. One ''PutState'' corresponds to one series of round trip requests.
  */
-trait PutState[F[_]] extends RequestState
+trait PutState[F[_]] extends RequestState with PutCallbacks[F]
+
+/**
+ * State for each 'Remove' request to remote BTree. One ''RemoveState'' corresponds to one series of round trip requests.
+ */
+trait RemoveState[F[_]] extends RequestState with RemoveCallback[F]
