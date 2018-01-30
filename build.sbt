@@ -43,6 +43,7 @@ val TypeSafeConfV = "1.3.2"
 val FicusV = "1.4.3"
 val MockitoV = "2.13.0"
 val MonocleV = "1.5.0-cats"
+val BouncyCastleV = "1.59"
 
 val logback = "ch.qos.logback" % "logback-classic" % "1.2.+"
 
@@ -56,6 +57,8 @@ val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.5"
 val rocksDb = "org.rocksdb" % "rocksdbjni" % RocksDbV
 val typeSafeConfig = "com.typesafe" % "config" % TypeSafeConfV
 val ficus = "com.iheart" %% "ficus" % FicusV
+
+val bouncyCastle = "org.bouncycastle" % "bcprov-jdk15on" % BouncyCastleV
 
 val mockito = "org.mockito" % "mockito-core" % MockitoV % Test
 val scalatestKit = "org.scalatest" %% "scalatest" % "3.0.+"
@@ -228,7 +231,8 @@ lazy val `crypto` = project.in(file("crypto"))
     libraryDependencies ++= Seq(
       cats1,
       scodecBits,
-      scalatest
+      scalatest,
+      bouncyCastle
     )
   )
 

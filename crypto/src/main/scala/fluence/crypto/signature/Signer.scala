@@ -1,5 +1,6 @@
 package fluence.crypto.signature
 
+import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.keypair.KeyPair
 import scodec.bits.ByteVector
 
@@ -16,4 +17,12 @@ object Signer {
     override def sign(plain: ByteVector): Signature =
       Signature(keyPair.publicKey, plain.reverse)
   }
+
+  class EcdsaSigner(keyPair: KeyPair) extends Signer {
+    override def publicKey: KeyPair.Public = keyPair.publicKey
+
+    override def sign(plain: ByteVector): Signature =
+      Ecdsa.ecdsa_secp256k1_sha256.sign(keyPair, plain)
+  }
+
 }
