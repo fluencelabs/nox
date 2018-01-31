@@ -17,6 +17,9 @@
 
 package fluence.dataset.contract
 
+import cats.syntax.functor._
+import cats.syntax.flatMap._
+import cats.MonadError
 import fluence.crypto.signature.{ Signature, SignatureChecker }
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
@@ -114,16 +117,17 @@ object ContractRead {
           participantSignature(k).fold(ByteVector.empty)(_.sign)
         ).foldLeft(id.value)(_ ++ _)
 
-    // TODO: having checks return Boolean is very handy, but obscure; should add F[_]: ApplicativeError versions to propagate failures
-
     /**
      * Checks that client's seal for the contract offer is correct
      *
      * @param checker Signature checker
      */
-    def checkOfferSeal(checker: SignatureChecker): Boolean =
-      checkOfferSignature(offerSeal, checker) &&
-        Key.checkPublicKey(id, offerSeal.publicKey)
+    def checkOfferSeal[F[_]](checker: SignatureChecker)(implicit F: MonadError[F, Throwable]): F[Boolean] = {
+      for {
+        checkSign <- checkOfferSignature(offerSeal, checker)
+        checkKey <- Key.checkPublicKey(id, offerSeal.publicKey)
+      } yield checkKey && checkSign
+    }
 
     /**
      * Checks that signature matches contract's offer
@@ -131,25 +135,25 @@ object ContractRead {
      * @param signature Signature to check
      * @param checker Signature checker
      */
-    def checkOfferSignature(signature: Signature, checker: SignatureChecker): Boolean =
+    def checkOfferSignature[F[_]](signature: Signature, checker: SignatureChecker)(implicit F: MonadError[F, Throwable]): F[Boolean] =
       checker.check(signature, getOfferBytes)
 
     /**
      * @return Whether this contract is a valid blank offer (with no participants, with client's signature)
      */
-    def isBlankOffer(checker: SignatureChecker): Boolean =
-      participants.isEmpty && checkOfferSeal(checker)
+    def isBlankOffer[F[_]](checker: SignatureChecker)(implicit F: MonadError[F, Throwable]): F[Boolean] =
+      checkOfferSeal(checker).map(_ && participants.isEmpty)
 
     /**
      * @return Whether this contract offer was signed by a single node and client, but participants list is not sealed yet
      */
-    def isSignedParticipant(checker: SignatureChecker): Boolean =
+    def isSignedParticipant[F[_]](checker: SignatureChecker)(implicit F: MonadError[F, Throwable]): F[Boolean] =
       participants.toList match {
         case single :: Nil ⇒
           participantSigned(single, checker)
 
         case _ ⇒
-          false
+          F.pure(false)
       }
 
     /**
@@ -158,10 +162,15 @@ object ContractRead {
      * @param participant Participating node's key
      * @param checker Signature checker
      */
-    def participantSigned(participant: Key, checker: SignatureChecker): Boolean =
-      participantSignature(participant)
-        .filter(sign ⇒ Key.checkPublicKey(participant, sign.publicKey))
-        .exists(checkOfferSignature(_, checker))
+    def participantSigned[F[_]](participant: Key, checker: SignatureChecker)(implicit F: MonadError[F, Throwable]): F[Boolean] = {
+      for {
+        participantSign <- F.pure(participantSignature(participant))
+        res <- participantSign match {
+          case Some(ps) => Key.checkPublicKey(participant, ps.publicKey).flatMap(_ => checkOfferSignature(ps, checker))
+          case None => false
+        }
+      } yield res
+    }
 
     /**
      * Checks that number of participants is correct, and all signatures are valid

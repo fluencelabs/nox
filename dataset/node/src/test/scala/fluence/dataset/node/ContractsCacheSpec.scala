@@ -1,5 +1,6 @@
 package fluence.dataset.node
 
+import cats.instances.try_._
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
@@ -23,7 +24,7 @@ class ContractsCacheSpec extends WordSpec with Matchers {
 
   def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
     val s = offerSigner(seed)
-    BasicContract.offer(Key.fromPublicKey[Coeval](s.publicKey).value, participantsRequired, s)
+    BasicContract.offer(Key.fromPublicKey[Coeval](s.publicKey).value, participantsRequired, s).get
   }
 
   def offerSigner(seed: String) = {
@@ -42,17 +43,17 @@ class ContractsCacheSpec extends WordSpec with Matchers {
       val key = Key.fromPublicKey[Coeval](signer.publicKey).value
 
       cache.cache(offer("reject")).value shouldBe false
-      cache.cache(offer("reject2").signOffer(key, signer)).value shouldBe false
+      cache.cache(offer("reject2").signOffer(key, signer).get).value shouldBe false
 
     }
 
     "reject caching contracts where node participates" in {
-      cache.cache(offer("reject3").signOffer(nodeId, nodeSigner).sealParticipants(offerSigner("reject3"))).value shouldBe false
+      cache.cache(offer("reject3").signOffer(nodeId, nodeSigner).get.sealParticipants(offerSigner("reject3")).get).value shouldBe false
 
     }
 
     "cache correct contract" in {
-      val v1 = offer("accept").signOffer(unsafeKey("some node"), offerSigner("some node")).sealParticipants(offerSigner("accept"))
+      val v1 = offer("accept").signOffer(unsafeKey("some node"), offerSigner("some node")).get.sealParticipants(offerSigner("accept")).get
       cache.cache(v1).value shouldBe true
 
       cache.find(v1.id).value shouldBe Some(v1)
