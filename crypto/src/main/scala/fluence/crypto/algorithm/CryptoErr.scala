@@ -1,5 +1,5 @@
 package fluence.crypto.algorithm
 
-case class CryptoErr(error: String, cause: Option[Throwable] = None) extends Throwable(error) {
-  cause.foreach(initCause(_))
-}
+import scala.util.control.NoStackTrace
+
+case class CryptoErr(errorMessage: String) extends NoStackTrace

@@ -60,29 +60,36 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
    * @param contract A sealed contract with all nodes and client signatures
    * @return Allocated contract
    */
-  override def allocate(contract: C): F[C] =
-    if (!contract.participantSigned(nodeId, checker))
-      ME.raiseError(new IllegalArgumentException("Contract should be offered to this node and signed by it prior to allocation"))
-    else if (!contract.isActiveContract(checker))
-      ME.raiseError(new IllegalArgumentException("Contract should be active -- sealed by client"))
-    else
-      storage.get(contract.id).attempt.map(_.toOption).flatMap {
-        case Some(cr) if !cr.contract.isBlankOffer(checker) ⇒
-          cr.contract.pure[F]
-
-        case crOpt ⇒
-          for {
-            _ ← crOpt.fold(().pure[F])(_ ⇒
-              storage.remove(contract.id)
-            )
-            _ ← checkAllocationPossible(contract)
-            _ ← storage.put(contract.id, ContractRecord(contract))
-            _ ← createDataset(contract).onError {
-              case e ⇒
-                storage.remove(contract.id).flatMap(_ ⇒ ME.raiseError(e))
-            }
-          } yield contract
+  override def allocate(contract: C): F[C] = {
+    for {
+      _ ← illegalIfNo(contract.participantSigned(nodeId, checker), "Contract should be offered to this node and signed by it prior to allocation")
+      _ ← illegalIfNo(contract.isActiveContract(checker), "Contract should be active -- sealed by client")
+      res ← storage.get(contract.id).attempt.map(_.toOption).flatMap {
+        case Some(cr) ⇒
+          cr.contract.isBlankOffer(checker).flatMap {
+            case true => cr.contract.pure[F]
+            case false => storage.remove(contract.id).flatMap(_ => putContract(contract))
+          }
+        case None ⇒
+          putContract(contract)
       }
+    } yield res
+  }
+
+  private def putContract(contract: C) = {
+    for {
+      _ ← checkAllocationPossible(contract)
+      _ ← storage.put(contract.id, ContractRecord(contract))
+      _ ← createDataset(contract).onError {
+        case e ⇒
+          storage.remove(contract.id).flatMap(_ ⇒ ME.raiseError(e))
+      }
+    } yield contract
+  }
+
+  private def illegalIfNo(condition: F[Boolean], errorMessage: ⇒ String) = {
+    ME.ensure(condition)(new IllegalArgumentException(errorMessage))(c ⇒ !c)
+  }
 
   /**
    * Offer a contract to node.
@@ -90,35 +97,37 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
    * @param contract A blank contract
    * @return Signed contract, or F is an error
    */
-  override def offer(contract: C): F[C] =
-    if (!contract.isBlankOffer(checker)) {
-      ME.raiseError(new IllegalArgumentException("This is not a valid blank offer"))
-    } else {
-      def signedContract: F[C] = contract.signOffer(nodeId, signer)
+  override def offer(contract: C): F[C] = {
+    def signedContract: F[C] = contract.signOffer(nodeId, signer)
 
-      storage.get(contract.id).attempt.map(_.toOption).flatMap {
-        case Some(cr) if cr.contract.isBlankOffer(checker) && cr.contract =!= contract ⇒ // contract preallocated for id, but it's changed now
-          for {
-            _ ← storage.remove(contract.id)
-            _ ← checkAllocationPossible(contract)
-            _ ← storage.put(contract.id, ContractRecord(contract))
-            sContract ← signedContract
-          } yield sContract
+    for {
+      _ ← illegalIfNo(contract.isBlankOffer(checker), "This is not a valid blank offer")
+      res <- {
+        storage.get(contract.id).attempt.map(_.toOption).flatMap {
+          case Some(cr) if cr.contract.isBlankOffer(checker) && cr.contract =!= contract ⇒ // contract preallocated for id, but it's changed now
+            for {
+              _ ← storage.remove(contract.id)
+              _ ← checkAllocationPossible(contract)
+              _ ← storage.put(contract.id, ContractRecord(contract))
+              sContract ← signedContract
+            } yield sContract
 
-        case Some(cr) if cr.contract.isBlankOffer(checker) ⇒ // contracts are equal
-          signedContract
+          case Some(cr) if cr.contract.isBlankOffer(checker) ⇒ // contracts are equal
+            signedContract
 
-        case Some(_) ⇒
-          ME.raiseError(new IllegalStateException("Different contract is already stored for this ID"))
+          case Some(_) ⇒
+            ME.raiseError(new IllegalStateException("Different contract is already stored for this ID"))
 
-        case None ⇒
-          for {
-            _ ← checkAllocationPossible(contract)
-            _ ← storage.put(contract.id, ContractRecord(contract))
-            sContract ← signedContract
-          } yield sContract
+          case None ⇒
+            for {
+              _ ← checkAllocationPossible(contract)
+              _ ← storage.put(contract.id, ContractRecord(contract))
+              sContract ← signedContract
+            } yield sContract
 
+        }
       }
-    }
+    } yield res
+  }
 
 }

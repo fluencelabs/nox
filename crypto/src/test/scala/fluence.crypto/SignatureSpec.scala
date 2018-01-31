@@ -2,10 +2,8 @@ package fluence.crypto
 
 import java.security.Security
 
-import cats.syntax.all._
 import cats.instances.try_._
-import cats.{ Id, MonadError }
-import fluence.crypto.algorithm.{ CryptoErr, Ecdsa }
+import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.signature.{ SignatureChecker, Signer }
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }

@@ -17,8 +17,9 @@
 
 package fluence.dataset.contract
 
-import cats.{ Contravariant, Functor, Invariant, MonadError }
+import cats.{ Invariant, MonadError }
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.crypto.signature.{ Signature, SignatureChecker, Signer }
 import fluence.kad.protocol.Key
 
@@ -54,7 +55,7 @@ object ContractWrite {
       signer.sign(contract.getOfferBytes).flatMap(s ⇒ F.catchNonFatal(write.setOfferSeal(contract, s)))
 
     def signOffer[F[_]](participant: Key, signer: Signer)(implicit F: MonadError[F, Throwable]): F[C] =
-      signer.sign(contract.getOfferBytes).flatMap(s ⇒ F.catchNonFatal(write.setOfferSignature(contract, participant, s)))
+      signer.sign(contract.getOfferBytes).map(s ⇒ write.setOfferSignature(contract, participant, s))
 
     def sealParticipants[F[_]](signer: Signer)(implicit F: MonadError[F, Throwable]): F[C] =
       signer.sign(contract.getParticipantsBytes).flatMap(s ⇒ F.catchNonFatal(write.setParticipantsSeal(contract, s)))
