@@ -6,6 +6,7 @@ import cats.syntax.all._
 import cats.instances.try_._
 import cats.{ Id, MonadError }
 import fluence.crypto.algorithm.{ CryptoErr, Ecdsa }
+import fluence.crypto.signature.{ SignatureChecker, Signer }
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scodec.bits.ByteVector
@@ -25,30 +26,36 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
     "correct sign and verify data" in {
       val algorithm = Ecdsa.ecdsa_secp256k1_sha256
 
-      for {
+      val t = for {
         keys ← algorithm.generateKeyPair[Try]()
         data = ByteVector(Random.nextString(10).getBytes)
         sign ← algorithm.sign(keys, data)
-      } yield {
-        algorithm.verify(sign, data) shouldBe true
-
-        val randomData = ByteVector(Random.nextString(10).getBytes)
-        val randomSign = algorithm.sign(keys, randomData)
-        algorithm.verify(sign.copy(sign = randomSign.get.sign), data) shouldBe false
-      }
+        goodRes ← algorithm.verify(sign, data)
+        _ = goodRes shouldBe true
+        randomData = ByteVector(Random.nextString(10).getBytes)
+        randomSign = algorithm.sign(keys, randomData)
+        badRes ← algorithm.verify(sign.copy(sign = randomSign.get.sign), data)
+        _ = badRes shouldBe false
+      } yield {}
+      t.get
     }
 
-    /*"correctly work with signer and checker" in {
-      val keys = Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair()
-      val signer = new Signer.EcdsaSigner(keys)
+    "correctly work with signer and checker" in {
+      val t = for {
+        keys ← Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair()
+        signer = new Signer.EcdsaSigner(keys)
 
-      val data = ByteVector(Random.nextString(10).getBytes)
-      val sign = signer.sign(data)
+        data = ByteVector(Random.nextString(10).getBytes)
+        sign ← signer.sign(data)
 
-      SignatureChecker.EcdsaChecker.check(sign, data) shouldBe true
+        goodCheck ← SignatureChecker.EcdsaChecker.check(sign, data)
+        _ = goodCheck shouldBe true
 
-      val randomSign = signer.sign(ByteVector(Random.nextString(10).getBytes))
-      SignatureChecker.EcdsaChecker.check(randomSign, data) shouldBe false
-    }*/
+        randomSign ← signer.sign(ByteVector(Random.nextString(10).getBytes))
+        badCheck ← SignatureChecker.EcdsaChecker.check(randomSign, data)
+        _ = badCheck shouldBe false
+      } yield {}
+      t.get
+    }
   }
 }

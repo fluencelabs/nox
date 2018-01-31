@@ -24,5 +24,5 @@ import scodec.bits.ByteVector
 
 trait SignatureFunctions extends Algorithm {
   def sign[F[_]](keyPair: KeyPair, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[Signature]
-  def verify(signature: Signature, message: ByteVector): Boolean
+  def verify[F[_]](signature: Signature, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean]
 }

@@ -24,13 +24,14 @@ import java.security.MessageDigest
 import cats.syntax.monoid._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
-import cats.{ ApplicativeError, MonadError, Monoid, Order, Show }
+import cats.syntax.functor._
+import cats.syntax.eq._
+import cats.{ MonadError, Monoid, Order, Show }
 import fluence.codec.Codec
 import fluence.crypto.keypair.KeyPair
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Kademlia Key is 160 bits (sha-1 length) in byte array.
@@ -107,10 +108,8 @@ object Key {
    * @param publicKey Public Key
    * @return
    */
-  def checkPublicKey(key: Key, publicKey: KeyPair.Public): Boolean = {
-    import cats.instances.try_._
-    import cats.syntax.eq._
-    sha1[Try](publicKey.value.toArray).filter(_ === key).isSuccess
+  def checkPublicKey[F[_]](key: Key, publicKey: KeyPair.Public)(implicit F: MonadError[F, Throwable]): F[Boolean] = {
+    F.recover(sha1(publicKey.value.toArray).map(_ === key)){ case _ ⇒ false }
   }
 
   /**
@@ -143,7 +142,7 @@ object Key {
   implicit def b64Codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Key, String] =
     vectorCodec[F] andThen Codec.codec[F, ByteVector, String]
 
-  implicit def vectorCodec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, ByteVector] =
+  implicit def vectorCodec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Key, ByteVector] =
     Codec(
       _.value.pure[F],
       vec ⇒

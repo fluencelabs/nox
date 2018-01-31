@@ -68,24 +68,22 @@ class Ecdsa(curveType: String, scheme: String) extends SignatureFunctions {
 
   override def sign[F[_]](keyPair: KeyPair, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[fluence.crypto.signature.Signature] = {
     for {
-      ecdsaSign ← nonFatalHandling(Signature.getInstance(scheme, Providers.BouncyCastle))("Cannot get signature instance")
       spec ← F.pure(new PKCS8EncodedKeySpec(keyPair.secretKey.value.toArray))
       factory ← nonFatalHandling(KeyFactory.getInstance(ECDSA))("Cannot get key factory instance")
+      ecdsaSign ← nonFatalHandling(Signature.getInstance(scheme, Providers.BouncyCastle))("Cannot get signature instance")
       _ ← nonFatalHandling(ecdsaSign.initSign(factory.generatePrivate(spec)))("Private key is invalid")
       _ ← nonFatalHandling(ecdsaSign.update(message.toArray))("Cannot update data to be signed")
     } yield fluence.crypto.signature.Signature(keyPair.publicKey, ByteVector(ecdsaSign.sign()))
   }
 
-  override def verify(signature: fluence.crypto.signature.Signature, message: ByteVector): Boolean = {
-    val ecdsaVerify = Signature.getInstance(scheme, Providers.BouncyCastle)
-
-    val spec = new X509EncodedKeySpec(signature.publicKey.value.toArray)
-    val factory = KeyFactory.getInstance(ECDSA)
-
-    ecdsaVerify.initVerify(factory.generatePublic(spec))
-    ecdsaVerify.update(message.toArray)
-
-    ecdsaVerify.verify(signature.sign.toArray)
+  override def verify[F[_]](signature: fluence.crypto.signature.Signature, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean] = {
+    for {
+      spec ← F.pure(new X509EncodedKeySpec(signature.publicKey.value.toArray))
+      factory ← nonFatalHandling(KeyFactory.getInstance(ECDSA))("Cannot get key factory instance")
+      ecdsaVerify ← nonFatalHandling(Signature.getInstance(scheme, Providers.BouncyCastle))("Cannot get signature instance")
+      _ ← nonFatalHandling(ecdsaVerify.initVerify(factory.generatePublic(spec)))("Public key is invalid")
+      _ ← nonFatalHandling(ecdsaVerify.update(message.toArray))("Cannot update data to be verified")
+    } yield ecdsaVerify.verify(signature.sign.toArray)
   }
 }
 
