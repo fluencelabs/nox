@@ -20,9 +20,9 @@ package fluence.client
 import cats.{ MonadError, ~> }
 import fluence.dataset.BasicContract
 import fluence.dataset.grpc.client.{ ContractAllocatorClient, ContractsApiClient, ContractsCacheClient }
+import fluence.info.grpc.NodeInfoClient
 import fluence.kad.grpc.client.KademliaClient
 import fluence.transport.grpc.client.GrpcClient
-import monix.eval.Task
 import shapeless.HNil
 
 import scala.concurrent.Future
@@ -40,6 +40,7 @@ object ClientComposer {
         .add(ContractsCacheClient.register[F, BasicContract]())
         .add(ContractAllocatorClient.register[F, BasicContract]())
         .add(ContractsApiClient.register[F, BasicContract]())
+        .add(NodeInfoClient.register[F]())
         .build
     }
 

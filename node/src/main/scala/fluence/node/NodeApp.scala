@@ -20,8 +20,9 @@ package fluence.node
 import cats.syntax.show._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.keypair.KeyPair
+import fluence.info.NodeInfo
 import fluence.kad.protocol.{ Contact, Key }
-import monix.eval.Coeval
+import monix.eval.{ Coeval, Task }
 import monix.execution.Scheduler.Implicits.global
 import org.slf4j.LoggerFactory
 
@@ -32,13 +33,15 @@ object NodeApp extends App {
 
   val log = LoggerFactory.getLogger(getClass)
 
-  println(Console.CYAN + "Git Commit Hash: " + ConfigFactory.load().getString("fluence.gitHash") + Console.RESET)
+  val gitHash = ConfigFactory.load().getString("fluence.gitHash")
+
+  println(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
 
   // For demo purposes
   val keySeed = StdIn.readLine(Console.CYAN + "Who are you?\n> " + Console.RESET).getBytes()
   val keyPair = KeyPair.fromBytes(keySeed, keySeed)
 
-  val nodeComposer = new NodeComposer(keyPair)
+  val nodeComposer = new NodeComposer(keyPair, () ⇒ Task.now(NodeInfo(gitHash)))
 
   import nodeComposer.{ kad, server }
 
