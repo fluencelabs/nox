@@ -3,13 +3,14 @@ package fluence.crypto
 import java.security.Security
 
 import cats.syntax.all._
-import cats.{Id, MonadError}
-import fluence.crypto.algorithm.{CryptoErr, Ecdsa}
+import cats.instances.try_._
+import cats.{ Id, MonadError }
+import fluence.crypto.algorithm.{ CryptoErr, Ecdsa }
 import org.bouncycastle.jce.provider.BouncyCastleProvider
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
+import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scodec.bits.ByteVector
 
-import scala.util.Random
+import scala.util.{ Random, Try }
 
 class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
   override protected def beforeAll(): Unit = {
@@ -24,16 +25,8 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
     "correct sign and verify data" in {
       val algorithm = Ecdsa.ecdsa_secp256k1_sha256
 
-      implicit val ME = new MonadError[Id, CryptoErr] {
-        override def raiseError[A](e: CryptoErr): Id[A] = ???
-        override def handleErrorWith[A](fa: Id[A])(f: CryptoErr ⇒ Id[A]): Id[A] = ???
-        override def flatMap[A, B](fa: Id[A])(f: A ⇒ Id[B]): Id[B] = fa.flatMap(f)
-        override def tailRecM[A, B](a: A)(f: A ⇒ Id[Either[A, B]]): Id[B] = ???
-        override def pure[A](x: A): Id[A] = x
-      }
-
       for {
-        keys ← algorithm.generateKeyPair[Id]()
+        keys ← algorithm.generateKeyPair[Try]()
         data = ByteVector(Random.nextString(10).getBytes)
         sign ← algorithm.sign(keys, data)
       } yield {
@@ -41,7 +34,7 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 
         val randomData = ByteVector(Random.nextString(10).getBytes)
         val randomSign = algorithm.sign(keys, randomData)
-        algorithm.verify(sign.copy(sign = randomSign.sign), data) shouldBe false
+        algorithm.verify(sign.copy(sign = randomSign.get.sign), data) shouldBe false
       }
     }
 

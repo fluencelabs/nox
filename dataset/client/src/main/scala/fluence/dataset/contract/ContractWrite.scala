@@ -50,14 +50,14 @@ object ContractWrite {
   implicit class WriteOps[C](contract: C)(implicit read: ContractRead[C], write: ContractWrite[C]) {
     import ContractRead.ReadOps
 
-    def sealOffer(signer: Signer): C =
-      write.setOfferSeal(contract, signer.sign(contract.getOfferBytes))
+    def sealOffer[F[_]](signer: Signer)(implicit F: MonadError[F, Throwable]): F[C] =
+      signer.sign(contract.getOfferBytes).flatMap(s ⇒ F.catchNonFatal(write.setOfferSeal(contract, s)))
 
-    def signOffer(participant: Key, signer: Signer): C =
-      write.setOfferSignature(contract, participant, signer.sign(contract.getOfferBytes))
+    def signOffer[F[_]](participant: Key, signer: Signer)(implicit F: MonadError[F, Throwable]): F[C] =
+      signer.sign(contract.getOfferBytes).flatMap(s ⇒ F.catchNonFatal(write.setOfferSignature(contract, participant, s)))
 
-    def sealParticipants(signer: Signer): C =
-      write.setParticipantsSeal(contract, signer.sign(contract.getParticipantsBytes))
+    def sealParticipants[F[_]](signer: Signer)(implicit F: MonadError[F, Throwable]): F[C] =
+      signer.sign(contract.getParticipantsBytes).flatMap(s ⇒ F.catchNonFatal(write.setParticipantsSeal(contract, s)))
 
     def addParticipants[F[_]](checker: SignatureChecker, participants: Seq[C])(implicit F: MonadError[F, Throwable]): F[C] =
       F.catchNonFatal(participants.foldLeft(contract) {

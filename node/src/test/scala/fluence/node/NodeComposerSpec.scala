@@ -89,13 +89,13 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
       val kp = KeyPair.fromBytes(seed, seed)
       val key = Key.fromKeyPair[Future](kp).futureValue
       val signer = new signature.Signer.DumbSigner(kp)
-      val offer = BasicContract.offer(key, participantsRequired = 4, signer = signer)
+      val offer = BasicContract.offer(key, participantsRequired = 4, signer = signer).futureValue
 
       offer.checkOfferSeal(SignatureChecker.DumbChecker) shouldBe true
 
       val accepted = contractsApi.allocate(offer, bc ⇒
         {
-          Future successful bc.sealParticipants(signer)
+          Future successful bc.sealParticipants(signer).futureValue
         }
       ).futureValue
 

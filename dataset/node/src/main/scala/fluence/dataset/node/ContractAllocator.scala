@@ -94,7 +94,7 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
     if (!contract.isBlankOffer(checker)) {
       ME.raiseError(new IllegalArgumentException("This is not a valid blank offer"))
     } else {
-      def signedContract: C = contract.signOffer(nodeId, signer)
+      def signedContract: F[C] = contract.signOffer(nodeId, signer)
 
       storage.get(contract.id).attempt.map(_.toOption).flatMap {
         case Some(cr) if cr.contract.isBlankOffer(checker) && cr.contract =!= contract ⇒ // contract preallocated for id, but it's changed now
@@ -102,10 +102,11 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
             _ ← storage.remove(contract.id)
             _ ← checkAllocationPossible(contract)
             _ ← storage.put(contract.id, ContractRecord(contract))
-          } yield signedContract
+            sContract ← signedContract
+          } yield sContract
 
         case Some(cr) if cr.contract.isBlankOffer(checker) ⇒ // contracts are equal
-          signedContract.pure[F]
+          signedContract
 
         case Some(_) ⇒
           ME.raiseError(new IllegalStateException("Different contract is already stored for this ID"))
@@ -114,7 +115,8 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
           for {
             _ ← checkAllocationPossible(contract)
             _ ← storage.put(contract.id, ContractRecord(contract))
-          } yield signedContract
+            sContract ← signedContract
+          } yield sContract
 
       }
     }

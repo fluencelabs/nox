@@ -19,11 +19,11 @@ package fluence.dataset
 
 import java.nio.ByteBuffer
 
-import cats.{Eq, MonadError}
+import cats.{ Eq, MonadError }
 import cats.syntax.all._
 import fluence.crypto.algorithm.CryptoErr
-import fluence.crypto.signature.{Signature, Signer}
-import fluence.dataset.contract.{ContractRead, ContractWrite}
+import fluence.crypto.signature.{ Signature, Signer }
+import fluence.dataset.contract.{ ContractRead, ContractWrite }
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
@@ -62,11 +62,11 @@ object BasicContract {
     }
   }
 
-  def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(implicit F: MonadError[F, CryptoErr]): F[BasicContract] =
+  def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(implicit F: MonadError[F, Throwable]): F[BasicContract] =
     {
       for {
-        offer <- F.pure(Offer(participantsRequired))
-        signature <- signer.sign(offer.getBytes)
+        offer ← F.pure(Offer(participantsRequired))
+        signature ← signer.sign(offer.getBytes)
       } yield BasicContract(id, offer, signature, Map.empty, None, 0)
     }
 

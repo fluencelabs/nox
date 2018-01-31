@@ -23,6 +23,6 @@ import cats.MonadError
 import fluence.crypto.keypair.KeyPair
 
 trait Algorithm {
-  def generateKeyPair[F[_]](random: SecureRandom)(implicit F: MonadError[F, CryptoErr]): F[KeyPair]
-  def generateKeyPair[F[_]]()(implicit F: MonadError[F, CryptoErr]): F[KeyPair]
+  def generateKeyPair[F[_]](random: SecureRandom)(implicit F: MonadError[F, Throwable]): F[KeyPair]
+  def generateKeyPair[F[_]]()(implicit F: MonadError[F, Throwable]): F[KeyPair]
 }

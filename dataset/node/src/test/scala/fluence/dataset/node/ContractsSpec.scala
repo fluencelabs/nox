@@ -1,5 +1,6 @@
 package fluence.dataset.node
 
+import cats.instances.try_._
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
@@ -89,7 +90,7 @@ class ContractsSpec extends WordSpec with Matchers {
 
   def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
     val s = offerSigner(seed)
-    BasicContract.offer(Key.fromPublicKey[Coeval](s.publicKey).value, participantsRequired, s)
+    BasicContract.offer(Key.fromPublicKey[Coeval](s.publicKey).value, participantsRequired, s).get
   }
 
   def offerSigner(seed: String) = {
@@ -104,7 +105,7 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val signer = offerSigner("dumb0")
 
-      val allocated = network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer))).value
+      val allocated = network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).value
 
       allocated.participants.size shouldBe 1
 
@@ -118,7 +119,7 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val signer = offerSigner("dumb1")
 
-      val allocated = network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer))).value
+      val allocated = network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).value
 
       allocated.participants.size shouldBe 5
 
@@ -132,7 +133,7 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val signer = offerSigner("dumb2")
 
-      val allocated = network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer))).attempt.value
+      val allocated = network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).attempt.value
 
       allocated should be.leftSide
     }
