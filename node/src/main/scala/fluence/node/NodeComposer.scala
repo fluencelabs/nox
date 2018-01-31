@@ -27,6 +27,8 @@ import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsApiServer
 import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetContractsApiGrpc }
 import fluence.dataset.node.Contracts
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.info.{ NodeInfo, NodeInfoService }
+import fluence.info.grpc.{ NodeInfoRpcGrpc, NodeInfoServer }
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
@@ -41,7 +43,11 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Try
 
-class NodeComposer(keyPair: KeyPair, conf: GrpcServerConf = GrpcServerConf.read(), contractsCacheStoreName: String = "fluence_contractsCache") {
+class NodeComposer(
+    keyPair: KeyPair,
+    getInfo: () ⇒ Task[NodeInfo],
+    conf: GrpcServerConf = GrpcServerConf.read(),
+    contractsCacheStoreName: String = "fluence_contractsCache") {
 
   private implicit val runFuture = new (Future ~> Task) {
     override def apply[A](fa: Future[A]): Task[A] = Task.deferFuture(fa)
@@ -93,12 +99,15 @@ class NodeComposer(keyPair: KeyPair, conf: GrpcServerConf = GrpcServerConf.read(
       client.service[ContractAllocatorRpc[Task, BasicContract]](contact)
   }
 
+  val info = new NodeInfoService[Task](getInfo)
+
   // Add server (with kademlia inside), build
   val server = serverBuilder
     .add(KademliaGrpc.bindService(new KademliaServer[Task](kad.handleRPC), global))
     .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsApi.cache), global))
     .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractsApi.allocator), global))
     .add(DatasetContractsApiGrpc.bindService(new ContractsApiServer[Task, BasicContract](contractsApi), global))
+    .add(NodeInfoRpcGrpc.bindService(new NodeInfoServer[Task](info), global))
     .onNodeActivity(kad.update)
     .build
 

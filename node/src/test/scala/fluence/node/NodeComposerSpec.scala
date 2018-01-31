@@ -11,9 +11,11 @@ import fluence.crypto.signature
 import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
 import fluence.dataset.protocol.ContractsApi
+import fluence.info.NodeInfo
 import fluence.kad.protocol.Key
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.GrpcServerConf
+import monix.eval.Task
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
@@ -44,6 +46,7 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
 
     new NodeComposer(
       KeyPair.fromBytes(seedBytes, seedBytes),
+      () ⇒ Task.now(NodeInfo("test")),
       GrpcServerConf(localPort = port, externalPort = None, acceptLocal = true),
       "node_cache_" + n
     )
