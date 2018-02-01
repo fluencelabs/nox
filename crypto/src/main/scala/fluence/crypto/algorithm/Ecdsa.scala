@@ -25,6 +25,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.crypto.keypair.KeyPair
 import org.bouncycastle.jce.ECNamedCurveTable
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec
 import scodec.bits.ByteVector
 
@@ -38,7 +39,6 @@ import scala.util.control.NonFatal
 class Ecdsa(curveType: String, scheme: String) extends SignatureFunctions {
 
   val ECDSA = "ECDSA"
-  val BouncyCastleProvider = "BC"
 
   def nonFatalHandling[F[_], A](a: ⇒ A)(errorText: String)(implicit F: MonadError[F, Throwable]): F[A] = {
     try F.pure(a)
@@ -111,7 +111,7 @@ class Ecdsa(curveType: String, scheme: String) extends SignatureFunctions {
 
   private def getKeyPairGenerator = {
     try {
-      KeyPairGenerator.getInstance(ECDSA, BouncyCastleProvider)
+      KeyPairGenerator.getInstance(ECDSA, BouncyCastleProvider.PROVIDER_NAME)
     } catch {
       case e: Throwable ⇒ throw CryptoErr(s"Cannot get key pair generator. ${e.getLocalizedMessage}")
     }
@@ -119,7 +119,7 @@ class Ecdsa(curveType: String, scheme: String) extends SignatureFunctions {
 
   private def getKeyFactory = {
     try {
-      KeyFactory.getInstance(ECDSA, BouncyCastleProvider)
+      KeyFactory.getInstance(ECDSA, BouncyCastleProvider.PROVIDER_NAME)
     } catch {
       case e: Throwable ⇒ throw CryptoErr(s"Cannot get key factory instance. ${e.getLocalizedMessage}")
     }
@@ -127,7 +127,7 @@ class Ecdsa(curveType: String, scheme: String) extends SignatureFunctions {
 
   private def getSignatureProvider = {
     try {
-      Signature.getInstance(scheme, BouncyCastleProvider)
+      Signature.getInstance(scheme, BouncyCastleProvider.PROVIDER_NAME)
     } catch {
       case e: Throwable ⇒ throw CryptoErr(s"Cannot get signature instance. ${e.getLocalizedMessage}")
     }
