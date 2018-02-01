@@ -26,4 +26,6 @@ object KeyPair {
   case class Secret(value: ByteVector) extends AnyVal
 
   def fromBytes(pk: Array[Byte], sk: Array[Byte]): KeyPair = KeyPair(Public(ByteVector(pk)), Secret(ByteVector(sk)))
+
+  def apply(jKeyPair: java.security.KeyPair): KeyPair = new KeyPair(KeyPair.Public(ByteVector(jKeyPair.getPublic.getEncoded)), KeyPair.Secret(ByteVector(jKeyPair.getPrivate.getEncoded)))
 }

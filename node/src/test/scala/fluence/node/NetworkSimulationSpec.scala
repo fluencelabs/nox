@@ -64,7 +64,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
   }
 
   private val servers = (0 to 20).map { n ⇒
-    val port = 5200 + n
+    val port = 3200 + n
     new Node(Key.sha1[Coeval](Integer.toBinaryString(port).getBytes).value, port)
   }
 

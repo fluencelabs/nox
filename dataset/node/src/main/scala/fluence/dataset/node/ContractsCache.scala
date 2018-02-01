@@ -79,12 +79,11 @@ class ContractsCache[F[_], C : ContractRead](
       case Some(cr) if isExpired(cr) ⇒
         storage
           .remove(id)
-          .map(_ ⇒ Option.empty[C])
+          .map(_ ⇒ None)
 
       case Some(cr) ⇒
-        cr.contract.isBlankOffer(checker).map {
-          case false ⇒ Some(cr.contract)
-          case true  ⇒ Option.empty[C]
+        cr.contract.isBlankOffer(checker).map { b =>
+          if (!b) Some(cr.contract) else None
         }
       case None ⇒ Option.empty[C].pure[F]
     }

@@ -32,7 +32,7 @@ import scodec.bits.ByteVector
 import scala.util.control.NonFatal
 
 /**
- *
+ * Elliptic Curve Digital Signature Algorithm
  * @param curveType http://www.bouncycastle.org/wiki/display/JA1/Supported+Curves+%28ECDSA+and+ECGOST%29
  * @param scheme https://bouncycastle.org/specifications.html
  */
@@ -60,7 +60,7 @@ class Ecdsa(curveType: String, scheme: String) extends SignatureFunctions {
         case Some(p) ⇒ F.pure(p)
         case None    ⇒ F.raiseError[java.security.KeyPair](CryptoErr("Could not generate KeyPair. Unexpected."))
       }
-    } yield KeyPair(KeyPair.Public(ByteVector(keyPair.getPublic.getEncoded)), KeyPair.Secret(ByteVector(keyPair.getPrivate.getEncoded)))
+    } yield KeyPair(keyPair)
   }
 
   override def generateKeyPair[F[_]]()(implicit F: MonadError[F, Throwable]): F[KeyPair] = {

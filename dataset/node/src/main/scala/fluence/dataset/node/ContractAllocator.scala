@@ -105,21 +105,19 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
       res ← {
         storage.get(contract.id).attempt.map(_.toOption).flatMap {
           case Some(cr) ⇒
-            cr.contract.isBlankOffer(checker).flatMap {
-              case true ⇒
-                if (cr.contract =!= contract) {
-                  // contract preallocated for id, but it's changed now
-                  for {
-                    _ ← storage.remove(contract.id)
-                    _ ← checkAllocationPossible(contract)
-                    _ ← storage.put(contract.id, ContractRecord(contract))
-                    sContract ← signedContract
-                  } yield sContract
-                } else {
-                  // contracts are equal
-                  signedContract
-                }
-              case false ⇒ ME.raiseError[C](new IllegalStateException("Different contract is already stored for this ID"))
+            illegalIfNo(cr.contract.isBlankOffer(checker), "Different contract is already stored for this ID").flatMap { _ ⇒
+              if (cr.contract =!= contract) {
+                // contract preallocated for id, but it's changed now
+                for {
+                  _ ← storage.remove(contract.id)
+                  _ ← checkAllocationPossible(contract)
+                  _ ← storage.put(contract.id, ContractRecord(contract))
+                  sContract ← signedContract
+                } yield sContract
+              } else {
+                // contracts are equal
+                signedContract
+              }
             }
           case None ⇒
             for {
