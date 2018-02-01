@@ -12,12 +12,8 @@ import scodec.bits.ByteVector
 import scala.util.{ Random, Try }
 
 class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
-  override protected def beforeAll(): Unit = {
-    Security.addProvider(new BouncyCastleProvider())
-  }
-
   override protected def afterAll(): Unit = {
-    Security.removeProvider("BC")
+    Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME)
   }
 
   def rndByteVector(size: Int) = ByteVector(Random.nextString(10).getBytes)

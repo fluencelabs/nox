@@ -37,7 +37,7 @@ import scala.util.control.NonFatal
  * @param curveType http://www.bouncycastle.org/wiki/display/JA1/Supported+Curves+%28ECDSA+and+ECGOST%29
  * @param scheme https://bouncycastle.org/specifications.html
  */
-class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, Throwable]) extends SignatureFunctions[F] {
+class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, Throwable]) extends JavaAlgorithm[F] with SignatureFunctions[F] {
 
   val ECDSA = "ECDSA"
 
@@ -49,19 +49,20 @@ class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, T
   }
 
   override def generateKeyPair(random: SecureRandom): F[KeyPair] = {
+    import JavaAlgorithm._
     for {
       ecSpecOp ← F.pure(Option(ECNamedCurveTable.getParameterSpec(curveType)))
       ecSpec ← ecSpecOp match {
         case Some(ecs) ⇒ F.pure(ecs)
-        case None      ⇒ F.raiseError[ECNamedCurveParameterSpec](CryptoErr("Parameter spec for the curve is not available"))
+        case None      ⇒ F.raiseError[ECNamedCurveParameterSpec](CryptoErr("Parameter spec for the curve is not available."))
       }
       g ← getKeyPairGenerator
-      _ ← nonFatalHandling(g.initialize(ecSpec, random))("Could not initialize KeyPairGenerator")
+      _ ← nonFatalHandling(g.initialize(ecSpec, random))("Could not initialize KeyPairGenerator.")
       keyPair ← Option(g.generateKeyPair()) match {
         case Some(p) ⇒ F.pure(p)
         case None    ⇒ F.raiseError[java.security.KeyPair](CryptoErr("Could not generate KeyPair. Unexpected."))
       }
-    } yield KeyPair(keyPair)
+    } yield keyPair
   }
 
   override def generateKeyPair(): F[KeyPair] = {

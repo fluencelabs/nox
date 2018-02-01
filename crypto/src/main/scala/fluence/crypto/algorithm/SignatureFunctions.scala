@@ -21,7 +21,7 @@ import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
 import scodec.bits.ByteVector
 
-trait SignatureFunctions[F[_]] extends Algorithm[F] {
+trait SignatureFunctions[F[_]] {
   def sign(keyPair: KeyPair, message: ByteVector): F[Signature]
   def verify(signature: Signature, message: ByteVector): F[Boolean]
 }
