@@ -1,20 +1,14 @@
 package fluence.crypto
 
-import java.security.Security
-
 import cats.instances.try_._
 import fluence.crypto.algorithm.{ CryptoErr, Ecdsa }
 import fluence.crypto.keypair.KeyPair
-import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scodec.bits.ByteVector
 
 import scala.util.{ Random, Try }
 
 class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
-  override protected def afterAll(): Unit = {
-    Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME)
-  }
 
   def rndByteVector(size: Int) = ByteVector(Random.nextString(10).getBytes)
 
