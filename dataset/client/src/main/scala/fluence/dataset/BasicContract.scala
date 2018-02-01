@@ -22,7 +22,7 @@ import java.nio.ByteBuffer
 import cats.{ Eq, MonadError }
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.crypto.signature.{ Signature, Signer }
+import fluence.crypto.signature.{ Signature, DataSigner }
 import fluence.dataset.contract.{ ContractRead, ContractWrite }
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
@@ -62,7 +62,7 @@ object BasicContract {
     }
   }
 
-  def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(implicit F: MonadError[F, Throwable]): F[BasicContract] =
+  def offer[F[_]](id: Key, participantsRequired: Int, signer: DataSigner)(implicit F: MonadError[F, Throwable]): F[BasicContract] =
     {
       val offer = Offer(participantsRequired)
       signer.sign(offer.getBytes).map(BasicContract(id, offer, _, Map.empty, None, 0))

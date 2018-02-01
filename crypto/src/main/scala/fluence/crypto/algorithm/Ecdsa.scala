@@ -24,6 +24,7 @@ import cats.MonadError
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.crypto.keypair.KeyPair
+import fluence.crypto.signature.{ SignatureChecker, DataSigner }
 import org.bouncycastle.jce.ECNamedCurveTable
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec
@@ -36,25 +37,25 @@ import scala.util.control.NonFatal
  * @param curveType http://www.bouncycastle.org/wiki/display/JA1/Supported+Curves+%28ECDSA+and+ECGOST%29
  * @param scheme https://bouncycastle.org/specifications.html
  */
-class Ecdsa(curveType: String, scheme: String) extends SignatureFunctions {
+class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, Throwable]) extends SignatureFunctions[F] {
 
   val ECDSA = "ECDSA"
 
-  def nonFatalHandling[F[_], A](a: ⇒ A)(errorText: String)(implicit F: MonadError[F, Throwable]): F[A] = {
+  private def nonFatalHandling[A](a: ⇒ A)(errorText: String): F[A] = {
     try F.pure(a)
     catch {
-      case NonFatal(e) ⇒ F.raiseError(CryptoErr(errorText))
+      case NonFatal(e) ⇒ F.raiseError(CryptoErr(errorText + " " + e.getLocalizedMessage))
     }
   }
 
-  override def generateKeyPair[F[_]](random: SecureRandom)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
+  override def generateKeyPair(random: SecureRandom): F[KeyPair] = {
     for {
       ecSpecOp ← F.pure(Option(ECNamedCurveTable.getParameterSpec(curveType)))
       ecSpec ← ecSpecOp match {
         case Some(ecs) ⇒ F.pure(ecs)
         case None      ⇒ F.raiseError[ECNamedCurveParameterSpec](CryptoErr("Parameter spec for the curve is not available"))
       }
-      g ← nonFatalHandling(getKeyPairGenerator)("Cannot get KeyPairGenerator instance")
+      g ← getKeyPairGenerator
       _ ← nonFatalHandling(g.initialize(ecSpec, random))("Could not initialize KeyPairGenerator")
       keyPair ← Option(g.generateKeyPair()) match {
         case Some(p) ⇒ F.pure(p)
@@ -63,77 +64,71 @@ class Ecdsa(curveType: String, scheme: String) extends SignatureFunctions {
     } yield KeyPair(keyPair)
   }
 
-  override def generateKeyPair[F[_]]()(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
+  override def generateKeyPair(): F[KeyPair] = {
     generateKeyPair(new SecureRandom())
   }
 
-  override def sign[F[_]](keyPair: KeyPair, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[fluence.crypto.signature.Signature] = {
-    F.catchNonFatal(signMessage(keyPair.secretKey.value.toArray, message.toArray))
+  override def sign(keyPair: KeyPair, message: ByteVector): F[fluence.crypto.signature.Signature] = {
+    signMessage(keyPair.secretKey.value.toArray, message.toArray)
       .map(bb ⇒ fluence.crypto.signature.Signature(keyPair.publicKey, ByteVector(bb)))
   }
 
-  override def verify[F[_]](signature: fluence.crypto.signature.Signature, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean] = {
-    F.catchNonFatal(verifySign(signature.publicKey.value.toArray, message.toArray, signature.sign.toArray))
+  override def verify(signature: fluence.crypto.signature.Signature, message: ByteVector): F[Boolean] = {
+    verifySign(signature.publicKey.value.toArray, message.toArray, signature.sign.toArray)
   }
 
-  private def keyInstance[F[_]](implicit F: MonadError[F, Throwable]) =
-    nonFatalHandling(KeyFactory.getInstance(ECDSA))("Cannot get key factory instance")
-
-  private def signMessage(privateKey: Array[Byte], message: Array[Byte]): Array[Byte] = {
+  private def signMessage(privateKey: Array[Byte], message: Array[Byte]): F[Array[Byte]] = {
     val keySpec = new PKCS8EncodedKeySpec(privateKey)
-
-    val keyFactory = getKeyFactory
-    val signProvider = getSignatureProvider
-
-    try {
-      signProvider.initSign(keyFactory.generatePrivate(keySpec))
-      signProvider.update(message)
-      signProvider.sign()
-    } catch {
-      case e: Throwable ⇒ throw CryptoErr(s"Cannot sign message. ${e.getLocalizedMessage}")
-    }
+    for {
+      keyFactory ← getKeyFactory
+      signProvider ← getSignatureProvider
+      sign ← {
+        nonFatalHandling {
+          signProvider.initSign(keyFactory.generatePrivate(keySpec))
+          signProvider.update(message)
+          signProvider.sign()
+        } ("Cannot sign message.")
+      }
+    } yield sign
   }
 
-  private def verifySign(publicKey: Array[Byte], message: Array[Byte], signature: Array[Byte]): Boolean = {
+  private def verifySign(publicKey: Array[Byte], message: Array[Byte], signature: Array[Byte]): F[Boolean] = {
     val keySpec = new X509EncodedKeySpec(publicKey)
-
-    val keyFactory = getKeyFactory
-    val signProvider = getSignatureProvider
-
-    try {
-      signProvider.initVerify(keyFactory.generatePublic(keySpec))
-      signProvider.update(message)
-      signProvider.verify(signature)
-    } catch {
-      case e: Throwable ⇒ throw CryptoErr(s"Cannot sign message. ${e.getLocalizedMessage}")
-    }
+    for {
+      keyFactory ← getKeyFactory
+      signProvider ← getSignatureProvider
+      verify ← {
+        nonFatalHandling {
+          signProvider.initVerify(keyFactory.generatePublic(keySpec))
+          signProvider.update(message)
+          signProvider.verify(signature)
+        } ("Cannot verify message.")
+      }
+    } yield verify
   }
 
-  private def getKeyPairGenerator = {
-    try {
-      KeyPairGenerator.getInstance(ECDSA, BouncyCastleProvider.PROVIDER_NAME)
-    } catch {
-      case e: Throwable ⇒ throw CryptoErr(s"Cannot get key pair generator. ${e.getLocalizedMessage}")
-    }
-  }
+  private lazy val getKeyPairGenerator =
+    nonFatalHandling(KeyPairGenerator.getInstance(ECDSA, BouncyCastleProvider.PROVIDER_NAME))("Cannot get key pair generator.")
 
-  private def getKeyFactory = {
-    try {
-      KeyFactory.getInstance(ECDSA, BouncyCastleProvider.PROVIDER_NAME)
-    } catch {
-      case e: Throwable ⇒ throw CryptoErr(s"Cannot get key factory instance. ${e.getLocalizedMessage}")
-    }
-  }
+  private lazy val getKeyFactory =
+    nonFatalHandling(KeyFactory.getInstance(ECDSA, BouncyCastleProvider.PROVIDER_NAME))("Cannot get key factory instance.")
 
-  private def getSignatureProvider = {
-    try {
-      Signature.getInstance(scheme, BouncyCastleProvider.PROVIDER_NAME)
-    } catch {
-      case e: Throwable ⇒ throw CryptoErr(s"Cannot get signature instance. ${e.getLocalizedMessage}")
-    }
-  }
+  private lazy val getSignatureProvider =
+    nonFatalHandling(Signature.getInstance(scheme, BouncyCastleProvider.PROVIDER_NAME))("Cannot get signature instance.")
 }
 
 object Ecdsa {
-  val ecdsa_secp256k1_sha256 = new Ecdsa("secp256k1", "SHA256withECDSA")
+  def ecdsa_secp256k1_sha256[F[_]](implicit F: MonadError[F, Throwable]) = new Ecdsa("secp256k1", "SHA256withECDSA")
+
+  class EcdsaSigner(keyPair: KeyPair) extends DataSigner {
+    override def publicKey: KeyPair.Public = keyPair.publicKey
+
+    override def sign[F[_]](plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[fluence.crypto.signature.Signature] =
+      Ecdsa.ecdsa_secp256k1_sha256.sign(keyPair, plain)
+  }
+
+  case object Checker extends SignatureChecker {
+    override def check[F[_]](signature: fluence.crypto.signature.Signature, plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean] =
+      Ecdsa.ecdsa_secp256k1_sha256.verify(signature, plain)
+  }
 }

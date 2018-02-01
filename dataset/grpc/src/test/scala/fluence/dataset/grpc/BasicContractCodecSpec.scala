@@ -33,7 +33,7 @@ class BasicContractCodecSpec extends WordSpec with Matchers {
 
       val seed = "seed".getBytes()
       val keyPair = KeyPair.fromBytes(seed, seed)
-      val signer = new signature.Signer.DumbSigner(keyPair)
+      val signer = new signature.DataSigner.DumbSigner(keyPair)
       val key = Key.fromKeyPair(keyPair).get
 
       Seq(

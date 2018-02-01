@@ -21,7 +21,7 @@ import cats.instances.try_._
 import cats.~>
 import fluence.client.ClientComposer
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{ SignatureChecker, Signer }
+import fluence.crypto.signature.{ SignatureChecker, DataSigner }
 import fluence.dataset.BasicContract
 import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsApiServer, ContractsCacheServer }
 import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetContractsApiGrpc }
@@ -88,7 +88,7 @@ class NodeComposer(
     maxFindRequests = 100,
     maxAllocateRequests = n ⇒ 30 * n,
     checker = SignatureChecker.DumbChecker,
-    signer = new Signer.DumbSigner(keyPair),
+    signer = new DataSigner.DumbSigner(keyPair),
     cacheTtl = 1.day,
     kademlia = kad
   ) {

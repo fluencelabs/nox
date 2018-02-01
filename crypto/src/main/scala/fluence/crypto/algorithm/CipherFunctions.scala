@@ -19,7 +19,7 @@ package fluence.crypto.algorithm
 
 import fluence.crypto.keypair.KeyPair
 
-trait CipherFunctions extends Algorithm {
-  def encrypt(keyPair: KeyPair, message: Array[Byte]): Array[Byte]
-  def decrypt(keyPair: KeyPair, message: Array[Byte]): Array[Byte]
+trait CipherFunctions[F[_]] extends Algorithm[F] {
+  def encrypt(keyPair: KeyPair, message: Array[Byte]): F[Array[Byte]]
+  def decrypt(keyPair: KeyPair, message: Array[Byte]): F[Array[Byte]]
 }

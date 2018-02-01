@@ -18,29 +18,20 @@
 package fluence.crypto.signature
 
 import cats.MonadError
-import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.keypair.KeyPair
 import scodec.bits.ByteVector
 
-trait Signer {
+trait DataSigner {
   def publicKey: KeyPair.Public
 
   def sign[F[_]](plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Signature]
 }
 
-object Signer {
-  class DumbSigner(keyPair: KeyPair) extends Signer {
+object DataSigner {
+  class DumbSigner(keyPair: KeyPair) extends DataSigner {
     override def publicKey: KeyPair.Public = keyPair.publicKey
 
     override def sign[F[_]](plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Signature] =
       F.pure(Signature(keyPair.publicKey, plain.reverse))
   }
-
-  class EcdsaSigner(keyPair: KeyPair) extends Signer {
-    override def publicKey: KeyPair.Public = keyPair.publicKey
-
-    override def sign[F[_]](plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Signature] =
-      Ecdsa.ecdsa_secp256k1_sha256.sign(keyPair, plain)
-  }
-
 }

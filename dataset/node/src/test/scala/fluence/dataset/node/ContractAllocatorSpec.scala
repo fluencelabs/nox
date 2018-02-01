@@ -3,7 +3,7 @@ package fluence.dataset.node
 import cats.effect.IO
 import cats.instances.try_._
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{ Signature, SignatureChecker, Signer }
+import fluence.crypto.signature.{ Signature, SignatureChecker, DataSigner }
 import fluence.dataset.BasicContract
 import fluence.dataset.node.contract.ContractRecord
 import fluence.dataset.protocol.ContractAllocatorRpc
@@ -25,7 +25,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
   val nodeId: Key = Key.fromPublicKey[IO](keypair.publicKey).unsafeRunSync()
 
-  val signer = new Signer.DumbSigner(keypair)
+  val signer = new DataSigner.DumbSigner(keypair)
 
   val checker = SignatureChecker.DumbChecker
 
@@ -55,7 +55,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   }
 
   def offerSigner(seed: String) = {
-    new Signer.DumbSigner(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
+    new DataSigner.DumbSigner(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
   }
 
   "contract allocator" should {

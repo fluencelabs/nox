@@ -8,7 +8,7 @@ import cats.instances.future._
 import cats.~>
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature
-import fluence.crypto.signature.{ SignatureChecker, Signer }
+import fluence.crypto.signature.{ SignatureChecker, DataSigner }
 import fluence.dataset.BasicContract
 import fluence.dataset.protocol.ContractsApi
 import fluence.info.NodeInfo
@@ -91,7 +91,7 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
       val seed = Array[Byte](1, 2, 3, 4, 5)
       val kp = KeyPair.fromBytes(seed, seed)
       val key = Key.fromKeyPair[Future](kp).futureValue
-      val signer = new signature.Signer.DumbSigner(kp)
+      val signer = new signature.DataSigner.DumbSigner(kp)
       val offer = BasicContract.offer(key, participantsRequired = 4, signer = signer).futureValue
 
       offer.checkOfferSeal(SignatureChecker.DumbChecker).futureValue shouldBe true

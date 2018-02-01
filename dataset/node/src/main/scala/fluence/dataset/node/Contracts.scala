@@ -22,7 +22,7 @@ import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ Eq, MonadError, Parallel }
-import fluence.crypto.signature.{ SignatureChecker, Signer }
+import fluence.crypto.signature.{ SignatureChecker, DataSigner }
 import fluence.dataset.contract.{ ContractRead, ContractWrite }
 import fluence.dataset.node.contract.ContractRecord
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsApi, ContractsCacheRpc }
@@ -60,7 +60,7 @@ abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact]
     maxFindRequests: Int,
     maxAllocateRequests: Int ⇒ Int,
     checker: SignatureChecker,
-    signer: Signer,
+    signer: DataSigner,
     cacheTtl: FiniteDuration,
     kademlia: Kademlia[F, Contact]
 )(implicit ME: MonadError[F, Throwable], eq: Eq[Contract], P: Parallel[F, F])

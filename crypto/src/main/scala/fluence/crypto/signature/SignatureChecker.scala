@@ -18,7 +18,6 @@
 package fluence.crypto.signature
 
 import cats.MonadError
-import fluence.crypto.algorithm.Ecdsa
 import scodec.bits.ByteVector
 
 trait SignatureChecker {
@@ -29,10 +28,5 @@ object SignatureChecker {
   case object DumbChecker extends SignatureChecker {
     override def check[F[_]](signature: Signature, plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean] =
       F.pure(signature.sign == plain.reverse)
-  }
-
-  case object EcdsaChecker extends SignatureChecker {
-    override def check[F[_]](signature: Signature, plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean] =
-      Ecdsa.ecdsa_secp256k1_sha256.verify(signature, plain)
   }
 }
