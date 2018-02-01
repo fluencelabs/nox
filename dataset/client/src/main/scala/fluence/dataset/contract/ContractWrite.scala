@@ -71,12 +71,11 @@ object ContractWrite {
 
         case (agg, _) ⇒
           agg
-      }).flatMap {
-        case signed if signed.checkAllParticipants(checker) ⇒
-          F.pure(signed)
-
-        case _ ⇒
-          F.raiseError(new IllegalArgumentException("Wrong number of participants or wrong signatures"))
+      }).flatMap { signed ⇒
+        signed.checkAllParticipants(checker).flatMap {
+          case true  ⇒ F.pure(signed)
+          case false ⇒ F.raiseError(new IllegalArgumentException("Wrong number of participants or wrong signatures"))
+        }
       }
   }
 }

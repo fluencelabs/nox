@@ -67,8 +67,8 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
       res ← storage.get(contract.id).attempt.map(_.toOption).flatMap {
         case Some(cr) ⇒
           cr.contract.isBlankOffer(checker).flatMap {
-            case true => cr.contract.pure[F]
-            case false => storage.remove(contract.id).flatMap(_ => putContract(contract))
+            case false ⇒ cr.contract.pure[F]
+            case true  ⇒ storage.remove(contract.id).flatMap(_ ⇒ putContract(contract))
           }
         case None ⇒
           putContract(contract)
@@ -88,7 +88,7 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
   }
 
   private def illegalIfNo(condition: F[Boolean], errorMessage: ⇒ String) = {
-    ME.ensure(condition)(new IllegalArgumentException(errorMessage))(c ⇒ !c)
+    ME.ensure(condition)(new IllegalArgumentException(errorMessage))(identity)
   }
 
   /**
@@ -102,29 +102,31 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
 
     for {
       _ ← illegalIfNo(contract.isBlankOffer(checker), "This is not a valid blank offer")
-      res <- {
+      res ← {
         storage.get(contract.id).attempt.map(_.toOption).flatMap {
-          case Some(cr) if cr.contract.isBlankOffer(checker) && cr.contract =!= contract ⇒ // contract preallocated for id, but it's changed now
-            for {
-              _ ← storage.remove(contract.id)
-              _ ← checkAllocationPossible(contract)
-              _ ← storage.put(contract.id, ContractRecord(contract))
-              sContract ← signedContract
-            } yield sContract
-
-          case Some(cr) if cr.contract.isBlankOffer(checker) ⇒ // contracts are equal
-            signedContract
-
-          case Some(_) ⇒
-            ME.raiseError(new IllegalStateException("Different contract is already stored for this ID"))
-
+          case Some(cr) ⇒
+            cr.contract.isBlankOffer(checker).flatMap {
+              case true ⇒
+                if (cr.contract =!= contract) {
+                  // contract preallocated for id, but it's changed now
+                  for {
+                    _ ← storage.remove(contract.id)
+                    _ ← checkAllocationPossible(contract)
+                    _ ← storage.put(contract.id, ContractRecord(contract))
+                    sContract ← signedContract
+                  } yield sContract
+                } else {
+                  // contracts are equal
+                  signedContract
+                }
+              case false ⇒ ME.raiseError[C](new IllegalStateException("Different contract is already stored for this ID"))
+            }
           case None ⇒
             for {
               _ ← checkAllocationPossible(contract)
               _ ← storage.put(contract.id, ContractRecord(contract))
               sContract ← signedContract
             } yield sContract
-
         }
       }
     } yield res

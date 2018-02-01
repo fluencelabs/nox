@@ -32,7 +32,7 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
         _ = goodRes shouldBe true
         randomData = ByteVector(Random.nextString(10).getBytes)
         randomSign = algorithm.sign(keys, randomData)
-        badRes ← algorithm.verify(sign.copy(sign = randomSign.get.sign), data)
+        badRes ← algorithm.verify(sign.copy(sign = ByteVector(Random.nextString(10).getBytes)), data)
         _ = badRes shouldBe false
       } yield {}
       t.get
