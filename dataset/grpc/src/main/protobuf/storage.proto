@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package fluence.dataset.grpc;
+
+// SearchCallback
+message AskNextChildIndex {
+    repeated bytes keys = 1;
+    repeated bytes childsChecksums = 2;
+}
+
+message ReplyNextChildIndex {
+    int32 index = 1;
+}
+
+// GetCallbacks extends SearchCallback
+message AskSubmitLeaf {
+    repeated bytes keys = 1;
+    repeated bytes valuesChecksums = 2;
+}
+
+message ReplySubmitLeaf {
+    int32 childIndex = 1;
+}
+
+message GetValue {
+    bytes value = 1;
+}
+
+message GetCallbackReply {
+    oneof reply {
+        ReplyNextChildIndex nextChildIndex = 1;
+        ReplySubmitLeaf submitLeaf = 2;
+    }
+}
+
+message GetCallback {
+    oneof callback {
+        GetValue value = 1;
+
+        AskNextChildIndex nextChildIndex = 10;
+        AskSubmitLeaf submitLeaf = 11;
+    }
+}
+
+// PutCallbacks extends SearchCallback
+message AskPutDetails {
+    repeated bytes keys = 1;
+    repeated bytes valuesChecksums = 2;
+}
+
+message ReplyPutDetails {
+    bytes key = 1;
+    bytes checksum = 2;
+
+    oneof searchResult {
+        int32 foundIndex = 3;
+        int32 insertionPoint = 4;
+    }
+}
+
+message AskVerifyChanges {
+    bytes serverMerkleRoot = 1;
+    bool splitted = 2;
+}
+
+message ReplyVerifyChanges {}
+
+message AskChangesStored {}
+message ReplyChangesStored {}
+
+message PreviousValue {
+    bytes value = 1;
+}
+
+message PutValue {
+    bytes value = 1;
+}
+
+message PutCallback {
+    oneof callback {
+        PreviousValue value = 1;
+
+        AskNextChildIndex nextChildIndex = 10;
+
+        AskPutDetails putDetails = 20;
+        AskVerifyChanges verifyChanges = 21;
+        AskChangesStored changesStored = 22;
+    }
+}
+
+message PutCallbackReply {
+    oneof reply {
+        PutValue value = 1;
+
+        ReplyNextChildIndex nextChildIndex = 10;
+
+        ReplyPutDetails putDetails = 20;
+        ReplyVerifyChanges verifyChanges = 21;
+        ReplyChangesStored changesStored = 22;
+    }
+}
+
+service DatasetStorageRpc {
+    rpc get(stream GetCallbackReply) returns (stream GetCallback);
+
+    rpc put(stream PutCallbackReply) returns (stream PutCallback);
+}
+
