@@ -48,6 +48,7 @@ object SbtCommons {
   val monocle = "com.github.julien-truffaut" %% "monocle-core" % MonocleV
   val monocleMacro = "com.github.julien-truffaut" %% "monocle-macro" % MonocleV
   val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.5"
+  val bouncyCastle = "org.bouncycastle" % "bcprov-jdk15on" % "1.59"
 
   val rocksDb = "org.rocksdb" % "rocksdbjni" % RocksDbV
   val typeSafeConfig = "com.typesafe" % "config" % TypeSafeConfV

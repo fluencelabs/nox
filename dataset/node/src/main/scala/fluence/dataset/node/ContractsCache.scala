@@ -62,8 +62,11 @@ class ContractsCache[F[_], C : ContractRead](
     !cr.contract.participants.contains(nodeId) &&
       java.time.Duration.between(cr.lastUpdated, Instant.now()).toMillis >= ttlMillis
 
-  private def canBeCached(contract: C): Boolean =
-    cacheEnabled && contract.isActiveContract(checker) && !contract.participants.contains(nodeId)
+  private def canBeCached(contract: C): F[Boolean] = {
+    if (cacheEnabled && !contract.participants.contains(nodeId))
+      contract.isActiveContract(checker)
+    else false.pure[F]
+  }
 
   /**
    * Find a contract in local storage.
@@ -71,19 +74,20 @@ class ContractsCache[F[_], C : ContractRead](
    * @param id Dataset ID
    * @return Optional locally found contract
    */
-  override def find(id: Key): F[Option[C]] =
+  override def find(id: Key): F[Option[C]] = {
     storage.get(id).attempt.map(_.toOption).flatMap {
       case Some(cr) if isExpired(cr) ⇒
         storage
           .remove(id)
           .map(_ ⇒ None)
 
-      case optCr ⇒
-        optCr
-          .map(_.contract)
-          .filterNot(_.isBlankOffer(checker))
-          .pure[F]
+      case Some(cr) ⇒
+        cr.contract.isBlankOffer(checker).map { b ⇒
+          if (!b) Some(cr.contract) else None
+        }
+      case None ⇒ Option.empty[C].pure[F]
     }
+  }
 
   /**
    * Ask to add contract to local storage.
@@ -91,25 +95,26 @@ class ContractsCache[F[_], C : ContractRead](
    * @param contract Contract to cache
    * @return If the contract is cached or not
    */
-  override def cache(contract: C): F[Boolean] =
-    if (!canBeCached(contract)) {
-      false.pure[F]
-    } else {
-      // We're deciding to cache basing on crypto check, done with canBeCached, and (signed) version number only
-      // It allows us to avoid multiplexing network calls with asking to cache stale contracts
-      storage.get(contract.id).attempt.map(_.toOption).flatMap {
-        case Some(cr) if cr.contract.version < contract.version ⇒ // Contract updated
-          storage
-            .put(contract.id, ContractRecord(contract))
-            .map(_ ⇒ true)
+  override def cache(contract: C): F[Boolean] = {
+    canBeCached(contract).flatMap {
+      case false ⇒ false.pure[F]
+      case true ⇒
+        // We're deciding to cache basing on crypto check, done with canBeCached, and (signed) version number only
+        // It allows us to avoid multiplexing network calls with asking to cache stale contracts
+        storage.get(contract.id).attempt.map(_.toOption).flatMap {
+          case Some(cr) if cr.contract.version < contract.version ⇒ // Contract updated
+            storage
+              .put(contract.id, ContractRecord(contract))
+              .map(_ ⇒ true)
 
-        case Some(_) ⇒ // Can't update contract with an old version
-          false.pure[F]
+          case Some(_) ⇒ // Can't update contract with an old version
+            false.pure[F]
 
-        case None ⇒ // Contract is unknown, save it
-          storage
-            .put(contract.id, ContractRecord(contract))
-            .map(_ ⇒ true)
-      }
+          case None ⇒ // Contract is unknown, save it
+            storage
+              .put(contract.id, ContractRecord(contract))
+              .map(_ ⇒ true)
+        }
     }
+  }
 }

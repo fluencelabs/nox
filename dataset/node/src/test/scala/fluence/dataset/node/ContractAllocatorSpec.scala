@@ -1,8 +1,7 @@
 package fluence.dataset.node
 
-import java.nio.ByteBuffer
-
 import cats.effect.IO
+import cats.instances.try_._
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{ Signature, SignatureChecker, Signer }
 import fluence.dataset.BasicContract
@@ -15,6 +14,7 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 import scala.concurrent.duration._
+import scala.util.Try
 
 class ContractAllocatorSpec extends WordSpec with Matchers {
   @volatile var denyDS: Set[Key] = Set.empty
@@ -51,7 +51,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
   def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
     val s = offerSigner(seed)
-    BasicContract.offer(Key.fromPublicKey[IO](s.publicKey).unsafeRunSync(), participantsRequired, s)
+    BasicContract.offer[Try](Key.fromPublicKey[IO](s.publicKey).unsafeRunSync(), participantsRequired, s).get
   }
 
   def offerSigner(seed: String) = {
@@ -113,7 +113,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       import fluence.dataset.contract.ContractWrite._
 
       val c2 = offer("should not allocate, as not a participant, even with a list of participants")
-        .signOffer(Key.fromPublicKey[IO](s2.publicKey).unsafeRunSync(), s2)
+        .signOffer(Key.fromPublicKey[IO](s2.publicKey).unsafeRunSync(), s2).get
 
       allocator.allocate(c2).attempt.unsafeRunSync().isLeft shouldBe true
     }
@@ -126,10 +126,10 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       import fluence.dataset.contract.ContractWrite._
 
       allocator.allocate(accepted).attempt.unsafeRunSync().isLeft shouldBe true
-      allocator.allocate(accepted.sealParticipants(signer).copy(version = -1)).attempt.unsafeRunSync().isLeft shouldBe true
+      allocator.allocate(accepted.sealParticipants(signer).get.copy(version = -1)).attempt.unsafeRunSync().isLeft shouldBe true
 
       denyDS += offerC.id
-      allocator.allocate(accepted.sealParticipants(signer)).attempt.unsafeRunSync().isLeft shouldBe true
+      allocator.allocate(accepted.sealParticipants(signer).get).attempt.unsafeRunSync().isLeft shouldBe true
     }
 
     "allocate (idempotently) and return from cache" in {
@@ -137,7 +137,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
       val offerC = offer("should accept offer and allocate")
       val signer = offerSigner("should accept offer and allocate")
-      val accepted = allocator.offer(offerC).unsafeRunSync().sealParticipants(signer)
+      val accepted = allocator.offer(offerC).unsafeRunSync().sealParticipants(signer).get
       val contract = allocator.allocate(accepted).unsafeRunSync()
 
       contract shouldBe accepted

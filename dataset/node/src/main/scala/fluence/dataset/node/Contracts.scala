@@ -96,20 +96,17 @@ abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact]
    */
   override def allocate(contract: Contract, sealParticipants: Contract ⇒ F[Contract]): F[Contract] = {
     // Check if contract is already known, return it immediately if it is
-    if (!contract.isBlankOffer(checker)) {
-      ME.raiseError(Contracts.IncorrectOfferContract)
-    } else
-      cache.find(contract.id).flatMap {
+    for {
+      _ ← ME.ensure(contract.isBlankOffer(checker))(Contracts.IncorrectOfferContract)(identity)
+      contractOp ← cache.find(contract.id)
+      contract ← contractOp match {
         case Some(c) ⇒ c.pure[F]
 
         case None ⇒
           kademlia.callIterative[Contract](
             contract.id,
-            nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap {
-              case c if c.participantSigned(nc.key, checker) ⇒
-                c.pure[F]
-              case _ ⇒
-                ME.raiseError(Contracts.NotFound)
+            nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap { c ⇒
+              ME.ensure(c.participantSigned(nc.key, checker))(Contracts.NotFound)(identity) map { _ ⇒ c }
             },
             contract.participantsRequired,
             maxAllocateRequests(contract.participantsRequired),
@@ -132,13 +129,14 @@ abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact]
                       c.pure[F]
 
                     case Nil ⇒ // Should never happen
-                      ME.raiseError(Contracts.CantFindEnoughNodes(-1))
+                      ME.raiseError[Contract](Contracts.CantFindEnoughNodes(-1))
                   }
 
               case agreements ⇒
-                ME.raiseError(Contracts.CantFindEnoughNodes(agreements.size))
+                ME.raiseError[Contract](Contracts.CantFindEnoughNodes(agreements.size))
             }
       }
+    } yield contract
   }
 
   /**

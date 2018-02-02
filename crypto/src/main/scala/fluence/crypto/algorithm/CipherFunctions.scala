@@ -15,15 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.keypair
+package fluence.crypto.algorithm
 
-import scodec.bits.ByteVector
+import fluence.crypto.keypair.KeyPair
 
-case class KeyPair(publicKey: KeyPair.Public, secretKey: KeyPair.Secret)
-
-object KeyPair {
-  case class Public(value: ByteVector) extends AnyVal
-  case class Secret(value: ByteVector) extends AnyVal
-
-  def fromBytes(pk: Array[Byte], sk: Array[Byte]): KeyPair = KeyPair(Public(ByteVector(pk)), Secret(ByteVector(sk)))
+trait CipherFunctions[F[_]] extends Algorithm[F] {
+  def encrypt(keyPair: KeyPair, message: Array[Byte]): F[Array[Byte]]
+  def decrypt(keyPair: KeyPair, message: Array[Byte]): F[Array[Byte]]
 }

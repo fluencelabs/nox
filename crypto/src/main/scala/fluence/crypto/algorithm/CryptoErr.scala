@@ -15,15 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.keypair
+package fluence.crypto.algorithm
 
-import scodec.bits.ByteVector
+import scala.util.control.NoStackTrace
 
-case class KeyPair(publicKey: KeyPair.Public, secretKey: KeyPair.Secret)
-
-object KeyPair {
-  case class Public(value: ByteVector) extends AnyVal
-  case class Secret(value: ByteVector) extends AnyVal
-
-  def fromBytes(pk: Array[Byte], sk: Array[Byte]): KeyPair = KeyPair(Public(ByteVector(pk)), Secret(ByteVector(sk)))
-}
+case class CryptoErr(errorMessage: String) extends Throwable(errorMessage) with NoStackTrace

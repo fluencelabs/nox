@@ -17,8 +17,9 @@
 
 package fluence.dataset.contract
 
-import cats.{ Contravariant, Functor, Invariant, MonadError }
+import cats.{ Invariant, MonadError }
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.crypto.signature.{ Signature, SignatureChecker, Signer }
 import fluence.kad.protocol.Key
 
@@ -47,20 +48,20 @@ object ContractWrite {
       }
   }
 
-  implicit class WriteOps[C](contract: C)(implicit read: ContractRead[C], write: ContractWrite[C]) {
+  implicit class WriteOps[F[_], C](contract: C)(implicit read: ContractRead[C], write: ContractWrite[C], ME: MonadError[F, Throwable]) {
     import ContractRead.ReadOps
 
-    def sealOffer(signer: Signer): C =
-      write.setOfferSeal(contract, signer.sign(contract.getOfferBytes))
+    def sealOffer(signer: Signer): F[C] =
+      signer.sign(contract.getOfferBytes).map(s ⇒ write.setOfferSeal(contract, s))
 
-    def signOffer(participant: Key, signer: Signer): C =
-      write.setOfferSignature(contract, participant, signer.sign(contract.getOfferBytes))
+    def signOffer(participant: Key, signer: Signer): F[C] =
+      signer.sign(contract.getOfferBytes).map(s ⇒ write.setOfferSignature(contract, participant, s))
 
-    def sealParticipants(signer: Signer): C =
-      write.setParticipantsSeal(contract, signer.sign(contract.getParticipantsBytes))
+    def sealParticipants(signer: Signer): F[C] =
+      signer.sign(contract.getParticipantsBytes).flatMap(s ⇒ ME.catchNonFatal(write.setParticipantsSeal(contract, s)))
 
-    def addParticipants[F[_]](checker: SignatureChecker, participants: Seq[C])(implicit F: MonadError[F, Throwable]): F[C] =
-      F.catchNonFatal(participants.foldLeft(contract) {
+    def addParticipants(checker: SignatureChecker, participants: Seq[C]): F[C] =
+      ME.catchNonFatal(participants.foldLeft(contract) {
         case (agg, part) if part.participants.size == 1 ⇒
           part.participants.headOption
             .flatMap(p ⇒ part.participantSignature(p).map(p -> _))
@@ -70,12 +71,11 @@ object ContractWrite {
 
         case (agg, _) ⇒
           agg
-      }).flatMap {
-        case signed if signed.checkAllParticipants(checker) ⇒
-          F.pure(signed)
-
-        case _ ⇒
-          F.raiseError(new IllegalArgumentException("Wrong number of participants or wrong signatures"))
+      }).flatMap { signed ⇒
+        signed.checkAllParticipants(checker).flatMap {
+          case true  ⇒ ME.pure(signed)
+          case false ⇒ ME.raiseError(new IllegalArgumentException("Wrong number of participants or wrong signatures"))
+        }
       }
   }
 }

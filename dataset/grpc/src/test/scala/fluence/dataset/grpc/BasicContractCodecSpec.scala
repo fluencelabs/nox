@@ -4,7 +4,6 @@ import cats.instances.try_._
 import cats.kernel.Eq
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature
-import fluence.crypto.signature.Signer
 import org.scalatest.{ Matchers, WordSpec }
 import fluence.dataset.{ BasicContract ⇒ BC }
 import fluence.kad.protocol.Key
@@ -39,9 +38,9 @@ class BasicContractCodecSpec extends WordSpec with Matchers {
 
       Seq(
         BC.offer(key, 1, signer),
-        BC.offer(key, 1, signer).signOffer(key, signer),
-        BC.offer(key, 1, signer).signOffer(key, signer).sealParticipants(signer)
-      ).foreach(checkInvariance)
+        BC.offer(key, 1, signer).flatMap(_.signOffer(key, signer)),
+        BC.offer(key, 1, signer).flatMap(_.signOffer(key, signer).flatMap(_.sealParticipants(signer)))
+      ).map(_.get).foreach(checkInvariance)
 
     }
   }

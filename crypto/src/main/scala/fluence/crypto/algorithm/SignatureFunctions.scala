@@ -15,15 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.keypair
+package fluence.crypto.algorithm
 
+import fluence.crypto.keypair.KeyPair
+import fluence.crypto.signature.Signature
 import scodec.bits.ByteVector
 
-case class KeyPair(publicKey: KeyPair.Public, secretKey: KeyPair.Secret)
-
-object KeyPair {
-  case class Public(value: ByteVector) extends AnyVal
-  case class Secret(value: ByteVector) extends AnyVal
-
-  def fromBytes(pk: Array[Byte], sk: Array[Byte]): KeyPair = KeyPair(Public(ByteVector(pk)), Secret(ByteVector(sk)))
+trait SignatureFunctions[F[_]] {
+  def sign(keyPair: KeyPair, message: ByteVector): F[Signature]
+  def verify(signature: Signature, message: ByteVector): F[Boolean]
 }

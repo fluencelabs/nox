@@ -24,7 +24,7 @@ import java.security.MessageDigest
 import cats.syntax.monoid._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
-import cats.{ ApplicativeError, MonadError, Monoid, Order, Show }
+import cats.{ MonadError, Monoid, Order, Show }
 import fluence.codec.Codec
 import fluence.crypto.keypair.KeyPair
 import scodec.bits.ByteVector
@@ -143,7 +143,7 @@ object Key {
   implicit def b64Codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Key, String] =
     vectorCodec[F] andThen Codec.codec[F, ByteVector, String]
 
-  implicit def vectorCodec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, ByteVector] =
+  implicit def vectorCodec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Key, ByteVector] =
     Codec(
       _.value.pure[F],
       vec ⇒
