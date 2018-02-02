@@ -6,6 +6,5 @@ grpc
 
 libraryDependencies ++= Seq(
   monix3,
-  shapeless,
   scalatest
 )
