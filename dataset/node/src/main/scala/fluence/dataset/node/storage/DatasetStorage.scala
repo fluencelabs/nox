@@ -42,12 +42,14 @@ import scala.util.Try
  * @param kVStore               Blob storage for persisting encrypted values.
  * @param merkleRootCalculator Merkle root calculator (temp? will be deleted in future)
  * @param refProvider           Next value id generator
+ * @param onMRChange      Callback that will be called when merkle root change
  */
 class DatasetStorage private (
     bTreeIndex: MerkleBTree,
     kVStore: KVStore[Task, ValueRef, Array[Byte]],
     merkleRootCalculator: MerkleRootCalculator,
-    refProvider: () ⇒ ValueRef
+    refProvider: () ⇒ ValueRef,
+    onMRChange: Bytes ⇒ Unit
 ) extends DatasetStorageRpc[Task] {
 
   /**
@@ -56,8 +58,7 @@ class DatasetStorage private (
    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  override def get(getCallbacks: GetCallbacks[Task]): Task[Option[Array[Byte]]] = {
-
+  override def get(getCallbacks: GetCallbacks[Task]): Task[Option[Array[Byte]]] =
     bTreeIndex.get(GetCommandImpl(getCallbacks))
       .flatMap {
         case Some(reference) ⇒
@@ -66,20 +67,16 @@ class DatasetStorage private (
           Task(None)
       }
 
-  }
-
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.
    *
    * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
    * @param encryptedValue Encrypted value.
-   * @param onMRChange      Callback that will be called when merkle root change
    * @return returns old value if old value was overridden, None otherwise.
    */
   override def put(
     putCallbacks: PutCallbacks[Task],
-    encryptedValue: Array[Byte],
-    onMRChange: Bytes ⇒ Unit
+    encryptedValue: Array[Byte]
   ): Task[Option[Array[Byte]]] = {
 
     // todo start transaction
@@ -129,15 +126,16 @@ object DatasetStorage {
   def apply(
     datasetId: String,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    refProvider: () ⇒ ValueRef
+    refProvider: () ⇒ ValueRef,
+    onMRChange: Bytes ⇒ Unit
   ): Try[DatasetStorage] = {
 
-    // todo create direct and more faster codec for Long
+    // todo create direct and faster codec for Long
     implicit val long2bytesCodec: Codec[Task, Array[Byte], ValueRef] = Codec.pure(
       ByteBuffer.wrap(_).getLong(),
       ByteBuffer.allocate(java.lang.Long.BYTES).putLong(_).array()
     )
-    implicit val identityCodec: Codec[Task, Array[Byte], Array[Byte]] = Codec.identityCodec
+    import Codec.identityCodec
 
     RocksDbStore(s"${datasetId}_blob")
       .map(rockDb ⇒ {
@@ -145,7 +143,8 @@ object DatasetStorage {
           MerkleBTree(s"${datasetId}_tree", cryptoHasher),
           KVStore.transform(rockDb),
           MerkleRootCalculator(cryptoHasher),
-          refProvider
+          refProvider,
+          onMRChange
         )
       })
 
