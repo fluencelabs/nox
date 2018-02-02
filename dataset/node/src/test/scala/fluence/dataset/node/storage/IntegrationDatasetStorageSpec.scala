@@ -193,8 +193,8 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     }
   )
 
-  private def createDatasetStorage(dbName: String): DatasetStorage = {
-    DatasetStorage(s"${this.getClass.getSimpleName}_$dbName", hasher, () ⇒ blobIdCounter.incrementAndGet())
+  private def createDatasetStorage(dbName: String, counter: Bytes ⇒ Unit): DatasetStorage = {
+    DatasetStorage(s"${this.getClass.getSimpleName}_$dbName", hasher, () ⇒ blobIdCounter.incrementAndGet(), counter)
       .toEither match {
         case Right(store) ⇒ store
         case Left(err)    ⇒ throw err
@@ -211,16 +211,16 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   }
 
   private def createStorageRpcWithNetworkError(dbName: String, counter: Bytes ⇒ Unit): DatasetStorageRpc[Task] = {
-    val origin = createDatasetStorage(dbName)
+    val origin = createDatasetStorage(dbName, counter)
     new DatasetStorageRpc[Task] {
       override def remove(removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
         origin.remove(removeCallbacks)
       }
-      override def put(putCallback: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte], onMRChange: Bytes ⇒ Unit = _ ⇒ ()): Task[Option[Array[Byte]]] = {
+      override def put(putCallback: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] = {
         if (new String(encryptedValue) == "ENC[Alan,33]") {
           Task.raiseError(new IllegalStateException("some network error"))
         } else {
-          origin.put(putCallback, encryptedValue, counter)
+          origin.put(putCallback, encryptedValue)
         }
       }
       override def get(getCallbacks: BTreeRpc.GetCallbacks[Task]): Task[Option[Array[Byte]]] =
@@ -230,7 +230,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
   // todo use DatasetStorageRpc implementation with network transport
   private def createStorageRpc(dbName: String): DatasetStorageRpc[Task] =
-    createDatasetStorage(dbName)
+    createDatasetStorage(dbName, _ ⇒ ())
 
   private def createBTreeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String] = {
     MerkleBTreeClient(
