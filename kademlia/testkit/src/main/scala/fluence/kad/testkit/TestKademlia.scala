@@ -24,7 +24,7 @@ import cats.syntax.flatMap._
 import cats.{ Applicative, Monad, MonadError, Parallel, ~> }
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature
-import fluence.crypto.signature.DataSigner
+import fluence.crypto.signature.Signer
 import fluence.kad.protocol.{ KademliaRpc, Key, Node }
 import fluence.kad.{ Bucket, Kademlia, Siblings }
 import monix.eval.Coeval
@@ -141,12 +141,12 @@ object TestKademlia {
     nextRandomKeyPair: ⇒ KeyPair,
     joinPeers: Int = 0,
     alpha: Int = 3,
-    pingExpiresIn: FiniteDuration = 1.second): Map[C, (DataSigner, Kademlia[Coeval, C])] = {
-    lazy val kads: Map[C, (DataSigner, Kademlia[Coeval, C])] =
+    pingExpiresIn: FiniteDuration = 1.second): Map[C, (Signer, Kademlia[Coeval, C])] = {
+    lazy val kads: Map[C, (Signer, Kademlia[Coeval, C])] =
       Stream.fill(n)(nextRandomKeyPair)
-        .foldLeft(Map.empty[C, (DataSigner, Kademlia[Coeval, C])]) {
+        .foldLeft(Map.empty[C, (Signer, Kademlia[Coeval, C])]) {
           case (acc, keyPair) ⇒
-            val signer = new signature.DataSigner.DumbSigner(keyPair)
+            val signer = new signature.Signer.DumbSigner(keyPair)
             val key = Key.fromPublicKey[Coeval](keyPair.publicKey).value
             acc + (toContact(key) -> (signer, TestKademlia.coeval(key, alpha, k, kads(_)._2, toContact, pingExpiresIn)))
         }

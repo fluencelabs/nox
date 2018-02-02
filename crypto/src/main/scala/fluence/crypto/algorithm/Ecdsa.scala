@@ -24,12 +24,13 @@ import cats.MonadError
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{ SignatureChecker, DataSigner }
+import fluence.crypto.signature.SignatureChecker
 import org.bouncycastle.jce.ECNamedCurveTable
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec
 import scodec.bits.ByteVector
 
+import scala.language.higherKinds
 import scala.util.control.NonFatal
 
 /**
@@ -121,7 +122,7 @@ class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, T
 object Ecdsa {
   def ecdsa_secp256k1_sha256[F[_]](implicit F: MonadError[F, Throwable]) = new Ecdsa("secp256k1", "SHA256withECDSA")
 
-  class EcdsaSigner(keyPair: KeyPair) extends DataSigner {
+  class Signer(keyPair: KeyPair) extends fluence.crypto.signature.Signer {
     override def publicKey: KeyPair.Public = keyPair.publicKey
 
     override def sign[F[_]](plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[fluence.crypto.signature.Signature] =

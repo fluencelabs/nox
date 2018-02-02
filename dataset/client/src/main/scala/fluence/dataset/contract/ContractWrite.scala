@@ -20,7 +20,7 @@ package fluence.dataset.contract
 import cats.{ Invariant, MonadError }
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.crypto.signature.{ Signature, SignatureChecker, DataSigner }
+import fluence.crypto.signature.{ Signature, SignatureChecker, Signer }
 import fluence.kad.protocol.Key
 
 import scala.language.higherKinds
@@ -51,13 +51,13 @@ object ContractWrite {
   implicit class WriteOps[F[_], C](contract: C)(implicit read: ContractRead[C], write: ContractWrite[C], ME: MonadError[F, Throwable]) {
     import ContractRead.ReadOps
 
-    def sealOffer(signer: DataSigner): F[C] =
+    def sealOffer(signer: Signer): F[C] =
       signer.sign(contract.getOfferBytes).map(s ⇒ write.setOfferSeal(contract, s))
 
-    def signOffer(participant: Key, signer: DataSigner): F[C] =
+    def signOffer(participant: Key, signer: Signer): F[C] =
       signer.sign(contract.getOfferBytes).map(s ⇒ write.setOfferSignature(contract, participant, s))
 
-    def sealParticipants(signer: DataSigner): F[C] =
+    def sealParticipants(signer: Signer): F[C] =
       signer.sign(contract.getParticipantsBytes).flatMap(s ⇒ ME.catchNonFatal(write.setParticipantsSeal(contract, s)))
 
     def addParticipants(checker: SignatureChecker, participants: Seq[C]): F[C] =

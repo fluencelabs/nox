@@ -32,7 +32,7 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 
     "correctly work with signer and checker" in {
       val keys = Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair().get
-      val signer = new Ecdsa.EcdsaSigner(keys)
+      val signer = new Ecdsa.Signer(keys)
 
       val data = rndByteVector(10)
       val sign = signer.sign(data).get
@@ -45,11 +45,11 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 
     "throw an errors on invalid data" in {
       val keys = Ecdsa.ecdsa_secp256k1_sha256[Try].generateKeyPair().get
-      val signer = new Ecdsa.EcdsaSigner(keys)
+      val signer = new Ecdsa.Signer(keys)
       val data = rndByteVector(10)
 
       val brokenSecret = keys.copy(secretKey = KeyPair.Secret(rndByteVector(10)))
-      val brokenSigner = new Ecdsa.EcdsaSigner(brokenSecret)
+      val brokenSigner = new Ecdsa.Signer(brokenSecret)
 
       the[CryptoErr] thrownBy brokenSigner.sign(data).get
 

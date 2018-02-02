@@ -2,7 +2,7 @@ package fluence.dataset.node
 
 import cats.instances.try_._
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{ SignatureChecker, DataSigner }
+import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
 import fluence.dataset.node.contract.ContractRecord
 import fluence.kad.protocol.Key
@@ -28,7 +28,7 @@ class ContractsCacheSpec extends WordSpec with Matchers {
   }
 
   def offerSigner(seed: String) = {
-    new DataSigner.DumbSigner(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
+    new Signer.DumbSigner(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
   }
 
   val cache: ContractsCache[Coeval, BasicContract] =

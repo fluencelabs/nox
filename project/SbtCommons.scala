@@ -31,9 +31,7 @@ object SbtCommons {
     organizationHomepage := Some(new URL("https://fluence.ai")),
     startYear := Some(2017),
     licenses += ("AGPL-3.0", new URL("http://www.gnu.org/licenses/agpl-3.0.en.html")),
-    headerLicense := Some(License.AGPLv3("2017", organizationName.value)),
-    //it is necessary to clean up between test runs in sbt shell
-    testOptions in Test += Tests.Cleanup(() => java.security.Security.removeProvider("BC"))
+    headerLicense := Some(License.AGPLv3("2017", organizationName.value))
   )
 
   val RocksDbV = "5.9.2"

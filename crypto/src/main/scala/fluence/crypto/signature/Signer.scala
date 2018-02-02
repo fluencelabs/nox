@@ -21,14 +21,16 @@ import cats.MonadError
 import fluence.crypto.keypair.KeyPair
 import scodec.bits.ByteVector
 
-trait DataSigner {
+import scala.language.higherKinds
+
+trait Signer {
   def publicKey: KeyPair.Public
 
   def sign[F[_]](plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Signature]
 }
 
-object DataSigner {
-  class DumbSigner(keyPair: KeyPair) extends DataSigner {
+object Signer {
+  class DumbSigner(keyPair: KeyPair) extends Signer {
     override def publicKey: KeyPair.Public = keyPair.publicKey
 
     override def sign[F[_]](plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Signature] =
