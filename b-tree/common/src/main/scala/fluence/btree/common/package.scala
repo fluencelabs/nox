@@ -19,6 +19,7 @@ package fluence.btree
 
 package object common {
 
+  // TODO: use ByteVector instead
   /* Ciphered key */
   type Key = Array[Byte]
 
@@ -28,7 +29,8 @@ package object common {
   /* Alias for bytes array */
   type Bytes = Array[Byte]
 
-  /* Any hashed data */
+  // TODO: use ByteVector instead
+  /* Any data hash */
   type Hash = Array[Byte]
 
 }
