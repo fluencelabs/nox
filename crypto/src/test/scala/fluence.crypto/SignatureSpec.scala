@@ -72,8 +72,7 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
       storage.storeSecretKey(keys.secretKey)
 
       val keysReadE = storage.readKeyPair
-      keysReadE.isRight shouldBe true
-      val keysRead = keysReadE.right.get
+      val keysRead = keysReadE.get
 
       val signer = new Ecdsa.Signer(keys)
       val data = rndByteVector(10)
