@@ -6,15 +6,14 @@ import java.security
 import java.security.KeyFactory
 import java.security.spec.PKCS8EncodedKeySpec
 
-import cats.Applicative
-import cats.syntax.applicative._
+import cats.MonadError
 import fluence.crypto.algorithm.{ Ecdsa, JavaAlgorithm }
 import fluence.crypto.keypair.KeyPair
 import org.bouncycastle.jce.spec.{ ECPrivateKeySpec, ECPublicKeySpec }
 
-class FileKeyStorage[F[_] : Applicative](file: File) extends JavaAlgorithm {
+class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) extends JavaAlgorithm {
   def readKeyPair: F[KeyPair] = {
-    {
+    F.catchNonFatal {
       val keyBytes = Files.readAllBytes(file.toPath)
       val keySpec = new PKCS8EncodedKeySpec(keyBytes)
 
@@ -31,17 +30,17 @@ class FileKeyStorage[F[_] : Applicative](file: File) extends JavaAlgorithm {
       val pubKey = keyFactory.generatePublic(pubSpec)
 
       JavaAlgorithm.jKeyPairToKeyPair(new security.KeyPair(pubKey, privateKey))
-    }.pure[F]
+    }
   }
 
   def storeSecretKey(key: KeyPair.Secret): F[Unit] = {
     import java.io.FileOutputStream
-    {
+    F.catchNonFatal {
       if (!file.exists()) file.createNewFile() else throw new RuntimeException(file.getAbsolutePath + " already exists")
       val fos = new FileOutputStream(file)
 
       fos.write(key.value.toArray)
       fos.close()
-    }.pure[F]
+    }
   }
 }
