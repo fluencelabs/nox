@@ -46,26 +46,6 @@ object NodeApp {
     ()
   }
 
-  def readConfig(configPath: Option[String]): Config = {
-    val configFileOp = configPath.map(cp ⇒ new File(cp)).filter(_.exists())
-
-    val config = configFileOp match {
-      case None ⇒
-        cmd("Use default config")
-        ConfigFactory.load()
-      case Some(file) ⇒
-        val usrConfig = ConfigFactory.parseFile(file)
-        ConfigFactory
-          .defaultOverrides()
-          .withFallback(usrConfig)
-          .withFallback(ConfigFactory.defaultApplication())
-          .withFallback(ConfigFactory.defaultReference())
-          .resolve()
-    }
-
-    config
-  }
-
   def getKeyPair(keyPath: String): Try[KeyPair] = {
     val keyFile = new File(keyPath)
     val keyStorage = new FileKeyStorage[Try](keyFile)
@@ -84,7 +64,7 @@ object NodeApp {
   def main(args: Array[String]): Unit = {
     val log = LoggerFactory.getLogger(getClass)
 
-    val config = readConfig(args.headOption)
+    val config = ConfigFactory.load()
 
     val gitHash = config.getString("fluence.gitHash")
 
