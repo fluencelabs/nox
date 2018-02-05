@@ -8,7 +8,7 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-private[algorithm] trait JavaAlgorithm[F[_]] extends Algorithm[F] {
+private[crypto] trait JavaAlgorithm extends Algorithm {
   JavaAlgorithm.addProvider
 }
 
@@ -18,7 +18,7 @@ object JavaAlgorithm {
 
   private lazy val addProvider = {
     Option(Security.getProvider(BouncyCastleProvider.PROVIDER_NAME))
-      .foreach(_ => Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME))
+      .foreach(_ ⇒ Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME))
     Security.addProvider(new BouncyCastleProvider())
   }
 }

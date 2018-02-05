@@ -17,8 +17,14 @@
 
 package fluence.node
 
+import java.io.File
+
 import cats.syntax.show._
-import com.typesafe.config.ConfigFactory
+import cats.instances.try_._
+import com.google.common.io.Files
+import com.typesafe.config.{ Config, ConfigFactory }
+import fluence.crypto.FileKeyStorage
+import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.keypair.KeyPair
 import fluence.info.NodeInfo
 import fluence.kad.protocol.{ Contact, Key }
@@ -27,81 +33,134 @@ import monix.execution.Scheduler.Implicits.global
 import org.slf4j.LoggerFactory
 
 import scala.io.StdIn
-import scala.util.{ Failure, Success }
+import scala.util.{ Failure, Success, Try }
 
-object NodeApp extends App {
+object NodeApp {
 
-  val log = LoggerFactory.getLogger(getClass)
+  def initDirectory(fluencePath: String): Unit = {
+    val appDir = new File(fluencePath)
+    if (!appDir.exists()) {
+      Files.createParentDirs(appDir)
+      appDir.mkdir()
+    }
+    ()
+  }
 
-  val gitHash = ConfigFactory.load().getString("fluence.gitHash")
+  def readConfig(configPath: Option[String]): Config = {
+    val configFileOp = configPath.map(cp ⇒ new File(cp)).filter(_.exists())
 
-  println(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
+    val config = configFileOp match {
+      case None ⇒
+        cmd("Use default config")
+        ConfigFactory.load()
+      case Some(file) ⇒
+        val usrConfig = ConfigFactory.parseFile(file)
+        ConfigFactory
+          .defaultOverrides()
+          .withFallback(usrConfig)
+          .withFallback(ConfigFactory.defaultApplication())
+          .withFallback(ConfigFactory.defaultReference())
+          .resolve()
+    }
 
-  // For demo purposes
-  val keySeed = StdIn.readLine(Console.CYAN + "Who are you?\n> " + Console.RESET).getBytes()
-  val keyPair = KeyPair.fromBytes(keySeed, keySeed)
+    config
+  }
 
-  val nodeComposer = new NodeComposer(keyPair, () ⇒ Task.now(NodeInfo(gitHash)))
+  def getKeyPair(keyPath: String): Either[Throwable, KeyPair] = {
+    val keyFile = new File(keyPath)
+    val keyStorage = new FileKeyStorage(keyFile)
+    val keyPair = if (keyFile.exists()) {
+      keyStorage.readKeyPair
+    } else {
+      val newKeyPair = Ecdsa.ecdsa_secp256k1_sha256[Try].generateKeyPair().get
+      keyStorage.storeSecretKey(newKeyPair.secretKey).map(_ ⇒ newKeyPair)
+    }
 
-  import nodeComposer.{ kad, server }
-
-  server.start().attempt.runAsync.foreach {
-    case Left(err) ⇒
-      log.error("Can't launch server", err)
-
-    case Right(_) ⇒
-      log.info("Server launched")
-
-      server.contact.foreach { contact ⇒
-        println("Your contact is: " + contact.show)
-        println("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
-      }
+    keyPair
   }
 
   def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
 
-  while (true) {
+  def main(args: Array[String]): Unit = {
+    val log = LoggerFactory.getLogger(getClass)
 
-    cmd("join(j) / lookup(l)")
+    val config = readConfig(args.headOption)
 
-    StdIn.readLine() match {
-      case "j" | "join" ⇒
-        cmd("join seed?")
-        val p = StdIn.readLine()
-        Coeval.fromEval(
-          Contact.readB64seed(p)
-        ).memoize.attempt.value match {
-            case Left(err) ⇒
-              log.error("Can't read the seed", err)
+    val gitHash = config.getString("fluence.gitHash")
 
-            case Right(c) ⇒
-              kad.join(Seq(c), 16).runAsync.onComplete {
-                case Success(_) ⇒ cmd("ok")
-                case Failure(e) ⇒
-                  log.error("Can't join", e)
-              }
-          }
+    initDirectory(config.getString("fluence.directory"))
 
-      case "l" | "lookup" ⇒
-        cmd("lookup myself")
-        kad.handleRPC
-          .lookup(Key.XorDistanceMonoid.empty, 10)
-          .map(_.map(_.show).mkString("\n"))
-          .map(println)
-          .runAsync.onComplete {
-            case Success(_) ⇒ println("ok")
-            case Failure(e) ⇒
-              log.error("Can't lookup", e)
-          }
+    println(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
 
-      case "s" | "seed" ⇒
-        server.contact.map(_.b64seed).runAsync.foreach(cmd)
+    val keyPairE = getKeyPair(config.getString("fluence.keyPath"))
 
-      case "q" | "quit" | "x" | "exit" ⇒
-        cmd("exit")
-        System.exit(0)
+    if (keyPairE.isLeft) {
+      val e = keyPairE.left.get
+      log.error("Cannot read or store secret key", e)
+      System.exit(1)
+    }
 
-      case _ ⇒
+    val nodeComposer = new NodeComposer(keyPairE.right.get, () ⇒ Task.now(NodeInfo(gitHash)))
+
+    import nodeComposer.{ kad, server }
+
+    server.start().attempt.runAsync.foreach {
+      case Left(err) ⇒
+        log.error("Can't launch server", err)
+
+      case Right(_) ⇒
+        log.info("Server launched")
+
+        server.contact.foreach { contact ⇒
+          println("Your contact is: " + contact.show)
+          println("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
+        }
+    }
+
+    while (true) {
+
+      cmd("join(j) / lookup(l)")
+
+      StdIn.readLine() match {
+        case "j" | "join" ⇒
+          cmd("join seed?")
+          val p = StdIn.readLine()
+          Coeval.fromEval(
+            Contact.readB64seed(p)
+          ).memoize.attempt.value match {
+              case Left(err) ⇒
+                log.error("Can't read the seed", err)
+
+              case Right(c) ⇒
+                kad.join(Seq(c), 16).runAsync.onComplete {
+                  case Success(_) ⇒ cmd("ok")
+                  case Failure(e) ⇒
+                    log.error("Can't join", e)
+                }
+            }
+
+        case "l" | "lookup" ⇒
+          cmd("lookup myself")
+          kad.handleRPC
+            .lookup(Key.XorDistanceMonoid.empty, 10)
+            .map(_.map(_.show).mkString("\n"))
+            .map(println)
+            .runAsync.onComplete {
+              case Success(_) ⇒ println("ok")
+              case Failure(e) ⇒
+                log.error("Can't lookup", e)
+            }
+
+        case "s" | "seed" ⇒
+          server.contact.map(_.b64seed).runAsync.foreach(cmd)
+
+        case "q" | "quit" | "x" | "exit" ⇒
+          cmd("exit")
+          System.exit(0)
+
+        case _ ⇒
+      }
     }
   }
+
 }

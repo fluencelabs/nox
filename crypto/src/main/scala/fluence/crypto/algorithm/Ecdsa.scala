@@ -38,10 +38,8 @@ import scala.util.control.NonFatal
  * @param curveType http://www.bouncycastle.org/wiki/display/JA1/Supported+Curves+%28ECDSA+and+ECGOST%29
  * @param scheme https://bouncycastle.org/specifications.html
  */
-class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, Throwable]) extends JavaAlgorithm[F] with SignatureFunctions[F] {
-
-  val ECDSA = "ECDSA"
-
+class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, Throwable]) extends JavaAlgorithm with SignatureFunctions[F] with KeyGenerator[F] {
+  import Ecdsa._
   private def nonFatalHandling[A](a: ⇒ A)(errorText: String): F[A] = {
     try F.pure(a)
     catch {
@@ -120,6 +118,9 @@ class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, T
 }
 
 object Ecdsa {
+  //algorithm name in security provider
+  val ECDSA = "ECDSA"
+
   def ecdsa_secp256k1_sha256[F[_]](implicit F: MonadError[F, Throwable]) = new Ecdsa("secp256k1", "SHA256withECDSA")
 
   class Signer(keyPair: KeyPair) extends fluence.crypto.signature.Signer {
