@@ -66,7 +66,7 @@ object NodeApp {
     config
   }
 
-  def getKeyPair(keyPath: String): Either[Throwable, KeyPair] = {
+  def getKeyPair(keyPath: String): Try[KeyPair] = {
     val keyFile = new File(keyPath)
     val keyStorage = new FileKeyStorage[Try](keyFile)
     val keyPair = if (keyFile.exists()) {
@@ -76,7 +76,7 @@ object NodeApp {
       keyStorage.storeSecretKey(newKeyPair).map(_ ⇒ newKeyPair)
     }
 
-    keyPair.toEither
+    keyPair
   }
 
   def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
@@ -94,13 +94,13 @@ object NodeApp {
 
     val keyPairE = getKeyPair(config.getString("fluence.keyPath"))
 
-    if (keyPairE.isLeft) {
-      val e = keyPairE.left.get
+    if (keyPairE.isFailure) {
+      val e = keyPairE.failed.get
       log.error("Cannot read or store secret key", e)
       System.exit(1)
     }
 
-    val nodeComposer = new NodeComposer(keyPairE.right.get, () ⇒ Task.now(NodeInfo(gitHash)))
+    val nodeComposer = new NodeComposer(keyPairE.get, () ⇒ Task.now(NodeInfo(gitHash)))
 
     import nodeComposer.{ kad, server }
 
