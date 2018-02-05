@@ -6,23 +6,22 @@ import java.security
 import java.security.KeyFactory
 import java.security.spec.PKCS8EncodedKeySpec
 
+import cats.Applicative
+import cats.syntax.applicative._
 import fluence.crypto.algorithm.{ Ecdsa, JavaAlgorithm }
 import fluence.crypto.keypair.KeyPair
 import org.bouncycastle.jce.spec.{ ECPrivateKeySpec, ECPublicKeySpec }
 
-import scala.util.Try
-
-class FileKeyStorage(file: File) extends JavaAlgorithm {
-  def readKeyPair: Either[Throwable, KeyPair] = {
-    import JavaAlgorithm._
-
-    Try[KeyPair] {
+class FileKeyStorage[F[_] : Applicative](file: File) extends JavaAlgorithm {
+  def readKeyPair: F[KeyPair] = {
+    {
       val keyBytes = Files.readAllBytes(file.toPath)
       val keySpec = new PKCS8EncodedKeySpec(keyBytes)
 
       val keyFactory = KeyFactory.getInstance(Ecdsa.ECDSA)
       val privateKey = keyFactory.generatePrivate(keySpec)
 
+      //todo avoid classOf
       val privSpec = keyFactory.getKeySpec(privateKey, classOf[ECPrivateKeySpec])
       val params = privSpec.getParams
 
@@ -31,19 +30,18 @@ class FileKeyStorage(file: File) extends JavaAlgorithm {
       val pubSpec = new ECPublicKeySpec(q, params)
       val pubKey = keyFactory.generatePublic(pubSpec)
 
-      new security.KeyPair(pubKey, privateKey)
-    }.toEither
+      JavaAlgorithm.jKeyPairToKeyPair(new security.KeyPair(pubKey, privateKey))
+    }.pure[F]
   }
 
-  def storeSecretKey(key: KeyPair.Secret): Either[Throwable, Unit] = {
+  def storeSecretKey(key: KeyPair.Secret): F[Unit] = {
     import java.io.FileOutputStream
-
-    Try {
+    {
       if (!file.exists()) file.createNewFile() else throw new RuntimeException(file.getAbsolutePath + " already exists")
       val fos = new FileOutputStream(file)
 
       fos.write(key.value.toArray)
       fos.close()
-    }.toEither
+    }.pure[F]
   }
 }

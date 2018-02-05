@@ -68,7 +68,7 @@ object NodeApp {
 
   def getKeyPair(keyPath: String): Either[Throwable, KeyPair] = {
     val keyFile = new File(keyPath)
-    val keyStorage = new FileKeyStorage(keyFile)
+    val keyStorage = new FileKeyStorage[Try](keyFile)
     val keyPair = if (keyFile.exists()) {
       keyStorage.readKeyPair
     } else {
@@ -76,7 +76,7 @@ object NodeApp {
       keyStorage.storeSecretKey(newKeyPair.secretKey).map(_ ⇒ newKeyPair)
     }
 
-    keyPair
+    keyPair.toEither
   }
 
   def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
