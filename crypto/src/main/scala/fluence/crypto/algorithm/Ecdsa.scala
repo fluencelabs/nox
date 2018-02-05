@@ -123,9 +123,9 @@ object Ecdsa {
   val ECDSA = "ECDSA"
 
   /**
-    * size of key is 256 bit
-    * `secp256k1` refers to the parameters of the ECDSA curve
-    * `SHA256withECDSA` Preferably the size of the key is greater than or equal to the digest algorithm
+   * size of key is 256 bit
+   * `secp256k1` refers to the parameters of the ECDSA curve
+   * `SHA256withECDSA` Preferably the size of the key is greater than or equal to the digest algorithm
    */
   def ecdsa_secp256k1_sha256[F[_]](implicit F: MonadError[F, Throwable]) = new Ecdsa("secp256k1", "SHA256withECDSA")
 

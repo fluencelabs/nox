@@ -23,7 +23,7 @@ import fluence.crypto.keypair.KeyPair
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import scodec.bits.ByteVector
 
-import scala.language.higherKinds
+import scala.language.{higherKinds, implicitConversions}
 
 private[crypto] trait JavaAlgorithm extends Algorithm {
   JavaAlgorithm.addProvider
@@ -31,14 +31,14 @@ private[crypto] trait JavaAlgorithm extends Algorithm {
 
 object JavaAlgorithm {
   /**
-    * getEncoded method return ASN.1 encoding in PKCS#8 standard for secret key and X.509 standard for public
-    */
+   * getEncoded method return ASN.1 encoding in PKCS#8 standard for secret key and X.509 standard for public
+   */
   implicit def jKeyPairToKeyPair(jKeyPair: java.security.KeyPair): KeyPair =
     KeyPair(KeyPair.Public(ByteVector(jKeyPair.getPublic.getEncoded)), KeyPair.Secret(ByteVector(jKeyPair.getPrivate.getEncoded)))
 
   /**
-    * add JVM-specific security provider in class loader
-    */
+   * add JVM-specific security provider in class loader
+   */
   private lazy val addProvider = {
     Option(Security.getProvider(BouncyCastleProvider.PROVIDER_NAME))
       .foreach(_ ⇒ Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME))

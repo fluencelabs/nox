@@ -50,7 +50,7 @@ class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) ext
     F.catchNonFatal {
       if (!file.exists()) file.createNewFile() else throw new RuntimeException(file.getAbsolutePath + " already exists")
       val str = KeyStore(key).asJson.toString()
-      println(str)
+
       Files.write(file.toPath, str.getBytes)
     }
   }
