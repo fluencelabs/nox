@@ -73,7 +73,7 @@ object NodeApp {
       keyStorage.readKeyPair
     } else {
       val newKeyPair = Ecdsa.ecdsa_secp256k1_sha256[Try].generateKeyPair().get
-      keyStorage.storeSecretKey(newKeyPair.secretKey).map(_ ⇒ newKeyPair)
+      keyStorage.storeSecretKey(newKeyPair).map(_ ⇒ newKeyPair)
     }
 
     keyPair.toEither

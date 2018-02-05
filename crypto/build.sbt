@@ -7,4 +7,4 @@ libraryDependencies ++= Seq(
   scodecBits,
   bouncyCastle,
   scalatest
-)
+) ++ circe

@@ -39,6 +39,7 @@ object SbtCommons {
   val FicusV = "1.4.3"
   val MockitoV = "2.13.0"
   val MonocleV = "1.5.0-cats"
+  val CirceV = "0.9.1"
 
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.+"
 
@@ -49,6 +50,12 @@ object SbtCommons {
   val monocleMacro = "com.github.julien-truffaut" %% "monocle-macro" % MonocleV
   val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.5"
   val bouncyCastle = "org.bouncycastle" % "bcprov-jdk15on" % "1.59"
+
+  val circe: Seq[ModuleID] = Seq(
+    "io.circe" %% "circe-core",
+    "io.circe" %% "circe-generic",
+    "io.circe" %% "circe-parser"
+  ).map(_ % CirceV)
 
   val rocksDb = "org.rocksdb" % "rocksdbjni" % RocksDbV
   val typeSafeConfig = "com.typesafe" % "config" % TypeSafeConfV
