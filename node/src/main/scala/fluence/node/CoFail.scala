@@ -48,7 +48,7 @@ object CoFail {
   implicit def narrowCoFail[F[_], T <: Coproduct, TT <: Coproduct](implicit
     ME: MonadError[F, T],
     basis: Lazy[ops.coproduct.Basis[T, TT]],
-    selector: Lazy[ops.coproduct.Selector[T, TT]]): MonadError[F, TT] =
+    typesNeqEvidence: T =:!= TT): MonadError[F, TT] =
     new MonadError[F, TT] {
       override def flatMap[A, B](fa: F[A])(f: A ⇒ F[B]): F[B] = ME.flatMap(fa)(f)
 
@@ -72,7 +72,7 @@ object CoFail {
     }
 
   // Pick a single failure from MonadError to a new MonadError
-  implicit def pickCoFail[F[_], T <: Coproduct, TT <: Throwable](implicit
+  implicit def pickCoFail[F[_], T <: Coproduct, TT](implicit
     ME: MonadError[F, T],
     select: Lazy[ops.coproduct.Selector[T, TT]],
     inject: Lazy[ops.coproduct.Inject[T, TT]]
@@ -114,8 +114,13 @@ object CoFail {
     def narrow()(implicit F: MonadError[F, A :+: B :+: NoSuchElementException :+: CNil]): MonadError[F, A :+: B :+: CNil] =
       {
         import CoFail._
-        // TODO: this doesn't work implicitly[MonadError[F, A :+: B :+: CNil]]
-        ???
+        implicitly[MonadError[F, A :+: B :+: CNil]]
+      }
+
+    def pick()(implicit F: MonadError[F, A :+: B :+: NoSuchElementException :+: CNil]): MonadError[F, A] =
+      {
+        import CoFail._
+        implicitly[MonadError[F, A]]
       }
 
   }
