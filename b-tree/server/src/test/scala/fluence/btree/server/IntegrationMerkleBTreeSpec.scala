@@ -192,7 +192,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
   /* util methods */
 
   private def createBTreeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String] = {
-    val keyCrypt = NoOpCrypt.forString
+    val keyCrypt = NoOpCrypt.forString[Task]
     MerkleBTreeClient(
       clientState,
       keyCrypt,

@@ -19,29 +19,32 @@ package fluence.crypto.cipher
 
 import java.nio.ByteBuffer
 
+import cats.Applicative
+import cats.syntax.applicative._
+
 /**
  * No operation implementation. Just convert the element to bytes back and forth without any cryptography.
  */
-class NoOpCrypt[T](serializer: T ⇒ Array[Byte], deserializer: Array[Byte] ⇒ T) extends Crypt[T, Array[Byte]] {
+class NoOpCrypt[F[_], T](serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T]) extends Crypt[F, T, Array[Byte]] {
 
-  def encrypt(plainText: T): Array[Byte] = serializer(plainText)
+  def encrypt(plainText: T): F[Array[Byte]] = serializer(plainText)
 
-  def decrypt(cipherText: Array[Byte]): T = deserializer(cipherText)
+  def decrypt(cipherText: Array[Byte]): F[T] = deserializer(cipherText)
 
 }
 
 object NoOpCrypt {
 
-  val forString: NoOpCrypt[String] = apply[String](
-    serializer = _.getBytes,
-    deserializer = bytes ⇒ new String(bytes))
+  def forString[F[_] : Applicative]: NoOpCrypt[F, String] = apply[F, String](
+    serializer = _.getBytes.pure[F],
+    deserializer = bytes ⇒ new String(bytes).pure[F])
 
-  val forLong: NoOpCrypt[Long] = apply[Long](
-    serializer = ByteBuffer.allocate(java.lang.Long.BYTES).putLong(_).array(),
-    deserializer = bytes ⇒ ByteBuffer.wrap(bytes).getLong()
+  def forLong[F[_] : Applicative]: NoOpCrypt[F, Long] = apply[F, Long](
+    serializer = ByteBuffer.allocate(java.lang.Long.BYTES).putLong(_).array().pure[F],
+    deserializer = bytes ⇒ ByteBuffer.wrap(bytes).getLong().pure[F]
   )
 
-  def apply[T](serializer: T ⇒ Array[Byte], deserializer: Array[Byte] ⇒ T): NoOpCrypt[T] =
+  def apply[F[_], T](serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T]): NoOpCrypt[F, T] =
     new NoOpCrypt(serializer, deserializer)
 
 }
