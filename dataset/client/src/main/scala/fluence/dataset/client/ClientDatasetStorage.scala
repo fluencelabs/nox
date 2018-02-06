@@ -37,7 +37,7 @@ import scala.language.higherKinds
 class ClientDatasetStorage[K, V](
     bTreeIndex: MerkleBTreeClientApi[Task, K],
     storageRpc: DatasetStorageRpc[Task],
-    valueCrypt: Crypt[V, Array[Byte]],
+    valueCrypt: Crypt[Task, V, Array[Byte]],
     hasher: CryptoHasher[Array[Byte], Array[Byte]]
 ) extends ClientDatasetStorageApi[Task, K, V] {
 
@@ -49,7 +49,8 @@ class ClientDatasetStorage[K, V](
         storageRpc.get(getCallbacks)
           .doOnFinish { _ ⇒ getCallbacks.recoverState() }
       }
-    } yield serverResponse.map(valueCrypt.decrypt)
+      resp ← decryptOption(serverResponse)
+    } yield resp
 
   }
 
@@ -57,7 +58,7 @@ class ClientDatasetStorage[K, V](
 
     for {
       // todo crypt and hasher should be with effect, they can throw exceptions
-      encValue ← Task(valueCrypt.encrypt(value))
+      encValue ← valueCrypt.encrypt(value)
       encValueHash ← Task(hasher.hash(encValue))
       putCallbacks ← bTreeIndex.initPut(key, encValueHash)
       serverResponse ← {
@@ -69,7 +70,8 @@ class ClientDatasetStorage[K, V](
             case x       ⇒ Task()
           }
       }
-    } yield serverResponse.map(valueCrypt.decrypt)
+      resp ← decryptOption(serverResponse)
+    } yield resp
 
   }
 
@@ -78,8 +80,16 @@ class ClientDatasetStorage[K, V](
     for {
       removeCmd ← bTreeIndex.removeState(key)
       serverResponse ← storageRpc.remove(removeCmd)
-    } yield serverResponse.map(valueCrypt.decrypt)
+      resp ← decryptOption(serverResponse)
+    } yield resp
 
+  }
+
+  def decryptOption(response: Option[Array[Byte]]): Task[Option[V]] = {
+    response match {
+      case Some(r) ⇒ valueCrypt.decrypt(r).map(Option.apply)
+      case None    ⇒ Task(None)
+    }
   }
 
 }

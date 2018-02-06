@@ -23,7 +23,7 @@ import fluence.btree.client.MerkleBTreeClient._
 import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common._
 import fluence.btree.common.merkle.MerklePath
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks, RemoveCallback }
+import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import monix.eval.{ MVar, Task }
@@ -41,7 +41,7 @@ import scala.collection.Searching.{ Found, SearchResult }
  */
 class MerkleBTreeClient[K] private (
     initClientState: ClientState,
-    keyCrypt: Crypt[K, Array[Byte]],
+    keyCrypt: Crypt[Task, K, Array[Byte]],
     verifier: BTreeVerifier
 )(implicit ord: Ordering[K]) extends MerkleBTreeClientApi[Task, K] {
 
@@ -83,17 +83,16 @@ class MerkleBTreeClient[K] private (
 
         val leafProof = verifier.getLeafProof(keys, valuesChecksums)
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
-
-          val searchedIdx = binarySearch(key, keys) match {
+          binarySearch(key, keys).map {
             case Found(idx) ⇒
               log.debug(s"For key=$key was found corresponded value with idx=$idx")
               Option(idx)
             case _ ⇒
               log.debug(s"For key=$key corresponded value is missing")
               None
+          }.flatMap { searchedIdx ⇒
+            merklePathMVar.put(mPath.add(leafProof)).map(_ ⇒ searchedIdx)
           }
-
-          merklePathMVar.put(mPath.add(leafProof)).map(_ ⇒ searchedIdx)
         } else {
           Task.raiseError(new IllegalStateException(
             s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.map(_.show).mkString(",")}, " +
@@ -154,11 +153,12 @@ class MerkleBTreeClient[K] private (
 
         val leafProof = verifier.getLeafProof(keys, values)
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
-          val searchResult = binarySearch(key, keys)
-          val nodeProofWithIdx = leafProof.copy(substitutionIdx = searchResult.insertionPoint)
-          val putDetails = ClientPutDetails(keyCrypt.encrypt(key), valueChecksum, searchResult)
 
           for {
+            searchResult ← binarySearch(key, keys)
+            nodeProofWithIdx = leafProof.copy(substitutionIdx = searchResult.insertionPoint)
+            encrypted ← keyCrypt.encrypt(key)
+            putDetails = ClientPutDetails(encrypted, valueChecksum, searchResult)
             _ ← putDetailsMVar.put(Some(putDetails))
             _ ← merklePathMVar.put(mPath.add(nodeProofWithIdx))
           } yield putDetails
@@ -254,10 +254,10 @@ class MerkleBTreeClient[K] private (
    */
   override def removeState(key: K): Task[RemoveState[Task]] = ???
 
-  private def binarySearch(key: K, keys: Array[Key]): SearchResult = {
+  private def binarySearch(key: K, keys: Array[Key]): Task[SearchResult] = {
     import fluence.crypto.cipher.CryptoSearching._
-    implicit val decrypt: Key ⇒ K = keyCrypt.decrypt
-    keys.binarySearch(key)
+    implicit val decrypt: Key ⇒ Task[K] = keyCrypt.decrypt
+    search[Task, Key](keys).binarySearch(key)
   }
 
   /**
@@ -281,10 +281,11 @@ class MerkleBTreeClient[K] private (
     val nodeProof = verifier.getBranchProof(keys, childsChecksums, -1)
 
     if (verifier.checkProof(nodeProof, mRoot, mPath)) {
-      val searchResult = binarySearch(key, keys)
-      val updatedMPath = mPath.add(nodeProof.copy(substitutionIdx = searchResult.insertionPoint))
+      binarySearch(key, keys).map { searchResult ⇒
+        val updatedMPath = mPath.add(nodeProof.copy(substitutionIdx = searchResult.insertionPoint))
 
-      Task(updatedMPath → searchResult.insertionPoint)
+        updatedMPath → searchResult.insertionPoint
+      }
     } else {
       Task.raiseError(new IllegalStateException(
         s"Checksum of branch didn't pass verifying for key=$key, Branch($keys, $childsChecksums)"
@@ -300,7 +301,7 @@ object MerkleBTreeClient {
 
   def apply[K](
     initClientState: Option[ClientState],
-    keyCrypt: Crypt[K, Array[Byte]],
+    keyCrypt: Crypt[Task, K, Array[Byte]],
     cryptoHasher: CryptoHasher[Bytes, Bytes]
   )(implicit ord: Ordering[K]): MerkleBTreeClient[K] = {
     new MerkleBTreeClient[K](

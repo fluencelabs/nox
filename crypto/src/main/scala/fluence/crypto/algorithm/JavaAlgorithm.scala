@@ -23,7 +23,7 @@ import fluence.crypto.keypair.KeyPair
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import scodec.bits.ByteVector
 
-import scala.language.higherKinds
+import scala.language.{ higherKinds, implicitConversions }
 
 private[crypto] trait JavaAlgorithm extends Algorithm {
   JavaAlgorithm.addProvider
