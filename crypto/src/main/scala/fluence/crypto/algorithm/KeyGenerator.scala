@@ -15,16 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.keypair
+package fluence.crypto.algorithm
 
-import scodec.bits.ByteVector
+import java.security.SecureRandom
 
-case class KeyPair(publicKey: KeyPair.Public, secretKey: KeyPair.Secret)
+import fluence.crypto.keypair.KeyPair
 
-object KeyPair {
-  case class Public(value: ByteVector) extends AnyVal
-  case class Secret(value: ByteVector) extends AnyVal
-
-  def fromBytes(pk: Array[Byte], sk: Array[Byte]): KeyPair = fromByteVectors(ByteVector(pk), ByteVector(sk))
-  def fromByteVectors(pk: ByteVector, sk: ByteVector): KeyPair = KeyPair(Public(pk), Secret(sk))
+trait KeyGenerator[F[_]] {
+  def generateKeyPair(random: SecureRandom): F[KeyPair]
+  def generateKeyPair(): F[KeyPair]
 }
