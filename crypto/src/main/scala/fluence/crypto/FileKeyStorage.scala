@@ -19,45 +19,68 @@ package fluence.crypto
 
 import java.io.File
 import java.nio.file.Files
-import java.security
-import java.security.KeyFactory
-import java.security.spec.PKCS8EncodedKeySpec
 
 import cats.MonadError
-import fluence.crypto.algorithm.{ Ecdsa, JavaAlgorithm }
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.crypto.keypair.KeyPair
-import org.bouncycastle.jce.spec.{ ECPrivateKeySpec, ECPublicKeySpec }
+import io.circe.parser.decode
+import io.circe.syntax._
+import io.circe.{ Decoder, Encoder, HCursor, Json }
+import scodec.bits.ByteVector
 
-class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) extends JavaAlgorithm {
+case class KeyStore(keyPair: KeyPair)
+
+class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) {
+  import KeyStore._
   def readKeyPair: F[KeyPair] = {
-    F.catchNonFatal {
-      val keyBytes = Files.readAllBytes(file.toPath)
-      val keySpec = new PKCS8EncodedKeySpec(keyBytes)
-
-      val keyFactory = KeyFactory.getInstance(Ecdsa.ECDSA)
-      val privateKey = keyFactory.generatePrivate(keySpec)
-
-      //todo avoid classOf
-      val privSpec = keyFactory.getKeySpec(privateKey, classOf[ECPrivateKeySpec])
-      val params = privSpec.getParams
-
-      val q = params.getG.multiply(privSpec.getD)
-
-      val pubSpec = new ECPublicKeySpec(q, params)
-      val pubKey = keyFactory.generatePublic(pubSpec)
-
-      JavaAlgorithm.jKeyPairToKeyPair(new security.KeyPair(pubKey, privateKey))
-    }
+    val keyBytes = Files.readAllBytes(file.toPath)
+    for {
+      storageOp ← F.fromEither(decode[Option[KeyStore]](new String(keyBytes)))
+      storage ← storageOp match {
+        case None     ⇒ F.raiseError[KeyStore](new RuntimeException("Cannot parse file with keys."))
+        case Some(ks) ⇒ F.pure(ks)
+      }
+    } yield storage.keyPair
   }
 
-  def storeSecretKey(key: KeyPair.Secret): F[Unit] = {
-    import java.io.FileOutputStream
+  def storeSecretKey(key: KeyPair): F[Unit] =
     F.catchNonFatal {
       if (!file.exists()) file.createNewFile() else throw new RuntimeException(file.getAbsolutePath + " already exists")
-      val fos = new FileOutputStream(file)
+      val str = KeyStore(key).asJson.toString()
 
-      fos.write(key.value.toArray)
-      fos.close()
+      Files.write(file.toPath, str.getBytes)
     }
+
+  def getOrCreateKeyPair(f: ⇒ F[KeyPair]): F[KeyPair] =
+    if (file.exists()) {
+      readKeyPair
+    } else {
+      for {
+        newKeys ← f
+        _ ← storeSecretKey(newKeys)
+      } yield newKeys
+    }
+}
+
+object KeyStore {
+  implicit val encodeKeyStorage: Encoder[KeyStore] = new Encoder[KeyStore] {
+    final def apply(ks: KeyStore): Json = Json.obj(("keystore", Json.obj(
+      ("secret", Json.fromString(ks.keyPair.secretKey.value.toBase64)),
+      ("public", Json.fromString(ks.keyPair.publicKey.value.toBase64))
+    )))
+  }
+
+  implicit val decodeKeyStorage: Decoder[Option[KeyStore]] = new Decoder[Option[KeyStore]] {
+    final def apply(c: HCursor): Decoder.Result[Option[KeyStore]] =
+      for {
+        secret ← c.downField("keystore").downField("secret").as[String]
+        public ← c.downField("keystore").downField("public").as[String]
+      } yield {
+        for {
+          secret ← ByteVector.fromBase64(secret)
+          public ← ByteVector.fromBase64(public)
+        } yield KeyStore(KeyPair.fromByteVectors(public, secret))
+      }
   }
 }

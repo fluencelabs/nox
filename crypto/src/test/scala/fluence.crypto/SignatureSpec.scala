@@ -67,11 +67,11 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
       val seed = rndBytes(32)
       val keys = Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair(new SecureRandom(seed)).get
 
-      val keyFile = new File("/tmp/key")
+      val keyFile = File.createTempFile("test", "")
       if (keyFile.exists()) keyFile.delete()
       val storage = new FileKeyStorage(keyFile)
 
-      storage.storeSecretKey(keys.secretKey)
+      storage.storeSecretKey(keys)
 
       val keysReadE = storage.readKeyPair
       val keysRead = keysReadE.get
@@ -84,7 +84,7 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
       Ecdsa.Checker.check(sign, data).get shouldBe true
 
       //try to store key into previously created file
-      storage.storeSecretKey(keys.secretKey).isFailure shouldBe true
+      storage.storeSecretKey(keys).isFailure shouldBe true
     }
   }
 }

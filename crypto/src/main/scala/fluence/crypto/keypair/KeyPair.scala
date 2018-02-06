@@ -25,5 +25,6 @@ object KeyPair {
   case class Public(value: ByteVector) extends AnyVal
   case class Secret(value: ByteVector) extends AnyVal
 
-  def fromBytes(pk: Array[Byte], sk: Array[Byte]): KeyPair = KeyPair(Public(ByteVector(pk)), Secret(ByteVector(sk)))
+  def fromBytes(pk: Array[Byte], sk: Array[Byte]): KeyPair = fromByteVectors(ByteVector(pk), ByteVector(sk))
+  def fromByteVectors(pk: ByteVector, sk: ByteVector): KeyPair = KeyPair(Public(pk), Secret(sk))
 }
