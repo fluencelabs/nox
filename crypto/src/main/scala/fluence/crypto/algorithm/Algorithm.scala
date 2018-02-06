@@ -17,11 +17,4 @@
 
 package fluence.crypto.algorithm
 
-import java.security.SecureRandom
-
-import fluence.crypto.keypair.KeyPair
-
-trait Algorithm[F[_]] {
-  def generateKeyPair(random: SecureRandom): F[KeyPair]
-  def generateKeyPair(): F[KeyPair]
-}
+trait Algorithm

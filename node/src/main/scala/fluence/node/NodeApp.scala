@@ -17,8 +17,13 @@
 
 package fluence.node
 
+import java.io.File
+
+import cats.instances.try_._
 import cats.syntax.show._
 import com.typesafe.config.ConfigFactory
+import fluence.crypto.FileKeyStorage
+import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.keypair.KeyPair
 import fluence.info.NodeInfo
 import fluence.kad.protocol.{ Contact, Key }
@@ -27,21 +32,45 @@ import monix.execution.Scheduler.Implicits.global
 import org.slf4j.LoggerFactory
 
 import scala.io.StdIn
-import scala.util.{ Failure, Success }
+import scala.util.{ Failure, Success, Try }
 
 object NodeApp extends App {
 
+  def initDirectory(fluencePath: String): Unit = {
+    val appDir = new File(fluencePath)
+    if (!appDir.exists()) {
+      appDir.getParentFile.mkdirs()
+      appDir.mkdir()
+    }
+    ()
+  }
+
+  def getKeyPair(keyPath: String): Try[KeyPair] = {
+    val keyFile = new File(keyPath)
+    val keyStorage = new FileKeyStorage[Try](keyFile)
+    keyStorage.getOrCreateKeyPair(Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair())
+  }
+
+  def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
+
   val log = LoggerFactory.getLogger(getClass)
 
-  val gitHash = ConfigFactory.load().getString("fluence.gitHash")
+  val config = ConfigFactory.load()
+
+  val gitHash = config.getString("fluence.gitHash")
+
+  initDirectory(config.getString("fluence.directory"))
 
   println(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
 
-  // For demo purposes
-  val keySeed = StdIn.readLine(Console.CYAN + "Who are you?\n> " + Console.RESET).getBytes()
-  val keyPair = KeyPair.fromBytes(keySeed, keySeed)
+  val keyPairE = getKeyPair(config.getString("fluence.keyPath"))
 
-  val nodeComposer = new NodeComposer(keyPair, () ⇒ Task.now(NodeInfo(gitHash)))
+  keyPairE.failed.foreach { e ⇒
+    log.error("Cannot read or store secret key", e)
+    System.exit(1)
+  }
+
+  val nodeComposer = new NodeComposer(keyPairE.get, () ⇒ Task.now(NodeInfo(gitHash)))
 
   import nodeComposer.{ kad, server }
 
@@ -57,8 +86,6 @@ object NodeApp extends App {
         println("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
       }
   }
-
-  def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
 
   while (true) {
 
@@ -104,4 +131,5 @@ object NodeApp extends App {
       case _ ⇒
     }
   }
+
 }

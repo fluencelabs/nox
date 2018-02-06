@@ -1,5 +1,8 @@
 package fluence.crypto
 
+import java.io.File
+import java.security.SecureRandom
+
 import cats.instances.try_._
 import fluence.crypto.algorithm.{ CryptoErr, Ecdsa }
 import fluence.crypto.keypair.KeyPair
@@ -10,7 +13,8 @@ import scala.util.{ Random, Try }
 
 class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 
-  def rndByteVector(size: Int) = ByteVector(Random.nextString(10).getBytes)
+  def rndBytes(size: Int) = Random.nextString(10).getBytes
+  def rndByteVector(size: Int) = ByteVector(rndBytes(size))
 
   "ecdsa algorithm" should {
     "correct sign and verify data" in {
@@ -44,7 +48,7 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
     }
 
     "throw an errors on invalid data" in {
-      val keys = Ecdsa.ecdsa_secp256k1_sha256[Try].generateKeyPair().get
+      val keys = Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair().get
       val signer = new Ecdsa.Signer(keys)
       val data = rndByteVector(10)
 
@@ -57,6 +61,30 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 
       the[CryptoErr] thrownBy Ecdsa.Checker.check(sign.copy(sign = rndByteVector(10)), data).get
       the[CryptoErr] thrownBy Ecdsa.Checker.check(sign.copy(publicKey = sign.publicKey.copy(value = rndByteVector(10))), data).get
+    }
+
+    "store and read key from file" in {
+      val seed = rndBytes(32)
+      val keys = Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair(new SecureRandom(seed)).get
+
+      val keyFile = File.createTempFile("test", "")
+      if (keyFile.exists()) keyFile.delete()
+      val storage = new FileKeyStorage(keyFile)
+
+      storage.storeSecretKey(keys)
+
+      val keysReadE = storage.readKeyPair
+      val keysRead = keysReadE.get
+
+      val signer = new Ecdsa.Signer(keys)
+      val data = rndByteVector(10)
+      val sign = signer.sign(data).get
+
+      Ecdsa.Checker.check(sign.copy(publicKey = keysRead.publicKey), data).get shouldBe true
+      Ecdsa.Checker.check(sign, data).get shouldBe true
+
+      //try to store key into previously created file
+      storage.storeSecretKey(keys).isFailure shouldBe true
     }
   }
 }

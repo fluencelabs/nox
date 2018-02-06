@@ -19,7 +19,9 @@ package fluence.crypto.algorithm
 
 import fluence.crypto.keypair.KeyPair
 
-trait CipherFunctions[F[_]] extends Algorithm[F] {
+import scala.language.higherKinds
+
+trait CipherFunctions[F[_]] {
   def encrypt(keyPair: KeyPair, message: Array[Byte]): F[Array[Byte]]
   def decrypt(keyPair: KeyPair, message: Array[Byte]): F[Array[Byte]]
 }
