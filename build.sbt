@@ -10,6 +10,8 @@ commons
 
 enablePlugins(AutomateHeaderPlugin)
 
+lazy val `co-fail` = project
+
 lazy val `codec-core` = project.in(file("codec/core"))
 
 lazy val `codec-kryo` = project.in(file("codec/kryo"))
