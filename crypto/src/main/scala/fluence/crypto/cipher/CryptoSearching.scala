@@ -17,7 +17,8 @@
 
 package fluence.crypto.cipher
 
-import scala.annotation.tailrec
+import cats.Monad
+import cats.syntax.functor._
 import scala.collection.Searching.{ Found, InsertionPoint, SearchResult }
 import scala.math.Ordering
 
@@ -35,7 +36,7 @@ import scala.math.Ordering
  */
 object CryptoSearching {
 
-  class CryptoSearchImpl[A](coll: IndexedSeq[A]) {
+  class CryptoSearchImpl[F[_], A](coll: IndexedSeq[A])(implicit F: Monad[F]) {
 
     /**
      * Searches the specified indexedSeq for the search element using the binary search algorithm.
@@ -49,28 +50,26 @@ object CryptoSearching {
      *         sequence. A `InsertionPoint` value containing the index where the element would be inserted if
      *         the search element is not found in the sequence.
      */
-    final def binarySearch[B](searchElem: B)(implicit ordering: Ordering[B], decrypt: A ⇒ B): SearchResult = {
-      binarySearchRec(searchElem, 0, coll.length, ordering, decrypt)
-    }
-
-    @tailrec
-    private def binarySearchRec[B](elem: B, from: Int, to: Int, ordering: Ordering[B], decrypt: A ⇒ B): SearchResult = {
-
-      if (from == to) return InsertionPoint(from)
-
-      val idx = from + (to - from - 1) / 2
-      math.signum(ordering.compare(elem, decrypt(coll(idx)))) match {
-        case -1 ⇒ binarySearchRec(elem, from, idx, ordering, decrypt)
-        case 1  ⇒ binarySearchRec(elem, idx + 1, to, ordering, decrypt)
-        case _  ⇒ Found(idx)
+    final def binarySearch[B](searchElem: B)(implicit ordering: Ordering[B], decrypt: A ⇒ F[B]): F[SearchResult] = {
+      F.tailRecM((0, coll.length)) {
+        case (from, to) if from == to ⇒ F.pure(Right(InsertionPoint(from)))
+        case (from, to) ⇒
+          val idx = from + (to - from - 1) / 2
+          decrypt(coll(idx)).map { d ⇒
+            math.signum(ordering.compare(searchElem, d)) match {
+              case -1 ⇒ Left((from, idx))
+              case 1  ⇒ Left((idx + 1, to))
+              case _  ⇒ Right(Found(idx))
+            }
+          }
       }
     }
   }
 
-  implicit def search[A](indexedSeq: IndexedSeq[A]): CryptoSearchImpl[A] =
+  implicit def search[F[_] : Monad, A](indexedSeq: IndexedSeq[A]): CryptoSearchImpl[F, A] =
     new CryptoSearchImpl(indexedSeq)
 
-  implicit def search[A](array: Array[A]): CryptoSearchImpl[A] =
+  implicit def search[F[_] : Monad, A](array: Array[A]): CryptoSearchImpl[F, A] =
     new CryptoSearchImpl(array)
 
 }

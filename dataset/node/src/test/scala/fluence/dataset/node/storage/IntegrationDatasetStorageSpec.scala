@@ -31,9 +31,9 @@ import monix.execution.ExecutionModel
 import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{ BeforeAndAfterEach, Matchers, WordSpec }
+import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpec}
 
-import scala.concurrent.duration.{ FiniteDuration, _ }
+import scala.concurrent.duration.{FiniteDuration, _}
 import scala.reflect.io.Path
 import scala.util.Random
 
@@ -61,15 +61,15 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
       "data corruption appears in get methods" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
-        val valueCryptWithCorruption = NoOpCrypt[User](
-          user ⇒ s"ENC[${user.name},${user.age}]".getBytes(),
+        val valueCryptWithCorruption = NoOpCrypt[Task, User](
+          user ⇒ Task(s"ENC[${user.name},${user.age}]".getBytes()),
           bytes ⇒ {
             val pattern = "ENC\\[([^,]*),([^\\]]*)\\]".r
             val pattern(name, age) = new String(bytes)
             if (name == val2.name) {
               throw new IllegalStateException("Can't decrypt value") // will fail when will get key2
             }
-            User(name, age.toInt)
+            Task(User(name, age.toInt))
           }
         )
 
@@ -200,13 +200,13 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
   /* util methods */
 
-  private val keyCrypt = NoOpCrypt.forString
-  private val valueCrypt = NoOpCrypt[User](
-    user ⇒ s"ENC[${user.name},${user.age}]".getBytes(),
+  private val keyCrypt = NoOpCrypt.forString[Task]
+  private val valueCrypt = NoOpCrypt[Task, User](
+    user ⇒ Task(s"ENC[${user.name},${user.age}]".getBytes()),
     bytes ⇒ {
       val pattern = "ENC\\[([^,]*),([^\\]]*)\\]".r
       val pattern(name, age) = new String(bytes)
-      User(name, age.toInt)
+      Task(User(name, age.toInt))
     }
   )
 

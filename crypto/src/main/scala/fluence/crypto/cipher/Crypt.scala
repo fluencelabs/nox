@@ -24,10 +24,10 @@ package fluence.crypto.cipher
  * @tparam P The type of plain text, input
  * @tparam C The type of cipher text, output
  */
-trait Crypt[P, C] {
+trait Crypt[F[_], P, C] {
 
-  def encrypt(plainText: P): C
+  def encrypt(plainText: P): F[C]
 
-  def decrypt(cipherText: C): P
+  def decrypt(cipherText: C): F[P]
 
 }
