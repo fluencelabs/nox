@@ -2,6 +2,11 @@ syntax = "proto3";
 
 package fluence.dataset.grpc;
 
+message DatasetID {
+    bytes id = 1;
+    bytes publicKey = 2;
+}
+
 // SearchCallback
 message AskNextChildIndex {
     repeated bytes keys = 1;
