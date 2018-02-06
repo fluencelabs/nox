@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package fluence.dataset.grpc;
 
-message DatasetID {
+message DatasetId {
     bytes id = 1;
     bytes publicKey = 2;
 }
@@ -33,8 +33,10 @@ message GetValue {
 
 message GetCallbackReply {
     oneof reply {
-        ReplyNextChildIndex nextChildIndex = 1;
-        ReplySubmitLeaf submitLeaf = 2;
+        DatasetId datasetId = 1;
+
+        ReplyNextChildIndex nextChildIndex = 10;
+        ReplySubmitLeaf submitLeaf = 11;
     }
 }
 
@@ -95,7 +97,8 @@ message PutCallback {
 
 message PutCallbackReply {
     oneof reply {
-        PutValue value = 1;
+        DatasetId datasetId = 1;
+        PutValue value = 2;
 
         ReplyNextChildIndex nextChildIndex = 10;
 

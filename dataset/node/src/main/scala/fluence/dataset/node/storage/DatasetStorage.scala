@@ -58,7 +58,7 @@ class DatasetStorage private (
    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  override def get(getCallbacks: GetCallbacks[Task]): Task[Option[Array[Byte]]] =
+  override def get(datasetId: Array[Byte], getCallbacks: GetCallbacks[Task]): Task[Option[Array[Byte]]] =
     bTreeIndex.get(GetCommandImpl(getCallbacks))
       .flatMap {
         case Some(reference) ⇒
@@ -75,6 +75,7 @@ class DatasetStorage private (
    * @return returns old value if old value was overridden, None otherwise.
    */
   override def put(
+    datasetId: Array[Byte],
     putCallbacks: PutCallbacks[Task],
     encryptedValue: Array[Byte]
   ): Task[Option[Array[Byte]]] = {
@@ -101,7 +102,7 @@ class DatasetStorage private (
    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
    * @return returns old value that was deleted, None if nothing was deleted.
    */
-  override def remove(removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
+  override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
 
     // todo start transaction
 
