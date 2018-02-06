@@ -67,7 +67,7 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
       val seed = rndBytes(32)
       val keys = Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair(new SecureRandom(seed)).get
 
-      val keyFile = new File("/tmp/key")
+      val keyFile = File.createTempFile("test", "")
       if (keyFile.exists()) keyFile.delete()
       val storage = new FileKeyStorage(keyFile)
 
