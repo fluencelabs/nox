@@ -34,21 +34,24 @@ object SbtCommons {
     headerLicense := Some(License.AGPLv3("2017", organizationName.value))
   )
 
+  val Cats1V = "1.0.0-RC2"
+  val ScodecV = "1.1.5"
   val RocksDbV = "5.9.2"
   val TypeSafeConfV = "1.3.2"
   val FicusV = "1.4.3"
   val MockitoV = "2.13.0"
   val MonocleV = "1.5.0-cats"
   val CirceV = "0.9.1"
+  val ScalatestV = "3.0.+"
 
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.+"
 
-  val cats1 = "org.typelevel" %% "cats-core" % "1.0.0-RC2"
+  val cats1 = "org.typelevel" %% "cats-core" % Cats1V
   val monix3 = "io.monix" %% "monix" % "3.0.0-M3"
   val shapeless = "com.chuusai" %% "shapeless" % "2.3.+"
   val monocle = "com.github.julien-truffaut" %% "monocle-core" % MonocleV
   val monocleMacro = "com.github.julien-truffaut" %% "monocle-macro" % MonocleV
-  val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.5"
+  val scodecBits = "org.scodec" %% "scodec-bits" % ScodecV
   val bouncyCastle = "org.bouncycastle" % "bcprov-jdk15on" % "1.59"
 
   val circeCore = "io.circe" %% "circe-core" % CirceV
@@ -59,7 +62,7 @@ object SbtCommons {
   val ficus = "com.iheart" %% "ficus" % FicusV
 
   val mockito = "org.mockito" % "mockito-core" % MockitoV % Test
-  val scalatestKit = "org.scalatest" %% "scalatest" % "3.0.+"
+  val scalatestKit = "org.scalatest" %% "scalatest" % ScalatestV
   val scalatest = scalatestKit % Test
 
   val protobuf = Seq(

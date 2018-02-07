@@ -17,8 +17,8 @@
 
 package fluence.crypto.algorithm
 
-import java.security.spec.{ PKCS8EncodedKeySpec, X509EncodedKeySpec }
 import java.security._
+import java.security.spec.{ PKCS8EncodedKeySpec, X509EncodedKeySpec }
 
 import cats.MonadError
 import cats.syntax.flatMap._
@@ -88,7 +88,7 @@ class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, T
           signProvider.initSign(keyFactory.generatePrivate(keySpec))
           signProvider.update(message)
           signProvider.sign()
-        } ("Cannot sign message.")
+        }("Cannot sign message.")
       }
     } yield sign
   }
@@ -103,7 +103,7 @@ class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, T
           signProvider.initVerify(keyFactory.generatePublic(keySpec))
           signProvider.update(message)
           signProvider.verify(signature)
-        } ("Cannot verify message.")
+        }("Cannot verify message.")
       }
     } yield verify
   }

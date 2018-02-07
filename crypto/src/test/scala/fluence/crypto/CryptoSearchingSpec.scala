@@ -17,8 +17,8 @@
 
 package fluence.crypto
 
-import fluence.crypto.cipher.NoOpCrypt
 import cats.instances.try_._
+import fluence.crypto.cipher.NoOpCrypt
 import org.scalatest.{ Matchers, WordSpec }
 
 import scala.collection.Searching.{ Found, InsertionPoint }
