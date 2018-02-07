@@ -17,6 +17,7 @@
 
 package fluence.storage.rocksdb
 
+import cats.instances.try_._
 import monix.eval.Task
 import monix.execution.schedulers.TestScheduler
 import monix.execution.{ ExecutionModel, Scheduler }
