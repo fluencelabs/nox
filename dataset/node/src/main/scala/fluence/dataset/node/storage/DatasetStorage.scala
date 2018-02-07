@@ -19,6 +19,9 @@ package fluence.dataset.node.storage
 
 import java.nio.ByteBuffer
 
+import cats.{ Applicative, ApplicativeError, MonadError }
+import cats.syntax.functor._
+import cats.syntax.applicative._
 import fluence.btree.common.{ Bytes, ValueRef }
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.protocol.BTreeRpc
@@ -33,7 +36,6 @@ import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Dataset node storage (node side). Base implementation of [[DatasetStorageRpc]]
@@ -50,7 +52,7 @@ class DatasetStorage private (
     merkleRootCalculator: MerkleRootCalculator,
     refProvider: () ⇒ ValueRef,
     onMRChange: Bytes ⇒ Unit
-) extends DatasetStorageRpc[Task] {
+) {
 
   /**
    * Initiates ''Get'' operation in remote MerkleBTree.
@@ -58,7 +60,7 @@ class DatasetStorage private (
    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  override def get(getCallbacks: GetCallbacks[Task]): Task[Option[Array[Byte]]] =
+  def get(getCallbacks: GetCallbacks[Task]): Task[Option[Array[Byte]]] =
     bTreeIndex.get(GetCommandImpl(getCallbacks))
       .flatMap {
         case Some(reference) ⇒
@@ -74,7 +76,7 @@ class DatasetStorage private (
    * @param encryptedValue Encrypted value.
    * @return returns old value if old value was overridden, None otherwise.
    */
-  override def put(
+  def put(
     putCallbacks: PutCallbacks[Task],
     encryptedValue: Array[Byte]
   ): Task[Option[Array[Byte]]] = {
@@ -101,7 +103,7 @@ class DatasetStorage private (
    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
    * @return returns old value that was deleted, None if nothing was deleted.
    */
-  override def remove(removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
+  def remove(removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
 
     // todo start transaction
 
@@ -123,12 +125,12 @@ object DatasetStorage {
    * @param refProvider  A function for getting next value reference
    * @return
    */
-  def apply(
+  def apply[F[_]](
     datasetId: String,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     refProvider: () ⇒ ValueRef,
     onMRChange: Bytes ⇒ Unit
-  ): Try[DatasetStorage] = {
+  )(implicit F: ApplicativeError[F, Throwable]): F[DatasetStorage] = {
 
     // todo create direct and faster codec for Long
     implicit val long2bytesCodec: Codec[Task, Array[Byte], ValueRef] = Codec.pure(
@@ -137,17 +139,19 @@ object DatasetStorage {
     )
     import Codec.identityCodec
 
-    RocksDbStore(s"${datasetId}_blob")
-      .map(rockDb ⇒ {
-        new DatasetStorage(
-          MerkleBTree(s"${datasetId}_tree", cryptoHasher),
-          KVStore.transform(rockDb),
-          MerkleRootCalculator(cryptoHasher),
-          refProvider,
-          onMRChange
-        )
-      })
-
+    F.map2(
+      RocksDbStore[F](s"${datasetId}_blob"),
+      MerkleBTree(s"${datasetId}_tree", cryptoHasher)
+    ){
+        (rocksDB, merkleBTree) ⇒
+          new DatasetStorage(
+            merkleBTree,
+            KVStore.transform(rocksDB),
+            MerkleRootCalculator(cryptoHasher),
+            refProvider,
+            onMRChange
+          )
+      }
   }
 
 }

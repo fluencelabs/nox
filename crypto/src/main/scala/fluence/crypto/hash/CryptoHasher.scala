@@ -18,6 +18,7 @@
 package fluence.crypto.hash
 
 /**
+ * TODO add F[_] effect
  * Base interface for hashing.
  * @tparam M type of message for hashing
  * @tparam H type of hashed message
