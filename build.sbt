@@ -63,10 +63,10 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core" % Cats1V,
       "org.scodec" %%% "scodec-bits" % ScodecV,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test,
       "io.circe" %%% "circe-core" % CirceV,
-      "io.circe" %%% "circe-parser" % CirceV
-    )
+      "io.circe" %%% "circe-parser" % CirceV,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+)
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
