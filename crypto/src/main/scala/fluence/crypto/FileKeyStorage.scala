@@ -67,8 +67,7 @@ object KeyStore {
   implicit val encodeKeyStorage: Encoder[KeyStore] = new Encoder[KeyStore] {
     final def apply(ks: KeyStore): Json = Json.obj(("keystore", Json.obj(
       ("secret", Json.fromString(ks.keyPair.secretKey.value.toBase64)),
-      ("public", Json.fromString(ks.keyPair.publicKey.value.toBase64))
-    )))
+      ("public", Json.fromString(ks.keyPair.publicKey.value.toBase64)))))
   }
 
   implicit val decodeKeyStorage: Decoder[Option[KeyStore]] = new Decoder[Option[KeyStore]] {

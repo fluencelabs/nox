@@ -1,4 +1,6 @@
 import SbtCommons._
+import sbtcrossproject.crossProject
+import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 
 name := "fluence"
 
@@ -21,7 +23,7 @@ lazy val `kademlia-node` = project.in(file("kademlia/node"))
   .dependsOn(`kademlia-protocol`)
 
 lazy val `kademlia-protocol` = project.in(file("kademlia/protocol"))
-  .dependsOn(`codec-core`, `crypto`)
+  .dependsOn(`codec-core`, `cryptoJVM`)
 
 lazy val `kademlia-testkit` = project.in(file("kademlia/testkit"))
   .dependsOn(`kademlia-node`)
@@ -45,7 +47,7 @@ lazy val `b-tree-client` = project.in(file("b-tree/client"))
   .dependsOn(`b-tree-common`, `b-tree-protocol`)
 
 lazy val `b-tree-common` = project.in(file("b-tree/common"))
-  .dependsOn(`crypto`)
+  .dependsOn(`cryptoJVM`)
 
 lazy val `b-tree-protocol` = project.in(file("b-tree/protocol"))
   .dependsOn(`b-tree-common`)
@@ -53,7 +55,32 @@ lazy val `b-tree-protocol` = project.in(file("b-tree/protocol"))
 lazy val `b-tree-server` = project.in(file("b-tree/server"))
   .dependsOn(`storage-rocksdb`, `codec-kryo`, `b-tree-common`, `b-tree-protocol`, `b-tree-client` % "compile->test")
 
-lazy val `crypto` = project.in(file("crypto"))
+lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      cats1,
+      scodecBits,
+      bouncyCastle,
+      scalatest,
+      circeCore,
+      circeParser
+    )
+  )
+  .jvmSettings(
+    //
+  )
+  .jsSettings(
+    libraryDependencies ++= Seq(
+      "org.scala-js" %%% "scalajs-dom" % "0.9.3"
+    ),
+    scalaJSUseMainModuleInitializer := true
+  )
+
+lazy val `cryptoJVM` = `crypto`.jvm
+lazy val `cryptoJS` = `crypto`.js
 
 lazy val `dataset-node` = project.in(file("dataset/node"))
   .dependsOn(`storage`, `kademlia-node`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
@@ -66,7 +93,7 @@ lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
   .dependsOn(`dataset-client`, `transport-grpc`)
 
 lazy val `dataset-client` = project.in(file("dataset/client"))
-  .dependsOn(`dataset-protocol`, `crypto`, `b-tree-client`)
+  .dependsOn(`dataset-protocol`, `cryptoJVM`, `b-tree-client`)
 
 lazy val `info-protocol` = project.in(file("info/protocol"))
 lazy val `info-grpc` = project.in(file("info/grpc")).dependsOn(`info-protocol`, `transport-grpc`)
