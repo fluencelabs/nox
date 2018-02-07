@@ -201,6 +201,6 @@ object GrpcClient {
    * @param conf Client config object
    * @return A NetworkClient builder
    */
-  def builder(key: Key, contact: Task[Contact], conf: GrpcClientConf = GrpcClientConf.read()): Builder[HNil] =
+  def builder(key: Key, contact: Task[Contact], conf: GrpcClientConf): Builder[HNil] =
     builder.addHeader(conf.keyHeader, key.b64).addAsyncHeader(contact.map(c ⇒ (conf.contactHeader, c.b64seed)))
 }

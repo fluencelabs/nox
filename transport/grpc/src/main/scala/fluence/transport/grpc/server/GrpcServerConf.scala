@@ -17,7 +17,10 @@
 
 package fluence.transport.grpc.server
 
-import com.typesafe.config.{ Config, ConfigFactory }
+import cats.ApplicativeError
+import com.typesafe.config.Config
+
+import scala.language.higherKinds
 
 case class GrpcServerConf(
     localPort: Int,
@@ -28,9 +31,10 @@ case class GrpcServerConf(
 object GrpcServerConf {
   val ConfigPath = "fluence.transport.grpc.server"
 
-  def read(path: String = ConfigPath, config: Config = ConfigFactory.load()): GrpcServerConf = {
-    import net.ceedubs.ficus.Ficus._
-    import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-    config.as[GrpcServerConf](path)
-  }
+  def read[F[_]](config: Config, path: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[GrpcServerConf] =
+    F.catchNonFatal {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      config.as[GrpcServerConf](path)
+    }
 }

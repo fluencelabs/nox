@@ -17,16 +17,20 @@
 
 package fluence.transport.grpc.client
 
-import com.typesafe.config.{ Config, ConfigFactory }
+import cats.ApplicativeError
+import com.typesafe.config.Config
+
+import scala.language.higherKinds
 
 case class GrpcClientConf(keyHeader: String, contactHeader: String)
 
 object GrpcClientConf {
   val ConfigPath = "fluence.transport.grpc.client"
 
-  def read(path: String = ConfigPath, config: Config = ConfigFactory.load()): GrpcClientConf = {
-    import net.ceedubs.ficus.Ficus._
-    import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-    config.as[GrpcClientConf](path)
-  }
+  def read[F[_]](config: Config, path: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[GrpcClientConf] =
+    F.catchNonFatal {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      config.as[GrpcClientConf](path)
+    }
 }

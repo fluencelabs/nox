@@ -19,6 +19,7 @@ package fluence.node
 
 import cats.instances.try_._
 import cats.~>
+import com.typesafe.config.Config
 import fluence.client.ClientComposer
 import fluence.crypto.algorithm
 import fluence.crypto.algorithm.Ecdsa
@@ -41,7 +42,7 @@ import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.TransportSecurity
-import fluence.transport.grpc.client.GrpcClient
+import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
@@ -51,8 +52,8 @@ import scala.concurrent.duration._
 
 class NodeComposer(
     keyPair: KeyPair,
+    config: Config,
     getInfo: () ⇒ Task[NodeInfo],
-    conf: GrpcServerConf = GrpcServerConf.read(),
     contractsCacheStoreName: String = "fluence_contractsCache") {
 
   private implicit val runFuture = new (Future ~> Task) {
@@ -74,21 +75,36 @@ class NodeComposer(
 
   import keyC.inverse
 
-  private val serverBuilder = GrpcServer.builder(conf)
+  private lazy val serverBuilder =
+    grpcConf.map(GrpcServer.builder).memoizeOnSuccess
+
+  private lazy val grpcConf =
+    GrpcServerConf.read[Task](config).memoizeOnSuccess
+
+  private lazy val grpcClientConf =
+    GrpcClientConf.read[Task](config).memoizeOnSuccess
 
   lazy val services: Task[NodeServices[Task, BasicContract, Contact]] =
-    for {
+    (for {
       k ← Key.fromKeyPair[Task](keyPair)
+      conf ← grpcConf
 
-      contractsCacheStore ← ContractsCacheStore[Task](contractsCacheStoreName)
+      serverBuilder ← serverBuilder
+
+      contractsCacheStore ← ContractsCacheStore[Task](contractsCacheStoreName, config)
+
+      kadConf ← KademliaConf.read[Task](config)
+
+      clientConf ← grpcClientConf
 
       // TODO: externalize creation of signer/checker somehow
-      nodeSigner = new algorithm.Ecdsa.Signer(keyPair)
-      checker = Ecdsa.Checker
-
-      client = ClientComposer.grpc[Task](GrpcClient.builder(k, serverBuilder.contact))
 
     } yield new NodeServices[Task, BasicContract, Contact] {
+
+      private val nodeSigner = new algorithm.Ecdsa.Signer(keyPair)
+      private val checker = Ecdsa.Checker
+
+      private val client = ClientComposer.grpc[Task](GrpcClient.builder(k, serverBuilder.contact, clientConf))
 
       override val key: Key = k
 
@@ -98,7 +114,7 @@ class NodeComposer(
         k,
         serverBuilder.contact,
         client.service[KademliaClient[Task]],
-        KademliaConf.read(),
+        kadConf,
         TransportSecurity.canBeSaved[Task](k, acceptLocal = conf.acceptLocal)
       )
 
@@ -129,13 +145,17 @@ class NodeComposer(
 
       override lazy val info: NodeInfoRpc[Task] = new NodeInfoService[Task](getInfo)
 
-      override lazy val datasets: DatasetStorageRpc[Task] = new Datasets(JdkCryptoHasher.Sha256) // TODO: externalize hasher
-    }
+      override lazy val datasets: DatasetStorageRpc[Task] = new Datasets(config, JdkCryptoHasher.Sha256) // TODO: externalize hasher
+    }).memoizeOnSuccess
 
   // Add server (with kademlia inside), build
   lazy val server: Task[GrpcServer] =
-    services.map {
-      ns ⇒
+    (
+      for {
+        serverBuilder ← serverBuilder
+        ns ← services
+        clientConf ← grpcClientConf
+      } yield {
         import ns._
         serverBuilder
           .add(KademliaGrpc.bindService(new KademliaServer[Task](kademlia.handleRPC), global))
@@ -144,8 +164,9 @@ class NodeComposer(
           .add(DatasetContractsApiGrpc.bindService(new ContractsApiServer[Task, BasicContract](contracts), global))
           .add(NodeInfoRpcGrpc.bindService(new NodeInfoServer[Task](info), global))
           .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), global))
-          .onNodeActivity(kademlia.update _)
+          .onNodeActivity(kademlia.update _, clientConf)
           .build
-    }
+      }
+    ).memoizeOnSuccess
 
 }

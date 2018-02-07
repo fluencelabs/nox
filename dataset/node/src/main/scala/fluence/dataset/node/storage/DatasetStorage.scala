@@ -22,6 +22,7 @@ import java.nio.ByteBuffer
 import cats.{ Applicative, ApplicativeError, MonadError }
 import cats.syntax.functor._
 import cats.syntax.applicative._
+import com.typesafe.config.Config
 import fluence.btree.common.{ Bytes, ValueRef }
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.protocol.BTreeRpc
@@ -127,10 +128,11 @@ object DatasetStorage {
    */
   def apply[F[_]](
     datasetId: String,
+    config: Config,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     refProvider: () ⇒ ValueRef,
     onMRChange: Bytes ⇒ Unit
-  )(implicit F: ApplicativeError[F, Throwable]): F[DatasetStorage] = {
+  )(implicit F: MonadError[F, Throwable]): F[DatasetStorage] = {
 
     // todo create direct and faster codec for Long
     implicit val long2bytesCodec: Codec[Task, Array[Byte], ValueRef] = Codec.pure(
@@ -140,8 +142,8 @@ object DatasetStorage {
     import Codec.identityCodec
 
     F.map2(
-      RocksDbStore[F](s"${datasetId}_blob"),
-      MerkleBTree(s"${datasetId}_tree", cryptoHasher)
+      RocksDbStore[F](s"${datasetId}_blob", config),
+      MerkleBTree(s"${datasetId}_tree", cryptoHasher, config)
     ){
         (rocksDB, merkleBTree) ⇒
           new DatasetStorage(
