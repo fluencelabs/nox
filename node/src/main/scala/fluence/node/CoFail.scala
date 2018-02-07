@@ -15,33 +15,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.cofail
+package fluence.node
 
 import cats.MonadError
 import shapeless._
 
+import scala.util.control.NoStackTrace
 import scala.language.higherKinds
 import scala.reflect.ClassTag
-import scala.util.control.NoStackTrace
 
-/**
- * CoFail makes some Coproduct throwable by extending NoStackTrace.
- * When ''MonadError[F, Throwable]'' is converted to ''MonadError[F, X :+: Y :+: ... :+: CNil]'',
- * collected failures are wrapped into CoFail
- *
- * @param failure Non-empty Coproduct with a failure
- * @tparam T Disjoint union of possible failure types
- */
-case class CoFail[T <: Coproduct](failure: T) extends NoStackTrace {
-  /**
-   * Returns an actual value held in failure Coproduct -- useful for pattern matching
-   */
-  def unsafeGet: Any = Coproduct.unsafeGet(failure)
-}
+case class CoFail[T <: Coproduct](cause: T) extends NoStackTrace
 
 object CoFail {
   // Convert generic MonadError for Throwable into CoFail of particular type
-  // It should be done only once at the end of the world, hence not implicit
   def fromThrowableME[F[_], T <: Coproduct : ClassTag](ME: MonadError[F, Throwable]): MonadError[F, T] =
     new MonadError[F, T] {
       override def flatMap[A, B](fa: F[A])(f: A ⇒ F[B]): F[B] = ME.flatMap(fa)(f)
@@ -106,4 +92,36 @@ object CoFail {
 
       override def pure[A](x: A): F[A] = ME.pure(x)
     }
+
+  class CheckCompiles[F[_]](ME: MonadError[F, Throwable]) {
+
+    object Implicits {
+      implicit val TME: MonadError[F, Throwable] = ME
+
+      implicit val F: MonadError[F, A :+: B :+: NoSuchElementException :+: CNil] =
+        CoFail.fromThrowableME(TME)
+    }
+
+    case class A(a: String)
+    case class B(b: String)
+
+    def toCoFail: MonadError[F, A :+: B :+: CNil] = {
+      import Implicits.F
+
+      narrow()
+    }
+
+    def narrow()(implicit F: MonadError[F, A :+: B :+: NoSuchElementException :+: CNil]): MonadError[F, A :+: B :+: CNil] =
+      {
+        import CoFail._
+        implicitly[MonadError[F, A :+: B :+: CNil]]
+      }
+
+    def pick()(implicit F: MonadError[F, A :+: B :+: NoSuchElementException :+: CNil]): MonadError[F, A] =
+      {
+        import CoFail._
+        implicitly[MonadError[F, A]]
+      }
+
+  }
 }

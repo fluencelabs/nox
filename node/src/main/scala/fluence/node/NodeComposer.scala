@@ -82,7 +82,7 @@ class NodeComposer(
 
   val contractsApi = new Contracts[Task, BasicContract, Contact](
     nodeId = key,
-    storage = ContractsCacheStore(contractsCacheStoreName),
+    storage = ContractsCacheStore[Try](contractsCacheStoreName).get, // TODO: pure composition
     createDataset = _ ⇒ Task.unit, // TODO: dataset creation
     checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
     maxFindRequests = 100,

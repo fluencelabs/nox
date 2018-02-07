@@ -17,6 +17,7 @@
 
 package fluence.dataset.node.storage
 
+import cats.instances.try_._
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.common.Bytes
@@ -31,11 +32,11 @@ import monix.execution.ExecutionModel
 import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpec}
+import org.scalatest.{ BeforeAndAfterEach, Matchers, WordSpec }
 
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration.{ FiniteDuration, _ }
 import scala.reflect.io.Path
-import scala.util.Random
+import scala.util.{ Random, Try }
 
 class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterEach {
 
@@ -75,6 +76,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
         val counter = Atomic(0L)
         val clientWithCorruption: ClientDatasetStorage[String, User] = new ClientDatasetStorage(
+          "test0".getBytes(),
           createBTreeClient(),
           createStorageRpcWithNetworkError("test0", mr ⇒ counter.incrementAndGet()),
           valueCryptWithCorruption,
@@ -210,44 +212,49 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     }
   )
 
-  private def createDatasetStorage(dbName: String, counter: Bytes ⇒ Unit): DatasetStorage = {
-    DatasetStorage(s"${this.getClass.getSimpleName}_$dbName", hasher, () ⇒ blobIdCounter.incrementAndGet(), counter)
-      .toEither match {
-        case Right(store) ⇒ store
-        case Left(err)    ⇒ throw err
-      }
-  }
+  private def createDatasetStorage(dbName: String, counter: Bytes ⇒ Unit): DatasetStorage =
+    DatasetStorage[Try](s"${this.getClass.getSimpleName}_$dbName", hasher, () ⇒ blobIdCounter.incrementAndGet(), counter).get
 
-  private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] = {
+  private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] =
     new ClientDatasetStorage(
+      dbName.getBytes(),
       createBTreeClient(clientState),
       createStorageRpc(dbName),
       valueCrypt,
       hasher
     )
-  }
 
   private def createStorageRpcWithNetworkError(dbName: String, counter: Bytes ⇒ Unit): DatasetStorageRpc[Task] = {
     val origin = createDatasetStorage(dbName, counter)
     new DatasetStorageRpc[Task] {
-      override def remove(removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
+      override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
         origin.remove(removeCallbacks)
       }
-      override def put(putCallback: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] = {
+      override def put(datasetId: Array[Byte], putCallback: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] = {
         if (new String(encryptedValue) == "ENC[Alan,33]") {
           Task.raiseError(new IllegalStateException("some network error"))
         } else {
           origin.put(putCallback, encryptedValue)
         }
       }
-      override def get(getCallbacks: BTreeRpc.GetCallbacks[Task]): Task[Option[Array[Byte]]] =
+      override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.GetCallbacks[Task]): Task[Option[Array[Byte]]] =
         origin.get(getCallbacks)
     }
   }
 
-  // todo use DatasetStorageRpc implementation with network transport
   private def createStorageRpc(dbName: String): DatasetStorageRpc[Task] =
-    createDatasetStorage(dbName, _ ⇒ ())
+    new DatasetStorageRpc[Task] {
+      private val storage = createDatasetStorage(dbName, _ ⇒ ())
+
+      override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] =
+        storage.remove(removeCallbacks)
+
+      override def put(datasetId: Array[Byte], putCallbacks: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] =
+        storage.put(putCallbacks, encryptedValue)
+
+      override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.GetCallbacks[Task]): Task[Option[Array[Byte]]] =
+        storage.get(getCallbacks)
+    }
 
   private def createBTreeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String] = {
     MerkleBTreeClient(

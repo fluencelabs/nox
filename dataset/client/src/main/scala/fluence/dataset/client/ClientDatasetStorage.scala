@@ -20,7 +20,7 @@ package fluence.dataset.client
 import fluence.btree.client.MerkleBTreeClientApi
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
-import fluence.dataset.protocol.storage.{ ClientDatasetStorageApi, DatasetStorageRpc }
+import fluence.dataset.protocol.storage.DatasetStorageRpc
 import monix.eval.Task
 
 import scala.language.higherKinds
@@ -35,6 +35,7 @@ import scala.language.higherKinds
  * @tparam V The type of stored values
  */
 class ClientDatasetStorage[K, V](
+    datasetId: Array[Byte],
     bTreeIndex: MerkleBTreeClientApi[Task, K],
     storageRpc: DatasetStorageRpc[Task],
     valueCrypt: Crypt[Task, V, Array[Byte]],
@@ -45,10 +46,9 @@ class ClientDatasetStorage[K, V](
 
     for {
       getCallbacks ← bTreeIndex.initGet(key)
-      serverResponse ← {
-        storageRpc.get(getCallbacks)
-          .doOnFinish { _ ⇒ getCallbacks.recoverState() }
-      }
+      serverResponse ← storageRpc.get(datasetId, getCallbacks)
+        .doOnFinish { _ ⇒ getCallbacks.recoverState() }
+
       resp ← decryptOption(serverResponse)
     } yield resp
 
@@ -57,39 +57,33 @@ class ClientDatasetStorage[K, V](
   override def put(key: K, value: V): Task[Option[V]] = {
 
     for {
-      // todo crypt and hasher should be with effect, they can throw exceptions
       encValue ← valueCrypt.encrypt(value)
       encValueHash ← Task(hasher.hash(encValue))
       putCallbacks ← bTreeIndex.initPut(key, encValueHash)
-      serverResponse ← {
-        storageRpc
-          .put(putCallbacks, encValue)
-          .doOnFinish {
-            // in error case we should return old value of clientState back
-            case Some(e) ⇒ putCallbacks.recoverState()
-            case x       ⇒ Task()
-          }
-      }
+      serverResponse ← storageRpc
+        .put(datasetId, putCallbacks, encValue)
+        .doOnFinish {
+          // in error case we should return old value of clientState back
+          case Some(e) ⇒ putCallbacks.recoverState()
+          case _       ⇒ Task.unit
+        }
+
       resp ← decryptOption(serverResponse)
     } yield resp
 
   }
 
-  override def remove(key: K): Task[Option[V]] = {
-
+  override def remove(key: K): Task[Option[V]] =
     for {
       removeCmd ← bTreeIndex.removeState(key)
-      serverResponse ← storageRpc.remove(removeCmd)
+      serverResponse ← storageRpc.remove(datasetId, removeCmd)
       resp ← decryptOption(serverResponse)
     } yield resp
 
-  }
-
-  def decryptOption(response: Option[Array[Byte]]): Task[Option[V]] = {
+  def decryptOption(response: Option[Array[Byte]]): Task[Option[V]] =
     response match {
       case Some(r) ⇒ valueCrypt.decrypt(r).map(Option.apply)
       case None    ⇒ Task(None)
     }
-  }
 
 }

@@ -21,13 +21,15 @@ import java.io.File
 
 import com.typesafe.config.{ Config, ConfigFactory }
 import RocksDbStore._
+import cats.ApplicativeError
+import cats.syntax.functor._
 import fluence.storage.{ KVStore, TraversableKVStore }
 import monix.eval.{ Task, TaskSemaphore }
 import monix.reactive.Observable
 import org.rocksdb.{ Options, ReadOptions, RocksDB }
 
 import scala.reflect.io.Path
-import scala.util.Try
+import scala.language.higherKinds
 
 /**
  * Implementation of [[KVStore]] with embedded RocksDB database.
@@ -55,12 +57,11 @@ class RocksDbStore(
    *
    * @param key The key retrieve the value.
    */
-  override def get(key: Key): Task[Value] = {
+  override def get(key: Key): Task[Value] =
     Task.eval(Option(db.get(key))).flatMap {
       case Some(v) ⇒ Task.now(v)
       case None    ⇒ Task.raiseError(KVStore.KeyNotFound)
     }
-  }
 
   /**
    * Puts key value pair (K, V). Put is synchronous operation.
@@ -120,13 +121,13 @@ object RocksDbStore {
   type Key = Array[Byte]
   type Value = Array[Byte]
 
-  def apply(dataSet: String): Try[RocksDbStore] =
+  def apply[F[_]](dataSet: String)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] =
     apply(dataSet, ConfigFactory.load())
 
-  def apply(dataSet: String, conf: Config): Try[RocksDbStore] =
+  def apply[F[_]](dataSet: String, conf: Config)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] =
     apply(dataSet, RocksDbConf.read(conf = conf))
 
-  def apply(dataSet: String, config: RocksDbConf): Try[RocksDbStore] = {
+  def apply[F[_]](dataSet: String, config: RocksDbConf)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] = {
     val dbRoot = s"${config.dataDir}/$dataSet"
     val options = createOptionsFromConfig(config, Path(dbRoot))
 
@@ -134,14 +135,13 @@ object RocksDbStore {
       .map(new RocksDbStore(dataSet, _, options))
   }
 
-  private def createDb(folder: String, options: Options): Try[RocksDB] = {
-    Try {
+  private def createDb[F[_]](folder: String, options: Options)(implicit F: ApplicativeError[F, Throwable]): F[RocksDB] =
+    F.catchNonFatal {
       RocksDB.loadLibrary()
       val dataDir = new File(folder)
       if (!dataDir.exists()) dataDir.mkdirs()
       RocksDB.open(options, folder)
     }
-  }
 
   private def createOptionsFromConfig(conf: RocksDbConf, root: Path): Options = {
     val opt = new Options()

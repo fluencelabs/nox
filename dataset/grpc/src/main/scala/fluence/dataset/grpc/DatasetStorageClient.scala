@@ -40,7 +40,7 @@ class DatasetStorageClient[F[_]](stub: DatasetStorageRpcStub)(implicit F: MonadE
    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  override def get(getCallbacks: BTreeRpc.GetCallbacks[F]): F[Option[Array[Byte]]] = {
+  override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.GetCallbacks[F]): F[Option[Array[Byte]]] = {
     // Convert a remote stub call to monix pipe
     val pipe = callToPipe(stub.get)
 
@@ -49,7 +49,7 @@ class DatasetStorageClient[F[_]](stub: DatasetStorageRpcStub)(implicit F: MonadE
       .transform(_.map(_.callback))
       .multicast
 
-    pull.collect { // Collect callbacks
+    val handleAsks = pull.collect { // Collect callbacks
       case ask if ask.isDefined && !ask.isValue ⇒ ask
     }.mapEval[F, GetCallbackReply.Reply]{ // Route callbacks to ''getCallbacks''
 
@@ -72,7 +72,14 @@ class DatasetStorageClient[F[_]](stub: DatasetStorageRpcStub)(implicit F: MonadE
           .map(GetCallbackReply.Reply.SubmitLeaf)
 
     }.map(GetCallbackReply(_))
-      .subscribe(push) // And push response back to server
+
+    (
+      Observable(
+        GetCallbackReply(GetCallbackReply.Reply.DatasetId(
+          DatasetId(ByteString.copyFrom(datasetId))
+        ))
+      ) ++ handleAsks
+    ).subscribe(push) // And push response back to server
 
     val value = pull.collect { // Collect response value
       case gv if gv.isValue ⇒ gv._value.get
@@ -93,7 +100,7 @@ class DatasetStorageClient[F[_]](stub: DatasetStorageRpcStub)(implicit F: MonadE
    * @param encryptedValue Encrypted value.
    * @return returns old value if old value was overridden, None otherwise.
    */
-  override def put(putCallbacks: BTreeRpc.PutCallbacks[F], encryptedValue: Array[Byte]): F[Option[Array[Byte]]] = {
+  override def put(datasetId: Array[Byte], putCallbacks: BTreeRpc.PutCallbacks[F], encryptedValue: Array[Byte]): F[Option[Array[Byte]]] = {
     // Convert a remote stub call to monix pipe
     val pipe = callToPipe(stub.put)
 
@@ -148,10 +155,14 @@ class DatasetStorageClient[F[_]](stub: DatasetStorageRpcStub)(implicit F: MonadE
     }.map(PutCallbackReply(_))
 
     (
-      Observable( // Pass the value as the first, unasked push
+      Observable( // Pass the datasetId and value as the first, unasked pushes
+        PutCallbackReply(PutCallbackReply.Reply.DatasetId(
+          DatasetId(ByteString.copyFrom(datasetId)))
+        ),
         PutCallbackReply(PutCallbackReply.Reply.Value(
           PutValue(ByteString.copyFrom(encryptedValue)))
-        ))
+        )
+      )
         ++ handleAsks
     ).subscribe(push) // And push response back to server
 
@@ -173,5 +184,5 @@ class DatasetStorageClient[F[_]](stub: DatasetStorageRpcStub)(implicit F: MonadE
    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
    * @return returns old value that was deleted, None if nothing was deleted.
    */
-  override def remove(removeCallbacks: BTreeRpc.RemoveCallback[F]): F[Option[Array[Byte]]] = ???
+  override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[F]): F[Option[Array[Byte]]] = ???
 }
