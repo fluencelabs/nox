@@ -19,7 +19,9 @@ package fluence.btree.server
 
 import java.nio.ByteBuffer
 
+import cats.ApplicativeError
 import cats.syntax.show._
+import cats.syntax.functor._
 import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
 import fluence.btree.common.{ ClientPutDetails, Hash, Key, ValueRef }
@@ -34,6 +36,7 @@ import monix.execution.atomic.{ AtomicInt, AtomicLong }
 import org.slf4j.LoggerFactory
 
 import scala.collection.Searching.{ Found, InsertionPoint }
+import scala.language.higherKinds
 
 /**
  * This class implements a search tree, which allows to run queries over encrypted data. This code based on research paper:
@@ -552,20 +555,21 @@ object MerkleBTree {
    * @param cryptoHasher Hash service uses for calculating nodes checksums.
    * @param conf          MerkleBTree config
    */
-  def apply(
+  def apply[F[_]](
     treeId: String,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     conf: MerkleBTreeConfig = MerkleBTreeConfig.read()
-  ): MerkleBTree = {
-    new MerkleBTree(conf, defaultStore(treeId), NodeOps(cryptoHasher))
-  }
+  )(implicit F: ApplicativeError[F, Throwable]): F[MerkleBTree] =
+    defaultStore[F](treeId).map(
+      new MerkleBTree(conf, _, NodeOps(cryptoHasher))
+    )
 
   /**
    * Default tree store with RockDb key-value storage under the hood.
    *
    * @param id Unique id of tree used as RockDb data folder name.
    */
-  private def defaultStore(id: String): BTreeStore[Task, Long, Node] = {
+  private def defaultStore[F[_]](id: String)(implicit F: ApplicativeError[F, Throwable]): F[BTreeStore[Task, Long, Node]] = {
     val codecs = KryoCodecs()
       .add[Key]
       .add[Array[Key]]
@@ -580,7 +584,7 @@ object MerkleBTree {
       .addCase(classOf[Branch])
       .build[Task]()
     import codecs._
-    new BTreeBinaryStore[Task, NodeId, Node](RocksDbStore(id).get)
+    RocksDbStore[F](id).map(new BTreeBinaryStore[Task, NodeId, Node](_))
   }
 
   /**

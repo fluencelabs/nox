@@ -34,7 +34,7 @@ import scodec.bits.ByteVector
 import cats.instances.list._
 import cats.instances.option._
 import fluence.transport.grpc.GrpcCodecs._
-import cats.{ MonadError, Traverse }
+import cats.{ ApplicativeError, MonadError, Traverse }
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 
@@ -146,7 +146,7 @@ object ContractsCacheStore {
       )
     }
 
-  def apply(storeName: String): KVStore[Task, Key, ContractRecord[BasicContract]] = {
+  def apply[F[_]](storeName: String)(implicit F: ApplicativeError[F, Throwable]): F[KVStore[Task, Key, ContractRecord[BasicContract]]] = {
     import Key.bytesCodec
 
     implicit val contractRecordCodec: Codec[Task, ContractRecord[BasicContract], Array[Byte]] =
@@ -155,14 +155,6 @@ object ContractsCacheStore {
         bytes ⇒ Task(BasicContractCache.parseFrom(bytes))
       )
 
-    RocksDbStore(storeName).toEither match {
-      case Right(store) ⇒
-        store
-      case Left(err) ⇒
-        println(Console.RED)
-        err.printStackTrace()
-        print(Console.RESET)
-        throw err
-    }
+    RocksDbStore(storeName).map(s ⇒ s)
   }
 }
