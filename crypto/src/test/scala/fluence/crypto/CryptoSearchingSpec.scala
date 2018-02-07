@@ -19,9 +19,9 @@ package fluence.crypto
 
 import cats.instances.try_._
 import fluence.crypto.cipher.NoOpCrypt
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 
-import scala.collection.Searching.{Found, InsertionPoint}
+import scala.collection.Searching.{ Found, InsertionPoint }
 import scala.util.Try
 
 class CryptoSearchingSpec extends WordSpec with Matchers {

@@ -61,22 +61,25 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      cats1,
-      scodecBits,
-      bouncyCastle,
-      scalatest,
-      circeCore,
-      circeParser
+      "org.typelevel" %%% "cats-core" % Cats1V,
+      "org.scodec" %%% "scodec-bits" % ScodecV,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test,
+      "io.circe" %%% "circe-core" % CirceV,
+      "io.circe" %%% "circe-parser" % CirceV
     )
   )
   .jvmSettings(
-    //
+    libraryDependencies ++= Seq(
+      //JVM-specific provider for security
+      bouncyCastle
+    )
   )
   .jsSettings(
     libraryDependencies ++= Seq(
+      // for Web Crypto API
+      //https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
       "org.scala-js" %%% "scalajs-dom" % "0.9.3"
-    ),
-    scalaJSUseMainModuleInitializer := true
+    )
   )
 
 lazy val `cryptoJVM` = `crypto`.jvm
