@@ -20,15 +20,22 @@ package fluence.node
 import cats.instances.try_._
 import cats.~>
 import fluence.client.ClientComposer
+import fluence.crypto.algorithm
+import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{ SignatureChecker, Signer }
+import fluence.crypto.signature.Signer
 import fluence.dataset.BasicContract
 import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsApiServer, ContractsCacheServer }
-import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetContractsApiGrpc }
+import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc
+import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetContractsApiGrpc, DatasetStorageServer }
 import fluence.dataset.node.Contracts
-import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
-import fluence.info.{ NodeInfo, NodeInfoService }
+import fluence.dataset.node.storage.Datasets
+import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsApi, ContractsCacheRpc }
 import fluence.info.grpc.{ NodeInfoRpcGrpc, NodeInfoServer }
+import fluence.info.{ NodeInfo, NodeInfoRpc, NodeInfoService }
+import fluence.kad.Kademlia
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
@@ -41,7 +48,6 @@ import monix.execution.Scheduler.Implicits.global
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.Try
 
 class NodeComposer(
     keyPair: KeyPair,
@@ -58,6 +64,10 @@ class NodeComposer(
     override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
   }
 
+  private implicit def runId[F[_]] = new (F ~> F) {
+    override def apply[A](fa: F[A]): F[A] = fa
+  }
+
   private implicit val kadCodec = fluence.kad.grpc.KademliaNodeCodec[Task]
   private implicit val contractCodec = fluence.dataset.grpc.BasicContractCodec.codec[Task]
   private val keyC = Key.bytesCodec[Task]
@@ -66,49 +76,76 @@ class NodeComposer(
 
   private val serverBuilder = GrpcServer.builder(conf)
 
-  val key = Key.fromKeyPair[Try](keyPair).get
+  lazy val services: Task[NodeServices[Task, BasicContract, Contact]] =
+    for {
+      k ← Key.fromKeyPair[Task](keyPair)
 
-  // We have only Kademlia service client
-  val client = ClientComposer.grpc[Task](GrpcClient.builder(key, serverBuilder.contact))
+      contractsCacheStore ← ContractsCacheStore[Task](contractsCacheStoreName)
 
-  // This is a server service, not a client
-  val kad = new KademliaService(
-    key,
-    serverBuilder.contact,
-    client.service[KademliaClient[Task]],
-    KademliaConf.read(),
-    TransportSecurity.canBeSaved[Task](key, acceptLocal = conf.acceptLocal)
-  )
+      // TODO: externalize creation of signer/checker somehow
+      nodeSigner = new algorithm.Ecdsa.Signer(keyPair)
+      checker = Ecdsa.Checker
 
-  val contractsApi = new Contracts[Task, BasicContract, Contact](
-    nodeId = key,
-    storage = ContractsCacheStore[Try](contractsCacheStoreName).get, // TODO: pure composition
-    createDataset = _ ⇒ Task.unit, // TODO: dataset creation
-    checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
-    maxFindRequests = 100,
-    maxAllocateRequests = n ⇒ 30 * n,
-    checker = SignatureChecker.DumbChecker,
-    signer = new Signer.DumbSigner(keyPair),
-    cacheTtl = 1.day,
-    kademlia = kad
-  ) {
-    override def cacheRpc(contact: Contact): ContractsCacheRpc[Task, BasicContract] =
-      client.service[ContractsCacheRpc[Task, BasicContract]](contact)
+      client = ClientComposer.grpc[Task](GrpcClient.builder(k, serverBuilder.contact))
 
-    override def allocatorRpc(contact: Contact): ContractAllocatorRpc[Task, BasicContract] =
-      client.service[ContractAllocatorRpc[Task, BasicContract]](contact)
-  }
+    } yield new NodeServices[Task, BasicContract, Contact] {
 
-  val info = new NodeInfoService[Task](getInfo)
+      override val key: Key = k
+
+      override val signer: Signer = nodeSigner
+
+      override lazy val kademlia: Kademlia[Task, Contact] = new KademliaService(
+        k,
+        serverBuilder.contact,
+        client.service[KademliaClient[Task]],
+        KademliaConf.read(),
+        TransportSecurity.canBeSaved[Task](k, acceptLocal = conf.acceptLocal)
+      )
+
+      private lazy val contractsApi = new Contracts[Task, BasicContract, Contact](
+        nodeId = k,
+        storage = contractsCacheStore,
+        createDataset = _ ⇒ Task.unit, // TODO: dataset creation
+        checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
+        maxFindRequests = 100,
+        maxAllocateRequests = n ⇒ 30 * n,
+        checker = checker,
+        signer = nodeSigner,
+        cacheTtl = 1.day,
+        kademlia = kademlia
+      ) {
+        override def cacheRpc(contact: Contact): ContractsCacheRpc[Task, BasicContract] =
+          client.service[ContractsCacheRpc[Task, BasicContract]](contact)
+
+        override def allocatorRpc(contact: Contact): ContractAllocatorRpc[Task, BasicContract] =
+          client.service[ContractAllocatorRpc[Task, BasicContract]](contact)
+      }
+
+      override lazy val contracts: ContractsApi[Task, BasicContract] = contractsApi
+
+      override lazy val contractsCache: ContractsCacheRpc[Task, BasicContract] = contractsApi.cache
+
+      override lazy val contractAllocator: ContractAllocatorRpc[Task, BasicContract] = contractsApi.allocator
+
+      override lazy val info: NodeInfoRpc[Task] = new NodeInfoService[Task](getInfo)
+
+      override lazy val datasets: DatasetStorageRpc[Task] = new Datasets(JdkCryptoHasher.Sha256) // TODO: externalize hasher
+    }
 
   // Add server (with kademlia inside), build
-  val server = serverBuilder
-    .add(KademliaGrpc.bindService(new KademliaServer[Task](kad.handleRPC), global))
-    .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsApi.cache), global))
-    .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractsApi.allocator), global))
-    .add(DatasetContractsApiGrpc.bindService(new ContractsApiServer[Task, BasicContract](contractsApi), global))
-    .add(NodeInfoRpcGrpc.bindService(new NodeInfoServer[Task](info), global))
-    .onNodeActivity(kad.update)
-    .build
+  lazy val server: Task[GrpcServer] =
+    services.map {
+      ns ⇒
+        import ns._
+        serverBuilder
+          .add(KademliaGrpc.bindService(new KademliaServer[Task](kademlia.handleRPC), global))
+          .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsCache), global))
+          .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractAllocator), global))
+          .add(DatasetContractsApiGrpc.bindService(new ContractsApiServer[Task, BasicContract](contracts), global))
+          .add(NodeInfoRpcGrpc.bindService(new NodeInfoServer[Task](info), global))
+          .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), global))
+          .onNodeActivity(kademlia.update _)
+          .build
+    }
 
 }

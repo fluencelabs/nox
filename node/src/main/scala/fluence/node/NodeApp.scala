@@ -19,7 +19,7 @@ package fluence.node
 
 import java.io.File
 
-import cats.instances.try_._
+import cats.MonadError
 import cats.syntax.show._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.FileKeyStorage
@@ -31,8 +31,11 @@ import monix.eval.{ Coeval, Task }
 import monix.execution.Scheduler.Implicits.global
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 import scala.io.StdIn
-import scala.util.{ Failure, Success, Try }
+import scala.language.higherKinds
+import scala.util.{ Failure, Success }
 
 object NodeApp extends App {
 
@@ -45,10 +48,10 @@ object NodeApp extends App {
     ()
   }
 
-  def getKeyPair(keyPath: String): Try[KeyPair] = {
+  def getKeyPair[F[_]](keyPath: String)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
     val keyFile = new File(keyPath)
-    val keyStorage = new FileKeyStorage[Try](keyFile)
-    keyStorage.getOrCreateKeyPair(Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair())
+    val keyStorage = new FileKeyStorage[F](keyFile)
+    keyStorage.getOrCreateKeyPair(Ecdsa.ecdsa_secp256k1_sha256[F].generateKeyPair())
   }
 
   def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
@@ -63,73 +66,72 @@ object NodeApp extends App {
 
   println(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
 
-  val keyPairE = getKeyPair(config.getString("fluence.keyPath"))
+  val p = for {
+    kp ← getKeyPair[Task](config.getString("fluence.keyPath"))
+    nodeComposer = new NodeComposer(kp, () ⇒ Task.now(NodeInfo(gitHash)))
+    services ← nodeComposer.services
+    server ← nodeComposer.server
+    kad = services.kademlia
+    _ ← server.start()
+    contact ← server.contact
+  } yield {
+    log.info("Server launched")
+    println("Your contact is: " + contact.show)
+    println("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
 
-  keyPairE.failed.foreach { e ⇒
-    log.error("Cannot read or store secret key", e)
-    System.exit(1)
-  }
+    while (true) {
 
-  val nodeComposer = new NodeComposer(keyPairE.get, () ⇒ Task.now(NodeInfo(gitHash)))
+      cmd("join(j) / lookup(l)")
 
-  import nodeComposer.{ kad, server }
+      StdIn.readLine() match {
+        case "j" | "join" ⇒
+          cmd("join seed?")
+          val p = StdIn.readLine()
+          Coeval.fromEval(
+            Contact.readB64seed(p)
+          ).memoize.attempt.value match {
+              case Left(err) ⇒
+                log.error("Can't read the seed", err)
 
-  server.start().attempt.runAsync.foreach {
-    case Left(err) ⇒
-      log.error("Can't launch server", err)
+              case Right(c) ⇒
+                kad.join(Seq(c), 16).runAsync.onComplete {
+                  case Success(_) ⇒ cmd("ok")
+                  case Failure(e) ⇒
+                    log.error("Can't join", e)
+                }
+            }
 
-    case Right(_) ⇒
-      log.info("Server launched")
+        case "l" | "lookup" ⇒
+          cmd("lookup myself")
+          kad.handleRPC
+            .lookup(Key.XorDistanceMonoid.empty, 10)
+            .map(_.map(_.show).mkString("\n"))
+            .map(println)
+            .runAsync.onComplete {
+              case Success(_) ⇒ println("ok")
+              case Failure(e) ⇒
+                log.error("Can't lookup", e)
+            }
 
-      server.contact.foreach { contact ⇒
-        println("Your contact is: " + contact.show)
-        println("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
+        case "s" | "seed" ⇒
+          server.contact.map(_.b64seed).runAsync.foreach(cmd)
+
+        case "q" | "quit" | "x" | "exit" ⇒
+          cmd("exit")
+          System.exit(0)
+
+        case _ ⇒
       }
-  }
-
-  while (true) {
-
-    cmd("join(j) / lookup(l)")
-
-    StdIn.readLine() match {
-      case "j" | "join" ⇒
-        cmd("join seed?")
-        val p = StdIn.readLine()
-        Coeval.fromEval(
-          Contact.readB64seed(p)
-        ).memoize.attempt.value match {
-            case Left(err) ⇒
-              log.error("Can't read the seed", err)
-
-            case Right(c) ⇒
-              kad.join(Seq(c), 16).runAsync.onComplete {
-                case Success(_) ⇒ cmd("ok")
-                case Failure(e) ⇒
-                  log.error("Can't join", e)
-              }
-          }
-
-      case "l" | "lookup" ⇒
-        cmd("lookup myself")
-        kad.handleRPC
-          .lookup(Key.XorDistanceMonoid.empty, 10)
-          .map(_.map(_.show).mkString("\n"))
-          .map(println)
-          .runAsync.onComplete {
-            case Success(_) ⇒ println("ok")
-            case Failure(e) ⇒
-              log.error("Can't lookup", e)
-          }
-
-      case "s" | "seed" ⇒
-        server.contact.map(_.b64seed).runAsync.foreach(cmd)
-
-      case "q" | "quit" | "x" | "exit" ⇒
-        cmd("exit")
-        System.exit(0)
-
-      case _ ⇒
     }
   }
+
+  println("going to run")
+
+  Await.result(p.attempt.runAsync, Duration.Inf) match {
+    case Left(err) ⇒ log.error("Error", err)
+    case Right(_)  ⇒ println("Bye!")
+  }
+
+  println("result?")
 
 }

@@ -17,12 +17,11 @@
 
 package fluence.dataset.node.storage
 
-import fluence.btree.common
 import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import monix.eval.Task
-import monix.execution.atomic.{ AtomicInt, AtomicLong }
+import monix.execution.atomic.AtomicLong
 import scodec.bits.{ Bases, ByteVector }
 
 import scala.collection.concurrent.TrieMap
