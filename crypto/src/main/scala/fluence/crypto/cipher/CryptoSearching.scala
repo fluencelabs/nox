@@ -19,7 +19,9 @@ package fluence.crypto.cipher
 
 import cats.Monad
 import cats.syntax.functor._
+
 import scala.collection.Searching.{ Found, InsertionPoint, SearchResult }
+import scala.language.implicitConversions
 import scala.math.Ordering
 
 /**

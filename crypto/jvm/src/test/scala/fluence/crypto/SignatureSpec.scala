@@ -26,7 +26,7 @@ import fluence.crypto.keypair.KeyPair
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scodec.bits.ByteVector
 
-import scala.util.{ Random, Try }
+import scala.util.Random
 
 class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 

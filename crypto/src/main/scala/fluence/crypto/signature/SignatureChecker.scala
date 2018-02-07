@@ -20,6 +20,8 @@ package fluence.crypto.signature
 import cats.MonadError
 import scodec.bits.ByteVector
 
+import scala.language.higherKinds
+
 trait SignatureChecker {
   def check[F[_]](signature: Signature, plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean]
 }
