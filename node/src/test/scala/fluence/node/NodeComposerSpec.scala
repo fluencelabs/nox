@@ -17,15 +17,12 @@
 
 package fluence.node
 
-import java.nio.ByteBuffer
-
 import fluence.client.ClientComposer
 import cats.instances.future._
 import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature
-import fluence.crypto.signature.SignatureChecker
+import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.algorithm
 import fluence.dataset.BasicContract
 import fluence.dataset.protocol.ContractsApi
 import fluence.info.NodeInfo
@@ -56,14 +53,8 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
   private val servers = (0 to 20).map { n ⇒
     val port = 3100 + n
 
-    val seedBytes = {
-      val bb = ByteBuffer.allocate(Integer.BYTES)
-      bb.putInt(port)
-      bb.array()
-    }
-
     new NodeComposer(
-      KeyPair.fromBytes(seedBytes, seedBytes),
+      Ecdsa.ecdsa_secp256k1_sha256[Future].generateKeyPair().futureValue,
       config
         .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
         .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
@@ -109,14 +100,14 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
 
       contractsApi.find(Key.fromString[Future]("hi there").futureValue).failed.futureValue
 
-      val seed = Array[Byte](1, 2, 3, 4, 5)
-      val kp = KeyPair.fromBytes(seed, seed)
+      val kp = Ecdsa.ecdsa_secp256k1_sha256[Future].generateKeyPair().futureValue
       val key = Key.fromKeyPair[Future](kp).futureValue
-      val signer = new signature.Signer.DumbSigner(kp)
+      val signer = new algorithm.Ecdsa.Signer(kp)
       val offer = BasicContract.offer(key, participantsRequired = 4, signer = signer).futureValue
 
-      offer.checkOfferSeal(SignatureChecker.DumbChecker).futureValue shouldBe true
+      offer.checkOfferSeal(Ecdsa.Checker).futureValue shouldBe true
 
+      // TODO: add test with wrong signature or other errors
       val accepted = contractsApi.allocate(offer, bc ⇒
         {
           Future successful bc.sealParticipants(signer).futureValue

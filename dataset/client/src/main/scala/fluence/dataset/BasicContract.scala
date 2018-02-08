@@ -20,12 +20,13 @@ package fluence.dataset
 import java.nio.ByteBuffer
 
 import cats.{ Eq, MonadError }
-import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.crypto.signature.{ Signature, Signer }
 import fluence.dataset.contract.{ ContractRead, ContractWrite }
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
+
+import scala.language.higherKinds
 
 /**
  *
