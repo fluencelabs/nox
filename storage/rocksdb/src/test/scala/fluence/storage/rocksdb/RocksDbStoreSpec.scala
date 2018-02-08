@@ -18,6 +18,7 @@
 package fluence.storage.rocksdb
 
 import cats.instances.try_._
+import com.typesafe.config.ConfigFactory
 import monix.eval.Task
 import monix.execution.schedulers.TestScheduler
 import monix.execution.{ ExecutionModel, Scheduler }
@@ -31,10 +32,11 @@ import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 
 import scala.concurrent.duration._
 import scala.reflect.io.Path
+import scala.util.Try
 
 class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockitoSugar with ScalaFutures {
 
-  private val conf = RocksDbConf.read()
+  private val conf = RocksDbConf.read[Try](ConfigFactory.load()).get
   assert(conf.dataDir.startsWith(System.getProperty("java.io.tmpdir")))
 
   "RocksDbStore" should {

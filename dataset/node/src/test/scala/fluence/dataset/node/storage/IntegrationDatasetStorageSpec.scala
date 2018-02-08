@@ -18,6 +18,7 @@
 package fluence.dataset.node.storage
 
 import cats.instances.try_._
+import com.typesafe.config.ConfigFactory
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.common.Bytes
@@ -213,7 +214,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   )
 
   private def createDatasetStorage(dbName: String, counter: Bytes ⇒ Unit): DatasetStorage =
-    DatasetStorage[Try](s"${this.getClass.getSimpleName}_$dbName", hasher, () ⇒ blobIdCounter.incrementAndGet(), counter).get
+    DatasetStorage[Try](s"${this.getClass.getSimpleName}_$dbName", ConfigFactory.load(), hasher, () ⇒ blobIdCounter.incrementAndGet(), counter).get
 
   private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] =
     new ClientDatasetStorage(
@@ -271,7 +272,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   }
 
   override protected def beforeEach(): Unit = {
-    val conf = RocksDbConf.read()
+    val conf = RocksDbConf.read[Try](ConfigFactory.load()).get
     Path(conf.dataDir).deleteRecursively()
   }
 

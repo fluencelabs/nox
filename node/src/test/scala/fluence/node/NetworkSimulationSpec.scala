@@ -18,12 +18,14 @@
 package fluence.node
 
 import cats.~>
+import cats.instances.try_._
+import com.typesafe.config.ConfigFactory
 import fluence.kad.grpc.{ KademliaGrpc, KademliaNodeCodec }
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.TransportSecurity
-import fluence.transport.grpc.client.GrpcClient
+import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
 import fluence.transport.grpc.server.GrpcServer
 import monix.eval.{ Coeval, Task }
 import monix.execution.Scheduler.Implicits.global
@@ -33,6 +35,7 @@ import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.util.Try
 
 class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
 
@@ -52,7 +55,9 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     private val serverBuilder = GrpcServer.builder(localPort)
 
-    private val client = GrpcClient.builder(key, serverBuilder.contact)
+    private val clientConf = GrpcClientConf.read[Try](ConfigFactory.load()).get
+
+    private val client = GrpcClient.builder(key, serverBuilder.contact, clientConf)
       .add(KademliaClient.register[Task]())
       .build
 
@@ -68,7 +73,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServer(kad.handleRPC), global))
-      .onNodeActivity(kad.update)
+      .onNodeActivity(kad.update, clientConf)
       .build
 
     def nodeId = key
