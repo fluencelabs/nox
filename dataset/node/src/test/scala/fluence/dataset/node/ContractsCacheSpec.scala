@@ -18,8 +18,8 @@
 package fluence.dataset.node
 
 import cats.instances.try_._
+import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
 import fluence.dataset.node.contract.ContractRecord
 import fluence.kad.protocol.Key
@@ -28,10 +28,12 @@ import monix.eval.Coeval
 import org.scalatest.{ Matchers, WordSpec }
 
 import scala.concurrent.duration._
+import scala.util.Try
 
 class ContractsCacheSpec extends WordSpec with Matchers {
 
   def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
+  val algo = SignAlgo.dumb
 
   val nodeId: Key = unsafeKey("node id")
   val nodeSigner = offerSigner("node id")
@@ -45,11 +47,11 @@ class ContractsCacheSpec extends WordSpec with Matchers {
   }
 
   def offerSigner(seed: String) = {
-    new Signer.DumbSigner(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
+    algo.signer(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
   }
 
   val cache: ContractsCache[Coeval, BasicContract] =
-    new ContractsCache[Coeval, BasicContract](nodeId, store, SignatureChecker.DumbChecker, 1.minute)
+    new ContractsCache[Coeval, BasicContract](nodeId, store, algo.checker, 1.minute)
 
   import fluence.dataset.contract.ContractWrite._
 

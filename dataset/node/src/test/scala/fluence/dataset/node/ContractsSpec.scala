@@ -18,8 +18,9 @@
 package fluence.dataset.node
 
 import cats.instances.try_._
+import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{ SignatureChecker, Signer }
+import fluence.crypto.signature.Signer
 import fluence.dataset.BasicContract
 import fluence.dataset.node.contract.ContractRecord
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsApi, ContractsCacheRpc }
@@ -38,6 +39,7 @@ import scala.util.Random
 class ContractsSpec extends WordSpec with Matchers {
 
   val dsCreated = TrieMap.empty[String, Set[Key]].withDefaultValue(Set.empty)
+  val algo = SignAlgo.dumb
 
   def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
 
@@ -83,7 +85,7 @@ class ContractsSpec extends WordSpec with Matchers {
         createDS(contact),
         10,
         _ ⇒ 20,
-        SignatureChecker.DumbChecker,
+        algo.checker[Coeval],
         signer,
         1.second,
         kad

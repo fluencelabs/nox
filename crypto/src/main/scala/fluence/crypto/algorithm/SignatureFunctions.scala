@@ -17,11 +17,14 @@
 
 package fluence.crypto.algorithm
 
+import cats.MonadError
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
 import scodec.bits.ByteVector
 
-trait SignatureFunctions[F[_]] {
-  def sign(keyPair: KeyPair, message: ByteVector): F[Signature]
-  def verify(signature: Signature, message: ByteVector): F[Boolean]
+import scala.language.higherKinds
+
+trait SignatureFunctions {
+  def sign[F[_]](keyPair: KeyPair, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[Signature]
+  def verify[F[_]](signature: Signature, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean]
 }

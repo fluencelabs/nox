@@ -20,7 +20,7 @@ package fluence.dataset.grpc
 import cats.instances.try_._
 import cats.kernel.Eq
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature
+import fluence.crypto.SignAlgo
 import org.scalatest.{ Matchers, WordSpec }
 import fluence.dataset.{ BasicContract ⇒ BC }
 import fluence.kad.protocol.Key
@@ -50,7 +50,8 @@ class BasicContractCodecSpec extends WordSpec with Matchers {
 
       val seed = "seed".getBytes()
       val keyPair = KeyPair.fromBytes(seed, seed)
-      val signer = new signature.Signer.DumbSigner(keyPair)
+      val signAlgo = SignAlgo.dumb
+      val signer = signAlgo.signer(keyPair)
       val key = Key.fromKeyPair(keyPair).get
 
       Seq(
