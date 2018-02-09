@@ -97,18 +97,18 @@ class UPnP(
   /**
    * Add external port on gateway or fail with exception
    * @param externalPort External port to forward to local port
-   * @param localPort To handle requests
+   * @param contact To get localPort from, and set addr and external port to TODO it should not be there?
    * @return Contact with external address
    */
-  def addPort(externalPort: Int, localPort: Int): Task[Contact] =
+  def addPort(externalPort: Int, contact: Contact): Task[Contact] =
     gateway.flatMap { gw ⇒
-      log.info("Going to add port mapping: {} => {}", externalPort, localPort)
+      log.info("Going to add port mapping: {} => {}", externalPort, contact.port)
       Task(
-        gw.addPortMapping(externalPort, localPort, gw.getLocalAddress.getHostAddress, protocol, clientName)
+        gw.addPortMapping(externalPort, contact.port, gw.getLocalAddress.getHostAddress, protocol, clientName)
       ).flatMap {
           case true ⇒
             log.info("External port successfully mapped")
-            externalAddress.map(addr ⇒ Contact(addr, externalPort))
+            externalAddress.map(addr ⇒ contact.copy(ip = addr, port = externalPort))
 
           case false ⇒
             log.warn("Can't add port mapping")

@@ -4,8 +4,7 @@ package fluence.kad;
 
 message Node {
     bytes id = 1;
-    bytes ip = 2;
-    int32 port = 3;
+    bytes contact = 2;
 }
 
 message NodesResponse {

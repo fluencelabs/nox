@@ -20,18 +20,18 @@ package fluence.node
 import cats.~>
 import cats.instances.try_._
 import com.typesafe.config.ConfigFactory
-import fluence.kad.grpc.{ KademliaGrpc, KademliaNodeCodec }
+import fluence.kad.grpc.{KademliaGrpc, KademliaNodeCodec}
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
-import fluence.kad.protocol.{ Contact, Key }
+import fluence.kad.protocol.{Contact, Key}
 import fluence.transport.TransportSecurity
-import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
-import fluence.transport.grpc.server.GrpcServer
-import monix.eval.{ Coeval, Task }
+import fluence.transport.grpc.client.{GrpcClient, GrpcClientConf}
+import fluence.transport.grpc.server.{GrpcServer, GrpcServerConf}
+import monix.eval.{Coeval, Task}
 import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.time.{ Milliseconds, Seconds, Span }
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
+import org.scalatest.time.{Milliseconds, Seconds, Span}
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -51,11 +51,15 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   implicit val kadCodec = KademliaNodeCodec[Task]
 
+  private val config = ConfigFactory.load()
+
+  private val serverConf = GrpcServerConf.read[Try](config).get
+
+  private val clientConf = GrpcClientConf.read[Try](config).get
+
   class Node(val key: Key, val localPort: Int) {
 
-    private val serverBuilder = GrpcServer.builder(localPort)
-
-    private val clientConf = GrpcClientConf.read[Try](ConfigFactory.load()).get
+    private val serverBuilder = GrpcServer.builder(serverConf.copy(localPort =  localPort))
 
     private val client = GrpcClient.builder(key, serverBuilder.contact, clientConf)
       .add(KademliaClient.register[Task]())

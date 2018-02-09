@@ -27,6 +27,7 @@ import fluence.codec.Codec
 import fluence.kad.protocol
 import fluence.kad.protocol.{ Contact, Key }
 import com.google.protobuf.ByteString
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -35,18 +36,14 @@ object KademliaNodeCodec {
     Codec(
       obj ⇒ Node(
         id = ByteString.copyFrom(obj.key.id),
-        ByteString.copyFrom(obj.contact.ip.getAddress),
-        obj.contact.port
+        contact = ByteString.copyFrom(obj.contact.binary.toArray)
       ).pure[F],
       binary ⇒ Key.fromBytes(binary.id.toByteArray)
         .map(k ⇒ protocol.Node[Contact](
           k,
           // TODO: consider removing Instant.now(). It could be really incorrect, as nodes taken from lookup replies are not seen at the moment
           Instant.now(),
-          Contact(
-            InetAddress.getByAddress(binary.ip.toByteArray),
-            binary.port
-          )
+          Contact.readBinary(ByteVector(binary.contact.toByteArray)).value
         ))
     )
 }

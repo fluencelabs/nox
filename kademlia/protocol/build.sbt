@@ -4,5 +4,6 @@ commons
 
 libraryDependencies ++= Seq(
   scodecBits,
+  scodecCore,
   cats1
 )

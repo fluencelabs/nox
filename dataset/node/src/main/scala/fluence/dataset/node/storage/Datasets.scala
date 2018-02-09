@@ -21,13 +21,19 @@ import com.typesafe.config.Config
 import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.kad.protocol.Key
 import monix.eval.Task
 import monix.execution.atomic.AtomicLong
 import scodec.bits.{ Bases, ByteVector }
 
 import scala.collection.concurrent.TrieMap
 
-class Datasets(config: Config, cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]]) extends DatasetStorageRpc[Task] {
+class Datasets(
+    config: Config,
+    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
+    servesDataset: Key ⇒ Task[Boolean]
+) extends DatasetStorageRpc[Task] {
+
   private val datasets = TrieMap.empty[ByteVector, Task[DatasetStorage]]
 
   private def storage(datasetId: Array[Byte]): Task[DatasetStorage] = {
@@ -36,19 +42,25 @@ class Datasets(config: Config, cryptoHasher: CryptoHasher[Array[Byte], Array[Byt
 
     datasets.getOrElseUpdate(
       id,
-      DatasetStorage[Task](
-        id.toBase64(Bases.Alphabets.Base64Url),
-        config,
-        cryptoHasher,
-        () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere
-        mrHash ⇒ () // TODO: store mrHash somewhere
-      ).memoizeOnSuccess
+
+      Key.fromBytes[Task](datasetId)
+        .flatMap(servesDataset).flatMap{
+          case true ⇒ // TODO: ensure merkle roots matches
+            DatasetStorage[Task](
+              id.toBase64(Bases.Alphabets.Base64Url),
+              config,
+              cryptoHasher,
+              () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere
+              mrHash ⇒ () // TODO: store mrHash somewhere
+            ).memoizeOnSuccess
+
+          case false ⇒
+            Task.raiseError(new IllegalArgumentException("Dataset is not allocated on the node"))
+        }
     )
   }
 
   /**
-   * Initiates ''Get'' operation in remote MerkleBTree.
-   *
    * @param datasetId    Dataset ID
    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
@@ -57,8 +69,6 @@ class Datasets(config: Config, cryptoHasher: CryptoHasher[Array[Byte], Array[Byt
     storage(datasetId).flatMap(_.get(getCallbacks))
 
   /**
-   * Initiates ''Put'' operation in remote MerkleBTree.
-   *
    * @param datasetId      Dataset ID
    * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
    * @param encryptedValue Encrypted value.
@@ -68,8 +78,6 @@ class Datasets(config: Config, cryptoHasher: CryptoHasher[Array[Byte], Array[Byt
     storage(datasetId).flatMap(_.put(putCallbacks, encryptedValue))
 
   /**
-   * Initiates ''Remove'' operation in remote MerkleBTree.
-   *
    * @param datasetId       Dataset ID
    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
    * @return returns old value that was deleted, None if nothing was deleted.
