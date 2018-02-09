@@ -34,7 +34,6 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 import scala.util.control.NonFatal
 
-case class ECKeyPair(privateKey: BigInt, publicKey: BigInt)
 /**
  * Elliptic Curve Digital Signature Algorithm
  * @param curveType http://www.bouncycastle.org/wiki/display/JA1/Supported+Curves+%28ECDSA+and+ECGOST%29
