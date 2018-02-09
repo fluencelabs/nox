@@ -24,7 +24,6 @@ import cats.~>
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
 import fluence.crypto.SignAlgo
-import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
@@ -54,6 +53,7 @@ import scala.concurrent.duration._
 
 class NodeComposer(
     keyPair: KeyPair,
+    algo: SignAlgo,
     config: Config,
     getInfo: () ⇒ Task[NodeInfo],
     contractsCacheStoreName: String = "fluence_contractsCache") {
@@ -104,8 +104,6 @@ class NodeComposer(
       // TODO: externalize creation of signer/checker somehow
 
     } yield new NodeServices[Task, BasicContract, Contact] {
-
-      private val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
 
       private val client = ClientComposer.grpc[Task](GrpcClient.builder(k, serverBuilder.contact, clientConf))
 

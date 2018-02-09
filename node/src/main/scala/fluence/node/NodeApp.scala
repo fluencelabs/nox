@@ -22,7 +22,7 @@ import java.io.File
 import cats.MonadError
 import cats.syntax.show._
 import com.typesafe.config.ConfigFactory
-import fluence.crypto.FileKeyStorage
+import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.keypair.KeyPair
 import fluence.info.NodeInfo
@@ -47,10 +47,12 @@ object NodeApp extends App {
     ()
   }
 
+  val algo: SignAlgo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+
   def getKeyPair[F[_]](keyPath: String)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
     val keyFile = new File(keyPath)
     val keyStorage = new FileKeyStorage[F](keyFile)
-    keyStorage.getOrCreateKeyPair(Ecdsa.ecdsa_secp256k1_sha256[F].generateKeyPair())
+    keyStorage.getOrCreateKeyPair(algo.generateKeyPair[F]())
   }
 
   def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
@@ -120,7 +122,7 @@ object NodeApp extends App {
 
   val serverKad = for {
     kp ← getKeyPair[Task](config.getString("fluence.keyPath"))
-    nodeComposer = new NodeComposer(kp, config, () ⇒ Task.now(NodeInfo(gitHash)))
+    nodeComposer = new NodeComposer(kp, algo, config, () ⇒ Task.now(NodeInfo(gitHash)))
     services ← nodeComposer.services
     server ← nodeComposer.server
     _ ← server.start()
