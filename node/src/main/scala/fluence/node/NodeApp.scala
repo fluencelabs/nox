@@ -19,20 +19,22 @@ package fluence.node
 
 import java.io.File
 
-import cats.instances.try_._
+import cats.MonadError
 import cats.syntax.show._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.FileKeyStorage
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.keypair.KeyPair
 import fluence.info.NodeInfo
+import fluence.kad.Kademlia
 import fluence.kad.protocol.{ Contact, Key }
-import monix.eval.{ Coeval, Task }
+import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.slf4j.LoggerFactory
 
 import scala.io.StdIn
-import scala.util.{ Failure, Success, Try }
+import scala.concurrent.duration._
+import scala.language.higherKinds
 
 object NodeApp extends App {
 
@@ -45,10 +47,10 @@ object NodeApp extends App {
     ()
   }
 
-  def getKeyPair(keyPath: String): Try[KeyPair] = {
+  def getKeyPair[F[_]](keyPath: String)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
     val keyFile = new File(keyPath)
-    val keyStorage = new FileKeyStorage[Try](keyFile)
-    keyStorage.getOrCreateKeyPair(Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair())
+    val keyStorage = new FileKeyStorage[F](keyFile)
+    keyStorage.getOrCreateKeyPair(Ecdsa.ecdsa_secp256k1_sha256[F].generateKeyPair())
   }
 
   def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
@@ -63,73 +65,91 @@ object NodeApp extends App {
 
   println(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
 
-  val keyPairE = getKeyPair(config.getString("fluence.keyPath"))
-
-  keyPairE.failed.foreach { e ⇒
-    log.error("Cannot read or store secret key", e)
-    System.exit(1)
-  }
-
-  val nodeComposer = new NodeComposer(keyPairE.get, () ⇒ Task.now(NodeInfo(gitHash)))
-
-  import nodeComposer.{ kad, server }
-
-  server.start().attempt.runAsync.foreach {
-    case Left(err) ⇒
-      log.error("Can't launch server", err)
-
-    case Right(_) ⇒
-      log.info("Server launched")
-
-      server.contact.foreach { contact ⇒
-        println("Your contact is: " + contact.show)
-        println("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
-      }
-  }
-
-  while (true) {
-
-    cmd("join(j) / lookup(l)")
-
-    StdIn.readLine() match {
+  def handleCmds(kad: Kademlia[Task, Contact]): Task[Unit] = {
+    val readLine = Task(StdIn.readLine())
+    lazy val handle: Task[Unit] = readLine.flatMap {
       case "j" | "join" ⇒
         cmd("join seed?")
-        val p = StdIn.readLine()
-        Coeval.fromEval(
-          Contact.readB64seed(p)
-        ).memoize.attempt.value match {
+        readLine.flatMap { p ⇒
+          Task.fromEval(Contact.readB64seed(p)).attempt.flatMap {
             case Left(err) ⇒
               log.error("Can't read the seed", err)
-
+              handle
             case Right(c) ⇒
-              kad.join(Seq(c), 16).runAsync.onComplete {
-                case Success(_) ⇒ cmd("ok")
-                case Failure(e) ⇒
-                  log.error("Can't join", e)
+              kad.join(Seq(c), 16).attempt.flatMap {
+                case Right(_) ⇒
+                  cmd("OK")
+                  handle
+
+                case Left(err) ⇒
+                  log.error("Can't join", err)
+                  handle
               }
           }
+        }
 
       case "l" | "lookup" ⇒
-        cmd("lookup myself")
+
         kad.handleRPC
           .lookup(Key.XorDistanceMonoid.empty, 10)
           .map(_.map(_.show).mkString("\n"))
           .map(println)
-          .runAsync.onComplete {
-            case Success(_) ⇒ println("ok")
-            case Failure(e) ⇒
+          .attempt
+          .flatMap {
+            case Right(_) ⇒
+              println("ok")
+              handle
+            case Left(e) ⇒
               log.error("Can't lookup", e)
+              handle
           }
 
       case "s" | "seed" ⇒
-        server.contact.map(_.b64seed).runAsync.foreach(cmd)
+        kad.ownContact.map(_.contact).map(_.b64seed).map(cmd).flatMap(_ ⇒ handle)
 
       case "q" | "quit" | "x" | "exit" ⇒
         cmd("exit")
-        System.exit(0)
+        Task.unit
 
       case _ ⇒
-    }
+        handle
+    }.asyncBoundary
+
+    handle
   }
+
+  val serverKad = for {
+    kp ← getKeyPair[Task](config.getString("fluence.keyPath"))
+    nodeComposer = new NodeComposer(kp, config, () ⇒ Task.now(NodeInfo(gitHash)))
+    services ← nodeComposer.services
+    server ← nodeComposer.server
+    _ ← server.start()
+    contact ← server.contact
+  } yield {
+
+    sys.addShutdownHook {
+      System.err.println("*** shutting down gRPC server since JVM is shutting down")
+      server.shutdown(5.seconds)
+      System.err.println("*** server shut down")
+    }
+
+    log.info("Server launched")
+    println("Your contact is: " + contact.show)
+    println("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
+
+    services.kademlia
+  }
+
+  println("Going to run Fluence Server...")
+
+  serverKad.flatMap(handleCmds)
+    .toIO
+    .attempt
+    .unsafeRunSync() match {
+      case Left(err) ⇒
+        err.printStackTrace()
+        log.error("Error", err)
+      case Right(_) ⇒ println("Bye!")
+    }
 
 }

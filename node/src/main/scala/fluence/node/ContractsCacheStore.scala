@@ -37,6 +37,7 @@ import fluence.transport.grpc.GrpcCodecs._
 import cats.{ ApplicativeError, MonadError, Traverse }
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import com.typesafe.config.{ Config, ConfigFactory }
 
 import scala.language.higherKinds
 
@@ -146,7 +147,7 @@ object ContractsCacheStore {
       )
     }
 
-  def apply[F[_]](storeName: String)(implicit F: ApplicativeError[F, Throwable]): F[KVStore[Task, Key, ContractRecord[BasicContract]]] = {
+  def apply[F[_]](storeName: String, config: Config)(implicit F: MonadError[F, Throwable]): F[KVStore[Task, Key, ContractRecord[BasicContract]]] = {
     import Key.bytesCodec
 
     implicit val contractRecordCodec: Codec[Task, ContractRecord[BasicContract], Array[Byte]] =
@@ -155,6 +156,6 @@ object ContractsCacheStore {
         bytes ⇒ Task(BasicContractCache.parseFrom(bytes))
       )
 
-    RocksDbStore(storeName).map(s ⇒ s)
+    RocksDbStore(storeName, config).map(s ⇒ s)
   }
 }

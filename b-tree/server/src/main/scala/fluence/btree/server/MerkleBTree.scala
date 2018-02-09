@@ -19,9 +19,10 @@ package fluence.btree.server
 
 import java.nio.ByteBuffer
 
-import cats.ApplicativeError
+import cats.{ ApplicativeError, MonadError }
 import cats.syntax.show._
 import cats.syntax.functor._
+import com.typesafe.config.Config
 import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
 import fluence.btree.common.{ ClientPutDetails, Hash, Key, ValueRef }
@@ -558,18 +559,22 @@ object MerkleBTree {
   def apply[F[_]](
     treeId: String,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    conf: MerkleBTreeConfig = MerkleBTreeConfig.read()
-  )(implicit F: ApplicativeError[F, Throwable]): F[MerkleBTree] =
-    defaultStore[F](treeId).map(
-      new MerkleBTree(conf, _, NodeOps(cryptoHasher))
-    )
+    conf: Config
+  )(implicit F: MonadError[F, Throwable]): F[MerkleBTree] =
+    F.map2(
+      defaultStore(treeId, conf),
+      MerkleBTreeConfig.read(conf)
+    ) {
+        (store, conf) ⇒
+          new MerkleBTree(conf, store, NodeOps(cryptoHasher))
+      }
 
   /**
    * Default tree store with RockDb key-value storage under the hood.
    *
    * @param id Unique id of tree used as RockDb data folder name.
    */
-  private def defaultStore[F[_]](id: String)(implicit F: ApplicativeError[F, Throwable]): F[BTreeStore[Task, Long, Node]] = {
+  private def defaultStore[F[_]](id: String, conf: Config)(implicit F: MonadError[F, Throwable]): F[BTreeStore[Task, Long, Node]] = {
     val codecs = KryoCodecs()
       .add[Key]
       .add[Array[Key]]
@@ -584,7 +589,7 @@ object MerkleBTree {
       .addCase(classOf[Branch])
       .build[Task]()
     import codecs._
-    RocksDbStore[F](id).map(new BTreeBinaryStore[Task, NodeId, Node](_))
+    RocksDbStore[F](id, conf).map(new BTreeBinaryStore[Task, NodeId, Node](_))
   }
 
   /**

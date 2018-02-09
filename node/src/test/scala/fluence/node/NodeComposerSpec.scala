@@ -17,21 +17,17 @@
 
 package fluence.node
 
-import java.nio.ByteBuffer
-import java.util.Base64
-
 import fluence.client.ClientComposer
 import cats.instances.future._
 import cats.~>
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature
-import fluence.crypto.signature.{ SignatureChecker, Signer }
+import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
+import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.algorithm
 import fluence.dataset.BasicContract
 import fluence.dataset.protocol.ContractsApi
 import fluence.info.NodeInfo
 import fluence.kad.protocol.Key
 import fluence.transport.grpc.client.GrpcClient
-import fluence.transport.grpc.server.GrpcServerConf
 import monix.eval.Task
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import org.scalatest.concurrent.ScalaFutures
@@ -52,19 +48,18 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
 
   private val pureClient = ClientComposer.grpc[Future](GrpcClient.builder)
 
+  private val config = ConfigFactory.load()
+
   private val servers = (0 to 20).map { n ⇒
     val port = 3100 + n
 
-    val seedBytes = {
-      val bb = ByteBuffer.allocate(Integer.BYTES)
-      bb.putInt(port)
-      bb.array()
-    }
-
     new NodeComposer(
-      KeyPair.fromBytes(seedBytes, seedBytes),
+      Ecdsa.ecdsa_secp256k1_sha256[Future].generateKeyPair().futureValue,
+      config
+        .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
+        .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
+        .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true)),
       () ⇒ Task.now(NodeInfo("test")),
-      GrpcServerConf(localPort = port, externalPort = None, acceptLocal = true),
       "node_cache_" + n
     )
   }
@@ -72,14 +67,14 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
   "Node composer simulation" should {
     "launch 20 nodes and join network" in {
       servers.foreach { s ⇒
-        s.server.start().runAsync.futureValue
+        s.server.flatMap(_.start()).runAsync.futureValue
       }
 
-      val firstContact = servers.head.server.contact.runAsync.futureValue
-      val secondContact = servers.tail.head.server.contact.runAsync.futureValue
+      val firstContact = servers.head.server.flatMap(_.contact).runAsync.futureValue
+      val secondContact = servers.tail.head.server.flatMap(_.contact).runAsync.futureValue
 
       servers.foreach { s ⇒
-        s.kad.join(Seq(firstContact, secondContact), 8).runAsync.futureValue
+        s.services.flatMap(_.kademlia.join(Seq(firstContact, secondContact), 8)).runAsync.futureValue
       }
 
       /*servers.foreach { s ⇒
@@ -101,18 +96,18 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
       import fluence.dataset.contract.ContractWrite._
       import fluence.dataset.contract.ContractRead._
 
-      val contractsApi = pureClient.service[ContractsApi[Future, BasicContract]](servers.head.server.contact.runAsync.futureValue)
+      val contractsApi = pureClient.service[ContractsApi[Future, BasicContract]](servers.head.server.flatMap(_.contact).runAsync.futureValue)
 
       contractsApi.find(Key.fromString[Future]("hi there").futureValue).failed.futureValue
 
-      val seed = Array[Byte](1, 2, 3, 4, 5)
-      val kp = KeyPair.fromBytes(seed, seed)
+      val kp = Ecdsa.ecdsa_secp256k1_sha256[Future].generateKeyPair().futureValue
       val key = Key.fromKeyPair[Future](kp).futureValue
-      val signer = new signature.Signer.DumbSigner(kp)
+      val signer = new algorithm.Ecdsa.Signer(kp)
       val offer = BasicContract.offer(key, participantsRequired = 4, signer = signer).futureValue
 
-      offer.checkOfferSeal(SignatureChecker.DumbChecker).futureValue shouldBe true
+      offer.checkOfferSeal(Ecdsa.Checker).futureValue shouldBe true
 
+      // TODO: add test with wrong signature or other errors
       val accepted = contractsApi.allocate(offer, bc ⇒
         {
           Future successful bc.sealParticipants(signer).futureValue
@@ -128,7 +123,7 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
 
   override protected def afterAll(): Unit = {
     super.afterAll()
-    servers.foreach(_.server.shutdown(1.second))
+    servers.foreach(_.server.foreach(_.shutdown(1.second)))
   }
 
 }

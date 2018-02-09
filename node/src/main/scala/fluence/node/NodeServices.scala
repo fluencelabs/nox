@@ -15,26 +15,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport.grpc.server
+package fluence.node
 
-import cats.ApplicativeError
-import com.typesafe.config.Config
+import fluence.crypto.signature.Signer
+import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsApi, ContractsCacheRpc }
+import fluence.info.NodeInfoRpc
+import fluence.kad.Kademlia
+import fluence.kad.protocol.Key
 
 import scala.language.higherKinds
 
-case class GrpcServerConf(
-    localPort: Int,
-    externalPort: Option[Int],
-    acceptLocal: Boolean
-)
+abstract class NodeServices[F[_], Contract, Contact] {
 
-object GrpcServerConf {
-  val ConfigPath = "fluence.transport.grpc.server"
+  def key: Key
 
-  def read[F[_]](config: Config, path: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[GrpcServerConf] =
-    F.catchNonFatal {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      config.as[GrpcServerConf](path)
-    }
+  def signer: Signer
+
+  def kademlia: Kademlia[F, Contact]
+
+  def contracts: ContractsApi[F, Contract]
+
+  def contractsCache: ContractsCacheRpc[F, Contract]
+
+  def contractAllocator: ContractAllocatorRpc[F, Contract]
+
+  def info: NodeInfoRpc[F]
+
+  def datasets: DatasetStorageRpc[F]
+
 }

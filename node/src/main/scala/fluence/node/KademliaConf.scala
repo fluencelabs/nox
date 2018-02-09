@@ -17,16 +17,18 @@
 
 package fluence.node
 
-import com.typesafe.config.{ Config, ConfigFactory }
+import cats.ApplicativeError
+import com.typesafe.config.Config
 
 import scala.concurrent.duration.Duration
+import scala.language.higherKinds
 
 /**
  *
  * @param maxSiblingsSize Maximum number of siblings to store, e.g. K * Alpha
- * @param maxBucketSize Maximum size of a bucket, usually K
- * @param parallelism Parallelism factor (named Alpha in paper)
- * @param pingExpiresIn Duration to avoid too frequent ping requests, used in [[fluence.kad.Bucket.update]]
+ * @param maxBucketSize   Maximum size of a bucket, usually K
+ * @param parallelism     Parallelism factor (named Alpha in paper)
+ * @param pingExpiresIn   Duration to avoid too frequent ping requests, used in [[fluence.kad.Bucket.update]]
  */
 case class KademliaConf(
     maxBucketSize: Int,
@@ -38,10 +40,11 @@ case class KademliaConf(
 object KademliaConf {
   val ConfigPath = "fluence.network.kademlia"
 
-  def read(path: String = ConfigPath, config: Config = ConfigFactory.load()): KademliaConf = {
-    import net.ceedubs.ficus.Ficus._
-    import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-    config.as[KademliaConf](path)
-  }
+  def read[F[_]](config: Config, path: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[KademliaConf] =
+    F.catchNonFatal{
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      config.as[KademliaConf](path)
+    }
 }
 

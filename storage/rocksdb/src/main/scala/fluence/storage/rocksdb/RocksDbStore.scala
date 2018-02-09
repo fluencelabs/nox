@@ -21,8 +21,9 @@ import java.io.File
 
 import com.typesafe.config.{ Config, ConfigFactory }
 import RocksDbStore._
-import cats.ApplicativeError
+import cats.{ ApplicativeError, MonadError }
 import cats.syntax.functor._
+import cats.syntax.flatMap._
 import fluence.storage.{ KVStore, TraversableKVStore }
 import monix.eval.{ Task, TaskSemaphore }
 import monix.reactive.Observable
@@ -121,11 +122,11 @@ object RocksDbStore {
   type Key = Array[Byte]
   type Value = Array[Byte]
 
-  def apply[F[_]](dataSet: String)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] =
+  def apply[F[_]](dataSet: String)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
     apply(dataSet, ConfigFactory.load())
 
-  def apply[F[_]](dataSet: String, conf: Config)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] =
-    apply(dataSet, RocksDbConf.read(conf = conf))
+  def apply[F[_]](dataSet: String, conf: Config)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
+    RocksDbConf.read(conf).flatMap(apply(dataSet, _))
 
   def apply[F[_]](dataSet: String, config: RocksDbConf)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] = {
     val dbRoot = s"${config.dataDir}/$dataSet"
@@ -155,9 +156,10 @@ case class RocksDbConf(dataDir: String, createIfMissing: Boolean)
 object RocksDbConf {
   val ConfigPath = "fluence.node.storage.rocksDb"
 
-  def read(name: String = ConfigPath, conf: Config = ConfigFactory.load()): RocksDbConf = {
-    import net.ceedubs.ficus.Ficus._
-    import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-    conf.as[RocksDbConf](name)
-  }
+  def read[F[_]](conf: Config, name: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbConf] =
+    F.catchNonFatal{
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      conf.as[RocksDbConf](name)
+    }
 }

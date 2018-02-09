@@ -101,7 +101,7 @@ object GrpcServer {
      * @param cb To be called on ready and on each message
      * @param clientConf Conf to get header names from
      */
-    def onNodeActivity(cb: Node[Contact] ⇒ Task[Any], clientConf: GrpcClientConf = GrpcClientConf.read()): Builder =
+    def onNodeActivity(cb: Node[Contact] ⇒ Task[Any], clientConf: GrpcClientConf): Builder =
       addInterceptor(new ServerInterceptor {
         override def interceptCall[ReqT, RespT](call: ServerCall[ReqT, RespT], headers: Metadata, next: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
           val remoteKey =
@@ -189,10 +189,4 @@ object GrpcServer {
   def builder(conf: GrpcServerConf): Builder =
     conf.externalPort.fold(builder(conf.localPort))(ext ⇒ builder(conf.localPort, ext))
 
-  /**
-   * Builder for default config object, read from typesafe conf
-   * @return
-   */
-  def builder: Builder =
-    builder(GrpcServerConf.read())
 }

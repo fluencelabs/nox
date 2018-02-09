@@ -17,13 +17,16 @@
 
 package fluence.btree.server
 
-import com.typesafe.config.{ Config, ConfigFactory }
+import cats.ApplicativeError
+import com.typesafe.config.Config
+
+import scala.language.higherKinds
 
 /**
  * Configuration for [[MerkleBTree]]
  *
- * @param arity Maximum size of node (max number of tree node keys)
- * @param alpha Minimum capacity factor of node. Should be between 0 and 0.5.
+ * @param arity  Maximum size of node (max number of tree node keys)
+ * @param alpha  Minimum capacity factor of node. Should be between 0 and 0.5.
  *               0.25 means that each node except root should always contains between 25% and 100% children.
  */
 case class MerkleBTreeConfig(
@@ -38,10 +41,11 @@ object MerkleBTreeConfig {
 
   val ConfigPath = "fluence.merkle.btree"
 
-  def read(configPath: String = ConfigPath, conf: Config = ConfigFactory.load()): MerkleBTreeConfig = {
-    import net.ceedubs.ficus.Ficus._
-    import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-    conf.as[MerkleBTreeConfig](configPath)
-  }
+  def read[F[_]](conf: Config, configPath: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[MerkleBTreeConfig] =
+    F.catchNonFatal {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      conf.as[MerkleBTreeConfig](configPath)
+    }
 
 }

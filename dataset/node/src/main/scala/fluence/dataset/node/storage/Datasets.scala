@@ -17,17 +17,17 @@
 
 package fluence.dataset.node.storage
 
-import fluence.btree.common
+import com.typesafe.config.Config
 import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import monix.eval.Task
-import monix.execution.atomic.{ AtomicInt, AtomicLong }
+import monix.execution.atomic.AtomicLong
 import scodec.bits.{ Bases, ByteVector }
 
 import scala.collection.concurrent.TrieMap
 
-class Datasets(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]]) extends DatasetStorageRpc[Task] {
+class Datasets(config: Config, cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]]) extends DatasetStorageRpc[Task] {
   private val datasets = TrieMap.empty[ByteVector, Task[DatasetStorage]]
 
   private def storage(datasetId: Array[Byte]): Task[DatasetStorage] = {
@@ -38,6 +38,7 @@ class Datasets(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]]) extends Dat
       id,
       DatasetStorage[Task](
         id.toBase64(Bases.Alphabets.Base64Url),
+        config,
         cryptoHasher,
         () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere
         mrHash ⇒ () // TODO: store mrHash somewhere
