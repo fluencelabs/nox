@@ -21,15 +21,15 @@ import cats.instances.try_._
 import com.typesafe.config.ConfigFactory
 import monix.eval.Task
 import monix.execution.schedulers.TestScheduler
-import monix.execution.{ExecutionModel, Scheduler}
+import monix.execution.{ ExecutionModel, Scheduler }
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{times, verify}
-import org.mockito.{ArgumentMatchers, Mockito}
+import org.mockito.Mockito.{ times, verify }
+import org.mockito.{ ArgumentMatchers, Mockito }
 import org.rocksdb._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.time.{Milliseconds, Seconds, Span}
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
+import org.scalatest.time.{ Milliseconds, Seconds, Span }
+import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 
 import scala.concurrent.duration._
 import scala.reflect.io.Path

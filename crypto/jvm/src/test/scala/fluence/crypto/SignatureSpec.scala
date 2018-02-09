@@ -52,37 +52,34 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
     }
 
     "correctly work with signer and checker" in {
-      val keys = Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair().get
-      val signer = new Ecdsa.Signer(keys)
+      val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+      val keys = algo.generateKeyPair().get
+      val signer = algo.signer(keys)
 
       val data = rndByteVector(10)
       val sign = signer.sign(data).get
 
-      Ecdsa.Checker.check(sign, data).get shouldBe true
+      algo.checker.check(sign, data).get shouldBe true
 
       val randomSign = signer.sign(rndByteVector(10)).get
-      Ecdsa.Checker.check(randomSign, data).get shouldBe false
+      algo.checker.check(randomSign, data).get shouldBe false
     }
 
     "throw an errors on invalid data" in {
-      val keys = Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair().get
-      val signer = new Ecdsa.Signer(keys)
+      val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+      val keys = algo.generateKeyPair().get
+      val signer = algo.signer(keys)
       val data = rndByteVector(10)
-
-      val brokenSecret = keys.copy(secretKey = KeyPair.Secret(rndByteVector(10)))
-      val brokenSigner = new Ecdsa.Signer(brokenSecret)
-
-      the[CryptoErr] thrownBy brokenSigner.sign(data).get
 
       val sign = signer.sign(data).get
 
-      the[CryptoErr] thrownBy Ecdsa.Checker.check(sign.copy(sign = rndByteVector(10)), data).get
-      the[CryptoErr] thrownBy Ecdsa.Checker.check(sign.copy(publicKey = sign.publicKey.copy(value = rndByteVector(10))), data).get
+      the[CryptoErr] thrownBy algo.checker.check(sign.copy(sign = rndByteVector(10)), data).get
+      the[CryptoErr] thrownBy algo.checker.check(sign.copy(publicKey = sign.publicKey.copy(value = rndByteVector(10))), data).get
     }
 
     "store and read key from file" in {
-      val seed = rndBytes(32)
-      val keys = Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair(new SecureRandom(seed)).get
+      val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+      val keys = algo.generateKeyPair().get
 
       val keyFile = File.createTempFile("test", "")
       if (keyFile.exists()) keyFile.delete()
@@ -93,12 +90,12 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
       val keysReadE = storage.readKeyPair
       val keysRead = keysReadE.get
 
-      val signer = new Ecdsa.Signer(keys)
+      val signer = algo.signer(keys)
       val data = rndByteVector(10)
       val sign = signer.sign(data).get
 
-      Ecdsa.Checker.check(sign.copy(publicKey = keysRead.publicKey), data).get shouldBe true
-      Ecdsa.Checker.check(sign, data).get shouldBe true
+      algo.checker.check(sign.copy(publicKey = keysRead.publicKey), data).get shouldBe true
+      algo.checker.check(sign, data).get shouldBe true
 
       //try to store key into previously created file
       storage.storeSecretKey(keys).isFailure shouldBe true

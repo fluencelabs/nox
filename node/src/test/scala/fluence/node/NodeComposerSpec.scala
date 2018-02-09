@@ -22,7 +22,7 @@ import cats.instances.future._
 import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.algorithm
+import fluence.crypto.{ SignAlgo, algorithm }
 import fluence.dataset.BasicContract
 import fluence.dataset.protocol.ContractsApi
 import fluence.info.NodeInfo
@@ -102,10 +102,11 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
 
       val kp = Ecdsa.ecdsa_secp256k1_sha256[Future].generateKeyPair().futureValue
       val key = Key.fromKeyPair[Future](kp).futureValue
-      val signer = new algorithm.Ecdsa.Signer(kp)
+      val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+      val signer = algo.signer(kp)
       val offer = BasicContract.offer(key, participantsRequired = 4, signer = signer).futureValue
 
-      offer.checkOfferSeal(Ecdsa.Checker).futureValue shouldBe true
+      offer.checkOfferSeal(algo.checker).futureValue shouldBe true
 
       // TODO: add test with wrong signature or other errors
       val accepted = contractsApi.allocate(offer, bc ⇒

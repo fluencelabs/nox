@@ -17,18 +17,10 @@
 
 package fluence.crypto.signature
 
-import cats.MonadError
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-trait SignatureChecker {
-  def check[F[_]](signature: Signature, plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean]
-}
-
-object SignatureChecker {
-  case object DumbChecker extends SignatureChecker {
-    override def check[F[_]](signature: Signature, plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean] =
-      F.pure(signature.sign == plain.reverse)
-  }
+trait SignatureChecker[F[_]] {
+  def check(signature: Signature, plain: ByteVector): F[Boolean]
 }

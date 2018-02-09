@@ -59,8 +59,8 @@ abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact]
     checkAllocationPossible: Contract ⇒ F[Unit],
     maxFindRequests: Int,
     maxAllocateRequests: Int ⇒ Int,
-    checker: SignatureChecker,
-    signer: Signer,
+    checker: SignatureChecker[F],
+    signer: Signer[F],
     cacheTtl: FiniteDuration,
     kademlia: Kademlia[F, Contact]
 )(implicit ME: MonadError[F, Throwable], eq: Eq[Contract], P: Parallel[F, F])

@@ -21,7 +21,7 @@ import cats.instances.try_._
 import cats.~>
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
-import fluence.crypto.algorithm
+import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keypair.KeyPair
@@ -101,14 +101,14 @@ class NodeComposer(
 
     } yield new NodeServices[Task, BasicContract, Contact] {
 
-      private val nodeSigner = new algorithm.Ecdsa.Signer(keyPair)
-      private val checker = Ecdsa.Checker
+      private val algo = new SignAlgo[Task](Ecdsa.ecdsa_secp256k1_sha256)
+      private val checker = algo.checker
 
       private val client = ClientComposer.grpc[Task](GrpcClient.builder(k, serverBuilder.contact, clientConf))
 
       override val key: Key = k
 
-      override val signer: Signer = nodeSigner
+      override val signer: Signer[Task] = algo.signer(keyPair)
 
       override lazy val kademlia: Kademlia[Task, Contact] = new KademliaService(
         k,
@@ -126,7 +126,7 @@ class NodeComposer(
         maxFindRequests = 100,
         maxAllocateRequests = n ⇒ 30 * n,
         checker = checker,
-        signer = nodeSigner,
+        signer = signer,
         cacheTtl = 1.day,
         kademlia = kademlia
       ) {

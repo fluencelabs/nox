@@ -19,8 +19,9 @@ package fluence.dataset.node
 
 import cats.effect.IO
 import cats.instances.try_._
+import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{ Signature, SignatureChecker, Signer }
+import fluence.crypto.signature.Signature
 import fluence.dataset.BasicContract
 import fluence.dataset.node.contract.ContractRecord
 import fluence.dataset.protocol.ContractAllocatorRpc
@@ -29,8 +30,8 @@ import fluence.storage.{ KVStore, TrieMapKVStore }
 import org.scalatest.{ Matchers, WordSpec }
 import scodec.bits.ByteVector
 
-import scala.language.higherKinds
 import scala.concurrent.duration._
+import scala.language.higherKinds
 import scala.util.Try
 
 class ContractAllocatorSpec extends WordSpec with Matchers {
@@ -42,9 +43,11 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
   val nodeId: Key = Key.fromPublicKey[IO](keypair.publicKey).unsafeRunSync()
 
-  val signer = new Signer.DumbSigner(keypair)
+  val signAlgo = SignAlgo.dumb[IO]
+  val signAlgoTry = SignAlgo.dumb[Try]
+  val signer = signAlgo.signer(keypair)
 
-  val checker = SignatureChecker.DumbChecker
+  val checker = signAlgo.checker
 
   val createDS: BasicContract ⇒ IO[Unit] = c ⇒ {
     if (denyDS(c.id)) IO.raiseError(new IllegalArgumentException(s"Can't create dataset for ${c.id}"))
@@ -67,12 +70,12 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
     new ContractsCache[IO, BasicContract](nodeId, store, checker, 1.minute)
 
   def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
-    val s = offerSigner(seed)
+    val s = offerSigner(signAlgoTry, seed)
     BasicContract.offer[Try](Key.fromPublicKey[IO](s.publicKey).unsafeRunSync(), participantsRequired, s).get
   }
 
-  def offerSigner(seed: String) = {
-    new Signer.DumbSigner(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
+  def offerSigner[F[_]](signAlgo: SignAlgo[F], seed: String) = {
+    signAlgo.signer(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
   }
 
   "contract allocator" should {
@@ -126,7 +129,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       val contract = offer("should not allocate, as not a participant")
       allocator.allocate(contract).attempt.unsafeRunSync().isLeft shouldBe true
 
-      val s2 = offerSigner("signer some")
+      val s2 = offerSigner(signAlgoTry, "signer some")
       import fluence.dataset.contract.ContractWrite._
 
       val c2 = offer("should not allocate, as not a participant, even with a list of participants")
@@ -137,7 +140,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
     "reject allocation on the same conditions as it was an offer" in {
       val offerC = offer("should accept offer, but reject allocation")
-      val signer = offerSigner("should accept offer, but reject allocation")
+      val signer = offerSigner(signAlgoTry, "should accept offer, but reject allocation")
       val accepted = allocator.offer(offerC).unsafeRunSync()
 
       import fluence.dataset.contract.ContractWrite._
@@ -153,7 +156,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       import fluence.dataset.contract.ContractWrite._
 
       val offerC = offer("should accept offer and allocate")
-      val signer = offerSigner("should accept offer and allocate")
+      val signer = offerSigner(signAlgoTry, "should accept offer and allocate")
       val accepted = allocator.offer(offerC).unsafeRunSync().sealParticipants(signer).get
       val contract = allocator.allocate(accepted).unsafeRunSync()
 

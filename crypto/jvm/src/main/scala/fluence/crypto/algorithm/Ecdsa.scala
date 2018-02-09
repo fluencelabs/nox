@@ -17,22 +17,24 @@
 
 package fluence.crypto.algorithm
 
+import java.math.BigInteger
 import java.security._
-import java.security.spec.{ PKCS8EncodedKeySpec, X509EncodedKeySpec }
+import java.security.interfaces.ECPrivateKey
 
 import cats.MonadError
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.SignatureChecker
 import org.bouncycastle.jce.ECNamedCurveTable
+import org.bouncycastle.jce.interfaces.ECPublicKey
 import org.bouncycastle.jce.provider.BouncyCastleProvider
-import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec
+import org.bouncycastle.jce.spec.{ ECNamedCurveParameterSpec, ECParameterSpec, ECPrivateKeySpec, ECPublicKeySpec }
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 import scala.util.control.NonFatal
 
+case class ECKeyPair(privateKey: BigInt, publicKey: BigInt)
 /**
  * Elliptic Curve Digital Signature Algorithm
  * @param curveType http://www.bouncycastle.org/wiki/display/JA1/Supported+Curves+%28ECDSA+and+ECGOST%29
@@ -49,7 +51,6 @@ class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, T
   }
 
   override def generateKeyPair(random: SecureRandom): F[KeyPair] = {
-    import JavaAlgorithm._
     for {
       ecSpecOp ← F.pure(Option(ECNamedCurveTable.getParameterSpec(curveType)))
       ecSpec ← ecSpecOp match {
@@ -59,8 +60,12 @@ class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, T
       g ← getKeyPairGenerator
       _ ← nonFatalHandling(g.initialize(ecSpec, random))("Could not initialize KeyPairGenerator.")
       keyPair ← Option(g.generateKeyPair()) match {
-        case Some(p) ⇒ F.pure(p)
-        case None    ⇒ F.raiseError[java.security.KeyPair](CryptoErr("Could not generate KeyPair. Unexpected."))
+        case Some(p) ⇒
+          //store S number for private key and compressed Q point on curve for public key
+          val pk = p.getPublic.asInstanceOf[ECPublicKey].getQ.getEncoded(true)
+          val sk = p.getPrivate.asInstanceOf[ECPrivateKey].getS.toByteArray
+          F.pure(KeyPair.fromBytes(pk, sk))
+        case None ⇒ F.raiseError[KeyPair](CryptoErr("Could not generate KeyPair. Unexpected."))
       }
     } yield keyPair
   }
@@ -79,8 +84,9 @@ class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, T
   }
 
   private def signMessage(privateKey: Array[Byte], message: Array[Byte]): F[Array[Byte]] = {
-    val keySpec = new PKCS8EncodedKeySpec(privateKey)
     for {
+      ec ← curveSpec
+      keySpec ← nonFatalHandling(new ECPrivateKeySpec(new BigInteger(privateKey), ec))("Cannot read private key.")
       keyFactory ← getKeyFactory
       signProvider ← getSignatureProvider
       sign ← {
@@ -94,8 +100,9 @@ class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, T
   }
 
   private def verifySign(publicKey: Array[Byte], message: Array[Byte], signature: Array[Byte]): F[Boolean] = {
-    val keySpec = new X509EncodedKeySpec(publicKey)
     for {
+      ec ← curveSpec
+      keySpec ← nonFatalHandling(new ECPublicKeySpec(ec.getCurve.decodePoint(publicKey), ec))("Cannot read public key.")
       keyFactory ← getKeyFactory
       signProvider ← getSignatureProvider
       verify ← {
@@ -107,6 +114,9 @@ class Ecdsa[F[_]](curveType: String, scheme: String)(implicit F: MonadError[F, T
       }
     } yield verify
   }
+
+  private lazy val curveSpec =
+    nonFatalHandling(ECNamedCurveTable.getParameterSpec(curveType).asInstanceOf[ECParameterSpec])("Cannot get curve parameters.")
 
   private lazy val getKeyPairGenerator =
     nonFatalHandling(KeyPairGenerator.getInstance(ECDSA, BouncyCastleProvider.PROVIDER_NAME))("Cannot get key pair generator.")
@@ -128,16 +138,4 @@ object Ecdsa {
    * `SHA256withECDSA` Preferably the size of the key is greater than or equal to the digest algorithm
    */
   def ecdsa_secp256k1_sha256[F[_]](implicit F: MonadError[F, Throwable]) = new Ecdsa("secp256k1", "SHA256withECDSA")
-
-  class Signer(keyPair: KeyPair) extends fluence.crypto.signature.Signer {
-    override def publicKey: KeyPair.Public = keyPair.publicKey
-
-    override def sign[F[_]](plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[fluence.crypto.signature.Signature] =
-      Ecdsa.ecdsa_secp256k1_sha256.sign(keyPair, plain)
-  }
-
-  case object Checker extends SignatureChecker {
-    override def check[F[_]](signature: fluence.crypto.signature.Signature, plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean] =
-      Ecdsa.ecdsa_secp256k1_sha256.verify(signature, plain)
-  }
 }

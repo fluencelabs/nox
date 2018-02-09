@@ -47,8 +47,8 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
     storage: KVStore[F, Key, ContractRecord[C]],
     createDataset: C ⇒ F[Unit],
     checkAllocationPossible: C ⇒ F[Unit],
-    checker: SignatureChecker,
-    signer: Signer
+    checker: SignatureChecker[F],
+    signer: Signer[F]
 )(implicit ME: MonadError[F, Throwable], eq: Eq[C]) extends ContractAllocatorRpc[F, C] {
 
   import ContractRead._

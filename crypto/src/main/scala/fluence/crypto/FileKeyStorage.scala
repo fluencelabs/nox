@@ -29,6 +29,8 @@ import io.circe.syntax._
 import io.circe.{ Decoder, Encoder, HCursor, Json }
 import scodec.bits.ByteVector
 
+import scala.language.higherKinds
+
 case class KeyStore(keyPair: KeyPair)
 
 class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) {

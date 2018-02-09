@@ -23,17 +23,17 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-trait Signer {
+trait Signer[F[_]] {
   def publicKey: KeyPair.Public
 
-  def sign[F[_]](plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Signature]
+  def sign(plain: ByteVector): F[Signature]
 }
 
 object Signer {
-  class DumbSigner(keyPair: KeyPair) extends Signer {
+  class DumbSigner[F[_]](keyPair: KeyPair)(implicit F: MonadError[F, Throwable]) extends Signer[F] {
     override def publicKey: KeyPair.Public = keyPair.publicKey
 
-    override def sign[F[_]](plain: ByteVector)(implicit F: MonadError[F, Throwable]): F[Signature] =
+    override def sign(plain: ByteVector): F[Signature] =
       F.pure(Signature(keyPair.publicKey, plain.reverse))
   }
 }

@@ -30,7 +30,7 @@ abstract class NodeServices[F[_], Contract, Contact] {
 
   def key: Key
 
-  def signer: Signer
+  def signer: Signer[F]
 
   def kademlia: Kademlia[F, Contact]
 
