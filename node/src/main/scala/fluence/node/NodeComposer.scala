@@ -101,8 +101,7 @@ class NodeComposer(
 
     } yield new NodeServices[Task, BasicContract, Contact] {
 
-      private val algo = new SignAlgo[Task](Ecdsa.ecdsa_secp256k1_sha256)
-      private val checker = algo.checker
+      private val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
 
       private val client = ClientComposer.grpc[Task](GrpcClient.builder(k, serverBuilder.contact, clientConf))
 
@@ -125,7 +124,7 @@ class NodeComposer(
         checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
         maxFindRequests = 100,
         maxAllocateRequests = n ⇒ 30 * n,
-        checker = checker,
+        checker = algo.checker[Task],
         signer = signer,
         cacheTtl = 1.day,
         kademlia = kademlia

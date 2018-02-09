@@ -33,8 +33,7 @@ import scala.util.Try
 class ContractsCacheSpec extends WordSpec with Matchers {
 
   def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
-  val algoTry = SignAlgo.dumb[Try]
-  val algo = SignAlgo.dumb[Coeval]
+  val algo = SignAlgo.dumb
 
   val nodeId: Key = unsafeKey("node id")
   val nodeSigner = offerSigner("node id")
@@ -48,7 +47,7 @@ class ContractsCacheSpec extends WordSpec with Matchers {
   }
 
   def offerSigner(seed: String) = {
-    algoTry.signer(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
+    algo.signer(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
   }
 
   val cache: ContractsCache[Coeval, BasicContract] =

@@ -146,8 +146,8 @@ object TestKademlia {
       Stream.fill(n)(nextRandomKeyPair)
         .foldLeft(Map.empty[C, (Signer[Coeval], Kademlia[Coeval, C])]) {
           case (acc, keyPair) ⇒
-            val algo = SignAlgo.dumb[Coeval]
-            val signer = algo.signer(keyPair)
+            val algo = SignAlgo.dumb
+            val signer = algo.signer[Coeval](keyPair)
             val key = Key.fromPublicKey[Coeval](keyPair.publicKey).value
             acc + (toContact(key) -> (signer, TestKademlia.coeval(key, alpha, k, kads(_)._2, toContact, pingExpiresIn)))
         }

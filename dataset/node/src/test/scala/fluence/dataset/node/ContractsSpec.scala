@@ -39,7 +39,7 @@ import scala.util.Random
 class ContractsSpec extends WordSpec with Matchers {
 
   val dsCreated = TrieMap.empty[String, Set[Key]].withDefaultValue(Set.empty)
-  val algo = SignAlgo.dumb[Coeval]
+  val algo = SignAlgo.dumb
 
   def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
 
@@ -85,7 +85,7 @@ class ContractsSpec extends WordSpec with Matchers {
         createDS(contact),
         10,
         _ ⇒ 20,
-        algo.checker,
+        algo.checker[Coeval],
         signer,
         1.second,
         kad
