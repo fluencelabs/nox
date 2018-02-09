@@ -10,4 +10,6 @@ addSbtPlugin("org.scala-js" % "sbt-scalajs" % "0.6.22")
 addSbtPlugin("org.portable-scala" % "sbt-crossproject"         % "0.3.1")
 addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "0.3.1")
 
+addSbtPlugin("ch.epfl.scala" % "sbt-scalajs-bundler" % "0.10.0")
+
 libraryDependencies += "com.trueaccord.scalapb" %% "compilerplugin" % "0.6.6"

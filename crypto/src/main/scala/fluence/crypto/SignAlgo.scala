@@ -17,8 +17,6 @@
 
 package fluence.crypto
 
-import java.security.SecureRandom
-
 import cats.MonadError
 import fluence.crypto.algorithm.{ DumbSign, KeyGenerator, SignatureFunctions }
 import fluence.crypto.keypair.KeyPair
@@ -34,7 +32,7 @@ import scala.language.higherKinds
 class SignAlgo(algo: KeyGenerator with SignatureFunctions) {
 
   def generateKeyPair[F[_]]()(implicit F: MonadError[F, Throwable]): F[KeyPair] = algo.generateKeyPair()
-  def generateKeyPair[F[_]](seed: ByteVector)(implicit F: MonadError[F, Throwable]): F[KeyPair] = algo.generateKeyPair(new SecureRandom(seed.toArray))
+  def generateKeyPair[F[_]](seed: ByteVector)(implicit F: MonadError[F, Throwable]): F[KeyPair] = algo.generateKeyPair(Array[Byte](1, 2, 3, 4, 5))
 
   def signer[F[_]](kp: KeyPair)(implicit F: MonadError[F, Throwable]): Signer[F] = new Signer[F] {
     override def sign(plain: ByteVector): F[Signature] = algo.sign(kp, plain)

@@ -75,15 +75,13 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    libraryDependencies ++= Seq(
-      // for Web Crypto API
-      //https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
-      "org.scala-js" %%% "scalajs-dom" % "0.9.3"
-    )
+    npmDependencies in Compile ++= Seq("elliptic" -> "6.4.0"),
+    scalaJSModuleKind := ModuleKind.CommonJSModule,
+    skip in packageJSDependencies := false
   )
 
 lazy val `cryptoJVM` = `crypto`.jvm
-lazy val `cryptoJS` = `crypto`.js
+lazy val `cryptoJS` = `crypto`.js.enablePlugins(ScalaJSBundlerPlugin)
 
 lazy val `dataset-node` = project.in(file("dataset/node"))
   .dependsOn(`storage`, `kademlia-node`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,

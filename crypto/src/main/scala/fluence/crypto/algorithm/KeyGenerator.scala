@@ -25,6 +25,6 @@ import fluence.crypto.keypair.KeyPair
 import scala.language.higherKinds
 
 trait KeyGenerator {
-  def generateKeyPair[F[_]](random: SecureRandom)(implicit F: MonadError[F, Throwable]): F[KeyPair]
+  def generateKeyPair[F[_]](seed: Array[Byte])(implicit F: MonadError[F, Throwable]): F[KeyPair]
   def generateKeyPair[F[_]]()(implicit F: MonadError[F, Throwable]): F[KeyPair]
 }

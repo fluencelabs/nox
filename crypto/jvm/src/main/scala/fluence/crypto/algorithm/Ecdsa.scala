@@ -42,6 +42,9 @@ import scala.util.control.NonFatal
 class Ecdsa(curveType: String, scheme: String) extends JavaAlgorithm
   with SignatureFunctions with KeyGenerator {
   import Ecdsa._
+
+  val HEXradix = 16
+
   private def nonFatalHandling[F[_], A](a: ⇒ A)(errorText: String)(implicit F: MonadError[F, Throwable]): F[A] = {
     try F.pure(a)
     catch {
@@ -49,7 +52,9 @@ class Ecdsa(curveType: String, scheme: String) extends JavaAlgorithm
     }
   }
 
-  override def generateKeyPair[F[_]](random: SecureRandom)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
+  def bytes2hex(bytes: Array[Byte]): String = bytes.map("%02x".format(_)).mkString("")
+
+  override def generateKeyPair[F[_]](seed: Array[Byte])(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
     for {
       ecSpecOp ← F.pure(Option(ECNamedCurveTable.getParameterSpec(curveType)))
       ecSpec ← ecSpecOp match {
@@ -57,24 +62,26 @@ class Ecdsa(curveType: String, scheme: String) extends JavaAlgorithm
         case None      ⇒ F.raiseError[ECNamedCurveParameterSpec](CryptoErr("Parameter spec for the curve is not available."))
       }
       g ← getKeyPairGenerator
-      _ ← nonFatalHandling(g.initialize(ecSpec, random))("Could not initialize KeyPairGenerator.")
+      _ ← nonFatalHandling(g.initialize(ecSpec, new SecureRandom(seed)))("Could not initialize KeyPairGenerator.")
       keyPair ← Option(g.generateKeyPair()) match {
         case Some(p) ⇒
           //store S number for private key and compressed Q point on curve for public key
-          val pk = p.getPublic.asInstanceOf[ECPublicKey].getQ.getEncoded(true)
-          val sk = p.getPrivate.asInstanceOf[ECPrivateKey].getS.toByteArray
-          F.pure(KeyPair.fromBytes(pk, sk))
+          val pk = ByteVector.fromHex(bytes2hex(p.getPublic.asInstanceOf[ECPublicKey].getQ.getEncoded(true))).get
+          val bg = p.getPrivate.asInstanceOf[ECPrivateKey].getS
+          println("PRIVATE NUMBER === " + bg)
+          val sk = ByteVector.fromHex(bg.toString(HEXradix)).get
+          F.pure(KeyPair.fromByteVectors(pk, sk))
         case None ⇒ F.raiseError[KeyPair](CryptoErr("Could not generate KeyPair. Unexpected."))
       }
     } yield keyPair
   }
 
   override def generateKeyPair[F[_]]()(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
-    generateKeyPair(new SecureRandom())
+    generateKeyPair(new SecureRandom().generateSeed(50))
   }
 
   override def sign[F[_]](keyPair: KeyPair, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[fluence.crypto.signature.Signature] = {
-    signMessage(keyPair.secretKey.value.toArray, message.toArray)
+    signMessage(new BigInteger(keyPair.secretKey.value.toHex, HEXradix), message.toArray)
       .map(bb ⇒ fluence.crypto.signature.Signature(keyPair.publicKey, ByteVector(bb)))
   }
 
@@ -82,10 +89,10 @@ class Ecdsa(curveType: String, scheme: String) extends JavaAlgorithm
     verifySign(signature.publicKey.value.toArray, message.toArray, signature.sign.toArray)
   }
 
-  private def signMessage[F[_]](privateKey: Array[Byte], message: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Array[Byte]] = {
+  private def signMessage[F[_]](privateKey: BigInteger, message: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Array[Byte]] = {
     for {
       ec ← curveSpec
-      keySpec ← nonFatalHandling(new ECPrivateKeySpec(new BigInteger(privateKey), ec))("Cannot read private key.")
+      keySpec ← nonFatalHandling(new ECPrivateKeySpec(privateKey, ec))("Cannot read private key.")
       keyFactory ← getKeyFactory
       signProvider ← getSignatureProvider
       sign ← {
