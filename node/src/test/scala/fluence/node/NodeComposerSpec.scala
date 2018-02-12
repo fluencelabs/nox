@@ -46,17 +46,19 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
+  private val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+
+  private implicit val checker = algo.checker
+
   private val pureClient = ClientComposer.grpc[Future](GrpcClient.builder)
 
   private val config = ConfigFactory.load()
-
-  private val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
 
   private val servers = (0 to 20).map { n ⇒
     val port = 3100 + n
 
     new NodeComposer(
-      algo.generateKeyPair().futureValue,
+      algo.generateKeyPair[Future]().value.futureValue.right.get,
       algo,
       config
         .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
@@ -103,7 +105,7 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
 
       contractsApi.find(Key.fromString[Future]("hi there").futureValue).failed.futureValue
 
-      val kp = algo.generateKeyPair().futureValue
+      val kp = algo.generateKeyPair[Future]().value.futureValue.right.get
       val key = Key.fromKeyPair[Future](kp).futureValue
       val signer = algo.signer(kp)
       val offer = BasicContract.offer(key, participantsRequired = 4, signer = signer).futureValue

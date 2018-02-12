@@ -17,33 +17,37 @@
 
 package fluence.kad.grpc
 
-import java.net.InetAddress
 import java.time.Instant
 
 import cats.MonadError
+import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.applicative._
+import com.google.protobuf.ByteString
 import fluence.codec.Codec
+import fluence.crypto.signature.SignatureChecker
 import fluence.kad.protocol
 import fluence.kad.protocol.{ Contact, Key }
-import com.google.protobuf.ByteString
-import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 object KademliaNodeCodec {
-  implicit def apply[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
+  implicit def apply[F[_]](implicit F: MonadError[F, Throwable], checker: SignatureChecker): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
     Codec(
-      obj ⇒ Node(
-        id = ByteString.copyFrom(obj.key.id),
-        contact = ByteString.copyFrom(obj.contact.binary.toArray)
-      ).pure[F],
-      binary ⇒ Key.fromBytes(binary.id.toByteArray)
-        .map(k ⇒ protocol.Node[Contact](
+      obj ⇒
+        obj.contact.b64seed[F].value.flatMap(F.fromEither).map(contact ⇒
+          Node(
+            id = ByteString.copyFrom(obj.key.id),
+            contact = ByteString.copyFrom(contact.getBytes)
+          )),
+      binary ⇒
+        for {
+          k ← Key.fromBytes[F](binary.id.toByteArray)
+          c ← Contact.readB64seed[F](new String(binary.contact.toByteArray), checker).value.flatMap(F.fromEither)
+          _ ← if (Key.checkPublicKey(k, c.publicKey)) F.pure(()) else F.raiseError(new IllegalArgumentException("Key doesn't conform to signature"))
+        } yield protocol.Node[Contact](
           k,
           // TODO: consider removing Instant.now(). It could be really incorrect, as nodes taken from lookup replies are not seen at the moment
           Instant.now(),
-          Contact.readBinary(ByteVector(binary.contact.toByteArray)).value
+          c
         ))
-    )
 }

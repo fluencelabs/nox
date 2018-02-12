@@ -26,7 +26,7 @@ import fluence.client.ClientComposer
 import fluence.crypto.SignAlgo
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.Signer
+import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
 import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsApiServer, ContractsCacheServer }
 import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc
@@ -74,14 +74,18 @@ class NodeComposer(
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
+  implicit val checker: SignatureChecker = algo.checker
+
   private implicit val kadCodec = fluence.kad.grpc.KademliaNodeCodec[Task]
   private implicit val contractCodec = fluence.dataset.grpc.BasicContractCodec.codec[Task]
   private val keyC = Key.bytesCodec[Task]
 
   import keyC.inverse
 
+  private val signer = algo.signer(keyPair)
+
   private lazy val serverBuilder =
-    grpcConf.map(GrpcServer.builder(_)).memoizeOnSuccess
+    grpcConf.map(GrpcServer.builder(_, signer)).memoizeOnSuccess
 
   private lazy val grpcConf =
     GrpcServerConf.read[Task](config).memoizeOnSuccess
@@ -110,7 +114,7 @@ class NodeComposer(
 
       override val key: Key = k
 
-      override val signer: Signer[Task] = algo.signer(keyPair)
+      override val signer: Signer = algo.signer(keyPair)
 
       override lazy val kademlia: Kademlia[Task, Contact] = new KademliaService(
         k,
@@ -127,7 +131,7 @@ class NodeComposer(
         checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
         maxFindRequests = 100,
         maxAllocateRequests = n ⇒ 30 * n,
-        checker = algo.checker[Task],
+        checker = checker,
         signer = signer,
         cacheTtl = 1.day,
         kademlia = kademlia
@@ -171,7 +175,7 @@ class NodeComposer(
           .add(DatasetContractsApiGrpc.bindService(new ContractsApiServer[Task, BasicContract](contracts), ec))
           .add(NodeInfoRpcGrpc.bindService(new NodeInfoServer[Task](info), ec))
           .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), ec))
-          .onNodeActivity(kademlia.update _, clientConf)
+          .onNodeActivity(kademlia.update _, clientConf, checker)
           .build
       }
     ).memoizeOnSuccess

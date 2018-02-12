@@ -21,6 +21,7 @@ import java.nio.ByteBuffer
 
 import cats.{ Eq, MonadError }
 import cats.syntax.functor._
+import cats.syntax.flatMap._
 import fluence.crypto.signature.{ Signature, Signer }
 import fluence.dataset.contract.{ ContractRead, ContractWrite }
 import fluence.kad.protocol.Key
@@ -63,10 +64,10 @@ object BasicContract {
     }
   }
 
-  def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer[F])(implicit F: MonadError[F, Throwable]): F[BasicContract] =
+  def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(implicit F: MonadError[F, Throwable]): F[BasicContract] =
     {
       val offer = Offer(participantsRequired)
-      signer.sign(offer.getBytes).map(BasicContract(id, offer, _, Map.empty, None, 0))
+      signer.sign(offer.getBytes).map(BasicContract(id, offer, _, Map.empty, None, 0)).value.flatMap(F.fromEither)
     }
 
   // TODO: there should be contract laws, like "init empty - not signed -- sign offer -- signed, no participants -- add participant -- ..."

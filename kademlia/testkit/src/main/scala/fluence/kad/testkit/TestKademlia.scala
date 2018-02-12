@@ -141,13 +141,13 @@ object TestKademlia {
     nextRandomKeyPair: ⇒ KeyPair,
     joinPeers: Int = 0,
     alpha: Int = 3,
-    pingExpiresIn: FiniteDuration = 1.second): Map[C, (Signer[Coeval], Kademlia[Coeval, C])] = {
-    lazy val kads: Map[C, (Signer[Coeval], Kademlia[Coeval, C])] =
+    pingExpiresIn: FiniteDuration = 1.second): Map[C, (Signer, Kademlia[Coeval, C])] = {
+    lazy val kads: Map[C, (Signer, Kademlia[Coeval, C])] =
       Stream.fill(n)(nextRandomKeyPair)
-        .foldLeft(Map.empty[C, (Signer[Coeval], Kademlia[Coeval, C])]) {
+        .foldLeft(Map.empty[C, (Signer, Kademlia[Coeval, C])]) {
           case (acc, keyPair) ⇒
             val algo = SignAlgo.dumb
-            val signer = algo.signer[Coeval](keyPair)
+            val signer = algo.signer(keyPair)
             val key = Key.fromPublicKey[Coeval](keyPair.publicKey).value
             acc + (toContact(key) -> (signer, TestKademlia.coeval(key, alpha, k, kads(_)._2, toContact, pingExpiresIn)))
         }

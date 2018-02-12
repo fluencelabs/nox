@@ -18,6 +18,7 @@
 package fluence.client
 
 import cats.{ MonadError, ~> }
+import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
 import fluence.dataset.grpc.client.{ ContractAllocatorClient, ContractsApiClient, ContractsCacheClient }
 import fluence.info.grpc.NodeInfoClient
@@ -30,8 +31,9 @@ import scala.language.higherKinds
 
 object ClientComposer {
 
-  def grpc[F[_]](builder: GrpcClient.Builder[HNil])(implicit F: MonadError[F, Throwable], run: Future ~> F) =
+  def grpc[F[_]](builder: GrpcClient.Builder[HNil])(implicit F: MonadError[F, Throwable], run: Future ~> F, checker: SignatureChecker) =
     {
+
       import fluence.kad.grpc.KademliaNodeCodec.{ apply ⇒ nodeCodec }
       import fluence.dataset.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
 

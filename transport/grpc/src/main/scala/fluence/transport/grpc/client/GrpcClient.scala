@@ -19,6 +19,7 @@ package fluence.transport.grpc.client
 
 import java.util.concurrent.Executor
 
+import cats.instances.try_._
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.TransportClient
 import io.grpc._
@@ -28,6 +29,7 @@ import org.slf4j.LoggerFactory
 import shapeless._
 
 import scala.collection.concurrent.TrieMap
+import scala.util.Try
 
 /**
  * Network Client caches managed channels to remote contacts, and service accesses to them.
@@ -57,7 +59,7 @@ class GrpcClient[CL <: HList](
    * @param contact Contact
    */
   private def contactKey(contact: Contact): String =
-    contact.b64seed
+    contact.b64seed[Try].value.get.right.get // TODO: make it pure!
 
   /**
    * Returns cached or brand new ManagedChannel for a contact.
@@ -202,5 +204,12 @@ object GrpcClient {
    * @return A NetworkClient builder
    */
   def builder(key: Key, contact: Task[Contact], conf: GrpcClientConf): Builder[HNil] =
-    builder.addHeader(conf.keyHeader, key.b64).addAsyncHeader(contact.map(c ⇒ (conf.contactHeader, c.b64seed)))
+    builder.addHeader(conf.keyHeader, key.b64).addAsyncHeader(
+      for {
+        c ← contact
+        s ← c.b64seed[Task].value.flatMap {
+          case Right(s)  ⇒ Task.now(s)
+          case Left(err) ⇒ Task.raiseError(err)
+        }
+      } yield (conf.contactHeader, s))
 }

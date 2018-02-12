@@ -20,6 +20,8 @@ package fluence.node
 import cats.~>
 import cats.instances.try_._
 import com.typesafe.config.ConfigFactory
+import fluence.crypto.SignAlgo
+import fluence.crypto.keypair.KeyPair
 import fluence.kad.grpc.{ KademliaGrpc, KademliaNodeCodec }
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
@@ -49,6 +51,10 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
     override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
   }
 
+  private val algo = SignAlgo.dumb
+
+  private implicit val checker = algo.checker
+
   implicit val kadCodec = KademliaNodeCodec[Task]
 
   private val config = ConfigFactory.load()
@@ -57,9 +63,9 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   private val clientConf = GrpcClientConf.read[Try](config).get
 
-  class Node(val key: Key, val localPort: Int) {
+  class Node(val key: Key, val localPort: Int, kp: KeyPair) {
 
-    private val serverBuilder = GrpcServer.builder(serverConf.copy(localPort = localPort))
+    private val serverBuilder = GrpcServer.builder(serverConf.copy(localPort = localPort), algo.signer(kp))
 
     private val client = GrpcClient.builder(key, serverBuilder.contact, clientConf)
       .add(KademliaClient.register[Task]())
@@ -77,7 +83,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServer(kad.handleRPC), global))
-      .onNodeActivity(kad.update, clientConf)
+      .onNodeActivity(kad.update, clientConf, checker)
       .build
 
     def nodeId = key
@@ -91,7 +97,9 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   private val servers = (0 to 20).map { n ⇒
     val port = 3200 + n
-    new Node(Key.sha1[Coeval](Integer.toBinaryString(port).getBytes).value, port)
+    val kp = algo.generateKeyPair[Try]().value.get.right.get
+    val k = Key.fromKeyPair[Try](kp).get
+    new Node(k, port, kp)
   }
 
   "Network simulation" should {

@@ -20,7 +20,9 @@ package fluence.transport.grpc.server
 import java.net.InetAddress
 import java.time.Instant
 
+import cats.data.Ior
 import cats.instances.try_._
+import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.kad.protocol
 import fluence.kad.protocol.{ Contact, Key, Node }
 import fluence.transport.TransportServer
@@ -101,7 +103,7 @@ object GrpcServer {
      * @param cb To be called on ready and on each message
      * @param clientConf Conf to get header names from
      */
-    def onNodeActivity(cb: Node[Contact] ⇒ Task[Any], clientConf: GrpcClientConf): Builder =
+    def onNodeActivity(cb: Node[Contact] ⇒ Task[Any], clientConf: GrpcClientConf, checker: SignatureChecker): Builder =
       addInterceptor(new ServerInterceptor {
         override def interceptCall[ReqT, RespT](call: ServerCall[ReqT, RespT], headers: Metadata, next: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
           val remoteKey =
@@ -112,7 +114,7 @@ object GrpcServer {
           // TODO: check that contact IP matches request source, if it's possible
           val remoteContact =
             readStringHeader(clientConf.contactHeader, headers).flatMap {
-              b64contact ⇒ Coeval.fromEval(Contact.readB64seed(b64contact)).attempt.value.toOption
+              b64contact ⇒ Contact.readB64seed[Coeval](b64contact, checker).value.value.toOption
             }
 
           def remoteNode: Option[Node[Contact]] =
@@ -165,11 +167,11 @@ object GrpcServer {
    * Builder for config object
    * @param conf Server config object
    */
-  def builder(conf: GrpcServerConf, uPnP: ⇒ UPnP = new UPnP()): Builder =
+  def builder(conf: GrpcServerConf, signer: Signer, uPnP: ⇒ UPnP = new UPnP()): Builder =
     conf.externalPort match {
       case Some(externalPort) ⇒
         val upnp = uPnP
-        val contact = Contact(InetAddress.getLocalHost, conf.localPort, conf.protocolVersion, conf.gitHash)
+        val contact = Contact(InetAddress.getLocalHost, conf.localPort, signer.publicKey, conf.protocolVersion, conf.gitHash, Ior.left(signer))
 
         new Builder(upnp.addPort(externalPort, contact).memoizeOnSuccess.onErrorRecover{
           case _ ⇒ contact
@@ -177,7 +179,7 @@ object GrpcServer {
 
       case None ⇒
         new Builder(
-          Task.now(Contact(InetAddress.getLocalHost, conf.localPort, conf.protocolVersion, conf.gitHash)),
+          Task.now(Contact(InetAddress.getLocalHost, conf.localPort, signer.publicKey, conf.protocolVersion, conf.gitHash, Ior.left(signer))),
           Task.unit, conf.localPort, Nil, Nil)
     }
 
