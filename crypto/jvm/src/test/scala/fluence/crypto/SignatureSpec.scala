@@ -18,68 +18,72 @@
 package fluence.crypto
 
 import java.io.File
-import java.security.SecureRandom
 
+import cats.data.EitherT
 import cats.instances.try_._
 import fluence.crypto.algorithm.{ CryptoErr, Ecdsa }
-import fluence.crypto.keypair.KeyPair
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scodec.bits.ByteVector
 
-import scala.util.Random
+import scala.util.{ Random, Try }
 
 class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 
   def rndBytes(size: Int) = Random.nextString(10).getBytes
+
   def rndByteVector(size: Int) = ByteVector(rndBytes(size))
+
+  private implicit class TryEitherTExtractor[A, B](et: EitherT[Try, A, B]) {
+    def extract: B = et.value.get.right.get
+  }
 
   "ecdsa algorithm" should {
     "correct sign and verify data" in {
       val algorithm = Ecdsa.ecdsa_secp256k1_sha256
 
-      val keys = algorithm.generateKeyPair().get
+      val keys = algorithm.generateKeyPair[Try]().extract
       val data = rndByteVector(10)
-      val sign = algorithm.sign(keys, data).get
+      val sign = algorithm.sign[Try](keys, data).extract
 
-      algorithm.verify(sign, data).get shouldBe true
+      algorithm.verify[Try](sign, data).value.get.isRight shouldBe true
 
       val randomData = rndByteVector(10)
-      val randomSign = algorithm.sign(keys, randomData).get
+      val randomSign = algorithm.sign(keys, randomData).extract
 
-      algorithm.verify(sign.copy(sign = randomSign.sign), data).get shouldBe false
+      algorithm.verify(sign.copy(sign = randomSign.sign), data).extract shouldBe false
 
-      algorithm.verify(sign, randomData).get shouldBe false
+      algorithm.verify(sign, randomData).extract shouldBe false
     }
 
     "correctly work with signer and checker" in {
       val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
-      val keys = algo.generateKeyPair().get
+      val keys = algo.generateKeyPair().extract
       val signer = algo.signer(keys)
 
       val data = rndByteVector(10)
-      val sign = signer.sign(data).get
+      val sign = signer.sign(data).extract
 
-      algo.checker.check(sign, data).get shouldBe true
+      algo.checker.check(sign, data).value.get.isRight shouldBe true
 
-      val randomSign = signer.sign(rndByteVector(10)).get
-      algo.checker.check(randomSign, data).get shouldBe false
+      val randomSign = signer.sign(rndByteVector(10)).extract
+      algo.checker.check(randomSign, data).value.get.isRight shouldBe false
     }
 
     "throw an errors on invalid data" in {
       val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
-      val keys = algo.generateKeyPair().get
+      val keys = algo.generateKeyPair().extract
       val signer = algo.signer(keys)
       val data = rndByteVector(10)
 
-      val sign = signer.sign(data).get
+      val sign = signer.sign(data).extract
 
-      the[CryptoErr] thrownBy algo.checker.check(sign.copy(sign = rndByteVector(10)), data).get
-      the[CryptoErr] thrownBy algo.checker.check(sign.copy(publicKey = sign.publicKey.copy(value = rndByteVector(10))), data).get
+      the[CryptoErr] thrownBy algo.checker.check(sign.copy(sign = rndByteVector(10)), data).extract
+      the[CryptoErr] thrownBy algo.checker.check(sign.copy(publicKey = sign.publicKey.copy(value = rndByteVector(10))), data).extract
     }
 
     "store and read key from file" in {
       val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
-      val keys = algo.generateKeyPair().get
+      val keys = algo.generateKeyPair().extract
 
       val keyFile = File.createTempFile("test", "")
       if (keyFile.exists()) keyFile.delete()
@@ -92,10 +96,10 @@ class SignatureSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 
       val signer = algo.signer(keys)
       val data = rndByteVector(10)
-      val sign = signer.sign(data).get
+      val sign = signer.sign(data).extract
 
-      algo.checker.check(sign.copy(publicKey = keysRead.publicKey), data).get shouldBe true
-      algo.checker.check(sign, data).get shouldBe true
+      algo.checker.check(sign.copy(publicKey = keysRead.publicKey), data).extract shouldBe true
+      algo.checker.check(sign, data).value.get.isRight shouldBe true
 
       //try to store key into previously created file
       storage.storeSecretKey(keys).isFailure shouldBe true

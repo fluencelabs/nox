@@ -44,9 +44,9 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   val nodeId: Key = Key.fromPublicKey[IO](keypair.publicKey).unsafeRunSync()
 
   val signAlgo = SignAlgo.dumb
-  val signer = signAlgo.signer[IO](keypair)
+  val signer = signAlgo.signer(keypair)
 
-  val checker = signAlgo.checker[IO]
+  val checker = signAlgo.checker
 
   val createDS: BasicContract ⇒ IO[Unit] = c ⇒ {
     if (denyDS(c.id)) IO.raiseError(new IllegalArgumentException(s"Can't create dataset for ${c.id}"))
