@@ -16,6 +16,8 @@
  */
 package fluence.crypto.algorithm
 
+import java.security.SecureRandom
+
 import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.keypair.KeyPair
@@ -27,7 +29,7 @@ import scala.language.higherKinds
 class DumbSign extends KeyGenerator with SignatureFunctions {
 
   override def generateKeyPair[F[_] : Monad](seed: Option[Array[Byte]] = None): EitherT[F, CryptoErr, KeyPair] = {
-    val s = seed.getOrElse(Array[Byte](1, 2, 3, 4, 5))
+    val s = seed.getOrElse(new SecureRandom().generateSeed(10))
     EitherT.pure(KeyPair.fromBytes(s, s))
   }
 
