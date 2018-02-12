@@ -20,6 +20,8 @@ package fluence.crypto.facade
 import scala.scalajs.js
 import scala.scalajs.js.annotation.JSImport
 
+//TODO hide enc argument in methods, make it `hex` by default
+
 @js.native
 @JSImport("hash.js", "sha256")
 class SHA256() extends js.Object {

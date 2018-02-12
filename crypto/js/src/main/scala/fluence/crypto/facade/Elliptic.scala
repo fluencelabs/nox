@@ -20,6 +20,8 @@ package fluence.crypto.facade
 import scala.scalajs.js
 import scala.scalajs.js.annotation._
 
+//TODO hide enc argument in methods, make it `hex` by default
+
 @js.native
 @JSImport("elliptic", "ec")
 class EC(curve: String) extends js.Object {
