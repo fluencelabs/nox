@@ -26,7 +26,7 @@ import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{ SignatureChecker, Signer }
 import io.circe._
 import io.circe.syntax._
-import scodec.bits.ByteVector
+import scodec.bits.{ Bases, ByteVector }
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -88,14 +88,14 @@ object Contact {
 
   object JwtImplicits {
     implicit val encodeHeader: Encoder[JwtHeader] = header ⇒ Json.obj(
-      "pk" -> Json.fromString(header.publicKey.value.toBase64),
+      "pk" -> Json.fromString(header.publicKey.value.toBase64(Bases.Alphabets.Base64Url)),
       "pv" -> Json.fromLong(header.protocolVersion))
 
     implicit val decodeHeader: Decoder[JwtHeader] = c ⇒
       for {
         pk ← c.downField("pk").as[String]
         pv ← c.downField("pv").as[Long]
-        pubKey ← ByteVector.fromBase64(pk).fold[Either[DecodingFailure, KeyPair.Public]](
+        pubKey ← ByteVector.fromBase64(pk, Bases.Alphabets.Base64Url).fold[Either[DecodingFailure, KeyPair.Public]](
           Left(DecodingFailure("Cannot parse public key", Nil))
         )(bc ⇒ Right(KeyPair.Public(bc)))
       } yield JwtHeader(pubKey, pv)
