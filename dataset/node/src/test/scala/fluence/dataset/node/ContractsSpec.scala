@@ -85,7 +85,7 @@ class ContractsSpec extends WordSpec with Matchers {
         createDS(contact),
         10,
         _ ⇒ 20,
-        algo.checker[Coeval],
+        algo.checker,
         signer,
         1.second,
         kad

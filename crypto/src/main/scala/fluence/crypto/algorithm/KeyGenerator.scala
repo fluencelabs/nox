@@ -19,12 +19,14 @@ package fluence.crypto.algorithm
 
 import java.security.SecureRandom
 
-import cats.MonadError
+import cats.Monad
+import cats.data.EitherT
 import fluence.crypto.keypair.KeyPair
 
 import scala.language.higherKinds
 
 trait KeyGenerator {
-  def generateKeyPair[F[_]](random: SecureRandom)(implicit F: MonadError[F, Throwable]): F[KeyPair]
-  def generateKeyPair[F[_]]()(implicit F: MonadError[F, Throwable]): F[KeyPair]
+  def generateKeyPair[F[_] : Monad](random: SecureRandom): EitherT[F, CryptoErr, KeyPair]
+
+  def generateKeyPair[F[_] : Monad](): EitherT[F, CryptoErr, KeyPair]
 }

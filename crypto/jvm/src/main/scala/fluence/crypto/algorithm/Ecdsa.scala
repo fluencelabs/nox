@@ -21,7 +21,8 @@ import java.math.BigInteger
 import java.security._
 import java.security.interfaces.ECPrivateKey
 
-import cats.MonadError
+import cats.data.EitherT
+import cats.{ Applicative, Monad, MonadError }
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.crypto.keypair.KeyPair
@@ -42,47 +43,62 @@ import scala.util.control.NonFatal
 class Ecdsa(curveType: String, scheme: String) extends JavaAlgorithm
   with SignatureFunctions with KeyGenerator {
   import Ecdsa._
-  private def nonFatalHandling[F[_], A](a: ⇒ A)(errorText: String)(implicit F: MonadError[F, Throwable]): F[A] = {
-    try F.pure(a)
+
+  private def nonFatalHandling[F[_] : Applicative, A](a: ⇒ A)(errorText: String): EitherT[F, CryptoErr, A] = {
+    try EitherT.pure(a)
     catch {
-      case NonFatal(e) ⇒ F.raiseError(CryptoErr(errorText + " " + e.getLocalizedMessage))
+      case NonFatal(e) ⇒ EitherT.leftT(CryptoErr(errorText + " " + e.getLocalizedMessage))
     }
   }
 
-  override def generateKeyPair[F[_]](random: SecureRandom)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
+  override def generateKeyPair[F[_] : Monad](random: SecureRandom): EitherT[F, CryptoErr, KeyPair] =
     for {
-      ecSpecOp ← F.pure(Option(ECNamedCurveTable.getParameterSpec(curveType)))
-      ecSpec ← ecSpecOp match {
-        case Some(ecs) ⇒ F.pure(ecs)
-        case None      ⇒ F.raiseError[ECNamedCurveParameterSpec](CryptoErr("Parameter spec for the curve is not available."))
-      }
+      ecSpec ← EitherT.fromOption[F](
+        Option(ECNamedCurveTable.getParameterSpec(curveType)),
+        CryptoErr("Parameter spec for the curve is not available."))
       g ← getKeyPairGenerator
       _ ← nonFatalHandling(g.initialize(ecSpec, random))("Could not initialize KeyPairGenerator.")
-      keyPair ← Option(g.generateKeyPair()) match {
-        case Some(p) ⇒
-          //store S number for private key and compressed Q point on curve for public key
-          val pk = p.getPublic.asInstanceOf[ECPublicKey].getQ.getEncoded(true)
-          val sk = p.getPrivate.asInstanceOf[ECPrivateKey].getS.toByteArray
-          F.pure(KeyPair.fromBytes(pk, sk))
-        case None ⇒ F.raiseError[KeyPair](CryptoErr("Could not generate KeyPair. Unexpected."))
-      }
+      p ← EitherT.fromOption(
+        Option(g.generateKeyPair()),
+        CryptoErr("Could not generate KeyPair. Unexpected."))
+
+      keyPair ← nonFatalHandling {
+        //store S number for private key and compressed Q point on curve for public key
+        val pk = p.getPublic.asInstanceOf[ECPublicKey].getQ.getEncoded(true)
+        val sk = p.getPrivate.asInstanceOf[ECPrivateKey].getS.toByteArray
+        KeyPair.fromBytes(pk, sk)
+      }("Can't get public/private key from generated keypair")
     } yield keyPair
-  }
 
-  override def generateKeyPair[F[_]]()(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
+  override def generateKeyPair[F[_] : Monad](): EitherT[F, CryptoErr, KeyPair] =
     generateKeyPair(new SecureRandom())
-  }
 
-  override def sign[F[_]](keyPair: KeyPair, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[fluence.crypto.signature.Signature] = {
+  override def sign[F[_] : Monad](keyPair: KeyPair, message: ByteVector): EitherT[F, CryptoErr, fluence.crypto.signature.Signature] =
     signMessage(keyPair.secretKey.value.toArray, message.toArray)
       .map(bb ⇒ fluence.crypto.signature.Signature(keyPair.publicKey, ByteVector(bb)))
+
+  override def verify[F[_] : Monad](signature: fluence.crypto.signature.Signature, message: ByteVector): EitherT[F, CryptoErr, Unit] = {
+    val publicKey = signature.publicKey.value.toArray
+    val messageBytes = message.toArray
+    val signatureBytes = signature.sign.toArray
+
+    for {
+      ec ← curveSpec
+      keySpec ← nonFatalHandling(new ECPublicKeySpec(ec.getCurve.decodePoint(publicKey), ec))("Cannot read public key.")
+      keyFactory ← getKeyFactory
+      signProvider ← getSignatureProvider
+      verify ← {
+        nonFatalHandling {
+          signProvider.initVerify(keyFactory.generatePublic(keySpec))
+          signProvider.update(messageBytes)
+          signProvider.verify(signatureBytes)
+        }("Cannot verify message.")
+      }
+      _ ← EitherT.cond[F](verify, (), CryptoErr("Signature is not verified"))
+    } yield ()
   }
 
-  override def verify[F[_]](signature: fluence.crypto.signature.Signature, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean] = {
-    verifySign(signature.publicKey.value.toArray, message.toArray, signature.sign.toArray)
-  }
-
-  private def signMessage[F[_]](privateKey: Array[Byte], message: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Array[Byte]] = {
+  private def signMessage[F[_] : Monad](privateKey: Array[Byte], message: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] = {
     for {
       ec ← curveSpec
       keySpec ← nonFatalHandling(new ECPrivateKeySpec(new BigInteger(privateKey), ec))("Cannot read private key.")
@@ -98,32 +114,16 @@ class Ecdsa(curveType: String, scheme: String) extends JavaAlgorithm
     } yield sign
   }
 
-  private def verifySign[F[_]](publicKey: Array[Byte], message: Array[Byte], signature: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Boolean] = {
-    for {
-      ec ← curveSpec
-      keySpec ← nonFatalHandling(new ECPublicKeySpec(ec.getCurve.decodePoint(publicKey), ec))("Cannot read public key.")
-      keyFactory ← getKeyFactory
-      signProvider ← getSignatureProvider
-      verify ← {
-        nonFatalHandling {
-          signProvider.initVerify(keyFactory.generatePublic(keySpec))
-          signProvider.update(message)
-          signProvider.verify(signature)
-        }("Cannot verify message.")
-      }
-    } yield verify
-  }
-
-  private def curveSpec[F[_]](implicit F: MonadError[F, Throwable]) =
+  private def curveSpec[F[_] : Monad] =
     nonFatalHandling(ECNamedCurveTable.getParameterSpec(curveType).asInstanceOf[ECParameterSpec])("Cannot get curve parameters.")
 
-  private def getKeyPairGenerator[F[_]](implicit F: MonadError[F, Throwable]) =
+  private def getKeyPairGenerator[F[_] : Monad] =
     nonFatalHandling(KeyPairGenerator.getInstance(ECDSA, BouncyCastleProvider.PROVIDER_NAME))("Cannot get key pair generator.")
 
-  private def getKeyFactory[F[_]](implicit F: MonadError[F, Throwable]) =
+  private def getKeyFactory[F[_] : Monad] =
     nonFatalHandling(KeyFactory.getInstance(ECDSA, BouncyCastleProvider.PROVIDER_NAME))("Cannot get key factory instance.")
 
-  private def getSignatureProvider[F[_]](implicit F: MonadError[F, Throwable]) =
+  private def getSignatureProvider[F[_] : Monad] =
     nonFatalHandling(Signature.getInstance(scheme, BouncyCastleProvider.PROVIDER_NAME))("Cannot get signature instance.")
 }
 

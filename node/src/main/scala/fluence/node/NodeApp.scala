@@ -20,6 +20,7 @@ package fluence.node
 import java.io.File
 
 import cats.MonadError
+import cats.syntax.flatMap._
 import cats.syntax.show._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.{ FileKeyStorage, SignAlgo }
@@ -52,7 +53,7 @@ object NodeApp extends App {
   def getKeyPair[F[_]](keyPath: String)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
     val keyFile = new File(keyPath)
     val keyStorage = new FileKeyStorage[F](keyFile)
-    keyStorage.getOrCreateKeyPair(algo.generateKeyPair[F]())
+    keyStorage.getOrCreateKeyPair(algo.generateKeyPair[F]().value.flatMap(F.fromEither))
   }
 
   def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
@@ -73,7 +74,7 @@ object NodeApp extends App {
       case "j" | "join" ⇒
         cmd("join seed?")
         readLine.flatMap { p ⇒
-          Task.fromEval(Contact.readB64seed(p)).attempt.flatMap {
+          Contact.readB64seed[Task](p, algo.checker).value.flatMap {
             case Left(err) ⇒
               log.error("Can't read the seed", err)
               handle
@@ -107,7 +108,7 @@ object NodeApp extends App {
           }
 
       case "s" | "seed" ⇒
-        kad.ownContact.map(_.contact).map(_.b64seed).map(cmd).flatMap(_ ⇒ handle)
+        kad.ownContact.map(_.contact).flatMap(_.b64seed[Task].value).map(e ⇒ cmd(e.toString)).flatMap(_ ⇒ handle)
 
       case "q" | "quit" | "x" | "exit" ⇒
         cmd("exit")

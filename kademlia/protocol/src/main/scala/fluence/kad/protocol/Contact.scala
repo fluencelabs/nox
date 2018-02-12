@@ -19,27 +19,54 @@ package fluence.kad.protocol
 
 import java.net.InetAddress
 
-import cats.{ Eval, Show }
-import scodec.bits.{ Bases, BitVector, ByteVector }
-import scodec.Codec
+import cats.data.{ EitherT, Ior }
+import cats.{ Monad, Show }
+import fluence.crypto.algorithm.CryptoErr
+import fluence.crypto.keypair.KeyPair
+import fluence.crypto.signature.{ SignatureChecker, Signer }
+import io.circe._
+import io.circe.syntax._
+import scodec.bits.{ Bases, ByteVector }
 
+import scala.language.higherKinds
+import scala.util.Try
+
+/**
+ * Node contact
+ *
+ * @param ip IP address
+ * @param port Port
+ * @param publicKey Public key of the node
+ * @param protocolVersion Protocol version the node is known to follow
+ * @param gitHash Git hash of current build running on node
+ * @param stringifier Either signer to build JWT representation, or serialized JWT, or both
+ */
 case class Contact(
     ip: InetAddress,
     port: Int,
 
+    publicKey: KeyPair.Public,
     protocolVersion: Long,
-    gitHash: String
+    gitHash: String,
+
+    private val stringifier: Ior[Signer, String]
 ) {
 
-  // TODO: make it pure
-  lazy val binary: ByteVector =
-    Contact.sCodec.encode(this).toEither match {
-      case Right(s)  ⇒ s.toByteVector
-      case Left(err) ⇒ throw new RuntimeException(err.toString())
-    }
+  def b64seed[F[_] : Monad]: EitherT[F, CryptoErr, String] =
+    stringifier.fold(
+      s ⇒ {
+        import Contact.JwtImplicits._
+        Jwt.write[F].apply(jwtHeader, jwtData, s)
+      },
+      EitherT.pure(_),
+      (_, str) ⇒ EitherT.pure(str)
+    )
 
-  lazy val b64seed: String =
-    binary.toBase64(Bases.Alphabets.Base64)
+  private[protocol] lazy val jwtHeader =
+    Contact.JwtHeader(publicKey, protocolVersion)
+
+  private[protocol] lazy val jwtData =
+    Contact.JwtData(ip, port, gitHash)
 
   lazy val isLocal: Boolean =
     ip.isLoopbackAddress ||
@@ -54,42 +81,58 @@ case class Contact(
 }
 
 object Contact {
-  implicit val show: Show[Contact] =
-    (c: Contact) ⇒ s"${c.ip.getHostAddress}:${c.port}(${c.b64seed})[protoc:${c.protocolVersion} build:${c.gitHash}]"
 
-  implicit val sCodec: Codec[Contact] = {
-    import scodec.codecs._
+  case class JwtHeader(publicKey: KeyPair.Public, protocolVersion: Long)
 
-    val gitHash = bytes(20).xmap[String](
-      _.toHex(Bases.Alphabets.HexLowercase),
-      ByteVector.fromHex(_, Bases.Alphabets.HexLowercase).getOrElse(ByteVector.fill(20)(0))
+  case class JwtData(ip: InetAddress, port: Int, gitHash: String)
+
+  object JwtImplicits {
+    implicit val encodeHeader: Encoder[JwtHeader] = header ⇒ Json.obj(
+      "pk" -> Json.fromString(header.publicKey.value.toBase64(Bases.Alphabets.Base64Url)),
+      "pv" -> Json.fromLong(header.protocolVersion))
+
+    implicit val decodeHeader: Decoder[JwtHeader] = c ⇒
+      for {
+        pk ← c.downField("pk").as[String]
+        pv ← c.downField("pv").as[Long]
+        pubKey ← ByteVector.fromBase64(pk, Bases.Alphabets.Base64Url).fold[Either[DecodingFailure, KeyPair.Public]](
+          Left(DecodingFailure("Cannot parse public key", Nil))
+        )(bc ⇒ Right(KeyPair.Public(bc)))
+      } yield JwtHeader(pubKey, pv)
+
+    implicit val encodeData: Encoder[JwtData] = data ⇒ Json.obj(
+      "ip" -> Json.fromString(data.ip.getHostAddress),
+      "p" -> Json.fromInt(data.port),
+      "gh" -> Json.fromString(data.gitHash)
     )
 
-    val inetAddress = bytes(4).xmap[InetAddress](
-      bv ⇒ InetAddress.getByAddress(bv.toArray),
-      ia ⇒ ByteVector(ia.getAddress)
-    )
-
-    (int64 ~ inetAddress ~ int32 ~ gitHash).xmap[Contact](
-      {
-        case (((v, ia), p), gh) ⇒
-          Contact(ip = ia, port = p, protocolVersion = v, gitHash = gh)
-      },
-      c ⇒ (((c.protocolVersion, c.ip), c.port), c.gitHash)
-    )
+    implicit val decodeData: Decoder[JwtData] = c ⇒
+      for {
+        ip ← c.downField("ip").as[String]
+        p ← c.downField("p").as[Int]
+        gh ← c.downField("gh").as[String]
+        ipAddr ← Try(InetAddress.getByName(ip)).fold(
+          t ⇒ Left(DecodingFailure.fromThrowable(t, Nil)),
+          i ⇒ Right(i)
+        )
+      } yield JwtData(ip = ipAddr, port = p, gitHash = gh)
   }
 
-  // TODO: make it pure
-  def readBinary(bv: ByteVector): Eval[Contact] = Eval.later(
-    sCodec.decodeValue(bv.toBitVector).toEither match {
-      case Right(v)  ⇒ v
-      case Left(err) ⇒ throw new RuntimeException(err.toString())
-    }
-  )
+  import JwtImplicits._
 
-  // TODO: make it pure
-  def readB64seed(str: String): Eval[Contact] = Eval.later{
-    ByteVector
-      .fromBase64(str, Bases.Alphabets.Base64).getOrElse(throw new RuntimeException("Can't decode seed"))
-  }.flatMap(readBinary)
+  implicit val show: Show[Contact] =
+    (c: Contact) ⇒ s"${c.jwtHeader.asJson.noSpaces}.${c.jwtData.asJson.noSpaces}"
+
+  def readB64seed[F[_] : Monad](str: String, checker: SignatureChecker): EitherT[F, Throwable, Contact] =
+    Jwt.read[F, JwtHeader, JwtData](str, (h, b) ⇒ Right(h.publicKey), checker).map {
+      case (header, data) ⇒
+        Contact(
+          ip = data.ip,
+          port = data.port,
+          publicKey = header.publicKey,
+          protocolVersion = header.protocolVersion,
+          gitHash = data.gitHash,
+          stringifier = Ior.right(str)
+        )
+    }
 }
