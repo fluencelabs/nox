@@ -43,6 +43,7 @@ object KademliaNodeCodec {
         for {
           k ← Key.fromBytes[F](binary.id.toByteArray)
           c ← Contact.readB64seed[F](new String(binary.contact.toByteArray), checker).value.flatMap(F.fromEither)
+          _ ← if (Key.checkPublicKey(k, c.publicKey)) F.pure(()) else F.raiseError(new IllegalArgumentException("Key doesn't conform to signature"))
         } yield protocol.Node[Contact](
           k,
           // TODO: consider removing Instant.now(). It could be really incorrect, as nodes taken from lookup replies are not seen at the moment

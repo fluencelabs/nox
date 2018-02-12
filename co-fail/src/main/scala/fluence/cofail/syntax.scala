@@ -34,27 +34,22 @@ object syntax {
     def lift1(v: A): R
     def lift2(v: B): R
   }
-  type LeftMergerAux[A, B, R0] = LeftMerger[A, B]{type R = R0}
+  type LeftMergerAux[A, B, R0] = LeftMerger[A, B] { type R = R0 }
+
+  // if A in AA, lift it
+  // if A not in AA, extend A :+: AA
 
   implicit def notA[A]: NotA[A] = ???
   implicit def notNotA[A](implicit a: A): NotA[A] = ???
 
-  // TODO: it must not make a coproduct from A <: AA or A >: AA, it should merge them into supertype instead
-  implicit class EitherTSyntax[F[_]: Monad, A, B](self: EitherT[F, A, B])(implicit notCoproduct: NotA[A <:< Coproduct]) {
-    def flatMap[AA, D](f: B ⇒ EitherT[F, AA, D])(implicit
-                                                 evLeftNotMatch: AA =:!= A,
-                                                 notSubEv: NotA[A <:< AA],
-                                                 notSubEvInv: NotA[AA <:< A]): EitherT[F, AA :+: A :+: CNil, D] =
-      EitherT[F, AA :+: A :+: CNil, D](self.value.flatMap {
+  implicit class EitherTSyntax[F[_] : Monad, A, B](self: EitherT[F, A, B]) {
+    def flatMap[AA, D, R](f: B ⇒ EitherT[F, AA, D])(implicit evNeq: AA =:!= A, leftMerger: LeftMergerAux[AA, A, R]): EitherT[F, R, D] =
+      EitherT[F, R, D](self.value.flatMap {
         case Right(r) ⇒
-          f(r).leftMap(Coproduct[AA :+: A :+: CNil](_)).value
+          f(r).leftMap(leftMerger.lift1).value
         case Left(l) ⇒
-          Monad[F].pure(Left(Coproduct[AA :+: A :+: CNil](l)))
+          Monad[F].pure(Left(leftMerger.lift2(l)))
       })
-
-    // if A in AA, lift it
-    // if A not in AA, extend A :+: AA
-    def flatMap[AA <: Coproduct, D](f: B => EitherT[F, AA, D]): EitherT[F, AA, B] = ???
   }
 
 }
