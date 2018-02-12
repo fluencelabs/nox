@@ -39,7 +39,7 @@ import scala.language.higherKinds
  * @param curveType http://www.bouncycastle.org/wiki/display/JA1/Supported+Curves+%28ECDSA+and+ECGOST%29
  * @param scheme https://bouncycastle.org/specifications.html
  */
-class Ecdsa(curveType: String, scheme: String, cryptoHasher: Option[CryptoHasher[Array[Byte], Array[Byte]]] = None) extends JavaAlgorithm
+class Ecdsa(curveType: String, scheme: String, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]]) extends JavaAlgorithm
   with SignatureFunctions with KeyGenerator {
   import Ecdsa._
   import CryptoErr._
@@ -85,7 +85,7 @@ class Ecdsa(curveType: String, scheme: String, cryptoHasher: Option[CryptoHasher
       sign ← {
         nonFatalHandling {
           signProvider.initSign(keyFactory.generatePrivate(keySpec))
-          signProvider.update(cryptoHasher.map(h ⇒ h.hash(message)).getOrElse(message))
+          signProvider.update(hasher.map(h ⇒ h.hash(message)).getOrElse(message))
           signProvider.sign()
         }("Cannot sign message.")
       }
@@ -101,7 +101,7 @@ class Ecdsa(curveType: String, scheme: String, cryptoHasher: Option[CryptoHasher
       verify ← {
         nonFatalHandling {
           signProvider.initVerify(keyFactory.generatePublic(keySpec))
-          signProvider.update(cryptoHasher.map(h ⇒ h.hash(message)).getOrElse(message))
+          signProvider.update(hasher.map(h ⇒ h.hash(message)).getOrElse(message))
           signProvider.verify(signature)
         }("Cannot verify message.")
       }

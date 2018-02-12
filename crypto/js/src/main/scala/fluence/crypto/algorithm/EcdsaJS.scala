@@ -21,7 +21,7 @@ import cats.MonadError
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.crypto.facade.EC
-import fluence.crypto.hash.JsCryptoHasher
+import fluence.crypto.hash.{CryptoHasher, JsCryptoHasher}
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
 import scodec.bits.ByteVector
@@ -30,12 +30,16 @@ import scala.language.higherKinds
 import scala.scalajs.js
 import scala.scalajs.js.JSConverters._
 
-class EcdsaJS(ec: EC) extends Algorithm with SignatureFunctions with KeyGenerator {
+/**
+  * Return in all js methods hex, because in the other case we will receive javascript objects
+  * @param ec implementation of ecdsa logic for different curves
+  */
+class EcdsaJS(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]]) extends Algorithm with SignatureFunctions with KeyGenerator {
   import CryptoErr._
 
   override def generateKeyPair[F[_]](seed: Option[Array[Byte]] = None)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
     nonFatalHandling {
-      val seedJs = seed.map(bb ⇒ js.Dynamic.literal(entropy = bb.toJSArray))
+      val seedJs = seed.map(bs ⇒ js.Dynamic.literal(entropy = bs.toJSArray))
       val key = ec.genKeyPair(seedJs)
       val publicHex = key.getPublic(true, "hex")
       val secretHex = key.getPrivate("hex")
@@ -75,5 +79,5 @@ class EcdsaJS(ec: EC) extends Algorithm with SignatureFunctions with KeyGenerato
 }
 
 object EcdsaJS {
-  def ecdsa_secp256k1_sha256[F[_]](implicit F: MonadError[F, Throwable]) = new EcdsaJS(new EC("secp256k1"))
+  def ecdsa_secp256k1_sha256[F[_]](implicit F: MonadError[F, Throwable]) = new EcdsaJS(new EC("secp256k1"), Some(JsCryptoHasher.Sha256))
 }
