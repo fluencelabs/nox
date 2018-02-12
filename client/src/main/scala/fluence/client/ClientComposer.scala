@@ -17,6 +17,7 @@
 
 package fluence.client
 
+import cats.effect.Effect
 import cats.{ MonadError, ~> }
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
@@ -24,6 +25,7 @@ import fluence.dataset.grpc.DatasetStorageClient
 import fluence.dataset.grpc.client.{ ContractAllocatorClient, ContractsCacheClient }
 import fluence.kad.grpc.client.KademliaClient
 import fluence.transport.grpc.client.GrpcClient
+import monix.eval.Task
 import shapeless.HNil
 
 import scala.concurrent.Future
@@ -34,18 +36,19 @@ object ClientComposer {
   /**
    * Register all Rpc's into [[fluence.transport.TransportClient]] and returns it.
    */
-  def grpc[F[_]](builder: GrpcClient.Builder[HNil])(implicit F: MonadError[F, Throwable], run: Future ~> F, checker: SignatureChecker) =
-    {
+  def grpc[F[_]](
+    builder: GrpcClient.Builder[HNil]
+  )(implicit F: MonadError[F, Throwable], eff: Effect[F], runF: Future ~> F, runT: Task ~> F, checker: SignatureChecker) = {
 
-      import fluence.dataset.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
-      import fluence.kad.grpc.KademliaNodeCodec.{ apply ⇒ nodeCodec }
+    import fluence.dataset.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
+    import fluence.kad.grpc.KademliaNodeCodec.{ apply ⇒ nodeCodec }
 
-      builder
-        .add(KademliaClient.register[F]())
-        .add(ContractsCacheClient.register[F, BasicContract]())
-        .add(ContractAllocatorClient.register[F, BasicContract]())
-        .add(DatasetStorageClient.register[F]())
-        .build
-    }
+    builder
+      .add(KademliaClient.register[F]())
+      .add(ContractsCacheClient.register[F, BasicContract]())
+      .add(ContractAllocatorClient.register[F, BasicContract]())
+      .add(DatasetStorageClient.register[F]())
+      .build
+  }
 
 }

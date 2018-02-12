@@ -17,32 +17,38 @@
 
 package fluence.node
 
-import fluence.client.ClientComposer
-import cats.instances.future._
+import cats.effect.Effect
 import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
-import fluence.crypto.algorithm.Ecdsa
+import fluence.client.ClientComposer
 import fluence.crypto.SignAlgo
+import fluence.crypto.algorithm.Ecdsa
 import fluence.dataset.BasicContract
 import fluence.dataset.client.Contracts
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.grpc.client.GrpcClient
 import monix.eval.Task
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
+import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
-import monix.execution.Scheduler.Implicits.global
+import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 
 import scala.concurrent.Future
-import scala.language.higherKinds
 import scala.concurrent.duration._
+import scala.language.higherKinds
 
 class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(10, Seconds), Span(250, Milliseconds))
 
+  private implicit val futureEffect: Effect[Future] = new CatsEffectForFuture
+
   private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
     override def apply[A](fa: F[A]): F[A] = fa
+  }
+
+  private implicit def runTask[F[_]]: Task ~> Future = new (Task ~> Future) {
+    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
   }
 
   private val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
@@ -96,8 +102,8 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
 
     "reply to client's commands" in {
 
-      import fluence.dataset.contract.ContractWrite._
       import fluence.dataset.contract.ContractRead._
+      import fluence.dataset.contract.ContractWrite._
 
       val contractsApi = new Contracts[Task, BasicContract, Contact](
         maxFindRequests = 10,
