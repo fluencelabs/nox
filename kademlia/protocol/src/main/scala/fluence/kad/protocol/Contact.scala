@@ -20,17 +20,26 @@ package fluence.kad.protocol
 import java.net.InetAddress
 
 import cats.{ Eval, Show }
+import scodec.bits.{ Bases, BitVector, ByteVector }
+import scodec.Codec
 
 case class Contact(
     ip: InetAddress,
-    port: Int
+    port: Int,
+
+    protocolVersion: Long,
+    gitHash: String
 ) {
+
+  // TODO: make it pure
+  lazy val binary: ByteVector =
+    Contact.sCodec.encode(this).toEither match {
+      case Right(s)  ⇒ s.toByteVector
+      case Left(err) ⇒ throw new RuntimeException(err.toString())
+    }
+
   lazy val b64seed: String =
-    new String(java.util.Base64.getEncoder.encode(Array.concat(ip.getAddress, {
-      val bb = java.nio.ByteBuffer.allocate(Integer.BYTES)
-      bb.putInt(port)
-      bb.array()
-    })))
+    binary.toBase64(Bases.Alphabets.Base64)
 
   lazy val isLocal: Boolean =
     ip.isLoopbackAddress ||
@@ -46,12 +55,41 @@ case class Contact(
 
 object Contact {
   implicit val show: Show[Contact] =
-    (c: Contact) ⇒ s"${c.ip.getHostAddress}:${c.port}(${c.b64seed})"
+    (c: Contact) ⇒ s"${c.ip.getHostAddress}:${c.port}(${c.b64seed})[protoc:${c.protocolVersion} build:${c.gitHash}]"
 
-  def readB64seed(str: String): Eval[Contact] = Eval.later{
-    val bytes = java.util.Base64.getDecoder.decode(str)
-    val addr = InetAddress.getByAddress(bytes.take(4))
-    val port = java.nio.ByteBuffer.wrap(bytes.drop(4)).getInt
-    Contact(addr, port)
+  implicit val sCodec: Codec[Contact] = {
+    import scodec.codecs._
+
+    val gitHash = bytes(20).xmap[String](
+      _.toHex(Bases.Alphabets.HexLowercase),
+      ByteVector.fromHex(_, Bases.Alphabets.HexLowercase).getOrElse(ByteVector.fill(20)(0))
+    )
+
+    val inetAddress = bytes(4).xmap[InetAddress](
+      bv ⇒ InetAddress.getByAddress(bv.toArray),
+      ia ⇒ ByteVector(ia.getAddress)
+    )
+
+    (int64 ~ inetAddress ~ int32 ~ gitHash).xmap[Contact](
+      {
+        case (((v, ia), p), gh) ⇒
+          Contact(ip = ia, port = p, protocolVersion = v, gitHash = gh)
+      },
+      c ⇒ (((c.protocolVersion, c.ip), c.port), c.gitHash)
+    )
   }
+
+  // TODO: make it pure
+  def readBinary(bv: ByteVector): Eval[Contact] = Eval.later(
+    sCodec.decodeValue(bv.toBitVector).toEither match {
+      case Right(v)  ⇒ v
+      case Left(err) ⇒ throw new RuntimeException(err.toString())
+    }
+  )
+
+  // TODO: make it pure
+  def readB64seed(str: String): Eval[Contact] = Eval.later{
+    ByteVector
+      .fromBase64(str, Bases.Alphabets.Base64).getOrElse(throw new RuntimeException("Can't decode seed"))
+  }.flatMap(readBinary)
 }

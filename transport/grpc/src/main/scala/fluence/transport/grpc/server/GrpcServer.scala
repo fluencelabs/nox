@@ -162,31 +162,23 @@ object GrpcServer {
   }
 
   /**
-   * Builder for a local port, no upnp
-   * @param localPort Local port
-   * @return
-   */
-  def builder(localPort: Int): Builder =
-    new Builder(Task.now(Contact(InetAddress.getLocalHost, localPort)), Task.unit, localPort, Nil, Nil)
-
-  /**
-   * Builder for a local port, with upnp used to provide external port
-   * @param localPort Local port
-   * @param externalPort External port to be grabbed on gateway device
-   * @param uPnP UPnP instance to use for gateway management
-   * @return
-   */
-  def builder(localPort: Int, externalPort: Int, uPnP: UPnP = new UPnP()): Builder =
-    new Builder(uPnP.addPort(externalPort, localPort).memoizeOnSuccess.onErrorRecover{
-      case _ ⇒ Contact(InetAddress.getLocalHost, localPort)
-    }, uPnP.deletePort(externalPort).memoizeOnSuccess, localPort, Nil, Nil)
-
-  /**
    * Builder for config object
    * @param conf Server config object
-   * @return
    */
-  def builder(conf: GrpcServerConf): Builder =
-    conf.externalPort.fold(builder(conf.localPort))(ext ⇒ builder(conf.localPort, ext))
+  def builder(conf: GrpcServerConf, uPnP: ⇒ UPnP = new UPnP()): Builder =
+    conf.externalPort match {
+      case Some(externalPort) ⇒
+        val upnp = uPnP
+        val contact = Contact(InetAddress.getLocalHost, conf.localPort, conf.protocolVersion, conf.gitHash)
+
+        new Builder(upnp.addPort(externalPort, contact).memoizeOnSuccess.onErrorRecover{
+          case _ ⇒ contact
+        }, upnp.deletePort(externalPort).memoizeOnSuccess, conf.localPort, Nil, Nil)
+
+      case None ⇒
+        new Builder(
+          Task.now(Contact(InetAddress.getLocalHost, conf.localPort, conf.protocolVersion, conf.gitHash)),
+          Task.unit, conf.localPort, Nil, Nil)
+    }
 
 }

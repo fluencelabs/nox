@@ -34,8 +34,9 @@ object SbtCommons {
     headerLicense := Some(License.AGPLv3("2017", organizationName.value))
   )
 
-  val Cats1V = "1.0.0-RC2"
-  val ScodecV = "1.1.5"
+  val Cats1V = "1.0.1"
+  val ScodecBitsV = "1.1.5"
+  val ScodecCoreV = "1.10.3"
   val RocksDbV = "5.9.2"
   val TypeSafeConfV = "1.3.2"
   val FicusV = "1.4.3"
@@ -51,7 +52,8 @@ object SbtCommons {
   val shapeless = "com.chuusai" %% "shapeless" % "2.3.+"
   val monocle = "com.github.julien-truffaut" %% "monocle-core" % MonocleV
   val monocleMacro = "com.github.julien-truffaut" %% "monocle-macro" % MonocleV
-  val scodecBits = "org.scodec" %% "scodec-bits" % ScodecV
+  val scodecBits = "org.scodec" %% "scodec-bits" % ScodecBitsV
+  val scodecCore = "org.scodec" %% "scodec-core" % ScodecCoreV
   val bouncyCastle = "org.bouncycastle" % "bcprov-jdk15on" % "1.59"
 
   val circeCore = "io.circe" %% "circe-core" % CirceV
