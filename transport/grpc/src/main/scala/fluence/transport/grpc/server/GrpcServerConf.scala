@@ -40,16 +40,15 @@ object GrpcServerConf {
   val ConfigGitHashPath = "fluence.gitHash"
 
   case class GrpcServerConfSubset(
-                                   localPort: Int,
-                                   externalPort: Option[Int],
-                                   acceptLocal: Boolean,
-                                 )
+      localPort: Int,
+      externalPort: Option[Int],
+      acceptLocal: Boolean)
 
-  def read[F[_]](config: Config,
-                 path: String = ConfigPath,
-                 protocolVersionPath: String = ConfigProtocolVersionPath,
-                 gitHashPath: String = ConfigGitHashPath
-                )(implicit F: ApplicativeError[F, Throwable]): F[GrpcServerConf] =
+  def read[F[_]](
+    config: Config,
+    path: String = ConfigPath,
+    protocolVersionPath: String = ConfigProtocolVersionPath,
+    gitHashPath: String = ConfigGitHashPath)(implicit F: ApplicativeError[F, Throwable]): F[GrpcServerConf] =
     F.catchNonFatal {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._

@@ -28,6 +28,14 @@ import scodec.bits.{ Bases, ByteVector }
 
 import scala.collection.concurrent.TrieMap
 
+/**
+ * Node implementation for [[DatasetStorageRpc]].
+ * Caches launched [[DatasetStorage]]s, routes client requests for them.
+ *
+ * @param config Typesafe config to use in [[DatasetStorage]]
+ * @param cryptoHasher Used in b-tree
+ * @param servesDataset Check whether this node serves particular dataset or not
+ */
 class Datasets(
     config: Config,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
