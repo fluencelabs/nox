@@ -26,11 +26,14 @@ import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc.DatasetStorageRpcStub
 import fluence.dataset.grpc.storage._
 import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.transport.grpc.client.GrpcClient
+import io.grpc.{ CallOptions, ManagedChannel }
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import monix.reactive.Observable
 
 import scala.collection.Searching
+import scala.concurrent.Future
 import scala.language.{ higherKinds, implicitConversions }
 
 class DatasetStorageClient[F[_]](stub: DatasetStorageRpcStub)(implicit F: MonadError[F, Throwable], run: Task ~> F, Eff: Effect[F]) extends DatasetStorageRpc[F] {
@@ -185,4 +188,18 @@ class DatasetStorageClient[F[_]](stub: DatasetStorageRpcStub)(implicit F: MonadE
    * @return returns old value that was deleted, None if nothing was deleted.
    */
   override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[F]): F[Option[Array[Byte]]] = ???
+}
+
+object DatasetStorageClient {
+
+  /**
+   * Shorthand to register [[DatasetStorageClient]] inside [[GrpcClient]].
+   *
+   * @param channel     Channel to remote node
+   * @param callOptions Call options
+   */
+  def register[F[_]]()(channel: ManagedChannel, callOptions: CallOptions)
+    (implicit run: Future ~> F, F: MonadError[F, Throwable]): DatasetStorageRpc[F] = {
+    new DatasetStorageClient[F](new DatasetStorageRpcStub(channel, callOptions))
+  }
 }
