@@ -17,7 +17,8 @@
 
 package fluence.crypto.algorithm
 
-import cats.MonadError
+import cats.Monad
+import cats.data.EitherT
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
 import scodec.bits.ByteVector
@@ -25,6 +26,7 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 
 trait SignatureFunctions {
-  def sign[F[_]](keyPair: KeyPair, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[Signature]
-  def verify[F[_]](signature: Signature, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[Boolean]
+  def sign[F[_] : Monad](keyPair: KeyPair, message: ByteVector): EitherT[F, CryptoErr, Signature]
+
+  def verify[F[_] : Monad](signature: Signature, message: ByteVector): EitherT[F, CryptoErr, Unit]
 }

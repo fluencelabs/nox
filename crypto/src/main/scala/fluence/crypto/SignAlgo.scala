@@ -19,8 +19,9 @@ package fluence.crypto
 
 import java.security.SecureRandom
 
-import cats.MonadError
-import fluence.crypto.algorithm.{ DumbSign, KeyGenerator, SignatureFunctions }
+import cats.data.EitherT
+import cats.{ Monad, MonadError }
+import fluence.crypto.algorithm.{ CryptoErr, DumbSign, KeyGenerator, SignatureFunctions }
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{ Signature, SignatureChecker, Signer }
 import scodec.bits.ByteVector
@@ -33,15 +34,17 @@ import scala.language.higherKinds
  */
 class SignAlgo(algo: KeyGenerator with SignatureFunctions) {
 
-  def generateKeyPair[F[_]]()(implicit F: MonadError[F, Throwable]): F[KeyPair] = algo.generateKeyPair()
-  def generateKeyPair[F[_]](seed: ByteVector)(implicit F: MonadError[F, Throwable]): F[KeyPair] = algo.generateKeyPair(new SecureRandom(seed.toArray))
+  def generateKeyPair[F[_] : Monad](): EitherT[F, CryptoErr, KeyPair] = algo.generateKeyPair()
+  def generateKeyPair[F[_] : Monad](seed: ByteVector): EitherT[F, CryptoErr, KeyPair] = algo.generateKeyPair(new SecureRandom(seed.toArray))
 
-  def signer[F[_]](kp: KeyPair)(implicit F: MonadError[F, Throwable]): Signer[F] = new Signer[F] {
-    override def sign(plain: ByteVector): F[Signature] = algo.sign(kp, plain)
+  def signer(kp: KeyPair): Signer = new Signer {
     override def publicKey: KeyPair.Public = kp.publicKey
+    override def sign[F[_] : Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature] = algo.sign(kp, plain)
   }
 
-  def checker[F[_]](implicit F: MonadError[F, Throwable]): SignatureChecker[F] = (signature: Signature, plain: ByteVector) ⇒ algo.verify(signature, plain)
+  def checker: SignatureChecker = new SignatureChecker {
+    override def check[F[_] : Monad](signature: Signature, plain: ByteVector): EitherT[F, CryptoErr, Unit] = algo.verify(signature, plain)
+  }
 }
 
 object SignAlgo {

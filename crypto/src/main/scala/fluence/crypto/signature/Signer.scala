@@ -17,23 +17,27 @@
 
 package fluence.crypto.signature
 
-import cats.MonadError
+import cats.Monad
+import cats.data.EitherT
+import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.keypair.KeyPair
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-trait Signer[F[_]] {
+trait Signer {
   def publicKey: KeyPair.Public
 
-  def sign(plain: ByteVector): F[Signature]
+  def sign[F[_] : Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature]
 }
 
 object Signer {
-  class DumbSigner[F[_]](keyPair: KeyPair)(implicit F: MonadError[F, Throwable]) extends Signer[F] {
+
+  class DumbSigner(keyPair: KeyPair) extends Signer {
     override def publicKey: KeyPair.Public = keyPair.publicKey
 
-    override def sign(plain: ByteVector): F[Signature] =
-      F.pure(Signature(keyPair.publicKey, plain.reverse))
+    override def sign[F[_] : Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature] =
+      EitherT.pure(Signature(keyPair.publicKey, plain.reverse))
   }
+
 }
