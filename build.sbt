@@ -68,21 +68,22 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
 )
   )
-  .jvmSettings(
-    libraryDependencies ++= Seq(
-      //JVM-specific provider for cryptography
-      bouncyCastle
-    )
+
+lazy val `cryptoJVM` = `crypto`.jvm.settings(
+  libraryDependencies ++= Seq(
+    //JVM-specific provider for cryptography
+    bouncyCastle
   )
-  .jsSettings(
+)
+
+lazy val `cryptoJS` = `crypto`.js
+  .enablePlugins(ScalaJSBundlerPlugin)
+  .settings(
     npmDependencies in Compile ++= Seq("elliptic" -> "6.4.0"),
-      scalaJSModuleKind := ModuleKind.CommonJSModule,
+    scalaJSModuleKind := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies := false
   )
-
-lazy val `cryptoJVM` = `crypto`.jvm
-lazy val `cryptoJS` = `crypto`.js.enablePlugins(ScalaJSBundlerPlugin)
 
 lazy val `dataset-node` = project.in(file("dataset/node"))
   .dependsOn(`storage`, `kademlia-node`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
