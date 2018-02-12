@@ -5,5 +5,6 @@ commons
 libraryDependencies ++= Seq(
   circeCore,
   circeParser,
-  cats1
+  cats1,
+  scalatest
 )

@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2017  Fluence Labs Limited
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package fluence.kad.protocol
 
 import cats.Monad
@@ -66,8 +83,9 @@ private[protocol] object Jwt {
       case h :: c :: s :: Nil ⇒
 
         for {
-          hbv ← EitherT.fromOption(ByteVector.fromBase64(h, alphabet), new IllegalArgumentException("Can't read base64 header"))
-          cbv ← EitherT.fromOption(ByteVector.fromBase64(c, alphabet), new IllegalArgumentException("Can't read base64 claim"))
+          hbv ← EitherT.fromOption(ByteVector.fromBase64(h, alphabet), new IllegalArgumentException("Can't read base64 header, got " + h))
+          cbv ← EitherT.fromOption(ByteVector.fromBase64(c, alphabet), new IllegalArgumentException("Can't read base64 claim, got " + c))
+          sgn ← EitherT.fromOption(ByteVector.fromBase64(s, alphabet), new IllegalArgumentException("Can't read base64 signature, got " + s))
 
           hc ← EitherT.fromEither[F](for {
             hj ← parse(new String(hbv.toArray))
@@ -78,7 +96,7 @@ private[protocol] object Jwt {
 
           pk ← EitherT.fromEither(getPk(hc._1, hc._2))
 
-          _ ← checker.check(Signature(pk, ByteVector(s.getBytes)), ByteVector((h + c).getBytes())).leftMap(err ⇒ err: Throwable) // TODO: coproduct
+          _ ← checker.check(Signature(pk, sgn), ByteVector((h + c).getBytes())).leftMap(err ⇒ err: Throwable) // TODO: coproduct
 
         } yield hc
 
