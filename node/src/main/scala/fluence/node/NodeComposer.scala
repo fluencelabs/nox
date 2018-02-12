@@ -17,12 +17,13 @@
 
 package fluence.node
 
+import java.util.concurrent.Executors
+
 import cats.instances.try_._
 import cats.~>
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
 import fluence.crypto.SignAlgo
-import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
@@ -45,16 +46,19 @@ import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.eval.Task
-import monix.execution.Scheduler.Implicits.global
+import monix.execution.Scheduler
 
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 
 class NodeComposer(
     keyPair: KeyPair,
+    algo: SignAlgo,
     config: Config,
     getInfo: () ⇒ Task[NodeInfo],
     contractsCacheStoreName: String = "fluence_contractsCache") {
+
+  private val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
 
   private implicit val runFuture = new (Future ~> Task) {
     override def apply[A](fa: Future[A]): Task[A] = Task.deferFuture(fa)
@@ -62,7 +66,7 @@ class NodeComposer(
 
   private implicit val runTask = new (Task ~> Future) {
     // TODO: add logging
-    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
+    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync(Scheduler.global)
   }
 
   private implicit def runId[F[_]] = new (F ~> F) {
@@ -76,7 +80,7 @@ class NodeComposer(
   import keyC.inverse
 
   private lazy val serverBuilder =
-    grpcConf.map(GrpcServer.builder).memoizeOnSuccess
+    grpcConf.map(GrpcServer.builder(_)).memoizeOnSuccess
 
   private lazy val grpcConf =
     GrpcServerConf.read[Task](config).memoizeOnSuccess
@@ -100,8 +104,6 @@ class NodeComposer(
       // TODO: externalize creation of signer/checker somehow
 
     } yield new NodeServices[Task, BasicContract, Contact] {
-
-      private val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
 
       private val client = ClientComposer.grpc[Task](GrpcClient.builder(k, serverBuilder.contact, clientConf))
 
@@ -144,7 +146,12 @@ class NodeComposer(
 
       override lazy val info: NodeInfoRpc[Task] = new NodeInfoService[Task](getInfo)
 
-      override lazy val datasets: DatasetStorageRpc[Task] = new Datasets(config, JdkCryptoHasher.Sha256) // TODO: externalize hasher
+      override lazy val datasets: DatasetStorageRpc[Task] =
+        new Datasets(
+          config,
+          JdkCryptoHasher.Sha256, // TODO: externalize hasher
+          contractsCacheStore.get(_).map(_.contract.participants.contains(k))
+        )
     }).memoizeOnSuccess
 
   // Add server (with kademlia inside), build
@@ -157,12 +164,12 @@ class NodeComposer(
       } yield {
         import ns._
         serverBuilder
-          .add(KademliaGrpc.bindService(new KademliaServer[Task](kademlia.handleRPC), global))
-          .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsCache), global))
-          .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractAllocator), global))
-          .add(DatasetContractsApiGrpc.bindService(new ContractsApiServer[Task, BasicContract](contracts), global))
-          .add(NodeInfoRpcGrpc.bindService(new NodeInfoServer[Task](info), global))
-          .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), global))
+          .add(KademliaGrpc.bindService(new KademliaServer[Task](kademlia.handleRPC), ec))
+          .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsCache), ec))
+          .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractAllocator), ec))
+          .add(DatasetContractsApiGrpc.bindService(new ContractsApiServer[Task, BasicContract](contracts), ec))
+          .add(NodeInfoRpcGrpc.bindService(new NodeInfoServer[Task](info), ec))
+          .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), ec))
           .onNodeActivity(kademlia.update _, clientConf)
           .build
       }
