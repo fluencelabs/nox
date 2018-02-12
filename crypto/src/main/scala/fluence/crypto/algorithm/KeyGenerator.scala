@@ -17,11 +17,12 @@
 
 package fluence.crypto.algorithm
 
-import cats.MonadError
+import cats.Monad
+import cats.data.EitherT
 import fluence.crypto.keypair.KeyPair
 
 import scala.language.higherKinds
 
 trait KeyGenerator {
-  def generateKeyPair[F[_]](seed: Option[Array[Byte]] = None)(implicit F: MonadError[F, Throwable]): F[KeyPair]
+  def generateKeyPair[F[_] : Monad](seed: Option[Array[Byte]] = None): EitherT[F, CryptoErr, KeyPair]
 }
