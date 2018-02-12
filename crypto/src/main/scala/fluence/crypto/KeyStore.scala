@@ -19,26 +19,27 @@ package fluence.crypto
 
 import fluence.crypto.keypair.KeyPair
 import io.circe.{ Decoder, Encoder, HCursor, Json }
-import scodec.bits.ByteVector
+import scodec.bits.{ Bases, ByteVector }
 
 import scala.language.higherKinds
 
 case class KeyStore(keyPair: KeyPair)
 
 /**
-  * Json example:
-  * {
-  *   "keystore" : {
-  *     "secret" : "SFcDtZClfcxx75w9xJpQgBm09d6h9tVmVUEgHYxlews=",
-  *     "public" : "AlTBivFrIYe++9Me4gr4R11BtRzjZ2WXZGDNWD/bEPka"
-  *   }
-  * }
-  */
+ * Json example:
+ * {
+ *   "keystore" : {
+ *     "secret" : "SFcDtZClfcxx75w9xJpQgBm09d6h9tVmVUEgHYxlews=",
+ *     "public" : "AlTBivFrIYe++9Me4gr4R11BtRzjZ2WXZGDNWD/bEPka"
+ *   }
+ * }
+ */
 object KeyStore {
+  private val alphabet = Bases.Alphabets.Base64Url
   implicit val encodeKeyStorage: Encoder[KeyStore] = new Encoder[KeyStore] {
     final def apply(ks: KeyStore): Json = Json.obj(("keystore", Json.obj(
-      ("secret", Json.fromString(ks.keyPair.secretKey.value.toBase64)),
-      ("public", Json.fromString(ks.keyPair.publicKey.value.toBase64)))))
+      ("secret", Json.fromString(ks.keyPair.secretKey.value.toBase64(alphabet))),
+      ("public", Json.fromString(ks.keyPair.publicKey.value.toBase64(alphabet))))))
   }
 
   implicit val decodeKeyStorage: Decoder[Option[KeyStore]] = new Decoder[Option[KeyStore]] {
@@ -48,8 +49,8 @@ object KeyStore {
         public ← c.downField("keystore").downField("public").as[String]
       } yield {
         for {
-          secret ← ByteVector.fromBase64(secret)
-          public ← ByteVector.fromBase64(public)
+          secret ← ByteVector.fromBase64(secret, alphabet)
+          public ← ByteVector.fromBase64(public, alphabet)
         } yield KeyStore(KeyPair.fromByteVectors(public, secret))
       }
   }
