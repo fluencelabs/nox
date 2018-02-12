@@ -130,5 +130,5 @@ object Ecdsa {
    * `secp256k1` refers to the parameters of the ECDSA curve
    * `NONEwithECDSA with sha-256 hasher` Preferably the size of the key is greater than or equal to the digest algorithm
    */
-  def ecdsa_secp256k1_sha256[F[_]](implicit F: MonadError[F, Throwable]) = new Ecdsa("secp256k1", "NONEwithECDSA", Some(JdkCryptoHasher.Sha256))
+  def ecdsa_secp256k1_sha256[F[_]] = new Ecdsa("secp256k1", "NONEwithECDSA", Some(JdkCryptoHasher.Sha256))
 }

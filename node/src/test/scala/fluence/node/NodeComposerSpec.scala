@@ -22,7 +22,7 @@ import cats.instances.future._
 import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.{ SignAlgo, algorithm }
+import fluence.crypto.SignAlgo
 import fluence.dataset.BasicContract
 import fluence.dataset.protocol.ContractsApi
 import fluence.info.NodeInfo
@@ -50,11 +50,14 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
 
   private val config = ConfigFactory.load()
 
+  private val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+
   private val servers = (0 to 20).map { n ⇒
     val port = 3100 + n
 
     new NodeComposer(
-      Ecdsa.ecdsa_secp256k1_sha256[Future].generateKeyPair().futureValue,
+      algo.generateKeyPair().futureValue,
+      algo,
       config
         .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
         .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
@@ -100,9 +103,8 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
 
       contractsApi.find(Key.fromString[Future]("hi there").futureValue).failed.futureValue
 
-      val kp = Ecdsa.ecdsa_secp256k1_sha256[Future].generateKeyPair().futureValue
+      val kp = algo.generateKeyPair().futureValue
       val key = Key.fromKeyPair[Future](kp).futureValue
-      val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
       val signer = algo.signer(kp)
       val offer = BasicContract.offer(key, participantsRequired = 4, signer = signer).futureValue
 
