@@ -3,7 +3,7 @@ import java.util.Base64
 import cats.instances.try_._
 import fluence.crypto.KeyStore
 import fluence.crypto.algorithm.EcdsaJS
-import fluence.crypto.facade.{EC, SHA256}
+import fluence.crypto.facade.{ EC, SHA256 }
 import fluence.crypto.signature.Signature
 import scodec.bits.ByteVector
 

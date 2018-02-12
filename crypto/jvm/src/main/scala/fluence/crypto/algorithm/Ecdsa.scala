@@ -60,8 +60,7 @@ class Ecdsa(curveType: String, scheme: String, cryptoHasher: Option[CryptoHasher
           //store S number for private key and compressed Q point on curve for public key
           val pk = ByteVector(p.getPublic.asInstanceOf[ECPublicKey].getQ.getEncoded(true))
           val bg = p.getPrivate.asInstanceOf[ECPrivateKey].getS
-          println("PRIVATE NUMBER === " + bg)
-          val sk = ByteVector.fromHex(bg.toString(HEXradix)).get
+          val sk = ByteVector.fromValidHex(bg.toString(HEXradix))
           F.pure(KeyPair.fromByteVectors(pk, sk))
         case None ⇒ F.raiseError[KeyPair](CryptoErr("Could not generate KeyPair. Unexpected."))
       }

@@ -12,7 +12,7 @@ object JsCryptoHasher {
     override def hash(msg1: Array[Byte]): Array[Byte] = {
       val sha256 = new SHA256()
       sha256.update(msg1.toJSArray)
-      ByteVector.fromHex(sha256.digest("hex")).get.toArray
+      ByteVector.fromValidHex(sha256.digest("hex")).toArray
     }
 
     override def hash(msg1: Array[Byte], msg2: Array[Byte]*): Array[Byte] = {

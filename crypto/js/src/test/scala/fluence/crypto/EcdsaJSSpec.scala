@@ -45,24 +45,6 @@ class EcdsaJSSpec extends WordSpec with Matchers with BeforeAndAfterAll {
       algorithm.verify(sign.copy(sign = randomSign.sign), data).get shouldBe false
 
       algorithm.verify(sign, randomData).get shouldBe false
-
-      import io.circe.parser.decode
-
-      val json =
-        """
-          |{
-          |  "keystore" : {
-          |    "secret" : "wTnTLZf38K1JfyW3ue8vEtT/DmqLUse7YCDL+ksn48M=",
-          |    "public" : "A8t173PRrzU1u805NKNLsijCwvkTi0cJge0hLgwPQj5A"
-          |  }
-          |}
-        """.stripMargin
-
-      val keyPair = decode[Option[KeyStore]](json).right.get.get.keyPair
-
-      val sign1 = algorithm.sign(keyPair, data).get
-      val test = algorithm.verify(sign1, data).get
-      println("TEST ==== " + test)
     }
 
     "correctly work with signer and checker" in {
