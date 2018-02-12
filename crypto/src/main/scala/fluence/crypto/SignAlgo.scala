@@ -31,15 +31,16 @@ import scala.language.higherKinds
  */
 class SignAlgo(algo: KeyGenerator with SignatureFunctions) {
 
-  def generateKeyPair[F[_]]()(implicit F: MonadError[F, Throwable]): F[KeyPair] = algo.generateKeyPair()
-  def generateKeyPair[F[_]](seed: ByteVector)(implicit F: MonadError[F, Throwable]): F[KeyPair] = algo.generateKeyPair(Array[Byte](1, 2, 3, 4, 5))
+  def generateKeyPair[F[_]](seed: Option[ByteVector] = None)(implicit F: MonadError[F, Throwable]): F[KeyPair] =
+    algo.generateKeyPair(seed.map(_.toArray))
 
   def signer[F[_]](kp: KeyPair)(implicit F: MonadError[F, Throwable]): Signer[F] = new Signer[F] {
     override def sign(plain: ByteVector): F[Signature] = algo.sign(kp, plain)
     override def publicKey: KeyPair.Public = kp.publicKey
   }
 
-  def checker[F[_]](implicit F: MonadError[F, Throwable]): SignatureChecker[F] = (signature: Signature, plain: ByteVector) ⇒ algo.verify(signature, plain)
+  def checker[F[_]](implicit F: MonadError[F, Throwable]): SignatureChecker[F] =
+    (signature: Signature, plain: ByteVector) ⇒ algo.verify(signature, plain)
 }
 
 object SignAlgo {

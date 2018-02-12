@@ -24,6 +24,7 @@ import java.security.interfaces.ECPrivateKey
 import cats.MonadError
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.crypto.keypair.KeyPair
 import org.bouncycastle.jce.ECNamedCurveTable
 import org.bouncycastle.jce.interfaces.ECPublicKey
@@ -32,29 +33,20 @@ import org.bouncycastle.jce.spec.{ ECNamedCurveParameterSpec, ECParameterSpec, E
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
-import scala.util.control.NonFatal
 
 /**
  * Elliptic Curve Digital Signature Algorithm
  * @param curveType http://www.bouncycastle.org/wiki/display/JA1/Supported+Curves+%28ECDSA+and+ECGOST%29
  * @param scheme https://bouncycastle.org/specifications.html
  */
-class Ecdsa(curveType: String, scheme: String) extends JavaAlgorithm
+class Ecdsa(curveType: String, scheme: String, cryptoHasher: Option[CryptoHasher[Array[Byte], Array[Byte]]] = None) extends JavaAlgorithm
   with SignatureFunctions with KeyGenerator {
   import Ecdsa._
+  import CryptoErr._
 
   val HEXradix = 16
 
-  private def nonFatalHandling[F[_], A](a: ⇒ A)(errorText: String)(implicit F: MonadError[F, Throwable]): F[A] = {
-    try F.pure(a)
-    catch {
-      case NonFatal(e) ⇒ F.raiseError(CryptoErr(errorText + " " + e.getLocalizedMessage))
-    }
-  }
-
-  def bytes2hex(bytes: Array[Byte]): String = bytes.map("%02x".format(_)).mkString("")
-
-  override def generateKeyPair[F[_]](seed: Array[Byte])(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
+  override def generateKeyPair[F[_]](seed: Option[Array[Byte]])(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
     for {
       ecSpecOp ← F.pure(Option(ECNamedCurveTable.getParameterSpec(curveType)))
       ecSpec ← ecSpecOp match {
@@ -62,11 +54,11 @@ class Ecdsa(curveType: String, scheme: String) extends JavaAlgorithm
         case None      ⇒ F.raiseError[ECNamedCurveParameterSpec](CryptoErr("Parameter spec for the curve is not available."))
       }
       g ← getKeyPairGenerator
-      _ ← nonFatalHandling(g.initialize(ecSpec, new SecureRandom(seed)))("Could not initialize KeyPairGenerator.")
+      _ ← nonFatalHandling(g.initialize(ecSpec, seed.map(new SecureRandom(_)).getOrElse(new SecureRandom())))("Could not initialize KeyPairGenerator.")
       keyPair ← Option(g.generateKeyPair()) match {
         case Some(p) ⇒
           //store S number for private key and compressed Q point on curve for public key
-          val pk = ByteVector.fromHex(bytes2hex(p.getPublic.asInstanceOf[ECPublicKey].getQ.getEncoded(true))).get
+          val pk = ByteVector(p.getPublic.asInstanceOf[ECPublicKey].getQ.getEncoded(true))
           val bg = p.getPrivate.asInstanceOf[ECPrivateKey].getS
           println("PRIVATE NUMBER === " + bg)
           val sk = ByteVector.fromHex(bg.toString(HEXradix)).get
@@ -74,10 +66,6 @@ class Ecdsa(curveType: String, scheme: String) extends JavaAlgorithm
         case None ⇒ F.raiseError[KeyPair](CryptoErr("Could not generate KeyPair. Unexpected."))
       }
     } yield keyPair
-  }
-
-  override def generateKeyPair[F[_]]()(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
-    generateKeyPair(new SecureRandom().generateSeed(50))
   }
 
   override def sign[F[_]](keyPair: KeyPair, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[fluence.crypto.signature.Signature] = {
@@ -98,7 +86,7 @@ class Ecdsa(curveType: String, scheme: String) extends JavaAlgorithm
       sign ← {
         nonFatalHandling {
           signProvider.initSign(keyFactory.generatePrivate(keySpec))
-          signProvider.update(message)
+          signProvider.update(cryptoHasher.map(h ⇒ h.hash(message)).getOrElse(message))
           signProvider.sign()
         }("Cannot sign message.")
       }
@@ -114,7 +102,7 @@ class Ecdsa(curveType: String, scheme: String) extends JavaAlgorithm
       verify ← {
         nonFatalHandling {
           signProvider.initVerify(keyFactory.generatePublic(keySpec))
-          signProvider.update(message)
+          signProvider.update(cryptoHasher.map(h ⇒ h.hash(message)).getOrElse(message))
           signProvider.verify(signature)
         }("Cannot verify message.")
       }
@@ -141,7 +129,7 @@ object Ecdsa {
   /**
    * size of key is 256 bit
    * `secp256k1` refers to the parameters of the ECDSA curve
-   * `SHA256withECDSA` Preferably the size of the key is greater than or equal to the digest algorithm
+   * `NONEwithECDSA with sha-256 hasher` Preferably the size of the key is greater than or equal to the digest algorithm
    */
-  def ecdsa_secp256k1_sha256[F[_]](implicit F: MonadError[F, Throwable]) = new Ecdsa("secp256k1", "SHA256withECDSA")
+  def ecdsa_secp256k1_sha256[F[_]](implicit F: MonadError[F, Throwable]) = new Ecdsa("secp256k1", "NONEwithECDSA", Some(JdkCryptoHasher.Sha256))
 }

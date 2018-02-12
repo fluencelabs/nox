@@ -8,11 +8,10 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 
 class DumbSign extends KeyGenerator with SignatureFunctions {
-  override def generateKeyPair[F[_]](seed: Array[Byte])(implicit F: MonadError[F, Throwable]): F[KeyPair] =
-    F.pure(KeyPair.fromBytes(seed, seed))
-
-  override def generateKeyPair[F[_]]()(implicit F: MonadError[F, Throwable]): F[KeyPair] =
-    generateKeyPair(Array[Byte](1, 2, 3, 4, 5))
+  override def generateKeyPair[F[_]](seed: Option[Array[Byte]] = None)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
+    val s = seed.getOrElse(Array[Byte](1, 2, 3, 4, 5))
+    F.pure(KeyPair.fromBytes(s, s))
+  }
 
   override def sign[F[_]](keyPair: KeyPair, message: ByteVector)(implicit F: MonadError[F, Throwable]): F[Signature] =
     F.pure(Signature(keyPair.publicKey, message.reverse))

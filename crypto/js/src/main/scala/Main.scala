@@ -1,18 +1,14 @@
-import java.io.File
-import java.math.BigInteger
 import java.util.Base64
 
-import fluence.crypto.algorithm.EcdsaJS
-import fluence.crypto.facade.EC
-import scodec.bits.ByteVector
 import cats.instances.try_._
-import fluence.crypto.{ FileKeyStorage, KeyStore }
+import fluence.crypto.KeyStore
+import fluence.crypto.algorithm.EcdsaJS
+import fluence.crypto.facade.{EC, SHA256}
+import fluence.crypto.signature.Signature
+import scodec.bits.ByteVector
 
-import scala.concurrent.Promise
 import scala.scalajs.js
-import scala.util.Try
-import js.JSConverters._
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.scalajs.js.JSConverters._
 
 object Main extends js.JSApp {
   def main(): Unit = {
@@ -91,10 +87,8 @@ object Main extends js.JSApp {
       case e: Throwable ⇒ e.printStackTrace()
     }
 
-    import fluence.crypto.KeyStore._
     import io.circe.parser.decode
     import io.circe.syntax._
-    import io.circe.{ Decoder, Encoder, HCursor, Json }
 
     println("=================== ECDSA TESTING =======================")
     try {
@@ -120,22 +114,50 @@ object Main extends js.JSApp {
     val keyJson = """
       |{
       |  "keystore" : {
-      |    "secret" : "JL6NmC4fkIrbTBw7nRE/MZThQB7Pwssl08N5uo6kbXc=",
-      |    "public" : "A3fUOrIZWeZoAqJDipYEkuCIDm9sOe5hUY8/4Cep+ozi"
+      |    "secret" : "lb+4PQHqXuRZjGrLHqj/zHvBWlpOCijzMime1FKkoW4=",
+      |    "public" : "A2h7CZpapgCmsh+ZkKWdkXli7t4N5/LfoyUeglOmvXkl"
       |  }
       |}
     """.stripMargin
 
+    val sign1hex = "3044022057ca7253d5a5ddb83b2b068cbd81c34f6e7765d3e16bfd5de9de55571b2ce6440220633d3d5c0cbbfd34afe6459f1ba5b38be8d58163afc0e622a3f03fa18256ab3b"
+
     val keyPair = decode[Option[KeyStore]](keyJson).right.get.get.keyPair
     val ecdsa = new EcdsaJS(ec)
     val msg = ByteVector(Array[Byte](1, 2, 3, 4, 5, 6))
+    val data = ByteVector(Array[Byte](1, 2, 3, 4, 5, 10))
     println("11111111")
     println("222222222")
     val sign = ecdsa.sign(keyPair, msg).get
+
     println("33333333333")
+
+    println("JAVASCRIPT DATA === " + data.toArray.mkString(","))
+    val sha256 = new SHA256()
+    sha256.update(data.toArray.toJSArray)
+
+    val dig = sha256.digest("hex")
+    val shadata = ByteVector.fromHex(dig).get
+    println("JAVASCRIPT SHA256 === " + shadata.toArray.mkString(","))
+    println("JAVASCRIPT ARR SHA256 === " + dig.toJSArray)
+
+    println("aaaaaaaa")
+
+    val sign1 = Signature(keyPair.publicKey, ByteVector.fromHex(sign1hex).get)
+
+    println("bbbbbbbbbb")
+
     val verifyRes = ecdsa.verify(sign, msg).get
+
+    println("ccccccccccc")
+    val verifyRes3 = ecdsa.verify(sign.copy(publicKey = keyPair.publicKey), msg).get
+    println("ddddddddddd")
+    val verifyRes1 = ecdsa.verify(sign1, shadata).get
     println("444444444")
     println(verifyRes)
+    println("HEYHEY PUBLIKKEY ========== " + verifyRes3)
+    println("HEYHEY ========== " + verifyRes1)
+
   }
 }
 

@@ -17,6 +17,18 @@
 
 package fluence.crypto.algorithm
 
-import scala.util.control.NoStackTrace
+import cats.MonadError
+
+import scala.language.higherKinds
+import scala.util.control.{ NoStackTrace, NonFatal }
 
 case class CryptoErr(errorMessage: String) extends Throwable(errorMessage) with NoStackTrace
+
+object CryptoErr {
+  def nonFatalHandling[F[_], A](a: ⇒ A)(errorText: String)(implicit F: MonadError[F, Throwable]): F[A] = {
+    try F.pure(a)
+    catch {
+      case NonFatal(e) ⇒ F.raiseError(CryptoErr(errorText + " " + e.getLocalizedMessage))
+    }
+  }
+}
