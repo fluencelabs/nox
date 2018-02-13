@@ -35,7 +35,6 @@ import fluence.dataset.BasicContract
 import fluence.dataset.client.ClientDatasetStorage
 import fluence.dataset.protocol.ContractsApi
 import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.info.NodeInfo
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.grpc.client.GrpcClient
@@ -225,7 +224,6 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
           .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
           .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true)),
-        () ⇒ Task.now(NodeInfo("test")),
         "node_cache_" + n
       )
     }
