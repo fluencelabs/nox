@@ -71,19 +71,6 @@ class KademliaClient[F[_]](stub: grpc.KademliaGrpc.KademliaStub)(implicit
     } yield resDec
 
   /**
-   * Perform an iterative lookup for a key, return K closest known nodes
-   *
-   * @param key Key to lookup
-   * @return
-   */
-  override def lookupIterative(key: Key, numberOfNodes: Int): F[Seq[Node[Contact]]] =
-    for {
-      k ← keyBS(key)
-      res ← run(stub.lookupIterative(grpc.LookupRequest(k, numberOfNodes)))
-      resDec ← streamCodec.decode(res.nodes.toStream)
-    } yield resDec
-
-  /**
    * Perform a local lookup for a key, return K closest known nodes, going away from the second key
    *
    * @param key Key to lookup

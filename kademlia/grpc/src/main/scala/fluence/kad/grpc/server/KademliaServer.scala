@@ -67,14 +67,4 @@ class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(implicit
       } yield NodesResponse(resp)
     )
 
-  override def lookupIterative(request: LookupRequest): Future[NodesResponse] =
-    run(
-      for {
-        key ← keyCodec.decode(request.key)
-        ns ← kademlia
-          .lookupIterative(key, request.numberOfNodes)
-        resp ← streamCodec.encode(ns.toStream)
-      } yield NodesResponse(resp)
-    )
-
 }

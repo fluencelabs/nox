@@ -445,7 +445,7 @@ object RoutingTable {
                       val updatedFnCalled = fnCalled ++ updatedCallOnNodes.map(_.key)
 
                       val escapeCondition =
-                        updatedReplies.size >= numToCollect || // collected enough replies
+                        updatedReplies.lengthCompare(numToCollect) >= 0 || // collected enough replies
                           updatedRequestsRemaining <= 0 || // Too many requests are made
                           (updatedFnCalled.size == updatedNodes.size && !hasMoreNodesToLookup) // No more nodes to call fn on
 
@@ -479,12 +479,19 @@ object RoutingTable {
      *
      * @param peers         List of known peer contacts (assuming that Kademlia ID is unknown)
      * @param rpc           RPC for remote nodes call
-     * @param pingTimeout   Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
+     * @param pingExpiresIn   Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
      * @param numberOfNodes How many nodes to lookupIterative for each peer
      * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
+     * @param parallelism Parallelism factor to perform self-[[lookupIterative()]] in case of successful join
      * @return F[Unit], possibly a failure if were not able to join any node
      */
-    def join(peers: Seq[C], rpc: C ⇒ KademliaRpc[F, C], pingTimeout: Duration, numberOfNodes: Int, checkNode: Node[C] ⇒ F[Boolean]): F[Unit] =
+    def join(
+      peers: Seq[C],
+      rpc: C ⇒ KademliaRpc[F, C],
+      pingExpiresIn: Duration,
+      numberOfNodes: Int,
+      checkNode: Node[C] ⇒ F[Boolean],
+      parallelism: Int): F[Unit] =
       Parallel.parTraverse(peers.toList) { peer: C ⇒
         // For each peer
         // Try to ping the peer; if no pings are performed, join is failed
@@ -492,7 +499,7 @@ object RoutingTable {
           case Right(peerNode) if peerNode.key =!= nodeId ⇒ // Ping successful, lookup node's neighbors
             log.info("PeerPing successful to " + peerNode.key)
 
-            rpc(peer).lookupIterative(nodeId, numberOfNodes).attempt.map {
+            rpc(peer).lookup(nodeId, numberOfNodes).attempt.map {
               case Right(neighbors) if neighbors.isEmpty ⇒
                 log.info("Neighbors list is empty for peer " + peerNode.key)
                 Some(peerNode -> Nil)
@@ -531,11 +538,12 @@ object RoutingTable {
         }.flatMap { ns ⇒
           // Save discovered nodes to the routing table
           log.info("Discovered neighbors: " + ns.map(_.key))
-          updateList(ns, rpc, pingTimeout, checkNode)
+          updateList(ns, rpc, pingExpiresIn, checkNode)
         }.map(_.nonEmpty).flatMap {
           case true ⇒ // At least joined to a single node
             log.info("Joined! " + Console.GREEN + nodeId + Console.RESET)
-            ().pure[F]
+            lookupIterative(nodeId, numberOfNodes, numberOfNodes, rpc, pingExpiresIn, checkNode)
+              .attempt.map(_ ⇒ ())
           case false ⇒ // Can't join to any node
             log.warn("Can't join!")
             ME.raiseError[Unit](new RuntimeException("Can't join any node among known peers"))

@@ -100,16 +100,16 @@ abstract class Kademlia[F[_], C](
         nodeId.lookupAway(key, moveAwayFrom)
           .take(numberOfNodes)
       )
-
-    /**
-     * Perform iterative lookup, see [[RoutingTable.WriteOps.lookupIterative]]
-     *
-     * @param key Key to lookup
-     * @return key's neighborhood
-     */
-    override def lookupIterative(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
-      nodeId.lookupIterative(key, numberOfNodes, parallelism, rpc, pingExpiresIn, checkNode)
   }
+
+  /**
+   * Perform iterative lookup, see [[RoutingTable.WriteOps.lookupIterative]]
+   *
+   * @param key Key to lookup
+   * @return key's neighborhood
+   */
+  def lookupIterative(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
+    nodeId.lookupIterative(key, numberOfNodes, parallelism, rpc, pingExpiresIn, checkNode)
 
   /**
    * Performs lookupIterative for a key, and then callIterative for neighborhood.
@@ -133,5 +133,5 @@ abstract class Kademlia[F[_], C](
    * @return
    */
   def join(peers: Seq[C], numberOfNodes: Int): F[Unit] =
-    nodeId.join(peers, rpc, pingExpiresIn, numberOfNodes, checkNode)
+    nodeId.join(peers, rpc, pingExpiresIn, numberOfNodes, checkNode, parallelism)
 }
