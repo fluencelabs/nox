@@ -24,7 +24,6 @@ import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.SignAlgo
 import fluence.dataset.BasicContract
-import fluence.dataset.protocol.ContractsApi
 import fluence.kad.protocol.Key
 import fluence.transport.grpc.client.GrpcClient
 import monix.eval.Task

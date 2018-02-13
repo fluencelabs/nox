@@ -19,14 +19,14 @@ lazy val `codec-core` = project.in(file("codec/core"))
 lazy val `codec-kryo` = project.in(file("codec/kryo"))
   .dependsOn(`codec-core`)
 
-lazy val `kademlia-node` = project.in(file("kademlia/node"))
+lazy val `kademlia-core` = project.in(file("kademlia/core"))
   .dependsOn(`kademlia-protocol`)
 
 lazy val `kademlia-protocol` = project.in(file("kademlia/protocol"))
   .dependsOn(`codec-core`, `cryptoJVM`)
 
 lazy val `kademlia-testkit` = project.in(file("kademlia/testkit"))
-  .dependsOn(`kademlia-node`)
+  .dependsOn(`kademlia-core`)
 
 lazy val `kademlia-grpc` = project.in(file("kademlia/grpc"))
   .dependsOn(`transport-grpc`, `kademlia-protocol`, `codec-core`, `kademlia-testkit` % Test)
@@ -86,7 +86,7 @@ lazy val `cryptoJVM` = `crypto`.jvm
 lazy val `cryptoJS` = `crypto`.js
 
 lazy val `dataset-node` = project.in(file("dataset/node"))
-  .dependsOn(`storage`, `kademlia-node`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
+  .dependsOn(`storage`, `kademlia-core`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
               `dataset-client` % "compile->test")
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
@@ -96,10 +96,10 @@ lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
   .dependsOn(`dataset-client`, `transport-grpc`)
 
 lazy val `dataset-client` = project.in(file("dataset/client"))
-  .dependsOn(`dataset-protocol`, `cryptoJVM`, `b-tree-client`)
+  .dependsOn(`dataset-protocol`, `cryptoJVM`, `b-tree-client`, `kademlia-core`)
 
 lazy val `node` = project
-  .dependsOn(`kademlia-grpc`, `kademlia-node`, `dataset-node`, `dataset-grpc`, `client`)
+  .dependsOn(`kademlia-grpc`, `kademlia-core`, `dataset-node`, `dataset-grpc`, `client`)
 
 // TODO: grpc is only for JVM: transport should be more abstract
 lazy val `client` = project.in(file("client"))

@@ -22,14 +22,15 @@ import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
 import fluence.dataset.BasicContract
+import fluence.dataset.client.Contracts
 import fluence.dataset.node.contract.ContractRecord
-import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsApi, ContractsCacheRpc }
+import fluence.dataset.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
 import fluence.kad.testkit.TestKademlia
-import fluence.storage.{ KVStore, TrieMapKVStore }
+import fluence.storage.{KVStore, TrieMapKVStore}
 import monix.eval.Coeval
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
