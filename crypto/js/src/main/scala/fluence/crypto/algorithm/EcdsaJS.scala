@@ -59,9 +59,12 @@ class EcdsaJS(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]]) ex
   }
 
   def hash[F[_] : Monad](message: ByteVector): EitherT[F, CryptoErr, js.Array[Byte]] = {
-    nonFatalHandling {
-      JsCryptoHasher.Sha256.hash(message.toArray).toJSArray
-    }("Cannot hash message.")
+    val arr = message.toArray
+    hasher.fold(EitherT.pure[F, CryptoErr](arr)) { h ⇒
+      nonFatalHandling {
+        h.hash(message.toArray)
+      }("Cannot hash message.")
+    }.map(_.toJSArray)
   }
 
   override def verify[F[_] : Monad](signature: Signature, message: ByteVector): EitherT[F, CryptoErr, Unit] = {
@@ -79,5 +82,5 @@ class EcdsaJS(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]]) ex
 }
 
 object EcdsaJS {
-  def ecdsa_secp256k1_sha256[F[_]](implicit F: MonadError[F, Throwable]) = new EcdsaJS(new EC("secp256k1"), Some(JsCryptoHasher.Sha256))
+  def ecdsa_secp256k1_sha256 = new EcdsaJS(new EC("secp256k1"), Some(JsCryptoHasher.Sha256))
 }
