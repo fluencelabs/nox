@@ -104,8 +104,9 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
         maxAllocateRequests = _ ⇒ 20,
         checker = algo.checker,
         kademlia = servers.head.services.map(_.kademlia).runAsync.futureValue, // TODO: use client-side Kademlia
-        cacheRpc = c ⇒ servers.find(_.services.map(_.kademlia).flatMap(_.ownContact).runAsync.futureValue.contact == c).get.services.map(_.contractsCache).runAsync.futureValue,
-        allocatorRpc = c ⇒ servers.find(_.services.map(_.kademlia).flatMap(_.ownContact).runAsync.futureValue.contact == c).get.services.map(_.contractAllocator).runAsync.futureValue
+        // TODO: store servers in a ~contact=>server map, get them by contact
+        cacheRpc = c ⇒ servers.find(_.services.map(_.kademlia).flatMap(_.ownContact).runAsync.futureValue.contact.publicKey.value == c.publicKey.value).get.services.map(_.contractsCache).runAsync.futureValue,
+        allocatorRpc = c ⇒ servers.find(_.services.map(_.kademlia).flatMap(_.ownContact).runAsync.futureValue.contact.publicKey.value == c.publicKey.value).get.services.map(_.contractAllocator).runAsync.futureValue
       )
 
       contractsApi.find(Key.fromString[Future]("hi there").futureValue).failed.runAsync.futureValue
