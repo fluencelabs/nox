@@ -17,10 +17,8 @@
 
 package fluence.crypto
 
-import java.security.SecureRandom
-
+import cats.Monad
 import cats.data.EitherT
-import cats.{ Monad, MonadError }
 import fluence.crypto.algorithm.{ CryptoErr, DumbSign, KeyGenerator, SignatureFunctions }
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{ Signature, SignatureChecker, Signer }
@@ -34,12 +32,12 @@ import scala.language.higherKinds
  */
 class SignAlgo(algo: KeyGenerator with SignatureFunctions) {
 
-  def generateKeyPair[F[_] : Monad](): EitherT[F, CryptoErr, KeyPair] = algo.generateKeyPair()
-  def generateKeyPair[F[_] : Monad](seed: ByteVector): EitherT[F, CryptoErr, KeyPair] = algo.generateKeyPair(new SecureRandom(seed.toArray))
+  def generateKeyPair[F[_] : Monad](seed: Option[ByteVector] = None): EitherT[F, CryptoErr, KeyPair] =
+    algo.generateKeyPair(seed.map(_.toArray))
 
   def signer(kp: KeyPair): Signer = new Signer {
-    override def publicKey: KeyPair.Public = kp.publicKey
     override def sign[F[_] : Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature] = algo.sign(kp, plain)
+    override def publicKey: KeyPair.Public = kp.publicKey
   }
 
   def checker: SignatureChecker = new SignatureChecker {

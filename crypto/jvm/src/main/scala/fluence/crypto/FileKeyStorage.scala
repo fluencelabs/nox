@@ -26,12 +26,8 @@ import cats.syntax.functor._
 import fluence.crypto.keypair.KeyPair
 import io.circe.parser.decode
 import io.circe.syntax._
-import io.circe.{ Decoder, Encoder, HCursor, Json }
-import scodec.bits.ByteVector
 
 import scala.language.higherKinds
-
-case class KeyStore(keyPair: KeyPair)
 
 class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) {
   import KeyStore._
@@ -63,25 +59,4 @@ class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) {
         _ ← storeSecretKey(newKeys)
       } yield newKeys
     }
-}
-
-object KeyStore {
-  implicit val encodeKeyStorage: Encoder[KeyStore] = new Encoder[KeyStore] {
-    final def apply(ks: KeyStore): Json = Json.obj(("keystore", Json.obj(
-      ("secret", Json.fromString(ks.keyPair.secretKey.value.toBase64)),
-      ("public", Json.fromString(ks.keyPair.publicKey.value.toBase64)))))
-  }
-
-  implicit val decodeKeyStorage: Decoder[Option[KeyStore]] = new Decoder[Option[KeyStore]] {
-    final def apply(c: HCursor): Decoder.Result[Option[KeyStore]] =
-      for {
-        secret ← c.downField("keystore").downField("secret").as[String]
-        public ← c.downField("keystore").downField("public").as[String]
-      } yield {
-        for {
-          secret ← ByteVector.fromBase64(secret)
-          public ← ByteVector.fromBase64(public)
-        } yield KeyStore(KeyPair.fromByteVectors(public, secret))
-      }
-  }
 }

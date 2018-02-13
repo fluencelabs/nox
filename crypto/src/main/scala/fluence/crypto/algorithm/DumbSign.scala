@@ -14,7 +14,6 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package fluence.crypto.algorithm
 
 import java.security.SecureRandom
@@ -28,11 +27,11 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 
 class DumbSign extends KeyGenerator with SignatureFunctions {
-  override def generateKeyPair[F[_] : Monad](random: SecureRandom): EitherT[F, CryptoErr, KeyPair] =
-    EitherT.pure(KeyPair.fromBytes(random.generateSeed(10), random.generateSeed(10)))
 
-  override def generateKeyPair[F[_] : Monad](): EitherT[F, CryptoErr, KeyPair] =
-    generateKeyPair(new SecureRandom())
+  override def generateKeyPair[F[_] : Monad](seed: Option[Array[Byte]] = None): EitherT[F, CryptoErr, KeyPair] = {
+    val s = seed.getOrElse(new SecureRandom().generateSeed(10))
+    EitherT.pure(KeyPair.fromBytes(s, s))
+  }
 
   override def sign[F[_] : Monad](keyPair: KeyPair, message: ByteVector): EitherT[F, CryptoErr, Signature] =
     EitherT.pure(Signature(keyPair.publicKey, message.reverse))
