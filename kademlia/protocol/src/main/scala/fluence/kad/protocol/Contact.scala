@@ -43,13 +43,13 @@ import scala.util.Try
  */
 case class Contact(
     ip: InetAddress,
-    port: Int,
+    port: Int, // httpPort, websocketPort and other transports //
 
     publicKey: KeyPair.Public,
     protocolVersion: Long,
     gitHash: String,
 
-    private val stringifier: Ior[Signer, String]
+    private val stringifier: Ior[Signer, String] // TODO: make string from signer in constructor, drop signer
 ) {
 
   def b64seed[F[_] : Monad]: EitherT[F, CryptoErr, String] =

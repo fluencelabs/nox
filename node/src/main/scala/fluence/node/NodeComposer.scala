@@ -35,8 +35,6 @@ import fluence.dataset.node.Contracts
 import fluence.dataset.node.storage.Datasets
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsApi, ContractsCacheRpc }
-import fluence.info.grpc.{ NodeInfoRpcGrpc, NodeInfoServer }
-import fluence.info.{ NodeInfo, NodeInfoRpc, NodeInfoService }
 import fluence.kad.Kademlia
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.client.KademliaClient
@@ -56,7 +54,6 @@ class NodeComposer(
     keyPair: KeyPair,
     algo: SignAlgo,
     config: Config,
-    getInfo: () ⇒ Task[NodeInfo],
     contractsCacheStoreName: String = "fluence_contractsCache") {
 
   private val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
@@ -149,8 +146,6 @@ class NodeComposer(
 
       override lazy val contractAllocator: ContractAllocatorRpc[Task, BasicContract] = contractsApi.allocator
 
-      override lazy val info: NodeInfoRpc[Task] = new NodeInfoService[Task](getInfo)
-
       override lazy val datasets: DatasetStorageRpc[Task] =
         new Datasets(
           config,
@@ -173,7 +168,6 @@ class NodeComposer(
           .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsCache), ec))
           .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractAllocator), ec))
           .add(DatasetContractsApiGrpc.bindService(new ContractsApiServer[Task, BasicContract](contracts), ec))
-          .add(NodeInfoRpcGrpc.bindService(new NodeInfoServer[Task](info), ec))
           .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), ec))
           .onNodeActivity(kademlia.update _, clientConf, checker)
           .build

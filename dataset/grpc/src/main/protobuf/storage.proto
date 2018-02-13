@@ -4,6 +4,7 @@ package fluence.dataset.grpc;
 
 message DatasetId {
     bytes id = 1;
+    // nonce
     bytes publicKey = 2;
 }
 
@@ -37,6 +38,8 @@ message GetCallbackReply {
 
         ReplyNextChildIndex nextChildIndex = 10;
         ReplySubmitLeaf submitLeaf = 11;
+
+        // TODO: add error
     }
 }
 
@@ -46,6 +49,8 @@ message GetCallback {
 
         AskNextChildIndex nextChildIndex = 10;
         AskSubmitLeaf submitLeaf = 11;
+
+        // TODO: add error
     }
 }
 
@@ -65,12 +70,12 @@ message ReplyPutDetails {
     }
 }
 
-message AskVerifyChanges {
+message AskVerifyChanges {// TODO add version
     bytes serverMerkleRoot = 1;
     bool splitted = 2;
 }
 
-message ReplyVerifyChanges {}
+message ReplyVerifyChanges {} // TODO add signature
 
 message AskChangesStored {}
 message ReplyChangesStored {}
@@ -92,6 +97,8 @@ message PutCallback {
         AskPutDetails putDetails = 20;
         AskVerifyChanges verifyChanges = 21;
         AskChangesStored changesStored = 22;
+
+        // TODO: add error
     }
 }
 
@@ -105,6 +112,8 @@ message PutCallbackReply {
         ReplyPutDetails putDetails = 20;
         ReplyVerifyChanges verifyChanges = 21;
         ReplyChangesStored changesStored = 22;
+
+        // TODO: add error
     }
 }
 

@@ -26,7 +26,6 @@ import com.typesafe.config.ConfigFactory
 import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.keypair.KeyPair
-import fluence.info.NodeInfo
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{ Contact, Key }
 import monix.eval.Task
@@ -123,7 +122,7 @@ object NodeApp extends App {
 
   val serverKad = for {
     kp ← getKeyPair[Task](config.getString("fluence.keyPath"))
-    nodeComposer = new NodeComposer(kp, algo, config, () ⇒ Task.now(NodeInfo(gitHash)))
+    nodeComposer = new NodeComposer(kp, algo, config)
     services ← nodeComposer.services
     server ← nodeComposer.server
     _ ← server.start()
