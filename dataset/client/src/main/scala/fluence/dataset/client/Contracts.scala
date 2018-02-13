@@ -1,0 +1,134 @@
+/*
+ * Copyright (C) 2017  Fluence Labs Limited
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package fluence.dataset.client
+
+import cats.instances.list._
+import cats.syntax.applicative._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{ Eq, MonadError, Parallel }
+import fluence.crypto.signature.SignatureChecker
+import fluence.dataset.contract.{ ContractRead, ContractWrite }
+import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.kad.Kademlia
+import fluence.kad.protocol.Key
+
+import scala.language.higherKinds
+import scala.util.control.NoStackTrace
+
+/**
+ * Client-facing API for contracts allocation
+ *
+ * @param maxFindRequests Max number of network requests to perform during the find op
+ * @param maxAllocateRequests participantsRequired => maxNum of network requests to collect that number of participants
+ * @param checker Signature checker
+ * @param kademlia Kademlia service
+ * @tparam F Effect
+ * @tparam Contract Contract
+ * @tparam Contact Kademlia's Contact
+ */
+class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
+    maxFindRequests: Int,
+    maxAllocateRequests: Int ⇒ Int,
+    checker: SignatureChecker,
+    kademlia: Kademlia[F, Contact],
+    cacheRpc: Contact ⇒ ContractsCacheRpc[F, Contract],
+    allocatorRpc: Contact ⇒ ContractAllocatorRpc[F, Contract]
+)(implicit ME: MonadError[F, Throwable], eq: Eq[Contract], P: Parallel[F, F]) {
+
+  import ContractRead._
+  import ContractWrite._
+
+  /**
+   * Search nodes to offer contract, collect participants, allocate dataset on them.
+   *
+   * @param contract         Contract to allocate
+   * @param sealParticipants Client's callback to seal list of participants with a signature
+   * @return Sealed contract with a list of participants, or failure
+   */
+  def allocate(contract: Contract, sealParticipants: Contract ⇒ F[Contract]): F[Contract] = {
+    // Check if contract is already known, return it immediately if it is
+    for {
+      _ ← ME.ensure(contract.isBlankOffer(checker))(Contracts.IncorrectOfferContract)(identity)
+      contract ← kademlia.callIterative[Contract](
+        contract.id,
+        nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap { c ⇒
+          ME.ensure(c.participantSigned(nc.key, checker))(Contracts.NotFound)(identity) map { _ ⇒ c }
+        },
+        contract.participantsRequired,
+        maxAllocateRequests(contract.participantsRequired),
+        isIdempotentFn = false
+      ).flatMap {
+          case agreements if agreements.lengthCompare(contract.participantsRequired) == 0 ⇒
+            contract.addParticipants(checker, agreements.map(_._2))
+              .flatMap { contractToSeal ⇒
+                sealParticipants(contractToSeal)
+              }.flatMap {
+                sealedContract ⇒
+                  Parallel.parSequence[List, F, F, Contract](
+                    agreements
+                      .map(_._1.contact)
+                      .map(c ⇒ allocatorRpc(c).allocate(sealedContract)) // In case any allocation failed, failure will be propagated
+                      .toList
+                  )
+              }.flatMap {
+                case c :: _ ⇒
+                  c.pure[F]
+
+                case Nil ⇒ // Should never happen
+                  ME.raiseError[Contract](Contracts.CantFindEnoughNodes(-1))
+              }
+
+          case agreements ⇒
+            ME.raiseError[Contract](Contracts.CantFindEnoughNodes(agreements.size))
+        }
+    } yield contract
+  }
+
+  /**
+   * Try to find dataset's contract by dataset's kademlia id, or fail.
+   *
+   * @param key Dataset ID
+   */
+  def find(key: Key): F[Contract] =
+    // Try to lookup in the neighborhood
+    // TODO: if contract is found "too far" from the neighborhood, ask key's neighbors to cache contract
+    kademlia.callIterative[Contract](key, nc ⇒ cacheRpc(nc.contact).find(key).flatMap {
+      case Some(v) ⇒ v.pure[F]
+      case None    ⇒ ME.raiseError(Contracts.NotFound)
+    }, 1, maxFindRequests, isIdempotentFn = true).flatMap {
+      case sq if sq.nonEmpty ⇒
+        // Contract is found; for the case several different versions are returned, find the most recent
+        sq.map(_._2).maxBy(_.version).pure[F]
+
+      case _ ⇒
+        // Not found -- can't do anything
+        ME.raiseError(Contracts.NotFound)
+    }
+
+}
+
+object Contracts {
+
+  case object IncorrectOfferContract extends NoStackTrace
+
+  case object NotFound extends NoStackTrace
+
+  case class CantFindEnoughNodes(nodesFound: Int) extends NoStackTrace
+
+}

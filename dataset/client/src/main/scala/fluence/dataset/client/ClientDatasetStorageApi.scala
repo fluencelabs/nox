@@ -21,6 +21,7 @@ import scala.language.higherKinds
 
 /**
  * Dataset storage api interface. Main client interface for data manipulation.
+ * TODO: consider removing it, as it seems to be useless
  *
  * @tparam F A box for returning value
  * @tparam K The type of keys
