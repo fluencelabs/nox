@@ -21,7 +21,7 @@ import cats.effect.Effect
 import cats.{ MonadError, ~> }
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
-import fluence.dataset.grpc.DatasetStorageClient
+import fluence.dataset.grpc.DatasetStorageGrpc
 import fluence.dataset.grpc.client.{ ContractAllocatorClient, ContractsCacheClient }
 import fluence.kad.grpc.client.KademliaClient
 import fluence.transport.grpc.client.GrpcClient
@@ -47,7 +47,7 @@ object ClientComposer {
       .add(KademliaClient.register[F]())
       .add(ContractsCacheClient.register[F, BasicContract]())
       .add(ContractAllocatorClient.register[F, BasicContract]())
-      .add(DatasetStorageClient.register[F]())
+      .add(DatasetStorageGrpc.register[F]())
       .build
   }
 
