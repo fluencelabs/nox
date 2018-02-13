@@ -20,12 +20,12 @@ package fluence.crypto
 import cats.data.EitherT
 import cats.instances.try_._
 import fluence.crypto.algorithm.{ CryptoErr, EcdsaJS }
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
+import org.scalatest.{ Matchers, WordSpec }
 import scodec.bits.ByteVector
 
 import scala.util.{ Random, Try }
 
-class EcdsaJSSpec extends WordSpec with Matchers with BeforeAndAfterAll {
+class EcdsaJSSpec extends WordSpec with Matchers {
 
   def rndBytes(size: Int) = Random.nextString(10).getBytes
   def rndByteVector(size: Int) = ByteVector(rndBytes(size))
