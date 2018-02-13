@@ -69,8 +69,6 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
       override def lookup(key: Key, numberOfNodes: Int) = ???
       override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
-
-      override def lookupIterative(key: Key, numberOfNodes: Int) = ???
     }
 
     val successLocalRPC = (c: Long) ⇒ new KademliaRpc[Coeval, Long] {
@@ -78,8 +76,6 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
       override def lookup(key: Key, numberOfNodes: Int) = ???
       override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
-
-      override def lookupIterative(key: Key, numberOfNodes: Int) = ???
     }
 
     val checkNode: Node[Long] ⇒ Coeval[Boolean] = _ ⇒ Coeval(true)

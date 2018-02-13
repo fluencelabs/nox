@@ -28,6 +28,5 @@ message LookupAwayRequest {
 service Kademlia {
     rpc ping (PingRequest) returns (Node);
     rpc lookup (LookupRequest) returns (NodesResponse);
-    rpc lookupIterative (LookupRequest) returns (NodesResponse); // TODO: It might be dangerous
     rpc lookupAway (LookupAwayRequest) returns (NodesResponse);
 }

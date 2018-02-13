@@ -84,7 +84,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
         case (i, ki) ⇒
           random.shuffle(nodes.values).take(P).filterNot(_.nodeId === ki.nodeId).foreach { kj ⇒
 
-            val neighbors = kj.handleRPC.lookupIterative(i, K).value
+            val neighbors = kj.lookupIterative(i, K).value
 
             neighbors.size shouldBe (K min N)
             neighbors.map(_.contact) should contain(i)

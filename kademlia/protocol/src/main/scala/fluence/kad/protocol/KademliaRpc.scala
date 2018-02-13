@@ -45,14 +45,4 @@ trait KademliaRpc[F[_], C] {
    * @param key Key to lookup
    */
   def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[C]]]
-
-  /**
-   * Perform an iterative lookup for a key, return K closest known nodes.
-   *
-   * @param key Key to lookup
-   */
-  // TODO: it's used only in [[RoutingTable.WriteOps.join()]]; gives the way to perform a big number of requests
-  // on distant node with RPC call; could be unsafe to expose with RPC
-  def lookupIterative(key: Key, numberOfNodes: Int): F[Seq[Node[C]]]
-
 }
