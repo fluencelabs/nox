@@ -59,8 +59,6 @@ class BucketSpec extends WordSpec with Matchers {
         override def lookup(key: Key, numberOfNodes: Int) = ???
 
         override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???
-
-        override def lookupIterative(key: Key, numberOfNodes: Int) = ???
       }
 
       val successRPC = (c: C) ⇒ new KademliaRpc[F, C] {
@@ -68,8 +66,6 @@ class BucketSpec extends WordSpec with Matchers {
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
         override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???
-
-        override def lookupIterative(key: Key, numberOfNodes: Int) = ???
       }
 
       // By default, bucket is empty
