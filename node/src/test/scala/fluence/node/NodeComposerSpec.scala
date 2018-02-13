@@ -25,7 +25,6 @@ import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.SignAlgo
 import fluence.dataset.BasicContract
 import fluence.dataset.protocol.ContractsApi
-import fluence.info.NodeInfo
 import fluence.kad.protocol.Key
 import fluence.transport.grpc.client.GrpcClient
 import monix.eval.Task
@@ -64,7 +63,6 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
         .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
         .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
         .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true)),
-      () ⇒ Task.now(NodeInfo("test")),
       "node_cache_" + n
     )
   }

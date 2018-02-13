@@ -20,7 +20,6 @@ package fluence.node
 import fluence.crypto.signature.Signer
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsApi, ContractsCacheRpc }
-import fluence.info.NodeInfoRpc
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
 
@@ -39,8 +38,6 @@ abstract class NodeServices[F[_], Contract, Contact] {
   def contractsCache: ContractsCacheRpc[F, Contract]
 
   def contractAllocator: ContractAllocatorRpc[F, Contract]
-
-  def info: NodeInfoRpc[F]
 
   def datasets: DatasetStorageRpc[F]
 

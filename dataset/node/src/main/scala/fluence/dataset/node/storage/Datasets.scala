@@ -59,7 +59,7 @@ class Datasets(
               config,
               cryptoHasher,
               () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere
-              mrHash ⇒ () // TODO: store mrHash somewhere
+              mrHash ⇒ () // TODO: store mrHash somewhere (ver, mh, sign)
             ).memoizeOnSuccess
 
           case false ⇒

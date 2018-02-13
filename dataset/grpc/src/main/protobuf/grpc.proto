@@ -17,9 +17,12 @@ message Participant {
 }
 
 message BasicContract {
-    bytes id = 1;
+    bytes id = 1; // to add owner <- we need another challenge
     bytes publicKey = 2;
+    // to add owner <- we need idOwnerSeal to seal id and public key of owner
+    // nonce
 
+    // offer
     int32 participantsRequired = 10;
 
     bytes offerSeal = 20;
@@ -28,6 +31,9 @@ message BasicContract {
 
     bytes participantsSeal = 31;
 
+    // mutable part comes here
+    // + participant
+    // - participant
     int64 version = 40;
 }
 
@@ -43,6 +49,6 @@ service ContractsCache {
 
 // TODO: rename it to ClusterContractsApi or smth like that
 service DatasetContractsApi {
-    rpc allocate (stream BasicContract) returns (stream BasicContract);
-    rpc find (FindRequest) returns (BasicContract);
+    rpc allocate (stream BasicContract) returns (stream BasicContract); // HIDES KADEMLIA ITERATIVE INSIDE -- DANGEROUS!!!
+    rpc find (FindRequest) returns (BasicContract); // SEED NODE CAN CHEAT -- DANGEROUS!!!!!!!
 }
