@@ -19,12 +19,10 @@ package fluence.dataset.node.storage
 
 import java.nio.ByteBuffer
 
-import cats.{ Applicative, ApplicativeError, MonadError }
-import cats.syntax.functor._
-import cats.syntax.applicative._
+import cats.MonadError
 import com.typesafe.config.Config
-import fluence.btree.common.{ Bytes, ValueRef }
 import fluence.btree.common.merkle.MerkleRootCalculator
+import fluence.btree.common.{ Bytes, ValueRef }
 import fluence.btree.protocol.BTreeRpc
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.server.MerkleBTree

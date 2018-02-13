@@ -15,14 +15,26 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.algorithm
+package fluence.crypto.hash
 
-import cats.Monad
-import cats.data.EitherT
-import fluence.crypto.keypair.KeyPair
+import fluence.crypto.facade.SHA256
+import scodec.bits.ByteVector
 
-import scala.language.higherKinds
+import scala.scalajs.js.JSConverters._
 
-trait KeyGenerator {
-  def generateKeyPair[F[_] : Monad](seed: Option[Array[Byte]] = None): EitherT[F, CryptoErr, KeyPair]
+object JsCryptoHasher {
+
+  lazy val Sha256: CryptoHasher[Array[Byte], Array[Byte]] = new CryptoHasher[Array[Byte], Array[Byte]] {
+
+    override def hash(msg1: Array[Byte]): Array[Byte] = {
+      val sha256 = new SHA256()
+      sha256.update(msg1.toJSArray)
+      ByteVector.fromValidHex(sha256.digest("hex")).toArray
+    }
+
+    override def hash(msg1: Array[Byte], msg2: Array[Byte]*): Array[Byte] = {
+      hash(msg1 ++ msg2.flatten)
+    }
+
+  }
 }

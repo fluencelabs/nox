@@ -48,6 +48,7 @@ import monix.execution.Scheduler
 
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
+import scala.language.higherKinds
 
 class NodeComposer(
     keyPair: KeyPair,
