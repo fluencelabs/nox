@@ -73,14 +73,6 @@ class TestKademlia[F[_], C](
     override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) =
       kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.lookupAway(key, moveAwayFrom, numberOfNodes))
 
-    /**
-     * Perform an iterative lookup for a key, return K closest known nodes
-     *
-     * @param key Key to lookup
-     */
-    override def lookupIterative(key: Key, numberOfNodes: Int) =
-      kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.lookupIterative(key, numberOfNodes))
-
   }
 
 }
