@@ -24,8 +24,8 @@ import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.SignAlgo
 import fluence.dataset.BasicContract
-import fluence.dataset.protocol.ContractsApi
-import fluence.kad.protocol.Key
+import fluence.dataset.client.Contracts
+import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.grpc.client.GrpcClient
 import monix.eval.Task
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
@@ -99,9 +99,17 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
       import fluence.dataset.contract.ContractWrite._
       import fluence.dataset.contract.ContractRead._
 
-      val contractsApi = pureClient.service[ContractsApi[Future, BasicContract]](servers.head.server.flatMap(_.contact).runAsync.futureValue)
+      val contractsApi = new Contracts[Task, BasicContract, Contact](
+        maxFindRequests = 10,
+        maxAllocateRequests = _ ⇒ 20,
+        checker = algo.checker,
+        kademlia = servers.head.services.map(_.kademlia).runAsync.futureValue, // TODO: use client-side Kademlia
+        // TODO: store servers in a ~contact=>server map, get them by contact
+        cacheRpc = c ⇒ servers.find(_.services.map(_.kademlia).flatMap(_.ownContact).runAsync.futureValue.contact.publicKey.value == c.publicKey.value).get.services.map(_.contractsCache).runAsync.futureValue,
+        allocatorRpc = c ⇒ servers.find(_.services.map(_.kademlia).flatMap(_.ownContact).runAsync.futureValue.contact.publicKey.value == c.publicKey.value).get.services.map(_.contractAllocator).runAsync.futureValue
+      )
 
-      contractsApi.find(Key.fromString[Future]("hi there").futureValue).failed.futureValue
+      contractsApi.find(Key.fromString[Future]("hi there").futureValue).failed.runAsync.futureValue
 
       val kp = algo.generateKeyPair[Future]().value.futureValue.right.get
       val key = Key.fromKeyPair[Future](kp).futureValue
@@ -113,13 +121,13 @@ class NodeComposerSpec extends WordSpec with Matchers with ScalaFutures with Bef
       // TODO: add test with wrong signature or other errors
       val accepted = contractsApi.allocate(offer, bc ⇒
         {
-          Future successful bc.sealParticipants(signer).futureValue
+          Task.now(bc.sealParticipants(signer).futureValue)
         }
-      ).futureValue
+      ).runAsync.futureValue
 
       accepted.participants.size shouldBe 4
 
-      contractsApi.find(key).futureValue shouldBe accepted
+      contractsApi.find(key).runAsync.futureValue shouldBe accepted
 
     }
   }

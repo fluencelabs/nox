@@ -20,7 +20,7 @@ package fluence.client
 import cats.{ MonadError, ~> }
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
-import fluence.dataset.grpc.client.{ ContractAllocatorClient, ContractsApiClient, ContractsCacheClient }
+import fluence.dataset.grpc.client.{ ContractAllocatorClient, ContractsCacheClient }
 import fluence.kad.grpc.client.KademliaClient
 import fluence.transport.grpc.client.GrpcClient
 import shapeless.HNil
@@ -40,7 +40,6 @@ object ClientComposer {
         .add(KademliaClient.register[F]())
         .add(ContractsCacheClient.register[F, BasicContract]())
         .add(ContractAllocatorClient.register[F, BasicContract]())
-        .add(ContractsApiClient.register[F, BasicContract]())
         .build
     }
 

@@ -46,9 +46,3 @@ service ContractsCache {
     rpc find (FindRequest) returns (BasicContract);
     rpc cache (BasicContract) returns (CacheResponse);
 }
-
-// TODO: rename it to ClusterContractsApi or smth like that
-service DatasetContractsApi {
-    rpc allocate (stream BasicContract) returns (stream BasicContract); // HIDES KADEMLIA ITERATIVE INSIDE -- DANGEROUS!!!
-    rpc find (FindRequest) returns (BasicContract); // SEED NODE CAN CHEAT -- DANGEROUS!!!!!!!
-}

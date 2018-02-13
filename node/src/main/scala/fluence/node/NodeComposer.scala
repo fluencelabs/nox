@@ -28,13 +28,13 @@ import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
-import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsApiServer, ContractsCacheServer }
+import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
 import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc
-import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetContractsApiGrpc, DatasetStorageServer }
-import fluence.dataset.node.Contracts
+import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetStorageServer }
+import fluence.dataset.node.{ ContractAllocator, ContractsCache }
 import fluence.dataset.node.storage.Datasets
 import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsApi, ContractsCacheRpc }
+import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.Kademlia
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.client.KademliaClient
@@ -121,30 +121,23 @@ class NodeComposer(
         TransportSecurity.canBeSaved[Task](k, acceptLocal = conf.acceptLocal)
       )
 
-      private lazy val contractsApi = new Contracts[Task, BasicContract, Contact](
-        nodeId = k,
-        storage = contractsCacheStore,
-        createDataset = _ ⇒ Task.unit, // TODO: dataset creation
-        checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
-        maxFindRequests = 100,
-        maxAllocateRequests = n ⇒ 30 * n,
-        checker = checker,
-        signer = signer,
-        cacheTtl = 1.day,
-        kademlia = kademlia
-      ) {
-        override def cacheRpc(contact: Contact): ContractsCacheRpc[Task, BasicContract] =
-          client.service[ContractsCacheRpc[Task, BasicContract]](contact)
+      override lazy val contractsCache: ContractsCacheRpc[Task, BasicContract] =
+        new ContractsCache[Task, BasicContract](
+          nodeId = k,
+          storage = contractsCacheStore,
+          checker = checker,
+          cacheTtl = 1.day
+        )
 
-        override def allocatorRpc(contact: Contact): ContractAllocatorRpc[Task, BasicContract] =
-          client.service[ContractAllocatorRpc[Task, BasicContract]](contact)
-      }
-
-      override lazy val contracts: ContractsApi[Task, BasicContract] = contractsApi
-
-      override lazy val contractsCache: ContractsCacheRpc[Task, BasicContract] = contractsApi.cache
-
-      override lazy val contractAllocator: ContractAllocatorRpc[Task, BasicContract] = contractsApi.allocator
+      override lazy val contractAllocator: ContractAllocatorRpc[Task, BasicContract] =
+        new ContractAllocator[Task, BasicContract](
+          nodeId = k,
+          storage = contractsCacheStore,
+          createDataset = _ ⇒ Task.unit, // TODO: dataset creation
+          checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
+          checker = checker,
+          signer = signer
+        )
 
       override lazy val datasets: DatasetStorageRpc[Task] =
         new Datasets(
@@ -167,7 +160,6 @@ class NodeComposer(
           .add(KademliaGrpc.bindService(new KademliaServer[Task](kademlia.handleRPC), ec))
           .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsCache), ec))
           .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractAllocator), ec))
-          .add(DatasetContractsApiGrpc.bindService(new ContractsApiServer[Task, BasicContract](contracts), ec))
           .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), ec))
           .onNodeActivity(kademlia.update _, clientConf, checker)
           .build
