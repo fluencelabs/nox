@@ -24,13 +24,13 @@ import fluence.crypto.signature.Signer
 import fluence.dataset.BasicContract
 import fluence.dataset.client.Contracts
 import fluence.dataset.node.contract.ContractRecord
-import fluence.dataset.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
+import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
 import fluence.kad.testkit.TestKademlia
-import fluence.storage.{KVStore, TrieMapKVStore}
+import fluence.storage.{ KVStore, TrieMapKVStore }
 import monix.eval.Coeval
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
@@ -62,7 +62,7 @@ class ContractsSpec extends WordSpec with Matchers {
       kademlia: Kademlia[Coeval, String],
       cacheRpc: ContractsCacheRpc[Coeval, BasicContract],
       allocatorRpc: ContractAllocatorRpc[Coeval, BasicContract],
-      allocator: ContractsApi[Coeval, BasicContract]
+      allocator: Contracts[Coeval, BasicContract, String]
   )
 
   import TestKademlia.CoevalParallel
@@ -79,32 +79,30 @@ class ContractsSpec extends WordSpec with Matchers {
       val store: KVStore[Coeval, Key, ContractRecord[BasicContract]] =
         TrieMapKVStore()
 
-      val contracts = new Contracts[Coeval, BasicContract, String](
-        kad.nodeId,
-        store,
-        _ ⇒ Coeval.unit,
-        createDS(contact),
-        10,
-        _ ⇒ 20,
-        algo.checker,
-        signer,
-        1.second,
-        kad
-      ) {
-
-        override def cacheRpc(contact: String): ContractsCacheRpc[Coeval, BasicContract] =
-          network(contact).cacheRpc
-
-        override def allocatorRpc(contact: String): ContractAllocatorRpc[Coeval, BasicContract] =
-          network(contact).allocatorRpc
-
-      }
-
       contact -> TestNode(
         kad,
-        contracts.cache,
-        contracts.allocator,
-        contracts
+        new ContractsCache[Coeval, BasicContract](
+          kad.nodeId,
+          store,
+          algo.checker,
+          1.second
+        ),
+        new ContractAllocator(
+          kad.nodeId,
+          store,
+          createDS(contact),
+          _ ⇒ Coeval.unit,
+          algo.checker,
+          signer
+        ),
+        new Contracts(
+          10,
+          _ ⇒ 20,
+          algo.checker,
+          kad,
+          network(_).cacheRpc,
+          network(_).allocatorRpc
+        )
       )
   }
 

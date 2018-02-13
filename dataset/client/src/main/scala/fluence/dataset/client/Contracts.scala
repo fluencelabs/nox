@@ -42,7 +42,7 @@ import scala.util.control.NoStackTrace
  * @tparam Contract Contract
  * @tparam Contact Kademlia's Contact
  */
-abstract class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
+class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
     maxFindRequests: Int,
     maxAllocateRequests: Int ⇒ Int,
     checker: SignatureChecker,
