@@ -115,7 +115,8 @@ object Key {
 
   /**
    * Calculates sha-1 hash of the payload, and wraps it with Key.
-   * TODO: use hasher from crypto
+   * We keep using sha-1 instead of sha-2, because randomness is provided with keypair generation, not hash function.
+   * TODO use hasher from crypto
    *
    * @param bytes Bytes to hash
    */

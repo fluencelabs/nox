@@ -66,7 +66,9 @@ object BasicContractCodec {
           id = idBs,
           publicKey = pkBs,
 
-          participantsRequired = bc.offer.participantsRequired,
+          offer = Some(new BasicContractOffer(
+            participantsRequired = bc.offer.participantsRequired
+          )),
 
           offerSeal = offSBs,
 
@@ -81,6 +83,9 @@ object BasicContractCodec {
           def read[T](name: String, f: BasicContract ⇒ T): F[T] =
             Option(f(g)).fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
 
+          def readFromOpt[T](name: String, f: BasicContract ⇒ Option[T]): F[T] =
+            Option(f(g)).flatten.fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
+
           def readParticipantsSeal: F[Option[ByteVector]] =
             Option(g.participantsSeal)
               .filter(_.size() > 0)
@@ -92,7 +97,7 @@ object BasicContractCodec {
             idb ← read("id", _.id)
             id ← keyC.decode(idb)
 
-            participantsRequired ← read("participantsRequired", _.participantsRequired)
+            participantsRequired ← readFromOpt("participantsRequired", _.offer.map(_.participantsRequired))
 
             offerSealBS ← read("offerSeal", _.offerSeal)
             offerSealVec ← strVec.decode(offerSealBS)
