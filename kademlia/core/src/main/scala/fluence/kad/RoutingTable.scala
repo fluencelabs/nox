@@ -26,7 +26,6 @@ import cats.syntax.order._
 import cats.instances.list._
 import cats.{ MonadError, Parallel }
 import fluence.kad.protocol.{ KademliaRpc, Key, Node }
-import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
@@ -38,8 +37,7 @@ import scala.language.higherKinds
  * RoutingTable describes how to route various requests over Kademlia network.
  * State is stored within [[Siblings]] and [[Bucket]], so there's no special case class.
  */
-object RoutingTable {
-  private val log = LoggerFactory.getLogger(getClass)
+object RoutingTable extends slogging.LazyLogging {
 
   implicit class ReadOps[C : Bucket.ReadOps : Siblings.ReadOps](nodeId: Key) {
     private def SR = implicitly[Siblings.ReadOps[C]]
@@ -131,7 +129,7 @@ object RoutingTable {
       else {
         checkNode(node).attempt.flatMap {
           case Right(true) ⇒
-            log.trace("Update node: {}", node.key)
+            logger.trace("Update node: {}", node.key)
             for {
               // Update bucket, performing ping if necessary
               savedToBuckets ← BW.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingExpiresIn)
@@ -142,7 +140,7 @@ object RoutingTable {
             } yield savedToBuckets || savedToSiblings
 
           case Left(err) ⇒
-            log.trace(s"Node check failed with an exception for $node", err)
+            logger.trace(s"Node check failed with an exception for $node", err)
             false.pure[F]
 
           case _ ⇒
@@ -497,27 +495,27 @@ object RoutingTable {
         // Try to ping the peer; if no pings are performed, join is failed
         rpc(peer).ping().attempt.flatMap[Option[(Node[C], List[Node[C]])]] {
           case Right(peerNode) if peerNode.key =!= nodeId ⇒ // Ping successful, lookup node's neighbors
-            log.info("PeerPing successful to " + peerNode.key)
+            logger.info("PeerPing successful to " + peerNode.key)
 
             rpc(peer).lookup(nodeId, numberOfNodes).attempt.map {
               case Right(neighbors) if neighbors.isEmpty ⇒
-                log.info("Neighbors list is empty for peer " + peerNode.key)
+                logger.info("Neighbors list is empty for peer " + peerNode.key)
                 Some(peerNode -> Nil)
 
               case Right(neighbors) ⇒
                 Some(peerNode -> neighbors.toList)
 
               case Left(e) ⇒
-                log.warn(s"Can't perform lookup for $peer during join", e)
+                logger.warn(s"Can't perform lookup for $peer during join", e)
                 Some(peerNode -> Nil)
             }
 
           case Right(_) ⇒
-            log.debug("Can't initialize from myself")
+            logger.debug("Can't initialize from myself")
             Option.empty[(Node[C], List[Node[C]])].pure[F]
 
           case Left(e) ⇒
-            log.warn(s"Can't perform ping for $peer during join", e)
+            logger.warn(s"Can't perform ping for $peer during join", e)
             Option.empty[(Node[C], List[Node[C]])].pure[F]
         }
 
@@ -537,15 +535,15 @@ object RoutingTable {
 
         }.flatMap { ns ⇒
           // Save discovered nodes to the routing table
-          log.info("Discovered neighbors: " + ns.map(_.key))
+          logger.info("Discovered neighbors: " + ns.map(_.key))
           updateList(ns, rpc, pingExpiresIn, checkNode)
         }.map(_.nonEmpty).flatMap {
           case true ⇒ // At least joined to a single node
-            log.info("Joined! " + Console.GREEN + nodeId + Console.RESET)
+            logger.info("Joined! " + Console.GREEN + nodeId + Console.RESET)
             lookupIterative(nodeId, numberOfNodes, numberOfNodes, rpc, pingExpiresIn, checkNode)
               .attempt.map(_ ⇒ ())
           case false ⇒ // Can't join to any node
-            log.warn("Can't join!")
+            logger.warn("Can't join!")
             ME.raiseError[Unit](new RuntimeException("Can't join any node among known peers"))
         }
   }

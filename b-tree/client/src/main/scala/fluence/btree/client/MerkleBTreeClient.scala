@@ -27,7 +27,6 @@ import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import monix.eval.{ MVar, Task }
-import org.slf4j.LoggerFactory
 
 import scala.collection.Searching.{ Found, SearchResult }
 
@@ -43,7 +42,7 @@ class MerkleBTreeClient[K] private (
     initClientState: ClientState,
     keyCrypt: Crypt[Task, K, Array[Byte]],
     verifier: BTreeVerifier
-)(implicit ord: Ordering[K]) extends MerkleBTreeClientApi[Task, K] {
+)(implicit ord: Ordering[K]) extends MerkleBTreeClientApi[Task, K] with slogging.LazyLogging {
 
   private val clientStateMVar = MVar(initClientState)
 
@@ -64,7 +63,7 @@ class MerkleBTreeClient[K] private (
     // case when server asks next child
     def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        log.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
+        logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
 
         processSearch(key, merkleRoot, mPath, keys, childsChecksums)
           .flatMap {
@@ -79,16 +78,16 @@ class MerkleBTreeClient[K] private (
     // case when server returns founded leaf
     def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): Task[Option[Int]] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        log.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=${keys.map(_.show).mkString(",")}")
+        logger.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=${keys.map(_.show).mkString(",")}")
 
         val leafProof = verifier.getLeafProof(keys, valuesChecksums)
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
           binarySearch(key, keys).map {
             case Found(idx) ⇒
-              log.debug(s"For key=$key was found corresponded value with idx=$idx")
+              logger.debug(s"For key=$key was found corresponded value with idx=$idx")
               Option(idx)
             case _ ⇒
-              log.debug(s"For key=$key corresponded value is missing")
+              logger.debug(s"For key=$key corresponded value is missing")
               None
           }.flatMap { searchedIdx ⇒
             merklePathMVar.put(mPath.add(leafProof)).map(_ ⇒ searchedIdx)
@@ -103,7 +102,7 @@ class MerkleBTreeClient[K] private (
     }
 
     override def recoverState(): Task[Unit] = {
-      log.debug(s"Recover client state for get; mRoot=${merkleRoot.show}")
+      logger.debug(s"Recover client state for get; mRoot=${merkleRoot.show}")
       clientStateMVar.put(ClientState(merkleRoot))
     }
 
@@ -134,7 +133,7 @@ class MerkleBTreeClient[K] private (
     // case when server asks next child
     override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        log.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
+        logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
 
         processSearch(key, merkleRoot, mPath, keys, childsChecksums)
           .flatMap {
@@ -149,7 +148,7 @@ class MerkleBTreeClient[K] private (
     // case when server returns founded leaf
     override def putDetails(keys: Array[Key], values: Array[Hash]): Task[ClientPutDetails] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        log.debug(s"putDetails starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
+        logger.debug(s"putDetails starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
 
         val leafProof = verifier.getLeafProof(keys, values)
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
@@ -177,7 +176,7 @@ class MerkleBTreeClient[K] private (
         mPath ← merklePathMVar.read
         optDetails ← putDetailsMVar.read
         _ ← {
-          log.debug(s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=$serverMRoot")
+          logger.debug(s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=$serverMRoot")
 
           optDetails match {
             case Some(details) ⇒
@@ -205,14 +204,14 @@ class MerkleBTreeClient[K] private (
       // change global client state with new merkle root
       newMerkleRoot.take
         .flatMap { newMRoot ⇒
-          log.debug(s"changesStored starts for key=$key, newMRoot=$newMRoot")
+          logger.debug(s"changesStored starts for key=$key, newMRoot=$newMRoot")
 
           clientStateMVar.put(ClientState(newMRoot))
         }
     }
 
     override def recoverState(): Task[Unit] = {
-      log.debug(s"Recover client state for put; mRoot=${merkleRoot.show}")
+      logger.debug(s"Recover client state for put; mRoot=${merkleRoot.show}")
       clientStateMVar.put(ClientState(merkleRoot))
     }
 
@@ -224,7 +223,7 @@ class MerkleBTreeClient[K] private (
    * @param key Plain text key
    */
   override def initGet(key: K): Task[GetState[Task]] = {
-    log.debug(s"initGet starts for key=$key")
+    logger.debug(s"initGet starts for key=$key")
 
     for {
       clientState ← clientStateMVar.take
@@ -239,7 +238,7 @@ class MerkleBTreeClient[K] private (
    * @param valueChecksum  Checksum of encrypted value to be store
    */
   override def initPut(key: K, valueChecksum: Hash): Task[PutState[Task]] = {
-    log.debug(s"initPut starts put for key=$key, value=${valueChecksum.show}")
+    logger.debug(s"initPut starts put for key=$key, value=${valueChecksum.show}")
 
     for {
       clientState ← clientStateMVar.take
@@ -296,8 +295,6 @@ class MerkleBTreeClient[K] private (
 }
 
 object MerkleBTreeClient {
-
-  private val log = LoggerFactory.getLogger(getClass)
 
   def apply[K](
     initClientState: Option[ClientState],

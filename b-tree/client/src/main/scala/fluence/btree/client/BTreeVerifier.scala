@@ -26,7 +26,6 @@ import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common._
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath, MerkleRootCalculator, NodeProof }
 import fluence.crypto.hash.CryptoHasher
-import org.slf4j.LoggerFactory
 
 import scala.collection.Searching.{ Found, InsertionPoint }
 
@@ -40,7 +39,7 @@ import scala.collection.Searching.{ Found, InsertionPoint }
 class BTreeVerifier(
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     merkleRootCalculator: MerkleRootCalculator
-) {
+) extends slogging.LazyLogging {
 
   import BTreeVerifier._
 
@@ -58,7 +57,7 @@ class BTreeVerifier(
 
     val verifyingResult = calcChecksum === expectedChecksum
     if (!verifyingResult)
-      log.warn(s"Verify branch returns false; expected=${expectedChecksum.show}, calcChecksum=${calcChecksum.show}")
+      logger.warn(s"Verify branch returns false; expected=${expectedChecksum.show}, calcChecksum=${calcChecksum.show}")
     verifyingResult
   }
 
@@ -113,7 +112,7 @@ class BTreeVerifier(
     if (newMerkleRoot === serverMRoot) {
       Some(newMerkleRoot)
     } else {
-      log.debug(s"New client mRoot=${newMerkleRoot.show} != server mRoot=${serverMRoot.show}")
+      logger.debug(s"New client mRoot=${newMerkleRoot.show} != server mRoot=${serverMRoot.show}")
       None
     }
 
@@ -180,8 +179,6 @@ class BTreeVerifier(
 }
 
 object BTreeVerifier {
-
-  private val log = LoggerFactory.getLogger(getClass)
 
   def apply(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]]): BTreeVerifier =
     new BTreeVerifier(cryptoHasher, new MerkleRootCalculator(cryptoHasher))

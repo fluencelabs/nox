@@ -32,18 +32,22 @@ import fluence.kad.protocol.{ Contact, Key }
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
-import org.slf4j.LoggerFactory
+import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
 
 import scala.concurrent.duration._
 import scala.io.StdIn
 import scala.language.higherKinds
 
-object NodeApp extends App {
+object NodeApp extends App with slogging.LazyLogging {
 
   private val setForClose = new ConcurrentSkipListSet[AutoCloseable]()
 
+  // Simply log everything to stdout
+  LoggerConfig.factory = PrintLoggerFactory()
+  LoggerConfig.level = LogLevel.INFO
+
   sys.ShutdownHookThread {
-    log.info(s"Invoke close() for all of $setForClose")
+    logger.info(s"Invoke close() for all of $setForClose")
     setForClose.forEach(_.close())
   }
 
@@ -64,9 +68,7 @@ object NodeApp extends App {
     keyStorage.getOrCreateKeyPair(algo.generateKeyPair[F]().value.flatMap(F.fromEither))
   }
 
-  def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
-
-  val log = LoggerFactory.getLogger(getClass)
+  def cmd(s: String): Unit = logger.info(Console.BLUE + s + Console.RESET)
 
   val config = ConfigFactory.load()
 
@@ -74,9 +76,10 @@ object NodeApp extends App {
 
   initDirectory(config.getString("fluence.directory"))
 
-  println(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
+  logger.info(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
 
   def handleCmds(kad: Kademlia[Task, Contact]): Task[Unit] = {
+    cmd("j | l | s | q")
     val readLine = Task(StdIn.readLine())
     lazy val handle: Task[Unit] = readLine.flatMap {
       case "j" | "join" ⇒
@@ -84,7 +87,7 @@ object NodeApp extends App {
         readLine.flatMap { p ⇒
           Contact.readB64seed[Task](p, algo.checker).value.flatMap {
             case Left(err) ⇒
-              log.error("Can't read the seed", err)
+              logger.error("Can't read the seed", err)
               handle
             case Right(c) ⇒
               kad.join(Seq(c), 16).attempt.flatMap {
@@ -93,7 +96,7 @@ object NodeApp extends App {
                   handle
 
                 case Left(err) ⇒
-                  log.error("Can't join", err)
+                  logger.error("Can't join", err)
                   handle
               }
           }
@@ -104,19 +107,19 @@ object NodeApp extends App {
         kad.handleRPC
           .lookup(Key.XorDistanceMonoid.empty, 10)
           .map(_.map(_.show).mkString("\n"))
-          .map(println)
+          .map(logger.info(_))
           .attempt
           .flatMap {
             case Right(_) ⇒
-              println("ok")
+              logger.info("ok")
               handle
             case Left(e) ⇒
-              log.error("Can't lookup", e)
+              logger.error("Can't lookup", e)
               handle
           }
 
       case "s" | "seed" ⇒
-        kad.ownContact.map(_.contact).flatMap(_.b64seed[Task].value).map(e ⇒ cmd(e.toString)).flatMap(_ ⇒ handle)
+        kad.ownContact.map(_.contact).flatMap(_.b64seed[Task].value).map(e ⇒ e.map(cmd)).flatMap(_ ⇒ handle)
 
       case "q" | "quit" | "x" | "exit" ⇒
         cmd("exit")
@@ -142,20 +145,21 @@ object NodeApp extends App {
     setForClose.add(contractCache)
 
     sys.addShutdownHook {
-      System.err.println("*** shutting down gRPC server since JVM is shutting down")
+      logger.warn("*** shutting down gRPC server since JVM is shutting down")
       server.shutdown(5.seconds)
-      System.err.println("*** server shut down")
+      logger.warn("*** server shut down")
     }
 
-    // todo use logger instead println: one pipe to file, second to console, now logger isn't worked!
-    log.info("Server launched")
-    println("Your contact is: " + contact.show)
-    println("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
+    logger.info("Server launched")
+    logger.info("Your contact is: " + contact.show)
+    contact.b64seed[cats.Id].value.map(s ⇒
+      logger.info("You may share this seed for others to join you: " + Console.MAGENTA + s + Console.RESET)
+    )
 
     services.kademlia
   }
 
-  println("Going to run Fluence Server...")
+  logger.info("Going to run Fluence Server...")
 
   serverKad.flatMap(handleCmds)
     .toIO
@@ -163,8 +167,9 @@ object NodeApp extends App {
     .unsafeRunSync() match {
       case Left(err) ⇒
         err.printStackTrace()
-        log.error("Error", err)
-      case Right(_) ⇒ println("Bye!")
+        logger.error("Error", err)
+      case Right(_) ⇒
+        logger.info("Bye!")
     }
 
 }

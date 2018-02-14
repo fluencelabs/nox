@@ -43,9 +43,12 @@ object SbtCommons {
   val MockitoV = "2.13.0"
   val MonocleV = "1.5.0-cats"
   val CirceV = "0.9.1"
+  val AirflameV = "0.38"
   val ScalatestV = "3.0.+"
+  val SloggingV = "0.6.1"
 
-  val logback = "ch.qos.logback" % "logback-classic" % "1.2.+"
+  val slogging = "biz.enef" %% "slogging" % SloggingV
+  val sloggingSlf4j = "biz.enef" %% "slogging-slf4j" % SloggingV
 
   val cats1 = "org.typelevel" %% "cats-core" % Cats1V
   val monix3 = "io.monix" %% "monix" % "3.0.0-M3"

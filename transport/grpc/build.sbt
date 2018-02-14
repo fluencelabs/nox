@@ -9,7 +9,7 @@ libraryDependencies ++= Seq(
   shapeless,
   typeSafeConfig,
   ficus,
-  logback,
+  slogging,
   "org.bitlet" % "weupnp" % "0.1.+",
   scalatest
 )

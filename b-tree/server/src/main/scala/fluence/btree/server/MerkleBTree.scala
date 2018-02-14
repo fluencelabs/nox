@@ -19,7 +19,7 @@ package fluence.btree.server
 
 import java.nio.ByteBuffer
 
-import cats.{ ApplicativeError, MonadError }
+import cats.MonadError
 import cats.syntax.show._
 import cats.syntax.functor._
 import com.typesafe.config.Config
@@ -34,7 +34,6 @@ import fluence.crypto.hash.CryptoHasher
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.{ Task, TaskSemaphore }
 import monix.execution.atomic.{ AtomicInt, AtomicLong }
-import org.slf4j.LoggerFactory
 
 import scala.collection.Searching.{ Found, InsertionPoint }
 import scala.language.higherKinds
@@ -66,7 +65,7 @@ class MerkleBTree private[server] (
     conf: MerkleBTreeConfig,
     store: BTreeStore[Task, NodeId, Node],
     nodeOps: NodeOps
-) {
+) extends slogging.LazyLogging {
 
   import MerkleBTree._
   import nodeOps._
@@ -151,7 +150,7 @@ class MerkleBTree private[server] (
 
   /** Entry point for any Get operations. */
   private def getForRoot(root: Node, cmd: Get): Task[Option[ValueRef]] = {
-    log.debug(s"Get starts")
+    logger.debug(s"Get starts")
     getForNode(root, cmd)
   }
 
@@ -170,7 +169,7 @@ class MerkleBTree private[server] (
 
   /** '''Method makes remote call!''' This method makes step down the tree. */
   private def getForBranch(branch: Branch, cmd: Get): Task[Option[ValueRef]] = {
-    log.debug(s"Get for branch=${branch.show}")
+    logger.debug(s"Get for branch=${branch.show}")
 
     searchChild(branch, cmd)
       .flatMap {
@@ -181,7 +180,7 @@ class MerkleBTree private[server] (
 
   /** '''Method makes remote call!'''. This is the terminal method. */
   private def getForLeaf(leaf: Leaf, cmd: Get): Task[Option[ValueRef]] = {
-    log.debug(s"Get for leaf=${leaf.show}")
+    logger.debug(s"Get for leaf=${leaf.show}")
     cmd.submitLeaf(Some(leaf))
       .map(_.map(leaf.valuesReferences)) // get value ref from leaf by searched index
   }
@@ -190,11 +189,11 @@ class MerkleBTree private[server] (
 
   /** Entry point for any put operations. */
   private def putForRoot(root: Node, cmd: Put): Task[ValueRef] = {
-    log.debug(s"Put starts")
+    logger.debug(s"Put starts")
 
     // if root is empty don't need to finding slot for putting
     if (isEmpty(root)) {
-      log.debug(s"Root is empty")
+      logger.debug(s"Root is empty")
 
       cmd.putDetails(None)
         .flatMap {
@@ -232,7 +231,7 @@ class MerkleBTree private[server] (
    * @param trail    The path traversed from the root
    */
   private def putForBranch(cmd: Put, branchId: NodeId, branch: Branch, trail: Trail): Task[ValueRef] = {
-    log.debug(s"Put to branch=${branch.show}, id=$branchId")
+    logger.debug(s"Put to branch=${branch.show}, id=$branchId")
 
     cmd.nextChildIndex(branch)
       .flatMap(searchedIdx ⇒ {
@@ -262,7 +261,7 @@ class MerkleBTree private[server] (
     leaf: Leaf,
     trail: Trail
   ): Task[ValueRef] = {
-    log.debug(s"Put to leaf=${leaf.show}, id=$leafId")
+    logger.debug(s"Put to leaf=${leaf.show}, id=$leafId")
 
     cmd.putDetails(Some(leaf))
       .flatMap { putDetails: BTreePutDetails ⇒
@@ -296,7 +295,7 @@ class MerkleBTree private[server] (
     searchedValueIdx: Int,
     trail: Trail
   ): (MerklePath, PutTask) = {
-    log.debug(s"Logic put for leafId=$leafId, leaf=$newLeaf, trail=$trail")
+    logger.debug(s"Logic put for leafId=$leafId, leaf=$newLeaf, trail=$trail")
 
     /**
      * Just a state for each recursive operation of ''logicalPut''.
@@ -325,7 +324,7 @@ class MerkleBTree private[server] (
     def createLeafCtx(leafId: NodeId, newLeaf: Leaf, searchedValueIdx: Int): PutCtx = {
 
       if (hasOverflow(newLeaf)) {
-        log.debug(s"Do split for leafId=$leafId, leaf=${newLeaf.show}")
+        logger.debug(s"Do split for leafId=$leafId, leaf=${newLeaf.show}")
 
         val isRoot = leafId == RootId
         val (left, right) = newLeaf.split
@@ -389,7 +388,7 @@ class MerkleBTree private[server] (
         val PathElem(branchId, branch, nextChildIdx) = updateParentFn(visitedBranch)
 
         if (hasOverflow(branch)) {
-          log.debug(s"Do split for branchId=$branchId, branch=${branch.show}, nextChildIdx=$nextChildIdx ")
+          logger.debug(s"Do split for branchId=$branchId, branch=${branch.show}, nextChildIdx=$nextChildIdx ")
 
           val isRoot = branchId == RootId
           val (left, right) = branch.split
@@ -457,7 +456,7 @@ class MerkleBTree private[server] (
 
       case PathElem(parentId: NodeId, parentNode: Branch, nextChildIdx) ⇒
         val popUpKey = left.node.keys.last
-        log.trace(s"Add child to parent node: insertedKey=${popUpKey.show}, insertedChild=$left, insIdx=$nextChildIdx")
+        logger.trace(s"Add child to parent node: insertedKey=${popUpKey.show}, insertedChild=$left, insIdx=$nextChildIdx")
         // updates parent node with new left node. Parent already contains right node as a child.
         // update right node checksum needed, checksum of right node was changed after splitting
         val branch = parentNode
@@ -480,7 +479,7 @@ class MerkleBTree private[server] (
    * @param putTask Pool of changed nodes
    */
   private def commitNewState(putTask: PutTask): Task[Unit] = {
-    log.debug(s"commitNewState for nodes=${putTask.nodesToSave.map(_.show)}")
+    logger.debug(s"commitNewState for nodes=${putTask.nodesToSave.map(_.show)}")
     // todo start transaction
     Task.gatherUnordered(putTask.nodesToSave.map { case NodeWithId(id, node) ⇒ saveNode(id, node) })
       .foreachL(_ ⇒ if (putTask.increaseDepth) this.depth.increment())
@@ -494,7 +493,7 @@ class MerkleBTree private[server] (
    * @return Updated leaf with new ''key'' and ''value''
    */
   private def updateLeaf(putDetails: BTreePutDetails, leaf: Leaf): (Leaf, ValueRef) = {
-    log.debug(s"Update leaf=${leaf.show}, putDetails=${putDetails.show}")
+    logger.debug(s"Update leaf=${leaf.show}, putDetails=${putDetails.show}")
 
     putDetails match {
       case BTreePutDetails(ClientPutDetails(key, valChecksum, Found(idxOfUpdate)), _) ⇒
@@ -512,7 +511,7 @@ class MerkleBTree private[server] (
 
   /** Save specified node to tree store or locally in case when node is root. */
   private def saveNode(nodeId: NodeId, node: Node): Task[Unit] = {
-    log.debug(s"Save node (id=$nodeId,node=${node.show})")
+    logger.debug(s"Save node (id=$nodeId,node=${node.show})")
     assert(assertKeyIanAscOrder(node), s"Ascending order of keys required! Invalid node=${node.show})")
     store.put(nodeId, node)
   }
@@ -546,8 +545,6 @@ class MerkleBTree private[server] (
 }
 
 object MerkleBTree {
-
-  private val log = LoggerFactory.getLogger(getClass)
 
   /**
    * Creates new instance of MerkleBTree.
