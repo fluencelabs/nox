@@ -20,7 +20,6 @@ package fluence.storage.rocksdb
 import cats.instances.try_._
 import com.typesafe.config.ConfigFactory
 import monix.eval.Task
-import monix.execution.schedulers.TestScheduler
 import monix.execution.{ ExecutionModel, Scheduler }
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{ times, verify }
@@ -31,13 +30,13 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 
-import scala.concurrent.duration._
 import scala.reflect.io.Path
 import scala.util.Try
 
 class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockitoSugar with ScalaFutures {
 
-  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(25, Milliseconds))
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(2, Seconds), Span(25, Milliseconds))
+  implicit val scheduler: Scheduler = Scheduler(ExecutionModel.AlwaysAsyncExecution)
 
   private val conf = RocksDbConf.read[Try](ConfigFactory.load()).get
   assert(conf.dataDir.startsWith(System.getProperty("java.io.tmpdir")))
@@ -46,100 +45,84 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
     "performs all operations correctly" in {
       import RocksDbStore._
 
-      implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+      runRocksDb("test1") { store ⇒
 
-      val store = RocksDbStore("test2", conf).get
+        val key1 = "key1".getBytes()
+        val val1 = "val1".getBytes()
+        val key2 = "key2".getBytes()
+        val val2 = "val2".getBytes()
+        val newVal2 = "new val2".getBytes()
 
-      val key1 = "key1".getBytes()
-      val val1 = "val1".getBytes()
-      val key2 = "key2".getBytes()
-      val val2 = "val2".getBytes()
-      val newVal2 = "new val2".getBytes()
+        // check write and read
 
-      // check write and read
+        val case1Result = Task.sequence(Seq(
+          store.get(key1).attempt.map(_.toOption),
+          store.put(key1, val1),
+          store.get(key1)
+        )).runAsync.futureValue
 
-      val case1 = Task.sequence(Seq(
-        store.get(key1).attempt.map(_.toOption),
-        store.put(key1, val1),
-        store.get(key1)
-      )).runAsync
+        case1Result should contain theSameElementsInOrderAs Seq(None, (), val1)
 
-      testScheduler.tick(5.seconds)
+        // check update
 
-      val case1Result = case1.futureValue
-      case1Result should contain theSameElementsInOrderAs Seq(None, (), val1)
+        val case2Result = Task.sequence(Seq(
+          store.put(key2, val2),
+          store.get(key2),
+          store.put(key2, newVal2),
+          store.get(key2)
+        )).runAsync.futureValue
 
-      // check update
+        case2Result should contain theSameElementsInOrderAs Seq((), val2, (), newVal2)
 
-      val case2 = Task.sequence(Seq(
-        store.put(key2, val2),
-        store.get(key2),
-        store.put(key2, newVal2),
-        store.get(key2)
-      )).runAsync
+        // check delete
 
-      testScheduler.tick(5.seconds)
+        val case3Result = Task.sequence(Seq(
+          store.get(key1),
+          store.remove(key1),
+          store.get(key1).attempt.map(_.toOption)
+        )).runAsync.futureValue
 
-      val case2Result = case2.futureValue
-      case2Result should contain theSameElementsInOrderAs Seq((), val2, (), newVal2)
+        case3Result should contain theSameElementsInOrderAs Seq(val1, (), None)
 
-      // check delete
+        // check traverse
 
-      val case3 = Task.sequence(Seq(
-        store.get(key1),
-        store.remove(key1),
-        store.get(key1).attempt.map(_.toOption)
-      )).runAsync
+        val manyPairs: Seq[(Key, Value)] = 1 to 100 map { n ⇒ s"key$n".getBytes() → s"val$n".getBytes() }
+        val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v) }
 
-      testScheduler.tick(5.seconds)
+        val case4 = Task.sequence(inserts).flatMap(_ ⇒ store.traverse().toListL).runAsync
 
-      val case3Result = case3.futureValue
-      case3Result should contain theSameElementsInOrderAs Seq(val1, (), None)
+        val traverseResult = case4.futureValue
+        bytesToStr(traverseResult) should contain theSameElementsAs bytesToStr(manyPairs)
 
-      // check traverse
-
-      val manyPairs: Seq[(Key, Value)] = 1 to 100 map { n ⇒ s"key$n".getBytes() → s"val$n".getBytes() }
-      val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v) }
-
-      val case4 = Task.sequence(inserts).flatMap(_ ⇒ store.traverse().toListL).runAsync
-
-      testScheduler.tick(5.seconds)
-
-      val traverseResult = case4.futureValue
-      bytesToStr(traverseResult) should contain theSameElementsAs bytesToStr(manyPairs)
+      }
 
     }
   }
 
   "putting to database" should {
     "be always single-threaded" in {
-      implicit val scheduler: Scheduler = Scheduler(ExecutionModel.AlwaysAsyncExecution)
 
-      val store = RocksDbStore("test1", conf).get
+      runRocksDb("test2") { store ⇒
+        // execute 100 concurrent put to database
+        // if putting will be concurrent, then RocksDb raise an Exception
+        val batchInsert = 1 to 100 map { n ⇒
+          store.put(s"key$n".getBytes(), s"value$n".getBytes())
+        }
 
-      // execute 100 concurrent put to database
-      // if putting will be concurrent, then RocksDb raise an Exception
-      val batchInsert = 1 to 100 map { n ⇒
-        store.put(s"key$n".getBytes(), s"value$n".getBytes())
+        // make sure that all entries are in DB
+        Task.gather(batchInsert).runAsync.futureValue
+
+        store.traverse()
+          .toListL
+          .runAsync
+          .futureValue should have size 100
       }
-
-      // make sure that all entries are in DB
-
-      Task.gather(batchInsert).runAsync.futureValue
-
-      store.traverse()
-        .toListL
-        .runAsync
-        .futureValue should have size 100
-
     }
   }
 
   "traverse" should {
     "take snapshot" when {
       "client starts reading" in {
-
-        implicit val scheduler: Scheduler = Scheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val db = mock[RocksDB]
         val options = mock[Options]
@@ -149,23 +132,30 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
         val store = new RocksDbStore("", db, options)
 
-        val stream = store.traverse()
+        try {
+          val stream = store.traverse()
 
-        verify(db, times(0)).getSnapshot
-        verify(db, times(0)).newIterator(any[ReadOptions])
+          verify(db, times(0)).getSnapshot
+          verify(db, times(0)).newIterator(any[ReadOptions])
 
-        stream.foreach(println).futureValue
+          stream.foreach(println).futureValue
 
-        verify(db, times(1)).getSnapshot
-        verify(db, times(1)).newIterator(ArgumentMatchers.any[ReadOptions])
-        verify(snapshot, times(1)).close()
-
-        store.close()
+          verify(db, times(1)).getSnapshot
+          verify(db, times(1)).newIterator(ArgumentMatchers.any[ReadOptions])
+          verify(snapshot, times(1)).close()
+        } finally {
+          store.close()
+        }
 
         verify(db, times(1)).close()
         verify(options, times(1)).close()
       }
     }
+  }
+
+  private def runRocksDb(name: String)(action: RocksDbStore ⇒ Unit): Unit = {
+    val store = RocksDbStore(name, conf)
+    try action(store.get) finally store.toOption.foreach(_.close())
   }
 
   private def createTestRocksIterator(limit: Int): RocksIterator = {
