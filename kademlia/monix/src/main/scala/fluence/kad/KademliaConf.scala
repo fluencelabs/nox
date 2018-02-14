@@ -15,10 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
-
-import cats.ApplicativeError
-import com.typesafe.config.Config
+package fluence.kad
 
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
@@ -36,15 +33,3 @@ case class KademliaConf(
     parallelism: Int,
     pingExpiresIn: Duration
 )
-
-object KademliaConf {
-  val ConfigPath = "fluence.network.kademlia"
-
-  def read[F[_]](config: Config, path: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[KademliaConf] =
-    F.catchNonFatal{
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      config.as[KademliaConf](path)
-    }
-}
-

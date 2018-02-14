@@ -15,13 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.kad
 
 import java.time.Instant
 
 import cats.data.StateT
 import cats.{ MonadError, Parallel }
-import fluence.kad.{ Bucket, Kademlia, Siblings }
 import fluence.kad.protocol.{ KademliaRpc, Key, Node }
 import monix.eval.{ MVar, Task }
 import monix.execution.atomic.AtomicAny
@@ -30,52 +29,39 @@ import scala.collection.concurrent.TrieMap
 import scala.language.implicitConversions
 
 // TODO: write unit tests
-/**
- * Kademlia service to be launched as a singleton on local node.
- *
- * @param nodeId Current node ID
- * @param contact Node's contact to advertise
- * @param client Getter for RPC calling of another nodes
- * @param conf Kademlia conf
- * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
- * @tparam C Contact info
- */
-class KademliaService[C](
+object KademliaMVar {
+
+  /**
+   * Kademlia service to be launched as a singleton on local node.
+   *
+   * @param nodeId    Current node ID
+   * @param contact   Node's contact to advertise
+   * @param client    Getter for RPC calling of another nodes
+   * @param conf      Kademlia conf
+   * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
+   * @tparam C Contact info
+   */
+  def apply[C](
     nodeId: Key,
     contact: Task[C],
     client: C ⇒ KademliaRpc[Task, C],
     conf: KademliaConf,
     checkNode: Node[C] ⇒ Task[Boolean]
-) extends Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
-  implicitly[MonadError[Task, Throwable]],
-  implicitly[Parallel[Task, Task]],
-  KademliaService.bucketOps(conf.maxBucketSize),
-  KademliaService.siblingsOps(nodeId, conf.maxSiblingsSize)
-) {
-  /**
-   * Returns a network wrapper around a contact C, allowing querying it with Kademlia protocol.
-   *
-   * @param contact Description on how to connect to remote node
-   * @return
-   */
-  override def rpc(contact: C): KademliaRpc[Task, C] = client(contact)
+  ): Kademlia[Task, C] = new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
+    implicitly[MonadError[Task, Throwable]],
+    implicitly[Parallel[Task, Task]],
+    KademliaMVar.bucketOps(conf.maxBucketSize),
+    KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
+  ) {
+    override def rpc(contact: C): KademliaRpc[Task, C] = client(contact)
+    override def ownContact: Task[Node[C]] = contact.map(c ⇒ Node(nodeId, Instant.now(), c))
+  }
 
-  /**
-   * How to promote this node to others.
-   *
-   * @return
-   */
-  override def ownContact: Task[Node[C]] =
-    contact.map(c ⇒ Node(nodeId, Instant.now(), c))
-
-}
-
-object KademliaService {
   /**
    * Performs atomic update on a MVar, blocking asynchronously if another update is in progress.
    *
-   * @param mvar State variable
-   * @param mod Modifier
+   * @param mvar       State variable
+   * @param mod        Modifier
    * @param updateRead Callback to update read model
    * @tparam S State
    * @tparam T Return value
@@ -119,7 +105,7 @@ object KademliaService {
   /**
    * Builds asynchronous sibling ops with $maxSiblings nodes max.
    *
-   * @param nodeId Siblings are sorted by distance to this nodeId
+   * @param nodeId      Siblings are sorted by distance to this nodeId
    * @param maxSiblings Max number of closest siblings to store
    * @tparam C Node contacts type
    */
