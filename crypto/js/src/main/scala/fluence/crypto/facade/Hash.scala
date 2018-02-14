@@ -30,3 +30,10 @@ class SHA256() extends js.Object {
   def update(msg: js.Array[Byte]): Unit = js.native
   def digest(enc: String): String = js.native
 }
+
+@js.native
+@JSImport("hash.js", "sha1")
+class SHA1() extends js.Object {
+  def update(msg: js.Array[Byte]): Unit = js.native
+  def digest(enc: String): String = js.native
+}
