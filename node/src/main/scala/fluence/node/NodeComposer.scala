@@ -23,7 +23,7 @@ import cats.{ ApplicativeError, ~> }
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
 import fluence.crypto.SignAlgo
-import fluence.crypto.hash.JdkCryptoHasher
+import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
@@ -55,7 +55,7 @@ class NodeComposer(
     algo: SignAlgo,
     config: Config,
     contractCacheStore: KVStore[Task, Array[Byte], Array[Byte]],
-    cryptoHasher: JdkCryptoHasher = JdkCryptoHasher.Sha256
+    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
 ) {
 
   private implicit val runFuture: Future ~> Task = new (Future ~> Task) {
@@ -104,8 +104,6 @@ class NodeComposer(
 
       serverBuilder ← serverBuilder
 
-      contractsCacheStore ← ContractsCacheStore[Task](contractCacheStore)
-
       kadConf ← readKademliaConfig[Task](config)
 
       clientConf ← grpcClientConf
@@ -130,6 +128,8 @@ class NodeComposer(
         kadConf,
         TransportSecurity.canBeSaved[Task](k, acceptLocal = conf.acceptLocal)
       )
+
+      val contractsCacheStore = ContractsCacheStore(contractCacheStore)
 
       override lazy val contractsCache: ContractsCacheRpc[Task, BasicContract] =
         new ContractsCache[Task, BasicContract](

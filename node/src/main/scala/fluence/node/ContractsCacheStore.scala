@@ -149,12 +149,11 @@ object ContractsCacheStore {
    * Creates [[KVStore]] for caching contracts. Wraps 'binary store' with key and value codecs.
    *
    * @param contractCacheBinaryStore Task based key/value store for binary data
-   * @param F An Effect
    * @return contract cache key/value Store
    */
-  def apply[F[_]](
+  def apply(
     contractCacheBinaryStore: KVStore[Task, Array[Byte], Array[Byte]]
-  )(implicit F: MonadError[F, Throwable]): F[KVStore[Task, Key, ContractRecord[BasicContract]]] = {
+  ): KVStore[Task, Key, ContractRecord[BasicContract]] = {
     import Key.bytesCodec
 
     implicit val contractRecordCodec: Codec[Task, ContractRecord[BasicContract], Array[Byte]] =
@@ -163,6 +162,6 @@ object ContractsCacheStore {
         bytes ⇒ Task(BasicContractCache.parseFrom(bytes))
       )
 
-    F.pure(contractCacheBinaryStore)
+    contractCacheBinaryStore
   }
 }

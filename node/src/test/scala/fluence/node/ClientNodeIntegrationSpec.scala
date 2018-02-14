@@ -47,7 +47,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scodec.bits.ByteVector
-import shapeless.{ HList, HNil, ops, _ }
+import shapeless._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
