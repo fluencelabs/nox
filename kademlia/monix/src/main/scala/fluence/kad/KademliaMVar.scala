@@ -15,13 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.kad
 
 import java.time.Instant
 
 import cats.data.StateT
 import cats.{ MonadError, Parallel }
-import fluence.kad.{ Bucket, Kademlia, Siblings }
 import fluence.kad.protocol.{ KademliaRpc, Key, Node }
 import monix.eval.{ MVar, Task }
 import monix.execution.atomic.AtomicAny
@@ -40,7 +39,7 @@ import scala.language.implicitConversions
  * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
  * @tparam C Contact info
  */
-class KademliaService[C](
+class KademliaMVar[C](
     nodeId: Key,
     contact: Task[C],
     client: C ⇒ KademliaRpc[Task, C],
@@ -49,8 +48,8 @@ class KademliaService[C](
 ) extends Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
   implicitly[MonadError[Task, Throwable]],
   implicitly[Parallel[Task, Task]],
-  KademliaService.bucketOps(conf.maxBucketSize),
-  KademliaService.siblingsOps(nodeId, conf.maxSiblingsSize)
+  KademliaMVar.bucketOps(conf.maxBucketSize),
+  KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
 ) {
   /**
    * Returns a network wrapper around a contact C, allowing querying it with Kademlia protocol.
@@ -70,7 +69,7 @@ class KademliaService[C](
 
 }
 
-object KademliaService {
+object KademliaMVar {
   /**
    * Performs atomic update on a MVar, blocking asynchronously if another update is in progress.
    *

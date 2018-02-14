@@ -20,7 +20,7 @@ package fluence.node
 import java.util.concurrent.Executors
 
 import cats.effect.Effect
-import cats.~>
+import cats.{ ApplicativeError, ~> }
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
 import fluence.crypto.SignAlgo
@@ -35,7 +35,7 @@ import fluence.dataset.node.{ ContractAllocator, ContractsCache }
 import fluence.dataset.node.storage.Datasets
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
-import fluence.kad.Kademlia
+import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
@@ -92,6 +92,13 @@ class NodeComposer(
   private lazy val grpcClientConf =
     GrpcClientConf.read[Task](config).memoizeOnSuccess
 
+  private def readConfig[F[_]](config: Config, path: String = "fluence.network.kademlia")(implicit F: ApplicativeError[F, Throwable]): F[KademliaConf] =
+    F.catchNonFatal{
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      config.as[KademliaConf](path)
+    }
+
   lazy val services: Task[NodeServices[Task, BasicContract, Contact]] =
     (for {
       k ← Key.fromKeyPair[Task](keyPair)
@@ -101,7 +108,7 @@ class NodeComposer(
 
       contractsCacheStore ← ContractsCacheStore[Task](contractsCacheStoreName, config)
 
-      kadConf ← KademliaConf.read[Task](config)
+      kadConf ← readConfig[Task](config)
 
       clientConf ← grpcClientConf
 
@@ -115,7 +122,7 @@ class NodeComposer(
 
       override val signer: Signer = algo.signer(keyPair)
 
-      override lazy val kademlia: Kademlia[Task, Contact] = new KademliaService(
+      override lazy val kademlia: Kademlia[Task, Contact] = new KademliaMVar(
         k,
         serverBuilder.contact,
         client.service[KademliaClient[Task]],

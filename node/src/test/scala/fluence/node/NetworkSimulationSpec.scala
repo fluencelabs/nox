@@ -22,6 +22,7 @@ import cats.instances.try_._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
+import fluence.kad.{ KademliaConf, KademliaMVar }
 import fluence.kad.grpc.{ KademliaGrpc, KademliaNodeCodec }
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
@@ -73,7 +74,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     val kademliaClient = client.service[KademliaClient[Task]] _
 
-    val kad = new KademliaService(
+    val kad = new KademliaMVar(
       key,
       serverBuilder.contact,
       kademliaClient,
