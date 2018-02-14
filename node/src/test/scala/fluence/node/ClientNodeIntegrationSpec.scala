@@ -32,8 +32,7 @@ import fluence.crypto.hash.TestCryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
-import fluence.dataset.client.ClientDatasetStorage
-import fluence.dataset.protocol.ContractsApi
+import fluence.dataset.client.{ ClientDatasetStorage, Contracts }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protocol.{ Contact, Key }
@@ -88,11 +87,12 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     "joins the Kademlia network" ignore { // todo enable when rockDb problem will be solved
 
       runNodes { servers ⇒
-        val firstContact = servers.head.server.flatMap(_.contact).taskValue
-        val secondContact = servers.tail.head.server.flatMap(_.contact).taskValue
+        val firstContact = servers.head._1
+        val secondContact = servers.last._1
 
-        servers.foreach { s ⇒
-          s.services.flatMap(_.kademlia.join(Seq(firstContact, secondContact), 8)).taskValue
+        servers.foreach {
+          case (_, s) ⇒
+            s.services.flatMap(_.kademlia.join(Seq(firstContact, secondContact), 8)).taskValue
         }
       }
 
@@ -120,8 +120,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val newClient = ClientComposer.grpc[Task](GrpcClient.builder)
 
         runNodes { servers ⇒
-          val firstContact: Contact = servers.head.server.flatMap(_.contact).taskValue
-          val contractsApi = newClient.service[ContractsApi[Task, BasicContract]](firstContact)
+          val firstContact: Contact = servers.head._1
+          val contractsApi = createContactApi(servers)
           val resultContact = contractsApi.find(Key.fromString[Task]("non-exists contract").taskValue).failed.taskValue
 
           resultContact shouldBe a[StatusRuntimeException]
@@ -135,7 +135,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val newClient = ClientComposer.grpc[Task](GrpcClient.builder)
 
         runNodes { servers ⇒
-          val firstContact: Contact = servers.head.server.flatMap(_.contact).taskValue
+          val firstContact: Contact = servers.head._1
           val storageRpc = newClient.service[DatasetStorageRpc[Task]](firstContact)
           val datasetStorage = createDatasetStorage("dummy dataset".getBytes, storageRpc)
 
@@ -163,7 +163,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         val seedContact: Contact = makeKadNetwork(servers)
 
-        val contractsApi = newClient.service[ContractsApi[Task, BasicContract]](seedContact)
+        val contractsApi = createContactApi(servers)
 
         val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
         val kadKey = Key.fromKeyPair[Task](keyPair).taskValue
@@ -186,10 +186,24 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   }
 
-  private def makeKadNetwork(servers: Seq[NodeComposer]) = {
-    val firstContact: Contact = servers.head.server.flatMap(_.contact).taskValue
-    val lastContact = servers.tail.head.server.flatMap(_.contact).runAsync.futureValue
-    servers.foreach { _.services.flatMap(_.kademlia.join(Seq(firstContact, lastContact), 8)).taskValue }
+  private def createContactApi(servers: Map[Contact, NodeComposer]) = {
+    new Contracts[Task, BasicContract, Contact](
+      maxFindRequests = 10,
+      maxAllocateRequests = _ ⇒ 20,
+      checker = algo.checker,
+      kademlia = servers.head._2.services.map(_.kademlia).taskValue, // TODO IMPORTANT: use client-side Kademlia
+      cacheRpc = contact ⇒ servers.find { case (c, _) ⇒ contact.publicKey.value == c.publicKey.value }.get._2
+        .services.map(_.contractsCache).taskValue,
+      allocatorRpc = contact ⇒
+        servers.find{ case (c, _) ⇒ contact.publicKey.value == c.publicKey.value }.get._2
+          .services.map(_.contractAllocator).taskValue
+    )
+  }
+
+  private def makeKadNetwork(servers: Map[Contact, NodeComposer]) = {
+    val firstContact: Contact = servers.head._1
+    val lastContact = servers.last._1
+    servers.foreach { _._2.services.flatMap(_.kademlia.join(Seq(firstContact, lastContact), 8)).taskValue }
     firstContact
   }
 
@@ -213,11 +227,11 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
    * Test utility method for running N nodes and shutting down after all.
    * @param action An action to executing
    */
-  private def runNodes(action: Seq[NodeComposer] ⇒ Unit, numberOfNodes: Int = 20): Unit = {
+  private def runNodes(action: Map[Contact, NodeComposer] ⇒ Unit, numberOfNodes: Int = 20): Unit = {
 
-    val servers: Seq[NodeComposer] = (0 to numberOfNodes).map { n ⇒
+    val servers: Map[Contact, NodeComposer] = (0 to numberOfNodes).map { n ⇒
       val port = 3100 + n
-      new NodeComposer(
+      val composer = new NodeComposer(
         algo.generateKeyPair[Task]().value.taskValue.right.get,
         algo,
         config
@@ -226,14 +240,16 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true)),
         "node_cache_" + n
       )
-    }
+
+      composer.server.flatMap(_.contact).taskValue → composer
+    }.toMap
 
     try {
-      servers.foreach(_.server.flatMap(_.start()).runAsync.futureValue)
+      servers.foreach(_._2.server.flatMap(_.start()).runAsync.futureValue)
       action(servers)
     } finally {
       // shutting down all nodes
-      servers.foreach(_.server.foreach(_.shutdown(3.second)))
+      servers.foreach(_._2.server.foreach(_.shutdown(3.second)))
       // clean all rockDb data from disk
       Path(config.getString("fluence.node.storage.rocksDb.dataDir")).deleteRecursively()
     }
