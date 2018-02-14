@@ -32,14 +32,19 @@ import fluence.kad.protocol.{ Contact, Key }
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
+import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
 
 import scala.concurrent.duration._
 import scala.io.StdIn
 import scala.language.higherKinds
 
-object NodeApp extends App with slogging.StrictLogging {
+object NodeApp extends App with slogging.LazyLogging {
 
   private val setForClose = new ConcurrentSkipListSet[AutoCloseable]()
+
+  // Simply log everything to stdout
+  LoggerConfig.factory = PrintLoggerFactory()
+  LoggerConfig.level = LogLevel.INFO
 
   sys.ShutdownHookThread {
     logger.info(s"Invoke close() for all of $setForClose")
@@ -63,7 +68,7 @@ object NodeApp extends App with slogging.StrictLogging {
     keyStorage.getOrCreateKeyPair(algo.generateKeyPair[F]().value.flatMap(F.fromEither))
   }
 
-  def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
+  def cmd(s: String): Unit = logger.info(Console.BLUE + s + Console.RESET)
 
   val config = ConfigFactory.load()
 
@@ -71,7 +76,7 @@ object NodeApp extends App with slogging.StrictLogging {
 
   initDirectory(config.getString("fluence.directory"))
 
-  println(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
+  logger.info(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
 
   def handleCmds(kad: Kademlia[Task, Contact]): Task[Unit] = {
     cmd("j | l | s | q")
@@ -83,8 +88,6 @@ object NodeApp extends App with slogging.StrictLogging {
           Contact.readB64seed[Task](p, algo.checker).value.flatMap {
             case Left(err) ⇒
               logger.error("Can't read the seed", err)
-              println("Can't read the seed")
-              err.printStackTrace()
               handle
             case Right(c) ⇒
               kad.join(Seq(c), 16).attempt.flatMap {
@@ -94,8 +97,6 @@ object NodeApp extends App with slogging.StrictLogging {
 
                 case Left(err) ⇒
                   logger.error("Can't join", err)
-                  println("Can't join")
-                  err.printStackTrace()
                   handle
               }
           }
@@ -106,11 +107,11 @@ object NodeApp extends App with slogging.StrictLogging {
         kad.handleRPC
           .lookup(Key.XorDistanceMonoid.empty, 10)
           .map(_.map(_.show).mkString("\n"))
-          .map(println)
+          .map(logger.info(_))
           .attempt
           .flatMap {
             case Right(_) ⇒
-              println("ok")
+              logger.info("ok")
               handle
             case Left(e) ⇒
               logger.error("Can't lookup", e)
@@ -144,22 +145,21 @@ object NodeApp extends App with slogging.StrictLogging {
     setForClose.add(contractCache)
 
     sys.addShutdownHook {
-      System.err.println("*** shutting down gRPC server since JVM is shutting down")
+      logger.warn("*** shutting down gRPC server since JVM is shutting down")
       server.shutdown(5.seconds)
-      System.err.println("*** server shut down")
+      logger.warn("*** server shut down")
     }
 
-    // todo use logger instead println: one pipe to file, second to console, now logger isn't worked!
     logger.info("Server launched")
-    println("Your contact is: " + contact.show)
+    logger.info("Your contact is: " + contact.show)
     contact.b64seed[cats.Id].value.map(s ⇒
-      println("You may share this seed for others to join you: " + Console.MAGENTA + s + Console.RESET)
+      logger.info("You may share this seed for others to join you: " + Console.MAGENTA + s + Console.RESET)
     )
 
     services.kademlia
   }
 
-  println("Going to run Fluence Server...")
+  logger.info("Going to run Fluence Server...")
 
   serverKad.flatMap(handleCmds)
     .toIO
@@ -168,7 +168,8 @@ object NodeApp extends App with slogging.StrictLogging {
       case Left(err) ⇒
         err.printStackTrace()
         logger.error("Error", err)
-      case Right(_) ⇒ println("Bye!")
+      case Right(_) ⇒
+        logger.info("Bye!")
     }
 
 }
