@@ -92,7 +92,7 @@ class NodeComposer(
   private lazy val grpcClientConf =
     GrpcClientConf.read[Task](config).memoizeOnSuccess
 
-  private def readConfig[F[_]](config: Config, path: String = "fluence.network.kademlia")(implicit F: ApplicativeError[F, Throwable]): F[KademliaConf] =
+  private def readKademliaConfig[F[_]](config: Config, path: String = "fluence.network.kademlia")(implicit F: ApplicativeError[F, Throwable]): F[KademliaConf] =
     F.catchNonFatal{
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
@@ -108,7 +108,7 @@ class NodeComposer(
 
       contractsCacheStore ← ContractsCacheStore[Task](contractsCacheStoreName, config)
 
-      kadConf ← readConfig[Task](config)
+      kadConf ← readKademliaConfig[Task](config)
 
       clientConf ← grpcClientConf
 
@@ -122,7 +122,7 @@ class NodeComposer(
 
       override val signer: Signer = algo.signer(keyPair)
 
-      override lazy val kademlia: Kademlia[Task, Contact] = new KademliaMVar(
+      override lazy val kademlia: Kademlia[Task, Contact] = KademliaMVar(
         k,
         serverBuilder.contact,
         client.service[KademliaClient[Task]],
