@@ -19,7 +19,6 @@ package fluence.node
 
 import java.util.concurrent.Executors
 
-import cats.effect.Effect
 import cats.{ ApplicativeError, ~> }
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
@@ -44,8 +43,7 @@ import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.eval.Task
-import monix.eval.instances.CatsEffectForTask
-import monix.execution.Scheduler.Implicits.global
+import monix.execution.Scheduler
 
 import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContext, Future }
@@ -58,15 +56,13 @@ class NodeComposer(
     contractsCacheStoreName: String = "fluence_contractsCache"
 ) {
 
-  private implicit val taskEffect: Effect[Task] = new CatsEffectForTask()
-
   private implicit val runFuture: Future ~> Task = new (Future ~> Task) {
     override def apply[A](fa: Future[A]): Task[A] = Task.deferFuture(fa)
   }
 
   private implicit val runTask: Task ~> Future = new (Task ~> Future) {
     // TODO: add logging
-    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
+    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync(Scheduler.global)
   }
 
   private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
@@ -116,7 +112,10 @@ class NodeComposer(
 
     } yield new NodeServices[Task, BasicContract, Contact] {
 
-      private val client = ClientComposer.grpc[Task](GrpcClient.builder(k, serverBuilder.contact, clientConf))
+      private val client = {
+        import monix.execution.Scheduler.Implicits.global // required for implicit Effect[Task]
+        ClientComposer.grpc[Task](GrpcClient.builder(k, serverBuilder.contact, clientConf))
+      }
 
       override val key: Key = k
 

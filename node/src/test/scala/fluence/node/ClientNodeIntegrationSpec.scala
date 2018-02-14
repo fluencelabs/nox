@@ -20,7 +20,6 @@ package fluence.node
 import java.net.InetAddress
 
 import cats.data.Ior
-import cats.effect.Effect
 import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.btree.client.MerkleBTreeClient.ClientState
@@ -39,7 +38,6 @@ import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.StatusRuntimeException
 import monix.eval.Task
-import monix.eval.instances.CatsEffectForTask
 import monix.execution.Scheduler.Implicits.global
 import monix.execution.{ CancelableFuture, Scheduler }
 import org.rocksdb.RocksDBException
@@ -60,8 +58,6 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private val algo: SignAlgo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
 
   private implicit val checker: SignatureChecker = algo.checker
-
-  private implicit val taskEffect: Effect[Task] = new CatsEffectForTask()
 
   private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
     override def apply[A](fa: F[A]): F[A] = fa
@@ -121,7 +117,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         runNodes { servers ⇒
           val firstContact: Contact = servers.head._1
-          val contractsApi = createContactApi(servers)
+          val contractsApi = createContractApi(servers)
           val resultContact = contractsApi.find(Key.fromString[Task]("non-exists contract").taskValue).failed.taskValue
 
           resultContact shouldBe a[StatusRuntimeException]
@@ -163,17 +159,17 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         val seedContact: Contact = makeKadNetwork(servers)
 
-        val contractsApi = createContactApi(servers)
+        val contractsApi = createContractApi(servers)
 
         val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
         val kadKey = Key.fromKeyPair[Task](keyPair).taskValue
         val signer = algo.signer(keyPair)
 
-        val offer = BasicContract.offer(kadKey, participantsRequired = 4, signer = signer).taskValue
-        offer.checkOfferSeal(algo.checker).taskValue shouldBe true
+        val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signer).taskValue
+        offer.checkOfferSeal[Task](algo.checker).taskValue shouldBe true
 
         // TODO: add test with wrong signature or other errors
-        val accepted = contractsApi.allocate(offer, _.sealParticipants(signer)).taskValue
+        val accepted = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).taskValue
 
         accepted.participants.size shouldBe 4
 
@@ -186,7 +182,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   }
 
-  private def createContactApi(servers: Map[Contact, NodeComposer]) = {
+  private def createContractApi(servers: Map[Contact, NodeComposer]) = {
     new Contracts[Task, BasicContract, Contact](
       maxFindRequests = 10,
       maxAllocateRequests = _ ⇒ 20,
