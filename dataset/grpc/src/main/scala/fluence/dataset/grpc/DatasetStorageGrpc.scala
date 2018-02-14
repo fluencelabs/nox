@@ -26,6 +26,8 @@ import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc.DatasetStorageRpcStub
 import fluence.dataset.grpc.storage._
 import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.transport.grpc.client.GrpcClient
+import io.grpc.{ CallOptions, ManagedChannel }
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import monix.reactive.Observable
@@ -33,10 +35,13 @@ import monix.reactive.Observable
 import scala.collection.Searching
 import scala.language.{ higherKinds, implicitConversions }
 
-class DatasetStorageClient[F[_]](stub: DatasetStorageRpcStub)(implicit F: MonadError[F, Throwable], run: Task ~> F, Eff: Effect[F]) extends DatasetStorageRpc[F] {
+class DatasetStorageGrpc[F[_]](
+    stub: DatasetStorageRpcStub
+)(implicit F: MonadError[F, Throwable], run: Task ~> F, Eff: Effect[F]) extends DatasetStorageRpc[F] {
   /**
    * Initiates ''Get'' operation in remote MerkleBTree.
    *
+   * @param datasetId    Dataset ID
    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
@@ -96,7 +101,8 @@ class DatasetStorageClient[F[_]](stub: DatasetStorageRpcStub)(implicit F: MonadE
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.
    *
-   * @param putCallbacks    Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param datasetId      Dataset ID
+   * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
    * @param encryptedValue Encrypted value.
    * @return returns old value if old value was overridden, None otherwise.
    */
@@ -181,8 +187,25 @@ class DatasetStorageClient[F[_]](stub: DatasetStorageRpcStub)(implicit F: MonadE
   /**
    * Initiates ''Remove'' operation in remote MerkleBTree.
    *
+   * @param datasetId Dataset ID
    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
    * @return returns old value that was deleted, None if nothing was deleted.
    */
   override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[F]): F[Option[Array[Byte]]] = ???
+}
+
+object DatasetStorageGrpc {
+
+  /**
+   * Shorthand to register [[DatasetStorageGrpc]] inside [[GrpcClient]].
+   *
+   * @param channel     Channel to remote node
+   * @param callOptions Call options
+   */
+  def register[F[_]]()(
+    channel: ManagedChannel,
+    callOptions: CallOptions
+  )(implicit run: Task ~> F, eff: Effect[F], F: MonadError[F, Throwable]): DatasetStorageRpc[F] = {
+    new DatasetStorageGrpc[F](new DatasetStorageRpcStub(channel, callOptions))
+  }
 }

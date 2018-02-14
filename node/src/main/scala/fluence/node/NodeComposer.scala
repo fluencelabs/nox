@@ -19,7 +19,7 @@ package fluence.node
 
 import java.util.concurrent.Executors
 
-import cats.instances.try_._
+import cats.effect.Effect
 import cats.~>
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
@@ -44,30 +44,32 @@ import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.eval.Task
-import monix.execution.Scheduler
+import monix.eval.instances.CatsEffectForTask
+import monix.execution.Scheduler.Implicits.global
 
-import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.language.higherKinds
 
 class NodeComposer(
     keyPair: KeyPair,
     algo: SignAlgo,
     config: Config,
-    contractsCacheStoreName: String = "fluence_contractsCache") {
+    contractsCacheStoreName: String = "fluence_contractsCache"
+) {
 
-  private val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+  private implicit val taskEffect: Effect[Task] = new CatsEffectForTask()
 
-  private implicit val runFuture = new (Future ~> Task) {
+  private implicit val runFuture: Future ~> Task = new (Future ~> Task) {
     override def apply[A](fa: Future[A]): Task[A] = Task.deferFuture(fa)
   }
 
-  private implicit val runTask = new (Task ~> Future) {
+  private implicit val runTask: Task ~> Future = new (Task ~> Future) {
     // TODO: add logging
-    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync(Scheduler.global)
+    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
   }
 
-  private implicit def runId[F[_]] = new (F ~> F) {
+  private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
@@ -146,6 +148,8 @@ class NodeComposer(
           contractsCacheStore.get(_).map(_.contract.participants.contains(k))
         )
     }).memoizeOnSuccess
+
+  private val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
 
   // Add server (with kademlia inside), build
   lazy val server: Task[GrpcServer] =
