@@ -17,7 +17,8 @@
 
 package fluence.dataset.client
 
-import fluence.btree.client.MerkleBTreeClientApi
+import fluence.btree.client.MerkleBTreeClient.ClientState
+import fluence.btree.client.{ MerkleBTreeClient, MerkleBTreeClientApi }
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.storage.DatasetStorageRpc
@@ -28,8 +29,11 @@ import scala.language.higherKinds
 /**
  * Dataset storage that allows save and retrieve some value by key from remote dataset.
  *
+ * @param datasetId   Dataset ID
  * @param bTreeIndex  An interface to dataset index.
  * @param storageRpc  Remotely-accessible interface to all dataset storage operation.
+ * @param valueCrypt  Encrypting/decrypting provider for ''Value''
+ * @param hasher      Hash provider
  *
  * @tparam K The type of keys
  * @tparam V The type of stored values
@@ -86,4 +90,32 @@ class ClientDatasetStorage[K, V](
       case None    ⇒ Task(None)
     }
 
+}
+
+object ClientDatasetStorage {
+
+  /**
+   * Creates Dataset storage that allows save and retrieve some value by key from remote dataset.
+   *
+   * @param datasetId   Dataset ID
+   * @param hasher      Hash provider
+   * @param storageRpc  Remotely-accessible interface to all dataset storage operation.
+   * @param keyCrypt    Encrypting/decrypting provider for ''key''
+   * @param valueCrypt  Encrypting/decrypting provider for ''Value''
+   *
+   * @tparam K The type of keys
+   * @tparam V The type of stored values
+   */
+  def apply[K, V](
+    datasetId: Array[Byte],
+    hasher: CryptoHasher[Array[Byte], Array[Byte]],
+    storageRpc: DatasetStorageRpc[Task],
+    keyCrypt: Crypt[Task, K, Array[Byte]],
+    valueCrypt: Crypt[Task, V, Array[Byte]],
+    clientState: Option[ClientState]
+  )(implicit ord: Ordering[K]): ClientDatasetStorage[K, V] = {
+
+    val bTreeIndex = MerkleBTreeClient(clientState, keyCrypt, hasher)
+    new ClientDatasetStorage[K, V](datasetId, bTreeIndex, storageRpc, valueCrypt, hasher)
+  }
 }
