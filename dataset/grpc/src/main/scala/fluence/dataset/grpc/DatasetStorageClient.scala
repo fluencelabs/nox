@@ -35,7 +35,7 @@ import monix.reactive.Observable
 import scala.collection.Searching
 import scala.language.{ higherKinds, implicitConversions }
 
-class DatasetStorageGrpc[F[_]](
+class DatasetStorageClient[F[_]](
     stub: DatasetStorageRpcStub
 )(implicit F: MonadError[F, Throwable], run: Task ~> F, Eff: Effect[F]) extends DatasetStorageRpc[F] {
   /**
@@ -194,10 +194,10 @@ class DatasetStorageGrpc[F[_]](
   override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[F]): F[Option[Array[Byte]]] = ???
 }
 
-object DatasetStorageGrpc {
+object DatasetStorageClient {
 
   /**
-   * Shorthand to register [[DatasetStorageGrpc]] inside [[GrpcClient]].
+   * Shorthand to register [[DatasetStorageClient]] inside [[GrpcClient]].
    *
    * @param channel     Channel to remote node
    * @param callOptions Call options
@@ -206,6 +206,6 @@ object DatasetStorageGrpc {
     channel: ManagedChannel,
     callOptions: CallOptions
   )(implicit run: Task ~> F, eff: Effect[F], F: MonadError[F, Throwable]): DatasetStorageRpc[F] = {
-    new DatasetStorageGrpc[F](new DatasetStorageRpcStub(channel, callOptions))
+    new DatasetStorageClient[F](new DatasetStorageRpcStub(channel, callOptions))
   }
 }

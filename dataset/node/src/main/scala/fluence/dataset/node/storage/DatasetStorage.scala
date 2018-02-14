@@ -112,6 +112,8 @@ class DatasetStorage private (
 
   }
 
+  // todo create close method for closing RocksDb
+
 }
 
 object DatasetStorage {

@@ -19,6 +19,11 @@ package fluence.node
 
 import java.time.Instant
 
+import cats.instances.list._
+import cats.instances.option._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{ MonadError, Traverse }
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.crypto.keypair.KeyPair
@@ -28,22 +33,15 @@ import fluence.dataset.node.contract.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.node.persistence.{ BasicContractCache, Participant }
 import fluence.storage.KVStore
-import fluence.storage.rocksdb.RocksDbStore
+import fluence.transport.grpc.GrpcCodecs._
 import monix.eval.Task
 import scodec.bits.ByteVector
-import cats.instances.list._
-import cats.instances.option._
-import fluence.transport.grpc.GrpcCodecs._
-import cats.{ ApplicativeError, MonadError, Traverse }
-import cats.syntax.functor._
-import cats.syntax.flatMap._
-import com.typesafe.config.{ Config, ConfigFactory }
 
 import scala.language.higherKinds
 
 object ContractsCacheStore {
 
-  private implicit def codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, ContractRecord[fluence.dataset.BasicContract], BasicContractCache] =
+  private implicit def codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, ContractRecord[BasicContract], BasicContractCache] =
     {
       val keyC = Codec.codec[F, Key, ByteString]
       val strVec = Codec.codec[F, ByteVector, ByteString]
@@ -147,7 +145,15 @@ object ContractsCacheStore {
       )
     }
 
-  def apply[F[_]](storeName: String, config: Config)(implicit F: MonadError[F, Throwable]): F[KVStore[Task, Key, ContractRecord[BasicContract]]] = {
+  /**
+   * Creates [[KVStore]] for caching contracts. Wraps 'binary store' with key and value codecs.
+   *
+   * @param contractCacheBinaryStore Task based key/value store for binary data
+   * @return contract cache key/value Store
+   */
+  def apply(
+    contractCacheBinaryStore: KVStore[Task, Array[Byte], Array[Byte]]
+  ): KVStore[Task, Key, ContractRecord[BasicContract]] = {
     import Key.bytesCodec
 
     implicit val contractRecordCodec: Codec[Task, ContractRecord[BasicContract], Array[Byte]] =
@@ -156,6 +162,6 @@ object ContractsCacheStore {
         bytes ⇒ Task(BasicContractCache.parseFrom(bytes))
       )
 
-    RocksDbStore(storeName, config).map(s ⇒ s)
+    contractCacheBinaryStore
   }
 }

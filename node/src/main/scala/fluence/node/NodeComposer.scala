@@ -19,20 +19,19 @@ package fluence.node
 
 import java.util.concurrent.Executors
 
-import cats.effect.Effect
 import cats.{ ApplicativeError, ~> }
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
 import fluence.crypto.SignAlgo
-import fluence.crypto.hash.JdkCryptoHasher
+import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
 import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
 import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc
 import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetStorageServer }
-import fluence.dataset.node.{ ContractAllocator, ContractsCache }
 import fluence.dataset.node.storage.Datasets
+import fluence.dataset.node.{ ContractAllocator, ContractsCache }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }
@@ -40,12 +39,12 @@ import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
+import fluence.storage.KVStore
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.eval.Task
-import monix.eval.instances.CatsEffectForTask
-import monix.execution.Scheduler.Implicits.global
+import monix.execution.Scheduler
 
 import scala.concurrent.duration._
 import scala.concurrent.{ ExecutionContext, Future }
@@ -55,10 +54,9 @@ class NodeComposer(
     keyPair: KeyPair,
     algo: SignAlgo,
     config: Config,
-    contractsCacheStoreName: String = "fluence_contractsCache"
+    contractCacheStore: KVStore[Task, Array[Byte], Array[Byte]],
+    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
 ) {
-
-  private implicit val taskEffect: Effect[Task] = new CatsEffectForTask()
 
   private implicit val runFuture: Future ~> Task = new (Future ~> Task) {
     override def apply[A](fa: Future[A]): Task[A] = Task.deferFuture(fa)
@@ -66,7 +64,7 @@ class NodeComposer(
 
   private implicit val runTask: Task ~> Future = new (Task ~> Future) {
     // TODO: add logging
-    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
+    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync(Scheduler.global)
   }
 
   private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
@@ -106,8 +104,6 @@ class NodeComposer(
 
       serverBuilder ← serverBuilder
 
-      contractsCacheStore ← ContractsCacheStore[Task](contractsCacheStoreName, config)
-
       kadConf ← readKademliaConfig[Task](config)
 
       clientConf ← grpcClientConf
@@ -116,7 +112,10 @@ class NodeComposer(
 
     } yield new NodeServices[Task, BasicContract, Contact] {
 
-      private val client = ClientComposer.grpc[Task](GrpcClient.builder(k, serverBuilder.contact, clientConf))
+      private val client = {
+        import monix.execution.Scheduler.Implicits.global // required for implicit Effect[Task]
+        ClientComposer.grpc[Task](GrpcClient.builder(k, serverBuilder.contact, clientConf))
+      }
 
       override val key: Key = k
 
@@ -129,6 +128,8 @@ class NodeComposer(
         kadConf,
         TransportSecurity.canBeSaved[Task](k, acceptLocal = conf.acceptLocal)
       )
+
+      val contractsCacheStore = ContractsCacheStore(contractCacheStore)
 
       override lazy val contractsCache: ContractsCacheRpc[Task, BasicContract] =
         new ContractsCache[Task, BasicContract](
@@ -151,7 +152,7 @@ class NodeComposer(
       override lazy val datasets: DatasetStorageRpc[Task] =
         new Datasets(
           config,
-          JdkCryptoHasher.Sha256, // TODO: externalize hasher
+          cryptoHasher,
           contractsCacheStore.get(_).map(_.contract.participants.contains(k))
         )
     }).memoizeOnSuccess
