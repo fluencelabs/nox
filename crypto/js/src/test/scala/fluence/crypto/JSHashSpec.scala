@@ -5,7 +5,7 @@ import org.scalatest.{ Matchers, WordSpec }
 
 import scala.scalajs.js.JSConverters._
 
-class HashSpec extends WordSpec with Matchers {
+class JSHashSpec extends WordSpec with Matchers {
   "js hasher" should {
     //test values get from third-party hash services
     "work with sha256" in {
