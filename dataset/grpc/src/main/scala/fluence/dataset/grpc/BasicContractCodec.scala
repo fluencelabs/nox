@@ -84,7 +84,7 @@ object BasicContractCodec {
             Option(f(g)).fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
 
           def readFromOpt[T](name: String, f: BasicContract ⇒ Option[T]): F[T] =
-            Option(f(g)).flatten.fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
+            f(g).fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
 
           def readParticipantsSeal: F[Option[ByteVector]] =
             Option(g.participantsSeal)
