@@ -17,7 +17,7 @@
 
 package fluence.crypto.hash
 
-import fluence.crypto.facade.{SHA1, SHA256}
+import fluence.crypto.facade.{ SHA1, SHA256 }
 import scodec.bits.ByteVector
 
 import scala.scalajs.js.JSConverters._

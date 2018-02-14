@@ -32,18 +32,17 @@ import fluence.kad.protocol.{ Contact, Key }
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
 import scala.io.StdIn
 import scala.language.higherKinds
 
-object NodeApp extends App {
+object NodeApp extends App with slogging.StrictLogging {
 
   private val setForClose = new ConcurrentSkipListSet[AutoCloseable]()
 
   sys.ShutdownHookThread {
-    log.info(s"Invoke close() for all of $setForClose")
+    logger.info(s"Invoke close() for all of $setForClose")
     setForClose.forEach(_.close())
   }
 
@@ -66,8 +65,6 @@ object NodeApp extends App {
 
   def cmd(s: String): Unit = println(Console.BLUE + s + Console.RESET)
 
-  val log = LoggerFactory.getLogger(getClass)
-
   val config = ConfigFactory.load()
 
   val gitHash = config.getString("fluence.gitHash")
@@ -77,6 +74,7 @@ object NodeApp extends App {
   println(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
 
   def handleCmds(kad: Kademlia[Task, Contact]): Task[Unit] = {
+    cmd("j | l | s | q")
     val readLine = Task(StdIn.readLine())
     lazy val handle: Task[Unit] = readLine.flatMap {
       case "j" | "join" ⇒
@@ -84,7 +82,9 @@ object NodeApp extends App {
         readLine.flatMap { p ⇒
           Contact.readB64seed[Task](p, algo.checker).value.flatMap {
             case Left(err) ⇒
-              log.error("Can't read the seed", err)
+              logger.error("Can't read the seed", err)
+              println("Can't read the seed")
+              err.printStackTrace()
               handle
             case Right(c) ⇒
               kad.join(Seq(c), 16).attempt.flatMap {
@@ -93,7 +93,9 @@ object NodeApp extends App {
                   handle
 
                 case Left(err) ⇒
-                  log.error("Can't join", err)
+                  logger.error("Can't join", err)
+                  println("Can't join")
+                  err.printStackTrace()
                   handle
               }
           }
@@ -111,12 +113,12 @@ object NodeApp extends App {
               println("ok")
               handle
             case Left(e) ⇒
-              log.error("Can't lookup", e)
+              logger.error("Can't lookup", e)
               handle
           }
 
       case "s" | "seed" ⇒
-        kad.ownContact.map(_.contact).flatMap(_.b64seed[Task].value).map(e ⇒ cmd(e.toString)).flatMap(_ ⇒ handle)
+        kad.ownContact.map(_.contact).flatMap(_.b64seed[Task].value).map(e ⇒ e.map(cmd)).flatMap(_ ⇒ handle)
 
       case "q" | "quit" | "x" | "exit" ⇒
         cmd("exit")
@@ -148,9 +150,11 @@ object NodeApp extends App {
     }
 
     // todo use logger instead println: one pipe to file, second to console, now logger isn't worked!
-    log.info("Server launched")
+    logger.info("Server launched")
     println("Your contact is: " + contact.show)
-    println("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
+    contact.b64seed[cats.Id].value.map(s ⇒
+      println("You may share this seed for others to join you: " + Console.MAGENTA + s + Console.RESET)
+    )
 
     services.kademlia
   }
@@ -163,7 +167,7 @@ object NodeApp extends App {
     .unsafeRunSync() match {
       case Left(err) ⇒
         err.printStackTrace()
-        log.error("Error", err)
+        logger.error("Error", err)
       case Right(_) ⇒ println("Bye!")
     }
 

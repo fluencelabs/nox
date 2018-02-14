@@ -6,6 +6,6 @@ libraryDependencies ++= Seq(
   typeSafeConfig,
   ficus,
   monix3,
-  logback,
+  slogging,
   scalatest
 )

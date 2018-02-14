@@ -22,7 +22,6 @@ import java.net.InetAddress
 import fluence.kad.protocol.Contact
 import monix.eval.Task
 import org.bitlet.weupnp.{ GatewayDevice, GatewayDiscover }
-import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
@@ -40,15 +39,13 @@ class UPnP(
     protocol: String = "TCP",
     httpReadTimeout: Duration = Duration.Undefined,
     discoverTimeout: Duration = Duration.Undefined
-) {
-
-  private val log = LoggerFactory.getLogger(getClass)
+) extends slogging.LazyLogging {
 
   /**
    * Memoized gateway task
    */
   val gateway: Task[GatewayDevice] = Task {
-    log.info("Going to discover GatewayDevice...")
+    logger.info("Going to discover GatewayDevice...")
     GatewayDevice.setHttpReadTimeout(
       Option(httpReadTimeout).filter(_.isFinite()).map(_.toMillis.toInt).getOrElse(GatewayDevice.getHttpReadTimeout)
     )
@@ -65,18 +62,18 @@ class UPnP(
         Option(discover.discover).map(_.asScala).map(_.toMap).getOrElse(Map())
       ).flatMap[GatewayDiscover] { gatewayMap ⇒
           if (gatewayMap.isEmpty) {
-            log.warn("Gateway map is empty")
+            logger.warn("Gateway map is empty")
             Task.raiseError[GatewayDiscover](new NoSuchElementException("Gateway map is empty"))
           } else Task.now(discover)
         }
   }.flatMap { discover ⇒
     Option(discover.getValidGateway) match {
       case None ⇒
-        log.warn("There is no connected UPnP gateway device")
+        logger.warn("There is no connected UPnP gateway device")
         Task.raiseError[GatewayDevice](new NoSuchElementException("There is no connected UPnP gateway device"))
 
       case Some(device) ⇒
-        log.info("Found device: " + device)
+        logger.info("Found device: " + device)
         Task.now(device)
     }
   }.memoizeOnSuccess
@@ -89,7 +86,7 @@ class UPnP(
       .flatMap(gw ⇒ Task(gw.getExternalIPAddress))
       .map(InetAddress.getByName)
       .map{ addr ⇒
-        log.info("External IP address: {}", addr.getHostAddress)
+        logger.info("External IP address: {}", addr.getHostAddress)
         addr
       }
       .memoizeOnSuccess
@@ -102,16 +99,16 @@ class UPnP(
    */
   def addPort(externalPort: Int, contact: Contact): Task[Contact] =
     gateway.flatMap { gw ⇒
-      log.info("Going to add port mapping: {} => {}", externalPort, contact.port)
+      logger.info("Going to add port mapping: {} => {}", externalPort, contact.port)
       Task(
         gw.addPortMapping(externalPort, contact.port, gw.getLocalAddress.getHostAddress, protocol, clientName)
       ).flatMap {
           case true ⇒
-            log.info("External port successfully mapped")
+            logger.info("External port successfully mapped")
             externalAddress.map(addr ⇒ contact.copy(ip = addr, port = externalPort))
 
           case false ⇒
-            log.warn("Can't add port mapping")
+            logger.warn("Can't add port mapping")
             Task.raiseError(new RuntimeException("Can't add port mapping"))
         }
     }

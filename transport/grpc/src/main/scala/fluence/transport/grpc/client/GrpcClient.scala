@@ -25,7 +25,6 @@ import fluence.transport.TransportClient
 import io.grpc._
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
-import org.slf4j.LoggerFactory
 import shapeless._
 
 import scala.collection.concurrent.TrieMap
@@ -40,8 +39,7 @@ import scala.util.Try
  */
 class GrpcClient[CL <: HList](
     buildStubs: (ManagedChannel, CallOptions) ⇒ CL,
-    addHeaders: Task[Map[String, String]]) extends TransportClient[CL] {
-  private val log = LoggerFactory.getLogger(getClass)
+    addHeaders: Task[Map[String, String]]) extends TransportClient[CL] with slogging.LazyLogging {
 
   /**
    * Cache for available channels
@@ -70,7 +68,7 @@ class GrpcClient[CL <: HList](
     channels.getOrElseUpdate(
       contactKey(contact),
       {
-        log.info("Open new channel: {}", contactKey(contact))
+        logger.info("Open new channel: {}", contactKey(contact))
         ManagedChannelBuilder.forAddress(contact.ip.getHostAddress, contact.port)
           .usePlaintext(true)
           .build
@@ -87,7 +85,7 @@ class GrpcClient[CL <: HList](
     serviceStubs.getOrElseUpdate(
       contactKey(contact),
       {
-        log.info("Build services: {}", contactKey(contact))
+        logger.info("Build services: {}", contactKey(contact))
         val ch = channel(contact)
         buildStubs(
           ch,
@@ -100,7 +98,7 @@ class GrpcClient[CL <: HList](
                 applier: CallCredentials.MetadataApplier): Unit = {
 
                 val setHeaders = (headers: Map[String, String]) ⇒ {
-                  log.trace("Writing metadata: {}", headers)
+                  logger.trace("Writing metadata: {}", headers)
                   val md = new Metadata()
                   headers.foreach {
                     case (k, v) ⇒
@@ -115,7 +113,7 @@ class GrpcClient[CL <: HList](
                     setHeaders(headers)
 
                   case Left(err) ⇒
-                    log.error("Cannot build network request headers!", err)
+                    logger.error("Cannot build network request headers!", err)
                     applier.fail(Status.UNKNOWN)
                 }
               }

@@ -4,6 +4,6 @@ commons
 
 libraryDependencies ++= Seq(
   monix3,
-  logback,
+  slogging,
   scalatest
 )

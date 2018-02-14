@@ -4,7 +4,7 @@ commons
 
 libraryDependencies ++= Seq(
   cats1,
-  logback,
+  slogging,
   scalatest,
   monix3 % Test
 )
