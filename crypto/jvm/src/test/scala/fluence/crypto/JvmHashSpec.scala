@@ -5,7 +5,7 @@ import org.scalatest.{ Matchers, WordSpec }
 import scodec.bits.ByteVector
 
 class JvmHashSpec extends WordSpec with Matchers {
-  "js hasher" should {
+  "jvm hasher" should {
     //test values get from third-party hash services
     "work with sha256" in {
       val str = "sha256Tester"
