@@ -30,8 +30,8 @@ import fluence.dataset.BasicContract
 import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
 import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc
 import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetStorageServer }
-import fluence.dataset.node.{ ContractAllocator, ContractsCache }
 import fluence.dataset.node.storage.Datasets
+import fluence.dataset.node.{ ContractAllocator, ContractsCache }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }
@@ -39,6 +39,7 @@ import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
+import fluence.storage.KVStore
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
@@ -53,7 +54,8 @@ class NodeComposer(
     keyPair: KeyPair,
     algo: SignAlgo,
     config: Config,
-    contractsCacheStoreName: String = "fluence_contractsCache"
+    contractCacheStore: KVStore[Task, Array[Byte], Array[Byte]],
+    cryptoHasher: JdkCryptoHasher = JdkCryptoHasher.Sha256
 ) {
 
   private implicit val runFuture: Future ~> Task = new (Future ~> Task) {
@@ -102,7 +104,7 @@ class NodeComposer(
 
       serverBuilder ← serverBuilder
 
-      contractsCacheStore ← ContractsCacheStore[Task](contractsCacheStoreName, config)
+      contractsCacheStore ← ContractsCacheStore[Task](contractCacheStore)
 
       kadConf ← readKademliaConfig[Task](config)
 
@@ -150,7 +152,7 @@ class NodeComposer(
       override lazy val datasets: DatasetStorageRpc[Task] =
         new Datasets(
           config,
-          JdkCryptoHasher.Sha256, // TODO: externalize hasher
+          cryptoHasher,
           contractsCacheStore.get(_).map(_.contract.participants.contains(k))
         )
     }).memoizeOnSuccess

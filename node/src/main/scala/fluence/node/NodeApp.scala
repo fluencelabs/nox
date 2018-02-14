@@ -18,25 +18,34 @@
 package fluence.node
 
 import java.io.File
+import java.util.concurrent.ConcurrentSkipListSet
 
 import cats.MonadError
 import cats.syntax.flatMap._
 import cats.syntax.show._
 import com.typesafe.config.ConfigFactory
-import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.keypair.KeyPair
+import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{ Contact, Key }
+import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.slf4j.LoggerFactory
 
-import scala.io.StdIn
 import scala.concurrent.duration._
+import scala.io.StdIn
 import scala.language.higherKinds
 
 object NodeApp extends App {
+
+  private val setForClose = new ConcurrentSkipListSet[AutoCloseable]()
+
+  sys.ShutdownHookThread {
+    log.info(s"Invoke close() for all of $setForClose")
+    setForClose.forEach(_.close())
+  }
 
   def initDirectory(fluencePath: String): Unit = {
     val appDir = new File(fluencePath)
@@ -122,12 +131,15 @@ object NodeApp extends App {
 
   val serverKad = for {
     kp ← getKeyPair[Task](config.getString("fluence.keyPath"))
-    nodeComposer = new NodeComposer(kp, algo, config)
+    contractCache ← RocksDbStore[Task](config.getString("fluence.contract.cacheDirName"), config)
+    nodeComposer = new NodeComposer(kp, algo, config, contractCache)
     services ← nodeComposer.services
     server ← nodeComposer.server
     _ ← server.start()
     contact ← server.contact
   } yield {
+
+    setForClose.add(contractCache)
 
     sys.addShutdownHook {
       System.err.println("*** shutting down gRPC server since JVM is shutting down")
@@ -135,6 +147,7 @@ object NodeApp extends App {
       System.err.println("*** server shut down")
     }
 
+    // todo use logger instead println: one pipe to file, second to console, now logger isn't worked!
     log.info("Server launched")
     println("Your contact is: " + contact.show)
     println("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
