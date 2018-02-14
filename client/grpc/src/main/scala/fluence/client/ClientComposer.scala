@@ -18,11 +18,11 @@
 package fluence.client
 
 import cats.effect.Effect
-import cats.{ MonadError, ~> }
+import cats.{MonadError, ~>}
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
 import fluence.dataset.grpc.DatasetStorageClient
-import fluence.dataset.grpc.client.{ ContractAllocatorClient, ContractsCacheClient }
+import fluence.dataset.grpc.client.{ContractAllocatorClient, ContractsCacheClient}
 import fluence.kad.grpc.client.KademliaClient
 import fluence.transport.grpc.client.GrpcClient
 import monix.eval.Task
@@ -40,8 +40,8 @@ object ClientComposer {
     builder: GrpcClient.Builder[HNil]
   )(implicit F: MonadError[F, Throwable], effect: Effect[F], runF: Future ~> F, runT: Task ~> F, checker: SignatureChecker) = {
 
-    import fluence.dataset.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
-    import fluence.kad.grpc.KademliaNodeCodec.{ apply ⇒ nodeCodec }
+    import fluence.dataset.grpc.BasicContractCodec.{codec => contractCodec}
+    import fluence.kad.grpc.KademliaNodeCodec.{apply => nodeCodec}
 
     builder
       .add(KademliaClient.register[F]())

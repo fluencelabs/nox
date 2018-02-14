@@ -17,6 +17,8 @@
 
 package fluence.crypto.cipher
 
+import scala.language.higherKinds
+
 /**
  * Base interface for encrypting/decrypting.
  * TODO: switch to Codec; notice that Crypt provides effect: decrypt may fail

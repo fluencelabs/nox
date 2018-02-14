@@ -19,6 +19,7 @@ package fluence.crypto.keypair
 
 import scodec.bits.ByteVector
 
+//TODO store secret key safer
 case class KeyPair(publicKey: KeyPair.Public, secretKey: KeyPair.Secret)
 
 object KeyPair {

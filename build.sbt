@@ -69,7 +69,7 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
       "io.circe" %%% "circe-core" % CirceV,
       "io.circe" %%% "circe-parser" % CirceV,
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
-)
+    )
   )
 
 lazy val `cryptoJVM` = `crypto`.jvm.settings(
@@ -88,9 +88,15 @@ lazy val `cryptoJS` = `crypto`.js
     skip in packageJSDependencies := false
   )
 
+lazy val `client-core` = project.in(file("client/core"))
+  .dependsOn(`dataset-client`, `transport-core`, `kademlia-monix`, `dataset-protocol`)
+
+lazy val `client-grpc` = project.in(file("client/grpc"))
+  .dependsOn(`client-core`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`)
+
 lazy val `dataset-node` = project.in(file("dataset/node"))
   .dependsOn(`storage`, `kademlia-core`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
-              `dataset-client` % "compile->test")
+`dataset-client` % "compile->test")
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
   .dependsOn(`kademlia-protocol`, `b-tree-protocol`)
@@ -102,8 +108,4 @@ lazy val `dataset-client` = project.in(file("dataset/client"))
   .dependsOn(`dataset-protocol`, `cryptoJVM`, `b-tree-client`, `kademlia-core`)
 
 lazy val `node` = project
-  .dependsOn(`kademlia-grpc`, `kademlia-monix`, `dataset-node`, `dataset-grpc`, `client`)
-
-// TODO: grpc is only for JVM: transport should be more abstract
-lazy val `client` = project.in(file("client"))
-  .dependsOn(`dataset-client`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`)
+  .dependsOn(`kademlia-grpc`, `kademlia-monix`, `dataset-node`, `dataset-grpc`, `client-grpc`)
