@@ -200,13 +200,12 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         val emptyKey = Monoid.empty[Key]
         val check = TransportSecurity.canBeSaved[Task](emptyKey, acceptLocal = true)
-        val contact = Contact(InetAddress.getLocalHost, 6553, KeyPair.Public(ByteVector.empty), 0L, "", Ior.right(""))
         println("create kademlia mvar")
-        val kademliaClient = KademliaMVar(emptyKey, Task.pure(contact), kademliaRpc, conf, check)
+        val kademliaClient = KademliaMVar(emptyKey, Task.never, kademliaRpc, conf, check)
         val storageRpc = client.service[DatasetStorageRpc[Task]] _
 
         println("create client")
-        val flClient = FluenceClient.apply(kademliaClient, createContractApi(contact, client), algo, storageRpc)
+        val flClient = FluenceClient.apply(kademliaClient, createContractApi(seedContact, client), algo, storageRpc)
 
         println("join seeds")
         flClient.joinSeeds(List(seedContact)).taskValue()
@@ -231,23 +230,28 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   }
 
-  private def createContractApi[T <: HList](someContact: Contact, client: GrpcClient[T])(implicit
+  private def createContractApi[T <: HList](seedContact: Contact, client: GrpcClient[T], servers: Map[Contact, NodeComposer] = Map.empty)(implicit
     s1: ops.hlist.Selector[T, ContractsCacheRpc[Task, BasicContract]],
     s2: ops.hlist.Selector[T, ContractAllocatorRpc[Task, BasicContract]],
     s3: ops.hlist.Selector[T, KademliaClient[Task]]
   ) = {
 
-    val conf = KademliaConf(100, 1, 5, 5.seconds)
+    val conf = KademliaConf(100, 10, 2, 5.seconds)
     val clKey = Monoid.empty[Key]
     val check = TransportSecurity.canBeSaved[Task](clKey, acceptLocal = true)
     val kademliaRpc = client.service[KademliaClient[Task]] _
-    val kademliaClient = KademliaMVar(clKey, Task.pure(someContact), kademliaRpc, conf, check)
+    val kademliaClient = KademliaMVar(clKey, Task.never, kademliaRpc, conf, check)
+
+    val kadCl = if (servers.nonEmpty) servers.head._2.services.map(_.kademlia).taskValue
+    else kademliaClient
+
+    kadCl.join(Seq(seedContact), 2).taskValue()
 
     new Contracts[Task, BasicContract, Contact](
       maxFindRequests = 10,
       maxAllocateRequests = _ ⇒ 20,
       checker = algo.checker,
-      kademlia = kademliaClient,
+      kademlia = kadCl,
       cacheRpc = contact ⇒ client.service[ContractsCacheRpc[Task, BasicContract]](contact),
       allocatorRpc = contact ⇒ client.service[ContractAllocatorRpc[Task, BasicContract]](contact)
     )

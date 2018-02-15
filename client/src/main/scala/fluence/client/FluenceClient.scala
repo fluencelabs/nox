@@ -80,6 +80,9 @@ class FluenceClient(
         case None ⇒
           for {
             //TODO avoid _.head
+            ns ← kademlia.lookupIterative(key, 3)
+            _ = println("NODES === " + ns)
+            _ = println("NODES SIZE === " + ns.size)
             offer ← BasicContract.offer(key, participantsRequired = 1, signer = signer)
             _ = println("CONTRACT === " + offer)
             _ = println("CONTRACT PARTICIPANTS === " + offer.participants)
