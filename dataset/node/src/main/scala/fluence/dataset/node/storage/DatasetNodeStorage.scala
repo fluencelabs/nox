@@ -79,9 +79,9 @@ class DatasetNodeStorage private (
     putCallbacks: PutCallbacks[Task],
     encryptedValue: Array[Byte]
   ): Task[Option[Array[Byte]]] = {
-
+    println("ENCRYPTED ON PUT NODE === " + encryptedValue.mkString(","))
     // todo start transaction
-
+    println("put callback === " + putCallbacks)
     for {
       // find place into index and get value reference (id of current enc. value blob)
       valRef ← bTreeIndex.put(PutCommandImpl(merkleRootCalculator, putCallbacks, refProvider))

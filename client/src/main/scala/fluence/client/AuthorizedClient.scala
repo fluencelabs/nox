@@ -1,13 +1,17 @@
 package fluence.client
 
+import cats.instances.try_._
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.crypto.cipher.{ Crypt, NoOpCrypt }
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.dataset.client.ClientDatasetStorage
 import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.kad.protocol.Key
 import monix.eval.Task
 import scodec.bits.ByteVector
+
+import scala.util.Try
 
 case class AuthorizedClient(kp: KeyPair) {
 
@@ -33,11 +37,11 @@ case class AuthorizedClient(kp: KeyPair) {
   ): ClientDatasetStorage[String, String] = {
     val nonce: ByteVector = ByteVector.empty
 
-    val datasetId = nonce ++ kp.publicKey.value
+    val datasetId = Key.sha1[Try]((nonce ++ kp.publicKey.value).toArray).get
 
     //should we have possible to choose different algorithms?
     val hasher = JdkCryptoHasher.Sha256
 
-    ClientDatasetStorage(datasetId.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
+    ClientDatasetStorage(datasetId.value.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
   }
 }

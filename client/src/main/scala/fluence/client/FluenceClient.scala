@@ -35,8 +35,8 @@ class FluenceClient(
     signAlgo: SignAlgo, storageRpc: Contact ⇒ DatasetStorageRpc[Task]
 )(implicit ME: MonadError[Task, Throwable]) {
 
-  val authorizedCache = MVar(Map.empty[KeyPair.Public, AuthorizedClient])
-  val datasetCache = MVar(Map.empty[KeyPair.Public, ClientDatasetStorage[String, String]])
+  val authorizedCache = new MVarMapCache[KeyPair.Public, AuthorizedClient]()
+  val datasetCache = new MVarMapCache[KeyPair.Public, Option[ClientDatasetStorage[String, String]]]()
 
   //use this when we will have multiple datasets on one authorized user
   def restoreContracts(pk: KeyPair.Public): Task[Map[Key, BasicContract]] = {
@@ -53,12 +53,8 @@ class FluenceClient(
     findRec(Nonce(0), Map.empty)
   }
 
-  def loadDatasetFromCache(pk: KeyPair.Public): Task[Option[ClientDatasetStorage[String, String]]] = {
-    for {
-      cache ← datasetCache.take
-      ds = cache.get(pk)
-      _ ← datasetCache.put(cache)
-    } yield ds
+  def loadDatasetFromCache(pk: KeyPair.Public, dataStorage: Task[ClientDatasetStorage[String, String]]): Task[Option[ClientDatasetStorage[String, String]]] = {
+    datasetCache.getOrAddF(pk, dataStorage.map(Option.apply), None)
   }
 
   def restoreDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
@@ -97,26 +93,11 @@ class FluenceClient(
   }
 
   def getOrCreateDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
-    for {
-      fromCache ← loadDatasetFromCache(ac.kp.publicKey)
-      ds ← fromCache match {
-        case Some(d) ⇒ Task.pure(d)
-        case None    ⇒ restoreDataset(ac)
-      }
-    } yield ds
+    loadDatasetFromCache(ac.kp.publicKey, restoreDataset(ac)).map(_.get)
   }
 
   def loadOrCreateAuthorizedClient(kp: KeyPair): Task[AuthorizedClient] = {
-    for {
-      cache ← authorizedCache.take
-      (ac, newCache) = cache.get(kp.publicKey) match {
-        case Some(auth) ⇒ (auth, cache)
-        case None ⇒
-          val auth = AuthorizedClient(kp)
-          (auth, cache.updated(kp.publicKey, auth))
-      }
-      _ ← authorizedCache.put(newCache)
-    } yield ac
+    authorizedCache.getOrAdd(kp.publicKey, AuthorizedClient(kp))
   }
 
   def generatePair(): Task[AuthorizedClient] = {

@@ -26,6 +26,7 @@ import monix.eval.Task
 
 import scala.language.higherKinds
 
+//todo datasetId - kademlia key
 /**
  * Dataset storage that allows save and retrieve some value by key from remote dataset.
  *

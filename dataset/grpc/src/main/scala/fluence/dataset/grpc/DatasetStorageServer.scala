@@ -128,6 +128,7 @@ class DatasetStorageServer[F[_]](service: DatasetStorageRpc[F])(implicit F: Mona
       for {
         did ← runT(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
         putValue ← runT(getReply(_.isValue, _._value.map(_.toByteArray).getOrElse(Array.emptyByteArray)))
+        _ = println("PUT VALUE SERVER SIDE === " + putValue.mkString(","))
         ov ← service.put(did, new BTreeRpc.PutCallbacks[F] {
           private val push: PutCallback.Callback ⇒ Task[Ack] =
             cb ⇒ Task.fromFuture(resp.onNext(PutCallback(cb)))

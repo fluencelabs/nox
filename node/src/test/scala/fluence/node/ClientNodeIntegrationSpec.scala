@@ -22,14 +22,14 @@ import java.net.{ InetAddress, ServerSocket }
 
 import cats.data.Ior
 import cats.kernel.Monoid
-import cats.{ Monad, ~> }
+import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.client.{ ClientComposer, FluenceClient }
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.TestCryptoHasher
+import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
@@ -320,7 +320,15 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         ds.put("jey", "esrk").taskValue()
         println("value puted")
-        println(ds.get("jey").taskValue())
+        println("GET VALUE ==== " + ds.get("jey").taskValue())
+
+        ds.put("jey1", "esrk1").taskValue()
+        ds.put("jey2", "esrk2").taskValue()
+        ds.put("jey3", "esrk3").taskValue()
+
+        println("GET VALUE1 ==== " + ds.get("jey1").taskValue())
+        println("GET VALUE2 ==== " + ds.get("jey2").taskValue())
+        println("GET VALUE3 ==== " + ds.get("jey3").taskValue())
       }
     }
 
@@ -370,7 +378,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     val value1: Option[ClientState] = merkleRoot.map(ClientState)
     ClientDatasetStorage(
       datasetId,
-      TestCryptoHasher,
+      JdkCryptoHasher.Sha256,
       grpc,
       NoOpCrypt.forString,
       NoOpCrypt.forString,
@@ -395,7 +403,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
           .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true)),
         contractsCacheStore,
-        TestCryptoHasher
+        JdkCryptoHasher.Sha256
       )
 
       composer.server.flatMap(_.contact).taskValue :: composer :: contractsCacheStore :: HNil

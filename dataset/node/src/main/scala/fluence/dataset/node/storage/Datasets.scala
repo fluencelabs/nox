@@ -44,14 +44,13 @@ class Datasets(
     contractUpdated: (Key, Long, ByteVector) ⇒ Task[Unit] // TODO: pass signature as well
 ) extends DatasetStorageRpc[Task] with slogging.LazyLogging {
 
-  private val datasets = TrieMap.empty[ByteVector, Task[DatasetNodeStorage]]
+  private val datasets = new MVarMapCache[ByteVector, Option[DatasetNodeStorage]]
 
   private def storage(datasetId: Array[Byte]): Task[DatasetNodeStorage] = {
     val id = ByteVector(datasetId)
 
-    datasets.getOrElseUpdate(
+    datasets.getOrAddF(
       id,
-
       for {
         key ← Key.fromBytes[Task](datasetId)
         ds ← servesDataset(key).flatMap {
@@ -76,8 +75,9 @@ class Datasets(
             logger.warn(errMsg, e)
             Task.raiseError(new IllegalStateException(errMsg, e))
         }
-      } yield ds
-    )
+      } yield Option(ds),
+      None
+    ).map(_.get)
   }
 
   /**
