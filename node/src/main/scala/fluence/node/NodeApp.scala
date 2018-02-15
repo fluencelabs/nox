@@ -18,7 +18,6 @@
 package fluence.node
 
 import java.io.File
-import java.util.concurrent.ConcurrentSkipListSet
 
 import cats.MonadError
 import cats.syntax.flatMap._
@@ -27,29 +26,19 @@ import com.typesafe.config.ConfigFactory
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.{ FileKeyStorage, SignAlgo }
-import fluence.kad.Kademlia
-import fluence.kad.protocol.{ Contact, Key }
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
 
 import scala.concurrent.duration._
-import scala.io.StdIn
 import scala.language.higherKinds
 
 object NodeApp extends App with slogging.LazyLogging {
 
-  private val setForClose = new ConcurrentSkipListSet[AutoCloseable]()
-
   // Simply log everything to stdout
   LoggerConfig.factory = PrintLoggerFactory()
   LoggerConfig.level = LogLevel.INFO
-
-  sys.ShutdownHookThread {
-    logger.info(s"Invoke close() for all of $setForClose")
-    setForClose.forEach(_.close())
-  }
 
   def initDirectory(fluencePath: String): Unit = {
     val appDir = new File(fluencePath)
@@ -78,71 +67,14 @@ object NodeApp extends App with slogging.LazyLogging {
 
   logger.info(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
 
-  def handleCmds(kad: Kademlia[Task, Contact]): Task[Unit] = {
-    cmd("j | l | s | q")
-    val readLine = Task(StdIn.readLine())
-    lazy val handle: Task[Unit] = readLine.flatMap {
-      case "j" | "join" ⇒
-        cmd("join seed?")
-        readLine.flatMap { p ⇒
-          Contact.readB64seed[Task](p, algo.checker).value.flatMap {
-            case Left(err) ⇒
-              logger.error("Can't read the seed", err)
-              handle
-            case Right(c) ⇒
-              kad.join(Seq(c), 16).attempt.flatMap {
-                case Right(_) ⇒
-                  cmd("OK")
-                  handle
-
-                case Left(err) ⇒
-                  logger.error("Can't join", err)
-                  handle
-              }
-          }
-        }
-
-      case "l" | "lookup" ⇒
-
-        kad.handleRPC
-          .lookup(Key.XorDistanceMonoid.empty, 10)
-          .map(_.map(_.show).mkString("\n"))
-          .map(logger.info(_))
-          .attempt
-          .flatMap {
-            case Right(_) ⇒
-              logger.info("ok")
-              handle
-            case Left(e) ⇒
-              logger.error("Can't lookup", e)
-              handle
-          }
-
-      case "s" | "seed" ⇒
-        kad.ownContact.map(_.contact).flatMap(_.b64seed[Task].value).map(e ⇒ e.map(cmd)).flatMap(_ ⇒ handle)
-
-      case "q" | "quit" | "x" | "exit" ⇒
-        cmd("exit")
-        Task.unit
-
-      case _ ⇒
-        handle
-    }.asyncBoundary
-
-    handle
-  }
-
   val serverKad = for {
     kp ← getKeyPair[Task](config.getString("fluence.keyPath"))
     contractCache ← RocksDbStore[Task](config.getString("fluence.contract.cacheDirName"), config)
     nodeComposer = new NodeComposer(kp, algo, config, contractCache)
-    services ← nodeComposer.services
     server ← nodeComposer.server
     _ ← server.start()
     contact ← server.contact
   } yield {
-
-    setForClose.add(contractCache)
 
     sys.addShutdownHook {
       logger.warn("*** shutting down gRPC server since JVM is shutting down")
@@ -152,16 +84,20 @@ object NodeApp extends App with slogging.LazyLogging {
 
     logger.info("Server launched")
     logger.info("Your contact is: " + contact.show)
+
     contact.b64seed[cats.Id].value.map(s ⇒
       logger.info("You may share this seed for others to join you: " + Console.MAGENTA + s + Console.RESET)
     )
 
-    services.kademlia
   }
 
   logger.info("Going to run Fluence Server...")
 
-  serverKad.flatMap(handleCmds)
+  serverKad.flatMap{
+    case Left(t: Throwable) ⇒ Task.raiseError(t)
+    case Left(t)            ⇒ Task.raiseError(new RuntimeException(t))
+    case Right(_)           ⇒ Task.never
+  }
     .toIO
     .attempt
     .unsafeRunSync() match {
