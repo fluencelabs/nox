@@ -40,6 +40,7 @@ class BasicContractCodecSpec extends WordSpec with Matchers {
       mod.offerSeal.publicKey.value shouldBe bc.offerSeal.publicKey.value
       mod.offerSeal.sign shouldBe bc.offerSeal.sign
       mod.participants.keySet should contain theSameElementsAs bc.participants.keySet
+      mod.executionSeal shouldBe bc.executionSeal
 
       mod shouldBe bc
     }

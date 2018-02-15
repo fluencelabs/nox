@@ -149,7 +149,7 @@ class DatasetStorageClient[F[_]](
         putCallbacks
           .verifyChanges(vc.serverMerkleRoot.toByteArray, vc.splitted)
 
-          .map(_ ⇒ PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges()))
+          .map(_ ⇒ PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges())) // TODO: here should be signature
 
       case ask if ask.isChangesStored ⇒
 

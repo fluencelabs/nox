@@ -17,6 +17,7 @@
 
 package fluence.node
 
+import java.time.Instant
 import java.util.concurrent.Executors
 
 import cats.{ ApplicativeError, ~> }
@@ -153,7 +154,31 @@ class NodeComposer(
         new Datasets(
           config,
           cryptoHasher,
-          contractsCacheStore.get(_).map(_.contract.participants.contains(k))
+
+          // Return contract version, if current node participates in it
+          contractsCacheStore.get(_)
+            .map(c ⇒ Option(c.contract.executionState.version).filter(_ ⇒ c.contract.participants.contains(k))),
+
+          // Update contract's version and merkle root, if newVersion = currentVersion+1
+          (dsId, v, mr) ⇒ {
+            for {
+              c ← contractsCacheStore.get(dsId)
+              _ ← if (c.contract.executionState.version == v - 1) Task.unit
+              else Task.raiseError(new IllegalStateException(s"Inconsistent state for contract $dsId, contract version=${c.contract.executionState.version}, asking for update to $v"))
+
+              u = c.copy(
+                contract = c.contract.copy(
+                  executionState = BasicContract.ExecutionState(
+                    version = v,
+                    merkleRoot = mr
+                  )
+                ),
+                lastUpdated = Instant.now()
+              )
+              _ ← contractsCacheStore.put(dsId, u)
+            } yield () // TODO: schedule broadcasting the contract to kademlia
+
+          }
         )
     }).memoizeOnSuccess
 

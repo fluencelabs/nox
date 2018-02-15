@@ -3,9 +3,8 @@ syntax = "proto3";
 package fluence.dataset.grpc;
 
 message DatasetId {
+    // Kademlia key of the contract
     bytes id = 1;
-    // nonce
-    bytes publicKey = 2;
 }
 
 // SearchCallback
@@ -70,12 +69,18 @@ message ReplyPutDetails {
     }
 }
 
-message AskVerifyChanges {// TODO add version
+message AskVerifyChanges {
     bytes serverMerkleRoot = 1;
     bool splitted = 2;
+    int64 version = 3;
 }
 
-message ReplyVerifyChanges {} // TODO add signature
+message ReplyVerifyChanges {
+    // Signature for concatenation of version and serverMerkleRoot
+    bytes signature = 1;
+    // Signer's publicKey; usually matches contract's owner PK
+    bytes publicKey = 2;
+}
 
 message AskChangesStored {}
 message ReplyChangesStored {}

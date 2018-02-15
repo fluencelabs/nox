@@ -114,6 +114,8 @@ class DatasetStorageServer[F[_]](service: DatasetStorageRpc[F])(implicit F: Mona
     val resp: Observer[PutCallback] = responseObserver
     val (repl, stream) = streamObservable[PutCallbackReply]
 
+    // TODO: we should have version here
+
     val pull = repl.pullable
 
     def getReply[T](check: PutCallbackReply.Reply ⇒ Boolean, extract: PutCallbackReply.Reply ⇒ T): Task[T] =
@@ -186,11 +188,12 @@ class DatasetStorageServer[F[_]](service: DatasetStorageRpc[F])(implicit F: Mona
               for {
                 _ ← push(
                   PutCallback.Callback.VerifyChanges(AskVerifyChanges(
+                    version = 1, // TODO: pass prevVersion + 1
                     serverMerkleRoot = ByteString.copyFrom(serverMerkleRoot),
                     splitted = wasSplitting
                   ))
                 )
-                _ ← getReply(_.isVerifyChanges, _.verifyChanges.get)
+                _ ← getReply(_.isVerifyChanges, _.verifyChanges.get) // TODO: here we get signature
               } yield ()
             )
 

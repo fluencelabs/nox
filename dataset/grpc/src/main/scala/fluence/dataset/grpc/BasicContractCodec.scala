@@ -27,6 +27,7 @@ import fluence.crypto.signature.Signature
 import fluence.kad.protocol.Key
 import cats.instances.list._
 import cats.instances.option._
+import fluence.dataset.BasicContract.ExecutionState
 import fluence.transport.grpc.GrpcCodecs._
 import scodec.bits.ByteVector
 
@@ -61,7 +62,9 @@ object BasicContractCodec {
           offSBs ← strVec.encode(bc.offerSeal.sign)
 
           participantsSealBs ← optStrVecC.encode(bc.participantsSeal.map(_.sign))
+          executionSealBs ← optStrVecC.encode(bc.executionSeal.map(_.sign))
 
+          merkleRootBs ← strVec.encode(bc.executionState.merkleRoot)
         } yield BasicContract(
           id = idBs,
           publicKey = pkBs,
@@ -76,7 +79,9 @@ object BasicContractCodec {
 
           participantsSeal = participantsSealBs.getOrElse(ByteString.EMPTY),
 
-          version = bc.version
+          version = bc.executionState.version,
+          merkleRoot = merkleRootBs,
+          executionSeal = executionSealBs.getOrElse(ByteString.EMPTY)
         ),
 
         g ⇒ {
@@ -113,6 +118,11 @@ object BasicContractCodec {
             version ← read("version", _.version)
 
             participantsSealOpt ← readParticipantsSeal
+
+            merkleRootBS ← read("merkleRoot", _.merkleRoot)
+            merkleRoot ← strVec.decode(merkleRootBS)
+
+            execV ← optStrVecC.decode(Option(g.executionSeal))
           } yield fluence.dataset.BasicContract(
             id = id,
 
@@ -120,14 +130,18 @@ object BasicContractCodec {
               participantsRequired = participantsRequired
             ),
 
-            offerSeal = Signature(pk, offerSealVec),
+            offerSeal = Signature(pk, offerSealVec), // TODO: validate seal in codec
 
             participants = participants.toMap,
 
             participantsSeal = participantsSealOpt
               .map(Signature(pk, _)),
 
-            version = version
+            executionState = ExecutionState(
+              version = version,
+              merkleRoot = merkleRoot
+            ),
+            executionSeal = execV.filter(_.nonEmpty).map(Signature(pk, _)) // TODO: validate seal in codec
           )
         }
       )
