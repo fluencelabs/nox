@@ -157,7 +157,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       "reads non existing contract" in {
         val client = ClientComposer.grpc[Task](GrpcClient.builder)
         runNodes { servers ⇒
-          val contractsApi = createClientContractApi(firstContact, client)
+          val contractsApi = createClientContractApi(servers.head._1, client)
           val resultContact = contractsApi.find(Key.fromString[Task]("non-exists contract").taskValue).failed.taskValue
 
           resultContact shouldBe NotFound
@@ -175,7 +175,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         runNodes { servers ⇒
           val seedContact: Contact = makeKadNetwork(servers)
-          val contractsApi = createClientContractApi(client, servers)
+          val contractsApi = createClientContractApi(seedContact, client)
           val offer = BasicContract.offer[Task](kadKey, participantsRequired = 999, signer = signer).taskValue
           offer.checkOfferSeal[Task](algo.checker).taskValue shouldBe true
 
@@ -196,8 +196,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val signerBad = algo.signer(keyPairBad)
 
         runNodes { servers ⇒
-          makeKadNetwork(servers)
-          val contractsApi = createClientContractApi(client, servers)
+          val seedContact = makeKadNetwork(servers)
+          val contractsApi = createClientContractApi(seedContact, client)
           val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signerBad).taskValue
           offer.checkOfferSeal[Task](algo.checker).taskValue shouldBe false
           val result = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signerValid)).failed.taskValue
@@ -240,8 +240,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       offer.checkOfferSeal[Task](algo.checker).taskValue shouldBe true
 
       runNodes { servers ⇒
-        makeKadNetwork(servers)
-        val contractsApi = createClientContractApi(client, servers)
+        val seedContact = makeKadNetwork(servers)
+        val contractsApi = createClientContractApi(seedContact, client)
 
         val acceptedContract = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).taskValue
 
@@ -265,7 +265,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
       runNodes { servers ⇒
         val seedContact = makeKadNetwork(servers)
-        val contractsApi = createClientContractApi(client, servers)
+        val contractsApi = createClientContractApi(seedContact, client)
         val acceptedContract = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).taskValue
         val kademliaSrv = client.service[KademliaClient[Task]](seedContact)
 
@@ -303,7 +303,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val storageRpc = client.service[DatasetStorageRpc[Task]] _
 
         println("create client")
-        val flClient = FluenceClient.apply(kademliaClient, createContractApi(seedContact, client), algo, storageRpc)
+        val flClient = FluenceClient.apply(kademliaClient, createClientContractApi(seedContact, client), algo, storageRpc)
 
         println("join seeds")
         flClient.joinSeeds(List(seedContact)).taskValue()
