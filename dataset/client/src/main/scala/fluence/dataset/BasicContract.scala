@@ -23,6 +23,7 @@ import cats.{ Eq, MonadError }
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.crypto.signature.{ Signature, Signer }
+import fluence.dataset.BasicContract.ExecutionState
 import fluence.dataset.contract.{ ContractRead, ContractWrite }
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
@@ -36,7 +37,8 @@ import scala.language.higherKinds
  * @param offerSeal        Client's signature for contract offer
  * @param participants     Map of participant node keys to participant signatures, sorted by distance from id
  * @param participantsSeal Client's signature for a list of participants
- * @param version          Incremented over the lifecycle of contract
+ * @param executionState          State of the contract that changes over time, e.g. when merkle root changes
+ * @param executionSeal Client's signature for executionState
  */
 case class BasicContract(
     id: Key,
@@ -49,7 +51,8 @@ case class BasicContract(
 
     participantsSeal: Option[Signature],
 
-    version: Long
+    executionState: ExecutionState,
+    executionSeal: Option[Signature]
 )
 
 object BasicContract {
@@ -64,10 +67,15 @@ object BasicContract {
     }
   }
 
+  case class ExecutionState(
+      version: Long,
+      merkleRoot: ByteVector
+  )
+
   def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(implicit F: MonadError[F, Throwable]): F[BasicContract] =
     {
       val offer = Offer(participantsRequired)
-      signer.sign(offer.getBytes).map(BasicContract(id, offer, _, Map.empty, None, 0)).value.flatMap(F.fromEither)
+      signer.sign(offer.getBytes).map(BasicContract(id, offer, _, Map.empty, None, ExecutionState(0, ByteVector.empty), None)).value.flatMap(F.fromEither)
     }
 
   // TODO: there should be contract laws, like "init empty - not signed -- sign offer -- signed, no participants -- add participant -- ..."

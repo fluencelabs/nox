@@ -310,6 +310,7 @@ object MerkleBTreeClient {
 
   /**
    * Global state of BTree client.
+   * TODO: use ByteVector
    */
   case class ClientState(merkleRoot: Bytes)
 

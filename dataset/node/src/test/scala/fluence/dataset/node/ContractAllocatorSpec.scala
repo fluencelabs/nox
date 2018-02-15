@@ -55,7 +55,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
   val checkAllocationPossible: BasicContract ⇒ IO[Unit] =
     c ⇒
-      if (c.version == 0) IO.unit
+      if (c.executionState.version == 0) IO.unit
       else IO.raiseError(new IllegalArgumentException("allocation not possible"))
 
   val store: KVStore[IO, Key, ContractRecord[BasicContract]] =
@@ -85,7 +85,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
     }
 
     "reject offer with unsufficent resources" in {
-      val contract = offer("should reject").copy(version = -1)
+      val contract = offer("should reject").copy(executionState = BasicContract.ExecutionState(version = -1, merkleRoot = ByteVector.empty))
       allocator.offer(contract).attempt.unsafeRunSync().isLeft shouldBe true
     }
 
@@ -145,7 +145,10 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       import fluence.dataset.contract.ContractWrite._
 
       allocator.allocate(accepted).attempt.unsafeRunSync().isLeft shouldBe true
-      allocator.allocate(accepted.sealParticipants(signer).get.copy(version = -1)).attempt.unsafeRunSync().isLeft shouldBe true
+      allocator.allocate(
+        accepted.sealParticipants(signer)
+          .get.copy(executionState = BasicContract.ExecutionState(version = -1, merkleRoot = ByteVector.empty))
+      ).attempt.unsafeRunSync().isLeft shouldBe true
 
       denyDS += offerC.id
       allocator.allocate(accepted.sealParticipants(signer).get).attempt.unsafeRunSync().isLeft shouldBe true

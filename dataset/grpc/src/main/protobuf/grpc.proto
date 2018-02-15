@@ -47,9 +47,13 @@ message BasicContract {
     bytes participantsSeal = 31;
 
     // Mutable parts of contract-related information comes here.
-    // These might be merkleRoot, changes for participants (done by Cluster and not yet sealed by Client), etc.
-    // Note that this BasicContract is simply a DTO, and information for it could come from different sources.
+    // Version is used to compare two contracts and find a newer one.
     int64 version = 40;
+    // Merkle root is updated by server, validated and sealed by client.
+    bytes merkleRoot = 41;
+    // Client signs concatenation of version and merkle root.
+    // When there's more then sole client, public key for last signer should be added as well.
+    bytes executionSeal = 50;
 }
 
 service ContractAllocator {
