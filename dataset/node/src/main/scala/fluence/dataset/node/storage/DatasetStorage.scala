@@ -50,7 +50,7 @@ class DatasetStorage private (
     kVStore: KVStore[Task, ValueRef, Array[Byte]],
     merkleRootCalculator: MerkleRootCalculator,
     refProvider: () ⇒ ValueRef,
-    onMRChange: Bytes ⇒ Unit
+    onMRChange: Bytes ⇒ Task[Unit]
 ) {
 
   /**
@@ -89,7 +89,8 @@ class DatasetStorage private (
       oldVal ← kVStore.get(valRef).attempt.map(_.toOption)
       // save new blob to kvStore
       _ ← kVStore.put(valRef, encryptedValue)
-      _ ← bTreeIndex.getMerkleRoot.map(onMRChange)
+      updatedMR ← bTreeIndex.getMerkleRoot
+      _ ← onMRChange(updatedMR)
     } yield oldVal
 
     // todo end transaction, revert all changes if error appears
@@ -131,7 +132,7 @@ object DatasetStorage {
     config: Config,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     refProvider: () ⇒ ValueRef,
-    onMRChange: Bytes ⇒ Unit
+    onMRChange: Bytes ⇒ Task[Unit]
   )(implicit F: MonadError[F, Throwable]): F[DatasetStorage] = {
 
     // todo create direct and faster codec for Long

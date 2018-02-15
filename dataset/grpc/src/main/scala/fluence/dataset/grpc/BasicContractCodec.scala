@@ -141,7 +141,7 @@ object BasicContractCodec {
               version = version,
               merkleRoot = merkleRoot
             ),
-            executionSeal = execV.map(Signature(pk, _)) // TODO: validate seal in codec
+            executionSeal = execV.filter(_.nonEmpty).map(Signature(pk, _)) // TODO: validate seal in codec
           )
         }
       )
