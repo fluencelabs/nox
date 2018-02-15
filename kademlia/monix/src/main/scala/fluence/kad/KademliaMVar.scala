@@ -37,7 +37,7 @@ object KademliaMVar {
    *
    * @param nodeId    Current node ID
    * @param contact   Node's contact to advertise
-   * @param rpc    Getter for RPC calling of another nodes
+   * @param rpcForContact    Getter for RPC calling of another nodes
    * @param conf      Kademlia conf
    * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
    * @tparam C Contact info
@@ -45,7 +45,7 @@ object KademliaMVar {
   def apply[C](
     nodeId: Key,
     contact: Task[C],
-    rpc: C ⇒ KademliaRpc[Task, C],
+    rpcForContact: C ⇒ KademliaRpc[Task, C],
     conf: KademliaConf,
     checkNode: Node[C] ⇒ Task[Boolean]
   ): Kademlia[Task, C] = new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
@@ -54,7 +54,8 @@ object KademliaMVar {
     KademliaMVar.bucketOps(conf.maxBucketSize),
     KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
   ) {
-    override def rpc(contact: C): KademliaRpc[Task, C] = rpc(contact)
+    override def rpc(contact: C): KademliaRpc[Task, C] = rpcForContact(contact)
+
     override def ownContact: Task[Node[C]] = contact.map(c ⇒ Node(nodeId, Instant.now(), c))
   }
 

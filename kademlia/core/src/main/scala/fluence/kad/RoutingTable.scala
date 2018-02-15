@@ -492,7 +492,8 @@ object RoutingTable {
       parallelism: Int): F[Unit] =
       Parallel.parTraverse(peers.toList) { peer: C ⇒
         logger.trace("Going to ping Peer to join: " + peer)
-        logger.trace("RPC: " + rpc(peer))
+        logger.trace("RPC: " + rpc)
+        logger.trace("RPC instance for peer: " + rpc(peer))
         // For each peer
         // Try to ping the peer; if no pings are performed, join is failed
         rpc(peer).ping().attempt.map{ et ⇒ logger.trace("Got peer resp: " + et); et }.flatMap[Option[(Node[C], List[Node[C]])]] {

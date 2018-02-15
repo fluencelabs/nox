@@ -73,12 +73,15 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       .add(KademliaClient.register[Task]())
       .build
 
-    val kademliaClient = client.service[KademliaClient[Task]] _
+    private val kademliaClientRpc: Contact ⇒ KademliaClient[Task] = c ⇒ {
+      logger.trace(s"Contact to get KC for: $c")
+      client.service[KademliaClient[Task]](c)
+    }
 
     val kad = KademliaMVar(
       key,
       serverBuilder.contact,
-      kademliaClient,
+      kademliaClientRpc,
       KademliaConf(8, 8, 3, 1.second),
 
       TransportSecurity.canBeSaved[Task](key, acceptLocal = true))
@@ -139,7 +142,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   override protected def beforeAll(): Unit = {
     LoggerConfig.factory = PrintLoggerFactory
-    LoggerConfig.level = LogLevel.TRACE
+    LoggerConfig.level = LogLevel.WARN
     super.beforeAll()
   }
 
