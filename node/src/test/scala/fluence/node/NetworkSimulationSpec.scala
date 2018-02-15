@@ -122,7 +122,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
     "Find itself by lookup iterative" in {
       servers.foreach { s ⇒
         servers.map(_.key).filterNot(_ === s.key).foreach { k ⇒
-          val li = s.kad.lookupIterative(k, 8).runAsync
+          val li = s.kad.findNode(k, 8).runAsync
             .futureValue.map(_.key)
 
           li should be('nonEmpty)

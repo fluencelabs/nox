@@ -19,12 +19,14 @@ package fluence.kad
 
 import cats.syntax.applicative._
 import cats.syntax.functor._
-import cats.{ MonadError, Parallel }
+import cats.syntax.eq._
+import cats.{MonadError, Parallel}
 import fluence.kad.RoutingTable._
-import fluence.kad.protocol.{ KademliaRpc, Key, Node }
+import fluence.kad.protocol.{KademliaRpc, Key, Node}
 
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
+import scala.util.control.NoStackTrace
 
 /**
  * Kademlia interface for current node and all Kademlia-related RPC calls, both incoming and outgoing
@@ -33,7 +35,7 @@ import scala.language.higherKinds
  * @param parallelism   Parallelism factor (named Alpha in paper)
  * @param pingExpiresIn Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
  * @param checkNode Check node correctness, e.g. signatures are correct, ip is public, etc.
- * @param ME            Monad error
+ * @param F            Monad error
  * @tparam F Effect
  * @tparam C Contact info
  */
@@ -42,7 +44,7 @@ abstract class Kademlia[F[_], C](
     parallelism: Int,
     val pingExpiresIn: Duration,
     checkNode: Node[C] ⇒ F[Boolean]
-)(implicit ME: MonadError[F, Throwable], P: Parallel[F, F], BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C]) {
+)(implicit F: MonadError[F, Throwable], P: Parallel[F, F], BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C]) {
   self ⇒
 
   /**
@@ -101,6 +103,25 @@ abstract class Kademlia[F[_], C](
           .take(numberOfNodes)
       )
   }
+
+  /**
+    * Finds a node by its key, either in a local RoutingTable or doing up to ''maxRequests'' lookup calls
+    *
+    * @param key Kademlia key to find node for
+    * @param maxRequests Max number of remote requests
+    */
+  def findNode(key: Key, maxRequests: Int): F[Option[Node[C]]] =
+    nodeId.find(key) match {
+      case found@Some(_) => (found : Option[Node[C]]).pure[F]
+
+      case None =>
+        callIterative(
+          key,
+          n => if(n.key === key) F.pure(()) else F.raiseError[Unit](new NoStackTrace("Mismatch"){}),
+          numToCollect = 1,
+          maxNumOfCalls = maxRequests
+        ).map(_.headOption.map(_._1))
+    }
 
   /**
    * Perform iterative lookup, see [[RoutingTable.WriteOps.lookupIterative]]
