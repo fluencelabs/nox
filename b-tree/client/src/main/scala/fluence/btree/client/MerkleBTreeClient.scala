@@ -34,9 +34,13 @@ import scala.collection.Searching.{ Found, SearchResult }
  * Base implementation of [[MerkleBTreeClientApi]] to calls for a remote MerkleBTree.
  * '''Note that this version is single-thread for Put operation, and multi-thread for Get operation.'''
  *
- * @param initClientState General state holder for btree client
- * @param keyCrypt    Encrypting/decrypting provider for ''key''
- * @param verifier    Arbiter for checking correctness of Btree server responses.
+ * @param initClientState General state holder for btree client. For new dataset should be ''None''
+ * @param keyCrypt        Encrypting/decrypting provider for ''key''
+ * @param verifier        Arbiter for checking correctness of Btree server responses.
+ *
+ * @param ord              The ordering to be used to compare keys.
+ *
+ * @tparam K The type of keys
  */
 class MerkleBTreeClient[K] private (
     initClientState: ClientState,
@@ -296,6 +300,17 @@ class MerkleBTreeClient[K] private (
 
 object MerkleBTreeClient {
 
+  /**
+   * Creates base implementation of [[MerkleBTreeClientApi]] to calls for a remote MerkleBTree.
+   *
+   * @param initClientState General state holder for btree client. For new dataset should be ''None''
+   * @param keyCrypt         Encrypting/decrypting provider for ''key''
+   * @param cryptoHasher    Hash provider
+   *
+   * @param ord              The ordering to be used to compare keys.
+   *
+   * @tparam K The type of keys
+   */
   def apply[K](
     initClientState: Option[ClientState],
     keyCrypt: Crypt[Task, K, Array[Byte]],
