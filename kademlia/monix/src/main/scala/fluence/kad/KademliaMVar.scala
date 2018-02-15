@@ -21,9 +21,9 @@ import java.time.Instant
 
 import cats.data.StateT
 import cats.kernel.Monoid
-import cats.{MonadError, Parallel}
-import fluence.kad.protocol.{KademliaRpc, Key, Node}
-import monix.eval.{MVar, Task}
+import cats.{ MonadError, Parallel }
+import fluence.kad.protocol.{ KademliaRpc, Key, Node }
+import monix.eval.{ MVar, Task }
 import monix.execution.atomic.AtomicAny
 
 import scala.collection.concurrent.TrieMap
@@ -43,11 +43,11 @@ object KademliaMVar {
    * @tparam C Contact info
    */
   def apply[C](
-                nodeId: Key,
-                contact: Task[C],
-                rpc: C ⇒ KademliaRpc[Task, C],
-                conf: KademliaConf,
-                checkNode: Node[C] ⇒ Task[Boolean]
+    nodeId: Key,
+    contact: Task[C],
+    rpc: C ⇒ KademliaRpc[Task, C],
+    conf: KademliaConf,
+    checkNode: Node[C] ⇒ Task[Boolean]
   ): Kademlia[Task, C] = new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
     implicitly[MonadError[Task, Throwable]],
     implicitly[Parallel[Task, Task]],
@@ -59,18 +59,18 @@ object KademliaMVar {
   }
 
   /**
-    * Builder for client-side implementation of KademliaMVar
-    *
-    * @param rpc    Getter for RPC calling of another nodes
-    * @param conf      Kademlia conf
-    * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
-    * @tparam C Contact info
-    */
+   * Builder for client-side implementation of KademliaMVar
+   *
+   * @param rpc    Getter for RPC calling of another nodes
+   * @param conf      Kademlia conf
+   * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
+   * @tparam C Contact info
+   */
   def client[C](
-                 rpc: C ⇒ KademliaRpc[Task, C],
-                 conf: KademliaConf,
-                 checkNode: Node[C] ⇒ Task[Boolean]
-               ): Kademlia[Task, C] =
+    rpc: C ⇒ KademliaRpc[Task, C],
+    conf: KademliaConf,
+    checkNode: Node[C] ⇒ Task[Boolean]
+  ): Kademlia[Task, C] =
     apply[C](
       Monoid.empty[Key],
       Task.raiseError(new IllegalStateException("Client may not have a Contact")),

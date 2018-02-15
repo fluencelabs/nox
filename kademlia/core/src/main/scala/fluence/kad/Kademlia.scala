@@ -20,9 +20,9 @@ package fluence.kad
 import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.eq._
-import cats.{MonadError, Parallel}
+import cats.{ MonadError, Parallel }
 import fluence.kad.RoutingTable._
-import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.kad.protocol.{ KademliaRpc, Key, Node }
 
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
@@ -105,19 +105,19 @@ abstract class Kademlia[F[_], C](
   }
 
   /**
-    * Finds a node by its key, either in a local RoutingTable or doing up to ''maxRequests'' lookup calls
-    *
-    * @param key Kademlia key to find node for
-    * @param maxRequests Max number of remote requests
-    */
+   * Finds a node by its key, either in a local RoutingTable or doing up to ''maxRequests'' lookup calls
+   *
+   * @param key Kademlia key to find node for
+   * @param maxRequests Max number of remote requests
+   */
   def findNode(key: Key, maxRequests: Int): F[Option[Node[C]]] =
     nodeId.find(key) match {
-      case found@Some(_) => (found : Option[Node[C]]).pure[F]
+      case found @ Some(_) ⇒ (found: Option[Node[C]]).pure[F]
 
-      case None =>
+      case None ⇒
         callIterative(
           key,
-          n => if(n.key === key) F.pure(()) else F.raiseError[Unit](new NoStackTrace("Mismatch"){}),
+          n ⇒ if (n.key === key) F.pure(()) else F.raiseError[Unit](new NoStackTrace {}),
           numToCollect = 1,
           maxNumOfCalls = maxRequests
         ).map(_.headOption.map(_._1))
