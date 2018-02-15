@@ -61,7 +61,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(100, Milliseconds))
 
   LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.DEBUG
+  LoggerConfig.level = LogLevel.ERROR
 
   private val algo: SignAlgo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
 
@@ -247,7 +247,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "success write and read from dataset" ignore { // todo finish, not ready yet
+    "success write and read from dataset" ignore { // todo finish, this test case isn't working yet
       import fluence.dataset.contract.ContractRead._
       import fluence.dataset.contract.ContractWrite._
 
@@ -264,16 +264,21 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val seedContact = makeKadNetwork(servers)
         val contractsApi = createClientContractApi(client, servers)
         val acceptedContract = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).taskValue
+        val kademliaSrv = client.service[KademliaClient[Task]](seedContact)
 
-        val storageRpc = client.service[DatasetStorageRpc[Task]](seedContact)
+        val (nodeKey, _) = acceptedContract.participants.head
+        // we won't find node address by nodeId, cause service FluenceClient is not ready yet, it'll be later
+        val nodeContact = servers.find{ case (c, _) ⇒ Key.fromPublicKey[Task](c.publicKey).taskValue == nodeKey }.get._1
+
+        val storageRpc = client.service[DatasetStorageRpc[Task]](nodeContact)
         val datasetStorage = createDatasetStorage(acceptedContract.id.id, storageRpc)
 
         //        val nonExistentKeyResponse = datasetStorage.get("non-existent key").failed.taskValue
         //        nonExistentKeyResponse shouldBe a[StatusRuntimeException]
         //         todo transmit error from server: there should be DatasetNotFound exception (or something else) instead of StatusRuntimeException
 
-        val putResponse = datasetStorage.put("key1", "value1").taskValue
-        putResponse shouldBe None
+        //        val putResponse = datasetStorage.put("key1", "value1").taskValue
+        //        putResponse shouldBe None
       }
     }
 
@@ -334,7 +339,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
           .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
           .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true)),
-        contractsCacheStore
+        contractsCacheStore,
+        TestCryptoHasher
       )
 
       composer.server.flatMap(_.contact).taskValue :: composer :: contractsCacheStore :: HNil

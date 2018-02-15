@@ -180,7 +180,7 @@ class MerkleBTreeClient[K] private (
         mPath ← merklePathMVar.read
         optDetails ← putDetailsMVar.read
         _ ← {
-          logger.debug(s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=$serverMRoot")
+          logger.debug(s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=${serverMRoot.show}")
 
           optDetails match {
             case Some(details) ⇒
