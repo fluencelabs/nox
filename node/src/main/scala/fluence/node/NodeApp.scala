@@ -93,7 +93,7 @@ object NodeApp extends App with slogging.LazyLogging {
 
   logger.info("Going to run Fluence Server...")
 
-  serverKad.flatMap{
+  serverKad.flatMap {
     case Left(t: Throwable) ⇒ Task.raiseError(t)
     case Left(t)            ⇒ Task.raiseError(new RuntimeException(t))
     case Right(_)           ⇒ Task.never
@@ -107,5 +107,29 @@ object NodeApp extends App with slogging.LazyLogging {
       case Right(_) ⇒
         logger.info("Bye!")
     }
+
+  //Launch the node
+  //
+  //  Node prints "Fluence Node starting"
+  //
+  //  Read keypair, print "Loaded keypair, PK = ..."
+  //
+  //  Or generate keypair, print
+  //
+  //  Generate kademlia ID, print "Node ID = ..."
+  //
+  //  Print "Launching GRPC server on port XXX..."
+  //
+  //  Print "Server launched"
+  //
+  //  Print "Your contact is ... you may use it for other nodes or clients to join yours one"
+  //
+  //  Print "No seed nodes. Make others join you! Or correct config value ..."
+  //
+  //  Or print "Found N seeds, joining..."
+  //
+  //  Print "Joined N seed nodes, waiting for requests"
+  //
+  //  When requests are coming, tell about them: like "new node pinged us", "dataset created on the node", "dataset recovered from cache", etc.
 
 }
