@@ -45,14 +45,14 @@ class ContractsSpec extends WordSpec with Matchers {
   def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
 
   val createDS: String ⇒ BasicContract ⇒ Coeval[Unit] = id ⇒ c ⇒
-    if (c.version == 0)
+    if (c.executionState.version == 0)
       Coeval.evalOnce(dsCreated(id)= dsCreated(id) + c.id)
     else {
       Coeval.raiseError(new IllegalArgumentException("Can't allocate this"))
     }
 
   val checkAllocationPossible: BasicContract ⇒ Coeval[Unit] = c ⇒
-    if (c.version == 0)
+    if (c.executionState.version == 0)
       Coeval.unit
     else {
       Coeval.raiseError(new IllegalArgumentException("Can't allocate this!"))

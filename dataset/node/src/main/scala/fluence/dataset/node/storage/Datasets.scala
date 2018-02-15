@@ -39,32 +39,37 @@ import scala.collection.concurrent.TrieMap
 class Datasets(
     config: Config,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    servesDataset: Key ⇒ Task[Boolean]
+    servesDataset: Key ⇒ Task[Option[Long]],
+    contractUpdated: (Key, Long, ByteVector) ⇒ Task[Unit] // TODO: pass signature as well
 ) extends DatasetStorageRpc[Task] {
 
   private val datasets = TrieMap.empty[ByteVector, Task[DatasetStorage]]
 
   private def storage(datasetId: Array[Byte]): Task[DatasetStorage] = {
     val id = ByteVector(datasetId)
-    val nextId = AtomicLong(0l)
 
     datasets.getOrElseUpdate(
       id,
 
-      Key.fromBytes[Task](datasetId)
-        .flatMap(servesDataset).flatMap{
-          case true ⇒ // TODO: ensure merkle roots matches
+      for {
+        k ← Key.fromBytes[Task](datasetId)
+        ds ← servesDataset(k).flatMap {
+          case Some(currentVersion) ⇒ // TODO: ensure merkle roots matches
+            val version = AtomicLong(currentVersion)
+            val nextId = AtomicLong(0l)
+
             DatasetStorage[Task](
               id.toBase64(Bases.Alphabets.Base64Url),
               config,
               cryptoHasher,
               () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere
-              mrHash ⇒ () // TODO: store mrHash somewhere (ver, mh, sign)
+              mrHash ⇒ contractUpdated(k, version.incrementAndGet(), ByteVector(mrHash)) // TODO: there should be signature
             ).memoizeOnSuccess
 
-          case false ⇒
+          case None ⇒
             Task.raiseError(new IllegalArgumentException("Dataset is not allocated on the node"))
         }
+      } yield ds
     )
   }
 

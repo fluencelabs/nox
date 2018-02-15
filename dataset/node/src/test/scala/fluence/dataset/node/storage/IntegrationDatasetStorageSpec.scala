@@ -79,7 +79,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         val clientWithCorruption: ClientDatasetStorage[String, User] = new ClientDatasetStorage(
           "test0".getBytes(),
           createBTreeClient(),
-          createStorageRpcWithNetworkError("test0", mr ⇒ counter.incrementAndGet()),
+          createStorageRpcWithNetworkError("test0", mr ⇒ Task(counter.incrementAndGet())),
           valueCryptWithCorruption,
           hasher
         )
@@ -213,7 +213,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     }
   )
 
-  private def createDatasetStorage(dbName: String, counter: Bytes ⇒ Unit): DatasetStorage =
+  private def createDatasetStorage(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetStorage =
     DatasetStorage[Try](s"${this.getClass.getSimpleName}_$dbName", ConfigFactory.load(), hasher, () ⇒ blobIdCounter.incrementAndGet(), counter).get
 
   private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] =
@@ -225,7 +225,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
       hasher
     )
 
-  private def createStorageRpcWithNetworkError(dbName: String, counter: Bytes ⇒ Unit): DatasetStorageRpc[Task] = {
+  private def createStorageRpcWithNetworkError(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetStorageRpc[Task] = {
     val origin = createDatasetStorage(dbName, counter)
     new DatasetStorageRpc[Task] {
       override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
@@ -245,7 +245,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
   private def createStorageRpc(dbName: String): DatasetStorageRpc[Task] =
     new DatasetStorageRpc[Task] {
-      private val storage = createDatasetStorage(dbName, _ ⇒ ())
+      private val storage = createDatasetStorage(dbName, _ ⇒ Task.unit)
 
       override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] =
         storage.remove(removeCallbacks)

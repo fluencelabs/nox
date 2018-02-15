@@ -70,6 +70,9 @@ object ContractsCacheStore {
             offSBs ← strVec.encode(bc.offerSeal.sign)
 
             participantsSealBs ← optStrVecC.encode(bc.participantsSeal.map(_.sign))
+            executionSealBs ← optStrVecC.encode(bc.executionSeal.map(_.sign))
+
+            merkleRootBs ← strVec.encode(bc.executionState.merkleRoot)
 
           } yield BasicContractCache(
             id = idBs,
@@ -83,7 +86,9 @@ object ContractsCacheStore {
 
             participantsSeal = participantsSealBs.getOrElse(ByteString.EMPTY),
 
-            version = bc.version,
+            version = bc.executionState.version,
+            merkleRoot = merkleRootBs,
+            executionSeal = executionSealBs.getOrElse(ByteString.EMPTY),
 
             lastUpdated = bcc.lastUpdated.getEpochSecond
           )
@@ -121,6 +126,11 @@ object ContractsCacheStore {
 
             participantsSealOpt ← readParticipantsSeal
 
+            merkleRootBS ← read("merkleRoot", _.merkleRoot)
+            merkleRoot ← strVec.decode(merkleRootBS)
+
+            execV ← optStrVecC.decode(Option(g.executionSeal))
+
             lastUpdated ← read("lastUpdated", _.lastUpdated)
           } yield ContractRecord(
             fluence.dataset.BasicContract(
@@ -137,7 +147,12 @@ object ContractsCacheStore {
               participantsSeal = participantsSealOpt
                 .map(Signature(pk, _)),
 
-              version = version
+              executionState = BasicContract.ExecutionState(
+                version = version,
+                merkleRoot = merkleRoot
+              ),
+              executionSeal = execV.map(Signature(pk, _))
+
             ),
             Instant.ofEpochSecond(lastUpdated)
           )

@@ -21,6 +21,8 @@ message BasicContractCache {
     bytes participantsSeal = 31;
 
     int64 version = 40;
+    bytes merkleRoot = 41;
+    bytes executionSeal = 50;
 
     int64 lastUpdated = 100;
 }

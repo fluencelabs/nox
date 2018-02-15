@@ -187,7 +187,7 @@ class MerkleBTreeClient[K] private (
                       s"Server 'put response' didn't pass verifying for state=$this, serverMRoot=$serverMRoot"
                     ))
                   case Some(newMRoot) ⇒ // all is fine, send Confirm to server
-                    newMerkleRoot.put(newMRoot)
+                    newMerkleRoot.put(newMRoot) // TODO: here we have a new merkle root and should sign it with version
                 }
             case None ⇒
               Task.raiseError(new IllegalStateException(
@@ -310,6 +310,7 @@ object MerkleBTreeClient {
 
   /**
    * Global state of BTree client.
+   * TODO: use ByteVector
    */
   case class ClientState(merkleRoot: Bytes)
 
