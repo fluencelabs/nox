@@ -39,7 +39,7 @@ import scala.util.Try
  * @param publicKey Public key of the node
  * @param protocolVersion Protocol version the node is known to follow
  * @param gitHash Git hash of current build running on node
- * @param stringifier Either signer to build JWT representation, or serialized JWT, or both
+ * @param b64seed Serialized JWT
  */
 case class Contact(
     ip: InetAddress,
@@ -49,24 +49,8 @@ case class Contact(
     protocolVersion: Long,
     gitHash: String,
 
-    private val stringifier: Ior[Signer, String] // TODO: make string from signer in constructor, drop signer
+    b64seed: String
 ) {
-
-  def b64seed[F[_] : Monad]: EitherT[F, CryptoErr, String] =
-    stringifier.fold(
-      s ⇒ {
-        import Contact.JwtImplicits._
-        Jwt.write[F].apply(jwtHeader, jwtData, s)
-      },
-      EitherT.pure(_),
-      (_, str) ⇒ EitherT.pure(str)
-    )
-
-  private[protocol] lazy val jwtHeader =
-    Contact.JwtHeader(publicKey, protocolVersion)
-
-  private[protocol] lazy val jwtData =
-    Contact.JwtData(ip, port, gitHash)
 
   lazy val isLocal: Boolean =
     ip.isLoopbackAddress ||
@@ -81,6 +65,35 @@ case class Contact(
 }
 
 object Contact {
+
+  def buildOwn[F[_] : Monad](
+    ip: InetAddress,
+    port: Int, // httpPort, websocketPort and other transports //
+
+    publicKey: KeyPair.Public,
+    protocolVersion: Long,
+    gitHash: String,
+
+    signer: Signer
+  ): EitherT[F, CryptoErr, Contact] = {
+    val jwtHeader =
+      Contact.JwtHeader(publicKey, protocolVersion)
+
+    val jwtData =
+      Contact.JwtData(ip, port, gitHash)
+
+    import Contact.JwtImplicits._
+    Jwt.write[F].apply(jwtHeader, jwtData, signer).map { seed ⇒
+      Contact(
+        ip,
+        port,
+        publicKey,
+        protocolVersion,
+        gitHash,
+        seed
+      )
+    }
+  }
 
   case class JwtHeader(publicKey: KeyPair.Public, protocolVersion: Long)
 
@@ -121,7 +134,7 @@ object Contact {
   import JwtImplicits._
 
   implicit val show: Show[Contact] =
-    (c: Contact) ⇒ s"${c.jwtHeader.asJson.noSpaces}.${c.jwtData.asJson.noSpaces}"
+    (c: Contact) ⇒ s"$c"
 
   def readB64seed[F[_] : Monad](str: String, checker: SignatureChecker): EitherT[F, Throwable, Contact] =
     Jwt.read[F, JwtHeader, JwtData](str, (h, b) ⇒ Right(h.publicKey), checker).map {
@@ -132,7 +145,7 @@ object Contact {
           publicKey = header.publicKey,
           protocolVersion = header.protocolVersion,
           gitHash = data.gitHash,
-          stringifier = Ior.right(str)
+          b64seed = str
         )
     }
 }

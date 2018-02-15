@@ -58,7 +58,7 @@ import scala.util.{ Failure, Success }
 class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(3, Seconds), Span(250, Milliseconds))
 
-  private val algo: SignAlgo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+  private val algo: SignAlgo = Ecdsa.signAlgo
 
   private implicit val checker: SignatureChecker = algo.checker
 
@@ -109,7 +109,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       "asks non existing node" in {
         val client = ClientComposer.grpc[Task](GrpcClient.builder)
         val dummyContact = Contact(
-          InetAddress.getByName("localhost"), 80, KeyPair.Public(ByteVector("k".getBytes)), 0L, "gitHash", Ior.right("sign")
+          InetAddress.getByName("localhost"), 80, KeyPair.Public(ByteVector("k".getBytes)), 0L, "gitHash", "sign"
         )
         val kadClient = client.service[KademliaClient[Task]](dummyContact)
         val result = kadClient.ping().failed.taskValue

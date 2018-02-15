@@ -23,6 +23,7 @@ import cats.syntax.eq._
 import cats.{ MonadError, Parallel }
 import fluence.kad.RoutingTable._
 import fluence.kad.protocol.{ KademliaRpc, Key, Node }
+import slogging.LazyLogging
 
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
@@ -72,15 +73,17 @@ abstract class Kademlia[F[_], C](
   /**
    * @return KademliaRPC instance to handle incoming RPC requests
    */
-  val handleRPC: KademliaRpc[F, C] = new KademliaRpc[F, C] {
+  val handleRPC: KademliaRpc[F, C] = new KademliaRpc[F, C] with LazyLogging {
 
     /**
      * Respond for a ping with node's own contact data
      *
      * @return
      */
-    override def ping(): F[Node[C]] =
+    override def ping(): F[Node[C]] = {
+      logger.trace(s"HandleRPC($nodeId): ping")
       ownContact
+    }
 
     /**
      * Perform a lookup in local RoutingTable
@@ -88,8 +91,9 @@ abstract class Kademlia[F[_], C](
      * @param key Key to lookup
      * @return locally known neighborhood
      */
-    override def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
-      ().pure[F].map(_ ⇒ nodeId.lookup(key).take(numberOfNodes))
+    override def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] = {
+      logger.trace(s"HandleRPC($nodeId): lookup($key, $numberOfNodes)")
+    }.pure[F].map(_ ⇒ nodeId.lookup(key).take(numberOfNodes))
 
     /**
      * Perform a lookup in local RoutingTable for a key,
@@ -98,7 +102,9 @@ abstract class Kademlia[F[_], C](
      * @param key Key to lookup
      */
     override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
-      ().pure[F].map(_ ⇒
+      {
+        logger.trace(s"HandleRPC($nodeId): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
+      }.pure[F].map(_ ⇒
         nodeId.lookupAway(key, moveAwayFrom)
           .take(numberOfNodes)
       )

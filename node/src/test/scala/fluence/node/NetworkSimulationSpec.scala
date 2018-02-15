@@ -17,30 +17,31 @@
 
 package fluence.node
 
-import cats.~>
 import cats.instances.try_._
+import cats.~>
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
-import fluence.kad.{ KademliaConf, KademliaMVar }
-import fluence.kad.grpc.{ KademliaGrpc, KademliaNodeCodec }
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
+import fluence.kad.grpc.{ KademliaGrpc, KademliaNodeCodec }
 import fluence.kad.protocol.{ Contact, Key }
+import fluence.kad.{ KademliaConf, KademliaMVar }
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
-import monix.eval.{ Coeval, Task }
+import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
+import slogging._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Try
 
-class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
+class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll with LazyLogging {
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(10, Seconds), Span(250, Milliseconds))
 
@@ -97,7 +98,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
   }
 
   private val servers = (0 to 20).map { n ⇒
-    val port = 3200 + n
+    val port = 3000 + n
     val kp = algo.generateKeyPair[Try]().value.get.right.get
     val k = Key.fromKeyPair[Try](kp).get
     new Node(k, port, kp)
@@ -112,9 +113,10 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       val firstContact = servers.head.server.contact.runAsync.futureValue
       val secondContact = servers.tail.head.server.contact.runAsync.futureValue
 
-      servers.foreach{ s ⇒
-        println(Console.BLUE + s"Join: ${s.nodeId}" + Console.RESET)
+      servers.foreach { s ⇒
+        logger.debug(Console.BLUE + s"Join: ${s.nodeId}" + Console.RESET)
         s.join(Seq(firstContact, secondContact), 8).runAsync.futureValue
+        logger.debug(Console.BLUE + "Joined" + Console.RESET)
       }
 
     }
@@ -135,8 +137,15 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
     }
   }
 
+  override protected def beforeAll(): Unit = {
+    LoggerConfig.factory = PrintLoggerFactory
+    LoggerConfig.level = LogLevel.TRACE
+    super.beforeAll()
+  }
+
   override protected def afterAll(): Unit = {
     super.afterAll()
     servers.foreach(_.shutdown())
+    LoggerConfig.level = LogLevel.ERROR
   }
 }

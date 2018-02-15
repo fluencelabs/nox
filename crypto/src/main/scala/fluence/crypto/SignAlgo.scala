@@ -28,9 +28,10 @@ import scala.language.higherKinds
 
 /**
  * Class for generation keys, signers and checkers
+ * @param name Algo name for debugging
  * @param algo implementation of sign alghoritms, e.g. ECDSA
  */
-class SignAlgo(algo: KeyGenerator with SignatureFunctions) {
+class SignAlgo(name: String, algo: KeyGenerator with SignatureFunctions) {
 
   def generateKeyPair[F[_] : Monad](seed: Option[ByteVector] = None): EitherT[F, CryptoErr, KeyPair] =
     algo.generateKeyPair(seed.map(_.toArray))
@@ -38,13 +39,19 @@ class SignAlgo(algo: KeyGenerator with SignatureFunctions) {
   def signer(kp: KeyPair): Signer = new Signer {
     override def sign[F[_] : Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature] = algo.sign(kp, plain)
     override def publicKey: KeyPair.Public = kp.publicKey
+
+    override def toString: String = s"Signer($name, ${kp.publicKey})"
   }
 
   def checker: SignatureChecker = new SignatureChecker {
     override def check[F[_] : Monad](signature: Signature, plain: ByteVector): EitherT[F, CryptoErr, Unit] = algo.verify(signature, plain)
+
+    override def toString: String = s"SignatureChecker($name)"
   }
+
+  override def toString: String = s"SignAlgo($name)"
 }
 
 object SignAlgo {
-  val dumb = new SignAlgo(new DumbSign())
+  val dumb = new SignAlgo("dumb", new DumbSign())
 }

@@ -13,7 +13,7 @@ class ContactSpec extends WordSpec with Matchers {
   "Contact" should {
     "serialize and deserialize in Id" in {
 
-      val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+      val algo = Ecdsa.signAlgo
 
       val Right(kp) = algo.generateKeyPair[Id]().value
 
