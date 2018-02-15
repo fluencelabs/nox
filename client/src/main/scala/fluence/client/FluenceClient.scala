@@ -1,10 +1,8 @@
 package fluence.client
 
-import java.net.InetAddress
-
-import cats.{ MonadError, ~> }
-import cats.data.Ior
 import cats.kernel.Monoid
+import cats.{ MonadError, ~> }
+import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.keypair.KeyPair
@@ -19,7 +17,6 @@ import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.GrpcClient
 import monix.eval.{ MVar, Task }
-import scodec.bits.ByteVector
 import monix.execution.Scheduler.Implicits.global
 
 import scala.concurrent.Future
@@ -29,13 +26,13 @@ import scala.language.higherKinds
 case class Nonce(number: Int) {
   def next = Nonce(number + 1)
 
-  def toKey(pk: KeyPair.Public) = Key(number.toByte +: pk.value)
+  def toKey(pk: KeyPair.Public): Task[Key] = Key.fromBytes[Task]((number.toByte +: pk.value).toArray)
 }
 
 class FluenceClient(
-    kademliaMVar: Kademlia[Task, Contact],
+    kademlia: Kademlia[Task, Contact],
     contracts: Contracts[Task, BasicContract, Contact],
-    signAlgo: SignAlgo
+    signAlgo: SignAlgo, storageRpc: Contact ⇒ DatasetStorageRpc[Task]
 )(implicit ME: MonadError[Task, Throwable]) {
 
   val authorizedCache = MVar(Map.empty[KeyPair.Public, AuthorizedClient])
@@ -46,9 +43,11 @@ class FluenceClient(
     def findRec(nonce: Nonce, listOfContracts: Map[Key, BasicContract]) = {
       Task.tailRecM((nonce, listOfContracts)) {
         case (n, l) ⇒
-          contracts.find(n.toKey(pk))
-            .map(bc ⇒ Left((n, l.updated(n.toKey(pk), bc))))
-            .onErrorHandleWith (_ ⇒ Task.pure(Right(l)))
+          val t = for {
+            k ← n.toKey(pk)
+            bc ← contracts.find(k)
+          } yield Left((n, l.updated(k, bc)))
+          t.onErrorHandleWith (_ ⇒ Task.pure(Right(l)))
       }
     }
     findRec(Nonce(0), Map.empty)
@@ -62,20 +61,44 @@ class FluenceClient(
     } yield ds
   }
 
-  def restoreDataset(ac: AuthorizedClient, storageRpc: DatasetStorageRpc[Task]): Task[ClientDatasetStorage[String, String]] = {
-    contracts.find(Key(ac.kp.publicKey.value)).attempt.map(_.toOption).map {
-      case Some(bc) ⇒ ac.addDefaultDataset(storageRpc) //create datastorage with old merkle root
-      case None     ⇒ ac.addDefaultDataset(storageRpc)
-    }
-
+  def restoreDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
+    import fluence.dataset.contract.ContractWrite._
+    val signer = signAlgo.signer(ac.kp)
+    for {
+      key ← Key.fromKeyPair(ac.kp)
+      bcOp ← contracts.find(key).attempt.map(_.toOption)
+      dataStorage ← bcOp match {
+        //create datastorage with old merkle root
+        case Some(bc) ⇒
+          for {
+            //TODO avoid _.head
+            ns ← kademlia.lookupIterative(bc.participants.head._1, 3)
+            _ = println("NODES === " + ns)
+            ds = ac.addDefaultDataset(storageRpc(ns.head.contact), Some(ClientState(bc.executionState.merkleRoot.toArray)))
+          } yield ds
+        //new datastorage
+        case None ⇒
+          for {
+            //TODO avoid _.head
+            offer ← BasicContract.offer(key, participantsRequired = 1, signer = signer)
+            _ = println("CONTRACT === " + offer)
+            _ = println("CONTRACT PARTICIPANTS === " + offer.participants)
+            accepted ← contracts.allocate(offer, dc ⇒ dc.sealParticipants(signer))
+            _ = println("CONTRACT ACCEPTED === " + accepted.participants)
+            ns ← kademlia.lookupIterative(accepted.participants.head._1, 1)
+            _ = println("NODES === " + ns)
+            ds = ac.addDefaultDataset(storageRpc(ns.head.contact), None)
+          } yield ds
+      }
+    } yield dataStorage
   }
 
-  def getOrCreateDataset(ac: AuthorizedClient, storageRpc: DatasetStorageRpc[Task]): Task[ClientDatasetStorage[String, String]] = {
+  def getOrCreateDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
     for {
       fromCache ← loadDatasetFromCache(ac.kp.publicKey)
       ds ← fromCache match {
         case Some(d) ⇒ Task.pure(d)
-        case None    ⇒ restoreDataset(ac, storageRpc)
+        case None    ⇒ restoreDataset(ac)
       }
     } yield ds
   }
@@ -100,10 +123,22 @@ class FluenceClient(
     } yield ac
   }
 
+  def joinSeeds(contacts: List[Contact]): Task[Unit] = {
+    kademlia.join(contacts, 1)
+  }
+
 }
 
 object FluenceClient {
-  def apply(conf: KademliaConf): FluenceClient = {
+  def apply(
+    kademliaClient: Kademlia[Task, Contact],
+    contracts: Contracts[Task, BasicContract, Contact],
+    signAlgo: SignAlgo,
+    storageRpc: Contact ⇒ DatasetStorageRpc[Task]): FluenceClient = {
+    new FluenceClient(kademliaClient, contracts, signAlgo, storageRpc)
+  }
+
+  def default(seedContacts: List[Contact]): FluenceClient = {
 
     implicit def runId[F[_]]: F ~> F = new (F ~> F) {
       override def apply[A](fa: F[A]): F[A] = fa
@@ -122,15 +157,14 @@ object FluenceClient {
 
     implicit val checker: SignatureChecker = signAlgo.checker
 
-    val contact = Contact(InetAddress.getLocalHost, 5555, KeyPair.Public(ByteVector.empty), 0L, "", Ior.right(""))
-
     val key = Monoid.empty[Key]
     val check = TransportSecurity.canBeSaved[Task](key, acceptLocal = true)
 
     val client = ClientComposer.grpc[Task](GrpcClient.builder)
+    val storageRpc: Contact ⇒ DatasetStorageRpc[Task] = client.service[DatasetStorageRpc[Task]]
 
     val kademliaRpc = client.service[KademliaClient[Task]] _
-    val kademliaClient = KademliaMVar(key, Task.pure(contact), kademliaRpc, conf, check)
+    val kademliaClient = KademliaMVar(key, Task.never, kademliaRpc, conf, check)
 
     val contracts = new Contracts[Task, BasicContract, Contact](
       maxFindRequests = 10,
@@ -141,6 +175,6 @@ object FluenceClient {
       allocatorRpc = contact ⇒ client.service[ContractAllocatorRpc[Task, BasicContract]](contact)
     )
 
-    new FluenceClient(kademliaClient, contracts, signAlgo)
+    FluenceClient(kademliaClient, contracts, signAlgo, storageRpc)
   }
 }

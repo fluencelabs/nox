@@ -11,8 +11,8 @@ import scodec.bits.ByteVector
 
 case class AuthorizedClient(kp: KeyPair) {
 
-  def addDefaultDataset(storageRpc: DatasetStorageRpc[Task]) = {
-    addDataset(storageRpc, NoOpCrypt.forString, NoOpCrypt.forString, None)
+  def addDefaultDataset(storageRpc: DatasetStorageRpc[Task], clientState: Option[ClientState]) = {
+    addDataset(storageRpc, NoOpCrypt.forString, NoOpCrypt.forString, clientState)
   }
 
   /**
@@ -29,7 +29,7 @@ case class AuthorizedClient(kp: KeyPair) {
     storageRpc: DatasetStorageRpc[Task],
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]],
-    clientState: Option[ClientState] = None
+    clientState: Option[ClientState]
   ): ClientDatasetStorage[String, String] = {
     val nonce: ByteVector = ByteVector.empty
 
@@ -38,11 +38,6 @@ case class AuthorizedClient(kp: KeyPair) {
     //should we have possible to choose different algorithms?
     val hasher = JdkCryptoHasher.Sha256
 
-    //we need a possibility to restore client state
-    val clientState = None
-
-    val a = ClientDatasetStorage(datasetId.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
-
-    a
+    ClientDatasetStorage(datasetId.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
   }
 }

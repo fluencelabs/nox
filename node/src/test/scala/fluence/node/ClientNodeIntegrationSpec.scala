@@ -20,10 +20,11 @@ package fluence.node
 import java.net.InetAddress
 
 import cats.data.Ior
-import cats.~>
+import cats.kernel.Monoid
+import cats.{ Monad, ~> }
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.btree.client.MerkleBTreeClient.ClientState
-import fluence.client.ClientComposer
+import fluence.client.{ ClientComposer, FluenceClient }
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
@@ -35,9 +36,11 @@ import fluence.dataset.client.Contracts.NotFound
 import fluence.dataset.client.{ ClientDatasetStorage, Contracts }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.kad.{ KademliaConf, KademliaMVar }
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.storage.rocksdb.RocksDbStore
+import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.StatusRuntimeException
 import monix.eval.Task
@@ -123,7 +126,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         runNodes { servers ⇒
           val firstContact: Contact = servers.head._1
-          val contractsApi = createContractApi(client, servers)
+          val contractsApi = createContractApi(firstContact, client)
           val resultContact = contractsApi.find(Key.fromString[Task]("non-exists contract").taskValue).failed.taskValue
 
           resultContact shouldBe NotFound
@@ -163,7 +166,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         val seedContact: Contact = makeKadNetwork(servers)
 
-        val contractsApi = createContractApi(client, servers)
+        val contractsApi = createContractApi(seedContact, client)
 
         val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
         val kadKey = Key.fromKeyPair[Task](keyPair).taskValue
@@ -171,6 +174,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signer).taskValue
         offer.checkOfferSeal[Task](algo.checker).taskValue shouldBe true
+
+        println("offer participants === " + offer.participants)
 
         // TODO: add test with wrong signature or other errors
         val accepted = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).taskValue
@@ -182,19 +187,67 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
+    "create dataset" in {
+      println("create client")
+      val client = ClientComposer.grpc[Task](GrpcClient.builder)
+
+      runNodes { servers ⇒
+
+        val seedContact: Contact = makeKadNetwork(servers)
+
+        val conf = KademliaConf(100, 1, 5, 5.seconds)
+        val kademliaRpc = client.service[KademliaClient[Task]] _
+
+        val emptyKey = Monoid.empty[Key]
+        val check = TransportSecurity.canBeSaved[Task](emptyKey, acceptLocal = true)
+        val contact = Contact(InetAddress.getLocalHost, 6553, KeyPair.Public(ByteVector.empty), 0L, "", Ior.right(""))
+        println("create kademlia mvar")
+        val kademliaClient = KademliaMVar(emptyKey, Task.pure(contact), kademliaRpc, conf, check)
+        val storageRpc = client.service[DatasetStorageRpc[Task]] _
+
+        println("create client")
+        val flClient = FluenceClient.apply(kademliaClient, createContractApi(contact, client), algo, storageRpc)
+
+        println("join seeds")
+        flClient.joinSeeds(List(seedContact)).taskValue()
+        println("seed joined")
+
+        println("gen kp")
+        val ac = flClient.generatePair().taskValue()
+
+        println("dataset creation")
+        val ds = flClient.getOrCreateDataset(ac).taskValue()
+        println(ds)
+        println("dataset created")
+        println("puting value")
+
+        ds.put("jey", "esrk").taskValue()
+        println("value puted")
+        println(ds.get("jey").taskValue())
+      }
+    }
+
     // todo finish success test cases
 
   }
 
-  private def createContractApi[T <: HList](client: GrpcClient[T], servers: Map[Contact, NodeComposer])(implicit
+  private def createContractApi[T <: HList](someContact: Contact, client: GrpcClient[T])(implicit
     s1: ops.hlist.Selector[T, ContractsCacheRpc[Task, BasicContract]],
-    s2: ops.hlist.Selector[T, ContractAllocatorRpc[Task, BasicContract]]
+    s2: ops.hlist.Selector[T, ContractAllocatorRpc[Task, BasicContract]],
+    s3: ops.hlist.Selector[T, KademliaClient[Task]]
   ) = {
+
+    val conf = KademliaConf(100, 1, 5, 5.seconds)
+    val clKey = Monoid.empty[Key]
+    val check = TransportSecurity.canBeSaved[Task](clKey, acceptLocal = true)
+    val kademliaRpc = client.service[KademliaClient[Task]] _
+    val kademliaClient = KademliaMVar(clKey, Task.pure(someContact), kademliaRpc, conf, check)
+
     new Contracts[Task, BasicContract, Contact](
       maxFindRequests = 10,
       maxAllocateRequests = _ ⇒ 20,
       checker = algo.checker,
-      kademlia = servers.head._2.services.map(_.kademlia).taskValue, // TODO IMPORTANT: use client-side Kademlia
+      kademlia = kademliaClient,
       cacheRpc = contact ⇒ client.service[ContractsCacheRpc[Task, BasicContract]](contact),
       allocatorRpc = contact ⇒ client.service[ContractAllocatorRpc[Task, BasicContract]](contact)
     )
