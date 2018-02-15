@@ -45,7 +45,7 @@ import scala.language.higherKinds
  * @param refProvider           Next value id generator
  * @param onMRChange      Callback that will be called when merkle root change
  */
-class DatasetStorage private (
+class DatasetNodeStorage private (
     bTreeIndex: MerkleBTree,
     kVStore: KVStore[Task, ValueRef, Array[Byte]],
     merkleRootCalculator: MerkleRootCalculator,
@@ -117,7 +117,7 @@ class DatasetStorage private (
 
 }
 
-object DatasetStorage {
+object DatasetNodeStorage {
 
   /**
    * Dataset node storage (node side).
@@ -133,7 +133,7 @@ object DatasetStorage {
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     refProvider: () ⇒ ValueRef,
     onMRChange: Bytes ⇒ Task[Unit]
-  )(implicit F: MonadError[F, Throwable]): F[DatasetStorage] = {
+  )(implicit F: MonadError[F, Throwable]): F[DatasetNodeStorage] = {
 
     // todo create direct and faster codec for Long
     implicit val long2bytesCodec: Codec[Task, Array[Byte], ValueRef] = Codec.pure(
@@ -147,7 +147,7 @@ object DatasetStorage {
       MerkleBTree(s"${datasetId}_tree", cryptoHasher, config)
     ){
         (rocksDB, merkleBTree) ⇒
-          new DatasetStorage(
+          new DatasetNodeStorage(
             merkleBTree,
             KVStore.transform(rocksDB),
             MerkleRootCalculator(cryptoHasher),

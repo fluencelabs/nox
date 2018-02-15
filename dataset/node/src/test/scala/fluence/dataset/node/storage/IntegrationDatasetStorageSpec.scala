@@ -213,8 +213,8 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     }
   )
 
-  private def createDatasetStorage(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetStorage =
-    DatasetStorage[Try](s"${this.getClass.getSimpleName}_$dbName", ConfigFactory.load(), hasher, () ⇒ blobIdCounter.incrementAndGet(), counter).get
+  private def createDatasetNodeStorage(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetNodeStorage =
+    DatasetNodeStorage[Try](s"${this.getClass.getSimpleName}_$dbName", ConfigFactory.load(), hasher, () ⇒ blobIdCounter.incrementAndGet(), counter).get
 
   private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] =
     new ClientDatasetStorage(
@@ -226,7 +226,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     )
 
   private def createStorageRpcWithNetworkError(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetStorageRpc[Task] = {
-    val origin = createDatasetStorage(dbName, counter)
+    val origin = createDatasetNodeStorage(dbName, counter)
     new DatasetStorageRpc[Task] {
       override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
         origin.remove(removeCallbacks)
@@ -245,7 +245,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
   private def createStorageRpc(dbName: String): DatasetStorageRpc[Task] =
     new DatasetStorageRpc[Task] {
-      private val storage = createDatasetStorage(dbName, _ ⇒ Task.unit)
+      private val storage = createDatasetNodeStorage(dbName, _ ⇒ Task.unit)
 
       override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] =
         storage.remove(removeCallbacks)
