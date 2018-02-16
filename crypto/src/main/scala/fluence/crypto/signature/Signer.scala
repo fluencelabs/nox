@@ -25,6 +25,9 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
+/**
+ * Wraps public and private key, along with signing algorithm, to produce signatures
+ */
 trait Signer {
   def publicKey: KeyPair.Public
 

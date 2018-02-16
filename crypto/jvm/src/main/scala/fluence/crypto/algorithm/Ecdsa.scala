@@ -23,6 +23,7 @@ import java.security.interfaces.ECPrivateKey
 
 import cats.data.EitherT
 import cats.Monad
+import fluence.crypto.SignAlgo
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.crypto.keypair.KeyPair
 import org.bouncycastle.jce.ECNamedCurveTable
@@ -128,5 +129,7 @@ object Ecdsa {
    * `NONEwithECDSA with sha-256 hasher` Preferably the size of the key is greater than or equal to the digest algorithm
    * don't use `SHA256WithECDSA` because of non-compatibility with javascript libraries
    */
-  def ecdsa_secp256k1_sha256 = new Ecdsa("secp256k1", "NONEwithECDSA", Some(JdkCryptoHasher.Sha256))
+  val ecdsa_secp256k1_sha256 = new Ecdsa("secp256k1", "NONEwithECDSA", Some(JdkCryptoHasher.Sha256))
+
+  val signAlgo = new SignAlgo("ecdsa_secp256k1_sha256", ecdsa_secp256k1_sha256)
 }

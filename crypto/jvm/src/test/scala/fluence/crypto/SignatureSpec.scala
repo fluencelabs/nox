@@ -58,7 +58,7 @@ class SignatureSpec extends WordSpec with Matchers {
     }
 
     "correctly work with signer and checker" in {
-      val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+      val algo = Ecdsa.signAlgo
       val keys = algo.generateKeyPair().extract
       val signer = algo.signer(keys)
 
@@ -72,7 +72,7 @@ class SignatureSpec extends WordSpec with Matchers {
     }
 
     "throw an errors on invalid data" in {
-      val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+      val algo = Ecdsa.signAlgo
       val keys = algo.generateKeyPair().extract
       val signer = algo.signer(keys)
       val data = rndByteVector(10)
@@ -84,7 +84,7 @@ class SignatureSpec extends WordSpec with Matchers {
     }
 
     "store and read key from file" in {
-      val algo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+      val algo = Ecdsa.signAlgo
       val keys = algo.generateKeyPair().extract
 
       val keyFile = File.createTempFile("test", "")
