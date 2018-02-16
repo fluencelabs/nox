@@ -66,7 +66,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   LoggerConfig.factory = PrintLoggerFactory()
   LoggerConfig.level = LogLevel.ERROR
 
-  private val algo: SignAlgo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+  private val algo: SignAlgo = Ecdsa.signAlgo
 
   private implicit val checker: SignatureChecker = algo.checker
 
@@ -85,7 +85,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private val config = ConfigFactory.load()
 
   private val dummyContact = Contact(
-    InetAddress.getByName("localhost"), 80, KeyPair.Public(ByteVector("k".getBytes)), 0L, "gitHash", Ior.right("sign")
+    InetAddress.getByName("localhost"), 80, KeyPair.Public(ByteVector("k".getBytes)), 0L, "gitHash", "sign"
   )
 
   "Node" should {

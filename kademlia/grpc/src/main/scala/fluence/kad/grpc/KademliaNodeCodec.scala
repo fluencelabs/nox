@@ -22,6 +22,7 @@ import java.time.Instant
 import cats.MonadError
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.applicative._
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.crypto.signature.SignatureChecker
@@ -34,11 +35,10 @@ object KademliaNodeCodec {
   implicit def apply[F[_]](implicit F: MonadError[F, Throwable], checker: SignatureChecker): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
     Codec(
       obj ⇒
-        obj.contact.b64seed[F].value.flatMap(F.fromEither).map(contact ⇒
-          Node(
-            id = ByteString.copyFrom(obj.key.id),
-            contact = ByteString.copyFrom(contact.getBytes)
-          )),
+        Node(
+          id = ByteString.copyFrom(obj.key.id),
+          contact = ByteString.copyFrom(obj.contact.b64seed.getBytes())
+        ).pure[F],
       binary ⇒
         for {
           k ← Key.fromBytes[F](binary.id.toByteArray)

@@ -60,7 +60,7 @@ object NodeApp extends App with slogging.LazyLogging {
     ()
   }
 
-  val algo: SignAlgo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+  val algo: SignAlgo = Ecdsa.signAlgo
 
   def getKeyPair[F[_]](keyPath: String)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
     val keyFile = new File(keyPath)
@@ -119,7 +119,7 @@ object NodeApp extends App with slogging.LazyLogging {
           }
 
       case "s" | "seed" ⇒
-        kad.ownContact.map(_.contact).flatMap(_.b64seed[Task].value).map(e ⇒ e.map(cmd)).flatMap(_ ⇒ handle)
+        kad.ownContact.map(_.contact).map(_.b64seed).map(cmd).flatMap(_ ⇒ handle)
 
       case "q" | "quit" | "x" | "exit" ⇒
         cmd("exit")
@@ -152,9 +152,8 @@ object NodeApp extends App with slogging.LazyLogging {
 
     logger.info("Server launched")
     logger.info("Your contact is: " + contact.show)
-    contact.b64seed[cats.Id].value.map(s ⇒
-      logger.info("You may share this seed for others to join you: " + Console.MAGENTA + s + Console.RESET)
-    )
+
+    logger.info("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
 
     services.kademlia
   }

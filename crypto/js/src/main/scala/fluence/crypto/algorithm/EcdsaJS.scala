@@ -19,6 +19,7 @@ package fluence.crypto.algorithm
 
 import cats.data.EitherT
 import cats.{ Monad, MonadError }
+import fluence.crypto.SignAlgo
 import fluence.crypto.facade.EC
 import fluence.crypto.hash.{ CryptoHasher, JsCryptoHasher }
 import fluence.crypto.keypair.KeyPair
@@ -82,5 +83,7 @@ class EcdsaJS(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]]) ex
 }
 
 object EcdsaJS {
-  def ecdsa_secp256k1_sha256 = new EcdsaJS(new EC("secp256k1"), Some(JsCryptoHasher.Sha256))
+  val ecdsa_secp256k1_sha256 = new EcdsaJS(new EC("secp256k1"), Some(JsCryptoHasher.Sha256))
+
+  val signAlgo = new SignAlgo("ecdsa/secp256k1/sha256/js", ecdsa_secp256k1_sha256)
 }
