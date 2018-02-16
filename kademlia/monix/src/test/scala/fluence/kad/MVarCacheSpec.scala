@@ -8,7 +8,7 @@ import org.scalatest.{ Matchers, WordSpec }
 
 import scala.util.{ Failure, Success }
 
-class MVarCacheTest extends WordSpec with Matchers with ScalaFutures {
+class MVarCacheSpec extends WordSpec with Matchers with ScalaFutures {
 
   //todo move it to utility module
   //todo add real concurrent tests

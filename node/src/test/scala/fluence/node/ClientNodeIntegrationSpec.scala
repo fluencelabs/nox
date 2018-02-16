@@ -28,7 +28,7 @@ import fluence.client.{ ClientComposer, FluenceClient }
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.JdkCryptoHasher
+import fluence.crypto.hash.{ JdkCryptoHasher, TestCryptoHasher }
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
@@ -289,36 +289,6 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "create dataset" in {
-      val client = ClientComposer.grpc[Task](GrpcClient.builder)
-
-      runNodes { servers ⇒
-
-        val seedContact: Contact = makeKadNetwork(servers)
-
-        val storageRpc = client.service[DatasetStorageRpc[Task]] _
-
-        val (kademliaClient, contractApi) = createClientApi(seedContact, client)
-
-        val flClient = FluenceClient.apply(kademliaClient, contractApi, storageRpc)
-
-        val ac = flClient.generatePair().taskValue()
-
-        val ds = flClient.getOrCreateDataset(ac).taskValue()
-
-        ds.put("jey1", "esrk1").taskValue()
-        ds.put("jey2", "esrk2").taskValue()
-        ds.put("jey3", "esrk3").taskValue()
-
-        //todo this should be equals, but something wrong
-        ds.get("jey1").taskValue()
-        ds.get("jey2").taskValue()
-        ds.get("jey3").taskValue()
-      }
-    }
-
-    // todo finish success test cases
-
   }
 
   private def createClientApi[T <: HList](seedContact: Contact, client: GrpcClient[T])(
@@ -361,7 +331,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     val value1: Option[ClientState] = merkleRoot.map(ClientState)
     ClientDatasetStorage(
       datasetId,
-      JdkCryptoHasher.Sha256,
+      TestCryptoHasher,
       grpc,
       NoOpCrypt.forString,
       NoOpCrypt.forString,
