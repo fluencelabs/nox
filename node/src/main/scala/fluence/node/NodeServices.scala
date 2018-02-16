@@ -17,6 +17,7 @@
 
 package fluence.node
 
+import fluence.crypto.SignAlgo
 import fluence.crypto.signature.Signer
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
@@ -30,6 +31,8 @@ abstract class NodeServices[F[_], Contract, Contact] {
   def key: Key
 
   def signer: Signer
+
+  def signAlgo: SignAlgo
 
   def kademlia: Kademlia[F, Contact]
 

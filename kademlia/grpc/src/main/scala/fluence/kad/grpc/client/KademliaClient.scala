@@ -96,7 +96,7 @@ object KademliaClient {
   def register[F[_]]()(channel: ManagedChannel, callOptions: CallOptions)(implicit
     F: MonadError[F, Throwable],
     codec: Codec[F, protocol.Node[Contact], grpc.Node],
-    run: Future ~> F): KademliaClient[F] =
+    run: Future ~> F): KademliaRpc[F, Contact] =
     new KademliaClient(new grpc.KademliaGrpc.KademliaStub(channel, callOptions))
 
 }
