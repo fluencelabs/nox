@@ -49,7 +49,7 @@ import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scodec.bits.ByteVector
 import shapeless._
-import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
+import slogging._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -59,9 +59,6 @@ import scala.util.{ Failure, Success }
 
 class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(100, Milliseconds))
-
-  LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.ERROR
 
   private val algo: SignAlgo = Ecdsa.signAlgo
 
@@ -247,7 +244,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "success write and read from dataset" ignore { // todo finish, this test case isn't working yet
+    "success write and read from dataset" in { // todo finish, this test case isn't working yet
       import fluence.dataset.contract.ContractRead._
       import fluence.dataset.contract.ContractWrite._
 
@@ -277,8 +274,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         //        nonExistentKeyResponse shouldBe a[StatusRuntimeException]
         //         todo transmit error from server: there should be DatasetNotFound exception (or something else) instead of StatusRuntimeException
 
-        //        val putResponse = datasetStorage.put("key1", "value1").taskValue
-        //        putResponse shouldBe None
+        val putResponse = datasetStorage.put("key1", "value1").taskValue
+        putResponse shouldBe None
       }
     }
 
@@ -286,7 +283,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   }
 
-  private def createClientContractApi[T <: HList](client: GrpcClient[T], servers: Map[Contact, NodeComposer])(implicit
+  private def createClientContractApi[T <: HList](client: GrpcClient[T], servers: Map[Contact, NodeComposer])(
+    implicit
     s1: ops.hlist.Selector[T, ContractsCacheRpc[Task, BasicContract]],
     s2: ops.hlist.Selector[T, ContractAllocatorRpc[Task, BasicContract]]
   ): Contracts[Task, BasicContract, Contact] = {
@@ -374,8 +372,16 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     }
   }
 
+   override protected def beforeAll(): Unit = {
+     LoggerConfig.factory = PrintLoggerFactory
+     LoggerConfig.level = LogLevel.TRACE
+     super.beforeAll()
+   }
+
   override protected def afterAll(): Unit = {
+    super.afterAll()
     Path(config.getString("fluence.node.storage.rocksDb.dataDir")).deleteRecursively()
+    LoggerConfig.level = LogLevel.OFF
   }
 
 }
