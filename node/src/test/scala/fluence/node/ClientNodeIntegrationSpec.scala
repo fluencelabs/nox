@@ -20,7 +20,6 @@ package fluence.node
 import java.io.IOException
 import java.net.{ InetAddress, ServerSocket }
 
-import cats.data.Ior
 import cats.kernel.Monoid
 import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
@@ -297,8 +296,6 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val (kademliaClient, contractApi) = createClientApi(seedContact, client)
 
         val flClient = FluenceClient.apply(kademliaClient, contractApi, algo, storageRpc)
-
-        //        flClient.joinSeeds(List(seedContact)).taskValue()
 
         val ac = flClient.generatePair().taskValue()
 

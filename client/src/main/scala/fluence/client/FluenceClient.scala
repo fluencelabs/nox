@@ -7,7 +7,7 @@ import fluence.crypto.keypair.KeyPair
 import fluence.dataset.BasicContract
 import fluence.dataset.client.{ClientDatasetStorage, Contracts}
 import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.kad.Kademlia
+import fluence.kad.{Kademlia, MVarMapCache}
 import fluence.kad.protocol.{Contact, Key}
 import monix.eval.Task
 

@@ -27,8 +27,6 @@ import cats.syntax.show._
 import monix.execution.atomic.AtomicLong
 import scodec.bits.{ Bases, ByteVector }
 
-import scala.collection.concurrent.TrieMap
-
 /**
  * Node implementation for [[DatasetStorageRpc]].
  * Caches launched [[DatasetNodeStorage]]s, routes client requests for them.

@@ -91,12 +91,10 @@ class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
                   c.pure[F]
 
                 case Nil ⇒ // Should never happen
-                  println("should never happen")
                   ME.raiseError[Contract](Contracts.CantFindEnoughNodes(-1))
               }
 
           case agreements ⇒
-            println("should never happen agree size = " + agreements.size)
             ME.raiseError[Contract](Contracts.CantFindEnoughNodes(agreements.size))
         }
     } yield contract

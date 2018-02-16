@@ -1,14 +1,13 @@
 package fluence.node
 
-import fluence.client.MVarMapCache
+import fluence.kad.MVarMapCache
 import monix.eval.Task
-import monix.execution.{ CancelableFuture, Scheduler }
+import monix.execution.{CancelableFuture, Scheduler}
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
-
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import monix.execution.Scheduler.Implicits.global
 
-import scala.util.{ Failure, Success }
+import scala.util.{Failure, Success}
 
 class MVarCacheTest extends WordSpec with Matchers with ScalaFutures {
 
@@ -27,20 +26,21 @@ class MVarCacheTest extends WordSpec with Matchers with ScalaFutures {
     "work" in {
       val cache = new MVarMapCache[Int, String]("")
 
-      val a = cache.getOrAdd(1, "1").taskValue()
-      println(a)
-      val b = cache.getOrAdd(1, "2").taskValue()
-      println(b)
-      val c = cache.modify(1, s ⇒ s ++ "2").taskValue()
-      println(c)
-      val e = cache.get(1)
-      println(e)
-      val f = cache.update(1, "123").taskValue()
-      println(f)
-      val g = cache.get(1)
-      println(g)
-      val d = cache.modify(12, s ⇒ s ++ "2").taskValue()
-      println(d)
+      cache.getOrAdd(1, "1").taskValue() shouldBe "1"
+
+      cache.getOrAdd(1, "2").taskValue() shouldBe "1"
+
+      cache.modify(1, s ⇒ s ++ "2").taskValue() shouldBe true
+      cache.get(1).get shouldBe "12"
+
+      cache.update(1, "123").taskValue()
+      cache.get(1).get shouldBe "123"
+
+      cache.modify(12, s ⇒ s ++ "2").taskValue() shouldBe false
+
+      cache.getOrAddF(1, Task.pure("2")).taskValue() shouldBe "123"
+
+      cache.getOrAddF(4, Task.pure("4")).taskValue() shouldBe "4"
 
     }
   }

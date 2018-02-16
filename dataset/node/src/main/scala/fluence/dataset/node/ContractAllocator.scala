@@ -61,7 +61,6 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
    * @return Allocated contract
    */
   override def allocate(contract: C): F[C] = {
-    println("HELLO ALLOCATE === " + contract)
     for {
       _ ← illegalIfNo(contract.participantSigned(nodeId, checker), "Contract should be offered to this node and signed by it prior to allocation")
       _ ← illegalIfNo(contract.isActiveContract(checker), "Contract should be active -- sealed by client")
@@ -100,7 +99,7 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
    */
   override def offer(contract: C): F[C] = {
     def signedContract: F[C] = contract.signOffer(nodeId, signer)
-    println("hello offer === " + contract)
+
     for {
       _ ← illegalIfNo(contract.isBlankOffer(checker), "This is not a valid blank offer")
       res ← {
@@ -128,10 +127,7 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
             } yield sContract
         }
       }
-    } yield {
-      println("RESULT === " + res)
-      res
-    }
+    } yield res
   }
 
 }

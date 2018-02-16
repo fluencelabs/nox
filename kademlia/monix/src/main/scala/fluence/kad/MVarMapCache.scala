@@ -1,7 +1,7 @@
-package fluence.client
+package fluence.kad
 
 import cats.data.StateT
-import monix.eval.{ MVar, Task }
+import monix.eval.{MVar, Task}
 
 import scala.collection.concurrent.TrieMap
 
