@@ -169,23 +169,23 @@ object GrpcServer {
    * @param conf Server config object
    */
   def builder(conf: GrpcServerConf, signer: Signer, uPnP: ⇒ UPnP = new UPnP()): Builder =
-    conf.externalPort match {
-      case Some(externalPort) ⇒
-        val upnp = uPnP
-        val contact = Contact.buildOwn[Task](
-          InetAddress.getLocalHost, conf.localPort, signer.publicKey, conf.protocolVersion, conf.gitHash, signer
-        ).value.flatMap(et ⇒ MonadError[Task, Throwable].fromEither(et))
+    {
+      val contact = Contact.buildOwn[Task](
+        InetAddress.getLocalHost, conf.localPort, conf.protocolVersion, conf.gitHash, signer
+      ).value.flatMap(et ⇒ MonadError[Task, Throwable].fromEither(et))
 
-        new Builder(contact.flatMap(c ⇒ upnp.addPort(externalPort, c)).memoizeOnSuccess.onErrorRecoverWith{
-          case _ ⇒ contact
-        }, upnp.deletePort(externalPort).memoizeOnSuccess, conf.localPort, Nil, Nil)
+      conf.externalPort match {
+        case Some(externalPort) ⇒
+          val upnp = uPnP
 
-      case None ⇒
-        new Builder(
-          Contact.buildOwn[Task](
-            InetAddress.getLocalHost, conf.localPort, signer.publicKey, conf.protocolVersion, conf.gitHash, signer)
-            .value.flatMap(et ⇒ MonadError[Task, Throwable].fromEither(et)),
-          Task.unit, conf.localPort, Nil, Nil)
+          // If upnp added port correctly, contact is modified
+          new Builder(contact.flatMap(c ⇒ upnp.addPort(externalPort, c)).memoizeOnSuccess.onErrorRecoverWith{
+            case _ ⇒ contact
+          }, upnp.deletePort(externalPort).memoizeOnSuccess, conf.localPort, Nil, Nil)
+
+        case None ⇒
+          new Builder(contact, Task.unit, conf.localPort, Nil, Nil)
+      }
     }
 
 }

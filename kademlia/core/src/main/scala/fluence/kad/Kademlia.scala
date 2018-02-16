@@ -89,6 +89,7 @@ abstract class Kademlia[F[_], C](
      * Perform a lookup in local RoutingTable
      *
      * @param key Key to lookup
+     * @param numberOfNodes How many nodes to return (upper bound)
      * @return locally known neighborhood
      */
     override def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] = {
@@ -100,14 +101,14 @@ abstract class Kademlia[F[_], C](
      * return `numberOfNodes` closest known nodes, going away from the second key
      *
      * @param key Key to lookup
+     * @param numberOfNodes How many nodes to return (upper bound)
      */
-    override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
-      {
-        logger.trace(s"HandleRPC($nodeId): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
-      }.pure[F].map(_ ⇒
-        nodeId.lookupAway(key, moveAwayFrom)
-          .take(numberOfNodes)
-      )
+    override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[C]]] = {
+      logger.trace(s"HandleRPC($nodeId): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
+    }.pure[F].map(_ ⇒
+      nodeId.lookupAway(key, moveAwayFrom)
+        .take(numberOfNodes)
+    )
   }
 
   /**
@@ -123,7 +124,7 @@ abstract class Kademlia[F[_], C](
       case None ⇒
         callIterative(
           key,
-          n ⇒ if (n.key === key) F.pure(()) else F.raiseError[Unit](new NoStackTrace {}),
+          n ⇒ if (n.key === key) F.pure(()) else F.raiseError[Unit](new RuntimeException("Mismatching node") with NoStackTrace),
           numToCollect = 1,
           maxNumOfCalls = maxRequests
         ).map(_.headOption.map(_._1))

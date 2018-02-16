@@ -18,7 +18,6 @@ class ContactSpec extends WordSpec with Matchers {
       val c = Contact.buildOwn[Id](
         InetAddress.getLocalHost,
         8080,
-        kp.publicKey,
         10l,
         "hash",
         algo.signer(kp)

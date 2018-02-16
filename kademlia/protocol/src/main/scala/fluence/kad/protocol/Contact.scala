@@ -66,18 +66,27 @@ case class Contact(
 
 object Contact {
 
+  /**
+   * Builder for Node's own contact: node don't have JWT seed for it, but can produce it with its Signer
+   * @param ip Node's ip
+   * @param port Node's external port
+   * @param protocolVersion Protocol version
+   * @param gitHash Current build's git hash
+   * @param signer Node's signer
+   * @tparam F Monad
+   * @return Either Contact if built, or error
+   */
   def buildOwn[F[_] : Monad](
     ip: InetAddress,
     port: Int, // httpPort, websocketPort and other transports //
 
-    publicKey: KeyPair.Public,
     protocolVersion: Long,
     gitHash: String,
 
     signer: Signer
   ): EitherT[F, CryptoErr, Contact] = {
     val jwtHeader =
-      Contact.JwtHeader(publicKey, protocolVersion)
+      Contact.JwtHeader(signer.publicKey, protocolVersion)
 
     val jwtData =
       Contact.JwtData(ip, port, gitHash)
@@ -87,7 +96,7 @@ object Contact {
       Contact(
         ip,
         port,
-        publicKey,
+        signer.publicKey,
         protocolVersion,
         gitHash,
         seed

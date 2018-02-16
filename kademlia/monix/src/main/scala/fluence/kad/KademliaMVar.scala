@@ -35,11 +35,11 @@ object KademliaMVar {
   /**
    * Kademlia service to be launched as a singleton on local node.
    *
-   * @param nodeId    Current node ID
-   * @param contact   Node's contact to advertise
-   * @param rpcForContact    Getter for RPC calling of another nodes
-   * @param conf      Kademlia conf
-   * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
+   * @param nodeId        Current node ID
+   * @param contact       Node's contact to advertise
+   * @param rpcForContact Getter for RPC calling of another nodes
+   * @param conf          Kademlia conf
+   * @param checkNode     Node could be saved to RoutingTable only if checker returns F[ true ]
    * @tparam C Contact info
    */
   def apply[C](
@@ -62,7 +62,7 @@ object KademliaMVar {
   /**
    * Builder for client-side implementation of KademliaMVar
    *
-   * @param rpc    Getter for RPC calling of another nodes
+   * @param rpc       Getter for RPC calling of another nodes
    * @param conf      Kademlia conf
    * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
    * @tparam C Contact info
