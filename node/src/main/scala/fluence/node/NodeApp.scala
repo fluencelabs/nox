@@ -67,7 +67,6 @@ object NodeApp extends App with slogging.LazyLogging {
 
   logger.info(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
 
-
   val serverKad = for {
     kp ← getKeyPair[Task](config.getString("fluence.keyPath"))
     contractCache ← RocksDbStore[Task](config.getString("fluence.contract.cacheDirName"), config)
@@ -91,20 +90,15 @@ object NodeApp extends App with slogging.LazyLogging {
 
   logger.info("Going to run Fluence Server...")
 
-  serverKad.flatMap {
-    case Left(t: Throwable) ⇒ Task.raiseError(t)
-    case Left(t)            ⇒ Task.raiseError(new RuntimeException(t))
-    case Right(_)           ⇒ Task.never
-  }
-    .toIO
+  serverKad
     .attempt
-    .unsafeRunSync() match {
-      case Left(err) ⇒
-        err.printStackTrace()
-        logger.error("Error", err)
-      case Right(_) ⇒
-        logger.info("Bye!")
+    .flatMap {
+      case Left(t: Throwable) ⇒ Task.raiseError(t)
+      case Left(t)            ⇒ Task.raiseError(new RuntimeException(t))
+      case Right(_)           ⇒ Task.never
     }
+    .toIO
+    .unsafeRunSync()
 
   //Launch the node
   //
