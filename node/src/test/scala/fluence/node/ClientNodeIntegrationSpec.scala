@@ -20,6 +20,7 @@ package fluence.node
 import java.io.IOException
 import java.net.{ InetAddress, ServerSocket }
 
+import cats.kernel.Monoid
 import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.btree.client.MerkleBTreeClient.ClientState
