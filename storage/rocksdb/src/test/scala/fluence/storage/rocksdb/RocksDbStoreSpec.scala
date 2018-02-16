@@ -138,6 +138,8 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
           verify(db, times(0)).getSnapshot
           verify(db, times(0)).newIterator(any[ReadOptions])
 
+          stream.foreach(_ ⇒ ()).futureValue
+
           verify(db, times(1)).getSnapshot
           verify(db, times(1)).newIterator(ArgumentMatchers.any[ReadOptions])
           verify(snapshot, times(1)).close()
