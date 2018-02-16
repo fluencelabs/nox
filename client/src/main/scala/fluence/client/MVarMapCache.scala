@@ -1,12 +1,12 @@
 package fluence.client
 
 import cats.data.StateT
-import monix.eval.{MVar, Task}
+import monix.eval.{ MVar, Task }
 
 import scala.collection.concurrent.TrieMap
 
 //todo move this to some utility module, replace all similar caches with MVarCache
-class MVarMapCache[K, V]() {
+class MVarMapCache[K, V](default: V) {
   //todo maybe store Option[V] and add MVar(None) for default as values, on get return None if None in MVar (flatten)
   private val writeState = TrieMap.empty[K, MVar[V]]
   private val readState = TrieMap.empty[K, V]
@@ -30,10 +30,10 @@ class MVarMapCache[K, V]() {
     )
   }
 
-  def getOrAddF(key: K, value: Task[V], default: V): Task[V] = {
+  def getOrAddF(key: K, value: ⇒ Task[V]): Task[V] = {
     runOnMVar(
       writeState.getOrElseUpdate(key, MVar(default)),
-      StateT.liftF(value),
+      StateT.modifyF[Task, V](a ⇒ if (a != default) Task.pure(a) else value).get,
       readState.update(key, _: V)
     )
   }
@@ -50,7 +50,7 @@ class MVarMapCache[K, V]() {
     }
   }
 
-  def modifyValueOrDefault(key: K, modify: V ⇒ V, default: V): Task[Boolean] = {
+  def modifyValueOrDefault(key: K, modify: V ⇒ V): Task[Boolean] = {
     runOnMVar(
       writeState.getOrElseUpdate(key, MVar(default)),
       StateT.modify[Task, V](modify).map(_ ⇒ true),

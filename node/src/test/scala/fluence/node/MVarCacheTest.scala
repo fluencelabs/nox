@@ -25,7 +25,7 @@ class MVarCacheTest extends WordSpec with Matchers with ScalaFutures {
 
   "some" should {
     "work" in {
-      val cache = new MVarMapCache[Int, String]()
+      val cache = new MVarMapCache[Int, String]("")
 
       val a = cache.getOrAdd(1, "1").taskValue()
       println(a)
