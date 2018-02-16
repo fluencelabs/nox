@@ -5,24 +5,19 @@ import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.dataset.BasicContract
-import fluence.dataset.client.{ClientDatasetStorage, Contracts}
+import fluence.dataset.client.{ ClientDatasetStorage, Contracts }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.kad.{Kademlia, MVarMapCache}
-import fluence.kad.protocol.{Contact, Key}
+import fluence.kad.{ Kademlia, MVarMapCache }
+import fluence.kad.protocol.{ Contact, Key }
 import monix.eval.Task
 
 import scala.language.higherKinds
 
-case class Nonce(number: Int) {
-  def next = Nonce(number + 1)
-
-  def toKey(pk: KeyPair.Public): Task[Key] = Key.fromBytes[Task]((number.toByte +: pk.value).toArray)
-}
-
 class FluenceClient(
     kademlia: Kademlia[Task, Contact],
     contracts: Contracts[Task, BasicContract, Contact],
-    signAlgo: SignAlgo, storageRpc: Contact ⇒ DatasetStorageRpc[Task]
+    signAlgo: SignAlgo,
+    storageRpc: Contact ⇒ DatasetStorageRpc[Task]
 )(implicit ME: MonadError[Task, Throwable]) {
 
   val authorizedCache = new MVarMapCache[KeyPair.Public, Option[AuthorizedClient]](None)
@@ -47,6 +42,12 @@ class FluenceClient(
     datasetCache.getOrAddF(pk, dataStorage.map(Option.apply))
   }
 
+  /**
+    * try to find dataset in cache,
+    * if it is absent, try to find contract in net and restore dataset from contract
+    * if it is no contract, create new contract and dataset
+    *
+    */
   def restoreDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
     import fluence.dataset.contract.ContractWrite._
     val signer = signAlgo.signer(ac.kp)

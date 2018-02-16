@@ -10,6 +10,7 @@ import scala.util.{ Failure, Success }
 
 class MVarCacheTest extends WordSpec with Matchers with ScalaFutures {
 
+  //todo move it to utility module
   private implicit class WaitTask[T](task: Task[T]) {
     def taskValue()(implicit s: Scheduler): T = {
       val future: CancelableFuture[T] = task.runAsync(s)

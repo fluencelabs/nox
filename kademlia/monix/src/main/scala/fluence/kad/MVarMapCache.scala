@@ -1,17 +1,18 @@
 package fluence.kad
 
 import cats.data.StateT
-import monix.eval.{MVar, Task}
+import monix.eval.{ MVar, Task }
 
 import scala.collection.concurrent.TrieMap
 
 //todo move this to some utility module, replace all similar caches with MVarCache
+//todo we always return non-default parameters, prove it on types
 class MVarMapCache[K, V](default: V) {
-  //todo maybe store Option[V] and add MVar(None) for default as values, on get return None if None in MVar (flatten)
+  //todo maybe store Option[V] and add MVar(None) for default as values, on `get` return None if None in MVar (flatten)
   private val writeState = TrieMap.empty[K, MVar[V]]
   private val readState = TrieMap.empty[K, V]
 
-  def update(key: K, value: V) = {
+  def update(key: K, value: V): Task[Unit] = {
     runOnMVar(
       writeState.getOrElseUpdate(key, MVar(value)),
       StateT.set(value),
