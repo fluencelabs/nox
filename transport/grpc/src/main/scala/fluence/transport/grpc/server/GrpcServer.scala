@@ -20,6 +20,7 @@ package fluence.transport.grpc.server
 import java.net.InetAddress
 import java.time.Instant
 
+import cats.MonadError
 import cats.data.Ior
 import cats.instances.try_._
 import fluence.crypto.signature.{ SignatureChecker, Signer }
@@ -168,19 +169,23 @@ object GrpcServer {
    * @param conf Server config object
    */
   def builder(conf: GrpcServerConf, signer: Signer, uPnP: ⇒ UPnP = new UPnP()): Builder =
-    conf.externalPort match {
-      case Some(externalPort) ⇒
-        val upnp = uPnP
-        val contact = Contact(InetAddress.getLocalHost, conf.localPort, signer.publicKey, conf.protocolVersion, conf.gitHash, Ior.left(signer))
+    {
+      val contact = Contact.buildOwn[Task](
+        InetAddress.getLocalHost, conf.localPort, conf.protocolVersion, conf.gitHash, signer
+      ).value.flatMap(et ⇒ MonadError[Task, Throwable].fromEither(et))
 
-        new Builder(upnp.addPort(externalPort, contact).memoizeOnSuccess.onErrorRecover{
-          case _ ⇒ contact
-        }, upnp.deletePort(externalPort).memoizeOnSuccess, conf.localPort, Nil, Nil)
+      conf.externalPort match {
+        case Some(externalPort) ⇒
+          val upnp = uPnP
 
-      case None ⇒
-        new Builder(
-          Task.now(Contact(InetAddress.getLocalHost, conf.localPort, signer.publicKey, conf.protocolVersion, conf.gitHash, Ior.left(signer))),
-          Task.unit, conf.localPort, Nil, Nil)
+          // If upnp added port correctly, contact is modified
+          new Builder(contact.flatMap(c ⇒ upnp.addPort(externalPort, c)).memoizeOnSuccess.onErrorRecoverWith{
+            case _ ⇒ contact
+          }, upnp.deletePort(externalPort).memoizeOnSuccess, conf.localPort, Nil, Nil)
+
+        case None ⇒
+          new Builder(contact, Task.unit, conf.localPort, Nil, Nil)
+      }
     }
 
 }

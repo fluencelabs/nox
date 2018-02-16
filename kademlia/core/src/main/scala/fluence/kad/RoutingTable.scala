@@ -37,7 +37,7 @@ import scala.language.higherKinds
  * RoutingTable describes how to route various requests over Kademlia network.
  * State is stored within [[Siblings]] and [[Bucket]], so there's no special case class.
  */
-object RoutingTable extends slogging.LazyLogging {
+object RoutingTable {
 
   implicit class ReadOps[C : Bucket.ReadOps : Siblings.ReadOps](nodeId: Key) {
     private def SR = implicitly[Siblings.ReadOps[C]]
@@ -114,7 +114,7 @@ object RoutingTable extends slogging.LazyLogging {
       BW: Bucket.WriteOps[F, C],
       SW: Siblings.WriteOps[F, C],
       ME: MonadError[F, Throwable],
-      P: Parallel[F, F]) {
+      P: Parallel[F, F]) extends slogging.LazyLogging {
     /**
      * Locates the bucket responsible for given contact, and updates it using given ping function
      *
@@ -491,6 +491,8 @@ object RoutingTable extends slogging.LazyLogging {
       checkNode: Node[C] ⇒ F[Boolean],
       parallelism: Int): F[Unit] =
       Parallel.parTraverse(peers.toList) { peer: C ⇒
+        logger.trace("Going to ping Peer to join: " + peer)
+
         // For each peer
         // Try to ping the peer; if no pings are performed, join is failed
         rpc(peer).ping().attempt.flatMap[Option[(Node[C], List[Node[C]])]] {

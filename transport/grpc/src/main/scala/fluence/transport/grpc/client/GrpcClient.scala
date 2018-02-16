@@ -57,7 +57,7 @@ class GrpcClient[CL <: HList](
    * @param contact Contact
    */
   private def contactKey(contact: Contact): String =
-    contact.b64seed[Try].value.get.right.get // TODO: make it pure!
+    contact.b64seed
 
   /**
    * Returns cached or brand new ManagedChannel for a contact.
@@ -131,8 +131,10 @@ class GrpcClient[CL <: HList](
    * @tparam T Type of the service
    * @return
    */
-  override def service[T](contact: Contact)(implicit sel: ops.hlist.Selector[CL, T]): T =
+  override def service[T](contact: Contact)(implicit sel: ops.hlist.Selector[CL, T]): T = {
+    logger.trace(s"Going to retrieve service for contact $contact")
     services(contact).select[T]
+  }
 }
 
 object GrpcClient {
@@ -205,9 +207,6 @@ object GrpcClient {
     builder.addHeader(conf.keyHeader, key.b64).addAsyncHeader(
       for {
         c ← contact
-        s ← c.b64seed[Task].value.flatMap {
-          case Right(s)  ⇒ Task.now(s)
-          case Left(err) ⇒ Task.raiseError(err)
-        }
+        s = c.b64seed
       } yield (conf.contactHeader, s))
 }

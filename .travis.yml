@@ -6,6 +6,9 @@ scala:
 jdk:
   - oraclejdk8
 
+env:
+  - SBT_OPTS:-Xmx2G
+
 after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ]; then
     docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD";

@@ -23,6 +23,7 @@ import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.kad.protocol.Key
 import monix.eval.Task
+import cats.syntax.show._
 import monix.execution.atomic.AtomicLong
 import scodec.bits.{ Bases, ByteVector }
 
@@ -30,9 +31,9 @@ import scala.collection.concurrent.TrieMap
 
 /**
  * Node implementation for [[DatasetStorageRpc]].
- * Caches launched [[DatasetStorage]]s, routes client requests for them.
+ * Caches launched [[DatasetNodeStorage]]s, routes client requests for them.
  *
- * @param config Typesafe config to use in [[DatasetStorage]]
+ * @param config Typesafe config to use in [[DatasetNodeStorage]]
  * @param cryptoHasher Used in b-tree
  * @param servesDataset Check whether this node serves particular dataset or not
  */
@@ -41,36 +42,40 @@ class Datasets(
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     servesDataset: Key ⇒ Task[Option[Long]],
     contractUpdated: (Key, Long, ByteVector) ⇒ Task[Unit] // TODO: pass signature as well
-) extends DatasetStorageRpc[Task] {
+) extends DatasetStorageRpc[Task] with slogging.LazyLogging {
 
-  private val datasets = TrieMap.empty[ByteVector, Task[DatasetStorage]]
+  private val datasets = TrieMap.empty[ByteVector, Task[DatasetNodeStorage]]
 
-  private def storage(datasetId: Array[Byte]): Task[DatasetStorage] = {
+  private def storage(datasetId: Array[Byte]): Task[DatasetNodeStorage] = {
     val id = ByteVector(datasetId)
 
-    datasets.getOrElseUpdate(
-      id,
+    val newDataset = for {
+      key ← Key.fromBytes[Task](datasetId)
+      ds ← servesDataset(key).flatMap {
+        case Some(currentVersion) ⇒ // TODO: ensure merkle roots matches
+          val version = AtomicLong(currentVersion)
+          val nextId = AtomicLong(0l)
 
-      for {
-        k ← Key.fromBytes[Task](datasetId)
-        ds ← servesDataset(k).flatMap {
-          case Some(currentVersion) ⇒ // TODO: ensure merkle roots matches
-            val version = AtomicLong(currentVersion)
-            val nextId = AtomicLong(0l)
+          DatasetNodeStorage[Task](
+            id.toBase64(Bases.Alphabets.Base64Url),
+            config,
+            cryptoHasher,
+            () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere
+            mrHash ⇒ contractUpdated(key, version.incrementAndGet(), ByteVector(mrHash)) // TODO: there should be signature
+          )
 
-            DatasetStorage[Task](
-              id.toBase64(Bases.Alphabets.Base64Url),
-              config,
-              cryptoHasher,
-              () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere
-              mrHash ⇒ contractUpdated(k, version.incrementAndGet(), ByteVector(mrHash)) // TODO: there should be signature
-            ).memoizeOnSuccess
+        case None ⇒
+          Task.raiseError(new IllegalArgumentException(s"Dataset(key=${key.show}) is not allocated on the node"))
+      }.onErrorRecoverWith[DatasetNodeStorage] {
+        case e ⇒
+          //todo this block is temporary convenience, will be removed when grpc will be serialize errors
+          val errMsg = s"Can't get DatasetNodeStorage for datasetId=${key.show}"
+          logger.warn(errMsg, e)
+          Task.raiseError(new IllegalStateException(errMsg, e))
+      }
+    } yield ds
 
-          case None ⇒
-            Task.raiseError(new IllegalArgumentException("Dataset is not allocated on the node"))
-        }
-      } yield ds
-    )
+    datasets.getOrElseUpdate(id, newDataset.memoizeOnSuccess)
   }
 
   /**

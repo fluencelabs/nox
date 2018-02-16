@@ -26,6 +26,7 @@ import monix.eval.Task
 
 import scala.language.higherKinds
 
+//todo datasetId - kademlia key
 /**
  * Dataset storage that allows save and retrieve some value by key from remote dataset.
  *
@@ -102,6 +103,9 @@ object ClientDatasetStorage {
    * @param storageRpc  Remotely-accessible interface to all dataset storage operation.
    * @param keyCrypt    Encrypting/decrypting provider for ''key''
    * @param valueCrypt  Encrypting/decrypting provider for ''Value''
+   * @param clientState  Initial client state, includes merkle root for dataset. For new dataset should be ''None''
+   *
+   * @param ord         The ordering to be used to compare keys.
    *
    * @tparam K The type of keys
    * @tparam V The type of stored values

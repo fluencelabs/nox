@@ -55,7 +55,7 @@ class EcdsaJSSpec extends WordSpec with Matchers {
     }
 
     "correctly work with signer and checker" in {
-      val algo = new SignAlgo(EcdsaJS.ecdsa_secp256k1_sha256)
+      val algo = EcdsaJS.signAlgo
       val keys = algo.generateKeyPair().extract
       val signer = algo.signer(keys)
 
@@ -69,7 +69,7 @@ class EcdsaJSSpec extends WordSpec with Matchers {
     }
 
     "throw an errors on invalid data" in {
-      val algo = new SignAlgo(EcdsaJS.ecdsa_secp256k1_sha256)
+      val algo = EcdsaJS.signAlgo
       val keys = algo.generateKeyPair().extract
       val signer = algo.signer(keys)
       val data = rndByteVector(10)

@@ -15,28 +15,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.algorithm
+package fluence.client
 
-import java.security.SecureRandom
-
-import cats.Monad
+import cats.MonadError
 import cats.data.EitherT
+import fluence.crypto.SignAlgo
+import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.Signature
-import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-class DumbSign extends KeyGenerator with SignatureFunctions {
+/**
+ * A class that is an authorized user who can use datasets
+ * @param kp a pair of keys with a public key that will be used as an address for dataset ids and contracts
+ */
+case class AuthorizedClient(kp: KeyPair)
 
-  override def generateKeyPair[F[_] : Monad](seed: Option[Array[Byte]] = None): EitherT[F, CryptoErr, KeyPair] = {
-    val s = seed.getOrElse(new SecureRandom().generateSeed(10))
-    EitherT.pure(KeyPair.fromBytes(s, s))
+object AuthorizedClient {
+  def generateNew[F[_]](signAlgo: SignAlgo)(implicit ME: MonadError[F, Throwable]): EitherT[F, CryptoErr, AuthorizedClient] = {
+    signAlgo.generateKeyPair[F]().map(AuthorizedClient.apply)
   }
-
-  override def sign[F[_] : Monad](keyPair: KeyPair, message: ByteVector): EitherT[F, CryptoErr, Signature] =
-    EitherT.pure(Signature(keyPair.publicKey, message.reverse))
-
-  override def verify[F[_] : Monad](signature: Signature, message: ByteVector): EitherT[F, CryptoErr, Unit] =
-    EitherT.cond[F](signature.sign == message.reverse, (), CryptoErr("Invalid Signature"))
 }

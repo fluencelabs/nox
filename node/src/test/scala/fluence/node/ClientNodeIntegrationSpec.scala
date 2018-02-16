@@ -17,9 +17,10 @@
 
 package fluence.node
 
-import java.net.InetAddress
+import java.io.IOException
+import java.net.{ InetAddress, ServerSocket }
 
-import cats.data.Ior
+import cats.kernel.Monoid
 import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.btree.client.MerkleBTreeClient.ClientState
@@ -35,19 +36,23 @@ import fluence.dataset.client.Contracts.NotFound
 import fluence.dataset.client.{ ClientDatasetStorage, Contracts }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.kad.{ KademliaConf, KademliaMVar }
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.storage.rocksdb.RocksDbStore
+import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.StatusRuntimeException
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import monix.execution.{ CancelableFuture, Scheduler }
+import org.scalactic.source
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scodec.bits.ByteVector
 import shapeless._
+import slogging._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -56,9 +61,9 @@ import scala.reflect.io.Path
 import scala.util.{ Failure, Success }
 
 class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
-  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(3, Seconds), Span(250, Milliseconds))
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(100, Milliseconds))
 
-  private val algo: SignAlgo = new SignAlgo(Ecdsa.ecdsa_secp256k1_sha256)
+  private val algo: SignAlgo = Ecdsa.signAlgo
 
   private implicit val checker: SignatureChecker = algo.checker
 
@@ -76,41 +81,68 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   private val config = ConfigFactory.load()
 
+  private val dummyContact = Contact(
+    InetAddress.getByName("localhost"), 80, KeyPair.Public(ByteVector("k".getBytes)), 0L, "gitHash", "sign"
+  )
+
   "Node" should {
     "get an exception" when {
-      "port already used" ignore {
 
+      "port is already used" in {
+        val server = new ServerSocket(3000)
+        try {
+          // run node on the busy port
+          val port = 3000
+          val contractsCacheStore = RocksDbStore[Task]("node_cache", config).taskValue
+          val composer = new NodeComposer(
+            algo.generateKeyPair[Task]().value.taskValue.right.get,
+            algo,
+            config
+              .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
+              .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
+              .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true)),
+            contractsCacheStore
+          )
+          try {
+            val result = composer.server.taskValue.start().failed.taskValue()
+            result shouldBe a[IOException]
+          } finally {
+            composer.server.foreach(_.shutdown(3.seconds)).futureValue
+            contractsCacheStore.close()
+          }
+        } finally {
+          server.close()
+        }
       }
 
-      // todo finish fail test cases
-
-    }
-
-    "joins the Kademlia network" in {
-
-      runNodes { servers ⇒
-        val firstContact = servers.head._1
-        val secondContact = servers.last._1
-
-        servers.foreach {
-          case (_, s) ⇒
-            s.services.flatMap(_.kademlia.join(Seq(firstContact, secondContact), 8)).taskValue
+      "tries joins the Kademlia network via dead node" in {
+        runNodes { servers ⇒
+          val firstContact = servers.head._1
+          val exception = servers.head._2.services.taskValue.kademlia.join(Seq(firstContact, dummyContact), 8).failed.taskValue
+          exception shouldBe a[RuntimeException]
+          exception should have message "Can't join any node among known peers"
         }
       }
 
     }
 
-    // todo finish success test cases
+    "joins the Kademlia network" in {
+      runNodes { servers ⇒
+        val firstContact = servers.head._1
+        val secondContact = servers.last._1
+        servers.foreach {
+          case (_, s) ⇒ s.services.flatMap(_.kademlia.join(Seq(firstContact, secondContact), 8)).taskValue
+        }
+      }
+    }
 
   }
 
   "Client" should {
     "get an exception" when {
+
       "asks non existing node" in {
         val client = ClientComposer.grpc[Task](GrpcClient.builder)
-        val dummyContact = Contact(
-          InetAddress.getByName("localhost"), 80, KeyPair.Public(ByteVector("k".getBytes)), 0L, "gitHash", Ior.right("sign")
-        )
         val kadClient = client.service[KademliaClient[Task]](dummyContact)
         val result = kadClient.ping().failed.taskValue
 
@@ -118,17 +150,56 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         // todo there should be more describable exception appears like NetworkException or TimeoutException with cause
 
       }
+
       "reads non existing contract" in {
         val client = ClientComposer.grpc[Task](GrpcClient.builder)
-
         runNodes { servers ⇒
-          val firstContact: Contact = servers.head._1
-          val contractsApi = createContractApi(client, servers)
+          val (kademliaClient, contractsApi) = createClientApi(servers.head._1, client)
           val resultContact = contractsApi.find(Key.fromString[Task]("non-exists contract").taskValue).failed.taskValue
 
           resultContact shouldBe NotFound
         }
+      }
 
+      "there are not enough nodes for the contract" in {
+        import fluence.dataset.contract.ContractRead._
+        import fluence.dataset.contract.ContractWrite._
+
+        val client = ClientComposer.grpc[Task](GrpcClient.builder)
+        val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
+        val kadKey = Key.fromKeyPair[Task](keyPair).taskValue
+        val signer = algo.signer(keyPair)
+
+        runNodes { servers ⇒
+          val seedContact: Contact = makeKadNetwork(servers)
+          val (kademliaClient, contractsApi) = createClientApi(seedContact, client)
+          val offer = BasicContract.offer[Task](kadKey, participantsRequired = 999, signer = signer).taskValue
+          offer.checkOfferSeal[Task](algo.checker).taskValue shouldBe true
+
+          val result = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).failed.taskValue
+          result should be equals Contracts.CantFindEnoughNodes(30)
+        }
+      }
+
+      "clients sign is invalid for offer" in {
+        import fluence.dataset.contract.ContractRead._
+        import fluence.dataset.contract.ContractWrite._
+
+        val client = ClientComposer.grpc[Task](GrpcClient.builder)
+        val keyPairValid = algo.generateKeyPair[Task]().value.taskValue.right.get
+        val keyPairBad = algo.generateKeyPair[Task]().value.taskValue.right.get
+        val kadKey = Key.fromKeyPair[Task](keyPairValid).taskValue
+        val signerValid = algo.signer(keyPairValid)
+        val signerBad = algo.signer(keyPairBad)
+
+        runNodes { servers ⇒
+          val seedContact = makeKadNetwork(servers)
+          val (kademliaClient, contractsApi) = createClientApi(seedContact, client)
+          val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signerBad).taskValue
+          offer.checkOfferSeal[Task](algo.checker).taskValue shouldBe false
+          val result = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signerValid)).failed.taskValue
+          result shouldBe Contracts.IncorrectOfferContract
+        }
       }
 
       "reads and writes from dataset without contracting" in {
@@ -150,54 +221,100 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         }
       }
 
-      // todo finish fail test cases
     }
 
     "success allocate a contract" in {
       import fluence.dataset.contract.ContractRead._
       import fluence.dataset.contract.ContractWrite._
 
+      // create client
       val client = ClientComposer.grpc[Task](GrpcClient.builder)
+      // create offer
+      val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
+      val kadKey = Key.fromKeyPair[Task](keyPair).taskValue
+      val signer = algo.signer(keyPair)
+      val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signer).taskValue
+      offer.checkOfferSeal[Task](algo.checker).taskValue shouldBe true
 
       runNodes { servers ⇒
+        val seedContact = makeKadNetwork(servers)
+        val (kademliaClient, contractsApi) = createClientApi(seedContact, client)
 
-        val seedContact: Contact = makeKadNetwork(servers)
+        val acceptedContract = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).taskValue
 
-        val contractsApi = createContractApi(client, servers)
-
-        val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
-        val kadKey = Key.fromKeyPair[Task](keyPair).taskValue
-        val signer = algo.signer(keyPair)
-
-        val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signer).taskValue
-        offer.checkOfferSeal[Task](algo.checker).taskValue shouldBe true
-
-        // TODO: add test with wrong signature or other errors
-        val accepted = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).taskValue
-
-        accepted.participants.size shouldBe 4
-
-        contractsApi.find(kadKey).taskValue shouldBe accepted
-
+        acceptedContract.participants.size shouldBe 4
+        contractsApi.find(kadKey).taskValue shouldBe acceptedContract
       }
     }
 
-    // todo finish success test cases
+    "success write and read from dataset" in {
+      import fluence.dataset.contract.ContractRead._
+      import fluence.dataset.contract.ContractWrite._
+
+      // create client
+      val client = ClientComposer.grpc[Task](GrpcClient.builder)
+      // create offer
+      val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
+      val kadKey = Key.fromKeyPair[Task](keyPair).taskValue
+      val signer = algo.signer(keyPair)
+      val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signer).taskValue
+      offer.checkOfferSeal[Task](algo.checker).taskValue shouldBe true
+
+      runNodes { servers ⇒
+        val seedContact = makeKadNetwork(servers)
+        val (kademliaClient, contractsApi) = createClientApi(seedContact, client)
+        val acceptedContract = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).taskValue
+
+        val (nodeKey, _) = acceptedContract.participants.head
+        // we won't find node address by nodeId, cause service FluenceClient is not ready yet, it'll be later
+        val nodeContact = servers.find{ case (c, _) ⇒ Key.fromPublicKey[Task](c.publicKey).taskValue == nodeKey }.get._1
+
+        val storageRpc = client.service[DatasetStorageRpc[Task]](nodeContact)
+        val datasetStorage = createDatasetStorage(acceptedContract.id.id, storageRpc)
+
+        // read non-existent value
+        val nonExistentKeyResponse = datasetStorage.get("non-existent key").taskValue
+        nonExistentKeyResponse shouldBe None
+        // put new value
+        val putKey1Response = datasetStorage.put("key1", "value1").taskValue
+        putKey1Response shouldBe None
+        // read new value
+        val getKey1Response = datasetStorage.get("key1").taskValue
+        getKey1Response shouldBe Some("value1")
+        // override value
+        val overrideResponse = datasetStorage.put("key1", "value1-NEW").taskValue
+        overrideResponse shouldBe Some("value1")
+        // read updated value
+        val getUpdatedKey1Response = datasetStorage.get("key1").taskValue
+        getUpdatedKey1Response shouldBe Some("value1-NEW")
+      }
+    }
 
   }
 
-  private def createContractApi[T <: HList](client: GrpcClient[T], servers: Map[Contact, NodeComposer])(implicit
+  private def createClientApi[T <: HList](seedContact: Contact, client: GrpcClient[T])(
+    implicit
     s1: ops.hlist.Selector[T, ContractsCacheRpc[Task, BasicContract]],
-    s2: ops.hlist.Selector[T, ContractAllocatorRpc[Task, BasicContract]]
+    s2: ops.hlist.Selector[T, ContractAllocatorRpc[Task, BasicContract]],
+    s3: ops.hlist.Selector[T, KademliaClient[Task]]
   ) = {
-    new Contracts[Task, BasicContract, Contact](
+
+    val conf = KademliaConf(100, 10, 2, 5.seconds)
+    val clKey = Monoid.empty[Key]
+    val check = TransportSecurity.canBeSaved[Task](clKey, acceptLocal = true)
+    val kademliaRpc = client.service[KademliaClient[Task]] _
+    val kademliaClient = KademliaMVar(clKey, Task.never, kademliaRpc, conf, check)
+
+    kademliaClient.join(Seq(seedContact), 2).taskValue()
+
+    (kademliaClient, new Contracts[Task, BasicContract, Contact](
       maxFindRequests = 10,
       maxAllocateRequests = _ ⇒ 20,
       checker = algo.checker,
-      kademlia = servers.head._2.services.map(_.kademlia).taskValue, // TODO IMPORTANT: use client-side Kademlia
+      kademlia = kademliaClient,
       cacheRpc = contact ⇒ client.service[ContractsCacheRpc[Task, BasicContract]](contact),
       allocatorRpc = contact ⇒ client.service[ContractAllocatorRpc[Task, BasicContract]](contact)
-    )
+    ))
   }
 
   private def makeKadNetwork(servers: Map[Contact, NodeComposer]) = {
@@ -239,7 +356,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
           .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
           .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true)),
-        contractsCacheStore
+        contractsCacheStore,
+        TestCryptoHasher
       )
 
       composer.server.flatMap(_.contact).taskValue :: composer :: contractsCacheStore :: HNil
@@ -273,8 +391,16 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     }
   }
 
+  override protected def beforeAll(): Unit = {
+    LoggerConfig.factory = PrintLoggerFactory
+    LoggerConfig.level = LogLevel.WARN
+    super.beforeAll()
+  }
+
   override protected def afterAll(): Unit = {
+    super.afterAll()
     Path(config.getString("fluence.node.storage.rocksDb.dataDir")).deleteRecursively()
+    LoggerConfig.level = LogLevel.OFF
   }
 
 }

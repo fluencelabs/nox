@@ -20,6 +20,7 @@ package fluence.kad
 import java.time.Instant
 
 import cats.data.StateT
+import cats.kernel.Monoid
 import cats.{ MonadError, Parallel }
 import fluence.kad.protocol.{ KademliaRpc, Key, Node }
 import monix.eval.{ MVar, Task }
@@ -34,17 +35,17 @@ object KademliaMVar {
   /**
    * Kademlia service to be launched as a singleton on local node.
    *
-   * @param nodeId    Current node ID
-   * @param contact   Node's contact to advertise
-   * @param client    Getter for RPC calling of another nodes
-   * @param conf      Kademlia conf
-   * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
+   * @param nodeId        Current node ID
+   * @param contact       Node's contact to advertise
+   * @param rpcForContact Getter for RPC calling of another nodes
+   * @param conf          Kademlia conf
+   * @param checkNode     Node could be saved to RoutingTable only if checker returns F[ true ]
    * @tparam C Contact info
    */
   def apply[C](
     nodeId: Key,
     contact: Task[C],
-    client: C ⇒ KademliaRpc[Task, C],
+    rpcForContact: C ⇒ KademliaRpc[Task, C],
     conf: KademliaConf,
     checkNode: Node[C] ⇒ Task[Boolean]
   ): Kademlia[Task, C] = new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
@@ -53,9 +54,31 @@ object KademliaMVar {
     KademliaMVar.bucketOps(conf.maxBucketSize),
     KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
   ) {
-    override def rpc(contact: C): KademliaRpc[Task, C] = client(contact)
+    override def rpc(contact: C): KademliaRpc[Task, C] = rpcForContact(contact)
+
     override def ownContact: Task[Node[C]] = contact.map(c ⇒ Node(nodeId, Instant.now(), c))
   }
+
+  /**
+   * Builder for client-side implementation of KademliaMVar
+   *
+   * @param rpc       Getter for RPC calling of another nodes
+   * @param conf      Kademlia conf
+   * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
+   * @tparam C Contact info
+   */
+  def client[C](
+    rpc: C ⇒ KademliaRpc[Task, C],
+    conf: KademliaConf,
+    checkNode: Node[C] ⇒ Task[Boolean]
+  ): Kademlia[Task, C] =
+    apply[C](
+      Monoid.empty[Key],
+      Task.raiseError(new IllegalStateException("Client may not have a Contact")),
+      rpc,
+      conf,
+      checkNode
+    )
 
   /**
    * Performs atomic update on a MVar, blocking asynchronously if another update is in progress.
@@ -86,7 +109,7 @@ object KademliaMVar {
    * @param maxBucketSize Max number of nodes in each bucket
    * @tparam C Node contacts type
    */
-  def bucketOps[C](maxBucketSize: Int): Bucket.WriteOps[Task, C] =
+  private def bucketOps[C](maxBucketSize: Int): Bucket.WriteOps[Task, C] =
     new Bucket.WriteOps[Task, C] {
       private val writeState = TrieMap.empty[Int, MVar[Bucket[C]]]
       private val readState = TrieMap.empty[Int, Bucket[C]]
@@ -109,7 +132,7 @@ object KademliaMVar {
    * @param maxSiblings Max number of closest siblings to store
    * @tparam C Node contacts type
    */
-  def siblingsOps[C](nodeId: Key, maxSiblings: Int): Siblings.WriteOps[Task, C] =
+  private def siblingsOps[C](nodeId: Key, maxSiblings: Int): Siblings.WriteOps[Task, C] =
     new Siblings.WriteOps[Task, C] {
       private val readState = AtomicAny(Siblings[C](nodeId, maxSiblings))
       private val writeState = MVar(Siblings[C](nodeId, maxSiblings))
