@@ -243,7 +243,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "success write and read from dataset" in { // todo finish, this test case isn't working yet
+    "success write and read from dataset" in {
       import fluence.dataset.contract.ContractRead._
       import fluence.dataset.contract.ContractWrite._
 
