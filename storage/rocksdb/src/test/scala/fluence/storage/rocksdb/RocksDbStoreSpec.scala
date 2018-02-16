@@ -133,6 +133,8 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
         val store = new RocksDbStore("", db, options)
 
         try {
+          val stream = store.traverse()
+
           verify(db, times(0)).getSnapshot
           verify(db, times(0)).newIterator(any[ReadOptions])
 

@@ -1,13 +1,12 @@
-package fluence.node
+package fluence.kad
 
-import fluence.kad.MVarMapCache
 import monix.eval.Task
-import monix.execution.{CancelableFuture, Scheduler}
-import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import monix.execution.Scheduler.Implicits.global
+import monix.execution.{ CancelableFuture, Scheduler }
+import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.{ Matchers, WordSpec }
 
-import scala.util.{Failure, Success}
+import scala.util.{ Failure, Success }
 
 class MVarCacheTest extends WordSpec with Matchers with ScalaFutures {
 

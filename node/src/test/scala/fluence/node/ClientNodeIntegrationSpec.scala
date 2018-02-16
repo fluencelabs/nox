@@ -284,7 +284,6 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     }
 
     "create dataset" in {
-      println("create client")
       val client = ClientComposer.grpc[Task](GrpcClient.builder)
 
       runNodes { servers ⇒
