@@ -48,7 +48,7 @@ class GrpcServer private (
     val port: Int,
     onStart: IO[Unit],
     onShutdown: IO[Unit]
-) extends TransportServer {
+) extends TransportServer with slogging.LazyLogging {
   private val serverRef = new AtomicReference[Server]()
 
   /**
@@ -72,7 +72,7 @@ class GrpcServer private (
 
 }
 
-object GrpcServer {
+object GrpcServer extends slogging.LazyLogging {
 
   /**
    *
@@ -166,6 +166,8 @@ object GrpcServer {
     def build: GrpcServer =
       new GrpcServer(
         server = {
+          logger.info(s"Building GRPC server forPort($localPort)")
+
           val sb = ServerBuilder
             .forPort(localPort)
 

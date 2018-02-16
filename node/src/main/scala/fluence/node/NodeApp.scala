@@ -19,10 +19,10 @@ package fluence.node
 
 import java.io.File
 
+import cats.Traverse
 import cats.effect.IO
-import cats.syntax.flatMap._
 import cats.syntax.show._
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{ Config, ConfigFactory }
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keypair.KeyPair
@@ -32,6 +32,7 @@ import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
+import cats.instances.list._
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -61,6 +62,22 @@ object NodeApp extends App with slogging.LazyLogging {
     keyStorage.getOrCreateKeyPair(algo.generateKeyPair[IO]().value.flatMap(IO.fromEither))
   }
 
+  case class SeedsConfig(
+      seeds: List[String]
+  ) {
+    def contacts: IO[List[Contact]] =
+      Traverse[List].traverse(seeds)(s ⇒
+        Contact.readB64seed[IO](s, algo.checker).value.flatMap(IO.fromEither)
+      )
+  }
+
+  def readSeedsConfig(conf: Config): IO[SeedsConfig] =
+    IO {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      conf.as[SeedsConfig]("fluence.node.join")
+    }
+
   val config = ConfigFactory.load()
 
   val gitHash = config.getString("fluence.gitHash")
@@ -85,6 +102,13 @@ object NodeApp extends App with slogging.LazyLogging {
       server ← NodeGrpc.grpcServer(services, builder, config)
 
       _ ← server.start
+
+      seedConfig ← readSeedsConfig(config)
+      seedContacts ← seedConfig.contacts
+
+      _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO else IO{
+        logger.info("You should add some seed node contacts to join. Take a look on application.conf")
+      }
     } yield {
       sys.addShutdownHook {
         logger.warn("*** shutting down gRPC server since JVM is shutting down")
@@ -96,8 +120,6 @@ object NodeApp extends App with slogging.LazyLogging {
       logger.info("Your contact is: " + contact.show)
 
       logger.info("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
-
-      // TODO: join network
     }
 
   logger.info("Going to run Fluence Server...")
