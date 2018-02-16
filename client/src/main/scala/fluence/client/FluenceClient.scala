@@ -22,7 +22,7 @@ import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.{ Crypt, NoOpCrypt }
-import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
+import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.dataset.BasicContract
 import fluence.dataset.client.{ ClientDatasetStorage, Contracts }
@@ -39,11 +39,12 @@ class FluenceClient(
     kademlia: Kademlia[Task, Contact],
     contracts: Contracts[Task, BasicContract, Contact],
     signAlgo: SignAlgo,
-    storageRpc: Contact ⇒ DatasetStorageRpc[Task]
+    storageRpc: Contact ⇒ DatasetStorageRpc[Task],
+    storageHasher: CryptoHasher[Array[Byte], Array[Byte]]
 )(implicit ME: MonadError[Task, Throwable]) {
 
-  val authorizedCache = TrieMap.empty[KeyPair.Public, AuthorizedClient]
-  val datasetCache = TrieMap.empty[KeyPair.Public, Task[ClientDatasetStorage[String, String]]]
+  private val authorizedCache = TrieMap.empty[KeyPair.Public, AuthorizedClient]
+  private val datasetCache = TrieMap.empty[KeyPair.Public, Task[ClientDatasetStorage[String, String]]]
 
   //use this when we will have multiple datasets on one authorized user
   /*def restoreContracts(pk: KeyPair.Public): Task[Map[Key, BasicContract]] = {
@@ -68,17 +69,6 @@ class FluenceClient(
   }
 
   /**
-   * Generate new key pair for new user and store it in cache
-   * @return new authorized user
-   */
-  def generatePair(): Task[AuthorizedClient] = {
-    for {
-      kp ← signAlgo.generateKeyPair[Task]().value.flatMap(ME.fromEither)
-      ac = loadOrCreateAuthorizedClient(kp)
-    } yield ac
-  }
-
-  /**
    * Create authorized client with existing key pair or restore it from cache
    */
   def loadOrCreateAuthorizedClient(kp: KeyPair): AuthorizedClient = {
@@ -93,7 +83,7 @@ class FluenceClient(
    * @return dataset representation
    */
   private def addNonEncryptedDataset(ac: AuthorizedClient, contact: Contact, clientState: Option[ClientState]): Task[ClientDatasetStorage[String, String]] = {
-    addDataset(ac, storageRpc(contact), NoOpCrypt.forString, NoOpCrypt.forString, clientState, JdkCryptoHasher.Sha256)
+    addDataset(ac, storageRpc(contact), NoOpCrypt.forString, NoOpCrypt.forString, clientState, storageHasher)
   }
 
   /**
@@ -173,7 +163,8 @@ object FluenceClient {
     kademliaClient: Kademlia[Task, Contact],
     contracts: Contracts[Task, BasicContract, Contact],
     storageRpc: Contact ⇒ DatasetStorageRpc[Task],
-    signAlgo: SignAlgo = Ecdsa.signAlgo): FluenceClient = {
-    new FluenceClient(kademliaClient, contracts, signAlgo, storageRpc)
+    signAlgo: SignAlgo = Ecdsa.signAlgo,
+    storageHasher: CryptoHasher[Array[Byte], Array[Byte]]): FluenceClient = {
+    new FluenceClient(kademliaClient, contracts, signAlgo, storageRpc, storageHasher)
   }
 }

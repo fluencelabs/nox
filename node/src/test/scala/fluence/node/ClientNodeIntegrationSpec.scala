@@ -24,11 +24,11 @@ import cats.kernel.Monoid
 import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.btree.client.MerkleBTreeClient.ClientState
-import fluence.client.{ ClientComposer, FluenceClient }
+import fluence.client.ClientComposer
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.{ JdkCryptoHasher, TestCryptoHasher }
+import fluence.crypto.hash.TestCryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
@@ -356,7 +356,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
           .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true)),
         contractsCacheStore,
-        JdkCryptoHasher.Sha256
+        TestCryptoHasher
       )
 
       composer.server.flatMap(_.contact).taskValue :: composer :: contractsCacheStore :: HNil

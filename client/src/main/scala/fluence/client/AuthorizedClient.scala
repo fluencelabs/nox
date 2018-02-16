@@ -17,10 +17,22 @@
 
 package fluence.client
 
+import cats.MonadError
+import cats.data.EitherT
+import fluence.crypto.SignAlgo
+import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.keypair.KeyPair
+
+import scala.language.higherKinds
 
 /**
  * A class that is an authorized user who can use datasets
  * @param kp a pair of keys with a public key that will be used as an address for dataset ids and contracts
  */
 case class AuthorizedClient(kp: KeyPair)
+
+object AuthorizedClient {
+  def generateNew[F[_]](signAlgo: SignAlgo)(implicit ME: MonadError[F, Throwable]): EitherT[F, CryptoErr, AuthorizedClient] = {
+    signAlgo.generateKeyPair[F]().map(AuthorizedClient.apply)
+  }
+}
