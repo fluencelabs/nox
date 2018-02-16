@@ -387,7 +387,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         case Success(_)         ⇒ ()
         case Failure(exception) ⇒ println(Console.RED + s"TASK ERROR: $exception")
       }(s)
-      future.futureValue(PatienceConfig(Span(100, Milliseconds), Span(150, Milliseconds)), implicitly[source.Position])
+      future.futureValue
     }
   }
 
