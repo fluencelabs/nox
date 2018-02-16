@@ -19,7 +19,6 @@ package fluence.transport.grpc.client
 
 import java.util.concurrent.Executor
 
-import cats.instances.try_._
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.TransportClient
 import io.grpc._
@@ -28,7 +27,6 @@ import monix.execution.Scheduler.Implicits.global
 import shapeless._
 
 import scala.collection.concurrent.TrieMap
-import scala.util.Try
 
 /**
  * Network Client caches managed channels to remote contacts, and service accesses to them.
@@ -39,7 +37,8 @@ import scala.util.Try
  */
 class GrpcClient[CL <: HList](
     buildStubs: (ManagedChannel, CallOptions) ⇒ CL,
-    addHeaders: Task[Map[String, String]]) extends TransportClient[CL] with slogging.LazyLogging {
+    addHeaders: Task[Map[String, String]]
+) extends TransportClient[CL] with slogging.LazyLogging {
 
   /**
    * Cache for available channels
