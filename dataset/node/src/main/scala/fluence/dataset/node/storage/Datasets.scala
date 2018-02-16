@@ -24,7 +24,6 @@ import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.kad.protocol.Key
 import monix.eval.Task
 import cats.syntax.show._
-import fluence.kad.MVarMapCache
 import monix.execution.atomic.AtomicLong
 import scodec.bits.{ Bases, ByteVector }
 
@@ -63,7 +62,7 @@ class Datasets(
             cryptoHasher,
             () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere
             mrHash ⇒ contractUpdated(key, version.incrementAndGet(), ByteVector(mrHash)) // TODO: there should be signature
-          ).memoizeOnSuccess
+          )
 
         case None ⇒
           Task.raiseError(new IllegalArgumentException(s"Dataset(key=${key.show}) is not allocated on the node"))
