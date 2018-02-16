@@ -20,7 +20,6 @@ package fluence.node
 import java.io.IOException
 import java.net.{ InetAddress, ServerSocket }
 
-import cats.data.Ior
 import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.btree.client.MerkleBTreeClient.ClientState
@@ -270,12 +269,21 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val storageRpc = client.service[DatasetStorageRpc[Task]](nodeContact)
         val datasetStorage = createDatasetStorage(acceptedContract.id.id, storageRpc)
 
-        //        val nonExistentKeyResponse = datasetStorage.get("non-existent key").failed.taskValue
-        //        nonExistentKeyResponse shouldBe a[StatusRuntimeException]
-        //         todo transmit error from server: there should be DatasetNotFound exception (or something else) instead of StatusRuntimeException
-
-        val putResponse = datasetStorage.put("key1", "value1").taskValue
-        putResponse shouldBe None
+        // read non-existent value
+        val nonExistentKeyResponse = datasetStorage.get("non-existent key").taskValue
+        nonExistentKeyResponse shouldBe None
+        // put new value
+        val putKey1Response = datasetStorage.put("key1", "value1").taskValue
+        putKey1Response shouldBe None
+        // read new value
+        val getKey1Response = datasetStorage.get("key1").taskValue
+        getKey1Response shouldBe Some("value1")
+        // override value
+        val overrideResponse = datasetStorage.put("key1", "value1-NEW").taskValue
+        overrideResponse shouldBe Some("value1")
+        // read updated value
+        val getUpdatedKey1Response = datasetStorage.get("key1").taskValue
+        getUpdatedKey1Response shouldBe Some("value1-NEW")
       }
     }
 
@@ -372,11 +380,11 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     }
   }
 
-   override protected def beforeAll(): Unit = {
-     LoggerConfig.factory = PrintLoggerFactory
-     LoggerConfig.level = LogLevel.TRACE
-     super.beforeAll()
-   }
+  override protected def beforeAll(): Unit = {
+    LoggerConfig.factory = PrintLoggerFactory
+    LoggerConfig.level = LogLevel.WARN
+    super.beforeAll()
+  }
 
   override protected def afterAll(): Unit = {
     super.afterAll()

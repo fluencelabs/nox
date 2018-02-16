@@ -127,7 +127,7 @@ class DatasetStorageServer[F[_]](service: DatasetStorageRpc[F])(implicit F: Mona
     val valueF =
       for {
         did ← runT(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
-        putValue ← runT(getReply(_.isValue, _._value.map(_.toByteArray).getOrElse(Array.emptyByteArray)))
+        putValue ← runT(getReply(_.isValue, _._value.map(_.value.toByteArray).getOrElse(Array.emptyByteArray)))
         ov ← service.put(did, new BTreeRpc.PutCallbacks[F] {
           private val push: PutCallback.Callback ⇒ Task[Ack] =
             cb ⇒ Task.fromFuture(resp.onNext(PutCallback(cb)))

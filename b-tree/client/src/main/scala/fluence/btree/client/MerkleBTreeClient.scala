@@ -208,7 +208,7 @@ class MerkleBTreeClient[K] private (
       // change global client state with new merkle root
       newMerkleRoot.take
         .flatMap { newMRoot ⇒
-          logger.debug(s"changesStored starts for key=$key, newMRoot=$newMRoot")
+          logger.debug(s"changesStored starts for key=$key, newMRoot=${newMRoot.show}")
 
           clientStateMVar.put(ClientState(newMRoot))
         }

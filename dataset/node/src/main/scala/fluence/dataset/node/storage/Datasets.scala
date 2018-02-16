@@ -49,35 +49,33 @@ class Datasets(
   private def storage(datasetId: Array[Byte]): Task[DatasetNodeStorage] = {
     val id = ByteVector(datasetId)
 
-    datasets.getOrElseUpdate(
-      id,
+    val newDataset = for {
+      key ← Key.fromBytes[Task](datasetId)
+      ds ← servesDataset(key).flatMap {
+        case Some(currentVersion) ⇒ // TODO: ensure merkle roots matches
+          val version = AtomicLong(currentVersion)
+          val nextId = AtomicLong(0l)
 
-      for {
-        key ← Key.fromBytes[Task](datasetId)
-        ds ← servesDataset(key).flatMap {
-          case Some(currentVersion) ⇒ // TODO: ensure merkle roots matches
-            val version = AtomicLong(currentVersion)
-            val nextId = AtomicLong(0l)
+          DatasetNodeStorage[Task](
+            id.toBase64(Bases.Alphabets.Base64Url),
+            config,
+            cryptoHasher,
+            () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere
+            mrHash ⇒ contractUpdated(key, version.incrementAndGet(), ByteVector(mrHash)) // TODO: there should be signature
+          )
 
-            DatasetNodeStorage[Task](
-              id.toBase64(Bases.Alphabets.Base64Url),
-              config,
-              cryptoHasher,
-              () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere
-              mrHash ⇒ contractUpdated(key, version.incrementAndGet(), ByteVector(mrHash)) // TODO: there should be signature
-            ).memoizeOnSuccess
+        case None ⇒
+          Task.raiseError(new IllegalArgumentException(s"Dataset(key=${key.show}) is not allocated on the node"))
+      }.onErrorRecoverWith[DatasetNodeStorage] {
+        case e ⇒
+          //todo this block is temporary convenience, will be removed when grpc will be serialize errors
+          val errMsg = s"Can't get DatasetNodeStorage for datasetId=${key.show}"
+          logger.warn(errMsg, e)
+          Task.raiseError(new IllegalStateException(errMsg, e))
+      }
+    } yield ds
 
-          case None ⇒
-            Task.raiseError(new IllegalArgumentException(s"Dataset(key=${key.show}) is not allocated on the node"))
-        }.onErrorRecoverWith[DatasetNodeStorage] {
-          case e ⇒
-            //todo this block is temporary convenience, will be removed when grpc will be serialize errors
-            val errMsg = s"Can't get DatasetNodeStorage for datasetId=${key.show}"
-            logger.warn(errMsg, e)
-            Task.raiseError(new IllegalStateException(errMsg, e))
-        }
-      } yield ds
-    )
+    datasets.getOrElseUpdate(id, newDataset.memoizeOnSuccess)
   }
 
   /**

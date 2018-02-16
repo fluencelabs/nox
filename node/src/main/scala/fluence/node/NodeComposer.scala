@@ -31,15 +31,16 @@ import fluence.dataset.BasicContract
 import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
 import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc
 import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetStorageServer }
+import fluence.dataset.node.contract.ContractRecord
 import fluence.dataset.node.storage.Datasets
 import fluence.dataset.node.{ ContractAllocator, ContractsCache }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
-import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
+import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }
 import fluence.storage.KVStore
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
@@ -130,7 +131,7 @@ class NodeComposer(
         TransportSecurity.canBeSaved[Task](k, acceptLocal = conf.acceptLocal)
       )
 
-      val contractsCacheStore = ContractsCacheStore(contractCacheStore)
+      val contractsCacheStore: KVStore[Task, Key, ContractRecord[BasicContract]] = ContractsCacheStore(contractCacheStore)
 
       override lazy val contractsCache: ContractsCacheRpc[Task, BasicContract] =
         new ContractsCache[Task, BasicContract](
@@ -161,6 +162,7 @@ class NodeComposer(
 
           // Update contract's version and merkle root, if newVersion = currentVersion+1
           (dsId, v, mr) ⇒ {
+            // todo should be moved to separate class and write unit tests
             for {
               c ← contractsCacheStore.get(dsId)
               _ ← if (c.contract.executionState.version == v - 1) Task.unit
