@@ -10,13 +10,13 @@ import fluence.crypto.keypair.KeyPair
 import fluence.dataset.BasicContract
 import fluence.dataset.client.{ ClientDatasetStorage, Contracts }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.kad.{ Kademlia, MVarMapCache }
+import fluence.kad.Kademlia
 import fluence.kad.protocol.{ Contact, Key }
 import monix.eval.Task
 import scodec.bits.ByteVector
 
+import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
-import scala.util.Try
 
 class FluenceClient(
     kademlia: Kademlia[Task, Contact],
@@ -25,8 +25,8 @@ class FluenceClient(
     storageRpc: Contact ⇒ DatasetStorageRpc[Task]
 )(implicit ME: MonadError[Task, Throwable]) {
 
-  val authorizedCache = new MVarMapCache[KeyPair.Public, Option[AuthorizedClient]](None)
-  val datasetCache = new MVarMapCache[KeyPair.Public, Option[ClientDatasetStorage[String, String]]](None)
+  val authorizedCache = TrieMap.empty[KeyPair.Public, AuthorizedClient]
+  val datasetCache = TrieMap.empty[KeyPair.Public, Task[ClientDatasetStorage[String, String]]]
 
   //use this when we will have multiple datasets on one authorized user
   /*def restoreContracts(pk: KeyPair.Public): Task[Map[Key, BasicContract]] = {
@@ -47,7 +47,7 @@ class FluenceClient(
    * Create dataset for authorized client, or restore it, if it is in the contract in kademlia net
    */
   def getOrCreateDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
-    loadDatasetFromCache(ac.kp.publicKey, restoreDataset(ac)).map(_.get)
+    loadDatasetFromCache(ac.kp.publicKey, restoreDataset(ac))
   }
 
   /**
@@ -57,15 +57,15 @@ class FluenceClient(
   def generatePair(): Task[AuthorizedClient] = {
     for {
       kp ← signAlgo.generateKeyPair[Task]().value.flatMap(ME.fromEither)
-      ac ← loadOrCreateAuthorizedClient(kp)
+      ac = loadOrCreateAuthorizedClient(kp)
     } yield ac
   }
 
   /**
    * Create authorized client with existing key pair or restore it from cache
    */
-  def loadOrCreateAuthorizedClient(kp: KeyPair): Task[AuthorizedClient] = {
-    authorizedCache.getOrAdd(kp.publicKey, Some(AuthorizedClient(kp))).map(_.get)
+  def loadOrCreateAuthorizedClient(kp: KeyPair): AuthorizedClient = {
+    authorizedCache.getOrElseUpdate(kp.publicKey, AuthorizedClient(kp))
   }
 
   /**
@@ -105,8 +105,8 @@ class FluenceClient(
     } yield ClientDatasetStorage(datasetId.value.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
   }
 
-  private def loadDatasetFromCache(pk: KeyPair.Public, dataStorage: Task[ClientDatasetStorage[String, String]]): Task[Option[ClientDatasetStorage[String, String]]] = {
-    datasetCache.getOrAddF(pk, dataStorage.map(Option.apply))
+  private def loadDatasetFromCache(pk: KeyPair.Public, dataStorage: Task[ClientDatasetStorage[String, String]]): Task[ClientDatasetStorage[String, String]] = {
+    datasetCache.getOrElseUpdate(pk, dataStorage.memoizeOnSuccess)
   }
 
   /**

@@ -92,7 +92,7 @@ lazy val `client` = project.in(file("client"))
   .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `transport-core`, `kademlia-monix`, `dataset-protocol`)
 
 lazy val `dataset-node` = project.in(file("dataset/node"))
-  .dependsOn(`storage`, `kademlia-monix`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
+  .dependsOn(`storage`, `kademlia-core`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
 `dataset-client` % "compile->test")
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
