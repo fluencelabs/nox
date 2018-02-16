@@ -20,7 +20,6 @@ package fluence.node
 import java.io.IOException
 import java.net.{ InetAddress, ServerSocket }
 
-import cats.data.Ior
 import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.btree.client.MerkleBTreeClient.ClientState
@@ -49,7 +48,7 @@ import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 import scodec.bits.ByteVector
 import shapeless._
-import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
+import slogging._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -59,9 +58,6 @@ import scala.util.{ Failure, Success }
 
 class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(100, Milliseconds))
-
-  LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.ERROR
 
   private val algo: SignAlgo = Ecdsa.signAlgo
 
@@ -247,7 +243,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "success write and read from dataset" ignore { // todo finish, this test case isn't working yet
+    "success write and read from dataset" in {
       import fluence.dataset.contract.ContractRead._
       import fluence.dataset.contract.ContractWrite._
 
@@ -273,12 +269,21 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val storageRpc = client.service[DatasetStorageRpc[Task]](nodeContact)
         val datasetStorage = createDatasetStorage(acceptedContract.id.id, storageRpc)
 
-        //        val nonExistentKeyResponse = datasetStorage.get("non-existent key").failed.taskValue
-        //        nonExistentKeyResponse shouldBe a[StatusRuntimeException]
-        //         todo transmit error from server: there should be DatasetNotFound exception (or something else) instead of StatusRuntimeException
-
-        //        val putResponse = datasetStorage.put("key1", "value1").taskValue
-        //        putResponse shouldBe None
+        // read non-existent value
+        val nonExistentKeyResponse = datasetStorage.get("non-existent key").taskValue
+        nonExistentKeyResponse shouldBe None
+        // put new value
+        val putKey1Response = datasetStorage.put("key1", "value1").taskValue
+        putKey1Response shouldBe None
+        // read new value
+        val getKey1Response = datasetStorage.get("key1").taskValue
+        getKey1Response shouldBe Some("value1")
+        // override value
+        val overrideResponse = datasetStorage.put("key1", "value1-NEW").taskValue
+        overrideResponse shouldBe Some("value1")
+        // read updated value
+        val getUpdatedKey1Response = datasetStorage.get("key1").taskValue
+        getUpdatedKey1Response shouldBe Some("value1-NEW")
       }
     }
 
@@ -286,7 +291,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   }
 
-  private def createClientContractApi[T <: HList](client: GrpcClient[T], servers: Map[Contact, NodeComposer])(implicit
+  private def createClientContractApi[T <: HList](client: GrpcClient[T], servers: Map[Contact, NodeComposer])(
+    implicit
     s1: ops.hlist.Selector[T, ContractsCacheRpc[Task, BasicContract]],
     s2: ops.hlist.Selector[T, ContractAllocatorRpc[Task, BasicContract]]
   ): Contracts[Task, BasicContract, Contact] = {
@@ -374,8 +380,16 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     }
   }
 
+  override protected def beforeAll(): Unit = {
+    LoggerConfig.factory = PrintLoggerFactory
+    LoggerConfig.level = LogLevel.WARN
+    super.beforeAll()
+  }
+
   override protected def afterAll(): Unit = {
+    super.afterAll()
     Path(config.getString("fluence.node.storage.rocksDb.dataDir")).deleteRecursively()
+    LoggerConfig.level = LogLevel.OFF
   }
 
 }
