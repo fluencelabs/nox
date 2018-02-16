@@ -43,7 +43,6 @@ class FluenceClient(
     storageHasher: CryptoHasher[Array[Byte], Array[Byte]]
 )(implicit ME: MonadError[Task, Throwable]) {
 
-  private val authorizedCache = TrieMap.empty[KeyPair.Public, AuthorizedClient]
   private val datasetCache = TrieMap.empty[KeyPair.Public, Task[ClientDatasetStorage[String, String]]]
 
   //use this when we will have multiple datasets on one authorized user
@@ -66,13 +65,6 @@ class FluenceClient(
    */
   def getOrCreateDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
     loadDatasetFromCache(ac.kp.publicKey, restoreDataset(ac))
-  }
-
-  /**
-   * Create authorized client with existing key pair or restore it from cache
-   */
-  def loadOrCreateAuthorizedClient(kp: KeyPair): AuthorizedClient = {
-    authorizedCache.getOrElseUpdate(kp.publicKey, AuthorizedClient(kp))
   }
 
   /**
