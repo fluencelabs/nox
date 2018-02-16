@@ -4,14 +4,14 @@ import cats.MonadError
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.cipher.{Crypt, NoOpCrypt}
-import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher}
+import fluence.crypto.cipher.{ Crypt, NoOpCrypt }
+import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.crypto.keypair.KeyPair
 import fluence.dataset.BasicContract
-import fluence.dataset.client.{ClientDatasetStorage, Contracts}
+import fluence.dataset.client.{ ClientDatasetStorage, Contracts }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.kad.{Kademlia, MVarMapCache}
-import fluence.kad.protocol.{Contact, Key}
+import fluence.kad.{ Kademlia, MVarMapCache }
+import fluence.kad.protocol.{ Contact, Key }
 import monix.eval.Task
 import scodec.bits.ByteVector
 
@@ -44,16 +44,16 @@ class FluenceClient(
   }*/
 
   /**
-    * Create dataset for authorized client, or restore it, if it is in the contract in kademlia net
-    */
+   * Create dataset for authorized client, or restore it, if it is in the contract in kademlia net
+   */
   def getOrCreateDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
     loadDatasetFromCache(ac.kp.publicKey, restoreDataset(ac)).map(_.get)
   }
 
   /**
-    * Generate new key pair for new user and store it in cache
-    * @return new authorized user
-    */
+   * Generate new key pair for new user and store it in cache
+   * @return new authorized user
+   */
   def generatePair(): Task[AuthorizedClient] = {
     for {
       kp ← signAlgo.generateKeyPair[Task]().value.flatMap(ME.fromEither)
@@ -62,46 +62,47 @@ class FluenceClient(
   }
 
   /**
-    * Create authorized client with existing key pair or restore it from cache
-    */
+   * Create authorized client with existing key pair or restore it from cache
+   */
   def loadOrCreateAuthorizedClient(kp: KeyPair): Task[AuthorizedClient] = {
     authorizedCache.getOrAdd(kp.publicKey, Some(AuthorizedClient(kp))).map(_.get)
   }
 
   /**
-    * Create string dataset with noop-encryption
-    * private until multiple datasets per authorized client is supported
-    * @param contact node where we will store dataset
-    * @param clientState merkle root if it is not a new dataset
-    * @return dataset representation
-    */
-  private def addNonEncryptedDataset(ac: AuthorizedClient, contact: Contact, clientState: Option[ClientState]): ClientDatasetStorage[String, String] = {
+   * Create string dataset with noop-encryption
+   * private until multiple datasets per authorized client is supported
+   * @param contact node where we will store dataset
+   * @param clientState merkle root if it is not a new dataset
+   * @return dataset representation
+   */
+  private def addNonEncryptedDataset(ac: AuthorizedClient, contact: Contact, clientState: Option[ClientState]): Task[ClientDatasetStorage[String, String]] = {
     addDataset(ac, storageRpc(contact), NoOpCrypt.forString, NoOpCrypt.forString, clientState, JdkCryptoHasher.Sha256)
   }
 
   /**
-    *
-    * Use string only info now
-    * private until multiple datasets per authorized client is supported
-    * @param storageRpc transport to dataset
-    * @param keyCrypt algorithm to encrypt keys
-    * @param valueCrypt algorithm to encrypt values
-    * @param clientState merkle root of dataset, stored in contract
-    * @param nonce some numbers to iterate through the list of data sets, empty-only for now
-    * @return dataset representation
-    */
-  private def addDataset(ac: AuthorizedClient,
-                  storageRpc: DatasetStorageRpc[Task],
-                  keyCrypt: Crypt[Task, String, Array[Byte]],
-                  valueCrypt: Crypt[Task, String, Array[Byte]],
-                  clientState: Option[ClientState],
-                  hasher: CryptoHasher[Array[Byte], Array[Byte]],
-                  nonce: ByteVector = ByteVector.empty
-                ): ClientDatasetStorage[String, String] = {
+   *
+   * Use string only info now
+   * private until multiple datasets per authorized client is supported
+   * @param storageRpc transport to dataset
+   * @param keyCrypt algorithm to encrypt keys
+   * @param valueCrypt algorithm to encrypt values
+   * @param clientState merkle root of dataset, stored in contract
+   * @param nonce some numbers to iterate through the list of data sets, empty-only for now
+   * @return dataset representation
+   */
+  private def addDataset(
+    ac: AuthorizedClient,
+    storageRpc: DatasetStorageRpc[Task],
+    keyCrypt: Crypt[Task, String, Array[Byte]],
+    valueCrypt: Crypt[Task, String, Array[Byte]],
+    clientState: Option[ClientState],
+    hasher: CryptoHasher[Array[Byte], Array[Byte]],
+    nonce: ByteVector = ByteVector.empty
+  ): Task[ClientDatasetStorage[String, String]] = {
 
-    val datasetId = Key.sha1[Try]((nonce ++ ac.kp.publicKey.value).toArray).get
-
-    ClientDatasetStorage(datasetId.value.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
+    for {
+      datasetId ← Key.sha1((nonce ++ ac.kp.publicKey.value).toArray)
+    } yield ClientDatasetStorage(datasetId.value.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
   }
 
   private def loadDatasetFromCache(pk: KeyPair.Public, dataStorage: Task[ClientDatasetStorage[String, String]]): Task[Option[ClientDatasetStorage[String, String]]] = {
@@ -109,11 +110,11 @@ class FluenceClient(
   }
 
   /**
-    * try to find dataset in cache,
-    * if it is absent, try to find contract in net and restore dataset from contract
-    * if it is no contract, create new contract and dataset
-    *
-    */
+   * try to find dataset in cache,
+   * if it is absent, try to find contract in net and restore dataset from contract
+   * if it is no contract, create new contract and dataset
+   *
+   */
   private def restoreDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
     import fluence.dataset.contract.ContractWrite._
     val signer = signAlgo.signer(ac.kp)
@@ -126,7 +127,7 @@ class FluenceClient(
           for {
             //TODO avoid _.head and get, magic numbers
             nodeOp ← kademlia.findNode(bc.participants.head._1, 3)
-            ds = addNonEncryptedDataset(ac, nodeOp.get.contact, Some(ClientState(bc.executionState.merkleRoot.toArray)))
+            ds ← addNonEncryptedDataset(ac, nodeOp.get.contact, Some(ClientState(bc.executionState.merkleRoot.toArray)))
           } yield ds
         //new datastorage
         case None ⇒
@@ -135,7 +136,7 @@ class FluenceClient(
             offer ← BasicContract.offer(key, participantsRequired = 1, signer = signer)
             accepted ← contracts.allocate(offer, dc ⇒ dc.sealParticipants(signer))
             nodeOp ← kademlia.findNode(accepted.participants.head._1, 10)
-            ds = addNonEncryptedDataset(ac, nodeOp.get.contact, None)
+            ds ← addNonEncryptedDataset(ac, nodeOp.get.contact, None)
           } yield ds
       }
     } yield dataStorage
@@ -144,13 +145,13 @@ class FluenceClient(
 
 object FluenceClient {
   /**
-    * Client for multiple authorized users (with different key pairs).
-    * Only one dataset for one user is supported at this moment.
-    * @param kademliaClient client for kademlia network, could be shared, it is necessary to join with seed node before
-    * @param contracts client for work with contracts, could be shared
-    * @param storageRpc rpc for dataset communication
-    * @param signAlgo main algorithm for key verification
-    */
+   * Client for multiple authorized users (with different key pairs).
+   * Only one dataset for one user is supported at this moment.
+   * @param kademliaClient client for kademlia network, could be shared, it is necessary to join with seed node before
+   * @param contracts client for work with contracts, could be shared
+   * @param storageRpc rpc for dataset communication
+   * @param signAlgo main algorithm for key verification
+   */
   def apply(
     kademliaClient: Kademlia[Task, Contact],
     contracts: Contracts[Task, BasicContract, Contact],
