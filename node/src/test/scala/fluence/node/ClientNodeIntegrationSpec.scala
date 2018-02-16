@@ -294,7 +294,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         val (kademliaClient, contractApi) = createClientApi(seedContact, client)
 
-        val flClient = FluenceClient.apply(kademliaClient, contractApi, algo, storageRpc)
+        val flClient = FluenceClient.apply(kademliaClient, contractApi, storageRpc)
 
         val ac = flClient.generatePair().taskValue()
 
