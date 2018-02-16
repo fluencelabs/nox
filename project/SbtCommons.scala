@@ -35,6 +35,7 @@ object SbtCommons {
   )
 
   val Cats1V = "1.0.1"
+  val CatsEffectV = "0.8"
   val ScodecBitsV = "1.1.5"
   val ScodecCoreV = "1.10.3"
   val RocksDbV = "5.9.2"
@@ -51,6 +52,7 @@ object SbtCommons {
   val sloggingSlf4j = "biz.enef" %% "slogging-slf4j" % SloggingV
 
   val cats1 = "org.typelevel" %% "cats-core" % Cats1V
+  val catsEffect = "org.typelevel" %% "cats-effect" % CatsEffectV
   val monix3 = "io.monix" %% "monix" % "3.0.0-M3"
   val shapeless = "com.chuusai" %% "shapeless" % "2.3.+"
   val monocle = "com.github.julien-truffaut" %% "monocle-core" % MonocleV

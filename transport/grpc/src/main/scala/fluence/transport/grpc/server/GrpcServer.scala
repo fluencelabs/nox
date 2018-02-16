@@ -19,72 +19,86 @@ package fluence.transport.grpc.server
 
 import java.net.InetAddress
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
 
-import cats.MonadError
-import cats.data.Ior
+import cats._
+import cats.effect.IO
 import cats.instances.try_._
-import fluence.crypto.signature.{ SignatureChecker, Signer }
+import fluence.crypto.signature.SignatureChecker
 import fluence.kad.protocol
 import fluence.kad.protocol.{ Contact, Key, Node }
-import fluence.transport.TransportServer
 import fluence.transport.grpc.client.GrpcClientConf
+import fluence.transport.{ TransportServer, UPnP }
 import io.grpc._
-import monix.eval.{ Coeval, Task }
-import monix.execution.Scheduler.Implicits.global
 
-import scala.concurrent.Await
-import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /**
  * Server wrapper
- * @param server grpc Server instance
- * @param contact Self-discovered contact of this server
- * @param onShutdown Callback to launch on shutdown
+ *
+ * @param server     grpc Server instance
+ * @param address    Most accessible address for the server (may be local)
+ * @param port       Most accessible port for the server (may be local)
+ * @param onStart    Callback to launch before start; should be used to grab UPnP ports etc.
+ * @param onShutdown Callback to launch on shutdown; should be used to release UPnP ports etc.
  */
 class GrpcServer private (
-    server: Server,
-    val contact: Task[Contact],
-    onShutdown: Task[Unit]
+    server: ⇒ Server,
+    val address: InetAddress,
+    val port: Int,
+    onStart: IO[Unit],
+    onShutdown: IO[Unit]
 ) extends TransportServer {
+  private val serverRef = new AtomicReference[Server]()
+
   /**
    * Launch server, grab ports, or fail
    */
-  def start(): Task[Unit] =
-    Task(server.start())
+  val start: IO[Unit] =
+    for {
+      _ ← onStart
+      s ← IO(server.start())
+    } yield serverRef.set(s)
 
   /**
    * Shut the server down, release ports
    */
-  def shutdown(timeout: FiniteDuration): Unit = {
-    server.shutdown()
-    Await.ready(onShutdown.runAsync, timeout)
-    server.awaitTermination()
-  }
+  val shutdown: IO[Unit] =
+    for {
+      _ ← IO(serverRef.get().shutdown())
+      _ ← onShutdown
+      _ ← IO(serverRef.get().awaitTermination())
+    } yield serverRef.set(null)
 
 }
 
 object GrpcServer {
 
   /**
-   * Builder for grpc network server
-   * @param contact Self-discovered contact for current node
-   * @param shutdown What to call back on shutdown
-   * @param localPort Local port to launch server on
-   * @param services GRPC services definitions
+   *
+   * @param onShutdown   Callback to be launched before server shut down
+   * @param onStart      Callback to be launched before server starts
+   * @param localPort    Local port to bind server to
+   * @param address      Most accessible address
+   * @param port         Most accessible port
+   * @param services     List of services to register with the server
+   * @param interceptors List of call interceptors to register with the server
    */
-  class Builder(
-      val contact: Task[Contact],
-      shutdown: Task[Unit],
+  case class Builder(
+      onShutdown: IO[Unit],
+      onStart: IO[Unit],
       localPort: Int,
+      address: InetAddress,
+      port: Int,
       services: List[ServerServiceDefinition],
       interceptors: List[ServerInterceptor]) {
     /**
      * Add new grpc service to the server
+     *
      * @param service Service definition
      */
     def add(service: ServerServiceDefinition): Builder =
-      new Builder(contact, shutdown, localPort, service :: services, interceptors)
+      copy(services = service :: services)
 
     /**
      * Registers an interceptor.
@@ -94,17 +108,18 @@ object GrpcServer {
      * @param interceptor Interceptor for incoming requests and messages
      */
     private def addInterceptor(interceptor: ServerInterceptor): Builder =
-      new Builder(contact, shutdown, localPort, services, interceptor :: interceptors)
+      copy(interceptors = interceptor :: interceptors)
 
     private def readStringHeader(name: String, headers: Metadata): Option[String] =
       Option(headers.get(Metadata.Key.of(name, Metadata.ASCII_STRING_MARSHALLER)))
 
     /**
      * Register a callback to be called each time a node is active
-     * @param cb To be called on ready and on each message
+     *
+     * @param cb         To be called on ready and on each message
      * @param clientConf Conf to get header names from
      */
-    def onNodeActivity(cb: Node[Contact] ⇒ Task[Any], clientConf: GrpcClientConf, checker: SignatureChecker): Builder =
+    def onNodeActivity(cb: Node[Contact] ⇒ IO[Any], clientConf: GrpcClientConf, checker: SignatureChecker): Builder =
       addInterceptor(new ServerInterceptor {
         override def interceptCall[ReqT, RespT](call: ServerCall[ReqT, RespT], headers: Metadata, next: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
           val remoteKey =
@@ -115,7 +130,7 @@ object GrpcServer {
           // TODO: check that contact IP matches request source, if it's possible
           val remoteContact =
             readStringHeader(clientConf.contactHeader, headers).flatMap {
-              b64contact ⇒ Contact.readB64seed[Coeval](b64contact, checker).value.value.toOption
+              b64contact ⇒ Contact.readB64seed[Id](b64contact, checker).value.toOption
             }
 
           def remoteNode: Option[Node[Contact]] =
@@ -124,7 +139,7 @@ object GrpcServer {
               c ← remoteContact
             } yield protocol.Node(k, Instant.now(), c)
 
-          def runCb(): Unit = remoteNode.map(cb).foreach(_.runAsync)
+          def runCb(): Unit = remoteNode.map(cb).foreach(_.unsafeRunAsync(_ ⇒ ()))
 
           val listener = next.startCall(call, headers)
 
@@ -145,11 +160,12 @@ object GrpcServer {
 
     /**
      * Build grpc server with all the defined services
+     *
      * @return
      */
     def build: GrpcServer =
       new GrpcServer(
-        {
+        server = {
           val sb = ServerBuilder
             .forPort(localPort)
 
@@ -159,33 +175,43 @@ object GrpcServer {
 
           sb.build()
         },
-        contact,
-        shutdown
+        address = address,
+        port = port,
+        onStart = onStart,
+        onShutdown = onShutdown
       )
   }
 
   /**
    * Builder for config object
+   *
    * @param conf Server config object
+   * @param uPnP Lazy uPnP instance
    */
-  def builder(conf: GrpcServerConf, signer: Signer, uPnP: ⇒ UPnP = new UPnP()): Builder =
-    {
-      val contact = Contact.buildOwn[Task](
-        InetAddress.getLocalHost, conf.localPort, conf.protocolVersion, conf.gitHash, signer
-      ).value.flatMap(et ⇒ MonadError[Task, Throwable].fromEither(et))
+  def builder(conf: GrpcServerConf, uPnP: ⇒ UPnP): Builder =
+    conf.externalPort match {
+      case Some(externalPort) ⇒
+        val upnp = uPnP
 
-      conf.externalPort match {
-        case Some(externalPort) ⇒
-          val upnp = uPnP
+        Builder(
+          onStart = upnp.addPort(externalPort, conf.localPort),
+          onShutdown = upnp.deletePort(externalPort),
+          address = upnp.externalAddress,
+          port = externalPort,
+          localPort = conf.localPort,
+          services = Nil,
+          interceptors = Nil
+        )
 
-          // If upnp added port correctly, contact is modified
-          new Builder(contact.flatMap(c ⇒ upnp.addPort(externalPort, c)).memoizeOnSuccess.onErrorRecoverWith{
-            case _ ⇒ contact
-          }, upnp.deletePort(externalPort).memoizeOnSuccess, conf.localPort, Nil, Nil)
-
-        case None ⇒
-          new Builder(contact, Task.unit, conf.localPort, Nil, Nil)
-      }
+      case None ⇒
+        Builder(
+          onStart = IO.unit,
+          onShutdown = IO.unit,
+          address = InetAddress.getLocalHost,
+          port = conf.localPort,
+          localPort = conf.localPort,
+          services = Nil,
+          interceptors = Nil
+        )
     }
-
 }

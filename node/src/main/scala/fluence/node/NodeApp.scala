@@ -20,12 +20,16 @@ package fluence.node
 import java.io.File
 
 import cats.MonadError
+import cats.effect.IO
 import cats.syntax.flatMap._
 import cats.syntax.show._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.{ FileKeyStorage, SignAlgo }
+import fluence.dataset.BasicContract
+import fluence.kad.Kademlia
+import fluence.kad.protocol.Contact
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
@@ -68,24 +72,20 @@ object NodeApp extends App with slogging.LazyLogging {
   logger.info(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
 
   val serverKad = for {
-    kp ← getKeyPair[Task](config.getString("fluence.keyPath"))
-    contractCache ← RocksDbStore[Task](config.getString("fluence.contract.cacheDirName"), config)
-    nodeComposer = new NodeComposer(kp, algo, config, contractCache)
-    server ← nodeComposer.server
-    _ ← server.start()
-    contact ← server.contact
+    kp ← prepareKeyPair().to[Task]
+
   } yield {
 
     sys.addShutdownHook {
       logger.warn("*** shutting down gRPC server since JVM is shutting down")
-      server.shutdown(5.seconds)
+      //server.shutdown(5.seconds)
       logger.warn("*** server shut down")
     }
 
     logger.info("Server launched")
-    logger.info("Your contact is: " + contact.show)
+    //logger.info("Your contact is: " + contact.show)
 
-    logger.info("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
+    //logger.info("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
   }
 
   logger.info("Going to run Fluence Server...")
@@ -100,22 +100,33 @@ object NodeApp extends App with slogging.LazyLogging {
     .toIO
     .unsafeRunSync()
 
-  //Launch the node
-  //
-  //  Node prints "Fluence Node starting"
-  //
+  def prepareKeyPair(): IO[KeyPair] =
+    getKeyPair[IO](config.getString("fluence.keyPath"))
   //  Read keypair, print "Loaded keypair, PK = ..."
-  //
   //  Or generate keypair, print
-  //
-  //  Generate kademlia ID, print "Node ID = ..."
-  //
+
+  def prepareServices(keyPair: KeyPair): IO[NodeServices[Task, BasicContract, Contact]] =
+    for {
+      contractCache ← RocksDbStore[IO](config.getString("fluence.contract.cacheDirName"), config)
+      nodeComposer = new NodeComposer(keyPair, algo, config, contractCache)
+      services ← nodeComposer.services
+    } yield services
+
+  def prepareContact() = ???
+
+  def launchGrpcServer(services: NodeServices[Task, BasicContract, Contact]): IO[Kademlia[Task, Contact]] =
+    for {
+      _ ← IO.unit
+      //server ← nodeComposer.server.toIO
+
+      //_ ← //server.start().toIO
+    } yield services.kademlia
   //  Print "Launching GRPC server on port XXX..."
-  //
   //  Print "Server launched"
-  //
   //  Print "Your contact is ... you may use it for other nodes or clients to join yours one"
-  //
+
+  def joinNetwork(kademlia: Kademlia[Task, Contact]): IO[Unit] = ???
+  // read the config
   //  Print "No seed nodes. Make others join you! Or correct config value ..."
   //
   //  Or print "Found N seeds, joining..."

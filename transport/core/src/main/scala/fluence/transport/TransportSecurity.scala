@@ -28,14 +28,15 @@ object TransportSecurity {
 
   /**
    * Checks if a node can be saved to RoutingTable.
-   * TODO: crypto checks
    *
+   * @param self This node's Key
    * @param acceptLocal If true, local addresses will be accepted; should be used only in testing
    * @tparam F Effect
    * @return Function to be called for each node prior to updating RoutingTable; returns F[true] if checks passed
    */
   def canBeSaved[F[_] : Applicative](self: Key, acceptLocal: Boolean): Node[Contact] ⇒ F[Boolean] =
     node ⇒ {
+      // TODO: crypto checks for contact consistency: kademlia key should match public key
       if (node.key === self) false.pure[F]
       else (acceptLocal || !node.contact.isLocal).pure[F]
     }

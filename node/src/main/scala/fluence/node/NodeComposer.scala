@@ -20,7 +20,8 @@ package fluence.node
 import java.time.Instant
 import java.util.concurrent.Executors
 
-import cats.{ ApplicativeError, ~> }
+import cats.effect.IO
+import cats.{ ApplicativeError, MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
 import fluence.crypto.SignAlgo
@@ -42,7 +43,7 @@ import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }
 import fluence.storage.KVStore
-import fluence.transport.TransportSecurity
+import fluence.transport.{ TransportSecurity, UPnP }
 import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.eval.Task
@@ -83,14 +84,16 @@ class NodeComposer(
 
   private val signer = algo.signer(keyPair)
 
+  private lazy val upnp = UPnP().unsafeRunSync()
+
   private lazy val serverBuilder =
-    grpcConf.map(GrpcServer.builder(_, signer)).memoizeOnSuccess
+    grpcConf.map(GrpcServer.builder(_, upnp))
 
   private lazy val grpcConf =
-    GrpcServerConf.read[Task](config).memoizeOnSuccess
+    GrpcServerConf.read[IO](config)
 
   private lazy val grpcClientConf =
-    GrpcClientConf.read[Task](config).memoizeOnSuccess
+    GrpcClientConf.read[IO](config)
 
   private def readKademliaConfig[F[_]](config: Config, path: String = "fluence.network.kademlia")(implicit F: ApplicativeError[F, Throwable]): F[KademliaConf] =
     F.catchNonFatal{
@@ -99,14 +102,28 @@ class NodeComposer(
       config.as[KademliaConf](path)
     }
 
-  lazy val services: Task[NodeServices[Task, BasicContract, Contact]] =
-    (for {
-      k ← Key.fromKeyPair[Task](keyPair)
+  lazy val contact: IO[Contact] =
+    for {
+      serverBuilder ← serverBuilder
+      c ← Contact.buildOwn[IO](
+        serverBuilder.address,
+        serverBuilder.port,
+        0l, // todo protocol version
+        "", // todo git hash
+        signer
+      ).value.flatMap(MonadError[IO, Throwable].fromEither)
+    } yield c
+
+  lazy val services: IO[NodeServices[Task, BasicContract, Contact]] =
+    for {
+      k ← Key.fromKeyPair[IO](keyPair)
       conf ← grpcConf
 
       serverBuilder ← serverBuilder
 
-      kadConf ← readKademliaConfig[Task](config)
+      c ← contact
+
+      kadConf ← readKademliaConfig[IO](config)
 
       clientConf ← grpcClientConf
 
@@ -116,7 +133,7 @@ class NodeComposer(
 
       private val client = {
         import monix.execution.Scheduler.Implicits.global // required for implicit Effect[Task]
-        ClientComposer.grpc[Task](GrpcClient.builder(k, serverBuilder.contact, clientConf))
+        ClientComposer.grpc[Task](GrpcClient.builder(k, IO.pure(c.b64seed), clientConf))
       }
 
       override val key: Key = k
@@ -125,7 +142,7 @@ class NodeComposer(
 
       override lazy val kademlia: Kademlia[Task, Contact] = KademliaMVar(
         k,
-        serverBuilder.contact,
+        Task.fromIO(contact).memoize,
         client.service[KademliaClient[Task]],
         kadConf,
         TransportSecurity.canBeSaved[Task](k, acceptLocal = conf.acceptLocal)
@@ -182,27 +199,25 @@ class NodeComposer(
 
           }
         )
-    }).memoizeOnSuccess
+    }
 
   private val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
 
   // Add server (with kademlia inside), build
-  lazy val server: Task[GrpcServer] =
-    (
-      for {
-        serverBuilder ← serverBuilder
-        ns ← services
-        clientConf ← grpcClientConf
-      } yield {
-        import ns._
-        serverBuilder
-          .add(KademliaGrpc.bindService(new KademliaServer[Task](kademlia.handleRPC), ec))
-          .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsCache), ec))
-          .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractAllocator), ec))
-          .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), ec))
-          .onNodeActivity(kademlia.update _, clientConf, checker)
-          .build
-      }
-    ).memoizeOnSuccess
+  lazy val server: IO[GrpcServer] =
+    for {
+      serverBuilder ← serverBuilder
+      ns ← services
+      clientConf ← grpcClientConf
+    } yield {
+      import ns._
+      serverBuilder
+        .add(KademliaGrpc.bindService(new KademliaServer[Task](kademlia.handleRPC), ec))
+        .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsCache), ec))
+        .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractAllocator), ec))
+        .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), ec))
+        .onNodeActivity(kademlia.update(_).toIO(Scheduler.global), clientConf, checker)
+        .build
+    }
 
 }
