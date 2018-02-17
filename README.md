@@ -19,7 +19,8 @@ On a basic level Fluence is a decentralized database that utilizes p2p network o
 
 ## Fluence Papers
 
-You can find a more thorough information in our [Technical whitepaper](https://drive.google.com/file/d/0B07gyODhPstQNzFoZHBoVFdyMzA/view). The commercial feasibility, market, and use cases are described in [Business paper](https://drive.google.com/file/d/0B07gyODhPstQWjVLMlkyVjRZVE0/view) here.
+You can find a more thorough information in our [Technical whitepaper](https://fluence.ai/paper).  
+The commercial feasibility, market, and use cases are described in [Business paper](https://fluence.ai/primer) here.
 
 ## Community
 
