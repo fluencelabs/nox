@@ -62,7 +62,7 @@ import scala.reflect.io.Path
 import scala.util.{ Failure, Success }
 
 class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
-  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(500, Milliseconds), Span(50, Milliseconds))
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(2, Milliseconds), Span(250, Milliseconds))
 
   private val algo: SignAlgo = Ecdsa.signAlgo
   private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
