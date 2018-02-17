@@ -17,7 +17,7 @@
 
 package fluence.client
 
-import cats.MonadError
+import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.CryptoErr
@@ -32,7 +32,7 @@ import scala.language.higherKinds
 case class AuthorizedClient(kp: KeyPair)
 
 object AuthorizedClient {
-  def generateNew[F[_]](signAlgo: SignAlgo)(implicit ME: MonadError[F, Throwable]): EitherT[F, CryptoErr, AuthorizedClient] = {
+  def generateNew[F[_] : Monad](signAlgo: SignAlgo): EitherT[F, CryptoErr, AuthorizedClient] = {
     signAlgo.generateKeyPair[F]().map(AuthorizedClient.apply)
   }
 }
