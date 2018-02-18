@@ -48,6 +48,7 @@ import io.grpc.StatusRuntimeException
 import monix.eval.{ MVar, Task }
 import monix.execution.Scheduler.Implicits.global
 import monix.execution.{ CancelableFuture, Scheduler }
+import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
@@ -106,7 +107,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
             contractsCacheStore
           )
           try {
-            val result = composer.server.taskValue.start().failed.taskValue()
+            val result = composer.server.taskValue.start().failed.taskValue
             result shouldBe a[IOException]
           } finally {
             composer.server.foreach(_.shutdown(3.seconds)).futureValue
@@ -265,7 +266,6 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     }
 
     "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
-      implicit val patience = PatienceConfig(timeout =  Span(5, Seconds), interval = Span(500, Milliseconds))
 
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue
@@ -426,7 +426,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     val kademliaRpc = client.service[KademliaClient[Task]] _
     val kademliaClient = KademliaMVar.client(kademliaRpc, conf, check)
 
-    kademliaClient.join(Seq(seedContact), 2).taskValue()
+    kademliaClient.join(Seq(seedContact), 2).taskValue
 
     (kademliaClient, new Contracts[Task, BasicContract, Contact](
       maxFindRequests = 10,
@@ -508,13 +508,14 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   }
 
   private implicit class WaitTask[T](task: Task[T]) {
-    def taskValue()(implicit s: Scheduler): T = {
+    def taskValue(implicit s: Scheduler): T = taskValue(None)(s)
+    def taskValue(timeoutOp: Option[Timeout] = None)(implicit s: Scheduler): T = {
       val future: CancelableFuture[T] = task.runAsync(s)
       future.onComplete {
         case Success(_)         ⇒ ()
         case Failure(exception) ⇒ println(Console.RED + s"TASK ERROR: $exception")
       }(s)
-      future.futureValue
+      future.futureValue(timeoutOp.getOrElse(timeout(implicitly[PatienceConfig].timeout)))
     }
   }
 

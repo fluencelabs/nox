@@ -122,7 +122,6 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   "traverse" should {
     "take snapshot" when {
       "client starts reading" in {
-        implicit val patience: PatienceConfig = PatienceConfig(timeout =  Span(3, Seconds), interval = Span(500, Milliseconds))
 
         val db = mock[RocksDB]
         val options = mock[Options]
@@ -138,7 +137,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
           verify(db, times(0)).getSnapshot
           verify(db, times(0)).newIterator(any[ReadOptions])
 
-          stream.foreach(_ ⇒ ()).futureValue
+          stream.foreach(_ ⇒ ()).futureValue(timeout(Span(5, Seconds)))
 
           verify(db, times(1)).getSnapshot
           verify(db, times(1)).newIterator(ArgumentMatchers.any[ReadOptions])
