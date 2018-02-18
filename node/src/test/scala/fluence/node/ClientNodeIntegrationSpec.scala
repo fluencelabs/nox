@@ -62,7 +62,7 @@ import scala.reflect.io.Path
 import scala.util.{ Failure, Success }
 
 class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
-  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(2, Seconds), Span(250, Milliseconds))
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
 
   private val algo: SignAlgo = Ecdsa.signAlgo
   private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
@@ -265,6 +265,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     }
 
     "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
+      implicit val patience = PatienceConfig(timeout =  Span(3, Seconds), interval = Span(500, Milliseconds))
+
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue
         val seedContact = makeKadNetwork(servers)
