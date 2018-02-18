@@ -265,7 +265,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     }
 
     "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
-      implicit val patience = PatienceConfig(timeout =  Span(3, Seconds), interval = Span(500, Milliseconds))
+      implicit val patience = PatienceConfig(timeout =  Span(5, Seconds), interval = Span(500, Milliseconds))
 
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue

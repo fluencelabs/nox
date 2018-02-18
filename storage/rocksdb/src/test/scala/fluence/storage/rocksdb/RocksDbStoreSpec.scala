@@ -34,8 +34,7 @@ import scala.reflect.io.Path
 import scala.util.Try
 
 class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockitoSugar with ScalaFutures {
-
-  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(2, Seconds), Span(25, Milliseconds))
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
   implicit val scheduler: Scheduler = Scheduler(ExecutionModel.AlwaysAsyncExecution)
 
   private val conf = RocksDbConf.read[Try](ConfigFactory.load()).get
@@ -123,6 +122,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   "traverse" should {
     "take snapshot" when {
       "client starts reading" in {
+        implicit val patience: PatienceConfig = PatienceConfig(timeout =  Span(3, Seconds), interval = Span(500, Milliseconds))
 
         val db = mock[RocksDB]
         val options = mock[Options]
