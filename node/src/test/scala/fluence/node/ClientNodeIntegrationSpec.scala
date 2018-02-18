@@ -62,7 +62,7 @@ import scala.reflect.io.Path
 import scala.util.{ Failure, Success }
 
 class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
-  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(2, Milliseconds), Span(250, Milliseconds))
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(2, Seconds), Span(250, Milliseconds))
 
   private val algo: SignAlgo = Ecdsa.signAlgo
   private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
@@ -91,10 +91,10 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     "get an exception" when {
 
       "port is already used" in {
-        val server = new ServerSocket(3000)
+        val port = 6111
+        val server = new ServerSocket(port)
         try {
           // run node on the busy port
-          val port = 3000
           val contractsCacheStore = RocksDbStore[Task]("node_cache", config).taskValue
           val composer = new NodeComposer(
             algo.generateKeyPair[Task]().value.taskValue.right.get,
@@ -265,9 +265,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     }
 
     "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
-
       runNodes { servers ⇒
-
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue
         val seedContact = makeKadNetwork(servers)
         val fluence1 = createFluenceClient(seedContact)
@@ -314,7 +312,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         // shutdown the executor-node and wait when it's up
         val nodeExecutorContact = nodeCaptor.take.taskValue
-        shutdownNodeAndRestart(servers(nodeExecutorContact)) { contact ⇒
+        shutdownNodeAndRestart(servers(nodeExecutorContact)) { _ ⇒
 
           val datasetStorageReconnected = fluence.getOrCreateDataset(client).taskValue
 
@@ -343,7 +341,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
     // start node
     val port = contact.port
-    val contractsCacheStore = RocksDbStore[Task]("node_cache_" + (contact.port - 3100), config).taskValue
+    val contractsCacheStore = RocksDbStore[Task]("node_cache_" + (contact.port - 6112), config).taskValue
     val composer = new NodeComposer(
       algo.generateKeyPair[Task]().value.taskValue.right.get,
       algo,
@@ -468,7 +466,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private def runNodes(action: Map[Contact, NodeComposer] ⇒ Unit, numberOfNodes: Int = 20): Unit = {
 
     val servers = (0 to numberOfNodes).map { n ⇒
-      val port = 3100 + n
+      val port = 6112 + n
       val contractsCacheStore = RocksDbStore[Task]("node_cache_" + n, config).taskValue
       val composer = new NodeComposer(
         algo.generateKeyPair[Task]().value.taskValue.right.get,
