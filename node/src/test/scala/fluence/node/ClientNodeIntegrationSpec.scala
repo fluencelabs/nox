@@ -61,7 +61,7 @@ import scala.reflect.io.Path
 import scala.util.{ Failure, Success, Try }
 
 class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
-  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(3, Seconds), Span(250, Milliseconds))
 
   private val algo: SignAlgo = Ecdsa.signAlgo
   private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
@@ -511,7 +511,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   override protected def beforeAll(): Unit = {
     LoggerConfig.factory = PrintLoggerFactory
-    LoggerConfig.level = LogLevel.DEBUG
+    LoggerConfig.level = LogLevel.WARN
     super.beforeAll()
   }
 
