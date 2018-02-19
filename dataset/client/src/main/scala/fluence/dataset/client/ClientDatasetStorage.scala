@@ -85,7 +85,7 @@ class ClientDatasetStorage[K, V](
       resp ← decryptOption(serverResponse)
     } yield resp
 
-  def decryptOption(response: Option[Array[Byte]]): Task[Option[V]] =
+  private def decryptOption(response: Option[Array[Byte]]): Task[Option[V]] =
     response match {
       case Some(r) ⇒ valueCrypt.decrypt(r).map(Option.apply)
       case None    ⇒ Task(None)

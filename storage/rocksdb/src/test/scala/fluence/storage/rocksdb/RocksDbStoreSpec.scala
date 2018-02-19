@@ -34,8 +34,7 @@ import scala.reflect.io.Path
 import scala.util.Try
 
 class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockitoSugar with ScalaFutures {
-
-  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(2, Seconds), Span(25, Milliseconds))
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
   implicit val scheduler: Scheduler = Scheduler(ExecutionModel.AlwaysAsyncExecution)
 
   private val conf = RocksDbConf.read[Try](ConfigFactory.load()).get
@@ -45,7 +44,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
     "performs all operations correctly" in {
       import RocksDbStore._
 
-      runRocksDb("test1") { store ⇒
+      runRocksDb("RocksDbStoreSpec.test1") { store ⇒
 
         val key1 = "key1".getBytes()
         val val1 = "val1".getBytes()
@@ -102,7 +101,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   "putting to database" should {
     "be always single-threaded" in {
 
-      runRocksDb("test2") { store ⇒
+      runRocksDb("RocksDbStoreSpec.test2") { store ⇒
         // execute 100 concurrent put to database
         // if putting will be concurrent, then RocksDb raise an Exception
         val batchInsert = 1 to 100 map { n ⇒
@@ -138,7 +137,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
           verify(db, times(0)).getSnapshot
           verify(db, times(0)).newIterator(any[ReadOptions])
 
-          stream.foreach(_ ⇒ ()).futureValue
+          stream.foreach(_ ⇒ ()).futureValue(timeout(Span(5, Seconds)))
 
           verify(db, times(1)).getSnapshot
           verify(db, times(1)).newIterator(ArgumentMatchers.any[ReadOptions])
@@ -154,8 +153,8 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   }
 
   private def runRocksDb(name: String)(action: RocksDbStore ⇒ Unit): Unit = {
-    val store = RocksDbStore(name, conf)
-    try action(store.get) finally store.toOption.foreach(_.close())
+    val store = RocksDbStore(name, conf).get
+    try action(store) finally store.close()
   }
 
   private def createTestRocksIterator(limit: Int): RocksIterator = {
