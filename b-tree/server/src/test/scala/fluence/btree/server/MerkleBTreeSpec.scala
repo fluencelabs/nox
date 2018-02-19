@@ -433,8 +433,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
   /* util methods */
 
   private def createTreeStore = {
+    val blobIdCounter = Atomic(0L)
     val tMap = new TrieMap[Key, Hash](MurmurHash3.arrayHashing, Equiv.fromComparator(BytesOrdering))
-    new BTreeBinaryStore[Task, NodeId, Node](new TrieMapKVStore[Task, Key, Hash](tMap))
+    new BTreeBinaryStore[Task, NodeId, Node](new TrieMapKVStore[Task, Key, Hash](tMap), () ⇒ blobIdCounter.incrementAndGet())
   }
 
   private def createTree(store: BTreeBinaryStore[Task, NodeId, Node] = createTreeStore): MerkleBTree =
