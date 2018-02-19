@@ -33,6 +33,7 @@ import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.storage.KVStore
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
+import monix.execution.atomic.AtomicLong
 
 import scala.language.higherKinds
 
@@ -42,14 +43,15 @@ import scala.language.higherKinds
  * @param bTreeIndex            Merkle btree index.
  * @param kVStore               Blob storage for persisting encrypted values.
  * @param merkleRootCalculator Merkle root calculator (temp? will be deleted in future)
- * @param refProvider           Next value id generator
- * @param onMRChange      Callback that will be called when merkle root change
+ * @param valueIdGenerator     Generator which creates surrogate id for new value when putting to dataset store.
+ * @param onMRChange            Callback that will be called when merkle root change
  */
+// todo create unit test!
 class DatasetNodeStorage private (
     bTreeIndex: MerkleBTree,
     kVStore: KVStore[Task, ValueRef, Array[Byte]],
     merkleRootCalculator: MerkleRootCalculator,
-    refProvider: () ⇒ ValueRef,
+    valueIdGenerator: Task[() ⇒ ValueRef],
     onMRChange: Bytes ⇒ Task[Unit]
 ) {
 
@@ -83,8 +85,9 @@ class DatasetNodeStorage private (
     // todo start transaction
 
     for {
+      valueIdFn ← valueIdGenerator
       // find place into index and get value reference (id of current enc. value blob)
-      valRef ← bTreeIndex.put(PutCommandImpl(merkleRootCalculator, putCallbacks, refProvider))
+      valRef ← bTreeIndex.put(PutCommandImpl(merkleRootCalculator, putCallbacks, valueIdFn))
       // fetch old value from blob kvStore
       oldVal ← kVStore.get(valRef).attempt.map(_.toOption)
       // save new blob to kvStore
@@ -124,7 +127,6 @@ object DatasetNodeStorage {
    *
    * @param datasetId Some describable name of this dataset, should be unique.
    * @param cryptoHasher Hash service uses for calculating checksums.
-   * @param refProvider  A function for getting next value reference
    * @return
    */
   def apply[F[_]](
@@ -132,12 +134,11 @@ object DatasetNodeStorage {
     rocksFactory: RocksDbStore.Factory,
     config: Config,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    refProvider: () ⇒ ValueRef,
     onMRChange: Bytes ⇒ Task[Unit]
   )(implicit F: MonadError[F, Throwable]): F[DatasetNodeStorage] = {
 
     // todo create direct and faster codec for Long
-    implicit val long2bytesCodec: Codec[Task, Array[Byte], ValueRef] = Codec.pure(
+    implicit val valRef2bytesCodec: Codec[Task, Array[Byte], ValueRef] = Codec.pure(
       ByteBuffer.wrap(_).getLong(),
       ByteBuffer.allocate(java.lang.Long.BYTES).putLong(_).array()
     )
@@ -152,10 +153,33 @@ object DatasetNodeStorage {
             merkleBTree,
             KVStore.transform(rocksDB),
             MerkleRootCalculator(cryptoHasher),
-            refProvider,
+            getRefProvider(rocksDB),
             onMRChange
           )
       }
+  }
+
+  /**
+   * Reads from local RocksDb a record with ''max key'' and create 'value reference provider' started with ''max key''.
+   * In case where there is no local RocksDb instance, makes 'value reference provider' started with zero.
+   */
+  private def getRefProvider[F[_]](rocksDB: RocksDbStore)(implicit codec: Codec[Task, Array[Byte], ValueRef]): Task[() ⇒ ValueRef] = {
+
+    val idxStartValue = 0L
+    val idGenerator: Task[AtomicLong] =
+      rocksDB
+        .getMaxKey.attempt
+        .flatMap {
+          case Left(ex) ⇒
+            Task(idxStartValue)
+          case Right(keyAsBytes) ⇒
+            codec.encode(keyAsBytes)
+        }.map {
+          AtomicLong(_)
+        }.memoizeOnSuccess // important to save  this Atomic into Task as result
+
+    idGenerator.map(provider ⇒ { () ⇒ provider.incrementAndGet() })
+
   }
 
 }

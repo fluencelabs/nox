@@ -44,7 +44,6 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
   case class User(name: String, age: Int)
 
-  private val blobIdCounter = Atomic(0L)
   private val hasher = JdkCryptoHasher.Sha256
   //  private val hasher = TestCryptoHasher
 
@@ -217,7 +216,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   )
 
   private def createDatasetNodeStorage(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetNodeStorage =
-    DatasetNodeStorage[Try](s"${this.getClass.getSimpleName}_$dbName", rocksFactory, ConfigFactory.load(), hasher, () ⇒ blobIdCounter.incrementAndGet(), counter).get
+    DatasetNodeStorage[Try](s"${this.getClass.getSimpleName}_$dbName", rocksFactory, ConfigFactory.load(), hasher, counter).get
 
   private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] =
     new ClientDatasetStorage(

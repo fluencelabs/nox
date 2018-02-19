@@ -38,6 +38,7 @@ import scala.collection.concurrent.TrieMap
  * @param cryptoHasher Used in b-tree
  * @param servesDataset Check whether this node serves particular dataset or not
  */
+// todo create unit test!
 class Datasets(
     config: Config,
     rocksFactory: RocksDbStore.Factory,
@@ -56,14 +57,12 @@ class Datasets(
       ds ← servesDataset(key).flatMap {
         case Some(currentVersion) ⇒ // TODO: ensure merkle roots matches
           val version = AtomicLong(currentVersion)
-          val nextId = AtomicLong(0l)
 
           DatasetNodeStorage[Task](
             id.toBase64(Bases.Alphabets.Base64Url),
             rocksFactory,
             config,
             cryptoHasher,
-            () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere
             mrHash ⇒ contractUpdated(key, version.incrementAndGet(), ByteVector(mrHash)) // TODO: there should be signature
           )
 
