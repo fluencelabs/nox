@@ -117,7 +117,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
     }
 
-    "joins the Kademlia network" ignore {
+    "joins the Kademlia network" in {
       runNodes { servers ⇒
         makeKadNetwork(servers)
       }
@@ -157,7 +157,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         }
       }
 
-      "there are not enough nodes for the contract" ignore {
+      "there are not enough nodes for the contract" in {
         import fluence.dataset.contract.ContractRead._
         import fluence.dataset.contract.ContractWrite._
 
@@ -177,7 +177,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         }
       }
 
-      "clients sign is invalid for offer" ignore {
+      "clients sign is invalid for offer" in {
         import fluence.dataset.contract.ContractRead._
         import fluence.dataset.contract.ContractWrite._
 
@@ -219,7 +219,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
     }
 
-    "success allocate a contract" ignore {
+    "success allocate a contract" in {
       import fluence.dataset.contract.ContractRead._
       import fluence.dataset.contract.ContractWrite._
 
@@ -243,7 +243,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "success write and read from dataset" ignore {
+    "success write and read from dataset" in {
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue
         val seedContact = makeKadNetwork(servers)
@@ -254,7 +254,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "reads and puts values to dataset, client are restarted and continue to reading and writing" ignore {
+    "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
 
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue
@@ -462,6 +462,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
             .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true))
             .withValue("fluence.contract.cacheDirName", ConfigValueFactory.fromAnyRef("node_cache_" + n))
             .withValue("fluence.directory", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/testnode-" + n))
+            //override for some value with no file for new key pair
+            .withValue("fluence.keyPath", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/testnode-kp-" + n))
 
         ).unsafeRunSync()
       }
