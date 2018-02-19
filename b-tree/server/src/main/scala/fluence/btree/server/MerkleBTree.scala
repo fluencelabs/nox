@@ -19,9 +19,10 @@ package fluence.btree.server
 
 import java.nio.ByteBuffer
 
-import cats.MonadError
-import cats.syntax.show._
+import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.show._
+import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
@@ -31,9 +32,9 @@ import fluence.btree.server.core.TreePath.PathElem
 import fluence.btree.server.core._
 import fluence.codec.kryo.KryoCodecs
 import fluence.crypto.hash.CryptoHasher
-import fluence.storage.rocksdb.RocksDbStore
+import fluence.storage.rocksdb.{ IdSeqProvider, RocksDbStore }
 import monix.eval.{ Task, TaskSemaphore }
-import monix.execution.atomic.{ AtomicInt, AtomicLong }
+import monix.execution.atomic.AtomicInt
 
 import scala.collection.Searching.{ Found, InsertionPoint }
 import scala.language.higherKinds
@@ -74,13 +75,9 @@ class MerkleBTree private[server] (
   private val MaxDegree = conf.arity
   /** min of node size except root */
   private val MinDegree = conf.alpha * conf.arity
-  /* tree root id is constant, it always point to root node. */
-  private val RootId = 0L
 
   /* number of tree levels */
   private val depth = AtomicInt(0)
-  /* generates new node id when splitting node happened */
-  private val idNodeCounter = AtomicLong(RootId)
   /* mutex for single-thread access to a tree */
   private val globalMutex = TaskSemaphore(1)
 
@@ -329,9 +326,9 @@ class MerkleBTree private[server] (
         val isRoot = leafId == RootId
         val (left, right) = newLeaf.split
         // get ids for new nodes
-        val leftId = idNodeCounter.incrementAndGet()
+        val leftId = store.nextId()
         // RootId is always linked with root node and will not changed, store right node with new id if split root
-        val rightId = if (isRoot) idNodeCounter.incrementAndGet() else leafId
+        val rightId = if (isRoot) store.nextId() else leafId
 
         val isInsertToTheLeft = searchedValueIdx < left.size
         val affectedLeaf = if (isInsertToTheLeft) left else right
@@ -393,9 +390,9 @@ class MerkleBTree private[server] (
           val isRoot = branchId == RootId
           val (left, right) = branch.split
 
-          val leftId = idNodeCounter.incrementAndGet()
+          val leftId = store.nextId()
           // RootId is always linked with root node and will not changed, store right node with new id if split root
-          val rightId = if (isRoot) idNodeCounter.incrementAndGet() else branchId
+          val rightId = if (isRoot) store.nextId() else branchId
 
           val isInsertToTheLeft = nextChildIdx < left.size
           val affectedBranch = if (isInsertToTheLeft) left else right
@@ -546,6 +543,9 @@ class MerkleBTree private[server] (
 
 object MerkleBTree {
 
+  /* tree root id is constant, it always points to root node. */
+  private val RootId = 0L
+
   /**
    * Creates new instance of MerkleBTree.
    *
@@ -558,7 +558,7 @@ object MerkleBTree {
     rocksFactory: RocksDbStore.Factory,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     conf: Config
-  )(implicit F: MonadError[F, Throwable]): F[MerkleBTree] =
+  )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[MerkleBTree] =
     F.map2(
       defaultStore(treeId, rocksFactory, conf),
       MerkleBTreeConfig.read(conf)
@@ -570,9 +570,15 @@ object MerkleBTree {
   /**
    * Default tree store with RockDb key-value storage under the hood.
    *
-   * @param id Unique id of tree used as RockDb data folder name.
+   * @param id            Unique id of tree used as RockDb data folder name.
+   * @param rocksFactory Factory for creating manageable RocksDb instance.
+   * @param conf          MerkleBTree config
    */
-  private def defaultStore[F[_]](id: String, rocksFactory: RocksDbStore.Factory, conf: Config)(implicit F: MonadError[F, Throwable]): F[BTreeStore[Task, Long, Node]] = {
+  private def defaultStore[F[_]](
+    id: String,
+    rocksFactory: RocksDbStore.Factory,
+    conf: Config
+  )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[BTreeStore[Task, Long, Node]] = {
     val codecs = KryoCodecs()
       .add[Key]
       .add[Array[Key]]
@@ -587,7 +593,13 @@ object MerkleBTree {
       .addCase(classOf[Branch])
       .build[Task]()
     import codecs._
-    rocksFactory[F](id, conf).map(new BTreeBinaryStore[Task, NodeId, Node](_))
+
+    for {
+      rocksDb ← rocksFactory[F](id, conf)
+      // RootId=0L is always for root node, for other nodes id starts with 1
+      isSeqProvider ← IdSeqProvider.longSeqProvider(rocksDb, RootId)
+    } yield
+      new BTreeBinaryStore[Task, NodeId, Node](rocksDb, isSeqProvider)
   }
 
   /**

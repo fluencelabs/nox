@@ -19,7 +19,8 @@ package fluence.dataset.node.storage
 
 import java.nio.ByteBuffer
 
-import cats.MonadError
+import cats.syntax.flatMap._
+import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.common.{ Bytes, ValueRef }
@@ -31,9 +32,8 @@ import fluence.codec.Codec
 import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.storage.KVStore
-import fluence.storage.rocksdb.RocksDbStore
+import fluence.storage.rocksdb.{ IdSeqProvider, RocksDbStore }
 import monix.eval.Task
-import monix.execution.atomic.AtomicLong
 
 import scala.language.higherKinds
 
@@ -51,7 +51,7 @@ class DatasetNodeStorage private (
     bTreeIndex: MerkleBTree,
     kVStore: KVStore[Task, ValueRef, Array[Byte]],
     merkleRootCalculator: MerkleRootCalculator,
-    valueIdGenerator: Task[() ⇒ ValueRef],
+    valueIdGenerator: () ⇒ ValueRef,
     onMRChange: Bytes ⇒ Task[Unit]
 ) {
 
@@ -85,9 +85,8 @@ class DatasetNodeStorage private (
     // todo start transaction
 
     for {
-      valueIdFn ← valueIdGenerator
       // find place into index and get value reference (id of current enc. value blob)
-      valRef ← bTreeIndex.put(PutCommandImpl(merkleRootCalculator, putCallbacks, valueIdFn))
+      valRef ← bTreeIndex.put(PutCommandImpl(merkleRootCalculator, putCallbacks, valueIdGenerator))
       // fetch old value from blob kvStore
       oldVal ← kVStore.get(valRef).attempt.map(_.toOption)
       // save new blob to kvStore
@@ -135,50 +134,27 @@ object DatasetNodeStorage {
     config: Config,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     onMRChange: Bytes ⇒ Task[Unit]
-  )(implicit F: MonadError[F, Throwable]): F[DatasetNodeStorage] = {
+  )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[DatasetNodeStorage] = {
+    import Codec.identityCodec
 
     // todo create direct and faster codec for Long
     implicit val valRef2bytesCodec: Codec[Task, Array[Byte], ValueRef] = Codec.pure(
       ByteBuffer.wrap(_).getLong(),
       ByteBuffer.allocate(java.lang.Long.BYTES).putLong(_).array()
     )
-    import Codec.identityCodec
 
-    F.map2(
-      rocksFactory[F](s"${datasetId}_blob", config),
-      MerkleBTree(s"${datasetId}_tree", rocksFactory, cryptoHasher, config)
-    ){
-        (rocksDB, merkleBTree) ⇒
-          new DatasetNodeStorage(
-            merkleBTree,
-            KVStore.transform(rocksDB),
-            MerkleRootCalculator(cryptoHasher),
-            getRefProvider(rocksDB),
-            onMRChange
-          )
-      }
-  }
-
-  /**
-   * Reads from local RocksDb a record with ''max key'' and create 'value reference provider' started with ''max key''.
-   * In case where there is no local RocksDb instance, makes 'value reference provider' started with zero.
-   */
-  private def getRefProvider[F[_]](rocksDB: RocksDbStore)(implicit codec: Codec[Task, Array[Byte], ValueRef]): Task[() ⇒ ValueRef] = {
-
-    val idxStartValue = 0L
-    val idGenerator: Task[AtomicLong] =
-      rocksDB
-        .getMaxKey.attempt
-        .flatMap {
-          case Left(ex) ⇒
-            Task(idxStartValue)
-          case Right(keyAsBytes) ⇒
-            codec.encode(keyAsBytes)
-        }.map {
-          AtomicLong(_)
-        }.memoizeOnSuccess // important to save  this Atomic into Task as result
-
-    idGenerator.map(provider ⇒ { () ⇒ provider.incrementAndGet() })
+    for {
+      rocksDb ← rocksFactory[F](s"${datasetId}_blob", config)
+      idSeqProvider ← IdSeqProvider.longSeqProvider(rocksDb)
+      btreeIdx ← MerkleBTree(s"${datasetId}_tree", rocksFactory, cryptoHasher, config)
+    } yield
+      new DatasetNodeStorage(
+        btreeIdx,
+        KVStore.transform(rocksDb),
+        MerkleRootCalculator(cryptoHasher),
+        idSeqProvider,
+        onMRChange
+      )
 
   }
 

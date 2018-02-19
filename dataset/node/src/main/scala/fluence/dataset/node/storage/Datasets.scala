@@ -25,10 +25,12 @@ import fluence.kad.protocol.Key
 import monix.eval.Task
 import cats.syntax.show._
 import fluence.storage.rocksdb.RocksDbStore
+import cats.~>
 import monix.execution.atomic.AtomicLong
 import scodec.bits.{ Bases, ByteVector }
 
 import scala.collection.concurrent.TrieMap
+import scala.language.higherKinds
 
 /**
  * Node implementation for [[DatasetStorageRpc]].
@@ -104,4 +106,9 @@ class Datasets(
    */
   override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] =
     storage(datasetId).flatMap(_.remove(removeCallbacks))
+
+  private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
+    override def apply[A](fa: F[A]): F[A] = fa
+  }
+
 }
