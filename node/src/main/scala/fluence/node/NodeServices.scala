@@ -17,12 +17,14 @@
 
 package fluence.node
 
+import cats.effect.IO
 import fluence.crypto.SignAlgo
 import fluence.crypto.signature.Signer
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
+import fluence.storage.rocksdb.RocksDbStore
 
 import scala.language.higherKinds
 
@@ -34,6 +36,8 @@ abstract class NodeServices[F[_], Contract, Contact] {
 
   def signAlgo: SignAlgo
 
+  def rocksFactory: RocksDbStore.Factory
+
   def kademlia: Kademlia[F, Contact]
 
   def contractsCache: ContractsCacheRpc[F, Contract]
@@ -41,5 +45,7 @@ abstract class NodeServices[F[_], Contract, Contact] {
   def contractAllocator: ContractAllocatorRpc[F, Contract]
 
   def datasets: DatasetStorageRpc[F]
+
+  def close: IO[Unit]
 
 }

@@ -555,11 +555,12 @@ object MerkleBTree {
    */
   def apply[F[_]](
     treeId: String,
+    rocksFactory: RocksDbStore.Factory,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     conf: Config
   )(implicit F: MonadError[F, Throwable]): F[MerkleBTree] =
     F.map2(
-      defaultStore(treeId, conf),
+      defaultStore(treeId, rocksFactory, conf),
       MerkleBTreeConfig.read(conf)
     ) {
         (store, conf) ⇒
@@ -571,7 +572,7 @@ object MerkleBTree {
    *
    * @param id Unique id of tree used as RockDb data folder name.
    */
-  private def defaultStore[F[_]](id: String, conf: Config)(implicit F: MonadError[F, Throwable]): F[BTreeStore[Task, Long, Node]] = {
+  private def defaultStore[F[_]](id: String, rocksFactory: RocksDbStore.Factory, conf: Config)(implicit F: MonadError[F, Throwable]): F[BTreeStore[Task, Long, Node]] = {
     val codecs = KryoCodecs()
       .add[Key]
       .add[Array[Key]]
@@ -586,7 +587,7 @@ object MerkleBTree {
       .addCase(classOf[Branch])
       .build[Task]()
     import codecs._
-    RocksDbStore[F](id, conf).map(new BTreeBinaryStore[Task, NodeId, Node](_))
+    rocksFactory[F](id, conf).map(new BTreeBinaryStore[Task, NodeId, Node](_))
   }
 
   /**

@@ -2,7 +2,7 @@ package fluence.node
 
 import java.io.File
 
-import cats.Traverse
+import cats.{ Applicative, Traverse }
 import cats.effect.IO
 import cats.syntax.show._
 import com.typesafe.config.{ Config, ConfigFactory }
@@ -11,7 +11,6 @@ import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.crypto.keypair.KeyPair
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
-import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import cats.instances.list._
 import fluence.crypto.signature.SignatureChecker
@@ -116,8 +115,7 @@ object FluenceNode extends slogging.LazyLogging {
       client ← NodeGrpc.grpcClient(key, contact, config)
       kadClient = client.service[KademliaRpc[Task, Contact]] _
 
-      cacheStore ← RocksDbStore[IO](config.getString("fluence.contract.cacheDirName"), config)
-      services ← NodeComposer.services(kp, contact, algo, hasher, cacheStore, kadClient, config, acceptLocal = true)
+      services ← NodeComposer.services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true)
 
       server ← NodeGrpc.grpcServer(services, builder, config)
 
@@ -148,7 +146,13 @@ object FluenceNode extends slogging.LazyLogging {
 
         override def kademlia: Kademlia[Task, Contact] = services.kademlia
 
-        override def stop: IO[Unit] = server.shutdown
+        override def stop: IO[Unit] =
+          Applicative[IO].map2(
+            services.close,
+            server.shutdown
+          ){
+              (_, _) ⇒ ()
+            }
 
         override def restart: IO[FluenceNode] =
           stop.flatMap(_ ⇒ launchGrpc(algo, hasher, _conf))

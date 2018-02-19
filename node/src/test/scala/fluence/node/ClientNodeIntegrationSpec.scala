@@ -32,13 +32,11 @@ import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
 import fluence.dataset.client.Contracts.NotFound
 import fluence.dataset.client.{ ClientDatasetStorage, Contracts }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
-import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
 import fluence.kad.{ KademliaConf, KademliaMVar }
 import fluence.storage.rocksdb.RocksDbStore
@@ -96,17 +94,14 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val server = new ServerSocket(port)
         try {
           // run node on the busy port
-          val contractsCacheStore = RocksDbStore[Task]("node_cache", config).taskValue
 
-          try {
-            val result = FluenceNode.startNode(config = config
-              .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
-              .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
-              .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true)))
-            result shouldBe a[IOException]
-          } finally {
-            contractsCacheStore.close()
-          }
+          // TODO: check if rocksdb is closed properly
+          val result = FluenceNode.startNode(config = config
+            .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
+            .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
+            .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true)))
+          result shouldBe a[IOException]
+
         } finally {
           server.close()
         }

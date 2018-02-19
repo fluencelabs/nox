@@ -27,6 +27,7 @@ import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.dataset.client.ClientDatasetStorage
 import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.storage
 import fluence.storage.rocksdb.RocksDbConf
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -57,6 +58,8 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   private val val4 = User("Peter", 34)
   private val key5 = "k0005"
   private val val5 = User("Sam", 35)
+
+  private val rocksFactory = new storage.rocksdb.RocksDbStore.Factory
 
   "put and get" should {
     "return error and recover client state" when {
@@ -214,7 +217,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   )
 
   private def createDatasetNodeStorage(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetNodeStorage =
-    DatasetNodeStorage[Try](s"${this.getClass.getSimpleName}_$dbName", ConfigFactory.load(), hasher, () ⇒ blobIdCounter.incrementAndGet(), counter).get
+    DatasetNodeStorage[Try](s"${this.getClass.getSimpleName}_$dbName", rocksFactory, ConfigFactory.load(), hasher, () ⇒ blobIdCounter.incrementAndGet(), counter).get
 
   private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] =
     new ClientDatasetStorage(
@@ -274,6 +277,10 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   override protected def beforeEach(): Unit = {
     val conf = RocksDbConf.read[Try](ConfigFactory.load()).get
     Path(conf.dataDir).deleteRecursively()
+  }
+
+  override protected def afterEach(): Unit = {
+    rocksFactory.close().unsafeRunSync()
   }
 
 }

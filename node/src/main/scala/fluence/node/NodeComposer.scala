@@ -34,7 +34,8 @@ import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
 import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }
-import fluence.storage.KVStore
+import fluence.storage.{ KVStore, rocksdb }
+import fluence.storage.rocksdb.RocksDbStore
 import fluence.transport.TransportSecurity
 import monix.eval.Task
 
@@ -57,7 +58,6 @@ object NodeComposer {
     contact: Contact,
     algo: SignAlgo,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    contractCacheStore: KVStore[Task, Array[Byte], Array[Byte]],
     kadClient: Contact ⇒ KademliaRpc[Task, Contact],
     config: Config,
     acceptLocal: Boolean
@@ -65,8 +65,12 @@ object NodeComposer {
     for {
       k ← Key.fromKeyPair[IO](keyPair)
       kadConf ← readKademliaConfig[IO](config)
+      rocksDbFactory = new rocksdb.RocksDbStore.Factory
+      contractCacheStore ← rocksDbFactory[IO](config.getString("fluence.contract.cacheDirName"))
     } yield new NodeServices[Task, BasicContract, Contact] {
       override val key: Key = k
+
+      override def rocksFactory: RocksDbStore.Factory = rocksDbFactory
 
       override val signer: Signer = algo.signer(keyPair)
 
@@ -103,6 +107,7 @@ object NodeComposer {
       override lazy val datasets: DatasetStorageRpc[Task] =
         new Datasets(
           config,
+          rocksFactory,
           cryptoHasher,
 
           // Return contract version, if current node participates in it
@@ -131,6 +136,10 @@ object NodeComposer {
 
           }
         )
+
+      // Register everything that should be closed or cleaned up on shutdown here
+      override def close: IO[Unit] =
+        rocksFactory.close()
     }
 
 }
