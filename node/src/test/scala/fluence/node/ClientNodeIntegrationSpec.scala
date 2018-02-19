@@ -68,7 +68,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private val algo: SignAlgo = Ecdsa.signAlgo
   private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
 
-  private implicit val checker: SignatureChecker = algo.checker
+  import algo.checker
 
   private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
     override def apply[A](fa: F[A]): F[A] = fa
@@ -97,7 +97,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         try {
           // run node on the busy port
           val contractsCacheStore = RocksDbStore[Task]("node_cache", config).taskValue
-          val composer = new NodeComposer(
+          val composer = NodeComposer.services(
             algo.generateKeyPair[Task]().value.taskValue.right.get,
             algo,
             config
@@ -321,7 +321,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
           val datasetStorageReconnected = fluence.getOrCreateDataset(client).taskValue
 
-          val getKey1Result = datasetStorageReconnected.get("key1").taskValue   // todo finish, here is not worked yet
+          val getKey1Result = datasetStorageReconnected.get("key1").taskValue // todo finish, here is not worked yet
           getKey1Result shouldBe Some("value1-NEW")
 
           val putKey2Result = datasetStorageReconnected.put("key2", "value2").taskValue

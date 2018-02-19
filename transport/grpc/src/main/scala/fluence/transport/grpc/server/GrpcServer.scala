@@ -119,7 +119,7 @@ object GrpcServer extends slogging.LazyLogging {
      * @param cb         To be called on ready and on each message
      * @param clientConf Conf to get header names from
      */
-    def onNodeActivity(cb: Node[Contact] ⇒ IO[Any], clientConf: GrpcClientConf, checker: SignatureChecker): Builder =
+    def onNodeActivity(cb: Node[Contact] ⇒ IO[Any], clientConf: GrpcClientConf)(implicit checker: SignatureChecker): Builder =
       addInterceptor(new ServerInterceptor {
         override def interceptCall[ReqT, RespT](call: ServerCall[ReqT, RespT], headers: Metadata, next: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
           val remoteKey =
@@ -130,7 +130,7 @@ object GrpcServer extends slogging.LazyLogging {
           // TODO: check that contact IP matches request source, if it's possible
           val remoteContact =
             readStringHeader(clientConf.contactHeader, headers).flatMap {
-              b64contact ⇒ Contact.readB64seed[Id](b64contact, checker).value.toOption
+              b64contact ⇒ Contact.readB64seed[Id](b64contact).value.toOption
             }
 
           def remoteNode: Option[Node[Contact]] =

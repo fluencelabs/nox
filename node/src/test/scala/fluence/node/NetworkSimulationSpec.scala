@@ -57,7 +57,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   private implicit val checker = algo.checker
 
-  implicit val kadCodec = KademliaNodeCodec[Task]
+  implicit val kadCodec = KademliaNodeCodec.codec[Task]
 
   private val config = ConfigFactory.load()
 

@@ -72,6 +72,8 @@ object NodeComposer {
 
       override val signAlgo: SignAlgo = algo
 
+      import algo.checker
+
       override lazy val kademlia: Kademlia[Task, Contact] = KademliaMVar(
         k,
         Task.now(contact),
@@ -86,7 +88,6 @@ object NodeComposer {
         new ContractsCache[Task, BasicContract](
           nodeId = k,
           storage = contractsCacheStore,
-          checker = algo.checker,
           cacheTtl = 1.day
         )
 
@@ -96,7 +97,6 @@ object NodeComposer {
           storage = contractsCacheStore,
           createDataset = _ ⇒ Task.unit, // TODO: dataset creation
           checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
-          checker = algo.checker,
           signer = signer
         )
 

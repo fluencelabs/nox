@@ -17,24 +17,11 @@
 
 package fluence.node
 
-import java.io.File
-
-import cats.Traverse
 import cats.effect.IO
-import cats.syntax.show._
-import com.typesafe.config.{ Config, ConfigFactory }
-import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.hash.JdkCryptoHasher
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.{ FileKeyStorage, SignAlgo }
-import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
-import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
-import cats.instances.list._
 
-import scala.concurrent.duration._
 import scala.language.higherKinds
 
 object NodeApp extends App with slogging.LazyLogging {
@@ -43,88 +30,9 @@ object NodeApp extends App with slogging.LazyLogging {
   LoggerConfig.factory = PrintLoggerFactory()
   LoggerConfig.level = LogLevel.INFO
 
-  // TODO: move it somewhere
-  def initDirectory(fluencePath: String): IO[Unit] =
-    IO {
-      val appDir = new File(fluencePath)
-      if (!appDir.exists()) {
-        appDir.getParentFile.mkdirs()
-        appDir.mkdir()
-      }
-    }
-
-  val algo: SignAlgo = Ecdsa.signAlgo
-
-  // TODO: move it somewhere
-  private def getKeyPair(keyPath: String): IO[KeyPair] = {
-    val keyFile = new File(keyPath)
-    val keyStorage = new FileKeyStorage[IO](keyFile)
-    keyStorage.getOrCreateKeyPair(algo.generateKeyPair[IO]().value.flatMap(IO.fromEither))
-  }
-
-  case class SeedsConfig(
-      seeds: List[String]
-  ) {
-    def contacts: IO[List[Contact]] =
-      Traverse[List].traverse(seeds)(s ⇒
-        Contact.readB64seed[IO](s, algo.checker).value.flatMap(IO.fromEither)
-      )
-  }
-
-  def readSeedsConfig(conf: Config): IO[SeedsConfig] =
-    IO {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[SeedsConfig]("fluence.node.join")
-    }
-
-  val config = ConfigFactory.load()
-
-  val gitHash = config.getString("fluence.gitHash")
-
-  logger.info(Console.CYAN + "Git Commit Hash: " + gitHash + Console.RESET)
-
-  def launchGrpc(): IO[Unit] =
-    for {
-      _ ← initDirectory(config.getString("fluence.directory"))
-      kp ← getKeyPair(config.getString("fluence.keyPath"))
-      key ← Key.fromKeyPair[IO](kp)
-
-      builder ← NodeGrpc.grpcServerBuilder(config)
-      contact ← NodeGrpc.grpcContact(algo.signer(kp), builder)
-
-      client ← NodeGrpc.grpcClient(key, contact, config)
-      kadClient = client.service[KademliaRpc[Task, Contact]] _
-
-      cacheStore ← RocksDbStore[IO](config.getString("fluence.contract.cacheDirName"), config)
-      services ← NodeComposer.services(kp, contact, algo, JdkCryptoHasher.Sha256, cacheStore, kadClient, config, acceptLocal = true)
-
-      server ← NodeGrpc.grpcServer(services, builder, config)
-
-      _ ← server.start
-
-      seedConfig ← readSeedsConfig(config)
-      seedContacts ← seedConfig.contacts
-
-      _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO else IO{
-        logger.info("You should add some seed node contacts to join. Take a look on application.conf")
-      }
-    } yield {
-      sys.addShutdownHook {
-        logger.warn("*** shutting down gRPC server since JVM is shutting down")
-        server.shutdown.unsafeRunTimed(5.seconds)
-        logger.warn("*** server shut down")
-      }
-
-      logger.info("Server launched")
-      logger.info("Your contact is: " + contact.show)
-
-      logger.info("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
-    }
-
   logger.info("Going to run Fluence Server...")
 
-  launchGrpc()
+  FluenceNode.startNode()
     .attempt
     .flatMap {
       case Left(t: Throwable) ⇒ IO.raiseError(t)

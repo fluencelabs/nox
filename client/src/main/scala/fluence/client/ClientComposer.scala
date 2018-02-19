@@ -41,7 +41,7 @@ object ClientComposer {
   )(implicit F: MonadError[F, Throwable], effect: Effect[F], runF: Future ~> F, runT: Task ~> F, checker: SignatureChecker) = {
 
     import fluence.dataset.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
-    import fluence.kad.grpc.KademliaNodeCodec.{ apply ⇒ nodeCodec }
+    import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
 
     builder
       .add(KademliaClient.register[F]())

@@ -23,8 +23,7 @@ import cats.{ MonadError, ~> }
 import cats.effect.IO
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
-import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.signature.Signer
+import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
 import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetStorageServer }
 import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
@@ -38,14 +37,11 @@ import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.eval.Task
 import monix.execution.Scheduler
-import scala.language.higherKinds
 
+import scala.language.higherKinds
 import scala.concurrent.{ ExecutionContext, Future }
 
 object NodeGrpc {
-
-  // TODO: it should never be hardcoded
-  private implicit val checker = Ecdsa.signAlgo.checker
 
   private implicit val runFuture: Future ~> Task = new (Future ~> Task) {
     override def apply[A](fa: Future[A]): Task[A] = Task.deferFuture(fa)
@@ -60,12 +56,6 @@ object NodeGrpc {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
-  private implicit val kadCodec = fluence.kad.grpc.KademliaNodeCodec[Task]
-  private implicit val contractCodec = fluence.dataset.grpc.BasicContractCodec.codec[Task]
-  private val keyC = Key.bytesCodec[Task]
-
-  import keyC.inverse
-
   def grpcContact(signer: Signer, serverBuilder: GrpcServer.Builder): IO[Contact] =
     Contact.buildOwn[IO](
       serverBuilder.address,
@@ -75,7 +65,7 @@ object NodeGrpc {
       signer
     ).value.flatMap(MonadError[IO, Throwable].fromEither)
 
-  def grpcClient(key: Key, contact: Contact, config: Config) =
+  def grpcClient(key: Key, contact: Contact, config: Config)(implicit checker: SignatureChecker) =
     for {
       clientConf ← GrpcClientConf.read[IO](config)
       client = {
@@ -94,14 +84,23 @@ object NodeGrpc {
       clientConf ← GrpcClientConf.read[IO](config)
     } yield {
       import services._
+
+      val _signAlgo = services.signAlgo
+      import _signAlgo.checker
+
       val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+
+      import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
+      import fluence.dataset.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
+      val keyC = Key.bytesCodec[Task]
+      import keyC.inverse
 
       serverBuilder
         .add(KademliaGrpc.bindService(new KademliaServer[Task](kademlia.handleRPC), ec))
         .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsCache), ec))
         .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractAllocator), ec))
         .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), ec))
-        .onNodeActivity(kademlia.update(_).toIO(Scheduler.global), clientConf, signAlgo.checker)
+        .onNodeActivity(kademlia.update(_).toIO(Scheduler.global), clientConf)
         .build
     }
 

@@ -32,7 +32,7 @@ import fluence.kad.protocol.{ Contact, Key }
 import scala.language.higherKinds
 
 object KademliaNodeCodec {
-  implicit def apply[F[_]](implicit F: MonadError[F, Throwable], checker: SignatureChecker): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
+  implicit def codec[F[_]](implicit F: MonadError[F, Throwable], checker: SignatureChecker): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
     Codec(
       obj ⇒
         Node(
@@ -42,7 +42,7 @@ object KademliaNodeCodec {
       binary ⇒
         for {
           k ← Key.fromBytes[F](binary.id.toByteArray)
-          c ← Contact.readB64seed[F](new String(binary.contact.toByteArray), checker).value.flatMap(F.fromEither)
+          c ← Contact.readB64seed[F](new String(binary.contact.toByteArray)).value.flatMap(F.fromEither)
           _ ← if (Key.checkPublicKey(k, c.publicKey)) F.pure(()) else F.raiseError(new IllegalArgumentException("Key doesn't conform to signature"))
         } yield protocol.Node[Contact](
           k,
