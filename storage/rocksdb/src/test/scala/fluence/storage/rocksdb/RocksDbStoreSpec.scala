@@ -157,7 +157,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
   private def runRocksDb(name: String)(action: RocksDbStore ⇒ Unit): Unit = {
     val store = rocksFactory(name, conf).get
-    try action(store) finally rocksFactory.close().unsafeRunSync()
+    try action(store) finally rocksFactory.close.unsafeRunSync()
   }
 
   private def createTestRocksIterator(limit: Int): RocksIterator = {
@@ -179,6 +179,6 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
   override protected def afterAll(): Unit = {
     Path(conf.dataDir).deleteRecursively()
-    rocksFactory.close().unsafeRunSync() // should do nothing
+    rocksFactory.close.unsafeRunSync() // should do nothing
   }
 }

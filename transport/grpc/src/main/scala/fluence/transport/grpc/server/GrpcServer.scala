@@ -64,7 +64,7 @@ class GrpcServer private (
    * Shut the server down, release ports
    */
   val shutdown: IO[Unit] =
-    Option(serverRef.getAndSet(null)).fold(IO.unit)(srv => for {
+    Option(serverRef.getAndSet(null)).fold(IO.unit)(srv ⇒ for {
       _ ← IO(srv.shutdown())
       _ ← onShutdown
       _ ← IO(srv.awaitTermination())

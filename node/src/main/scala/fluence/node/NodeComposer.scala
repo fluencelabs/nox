@@ -139,7 +139,7 @@ object NodeComposer {
 
       // Register everything that should be closed or cleaned up on shutdown here
       override def close: IO[Unit] =
-        rocksFactory.close()
+        rocksFactory.close
     }
 
 }

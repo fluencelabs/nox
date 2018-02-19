@@ -153,7 +153,7 @@ object RocksDbStore {
     /**
      * Closes all launched instances of RocksDB
      */
-    def close(): IO[Unit] = IO {
+    def close: IO[Unit] = IO {
       logger.info(s"Closing RocksDB instances: ${instances.keys.mkString(", ")}")
       instances.keySet.flatMap(ds ⇒ instances.remove(ds)).foreach(_.close())
     }

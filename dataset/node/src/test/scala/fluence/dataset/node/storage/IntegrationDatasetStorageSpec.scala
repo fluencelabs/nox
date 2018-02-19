@@ -280,7 +280,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   }
 
   override protected def afterEach(): Unit = {
-    rocksFactory.close().unsafeRunSync()
+    rocksFactory.close.unsafeRunSync()
   }
 
 }
