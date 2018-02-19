@@ -12,6 +12,7 @@ class ContactSpec extends WordSpec with Matchers {
     "serialize and deserialize in Id" in {
 
       val algo = Ecdsa.signAlgo
+      import algo.checker
 
       val Right(kp) = algo.generateKeyPair[Id]().value
 
@@ -25,8 +26,8 @@ class ContactSpec extends WordSpec with Matchers {
 
       val seed = c.b64seed
 
-      Contact.readB64seed[Id](seed, algo.checker).value.isRight shouldBe true
-      Contact.readB64seed[Id](seed, algo.checker).value shouldBe Right(c)
+      Contact.readB64seed[Id](seed).value.isRight shouldBe true
+      Contact.readB64seed[Id](seed).value shouldBe Right(c)
     }
   }
 

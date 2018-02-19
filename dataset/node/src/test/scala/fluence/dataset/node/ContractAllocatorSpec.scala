@@ -46,7 +46,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   val signAlgo = SignAlgo.dumb
   val signer = signAlgo.signer(keypair)
 
-  val checker = signAlgo.checker
+  import signAlgo.checker
 
   val createDS: BasicContract ⇒ IO[Unit] = c ⇒ {
     if (denyDS(c.id)) IO.raiseError(new IllegalArgumentException(s"Can't create dataset for ${c.id}"))
@@ -62,11 +62,11 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
     TrieMapKVStore()
 
   val allocator: ContractAllocatorRpc[IO, BasicContract] = new ContractAllocator[IO, BasicContract](
-    nodeId, store, createDS, checkAllocationPossible, checker, signer
+    nodeId, store, createDS, checkAllocationPossible, signer
   )
 
   val cache: ContractsCache[IO, BasicContract] =
-    new ContractsCache[IO, BasicContract](nodeId, store, checker, 1.minute)
+    new ContractsCache[IO, BasicContract](nodeId, store, 1.minute)
 
   def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
     val s = offerSigner(signAlgo, seed)
