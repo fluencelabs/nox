@@ -10,14 +10,29 @@ import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.crypto.keypair.KeyPair
-import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
+import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import cats.instances.list._
 import fluence.crypto.signature.SignatureChecker
+import fluence.kad.Kademlia
 import monix.execution.Scheduler
 
 import scala.concurrent.duration._
+
+trait FluenceNode {
+  def config: Config
+
+  def node: Task[Node[Contact]] = kademlia.ownContact
+
+  def contact: Task[Contact] = node.map(_.contact)
+
+  def kademlia: Kademlia[Task, Contact]
+
+  def stop: IO[Unit]
+
+  def restart: IO[FluenceNode]
+}
 
 object FluenceNode extends slogging.LazyLogging {
 
@@ -32,7 +47,7 @@ object FluenceNode extends slogging.LazyLogging {
   def startNode(
     algo: SignAlgo = Ecdsa.signAlgo,
     hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
-    config: Config = ConfigFactory.load()): IO[IO[Unit]] =
+    config: Config = ConfigFactory.load()): IO[FluenceNode] =
     launchGrpc(algo, hasher, config)
 
   /**
@@ -88,7 +103,7 @@ object FluenceNode extends slogging.LazyLogging {
    * Launches GRPC node, using all the provided configs.
    * @return IO that will shutdown the node once ran
    */
-  private def launchGrpc(algo: SignAlgo, hasher: CryptoHasher[Array[Byte], Array[Byte]], config: Config): IO[IO[Unit]] = {
+  private def launchGrpc(algo: SignAlgo, hasher: CryptoHasher[Array[Byte], Array[Byte]], config: Config): IO[FluenceNode] = {
     import algo.checker
     for {
       _ ← initDirectory(config.getString("fluence.directory"))
@@ -112,7 +127,7 @@ object FluenceNode extends slogging.LazyLogging {
       seedContacts ← seedConfig.contacts
 
       _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO(Scheduler.global) else IO{
-        logger.info("You should add some seed node contacts to join. Take a look on application.conf")
+        logger.info("You should add some seed node contacts to join. Take a look on reference.conf")
       }
     } yield {
       sys.addShutdownHook {
@@ -126,7 +141,18 @@ object FluenceNode extends slogging.LazyLogging {
 
       logger.info("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
 
-      server.shutdown
+      val _conf = config
+
+      new FluenceNode {
+        override def config: Config = _conf
+
+        override def kademlia: Kademlia[Task, Contact] = services.kademlia
+
+        override def stop: IO[Unit] = server.shutdown
+
+        override def restart: IO[FluenceNode] =
+          stop.flatMap(_ ⇒ launchGrpc(algo, hasher, _conf))
+      }
     }
   }
 
