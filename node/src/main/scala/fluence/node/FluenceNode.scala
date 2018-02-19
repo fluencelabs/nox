@@ -145,11 +145,6 @@ object FluenceNode extends slogging.LazyLogging {
         logger.info("You should add some seed node contacts to join. Take a look on reference.conf")
       }
     } yield {
-      sys.addShutdownHook {
-        logger.warn("*** shutting down gRPC server since JVM is shutting down")
-        server.shutdown.unsafeRunTimed(5.seconds)
-        logger.warn("*** server shut down")
-      }
 
       logger.info("Server launched")
       logger.info("Your contact is: " + contact.show)
@@ -158,7 +153,7 @@ object FluenceNode extends slogging.LazyLogging {
 
       val _conf = config
 
-      new FluenceNode {
+      val node = new FluenceNode {
         override def config: Config = _conf
 
         override def kademlia: Kademlia[Task, Contact] = services.kademlia
@@ -174,6 +169,14 @@ object FluenceNode extends slogging.LazyLogging {
         override def restart: IO[FluenceNode] =
           stop.flatMap(_ ⇒ launchGrpc(algo, hasher, _conf))
       }
+
+      sys.addShutdownHook {
+        logger.warn("*** shutting down Fluence Node since JVM is shutting down")
+        node.stop.unsafeRunTimed(5.seconds)
+        logger.warn("*** node shut down")
+      }
+
+      node
     }
   }
 

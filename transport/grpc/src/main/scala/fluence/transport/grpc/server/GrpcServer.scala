@@ -49,26 +49,30 @@ class GrpcServer private (
     onStart: IO[Unit],
     onShutdown: IO[Unit]
 ) extends TransportServer with slogging.LazyLogging {
-  private val serverRef = new AtomicReference[Server]()
+  private val serverRef = new AtomicReference[Server](null)
 
   /**
    * Launch server, grab ports, or fail
    */
   val start: IO[Unit] =
     for {
+      _ ← if (serverRef.get() == null) IO.unit else shutdown
       _ ← onStart
       s ← IO(server.start())
-    } yield serverRef.set(s)
+    } yield {
+      serverRef.set(s)
+      logger.info("Server started on port " + port)
+    }
 
   /**
    * Shut the server down, release ports
    */
-  val shutdown: IO[Unit] =
-    Option(serverRef.getAndSet(null)).fold(IO.unit)(srv ⇒ for {
+  lazy val shutdown: IO[Unit] =
+    Option(serverRef.getAndSet(null)).fold(IO(logger.debug("Already shut down? " + port)))(srv ⇒ for {
       _ ← IO(srv.shutdown())
       _ ← onShutdown
       _ ← IO(srv.awaitTermination())
-    } yield ())
+    } yield logger.info("Shut down on port: " + port))
 
 }
 
