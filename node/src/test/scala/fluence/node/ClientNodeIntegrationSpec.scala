@@ -479,6 +479,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           Path(s.config.getString("fluence.node.storage.rocksDb.dataDir")).deleteRecursively()
         if (s.config.getString("fluence.directory").startsWith(System.getProperty("java.io.tmpdir")))
           Path(s.config.getString("fluence.directory")).deleteRecursively()
+        if (s.config.getString("fluence.keyPath").startsWith(System.getProperty("java.io.tmpdir")))
+          Path(s.config.getString("fluence.keyPath")).deleteRecursively()
       }
 
     }
