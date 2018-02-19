@@ -36,7 +36,8 @@ import scala.collection.concurrent.TrieMap
  */
 class GrpcClient[CL <: HList](
     buildStubs: (ManagedChannel, CallOptions) ⇒ CL,
-    addHeaders: IO[Map[String, String]]) extends TransportClient[CL] with slogging.LazyLogging {
+    addHeaders: IO[Map[String, String]]
+) extends TransportClient[CL] with slogging.LazyLogging {
 
   /**
    * Cache for available channels
