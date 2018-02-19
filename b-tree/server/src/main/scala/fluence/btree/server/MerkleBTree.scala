@@ -598,8 +598,7 @@ object MerkleBTree {
       rocksDb ← rocksFactory[F](id, conf)
       // RootId=0L is always for root node, for other nodes id starts with 1
       isSeqProvider ← IdSeqProvider.longSeqProvider(rocksDb, RootId)
-    } yield
-      new BTreeBinaryStore[Task, NodeId, Node](rocksDb, isSeqProvider)
+    } yield new BTreeBinaryStore[Task, NodeId, Node](rocksDb, isSeqProvider)
   }
 
   /**

@@ -249,7 +249,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val seedContact = makeKadNetwork(servers)
         val fluence = createFluenceClient(seedContact)
 
-        val datasetStorage = fluence.getOrCreateDataset(client).taskValue
+        val datasetStorage = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
         verifyReadAndWrite(datasetStorage)
       }
     }
