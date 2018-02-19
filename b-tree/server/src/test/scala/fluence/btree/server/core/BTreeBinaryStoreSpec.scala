@@ -23,6 +23,7 @@ import fluence.codec.kryo.KryoCodecs
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
+import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{ Matchers, WordSpec }
@@ -47,9 +48,10 @@ class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
     "performs all operations correctly" in {
 
       implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+      val blobIdCounter = Atomic(0L)
 
       val trieMap = new TrieMap[Array[Byte], Array[Byte]](MurmurHash3.arrayHashing, Equiv.fromComparator(BytesOrdering))
-      val store = new BTreeBinaryStore[Task, Long, String](new TrieMapKVStore(trieMap))
+      val store = new BTreeBinaryStore[Task, Long, String](new TrieMapKVStore(trieMap), () ⇒ blobIdCounter.incrementAndGet())
 
       val node1 = "node1"
       val node1Idx = 2L
