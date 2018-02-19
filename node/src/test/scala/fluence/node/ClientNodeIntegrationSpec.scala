@@ -45,7 +45,7 @@ import fluence.storage.rocksdb.RocksDbStore
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.StatusRuntimeException
-import monix.eval.{ MVar, Task }
+import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import monix.execution.{ CancelableFuture, Scheduler }
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
@@ -300,11 +300,14 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val seedContact = makeKadNetwork(servers)
         val grpcClient = ClientComposer.grpc[Task](GrpcClient.builder)
         val (kademliaClient, contractsApi) = createClientApi(seedContact, grpcClient)
-        var nodeCaptor = MVar.empty[Contact]
+        @volatile var nodeCaptor: Contact = null
         val fluence = FluenceClient(
           kademliaClient,
           contractsApi,
-          c ⇒ { nodeCaptor.put(c); grpcClient.service[DatasetStorageRpc[Task]](c) }, // capture executor node for shutdown
+          c ⇒ {
+            nodeCaptor = c // capture executor node for shutdown
+            grpcClient.service[DatasetStorageRpc[Task]](c)
+          },
           algo,
           testHasher
         )
@@ -313,12 +316,12 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         verifyReadAndWrite(datasetStorage)
 
         // shutdown the executor-node and wait when it's up
-        val nodeExecutorContact = nodeCaptor.take.taskValue
-        shutdownNodeAndRestart(servers(nodeExecutorContact)) { _ ⇒
+        val server = servers.find { case (c, _) ⇒ c.publicKey == nodeCaptor.publicKey }.get._2
+        shutdownNodeAndRestart(server) { _ ⇒
 
           val datasetStorageReconnected = fluence.getOrCreateDataset(client).taskValue
 
-          val getKey1Result = datasetStorageReconnected.get("key1").taskValue
+          val getKey1Result = datasetStorageReconnected.get("key1").taskValue   // todo finish, here is not worked yet
           getKey1Result shouldBe Some("value1-NEW")
 
           val putKey2Result = datasetStorageReconnected.put("key2", "value2").taskValue
