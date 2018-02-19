@@ -64,11 +64,11 @@ class GrpcServer private (
    * Shut the server down, release ports
    */
   val shutdown: IO[Unit] =
-    for {
-      _ ← IO(serverRef.get().shutdown())
+    Option(serverRef.getAndSet(null)).fold(IO.unit)(srv => for {
+      _ ← IO(srv.shutdown())
       _ ← onShutdown
-      _ ← IO(serverRef.get().awaitTermination())
-    } yield serverRef.set(null)
+      _ ← IO(srv.awaitTermination())
+    } yield ())
 
 }
 
