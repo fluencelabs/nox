@@ -490,7 +490,9 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       val future: CancelableFuture[T] = task.runAsync(s)
       future.onComplete {
         case Success(_)         ⇒ ()
-        case Failure(exception) ⇒ println(Console.RED + s"TASK ERROR: $exception")
+        case Failure(exception) ⇒
+          println(Console.RED + s"TASK ERROR: $exception")
+          exception.printStackTrace()
       }(s)
       future.futureValue(timeoutOp.getOrElse(timeout(implicitly[PatienceConfig].timeout)))
     }
@@ -502,7 +504,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   override protected def beforeAll(): Unit = {
     LoggerConfig.factory = PrintLoggerFactory
-    LoggerConfig.level = LogLevel.DEBUG
+    LoggerConfig.level = LogLevel.WARN
     super.beforeAll()
   }
 
