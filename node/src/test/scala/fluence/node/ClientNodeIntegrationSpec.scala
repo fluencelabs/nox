@@ -298,7 +298,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           algo,
           testHasher
         )
-        val datasetStorage = fluence.getOrCreateDataset(client).taskValue
+        val datasetStorage = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
 
         verifyReadAndWrite(datasetStorage)
 
@@ -306,7 +306,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val server = servers.find { case (c, _) ⇒ c.publicKey == nodeCaptor.publicKey }.get._2
         shutdownNodeAndRestart(server) { _ ⇒
 
-          val datasetStorageReconnected = fluence.getOrCreateDataset(client).taskValue
+          val datasetStorageReconnected = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
 
           val getKey1Result = datasetStorageReconnected.get("key1").taskValue
           getKey1Result shouldBe Some("value1-NEW")
