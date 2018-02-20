@@ -64,6 +64,9 @@ object SbtCommons {
   val circeCore = "io.circe" %% "circe-core" % CirceV
   val circeParser = "io.circe" %% "circe-parser" % CirceV
 
+  val fastParse = "com.lihaoyi" %% "fastparse" % "1.0.0"
+  val scopt = "com.github.scopt" %% "scopt" % "3.7.0"
+
   val rocksDb = "org.rocksdb" % "rocksdbjni" % RocksDbV
   val typeSafeConfig = "com.typesafe" % "config" % TypeSafeConfV
   val ficus = "com.iheart" %% "ficus" % FicusV

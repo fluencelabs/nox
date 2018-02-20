@@ -80,6 +80,7 @@ object ClientApp extends App with slogging.LazyLogging {
       logger.info("put \"some key\" \"value to put\"")
       logger.info("get \"some key\"")
 
+      //todo maybe do it in better way
       while (true) {
         val args = StdIn.readLine()
         if (args.nonEmpty) {
@@ -88,9 +89,14 @@ object ClientApp extends App with slogging.LazyLogging {
       }
 
     case None ⇒
-    // arguments are bad, error message will have been displayed
+    // arguments are bad, generated error message will have been displayed
   }
 
+  /**
+    * @param line input string from user
+    * @param fluenceClient ready to work client
+    * @param ac keypair of user
+    */
   def handleCommands(line: String, fluenceClient: FluenceClient, ac: AuthorizedClient): Unit = {
     val commandOp = CommandParser.parseCommand(line)
     commandOp match {
