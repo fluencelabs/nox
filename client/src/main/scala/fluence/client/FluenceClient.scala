@@ -170,7 +170,7 @@ object FluenceClient extends slogging.LazyLogging {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
-  def apply(seed: Contact, signAlgo: SignAlgo,
+  def apply(seeds: Seq[Contact], signAlgo: SignAlgo,
     storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
     config: Config)(implicit checker: SignatureChecker): Task[FluenceClient] = {
     val client = ClientComposer.grpc[Task](GrpcClient.builder)
@@ -180,7 +180,7 @@ object FluenceClient extends slogging.LazyLogging {
       _ = logger.info("Create kademlia client.")
       kademliaClient = createKademliaClient(conf, kademliaRpc)
       _ = logger.info("Connecting to seed node.")
-      _ ← kademliaClient.join(Seq(seed), 2)
+      _ ← kademliaClient.join(seeds, 2)
       _ = logger.info("Create contracts api.")
       contracts = new Contracts[Task, BasicContract, Contact](
         maxFindRequests = 10,

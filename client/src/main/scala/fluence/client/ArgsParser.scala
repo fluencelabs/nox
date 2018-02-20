@@ -3,7 +3,6 @@ package fluence.client
 import java.io.File
 
 import fluence.crypto.KeyStore
-import scodec.bits.ByteVector
 import scopt.Read.reads
 import scopt.{ OptionParser, Read }
 
@@ -25,12 +24,6 @@ object ArgsParser {
 
     opt[Seq[String]]('s', "seed").valueName("<seed1>,<seed2>...")
       .action((x, c) ⇒ c.copy(seed = x))
-      .validate { seeds ⇒
-        seeds.forall(s ⇒ ByteVector.fromBase64(s).isDefined) match {
-          case true  ⇒ Right(())
-          case false ⇒ Left("Some seeds is not valid")
-        }
-      }
       .text("Initial kademlia nodes contacts in base64 to connect with")
 
     opt[KeyStore]('k', "keystore").valueName("<keystore>")

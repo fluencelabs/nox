@@ -34,6 +34,7 @@ import scala.concurrent.duration._
 import scala.io.StdIn
 import scala.language.higherKinds
 import scala.util.Try
+import scala.collection.JavaConverters._
 
 object ClientApp extends App with slogging.LazyLogging {
   import KeyStore._
@@ -57,10 +58,10 @@ object ClientApp extends App with slogging.LazyLogging {
         case None             ⇒ ConfigFactory.load()
       }
 
-      val seedB64 = config.getString("fluence.seed")
+      val seedsB64 = if (c.seed.isEmpty) config.getStringList("fluence.seed").asScala else c.seed
 
       val task = for {
-        seed ← Contact.readB64seed[Task](seedB64).value.flatMap(e ⇒ Task.fromTry(e.toTry))
+        seeds ← Task.traverse(seedsB64.map(s ⇒ Contact.readB64seed[Task](s).value))(_.flatMap(e ⇒ Task.fromTry(e.toTry)))
         keyPair ← c.keyStore.map(ks ⇒ Task.pure(ks.keyPair))
           .orElse(Try(config.getString("fluence.keystore")).map(ks ⇒ KeyStore.fromBase64(ks).keyPair).toOption.map(Task.pure))
           .getOrElse(algo.generateKeyPair[Task]().value.flatMap(e ⇒ Task.fromTry(e.toTry)))
@@ -70,7 +71,7 @@ object ClientApp extends App with slogging.LazyLogging {
           logger.info("Store it and use it for auth.")
           logger.info("Creating fluence client.")
         }
-        fluenceClient ← FluenceClient(seed, algo, JdkCryptoHasher.Sha256, config)
+        fluenceClient ← FluenceClient(seeds, algo, JdkCryptoHasher.Sha256, config)
       } yield (keyPair, fluenceClient)
 
       val (keyPair, fluenceClient) = Await.result(task.runAsync, 5.seconds)
@@ -93,10 +94,10 @@ object ClientApp extends App with slogging.LazyLogging {
   }
 
   /**
-    * @param line input string from user
-    * @param fluenceClient ready to work client
-    * @param ac keypair of user
-    */
+   * @param line input string from user
+   * @param fluenceClient ready to work client
+   * @param ac keypair of user
+   */
   def handleCommands(line: String, fluenceClient: FluenceClient, ac: AuthorizedClient): Unit = {
     val commandOp = CommandParser.parseCommand(line)
     commandOp match {
