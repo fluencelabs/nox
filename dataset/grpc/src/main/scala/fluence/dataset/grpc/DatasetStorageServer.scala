@@ -17,6 +17,7 @@
 
 package fluence.dataset.grpc
 
+import cats.effect.Async
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.{ Monad, ~> }
@@ -28,13 +29,15 @@ import fluence.dataset.grpc.storage._
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import io.grpc.stub.StreamObserver
 import monix.eval.Task
-import monix.execution.Ack
+import monix.execution.{ Ack, Scheduler }
 import monix.reactive.Observer
 
 import scala.collection.Searching
 import scala.language.higherKinds
 
-class DatasetStorageServer[F[_]](service: DatasetStorageRpc[F])(implicit F: Monad[F], runF: F ~> Task, runT: Task ~> F) extends DatasetStorageRpcGrpc.DatasetStorageRpc {
+class DatasetStorageServer[F[_] : Async](service: DatasetStorageRpc[F])(implicit F: Monad[F], runF: F ~> Task, scheduler: Scheduler) extends DatasetStorageRpcGrpc.DatasetStorageRpc {
+  private def runT[A](fa: Task[A]): F[A] = fa.toIO.to[F]
+
   override def get(responseObserver: StreamObserver[GetCallback]): StreamObserver[GetCallbackReply] = {
 
     val resp: Observer[GetCallback] = responseObserver

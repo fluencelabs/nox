@@ -129,6 +129,7 @@ object DatasetNodeStorage {
    */
   def apply[F[_]](
     datasetId: String,
+    rocksFactory: RocksDbStore.Factory,
     config: Config,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     refProvider: () ⇒ ValueRef,
@@ -143,8 +144,8 @@ object DatasetNodeStorage {
     import Codec.identityCodec
 
     F.map2(
-      RocksDbStore[F](s"${datasetId}_blob", config),
-      MerkleBTree(s"${datasetId}_tree", cryptoHasher, config)
+      rocksFactory[F](s"${datasetId}_blob", config),
+      MerkleBTree(s"${datasetId}_tree", rocksFactory, cryptoHasher, config)
     ){
         (rocksDB, merkleBTree) ⇒
           new DatasetNodeStorage(

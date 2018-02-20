@@ -21,6 +21,7 @@ import java.io.File
 
 import com.typesafe.config.{ Config, ConfigFactory }
 import RocksDbStore._
+import cats.effect.IO
 import cats.{ ApplicativeError, MonadError }
 import cats.syntax.functor._
 import cats.syntax.flatMap._
@@ -29,6 +30,7 @@ import monix.eval.{ Task, TaskSemaphore }
 import monix.reactive.Observable
 import org.rocksdb.{ Options, ReadOptions, RocksDB }
 
+import scala.collection.concurrent.TrieMap
 import scala.reflect.io.Path
 import scala.language.higherKinds
 
@@ -122,32 +124,53 @@ object RocksDbStore {
   type Key = Array[Byte]
   type Value = Array[Byte]
 
-  def apply[F[_]](dataSet: String)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
-    apply(dataSet, ConfigFactory.load())
+  /**
+   * Factory should be used to create all the instances of RocksDbStore
+   */
+  class Factory extends slogging.LazyLogging {
+    private val instances = TrieMap.empty[String, RocksDbStore]
 
-  def apply[F[_]](dataSet: String, conf: Config)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
-    RocksDbConf.read(conf).flatMap(apply(dataSet, _))
+    def apply[F[_]](dataSet: String)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
+      apply(dataSet, ConfigFactory.load())
 
-  def apply[F[_]](dataSet: String, config: RocksDbConf)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] = {
-    val dbRoot = s"${config.dataDir}/$dataSet"
-    val options = createOptionsFromConfig(config, Path(dbRoot))
+    def apply[F[_]](dataSet: String, conf: Config)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
+      RocksDbConf.read(conf).flatMap(apply(dataSet, _))
 
-    createDb(dbRoot, options)
-      .map(new RocksDbStore(dataSet, _, options))
-  }
+    def apply[F[_]](dataSet: String, config: RocksDbConf)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] = {
+      val dbRoot = s"${config.dataDir}/$dataSet"
+      val options = createOptionsFromConfig(config, Path(dbRoot))
 
-  private def createDb[F[_]](folder: String, options: Options)(implicit F: ApplicativeError[F, Throwable]): F[RocksDB] =
-    F.catchNonFatal {
-      RocksDB.loadLibrary()
-      val dataDir = new File(folder)
-      if (!dataDir.exists()) dataDir.mkdirs()
-      RocksDB.open(options, folder)
+      createDb(dbRoot, options)
+        .map{ rdb ⇒
+          // Registering an instance
+          val store = new RocksDbStore(dataSet, rdb, options)
+          instances(dataSet) = store
+          logger.info(s"RocksDB instance created for $dataSet")
+          store
+        }
     }
 
-  private def createOptionsFromConfig(conf: RocksDbConf, root: Path): Options = {
-    val opt = new Options()
-    opt.setCreateIfMissing(conf.createIfMissing)
-    opt
+    /**
+     * Closes all launched instances of RocksDB
+     */
+    def close: IO[Unit] = IO {
+      logger.info(s"Closing RocksDB instances: ${instances.keys.mkString(", ")}")
+      instances.keySet.flatMap(ds ⇒ instances.remove(ds)).foreach(_.close())
+    }
+
+    private def createDb[F[_]](folder: String, options: Options)(implicit F: ApplicativeError[F, Throwable]): F[RocksDB] =
+      F.catchNonFatal {
+        RocksDB.loadLibrary()
+        val dataDir = new File(folder)
+        if (!dataDir.exists()) dataDir.mkdirs()
+        RocksDB.open(options, folder)
+      }
+
+    private def createOptionsFromConfig(conf: RocksDbConf, root: Path): Options = {
+      val opt = new Options()
+      opt.setCreateIfMissing(conf.createIfMissing)
+      opt
+    }
   }
 }
 

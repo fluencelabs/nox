@@ -17,9 +17,8 @@
 
 package fluence.dataset.grpc
 
-import cats.effect.Effect
+import cats.effect.{ Effect, IO }
 import cats.syntax.functor._
-import cats.{ MonadError, ~> }
 import com.google.protobuf.ByteString
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.grpc.GrpcMonix._
@@ -29,15 +28,18 @@ import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.{ CallOptions, ManagedChannel }
 import monix.eval.Task
-import monix.execution.Scheduler.Implicits.global
+import monix.execution.Scheduler
 import monix.reactive.Observable
 
 import scala.collection.Searching
 import scala.language.{ higherKinds, implicitConversions }
 
-class DatasetStorageClient[F[_]](
+class DatasetStorageClient[F[_] : Effect](
     stub: DatasetStorageRpcStub
-)(implicit F: MonadError[F, Throwable], run: Task ~> F, Eff: Effect[F]) extends DatasetStorageRpc[F] {
+)(implicit sch: Scheduler) extends DatasetStorageRpc[F] {
+
+  private def run[A](fa: Task[A]): F[A] = fa.toIO.to[F]
+
   /**
    * Initiates ''Get'' operation in remote MerkleBTree.
    *
@@ -202,10 +204,10 @@ object DatasetStorageClient {
    * @param channel     Channel to remote node
    * @param callOptions Call options
    */
-  def register[F[_]]()(
+  def register[F[_] : Effect]()(
     channel: ManagedChannel,
     callOptions: CallOptions
-  )(implicit run: Task ~> F, eff: Effect[F], F: MonadError[F, Throwable]): DatasetStorageRpc[F] = {
+  )(implicit scheduler: Scheduler): DatasetStorageRpc[F] =
     new DatasetStorageClient[F](new DatasetStorageRpcStub(channel, callOptions))
-  }
 }
+

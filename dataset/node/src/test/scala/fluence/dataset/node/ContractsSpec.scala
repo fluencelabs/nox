@@ -41,6 +41,7 @@ class ContractsSpec extends WordSpec with Matchers {
 
   val dsCreated = TrieMap.empty[String, Set[Key]].withDefaultValue(Set.empty)
   val algo = SignAlgo.dumb
+  import algo.checker
 
   def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
 
@@ -84,7 +85,6 @@ class ContractsSpec extends WordSpec with Matchers {
         new ContractsCache[Coeval, BasicContract](
           kad.nodeId,
           store,
-          algo.checker,
           1.second
         ),
         new ContractAllocator(
@@ -92,13 +92,11 @@ class ContractsSpec extends WordSpec with Matchers {
           store,
           createDS(contact),
           _ ⇒ Coeval.unit,
-          algo.checker,
           signer
         ),
         new Contracts(
           10,
           _ ⇒ 20,
-          algo.checker,
           kad,
           network(_).cacheRpc,
           network(_).allocatorRpc
