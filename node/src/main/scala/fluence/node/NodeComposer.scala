@@ -19,9 +19,9 @@ package fluence.node
 
 import java.time.Instant
 
-import cats.ApplicativeError
 import cats.effect.IO
 import com.typesafe.config.Config
+import fluence.client.KademliaConfigParser
 import fluence.crypto.SignAlgo
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
@@ -33,9 +33,9 @@ import fluence.dataset.node.{ ContractAllocator, ContractsCache }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
-import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }
-import fluence.storage.{ KVStore, rocksdb }
+import fluence.kad.{ Kademlia, KademliaMVar }
 import fluence.storage.rocksdb.RocksDbStore
+import fluence.storage.{ KVStore, rocksdb }
 import fluence.transport.TransportSecurity
 import monix.eval.Task
 
@@ -45,13 +45,6 @@ import scala.language.higherKinds
 object NodeComposer {
 
   type Services = NodeServices[Task, BasicContract, Contact]
-
-  private def readKademliaConfig[F[_]](config: Config, path: String = "fluence.network.kademlia")(implicit F: ApplicativeError[F, Throwable]): F[KademliaConf] =
-    F.catchNonFatal {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      config.as[KademliaConf](path)
-    }
 
   def services(
     keyPair: KeyPair,
@@ -64,7 +57,7 @@ object NodeComposer {
   ): IO[Services] =
     for {
       k ← Key.fromKeyPair[IO](keyPair)
-      kadConf ← readKademliaConfig[IO](config)
+      kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
       rocksDbFactory = new RocksDbStore.Factory
       contractCacheStore ← rocksDbFactory[IO](config.getString("fluence.contract.cacheDirName"))
     } yield new NodeServices[Task, BasicContract, Contact] {
