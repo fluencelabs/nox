@@ -29,6 +29,11 @@ import scala.language.higherKinds
 trait BTreeStore[F[_], Id, Node] {
 
   /**
+   * Returns next surrogate Id for storing new node.
+   */
+  def nextId(): Id
+
+  /**
    * Gets stored node for specified id.
    * @param nodeId - id of stored the node.
    */

@@ -25,10 +25,12 @@ import fluence.kad.protocol.Key
 import monix.eval.Task
 import cats.syntax.show._
 import fluence.storage.rocksdb.RocksDbStore
+import cats.~>
 import monix.execution.atomic.AtomicLong
 import scodec.bits.{ Bases, ByteVector }
 
 import scala.collection.concurrent.TrieMap
+import scala.language.higherKinds
 
 /**
  * Node implementation for [[DatasetStorageRpc]].
@@ -38,6 +40,7 @@ import scala.collection.concurrent.TrieMap
  * @param cryptoHasher Used in b-tree
  * @param servesDataset Check whether this node serves particular dataset or not
  */
+// todo create unit test!
 class Datasets(
     config: Config,
     rocksFactory: RocksDbStore.Factory,
@@ -56,14 +59,12 @@ class Datasets(
       ds ← servesDataset(key).flatMap {
         case Some(currentVersion) ⇒ // TODO: ensure merkle roots matches
           val version = AtomicLong(currentVersion)
-          val nextId = AtomicLong(0l)
 
           DatasetNodeStorage[Task](
             id.toBase64(Bases.Alphabets.Base64Url),
             rocksFactory,
             config,
             cryptoHasher,
-            () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere
             mrHash ⇒ contractUpdated(key, version.incrementAndGet(), ByteVector(mrHash)) // TODO: there should be signature
           )
 
@@ -105,4 +106,9 @@ class Datasets(
    */
   override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] =
     storage(datasetId).flatMap(_.remove(removeCallbacks))
+
+  private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
+    override def apply[A](fa: F[A]): F[A] = fa
+  }
+
 }

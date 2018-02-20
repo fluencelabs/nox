@@ -18,6 +18,7 @@
 package fluence.dataset.node.storage
 
 import cats.instances.try_._
+import cats.~>
 import com.typesafe.config.ConfigFactory
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
@@ -37,6 +38,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{ BeforeAndAfterEach, Matchers, WordSpec }
 
 import scala.concurrent.duration.{ FiniteDuration, _ }
+import scala.language.higherKinds
 import scala.reflect.io.Path
 import scala.util.{ Random, Try }
 
@@ -44,9 +46,8 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
   case class User(name: String, age: Int)
 
-  private val blobIdCounter = Atomic(0L)
   private val hasher = JdkCryptoHasher.Sha256
-  //  private val hasher = TestCryptoHasher
+  //    private val hasher = TestCryptoHasher
 
   private val key1 = "k0001"
   private val val1 = User("Rico", 31)
@@ -216,17 +217,22 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     }
   )
 
-  private def createDatasetNodeStorage(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetNodeStorage =
-    DatasetNodeStorage[Try](s"${this.getClass.getSimpleName}_$dbName", rocksFactory, ConfigFactory.load(), hasher, () ⇒ blobIdCounter.incrementAndGet(), counter).get
+  private def createDatasetNodeStorage(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetNodeStorage = {
+    implicit def runId[F[_]]: F ~> F = new (F ~> F) { override def apply[A](fa: F[A]): F[A] = fa }
+    DatasetNodeStorage[Task](dbName, rocksFactory, ConfigFactory.load(), hasher, counter)
+      .runAsync(monix.execution.Scheduler.Implicits.global).futureValue
+  }
 
-  private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] =
+  private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] = {
+    val fullName = s"${this.getClass.getSimpleName}_$dbName"
     new ClientDatasetStorage(
-      dbName.getBytes(),
+      fullName.getBytes(),
       createBTreeClient(clientState),
-      createStorageRpc(dbName),
+      createStorageRpc(fullName),
       valueCrypt,
       hasher
     )
+  }
 
   private def createStorageRpcWithNetworkError(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetStorageRpc[Task] = {
     val origin = createDatasetNodeStorage(dbName, counter)

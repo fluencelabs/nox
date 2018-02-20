@@ -17,9 +17,13 @@
 
 package fluence.storage.rocksdb
 
+import java.nio.ByteBuffer
+
 import cats.instances.try_._
 import com.typesafe.config.ConfigFactory
 import fluence.storage
+import fluence.storage.KVStore.KeyNotFound
+import fluence.storage.rocksdb.RocksDbStore.{ Key, Value }
 import monix.eval.Task
 import monix.execution.{ ExecutionModel, Scheduler }
 import org.mockito.ArgumentMatchers.any
@@ -31,8 +35,9 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
 
+import scala.language.implicitConversions
 import scala.reflect.io.Path
-import scala.util.Try
+import scala.util.{ Random, Try }
 
 class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockitoSugar with ScalaFutures {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
@@ -40,8 +45,6 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
   private val conf = RocksDbConf.read[Try](ConfigFactory.load()).get
   assert(conf.dataDir.startsWith(System.getProperty("java.io.tmpdir")))
-
-  private val rocksFactory = new storage.rocksdb.RocksDbStore.Factory
 
   "RocksDbStore" should {
     "performs all operations correctly" in {
@@ -88,14 +91,14 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
         // check traverse
 
-        val manyPairs: Seq[(Key, Value)] = 1 to 100 map { n ⇒ s"key$n".getBytes() → s"val$n".getBytes() }
+        val manyPairs: Seq[(Key, Value)] = Random.shuffle(1 to 100).map { n ⇒ s"key$n".getBytes() → s"val$n".getBytes() }
         val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v) }
 
-        val case4 = Task.sequence(inserts).flatMap(_ ⇒ store.traverse().toListL).runAsync
-
-        val traverseResult = case4.futureValue
+        val traverseResult = Task.sequence(inserts).flatMap(_ ⇒ store.traverse().toListL).runAsync.futureValue
         bytesToStr(traverseResult) should contain theSameElementsAs bytesToStr(manyPairs)
 
+        val maxKey = store.getMaxKey.runAsync.futureValue
+        maxKey shouldBe "key99".getBytes // cause k99 > k100 in bytes representation
       }
 
     }
@@ -120,6 +123,39 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
           .futureValue should have size 100
       }
     }
+  }
+
+  "getMaxKey" should {
+
+    "return KeyNotFound when store is empty" in {
+      runRocksDb("RocksDbStoreSpec.test3") { store ⇒
+        val maxLongKey = store.getMaxKey.failed.runAsync.futureValue
+        maxLongKey shouldBe KeyNotFound
+      }
+    }
+
+    "get max key for String" in {
+      runRocksDb("RocksDbStoreSpec.test4") { store ⇒
+        val manyPairs: Seq[(Key, Value)] = Random.shuffle(1 to 100).map { n ⇒ s"key$n".getBytes() → s"val$n".getBytes() }
+        val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v) }
+        Task.sequence(inserts).flatMap(_ ⇒ store.traverse().toListL).runAsync.futureValue
+
+        val maxLongKey = store.getMaxKey.runAsync.futureValue
+        maxLongKey shouldBe "key99".getBytes
+      }
+    }
+
+    "get max key for Long" in {
+      runRocksDb("RocksDbStoreSpec.test5") { store ⇒
+        val manyPairs: Seq[(Key, Value)] = Random.shuffle(1 to 100).map { n ⇒ long2Bytes(n) → s"val$n".getBytes() }
+        val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v) }
+        Task.sequence(inserts).flatMap(_ ⇒ store.traverse().toListL).runAsync.futureValue
+
+        val maxLongKey = store.getMaxKey.runAsync.futureValue
+        maxLongKey shouldBe long2Bytes(100L)
+      }
+    }
+
   }
 
   "traverse" should {
@@ -155,9 +191,13 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
     }
   }
 
+  private implicit def long2Bytes(long: Long): Array[Byte] = {
+    ByteBuffer.allocate(java.lang.Long.BYTES).putLong(long).array()
+  }
+
   private def runRocksDb(name: String)(action: RocksDbStore ⇒ Unit): Unit = {
-    val store = rocksFactory(name, conf).get
-    try action(store) finally rocksFactory.close.unsafeRunSync()
+    val store = new RocksDbStore.Factory()(name, conf).get
+    try action(store) finally store.close()
   }
 
   private def createTestRocksIterator(limit: Int): RocksIterator = {
@@ -179,6 +219,5 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
   override protected def afterAll(): Unit = {
     Path(conf.dataDir).deleteRecursively()
-    rocksFactory.close.unsafeRunSync() // should do nothing
   }
 }
