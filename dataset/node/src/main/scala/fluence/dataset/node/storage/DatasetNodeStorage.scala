@@ -20,6 +20,7 @@ package fluence.dataset.node.storage
 import java.nio.ByteBuffer
 
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.btree.common.merkle.MerkleRootCalculator
@@ -147,7 +148,7 @@ object DatasetNodeStorage {
       rocksDb ← rocksFactory[F](s"${datasetId}_blob", config)
       idSeqProvider ← IdSeqProvider.longSeqProvider(rocksDb)
       btreeIdx ← MerkleBTree(s"${datasetId}_tree", rocksFactory, cryptoHasher, config)
-    } yield
+    } yield {
       new DatasetNodeStorage(
         btreeIdx,
         KVStore.transform(rocksDb),
@@ -155,6 +156,7 @@ object DatasetNodeStorage {
         idSeqProvider,
         onMRChange
       )
+    }
 
   }
 

@@ -46,8 +46,6 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   private val conf = RocksDbConf.read[Try](ConfigFactory.load()).get
   assert(conf.dataDir.startsWith(System.getProperty("java.io.tmpdir")))
 
-  private val rocksFactory = new storage.rocksdb.RocksDbStore.Factory
-
   "RocksDbStore" should {
     "performs all operations correctly" in {
       import RocksDbStore._
@@ -198,8 +196,8 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   }
 
   private def runRocksDb(name: String)(action: RocksDbStore ⇒ Unit): Unit = {
-    val store = rocksFactory(name, conf).get
-    try action(store) finally rocksFactory.close.unsafeRunSync()
+    val store = new RocksDbStore.Factory()(name, conf).get
+    try action(store) finally store.close()
   }
 
   private def createTestRocksIterator(limit: Int): RocksIterator = {
@@ -221,6 +219,5 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
   override protected def afterAll(): Unit = {
     Path(conf.dataDir).deleteRecursively()
-    rocksFactory.close.unsafeRunSync() // should do nothing
   }
 }

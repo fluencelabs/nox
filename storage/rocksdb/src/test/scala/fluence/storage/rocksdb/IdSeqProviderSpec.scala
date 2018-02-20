@@ -79,7 +79,7 @@ class IdSeqProviderSpec extends WordSpec with Matchers with ScalaFutures with Be
   }
 
   private def runRocksDb(name: String)(action: RocksDbStore ⇒ Unit): Unit = {
-    val store = RocksDbStore[Try](name, conf).get
+    val store = new RocksDbStore.Factory()(name, conf).get
     try action(store) finally store.close()
   }
 

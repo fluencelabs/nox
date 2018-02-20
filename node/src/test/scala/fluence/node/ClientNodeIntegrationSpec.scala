@@ -19,7 +19,6 @@ package fluence.node
 
 import java.io.IOException
 import java.net.{ InetAddress, ServerSocket }
-import java.util.UUID
 
 import cats.data.EitherT
 import cats.instances.option._
@@ -243,7 +242,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "success write and read from dataset" ignore {
+    "success write and read from dataset" in {
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue
         val seedContact = makeKadNetwork(servers)
@@ -254,7 +253,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "reads and puts values to dataset, client are restarted and continue to reading and writing" ignore {
+    "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
 
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue
