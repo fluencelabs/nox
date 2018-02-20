@@ -19,15 +19,15 @@ package fluence.node
 
 import java.util.concurrent.Executors
 
-import cats.{ MonadError, ~> }
 import cats.effect.IO
+import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
 import fluence.crypto.signature.{ SignatureChecker, Signer }
 import fluence.dataset.BasicContract
-import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetStorageServer }
 import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
 import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc
+import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetStorageServer }
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
@@ -38,20 +38,17 @@ import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.eval.Task
 import monix.execution.Scheduler
 
+import scala.concurrent.Future
 import scala.language.higherKinds
-import scala.concurrent.{ ExecutionContext, Future }
 
 object NodeGrpc {
-
-  private implicit val runFuture: Future ~> Task = new (Future ~> Task) {
-    override def apply[A](fa: Future[A]): Task[A] = Task.deferFuture(fa)
-  }
 
   private implicit val runTask: Task ~> Future = new (Task ~> Future) {
     // TODO: add logging
     override def apply[A](fa: Task[A]): Future[A] = fa.runAsync(Scheduler.global)
   }
 
+  // TODO: remove it
   private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
     override def apply[A](fa: F[A]): F[A] = fa
   }
@@ -69,7 +66,8 @@ object NodeGrpc {
     for {
       clientConf ← GrpcClientConf.read[IO](config)
       client = {
-        import monix.execution.Scheduler.Implicits.global // required for implicit Effect[Task]
+        // TODO: check if it's optimal
+        implicit val ec: Scheduler = Scheduler(Executors.newCachedThreadPool()) // required for implicit Effect[Task]
         ClientComposer.grpc[Task](GrpcClient.builder(key, IO.pure(contact.b64seed), clientConf))
       }
     } yield client
@@ -88,10 +86,11 @@ object NodeGrpc {
       val _signAlgo = services.signAlgo
       import _signAlgo.checker
 
-      val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+      // TODO: check if it's optimal
+      implicit val ec: Scheduler = Scheduler(Executors.newCachedThreadPool())
 
-      import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
       import fluence.dataset.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
+      import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
       val keyC = Key.bytesCodec[Task]
       import keyC.inverse
 
