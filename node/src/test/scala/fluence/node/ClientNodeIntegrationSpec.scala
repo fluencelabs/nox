@@ -243,7 +243,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "success write and read from dataset" in {
+    "success write and read from dataset" ignore {
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue
         val seedContact = makeKadNetwork(servers)
@@ -254,7 +254,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
+    "reads and puts values to dataset, client are restarted and continue to reading and writing" ignore {
 
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue
