@@ -7,3 +7,5 @@ libraryDependencies ++= Seq(
   fastParse,
   scalatest
 )
+
+mainClass := Some("fluence.client.ClientApp")
