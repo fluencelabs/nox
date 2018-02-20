@@ -50,7 +50,7 @@ object ClientApp extends App with slogging.LazyLogging {
   val algo = Ecdsa.signAlgo
   import algo.checker
 
-  ArgsParser.parser.parse(args, CommandLineConfig()) match {
+  ArgsParser.parse(args) match {
     case Some(c) ⇒
 
       val config = c.config match {
@@ -75,6 +75,7 @@ object ClientApp extends App with slogging.LazyLogging {
       } yield (keyPair, fluenceClient)
 
       val (keyPair, fluenceClient) = Await.result(task.runAsync, 5.seconds)
+      val ac = AuthorizedClient(keyPair)
 
       logger.info("You can put or get data from remote node.")
       logger.info("Examples: ")
@@ -85,18 +86,20 @@ object ClientApp extends App with slogging.LazyLogging {
       while (true) {
         val args = StdIn.readLine()
         if (args.nonEmpty) {
-          handleCommands(args, fluenceClient, AuthorizedClient(keyPair))
+          handleCommands(args, fluenceClient, ac)
         }
       }
 
     case None ⇒
-    // arguments are bad, generated error message will have been displayed
+      //Scopt will generate error message when args is wrong:
+      //Error: Unknown option --wrongoption
+      //Try --help for more information.
   }
 
   /**
-   * @param line input string from user
-   * @param fluenceClient ready to work client
-   * @param ac keypair of user
+   * @param line Input string from user
+   * @param fluenceClient Ready to work client
+   * @param ac Keypair of user
    */
   def handleCommands(line: String, fluenceClient: FluenceClient, ac: AuthorizedClient): Unit = {
     val commandOp = CommandParser.parseCommand(line)
