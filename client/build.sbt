@@ -5,6 +5,7 @@ commons
 libraryDependencies ++= Seq(
   scopt,
   fastParse,
+  jline,
   scalatest
 )
 

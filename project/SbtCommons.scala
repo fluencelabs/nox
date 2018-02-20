@@ -66,6 +66,7 @@ object SbtCommons {
 
   val fastParse = "com.lihaoyi" %% "fastparse" % "1.0.0"
   val scopt = "com.github.scopt" %% "scopt" % "3.7.0"
+  val jline = "org.jline" % "jline-reader" % "3.6.1"
 
   val rocksDb = "org.rocksdb" % "rocksdbjni" % RocksDbV
   val typeSafeConfig = "com.typesafe" % "config" % TypeSafeConfV
