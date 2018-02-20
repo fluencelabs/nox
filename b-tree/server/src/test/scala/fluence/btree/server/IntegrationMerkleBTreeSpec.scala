@@ -44,6 +44,8 @@ import scala.util.hashing.MurmurHash3
 
 class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
+  private val blobIdCounter = Atomic(0L)
+
   private val hasher = JdkCryptoHasher.Sha256
   //    private val hasher = TestCryptoHasher
   private val mRCalc = MerkleRootCalculator(hasher)
@@ -238,7 +240,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
     val Alpha = 0.25F
 
     val tMap = new TrieMap[Array[Byte], Array[Byte]](MurmurHash3.arrayHashing, Equiv.fromComparator(BytesOrdering))
-    val store = new BTreeBinaryStore[Task, NodeId, Node](new TrieMapKVStore[Task, Key, Hash](tMap))
+    val store = new BTreeBinaryStore[Task, NodeId, Node](new TrieMapKVStore[Task, Key, Hash](tMap), () ⇒ blobIdCounter.incrementAndGet())
     new MerkleBTree(MerkleBTreeConfig(arity = Arity, alpha = Alpha), store, NodeOps(hasher))
   }
 

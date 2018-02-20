@@ -19,20 +19,20 @@ package fluence.storage.rocksdb
 
 import java.io.File
 
-import com.typesafe.config.{ Config, ConfigFactory }
-import RocksDbStore._
 import cats.effect.IO
-import cats.{ ApplicativeError, MonadError }
-import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{ ApplicativeError, MonadError }
+import com.typesafe.config.{ Config, ConfigFactory }
+import fluence.storage.rocksdb.RocksDbStore._
 import fluence.storage.{ KVStore, TraversableKVStore }
 import monix.eval.{ Task, TaskSemaphore }
 import monix.reactive.Observable
 import org.rocksdb.{ Options, ReadOptions, RocksDB }
 
 import scala.collection.concurrent.TrieMap
-import scala.reflect.io.Path
 import scala.language.higherKinds
+import scala.reflect.io.Path
 
 /**
  * Implementation of [[KVStore]] with embedded RocksDB database.
@@ -109,6 +109,22 @@ class RocksDbStore(
       }
       .flatMap(_ ⇒ Observable.fromIterator(new RocksDbScalaIterator(db.newIterator(options))))
 
+  }
+
+  /**
+   * Gets max stored 'key'.
+   * '''Note''' returns not the last stored 'key', but the max key in natural order!
+   * {{{
+   *  For example:
+   *    For numbers from 1 to 100, max key was 100.
+   *    But for strings from k1 to k100, max key was k99, cause k100 < k99 in bytes representation
+   * }}}
+   */
+  def getMaxKey: Task[Key] = {
+    val iterator = db.newIterator()
+    Task(iterator.seekToLast())
+      .flatMap(_ ⇒ if (iterator.isValid) Task(iterator.key()) else Task.raiseError(KVStore.KeyNotFound))
+      .doOnFinish { _ ⇒ Task(iterator.close()) }
   }
 
   /** Users should always explicitly call close() methods for this entity! */
