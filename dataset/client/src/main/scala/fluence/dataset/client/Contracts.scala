@@ -45,11 +45,10 @@ import scala.util.control.NoStackTrace
 class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
     maxFindRequests: Int,
     maxAllocateRequests: Int ⇒ Int,
-    checker: SignatureChecker,
     kademlia: Kademlia[F, Contact],
     cacheRpc: Contact ⇒ ContractsCacheRpc[F, Contract],
     allocatorRpc: Contact ⇒ ContractAllocatorRpc[F, Contract]
-)(implicit ME: MonadError[F, Throwable], eq: Eq[Contract], P: Parallel[F, F]) {
+)(implicit ME: MonadError[F, Throwable], eq: Eq[Contract], P: Parallel[F, F], checker: SignatureChecker) {
 
   import ContractRead._
   import ContractWrite._
@@ -64,18 +63,18 @@ class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
   def allocate(contract: Contract, sealParticipants: Contract ⇒ F[Contract]): F[Contract] = {
     // Check if contract is already known, return it immediately if it is
     for {
-      _ ← ME.ensure(contract.isBlankOffer(checker))(Contracts.IncorrectOfferContract)(identity)
+      _ ← ME.ensure(contract.isBlankOffer())(Contracts.IncorrectOfferContract)(identity)
       contract ← kademlia.callIterative[Contract](
         contract.id,
         nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap { c ⇒
-          ME.ensure(c.participantSigned(nc.key, checker))(Contracts.NotFound)(identity) map { _ ⇒ c }
+          ME.ensure(c.participantSigned(nc.key))(Contracts.NotFound)(identity) map { _ ⇒ c }
         },
         contract.participantsRequired,
         maxAllocateRequests(contract.participantsRequired),
         isIdempotentFn = false
       ).flatMap {
           case agreements if agreements.lengthCompare(contract.participantsRequired) == 0 ⇒
-            contract.addParticipants(checker, agreements.map(_._2))
+            contract.addParticipants(agreements.map(_._2))
               .flatMap { contractToSeal ⇒
                 sealParticipants(contractToSeal)
               }.flatMap {

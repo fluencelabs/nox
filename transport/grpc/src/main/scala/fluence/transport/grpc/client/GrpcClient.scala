@@ -19,11 +19,10 @@ package fluence.transport.grpc.client
 
 import java.util.concurrent.Executor
 
+import cats.effect.IO
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.TransportClient
 import io.grpc._
-import monix.eval.Task
-import monix.execution.Scheduler.Implicits.global
 import shapeless._
 
 import scala.collection.concurrent.TrieMap
@@ -37,7 +36,7 @@ import scala.collection.concurrent.TrieMap
  */
 class GrpcClient[CL <: HList](
     buildStubs: (ManagedChannel, CallOptions) ⇒ CL,
-    addHeaders: Task[Map[String, String]]
+    addHeaders: IO[Map[String, String]]
 ) extends TransportClient[CL] with slogging.LazyLogging {
 
   /**
@@ -106,8 +105,7 @@ class GrpcClient[CL <: HList](
                   applier.apply(md)
                 }
 
-                // As addHeaders is memoized on success, this is effectively synchronous; see [[Task.runAsync]]
-                addHeaders.attempt.runAsync.foreach {
+                addHeaders.unsafeRunAsync {
                   case Right(headers) ⇒
                     setHeaders(headers)
 
@@ -141,15 +139,15 @@ object GrpcClient {
   /**
    * Builder for NetworkClient.
    *
-   * @param buildStubs Builds all the known services for the channel and call ops
-   * @param syncHeaders    Headers to pass with every request, known in advance
+   * @param buildStubs   Builds all the known services for the channel and call ops
+   * @param syncHeaders  Headers to pass with every request, known in advance
    * @param asyncHeaders Headers to pass with every request, not known in advance. Will be memoized on success
    * @tparam CL HList with all the services
    */
   class Builder[CL <: HList] private[GrpcClient] (
       buildStubs: (ManagedChannel, CallOptions) ⇒ CL,
       syncHeaders: Map[String, String],
-      asyncHeaders: Task[Map[String, String]]) {
+      asyncHeaders: IO[Map[String, String]]) {
     self ⇒
 
     /**
@@ -173,39 +171,38 @@ object GrpcClient {
     /**
      * Adds a header asynchronously. Will be executed only once.
      *
-     * @param header Header to add
+     * @param name  Header to add
+     * @param value Header value getter
      */
-    def addAsyncHeader(header: Task[(String, String)]): Builder[CL] =
+    def addHeaderIO(name: String, value: IO[String]): Builder[CL] =
       new Builder(buildStubs, syncHeaders, for {
         hs ← asyncHeaders
-        h ← header
-      } yield hs + h)
+        v ← value
+      } yield hs + (name -> v))
 
     /**
      * Returns built NetworkClient.
      *
      * @return
      */
-    def build: GrpcClient[CL] = new GrpcClient[CL](buildStubs, asyncHeaders.map(_ ++ syncHeaders).memoizeOnSuccess)
+    def build: GrpcClient[CL] = new GrpcClient[CL](buildStubs, asyncHeaders.map(_ ++ syncHeaders))
   }
 
   /**
    * An empty builder.
    */
-  val builder: Builder[HNil] = new Builder[HNil]((_: ManagedChannel, _: CallOptions) ⇒ HNil, Map.empty, Task.now(Map.empty))
+  val builder: Builder[HNil] = new Builder[HNil]((_: ManagedChannel, _: CallOptions) ⇒ HNil, Map.empty, IO.pure(Map.empty))
 
   /**
    * Builder with pre-defined credential headers.
    *
-   * @param key This node's Kademlia key
-   * @param contact This node's contact
-   * @param conf Client config object
+   * @param key         This node's Kademlia key
+   * @param contactSeed This node's contact, serialized. Notice that you must memoize value yourself, if it should be memoized
+   * @param conf        Client config object
    * @return A NetworkClient builder
    */
-  def builder(key: Key, contact: Task[Contact], conf: GrpcClientConf): Builder[HNil] =
-    builder.addHeader(conf.keyHeader, key.b64).addAsyncHeader(
-      for {
-        c ← contact
-        s = c.b64seed
-      } yield (conf.contactHeader, s))
+  def builder(key: Key, contactSeed: IO[String], conf: GrpcClientConf): Builder[HNil] =
+    builder
+      .addHeader(conf.keyHeader, key.b64)
+      .addHeaderIO(conf.contactHeader, contactSeed)
 }

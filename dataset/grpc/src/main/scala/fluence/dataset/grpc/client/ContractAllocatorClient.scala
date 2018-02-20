@@ -17,22 +17,26 @@
 
 package fluence.dataset.grpc.client
 
+import cats.effect.{ Async, IO }
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ Monad, ~> }
 import fluence.codec.Codec
 import fluence.dataset.grpc.{ BasicContract, ContractAllocatorGrpc }
 import fluence.dataset.grpc.ContractAllocatorGrpc.ContractAllocatorStub
 import fluence.dataset.protocol.ContractAllocatorRpc
 import io.grpc.{ CallOptions, ManagedChannel }
 
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.language.higherKinds
 
-class ContractAllocatorClient[F[_] : Monad, C](
+class ContractAllocatorClient[F[_] : Async, C](
     stub: ContractAllocatorStub
-)(implicit codec: Codec[F, C, BasicContract], run: Future ~> F)
+)(implicit
+    codec: Codec[F, C, BasicContract],
+    ec: ExecutionContext)
   extends ContractAllocatorRpc[F, C] {
+
+  private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
 
   /**
    * Offer a contract. Node should check and preallocate required resources, save offer, and sign it.
@@ -69,9 +73,12 @@ object ContractAllocatorClient {
    * @param channel     Channel to remote node
    * @param callOptions Call options
    */
-  def register[F[_] : Monad, C]()(channel: ManagedChannel, callOptions: CallOptions)(implicit
+  def register[F[_] : Async, C]()(
+    channel: ManagedChannel,
+    callOptions: CallOptions
+  )(implicit
     codec: Codec[F, C, BasicContract],
-    run: Future ~> F): ContractAllocatorRpc[F, C] =
+    ec: ExecutionContext): ContractAllocatorRpc[F, C] =
     new ContractAllocatorClient[F, C](new ContractAllocatorGrpc.ContractAllocatorStub(channel, callOptions))
 
 }

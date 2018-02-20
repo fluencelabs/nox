@@ -24,6 +24,7 @@ import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.kad.protocol.Key
 import monix.eval.Task
 import cats.syntax.show._
+import fluence.storage.rocksdb.RocksDbStore
 import monix.execution.atomic.AtomicLong
 import scodec.bits.{ Bases, ByteVector }
 
@@ -39,6 +40,7 @@ import scala.collection.concurrent.TrieMap
  */
 class Datasets(
     config: Config,
+    rocksFactory: RocksDbStore.Factory,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     servesDataset: Key ⇒ Task[Option[Long]],
     contractUpdated: (Key, Long, ByteVector) ⇒ Task[Unit] // TODO: pass signature as well
@@ -58,6 +60,7 @@ class Datasets(
 
           DatasetNodeStorage[Task](
             id.toBase64(Bases.Alphabets.Base64Url),
+            rocksFactory,
             config,
             cryptoHasher,
             () ⇒ nextId.getAndIncrement(), // TODO: keep last increment somewhere

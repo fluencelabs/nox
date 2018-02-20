@@ -34,6 +34,7 @@ class ContractsCacheSpec extends WordSpec with Matchers {
 
   def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
   val algo = SignAlgo.dumb
+  import algo.checker
 
   val nodeId: Key = unsafeKey("node id")
   val nodeSigner = offerSigner("node id")
@@ -51,7 +52,7 @@ class ContractsCacheSpec extends WordSpec with Matchers {
   }
 
   val cache: ContractsCache[Coeval, BasicContract] =
-    new ContractsCache[Coeval, BasicContract](nodeId, store, algo.checker, 1.minute)
+    new ContractsCache[Coeval, BasicContract](nodeId, store, 1.minute)
 
   import fluence.dataset.contract.ContractWrite._
 

@@ -66,7 +66,7 @@ object ContractWrite {
         .flatMap(ME.fromEither(_))
         .flatMap(s ⇒ ME.catchNonFatal(write.setParticipantsSeal(contract, s)))
 
-    def addParticipants(checker: SignatureChecker, participants: Seq[C]): F[C] =
+    def addParticipants(participants: Seq[C])(implicit checker: SignatureChecker): F[C] =
       ME.catchNonFatal(participants.foldLeft(contract) {
         case (agg, part) if part.participants.size == 1 ⇒
           part.participants.headOption
@@ -78,7 +78,7 @@ object ContractWrite {
         case (agg, _) ⇒
           agg
       }).flatMap { signed ⇒
-        signed.checkAllParticipants(checker).flatMap {
+        signed.checkAllParticipants().flatMap {
           case true  ⇒ ME.pure(signed)
           case false ⇒ ME.raiseError(new IllegalArgumentException("Wrong number of participants or wrong signatures"))
         }

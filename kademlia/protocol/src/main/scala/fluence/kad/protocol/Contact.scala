@@ -145,8 +145,8 @@ object Contact {
   implicit val show: Show[Contact] =
     (c: Contact) ⇒ s"$c"
 
-  def readB64seed[F[_] : Monad](str: String, checker: SignatureChecker): EitherT[F, Throwable, Contact] =
-    Jwt.read[F, JwtHeader, JwtData](str, (h, b) ⇒ Right(h.publicKey), checker).map {
+  def readB64seed[F[_] : Monad](str: String)(implicit checker: SignatureChecker): EitherT[F, Throwable, Contact] =
+    Jwt.read[F, JwtHeader, JwtData](str, (h, b) ⇒ Right(h.publicKey)).map {
       case (header, data) ⇒
         Contact(
           ip = data.ip,

@@ -48,8 +48,7 @@ import scala.language.{ higherKinds, implicitConversions }
 class ContractsCache[F[_], C : ContractRead](
     nodeId: Key,
     storage: KVStore[F, Key, ContractRecord[C]],
-    checker: SignatureChecker,
-    cacheTtl: FiniteDuration)(implicit ME: MonadError[F, Throwable]) extends ContractsCacheRpc[F, C] {
+    cacheTtl: FiniteDuration)(implicit ME: MonadError[F, Throwable], checker: SignatureChecker) extends ContractsCacheRpc[F, C] {
 
   import ContractRead._
 
@@ -64,7 +63,7 @@ class ContractsCache[F[_], C : ContractRead](
 
   private def canBeCached(contract: C): F[Boolean] = {
     if (cacheEnabled && !contract.participants.contains(nodeId))
-      contract.isActiveContract(checker)
+      contract.isActiveContract()
     else false.pure[F]
   }
 
@@ -82,7 +81,7 @@ class ContractsCache[F[_], C : ContractRead](
           .map(_ ⇒ None)
 
       case Some(cr) ⇒
-        cr.contract.isBlankOffer(checker).map { b ⇒
+        cr.contract.isBlankOffer().map { b ⇒
           if (!b) Some(cr.contract) else None
         }
       case None ⇒ Option.empty[C].pure[F]

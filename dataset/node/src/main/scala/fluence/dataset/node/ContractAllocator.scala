@@ -47,9 +47,8 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
     storage: KVStore[F, Key, ContractRecord[C]],
     createDataset: C ⇒ F[Unit],
     checkAllocationPossible: C ⇒ F[Unit],
-    checker: SignatureChecker,
     signer: Signer
-)(implicit ME: MonadError[F, Throwable], eq: Eq[C]) extends ContractAllocatorRpc[F, C] {
+)(implicit ME: MonadError[F, Throwable], eq: Eq[C], checker: SignatureChecker) extends ContractAllocatorRpc[F, C] {
 
   import ContractRead._
   import ContractWrite._
@@ -62,11 +61,11 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
    */
   override def allocate(contract: C): F[C] = {
     for {
-      _ ← illegalIfNo(contract.participantSigned(nodeId, checker), "Contract should be offered to this node and signed by it prior to allocation")
-      _ ← illegalIfNo(contract.isActiveContract(checker), "Contract should be active -- sealed by client")
+      _ ← illegalIfNo(contract.participantSigned(nodeId), "Contract should be offered to this node and signed by it prior to allocation")
+      _ ← illegalIfNo(contract.isActiveContract(), "Contract should be active -- sealed by client")
       res ← storage.get(contract.id).attempt.map(_.toOption).flatMap {
         case Some(cr) ⇒
-          cr.contract.isBlankOffer(checker).flatMap {
+          cr.contract.isBlankOffer().flatMap {
             case false ⇒ cr.contract.pure[F]
             case true  ⇒ storage.remove(contract.id).flatMap(_ ⇒ putContract(contract))
           }
@@ -101,11 +100,11 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
     def signedContract: F[C] = contract.signOffer(nodeId, signer)
 
     for {
-      _ ← illegalIfNo(contract.isBlankOffer(checker), "This is not a valid blank offer")
+      _ ← illegalIfNo(contract.isBlankOffer(), "This is not a valid blank offer")
       res ← {
         storage.get(contract.id).attempt.map(_.toOption).flatMap {
           case Some(cr) ⇒
-            illegalIfNo(cr.contract.isBlankOffer(checker), "Different contract is already stored for this ID").flatMap { _ ⇒
+            illegalIfNo(cr.contract.isBlankOffer(), "Different contract is already stored for this ID").flatMap { _ ⇒
               if (cr.contract =!= contract) {
                 // contract preallocated for id, but it's changed now
                 for {

@@ -17,17 +17,17 @@
 
 package fluence.kad.grpc.client
 
+import cats.effect.{ Async, IO }
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ MonadError, ~> }
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
 import fluence.kad.{ grpc, protocol }
-import io.grpc.{ CallOptions, ManagedChannel }
 import fluence.transport.grpc.GrpcCodecs._
+import io.grpc.{ CallOptions, ManagedChannel }
 
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.language.{ higherKinds, implicitConversions }
 
 /**
@@ -35,12 +35,13 @@ import scala.language.{ higherKinds, implicitConversions }
  *
  * @param stub GRPC Kademlia Stub
  */
-class KademliaClient[F[_]](stub: grpc.KademliaGrpc.KademliaStub)(implicit
-    F: MonadError[F, Throwable],
+class KademliaClient[F[_] : Async](stub: grpc.KademliaGrpc.KademliaStub)(implicit
     codec: Codec[F, protocol.Node[Contact], grpc.Node],
-    run: Future ~> F) extends KademliaRpc[F, Contact] {
+    ec: ExecutionContext) extends KademliaRpc[F, Contact] {
 
   private val keyBS = Codec.codec[F, ByteString, Key].inverse
+
+  private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
 
   import cats.instances.stream._
 
@@ -93,10 +94,12 @@ object KademliaClient {
    * @param channel     Channel to remote node
    * @param callOptions Call options
    */
-  def register[F[_]]()(channel: ManagedChannel, callOptions: CallOptions)(implicit
-    F: MonadError[F, Throwable],
+  def register[F[_] : Async]()(
+    channel: ManagedChannel,
+    callOptions: CallOptions
+  )(implicit
     codec: Codec[F, protocol.Node[Contact], grpc.Node],
-    run: Future ~> F): KademliaClient[F] =
+    ec: ExecutionContext): KademliaRpc[F, Contact] =
     new KademliaClient(new grpc.KademliaGrpc.KademliaStub(channel, callOptions))
 
 }

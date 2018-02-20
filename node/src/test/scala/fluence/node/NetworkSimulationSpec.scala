@@ -17,17 +17,20 @@
 
 package fluence.node
 
+import java.net.InetAddress
+
 import cats.instances.try_._
-import cats.~>
+import cats._
+import cats.effect.IO
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.{ KademliaGrpc, KademliaNodeCodec }
-import fluence.kad.protocol.{ Contact, Key }
+import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
 import fluence.kad.{ KademliaConf, KademliaMVar }
-import fluence.transport.TransportSecurity
+import fluence.transport.{ TransportSecurity, UPnP }
 import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.eval.Task
@@ -55,9 +58,9 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   private val algo = SignAlgo.dumb
 
-  private implicit val checker = algo.checker
+  import algo.checker
 
-  implicit val kadCodec = KademliaNodeCodec[Task]
+  implicit val kadCodec = KademliaNodeCodec.codec[Task]
 
   private val config = ConfigFactory.load()
 
@@ -67,20 +70,22 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   class Node(val key: Key, val localPort: Int, kp: KeyPair) {
 
-    private val serverBuilder = GrpcServer.builder(serverConf.copy(localPort = localPort), algo.signer(kp))
+    private val serverBuilder = GrpcServer.builder(serverConf.copy(localPort = localPort), UPnP().unsafeRunSync())
 
-    private val client = GrpcClient.builder(key, serverBuilder.contact, clientConf)
+    val contact = Contact.buildOwn[Id](InetAddress.getLocalHost, localPort, 0, "0", algo.signer(kp)).value.right.get
+
+    private val client = GrpcClient.builder(key, IO.pure(contact.b64seed), clientConf)
       .add(KademliaClient.register[Task]())
       .build
 
-    private val kademliaClientRpc: Contact ⇒ KademliaClient[Task] = c ⇒ {
+    private val kademliaClientRpc: Contact ⇒ KademliaRpc[Task, Contact] = c ⇒ {
       logger.trace(s"Contact to get KC for: $c")
-      client.service[KademliaClient[Task]](c)
+      client.service[KademliaRpc[Task, Contact]](c)
     }
 
     val kad = KademliaMVar(
       key,
-      serverBuilder.contact,
+      Task.pure(contact),
       kademliaClientRpc,
       KademliaConf(8, 8, 3, 1.second),
 
@@ -88,16 +93,16 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServer(kad.handleRPC), global))
-      .onNodeActivity(kad.update, clientConf, checker)
+      .onNodeActivity(kad.update(_).toIO, clientConf)
       .build
 
     def nodeId = key
 
     def join(peers: Seq[Contact], numOfNodes: Int) = kad.join(peers, numOfNodes)
 
-    def start() = server.start()
+    def start(): IO[Unit] = server.start
 
-    def shutdown() = server.shutdown(1.second)
+    def shutdown(): IO[Unit] = server.shutdown
   }
 
   private val servers = (0 to 20).map { n ⇒
@@ -110,11 +115,11 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
   "Network simulation" should {
     "launch 20 nodes and join network" in {
       servers.foreach { s ⇒
-        s.start().runAsync.futureValue
+        s.start().unsafeRunSync
       }
 
-      val firstContact = servers.head.server.contact.runAsync.futureValue
-      val secondContact = servers.tail.head.server.contact.runAsync.futureValue
+      val firstContact = servers.head.contact
+      val secondContact = servers.last.contact
 
       servers.foreach { s ⇒
         logger.debug(Console.BLUE + s"Join: ${s.nodeId}" + Console.RESET)

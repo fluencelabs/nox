@@ -21,45 +21,22 @@ import cats.ApplicativeError
 import com.typesafe.config.Config
 
 import scala.language.higherKinds
-import scala.util.Try
 
 case class GrpcServerConf(
     localPort: Int,
     externalPort: Option[Int],
-    acceptLocal: Boolean,
-
-    protocolVersion: Long,
-    gitHash: String
-) {
-  require(gitHash.length == 20, "Git hash length must be 20 symbols")
-}
+    acceptLocal: Boolean
+)
 
 object GrpcServerConf {
   val ConfigPath = "fluence.transport.grpc.server"
-  val ConfigProtocolVersionPath = "fluence.transport.grpc.protocolVersion"
-  val ConfigGitHashPath = "fluence.gitHash"
-
-  case class GrpcServerConfSubset(
-      localPort: Int,
-      externalPort: Option[Int],
-      acceptLocal: Boolean)
 
   def read[F[_]](
     config: Config,
-    path: String = ConfigPath,
-    protocolVersionPath: String = ConfigProtocolVersionPath,
-    gitHashPath: String = ConfigGitHashPath)(implicit F: ApplicativeError[F, Throwable]): F[GrpcServerConf] =
+    path: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[GrpcServerConf] =
     F.catchNonFatal {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      val conf = config.as[GrpcServerConfSubset](path)
-
-      GrpcServerConf(
-        conf.localPort,
-        conf.externalPort,
-        conf.acceptLocal,
-        Try(config.getLong(protocolVersionPath)).getOrElse(0),
-        Try(config.getString(gitHashPath)).getOrElse("0" * 20)
-      )
+      config.as[GrpcServerConf](path)
     }
 }
