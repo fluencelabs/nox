@@ -63,7 +63,8 @@ object FluenceNode extends slogging.LazyLogging {
   def startNode(
     algo: SignAlgo = Ecdsa.signAlgo,
     hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
-    config: Config = ConfigFactory.load()): IO[FluenceNode] =
+    config: Config = ConfigFactory.load()
+  ): IO[FluenceNode] =
     launchGrpc(algo, hasher, config)
 
   /**
@@ -119,6 +120,7 @@ object FluenceNode extends slogging.LazyLogging {
    * Launches GRPC node, using all the provided configs.
    * @return IO that will shutdown the node once ran
    */
+  // todo write unit test, this method don't close resources correct when initialisation failed
   private def launchGrpc(algo: SignAlgo, hasher: CryptoHasher[Array[Byte], Array[Byte]], config: Config): IO[FluenceNode] = {
     import algo.checker
     for {

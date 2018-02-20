@@ -279,8 +279,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
     }
 
-    // todo finish, this test can't work correct yet
-    "reads and puts values to dataset, executor-node are restarted, client reconnect and continue to reading and writing" ignore {
+    "reads and puts values to dataset, executor-node are restarted, client reconnect and continue to reading and writing" in {
 
       runNodes { servers ⇒
         // create client and write to db
@@ -309,7 +308,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
           val datasetStorageReconnected = fluence.getOrCreateDataset(client).taskValue
 
-          val getKey1Result = datasetStorageReconnected.get("key1").taskValue // todo finish, here is not worked yet
+          val getKey1Result = datasetStorageReconnected.get("key1").taskValue
           getKey1Result shouldBe Some("value1-NEW")
 
           val putKey2Result = datasetStorageReconnected.put("key2", "value2").taskValue
@@ -326,20 +325,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private def shutdownNodeAndRestart(nodeExecutor: FluenceNode)(action: Contact ⇒ Unit): Unit = {
     val contact: Contact = nodeExecutor.contact.taskValue
     // restart
-    // TODO: rocksdb instances should be closed using [[FluenceNode.stop]]
     val restarted = nodeExecutor.restart.unsafeRunSync()
-
-    //val contractCacheStoreField = classOf[NodeComposer].getDeclaredField("fluence$node$NodeComposer$$contractCacheStore")
-    //contractCacheStoreField.setAccessible(true)
-    //val store = contractCacheStoreField.get(nodeExecutor).asInstanceOf[RocksDbStore]
-    //store.close()
 
     try {
       // start all nodes Grpc servers
-      //composer.server.taskValue.start()
       action(contact)
     } finally {
-      restarted.stop.unsafeRunTimed(3.second)
+      restarted.stop.unsafeRunSync()
     }
   }
 
@@ -470,7 +462,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       action(servers.map(fn ⇒ fn.contact.taskValue → fn).toMap)
     } finally {
       // shutting down all nodes and close() RocksDb instances
-      servers.foreach{ s ⇒
+      servers.foreach { s ⇒
         s.stop.unsafeRunSync()
 
         // clean all rockDb data from disk
