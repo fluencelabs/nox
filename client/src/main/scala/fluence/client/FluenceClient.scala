@@ -17,22 +17,30 @@
 
 package fluence.client
 
-import cats.MonadError
+import cats.kernel.Monoid
+import cats.{ MonadError, ~> }
+import com.typesafe.config.Config
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.{ Crypt, NoOpCrypt }
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
+import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
 import fluence.dataset.client.{ ClientDatasetStorage, Contracts }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.kad.Kademlia
-import fluence.kad.protocol.{ Contact, Key }
+import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
+import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }
+import fluence.transport.TransportSecurity
+import fluence.transport.grpc.client.GrpcClient
 import monix.eval.Task
+import monix.execution.Scheduler.Implicits.global
 import scodec.bits.ByteVector
 
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.Future
 import scala.language.higherKinds
 
 class FluenceClient(
@@ -142,7 +150,48 @@ class FluenceClient(
   }
 }
 
-object FluenceClient {
+object FluenceClient extends slogging.LazyLogging {
+
+  private def createKademliaClient(conf: KademliaConf, kademliaRpc: Contact ⇒ KademliaRpc[Task, Contact]): Kademlia[Task, Contact] = {
+    val clKey = Monoid.empty[Key]
+    val check = TransportSecurity.canBeSaved[Task](clKey, acceptLocal = true)
+    KademliaMVar.client(kademliaRpc, conf, check)
+  }
+
+  private implicit def runTask[F[_]]: Task ~> Future = new (Task ~> Future) {
+    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
+  }
+
+  private implicit def runFuture[F[_]]: Future ~> Task = new (Future ~> Task) {
+    override def apply[A](fa: Future[A]): Task[A] = Task.fromFuture(fa)
+  }
+
+  private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
+    override def apply[A](fa: F[A]): F[A] = fa
+  }
+
+  def apply(seed: Contact, signAlgo: SignAlgo,
+    storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
+    config: Config)(implicit checker: SignatureChecker): Task[FluenceClient] = {
+    val client = ClientComposer.grpc[Task](GrpcClient.builder)
+    val kademliaRpc = client.service[KademliaRpc[Task, Contact]] _
+    for {
+      conf ← KademliaConfigParser.readKademliaConfig[Task](config)
+      _ = logger.info("Create kademlia client.")
+      kademliaClient = createKademliaClient(conf, kademliaRpc)
+      _ = logger.info("Connecting to seed node.")
+      _ ← kademliaClient.join(Seq(seed), 2)
+      _ = logger.info("Create contracts api.")
+      contracts = new Contracts[Task, BasicContract, Contact](
+        maxFindRequests = 10,
+        maxAllocateRequests = _ ⇒ 20,
+        kademlia = kademliaClient,
+        cacheRpc = contact ⇒ client.service[ContractsCacheRpc[Task, BasicContract]](contact),
+        allocatorRpc = contact ⇒ client.service[ContractAllocatorRpc[Task, BasicContract]](contact)
+      )
+    } yield FluenceClient(kademliaClient, contracts, client.service[DatasetStorageRpc[Task]], signAlgo, storageHasher)
+  }
+
   /**
    * Client for multiple authorized users (with different key pairs).
    * Only one dataset for one user is supported at this moment.

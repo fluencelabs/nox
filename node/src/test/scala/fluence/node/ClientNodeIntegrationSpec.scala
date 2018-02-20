@@ -19,7 +19,6 @@ package fluence.node
 
 import java.io.IOException
 import java.net.{ InetAddress, ServerSocket }
-import java.util.UUID
 
 import cats.data.EitherT
 import cats.instances.option._
