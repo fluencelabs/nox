@@ -38,7 +38,7 @@ import scala.reflect.io.Path
  * Implementation of [[KVStore]] with embedded RocksDB database.
  * For each dataSet will be created new RocksDB instance in a separate folder.
  * All defaults for all instances are stored in the typeSafe config (see ''reference.conf''),
- * you can overload them into ''application.conf''
+ * you can overload them into ''reference.conf''
  * '''Note: only single thread should write to DB''', but reading database allowed to multiply threads.
  *
  * @param dataSet   Some bag for pairs (K, V)
