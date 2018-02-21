@@ -104,8 +104,7 @@ object ClientApp extends App with slogging.LazyLogging {
     val readLine = IO(lineReader.readLine("fluence< "))
     lazy val handle: IO[Unit] = readLine.map(CommandParser.parseCommand).flatMap {
       case Some(Exit) ⇒
-        logger.info("Exiting from fluence network.")
-        IO.unit
+        IO(logger.info("Exiting from fluence network."))
       case Some(Put(k, v)) ⇒
         val t = for {
           ds ← fluenceClient.getOrCreateDataset(ac)
