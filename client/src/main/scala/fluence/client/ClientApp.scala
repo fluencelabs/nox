@@ -17,6 +17,7 @@
 
 package fluence.client
 
+import cats.effect.IO
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.KeyStore
 import fluence.crypto.algorithm.Ecdsa
@@ -61,7 +62,7 @@ object ClientApp extends App with slogging.LazyLogging {
         case None             ⇒ ConfigFactory.load()
       }
 
-      val seedsB64 = if (c.seed.isEmpty) config.getStringList("fluence.client.seed").asScala else c.seed
+      val seedsB64 = if (c.seed.isEmpty) config.getStringList("fluence.network.join.seeds").asScala else c.seed
 
       val task = for {
         seeds ← Task.traverse(seedsB64.map(s ⇒ Contact.readB64seed[Task](s).value))(_.flatMap(e ⇒ Task.fromTry(e.toTry)))
@@ -81,10 +82,9 @@ object ClientApp extends App with slogging.LazyLogging {
           logger.info("put \"some key\" \"value to put\"")
           logger.info("get \"some key\"")
         }
-        _ ← handleCmds(fluenceClient, AuthorizedClient(keyPair))
-      } yield {}
+      } yield (keyPair, fluenceClient)
 
-      task.toIO
+      task.toIO.flatMap{ case (kp, fc) ⇒ handleCmds(fc, AuthorizedClient(kp)) }
         .attempt
         .unsafeRunSync() match {
           case Left(err) ⇒
@@ -100,34 +100,33 @@ object ClientApp extends App with slogging.LazyLogging {
     //Try --help for more information.
   }
 
-  def handleCmds(fluenceClient: FluenceClient, ac: AuthorizedClient): Task[Unit] = {
-    val readLine = Task(lineReader.readLine("fluence< "))
-    lazy val handle: Task[Unit] = readLine.map(CommandParser.parseCommand).flatMap {
+  def handleCmds(fluenceClient: FluenceClient, ac: AuthorizedClient): IO[Unit] = {
+    val readLine = IO(lineReader.readLine("fluence< "))
+    lazy val handle: IO[Unit] = readLine.map(CommandParser.parseCommand).flatMap {
       case Some(Exit) ⇒
         logger.info("Exiting from fluence network.")
-        Task.unit
+        IO.unit
       case Some(Put(k, v)) ⇒
-        for {
+        val t = for {
           ds ← fluenceClient.getOrCreateDataset(ac)
           _ ← ds.put(k, v)
           _ = logger.info("Success.")
-          _ ← handle
         } yield ()
-
+        t.toIO.flatMap(_ ⇒ handle)
       case Some(Get(k)) ⇒
-        for {
+        val t = for {
           ds ← fluenceClient.getOrCreateDataset(ac)
           res ← ds.get(k)
           printRes = res match {
-            case Some(r) ⇒ r
-            case None    ⇒ "None"
+            case Some(r) ⇒ "\"" + r + "\""
+            case None    ⇒ "<null>"
           }
-          _ = logger.info("Result: \"" + printRes + "\"")
-          _ ← handle
+          _ = logger.info("Result: " + printRes)
         } yield ()
+        t.toIO.flatMap(_ ⇒ handle)
       case _ ⇒
-        Task.pure(logger.info("Wrong command.")).flatMap(_ ⇒ handle)
-    }.asyncBoundary
+        IO(logger.info("Wrong command.")).flatMap(_ ⇒ handle)
+    }
 
     handle
   }
