@@ -76,16 +76,21 @@ object ClientApp extends App with slogging.LazyLogging {
           logger.info("Creating fluence client.")
         }
         fluenceClient ← FluenceClient(seeds, algo, JdkCryptoHasher.Sha256, config)
+      } yield (keyPair, fluenceClient)
+
+      val io = for {
+        res ← task.toIO
         _ = {
           logger.info("You can put or get data from remote node.")
           logger.info("Examples: ")
           logger.info("put \"some key\" \"value to put\"")
           logger.info("get \"some key\"")
         }
-      } yield (keyPair, fluenceClient)
+        pass ← readPassword()
+        _ ← handleCmds(res._2, AuthorizedClient(res._1, pass))
+      } yield {}
 
-      task.toIO.flatMap{ case (kp, fc) ⇒ handleCmds(fc, AuthorizedClient(kp)) }
-        .attempt
+      io.attempt
         .unsafeRunSync() match {
           case Left(err) ⇒
             err.printStackTrace()
@@ -100,8 +105,16 @@ object ClientApp extends App with slogging.LazyLogging {
     //Try --help for more information.
   }
 
+  def readLine = IO(lineReader.readLine("fluence< "))
+
+  private def readPassword() = {
+    for {
+      _ ← IO(logger.info("Write password for your encryption key:"))
+      pass ← readLine
+    } yield pass.toCharArray
+  }
+
   def handleCmds(fluenceClient: FluenceClient, ac: AuthorizedClient): IO[Unit] = {
-    val readLine = IO(lineReader.readLine("fluence< "))
     lazy val handle: IO[Unit] = readLine.map(CommandParser.parseCommand).flatMap {
       case Some(Exit) ⇒
         IO(logger.info("Exiting from fluence network."))

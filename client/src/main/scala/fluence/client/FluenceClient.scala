@@ -22,8 +22,8 @@ import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.crypto.SignAlgo
-import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.cipher.{ Crypt, NoOpCrypt }
+import fluence.crypto.algorithm.{ AesCrypt, Ecdsa }
+import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.SignatureChecker
@@ -83,7 +83,7 @@ class FluenceClient(
    * @return dataset representation
    */
   private def addNonEncryptedDataset(ac: AuthorizedClient, contact: Contact, clientState: Option[ClientState]): Task[ClientDatasetStorage[String, String]] = {
-    addDataset(ac, storageRpc(contact), NoOpCrypt.forString, NoOpCrypt.forString, clientState, storageHasher)
+    addDataset(ac, storageRpc(contact), AesCrypt.forString(ac.password, withIV = false), AesCrypt.forString(ac.password, withIV = true), clientState, storageHasher)
   }
 
   /**

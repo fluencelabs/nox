@@ -68,6 +68,7 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
       "org.scodec" %%% "scodec-bits" % ScodecBitsV,
       "io.circe" %%% "circe-core" % CirceV,
       "io.circe" %%% "circe-parser" % CirceV,
+      "biz.enef" %%% "slogging" % SloggingV,
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )

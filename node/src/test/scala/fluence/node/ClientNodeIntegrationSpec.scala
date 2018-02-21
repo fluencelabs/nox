@@ -64,6 +64,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   private val algo: SignAlgo = Ecdsa.signAlgo
   private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
+  private val testpass: Array[Char] = "testpass".toCharArray
 
   import algo.checker
 
@@ -244,7 +245,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
     "success write and read from dataset" in {
       runNodes { servers ⇒
-        val client = AuthorizedClient.generateNew[Option](algo).eitherValue
+        val client = AuthorizedClient.generateNew[Option](algo, testpass).eitherValue
         val seedContact = makeKadNetwork(servers)
         val fluence = createFluenceClient(seedContact)
 
@@ -256,7 +257,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
 
       runNodes { servers ⇒
-        val client = AuthorizedClient.generateNew[Option](algo).eitherValue
+        val client = AuthorizedClient.generateNew[Option](algo, testpass).eitherValue
         val seedContact = makeKadNetwork(servers)
         val fluence1 = createFluenceClient(seedContact)
 
@@ -283,7 +284,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
       runNodes { servers ⇒
         // create client and write to db
-        val client = AuthorizedClient.generateNew[Option](algo).eitherValue
+        val client = AuthorizedClient.generateNew[Option](algo, testpass).eitherValue
         val seedContact = makeKadNetwork(servers)
         val grpcClient = ClientComposer.grpc[Task](GrpcClient.builder)
         val (kademliaClient, contractsApi) = createClientApi(seedContact, grpcClient)
