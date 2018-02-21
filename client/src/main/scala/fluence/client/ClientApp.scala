@@ -17,6 +17,7 @@
 
 package fluence.client
 
+import cats.effect.IO
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.KeyStore
 import fluence.crypto.algorithm.Ecdsa
@@ -25,16 +26,15 @@ import fluence.kad.protocol.Contact
 import io.circe.syntax._
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
+import org.jline.reader.LineReaderBuilder
+import org.jline.terminal.TerminalBuilder
 import scodec.bits.{ Bases, ByteVector }
 import slogging.MessageFormatter.PrefixFormatter
 import slogging._
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.io.StdIn
+import scala.collection.JavaConverters._
 import scala.language.higherKinds
 import scala.util.Try
-import scala.collection.JavaConverters._
 
 object ClientApp extends App with slogging.LazyLogging {
   import KeyStore._
@@ -50,6 +50,10 @@ object ClientApp extends App with slogging.LazyLogging {
   val algo = Ecdsa.signAlgo
   import algo.checker
 
+  //for terminal improvements: history, navigation
+  val terminal = TerminalBuilder.terminal()
+  val lineReader = LineReaderBuilder.builder().terminal(terminal).build()
+
   ArgsParser.parse(args) match {
     case Some(c) ⇒
 
@@ -58,12 +62,12 @@ object ClientApp extends App with slogging.LazyLogging {
         case None             ⇒ ConfigFactory.load()
       }
 
-      val seedsB64 = if (c.seed.isEmpty) config.getStringList("fluence.seed").asScala else c.seed
+      val seedsB64 = if (c.seed.isEmpty) config.getStringList("fluence.network.join.seeds").asScala else c.seed
 
       val task = for {
         seeds ← Task.traverse(seedsB64.map(s ⇒ Contact.readB64seed[Task](s).value))(_.flatMap(e ⇒ Task.fromTry(e.toTry)))
         keyPair ← c.keyStore.map(ks ⇒ Task.pure(ks.keyPair))
-          .orElse(Try(config.getString("fluence.keystore")).map(ks ⇒ KeyStore.fromBase64(ks).keyPair).toOption.map(Task.pure))
+          .orElse(Try(config.getString("fluence.client.keystore")).map(ks ⇒ KeyStore.fromBase64(ks).keyPair).toOption.map(Task.pure))
           .getOrElse(algo.generateKeyPair[Task]().value.flatMap(e ⇒ Task.fromTry(e.toTry)))
         _ = {
           logger.info("Your keypair is:")
@@ -72,63 +76,58 @@ object ClientApp extends App with slogging.LazyLogging {
           logger.info("Creating fluence client.")
         }
         fluenceClient ← FluenceClient(seeds, algo, JdkCryptoHasher.Sha256, config)
+        _ = {
+          logger.info("You can put or get data from remote node.")
+          logger.info("Examples: ")
+          logger.info("put \"some key\" \"value to put\"")
+          logger.info("get \"some key\"")
+        }
       } yield (keyPair, fluenceClient)
 
-      val (keyPair, fluenceClient) = Await.result(task.runAsync, 5.seconds)
-      val ac = AuthorizedClient(keyPair)
-
-      logger.info("You can put or get data from remote node.")
-      logger.info("Examples: ")
-      logger.info("put \"some key\" \"value to put\"")
-      logger.info("get \"some key\"")
-
-      //todo maybe do it in better way
-      while (true) {
-        val args = StdIn.readLine()
-        if (args.nonEmpty) {
-          handleCommands(args, fluenceClient, ac)
+      task.toIO.flatMap{ case (kp, fc) ⇒ handleCmds(fc, AuthorizedClient(kp)) }
+        .attempt
+        .unsafeRunSync() match {
+          case Left(err) ⇒
+            err.printStackTrace()
+            logger.error("Error", err)
+          case Right(_) ⇒
+            logger.info("Bye!")
         }
-      }
 
     case None ⇒
-      //Scopt will generate error message when args is wrong:
-      //Error: Unknown option --wrongoption
-      //Try --help for more information.
+    //Scopt will generate error message when args is wrong:
+    //Error: Unknown option --wrongoption
+    //Try --help for more information.
   }
 
-  /**
-   * @param line Input string from user
-   * @param fluenceClient Ready to work client
-   * @param ac Keypair of user
-   */
-  def handleCommands(line: String, fluenceClient: FluenceClient, ac: AuthorizedClient): Unit = {
-    val commandOp = CommandParser.parseCommand(line)
-    commandOp match {
+  def handleCmds(fluenceClient: FluenceClient, ac: AuthorizedClient): IO[Unit] = {
+    val readLine = IO(lineReader.readLine("fluence< "))
+    lazy val handle: IO[Unit] = readLine.map(CommandParser.parseCommand).flatMap {
       case Some(Exit) ⇒
-        logger.info("Exiting from fluence network.")
-        System.exit(0)
+        IO(logger.info("Exiting from fluence network."))
       case Some(Put(k, v)) ⇒
         val t = for {
           ds ← fluenceClient.getOrCreateDataset(ac)
           _ ← ds.put(k, v)
+          _ = logger.info("Success.")
         } yield ()
-
-        Await.ready(t.runAsync, 5.seconds)
-        logger.info("Success.")
-
+        t.toIO.flatMap(_ ⇒ handle)
       case Some(Get(k)) ⇒
         val t = for {
           ds ← fluenceClient.getOrCreateDataset(ac)
           res ← ds.get(k)
-        } yield res
-
-        val res = Await.result(t.runAsync, 5.seconds) match {
-          case Some(r) ⇒ r
-          case None    ⇒ "None"
-        }
-        logger.info("Result: \"" + res + "\"")
-      case _ ⇒ logger.info("Wrong command.")
+          printRes = res match {
+            case Some(r) ⇒ "\"" + r + "\""
+            case None    ⇒ "<null>"
+          }
+          _ = logger.info("Result: " + printRes)
+        } yield ()
+        t.toIO.flatMap(_ ⇒ handle)
+      case _ ⇒
+        IO(logger.info("Wrong command.")).flatMap(_ ⇒ handle)
     }
+
+    handle
   }
 
 }
