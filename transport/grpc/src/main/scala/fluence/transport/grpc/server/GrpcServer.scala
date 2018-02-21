@@ -91,7 +91,6 @@ object GrpcServer extends slogging.LazyLogging {
   case class Builder(
       onShutdown: IO[Unit],
       onStart: IO[Unit],
-      localPort: Int,
       address: InetAddress,
       port: Int,
       services: List[ServerServiceDefinition],
@@ -170,10 +169,10 @@ object GrpcServer extends slogging.LazyLogging {
     def build: GrpcServer =
       new GrpcServer(
         server = {
-          logger.info(s"Building GRPC server forPort($localPort)")
+          logger.info(s"Building GRPC server forPort($port)")
 
           val sb = ServerBuilder
-            .forPort(localPort)
+            .forPort(port)
 
           services.foreach(sb.addService)
 
@@ -199,7 +198,6 @@ object GrpcServer extends slogging.LazyLogging {
       onShutdown = IO.unit,
       address = InetAddress.getLocalHost,
       port = conf.port,
-      localPort = conf.port,
       services = Nil,
       interceptors = Nil
     )

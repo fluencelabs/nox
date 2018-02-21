@@ -20,10 +20,10 @@ package fluence.node
 import java.util.concurrent.Executors
 
 import cats.effect.IO
-import cats.{ MonadError, ~> }
+import cats.~>
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
-import fluence.crypto.signature.{ SignatureChecker, Signer }
+import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
 import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
 import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc
@@ -32,10 +32,9 @@ import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.node.NodeComposer.Services
-import fluence.transport.UPnP
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
-import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
+import fluence.transport.grpc.server.GrpcServer
 import monix.eval.Task
 import monix.execution.Scheduler
 
@@ -102,6 +101,6 @@ object NodeGrpc {
         case Some(sc) ⇒ IO.pure(sc)
         case None     ⇒ IO.raiseError(new IllegalStateException("fluence.grpc.server config is not defined"))
       }
-    } yield GrpcServer.builder(serverConf) // TODO, UPnP().unsafeRunSync())
+    } yield GrpcServer.builder(serverConf)
 
 }

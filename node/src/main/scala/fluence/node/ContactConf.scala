@@ -24,8 +24,8 @@ import com.typesafe.config.Config
 import net.ceedubs.ficus.readers.ValueReader
 
 case class ContactConf(
-    host: InetAddress,
-    port: Int,
+    host: Option[InetAddress],
+    port: Option[Int],
 
     gitHash: String,
     protocolVersion: Long

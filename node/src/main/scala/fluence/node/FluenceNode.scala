@@ -112,8 +112,8 @@ object FluenceNode extends slogging.LazyLogging {
 
       contactConf ← ContactConf.read(config)
       contact ← Contact.buildOwn[IO](
-        ip = contactConf.host,
-        port = contactConf.port,
+        ip = contactConf.host.getOrElse(builder.address),
+        port = contactConf.port.getOrElse(builder.port),
         protocolVersion = contactConf.protocolVersion,
         gitHash = contactConf.gitHash,
         signer = algo.signer(kp)
