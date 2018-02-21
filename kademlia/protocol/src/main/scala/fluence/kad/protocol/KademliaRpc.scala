@@ -27,11 +27,13 @@ import scala.language.higherKinds
  */
 trait KademliaRpc[F[_], C] {
 
+  // TODO: errors: network, codec -- including contact's crypto check
   /**
    * Ping the contact, get its actual Node status, or fail.
    */
   def ping(): F[Node[C]]
 
+  // TODO: errors: network, codec -- including contact's crypto check
   /**
    * Perform a local lookup for a key, return K closest known nodes.
    *
@@ -39,6 +41,7 @@ trait KademliaRpc[F[_], C] {
    */
   def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[C]]]
 
+  // TODO: errors: network, codec -- including contact's crypto check
   /**
    * Perform a local lookup for a key, return K closest known nodes, going away from the second key.
    *

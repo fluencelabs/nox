@@ -22,6 +22,7 @@ import java.util.concurrent.Executor
 import cats.effect.IO
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.TransportClient
+import fluence.transport.grpc.GrpcConf
 import io.grpc._
 import shapeless._
 
@@ -201,7 +202,7 @@ object GrpcClient {
    * @param conf        Client config object
    * @return A NetworkClient builder
    */
-  def builder(key: Key, contactSeed: IO[String], conf: GrpcClientConf): Builder[HNil] =
+  def builder(key: Key, contactSeed: IO[String], conf: GrpcConf): Builder[HNil] =
     builder
       .addHeader(conf.keyHeader, key.b64)
       .addHeaderIO(conf.contactHeader, contactSeed)

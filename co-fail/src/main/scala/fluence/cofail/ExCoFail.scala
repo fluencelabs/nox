@@ -32,14 +32,14 @@ import scala.util.control.NoStackTrace
  * @param failure Non-empty Coproduct with a failure
  * @tparam T Disjoint union of possible failure types
  */
-case class CoFail[T <: Coproduct](failure: T) extends NoStackTrace {
+case class ExCoFail[T <: Coproduct](failure: T) extends NoStackTrace {
   /**
    * Returns an actual value held in failure Coproduct -- useful for pattern matching
    */
   def unsafeGet: Any = Coproduct.unsafeGet(failure)
 }
 
-object CoFail {
+object ExCoFail {
   // Convert generic MonadError for Throwable into CoFail of particular type
   // It should be done only once at the end of the world, hence not implicit
   def fromThrowableME[F[_], T <: Coproduct : ClassTag](ME: MonadError[F, Throwable]): MonadError[F, T] =
@@ -48,7 +48,7 @@ object CoFail {
 
       override def tailRecM[A, B](a: A)(f: A ⇒ F[Either[A, B]]): F[B] = ME.tailRecM(a)(f)
 
-      override def raiseError[A](e: T): F[A] = ME.raiseError(CoFail(e))
+      override def raiseError[A](e: T): F[A] = ME.raiseError(ExCoFail(e))
 
       override def handleErrorWith[A](fa: F[A])(f: T ⇒ F[A]): F[A] = ME.handleErrorWith(fa){
         case cf: T ⇒ f(cf)

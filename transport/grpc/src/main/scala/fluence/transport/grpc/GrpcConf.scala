@@ -15,22 +15,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport.grpc.client
+package fluence.transport.grpc
 
 import cats.ApplicativeError
 import com.typesafe.config.Config
+import fluence.transport.grpc.server.GrpcServerConf
 
 import scala.language.higherKinds
 
-case class GrpcClientConf(keyHeader: String, contactHeader: String)
+case class GrpcConf(
+    keyHeader: String,
+    contactHeader: String,
+    server: Option[GrpcServerConf]
+)
 
-object GrpcClientConf {
-  val ConfigPath = "fluence.transport.grpc.client"
+object GrpcConf {
+  val ConfigPath = "fluence.grpc"
 
-  def read[F[_]](config: Config, path: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[GrpcClientConf] =
+  def read[F[_]](config: Config, path: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[GrpcConf] =
     F.catchNonFatal {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      config.as[GrpcClientConf](path)
+      config.as[GrpcConf](path)
     }
 }

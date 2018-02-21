@@ -27,8 +27,8 @@ import cats.instances.try_._
 import fluence.crypto.signature.SignatureChecker
 import fluence.kad.protocol
 import fluence.kad.protocol.{ Contact, Key, Node }
-import fluence.transport.grpc.client.GrpcClientConf
-import fluence.transport.{ TransportServer, UPnP }
+import fluence.transport.TransportServer
+import fluence.transport.grpc.GrpcConf
 import io.grpc._
 
 import scala.util.Try
@@ -123,7 +123,7 @@ object GrpcServer extends slogging.LazyLogging {
      * @param cb         To be called on ready and on each message
      * @param clientConf Conf to get header names from
      */
-    def onNodeActivity(cb: Node[Contact] ⇒ IO[Any], clientConf: GrpcClientConf)(implicit checker: SignatureChecker): Builder =
+    def onNodeActivity(cb: Node[Contact] ⇒ IO[Any], clientConf: GrpcConf)(implicit checker: SignatureChecker): Builder =
       addInterceptor(new ServerInterceptor {
         override def interceptCall[ReqT, RespT](call: ServerCall[ReqT, RespT], headers: Metadata, next: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
           val remoteKey =
@@ -192,32 +192,15 @@ object GrpcServer extends slogging.LazyLogging {
    * Builder for config object
    *
    * @param conf Server config object
-   * @param uPnP Lazy uPnP instance
    */
-  def builder(conf: GrpcServerConf, uPnP: ⇒ UPnP): Builder =
-    conf.externalPort match {
-      case Some(externalPort) ⇒
-        val upnp = uPnP
-
-        Builder(
-          onStart = upnp.addPort(externalPort, conf.localPort),
-          onShutdown = upnp.deletePort(externalPort),
-          address = upnp.externalAddress,
-          port = externalPort,
-          localPort = conf.localPort,
-          services = Nil,
-          interceptors = Nil
-        )
-
-      case None ⇒
-        Builder(
-          onStart = IO.unit,
-          onShutdown = IO.unit,
-          address = InetAddress.getLocalHost,
-          port = conf.localPort,
-          localPort = conf.localPort,
-          services = Nil,
-          interceptors = Nil
-        )
-    }
+  def builder(conf: GrpcServerConf): Builder =
+    Builder(
+      onStart = IO.unit,
+      onShutdown = IO.unit,
+      address = InetAddress.getLocalHost,
+      port = conf.port,
+      localPort = conf.port,
+      services = Nil,
+      interceptors = Nil
+    )
 }

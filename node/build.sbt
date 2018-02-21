@@ -16,8 +16,15 @@ mainClass := Some("fluence.node.NodeApp")
 packageName in Docker := "fluencelabs/node"
 
 dockerCommands ++= Seq(
-  Cmd("ENV", "FLUENCE_GIT_HASH", sys.process.Process("git rev-parse HEAD").lineStream_!.head)
+  Cmd("ENV", "FLUENCE_GIT_HASH", sys.process.Process("git rev-parse HEAD").lineStream_!.head),
+  Cmd("ENV", "FLUENCE_DATA_DIR", "/var/fluence"),
+  Cmd("ENV", "FLUENCE_KEYS_DIR", "/etc/fluence"),
+  Cmd("ENV", "FLUENCE_PORT", "11022")
 )
+
+dockerExposedPorts := Seq(11022)
+
+dockerExposedVolumes := Seq("/var/fluence", "/etc/fluence")
 
 version in Docker := sys.process.Process("git rev-parse HEAD").lineStream_!.head
 

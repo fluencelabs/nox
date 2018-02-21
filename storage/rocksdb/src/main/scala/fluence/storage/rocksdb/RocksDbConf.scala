@@ -15,8 +15,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport.grpc.server
+package fluence.storage.rocksdb
 
-case class GrpcServerConf(
-    port: Int
-)
+import cats.ApplicativeError
+import com.typesafe.config.Config
+
+import scala.language.higherKinds
+
+case class RocksDbConf(dataDir: String, createIfMissing: Boolean)
+
+object RocksDbConf {
+  val ConfigPath = "fluence.storage.rocksDb"
+
+  def read[F[_]](conf: Config, name: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbConf] =
+    F.catchNonFatal{
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      conf.as[RocksDbConf](name)
+    }
+}

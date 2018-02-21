@@ -19,7 +19,7 @@ package fluence.node
 
 import java.io.File
 
-import cats.{ Applicative, Traverse }
+import cats.{ Applicative, MonadError }
 import cats.effect.IO
 import cats.syntax.show._
 import com.typesafe.config.{ Config, ConfigFactory }
@@ -30,7 +30,7 @@ import fluence.crypto.keypair.KeyPair
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
 import monix.eval.Task
 import cats.instances.list._
-import fluence.crypto.signature.SignatureChecker
+import fluence.client.SeedsConfig
 import fluence.kad.Kademlia
 import monix.execution.Scheduler
 
@@ -96,26 +96,6 @@ object FluenceNode extends slogging.LazyLogging {
     keyStorage.getOrCreateKeyPair(algo.generateKeyPair[IO]().value.flatMap(IO.fromEither))
   }
 
-  // TODO: move config reading stuff somewhere
-  case class SeedsConfig(
-      seeds: List[String]
-  ) {
-    def contacts(implicit checker: SignatureChecker): IO[List[Contact]] =
-      Traverse[List].traverse(seeds)(s ⇒
-        Contact.readB64seed[IO](s).value.flatMap(IO.fromEither)
-      )
-  }
-
-  /**
-   * Reads seed nodes contacts from config
-   */
-  def readSeedsConfig(conf: Config): IO[SeedsConfig] =
-    IO {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[SeedsConfig]("fluence.node.join")
-    }
-
   /**
    * Launches GRPC node, using all the provided configs.
    * @return IO that will shutdown the node once ran
@@ -129,7 +109,15 @@ object FluenceNode extends slogging.LazyLogging {
       key ← Key.fromKeyPair[IO](kp)
 
       builder ← NodeGrpc.grpcServerBuilder(config)
-      contact ← NodeGrpc.grpcContact(algo.signer(kp), builder)
+
+      contactConf ← ContactConf.read(config)
+      contact ← Contact.buildOwn[IO](
+        ip = contactConf.host,
+        port = contactConf.port,
+        protocolVersion = contactConf.protocolVersion,
+        gitHash = contactConf.gitHash,
+        signer = algo.signer(kp)
+      ).value.flatMap(MonadError[IO, Throwable].fromEither)
 
       client ← NodeGrpc.grpcClient(key, contact, config)
       kadClient = client.service[KademliaRpc[Task, Contact]] _
@@ -140,7 +128,7 @@ object FluenceNode extends slogging.LazyLogging {
 
       _ ← server.start
 
-      seedConfig ← readSeedsConfig(config)
+      seedConfig ← SeedsConfig.read(config)
       seedContacts ← seedConfig.contacts
 
       _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO(Scheduler.global) else IO{

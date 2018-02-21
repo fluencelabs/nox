@@ -15,8 +15,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport.grpc.server
+package fluence.node
 
-case class GrpcServerConf(
-    port: Int
+import java.net.InetAddress
+
+import cats.effect.IO
+import com.typesafe.config.Config
+import net.ceedubs.ficus.readers.ValueReader
+
+case class ContactConf(
+    host: InetAddress,
+    port: Int,
+
+    gitHash: String,
+    protocolVersion: Long
 )
+
+object ContactConf {
+  def read(config: Config): IO[ContactConf] =
+    IO {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      implicit val inetAddressRead: ValueReader[InetAddress] =
+        (config: Config, path: String) ⇒
+          InetAddress.getByName(config.as[String](path))
+      config.as[ContactConf]("fluence.network.contact")
+    }
+}

@@ -47,14 +47,16 @@ object SbtCommons {
   val AirflameV = "0.38"
   val ScalatestV = "3.0.+"
   val SloggingV = "0.6.1"
+  val ShapelessV = "2.3.+"
+  val MonixV = "3.0.0-M3"
 
   val slogging = "biz.enef" %% "slogging" % SloggingV
   val sloggingSlf4j = "biz.enef" %% "slogging-slf4j" % SloggingV
 
   val cats1 = "org.typelevel" %% "cats-core" % Cats1V
   val catsEffect = "org.typelevel" %% "cats-effect" % CatsEffectV
-  val monix3 = "io.monix" %% "monix" % "3.0.0-M3"
-  val shapeless = "com.chuusai" %% "shapeless" % "2.3.+"
+  val monix3 = "io.monix" %% "monix" % MonixV
+  val shapeless = "com.chuusai" %% "shapeless" % ShapelessV
   val monocle = "com.github.julien-truffaut" %% "monocle-core" % MonocleV
   val monocleMacro = "com.github.julien-truffaut" %% "monocle-macro" % MonocleV
   val scodecBits = "org.scodec" %% "scodec-bits" % ScodecBitsV

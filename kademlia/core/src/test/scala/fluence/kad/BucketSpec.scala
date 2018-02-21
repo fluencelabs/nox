@@ -54,7 +54,7 @@ class BucketSpec extends WordSpec with Matchers {
       val k2 = Key.fromBytes[Coeval](Array.fill(Key.Length)(3: Byte)).value
 
       val failRPC = (_: C) ⇒ new KademliaRpc[F, C] {
-        override def ping() = StateT.lift(Coeval.raiseError(new NoSuchElementException))
+        override def ping() = StateT.liftF(Coeval.raiseError(new NoSuchElementException))
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
 
@@ -62,7 +62,7 @@ class BucketSpec extends WordSpec with Matchers {
       }
 
       val successRPC = (c: C) ⇒ new KademliaRpc[F, C] {
-        override def ping() = StateT.lift(Coeval(Node(Key.fromBytes[Coeval](Array.fill(Key.Length)(c.toByte)).value, Instant.now(), c)))
+        override def ping() = StateT.liftF(Coeval(Node(Key.fromBytes[Coeval](Array.fill(Key.Length)(c.toByte)).value, Instant.now(), c)))
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
         override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???

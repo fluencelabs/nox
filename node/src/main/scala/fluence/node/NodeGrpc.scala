@@ -33,7 +33,8 @@ import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.node.NodeComposer.Services
 import fluence.transport.UPnP
-import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
+import fluence.transport.grpc.GrpcConf
+import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.eval.Task
 import monix.execution.Scheduler
@@ -53,18 +54,9 @@ object NodeGrpc {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
-  def grpcContact(signer: Signer, serverBuilder: GrpcServer.Builder): IO[Contact] =
-    Contact.buildOwn[IO](
-      serverBuilder.address,
-      serverBuilder.port,
-      0l, // todo protocol version
-      "", // todo git hash
-      signer
-    ).value.flatMap(MonadError[IO, Throwable].fromEither)
-
   def grpcClient(key: Key, contact: Contact, config: Config)(implicit checker: SignatureChecker) =
     for {
-      clientConf ← GrpcClientConf.read[IO](config)
+      clientConf ← GrpcConf.read[IO](config)
       client = {
         // TODO: check if it's optimal
         implicit val ec: Scheduler = Scheduler(Executors.newCachedThreadPool()) // required for implicit Effect[Task]
@@ -79,7 +71,7 @@ object NodeGrpc {
     config: Config
   ): IO[GrpcServer] =
     for {
-      clientConf ← GrpcClientConf.read[IO](config)
+      clientConf ← GrpcConf.read[IO](config)
     } yield {
       import services._
 
@@ -105,7 +97,11 @@ object NodeGrpc {
 
   def grpcServerBuilder(config: Config): IO[GrpcServer.Builder] =
     for {
-      serverConf ← GrpcServerConf.read[IO](config)
-    } yield GrpcServer.builder(serverConf, UPnP().unsafeRunSync())
+      serverConfOpt ← GrpcConf.read[IO](config).map(_.server)
+      serverConf ← serverConfOpt match {
+        case Some(sc) ⇒ IO.pure(sc)
+        case None     ⇒ IO.raiseError(new IllegalStateException("fluence.grpc.server config is not defined"))
+      }
+    } yield GrpcServer.builder(serverConf) // TODO, UPnP().unsafeRunSync())
 
 }

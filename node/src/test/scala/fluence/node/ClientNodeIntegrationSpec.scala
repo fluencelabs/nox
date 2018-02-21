@@ -489,7 +489,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     def taskValue(timeoutOp: Option[Timeout] = None)(implicit s: Scheduler): T = {
       val future: CancelableFuture[T] = task.runAsync(s)
       future.onComplete {
-        case Success(_)         ⇒ ()
+        case Success(_) ⇒ ()
         case Failure(exception) ⇒
           println(Console.RED + s"TASK ERROR: $exception")
           exception.printStackTrace()
