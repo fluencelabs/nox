@@ -32,6 +32,7 @@ import scala.util.control.NoStackTrace
  * @param failure Non-empty Coproduct with a failure
  * @tparam T Disjoint union of possible failure types
  */
+@deprecated("Use CoFail with EitherT instead", "21.02.2018")
 case class ExCoFail[T <: Coproduct](failure: T) extends NoStackTrace {
   /**
    * Returns an actual value held in failure Coproduct -- useful for pattern matching
@@ -39,6 +40,7 @@ case class ExCoFail[T <: Coproduct](failure: T) extends NoStackTrace {
   def unsafeGet: Any = Coproduct.unsafeGet(failure)
 }
 
+@deprecated("Use CoFail with EitherT instead", "21.02.2018")
 object ExCoFail {
   // Convert generic MonadError for Throwable into CoFail of particular type
   // It should be done only once at the end of the world, hence not implicit
