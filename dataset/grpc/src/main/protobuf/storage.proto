@@ -31,26 +31,29 @@ message GetValue {
     bytes value = 1;
 }
 
+message Error {
+    string msg = 1;
+}
+// Client reply
 message GetCallbackReply {
     oneof reply {
         DatasetId datasetId = 1;
 
         ReplyNextChildIndex nextChildIndex = 10;
         ReplySubmitLeaf submitLeaf = 11;
-
-        // TODO: add error
     }
-}
+    Error error = 20;
 
+}
+// Server ask
 message GetCallback {
     oneof callback {
         GetValue value = 1;
 
         AskNextChildIndex nextChildIndex = 10;
         AskSubmitLeaf submitLeaf = 11;
-
-        // TODO: add error
     }
+    Error error = 20;
 }
 
 // PutCallbacks extends SearchCallback
@@ -92,7 +95,7 @@ message PreviousValue {
 message PutValue {
     bytes value = 1;
 }
-
+// Server ask
 message PutCallback {
     oneof callback {
         PreviousValue value = 1;
@@ -103,10 +106,10 @@ message PutCallback {
         AskVerifyChanges verifyChanges = 21;
         AskChangesStored changesStored = 22;
 
-        // TODO: add error
     }
+    Error error = 30;
 }
-
+// Client reply
 message PutCallbackReply {
     oneof reply {
         DatasetId datasetId = 1;
@@ -118,8 +121,8 @@ message PutCallbackReply {
         ReplyVerifyChanges verifyChanges = 21;
         ReplyChangesStored changesStored = 22;
 
-        // TODO: add error
     }
+    Error error = 30;
 }
 
 service DatasetStorageRpc {
