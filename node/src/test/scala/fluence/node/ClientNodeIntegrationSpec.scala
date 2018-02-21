@@ -35,6 +35,7 @@ import fluence.crypto.keypair.KeyPair
 import fluence.dataset.BasicContract
 import fluence.dataset.client.Contracts.NotFound
 import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi, Contracts }
+import fluence.dataset.grpc.DatasetStorageClient.ServerError
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
@@ -202,15 +203,15 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         runNodes { servers ⇒
           val firstContact: Contact = servers.head._1
           val storageRpc = newClient.service[DatasetStorageRpc[Task]](firstContact)
-          val datasetStorage = createDatasetStorage("dummy dataset".getBytes, storageRpc)
+          val datasetStorage = createDatasetStorage("dummy dataset ******".getBytes, storageRpc)
 
           val getResponse = datasetStorage.get("request key").failed.taskValue
-          getResponse shouldBe a[StatusRuntimeException]
-          // todo transmit error from server: there should be DatasetNotFound exception (or something else) instead of StatusRuntimeException
+          getResponse shouldBe a[ServerError]
+          getResponse.getMessage shouldBe "Can't get DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
 
           val putResponse = datasetStorage.put("key", "value").failed.taskValue
-          // todo transmit error from server: there should be DatasetNotFound exception (or something else) instead of StatusRuntimeException
-          putResponse shouldBe a[StatusRuntimeException]
+          getResponse shouldBe a[ServerError]
+          getResponse.getMessage shouldBe "Can't get DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
 
         }
       }

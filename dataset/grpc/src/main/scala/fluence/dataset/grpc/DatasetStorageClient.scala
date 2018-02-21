@@ -18,6 +18,7 @@
 package fluence.dataset.grpc
 
 import cats.effect.Effect
+import cats.syntax.applicativeError._
 import cats.syntax.functor._
 import com.google.protobuf.ByteString
 import fluence.btree.protocol.BTreeRpc
@@ -55,63 +56,69 @@ class DatasetStorageClient[F[_] : Effect](
 
     // Get observer/observable for request's bidiflow
     val (clientReply, serverAsk) = pipe
-      .transform(_.map { getCb ⇒
-        val res = getCb.error → getCb.callback
-        logger.trace(s"DatasetStorageClient.get() received server ask=$res")
-        res
+      .transform(_.map {
+        case GetCallback(callback) ⇒
+          logger.trace(s"DatasetStorageClient.get() received server ask=$callback")
+          callback
       })
       .multicast
 
-    val handleAsks = serverAsk.collect { // Collect callbacks
-      case tuple @ (_, ask) if ask.isDefined && !ask.isValue ⇒ tuple
-    }.mapEval[F, GetCallbackReply.Reply] { // Route callbacks to ''getCallbacks''
+    val handleAsks = serverAsk
+      .collect { case ask if ask.isDefined && !ask.isValue && !ask.isServerError ⇒ ask } // Collect callbacks
+      .mapEval[F, GetCallbackReply] {
 
-      case (err, ask) if ask.isNextChildIndex ⇒ doIfNoErr(err) {
-        val Some(nci) = ask.nextChildIndex
+        case ask if ask.isNextChildIndex ⇒
+          val Some(nci) = ask.nextChildIndex
 
-        getCallbacks
-          .nextChildIndex(nci.keys.map(_.toByteArray).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
+          getCallbacks
+            .nextChildIndex(nci.keys.map(_.toByteArray).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
+            .attempt
+            .map {
+              case Left(err) ⇒
+                GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage)))
+              case Right(idx) ⇒
+                GetCallbackReply(GetCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx)))
+            }
 
-          .map(i ⇒ ReplyNextChildIndex(i))
-          .map(GetCallbackReply.Reply.NextChildIndex)
+        case ask if ask.isSubmitLeaf ⇒
+          val Some(sl) = ask.submitLeaf
+
+          getCallbacks
+            .submitLeaf(sl.keys.map(_.toByteArray).toArray, sl.valuesChecksums.map(_.toByteArray).toArray)
+            .attempt
+            .map {
+              case Left(err) ⇒
+                GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage)))
+              case Right(idx) ⇒
+                GetCallbackReply(GetCallbackReply.Reply.SubmitLeaf(ReplySubmitLeaf(idx.getOrElse(-1))))
+            }
+
       }
-
-      case (err, ask) if ask.isSubmitLeaf ⇒ doIfNoErr(err) {
-        val Some(sl) = ask.submitLeaf
-
-        getCallbacks
-          .submitLeaf(sl.keys.map(_.toByteArray).toArray, sl.valuesChecksums.map(_.toByteArray).toArray)
-
-          .map(oi ⇒ ReplySubmitLeaf(oi.getOrElse(-1)))
-          .map(GetCallbackReply.Reply.SubmitLeaf)
-      }
-    }.map(r ⇒ GetCallbackReply(reply = r))
 
     (
       Observable(
         GetCallbackReply(
-          reply = GetCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
+          GetCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
         )
       ) ++ handleAsks
     ).subscribe(clientReply) // And clientReply response back to server
 
-    val valueTask: Task[Option[Array[Byte]]] =
-      serverAsk.collect { // Collect response value
-        case tuple @ (_, ask) if ask.isValue ⇒ tuple
-      }.map {
-        case (err, ask) ⇒
-          if (err.isDefined) {
-            Task.raiseError(ServerError(err.get.msg))
-          } else {
+    val errorOrValue =
+      serverAsk
+        .collect {  // Collect terminal task with value/error
+          case ask if ask.isServerError ⇒
+            val Some(err) = ask.serverError
+            Task.raiseError(ServerError(err.msg))
+          case ask if ask.isValue ⇒
+            val Some(getValue) = ask._value
             Task {
-              Option(ask._value.get.value)
+              Option(getValue.value)
                 .filterNot(_.isEmpty)
                 .map(_.toByteArray)
             }
-          }
-      }.headL.flatten // Take the first value, wrapped with Task
+        }.headL.flatten // Take the first value, wrapped with Task
 
-    run(valueTask)
+    run(errorOrValue)
   }
 
   /**
@@ -127,60 +134,74 @@ class DatasetStorageClient[F[_] : Effect](
     val pipe = callToPipe(stub.put)
 
     val (clientReply, serverAsk) = pipe
-      .transform(_.map { get ⇒
-        val res = get.error → get.callback
-        logger.trace(s"DatasetStorageClient.put() received server ask=$res")
-        res
+      .transform(_.map {
+        case PutCallback(callback) ⇒
+          logger.trace(s"DatasetStorageClient.put() received server ask=$callback")
+          callback
       })
       .multicast
 
-    val handleAsks = serverAsk.collect { // Collect callbacks
-      case tuple @ (_, ask) if ask.isDefined && !ask.isValue ⇒ tuple
-    }.mapEval[F, PutCallbackReply.Reply] {
+    val handleAsks = serverAsk
+      .collect { case ask if ask.isDefined && !ask.isValue ⇒ ask } // Collect callbacks
+      .mapEval[F, PutCallbackReply] {
 
-      case (err, ask) if ask.isNextChildIndex ⇒ doIfNoErr(err) {
-        val Some(nci) = ask.nextChildIndex
+        case ask if ask.isNextChildIndex ⇒
+          val Some(nci) = ask.nextChildIndex
 
-        putCallbacks
-          .nextChildIndex(nci.keys.map(_.toByteArray).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
+          putCallbacks
+            .nextChildIndex(nci.keys.map(_.toByteArray).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
+            .attempt
+            .map {
+              case Left(err) ⇒
+                PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
+              case Right(idx) ⇒
+                PutCallbackReply(PutCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx)))
+            }
 
-          .map(i ⇒ ReplyNextChildIndex(i))
-          .map(PutCallbackReply.Reply.NextChildIndex)
+        case ask if ask.isPutDetails ⇒
+          val Some(pd) = ask.putDetails
+
+          putCallbacks
+            .putDetails(pd.keys.map(_.toByteArray).toArray, pd.valuesChecksums.map(_.toByteArray).toArray)
+            .attempt
+            .map {
+              case Left(err) ⇒
+                PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
+              case Right(cpd) ⇒
+                val putDetails = ReplyPutDetails(
+                  key = ByteString.copyFrom(cpd.key),
+                  checksum = ByteString.copyFrom(cpd.valChecksum),
+                  searchResult = cpd.searchResult match {
+                    case Searching.Found(foundIndex)              ⇒ ReplyPutDetails.SearchResult.FoundIndex(foundIndex)
+                    case Searching.InsertionPoint(insertionPoint) ⇒ ReplyPutDetails.SearchResult.InsertionPoint(insertionPoint)
+                  })
+                PutCallbackReply(PutCallbackReply.Reply.PutDetails(putDetails))
+            }
+
+        case ask if ask.isVerifyChanges ⇒
+          val Some(vc) = ask.verifyChanges
+
+          putCallbacks
+            .verifyChanges(vc.serverMerkleRoot.toByteArray, vc.splitted)
+            .attempt
+            .map {
+              case Left(err) ⇒
+                PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
+              case Right(idx) ⇒
+                PutCallbackReply(PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges())) // TODO: here should be signature
+            }
+
+        case ask if ask.isChangesStored ⇒
+          putCallbacks
+            .changesStored()
+            .attempt
+            .map {
+              case Left(err) ⇒
+                PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
+              case Right(idx) ⇒
+                PutCallbackReply(PutCallbackReply.Reply.ChangesStored(ReplyChangesStored()))
+            }
       }
-
-      case (err, ask) if ask.isPutDetails ⇒ doIfNoErr(err) {
-        val Some(pd) = ask.putDetails
-
-        putCallbacks
-          .putDetails(pd.keys.map(_.toByteArray).toArray, pd.valuesChecksums.map(_.toByteArray).toArray)
-
-          .map(cpd ⇒ ReplyPutDetails(
-            key = ByteString.copyFrom(cpd.key),
-            checksum = ByteString.copyFrom(cpd.valChecksum),
-            searchResult = cpd.searchResult match {
-              case Searching.Found(foundIndex)              ⇒ ReplyPutDetails.SearchResult.FoundIndex(foundIndex)
-              case Searching.InsertionPoint(insertionPoint) ⇒ ReplyPutDetails.SearchResult.InsertionPoint(insertionPoint)
-            }))
-          .map(PutCallbackReply.Reply.PutDetails)
-      }
-
-      case (err, ask) if ask.isVerifyChanges ⇒ doIfNoErr(err) {
-        val Some(vc) = ask.verifyChanges
-
-        putCallbacks
-          .verifyChanges(vc.serverMerkleRoot.toByteArray, vc.splitted)
-
-          .map(_ ⇒ PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges())) // TODO: here should be signature
-      }
-
-      case (err, ask) if ask.isChangesStored ⇒ doIfNoErr(err) {
-        putCallbacks
-          .changesStored()
-
-          .map(_ ⇒ PutCallbackReply.Reply.ChangesStored(ReplyChangesStored()))
-      }
-
-    }.map(r ⇒ PutCallbackReply(reply = r))
 
     (
       Observable( // Pass the datasetId and value as the first, unasked pushes
@@ -188,27 +209,28 @@ class DatasetStorageClient[F[_] : Effect](
           reply = PutCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
         ),
         PutCallbackReply(
-          reply = PutCallbackReply.Reply.Value(PutValue(ByteString.copyFrom(encryptedValue)))   // todo why ?
+          reply = PutCallbackReply.Reply.Value(PutValue(ByteString.copyFrom(encryptedValue)))
         )
       ) ++ handleAsks
     ).subscribe(clientReply) // And push response back to server
 
-    val valueTask =
-      serverAsk.collect { // Collect response value
-        case tuple @ (_, ask) if ask.isValue ⇒ tuple
-      }.map {
-        case (err, ask) ⇒
-          if (err.isDefined)
-            Task.raiseError(ServerError(err.get.msg))
-           else
+    val errorOrValue =
+      serverAsk
+        .collect {  // Collect terminal task with value/error
+          case ask if ask.isServerError ⇒
+            val Some(err) = ask.serverError
+            Task.raiseError(ServerError(err.msg))
+          case ask if ask.isValue ⇒
+            val Some(getValue) = ask._value
             Task {
-              Option(ask._value.get.value)
+              Option(getValue.value)
                 .filterNot(_.isEmpty)
                 .map(_.toByteArray)
             }
-      }.headL.flatten // Take the first value, wrapped with Task
+        }.headL.flatten // Take the first value, wrapped with Task
 
-    run(valueTask)
+    run(errorOrValue)
+
   }
 
   /**
@@ -220,11 +242,6 @@ class DatasetStorageClient[F[_] : Effect](
    */
   override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[F]): F[Option[Array[Byte]]] = ???
 
-  private def doIfNoErr[T](err: Option[Error])(action: ⇒ F[T]): F[T] =
-    if (err.isDefined)
-      Effect[F].raiseError[T](ServerError(err.get.msg))
-    else
-      action
 }
 
 object DatasetStorageClient {
@@ -242,6 +259,8 @@ object DatasetStorageClient {
     new DatasetStorageClient[F](new DatasetStorageRpcStub(channel, callOptions))
 
   /**  Error from server(node) side. */
-  case class ServerError(error: String) extends NoStackTrace
+  case class ServerError(msg: String) extends NoStackTrace {
+    override def getMessage: String = msg
+  }
 
 }

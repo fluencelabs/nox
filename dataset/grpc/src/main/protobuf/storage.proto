@@ -41,8 +41,9 @@ message GetCallbackReply {
 
         ReplyNextChildIndex nextChildIndex = 10;
         ReplySubmitLeaf submitLeaf = 11;
+
+        Error clientError = 20;
     }
-    Error error = 20;
 
 }
 // Server ask
@@ -52,8 +53,9 @@ message GetCallback {
 
         AskNextChildIndex nextChildIndex = 10;
         AskSubmitLeaf submitLeaf = 11;
+
+        Error serverError = 20;
     }
-    Error error = 20;
 }
 
 // PutCallbacks extends SearchCallback
@@ -106,8 +108,8 @@ message PutCallback {
         AskVerifyChanges verifyChanges = 21;
         AskChangesStored changesStored = 22;
 
+        Error serverError = 30;
     }
-    Error error = 30;
 }
 // Client reply
 message PutCallbackReply {
@@ -121,8 +123,8 @@ message PutCallbackReply {
         ReplyVerifyChanges verifyChanges = 21;
         ReplyChangesStored changesStored = 22;
 
+        Error clientError = 30;
     }
-    Error error = 30;
 }
 
 service DatasetStorageRpc {

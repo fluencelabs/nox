@@ -64,7 +64,6 @@ class DatasetStorageServer[F[_] : Async](
       Task(value)
   }.toIO.to[F]
 
-
   override def get(responseObserver: StreamObserver[GetCallback]): StreamObserver[GetCallbackReply] = {
 
     val resp: Observer[GetCallback] = responseObserver
@@ -77,28 +76,28 @@ class DatasetStorageServer[F[_] : Async](
     ): EitherT[Task, ClientError, T] = {
 
       val reply = clientReply()
-        .map { cbReply ⇒
-          val res = cbReply.error → cbReply.reply
-          logger.trace(s"DatasetStorageServer.get() received client reply=$res")
-          res
+        .map {
+          case GetCallbackReply(reply) ⇒
+            logger.trace(s"DatasetStorageServer.get() received client reply=$reply")
+            reply
         }.map {
-          case (None, r) if check(r) ⇒
+          case r if check(r) ⇒
             Right(extract(r))
-          case (err, _) ⇒
-            val errMsg = err.map(_.msg).getOrElse("Wrong reply received, protocol error")
+          case r ⇒
+            val errMsg = r.clientError.map(_.msg).getOrElse("Wrong reply received, protocol error")
             Left(ClientError(errMsg))
         }
 
       EitherT(reply)
     }
 
-    val value =
+    val valueF =
       for {
         did ← runT(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
         foundValue ← service.get(did, new BTreeRpc.GetCallbacks[F] {
 
-          private val push: GetCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = cb ⇒ {
-            EitherT(Task.fromFuture(resp.onNext(GetCallback(callback = cb))).attempt)
+          private val push: GetCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
+            EitherT(Task.fromFuture(resp.onNext(GetCallback(callback = callback))).attempt)
               .leftMap(t ⇒ ClientError(t.getMessage))
           }
 
@@ -146,14 +145,15 @@ class DatasetStorageServer[F[_] : Async](
 
     // Launch service call, push the value once it's received
     resp completeWith runF(
-      value.attempt.flatMap {
-        // when server recieve client reply with error, server shouln't answer anything
-        case Left(clientError) ⇒
-          Async[F].raiseError[GetCallback](clientError)
+      valueF.attempt.flatMap {
         case Right(value) ⇒
-          F.pure(GetCallback(
-            callback = GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))
-          ))
+          F.pure(GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
+        case Left(ClientError(msg)) ⇒
+          // when server recieve client reply with error, server shouln't answer anything
+          Async[F].raiseError[GetCallback](ClientError(msg))
+        case Left(exception) ⇒
+          F.pure(GetCallback(GetCallback.Callback.ServerError(Error(exception.getMessage))))
+
       }
     )
 
@@ -173,15 +173,15 @@ class DatasetStorageServer[F[_] : Async](
     ): EitherT[Task, ClientError, T] = {
 
       val reply = clientReply()
-        .map { cbReply ⇒
-          val res = cbReply.error → cbReply.reply
-          logger.trace(s"DatasetStorageServer.put() received client reply=$res")
-          res
+        .map {
+          case PutCallbackReply(reply) ⇒
+            logger.trace(s"DatasetStorageServer.put() received client reply=$reply")
+            reply
         }.map {
-          case (None, r) if check(r) ⇒
+          case r if check(r) ⇒
             Right(extract(r))
-          case (err, _) ⇒
-            val errMsg = err.map(_.msg).getOrElse("Wrong reply received, protocol error")
+          case r ⇒
+            val errMsg = r.clientError.map(_.msg).getOrElse("Wrong reply received, protocol error")
             Left(ClientError(errMsg))
         }
 
@@ -194,8 +194,8 @@ class DatasetStorageServer[F[_] : Async](
         putValue ← runT(getReply(_.isValue, _._value.map(_.value.toByteArray).getOrElse(Array.emptyByteArray)))
         oldValue ← service.put(did, new BTreeRpc.PutCallbacks[F] {
 
-          private val push: PutCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = cb ⇒ {
-            EitherT(Task.fromFuture(resp.onNext(PutCallback(callback = cb))).attempt)
+          private val push: PutCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
+            EitherT(Task.fromFuture(resp.onNext(PutCallback(callback = callback))).attempt)
               .leftMap(t ⇒ ClientError(t.getMessage))
           }
 
@@ -209,10 +209,12 @@ class DatasetStorageServer[F[_] : Async](
             runT(
               for {
                 _ ← push(
-                  PutCallback.Callback.NextChildIndex(AskNextChildIndex(
-                    keys = keys.map(ByteString.copyFrom),
-                    childsChecksums = childsChecksums.map(ByteString.copyFrom)
-                  ))
+                  PutCallback.Callback.NextChildIndex(
+                    AskNextChildIndex(
+                      keys = keys.map(ByteString.copyFrom),
+                      childsChecksums = childsChecksums.map(ByteString.copyFrom)
+                    )
+                  )
                 )
                 nci ← getReply(_.isNextChildIndex, _.nextChildIndex.get)
               } yield nci.index
@@ -280,15 +282,13 @@ class DatasetStorageServer[F[_] : Async](
     // Launch service call, push the value once it's received
     resp completeWith runF(
       valueF.attempt.flatMap {
-        // when server recieve client reply with error, server shouln't answer anything
-        case Left(clientError) ⇒
-          // this is terminal operation we can't lift up client exception, we should handle it
-          logger.warn(s"Client reply with error=${clientError.getMessage}")
-          Async[F].raiseError[PutCallback](clientError)
         case Right(value) ⇒
-          F.pure(PutCallback(
-            callback = PutCallback.Callback.Value(PreviousValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))
-          ))
+          F.pure(PutCallback(PutCallback.Callback.Value(PreviousValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
+        case Left(ClientError(msg)) ⇒
+          // when server recieve client reply with error, server shouln't answer anything
+          Async[F].raiseError[PutCallback](ClientError(msg))
+        case Left(exception) ⇒
+          F.pure(PutCallback(PutCallback.Callback.ServerError(Error(exception.getMessage))))
       }
     )
 
@@ -299,6 +299,6 @@ class DatasetStorageServer[F[_] : Async](
 object DatasetStorageServer {
 
   /**  Error from client side. */
-  case class ClientError(error: String) extends NoStackTrace
+  case class ClientError(msg: String) extends NoStackTrace
 
 }
