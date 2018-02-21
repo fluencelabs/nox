@@ -35,7 +35,7 @@ import scala.util.Try
  * Node contact
  *
  * @param ip IP address
- * @param port Port
+ * @param grpcPort Port for GRPC server
  * @param publicKey Public key of the node
  * @param protocolVersion Protocol version the node is known to follow
  * @param gitHash Git hash of current build running on node
@@ -43,7 +43,7 @@ import scala.util.Try
  */
 case class Contact(
     ip: InetAddress,
-    port: Int, // httpPort, websocketPort and other transports //
+    grpcPort: Int, // httpPort, websocketPort and other transports //
 
     publicKey: KeyPair.Public,
     protocolVersion: Long,
@@ -106,7 +106,7 @@ object Contact {
 
   case class JwtHeader(publicKey: KeyPair.Public, protocolVersion: Long)
 
-  case class JwtData(ip: InetAddress, port: Int, gitHash: String)
+  case class JwtData(ip: InetAddress, grpcPort: Int, gitHash: String)
 
   object JwtImplicits {
     implicit val encodeHeader: Encoder[JwtHeader] = header ⇒ Json.obj(
@@ -124,20 +124,20 @@ object Contact {
 
     implicit val encodeData: Encoder[JwtData] = data ⇒ Json.obj(
       "ip" -> Json.fromString(data.ip.getHostAddress),
-      "p" -> Json.fromInt(data.port),
+      "gp" -> Json.fromInt(data.grpcPort),
       "gh" -> Json.fromString(data.gitHash)
     )
 
     implicit val decodeData: Decoder[JwtData] = c ⇒
       for {
         ip ← c.downField("ip").as[String]
-        p ← c.downField("p").as[Int]
+        p ← c.downField("gp").as[Int]
         gh ← c.downField("gh").as[String]
         ipAddr ← Try(InetAddress.getByName(ip)).fold(
           t ⇒ Left(DecodingFailure.fromThrowable(t, Nil)),
           i ⇒ Right(i)
         )
-      } yield JwtData(ip = ipAddr, port = p, gitHash = gh)
+      } yield JwtData(ip = ipAddr, grpcPort = p, gitHash = gh)
   }
 
   import JwtImplicits._
@@ -150,7 +150,7 @@ object Contact {
       case (header, data) ⇒
         Contact(
           ip = data.ip,
-          port = data.port,
+          grpcPort = data.grpcPort,
           publicKey = header.publicKey,
           protocolVersion = header.protocolVersion,
           gitHash = data.gitHash,

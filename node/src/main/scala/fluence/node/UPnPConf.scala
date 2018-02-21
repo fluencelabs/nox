@@ -17,28 +17,18 @@
 
 package fluence.node
 
-import java.net.InetAddress
-
 import cats.effect.IO
 import com.typesafe.config.Config
-import net.ceedubs.ficus.readers.ValueReader
 
-case class ContactConf(
-    host: Option[InetAddress],
-    grpcPort: Option[Int],
+case class UPnPConf(grpc: Option[Int]) {
+  def isEnabled: Boolean = grpc.isDefined
+}
 
-    gitHash: String,
-    protocolVersion: Long
-)
-
-object ContactConf {
-  def read(config: Config): IO[ContactConf] =
+object UPnPConf {
+  def read(conf: Config): IO[UPnPConf] =
     IO {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      implicit val inetAddressRead: ValueReader[InetAddress] =
-        (config: Config, path: String) ⇒
-          InetAddress.getByName(config.as[String](path))
-      config.as[ContactConf]("fluence.network.contact")
+      conf.as[UPnPConf]("fluence.network.upnp")
     }
 }

@@ -32,6 +32,8 @@ import monix.eval.Task
 import cats.instances.list._
 import fluence.client.SeedsConfig
 import fluence.kad.Kademlia
+import fluence.transport.UPnP
+import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.execution.Scheduler
 
 import scala.concurrent.duration._
@@ -96,6 +98,24 @@ object FluenceNode extends slogging.LazyLogging {
     keyStorage.getOrCreateKeyPair(algo.generateKeyPair[IO]().value.flatMap(IO.fromEither))
   }
 
+  private def launchUPnP(config: Config, contactConf: ContactConf, grpc: GrpcServerConf): IO[(ContactConf, IO[Unit])] =
+    UPnPConf.read(config).flatMap {
+      case u if !u.isEnabled ⇒ IO.pure(contactConf -> IO.unit)
+      case u ⇒
+        UPnP().flatMap {
+          upnp ⇒
+            // Provide upnp-discovered external address to contact conf
+            val contact = contactConf.copy(host = Some(upnp.externalAddress))
+
+            // Forward grpc port
+            u.grpc.fold(IO.pure(contact -> IO.unit)){ grpcExternalPort ⇒
+              upnp.addPort(grpcExternalPort, grpc.port).map(_ ⇒
+                contact.copy(grpcPort = Some(grpcExternalPort)) -> upnp.deletePort(grpcExternalPort)
+              )
+            }
+        }
+    }
+
   /**
    * Launches GRPC node, using all the provided configs.
    * @return IO that will shutdown the node once ran
@@ -108,14 +128,20 @@ object FluenceNode extends slogging.LazyLogging {
       kp ← getKeyPair(config.getString("fluence.keyPath"), algo)
       key ← Key.fromKeyPair[IO](kp)
 
-      builder ← NodeGrpc.grpcServerBuilder(config)
+      grpcServerConf ← NodeGrpc.grpcServerConf(config)
+      builder ← NodeGrpc.grpcServerBuilder(grpcServerConf)
 
       contactConf ← ContactConf.read(config)
+
+      upnpContactStop ← launchUPnP(config, contactConf, grpcServerConf)
+
+      (upnpContact, upnpShutdown) = upnpContactStop
+
       contact ← Contact.buildOwn[IO](
-        ip = contactConf.host.getOrElse(builder.address),
-        port = contactConf.port.getOrElse(builder.port),
-        protocolVersion = contactConf.protocolVersion,
-        gitHash = contactConf.gitHash,
+        ip = upnpContact.host.getOrElse(builder.address),
+        port = upnpContact.grpcPort.getOrElse(builder.port),
+        protocolVersion = upnpContact.protocolVersion,
+        gitHash = upnpContact.gitHash,
         signer = algo.signer(kp)
       ).value.flatMap(MonadError[IO, Throwable].fromEither)
 
@@ -149,11 +175,12 @@ object FluenceNode extends slogging.LazyLogging {
         override def kademlia: Kademlia[Task, Contact] = services.kademlia
 
         override def stop: IO[Unit] =
-          Applicative[IO].map2(
+          Applicative[IO].map3(
             services.close,
-            server.shutdown
+            server.shutdown,
+            upnpShutdown
           ){
-              (_, _) ⇒ ()
+              (_, _, _) ⇒ ()
             }
 
         override def restart: IO[FluenceNode] =

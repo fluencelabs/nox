@@ -34,7 +34,7 @@ import fluence.kad.protocol.{ Contact, Key }
 import fluence.node.NodeComposer.Services
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
-import fluence.transport.grpc.server.GrpcServer
+import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.eval.Task
 import monix.execution.Scheduler
 
@@ -94,13 +94,16 @@ object NodeGrpc {
         .build
     }
 
-  def grpcServerBuilder(config: Config): IO[GrpcServer.Builder] =
+  def grpcServerConf(config: Config): IO[GrpcServerConf] =
     for {
       serverConfOpt ← GrpcConf.read[IO](config).map(_.server)
       serverConf ← serverConfOpt match {
         case Some(sc) ⇒ IO.pure(sc)
         case None     ⇒ IO.raiseError(new IllegalStateException("fluence.grpc.server config is not defined"))
       }
-    } yield GrpcServer.builder(serverConf)
+    } yield serverConf
+
+  def grpcServerBuilder(serverConf: GrpcServerConf): IO[GrpcServer.Builder] =
+    IO.pure(GrpcServer.builder(serverConf))
 
 }
