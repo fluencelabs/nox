@@ -96,9 +96,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
           // TODO: check if rocksdb is closed properly
           val result = FluenceNode.startNode(config = config
-            .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
-            .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
-            .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true)))
+            .withValue("fluence.grpc.server.port", ConfigValueFactory.fromAnyRef(port))
+            .withValue("fluence.network.acceptLocal", ConfigValueFactory.fromAnyRef(true)))
           Try(result.unsafeRunSync()).failed.get shouldBe a[IOException]
 
         } finally {
@@ -448,9 +447,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           algo,
           testHasher,
           config
-            .withValue("fluence.transport.grpc.server.localPort", ConfigValueFactory.fromAnyRef(port))
-            .withValue("fluence.transport.grpc.server.externalPort", ConfigValueFactory.fromAnyRef(null))
-            .withValue("fluence.transport.grpc.server.acceptLocal", ConfigValueFactory.fromAnyRef(true))
+            .withValue("fluence.grpc.server.port", ConfigValueFactory.fromAnyRef(port))
+            .withValue("fluence.network.acceptLocal", ConfigValueFactory.fromAnyRef(true))
             .withValue("fluence.contract.cacheDirName", ConfigValueFactory.fromAnyRef("node_cache_" + n))
             .withValue("fluence.directory", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/testnode-" + n))
             //override for some value with no file for new key pair
@@ -466,8 +464,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         s.stop.unsafeRunSync()
 
         // clean all rockDb data from disk
-        if (s.config.getString("fluence.node.storage.rocksDb.dataDir").startsWith(System.getProperty("java.io.tmpdir")))
-          Path(s.config.getString("fluence.node.storage.rocksDb.dataDir")).deleteRecursively()
+        if (s.config.getString("fluence.storage.rocksDb.dataDir").startsWith(System.getProperty("java.io.tmpdir")))
+          Path(s.config.getString("fluence.storage.rocksDb.dataDir")).deleteRecursively()
         if (s.config.getString("fluence.directory").startsWith(System.getProperty("java.io.tmpdir")))
           Path(s.config.getString("fluence.directory")).deleteRecursively()
         if (s.config.getString("fluence.keyPath").startsWith(System.getProperty("java.io.tmpdir")))
@@ -510,7 +508,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   override protected def afterAll(): Unit = {
     super.afterAll()
-    Path(config.getString("fluence.node.storage.rocksDb.dataDir")).deleteRecursively()
+    Path(config.getString("fluence.storage.rocksDb.dataDir")).deleteRecursively()
     LoggerConfig.level = LogLevel.OFF
   }
 
