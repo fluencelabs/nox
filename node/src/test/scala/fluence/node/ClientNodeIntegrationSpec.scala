@@ -34,7 +34,7 @@ import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
 import fluence.crypto.keypair.KeyPair
 import fluence.dataset.BasicContract
 import fluence.dataset.client.Contracts.NotFound
-import fluence.dataset.client.{ ClientDatasetStorage, Contracts }
+import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi, Contracts }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
@@ -335,7 +335,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   }
 
   /** Makes some reads and writes and check results */
-  private def verifyReadAndWrite(datasetStorage: ClientDatasetStorage[String, String]) = {
+  private def verifyReadAndWrite(datasetStorage: ClientDatasetStorageApi[Task, String, String]) = {
     // read non-existent value
     val nonExistentKeyResponse = datasetStorage.get("non-existent key").taskValue
     nonExistentKeyResponse shouldBe None
