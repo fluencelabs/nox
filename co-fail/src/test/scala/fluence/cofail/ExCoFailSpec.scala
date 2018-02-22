@@ -22,9 +22,9 @@ import org.scalatest.{ Matchers, WordSpec }
 import shapeless._
 import scala.language.higherKinds
 
-class CoFailSpec extends WordSpec with Matchers {
+class ExCoFailSpec extends WordSpec with Matchers {
 
-  "co-fail" should {
+  "ex-co-fail" should {
     "compile" in {
       class CheckCompiles[F[_]](ME: MonadError[F, Throwable]) {
 
@@ -32,14 +32,14 @@ class CoFailSpec extends WordSpec with Matchers {
           implicit val TME: MonadError[F, Throwable] = ME
 
           implicit val F: MonadError[F, A :+: B :+: NoSuchElementException :+: CNil] =
-            CoFail.fromThrowableME(TME)
+            ExCoFail.fromThrowableME(TME)
         }
 
         case class A(a: String)
         case class B(b: String)
 
         def toCoFail: MonadError[F, A :+: B :+: CNil] = {
-          import CoFail._
+          import ExCoFail._
           import Implicits.F
 
           pickImplicit() // check that it can pick one implicitly

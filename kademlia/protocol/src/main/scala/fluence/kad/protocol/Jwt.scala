@@ -77,7 +77,8 @@ private[protocol] object Jwt {
    */
   def read[F[_] : Monad, H : Decoder, C : Decoder](
     token: String,
-    getPk: (H, C) ⇒ Either[NoSuchElementException, KeyPair.Public])(implicit checker: SignatureChecker): EitherT[F, Throwable, (H, C)] =
+    getPk: (H, C) ⇒ Either[NoSuchElementException, KeyPair.Public]
+  )(implicit checker: SignatureChecker): EitherT[F, Throwable, (H, C)] = // InputErr :+: CryptoErr :+: CNil
     token.split('.').toList match {
       case h :: c :: s :: Nil ⇒
 

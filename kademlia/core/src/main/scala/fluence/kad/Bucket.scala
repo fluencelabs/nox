@@ -114,7 +114,7 @@ object Bucket {
 
             // Ping last contact.
             // If it responds, enqueue it and drop the new node, otherwise, drop it and enqueue new one
-            StateT.lift(rpc(last.contact).ping().attempt).flatMap {
+            StateT.liftF(rpc(last.contact).ping().attempt).flatMap {
               case Left(_) ⇒
                 StateT.set(b.copy(nodes = nodes.enqueue(node))).map(_ ⇒ true)
               case Right(updatedLastContact) ⇒
