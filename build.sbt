@@ -12,7 +12,21 @@ commons
 
 enablePlugins(AutomateHeaderPlugin)
 
-lazy val `co-fail` = project
+lazy val `co-fail` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.typelevel" %%% "cats-core" % Cats1V,
+      "com.chuusai" %%% "shapeless" % ShapelessV,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+    )
+  )
+
+lazy val `co-fail-JVM` = `co-fail`.jvm
+
+lazy val `co-fail-JS` = `co-fail`.js
 
 lazy val `codec-core` = project.in(file("codec/core"))
 

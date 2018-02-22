@@ -23,7 +23,7 @@ import cats.effect.IO
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ ApplicativeError, MonadError }
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.Config
 import fluence.storage.rocksdb.RocksDbStore._
 import fluence.storage.{ KVStore, TraversableKVStore }
 import monix.eval.{ Task, TaskSemaphore }
@@ -38,7 +38,7 @@ import scala.reflect.io.Path
  * Implementation of [[KVStore]] with embedded RocksDB database.
  * For each dataSet will be created new RocksDB instance in a separate folder.
  * All defaults for all instances are stored in the typeSafe config (see ''reference.conf''),
- * you can overload them into ''application.conf''
+ * you can overload them into ''reference.conf''
  * '''Note: only single thread should write to DB''', but reading database allowed to multiply threads.
  *
  * @param dataSet   Some bag for pairs (K, V)
@@ -146,9 +146,6 @@ object RocksDbStore {
   class Factory extends slogging.LazyLogging {
     private val instances = TrieMap.empty[String, RocksDbStore]
 
-    def apply[F[_]](dataSet: String)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
-      apply(dataSet, ConfigFactory.load())
-
     def apply[F[_]](dataSet: String, conf: Config)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
       RocksDbConf.read(conf).flatMap(apply(dataSet, _))
 
@@ -190,15 +187,3 @@ object RocksDbStore {
   }
 }
 
-case class RocksDbConf(dataDir: String, createIfMissing: Boolean)
-
-object RocksDbConf {
-  val ConfigPath = "fluence.node.storage.rocksDb"
-
-  def read[F[_]](conf: Config, name: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbConf] =
-    F.catchNonFatal{
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[RocksDbConf](name)
-    }
-}

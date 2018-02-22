@@ -15,8 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport.grpc.server
+package fluence.node
 
-case class GrpcServerConf(
-    port: Int
-)
+import cats.effect.IO
+import com.typesafe.config.Config
+
+case class UPnPConf(grpc: Option[Int]) {
+  def isEnabled: Boolean = grpc.isDefined
+}
+
+object UPnPConf {
+  def read(conf: Config): IO[UPnPConf] =
+    IO {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      conf.as[UPnPConf]("fluence.network.upnp")
+    }
+}

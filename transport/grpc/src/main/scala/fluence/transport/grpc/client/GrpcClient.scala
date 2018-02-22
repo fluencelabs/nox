@@ -22,6 +22,7 @@ import java.util.concurrent.Executor
 import cats.effect.IO
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.transport.TransportClient
+import fluence.transport.grpc.GrpcConf
 import io.grpc._
 import shapeless._
 
@@ -67,7 +68,7 @@ class GrpcClient[CL <: HList](
       contactKey(contact),
       {
         logger.info("Open new channel: {}", contactKey(contact))
-        ManagedChannelBuilder.forAddress(contact.ip.getHostAddress, contact.port)
+        ManagedChannelBuilder.forAddress(contact.ip.getHostAddress, contact.grpcPort)
           .usePlaintext(true)
           .build
       }
@@ -201,7 +202,7 @@ object GrpcClient {
    * @param conf        Client config object
    * @return A NetworkClient builder
    */
-  def builder(key: Key, contactSeed: IO[String], conf: GrpcClientConf): Builder[HNil] =
+  def builder(key: Key, contactSeed: IO[String], conf: GrpcConf): Builder[HNil] =
     builder
       .addHeader(conf.keyHeader, key.b64)
       .addHeaderIO(conf.contactHeader, contactSeed)

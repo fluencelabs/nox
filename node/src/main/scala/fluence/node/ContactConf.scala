@@ -15,22 +15,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport.grpc.client
+package fluence.node
 
-import cats.ApplicativeError
+import java.net.InetAddress
+
+import cats.effect.IO
 import com.typesafe.config.Config
+import net.ceedubs.ficus.readers.ValueReader
 
-import scala.language.higherKinds
+case class ContactConf(
+    host: Option[InetAddress],
+    grpcPort: Option[Int],
 
-case class GrpcClientConf(keyHeader: String, contactHeader: String)
+    gitHash: String,
+    protocolVersion: Long
+)
 
-object GrpcClientConf {
-  val ConfigPath = "fluence.transport.grpc.client"
-
-  def read[F[_]](config: Config, path: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[GrpcClientConf] =
-    F.catchNonFatal {
+object ContactConf {
+  def read(config: Config): IO[ContactConf] =
+    IO {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      config.as[GrpcClientConf](path)
+      implicit val inetAddressRead: ValueReader[InetAddress] =
+        (config: Config, path: String) ⇒
+          InetAddress.getByName(config.as[String](path))
+      config.as[ContactConf]("fluence.network.contact")
     }
 }

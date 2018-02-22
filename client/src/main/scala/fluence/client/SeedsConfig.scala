@@ -15,23 +15,32 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.algorithm
+package fluence.client
 
-import cats.Applicative
-import cats.data.EitherT
+import cats.Traverse
+import cats.effect.IO
+import cats.instances.list._
+import com.typesafe.config.Config
+import fluence.crypto.signature.SignatureChecker
+import fluence.kad.protocol.Contact
 
-import scala.language.higherKinds
-import scala.util.control.{ NoStackTrace, NonFatal }
+case class SeedsConfig(
+    seeds: List[String]
+) {
+  def contacts(implicit checker: SignatureChecker): IO[List[Contact]] =
+    Traverse[List].traverse(seeds)(s ⇒
+      Contact.readB64seed[IO](s).value.flatMap(IO.fromEither)
+    )
+}
 
-@deprecated("Use co-fail's CryptoErr instead", "21.02.2018")
-case class CryptoErr(errorMessage: String) extends Throwable(errorMessage) with NoStackTrace
-
-object CryptoErr {
-  @deprecated("Use co-fail's CryptoErr.catchNonFatal instead", "21.02.2018")
-  def nonFatalHandling[F[_] : Applicative, A](a: ⇒ A)(errorText: String): EitherT[F, CryptoErr, A] = {
-    try EitherT.pure(a)
-    catch {
-      case NonFatal(e) ⇒ EitherT.leftT(CryptoErr(errorText + " " + e.getLocalizedMessage))
+object SeedsConfig {
+  /**
+   * Reads seed nodes contacts from config
+   */
+  def read(conf: Config): IO[SeedsConfig] =
+    IO {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      conf.as[SeedsConfig]("fluence.network")
     }
-  }
 }

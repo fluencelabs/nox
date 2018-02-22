@@ -39,7 +39,7 @@ case class MerkleBTreeConfig(
 
 object MerkleBTreeConfig {
 
-  val ConfigPath = "fluence.merkle.btree"
+  val ConfigPath = "fluence.merkleBTree"
 
   def read[F[_]](conf: Config, configPath: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[MerkleBTreeConfig] =
     F.catchNonFatal {

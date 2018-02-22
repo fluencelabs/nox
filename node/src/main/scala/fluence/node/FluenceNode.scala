@@ -19,7 +19,7 @@ package fluence.node
 
 import java.io.File
 
-import cats.{ Applicative, Traverse }
+import cats.{ Applicative, MonadError }
 import cats.effect.IO
 import cats.syntax.show._
 import com.typesafe.config.{ Config, ConfigFactory }
@@ -30,8 +30,10 @@ import fluence.crypto.keypair.KeyPair
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
 import monix.eval.Task
 import cats.instances.list._
-import fluence.crypto.signature.SignatureChecker
+import fluence.client.SeedsConfig
 import fluence.kad.Kademlia
+import fluence.transport.UPnP
+import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
 import monix.execution.Scheduler
 
 import scala.concurrent.duration._
@@ -96,24 +98,22 @@ object FluenceNode extends slogging.LazyLogging {
     keyStorage.getOrCreateKeyPair(algo.generateKeyPair[IO]().value.flatMap(IO.fromEither))
   }
 
-  // TODO: move config reading stuff somewhere
-  case class SeedsConfig(
-      seeds: List[String]
-  ) {
-    def contacts(implicit checker: SignatureChecker): IO[List[Contact]] =
-      Traverse[List].traverse(seeds)(s ⇒
-        Contact.readB64seed[IO](s).value.flatMap(IO.fromEither)
-      )
-  }
+  private def launchUPnP(config: Config, contactConf: ContactConf, grpc: GrpcServerConf): IO[(ContactConf, IO[Unit])] =
+    UPnPConf.read(config).flatMap {
+      case u if !u.isEnabled ⇒ IO.pure(contactConf -> IO.unit)
+      case u ⇒
+        UPnP().flatMap {
+          upnp ⇒
+            // Provide upnp-discovered external address to contact conf
+            val contact = contactConf.copy(host = Some(upnp.externalAddress))
 
-  /**
-   * Reads seed nodes contacts from config
-   */
-  def readSeedsConfig(conf: Config): IO[SeedsConfig] =
-    IO {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[SeedsConfig]("fluence.node.join")
+            // Forward grpc port
+            u.grpc.fold(IO.pure(contact -> IO.unit)){ grpcExternalPort ⇒
+              upnp.addPort(grpcExternalPort, grpc.port).map(_ ⇒
+                contact.copy(grpcPort = Some(grpcExternalPort)) -> upnp.deletePort(grpcExternalPort)
+              )
+            }
+        }
     }
 
   /**
@@ -128,8 +128,22 @@ object FluenceNode extends slogging.LazyLogging {
       kp ← getKeyPair(config.getString("fluence.keyPath"), algo)
       key ← Key.fromKeyPair[IO](kp)
 
-      builder ← NodeGrpc.grpcServerBuilder(config)
-      contact ← NodeGrpc.grpcContact(algo.signer(kp), builder)
+      grpcServerConf ← NodeGrpc.grpcServerConf(config)
+      builder ← NodeGrpc.grpcServerBuilder(grpcServerConf)
+
+      contactConf ← ContactConf.read(config)
+
+      upnpContactStop ← launchUPnP(config, contactConf, grpcServerConf)
+
+      (upnpContact, upnpShutdown) = upnpContactStop
+
+      contact ← Contact.buildOwn[IO](
+        ip = upnpContact.host.getOrElse(builder.address),
+        port = upnpContact.grpcPort.getOrElse(builder.port),
+        protocolVersion = upnpContact.protocolVersion,
+        gitHash = upnpContact.gitHash,
+        signer = algo.signer(kp)
+      ).value.flatMap(MonadError[IO, Throwable].fromEither)
 
       client ← NodeGrpc.grpcClient(key, contact, config)
       kadClient = client.service[KademliaRpc[Task, Contact]] _
@@ -140,7 +154,7 @@ object FluenceNode extends slogging.LazyLogging {
 
       _ ← server.start
 
-      seedConfig ← readSeedsConfig(config)
+      seedConfig ← SeedsConfig.read(config)
       seedContacts ← seedConfig.contacts
 
       _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO(Scheduler.global) else IO{
@@ -161,11 +175,12 @@ object FluenceNode extends slogging.LazyLogging {
         override def kademlia: Kademlia[Task, Contact] = services.kademlia
 
         override def stop: IO[Unit] =
-          Applicative[IO].map2(
+          Applicative[IO].map3(
             services.close,
-            server.shutdown
+            server.shutdown,
+            upnpShutdown
           ){
-              (_, _) ⇒ ()
+              (_, _, _) ⇒ ()
             }
 
         override def restart: IO[FluenceNode] =

@@ -30,9 +30,10 @@ import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.{ KademliaGrpc, KademliaNodeCodec }
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
 import fluence.kad.{ KademliaConf, KademliaMVar }
-import fluence.transport.{ TransportSecurity, UPnP }
-import fluence.transport.grpc.client.{ GrpcClient, GrpcClientConf }
-import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
+import fluence.transport.grpc.GrpcConf
+import fluence.transport.TransportSecurity
+import fluence.transport.grpc.client.GrpcClient
+import fluence.transport.grpc.server.GrpcServer
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
@@ -64,13 +65,13 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   private val config = ConfigFactory.load()
 
-  private val serverConf = GrpcServerConf.read[Try](config).get
+  private val clientConf = GrpcConf.read[Try](config).get
 
-  private val clientConf = GrpcClientConf.read[Try](config).get
+  private val serverConf = clientConf.server.get
 
   class Node(val key: Key, val localPort: Int, kp: KeyPair) {
 
-    private val serverBuilder = GrpcServer.builder(serverConf.copy(localPort = localPort), UPnP().unsafeRunSync())
+    private val serverBuilder = GrpcServer.builder(serverConf.copy(port = localPort))
 
     val contact = Contact.buildOwn[Id](InetAddress.getLocalHost, localPort, 0, "0", algo.signer(kp)).value.right.get
 

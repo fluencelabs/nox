@@ -59,7 +59,7 @@ object NodeComposer {
       k ← Key.fromKeyPair[IO](keyPair)
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
       rocksDbFactory = new RocksDbStore.Factory
-      contractCacheStore ← rocksDbFactory[IO](config.getString("fluence.contract.cacheDirName"))
+      contractCacheStore ← rocksDbFactory[IO](config.getString("fluence.contract.cacheDirName"), config)
     } yield new NodeServices[Task, BasicContract, Contact] {
       override val key: Key = k
 
