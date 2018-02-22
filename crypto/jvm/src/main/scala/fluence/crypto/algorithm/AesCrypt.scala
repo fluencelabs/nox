@@ -118,6 +118,7 @@ object AesCrypt extends slogging.LazyLogging {
       System.arraycopy(buf, 0, out, 0, len2)
 
       val str = new String(out)
+      println("STR OUT === " + str)
       str.pure[F]
     } catch {
       case e: Throwable ⇒

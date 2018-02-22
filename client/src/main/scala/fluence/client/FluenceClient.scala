@@ -24,7 +24,7 @@ import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.client.AuthorizedClient.Password
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.{ AesCrypt, Ecdsa }
-import fluence.crypto.cipher.Crypt
+import fluence.crypto.cipher.{ Crypt, NoOpCrypt }
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.SignatureChecker
@@ -85,6 +85,7 @@ class FluenceClient(
    */
   private def addEncryptedDataset(ac: AuthorizedClient[Password], contact: Contact, clientState: Option[ClientState]): Task[ClientDatasetStorage[String, String]] = {
     addDataset(ac, storageRpc(contact), AesCrypt.forString(ac.key, withIV = false), AesCrypt.forString(ac.key, withIV = true), clientState, storageHasher)
+    //    addDataset(ac, storageRpc(contact), NoOpCrypt.forString, AesCrypt.forString(ac.key, withIV = true), clientState, storageHasher)
   }
 
   /**

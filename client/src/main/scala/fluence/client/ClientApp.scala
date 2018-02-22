@@ -110,7 +110,7 @@ object ClientApp extends App with slogging.LazyLogging {
 
   private def readPassword() = {
     for {
-      _ ← IO(logger.info("Write password for your encryption key:"))
+      _ ← IO(logger.info("Write password of your encryption key:"))
       pass ← readLine
     } yield pass
   }

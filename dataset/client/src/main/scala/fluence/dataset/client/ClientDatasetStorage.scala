@@ -45,7 +45,7 @@ class ClientDatasetStorage[K, V](
     storageRpc: DatasetStorageRpc[Task],
     valueCrypt: Crypt[Task, V, Array[Byte]],
     hasher: CryptoHasher[Array[Byte], Array[Byte]]
-) extends ClientDatasetStorageApi[Task, K, V] {
+) extends ClientDatasetStorageApi[Task, K, V] with slogging.LazyLogging {
 
   override def get(key: K): Task[Option[V]] = {
 
@@ -69,8 +69,10 @@ class ClientDatasetStorage[K, V](
         .put(datasetId, putCallbacks, encValue)
         .doOnFinish {
           // in error case we should return old value of clientState back
-          case Some(e) ⇒ putCallbacks.recoverState()
-          case _       ⇒ Task.unit
+          case Some(e) ⇒
+            logger.error("Error on put.", e)
+            putCallbacks.recoverState()
+          case _ ⇒ Task.unit
         }
 
       resp ← decryptOption(serverResponse)
