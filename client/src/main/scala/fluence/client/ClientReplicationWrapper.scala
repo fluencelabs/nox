@@ -52,8 +52,7 @@ class ClientReplicationWrapper[K, V](
         .map { case (store, _) ⇒ store.put(key, value) }
     ).map { seq ⇒
         logger.info(s"$key and $value was written to $replicationFactor nodes")
-        seq.head
-
+        seq.head  // at least one server should be here, we can't allocate contract without participants
       }
   }
 
