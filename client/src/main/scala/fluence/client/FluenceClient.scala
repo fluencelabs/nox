@@ -21,6 +21,7 @@ import cats.kernel.Monoid
 import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.btree.client.MerkleBTreeClient.ClientState
+import fluence.client.AuthorizedClient.Password
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.{ AesCrypt, Ecdsa }
 import fluence.crypto.cipher.Crypt
@@ -71,8 +72,8 @@ class FluenceClient(
   /**
    * Create dataset for authorized client, or restore it, if it is in the contract in kademlia net
    */
-  def getOrCreateDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
-    loadDatasetFromCache(ac.kp.publicKey, restoreDataset(ac))
+  def getOrCreateDataset(ac: AuthorizedClient[Password]): Task[ClientDatasetStorage[String, String]] = {
+    loadDatasetFromCache(ac.keyPair.publicKey, restoreDataset(ac))
   }
 
   /**
@@ -82,8 +83,8 @@ class FluenceClient(
    * @param clientState merkle root if it is not a new dataset
    * @return dataset representation
    */
-  private def addNonEncryptedDataset(ac: AuthorizedClient, contact: Contact, clientState: Option[ClientState]): Task[ClientDatasetStorage[String, String]] = {
-    addDataset(ac, storageRpc(contact), AesCrypt.forString(ac.password, withIV = false), AesCrypt.forString(ac.password, withIV = true), clientState, storageHasher)
+  private def addEncryptedDataset(ac: AuthorizedClient[Password], contact: Contact, clientState: Option[ClientState]): Task[ClientDatasetStorage[String, String]] = {
+    addDataset(ac, storageRpc(contact), AesCrypt.forString(ac.key, withIV = false), AesCrypt.forString(ac.key, withIV = true), clientState, storageHasher)
   }
 
   /**
@@ -91,14 +92,12 @@ class FluenceClient(
    * Use string only info now
    * private until multiple datasets per authorized client is supported
    * @param storageRpc transport to dataset
-   * @param keyCrypt algorithm to encrypt keys
-   * @param valueCrypt algorithm to encrypt values
    * @param clientState merkle root of dataset, stored in contract
    * @param nonce some numbers to iterate through the list of data sets, empty-only for now
    * @return dataset representation
    */
   private def addDataset(
-    ac: AuthorizedClient,
+    ac: AuthorizedClient[Password],
     storageRpc: DatasetStorageRpc[Task],
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]],
@@ -108,7 +107,7 @@ class FluenceClient(
   ): Task[ClientDatasetStorage[String, String]] = {
 
     for {
-      datasetId ← Key.sha1((nonce ++ ac.kp.publicKey.value).toArray)
+      datasetId ← Key.sha1((nonce ++ ac.keyPair.publicKey.value).toArray)
     } yield ClientDatasetStorage(datasetId.value.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
   }
 
@@ -122,11 +121,11 @@ class FluenceClient(
    * if it is no contract, create new contract and dataset
    *
    */
-  private def restoreDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
+  private def restoreDataset(ac: AuthorizedClient[Password]): Task[ClientDatasetStorage[String, String]] = {
     import fluence.dataset.contract.ContractWrite._
-    val signer = signAlgo.signer(ac.kp)
+    val signer = signAlgo.signer(ac.keyPair)
     for {
-      key ← Key.fromKeyPair(ac.kp)
+      key ← Key.fromKeyPair(ac.keyPair)
       bcOp ← contracts.find(key).attempt.map(_.toOption)
       dataStorage ← bcOp match {
         //create datastorage with old merkle root
@@ -134,7 +133,7 @@ class FluenceClient(
           for {
             //TODO avoid _.head and get, magic numbers
             nodeOp ← kademlia.findNode(bc.participants.head._1, 3)
-            ds ← addNonEncryptedDataset(ac, nodeOp.get.contact, Some(ClientState(bc.executionState.merkleRoot.toArray)))
+            ds ← addEncryptedDataset(ac, nodeOp.get.contact, Some(ClientState(bc.executionState.merkleRoot.toArray)))
           } yield ds
         //new datastorage
         case None ⇒
@@ -143,7 +142,7 @@ class FluenceClient(
             offer ← BasicContract.offer(key, participantsRequired = 1, signer = signer)
             accepted ← contracts.allocate(offer, dc ⇒ dc.sealParticipants(signer))
             nodeOp ← kademlia.findNode(accepted.participants.head._1, 10)
-            ds ← addNonEncryptedDataset(ac, nodeOp.get.contact, None)
+            ds ← addEncryptedDataset(ac, nodeOp.get.contact, None)
           } yield ds
       }
     } yield dataStorage

@@ -27,12 +27,15 @@ import scala.language.higherKinds
 
 /**
  * A class that is an authorized user who can use datasets
- * @param kp a pair of keys with a public key that will be used as an address for dataset ids and contracts
+ * @param keyPair A pair of keys with a public key that will be used as an address for dataset ids and contracts
+ * @param key Key for encryption of keys and values in data storage
  */
-case class AuthorizedClient(kp: KeyPair, password: Array[Char])
+case class AuthorizedClient[T](keyPair: KeyPair, key: T)
 
 object AuthorizedClient {
-  def generateNew[F[_] : Monad](signAlgo: SignAlgo, password: Array[Char]): EitherT[F, CryptoErr, AuthorizedClient] = {
-    signAlgo.generateKeyPair[F]().map(kp ⇒ AuthorizedClient.apply(kp, password))
+  type Password = Array[Char]
+
+  def generateNew[F[_] : Monad](signAlgo: SignAlgo, password: Password): EitherT[F, CryptoErr, AuthorizedClient[Password]] = {
+    signAlgo.generateKeyPair[F]().map(kp ⇒ AuthorizedClient[Password](kp, password))
   }
 }

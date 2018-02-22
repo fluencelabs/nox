@@ -18,7 +18,7 @@
 package fluence.crypto
 
 import cats.instances.try_._
-import fluence.crypto.cipher.NoOpCrypt
+import fluence.crypto.cipher.{ ByteCrypt, NoOpCrypt }
 import org.scalatest.{ Matchers, WordSpec }
 
 import scala.collection.Searching.{ Found, InsertionPoint }
@@ -29,7 +29,7 @@ class CryptoSearchingSpec extends WordSpec with Matchers {
   "search" should {
     "correct search plainText key in encrypted data" in {
 
-      val crypt: NoOpCrypt[Try, String] = NoOpCrypt.forString
+      val crypt: ByteCrypt[Try, String] = NoOpCrypt.forString
 
       val plainTextElements = Array("A", "B", "C", "D", "E")
       val encryptedElements = plainTextElements.map(t ⇒ crypt.encrypt(t).get)

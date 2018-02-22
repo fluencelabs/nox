@@ -19,6 +19,7 @@ package fluence.client
 
 import cats.effect.IO
 import com.typesafe.config.ConfigFactory
+import fluence.client.AuthorizedClient.Password
 import fluence.crypto.KeyStore
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.JdkCryptoHasher
@@ -87,7 +88,7 @@ object ClientApp extends App with slogging.LazyLogging {
           logger.info("get \"some key\"")
         }
         pass ← readPassword()
-        _ ← handleCmds(res._2, AuthorizedClient(res._1, pass))
+        _ ← handleCmds(res._2, AuthorizedClient[Password](res._1, pass.toCharArray))
       } yield {}
 
       io.attempt
@@ -111,10 +112,10 @@ object ClientApp extends App with slogging.LazyLogging {
     for {
       _ ← IO(logger.info("Write password for your encryption key:"))
       pass ← readLine
-    } yield pass.toCharArray
+    } yield pass
   }
 
-  def handleCmds(fluenceClient: FluenceClient, ac: AuthorizedClient): IO[Unit] = {
+  def handleCmds(fluenceClient: FluenceClient, ac: AuthorizedClient[Password]): IO[Unit] = {
     lazy val handle: IO[Unit] = readLine.map(CommandParser.parseCommand).flatMap {
       case Some(Exit) ⇒
         IO(logger.info("Exiting from fluence network."))
