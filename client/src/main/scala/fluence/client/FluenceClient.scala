@@ -17,6 +17,7 @@
 
 package fluence.client
 
+import cats.data.OptionT
 import cats.kernel.Monoid
 import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
@@ -28,7 +29,7 @@ import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
-import fluence.dataset.client.{ ClientDatasetStorage, Contracts }
+import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi, Contracts }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
@@ -51,7 +52,7 @@ class FluenceClient(
     storageHasher: CryptoHasher[Array[Byte], Array[Byte]]
 )(implicit ME: MonadError[Task, Throwable]) {
 
-  private val datasetCache = TrieMap.empty[KeyPair.Public, Task[ClientDatasetStorage[String, String]]]
+  private val datasetCache = TrieMap.empty[KeyPair.Public, Task[ClientDatasetStorageApi[Task, String, String]]]
 
   //use this when we will have multiple datasets on one authorized user
   /*def restoreContracts(pk: KeyPair.Public): Task[Map[Key, BasicContract]] = {
@@ -71,8 +72,8 @@ class FluenceClient(
   /**
    * Create dataset for authorized client, or restore it, if it is in the contract in kademlia net
    */
-  def getOrCreateDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
-    loadDatasetFromCache(ac.kp.publicKey, restoreDataset(ac))
+  def getOrCreateDataset(ac: AuthorizedClient): Task[ClientDatasetStorageApi[Task, String, String]] = {
+    loadDatasetFromCache(ac.kp.publicKey, restoreReplicatedDataset(ac)) // todo: do replication or don't, should be configurable
   }
 
   /**
@@ -82,7 +83,11 @@ class FluenceClient(
    * @param clientState merkle root if it is not a new dataset
    * @return dataset representation
    */
-  private def addNonEncryptedDataset(ac: AuthorizedClient, contact: Contact, clientState: Option[ClientState]): Task[ClientDatasetStorage[String, String]] = {
+  private def addNonEncryptedDataset(
+    ac: AuthorizedClient,
+    contact: Contact,
+    clientState: Option[ClientState]
+  ): Task[ClientDatasetStorage[String, String]] = {
     addDataset(ac, storageRpc(contact), NoOpCrypt.forString, NoOpCrypt.forString, clientState, storageHasher)
   }
 
@@ -112,7 +117,10 @@ class FluenceClient(
     } yield ClientDatasetStorage(datasetId.value.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
   }
 
-  private def loadDatasetFromCache(pk: KeyPair.Public, dataStorage: Task[ClientDatasetStorage[String, String]]): Task[ClientDatasetStorage[String, String]] = {
+  private def loadDatasetFromCache(
+    pk: KeyPair.Public,
+    dataStorage: Task[ClientDatasetStorageApi[Task, String, String]]
+  ): Task[ClientDatasetStorageApi[Task, String, String]] = {
     datasetCache.getOrElseUpdate(pk, dataStorage.memoizeOnSuccess)
   }
 
@@ -122,7 +130,7 @@ class FluenceClient(
    * if it is no contract, create new contract and dataset
    *
    */
-  private def restoreDataset(ac: AuthorizedClient): Task[ClientDatasetStorage[String, String]] = {
+  private def restoreDataset(ac: AuthorizedClient): Task[ClientDatasetStorageApi[Task, String, String]] = {
     import fluence.dataset.contract.ContractWrite._
     val signer = signAlgo.signer(ac.kp)
     for {
@@ -147,6 +155,58 @@ class FluenceClient(
           } yield ds
       }
     } yield dataStorage
+
+
+  }
+
+  // multi-write support
+  private def restoreReplicatedDataset(ac: AuthorizedClient): Task[ClientDatasetStorageApi[Task, String, String]] = {
+    import fluence.dataset.contract.ContractWrite._
+    val signer = signAlgo.signer(ac.kp)
+    for {
+      key ← Key.fromKeyPair(ac.kp)
+      bcOp ← contracts.find(key).attempt.map(_.toOption)
+      dataStorages ← bcOp match {
+
+        case Some(basicContract) ⇒ //create storage from existed contract
+          for {
+            nodes ← findContactsOfAllParticipants(basicContract)
+            datasets ← Task.sequence(
+              nodes.map( contact ⇒
+                addNonEncryptedDataset(ac, contact, Some(ClientState(basicContract.executionState.merkleRoot.toArray)))
+                  .map(store ⇒ store → contact)
+              )
+            )
+          } yield datasets
+
+
+        case None ⇒ //new storage and create new contract
+          for {
+            offer ← BasicContract.offer(key, participantsRequired = 1, signer = signer)
+            newContract ← contracts.allocate(offer, dc ⇒ dc.sealParticipants(signer))
+            nodes ← findContactsOfAllParticipants(newContract)
+            datasets ← Task.sequence(
+              nodes.map( contact ⇒
+                addNonEncryptedDataset(ac, contact, Some(ClientState(newContract.executionState.merkleRoot.toArray)))
+                  .map(store ⇒ store → contact)
+              )
+            )
+          } yield datasets
+      }
+    } yield new ClientReplicationWrapper(dataStorages.toList)
+  }
+
+  /** Finds contacts of all contract participants, or return exception otherwise */
+  private def findContactsOfAllParticipants(basicContract: BasicContract): Task[Seq[Contact]] = {
+    Task.gather(
+      basicContract
+        .participants
+        .map { case (key, _) ⇒
+          OptionT(kademlia.findNode(key, 3))
+            .map(node ⇒ node.contact)
+            .getOrElseF(Task.raiseError(new IllegalArgumentException(s"Participant contract isn't found for key=$key")))
+        }.toSeq
+    )
   }
 }
 
@@ -170,9 +230,13 @@ object FluenceClient extends slogging.LazyLogging {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
-  def apply(seeds: Seq[Contact], signAlgo: SignAlgo,
+  def apply(
+    seeds: Seq[Contact],
+    signAlgo: SignAlgo,
     storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    config: Config)(implicit checker: SignatureChecker): Task[FluenceClient] = {
+    config: Config
+  )(implicit checker: SignatureChecker): Task[FluenceClient] = {
+
     val client = ClientComposer.grpc[Task](GrpcClient.builder)
     val kademliaRpc = client.service[KademliaRpc[Task, Contact]] _
     for {
