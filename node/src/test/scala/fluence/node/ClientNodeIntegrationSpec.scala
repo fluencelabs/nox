@@ -171,7 +171,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           offer.checkOfferSeal[Task]().taskValue shouldBe true
 
           val result = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).failed.taskValue
-          result shouldBe Contracts.CantFindEnoughNodes(20)
+          result shouldBe Contracts.CantFindEnoughNodes(10)
         }
       }
 
@@ -241,7 +241,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "success write and read from dataset" in {
+    "success write and read from dataset" in {  // todo make passable this test with replicationFac > 1
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue
         val seedContact = makeKadNetwork(servers)
@@ -434,13 +434,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
    * Test utility method for running N nodes and shutting down after all.
    * @param action An action to executing
    */
-  private def runNodes(action: Map[Contact, FluenceNode] ⇒ Unit, numberOfNodes: Int = 20): Unit = {
+  private def runNodes(action: Map[Contact, FluenceNode] ⇒ Unit, numberOfNodes: Int = 10): Unit = {
 
     var servers: Seq[FluenceNode] = Nil
 
     try {
       // start all nodes Grpc servers
-      servers = (0 to numberOfNodes).map { n ⇒
+      servers = (0 until numberOfNodes).map { n ⇒
         val port = 6112 + n
         // TODO: storage root directory, keys directory, etc should be modified to isolate nodes
         FluenceNode.startNode(

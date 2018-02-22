@@ -47,7 +47,7 @@ class ClientReplicationWrapper[K, V](
    * @return returns old value if old value was overridden, None otherwise.
    */
   override def put(key: K, value: V): Task[Option[V]] = {
-    Task.gatherUnordered(
+    Task.sequence(
       datasetReplicas
         .map { case (store, _) ⇒ store.put(key, value) }
     ).map { seq ⇒
