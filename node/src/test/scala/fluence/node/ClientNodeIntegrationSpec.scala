@@ -232,8 +232,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           putKey1Response shouldBe a[ClientError]
           putKey1Response.getMessage should startWith("Server 'put response' didn't pass verifying for state=PutStateImpl")
           // read new value
-          val getKey1Response = datasetStorage.get("key1").taskValue
-          nonExistentKeyResponse shouldBe None
+//          val getKey1Response = datasetStorage.get("key1").taskValue
+//          nonExistentKeyResponse shouldBe None
 
         }, serverHasher = JdkCryptoHasher.Sha256)
       }
@@ -528,7 +528,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   override protected def beforeAll(): Unit = {
     LoggerConfig.factory = PrintLoggerFactory
-    LoggerConfig.level = LogLevel.WARN
+    LoggerConfig.level = LogLevel.TRACE
     super.beforeAll()
   }
 
