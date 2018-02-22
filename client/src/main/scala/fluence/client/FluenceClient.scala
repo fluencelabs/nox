@@ -156,7 +156,6 @@ class FluenceClient(
       }
     } yield dataStorage
 
-
   }
 
   // multi-write support
@@ -172,13 +171,12 @@ class FluenceClient(
           for {
             nodes ← findContactsOfAllParticipants(basicContract)
             datasets ← Task.sequence(
-              nodes.map( contact ⇒
+              nodes.map(contact ⇒
                 addNonEncryptedDataset(ac, contact, Some(ClientState(basicContract.executionState.merkleRoot.toArray)))
                   .map(store ⇒ store → contact)
               )
             )
           } yield datasets
-
 
         case None ⇒ //new storage and create new contract
           for {
@@ -186,7 +184,7 @@ class FluenceClient(
             newContract ← contracts.allocate(offer, dc ⇒ dc.sealParticipants(signer))
             nodes ← findContactsOfAllParticipants(newContract)
             datasets ← Task.sequence(
-              nodes.map( contact ⇒
+              nodes.map(contact ⇒
                 addNonEncryptedDataset(ac, contact, Some(ClientState(newContract.executionState.merkleRoot.toArray)))
                   .map(store ⇒ store → contact)
               )
@@ -201,10 +199,11 @@ class FluenceClient(
     Task.gather(
       basicContract
         .participants
-        .map { case (key, _) ⇒
-          OptionT(kademlia.findNode(key, 3))
-            .map(node ⇒ node.contact)
-            .getOrElseF(Task.raiseError(new IllegalArgumentException(s"Participant contract isn't found for key=$key")))
+        .map {
+          case (key, _) ⇒
+            OptionT(kademlia.findNode(key, 3))
+              .map(node ⇒ node.contact)
+              .getOrElseF(Task.raiseError(new IllegalArgumentException(s"Participant contract isn't found for key=$key")))
         }.toSeq
     )
   }

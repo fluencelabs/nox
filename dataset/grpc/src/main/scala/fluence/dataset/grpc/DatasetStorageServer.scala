@@ -76,14 +76,14 @@ class DatasetStorageServer[F[_] : Async](
 
     val resp: Observer[GetCallback] = responseObserver
     val (repl, stream) = streamObservable[GetCallbackReply]
-    val clientReply = repl.pullable
+    val pullClientReply = repl.pullable
 
     def getReply[T](
       check: GetCallbackReply.Reply ⇒ Boolean,
       extract: GetCallbackReply.Reply ⇒ T
     ): EitherT[Task, ClientError, T] = {
 
-      val reply = clientReply()
+      val reply = pullClientReply()
         .map {
           case GetCallbackReply(reply) ⇒
             logger.trace(s"DatasetStorageServer.get() received client reply=$reply")
@@ -104,7 +104,7 @@ class DatasetStorageServer[F[_] : Async](
         did ← runT(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
         foundValue ← service.get(did, new BTreeRpc.GetCallbacks[F] {
 
-          private val push: GetCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
+          private val pushServerAsk: GetCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
             EitherT(Task.fromFuture(resp.onNext(GetCallback(callback = callback))).attempt)
               .leftMap(t ⇒ ClientError(t.getMessage))
           }
@@ -116,10 +116,10 @@ class DatasetStorageServer[F[_] : Async](
            * @param valuesChecksums Checksums of values for current leaf
            * @return index of searched value, or None if key wasn't found
            */
-          override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Option[Int]] = {
+          override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Option[Int]] =
             runT(
               for {
-                _ ← push(
+                _ ← pushServerAsk(
                   GetCallback.Callback.SubmitLeaf(AskSubmitLeaf(
                     keys = keys.map(ByteString.copyFrom),
                     valuesChecksums = valuesChecksums.map(ByteString.copyFrom)
@@ -128,7 +128,7 @@ class DatasetStorageServer[F[_] : Async](
                 sl ← getReply(_.isSubmitLeaf, _.submitLeaf.get)
               } yield Option(sl.childIndex).filter(_ >= 0)
             )
-          }
+
 
           /**
            * Server asks next child node index.
@@ -139,7 +139,7 @@ class DatasetStorageServer[F[_] : Async](
           override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
             runT(
               for {
-                _ ← push(
+                _ ← pushServerAsk(
                   GetCallback.Callback.NextChildIndex(AskNextChildIndex(
                     keys = keys.map(ByteString.copyFrom),
                     childsChecksums = childsChecksums.map(ByteString.copyFrom)
@@ -174,7 +174,7 @@ class DatasetStorageServer[F[_] : Async](
   override def put(responseObserver: StreamObserver[PutCallback]): StreamObserver[PutCallbackReply] = {
     val resp: Observer[PutCallback] = responseObserver
     val (repl, stream) = streamObservable[PutCallbackReply]
-    val clientReply = repl.pullable
+    val pullClientReply = repl.pullable
 
     // TODO: we should have version here
 
@@ -183,7 +183,7 @@ class DatasetStorageServer[F[_] : Async](
       extract: PutCallbackReply.Reply ⇒ T
     ): EitherT[Task, ClientError, T] = {
 
-      val reply = clientReply()
+      val reply = pullClientReply()
         .map {
           case PutCallbackReply(r) ⇒
             logger.trace(s"DatasetStorageServer.put() received client reply=$r")
@@ -205,7 +205,7 @@ class DatasetStorageServer[F[_] : Async](
         putValue ← runT(getReply(_.isValue, _._value.map(_.value.toByteArray).getOrElse(Array.emptyByteArray)))
         oldValue ← service.put(did, new BTreeRpc.PutCallbacks[F] {
 
-          private val push: PutCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
+          private val pushServerAsk: PutCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
             EitherT(Task.fromFuture(resp.onNext(PutCallback(callback = callback))).attempt)
               .leftMap(t ⇒ ClientError(t.getMessage))
           }
@@ -219,7 +219,7 @@ class DatasetStorageServer[F[_] : Async](
           override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
             runT(
               for {
-                _ ← push(
+                _ ← pushServerAsk(
                   PutCallback.Callback.NextChildIndex(
                     AskNextChildIndex(
                       keys = keys.map(ByteString.copyFrom),
@@ -240,7 +240,7 @@ class DatasetStorageServer[F[_] : Async](
           override def putDetails(keys: Array[Key], valuesChecksums: Array[Hash]): F[ClientPutDetails] =
             runT(
               for {
-                _ ← push(
+                _ ← pushServerAsk(
                   PutCallback.Callback.PutDetails(AskPutDetails(
                     keys = keys.map(ByteString.copyFrom),
                     valuesChecksums = valuesChecksums.map(ByteString.copyFrom)
@@ -266,7 +266,7 @@ class DatasetStorageServer[F[_] : Async](
           override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[Unit] =
             runT(
               for {
-                _ ← push(
+                _ ← pushServerAsk(
                   PutCallback.Callback.VerifyChanges(AskVerifyChanges(
                     version = 1, // TODO: pass prevVersion + 1
                     serverMerkleRoot = ByteString.copyFrom(serverMerkleRoot),
@@ -283,7 +283,7 @@ class DatasetStorageServer[F[_] : Async](
           override def changesStored(): F[Unit] =
             runT(
               for {
-                _ ← push(PutCallback.Callback.ChangesStored(AskChangesStored()))
+                _ ← pushServerAsk(PutCallback.Callback.ChangesStored(AskChangesStored()))
                 _ ← getReply(_.isChangesStored, _.changesStored.get)
               } yield ()
             )

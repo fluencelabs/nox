@@ -259,7 +259,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "success write and read from dataset" in {  // todo make passable this test with replicationFac > 1
+    "success write and read from dataset" in { // todo make passable this test with replicationFac > 1
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue
         val seedContact = makeKadNetwork(servers)

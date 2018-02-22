@@ -64,7 +64,7 @@ class DatasetStorageClient[F[_] : Effect](
     val pipe = callToPipe(stub.get)
 
     // Get observer/observable for request's bidiflow
-    val (clientReply, serverAsk) = pipe
+    val (pullClientReply, pushServerAsk) = pipe
       .transform(_.map {
         case GetCallback(callback) ⇒
           logger.trace(s"DatasetStorageClient.get() received server ask=$callback")
@@ -74,6 +74,7 @@ class DatasetStorageClient[F[_] : Effect](
 
     val clientError = MVar.empty[Throwable]
 
+    // todo close stream after receiving client error
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
     def handleClientErr(err: Throwable): F[GetCallbackReply] = {
       run(
@@ -83,7 +84,7 @@ class DatasetStorageClient[F[_] : Effect](
       )
     }
 
-    val handleAsks = serverAsk
+    val handleAsks = pushServerAsk
       .collect { case ask if ask.isDefined && !ask.isValue && !ask.isServerError ⇒ ask } // Collect callbacks
       .mapEval[F, GetCallbackReply] {
 
@@ -121,10 +122,10 @@ class DatasetStorageClient[F[_] : Effect](
           GetCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
         )
       ) ++ handleAsks
-    ).subscribe(clientReply) // And clientReply response back to server
+    ).subscribe(pullClientReply) // And clientReply response back to server
 
     val errorOrValue =
-      serverAsk
+      pushServerAsk
         .collect { // Collect terminal task with value/error
           case ask if ask.isServerError ⇒
             val Some(err) = ask.serverError
