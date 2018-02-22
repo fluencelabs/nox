@@ -39,6 +39,14 @@ import scala.collection.Searching
 import scala.language.higherKinds
 import scala.util.control.NoStackTrace
 
+/**
+ * Server implementation of [[DatasetStorageRpcGrpc.DatasetStorageRpc]], allows talking to client via network.
+ * All public methods called from the server side.
+ * DatasetStorageServer is active and initiates requests to client.
+ *
+ * @param service Server implementation of [[DatasetStorageRpc]] to which the calls will be delegated
+ * @tparam F A box for returning value
+ */
 class DatasetStorageServer[F[_] : Async](
     service: DatasetStorageRpc[F]
 )(
@@ -299,6 +307,8 @@ class DatasetStorageServer[F[_] : Async](
 object DatasetStorageServer {
 
   /**  Error from client side. */
-  case class ClientError(msg: String) extends NoStackTrace
+  case class ClientError(msg: String) extends NoStackTrace {
+    override def getMessage: String = msg
+  }
 
 }

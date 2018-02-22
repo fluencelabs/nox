@@ -39,7 +39,7 @@ import monix.eval.Task
 import scala.language.higherKinds
 
 /**
- * Dataset node storage (node side). Base implementation of [[DatasetStorageRpc]]
+ * Dataset node storage (node side).
  *
  * @param bTreeIndex            Merkle btree index.
  * @param kVStore               Blob storage for persisting encrypted values.

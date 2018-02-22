@@ -37,6 +37,14 @@ import scala.collection.Searching
 import scala.language.{ higherKinds, implicitConversions }
 import scala.util.control.NoStackTrace
 
+/**
+ * Clients implementation of [[DatasetStorageRpc]], allows talking to server via network.
+ * All public methods called from the client side.
+ * DatasetStorageClient initiates first request to server and then answered to server requests.
+ *
+ * @param stub Stub for calling server methods of [[DatasetStorageRpc]]
+ * @tparam F A box for returning value
+ */
 class DatasetStorageClient[F[_] : Effect](
     stub: DatasetStorageRpcStub
 )(implicit sch: Scheduler) extends DatasetStorageRpc[F] with slogging.LazyLogging {
@@ -105,9 +113,10 @@ class DatasetStorageClient[F[_] : Effect](
 
     val errorOrValue =
       serverAsk
-        .collect {  // Collect terminal task with value/error
+        .collect { // Collect terminal task with value/error
           case ask if ask.isServerError ⇒
             val Some(err) = ask.serverError
+            // if server send the error we should lift it up
             Task.raiseError(ServerError(err.msg))
           case ask if ask.isValue ⇒
             val Some(getValue) = ask._value
@@ -216,9 +225,10 @@ class DatasetStorageClient[F[_] : Effect](
 
     val errorOrValue =
       serverAsk
-        .collect {  // Collect terminal task with value/error
+        .collect { // Collect terminal task with value/error
           case ask if ask.isServerError ⇒
             val Some(err) = ask.serverError
+            // if server send the error we should lift it up
             Task.raiseError(ServerError(err.msg))
           case ask if ask.isValue ⇒
             val Some(getValue) = ask._value
