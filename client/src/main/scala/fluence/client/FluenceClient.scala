@@ -172,18 +172,24 @@ class FluenceClient(
           for {
             nodes ← findContactsOfAllParticipants(basicContract)
             datasets ← Task.sequence(
-              nodes.map(addNonEncryptedDataset(ac, _, Some(ClientState(basicContract.executionState.merkleRoot.toArray))))
+              nodes.map( contact ⇒
+                addNonEncryptedDataset(ac, contact, Some(ClientState(basicContract.executionState.merkleRoot.toArray)))
+                  .map(store ⇒ store → contact)
+              )
             )
           } yield datasets
 
 
         case None ⇒ //new storage and create new contract
           for {
-            offer ← BasicContract.offer(key, participantsRequired = 1, signer = signer)
+            offer ← BasicContract.offer(key, participantsRequired = 2, signer = signer)
             newContract ← contracts.allocate(offer, dc ⇒ dc.sealParticipants(signer))
             nodes ← findContactsOfAllParticipants(newContract)
             datasets ← Task.sequence(
-              nodes.map(addNonEncryptedDataset(ac, _, Some(ClientState(newContract.executionState.merkleRoot.toArray))))
+              nodes.map( contact ⇒
+                addNonEncryptedDataset(ac, contact, Some(ClientState(newContract.executionState.merkleRoot.toArray)))
+                  .map(store ⇒ store → contact)
+              )
             )
           } yield datasets
       }

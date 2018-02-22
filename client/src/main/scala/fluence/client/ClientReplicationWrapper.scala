@@ -1,6 +1,7 @@
 package fluence.client
 
 import fluence.dataset.client.ClientDatasetStorageApi
+import fluence.kad.protocol.Contact
 import monix.eval.Task
 
 import scala.language.higherKinds
@@ -10,7 +11,7 @@ import scala.language.higherKinds
  * This is naive implementation of replication and it will be removed in future.
  */
 class ClientReplicationWrapper[K, V](
-    datasetReplicas: List[ClientDatasetStorageApi[Task, K, V]]
+    datasetReplicas: List[(ClientDatasetStorageApi[Task, K, V], Contact)]
 ) extends ClientDatasetStorageApi[Task, K, V] with slogging.LazyLogging {
 
   private val replicationFactor = datasetReplicas.size
@@ -22,11 +23,11 @@ class ClientReplicationWrapper[K, V](
    */
   override def get(key: K): Task[Option[V]] = {
 
-    def getRec(replicas: List[ClientDatasetStorageApi[Task, K, V]]): Task[Option[V]] = {
-      val head = replicas.head
-      logger.info(s"Reading key=$key from node=$head")
-      head.get(key).onErrorHandleWith { e ⇒
-        logger.warn(s"Can't get value from $head for key=$key, cause=$e")
+    def getRec(replicas: List[(ClientDatasetStorageApi[Task, K, V], Contact)]): Task[Option[V]] = {
+      val (store, contact) = replicas.head
+      logger.info(s"Reading key=$key from ${contact.ip}:${contact.grpcPort}")
+      store.get(key).onErrorHandleWith { e ⇒
+        logger.warn(s"Can't get value from ${contact.ip}:${contact.grpcPort} for key=$key, cause=$e")
         if (replicas.tail.isEmpty)
           Task.raiseError[Option[V]](e)
         else {
@@ -48,7 +49,7 @@ class ClientReplicationWrapper[K, V](
   override def put(key: K, value: V): Task[Option[V]] = {
     Task.gatherUnordered(
       datasetReplicas
-        .map(replica ⇒ replica.put(key, value))
+        .map { case (store, _) ⇒ store.put(key, value) }
     ).map { seq ⇒
         logger.info(s"$key and $value was written to $replicationFactor nodes")
         seq.head
