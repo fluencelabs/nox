@@ -64,7 +64,7 @@ class DatasetStorageServer[F[_] : Async](
    * @tparam E Type of exception, should be subclass of [[Throwable]]
    * @tparam V Type of value
    */
-  private def runT[F[_] : Async, E <: Throwable, V](eitherT: EitherT[Task, E, V]): F[V] = eitherT.value.flatMap {
+  private def runT[E <: Throwable, V](eitherT: EitherT[Task, E, V]): F[V] = eitherT.value.flatMap {
     case Left(err) ⇒
       logger.debug(s"DatasetStorageServer lifts up client exception=$err")
       Task.raiseError(err)
@@ -155,11 +155,14 @@ class DatasetStorageServer[F[_] : Async](
     resp completeWith runF(
       valueF.attempt.flatMap {
         case Right(value) ⇒
+          // if all is ok send value to client
           F.pure(GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
         case Left(ClientError(msg)) ⇒
-          // when server recieve client reply with error, server shouln't answer anything
+          // when server recieve client error, server shouln't answer anything, should lift up client error
           Async[F].raiseError[GetCallback](ClientError(msg))
         case Left(exception) ⇒
+          // when server error appears, server should log it and send to client
+          logger.warn(s"Severs throw an exception=$exception and send cause to client")
           F.pure(GetCallback(GetCallback.Callback.ServerError(Error(exception.getMessage))))
 
       }
@@ -182,9 +185,9 @@ class DatasetStorageServer[F[_] : Async](
 
       val reply = clientReply()
         .map {
-          case PutCallbackReply(reply) ⇒
-            logger.trace(s"DatasetStorageServer.put() received client reply=$reply")
-            reply
+          case PutCallbackReply(r) ⇒
+            logger.trace(s"DatasetStorageServer.put() received client reply=$r")
+            r
         }.map {
           case r if check(r) ⇒
             Right(extract(r))
@@ -291,11 +294,14 @@ class DatasetStorageServer[F[_] : Async](
     resp completeWith runF(
       valueF.attempt.flatMap {
         case Right(value) ⇒
+          // if all is ok send value to client
           F.pure(PutCallback(PutCallback.Callback.Value(PreviousValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
         case Left(ClientError(msg)) ⇒
-          // when server recieve client reply with error, server shouln't answer anything
+          // when server recieve client error, server shouln't answer anything, should lift up client error
           Async[F].raiseError[PutCallback](ClientError(msg))
         case Left(exception) ⇒
+          // when server error appears, server should log it and send to client
+          logger.warn(s"Severs throw an exception=$exception and send cause to client")
           F.pure(PutCallback(PutCallback.Callback.ServerError(Error(exception.getMessage))))
       }
     )

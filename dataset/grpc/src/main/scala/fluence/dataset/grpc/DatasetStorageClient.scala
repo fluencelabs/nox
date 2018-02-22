@@ -19,17 +19,18 @@ package fluence.dataset.grpc
 
 import cats.effect.Effect
 import cats.syntax.applicativeError._
-import cats.syntax.functor._
+import cats.syntax.flatMap._
 import com.google.protobuf.ByteString
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.grpc.DatasetStorageClient.ServerError
+import fluence.dataset.grpc.DatasetStorageServer.ClientError
 import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc.DatasetStorageRpcStub
 import fluence.dataset.grpc.storage._
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.{ CallOptions, ManagedChannel }
-import monix.eval.Task
+import monix.eval.{ MVar, Task }
 import monix.execution.Scheduler
 import monix.reactive.Observable
 
@@ -71,6 +72,17 @@ class DatasetStorageClient[F[_] : Effect](
       })
       .multicast
 
+    val clientError = MVar.empty[Throwable]
+
+    /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
+    def handleClientErr(err: Throwable): F[GetCallbackReply] = {
+      run(
+        clientError
+          .put(ClientError(err.getMessage))
+          .map(_ ⇒ GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage))))
+      )
+    }
+
     val handleAsks = serverAsk
       .collect { case ask if ask.isDefined && !ask.isValue && !ask.isServerError ⇒ ask } // Collect callbacks
       .mapEval[F, GetCallbackReply] {
@@ -81,11 +93,11 @@ class DatasetStorageClient[F[_] : Effect](
           getCallbacks
             .nextChildIndex(nci.keys.map(_.toByteArray).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
             .attempt
-            .map {
+            .flatMap {
               case Left(err) ⇒
-                GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage)))
+                handleClientErr(err)
               case Right(idx) ⇒
-                GetCallbackReply(GetCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx)))
+                Effect[F].pure(GetCallbackReply(GetCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx))))
             }
 
         case ask if ask.isSubmitLeaf ⇒
@@ -94,11 +106,11 @@ class DatasetStorageClient[F[_] : Effect](
           getCallbacks
             .submitLeaf(sl.keys.map(_.toByteArray).toArray, sl.valuesChecksums.map(_.toByteArray).toArray)
             .attempt
-            .map {
+            .flatMap {
               case Left(err) ⇒
-                GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage)))
+                handleClientErr(err)
               case Right(idx) ⇒
-                GetCallbackReply(GetCallbackReply.Reply.SubmitLeaf(ReplySubmitLeaf(idx.getOrElse(-1))))
+                Effect[F].pure(GetCallbackReply(GetCallbackReply.Reply.SubmitLeaf(ReplySubmitLeaf(idx.getOrElse(-1)))))
             }
 
       }
@@ -127,7 +139,11 @@ class DatasetStorageClient[F[_] : Effect](
             }
         }.headL.flatten // Take the first value, wrapped with Task
 
-    run(errorOrValue)
+    run(Task.raceMany(Seq(
+      clientError.take.flatMap(err ⇒ Task.raiseError(err)), // returns occurred clients error as return value
+      errorOrValue // return success result or server error
+    )))
+
   }
 
   /**
@@ -150,6 +166,17 @@ class DatasetStorageClient[F[_] : Effect](
       })
       .multicast
 
+    val clientError = MVar.empty[Throwable]
+
+    /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
+    def handleClientErr(err: Throwable): F[PutCallbackReply] = {
+      run(
+        clientError
+          .put(ClientError(err.getMessage))
+          .map(_ ⇒ PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage))))
+      )
+    }
+
     val handleAsks = serverAsk
       .collect { case ask if ask.isDefined && !ask.isValue ⇒ ask } // Collect callbacks
       .mapEval[F, PutCallbackReply] {
@@ -160,11 +187,11 @@ class DatasetStorageClient[F[_] : Effect](
           putCallbacks
             .nextChildIndex(nci.keys.map(_.toByteArray).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
             .attempt
-            .map {
+            .flatMap {
               case Left(err) ⇒
-                PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
+                handleClientErr(err)
               case Right(idx) ⇒
-                PutCallbackReply(PutCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx)))
+                Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx))))
             }
 
         case ask if ask.isPutDetails ⇒
@@ -173,9 +200,9 @@ class DatasetStorageClient[F[_] : Effect](
           putCallbacks
             .putDetails(pd.keys.map(_.toByteArray).toArray, pd.valuesChecksums.map(_.toByteArray).toArray)
             .attempt
-            .map {
+            .flatMap {
               case Left(err) ⇒
-                PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
+                handleClientErr(err)
               case Right(cpd) ⇒
                 val putDetails = ReplyPutDetails(
                   key = ByteString.copyFrom(cpd.key),
@@ -184,7 +211,7 @@ class DatasetStorageClient[F[_] : Effect](
                     case Searching.Found(foundIndex)              ⇒ ReplyPutDetails.SearchResult.FoundIndex(foundIndex)
                     case Searching.InsertionPoint(insertionPoint) ⇒ ReplyPutDetails.SearchResult.InsertionPoint(insertionPoint)
                   })
-                PutCallbackReply(PutCallbackReply.Reply.PutDetails(putDetails))
+                Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.PutDetails(putDetails)))
             }
 
         case ask if ask.isVerifyChanges ⇒
@@ -193,32 +220,32 @@ class DatasetStorageClient[F[_] : Effect](
           putCallbacks
             .verifyChanges(vc.serverMerkleRoot.toByteArray, vc.splitted)
             .attempt
-            .map {
+            .flatMap {
               case Left(err) ⇒
-                PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
+                handleClientErr(err)
               case Right(idx) ⇒
-                PutCallbackReply(PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges())) // TODO: here should be signature
+                Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges()))) // TODO: here should be signature
             }
 
         case ask if ask.isChangesStored ⇒
           putCallbacks
             .changesStored()
             .attempt
-            .map {
+            .flatMap {
               case Left(err) ⇒
-                PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
+                handleClientErr(err)
               case Right(idx) ⇒
-                PutCallbackReply(PutCallbackReply.Reply.ChangesStored(ReplyChangesStored()))
+                Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.ChangesStored(ReplyChangesStored())))
             }
       }
 
     (
       Observable( // Pass the datasetId and value as the first, unasked pushes
         PutCallbackReply(
-          reply = PutCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
+          PutCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
         ),
         PutCallbackReply(
-          reply = PutCallbackReply.Reply.Value(PutValue(ByteString.copyFrom(encryptedValue)))
+          PutCallbackReply.Reply.Value(PutValue(ByteString.copyFrom(encryptedValue)))
         )
       ) ++ handleAsks
     ).subscribe(clientReply) // And push response back to server
@@ -239,7 +266,10 @@ class DatasetStorageClient[F[_] : Effect](
             }
         }.headL.flatten // Take the first value, wrapped with Task
 
-    run(errorOrValue)
+    run(Task.raceMany(Seq(
+      clientError.take.flatMap(err ⇒ Task.raiseError(err)), // returns occurred clients error as return value
+      errorOrValue // return success result or server error
+    )))
 
   }
 
