@@ -17,26 +17,38 @@
 
 package fluence.dataset.grpc
 
-import cats.effect.{ Effect, IO }
-import cats.syntax.functor._
+import cats.effect.Effect
+import cats.syntax.applicativeError._
+import cats.syntax.flatMap._
 import com.google.protobuf.ByteString
 import fluence.btree.protocol.BTreeRpc
+import fluence.dataset.grpc.DatasetStorageClient.ServerError
+import fluence.dataset.grpc.DatasetStorageServer.ClientError
 import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc.DatasetStorageRpcStub
 import fluence.dataset.grpc.storage._
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.{ CallOptions, ManagedChannel }
-import monix.eval.Task
+import monix.eval.{ MVar, Task }
 import monix.execution.Scheduler
 import monix.reactive.Observable
 
 import scala.collection.Searching
 import scala.language.{ higherKinds, implicitConversions }
+import scala.util.control.NoStackTrace
 
+/**
+ * Clients implementation of [[DatasetStorageRpc]], allows talking to server via network.
+ * All public methods called from the client side.
+ * DatasetStorageClient initiates first request to server and then answered to server requests.
+ *
+ * @param stub Stub for calling server methods of [[DatasetStorageRpc]]
+ * @tparam F A box for returning value
+ */
 class DatasetStorageClient[F[_] : Effect](
     stub: DatasetStorageRpcStub
-)(implicit sch: Scheduler) extends DatasetStorageRpc[F] {
+)(implicit sch: Scheduler) extends DatasetStorageRpc[F] with slogging.LazyLogging {
 
   private def run[A](fa: Task[A]): F[A] = fa.toIO.to[F]
 
@@ -52,52 +64,87 @@ class DatasetStorageClient[F[_] : Effect](
     val pipe = callToPipe(stub.get)
 
     // Get observer/observable for request's bidiflow
-    val (push, pull) = pipe
-      .transform(_.map(_.callback))
+    val (pullClientReply, pushServerAsk) = pipe
+      .transform(_.map {
+        case GetCallback(callback) ⇒
+          logger.trace(s"DatasetStorageClient.get() received server ask=$callback")
+          callback
+      })
       .multicast
 
-    val handleAsks = pull.collect { // Collect callbacks
-      case ask if ask.isDefined && !ask.isValue ⇒ ask
-    }.mapEval[F, GetCallbackReply.Reply]{ // Route callbacks to ''getCallbacks''
+    val clientError = MVar.empty[Throwable]
 
-      case ask if ask.isNextChildIndex ⇒
-        val Some(nci) = ask.nextChildIndex
+    // todo close stream after receiving client error
+    /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
+    def handleClientErr(err: Throwable): F[GetCallbackReply] = {
+      run(
+        clientError
+          .put(ClientError(err.getMessage))
+          .map(_ ⇒ GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage))))
+      )
+    }
 
-        getCallbacks
-          .nextChildIndex(nci.keys.map(_.toByteArray).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
+    val handleAsks = pushServerAsk
+      .collect { case ask if ask.isDefined && !ask.isValue && !ask.isServerError ⇒ ask } // Collect callbacks
+      .mapEval[F, GetCallbackReply] {
 
-          .map(i ⇒ ReplyNextChildIndex(i))
-          .map(GetCallbackReply.Reply.NextChildIndex)
+        case ask if ask.isNextChildIndex ⇒
+          val Some(nci) = ask.nextChildIndex
 
-      case ask if ask.isSubmitLeaf ⇒
-        val Some(sl) = ask.submitLeaf
+          getCallbacks
+            .nextChildIndex(nci.keys.map(_.toByteArray).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
+            .attempt
+            .flatMap {
+              case Left(err) ⇒
+                handleClientErr(err)
+              case Right(idx) ⇒
+                Effect[F].pure(GetCallbackReply(GetCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx))))
+            }
 
-        getCallbacks
-          .submitLeaf(sl.keys.map(_.toByteArray).toArray, sl.valuesChecksums.map(_.toByteArray).toArray)
+        case ask if ask.isSubmitLeaf ⇒
+          val Some(sl) = ask.submitLeaf
 
-          .map(oi ⇒ ReplySubmitLeaf(oi.getOrElse(-1)))
-          .map(GetCallbackReply.Reply.SubmitLeaf)
+          getCallbacks
+            .submitLeaf(sl.keys.map(_.toByteArray).toArray, sl.valuesChecksums.map(_.toByteArray).toArray)
+            .attempt
+            .flatMap {
+              case Left(err) ⇒
+                handleClientErr(err)
+              case Right(idx) ⇒
+                Effect[F].pure(GetCallbackReply(GetCallbackReply.Reply.SubmitLeaf(ReplySubmitLeaf(idx.getOrElse(-1)))))
+            }
 
-    }.map(GetCallbackReply(_))
+      }
 
     (
       Observable(
-        GetCallbackReply(GetCallbackReply.Reply.DatasetId(
-          DatasetId(ByteString.copyFrom(datasetId))
-        ))
+        GetCallbackReply(
+          GetCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
+        )
       ) ++ handleAsks
-    ).subscribe(push) // And push response back to server
+    ).subscribe(pullClientReply) // And clientReply response back to server
 
-    val value = pull.collect { // Collect response value
-      case gv if gv.isValue ⇒ gv._value.get
-    }.map(g ⇒ // Response value is an optional byte array
-      Option(g.value)
-        .filterNot(_.isEmpty)
-        .map(_.toByteArray)
-    )
-      .headL // Take the first value, wrapped with Task
+    val errorOrValue =
+      pushServerAsk
+        .collect { // Collect terminal task with value/error
+          case ask if ask.isServerError ⇒
+            val Some(err) = ask.serverError
+            // if server send the error we should lift it up
+            Task.raiseError(ServerError(err.msg))
+          case ask if ask.isValue ⇒
+            val Some(getValue) = ask._value
+            Task {
+              Option(getValue.value)
+                .filterNot(_.isEmpty)
+                .map(_.toByteArray)
+            }
+        }.headL.flatten // Take the first value, wrapped with Task
 
-    run(value)
+    run(Task.raceMany(Seq(
+      clientError.take.flatMap(err ⇒ Task.raiseError(err)), // returns occurred clients error as return value
+      errorOrValue // return success result or server error
+    )))
+
   }
 
   /**
@@ -112,78 +159,119 @@ class DatasetStorageClient[F[_] : Effect](
     // Convert a remote stub call to monix pipe
     val pipe = callToPipe(stub.put)
 
-    // Get observer/observable for request's bidiflow
-    val (push, pull) = pipe
-      .transform(_.map(_.callback))
+    val (clientReply, serverAsk) = pipe
+      .transform(_.map {
+        case PutCallback(callback) ⇒
+          logger.trace(s"DatasetStorageClient.put() received server ask=$callback")
+          callback
+      })
       .multicast
 
-    val handleAsks = pull.collect { // Collect callbacks
-      case ask if ask.isDefined && !ask.isValue ⇒ ask
-    }.mapEval[F, PutCallbackReply.Reply]{
+    val clientError = MVar.empty[Throwable]
 
-      case ask if ask.isNextChildIndex ⇒
-        val Some(nci) = ask.nextChildIndex
+    /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
+    def handleClientErr(err: Throwable): F[PutCallbackReply] = {
+      run(
+        clientError
+          .put(ClientError(err.getMessage))
+          .map(_ ⇒ PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage))))
+      )
+    }
 
-        putCallbacks
-          .nextChildIndex(nci.keys.map(_.toByteArray).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
+    val handleAsks = serverAsk
+      .collect { case ask if ask.isDefined && !ask.isValue ⇒ ask } // Collect callbacks
+      .mapEval[F, PutCallbackReply] {
 
-          .map(i ⇒ ReplyNextChildIndex(i))
-          .map(PutCallbackReply.Reply.NextChildIndex)
+        case ask if ask.isNextChildIndex ⇒
+          val Some(nci) = ask.nextChildIndex
 
-      case ask if ask.isPutDetails ⇒
-        val Some(pd) = ask.putDetails
+          putCallbacks
+            .nextChildIndex(nci.keys.map(_.toByteArray).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
+            .attempt
+            .flatMap {
+              case Left(err) ⇒
+                handleClientErr(err)
+              case Right(idx) ⇒
+                Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx))))
+            }
 
-        putCallbacks
-          .putDetails(pd.keys.map(_.toByteArray).toArray, pd.valuesChecksums.map(_.toByteArray).toArray)
+        case ask if ask.isPutDetails ⇒
+          val Some(pd) = ask.putDetails
 
-          .map(cpd ⇒ ReplyPutDetails(
-            key = ByteString.copyFrom(cpd.key),
-            checksum = ByteString.copyFrom(cpd.valChecksum),
-            searchResult = cpd.searchResult match {
-              case Searching.Found(foundIndex)              ⇒ ReplyPutDetails.SearchResult.FoundIndex(foundIndex)
-              case Searching.InsertionPoint(insertionPoint) ⇒ ReplyPutDetails.SearchResult.InsertionPoint(insertionPoint)
-            }))
-          .map(PutCallbackReply.Reply.PutDetails)
+          putCallbacks
+            .putDetails(pd.keys.map(_.toByteArray).toArray, pd.valuesChecksums.map(_.toByteArray).toArray)
+            .attempt
+            .flatMap {
+              case Left(err) ⇒
+                handleClientErr(err)
+              case Right(cpd) ⇒
+                val putDetails = ReplyPutDetails(
+                  key = ByteString.copyFrom(cpd.key),
+                  checksum = ByteString.copyFrom(cpd.valChecksum),
+                  searchResult = cpd.searchResult match {
+                    case Searching.Found(foundIndex)              ⇒ ReplyPutDetails.SearchResult.FoundIndex(foundIndex)
+                    case Searching.InsertionPoint(insertionPoint) ⇒ ReplyPutDetails.SearchResult.InsertionPoint(insertionPoint)
+                  })
+                Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.PutDetails(putDetails)))
+            }
 
-      case ask if ask.isVerifyChanges ⇒
-        val Some(vc) = ask.verifyChanges
+        case ask if ask.isVerifyChanges ⇒
+          val Some(vc) = ask.verifyChanges
 
-        putCallbacks
-          .verifyChanges(vc.serverMerkleRoot.toByteArray, vc.splitted)
+          putCallbacks
+            .verifyChanges(vc.serverMerkleRoot.toByteArray, vc.splitted)
+            .attempt
+            .flatMap {
+              case Left(err) ⇒
+                handleClientErr(err)
+              case Right(idx) ⇒
+                Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges()))) // TODO: here should be signature
+            }
 
-          .map(_ ⇒ PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges())) // TODO: here should be signature
-
-      case ask if ask.isChangesStored ⇒
-
-        putCallbacks
-          .changesStored()
-
-          .map(_ ⇒ PutCallbackReply.Reply.ChangesStored(ReplyChangesStored()))
-
-    }.map(PutCallbackReply(_))
+        case ask if ask.isChangesStored ⇒
+          putCallbacks
+            .changesStored()
+            .attempt
+            .flatMap {
+              case Left(err) ⇒
+                handleClientErr(err)
+              case Right(idx) ⇒
+                Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.ChangesStored(ReplyChangesStored())))
+            }
+      }
 
     (
       Observable( // Pass the datasetId and value as the first, unasked pushes
-        PutCallbackReply(PutCallbackReply.Reply.DatasetId(
-          DatasetId(ByteString.copyFrom(datasetId)))
+        PutCallbackReply(
+          PutCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
         ),
-        PutCallbackReply(PutCallbackReply.Reply.Value(
-          PutValue(ByteString.copyFrom(encryptedValue)))
+        PutCallbackReply(
+          PutCallbackReply.Reply.Value(PutValue(ByteString.copyFrom(encryptedValue)))
         )
-      )
-        ++ handleAsks
-    ).subscribe(push) // And push response back to server
+      ) ++ handleAsks
+    ).subscribe(clientReply) // And push response back to server
 
-    val value = pull.collect { // Collect response value
-      case gv if gv.isValue ⇒ gv._value.get
-    }.map(g ⇒ // Response value is an optional byte array
-      Option(g.value)
-        .filterNot(_.isEmpty)
-        .map(_.toByteArray)
-    )
-      .headL // Take the first value, wrapped with Task
+    val errorOrValue =
+      serverAsk
+        .collect { // Collect terminal task with value/error
+          case ask if ask.isServerError ⇒
+            val Some(err) = ask.serverError
+            // if server send the error we should lift it up
+            Task.raiseError(ServerError(err.msg))
+          case ask if ask.isValue ⇒
+            val Some(getValue) = ask._value
+            Task {
+              Option(getValue.value)
+                .filterNot(_.isEmpty)
+                .map(_.toByteArray)
+            }
+        }.headL.flatten // Take the first value, wrapped with Task
 
-    run(value)
+    run(Task.raceMany(Seq(
+      clientError.take.flatMap(err ⇒ Task.raiseError(err)), // returns occurred clients error as return value
+      errorOrValue // return success result or server error
+    )))
+
   }
 
   /**
@@ -194,6 +282,7 @@ class DatasetStorageClient[F[_] : Effect](
    * @return returns old value that was deleted, None if nothing was deleted.
    */
   override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[F]): F[Option[Array[Byte]]] = ???
+
 }
 
 object DatasetStorageClient {
@@ -209,5 +298,10 @@ object DatasetStorageClient {
     callOptions: CallOptions
   )(implicit scheduler: Scheduler): DatasetStorageRpc[F] =
     new DatasetStorageClient[F](new DatasetStorageRpcStub(channel, callOptions))
-}
 
+  /**  Error from server(node) side. */
+  case class ServerError(msg: String) extends NoStackTrace {
+    override def getMessage: String = msg
+  }
+
+}

@@ -36,25 +36,32 @@ case class KeyStore(keyPair: KeyPair)
  * }
  */
 object KeyStore {
+
   private val alphabet = Bases.Alphabets.Base64Url
-  implicit val encodeKeyStorage: Encoder[KeyStore] = new Encoder[KeyStore] {
-    final def apply(ks: KeyStore): Json = Json.obj(("keystore", Json.obj(
-      ("secret", Json.fromString(ks.keyPair.secretKey.value.toBase64(alphabet))),
-      ("public", Json.fromString(ks.keyPair.publicKey.value.toBase64(alphabet))))))
+
+  private object Field {
+    val Keystore = "keystore"
+    val Secret = "secret"
+    val Public = "public"
   }
 
-  implicit val decodeKeyStorage: Decoder[Option[KeyStore]] = new Decoder[Option[KeyStore]] {
-    final def apply(c: HCursor): Decoder.Result[Option[KeyStore]] =
+  implicit val encodeKeyStorage: Encoder[KeyStore] = (ks: KeyStore) ⇒ Json.obj(
+    (Field.Keystore, Json.obj(
+      (Field.Secret, Json.fromString(ks.keyPair.secretKey.value.toBase64(alphabet))),
+      (Field.Public, Json.fromString(ks.keyPair.publicKey.value.toBase64(alphabet))))
+    ))
+
+  implicit val decodeKeyStorage: Decoder[Option[KeyStore]] =
+    (c: HCursor) ⇒
       for {
-        secret ← c.downField("keystore").downField("secret").as[String]
-        public ← c.downField("keystore").downField("public").as[String]
+        secret ← c.downField(Field.Keystore).downField(Field.Secret).as[String]
+        public ← c.downField(Field.Keystore).downField(Field.Public).as[String]
       } yield {
         for {
           secret ← ByteVector.fromBase64(secret, alphabet)
           public ← ByteVector.fromBase64(public, alphabet)
         } yield KeyStore(KeyPair.fromByteVectors(public, secret))
       }
-  }
 
   def fromBase64(base64: String): KeyStore = {
     val jsonStr = ByteVector.fromBase64(base64, alphabet) match {
