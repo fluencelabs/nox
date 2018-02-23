@@ -220,7 +220,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
       "client and server use different types of hasher" in {
         runNodes ({ servers ⇒
-          val client = AuthorizedClient.generateNew[Option](algo).eitherValue
+          val client = AuthorizedClient.generateNew[Option](algo, testpass).eitherValue
           val seedContact = makeKadNetwork(servers)
           val fluence = createFluenceClient(seedContact)
 

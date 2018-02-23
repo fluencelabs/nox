@@ -86,7 +86,6 @@ class FluenceClient(
    */
   private def addEncryptedDataset(ac: AuthorizedClient[Password], contact: Contact, clientState: Option[ClientState]): Task[ClientDatasetStorage[String, String]] = {
     addDataset(ac, storageRpc(contact), AesCrypt.forString(ac.key, withIV = false), AesCrypt.forString(ac.key, withIV = true), clientState, storageHasher)
-    //    addDataset(ac, storageRpc(contact), NoOpCrypt.forString, AesCrypt.forString(ac.key, withIV = true), clientState, storageHasher)
   }
 
   /**

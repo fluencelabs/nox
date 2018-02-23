@@ -129,7 +129,6 @@ class DatasetStorageServer[F[_] : Async](
               } yield Option(sl.childIndex).filter(_ >= 0)
             )
 
-
           /**
            * Server asks next child node index.
            *

@@ -21,77 +21,23 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
+case class DetachedData(ivData: Array[Byte], encData: Array[Byte])
+case class DataWithParams(data: Array[Byte], params: CipherParameters)
+
 class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: ByteVector)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable])
   extends ByteCrypt[F, T](serializer, deserializer) {
   import CryptoErr._
   // get raw key from password and salt// get raw key from password and salt
 
   val rnd = new SecureRandom()
-  private def generateIV: Array[Byte] = rnd.generateSeed(16)
+  val BITS = 256
+  val ITERATION_COUNT = 50
+  val IV_SIZE = 16
+  private def generateIV: Array[Byte] = rnd.generateSeed(IV_SIZE)
 
-  def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] = {
-    nonFatalHandling {
-      val pbeKeySpec = new PBEKeySpec(password, salt, 50, 256)
-      val keyFactory: SecretKeyFactory = SecretKeyFactory.getInstance("PBEWithSHA256And256BitAES-CBC-BC")
-      val secretKey = new SecretKeySpec(keyFactory.generateSecret(pbeKeySpec).getEncoded, "AES")
-      secretKey.getEncoded
-    }("Cannot init secret key.")
-  }
-
-  def setupAes(params: CipherParameters, encrypt: Boolean): EitherT[F, CryptoErr, PaddedBufferedBlockCipher] = {
-    nonFatalHandling {
-      // setup AES cipher in CBC mode with PKCS7 padding
-      val padding = new PKCS7Padding
-      val cipher = new PaddedBufferedBlockCipher(new CBCBlockCipher(new AESEngine), padding)
-      cipher.reset()
-      cipher.init(encrypt, params)
-
-      cipher
-    }("Cannot setup aes cipher.")
-  }
-
-  def processBytes(data: Array[Byte], cipher: PaddedBufferedBlockCipher): EitherT[F, CryptoErr, Array[Byte]] = {
-    nonFatalHandling {
-      // create a temporary buffer to decode into (it'll include padding)
-      val buf = new Array[Byte](data.length)
-      println("cpiher process")
-
-      val len = cipher.processBytes(data, 0, data.length, buf, 0)
-
-      val len2 = len + cipher.doFinal(buf, len)
-
-      buf.slice(0, len2)
-    }("Error in process bytes")
-  }
-
-  def deserializer(password: Array[Char], withIV: Boolean, salt: ByteVector): Array[Byte] ⇒ F[String] = { data ⇒
+  override def encrypt(plainText: T): F[Array[Byte]] = {
     val e = for {
-      encDataParams ← if (withIV) {
-        withIVGen(data, password, salt)
-      } else {
-        withoutIVGen(data, password, salt)
-      }
-      (detachedData, params) = encDataParams
-      out ← processData(detachedData, None, params, encrypt = false)
-      _ = println("OUT === " + out)
-    } yield new String(out)
-
-    e.value.flatMap(ME.fromEither)
-  }
-
-  def processData(data: Array[Byte], extData: Option[Array[Byte]], params: CipherParameters, encrypt: Boolean): EitherT[F, CryptoErr, Array[Byte]] = {
-    for {
-      cipher ← setupAes(params, encrypt = true)
-      buf ← processBytes(data, cipher)
-      serData = extData.map(_ ++ buf).getOrElse(buf)
-    } yield serData
-  }
-
-  def serializer(password: Array[Char], withIV: Boolean, salt: ByteVector = AesCrypt.fluenceSalt): String ⇒ F[Array[Byte]] = { str ⇒
-
-    val encData = str.getBytes()
-
-    val e = for {
+      data ← EitherT.liftF(serializer(plainText))
       key ← initSecretKey(password, salt.toArray)
       (extData, params) = {
         if (withIV) {
@@ -104,31 +50,86 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: By
           (None, new KeyParameter(key))
         }
       }
-      serData ← processData(encData, extData, params, encrypt = true)
-      _ = println("SER DATA === " + serData)
-    } yield serData
+      encData ← processData(DataWithParams(data, params), extData, encrypt = true)
+    } yield encData
 
     e.value.flatMap(ME.fromEither)
   }
 
-  def withIVGen(data: Array[Byte], password: Array[Char], salt: ByteVector): EitherT[F, CryptoErr, (Array[Byte], CipherParameters)] = {
-    val ivData = data.slice(0, 16)
-    val encData = data.slice(16, data.length)
-    for {
-      key ← initSecretKey(password, salt.toArray)
-      // setup cipher parameters with key and IV
-      keyParam = new KeyParameter(key)
-      params = new ParametersWithIV(keyParam, ivData)
-    } yield (encData, params)
+  override def decrypt(cipherText: Array[Byte]): F[T] = {
+    val e = for {
+      dataWithParams ← detachDataAndGetParams(cipherText, password, salt, withIV)
+      decData ← processData(dataWithParams, None, encrypt = false)
+      plain ← EitherT.liftF[F, CryptoErr, T](deserializer(decData))
+    } yield plain
+
+    e.value.flatMap(ME.fromEither)
   }
 
-  def withoutIVGen(data: Array[Byte], password: Array[Char], salt: ByteVector): EitherT[F, CryptoErr, (Array[Byte], CipherParameters)] = {
-    val encData = data
+  private def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] = {
+    nonFatalHandling {
+      val pbeKeySpec = new PBEKeySpec(password, salt, ITERATION_COUNT, BITS)
+      val keyFactory: SecretKeyFactory = SecretKeyFactory.getInstance("PBEWithSHA256And256BitAES-CBC-BC")
+      val secretKey = new SecretKeySpec(keyFactory.generateSecret(pbeKeySpec).getEncoded, "AES")
+      secretKey.getEncoded
+    }("Cannot init secret key.")
+  }
+
+  private def setupAes(params: CipherParameters, encrypt: Boolean): EitherT[F, CryptoErr, PaddedBufferedBlockCipher] = {
+    nonFatalHandling {
+      // setup AES cipher in CBC mode with PKCS7 padding
+      val padding = new PKCS7Padding
+      val cipher = new PaddedBufferedBlockCipher(new CBCBlockCipher(new AESEngine), padding)
+      cipher.reset()
+      cipher.init(encrypt, params)
+
+      cipher
+    }("Cannot setup aes cipher.")
+  }
+
+  private def processBytes(data: Array[Byte], cipher: PaddedBufferedBlockCipher): EitherT[F, CryptoErr, Array[Byte]] = {
+    nonFatalHandling {
+      // create a temporary buffer to decode into (it'll include padding)
+      val buf = new Array[Byte](data.length)
+      val outputLength = cipher.processBytes(data, 0, data.length, buf, 0)
+      val lastBlockLength = cipher.doFinal(buf, outputLength)
+      //remove padding
+      buf.slice(0, outputLength + lastBlockLength)
+    }("Error in cipher processing")
+  }
+
+  private def processData(dataWithParams: DataWithParams, extData: Option[Array[Byte]], encrypt: Boolean): EitherT[F, CryptoErr, Array[Byte]] = {
     for {
-      key ← initSecretKey(password, salt.toArray)
-      // setup cipher parameters with key
-      params = new KeyParameter(key)
-    } yield (encData, params)
+      cipher ← setupAes(dataWithParams.params, encrypt = true)
+      buf ← processBytes(dataWithParams.data, cipher)
+      serData = extData.map(_ ++ buf).getOrElse(buf)
+    } yield serData
+  }
+
+  private def detachIV(data: Array[Byte], ivSize: Int): EitherT[F, CryptoErr, DetachedData] = {
+    nonFatalHandling {
+      val ivData = data.slice(0, ivSize)
+      val encData = data.slice(ivSize, data.length)
+      DetachedData(ivData, encData)
+    }("Cannot detach data and IV")
+  }
+
+  private def detachDataAndGetParams(data: Array[Byte], password: Array[Char], salt: ByteVector, withIV: Boolean): EitherT[F, CryptoErr, DataWithParams] = {
+    if (withIV) {
+      for {
+        ivDataWithEncData ← detachIV(data, IV_SIZE)
+        key ← initSecretKey(password, salt.toArray)
+        // setup cipher parameters with key and IV
+        keyParam = new KeyParameter(key)
+        params = new ParametersWithIV(keyParam, ivDataWithEncData.ivData)
+      } yield DataWithParams(ivDataWithEncData.encData, params)
+    } else {
+      for {
+        key ← initSecretKey(password, salt.toArray)
+        // setup cipher parameters with key
+        params = new KeyParameter(key)
+      } yield DataWithParams(data, params)
+    }
   }
 }
 
