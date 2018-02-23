@@ -328,7 +328,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
           val datasetStorageReconnected = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
 
-          val getKey1Result = datasetStorageReconnected.get("key1").taskValue
+          val getKey1Result = datasetStorageReconnected.get("key1").taskValue(Some(timeout(Span(1, Seconds))))
           getKey1Result shouldBe Some("value1-NEW")
 
           val putKey2Result = datasetStorageReconnected.put("key2", "value2").taskValue
@@ -367,7 +367,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     val getKey1Response = datasetStorage.get("key1").taskValue
     getKey1Response shouldBe Some("value1")
     // override value
-    val overrideResponse = datasetStorage.put("key1", "value1-NEW").taskValue
+    val overrideResponse = datasetStorage.put("key1", "value1-NEW").taskValue(Some(timeout(Span(1, Seconds))))
     overrideResponse shouldBe Some("value1")
     // read updated value
     val getUpdatedKey1Response = datasetStorage.get("key1").taskValue
