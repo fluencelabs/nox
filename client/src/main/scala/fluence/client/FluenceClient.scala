@@ -175,7 +175,7 @@ class FluenceClient(
 
         case None ⇒ //new storage and create new contract
           for {
-            offer ← BasicContract.offer(key, participantsRequired = 1, signer = signer)
+            offer ← BasicContract.offer(key, participantsRequired = 2, signer = signer)
             newContract ← contracts.allocate(offer, dc ⇒ dc.sealParticipants(signer))
             nodes ← findContactsOfAllParticipants(newContract)
             datasets ← Task.sequence(
