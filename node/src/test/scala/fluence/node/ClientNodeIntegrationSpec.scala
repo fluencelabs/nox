@@ -474,7 +474,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
             .withValue("fluence.contract.cacheDirName", ConfigValueFactory.fromAnyRef("node_cache_" + n))
             .withValue("fluence.directory", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/testnode-" + n))
             //override for some value with no file for new key pair
-            .withValue("fluence.keyPath", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/testnode-kp-" + n))
+            .withValue("fluence.keys.keyPath", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/testnode-kp-" + n))
             .withValue("fluence.storage.rocksDb.dataDir", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/rocksdb-ds-" + n))
 
         ).unsafeRunSync()
@@ -491,8 +491,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           Path(s.config.getString("fluence.storage.rocksDb.dataDir")).deleteRecursively()
         if (s.config.getString("fluence.directory").startsWith(System.getProperty("java.io.tmpdir")))
           Path(s.config.getString("fluence.directory")).deleteRecursively()
-        if (s.config.getString("fluence.keyPath").startsWith(System.getProperty("java.io.tmpdir")))
-          Path(s.config.getString("fluence.keyPath")).deleteRecursively()
+        if (s.config.getString("fluence.keys.keyPath").startsWith(System.getProperty("java.io.tmpdir")))
+          Path(s.config.getString("fluence.keys.keyPath")).deleteRecursively()
       }
 
     }
