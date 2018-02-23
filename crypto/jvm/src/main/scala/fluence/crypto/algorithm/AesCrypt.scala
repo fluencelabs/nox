@@ -17,7 +17,6 @@ import org.bouncycastle.crypto.params.ParametersWithIV
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
-import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -25,18 +24,18 @@ case class DetachedData(ivData: Array[Byte], encData: Array[Byte])
 case class DataWithParams(data: Array[Byte], params: CipherParameters)
 
 /**
-  * PBEWithSHA256And256BitAES-CBC-BC cryptography
-  * PBE - Password-based encryption
-  * SHA256 - hash for password
-  * AES with CBC BC - Advanced Encryption Standard with Cipher Block Chaining
-  * https://ru.wikipedia.org/wiki/Advanced_Encryption_Standard
-  * https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Block_Chaining_(CBC)
-  * @param password User entered password
-  * @param withIV Initialization vector to achieve semantic security, a property whereby repeated usage of the scheme
-  *               under the same key does not allow an attacker to infer relationships between segments of the encrypted
-  *               message
-  * @param salt Salt for password
-  */
+ * PBEWithSHA256And256BitAES-CBC-BC cryptography
+ * PBE - Password-based encryption
+ * SHA256 - hash for password
+ * AES with CBC BC - Advanced Encryption Standard with Cipher Block Chaining
+ * https://ru.wikipedia.org/wiki/Advanced_Encryption_Standard
+ * https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Block_Chaining_(CBC)
+ * @param password User entered password
+ * @param withIV Initialization vector to achieve semantic security, a property whereby repeated usage of the scheme
+ *               under the same key does not allow an attacker to infer relationships between segments of the encrypted
+ *               message
+ * @param salt Salt for password
+ */
 class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Array[Byte])(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable])
   extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
   import CryptoErr._
@@ -45,7 +44,9 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Ar
   private val BITS = 256
 
   //number of password hashing iterations
+  //todo should be configurable
   private val ITERATION_COUNT = 50
+  //initialisation vector must be the same length as block size
   private val IV_SIZE = 16
   private def generateIV: Array[Byte] = rnd.generateSeed(IV_SIZE)
 
@@ -81,8 +82,8 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Ar
   }
 
   /**
-    * key spec initialization
-    */
+   * key spec initialization
+   */
   private def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] = {
     nonFatalHandling {
       // get raw key from password and salt
@@ -94,10 +95,10 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Ar
   }
 
   /**
-    * Setup AES CBC cipher
-    * @param encrypt True for encryption and false for decryption
-    * @return
-    */
+   * Setup AES CBC cipher
+   * @param encrypt True for encryption and false for decryption
+   * @return
+   */
   private def setupAes(params: CipherParameters, encrypt: Boolean): EitherT[F, CryptoErr, PaddedBufferedBlockCipher] = {
     nonFatalHandling {
       // setup AES cipher in CBC mode with PKCS7 padding
@@ -130,8 +131,8 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Ar
   }
 
   /**
-    * encrypted data = initialization vector + data
-    */
+   * encrypted data = initialization vector + data
+   */
   private def detachIV(data: Array[Byte], ivSize: Int): EitherT[F, CryptoErr, DetachedData] = {
     nonFatalHandling {
       val ivData = data.slice(0, ivSize)
