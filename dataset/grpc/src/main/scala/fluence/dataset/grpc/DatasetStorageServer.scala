@@ -65,9 +65,9 @@ class DatasetStorageServer[F[_] : Async](
    * @tparam V Type of value
    */
   private def runT[E <: Throwable, V](eitherT: EitherT[Task, E, V]): F[V] = eitherT.value.flatMap {
-    case Left(err) ⇒
-      logger.debug(s"DatasetStorageServer lifts up client exception=$err")
-      Task.raiseError(err)
+    case Left(clientError) ⇒
+      logger.debug(s"DatasetStorageServer lifts up client exception=$clientError")
+      Task.raiseError(clientError)
     case Right(value) ⇒
       Task(value)
   }.toIO.to[F]
@@ -129,7 +129,6 @@ class DatasetStorageServer[F[_] : Async](
               } yield Option(sl.childIndex).filter(_ >= 0)
             )
 
-
           /**
            * Server asks next child node index.
            *
@@ -155,16 +154,15 @@ class DatasetStorageServer[F[_] : Async](
     resp completeWith runF(
       valueF.attempt.flatMap {
         case Right(value) ⇒
-          // if all is ok send value to client
-          F.pure(GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
-        case Left(ClientError(msg)) ⇒
-          // when server recieve client error, server shouln't answer anything, should lift up client error
-          Async[F].raiseError[GetCallback](ClientError(msg))
+          // if all is ok server should close the stream (is done in ObserverGrpcOps.completeWith) and send value to client
+          Async[F].pure(GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
+        case Left(clientError: ClientError) ⇒
+          // when server recieve client error, server shouln't close the stream (is done in ObserverGrpcOps.completeWith) and lift up client error
+          Async[F].raiseError[GetCallback](clientError)
         case Left(exception) ⇒
           // when server error appears, server should log it and send to client
           logger.warn(s"Severs throw an exception=$exception and send cause to client")
           F.pure(GetCallback(GetCallback.Callback.ServerError(Error(exception.getMessage))))
-
       }
     )
 
@@ -294,11 +292,11 @@ class DatasetStorageServer[F[_] : Async](
     resp completeWith runF(
       valueF.attempt.flatMap {
         case Right(value) ⇒
-          // if all is ok send value to client
-          F.pure(PutCallback(PutCallback.Callback.Value(PreviousValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
-        case Left(ClientError(msg)) ⇒
-          // when server recieve client error, server shouln't answer anything, should lift up client error
-          Async[F].raiseError[PutCallback](ClientError(msg))
+          // if all is ok server should close the stream(is done in ObserverGrpcOps.completeWith)  and send value to client
+          Async[F].pure(PutCallback(PutCallback.Callback.Value(PreviousValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
+        case Left(clientError: ClientError) ⇒
+          // when server recieve client error, server shouln't close the stream(is done in ObserverGrpcOps.completeWith)  and lift up client error
+          Async[F].raiseError[PutCallback](clientError)
         case Left(exception) ⇒
           // when server error appears, server should log it and send to client
           logger.warn(s"Severs throw an exception=$exception and send cause to client")

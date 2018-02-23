@@ -64,7 +64,7 @@ class DatasetStorageClient[F[_] : Effect](
     val pipe = callToPipe(stub.get)
 
     // Get observer/observable for request's bidiflow
-    val (pullClientReply, pushServerAsk) = pipe
+    val (pushClientReply, pullServerAsk) = pipe
       .transform(_.map {
         case GetCallback(callback) ⇒
           logger.trace(s"DatasetStorageClient.get() received server ask=$callback")
@@ -74,7 +74,6 @@ class DatasetStorageClient[F[_] : Effect](
 
     val clientError = MVar.empty[Throwable]
 
-    // todo close stream after receiving client error
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
     def handleClientErr(err: Throwable): F[GetCallbackReply] = {
       run(
@@ -84,7 +83,7 @@ class DatasetStorageClient[F[_] : Effect](
       )
     }
 
-    val handleAsks = pushServerAsk
+    val handleAsks = pullServerAsk
       .collect { case ask if ask.isDefined && !ask.isValue && !ask.isServerError ⇒ ask } // Collect callbacks
       .mapEval[F, GetCallbackReply] {
 
@@ -122,22 +121,27 @@ class DatasetStorageClient[F[_] : Effect](
           GetCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
         )
       ) ++ handleAsks
-    ).subscribe(pullClientReply) // And clientReply response back to server
+    ).subscribe(pushClientReply) // And clientReply response back to server
 
     val errorOrValue =
-      pushServerAsk
+      pullServerAsk
         .collect { // Collect terminal task with value/error
           case ask if ask.isServerError ⇒
             val Some(err) = ask.serverError
-            // if server send the error we should lift it up
-            Task.raiseError(ServerError(err.msg))
+            val serverError = ServerError(err.msg)
+            // if server send an error we should close stream and lift error up
+            Task(pushClientReply.onError(serverError))
+              .flatMap(_ ⇒ Task.raiseError[Option[Array[Byte]]](serverError))
           case ask if ask.isValue ⇒
             val Some(getValue) = ask._value
-            Task {
-              Option(getValue.value)
-                .filterNot(_.isEmpty)
-                .map(_.toByteArray)
-            }
+            // if got success response or server error close stream and return value\error to user of this client
+            Task(pushClientReply.onComplete())
+              .map { _ ⇒
+                Option(getValue.value)
+                  .filterNot(_.isEmpty)
+                  .map(_.toByteArray)
+              }
+
         }.headL.flatten // Take the first value, wrapped with Task
 
     run(Task.raceMany(Seq(
@@ -159,7 +163,7 @@ class DatasetStorageClient[F[_] : Effect](
     // Convert a remote stub call to monix pipe
     val pipe = callToPipe(stub.put)
 
-    val (clientReply, serverAsk) = pipe
+    val (pushClientReply, pullServerAsk) = pipe
       .transform(_.map {
         case PutCallback(callback) ⇒
           logger.trace(s"DatasetStorageClient.put() received server ask=$callback")
@@ -178,7 +182,7 @@ class DatasetStorageClient[F[_] : Effect](
       )
     }
 
-    val handleAsks = serverAsk
+    val handleAsks = pullServerAsk
       .collect { case ask if ask.isDefined && !ask.isValue ⇒ ask } // Collect callbacks
       .mapEval[F, PutCallbackReply] {
 
@@ -249,22 +253,26 @@ class DatasetStorageClient[F[_] : Effect](
           PutCallbackReply.Reply.Value(PutValue(ByteString.copyFrom(encryptedValue)))
         )
       ) ++ handleAsks
-    ).subscribe(clientReply) // And push response back to server
+    ).subscribe(pushClientReply) // And push response back to server
 
     val errorOrValue =
-      serverAsk
+      pullServerAsk
         .collect { // Collect terminal task with value/error
           case ask if ask.isServerError ⇒
             val Some(err) = ask.serverError
-            // if server send the error we should lift it up
-            Task.raiseError(ServerError(err.msg))
+            val serverError = ServerError(err.msg)
+            // if server send the error we should close stream and lift error up
+            Task(pushClientReply.onError(serverError))
+              .flatMap(_ ⇒ Task.raiseError[Option[Array[Byte]]](serverError))
           case ask if ask.isValue ⇒
             val Some(getValue) = ask._value
-            Task {
-              Option(getValue.value)
-                .filterNot(_.isEmpty)
-                .map(_.toByteArray)
-            }
+            // if got success response or server error close stream and return value\error to user of this client
+            Task(pushClientReply.onComplete())
+              .map { _ ⇒
+                Option(getValue.value)
+                  .filterNot(_.isEmpty)
+                  .map(_.toByteArray)
+              }
         }.headL.flatten // Take the first value, wrapped with Task
 
     run(Task.raceMany(Seq(
