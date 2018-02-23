@@ -259,7 +259,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "success write and read from dataset" in { // todo make passable this test with replicationFac > 1
+    "success write and read from dataset" in {
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo).eitherValue
         val seedContact = makeKadNetwork(servers)
@@ -475,6 +475,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
             .withValue("fluence.directory", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/testnode-" + n))
             //override for some value with no file for new key pair
             .withValue("fluence.keyPath", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/testnode-kp-" + n))
+            .withValue("fluence.storage.rocksDb.dataDir", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/rocksdb-ds-" + n))
 
         ).unsafeRunSync()
       }
