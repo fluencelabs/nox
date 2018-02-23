@@ -205,8 +205,18 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     }
   }
 
-  /* util methods */
+  //crypt with nonce in value, test not working with this
+  /*private val keyCrypt = AesCrypt.forString[Task]("asd".toCharArray, withIV = false)
+  private val valueCrypt = AesCrypt.apply[Task, User]("asd".toCharArray, withIV = true)(
+    user ⇒ Task(s"ENC[${user.name},${user.age}]".getBytes()),
+    bytes ⇒ {
+      val pattern = "ENC\\[([^,]*),([^\\]]*)\\]".r
+      val pattern(name, age) = new String(bytes)
+      Task(User(name, age.toInt))
+    }
+  )*/
 
+  /* util methods */
   private val keyCrypt = NoOpCrypt.forString[Task]
   private val valueCrypt = NoOpCrypt[Task, User](
     user ⇒ Task(s"ENC[${user.name},${user.age}]".getBytes()),

@@ -24,6 +24,19 @@ import scala.language.higherKinds
 case class DetachedData(ivData: Array[Byte], encData: Array[Byte])
 case class DataWithParams(data: Array[Byte], params: CipherParameters)
 
+/**
+  * PBEWithSHA256And256BitAES-CBC-BC cryptography
+  * PBE - Password-based encryption
+  * SHA256 - hash for password
+  * AES with CBC BC - Advanced Encryption Standard with Cipher Block Chaining
+  * https://ru.wikipedia.org/wiki/Advanced_Encryption_Standard
+  * https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Block_Chaining_(CBC)
+  * @param password User entered password
+  * @param withIV Initialization vector to achieve semantic security, a property whereby repeated usage of the scheme
+  *               under the same key does not allow an attacker to infer relationships between segments of the encrypted
+  *               message
+  * @param salt Salt for password
+  */
 class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: ByteVector)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable])
   extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
   import CryptoErr._
@@ -31,6 +44,8 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: By
 
   private val rnd = new SecureRandom()
   private val BITS = 256
+
+  //number of password hashing iterations
   private val ITERATION_COUNT = 50
   private val IV_SIZE = 16
   private def generateIV: Array[Byte] = rnd.generateSeed(IV_SIZE)
@@ -66,6 +81,9 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: By
     e.value.flatMap(ME.fromEither)
   }
 
+  /**
+    * key spec initialization
+    */
   private def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] = {
     nonFatalHandling {
       val pbeKeySpec = new PBEKeySpec(password, salt, ITERATION_COUNT, BITS)
@@ -75,6 +93,11 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: By
     }("Cannot init secret key.")
   }
 
+  /**
+    * Setup AES CBC cipher
+    * @param encrypt True for encryption and false for decryption
+    * @return
+    */
   private def setupAes(params: CipherParameters, encrypt: Boolean): EitherT[F, CryptoErr, PaddedBufferedBlockCipher] = {
     nonFatalHandling {
       // setup AES cipher in CBC mode with PKCS7 padding
@@ -87,7 +110,7 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: By
     }("Cannot setup aes cipher.")
   }
 
-  private def processBytes(data: Array[Byte], cipher: PaddedBufferedBlockCipher): EitherT[F, CryptoErr, Array[Byte]] = {
+  private def cipherBytes(data: Array[Byte], cipher: PaddedBufferedBlockCipher): EitherT[F, CryptoErr, Array[Byte]] = {
     nonFatalHandling {
       // create a temporary buffer to decode into (it'll include padding)
       val buf = new Array[Byte](cipher.getOutputSize(data.length))
@@ -101,11 +124,14 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: By
   private def processData(dataWithParams: DataWithParams, extData: Option[Array[Byte]], encrypt: Boolean): EitherT[F, CryptoErr, Array[Byte]] = {
     for {
       cipher ← setupAes(dataWithParams.params, encrypt = encrypt)
-      buf ← processBytes(dataWithParams.data, cipher)
+      buf ← cipherBytes(dataWithParams.data, cipher)
       serData = extData.map(_ ++ buf).getOrElse(buf)
     } yield serData
   }
 
+  /**
+    * encrypted data = initialization vector + data
+    */
   private def detachIV(data: Array[Byte], ivSize: Int): EitherT[F, CryptoErr, DetachedData] = {
     nonFatalHandling {
       val ivData = data.slice(0, ivSize)
