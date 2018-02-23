@@ -15,11 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.client.cli
 
 import fastparse.all._
 
 object CommandParser {
+  import Operation._
+
   lazy private val parserCli = {
     val escape = P("\\" ~ CharIn("\"/\\bfnrt"))
     val space = P(CharsWhileIn(" \r\n").?)

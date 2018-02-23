@@ -54,7 +54,7 @@ class FluenceClient(
 
   private val datasetCache = TrieMap.empty[KeyPair.Public, Task[ClientDatasetStorageApi[Task, String, String]]]
 
-  //use this when we will have multiple datasets on one authorized user
+  //use this once we have multiple datasets for one authorized user
   /*def restoreContracts(pk: KeyPair.Public): Task[Map[Key, BasicContract]] = {
     def findRec(nonce: Nonce, listOfContracts: Map[Key, BasicContract]) = {
       Task.tailRecM((nonce, listOfContracts)) {
@@ -212,21 +212,8 @@ class FluenceClient(
 object FluenceClient extends slogging.LazyLogging {
 
   private def createKademliaClient(conf: KademliaConf, kademliaRpc: Contact ⇒ KademliaRpc[Task, Contact]): Kademlia[Task, Contact] = {
-    val clKey = Monoid.empty[Key]
-    val check = TransportSecurity.canBeSaved[Task](clKey, acceptLocal = true)
+    val check = TransportSecurity.canBeSaved[Task](Monoid.empty[Key], acceptLocal = true)
     KademliaMVar.client(kademliaRpc, conf, check)
-  }
-
-  private implicit def runTask[F[_]]: Task ~> Future = new (Task ~> Future) {
-    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
-  }
-
-  private implicit def runFuture[F[_]]: Future ~> Task = new (Future ~> Task) {
-    override def apply[A](fa: Future[A]): Task[A] = Task.fromFuture(fa)
-  }
-
-  private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
-    override def apply[A](fa: F[A]): F[A] = fa
   }
 
   def apply(
@@ -234,8 +221,9 @@ object FluenceClient extends slogging.LazyLogging {
     signAlgo: SignAlgo,
     storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
     config: Config
-  )(implicit checker: SignatureChecker): Task[FluenceClient] = {
+  ): Task[FluenceClient] = {
 
+    import signAlgo.checker
     val client = ClientComposer.grpc[Task](GrpcClient.builder)
     val kademliaRpc = client.service[KademliaRpc[Task, Contact]] _
     for {
@@ -267,8 +255,8 @@ object FluenceClient extends slogging.LazyLogging {
     kademliaClient: Kademlia[Task, Contact],
     contracts: Contracts[Task, BasicContract, Contact],
     storageRpc: Contact ⇒ DatasetStorageRpc[Task],
-    signAlgo: SignAlgo = Ecdsa.signAlgo,
-    storageHasher: CryptoHasher[Array[Byte], Array[Byte]]): FluenceClient = {
+    signAlgo: SignAlgo,
+    storageHasher: CryptoHasher[Array[Byte], Array[Byte]]): FluenceClient =
     new FluenceClient(kademliaClient, contracts, signAlgo, storageRpc, storageHasher)
-  }
+
 }

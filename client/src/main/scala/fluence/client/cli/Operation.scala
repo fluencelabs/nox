@@ -15,9 +15,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.client.cli
 
 sealed trait Operation
-case class Put(key: String, value: String) extends Operation
-case class Get(key: String) extends Operation
-case object Exit extends Operation
+
+object Operation {
+
+  case class Put(key: String, value: String) extends Operation
+
+  case class Get(key: String) extends Operation
+
+  case object Exit extends Operation
+
+}
