@@ -60,3 +60,18 @@ class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) {
       } yield newKeys
     }
 }
+
+object FileKeyStorage {
+  /**
+   * Generates or loads keypair
+   *
+   * @param keyPath Path to store keys in
+   * @param algo Sign algo
+   * @return Keypair, either loaded or freshly generated
+   */
+  def getKeyPair[F[_]](keyPath: String, algo: SignAlgo)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
+    val keyFile = new File(keyPath)
+    val keyStorage = new FileKeyStorage[F](keyFile)
+    keyStorage.getOrCreateKeyPair(algo.generateKeyPair[F]().value.flatMap(F.fromEither))
+  }
+}

@@ -17,24 +17,36 @@
 
 package fluence.client
 
-import cats.effect.Effect
+import cats.effect.{ Effect, IO }
+import cats.kernel.Monoid
+import com.typesafe.config.Config
+import fluence.client.config.{ KademliaConfigParser, KeyPairConfig, SeedsConfig }
+import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.signature.SignatureChecker
+import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.dataset.BasicContract
+import fluence.dataset.client.Contracts
 import fluence.dataset.grpc.DatasetStorageClient
 import fluence.dataset.grpc.client.{ ContractAllocatorClient, ContractsCacheClient }
+import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.grpc.client.KademliaClient
+import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
+import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }
+import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.GrpcClient
+import monix.eval.Task
 import monix.execution.Scheduler
 import shapeless.HNil
 
 import scala.language.higherKinds
 
-object ClientComposer {
+object ClientComposer extends slogging.LazyLogging {
 
   /**
    * Register all Rpc's into [[fluence.transport.TransportClient]] and returns it.
    */
-  def grpc[F[_] : Effect](
+  private def grpc[F[_] : Effect](
     builder: GrpcClient.Builder[HNil]
   )(implicit checker: SignatureChecker, scheduler: Scheduler = Scheduler.global) = {
 
@@ -49,4 +61,49 @@ object ClientComposer {
       .build
   }
 
-} //0x037833305d7a40fa389503d0783d4d2b0d0470d875c10ffbcaa306b59a12f82c0c
+  def buildClient(config: Config, signAlgo: SignAlgo, cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]])(implicit scheduler: Scheduler = Scheduler.global): IO[FluenceClient] =
+    for {
+      seedsConf ← SeedsConfig.read(config)
+      contacts ← seedsConf.contacts(signAlgo.checker)
+      client ← fluenceClient(contacts, signAlgo, cryptoHasher, config)
+    } yield client
+
+  def buildAuthorizedClient(config: Config, algo: SignAlgo): IO[AuthorizedClient] =
+    for {
+      kpConf ← KeyPairConfig.read(config)
+      kp ← FileKeyStorage.getKeyPair[IO](kpConf.keyPath, algo)
+    } yield AuthorizedClient(kp)
+
+  private def fluenceClient(
+    seeds: Seq[Contact],
+    signAlgo: SignAlgo,
+    storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
+    config: Config
+  )(implicit scheduler: Scheduler = Scheduler.global): IO[FluenceClient] = {
+
+    import signAlgo.checker
+    val client = ClientComposer.grpc[Task](GrpcClient.builder)
+    val kademliaRpc = client.service[KademliaRpc[Task, Contact]] _
+    for {
+      conf ← KademliaConfigParser.readKademliaConfig[IO](config)
+      _ = logger.info("Create kademlia client.")
+      kademliaClient = createKademliaClient(conf, kademliaRpc)
+      _ = logger.info("Connecting to seed node.")
+      _ ← kademliaClient.join(seeds, 2).toIO
+      _ = logger.info("Create contracts api.")
+      contracts = new Contracts[Task, BasicContract, Contact](
+        maxFindRequests = 10,
+        maxAllocateRequests = _ ⇒ 20,
+        kademlia = kademliaClient,
+        cacheRpc = contact ⇒ client.service[ContractsCacheRpc[Task, BasicContract]](contact),
+        allocatorRpc = contact ⇒ client.service[ContractAllocatorRpc[Task, BasicContract]](contact)
+      )
+    } yield FluenceClient(kademliaClient, contracts, client.service[DatasetStorageRpc[Task]], signAlgo, storageHasher)
+  }
+
+  private def createKademliaClient(conf: KademliaConf, kademliaRpc: Contact ⇒ KademliaRpc[Task, Contact]): Kademlia[Task, Contact] = {
+    val check = TransportSecurity.canBeSaved[Task](Monoid.empty[Key], acceptLocal = true)
+    KademliaMVar.client(kademliaRpc, conf, check)
+  }
+
+}

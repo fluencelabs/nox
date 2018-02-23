@@ -18,94 +18,37 @@
 package fluence.client.cli
 
 import cats.effect.IO
-import com.typesafe.config.ConfigFactory
 import fluence.client.{ AuthorizedClient, FluenceClient }
-import fluence.crypto.KeyStore
-import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.hash.JdkCryptoHasher
-import fluence.kad.protocol.Contact
-import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.jline.reader.LineReaderBuilder
 import org.jline.terminal.TerminalBuilder
-import scodec.bits.{ Bases, ByteVector }
-import io.circe.syntax._
 
-import scala.collection.JavaConverters._
 import scala.language.higherKinds
-import scala.util.Try
 
 object Cli extends slogging.LazyLogging {
-  import KeyStore._
 
-  def run(args: Array[String]): IO[Unit] = {
+  //for terminal improvements: history, navigation
+  private val terminal = TerminalBuilder.terminal()
+  private val lineReader = LineReaderBuilder.builder().terminal(terminal).build()
+  private val readLine = IO(lineReader.readLine("fluence< "))
 
-    val alphabet = Bases.Alphabets.Base64Url
-
-    val algo = Ecdsa.signAlgo
-    import algo.checker
-
-    ArgsParser.parse(args) match {
-      case Some(c) ⇒
-
-        val config = c.config match {
-          case Some(configFile) ⇒ ConfigFactory.parseFile(configFile)
-          case None             ⇒ ConfigFactory.load()
+  def handleCmds(fluenceClient: FluenceClient, ac: AuthorizedClient): IO[Boolean] =
+    readLine.map(CommandParser.parseCommand).flatMap {
+      case Some(CliOp.Exit) ⇒ // That's what it actually returns
+        IO {
+          logger.info("Exiting from fluence network.")
+          false
         }
 
-        val seedsB64 = if (c.seed.isEmpty) config.getStringList("fluence.network.seeds").asScala else c.seed
-
-        val task = for {
-          seeds ← Task.traverse(seedsB64.map(s ⇒ Contact.readB64seed[Task](s).value))(_.flatMap(e ⇒ Task.fromTry(e.toTry)))
-          keyPair ← c.keyStore.map(ks ⇒ Task.pure(ks.keyPair))
-            .orElse(Try(config.getString("fluence.client.keystore")).map(ks ⇒ KeyStore.fromBase64(ks).keyPair).toOption.map(Task.pure))
-            .getOrElse(algo.generateKeyPair[Task]().value.flatMap(e ⇒ Task.fromTry(e.toTry)))
-
-          _ = {
-            logger.info("Your keypair is:")
-            logger.info(Console.MAGENTA + ByteVector(KeyStore(keyPair).asJson.noSpaces.getBytes()).toBase64(alphabet) + Console.RESET)
-            logger.info("Store it and use it for auth.")
-            logger.info("Creating fluence client.")
-          }
-
-          fluenceClient ← FluenceClient(seeds, algo, JdkCryptoHasher.Sha256, config)
-          _ = {
-            logger.info("You can put or get data from remote node.")
-            logger.info("Examples: ")
-            logger.info("put \"some key\" \"value to put\"")
-            logger.info("get \"some key\"")
-          }
-        } yield (keyPair, fluenceClient)
-
-        task.toIO.flatMap { case (kp, fc) ⇒ handleCmds(fc, AuthorizedClient(kp)) }
-
-      case None ⇒
-        //Scopt will generate error message when args is wrong:
-        //Error: Unknown option --wrongoption
-        //Try --help for more information.
-        IO.unit
-    }
-
-  }
-
-  private def handleCmds(fluenceClient: FluenceClient, ac: AuthorizedClient): IO[Unit] = {
-
-    //for terminal improvements: history, navigation
-    val terminal = TerminalBuilder.terminal()
-    val lineReader = LineReaderBuilder.builder().terminal(terminal).build()
-
-    val readLine = IO(lineReader.readLine("fluence< "))
-    lazy val handle: IO[Unit] = readLine.map(CommandParser.parseCommand).flatMap {
-      case Some(Operation.Exit) ⇒
-        IO(logger.info("Exiting from fluence network."))
-      case Some(Operation.Put(k, v)) ⇒
+      case Some(CliOp.Put(k, v)) ⇒
         val t = for {
           ds ← fluenceClient.getOrCreateDataset(ac)
           _ ← ds.put(k, v)
           _ = logger.info("Success.")
-        } yield ()
-        t.toIO.flatMap(_ ⇒ handle)
-      case Some(Operation.Get(k)) ⇒
+        } yield true
+        t.toIO
+
+      case Some(CliOp.Get(k)) ⇒
         val t = for {
           ds ← fluenceClient.getOrCreateDataset(ac)
           res ← ds.get(k)
@@ -114,12 +57,14 @@ object Cli extends slogging.LazyLogging {
             case None    ⇒ "<null>"
           }
           _ = logger.info("Result: " + printRes)
-        } yield ()
-        t.toIO.flatMap(_ ⇒ handle)
+        } yield true
+        t.toIO
+
       case _ ⇒
-        IO(logger.info("Wrong command.")).flatMap(_ ⇒ handle)
+        IO {
+          logger.info("Wrong command.")
+          true
+        }
     }
 
-    handle
-  }
 }

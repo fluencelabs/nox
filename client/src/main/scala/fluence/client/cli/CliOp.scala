@@ -15,26 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.client.cli
 
-import cats.Monad
-import cats.data.EitherT
-import fluence.crypto.SignAlgo
-import fluence.crypto.algorithm.CryptoErr
-import fluence.crypto.keypair.KeyPair
+sealed trait CliOp[A]
 
-import scala.language.higherKinds
+object CliOp {
 
-/**
- * TODO: remove it, as it just wraps a keypair and is being passed as an argument
- *
- * A class that is an authorized user who can use datasets
- * @param kp a pair of keys with a public key that will be used as an address for dataset ids and contracts
- */
-case class AuthorizedClient(kp: KeyPair)
+  case object Exit extends CliOp[Unit]
 
-object AuthorizedClient {
-  def generateNew[F[_] : Monad](signAlgo: SignAlgo): EitherT[F, CryptoErr, AuthorizedClient] = {
-    signAlgo.generateKeyPair[F]().map(AuthorizedClient.apply)
-  }
+  case class Put(key: String, value: String) extends CliOp[Unit]
+
+  case class Get(key: String) extends CliOp[Unit]
+
+  case class ReadLine(prefix: String) extends CliOp[String]
+
+  case class PrintLines(lines: Seq[String]) extends CliOp[Unit]
+
 }

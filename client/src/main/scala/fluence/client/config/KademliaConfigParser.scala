@@ -15,16 +15,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client.cli
+package fluence.client.config
 
-sealed trait Operation
+import cats.ApplicativeError
+import com.typesafe.config.Config
+import fluence.kad.KademliaConf
 
-object Operation {
+import scala.language.higherKinds
 
-  case class Put(key: String, value: String) extends Operation
-
-  case class Get(key: String) extends Operation
-
-  case object Exit extends Operation
-
+object KademliaConfigParser {
+  def readKademliaConfig[F[_]](config: Config, path: String = "fluence.kademlia")(implicit F: ApplicativeError[F, Throwable]): F[KademliaConf] =
+    F.catchNonFatal {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      config.as[KademliaConf](path)
+    }
 }

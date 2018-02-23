@@ -21,7 +21,7 @@ import java.time.Instant
 
 import cats.effect.IO
 import com.typesafe.config.Config
-import fluence.client.KademliaConfigParser
+import fluence.client.config.KademliaConfigParser
 import fluence.crypto.SignAlgo
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
@@ -29,13 +29,13 @@ import fluence.crypto.signature.Signer
 import fluence.dataset.BasicContract
 import fluence.dataset.node.contract.ContractRecord
 import fluence.dataset.node.storage.Datasets
-import fluence.dataset.node.{ ContractAllocator, ContractsCache }
+import fluence.dataset.node.{ContractAllocator, ContractsCache}
 import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
-import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
-import fluence.kad.{ Kademlia, KademliaMVar }
+import fluence.dataset.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
+import fluence.kad.protocol.{Contact, KademliaRpc, Key}
+import fluence.kad.{Kademlia, KademliaMVar}
 import fluence.storage.rocksdb.RocksDbStore
-import fluence.storage.{ KVStore, rocksdb }
+import fluence.storage.{KVStore, rocksdb}
 import fluence.transport.TransportSecurity
 import monix.eval.Task
 

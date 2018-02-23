@@ -19,21 +19,21 @@ package fluence.node
 
 import java.io.File
 
-import cats.{ Applicative, MonadError }
+import cats.{Applicative, MonadError}
 import cats.effect.IO
 import cats.syntax.show._
-import com.typesafe.config.{ Config, ConfigFactory }
-import fluence.crypto.{ FileKeyStorage, SignAlgo }
+import com.typesafe.config.{Config, ConfigFactory}
+import fluence.crypto.{FileKeyStorage, SignAlgo}
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
+import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher}
 import fluence.crypto.keypair.KeyPair
-import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
+import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import monix.eval.Task
 import cats.instances.list._
-import fluence.client.SeedsConfig
+import fluence.client.config.{KeyPairConfig, SeedsConfig}
 import fluence.kad.Kademlia
 import fluence.transport.UPnP
-import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
+import fluence.transport.grpc.server.{GrpcServer, GrpcServerConf}
 import monix.execution.Scheduler
 
 import scala.concurrent.duration._
@@ -85,19 +85,6 @@ object FluenceNode extends slogging.LazyLogging {
       appDir
     }
 
-  /**
-   * Generates or loads keypair
-   *
-   * @param keyPath Path to store keys in
-   * @param algo Sign algo
-   * @return Keypair, either loaded or freshly generated
-   */
-  private def getKeyPair(keyPath: String, algo: SignAlgo): IO[KeyPair] = {
-    val keyFile = new File(keyPath)
-    val keyStorage = new FileKeyStorage[IO](keyFile)
-    keyStorage.getOrCreateKeyPair(algo.generateKeyPair[IO]().value.flatMap(IO.fromEither))
-  }
-
   private def launchUPnP(config: Config, contactConf: ContactConf, grpc: GrpcServerConf): IO[(ContactConf, IO[Unit])] =
     UPnPConf.read(config).flatMap {
       case u if !u.isEnabled ⇒ IO.pure(contactConf -> IO.unit)
@@ -125,7 +112,8 @@ object FluenceNode extends slogging.LazyLogging {
     import algo.checker
     for {
       _ ← initDirectory(config.getString("fluence.directory"))
-      kp ← getKeyPair(config.getString("fluence.keyPath"), algo)
+      kpConf <- KeyPairConfig.read(config)
+      kp ← FileKeyStorage.getKeyPair(kpConf.keyPath, algo)
       key ← Key.fromKeyPair[IO](kp)
 
       grpcServerConf ← NodeGrpc.grpcServerConf(config)

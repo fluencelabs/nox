@@ -17,7 +17,12 @@
 
 package fluence.client
 
+import cats.effect.IO
+import com.typesafe.config.{ Config, ConfigFactory }
 import fluence.client.cli.Cli
+import fluence.crypto.SignAlgo
+import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import slogging.MessageFormatter.PrefixFormatter
 import slogging._
 
@@ -32,7 +37,21 @@ object ClientApp extends App with slogging.LazyLogging {
   LoggerConfig.factory = PrintLoggerFactory()
   LoggerConfig.level = LogLevel.INFO
 
+  val algo: SignAlgo = Ecdsa.signAlgo
+  val hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
+  val config: Config = ConfigFactory.load()
+
   // Run Command Line Interface
-  Cli.run(args).unsafeRunSync()
+  (
+    for {
+      fc ← ClientComposer.buildClient(config, algo, hasher)
+      ac ← ClientComposer.buildAuthorizedClient(config, algo)
+      handle = Cli.handleCmds(fc, ac)
+      _ ← handle.flatMap{
+        case true  ⇒ handle
+        case false ⇒ IO.unit
+      }
+    } yield ()
+  ).unsafeRunSync()
 
 }

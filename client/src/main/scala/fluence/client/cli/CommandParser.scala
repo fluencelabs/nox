@@ -20,7 +20,7 @@ package fluence.client.cli
 import fastparse.all._
 
 object CommandParser {
-  import Operation._
+  import CliOp._
 
   lazy private val parserCli = {
     val escape = P("\\" ~ CharIn("\"/\\bfnrt"))
@@ -45,7 +45,7 @@ object CommandParser {
   }
 
   //todo improve escape characters in put and get commands
-  def parseCommand(str: String): Option[Operation] = {
+  def parseCommand(str: String): Option[CliOp[_]] = {
     parserCli.parse(str) match {
       case Parsed.Success(op, _) ⇒ Some(op)
       case _                     ⇒ None

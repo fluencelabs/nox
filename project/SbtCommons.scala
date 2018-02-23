@@ -54,6 +54,7 @@ object SbtCommons {
   val sloggingSlf4j = "biz.enef" %% "slogging-slf4j" % SloggingV
 
   val cats1 = "org.typelevel" %% "cats-core" % Cats1V
+  val catsFree = "org.typelevel" %% "cats-free" % Cats1V
   val catsEffect = "org.typelevel" %% "cats-effect" % CatsEffectV
   val monix3 = "io.monix" %% "monix" % MonixV
   val shapeless = "com.chuusai" %% "shapeless" % ShapelessV

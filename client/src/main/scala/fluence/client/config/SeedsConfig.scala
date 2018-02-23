@@ -15,19 +15,32 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.client.config
 
-import cats.ApplicativeError
+import cats.Traverse
+import cats.effect.IO
+import cats.instances.list._
 import com.typesafe.config.Config
-import fluence.kad.KademliaConf
+import fluence.crypto.signature.SignatureChecker
+import fluence.kad.protocol.Contact
 
-import scala.language.higherKinds
+case class SeedsConfig(
+    seeds: List[String]
+) {
+  def contacts(implicit checker: SignatureChecker): IO[List[Contact]] =
+    Traverse[List].traverse(seeds)(s ⇒
+      Contact.readB64seed[IO](s).value.flatMap(IO.fromEither)
+    )
+}
 
-object KademliaConfigParser {
-  def readKademliaConfig[F[_]](config: Config, path: String = "fluence.kademlia")(implicit F: ApplicativeError[F, Throwable]): F[KademliaConf] =
-    F.catchNonFatal {
+object SeedsConfig {
+  /**
+   * Reads seed nodes contacts from config
+   */
+  def read(conf: Config): IO[SeedsConfig] =
+    IO {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      config.as[KademliaConf](path)
+      conf.as[SeedsConfig]("fluence.network")
     }
 }

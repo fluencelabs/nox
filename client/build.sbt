@@ -3,6 +3,7 @@ import SbtCommons._
 commons
 
 libraryDependencies ++= Seq(
+  catsFree,
   scopt,
   fastParse,
   jline,
