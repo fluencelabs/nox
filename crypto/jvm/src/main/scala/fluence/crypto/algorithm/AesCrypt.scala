@@ -51,20 +51,20 @@ case class DataWithParams(data: Array[Byte], params: CipherParameters)
  * @param withIV Initialization vector to achieve semantic security, a property whereby repeated usage of the scheme
  *               under the same key does not allow an attacker to infer relationships between segments of the encrypted
  *               message
- * @param salt Salt for password
  */
-class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Array[Byte])(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable])
+class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable])
   extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
   import CryptoErr._
 
   private val rnd = new SecureRandom()
-  private val BITS = 256
+  private val salt = config.salt.getBytes()
 
   //number of password hashing iterations
   //todo should be configurable
-  private val ITERATION_COUNT = 50
+  private val iterationCount = config.iterationCount
   //initialisation vector must be the same length as block size
   private val IV_SIZE = 16
+  private val BITS = 256
   private def generateIV: Array[Byte] = rnd.generateSeed(IV_SIZE)
 
   override def encrypt(plainText: T): F[Array[Byte]] = {
@@ -104,7 +104,7 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Ar
   private def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] = {
     nonFatalHandling {
       // get raw key from password and salt
-      val pbeKeySpec = new PBEKeySpec(password, salt, ITERATION_COUNT, BITS)
+      val pbeKeySpec = new PBEKeySpec(password, salt, iterationCount, BITS)
       val keyFactory: SecretKeyFactory = SecretKeyFactory.getInstance("PBEWithSHA256And256BitAES-CBC-BC")
       val secretKey = new SecretKeySpec(keyFactory.generateSecret(pbeKeySpec).getEncoded, "AES")
       secretKey.getEncoded
@@ -186,16 +186,13 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Ar
 
 object AesCrypt extends slogging.LazyLogging {
 
-  //todo should be configurable
-  val fluenceSalt: Array[Byte] = "fluence".getBytes()
-
-  def forString[F[_] : Applicative](password: Array[Char], withIV: Boolean, salt: Array[Byte] = fluenceSalt)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] =
-    apply[F, String](password, withIV, salt)(
+  def forString[F[_] : Applicative](password: Array[Char], withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] =
+    apply[F, String](password, withIV, config)(
       serializer = _.getBytes.pure[F],
       deserializer = bytes ⇒ new String(bytes).pure[F]
     )
 
-  def apply[F[_] : Applicative, T](password: Array[Char], withIV: Boolean, salt: Array[Byte] = fluenceSalt)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable]): AesCrypt[F, T] =
-    new AesCrypt(password, withIV, salt)(serializer, deserializer)
+  def apply[F[_] : Applicative, T](password: Array[Char], withIV: Boolean, config: AesConfig)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable]): AesCrypt[F, T] =
+    new AesCrypt(password, withIV, config)(serializer, deserializer)
 
 }

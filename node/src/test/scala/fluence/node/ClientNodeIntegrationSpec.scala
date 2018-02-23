@@ -314,7 +314,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
             grpcClient.service[DatasetStorageRpc[Task]](c)
           },
           algo,
-          testHasher
+          testHasher,
+          config
         )
         val datasetStorage = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
 
@@ -503,7 +504,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private def createFluenceClient(seed: Contact): FluenceClient = {
     val grpcClient = ClientComposer.grpc[Task](GrpcClient.builder)
     val (kademliaClient, contractsApi) = createClientApi(seed, grpcClient)
-    FluenceClient(kademliaClient, contractsApi, grpcClient.service[DatasetStorageRpc[Task]], algo, testHasher)
+    FluenceClient(kademliaClient, contractsApi, grpcClient.service[DatasetStorageRpc[Task]], algo, testHasher, config)
   }
 
   private implicit class WaitTask[T](task: Task[T]) {

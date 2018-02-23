@@ -50,7 +50,8 @@ class FluenceClient(
     contracts: Contracts[Task, BasicContract, Contact],
     signAlgo: SignAlgo,
     storageRpc: Contact ⇒ DatasetStorageRpc[Task],
-    storageHasher: CryptoHasher[Array[Byte], Array[Byte]]
+    storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
+    config: Config
 )(implicit ME: MonadError[Task, Throwable]) {
 
   private val datasetCache = TrieMap.empty[KeyPair.Public, Task[ClientDatasetStorageApi[Task, String, String]]]
@@ -85,7 +86,15 @@ class FluenceClient(
    * @return dataset representation
    */
   private def addEncryptedDataset(ac: AuthorizedClient[Password], contact: Contact, clientState: Option[ClientState]): Task[ClientDatasetStorage[String, String]] = {
-    addDataset(ac, storageRpc(contact), AesCrypt.forString(ac.key, withIV = false), AesCrypt.forString(ac.key, withIV = false), clientState, storageHasher)
+    AesConfigParser.readAesConfigOrGetDefault(config).flatMap { aesConfig ⇒
+      addDataset(
+        ac,
+        storageRpc(contact),
+        AesCrypt.forString(ac.key, withIV = false, config = aesConfig),
+        AesCrypt.forString(ac.key, withIV = false, config = aesConfig),
+        clientState,
+        storageHasher)
+    }
   }
 
   /**
@@ -247,7 +256,7 @@ object FluenceClient extends slogging.LazyLogging {
         cacheRpc = contact ⇒ client.service[ContractsCacheRpc[Task, BasicContract]](contact),
         allocatorRpc = contact ⇒ client.service[ContractAllocatorRpc[Task, BasicContract]](contact)
       )
-    } yield FluenceClient(kademliaClient, contracts, client.service[DatasetStorageRpc[Task]], signAlgo, storageHasher)
+    } yield FluenceClient(kademliaClient, contracts, client.service[DatasetStorageRpc[Task]], signAlgo, storageHasher, config)
   }
 
   /**
@@ -263,7 +272,8 @@ object FluenceClient extends slogging.LazyLogging {
     contracts: Contracts[Task, BasicContract, Contact],
     storageRpc: Contact ⇒ DatasetStorageRpc[Task],
     signAlgo: SignAlgo = Ecdsa.signAlgo,
-    storageHasher: CryptoHasher[Array[Byte], Array[Byte]]): FluenceClient = {
-    new FluenceClient(kademliaClient, contracts, signAlgo, storageRpc, storageHasher)
+    storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
+    config: Config): FluenceClient = {
+    new FluenceClient(kademliaClient, contracts, signAlgo, storageRpc, storageHasher, config)
   }
 }

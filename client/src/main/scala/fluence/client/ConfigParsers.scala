@@ -19,6 +19,7 @@ package fluence.client
 
 import cats.ApplicativeError
 import com.typesafe.config.Config
+import fluence.crypto.algorithm.AesConfig
 import fluence.kad.KademliaConf
 
 import scala.language.higherKinds
@@ -29,5 +30,14 @@ object KademliaConfigParser {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
       config.as[KademliaConf](path)
+    }
+}
+
+object AesConfigParser {
+  def readAesConfigOrGetDefault[F[_]](config: Config, path: String = "fluence.cipher.aes", default: AesConfig = AesConfig())(implicit F: ApplicativeError[F, Throwable]): F[AesConfig] =
+    F.catchNonFatal {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      config.as[Option[AesConfig]](path).getOrElse(default)
     }
 }
