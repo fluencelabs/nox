@@ -12,7 +12,9 @@ class AesSpec extends WordSpec with Matchers {
 
   "aes crypto" should {
     "work with IV" in {
-      val crypt = AesCrypt.forString[Try]("pass".toCharArray, withIV = true)
+
+      val pass = "pass".toCharArray
+      val crypt = AesCrypt.forString[Try](pass, withIV = true)
 
       val str = rndString(200)
       val crypted = crypt.encrypt(str).get
@@ -23,10 +25,21 @@ class AesSpec extends WordSpec with Matchers {
         case e: CryptoErr ⇒ true
         case _            ⇒ false
       }.get shouldBe true
+
+      //we cannot check if first bytes is iv or already data, but encryption goes wrong
+      val aesWithoutIV = AesCrypt.forString[Try](pass, withIV = false)
+      aesWithoutIV.decrypt(crypted).get shouldNot be (str)
+
+      val aesWrongSalt = AesCrypt.forString[Try](pass, withIV = true, rndString(10).getBytes())
+      aesWrongSalt.decrypt(crypted).map(_ ⇒ false).recover {
+        case e: CryptoErr ⇒ true
+        case _            ⇒ false
+      }.get shouldBe true
     }
 
     "work without IV" in {
-      val crypt = AesCrypt.forString[Try]("pass".toCharArray, withIV = false)
+      val pass = "pass".toCharArray
+      val crypt = AesCrypt.forString[Try](pass, withIV = false)
 
       val str = rndString(200)
       val crypted = crypt.encrypt(str).get
@@ -34,6 +47,16 @@ class AesSpec extends WordSpec with Matchers {
 
       val fakeAes = AesCrypt.forString[Try]("wrong".toCharArray, withIV = false)
       fakeAes.decrypt(crypted).map(_ ⇒ false).recover {
+        case e: CryptoErr ⇒ true
+        case _            ⇒ false
+      }.get shouldBe true
+
+      //we cannot check if first bytes is iv or already data, but encryption goes wrong
+      val aesWithIV = AesCrypt.forString[Try](pass, withIV = true)
+      aesWithIV.decrypt(crypted).get shouldNot be (str)
+
+      val aesWrongSalt = AesCrypt.forString[Try](pass, withIV = true, rndString(10).getBytes())
+      aesWrongSalt.decrypt(crypted).map(_ ⇒ false).recover {
         case e: CryptoErr ⇒ true
         case _            ⇒ false
       }.get shouldBe true

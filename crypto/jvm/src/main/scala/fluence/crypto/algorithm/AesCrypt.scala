@@ -119,16 +119,16 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Ar
       val lastBlockLength = cipher.doFinal(buf, outputLength)
       //remove padding
       buf.slice(0, outputLength + lastBlockLength)
-    }("Error in cipher processing")
+    }("Error in cipher processing.")
   }
 
   /**
-    *
-    * @param dataWithParams Cata with cipher parameters
-    * @param addData Additional data (nonce)
-    * @param encrypt True for encryption and false for decryption
-    * @return Crypted bytes
-    */
+   *
+   * @param dataWithParams Cata with cipher parameters
+   * @param addData Additional data (nonce)
+   * @param encrypt True for encryption and false for decryption
+   * @return Crypted bytes
+   */
   private def processData(dataWithParams: DataWithParams, addData: Option[Array[Byte]], encrypt: Boolean): EitherT[F, CryptoErr, Array[Byte]] = {
     for {
       cipher ← setupAesCipher(dataWithParams.params, encrypt = encrypt)
@@ -145,7 +145,7 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Ar
       val ivData = data.slice(0, ivSize)
       val encData = data.slice(ivSize, data.length)
       DetachedData(ivData, encData)
-    }("Cannot detach data and IV")
+    }("Cannot detach data and IV.")
   }
 
   private def detachDataAndGetParams(data: Array[Byte], password: Array[Char], salt: Array[Byte], withIV: Boolean): EitherT[F, CryptoErr, DataWithParams] = {
