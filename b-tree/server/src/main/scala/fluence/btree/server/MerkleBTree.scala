@@ -509,7 +509,8 @@ class MerkleBTree private[server] (
   /** Save specified node to tree store or locally in case when node is root. */
   private def saveNode(nodeId: NodeId, node: Node): Task[Unit] = {
     logger.debug(s"Save node (id=$nodeId,node=${node.show})")
-    assert(assertKeyIanAscOrder(node), s"Ascending order of keys required! Invalid node=${node.show})")
+    //this assert is for debugging without cryptography
+    //assert(assertKeyIanAscOrder(node), s"Ascending order of keys required! Invalid node=${node.show})")
     store.put(nodeId, node)
   }
 

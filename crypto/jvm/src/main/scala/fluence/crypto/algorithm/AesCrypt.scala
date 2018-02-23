@@ -6,7 +6,7 @@ import cats.{ Applicative, Monad, MonadError }
 import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
-import fluence.crypto.cipher.ByteCrypt
+import fluence.crypto.cipher.Crypt
 import org.bouncycastle.crypto.CipherParameters
 import org.bouncycastle.crypto.engines.AESEngine
 import org.bouncycastle.crypto.modes.CBCBlockCipher
@@ -25,14 +25,14 @@ case class DetachedData(ivData: Array[Byte], encData: Array[Byte])
 case class DataWithParams(data: Array[Byte], params: CipherParameters)
 
 class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: ByteVector)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable])
-  extends ByteCrypt[F, T](serializer, deserializer) {
+  extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
   import CryptoErr._
   // get raw key from password and salt// get raw key from password and salt
 
-  val rnd = new SecureRandom()
-  val BITS = 256
-  val ITERATION_COUNT = 50
-  val IV_SIZE = 16
+  private val rnd = new SecureRandom()
+  private val BITS = 256
+  private val ITERATION_COUNT = 50
+  private val IV_SIZE = 16
   private def generateIV: Array[Byte] = rnd.generateSeed(IV_SIZE)
 
   override def encrypt(plainText: T): F[Array[Byte]] = {
@@ -137,13 +137,13 @@ object AesCrypt extends slogging.LazyLogging {
 
   val fluenceSalt: ByteVector = ByteVector("fluence".getBytes())
 
-  def forString[F[_] : Applicative](password: Array[Char], withIV: Boolean, salt: ByteVector = fluenceSalt)(implicit ME: MonadError[F, Throwable]): ByteCrypt[F, String] =
+  def forString[F[_] : Applicative](password: Array[Char], withIV: Boolean, salt: ByteVector = fluenceSalt)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] =
     apply[F, String](password, withIV, salt)(
       serializer = _.getBytes.pure[F],
       deserializer = bytes ⇒ new String(bytes).pure[F]
     )
 
-  def apply[F[_] : Applicative, T](password: Array[Char], withIV: Boolean, salt: ByteVector)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable]): ByteCrypt[F, T] =
+  def apply[F[_] : Applicative, T](password: Array[Char], withIV: Boolean, salt: ByteVector = fluenceSalt)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable]): AesCrypt[F, T] =
     new AesCrypt(password, withIV, salt)(serializer, deserializer)
 
 }
