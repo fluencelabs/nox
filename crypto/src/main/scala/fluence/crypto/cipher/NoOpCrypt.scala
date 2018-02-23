@@ -27,7 +27,7 @@ import scala.language.higherKinds
 /**
  * No operation implementation. Just convert the element to bytes back and forth without any cryptography.
  */
-class ByteCrypt[F[_], T](serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T]) extends Crypt[F, T, Array[Byte]] {
+class NoOpCrypt[F[_], T](serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T]) extends Crypt[F, T, Array[Byte]] {
 
   def encrypt(plainText: T): F[Array[Byte]] = serializer(plainText)
 
@@ -37,15 +37,15 @@ class ByteCrypt[F[_], T](serializer: T ⇒ F[Array[Byte]], deserializer: Array[B
 
 object NoOpCrypt {
 
-  def forString[F[_] : Applicative]: ByteCrypt[F, String] = apply[F, String](
+  def forString[F[_] : Applicative]: NoOpCrypt[F, String] = apply[F, String](
     serializer = _.getBytes.pure[F],
     deserializer = bytes ⇒ new String(bytes).pure[F])
 
-  def forLong[F[_] : Applicative]: ByteCrypt[F, Long] = apply[F, Long](
+  def forLong[F[_] : Applicative]: NoOpCrypt[F, Long] = apply[F, Long](
     serializer = ByteBuffer.allocate(java.lang.Long.BYTES).putLong(_).array().pure[F],
     deserializer = bytes ⇒ ByteBuffer.wrap(bytes).getLong().pure[F])
 
-  def apply[F[_], T](serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T]): ByteCrypt[F, T] =
-    new ByteCrypt(serializer, deserializer)
+  def apply[F[_], T](serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T]): NoOpCrypt[F, T] =
+    new NoOpCrypt(serializer, deserializer)
 
 }
