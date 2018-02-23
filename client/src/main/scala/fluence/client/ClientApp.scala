@@ -106,12 +106,12 @@ object ClientApp extends App with slogging.LazyLogging {
     //Try --help for more information.
   }
 
-  def readLine = IO(lineReader.readLine("fluence< ", '*'))
+  def readLine = IO(lineReader.readLine("fluence< "))
 
   private def readPassword() = {
     for {
       _ ← IO(logger.info("Write password of your encryption key:"))
-      pass ← readLine
+      pass ← IO(lineReader.readLine("fluence< ", '*'))
     } yield pass
   }
 
