@@ -90,7 +90,7 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: By
   private def processBytes(data: Array[Byte], cipher: PaddedBufferedBlockCipher): EitherT[F, CryptoErr, Array[Byte]] = {
     nonFatalHandling {
       // create a temporary buffer to decode into (it'll include padding)
-      val buf = new Array[Byte](data.length)
+      val buf = new Array[Byte](cipher.getOutputSize(data.length))
       val outputLength = cipher.processBytes(data, 0, data.length, buf, 0)
       val lastBlockLength = cipher.doFinal(buf, outputLength)
       //remove padding
@@ -100,7 +100,7 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: By
 
   private def processData(dataWithParams: DataWithParams, extData: Option[Array[Byte]], encrypt: Boolean): EitherT[F, CryptoErr, Array[Byte]] = {
     for {
-      cipher ← setupAes(dataWithParams.params, encrypt = true)
+      cipher ← setupAes(dataWithParams.params, encrypt = encrypt)
       buf ← processBytes(dataWithParams.data, cipher)
       serData = extData.map(_ ++ buf).getOrElse(buf)
     } yield serData
