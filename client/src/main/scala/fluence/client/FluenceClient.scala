@@ -63,8 +63,8 @@ class FluenceClient(
   /**
    * Create dataset for authorized client, or restore it, if it is in the contract in kademlia net
    */
-  def getOrCreateDataset(ac: AuthorizedClient): Task[ClientDatasetStorageApi[Task, String, String]] = {
-    loadDatasetFromCache(ac.kp.publicKey, restoreReplicatedDataset(ac)) // todo: do replication or don't, should be configurable
+  def getOrCreateDataset(ac: KeyPair): Task[ClientDatasetStorageApi[Task, String, String]] = {
+    loadDatasetFromCache(ac.publicKey, restoreReplicatedDataset(ac)) // todo: do replication or don't, should be configurable
   }
 
   /**
@@ -76,11 +76,11 @@ class FluenceClient(
    * @return dataset representation
    */
   private def addNonEncryptedDataset(
-    ac: AuthorizedClient,
+    kp: KeyPair,
     contact: Contact,
     clientState: Option[ClientState]
   ): Task[ClientDatasetStorage[String, String]] = {
-    addDataset(ac, storageRpc(contact), NoOpCrypt.forString, NoOpCrypt.forString, clientState, storageHasher)
+    addDataset(kp, storageRpc(contact), NoOpCrypt.forString, NoOpCrypt.forString, clientState, storageHasher)
   }
 
   /**
@@ -96,7 +96,7 @@ class FluenceClient(
    * @return dataset representation
    */
   private def addDataset(
-    ac: AuthorizedClient,
+    kp: KeyPair,
     storageRpc: DatasetStorageRpc[Task],
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]],
@@ -106,7 +106,7 @@ class FluenceClient(
   ): Task[ClientDatasetStorage[String, String]] = {
 
     for {
-      datasetId ← Key.sha1((nonce ++ ac.kp.publicKey.value).toArray)
+      datasetId ← Key.sha1((nonce ++ kp.publicKey.value).toArray)
     } yield ClientDatasetStorage(datasetId.value.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
   }
 
@@ -123,11 +123,11 @@ class FluenceClient(
    * if it is no contract, create new contract and dataset
    *
    */
-  private def restoreDataset(ac: AuthorizedClient): Task[ClientDatasetStorageApi[Task, String, String]] = {
+  private def restoreDataset(kp: KeyPair): Task[ClientDatasetStorageApi[Task, String, String]] = {
     import fluence.dataset.contract.ContractWrite._
-    val signer = signAlgo.signer(ac.kp)
+    val signer = signAlgo.signer(kp)
     for {
-      key ← Key.fromKeyPair(ac.kp)
+      key ← Key.fromKeyPair(kp)
       bcOp ← contracts.find(key).attempt.map(_.toOption)
       dataStorage ← bcOp match {
         //create datastorage with old merkle root
@@ -135,7 +135,7 @@ class FluenceClient(
           for {
             //TODO avoid _.head and get, magic numbers
             nodeOp ← kademlia.findNode(bc.participants.head._1, 3)
-            ds ← addNonEncryptedDataset(ac, nodeOp.get.contact, Some(ClientState(bc.executionState.merkleRoot.toArray)))
+            ds ← addNonEncryptedDataset(kp, nodeOp.get.contact, Some(ClientState(bc.executionState.merkleRoot.toArray)))
           } yield ds
         //new datastorage
         case None ⇒
@@ -144,7 +144,7 @@ class FluenceClient(
             offer ← BasicContract.offer(key, participantsRequired = 1, signer = signer)
             accepted ← contracts.allocate(offer, dc ⇒ dc.sealParticipants(signer))
             nodeOp ← kademlia.findNode(accepted.participants.head._1, 10)
-            ds ← addNonEncryptedDataset(ac, nodeOp.get.contact, None)
+            ds ← addNonEncryptedDataset(kp, nodeOp.get.contact, None)
           } yield ds
       }
     } yield dataStorage
@@ -152,11 +152,11 @@ class FluenceClient(
   }
 
   // multi-write support
-  private def restoreReplicatedDataset(ac: AuthorizedClient): Task[ClientDatasetStorageApi[Task, String, String]] = {
+  private def restoreReplicatedDataset(kp: KeyPair): Task[ClientDatasetStorageApi[Task, String, String]] = {
     import fluence.dataset.contract.ContractWrite._
-    val signer = signAlgo.signer(ac.kp)
+    val signer = signAlgo.signer(kp)
     for {
-      key ← Key.fromKeyPair(ac.kp)
+      key ← Key.fromKeyPair(kp)
       bcOp ← contracts.find(key).attempt.map(_.toOption)
       dataStorages ← bcOp match {
 
@@ -165,7 +165,7 @@ class FluenceClient(
             nodes ← findContactsOfAllParticipants(basicContract)
             datasets ← Task.sequence(
               nodes.map(contact ⇒
-                addNonEncryptedDataset(ac, contact, Some(ClientState(basicContract.executionState.merkleRoot.toArray)))
+                addNonEncryptedDataset(kp, contact, Some(ClientState(basicContract.executionState.merkleRoot.toArray)))
                   .map(store ⇒ store → contact)
               )
             )
@@ -178,7 +178,7 @@ class FluenceClient(
             nodes ← findContactsOfAllParticipants(newContract)
             datasets ← Task.sequence(
               nodes.map(contact ⇒
-                addNonEncryptedDataset(ac, contact, Some(ClientState(newContract.executionState.merkleRoot.toArray)))
+                addNonEncryptedDataset(kp, contact, Some(ClientState(newContract.executionState.merkleRoot.toArray)))
                   .map(store ⇒ store → contact)
               )
             )

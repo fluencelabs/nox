@@ -26,7 +26,7 @@ import cats.kernel.Monoid
 import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.btree.client.MerkleBTreeClient.ClientState
-import fluence.client.{ AuthorizedClient, ClientComposer, FluenceClient }
+import fluence.client.{ ClientComposer, FluenceClient }
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
@@ -219,7 +219,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
       "client and server use different types of hasher" in {
         runNodes ({ servers ⇒
-          val client = AuthorizedClient.generateNew[Option](algo).eitherValue
+          val client = algo.generateKeyPair[Id]().value.right.get
           val seedContact = makeKadNetwork(servers)
           val fluence = createFluenceClient(seedContact)
 
@@ -261,7 +261,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
     "success write and read from dataset" in {
       runNodes { servers ⇒
-        val client = AuthorizedClient.generateNew[Option](algo).eitherValue
+        val client = algo.generateKeyPair[Id]().value.right.get
         val seedContact = makeKadNetwork(servers)
         val fluence = createFluenceClient(seedContact)
 
@@ -273,7 +273,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
 
       runNodes { servers ⇒
-        val client = AuthorizedClient.generateNew[Option](algo).eitherValue
+        val client = algo.generateKeyPair[Id]().value.right.get
         val seedContact = makeKadNetwork(servers)
         val fluence1 = createFluenceClient(seedContact)
 
@@ -300,7 +300,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
       runNodes { servers ⇒
         // create client and write to db
-        val client = AuthorizedClient.generateNew[Option](algo).eitherValue
+        val client = algo.generateKeyPair[Id]().value.right.get
         val seedContact = makeKadNetwork(servers)
         val grpcClient = ClientComposer.grpc[Task](GrpcClient.builder)
         val (kademliaClient, contractsApi) = createClientApi(seedContact, grpcClient)

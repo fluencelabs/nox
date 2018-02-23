@@ -22,6 +22,7 @@ import cats.kernel.Monoid
 import com.typesafe.config.Config
 import fluence.client.config.{ KademliaConfigParser, KeyPairConfig, SeedsConfig }
 import fluence.crypto.hash.CryptoHasher
+import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.SignatureChecker
 import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.dataset.BasicContract
@@ -68,11 +69,11 @@ object ClientComposer extends slogging.LazyLogging {
       client ← fluenceClient(contacts, signAlgo, cryptoHasher, config)
     } yield client
 
-  def buildAuthorizedClient(config: Config, algo: SignAlgo): IO[AuthorizedClient] =
+  def getKeyPair(config: Config, algo: SignAlgo): IO[KeyPair] =
     for {
       kpConf ← KeyPairConfig.read(config)
       kp ← FileKeyStorage.getKeyPair[IO](kpConf.keyPath, algo)
-    } yield AuthorizedClient(kp)
+    } yield kp
 
   private def fluenceClient(
     seeds: Seq[Contact],

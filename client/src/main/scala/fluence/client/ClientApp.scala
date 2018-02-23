@@ -45,7 +45,7 @@ object ClientApp extends App with slogging.LazyLogging {
   (
     for {
       fc ← ClientComposer.buildClient(config, algo, hasher)
-      ac ← ClientComposer.buildAuthorizedClient(config, algo)
+      ac ← ClientComposer.getKeyPair(config, algo)
       handle = Cli.handleCmds(fc, ac)
       _ ← handle.flatMap{
         case true  ⇒ handle

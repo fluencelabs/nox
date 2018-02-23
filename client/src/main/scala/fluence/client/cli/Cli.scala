@@ -18,7 +18,8 @@
 package fluence.client.cli
 
 import cats.effect.IO
-import fluence.client.{ AuthorizedClient, FluenceClient }
+import fluence.client.FluenceClient
+import fluence.crypto.keypair.KeyPair
 import monix.execution.Scheduler.Implicits.global
 import org.jline.reader.LineReaderBuilder
 import org.jline.terminal.TerminalBuilder
@@ -32,7 +33,7 @@ object Cli extends slogging.LazyLogging {
   private val lineReader = LineReaderBuilder.builder().terminal(terminal).build()
   private val readLine = IO(lineReader.readLine("fluence< "))
 
-  def handleCmds(fluenceClient: FluenceClient, ac: AuthorizedClient): IO[Boolean] =
+  def handleCmds(fluenceClient: FluenceClient, kp: KeyPair): IO[Boolean] =
     readLine.map(CommandParser.parseCommand).flatMap {
       case Some(CliOp.Exit) ⇒ // That's what it actually returns
         IO {
@@ -42,7 +43,7 @@ object Cli extends slogging.LazyLogging {
 
       case Some(CliOp.Put(k, v)) ⇒
         val t = for {
-          ds ← fluenceClient.getOrCreateDataset(ac)
+          ds ← fluenceClient.getOrCreateDataset(kp)
           _ ← ds.put(k, v)
           _ = logger.info("Success.")
         } yield true
@@ -50,7 +51,7 @@ object Cli extends slogging.LazyLogging {
 
       case Some(CliOp.Get(k)) ⇒
         val t = for {
-          ds ← fluenceClient.getOrCreateDataset(ac)
+          ds ← fluenceClient.getOrCreateDataset(kp)
           res ← ds.get(k)
           printRes = res match {
             case Some(r) ⇒ "\"" + r + "\""
