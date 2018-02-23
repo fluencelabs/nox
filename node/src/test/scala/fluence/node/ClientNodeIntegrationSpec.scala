@@ -47,6 +47,7 @@ import io.grpc.StatusRuntimeException
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import monix.execution.{ CancelableFuture, Scheduler }
+import org.scalactic.source.Position
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
@@ -508,8 +509,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   }
 
   private implicit class WaitTask[T](task: Task[T]) {
-    def taskValue(implicit s: Scheduler): T = taskValue(None)(s)
-    def taskValue(timeoutOp: Option[Timeout] = None)(implicit s: Scheduler): T = {
+    def taskValue(implicit s: Scheduler, pos: Position): T = taskValue(None)(s, pos)
+    def taskValue(timeoutOp: Option[Timeout] = None)(implicit s: Scheduler, pos: Position): T = {
       val future: CancelableFuture[T] = task.runAsync(s)
       future.onComplete {
         case Success(_) ⇒ ()

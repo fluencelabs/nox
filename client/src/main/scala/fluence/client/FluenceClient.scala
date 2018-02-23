@@ -25,7 +25,7 @@ import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.client.AuthorizedClient.Password
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.{ AesCrypt, Ecdsa }
-import fluence.crypto.cipher.{ Crypt, NoOpCrypt }
+import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.SignatureChecker
