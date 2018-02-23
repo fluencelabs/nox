@@ -53,7 +53,7 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Ar
   override def encrypt(plainText: T): F[Array[Byte]] = {
     val e = for {
       data ← EitherT.liftF(serializer(plainText))
-      key ← initSecretKey(password, salt.toArray)
+      key ← initSecretKey(password, salt)
       (extData, params) = {
         if (withIV) {
           val ivData = generateIV
@@ -97,9 +97,9 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Ar
   /**
    * Setup AES CBC cipher
    * @param encrypt True for encryption and false for decryption
-   * @return
+   * @return cipher
    */
-  private def setupAes(params: CipherParameters, encrypt: Boolean): EitherT[F, CryptoErr, PaddedBufferedBlockCipher] = {
+  private def setupAesCipher(params: CipherParameters, encrypt: Boolean): EitherT[F, CryptoErr, PaddedBufferedBlockCipher] = {
     nonFatalHandling {
       // setup AES cipher in CBC mode with PKCS7 padding
       val padding = new PKCS7Padding
@@ -122,11 +122,18 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Ar
     }("Error in cipher processing")
   }
 
-  private def processData(dataWithParams: DataWithParams, extData: Option[Array[Byte]], encrypt: Boolean): EitherT[F, CryptoErr, Array[Byte]] = {
+  /**
+    *
+    * @param dataWithParams Cata with cipher parameters
+    * @param addData Additional data (nonce)
+    * @param encrypt True for encryption and false for decryption
+    * @return Crypted bytes
+    */
+  private def processData(dataWithParams: DataWithParams, addData: Option[Array[Byte]], encrypt: Boolean): EitherT[F, CryptoErr, Array[Byte]] = {
     for {
-      cipher ← setupAes(dataWithParams.params, encrypt = encrypt)
+      cipher ← setupAesCipher(dataWithParams.params, encrypt = encrypt)
       buf ← cipherBytes(dataWithParams.data, cipher)
-      encryptedData = extData.map(_ ++ buf).getOrElse(buf)
+      encryptedData = addData.map(_ ++ buf).getOrElse(buf)
     } yield encryptedData
   }
 
@@ -162,6 +169,7 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Ar
 
 object AesCrypt extends slogging.LazyLogging {
 
+  //todo should be configurable
   val fluenceSalt: Array[Byte] = "fluence".getBytes()
 
   def forString[F[_] : Applicative](password: Array[Char], withIV: Boolean, salt: Array[Byte] = fluenceSalt)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] =
