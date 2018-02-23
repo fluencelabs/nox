@@ -33,6 +33,7 @@ import scala.language.higherKinds
 case class AuthorizedClient[T](keyPair: KeyPair, key: T)
 
 object AuthorizedClient {
+  //it is better to save the password as an char array than as a string
   type Password = Array[Char]
 
   def generateNew[F[_] : Monad](signAlgo: SignAlgo, password: Password): EitherT[F, CryptoErr, AuthorizedClient[Password]] = {

@@ -37,10 +37,9 @@ case class DataWithParams(data: Array[Byte], params: CipherParameters)
   *               message
   * @param salt Salt for password
   */
-class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: ByteVector)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable])
+class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: Array[Byte])(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable])
   extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
   import CryptoErr._
-  // get raw key from password and salt// get raw key from password and salt
 
   private val rnd = new SecureRandom()
   private val BITS = 256
@@ -86,6 +85,7 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: By
     */
   private def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] = {
     nonFatalHandling {
+      // get raw key from password and salt
       val pbeKeySpec = new PBEKeySpec(password, salt, ITERATION_COUNT, BITS)
       val keyFactory: SecretKeyFactory = SecretKeyFactory.getInstance("PBEWithSHA256And256BitAES-CBC-BC")
       val secretKey = new SecretKeySpec(keyFactory.generateSecret(pbeKeySpec).getEncoded, "AES")
@@ -125,8 +125,8 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: By
     for {
       cipher ← setupAes(dataWithParams.params, encrypt = encrypt)
       buf ← cipherBytes(dataWithParams.data, cipher)
-      serData = extData.map(_ ++ buf).getOrElse(buf)
-    } yield serData
+      encryptedData = extData.map(_ ++ buf).getOrElse(buf)
+    } yield encryptedData
   }
 
   /**
@@ -140,18 +140,18 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: By
     }("Cannot detach data and IV")
   }
 
-  private def detachDataAndGetParams(data: Array[Byte], password: Array[Char], salt: ByteVector, withIV: Boolean): EitherT[F, CryptoErr, DataWithParams] = {
+  private def detachDataAndGetParams(data: Array[Byte], password: Array[Char], salt: Array[Byte], withIV: Boolean): EitherT[F, CryptoErr, DataWithParams] = {
     if (withIV) {
       for {
         ivDataWithEncData ← detachIV(data, IV_SIZE)
-        key ← initSecretKey(password, salt.toArray)
+        key ← initSecretKey(password, salt)
         // setup cipher parameters with key and IV
         keyParam = new KeyParameter(key)
         params = new ParametersWithIV(keyParam, ivDataWithEncData.ivData)
       } yield DataWithParams(ivDataWithEncData.encData, params)
     } else {
       for {
-        key ← initSecretKey(password, salt.toArray)
+        key ← initSecretKey(password, salt)
         // setup cipher parameters with key
         params = new KeyParameter(key)
       } yield DataWithParams(data, params)
@@ -161,15 +161,15 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, salt: By
 
 object AesCrypt extends slogging.LazyLogging {
 
-  val fluenceSalt: ByteVector = ByteVector("fluence".getBytes())
+  val fluenceSalt: Array[Byte] = "fluence".getBytes()
 
-  def forString[F[_] : Applicative](password: Array[Char], withIV: Boolean, salt: ByteVector = fluenceSalt)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] =
+  def forString[F[_] : Applicative](password: Array[Char], withIV: Boolean, salt: Array[Byte] = fluenceSalt)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] =
     apply[F, String](password, withIV, salt)(
       serializer = _.getBytes.pure[F],
       deserializer = bytes ⇒ new String(bytes).pure[F]
     )
 
-  def apply[F[_] : Applicative, T](password: Array[Char], withIV: Boolean, salt: ByteVector = fluenceSalt)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable]): AesCrypt[F, T] =
+  def apply[F[_] : Applicative, T](password: Array[Char], withIV: Boolean, salt: Array[Byte] = fluenceSalt)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable]): AesCrypt[F, T] =
     new AesCrypt(password, withIV, salt)(serializer, deserializer)
 
 }
