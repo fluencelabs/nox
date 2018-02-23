@@ -46,7 +46,7 @@ object ClientComposer extends slogging.LazyLogging {
   /**
    * Register all Rpc's into [[fluence.transport.TransportClient]] and returns it.
    */
-  private def grpc[F[_] : Effect](
+  def grpc[F[_] : Effect](
     builder: GrpcClient.Builder[HNil]
   )(implicit checker: SignatureChecker, scheduler: Scheduler = Scheduler.global) = {
 

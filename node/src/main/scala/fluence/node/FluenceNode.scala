@@ -19,21 +19,21 @@ package fluence.node
 
 import java.io.File
 
-import cats.{Applicative, MonadError}
+import cats.{ Applicative, MonadError }
 import cats.effect.IO
 import cats.syntax.show._
-import com.typesafe.config.{Config, ConfigFactory}
-import fluence.crypto.{FileKeyStorage, SignAlgo}
+import com.typesafe.config.{ Config, ConfigFactory }
+import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher}
-import fluence.crypto.keypair.KeyPair
-import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
+import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
+import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
 import monix.eval.Task
 import cats.instances.list._
-import fluence.client.config.{KeyPairConfig, SeedsConfig}
+import fluence.client.config.{ KeyPairConfig, SeedsConfig }
 import fluence.kad.Kademlia
+import fluence.node.config.{ ContactConf, UPnPConf }
 import fluence.transport.UPnP
-import fluence.transport.grpc.server.{GrpcServer, GrpcServerConf}
+import fluence.transport.grpc.server.GrpcServerConf
 import monix.execution.Scheduler
 
 import scala.concurrent.duration._
@@ -112,8 +112,8 @@ object FluenceNode extends slogging.LazyLogging {
     import algo.checker
     for {
       _ ← initDirectory(config.getString("fluence.directory"))
-      kpConf <- KeyPairConfig.read(config)
-      kp ← FileKeyStorage.getKeyPair(kpConf.keyPath, algo)
+      kpConf ← KeyPairConfig.read(config)
+      kp ← FileKeyStorage.getKeyPair[IO](kpConf.keyPath, algo)
       key ← Key.fromKeyPair[IO](kp)
 
       grpcServerConf ← NodeGrpc.grpcServerConf(config)

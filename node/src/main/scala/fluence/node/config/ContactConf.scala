@@ -15,20 +15,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.node.config
+
+import java.net.InetAddress
 
 import cats.effect.IO
 import com.typesafe.config.Config
+import net.ceedubs.ficus.readers.ValueReader
 
-case class UPnPConf(grpc: Option[Int]) {
-  def isEnabled: Boolean = grpc.isDefined
-}
+case class ContactConf(
+    host: Option[InetAddress],
+    grpcPort: Option[Int],
 
-object UPnPConf {
-  def read(conf: Config): IO[UPnPConf] =
+    gitHash: String,
+    protocolVersion: Long
+)
+
+object ContactConf {
+  def read(config: Config): IO[ContactConf] =
     IO {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[UPnPConf]("fluence.network.upnp")
+      implicit val inetAddressRead: ValueReader[InetAddress] =
+        (config: Config, path: String) ⇒
+          InetAddress.getByName(config.as[String](path))
+      config.as[ContactConf]("fluence.network.contact")
     }
 }
