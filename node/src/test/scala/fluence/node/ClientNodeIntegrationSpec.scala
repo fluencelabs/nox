@@ -30,11 +30,13 @@ import fluence.client.{ AuthorizedClient, ClientComposer, FluenceClient }
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
+import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher, TestCryptoHasher }
 import fluence.crypto.keypair.KeyPair
 import fluence.dataset.BasicContract
 import fluence.dataset.client.Contracts.NotFound
-import fluence.dataset.client.{ ClientDatasetStorage, Contracts }
+import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi, Contracts }
+import fluence.dataset.grpc.DatasetStorageClient.ServerError
+import fluence.dataset.grpc.DatasetStorageServer.ClientError
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
@@ -172,7 +174,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           offer.checkOfferSeal[Task]().taskValue shouldBe true
 
           val result = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).failed.taskValue
-          result shouldBe Contracts.CantFindEnoughNodes(20)
+          result shouldBe Contracts.CantFindEnoughNodes(10)
         }
       }
 
@@ -203,19 +205,35 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         runNodes { servers ⇒
           val firstContact: Contact = servers.head._1
           val storageRpc = newClient.service[DatasetStorageRpc[Task]](firstContact)
-          val datasetStorage = createDatasetStorage("dummy dataset".getBytes, storageRpc)
+          val datasetStorage = createDatasetStorage("dummy dataset ******".getBytes, storageRpc)
 
           val getResponse = datasetStorage.get("request key").failed.taskValue
-          getResponse shouldBe a[StatusRuntimeException]
-          // todo transmit error from server: there should be DatasetNotFound exception (or something else) instead of StatusRuntimeException
+          getResponse shouldBe a[ServerError]
+          getResponse.getMessage shouldBe "Can't get DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
 
           val putResponse = datasetStorage.put("key", "value").failed.taskValue
-          // todo transmit error from server: there should be DatasetNotFound exception (or something else) instead of StatusRuntimeException
-          putResponse shouldBe a[StatusRuntimeException]
+          getResponse shouldBe a[ServerError]
+          getResponse.getMessage shouldBe "Can't get DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
 
         }
       }
 
+      "client and server use different types of hasher" in {
+        runNodes ({ servers ⇒
+          val client = AuthorizedClient.generateNew[Option](algo).eitherValue
+          val seedContact = makeKadNetwork(servers)
+          val fluence = createFluenceClient(seedContact)
+
+          val datasetStorage = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
+
+          val nonExistentKeyResponse = datasetStorage.get("non-existent key").taskValue
+          nonExistentKeyResponse shouldBe None
+          // put new value
+          val putKey1Response = datasetStorage.put("key1", "value1").failed.taskValue
+          putKey1Response shouldBe a[ClientError]
+          putKey1Response.getMessage should startWith("Server 'put response' didn't pass verifying for state=PutStateImpl")
+        }, serverHasher = JdkCryptoHasher.Sha256)
+      }
     }
 
     "success allocate a contract" in {
@@ -242,7 +260,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
     }
 
-    "success write and read from dataset" in {
+    "success write and read from dataset" in { // todo make passable this test with replicationFac > 1
       runNodes { servers ⇒
         val client = AuthorizedClient.generateNew[Option](algo, testpass).eitherValue
         val seedContact = makeKadNetwork(servers)
@@ -336,7 +354,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   }
 
   /** Makes some reads and writes and check results */
-  private def verifyReadAndWrite(datasetStorage: ClientDatasetStorage[String, String]) = {
+  private def verifyReadAndWrite(datasetStorage: ClientDatasetStorageApi[Task, String, String]) = {
     // read non-existent value
     val nonExistentKeyResponse = datasetStorage.get("non-existent key").taskValue
     nonExistentKeyResponse shouldBe None
@@ -435,18 +453,22 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
    * Test utility method for running N nodes and shutting down after all.
    * @param action An action to executing
    */
-  private def runNodes(action: Map[Contact, FluenceNode] ⇒ Unit, numberOfNodes: Int = 20): Unit = {
+  private def runNodes(
+    action: Map[Contact, FluenceNode] ⇒ Unit,
+    numberOfNodes: Int = 10,
+    serverHasher: CryptoHasher[Array[Byte], Array[Byte]] = testHasher
+  ): Unit = {
 
     var servers: Seq[FluenceNode] = Nil
 
     try {
       // start all nodes Grpc servers
-      servers = (0 to numberOfNodes).map { n ⇒
+      servers = (0 until numberOfNodes).map { n ⇒
         val port = 6112 + n
         // TODO: storage root directory, keys directory, etc should be modified to isolate nodes
         FluenceNode.startNode(
           algo,
-          testHasher,
+          serverHasher,
           config
             .withValue("fluence.grpc.server.port", ConfigValueFactory.fromAnyRef(port))
             .withValue("fluence.network.acceptLocal", ConfigValueFactory.fromAnyRef(true))

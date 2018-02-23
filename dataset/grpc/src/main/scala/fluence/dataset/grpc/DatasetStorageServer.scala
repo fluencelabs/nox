@@ -17,13 +17,16 @@
 
 package fluence.dataset.grpc
 
+import cats.data.EitherT
 import cats.effect.Async
-import cats.syntax.functor._
+import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import cats.{ Monad, ~> }
 import com.google.protobuf.ByteString
 import fluence.btree.common.{ ClientPutDetails, Hash, Key }
 import fluence.btree.protocol.BTreeRpc
+import fluence.dataset.grpc.DatasetStorageServer.ClientError
 import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.grpc.storage._
 import fluence.dataset.protocol.storage.DatasetStorageRpc
@@ -34,30 +37,77 @@ import monix.reactive.Observer
 
 import scala.collection.Searching
 import scala.language.higherKinds
+import scala.util.control.NoStackTrace
 
-class DatasetStorageServer[F[_] : Async](service: DatasetStorageRpc[F])(implicit F: Monad[F], runF: F ~> Task, scheduler: Scheduler) extends DatasetStorageRpcGrpc.DatasetStorageRpc {
-  private def runT[A](fa: Task[A]): F[A] = fa.toIO.to[F]
+/**
+ * Server implementation of [[DatasetStorageRpcGrpc.DatasetStorageRpc]], allows talking to client via network.
+ * All public methods called from the server side.
+ * DatasetStorageServer is active and initiates requests to client.
+ *
+ * @param service Server implementation of [[DatasetStorageRpc]] to which the calls will be delegated
+ * @tparam F A box for returning value
+ */
+class DatasetStorageServer[F[_] : Async](
+    service: DatasetStorageRpc[F]
+)(
+    implicit
+    F: Monad[F],
+    runF: F ~> Task,
+    scheduler: Scheduler
+) extends DatasetStorageRpcGrpc.DatasetStorageRpc with slogging.LazyLogging {
+
+  /**
+   * Convert function: {{{ EitherT[Task, E, V] => F[V] }}}.
+   * It's temporary decision, it will be removed when EitherT[F, E, V] was everywhere.
+   *
+   * @tparam F Type of effect with [[cats.effect.Async]] bound
+   * @tparam E Type of exception, should be subclass of [[Throwable]]
+   * @tparam V Type of value
+   */
+  private def runT[E <: Throwable, V](eitherT: EitherT[Task, E, V]): F[V] = eitherT.value.flatMap {
+    case Left(err) ⇒
+      logger.debug(s"DatasetStorageServer lifts up client exception=$err")
+      Task.raiseError(err)
+    case Right(value) ⇒
+      Task(value)
+  }.toIO.to[F]
 
   override def get(responseObserver: StreamObserver[GetCallback]): StreamObserver[GetCallbackReply] = {
 
     val resp: Observer[GetCallback] = responseObserver
     val (repl, stream) = streamObservable[GetCallbackReply]
+    val pullClientReply = repl.pullable
 
-    val pull = repl.pullable
+    def getReply[T](
+      check: GetCallbackReply.Reply ⇒ Boolean,
+      extract: GetCallbackReply.Reply ⇒ T
+    ): EitherT[Task, ClientError, T] = {
 
-    def getReply[T](check: GetCallbackReply.Reply ⇒ Boolean, extract: GetCallbackReply.Reply ⇒ T): Task[T] =
-      pull().map(_.reply).flatMap {
-        case r if check(r) ⇒ Task.now(extract(r))
-        case _             ⇒ Task.raiseError(new IllegalArgumentException("Wrong reply received, protocol error"))
-      }
+      val reply = pullClientReply()
+        .map {
+          case GetCallbackReply(reply) ⇒
+            logger.trace(s"DatasetStorageServer.get() received client reply=$reply")
+            reply
+        }.map {
+          case r if check(r) ⇒
+            Right(extract(r))
+          case r ⇒
+            val errMsg = r.clientError.map(_.msg).getOrElse("Wrong reply received, protocol error")
+            Left(ClientError(errMsg))
+        }
+
+      EitherT(reply)
+    }
 
     val valueF =
       for {
         did ← runT(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
-        v ← service.get(did, new BTreeRpc.GetCallbacks[F] {
+        foundValue ← service.get(did, new BTreeRpc.GetCallbacks[F] {
 
-          private val push: GetCallback.Callback ⇒ Task[Ack] =
-            cb ⇒ Task.fromFuture(resp.onNext(GetCallback(cb)))
+          private val pushServerAsk: GetCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
+            EitherT(Task.fromFuture(resp.onNext(GetCallback(callback = callback))).attempt)
+              .leftMap(t ⇒ ClientError(t.getMessage))
+          }
 
           /**
            * Server sends founded leaf details.
@@ -69,7 +119,7 @@ class DatasetStorageServer[F[_] : Async](service: DatasetStorageRpc[F])(implicit
           override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Option[Int]] =
             runT(
               for {
-                _ ← push(
+                _ ← pushServerAsk(
                   GetCallback.Callback.SubmitLeaf(AskSubmitLeaf(
                     keys = keys.map(ByteString.copyFrom),
                     valuesChecksums = valuesChecksums.map(ByteString.copyFrom)
@@ -79,6 +129,7 @@ class DatasetStorageServer[F[_] : Async](service: DatasetStorageRpc[F])(implicit
               } yield Option(sl.childIndex).filter(_ >= 0)
             )
 
+
           /**
            * Server asks next child node index.
            *
@@ -88,7 +139,7 @@ class DatasetStorageServer[F[_] : Async](service: DatasetStorageRpc[F])(implicit
           override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
             runT(
               for {
-                _ ← push(
+                _ ← pushServerAsk(
                   GetCallback.Callback.NextChildIndex(AskNextChildIndex(
                     keys = keys.map(ByteString.copyFrom),
                     childsChecksums = childsChecksums.map(ByteString.copyFrom)
@@ -98,17 +149,24 @@ class DatasetStorageServer[F[_] : Async](service: DatasetStorageRpc[F])(implicit
               } yield nci.index
             )
         })
-      } yield v
+      } yield foundValue
 
     // Launch service call, push the value once it's received
     resp completeWith runF(
-      valueF.map(value ⇒
-        GetCallback.Callback.Value(
-          GetValue(
-            value.fold(ByteString.EMPTY)(ByteString.copyFrom)
-          ))
-      )
-    ).map(GetCallback(_))
+      valueF.attempt.flatMap {
+        case Right(value) ⇒
+          // if all is ok send value to client
+          F.pure(GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
+        case Left(ClientError(msg)) ⇒
+          // when server recieve client error, server shouln't answer anything, should lift up client error
+          Async[F].raiseError[GetCallback](ClientError(msg))
+        case Left(exception) ⇒
+          // when server error appears, server should log it and send to client
+          logger.warn(s"Severs throw an exception=$exception and send cause to client")
+          F.pure(GetCallback(GetCallback.Callback.ServerError(Error(exception.getMessage))))
+
+      }
+    )
 
     stream
   }
@@ -116,24 +174,41 @@ class DatasetStorageServer[F[_] : Async](service: DatasetStorageRpc[F])(implicit
   override def put(responseObserver: StreamObserver[PutCallback]): StreamObserver[PutCallbackReply] = {
     val resp: Observer[PutCallback] = responseObserver
     val (repl, stream) = streamObservable[PutCallbackReply]
+    val pullClientReply = repl.pullable
 
     // TODO: we should have version here
 
-    val pull = repl.pullable
+    def getReply[T](
+      check: PutCallbackReply.Reply ⇒ Boolean,
+      extract: PutCallbackReply.Reply ⇒ T
+    ): EitherT[Task, ClientError, T] = {
 
-    def getReply[T](check: PutCallbackReply.Reply ⇒ Boolean, extract: PutCallbackReply.Reply ⇒ T): Task[T] =
-      pull().map(_.reply).flatMap {
-        case r if check(r) ⇒ Task.now(extract(r))
-        case _             ⇒ Task.raiseError(new IllegalArgumentException("Wrong reply received, protocol error"))
-      }
+      val reply = pullClientReply()
+        .map {
+          case PutCallbackReply(r) ⇒
+            logger.trace(s"DatasetStorageServer.put() received client reply=$r")
+            r
+        }.map {
+          case r if check(r) ⇒
+            Right(extract(r))
+          case r ⇒
+            val errMsg = r.clientError.map(_.msg).getOrElse("Wrong reply received, protocol error")
+            Left(ClientError(errMsg))
+        }
+
+      EitherT(reply)
+    }
 
     val valueF =
       for {
         did ← runT(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
         putValue ← runT(getReply(_.isValue, _._value.map(_.value.toByteArray).getOrElse(Array.emptyByteArray)))
-        ov ← service.put(did, new BTreeRpc.PutCallbacks[F] {
-          private val push: PutCallback.Callback ⇒ Task[Ack] =
-            cb ⇒ Task.fromFuture(resp.onNext(PutCallback(cb)))
+        oldValue ← service.put(did, new BTreeRpc.PutCallbacks[F] {
+
+          private val pushServerAsk: PutCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
+            EitherT(Task.fromFuture(resp.onNext(PutCallback(callback = callback))).attempt)
+              .leftMap(t ⇒ ClientError(t.getMessage))
+          }
 
           /**
            * Server asks next child node index.
@@ -144,11 +219,13 @@ class DatasetStorageServer[F[_] : Async](service: DatasetStorageRpc[F])(implicit
           override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
             runT(
               for {
-                _ ← push(
-                  PutCallback.Callback.NextChildIndex(AskNextChildIndex(
-                    keys = keys.map(ByteString.copyFrom),
-                    childsChecksums = childsChecksums.map(ByteString.copyFrom)
-                  ))
+                _ ← pushServerAsk(
+                  PutCallback.Callback.NextChildIndex(
+                    AskNextChildIndex(
+                      keys = keys.map(ByteString.copyFrom),
+                      childsChecksums = childsChecksums.map(ByteString.copyFrom)
+                    )
+                  )
                 )
                 nci ← getReply(_.isNextChildIndex, _.nextChildIndex.get)
               } yield nci.index
@@ -163,7 +240,7 @@ class DatasetStorageServer[F[_] : Async](service: DatasetStorageRpc[F])(implicit
           override def putDetails(keys: Array[Key], valuesChecksums: Array[Hash]): F[ClientPutDetails] =
             runT(
               for {
-                _ ← push(
+                _ ← pushServerAsk(
                   PutCallback.Callback.PutDetails(AskPutDetails(
                     keys = keys.map(ByteString.copyFrom),
                     valuesChecksums = valuesChecksums.map(ByteString.copyFrom)
@@ -189,7 +266,7 @@ class DatasetStorageServer[F[_] : Async](service: DatasetStorageRpc[F])(implicit
           override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[Unit] =
             runT(
               for {
-                _ ← push(
+                _ ← pushServerAsk(
                   PutCallback.Callback.VerifyChanges(AskVerifyChanges(
                     version = 1, // TODO: pass prevVersion + 1
                     serverMerkleRoot = ByteString.copyFrom(serverMerkleRoot),
@@ -206,25 +283,38 @@ class DatasetStorageServer[F[_] : Async](service: DatasetStorageRpc[F])(implicit
           override def changesStored(): F[Unit] =
             runT(
               for {
-                _ ← push(
-                  PutCallback.Callback.ChangesStored(AskChangesStored())
-                )
+                _ ← pushServerAsk(PutCallback.Callback.ChangesStored(AskChangesStored()))
                 _ ← getReply(_.isChangesStored, _.changesStored.get)
               } yield ()
             )
         }, putValue)
-      } yield ov
+      } yield oldValue
 
     // Launch service call, push the value once it's received
     resp completeWith runF(
-      valueF.map(value ⇒
-        PutCallback.Callback.Value(
-          PreviousValue(
-            value.fold(ByteString.EMPTY)(ByteString.copyFrom)
-          ))
-      )
-    ).map(PutCallback(_))
+      valueF.attempt.flatMap {
+        case Right(value) ⇒
+          // if all is ok send value to client
+          F.pure(PutCallback(PutCallback.Callback.Value(PreviousValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
+        case Left(ClientError(msg)) ⇒
+          // when server recieve client error, server shouln't answer anything, should lift up client error
+          Async[F].raiseError[PutCallback](ClientError(msg))
+        case Left(exception) ⇒
+          // when server error appears, server should log it and send to client
+          logger.warn(s"Severs throw an exception=$exception and send cause to client")
+          F.pure(PutCallback(PutCallback.Callback.ServerError(Error(exception.getMessage))))
+      }
+    )
 
     stream
   }
+}
+
+object DatasetStorageServer {
+
+  /**  Error from client side. */
+  case class ClientError(msg: String) extends NoStackTrace {
+    override def getMessage: String = msg
+  }
+
 }
