@@ -34,8 +34,10 @@ import org.bouncycastle.crypto.params.ParametersWithIV
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
+import scala.util.Random
 
 case class DetachedData(ivData: Array[Byte], encData: Array[Byte])
 case class DataWithParams(data: Array[Byte], params: CipherParameters)
@@ -56,7 +58,7 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
   extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
   import CryptoErr._
 
-  private val rnd = new SecureRandom()
+  private val rnd = Random
   private val salt = config.salt.getBytes()
 
   //number of password hashing iterations
@@ -65,7 +67,11 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
   //initialisation vector must be the same length as block size
   private val IV_SIZE = 16
   private val BITS = 256
-  private def generateIV: Array[Byte] = rnd.generateSeed(IV_SIZE)
+  private def generateIV: Array[Byte] = {
+    val iv = new Array[Byte](IV_SIZE)
+    rnd.nextBytes(iv)
+    iv
+  }
 
   override def encrypt(plainText: T): F[Array[Byte]] = {
     val e = for {
@@ -186,13 +192,13 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
 
 object AesCrypt extends slogging.LazyLogging {
 
-  def forString[F[_] : Applicative](password: Array[Char], withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] =
+  def forString[F[_] : Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] =
     apply[F, String](password, withIV, config)(
       serializer = _.getBytes.pure[F],
       deserializer = bytes ⇒ new String(bytes).pure[F]
     )
 
-  def apply[F[_] : Applicative, T](password: Array[Char], withIV: Boolean, config: AesConfig)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable]): AesCrypt[F, T] =
-    new AesCrypt(password, withIV, config)(serializer, deserializer)
+  def apply[F[_] : Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable]): AesCrypt[F, T] =
+    new AesCrypt(password.toHex.toCharArray, withIV, config)(serializer, deserializer)
 
 }

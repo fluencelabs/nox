@@ -17,12 +17,14 @@
 
 package fluence.client
 
+import cats.{ Applicative, MonadError }
 import cats.effect.IO
-import com.typesafe.config.ConfigFactory
-import fluence.client.AuthorizedClient.Password
+import com.typesafe.config.{ Config, ConfigFactory }
 import fluence.crypto.KeyStore
-import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.algorithm.{ AesCrypt, Ecdsa }
 import fluence.crypto.hash.JdkCryptoHasher
+import fluence.crypto.keypair.KeyPair
+import fluence.dataset.client.ClientDatasetStorageApi
 import fluence.kad.protocol.Contact
 import io.circe.syntax._
 import monix.eval.Task
@@ -81,14 +83,25 @@ object ClientApp extends App with slogging.LazyLogging {
 
       val io = for {
         res ← task.toIO
+        (keyPair, flClient) = res
+        _ = logger.info("Restore dataset from kademlia.")
+        cryptoMethods ← cryptoMethods[Task](keyPair.secretKey, config).toIO
+        (keyCrypt, valueCrypt) = cryptoMethods
+        ac = AuthorizedClient(keyPair)
+        dsOp ← flClient.getDataset(ac, keyCrypt, valueCrypt).toIO
+        ds ← dsOp match {
+          case Some(ds) ⇒ IO.pure(ds)
+          case None ⇒
+            logger.info("Contract not found, try to create new one.")
+            flClient.createNewContract(ac, 2, keyCrypt, valueCrypt).toIO
+        }
         _ = {
           logger.info("You can put or get data from remote node.")
           logger.info("Examples: ")
           logger.info("put \"some key\" \"value to put\"")
           logger.info("get \"some key\"")
         }
-        pass ← readPassword()
-        _ ← handleCmds(res._2, AuthorizedClient[Password](res._1, pass.toCharArray))
+        _ ← handleCmds(flClient, ac, config, ds)
       } yield {}
 
       io.attempt
@@ -106,29 +119,26 @@ object ClientApp extends App with slogging.LazyLogging {
     //Try --help for more information.
   }
 
-  def readLine = IO(lineReader.readLine("fluence< "))
-
-  private def readPassword() = {
+  def cryptoMethods[F[_] : Applicative](secretKey: KeyPair.Secret, config: Config)(implicit F: MonadError[F, Throwable]): Task[(AesCrypt[F, String], AesCrypt[F, String])] = {
     for {
-      _ ← IO(logger.info("Write password of your encryption key:"))
-      pass ← IO(lineReader.readLine("fluence< ", '*'))
-    } yield pass
+      aesConfig ← AesConfigParser.readAesConfigOrGetDefault[Task](config)
+    } yield (AesCrypt.forString(secretKey.value, withIV = false, aesConfig), AesCrypt.forString(secretKey.value, withIV = true, aesConfig))
   }
 
-  def handleCmds(fluenceClient: FluenceClient, ac: AuthorizedClient[Password]): IO[Unit] = {
+  def readLine = IO(lineReader.readLine("fluence< "))
+
+  def handleCmds(fluenceClient: FluenceClient, ac: AuthorizedClient, config: Config, ds: ClientDatasetStorageApi[Task, String, String]): IO[Unit] = {
     lazy val handle: IO[Unit] = readLine.map(CommandParser.parseCommand).flatMap {
       case Some(Exit) ⇒
         IO(logger.info("Exiting from fluence network."))
       case Some(Put(k, v)) ⇒
         val t = for {
-          ds ← fluenceClient.getOrCreateDataset(ac)
           _ ← ds.put(k, v)
           _ = logger.info("Success.")
         } yield ()
         t.toIO.flatMap(_ ⇒ handle)
       case Some(Get(k)) ⇒
         val t = for {
-          ds ← fluenceClient.getOrCreateDataset(ac)
           res ← ds.get(k)
           printRes = res match {
             case Some(r) ⇒ "\"" + r + "\""

@@ -67,7 +67,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   private val algo: SignAlgo = Ecdsa.signAlgo
   private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
-  private val testpass: Array[Char] = "testpass".toCharArray
+  private val keyCrypt = NoOpCrypt.forString[Task]
+  private val valueCrypt = NoOpCrypt.forString[Task]
 
   import algo.checker
 
@@ -221,12 +222,11 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
       "client and server use different types of hasher" in {
         runNodes ({ servers ⇒
-          val client = AuthorizedClient.generateNew[Option](algo, testpass).eitherValue
+          val client = AuthorizedClient.generateNew[Option](algo).eitherValue
           val seedContact = makeKadNetwork(servers)
           val fluence = createFluenceClient(seedContact)
 
-          val datasetStorage = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
-
+          val datasetStorage = fluence.createNewContract(client, 2, keyCrypt, valueCrypt).taskValue(Some(timeout(Span(5, Seconds))))
           val nonExistentKeyResponse = datasetStorage.get("non-existent key").taskValue
           nonExistentKeyResponse shouldBe None
           // put new value
@@ -263,11 +263,11 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
     "success write and read from dataset" in {
       runNodes { servers ⇒
-        val client = AuthorizedClient.generateNew[Option](algo, testpass).eitherValue
+        val client = AuthorizedClient.generateNew[Option](algo).eitherValue
         val seedContact = makeKadNetwork(servers)
         val fluence = createFluenceClient(seedContact)
 
-        val datasetStorage = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
+        val datasetStorage = fluence.createNewContract(client, 2, keyCrypt, valueCrypt).taskValue(Some(timeout(Span(5, Seconds))))
         verifyReadAndWrite(datasetStorage)
       }
     }
@@ -275,17 +275,17 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
 
       runNodes { servers ⇒
-        val client = AuthorizedClient.generateNew[Option](algo, testpass).eitherValue
+        val client = AuthorizedClient.generateNew[Option](algo).eitherValue
         val seedContact = makeKadNetwork(servers)
         val fluence1 = createFluenceClient(seedContact)
 
-        val datasetStorage1 = fluence1.getOrCreateDataset(client).taskValue
+        val datasetStorage1 = fluence1.createNewContract(client, 2, keyCrypt, valueCrypt).taskValue(Some(timeout(Span(5, Seconds))))
         verifyReadAndWrite(datasetStorage1)
 
         // create new client (restart imitation)
         val fluence2 = createFluenceClient(seedContact)
 
-        val datasetStorage2 = fluence2.getOrCreateDataset(client).taskValue
+        val datasetStorage2 = fluence2.getDataset(client, keyCrypt, valueCrypt).taskValue.get
         val getKey1Result = datasetStorage2.get("key1").taskValue
         getKey1Result shouldBe Some("value1-NEW")
 
@@ -302,7 +302,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
       runNodes { servers ⇒
         // create client and write to db
-        val client = AuthorizedClient.generateNew[Option](algo, testpass).eitherValue
+        val client = AuthorizedClient.generateNew[Option](algo).eitherValue
         val seedContact = makeKadNetwork(servers)
         val grpcClient = ClientComposer.grpc[Task](GrpcClient.builder)
         val (kademliaClient, contractsApi) = createClientApi(seedContact, grpcClient)
@@ -318,7 +318,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           testHasher,
           config
         )
-        val datasetStorage = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
+        val datasetStorage = fluence.createNewContract(client, 2, keyCrypt, valueCrypt).taskValue(Some(timeout(Span(5, Seconds))))
 
         verifyReadAndWrite(datasetStorage)
 
@@ -326,7 +326,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val server = servers.find { case (c, _) ⇒ c.publicKey == nodeCaptor.publicKey }.get._2
         shutdownNodeAndRestart(server) { _ ⇒
 
-          val datasetStorageReconnected = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
+          val datasetStorageReconnected = fluence.getDataset(client, keyCrypt, valueCrypt).taskValue(Some(timeout(Span(5, Seconds)))).get
 
           val getKey1Result = datasetStorageReconnected.get("key1").taskValue(Some(timeout(Span(1, Seconds))))
           getKey1Result shouldBe Some("value1-NEW")
@@ -445,8 +445,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       datasetId,
       testHasher,
       grpc,
-      NoOpCrypt.forString,
-      NoOpCrypt.forString,
+      keyCrypt,
+      valueCrypt,
       value1
     )
   }

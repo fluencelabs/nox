@@ -3,6 +3,7 @@ package fluence.crypto
 import fluence.crypto.algorithm.{ AesConfig, AesCrypt, CryptoErr }
 import cats.instances.try_._
 import org.scalatest.{ Matchers, WordSpec }
+import scodec.bits.ByteVector
 
 import scala.util.{ Random, Try }
 
@@ -14,14 +15,14 @@ class AesSpec extends WordSpec with Matchers {
   "aes crypto" should {
     "work with IV" in {
 
-      val pass = "pass".toCharArray
+      val pass = ByteVector("pass".getBytes())
       val crypt = AesCrypt.forString[Try](pass, withIV = true, config = conf)
 
       val str = rndString(200)
       val crypted = crypt.encrypt(str).get
       crypt.decrypt(crypted).get shouldBe str
 
-      val fakeAes = AesCrypt.forString[Try]("wrong".toCharArray, withIV = true, config = conf)
+      val fakeAes = AesCrypt.forString[Try](ByteVector("wrong".getBytes()), withIV = true, config = conf)
       fakeAes.decrypt(crypted).map(_ ⇒ false).recover {
         case e: CryptoErr ⇒ true
         case _            ⇒ false
@@ -39,14 +40,14 @@ class AesSpec extends WordSpec with Matchers {
     }
 
     "work without IV" in {
-      val pass = "pass".toCharArray
+      val pass = ByteVector("pass".getBytes())
       val crypt = AesCrypt.forString[Try](pass, withIV = false, config = conf)
 
       val str = rndString(200)
       val crypted = crypt.encrypt(str).get
       crypt.decrypt(crypted).get shouldBe str
 
-      val fakeAes = AesCrypt.forString[Try]("wrong".toCharArray, withIV = false, config = conf)
+      val fakeAes = AesCrypt.forString[Try](ByteVector("wrong".getBytes()), withIV = false, config = conf)
       fakeAes.decrypt(crypted).map(_ ⇒ false).recover {
         case e: CryptoErr ⇒ true
         case _            ⇒ false
