@@ -17,12 +17,11 @@
 
 package fluence.client
 
-import cats.{Applicative, MonadError}
+import cats.{ Applicative, MonadError }
 import cats.effect.IO
-import com.typesafe.config.{Config, ConfigFactory}
-import fluence.client.ClientApp.cryptoMethods
+import com.typesafe.config.{ Config, ConfigFactory }
 import fluence.crypto.KeyStore
-import fluence.crypto.algorithm.{AesCrypt, Ecdsa}
+import fluence.crypto.algorithm.{ AesCrypt, Ecdsa }
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.dataset.client.ClientDatasetStorageApi
@@ -32,7 +31,7 @@ import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.jline.reader.LineReaderBuilder
 import org.jline.terminal.TerminalBuilder
-import scodec.bits.{Bases, ByteVector}
+import scodec.bits.{ Bases, ByteVector }
 import slogging.MessageFormatter.PrefixFormatter
 import slogging._
 
@@ -86,10 +85,10 @@ object ClientApp extends App with slogging.LazyLogging {
         ac = AuthorizedClient(keyPair)
         dsOp ← fluenceClient.getDataset(ac, keyCrypt, valueCrypt)
         ds ← dsOp match {
-          case Some(ds) ⇒ IO.pure(ds)
+          case Some(ds) ⇒ Task.pure(ds)
           case None ⇒
             logger.info("Contract not found, try to create new one.")
-            fluenceClient.createNewContract(ac, 2, keyCrypt, valueCrypt).toIO
+            fluenceClient.createNewContract(ac, 2, keyCrypt, valueCrypt)
         }
       } yield (fluenceClient, ac, ds)
 
