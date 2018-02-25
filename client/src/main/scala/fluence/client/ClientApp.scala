@@ -17,11 +17,12 @@
 
 package fluence.client
 
-import cats.{ Applicative, MonadError }
+import cats.{Applicative, MonadError}
 import cats.effect.IO
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.{Config, ConfigFactory}
+import fluence.client.ClientApp.cryptoMethods
 import fluence.crypto.KeyStore
-import fluence.crypto.algorithm.{ AesCrypt, Ecdsa }
+import fluence.crypto.algorithm.{AesCrypt, Ecdsa}
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.dataset.client.ClientDatasetStorageApi
@@ -31,7 +32,7 @@ import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.jline.reader.LineReaderBuilder
 import org.jline.terminal.TerminalBuilder
-import scodec.bits.{ Bases, ByteVector }
+import scodec.bits.{Bases, ByteVector}
 import slogging.MessageFormatter.PrefixFormatter
 import slogging._
 
@@ -79,22 +80,22 @@ object ClientApp extends App with slogging.LazyLogging {
           logger.info("Creating fluence client.")
         }
         fluenceClient ← FluenceClient(seeds, algo, JdkCryptoHasher.Sha256, config)
-      } yield (keyPair, fluenceClient)
-
-      val io = for {
-        res ← task.toIO
-        (keyPair, flClient) = res
         _ = logger.info("Restore dataset from kademlia.")
-        cryptoMethods ← cryptoMethods[Task](keyPair.secretKey, config).toIO
+        cryptoMethods ← cryptoMethods[Task](keyPair.secretKey, config)
         (keyCrypt, valueCrypt) = cryptoMethods
         ac = AuthorizedClient(keyPair)
-        dsOp ← flClient.getDataset(ac, keyCrypt, valueCrypt).toIO
+        dsOp ← fluenceClient.getDataset(ac, keyCrypt, valueCrypt)
         ds ← dsOp match {
           case Some(ds) ⇒ IO.pure(ds)
           case None ⇒
             logger.info("Contract not found, try to create new one.")
-            flClient.createNewContract(ac, 2, keyCrypt, valueCrypt).toIO
+            fluenceClient.createNewContract(ac, 2, keyCrypt, valueCrypt).toIO
         }
+      } yield (fluenceClient, ac, ds)
+
+      val io = for {
+        res ← task.toIO
+        (flClient, ac, ds) = res
         _ = {
           logger.info("You can put or get data from remote node.")
           logger.info("Examples: ")
