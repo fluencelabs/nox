@@ -531,10 +531,13 @@ class MerkleBTree private[server] (
       })
   }
 
-  // this method used only with enabled assertion in tests for verifying order of keys into node.
+  /**
+   * This method used only with enabled assertion in tests for verifying order of keys into node.
+   * For disabling this check makes {{{fluence.merkleBTree.assertions.isKeyOrderRequired=false}}} or disable assertions.
+   */
   private def assertKeyIanAscOrder(node: Node): Boolean = {
     val lt: (Key, Key) ⇒ Boolean = (x, y) ⇒ ByteBuffer.wrap(x).compareTo(ByteBuffer.wrap(y)) < 0
-    node.keys.sliding(2).forall {
+    conf.assertions.isKeyOrderRequired || node.keys.sliding(2).forall {
       case Array(prev, next) ⇒ lt(prev, next)
       case _                 ⇒ true
     }
