@@ -17,12 +17,11 @@
 
 package fluence.crypto.algorithm
 
-import java.security.SecureRandom
-
 import cats.{ Applicative, Monad, MonadError }
 import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
+import fluence.codec.Codec
 import fluence.crypto.cipher.Crypt
 import org.bouncycastle.crypto.CipherParameters
 import org.bouncycastle.crypto.engines.AESEngine
@@ -54,7 +53,7 @@ case class DataWithParams(data: Array[Byte], params: CipherParameters)
  *               under the same key does not allow an attacker to infer relationships between segments of the encrypted
  *               message
  */
-class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable])
+class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable], codec: Codec[F, T, Array[Byte]])
   extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
   import CryptoErr._
 
@@ -75,7 +74,7 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
 
   override def encrypt(plainText: T): F[Array[Byte]] = {
     val e = for {
-      data ← EitherT.liftF(serializer(plainText))
+      data ← EitherT.liftF(codec.encode(plainText))
       key ← initSecretKey(password, salt)
       (extData, params) = {
         if (withIV) {
@@ -98,14 +97,14 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
     val e = for {
       dataWithParams ← detachDataAndGetParams(cipherText, password, salt, withIV)
       decData ← processData(dataWithParams, None, encrypt = false)
-      plain ← EitherT.liftF[F, CryptoErr, T](deserializer(decData))
+      plain ← EitherT.liftF[F, CryptoErr, T](codec.decode(decData))
     } yield plain
 
     e.value.flatMap(ME.fromEither)
   }
 
   /**
-   * key spec initialization
+   * Key spec initialization
    */
   private def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] = {
     nonFatalHandling {
@@ -192,13 +191,12 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
 
 object AesCrypt extends slogging.LazyLogging {
 
-  def forString[F[_] : Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] =
-    apply[F, String](password, withIV, config)(
-      serializer = _.getBytes.pure[F],
-      deserializer = bytes ⇒ new String(bytes).pure[F]
-    )
+  def forString[F[_] : Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] = {
+    implicit val codec: Codec[F, String, Array[Byte]] = Codec[F, String, Array[Byte]](_.getBytes.pure[F], bytes ⇒ new String(bytes).pure[F])
+    apply[F, String](password, withIV, config)
+  }
 
-  def apply[F[_] : Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])(implicit ME: MonadError[F, Throwable]): AesCrypt[F, T] =
-    new AesCrypt(password.toHex.toCharArray, withIV, config)(serializer, deserializer)
+  def apply[F[_] : Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable], codec: Codec[F, T, Array[Byte]]): AesCrypt[F, T] =
+    new AesCrypt(password.toHex.toCharArray, withIV, config)
 
 }
