@@ -28,34 +28,47 @@ lazy val `co-fail-JVM` = `co-fail`.jvm
 
 lazy val `co-fail-JS` = `co-fail`.js
 
-lazy val `codec-core` = project.in(file("codec/core"))
+lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.typelevel" %%% "cats-core" % Cats1V,
+      "org.scodec" %%% "scodec-bits" % ScodecBitsV,
+    )
+  )
+
+lazy val `codec-core-JVM` = `codec-core`.jvm
+
+lazy val `codec-core-JS` = `codec-core`.js
 
 lazy val `codec-kryo` = project.in(file("codec/kryo"))
-  .dependsOn(`codec-core`)
+  .dependsOn(`codec-core-JVM`)
 
 lazy val `kademlia-core` = project.in(file("kademlia/core"))
   .dependsOn(`kademlia-protocol`)
 
 lazy val `kademlia-protocol` = project.in(file("kademlia/protocol"))
-  .dependsOn(`codec-core`, `cryptoJVM`)
+  .dependsOn(`codec-core-JVM`, `cryptoJVM`)
 
 lazy val `kademlia-testkit` = project.in(file("kademlia/testkit"))
   .dependsOn(`kademlia-core`)
 
 lazy val `kademlia-grpc` = project.in(file("kademlia/grpc"))
-  .dependsOn(`transport-grpc`, `kademlia-protocol`, `codec-core`, `kademlia-testkit` % Test)
+  .dependsOn(`transport-grpc`, `kademlia-protocol`, `codec-core-JVM`, `kademlia-testkit` % Test)
 
 lazy val `kademlia-monix` = project.in(file("kademlia/monix"))
   .dependsOn(`kademlia-core`)
 
 lazy val `transport-grpc` = project.in(file("transport/grpc"))
-  .dependsOn(`transport-core`, `codec-core`)
+  .dependsOn(`transport-core`, `codec-core-JVM`)
 
 lazy val `transport-core` = project.in(file("transport/core"))
   .dependsOn(`kademlia-protocol`)
 
 lazy val `storage` = project.in(file("storage/core"))
-  .dependsOn(`codec-core`)
+  .dependsOn(`codec-core-JVM`)
 
 lazy val `storage-rocksdb` = project.in(file("storage/rocksdb"))
   .dependsOn(`storage`)
@@ -75,6 +88,7 @@ lazy val `b-tree-server` = project.in(file("b-tree/server"))
 lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
+  .dependsOn(`codec-core`)
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -82,6 +96,7 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
       "org.scodec" %%% "scodec-bits" % ScodecBitsV,
       "io.circe" %%% "circe-core" % CirceV,
       "io.circe" %%% "circe-parser" % CirceV,
+      "biz.enef" %%% "slogging" % SloggingV,
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )

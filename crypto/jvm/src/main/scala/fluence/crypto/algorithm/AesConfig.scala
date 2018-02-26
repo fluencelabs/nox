@@ -15,19 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client.config
+package fluence.crypto.algorithm
 
-import cats.ApplicativeError
-import com.typesafe.config.Config
-import fluence.kad.KademliaConf
-
-import scala.language.higherKinds
-
-object KademliaConfigParser {
-  def readKademliaConfig[F[_]](config: Config, path: String = "fluence.kademlia")(implicit F: ApplicativeError[F, Throwable]): F[KademliaConf] =
-    F.catchNonFatal {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      config.as[KademliaConf](path)
-    }
-}
+/**
+ * Config for AES-256 password based encryption
+ * @param iterationCount The number of iterations of hashing the password
+ * @param salt Salt, which will be mixed with the password
+ */
+case class AesConfig(
+    iterationCount: Int = 50,
+    salt: String = "fluence"
+)

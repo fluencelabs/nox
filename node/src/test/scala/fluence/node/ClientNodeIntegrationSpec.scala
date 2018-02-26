@@ -47,6 +47,7 @@ import io.grpc.StatusRuntimeException
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import monix.execution.{ CancelableFuture, Scheduler }
+import org.scalactic.source.Position
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
@@ -66,6 +67,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   private val algo: SignAlgo = Ecdsa.signAlgo
   private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
+  private val keyCrypt = NoOpCrypt.forString[Task]
+  private val valueCrypt = NoOpCrypt.forString[Task]
 
   import algo.checker
 
@@ -223,8 +226,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           val seedContact = makeKadNetwork(servers)
           val fluence = createFluenceClient(seedContact)
 
-          val datasetStorage = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
-
+          val datasetStorage = fluence.createNewContract(client, 2, keyCrypt, valueCrypt).taskValue(Some(timeout(Span(5, Seconds))))
           val nonExistentKeyResponse = datasetStorage.get("non-existent key").taskValue
           nonExistentKeyResponse shouldBe None
           // put new value
@@ -265,7 +267,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val seedContact = makeKadNetwork(servers)
         val fluence = createFluenceClient(seedContact)
 
-        val datasetStorage = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
+        val datasetStorage = fluence.createNewContract(client, 2, keyCrypt, valueCrypt).taskValue(Some(timeout(Span(5, Seconds))))
         verifyReadAndWrite(datasetStorage)
       }
     }
@@ -277,13 +279,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val seedContact = makeKadNetwork(servers)
         val fluence1 = createFluenceClient(seedContact)
 
-        val datasetStorage1 = fluence1.getOrCreateDataset(client).taskValue
+        val datasetStorage1 = fluence1.createNewContract(client, 2, keyCrypt, valueCrypt).taskValue(Some(timeout(Span(5, Seconds))))
         verifyReadAndWrite(datasetStorage1)
 
         // create new client (restart imitation)
         val fluence2 = createFluenceClient(seedContact)
 
-        val datasetStorage2 = fluence2.getOrCreateDataset(client).taskValue
+        val datasetStorage2 = fluence2.getDataset(client, keyCrypt, valueCrypt).taskValue.get
         val getKey1Result = datasetStorage2.get("key1").taskValue
         getKey1Result shouldBe Some("value1-NEW")
 
@@ -313,9 +315,10 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
             grpcClient.service[DatasetStorageRpc[Task]](c)
           },
           algo,
-          testHasher
+          testHasher,
+          config
         )
-        val datasetStorage = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
+        val datasetStorage = fluence.createNewContract(client, 2, keyCrypt, valueCrypt).taskValue(Some(timeout(Span(5, Seconds))))
 
         verifyReadAndWrite(datasetStorage)
 
@@ -323,9 +326,9 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val server = servers.find { case (c, _) ⇒ c.publicKey == nodeCaptor.publicKey }.get._2
         shutdownNodeAndRestart(server) { _ ⇒
 
-          val datasetStorageReconnected = fluence.getOrCreateDataset(client).taskValue(Some(timeout(Span(5, Seconds))))
+          val datasetStorageReconnected = fluence.getDataset(client, keyCrypt, valueCrypt).taskValue(Some(timeout(Span(5, Seconds)))).get
 
-          val getKey1Result = datasetStorageReconnected.get("key1").taskValue
+          val getKey1Result = datasetStorageReconnected.get("key1").taskValue(Some(timeout(Span(1, Seconds))))
           getKey1Result shouldBe Some("value1-NEW")
 
           val putKey2Result = datasetStorageReconnected.put("key2", "value2").taskValue
@@ -364,7 +367,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     val getKey1Response = datasetStorage.get("key1").taskValue
     getKey1Response shouldBe Some("value1")
     // override value
-    val overrideResponse = datasetStorage.put("key1", "value1-NEW").taskValue
+    val overrideResponse = datasetStorage.put("key1", "value1-NEW").taskValue(Some(timeout(Span(1, Seconds))))
     overrideResponse shouldBe Some("value1")
     // read updated value
     val getUpdatedKey1Response = datasetStorage.get("key1").taskValue
@@ -442,8 +445,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       datasetId,
       testHasher,
       grpc,
-      NoOpCrypt.forString,
-      NoOpCrypt.forString,
+      keyCrypt,
+      valueCrypt,
       value1
     )
   }
@@ -502,12 +505,12 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private def createFluenceClient(seed: Contact): FluenceClient = {
     val grpcClient = ClientComposer.grpc[Task](GrpcClient.builder)
     val (kademliaClient, contractsApi) = createClientApi(seed, grpcClient)
-    FluenceClient(kademliaClient, contractsApi, grpcClient.service[DatasetStorageRpc[Task]], algo, testHasher)
+    FluenceClient(kademliaClient, contractsApi, grpcClient.service[DatasetStorageRpc[Task]], algo, testHasher, config)
   }
 
   private implicit class WaitTask[T](task: Task[T]) {
-    def taskValue(implicit s: Scheduler): T = taskValue(None)(s)
-    def taskValue(timeoutOp: Option[Timeout] = None)(implicit s: Scheduler): T = {
+    def taskValue(implicit s: Scheduler, pos: Position): T = taskValue(None)(s, pos)
+    def taskValue(timeoutOp: Option[Timeout] = None)(implicit s: Scheduler, pos: Position): T = {
       val future: CancelableFuture[T] = task.runAsync(s)
       future.onComplete {
         case Success(_) ⇒ ()
