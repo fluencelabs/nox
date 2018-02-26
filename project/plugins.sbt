@@ -12,4 +12,9 @@ addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "0.3.1")
 
 addSbtPlugin("ch.epfl.scala" % "sbt-scalajs-bundler" % "0.10.0")
 
+addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.9.0")
+
 libraryDependencies += "com.trueaccord.scalapb" %% "compilerplugin" % "0.6.6"
+// For preventing classpath conflict in tests, which sometimes leads to errors: 'parameter object not a ECParameterSpec'
+// Cause 'org.bouncycastle.jce.spec.ECNamedCurveParameterSpec' is not a subtype of 'ECParameterSpec' in bouncycastle version 1.52
+libraryDependencies += "org.bouncycastle" % "bcprov-jdk15on" % "1.59" force()

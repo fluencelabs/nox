@@ -50,7 +50,9 @@ class Ecdsa(curveType: String, scheme: String, hasher: Option[CryptoHasher[Array
     for {
       ecSpec ← EitherT.fromOption(Option(ECNamedCurveTable.getParameterSpec(curveType)), CryptoErr("Parameter spec for the curve is not available."))
       g ← getKeyPairGenerator
-      _ ← nonFatalHandling(g.initialize(ecSpec, seed.map(new SecureRandom(_)).getOrElse(new SecureRandom())))("Could not initialize KeyPairGenerator.")
+      _ ← nonFatalHandling {
+        g.initialize(ecSpec, seed.map(new SecureRandom(_)).getOrElse(new SecureRandom()))
+      }(s"Could not initialize KeyPairGenerator for $ecSpec")
       p ← EitherT.fromOption(
         Option(g.generateKeyPair()),
         CryptoErr("Could not generate KeyPair. Unexpected."))
