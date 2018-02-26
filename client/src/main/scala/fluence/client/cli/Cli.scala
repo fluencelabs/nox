@@ -17,9 +17,15 @@
 
 package fluence.client.cli
 
+import cats.{ Applicative, MonadError }
 import cats.effect.IO
+import com.typesafe.config.Config
 import fluence.client.FluenceClient
+import fluence.client.config.AesConfigParser
+import fluence.crypto.algorithm.AesCrypt
 import fluence.crypto.keypair.KeyPair
+import fluence.dataset.client.ClientDatasetStorageApi
+import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.jline.reader.LineReaderBuilder
 import org.jline.terminal.TerminalBuilder
@@ -33,39 +39,63 @@ object Cli extends slogging.LazyLogging {
   private val lineReader = LineReaderBuilder.builder().terminal(terminal).build()
   private val readLine = IO(lineReader.readLine("fluence< "))
 
-  def handleCmds(fluenceClient: FluenceClient, kp: KeyPair): IO[Boolean] =
-    readLine.map(CommandParser.parseCommand).flatMap {
-      case Some(CliOp.Exit) ⇒ // That's what it actually returns
-        IO {
-          logger.info("Exiting from fluence network.")
-          false
-        }
+  def cryptoMethods[F[_] : Applicative](secretKey: KeyPair.Secret, config: Config)(implicit F: MonadError[F, Throwable]): Task[(AesCrypt[F, String], AesCrypt[F, String])] = {
+    for {
+      aesConfig ← AesConfigParser.readAesConfigOrGetDefault[Task](config)
+    } yield (AesCrypt.forString(secretKey.value, withIV = false, aesConfig), AesCrypt.forString(secretKey.value, withIV = true, aesConfig))
+  }
 
-      case Some(CliOp.Put(k, v)) ⇒
-        val t = for {
-          ds ← fluenceClient.getOrCreateDataset(kp)
-          _ ← ds.put(k, v)
-          _ = logger.info("Success.")
-        } yield true
-        t.toIO
+  def restoreDataset(keyPair: KeyPair, fluenceClient: FluenceClient, config: Config): Task[ClientDatasetStorageApi[Task, String, String]] = {
+    for {
+      crypts ← cryptoMethods[Task](keyPair.secretKey, config)
+      (keyCrypt, valueCrypt) = crypts
+      dsOp ← fluenceClient.getDataset(keyPair, keyCrypt, valueCrypt)
+      ds ← dsOp match {
+        case Some(ds) ⇒ Task.pure(ds)
+        case None ⇒
+          logger.info("Contract not found, try to create new one.")
+          fluenceClient.createNewContract(keyPair, 2, keyCrypt, valueCrypt)
+      }
+    } yield ds
+  }
 
-      case Some(CliOp.Get(k)) ⇒
-        val t = for {
-          ds ← fluenceClient.getOrCreateDataset(kp)
-          res ← ds.get(k)
-          printRes = res match {
-            case Some(r) ⇒ "\"" + r + "\""
-            case None    ⇒ "<null>"
+  def handleCmds(fluenceClient: FluenceClient, kp: KeyPair, config: Config): IO[Boolean] = {
+
+    for {
+      ds ← restoreDataset(kp, fluenceClient, config).toIO
+      commandOp ← readLine.map(CommandParser.parseCommand)
+      res ← commandOp match {
+        case Some(CliOp.Exit) ⇒ // That's what it actually returns
+          IO {
+            logger.info("Exiting from fluence network.")
+            false
           }
-          _ = logger.info("Result: " + printRes)
-        } yield true
-        t.toIO
 
-      case _ ⇒
-        IO {
-          logger.info("Wrong command.")
-          true
-        }
-    }
+        case Some(CliOp.Put(k, v)) ⇒
+          val t = for {
+            _ ← ds.put(k, v)
+            _ = logger.info("Success.")
+          } yield true
+          t.toIO
+
+        case Some(CliOp.Get(k)) ⇒
+          val t = for {
+            res ← ds.get(k)
+            printRes = res match {
+              case Some(r) ⇒ "\"" + r + "\""
+              case None    ⇒ "<null>"
+            }
+            _ = logger.info("Result: " + printRes)
+          } yield true
+          t.toIO
+
+        case _ ⇒
+          IO {
+            logger.info("Wrong command.")
+            true
+          }
+      }
+    } yield res
+  }
 
 }

@@ -198,5 +198,4 @@ object AesCrypt extends slogging.LazyLogging {
 
   def apply[F[_] : Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable], codec: Codec[F, T, Array[Byte]]): AesCrypt[F, T] =
     new AesCrypt(password.toHex.toCharArray, withIV, config)
-
 }

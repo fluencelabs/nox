@@ -23,6 +23,7 @@ import fluence.client.cli.Cli
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
+import monix.execution.Scheduler.Implicits.global
 import slogging.MessageFormatter.PrefixFormatter
 import slogging._
 
@@ -44,9 +45,9 @@ object ClientApp extends App with slogging.LazyLogging {
   // Run Command Line Interface
   (
     for {
-      fc ← ClientComposer.buildClient(config, algo, hasher)
-      ac ← ClientComposer.getKeyPair(config, algo)
-      handle = Cli.handleCmds(fc, ac)
+      fluenceClient ← ClientComposer.buildClient(config, algo, hasher)
+      keyPair ← ClientComposer.getKeyPair(config, algo)
+      handle = Cli.handleCmds(fluenceClient, keyPair, config)
       _ ← handle.flatMap{
         case true  ⇒ handle
         case false ⇒ IO.unit
