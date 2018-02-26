@@ -206,7 +206,6 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   }
 
   /* util methods */
-
   private val keyCrypt = NoOpCrypt.forString[Task]
   private val valueCrypt = NoOpCrypt[Task, User](
     user ⇒ Task(s"ENC[${user.name},${user.age}]".getBytes()),

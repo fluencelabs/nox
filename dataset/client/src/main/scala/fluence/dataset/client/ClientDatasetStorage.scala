@@ -45,7 +45,7 @@ class ClientDatasetStorage[K, V](
     storageRpc: DatasetStorageRpc[Task],
     valueCrypt: Crypt[Task, V, Array[Byte]],
     hasher: CryptoHasher[Array[Byte], Array[Byte]]
-) extends ClientDatasetStorageApi[Task, K, V] {
+) extends ClientDatasetStorageApi[Task, K, V] with slogging.LazyLogging {
 
   override def get(key: K): Task[Option[V]] = {
 
