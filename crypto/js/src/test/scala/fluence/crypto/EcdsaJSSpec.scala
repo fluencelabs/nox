@@ -20,7 +20,7 @@ package fluence.crypto
 import cats.data.EitherT
 import cats.instances.try_._
 import fluence.crypto.algorithm.{ CryptoErr, EcdsaJS }
-import org.scalatest.{ Assertion, Matchers, WordSpec }
+import org.scalatest.{ Matchers, WordSpec }
 import scodec.bits.ByteVector
 
 import scala.util.{ Random, Try }
@@ -28,6 +28,7 @@ import scala.util.{ Random, Try }
 class EcdsaJSSpec extends WordSpec with Matchers {
 
   def rndBytes(size: Int) = Random.nextString(10).getBytes
+
   def rndByteVector(size: Int) = ByteVector(rndBytes(size))
 
   private implicit class TryEitherTExtractor[A <: Throwable, B](et: EitherT[Try, A, B]) {
@@ -43,60 +44,44 @@ class EcdsaJSSpec extends WordSpec with Matchers {
     "correct sign and verify data" in {
       val algorithm = EcdsaJS.ecdsa_secp256k1_sha256
 
+      val keys = algorithm.generateKeyPair[Try]().extract
       val data = rndByteVector(10)
+      val sign = algorithm.sign[Try](keys, data).extract
+
+      algorithm.verify[Try](sign, data).isOk shouldBe true
+
       val randomData = rndByteVector(10)
+      val randomSign = algorithm.sign(keys, randomData).extract
 
-      val result: EitherT[Try, CryptoErr, Assertion] = for {
-        keys ← algorithm.generateKeyPair[Try]()
-        sign ← algorithm.sign[Try](keys, data)
-        randomSign ← algorithm.sign(keys, randomData)
-      } yield {
+      algorithm.verify(sign.copy(sign = randomSign.sign), data).isOk shouldBe false
 
-        algorithm.verify[Try](sign, data).isOk shouldBe true
-
-        algorithm.verify(sign.copy(sign = randomSign.sign), data).isOk shouldBe false
-
-        algorithm.verify(sign, randomData).isOk shouldBe false
-      }
-
+      algorithm.verify(sign, randomData).isOk shouldBe false
     }
 
     "correctly work with signer and checker" in {
       val algo = EcdsaJS.signAlgo
+      val keys = algo.generateKeyPair().extract
+      val signer = algo.signer(keys)
+
       val data = rndByteVector(10)
+      val sign = signer.sign(data).extract
 
-      val result = for {
-        keys ← algo.generateKeyPair()
-        signer = algo.signer(keys)
-        sign ← signer.sign[Try](data)
-        randomSign ← signer.sign(rndByteVector(10))
-      } yield {
+      algo.checker.check(sign, data).isOk shouldBe true
 
-        algo.checker.check(sign, data).isOk shouldBe true
-
-        algo.checker.check(randomSign, data).isOk shouldBe false
-      }
-
+      val randomSign = signer.sign(rndByteVector(10)).extract
+      algo.checker.check(randomSign, data).isOk shouldBe false
     }
 
     "throw an errors on invalid data" in {
       val algo = EcdsaJS.signAlgo
+      val keys = algo.generateKeyPair().extract
+      val signer = algo.signer(keys)
       val data = rndByteVector(10)
 
-      val result = for {
-        keys ← algo.generateKeyPair()
-        signer = algo.signer(keys)
-        sign ← signer.sign(data)
-      } yield {
+      val sign = signer.sign(data).extract
 
-        the[CryptoErr] thrownBy {
-          algo.checker.check(sign.copy(sign = rndByteVector(10)), data).value.flatMap(_.toTry).get
-        }
-        the[CryptoErr] thrownBy {
-          algo.checker.check(sign.copy(publicKey = sign.publicKey.copy(value = rndByteVector(10))), data).value.flatMap(_.toTry).get
-        }
-      }
-
+      the[CryptoErr] thrownBy algo.checker.check(sign.copy(sign = rndByteVector(10)), data).value.flatMap(_.toTry).get
+      the[CryptoErr] thrownBy algo.checker.check(sign.copy(publicKey = sign.publicKey.copy(value = rndByteVector(10))), data).value.flatMap(_.toTry).get
     }
   }
 }
