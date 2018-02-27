@@ -261,13 +261,13 @@ object FluenceClient extends slogging.LazyLogging {
    * @param signAlgo main algorithm for key verification
    */
   def apply(
-            kademliaClient: Kademlia[Task, Contact],
-            contracts: Contracts[Task, BasicContract, Contact],
-            storageRpc: Contact ⇒ DatasetStorageRpc[Task],
-            signAlgo: SignAlgo = Ecdsa.signAlgo,
-            storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
-            config: Config
-           ): FluenceClient = {
+    kademliaClient: Kademlia[Task, Contact],
+    contracts: Contracts[Task, BasicContract, Contact],
+    storageRpc: Contact ⇒ DatasetStorageRpc[Task],
+    signAlgo: SignAlgo = Ecdsa.signAlgo,
+    storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
+    config: Config
+  ): FluenceClient = {
     new FluenceClient(kademliaClient, contracts, signAlgo, storageRpc, storageHasher, config)
   }
 }
