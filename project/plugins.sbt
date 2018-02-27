@@ -12,4 +12,6 @@ addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "0.3.1")
 
 addSbtPlugin("ch.epfl.scala" % "sbt-scalajs-bundler" % "0.10.0")
 
+addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.9.0")
+
 libraryDependencies += "com.trueaccord.scalapb" %% "compilerplugin" % "0.6.6"
