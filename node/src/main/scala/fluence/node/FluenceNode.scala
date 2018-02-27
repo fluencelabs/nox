@@ -19,24 +19,27 @@ package fluence.node
 
 import java.io.File
 
-import cats.{ Applicative, MonadError }
 import cats.effect.IO
+import cats.instances.list._
+import cats.syntax.applicativeError._
+import cats.syntax.flatMap._
 import cats.syntax.show._
+import cats.{ Applicative, MonadError }
 import com.typesafe.config.{ Config, ConfigFactory }
-import fluence.crypto.{ FileKeyStorage, SignAlgo }
+import fluence.client.config.{ KeyPairConfig, SeedsConfig }
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
-import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
-import monix.eval.Task
-import cats.instances.list._
-import fluence.client.config.{ KeyPairConfig, SeedsConfig }
+import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.kad.Kademlia
+import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
 import fluence.node.config.{ ContactConf, UPnPConf }
 import fluence.transport.UPnP
 import fluence.transport.grpc.server.GrpcServerConf
+import monix.eval.Task
 import monix.execution.Scheduler
 
 import scala.concurrent.duration._
+import scala.language.higherKinds
 
 trait FluenceNode {
   def config: Config
@@ -131,23 +134,25 @@ object FluenceNode extends slogging.LazyLogging {
         protocolVersion = upnpContact.protocolVersion,
         gitHash = upnpContact.gitHash,
         signer = algo.signer(kp)
-      ).value.flatMap(MonadError[IO, Throwable].fromEither)
+      ).value.flatMap(MonadError[IO, Throwable].fromEither).onFail(upnpShutdown)
 
-      client ← NodeGrpc.grpcClient(key, contact, config)
+      client ← NodeGrpc.grpcClient(key, contact, config).onFail(upnpShutdown)
       kadClient = client.service[KademliaRpc[Task, Contact]] _
 
-      services ← NodeComposer.services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true)
+      services ← NodeComposer.services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true).onFail(upnpShutdown)
+      closeUpNpAndServices = upnpShutdown.flatMap(_ ⇒ services.close)
 
-      server ← NodeGrpc.grpcServer(services, builder, config)
+      server ← NodeGrpc.grpcServer(services, builder, config).onFail(closeUpNpAndServices)
 
-      _ ← server.start
+      _ ← server.start.onFail(closeUpNpAndServices)
+      closeAll = closeUpNpAndServices.flatMap(_ ⇒ server.shutdown)
 
-      seedConfig ← SeedsConfig.read(config)
-      seedContacts ← seedConfig.contacts
+      seedConfig ← SeedsConfig.read(config).onFail(closeAll)
+      seedContacts ← seedConfig.contacts.onFail(closeAll)
 
-      _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO(Scheduler.global) else IO{
+      _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO(Scheduler.global) else IO {
         logger.info("You should add some seed node contacts to join. Take a look on reference.conf")
-      }
+      }.onFail(closeAll)
     } yield {
 
       logger.info("Server launched")
@@ -164,8 +169,8 @@ object FluenceNode extends slogging.LazyLogging {
 
         override def stop: IO[Unit] =
           Applicative[IO].map3(
-            services.close,
             server.shutdown,
+            services.close,
             upnpShutdown
           ){
               (_, _, _) ⇒ ()
@@ -182,6 +187,19 @@ object FluenceNode extends slogging.LazyLogging {
       }
 
       node
+    }
+  }
+
+  implicit class ResourceCloser[F[_], T](origin: F[T])(implicit val ME: MonadError[F, Throwable]) {
+    /** Invoke ''closeFn'' and raise error if ''origin'' failed */
+    def onFail(closeFn: F[Unit]): F[T] = {
+      origin
+        .attempt
+        .flatMap {
+          case Left(err) ⇒
+            closeFn.flatMap(_ ⇒ ME.raiseError(err))
+          case Right(s) ⇒ ME.pure(s)
+        }
     }
   }
 
