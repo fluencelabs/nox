@@ -35,9 +35,8 @@ object NodeApp extends App with slogging.LazyLogging {
   FluenceNode.startNode()
     .attempt
     .flatMap {
-      case Left(t: Throwable) ⇒ IO.raiseError(t)
-      case Left(t)            ⇒ IO.raiseError(new RuntimeException(t))
-      case Right(_)           ⇒ Task.never.toIO
+      case Left(t)  ⇒ IO.raiseError(t)
+      case Right(_) ⇒ Task.never.toIO
     }
     .unsafeRunSync()
 }

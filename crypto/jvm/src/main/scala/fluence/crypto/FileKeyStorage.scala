@@ -29,15 +29,25 @@ import io.circe.syntax._
 
 import scala.language.higherKinds
 
-class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) {
+/**
+ * File based storage for crypto keys.
+ *
+ * @param file Path to keys in file system
+ */
+class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) extends slogging.LazyLogging {
   import KeyStore._
+
   def readKeyPair: F[KeyPair] = {
     val keyBytes = Files.readAllBytes(file.toPath)
     for {
       storageOp ← F.fromEither(decode[Option[KeyStore]](new String(keyBytes)))
       storage ← storageOp match {
-        case None     ⇒ F.raiseError[KeyStore](new RuntimeException("Cannot parse file with keys."))
-        case Some(ks) ⇒ F.pure(ks)
+        case None     ⇒
+          logger.warn(s"Read keys from file=$file was failed")
+          F.raiseError[KeyStore](new RuntimeException("Cannot parse file with keys."))
+        case Some(ks) ⇒
+          logger.info(s"Read keys from file=$file was success")
+          F.pure(ks)
       }
     } yield storage.keyPair
   }
@@ -57,7 +67,10 @@ class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) {
       for {
         newKeys ← f
         _ ← storeSecretKey(newKeys)
-      } yield newKeys
+      } yield {
+        logger.info(s"New keys was generated and saved to file=$file")
+        newKeys
+      }
     }
 }
 
