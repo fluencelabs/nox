@@ -24,13 +24,17 @@ lazy val `co-fail` = crossProject(JVMPlatform, JSPlatform)
     )
   )
 
-lazy val `co-fail-JVM` = `co-fail`.jvm
+lazy val `co-fail-jvm` = `co-fail`.jvm
 
-lazy val `co-fail-JS` = `co-fail`.js
+lazy val `co-fail-js` = `co-fail`.js
+  .settings(
+    fork in Test := false
+  )
 
 lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
+  .in(file("codec/core"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -39,36 +43,39 @@ lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
     )
   )
 
-lazy val `codec-core-JVM` = `codec-core`.jvm
+lazy val `codec-core-jvm` = `codec-core`.jvm
 
-lazy val `codec-core-JS` = `codec-core`.js
+lazy val `codec-core-js` = `codec-core`.js
+  .settings(
+    fork in Test := false
+  )
 
 lazy val `codec-kryo` = project.in(file("codec/kryo"))
-  .dependsOn(`codec-core-JVM`)
+  .dependsOn(`codec-core-jvm`)
 
 lazy val `kademlia-core` = project.in(file("kademlia/core"))
   .dependsOn(`kademlia-protocol`)
 
 lazy val `kademlia-protocol` = project.in(file("kademlia/protocol"))
-  .dependsOn(`codec-core-JVM`, `cryptoJVM`)
+  .dependsOn(`codec-core-jvm`, `crypto-jvm`)
 
 lazy val `kademlia-testkit` = project.in(file("kademlia/testkit"))
   .dependsOn(`kademlia-core`)
 
 lazy val `kademlia-grpc` = project.in(file("kademlia/grpc"))
-  .dependsOn(`transport-grpc`, `kademlia-protocol`, `codec-core-JVM`, `kademlia-testkit` % Test)
+  .dependsOn(`transport-grpc`, `kademlia-protocol`, `codec-core-jvm`, `kademlia-testkit` % Test)
 
 lazy val `kademlia-monix` = project.in(file("kademlia/monix"))
   .dependsOn(`kademlia-core`)
 
 lazy val `transport-grpc` = project.in(file("transport/grpc"))
-  .dependsOn(`transport-core`, `codec-core-JVM`)
+  .dependsOn(`transport-core`, `codec-core-jvm`)
 
 lazy val `transport-core` = project.in(file("transport/core"))
   .dependsOn(`kademlia-protocol`)
 
 lazy val `storage` = project.in(file("storage/core"))
-  .dependsOn(`codec-core-JVM`)
+  .dependsOn(`codec-core-jvm`)
 
 lazy val `storage-rocksdb` = project.in(file("storage/rocksdb"))
   .dependsOn(`storage`)
@@ -77,7 +84,7 @@ lazy val `b-tree-client` = project.in(file("b-tree/client"))
   .dependsOn(`b-tree-common`, `b-tree-protocol`)
 
 lazy val `b-tree-common` = project.in(file("b-tree/common"))
-  .dependsOn(`cryptoJVM`)
+  .dependsOn(`crypto-jvm`)
 
 lazy val `b-tree-protocol` = project.in(file("b-tree/protocol"))
   .dependsOn(`b-tree-common`)
@@ -101,20 +108,21 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
     )
   )
 
-lazy val `cryptoJVM` = `crypto`.jvm.settings(
+lazy val `crypto-jvm` = `crypto`.jvm.settings(
   libraryDependencies ++= Seq(
     //JVM-specific provider for cryptography
     bouncyCastle
   )
 )
 
-lazy val `cryptoJS` = `crypto`.js
+lazy val `crypto-js` = `crypto`.js
   .enablePlugins(ScalaJSBundlerPlugin)
   .settings(
     npmDependencies in Compile ++= Seq("elliptic" -> "6.4.0"),
     scalaJSModuleKind := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
-    skip in packageJSDependencies := false
+    skip in packageJSDependencies := false,
+    fork in Test := false
   )
 
 lazy val `client` = project.in(file("client"))
@@ -131,7 +139,7 @@ lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
   .dependsOn(`dataset-client`, `transport-grpc`)
 
 lazy val `dataset-client` = project.in(file("dataset/client"))
-  .dependsOn(`dataset-protocol`, `cryptoJVM`, `b-tree-client`, `kademlia-core`)
+  .dependsOn(`dataset-protocol`, `crypto-jvm`, `b-tree-client`, `kademlia-core`)
 
 lazy val `node` = project
   .dependsOn(`kademlia-grpc`, `kademlia-monix`, `dataset-node`, `dataset-grpc`, `client`)
