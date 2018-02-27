@@ -25,7 +25,7 @@ object SbtCommons {
     scalaV,
     scalariformPrefs,
     version := "0.1",
-    fork in test := true,
+    fork in Test := true,
     parallelExecution in Test := false,
     organizationName := "Fluence Labs Limited",
     organizationHomepage := Some(new URL("https://fluence.ai")),

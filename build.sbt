@@ -27,6 +27,9 @@ lazy val `co-fail` = crossProject(JVMPlatform, JSPlatform)
 lazy val `co-fail-JVM` = `co-fail`.jvm
 
 lazy val `co-fail-JS` = `co-fail`.js
+  .settings(
+    fork in Test := false
+  )
 
 lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -42,6 +45,9 @@ lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
 lazy val `codec-core-JVM` = `codec-core`.jvm
 
 lazy val `codec-core-JS` = `codec-core`.js
+  .settings(
+    fork in Test := false
+  )
 
 lazy val `codec-kryo` = project.in(file("codec/kryo"))
   .dependsOn(`codec-core-JVM`)
@@ -114,7 +120,8 @@ lazy val `cryptoJS` = `crypto`.js
     npmDependencies in Compile ++= Seq("elliptic" -> "6.4.0"),
     scalaJSModuleKind := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
-    skip in packageJSDependencies := false
+    skip in packageJSDependencies := false,
+    fork in Test := false
   )
 
 lazy val `client` = project.in(file("client"))
