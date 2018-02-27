@@ -47,7 +47,7 @@ object ClientApp extends App with slogging.LazyLogging {
     for {
       fluenceClient ← ClientComposer.buildClient(config, algo, hasher)
       keyPair ← ClientComposer.getKeyPair(config, algo)
-      handle = Cli.handleCmds(fluenceClient, keyPair, config)
+      handle = Cli.handleCmds(fluenceClient, keyPair, config, replicationN = 2)
       _ ← handle.flatMap{
         case true  ⇒ handle
         case false ⇒ IO.unit

@@ -45,7 +45,7 @@ object Cli extends slogging.LazyLogging {
     } yield (AesCrypt.forString(secretKey.value, withIV = false, aesConfig), AesCrypt.forString(secretKey.value, withIV = true, aesConfig))
   }
 
-  def restoreDataset(keyPair: KeyPair, fluenceClient: FluenceClient, config: Config): Task[ClientDatasetStorageApi[Task, String, String]] = {
+  def restoreDataset(keyPair: KeyPair, fluenceClient: FluenceClient, config: Config, replicationN: Int): Task[ClientDatasetStorageApi[Task, String, String]] = {
     for {
       crypts ← cryptoMethods[Task](keyPair.secretKey, config)
       (keyCrypt, valueCrypt) = crypts
@@ -54,15 +54,15 @@ object Cli extends slogging.LazyLogging {
         case Some(ds) ⇒ Task.pure(ds)
         case None ⇒
           logger.info("Contract not found, try to create new one.")
-          fluenceClient.createNewContract(keyPair, 2, keyCrypt, valueCrypt)
+          fluenceClient.createNewContract(keyPair, replicationN, keyCrypt, valueCrypt)
       }
     } yield ds
   }
 
-  def handleCmds(fluenceClient: FluenceClient, kp: KeyPair, config: Config): IO[Boolean] = {
+  def handleCmds(fluenceClient: FluenceClient, kp: KeyPair, config: Config, replicationN: Int): IO[Boolean] = {
 
     for {
-      ds ← restoreDataset(kp, fluenceClient, config).toIO
+      ds ← restoreDataset(kp, fluenceClient, config, replicationN).toIO
       commandOp ← readLine.map(CommandParser.parseCommand)
       res ← commandOp match {
         case Some(CliOp.Exit) ⇒ // That's what it actually returns
