@@ -35,7 +35,7 @@ object SbtCommons {
   )
 
   val Cats1V = "1.0.1"
-  val CatsEffectV = "0.8"
+  val CatsEffectV = "0.9"
   val ScodecBitsV = "1.1.5"
   val ScodecCoreV = "1.10.3"
   val RocksDbV = "5.9.2"
