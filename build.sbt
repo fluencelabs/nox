@@ -118,11 +118,16 @@ lazy val `crypto-jvm` = `crypto`.jvm.settings(
 lazy val `crypto-js` = `crypto`.js
   .enablePlugins(ScalaJSBundlerPlugin)
   .settings(
-    npmDependencies in Compile ++= Seq("elliptic" -> "6.4.0"),
+    npmDependencies in Compile ++= Seq(
+      "elliptic" -> "6.4.0",
+      "crypto-js" -> "3.1.9-1"
+    ),
     scalaJSModuleKind := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies := false,
-    fork in Test := false
+    fork in Test := false,
+    // This is an application with a main method
+    scalaJSUseMainModuleInitializer := true
   )
 
 lazy val `client` = project.in(file("client"))
