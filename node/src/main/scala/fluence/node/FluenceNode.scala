@@ -110,7 +110,6 @@ object FluenceNode extends slogging.LazyLogging {
   // todo write unit test, this method don't close resources correct when initialisation failed
   private def launchGrpc(algo: SignAlgo, hasher: CryptoHasher[Array[Byte], Array[Byte]], config: Config): IO[FluenceNode] = {
     import algo.checker
-    logger.info("Config: " + config)
     for {
       _ ← initDirectory(config.getString("fluence.directory"))
       kpConf ← KeyPairConfig.read(config)
