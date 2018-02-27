@@ -28,10 +28,14 @@ import scala.util.{ Random, Try }
 class EcdsaJSSpec extends WordSpec with Matchers {
 
   def rndBytes(size: Int) = Random.nextString(10).getBytes
+
   def rndByteVector(size: Int) = ByteVector(rndBytes(size))
 
-  private implicit class TryEitherTExtractor[A, B](et: EitherT[Try, A, B]) {
-    def extract: B = et.value.get.right.get
+  private implicit class TryEitherTExtractor[A <: Throwable, B](et: EitherT[Try, A, B]) {
+    def extract: B = et.value.map {
+      case Left(e)  ⇒ fail(e) // for making test fail message more describable
+      case Right(v) ⇒ v
+    }.get
 
     def isOk: Boolean = et.value.fold(_ ⇒ false, _.isRight)
   }

@@ -35,6 +35,7 @@ import monix.execution.ExecutionModel
 import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterEach, Matchers, WordSpec }
 
 import scala.concurrent.duration.{ FiniteDuration, _ }
@@ -43,6 +44,7 @@ import scala.reflect.io.Path
 import scala.util.{ Random, Try }
 
 class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterEach {
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
 
   case class User(name: String, age: Int)
 
