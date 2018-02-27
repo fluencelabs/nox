@@ -1,0 +1,10 @@
+version: '3'
+services:
+  fluence2:
+    image: "fluencelabs/node:d57bce5c005fcd43e3dd5b76d6366568c1e0c87a"
+    ports:
+    - "11052:11022"
+    environment:
+    - FLUENCE_PORT=11052
+    - FLUENCE_HOST=192.168.0.14
+    - FLUENCE_SEED=eyJwayI6IkEybnE2cTU5SFJ5ZHdFemN4Nk5jTklGTzB6dU53SXVMTnZhT2pEelhJQ1FOIiwicHYiOjB9.eyJpcCI6IjE5Mi4xNjguMC4xNCIsImdwIjoxMTA0MiwiZ2giOiJkNTdiY2U1YzAwNWZjZDQzZTNkZDViNzZkNjM2NjU2OGMxZTBjODdhIn0=.MEYCIQC04U-YvLA5-LZYYlTixMFowCD_gtz8vIiMk_7Q8DmOTQIhANNEqthV04lzYkYtF8ezoBP3U--0F1psYtoipt6fKcWY

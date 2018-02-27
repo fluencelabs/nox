@@ -18,7 +18,7 @@
 package fluence.crypto
 
 import java.io.File
-import java.nio.file.Files
+import java.nio.file.{ Files, Paths }
 
 import cats.MonadError
 import cats.syntax.flatMap._
@@ -30,6 +30,7 @@ import io.circe.syntax._
 import scala.language.higherKinds
 
 /**
+ * TODO use cats IO
  * File based storage for crypto keys.
  *
  * @param file Path to keys in file system
@@ -38,7 +39,7 @@ class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) ext
   import KeyStore._
 
   def readKeyPair: F[KeyPair] = {
-    val keyBytes = Files.readAllBytes(file.toPath)
+    val keyBytes = Files.readAllBytes(file.toPath) // TODO: it throws!
     for {
       storageOp ← F.fromEither(decode[Option[KeyStore]](new String(keyBytes)))
       storage ← storageOp match {
@@ -54,6 +55,11 @@ class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) ext
 
   def storeSecretKey(key: KeyPair): F[Unit] =
     F.catchNonFatal {
+      logger.info("Storing secret key to file: " + file)
+      if (!file.getParentFile.exists()) {
+        logger.info(s"Parent directory does not exist: ${file.getParentFile}, trying to create")
+        Files.createDirectories(file.getParentFile.toPath)
+      }
       if (!file.exists()) file.createNewFile() else throw new RuntimeException(file.getAbsolutePath + " already exists")
       val str = KeyStore(key).asJson.toString()
 
@@ -68,7 +74,7 @@ class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) ext
         newKeys ← f
         _ ← storeSecretKey(newKeys)
       } yield {
-        logger.info(s"New keys was generated and saved to file=$file")
+        logger.info(s"New keys were generated and saved to file=$file")
         newKeys
       }
     }

@@ -17,14 +17,13 @@
 
 package fluence.client
 
-import cats.{Applicative, Apply}
+import cats.Apply
 import cats.effect.IO
-import cats.syntax.apply._
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{ Config, ConfigFactory }
 import fluence.client.cli.Cli
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher}
+import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import monix.execution.Scheduler.Implicits.global
 import slogging.MessageFormatter.PrefixFormatter
 import slogging._

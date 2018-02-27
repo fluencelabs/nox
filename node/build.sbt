@@ -18,8 +18,8 @@ packageName in Docker := "fluencelabs/node"
 
 dockerCommands ++= Seq(
   Cmd("ENV", "FLUENCE_GIT_HASH", sys.process.Process("git rev-parse HEAD").lineStream_!.head),
-  Cmd("ENV", "FLUENCE_DATA_DIR", "/var/fluence"),
-  Cmd("ENV", "FLUENCE_KEYS_DIR", "/etc/fluence/keys"),
+  Cmd("ENV", "FLUENCE_DIR", "/var/fluence"),
+  Cmd("ENV", "FLUENCE_KEYS_PATH", "/etc/fluence/keys"),
   Cmd("ENV", "FLUENCE_PORT", "11022")
 )
 
