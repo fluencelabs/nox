@@ -17,12 +17,14 @@
 
 package fluence.client
 
+import cats.{Applicative, Apply}
 import cats.effect.IO
-import com.typesafe.config.{ Config, ConfigFactory }
+import cats.syntax.apply._
+import com.typesafe.config.{Config, ConfigFactory}
 import fluence.client.cli.Cli
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
+import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher}
 import monix.execution.Scheduler.Implicits.global
 import slogging.MessageFormatter.PrefixFormatter
 import slogging._
@@ -43,16 +45,26 @@ object ClientApp extends App with slogging.LazyLogging {
   val config: Config = ConfigFactory.load()
 
   // Run Command Line Interface
-  (
-    for {
-      fluenceClient ← ClientComposer.buildClient(config, algo, hasher)
-      keyPair ← ClientComposer.getKeyPair(config, algo)
-      handle = Cli.handleCmds(fluenceClient, keyPair, config, replicationN = 2)
-      _ ← handle.flatMap{
-        case true  ⇒ handle
-        case false ⇒ IO.unit
-      }
-    } yield ()
-  ).unsafeRunSync()
+  Apply[IO].map2(
+    ClientComposer.buildClient(config, algo, hasher),
+    ClientComposer.getKeyPair(config, algo)
+  ){
+      (fluenceClient, keyPair) ⇒
+        Cli.restoreDataset(keyPair, fluenceClient, config, replicationN = 2).toIO
+    }.flatMap(identity).flatMap {
+      ds ⇒
+        lazy val handle: IO[Unit] =
+          Cli.handleCmds(ds, config)
+            .attempt
+            .flatMap{
+              case Right(true)  ⇒ handle
+              case Right(false) ⇒ IO.unit
+              case Left(t) ⇒
+                logger.error("Error while handling a command", t)
+                handle
+            }
+        handle
+    }
+    .unsafeRunSync()
 
 }

@@ -59,10 +59,8 @@ object Cli extends slogging.LazyLogging {
     } yield ds
   }
 
-  def handleCmds(fluenceClient: FluenceClient, kp: KeyPair, config: Config, replicationN: Int): IO[Boolean] = {
-
+  def handleCmds(ds: ClientDatasetStorageApi[Task, String, String], config: Config): IO[Boolean] =
     for {
-      ds ← restoreDataset(kp, fluenceClient, config, replicationN).toIO
       commandOp ← readLine.map(CommandParser.parseCommand)
       res ← commandOp match {
         case Some(CliOp.Exit) ⇒ // That's what it actually returns
@@ -96,6 +94,5 @@ object Cli extends slogging.LazyLogging {
           }
       }
     } yield res
-  }
 
 }

@@ -59,7 +59,7 @@ class DatasetStorageServer[F[_] : Async](
     scheduler: Scheduler
 ) extends DatasetStorageRpcGrpc.DatasetStorageRpc with slogging.LazyLogging {
   import DatasetStorageServer._
-  
+
   /**
    * Convert function: {{{ EitherT[Task, E, V] => F[V] }}}.
    * It's temporary decision, it will be removed when EitherT[F, E, V] was everywhere.
@@ -296,7 +296,7 @@ class DatasetStorageServer[F[_] : Async](
         }, putValue)
       } yield {
         logger.info(s"Was stored new value=${putValue.show} for client 'put' request for dataset=${did.show}," +
-                      s" old value=${oldValue.show} was overwritten")
+          s" old value=${oldValue.show} was overwritten")
         oldValue
       }
 

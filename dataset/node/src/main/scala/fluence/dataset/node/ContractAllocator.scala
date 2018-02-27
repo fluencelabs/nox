@@ -50,10 +50,10 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
     checkAllocationPossible: C ⇒ F[Unit],
     signer: Signer
 )(
-  implicit
-  ME: MonadError[F, Throwable],
-  eq: Eq[C],
-  checker: SignatureChecker
+    implicit
+    ME: MonadError[F, Throwable],
+    eq: Eq[C],
+    checker: SignatureChecker
 ) extends ContractAllocatorRpc[F, C] with slogging.LazyLogging {
 
   import ContractRead._
