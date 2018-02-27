@@ -1,24 +1,26 @@
 version: '3'
 services:
   fluence1:
-    image: "fluencelabs/node:d57bce5c005fcd43e3dd5b76d6366568c1e0c87a"
+    image: "fluencelabs/node:7632a5f9da2a47ad5ddef8ce9fa56a87519c6419"
     ports:
-      - 11042:11022
+      - 11042:11042
     environment:
       - FLUENCE_PORT=11042
-      - FLUENCE_HOST=192.168.0.14
-      - FLUENCE_SEED=eyJwayI6IkF3a2U1TmcyLUpQd1NHVEw2MTlIcURuQXROMVZ4YVM2bnlNV3NKMml2bkVnIiwicHYiOjB9.eyJpcCI6IjE5Mi4xNjguMC4xNCIsImdwIjoxMTA1MiwiZ2giOiJkNTdiY2U1YzAwNWZjZDQzZTNkZDViNzZkNjM2NjU2OGMxZTBjODdhIn0=.MEUCIQC7W86ZmVGK-1jwSDDY5c4EACYqIRwIez7JZf53N0X16AIgW-Gs2zFtZoVs5tIpmrAGIWkLbTx0MWYQBzxNm0ES06Y=
+      - FLUENCE_GRPC_PORT=11042
+      - FLUENCE_HOST=192.168.1.57
+      - FLUENCE_SEED=eyJwayI6IkFxN25KY1BCZkdDM3lvU1Y4OC1HX1JKM2Fsdm1qWWFHUXdfQlRISnhXWWl5IiwicHYiOjB9.eyJpcCI6IjE5Mi4xNjguMS41NyIsImdwIjoxMTAyMiwiZ2giOiI3NjMyYTVmOWRhMmE0N2FkNWRkZWY4Y2U5ZmE1NmE4NzUxOWM2NDE5In0=.MEYCIQD_vqLgeirKF3rWXP-BLpHmkMhWlTxXIKYFe_gmAu28TQIhAMqQBAcpExdF_WrDZoIpDk9hQC6-h1KG_7U4asTHBvfV
     volumes:
       - fluence-var-1:/var/fluence
       - fluence-etc-1:/etc/fluence
 
   fluence2:
-    image: "fluencelabs/node:d57bce5c005fcd43e3dd5b76d6366568c1e0c87a"
+    image: "fluencelabs/node:7632a5f9da2a47ad5ddef8ce9fa56a87519c6419"
     ports:
-      - 11052:11022
+      - 11022:11022
     environment:
-      - FLUENCE_PORT=11052
-      - FLUENCE_HOST=192.168.0.14
+      - FLUENCE_PORT=11022
+      - FLUENCE_GRPC_PORT=11022
+      - FLUENCE_HOST=192.168.1.57
 #      - FLUENCE_SEED=eyJwayI6IkE5UnMzck8xX040RXQ5MTVtcE9BajhXYUhGLTRfRFFtZUJPRGtmU2VsZW9pIiwicHYiOjB9.eyJpcCI6IjE5Mi4xNjguMC4xNCIsImdwIjoxMTA0MiwiZ2giOiJkNTdiY2U1YzAwNWZjZDQzZTNkZDViNzZkNjM2NjU2OGMxZTBjODdhIn0=.MEUCIQCKJHWfi3UlO0eALt0S9jgJVJiaegxUNseC0T9VmzZrlwIgQYMgPLnmw7n0crUJAE7YR2y5d0CjKmWuQVOlFlX51lc=
     volumes:
       - fluence-var-2:/var/fluence
