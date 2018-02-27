@@ -43,10 +43,10 @@ class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) ext
       storageOp ← F.fromEither(decode[Option[KeyStore]](new String(keyBytes)))
       storage ← storageOp match {
         case None     ⇒
-          logger.warn(s"Read keys from file=$file was failed")
+          logger.warn(s"Reading keys from file=$file was failed")
           F.raiseError[KeyStore](new RuntimeException("Cannot parse file with keys."))
         case Some(ks) ⇒
-          logger.info(s"Read keys from file=$file was success")
+          logger.info(s"Reading keys from file=$file was success")
           F.pure(ks)
       }
     } yield storage.keyPair

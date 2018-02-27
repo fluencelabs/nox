@@ -164,12 +164,12 @@ class DatasetStorageServer[F[_] : Async](
           // if all is ok server should close the stream (is done in ObserverGrpcOps.completeWith) and send value to client
           Async[F].pure(GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
         case Left(clientError: ClientError) ⇒
-          logger.warn(s"Client reply with an error=$clientError")
+          logger.warn(s"Client replied with an error=$clientError")
           // when server recieve client error, server shouln't close the stream (is done in ObserverGrpcOps.completeWith) and lift up client error
           Async[F].raiseError[GetCallback](clientError)
         case Left(exception) ⇒
           // when server error appears, server should log it and send to client
-          logger.warn(s"Server throws an exception=$exception and sends cause to client")
+          logger.warn(s"Server threw an exception=$exception and sends cause to client")
           F.pure(GetCallback(GetCallback.Callback.ServerError(Error(exception.getMessage))))
       }
     )
