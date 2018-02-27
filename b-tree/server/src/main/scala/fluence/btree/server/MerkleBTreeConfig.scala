@@ -19,19 +19,22 @@ package fluence.btree.server
 
 import cats.ApplicativeError
 import com.typesafe.config.Config
+import fluence.btree.server.MerkleBTreeConfig.Assertions
 
 import scala.language.higherKinds
 
 /**
  * Configuration for [[MerkleBTree]]
  *
- * @param arity  Maximum size of node (max number of tree node keys)
- * @param alpha  Minimum capacity factor of node. Should be between 0 and 0.5.
- *               0.25 means that each node except root should always contains between 25% and 100% children.
+ * @param arity       Maximum size of node (max number of tree node keys)
+ * @param alpha       Minimum capacity factor of node. Should be between 0 and 0.5.
+ *                      0.25 means that each node except root should always contains between 25% and 100% children.
+ * @param assertions Configuration of 'assertions' for checking inner state btree invariants.
  */
 case class MerkleBTreeConfig(
     arity: Int = 8,
-    alpha: Double = 0.25D
+    alpha: Double = 0.25D,
+    assertions: Assertions = Assertions(isKeyOrderRequired = false)
 ) {
   require(arity % 2 == 0, "arity should be even")
   require(0 < alpha && alpha < 0.5, "alpha should be between 0 and 0.5")
@@ -47,5 +50,10 @@ object MerkleBTreeConfig {
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
       conf.as[MerkleBTreeConfig](configPath)
     }
+
+  /** Configuration of 'assertions' for checking inner state btree invariants. */
+  case class Assertions(
+      isKeyOrderRequired: Boolean
+  )
 
 }
