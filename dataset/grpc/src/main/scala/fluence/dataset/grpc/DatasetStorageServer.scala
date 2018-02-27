@@ -22,7 +22,8 @@ import cats.effect.Async
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ Monad, ~> }
+import cats.syntax.show._
+import cats.{ Monad, Show, ~> }
 import com.google.protobuf.ByteString
 import fluence.btree.common.{ ClientPutDetails, Hash, Key }
 import fluence.btree.protocol.BTreeRpc
@@ -34,6 +35,8 @@ import io.grpc.stub.StreamObserver
 import monix.eval.Task
 import monix.execution.{ Ack, Scheduler }
 import monix.reactive.Observer
+import scodec.bits.{ Bases, ByteVector }
+import scodec.bits.Bases.Alphabets
 
 import scala.collection.Searching
 import scala.language.higherKinds
@@ -55,7 +58,8 @@ class DatasetStorageServer[F[_] : Async](
     runF: F ~> Task,
     scheduler: Scheduler
 ) extends DatasetStorageRpcGrpc.DatasetStorageRpc with slogging.LazyLogging {
-
+  import DatasetStorageServer._
+  
   /**
    * Convert function: {{{ EitherT[Task, E, V] => F[V] }}}.
    * It's temporary decision, it will be removed when EitherT[F, E, V] was everywhere.
@@ -148,7 +152,10 @@ class DatasetStorageServer[F[_] : Async](
               } yield nci.index
             )
         })
-      } yield foundValue
+      } yield {
+        logger.info(s"Was found value=${foundValue.show} for client 'get' request for dataset=${did.show}")
+        foundValue
+      }
 
     // Launch service call, push the value once it's received
     resp completeWith runF(
@@ -157,6 +164,7 @@ class DatasetStorageServer[F[_] : Async](
           // if all is ok server should close the stream (is done in ObserverGrpcOps.completeWith) and send value to client
           Async[F].pure(GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
         case Left(clientError: ClientError) ⇒
+          logger.warn(s"Client reply with an error=$clientError")
           // when server recieve client error, server shouln't close the stream (is done in ObserverGrpcOps.completeWith) and lift up client error
           Async[F].raiseError[GetCallback](clientError)
         case Left(exception) ⇒
@@ -286,7 +294,11 @@ class DatasetStorageServer[F[_] : Async](
               } yield ()
             )
         }, putValue)
-      } yield oldValue
+      } yield {
+        logger.info(s"Was stored new value=${putValue.show} for client 'put' request for dataset=${did.show}," +
+                      s" old value=${oldValue.show} was overwritten")
+        oldValue
+      }
 
     // Launch service call, push the value once it's received
     resp completeWith runF(
@@ -310,9 +322,17 @@ class DatasetStorageServer[F[_] : Async](
 
 object DatasetStorageServer {
 
+  private val alphabet = Bases.Alphabets.Base64Url
+
   /**  Error from client side. */
   case class ClientError(msg: String) extends NoStackTrace {
     override def getMessage: String = msg
+  }
+
+  private implicit val showBytes: Show[Array[Byte]] = (b: Array[Byte]) ⇒ ByteVector(b).toBase64(alphabet)
+
+  private implicit def showOption[T](implicit showT: Show[T]): Show[Option[T]] = {
+    (o: Option[T]) ⇒ o.map(showT.show).toString
   }
 
 }
