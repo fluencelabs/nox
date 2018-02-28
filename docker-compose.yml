@@ -25,8 +25,17 @@ services:
       - fluence-var-3:/var/fluence
       - fluence-etc-3:/etc/fluence
 
+  client:
+    image: "fluencelabs/client:bbf6636813bad12e85d65ab844378f00558df3a9"
+    environment:
+      - FLUENCE_SEED=eyJwayI6IkE5UnMzck8xX040RXQ5MTVtcE9BajhXYUhGLTRfRFFtZUJPRGtmU2VsZW9pIiwicHYiOjB9.eyJpcCI6IjEwLjExMS4xOS4xMzgiLCJncCI6MTEwMzIsImdoIjoiNTgwMmI0OGEwYWJkNzZlMjYxMjNhODc0MTNhYTZiZDRmODRhMDZkOSJ9.MEYCIQDuirNZsIVGjoNxI3wMzwxCMLVw9tBrMDZjLuv_yc4TnQIhAPMUjsrqmP2HdJCO1DLGpADnEtdcFXWVHfROUg3FZRze
+    volumes:
+      - fluence-etc-client:/etc/fluence
+
+
 volumes:
   fluence-var-1:
   fluence-etc-1:
   fluence-var-3:
   fluence-etc-3:
+  fluence-etc-client:
