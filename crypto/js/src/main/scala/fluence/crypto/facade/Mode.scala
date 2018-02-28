@@ -5,7 +5,6 @@ import scala.scalajs.js.annotation.JSGlobal
 
 @js.native
 @JSGlobal
-class Pad extends js.Object {
-
-  val Pkcs7: js.Any = js.native
+class Mode extends js.Object {
+  val CBC: js.Any = js.native
 }

@@ -5,7 +5,6 @@ import scala.scalajs.js.annotation.JSGlobal
 
 @js.native
 @JSGlobal
-class Pad extends js.Object {
-
-  val Pkcs7: js.Any = js.native
+class Hex extends js.Object {
+  def parse(str: String): js.Any = js.native
 }

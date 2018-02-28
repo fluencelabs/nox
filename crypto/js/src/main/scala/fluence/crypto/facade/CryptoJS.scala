@@ -1,12 +1,20 @@
 package fluence.crypto.facade
 
 import scala.scalajs.js
-import scala.scalajs.js.annotation.{JSGlobal, JSImport}
+import scala.scalajs.js.annotation.{ JSGlobal, JSImport }
 
 @js.native
-@JSGlobal("")
+@JSImport("crypto-js", JSImport.Namespace)
 object CryptoJS extends js.Object {
 
-  val pad: Pad = js.native
+  def pad: Pad = js.native
+  def mode: Mode = js.native
+  def AES: AES = js.native
+
+  def PBKDF2(pass: String, sale: String, options: js.Dynamic): Key = js.native
+
+  def lib: Lib = js.native
+
+  def enc: Enc = js.native
 
 }

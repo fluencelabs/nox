@@ -5,7 +5,7 @@ import scala.scalajs.js.annotation.JSGlobal
 
 @js.native
 @JSGlobal
-class Pad extends js.Object {
+class WordArray extends js.Object {
 
-  val Pkcs7: js.Any = js.native
+  def random(size: Int): js.Any = js.native
 }
