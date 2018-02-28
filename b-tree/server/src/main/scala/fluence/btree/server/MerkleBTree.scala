@@ -537,7 +537,7 @@ class MerkleBTree private[server] (
    */
   private def assertKeyIanAscOrder(node: Node): Boolean = {
     val lt: (Key, Key) ⇒ Boolean = (x, y) ⇒ ByteBuffer.wrap(x).compareTo(ByteBuffer.wrap(y)) < 0
-    conf.assertions.isKeyOrderRequired || node.keys.sliding(2).forall {
+    conf.assertions.isKeyOrderRequired && node.keys.sliding(2).forall {
       case Array(prev, next) ⇒ lt(prev, next)
       case _                 ⇒ true
     }
