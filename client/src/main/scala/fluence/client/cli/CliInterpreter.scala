@@ -22,6 +22,7 @@ import cats.~>
 import org.jline.reader.LineReaderBuilder
 import org.jline.terminal.TerminalBuilder
 
+// TODO: either implement or remove
 class CliInterpreter() extends (CliOp ~> IO) {
 
   //for terminal improvements: history, navigation

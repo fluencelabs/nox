@@ -23,6 +23,7 @@ import fluence.crypto.KeyStore
 import scopt.Read.reads
 import scopt.{ OptionParser, Read }
 
+// TODO: actually it isn't used
 object ArgsParser {
   case class CommandLineConfig(config: Option[File] = None, seed: Seq[String] = Seq.empty, keyStore: Option[KeyStore] = None)
 

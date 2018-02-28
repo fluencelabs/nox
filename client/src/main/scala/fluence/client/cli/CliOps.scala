@@ -23,6 +23,7 @@ import cats.free.Free
 
 import scala.language.higherKinds
 
+// TODO: it's actually not used, should either implement or remove
 class CliOps[F[_]](implicit I: InjectK[CliOp, F]) {
 
   def exit: Free[F, Unit] = inject[CliOp, F](CliOp.Exit)

@@ -17,6 +17,7 @@
 
 package fluence.client.cli
 
+// TODO: either implement or remove
 sealed trait CliOp[A]
 
 object CliOp {
