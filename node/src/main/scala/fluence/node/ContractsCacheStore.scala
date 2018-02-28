@@ -59,8 +59,8 @@ object ContractsCacheStore {
     val optStrVecC = Codec.codec[F, Option[ByteVector], Option[ByteString]]
 
     Codec(
-      bcc ⇒ {
-        val bc = bcc.contract
+      contractRec ⇒ {
+        val bc = contractRec.contract
         for {
           idBs ← keyC.encode(bc.id)
 
@@ -97,21 +97,22 @@ object ContractsCacheStore {
           merkleRoot = merkleRootBs,
           executionSeal = executionSealBs.getOrElse(ByteString.EMPTY),
 
-          lastUpdated = bcc.lastUpdated.getEpochSecond
+          lastUpdated = contractRec.lastUpdated.toEpochMilli
         )
       },
 
-      g ⇒ {
+      basicContractCache ⇒ {
         def read[T](name: String, f: BasicContractCache ⇒ T): F[T] =
-          Option(f(g)).fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
+          Option(f(basicContractCache))
+            .fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
 
         def readParticipantsSeal: F[Option[ByteVector]] =
-          Option(g.participantsSeal)
+          Option(basicContractCache.participantsSeal)
             .filter(_.size() > 0)
             .fold(F.pure(Option.empty[ByteVector]))(sl ⇒ strVec.decode(sl).map(Option(_)))
 
         for {
-          pk ← pubKeyC.decode(g.publicKey)
+          pk ← pubKeyC.decode(basicContractCache.publicKey)
 
           idb ← read("id", _.id)
           id ← keyC.decode(idb)
@@ -121,7 +122,7 @@ object ContractsCacheStore {
           offerSealBS ← read("offerSeal", _.offerSeal)
           offerSealVec ← strVec.decode(offerSealBS)
 
-          participants ← Traverse[List].traverse(g.participants.toList) { p ⇒
+          participants ← Traverse[List].traverse(basicContractCache.participants.toList) { p ⇒
             for {
               k ← keyC.decode(p.id)
               kp ← pubKeyC.decode(p.publicKey)
@@ -136,10 +137,11 @@ object ContractsCacheStore {
           merkleRootBS ← read("merkleRoot", _.merkleRoot)
           merkleRoot ← strVec.decode(merkleRootBS)
 
-          execV ← optStrVecC.decode(Option(g.executionSeal))
+          execSeal ← optStrVecC.decode(toOption(basicContractCache.executionSeal))
 
           lastUpdated ← read("lastUpdated", _.lastUpdated)
         } yield ContractRecord(
+
           fluence.dataset.BasicContract(
             id = id,
 
@@ -158,14 +160,16 @@ object ContractsCacheStore {
               version = version,
               merkleRoot = merkleRoot
             ),
-            executionSeal = execV.map(Signature(pk, _))
+            executionSeal = execSeal.map(Signature(pk, _))
 
           ),
-          Instant.ofEpochSecond(lastUpdated)
+          Instant.ofEpochMilli(lastUpdated)
         )
       }
     )
   }
+
+  private def toOption[F[_]](byteStr: ByteString) = if (byteStr.isEmpty) None else Option(byteStr)
 
   /** Creates [[fluence.codec.Codec]] instance for {{{BasicContractCache}}} and {{{Array[Bytes]}}} */
   private def contractCache2Bytes[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, BasicContractCache, Array[Byte]] =
