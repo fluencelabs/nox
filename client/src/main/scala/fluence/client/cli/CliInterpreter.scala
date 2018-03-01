@@ -15,20 +15,34 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.client.cli
 
 import cats.effect.IO
-import com.typesafe.config.Config
+import cats.~>
+import org.jline.reader.LineReaderBuilder
+import org.jline.terminal.TerminalBuilder
 
-case class UPnPConf(grpc: Option[Int]) {
-  def isEnabled: Boolean = grpc.isDefined
-}
+// TODO: either implement or remove
+class CliInterpreter() extends (CliOp ~> IO) {
 
-object UPnPConf {
-  def read(conf: Config): IO[UPnPConf] =
-    IO {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[UPnPConf]("fluence.network.upnp")
-    }
+  //for terminal improvements: history, navigation
+  private val terminal = TerminalBuilder.terminal()
+  private val lineReader = LineReaderBuilder.builder().terminal(terminal).build()
+
+  import CliOp._
+
+  override def apply[A](fa: CliOp[A]): IO[A] = ???
+  //    fa match {
+  //    case Exit =>
+  //      println("Exit")
+  //      IO.unit
+  //
+  //    case Get(key) =>
+  //
+  //    case Put(key, value) =>
+  //
+  //    case ReadLine(prefix) =>
+  //
+  //    case PrintLines(lines) =>
+  //  }
 }

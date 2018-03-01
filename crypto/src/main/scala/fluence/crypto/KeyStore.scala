@@ -17,6 +17,10 @@
 
 package fluence.crypto
 
+import cats.Monad
+import cats.syntax.functor._
+import cats.syntax.flatMap._
+import cats.data.EitherT
 import fluence.crypto.keypair.KeyPair
 import io.circe.{ Decoder, Encoder, HCursor, Json }
 import scodec.bits.{ Bases, ByteVector }
@@ -63,16 +67,18 @@ object KeyStore {
         } yield KeyStore(KeyPair.fromByteVectors(public, secret))
       }
 
-  def fromBase64(base64: String): KeyStore = {
-    val jsonStr = ByteVector.fromBase64(base64, alphabet) match {
-      case Some(bv) ⇒ new String(bv.toArray)
-      case None ⇒
-        throw new IllegalArgumentException("'" + base64 + "' is not a valid base64.")
-    }
-    decode[Option[KeyStore]](jsonStr) match {
-      case Right(Some(ks)) ⇒ ks
-      case Right(None)     ⇒ throw new IllegalArgumentException("'" + base64 + "' is not a valid key store.")
-      case Left(err)       ⇒ throw new IllegalArgumentException("'" + base64 + "' is not a valid key store.", err)
-    }
-  }
+  def fromBase64[F[_] : Monad](base64: String): EitherT[F, IllegalArgumentException, KeyStore] =
+    for {
+      jsonStr ← ByteVector.fromBase64(base64, alphabet) match {
+        case Some(bv) ⇒ EitherT.pure[F, IllegalArgumentException](new String(bv.toArray))
+        case None ⇒ EitherT.leftT(
+          new IllegalArgumentException("'" + base64 + "' is not a valid base64.")
+        )
+      }
+      keyStore ← decode[Option[KeyStore]](jsonStr) match {
+        case Right(Some(ks)) ⇒ EitherT.pure[F, IllegalArgumentException](ks)
+        case Right(None)     ⇒ EitherT.leftT[F, KeyStore](new IllegalArgumentException("'" + base64 + "' is not a valid key store."))
+        case Left(err)       ⇒ EitherT.leftT[F, KeyStore](new IllegalArgumentException("'" + base64 + "' is not a valid key store.", err))
+      }
+    } yield keyStore
 }

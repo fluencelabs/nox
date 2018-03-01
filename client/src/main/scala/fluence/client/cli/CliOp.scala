@@ -15,9 +15,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.client.cli
 
-sealed trait Operation
-case class Put(key: String, value: String) extends Operation
-case class Get(key: String) extends Operation
-case object Exit extends Operation
+// TODO: either implement or remove
+sealed trait CliOp[A]
+
+object CliOp {
+
+  case object Exit extends CliOp[Unit]
+
+  case class Put(key: String, value: String) extends CliOp[Unit]
+
+  case class Get(key: String) extends CliOp[Unit]
+
+  case class ReadLine(prefix: String) extends CliOp[String]
+
+  case class PrintLines(lines: Seq[String]) extends CliOp[Unit]
+
+}

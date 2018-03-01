@@ -15,25 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.node.config
 
-import cats.Monad
-import cats.data.EitherT
-import fluence.crypto.SignAlgo
-import fluence.crypto.algorithm.CryptoErr
-import fluence.crypto.keypair.KeyPair
+import cats.effect.IO
+import com.typesafe.config.Config
 
-import scala.language.higherKinds
+case class UPnPConf(grpc: Option[Int]) {
+  def isEnabled: Boolean = grpc.isDefined
+}
 
-/**
- * A class that is an authorized user who can use datasets
- * @param keyPair A pair of keys with a public key that will be used as an address for dataset ids and contracts
- */
-case class AuthorizedClient(keyPair: KeyPair)
-
-object AuthorizedClient {
-
-  def generateNew[F[_] : Monad](signAlgo: SignAlgo): EitherT[F, CryptoErr, AuthorizedClient] = {
-    signAlgo.generateKeyPair[F]().map(kp ⇒ AuthorizedClient(kp))
-  }
+object UPnPConf {
+  def read(conf: Config): IO[UPnPConf] =
+    IO {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      conf.as[UPnPConf]("fluence.network.upnp")
+    }
 }

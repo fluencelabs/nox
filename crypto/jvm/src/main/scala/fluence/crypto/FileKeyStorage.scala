@@ -18,7 +18,7 @@
 package fluence.crypto
 
 import java.io.File
-import java.nio.file.Files
+import java.nio.file.{ Files, Paths }
 
 import cats.MonadError
 import cats.syntax.flatMap._
@@ -29,21 +29,37 @@ import io.circe.syntax._
 
 import scala.language.higherKinds
 
-class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) {
+/**
+ * TODO use cats IO
+ * File based storage for crypto keys.
+ *
+ * @param file Path to keys in file system
+ */
+class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) extends slogging.LazyLogging {
   import KeyStore._
+
   def readKeyPair: F[KeyPair] = {
-    val keyBytes = Files.readAllBytes(file.toPath)
+    val keyBytes = Files.readAllBytes(file.toPath) // TODO: it throws!
     for {
       storageOp ← F.fromEither(decode[Option[KeyStore]](new String(keyBytes)))
       storage ← storageOp match {
-        case None     ⇒ F.raiseError[KeyStore](new RuntimeException("Cannot parse file with keys."))
-        case Some(ks) ⇒ F.pure(ks)
+        case None ⇒
+          logger.warn(s"Reading keys from file=$file was failed")
+          F.raiseError[KeyStore](new RuntimeException("Cannot parse file with keys."))
+        case Some(ks) ⇒
+          logger.info(s"Reading keys from file=$file was success")
+          F.pure(ks)
       }
     } yield storage.keyPair
   }
 
   def storeSecretKey(key: KeyPair): F[Unit] =
     F.catchNonFatal {
+      logger.info("Storing secret key to file: " + file)
+      if (!file.getParentFile.exists()) {
+        logger.info(s"Parent directory does not exist: ${file.getParentFile}, trying to create")
+        Files.createDirectories(file.getParentFile.toPath)
+      }
       if (!file.exists()) file.createNewFile() else throw new RuntimeException(file.getAbsolutePath + " already exists")
       val str = KeyStore(key).asJson.toString()
 
@@ -57,6 +73,24 @@ class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) {
       for {
         newKeys ← f
         _ ← storeSecretKey(newKeys)
-      } yield newKeys
+      } yield {
+        logger.info(s"New keys were generated and saved to file=$file")
+        newKeys
+      }
     }
+}
+
+object FileKeyStorage {
+  /**
+   * Generates or loads keypair
+   *
+   * @param keyPath Path to store keys in
+   * @param algo Sign algo
+   * @return Keypair, either loaded or freshly generated
+   */
+  def getKeyPair[F[_]](keyPath: String, algo: SignAlgo)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
+    val keyFile = new File(keyPath)
+    val keyStorage = new FileKeyStorage[F](keyFile)
+    keyStorage.getOrCreateKeyPair(algo.generateKeyPair[F]().value.flatMap(F.fromEither))
+  }
 }

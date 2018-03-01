@@ -20,6 +20,7 @@ package fluence.dataset.node
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.eq._
+import cats.syntax.show._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ Eq, MonadError }
@@ -48,7 +49,12 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
     createDataset: C ⇒ F[Unit],
     checkAllocationPossible: C ⇒ F[Unit],
     signer: Signer
-)(implicit ME: MonadError[F, Throwable], eq: Eq[C], checker: SignatureChecker) extends ContractAllocatorRpc[F, C] {
+)(
+    implicit
+    ME: MonadError[F, Throwable],
+    eq: Eq[C],
+    checker: SignatureChecker
+) extends ContractAllocatorRpc[F, C] with slogging.LazyLogging {
 
   import ContractRead._
   import ContractWrite._
@@ -63,7 +69,7 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
     for {
       _ ← illegalIfNo(contract.participantSigned(nodeId), "Contract should be offered to this node and signed by it prior to allocation")
       _ ← illegalIfNo(contract.isActiveContract(), "Contract should be active -- sealed by client")
-      res ← storage.get(contract.id).attempt.map(_.toOption).flatMap {
+      contract ← storage.get(contract.id).attempt.map(_.toOption).flatMap {
         case Some(cr) ⇒
           cr.contract.isBlankOffer().flatMap {
             case false ⇒ cr.contract.pure[F]
@@ -72,10 +78,13 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
         case None ⇒
           putContract(contract)
       }
-    } yield res
+    } yield {
+      logger.info(s"Contract with id=${contract.id.show} was successfully allocated, this node (${nodeId.show}) is contract participant now")
+      contract
+    }
   }
 
-  private def putContract(contract: C) = {
+  private def putContract(contract: C): F[C] = {
     for {
       _ ← checkAllocationPossible(contract)
       _ ← storage.put(contract.id, ContractRecord(contract))
@@ -86,7 +95,7 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
     } yield contract
   }
 
-  private def illegalIfNo(condition: F[Boolean], errorMessage: ⇒ String) = {
+  private def illegalIfNo(condition: F[Boolean], errorMessage: ⇒ String): F[Boolean] = {
     ME.ensure(condition)(new IllegalArgumentException(errorMessage))(identity)
   }
 
@@ -101,7 +110,7 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
 
     for {
       _ ← illegalIfNo(contract.isBlankOffer(), "This is not a valid blank offer")
-      res ← {
+      contract ← {
         storage.get(contract.id).attempt.map(_.toOption).flatMap {
           case Some(cr) ⇒
             illegalIfNo(cr.contract.isBlankOffer(), "Different contract is already stored for this ID").flatMap { _ ⇒
@@ -126,7 +135,10 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
             } yield sContract
         }
       }
-    } yield res
+    } yield {
+      logger.info(s"Contract offer with id=${contract.id.show} was accepted with node=${nodeId.show}")
+      contract
+    }
   }
 
 }

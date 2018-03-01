@@ -82,7 +82,6 @@ object GrpcServer extends slogging.LazyLogging {
    *
    * @param onShutdown   Callback to be launched before server shut down
    * @param onStart      Callback to be launched before server starts
-   * @param localPort    Local port to bind server to
    * @param address      Most accessible address
    * @param port         Most accessible port
    * @param services     List of services to register with the server

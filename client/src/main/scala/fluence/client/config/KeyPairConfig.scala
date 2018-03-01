@@ -15,32 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.client.config
 
-import cats.Traverse
 import cats.effect.IO
-import cats.instances.list._
 import com.typesafe.config.Config
-import fluence.crypto.signature.SignatureChecker
-import fluence.kad.protocol.Contact
 
-case class SeedsConfig(
-    seeds: List[String]
-) {
-  def contacts(implicit checker: SignatureChecker): IO[List[Contact]] =
-    Traverse[List].traverse(seeds)(s ⇒
-      Contact.readB64seed[IO](s).value.flatMap(IO.fromEither)
-    )
-}
+case class KeyPairConfig(
+    keyPath: String
+)
 
-object SeedsConfig {
-  /**
-   * Reads seed nodes contacts from config
-   */
-  def read(conf: Config): IO[SeedsConfig] =
+object KeyPairConfig {
+  def read(config: Config): IO[KeyPairConfig] =
     IO {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[SeedsConfig]("fluence.network")
+      config.as[KeyPairConfig]("fluence.keys")
     }
 }

@@ -15,28 +15,26 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.client.cli
 
-import cats.effect.IO
-import monix.eval.Task
-import monix.execution.Scheduler.Implicits.global
-import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
+import cats.InjectK
+import cats.free.Free.inject
+import cats.free.Free
 
 import scala.language.higherKinds
 
-object NodeApp extends App with slogging.LazyLogging {
+// TODO: it's actually not used, should either implement or remove
+class CliOps[F[_]](implicit I: InjectK[CliOp, F]) {
 
-  // Simply log everything to stdout
-  LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.INFO
+  def exit: Free[F, Unit] = inject[CliOp, F](CliOp.Exit)
 
-  logger.info("Going to run Fluence Server...")
+  def get(key: String): Free[F, Unit] = inject[CliOp, F](CliOp.Get(key))
 
-  FluenceNode.startNode()
-    .attempt
-    .flatMap {
-      case Left(t)  ⇒ IO.raiseError(t)
-      case Right(_) ⇒ Task.never.toIO
-    }
-    .unsafeRunSync()
+  def put(key: String, value: String): Free[F, Unit] = inject[CliOp, F](CliOp.Put(key, value))
+
+  def readLine(prefix: String): Free[F, String] = inject[CliOp, F](CliOp.ReadLine(prefix))
+
+  def readPassword(prefix: String): Free[F, String] = inject[CliOp, F](CliOp.ReadLine(prefix))
+
+  def print(lines: String*): Free[F, Unit] = inject[CliOp, F](CliOp.PrintLines(lines))
 }

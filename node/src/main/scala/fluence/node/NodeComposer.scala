@@ -21,7 +21,7 @@ import java.time.Instant
 
 import cats.effect.IO
 import com.typesafe.config.Config
-import fluence.client.KademliaConfigParser
+import fluence.client.config.KademliaConfigParser
 import fluence.crypto.SignAlgo
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair

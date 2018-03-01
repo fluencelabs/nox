@@ -1,5 +1,7 @@
 package fluence.client
 
+import fluence.client.cli.{ CliOp, CommandParser }
+import CliOp._
 import org.scalatest.{ Matchers, WordSpec }
 
 class CommandParserSpec extends WordSpec with Matchers {

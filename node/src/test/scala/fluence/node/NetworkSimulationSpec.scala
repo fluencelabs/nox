@@ -88,7 +88,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       key,
       Task.pure(contact),
       kademliaClientRpc,
-      KademliaConf(8, 8, 3, 1.second),
+      KademliaConf(6, 6, 3, 1.second),
 
       TransportSecurity.canBeSaved[Task](key, acceptLocal = true))
 
@@ -106,7 +106,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
     def shutdown(): IO[Unit] = server.shutdown
   }
 
-  private val servers = (0 to 20).map { n ⇒
+  private val servers = (0 to 10).map { n ⇒
     val port = 3000 + n
     val kp = algo.generateKeyPair[Try]().value.get.right.get
     val k = Key.fromKeyPair[Try](kp).get
@@ -124,7 +124,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
       servers.foreach { s ⇒
         logger.debug(Console.BLUE + s"Join: ${s.nodeId}" + Console.RESET)
-        s.join(Seq(firstContact, secondContact), 8).runAsync.futureValue
+        s.join(Seq(firstContact, secondContact), 6).runAsync.futureValue
         logger.debug(Console.BLUE + "Joined" + Console.RESET)
       }
 

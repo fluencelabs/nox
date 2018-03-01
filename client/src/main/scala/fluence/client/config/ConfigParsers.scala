@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.client.config
 
 import cats.ApplicativeError
 import com.typesafe.config.Config
@@ -41,3 +41,4 @@ object AesConfigParser {
       config.as[Option[AesConfig]](path).getOrElse(default)
     }
 }
+
