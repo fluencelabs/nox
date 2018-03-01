@@ -8,4 +8,5 @@ import scala.scalajs.js.annotation.JSGlobal
 class WordArray extends js.Object {
 
   def random(size: Int): js.Any = js.native
+  def create(array: js.Any): js.Any = js.native
 }
