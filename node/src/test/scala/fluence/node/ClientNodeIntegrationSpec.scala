@@ -474,7 +474,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           config
             .withValue("fluence.grpc.server.port", ConfigValueFactory.fromAnyRef(port))
             .withValue("fluence.network.acceptLocal", ConfigValueFactory.fromAnyRef(true))
-            .withValue("fluence.contract.cacheDirName", ConfigValueFactory.fromAnyRef("node_cache_" + n))
+            .withValue(ContractsCacheConf.ConfigPath + "dirName", ConfigValueFactory.fromAnyRef("node_cache_" + n))
             .withValue("fluence.directory", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/testnode-" + n))
             //override for some value with no file for new key pair
             .withValue("fluence.keys.keyPath", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/testnode-kp-" + n))

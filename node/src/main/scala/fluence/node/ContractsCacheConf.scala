@@ -18,25 +18,17 @@
 package fluence.node
 
 import cats.effect.IO
-import monix.eval.Task
-import monix.execution.Scheduler.Implicits.global
-import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
+import com.typesafe.config.Config
 
-import scala.language.higherKinds
+case class ContractsCacheConf(dataDir: String)
 
-object NodeApp extends App with slogging.LazyLogging {
+object ContractsCacheConf {
+  val ConfigPath = "fluence.contract.cache"
 
-  // Simply log everything to stdout
-  LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.INFO
-
-  logger.info("Going to run Fluence Server...")
-
-  FluenceNode.startNode()
-    .attempt
-    .flatMap {
-      case Left(t)  ⇒ IO.raiseError(t)
-      case Right(_) ⇒ Task.never.toIO
+  def read(conf: Config, confPath: String = ConfigPath): IO[ContractsCacheConf] =
+    IO {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      conf.as[ContractsCacheConf](confPath)
     }
-    .unsafeRunSync()
 }

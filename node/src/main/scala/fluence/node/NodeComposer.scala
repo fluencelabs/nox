@@ -27,7 +27,6 @@ import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
 import fluence.dataset.BasicContract
-import fluence.dataset.node.contract.ContractRecord
 import fluence.dataset.node.storage.Datasets
 import fluence.dataset.node.{ ContractAllocator, ContractsCache }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
@@ -35,7 +34,6 @@ import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
 import fluence.kad.{ Kademlia, KademliaMVar }
 import fluence.storage.rocksdb.RocksDbStore
-import fluence.storage.{ KVStore, rocksdb }
 import fluence.transport.TransportSecurity
 import monix.eval.Task
 
@@ -59,7 +57,7 @@ object NodeComposer {
       k ← Key.fromKeyPair[IO](keyPair)
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
       rocksDbFactory = new RocksDbStore.Factory
-      contractCacheStore ← rocksDbFactory[IO](config.getString("fluence.contract.cacheDirName"), config)
+      contractsCacheStore ← ContractsCacheStore(config, dirName ⇒ rocksDbFactory[IO](dirName, config))
     } yield new NodeServices[Task, BasicContract, Contact] {
       override val key: Key = k
 
@@ -78,8 +76,6 @@ object NodeComposer {
         kadConf,
         TransportSecurity.canBeSaved[Task](k, acceptLocal = acceptLocal)
       )
-
-      val contractsCacheStore: KVStore[Task, Key, ContractRecord[BasicContract]] = ContractsCacheStore(contractCacheStore)
 
       override lazy val contractsCache: ContractsCacheRpc[Task, BasicContract] =
         new ContractsCache[Task, BasicContract](
