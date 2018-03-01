@@ -1,0 +1,41 @@
+version: '3'
+services:
+  fluence1:
+    image: "fluencelabs/node:5802b48a0abd76e26123a87413aa6bd4f84a06d9"
+    environment:
+      #this variable must be set via export global environment
+      - FLUENCE_PORT=11032
+      - FLUENCE_HOST=10.111.19.138
+#      - FLUENCE_SEED=eyJwayI6IkFxN25KY1BCZkdDM3lvU1Y4OC1HX1JKM2Fsdm1qWWFHUXdfQlRISnhXWWl5IiwicHYiOjB9.eyJpcCI6IjE5Mi4xNjguMS41NyIsImdwIjoxMTAyMiwiZ2giOiI3NjMyYTVmOWRhMmE0N2FkNWRkZWY4Y2U5ZmE1NmE4NzUxOWM2NDE5In0=.MEYCIQCbUEjK-XUZqspNtdVx5pSQ_V0Y90QK7rlgEbdWou8AXgIhAKlBwE3IVBbwVaPqFZECAbu1W6YpCU6uxrl4ylb-BwOx
+    ports:
+      - "11032:11022"
+    volumes:
+      - fluence-var-1:/var/fluence
+      - fluence-etc-1:/etc/fluence
+
+  fluence2:
+    image: "fluencelabs/node:5802b48a0abd76e26123a87413aa6bd4f84a06d9"
+    environment:
+      - FLUENCE_PORT=11042
+      - FLUENCE_HOST=10.111.19.138
+      - FLUENCE_SEED=eyJwayI6IkE5UnMzck8xX040RXQ5MTVtcE9BajhXYUhGLTRfRFFtZUJPRGtmU2VsZW9pIiwicHYiOjB9.eyJpcCI6IjEwLjExMS4xOS4xMzgiLCJncCI6MTEwMzIsImdoIjoiNTgwMmI0OGEwYWJkNzZlMjYxMjNhODc0MTNhYTZiZDRmODRhMDZkOSJ9.MEYCIQDuirNZsIVGjoNxI3wMzwxCMLVw9tBrMDZjLuv_yc4TnQIhAPMUjsrqmP2HdJCO1DLGpADnEtdcFXWVHfROUg3FZRze
+    ports:
+      - "11042:11022"
+    volumes:
+      - fluence-var-3:/var/fluence
+      - fluence-etc-3:/etc/fluence
+
+  client:
+    image: "fluencelabs/client:bbf6636813bad12e85d65ab844378f00558df3a9"
+    environment:
+      - FLUENCE_SEED=eyJwayI6IkE5UnMzck8xX040RXQ5MTVtcE9BajhXYUhGLTRfRFFtZUJPRGtmU2VsZW9pIiwicHYiOjB9.eyJpcCI6IjEwLjExMS4xOS4xMzgiLCJncCI6MTEwMzIsImdoIjoiNTgwMmI0OGEwYWJkNzZlMjYxMjNhODc0MTNhYTZiZDRmODRhMDZkOSJ9.MEYCIQDuirNZsIVGjoNxI3wMzwxCMLVw9tBrMDZjLuv_yc4TnQIhAPMUjsrqmP2HdJCO1DLGpADnEtdcFXWVHfROUg3FZRze
+    volumes:
+      - fluence-etc-client:/etc/fluence
+
+
+volumes:
+  fluence-var-1:
+  fluence-etc-1:
+  fluence-var-3:
+  fluence-etc-3:
+  fluence-etc-client:

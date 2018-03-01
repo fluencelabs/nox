@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.client.cli
 
 import java.io.File
 
@@ -23,16 +23,17 @@ import fluence.crypto.KeyStore
 import scopt.Read.reads
 import scopt.{ OptionParser, Read }
 
-case class CommandLineConfig(config: Option[File] = None, seed: Seq[String] = Seq.empty, keyStore: Option[KeyStore] = None)
-
+// TODO: actually it isn't used
 object ArgsParser {
+  case class CommandLineConfig(config: Option[File] = None, seed: Seq[String] = Seq.empty, keyStore: Option[KeyStore] = None)
+
   implicit val keyStoreRead: Read[KeyStore] = {
     reads { str ⇒
-      KeyStore.fromBase64(str)
+      KeyStore.fromBase64(str).value.toTry.get // TODO: this is impure
     }
   }
 
-  lazy val parser = new OptionParser[CommandLineConfig]("scopt") {
+  private lazy val parser = new OptionParser[CommandLineConfig]("fluenceClient") {
     head("Fluence client")
 
     opt[File]('c', "config").valueName("<file>")

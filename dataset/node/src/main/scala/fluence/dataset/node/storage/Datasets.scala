@@ -73,11 +73,14 @@ class Datasets(
       }.onErrorRecoverWith[DatasetNodeStorage] {
         case e ⇒
           //todo this block is temporary convenience, will be removed when grpc will be serialize errors
-          val errMsg = s"Can't get DatasetNodeStorage for datasetId=${key.show}"
+          val errMsg = s"Can't create DatasetNodeStorage for datasetId=${key.show}"
           logger.warn(errMsg, e)
           Task.raiseError(new IllegalStateException(errMsg, e))
       }
-    } yield ds
+    } yield {
+      logger.info(s"For dataset=${key.show} was successfully created storage.")
+      ds
+    }
 
     datasets.getOrElseUpdate(id, newDataset.memoizeOnSuccess)
   }

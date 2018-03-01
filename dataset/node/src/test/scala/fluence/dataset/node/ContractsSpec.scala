@@ -18,6 +18,7 @@
 package fluence.dataset.node
 
 import cats.instances.try_._
+import cats.implicits.catsStdShowForString
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer

@@ -15,28 +15,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.node.config
+
+import java.net.InetAddress
 
 import cats.effect.IO
-import monix.eval.Task
-import monix.execution.Scheduler.Implicits.global
-import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
+import com.typesafe.config.Config
+import net.ceedubs.ficus.readers.ValueReader
 
-import scala.language.higherKinds
+case class ContactConf(
+    host: Option[InetAddress],
+    grpcPort: Option[Int],
 
-object NodeApp extends App with slogging.LazyLogging {
+    gitHash: String,
+    protocolVersion: Long
+)
 
-  // Simply log everything to stdout
-  LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.INFO
-
-  logger.info("Going to run Fluence Server...")
-
-  FluenceNode.startNode()
-    .attempt
-    .flatMap {
-      case Left(t)  ⇒ IO.raiseError(t)
-      case Right(_) ⇒ Task.never.toIO
+object ContactConf {
+  def read(config: Config): IO[ContactConf] =
+    IO {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      implicit val inetAddressRead: ValueReader[InetAddress] =
+        (config: Config, path: String) ⇒
+          InetAddress.getByName(config.as[String](path))
+      config.as[ContactConf]("fluence.network.contact")
     }
-    .unsafeRunSync()
 }

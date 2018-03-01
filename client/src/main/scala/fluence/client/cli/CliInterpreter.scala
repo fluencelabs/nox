@@ -15,32 +15,34 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.client.cli
 
-import cats.Traverse
 import cats.effect.IO
-import cats.instances.list._
-import com.typesafe.config.Config
-import fluence.crypto.signature.SignatureChecker
-import fluence.kad.protocol.Contact
+import cats.~>
+import org.jline.reader.LineReaderBuilder
+import org.jline.terminal.TerminalBuilder
 
-case class SeedsConfig(
-    seeds: List[String]
-) {
-  def contacts(implicit checker: SignatureChecker): IO[List[Contact]] =
-    Traverse[List].traverse(seeds)(s ⇒
-      Contact.readB64seed[IO](s).value.flatMap(IO.fromEither)
-    )
-}
+// TODO: either implement or remove
+class CliInterpreter() extends (CliOp ~> IO) {
 
-object SeedsConfig {
-  /**
-   * Reads seed nodes contacts from config
-   */
-  def read(conf: Config): IO[SeedsConfig] =
-    IO {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[SeedsConfig]("fluence.network")
-    }
+  //for terminal improvements: history, navigation
+  private val terminal = TerminalBuilder.terminal()
+  private val lineReader = LineReaderBuilder.builder().terminal(terminal).build()
+
+  import CliOp._
+
+  override def apply[A](fa: CliOp[A]): IO[A] = ???
+  //    fa match {
+  //    case Exit =>
+  //      println("Exit")
+  //      IO.unit
+  //
+  //    case Get(key) =>
+  //
+  //    case Put(key, value) =>
+  //
+  //    case ReadLine(prefix) =>
+  //
+  //    case PrintLines(lines) =>
+  //  }
 }

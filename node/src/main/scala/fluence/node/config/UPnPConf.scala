@@ -15,29 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.node.config
 
-import cats.ApplicativeError
+import cats.effect.IO
 import com.typesafe.config.Config
-import fluence.crypto.algorithm.AesConfig
-import fluence.kad.KademliaConf
 
-import scala.language.higherKinds
-
-object KademliaConfigParser {
-  def readKademliaConfig[F[_]](config: Config, path: String = "fluence.kademlia")(implicit F: ApplicativeError[F, Throwable]): F[KademliaConf] =
-    F.catchNonFatal {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      config.as[KademliaConf](path)
-    }
+case class UPnPConf(grpc: Option[Int]) {
+  def isEnabled: Boolean = grpc.isDefined
 }
 
-object AesConfigParser {
-  def readAesConfigOrGetDefault[F[_]](config: Config, path: String = "fluence.cipher.aes", default: AesConfig = AesConfig())(implicit F: ApplicativeError[F, Throwable]): F[AesConfig] =
-    F.catchNonFatal {
+object UPnPConf {
+  def read(conf: Config): IO[UPnPConf] =
+    IO {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      config.as[Option[AesConfig]](path).getOrElse(default)
+      conf.as[UPnPConf]("fluence.network.upnp")
     }
 }

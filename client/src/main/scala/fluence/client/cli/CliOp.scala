@@ -15,20 +15,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.client.cli
 
-import cats.effect.IO
-import com.typesafe.config.Config
+// TODO: either implement or remove
+sealed trait CliOp[A]
 
-case class UPnPConf(grpc: Option[Int]) {
-  def isEnabled: Boolean = grpc.isDefined
-}
+object CliOp {
 
-object UPnPConf {
-  def read(conf: Config): IO[UPnPConf] =
-    IO {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[UPnPConf]("fluence.network.upnp")
-    }
+  case object Exit extends CliOp[Unit]
+
+  case class Put(key: String, value: String) extends CliOp[Unit]
+
+  case class Get(key: String) extends CliOp[Unit]
+
+  case class ReadLine(prefix: String) extends CliOp[String]
+
+  case class PrintLines(lines: Seq[String]) extends CliOp[Unit]
+
 }

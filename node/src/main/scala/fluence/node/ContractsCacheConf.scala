@@ -15,9 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.node
 
-sealed trait Operation
-case class Put(key: String, value: String) extends Operation
-case class Get(key: String) extends Operation
-case object Exit extends Operation
+import cats.effect.IO
+import com.typesafe.config.Config
+
+case class ContractsCacheConf(dataDir: String)
+
+object ContractsCacheConf {
+  val ConfigPath = "fluence.contract.cache"
+
+  def read(conf: Config, confPath: String = ConfigPath): IO[ContractsCacheConf] =
+    IO {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      conf.as[ContractsCacheConf](confPath)
+    }
+}

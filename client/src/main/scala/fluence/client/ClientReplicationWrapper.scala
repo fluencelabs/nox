@@ -53,7 +53,7 @@ class ClientReplicationWrapper[K, V](
       }
     }
 
-    getRec(datasetReplicas.toList)
+    getRec(datasetReplicas)
   }
 
   /**
@@ -64,13 +64,23 @@ class ClientReplicationWrapper[K, V](
    * @return returns old value if old value was overridden, None otherwise.
    */
   override def put(key: K, value: V): Task[Option[V]] = {
-    Task.sequence(
-      datasetReplicas
-        .map { case (store, _) ⇒ store.put(key, value) }
-    ).map { seq ⇒
-        logger.info(s"$key and $value was written to $replicationFactor nodes")
-        seq.head // at least one server should be here, we can't allocate contract without participants
-      }
+    for {
+      //check that all datasets is available, for demo purpose only
+      getRes ← Task.sequence(
+        datasetReplicas
+          .map { case (store, _) ⇒ store.get(key) }
+      )
+      _ ← if (getRes.size < datasetReplicas.size)
+        Task.raiseError(new Exception("Some of nodes not available"))
+      else Task(())
+      res ← Task.sequence(
+        datasetReplicas
+          .map { case (store, _) ⇒ store.put(key, value) }
+      )
+    } yield {
+      logger.info(s"$key and $value was written to $replicationFactor nodes")
+      res.head // at least one server should be here, we can't allocate contract without participants
+    }
   }
 
   /**

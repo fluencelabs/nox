@@ -54,21 +54,21 @@ class KeyStoreSpec extends WordSpec with Matchers {
     "throw an exception" when {
       "invalid base64 format" in {
         val invalidBase64 = "!@#$%"
-        the[IllegalArgumentException] thrownBy {
-          KeyStore.fromBase64(invalidBase64)
-        } should have message "'" + invalidBase64 + "' is not a valid base64."
+
+        val e = KeyStore.fromBase64(invalidBase64).value.left.get
+        e should have message "'" + invalidBase64 + "' is not a valid base64."
       }
       "invalid decoded json" in {
         val invalidJson = ByteVector("""{"keystore":{"public":"cHViS2V5"}}""".getBytes).toBase64(alphabet)
-        the[IllegalArgumentException] thrownBy {
-          KeyStore.fromBase64(invalidJson)
-        }
+
+        KeyStore.fromBase64(invalidJson).value.isLeft shouldBe true
+
       }
     }
 
     "fetch KeyStore from valid base64" in {
       val invalidJson = ByteVector(jsonString.getBytes).toBase64(alphabet)
-      val result = KeyStore.fromBase64(invalidJson)
+      val result = KeyStore.fromBase64(invalidJson).value.right.get
       result shouldBe keyStore
     }
   }
