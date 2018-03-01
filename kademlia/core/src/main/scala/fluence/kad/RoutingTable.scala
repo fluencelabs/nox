@@ -293,6 +293,7 @@ object RoutingTable {
       def iterate(collected: SortedSet[Node[C]], probed: Set[Key], data: Stream[SortedSet[Node[C]]]): F[Seq[Node[C]]] =
         if (data.isEmpty) collected.toSeq.pure[F]
         else {
+          logger.debug("Iterate over: " + collected.map(_.contact))
           val d #:: tail = data
           advance(d, probed).flatMap { updatedData ⇒
             if (!updatedData.hasNext) {
@@ -301,8 +302,6 @@ object RoutingTable {
           }
         }
 
-      val shortlistEmpty = SortedSet.empty[Node[C]]
-
       // Perform local lookup
       val closestSeq0 = nodeId.lookup(key)
       val closest = closestSeq0.take(parallelism)
@@ -310,7 +309,7 @@ object RoutingTable {
       // We perform lookup on `parallelism` disjoint paths
       // To ensure paths are disjoint, we keep the sole set of visited contacts
       // To synchronize the set, we iterate over `parallelism` distinct shortlists
-      iterate(shortlistEmpty ++ closest, Set.empty, closest.map(shortlistEmpty + _))
+      iterate(SortedSet(closest: _*), Set.empty, closest.map(SortedSet(_)))
     }.map(_.take(neighbors))
 
     /**

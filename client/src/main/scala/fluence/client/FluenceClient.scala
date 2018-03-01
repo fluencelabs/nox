@@ -41,7 +41,6 @@ import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import scodec.bits.ByteVector
 
-import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
 import scala.language.higherKinds
 
@@ -52,7 +51,7 @@ class FluenceClient(
     storageRpc: Contact ⇒ DatasetStorageRpc[Task],
     storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
     config: Config
-)(implicit ME: MonadError[Task, Throwable]) {
+)(implicit ME: MonadError[Task, Throwable]) extends slogging.LazyLogging {
 
   //use this when we will have multiple datasets on one authorized user
   /*def restoreContracts(pk: KeyPair.Public): Task[Map[Key, BasicContract]] = {
@@ -152,6 +151,7 @@ class FluenceClient(
       signer = signAlgo.signer(keyPair)
       offer ← BasicContract.offer(key, participantsRequired = participantsRequired, signer = signer)
       newContract ← contracts.allocate(offer, dc ⇒ dc.sealParticipants(signer))
+      _ = logger.debug("New allocated contract: " + newContract)
       nodes ← findContactsOfAllParticipants(newContract)
       datasets ← Task.sequence(
         nodes.map(contact ⇒
@@ -171,13 +171,13 @@ class FluenceClient(
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]]
   ): Task[Option[ClientReplicationWrapper[String, String]]] = {
-    val signer = signAlgo.signer(keyPair)
     for {
       key ← Key.fromKeyPair(keyPair)
       bcOp ← contracts.find(key).attempt.map(_.toOption)
       dataStorages ← bcOp match {
 
         case Some(basicContract) ⇒ //create storage from existed contract
+          logger.debug(s"Client found contract in kademlia net: $basicContract")
           for {
             nodes ← findContactsOfAllParticipants(basicContract)
             datasets ← Task.sequence(

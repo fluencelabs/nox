@@ -21,7 +21,8 @@ import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ Eq, MonadError, Parallel }
+import cats.syntax.show._
+import cats.{ Eq, MonadError, Parallel, Show }
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.contract.{ ContractRead, ContractWrite }
 import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
@@ -48,7 +49,7 @@ class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
     kademlia: Kademlia[F, Contact],
     cacheRpc: Contact ⇒ ContractsCacheRpc[F, Contract],
     allocatorRpc: Contact ⇒ ContractAllocatorRpc[F, Contract]
-)(implicit ME: MonadError[F, Throwable], eq: Eq[Contract], P: Parallel[F, F], checker: SignatureChecker) {
+)(implicit ME: MonadError[F, Throwable], eq: Eq[Contract], P: Parallel[F, F], checker: SignatureChecker, show: Show[Contact]) extends slogging.LazyLogging {
 
   import ContractRead._
   import ContractWrite._
@@ -74,6 +75,7 @@ class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
         isIdempotentFn = false
       ).flatMap {
           case agreements if agreements.lengthCompare(contract.participantsRequired) == 0 ⇒
+            logger.debug(s"Agreements for contract $contract found. Contacts: ${agreements.map(_._1.contact.show)}")
             contract.addParticipants(agreements.map(_._2))
               .flatMap { contractToSeal ⇒
                 sealParticipants(contractToSeal)
