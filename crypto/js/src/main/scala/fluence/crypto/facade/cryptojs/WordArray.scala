@@ -1,11 +1,9 @@
-package fluence.crypto.facade
+package fluence.crypto.facade.cryptojs
 
 import scala.scalajs.js
-import scala.scalajs.js.annotation.JSGlobal
 
 @js.native
-@JSGlobal
-class WordArray extends js.Object {
+trait WordArray extends js.Object {
 
   def random(size: Int): js.Any = js.native
   def create(array: js.Any): js.Any = js.native

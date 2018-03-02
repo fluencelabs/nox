@@ -18,9 +18,9 @@
 package fluence.crypto.algorithm
 
 import cats.data.EitherT
-import cats.{ Monad, MonadError }
+import cats.Monad
 import fluence.crypto.SignAlgo
-import fluence.crypto.facade.EC
+import fluence.crypto.facade.ecdsa.EC
 import fluence.crypto.hash.{ CryptoHasher, JsCryptoHasher }
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
