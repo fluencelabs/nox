@@ -15,7 +15,7 @@ object CryptOptions {
       case Some(i) ⇒
         js.Dynamic.literal(iv = i, padding = padding, mode = mode).asInstanceOf[CryptOptions]
       case None ⇒
-        js.Dynamic.literal(padding = padding, mode = mode).asInstanceOf[CryptOptions]
+        js.Dynamic.literal(iv = CryptoJS.lib.WordArray.random(0), padding = padding, mode = mode).asInstanceOf[CryptOptions]
     }
 
   }

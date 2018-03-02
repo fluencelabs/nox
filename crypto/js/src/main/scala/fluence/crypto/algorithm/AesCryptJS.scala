@@ -50,7 +50,7 @@ class AesCryptJS[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config
           val cryptOptions = CryptOptions(iv = None, padding = pad, mode = mode)
 
           val crypted = aes.encrypt(hex, key, cryptOptions)
-          (None, ByteVector.fromValidHex(crypted.toString))
+          (None, ByteVector.fromValidBase64(crypted.toString))
         }
       }
     } yield extData.map(_.toArray ++ cryptedData.toArray).getOrElse(cryptedData.toArray)
@@ -64,13 +64,13 @@ class AesCryptJS[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config
       val encMessage = cipherText.slice(IV_SIZE, cipherText.length)
       (Some(ivDec), encMessage)
     } else (None, cipherText)
-    val (iv, data) = dataWithParams
+    val (ivOp, data) = dataWithParams
     val base64 = ByteVector(data).toBase64
-    val ivget = CryptoJS.enc.Hex.parse(iv.get)
     val e = for {
       key ← initSecretKey(new String(password), salt)
       decData = if (withIV) {
-        val cryptOptions = CryptOptions(iv = Some(ivget), padding = pad, mode = mode)
+        val iv = CryptoJS.enc.Hex.parse(ivOp.get)
+        val cryptOptions = CryptOptions(iv = Some(iv), padding = pad, mode = mode)
         val dec = aes.decrypt(base64, key, cryptOptions)
         ByteVector.fromValidHex(dec.toString)
       } else {
@@ -78,6 +78,7 @@ class AesCryptJS[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config
         val dec = aes.decrypt(base64, key, cryptOptions).toString
         ByteVector.fromValidHex(dec)
       }
+      _ ← EitherT.cond(decData.nonEmpty, decData, CryptoErr("Cannot decrypt message with this password."))
       plain ← EitherT.liftF[F, CryptoErr, T](codec.decode(decData.toArray))
     } yield plain
 

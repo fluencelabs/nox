@@ -23,7 +23,7 @@ class AesSpec extends WordSpec with Matchers with slogging.LazyLogging {
       val crypted = crypt.encrypt(str).get
       crypt.decrypt(crypted).get shouldBe str
 
-      /*val fakeAes = AesCryptJS.forString[Try](ByteVector("wrong".getBytes()), withIV = true, config = conf)
+      val fakeAes = AesCryptJS.forString[Try](ByteVector("wrong".getBytes()), withIV = true, config = conf)
       checkCryptoError(fakeAes.decrypt(crypted))
 
       //we cannot check if first bytes is iv or already data, but encryption goes wrong
@@ -31,10 +31,10 @@ class AesSpec extends WordSpec with Matchers with slogging.LazyLogging {
       aesWithoutIV.decrypt(crypted).get shouldNot be (str)
 
       val aesWrongSalt = AesCryptJS.forString[Try](pass, withIV = true, config = conf.copy(salt = rndString(10)))
-      checkCryptoError(aesWrongSalt.decrypt(crypted))*/
+      checkCryptoError(aesWrongSalt.decrypt(crypted))
     }
 
-    "work without IV" ignore {
+    "work without IV" in {
       val pass = ByteVector("pass".getBytes())
       val crypt = AesCryptJS.forString[Try](pass, withIV = false, config = conf)
 
@@ -54,7 +54,7 @@ class AesSpec extends WordSpec with Matchers with slogging.LazyLogging {
     }
 
     def checkCryptoError(tr: Try[String])(implicit pos: Position): Assertion = {
-      tr.map(_ ⇒ false).recover {
+      tr.map{ r ⇒ println("Wrong result: " + r); false }.recover {
         case e: CryptoErr ⇒ true
         case e ⇒
           logger.error("Unexpected error", e)
