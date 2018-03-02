@@ -59,7 +59,7 @@ object ClientApp extends App with slogging.LazyLogging {
               case Right(true)  ⇒ handle
               case Right(false) ⇒ IO.unit
               case Left(t) ⇒
-                logger.error("Error while handling a command", t)
+                logger.error(s"Error while handling a command, cause=$t")
                 handle
             }
         handle

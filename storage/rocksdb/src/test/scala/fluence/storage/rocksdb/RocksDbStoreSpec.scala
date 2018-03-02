@@ -21,7 +21,6 @@ import java.nio.ByteBuffer
 
 import cats.instances.try_._
 import com.typesafe.config.ConfigFactory
-import fluence.storage
 import fluence.storage.KVStore.KeyNotFound
 import fluence.storage.rocksdb.RocksDbStore.{ Key, Value }
 import monix.eval.Task
@@ -50,7 +49,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
     "performs all operations correctly" in {
       import RocksDbStore._
 
-      runRocksDb("RocksDbStoreSpec.test1") { store ⇒
+      runRocksDb("test1") { store ⇒
 
         val key1 = "key1".getBytes()
         val val1 = "val1".getBytes()
@@ -107,7 +106,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   "putting to database" should {
     "be always single-threaded" in {
 
-      runRocksDb("RocksDbStoreSpec.test2") { store ⇒
+      runRocksDb("test2") { store ⇒
         // execute 100 concurrent put to database
         // if putting will be concurrent, then RocksDb raise an Exception
         val batchInsert = 1 to 100 map { n ⇒
@@ -128,14 +127,14 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   "getMaxKey" should {
 
     "return KeyNotFound when store is empty" in {
-      runRocksDb("RocksDbStoreSpec.test3") { store ⇒
+      runRocksDb("test3") { store ⇒
         val maxLongKey = store.getMaxKey.failed.runAsync.futureValue
         maxLongKey shouldBe KeyNotFound
       }
     }
 
     "get max key for String" in {
-      runRocksDb("RocksDbStoreSpec.test4") { store ⇒
+      runRocksDb("test4") { store ⇒
         val manyPairs: Seq[(Key, Value)] = Random.shuffle(1 to 100).map { n ⇒ s"key$n".getBytes() → s"val$n".getBytes() }
         val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v) }
         Task.sequence(inserts).flatMap(_ ⇒ store.traverse().toListL).runAsync.futureValue
@@ -146,7 +145,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
     }
 
     "get max key for Long" in {
-      runRocksDb("RocksDbStoreSpec.test5") { store ⇒
+      runRocksDb("test5") { store ⇒
         val manyPairs: Seq[(Key, Value)] = Random.shuffle(1 to 100).map { n ⇒ long2Bytes(n) → s"val$n".getBytes() }
         val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v) }
         Task.sequence(inserts).flatMap(_ ⇒ store.traverse().toListL).runAsync.futureValue
@@ -196,7 +195,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   }
 
   private def runRocksDb(name: String)(action: RocksDbStore ⇒ Unit): Unit = {
-    val store = new RocksDbStore.Factory()(name, conf).get
+    val store = new RocksDbStore.Factory()(makeUnique(name), conf).get
     try action(store) finally store.close()
   }
 
@@ -220,4 +219,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   override protected def afterAll(): Unit = {
     Path(conf.dataDir).deleteRecursively()
   }
+
+  private def makeUnique(dbName: String) = s"${this.getClass.getSimpleName}_${dbName}_${new Random().nextInt}"
+
 }

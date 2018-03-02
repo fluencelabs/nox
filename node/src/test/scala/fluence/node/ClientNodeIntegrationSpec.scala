@@ -60,7 +60,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.higherKinds
 import scala.reflect.io.Path
-import scala.util.{ Failure, Success, Try }
+import scala.util.{ Failure, Random, Success, Try }
 
 class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(5, Seconds), Span(250, Milliseconds))
@@ -99,7 +99,6 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         try {
           // run node on the busy port
 
-          // TODO: check if rocksdb is closed properly
           val result = FluenceNode.startNode(config = config
             .withValue("fluence.grpc.server.port", ConfigValueFactory.fromAnyRef(port))
             .withValue("fluence.network.acceptLocal", ConfigValueFactory.fromAnyRef(true)))
@@ -214,8 +213,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           getResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
 
           val putResponse = datasetStorage.put("key", "value").failed.taskValue
-          getResponse shouldBe a[ServerError]
-          getResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
+          putResponse shouldBe a[ServerError]
+          putResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
 
         }
       }
@@ -374,36 +373,6 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     getUpdatedKey1Response shouldBe Some("value1-NEW")
   }
 
-  /**
-   * Creates client, makes kademlia network, allocate contract, get node executor and prepare datasetStorage
-   * @return [[ClientDatasetStorage]] ready for working
-   */
-  private def createClientAndGetDatasetStorage(servers: Map[Contact, FluenceNode]) = {
-    import fluence.dataset.contract.ContractWrite._
-
-    // create client
-    val client = ClientComposer.grpc[Task](GrpcClient.builder)
-    // create offer
-    val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
-    val kadKey = Key.fromKeyPair[Task](keyPair).taskValue
-    val signer = algo.signer(keyPair)
-    val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signer).taskValue
-
-    val seedContact = makeKadNetwork(servers)
-    val (_, contractsApi) = createClientApi(seedContact, client)
-    val acceptedContract = contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).taskValue
-
-    val (nodeKey, _) = acceptedContract.participants.head
-    // we won't find node address by nodeId, cause service FluenceClient is not ready yet, it'll be later
-    val (nodeContact, nodeComposer): (Contact, FluenceNode) =
-      servers.find { case (c, _) ⇒ Key.fromPublicKey[Task](c.publicKey).taskValue == nodeKey }.get
-
-    val storageRpc = client.service[DatasetStorageRpc[Task]](nodeContact)
-    val datasetStorage = createDatasetStorage(acceptedContract.id.id, storageRpc)
-
-    datasetStorage → (nodeComposer, client, acceptedContract)
-  }
-
   private def createClientApi[T <: HList](seedContact: Contact, client: GrpcClient[T])(
     implicit
     s1: ops.hlist.Selector[T, ContractsCacheRpc[Task, BasicContract]],
@@ -467,7 +436,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       // start all nodes Grpc servers
       servers = (0 until numberOfNodes).map { n ⇒
         val port = 6112 + n
-        // TODO: storage root directory, keys directory, etc should be modified to isolate nodes
+        // storage root directory, keys directory, etc should be modified to isolate nodes
         FluenceNode.startNode(
           algo,
           serverHasher,
@@ -475,10 +444,10 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
             .withValue("fluence.grpc.server.port", ConfigValueFactory.fromAnyRef(port))
             .withValue("fluence.network.acceptLocal", ConfigValueFactory.fromAnyRef(true))
             .withValue(ContractsCacheConf.ConfigPath + "dirName", ConfigValueFactory.fromAnyRef("node_cache_" + n))
-            .withValue("fluence.directory", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/testnode-" + n))
+            .withValue("fluence.directory", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + makeUnique(s"/testnode-$n")))
             //override for some value with no file for new key pair
-            .withValue("fluence.keys.keyPath", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/testnode-kp-" + n))
-            .withValue("fluence.storage.rocksDb.dataDir", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + "/rocksdb-ds-" + n))
+            .withValue("fluence.keys.keyPath", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + makeUnique(s"/testnode-kp-$n")))
+            .withValue("fluence.storage.rocksDb.dataDir", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + makeUnique(s"/rocksdb-ds-$n")))
 
         ).unsafeRunSync()
       }
@@ -537,6 +506,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     Path(config.getString("fluence.storage.rocksDb.dataDir")).deleteRecursively()
     LoggerConfig.level = LogLevel.OFF
   }
+
+  private def makeUnique(dbName: String) = s"${dbName}_${this.getClass.getSimpleName}_${new Random().nextInt}"
 
 }
 
