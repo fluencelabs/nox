@@ -4,8 +4,9 @@ import fluence.crypto.algorithm.{ AesConfig, AesCryptJS }
 import fluence.crypto.facade.{ AES, CryptoJS }
 import cats.instances.try_._
 import fluence.codec.Codec
-import scalajs.js.JSConverters._
+import scodec.bits.ByteVector
 
+import scalajs.js.JSConverters._
 import scala.scalajs.js
 import scala.scalajs.js.typedarray.Int8Array
 import scala.util.Try
@@ -72,10 +73,10 @@ object TestApp {
 
     //  aes.encrypt("msg", 256, )
     implicit val codec: Codec[Try, String, Array[Byte]] = Codec[Try, String, Array[Byte]](b ⇒ Try(b.getBytes), bytes ⇒ Try(new String(bytes)))
-    val crypt = new AesCryptJS[Try, String]("somepass".toCharArray, true, AesConfig(salt = "salt"))
+    val crypt = AesCryptJS.forString[Try](ByteVector("somepass".getBytes), true, AesConfig(salt = "salt"))
 
     val encrypted1 = crypt.encrypt("some message").get
-    println("ENCRYPTED ==== " + encrypted1)
+    println("ENCRYPTED ==== " + ByteVector(encrypted1).toHex)
 
     val decrypted1 = crypt.decrypt(encrypted1).get
     println("DECRYPTED ==== " + decrypted1)

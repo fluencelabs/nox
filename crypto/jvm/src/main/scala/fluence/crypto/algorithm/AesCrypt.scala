@@ -30,6 +30,14 @@ import org.bouncycastle.crypto.paddings.PKCS7Padding
 import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher
 import org.bouncycastle.crypto.params.KeyParameter
 import org.bouncycastle.crypto.params.ParametersWithIV
+import org.bouncycastle.crypto.PBEParametersGenerator
+import org.bouncycastle.crypto.digests.SHA256Digest
+import org.bouncycastle.crypto.engines.AESEngine
+import org.bouncycastle.crypto.generators.{ PKCS12ParametersGenerator, PKCS5S2ParametersGenerator }
+import org.bouncycastle.crypto.modes.CBCBlockCipher
+import org.bouncycastle.crypto.paddings.PKCS7Padding
+import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher
+import org.bouncycastle.crypto.params.ParametersWithIV
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
@@ -78,13 +86,27 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
       key ← initSecretKey(password, salt)
       (extData, params) = {
         if (withIV) {
-          val ivData = generateIV
+          //                    val ivData = generateIV
+          val ivData = ByteVector.fromValidHex("aab6ca8d6659fdf2b026f0266d048b54").toArray
 
           // setup cipher parameters with key and IV
-          val keyParam = new KeyParameter(key)
-          (Some(ivData), new ParametersWithIV(keyParam, ivData))
+          val pGen = new PKCS5S2ParametersGenerator(new SHA256Digest)
+          pGen.init(key, salt, iterationCount)
+
+          val aesCBCParams = pGen.generateDerivedParameters(BITS).asInstanceOf[KeyParameter]
+          val withIvParam = new ParametersWithIV(aesCBCParams, ivData)
+          println("PASSWORD === " + password)
+          println("SALT === " + salt)
+          println("KEY SIZE === " + aesCBCParams.getKey.size)
+          println("ITERATION COUNT === " + iterationCount)
+          println("HEX KEY === " + ByteVector(aesCBCParams.getKey).toHex)
+          (Some(ivData), withIvParam)
         } else {
-          (None, new KeyParameter(key))
+          val pGen = new PKCS5S2ParametersGenerator(new SHA256Digest)
+          pGen.init(key, salt, iterationCount)
+
+          val aesCBCParams = pGen.generateDerivedParameters(BITS).asInstanceOf[KeyParameter]
+          (None, aesCBCParams)
         }
       }
       encData ← processData(DataWithParams(data, params), extData, encrypt = true)
@@ -106,15 +128,17 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
   /**
    * Key spec initialization
    */
-  private def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] = {
-    nonFatalHandling {
-      // get raw key from password and salt
-      val pbeKeySpec = new PBEKeySpec(password, salt, iterationCount, BITS)
-      val keyFactory: SecretKeyFactory = SecretKeyFactory.getInstance("PBEWithSHA256And256BitAES-CBC-BC")
-      val secretKey = new SecretKeySpec(keyFactory.generateSecret(pbeKeySpec).getEncoded, "AES")
-      secretKey.getEncoded
-    }("Cannot init secret key.")
-  }
+  private def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] = nonFatalHandling {
+    val passwordChars: Array[Char] = password
+    val pkcs12PasswordBytes: Array[Byte] = PBEParametersGenerator.PKCS5PasswordToUTF8Bytes(passwordChars)
+
+    /*// get raw key from password and salt
+    val pbeKeySpec = new PBEKeySpec(password, salt, iterationCount, BITS)
+    val keyFactory: SecretKeyFactory = SecretKeyFactory.getInstance("PBEWithSHA256And256BitAES-CBC-BC")
+    val secretKey = new SecretKeySpec(keyFactory.generateSecret(pbeKeySpec).getEncoded, "AES")
+    val enc = secretKey.getEncoded*/
+    pkcs12PasswordBytes
+  }("Cannot init secret key.")
 
   /**
    * Setup AES CBC cipher
@@ -176,14 +200,24 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
         ivDataWithEncData ← detachIV(data, IV_SIZE)
         key ← initSecretKey(password, salt)
         // setup cipher parameters with key and IV
-        keyParam = new KeyParameter(key)
-        params = new ParametersWithIV(keyParam, ivDataWithEncData.ivData)
-      } yield DataWithParams(ivDataWithEncData.encData, params)
+        aesCBCParams = {
+          val pGen = new PKCS5S2ParametersGenerator(new SHA256Digest)
+          pGen.init(key, salt, iterationCount)
+
+          val param = pGen.generateDerivedParameters(BITS).asInstanceOf[KeyParameter]
+          new ParametersWithIV(param, ivDataWithEncData.ivData)
+        }
+      } yield DataWithParams(ivDataWithEncData.encData, aesCBCParams)
     } else {
       for {
         key ← initSecretKey(password, salt)
         // setup cipher parameters with key
-        params = new KeyParameter(key)
+        params = {
+          val pGen = new PKCS5S2ParametersGenerator(new SHA256Digest)
+          pGen.init(key, salt, iterationCount)
+
+          pGen.generateDerivedParameters(BITS).asInstanceOf[KeyParameter]
+        }
       } yield DataWithParams(data, params)
     }
   }

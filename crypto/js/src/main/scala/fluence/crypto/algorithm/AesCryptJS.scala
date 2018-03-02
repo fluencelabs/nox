@@ -27,7 +27,10 @@ class AesCryptJS[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config
   //initialisation vector must be the same length as block size
   private val IV_SIZE = 16
   private val BITS = 256
-  private def generateIV = rndStr.random(IV_SIZE)
+  private def generateIV = {
+    rndStr.random(IV_SIZE)
+    CryptoJS.enc.Hex.parse("aab6ca8d6659fdf2b026f0266d048b54")
+  }
 
   def pad = CryptoJS.pad.Pkcs7
   def mode = CryptoJS.mode.CBC
@@ -36,7 +39,7 @@ class AesCryptJS[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config
   override def encrypt(plainText: T): F[Array[Byte]] = {
     val e = for {
       data ← EitherT.liftF(codec.encode(plainText))
-      key ← initSecretKey(password.toString, salt)
+      key ← initSecretKey(new String(password), salt)
       (extData, cryptedData) = {
         if (withIV) {
           val ivData = generateIV
@@ -82,7 +85,7 @@ class AesCryptJS[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config
     println("BASE64 BEFORE DECRYPT === " + base64)
     println("IV DEC === " + iv)
     val e = for {
-      key ← initSecretKey(password.toString, salt)
+      key ← initSecretKey(new String(password), salt)
       _ = println("KEY === " + key)
       decData = if (withIV) {
         val cryptOptions = js.Dynamic.literal(iv = ivget, padding = pad, mode = mode)
@@ -104,9 +107,11 @@ class AesCryptJS[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config
     nonFatalHandling {
       // get raw key from password and salt
       val keySize = BITS / 32
+      println("PASSWORD === " + password)
+      println("SALT === " + salt)
       println("KEY SIZE === " + keySize)
       println("ITERATION COUNT === " + iterationCount)
-      val keyOption = js.Dynamic.literal(keySize = keySize, iterations = iterationCount)
+      val keyOption = js.Dynamic.literal(keySize = keySize, iterations = iterationCount, hasher = CryptoJS.algo.SHA256)
       CryptoJS.PBKDF2(password, salt, keyOption)
     }("Cannot init secret key.")
   }
