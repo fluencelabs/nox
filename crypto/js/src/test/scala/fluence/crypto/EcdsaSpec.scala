@@ -19,13 +19,13 @@ package fluence.crypto
 
 import cats.data.EitherT
 import cats.instances.try_._
-import fluence.crypto.algorithm.{ CryptoErr, EcdsaJS }
+import fluence.crypto.algorithm.{ CryptoErr, Ecdsa }
 import org.scalatest.{ Matchers, WordSpec }
 import scodec.bits.ByteVector
 
 import scala.util.{ Random, Try }
 
-class EcdsaJSSpec extends WordSpec with Matchers {
+class EcdsaSpec extends WordSpec with Matchers {
 
   def rndBytes(size: Int) = Random.nextString(10).getBytes
 
@@ -42,7 +42,7 @@ class EcdsaJSSpec extends WordSpec with Matchers {
 
   "ecdsa algorithm" should {
     "correct sign and verify data" in {
-      val algorithm = EcdsaJS.ecdsa_secp256k1_sha256
+      val algorithm = Ecdsa.ecdsa_secp256k1_sha256
 
       val keys = algorithm.generateKeyPair[Try]().extract
       val data = rndByteVector(10)
@@ -59,7 +59,7 @@ class EcdsaJSSpec extends WordSpec with Matchers {
     }
 
     "correctly work with signer and checker" in {
-      val algo = EcdsaJS.signAlgo
+      val algo = Ecdsa.signAlgo
       val keys = algo.generateKeyPair().extract
       val signer = algo.signer(keys)
 
@@ -73,7 +73,7 @@ class EcdsaJSSpec extends WordSpec with Matchers {
     }
 
     "throw an errors on invalid data" in {
-      val algo = EcdsaJS.signAlgo
+      val algo = Ecdsa.signAlgo
       val keys = algo.generateKeyPair().extract
       val signer = algo.signer(keys)
       val data = rndByteVector(10)

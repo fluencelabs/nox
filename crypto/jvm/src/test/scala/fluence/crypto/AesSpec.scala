@@ -20,11 +20,8 @@ class AesSpec extends WordSpec with Matchers with slogging.LazyLogging {
       val crypt = AesCrypt.forString[Try](pass, withIV = true, config = conf)
 
       val str = rndString(200)
-      println("encrypt")
       val crypted = crypt.encrypt(str).get
-      println("decrypt")
       crypt.decrypt(crypted).get shouldBe str
-      println("decrypted")
       val fakeAes = AesCrypt.forString[Try](ByteVector("wrong".getBytes()), withIV = true, config = conf)
       checkCryptoError(fakeAes.decrypt(crypted))
 
