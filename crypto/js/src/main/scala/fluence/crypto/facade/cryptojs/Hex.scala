@@ -4,5 +4,9 @@ import scala.scalajs.js
 
 @js.native
 trait Hex extends js.Object {
-  def parse(str: String): js.Any = js.native
+  /**
+   * Parse from HEX to JS byte representation
+   * @param str Hex
+   */
+  def parse(str: String): WordArray = js.native
 }

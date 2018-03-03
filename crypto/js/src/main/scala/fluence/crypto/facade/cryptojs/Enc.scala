@@ -5,5 +5,4 @@ import scala.scalajs.js
 @js.native
 trait Enc extends js.Object {
   def Hex: Hex = js.native
-  def Utf8: Utf8 = js.native
 }

@@ -25,6 +25,7 @@ class AesCryptJS[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config
   //initialisation vector must be the same length as block size
   private val IV_SIZE = 16
   private val BITS = 256
+  //generate IV in hex
   private def generateIV = rndStr.random(IV_SIZE)
 
   private val pad = CryptoJS.pad.Pkcs7
@@ -34,50 +35,19 @@ class AesCryptJS[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config
   override def encrypt(plainText: T): F[Array[Byte]] = {
     val e = for {
       data ← EitherT.liftF(codec.encode(plainText))
-      key ← initSecretKey(new String(password), salt)
-      (extData, cryptedData) = {
-        val a = new Int8Array(data.toJSArray)
-        val hex = CryptoJS.lib.WordArray.create(a)
-        if (withIV) {
-          val ivData = generateIV
-          val cryptOptions = CryptOptions(iv = Some(ivData), padding = pad, mode = mode)
-
-          val crypted = aes.encrypt(hex, key, cryptOptions)
-          val ivHex = ByteVector.fromValidHex(ivData.toString)
-          val cryptedHex = ByteVector.fromValidBase64(crypted.toString)
-          (Some(ivHex), cryptedHex)
-        } else {
-          val cryptOptions = CryptOptions(iv = None, padding = pad, mode = mode)
-
-          val crypted = aes.encrypt(hex, key, cryptOptions)
-          (None, ByteVector.fromValidBase64(crypted.toString))
-        }
-      }
-    } yield extData.map(_.toArray ++ cryptedData.toArray).getOrElse(cryptedData.toArray)
+      key ← initSecretKey()
+      encrypted ← encryptData(data, key)
+    } yield encrypted
 
     e.value.flatMap(ME.fromEither)
   }
 
   override def decrypt(cipherText: Array[Byte]): F[T] = {
-    val dataWithParams = if (withIV) {
-      val ivDec = ByteVector(cipherText.slice(0, IV_SIZE)).toHex
-      val encMessage = cipherText.slice(IV_SIZE, cipherText.length)
-      (Some(ivDec), encMessage)
-    } else (None, cipherText)
-    val (ivOp, data) = dataWithParams
-    val base64 = ByteVector(data).toBase64
     val e = for {
-      key ← initSecretKey(new String(password), salt)
-      decData = if (withIV) {
-        val iv = CryptoJS.enc.Hex.parse(ivOp.get)
-        val cryptOptions = CryptOptions(iv = Some(iv), padding = pad, mode = mode)
-        val dec = aes.decrypt(base64, key, cryptOptions)
-        ByteVector.fromValidHex(dec.toString)
-      } else {
-        val cryptOptions = CryptOptions(iv = None, padding = pad, mode = mode)
-        val dec = aes.decrypt(base64, key, cryptOptions).toString
-        ByteVector.fromValidHex(dec)
-      }
+      detachedData ← detachData(cipherText)
+      (iv, base64) = detachedData
+      key ← initSecretKey()
+      decData ← decryptData(key, base64, iv)
       _ ← EitherT.cond(decData.nonEmpty, decData, CryptoErr("Cannot decrypt message with this password."))
       plain ← EitherT.liftF[F, CryptoErr, T](codec.decode(decData.toArray))
     } yield plain
@@ -85,11 +55,60 @@ class AesCryptJS[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config
     e.value.flatMap(ME.fromEither)
   }
 
-  private def initSecretKey(password: String, salt: String): EitherT[F, CryptoErr, Key] = {
+  /**
+   * Encrypt data.
+   * @param data Data to encrypt
+   * @param key Salted and hashed password
+   * @return Encrypted data with IV
+   */
+  private def encryptData(data: Array[Byte], key: Key): EitherT[F, CryptoErr, Array[Byte]] = {
+    nonFatalHandling {
+      //transform data to JS type
+      val wordArray = CryptoJS.lib.WordArray.create(new Int8Array(data.toJSArray))
+      val iv = if (withIV) Some(generateIV) else None
+      val cryptOptions = CryptOptions(iv = iv, padding = pad, mode = mode)
+      //encryption return base64 string, transform it to byte array
+      val crypted = ByteVector.fromValidBase64(aes.encrypt(wordArray, key, cryptOptions).toString)
+      //IV also needs to be transformed in byte array
+      val byteIv = iv.map(i ⇒ ByteVector.fromValidHex(i.toString))
+      byteIv.map(_.toArray ++ crypted.toArray).getOrElse(crypted.toArray)
+    }("Cannot encrypt data.")
+  }
+
+  private def decryptData(key: Key, base64Data: String, iv: Option[String]) = {
+    nonFatalHandling {
+      //parse IV to WordArray JS format
+      val cryptOptions = CryptOptions(iv = iv.map(i ⇒ CryptoJS.enc.Hex.parse(i)), padding = pad, mode = mode)
+      val dec = aes.decrypt(base64Data, key, cryptOptions)
+      ByteVector.fromValidHex(dec.toString)
+    }("Cannot decrypt data.")
+  }
+
+  /**
+   * @param cipherText Encrypted data with IV
+   * @return IV in hex and data in base64
+   */
+  private def detachData(cipherText: Array[Byte]): EitherT[F, CryptoErr, (Option[String], String)] = {
+    nonFatalHandling {
+      val dataWithParams = if (withIV) {
+        val ivDec = ByteVector(cipherText.slice(0, IV_SIZE)).toHex
+        val encMessage = cipherText.slice(IV_SIZE, cipherText.length)
+        (Some(ivDec), encMessage)
+      } else (None, cipherText)
+      val (ivOp, data) = dataWithParams
+      val base64 = ByteVector(data).toBase64
+      (ivOp, base64)
+    }("Cannot detach data and IV.")
+  }
+
+  /**
+   * Hash password with salt `iterationCount` times
+   */
+  private def initSecretKey(): EitherT[F, CryptoErr, Key] = {
     nonFatalHandling {
       // get raw key from password and salt
       val keyOption = KeyOptions(BITS, iterations = iterationCount, hasher = CryptoJS.algo.SHA256)
-      CryptoJS.PBKDF2(password, salt, keyOption)
+      CryptoJS.PBKDF2(new String(password), salt, keyOption)
     }("Cannot init secret key.")
   }
 }
