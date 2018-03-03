@@ -125,9 +125,7 @@ lazy val `crypto-js` = `crypto`.js
     scalaJSModuleKind := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies := false,
-    fork in Test := false,
-    // This is an application with a main method
-    scalaJSUseMainModuleInitializer := true
+    fork in Test := false
   )
 
 lazy val `client` = project.in(file("client"))
