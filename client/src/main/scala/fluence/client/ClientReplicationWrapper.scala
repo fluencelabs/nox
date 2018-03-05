@@ -42,9 +42,9 @@ class ClientReplicationWrapper[K, V](
 
     def getRec(replicas: List[(ClientDatasetStorageApi[Task, K, V], Contact)]): Task[Option[V]] = {
       val (store, contact) = replicas.head
-      logger.info(s"Reading key=$key from ${contact.ip}:${contact.grpcPort}")
+      logger.info(s"Reading key=$key from ${contact.addr}:${contact.grpcPort}")
       store.get(key).onErrorHandleWith { e ⇒
-        logger.warn(s"Can't get value from ${contact.ip}:${contact.grpcPort} for key=$key, cause=$e")
+        logger.warn(s"Can't get value from ${contact.addr}:${contact.grpcPort} for key=$key, cause=$e")
         if (replicas.tail.isEmpty)
           Task.raiseError[Option[V]](e)
         else {

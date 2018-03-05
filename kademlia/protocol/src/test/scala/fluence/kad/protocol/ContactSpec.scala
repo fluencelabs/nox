@@ -1,7 +1,5 @@
 package fluence.kad.protocol
 
-import java.net.InetAddress
-
 import cats._
 import fluence.crypto.algorithm.Ecdsa
 import org.scalatest.{ Matchers, WordSpec }
@@ -17,7 +15,7 @@ class ContactSpec extends WordSpec with Matchers {
       val Right(kp) = algo.generateKeyPair[Id]().value
 
       val c = Contact.buildOwn[Id](
-        InetAddress.getLocalHost,
+        "127.0.0.1",
         8080,
         10l,
         "hash",

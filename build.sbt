@@ -42,28 +42,49 @@ lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
       "org.scodec" %%% "scodec-bits" % ScodecBitsV,
     )
   )
+  .jsSettings(
+    fork in Test := false
+  )
 
 lazy val `codec-core-jvm` = `codec-core`.jvm
 
 lazy val `codec-core-js` = `codec-core`.js
-  .settings(
-    fork in Test := false
-  )
 
 lazy val `codec-kryo` = project.in(file("codec/kryo"))
   .dependsOn(`codec-core-jvm`)
 
-lazy val `kademlia-core` = project.in(file("kademlia/core"))
-  .dependsOn(`kademlia-protocol`)
+lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("kademlia/protocol"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "io.circe" %%% "circe-core" % CirceV,
+      "io.circe" %%% "circe-parser" % CirceV,
+      "org.typelevel" %%% "cats-core" % Cats1V,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+    )
+  )
+  .jsSettings(
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
+  .dependsOn(`codec-core`, `crypto`)
 
-lazy val `kademlia-protocol` = project.in(file("kademlia/protocol"))
-  .dependsOn(`codec-core-jvm`, `crypto-jvm`)
+lazy val `kademlia-protocol-js` = `kademlia-protocol`.js
+  .enablePlugins(ScalaJSBundlerPlugin)
+
+lazy val `kademlia-protocol-jvm` = `kademlia-protocol`.jvm
+
+lazy val `kademlia-core` = project.in(file("kademlia/core"))
+  .dependsOn(`kademlia-protocol-jvm`)
 
 lazy val `kademlia-testkit` = project.in(file("kademlia/testkit"))
   .dependsOn(`kademlia-core`)
 
 lazy val `kademlia-grpc` = project.in(file("kademlia/grpc"))
-  .dependsOn(`transport-grpc`, `kademlia-protocol`, `codec-core-jvm`, `kademlia-testkit` % Test)
+  .dependsOn(`transport-grpc`, `kademlia-protocol-jvm`, `codec-core-jvm`, `kademlia-testkit` % Test)
 
 lazy val `kademlia-monix` = project.in(file("kademlia/monix"))
   .dependsOn(`kademlia-core`)
@@ -72,7 +93,7 @@ lazy val `transport-grpc` = project.in(file("transport/grpc"))
   .dependsOn(`transport-core`, `codec-core-jvm`)
 
 lazy val `transport-core` = project.in(file("transport/core"))
-  .dependsOn(`kademlia-protocol`)
+  .dependsOn(`kademlia-protocol-jvm`)
 
 lazy val `storage` = project.in(file("storage/core"))
   .dependsOn(`codec-core-jvm`)
@@ -107,17 +128,13 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )
-
-lazy val `crypto-jvm` = `crypto`.jvm.settings(
-  libraryDependencies ++= Seq(
-    //JVM-specific provider for cryptography
-    bouncyCastle
+  .jvmSettings(
+    libraryDependencies ++= Seq(
+      //JVM-specific provider for cryptography
+      bouncyCastle
+    )
   )
-)
-
-lazy val `crypto-js` = `crypto`.js
-  .enablePlugins(ScalaJSBundlerPlugin)
-  .settings(
+  .jsSettings(
     npmDependencies in Compile ++= Seq(
       "elliptic" -> "6.4.0",
       "crypto-js" -> "3.1.9-1"
@@ -128,6 +145,11 @@ lazy val `crypto-js` = `crypto`.js
     fork in Test := false
   )
 
+lazy val `crypto-jvm` = `crypto`.jvm
+
+lazy val `crypto-js` = `crypto`.js
+  .enablePlugins(ScalaJSBundlerPlugin)
+
 lazy val `client` = project.in(file("client"))
   .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `transport-core`, `kademlia-monix`, `dataset-protocol`)
 
@@ -136,7 +158,7 @@ lazy val `dataset-node` = project.in(file("dataset/node"))
 `dataset-client` % "compile->test")
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
-  .dependsOn(`kademlia-protocol`, `b-tree-protocol`)
+  .dependsOn(`kademlia-protocol-jvm`, `b-tree-protocol`)
 
 lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
   .dependsOn(`dataset-client`, `transport-grpc`)

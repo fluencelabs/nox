@@ -17,24 +17,20 @@
 
 package fluence.kad.protocol
 
-import java.net.InetAddress
-
-import cats.data.{ EitherT, Ior }
+import cats.data.EitherT
 import cats.{ Monad, Show }
 import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{ SignatureChecker, Signer }
 import io.circe._
-import io.circe.syntax._
 import scodec.bits.{ Bases, ByteVector }
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Node contact
  *
- * @param ip IP address
+ * @param addr IP address
  * @param grpcPort Port for GRPC server
  * @param publicKey Public key of the node
  * @param protocolVersion Protocol version the node is known to follow
@@ -42,7 +38,7 @@ import scala.util.Try
  * @param b64seed Serialized JWT
  */
 case class Contact(
-    ip: InetAddress,
+    addr: String,
     grpcPort: Int, // httpPort, websocketPort and other transports //
 
     publicKey: KeyPair.Public,
@@ -50,25 +46,13 @@ case class Contact(
     gitHash: String,
 
     b64seed: String
-) {
-
-  lazy val isLocal: Boolean =
-    ip.isLoopbackAddress ||
-      ip.isAnyLocalAddress ||
-      ip.isLinkLocalAddress ||
-      ip.isSiteLocalAddress ||
-      ip.isMCSiteLocal ||
-      ip.isMCGlobal ||
-      ip.isMCLinkLocal ||
-      ip.isMCNodeLocal ||
-      ip.isMCOrgLocal
-}
+)
 
 object Contact {
 
   /**
    * Builder for Node's own contact: node don't have JWT seed for it, but can produce it with its Signer
-   * @param ip Node's ip
+   * @param addr Node's ip
    * @param port Node's external port
    * @param protocolVersion Protocol version
    * @param gitHash Current build's git hash
@@ -77,7 +61,7 @@ object Contact {
    * @return Either Contact if built, or error
    */
   def buildOwn[F[_] : Monad](
-    ip: InetAddress,
+    addr: String,
     port: Int, // httpPort, websocketPort and other transports //
 
     protocolVersion: Long,
@@ -89,12 +73,12 @@ object Contact {
       Contact.JwtHeader(signer.publicKey, protocolVersion)
 
     val jwtData =
-      Contact.JwtData(ip, port, gitHash)
+      Contact.JwtData(addr, port, gitHash)
 
     import Contact.JwtImplicits._
     Jwt.write[F].apply(jwtHeader, jwtData, signer).map { seed ⇒
       Contact(
-        ip,
+        addr,
         port,
         signer.publicKey,
         protocolVersion,
@@ -106,7 +90,7 @@ object Contact {
 
   case class JwtHeader(publicKey: KeyPair.Public, protocolVersion: Long)
 
-  case class JwtData(ip: InetAddress, grpcPort: Int, gitHash: String)
+  case class JwtData(addr: String, grpcPort: Int, gitHash: String)
 
   object JwtImplicits {
     implicit val encodeHeader: Encoder[JwtHeader] = header ⇒ Json.obj(
@@ -123,21 +107,17 @@ object Contact {
       } yield JwtHeader(pubKey, pv)
 
     implicit val encodeData: Encoder[JwtData] = data ⇒ Json.obj(
-      "ip" -> Json.fromString(data.ip.getHostAddress),
+      "a" -> Json.fromString(data.addr),
       "gp" -> Json.fromInt(data.grpcPort),
       "gh" -> Json.fromString(data.gitHash)
     )
 
     implicit val decodeData: Decoder[JwtData] = c ⇒
       for {
-        ip ← c.downField("ip").as[String]
+        ip ← c.downField("a").as[String]
         p ← c.downField("gp").as[Int]
         gh ← c.downField("gh").as[String]
-        ipAddr ← Try(InetAddress.getByName(ip)).fold(
-          t ⇒ Left(DecodingFailure.fromThrowable(t, Nil)),
-          i ⇒ Right(i)
-        )
-      } yield JwtData(ip = ipAddr, grpcPort = p, gitHash = gh)
+      } yield JwtData(addr = ip, grpcPort = p, gitHash = gh)
   }
 
   import JwtImplicits._
@@ -149,7 +129,7 @@ object Contact {
     Jwt.read[F, JwtHeader, JwtData](str, (h, b) ⇒ Right(h.publicKey)).map {
       case (header, data) ⇒
         Contact(
-          ip = data.ip,
+          addr = data.addr,
           grpcPort = data.grpcPort,
           publicKey = header.publicKey,
           protocolVersion = header.protocolVersion,

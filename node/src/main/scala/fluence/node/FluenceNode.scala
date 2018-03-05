@@ -110,7 +110,7 @@ object FluenceNode extends slogging.LazyLogging {
    * Launches GRPC node, using all the provided configs.
    * @return IO that will shutdown the node once ran
    */
-  // todo write unit test, this method don't close resources correct when initialisation failed
+  // todo write unit test, this method don't close resources correctly when initialisation failed
   private def launchGrpc(algo: SignAlgo, hasher: CryptoHasher[Array[Byte], Array[Byte]], config: Config): IO[FluenceNode] = {
     import algo.checker
     for {
@@ -129,7 +129,7 @@ object FluenceNode extends slogging.LazyLogging {
       (upnpContact, upnpShutdown) = upnpContactStop
 
       contact ← Contact.buildOwn[IO](
-        ip = upnpContact.host.getOrElse(builder.address),
+        addr = upnpContact.host.getOrElse(builder.address).getHostName,
         port = upnpContact.grpcPort.getOrElse(builder.port),
         protocolVersion = upnpContact.protocolVersion,
         gitHash = upnpContact.gitHash,
