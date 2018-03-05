@@ -71,7 +71,7 @@ object FluenceNode extends slogging.LazyLogging {
     config: Config = ConfigFactory.load()
   ): IO[FluenceNode] = {
     logger.debug("Node config is :" +
-                   config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false)))
+      config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false)))
     launchGrpc(algo, hasher, config)
   }
 

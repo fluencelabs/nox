@@ -44,7 +44,7 @@ object ClientApp extends App with slogging.LazyLogging {
   val config: Config = ConfigFactory.load()
 
   logger.debug("Client config is :" +
-                 config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false)))
+    config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false)))
 
   // Run Command Line Interface
   Apply[IO].map2(
