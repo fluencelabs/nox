@@ -15,25 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.facade
+package fluence.crypto.facade.cryptojs
 
 import scala.scalajs.js
-import scala.scalajs.js.annotation.JSImport
 
-//TODO hide enc argument in methods, make it `hex` by default
-/**
- * https://github.com/indutny/hash.js - part of elliptic library
- */
 @js.native
-@JSImport("hash.js", "sha256")
-class SHA256() extends js.Object {
-  def update(msg: js.Array[Byte]): Unit = js.native
-  def digest(enc: String): String = js.native
+trait Modes extends js.Object {
+  val CBC: Mode = js.native
 }
 
 @js.native
-@JSImport("hash.js", "sha1")
-class SHA1() extends js.Object {
-  def update(msg: js.Array[Byte]): Unit = js.native
-  def digest(enc: String): String = js.native
-}
+trait Mode extends js.Object
