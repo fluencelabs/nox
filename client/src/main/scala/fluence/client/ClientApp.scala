@@ -19,7 +19,7 @@ package fluence.client
 
 import cats.Apply
 import cats.effect.IO
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.{ Config, ConfigFactory, ConfigRenderOptions }
 import fluence.client.cli.Cli
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
@@ -42,6 +42,9 @@ object ClientApp extends App with slogging.LazyLogging {
   val algo: SignAlgo = Ecdsa.signAlgo
   val hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
   val config: Config = ConfigFactory.load()
+
+  logger.debug("Client config is :" +
+                 config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false)))
 
   // Run Command Line Interface
   Apply[IO].map2(

@@ -25,7 +25,7 @@ import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.show._
 import cats.{ Applicative, MonadError }
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.{ Config, ConfigFactory, ConfigRenderOptions }
 import fluence.client.config.{ KeyPairConfig, SeedsConfig }
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
@@ -69,8 +69,11 @@ object FluenceNode extends slogging.LazyLogging {
     algo: SignAlgo = Ecdsa.signAlgo,
     hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
     config: Config = ConfigFactory.load()
-  ): IO[FluenceNode] =
+  ): IO[FluenceNode] = {
+    logger.debug("Node config is :" +
+                   config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false)))
     launchGrpc(algo, hasher, config)
+  }
 
   /**
    * Initiates a directory with all its parents
