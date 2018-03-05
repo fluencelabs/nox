@@ -67,7 +67,7 @@ class GrpcClient[CL <: HList](
     channels.getOrElseUpdate(
       contactKey(contact),
       {
-        logger.info("Open new channel: {}", contactKey(contact))
+        logger.debug("Open new channel: {}", contactKey(contact))
         ManagedChannelBuilder.forAddress(contact.addr, contact.grpcPort)
           .usePlaintext(true)
           .build

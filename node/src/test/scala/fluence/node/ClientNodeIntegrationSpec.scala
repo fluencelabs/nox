@@ -87,7 +87,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private val config = ConfigFactory.load()
 
   private val dummyContact = Contact(
-    InetAddress.getByName("localhost"), 80, KeyPair.Public(ByteVector("k".getBytes)), 0L, "gitHash", "sign"
+    "localhost", 80, KeyPair.Public(ByteVector("k".getBytes)), 0L, "gitHash", "sign"
   )
 
   "Node" should {

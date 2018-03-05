@@ -73,7 +73,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     private val serverBuilder = GrpcServer.builder(serverConf.copy(port = localPort))
 
-    val contact = Contact.buildOwn[Id](InetAddress.getLocalHost, localPort, 0, "0", algo.signer(kp)).value.right.get
+    val contact = Contact.buildOwn[Id](InetAddress.getLocalHost.getHostName, localPort, 0, "0", algo.signer(kp)).value.right.get
 
     private val client = GrpcClient.builder(key, IO.pure(contact.b64seed), clientConf)
       .add(KademliaClient.register[Task]())
