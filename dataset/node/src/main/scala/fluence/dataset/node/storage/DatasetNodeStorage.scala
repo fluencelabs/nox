@@ -114,8 +114,6 @@ class DatasetNodeStorage private[storage] (
 
   }
 
-  // todo create close method for closing RocksDb
-
 }
 
 object DatasetNodeStorage {
@@ -143,9 +141,10 @@ object DatasetNodeStorage {
     )
 
     for {
-      rocksDb ← rocksFactory[F](s"${datasetId}_blob", config)
+      conf ← runTask(Task.fromIO(DatasetNodeStorageConfig.read(config)))
+      rocksDb ← rocksFactory[F](conf.dataDir, config)
       idSeqProvider ← IdSeqProvider.longSeqProvider(rocksDb)
-      btreeIdx ← MerkleBTree(s"${datasetId}_tree", rocksFactory, cryptoHasher, config)
+      btreeIdx ← MerkleBTree(conf.indexDir, rocksFactory, cryptoHasher, config)
     } yield {
       new DatasetNodeStorage(
         btreeIdx,
