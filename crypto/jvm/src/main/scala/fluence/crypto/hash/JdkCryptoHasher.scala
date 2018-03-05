@@ -39,9 +39,9 @@ class JdkCryptoHasher(algorithm: String) extends CryptoHasher[Array[Byte], Array
 
 object JdkCryptoHasher {
 
-  lazy val Sha256 = apply("SHA-256")
-  lazy val Sha1 = apply("SHA-1")
+  lazy val Sha256: CryptoHasher[Array[Byte], Array[Byte]] = apply("SHA-256")
+  lazy val Sha1: CryptoHasher[Array[Byte], Array[Byte]] = apply("SHA-1")
 
-  def apply(algorithm: String): JdkCryptoHasher = new JdkCryptoHasher(algorithm)
+  def apply(algorithm: String): CryptoHasher[Array[Byte], Array[Byte]] = new JdkCryptoHasher(algorithm)
 
 }

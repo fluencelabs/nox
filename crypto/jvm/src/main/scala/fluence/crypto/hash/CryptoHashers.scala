@@ -17,20 +17,8 @@
 
 package fluence.crypto.hash
 
-/**
- * TODO add F[_] effect
- * Base interface for hashing.
- * @tparam M type of message for hashing
- * @tparam H type of hashed message
- */
-trait CryptoHasher[M, H] {
+object CryptoHashers {
+  lazy val Sha1: CryptoHasher.Bytes = JdkCryptoHasher.Sha1
 
-  def hash(msg: M): H
-
-  def hash(msg1: M, msgN: M*): H
-
-}
-
-object CryptoHasher {
-  type Bytes = CryptoHasher[Array[Byte], Array[Byte]]
+  lazy val Sha256: CryptoHasher.Bytes = JdkCryptoHasher.Sha256
 }

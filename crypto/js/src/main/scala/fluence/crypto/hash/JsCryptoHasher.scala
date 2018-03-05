@@ -24,7 +24,7 @@ import scala.scalajs.js.JSConverters._
 
 object JsCryptoHasher {
 
-  lazy val Sha256: CryptoHasher[Array[Byte], Array[Byte]] = new CryptoHasher[Array[Byte], Array[Byte]] {
+  lazy val Sha256: CryptoHasher.Bytes = new CryptoHasher[Array[Byte], Array[Byte]] {
     override def hash(msg1: Array[Byte]): Array[Byte] = {
       val sha256 = new SHA256()
       sha256.update(msg1.toJSArray)
@@ -35,7 +35,7 @@ object JsCryptoHasher {
     }
   }
 
-  lazy val Sha1: CryptoHasher[Array[Byte], Array[Byte]] = new CryptoHasher[Array[Byte], Array[Byte]] {
+  lazy val Sha1: CryptoHasher.Bytes = new CryptoHasher[Array[Byte], Array[Byte]] {
     override def hash(msg1: Array[Byte]): Array[Byte] = {
       val sha1 = new SHA1()
       sha1.update(msg1.toJSArray)
