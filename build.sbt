@@ -157,11 +157,27 @@ lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
 lazy val `transport-core-js` = `transport-core`.js
 lazy val `transport-core-jvm` = `transport-core`.jvm
 
-lazy val `storage` = project.in(file("storage/core"))
-  .dependsOn(`codec-core-jvm`)
+lazy val `storage-core` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("storage/core"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test,
+      "io.monix" %%% "monix" % MonixV % Test
+    )
+  ).jsSettings(
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
+  .dependsOn(`codec-core`)
+
+lazy val `storage-core-jvm` = `storage-core`.jvm
+lazy val `storage-core-js` = `storage-core`.js
 
 lazy val `storage-rocksdb` = project.in(file("storage/rocksdb"))
-  .dependsOn(`storage`)
+  .dependsOn(`storage-core-jvm`)
 
 lazy val `b-tree-client` = project.in(file("b-tree/client"))
   .dependsOn(`b-tree-common`, `b-tree-protocol`)
@@ -217,7 +233,7 @@ lazy val `client` = project.in(file("client"))
   .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `transport-core-jvm`, `kademlia-monix-jvm`, `dataset-protocol`)
 
 lazy val `dataset-node` = project.in(file("dataset/node"))
-  .dependsOn(`storage`, `kademlia-core-jvm`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
+  .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
     `dataset-client` % "compile->test")
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
