@@ -18,25 +18,20 @@
 package fluence.client
 
 import cats.data.OptionT
-import cats.kernel.Monoid
 import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.btree.client.MerkleBTreeClient.ClientState
-import fluence.client.config.{ AesConfigParser, KademliaConfigParser }
+import fluence.client.config.AesConfigParser
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.BasicContract
 import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi, Contracts }
 import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
-import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
-import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }
-import fluence.transport.TransportSecurity
-import fluence.transport.grpc.client.GrpcClient
+import fluence.kad.Kademlia
+import fluence.kad.protocol.{ Contact, Key }
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import scodec.bits.ByteVector
@@ -70,8 +65,9 @@ class FluenceClient(
 
   /**
    * Restore dataset from cache or from contract in kademlia net
-   * @param keyPair Key pair of client
-   * @param keyCrypt Encryption method for key
+   *
+   * @param keyPair    Key pair of client
+   * @param keyCrypt   Encryption method for key
    * @param valueCrypt Encryption method for value
    * @return Dataset or None if no contract in kademlia network
    */
@@ -86,7 +82,8 @@ class FluenceClient(
   /**
    * Create string dataset with noop-encryption
    * private until multiple datasets per authorized client is supported
-   * @param contact node where we will store dataset
+   *
+   * @param contact     node where we will store dataset
    * @param clientState merkle root if it is not a new dataset
    * @return dataset representation
    */
@@ -112,9 +109,10 @@ class FluenceClient(
    *
    * Use string only info now
    * private until multiple datasets per authorized client is supported
-   * @param storageRpc transport to dataset
+   *
+   * @param storageRpc  transport to dataset
    * @param clientState merkle root of dataset, stored in contract
-   * @param nonce some numbers to iterate through the list of data sets, empty-only for now
+   * @param nonce       some numbers to iterate through the list of data sets, empty-only for now
    * @return dataset representation
    */
   private def addDataset(
@@ -209,12 +207,6 @@ class FluenceClient(
 
 object FluenceClient extends slogging.LazyLogging {
 
-  private def createKademliaClient(conf: KademliaConf, kademliaRpc: Contact ⇒ KademliaRpc[Task, Contact]): Kademlia[Task, Contact] = {
-    val clKey = Monoid.empty[Key]
-    val check = TransportSecurity.canBeSaved[Task](clKey, acceptLocal = true)
-    KademliaMVar.client(kademliaRpc, conf, check)
-  }
-
   private implicit def runTask[F[_]]: Task ~> Future = new (Task ~> Future) {
     override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
   }
@@ -227,39 +219,14 @@ object FluenceClient extends slogging.LazyLogging {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
-  def apply(
-    seeds: Seq[Contact],
-    signAlgo: SignAlgo,
-    storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    config: Config
-  )(implicit checker: SignatureChecker): Task[FluenceClient] = {
-
-    val client = ClientComposer.grpc[Task](GrpcClient.builder)
-    val kademliaRpc = client.service[KademliaRpc[Task, Contact]] _
-    for {
-      conf ← KademliaConfigParser.readKademliaConfig[Task](config)
-      _ = logger.info("Create kademlia client.")
-      kademliaClient = createKademliaClient(conf, kademliaRpc)
-      _ = logger.info("Connecting to seed node.")
-      _ ← kademliaClient.join(seeds, 2)
-      _ = logger.info("Create contracts api.")
-      contracts = new Contracts[Task, BasicContract, Contact](
-        maxFindRequests = 10,
-        maxAllocateRequests = _ ⇒ 20,
-        kademlia = kademliaClient,
-        cacheRpc = contact ⇒ client.service[ContractsCacheRpc[Task, BasicContract]](contact),
-        allocatorRpc = contact ⇒ client.service[ContractAllocatorRpc[Task, BasicContract]](contact)
-      )
-    } yield FluenceClient(kademliaClient, contracts, client.service[DatasetStorageRpc[Task]], signAlgo, storageHasher, config)
-  }
-
   /**
    * Client for multiple authorized users (with different key pairs).
    * Only one dataset for one user is supported at this moment.
+   *
    * @param kademliaClient client for kademlia network, could be shared, it is necessary to join with seed node before
-   * @param contracts client for work with contracts, could be shared
-   * @param storageRpc rpc for dataset communication
-   * @param signAlgo main algorithm for key verification
+   * @param contracts      client for work with contracts, could be shared
+   * @param storageRpc     rpc for dataset communication
+   * @param signAlgo       main algorithm for key verification
    */
   def apply(
     kademliaClient: Kademlia[Task, Contact],

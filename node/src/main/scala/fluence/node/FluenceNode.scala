@@ -33,7 +33,7 @@ import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
 import fluence.node.config.{ ContactConf, UPnPConf }
-import fluence.transport.UPnP
+import fluence.transport.{ TransportSecurity, UPnP }
 import fluence.transport.grpc.server.GrpcServerConf
 import monix.eval.Task
 import monix.execution.Scheduler
@@ -92,6 +92,7 @@ object FluenceNode extends slogging.LazyLogging {
     UPnPConf.read(config).flatMap {
       case u if !u.isEnabled ⇒ IO.pure(contactConf -> IO.unit)
       case u ⇒
+        TransportSecurity
         UPnP().flatMap {
           upnp ⇒
             // Provide upnp-discovered external address to contact conf
@@ -114,7 +115,7 @@ object FluenceNode extends slogging.LazyLogging {
   private def launchGrpc(algo: SignAlgo, hasher: CryptoHasher[Array[Byte], Array[Byte]], config: Config): IO[FluenceNode] = {
     import algo.checker
     for {
-      _ ← initDirectory(config.getString("fluence.directory"))
+      _ ← initDirectory(config.getString("fluence.directory")) // TODO config
       kpConf ← KeyPairConfig.read(config)
       kp ← FileKeyStorage.getKeyPair[IO](kpConf.keyPath, algo)
       key ← Key.fromKeyPair[IO](kp)

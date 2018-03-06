@@ -126,10 +126,34 @@ lazy val `kademlia-monix-js` = `kademlia-monix`.js
 lazy val `kademlia-monix-jvm` = `kademlia-monix`.jvm
 
 lazy val `transport-grpc` = project.in(file("transport/grpc"))
-  .dependsOn(`transport-core`, `codec-core-jvm`)
+  .dependsOn(`transport-core-jvm`, `codec-core-jvm`)
 
-lazy val `transport-core` = project.in(file("transport/core"))
-  .dependsOn(`kademlia-protocol-jvm`)
+lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("transport/core"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.typelevel" %%% "cats-core" % Cats1V,
+      "com.chuusai" %%% "shapeless" % ShapelessV,
+      "biz.enef" %%% "slogging" % SloggingV,
+      "org.typelevel" %%% "cats-effect" % CatsEffectV
+    )
+  )
+  .jvmSettings(
+    libraryDependencies ++= Seq(
+      "org.bitlet" % "weupnp" % "0.1.+"
+    )
+  )
+  .jsSettings(
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
+  .dependsOn(`kademlia-protocol`)
+
+lazy val `transport-core-js` = `transport-core`.js
+lazy val `transport-core-jvm` = `transport-core`.jvm
 
 lazy val `storage` = project.in(file("storage/core"))
   .dependsOn(`codec-core-jvm`)
@@ -187,7 +211,7 @@ lazy val `crypto-js` = `crypto`.js
   .enablePlugins(ScalaJSBundlerPlugin)
 
 lazy val `client` = project.in(file("client"))
-  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `transport-core`, `kademlia-monix-jvm`, `dataset-protocol`)
+  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `transport-core-jvm`, `kademlia-monix-jvm`, `dataset-protocol`)
 
 lazy val `dataset-node` = project.in(file("dataset/node"))
   .dependsOn(`storage`, `kademlia-core-jvm`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
@@ -203,4 +227,4 @@ lazy val `dataset-client` = project.in(file("dataset/client"))
   .dependsOn(`dataset-protocol`, `crypto-jvm`, `b-tree-client`, `kademlia-core-jvm`)
 
 lazy val `node` = project
-  .dependsOn(`kademlia-grpc`, `kademlia-monix-jvm`, `dataset-node`, `dataset-grpc`, `client`)
+  .dependsOn(`kademlia-grpc`, `kademlia-monix-jvm`, `dataset-node`, `dataset-grpc`, `client`, `transport-core-jvm`)

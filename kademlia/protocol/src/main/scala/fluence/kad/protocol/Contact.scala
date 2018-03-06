@@ -114,10 +114,10 @@ object Contact {
 
     implicit val decodeData: Decoder[JwtData] = c ⇒
       for {
-        ip ← c.downField("a").as[String]
+        addr ← c.downField("a").as[String]
         p ← c.downField("gp").as[Int]
         gh ← c.downField("gh").as[String]
-      } yield JwtData(addr = ip, grpcPort = p, gitHash = gh)
+      } yield JwtData(addr = addr, grpcPort = p, gitHash = gh)
   }
 
   import JwtImplicits._
