@@ -42,8 +42,9 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
   implicit val scheduler: Scheduler = Scheduler(ExecutionModel.AlwaysAsyncExecution)
 
-  private val conf = RocksDbConf.read[Try](ConfigFactory.load()).get
-  assert(conf.dataDir.startsWith(System.getProperty("java.io.tmpdir")))
+  private val config = ConfigFactory.load()
+  private val rDBConf = RocksDbConf.read[Try](config).get
+  assert(rDBConf.dataDir.startsWith(System.getProperty("java.io.tmpdir")))
 
   "RocksDbStore" should {
     "performs all operations correctly" in {
@@ -167,7 +168,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
         Mockito.when(db.getSnapshot).thenReturn(snapshot)
         Mockito.when(db.newIterator(any(classOf[ReadOptions]))).thenReturn(createTestRocksIterator(5))
 
-        val store = new RocksDbStore("", db, options)
+        val store = new RocksDbStore(db, options)
 
         try {
           val stream = store.traverse()
@@ -195,7 +196,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   }
 
   private def runRocksDb(name: String)(action: RocksDbStore ⇒ Unit): Unit = {
-    val store = new RocksDbStore.Factory()(makeUnique(name), conf).get
+    val store = new RocksDbStore.Factory().createForName(makeUnique(name), config).get
     try action(store) finally store.close()
   }
 
@@ -217,7 +218,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   }
 
   override protected def afterAll(): Unit = {
-    Path(conf.dataDir).deleteRecursively()
+    Path(rDBConf.dataDir).deleteRecursively()
   }
 
   private def makeUnique(dbName: String) = s"${this.getClass.getSimpleName}_${dbName}_${new Random().nextInt}"

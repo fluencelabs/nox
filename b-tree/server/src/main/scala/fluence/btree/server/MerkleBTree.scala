@@ -547,24 +547,24 @@ class MerkleBTree private[server] (
 
 object MerkleBTree {
 
-  /* tree root id is constant, it always points to root node. */
+  /* Tree root id is constant, it always points to root node. */
   private val RootId = 0L
 
   /**
    * Creates new instance of MerkleBTree.
    *
-   * @param treeId        Any unique name of this tree (actually will be created RockDb instance with data folder == id)
-   * @param cryptoHasher Hash service uses for calculating nodes checksums.
-   * @param conf          MerkleBTree config
+   * @param storeFullPath Full path for persisting this btree (will be created RockDb instance with data folder == storeFullPath)
+   * @param cryptoHasher  Hash service uses for calculating nodes checksums.
+   * @param conf           MerkleBTree config
    */
   def apply[F[_]](
-    treeId: String,
+    storeFullPath: String,
     rocksFactory: RocksDbStore.Factory,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     conf: Config
   )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[MerkleBTree] =
     F.map2(
-      defaultStore(treeId, rocksFactory, conf),
+      defaultStore(storeFullPath, rocksFactory, conf),
       MerkleBTreeConfig.read(conf)
     ) {
         (store, conf) ⇒
@@ -574,12 +574,12 @@ object MerkleBTree {
   /**
    * Default tree store with RockDb key-value storage under the hood.
    *
-   * @param id            Unique id of tree used as RockDb data folder name.
-   * @param rocksFactory Factory for creating manageable RocksDb instance.
-   * @param conf          MerkleBTree config
+   * @param storeFullPath Full path for persisting this btree
+   * @param rocksFactory  Factory for creating manageable RocksDb instance.
+   * @param conf           MerkleBTree config
    */
   private def defaultStore[F[_]](
-    id: String,
+    storeFullPath: String,
     rocksFactory: RocksDbStore.Factory,
     conf: Config
   )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[BTreeStore[Task, Long, Node]] = {
@@ -599,7 +599,7 @@ object MerkleBTree {
     import codecs._
 
     for {
-      rocksDb ← rocksFactory[F](id, conf)
+      rocksDb ← rocksFactory.createForPath(storeFullPath, conf)
       // RootId=0L is always for root node, for other nodes id starts with 1
       isSeqProvider ← IdSeqProvider.longSeqProvider(rocksDb, RootId)
     } yield new BTreeBinaryStore[Task, NodeId, Node](rocksDb, isSeqProvider)

@@ -448,7 +448,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
             //override for some value with no file for new key pair
             .withValue("fluence.keys.keyPath", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + makeUnique(s"/testnode-kp-$n")))
             .withValue("fluence.storage.rocksDb.dataDir", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + makeUnique(s"/rocksdb-ds-$n")))
-
+            .withValue("fluence.dataset.node.dataDir", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + makeUnique(s"/rocksdb-ds-$n/btree_idx")))
+            .withValue("fluence.dataset.node.indexDir", ConfigValueFactory.fromAnyRef(System.getProperty("java.io.tmpdir") + makeUnique(s"/rocksdb-ds-$n/blob_data")))
         ).unsafeRunSync()
       }
 

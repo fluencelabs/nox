@@ -38,7 +38,8 @@ class IdSeqProviderSpec extends WordSpec with Matchers with ScalaFutures with Be
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
   implicit val scheduler: Scheduler = Scheduler(ExecutionModel.AlwaysAsyncExecution)
 
-  private val conf = RocksDbConf.read[Try](ConfigFactory.load()).get
+  private val config = ConfigFactory.load()
+  private val conf = RocksDbConf.read[Try](config).get
   assert(conf.dataDir.startsWith(System.getProperty("java.io.tmpdir")))
 
   private implicit val valRef2bytesCodec: Codec[Task, Array[Byte], Long] = Codec.pure(
@@ -79,7 +80,7 @@ class IdSeqProviderSpec extends WordSpec with Matchers with ScalaFutures with Be
   }
 
   private def runRocksDb(name: String)(action: RocksDbStore ⇒ Unit): Unit = {
-    val store = new RocksDbStore.Factory()(makeUnique(name), conf).get
+    val store = new RocksDbStore.Factory().createForName(makeUnique(name), config).get
     try action(store) finally store.close()
   }
 

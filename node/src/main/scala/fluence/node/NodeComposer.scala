@@ -57,7 +57,7 @@ object NodeComposer {
       k ← Key.fromKeyPair[IO](keyPair)
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
       rocksDbFactory = new RocksDbStore.Factory
-      contractsCacheStore ← ContractsCacheStore(config, dirName ⇒ rocksDbFactory[IO](dirName, config))
+      contractsCacheStore ← ContractsCacheStore(config, dirName ⇒ rocksDbFactory.createForName[IO](dirName, config))
     } yield new NodeServices[Task, BasicContract, Contact] {
       override val key: Key = k
 
