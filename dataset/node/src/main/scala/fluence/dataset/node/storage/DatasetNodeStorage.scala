@@ -141,10 +141,9 @@ object DatasetNodeStorage {
     )
 
     for {
-      conf ← runTask(Task.fromIO(DatasetNodeStorageConfig.read(config)))
-      rocksDb ← rocksFactory.createForPath(s"${conf.dataDir}/$datasetId", config)
+      rocksDb ← rocksFactory(s"$datasetId/blob_data", config)
       idSeqProvider ← IdSeqProvider.longSeqProvider(rocksDb)
-      btreeIdx ← MerkleBTree(s"${conf.indexDir}/$datasetId", rocksFactory, cryptoHasher, config)
+      btreeIdx ← MerkleBTree(s"$datasetId/btree_idx", rocksFactory, cryptoHasher, config)
     } yield {
       new DatasetNodeStorage(
         btreeIdx,

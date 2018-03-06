@@ -145,38 +145,26 @@ object RocksDbStore {
     private val instances = TrieMap.empty[String, RocksDbStore]
 
     /**
-     * Create RocksDb instance for specified full path. All data will be stored in specified folder.
-     *
-     * @param fullPath Full path to data dir for new RocksDb instance
-     * @param config   TypeSafe config
-     */
-    def createForPath[F[_]](fullPath: String, config: Config)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
-      RocksDbConf.read(config)
-        .flatMap(conf ⇒ apply(fullPath, conf))
-
-    /**
      * Create RocksDb instance for specified name.
      * All data will be stored in {{{ s"${RocksDbConf.dataDir}/storeName" }}}.
      *
      * @param storeName The name of current RocksDbStore instance
-     * @param config    TypeSafe config
+     * @param conf       TypeSafe config
      */
-    def createForName[F[_]](storeName: String, config: Config)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
-      RocksDbConf.read(config)
-        .flatMap(conf ⇒ apply(s"${conf.dataDir}/$storeName", conf))
 
-    def apply[F[_]](
-      fullPath: String,
-      config: RocksDbConf
-    )(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] = {
+    def apply[F[_]](storeName: String, conf: Config)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
+      RocksDbConf.read(conf).flatMap(apply(storeName, _))
+
+    def apply[F[_]](storeName: String, config: RocksDbConf)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] = {
+      val dbRoot = s"${config.dataDir}/$storeName"
       val options = createOptionsFromConfig(config)
 
-      createDb(fullPath, options)
-        .map { rdb ⇒
+      createDb(dbRoot, options)
+        .map{ rdb ⇒
           // Registering an instance
           val store = new RocksDbStore(rdb, options)
-          instances(fullPath) = store
-          logger.info(s"RocksDB instance created for $fullPath")
+          instances(storeName) = store
+          logger.info(s"RocksDB instance created for $storeName")
           store
         }
     }

@@ -196,7 +196,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   }
 
   private def runRocksDb(name: String)(action: RocksDbStore ⇒ Unit): Unit = {
-    val store = new RocksDbStore.Factory().createForName(makeUnique(name), config).get
+    val store = new RocksDbStore.Factory()(makeUnique(name), config).get
     try action(store) finally store.close()
   }
 
