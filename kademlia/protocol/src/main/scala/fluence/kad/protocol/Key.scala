@@ -19,13 +19,13 @@ package fluence.kad.protocol
 
 import java.lang.Byte.toUnsignedInt
 import java.nio.charset.Charset
-import java.security.MessageDigest
 
 import cats.syntax.monoid._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
-import cats.{ MonadError, Monoid, Order, Show }
+import cats.{MonadError, Monoid, Order, Show}
 import fluence.codec.Codec
+import fluence.crypto.hash.CryptoHashers
 import fluence.crypto.keypair.KeyPair
 import scodec.bits.ByteVector
 
@@ -116,14 +116,12 @@ object Key {
   /**
    * Calculates sha-1 hash of the payload, and wraps it with Key.
    * We keep using sha-1 instead of sha-2, because randomness is provided with keypair generation, not hash function.
-   * TODO use hasher from crypto
    *
    * @param bytes Bytes to hash
    */
   def sha1[F[_]](bytes: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Key] =
     F.catchNonFatal{
-      val md = MessageDigest.getInstance("SHA-1")
-      md.digest(bytes)
+      CryptoHashers.Sha1.hash(bytes)
     }.flatMap(fromBytes[F])
 
   def fromKeyPair[F[_]](keyPair: KeyPair)(implicit F: MonadError[F, Throwable]): F[Key] =
