@@ -23,7 +23,7 @@ import java.nio.charset.Charset
 import cats.syntax.monoid._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
-import cats.{MonadError, Monoid, Order, Show}
+import cats.{ MonadError, Monoid, Order, Show }
 import fluence.codec.Codec
 import fluence.crypto.hash.CryptoHashers
 import fluence.crypto.keypair.KeyPair
