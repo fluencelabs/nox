@@ -17,7 +17,7 @@
 
 package fluence.storage
 
-import cats.{ ApplicativeError, Eval, ~> }
+import cats.{ApplicativeError, Eval, ~>}
 
 import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds

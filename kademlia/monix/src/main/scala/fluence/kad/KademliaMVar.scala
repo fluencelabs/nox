@@ -26,7 +26,6 @@ import fluence.kad.protocol.{ KademliaRpc, Key, Node }
 import monix.eval.{ MVar, Task }
 import monix.execution.atomic.AtomicAny
 
-import scala.collection.concurrent.TrieMap
 import scala.language.implicitConversions
 
 // TODO: write unit tests
