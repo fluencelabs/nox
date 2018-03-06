@@ -73,6 +73,7 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .dependsOn(`codec-core`, `crypto`)
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-protocol-js` = `kademlia-protocol`.js
   .enablePlugins(ScalaJSBundlerPlugin)
@@ -98,6 +99,7 @@ lazy val `kademlia-core` = crossProject(JVMPlatform, JSPlatform)
     fork in Test := false,
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`kademlia-protocol`)
 
 lazy val `kademlia-core-js` = `kademlia-core`.js
@@ -125,6 +127,7 @@ lazy val `kademlia-monix` =
       fork in Test := false,
       scalaJSModuleKind := ModuleKind.CommonJSModule
     )
+    .enablePlugins(AutomateHeaderPlugin)
     .dependsOn(`kademlia-core`)
 
 lazy val `kademlia-monix-js` = `kademlia-monix`.js
@@ -155,6 +158,7 @@ lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
     fork in Test := false,
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`kademlia-protocol`)
 
 lazy val `transport-core-js` = `transport-core`.js
@@ -174,6 +178,7 @@ lazy val `storage-core` = crossProject(JVMPlatform, JSPlatform)
     fork in Test := false,
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`codec-core`)
 
 lazy val `storage-core-jvm` = `storage-core`.jvm
@@ -215,7 +220,6 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
       bouncyCastle
     )
   )
-  .enablePlugins(AutomateHeaderPlugin)
   .jsSettings(
     npmDependencies in Compile ++= Seq(
       "elliptic" -> "6.4.0",
@@ -226,6 +230,7 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
     skip in packageJSDependencies := false,
     fork in Test := false
   )
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `crypto-jvm` = `crypto`.jvm
 
