@@ -28,7 +28,6 @@ import monix.eval.Coeval
 import monix.execution.atomic.Atomic
 import org.scalatest.{ Matchers, WordSpec }
 
-import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
@@ -82,7 +81,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
     def bucketOps(maxBucketSize: Int): Bucket.WriteOps[Coeval, Long] =
       new Bucket.WriteOps[Coeval, Long] {
-        private val buckets = TrieMap.empty[Int, Bucket[Long]]
+        private val buckets = collection.mutable.Map.empty[Int, Bucket[Long]]
 
         override protected def run[T](bucketId: Int, mod: StateT[Coeval, Bucket[Long], T]) =
           mod.run(read(bucketId)).map {
