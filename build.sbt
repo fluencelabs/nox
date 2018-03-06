@@ -92,6 +92,9 @@ lazy val `kademlia-core` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
+    libraryDependencies ++= Seq(
+      "org.scala-js" %%% "scalajs-java-time" % "0.2.3"
+    ),
     fork in Test := false,
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
