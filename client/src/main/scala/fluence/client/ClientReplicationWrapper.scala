@@ -70,9 +70,6 @@ class ClientReplicationWrapper[K, V](
         datasetReplicas
           .map { case (store, _) ⇒ store.get(key) }
       )
-      _ ← if (getRes.size < datasetReplicas.size)
-        Task.raiseError(new Exception("Some of nodes not available"))
-      else Task(())
       res ← Task.sequence(
         datasetReplicas
           .map { case (store, _) ⇒ store.put(key, value) }

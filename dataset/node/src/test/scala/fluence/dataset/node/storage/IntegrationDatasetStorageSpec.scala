@@ -225,7 +225,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   }
 
   private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] = {
-    val fullName = s"${this.getClass.getSimpleName}_$dbName"
+    val fullName = makeUnique(dbName)
     new ClientDatasetStorage(
       fullName.getBytes(),
       createBTreeClient(clientState),
@@ -236,7 +236,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   }
 
   private def createStorageRpcWithNetworkError(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetStorageRpc[Task] = {
-    val origin = createDatasetNodeStorage(dbName, counter)
+    val origin = createDatasetNodeStorage(makeUnique(dbName), counter)
     new DatasetStorageRpc[Task] {
       override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
         origin.remove(removeCallbacks)
@@ -289,5 +289,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   override protected def afterEach(): Unit = {
     rocksFactory.close.unsafeRunSync()
   }
+
+  private def makeUnique(dbName: String) = s"${this.getClass.getSimpleName}_${dbName}_${new Random().nextInt}"
 
 }

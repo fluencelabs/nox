@@ -31,7 +31,6 @@ import fluence.btree.server.MerkleBTree
 import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.codec.Codec
 import fluence.crypto.hash.CryptoHasher
-import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.storage.KVStore
 import fluence.storage.rocksdb.{ IdSeqProvider, RocksDbStore }
 import monix.eval.Task
@@ -47,8 +46,7 @@ import scala.language.higherKinds
  * @param valueIdGenerator     Generator which creates surrogate id for new value when putting to dataset store.
  * @param onMRChange            Callback that will be called when merkle root change
  */
-// todo create unit test!
-class DatasetNodeStorage private (
+class DatasetNodeStorage private[storage] (
     bTreeIndex: MerkleBTree,
     kVStore: KVStore[Task, ValueRef, Array[Byte]],
     merkleRootCalculator: MerkleRootCalculator,
@@ -116,8 +114,6 @@ class DatasetNodeStorage private (
 
   }
 
-  // todo create close method for closing RocksDb
-
 }
 
 object DatasetNodeStorage {
@@ -145,9 +141,9 @@ object DatasetNodeStorage {
     )
 
     for {
-      rocksDb ← rocksFactory[F](s"${datasetId}_blob", config)
+      rocksDb ← rocksFactory(s"$datasetId/blob_data", config)
       idSeqProvider ← IdSeqProvider.longSeqProvider(rocksDb)
-      btreeIdx ← MerkleBTree(s"${datasetId}_tree", rocksFactory, cryptoHasher, config)
+      btreeIdx ← MerkleBTree(s"$datasetId/btree_idx", rocksFactory, cryptoHasher, config)
     } yield {
       new DatasetNodeStorage(
         btreeIdx,
