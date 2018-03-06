@@ -13,7 +13,7 @@ class MutableMapMVarBucketOps[C](maxBucketSize: Int) extends Bucket.WriteOps[Tas
   private val writeState = collection.mutable.Map.empty[Int, MVar[Bucket[C]]]
   private val readState = collection.mutable.Map.empty[Int, Bucket[C]]
 
-  import MVarMapCache.runOnMVar
+  import RunOnMVar.runOnMVar
 
   override protected def run[T](bucketId: Int, mod: StateT[Task, Bucket[C], T]): Task[T] =
     runOnMVar(

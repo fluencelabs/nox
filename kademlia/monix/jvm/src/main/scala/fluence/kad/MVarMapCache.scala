@@ -18,7 +18,7 @@
 package fluence.kad
 
 import cats.data.StateT
-import monix.eval.{ MVar, Task }
+import monix.eval.{MVar, Task}
 
 import scala.collection.concurrent.TrieMap
 
@@ -32,7 +32,7 @@ class MVarMapCache[K, V](default: V) {
   private val writeState = TrieMap.empty[K, MVar[V]]
   private val readState = TrieMap.empty[K, V]
 
-  import MVarMapCache.runOnMVar
+  import RunOnMVar.runOnMVar
 
   def update(key: K, value: V): Task[Unit] =
     runOnMVar(
@@ -82,30 +82,4 @@ class MVarMapCache[K, V](default: V) {
       mod,
       readState.update(key, _: V)
     )
-}
-
-object MVarMapCache {
-  /**
-   * Runs a state modification on state V enclosed within MVar, and updates read model before return
-   *
-   * @param mvar State container
-   * @param mod State modifier
-   * @param updateRead Callback to update read model
-   * @tparam T Return type
-   * @tparam V State type
-   * @return mod call response
-   */
-  def runOnMVar[T, V](mvar: MVar[V], mod: StateT[Task, V, T], updateRead: V ⇒ Unit): Task[T] =
-    mvar.take.flatMap { init ⇒
-      // Run modification
-      mod.run(init).onErrorHandleWith { err ⇒
-        // In case modification failed, write initial value back to MVar
-        mvar.put(init).flatMap(_ ⇒ Task.raiseError(err))
-      }
-    }.flatMap {
-      case (updated, value) ⇒
-        // Update read and write states
-        updateRead(updated)
-        mvar.put(updated).map(_ ⇒ value)
-    }
 }

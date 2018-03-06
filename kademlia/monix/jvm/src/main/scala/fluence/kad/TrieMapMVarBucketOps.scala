@@ -15,7 +15,7 @@ class TrieMapMVarBucketOps[C](maxBucketSize: Int) extends Bucket.WriteOps[Task, 
   private val writeState = TrieMap.empty[Int, MVar[Bucket[C]]]
   private val readState = TrieMap.empty[Int, Bucket[C]]
 
-  import MVarMapCache.runOnMVar
+  import RunOnMVar.runOnMVar
 
   override protected def run[T](bucketId: Int, mod: StateT[Task, Bucket[C], T]): Task[T] =
     runOnMVar(
