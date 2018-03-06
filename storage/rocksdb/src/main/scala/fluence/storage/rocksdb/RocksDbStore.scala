@@ -41,12 +41,10 @@ import scala.reflect.io.Path
  * you can overload them into ''reference.conf''
  * '''Note: only single thread should write to DB''', but reading database allowed to multiply threads.
  *
- * @param dataSet   Some bag for pairs (K, V)
  * @param db        Instance of RocksDbJava driver
  * @param dbOptions Needed for run [[dbOptions.close]] simultaneously with [[db.close]].
  */
 class RocksDbStore(
-    val dataSet: String,
     val db: RocksDB,
     private val dbOptions: Options
 ) extends KVStore[Task, Key, Value] with TraversableKVStore[Observable, Key, Value] with AutoCloseable {
@@ -146,19 +144,27 @@ object RocksDbStore {
   class Factory extends slogging.LazyLogging {
     private val instances = TrieMap.empty[String, RocksDbStore]
 
-    def apply[F[_]](dataSet: String, conf: Config)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
-      RocksDbConf.read(conf).flatMap(apply(dataSet, _))
+    /**
+     * Create RocksDb instance for specified name.
+     * All data will be stored in {{{ s"${RocksDbConf.dataDir}/storeName" }}}.
+     *
+     * @param storeName The name of current RocksDbStore instance
+     * @param conf       TypeSafe config
+     */
 
-    def apply[F[_]](dataSet: String, config: RocksDbConf)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] = {
-      val dbRoot = s"${config.dataDir}/$dataSet"
-      val options = createOptionsFromConfig(config, Path(dbRoot))
+    def apply[F[_]](storeName: String, conf: Config)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
+      RocksDbConf.read(conf).flatMap(apply(storeName, _))
+
+    def apply[F[_]](storeName: String, config: RocksDbConf)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] = {
+      val dbRoot = s"${config.dataDir}/$storeName"
+      val options = createOptionsFromConfig(config)
 
       createDb(dbRoot, options)
         .map{ rdb ⇒
           // Registering an instance
-          val store = new RocksDbStore(dataSet, rdb, options)
-          instances(dataSet) = store
-          logger.info(s"RocksDB instance created for $dataSet")
+          val store = new RocksDbStore(rdb, options)
+          instances(storeName) = store
+          logger.info(s"RocksDB instance created for $storeName")
           store
         }
     }
@@ -179,7 +185,7 @@ object RocksDbStore {
         RocksDB.open(options, folder)
       }
 
-    private def createOptionsFromConfig(conf: RocksDbConf, root: Path): Options = {
+    private def createOptionsFromConfig(conf: RocksDbConf): Options = {
       val opt = new Options()
       opt.setCreateIfMissing(conf.createIfMissing)
       opt

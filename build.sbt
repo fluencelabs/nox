@@ -23,6 +23,7 @@ lazy val `co-fail` = crossProject(JVMPlatform, JSPlatform)
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `co-fail-jvm` = `co-fail`.jvm
 
@@ -45,6 +46,7 @@ lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
   .jsSettings(
     fork in Test := false
   )
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `codec-core-jvm` = `codec-core`.jvm
 
@@ -194,6 +196,7 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
       bouncyCastle
     )
   )
+  .enablePlugins(AutomateHeaderPlugin)
   .jsSettings(
     npmDependencies in Compile ++= Seq(
       "elliptic" -> "6.4.0",

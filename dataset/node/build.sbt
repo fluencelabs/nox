@@ -1,9 +1,12 @@
 import SbtCommons._
 
+enablePlugins(AutomateHeaderPlugin)
+
 commons
 
 libraryDependencies ++= Seq(
   cats1,
   monix3 % Test,
-  scalatest
+  scalatest,
+  mockito
 )

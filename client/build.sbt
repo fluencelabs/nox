@@ -2,7 +2,7 @@ import SbtCommons._
 import com.typesafe.sbt.packager.docker._
 
 // see docker plugin docs https://www.scala-sbt.org/sbt-native-packager/formats/docker.html
-enablePlugins(JavaAppPackaging, DockerPlugin)
+enablePlugins(JavaAppPackaging, DockerPlugin, AutomateHeaderPlugin)
 
 commons
 
