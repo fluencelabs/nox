@@ -32,6 +32,8 @@ class MVarMapCache[K, V](default: V) {
   private val writeState = TrieMap.empty[K, MVar[V]]
   private val readState = TrieMap.empty[K, V]
 
+  import MVarMapCache.runOnMVar
+
   def update(key: K, value: V): Task[Unit] =
     runOnMVar(
       writeState.getOrElseUpdate(key, MVar(value)),
@@ -39,17 +41,15 @@ class MVarMapCache[K, V](default: V) {
       readState.update(key, _: V)
     )
 
-
   def get(key: K): Option[V] =
     readState.get(key)
 
   def getOrAdd(key: K, value: V): Task[V] =
     runOnMVar(
       writeState.getOrElseUpdate(key, MVar(value)),
-      StateT.get,
+      StateT.get[Task, V],
       readState.update(key, _: V)
     )
-
 
   def getOrAddF(key: K, value: ⇒ Task[V]): Task[V] =
     runOnMVar(
@@ -57,7 +57,6 @@ class MVarMapCache[K, V](default: V) {
       StateT.modifyF[Task, V](a ⇒ if (a != default) Task.pure(a) else value).get,
       readState.update(key, _: V)
     )
-
 
   def modify(key: K, modify: V ⇒ V): Task[Boolean] =
     writeState.get(key) match {
@@ -68,7 +67,7 @@ class MVarMapCache[K, V](default: V) {
           StateT.modify[Task, V](modify).map(_ ⇒ true),
           readState.update(key, _: V)
         )
-  }
+    }
 
   def modifyValueOrDefault(key: K, modify: V ⇒ V): Task[Boolean] =
     runOnMVar(
@@ -77,15 +76,26 @@ class MVarMapCache[K, V](default: V) {
       readState.update(key, _: V)
     )
 
-
   protected def run[T](key: K, mod: StateT[Task, V, T], ifNotExists: V): Task[T] =
     runOnMVar(
       writeState.getOrElseUpdate(key, MVar(ifNotExists)),
       mod,
       readState.update(key, _: V)
     )
+}
 
-  private def runOnMVar[T](mvar: MVar[V], mod: StateT[Task, V, T], updateRead: V ⇒ Unit): Task[T] =
+object MVarMapCache {
+  /**
+   * Runs a state modification on state V enclosed within MVar, and updates read model before return
+   *
+   * @param mvar State container
+   * @param mod State modifier
+   * @param updateRead Callback to update read model
+   * @tparam T Return type
+   * @tparam V State type
+   * @return mod call response
+   */
+  def runOnMVar[T, V](mvar: MVar[V], mod: StateT[Task, V, T], updateRead: V ⇒ Unit): Task[T] =
     mvar.take.flatMap { init ⇒
       // Run modification
       mod.run(init).onErrorHandleWith { err ⇒

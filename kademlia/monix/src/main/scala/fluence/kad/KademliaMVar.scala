@@ -51,7 +51,7 @@ object KademliaMVar {
   ): Kademlia[Task, C] = new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
     implicitly[MonadError[Task, Throwable]],
     implicitly[Parallel[Task, Task]],
-    KademliaMVar.bucketOps(conf.maxBucketSize),
+    MVarBucketOps.task[C](conf.maxBucketSize),
     KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
   ) {
     override def rpc(contact: C): KademliaRpc[Task, C] = rpcForContact(contact)
@@ -101,28 +101,6 @@ object KademliaMVar {
         // Update read and write states
         updateRead(updated)
         mvar.put(updated).map(_ ⇒ value)
-    }
-
-  /**
-   * Builds asynchronous bucket ops with $maxBucketSize nodes in each bucket.
-   *
-   * @param maxBucketSize Max number of nodes in each bucket
-   * @tparam C Node contacts type
-   */
-  private def bucketOps[C](maxBucketSize: Int): Bucket.WriteOps[Task, C] =
-    new Bucket.WriteOps[Task, C] {
-      private val writeState = TrieMap.empty[Int, MVar[Bucket[C]]]
-      private val readState = TrieMap.empty[Int, Bucket[C]]
-
-      override protected def run[T](bucketId: Int, mod: StateT[Task, Bucket[C], T]): Task[T] =
-        runOnMVar(
-          writeState.getOrElseUpdate(bucketId, MVar(read(bucketId))),
-          mod,
-          readState.update(bucketId, _: Bucket[C])
-        )
-
-      override def read(bucketId: Int): Bucket[C] =
-        readState.getOrElseUpdate(bucketId, Bucket[C](maxBucketSize))
     }
 
   /**
