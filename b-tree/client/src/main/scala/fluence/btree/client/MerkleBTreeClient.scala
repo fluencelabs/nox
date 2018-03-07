@@ -17,10 +17,7 @@
 
 package fluence.btree.client
 
-import cats.Show
-import cats.syntax.show._
 import fluence.btree.client.MerkleBTreeClient._
-import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common._
 import fluence.btree.common.merkle.MerklePath
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
@@ -58,14 +55,14 @@ class MerkleBTreeClient[K] private (
    */
   case class GetStateImpl(
       key: K,
-      merkleRoot: Array[Byte]
+      merkleRoot: Hash
   ) extends GetState[Task] with GetCallbacks[Task] {
 
     /** Tree path traveled on the server. Updatable for round trip session */
     private val merklePathMVar: MVar[MerklePath] = MVar(MerklePath.empty)
 
     // case when server asks next child
-    def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = {
+    def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = {
       merklePathMVar.take.flatMap { mPath ⇒
         logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=$keys")
 
@@ -99,14 +96,14 @@ class MerkleBTreeClient[K] private (
         } else {
           Task.raiseError(new IllegalStateException(
             s"Checksum of leaf didn't pass verifying for key=$key, Leaf($keys, " +
-              s"${valuesChecksums.map(_.show).mkString(",")})"
+              s"${valuesChecksums.mkString(",")})"
           ))
         }
       }
     }
 
     override def recoverState(): Task[Unit] = {
-      logger.debug(s"Recover client state for get; mRoot=${merkleRoot.show}")
+      logger.debug(s"Recover client state for get; mRoot=$merkleRoot")
       clientStateMVar.put(ClientState(merkleRoot))
     }
 
@@ -132,10 +129,10 @@ class MerkleBTreeClient[K] private (
     private val putDetailsMVar: MVar[Option[ClientPutDetails]] = MVar.empty
 
     /** New valid client merkle root */
-    private val newMerkleRoot: MVar[Bytes] = MVar.empty
+    private val newMerkleRoot: MVar[Hash] = MVar.empty
 
     // case when server asks next child
-    override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = {
+    override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = {
       merklePathMVar.take.flatMap { mPath ⇒
         logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=$keys")
 
@@ -168,19 +165,19 @@ class MerkleBTreeClient[K] private (
 
         } else {
           Task.raiseError(new IllegalStateException(
-            s"Checksum of leaf didn't pass verifying for key=$key, Leaf($keys, ${values.show})"
+            s"Checksum of leaf didn't pass verifying for key=$key, Leaf($keys, $values)"
           ))
         }
       }
     }
 
     // case when server asks verify made changes
-    override def verifyChanges(serverMRoot: Bytes, wasSplitting: Boolean): Task[Unit] = {
+    override def verifyChanges(serverMRoot: Hash, wasSplitting: Boolean): Task[Unit] = {
       for {
         mPath ← merklePathMVar.read
         optDetails ← putDetailsMVar.read
         _ ← {
-          logger.debug(s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=${serverMRoot.show}")
+          logger.debug(s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=$serverMRoot")
 
           optDetails match {
             case Some(details) ⇒
@@ -208,14 +205,14 @@ class MerkleBTreeClient[K] private (
       // change global client state with new merkle root
       newMerkleRoot.take
         .flatMap { newMRoot ⇒
-          logger.debug(s"changesStored starts for key=$key, newMRoot=${newMRoot.show}")
+          logger.debug(s"changesStored starts for key=$key, newMRoot=$newMRoot")
 
           clientStateMVar.put(ClientState(newMRoot))
         }
     }
 
     override def recoverState(): Task[Unit] = {
-      logger.debug(s"Recover client state for put; mRoot=${merkleRoot.show}")
+      logger.debug(s"Recover client state for put; mRoot=$merkleRoot")
       clientStateMVar.put(ClientState(merkleRoot))
     }
 
@@ -231,7 +228,7 @@ class MerkleBTreeClient[K] private (
 
     for {
       clientState ← clientStateMVar.take
-    } yield GetStateImpl(key, BytesOps.copyOf(clientState.merkleRoot))
+    } yield GetStateImpl(key, clientState.merkleRoot.copy)
 
   }
 
@@ -242,11 +239,11 @@ class MerkleBTreeClient[K] private (
    * @param valueChecksum  Checksum of encrypted value to be store
    */
   override def initPut(key: K, valueChecksum: Hash): Task[PutState[Task]] = {
-    logger.debug(s"initPut starts put for key=$key, value=${valueChecksum.show}")
+    logger.debug(s"initPut starts put for key=$key, value=$valueChecksum")
 
     for {
       clientState ← clientStateMVar.take
-    } yield PutStateImpl(key, valueChecksum, BytesOps.copyOf(clientState.merkleRoot))
+    } yield PutStateImpl(key, valueChecksum, clientState.merkleRoot.copy)
 
   }
 
@@ -275,10 +272,10 @@ class MerkleBTreeClient[K] private (
    */
   private def processSearch(
     key: K,
-    mRoot: Array[Byte],
+    mRoot: Hash,
     mPath: MerklePath,
     keys: Array[Key],
-    childsChecksums: Array[Bytes]
+    childsChecksums: Array[Hash]
   ): Task[(MerklePath, Int)] = {
 
     val nodeProof = verifier.getBranchProof(keys, childsChecksums, -1)
@@ -291,7 +288,7 @@ class MerkleBTreeClient[K] private (
       }
     } else {
       Task.raiseError(new IllegalStateException(
-        s"Checksum of branch didn't pass verifying for key=$key, Branch($keys, ${childsChecksums.show})"
+        s"Checksum of branch didn't pass verifying for key=$key, Branch($keys, $childsChecksums)"
       ))
     }
   }
@@ -314,13 +311,13 @@ object MerkleBTreeClient {
   def apply[K](
     initClientState: Option[ClientState],
     keyCrypt: Crypt[Task, K, Array[Byte]],
-    cryptoHasher: CryptoHasher[Bytes, Bytes]
+    cryptoHasher: CryptoHasher[Array[Byte], Hash]
   )(implicit ord: Ordering[K]): MerkleBTreeClient[K] = {
-    import fluence.codec.Codec.identityCodec
     import Key._
+    import fluence.codec.Codec.identityCodec
 
     new MerkleBTreeClient[K](
-      initClientState.getOrElse(ClientState(Array.emptyByteArray)),
+      initClientState.getOrElse(ClientState(Hash.empty)),
       Crypt.transform(keyCrypt),
       BTreeVerifier(cryptoHasher)
     )
@@ -328,12 +325,7 @@ object MerkleBTreeClient {
 
   /**
    * Global state of BTree client.
-   * TODO: use ByteVector
    */
-  case class ClientState(merkleRoot: Bytes)
-
-  implicit def showState(implicit sb: Show[Bytes]): Show[ClientState] = {
-    Show.show(cs ⇒ s"ClientState(${sb.show(cs.merkleRoot)})")
-  }
+  case class ClientState(merkleRoot: Hash)
 
 }

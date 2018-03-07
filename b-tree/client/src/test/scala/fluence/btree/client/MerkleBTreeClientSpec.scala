@@ -18,9 +18,9 @@
 package fluence.btree.client
 
 import fluence.btree.client.MerkleBTreeClient.ClientState
-import fluence.btree.common.Key
+import fluence.btree.common.{ Hash, Key }
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.TestCryptoHasher
+import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler
@@ -33,6 +33,15 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
   implicit class Str2Key(str: String) {
     def toKey: Key = Key(str.getBytes)
+  }
+
+  private implicit class Str2Hash(str: String) {
+    def toHash: Hash = Hash(str.getBytes)
+  }
+
+  private val testHasher = new CryptoHasher[Array[Byte], Hash] {
+    override def hash(msg: Array[Byte]): Hash = Hash(TestCryptoHasher.hash(msg))
+    override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(TestCryptoHasher.hash(msg1, msgN: _*))
   }
 
   val key1 = "k1"
@@ -55,7 +64,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
         val client = createClient("H<H<k1v1-cs>>")
         val getCallbacks = wait(client.initGet(key1))
-        val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k3v3>H<k4v4>>".getBytes)
+        val childChecksums = Array("H<H<k1v1>H<k2v2>>".toHash, "H<H<k3v3>H<k4v4>>".toHash)
         val result = wait(
           getCallbacks
             .nextChildIndex(Array("unexpected key returned from server".toKey), childChecksums)
@@ -75,7 +84,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
           getCallbacks
             .submitLeaf(
               Array(key1.toKey, "unexpected key returned from server".toKey),
-              Array(val1Hash.getBytes, val2Hash.getBytes)
+              Array(val1Hash.toHash, val2Hash.toHash)
             ).map(_ ⇒ ()).failed
         )
 
@@ -90,7 +99,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val client = createClient("H<H<k1v1-cs>>")
         val getCallbacks = wait(client.initGet(key2))
 
-        val result = wait(getCallbacks.submitLeaf(Array(key1.toKey), Array(val1Hash.getBytes)))
+        val result = wait(getCallbacks.submitLeaf(Array(key1.toKey), Array(val1Hash.toHash)))
 
         result shouldBe None
       }
@@ -102,7 +111,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val client = createClient("H<H<k1v1-cs>>")
         val getCallbacks = wait(client.initGet(key1))
 
-        val result = wait(getCallbacks.submitLeaf(Array(key1.toKey), Array(val1Hash.getBytes)))
+        val result = wait(getCallbacks.submitLeaf(Array(key1.toKey), Array(val1Hash.toHash)))
 
         result shouldBe Some(0)
       }
@@ -111,12 +120,12 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k3v3-cs>H<k4v4-cs>>>")
         val getCallbacks = wait(client.initGet(key1))
-        val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".getBytes, "H<H<k3v3-cs>H<k4v4-cs>>".getBytes)
+        val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".toHash, "H<H<k3v3-cs>H<k4v4-cs>>".toHash)
 
         val result = wait(
           for {
             _ ← getCallbacks.nextChildIndex(Array(key2.toKey), childChecksums)
-            idx ← getCallbacks.submitLeaf(Array(key1.toKey, key2.toKey), Array(val1Hash.getBytes, val2Hash.getBytes))
+            idx ← getCallbacks.submitLeaf(Array(key1.toKey, key2.toKey), Array(val1Hash.toHash, val2Hash.toHash))
           } yield idx
         )
 
@@ -131,9 +140,9 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k1v1>>")
-        val putCallbacks = wait(client.initPut(key1, val1Hash.getBytes))
+        val putCallbacks = wait(client.initPut(key1, val1Hash.toHash))
 
-        val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k3v3>H<k4v4>>".getBytes)
+        val childChecksums = Array("H<H<k1v1>H<k2v2>>".toHash, "H<H<k3v3>H<k4v4>>".toHash)
         val result = wait(putCallbacks.nextChildIndex(Array("unexpected key returned from server".toKey), childChecksums).failed)
 
         result.getMessage should startWith("Checksum of branch didn't pass verifying")
@@ -143,11 +152,11 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k1v1>H<k2v2>>")
-        val putCallbacks = wait(client.initPut(key1, val1Hash.getBytes))
+        val putCallbacks = wait(client.initPut(key1, val1Hash.toHash))
 
         val result = wait(putCallbacks.putDetails(
           Array(key1.toKey, "unexpected key returned from server".toKey),
-          Array(val1Hash.getBytes, val2Hash.getBytes)
+          Array(val1Hash.toHash, val2Hash.toHash)
         ).failed)
 
         result.getMessage should startWith("Checksum of leaf didn't pass verifying")
@@ -158,12 +167,12 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
       "key ins't present in tree (root inserting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k1v1-cs>>")
-        val putCallbacks = wait(client.initPut(key2, val2Hash.getBytes))
+        val putCallbacks = wait(client.initPut(key2, val2Hash.toHash))
 
         wait(
           for {
-            _ ← putCallbacks.putDetails(Array(key1.toKey), Array(val1Hash.getBytes))
-            _ ← putCallbacks.verifyChanges("H<H<k1v1-cs>H<k2v2-cs>>".getBytes, wasSplitting = false)
+            _ ← putCallbacks.putDetails(Array(key1.toKey), Array(val1Hash.toHash))
+            _ ← putCallbacks.verifyChanges("H<H<k1v1-cs>H<k2v2-cs>>".toHash, wasSplitting = false)
             _ ← putCallbacks.changesStored()
           } yield ()
         ) shouldBe ()
@@ -172,12 +181,12 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
       "key was found in tree (root inserting) " in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k1v1-cs>>")
-        val putCallbacks = wait(client.initPut(key1, val2Hash.getBytes))
+        val putCallbacks = wait(client.initPut(key1, val2Hash.toHash))
 
         wait(
           for {
-            _ ← putCallbacks.putDetails(Array(key1.toKey), Array(val1Hash.getBytes))
-            _ ← putCallbacks.verifyChanges("H<H<k1v2-cs>>".getBytes, wasSplitting = false)
+            _ ← putCallbacks.putDetails(Array(key1.toKey), Array(val1Hash.toHash))
+            _ ← putCallbacks.verifyChanges("H<H<k1v2-cs>>".toHash, wasSplitting = false)
             _ ← putCallbacks.changesStored()
           } yield ()
         ) shouldBe ()
@@ -186,14 +195,14 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
       "key ins't present in tree (second level inserting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v4-cs>H<k5v5-cs>>>")
-        val putCallbacks = wait(client.initPut(key3, val3Hash.getBytes))
+        val putCallbacks = wait(client.initPut(key3, val3Hash.toHash))
 
-        val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".getBytes, "H<H<k4v4-cs>H<k5v5-cs>>".getBytes)
+        val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".toHash, "H<H<k4v4-cs>H<k5v5-cs>>".toHash)
         val result = wait(
           for {
             _ ← putCallbacks.nextChildIndex(Array(key2.toKey), childChecksums)
-            _ ← putCallbacks.putDetails(Array(key4.toKey, key5.toKey), Array(val4Hash.getBytes, val5Hash.getBytes))
-            _ ← putCallbacks.verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k3v3-cs>H<k4v4-cs>H<k5v5-cs>>>".getBytes, wasSplitting = false)
+            _ ← putCallbacks.putDetails(Array(key4.toKey, key5.toKey), Array(val4Hash.toHash, val5Hash.toHash))
+            _ ← putCallbacks.verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k3v3-cs>H<k4v4-cs>H<k5v5-cs>>>".toHash, wasSplitting = false)
             _ ← putCallbacks.changesStored()
           } yield ()
         ) shouldBe ()
@@ -203,13 +212,13 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v4-cs>H<k5v5-cs>>>")
-        val putCallbacks = wait(client.initPut(key4, val3Hash.getBytes))
-        val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".getBytes, "H<H<k4v4-cs>H<k5v5-cs>>".getBytes)
+        val putCallbacks = wait(client.initPut(key4, val3Hash.toHash))
+        val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".toHash, "H<H<k4v4-cs>H<k5v5-cs>>".toHash)
         wait(
           for {
             _ ← putCallbacks.nextChildIndex(Array(key2.toKey), childChecksums)
-            _ ← putCallbacks.putDetails(Array(key4.toKey, key5.toKey), Array(val4Hash.getBytes, val5Hash.getBytes))
-            _ ← putCallbacks.verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v3-cs>H<k5v5-cs>>>".getBytes, wasSplitting = false)
+            _ ← putCallbacks.putDetails(Array(key4.toKey, key5.toKey), Array(val4Hash.toHash, val5Hash.toHash))
+            _ ← putCallbacks.verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v3-cs>H<k5v5-cs>>>".toHash, wasSplitting = false)
             _ ← putCallbacks.changesStored()
           } yield ()
         ) shouldBe ()
@@ -228,9 +237,9 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
   private def createClient(mRoot: String): MerkleBTreeClient[String] = {
     MerkleBTreeClient[String](
-      Some(ClientState(mRoot.getBytes)),
+      Some(ClientState(mRoot.toHash)),
       NoOpCrypt.forString,
-      TestCryptoHasher
+      testHasher
     )
   }
 

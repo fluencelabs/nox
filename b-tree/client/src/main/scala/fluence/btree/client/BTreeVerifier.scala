@@ -17,12 +17,7 @@
 
 package fluence.btree.client
 
-import java.nio.ByteBuffer
-
-import cats.kernel.Eq
 import cats.syntax.eq._
-import cats.syntax.show._
-import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common._
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath, MerkleRootCalculator, NodeProof }
 import fluence.crypto.hash.CryptoHasher
@@ -37,11 +32,11 @@ import scala.collection.Searching.{ Found, InsertionPoint }
  * @param merkleRootCalculator Merkle proof service that allows calculate merkle root from merkle path
  */
 class BTreeVerifier(
-    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
+    cryptoHasher: CryptoHasher[Array[Byte], Hash],
     merkleRootCalculator: MerkleRootCalculator
 ) extends slogging.LazyLogging {
 
-  import BTreeVerifier._
+  import Hash._
 
   /**
    * Checks 'servers proof' correctness. Calculates proof checksums and compares it with expected checksum.
@@ -50,14 +45,14 @@ class BTreeVerifier(
    * @param mRoot       The merkle root of server tree
    * @param mPath       The merkle path passed from tree root at this moment
    */
-  def checkProof(serverProof: NodeProof, mRoot: Bytes, mPath: MerklePath): Boolean = {
+  def checkProof(serverProof: NodeProof, mRoot: Hash, mPath: MerklePath): Boolean = {
 
     val calcChecksum = serverProof.calcChecksum(cryptoHasher, None)
     val expectedChecksum = calcExpectedChecksum(mRoot, mPath)
 
     val verifyingResult = calcChecksum === expectedChecksum
     if (!verifyingResult)
-      logger.warn(s"Verify branch returns false; expected=${expectedChecksum.show}, calcChecksum=${calcChecksum.show}")
+      logger.warn(s"Verify branch returns false; expected=$expectedChecksum, calcChecksum=$calcChecksum")
     verifyingResult
   }
 
@@ -70,7 +65,7 @@ class BTreeVerifier(
    */
   def getBranchProof(
     keys: Array[Key],
-    childsChecksums: Array[Array[Byte]],
+    childsChecksums: Array[Hash],
     substitutionIdx: Int
   ): GeneralNodeProof = {
     val keysChecksum = cryptoHasher.hash(keys.flatMap(_.bytes))
@@ -85,8 +80,8 @@ class BTreeVerifier(
    */
   def getLeafProof(keys: Array[Key], valuesChecksums: Array[Hash]): GeneralNodeProof = {
     val childsChecksums =
-      keys.zip(valuesChecksums).map { case (key, valChecksum) ⇒ cryptoHasher.hash(key.bytes, valChecksum) }
-    GeneralNodeProof(Array.emptyByteArray, childsChecksums, -1)
+      keys.zip(valuesChecksums).map { case (key, valChecksum) ⇒ cryptoHasher.hash(key.bytes, valChecksum.bytes) }
+    GeneralNodeProof(Hash.empty, childsChecksums, -1)
   }
 
   /**
@@ -99,9 +94,9 @@ class BTreeVerifier(
   def newMerkleRoot(
     clientMPath: MerklePath,
     putDetails: ClientPutDetails,
-    serverMRoot: Bytes,
+    serverMRoot: Hash,
     wasSplitting: Boolean
-  ): Option[Bytes] = {
+  ): Option[Hash] = {
 
     val newMerkleRoot = if (wasSplitting) {
       verifyPutWithRebalancing(clientMPath, putDetails, serverMRoot)
@@ -112,7 +107,7 @@ class BTreeVerifier(
     if (newMerkleRoot === serverMRoot) {
       Some(newMerkleRoot)
     } else {
-      logger.debug(s"New client mRoot=${newMerkleRoot.show} != server mRoot=${serverMRoot.show}")
+      logger.debug(s"New client mRoot=$newMerkleRoot != server mRoot=$serverMRoot")
       None
     }
 
@@ -123,25 +118,25 @@ class BTreeVerifier(
    * Client can update merkle root if this method returns true.
    * @return Returns Some(newRoot) if server pass verifying, None otherwise.
    */
-  private def verifySimplePut(clientMPath: MerklePath, putDetails: ClientPutDetails): Bytes = {
+  private def verifySimplePut(clientMPath: MerklePath, putDetails: ClientPutDetails): Hash = {
 
     putDetails match {
       case ClientPutDetails(cipherKey, valChecksum, Found(_)) ⇒
-        val keyValChecksum = cryptoHasher.hash(cipherKey.bytes, valChecksum)
-        merkleRootCalculator.calcMerkleRoot(clientMPath, keyValChecksum)
+        val keyValChecksum = cryptoHasher.hash(cipherKey.bytes, valChecksum.bytes)
+        merkleRootCalculator.calcMerkleRoot(clientMPath, Some(keyValChecksum))
 
       case ClientPutDetails(cipherKey, valChecksum, InsertionPoint(_)) ⇒
-        val keyValChecksum = cryptoHasher.hash(cipherKey.bytes, valChecksum)
+        val keyValChecksum = cryptoHasher.hash(cipherKey.bytes, valChecksum.bytes)
 
         val mPathAfterInserting = clientMPath.path
           .lastOption
           .map {
             case proof @ GeneralNodeProof(_, childrenChecksums, idx) ⇒
               val lastProofAfterInserting =
-                proof.copy(childrenChecksums = BytesOps.insertValue(childrenChecksums, keyValChecksum, idx))
+                proof.copy(childrenChecksums = childrenChecksums.insertValue(keyValChecksum, idx))
               MerklePath(clientMPath.path.init :+ lastProofAfterInserting)
           }
-          .getOrElse(MerklePath(Seq(GeneralNodeProof(Array.emptyByteArray, Array(keyValChecksum), 0))))
+          .getOrElse(MerklePath(Seq(GeneralNodeProof(Hash.empty, Array(keyValChecksum), 0))))
 
         merkleRootCalculator.calcMerkleRoot(mPathAfterInserting)
     }
@@ -155,8 +150,8 @@ class BTreeVerifier(
   private def verifyPutWithRebalancing(
     clientMPath: MerklePath,
     putDetails: ClientPutDetails,
-    serverMRoot: Bytes
-  ): Bytes = {
+    serverMRoot: Hash
+  ): Hash = {
 
     // todo implement and write tests !!! This methods returns only new merkle root and doesn't verify server response
 
@@ -169,7 +164,7 @@ class BTreeVerifier(
    * @param mRoot The merkle root of server tree
    * @param mPath The merkle path already passed from tree root
    */
-  private def calcExpectedChecksum(mRoot: Array[Byte], mPath: MerklePath): Bytes = {
+  private def calcExpectedChecksum(mRoot: Hash, mPath: MerklePath): Hash = {
     mPath.path.lastOption.map {
       case GeneralNodeProof(_, childrenChecksums, substitutionIdx) ⇒
         childrenChecksums(substitutionIdx)
@@ -180,12 +175,7 @@ class BTreeVerifier(
 
 object BTreeVerifier {
 
-  def apply(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]]): BTreeVerifier =
+  def apply(cryptoHasher: CryptoHasher[Array[Byte], Hash]): BTreeVerifier =
     new BTreeVerifier(cryptoHasher, new MerkleRootCalculator(cryptoHasher))
-
-  // used for comparing two merkle roots
-  implicit private val keyEq: Eq[Array[Byte]] = {
-    (k1, k2) ⇒ ByteBuffer.wrap(k1).equals(ByteBuffer.wrap(k2))
-  }
 
 }
