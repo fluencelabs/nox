@@ -27,7 +27,6 @@ import cats.{ Monad, Show, ~> }
 import com.google.protobuf.ByteString
 import fluence.btree.common.{ ClientPutDetails, Hash, Key }
 import fluence.btree.protocol.BTreeRpc
-import fluence.dataset.grpc.DatasetStorageServer.ClientError
 import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.grpc.storage._
 import fluence.dataset.protocol.storage.DatasetStorageRpc
@@ -36,7 +35,6 @@ import monix.eval.Task
 import monix.execution.{ Ack, Scheduler }
 import monix.reactive.Observer
 import scodec.bits.{ Bases, ByteVector }
-import scodec.bits.Bases.Alphabets
 
 import scala.collection.Searching
 import scala.language.higherKinds
@@ -64,7 +62,6 @@ class DatasetStorageServer[F[_] : Async](
    * Convert function: {{{ EitherT[Task, E, V] => F[V] }}}.
    * It's temporary decision, it will be removed when EitherT[F, E, V] was everywhere.
    *
-   * @tparam F Type of effect with [[cats.effect.Async]] bound
    * @tparam E Type of exception, should be subclass of [[Throwable]]
    * @tparam V Type of value
    */
@@ -87,7 +84,7 @@ class DatasetStorageServer[F[_] : Async](
       extract: GetCallbackReply.Reply ⇒ T
     ): EitherT[Task, ClientError, T] = {
 
-      val reply = pullClientReply()
+      val clReply = pullClientReply()
         .map {
           case GetCallbackReply(reply) ⇒
             logger.trace(s"DatasetStorageServer.get() received client reply=$reply")
@@ -100,7 +97,7 @@ class DatasetStorageServer[F[_] : Async](
             Left(ClientError(errMsg))
         }
 
-      EitherT(reply)
+      EitherT(clReply)
     }
 
     val valueF =
@@ -126,7 +123,7 @@ class DatasetStorageServer[F[_] : Async](
                 _ ← pushServerAsk(
                   GetCallback.Callback.SubmitLeaf(AskSubmitLeaf(
                     keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                    valuesChecksums = valuesChecksums.map(ByteString.copyFrom)
+                    valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
                   ))
                 )
                 sl ← getReply(_.isSubmitLeaf, _.submitLeaf.get)
@@ -145,7 +142,7 @@ class DatasetStorageServer[F[_] : Async](
                 _ ← pushServerAsk(
                   GetCallback.Callback.NextChildIndex(AskNextChildIndex(
                     keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                    childsChecksums = childsChecksums.map(ByteString.copyFrom)
+                    childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
                   ))
                 )
                 nci ← getReply(_.isNextChildIndex, _.nextChildIndex.get)
@@ -165,7 +162,7 @@ class DatasetStorageServer[F[_] : Async](
           Async[F].pure(GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
         case Left(clientError: ClientError) ⇒
           logger.warn(s"Client replied with an error=$clientError")
-          // when server recieve client error, server shouln't close the stream (is done in ObserverGrpcOps.completeWith) and lift up client error
+          // when server receive client error, server shouldn't close the stream (is done in ObserverGrpcOps.completeWith) and lift up client error
           Async[F].raiseError[GetCallback](clientError)
         case Left(exception) ⇒
           // when server error appears, server should log it and send to client
@@ -229,7 +226,7 @@ class DatasetStorageServer[F[_] : Async](
                   PutCallback.Callback.NextChildIndex(
                     AskNextChildIndex(
                       keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                      childsChecksums = childsChecksums.map(ByteString.copyFrom)
+                      childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
                     )
                   )
                 )
@@ -249,13 +246,13 @@ class DatasetStorageServer[F[_] : Async](
                 _ ← pushServerAsk(
                   PutCallback.Callback.PutDetails(AskPutDetails(
                     keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                    valuesChecksums = valuesChecksums.map(ByteString.copyFrom)
+                    valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
                   ))
                 )
                 pd ← getReply(r ⇒ r.isPutDetails && r.putDetails.exists(_.searchResult.isDefined), _.putDetails.get)
               } yield ClientPutDetails(
                 key = Key(pd.key.toByteArray),
-                valChecksum = pd.checksum.toByteArray,
+                valChecksum = Hash(pd.checksum.toByteArray),
                 searchResult = (
                   pd.searchResult.foundIndex.map(Searching.Found) orElse
                   pd.searchResult.insertionPoint.map(Searching.InsertionPoint)
@@ -275,7 +272,7 @@ class DatasetStorageServer[F[_] : Async](
                 _ ← pushServerAsk(
                   PutCallback.Callback.VerifyChanges(AskVerifyChanges(
                     version = 1, // TODO: pass prevVersion + 1
-                    serverMerkleRoot = ByteString.copyFrom(serverMerkleRoot),
+                    serverMerkleRoot = ByteString.copyFrom(serverMerkleRoot.bytes),
                     splitted = wasSplitting
                   ))
                 )

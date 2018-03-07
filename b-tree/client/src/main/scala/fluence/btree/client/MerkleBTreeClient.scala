@@ -24,6 +24,7 @@ import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import monix.eval.{ MVar, Task }
+import scodec.bits.ByteVector
 
 import scala.collection.Searching.{ Found, SearchResult }
 
@@ -327,5 +328,9 @@ object MerkleBTreeClient {
    * Global state of BTree client.
    */
   case class ClientState(merkleRoot: Hash)
+
+  object ClientState {
+    def apply(merkleRoot: ByteVector): ClientState = ClientState(Hash(merkleRoot.toArray))
+  }
 
 }

@@ -89,7 +89,8 @@ class FluenceClient(
    */
   private def addEncryptedDataset(
     keyPair: KeyPair,
-    contact: Contact, clientState: Option[ClientState],
+    contact: Contact,
+    clientState: Option[ClientState],
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]]
   ): Task[ClientDatasetStorage[String, String]] = {
@@ -153,7 +154,7 @@ class FluenceClient(
       nodes ← findContactsOfAllParticipants(newContract)
       datasets ← Task.sequence(
         nodes.map(contact ⇒
-          addEncryptedDataset(keyPair, contact, Some(ClientState(newContract.executionState.merkleRoot.toArray)), keyCrypt, valueCrypt)
+          addEncryptedDataset(keyPair, contact, Some(ClientState(newContract.executionState.merkleRoot)), keyCrypt, valueCrypt)
             .map(store ⇒ store → contact)
         )
       )
@@ -180,7 +181,7 @@ class FluenceClient(
             nodes ← findContactsOfAllParticipants(basicContract)
             datasets ← Task.sequence(
               nodes.map(contact ⇒
-                addEncryptedDataset(keyPair, contact, Some(ClientState(basicContract.executionState.merkleRoot.toArray)), keyCrypt, valueCrypt)
+                addEncryptedDataset(keyPair, contact, Some(ClientState(basicContract.executionState.merkleRoot)), keyCrypt, valueCrypt)
                   .map(store ⇒ store → contact)
               )
             )

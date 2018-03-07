@@ -17,9 +17,8 @@
 
 package fluence.btree.server.core
 
-import fluence.btree.common.{ Bytes, Hash, Key }
-import fluence.btree.server.{ Leaf, NodeId }
-import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
+import fluence.btree.common.{ Hash, Key }
+import fluence.btree.server.{ Leaf, NodeId, TestHasher }
 import org.scalatest.{ Matchers, WordSpec }
 
 class NodeOpsSpec extends WordSpec with Matchers {
@@ -32,14 +31,7 @@ class NodeOpsSpec extends WordSpec with Matchers {
     def toHash: Hash = Hash(str.getBytes)
   }
 
-  private val hasher = new CryptoHasher[Array[Byte], Hash] {
-    //    private val originHasher = JdkCryptoHash.Sha256
-    private val originHasher = TestCryptoHasher
-    override def hash(msg: Array[Byte]): Hash = Hash(originHasher.hash(msg))
-    override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(originHasher.hash(msg1, msgN: _*))
-  }
-
-  private val nodeOps = NodeOps(hasher)
+  private val nodeOps = NodeOps(TestHasher())
   import nodeOps._
 
   private val key1 = "k1".toKey
@@ -358,7 +350,7 @@ class NodeOpsSpec extends WordSpec with Matchers {
       leaf.valuesReferences should contain theSameElementsInOrderAs Array(val1Ref)
       leaf.valuesChecksums should contain theSameElementsInOrderAs Array(val1Checksum)
       leaf.size shouldBe 1
-      leaf.checksum shouldBe getLeafChecksum(getKvChecksums(Array(key1), Array(val1Checksum)))
+      leaf.checksum.bytes shouldBe getLeafChecksum(getKvChecksums(Array(key1), Array(val1Checksum))).bytes
     }
   }
 
@@ -387,8 +379,8 @@ class NodeOpsSpec extends WordSpec with Matchers {
     expectedChildrenHashes: Array[Hash],
     expectedSize: Int
   ) = {
-    updatedTree.childsChecksums should contain theSameElementsInOrderAs expectedChildrenHashes
-    updatedTree.checksum shouldBe getBranchChecksum(updatedTree.keys, expectedChildrenHashes)
+    updatedTree.childsChecksums.asStr should contain theSameElementsInOrderAs expectedChildrenHashes.asStr
+    updatedTree.checksum.bytes shouldBe getBranchChecksum(updatedTree.keys, expectedChildrenHashes).bytes
     updatedTree.size shouldBe expectedSize
   }
 

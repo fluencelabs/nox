@@ -34,6 +34,7 @@ import fluence.crypto.hash.CryptoHasher
 import fluence.storage.KVStore
 import fluence.storage.rocksdb.{ IdSeqProvider, RocksDbStore }
 import monix.eval.Task
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -51,7 +52,7 @@ class DatasetNodeStorage private[storage] (
     kVStore: KVStore[Task, ValueRef, Array[Byte]],
     merkleRootCalculator: MerkleRootCalculator,
     valueIdGenerator: () ⇒ ValueRef,
-    onMRChange: Bytes ⇒ Task[Unit]
+    onMRChange: ByteVector ⇒ Task[Unit]
 ) {
 
   /**
@@ -91,7 +92,7 @@ class DatasetNodeStorage private[storage] (
       // save new blob to kvStore
       _ ← kVStore.put(valRef, encryptedValue)
       updatedMR ← bTreeIndex.getMerkleRoot
-      _ ← onMRChange(updatedMR)
+      _ ← onMRChange(ByteVector(updatedMR.bytes))
     } yield oldVal
 
     // todo end transaction, revert all changes if error appears
@@ -130,7 +131,7 @@ object DatasetNodeStorage {
     rocksFactory: RocksDbStore.Factory,
     config: Config,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    onMRChange: Bytes ⇒ Task[Unit]
+    onMRChange: ByteVector ⇒ Task[Unit]
   )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[DatasetNodeStorage] = {
     import Codec.identityCodec
 

@@ -64,7 +64,7 @@ class Datasets(
             rocksFactory,
             config,
             cryptoHasher,
-            mrHash ⇒ contractUpdated(key, version.incrementAndGet(), ByteVector(mrHash)) // TODO: there should be signature
+            mrHash ⇒ contractUpdated(key, version.incrementAndGet(), mrHash) // TODO: there should be signature
           )
 
         case None ⇒

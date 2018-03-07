@@ -27,7 +27,6 @@ import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
 import fluence.codec.kryo.KryoCodecs
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -58,13 +57,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
   private val blobIdCounter = Atomic(0L)
 
-  private val hasher = new CryptoHasher[Array[Byte], Hash] {
-    //    private val originHasher = JdkCryptoHash.Sha256
-    private val originHasher = TestCryptoHasher
-    override def hash(msg: Array[Byte]): Hash = Hash(originHasher.hash(msg))
-    override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(originHasher.hash(msg1, msgN: _*))
-  }
-
+  private val hasher = TestHasher()
   private val mRCalc = MerkleRootCalculator(hasher)
 
   private val key1 = "k0001"
@@ -254,7 +247,8 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
     val tMap = new TrieMap[Array[Byte], Array[Byte]](MurmurHash3.arrayHashing, Equiv.fromComparator(BytesOrdering))
     val store = new BTreeBinaryStore[Task, NodeId, Node](
-      new TrieMapKVStore[Task, Array[Byte], Array[Byte]](tMap), () ⇒ blobIdCounter.incrementAndGet()
+      new TrieMapKVStore[Task, Array[Byte], Array[Byte]](tMap),
+      () ⇒ blobIdCounter.incrementAndGet()
     )
     new MerkleBTree(MerkleBTreeConfig(arity = Arity, alpha = Alpha), store, NodeOps(hasher))
   }

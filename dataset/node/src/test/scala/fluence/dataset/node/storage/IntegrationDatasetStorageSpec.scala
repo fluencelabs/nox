@@ -22,10 +22,10 @@ import cats.~>
 import com.typesafe.config.ConfigFactory
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
-import fluence.btree.common.Bytes
+import fluence.btree.common.Hash
 import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.JdkCryptoHasher
+import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.dataset.client.ClientDatasetStorage
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.storage
@@ -37,6 +37,7 @@ import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterEach, Matchers, WordSpec }
+import scodec.bits.ByteVector
 
 import scala.concurrent.duration.{ FiniteDuration, _ }
 import scala.language.higherKinds
@@ -48,8 +49,17 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
   case class User(name: String, age: Int)
 
+  private implicit class Str2Hash(str: String) {
+    def toHash: Hash = Hash(str.getBytes)
+  }
+
+  //  private val hasher = TestCryptoHasher
   private val hasher = JdkCryptoHasher.Sha256
-  //    private val hasher = TestCryptoHasher
+
+  private val testHasher = new CryptoHasher[Array[Byte], Hash] {
+    override def hash(msg: Array[Byte]): Hash = Hash(hasher.hash(msg))
+    override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(hasher.hash(msg1, msgN: _*))
+  }
 
   private val key1 = "k0001"
   private val val1 = User("Rico", 31)
@@ -87,7 +97,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
           createBTreeClient(),
           createStorageRpcWithNetworkError("test0", mr ⇒ Task(counter.incrementAndGet())),
           valueCryptWithCorruption,
-          hasher
+          testHasher
         )
 
         wait(clientWithCorruption.put(key1, val1)) shouldBe None
@@ -218,7 +228,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     }
   )
 
-  private def createDatasetNodeStorage(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetNodeStorage = {
+  private def createDatasetNodeStorage(dbName: String, counter: ByteVector ⇒ Task[Unit]): DatasetNodeStorage = {
     implicit def runId[F[_]]: F ~> F = new (F ~> F) { override def apply[A](fa: F[A]): F[A] = fa }
     DatasetNodeStorage[Task](dbName, rocksFactory, ConfigFactory.load(), hasher, counter)
       .runAsync(monix.execution.Scheduler.Implicits.global).futureValue
@@ -231,11 +241,11 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
       createBTreeClient(clientState),
       createStorageRpc(fullName),
       valueCrypt,
-      hasher
+      testHasher
     )
   }
 
-  private def createStorageRpcWithNetworkError(dbName: String, counter: Bytes ⇒ Task[Unit]): DatasetStorageRpc[Task] = {
+  private def createStorageRpcWithNetworkError(dbName: String, counter: ByteVector ⇒ Task[Unit]): DatasetStorageRpc[Task] = {
     val origin = createDatasetNodeStorage(makeUnique(dbName), counter)
     new DatasetStorageRpc[Task] {
       override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
@@ -271,7 +281,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     MerkleBTreeClient(
       clientState,
       keyCrypt,
-      hasher
+      testHasher
     )
   }
 
