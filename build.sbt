@@ -1,6 +1,6 @@
 import SbtCommons._
-import sbtcrossproject.crossProject
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
+import sbtcrossproject.crossProject
 
 name := "fluence"
 
@@ -73,35 +73,119 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .dependsOn(`codec-core`, `crypto`)
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-protocol-js` = `kademlia-protocol`.js
   .enablePlugins(ScalaJSBundlerPlugin)
 
 lazy val `kademlia-protocol-jvm` = `kademlia-protocol`.jvm
 
-lazy val `kademlia-core` = project.in(file("kademlia/core"))
-  .dependsOn(`kademlia-protocol-jvm`)
+lazy val `kademlia-core` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("kademlia/core"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "biz.enef" %%% "slogging" % SloggingV,
+      "io.monix" %%% "monix" % MonixV % Test,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+    )
+  )
+  .jsSettings(
+    libraryDependencies ++= Seq(
+      "org.scala-js" %%% "scalajs-java-time" % "0.2.3"
+    ),
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`kademlia-protocol`)
+
+lazy val `kademlia-core-js` = `kademlia-core`.js
+lazy val `kademlia-core-jvm` = `kademlia-core`.jvm
 
 lazy val `kademlia-testkit` = project.in(file("kademlia/testkit"))
-  .dependsOn(`kademlia-core`)
+  .dependsOn(`kademlia-core-jvm`)
 
 lazy val `kademlia-grpc` = project.in(file("kademlia/grpc"))
   .dependsOn(`transport-grpc`, `kademlia-protocol-jvm`, `codec-core-jvm`, `kademlia-testkit` % Test)
 
-lazy val `kademlia-monix` = project.in(file("kademlia/monix"))
-  .dependsOn(`kademlia-core`)
+lazy val `kademlia-monix` =
+  crossProject(JVMPlatform, JSPlatform)
+    .withoutSuffixFor(JVMPlatform)
+    .crossType(FluenceCrossType)
+    .in(file("kademlia/monix"))
+    .settings(
+      commons,
+      libraryDependencies ++= Seq(
+        "io.monix" %%% "monix" % MonixV,
+        "org.scalatest" %%% "scalatest" % ScalatestV % Test
+      )
+    )
+    .jsSettings(
+      fork in Test := false,
+      scalaJSModuleKind := ModuleKind.CommonJSModule
+    )
+    .enablePlugins(AutomateHeaderPlugin)
+    .dependsOn(`kademlia-core`)
+
+lazy val `kademlia-monix-js` = `kademlia-monix`.js
+lazy val `kademlia-monix-jvm` = `kademlia-monix`.jvm
 
 lazy val `transport-grpc` = project.in(file("transport/grpc"))
-  .dependsOn(`transport-core`, `codec-core-jvm`)
+  .dependsOn(`transport-core-jvm`, `codec-core-jvm`)
 
-lazy val `transport-core` = project.in(file("transport/core"))
-  .dependsOn(`kademlia-protocol-jvm`)
+lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("transport/core"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.typelevel" %%% "cats-core" % Cats1V,
+      "com.chuusai" %%% "shapeless" % ShapelessV,
+      "biz.enef" %%% "slogging" % SloggingV,
+      "org.typelevel" %%% "cats-effect" % CatsEffectV
+    )
+  )
+  .jvmSettings(
+    libraryDependencies ++= Seq(
+      "org.bitlet" % "weupnp" % "0.1.+"
+    )
+  )
+  .jsSettings(
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`kademlia-protocol`)
 
-lazy val `storage` = project.in(file("storage/core"))
-  .dependsOn(`codec-core-jvm`)
+lazy val `transport-core-js` = `transport-core`.js
+lazy val `transport-core-jvm` = `transport-core`.jvm
+
+lazy val `storage-core` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("storage/core"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test,
+      "io.monix" %%% "monix" % MonixV % Test
+    )
+  ).jsSettings(
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`codec-core`)
+
+lazy val `storage-core-jvm` = `storage-core`.jvm
+lazy val `storage-core-js` = `storage-core`.js
 
 lazy val `storage-rocksdb` = project.in(file("storage/rocksdb"))
-  .dependsOn(`storage`)
+  .dependsOn(`storage-core-jvm`)
 
 lazy val `b-tree-client` = project.in(file("b-tree/client"))
   .dependsOn(`b-tree-common`, `b-tree-protocol`)
@@ -136,7 +220,6 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
       bouncyCastle
     )
   )
-  .enablePlugins(AutomateHeaderPlugin)
   .jsSettings(
     npmDependencies in Compile ++= Seq(
       "elliptic" -> "6.4.0",
@@ -147,6 +230,7 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
     skip in packageJSDependencies := false,
     fork in Test := false
   )
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `crypto-jvm` = `crypto`.jvm
 
@@ -154,11 +238,11 @@ lazy val `crypto-js` = `crypto`.js
   .enablePlugins(ScalaJSBundlerPlugin)
 
 lazy val `client` = project.in(file("client"))
-  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `transport-core`, `kademlia-monix`, `dataset-protocol`)
+  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `transport-core-jvm`, `kademlia-monix-jvm`, `dataset-protocol`)
 
 lazy val `dataset-node` = project.in(file("dataset/node"))
-  .dependsOn(`storage`, `kademlia-core`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
-`dataset-client` % "compile->test")
+  .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
+    `dataset-client` % "compile->test")
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
   .dependsOn(`kademlia-protocol-jvm`, `b-tree-protocol`)
@@ -167,7 +251,7 @@ lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
   .dependsOn(`dataset-client`, `transport-grpc`)
 
 lazy val `dataset-client` = project.in(file("dataset/client"))
-  .dependsOn(`dataset-protocol`, `crypto-jvm`, `b-tree-client`, `kademlia-core`)
+  .dependsOn(`dataset-protocol`, `crypto-jvm`, `b-tree-client`, `kademlia-core-jvm`)
 
 lazy val `node` = project
-  .dependsOn(`kademlia-grpc`, `kademlia-monix`, `dataset-node`, `dataset-grpc`, `client`)
+  .dependsOn(`kademlia-grpc`, `kademlia-monix-jvm`, `dataset-node`, `dataset-grpc`, `client`, `transport-core-jvm`)

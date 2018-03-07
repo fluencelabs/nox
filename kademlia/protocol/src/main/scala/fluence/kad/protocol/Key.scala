@@ -17,7 +17,6 @@
 
 package fluence.kad.protocol
 
-import java.lang.Byte.toUnsignedInt
 import java.nio.charset.Charset
 
 import cats.syntax.monoid._
@@ -27,7 +26,7 @@ import cats.{ MonadError, Monoid, Order, Show }
 import fluence.codec.Codec
 import fluence.crypto.hash.CryptoHashers
 import fluence.crypto.keypair.KeyPair
-import scodec.bits.ByteVector
+import scodec.bits.{ BitVector, ByteVector }
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -38,22 +37,18 @@ import scala.util.Try
  *
  * @param value ID wrapped with ByteVector
  */
-final case class Key private (value: ByteVector) extends AnyVal {
-  def id: Array[Byte] = value.toArray
+final case class Key private (value: ByteVector) {
+  lazy val id: Array[Byte] = value.toArray
+
+  lazy val bits: BitVector = value.toBitVector.padLeft(Key.BitLength)
 
   /**
    * Number of leading zeros
    */
-  def zerosPrefixLen: Int = {
-    val idx = id.indexWhere(_ != 0)
-    if (idx < 0) {
-      Key.BitLength
-    } else {
-      Integer.numberOfLeadingZeros(toUnsignedInt(id(idx))) + java.lang.Byte.SIZE * (idx - 3)
-    }
-  }
+  lazy val zerosPrefixLen: Int =
+    bits.toIndexedSeq.takeWhile(!_).size
 
-  def b64: String = value.toBase64
+  lazy val b64: String = value.toBase64
 
   override def toString: String = b64
 }
@@ -72,10 +67,13 @@ object Key {
   // Kademlia keys are ordered, low order byte is the most significant
   implicit object OrderedKeys extends Order[Key] {
     override def compare(x: Key, y: Key): Int = {
+      val xBits = x.bits
+      val yBits = y.bits
+
       var i = 0
-      while (i < Length) {
-        if (x.id(i) != y.id(i)) {
-          return toUnsignedInt(x.id(i)) compareTo toUnsignedInt(y.id(i))
+      while (i < BitLength) {
+        if (xBits(i) != yBits(i)) {
+          return xBits(i) compareTo yBits(i)
         }
         i += 1
       }

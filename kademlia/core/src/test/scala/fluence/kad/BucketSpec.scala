@@ -69,32 +69,32 @@ class BucketSpec extends WordSpec with Matchers {
       }
 
       // By default, bucket is empty
-      b0.find(k0) should be('empty)
+      b0.find(k0) shouldBe empty
 
       // Adding one contact, bucket should save it
       val (b1, true) = b0.update(0, Node[C](k0, Instant.now(), 1), failRPC, pingDuration).run(b0).value
 
-      b1.find(k0) should be('defined)
+      b1.find(k0) shouldBe defined
 
       // Adding second contact, bucket should save it
       val (b2, true) = b1.update(0, Node(k1, Instant.now(), 2), failRPC, pingDuration).run(b1).value
 
-      b2.find(k0) should be('defined)
-      b2.find(k1) should be('defined)
+      b2.find(k0) shouldBe defined
+      b2.find(k1) shouldBe defined
 
       // Adding third contact, bucket is full, so if the least recent item is not responding, drop it
       val (b3, true) = b2.update(0, Node(k2, Instant.now(), 3), failRPC, pingDuration).run(b2).value
 
-      b3.find(k0) should be('empty)
-      b3.find(k1) should be('defined)
-      b3.find(k2) should be('defined)
+      b3.find(k0) shouldBe empty
+      b3.find(k1) shouldBe defined
+      b3.find(k2) shouldBe defined
 
       // Adding third contact, bucket is full, so if the least recent item is responding, drop the new contact
       val (b4, false) = b2.update(0, Node(k2, Instant.now(), 3), successRPC, pingDuration).run(b2).value
 
-      b4.find(k0) should be('defined)
-      b4.find(k1) should be('defined)
-      b4.find(k2) should be('empty)
+      b4.find(k0) shouldBe defined
+      b4.find(k1) shouldBe defined
+      b4.find(k2) shouldBe empty
     }
 
   }

@@ -22,10 +22,9 @@ import java.net.InetAddress
 import cats.effect.IO
 import org.bitlet.weupnp.{ GatewayDevice, GatewayDiscover }
 
-import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
+import scala.collection.JavaConverters._
 
-// TODO: find a way to cover with tests: mock external upnp, check our logic
 /**
  * UPnP port forwarding utility
  * @param clientName Client name to register on gateway

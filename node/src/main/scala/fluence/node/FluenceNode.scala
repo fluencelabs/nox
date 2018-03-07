@@ -117,7 +117,7 @@ object FluenceNode extends slogging.LazyLogging {
   private def launchGrpc(algo: SignAlgo, hasher: CryptoHasher[Array[Byte], Array[Byte]], config: Config): IO[FluenceNode] = {
     import algo.checker
     for {
-      _ ← initDirectory(config.getString("fluence.directory"))
+      _ ← initDirectory(config.getString("fluence.directory")) // TODO config
       kpConf ← KeyPairConfig.read(config)
       kp ← FileKeyStorage.getKeyPair[IO](kpConf.keyPath, algo)
       key ← Key.fromKeyPair[IO](kp)

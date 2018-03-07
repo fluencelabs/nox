@@ -17,7 +17,6 @@
 
 package fluence.kad
 
-import java.nio.ByteBuffer
 import java.time.Instant
 
 import cats.{ Applicative, Monad, Parallel, ~> }
@@ -27,23 +26,18 @@ import fluence.kad.protocol.{ KademliaRpc, Key, Node }
 import monix.eval.Coeval
 import monix.execution.atomic.Atomic
 import org.scalatest.{ Matchers, WordSpec }
+import scodec.bits.ByteVector
 
-import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
 class RoutingTableSpec extends WordSpec with Matchers {
   implicit def key(i: Long): Key = Key.fromBytes[Coeval](Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
-    val buffer = ByteBuffer.allocate(java.lang.Long.BYTES)
-    buffer.putLong(i)
-    buffer.array()
+    ByteVector.fromLong(i).toArray
   })).value
 
   implicit def toLong(k: Key): Long = {
-    val buffer = ByteBuffer.allocate(java.lang.Long.BYTES)
-    buffer.put(k.id.takeRight(java.lang.Long.BYTES))
-    buffer.flip()
-    buffer.getLong()
+    k.value.toLong()
   }
 
   private val pingDuration = Duration.Undefined
@@ -82,7 +76,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
     def bucketOps(maxBucketSize: Int): Bucket.WriteOps[Coeval, Long] =
       new Bucket.WriteOps[Coeval, Long] {
-        private val buckets = TrieMap.empty[Int, Bucket[Long]]
+        private val buckets = collection.mutable.Map.empty[Int, Bucket[Long]]
 
         override protected def run[T](bucketId: Int, mod: StateT[Coeval, Bucket[Long], T]) =
           mod.run(read(bucketId)).map {
@@ -121,8 +115,8 @@ class RoutingTableSpec extends WordSpec with Matchers {
       implicit val bo = bucketOps(2)
       implicit val so = siblingsOps(nodeId, 2)
 
-      nodeId.find(0l) should be('empty)
-      nodeId.lookup(0l) should be('empty)
+      nodeId.find(0l) shouldBe empty
+      nodeId.lookup(0l) shouldBe empty
     }
 
     "find nodes correctly" in {
@@ -134,26 +128,26 @@ class RoutingTableSpec extends WordSpec with Matchers {
       (1l to 5l).foreach { i ⇒
         nodeId.update(Node(i, now, i), failLocalRPC, pingDuration, checkNode).run
         (1l to i).foreach { n ⇒
-          nodeId.find(n) should be('defined)
+          nodeId.find(n) shouldBe defined
         }
       }
 
-      nodeId.find(4l) should be('defined)
+      nodeId.find(4l) shouldBe defined
 
       nodeId.update(Node(6l, now, 6l), failLocalRPC, pingDuration, checkNode).value shouldBe true
 
-      nodeId.find(4l) should be('empty)
-      nodeId.find(6l) should be('defined)
+      nodeId.find(4l) shouldBe empty
+      nodeId.find(6l) shouldBe defined
 
       nodeId.update(Node(4l, now, 4l), successLocalRPC, pingDuration, checkNode).value shouldBe false
 
-      nodeId.find(4l) should be('empty)
-      nodeId.find(6l) should be('defined)
+      nodeId.find(4l) shouldBe empty
+      nodeId.find(6l) shouldBe defined
 
       nodeId.update(Node(4l, now, 4l), failLocalRPC, pingDuration, checkNode).value shouldBe true
 
-      nodeId.find(4l) should be('defined)
-      nodeId.find(6l) should be('empty)
+      nodeId.find(4l) shouldBe defined
+      nodeId.find(6l) shouldBe empty
 
       so.read.nodes.toList.map(_.contact) shouldBe List(1l, 2l)
 
