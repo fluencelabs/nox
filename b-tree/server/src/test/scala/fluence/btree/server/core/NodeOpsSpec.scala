@@ -19,50 +19,65 @@ package fluence.btree.server.core
 
 import fluence.btree.common.{ Bytes, Hash, Key }
 import fluence.btree.server.{ Leaf, NodeId }
-import fluence.crypto.hash.TestCryptoHasher
+import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
 import org.scalatest.{ Matchers, WordSpec }
 
 class NodeOpsSpec extends WordSpec with Matchers {
 
-  private val nodeOps = NodeOps(TestCryptoHasher)
+  implicit class Str2Key(str: String) {
+    def toKey: Key = Key(str.getBytes)
+  }
+
+  private implicit class Str2Hash(str: String) {
+    def toHash: Hash = Hash(str.getBytes)
+  }
+
+  private val hasher = new CryptoHasher[Array[Byte], Hash] {
+    //    private val originHasher = JdkCryptoHash.Sha256
+    private val originHasher = TestCryptoHasher
+    override def hash(msg: Array[Byte]): Hash = Hash(originHasher.hash(msg))
+    override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(originHasher.hash(msg1, msgN: _*))
+  }
+
+  private val nodeOps = NodeOps(hasher)
   import nodeOps._
 
-  private val key1 = Key("k1".getBytes())
+  private val key1 = "k1".toKey
   private val val1Ref = 1l
-  private val val1Checksum = "H<v1>".getBytes()
+  private val val1Checksum = "H<v1>".toHash
 
-  private val key2 = Key("k2".getBytes())
+  private val key2 = "k2".toKey
   private val val2Ref = 2l
-  private val val2Checksum = "H<v2>".getBytes()
+  private val val2Checksum = "H<v2>".toHash
 
-  private val key3 = Key("k3".getBytes())
+  private val key3 = "k3".toKey
   private val val3Ref = 3l
-  private val val3Checksum = "H<v3>".getBytes()
+  private val val3Checksum = "H<v3>".toHash
 
-  private val key4 = Key("k4".getBytes())
+  private val key4 = "k4".toKey
   private val val4Ref = 4l
-  private val val4Checksum = "H<v4>".getBytes()
+  private val val4Checksum = "H<v4>".toHash
 
-  private val key5 = Key("k5".getBytes())
+  private val key5 = "k5".toKey
   private val val5Ref = 5l
-  private val val5Checksum = "H<v5>".getBytes()
+  private val val5Checksum = "H<v5>".toHash
 
-  private val key6 = Key("k6".getBytes())
+  private val key6 = "k6".toKey
   private val val6Ref = 6l
-  private val val6Checksum = "H<v6>".getBytes()
+  private val val6Checksum = "H<v6>".toHash
 
-  private val key7 = Key("k7".getBytes())
+  private val key7 = "k7".toKey
   private val val7Ref = 7l
-  private val val7Checksum = "H<v7>".getBytes()
+  private val val7Checksum = "H<v7>".toHash
 
-  private val kV1Hash = "H<k1H<v1>>".getBytes()
-  private val kV2Hash = "H<k2H<v2>>".getBytes()
-  private val kV3Hash = "H<k3H<v3>>".getBytes()
-  private val kV4Hash = "H<k4H<v4>>".getBytes()
-  private val kV5Hash = "H<k5H<v5>>".getBytes()
-  private val kV6Hash = "H<k6H<v6>>".getBytes()
-  private val kV7Hash = "H<k7H<v7>>".getBytes()
-  private val kV8Hash = "H<k8H<v8>>".getBytes()
+  private val kV1Hash = "H<k1H<v1>>".toHash
+  private val kV2Hash = "H<k2H<v2>>".toHash
+  private val kV3Hash = "H<k3H<v3>>".toHash
+  private val kV4Hash = "H<k4H<v4>>".toHash
+  private val kV5Hash = "H<k5H<v5>>".toHash
+  private val kV6Hash = "H<k6H<v6>>".toHash
+  private val kV7Hash = "H<k7H<v7>>".toHash
+  private val kV8Hash = "H<k8H<v8>>".toHash
 
   "LeafOps.rewriteValue" should {
     def keys = Array(key2, key4, key6)
@@ -186,14 +201,14 @@ class NodeOpsSpec extends WordSpec with Matchers {
     }
   }
 
-  private val child1Hash = "child1".getBytes
-  private val child2Hash = "child2".getBytes
-  private val child3Hash = "child3".getBytes
-  private val child4Hash = "child4".getBytes
-  private val child5Hash = "child5".getBytes
-  private val child6Hash = "child6".getBytes
-  private val child7Hash = "child7".getBytes
-  private val child8Hash = "child8".getBytes
+  private val child1Hash = "child1".toHash
+  private val child2Hash = "child2".toHash
+  private val child3Hash = "child3".toHash
+  private val child4Hash = "child4".toHash
+  private val child5Hash = "child5".toHash
+  private val child6Hash = "child6".toHash
+  private val child7Hash = "child7".toHash
+  private val child8Hash = "child8".toHash
 
   "TreeOps.insertChild" should {
 
@@ -359,17 +374,17 @@ class NodeOpsSpec extends WordSpec with Matchers {
 
   private def checkLeafHashes(
     updatedLeaf: Leaf,
-    expectedKVHashes: Array[Bytes],
+    expectedKVHashes: Array[Hash],
     expectedSize: Int
   ) = {
-    updatedLeaf.kvChecksums should contain theSameElementsInOrderAs expectedKVHashes
-    updatedLeaf.checksum shouldBe getLeafChecksum(expectedKVHashes)
+    updatedLeaf.kvChecksums.asStr should contain theSameElementsInOrderAs expectedKVHashes.asStr
+    updatedLeaf.checksum.bytes shouldBe getLeafChecksum(expectedKVHashes).bytes
     updatedLeaf.size shouldBe expectedSize
   }
 
   private def checkTreeHashes(
     updatedTree: BranchNode[Key, NodeId],
-    expectedChildrenHashes: Array[Bytes],
+    expectedChildrenHashes: Array[Hash],
     expectedSize: Int
   ) = {
     updatedTree.childsChecksums should contain theSameElementsInOrderAs expectedChildrenHashes
@@ -382,8 +397,12 @@ class NodeOpsSpec extends WordSpec with Matchers {
     LeafNode(keys, valuesRef, valuesChecksums, kvHashes, keys.length, getLeafChecksum(kvHashes))
   }
 
-  private def newTree(keys: Array[Key], children: Array[Long], childrenHashes: Array[Bytes]): BranchNode[Key, Long] = {
+  private def newTree(keys: Array[Key], children: Array[Long], childrenHashes: Array[Hash]): BranchNode[Key, Long] = {
     BranchNode(keys, children, childrenHashes, keys.length, getBranchChecksum(keys, childrenHashes))
+  }
+
+  private implicit class Hashes2Strings(hashArr: Array[Hash]) {
+    def asStr: Array[String] = hashArr.map(h ⇒ new String(h.bytes))
   }
 
 }

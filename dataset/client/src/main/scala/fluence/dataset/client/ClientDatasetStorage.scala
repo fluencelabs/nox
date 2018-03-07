@@ -19,6 +19,7 @@ package fluence.dataset.client
 
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.client.{ MerkleBTreeClient, MerkleBTreeClientApi }
+import fluence.btree.common.Hash
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.storage.DatasetStorageRpc
@@ -44,7 +45,7 @@ class ClientDatasetStorage[K, V](
     bTreeIndex: MerkleBTreeClientApi[Task, K],
     storageRpc: DatasetStorageRpc[Task],
     valueCrypt: Crypt[Task, V, Array[Byte]],
-    hasher: CryptoHasher[Array[Byte], Array[Byte]]
+    hasher: CryptoHasher[Array[Byte], Hash]
 ) extends ClientDatasetStorageApi[Task, K, V] with slogging.LazyLogging {
 
   override def get(key: K): Task[Option[V]] = {
@@ -119,7 +120,12 @@ object ClientDatasetStorage {
     clientState: Option[ClientState]
   )(implicit ord: Ordering[K]): ClientDatasetStorage[K, V] = {
 
-    val bTreeIndex = MerkleBTreeClient(clientState, keyCrypt, hasher)
-    new ClientDatasetStorage[K, V](datasetId, bTreeIndex, storageRpc, valueCrypt, hasher)
+    val wrappedHasher = new CryptoHasher[Array[Byte], Hash] {
+      override def hash(msg: Array[Byte]): Hash = Hash(hasher.hash(msg))
+      override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(hasher.hash(msg1, msgN: _*))
+    }
+
+    val bTreeIndex = MerkleBTreeClient(clientState, keyCrypt, wrappedHasher)
+    new ClientDatasetStorage[K, V](datasetId, bTreeIndex, storageRpc, valueCrypt, wrappedHasher)
   }
 }

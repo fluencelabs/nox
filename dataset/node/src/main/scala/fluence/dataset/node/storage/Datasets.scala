@@ -17,15 +17,14 @@
 
 package fluence.dataset.node.storage
 
+import cats.~>
 import com.typesafe.config.Config
 import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.storage.DatasetStorageRpc
 import fluence.kad.protocol.Key
-import monix.eval.Task
-import cats.syntax.show._
 import fluence.storage.rocksdb.RocksDbStore
-import cats.~>
+import monix.eval.Task
 import monix.execution.atomic.AtomicLong
 import scodec.bits.{ Bases, ByteVector }
 
@@ -69,16 +68,16 @@ class Datasets(
           )
 
         case None ⇒
-          Task.raiseError(new IllegalArgumentException(s"Dataset(key=${key.show}) is not allocated on the node"))
+          Task.raiseError(new IllegalArgumentException(s"Dataset(key=$key) is not allocated on the node"))
       }.onErrorRecoverWith[DatasetNodeStorage] {
         case e ⇒
           //todo this block is temporary convenience, will be removed when grpc will be serialize errors
-          val errMsg = s"Can't create DatasetNodeStorage for datasetId=${key.show}"
+          val errMsg = s"Can't create DatasetNodeStorage for datasetId=$key"
           logger.warn(errMsg, e)
           Task.raiseError(new IllegalStateException(errMsg, e))
       }
     } yield {
-      logger.info(s"For dataset=${key.show} was successfully created storage.")
+      logger.info(s"For dataset=$key was successfully created storage.")
       ds
     }
 

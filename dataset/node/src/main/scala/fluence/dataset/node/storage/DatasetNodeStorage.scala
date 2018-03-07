@@ -24,7 +24,7 @@ import cats.syntax.functor._
 import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.btree.common.merkle.MerkleRootCalculator
-import fluence.btree.common.{ Bytes, ValueRef }
+import fluence.btree.common.{ Bytes, Hash, ValueRef }
 import fluence.btree.protocol.BTreeRpc
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.server.MerkleBTree
@@ -140,15 +140,20 @@ object DatasetNodeStorage {
       ByteBuffer.allocate(java.lang.Long.BYTES).putLong(_).array()
     )
 
+    val wrappedHasher = new CryptoHasher[Array[Byte], Hash] {
+      override def hash(msg: Array[Byte]): Hash = Hash(cryptoHasher.hash(msg))
+      override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(cryptoHasher.hash(msg1, msgN: _*))
+    }
+
     for {
       rocksDb ← rocksFactory(s"$datasetId/blob_data", config)
       idSeqProvider ← IdSeqProvider.longSeqProvider(rocksDb)
-      btreeIdx ← MerkleBTree(s"$datasetId/btree_idx", rocksFactory, cryptoHasher, config)
+      btreeIdx ← MerkleBTree(s"$datasetId/btree_idx", rocksFactory, wrappedHasher, config)
     } yield {
       new DatasetNodeStorage(
         btreeIdx,
         KVStore.transform(rocksDb),
-        MerkleRootCalculator(cryptoHasher),
+        MerkleRootCalculator(wrappedHasher),
         idSeqProvider,
         onMRChange
       )

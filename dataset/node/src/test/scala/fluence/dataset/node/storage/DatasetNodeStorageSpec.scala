@@ -17,6 +17,7 @@
 
 package fluence.dataset.node.storage
 
+import fluence.btree.common.Hash
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.server.{ Get, MerkleBTree, Put }
@@ -178,7 +179,7 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
         .thenReturn(Task(()))
       Mockito
         .when(mBtree.getMerkleRoot)
-        .thenReturn(Task("hash".getBytes))
+        .thenReturn(Task(Hash("hash".getBytes)))
 
       val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
