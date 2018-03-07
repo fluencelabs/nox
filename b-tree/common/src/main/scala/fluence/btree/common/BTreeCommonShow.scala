@@ -22,7 +22,7 @@ import cats.Show
 /**
  * ''Show'' type class implementations for common btree entities.
  */
-object BTreeCommonShow {
+object BTreeCommonShow { // todo remove
 
   implicit val showBytes: Show[Array[Byte]] = (b: Array[Byte]) ⇒ new String(b)
   implicit val showLong: Show[Long] = Show.fromToString[Long]
@@ -33,9 +33,9 @@ object BTreeCommonShow {
   implicit def showArrayOfBytes(implicit sk: Show[Array[Byte]]): Show[Array[Array[Byte]]] = showArray(showBytes)
   implicit def showArrayOfLong(implicit svr: Show[Array[Long]]): Show[Array[Long]] = showArray(showLong)
 
-  implicit def showPutDetails(implicit svr: Show[ValueRef], sh: Show[Hash]): Show[ClientPutDetails] = {
+  implicit def showPutDetails(implicit svr: Show[ValueRef]): Show[ClientPutDetails] = {
     Show.show((pd: ClientPutDetails) ⇒
-      s"ClientPutDetails(${pd.key}, ${sh.show(pd.valChecksum)}, ${pd.searchResult})"
+      s"ClientPutDetails(${pd.key}, ${pd.valChecksum}, ${pd.searchResult})"
     )
   }
 

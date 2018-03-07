@@ -23,7 +23,9 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-/** Ciphered btree key */
+/**
+ * Ciphered btree key
+ */
 case class Key(bytes: Array[Byte]) extends AnyVal {
 
   def copy: Key = Key(BytesOps.copyOf(bytes))

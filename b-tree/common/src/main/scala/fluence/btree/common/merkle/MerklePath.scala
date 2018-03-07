@@ -24,10 +24,6 @@ package fluence.btree.common.merkle
  */
 case class MerklePath(path: Seq[NodeProof]) {
 
-  override def toString: String = {
-    "MerklePath(path=" + path.mkString("[", ",", "])")
-  }
-
   /**
    * Adds ''proof'' to the end of the path and return new [[MerklePath]] instance.
    * Doesn't change the original proof: returns a new proof instead.

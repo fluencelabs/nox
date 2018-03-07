@@ -17,6 +17,7 @@
 
 package fluence.btree.common.merkle
 
+import fluence.btree.common.Hash
 import fluence.crypto.hash.CryptoHasher
 
 /**
@@ -25,7 +26,7 @@ import fluence.crypto.hash.CryptoHasher
  *
  * @param cryptoHasher Hash provider
  */
-class MerkleRootCalculator(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]]) {
+class MerkleRootCalculator(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
 
   /**
    * Calculates new merkle root from merkle path. Folds merkle path from the right to the left and
@@ -35,22 +36,21 @@ class MerkleRootCalculator(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]])
    * @param merklePath      Merkle path for getting merkle root
    * @param substitutedChecksum Child's checksum for substitution, it will be inserted to last element into merkle path
    */
-  def calcMerkleRoot(merklePath: MerklePath, substitutedChecksum: Array[Byte] = null): Array[Byte] = {
-    val optChecksum = Option(substitutedChecksum)
+  def calcMerkleRoot(merklePath: MerklePath, substitutedChecksum: Option[Hash] = None): Hash = {
     merklePath.path
-      .foldRight(optChecksum) {
+      .foldRight(substitutedChecksum) {
         case (nodeProof, prevHash) ⇒
           Some(nodeProof.calcChecksum(cryptoHasher, prevHash))
       }
       .getOrElse(
-        optChecksum.map(cryptoHasher.hash)
-          .getOrElse(Array.emptyByteArray)
+        substitutedChecksum.map(cs ⇒ cryptoHasher.hash(cs.bytes))
+          .getOrElse(Hash.empty)
       )
   }
 
 }
 
 object MerkleRootCalculator {
-  def apply(cryptoHash: CryptoHasher[Array[Byte], Array[Byte]]): MerkleRootCalculator =
+  def apply(cryptoHash: CryptoHasher[Array[Byte], Hash]): MerkleRootCalculator =
     new MerkleRootCalculator(cryptoHash)
 }
