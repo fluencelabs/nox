@@ -133,7 +133,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
     }
 
     override def toProof(substitutionIdx: Int): NodeProof = {
-      GeneralNodeProof(cryptoHasher.hash(branch.keys.flatten), branch.childsChecksums, substitutionIdx)
+      GeneralNodeProof(cryptoHasher.hash(branch.keys.flatMap(_.bytes)), branch.childsChecksums, substitutionIdx)
     }
 
   }
@@ -161,7 +161,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
 
   /** Returns array of checksums for each key-value pair */
   private[server] def getKvChecksums(keys: Array[Key], values: Array[Hash]): Array[Hash] = {
-    keys.zip(values).map { case (key, value) ⇒ cryptoHasher.hash(key, value) }
+    keys.zip(values).map { case (key, value) ⇒ cryptoHasher.hash(key.bytes, value) }
   }
 
   /** Returns checksum of leaf */
@@ -171,7 +171,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
 
   /** Returns checksum of branch node */
   def getBranchChecksum(keys: Array[Key], childsChecksums: Array[Hash]): Hash =
-    GeneralNodeProof(cryptoHasher.hash(keys.flatten), childsChecksums, -1)
+    GeneralNodeProof(cryptoHasher.hash(keys.flatMap(_.bytes)), childsChecksums, -1)
       .calcChecksum(cryptoHasher, None)
 
   /**

@@ -240,7 +240,9 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
     val Alpha = 0.25F
 
     val tMap = new TrieMap[Array[Byte], Array[Byte]](MurmurHash3.arrayHashing, Equiv.fromComparator(BytesOrdering))
-    val store = new BTreeBinaryStore[Task, NodeId, Node](new TrieMapKVStore[Task, Key, Hash](tMap), () ⇒ blobIdCounter.incrementAndGet())
+    val store = new BTreeBinaryStore[Task, NodeId, Node](
+      new TrieMapKVStore[Task, Array[Byte], Array[Byte]](tMap), () ⇒ blobIdCounter.incrementAndGet()
+    )
     new MerkleBTree(MerkleBTreeConfig(arity = Arity, alpha = Alpha), store, NodeOps(hasher))
   }
 

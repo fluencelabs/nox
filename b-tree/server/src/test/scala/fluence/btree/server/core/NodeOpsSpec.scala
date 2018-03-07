@@ -27,31 +27,31 @@ class NodeOpsSpec extends WordSpec with Matchers {
   private val nodeOps = NodeOps(TestCryptoHasher)
   import nodeOps._
 
-  private val key1 = "k1".getBytes()
+  private val key1 = Key("k1".getBytes())
   private val val1Ref = 1l
   private val val1Checksum = "H<v1>".getBytes()
 
-  private val key2 = "k2".getBytes()
+  private val key2 = Key("k2".getBytes())
   private val val2Ref = 2l
   private val val2Checksum = "H<v2>".getBytes()
 
-  private val key3 = "k3".getBytes()
+  private val key3 = Key("k3".getBytes())
   private val val3Ref = 3l
   private val val3Checksum = "H<v3>".getBytes()
 
-  private val key4 = "k4".getBytes()
+  private val key4 = Key("k4".getBytes())
   private val val4Ref = 4l
   private val val4Checksum = "H<v4>".getBytes()
 
-  private val key5 = "k5".getBytes()
+  private val key5 = Key("k5".getBytes())
   private val val5Ref = 5l
   private val val5Checksum = "H<v5>".getBytes()
 
-  private val key6 = "k6".getBytes()
+  private val key6 = Key("k6".getBytes())
   private val val6Ref = 6l
   private val val6Checksum = "H<v6>".getBytes()
 
-  private val key7 = "k7".getBytes()
+  private val key7 = Key("k7".getBytes())
   private val val7Ref = 7l
   private val val7Checksum = "H<v7>".getBytes()
 
@@ -377,12 +377,12 @@ class NodeOpsSpec extends WordSpec with Matchers {
     updatedTree.size shouldBe expectedSize
   }
 
-  private def newLeaf(keys: Array[Bytes], valuesRef: Array[Long], valuesChecksums: Array[Hash]): Leaf = {
+  private def newLeaf(keys: Array[Key], valuesRef: Array[Long], valuesChecksums: Array[Hash]): Leaf = {
     val kvHashes = getKvChecksums(keys, valuesChecksums)
     LeafNode(keys, valuesRef, valuesChecksums, kvHashes, keys.length, getLeafChecksum(kvHashes))
   }
 
-  private def newTree(keys: Array[Bytes], children: Array[Long], childrenHashes: Array[Bytes]): BranchNode[Bytes, Long] = {
+  private def newTree(keys: Array[Key], children: Array[Long], childrenHashes: Array[Bytes]): BranchNode[Key, Long] = {
     BranchNode(keys, children, childrenHashes, keys.length, getBranchChecksum(keys, childrenHashes))
   }
 

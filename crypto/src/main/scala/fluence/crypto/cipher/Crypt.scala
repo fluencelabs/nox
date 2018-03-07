@@ -17,6 +17,11 @@
 
 package fluence.crypto.cipher
 
+import cats.Monad
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import fluence.codec.Codec
+
 import scala.language.higherKinds
 
 /**
@@ -31,5 +36,35 @@ trait Crypt[F[_], P, C] {
   def encrypt(plainText: P): F[C]
 
   def decrypt(cipherText: C): F[P]
+
+}
+
+object Crypt {
+
+  def apply[F[_], O, B](implicit crypt: Crypt[F, O, B]): Crypt[F, O, B] = crypt
+
+  implicit def transform[F[_] : Monad, K, K1, V, V1](
+    crypt: Crypt[F, K, V]
+  )(
+    implicit
+    plainTextCodec: Codec[F, K1, K],
+    cipherTextCodec: Codec[F, V1, V]
+  ): Crypt[F, K1, V1] =
+
+    new Crypt[F, K1, V1] {
+
+      override def encrypt(plainText: K1): F[V1] = for {
+        pt ← plainTextCodec.encode(plainText)
+        v ← crypt.encrypt(pt)
+        v1 ← cipherTextCodec.decode(v)
+      } yield v1
+
+      override def decrypt(cipherText: V1): F[K1] = for {
+        ct ← cipherTextCodec.encode(cipherText)
+        v ← crypt.decrypt(ct)
+        v1 ← plainTextCodec.decode(v)
+      } yield v1
+
+    }
 
 }

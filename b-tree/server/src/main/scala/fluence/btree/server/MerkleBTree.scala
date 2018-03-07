@@ -453,7 +453,7 @@ class MerkleBTree private[server] (
 
       case PathElem(parentId: NodeId, parentNode: Branch, nextChildIdx) ⇒
         val popUpKey = left.node.keys.last
-        logger.trace(s"Add child to parent node: insertedKey=${popUpKey.show}, insertedChild=$left, insIdx=$nextChildIdx")
+        logger.trace(s"Add child to parent node: insertedKey=$popUpKey, insertedChild=$left, insIdx=$nextChildIdx")
         // updates parent node with new left node. Parent already contains right node as a child.
         // update right node checksum needed, checksum of right node was changed after splitting
         val branch = parentNode
@@ -536,7 +536,7 @@ class MerkleBTree private[server] (
    * For disabling this check makes {{{fluence.merkleBTree.assertions.isKeyOrderRequired=false}}} or disable assertions.
    */
   private def assertKeyIanAscOrder(node: Node): Boolean = {
-    val lt: (Key, Key) ⇒ Boolean = (x, y) ⇒ ByteBuffer.wrap(x).compareTo(ByteBuffer.wrap(y)) < 0
+    val lt: (Key, Key) ⇒ Boolean = (x, y) ⇒ ByteBuffer.wrap(x.bytes).compareTo(ByteBuffer.wrap(y.bytes)) < 0
     !conf.assertions.isKeyOrderRequired || node.keys.sliding(2).forall {
       case Array(prev, next) ⇒ lt(prev, next)
       case _                 ⇒ true

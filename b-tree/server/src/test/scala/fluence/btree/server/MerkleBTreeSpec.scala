@@ -19,13 +19,13 @@ package fluence.btree.server
 
 import java.nio.ByteBuffer
 
-import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.common._
+import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
-import fluence.btree.server.core.{ BTreeBinaryStore, BTreePutDetails, NodeOps }
-import fluence.crypto.hash.TestCryptoHasher
+import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
 import fluence.codec.kryo.KryoCodecs
+import fluence.crypto.hash.TestCryptoHasher
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -43,8 +43,16 @@ import scala.util.hashing.MurmurHash3
 
 class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
+  implicit class Str2Key(str: String) {
+    def toKey: Key = Key(str.getBytes)
+  }
+
   implicit object BytesOrdering extends Ordering[Array[Byte]] {
     override def compare(x: Array[Byte], y: Array[Byte]): Int = ByteBuffer.wrap(x).compareTo(ByteBuffer.wrap(y))
+  }
+
+  implicit object KeyOrdering extends Ordering[Key] {
+    override def compare(x: Key, y: Key): Int = BytesOrdering.compare(x.bytes, y.bytes)
   }
 
   private val Arity = 4
@@ -53,19 +61,19 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
   private val MinSize = (Arity * Alpha).toInt
   private val MaxSize = Arity
 
-  private val key1: Key = "k0001".getBytes()
+  private val key1: Key = "k0001".toKey
   private val value1: Hash = "v0001".getBytes()
   private val valRef1: Long = 1l
-  private val key2: Key = "k0002".getBytes()
+  private val key2: Key = "k0002".toKey
   private val value2: Hash = "v0002".getBytes()
   private val valRef2: Long = 2l
-  private val key3: Key = "k0003".getBytes()
+  private val key3: Key = "k0003".toKey
   private val value3: Hash = "v0003".getBytes()
   private val valRef3: Long = 3l
-  private val key4: Key = "k0004".getBytes()
+  private val key4: Key = "k0004".toKey
   private val value4: Hash = "v0004".getBytes()
   private val valRef4: Long = 4l
-  private val key5: Key = "k0005".getBytes()
+  private val key5: Key = "k0005".toKey
   private val value5: Hash = "v0005".getBytes()
   private val valRef5: Long = 5l
 
@@ -356,10 +364,10 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
         wait(Task.sequence(putCmd(Random.shuffle(1 to 512)) map { cmd ⇒ tree.put(cmd) }))
 
-        val minKey = "k0001".getBytes
-        val midKey = "k0256".getBytes
-        val maxKey = "k0512".getBytes
-        val absentKey = "k2048".getBytes
+        val minKey = "k0001".toKey
+        val midKey = "k0256".toKey
+        val maxKey = "k0512".toKey
+        val absentKey = "k2048".toKey
 
         wait(tree.get(getCmd(minKey, { result ⇒ result.get shouldBe "v0001".getBytes }))) shouldBe defined
         wait(tree.get(getCmd(midKey, { result ⇒ result.get shouldBe "v0256".getBytes }))) shouldBe defined
@@ -391,10 +399,10 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
       tree.getDepth should be >= 5
 
-      val minKey = "k0001".getBytes
-      val midKey = "k0512".getBytes
-      val maxKey = "k1024".getBytes
-      val absentKey = "k2048".getBytes
+      val minKey = "k0001".toKey
+      val midKey = "k0512".toKey
+      val maxKey = "k1024".toKey
+      val absentKey = "k2048".toKey
 
       wait(tree.get(getCmd(minKey, { result ⇒ result.get shouldBe "v0001".getBytes }))) shouldBe defined
       wait(tree.get(getCmd(midKey, { result ⇒ result.get shouldBe "v0512".getBytes }))) shouldBe defined
@@ -417,10 +425,10 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
       tree.getDepth should be >= 5
 
-      val minKey = "k0001".getBytes
-      val midKey = "k0512".getBytes
-      val maxKey = "k1024".getBytes
-      val absentKey = "k2048".getBytes
+      val minKey = "k0001".toKey
+      val midKey = "k0512".toKey
+      val maxKey = "k1024".toKey
+      val absentKey = "k2048".toKey
 
       wait(tree.get(getCmd(minKey, { result ⇒ result.get shouldBe "v0001".getBytes }))) shouldBe defined
       wait(tree.get(getCmd(midKey, { result ⇒ result.get shouldBe "v0512".getBytes }))) shouldBe defined
@@ -434,8 +442,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
   private def createTreeStore = {
     val blobIdCounter = Atomic(0L)
-    val tMap = new TrieMap[Key, Hash](MurmurHash3.arrayHashing, Equiv.fromComparator(BytesOrdering))
-    new BTreeBinaryStore[Task, NodeId, Node](new TrieMapKVStore[Task, Key, Hash](tMap), () ⇒ blobIdCounter.incrementAndGet())
+    val tMap = new TrieMap[Array[Byte], Array[Byte]](MurmurHash3.arrayHashing, Equiv.fromComparator(BytesOrdering))
+    new BTreeBinaryStore[Task, NodeId, Node](new TrieMapKVStore[Task, Array[Byte], Array[Byte]](tMap), () ⇒ blobIdCounter.incrementAndGet())
   }
 
   private def createTree(store: BTreeBinaryStore[Task, NodeId, Node] = createTreeStore): MerkleBTree =
@@ -448,7 +456,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
   }
 
   private def checkLeaf(expKeys: Array[Key], expValRef: Array[ValueRef], expValHash: Array[Hash], node: Leaf): Unit = {
-    node.keys should contain theSameElementsInOrderAs expKeys
+    node.keys.map(_.bytes) should contain theSameElementsInOrderAs expKeys.map(_.bytes)
     node.valuesReferences should contain theSameElementsInOrderAs expValRef
     node.valuesChecksums should contain theSameElementsInOrderAs expValHash
     node.size shouldBe expKeys.length
@@ -456,7 +464,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
   }
 
   private def checkTree(expKeys: Array[Key], expChildren: Array[NodeId], tree: Branch): Unit = {
-    tree.keys should contain theSameElementsInOrderAs expKeys
+    tree.keys.map(_.bytes) should contain theSameElementsInOrderAs expKeys.map(_.bytes)
     tree.childsReferences should contain theSameElementsInOrderAs expChildren
     tree.size shouldBe expKeys.length
     tree.checksum should not be empty
@@ -495,13 +503,13 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         mRootCalculator, new PutCallbacks[Task] {
         import scala.collection.Searching._
         override def putDetails(keys: Array[Key], values: Array[Hash]): Task[ClientPutDetails] =
-          Task(ClientPutDetails(f"k$i%04d".getBytes(), f"v$i%04d".getBytes(), keys.search(f"k$i%04d".getBytes())))
+          Task(ClientPutDetails(f"k$i%04d".toKey, f"v$i%04d".getBytes(), keys.search(f"k$i%04d".toKey)))
         override def verifyChanges(serverMerkleRoot: Bytes, wasSplitting: Boolean): Task[Unit] =
           Task(())
         override def changesStored(): Task[Unit] =
           Task(())
         override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] =
-          Task(keys.search(f"k$i%04d".getBytes()).insertionPoint)
+          Task(keys.search(f"k$i%04d".toKey).insertionPoint)
       }, () ⇒ idx.incrementAndGet())
     }
   }
@@ -530,7 +538,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
           if (stageOfFail == PutDetailsStage)
             Task.raiseError(new Exception(errMsg))
           else
-            Task(ClientPutDetails(f"k$i%04d".getBytes(), f"v$i%04d".getBytes(), keys.search(f"k$i%04d".getBytes())))
+            Task(ClientPutDetails(f"k$i%04d".toKey, f"v$i%04d".getBytes(), keys.search(f"k$i%04d".toKey)))
         }
         override def verifyChanges(serverMerkleRoot: Bytes, wasSplitting: Boolean): Task[Unit] = {
           if (stageOfFail == VerifyChangesStage)
@@ -548,7 +556,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
           if (stageOfFail == NextChildIndexStage)
             Task.raiseError(new Exception(errMsg))
           else
-            Task(keys.search(f"k$i%04d".getBytes()).insertionPoint)
+            Task(keys.search(f"k$i%04d".toKey).insertionPoint)
         }
       }, () ⇒ idx.incrementAndGet())
     }

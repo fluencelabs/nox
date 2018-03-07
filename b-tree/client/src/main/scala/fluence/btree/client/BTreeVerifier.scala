@@ -69,11 +69,11 @@ class BTreeVerifier(
    * @param substitutionIdx Next child index.
    */
   def getBranchProof(
-    keys: Array[Bytes],
+    keys: Array[Key],
     childsChecksums: Array[Array[Byte]],
     substitutionIdx: Int
   ): GeneralNodeProof = {
-    val keysChecksum = cryptoHasher.hash(keys.flatten)
+    val keysChecksum = cryptoHasher.hash(keys.flatMap(_.bytes))
     GeneralNodeProof(keysChecksum, childsChecksums, substitutionIdx)
   }
 
@@ -85,7 +85,7 @@ class BTreeVerifier(
    */
   def getLeafProof(keys: Array[Key], valuesChecksums: Array[Hash]): GeneralNodeProof = {
     val childsChecksums =
-      keys.zip(valuesChecksums).map { case (key, valChecksum) ⇒ cryptoHasher.hash(key, valChecksum) }
+      keys.zip(valuesChecksums).map { case (key, valChecksum) ⇒ cryptoHasher.hash(key.bytes, valChecksum) }
     GeneralNodeProof(Array.emptyByteArray, childsChecksums, -1)
   }
 
@@ -127,11 +127,11 @@ class BTreeVerifier(
 
     putDetails match {
       case ClientPutDetails(cipherKey, valChecksum, Found(_)) ⇒
-        val keyValChecksum = cryptoHasher.hash(cipherKey, valChecksum)
+        val keyValChecksum = cryptoHasher.hash(cipherKey.bytes, valChecksum)
         merkleRootCalculator.calcMerkleRoot(clientMPath, keyValChecksum)
 
       case ClientPutDetails(cipherKey, valChecksum, InsertionPoint(_)) ⇒
-        val keyValChecksum = cryptoHasher.hash(cipherKey, valChecksum)
+        val keyValChecksum = cryptoHasher.hash(cipherKey.bytes, valChecksum)
 
         val mPathAfterInserting = clientMPath.path
           .lastOption

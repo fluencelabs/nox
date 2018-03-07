@@ -18,6 +18,7 @@
 package fluence.btree.client
 
 import fluence.btree.client.MerkleBTreeClient.ClientState
+import fluence.btree.common.Key
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.TestCryptoHasher
 import monix.eval.Task
@@ -29,6 +30,10 @@ import org.scalatest.{ Matchers, WordSpec }
 import scala.concurrent.duration.{ FiniteDuration, _ }
 
 class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
+
+  implicit class Str2Key(str: String) {
+    def toKey: Key = Key(str.getBytes)
+  }
 
   val key1 = "k1"
   val key2 = "k2"
@@ -53,7 +58,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k3v3>H<k4v4>>".getBytes)
         val result = wait(
           getCallbacks
-            .nextChildIndex(Array("unexpected key returned from server".getBytes), childChecksums)
+            .nextChildIndex(Array("unexpected key returned from server".toKey), childChecksums)
             .map(_ ⇒ ()).failed
         )
 
@@ -69,7 +74,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val result = wait(
           getCallbacks
             .submitLeaf(
-              Array(key1.getBytes, "unexpected key returned from server".getBytes),
+              Array(key1.toKey, "unexpected key returned from server".toKey),
               Array(val1Hash.getBytes, val2Hash.getBytes)
             ).map(_ ⇒ ()).failed
         )
@@ -85,7 +90,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val client = createClient("H<H<k1v1-cs>>")
         val getCallbacks = wait(client.initGet(key2))
 
-        val result = wait(getCallbacks.submitLeaf(Array(key1.getBytes), Array(val1Hash.getBytes)))
+        val result = wait(getCallbacks.submitLeaf(Array(key1.toKey), Array(val1Hash.getBytes)))
 
         result shouldBe None
       }
@@ -97,7 +102,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val client = createClient("H<H<k1v1-cs>>")
         val getCallbacks = wait(client.initGet(key1))
 
-        val result = wait(getCallbacks.submitLeaf(Array(key1.getBytes), Array(val1Hash.getBytes)))
+        val result = wait(getCallbacks.submitLeaf(Array(key1.toKey), Array(val1Hash.getBytes)))
 
         result shouldBe Some(0)
       }
@@ -110,8 +115,8 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
         val result = wait(
           for {
-            _ ← getCallbacks.nextChildIndex(Array(key2.getBytes), childChecksums)
-            idx ← getCallbacks.submitLeaf(Array(key1.getBytes, key2.getBytes), Array(val1Hash.getBytes, val2Hash.getBytes))
+            _ ← getCallbacks.nextChildIndex(Array(key2.toKey), childChecksums)
+            idx ← getCallbacks.submitLeaf(Array(key1.toKey, key2.toKey), Array(val1Hash.getBytes, val2Hash.getBytes))
           } yield idx
         )
 
@@ -129,7 +134,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val putCallbacks = wait(client.initPut(key1, val1Hash.getBytes))
 
         val childChecksums = Array("H<H<k1v1>H<k2v2>>".getBytes, "H<H<k3v3>H<k4v4>>".getBytes)
-        val result = wait(putCallbacks.nextChildIndex(Array("unexpected key returned from server".getBytes), childChecksums).failed)
+        val result = wait(putCallbacks.nextChildIndex(Array("unexpected key returned from server".toKey), childChecksums).failed)
 
         result.getMessage should startWith("Checksum of branch didn't pass verifying")
       }
@@ -141,7 +146,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val putCallbacks = wait(client.initPut(key1, val1Hash.getBytes))
 
         val result = wait(putCallbacks.putDetails(
-          Array(key1.getBytes, "unexpected key returned from server".getBytes),
+          Array(key1.toKey, "unexpected key returned from server".toKey),
           Array(val1Hash.getBytes, val2Hash.getBytes)
         ).failed)
 
@@ -157,7 +162,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
         wait(
           for {
-            _ ← putCallbacks.putDetails(Array(key1.getBytes), Array(val1Hash.getBytes))
+            _ ← putCallbacks.putDetails(Array(key1.toKey), Array(val1Hash.getBytes))
             _ ← putCallbacks.verifyChanges("H<H<k1v1-cs>H<k2v2-cs>>".getBytes, wasSplitting = false)
             _ ← putCallbacks.changesStored()
           } yield ()
@@ -171,7 +176,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
         wait(
           for {
-            _ ← putCallbacks.putDetails(Array(key1.getBytes), Array(val1Hash.getBytes))
+            _ ← putCallbacks.putDetails(Array(key1.toKey), Array(val1Hash.getBytes))
             _ ← putCallbacks.verifyChanges("H<H<k1v2-cs>>".getBytes, wasSplitting = false)
             _ ← putCallbacks.changesStored()
           } yield ()
@@ -186,8 +191,8 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".getBytes, "H<H<k4v4-cs>H<k5v5-cs>>".getBytes)
         val result = wait(
           for {
-            _ ← putCallbacks.nextChildIndex(Array(key2.getBytes), childChecksums)
-            _ ← putCallbacks.putDetails(Array(key4.getBytes, key5.getBytes), Array(val4Hash.getBytes, val5Hash.getBytes))
+            _ ← putCallbacks.nextChildIndex(Array(key2.toKey), childChecksums)
+            _ ← putCallbacks.putDetails(Array(key4.toKey, key5.toKey), Array(val4Hash.getBytes, val5Hash.getBytes))
             _ ← putCallbacks.verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k3v3-cs>H<k4v4-cs>H<k5v5-cs>>>".getBytes, wasSplitting = false)
             _ ← putCallbacks.changesStored()
           } yield ()
@@ -202,8 +207,8 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".getBytes, "H<H<k4v4-cs>H<k5v5-cs>>".getBytes)
         wait(
           for {
-            _ ← putCallbacks.nextChildIndex(Array(key2.getBytes), childChecksums)
-            _ ← putCallbacks.putDetails(Array(key4.getBytes, key5.getBytes), Array(val4Hash.getBytes, val5Hash.getBytes))
+            _ ← putCallbacks.nextChildIndex(Array(key2.toKey), childChecksums)
+            _ ← putCallbacks.putDetails(Array(key4.toKey, key5.toKey), Array(val4Hash.getBytes, val5Hash.getBytes))
             _ ← putCallbacks.verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v3-cs>H<k5v5-cs>>>".getBytes, wasSplitting = false)
             _ ← putCallbacks.changesStored()
           } yield ()

@@ -17,8 +17,8 @@
 
 package fluence.btree.client
 
-import fluence.btree.common.ClientPutDetails
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
+import fluence.btree.common.{ ClientPutDetails, Key }
 import fluence.crypto.hash.TestCryptoHasher
 import org.scalatest.{ Matchers, WordSpec }
 
@@ -29,9 +29,9 @@ class BTreeVerifierSpec extends WordSpec with Matchers {
   private val hasher = TestCryptoHasher
   private val verifier = BTreeVerifier(hasher)
 
-  private val key1 = "k1".getBytes
-  private val key2 = "k2".getBytes
-  private val key3 = "k3".getBytes
+  private val key1 = Key("k1".getBytes)
+  private val key2 = Key("k2".getBytes)
+  private val key3 = Key("k3".getBytes)
 
   private val val1 = "v1".getBytes
   private val val2 = "v2".getBytes

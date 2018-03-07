@@ -33,9 +33,9 @@ object BTreeCommonShow {
   implicit def showArrayOfBytes(implicit sk: Show[Array[Byte]]): Show[Array[Array[Byte]]] = showArray(showBytes)
   implicit def showArrayOfLong(implicit svr: Show[Array[Long]]): Show[Array[Long]] = showArray(showLong)
 
-  implicit def showPutDetails(implicit sk: Show[Key], svr: Show[ValueRef], sh: Show[Hash]): Show[ClientPutDetails] = {
+  implicit def showPutDetails(implicit svr: Show[ValueRef], sh: Show[Hash]): Show[ClientPutDetails] = {
     Show.show((pd: ClientPutDetails) ⇒
-      s"ClientPutDetails(${sk.show(pd.key)}, ${sh.show(pd.valChecksum)}, ${pd.searchResult})"
+      s"ClientPutDetails(${pd.key}, ${sh.show(pd.valChecksum)}, ${pd.searchResult})"
     )
   }
 
