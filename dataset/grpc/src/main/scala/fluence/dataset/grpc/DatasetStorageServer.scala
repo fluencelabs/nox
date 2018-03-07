@@ -125,7 +125,7 @@ class DatasetStorageServer[F[_] : Async](
               for {
                 _ ← pushServerAsk(
                   GetCallback.Callback.SubmitLeaf(AskSubmitLeaf(
-                    keys = keys.map(ByteString.copyFrom),
+                    keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
                     valuesChecksums = valuesChecksums.map(ByteString.copyFrom)
                   ))
                 )
@@ -144,7 +144,7 @@ class DatasetStorageServer[F[_] : Async](
               for {
                 _ ← pushServerAsk(
                   GetCallback.Callback.NextChildIndex(AskNextChildIndex(
-                    keys = keys.map(ByteString.copyFrom),
+                    keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
                     childsChecksums = childsChecksums.map(ByteString.copyFrom)
                   ))
                 )
@@ -228,7 +228,7 @@ class DatasetStorageServer[F[_] : Async](
                 _ ← pushServerAsk(
                   PutCallback.Callback.NextChildIndex(
                     AskNextChildIndex(
-                      keys = keys.map(ByteString.copyFrom),
+                      keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
                       childsChecksums = childsChecksums.map(ByteString.copyFrom)
                     )
                   )
@@ -248,13 +248,13 @@ class DatasetStorageServer[F[_] : Async](
               for {
                 _ ← pushServerAsk(
                   PutCallback.Callback.PutDetails(AskPutDetails(
-                    keys = keys.map(ByteString.copyFrom),
+                    keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
                     valuesChecksums = valuesChecksums.map(ByteString.copyFrom)
                   ))
                 )
                 pd ← getReply(r ⇒ r.isPutDetails && r.putDetails.exists(_.searchResult.isDefined), _.putDetails.get)
               } yield ClientPutDetails(
-                key = pd.key.toByteArray,
+                key = Key(pd.key.toByteArray),
                 valChecksum = pd.checksum.toByteArray,
                 searchResult = (
                   pd.searchResult.foundIndex.map(Searching.Found) orElse

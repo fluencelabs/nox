@@ -21,6 +21,7 @@ import cats.effect.Effect
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import com.google.protobuf.ByteString
+import fluence.btree.common.Key
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.grpc.DatasetStorageClient.ServerError
 import fluence.dataset.grpc.DatasetStorageServer.ClientError
@@ -91,7 +92,7 @@ class DatasetStorageClient[F[_] : Effect](
           val Some(nci) = ask.nextChildIndex
 
           getCallbacks
-            .nextChildIndex(nci.keys.map(_.toByteArray).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
+            .nextChildIndex(nci.keys.map(k ⇒ Key(k.toByteArray)).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
             .attempt
             .flatMap {
               case Left(err) ⇒
@@ -104,7 +105,7 @@ class DatasetStorageClient[F[_] : Effect](
           val Some(sl) = ask.submitLeaf
 
           getCallbacks
-            .submitLeaf(sl.keys.map(_.toByteArray).toArray, sl.valuesChecksums.map(_.toByteArray).toArray)
+            .submitLeaf(sl.keys.map(k ⇒ Key(k.toByteArray)).toArray, sl.valuesChecksums.map(_.toByteArray).toArray)
             .attempt
             .flatMap {
               case Left(err) ⇒
@@ -190,7 +191,7 @@ class DatasetStorageClient[F[_] : Effect](
           val Some(nci) = ask.nextChildIndex
 
           putCallbacks
-            .nextChildIndex(nci.keys.map(_.toByteArray).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
+            .nextChildIndex(nci.keys.map(k ⇒ Key(k.toByteArray)).toArray, nci.childsChecksums.map(_.toByteArray).toArray)
             .attempt
             .flatMap {
               case Left(err) ⇒
@@ -203,14 +204,14 @@ class DatasetStorageClient[F[_] : Effect](
           val Some(pd) = ask.putDetails
 
           putCallbacks
-            .putDetails(pd.keys.map(_.toByteArray).toArray, pd.valuesChecksums.map(_.toByteArray).toArray)
+            .putDetails(pd.keys.map(k ⇒ Key(k.toByteArray)).toArray, pd.valuesChecksums.map(_.toByteArray).toArray)
             .attempt
             .flatMap {
               case Left(err) ⇒
                 handleClientErr(err)
               case Right(cpd) ⇒
                 val putDetails = ReplyPutDetails(
-                  key = ByteString.copyFrom(cpd.key),
+                  key = ByteString.copyFrom(cpd.key.bytes),
                   checksum = ByteString.copyFrom(cpd.valChecksum),
                   searchResult = cpd.searchResult match {
                     case Searching.Found(foundIndex)              ⇒ ReplyPutDetails.SearchResult.FoundIndex(foundIndex)

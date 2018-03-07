@@ -15,18 +15,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.btree
+package fluence.btree.common
 
-package object common {
+import cats.Applicative
+import fluence.codec.Codec
+import scodec.bits.ByteVector
 
-  /* Ciphered value reference */
-  type ValueRef = Long
+import scala.language.higherKinds
 
-  /* Alias for bytes array */
-  type Bytes = Array[Byte]
+/** Ciphered btree key */
+case class Key(bytes: Array[Byte]) extends AnyVal {
 
-  // TODO: use ByteVector instead
-  /* Any data hash */
-  type Hash = Array[Byte]
+  def copy: Key = Key(BytesOps.copyOf(bytes))
+
+  override def toString: String = ByteVector.view(bytes).toString
+
+}
+
+object Key {
+
+  implicit def keyCodec[F[_] : Applicative]: Codec[F, Key, Array[Byte]] = Codec.pure(_.bytes, b ⇒ Key(b))
 
 }

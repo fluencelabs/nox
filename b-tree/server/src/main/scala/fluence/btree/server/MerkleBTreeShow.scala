@@ -18,7 +18,7 @@
 package fluence.btree.server
 
 import cats.Show
-import fluence.btree.common.{ ClientPutDetails, Hash, Key, ValueRef }
+import fluence.btree.common.{ ClientPutDetails, Hash, ValueRef }
 import fluence.btree.server.core.{ BTreePutDetails, NodeWithId }
 
 /**
@@ -33,18 +33,18 @@ object MerkleBTreeShow {
       s"BTreePutDetails(${cpd.show(bpd.clientPutDetails)})"
     )
   }
-  implicit def showBranch(implicit sak: Show[Array[Key]], sani: Show[Array[NodeId]], sh: Show[Hash]): Show[Branch] = {
+  implicit def showBranch(implicit sani: Show[Array[NodeId]], sh: Show[Hash]): Show[Branch] = {
     Show.show((t: Branch) ⇒
-      s"Branch(${sak.show(t.keys)}, ${sani.show(t.childsReferences)}, ${t.size}, ${sh.show(t.checksum)})"
+      s"Branch(${t.keys}, ${sani.show(t.childsReferences)}, ${t.size}, ${sh.show(t.checksum)})"
     )
   }
 
   implicit def showLeaf(
     implicit
-    sak: Show[Array[Key]], savr: Show[Array[ValueRef]], sah: Show[Array[Hash]], sh: Show[Hash]
+    savr: Show[Array[ValueRef]], sah: Show[Array[Hash]], sh: Show[Hash]
   ): Show[Leaf] = {
     Show.show((l: Leaf) ⇒
-      s"""Leaf(${sak.show(l.keys)}, ${savr.show(l.valuesReferences)}, ${sah.show(l.valuesChecksums)},
+      s"""Leaf(${l.keys}, ${savr.show(l.valuesReferences)}, ${sah.show(l.valuesChecksums)},
          ${l.size}, ${sh.show(l.checksum)})"""
     )
   }

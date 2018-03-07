@@ -44,7 +44,7 @@ import scala.collection.Searching.{ Found, SearchResult }
  */
 class MerkleBTreeClient[K] private (
     initClientState: ClientState,
-    keyCrypt: Crypt[Task, K, Array[Byte]],
+    keyCrypt: Crypt[Task, K, Key],
     verifier: BTreeVerifier
 )(implicit ord: Ordering[K]) extends MerkleBTreeClientApi[Task, K] with slogging.LazyLogging {
 
@@ -67,7 +67,7 @@ class MerkleBTreeClient[K] private (
     // case when server asks next child
     def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.map(_.show)}")
+        logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=$keys")
 
         processSearch(key, merkleRoot, mPath, keys, childsChecksums)
           .flatMap {
@@ -82,7 +82,7 @@ class MerkleBTreeClient[K] private (
     // case when server returns founded leaf
     def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): Task[Option[Int]] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        logger.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=${keys.map(_.show).mkString(",")}")
+        logger.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=$keys")
 
         val leafProof = verifier.getLeafProof(keys, valuesChecksums)
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
@@ -98,7 +98,7 @@ class MerkleBTreeClient[K] private (
           }
         } else {
           Task.raiseError(new IllegalStateException(
-            s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.map(_.show).mkString(",")}, " +
+            s"Checksum of leaf didn't pass verifying for key=$key, Leaf($keys, " +
               s"${valuesChecksums.map(_.show).mkString(",")})"
           ))
         }
@@ -137,7 +137,7 @@ class MerkleBTreeClient[K] private (
     // case when server asks next child
     override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Bytes]): Task[Int] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.show}")
+        logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=$keys")
 
         processSearch(key, merkleRoot, mPath, keys, childsChecksums)
           .flatMap {
@@ -152,7 +152,7 @@ class MerkleBTreeClient[K] private (
     // case when server returns founded leaf
     override def putDetails(keys: Array[Key], values: Array[Hash]): Task[ClientPutDetails] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        logger.debug(s"putDetails starts for key=$key, mPath=$mPath, keys=${keys.show}")
+        logger.debug(s"putDetails starts for key=$key, mPath=$mPath, keys=$keys")
 
         val leafProof = verifier.getLeafProof(keys, values)
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
@@ -168,7 +168,7 @@ class MerkleBTreeClient[K] private (
 
         } else {
           Task.raiseError(new IllegalStateException(
-            s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.show}, ${values.show})"
+            s"Checksum of leaf didn't pass verifying for key=$key, Leaf($keys, ${values.show})"
           ))
         }
       }
@@ -291,7 +291,7 @@ class MerkleBTreeClient[K] private (
       }
     } else {
       Task.raiseError(new IllegalStateException(
-        s"Checksum of branch didn't pass verifying for key=$key, Branch(${keys.show}, ${childsChecksums.show})"
+        s"Checksum of branch didn't pass verifying for key=$key, Branch($keys, ${childsChecksums.show})"
       ))
     }
   }
@@ -316,9 +316,12 @@ object MerkleBTreeClient {
     keyCrypt: Crypt[Task, K, Array[Byte]],
     cryptoHasher: CryptoHasher[Bytes, Bytes]
   )(implicit ord: Ordering[K]): MerkleBTreeClient[K] = {
+    import fluence.codec.Codec.identityCodec
+    import Key._
+
     new MerkleBTreeClient[K](
       initClientState.getOrElse(ClientState(Array.emptyByteArray)),
-      keyCrypt,
+      Crypt.transform(keyCrypt),
       BTreeVerifier(cryptoHasher)
     )
   }
