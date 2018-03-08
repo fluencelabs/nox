@@ -171,7 +171,7 @@ object ContractsCacheStore {
 
   private def toOption[F[_]](byteStr: ByteString) = if (byteStr.isEmpty) None else Option(byteStr)
 
-  /** Creates [[fluence.codec.Codec]] instance for {{{BasicContractCache}}} and {{{Array[Bytes]}}} */
+  /** Creates [[fluence.codec.Codec]] instance for {{{BasicContractCache}}} and {{{Array[Byte]}}} */
   private def contractCache2Bytes[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, BasicContractCache, Array[Byte]] =
     Codec[F, BasicContractCache, Array[Byte]](
       bcc ⇒ F.pure(bcc.toByteArray),

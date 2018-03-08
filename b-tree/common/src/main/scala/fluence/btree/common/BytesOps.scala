@@ -25,11 +25,11 @@ import java.util
 object BytesOps {
 
   /** Returns copy of bytes. */
-  def copyOf(bytes: Bytes): Bytes =
+  def copyOf(bytes: Array[Byte]): Array[Byte] =
     util.Arrays.copyOf(bytes, bytes.length)
 
   /** Returns shallow copy of specified array. Note that, this method doesn't copy array elements! */
-  def copyOf(array: Array[Bytes]): Array[Bytes] =
+  def copyOf(array: Array[Array[Byte]]): Array[Array[Byte]] =
     util.Arrays.copyOf(array, array.length)
 
   /**
@@ -37,7 +37,7 @@ object BytesOps {
    * We choose variant with array copying for prevent changing input parameters.
    * Work with mutable structures is more error-prone. It may be changed in the future by performance reason.
    */
-  def rewriteValue(array: Array[Bytes], newElement: Bytes, idx: Int): Array[Bytes] = {
+  def rewriteValue(array: Array[Array[Byte]], newElement: Array[Byte], idx: Int): Array[Array[Byte]] = {
     val newArray = copyOf(array)
     newArray(idx) = newElement
     newArray
@@ -47,7 +47,7 @@ object BytesOps {
    * Returns updated shallow copy of array with the inserted element at the specified position(''insIdx'').
    * Current array will grow up by one.
    */
-  def insertValue(array: Array[Bytes], newElement: Bytes, idx: Int): Array[Bytes] = {
+  def insertValue(array: Array[Array[Byte]], newElement: Array[Byte], idx: Int): Array[Array[Byte]] = {
     val newArray = util.Arrays.copyOf(array, array.length + 1)
     Array.copy(array, idx, newArray, idx + 1, array.length - idx)
     newArray(idx) = newElement
