@@ -80,4 +80,6 @@ case class GeneralNodeProof(
 
   }
 
+  override def toString: String = s"NodeProof(stateChecksum=$stateChecksum, " +
+    s"childrenChecksums=${childrenChecksums.mkString(",")}, substitutionIdx=$substitutionIdx)"
 }

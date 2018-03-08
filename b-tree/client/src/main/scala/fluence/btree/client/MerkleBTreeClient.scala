@@ -65,7 +65,7 @@ class MerkleBTreeClient[K] private (
     // case when server asks next child
     def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=$keys")
+        logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
 
         processSearch(key, merkleRoot, mPath, keys, childsChecksums)
           .flatMap {
@@ -80,7 +80,7 @@ class MerkleBTreeClient[K] private (
     // case when server returns founded leaf
     def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): Task[Option[Int]] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        logger.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=$keys")
+        logger.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
 
         val leafProof = verifier.getLeafProof(keys, valuesChecksums)
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
@@ -96,7 +96,7 @@ class MerkleBTreeClient[K] private (
           }
         } else {
           Task.raiseError(new IllegalStateException(
-            s"Checksum of leaf didn't pass verifying for key=$key, Leaf($keys, " +
+            s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.mkString(",")}, " +
               s"${valuesChecksums.mkString(",")})"
           ))
         }
@@ -135,7 +135,7 @@ class MerkleBTreeClient[K] private (
     // case when server asks next child
     override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=$keys")
+        logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
 
         processSearch(key, merkleRoot, mPath, keys, childsChecksums)
           .flatMap {
@@ -150,7 +150,7 @@ class MerkleBTreeClient[K] private (
     // case when server returns founded leaf
     override def putDetails(keys: Array[Key], values: Array[Hash]): Task[ClientPutDetails] = {
       merklePathMVar.take.flatMap { mPath ⇒
-        logger.debug(s"putDetails starts for key=$key, mPath=$mPath, keys=$keys")
+        logger.debug(s"putDetails starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
 
         val leafProof = verifier.getLeafProof(keys, values)
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
@@ -166,7 +166,7 @@ class MerkleBTreeClient[K] private (
 
         } else {
           Task.raiseError(new IllegalStateException(
-            s"Checksum of leaf didn't pass verifying for key=$key, Leaf($keys, $values)"
+            s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.mkString(",")}, ${keys.mkString(",")})"
           ))
         }
       }
@@ -289,7 +289,7 @@ class MerkleBTreeClient[K] private (
       }
     } else {
       Task.raiseError(new IllegalStateException(
-        s"Checksum of branch didn't pass verifying for key=$key, Branch($keys, $childsChecksums)"
+        s"Checksum of branch didn't pass verifying for key=$key, Branch(${keys.mkString(",")}, ${keys.mkString(",")})"
       ))
     }
   }
