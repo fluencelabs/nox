@@ -17,6 +17,7 @@
 
 package fluence.dataset.node.storage
 
+import fluence.btree.common.Hash
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.server.{ Get, MerkleBTree, Put }
@@ -27,6 +28,7 @@ import org.mockito.{ ArgumentMatchers, Mockito }
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{ BeforeAndAfterEach, Matchers, WordSpec }
+import scodec.bits.ByteVector
 
 class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar with ScalaFutures with BeforeAndAfterEach {
 
@@ -37,7 +39,7 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
   private val mrCalc = mock[MerkleRootCalculator]
 
   private val valGen = () ⇒ 5L
-  private val onMRChange: Array[Byte] ⇒ Task[Unit] = b ⇒ Task(())
+  private val onMRChange: ByteVector ⇒ Task[Unit] = b ⇒ Task(())
   private val expValue = "value".getBytes
   private val someError = new IllegalArgumentException("Some error")
 
@@ -157,7 +159,7 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
         .thenReturn(Task(()))
       Mockito
         .when(mBtree.getMerkleRoot)
-        .thenReturn(Task("hash".getBytes))
+        .thenReturn(Task(Hash("hash".getBytes)))
 
       val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
@@ -178,7 +180,7 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
         .thenReturn(Task(()))
       Mockito
         .when(mBtree.getMerkleRoot)
-        .thenReturn(Task("hash".getBytes))
+        .thenReturn(Task(Hash("hash".getBytes)))
 
       val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 

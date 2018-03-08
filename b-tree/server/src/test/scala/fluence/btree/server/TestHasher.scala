@@ -15,26 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.btree.common.merkle
+package fluence.btree.server
 
-/**
- * The Merkle path traversed from root to leaf. Head of path corresponds root of Merkle tree.
- *
- * @param path Ordered sequence of [[NodeProof]] starts with root node ends with leaf.
- */
-case class MerklePath(path: Seq[NodeProof]) {
+import fluence.btree.common.Hash
+import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
 
-  /**
-   * Adds ''proof'' to the end of the path and return new [[MerklePath]] instance.
-   * Doesn't change the original proof: returns a new proof instead.
-   *
-   * @param proof New proof for adding
-   */
-  def add(proof: NodeProof): MerklePath =
-    copy(path = this.path :+ proof)
+class TestHasher(hasher: CryptoHasher[Array[Byte], Array[Byte]]) extends CryptoHasher[Array[Byte], Hash] {
+
+  override def hash(msg: Array[Byte]): Hash = Hash(hasher.hash(msg))
+
+  override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(hasher.hash(msg1, msgN: _*))
 
 }
 
-object MerklePath {
-  def empty: MerklePath = new MerklePath(Seq.empty)
+object TestHasher {
+  def apply(hasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher): TestHasher = new TestHasher(hasher)
 }
+

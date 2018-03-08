@@ -409,7 +409,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     grpc: DatasetStorageRpc[Task],
     merkleRoot: Option[Array[Byte]] = None
   ): ClientDatasetStorage[String, String] = {
-    val value1: Option[ClientState] = merkleRoot.map(ClientState)
+    val value1: Option[ClientState] = merkleRoot.map(mr ⇒ ClientState(ByteVector(mr)))
     ClientDatasetStorage(
       datasetId,
       testHasher,

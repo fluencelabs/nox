@@ -17,11 +17,8 @@
 
 package fluence.btree.server.core
 
-import cats.syntax.show._
-import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common.merkle.{ GeneralNodeProof, NodeProof }
 import fluence.btree.common.{ Hash, Key, ValueRef }
-import fluence.btree.server.MerkleBTreeShow._
 import fluence.btree.server._
 import fluence.crypto.hash.CryptoHasher
 
@@ -32,7 +29,7 @@ import scala.reflect.ClassTag
  *
  * @param cryptoHasher Hash service uses for calculating nodes checksums.
  */
-private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]]) {
+private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
 
   implicit class LeafOps(leaf: Leaf) extends LeafNode.Ops[Key, ValueRef] {
 
@@ -80,7 +77,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
     }
 
     override def toProof(substitutionIdx: Int): NodeProof = {
-      GeneralNodeProof(Array.emptyByteArray, leaf.kvChecksums, substitutionIdx)
+      GeneralNodeProof(Hash.empty, leaf.kvChecksums, substitutionIdx)
     }
 
   }
@@ -93,7 +90,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
         // this child for inserting is rightmost child of rightmost parent branch, we take last branch idx as insert index
         branch.size
       } else {
-        assert(insIdx >= 0, s"Impossible to insert by negative index=$insIdx for regular branch=${branch.show}, key=$key")
+        assert(insIdx >= 0, s"Impossible to insert by negative index=$insIdx for regular branch=$branch, key=$key")
         insIdx
       }
 
@@ -125,7 +122,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
     private def isRightmost(branch: Branch): Boolean =
       branch.childsReferences.length > branch.size
 
-    override def updateChildChecksum(newChildHash: Array[Byte], idx: Int): BranchNode[Key, NodeId] = {
+    override def updateChildChecksum(newChildHash: Hash, idx: Int): BranchNode[Key, NodeId] = {
       val newChildsChecksums = rewriteElementInArray(branch.childsChecksums, newChildHash, idx)
       branch.copy(
         childsChecksums = newChildsChecksums,
@@ -140,7 +137,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
 
   /** Creates empty leaf node. */
   def createEmptyLeaf: Leaf =
-    LeafNode(Array.empty[Key], Array.empty[ValueRef], Array.empty[Hash], Array.empty[Hash], 0, Array.emptyByteArray)
+    LeafNode(Array.empty[Key], Array.empty[ValueRef], Array.empty[Hash], Array.empty[Hash], 0, Hash.empty)
 
   /** Create new leaf with specified ''key'' and ''value''.*/
   def createLeaf(key: Key, valueRef: ValueRef, valueChecksum: Hash): Leaf = {
@@ -161,12 +158,12 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
 
   /** Returns array of checksums for each key-value pair */
   private[server] def getKvChecksums(keys: Array[Key], values: Array[Hash]): Array[Hash] = {
-    keys.zip(values).map { case (key, value) ⇒ cryptoHasher.hash(key.bytes, value) }
+    keys.zip(values).map { case (key, value) ⇒ cryptoHasher.hash(key.bytes, value.bytes) }
   }
 
   /** Returns checksum of leaf */
   def getLeafChecksum(hashedValues: Array[Hash]): Hash =
-    GeneralNodeProof(Array.emptyByteArray, hashedValues, -1)
+    GeneralNodeProof(Hash.empty, hashedValues, -1)
       .calcChecksum(cryptoHasher, None)
 
   /** Returns checksum of branch node */
@@ -200,7 +197,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte
 
 private[server] object NodeOps {
 
-  def apply(cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]]): NodeOps = {
+  def apply(cryptoHasher: CryptoHasher[Array[Byte], Hash]): NodeOps = {
     new NodeOps(cryptoHasher)
   }
 

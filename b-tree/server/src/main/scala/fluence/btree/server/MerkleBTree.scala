@@ -21,13 +21,10 @@ import java.nio.ByteBuffer
 
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.show._
 import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
-import fluence.btree.common.BTreeCommonShow._
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
 import fluence.btree.common.{ ClientPutDetails, Hash, Key, ValueRef }
-import fluence.btree.server.MerkleBTreeShow._
 import fluence.btree.server.core.TreePath.PathElem
 import fluence.btree.server.core._
 import fluence.codec.kryo.KryoCodecs
@@ -166,7 +163,7 @@ class MerkleBTree private[server] (
 
   /** '''Method makes remote call!''' This method makes step down the tree. */
   private def getForBranch(branch: Branch, cmd: Get): Task[Option[ValueRef]] = {
-    logger.debug(s"Get for branch=${branch.show}")
+    logger.debug(s"Get for branch=$branch")
 
     searchChild(branch, cmd)
       .flatMap {
@@ -177,7 +174,7 @@ class MerkleBTree private[server] (
 
   /** '''Method makes remote call!'''. This is the terminal method. */
   private def getForLeaf(leaf: Leaf, cmd: Get): Task[Option[ValueRef]] = {
-    logger.debug(s"Get for leaf=${leaf.show}")
+    logger.debug(s"Get for leaf=$leaf")
     cmd.submitLeaf(Some(leaf))
       .map(_.map(leaf.valuesReferences)) // get value ref from leaf by searched index
   }
@@ -198,7 +195,7 @@ class MerkleBTree private[server] (
             val newValRef = valRefProvider()
             val newLeaf = createLeaf(key, newValRef, valChecksum)
             // send the merkle path to the client for verification
-            val leafProof = GeneralNodeProof(Array.emptyByteArray, newLeaf.kvChecksums, 0)
+            val leafProof = GeneralNodeProof(Hash.empty, newLeaf.kvChecksums, 0)
             cmd.verifyChanges(MerklePath(Seq(leafProof)), wasSplitting = false)
               .flatMap { _ ⇒ // TODO here we could have a signature
                 commitNewState(PutTask(nodesToSave = Seq(NodeWithId(RootId, newLeaf)), increaseDepth = true))
@@ -228,7 +225,7 @@ class MerkleBTree private[server] (
    * @param trail    The path traversed from the root
    */
   private def putForBranch(cmd: Put, branchId: NodeId, branch: Branch, trail: Trail): Task[ValueRef] = {
-    logger.debug(s"Put to branch=${branch.show}, id=$branchId")
+    logger.debug(s"Put to branch=$branch, id=$branchId")
 
     cmd.nextChildIndex(branch)
       .flatMap(searchedIdx ⇒ {
@@ -258,7 +255,7 @@ class MerkleBTree private[server] (
     leaf: Leaf,
     trail: Trail
   ): Task[ValueRef] = {
-    logger.debug(s"Put to leaf=${leaf.show}, id=$leafId")
+    logger.debug(s"Put to leaf=$leaf, id=$leafId")
 
     cmd.putDetails(Some(leaf))
       .flatMap { putDetails: BTreePutDetails ⇒
@@ -321,7 +318,7 @@ class MerkleBTree private[server] (
     def createLeafCtx(leafId: NodeId, newLeaf: Leaf, searchedValueIdx: Int): PutCtx = {
 
       if (hasOverflow(newLeaf)) {
-        logger.debug(s"Do split for leafId=$leafId, leaf=${newLeaf.show}")
+        logger.debug(s"Do split for leafId=$leafId, leaf=$newLeaf")
 
         val isRoot = leafId == RootId
         val (left, right) = newLeaf.split
@@ -385,7 +382,7 @@ class MerkleBTree private[server] (
         val PathElem(branchId, branch, nextChildIdx) = updateParentFn(visitedBranch)
 
         if (hasOverflow(branch)) {
-          logger.debug(s"Do split for branchId=$branchId, branch=${branch.show}, nextChildIdx=$nextChildIdx ")
+          logger.debug(s"Do split for branchId=$branchId, branch=$branch, nextChildIdx=$nextChildIdx ")
 
           val isRoot = branchId == RootId
           val (left, right) = branch.split
@@ -476,7 +473,7 @@ class MerkleBTree private[server] (
    * @param putTask Pool of changed nodes
    */
   private def commitNewState(putTask: PutTask): Task[Unit] = {
-    logger.debug(s"commitNewState for nodes=${putTask.nodesToSave.map(_.show)}")
+    logger.debug(s"commitNewState for nodes=${putTask.nodesToSave}")
     // todo start transaction
     Task.gatherUnordered(putTask.nodesToSave.map { case NodeWithId(id, node) ⇒ saveNode(id, node) })
       .foreachL(_ ⇒ if (putTask.increaseDepth) this.depth.increment())
@@ -490,7 +487,7 @@ class MerkleBTree private[server] (
    * @return Updated leaf with new ''key'' and ''value''
    */
   private def updateLeaf(putDetails: BTreePutDetails, leaf: Leaf): (Leaf, ValueRef) = {
-    logger.debug(s"Update leaf=${leaf.show}, putDetails=${putDetails.show}")
+    logger.debug(s"Update leaf=$leaf, putDetails=$putDetails")
 
     putDetails match {
       case BTreePutDetails(ClientPutDetails(key, valChecksum, Found(idxOfUpdate)), _) ⇒
@@ -508,9 +505,9 @@ class MerkleBTree private[server] (
 
   /** Save specified node to tree store or locally in case when node is root. */
   private def saveNode(nodeId: NodeId, node: Node): Task[Unit] = {
-    logger.debug(s"Save node (id=$nodeId,node=${node.show})")
+    logger.debug(s"Save node (id=$nodeId,node=$node)")
     //this assert is for debugging without cryptography
-    assert(assertKeyIanAscOrder(node), s"Ascending order of keys required! Invalid node=${node.show})")
+    assert(assertKeyIanAscOrder(node), s"Ascending order of keys required! Invalid node=$node)")
     store.put(nodeId, node)
   }
 
@@ -561,7 +558,7 @@ object MerkleBTree {
   def apply[F[_]](
     name: String,
     rocksFactory: RocksDbStore.Factory,
-    hasher: CryptoHasher[Array[Byte], Array[Byte]],
+    hasher: CryptoHasher[Array[Byte], Hash],
     conf: Config
   )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[MerkleBTree] =
     F.map2(

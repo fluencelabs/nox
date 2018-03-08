@@ -17,7 +17,7 @@
 
 package fluence.btree.common.merkle
 
-import fluence.btree.common.BytesOps
+import fluence.btree.common.Hash
 import fluence.crypto.hash.CryptoHasher
 
 /**
@@ -34,9 +34,9 @@ sealed trait NodeProof {
    * @return Checksum of current ''NodeProof''
    */
   def calcChecksum(
-    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    checksumForSubstitution: Option[Array[Byte]]
-  ): Array[Byte]
+    cryptoHasher: CryptoHasher[Array[Byte], Hash],
+    checksumForSubstitution: Option[Hash]
+  ): Hash
 
 }
 
@@ -57,32 +57,29 @@ sealed trait NodeProof {
  * @param substitutionIdx   Index for substitution some child checksum to ''childrenChecksums''
  */
 case class GeneralNodeProof(
-    stateChecksum: Array[Byte],
-    childrenChecksums: Array[Array[Byte]],
+    stateChecksum: Hash,
+    childrenChecksums: Array[Hash],
     substitutionIdx: Int
 ) extends NodeProof {
 
   override def calcChecksum(
-    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    checksumForSubstitution: Option[Array[Byte]]
-  ): Array[Byte] = {
+    cryptoHasher: CryptoHasher[Array[Byte], Hash],
+    checksumForSubstitution: Option[Hash]
+  ): Hash = {
 
     checksumForSubstitution match {
       case None ⇒
         // if checksum for substitution isn't defined just calculate node checksum
-        val array = Array.concat(stateChecksum, childrenChecksums.flatten)
-        if (array.isEmpty) array else cryptoHasher.hash(array)
+        val checksum = stateChecksum.concat(childrenChecksums)
+        if (checksum.isEmpty) checksum else cryptoHasher.hash(checksum.bytes)
       case Some(checksum) ⇒
         // if checksum is defined substitute it to childsChecksum and calculate node checksum
-        val updatedArray = BytesOps.rewriteValue(childrenChecksums, checksum, substitutionIdx)
-        cryptoHasher.hash(Array.concat(stateChecksum, updatedArray.flatten))
+        val updatedArray = childrenChecksums.rewriteValue(checksum, substitutionIdx)
+        cryptoHasher.hash(stateChecksum.concat(updatedArray).bytes)
     }
 
   }
 
-  override def toString: String = {
-    s"NodeProof(stateChecksum=${new String(stateChecksum)}," +
-      s"checksums=${childrenChecksums.map(new String(_)).mkString("[", ",", "]")},subIdx=$substitutionIdx)"
-  }
-
+  override def toString: String = s"NodeProof(stateChecksum=$stateChecksum, " +
+    s"childrenChecksums=${childrenChecksums.mkString(",")}, substitutionIdx=$substitutionIdx)"
 }

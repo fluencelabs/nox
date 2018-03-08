@@ -59,7 +59,9 @@ case class LeafNode[K, V](
     kvChecksums: Array[Hash],
     override val size: Int,
     override val checksum: Hash
-) extends TreeNode[K]
+) extends TreeNode[K] {
+  override def toString: String = LeafNode.show(this)
+}
 
 object LeafNode {
 
@@ -108,6 +110,12 @@ object LeafNode {
 
   }
 
+  def show(l: LeafNode[_, _]): String = {
+    s"Leaf(keys=${l.keys.mkString(",")}, vRefs=${l.valuesReferences.mkString(",")}, " +
+      s"vChecksums=${l.valuesChecksums.mkString(",")}, kvChecksums=${l.kvChecksums.mkString(",")}, " +
+      s"size=${l.size}, checksum=${l.checksum})"
+  }
+
 }
 
 /**
@@ -130,7 +138,9 @@ case class BranchNode[K, C](
     childsChecksums: Array[Hash],
     override val size: Int,
     override val checksum: Hash
-) extends TreeNode[K]
+) extends TreeNode[K] {
+  override def toString: String = BranchNode.show(this)
+}
 
 object BranchNode {
 
@@ -156,7 +166,7 @@ object BranchNode {
      * @param idx       Index for doing update
      * @return Updated branch node
      */
-    def updateChildChecksum(checksum: Array[Byte], idx: Int): BranchNode[K, C]
+    def updateChildChecksum(checksum: Hash, idx: Int): BranchNode[K, C]
 
     /**
      * Splits leaf into two approximately equal parts.
@@ -174,10 +184,15 @@ object BranchNode {
 
   }
 
+  def show(b: BranchNode[_, _]): String = {
+    s"Branch(keys=${b.keys.mkString(",")}, childsRefs=${b.childsReferences.mkString(",")}, " +
+      s"size=${b.size}, checksum=${b.checksum})"
+  }
+
 }
 
 /** Wrapper for the node with its corresponding id. */
 case class NodeWithId[+Id, +Node <: TreeNode[_]](id: Id, node: Node)
 
 /** Wrapper of the child id and the checksum. */
-case class ChildRef[Id](id: Id, checksum: Array[Byte])
+case class ChildRef[Id](id: Id, checksum: Hash)

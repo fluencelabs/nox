@@ -22,11 +22,4 @@ package object common {
   /* Ciphered value reference */
   type ValueRef = Long
 
-  /* Alias for bytes array */
-  type Bytes = Array[Byte]
-
-  // TODO: use ByteVector instead
-  /* Any data hash */
-  type Hash = Array[Byte]
-
 }

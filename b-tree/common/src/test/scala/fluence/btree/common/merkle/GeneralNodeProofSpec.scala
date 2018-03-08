@@ -17,52 +17,60 @@
 
 package fluence.btree.common.merkle
 
-import fluence.crypto.hash.TestCryptoHasher
+import fluence.btree.common.Hash
+import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
 import org.scalatest.{ Matchers, WordSpec }
 
 class GeneralNodeProofSpec extends WordSpec with Matchers {
 
-  private val testHasher = TestCryptoHasher
+  implicit class Str2Hash(str: String) {
+    def toHash: Hash = Hash(str.getBytes)
+  }
+
+  private val testHasher = new CryptoHasher[Array[Byte], Hash] {
+    override def hash(msg: Array[Byte]): Hash = Hash(TestCryptoHasher.hash(msg))
+    override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(TestCryptoHasher.hash(msg1, msgN: _*))
+  }
 
   "calcChecksum" should {
     "calculate correct checksum" when {
       "stateChecksum is empty, childsChecksums is empty, substitution checksum is None" in {
-        val result = GeneralNodeProof(Array.emptyByteArray, Array.empty, 1)
+        val result = GeneralNodeProof(Hash.empty, Array.empty, 1)
           .calcChecksum(testHasher, None)
-        result shouldBe Array.emptyByteArray
+        result.isEmpty shouldBe true
       }
       "stateChecksum is empty, substitution checksum is None" in {
-        val result = GeneralNodeProof(Array.emptyByteArray, Array("A".getBytes, "B".getBytes, "C".getBytes), 1)
+        val result = GeneralNodeProof(Hash.empty, Array("A".toHash, "B".toHash, "C".toHash), 1)
           .calcChecksum(testHasher, None)
-        new String(result) shouldBe "H<ABC>"
+        new String(result.bytes) shouldBe "H<ABC>"
       }
       "stateChecksum is empty, substitution checksum is defined" in {
-        val result = GeneralNodeProof(Array.emptyByteArray, Array("A".getBytes, "B".getBytes, "C".getBytes), 1)
-          .calcChecksum(testHasher, Some("X".getBytes))
-        new String(result) shouldBe "H<AXC>"
+        val result = GeneralNodeProof(Hash.empty, Array("A".toHash, "B".toHash, "C".toHash), 1)
+          .calcChecksum(testHasher, Some("X".toHash))
+        new String(result.bytes) shouldBe "H<AXC>"
       }
       "stateChecksum is defined, substitution checksum is None" in {
-        val result = GeneralNodeProof("STATE_".getBytes, Array("A".getBytes, "B".getBytes, "C".getBytes), 1)
+        val result = GeneralNodeProof("STATE_".toHash, Array("A".toHash, "B".toHash, "C".toHash), 1)
           .calcChecksum(testHasher, None)
-        new String(result) shouldBe "H<STATE_ABC>"
+        new String(result.bytes) shouldBe "H<STATE_ABC>"
       }
       "stateChecksum is defined, substitution checksum is defined" in {
-        val result = GeneralNodeProof("STATE_".getBytes, Array("A".getBytes, "B".getBytes, "C".getBytes), 1)
-          .calcChecksum(testHasher, Some("X".getBytes))
-        new String(result) shouldBe "H<STATE_AXC>"
+        val result = GeneralNodeProof("STATE_".toHash, Array("A".toHash, "B".toHash, "C".toHash), 1)
+          .calcChecksum(testHasher, Some("X".toHash))
+        new String(result.bytes) shouldBe "H<STATE_AXC>"
       }
     }
     "throw exception" when {
       "childrenChecksums is empty" in {
         intercept[ArrayIndexOutOfBoundsException] {
-          GeneralNodeProof("STATE_".getBytes, Array.empty[Array[Byte]], 0)
-            .calcChecksum(testHasher, Some("X".getBytes))
+          GeneralNodeProof("STATE_".toHash, Array.empty, 0)
+            .calcChecksum(testHasher, Some("X".toHash))
         }
       }
       "substitution index out of bound" in {
         intercept[ArrayIndexOutOfBoundsException] {
-          GeneralNodeProof("STATE_".getBytes, Array("A".getBytes, "B".getBytes, "C".getBytes), 10)
-            .calcChecksum(testHasher, Some("X".getBytes))
+          GeneralNodeProof("STATE_".toHash, Array("A".toHash, "B".toHash, "C".toHash), 10)
+            .calcChecksum(testHasher, Some("X".toHash))
 
         }
       }

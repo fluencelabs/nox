@@ -27,7 +27,6 @@ import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
 import fluence.codec.kryo.KryoCodecs
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.JdkCryptoHasher
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -44,15 +43,22 @@ import scala.util.hashing.MurmurHash3
 
 class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
-  private val blobIdCounter = Atomic(0L)
+  implicit class Str2Key(str: String) {
+    def toKey: Key = Key(str.getBytes)
+  }
 
-  private val hasher = JdkCryptoHasher.Sha256
-  //    private val hasher = TestCryptoHasher
-  private val mRCalc = MerkleRootCalculator(hasher)
+  implicit class Str2Hash(str: String) {
+    def toHash: Hash = Hash(str.getBytes)
+  }
 
   implicit object BytesOrdering extends Ordering[Array[Byte]] {
     override def compare(x: Array[Byte], y: Array[Byte]): Int = ByteBuffer.wrap(x).compareTo(ByteBuffer.wrap(y))
   }
+
+  private val blobIdCounter = Atomic(0L)
+
+  private val hasher = TestHasher()
+  private val mRCalc = MerkleRootCalculator(hasher)
 
   private val key1 = "k0001"
   private val val1 = "v0001"
@@ -93,7 +99,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         } yield res1)
 
         val res2 = wait(for {
-          putCb ← client.initPut(key1, val1.getBytes)
+          putCb ← client.initPut(key1, val1.toHash)
           res2 ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
         } yield res2)
 
@@ -125,7 +131,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val putRes1 = wait(Task.gather(
           Random.shuffle(1 to 512).map(i ⇒ {
             for {
-              putCb ← client.initPut(f"k$i%04d", f"v$i%04d".getBytes)
+              putCb ← client.initPut(f"k$i%04d", f"v$i%04d".toHash)
               res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
             } yield res
           })
@@ -166,7 +172,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val putRes2 = wait(Task.gather(
           Random.shuffle(1 to 1024).map(i ⇒ {
             for {
-              putCb ← client.initPut(f"k$i%04d", f"v$i%04d new".getBytes)
+              putCb ← client.initPut(f"k$i%04d", f"v$i%04d new".toHash)
               res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
             } yield res
           })
@@ -241,7 +247,8 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
     val tMap = new TrieMap[Array[Byte], Array[Byte]](MurmurHash3.arrayHashing, Equiv.fromComparator(BytesOrdering))
     val store = new BTreeBinaryStore[Task, NodeId, Node](
-      new TrieMapKVStore[Task, Array[Byte], Array[Byte]](tMap), () ⇒ blobIdCounter.incrementAndGet()
+      new TrieMapKVStore[Task, Array[Byte], Array[Byte]](tMap),
+      () ⇒ blobIdCounter.incrementAndGet()
     )
     new MerkleBTree(MerkleBTreeConfig(arity = Arity, alpha = Alpha), store, NodeOps(hasher))
   }

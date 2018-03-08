@@ -24,7 +24,7 @@ import cats.syntax.functor._
 import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.btree.common.merkle.MerkleRootCalculator
-import fluence.btree.common.{ Bytes, ValueRef }
+import fluence.btree.common.{ Hash, ValueRef }
 import fluence.btree.protocol.BTreeRpc
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.server.MerkleBTree
@@ -34,6 +34,7 @@ import fluence.crypto.hash.CryptoHasher
 import fluence.storage.KVStore
 import fluence.storage.rocksdb.{ IdSeqProvider, RocksDbStore }
 import monix.eval.Task
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -51,7 +52,7 @@ class DatasetNodeStorage private[storage] (
     kVStore: KVStore[Task, ValueRef, Array[Byte]],
     merkleRootCalculator: MerkleRootCalculator,
     valueIdGenerator: () ⇒ ValueRef,
-    onMRChange: Bytes ⇒ Task[Unit]
+    onMRChange: ByteVector ⇒ Task[Unit]
 ) {
 
   /**
@@ -91,7 +92,7 @@ class DatasetNodeStorage private[storage] (
       // save new blob to kvStore
       _ ← kVStore.put(valRef, encryptedValue)
       updatedMR ← bTreeIndex.getMerkleRoot
-      _ ← onMRChange(updatedMR)
+      _ ← onMRChange(ByteVector(updatedMR.bytes))
     } yield oldVal
 
     // todo end transaction, revert all changes if error appears
@@ -130,7 +131,7 @@ object DatasetNodeStorage {
     rocksFactory: RocksDbStore.Factory,
     config: Config,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    onMRChange: Bytes ⇒ Task[Unit]
+    onMRChange: ByteVector ⇒ Task[Unit]
   )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[DatasetNodeStorage] = {
     import Codec.identityCodec
 
@@ -140,15 +141,20 @@ object DatasetNodeStorage {
       ByteBuffer.allocate(java.lang.Long.BYTES).putLong(_).array()
     )
 
+    val wrappedHasher = new CryptoHasher[Array[Byte], Hash] {
+      override def hash(msg: Array[Byte]): Hash = Hash(cryptoHasher.hash(msg))
+      override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(cryptoHasher.hash(msg1, msgN: _*))
+    }
+
     for {
       rocksDb ← rocksFactory(s"$datasetId/blob_data", config)
       idSeqProvider ← IdSeqProvider.longSeqProvider(rocksDb)
-      btreeIdx ← MerkleBTree(s"$datasetId/btree_idx", rocksFactory, cryptoHasher, config)
+      btreeIdx ← MerkleBTree(s"$datasetId/btree_idx", rocksFactory, wrappedHasher, config)
     } yield {
       new DatasetNodeStorage(
         btreeIdx,
         KVStore.transform(rocksDb),
-        MerkleRootCalculator(cryptoHasher),
+        MerkleRootCalculator(wrappedHasher),
         idSeqProvider,
         onMRChange
       )

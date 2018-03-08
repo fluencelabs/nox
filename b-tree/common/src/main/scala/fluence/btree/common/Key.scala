@@ -23,12 +23,15 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-/** Ciphered btree key */
+/**
+ * Ciphered btree key
+ */
 case class Key(bytes: Array[Byte]) extends AnyVal {
 
   def copy: Key = Key(BytesOps.copyOf(bytes))
 
-  override def toString: String = ByteVector.view(bytes).toString
+  override def toString: String =
+    if (bytes.isEmpty) "Key(empty)" else s"Key(${bytes.length} bytes, 0x${ByteVector.view(bytes).toHex})"
 
 }
 
