@@ -36,8 +36,6 @@ class BTreeVerifier(
     merkleRootCalculator: MerkleRootCalculator
 ) extends slogging.LazyLogging {
 
-  import Hash._
-
   /**
    * Checks 'servers proof' correctness. Calculates proof checksums and compares it with expected checksum.
    *

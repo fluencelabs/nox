@@ -321,11 +321,12 @@ class MerkleBTree private[server] (
         logger.debug(s"Do split for leafId=$leafId, leaf=$newLeaf")
 
         val isRoot = leafId == RootId
-        val (left, right) = newLeaf.split
-        // get ids for new nodes
-        val leftId = store.nextId()
-        // RootId is always linked with root node and will not changed, store right node with new id if split root
-        val rightId = if (isRoot) store.nextId() else leafId
+        // get ids for new nodes, right node should be with new id, because each leaf points to right sibling
+        val rightId = store.nextId()
+        // RootId is always linked with root node and will not changed, store left node with new id if split root
+        val leftId = if (isRoot) store.nextId() else leafId
+
+        val (left, right) = newLeaf.split(rightId)
 
         val isInsertToTheLeft = searchedValueIdx < left.size
         val affectedLeaf = if (isInsertToTheLeft) left else right
@@ -434,8 +435,8 @@ class MerkleBTree private[server] (
 
     /**
      * This method returns function that makes two changes into the parent node:
-     *  1. Inserts left node as new child before right node.
-     *  2. Update checksum of changed right node.
+     *  1. It inserts left node as new child before right node.
+     *  2. It updates checksum and id of changed right node.
      *
      * @param left              Left node with their id
      * @param right             Right node with their id
@@ -451,11 +452,11 @@ class MerkleBTree private[server] (
       case PathElem(parentId: NodeId, parentNode: Branch, nextChildIdx) ⇒
         val popUpKey = left.node.keys.last
         logger.trace(s"Add child to parent node: insertedKey=$popUpKey, insertedChild=$left, insIdx=$nextChildIdx")
-        // updates parent node with new left node. Parent already contains right node as a child.
-        // update right node checksum needed, checksum of right node was changed after splitting
+        // updates parent node with new left node. Parent already contains right node as a child (but with wrong id and checksum).
+        // update right node checksum and id is needed, checksum and id of right node was changed after splitting
         val branch = parentNode
           .insertChild(popUpKey, ChildRef(left.id, left.node.checksum), nextChildIdx)
-          .updateChildChecksum(right.node.checksum, nextChildIdx + 1)
+          .updateChildRef(ChildRef(right.id, right.node.checksum), nextChildIdx + 1)
 
         val idxOfUpdatedChild = if (isInsertToTheLeft) nextChildIdx else nextChildIdx + 1
 
@@ -588,9 +589,11 @@ object MerkleBTree {
       .add[Array[Hash]]
       .add[NodeId]
       .add[Array[NodeId]]
-
       .add[Int]
       .add[Node]
+      .add[Option[NodeId]]
+      .add[None.type]
+
       .addCase(classOf[Leaf])
       .addCase(classOf[Branch])
       .build[Task]()

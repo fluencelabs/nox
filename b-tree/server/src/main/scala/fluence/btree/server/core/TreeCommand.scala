@@ -47,8 +47,9 @@ trait TreeCommand[F[_], K] {
  * @tparam F The type of effect, box for returning value
  * @tparam K The type of search key
  * @tparam V The type of value
+ * @tparam C The type of reference to child nodes
  */
-trait GetCommand[F[_], K, V] extends TreeCommand[F, K] {
+trait GetCommand[F[_], K, V, C] extends TreeCommand[F, K] {
 
   /**
    * Sends founded leaf with all keys and checksums of values to client.
@@ -57,7 +58,7 @@ trait GetCommand[F[_], K, V] extends TreeCommand[F, K] {
    * @param leaf Current leaf node of tree
    * @return index of searched value, or None if key wasn't found
    */
-  def submitLeaf(leaf: Option[LeafNode[K, V]]): F[Option[Int]]
+  def submitLeaf(leaf: Option[LeafNode[K, V, C]]): F[Option[Int]]
 }
 
 /**
@@ -66,8 +67,9 @@ trait GetCommand[F[_], K, V] extends TreeCommand[F, K] {
  * @tparam F The type of effect, box for returning value
  * @tparam K The type of search key
  * @tparam V The type of value stored to leaf
+ * @tparam C The type of reference to child nodes
  */
-trait PutCommand[F[_], K, V] extends TreeCommand[F, K] {
+trait PutCommand[F[_], K, V, C] extends TreeCommand[F, K] {
 
   /**
    * Returns all details needed for putting key and value to BTree.
@@ -75,7 +77,7 @@ trait PutCommand[F[_], K, V] extends TreeCommand[F, K] {
    * @param leaf Values for calculating current node checksum on the client and find index to insert.
    * @return  Data structure with putting details.
    */
-  def putDetails(leaf: Option[LeafNode[K, V]]): F[BTreePutDetails]
+  def putDetails(leaf: Option[LeafNode[K, V, C]]): F[BTreePutDetails]
 
   /**
    * Sends merkle path to client after putting key-value pair into the tree.

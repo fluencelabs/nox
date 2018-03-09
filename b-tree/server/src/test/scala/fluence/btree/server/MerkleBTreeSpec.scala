@@ -91,6 +91,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
     .add[Array[NodeId]]
     .add[Int]
     .add[Node]
+    .add[Option[NodeId]]
+    .add[None.type]
+
     .addCase(classOf[Leaf])
     .addCase(classOf[Branch])
     .build[Task]()
@@ -133,6 +136,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         tree.getDepth shouldBe 1
         val root = wait(tree.getRoot).asInstanceOf[Leaf]
         checkLeaf(Array(key1), Array(valRef1), Array(value1), root)
+        root.rightSibling shouldBe None
       }
 
       "tree contains 1 element, insertion key is less than key in tree" in {
@@ -147,6 +151,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val root = wait(tree.getRoot).asInstanceOf[Leaf]
         checkLeaf(Array(key1, key2), Array(valRef2, valRef1), Array(value1, value2), root)
         checkNodeValidity(root)
+        root.rightSibling shouldBe None
       }
 
       "tree contains 1 element, insertion key is more than key in tree" in {
@@ -161,6 +166,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val root = wait(tree.getRoot).asInstanceOf[Leaf]
         checkLeaf(Array(key1, key2), Array(valRef1, valRef2), Array(value1, value2), root)
         checkNodeValidity(root)
+        root.rightSibling shouldBe None
       }
 
       "tree has filled root-leaf" in {
@@ -174,12 +180,13 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         tree.getDepth shouldBe 2
         val root = wait(tree.getRoot).asInstanceOf[Branch]
         checkNodeValidity(root)
-        checkTree(Array(key2), Array(1, 2), root)
+        checkTree(Array(key2), Array(2, 1), root)
 
         val rootChildren = root.childsReferences.map(childId ⇒ wait(store.get(childId)))
         rootChildren should have size 2
         rootChildren.foreach(child ⇒ checkNodeValidity(child))
-
+        rootChildren.head.asInstanceOf[Leaf].rightSibling shouldBe Some(1L)
+        rootChildren.tail.head.asInstanceOf[Leaf].rightSibling shouldBe None
       }
 
       "many put operation with ascending keys (only leaf is spiting)" in {
@@ -197,7 +204,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val rootChildren: Array[Node] = root.childsReferences.map(childId ⇒ wait(store.get(childId)))
         rootChildren.foldLeft(0)((acc, node) ⇒ acc + node.size) shouldBe 11
         rootChildren.foreach(child ⇒ checkNodeValidity(child))
-
+        // only rightmost leaf should be without right sibling
+        rootChildren.map { case l: Leaf ⇒ l.rightSibling }.count(_.isEmpty) shouldBe 1
       }
 
       "many put operation with descending keys (only leaf is spiting)" in {
@@ -215,6 +223,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val rootChildren: Array[Node] = root.childsReferences.map(childId ⇒ wait(store.get(childId)))
         rootChildren.foldLeft(0)((acc, node) ⇒ acc + node.size) shouldBe 11
         rootChildren.foreach(child ⇒ checkNodeValidity(child))
+        // only rightmost leaf should be without right sibling
+        rootChildren.map { case l: Leaf ⇒ l.rightSibling }.count(_.isEmpty) shouldBe 1
       }
 
       "many put operation with ascending keys (leafs and trees are splitting)" in {

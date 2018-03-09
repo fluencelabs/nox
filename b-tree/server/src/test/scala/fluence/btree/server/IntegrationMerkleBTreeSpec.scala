@@ -236,6 +236,9 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
       .add[Array[NodeId]]
       .add[Int]
       .add[Node]
+      .add[Option[NodeId]]
+      .add[None.type]
+
       .addCase(classOf[Leaf])
       .addCase(classOf[Branch])
       .build[Task]()
