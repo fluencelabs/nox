@@ -48,17 +48,21 @@ sealed trait TreeNode[K] {
  *                           'hash(key+checksumsOfValue)' (optimization)
  * @param size              Number of keys inside this leaf. Actually size of each array in leaf. (optimization)
  * @param checksum         Hash of leaf state (hash of concatenated checksumsOfKv)
+ * @param rightSibling     Reference to the right sibling leaf. Rightmost leaf don't have right sibling.
  *
  * @tparam K The type of search key
  * @tparam V The Type of stored value
+ * @tparam C The type of reference to child nodes
  */
-case class LeafNode[K, V](
+case class LeafNode[K, V, C](
     override val keys: Array[K],
     valuesReferences: Array[V],
     valuesChecksums: Array[Hash],
     kvChecksums: Array[Hash],
+
     override val size: Int,
-    override val checksum: Hash
+    override val checksum: Hash,
+    rightSibling: Option[C]
 ) extends TreeNode[K] {
   override def toString: String = LeafNode.show(this)
 }
@@ -66,7 +70,7 @@ case class LeafNode[K, V](
 object LeafNode {
 
   /** Leaf operations. */
-  trait Ops[K, V] {
+  trait Ops[K, V, C] {
 
     /**
      * Updates leaf with new data. Rewrites elements at the specified index position in the leaf.
@@ -78,7 +82,7 @@ object LeafNode {
      * @param idx            Index for rewriting
      * @return updated leaf
      */
-    def rewrite(key: K, valueRef: V, valueChecksum: Hash, idx: Int): LeafNode[K, V]
+    def rewrite(key: K, valueRef: V, valueChecksum: Hash, idx: Int): LeafNode[K, V, C]
 
     /**
      * Updates leaf with insert new data. Inserts elements at the specified index position in the leaf.
@@ -91,15 +95,17 @@ object LeafNode {
      * @param idx             Index for insertion
      * @return updated leaf
      */
-    def insert(key: K, valueRef: V, valueChecksum: Hash, idx: Int): LeafNode[K, V]
+    def insert(key: K, valueRef: V, valueChecksum: Hash, idx: Int): LeafNode[K, V, C]
 
     /**
      * Splits leaf into two approximately equal parts.
      * Doesn't change the original leaf: returns a two new leaf instead.
      *
+     * @param rightLeafId Id for right leaf after splitting. Left leaf should takes old leaf id.
+     *
      * @return tuple with 2 leafs
      */
-    def split: (LeafNode[K, V], LeafNode[K, V])
+    def split(rightLeafId: C): (LeafNode[K, V, C], LeafNode[K, V, C])
 
     /**
      * Returns node proof for current node
@@ -110,10 +116,10 @@ object LeafNode {
 
   }
 
-  def show(l: LeafNode[_, _]): String = {
+  def show(l: LeafNode[_, _, _]): String = {
     s"Leaf(keys=${l.keys.mkString(",")}, vRefs=${l.valuesReferences.mkString(",")}, " +
       s"vChecksums=${l.valuesChecksums.mkString(",")}, kvChecksums=${l.kvChecksums.mkString(",")}, " +
-      s"size=${l.size}, checksum=${l.checksum})"
+      s"size=${l.size}, checksum=${l.checksum}, rightSibling=${l.rightSibling})"
   }
 
 }
@@ -136,6 +142,7 @@ case class BranchNode[K, C](
     override val keys: Array[K],
     childsReferences: Array[C],
     childsChecksums: Array[Hash],
+
     override val size: Int,
     override val checksum: Hash
 ) extends TreeNode[K] {
@@ -159,7 +166,7 @@ object BranchNode {
     def insertChild(key: K, childRef: ChildRef[C], idx: Int): BranchNode[K, C]
 
     /**
-     * Updates a checksum for the child specified by the index and recalculates the branch checksum.
+     * Updates a checksum for the child by specified index and recalculates the branch checksum.
      * Doesn't change the original branch: returns a new branch instead.
      *
      * @param checksum New checksum of updated child
@@ -167,6 +174,15 @@ object BranchNode {
      * @return Updated branch node
      */
     def updateChildChecksum(checksum: Hash, idx: Int): BranchNode[K, C]
+
+    /**
+     * Updates checksum and reference in parent branch for the child by specified index;
+     * recalculates the branch checksum. Doesn't change the original branch: returns a new branch instead.
+     *
+     * @param childRef New child reference (childs id and checksum)
+     * @return Updated branch node
+     */
+    def updateChildRef(childRef: ChildRef[C], idx: Int): BranchNode[K, C]
 
     /**
      * Splits leaf into two approximately equal parts.

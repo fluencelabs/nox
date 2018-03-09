@@ -31,7 +31,7 @@ import scala.reflect.ClassTag
  */
 private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
 
-  implicit class LeafOps(leaf: Leaf) extends LeafNode.Ops[Key, ValueRef] {
+  implicit class LeafOps(leaf: Leaf) extends LeafNode.Ops[Key, ValueRef, NodeId] {
 
     override def rewrite(key: Key, valueRef: ValueRef, valueChecksum: Hash, idx: Int): Leaf = {
       assert(idx >= 0 && idx <= leaf.size, "Index should be between 0 and size of leaf")
@@ -41,7 +41,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
       val kvChecksums = getKvChecksums(keys, vChecksums)
       val leafChecksum = getLeafChecksum(kvChecksums)
 
-      LeafNode(keys, vReferences, vChecksums, kvChecksums, keys.length, leafChecksum)
+      LeafNode(keys, vReferences, vChecksums, kvChecksums, keys.length, leafChecksum, leaf.rightSibling)
     }
 
     override def insert(key: Key, valueRef: ValueRef, valueChecksum: Hash, idx: Int): Leaf = {
@@ -52,10 +52,10 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
       val kvChecksums = getKvChecksums(keys, vChecksums)
       val leafChecksum = getLeafChecksum(kvChecksums)
 
-      LeafNode(keys, vReferences, vChecksums, kvChecksums, keys.length, leafChecksum)
+      LeafNode(keys, vReferences, vChecksums, kvChecksums, keys.length, leafChecksum, leaf.rightSibling)
     }
 
-    override def split: (Leaf, Leaf) = {
+    override def split(rightLeafId: NodeId): (Leaf, Leaf) = {
       assert(leaf.size % 2 == 1, "Leaf size before splitting should be odd!")
 
       val splitIdx = leaf.size / 2
@@ -67,10 +67,22 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
       val rightLeafKvChecksums = getKvChecksums(rightKeys, rightVChecksums)
 
       val leftLeaf = LeafNode(
-        leftKeys, leftVRefs, leftVChecksums, leftLeafKvChecksums, leftKeys.length, getLeafChecksum(leftLeafKvChecksums)
+        leftKeys,
+        leftVRefs,
+        leftVChecksums,
+        leftLeafKvChecksums,
+        leftKeys.length,
+        getLeafChecksum(leftLeafKvChecksums),
+        Some(rightLeafId) // left leaf point to right leaf
       )
       val rightLeaf = LeafNode(
-        rightKeys, rightVRefs, rightVChecksums, rightLeafKvChecksums, rightKeys.length, getLeafChecksum(rightLeafKvChecksums)
+        rightKeys,
+        rightVRefs,
+        rightVChecksums,
+        rightLeafKvChecksums,
+        rightKeys.length,
+        getLeafChecksum(rightLeafKvChecksums),
+        leaf.rightSibling // reference to right sibling isn't change, right leaf should points to him
       )
 
       leftLeaf → rightLeaf
@@ -129,6 +141,15 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
         checksum = getBranchChecksum(branch.keys, newChildsChecksums))
     }
 
+    override def updateChildRef(childRef: ChildRef[NodeId], idx: Int): BranchNode[Key, NodeId] = {
+      val newChildsReferences = rewriteElementInArray(branch.childsReferences, childRef.id, idx)
+      val newChildsChecksums = rewriteElementInArray(branch.childsChecksums, childRef.checksum, idx)
+      branch.copy(
+        childsReferences = newChildsReferences,
+        childsChecksums = newChildsChecksums,
+        checksum = getBranchChecksum(branch.keys, newChildsChecksums))
+    }
+
     override def toProof(substitutionIdx: Int): NodeProof = {
       GeneralNodeProof(cryptoHasher.hash(branch.keys.flatMap(_.bytes)), branch.childsChecksums, substitutionIdx)
     }
@@ -137,7 +158,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
 
   /** Creates empty leaf node. */
   def createEmptyLeaf: Leaf =
-    LeafNode(Array.empty[Key], Array.empty[ValueRef], Array.empty[Hash], Array.empty[Hash], 0, Hash.empty)
+    LeafNode(Array.empty[Key], Array.empty[ValueRef], Array.empty[Hash], Array.empty[Hash], 0, Hash.empty, None)
 
   /** Create new leaf with specified ''key'' and ''value''.*/
   def createLeaf(key: Key, valueRef: ValueRef, valueChecksum: Hash): Leaf = {
@@ -145,7 +166,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
     val vReferences = Array(valueRef)
     val vChecksums = Array(valueChecksum)
     val kvChecksums = getKvChecksums(keys, vChecksums)
-    LeafNode(keys, vReferences, vChecksums, kvChecksums, 1, getLeafChecksum(kvChecksums))
+    LeafNode(keys, vReferences, vChecksums, kvChecksums, 1, getLeafChecksum(kvChecksums), None)
   }
 
   /** Create new branch node with specified ''key'' and 2 child nodes. */

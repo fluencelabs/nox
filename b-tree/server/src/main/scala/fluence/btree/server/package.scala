@@ -27,12 +27,12 @@ package object server {
 
   type Node = TreeNode[Key]
   type Branch = BranchNode[Key, NodeId]
-  type Leaf = LeafNode[Key, ValueRef]
+  type Leaf = LeafNode[Key, ValueRef, NodeId]
 
   type NodeAndId = NodeWithId[NodeId, Node]
   type Trail = TreePath[NodeId, Branch]
 
-  type Get = GetCommand[Task, Key, ValueRef]
-  type Put = PutCommand[Task, Key, ValueRef]
+  type Get = GetCommand[Task, Key, ValueRef, NodeId]
+  type Put = PutCommand[Task, Key, ValueRef, NodeId]
 
 }

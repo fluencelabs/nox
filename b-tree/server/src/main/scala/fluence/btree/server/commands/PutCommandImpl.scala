@@ -23,7 +23,7 @@ import cats.syntax.functor._
 import fluence.btree.common.merkle.{ MerklePath, MerkleRootCalculator }
 import fluence.btree.common.{ Hash, Key, ValueRef }
 import fluence.btree.protocol.BTreeRpc.PutCallbacks
-import fluence.btree.server.Leaf
+import fluence.btree.server.{ Leaf, NodeId }
 import fluence.btree.server.core._
 
 import scala.language.higherKinds
@@ -40,7 +40,7 @@ case class PutCommandImpl[F[_]](
     merkleRootCalculator: MerkleRootCalculator,
     putCallbacks: PutCallbacks[F],
     valueRefProvider: () ⇒ ValueRef
-)(implicit ME: MonadError[F, Throwable]) extends BaseSearchCommand[F](putCallbacks) with PutCommand[F, Key, ValueRef] {
+)(implicit ME: MonadError[F, Throwable]) extends BaseSearchCommand[F](putCallbacks) with PutCommand[F, Key, ValueRef, NodeId] {
 
   def putDetails(leaf: Option[Leaf]): F[BTreePutDetails] = {
     val (keys, valuesChecksums) =
