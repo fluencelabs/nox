@@ -73,7 +73,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
         leftLeafKvChecksums,
         leftKeys.length,
         getLeafChecksum(leftLeafKvChecksums),
-        Some(rightLeafId) // left leaf point to right leaf
+        Some(rightLeafId) // left leaf points to right leaf
       )
       val rightLeaf = LeafNode(
         rightKeys,
