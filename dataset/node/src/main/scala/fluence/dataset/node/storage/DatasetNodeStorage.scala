@@ -142,10 +142,7 @@ object DatasetNodeStorage {
       ByteBuffer.allocate(java.lang.Long.BYTES).putLong(_).array()
     )
 
-    val wrappedHasher = new CryptoHasher[Array[Byte], Hash] {
-      override def hash(msg: Array[Byte]): Hash = Hash(cryptoHasher.hash(msg))
-      override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(cryptoHasher.hash(msg1, msgN: _*))
-    }
+    val wrappedHasher = cryptoHasher.map(Hash(_))
 
     for {
       rocksDb ← rocksFactory(s"$datasetId/blob_data", config)

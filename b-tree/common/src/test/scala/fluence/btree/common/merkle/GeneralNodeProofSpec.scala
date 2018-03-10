@@ -27,10 +27,7 @@ class GeneralNodeProofSpec extends WordSpec with Matchers {
     def toHash: Hash = Hash(str.getBytes)
   }
 
-  private val testHasher = new CryptoHasher[Array[Byte], Hash] {
-    override def hash(msg: Array[Byte]): Hash = Hash(TestCryptoHasher.hash(msg))
-    override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(TestCryptoHasher.hash(msg1, msgN: _*))
-  }
+  private val testHasher = TestCryptoHasher.map(Hash(_))
 
   "calcChecksum" should {
     "calculate correct checksum" when {

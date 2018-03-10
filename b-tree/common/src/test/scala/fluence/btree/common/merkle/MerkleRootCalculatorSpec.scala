@@ -27,10 +27,7 @@ class MerkleRootCalculatorSpec extends WordSpec with Matchers {
     def toHash: Hash = Hash(str.getBytes)
   }
 
-  private val testHasher = new CryptoHasher[Array[Byte], Hash] {
-    override def hash(msg: Array[Byte]): Hash = Hash(TestCryptoHasher.hash(msg))
-    override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(TestCryptoHasher.hash(msg1, msgN: _*))
-  }
+  private val testHasher = TestCryptoHasher.map(Hash(_))
 
   private val hash0 = "0".toHash
   private val hash1 = "1".toHash
