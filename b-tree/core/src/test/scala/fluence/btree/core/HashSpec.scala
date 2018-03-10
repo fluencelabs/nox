@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.btree.common
+package fluence.btree.core
 
 import org.scalatest.{ Matchers, WordSpec }
 

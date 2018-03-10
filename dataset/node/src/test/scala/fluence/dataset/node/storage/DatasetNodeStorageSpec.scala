@@ -17,8 +17,8 @@
 
 package fluence.dataset.node.storage
 
-import fluence.btree.common.Hash
 import fluence.btree.common.merkle.MerkleRootCalculator
+import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.server.{ Get, MerkleBTree, Put }
 import fluence.storage.KVStore

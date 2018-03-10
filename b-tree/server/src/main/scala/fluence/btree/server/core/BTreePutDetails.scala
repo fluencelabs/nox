@@ -17,7 +17,8 @@
 
 package fluence.btree.server.core
 
-import fluence.btree.common.{ ClientPutDetails, ValueRef }
+import fluence.btree.common.ValueRef
+import fluence.btree.core.ClientPutDetails
 
 /**
  * Structure for holding all details needed for putting new record to Btree index.

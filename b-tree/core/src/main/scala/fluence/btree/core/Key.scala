@@ -15,16 +15,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.btree.common
+package fluence.btree.core
 
-import scala.collection.Searching.SearchResult
+import java.util
+
+import cats.Applicative
+import fluence.codec.Codec
+import scodec.bits.ByteVector
+
+import scala.language.higherKinds
 
 /**
- * Structure for holding all client details needed for putting key and value to BTree.
- *
- * @param key           The key that will be placed to the BTree
- * @param valChecksum  The value checksum that will be placed to the BTree
- * @param searchResult  A result of searching client key in server leaf keys. Contains an index
- *                       for putting specified key and value
+ * Ciphered btree key
  */
-case class ClientPutDetails(key: Key, valChecksum: Hash, searchResult: SearchResult)
+case class Key(bytes: Array[Byte]) extends AnyVal {
+
+  def copy: Key = Key(util.Arrays.copyOf(bytes, bytes.length))
+
+  override def toString: String =
+    if (bytes.isEmpty) "Key(empty)" else s"Key(${bytes.length} bytes, 0x${ByteVector.view(bytes).toHex})"
+
+}
+
+object Key {
+
+  implicit def keyCodec[F[_] : Applicative]: Codec[F, Key, Array[Byte]] = Codec.pure(_.bytes, b ⇒ Key(b))
+
+}

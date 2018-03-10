@@ -17,8 +17,8 @@
 
 package fluence.btree.server.core
 
-import fluence.btree.common.Hash
 import fluence.btree.common.merkle.NodeProof
+import fluence.btree.core.Hash
 
 /**
  * The root of tree elements hierarchy.

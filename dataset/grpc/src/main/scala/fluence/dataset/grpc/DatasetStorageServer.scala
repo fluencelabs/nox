@@ -25,7 +25,7 @@ import cats.syntax.functor._
 import cats.syntax.show._
 import cats.{ Monad, Show, ~> }
 import com.google.protobuf.ByteString
-import fluence.btree.common.{ ClientPutDetails, Hash, Key }
+import fluence.btree.core.{ ClientPutDetails, Hash, Key }
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.grpc.storage._

@@ -21,7 +21,7 @@ import cats.effect.Effect
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import com.google.protobuf.ByteString
-import fluence.btree.common.{ Hash, Key }
+import fluence.btree.core.{ Hash, Key }
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.grpc.DatasetStorageClient.ServerError
 import fluence.dataset.grpc.DatasetStorageServer.ClientError

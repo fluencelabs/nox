@@ -17,7 +17,8 @@
 
 package fluence.btree
 
-import fluence.btree.common.{ Key, ValueRef }
+import fluence.btree.common.ValueRef
+import fluence.btree.core.Key
 import fluence.btree.server.core.{ BranchNode, LeafNode, NodeWithId, _ }
 import monix.eval.Task
 

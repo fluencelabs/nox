@@ -17,7 +17,7 @@
 
 package fluence.btree.client
 
-import fluence.btree.common.Hash
+import fluence.btree.core.Hash
 
 import scala.language.higherKinds
 

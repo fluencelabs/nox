@@ -21,6 +21,7 @@ import java.nio.ByteBuffer
 
 import fluence.btree.common._
 import fluence.btree.common.merkle.MerkleRootCalculator
+import fluence.btree.core.{ ClientPutDetails, Hash, Key }
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps, TreeNode }

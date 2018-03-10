@@ -17,7 +17,7 @@
 
 package fluence.btree.server
 
-import fluence.btree.common.Hash
+import fluence.btree.core.Hash
 import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
 
 class TestHasher(hasher: CryptoHasher[Array[Byte], Array[Byte]]) extends CryptoHasher[Array[Byte], Hash] {

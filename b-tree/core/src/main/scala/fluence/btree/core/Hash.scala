@@ -15,9 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.btree.common
+package fluence.btree.core
 
 import java.nio.ByteBuffer
+import java.util
 
 import cats.Applicative
 import cats.kernel.Eq
@@ -29,7 +30,7 @@ import scala.language.higherKinds
 /** Any data hash */
 case class Hash(bytes: Array[Byte]) extends AnyVal {
 
-  def copy: Hash = Hash(BytesOps.copyOf(bytes))
+  def copy: Hash = Hash(util.Arrays.copyOf(bytes, bytes.length))
 
   override def toString: String =
     if (bytes.isEmpty) "Hash(empty)" else s"Hash(${bytes.length} bytes, 0x${ByteVector.view(bytes).toHex})"

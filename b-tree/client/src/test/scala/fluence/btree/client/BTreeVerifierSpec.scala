@@ -18,7 +18,7 @@
 package fluence.btree.client
 
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
-import fluence.btree.common.{ ClientPutDetails, Hash, Key }
+import fluence.btree.core.{ ClientPutDetails, Hash, Key }
 import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
 import org.scalatest.{ Matchers, WordSpec }
 
