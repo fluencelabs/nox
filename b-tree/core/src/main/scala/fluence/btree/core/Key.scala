@@ -30,7 +30,7 @@ import scala.language.higherKinds
  */
 case class Key(bytes: Array[Byte]) extends AnyVal {
 
-  def copy: Key = Key(util.Arrays.copyOf(bytes, bytes.length))
+  def copy: Key = Key(bytes.clone())
 
   override def toString: String =
     if (bytes.isEmpty) "Key(empty)" else s"Key(${bytes.length} bytes, 0x${ByteVector.view(bytes).toHex})"

@@ -30,7 +30,7 @@ import scala.language.higherKinds
 /** Any data hash */
 case class Hash(bytes: Array[Byte]) extends AnyVal {
 
-  def copy: Hash = Hash(util.Arrays.copyOf(bytes, bytes.length))
+  def copy: Hash = Hash(bytes.clone())
 
   override def toString: String =
     if (bytes.isEmpty) "Hash(empty)" else s"Hash(${bytes.length} bytes, 0x${ByteVector.view(bytes).toHex})"
