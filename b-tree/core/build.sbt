@@ -5,6 +5,7 @@ enablePlugins(AutomateHeaderPlugin)
 commons
 
 libraryDependencies ++= Seq(
-  scalatest,
-  monix3 % Test
+  cats1,
+  scodecBits,
+  scalatest
 )

@@ -18,7 +18,7 @@
 package fluence.btree.client
 
 import fluence.btree.client.MerkleBTreeClient.ClientState
-import fluence.btree.common.{ Hash, Key }
+import fluence.btree.core.{ Hash, Key }
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
 import monix.eval.Task

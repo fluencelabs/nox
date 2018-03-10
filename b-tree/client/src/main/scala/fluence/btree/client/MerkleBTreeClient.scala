@@ -20,6 +20,7 @@ package fluence.btree.client
 import fluence.btree.client.MerkleBTreeClient._
 import fluence.btree.common._
 import fluence.btree.common.merkle.MerklePath
+import fluence.btree.core.{ ClientPutDetails, Hash, Key }
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher

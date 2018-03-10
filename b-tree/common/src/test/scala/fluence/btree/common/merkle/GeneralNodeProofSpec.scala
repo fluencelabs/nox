@@ -17,7 +17,7 @@
 
 package fluence.btree.common.merkle
 
-import fluence.btree.common.Hash
+import fluence.btree.core.Hash
 import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
 import org.scalatest.{ Matchers, WordSpec }
 

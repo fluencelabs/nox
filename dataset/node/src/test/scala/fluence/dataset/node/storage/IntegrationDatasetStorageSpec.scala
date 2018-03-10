@@ -22,7 +22,7 @@ import cats.~>
 import com.typesafe.config.ConfigFactory
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
-import fluence.btree.common.Hash
+import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }

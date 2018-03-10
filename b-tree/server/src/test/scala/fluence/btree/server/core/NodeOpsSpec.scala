@@ -17,7 +17,7 @@
 
 package fluence.btree.server.core
 
-import fluence.btree.common.{ Hash, Key }
+import fluence.btree.core.{ Hash, Key }
 import fluence.btree.server.{ Leaf, NodeId, TestHasher }
 import org.scalatest.{ Matchers, WordSpec }
 

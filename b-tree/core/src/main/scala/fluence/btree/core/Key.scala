@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.btree.common
+package fluence.btree.core
 
 import cats.Applicative
 import fluence.codec.Codec
@@ -28,7 +28,7 @@ import scala.language.higherKinds
  */
 case class Key(bytes: Array[Byte]) extends AnyVal {
 
-  def copy: Key = Key(BytesOps.copyOf(bytes))
+  def copy: Key = Key(bytes.clone())
 
   override def toString: String =
     if (bytes.isEmpty) "Key(empty)" else s"Key(${bytes.length} bytes, 0x${ByteVector.view(bytes).toHex})"

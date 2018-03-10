@@ -20,11 +20,12 @@ package fluence.btree.server.commands
 import cats.MonadError
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.btree.common.ValueRef
 import fluence.btree.common.merkle.{ MerklePath, MerkleRootCalculator }
-import fluence.btree.common.{ Hash, Key, ValueRef }
+import fluence.btree.core.{ Hash, Key }
 import fluence.btree.protocol.BTreeRpc.PutCallbacks
-import fluence.btree.server.{ Leaf, NodeId }
 import fluence.btree.server.core._
+import fluence.btree.server.{ Leaf, NodeId }
 
 import scala.language.higherKinds
 

@@ -19,7 +19,7 @@ package fluence.dataset.client
 
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.client.{ MerkleBTreeClient, MerkleBTreeClientApi }
-import fluence.btree.common.Hash
+import fluence.btree.core.Hash
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.storage.DatasetStorageRpc

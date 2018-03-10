@@ -187,14 +187,19 @@ lazy val `storage-core-js` = `storage-core`.js
 lazy val `storage-rocksdb` = project.in(file("storage/rocksdb"))
   .dependsOn(`storage-core-jvm`)
 
-lazy val `b-tree-client` = project.in(file("b-tree/client"))
-  .dependsOn(`b-tree-common`, `b-tree-protocol`)
-
-lazy val `b-tree-common` = project.in(file("b-tree/common"))
-  .dependsOn(`crypto-jvm`)
+// core entities for all b-tree modules
+lazy val `b-tree-core` = project.in(file("b-tree/core"))
+  .dependsOn(`codec-core-jvm`) // todo change to crossProject codec-core
 
 lazy val `b-tree-protocol` = project.in(file("b-tree/protocol"))
-  .dependsOn(`b-tree-common`)
+  .dependsOn(`b-tree-core`)
+
+// common logic for client and server
+lazy val `b-tree-common` = project.in(file("b-tree/common"))
+  .dependsOn(`b-tree-core`, `crypto-jvm`)
+
+lazy val `b-tree-client` = project.in(file("b-tree/client"))
+  .dependsOn(`b-tree-common`, `b-tree-protocol`)
 
 lazy val `b-tree-server` = project.in(file("b-tree/server"))
   .dependsOn(`storage-rocksdb`, `codec-kryo`, `b-tree-common`, `b-tree-protocol`, `b-tree-client` % "compile->test")

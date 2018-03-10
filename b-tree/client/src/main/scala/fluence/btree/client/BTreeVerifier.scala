@@ -20,6 +20,7 @@ package fluence.btree.client
 import cats.syntax.eq._
 import fluence.btree.common._
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath, MerkleRootCalculator, NodeProof }
+import fluence.btree.core.{ ClientPutDetails, Hash, Key }
 import fluence.crypto.hash.CryptoHasher
 
 import scala.collection.Searching.{ Found, InsertionPoint }

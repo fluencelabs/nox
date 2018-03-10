@@ -18,7 +18,8 @@
 package fluence.btree.server.commands
 
 import cats.MonadError
-import fluence.btree.common.{ Hash, Key, ValueRef }
+import fluence.btree.common.ValueRef
+import fluence.btree.core.{ Hash, Key }
 import fluence.btree.protocol.BTreeRpc.GetCallbacks
 import fluence.btree.server.NodeId
 import fluence.btree.server.core.{ GetCommand, LeafNode }

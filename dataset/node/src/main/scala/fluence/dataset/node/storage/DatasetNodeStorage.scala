@@ -24,7 +24,8 @@ import cats.syntax.functor._
 import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.btree.common.merkle.MerkleRootCalculator
-import fluence.btree.common.{ Hash, ValueRef }
+import fluence.btree.common.ValueRef
+import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
 import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
 import fluence.btree.server.MerkleBTree

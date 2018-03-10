@@ -22,7 +22,7 @@ import java.nio.ByteBuffer
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.common.merkle.MerkleRootCalculator
-import fluence.btree.common.{ Hash, Key }
+import fluence.btree.core.{ Hash, Key }
 import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
 import fluence.codec.kryo.KryoCodecs

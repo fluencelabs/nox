@@ -24,7 +24,8 @@ import cats.syntax.functor._
 import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
-import fluence.btree.common.{ ClientPutDetails, Hash, Key, ValueRef }
+import fluence.btree.common.ValueRef
+import fluence.btree.core.{ ClientPutDetails, Hash, Key }
 import fluence.btree.server.core.TreePath.PathElem
 import fluence.btree.server.core._
 import fluence.codec.kryo.KryoCodecs

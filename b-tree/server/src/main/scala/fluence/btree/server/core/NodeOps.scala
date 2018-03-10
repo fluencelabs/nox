@@ -17,8 +17,9 @@
 
 package fluence.btree.server.core
 
+import fluence.btree.common.ValueRef
 import fluence.btree.common.merkle.{ GeneralNodeProof, NodeProof }
-import fluence.btree.common.{ Hash, Key, ValueRef }
+import fluence.btree.core.{ Hash, Key }
 import fluence.btree.server._
 import fluence.crypto.hash.CryptoHasher
 

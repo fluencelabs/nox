@@ -18,7 +18,7 @@
 package fluence.btree.server.commands
 
 import cats.MonadError
-import fluence.btree.common.Key
+import fluence.btree.core.Key
 import fluence.btree.protocol.BTreeRpc.SearchCallback
 import fluence.btree.server.core.{ BranchNode, TreeCommand }
 
