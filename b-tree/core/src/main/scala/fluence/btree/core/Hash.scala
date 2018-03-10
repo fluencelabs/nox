@@ -18,7 +18,6 @@
 package fluence.btree.core
 
 import java.nio.ByteBuffer
-import java.util
 
 import cats.Applicative
 import cats.kernel.Eq

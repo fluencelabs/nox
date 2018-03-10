@@ -17,8 +17,6 @@
 
 package fluence.btree.core
 
-import java.util
-
 import cats.Applicative
 import fluence.codec.Codec
 import scodec.bits.ByteVector
