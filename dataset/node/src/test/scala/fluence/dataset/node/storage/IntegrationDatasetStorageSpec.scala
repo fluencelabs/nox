@@ -56,10 +56,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   //  private val hasher = TestCryptoHasher
   private val hasher = JdkCryptoHasher.Sha256
 
-  private val testHasher = new CryptoHasher[Array[Byte], Hash] {
-    override def hash(msg: Array[Byte]): Hash = Hash(hasher.hash(msg))
-    override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(hasher.hash(msg1, msgN: _*))
-  }
+  private val testHasher = hasher.map(Hash(_))
 
   private val key1 = "k0001"
   private val val1 = User("Rico", 31)

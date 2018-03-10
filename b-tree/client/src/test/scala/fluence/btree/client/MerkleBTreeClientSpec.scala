@@ -39,10 +39,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
     def toHash: Hash = Hash(str.getBytes)
   }
 
-  private val testHasher = new CryptoHasher[Array[Byte], Hash] {
-    override def hash(msg: Array[Byte]): Hash = Hash(TestCryptoHasher.hash(msg))
-    override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(TestCryptoHasher.hash(msg1, msgN: _*))
-  }
+  private val testHasher = TestCryptoHasher.map(Hash(_))
 
   val key1 = "k1"
   val key2 = "k2"

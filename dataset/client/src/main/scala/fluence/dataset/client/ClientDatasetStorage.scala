@@ -120,10 +120,7 @@ object ClientDatasetStorage {
     clientState: Option[ClientState]
   )(implicit ord: Ordering[K]): ClientDatasetStorage[K, V] = {
 
-    val wrappedHasher = new CryptoHasher[Array[Byte], Hash] {
-      override def hash(msg: Array[Byte]): Hash = Hash(hasher.hash(msg))
-      override def hash(msg1: Array[Byte], msgN: Array[Byte]*): Hash = Hash(hasher.hash(msg1, msgN: _*))
-    }
+    val wrappedHasher = hasher.map(Hash(_))
 
     val bTreeIndex = MerkleBTreeClient(clientState, keyCrypt, wrappedHasher)
     new ClientDatasetStorage[K, V](datasetId, bTreeIndex, storageRpc, valueCrypt, wrappedHasher)
