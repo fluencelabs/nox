@@ -111,6 +111,26 @@ class MerkleBTreeClient[K] private (
 
   }
 
+  case class RangeStateImpl(
+    key: K,
+    merkleRoot: Hash
+  ) extends RangeState[Task] with GetCallbacks[Task] {
+
+    // case when server asks next child
+    override def nextChildIndex(
+      keys: Array[Key],
+      childsChecksums: Array[Hash]
+    ): Task[Int] = ???
+
+    // case when server returns founded leaf
+    override def submitLeaf(
+      keys: Array[Key],
+      valuesChecksums: Array[Hash]
+    ): Task[Option[Int]] = ???
+
+    override def recoverState(): Task[Unit] = ???
+  }
+
   /**
    * State for each 'Put' request to remote BTree. One ''PutState'' corresponds to one series of round trip requests
    *
@@ -231,6 +251,21 @@ class MerkleBTreeClient[K] private (
     for {
       clientState ← clientStateMVar.take
     } yield GetStateImpl(key, clientState.merkleRoot.copy)
+
+  }
+
+  /**
+   * Returns ''RangeState'' with callbacks for finding range of ''values''.
+   *
+   * @param from Plain text key, start of range
+   * @param to   Plain text key, end of range
+   */
+  override def initRange(from: K, to: K): Task[RangeState[Task]] = {
+    logger.debug(s"initRange starts for from=$from, to=$to")
+
+    for {
+      clientState ← clientStateMVar.take
+    } yield ???
 
   }
 

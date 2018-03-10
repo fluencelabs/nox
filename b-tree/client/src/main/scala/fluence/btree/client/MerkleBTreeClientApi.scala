@@ -37,6 +37,14 @@ trait MerkleBTreeClientApi[F[_], K] {
   def initGet(key: K): F[GetState[F]]
 
   /**
+   * Returns ''RangeState'' with callbacks for finding range of ''values''.
+   *
+   * @param from Plain text key, start of range
+   * @param to   Plain text key, end of range
+   */
+  def initRange(from: K, to: K): F[RangeState[F]]
+
+  /**
    * Returns ''PutState'' with callbacks for saving encrypted ''key'' and ''value'' into remote MerkleBTree.
    *
    * @param key             Plain text key

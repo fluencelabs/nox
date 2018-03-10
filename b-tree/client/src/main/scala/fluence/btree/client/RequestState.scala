@@ -40,6 +40,11 @@ sealed trait RequestState {
 trait GetState[F[_]] extends RequestState with GetCallbacks[F]
 
 /**
+ * State for each 'Range' request to remote BTree.
+ */
+trait RangeState[F[_]] extends RequestState with GetCallbacks[F]
+
+/**
  * State for each 'Put' request to remote BTree. One ''PutState'' corresponds to one series of round trip requests.
  */
 trait PutState[F[_]] extends RequestState with PutCallbacks[F]
