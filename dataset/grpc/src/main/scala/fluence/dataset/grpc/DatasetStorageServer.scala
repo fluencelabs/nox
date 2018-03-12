@@ -103,7 +103,7 @@ class DatasetStorageServer[F[_] : Async](
     val valueF =
       for {
         did ← runT(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
-        foundValue ← service.get(did, new BTreeRpc.GetCallbacks[F] {
+        foundValue ← service.get(did, new BTreeRpc.SearchCallback[F] {
 
           private val pushServerAsk: GetCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
             EitherT(Task.fromFuture(resp.onNext(GetCallback(callback = callback))).attempt)
@@ -117,7 +117,7 @@ class DatasetStorageServer[F[_] : Async](
            * @param valuesChecksums Checksums of values for current leaf
            * @return index of searched value, or None if key wasn't found
            */
-          override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Option[Int]] =
+          override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Searching.SearchResult] =
             runT(
               for {
                 _ ← pushServerAsk(
@@ -127,7 +127,10 @@ class DatasetStorageServer[F[_] : Async](
                   ))
                 )
                 sl ← getReply(_.isSubmitLeaf, _.submitLeaf.get)
-              } yield Option(sl.childIndex).filter(_ >= 0)
+              } yield {
+                sl.searchResult.found.map(Searching.Found)
+                  .orElse(sl.searchResult.insertionPoint.map(Searching.InsertionPoint)).get
+              }
             )
 
           /**
@@ -254,7 +257,7 @@ class DatasetStorageServer[F[_] : Async](
                 key = Key(pd.key.toByteArray),
                 valChecksum = Hash(pd.checksum.toByteArray),
                 searchResult = (
-                  pd.searchResult.foundIndex.map(Searching.Found) orElse
+                  pd.searchResult.found.map(Searching.Found) orElse
                   pd.searchResult.insertionPoint.map(Searching.InsertionPoint)
                 ).get
               )

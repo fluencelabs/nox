@@ -89,7 +89,7 @@ class Datasets(
    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.GetCallbacks[Task]): Task[Option[Array[Byte]]] =
+  override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[Task]): Task[Option[Array[Byte]]] =
     storage(datasetId).flatMap(_.get(getCallbacks))
 
   /**

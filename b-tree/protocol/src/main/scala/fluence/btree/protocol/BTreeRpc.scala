@@ -19,6 +19,7 @@ package fluence.btree.protocol
 
 import fluence.btree.core.{ ClientPutDetails, Hash, Key }
 
+import scala.collection.Searching.SearchResult
 import scala.language.higherKinds
 
 object BTreeRpc {
@@ -28,7 +29,7 @@ object BTreeRpc {
    *
    * @tparam F An effect, with MonadError
    */
-  trait SearchCallback[F[_]] {
+  trait BtreeCallback[F[_]] {
 
     /**
      * Server asks next child node index.
@@ -41,21 +42,22 @@ object BTreeRpc {
   }
 
   /**
-   * Wrapper for all callback needed for ''Get'' operation to the BTree.
-   * Each callback corresponds to operation needed btree for traversing and getting value.
+   * Wrapper for all callback needed for search operation to the BTree.
+   * Each callback corresponds to operation needed btree for traversing and getting index.
    *
    * @tparam F An effect, with MonadError
    */
-  trait GetCallbacks[F[_]] extends SearchCallback[F] {
+  trait SearchCallback[F[_]] extends BtreeCallback[F] {
 
     /**
      * Server sends founded leaf details.
      *
      * @param keys              Keys of current leaf
      * @param valuesChecksums  Checksums of values for current leaf
-     * @return index of searched value, or None if key wasn't found
+     * @return [[scala.collection.Searching.Found]] is key was found,
+     *          [[scala.collection.Searching.InsertionPoint]] otherwise
      */
-    def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Option[Int]]
+    def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[SearchResult]
 
   }
 
@@ -65,7 +67,7 @@ object BTreeRpc {
    *
    * @tparam F An effect, with MonadError
    */
-  trait PutCallbacks[F[_]] extends SearchCallback[F] {
+  trait PutCallbacks[F[_]] extends BtreeCallback[F] {
 
     /**
      * Server sends founded leaf details.
@@ -90,7 +92,7 @@ object BTreeRpc {
 
   }
 
-  // not ready yet
-  trait RemoveCallback[F[_]] extends SearchCallback[F]
+  // not ready yet, maybe should use SearchCallback instead
+  trait RemoveCallback[F[_]] extends BtreeCallback[F]
 
 }

@@ -60,7 +60,7 @@ class DatasetStorageClient[F[_] : Effect](
    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.GetCallbacks[F]): F[Option[Array[Byte]]] = {
+  override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[F]): F[Option[Array[Byte]]] = {
     // Convert a remote stub call to monix pipe
     val pipe = callToPipe(stub.get)
 
@@ -110,8 +110,13 @@ class DatasetStorageClient[F[_] : Effect](
             .flatMap {
               case Left(err) ⇒
                 handleClientErr(err)
-              case Right(idx) ⇒
-                Effect[F].pure(GetCallbackReply(GetCallbackReply.Reply.SubmitLeaf(ReplySubmitLeaf(idx.getOrElse(-1)))))
+              case Right(searchResult) ⇒
+                Effect[F].pure(GetCallbackReply(GetCallbackReply.Reply.SubmitLeaf(ReplySubmitLeaf(
+                  searchResult match {
+                    case Searching.Found(i)          ⇒ ReplySubmitLeaf.SearchResult.Found(i)
+                    case Searching.InsertionPoint(i) ⇒ ReplySubmitLeaf.SearchResult.InsertionPoint(i)
+                  }
+                ))))
             }
 
       }
@@ -214,7 +219,7 @@ class DatasetStorageClient[F[_] : Effect](
                   key = ByteString.copyFrom(cpd.key.bytes),
                   checksum = ByteString.copyFrom(cpd.valChecksum.bytes),
                   searchResult = cpd.searchResult match {
-                    case Searching.Found(foundIndex)              ⇒ ReplyPutDetails.SearchResult.FoundIndex(foundIndex)
+                    case Searching.Found(foundIndex)              ⇒ ReplyPutDetails.SearchResult.Found(foundIndex)
                     case Searching.InsertionPoint(insertionPoint) ⇒ ReplyPutDetails.SearchResult.InsertionPoint(insertionPoint)
                   })
                 Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.PutDetails(putDetails)))

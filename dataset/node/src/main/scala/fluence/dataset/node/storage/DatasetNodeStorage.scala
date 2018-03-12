@@ -27,7 +27,7 @@ import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.common.ValueRef
 import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
+import fluence.btree.protocol.BTreeRpc.{ SearchCallback, PutCallbacks }
 import fluence.btree.server.MerkleBTree
 import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.codec.Codec
@@ -62,7 +62,7 @@ class DatasetNodeStorage private[storage] (
    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  def get(getCallbacks: GetCallbacks[Task]): Task[Option[Array[Byte]]] =
+  def get(getCallbacks: SearchCallback[Task]): Task[Option[Array[Byte]]] =
     bTreeIndex.get(GetCommandImpl(getCallbacks))
       .flatMap {
         case Some(reference) ⇒

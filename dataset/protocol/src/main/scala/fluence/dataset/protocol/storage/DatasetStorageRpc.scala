@@ -17,7 +17,7 @@
 
 package fluence.dataset.protocol.storage
 
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks, RemoveCallback }
+import fluence.btree.protocol.BTreeRpc.{ SearchCallback, PutCallbacks, RemoveCallback }
 
 import scala.language.higherKinds
 
@@ -32,10 +32,10 @@ trait DatasetStorageRpc[F[_]] {
    * Initiates ''Get'' operation in remote MerkleBTree.
    *
    * @param datasetId Dataset ID
-   * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
+   * @param searchCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  def get(datasetId: Array[Byte], getCallbacks: GetCallbacks[F]): F[Option[Array[Byte]]]
+  def get(datasetId: Array[Byte], searchCallbacks: SearchCallback[F]): F[Option[Array[Byte]]]
 
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.

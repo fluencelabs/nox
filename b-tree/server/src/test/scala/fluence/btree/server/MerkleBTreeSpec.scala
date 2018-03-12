@@ -22,7 +22,7 @@ import java.nio.ByteBuffer
 import fluence.btree.common._
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.core.{ ClientPutDetails, Hash, Key }
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
+import fluence.btree.protocol.BTreeRpc.{ SearchCallback, PutCallbacks }
 import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
 import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps, TreeNode }
 import fluence.codec.kryo.KryoCodecs
@@ -578,17 +578,17 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
   /** Search value for specified key and return callback for searched result */
   private def getCmd(key: Key, resultFn: Option[Hash] ⇒ Unit = { _ ⇒ () }): Get = {
-    GetCommandImpl[Task](new GetCallbacks[Task] {
+    GetCommandImpl[Task](new SearchCallback[Task] {
       import scala.collection.Searching._
-      override def submitLeaf(keys: Array[Key], values: Array[Hash]): Task[Option[Int]] = {
-        val result = keys.search(key) match {
+      override def submitLeaf(keys: Array[Key], values: Array[Hash]): Task[SearchResult] = {
+        val result = keys.search(key)
+        resultFn(result match {
           case Found(i) ⇒
-            Some(i)
+            Some(values(i))
           case _ ⇒
             None
-        }
+        })
 
-        resultFn(result.map(values(_)))
         Task(result)
       }
       override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] =
@@ -605,13 +605,13 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
     stageOfFail: GetStage,
     errMsg: String = "Client unavailable"
   ): Get = {
-    GetCommandImpl[Task](new GetCallbacks[Task] {
+    GetCommandImpl[Task](new SearchCallback[Task] {
       import scala.collection.Searching._
-      override def submitLeaf(keys: Array[Key], values: Array[Hash]): Task[Option[Int]] = {
+      override def submitLeaf(keys: Array[Key], values: Array[Hash]): Task[SearchResult] = {
         if (stageOfFail == SendLeafStage)
           Task.raiseError(new Exception(errMsg))
         else
-          Task(None)
+          Task(InsertionPoint(0))
       }
       override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = {
         if (stageOfFail == NextChildIndexStage)

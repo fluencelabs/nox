@@ -81,7 +81,7 @@ class ClientDatasetStorage[K, V](
 
   override def remove(key: K): Task[Option[V]] =
     for {
-      removeCmd ← bTreeIndex.removeState(key)
+      removeCmd ← bTreeIndex.initRemove(key)
       serverResponse ← storageRpc.remove(datasetId, removeCmd)
       resp ← decryptOption(serverResponse)
     } yield resp

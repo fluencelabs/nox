@@ -20,13 +20,14 @@ package fluence.btree.client
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.core.{ Hash, Key }
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
+import fluence.crypto.hash.TestCryptoHasher
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{ Matchers, WordSpec }
 
+import scala.collection.Searching.{ Found, InsertionPoint }
 import scala.concurrent.duration.{ FiniteDuration, _ }
 
 class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
@@ -98,7 +99,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
         val result = wait(getCallbacks.submitLeaf(Array(key1.toKey), Array(val1Hash.toHash)))
 
-        result shouldBe None
+        result shouldBe InsertionPoint(1)
       }
     }
 
@@ -110,7 +111,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
         val result = wait(getCallbacks.submitLeaf(Array(key1.toKey), Array(val1Hash.toHash)))
 
-        result shouldBe Some(0)
+        result shouldBe Found(0)
       }
 
       "key was found at the second level of tree" in {
@@ -126,7 +127,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
           } yield idx
         )
 
-        result shouldBe Some(0)
+        result shouldBe Found(0)
       }
     }
   }
