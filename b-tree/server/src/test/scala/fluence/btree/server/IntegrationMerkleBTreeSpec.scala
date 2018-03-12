@@ -23,7 +23,7 @@ import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.core.{ Hash, Key }
-import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
+import fluence.btree.server.commands.{ SearchCommandImpl, PutCommandImpl }
 import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
 import fluence.codec.kryo.KryoCodecs
 import fluence.crypto.cipher.NoOpCrypt
@@ -80,7 +80,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
         val result = for {
           getCb ← client.initGet(key1)
-          res ← bTree.get(GetCommandImpl(getCb))
+          res ← bTree.get(SearchCommandImpl(getCb))
         } yield res shouldBe None
 
         wait(result)
@@ -94,7 +94,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
         val res1 = wait(for {
           getCb1 ← client.initGet(key1)
-          res1 ← bTree.get(GetCommandImpl(getCb1))
+          res1 ← bTree.get(SearchCommandImpl(getCb1))
           _ ← getCb1.recoverState()
         } yield res1)
 
@@ -105,7 +105,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
         val res3 = wait(for {
           getCb2 ← client.initGet(key1)
-          res3 ← bTree.get(GetCommandImpl(getCb2))
+          res3 ← bTree.get(SearchCommandImpl(getCb2))
           _ ← getCb2.recoverState()
         } yield res3)
 
@@ -144,22 +144,22 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
         val min = wait(for {
           getMinCb ← client.initGet(minKey)
-          min ← bTree.get(GetCommandImpl(getMinCb))
+          min ← bTree.get(SearchCommandImpl(getMinCb))
           _ ← getMinCb.recoverState()
         } yield min)
         val mid = wait(for {
           getMidCb ← client.initGet(midKey)
-          mid ← bTree.get(GetCommandImpl(getMidCb))
+          mid ← bTree.get(SearchCommandImpl(getMidCb))
           _ ← getMidCb.recoverState()
         } yield mid)
         val max = wait(for {
           getMaxCb ← client.initGet(maxKey)
-          max ← bTree.get(GetCommandImpl(getMaxCb))
+          max ← bTree.get(SearchCommandImpl(getMaxCb))
           _ ← getMaxCb.recoverState()
         } yield max)
         val absent = wait(for {
           getAbsentCb ← client.initGet(absentKey)
-          absent ← bTree.get(GetCommandImpl(getAbsentCb))
+          absent ← bTree.get(SearchCommandImpl(getAbsentCb))
           _ ← getAbsentCb.recoverState()
         } yield absent)
 
@@ -184,22 +184,22 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         // get some values
         val minNew = wait(for {
           getMinCb ← client.initGet(minKey)
-          min ← bTree.get(GetCommandImpl(getMinCb))
+          min ← bTree.get(SearchCommandImpl(getMinCb))
           _ ← getMinCb.recoverState()
         } yield min)
         val midNew = wait(for {
           getMidCb ← client.initGet(midKey)
-          mid ← bTree.get(GetCommandImpl(getMidCb))
+          mid ← bTree.get(SearchCommandImpl(getMidCb))
           _ ← getMidCb.recoverState()
         } yield mid)
         val maxNew = wait(for {
           getMaxCb ← client.initGet(maxKey)
-          max ← bTree.get(GetCommandImpl(getMaxCb))
+          max ← bTree.get(SearchCommandImpl(getMaxCb))
           _ ← getMaxCb.recoverState()
         } yield max)
         val absentNew = wait(for {
           getAbsentCb ← client.initGet(absentKey)
-          absent ← bTree.get(GetCommandImpl(getAbsentCb))
+          absent ← bTree.get(SearchCommandImpl(getAbsentCb))
           _ ← getAbsentCb.recoverState()
         } yield absent)
 

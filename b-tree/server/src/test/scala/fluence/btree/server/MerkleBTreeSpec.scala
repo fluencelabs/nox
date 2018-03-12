@@ -23,7 +23,7 @@ import fluence.btree.common._
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.core.{ ClientPutDetails, Hash, Key }
 import fluence.btree.protocol.BTreeRpc.{ SearchCallback, PutCallbacks }
-import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
+import fluence.btree.server.commands.{ SearchCommandImpl, PutCommandImpl }
 import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps, TreeNode }
 import fluence.codec.kryo.KryoCodecs
 import fluence.storage.TrieMapKVStore
@@ -578,7 +578,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
   /** Search value for specified key and return callback for searched result */
   private def getCmd(key: Key, resultFn: Option[Hash] ⇒ Unit = { _ ⇒ () }): Get = {
-    GetCommandImpl[Task](new SearchCallback[Task] {
+    SearchCommandImpl[Task](new SearchCallback[Task] {
       import scala.collection.Searching._
       override def submitLeaf(keys: Array[Key], values: Array[Hash]): Task[SearchResult] = {
         val result = keys.search(key)
@@ -605,7 +605,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
     stageOfFail: GetStage,
     errMsg: String = "Client unavailable"
   ): Get = {
-    GetCommandImpl[Task](new SearchCallback[Task] {
+    SearchCommandImpl[Task](new SearchCallback[Task] {
       import scala.collection.Searching._
       override def submitLeaf(keys: Array[Key], values: Array[Hash]): Task[SearchResult] = {
         if (stageOfFail == SendLeafStage)

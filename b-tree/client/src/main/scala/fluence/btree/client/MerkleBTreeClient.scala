@@ -79,10 +79,7 @@ class MerkleBTreeClient[K] private (
     }
 
     // case when server returns founded leaf, this leaf contains start point of range
-    override def submitLeaf(
-      keys: Array[Key],
-      valuesChecksums: Array[Hash]
-    ): Task[SearchResult] = {
+    override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): Task[SearchResult] = {
 
       merklePathMVar.take.flatMap { mPath ⇒
         logger.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")

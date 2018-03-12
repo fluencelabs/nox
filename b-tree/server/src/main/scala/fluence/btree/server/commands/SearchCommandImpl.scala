@@ -18,14 +18,13 @@
 package fluence.btree.server.commands
 
 import cats.MonadError
-import cats.syntax.functor._
 import fluence.btree.common.ValueRef
 import fluence.btree.core.{ Hash, Key }
 import fluence.btree.protocol.BTreeRpc.SearchCallback
 import fluence.btree.server.NodeId
-import fluence.btree.server.core.{ GetCommand, LeafNode }
+import fluence.btree.server.core.{ LeafNode, SearchCommand }
 
-import scala.collection.Searching.Found
+import scala.collection.Searching.SearchResult
 import scala.language.higherKinds
 
 /**
@@ -35,18 +34,15 @@ import scala.language.higherKinds
  * @param getCallbacks A pack of functions that ask client to give some required details for the next step
  * @tparam F The type of effect, box for returning value
  */
-case class GetCommandImpl[F[_]](getCallbacks: SearchCallback[F])(implicit ME: MonadError[F, Throwable])
-  extends BaseSearchCommand[F](getCallbacks) with GetCommand[F, Key, ValueRef, NodeId] {
+case class SearchCommandImpl[F[_]](getCallbacks: SearchCallback[F])(implicit ME: MonadError[F, Throwable])
+  extends BaseSearchCommand[F](getCallbacks) with SearchCommand[F, Key, ValueRef, NodeId] {
 
-  override def submitLeaf(leaf: Option[LeafNode[Key, ValueRef, NodeId]]): F[Option[Int]] = {
+  override def submitLeaf(leaf: Option[LeafNode[Key, ValueRef, NodeId]]): F[SearchResult] = {
     val (keys, valuesChecksums) =
       leaf.map(l ⇒ l.keys → l.valuesChecksums)
         .getOrElse(Array.empty[Key] → Array.empty[Hash])
 
-    getCallbacks.submitLeaf(keys, valuesChecksums).map {
-      case Found(idx) ⇒ Option(idx)
-      case _          ⇒ None
-    }
+    getCallbacks.submitLeaf(keys, valuesChecksums)
   }
 
 }

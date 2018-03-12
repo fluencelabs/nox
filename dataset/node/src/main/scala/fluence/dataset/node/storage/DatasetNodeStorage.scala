@@ -29,7 +29,7 @@ import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
 import fluence.btree.protocol.BTreeRpc.{ SearchCallback, PutCallbacks }
 import fluence.btree.server.MerkleBTree
-import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
+import fluence.btree.server.commands.{ SearchCommandImpl, PutCommandImpl }
 import fluence.codec.Codec
 import fluence.crypto.hash.CryptoHasher
 import fluence.storage.KVStore
@@ -63,7 +63,7 @@ class DatasetNodeStorage private[storage] (
    * @return returns found value, None if nothing was found.
    */
   def get(getCallbacks: SearchCallback[Task]): Task[Option[Array[Byte]]] =
-    bTreeIndex.get(GetCommandImpl(getCallbacks))
+    bTreeIndex.get(SearchCommandImpl(getCallbacks))
       .flatMap {
         case Some(reference) ⇒
           kVStore.get(reference).map(Option(_))

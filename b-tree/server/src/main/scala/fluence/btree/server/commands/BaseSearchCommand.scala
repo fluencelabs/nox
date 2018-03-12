@@ -20,7 +20,7 @@ package fluence.btree.server.commands
 import cats.MonadError
 import fluence.btree.core.Key
 import fluence.btree.protocol.BTreeRpc.BtreeCallback
-import fluence.btree.server.core.{ BranchNode, TreeCommand }
+import fluence.btree.server.core.{ BranchNode, BTreeCommand }
 
 import scala.language.higherKinds
 
@@ -33,7 +33,7 @@ import scala.language.higherKinds
  * @tparam F              The type of effect, box for returning value
  */
 abstract class BaseSearchCommand[F[_]](searchCallback: BtreeCallback[F])(implicit ME: MonadError[F, Throwable])
-  extends TreeCommand[F, Key] {
+  extends BTreeCommand[F, Key] {
 
   override def nextChildIndex(branch: BranchNode[Key, _]): F[Int] =
     searchCallback.nextChildIndex(branch.keys, branch.childsChecksums)

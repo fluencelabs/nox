@@ -33,8 +33,9 @@ import fluence.crypto.hash.CryptoHasher
 import fluence.storage.rocksdb.{ IdSeqProvider, RocksDbStore }
 import monix.eval.{ Task, TaskSemaphore }
 import monix.execution.atomic.AtomicInt
+import monix.reactive.Observable
 
-import scala.collection.Searching.{ Found, InsertionPoint }
+import scala.collection.Searching.{ Found, InsertionPoint, SearchResult }
 import scala.language.higherKinds
 
 /**
@@ -53,7 +54,7 @@ import scala.language.higherKinds
  * Note that the tree provides only algorithms (i.e., functions) to search, insert and delete elements.
  * Tree nodes are actually stored externally using the [[BTreeStore]] to make the tree
  * maximally pluggable and seamlessly switch between in memory, on disk, or maybe, over network storages. Key comparison
- * operations in the tree are also pluggable and are provided by the [[TreeCommand]] implementations, which helps to
+ * operations in the tree are also pluggable and are provided by the [[BTreeCommand]] implementations, which helps to
  * impose an order over for example encrypted nodes data.
  *
  * @param conf    Config for this tree
@@ -94,6 +95,23 @@ class MerkleBTree private[server] (
    */
   def get(cmd: Get): Task[Option[ValueRef]] = {
     globalMutex.greenLight(getRoot.flatMap(root ⇒ getForRoot(root, cmd)))
+  }
+
+  /**
+   * === Range ===
+   *
+   * We are looking for a starting key of range in this B+Tree.
+   * Starting from the root, we are looking for some leaf which needed to the BTree client. We using [[Range]]
+   * for communication with client. At each node, we figure out which internal pointer we should follow.
+   * When we found specified search key in a leaf, we should be returning all key, value pair from searched position
+   * until the stream won't stopped by consumer
+   * Range have O(log,,arity,,n+k) algorithmic complexity, where ''k'' is number of returned pairs.
+   *
+   * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
+   * @return stream of references to values that corresponds search command, or empty if nothing was found
+   */
+  def range(cmd: Range): Observable[ValueRef] = {
+    ??? // todo implement
   }
 
   /**
@@ -176,8 +194,10 @@ class MerkleBTree private[server] (
   /** '''Method makes remote call!'''. This is the terminal method. */
   private def getForLeaf(leaf: Leaf, cmd: Get): Task[Option[ValueRef]] = {
     logger.debug(s"Get for leaf=$leaf")
-    cmd.submitLeaf(Some(leaf))
-      .map(_.map(leaf.valuesReferences)) // get value ref from leaf by searched index
+    cmd.submitLeaf(Some(leaf)).map {
+      case Found(idx) ⇒ Some(leaf.valuesReferences(idx))
+      case _          ⇒ None
+    } // get value ref from leaf by searched index
   }
 
   /* PUT */
@@ -522,7 +542,7 @@ class MerkleBTree private[server] (
    * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
    * @return Index of searched child and the child
    */
-  private def searchChild(branch: Branch, cmd: TreeCommand[Task, Key]): Task[(Int, Node)] = {
+  private def searchChild(branch: Branch, cmd: BTreeCommand[Task, Key]): Task[(Int, Node)] = {
     cmd.nextChildIndex(branch)
       .flatMap(searchedIdx ⇒ {
         val childId = branch.childsReferences(searchedIdx)

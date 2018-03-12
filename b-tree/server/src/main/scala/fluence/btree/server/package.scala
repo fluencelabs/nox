@@ -33,7 +33,8 @@ package object server {
   type NodeAndId = NodeWithId[NodeId, Node]
   type Trail = TreePath[NodeId, Branch]
 
-  type Get = GetCommand[Task, Key, ValueRef, NodeId]
+  type Get = SearchCommand[Task, Key, ValueRef, NodeId]
+  type Range = SearchCommand[Task, Key, ValueRef, NodeId]
   type Put = PutCommand[Task, Key, ValueRef, NodeId]
 
 }
