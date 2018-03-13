@@ -22,9 +22,9 @@ import java.nio.ByteBuffer
 import fluence.btree.common._
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.core.{ ClientPutDetails, Hash, Key }
-import fluence.btree.protocol.BTreeRpc.{ SearchCallback, PutCallbacks }
-import fluence.btree.server.commands.{ SearchCommandImpl, PutCommandImpl }
-import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps, TreeNode }
+import fluence.btree.protocol.BTreeRpc.{ PutCallbacks, SearchCallback }
+import fluence.btree.server.commands.{ PutCommandImpl, SearchCommandImpl }
+import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps, SearchCommand }
 import fluence.codec.kryo.KryoCodecs
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
@@ -32,7 +32,9 @@ import monix.execution.ExecutionModel
 import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
+import scodec.bits.ByteVector
+import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
 
 import scala.collection.Searching.Found
 import scala.collection.concurrent.TrieMap
@@ -41,7 +43,7 @@ import scala.math.Ordering
 import scala.util.Random
 import scala.util.hashing.MurmurHash3
 
-class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
+class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
 
   implicit class Str2Key(str: String) {
     def toKey: Key = Key(str.getBytes)
@@ -332,8 +334,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       "something wrong with sending leaf to client" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val tree: MerkleBTree = createTree()
+        wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
 
-        val result = wait(tree.get(failedGetCmd(key1, SendLeafStage)).failed)
+        val result = wait(tree.get(failedSearchCmd(key1, SendLeafStage)).failed)
         result.getMessage shouldBe "Client unavailable"
       }
 
@@ -342,18 +345,18 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val tree: MerkleBTree = createTree()
 
         wait(Task.sequence(putCmd(1 to 5) map { cmd ⇒ tree.put(cmd) }))
-        val result = wait(tree.get(failedGetCmd(key1, NextChildIndexStage)).failed)
+        val result = wait(tree.get(failedSearchCmd(key1, NextChildIndexStage)).failed)
         result.getMessage shouldBe "Client unavailable"
 
       }
     }
 
-    "return empty result" when {
+    "return result" when {
       "value not found" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val tree: MerkleBTree = createTree()
 
-        wait(tree.get(getCmd(key1, { result ⇒ result shouldBe None }))) shouldBe None
+        wait(tree.get(searchCmd(key1, { result ⇒ result shouldBe None }))) shouldBe None
       }
 
       "value found in root-leaf with one value" in {
@@ -361,7 +364,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val tree: MerkleBTree = createTree()
 
         wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
-        wait(tree.get(getCmd(key1, { result ⇒ result.get.bytes shouldBe value1.bytes }))) shouldBe Some(valRef1)
+        wait(tree.get(searchCmd(key1, { result ⇒ result.get.bytes shouldBe value1.bytes }))) shouldBe Some(valRef1)
       }
 
       "value found in filled root-leaf" in {
@@ -369,7 +372,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val tree: MerkleBTree = createTree()
 
         wait(Task.sequence(putCmd(1 to 4) map { cmd ⇒ tree.put(cmd) }))
-        wait(tree.get(getCmd(key3, { result ⇒ result.get.bytes shouldBe value3.bytes }))) shouldBe Some(valRef3)
+        wait(tree.get(searchCmd(key3, { result ⇒ result.get.bytes shouldBe value3.bytes }))) shouldBe Some(valRef3)
       }
 
       "value found in huge tree" in {
@@ -383,25 +386,130 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
         val maxKey = "k0512".toKey
         val absentKey = "k2048".toKey
 
-        wait(tree.get(getCmd(minKey, { result ⇒ result.get.bytes shouldBe "v0001".getBytes }))) shouldBe defined
-        wait(tree.get(getCmd(midKey, { result ⇒ result.get.bytes shouldBe "v0256".getBytes }))) shouldBe defined
-        wait(tree.get(getCmd(maxKey, { result ⇒ result.get.bytes shouldBe "v0512".getBytes }))) shouldBe defined
-        wait(tree.get(getCmd(absentKey, { result ⇒ result shouldBe None }))) shouldBe None
+        wait(tree.get(searchCmd(minKey, { result ⇒ result.get.bytes shouldBe "v0001".getBytes }))) shouldBe defined
+        wait(tree.get(searchCmd(midKey, { result ⇒ result.get.bytes shouldBe "v0256".getBytes }))) shouldBe defined
+        wait(tree.get(searchCmd(maxKey, { result ⇒ result.get.bytes shouldBe "v0512".getBytes }))) shouldBe defined
+        wait(tree.get(searchCmd(absentKey, { result ⇒ result shouldBe None }))) shouldBe None
+      }
+    }
+  }
+
+  "range" should {
+    "show error from client or network" when {
+      "something wrong with sending leaf to client" in {
+        implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+        val tree: MerkleBTree = createTree()
+
+        wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
+        val result = wait(tree.range(failedSearchCmd(key1, SendLeafStage)).toListL.failed)
+        result.getMessage shouldBe "Client unavailable"
+      }
+
+      "something wrong with searching next child" in {
+        implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+        val tree: MerkleBTree = createTree()
+
+        wait(Task.sequence(putCmd(1 to 5) map { cmd ⇒ tree.put(cmd) }))
+        val result = wait(tree.range(failedSearchCmd(key1, NextChildIndexStage)).toListL.failed)
+        result.getMessage shouldBe "Client unavailable"
+
+      }
+    }
+
+    "return stream of pairs" when {
+      "value not found" in {
+        implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+        val tree: MerkleBTree = createTree()
+
+        val result = wait(tree.range(searchCmd(key1, { result ⇒ result shouldBe None })).toListL)
+        result shouldBe empty
+      }
+
+      "value found in root-leaf with one value" in {
+        implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+        val tree: MerkleBTree = createTree()
+
+        wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
+        val result = wait(tree.range(searchCmd(key1, { result ⇒ result.get.bytes shouldBe value1.bytes })).toListL)
+        verifyRangeResults(result, List(key1 → valRef1))
+      }
+
+      "value found in filled root-leaf" in {
+        implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+        val tree: MerkleBTree = createTree()
+
+        wait(Task.sequence(putCmd(1 to 4) map { cmd ⇒ tree.put(cmd) }))
+        val result = wait(tree.range(searchCmd(key2, { result ⇒ result.get.bytes shouldBe value2.bytes })).toListL)
+        verifyRangeResults(result, List(key2 → valRef2, key3 → valRef3, key4 → valRef4))
+      }
+
+      "value found in huge tree" in {
+        implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+        val tree: MerkleBTree = createTree()
+
+        val seq: Seq[Int] = 0 to 256 by 2
+        wait(Task.sequence(putCmd(Random.shuffle(seq)) map { cmd ⇒ tree.put(cmd) }))
+
+        val minKey = "k0000".toKey
+        val midKey = "k0128".toKey
+        val maxKey = "k0256".toKey
+        val absentKey = "k9999".toKey
+
+        // case when start key is less than all keys in tree
+        val notFoundStartKey = wait(tree.range(searchCmd("abc".toKey, { result ⇒ result shouldBe None })).toListL)
+        notFoundStartKey.size shouldBe 129
+        notFoundStartKey.head._1.toByteVector shouldBe minKey.toByteVector
+        notFoundStartKey.last._1.toByteVector shouldBe maxKey.toByteVector
+
+        val oneElem = wait(tree.range(searchCmd(midKey, { result ⇒ result.get.bytes shouldBe "v0128".getBytes })).take(1).toListL)
+        oneElem.size shouldBe 1
+        oneElem.head._1.toByteVector shouldBe midKey.toByteVector
+
+        val fromStartTenPairs = wait(tree.range(searchCmd(minKey, { result ⇒ result.get.bytes shouldBe "v0000".getBytes })).take(10).toListL)
+        fromStartTenPairs.size shouldBe 10
+        fromStartTenPairs.head._1.toByteVector shouldBe minKey.toByteVector
+        fromStartTenPairs.last._1.toByteVector shouldBe "k0018".toKey.toByteVector
+
+        val fromMidToEnd = wait(tree.range(searchCmd(midKey, { result ⇒ result.get.bytes shouldBe "v0128".getBytes })).toListL)
+        fromMidToEnd.size shouldBe 65
+        fromMidToEnd.head._1.toByteVector shouldBe midKey.toByteVector
+        fromMidToEnd.last._1.toByteVector shouldBe maxKey.toByteVector
+
+        val fromLastTenPairs = wait(tree.range(searchCmd(maxKey, { result ⇒ result.get.bytes shouldBe "v0256".getBytes })).take(10).toListL)
+        fromLastTenPairs.size shouldBe 1
+        fromLastTenPairs.head._1.toByteVector shouldBe maxKey.toByteVector
+
+        val fromSkippedKeyOneElem = wait(tree.range(searchCmd("k0001".toKey, { result ⇒ result shouldBe None })).take(1).toListL)
+        fromSkippedKeyOneElem.size shouldBe 1
+        fromSkippedKeyOneElem.head._1.toByteVector shouldBe "k0002".toKey.toByteVector
+
+        val fromSkippedKeyTenElem = wait(tree.range(searchCmd("k0001".toKey, { result ⇒ result shouldBe None })).take(10).toListL)
+        fromSkippedKeyTenElem.size shouldBe 10
+        fromSkippedKeyTenElem.head._1.toByteVector shouldBe "k0002".toKey.toByteVector
+        fromSkippedKeyTenElem.last._1.toByteVector shouldBe "k0020".toKey.toByteVector
+
+        val notOverlap = wait(tree.range(searchCmd(absentKey, { result ⇒ result shouldBe None })).toListL)
+        notOverlap shouldBe empty
+
       }
 
     }
 
   }
 
-  "put and get" should {
+  "put, get and range" should {
     "save and return correct results" when {
       "put key1, get key1" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val tree: MerkleBTree = createTree()
 
         val putRes = wait(Task.sequence(putCmd(1 to 1) map { cmd ⇒ tree.put(cmd) }))
-        val getRes = wait(tree.get(getCmd(key1, { result ⇒ result.get.bytes shouldBe value1.bytes })))
+        val getRes = wait(tree.get(searchCmd(key1, { result ⇒ result.get.bytes shouldBe value1.bytes })))
+        val rangeRes = wait(tree.range(searchCmd(key1, { result ⇒ result.get.bytes shouldBe value1.bytes })).toListL)
+
         putRes.head shouldBe getRes.get
+        rangeRes.size shouldBe 1
+        rangeRes.head._1.toByteVector shouldBe key1.toByteVector
       }
     }
 
@@ -418,10 +526,13 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       val maxKey = "k1024".toKey
       val absentKey = "k2048".toKey
 
-      wait(tree.get(getCmd(minKey, { result ⇒ result.get.bytes shouldBe "v0001".getBytes }))) shouldBe defined
-      wait(tree.get(getCmd(midKey, { result ⇒ result.get.bytes shouldBe "v0512".getBytes }))) shouldBe defined
-      wait(tree.get(getCmd(maxKey, { result ⇒ result.get.bytes shouldBe "v1024".getBytes }))) shouldBe defined
-      wait(tree.get(getCmd(absentKey, { result ⇒ result shouldBe None }))) shouldBe None
+      wait(tree.get(searchCmd(minKey, { result ⇒ result.get.bytes shouldBe "v0001".getBytes }))) shouldBe defined
+      wait(tree.get(searchCmd(midKey, { result ⇒ result.get.bytes shouldBe "v0512".getBytes }))) shouldBe defined
+      wait(tree.get(searchCmd(maxKey, { result ⇒ result.get.bytes shouldBe "v1024".getBytes }))) shouldBe defined
+      wait(tree.get(searchCmd(absentKey, { result ⇒ result shouldBe None }))) shouldBe None
+
+      val fetchAll = wait(tree.range(searchCmd(minKey, { result ⇒ result.get.bytes shouldBe value1.bytes })).toListL)
+      fetchAll.size shouldBe 1024
 
     }
 
@@ -444,10 +555,13 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
       val maxKey = "k1024".toKey
       val absentKey = "k2048".toKey
 
-      wait(tree.get(getCmd(minKey, { result ⇒ result.get.bytes shouldBe "v0001".getBytes }))) shouldBe defined
-      wait(tree.get(getCmd(midKey, { result ⇒ result.get.bytes shouldBe "v0512".getBytes }))) shouldBe defined
-      wait(tree.get(getCmd(maxKey, { result ⇒ result.get.bytes shouldBe "v1024".getBytes }))) shouldBe defined
-      wait(tree.get(getCmd(absentKey, { result ⇒ result shouldBe None }))) shouldBe None
+      wait(tree.get(searchCmd(minKey, { result ⇒ result.get.bytes shouldBe "v0001".getBytes }))) shouldBe defined
+      wait(tree.get(searchCmd(midKey, { result ⇒ result.get.bytes shouldBe "v0512".getBytes }))) shouldBe defined
+      wait(tree.get(searchCmd(maxKey, { result ⇒ result.get.bytes shouldBe "v1024".getBytes }))) shouldBe defined
+      wait(tree.get(searchCmd(absentKey, { result ⇒ result shouldBe None }))) shouldBe None
+
+      val fetchAll = wait(tree.range(searchCmd(minKey, { result ⇒ result.get.bytes shouldBe value1.bytes })).toListL)
+      fetchAll.size shouldBe 1024
     }
 
   }
@@ -577,7 +691,10 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
   }
 
   /** Search value for specified key and return callback for searched result */
-  private def getCmd(key: Key, resultFn: Option[Hash] ⇒ Unit = { _ ⇒ () }): Get = {
+  private def searchCmd(
+    key: Key,
+    resultFn: Option[Hash] ⇒ Unit = { _ ⇒ () }
+  ): SearchCommand[Task, Key, ValueRef, NodeId] = {
     SearchCommandImpl[Task](new SearchCallback[Task] {
       import scala.collection.Searching._
       override def submitLeaf(keys: Array[Key], values: Array[Hash]): Task[SearchResult] = {
@@ -596,15 +713,16 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
 
     })
   }
+
   private sealed trait GetStage
   private case object SendLeafStage extends GetStage
 
   /** Search value for specified key and raise exception for specified BTreeServerResponse type */
-  private def failedGetCmd[T](
+  private def failedSearchCmd[T](
     key: Key,
     stageOfFail: GetStage,
     errMsg: String = "Client unavailable"
-  ): Get = {
+  ): SearchCommand[Task, Key, ValueRef, NodeId] = {
     SearchCommandImpl[Task](new SearchCallback[Task] {
       import scala.collection.Searching._
       override def submitLeaf(keys: Array[Key], values: Array[Hash]): Task[SearchResult] = {
@@ -622,8 +740,25 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
     })
   }
 
+  private def verifyRangeResults(rangeRes: List[(Key, ValueRef)], expected: List[(Key, ValueRef)]): Unit =
+    keys2BV(rangeRes) should contain theSameElementsInOrderAs keys2BV(expected)
+
+  private def keys2BV(seq: List[(Key, ValueRef)]): List[(ByteVector, ValueRef)] =
+    seq.map { case (key, ref) ⇒ key.toByteVector -> ref }
+
   private implicit class Hashes2Strings(hashArr: Array[Hash]) {
     def asStr: Array[String] = hashArr.map(h ⇒ new String(h.bytes))
+  }
+
+  override protected def beforeAll(): Unit = {
+    LoggerConfig.factory = PrintLoggerFactory
+    LoggerConfig.level = LogLevel.OFF
+    super.beforeAll()
+  }
+
+  override protected def afterAll(): Unit = {
+    super.afterAll()
+    LoggerConfig.level = LogLevel.OFF
   }
 
 }

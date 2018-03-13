@@ -110,8 +110,10 @@ class MerkleBTree private[server] (
    * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
    * @return stream of references to values that corresponds search command, or empty if nothing was found
    */
-  def range(cmd: Range): Observable[ValueRef] = {
-    ??? // todo implement
+  def range(cmd: Range): Observable[(Key, ValueRef)] = {
+    // todo test, I doubt that the mutex will hold to the end of the stream
+    Observable.fromTask(globalMutex.greenLight(getRoot))
+      .flatMap(mRoot ⇒ rangeForRoot(mRoot, cmd))
   }
 
   /**
@@ -169,7 +171,7 @@ class MerkleBTree private[server] (
 
   private def getForNode(root: Node, cmd: Get): Task[Option[ValueRef]] = {
     if (isEmpty(root)) {
-      return cmd.submitLeaf(None).map(_ ⇒ None) // This is the terminal action, nothing to find in empty tree
+      return Task(None) // This is the terminal action, nothing to find in empty tree
     }
 
     root match {
@@ -199,6 +201,77 @@ class MerkleBTree private[server] (
       case _          ⇒ None
     } // get value ref from leaf by searched index
   }
+
+  /* RANGE */
+
+  private def rangeForRoot(root: Node, cmd: Get): Observable[(Key, ValueRef)] = {
+    logger.debug(s"Range starts")
+    rangeForNode(root, cmd)
+  }
+
+  private def rangeForNode(root: Node, cmd: Get): Observable[(Key, ValueRef)] = {
+    if (isEmpty(root)) {
+      return Observable.empty // This is the terminal action, nothing to find in empty tree
+    }
+
+    root match {
+      case leaf: Leaf @unchecked ⇒
+        rangeForLeaf(leaf, cmd)
+      case branch: Branch @unchecked ⇒
+        rangeForBranch(branch, cmd)
+    }
+  }
+
+  /** '''Method makes remote call!''' This method makes step down the tree. */
+  private def rangeForBranch(branch: Branch, cmd: Get): Observable[(Key, ValueRef)] = {
+    logger.debug(s"Range for branch=$branch")
+
+    Observable.fromTask(searchChild(branch, cmd))
+      .flatMap { case (_, child) ⇒ rangeForNode(child, cmd) }
+  }
+
+  /** '''Method makes remote call!'''. This is the terminal method. */
+  private def rangeForLeaf(leaf: Leaf, cmd: Get): Observable[(Key, ValueRef)] = {
+    logger.debug(s"Range for leaf=$leaf")
+
+    Observable.fromTask(cmd.submitLeaf(Some(leaf)))
+      .flatMap(searchResult ⇒ fetchPairs(Task(Some(leaf)), searchResult.insertionPoint))
+  }
+
+  /**
+   * Fetches all key-value pairs from current leaf and all leafs from right (right siblings).
+   * Starts at starting index of current leaf, ends when client close this stream
+   * or is fetched last element from the last (rightmost) leaf.
+   */
+  private def fetchPairs(currentLeaf: Task[Option[Leaf]], idxToStartWith: Int = 0): Observable[(Key, ValueRef)] =
+    Observable.fromTask(currentLeaf).flatMap {
+      case None ⇒
+        Observable.empty
+      case Some(leaf) ⇒
+        val keys = leaf.keys.slice(idxToStartWith, leaf.size)
+        val refs = leaf.valuesReferences.slice(idxToStartWith, leaf.size)
+        logger.debug(s"Adds '${keys.length}' key-value pair(s) from leaf=$leaf to range query results ")
+        Observable.fromIterable(keys zip refs) ++ fetchPairs(getNextLeaf(leaf))
+    }
+
+  /** Fetches right sibling of current leaf */
+  private def getNextLeaf(leaf: Leaf): Task[Option[Leaf]] =
+    Task(leaf.rightSibling).flatMap {
+      case Some(rightSinRef) ⇒
+        logger.debug(s"Try to fetch right sibling for leaf=$leaf")
+        store.get(rightSinRef).flatMap {
+          case leaf: Leaf @unchecked ⇒
+            logger.debug(s"Next leaf is $leaf")
+            Task(Some(leaf))
+          case node ⇒
+            Task.raiseError(new IllegalStateException(
+              s"Unexpected exception, should be fetched leaf ${classOf[Leaf]}, but actually is ${node.getClass}"
+            ))
+        }
+      case None ⇒
+        logger.debug(s"There is no right sibling for current leaf=$leaf")
+        Task(None)
+    }
 
   /* PUT */
 
