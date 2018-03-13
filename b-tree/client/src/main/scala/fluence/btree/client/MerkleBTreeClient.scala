@@ -100,7 +100,7 @@ class MerkleBTreeClient[K] private (
     }
 
     override def recoverState(): Task[Unit] = {
-      logger.debug(s"Recover client state for search; mRoot=$merkleRoot")
+      logger.debug(s"Recover client state for search with key=$key mRoot=$merkleRoot")
       clientStateMVar.put(ClientState(merkleRoot))
     }
 

@@ -111,7 +111,6 @@ class MerkleBTree private[server] (
    * @return stream of references to values that corresponds search command, or empty if nothing was found
    */
   def range(cmd: Range): Observable[(Key, ValueRef)] = {
-    // todo test, I doubt that the mutex will hold to the end of the stream
     Observable.fromTask(globalMutex.greenLight(getRoot))
       .flatMap(mRoot ⇒ rangeForRoot(mRoot, cmd))
   }
