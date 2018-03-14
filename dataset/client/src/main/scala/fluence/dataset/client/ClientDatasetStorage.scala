@@ -45,12 +45,12 @@ class ClientDatasetStorage[K, V](
     datasetId: Array[Byte],
     bTreeIndex: MerkleBTreeClientApi[Task, K],
     storageRpc: DatasetStorageRpc[Task, Observable],
+    keyCrypt: Crypt[Task, K, Array[Byte]],
     valueCrypt: Crypt[Task, V, Array[Byte]],
     hasher: CryptoHasher[Array[Byte], Hash]
-) extends ClientDatasetStorageApi[Task, K, V] with slogging.LazyLogging {
+) extends ClientDatasetStorageApi[Task, Observable, K, V] with slogging.LazyLogging {
 
-  override def get(key: K): Task[Option[V]] = {
-
+  override def get(key: K): Task[Option[V]] =
     for {
       getCallbacks ← bTreeIndex.initGet(key)
       serverResponse ← storageRpc.get(datasetId, getCallbacks)
@@ -59,10 +59,21 @@ class ClientDatasetStorage[K, V](
       resp ← decryptOption(serverResponse)
     } yield resp
 
-  }
 
-  override def put(key: K, value: V): Task[Option[V]] = {
+  override def range(from: K, to: K): Observable[(K, V)] =
+    for {
+      rangeCallbacks ← Observable.fromTask(bTreeIndex.initRange(from))
+      (key, value) ←
+        storageRpc
+          .range(datasetId, rangeCallbacks)
+          .doAfterTerminateTask { _ ⇒ rangeCallbacks.recoverState() }
+      plainKey ← keyCrypt.decrypt(key)
+      plainValue ← valueCrypt.decrypt(value)
 
+    } yield plainKey → plainValue
+
+
+  override def put(key: K, value: V): Task[Option[V]] =
     for {
       encValue ← valueCrypt.encrypt(value)
       encValueHash ← Task(hasher.hash(encValue))
@@ -78,7 +89,6 @@ class ClientDatasetStorage[K, V](
       resp ← decryptOption(serverResponse)
     } yield resp
 
-  }
 
   override def remove(key: K): Task[Option[V]] =
     for {
@@ -124,6 +134,6 @@ object ClientDatasetStorage {
     val wrappedHasher = hasher.map(Hash(_))
 
     val bTreeIndex = MerkleBTreeClient(clientState, keyCrypt, wrappedHasher)
-    new ClientDatasetStorage[K, V](datasetId, bTreeIndex, storageRpc, valueCrypt, wrappedHasher)
+    new ClientDatasetStorage[K, V](datasetId, bTreeIndex, storageRpc, keyCrypt, valueCrypt, wrappedHasher)
   }
 }
