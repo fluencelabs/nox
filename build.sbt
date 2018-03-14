@@ -209,19 +209,31 @@ lazy val `b-tree-core` = crossProject(JVMPlatform, JSPlatform)
 lazy val `b-tree-core-js` = `b-tree-core`.js
 lazy val `b-tree-core-jvm` = `b-tree-core`.jvm
 
-lazy val `b-tree-protocol` = project
+lazy val `b-tree-protocol` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
   .in(file("b-tree/protocol"))
-  .dependsOn(`b-tree-core-jvm`)
+  .settings(
+    commons
+  ).jsSettings(
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`b-tree-core`)
+
+lazy val `b-tree-protocol-js` = `b-tree-protocol`.js
+lazy val `b-tree-protocol-jvm` = `b-tree-protocol`.jvm
 
 // common logic for client and server
 lazy val `b-tree-common` = project.in(file("b-tree/common"))
   .dependsOn(`b-tree-core-jvm`, `crypto-jvm`)
 
 lazy val `b-tree-client` = project.in(file("b-tree/client"))
-  .dependsOn(`b-tree-common`, `b-tree-protocol`)
+  .dependsOn(`b-tree-common`, `b-tree-protocol-jvm`)
 
 lazy val `b-tree-server` = project.in(file("b-tree/server"))
-  .dependsOn(`storage-rocksdb`, `codec-kryo`, `b-tree-common`, `b-tree-protocol`, `b-tree-client` % "compile->test")
+  .dependsOn(`storage-rocksdb`, `codec-kryo`, `b-tree-common`, `b-tree-protocol-jvm`, `b-tree-client` % "compile->test")
 
 lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -267,7 +279,7 @@ lazy val `dataset-node` = project.in(file("dataset/node"))
   .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `dataset-client`, `b-tree-client`)
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
-  .dependsOn(`kademlia-protocol-jvm`, `b-tree-protocol`)
+  .dependsOn(`kademlia-protocol-jvm`, `b-tree-protocol-jvm`)
 
 lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
   .dependsOn(`dataset-client`, `transport-grpc`)
