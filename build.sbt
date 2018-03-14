@@ -243,11 +243,10 @@ lazy val `crypto-js` = `crypto`.js
   .enablePlugins(ScalaJSBundlerPlugin)
 
 lazy val `client` = project.in(file("client"))
-  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`, `transport-core-jvm`, `kademlia-monix-jvm`, `dataset-protocol`, `contract-protocol-jvm`)
+  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`, `contract-client-jvm`, `kademlia-monix-jvm`)
 
 lazy val `dataset-node` = project.in(file("dataset/node"))
-  .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `dataset-client`, `b-tree-client`,
-    `dataset-client` % "compile->test")
+  .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `dataset-client`, `b-tree-client`)
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
   .dependsOn(`kademlia-protocol-jvm`, `b-tree-protocol`)
@@ -256,7 +255,7 @@ lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
   .dependsOn(`dataset-client`, `transport-grpc`)
 
 lazy val `dataset-client` = project.in(file("dataset/client"))
-  .dependsOn(`dataset-protocol`, `crypto-jvm`, `b-tree-client`, `kademlia-core-jvm`, `contract-client-jvm`)
+  .dependsOn(`dataset-protocol`, `crypto-jvm`, `b-tree-client`, `kademlia-core-jvm`)
 
 lazy val `contract-protocol` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
