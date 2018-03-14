@@ -304,7 +304,7 @@ lazy val `crypto-js` = `crypto`.js
   .enablePlugins(ScalaJSBundlerPlugin)
 
 lazy val `dataset-node` = project.in(file("dataset/node"))
-  .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `dataset-client`, `b-tree-client-jvm`)
+  .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `dataset-client-jvm`, `b-tree-client-jvm`)
 
 lazy val `dataset-protocol` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -320,10 +320,25 @@ lazy val `dataset-protocol-jvm` = `dataset-protocol`.jvm
 lazy val `dataset-protocol-js` = `dataset-protocol`.js
 
 lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
-  .dependsOn(`dataset-client`, `transport-grpc`)
+  .dependsOn(`dataset-client-jvm`, `transport-grpc`)
 
-lazy val `dataset-client` = project.in(file("dataset/client"))
-  .dependsOn(`dataset-protocol-jvm`, `crypto-jvm`, `b-tree-client-jvm`, `kademlia-core-jvm`)
+lazy val `dataset-client` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("dataset/client"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.typelevel" %%% "cats-core" % Cats1V
+    )
+  )
+  .jsSettings(
+    fork in Test := false
+  ).enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`dataset-protocol`, `crypto`, `b-tree-client`, `kademlia-core`)
+
+lazy val `dataset-client-js` = `dataset-client`.js
+lazy val `dataset-client-jvm` = `dataset-client`.jvm
 
 lazy val `contract-protocol` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
