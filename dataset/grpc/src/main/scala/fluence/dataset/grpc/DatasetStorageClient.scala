@@ -161,16 +161,96 @@ class DatasetStorageClient[F[_] : Effect](
    * Initiates ''Range'' operation in remote MerkleBTree.
    *
    * @param datasetId       Dataset ID
-   * @param searchCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
+   * @param rangeCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
    * @return returns stream of found value.
    */
   override def range(
     datasetId: Array[Byte],
-    searchCallbacks: BTreeRpc.SearchCallback[F]
+    rangeCallbacks: BTreeRpc.SearchCallback[F]
   ): Observable[(Array[Byte], Array[Byte])] = {
 
-    // todo
-    ???
+    // Convert a remote stub call to monix pipe
+    val pipe = callToPipe(stub.range)
+
+    // Get observer/observable for request's bidiflow
+    val (pushClientReply, pullServerAsk) = pipe
+      .transform(_.map {
+        case RangeCallback(callback) ⇒
+          logger.trace(s"DatasetStorageClient.range() received server ask=$callback")
+          callback
+      })
+      .multicast
+
+    val clientError = MVar.empty[Throwable]
+
+    /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
+    def handleClientErr(err: Throwable): F[RangeCallbackReply] = {
+      run(
+        clientError
+          .put(ClientError(err.getMessage))
+          .map(_ ⇒ RangeCallbackReply(RangeCallbackReply.Reply.ClientError(Error(err.getMessage))))
+      )
+    }
+
+    val handleAsks = pullServerAsk
+      .collect { case ask if ask.isDefined && !ask.isValue && !ask.isServerError ⇒ ask } // Collect callbacks
+      .mapEval[F, RangeCallbackReply] {
+
+        case ask if ask.isNextChildIndex ⇒
+          val Some(nci) = ask.nextChildIndex
+
+          rangeCallbacks
+            .nextChildIndex(nci.keys.map(k ⇒ Key(k.toByteArray)).toArray, nci.childsChecksums.map(c ⇒ Hash(c.toByteArray)).toArray)
+            .attempt
+            .flatMap {
+              case Left(err) ⇒
+                handleClientErr(err)
+              case Right(idx) ⇒
+                Effect[F].pure(RangeCallbackReply(RangeCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx))))
+            }
+
+        case ask if ask.isSubmitLeaf ⇒
+          val Some(sl) = ask.submitLeaf
+
+          rangeCallbacks
+            .submitLeaf(sl.keys.map(k ⇒ Key(k.toByteArray)).toArray, sl.valuesChecksums.map(c ⇒ Hash(c.toByteArray)).toArray)
+            .attempt
+            .flatMap {
+              case Left(err) ⇒
+                handleClientErr(err)
+              case Right(searchResult) ⇒
+                Effect[F].pure(RangeCallbackReply(RangeCallbackReply.Reply.SubmitLeaf(ReplySubmitLeaf(
+                  searchResult match {
+                    case Searching.Found(i)          ⇒ ReplySubmitLeaf.SearchResult.Found(i)
+                    case Searching.InsertionPoint(i) ⇒ ReplySubmitLeaf.SearchResult.InsertionPoint(i)
+                  }
+                ))))
+            }
+
+      }
+
+    (
+      Observable(
+        RangeCallbackReply(
+          RangeCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
+        )
+      ) ++ handleAsks
+    ).subscribe(pushClientReply) // And clientReply response back to server
+
+    pullServerAsk
+      .collect {
+        case ask if ask.isServerError ⇒
+          val Some(err) = ask.serverError
+          val serverError = ServerError(err.msg)
+          // if server send an error we should close stream and lift error up
+          Observable(pushClientReply.onError(serverError))
+            .flatMap(_ ⇒ Observable.raiseError[(Array[Byte], Array[Byte])](serverError))
+        case ask if ask.isValue ⇒
+          val Some(RangeValue(key, value)) = ask._value
+          Observable(key.toByteArray → value.toByteArray)
+
+      }.flatten
+
   }
 
   /**

@@ -7,7 +7,7 @@ message DatasetId {
     bytes id = 1;
 }
 
-// SearchCallback
+// BtreeCallback
 message AskNextChildIndex {
     repeated bytes keys = 1;
     repeated bytes childsChecksums = 2;
@@ -17,7 +17,7 @@ message ReplyNextChildIndex {
     int32 index = 1;
 }
 
-// GetCallbacks extends SearchCallback
+// SearchCallback extends BtreeCallback
 message AskSubmitLeaf {
     repeated bytes keys = 1;
     repeated bytes valuesChecksums = 2;
@@ -37,26 +37,74 @@ message GetValue {
 message Error {
     string msg = 1;
 }
-// Client reply
+
+// GET: Client replies
 message GetCallbackReply {
     oneof reply {
+        // sends dataset id
         DatasetId datasetId = 1;
 
+        // sends index of search key in branch
         ReplyNextChildIndex nextChildIndex = 10;
+        // sends index of search key in leaf
         ReplySubmitLeaf submitLeaf = 11;
 
+        // sends client error to server
         Error clientError = 20;
     }
 
 }
-// Server ask
+
+// GET: Server requests
 message GetCallback {
     oneof callback {
+        // sends found value to client
         GetValue value = 1;
 
+        // ask index of search key in branch
         AskNextChildIndex nextChildIndex = 10;
+        // ask index of search key in leaf
         AskSubmitLeaf submitLeaf = 11;
 
+        // sends server error to client
+        Error serverError = 20;
+    }
+}
+
+message RangeValue {
+    bytes key = 1;
+    bytes value = 2;
+}
+
+// RANGE: Client replies
+message RangeCallbackReply {
+    oneof reply {
+        // sends dataset id
+        DatasetId datasetId = 1;
+
+        // sends index of search key in branch
+        ReplyNextChildIndex nextChildIndex = 10;
+        // sends index of search key in leaf
+        ReplySubmitLeaf submitLeaf = 11;
+
+        // sends client error to server
+        Error clientError = 20;
+    }
+
+}
+
+// RANGE: Server requests
+message RangeCallback {
+    oneof callback {
+        // sends key-value pair to client (multiple times)
+        RangeValue value = 1;
+
+        // ask index of search key in branch
+        AskNextChildIndex nextChildIndex = 10;
+        // ask index of search key in leaf
+        AskSubmitLeaf submitLeaf = 11;
+
+        // sends server error to client
         Error serverError = 20;
     }
 }
@@ -100,38 +148,55 @@ message PreviousValue {
 message PutValue {
     bytes value = 1;
 }
-// Server ask
-message PutCallback {
-    oneof callback {
-        PreviousValue value = 1;
 
-        AskNextChildIndex nextChildIndex = 10;
-
-        AskPutDetails putDetails = 20;
-        AskVerifyChanges verifyChanges = 21;
-        AskChangesStored changesStored = 22;
-
-        Error serverError = 30;
-    }
-}
-// Client reply
+// PUT: Client replies
 message PutCallbackReply {
     oneof reply {
+        // sends dataset id
         DatasetId datasetId = 1;
+        // sends value for puttig
         PutValue value = 2;
 
+        // sends index of search key in branch
         ReplyNextChildIndex nextChildIndex = 10;
 
+        // sends index of search key in leaf and other details for putting
         ReplyPutDetails putDetails = 20;
+        // confirms made changes
         ReplyVerifyChanges verifyChanges = 21;
+        // confirms server confirmation
         ReplyChangesStored changesStored = 22;
 
+        // sends client error to server
         Error clientError = 30;
+    }
+}
+
+// PUT: Server requests
+message PutCallback {
+    oneof callback {
+        // sends previos stored value to client
+        PreviousValue value = 1;
+
+        // asks index of search key in branch
+        AskNextChildIndex nextChildIndex = 10;
+
+        // asks index of search key in leaf and other details for putting
+        AskPutDetails putDetails = 20;
+        // asks verify made changes
+        AskVerifyChanges verifyChanges = 21;
+        // confirms that all changes was persisted
+        AskChangesStored changesStored = 22;
+
+        // sends server error to client
+        Error serverError = 30;
     }
 }
 
 service DatasetStorageRpc {
     rpc get(stream GetCallbackReply) returns (stream GetCallback);
+
+    rpc range(stream RangeCallbackReply) returns (stream RangeCallback);
 
     rpc put(stream PutCallbackReply) returns (stream PutCallback);
 }
