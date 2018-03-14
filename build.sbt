@@ -200,8 +200,7 @@ lazy val `b-tree-core` = crossProject(JVMPlatform, JSPlatform)
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   ).jsSettings(
-    fork in Test := false,
-    scalaJSModuleKind := ModuleKind.CommonJSModule
+    fork in Test := false
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`codec-core`)
@@ -216,8 +215,7 @@ lazy val `b-tree-protocol` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons
   ).jsSettings(
-    fork in Test := false,
-    scalaJSModuleKind := ModuleKind.CommonJSModule
+    fork in Test := false
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`b-tree-core`)
@@ -226,14 +224,47 @@ lazy val `b-tree-protocol-js` = `b-tree-protocol`.js
 lazy val `b-tree-protocol-jvm` = `b-tree-protocol`.jvm
 
 // common logic for client and server
-lazy val `b-tree-common` = project.in(file("b-tree/common"))
-  .dependsOn(`b-tree-core-jvm`, `crypto-jvm`)
+lazy val `b-tree-common` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("b-tree/common"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+    )
+  ).jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`b-tree-core`, `crypto`)
 
-lazy val `b-tree-client` = project.in(file("b-tree/client"))
-  .dependsOn(`b-tree-common`, `b-tree-protocol-jvm`)
+lazy val `b-tree-common-js` = `b-tree-common`.js
+lazy val `b-tree-common-jvm` = `b-tree-common`.jvm
+
+lazy val `b-tree-client` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("b-tree/client"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "io.monix" %%% "monix" % MonixV,
+      "biz.enef" %%% "slogging" % SloggingV,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+    )
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`b-tree-common`, `b-tree-protocol`)
+
+lazy val `b-tree-client-js` = `b-tree-client`.js
+lazy val `b-tree-client-jvm` = `b-tree-client`.jvm
 
 lazy val `b-tree-server` = project.in(file("b-tree/server"))
-  .dependsOn(`storage-rocksdb`, `codec-kryo`, `b-tree-common`, `b-tree-protocol-jvm`, `b-tree-client` % "compile->test")
+  .dependsOn(`storage-rocksdb`, `codec-kryo`, `b-tree-common-jvm`, `b-tree-protocol-jvm`, `b-tree-client-jvm` % "compile->test")
 
 lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -272,11 +303,8 @@ lazy val `crypto-jvm` = `crypto`.jvm
 lazy val `crypto-js` = `crypto`.js
   .enablePlugins(ScalaJSBundlerPlugin)
 
-lazy val `client` = project.in(file("client"))
-  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`, `contract-client-jvm`, `kademlia-monix-jvm`)
-
 lazy val `dataset-node` = project.in(file("dataset/node"))
-  .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `dataset-client`, `b-tree-client`)
+  .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `dataset-client`, `b-tree-client-jvm`)
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
   .dependsOn(`kademlia-protocol-jvm`, `b-tree-protocol-jvm`)
@@ -285,7 +313,7 @@ lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
   .dependsOn(`dataset-client`, `transport-grpc`)
 
 lazy val `dataset-client` = project.in(file("dataset/client"))
-  .dependsOn(`dataset-protocol`, `crypto-jvm`, `b-tree-client`, `kademlia-core-jvm`)
+  .dependsOn(`dataset-protocol`, `crypto-jvm`, `b-tree-client-jvm`, `kademlia-core-jvm`)
 
 lazy val `contract-protocol` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -348,6 +376,9 @@ lazy val `contract-grpc` = project.in(file("contract/grpc"))
     )
   ).enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`contract-core-jvm`, `transport-grpc`)
+
+lazy val `client` = project.in(file("client"))
+  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`, `contract-client-jvm`, `kademlia-monix-jvm`)
 
 lazy val `node` = project
   .dependsOn(`kademlia-monix-jvm`, `dataset-node`, `contract-node`, `client`, `transport-core-jvm`)
