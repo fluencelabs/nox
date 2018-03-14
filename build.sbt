@@ -188,15 +188,34 @@ lazy val `storage-rocksdb` = project.in(file("storage/rocksdb"))
   .dependsOn(`storage-core-jvm`)
 
 // core entities for all b-tree modules
-lazy val `b-tree-core` = project.in(file("b-tree/core"))
-  .dependsOn(`codec-core-jvm`) // todo change to crossProject codec-core
+lazy val `b-tree-core` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("b-tree/core"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.scodec" %%% "scodec-bits" % ScodecBitsV,
+      "org.typelevel" %%% "cats-core" % Cats1V,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+    )
+  ).jsSettings(
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`codec-core`)
 
-lazy val `b-tree-protocol` = project.in(file("b-tree/protocol"))
-  .dependsOn(`b-tree-core`)
+lazy val `b-tree-core-js` = `b-tree-core`.js
+lazy val `b-tree-core-jvm` = `b-tree-core`.jvm
+
+lazy val `b-tree-protocol` = project
+  .in(file("b-tree/protocol"))
+  .dependsOn(`b-tree-core-jvm`)
 
 // common logic for client and server
 lazy val `b-tree-common` = project.in(file("b-tree/common"))
-  .dependsOn(`b-tree-core`, `crypto-jvm`)
+  .dependsOn(`b-tree-core-jvm`, `crypto-jvm`)
 
 lazy val `b-tree-client` = project.in(file("b-tree/client"))
   .dependsOn(`b-tree-common`, `b-tree-protocol`)
@@ -207,7 +226,6 @@ lazy val `b-tree-server` = project.in(file("b-tree/server"))
 lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
-  .dependsOn(`codec-core`)
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -234,8 +252,8 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies := false,
     fork in Test := false
-  )
-  .enablePlugins(AutomateHeaderPlugin)
+  ).enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`codec-core`)
 
 lazy val `crypto-jvm` = `crypto`.jvm
 
