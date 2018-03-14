@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc.server
+package fluence.contract.grpc.server
 
 import cats.data.Kleisli
 import cats.syntax.flatMap._
@@ -23,7 +23,7 @@ import cats.syntax.functor._
 import cats.{ MonadError, ~> }
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractsCacheRpc
-import fluence.dataset.grpc._
+import fluence.contract.grpc._
 import fluence.kad.protocol.Key
 
 import scala.concurrent.Future

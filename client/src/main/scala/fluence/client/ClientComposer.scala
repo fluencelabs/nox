@@ -29,7 +29,7 @@ import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.SignatureChecker
 import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.dataset.grpc.DatasetStorageClient
-import fluence.dataset.grpc.client.{ ContractAllocatorClient, ContractsCacheClient }
+import fluence.contract.grpc.client.{ ContractAllocatorClient, ContractsCacheClient }
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
@@ -51,7 +51,7 @@ object ClientComposer extends slogging.LazyLogging {
     builder: GrpcClient.Builder[HNil]
   )(implicit checker: SignatureChecker, scheduler: Scheduler = Scheduler.global) = {
 
-    import fluence.dataset.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
+    import fluence.contract.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
     import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
 
     builder

@@ -15,15 +15,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc.client
+package fluence.contract.grpc.client
 
 import cats.effect.{ Async, IO }
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractAllocatorRpc
-import fluence.dataset.grpc.{ BasicContract, ContractAllocatorGrpc }
-import fluence.dataset.grpc.ContractAllocatorGrpc.ContractAllocatorStub
+import fluence.contract.grpc.{ BasicContract, ContractAllocatorGrpc }
+import fluence.contract.grpc.ContractAllocatorGrpc.ContractAllocatorStub
 import io.grpc.{ CallOptions, ManagedChannel }
 
 import scala.concurrent.{ ExecutionContext, Future }

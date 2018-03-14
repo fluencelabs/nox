@@ -15,11 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc
+package fluence.contract.grpc
 
-import cats.{ MonadError, Traverse }
-import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{ MonadError, Traverse }
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.crypto.keypair.KeyPair

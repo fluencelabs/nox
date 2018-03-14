@@ -317,7 +317,8 @@ lazy val `contract-grpc` = project.in(file("contract/grpc"))
     libraryDependencies ++= Seq(
       scalatest
     )
-  ).dependsOn(`contract-core-jvm`, `transport-grpc`)
+  ).enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`contract-core-jvm`, `transport-grpc`)
 
 lazy val `node` = project
   .dependsOn(`kademlia-monix-jvm`, `dataset-node`, `contract-node`, `client`, `transport-core-jvm`)
