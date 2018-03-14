@@ -24,10 +24,11 @@ import scala.language.higherKinds
  * TODO: consider removing it, as it seems to be useless
  *
  * @tparam F A box for returning value
+ * @tparam FS A type of stream for returning key-value pairs
  * @tparam K The type of keys
  * @tparam V The type of stored values
  */
-trait ClientDatasetStorageApi[F[_], K, V] {
+trait ClientDatasetStorageApi[F[_], FS[_], K, V] {
 
   /**
    * Gets stored value for specified key.
@@ -36,6 +37,15 @@ trait ClientDatasetStorageApi[F[_], K, V] {
    * @return returns found value, None if nothing was found.
    */
   def get(key: K): F[Option[V]]
+
+  /**
+   * Fetches stored key-value pairs for specified key range as stream.
+   *
+   * @param from Plain text key, start of range.
+   * @param to   Plain text key, end of range.
+   * @return returns stream of found key-value pairs.
+   */
+  def range(from: K, to: K): FS[(K, V)]
 
   /**
    * Puts key value pair (K, V). Update existing value if it's present.
