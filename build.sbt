@@ -373,8 +373,7 @@ lazy val `contract-client` = crossProject(JVMPlatform, JSPlatform)
   .in(file("contract/client"))
   .settings(commons)
   .jsSettings(
-    fork in Test := false,
-    scalaJSModuleKind := ModuleKind.CommonJSModule
+    fork in Test := false
   ).enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`contract-core`, `kademlia-core`)
 
@@ -401,8 +400,59 @@ lazy val `contract-grpc` = project.in(file("contract/grpc"))
   ).enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`contract-core-jvm`, `transport-grpc`)
 
-lazy val `client` = project.in(file("client"))
-  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`, `contract-client-jvm`, `kademlia-monix-jvm`)
+
+lazy val `client-core` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("client/core"))
+  .settings(commons)
+  .jvmSettings(
+    libraryDependencies ++= Seq(
+      typeSafeConfig,
+      ficus
+    )
+  )
+  .jsSettings(
+    fork in Test := false
+  ).enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`kademlia-monix`, `contract-client`, `dataset-client`, `transport-core`)
+
+lazy val `client-core-js` = `client-core`.js
+lazy val `client-core-jvm` = `client-core`.jvm
+
+lazy val `client-grpc` = project.in(file("client/grpc"))
+  .settings(commons)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`client-core-jvm`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`)
+
+lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("client/cli"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %%% "fastparse" % FastparseV,
+      "org.typelevel" %%% "cats-free" % Cats1V,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+    )
+  )
+    .jvmSettings(
+      libraryDependencies ++= Seq(
+        jline,
+        scopt
+      )
+    )
+  .jsSettings(
+    fork in Test := false
+  ).enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`client-core`)
+
+lazy val `client-cli-js` = `client-cli`.js
+lazy val `client-cli-jvm` = `client-cli`.jvm
+
+lazy val `client-cli-app` = project.in(file("client/cli-app"))
+  .dependsOn(`client-cli-jvm`, `client-grpc`)
 
 lazy val `node` = project
-  .dependsOn(`kademlia-monix-jvm`, `dataset-node`, `contract-node`, `client`, `transport-core-jvm`)
+  .dependsOn(`dataset-node`, `contract-node`, `client-grpc`)

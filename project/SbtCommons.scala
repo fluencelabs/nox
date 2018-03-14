@@ -49,6 +49,7 @@ object SbtCommons {
   val SloggingV = "0.6.1"
   val ShapelessV = "2.3.+"
   val MonixV = "3.0.0-M3"
+  val FastparseV = "1.0.0"
 
   val slogging = "biz.enef" %% "slogging" % SloggingV
   val sloggingSlf4j = "biz.enef" %% "slogging-slf4j" % SloggingV
@@ -67,7 +68,7 @@ object SbtCommons {
   val circeCore = "io.circe" %% "circe-core" % CirceV
   val circeParser = "io.circe" %% "circe-parser" % CirceV
 
-  val fastParse = "com.lihaoyi" %% "fastparse" % "1.0.0"
+  val fastParse = "com.lihaoyi" %% "fastparse" % FastparseV
   val scopt = "com.github.scopt" %% "scopt" % "3.7.0"
   val jline = "org.jline" % "jline-reader" % "3.6.1"
 

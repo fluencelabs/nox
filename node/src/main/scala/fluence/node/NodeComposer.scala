@@ -21,7 +21,7 @@ import java.time.Instant
 
 import cats.effect.IO
 import com.typesafe.config.Config
-import fluence.client.config.KademliaConfigParser
+import fluence.client.core.config.KademliaConfigParser
 import fluence.contract.BasicContract
 import fluence.contract.node.{ ContractAllocator, ContractsCache }
 import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
