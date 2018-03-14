@@ -27,18 +27,19 @@ import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.client.{ ClientComposer, FluenceClient }
+import fluence.contract.BasicContract
+import fluence.contract.client.Contracts
+import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher, TestCryptoHasher }
 import fluence.crypto.keypair.KeyPair
-import fluence.dataset.BasicContract
-import fluence.dataset.client.Contracts.NotFound
-import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi, Contracts }
+import fluence.contract.client.Contracts.NotFound
+import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi }
 import fluence.dataset.grpc.DatasetStorageClient.ServerError
 import fluence.dataset.grpc.DatasetStorageServer.ClientError
-import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
 import fluence.kad.{ KademliaConf, KademliaMVar }
 import fluence.transport.TransportSecurity
@@ -160,8 +161,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
 
       "there are not enough nodes for the contract" in {
-        import fluence.dataset.contract.ContractRead._
-        import fluence.dataset.contract.ContractWrite._
+        import fluence.contract.ops.ContractRead._
+        import fluence.contract.ops.ContractWrite._
 
         val client = ClientComposer.grpc[Task](GrpcClient.builder)
         val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
@@ -180,8 +181,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
 
       "clients sign is invalid for offer" in {
-        import fluence.dataset.contract.ContractRead._
-        import fluence.dataset.contract.ContractWrite._
+        import fluence.contract.ops.ContractRead._
+        import fluence.contract.ops.ContractWrite._
 
         val client = ClientComposer.grpc[Task](GrpcClient.builder)
         val keyPairValid = algo.generateKeyPair[Task]().value.taskValue.right.get
@@ -237,8 +238,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     }
 
     "success allocate a contract" in {
-      import fluence.dataset.contract.ContractRead._
-      import fluence.dataset.contract.ContractWrite._
+      import fluence.contract.ops.ContractRead._
+      import fluence.contract.ops.ContractWrite._
 
       // create client
       val client = ClientComposer.grpc[Task](GrpcClient.builder)

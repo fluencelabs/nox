@@ -23,11 +23,11 @@ import cats.effect.IO
 import cats.~>
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
+import fluence.contract.BasicContract
 import fluence.crypto.signature.SignatureChecker
-import fluence.dataset.BasicContract
-import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
-import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc
-import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetStorageServer }
+import fluence.contract.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
+import fluence.dataset.grpc.{ DatasetStorageRpcGrpc, DatasetStorageServer }
+import fluence.contract.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc }
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
@@ -80,7 +80,7 @@ object NodeGrpc {
       // TODO: check if it's optimal
       implicit val ec: Scheduler = Scheduler(Executors.newCachedThreadPool())
 
-      import fluence.dataset.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
+      import fluence.contract.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
       import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
       val keyC = Key.bytesCodec[Task]
       import keyC.inverse

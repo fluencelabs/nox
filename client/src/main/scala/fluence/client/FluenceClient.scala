@@ -22,14 +22,15 @@ import cats.{ MonadError, ~> }
 import com.typesafe.config.Config
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.client.config.AesConfigParser
+import fluence.contract.BasicContract
+import fluence.contract.client.Contracts
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
-import fluence.dataset.BasicContract
-import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi, Contracts }
-import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi }
+import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{ Contact, Key }
 import monix.eval.Task
@@ -144,7 +145,7 @@ class FluenceClient(
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]]
   ): Task[ClientReplicationWrapper[String, String]] = {
-    import fluence.dataset.contract.ContractWrite._
+    import fluence.contract.ops.ContractWrite._
     for {
       key ← Key.fromKeyPair(keyPair)
       signer = signAlgo.signer(keyPair)
