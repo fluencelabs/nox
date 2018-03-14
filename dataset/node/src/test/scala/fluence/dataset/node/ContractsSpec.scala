@@ -19,13 +19,14 @@ package fluence.dataset.node
 
 import cats.instances.try_._
 import cats.implicits.catsStdShowForString
+import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
 import fluence.dataset.BasicContract
 import fluence.dataset.client.Contracts
 import fluence.dataset.node.contract.ContractRecord
-import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
 import fluence.kad.testkit.TestKademlia

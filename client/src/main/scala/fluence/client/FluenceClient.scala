@@ -29,7 +29,7 @@ import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.dataset.BasicContract
 import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi, Contracts }
-import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{ Contact, Key }
 import monix.eval.Task

@@ -21,6 +21,7 @@ import cats.effect.{ Effect, IO }
 import cats.kernel.Monoid
 import com.typesafe.config.Config
 import fluence.client.config.{ KademliaConfigParser, KeyPairConfig, SeedsConfig }
+import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.SignatureChecker
@@ -29,8 +30,7 @@ import fluence.dataset.BasicContract
 import fluence.dataset.client.Contracts
 import fluence.dataset.grpc.DatasetStorageClient
 import fluence.dataset.grpc.client.{ ContractAllocatorClient, ContractsCacheClient }
-import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
 import fluence.kad.{ Kademlia, KademliaConf, KademliaMVar }

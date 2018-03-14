@@ -23,9 +23,9 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
+import fluence.contract.protocol.ContractsCacheRpc
 import fluence.dataset.grpc.ContractsCacheGrpc.ContractsCacheStub
 import fluence.dataset.grpc.{ BasicContract, ContractsCacheGrpc, FindRequest }
-import fluence.dataset.protocol.ContractsCacheRpc
 import fluence.kad.protocol.Key
 import fluence.transport.grpc.GrpcCodecs._
 import io.grpc.{ CallOptions, ManagedChannel }

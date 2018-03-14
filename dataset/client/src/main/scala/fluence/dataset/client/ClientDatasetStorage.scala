@@ -22,7 +22,7 @@ import fluence.btree.client.{ MerkleBTreeClient, MerkleBTreeClientApi }
 import fluence.btree.core.Hash
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
-import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.dataset.protocol.DatasetStorageRpc
 import monix.eval.Task
 
 import scala.language.higherKinds

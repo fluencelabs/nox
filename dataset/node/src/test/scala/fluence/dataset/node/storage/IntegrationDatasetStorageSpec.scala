@@ -27,7 +27,7 @@ import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.dataset.client.ClientDatasetStorage
-import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.storage
 import fluence.storage.rocksdb.RocksDbConf
 import monix.eval.Task

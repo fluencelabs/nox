@@ -21,9 +21,9 @@ import cats.effect.{ Async, IO }
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.codec.Codec
+import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.dataset.grpc.{ BasicContract, ContractAllocatorGrpc }
 import fluence.dataset.grpc.ContractAllocatorGrpc.ContractAllocatorStub
-import fluence.dataset.protocol.ContractAllocatorRpc
 import io.grpc.{ CallOptions, ManagedChannel }
 
 import scala.concurrent.{ ExecutionContext, Future }

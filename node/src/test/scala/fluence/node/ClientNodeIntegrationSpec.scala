@@ -27,6 +27,7 @@ import cats.~>
 import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.client.{ ClientComposer, FluenceClient }
+import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
@@ -37,8 +38,7 @@ import fluence.dataset.client.Contracts.NotFound
 import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi, Contracts }
 import fluence.dataset.grpc.DatasetStorageClient.ServerError
 import fluence.dataset.grpc.DatasetStorageServer.ClientError
-import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
 import fluence.kad.{ KademliaConf, KademliaMVar }
 import fluence.transport.TransportSecurity

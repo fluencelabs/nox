@@ -21,7 +21,7 @@ import cats.~>
 import com.typesafe.config.Config
 import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.hash.CryptoHasher
-import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.Key
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task

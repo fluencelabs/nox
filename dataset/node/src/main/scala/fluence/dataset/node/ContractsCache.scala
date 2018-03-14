@@ -24,10 +24,10 @@ import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.contract.protocol.ContractsCacheRpc
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.contract.ContractRead
 import fluence.dataset.node.contract.ContractRecord
-import fluence.dataset.protocol.ContractsCacheRpc
 import fluence.kad.protocol.Key
 import fluence.storage.KVStore
 

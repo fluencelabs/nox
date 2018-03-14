@@ -22,8 +22,8 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ MonadError, ~> }
 import fluence.codec.Codec
+import fluence.contract.protocol.ContractsCacheRpc
 import fluence.dataset.grpc._
-import fluence.dataset.protocol.ContractsCacheRpc
 import fluence.kad.protocol.Key
 
 import scala.concurrent.Future

@@ -29,7 +29,7 @@ import fluence.btree.core.{ ClientPutDetails, Hash, Key }
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.grpc.storage._
-import fluence.dataset.protocol.storage.DatasetStorageRpc
+import fluence.dataset.protocol.DatasetStorageRpc
 import io.grpc.stub.StreamObserver
 import monix.eval.Task
 import monix.execution.{ Ack, Scheduler }

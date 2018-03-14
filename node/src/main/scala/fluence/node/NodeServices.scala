@@ -18,10 +18,10 @@
 package fluence.node
 
 import cats.effect.IO
+import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.crypto.SignAlgo
 import fluence.crypto.signature.Signer
-import fluence.dataset.protocol.storage.DatasetStorageRpc
-import fluence.dataset.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
 import fluence.storage.rocksdb.RocksDbStore

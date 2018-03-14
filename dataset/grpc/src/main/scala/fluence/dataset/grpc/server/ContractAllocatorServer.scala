@@ -21,8 +21,8 @@ import cats.{ Monad, ~> }
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.codec.Codec
+import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.dataset.grpc.{ BasicContract, ContractAllocatorGrpc }
-import fluence.dataset.protocol.ContractAllocatorRpc
 
 import scala.concurrent.Future
 import scala.language.higherKinds

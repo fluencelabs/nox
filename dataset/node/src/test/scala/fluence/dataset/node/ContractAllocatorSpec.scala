@@ -19,12 +19,12 @@ package fluence.dataset.node
 
 import cats.effect.IO
 import cats.instances.try_._
+import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
 import fluence.dataset.BasicContract
 import fluence.dataset.node.contract.ContractRecord
-import fluence.dataset.protocol.ContractAllocatorRpc
 import fluence.kad.protocol.Key
 import fluence.storage.{ KVStore, TrieMapKVStore }
 import org.scalatest.{ Matchers, WordSpec }

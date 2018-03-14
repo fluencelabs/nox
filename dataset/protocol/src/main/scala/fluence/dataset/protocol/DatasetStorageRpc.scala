@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.protocol.storage
+package fluence.dataset.protocol
 
 import fluence.btree.protocol.BTreeRpc.{ SearchCallback, PutCallbacks, RemoveCallback }
 
