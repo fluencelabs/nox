@@ -412,7 +412,6 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
         wait(Task.sequence(putCmd(1 to 5) map { cmd ⇒ tree.put(cmd) }))
         val result = wait(tree.range(failedSearchCmd(key1, NextChildIndexStage)).toListL.failed)
         result.getMessage shouldBe "Client unavailable"
-
       }
     }
 
@@ -460,33 +459,40 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
         notFoundStartKey.size shouldBe 129
         notFoundStartKey.head._1.toByteVector shouldBe minKey.toByteVector
         notFoundStartKey.last._1.toByteVector shouldBe maxKey.toByteVector
+        checkOrder(notFoundStartKey)
 
         val oneElem = wait(tree.range(searchCmd(midKey, { result ⇒ result.get.bytes shouldBe "v0128".getBytes })).take(1).toListL)
         oneElem.size shouldBe 1
         oneElem.head._1.toByteVector shouldBe midKey.toByteVector
+        checkOrder(oneElem)
 
         val fromStartTenPairs = wait(tree.range(searchCmd(minKey, { result ⇒ result.get.bytes shouldBe "v0000".getBytes })).take(10).toListL)
         fromStartTenPairs.size shouldBe 10
         fromStartTenPairs.head._1.toByteVector shouldBe minKey.toByteVector
         fromStartTenPairs.last._1.toByteVector shouldBe "k0018".toKey.toByteVector
+        checkOrder(fromStartTenPairs)
 
         val fromMidToEnd = wait(tree.range(searchCmd(midKey, { result ⇒ result.get.bytes shouldBe "v0128".getBytes })).toListL)
         fromMidToEnd.size shouldBe 65
         fromMidToEnd.head._1.toByteVector shouldBe midKey.toByteVector
         fromMidToEnd.last._1.toByteVector shouldBe maxKey.toByteVector
+        checkOrder(fromMidToEnd)
 
         val fromLastTenPairs = wait(tree.range(searchCmd(maxKey, { result ⇒ result.get.bytes shouldBe "v0256".getBytes })).take(10).toListL)
         fromLastTenPairs.size shouldBe 1
         fromLastTenPairs.head._1.toByteVector shouldBe maxKey.toByteVector
+        checkOrder(fromLastTenPairs)
 
         val fromSkippedKeyOneElem = wait(tree.range(searchCmd("k0001".toKey, { result ⇒ result shouldBe None })).take(1).toListL)
         fromSkippedKeyOneElem.size shouldBe 1
         fromSkippedKeyOneElem.head._1.toByteVector shouldBe "k0002".toKey.toByteVector
+        checkOrder(fromSkippedKeyOneElem)
 
         val fromSkippedKeyTenElem = wait(tree.range(searchCmd("k0001".toKey, { result ⇒ result shouldBe None })).take(10).toListL)
         fromSkippedKeyTenElem.size shouldBe 10
         fromSkippedKeyTenElem.head._1.toByteVector shouldBe "k0002".toKey.toByteVector
         fromSkippedKeyTenElem.last._1.toByteVector shouldBe "k0020".toKey.toByteVector
+        checkOrder(fromSkippedKeyTenElem)
 
         val notOverlap = wait(tree.range(searchCmd(absentKey, { result ⇒ result shouldBe None })).toListL)
         notOverlap shouldBe empty
@@ -533,7 +539,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
 
       val fetchAll = wait(tree.range(searchCmd(minKey, { result ⇒ result.get.bytes shouldBe value1.bytes })).toListL)
       fetchAll.size shouldBe 1024
-
+      checkOrder(fetchAll)
     }
 
     "put twice many value in random order and get theirs" in {
@@ -562,6 +568,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
 
       val fetchAll = wait(tree.range(searchCmd(minKey, { result ⇒ result.get.bytes shouldBe value1.bytes })).toListL)
       fetchAll.size shouldBe 1024
+      checkOrder(fetchAll)
     }
 
   }
@@ -740,8 +747,10 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
     })
   }
 
-  private def verifyRangeResults(rangeRes: List[(Key, ValueRef)], expected: List[(Key, ValueRef)]): Unit =
+  private def verifyRangeResults(rangeRes: List[(Key, ValueRef)], expected: List[(Key, ValueRef)]): Unit = {
     keys2BV(rangeRes) should contain theSameElementsInOrderAs keys2BV(expected)
+    checkOrder(rangeRes)
+  }
 
   private def keys2BV(seq: List[(Key, ValueRef)]): List[(ByteVector, ValueRef)] =
     seq.map { case (key, ref) ⇒ key.toByteVector -> ref }
@@ -749,6 +758,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
   private implicit class Hashes2Strings(hashArr: Array[Hash]) {
     def asStr: Array[String] = hashArr.map(h ⇒ new String(h.bytes))
   }
+
+  private def checkOrder[T](list: List[T])(implicit ord: Ordering[T]): Unit =
+    list should contain theSameElementsInOrderAs list.sorted // should be ascending order
 
   override protected def beforeAll(): Unit = {
     LoggerConfig.factory = PrintLoggerFactory

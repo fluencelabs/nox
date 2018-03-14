@@ -103,7 +103,7 @@ class MerkleBTree private[server] (
    * We are looking for a starting key of range in this B+Tree.
    * Starting from the root, we are looking for some leaf which needed to the BTree client. We using [[Range]]
    * for communication with client. At each node, we figure out which internal pointer we should follow.
-   * When we found specified search key in a leaf, we should be returning all key, value pair from searched position
+   * When we found specified search key in a leaf, we should be returning all key-value pairs from searched position
    * until the stream won't stopped by consumer
    * Range have O(log,,arity,,n+k) algorithmic complexity, where ''k'' is number of returned pairs.
    *

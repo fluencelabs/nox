@@ -78,7 +78,7 @@ class MerkleBTreeClient[K] private (
       }
     }
 
-    // case when server returns founded leaf, this leaf contains start point of range
+    // case when server returns founded leaf, this leaf either contains key, or key may be inserted in this leaf
     override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): Task[SearchResult] = {
 
       merklePathMVar.take.flatMap { mPath ⇒
