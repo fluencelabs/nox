@@ -18,7 +18,7 @@
 package fluence.btree.common.merkle
 
 import fluence.btree.core.Hash
-import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
+import fluence.crypto.hash.TestCryptoHasher
 import org.scalatest.{ Matchers, WordSpec }
 
 class GeneralNodeProofSpec extends WordSpec with Matchers {
@@ -55,21 +55,6 @@ class GeneralNodeProofSpec extends WordSpec with Matchers {
         val result = GeneralNodeProof("STATE_".toHash, Array("A".toHash, "B".toHash, "C".toHash), 1)
           .calcChecksum(testHasher, Some("X".toHash))
         new String(result.bytes) shouldBe "H<STATE_AXC>"
-      }
-    }
-    "throw exception" when {
-      "childrenChecksums is empty" in {
-        intercept[ArrayIndexOutOfBoundsException] {
-          GeneralNodeProof("STATE_".toHash, Array.empty, 0)
-            .calcChecksum(testHasher, Some("X".toHash))
-        }
-      }
-      "substitution index out of bound" in {
-        intercept[ArrayIndexOutOfBoundsException] {
-          GeneralNodeProof("STATE_".toHash, Array("A".toHash, "B".toHash, "C".toHash), 10)
-            .calcChecksum(testHasher, Some("X".toHash))
-
-        }
       }
     }
   }
