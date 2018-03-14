@@ -373,8 +373,7 @@ lazy val `contract-client` = crossProject(JVMPlatform, JSPlatform)
   .in(file("contract/client"))
   .settings(commons)
   .jsSettings(
-    fork in Test := false,
-    scalaJSModuleKind := ModuleKind.CommonJSModule
+    fork in Test := false
   ).enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`contract-core`, `kademlia-core`)
 
@@ -402,7 +401,20 @@ lazy val `contract-grpc` = project.in(file("contract/grpc"))
   .dependsOn(`contract-core-jvm`, `transport-grpc`)
 
 lazy val `client` = project.in(file("client"))
-  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`, `contract-client-jvm`, `kademlia-monix-jvm`)
+  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`, `client-core-jvm`)
+
+lazy val `client-core` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("client/core"))
+  .settings(commons)
+  .jsSettings(
+    fork in Test := false
+  ).enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`kademlia-monix`, `contract-client`, `dataset-client`, `transport-core`)
+
+lazy val `client-core-js` = `client-core`.js
+lazy val `client-core-jvm` = `client-core`.jvm
 
 lazy val `node` = project
-  .dependsOn(`kademlia-monix-jvm`, `dataset-node`, `contract-node`, `client`, `transport-core-jvm`)
+  .dependsOn(`dataset-node`, `contract-node`, `client`)

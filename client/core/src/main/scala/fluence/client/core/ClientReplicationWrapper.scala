@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client
+package fluence.client.core
 
 import fluence.dataset.client.ClientDatasetStorageApi
 import fluence.kad.protocol.Contact

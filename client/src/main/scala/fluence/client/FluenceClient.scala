@@ -18,10 +18,9 @@
 package fluence.client
 
 import cats.data.OptionT
-import cats.{ MonadError, ~> }
-import com.typesafe.config.Config
+import cats.~>
 import fluence.btree.client.MerkleBTreeClient.ClientState
-import fluence.client.config.AesConfigParser
+import fluence.client.core.ClientReplicationWrapper
 import fluence.contract.BasicContract
 import fluence.contract.client.Contracts
 import fluence.crypto.SignAlgo
@@ -45,9 +44,8 @@ class FluenceClient(
     contracts: Contracts[Task, BasicContract, Contact],
     signAlgo: SignAlgo,
     storageRpc: Contact ⇒ DatasetStorageRpc[Task],
-    storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    config: Config
-)(implicit ME: MonadError[Task, Throwable]) extends slogging.LazyLogging {
+    storageHasher: CryptoHasher[Array[Byte], Array[Byte]]
+) extends slogging.LazyLogging {
 
   //use this when we will have multiple datasets on one authorized user
   /*def restoreContracts(pk: KeyPair.Public): Task[Map[Key, BasicContract]] = {
@@ -94,18 +92,15 @@ class FluenceClient(
     clientState: Option[ClientState],
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]]
-  ): Task[ClientDatasetStorage[String, String]] = {
-    AesConfigParser.readAesConfigOrGetDefault(config).flatMap { aesConfig ⇒
-      addDataset(
-        keyPair,
-        storageRpc(contact),
-        keyCrypt,
-        valueCrypt,
-        clientState,
-        storageHasher
-      )
-    }
-  }
+  ): Task[ClientDatasetStorage[String, String]] =
+    addDataset(
+      keyPair,
+      storageRpc(contact),
+      keyCrypt,
+      valueCrypt,
+      clientState,
+      storageHasher
+    )
 
   /**
    *
@@ -128,7 +123,7 @@ class FluenceClient(
   ): Task[ClientDatasetStorage[String, String]] = {
 
     for {
-      datasetId ← Key.sha1((nonce ++ keyPair.publicKey.value).toArray)
+      datasetId ← Key.sha1[Task]((nonce ++ keyPair.publicKey.value).toArray)
     } yield ClientDatasetStorage(datasetId.value.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
   }
 
@@ -147,10 +142,10 @@ class FluenceClient(
   ): Task[ClientReplicationWrapper[String, String]] = {
     import fluence.contract.ops.ContractWrite._
     for {
-      key ← Key.fromKeyPair(keyPair)
+      key ← Key.fromKeyPair[Task](keyPair)
       signer = signAlgo.signer(keyPair)
-      offer ← BasicContract.offer(key, participantsRequired = participantsRequired, signer = signer)
-      newContract ← contracts.allocate(offer, dc ⇒ dc.sealParticipants(signer))
+      offer ← BasicContract.offer[Task](key, participantsRequired = participantsRequired, signer = signer)
+      newContract ← contracts.allocate(offer, dc ⇒ WriteOps[Task, BasicContract](dc).sealParticipants(signer))
       _ = logger.debug("New allocated contract: " + newContract)
       nodes ← findContactsOfAllParticipants(newContract)
       datasets ← Task.sequence(
@@ -172,7 +167,7 @@ class FluenceClient(
     valueCrypt: Crypt[Task, String, Array[Byte]]
   ): Task[Option[ClientReplicationWrapper[String, String]]] = {
     for {
-      key ← Key.fromKeyPair(keyPair)
+      key ← Key.fromKeyPair[Task](keyPair)
       bcOp ← contracts.find(key).attempt.map(_.toOption)
       dataStorages ← bcOp match {
 
@@ -235,9 +230,8 @@ object FluenceClient extends slogging.LazyLogging {
     contracts: Contracts[Task, BasicContract, Contact],
     storageRpc: Contact ⇒ DatasetStorageRpc[Task],
     signAlgo: SignAlgo = Ecdsa.signAlgo,
-    storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    config: Config
+    storageHasher: CryptoHasher[Array[Byte], Array[Byte]]
   ): FluenceClient = {
-    new FluenceClient(kademliaClient, contracts, signAlgo, storageRpc, storageHasher, config)
+    new FluenceClient(kademliaClient, contracts, signAlgo, storageRpc, storageHasher)
   }
 }
