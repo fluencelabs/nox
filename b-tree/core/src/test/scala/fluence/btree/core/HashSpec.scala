@@ -100,10 +100,6 @@ class HashSpec extends WordSpec with Matchers {
       hashes.rewriteValue(Hash("X".getBytes), 1).asStr should contain theSameElementsInOrderAs Seq("a", "X", "c")
       hashes.rewriteValue(Hash("X".getBytes), 2).asStr should contain theSameElementsInOrderAs Seq("a", "b", "X")
       hashes.rewriteValue(Hash.empty, 1).asStr should contain inOrder ("a", "", "c")
-
-      assertThrows[ArrayIndexOutOfBoundsException] {
-        Array.empty[Hash].rewriteValue(Hash("X".getBytes), 0)
-      }
     }
 
   }
