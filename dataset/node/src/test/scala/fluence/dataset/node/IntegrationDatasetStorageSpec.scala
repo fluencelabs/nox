@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node.storage
+package fluence.dataset.node
 
 import cats.instances.try_._
 import cats.~>
@@ -29,7 +29,7 @@ import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.dataset.client.ClientDatasetStorage
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.storage
-import fluence.storage.rocksdb.RocksDbConf
+import fluence.storage.rocksdb.{ RocksDbConf, RocksDbStore }
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.atomic.Atomic
@@ -69,7 +69,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   private val key5 = "k0005"
   private val val5 = User("Sam", 35)
 
-  private val rocksFactory = new storage.rocksdb.RocksDbStore.Factory
+  private val rocksFactory = new RocksDbStore.Factory
 
   "put and get" should {
     "return error and recover client state" when {

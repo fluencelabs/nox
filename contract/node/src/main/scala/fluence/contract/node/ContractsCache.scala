@@ -15,19 +15,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node
+package fluence.contract.node
 
 import java.time.Instant
 
 import cats.MonadError
 import cats.syntax.applicative._
+import cats.syntax.functor._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
-import cats.syntax.functor._
+import fluence.contract.node.cache.ContractRecord
 import fluence.contract.ops.ContractRead
 import fluence.contract.protocol.ContractsCacheRpc
 import fluence.crypto.signature.SignatureChecker
-import fluence.dataset.node.contract.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.storage.KVStore
 

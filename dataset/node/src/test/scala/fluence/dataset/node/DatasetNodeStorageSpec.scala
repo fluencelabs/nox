@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node.storage
+package fluence.dataset.node
 
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.core.Hash

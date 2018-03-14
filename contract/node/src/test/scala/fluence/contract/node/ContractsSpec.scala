@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node
+package fluence.contract.node
 
 import cats.instances.try_._
 import cats.implicits.catsStdShowForString
@@ -23,8 +23,8 @@ import fluence.contract.BasicContract
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
-import fluence.dataset.client.Contracts
-import fluence.dataset.node.contract.ContractRecord
+import fluence.contract.client.Contracts
+import fluence.contract.node.cache.ContractRecord
 import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key

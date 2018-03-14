@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node.storage
+package fluence.dataset.node
 
 import cats.~>
 import com.typesafe.config.Config

@@ -23,12 +23,13 @@ import com.typesafe.config.Config
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.client.config.AesConfigParser
 import fluence.contract.BasicContract
+import fluence.contract.client.Contracts
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
-import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi, Contracts }
+import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi }
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{ Contact, Key }

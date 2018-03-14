@@ -243,10 +243,10 @@ lazy val `crypto-js` = `crypto`.js
   .enablePlugins(ScalaJSBundlerPlugin)
 
 lazy val `client` = project.in(file("client"))
-  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `transport-core-jvm`, `kademlia-monix-jvm`, `dataset-protocol`, `contract-protocol-jvm`)
+  .dependsOn(`transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`, `transport-core-jvm`, `kademlia-monix-jvm`, `dataset-protocol`, `contract-protocol-jvm`)
 
 lazy val `dataset-node` = project.in(file("dataset/node"))
-  .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `kademlia-testkit` % Test, `dataset-client`, `b-tree-client`,
+  .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `dataset-client`, `b-tree-client`,
     `dataset-client` % "compile->test")
 
 lazy val `dataset-protocol` = project.in(file("dataset/protocol"))
@@ -256,7 +256,7 @@ lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
   .dependsOn(`dataset-client`, `transport-grpc`)
 
 lazy val `dataset-client` = project.in(file("dataset/client"))
-  .dependsOn(`dataset-protocol`, `crypto-jvm`, `b-tree-client`, `kademlia-core-jvm`, `contract-core-jvm`)
+  .dependsOn(`dataset-protocol`, `crypto-jvm`, `b-tree-client`, `kademlia-core-jvm`, `contract-client-jvm`)
 
 lazy val `contract-protocol` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -286,5 +286,38 @@ lazy val `contract-core` = crossProject(JVMPlatform, JSPlatform)
 lazy val `contract-core-js` = `contract-core`.js
 lazy val `contract-core-jvm` = `contract-core`.jvm
 
+lazy val `contract-client` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("contract/client"))
+  .settings(commons)
+  .jsSettings(
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  ).enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`contract-core`, `kademlia-core`)
+
+lazy val `contract-client-js` = `contract-client`.js
+lazy val `contract-client-jvm` = `contract-client`.jvm
+
+lazy val `contract-node` = project.in(file("contract/node"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      monix3 % Test,
+      scalatest
+    )
+  ).enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`contract-core-jvm`, `storage-core-jvm`, `contract-client-jvm` % Test, `kademlia-testkit` % Test)
+
+lazy val `contract-grpc` = project.in(file("contract/grpc"))
+  .settings(
+    commons,
+    grpc,
+    libraryDependencies ++= Seq(
+      scalatest
+    )
+  ).dependsOn(`contract-core-jvm`, `transport-grpc`)
+
 lazy val `node` = project
-  .dependsOn(`kademlia-grpc`, `kademlia-monix-jvm`, `dataset-node`, `dataset-grpc`, `client`, `transport-core-jvm`)
+  .dependsOn(`kademlia-monix-jvm`, `dataset-node`, `contract-node`, `client`, `transport-core-jvm`)

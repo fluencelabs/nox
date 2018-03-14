@@ -15,16 +15,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node
+package fluence.contract.node
 
 import cats.effect.IO
 import cats.instances.try_._
 import fluence.contract.BasicContract
+import fluence.contract.node.cache.ContractRecord
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
-import fluence.dataset.node.contract.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.storage.{ KVStore, TrieMapKVStore }
 import org.scalatest.{ Matchers, WordSpec }

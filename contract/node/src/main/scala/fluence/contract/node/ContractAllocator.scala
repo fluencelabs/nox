@@ -15,19 +15,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node
+package fluence.contract.node
 
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.eq._
-import cats.syntax.show._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.show._
 import cats.{ Eq, MonadError }
 import fluence.contract.ops.{ ContractRead, ContractWrite }
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.crypto.signature.{ SignatureChecker, Signer }
-import fluence.dataset.node.contract.ContractRecord
+import fluence.contract.node.cache.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.storage.KVStore
 

@@ -15,20 +15,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node
+package fluence.contract.node
 
 import cats.instances.try_._
 import fluence.contract.BasicContract
+import fluence.contract.node.cache.ContractRecord
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
-import fluence.dataset.node.contract.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.storage.{ KVStore, TrieMapKVStore }
 import monix.eval.Coeval
 import org.scalatest.{ Matchers, WordSpec }
 
 import scala.concurrent.duration._
-import scala.util.Try
 
 class ContractsCacheSpec extends WordSpec with Matchers {
 

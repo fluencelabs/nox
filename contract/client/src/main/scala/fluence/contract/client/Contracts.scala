@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.client
+package fluence.contract.client
 
 import cats.instances.list._
 import cats.syntax.applicative._

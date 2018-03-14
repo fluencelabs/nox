@@ -23,7 +23,7 @@ import fluence.codec.Codec
 import fluence.contract.BasicContract
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
-import fluence.dataset.node.contract.ContractRecord
+import fluence.contract.node.cache.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.storage.{ KVStore, TrieMapKVStore }
 import org.scalatest.{ Matchers, WordSpec }

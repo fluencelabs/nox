@@ -28,14 +28,15 @@ import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.client.{ ClientComposer, FluenceClient }
 import fluence.contract.BasicContract
+import fluence.contract.client.Contracts
 import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher, TestCryptoHasher }
 import fluence.crypto.keypair.KeyPair
-import fluence.dataset.client.Contracts.NotFound
-import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi, Contracts }
+import fluence.contract.client.Contracts.NotFound
+import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi }
 import fluence.dataset.grpc.DatasetStorageClient.ServerError
 import fluence.dataset.grpc.DatasetStorageServer.ClientError
 import fluence.dataset.protocol.DatasetStorageRpc

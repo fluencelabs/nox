@@ -32,7 +32,7 @@ import fluence.contract
 import fluence.contract.BasicContract
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
-import fluence.dataset.node.contract.ContractRecord
+import fluence.contract.node.cache.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.node.persistence.{ BasicContractCache, Participant }
 import fluence.storage.KVStore

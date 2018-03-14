@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node.contract
+package fluence.contract.node.cache
 
 import java.time.Instant
 

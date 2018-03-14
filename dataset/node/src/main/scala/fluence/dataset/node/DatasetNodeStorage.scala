@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.node.storage
+package fluence.dataset.node
 
 import java.nio.ByteBuffer
 
@@ -48,7 +48,7 @@ import scala.language.higherKinds
  * @param valueIdGenerator     Generator which creates surrogate id for new value when putting to dataset store.
  * @param onMRChange            Callback that will be called when merkle root change
  */
-class DatasetNodeStorage private[storage] (
+class DatasetNodeStorage private[node] (
     bTreeIndex: MerkleBTree,
     kVStore: KVStore[Task, ValueRef, Array[Byte]],
     merkleRootCalculator: MerkleRootCalculator,
