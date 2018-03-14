@@ -36,13 +36,14 @@ import fluence.kad.{ Kademlia, KademliaMVar }
 import fluence.storage.rocksdb.RocksDbStore
 import fluence.transport.TransportSecurity
 import monix.eval.Task
+import monix.reactive.Observable
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
 object NodeComposer {
 
-  type Services = NodeServices[Task, BasicContract, Contact]
+  type Services = NodeServices[Task, Observable, BasicContract, Contact]
 
   def services(
     keyPair: KeyPair,
@@ -58,7 +59,7 @@ object NodeComposer {
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
       rocksDbFactory = new RocksDbStore.Factory
       contractsCacheStore ← ContractsCacheStore(config, dirName ⇒ rocksDbFactory[IO](dirName, config))
-    } yield new NodeServices[Task, BasicContract, Contact] {
+    } yield new NodeServices[Task, Observable, BasicContract, Contact] {
       override val key: Key = k
 
       override def rocksFactory: RocksDbStore.Factory = rocksDbFactory
@@ -93,7 +94,7 @@ object NodeComposer {
           signer = signer
         )
 
-      override lazy val datasets: DatasetStorageRpc[Task] =
+      override lazy val datasets: DatasetStorageRpc[Task, Observable] =
         new Datasets(
           config,
           rocksFactory,

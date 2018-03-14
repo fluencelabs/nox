@@ -49,7 +49,7 @@ import scala.util.control.NoStackTrace
  */
 class DatasetStorageClient[F[_] : Effect](
     stub: DatasetStorageRpcStub
-)(implicit sch: Scheduler) extends DatasetStorageRpc[F] with slogging.LazyLogging {
+)(implicit sch: Scheduler) extends DatasetStorageRpc[F, Observable] with slogging.LazyLogging {
 
   private def run[A](fa: Task[A]): F[A] = fa.toIO.to[F]
 
@@ -155,6 +155,22 @@ class DatasetStorageClient[F[_] : Effect](
       errorOrValue // return success result or server error
     )))
 
+  }
+
+  /**
+   * Initiates ''Range'' operation in remote MerkleBTree.
+   *
+   * @param datasetId       Dataset ID
+   * @param searchCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
+   * @return returns stream of found value.
+   */
+  override def range(
+    datasetId: Array[Byte],
+    searchCallbacks: BTreeRpc.SearchCallback[F]
+  ): Observable[(Array[Byte], Array[Byte])] = {
+
+    // todo
+    ???
   }
 
   /**
@@ -310,7 +326,7 @@ object DatasetStorageClient {
   def register[F[_] : Effect]()(
     channel: ManagedChannel,
     callOptions: CallOptions
-  )(implicit scheduler: Scheduler): DatasetStorageRpc[F] =
+  )(implicit scheduler: Scheduler): DatasetStorageRpc[F, Observable] =
     new DatasetStorageClient[F](new DatasetStorageRpcStub(channel, callOptions))
 
   /**  Error from server(node) side. */

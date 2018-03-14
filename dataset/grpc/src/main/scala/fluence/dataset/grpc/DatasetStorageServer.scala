@@ -33,7 +33,7 @@ import fluence.dataset.protocol.DatasetStorageRpc
 import io.grpc.stub.StreamObserver
 import monix.eval.Task
 import monix.execution.{ Ack, Scheduler }
-import monix.reactive.Observer
+import monix.reactive.{ Observable, Observer }
 import scodec.bits.{ Bases, ByteVector }
 
 import scala.collection.Searching
@@ -49,7 +49,7 @@ import scala.util.control.NoStackTrace
  * @tparam F A box for returning value
  */
 class DatasetStorageServer[F[_] : Async](
-    service: DatasetStorageRpc[F]
+    service: DatasetStorageRpc[F, Observable]
 )(
     implicit
     F: Monad[F],

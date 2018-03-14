@@ -28,7 +28,7 @@ import fluence.storage.rocksdb.RocksDbStore
 
 import scala.language.higherKinds
 
-abstract class NodeServices[F[_], Contract, Contact] {
+abstract class NodeServices[F[_], FS[_], Contract, Contact] {
 
   def key: Key
 
@@ -44,7 +44,7 @@ abstract class NodeServices[F[_], Contract, Contact] {
 
   def contractAllocator: ContractAllocatorRpc[F, Contract]
 
-  def datasets: DatasetStorageRpc[F]
+  def datasets: DatasetStorageRpc[F, FS]
 
   def close: IO[Unit]
 

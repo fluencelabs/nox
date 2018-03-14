@@ -48,6 +48,7 @@ import io.grpc.StatusRuntimeException
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import monix.execution.{ CancelableFuture, Scheduler }
+import monix.reactive.Observable
 import org.scalactic.source.Position
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.concurrent.ScalaFutures
@@ -401,7 +402,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   private def createDatasetStorage(
     datasetId: Array[Byte],
-    grpc: DatasetStorageRpc[Task],
+    grpc: DatasetStorageRpc[Task, Observable],
     merkleRoot: Option[Array[Byte]] = None
   ): ClientDatasetStorage[String, String] = {
     val value1: Option[ClientState] = merkleRoot.map(mr ⇒ ClientState(ByteVector(mr)))
@@ -470,7 +471,11 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private def createFluenceClient(seed: Contact): FluenceClient = {
     val grpcClient = ClientGrpcServices.build[Task](GrpcClient.builder)
     val (kademliaClient, contractsApi) = createClientApi(seed, grpcClient)
+<<<<<<< 8d8c86d0f0a3439095c18e6d2963033de8464f85
     FluenceClient(kademliaClient, contractsApi, grpcClient(_).datasetStorage, algo, testHasher)
+=======
+    FluenceClient(kademliaClient, contractsApi, grpcClient.service[DatasetStorageRpc[Task, Observable]], algo, testHasher, config)
+>>>>>>> add range queries to dataset-protocol module
   }
 
   private implicit class WaitTask[T](task: Task[T]) {

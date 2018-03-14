@@ -98,6 +98,8 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
     }
   }
 
+  // todo test DatasetNodeStorage.range
+
   "DatasetNodeStorage.put" should {
     "raises fail" when {
       "bTreeIndex raised fail" in {

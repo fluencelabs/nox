@@ -24,9 +24,10 @@ import scala.language.higherKinds
 /**
  * Remotely-accessible interface to value storage. All parts of storage(btree index, value storage) use this Rpc.
  *
- * @tparam F A box for returning value
+ * @tparam F  A box for returning value
+ * @tparam FS A type of stream for returning values
  */
-trait DatasetStorageRpc[F[_]] {
+trait DatasetStorageRpc[F[_], FS[_]] {
 
   /**
    * Initiates ''Get'' operation in remote MerkleBTree.
@@ -36,6 +37,15 @@ trait DatasetStorageRpc[F[_]] {
    * @return returns found value, None if nothing was found.
    */
   def get(datasetId: Array[Byte], searchCallbacks: SearchCallback[F]): F[Option[Array[Byte]]]
+
+  /**
+   * Initiates ''Range'' operation in remote MerkleBTree.
+   *
+   * @param datasetId Dataset ID
+   * @param searchCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
+   * @return returns stream of found value.
+   */
+  def range(datasetId: Array[Byte], searchCallbacks: SearchCallback[F]): FS[(Array[Byte], Array[Byte])]
 
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.

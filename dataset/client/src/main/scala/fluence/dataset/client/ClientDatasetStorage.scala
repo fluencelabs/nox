@@ -24,6 +24,7 @@ import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.DatasetStorageRpc
 import monix.eval.Task
+import monix.reactive.Observable
 
 import scala.language.higherKinds
 
@@ -43,7 +44,7 @@ import scala.language.higherKinds
 class ClientDatasetStorage[K, V](
     datasetId: Array[Byte],
     bTreeIndex: MerkleBTreeClientApi[Task, K],
-    storageRpc: DatasetStorageRpc[Task],
+    storageRpc: DatasetStorageRpc[Task, Observable],
     valueCrypt: Crypt[Task, V, Array[Byte]],
     hasher: CryptoHasher[Array[Byte], Hash]
 ) extends ClientDatasetStorageApi[Task, K, V] with slogging.LazyLogging {
@@ -114,7 +115,7 @@ object ClientDatasetStorage {
   def apply[K, V](
     datasetId: Array[Byte],
     hasher: CryptoHasher[Array[Byte], Array[Byte]],
-    storageRpc: DatasetStorageRpc[Task],
+    storageRpc: DatasetStorageRpc[Task, Observable],
     keyCrypt: Crypt[Task, K, Array[Byte]],
     valueCrypt: Crypt[Task, V, Array[Byte]],
     clientState: Option[ClientState]

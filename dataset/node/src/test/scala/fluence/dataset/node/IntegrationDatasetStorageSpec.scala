@@ -34,6 +34,7 @@ import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
+import monix.reactive.Observable
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterEach, Matchers, WordSpec }
@@ -242,9 +243,9 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     )
   }
 
-  private def createStorageRpcWithNetworkError(dbName: String, counter: ByteVector ⇒ Task[Unit]): DatasetStorageRpc[Task] = {
+  private def createStorageRpcWithNetworkError(dbName: String, counter: ByteVector ⇒ Task[Unit]): DatasetStorageRpc[Task, Observable] = {
     val origin = createDatasetNodeStorage(makeUnique(dbName), counter)
-    new DatasetStorageRpc[Task] {
+    new DatasetStorageRpc[Task, Observable] {
       override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
         origin.remove(removeCallbacks)
       }
@@ -257,11 +258,19 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
       }
       override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[Task]): Task[Option[Array[Byte]]] =
         origin.get(getCallbacks)
+
+      override def range(
+        datasetId: Array[Byte],
+        searchCallbacks: BTreeRpc.SearchCallback[Task]
+      ): Observable[(Array[Byte], Array[Byte])] = {
+        // todo
+        ???
+      }
     }
   }
 
-  private def createStorageRpc(dbName: String): DatasetStorageRpc[Task] =
-    new DatasetStorageRpc[Task] {
+  private def createStorageRpc(dbName: String): DatasetStorageRpc[Task, Observable] =
+    new DatasetStorageRpc[Task, Observable] {
       private val storage = createDatasetNodeStorage(dbName, _ ⇒ Task.unit)
 
       override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] =
@@ -272,6 +281,14 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
       override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[Task]): Task[Option[Array[Byte]]] =
         storage.get(getCallbacks)
+
+      override def range(
+        datasetId: Array[Byte],
+        searchCallbacks: BTreeRpc.SearchCallback[Task]
+      ): Observable[(Array[Byte], Array[Byte])] = {
+        // todo
+        ???
+      }
     }
 
   private def createBTreeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String] = {
