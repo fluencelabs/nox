@@ -19,7 +19,7 @@ package fluence.dataset.node.storage
 
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.core.Hash
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
+import fluence.btree.protocol.BTreeRpc.{ SearchCallback, PutCallbacks }
 import fluence.btree.server.{ Get, MerkleBTree, Put }
 import fluence.storage.KVStore
 import monix.eval.Task
@@ -32,7 +32,7 @@ import scodec.bits.ByteVector
 
 class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar with ScalaFutures with BeforeAndAfterEach {
 
-  private val get = mock[GetCallbacks[Task]]
+  private val get = mock[SearchCallback[Task]]
   private val put = mock[PutCallbacks[Task]]
   private val mBtree = mock[MerkleBTree]
   private val kvStore = mock[KVStore[Task, Long, Array[Byte]]]

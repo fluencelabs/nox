@@ -39,4 +39,11 @@ object Key {
 
   implicit def keyCodec[F[_] : Applicative]: Codec[F, Key, Array[Byte]] = Codec.pure(_.bytes, b ⇒ Key(b))
 
+  implicit class KeyOps(originKey: Key) {
+
+    def isEmpty: Boolean = originKey.bytes.isEmpty
+
+    def toByteVector: ByteVector = ByteVector(originKey.bytes)
+
+  }
 }

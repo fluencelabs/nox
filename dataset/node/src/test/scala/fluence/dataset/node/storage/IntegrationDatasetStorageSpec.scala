@@ -255,7 +255,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
           origin.put(putCallback, encryptedValue)
         }
       }
-      override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.GetCallbacks[Task]): Task[Option[Array[Byte]]] =
+      override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[Task]): Task[Option[Array[Byte]]] =
         origin.get(getCallbacks)
     }
   }
@@ -270,7 +270,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
       override def put(datasetId: Array[Byte], putCallbacks: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] =
         storage.put(putCallbacks, encryptedValue)
 
-      override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.GetCallbacks[Task]): Task[Option[Array[Byte]]] =
+      override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[Task]): Task[Option[Array[Byte]]] =
         storage.get(getCallbacks)
     }
 

@@ -19,6 +19,7 @@ package fluence.btree.server.core
 
 import fluence.btree.common.merkle.MerklePath
 
+import scala.collection.Searching.SearchResult
 import scala.language.higherKinds
 
 /**
@@ -27,7 +28,7 @@ import scala.language.higherKinds
  * @tparam F The type of effect, box for returning value
  * @tparam K The type of search key
  */
-trait TreeCommand[F[_], K] {
+trait BTreeCommand[F[_], K] {
 
   /**
    * Returns next child index to makes next step down the tree.
@@ -42,23 +43,23 @@ trait TreeCommand[F[_], K] {
 
 /**
  * Command for searching some value in BTree (by client search key).
- * Search key is stored at the client. BTree server will never know search key.
+ * Search key is stored at the client.
  *
  * @tparam F The type of effect, box for returning value
  * @tparam K The type of search key
  * @tparam V The type of value
  * @tparam C The type of reference to child nodes
  */
-trait GetCommand[F[_], K, V, C] extends TreeCommand[F, K] {
+trait SearchCommand[F[_], K, V, C] extends BTreeCommand[F, K] {
 
   /**
    * Sends founded leaf with all keys and checksums of values to client.
    * If tree hasn't any leaf sends None.
    *
    * @param leaf Current leaf node of tree
-   * @return index of searched value, or None if key wasn't found
+   * @return A result of searching client key in server leaf keys.
    */
-  def submitLeaf(leaf: Option[LeafNode[K, V, C]]): F[Option[Int]]
+  def submitLeaf(leaf: Option[LeafNode[K, V, C]]): F[SearchResult]
 }
 
 /**
@@ -69,7 +70,7 @@ trait GetCommand[F[_], K, V, C] extends TreeCommand[F, K] {
  * @tparam V The type of value stored to leaf
  * @tparam C The type of reference to child nodes
  */
-trait PutCommand[F[_], K, V, C] extends TreeCommand[F, K] {
+trait PutCommand[F[_], K, V, C] extends BTreeCommand[F, K] {
 
   /**
    * Returns all details needed for putting key and value to BTree.

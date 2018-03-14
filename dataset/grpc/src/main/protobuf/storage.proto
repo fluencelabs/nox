@@ -24,7 +24,10 @@ message AskSubmitLeaf {
 }
 
 message ReplySubmitLeaf {
-    int32 childIndex = 1;
+    oneof searchResult {
+        int32 found = 1;
+        int32 insertionPoint = 2;
+    }
 }
 
 message GetValue {
@@ -69,7 +72,7 @@ message ReplyPutDetails {
     bytes checksum = 2;
 
     oneof searchResult {
-        int32 foundIndex = 3;
+        int32 found = 3;
         int32 insertionPoint = 4;
     }
 }

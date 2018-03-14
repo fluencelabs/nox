@@ -27,9 +27,9 @@ import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.common.ValueRef
 import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
+import fluence.btree.protocol.BTreeRpc.{ SearchCallback, PutCallbacks }
 import fluence.btree.server.MerkleBTree
-import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
+import fluence.btree.server.commands.{ SearchCommandImpl, PutCommandImpl }
 import fluence.codec.Codec
 import fluence.crypto.hash.CryptoHasher
 import fluence.storage.KVStore
@@ -62,8 +62,8 @@ class DatasetNodeStorage private[storage] (
    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  def get(getCallbacks: GetCallbacks[Task]): Task[Option[Array[Byte]]] =
-    bTreeIndex.get(GetCommandImpl(getCallbacks))
+  def get(getCallbacks: SearchCallback[Task]): Task[Option[Array[Byte]]] =
+    bTreeIndex.get(SearchCommandImpl(getCallbacks))
       .flatMap {
         case Some(reference) ⇒
           kVStore.get(reference).map(Option(_))

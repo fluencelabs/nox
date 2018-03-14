@@ -18,10 +18,9 @@
 package fluence.btree.client
 
 import fluence.btree.client.MerkleBTreeClient._
-import fluence.btree.common._
 import fluence.btree.common.merkle.MerklePath
 import fluence.btree.core.{ ClientPutDetails, Hash, Key }
-import fluence.btree.protocol.BTreeRpc.{ GetCallbacks, PutCallbacks }
+import fluence.btree.protocol.BTreeRpc.{ PutCallbacks, SearchCallback }
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import monix.eval.{ MVar, Task }
@@ -50,21 +49,22 @@ class MerkleBTreeClient[K] private (
   private val clientStateMVar = MVar(initClientState)
 
   /**
-   * State for each 'Get' request to remote BTree. One ''GetState'' corresponds to one series of round trip requests
+   * State for each search ('Get', 'Range', 'Delete') request to remote BTree.
+   * One ''SearchState'' corresponds to one series of round trip requests.
    *
    * @param key        The search plain text ''key''. Constant for round trip session.
    * @param merkleRoot Copy of client merkle root at the beginning of the request. Constant for round trip session.
    */
-  case class GetStateImpl(
+  case class SearchStateImpl(
       key: K,
       merkleRoot: Hash
-  ) extends GetState[Task] with GetCallbacks[Task] {
+  ) extends SearchState[Task] with SearchCallback[Task] {
 
     /** Tree path traveled on the server. Updatable for round trip session */
     private val merklePathMVar: MVar[MerklePath] = MVar(MerklePath.empty)
 
     // case when server asks next child
-    def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = {
+    override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = {
       merklePathMVar.take.flatMap { mPath ⇒
         logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
 
@@ -78,22 +78,17 @@ class MerkleBTreeClient[K] private (
       }
     }
 
-    // case when server returns founded leaf
-    def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): Task[Option[Int]] = {
+    // case when server returns founded leaf, this leaf either contains key, or key may be inserted in this leaf
+    override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): Task[SearchResult] = {
+
       merklePathMVar.take.flatMap { mPath ⇒
         logger.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
 
         val leafProof = verifier.getLeafProof(keys, valuesChecksums)
         if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
-          binarySearch(key, keys).map {
-            case Found(idx) ⇒
-              logger.debug(s"For key=$key was found corresponded value with idx=$idx")
-              Option(idx)
-            case _ ⇒
-              logger.debug(s"For key=$key corresponded value is missing")
-              None
-          }.flatMap { searchedIdx ⇒
-            merklePathMVar.put(mPath.add(leafProof)).map(_ ⇒ searchedIdx)
+          binarySearch(key, keys).flatMap { searchResult ⇒
+            logger.debug(s"Searching for key=$key returns $searchResult")
+            merklePathMVar.put(mPath.add(leafProof)).map(_ ⇒ searchResult)
           }
         } else {
           Task.raiseError(new IllegalStateException(
@@ -105,7 +100,7 @@ class MerkleBTreeClient[K] private (
     }
 
     override def recoverState(): Task[Unit] = {
-      logger.debug(s"Recover client state for get; mRoot=$merkleRoot")
+      logger.debug(s"Recover client state for search with key=$key mRoot=$merkleRoot")
       clientStateMVar.put(ClientState(merkleRoot))
     }
 
@@ -225,12 +220,26 @@ class MerkleBTreeClient[K] private (
    *
    * @param key Plain text key
    */
-  override def initGet(key: K): Task[GetState[Task]] = {
+  override def initGet(key: K): Task[SearchState[Task]] = {
     logger.debug(s"initGet starts for key=$key")
 
     for {
       clientState ← clientStateMVar.take
-    } yield GetStateImpl(key, clientState.merkleRoot.copy)
+    } yield SearchStateImpl(key, clientState.merkleRoot.copy)
+
+  }
+
+  /**
+   * Returns callbacks for finding start of range stream in remote MerkleBTree.
+   *
+   * @param from Plain text key, start of range
+   */
+  override def initRange(from: K): Task[SearchState[Task]] = {
+    logger.debug(s"initRange starts for from=$from")
+
+    for {
+      clientState ← clientStateMVar.take
+    } yield SearchStateImpl(from, clientState.merkleRoot.copy)
 
   }
 
@@ -254,7 +263,7 @@ class MerkleBTreeClient[K] private (
    *
    * @param key Plain text key
    */
-  override def removeState(key: K): Task[RemoveState[Task]] = ???
+  override def initRemove(key: K): Task[RemoveState[Task]] = ???
 
   private def binarySearch(key: K, keys: Array[Key]): Task[SearchResult] = {
     import fluence.crypto.cipher.CryptoSearching._

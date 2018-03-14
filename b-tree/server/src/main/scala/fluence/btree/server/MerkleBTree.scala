@@ -33,8 +33,9 @@ import fluence.crypto.hash.CryptoHasher
 import fluence.storage.rocksdb.{ IdSeqProvider, RocksDbStore }
 import monix.eval.{ Task, TaskSemaphore }
 import monix.execution.atomic.AtomicInt
+import monix.reactive.Observable
 
-import scala.collection.Searching.{ Found, InsertionPoint }
+import scala.collection.Searching.{ Found, InsertionPoint, SearchResult }
 import scala.language.higherKinds
 
 /**
@@ -53,7 +54,7 @@ import scala.language.higherKinds
  * Note that the tree provides only algorithms (i.e., functions) to search, insert and delete elements.
  * Tree nodes are actually stored externally using the [[BTreeStore]] to make the tree
  * maximally pluggable and seamlessly switch between in memory, on disk, or maybe, over network storages. Key comparison
- * operations in the tree are also pluggable and are provided by the [[TreeCommand]] implementations, which helps to
+ * operations in the tree are also pluggable and are provided by the [[BTreeCommand]] implementations, which helps to
  * impose an order over for example encrypted nodes data.
  *
  * @param conf    Config for this tree
@@ -94,6 +95,24 @@ class MerkleBTree private[server] (
    */
   def get(cmd: Get): Task[Option[ValueRef]] = {
     globalMutex.greenLight(getRoot.flatMap(root ⇒ getForRoot(root, cmd)))
+  }
+
+  /**
+   * === Range ===
+   *
+   * We are looking for a starting key of range in this B+Tree.
+   * Starting from the root, we are looking for some leaf which needed to the BTree client. We using [[Range]]
+   * for communication with client. At each node, we figure out which internal pointer we should follow.
+   * When we found specified search key in a leaf, we should be returning all key-value pairs from searched position
+   * until the stream won't stopped by consumer
+   * Range have O(log,,arity,,n+k) algorithmic complexity, where ''k'' is number of returned pairs.
+   *
+   * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
+   * @return stream of references to values that corresponds search command, or empty if nothing was found
+   */
+  def range(cmd: Range): Observable[(Key, ValueRef)] = {
+    Observable.fromTask(globalMutex.greenLight(getRoot))
+      .flatMap(mRoot ⇒ rangeForRoot(mRoot, cmd))
   }
 
   /**
@@ -151,7 +170,7 @@ class MerkleBTree private[server] (
 
   private def getForNode(root: Node, cmd: Get): Task[Option[ValueRef]] = {
     if (isEmpty(root)) {
-      return cmd.submitLeaf(None).map(_ ⇒ None) // This is the terminal action, nothing to find in empty tree
+      return Task(None) // This is the terminal action, nothing to find in empty tree
     }
 
     root match {
@@ -176,9 +195,82 @@ class MerkleBTree private[server] (
   /** '''Method makes remote call!'''. This is the terminal method. */
   private def getForLeaf(leaf: Leaf, cmd: Get): Task[Option[ValueRef]] = {
     logger.debug(s"Get for leaf=$leaf")
-    cmd.submitLeaf(Some(leaf))
-      .map(_.map(leaf.valuesReferences)) // get value ref from leaf by searched index
+    cmd.submitLeaf(Some(leaf)).map {
+      case Found(idx) ⇒ Some(leaf.valuesReferences(idx))
+      case _          ⇒ None
+    } // get value ref from leaf by searched index
   }
+
+  /* RANGE */
+
+  private def rangeForRoot(root: Node, cmd: Get): Observable[(Key, ValueRef)] = {
+    logger.debug(s"Range starts")
+    rangeForNode(root, cmd)
+  }
+
+  private def rangeForNode(root: Node, cmd: Get): Observable[(Key, ValueRef)] = {
+    if (isEmpty(root)) {
+      return Observable.empty // This is the terminal action, nothing to find in empty tree
+    }
+
+    root match {
+      case leaf: Leaf @unchecked ⇒
+        rangeForLeaf(leaf, cmd)
+      case branch: Branch @unchecked ⇒
+        rangeForBranch(branch, cmd)
+    }
+  }
+
+  /** '''Method makes remote call!''' This method makes step down the tree. */
+  private def rangeForBranch(branch: Branch, cmd: Get): Observable[(Key, ValueRef)] = {
+    logger.debug(s"Range for branch=$branch")
+
+    Observable.fromTask(searchChild(branch, cmd))
+      .flatMap { case (_, child) ⇒ rangeForNode(child, cmd) }
+  }
+
+  /** '''Method makes remote call!'''. This is the terminal method. */
+  private def rangeForLeaf(leaf: Leaf, cmd: Get): Observable[(Key, ValueRef)] = {
+    logger.debug(s"Range for leaf=$leaf")
+
+    Observable.fromTask(cmd.submitLeaf(Some(leaf)))
+      .flatMap(searchResult ⇒ fetchPairs(Task(Some(leaf)), searchResult.insertionPoint))
+  }
+
+  /**
+   * Fetches all key-value pairs from current leaf and all leafs from right (right siblings).
+   * Starts at starting index of current leaf, ends when client close this stream
+   * or is fetched last element from the last (rightmost) leaf.
+   */
+  private def fetchPairs(currentLeaf: Task[Option[Leaf]], idxToStartWith: Int = 0): Observable[(Key, ValueRef)] =
+    Observable.fromTask(currentLeaf).flatMap {
+      case None ⇒
+        Observable.empty
+      case Some(leaf) ⇒
+        val keys = leaf.keys.slice(idxToStartWith, leaf.size)
+        val refs = leaf.valuesReferences.slice(idxToStartWith, leaf.size)
+        logger.debug(s"Adds '${keys.length}' key-value pair(s) from leaf=$leaf to range query results ")
+        Observable.fromIterable(keys zip refs) ++ fetchPairs(getNextLeaf(leaf))
+    }
+
+  /** Fetches right sibling of current leaf */
+  private def getNextLeaf(leaf: Leaf): Task[Option[Leaf]] =
+    Task(leaf.rightSibling).flatMap {
+      case Some(rightSinRef) ⇒
+        logger.debug(s"Try to fetch right sibling for leaf=$leaf")
+        store.get(rightSinRef).flatMap {
+          case leaf: Leaf @unchecked ⇒
+            logger.debug(s"Next leaf is $leaf")
+            Task(Some(leaf))
+          case node ⇒
+            Task.raiseError(new IllegalStateException(
+              s"Unexpected exception, should be fetched leaf ${classOf[Leaf]}, but actually is ${node.getClass}"
+            ))
+        }
+      case None ⇒
+        logger.debug(s"There is no right sibling for current leaf=$leaf")
+        Task(None)
+    }
 
   /* PUT */
 
@@ -522,7 +614,7 @@ class MerkleBTree private[server] (
    * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
    * @return Index of searched child and the child
    */
-  private def searchChild(branch: Branch, cmd: TreeCommand[Task, Key]): Task[(Int, Node)] = {
+  private def searchChild(branch: Branch, cmd: BTreeCommand[Task, Key]): Task[(Int, Node)] = {
     cmd.nextChildIndex(branch)
       .flatMap(searchedIdx ⇒ {
         val childId = branch.childsReferences(searchedIdx)

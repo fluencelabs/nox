@@ -30,11 +30,18 @@ import scala.language.higherKinds
 trait MerkleBTreeClientApi[F[_], K] {
 
   /**
-   * Returns ''GetState'' with callbacks for finding ''value'' for specified ''key'' in remote MerkleBTree.
+   * Returns ''SearchState'' with callbacks for finding ''value'' for specified ''key'' in remote MerkleBTree.
    *
    * @param key Plain text key
    */
-  def initGet(key: K): F[GetState[F]]
+  def initGet(key: K): F[SearchState[F]]
+
+  /**
+   * Returns ''SearchState'' with callbacks for finding range of ''values''.
+   *
+   * @param from Plain text key, start of range
+   */
+  def initRange(from: K): F[SearchState[F]]
 
   /**
    * Returns ''PutState'' with callbacks for saving encrypted ''key'' and ''value'' into remote MerkleBTree.
@@ -50,6 +57,6 @@ trait MerkleBTreeClientApi[F[_], K] {
    *
    * @param key Plain text key
    */
-  def removeState(key: K): F[RemoveState[F]]
+  def initRemove(key: K): F[RemoveState[F]]
 
 }

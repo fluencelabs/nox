@@ -23,7 +23,7 @@ import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.core.{ Hash, Key }
-import fluence.btree.server.commands.{ GetCommandImpl, PutCommandImpl }
+import fluence.btree.server.commands.{ PutCommandImpl, SearchCommandImpl }
 import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
 import fluence.codec.kryo.KryoCodecs
 import fluence.crypto.cipher.NoOpCrypt
@@ -33,7 +33,9 @@ import monix.execution.ExecutionModel
 import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.time.{ Milliseconds, Seconds, Span }
+import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
+import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
@@ -41,7 +43,8 @@ import scala.math.Ordering
 import scala.util.Random
 import scala.util.hashing.MurmurHash3
 
-class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures {
+class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
 
   implicit class Str2Key(str: String) {
     def toKey: Key = Key(str.getBytes)
@@ -71,19 +74,26 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
   private val key5 = "k0005"
   private val val5 = "v0005"
 
-  "put and get" should {
+  "put, get and range" should {
     "save and return correct results" when {
       "get from empty tree" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createBTreeClient()
         val bTree = createBTree()
 
-        val result = for {
-          getCb ← client.initGet(key1)
-          res ← bTree.get(GetCommandImpl(getCb))
+        val getResult = for {
+          cb ← client.initGet(key1)
+          res ← bTree.get(SearchCommandImpl(cb))
+          _ ← cb.recoverState()
         } yield res shouldBe None
+        wait(getResult)
 
-        wait(result)
+        val rangeResult = for {
+          cb ← client.initRange(key1)
+          res ← bTree.range(SearchCommandImpl(cb)).headOptionL
+          _ ← cb.recoverState()
+        } yield res shouldBe None
+        wait(rangeResult)
       }
 
       "put key1, get key1 from empty tree" in {
@@ -92,26 +102,40 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val bTree = createBTree()
         val counter = Atomic(0L)
 
-        val res1 = wait(for {
-          getCb1 ← client.initGet(key1)
-          res1 ← bTree.get(GetCommandImpl(getCb1))
-          _ ← getCb1.recoverState()
-        } yield res1)
+        val getRes1 = wait(for {
+          cb ← client.initGet(key1)
+          res ← bTree.get(SearchCommandImpl(cb))
+          _ ← cb.recoverState()
+        } yield res)
 
-        val res2 = wait(for {
-          putCb ← client.initPut(key1, val1.toHash)
-          res2 ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
-        } yield res2)
+        val rangeRes1 = wait(for {
+          cb ← client.initRange(key1)
+          res ← bTree.range(SearchCommandImpl(cb)).doOnTerminate(_ ⇒ cb.recoverState()).toListL
+          _ ← cb.recoverState()
+        } yield res)
 
-        val res3 = wait(for {
-          getCb2 ← client.initGet(key1)
-          res3 ← bTree.get(GetCommandImpl(getCb2))
-          _ ← getCb2.recoverState()
-        } yield res3)
+        val putRes1 = wait(for {
+          cb ← client.initPut(key1, val1.toHash)
+          res ← bTree.put(PutCommandImpl(mRCalc, cb, () ⇒ counter.incrementAndGet()))
+        } yield res)
 
-        res1 shouldBe None
-        res2 shouldBe 1l
-        res3 shouldBe Some(1l)
+        val getRes2 = wait(for {
+          cb ← client.initGet(key1)
+          res ← bTree.get(SearchCommandImpl(cb))
+          _ ← cb.recoverState()
+        } yield res)
+
+        val rangeRes2 = wait(for {
+          cb ← client.initRange(key1)
+          res ← bTree.range(SearchCommandImpl(cb)).toListL
+          _ ← cb.recoverState()
+        } yield res)
+
+        getRes1 shouldBe None
+        rangeRes1 shouldBe empty
+        putRes1 shouldBe 1L
+        getRes2 shouldBe Some(1L)
+        rangeRes2.head._1.toByteVector shouldBe key1.toKey.toByteVector
 
       }
 
@@ -131,8 +155,8 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         val putRes1 = wait(Task.gather(
           Random.shuffle(1 to 512).map(i ⇒ {
             for {
-              putCb ← client.initPut(f"k$i%04d", f"v$i%04d".toHash)
-              res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
+              cb ← client.initPut(f"k$i%04d", f"v$i%04d".toHash)
+              res ← bTree.put(PutCommandImpl(mRCalc, cb, () ⇒ counter.incrementAndGet()))
             } yield res
           })
         ))
@@ -143,32 +167,66 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         // get some values
 
         val min = wait(for {
-          getMinCb ← client.initGet(minKey)
-          min ← bTree.get(GetCommandImpl(getMinCb))
-          _ ← getMinCb.recoverState()
-        } yield min)
+          cb ← client.initGet(minKey)
+          res ← bTree.get(SearchCommandImpl(cb))
+          _ ← cb.recoverState()
+        } yield res)
         val mid = wait(for {
-          getMidCb ← client.initGet(midKey)
-          mid ← bTree.get(GetCommandImpl(getMidCb))
-          _ ← getMidCb.recoverState()
-        } yield mid)
+          cb ← client.initGet(midKey)
+          res ← bTree.get(SearchCommandImpl(cb))
+          _ ← cb.recoverState()
+        } yield res)
         val max = wait(for {
-          getMaxCb ← client.initGet(maxKey)
-          max ← bTree.get(GetCommandImpl(getMaxCb))
-          _ ← getMaxCb.recoverState()
+          cb ← client.initGet(maxKey)
+          max ← bTree.get(SearchCommandImpl(cb))
+          _ ← cb.recoverState()
         } yield max)
         val absent = wait(for {
-          getAbsentCb ← client.initGet(absentKey)
-          absent ← bTree.get(GetCommandImpl(getAbsentCb))
-          _ ← getAbsentCb.recoverState()
-        } yield absent)
+          cb ← client.initGet(absentKey)
+          res ← bTree.get(SearchCommandImpl(cb))
+          _ ← cb.recoverState()
+        } yield res)
 
         min shouldBe defined
         mid shouldBe defined
         max shouldBe defined
         absent shouldBe None
 
+        // get range some values
+
+        val fromMinToMax = wait(for {
+          cb ← client.initGet(minKey)
+          res ← bTree.range(SearchCommandImpl(cb)).toListL
+          _ ← cb.recoverState()
+        } yield res)
+        val fromMidTenElems = wait(for {
+          cb ← client.initGet(midKey)
+          res ← bTree.range(SearchCommandImpl(cb)).take(10).toListL
+          _ ← cb.recoverState()
+        } yield res)
+        val fromMaxTenElems = wait(for {
+          cb ← client.initGet(maxKey)
+          res ← bTree.range(SearchCommandImpl(cb)).take(10).toListL
+          _ ← cb.recoverState()
+        } yield res)
+        val fromLessThanMinTenElems = wait(for {
+          cb ← client.initGet("abc")
+          res ← bTree.range(SearchCommandImpl(cb)).take(10).toListL
+          _ ← cb.recoverState()
+        } yield res)
+
+        fromMinToMax.size shouldBe 512
+        fromMinToMax.head._1.toByteVector shouldBe minKey.toKey.toByteVector
+        fromMinToMax.last._1.toByteVector shouldBe maxKey.toKey.toByteVector
+        fromMidTenElems.size shouldBe 10
+        fromMidTenElems.head._1.toByteVector shouldBe midKey.toKey.toByteVector
+        fromMaxTenElems.size shouldBe 1
+        fromMaxTenElems.head._1.toByteVector shouldBe maxKey.toKey.toByteVector
+        fromLessThanMinTenElems.size shouldBe 10
+        fromLessThanMinTenElems.head._1.toByteVector shouldBe minKey.toKey.toByteVector
+
         // insert 512 new and 512 duplicated values
+
         val putRes2 = wait(Task.gather(
           Random.shuffle(1 to 1024).map(i ⇒ {
             for {
@@ -182,31 +240,68 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         putRes2 should contain allElementsOf (1 to 1024)
 
         // get some values
+
         val minNew = wait(for {
-          getMinCb ← client.initGet(minKey)
-          min ← bTree.get(GetCommandImpl(getMinCb))
-          _ ← getMinCb.recoverState()
-        } yield min)
+          cb ← client.initGet(minKey)
+          res ← bTree.get(SearchCommandImpl(cb))
+          _ ← cb.recoverState()
+        } yield res)
         val midNew = wait(for {
-          getMidCb ← client.initGet(midKey)
-          mid ← bTree.get(GetCommandImpl(getMidCb))
-          _ ← getMidCb.recoverState()
-        } yield mid)
+          cb ← client.initGet(midKey)
+          res ← bTree.get(SearchCommandImpl(cb))
+          _ ← cb.recoverState()
+        } yield res)
         val maxNew = wait(for {
-          getMaxCb ← client.initGet(maxKey)
-          max ← bTree.get(GetCommandImpl(getMaxCb))
-          _ ← getMaxCb.recoverState()
-        } yield max)
+          cb ← client.initGet(maxKey)
+          res ← bTree.get(SearchCommandImpl(cb))
+          _ ← cb.recoverState()
+        } yield res)
         val absentNew = wait(for {
-          getAbsentCb ← client.initGet(absentKey)
-          absent ← bTree.get(GetCommandImpl(getAbsentCb))
-          _ ← getAbsentCb.recoverState()
-        } yield absent)
+          cb ← client.initGet(absentKey)
+          res ← bTree.get(SearchCommandImpl(cb))
+          _ ← cb.recoverState()
+        } yield res)
 
         minNew shouldBe min
         midNew shouldBe mid
         maxNew shouldBe defined
         absentNew shouldBe None
+
+        val newMidKey = "k0512"
+        val newMaxKey = "k1024"
+
+        // get range some values
+
+        val fromMinToMaxNew = wait(for {
+          cb ← client.initGet(minKey)
+          res ← bTree.range(SearchCommandImpl(cb)).toListL
+          _ ← cb.recoverState()
+        } yield res)
+        val fromMidTenElemsNew = wait(for {
+          cb ← client.initGet(newMidKey)
+          res ← bTree.range(SearchCommandImpl(cb)).take(10).toListL
+          _ ← cb.recoverState()
+        } yield res)
+        val fromMaxTenElemsNew = wait(for {
+          cb ← client.initGet(newMaxKey)
+          res ← bTree.range(SearchCommandImpl(cb)).take(10).toListL
+          _ ← cb.recoverState()
+        } yield res)
+        val fromLessThanMinTenElemsNew = wait(for {
+          cb ← client.initGet("abc")
+          res ← bTree.range(SearchCommandImpl(cb)).take(10).toListL
+          _ ← cb.recoverState()
+        } yield res)
+
+        fromMinToMaxNew.size shouldBe 1024
+        fromMinToMaxNew.head._1.toByteVector shouldBe minKey.toKey.toByteVector
+        fromMinToMaxNew.last._1.toByteVector shouldBe newMaxKey.toKey.toByteVector
+        fromMidTenElemsNew.size shouldBe 10
+        fromMidTenElemsNew.head._1.toByteVector shouldBe newMidKey.toKey.toByteVector
+        fromMaxTenElemsNew.size shouldBe 1
+        fromMaxTenElemsNew.head._1.toByteVector shouldBe newMaxKey.toKey.toByteVector
+        fromLessThanMinTenElemsNew.size shouldBe 10
+        fromLessThanMinTenElemsNew.head._1.toByteVector shouldBe minKey.toKey.toByteVector
 
       }
 
@@ -260,6 +355,17 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
     val async = task.runAsync
     TS.tick(time)
     async.futureValue
+  }
+
+  override protected def beforeAll(): Unit = {
+    LoggerConfig.factory = PrintLoggerFactory
+    LoggerConfig.level = LogLevel.OFF
+    super.beforeAll()
+  }
+
+  override protected def afterAll(): Unit = {
+    super.afterAll()
+    LoggerConfig.level = LogLevel.OFF
   }
 
 }
