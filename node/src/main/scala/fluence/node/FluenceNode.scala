@@ -26,12 +26,12 @@ import cats.syntax.flatMap._
 import cats.syntax.show._
 import cats.{ Applicative, MonadError }
 import com.typesafe.config.{ Config, ConfigFactory, ConfigRenderOptions }
-import fluence.client.config.{ KeyPairConfig, SeedsConfig }
+import fluence.client.core.config.{ KeyPairConfig, SeedsConfig }
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.kad.Kademlia
-import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
+import fluence.kad.protocol.{ Contact, Key, Node }
 import fluence.node.config.{ ContactConf, UPnPConf }
 import fluence.transport.UPnP
 import fluence.transport.grpc.server.GrpcServerConf
@@ -139,8 +139,8 @@ object FluenceNode extends slogging.LazyLogging {
         signer = algo.signer(kp)
       ).value.flatMap(MonadError[IO, Throwable].fromEither).onFail(upnpShutdown)
 
-      client ← NodeGrpc.grpcClient(key, contact, config).onFail(upnpShutdown)
-      kadClient = client.service[KademliaRpc[Task, Contact]] _
+      client ← NodeGrpc.grpcClient(key, contact, config)
+      kadClient = client(_: Contact).kademlia
 
       services ← NodeComposer.services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true).onFail(upnpShutdown)
       closeUpNpAndServices = upnpShutdown.flatMap(_ ⇒ services.close)

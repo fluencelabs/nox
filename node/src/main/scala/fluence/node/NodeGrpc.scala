@@ -22,7 +22,8 @@ import java.util.concurrent.Executors
 import cats.effect.IO
 import cats.~>
 import com.typesafe.config.Config
-import fluence.client.ClientComposer
+import fluence.client.core.ClientServices
+import fluence.client.grpc.ClientGrpcServices
 import fluence.contract.BasicContract
 import fluence.crypto.signature.SignatureChecker
 import fluence.contract.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
@@ -53,13 +54,13 @@ object NodeGrpc {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
-  def grpcClient(key: Key, contact: Contact, config: Config)(implicit checker: SignatureChecker) =
+  def grpcClient(key: Key, contact: Contact, config: Config)(implicit checker: SignatureChecker): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact]] =
     for {
       clientConf ← GrpcConf.read[IO](config)
       client = {
         // TODO: check if it's optimal
         implicit val ec: Scheduler = Scheduler(Executors.newCachedThreadPool()) // required for implicit Effect[Task]
-        ClientComposer.grpc[Task](GrpcClient.builder(key, IO.pure(contact.b64seed), clientConf))
+        ClientGrpcServices.build[Task](GrpcClient.builder(key, IO.pure(contact.b64seed), clientConf))
       }
     } yield client
 
