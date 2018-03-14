@@ -19,11 +19,10 @@ package fluence.dataset.node
 
 import cats.instances.try_._
 import cats.implicits.catsStdShowForString
-import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.contract.BasicContract
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
-import fluence.dataset.BasicContract
 import fluence.dataset.client.Contracts
 import fluence.dataset.node.contract.ContractRecord
 import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
@@ -119,7 +118,7 @@ class ContractsSpec extends WordSpec with Matchers {
     "place a contract on single node" in {
       val contract = offer("dumb0")
 
-      import fluence.dataset.contract.ContractWrite._
+      import fluence.contract.ops.ContractWrite._
 
       val signer = offerSigner("dumb0")
 
@@ -133,7 +132,7 @@ class ContractsSpec extends WordSpec with Matchers {
     "place a contract on 5 nodes" in {
       val contract = offer("dumb1", participantsRequired = 5)
 
-      import fluence.dataset.contract.ContractWrite._
+      import fluence.contract.ops.ContractWrite._
 
       val signer = offerSigner("dumb1")
 
@@ -147,7 +146,7 @@ class ContractsSpec extends WordSpec with Matchers {
     "reject unsealed contracts" in {
       val contract = offer("dumb2", 5)
 
-      import fluence.dataset.contract.ContractWrite._
+      import fluence.contract.ops.ContractWrite._
 
       val signer = offerSigner("dumb2")
 

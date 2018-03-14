@@ -18,9 +18,9 @@
 package fluence.dataset.node
 
 import cats.instances.try_._
+import fluence.contract.BasicContract
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
-import fluence.dataset.BasicContract
 import fluence.dataset.node.contract.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.storage.{ KVStore, TrieMapKVStore }
@@ -54,7 +54,7 @@ class ContractsCacheSpec extends WordSpec with Matchers {
   val cache: ContractsCache[Coeval, BasicContract] =
     new ContractsCache[Coeval, BasicContract](nodeId, store, 1.minute)
 
-  import fluence.dataset.contract.ContractWrite._
+  import fluence.contract.ops.ContractWrite._
 
   "contracts cache" should {
     "reject caching empty and unsigned contracts" in {

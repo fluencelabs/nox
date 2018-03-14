@@ -22,7 +22,7 @@ import cats.kernel.Eq
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.SignAlgo
 import org.scalatest.{ Matchers, WordSpec }
-import fluence.dataset.{ BasicContract ⇒ BC }
+import fluence.contract.{ BasicContract ⇒ BC }
 import fluence.kad.protocol.Key
 
 import scala.util.{ Success, Try }
@@ -47,7 +47,7 @@ class BasicContractCodecSpec extends WordSpec with Matchers {
 
     "be invariant for direct+inverse op" in {
 
-      import fluence.dataset.contract.ContractWrite._
+      import fluence.contract.ops.ContractWrite._
 
       val seed = "seed".getBytes()
       val keyPair = KeyPair.fromBytes(seed, seed)

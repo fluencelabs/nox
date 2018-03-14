@@ -15,11 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.contract
+package fluence.contract.ops
 
-import cats.{ Invariant, MonadError }
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.{ Invariant, MonadError }
 import fluence.crypto.signature.{ Signature, SignatureChecker, Signer }
 import fluence.kad.protocol.Key
 

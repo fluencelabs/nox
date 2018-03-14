@@ -28,9 +28,10 @@ import cats.{ MonadError, Traverse }
 import com.google.protobuf.ByteString
 import com.typesafe.config.Config
 import fluence.codec.Codec
+import fluence.contract
+import fluence.contract.BasicContract
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
-import fluence.dataset.BasicContract
 import fluence.dataset.node.contract.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.node.persistence.{ BasicContractCache, Participant }
@@ -142,10 +143,10 @@ object ContractsCacheStore {
           lastUpdated ← read("lastUpdated", _.lastUpdated)
         } yield ContractRecord(
 
-          fluence.dataset.BasicContract(
+          contract.BasicContract(
             id = id,
 
-            offer = fluence.dataset.BasicContract.Offer(
+            offer = fluence.contract.BasicContract.Offer(
               participantsRequired = participantsRequired
             ),
 

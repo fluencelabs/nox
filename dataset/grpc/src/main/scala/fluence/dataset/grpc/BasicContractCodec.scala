@@ -27,7 +27,8 @@ import fluence.crypto.signature.Signature
 import fluence.kad.protocol.Key
 import cats.instances.list._
 import cats.instances.option._
-import fluence.dataset.BasicContract.ExecutionState
+import fluence.contract
+import fluence.contract.BasicContract.ExecutionState
 import fluence.transport.grpc.GrpcCodecs._
 import scodec.bits.ByteVector
 
@@ -35,7 +36,7 @@ import scala.language.higherKinds
 
 object BasicContractCodec {
 
-  implicit def codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, fluence.dataset.BasicContract, BasicContract] =
+  implicit def codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, contract.BasicContract, BasicContract] =
     {
       val keyC = Codec.codec[F, Key, ByteString]
       val strVec = Codec.codec[F, ByteVector, ByteString]
@@ -123,10 +124,10 @@ object BasicContractCodec {
             merkleRoot ← strVec.decode(merkleRootBS)
 
             execV ← optStrVecC.decode(Option(g.executionSeal))
-          } yield fluence.dataset.BasicContract(
+          } yield contract.BasicContract(
             id = id,
 
-            offer = fluence.dataset.BasicContract.Offer(
+            offer = fluence.contract.BasicContract.Offer(
               participantsRequired = participantsRequired
             ),
 

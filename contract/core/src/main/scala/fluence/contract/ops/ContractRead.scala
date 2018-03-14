@@ -15,12 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.contract
+package fluence.contract.ops
 
-import cats.syntax.functor._
-import cats.syntax.flatMap._
 import cats.instances.list._
 import cats.syntax.applicative._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import cats.{ MonadError, Traverse }
 import fluence.crypto.signature.{ Signature, SignatureChecker }
 import fluence.kad.protocol.Key

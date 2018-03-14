@@ -20,9 +20,9 @@ package fluence.node
 import cats.effect.IO
 import com.typesafe.config.{ ConfigException, ConfigFactory }
 import fluence.codec.Codec
+import fluence.contract.BasicContract
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
-import fluence.dataset.BasicContract
 import fluence.dataset.node.contract.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.storage.{ KVStore, TrieMapKVStore }

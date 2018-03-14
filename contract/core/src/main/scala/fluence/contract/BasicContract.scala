@@ -15,22 +15,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset
+package fluence.contract
 
 import java.nio.ByteBuffer
 
-import cats.{ Eq, MonadError }
-import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.{ Eq, MonadError }
+import fluence.contract.BasicContract.ExecutionState
+import fluence.contract.ops.{ ContractRead, ContractWrite }
 import fluence.crypto.signature.{ Signature, Signer }
-import fluence.dataset.BasicContract.ExecutionState
-import fluence.dataset.contract.{ ContractRead, ContractWrite }
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 /**
+ * TODO: shouldn't it be in protocol?
  *
  * @param id               Contract/cluster ID
  * @param offer            The offer from client

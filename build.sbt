@@ -256,7 +256,7 @@ lazy val `dataset-grpc` = project.in(file("dataset/grpc"))
   .dependsOn(`dataset-client`, `transport-grpc`)
 
 lazy val `dataset-client` = project.in(file("dataset/client"))
-  .dependsOn(`dataset-protocol`, `crypto-jvm`, `b-tree-client`, `kademlia-core-jvm`, `contract-protocol-jvm`)
+  .dependsOn(`dataset-protocol`, `crypto-jvm`, `b-tree-client`, `kademlia-core-jvm`, `contract-core-jvm`)
 
 lazy val `contract-protocol` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -271,6 +271,20 @@ lazy val `contract-protocol` = crossProject(JVMPlatform, JSPlatform)
 
 lazy val `contract-protocol-js` = `contract-protocol`.js
 lazy val `contract-protocol-jvm` = `contract-protocol`.jvm
+
+lazy val `contract-core` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("contract/core"))
+  .settings(commons)
+  .jsSettings(
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  ).enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`contract-protocol`, `crypto`)
+
+lazy val `contract-core-js` = `contract-core`.js
+lazy val `contract-core-jvm` = `contract-core`.jvm
 
 lazy val `node` = project
   .dependsOn(`kademlia-grpc`, `kademlia-monix-jvm`, `dataset-node`, `dataset-grpc`, `client`, `transport-core-jvm`)

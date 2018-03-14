@@ -19,11 +19,11 @@ package fluence.dataset.node
 
 import cats.effect.IO
 import cats.instances.try_._
+import fluence.contract.BasicContract
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
-import fluence.dataset.BasicContract
 import fluence.dataset.node.contract.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.storage.{ KVStore, TrieMapKVStore }
@@ -129,7 +129,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       allocator.allocate(contract).attempt.unsafeRunSync().isLeft shouldBe true
 
       val s2 = offerSigner(signAlgo, "signer some")
-      import fluence.dataset.contract.ContractWrite._
+      import fluence.contract.ops.ContractWrite._
 
       val c2 = offer("should not allocate, as not a participant, even with a list of participants")
         .signOffer(Key.fromPublicKey[IO](s2.publicKey).unsafeRunSync(), s2).get
@@ -142,7 +142,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       val signer = offerSigner(signAlgo, "should accept offer, but reject allocation")
       val accepted = allocator.offer(offerC).unsafeRunSync()
 
-      import fluence.dataset.contract.ContractWrite._
+      import fluence.contract.ops.ContractWrite._
 
       allocator.allocate(accepted).attempt.unsafeRunSync().isLeft shouldBe true
       allocator.allocate(
@@ -155,7 +155,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
     }
 
     "allocate (idempotently) and return from cache" in {
-      import fluence.dataset.contract.ContractWrite._
+      import fluence.contract.ops.ContractWrite._
 
       val offerC = offer("should accept offer and allocate")
       val signer = offerSigner(signAlgo, "should accept offer and allocate")

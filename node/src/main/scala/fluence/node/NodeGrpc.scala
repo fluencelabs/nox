@@ -23,8 +23,8 @@ import cats.effect.IO
 import cats.~>
 import com.typesafe.config.Config
 import fluence.client.ClientComposer
+import fluence.contract.BasicContract
 import fluence.crypto.signature.SignatureChecker
-import fluence.dataset.BasicContract
 import fluence.dataset.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
 import fluence.dataset.grpc.storage.DatasetStorageRpcGrpc
 import fluence.dataset.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc, DatasetStorageServer }

@@ -24,9 +24,9 @@ import cats.syntax.show._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ Eq, MonadError }
+import fluence.contract.ops.{ ContractRead, ContractWrite }
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.crypto.signature.{ SignatureChecker, Signer }
-import fluence.dataset.contract.{ ContractRead, ContractWrite }
 import fluence.dataset.node.contract.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.storage.KVStore

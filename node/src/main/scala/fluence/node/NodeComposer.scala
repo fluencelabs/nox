@@ -22,12 +22,12 @@ import java.time.Instant
 import cats.effect.IO
 import com.typesafe.config.Config
 import fluence.client.config.KademliaConfigParser
+import fluence.contract.BasicContract
 import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.crypto.SignAlgo
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
-import fluence.dataset.BasicContract
 import fluence.dataset.node.storage.Datasets
 import fluence.dataset.node.{ ContractAllocator, ContractsCache }
 import fluence.dataset.protocol.DatasetStorageRpc
