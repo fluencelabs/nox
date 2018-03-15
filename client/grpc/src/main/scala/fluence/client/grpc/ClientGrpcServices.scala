@@ -29,19 +29,20 @@ import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protocol.{ Contact, KademliaRpc }
 import fluence.transport.grpc.client.GrpcClient
 import monix.execution.Scheduler
+import monix.reactive.Observable
 import shapeless.HNil
 
 import scala.language.higherKinds
 
 object ClientGrpcServices {
 
-  def build[F[_] : Effect, FS[_]](
+  def build[F[_] : Effect](
     builder: GrpcClient.Builder[HNil]
   )(
     implicit
     checker: SignatureChecker,
     scheduler: Scheduler = Scheduler.global
-  ): Contact ⇒ ClientServices[F, FS, BasicContract, Contact] = {
+  ): Contact ⇒ ClientServices[F, BasicContract, Contact] = {
     import fluence.contract.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
     import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
 
@@ -52,7 +53,7 @@ object ClientGrpcServices {
       .add(DatasetStorageClient.register[F]())
       .build
 
-    contact ⇒ new ClientServices[F, FS, BasicContract, Contact] {
+    contact ⇒ new ClientServices[F, BasicContract, Contact] {
       override def kademlia: KademliaRpc[F, Contact] =
         client.service[KademliaRpc[F, Contact]](contact)
 
@@ -62,8 +63,8 @@ object ClientGrpcServices {
       override def contractAllocator: ContractAllocatorRpc[F, BasicContract] =
         client.service[ContractAllocatorRpc[F, BasicContract]](contact)
 
-      override def datasetStorage: DatasetStorageRpc[F, FS] =
-        client.service[DatasetStorageRpc[F, FS]](contact)
+      override def datasetStorage: DatasetStorageRpc[F, Observable] =
+        client.service[DatasetStorageRpc[F, Observable]](contact)
     }
   }
 }

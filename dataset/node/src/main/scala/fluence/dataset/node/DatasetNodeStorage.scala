@@ -27,14 +27,15 @@ import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.common.ValueRef
 import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
-import fluence.btree.protocol.BTreeRpc.{ SearchCallback, PutCallbacks }
+import fluence.btree.protocol.BTreeRpc.{ PutCallbacks, SearchCallback }
 import fluence.btree.server.MerkleBTree
-import fluence.btree.server.commands.{ SearchCommandImpl, PutCommandImpl }
+import fluence.btree.server.commands.{ PutCommandImpl, SearchCommandImpl }
 import fluence.codec.Codec
 import fluence.crypto.hash.CryptoHasher
 import fluence.storage.KVStore
 import fluence.storage.rocksdb.{ IdSeqProvider, RocksDbStore }
 import monix.eval.Task
+import monix.reactive.Observable
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -59,16 +60,29 @@ class DatasetNodeStorage private[node] (
   /**
    * Initiates ''Get'' operation in remote MerkleBTree.
    *
-   * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
+   * @param searchCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  def get(getCallbacks: SearchCallback[Task]): Task[Option[Array[Byte]]] =
-    bTreeIndex.get(SearchCommandImpl(getCallbacks))
+  def get(searchCallbacks: SearchCallback[Task]): Task[Option[Array[Byte]]] =
+    bTreeIndex.get(SearchCommandImpl(searchCallbacks))
       .flatMap {
         case Some(reference) ⇒
           kVStore.get(reference).map(Option(_))
         case None ⇒
           Task(None)
+      }
+
+  /**
+   * Initiates ''Range'' operation in remote MerkleBTree.
+   *
+   * @param searchCallbacks Wrapper for all callback needed for searching start key into the BTree
+   * @return returns found key-value pairs as stream
+   */
+  def range(searchCallbacks: SearchCallback[Task]): Observable[(Array[Byte], Array[Byte])] =
+    bTreeIndex.range(SearchCommandImpl(searchCallbacks))
+      .mapTask {
+        case (key, valRef) ⇒
+          kVStore.get(valRef).map(value ⇒ key.bytes → value)
       }
 
   /**

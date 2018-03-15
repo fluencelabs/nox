@@ -101,10 +101,11 @@ class Datasets(
   override def range(
     datasetId: Array[Byte],
     searchCallbacks: BTreeRpc.SearchCallback[Task]
-  ): Observable[(Array[Byte], Array[Byte])] = {
-
-    ???
-  }
+  ): Observable[(Array[Byte], Array[Byte])] =
+    for {
+      store ← Observable.fromTask(storage(datasetId))
+      stream ← store.range(searchCallbacks)
+    } yield stream
 
   /**
    * @param datasetId      Dataset ID

@@ -53,7 +53,7 @@ object ClientCliApp extends App with slogging.LazyLogging {
   logger.debug("Client config is :" +
     config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false)))
 
-  val client = ClientGrpcServices.build[Task, Observable](GrpcClient.builder)
+  val client = ClientGrpcServices.build[Task](GrpcClient.builder)
 
   val buildClient: IO[FluenceClient] = for {
     seedsConf ← SeedsConfig.read(config)

@@ -18,12 +18,13 @@
 package fluence.dataset.node
 
 import fluence.btree.common.merkle.MerkleRootCalculator
-import fluence.btree.core.Hash
-import fluence.btree.protocol.BTreeRpc.{ SearchCallback, PutCallbacks }
-import fluence.btree.server.{ Get, MerkleBTree, Put }
+import fluence.btree.core.{ Hash, Key }
+import fluence.btree.protocol.BTreeRpc.{ PutCallbacks, SearchCallback }
+import fluence.btree.server.{ Get, MerkleBTree, Put, Range }
 import fluence.storage.KVStore
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
+import monix.reactive.Observable
 import org.mockito.{ ArgumentMatchers, Mockito }
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
@@ -40,7 +41,11 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
 
   private val valGen = () ⇒ 5L
   private val onMRChange: ByteVector ⇒ Task[Unit] = b ⇒ Task(())
-  private val expValue = "value".getBytes
+
+  private val key1 = "k1".toKey
+  private val key2 = "k2".toKey
+  private val expValue1 = "val1".getBytes
+  private val expValue2 = "val2".getBytes
   private val someError = new IllegalArgumentException("Some error")
 
   "DatasetNodeStorage.get" should {
@@ -89,16 +94,85 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
         .thenReturn(Task(Some(1L)))
       Mockito
         .when(kvStore.get(ArgumentMatchers.eq(1L)))
-        .thenReturn(Task(expValue))
+        .thenReturn(Task(expValue1))
 
       val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
       val result = store.get(get).runAsync.futureValue
-      result.get shouldBe expValue
+      result.get shouldBe expValue1
     }
   }
 
-  // todo test DatasetNodeStorage.range
+  "DatasetNodeStorage.range" should {
+    "raises fail" when {
+      "bTreeIndex raised fail" in {
+        Mockito
+          .when(mBtree.range(ArgumentMatchers.any(classOf[Range])))
+          .thenReturn(Observable.raiseError(someError))
+
+        val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
+
+        val result = store.range(get).failed.headL.runAsync.futureValue
+        result shouldBe someError
+      }
+
+      "kvStore raised fail" in {
+        Mockito
+          .when(mBtree.range(ArgumentMatchers.any(classOf[Range])))
+          .thenReturn(Observable(key1 → 1L))
+        Mockito
+          .when(kvStore.get(ArgumentMatchers.any(classOf[Long])))
+          .thenReturn(Task.raiseError(someError))
+
+        val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
+
+        val result = store.range(get).failed.headL.runAsync.futureValue
+        result shouldBe someError
+      }
+
+    }
+
+    "key wasn't found key" in {
+      Mockito
+        .when(mBtree.range(ArgumentMatchers.any(classOf[Range])))
+        .thenReturn(Observable.empty)
+
+      val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
+
+      val result = store.range(get).toListL.runAsync.futureValue
+      result shouldBe empty
+    }
+
+    "returns one value" in {
+      Mockito
+        .when(mBtree.range(ArgumentMatchers.any(classOf[Range])))
+        .thenReturn(Observable(key1 → 1L))
+      Mockito
+        .when(kvStore.get(ArgumentMatchers.eq(1L)))
+        .thenReturn(Task(expValue1))
+
+      val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
+
+      val result = store.range(get).headL.runAsync.futureValue
+      result shouldBe key1.bytes → expValue1
+    }
+
+    "returns many values" in {
+      Mockito
+        .when(mBtree.range(ArgumentMatchers.any(classOf[Range])))
+        .thenReturn(Observable(key1 → 1L, key2 → 1L))
+      Mockito
+        .when(kvStore.get(ArgumentMatchers.anyLong()))
+        .thenReturn(Task(expValue1), Task(expValue2))
+
+      val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
+
+      val result = store.range(get).toListL.runAsync.futureValue
+      result should have size 2
+      result.head shouldBe key1.bytes → expValue1
+      result.last shouldBe key2.bytes → expValue2
+    }
+  }
 
   "DatasetNodeStorage.put" should {
     "raises fail" when {
@@ -109,7 +183,7 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
 
         val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
-        val result = store.put(put, expValue).failed.runAsync.futureValue
+        val result = store.put(put, expValue1).failed.runAsync.futureValue
         result shouldBe someError
       }
 
@@ -121,12 +195,12 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
           .when(kvStore.get(1L))
           .thenReturn(Task.raiseError(someError))
         Mockito
-          .when(kvStore.put(1L, expValue))
+          .when(kvStore.put(1L, expValue1))
           .thenReturn(Task.raiseError(someError))
 
         val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
-        val result = store.put(put, expValue).failed.runAsync.futureValue
+        val result = store.put(put, expValue1).failed.runAsync.futureValue
         result shouldBe someError
       }
 
@@ -138,13 +212,13 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
           .when(kvStore.get(1L))
           .thenReturn(Task.raiseError(someError))
         Mockito
-          .when(kvStore.put(1L, expValue))
+          .when(kvStore.put(1L, expValue1))
           .thenReturn(Task.raiseError(someError))
         val onMRChangeWithError: Array[Byte] ⇒ Task[Unit] = _ ⇒ Task.raiseError(someError)
 
         val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
-        val result = store.put(put, expValue).failed.runAsync.futureValue
+        val result = store.put(put, expValue1).failed.runAsync.futureValue
         result shouldBe someError
       }
     }
@@ -157,7 +231,7 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
         .when(kvStore.get(1L))
         .thenReturn(Task.raiseError(someError))
       Mockito
-        .when(kvStore.put(1L, expValue))
+        .when(kvStore.put(1L, expValue1))
         .thenReturn(Task(()))
       Mockito
         .when(mBtree.getMerkleRoot)
@@ -165,7 +239,7 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
 
       val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
-      val result = store.put(put, expValue).runAsync.futureValue
+      val result = store.put(put, expValue1).runAsync.futureValue
       result shouldBe None
     }
 
@@ -178,7 +252,7 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
         .when(kvStore.get(1L))
         .thenReturn(Task(oldValue))
       Mockito
-        .when(kvStore.put(1L, expValue))
+        .when(kvStore.put(1L, expValue1))
         .thenReturn(Task(()))
       Mockito
         .when(mBtree.getMerkleRoot)
@@ -186,10 +260,14 @@ class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar wi
 
       val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
-      val result = store.put(put, expValue).runAsync.futureValue
+      val result = store.put(put, expValue1).runAsync.futureValue
       result.get shouldBe oldValue
     }
 
+  }
+
+  private implicit class Str2Key(str: String) {
+    def toKey: Key = Key(str.getBytes)
   }
 
   override protected def afterEach(): Unit = {

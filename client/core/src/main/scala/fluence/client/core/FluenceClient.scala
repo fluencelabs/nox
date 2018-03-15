@@ -237,7 +237,7 @@ object FluenceClient extends slogging.LazyLogging {
     signAlgo: SignAlgo,
     storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
     kademliaConf: KademliaConf,
-    client: Contact ⇒ ClientServices[Task, Observable, BasicContract, Contact]
+    client: Contact ⇒ ClientServices[Task, BasicContract, Contact]
   ): IO[FluenceClient] = {
 
     import signAlgo.checker
