@@ -81,6 +81,7 @@ class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) ext
 }
 
 object FileKeyStorage {
+
   /**
    * Generates or loads keypair
    *

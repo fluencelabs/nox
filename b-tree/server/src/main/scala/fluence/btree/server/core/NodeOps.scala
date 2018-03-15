@@ -122,10 +122,18 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
       val (leftChildsChecksums, rightChildsChecksums) = branch.childsChecksums.splitAt(splitIdx)
 
       val leftBranch = BranchNode(
-        leftKeys, leftChildren, leftChildsChecksums, leftKeys.length, getBranchChecksum(leftKeys, leftChildsChecksums)
+        leftKeys,
+        leftChildren,
+        leftChildsChecksums,
+        leftKeys.length,
+        getBranchChecksum(leftKeys, leftChildsChecksums)
       )
       val rightBranch = BranchNode(
-        rightKeys, rightChildren, rightChildsChecksums, rightKeys.length, getBranchChecksum(rightKeys, rightChildsChecksums)
+        rightKeys,
+        rightChildren,
+        rightChildsChecksums,
+        rightKeys.length,
+        getBranchChecksum(rightKeys, rightChildsChecksums)
       )
 
       leftBranch → rightBranch
@@ -137,18 +145,15 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
 
     override def updateChildChecksum(newChildHash: Hash, idx: Int): BranchNode[Key, NodeId] = {
       val newChildsChecksums = rewriteElementInArray(branch.childsChecksums, newChildHash, idx)
-      branch.copy(
-        childsChecksums = newChildsChecksums,
-        checksum = getBranchChecksum(branch.keys, newChildsChecksums))
+      branch.copy(childsChecksums = newChildsChecksums, checksum = getBranchChecksum(branch.keys, newChildsChecksums))
     }
 
     override def updateChildRef(childRef: ChildRef[NodeId], idx: Int): BranchNode[Key, NodeId] = {
       val newChildsReferences = rewriteElementInArray(branch.childsReferences, childRef.id, idx)
       val newChildsChecksums = rewriteElementInArray(branch.childsChecksums, childRef.checksum, idx)
-      branch.copy(
-        childsReferences = newChildsReferences,
-        childsChecksums = newChildsChecksums,
-        checksum = getBranchChecksum(branch.keys, newChildsChecksums))
+      branch.copy(childsReferences = newChildsReferences,
+                  childsChecksums = newChildsChecksums,
+                  checksum = getBranchChecksum(branch.keys, newChildsChecksums))
     }
 
     override def toProof(substitutionIdx: Int): NodeProof = {

@@ -51,7 +51,9 @@ object Codec {
   implicit def identityCodec[F[_] : Applicative, T]: Codec[F, T, T] =
     Codec(_.pure[F], _.pure[F])
 
-  implicit def traverseCodec[F[_] : Applicative, G[_] : Traverse, O, B](implicit codec: Codec[F, O, B]): Codec[F, G[O], G[B]] =
+  implicit def traverseCodec[F[_] : Applicative, G[_] : Traverse, O, B](
+      implicit codec: Codec[F, O, B]
+  ): Codec[F, G[O], G[B]] =
     Codec[F, G[O], G[B]](Traverse[G].traverse[F, O, B](_)(codec.encode), Traverse[G].traverse[F, B, O](_)(codec.decode))
 
   implicit def toDirect[F[_], A, B](implicit cod: Codec[F, A, B]): Kleisli[F, A, B] =
@@ -70,10 +72,11 @@ object Codec {
   implicit def byteVectorB64[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, String, ByteVector] =
     Codec(
       str ⇒
-        ByteVector.fromBase64(str).fold[F[ByteVector]](
-          F.raiseError(new IllegalArgumentException(s"Given string is not valid b64: $str"))
-        )(_.pure[F]),
-
+        ByteVector
+          .fromBase64(str)
+          .fold[F[ByteVector]](
+            F.raiseError(new IllegalArgumentException(s"Given string is not valid b64: $str"))
+          )(_.pure[F]),
       _.toBase64.pure[F]
     )
 

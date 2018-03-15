@@ -36,23 +36,23 @@ object IdSeqProvider {
    * @param defaultStartValue Start id value for new database (when specified RocksDn is empty)
    */
   def longSeqProvider[F[_] : Monad](
-    rocksDB: RocksDbStore,
-    defaultStartValue: Long = 0L
+      rocksDB: RocksDbStore,
+      defaultStartValue: Long = 0L
   )(implicit codec: Codec[Task, Array[Byte], Long], runTask: Task ~> F): F[() ⇒ Long] = {
 
     val idGenerator: Task[AtomicLong] =
-      rocksDB
-        .getMaxKey.attempt
-        .flatMap {
-          case Left(ex) ⇒
-            Task(defaultStartValue)
-          case Right(keyAsBytes) ⇒
-            codec.encode(keyAsBytes)
-        }.map {
-          AtomicLong(_)
-        }.memoizeOnSuccess // important to save this Atomic into Task as result
+      rocksDB.getMaxKey.attempt.flatMap {
+        case Left(ex) ⇒
+          Task(defaultStartValue)
+        case Right(keyAsBytes) ⇒
+          codec.encode(keyAsBytes)
+      }.map {
+        AtomicLong(_)
+      }.memoizeOnSuccess // important to save this Atomic into Task as result
 
-    runTask(idGenerator).map(provider ⇒ { () ⇒ provider.incrementAndGet() })
+    runTask(idGenerator).map(provider ⇒ { () ⇒
+      provider.incrementAndGet()
+    })
   }
 
 }

@@ -75,7 +75,8 @@ class MerkleRootCalculatorSpec extends WordSpec with Matchers {
         new String(result.bytes) shouldBe "H<0X>"
       }
       "merkle path has one element with many hashes" in {
-        val result = proof.calcMerkleRoot(MerklePath(Array(GeneralNodeProof(hash0, Array(hash1, hash2, hash3), 1))), Some(hashX))
+        val result =
+          proof.calcMerkleRoot(MerklePath(Array(GeneralNodeProof(hash0, Array(hash1, hash2, hash3), 1))), Some(hashX))
 
         new String(result.bytes) shouldBe "H<01X3>"
       }

@@ -44,7 +44,7 @@ class AesSpec extends WordSpec with Matchers with slogging.LazyLogging {
 
       //we cannot check if first bytes is iv or already data, but encryption goes wrong
       val aesWithoutIV = AesCrypt.forString[Try](pass, withIV = false, config = conf)
-      aesWithoutIV.decrypt(crypted).get shouldNot be (str)
+      aesWithoutIV.decrypt(crypted).get shouldNot be(str)
 
       val aesWrongSalt = AesCrypt.forString[Try](pass, withIV = true, config = conf.copy(salt = rndString(10)))
       checkCryptoError(aesWrongSalt.decrypt(crypted))
@@ -63,7 +63,7 @@ class AesSpec extends WordSpec with Matchers with slogging.LazyLogging {
 
       //we cannot check if first bytes is iv or already data, but encryption goes wrong
       val aesWithIV = AesCrypt.forString[Try](pass, withIV = true, config = conf)
-      aesWithIV.decrypt(crypted).get shouldNot be (str)
+      aesWithIV.decrypt(crypted).get shouldNot be(str)
 
       val aesWrongSalt = AesCrypt.forString[Try](pass, withIV = true, config = conf.copy(salt = rndString(10)))
       checkCryptoError(aesWrongSalt.decrypt(crypted))
@@ -71,12 +71,14 @@ class AesSpec extends WordSpec with Matchers with slogging.LazyLogging {
   }
 
   def checkCryptoError(tr: Try[String])(implicit pos: Position): Assertion = {
-    tr.map(_ ⇒ false).recover {
-      case e: CryptoErr ⇒ true
-      case e ⇒
-        logger.error("Unexpected error", e)
-        false
-    }.get shouldBe true
+    tr.map(_ ⇒ false)
+      .recover {
+        case e: CryptoErr ⇒ true
+        case e ⇒
+          logger.error("Unexpected error", e)
+          false
+      }
+      .get shouldBe true
   }
 
 }

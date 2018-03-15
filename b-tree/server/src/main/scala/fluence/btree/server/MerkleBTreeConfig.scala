@@ -44,7 +44,9 @@ object MerkleBTreeConfig {
 
   val ConfigPath = "fluence.merkleBTree"
 
-  def read[F[_]](conf: Config, configPath: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[MerkleBTreeConfig] =
+  def read[F[_]](conf: Config, configPath: String = ConfigPath)(
+      implicit F: ApplicativeError[F, Throwable]
+  ): F[MerkleBTreeConfig] =
     F.catchNonFatal {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._

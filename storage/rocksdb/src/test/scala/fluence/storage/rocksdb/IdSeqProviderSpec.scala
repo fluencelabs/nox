@@ -68,7 +68,9 @@ class IdSeqProviderSpec extends WordSpec with Matchers with ScalaFutures with Be
 
       "rocksDb is filled" in {
         runRocksDb("test3") { rocksDb ⇒
-          val manyPairs: Seq[(Key, Value)] = Random.shuffle(1 to 100).map { n ⇒ long2Bytes(n) → s"val$n".getBytes() }
+          val manyPairs: Seq[(Key, Value)] = Random.shuffle(1 to 100).map { n ⇒
+            long2Bytes(n) → s"val$n".getBytes()
+          }
           val inserts = manyPairs.map { case (k, v) ⇒ rocksDb.put(k, v) }
           Task.sequence(inserts).flatMap(_ ⇒ rocksDb.traverse().toListL).runAsync.futureValue
 
@@ -81,7 +83,8 @@ class IdSeqProviderSpec extends WordSpec with Matchers with ScalaFutures with Be
 
   private def runRocksDb(name: String)(action: RocksDbStore ⇒ Unit): Unit = {
     val store = new RocksDbStore.Factory()(makeUnique(name), config).get
-    try action(store) finally store.close()
+    try action(store)
+    finally store.close()
   }
 
   override protected def afterAll(): Unit = {

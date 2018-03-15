@@ -39,7 +39,8 @@ case class SearchCommandImpl[F[_]](getCallbacks: SearchCallback[F])(implicit ME:
 
   override def submitLeaf(leaf: Option[LeafNode[Key, ValueRef, NodeId]]): F[SearchResult] = {
     val (keys, valuesChecksums) =
-      leaf.map(l ⇒ l.keys → l.valuesChecksums)
+      leaf
+        .map(l ⇒ l.keys → l.valuesChecksums)
         .getOrElse(Array.empty[Key] → Array.empty[Hash])
 
     getCallbacks.submitLeaf(keys, valuesChecksums)

@@ -48,7 +48,9 @@ import scala.language.{ higherKinds, implicitConversions }
 class ContractsCache[F[_], C : ContractRead](
     nodeId: Key,
     storage: KVStore[F, Key, ContractRecord[C]],
-    cacheTtl: FiniteDuration)(implicit ME: MonadError[F, Throwable], checker: SignatureChecker) extends ContractsCacheRpc[F, C] {
+    cacheTtl: FiniteDuration
+)(implicit ME: MonadError[F, Throwable], checker: SignatureChecker)
+  extends ContractsCacheRpc[F, C] {
 
   import ContractRead._
 
@@ -97,7 +99,7 @@ class ContractsCache[F[_], C : ContractRead](
   override def cache(contract: C): F[Boolean] = {
     canBeCached(contract).flatMap {
       case false ⇒ false.pure[F]
-      case true ⇒
+      case true  ⇒
         // We're deciding to cache basing on crypto check, done with canBeCached, and (signed) version number only
         // It allows us to avoid multiplexing network calls with asking to cache stale contracts
         storage.get(contract.id).attempt.map(_.toOption).flatMap {

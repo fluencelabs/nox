@@ -118,7 +118,7 @@ object Key {
    * @param bytes Bytes to hash
    */
   def sha1[F[_]](bytes: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Key] =
-    F.catchNonFatal{
+    F.catchNonFatal {
       CryptoHashers.Sha1.hash(bytes)
     }.flatMap(fromBytes[F])
 
@@ -128,7 +128,9 @@ object Key {
   def fromPublicKey[F[_]](publicKey: KeyPair.Public)(implicit F: MonadError[F, Throwable]): F[Key] =
     sha1(publicKey.value.toArray)
 
-  def fromString[F[_]](str: String, charset: Charset = Charset.defaultCharset())(implicit F: MonadError[F, Throwable]): F[Key] =
+  def fromString[F[_]](str: String, charset: Charset = Charset.defaultCharset())(
+      implicit F: MonadError[F, Throwable]
+  ): F[Key] =
     sha1(str.getBytes)
 
   def fromBytes[F[_]](bytes: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Key] =

@@ -70,6 +70,7 @@ class UPnP(
 }
 
 object UPnP extends slogging.LazyLogging {
+
   /**
    * Builds an UPnP instance.
    * Notice that executing it produces effects of changing [[GatewayDevice]]'s timeouts
@@ -81,57 +82,57 @@ object UPnP extends slogging.LazyLogging {
    * @param discoverTimeout Timeout to lookup gateway in local network
    */
   def apply(
-    clientName: String = "Fluence",
-    protocol: String = "TCP",
-    httpReadTimeout: Duration = Duration.Undefined,
-    discoverTimeout: Duration = Duration.Undefined
+      clientName: String = "Fluence",
+      protocol: String = "TCP",
+      httpReadTimeout: Duration = Duration.Undefined,
+      discoverTimeout: Duration = Duration.Undefined
   ): IO[UPnP] =
     for {
       gateway ← discoverGateway(httpReadTimeout, discoverTimeout)
       externalAddress ← getExternalAddress(gateway)
     } yield new UPnP(clientName, protocol, gateway, externalAddress)
 
-  private def discoverGateway(httpReadTimeout: Duration, discoverTimeout: Duration): IO[GatewayDevice] = IO {
-    // Effect is changing timeouts in global GatewayDevice state
-    logger.info("Going to discover GatewayDevice...")
-    GatewayDevice.setHttpReadTimeout(
-      Option(httpReadTimeout).filter(_.isFinite()).map(_.toMillis.toInt).getOrElse(GatewayDevice.getHttpReadTimeout)
-    )
+  private def discoverGateway(httpReadTimeout: Duration, discoverTimeout: Duration): IO[GatewayDevice] =
+    IO {
+      // Effect is changing timeouts in global GatewayDevice state
+      logger.info("Going to discover GatewayDevice...")
+      GatewayDevice.setHttpReadTimeout(
+        Option(httpReadTimeout).filter(_.isFinite()).map(_.toMillis.toInt).getOrElse(GatewayDevice.getHttpReadTimeout)
+      )
 
-    val discover = new GatewayDiscover()
-    discover.setTimeout(
-      Option(discoverTimeout).filter(_.isFinite()).map(_.toMillis.toInt).getOrElse(GatewayDevice.getHttpReadTimeout)
-    )
+      val discover = new GatewayDiscover()
+      discover.setTimeout(
+        Option(discoverTimeout).filter(_.isFinite()).map(_.toMillis.toInt).getOrElse(GatewayDevice.getHttpReadTimeout)
+      )
 
-    discover
-  }.flatMap {
-    discover ⇒
+      discover
+    }.flatMap { discover ⇒
       IO(
         // This is a blocking effect
         Option(discover.discover).map(_.asScala).map(_.toMap).getOrElse(Map())
       ).flatMap[GatewayDiscover] { gatewayMap ⇒
-          if (gatewayMap.isEmpty) {
-            logger.warn("Gateway map is empty")
-            IO.raiseError[GatewayDiscover](new NoSuchElementException("Gateway map is empty"))
-          } else IO.pure(discover)
-        }
-  }.flatMap { discover ⇒
-    // There effects are exceptions from getValidGateway, or null return
-    Option(discover.getValidGateway) match {
-      case None ⇒
-        logger.warn("There is no connected UPnP gateway device")
-        IO.raiseError[GatewayDevice](new NoSuchElementException("There is no connected UPnP gateway device"))
+        if (gatewayMap.isEmpty) {
+          logger.warn("Gateway map is empty")
+          IO.raiseError[GatewayDiscover](new NoSuchElementException("Gateway map is empty"))
+        } else IO.pure(discover)
+      }
+    }.flatMap { discover ⇒
+      // There effects are exceptions from getValidGateway, or null return
+      Option(discover.getValidGateway) match {
+        case None ⇒
+          logger.warn("There is no connected UPnP gateway device")
+          IO.raiseError[GatewayDevice](new NoSuchElementException("There is no connected UPnP gateway device"))
 
-      case Some(device) ⇒
-        logger.info("Found device: " + device)
-        IO.pure(device)
+        case Some(device) ⇒
+          logger.info("Found device: " + device)
+          IO.pure(device)
+      }
     }
-  }
 
   private def getExternalAddress(gateway: GatewayDevice): IO[InetAddress] =
     IO(gateway.getExternalIPAddress)
       .map(InetAddress.getByName)
-      .map{ addr ⇒
+      .map { addr ⇒
         logger.info("External IP address: {}", addr.getHostAddress)
         addr
       }

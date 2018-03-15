@@ -36,21 +36,21 @@ import scala.language.higherKinds
 
 object BasicContractCodec {
 
-  implicit def codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, contract.BasicContract, BasicContract] =
-    {
-      val keyC = Codec.codec[F, Key, ByteString]
-      val strVec = Codec.codec[F, ByteVector, ByteString]
+  implicit def codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, contract.BasicContract, BasicContract] = {
+    val keyC = Codec.codec[F, Key, ByteString]
+    val strVec = Codec.codec[F, ByteVector, ByteString]
 
-      val pubKeyCV: Codec[F, KeyPair.Public, ByteVector] = Codec.pure(_.value, KeyPair.Public)
-      val pubKeyC = pubKeyCV andThen strVec
+    val pubKeyCV: Codec[F, KeyPair.Public, ByteVector] = Codec.pure(_.value, KeyPair.Public)
+    val pubKeyC = pubKeyCV andThen strVec
 
-      val optStrVecC = Codec.codec[F, Option[ByteVector], Option[ByteString]]
+    val optStrVecC = Codec.codec[F, Option[ByteVector], Option[ByteString]]
 
-      Codec(
-        bc ⇒ for {
+    Codec(
+      bc ⇒
+        for {
           idBs ← keyC.encode(bc.id)
 
-          participantsBs ← Traverse[List].traverse(bc.participants.toList){
+          participantsBs ← Traverse[List].traverse(bc.participants.toList) {
             case (pk, ps) ⇒
               for {
                 pkBs ← keyC.encode(pk)
@@ -66,86 +66,80 @@ object BasicContractCodec {
           executionSealBs ← optStrVecC.encode(bc.executionSeal.map(_.sign))
 
           merkleRootBs ← strVec.encode(bc.executionState.merkleRoot)
-        } yield BasicContract(
-          id = idBs,
-          publicKey = pkBs,
-
-          offer = Some(new BasicContractOffer(
-            participantsRequired = bc.offer.participantsRequired
-          )),
-
-          offerSeal = offSBs,
-
-          participants = participantsBs,
-
-          participantsSeal = participantsSealBs.getOrElse(ByteString.EMPTY),
-
-          version = bc.executionState.version,
-          merkleRoot = merkleRootBs,
-          executionSeal = executionSealBs.getOrElse(ByteString.EMPTY)
+        } yield
+          BasicContract(
+            id = idBs,
+            publicKey = pkBs,
+            offer = Some(
+              new BasicContractOffer(
+                participantsRequired = bc.offer.participantsRequired
+              )
+            ),
+            offerSeal = offSBs,
+            participants = participantsBs,
+            participantsSeal = participantsSealBs.getOrElse(ByteString.EMPTY),
+            version = bc.executionState.version,
+            merkleRoot = merkleRootBs,
+            executionSeal = executionSealBs.getOrElse(ByteString.EMPTY)
         ),
+      g ⇒ {
+        def read[T](name: String, f: BasicContract ⇒ T): F[T] =
+          Option(f(g))
+            .fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
 
-        g ⇒ {
-          def read[T](name: String, f: BasicContract ⇒ T): F[T] =
-            Option(f(g)).fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
+        def readFromOpt[T](name: String, f: BasicContract ⇒ Option[T]): F[T] =
+          f(g).fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
 
-          def readFromOpt[T](name: String, f: BasicContract ⇒ Option[T]): F[T] =
-            f(g).fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
+        def readParticipantsSeal: F[Option[ByteVector]] =
+          Option(g.participantsSeal)
+            .filter(_.size() > 0)
+            .fold(F.pure(Option.empty[ByteVector]))(sl ⇒ strVec.decode(sl).map(Option(_)))
 
-          def readParticipantsSeal: F[Option[ByteVector]] =
-            Option(g.participantsSeal)
-              .filter(_.size() > 0)
-              .fold(F.pure(Option.empty[ByteVector]))(sl ⇒ strVec.decode(sl).map(Option(_)))
+        for {
+          pk ← pubKeyC.decode(g.publicKey)
 
-          for {
-            pk ← pubKeyC.decode(g.publicKey)
+          idb ← read("id", _.id)
+          id ← keyC.decode(idb)
 
-            idb ← read("id", _.id)
-            id ← keyC.decode(idb)
+          participantsRequired ← readFromOpt("participantsRequired", _.offer.map(_.participantsRequired))
 
-            participantsRequired ← readFromOpt("participantsRequired", _.offer.map(_.participantsRequired))
+          offerSealBS ← read("offerSeal", _.offerSeal)
+          offerSealVec ← strVec.decode(offerSealBS)
 
-            offerSealBS ← read("offerSeal", _.offerSeal)
-            offerSealVec ← strVec.decode(offerSealBS)
+          participants ← Traverse[List].traverse(g.participants.toList) { p ⇒
+            for {
+              k ← keyC.decode(p.id)
+              kp ← pubKeyC.decode(p.publicKey)
+              s ← strVec.decode(p.signature)
+            } yield k -> Signature(kp, s)
+          }
 
-            participants ← Traverse[List].traverse(g.participants.toList){ p ⇒
-              for {
-                k ← keyC.decode(p.id)
-                kp ← pubKeyC.decode(p.publicKey)
-                s ← strVec.decode(p.signature)
-              } yield k -> Signature(kp, s)
-            }
+          version ← read("version", _.version)
 
-            version ← read("version", _.version)
+          participantsSealOpt ← readParticipantsSeal
 
-            participantsSealOpt ← readParticipantsSeal
+          merkleRootBS ← read("merkleRoot", _.merkleRoot)
+          merkleRoot ← strVec.decode(merkleRootBS)
 
-            merkleRootBS ← read("merkleRoot", _.merkleRoot)
-            merkleRoot ← strVec.decode(merkleRootBS)
-
-            execV ← optStrVecC.decode(Option(g.executionSeal))
-          } yield contract.BasicContract(
+          execV ← optStrVecC.decode(Option(g.executionSeal))
+        } yield
+          contract.BasicContract(
             id = id,
-
             offer = fluence.contract.BasicContract.Offer(
               participantsRequired = participantsRequired
             ),
-
             offerSeal = Signature(pk, offerSealVec), // TODO: validate seal in codec
-
             participants = participants.toMap,
-
             participantsSeal = participantsSealOpt
               .map(Signature(pk, _)),
-
             executionState = ExecutionState(
               version = version,
               merkleRoot = merkleRoot
             ),
             executionSeal = execV.filter(_.nonEmpty).map(Signature(pk, _)) // TODO: validate seal in codec
           )
-        }
-      )
-    }
+      }
+    )
+  }
 
 }

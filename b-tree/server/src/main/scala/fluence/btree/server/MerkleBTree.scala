@@ -72,6 +72,7 @@ class MerkleBTree private[server] (
 
   /** max of node size */
   private val MaxDegree = conf.arity
+
   /** min of node size except root */
   private val MinDegree = conf.alpha * conf.arity
 
@@ -111,7 +112,8 @@ class MerkleBTree private[server] (
    * @return stream of references to values that corresponds search command, or empty if nothing was found
    */
   def range(cmd: Range): Observable[(Key, ValueRef)] = {
-    Observable.fromTask(globalMutex.greenLight(getRoot))
+    Observable
+      .fromTask(globalMutex.greenLight(getRoot))
       .flatMap(mRoot ⇒ rangeForRoot(mRoot, cmd))
   }
 
@@ -149,15 +151,14 @@ class MerkleBTree private[server] (
   private def hasOverflow(node: Node): Boolean = node.size > MaxDegree
 
   private[btree] def getRoot: Task[Node] = {
-    store.get(RootId).attempt.map(_.toOption)
-      .flatMap {
-        case Some(node) ⇒
-          Task(node)
-        case None ⇒
-          val emptyLeaf = nodeOps.createEmptyLeaf
-          commitNewState(PutTask(Seq(NodeWithId(RootId, emptyLeaf))))
-            .map(_ ⇒ emptyLeaf)
-      }
+    store.get(RootId).attempt.map(_.toOption).flatMap {
+      case Some(node) ⇒
+        Task(node)
+      case None ⇒
+        val emptyLeaf = nodeOps.createEmptyLeaf
+        commitNewState(PutTask(Seq(NodeWithId(RootId, emptyLeaf))))
+          .map(_ ⇒ emptyLeaf)
+    }
   }
 
   /* GET */
@@ -185,11 +186,10 @@ class MerkleBTree private[server] (
   private def getForBranch(branch: Branch, cmd: Get): Task[Option[ValueRef]] = {
     logger.debug(s"Get for branch=$branch")
 
-    searchChild(branch, cmd)
-      .flatMap {
-        case (_, child) ⇒
-          getForNode(child, cmd)
-      }
+    searchChild(branch, cmd).flatMap {
+      case (_, child) ⇒
+        getForNode(child, cmd)
+    }
   }
 
   /** '''Method makes remote call!'''. This is the terminal method. */
@@ -225,15 +225,15 @@ class MerkleBTree private[server] (
   private def rangeForBranch(branch: Branch, cmd: Get): Observable[(Key, ValueRef)] = {
     logger.debug(s"Range for branch=$branch")
 
-    Observable.fromTask(searchChild(branch, cmd))
-      .flatMap { case (_, child) ⇒ rangeForNode(child, cmd) }
+    Observable.fromTask(searchChild(branch, cmd)).flatMap { case (_, child) ⇒ rangeForNode(child, cmd) }
   }
 
   /** '''Method makes remote call!'''. This is the terminal method. */
   private def rangeForLeaf(leaf: Leaf, cmd: Get): Observable[(Key, ValueRef)] = {
     logger.debug(s"Range for leaf=$leaf")
 
-    Observable.fromTask(cmd.submitLeaf(Some(leaf)))
+    Observable
+      .fromTask(cmd.submitLeaf(Some(leaf)))
       .flatMap(searchResult ⇒ fetchPairs(Task(Some(leaf)), searchResult.insertionPoint))
   }
 
@@ -263,9 +263,11 @@ class MerkleBTree private[server] (
             logger.debug(s"Next leaf is $leaf")
             Task(Some(leaf))
           case node ⇒
-            Task.raiseError(new IllegalStateException(
-              s"Unexpected exception, should be fetched leaf ${classOf[Leaf]}, but actually is ${node.getClass}"
-            ))
+            Task.raiseError(
+              new IllegalStateException(
+                s"Unexpected exception, should be fetched leaf ${classOf[Leaf]}, but actually is ${node.getClass}"
+              )
+            )
         }
       case None ⇒
         logger.debug(s"There is no right sibling for current leaf=$leaf")
@@ -282,18 +284,19 @@ class MerkleBTree private[server] (
     if (isEmpty(root)) {
       logger.debug(s"Root is empty")
 
-      cmd.putDetails(None)
-        .flatMap {
-          case BTreePutDetails(ClientPutDetails(key, valChecksum, _), valRefProvider) ⇒
-            val newValRef = valRefProvider()
-            val newLeaf = createLeaf(key, newValRef, valChecksum)
-            // send the merkle path to the client for verification
-            val leafProof = GeneralNodeProof(Hash.empty, newLeaf.kvChecksums, 0)
-            cmd.verifyChanges(MerklePath(Seq(leafProof)), wasSplitting = false)
-              .flatMap { _ ⇒ // TODO here we could have a signature
-                commitNewState(PutTask(nodesToSave = Seq(NodeWithId(RootId, newLeaf)), increaseDepth = true))
-              }.map(_ ⇒ newValRef)
-        }
+      cmd.putDetails(None).flatMap {
+        case BTreePutDetails(ClientPutDetails(key, valChecksum, _), valRefProvider) ⇒
+          val newValRef = valRefProvider()
+          val newLeaf = createLeaf(key, newValRef, valChecksum)
+          // send the merkle path to the client for verification
+          val leafProof = GeneralNodeProof(Hash.empty, newLeaf.kvChecksums, 0)
+          cmd
+            .verifyChanges(MerklePath(Seq(leafProof)), wasSplitting = false)
+            .flatMap { _ ⇒ // TODO here we could have a signature
+              commitNewState(PutTask(nodesToSave = Seq(NodeWithId(RootId, newLeaf)), increaseDepth = true))
+            }
+            .map(_ ⇒ newValRef)
+      }
     } else {
       putForNode(cmd, RootId, root, TreePath.empty)
     }
@@ -320,14 +323,14 @@ class MerkleBTree private[server] (
   private def putForBranch(cmd: Put, branchId: NodeId, branch: Branch, trail: Trail): Task[ValueRef] = {
     logger.debug(s"Put to branch=$branch, id=$branchId")
 
-    cmd.nextChildIndex(branch)
+    cmd
+      .nextChildIndex(branch)
       .flatMap(searchedIdx ⇒ {
         val childId = branch.childsReferences(searchedIdx)
-        store.get(childId)
-          .flatMap { child ⇒
-            val newTrail = trail.addBranch(branchId, branch, searchedIdx)
-            putForNode(cmd, childId, child, newTrail)
-          }
+        store.get(childId).flatMap { child ⇒
+          val newTrail = trail.addBranch(branchId, branch, searchedIdx)
+          putForNode(cmd, childId, child, newTrail)
+        }
       })
   }
 
@@ -343,26 +346,27 @@ class MerkleBTree private[server] (
    * @param trail  The path traversed from the root
    */
   private def putForLeaf(
-    cmd: Put,
-    leafId: NodeId,
-    leaf: Leaf,
-    trail: Trail
+      cmd: Put,
+      leafId: NodeId,
+      leaf: Leaf,
+      trail: Trail
   ): Task[ValueRef] = {
     logger.debug(s"Put to leaf=$leaf, id=$leafId")
 
-    cmd.putDetails(Some(leaf))
-      .flatMap { putDetails: BTreePutDetails ⇒
-        val (updatedLeaf, valueRef) = updateLeaf(putDetails, leaf)
-        // makes all transformations over the copy of tree
-        val (newStateProof, putTask) =
-          logicalPut(leafId, updatedLeaf, putDetails.clientPutDetails.searchResult.insertionPoint, trail)
-        // after all the logical operations, we need to send the merkle path to the client for verification
-        cmd.verifyChanges(newStateProof, putTask.wasSplitting) // TODO here we could have new signature
-          .flatMap { _ ⇒
-            // persist all changes
-            commitNewState(putTask)
-          }.map(_ ⇒ valueRef)
-      }
+    cmd.putDetails(Some(leaf)).flatMap { putDetails: BTreePutDetails ⇒
+      val (updatedLeaf, valueRef) = updateLeaf(putDetails, leaf)
+      // makes all transformations over the copy of tree
+      val (newStateProof, putTask) =
+        logicalPut(leafId, updatedLeaf, putDetails.clientPutDetails.searchResult.insertionPoint, trail)
+      // after all the logical operations, we need to send the merkle path to the client for verification
+      cmd
+        .verifyChanges(newStateProof, putTask.wasSplitting) // TODO here we could have new signature
+        .flatMap { _ ⇒
+          // persist all changes
+          commitNewState(putTask)
+        }
+        .map(_ ⇒ valueRef)
+    }
   }
 
   /**
@@ -377,10 +381,10 @@ class MerkleBTree private[server] (
    * @return Tuple with [[MerklePath]] for tree after updating and [[PutTask]] for persisting changes
    */
   private def logicalPut(
-    leafId: NodeId,
-    newLeaf: Leaf,
-    searchedValueIdx: Int,
-    trail: Trail
+      leafId: NodeId,
+      newLeaf: Leaf,
+      searchedValueIdx: Int,
+      trail: Trail
   ): (MerklePath, PutTask) = {
     logger.debug(s"Logic put for leafId=$leafId, leaf=$newLeaf, trail=$trail")
 
@@ -444,8 +448,10 @@ class MerkleBTree private[server] (
           // some regular leaf was splitted
           PutCtx(
             newStateProof = merklePath,
-            updateParentFn = updateAfterChildSplitting(NodeWithId(leftId, left), NodeWithId(rightId, right), isInsertToTheLeft),
-            putTask = PutTask(nodesToSave = Seq(NodeWithId(leftId, left), NodeWithId(rightId, right)), wasSplitting = true)
+            updateParentFn =
+              updateAfterChildSplitting(NodeWithId(leftId, left), NodeWithId(rightId, right), isInsertToTheLeft),
+            putTask =
+              PutTask(nodesToSave = Seq(NodeWithId(leftId, left), NodeWithId(rightId, right)), wasSplitting = true)
           )
         }
       } else {
@@ -472,7 +478,6 @@ class MerkleBTree private[server] (
      */
     def createTreePathCtx: (PathElem[NodeId, Branch], PutCtx) ⇒ PutCtx = {
       case (visitedBranch, PutCtx(merklePath, updateParentFn, PutTask(nodesToSave, _, wasSplitting))) ⇒
-
         val PathElem(branchId, branch, nextChildIdx) = updateParentFn(visitedBranch)
 
         if (hasOverflow(branch)) {
@@ -499,7 +504,9 @@ class MerkleBTree private[server] (
             PutCtx(
               newStateProof = MerklePath(newParent.toProof(affectedNewParentIdx) +: newMerklePath.path),
               putTask = PutTask(
-                nodesToSave = nodesToSave ++ Seq(NodeWithId(leftId, left), NodeWithId(rightId, right), NodeWithId(RootId, newParent)),
+                nodesToSave = nodesToSave ++ Seq(NodeWithId(leftId, left),
+                                                 NodeWithId(rightId, right),
+                                                 NodeWithId(RootId, newParent)),
                 increaseDepth = true, // if splitting root node appears - increase depth of the tree
                 wasSplitting = true
               )
@@ -508,8 +515,10 @@ class MerkleBTree private[server] (
             // some regular leaf was splitting
             PutCtx(
               newStateProof = newMerklePath,
-              updateParentFn = updateAfterChildSplitting(NodeWithId(leftId, left), NodeWithId(rightId, right), isInsertToTheLeft),
-              putTask = PutTask(nodesToSave ++ Seq(NodeWithId(leftId, left), NodeWithId(rightId, right)), wasSplitting = true)
+              updateParentFn =
+                updateAfterChildSplitting(NodeWithId(leftId, left), NodeWithId(rightId, right), isInsertToTheLeft),
+              putTask =
+                PutTask(nodesToSave ++ Seq(NodeWithId(leftId, left), NodeWithId(rightId, right)), wasSplitting = true)
             )
           }
         } else {
@@ -537,9 +546,9 @@ class MerkleBTree private[server] (
      * @return Function for parent updating
      */
     def updateAfterChildSplitting(
-      left: NodeAndId,
-      right: NodeAndId,
-      isInsertToTheLeft: Boolean
+        left: NodeAndId,
+        right: NodeAndId,
+        isInsertToTheLeft: Boolean
     ): PathElem[NodeId, Branch] ⇒ PathElem[NodeId, Branch] = {
 
       case PathElem(parentId: NodeId, parentNode: Branch, nextChildIdx) ⇒
@@ -569,7 +578,8 @@ class MerkleBTree private[server] (
   private def commitNewState(putTask: PutTask): Task[Unit] = {
     logger.debug(s"commitNewState for nodes=${putTask.nodesToSave}")
     // todo start transaction
-    Task.gatherUnordered(putTask.nodesToSave.map { case NodeWithId(id, node) ⇒ saveNode(id, node) })
+    Task
+      .gatherUnordered(putTask.nodesToSave.map { case NodeWithId(id, node) ⇒ saveNode(id, node) })
       .foreachL(_ ⇒ if (putTask.increaseDepth) this.depth.increment())
     // todo end transaction
   }
@@ -615,7 +625,8 @@ class MerkleBTree private[server] (
    * @return Index of searched child and the child
    */
   private def searchChild(branch: Branch, cmd: BTreeCommand[Task, Key]): Task[(Int, Node)] = {
-    cmd.nextChildIndex(branch)
+    cmd
+      .nextChildIndex(branch)
       .flatMap(searchedIdx ⇒ {
         val childId = branch.childsReferences(searchedIdx)
         store.get(childId).map(searchedIdx → _)
@@ -650,18 +661,17 @@ object MerkleBTree {
    * @param conf          MerkleBTree config
    */
   def apply[F[_]](
-    name: String,
-    rocksFactory: RocksDbStore.Factory,
-    hasher: CryptoHasher[Array[Byte], Hash],
-    conf: Config
+      name: String,
+      rocksFactory: RocksDbStore.Factory,
+      hasher: CryptoHasher[Array[Byte], Hash],
+      conf: Config
   )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[MerkleBTree] =
     F.map2(
       defaultStore(name, rocksFactory, conf),
       MerkleBTreeConfig.read(conf)
-    ) {
-        (store, conf) ⇒
-          new MerkleBTree(conf, store, NodeOps(hasher))
-      }
+    ) { (store, conf) ⇒
+      new MerkleBTree(conf, store, NodeOps(hasher))
+    }
 
   /**
    * Default tree store with RockDb key-value storage under the hood.
@@ -671,9 +681,9 @@ object MerkleBTree {
    * @param conf          MerkleBTree config
    */
   private def defaultStore[F[_]](
-    storeName: String,
-    rocksFactory: RocksDbStore.Factory,
-    conf: Config
+      storeName: String,
+      rocksFactory: RocksDbStore.Factory,
+      conf: Config
   )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[BTreeStore[Task, Long, Node]] = {
     val codecs = KryoCodecs()
       .add[Key]
@@ -686,7 +696,6 @@ object MerkleBTree {
       .add[Node]
       .add[Option[NodeId]]
       .add[None.type]
-
       .addCase(classOf[Leaf])
       .addCase(classOf[Branch])
       .build[Task]()

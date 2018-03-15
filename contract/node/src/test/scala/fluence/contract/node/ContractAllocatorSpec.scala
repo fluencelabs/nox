@@ -62,7 +62,11 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
     TrieMapKVStore()
 
   val allocator: ContractAllocatorRpc[IO, BasicContract] = new ContractAllocator[IO, BasicContract](
-    nodeId, store, createDS, checkAllocationPossible, signer
+    nodeId,
+    store,
+    createDS,
+    checkAllocationPossible,
+    signer
   )
 
   val cache: ContractsCache[IO, BasicContract] =
@@ -85,7 +89,9 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
     }
 
     "reject offer with unsufficent resources" in {
-      val contract = offer("should reject").copy(executionState = BasicContract.ExecutionState(version = -1, merkleRoot = ByteVector.empty))
+      val contract = offer("should reject").copy(
+        executionState = BasicContract.ExecutionState(version = -1, merkleRoot = ByteVector.empty)
+      )
       allocator.offer(contract).attempt.unsafeRunSync().isLeft shouldBe true
     }
 
@@ -114,7 +120,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       val v2 = allocator.offer(contract.copy(requiredStorageSize = 2)).unsafeRunSync()
       v2.participants should contain(nodeId)
       v2.requiredStorageSize shouldBe 2
-      */
+     */
     }
 
     "not return (accepted) offer from cache" in {
@@ -132,7 +138,8 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       import fluence.contract.ops.ContractWrite._
 
       val c2 = offer("should not allocate, as not a participant, even with a list of participants")
-        .signOffer(Key.fromPublicKey[IO](s2.publicKey).unsafeRunSync(), s2).get
+        .signOffer(Key.fromPublicKey[IO](s2.publicKey).unsafeRunSync(), s2)
+        .get
 
       allocator.allocate(c2).attempt.unsafeRunSync().isLeft shouldBe true
     }
@@ -145,10 +152,16 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       import fluence.contract.ops.ContractWrite._
 
       allocator.allocate(accepted).attempt.unsafeRunSync().isLeft shouldBe true
-      allocator.allocate(
-        accepted.sealParticipants(signer)
-          .get.copy(executionState = BasicContract.ExecutionState(version = -1, merkleRoot = ByteVector.empty))
-      ).attempt.unsafeRunSync().isLeft shouldBe true
+      allocator
+        .allocate(
+          accepted
+            .sealParticipants(signer)
+            .get
+            .copy(executionState = BasicContract.ExecutionState(version = -1, merkleRoot = ByteVector.empty))
+        )
+        .attempt
+        .unsafeRunSync()
+        .isLeft shouldBe true
 
       denyDS += offerC.id
       allocator.allocate(accepted.sealParticipants(signer).get).attempt.unsafeRunSync().isLeft shouldBe true

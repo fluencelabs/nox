@@ -35,12 +35,17 @@ class TestSiblingOps[C](nodeId: Key, maxSiblingsSize: Int) extends Siblings.Writ
     Coeval {
       require(lock.flip(true), "Siblings must be unlocked")
       lock.set(true)
-    }.flatMap(_ ⇒
-      mod.run(read).map {
-        case (s, v) ⇒
-          state.set(s)
-          v
-      }.doOnFinish(_ ⇒ Coeval.now(lock.flip(false))))
+    }.flatMap(
+      _ ⇒
+        mod
+          .run(read)
+          .map {
+            case (s, v) ⇒
+              state.set(s)
+              v
+          }
+          .doOnFinish(_ ⇒ Coeval.now(lock.flip(false)))
+    )
   }
 
   override def read: Siblings[C] =

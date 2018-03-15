@@ -27,11 +27,12 @@ import fluence.contract.grpc.{ BasicContract, ContractAllocatorGrpc }
 import scala.concurrent.Future
 import scala.language.higherKinds
 
-class ContractAllocatorServer[F[_], C](contractAllocator: ContractAllocatorRpc[F, C])(implicit
+class ContractAllocatorServer[F[_], C](contractAllocator: ContractAllocatorRpc[F, C])(
+    implicit
     F: Monad[F],
     codec: Codec[F, C, BasicContract],
-    run: F ~> Future)
-  extends ContractAllocatorGrpc.ContractAllocator {
+    run: F ~> Future
+) extends ContractAllocatorGrpc.ContractAllocator {
 
   override def offer(request: BasicContract): Future[BasicContract] =
     run(

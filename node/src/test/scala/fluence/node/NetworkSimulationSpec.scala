@@ -73,9 +73,11 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     private val serverBuilder = GrpcServer.builder(serverConf.copy(port = localPort))
 
-    val contact = Contact.buildOwn[Id](InetAddress.getLocalHost.getHostName, localPort, 0, "0", algo.signer(kp)).value.right.get
+    val contact =
+      Contact.buildOwn[Id](InetAddress.getLocalHost.getHostName, localPort, 0, "0", algo.signer(kp)).value.right.get
 
-    private val client = GrpcClient.builder(key, IO.pure(contact.b64seed), clientConf)
+    private val client = GrpcClient
+      .builder(key, IO.pure(contact.b64seed), clientConf)
       .add(KademliaClient.register[Task]())
       .build
 
@@ -84,13 +86,11 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       client.service[KademliaRpc[Task, Contact]](c)
     }
 
-    val kad = KademliaMVar(
-      key,
-      Task.pure(contact),
-      kademliaClientRpc,
-      KademliaConf(6, 6, 3, 1.second),
-
-      TransportSecurity.canBeSaved[Task](key, acceptLocal = true))
+    val kad = KademliaMVar(key,
+                           Task.pure(contact),
+                           kademliaClientRpc,
+                           KademliaConf(6, 6, 3, 1.second),
+                           TransportSecurity.canBeSaved[Task](key, acceptLocal = true))
 
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServer(kad.handleRPC), global))
@@ -133,8 +133,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
     "Find itself by lookup iterative" in {
       servers.foreach { s ⇒
         servers.map(_.key).filterNot(_ === s.key).foreach { k ⇒
-          val li = s.kad.findNode(k, 8).runAsync
-            .futureValue.map(_.key)
+          val li = s.kad.findNode(k, 8).runAsync.futureValue.map(_.key)
 
           li should be('nonEmpty)
 

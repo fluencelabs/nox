@@ -28,12 +28,11 @@ case class SeedsConfig(
     seeds: List[String]
 ) {
   def contacts(implicit checker: SignatureChecker): IO[List[Contact]] =
-    Traverse[List].traverse(seeds)(s ⇒
-      Contact.readB64seed[IO](s).value.flatMap(IO.fromEither)
-    )
+    Traverse[List].traverse(seeds)(s ⇒ Contact.readB64seed[IO](s).value.flatMap(IO.fromEither))
 }
 
 object SeedsConfig {
+
   /**
    * Reads seed nodes contacts from config
    */

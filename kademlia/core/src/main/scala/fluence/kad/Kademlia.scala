@@ -105,10 +105,13 @@ abstract class Kademlia[F[_], C](
      */
     override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[C]]] = {
       logger.trace(s"HandleRPC($nodeId): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
-    }.pure[F].map(_ ⇒
-      nodeId.lookupAway(key, moveAwayFrom)
-        .take(numberOfNodes)
-    )
+    }.pure[F]
+      .map(
+        _ ⇒
+          nodeId
+            .lookupAway(key, moveAwayFrom)
+            .take(numberOfNodes)
+      )
   }
 
   /**
@@ -124,7 +127,9 @@ abstract class Kademlia[F[_], C](
       case None ⇒
         callIterative(
           key,
-          n ⇒ if (n.key === key) F.pure(()) else F.raiseError[Unit](new RuntimeException("Mismatching node") with NoStackTrace),
+          n ⇒
+            if (n.key === key) F.pure(())
+            else F.raiseError[Unit](new RuntimeException("Mismatching node") with NoStackTrace),
           numToCollect = 1,
           maxNumOfCalls = maxRequests
         ).map(_.headOption.map(_._1))
@@ -151,8 +156,22 @@ abstract class Kademlia[F[_], C](
    * @tparam A fn call type
    * @return Sequence of nodes with corresponding successful replies, should be >= numToCollect in case of success
    */
-  def callIterative[A](key: Key, fn: Node[C] ⇒ F[A], numToCollect: Int, maxNumOfCalls: Int, isIdempotentFn: Boolean = true): F[Seq[(Node[C], A)]] =
-    nodeId.callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn, rpc, pingExpiresIn, checkNode)
+  def callIterative[A](
+      key: Key,
+      fn: Node[C] ⇒ F[A],
+      numToCollect: Int,
+      maxNumOfCalls: Int,
+      isIdempotentFn: Boolean = true
+  ): F[Seq[(Node[C], A)]] =
+    nodeId.callIterative(key,
+                         fn,
+                         numToCollect,
+                         parallelism,
+                         maxNumOfCalls,
+                         isIdempotentFn,
+                         rpc,
+                         pingExpiresIn,
+                         checkNode)
 
   /**
    * Joins the Kademlia network by a list of known peers. Fails if no join operations performed successfully

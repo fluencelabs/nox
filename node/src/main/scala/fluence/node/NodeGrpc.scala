@@ -54,7 +54,9 @@ object NodeGrpc {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
-  def grpcClient(key: Key, contact: Contact, config: Config)(implicit checker: SignatureChecker): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact]] =
+  def grpcClient(key: Key, contact: Contact, config: Config)(
+      implicit checker: SignatureChecker
+  ): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact]] =
     for {
       clientConf ← GrpcConf.read[IO](config)
       client = {
@@ -66,9 +68,9 @@ object NodeGrpc {
 
   // Add server (with kademlia inside), build
   def grpcServer(
-    services: Services,
-    serverBuilder: GrpcServer.Builder,
-    config: Config
+      services: Services,
+      serverBuilder: GrpcServer.Builder,
+      config: Config
   ): IO[GrpcServer] =
     for {
       clientConf ← GrpcConf.read[IO](config)

@@ -63,13 +63,12 @@ class DatasetNodeStorage private[node] (
    * @return returns found value, None if nothing was found.
    */
   def get(getCallbacks: SearchCallback[Task]): Task[Option[Array[Byte]]] =
-    bTreeIndex.get(SearchCommandImpl(getCallbacks))
-      .flatMap {
-        case Some(reference) ⇒
-          kVStore.get(reference).map(Option(_))
-        case None ⇒
-          Task(None)
-      }
+    bTreeIndex.get(SearchCommandImpl(getCallbacks)).flatMap {
+      case Some(reference) ⇒
+        kVStore.get(reference).map(Option(_))
+      case None ⇒
+        Task(None)
+    }
 
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.
@@ -79,8 +78,8 @@ class DatasetNodeStorage private[node] (
    * @return returns old value if old value was overridden, None otherwise.
    */
   def put(
-    putCallbacks: PutCallbacks[Task],
-    encryptedValue: Array[Byte]
+      putCallbacks: PutCallbacks[Task],
+      encryptedValue: Array[Byte]
   ): Task[Option[Array[Byte]]] = {
 
     // todo start transaction
@@ -128,11 +127,11 @@ object DatasetNodeStorage {
    * @return
    */
   def apply[F[_]](
-    datasetId: String,
-    rocksFactory: RocksDbStore.Factory,
-    config: Config,
-    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    onMRChange: ByteVector ⇒ Task[Unit]
+      datasetId: String,
+      rocksFactory: RocksDbStore.Factory,
+      config: Config,
+      cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
+      onMRChange: ByteVector ⇒ Task[Unit]
   )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[DatasetNodeStorage] = {
     import Codec.identityCodec
 

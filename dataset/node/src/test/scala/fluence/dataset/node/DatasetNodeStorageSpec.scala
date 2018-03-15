@@ -30,7 +30,8 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{ BeforeAndAfterEach, Matchers, WordSpec }
 import scodec.bits.ByteVector
 
-class DatasetNodeStorageSpec extends WordSpec with Matchers with MockitoSugar with ScalaFutures with BeforeAndAfterEach {
+class DatasetNodeStorageSpec
+  extends WordSpec with Matchers with MockitoSugar with ScalaFutures with BeforeAndAfterEach {
 
   private val get = mock[SearchCallback[Task]]
   private val put = mock[PutCallbacks[Task]]

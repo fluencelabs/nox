@@ -31,7 +31,10 @@ import scalajs.js.JSConverters._
 import scala.language.higherKinds
 import scala.scalajs.js.typedarray.Int8Array
 
-class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable], codec: Codec[F, T, Array[Byte]]) extends Crypt[F, T, Array[Byte]] {
+class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(
+    implicit ME: MonadError[F, Throwable],
+    codec: Codec[F, T, Array[Byte]]
+) extends Crypt[F, T, Array[Byte]] {
 
   private val salt = config.salt
 
@@ -132,11 +135,17 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
 
 object AesCrypt extends slogging.LazyLogging {
 
-  def forString[F[_] : Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] = {
-    implicit val codec: Codec[F, String, Array[Byte]] = Codec[F, String, Array[Byte]](_.getBytes.pure[F], bytes ⇒ new String(bytes).pure[F])
+  def forString[F[_] : Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(
+      implicit ME: MonadError[F, Throwable]
+  ): AesCrypt[F, String] = {
+    implicit val codec: Codec[F, String, Array[Byte]] =
+      Codec[F, String, Array[Byte]](_.getBytes.pure[F], bytes ⇒ new String(bytes).pure[F])
     apply[F, String](password, withIV, config)
   }
 
-  def apply[F[_] : Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable], codec: Codec[F, T, Array[Byte]]): AesCrypt[F, T] =
+  def apply[F[_] : Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(
+      implicit ME: MonadError[F, Throwable],
+      codec: Codec[F, T, Array[Byte]]
+  ): AesCrypt[F, T] =
     new AesCrypt(password.toHex.toCharArray, withIV, config)
 }

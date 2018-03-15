@@ -35,6 +35,7 @@ private[protocol] object Jwt {
   private val alphabet = Bases.Alphabets.Base64Url
 
   class WritePartial[F[_] : Monad] {
+
     /**
      *
      * @param header JWT header object
@@ -48,7 +49,8 @@ private[protocol] object Jwt {
       val h = ByteVector(Encoder[H].apply(header).noSpaces.getBytes()).toBase64(alphabet)
       val c = ByteVector(Encoder[C].apply(claim).noSpaces.getBytes()).toBase64(alphabet)
 
-      signer.sign[F](ByteVector((h + c).getBytes))
+      signer
+        .sign[F](ByteVector((h + c).getBytes))
         .map(_.sign.toBase64(alphabet))
         .map(h + "." + c + "." + _)
     }
@@ -76,16 +78,18 @@ private[protocol] object Jwt {
    * @return Deserialized header and claim, or error
    */
   def read[F[_] : Monad, H : Decoder, C : Decoder](
-    token: String,
-    getPk: (H, C) ⇒ Either[NoSuchElementException, KeyPair.Public]
+      token: String,
+      getPk: (H, C) ⇒ Either[NoSuchElementException, KeyPair.Public]
   )(implicit checker: SignatureChecker): EitherT[F, Throwable, (H, C)] = // InputErr :+: CryptoErr :+: CNil
     token.split('.').toList match {
       case h :: c :: s :: Nil ⇒
-
         for {
-          hbv ← EitherT.fromOption(ByteVector.fromBase64(h, alphabet), new IllegalArgumentException("Can't read base64 header, got " + h))
-          cbv ← EitherT.fromOption(ByteVector.fromBase64(c, alphabet), new IllegalArgumentException("Can't read base64 claim, got " + c))
-          sgn ← EitherT.fromOption(ByteVector.fromBase64(s, alphabet), new IllegalArgumentException("Can't read base64 signature, got " + s))
+          hbv ← EitherT.fromOption(ByteVector.fromBase64(h, alphabet),
+                                   new IllegalArgumentException("Can't read base64 header, got " + h))
+          cbv ← EitherT.fromOption(ByteVector.fromBase64(c, alphabet),
+                                   new IllegalArgumentException("Can't read base64 claim, got " + c))
+          sgn ← EitherT.fromOption(ByteVector.fromBase64(s, alphabet),
+                                   new IllegalArgumentException("Can't read base64 signature, got " + s))
 
           hc ← EitherT.fromEither[F](for {
             hj ← parse(new String(hbv.toArray))
@@ -96,7 +100,9 @@ private[protocol] object Jwt {
 
           pk ← EitherT.fromEither(getPk(hc._1, hc._2))
 
-          _ ← checker.check(Signature(pk, sgn), ByteVector((h + c).getBytes())).leftMap(err ⇒ err: Throwable) // TODO: coproduct
+          _ ← checker
+            .check(Signature(pk, sgn), ByteVector((h + c).getBytes()))
+            .leftMap(err ⇒ err: Throwable) // TODO: coproduct
 
         } yield hc
 

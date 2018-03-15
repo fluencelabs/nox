@@ -38,13 +38,13 @@ import scala.language.higherKinds
  * @tparam F Effect
  * @tparam C Domain-level Contract
  */
-class ContractsCacheServer[F[_], C](
-    cache: ContractsCacheRpc[F, C])(implicit
+class ContractsCacheServer[F[_], C](cache: ContractsCacheRpc[F, C])(
+    implicit
     F: MonadError[F, Throwable],
     codec: Codec[F, C, BasicContract],
     keyK: Kleisli[F, Array[Byte], Key],
-    run: F ~> Future)
-  extends ContractsCacheGrpc.ContractsCache {
+    run: F ~> Future
+) extends ContractsCacheGrpc.ContractsCache {
 
   override def find(request: FindRequest): Future[BasicContract] =
     run(

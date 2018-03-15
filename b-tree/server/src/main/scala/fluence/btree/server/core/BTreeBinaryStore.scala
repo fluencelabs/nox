@@ -37,8 +37,8 @@ import scala.language.higherKinds
  * @tparam F Box for returning value
  */
 class BTreeBinaryStore[F[_], Id, Node](
-  kvStore: KVStore[F, Array[Byte], Array[Byte]],
-  valueIdGenerator: () ⇒ Id,
+    kvStore: KVStore[F, Array[Byte], Array[Byte]],
+    valueIdGenerator: () ⇒ Id,
 )(
     implicit
     idCodec: Codec[F, Id, Array[Byte]],

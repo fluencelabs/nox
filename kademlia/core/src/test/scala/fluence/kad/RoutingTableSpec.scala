@@ -32,9 +32,12 @@ import scala.concurrent.duration._
 import scala.language.implicitConversions
 
 class RoutingTableSpec extends WordSpec with Matchers {
-  implicit def key(i: Long): Key = Key.fromBytes[Coeval](Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
-    ByteVector.fromLong(i).toArray
-  })).value
+  implicit def key(i: Long): Key =
+    Key
+      .fromBytes[Coeval](Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
+        ByteVector.fromLong(i).toArray
+      }))
+      .value
 
   implicit def toLong(k: Key): Long = {
     k.value.toLong()
@@ -58,18 +61,20 @@ class RoutingTableSpec extends WordSpec with Matchers {
       override def parallel = sequential
     }
 
-    val failLocalRPC = (_: Long) ⇒ new KademliaRpc[Coeval, Long] {
-      override def ping() = Coeval.raiseError(new NoSuchElementException)
+    val failLocalRPC = (_: Long) ⇒
+      new KademliaRpc[Coeval, Long] {
+        override def ping() = Coeval.raiseError(new NoSuchElementException)
 
-      override def lookup(key: Key, numberOfNodes: Int) = ???
-      override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
+        override def lookup(key: Key, numberOfNodes: Int) = ???
+        override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
     }
 
-    val successLocalRPC = (c: Long) ⇒ new KademliaRpc[Coeval, Long] {
-      override def ping() = Coeval(Node(c, now, c))
+    val successLocalRPC = (c: Long) ⇒
+      new KademliaRpc[Coeval, Long] {
+        override def ping() = Coeval(Node(c, now, c))
 
-      override def lookup(key: Key, numberOfNodes: Int) = ???
-      override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
+        override def lookup(key: Key, numberOfNodes: Int) = ???
+        override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
     }
 
     val checkNode: Node[Long] ⇒ Coeval[Boolean] = _ ⇒ Coeval(true)
@@ -158,17 +163,15 @@ class RoutingTableSpec extends WordSpec with Matchers {
       implicit val bo = bucketOps(2)
       implicit val so = siblingsOps(nodeId, 10)
 
-      (1l to 10l).foreach {
-        i ⇒
-          nodeId.update(Node(i, now, i), successLocalRPC, pingDuration, checkNode).run
+      (1l to 10l).foreach { i ⇒
+        nodeId.update(Node(i, now, i), successLocalRPC, pingDuration, checkNode).run
       }
 
       val nbs10 = nodeId.lookup(100l)
       nbs10.size should be >= 7
 
-      (1l to 127l).foreach {
-        i ⇒
-          nodeId.update(Node(i, now, i), successLocalRPC, pingDuration, checkNode).run
+      (1l to 127l).foreach { i ⇒
+        nodeId.update(Node(i, now, i), successLocalRPC, pingDuration, checkNode).run
       }
 
       (1l to 127l).foreach { i ⇒

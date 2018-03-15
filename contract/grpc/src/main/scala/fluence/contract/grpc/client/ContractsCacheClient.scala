@@ -33,11 +33,11 @@ import io.grpc.{ CallOptions, ManagedChannel }
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.language.higherKinds
 
-class ContractsCacheClient[F[_] : Async, C](
-    stub: ContractsCacheStub)(implicit
+class ContractsCacheClient[F[_] : Async, C](stub: ContractsCacheStub)(
+    implicit
     codec: Codec[F, C, BasicContract],
-    ec: ExecutionContext)
-  extends ContractsCacheRpc[F, C] {
+    ec: ExecutionContext
+) extends ContractsCacheRpc[F, C] {
 
   private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
 
@@ -71,6 +71,7 @@ class ContractsCacheClient[F[_] : Async, C](
 }
 
 object ContractsCacheClient {
+
   /**
    * Shorthand to register inside NetworkClient.
    *
@@ -78,10 +79,12 @@ object ContractsCacheClient {
    * @param callOptions Call options
    */
   def register[F[_] : Async, C]()(
-    channel: ManagedChannel,
-    callOptions: CallOptions
-  )(implicit
-    codec: Codec[F, C, BasicContract],
-    ec: ExecutionContext): ContractsCacheRpc[F, C] =
+      channel: ManagedChannel,
+      callOptions: CallOptions
+  )(
+      implicit
+      codec: Codec[F, C, BasicContract],
+      ec: ExecutionContext
+  ): ContractsCacheRpc[F, C] =
     new ContractsCacheClient[F, C](new ContractsCacheGrpc.ContractsCacheStub(channel, callOptions))
 }

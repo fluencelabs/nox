@@ -38,7 +38,7 @@ object ContractWrite {
     override def imap[A, B](fa: ContractWrite[A])(f: A ⇒ B)(g: B ⇒ A): ContractWrite[B] =
       new ContractWrite[B] {
         override def setOfferSeal(contract: B, signature: Signature): B =
-          f(fa.setOfferSeal (g(contract), signature))
+          f(fa.setOfferSeal(g(contract), signature))
 
         override def setOfferSignature(contract: B, participant: Key, signature: Signature): B =
           f(fa.setOfferSignature(g(contract), participant, signature))
@@ -48,40 +48,51 @@ object ContractWrite {
       }
   }
 
-  implicit class WriteOps[F[_], C](contract: C)(implicit read: ContractRead[C], write: ContractWrite[C], ME: MonadError[F, Throwable]) {
+  implicit class WriteOps[F[_], C](contract: C)(
+      implicit read: ContractRead[C],
+      write: ContractWrite[C],
+      ME: MonadError[F, Throwable]
+  ) {
     import ContractRead.ReadOps
 
     def sealOffer(signer: Signer): F[C] =
-      signer.sign(contract.getOfferBytes)
-        .map(s ⇒ write.setOfferSeal(contract, s)).value
+      signer
+        .sign(contract.getOfferBytes)
+        .map(s ⇒ write.setOfferSeal(contract, s))
+        .value
         .flatMap(ME.fromEither(_))
 
     def signOffer(participant: Key, signer: Signer): F[C] =
-      signer.sign(contract.getOfferBytes).value
+      signer
+        .sign(contract.getOfferBytes)
+        .value
         .flatMap(ME.fromEither(_))
         .map(s ⇒ write.setOfferSignature(contract, participant, s))
 
     def sealParticipants(signer: Signer): F[C] =
-      signer.sign(contract.getParticipantsBytes).value
+      signer
+        .sign(contract.getParticipantsBytes)
+        .value
         .flatMap(ME.fromEither(_))
         .flatMap(s ⇒ ME.catchNonFatal(write.setParticipantsSeal(contract, s)))
 
     def addParticipants(participants: Seq[C])(implicit checker: SignatureChecker): F[C] =
       ME.catchNonFatal(participants.foldLeft(contract) {
-        case (agg, part) if part.participants.size == 1 ⇒
-          part.participants.headOption
-            .flatMap(p ⇒ part.participantSignature(p).map(p -> _))
-            .fold(agg){
-              case (p, sign) ⇒ write.setOfferSignature(agg, p, sign)
-            }
+          case (agg, part) if part.participants.size == 1 ⇒
+            part.participants.headOption
+              .flatMap(p ⇒ part.participantSignature(p).map(p -> _))
+              .fold(agg) {
+                case (p, sign) ⇒ write.setOfferSignature(agg, p, sign)
+              }
 
-        case (agg, _) ⇒
-          agg
-      }).flatMap { signed ⇒
-        signed.checkAllParticipants().flatMap {
-          case true  ⇒ ME.pure(signed)
-          case false ⇒ ME.raiseError(new IllegalArgumentException("Wrong number of participants or wrong signatures"))
+          case (agg, _) ⇒
+            agg
+        })
+        .flatMap { signed ⇒
+          signed.checkAllParticipants().flatMap {
+            case true  ⇒ ME.pure(signed)
+            case false ⇒ ME.raiseError(new IllegalArgumentException("Wrong number of participants or wrong signatures"))
+          }
         }
-      }
   }
 }

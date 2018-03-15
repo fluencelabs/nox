@@ -61,11 +61,11 @@ object GrpcMonix {
     override def onNext(elem: T): Future[Ack] =
       Task(stream.onNext(elem))
         .map(_ ⇒ Ack.Continue)
-        .onErrorHandle {
-          t ⇒
-            onError(t)
-            Ack.Stop
-        }.runAsync
+        .onErrorHandle { t ⇒
+          onError(t)
+          Ack.Stop
+        }
+        .runAsync
   }
 
   def streamObservable[T]: (Observable[T], StreamObserver[T]) = {
@@ -94,7 +94,8 @@ object GrpcMonix {
         nextFn = v ⇒ variable.put(v).map(_ ⇒ Ack.Continue).runAsync
       )
 
-      () ⇒ variable.take
+      () ⇒
+        variable.take
     }
   }
 

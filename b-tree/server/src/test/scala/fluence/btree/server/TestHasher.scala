@@ -31,4 +31,3 @@ class TestHasher(hasher: CryptoHasher[Array[Byte], Array[Byte]]) extends CryptoH
 object TestHasher {
   def apply(hasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher): TestHasher = new TestHasher(hasher)
 }
-

@@ -43,15 +43,18 @@ class KryoCodecs[F[_], L <: HList] private (pool: KryoPool)(implicit F: MonadErr
    */
   implicit def codec[T](implicit sel: ops.hlist.Selector[L, T]): Codec[F, T, Array[Byte]] =
     Codec(
-      obj ⇒ Option(obj) match {
-        case Some(o) ⇒
-          F.catchNonFatal(Option(pool.toBytesWithClass(o))).flatMap {
-            case Some(v) ⇒ F.pure(v)
-            case None    ⇒ F.raiseError(new NullPointerException("Obj is encoded into null"))
-          }
-        case None ⇒
-          F.raiseError[Array[Byte]](new NullPointerException("Obj is null, encoding is impossible"))
-      }, binary ⇒ F.catchNonFatal(pool.fromBytes(binary).asInstanceOf[T]))
+      obj ⇒
+        Option(obj) match {
+          case Some(o) ⇒
+            F.catchNonFatal(Option(pool.toBytesWithClass(o))).flatMap {
+              case Some(v) ⇒ F.pure(v)
+              case None    ⇒ F.raiseError(new NullPointerException("Obj is encoded into null"))
+            }
+          case None ⇒
+            F.raiseError[Array[Byte]](new NullPointerException("Obj is null, encoding is impossible"))
+      },
+      binary ⇒ F.catchNonFatal(pool.fromBytes(binary).asInstanceOf[T])
+    )
 }
 
 object KryoCodecs {
@@ -62,6 +65,7 @@ object KryoCodecs {
    * @tparam L List of registered classes
    */
   class Builder[L <: HList] private[KryoCodecs] (klasses: Seq[Class[_]]) {
+
     /**
      * Register a new case class T to Kryo
      * @tparam T Type to add
@@ -70,7 +74,9 @@ object KryoCodecs {
      * @param sa Presence of all types of S inside L
      * @return Extended builder
      */
-    def addCase[T, S <: HList](klass: Class[T])(implicit gen: Generic.Aux[T, S], sa: ops.hlist.SelectAll[L, S]): Builder[T :: L] =
+    def addCase[T, S <: HList](
+        klass: Class[T]
+    )(implicit gen: Generic.Aux[T, S], sa: ops.hlist.SelectAll[L, S]): Builder[T :: L] =
       new Builder[T :: L](klasses :+ klass)
 
     /**
@@ -88,7 +94,9 @@ object KryoCodecs {
      * @tparam F Effect type
      * @return Configured instance of KryoCodecs
      */
-    def build[F[_]](poolSize: Int = Runtime.getRuntime.availableProcessors)(implicit F: MonadError[F, Throwable]): KryoCodecs[F, L] =
+    def build[F[_]](
+        poolSize: Int = Runtime.getRuntime.availableProcessors
+    )(implicit F: MonadError[F, Throwable]): KryoCodecs[F, L] =
       new KryoCodecs[F, L](
         KryoPool.withByteArrayOutputStream(
           poolSize,
