@@ -30,6 +30,7 @@ import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.transport.grpc.client.GrpcClient
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
+import monix.reactive.Observable
 import slogging.MessageFormatter.PrefixFormatter
 import slogging._
 
@@ -52,7 +53,7 @@ object ClientCliApp extends App with slogging.LazyLogging {
   logger.debug("Client config is :" +
     config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false)))
 
-  val client = ClientGrpcServices.build[Task](GrpcClient.builder)
+  val client = ClientGrpcServices.build[Task, Observable](GrpcClient.builder)
 
   val buildClient: IO[FluenceClient] = for {
     seedsConf ← SeedsConfig.read(config)

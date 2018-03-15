@@ -27,6 +27,7 @@ import fluence.crypto.keypair.KeyPair
 import fluence.dataset.client.ClientDatasetStorageApi
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
+import monix.reactive.Observable
 import org.jline.reader.LineReaderBuilder
 import org.jline.terminal.TerminalBuilder
 
@@ -39,13 +40,24 @@ object Cli extends slogging.LazyLogging {
   private val lineReader = LineReaderBuilder.builder().terminal(terminal).build()
   private val readLine = IO(lineReader.readLine("fluence< "))
 
-  def cryptoMethods[F[_] : Applicative](secretKey: KeyPair.Secret, config: Config)(implicit F: MonadError[F, Throwable]): Task[(AesCrypt[F, String], AesCrypt[F, String])] = {
+  def cryptoMethods[F[_] : Applicative](
+    secretKey: KeyPair.Secret,
+    config: Config
+  )(implicit F: MonadError[F, Throwable]): Task[(AesCrypt[F, String], AesCrypt[F, String])] = {
     for {
       aesConfig ← AesConfigParser.readAesConfigOrGetDefault[Task](config)
-    } yield (AesCrypt.forString(secretKey.value, withIV = false, aesConfig), AesCrypt.forString(secretKey.value, withIV = true, aesConfig))
+    } yield (
+      AesCrypt.forString(secretKey.value, withIV = false, aesConfig),
+      AesCrypt.forString(secretKey.value, withIV = true, aesConfig)
+    )
   }
 
-  def restoreDataset(keyPair: KeyPair, fluenceClient: FluenceClient, config: Config, replicationN: Int): Task[ClientDatasetStorageApi[Task, String, String]] = {
+  def restoreDataset(
+    keyPair: KeyPair,
+    fluenceClient: FluenceClient,
+    config: Config,
+    replicationN: Int
+  ): Task[ClientDatasetStorageApi[Task, Observable, String, String]] = {
     for {
       crypts ← cryptoMethods[Task](keyPair.secretKey, config)
       (keyCrypt, valueCrypt) = crypts
@@ -59,7 +71,7 @@ object Cli extends slogging.LazyLogging {
     } yield ds
   }
 
-  def handleCmds(ds: ClientDatasetStorageApi[Task, String, String], config: Config): IO[Boolean] =
+  def handleCmds(ds: ClientDatasetStorageApi[Task, Observable, String, String], config: Config): IO[Boolean] =
     for {
       commandOp ← readLine.map(CommandParser.parseCommand)
       res ← commandOp match {

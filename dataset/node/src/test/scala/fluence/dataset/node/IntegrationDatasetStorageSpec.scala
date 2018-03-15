@@ -25,10 +25,9 @@ import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
+import fluence.crypto.hash.JdkCryptoHasher
 import fluence.dataset.client.ClientDatasetStorage
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.storage
 import fluence.storage.rocksdb.{ RocksDbConf, RocksDbStore }
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -94,6 +93,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
           "test0".getBytes(),
           createBTreeClient(),
           createStorageRpcWithNetworkError("test0", mr ⇒ Task(counter.incrementAndGet())),
+          keyCrypt,
           valueCryptWithCorruption,
           testHasher
         )
@@ -238,6 +238,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
       fullName.getBytes(),
       createBTreeClient(clientState),
       createStorageRpc(fullName),
+      keyCrypt,
       valueCrypt,
       testHasher
     )

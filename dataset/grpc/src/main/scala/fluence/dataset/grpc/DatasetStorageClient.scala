@@ -27,7 +27,6 @@ import fluence.dataset.grpc.DatasetStorageClient.ServerError
 import fluence.dataset.grpc.DatasetStorageServer.ClientError
 import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.grpc.DatasetStorageRpcGrpc.DatasetStorageRpcStub
-import fluence.dataset.grpc._
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.{ CallOptions, ManagedChannel }

@@ -23,7 +23,7 @@ import fluence.kad.protocol.KademliaRpc
 
 import scala.language.higherKinds
 
-abstract class ClientServices[F[_], Contract, Contact] {
+abstract class ClientServices[F[_], FS[_], Contract, Contact] {
 
   def kademlia: KademliaRpc[F, Contact]
 
@@ -31,6 +31,6 @@ abstract class ClientServices[F[_], Contract, Contact] {
 
   def contractAllocator: ContractAllocatorRpc[F, Contract]
 
-  def datasetStorage: DatasetStorageRpc[F]
+  def datasetStorage: DatasetStorageRpc[F, FS]
 
 }

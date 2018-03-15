@@ -34,13 +34,14 @@ import shapeless.HNil
 import scala.language.higherKinds
 
 object ClientGrpcServices {
-  def build[F[_] : Effect](
+
+  def build[F[_] : Effect, FS[_]](
     builder: GrpcClient.Builder[HNil]
   )(
     implicit
     checker: SignatureChecker,
     scheduler: Scheduler = Scheduler.global
-  ): Contact ⇒ ClientServices[F, BasicContract, Contact] = {
+  ): Contact ⇒ ClientServices[F, FS, BasicContract, Contact] = {
     import fluence.contract.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
     import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
 
@@ -51,7 +52,7 @@ object ClientGrpcServices {
       .add(DatasetStorageClient.register[F]())
       .build
 
-    contact ⇒ new ClientServices[F, BasicContract, Contact] {
+    contact ⇒ new ClientServices[F, FS, BasicContract, Contact] {
       override def kademlia: KademliaRpc[F, Contact] =
         client.service[KademliaRpc[F, Contact]](contact)
 
@@ -61,8 +62,8 @@ object ClientGrpcServices {
       override def contractAllocator: ContractAllocatorRpc[F, BasicContract] =
         client.service[ContractAllocatorRpc[F, BasicContract]](contact)
 
-      override def datasetStorage: DatasetStorageRpc[F] =
-        client.service[DatasetStorageRpc[F]](contact)
+      override def datasetStorage: DatasetStorageRpc[F, FS] =
+        client.service[DatasetStorageRpc[F, FS]](contact)
     }
   }
 }

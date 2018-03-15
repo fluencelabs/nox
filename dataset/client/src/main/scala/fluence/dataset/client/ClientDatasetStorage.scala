@@ -59,19 +59,21 @@ class ClientDatasetStorage[K, V](
       resp ← decryptOption(serverResponse)
     } yield resp
 
-
   override def range(from: K, to: K): Observable[(K, V)] =
     for {
       rangeCallbacks ← Observable.fromTask(bTreeIndex.initRange(from))
-      (key, value) ←
-        storageRpc
-          .range(datasetId, rangeCallbacks)
-          .doAfterTerminateTask { _ ⇒ rangeCallbacks.recoverState() }
-      plainKey ← keyCrypt.decrypt(key)
-      plainValue ← valueCrypt.decrypt(value)
+      pair ← storageRpc
+        .range(datasetId, rangeCallbacks)
+        .doAfterTerminateTask { _ ⇒ rangeCallbacks.recoverState() }
+        .mapTask {
+          case (key, value) ⇒
+            for {
+              plainKey ← keyCrypt.decrypt(key)
+              plainValue ← valueCrypt.decrypt(value)
+            } yield plainKey → plainValue
+        }
 
-    } yield plainKey → plainValue
-
+    } yield pair
 
   override def put(key: K, value: V): Task[Option[V]] =
     for {
@@ -88,7 +90,6 @@ class ClientDatasetStorage[K, V](
 
       resp ← decryptOption(serverResponse)
     } yield resp
-
 
   override def remove(key: K): Task[Option[V]] =
     for {

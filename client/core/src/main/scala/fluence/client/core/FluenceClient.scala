@@ -62,7 +62,7 @@ class FluenceClient(
     keyPair: KeyPair,
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]]
-  ): Task[Option[ClientDatasetStorageApi[Task, String, String]]] = {
+  ): Task[Option[ClientDatasetStorageApi[Task, Observable, String, String]]] = {
     loadDatasetFromCache(keyPair.publicKey, restoreReplicatedDataset(keyPair, keyCrypt, valueCrypt)) // todo: do replication or don't, should be configurable
   }
 
@@ -116,8 +116,8 @@ class FluenceClient(
 
   private def loadDatasetFromCache(
     pk: KeyPair.Public,
-    dataStorage: Task[Option[ClientDatasetStorageApi[Task, String, String]]]
-  ): Task[Option[ClientDatasetStorageApi[Task, String, String]]] = {
+    dataStorage: Task[Option[ClientDatasetStorageApi[Task, Observable, String, String]]]
+  ): Task[Option[ClientDatasetStorageApi[Task, Observable, String, String]]] = {
     dataStorage.memoizeOnSuccess
   }
 
@@ -126,7 +126,7 @@ class FluenceClient(
     participantsRequired: Int,
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]]
-  ): Task[ClientDatasetStorageApi[Task, String, String]] = {
+  ): Task[ClientDatasetStorageApi[Task, Observable, String, String]] = {
     import fluence.contract.ops.ContractWrite._
     for {
       key ← Key.fromKeyPair[Task](keyPair)
@@ -152,7 +152,7 @@ class FluenceClient(
     keyPair: KeyPair,
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]]
-  ): Task[Option[ClientDatasetStorageApi[Task, String, String]]] = {
+  ): Task[Option[ClientDatasetStorageApi[Task, Observable, String, String]]] = {
     for {
       key ← Key.fromKeyPair[Task](keyPair)
       bcOp ← contracts.find(key).attempt.map(_.toOption)
@@ -237,7 +237,7 @@ object FluenceClient extends slogging.LazyLogging {
     signAlgo: SignAlgo,
     storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
     kademliaConf: KademliaConf,
-    client: Contact ⇒ ClientServices[Task, BasicContract, Contact]
+    client: Contact ⇒ ClientServices[Task, Observable, BasicContract, Contact]
   ): IO[FluenceClient] = {
 
     import signAlgo.checker
