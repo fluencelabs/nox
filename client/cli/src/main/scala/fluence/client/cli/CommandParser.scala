@@ -38,7 +38,7 @@ object CommandParser {
     val string: P[String] = P(string0("'") | string0("\"") | stringSpace)
 
     val exit = P(Start ~ "exit").map(_ ⇒ Exit)
-    val putCommand = P(Start ~ "put" ~ string ~ string).map{ case (k, v) ⇒ Put(k, v) }
+    val putCommand = P(Start ~ "put" ~ string ~ string).map { case (k, v) ⇒ Put(k, v) }
     val getCommand = P(Start ~ "get" ~ string).map(k ⇒ Get(k))
 
     P(exit | putCommand | getCommand)

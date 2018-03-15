@@ -42,21 +42,22 @@ object KademliaMVar {
    * @tparam C Contact info
    */
   def apply[C](
-    nodeId: Key,
-    contact: Task[C],
-    rpcForContact: C ⇒ KademliaRpc[Task, C],
-    conf: KademliaConf,
-    checkNode: Node[C] ⇒ Task[Boolean]
-  ): Kademlia[Task, C] = new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
-    implicitly[MonadError[Task, Throwable]],
-    implicitly[Parallel[Task, Task]],
-    MVarBucketOps.task[C](conf.maxBucketSize),
-    KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
-  ) {
-    override def rpc(contact: C): KademliaRpc[Task, C] = rpcForContact(contact)
+      nodeId: Key,
+      contact: Task[C],
+      rpcForContact: C ⇒ KademliaRpc[Task, C],
+      conf: KademliaConf,
+      checkNode: Node[C] ⇒ Task[Boolean]
+  ): Kademlia[Task, C] =
+    new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
+      implicitly[MonadError[Task, Throwable]],
+      implicitly[Parallel[Task, Task]],
+      MVarBucketOps.task[C](conf.maxBucketSize),
+      KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
+    ) {
+      override def rpc(contact: C): KademliaRpc[Task, C] = rpcForContact(contact)
 
-    override def ownContact: Task[Node[C]] = contact.map(c ⇒ Node(nodeId, Instant.now(), c))
-  }
+      override def ownContact: Task[Node[C]] = contact.map(c ⇒ Node(nodeId, Instant.now(), c))
+    }
 
   /**
    * Builder for client-side implementation of KademliaMVar
@@ -67,9 +68,9 @@ object KademliaMVar {
    * @tparam C Contact info
    */
   def client[C](
-    rpc: C ⇒ KademliaRpc[Task, C],
-    conf: KademliaConf,
-    checkNode: Node[C] ⇒ Task[Boolean]
+      rpc: C ⇒ KademliaRpc[Task, C],
+      conf: KademliaConf,
+      checkNode: Node[C] ⇒ Task[Boolean]
   ): Kademlia[Task, C] =
     apply[C](
       Monoid.empty[Key],

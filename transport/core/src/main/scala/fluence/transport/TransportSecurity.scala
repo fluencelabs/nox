@@ -41,21 +41,22 @@ object TransportSecurity {
     node ⇒ {
       if (node.key === self || !Key.checkPublicKey(node.key, node.contact.publicKey)) false.pure[F]
       else if (acceptLocal) true.pure[F]
-      else try {
-        val ip = InetAddress.getByName(node.contact.addr)
-        val isLocal = ip.isLoopbackAddress ||
-          ip.isAnyLocalAddress ||
-          ip.isLinkLocalAddress ||
-          ip.isSiteLocalAddress ||
-          ip.isMCSiteLocal ||
-          ip.isMCGlobal ||
-          ip.isMCLinkLocal ||
-          ip.isMCNodeLocal ||
-          ip.isMCOrgLocal
-        (!isLocal).pure[F]
-      } catch {
-        case _: Throwable ⇒ false.pure[F] // TODO: return in Either
-      }
+      else
+        try {
+          val ip = InetAddress.getByName(node.contact.addr)
+          val isLocal = ip.isLoopbackAddress ||
+            ip.isAnyLocalAddress ||
+            ip.isLinkLocalAddress ||
+            ip.isSiteLocalAddress ||
+            ip.isMCSiteLocal ||
+            ip.isMCGlobal ||
+            ip.isMCLinkLocal ||
+            ip.isMCNodeLocal ||
+            ip.isMCOrgLocal
+          (!isLocal).pure[F]
+        } catch {
+          case _: Throwable ⇒ false.pure[F] // TODO: return in Either
+        }
     }
 
 }

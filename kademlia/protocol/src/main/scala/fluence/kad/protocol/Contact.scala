@@ -44,7 +44,6 @@ case class Contact(
     publicKey: KeyPair.Public,
     protocolVersion: Long,
     gitHash: String,
-
     b64seed: String
 )
 
@@ -61,13 +60,12 @@ object Contact {
    * @return Either Contact if built, or error
    */
   def buildOwn[F[_] : Monad](
-    addr: String,
-    port: Int, // httpPort, websocketPort and other transports //
+      addr: String,
+      port: Int, // httpPort, websocketPort and other transports //
 
-    protocolVersion: Long,
-    gitHash: String,
-
-    signer: Signer
+      protocolVersion: Long,
+      gitHash: String,
+      signer: Signer
   ): EitherT[F, CryptoErr, Contact] = {
     val jwtHeader =
       Contact.JwtHeader(signer.publicKey, protocolVersion)
@@ -93,23 +91,26 @@ object Contact {
   case class JwtData(addr: String, grpcPort: Int, gitHash: String)
 
   object JwtImplicits {
-    implicit val encodeHeader: Encoder[JwtHeader] = header ⇒ Json.obj(
-      "pk" -> Json.fromString(header.publicKey.value.toBase64(Bases.Alphabets.Base64Url)),
-      "pv" -> Json.fromLong(header.protocolVersion))
+    implicit val encodeHeader: Encoder[JwtHeader] = header ⇒
+      Json.obj("pk" -> Json.fromString(header.publicKey.value.toBase64(Bases.Alphabets.Base64Url)),
+               "pv" -> Json.fromLong(header.protocolVersion))
 
     implicit val decodeHeader: Decoder[JwtHeader] = c ⇒
       for {
         pk ← c.downField("pk").as[String]
         pv ← c.downField("pv").as[Long]
-        pubKey ← ByteVector.fromBase64(pk, Bases.Alphabets.Base64Url).fold[Either[DecodingFailure, KeyPair.Public]](
-          Left(DecodingFailure("Cannot parse public key", Nil))
-        )(bc ⇒ Right(KeyPair.Public(bc)))
+        pubKey ← ByteVector
+          .fromBase64(pk, Bases.Alphabets.Base64Url)
+          .fold[Either[DecodingFailure, KeyPair.Public]](
+            Left(DecodingFailure("Cannot parse public key", Nil))
+          )(bc ⇒ Right(KeyPair.Public(bc)))
       } yield JwtHeader(pubKey, pv)
 
-    implicit val encodeData: Encoder[JwtData] = data ⇒ Json.obj(
-      "a" -> Json.fromString(data.addr),
-      "gp" -> Json.fromInt(data.grpcPort),
-      "gh" -> Json.fromString(data.gitHash)
+    implicit val encodeData: Encoder[JwtData] = data ⇒
+      Json.obj(
+        "a" -> Json.fromString(data.addr),
+        "gp" -> Json.fromInt(data.grpcPort),
+        "gh" -> Json.fromString(data.gitHash)
     )
 
     implicit val decodeData: Decoder[JwtData] = c ⇒

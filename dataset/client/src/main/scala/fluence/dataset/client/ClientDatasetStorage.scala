@@ -52,8 +52,9 @@ class ClientDatasetStorage[K, V](
 
     for {
       getCallbacks ← bTreeIndex.initGet(key)
-      serverResponse ← storageRpc.get(datasetId, getCallbacks)
-        .doOnFinish { _ ⇒ getCallbacks.recoverState() }
+      serverResponse ← storageRpc.get(datasetId, getCallbacks).doOnFinish { _ ⇒
+        getCallbacks.recoverState()
+      }
 
       resp ← decryptOption(serverResponse)
     } yield resp
@@ -112,12 +113,12 @@ object ClientDatasetStorage {
    * @tparam V The type of stored values
    */
   def apply[K, V](
-    datasetId: Array[Byte],
-    hasher: CryptoHasher[Array[Byte], Array[Byte]],
-    storageRpc: DatasetStorageRpc[Task],
-    keyCrypt: Crypt[Task, K, Array[Byte]],
-    valueCrypt: Crypt[Task, V, Array[Byte]],
-    clientState: Option[ClientState]
+      datasetId: Array[Byte],
+      hasher: CryptoHasher[Array[Byte], Array[Byte]],
+      storageRpc: DatasetStorageRpc[Task],
+      keyCrypt: Crypt[Task, K, Array[Byte]],
+      valueCrypt: Crypt[Task, V, Array[Byte]],
+      clientState: Option[ClientState]
   )(implicit ord: Ordering[K]): ClientDatasetStorage[K, V] = {
 
     val wrappedHasher = hasher.map(Hash(_))

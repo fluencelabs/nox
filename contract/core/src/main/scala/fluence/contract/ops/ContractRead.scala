@@ -33,6 +33,7 @@ import scala.language.higherKinds
  * @tparam C Contract's type
  */
 trait ContractRead[C] {
+
   /**
    * Cluster ID
    *
@@ -114,12 +115,10 @@ object ContractRead {
      */
     def getParticipantsBytes: ByteVector =
       // TODO: review, document & optimize
-      participants
-        .toSeq
+      participants.toSeq
         .sorted(Key.relativeOrdering(id))
-        .map(k ⇒
-          participantSignature(k).fold(ByteVector.empty)(_.sign)
-        ).foldLeft(id.value)(_ ++ _)
+        .map(k ⇒ participantSignature(k).fold(ByteVector.empty)(_.sign))
+        .foldLeft(id.value)(_ ++ _)
 
     /**
      * Checks that client's seal for the contract offer is correct
@@ -137,7 +136,9 @@ object ContractRead {
      * @param signature Signature to check
      * @param checker Signature checker
      */
-    def checkOfferSignature[F[_]](signature: Signature)(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Unit] =
+    def checkOfferSignature[F[_]](
+        signature: Signature
+    )(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Unit] =
       checker.check[F](signature, getOfferBytes).value.map(_.isRight) // TODO EitherT
 
     /**
@@ -164,7 +165,9 @@ object ContractRead {
      * @param participant Participating node's key
      * @param checker Signature checker
      */
-    def participantSigned[F[_]](participant: Key)(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] = {
+    def participantSigned[F[_]](
+        participant: Key
+    )(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] = {
       participantSignature(participant) match {
         case Some(ps) ⇒ checkOfferSignature(ps).map(_ ⇒ Key.checkPublicKey(participant, ps.publicKey))
         case None     ⇒ F.pure(false)

@@ -74,9 +74,10 @@ object RoutingTable {
             (if (idx - i >= 0) Stream(idx - i) else Stream.empty) append
               (if (idx + i < Key.BitLength) Stream(idx + i) else Stream.empty)
           })
-          .flatMap(idx ⇒
-            // Take contacts from the bucket, and sort them
-            BR.read(idx).stream
+          .flatMap(
+            idx ⇒
+              // Take contacts from the bucket, and sort them
+              BR.read(idx).stream
           )
       }
 
@@ -110,11 +111,14 @@ object RoutingTable {
       lookup(key).filter(n ⇒ (n.key |+| key) < (n.key |+| moveAwayFrom))
   }
 
-  implicit class WriteOps[F[_], C](nodeId: Key)(implicit
+  implicit class WriteOps[F[_], C](nodeId: Key)(
+      implicit
       BW: Bucket.WriteOps[F, C],
       SW: Siblings.WriteOps[F, C],
       ME: MonadError[F, Throwable],
-      P: Parallel[F, F]) extends slogging.LazyLogging {
+      P: Parallel[F, F]
+  ) extends slogging.LazyLogging {
+
     /**
      * Locates the bucket responsible for given contact, and updates it using given ping function
      *
@@ -124,7 +128,12 @@ object RoutingTable {
      * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
      * @return True if the node is saved into routing table
      */
-    def update(node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration, checkNode: Node[C] ⇒ F[Boolean]): F[Boolean] =
+    def update(
+        node: Node[C],
+        rpc: C ⇒ KademliaRpc[F, C],
+        pingExpiresIn: Duration,
+        checkNode: Node[C] ⇒ F[Boolean]
+    ): F[Boolean] =
       if (nodeId === node.key) false.pure[F]
       else {
         checkNode(node).attempt.flatMap {
@@ -158,10 +167,10 @@ object RoutingTable {
      * @return The same list of `nodes`
      */
     def updateList(
-      nodes: List[Node[C]],
-      rpc: C ⇒ KademliaRpc[F, C],
-      pingExpiresIn: Duration,
-      checkNode: Node[C] ⇒ F[Boolean]
+        nodes: List[Node[C]],
+        rpc: C ⇒ KademliaRpc[F, C],
+        pingExpiresIn: Duration,
+        checkNode: Node[C] ⇒ F[Boolean]
     ): F[List[Node[C]]] = {
       // From iterable of groups, make list of list of items from different groups
       @tailrec
@@ -183,14 +192,15 @@ object RoutingTable {
       }
 
       // Update each portion in parallel
-      def updateParPortions(portions: List[List[Node[C]]], agg: List[Node[C]] = Nil): F[List[Node[C]]] = portions match {
-        case Nil         ⇒ agg.pure[F]
-        case Nil :: tail ⇒ updateParPortions(tail, agg)
-        case portion :: tail ⇒
-          Parallel.parTraverse(portion)(update(_, rpc, pingExpiresIn, checkNode)).flatMap(_ ⇒
-            updateParPortions(tail, portion ::: agg)
-          )
-      }
+      def updateParPortions(portions: List[List[Node[C]]], agg: List[Node[C]] = Nil): F[List[Node[C]]] =
+        portions match {
+          case Nil         ⇒ agg.pure[F]
+          case Nil :: tail ⇒ updateParPortions(tail, agg)
+          case portion :: tail ⇒
+            Parallel
+              .parTraverse(portion)(update(_, rpc, pingExpiresIn, checkNode))
+              .flatMap(_ ⇒ updateParPortions(tail, portion ::: agg))
+        }
 
       updateParPortions(
         // Rearrange in portions with distinct bucket ids, so that it's possible to update it in parallel
@@ -236,16 +246,12 @@ object RoutingTable {
      * @return
      */
     def lookupIterative(
-      key: Key,
-      neighbors: Int,
-
-      parallelism: Int,
-
-      rpc: C ⇒ KademliaRpc[F, C],
-
-      pingExpiresIn: Duration,
-      checkNode: Node[C] ⇒ F[Boolean]
-
+        key: Key,
+        neighbors: Int,
+        parallelism: Int,
+        rpc: C ⇒ KademliaRpc[F, C],
+        pingExpiresIn: Duration,
+        checkNode: Node[C] ⇒ F[Boolean]
     ): F[Seq[Node[C]]] = {
       // Import for Traverse
       import cats.instances.list._
@@ -271,21 +277,22 @@ object RoutingTable {
           val updatedProbed = probed ++ handle.map(_.key)
 
           // Fetch remote lookups into F; filter previously seen nodes
-          val remote0X = Parallel.parTraverse(handle) { c ⇒
-            rpc(c.contact).lookup(key, neighbors)
-          }.map[List[Node[C]]](
-            _.flatten
-              .filterNot(c ⇒ updatedProbed(c.key)) // Filter away already seen nodes
-          )
+          val remote0X = Parallel
+            .parTraverse(handle) { c ⇒
+              rpc(c.contact).lookup(key, neighbors)
+            }
+            .map[List[Node[C]]](
+              _.flatten
+                .filterNot(c ⇒ updatedProbed(c.key)) // Filter away already seen nodes
+            )
 
           remote0X
             .flatMap(updateList(_, rpc, pingExpiresIn, checkNode)) // Update routing table
-            .map {
-              remotes ⇒
-                val updatedShortlist = shortlist ++
-                  remotes.filter(c ⇒ (shortlist.size < neighbors || ordering.lt(c, shortlist.head)) && c.key =!= nodeId)
+            .map { remotes ⇒
+              val updatedShortlist = shortlist ++
+                remotes.filter(c ⇒ (shortlist.size < neighbors || ordering.lt(c, shortlist.head)) && c.key =!= nodeId)
 
-                AdvanceData(updatedShortlist, updatedProbed, hasNext = true)
+              AdvanceData(updatedShortlist, updatedProbed, hasNext = true)
             }
         }
       }
@@ -339,20 +346,18 @@ object RoutingTable {
      *         If size is >= `numToCollect`, call should be considered completely successful
      */
     def callIterative[A](
-      key: Key,
-      fn: Node[C] ⇒ F[A],
-      numToCollect: Int,
-      parallelism: Int,
-      maxNumOfCalls: Int,
-      isIdempotentFn: Boolean,
-
-      rpc: C ⇒ KademliaRpc[F, C],
-      pingExpiresIn: Duration,
-      checkNode: Node[C] ⇒ F[Boolean]
+        key: Key,
+        fn: Node[C] ⇒ F[A],
+        numToCollect: Int,
+        parallelism: Int,
+        maxNumOfCalls: Int,
+        isIdempotentFn: Boolean,
+        rpc: C ⇒ KademliaRpc[F, C],
+        pingExpiresIn: Duration,
+        checkNode: Node[C] ⇒ F[Boolean]
     ): F[Seq[(Node[C], A)]] =
       lookupIterative(key, numToCollect max parallelism, parallelism, rpc, pingExpiresIn, checkNode).flatMap {
         prefetchedNodes ⇒
-
           // Lazy stream that takes nodes from the right
           def tailStream[T](from: SortedSet[T]): Stream[T] =
             from.lastOption.fold(Stream.empty[T])(last ⇒ Stream.cons(last, tailStream(from.init)))
@@ -364,7 +369,11 @@ object RoutingTable {
 
           // 1: take next nodes to try fn on.
           // Firstly take from seed, then expand seed with lookup on tail
-          def moreNodes(loaded: SortedSet[Node[C]], lookedUp: Set[Key], loadMore: Int): F[(SortedSet[Node[C]], Set[Key])] = {
+          def moreNodes(
+              loaded: SortedSet[Node[C]],
+              lookedUp: Set[Key],
+              loadMore: Int
+          ): F[(SortedSet[Node[C]], Set[Key])] = {
             // If we can't expand the set, don't try
             if (lookedUp.size == loaded.size) (loaded, lookedUp).pure[F]
             else {
@@ -372,8 +381,11 @@ object RoutingTable {
               val toLookup = tailStream(loaded).filter(nc ⇒ !lookedUp(nc.key)).take(parallelism).toList
 
               // Make lookup requests for node's own neighborhood
-              Parallel.parTraverse(toLookup){ n ⇒ rpc(n.contact).lookupAway(n.key, key, lookupSize).attempt }.flatMap {
-                lookupResult ⇒
+              Parallel
+                .parTraverse(toLookup) { n ⇒
+                  rpc(n.contact).lookupAway(n.key, key, lookupSize).attempt
+                }
+                .flatMap { lookupResult ⇒
                   val ns = lookupResult.collect {
                     case Right(v) ⇒ v
                   }.flatten
@@ -385,26 +397,28 @@ object RoutingTable {
                   val loadedNum = updatedLoaded.size - loaded.size
 
                   moreNodes(updatedLoaded, updatedLookedUp, loadMore - loadedNum)
-              }
+                }
             }
           }
 
           // 2: on given nodes, call fn in parallel.
           // Return list of collected replies, and list of unsuccessful trials
           def callFn(nodes: List[Node[C]]): F[Seq[(Node[C], A)]] =
-            Parallel.parTraverse(nodes)(n ⇒ fn(n).attempt.map(n -> _))
-              .map(_.collect{ case (n, Right(a)) ⇒ (n, a) })
+            Parallel
+              .parTraverse(nodes)(n ⇒ fn(n).attempt.map(n -> _))
+              .map(_.collect { case (n, Right(a)) ⇒ (n, a) })
 
           // 3: take nodes from 1, run 2, until one of conditions is met:
           // - numToCollect is collected
           // - maxRequests is made
           // - no more nodes to query are available
           def iterate(
-            nodes: SortedSet[Node[C]],
-            replies: Seq[(Node[C], A)],
-            lookedUp: Set[Key],
-            fnCalled: Set[Key],
-            requestsRemaining: Int): F[Seq[(Node[C], A)]] = {
+              nodes: SortedSet[Node[C]],
+              replies: Seq[(Node[C], A)],
+              lookedUp: Set[Key],
+              fnCalled: Set[Key],
+              requestsRemaining: Int
+          ): F[Seq[(Node[C], A)]] = {
             val needCollect = numToCollect - replies.size
             // If we've collected enough, stop
             if (needCollect <= 0) replies.pure[F]
@@ -418,44 +432,42 @@ object RoutingTable {
                 .take(callsNeeded)
 
               (if (callOnNodes.size < callsNeeded) {
-                // If there's not enough nodes to call fn on, try to get more
-                moreNodes(nodes, lookedUp, needCollect - callOnNodes.size).map {
-                  case (updatedNodes, updatedLookedUp) ⇒
-                    (
-                      updatedNodes,
-                      updatedLookedUp,
-                      updatedNodes.size - nodes.size >= needCollect - callOnNodes.size, // if there're new nodes, we have a reason to fetch more
-                      updatedNodes
-                      .filter(n ⇒ !fnCalled(n.key))
-                      .take(callsNeeded)
-                    )
-                }
-              } else {
-                (nodes, lookedUp, true, callOnNodes).pure[F]
-              }).flatMap {
+                 // If there's not enough nodes to call fn on, try to get more
+                 moreNodes(nodes, lookedUp, needCollect - callOnNodes.size).map {
+                   case (updatedNodes, updatedLookedUp) ⇒
+                     (
+                       updatedNodes,
+                       updatedLookedUp,
+                       updatedNodes.size - nodes.size >= needCollect - callOnNodes.size, // if there're new nodes, we have a reason to fetch more
+                       updatedNodes
+                         .filter(n ⇒ !fnCalled(n.key))
+                         .take(callsNeeded)
+                     )
+                 }
+               } else {
+                 (nodes, lookedUp, true, callOnNodes).pure[F]
+               }).flatMap {
                 case (updatedNodes, updatedLookedUp, hasMoreNodesToLookup, updatedCallOnNodes) ⇒
+                  callFn(callOnNodes.toList).flatMap { newReplies ⇒
+                    val updatedReplies = replies ++ newReplies
+                    val updatedRequestsRemaining = requestsRemaining - updatedCallOnNodes.size
+                    val updatedFnCalled = fnCalled ++ updatedCallOnNodes.map(_.key)
 
-                  callFn(callOnNodes.toList).flatMap {
-                    newReplies ⇒
-                      val updatedReplies = replies ++ newReplies
-                      val updatedRequestsRemaining = requestsRemaining - updatedCallOnNodes.size
-                      val updatedFnCalled = fnCalled ++ updatedCallOnNodes.map(_.key)
+                    val escapeCondition =
+                      updatedReplies.lengthCompare(numToCollect) >= 0 || // collected enough replies
+                        updatedRequestsRemaining <= 0 || // Too many requests are made
+                        (updatedFnCalled.size == updatedNodes.size && !hasMoreNodesToLookup) // No more nodes to call fn on
 
-                      val escapeCondition =
-                        updatedReplies.lengthCompare(numToCollect) >= 0 || // collected enough replies
-                          updatedRequestsRemaining <= 0 || // Too many requests are made
-                          (updatedFnCalled.size == updatedNodes.size && !hasMoreNodesToLookup) // No more nodes to call fn on
-
-                      if (escapeCondition)
-                        updatedReplies.pure[F] // Stop iterations
-                      else
-                        iterate(
-                          updatedNodes,
-                          updatedReplies,
-                          updatedLookedUp,
-                          updatedFnCalled,
-                          updatedRequestsRemaining
-                        )
+                    if (escapeCondition)
+                      updatedReplies.pure[F] // Stop iterations
+                    else
+                      iterate(
+                        updatedNodes,
+                        updatedReplies,
+                        updatedLookedUp,
+                        updatedFnCalled,
+                        updatedRequestsRemaining
+                      )
                   }
               }
             }
@@ -483,66 +495,74 @@ object RoutingTable {
      * @return F[Unit], possibly a failure if were not able to join any node
      */
     def join(
-      peers: Seq[C],
-      rpc: C ⇒ KademliaRpc[F, C],
-      pingExpiresIn: Duration,
-      numberOfNodes: Int,
-      checkNode: Node[C] ⇒ F[Boolean],
-      parallelism: Int): F[Unit] =
-      Parallel.parTraverse(peers.toList) { peer: C ⇒
-        logger.trace("Going to ping Peer to join: " + peer)
+        peers: Seq[C],
+        rpc: C ⇒ KademliaRpc[F, C],
+        pingExpiresIn: Duration,
+        numberOfNodes: Int,
+        checkNode: Node[C] ⇒ F[Boolean],
+        parallelism: Int
+    ): F[Unit] =
+      Parallel
+        .parTraverse(peers.toList) { peer: C ⇒
+          logger.trace("Going to ping Peer to join: " + peer)
 
-        // For each peer
-        // Try to ping the peer; if no pings are performed, join is failed
-        rpc(peer).ping().attempt.flatMap[Option[(Node[C], List[Node[C]])]] {
-          case Right(peerNode) if peerNode.key =!= nodeId ⇒ // Ping successful, lookup node's neighbors
-            logger.info("PeerPing successful to " + peerNode.key)
+          // For each peer
+          // Try to ping the peer; if no pings are performed, join is failed
+          rpc(peer).ping().attempt.flatMap[Option[(Node[C], List[Node[C]])]] {
+            case Right(peerNode) if peerNode.key =!= nodeId ⇒ // Ping successful, lookup node's neighbors
+              logger.info("PeerPing successful to " + peerNode.key)
 
-            rpc(peer).lookup(nodeId, numberOfNodes).attempt.map {
-              case Right(neighbors) if neighbors.isEmpty ⇒
-                logger.info("Neighbors list is empty for peer " + peerNode.key)
-                Some(peerNode -> Nil)
+              rpc(peer).lookup(nodeId, numberOfNodes).attempt.map {
+                case Right(neighbors) if neighbors.isEmpty ⇒
+                  logger.info("Neighbors list is empty for peer " + peerNode.key)
+                  Some(peerNode -> Nil)
 
-              case Right(neighbors) ⇒
-                Some(peerNode -> neighbors.toList)
+                case Right(neighbors) ⇒
+                  Some(peerNode -> neighbors.toList)
 
-              case Left(e) ⇒
-                logger.warn(s"Can't perform lookup for $peer during join", e)
-                Some(peerNode -> Nil)
-            }
+                case Left(e) ⇒
+                  logger.warn(s"Can't perform lookup for $peer during join", e)
+                  Some(peerNode -> Nil)
+              }
 
-          case Right(_) ⇒
-            logger.debug("Can't initialize from myself")
-            Option.empty[(Node[C], List[Node[C]])].pure[F]
+            case Right(_) ⇒
+              logger.debug("Can't initialize from myself")
+              Option.empty[(Node[C], List[Node[C]])].pure[F]
 
-          case Left(e) ⇒
-            logger.warn(s"Can't perform ping for $peer during join", e)
-            Option.empty[(Node[C], List[Node[C]])].pure[F]
+            case Left(e) ⇒
+              logger.warn(s"Can't perform ping for $peer during join", e)
+              Option.empty[(Node[C], List[Node[C]])].pure[F]
+          }
+
         }
-
-      }.map(_.flatten)
+        .map(_.flatten)
         .flatMap { peerNeighbors ⇒
-
           val ps = peerNeighbors.map(_._1)
           val peerSet = ps.map(_.key).toSet
 
-          val ns = peerNeighbors.flatMap(_._2).groupBy(_.key).mapValues(_.head).values.filterNot(n ⇒ peerSet(n.key)).toList
+          val ns =
+            peerNeighbors.flatMap(_._2).groupBy(_.key).mapValues(_.head).values.filterNot(n ⇒ peerSet(n.key)).toList
 
-          Parallel.parTraverse(
-            ns
-          )(p ⇒ rpc(p.contact).ping().attempt).map(_.collect {
-            case Right(n) ⇒ n
-          }).map(_ ::: ps)
+          Parallel
+            .parTraverse(
+              ns
+            )(p ⇒ rpc(p.contact).ping().attempt)
+            .map(_.collect {
+              case Right(n) ⇒ n
+            })
+            .map(_ ::: ps)
 
-        }.flatMap { ns ⇒
+        }
+        .flatMap { ns ⇒
           // Save discovered nodes to the routing table
           logger.info("Discovered neighbors: " + ns.map(_.key))
           updateList(ns, rpc, pingExpiresIn, checkNode)
-        }.map(_.nonEmpty).flatMap {
+        }
+        .map(_.nonEmpty)
+        .flatMap {
           case true ⇒ // At least joined to a single node
             logger.info("Joined! " + Console.GREEN + nodeId + Console.RESET)
-            lookupIterative(nodeId, numberOfNodes, numberOfNodes, rpc, pingExpiresIn, checkNode)
-              .attempt.map(_ ⇒ ())
+            lookupIterative(nodeId, numberOfNodes, numberOfNodes, rpc, pingExpiresIn, checkNode).attempt.map(_ ⇒ ())
           case false ⇒ // Can't join to any node
             logger.warn("Can't join!")
             ME.raiseError[Unit](new RuntimeException("Can't join any node among known peers"))

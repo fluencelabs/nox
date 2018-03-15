@@ -41,11 +41,13 @@ case class PutCommandImpl[F[_]](
     merkleRootCalculator: MerkleRootCalculator,
     putCallbacks: PutCallbacks[F],
     valueRefProvider: () ⇒ ValueRef
-)(implicit ME: MonadError[F, Throwable]) extends BaseSearchCommand[F](putCallbacks) with PutCommand[F, Key, ValueRef, NodeId] {
+)(implicit ME: MonadError[F, Throwable])
+  extends BaseSearchCommand[F](putCallbacks) with PutCommand[F, Key, ValueRef, NodeId] {
 
   def putDetails(leaf: Option[Leaf]): F[BTreePutDetails] = {
     val (keys, valuesChecksums) =
-      leaf.map(l ⇒ l.keys → l.valuesChecksums)
+      leaf
+        .map(l ⇒ l.keys → l.valuesChecksums)
         .getOrElse(Array.empty[Key] → Array.empty[Hash])
 
     putCallbacks
@@ -54,7 +56,8 @@ case class PutCommandImpl[F[_]](
   }
 
   override def verifyChanges(merklePath: MerklePath, wasSplitting: Boolean): F[Unit] = {
-    putCallbacks.verifyChanges(merkleRootCalculator.calcMerkleRoot(merklePath), wasSplitting)
-      .flatMap { _ ⇒ putCallbacks.changesStored() }
+    putCallbacks.verifyChanges(merkleRootCalculator.calcMerkleRoot(merklePath), wasSplitting).flatMap { _ ⇒
+      putCallbacks.changesStored()
+    }
   }
 }

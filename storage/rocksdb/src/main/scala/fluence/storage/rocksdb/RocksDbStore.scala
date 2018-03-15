@@ -95,17 +95,14 @@ class RocksDbStore(
     lazy val snapshot = db.getSnapshot
     lazy val options = new ReadOptions()
 
-    Observable(())
-      .doOnSubscribe { () ⇒
-        options.setSnapshot(snapshot) // take a snapshot only when subscribing appears
-        options.setTailing(true) // sequential read optimization
-      }
-      .doAfterTerminate { _ ⇒
-        db.releaseSnapshot(snapshot)
-        snapshot.close()
-        options.close()
-      }
-      .flatMap(_ ⇒ Observable.fromIterator(new RocksDbScalaIterator(db.newIterator(options))))
+    Observable(()).doOnSubscribe { () ⇒
+      options.setSnapshot(snapshot) // take a snapshot only when subscribing appears
+      options.setTailing(true) // sequential read optimization
+    }.doAfterTerminate { _ ⇒
+      db.releaseSnapshot(snapshot)
+      snapshot.close()
+      options.close()
+    }.flatMap(_ ⇒ Observable.fromIterator(new RocksDbScalaIterator(db.newIterator(options))))
 
   }
 
@@ -122,7 +119,9 @@ class RocksDbStore(
     val iterator = db.newIterator()
     Task(iterator.seekToLast())
       .flatMap(_ ⇒ if (iterator.isValid) Task(iterator.key()) else Task.raiseError(KVStore.KeyNotFound))
-      .doOnFinish { _ ⇒ Task(iterator.close()) }
+      .doOnFinish { _ ⇒
+        Task(iterator.close())
+      }
   }
 
   /** Users should always explicitly call close() methods for this entity! */
@@ -151,22 +150,22 @@ object RocksDbStore {
      * @param storeName The name of current RocksDbStore instance
      * @param conf       TypeSafe config
      */
-
     def apply[F[_]](storeName: String, conf: Config)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
       RocksDbConf.read(conf).flatMap(apply(storeName, _))
 
-    def apply[F[_]](storeName: String, config: RocksDbConf)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] = {
+    def apply[F[_]](storeName: String, config: RocksDbConf)(
+        implicit F: ApplicativeError[F, Throwable]
+    ): F[RocksDbStore] = {
       val dbRoot = s"${config.dataDir}/$storeName"
       val options = createOptionsFromConfig(config)
 
-      createDb(dbRoot, options)
-        .map{ rdb ⇒
-          // Registering an instance
-          val store = new RocksDbStore(rdb, options)
-          instances(storeName) = store
-          logger.info(s"RocksDB instance created for $storeName")
-          store
-        }
+      createDb(dbRoot, options).map { rdb ⇒
+        // Registering an instance
+        val store = new RocksDbStore(rdb, options)
+        instances(storeName) = store
+        logger.info(s"RocksDB instance created for $storeName")
+        store
+      }
     }
 
     /**
@@ -177,7 +176,9 @@ object RocksDbStore {
       instances.keySet.flatMap(ds ⇒ instances.remove(ds)).foreach(_.close())
     }
 
-    private def createDb[F[_]](folder: String, options: Options)(implicit F: ApplicativeError[F, Throwable]): F[RocksDB] =
+    private def createDb[F[_]](folder: String, options: Options)(
+        implicit F: ApplicativeError[F, Throwable]
+    ): F[RocksDB] =
       F.catchNonFatal {
         RocksDB.loadLibrary()
         val dataDir = new File(folder)
@@ -192,4 +193,3 @@ object RocksDbStore {
     }
   }
 }
-

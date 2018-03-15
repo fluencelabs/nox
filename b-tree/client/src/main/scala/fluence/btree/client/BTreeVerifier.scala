@@ -63,9 +63,9 @@ class BTreeVerifier(
    * @param substitutionIdx Next child index.
    */
   def getBranchProof(
-    keys: Array[Key],
-    childsChecksums: Array[Hash],
-    substitutionIdx: Int
+      keys: Array[Key],
+      childsChecksums: Array[Hash],
+      substitutionIdx: Int
   ): GeneralNodeProof = {
     val keysChecksum = cryptoHasher.hash(keys.flatMap(_.bytes))
     GeneralNodeProof(keysChecksum, childsChecksums, substitutionIdx)
@@ -91,10 +91,10 @@ class BTreeVerifier(
    * @param clientMPath Clients merkle path
    */
   def newMerkleRoot(
-    clientMPath: MerklePath,
-    putDetails: ClientPutDetails,
-    serverMRoot: Hash,
-    wasSplitting: Boolean
+      clientMPath: MerklePath,
+      putDetails: ClientPutDetails,
+      serverMRoot: Hash,
+      wasSplitting: Boolean
   ): Option[Hash] = {
 
     val newMerkleRoot = if (wasSplitting) {
@@ -127,15 +127,12 @@ class BTreeVerifier(
       case ClientPutDetails(cipherKey, valChecksum, InsertionPoint(_)) ⇒
         val keyValChecksum = cryptoHasher.hash(cipherKey.bytes, valChecksum.bytes)
 
-        val mPathAfterInserting = clientMPath.path
-          .lastOption
-          .map {
-            case proof @ GeneralNodeProof(_, childrenChecksums, idx) ⇒
-              val lastProofAfterInserting =
-                proof.copy(childrenChecksums = childrenChecksums.insertValue(keyValChecksum, idx))
-              MerklePath(clientMPath.path.init :+ lastProofAfterInserting)
-          }
-          .getOrElse(MerklePath(Seq(GeneralNodeProof(Hash.empty, Array(keyValChecksum), 0))))
+        val mPathAfterInserting = clientMPath.path.lastOption.map {
+          case proof @ GeneralNodeProof(_, childrenChecksums, idx) ⇒
+            val lastProofAfterInserting =
+              proof.copy(childrenChecksums = childrenChecksums.insertValue(keyValChecksum, idx))
+            MerklePath(clientMPath.path.init :+ lastProofAfterInserting)
+        }.getOrElse(MerklePath(Seq(GeneralNodeProof(Hash.empty, Array(keyValChecksum), 0))))
 
         merkleRootCalculator.calcMerkleRoot(mPathAfterInserting)
     }
@@ -147,9 +144,9 @@ class BTreeVerifier(
    * @return Returns Some(newRoot) if server pass verifying, None otherwise.
    */
   private def verifyPutWithRebalancing(
-    clientMPath: MerklePath,
-    putDetails: ClientPutDetails,
-    serverMRoot: Hash
+      clientMPath: MerklePath,
+      putDetails: ClientPutDetails,
+      serverMRoot: Hash
   ): Hash = {
 
     // todo implement and write tests !!! This methods returns only new merkle root and doesn't verify server response

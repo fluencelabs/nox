@@ -65,10 +65,10 @@ class GrpcClient[CL <: HList](
    */
   private def channel(contact: Contact): ManagedChannel =
     channels.getOrElseUpdate(
-      contactKey(contact),
-      {
+      contactKey(contact), {
         logger.debug("Open new channel: {}", contactKey(contact))
-        ManagedChannelBuilder.forAddress(contact.addr, contact.grpcPort)
+        ManagedChannelBuilder
+          .forAddress(contact.addr, contact.grpcPort)
           .usePlaintext(true)
           .build
       }
@@ -82,8 +82,7 @@ class GrpcClient[CL <: HList](
    */
   private def services(contact: Contact): CL =
     serviceStubs.getOrElseUpdate(
-      contactKey(contact),
-      {
+      contactKey(contact), {
         logger.info("Build services: {}", contactKey(contact))
         val ch = channel(contact)
         buildStubs(
@@ -91,10 +90,11 @@ class GrpcClient[CL <: HList](
           CallOptions.DEFAULT.withCallCredentials( // TODO: is it a correct way to pass headers with the request?
             new CallCredentials {
               override def applyRequestMetadata(
-                method: MethodDescriptor[_, _],
-                attrs: Attributes,
-                appExecutor: Executor,
-                applier: CallCredentials.MetadataApplier): Unit = {
+                  method: MethodDescriptor[_, _],
+                  attrs: Attributes,
+                  appExecutor: Executor,
+                  applier: CallCredentials.MetadataApplier
+              ): Unit = {
 
                 val setHeaders = (headers: Map[String, String]) ⇒ {
                   logger.trace("Writing metadata: {}", headers)
@@ -117,7 +117,9 @@ class GrpcClient[CL <: HList](
               }
 
               override def thisUsesUnstableApi(): Unit = ()
-            }))
+            }
+          )
+        )
       }
     )
 
@@ -148,7 +150,8 @@ object GrpcClient {
   class Builder[CL <: HList] private[GrpcClient] (
       buildStubs: (ManagedChannel, CallOptions) ⇒ CL,
       syncHeaders: Map[String, String],
-      asyncHeaders: IO[Map[String, String]]) {
+      asyncHeaders: IO[Map[String, String]]
+  ) {
     self ⇒
 
     /**
@@ -192,7 +195,8 @@ object GrpcClient {
   /**
    * An empty builder.
    */
-  val builder: Builder[HNil] = new Builder[HNil]((_: ManagedChannel, _: CallOptions) ⇒ HNil, Map.empty, IO.pure(Map.empty))
+  val builder: Builder[HNil] =
+    new Builder[HNil]((_: ManagedChannel, _: CallOptions) ⇒ HNil, Map.empty, IO.pure(Map.empty))
 
   /**
    * Builder with pre-defined credential headers.

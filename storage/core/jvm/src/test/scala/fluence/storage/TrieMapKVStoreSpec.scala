@@ -53,11 +53,15 @@ class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       // check write and read
 
-      val case1 = Task.sequence(Seq(
-        store.get(key1).attempt.map(_.toOption),
-        store.put(key1, val1),
-        store.get(key1)
-      )).runAsync
+      val case1 = Task
+        .sequence(
+          Seq(
+            store.get(key1).attempt.map(_.toOption),
+            store.put(key1, val1),
+            store.get(key1)
+          )
+        )
+        .runAsync
 
       testScheduler.tick(5.seconds)
 
@@ -66,12 +70,16 @@ class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       // check update
 
-      val case2 = Task.sequence(Seq(
-        store.put(key2, val2),
-        store.get(key2),
-        store.put(key2, newVal2),
-        store.get(key2)
-      )).runAsync
+      val case2 = Task
+        .sequence(
+          Seq(
+            store.put(key2, val2),
+            store.get(key2),
+            store.put(key2, newVal2),
+            store.get(key2)
+          )
+        )
+        .runAsync
 
       testScheduler.tick(5.seconds)
 
@@ -80,11 +88,15 @@ class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       // check delete
 
-      val case3 = Task.sequence(Seq(
-        store.get(key1),
-        store.remove(key1),
-        store.get(key1).attempt.map(_.toOption)
-      )).runAsync
+      val case3 = Task
+        .sequence(
+          Seq(
+            store.get(key1),
+            store.remove(key1),
+            store.get(key1).attempt.map(_.toOption)
+          )
+        )
+        .runAsync
 
       testScheduler.tick(5.seconds)
 
@@ -93,7 +105,9 @@ class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       // check traverse
 
-      val manyPairs: Seq[(Key, Value)] = 1 to 100 map { n ⇒ s"key$n".getBytes() → s"val$n".getBytes() }
+      val manyPairs: Seq[(Key, Value)] = 1 to 100 map { n ⇒
+        s"key$n".getBytes() → s"val$n".getBytes()
+      }
       val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v) }
 
       val case4 = Task.sequence(inserts).flatMap(_ ⇒ store.traverse().toListL).runAsync
@@ -101,7 +115,7 @@ class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       testScheduler.tick(5.seconds)
 
       val traverseResult = case4.futureValue
-      bytesToStr(traverseResult.map{
+      bytesToStr(traverseResult.map {
         case (bb, v) ⇒ bb.array() -> v
       }) should contain theSameElementsAs bytesToStr(manyPairs)
 

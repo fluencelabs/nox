@@ -68,7 +68,8 @@ class ContractsCacheStoreSpec extends WordSpec with Matchers {
     }
 
     "performs all operations success" in {
-      val store: KVStore[IO, Key, ContractRecord[BasicContract]] = ContractsCacheStore(config, createKVStore).unsafeRunSync()
+      val store: KVStore[IO, Key, ContractRecord[BasicContract]] =
+        ContractsCacheStore(config, createKVStore).unsafeRunSync()
 
       val seed = "seed".getBytes()
       val keyPair = KeyPair.fromBytes(seed, seed)

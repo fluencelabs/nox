@@ -52,7 +52,8 @@ class SignAlgo(name: String, algo: KeyGenerator with SignatureFunctions) {
    * Checker is single for each algo, and does not contain any state
    */
   implicit val checker: SignatureChecker = new SignatureChecker {
-    override def check[F[_] : Monad](signature: Signature, plain: ByteVector): EitherT[F, CryptoErr, Unit] = algo.verify(signature, plain)
+    override def check[F[_] : Monad](signature: Signature, plain: ByteVector): EitherT[F, CryptoErr, Unit] =
+      algo.verify(signature, plain)
 
     override def toString: String = s"SignatureChecker($name)"
   }

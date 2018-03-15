@@ -31,10 +31,11 @@ import scala.language.higherKinds
 
 class ContractAllocatorClient[F[_] : Async, C](
     stub: ContractAllocatorStub
-)(implicit
+)(
+    implicit
     codec: Codec[F, C, BasicContract],
-    ec: ExecutionContext)
-  extends ContractAllocatorRpc[F, C] {
+    ec: ExecutionContext
+) extends ContractAllocatorRpc[F, C] {
 
   private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
 
@@ -67,6 +68,7 @@ class ContractAllocatorClient[F[_] : Async, C](
 }
 
 object ContractAllocatorClient {
+
   /**
    * Shorthand to register inside NetworkClient.
    *
@@ -74,11 +76,13 @@ object ContractAllocatorClient {
    * @param callOptions Call options
    */
   def register[F[_] : Async, C]()(
-    channel: ManagedChannel,
-    callOptions: CallOptions
-  )(implicit
-    codec: Codec[F, C, BasicContract],
-    ec: ExecutionContext): ContractAllocatorRpc[F, C] =
+      channel: ManagedChannel,
+      callOptions: CallOptions
+  )(
+      implicit
+      codec: Codec[F, C, BasicContract],
+      ec: ExecutionContext
+  ): ContractAllocatorRpc[F, C] =
     new ContractAllocatorClient[F, C](new ContractAllocatorGrpc.ContractAllocatorStub(channel, callOptions))
 
 }

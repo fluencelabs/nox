@@ -83,7 +83,9 @@ class NodeOpsSpec extends WordSpec with Matchers {
 
         updatedLeaf.keys should contain theSameElementsInOrderAs Array(key1, key4, key6)
         updatedLeaf.valuesReferences should contain theSameElementsInOrderAs Array(val1Ref, val4Ref, val6Ref)
-        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val1Checksum, val4Checksum, val6Checksum)
+        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val1Checksum,
+                                                                                  val4Checksum,
+                                                                                  val6Checksum)
         checkLeafHashes(updatedLeaf, Array(kV1Hash, kV4Hash, kV6Hash), leaf.size)
         updatedLeaf.rightSibling shouldBe None
       }
@@ -93,7 +95,9 @@ class NodeOpsSpec extends WordSpec with Matchers {
 
         updatedLeaf.keys should contain theSameElementsInOrderAs Array(key2, key5, key6)
         updatedLeaf.valuesReferences should contain theSameElementsInOrderAs Array(val2Ref, val5Ref, val6Ref)
-        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val2Checksum, val5Checksum, val6Checksum)
+        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val2Checksum,
+                                                                                  val5Checksum,
+                                                                                  val6Checksum)
         checkLeafHashes(updatedLeaf, Array(kV2Hash, kV5Hash, kV6Hash), leaf.size)
         updatedLeaf.rightSibling shouldBe Some(10L)
       }
@@ -103,7 +107,9 @@ class NodeOpsSpec extends WordSpec with Matchers {
 
         updatedLeaf.keys should contain theSameElementsInOrderAs Array(key2, key4, key7)
         updatedLeaf.valuesReferences should contain theSameElementsInOrderAs Array(val2Ref, val4Ref, val7Ref)
-        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val2Checksum, val4Checksum, val7Checksum)
+        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val2Checksum,
+                                                                                  val4Checksum,
+                                                                                  val7Checksum)
         checkLeafHashes(updatedLeaf, Array(kV2Hash, kV4Hash, kV7Hash), leaf.size)
       }
     }
@@ -133,7 +139,10 @@ class NodeOpsSpec extends WordSpec with Matchers {
 
         updatedLeaf.keys should contain theSameElementsInOrderAs Array(key1, key2, key4, key6)
         updatedLeaf.valuesReferences should contain theSameElementsInOrderAs Array(val1Ref, val2Ref, val4Ref, val6Ref)
-        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val1Checksum, val2Checksum, val4Checksum, val6Checksum)
+        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val1Checksum,
+                                                                                  val2Checksum,
+                                                                                  val4Checksum,
+                                                                                  val6Checksum)
         checkLeafHashes(updatedLeaf, Array(kV1Hash, kV2Hash, kV4Hash, kV6Hash), leaf.size + 1)
         updatedLeaf.rightSibling shouldBe None
       }
@@ -143,7 +152,10 @@ class NodeOpsSpec extends WordSpec with Matchers {
 
         updatedLeaf.keys should contain theSameElementsInOrderAs Array(key2, key3, key4, key6)
         updatedLeaf.valuesReferences should contain theSameElementsInOrderAs Array(val2Ref, val3Ref, val4Ref, val6Ref)
-        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val2Checksum, val3Checksum, val4Checksum, val6Checksum)
+        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val2Checksum,
+                                                                                  val3Checksum,
+                                                                                  val4Checksum,
+                                                                                  val6Checksum)
         checkLeafHashes(updatedLeaf, Array(kV2Hash, kV3Hash, kV4Hash, kV6Hash), leaf.size + 1)
         updatedLeaf.rightSibling shouldBe Some(10L)
       }
@@ -153,7 +165,10 @@ class NodeOpsSpec extends WordSpec with Matchers {
 
         updatedLeaf.keys should contain theSameElementsInOrderAs Array(key2, key4, key6, key7)
         updatedLeaf.valuesReferences should contain theSameElementsInOrderAs Array(val2Ref, val4Ref, val6Ref, val7Ref)
-        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val2Checksum, val4Checksum, val6Checksum, val7Checksum)
+        updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(val2Checksum,
+                                                                                  val4Checksum,
+                                                                                  val6Checksum,
+                                                                                  val7Checksum)
         checkLeafHashes(updatedLeaf, Array(kV2Hash, kV4Hash, kV6Hash, kV7Hash), leaf.size + 1)
         updatedLeaf.rightSibling shouldBe None
       }
@@ -304,7 +319,8 @@ class NodeOpsSpec extends WordSpec with Matchers {
         checkTreeHashes(updatedTree, Array(child1Hash, child5Hash), 1)
       }
       "tree has many children" in {
-        val tree = newTree(Array(key1, key2, key3), Array(1L, 2L, 3L, 4L), Array(child1Hash, child2Hash, child3Hash, child4Hash))
+        val tree =
+          newTree(Array(key1, key2, key3), Array(1L, 2L, 3L, 4L), Array(child1Hash, child2Hash, child3Hash, child4Hash))
         val updatedTree = tree.updateChildChecksum(child5Hash, 2)
         checkTreeHashes(updatedTree, Array(child1Hash, child2Hash, child5Hash, child4Hash), 3)
       }
@@ -325,9 +341,13 @@ class NodeOpsSpec extends WordSpec with Matchers {
         checkTreeHashesAndIds(updatedTree, Array(child1Hash, child5Hash), Array(1L, 5L), 1)
       }
       "tree has many children" in {
-        val tree = newTree(Array(key1, key2, key3), Array(1L, 2L, 3L, 4L), Array(child1Hash, child2Hash, child3Hash, child4Hash))
+        val tree =
+          newTree(Array(key1, key2, key3), Array(1L, 2L, 3L, 4L), Array(child1Hash, child2Hash, child3Hash, child4Hash))
         val updatedTree = tree.updateChildRef(ChildRef(5L, child5Hash), 2)
-        checkTreeHashesAndIds(updatedTree, Array(child1Hash, child2Hash, child5Hash, child4Hash), Array(1L, 2L, 5L, 4L), 3)
+        checkTreeHashesAndIds(updatedTree,
+                              Array(child1Hash, child2Hash, child5Hash, child4Hash),
+                              Array(1L, 2L, 5L, 4L),
+                              3)
       }
     }
   }
@@ -393,9 +413,9 @@ class NodeOpsSpec extends WordSpec with Matchers {
   }
 
   private def checkLeafHashes(
-    updatedLeaf: Leaf,
-    expectedKVHashes: Array[Hash],
-    expectedSize: Int
+      updatedLeaf: Leaf,
+      expectedKVHashes: Array[Hash],
+      expectedSize: Int
   ) = {
     updatedLeaf.kvChecksums.asStr should contain theSameElementsInOrderAs expectedKVHashes.asStr
     updatedLeaf.checksum.bytes shouldBe getLeafChecksum(expectedKVHashes).bytes
@@ -403,9 +423,9 @@ class NodeOpsSpec extends WordSpec with Matchers {
   }
 
   private def checkTreeHashes(
-    updatedTree: BranchNode[Key, NodeId],
-    expectedChildrenHashes: Array[Hash],
-    expectedSize: Int
+      updatedTree: BranchNode[Key, NodeId],
+      expectedChildrenHashes: Array[Hash],
+      expectedSize: Int
   ) = {
     updatedTree.childsChecksums.asStr should contain theSameElementsInOrderAs expectedChildrenHashes.asStr
     updatedTree.checksum.bytes shouldBe getBranchChecksum(updatedTree.keys, expectedChildrenHashes).bytes
@@ -413,10 +433,10 @@ class NodeOpsSpec extends WordSpec with Matchers {
   }
 
   private def checkTreeHashesAndIds(
-    updatedTree: BranchNode[Key, NodeId],
-    expectedChildrenHashes: Array[Hash],
-    expectedChildrenRefs: Array[NodeId],
-    expectedSize: Int
+      updatedTree: BranchNode[Key, NodeId],
+      expectedChildrenHashes: Array[Hash],
+      expectedChildrenRefs: Array[NodeId],
+      expectedSize: Int
   ) = {
     updatedTree.childsChecksums.asStr should contain theSameElementsInOrderAs expectedChildrenHashes.asStr
     updatedTree.childsReferences should contain theSameElementsInOrderAs expectedChildrenRefs
@@ -424,7 +444,12 @@ class NodeOpsSpec extends WordSpec with Matchers {
     updatedTree.size shouldBe expectedSize
   }
 
-  private def newLeaf(keys: Array[Key], valuesRef: Array[Long], valuesChecksums: Array[Hash], rightSib: Option[Long] = None): Leaf = {
+  private def newLeaf(
+      keys: Array[Key],
+      valuesRef: Array[Long],
+      valuesChecksums: Array[Hash],
+      rightSib: Option[Long] = None
+  ): Leaf = {
     val kvHashes = getKvChecksums(keys, valuesChecksums)
     LeafNode(keys, valuesRef, valuesChecksums, kvHashes, keys.length, getLeafChecksum(kvHashes), rightSib)
   }

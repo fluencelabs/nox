@@ -151,11 +151,15 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
         // insert 1024 unique values
 
-        val putRes1 = wait(Task.gather(
-          Random.shuffle(1 to 512).map(i ⇒ {
-            client.put(f"k$i%04d", User(f"v$i%04d", i % 100))
-          })
-        ))
+        val putRes1 = wait(
+          Task.gather(
+            Random
+              .shuffle(1 to 512)
+              .map(i ⇒ {
+                client.put(f"k$i%04d", User(f"v$i%04d", i % 100))
+              })
+          )
+        )
 
         putRes1 should have size 512
         putRes1 should contain only None
@@ -167,14 +171,19 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         wait(client.get(absentKey)) shouldBe None
 
         // insert 1024 new and 1024 duplicated values
-        val putRes2 = wait(Task.gather(
-          Random.shuffle(1 to 1024)
-            .map(i ⇒ client.put(f"k$i%04d", User(f"v$i%04d new", i % 100)))
-        ))
+        val putRes2 = wait(
+          Task.gather(
+            Random
+              .shuffle(1 to 1024)
+              .map(i ⇒ client.put(f"k$i%04d", User(f"v$i%04d new", i % 100)))
+          )
+        )
 
         putRes2 should have size 1024
         putRes2.filter(_.isEmpty) should have size 512
-        putRes2.filter(_.isDefined).map(_.get) should contain allElementsOf (1 to 512).map(i ⇒ User(f"v$i%04d", i % 100))
+        putRes2.filter(_.isDefined).map(_.get) should contain allElementsOf (1 to 512).map(
+          i ⇒ User(f"v$i%04d", i % 100)
+        )
 
         // get some values
         wait(client.get(minKey)).get shouldBe User("v0001 new", 1)
@@ -191,20 +200,28 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         val N = 128
         val changesCounter = Atomic(0l)
 
-        val result = wait(Task.gather(
-          Random.shuffle(1 to N).map(i ⇒ {
-            // only N puts
-            client.put(f"k$i%04d", User(f"v$i%04d", i % 100))
-          }) ++
-            Random.shuffle(1 to N * 2).flatMap(i ⇒ {
-              // 2N puts and 2N! gets
-              client.put(f"k$i%04d", User(f"v$i%04d", i % 100)) +: client.get(f"k$i%04d") +: Nil
-            }) ++
-            Random.shuffle(1 to N).map(i ⇒ {
-              // only N gets
-              client.get(f"k$i%04d")
-            })
-        ))
+        val result = wait(
+          Task.gather(
+            Random
+              .shuffle(1 to N)
+              .map(i ⇒ {
+                // only N puts
+                client.put(f"k$i%04d", User(f"v$i%04d", i % 100))
+              }) ++
+              Random
+                .shuffle(1 to N * 2)
+                .flatMap(i ⇒ {
+                  // 2N puts and 2N! gets
+                  client.put(f"k$i%04d", User(f"v$i%04d", i % 100)) +: client.get(f"k$i%04d") +: Nil
+                }) ++
+              Random
+                .shuffle(1 to N)
+                .map(i ⇒ {
+                  // only N gets
+                  client.get(f"k$i%04d")
+                })
+          )
+        )
 
         result should have size 6 * N
         result.filter(_.isDefined) should contain allElementsOf (1 to N).map(i ⇒ { Some(User(f"v$i%04d", i % 100)) })
@@ -228,10 +245,14 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   private def createDatasetNodeStorage(dbName: String, counter: ByteVector ⇒ Task[Unit]): DatasetNodeStorage = {
     implicit def runId[F[_]]: F ~> F = new (F ~> F) { override def apply[A](fa: F[A]): F[A] = fa }
     DatasetNodeStorage[Task](dbName, rocksFactory, ConfigFactory.load(), hasher, counter)
-      .runAsync(monix.execution.Scheduler.Implicits.global).futureValue
+      .runAsync(monix.execution.Scheduler.Implicits.global)
+      .futureValue
   }
 
-  private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] = {
+  private def createClientDbDriver(
+      dbName: String,
+      clientState: Option[ClientState] = None
+  ): ClientDatasetStorage[String, User] = {
     val fullName = makeUnique(dbName)
     new ClientDatasetStorage(
       fullName.getBytes(),
@@ -242,13 +263,23 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     )
   }
 
-  private def createStorageRpcWithNetworkError(dbName: String, counter: ByteVector ⇒ Task[Unit]): DatasetStorageRpc[Task] = {
+  private def createStorageRpcWithNetworkError(
+      dbName: String,
+      counter: ByteVector ⇒ Task[Unit]
+  ): DatasetStorageRpc[Task] = {
     val origin = createDatasetNodeStorage(makeUnique(dbName), counter)
     new DatasetStorageRpc[Task] {
-      override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
+      override def remove(
+          datasetId: Array[Byte],
+          removeCallbacks: BTreeRpc.RemoveCallback[Task]
+      ): Task[Option[Array[Byte]]] = {
         origin.remove(removeCallbacks)
       }
-      override def put(datasetId: Array[Byte], putCallback: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] = {
+      override def put(
+          datasetId: Array[Byte],
+          putCallback: BTreeRpc.PutCallbacks[Task],
+          encryptedValue: Array[Byte]
+      ): Task[Option[Array[Byte]]] = {
         if (new String(encryptedValue) == "ENC[Alan,33]") {
           Task.raiseError(new IllegalStateException("some network error"))
         } else {
@@ -264,10 +295,17 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     new DatasetStorageRpc[Task] {
       private val storage = createDatasetNodeStorage(dbName, _ ⇒ Task.unit)
 
-      override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] =
+      override def remove(
+          datasetId: Array[Byte],
+          removeCallbacks: BTreeRpc.RemoveCallback[Task]
+      ): Task[Option[Array[Byte]]] =
         storage.remove(removeCallbacks)
 
-      override def put(datasetId: Array[Byte], putCallbacks: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] =
+      override def put(
+          datasetId: Array[Byte],
+          putCallbacks: BTreeRpc.PutCallbacks[Task],
+          encryptedValue: Array[Byte]
+      ): Task[Option[Array[Byte]]] =
         storage.put(putCallbacks, encryptedValue)
 
       override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[Task]): Task[Option[Array[Byte]]] =

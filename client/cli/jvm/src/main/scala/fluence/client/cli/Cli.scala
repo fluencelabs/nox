@@ -39,13 +39,22 @@ object Cli extends slogging.LazyLogging {
   private val lineReader = LineReaderBuilder.builder().terminal(terminal).build()
   private val readLine = IO(lineReader.readLine("fluence< "))
 
-  def cryptoMethods[F[_] : Applicative](secretKey: KeyPair.Secret, config: Config)(implicit F: MonadError[F, Throwable]): Task[(AesCrypt[F, String], AesCrypt[F, String])] = {
+  def cryptoMethods[F[_] : Applicative](secretKey: KeyPair.Secret, config: Config)(
+      implicit F: MonadError[F, Throwable]
+  ): Task[(AesCrypt[F, String], AesCrypt[F, String])] = {
     for {
       aesConfig ← AesConfigParser.readAesConfigOrGetDefault[Task](config)
-    } yield (AesCrypt.forString(secretKey.value, withIV = false, aesConfig), AesCrypt.forString(secretKey.value, withIV = true, aesConfig))
+    } yield
+      (AesCrypt.forString(secretKey.value, withIV = false, aesConfig),
+       AesCrypt.forString(secretKey.value, withIV = true, aesConfig))
   }
 
-  def restoreDataset(keyPair: KeyPair, fluenceClient: FluenceClient, config: Config, replicationN: Int): Task[ClientDatasetStorageApi[Task, String, String]] = {
+  def restoreDataset(
+      keyPair: KeyPair,
+      fluenceClient: FluenceClient,
+      config: Config,
+      replicationN: Int
+  ): Task[ClientDatasetStorageApi[Task, String, String]] = {
     for {
       crypts ← cryptoMethods[Task](keyPair.secretKey, config)
       (keyCrypt, valueCrypt) = crypts

@@ -34,7 +34,8 @@ import scala.scalajs.js.JSConverters._
  * Return in all js methods hex, because in the other case we will receive javascript objects
  * @param ec implementation of ecdsa logic for different curves
  */
-class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]]) extends Algorithm with SignatureFunctions with KeyGenerator {
+class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
+  extends Algorithm with SignatureFunctions with KeyGenerator {
   import CryptoErr._
 
   override def generateKeyPair[F[_] : Monad](seed: Option[Array[Byte]] = None): EitherT[F, CryptoErr, KeyPair] = {
@@ -46,12 +47,12 @@ class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]]) exte
       val public = ByteVector.fromValidHex(publicHex)
       val secret = ByteVector.fromValidHex(secretHex)
       KeyPair.fromByteVectors(public, secret)
-    } ("Failed to generate key pair.")
+    }("Failed to generate key pair.")
   }
 
   override def sign[F[_] : Monad](keyPair: KeyPair, message: ByteVector): EitherT[F, CryptoErr, Signature] = {
     for {
-      secret ← nonFatalHandling{
+      secret ← nonFatalHandling {
         ec.keyFromPrivate(keyPair.secretKey.value.toHex, "hex")
       }("Cannot get private key from key pair.")
       hash ← hash(message)
@@ -61,16 +62,18 @@ class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]]) exte
 
   def hash[F[_] : Monad](message: ByteVector): EitherT[F, CryptoErr, js.Array[Byte]] = {
     val arr = message.toArray
-    hasher.fold(EitherT.pure[F, CryptoErr](arr)) { h ⇒
-      nonFatalHandling {
-        h.hash(message.toArray)
-      }("Cannot hash message.")
-    }.map(_.toJSArray)
+    hasher
+      .fold(EitherT.pure[F, CryptoErr](arr)) { h ⇒
+        nonFatalHandling {
+          h.hash(message.toArray)
+        }("Cannot hash message.")
+      }
+      .map(_.toJSArray)
   }
 
   override def verify[F[_] : Monad](signature: Signature, message: ByteVector): EitherT[F, CryptoErr, Unit] = {
     for {
-      public ← nonFatalHandling{
+      public ← nonFatalHandling {
         val hex = signature.publicKey.value.toHex
         ec.keyFromPublic(hex, "hex")
       }("Incorrect public key format.")

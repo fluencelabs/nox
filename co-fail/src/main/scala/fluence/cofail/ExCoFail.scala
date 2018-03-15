@@ -34,6 +34,7 @@ import scala.util.control.NoStackTrace
  */
 @deprecated("Use CoFail with EitherT instead", "21.02.2018")
 case class ExCoFail[T <: Coproduct](failure: T) extends NoStackTrace {
+
   /**
    * Returns an actual value held in failure Coproduct -- useful for pattern matching
    */
@@ -52,7 +53,7 @@ object ExCoFail {
 
       override def raiseError[A](e: T): F[A] = ME.raiseError(ExCoFail(e))
 
-      override def handleErrorWith[A](fa: F[A])(f: T ⇒ F[A]): F[A] = ME.handleErrorWith(fa){
+      override def handleErrorWith[A](fa: F[A])(f: T ⇒ F[A]): F[A] = ME.handleErrorWith(fa) {
         case cf: T ⇒ f(cf)
         case t     ⇒ ME.raiseError(t)
       }
@@ -61,10 +62,12 @@ object ExCoFail {
     }
 
   // Pick subset of CoFail errors into a new narrowed MonadError
-  implicit def narrowCoFail[F[_], T <: Coproduct, TT <: Coproduct](implicit
-    ME: MonadError[F, T],
-    basis: Lazy[ops.coproduct.Basis[T, TT]],
-    typesNeqEvidence: T =:!= TT): MonadError[F, TT] =
+  implicit def narrowCoFail[F[_], T <: Coproduct, TT <: Coproduct](
+      implicit
+      ME: MonadError[F, T],
+      basis: Lazy[ops.coproduct.Basis[T, TT]],
+      typesNeqEvidence: T =:!= TT
+  ): MonadError[F, TT] =
     new MonadError[F, TT] {
       override def flatMap[A, B](fa: F[A])(f: A ⇒ F[B]): F[B] = ME.flatMap(fa)(f)
 
@@ -73,25 +76,25 @@ object ExCoFail {
       override def raiseError[A](e: TT): F[A] =
         ME.raiseError(basis.value.inverse(Right(e)))
 
-      override def handleErrorWith[A](fa: F[A])(f: TT ⇒ F[A]): F[A] = ME.handleErrorWith(fa){
-        cf ⇒
-          basis.value.apply(cf) match {
-            case Left(_) ⇒
-              ME.raiseError(cf)
+      override def handleErrorWith[A](fa: F[A])(f: TT ⇒ F[A]): F[A] = ME.handleErrorWith(fa) { cf ⇒
+        basis.value.apply(cf) match {
+          case Left(_) ⇒
+            ME.raiseError(cf)
 
-            case Right(r) ⇒
-              f(r)
-          }
+          case Right(r) ⇒
+            f(r)
+        }
       }
 
       override def pure[A](x: A): F[A] = ME.pure(x)
     }
 
   // Pick a single failure from MonadError to a new MonadError
-  implicit def pickCoFail[F[_], T <: Coproduct, TT](implicit
-    ME: MonadError[F, T],
-    select: Lazy[ops.coproduct.Selector[T, TT]],
-    inject: Lazy[ops.coproduct.Inject[T, TT]]
+  implicit def pickCoFail[F[_], T <: Coproduct, TT](
+      implicit
+      ME: MonadError[F, T],
+      select: Lazy[ops.coproduct.Selector[T, TT]],
+      inject: Lazy[ops.coproduct.Inject[T, TT]]
   ): MonadError[F, TT] =
     new MonadError[F, TT] {
 
@@ -101,9 +104,8 @@ object ExCoFail {
 
       override def raiseError[A](e: TT): F[A] = ME.raiseError(inject.value(e))
 
-      override def handleErrorWith[A](fa: F[A])(f: TT ⇒ F[A]): F[A] = ME.handleErrorWith(fa){
-        cf ⇒
-          select.value(cf).fold(ME.raiseError[A](cf))(f(_))
+      override def handleErrorWith[A](fa: F[A])(f: TT ⇒ F[A]): F[A] = ME.handleErrorWith(fa) { cf ⇒
+        select.value(cf).fold(ME.raiseError[A](cf))(f(_))
       }
 
       override def pure[A](x: A): F[A] = ME.pure(x)

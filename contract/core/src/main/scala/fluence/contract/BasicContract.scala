@@ -42,15 +42,10 @@ import scala.language.higherKinds
  */
 case class BasicContract(
     id: Key,
-
     offer: BasicContract.Offer,
-
     offerSeal: Signature,
-
     participants: Map[Key, Signature],
-
     participantsSeal: Option[Signature],
-
     executionState: ExecutionState,
     executionSeal: Option[Signature]
 )
@@ -72,11 +67,16 @@ object BasicContract {
       merkleRoot: ByteVector
   )
 
-  def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(implicit F: MonadError[F, Throwable]): F[BasicContract] =
-    {
-      val offer = Offer(participantsRequired)
-      signer.sign(offer.getBytes).map(BasicContract(id, offer, _, Map.empty, None, ExecutionState(0, ByteVector.empty), None)).value.flatMap(F.fromEither)
-    }
+  def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(
+      implicit F: MonadError[F, Throwable]
+  ): F[BasicContract] = {
+    val offer = Offer(participantsRequired)
+    signer
+      .sign(offer.getBytes)
+      .map(BasicContract(id, offer, _, Map.empty, None, ExecutionState(0, ByteVector.empty), None))
+      .value
+      .flatMap(F.fromEither)
+  }
 
   // TODO: there should be contract laws, like "init empty - not signed -- sign offer -- signed, no participants -- add participant -- ..."
 
@@ -92,6 +92,7 @@ object BasicContract {
   }
 
   implicit object BasicContractRead extends ContractRead[BasicContract] {
+
     /**
      * Dataset ID
      *

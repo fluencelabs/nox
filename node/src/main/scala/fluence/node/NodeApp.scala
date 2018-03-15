@@ -32,7 +32,8 @@ object NodeApp extends App with slogging.LazyLogging {
 
   logger.info("Going to run Fluence Server...")
 
-  FluenceNode.startNode()
+  FluenceNode
+    .startNode()
     .attempt
     .flatMap {
       case Left(t)  ⇒ IO.raiseError(t)

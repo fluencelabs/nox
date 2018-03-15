@@ -68,11 +68,14 @@ class GrpcServer private (
    * Shut the server down, release ports
    */
   lazy val shutdown: IO[Unit] =
-    Option(serverRef.getAndSet(null)).fold(IO(logger.debug("Already shut down? " + port)))(srv ⇒ for {
-      _ ← IO(srv.shutdown())
-      _ ← onShutdown
-      _ ← IO(srv.awaitTermination())
-    } yield logger.info("Shut down on port: " + port))
+    Option(serverRef.getAndSet(null)).fold(IO(logger.debug("Already shut down? " + port)))(
+      srv ⇒
+        for {
+          _ ← IO(srv.shutdown())
+          _ ← onShutdown
+          _ ← IO(srv.awaitTermination())
+        } yield logger.info("Shut down on port: " + port)
+    )
 
 }
 
@@ -93,7 +96,9 @@ object GrpcServer extends slogging.LazyLogging {
       address: InetAddress,
       port: Int,
       services: List[ServerServiceDefinition],
-      interceptors: List[ServerInterceptor]) {
+      interceptors: List[ServerInterceptor]
+  ) {
+
     /**
      * Add new grpc service to the server
      *
@@ -123,16 +128,20 @@ object GrpcServer extends slogging.LazyLogging {
      */
     def onNodeActivity(cb: Node[Contact] ⇒ IO[Any], clientConf: GrpcConf)(implicit checker: SignatureChecker): Builder =
       addInterceptor(new ServerInterceptor {
-        override def interceptCall[ReqT, RespT](call: ServerCall[ReqT, RespT], headers: Metadata, next: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
+        override def interceptCall[ReqT, RespT](
+            call: ServerCall[ReqT, RespT],
+            headers: Metadata,
+            next: ServerCallHandler[ReqT, RespT]
+        ): ServerCall.Listener[ReqT] = {
           val remoteKey =
-            readStringHeader(clientConf.keyHeader, headers).flatMap {
-              b64key ⇒ Key.fromB64[Try](b64key).toOption
+            readStringHeader(clientConf.keyHeader, headers).flatMap { b64key ⇒
+              Key.fromB64[Try](b64key).toOption
             }
 
           // TODO: check that contact IP matches request source, if it's possible
           val remoteContact =
-            readStringHeader(clientConf.contactHeader, headers).flatMap {
-              b64contact ⇒ Contact.readB64seed[Id](b64contact).value.toOption
+            readStringHeader(clientConf.contactHeader, headers).flatMap { b64contact ⇒
+              Contact.readB64seed[Id](b64contact).value.toOption
             }
 
           def remoteNode: Option[Node[Contact]] =

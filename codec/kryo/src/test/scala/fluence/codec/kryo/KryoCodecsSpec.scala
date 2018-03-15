@@ -30,7 +30,8 @@ class KryoCodecsSpec extends WordSpec with Matchers {
   private val testCodecs =
     KryoCodecs()
       .add[Array[Array[Byte]]]
-      .addCase(classOf[TestClass]).build[Try]()
+      .addCase(classOf[TestClass])
+      .build[Try]()
 
   "encode and decode" should {
     "be inverse functions" when {
@@ -69,4 +70,3 @@ class KryoCodecsSpec extends WordSpec with Matchers {
 }
 
 case class TestClass(str: String, num: Long, blob: Array[Array[Byte]])
-

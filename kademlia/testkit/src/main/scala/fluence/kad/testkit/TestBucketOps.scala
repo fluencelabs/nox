@@ -34,14 +34,17 @@ class TestBucketOps[C](maxBucketSize: Int) extends Bucket.WriteOps[Coeval, C] {
     locks(bucketId) = true
     //println(s"Bucket $bucketId locked")
 
-    mod.run(read(bucketId)).map {
-      case (b, v) ⇒
-        buckets(bucketId) = b
-        v
-    }.doOnFinish{ _ ⇒
-      //println(s"Bucket $bucketId unlocked")
-      Coeval.now(locks.update(bucketId, false))
-    }
+    mod
+      .run(read(bucketId))
+      .map {
+        case (b, v) ⇒
+          buckets(bucketId) = b
+          v
+      }
+      .doOnFinish { _ ⇒
+        //println(s"Bucket $bucketId unlocked")
+        Coeval.now(locks.update(bucketId, false))
+      }
   }
 
   override def read(bucketId: Int): Bucket[C] =

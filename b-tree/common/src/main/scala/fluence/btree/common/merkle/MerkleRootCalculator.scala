@@ -43,7 +43,8 @@ class MerkleRootCalculator(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
           Some(nodeProof.calcChecksum(cryptoHasher, prevHash))
       }
       .getOrElse(
-        substitutedChecksum.map(cs ⇒ cryptoHasher.hash(cs.bytes))
+        substitutedChecksum
+          .map(cs ⇒ cryptoHasher.hash(cs.bytes))
           .getOrElse(Hash.empty)
       )
   }

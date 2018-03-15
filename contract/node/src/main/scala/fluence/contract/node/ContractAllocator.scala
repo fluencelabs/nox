@@ -67,7 +67,8 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
    */
   override def allocate(contract: C): F[C] = {
     for {
-      _ ← illegalIfNo(contract.participantSigned(nodeId), "Contract should be offered to this node and signed by it prior to allocation")
+      _ ← illegalIfNo(contract.participantSigned(nodeId),
+                      "Contract should be offered to this node and signed by it prior to allocation")
       _ ← illegalIfNo(contract.isActiveContract(), "Contract should be active -- sealed by client")
       contract ← storage.get(contract.id).attempt.map(_.toOption).flatMap {
         case Some(cr) ⇒
@@ -79,7 +80,9 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
           putContract(contract)
       }
     } yield {
-      logger.info(s"Contract with id=${contract.id.show} was successfully allocated, this node (${nodeId.show}) is contract participant now")
+      logger.info(
+        s"Contract with id=${contract.id.show} was successfully allocated, this node (${nodeId.show}) is contract participant now"
+      )
       contract
     }
   }

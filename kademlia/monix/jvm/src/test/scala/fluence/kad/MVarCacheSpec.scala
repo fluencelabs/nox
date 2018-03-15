@@ -44,27 +44,39 @@ class MVarCacheSpec extends WordSpec with Matchers with ScalaFutures {
     "work" in {
       val cache = new MVarMapCache[Int, String]("")
 
-      Task.sequence(Seq(
-        cache.getOrAdd(1, "1"),
-        cache.getOrAdd(1, "2"),
-        cache.getOrAdd(1, "3")
-      )).taskValue()
+      Task
+        .sequence(
+          Seq(
+            cache.getOrAdd(1, "1"),
+            cache.getOrAdd(1, "2"),
+            cache.getOrAdd(1, "3")
+          )
+        )
+        .taskValue()
 
       cache.get(1).get shouldBe "1"
 
-      Task.sequence(Seq(
-        cache.modify(1, s ⇒ s ++ "2"),
-        cache.modify(1, s ⇒ s ++ "3"),
-        cache.modify(1, s ⇒ s ++ "4")
-      )).taskValue()
+      Task
+        .sequence(
+          Seq(
+            cache.modify(1, s ⇒ s ++ "2"),
+            cache.modify(1, s ⇒ s ++ "3"),
+            cache.modify(1, s ⇒ s ++ "4")
+          )
+        )
+        .taskValue()
 
       cache.get(1).get shouldBe "1234"
 
-      Task.sequence(Seq(
-        cache.update(1, "111"),
-        cache.update(1, "222"),
-        cache.update(1, "333")
-      )).taskValue()
+      Task
+        .sequence(
+          Seq(
+            cache.update(1, "111"),
+            cache.update(1, "222"),
+            cache.update(1, "333")
+          )
+        )
+        .taskValue()
 
       cache.get(1).get shouldBe "333"
 
@@ -72,11 +84,15 @@ class MVarCacheSpec extends WordSpec with Matchers with ScalaFutures {
 
       cache.getOrAddF(1, Task.pure("2")).taskValue() shouldBe "333"
 
-      Task.sequence(Seq(
-        cache.getOrAddF(4, Task.pure("444")),
-        cache.getOrAddF(4, Task.pure("555")),
-        cache.getOrAddF(4, Task.pure("666"))
-      )).taskValue()
+      Task
+        .sequence(
+          Seq(
+            cache.getOrAddF(4, Task.pure("444")),
+            cache.getOrAddF(4, Task.pure("555")),
+            cache.getOrAddF(4, Task.pure("666"))
+          )
+        )
+        .taskValue()
       cache.getOrAddF(4, Task.pure("4")).taskValue() shouldBe "444"
     }
   }

@@ -31,6 +31,7 @@ private[crypto] trait JavaAlgorithm extends Algorithm {
 }
 
 object JavaAlgorithm {
+
   /**
    * add JVM-specific security provider in class loader
    */

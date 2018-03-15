@@ -34,8 +34,8 @@ sealed trait NodeProof {
    * @return Checksum of current ''NodeProof''
    */
   def calcChecksum(
-    cryptoHasher: CryptoHasher[Array[Byte], Hash],
-    checksumForSubstitution: Option[Hash]
+      cryptoHasher: CryptoHasher[Array[Byte], Hash],
+      checksumForSubstitution: Option[Hash]
   ): Hash
 
 }
@@ -63,8 +63,8 @@ case class GeneralNodeProof(
 ) extends NodeProof {
 
   override def calcChecksum(
-    cryptoHasher: CryptoHasher[Array[Byte], Hash],
-    checksumForSubstitution: Option[Hash]
+      cryptoHasher: CryptoHasher[Array[Byte], Hash],
+      checksumForSubstitution: Option[Hash]
   ): Hash = {
 
     checksumForSubstitution match {
@@ -80,6 +80,7 @@ case class GeneralNodeProof(
 
   }
 
-  override def toString: String = s"NodeProof(stateChecksum=$stateChecksum, " +
-    s"childrenChecksums=${childrenChecksums.mkString(",")}, substitutionIdx=$substitutionIdx)"
+  override def toString: String =
+    s"NodeProof(stateChecksum=$stateChecksum, " +
+      s"childrenChecksums=${childrenChecksums.mkString(",")}, substitutionIdx=$substitutionIdx)"
 }
