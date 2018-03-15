@@ -272,9 +272,18 @@ class DatasetStorageServer[F[_] : Async](
         valuesStream
       }
 
-    valueF.map {
-      case (key, value) ⇒
-        RangeCallback(RangeCallback.Callback.Value(RangeValue(ByteString.copyFrom(key), ByteString.copyFrom(value))))
+    valueF.attempt.flatMap {
+      case Right((key, value)) ⇒
+        // if all is ok server should send value to client
+        Observable.pure(RangeCallback(RangeCallback.Callback.Value(RangeValue(ByteString.copyFrom(key), ByteString.copyFrom(value)))))
+      case Left(clientError: ClientError) ⇒
+        logger.warn(s"Client replied with an error=$clientError")
+        // if server receive client error server should lift it up
+        Observable.raiseError(clientError)
+      case Left(exception) ⇒
+        // when server error appears, server should log it and send to client
+        logger.warn(s"Server threw an exception=$exception and sends cause to client")
+        Observable.pure(RangeCallback(RangeCallback.Callback.ServerError(Error(exception.getMessage))))
     }.subscribe(resp)
 
     stream

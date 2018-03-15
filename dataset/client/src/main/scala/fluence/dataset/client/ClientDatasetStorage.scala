@@ -83,7 +83,10 @@ class ClientDatasetStorage[K, V](
               .map(plainValue ⇒ plainKey → plainValue)
         }
 
-    } yield pair
+    } yield {
+      logger.trace(s"Client receive $pair for range query from=$from, to=$to ")
+      pair
+    }
 
   override def put(key: K, value: V): Task[Option[V]] =
     for {
