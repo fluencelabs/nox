@@ -25,6 +25,7 @@ import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.DatasetStorageRpc
 import monix.eval.Task
 import monix.reactive.Observable
+import Ordered._
 
 import scala.language.higherKinds
 
@@ -48,7 +49,7 @@ class ClientDatasetStorage[K, V](
     keyCrypt: Crypt[Task, K, Array[Byte]],
     valueCrypt: Crypt[Task, V, Array[Byte]],
     hasher: CryptoHasher[Array[Byte], Hash]
-) extends ClientDatasetStorageApi[Task, Observable, K, V] with slogging.LazyLogging {
+)(implicit ord: Ordering[K]) extends ClientDatasetStorageApi[Task, Observable, K, V] with slogging.LazyLogging {
 
   override def get(key: K): Task[Option[V]] =
     for {
@@ -65,12 +66,21 @@ class ClientDatasetStorage[K, V](
       pair ← storageRpc
         .range(datasetId, rangeCallbacks)
         .doAfterTerminateTask { _ ⇒ rangeCallbacks.recoverState() }
+        // decrypt key
         .mapTask {
-          case (key, value) ⇒
-            for {
-              plainKey ← keyCrypt.decrypt(key)
-              plainValue ← valueCrypt.decrypt(value)
-            } yield plainKey → plainValue
+          case (encKey, encValue) ⇒
+            keyCrypt
+              .decrypt(encKey)
+              .map(plainKey ⇒ plainKey → encValue)
+        }
+        // check key upper bound
+        .takeWhile { case (key, _) ⇒ key <= to }
+        // decrypt value
+        .mapTask {
+          case (plainKey, encValue) ⇒
+            valueCrypt
+              .decrypt(encValue)
+              .map(plainValue ⇒ plainKey → plainValue)
         }
 
     } yield pair

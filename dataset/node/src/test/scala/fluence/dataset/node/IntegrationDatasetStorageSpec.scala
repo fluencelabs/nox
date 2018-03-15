@@ -36,15 +36,16 @@ import monix.execution.schedulers.TestScheduler
 import monix.reactive.Observable
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
-import org.scalatest.{ BeforeAndAfterEach, Matchers, WordSpec }
+import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpec }
 import scodec.bits.ByteVector
+import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
 
 import scala.concurrent.duration.{ FiniteDuration, _ }
 import scala.language.higherKinds
 import scala.reflect.io.Path
 import scala.util.{ Random, Try }
 
-class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterEach {
+class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterEach with BeforeAndAfterAll {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
 
   case class User(name: String, age: Int)
@@ -71,12 +72,12 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
   private val rocksFactory = new RocksDbStore.Factory
 
-  "put and get" should {
+  "put, get and range" should {
     "return error and recover client state" when {
-      "data corruption appears in get methods" in {
+      "decrypt failed" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
-        val valueCryptWithCorruption = NoOpCrypt[Task, User](
+        val valueCryptWithError = NoOpCrypt[Task, User](
           user ⇒ Task(s"ENC[${user.name},${user.age}]".getBytes()),
           bytes ⇒ {
             val pattern = "ENC\\[([^,]*),([^\\]]*)\\]".r
@@ -94,17 +95,22 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
           createBTreeClient(),
           createStorageRpcWithNetworkError("test0", mr ⇒ Task(counter.incrementAndGet())),
           keyCrypt,
-          valueCryptWithCorruption,
+          valueCryptWithError,
           testHasher
         )
 
         wait(clientWithCorruption.put(key1, val1)) shouldBe None
         wait(clientWithCorruption.put(key2, val2)) shouldBe None
         wait(clientWithCorruption.get(key1)) shouldBe Some(val1)
+        wait(clientWithCorruption.range(key1, key1).toListL) should contain theSameElementsInOrderAs List(key1 → val1)
 
         // fail in get
         wait(clientWithCorruption.get(key2).failed).getMessage shouldBe "Can't decrypt value"
         wait(clientWithCorruption.get(key1)) shouldBe Some(val1)
+
+        // fail in range
+        wait(clientWithCorruption.range(key1, key2).toListL.failed).getMessage shouldBe "Can't decrypt value"
+        wait(clientWithCorruption.range(key1, key1).toListL) should contain theSameElementsInOrderAs List(key1 → val1)
 
         // fail in put
         wait(clientWithCorruption.put(key3, val3).failed).getMessage shouldBe "some network error"
@@ -116,32 +122,40 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     }
 
     "save and return correct results" when {
-      "get from empty tree" in {
+      "get and range from empty tree" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClientDbDriver("test1")
 
-        val result = wait(client.get("k0001"))
-        result shouldBe None
+        val getResult = wait(client.get("k0001"))
+        getResult shouldBe None
 
+        val rangeResult = wait(client.range(key1, key1).toListL)
+        rangeResult shouldBe empty
       }
 
-      "put key1, get key1 from empty tree" in {
+      "put one key, get and range one key from empty tree" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClientDbDriver("test2")
 
         val res1 = wait(client.get(key1))
-        val res2 = wait(client.put(key1, val1))
-        val res3 = wait(client.get(key1))
-        val res4 = wait(client.get(key2))
+        val res2 = wait(client.range(key1, key1).toListL)
+        val res3 = wait(client.put(key1, val1))
+        val res4 = wait(client.get(key1))
+        val res5 = wait(client.get(key2))
+        val res6 = wait(client.range(key1, key1).toListL)
+        val res7 = wait(client.range(key2, key2).toListL)
 
         res1 shouldBe None
-        res2 shouldBe None
-        res3 shouldBe Some(val1)
-        res4 shouldBe None
+        res2 shouldBe empty
+        res3 shouldBe None
+        res4 shouldBe Some(val1)
+        res5 shouldBe None
+        res6 should contain only key1 → val1
+        res7 shouldBe empty
       }
 
-      "put many value in random order and get theirs" in {
+      "put many value in random order; get and range theirs" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val minKey = "k0001"
         val midKey = "k0256"
@@ -167,6 +181,27 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         wait(client.get(maxKey)).get shouldBe User("v0512", 12)
         wait(client.get(absentKey)) shouldBe None
 
+        // get some range values
+
+        val allKeys = wait(client.range(minKey, maxKey).toListL)
+        allKeys.head shouldBe minKey → User("v0001", 1)
+        allKeys.last shouldBe maxKey → User("v0512", 12)
+        allKeys.size shouldBe 512
+        checkOrder(allKeys)
+
+        val fromMidTenEl = wait(client.range(midKey, maxKey).take(10).toListL)
+        fromMidTenEl.head shouldBe midKey → User("v0256", 56)
+        fromMidTenEl.last shouldBe "k0265" → User("v0265", 65)
+        fromMidTenEl.size shouldBe 10
+        checkOrder(fromMidTenEl)
+
+        val fromMaxToInf = wait(client.range(maxKey, absentKey).toListL)
+        fromMaxToInf.head shouldBe maxKey → User("v0512", 12)
+        fromMaxToInf.size shouldBe 1
+
+        val noOverlap = wait(client.range(absentKey, absentKey).toListL)
+        noOverlap shouldBe empty
+
         // insert 1024 new and 1024 duplicated values
         val putRes2 = wait(Task.gather(
           Random.shuffle(1 to 1024)
@@ -183,6 +218,29 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         wait(client.get(maxKey)).get shouldBe User("v0512 new", 12)
         wait(client.get(absentKey)) shouldBe None
 
+        // get some range values
+
+        val allKeysNew = wait(client.range(minKey, maxKey).toListL)
+        allKeysNew.head shouldBe minKey → User("v0001 new", 1)
+        allKeysNew.last shouldBe maxKey → User("v0512 new", 12)
+        allKeysNew.size shouldBe 512
+        checkOrder(allKeysNew)
+
+        val fromMidTenElNew = wait(client.range(midKey, maxKey).take(10).toListL)
+        fromMidTenElNew.head shouldBe midKey → User("v0256 new", 56)
+        fromMidTenElNew.last shouldBe "k0265" → User("v0265 new", 65)
+        fromMidTenElNew.size shouldBe 10
+        checkOrder(fromMidTenElNew)
+
+        val fromMaxToInfNew = wait(client.range(maxKey, absentKey).toListL)
+        fromMaxToInfNew.head shouldBe maxKey → User("v0512 new", 12)
+        fromMaxToInfNew.last shouldBe "k1024" → User("v1024 new", 24)
+        fromMaxToInfNew.size shouldBe 513
+        checkOrder(fromMaxToInfNew)
+
+        val noOverlapNew = wait(client.range(absentKey, absentKey).toListL)
+        noOverlapNew shouldBe empty
+
       }
 
       "concurrent intensive put and get" in {
@@ -192,22 +250,29 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         val N = 128
         val changesCounter = Atomic(0l)
 
-        val result = wait(Task.gather(
+        val result: Seq[Option[User]] = wait(Task.gather(
           Random.shuffle(1 to N).map(i ⇒ {
-            // only N puts
+            // invoke N puts
             client.put(f"k$i%04d", User(f"v$i%04d", i % 100))
           }) ++
             Random.shuffle(1 to N * 2).flatMap(i ⇒ {
-              // 2N puts and 2N! gets
-              client.put(f"k$i%04d", User(f"v$i%04d", i % 100)) +: client.get(f"k$i%04d") +: Nil
+              // invoke 2N puts and 2N gets and 2N range queries
+              client.put(f"k$i%04d", User(f"v$i%04d", i % 100)) +:
+                client.get(f"k$i%04d") +:
+                client.range(f"k$i%04d", f"k${i + 10}%04d").toListL.map(l ⇒ l.headOption.map(_._2)) +:
+                Nil
             }) ++
             Random.shuffle(1 to N).map(i ⇒ {
-              // only N gets
+              // invoke N gets
               client.get(f"k$i%04d")
+            }) ++
+            Random.shuffle(1 to N).map(i ⇒ {
+              // invoke N ranges
+              client.range(f"k$i%04d", f"k${i + 10}%04d").toListL.map(l ⇒ l.headOption.map(_._2))
             })
         ))
 
-        result should have size 6 * N
+        result should have size 9 * N
         result.filter(_.isDefined) should contain allElementsOf (1 to N).map(i ⇒ { Some(User(f"v$i%04d", i % 100)) })
 
       }
@@ -264,8 +329,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         datasetId: Array[Byte],
         searchCallbacks: BTreeRpc.SearchCallback[Task]
       ): Observable[(Array[Byte], Array[Byte])] = {
-        // todo
-        ???
+        origin.range(searchCallbacks)
       }
     }
   }
@@ -287,8 +351,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         datasetId: Array[Byte],
         searchCallbacks: BTreeRpc.SearchCallback[Task]
       ): Observable[(Array[Byte], Array[Byte])] = {
-        // todo
-        ???
+        storage.range(searchCallbacks)
       }
     }
 
@@ -306,6 +369,9 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     async.futureValue
   }
 
+  private def checkOrder(list: List[(String, User)]): Unit =
+    list should contain theSameElementsInOrderAs list.sortBy(_._1) // should be ascending order
+
   override protected def beforeEach(): Unit = {
     val conf = RocksDbConf.read[Try](ConfigFactory.load()).get
     Path(conf.dataDir).deleteRecursively()
@@ -313,6 +379,17 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
   override protected def afterEach(): Unit = {
     rocksFactory.close.unsafeRunSync()
+  }
+
+  override protected def beforeAll(): Unit = {
+    LoggerConfig.factory = PrintLoggerFactory
+    LoggerConfig.level = LogLevel.OFF
+    super.beforeAll()
+  }
+
+  override protected def afterAll(): Unit = {
+    super.afterAll()
+    LoggerConfig.level = LogLevel.OFF
   }
 
   private def makeUnique(dbName: String) = s"${this.getClass.getSimpleName}_${dbName}_${new Random().nextInt}"
