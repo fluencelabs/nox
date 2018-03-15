@@ -22,6 +22,7 @@ import java.time.Instant
 
 import cats.syntax.show._
 import cats.Show
+import cats.data.EitherT
 import fluence.kad.protocol.{ Key, Node }
 import fluence.kad.testkit.TestKademlia
 import monix.eval.Coeval
@@ -62,16 +63,16 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       val P = 25
 
       val random = new Random(1000004)
-      lazy val nodes: Map[Long, Kademlia[Coeval, Long]] =
+      lazy val nodes: Map[Long, Kademlia[Coeval, Long, Unit]] =
         Stream.fill(N)(random.nextLong())
-          .foldLeft(Map.empty[Long, Kademlia[Coeval, Long]]) {
+          .foldLeft(Map.empty[Long, Kademlia[Coeval, Long, Unit]]) {
             case (acc, n) ⇒
               acc + (n -> TestKademlia.coeval(n, 3, K, nodes(_), keyToLong, pingDuration))
           }
 
       val peers = nodes.keys.take(2).toSeq
 
-      nodes.values.foreach(_.join(peers, K).run.onErrorHandle {
+      nodes.values.foreach(_.join(peers, K).value.run.onErrorHandle {
         e ⇒
           println(Console.RED + "Can't join within simulation" + Console.RESET)
           println(e)
@@ -102,19 +103,19 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
     val random = new Random(1000004)
 
-    val nodes = TestKademlia.coevalSimulation[Long](K, N, keyToLong, random.nextLong(), joinPeers = 2)
+    val nodes = TestKademlia.coevalSimulation[Long, Unit](K, N, keyToLong, random.nextLong(), joinPeers = 2)
 
     "callIterative: make no more requests then limit in callIterative" in {
       val kad = nodes.drop(N / 4).head._2
 
       val counter = AtomicInt(0)
 
-      kad.callIterative(
+      kad.callIterative[Throwable, Nothing](
         nodes.last._1,
-        _ ⇒ Coeval(counter.increment()).flatMap(_ ⇒ Coeval.raiseError(new NoSuchElementException())),
+        _ ⇒ EitherT(Coeval(counter.increment()).map(_ ⇒ Left(new NoSuchElementException()))),
         K min P,
         K max P max (N / 3)
-      ).value shouldBe empty
+      ).value.value.right.toOption shouldBe empty
 
       counter.get shouldBe (K max P max (N / 3))
     }
@@ -127,11 +128,11 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
       kad.callIterative(
         nodes.last._1,
-        _ ⇒ Coeval(counter.increment()),
+        _ ⇒ EitherT(Coeval(Right(counter.increment()))),
         K min P,
         K max P max (N / 3),
         isIdempotentFn = true
-      ).value.size shouldBe counter.get
+      ).value.value.right.toSeq.flatten.size shouldBe counter.get
 
       counter.get should be <= (numToFind + 3)
       counter.get should be >= numToFind
@@ -145,11 +146,11 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
       kad.callIterative(
         nodes.last._1,
-        _ ⇒ Coeval(counter.increment()),
+        _ ⇒ EitherT.rightT(counter.increment()),
         K min P,
         K max P max (N / 3),
         isIdempotentFn = false
-      ).value.size shouldBe numToFind
+      ).value.value.right.toSeq.flatten.size shouldBe numToFind
 
       counter.get shouldBe numToFind
     }

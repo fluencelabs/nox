@@ -15,22 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client.core
+package fluence.transport.grpc.client
 
-import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
-import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.kad.protocol.KademliaRpc
-
-import scala.language.higherKinds
-
-abstract class ClientServices[F[_], Contract, Contact, Err] {
-
-  def kademlia: KademliaRpc.Aux[F, Contact, Err]
-
-  def contractsCache: ContractsCacheRpc[F, Contract]
-
-  def contractAllocator: ContractAllocatorRpc[F, Contract]
-
-  def datasetStorage: DatasetStorageRpc[F]
-
-}
+sealed case class GrpcError(cause: Throwable)

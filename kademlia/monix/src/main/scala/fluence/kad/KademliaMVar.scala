@@ -21,7 +21,7 @@ import java.time.Instant
 
 import cats.data.StateT
 import cats.kernel.Monoid
-import cats.{ MonadError, Parallel }
+import cats.{ Monad, Parallel }
 import fluence.kad.protocol.{ KademliaRpc, Key, Node }
 import monix.eval.{ MVar, Task }
 import monix.execution.atomic.AtomicAny
@@ -41,19 +41,19 @@ object KademliaMVar {
    * @param checkNode     Node could be saved to RoutingTable only if checker returns F[ true ]
    * @tparam C Contact info
    */
-  def apply[C](
+  def apply[C, E](
     nodeId: Key,
     contact: Task[C],
-    rpcForContact: C ⇒ KademliaRpc[Task, C],
+    rpcForContact: C ⇒ KademliaRpc.Aux[Task, C, E],
     conf: KademliaConf,
     checkNode: Node[C] ⇒ Task[Boolean]
-  ): Kademlia[Task, C] = new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
-    implicitly[MonadError[Task, Throwable]],
-    implicitly[Parallel[Task, Task]],
+  ): Kademlia[Task, C, E] = new Kademlia[Task, C, E](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
+    Monad[Task],
+    Parallel[Task, Task],
     MVarBucketOps.task[C](conf.maxBucketSize),
     KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
   ) {
-    override def rpc(contact: C): KademliaRpc[Task, C] = rpcForContact(contact)
+    override def rpc(contact: C): KademliaRpc.Aux[Task, C, E] = rpcForContact(contact)
 
     override def ownContact: Task[Node[C]] = contact.map(c ⇒ Node(nodeId, Instant.now(), c))
   }
@@ -66,12 +66,12 @@ object KademliaMVar {
    * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
    * @tparam C Contact info
    */
-  def client[C](
-    rpc: C ⇒ KademliaRpc[Task, C],
+  def client[C, E](
+    rpc: C ⇒ KademliaRpc.Aux[Task, C, E],
     conf: KademliaConf,
     checkNode: Node[C] ⇒ Task[Boolean]
-  ): Kademlia[Task, C] =
-    apply[C](
+  ): Kademlia[Task, C, E] =
+    apply[C, E](
       Monoid.empty[Key],
       Task.raiseError(new IllegalStateException("Client may not have a Contact")),
       rpc,

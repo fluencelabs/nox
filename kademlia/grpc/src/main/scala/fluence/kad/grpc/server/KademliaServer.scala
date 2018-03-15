@@ -17,6 +17,7 @@
 
 package fluence.kad.grpc.server
 
+import cats.data.Kleisli
 import cats.syntax.functor._
 import cats.instances.stream._
 import cats.{ MonadError, ~> }
@@ -32,18 +33,44 @@ import scala.concurrent.Future
 import scala.language.{ higherKinds, implicitConversions }
 
 // TODO: cover with tests
-class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(implicit
-    F: MonadError[F, Throwable],
+class KademliaServer[F[_], E](kademlia: KademliaRpc.Aux[F, Contact, E])(implicit
+    F: MonadError[F, Throwable], // MonadError is required for keyCodec
     codec: Codec[F, protocol.Node[Contact], Node],
+    errorCodec: Codec[F, E, Error],
     run: F ~> Future) extends KademliaGrpc.Kademlia {
 
   private val streamCodec = Codec.codec[F, Stream[protocol.Node[Contact]], Stream[Node]]
 
   private val keyCodec = Codec.codec[F, Key, ByteString]
 
-  override def ping(request: PingRequest): Future[Node] =
+  private val streamEitherK = Kleisli[F, Either[E, Seq[protocol.Node[Contact]]], NodesResponse.Response]{
+    case Left(err) ⇒
+      errorCodec.encode(err).map[NodesResponse.Response](
+        NodesResponse.Response.Error
+      )
+    case Right(nodes) ⇒
+      streamCodec
+        .encode(nodes.toStream)
+        .map(Nodes(_))
+        .map[NodesResponse.Response](
+          NodesResponse.Response.Nodes
+        )
+  }
+
+  override def ping(request: PingRequest): Future[NodeResponse] =
     run(
-      kademlia.ping().flatMap(codec.encode)
+      kademlia.ping().value.flatMap {
+        case Left(err) ⇒
+          errorCodec.encode(err).map[NodeResponse.Response](
+            NodeResponse.Response.Error
+          )
+
+        case Right(node) ⇒
+          codec.encode(node).map[NodeResponse.Response](
+            NodeResponse.Response.Node
+          )
+
+      }.map(NodeResponse(_))
     )
 
   override def lookup(request: LookupRequest): Future[NodesResponse] =
@@ -51,8 +78,8 @@ class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(implicit
       for {
         key ← keyCodec.decode(request.key)
         ns ← kademlia
-          .lookup(key, request.numberOfNodes)
-        resp ← streamCodec.encode(ns.toStream)
+          .lookup(key, request.numberOfNodes).value
+        resp ← streamEitherK.run(ns)
       } yield NodesResponse(resp)
     )
 
@@ -62,8 +89,8 @@ class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(implicit
         key ← keyCodec.decode(request.key)
         moveAwayKey ← keyCodec.decode(request.moveAwayFrom)
         ns ← kademlia
-          .lookupAway(key, moveAwayKey, request.numberOfNodes)
-        resp ← streamCodec.encode(ns.toStream)
+          .lookupAway(key, moveAwayKey, request.numberOfNodes).value
+        resp ← streamEitherK.run(ns)
       } yield NodesResponse(resp)
     )
 

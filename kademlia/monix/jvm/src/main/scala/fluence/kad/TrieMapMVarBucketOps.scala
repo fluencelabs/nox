@@ -17,6 +17,7 @@
 
 package fluence.kad
 
+import cats.Monad
 import cats.data.StateT
 import monix.eval.{ MVar, Task }
 
@@ -33,6 +34,8 @@ class TrieMapMVarBucketOps[C](maxBucketSize: Int) extends Bucket.WriteOps[Task, 
   private val readState = TrieMap.empty[Int, Bucket[C]]
 
   import RunOnMVar.runOnMVar
+
+  override protected implicit def F: Monad[Task] = Monad[Task]
 
   override protected def run[T](bucketId: Int, mod: StateT[Task, Bucket[C], T]): Task[T] =
     runOnMVar(

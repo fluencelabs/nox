@@ -65,6 +65,7 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
       "io.circe" %%% "circe-core" % CirceV,
       "io.circe" %%% "circe-parser" % CirceV,
       "org.typelevel" %%% "cats-core" % Cats1V,
+      "io.monix" %%% "monix" % MonixV % Test,
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )

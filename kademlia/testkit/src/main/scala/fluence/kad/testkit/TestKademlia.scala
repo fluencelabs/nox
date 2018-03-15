@@ -19,9 +19,9 @@ package fluence.kad.testkit
 
 import java.time.Instant
 
+import cats.data.EitherT
 import cats.syntax.applicative._
-import cats.syntax.flatMap._
-import cats.{ Applicative, Monad, MonadError, Parallel, ~> }
+import cats.{ Applicative, Monad, Parallel, ~> }
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
@@ -32,30 +32,32 @@ import monix.eval.Coeval
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-class TestKademlia[F[_], C](
+class TestKademlia[F[_], C, E](
     nodeId: Key,
     alpha: Int,
     k: Int,
-    getKademlia: C ⇒ Kademlia[F, C],
+    getKademlia: C ⇒ Kademlia[F, C, E],
     toContact: Key ⇒ C,
     pingExpiresIn: FiniteDuration = 1.second)(implicit
     BW: Bucket.WriteOps[F, C],
     SW: Siblings.WriteOps[F, C],
-    ME: MonadError[F, Throwable],
-    P: Parallel[F, F]) extends Kademlia[F, C](nodeId, alpha, pingExpiresIn, _ ⇒ true.pure[F]) {
+    F: Monad[F],
+    P: Parallel[F, F]) extends Kademlia[F, C, E](nodeId, alpha, pingExpiresIn, _ ⇒ true.pure[F]) {
 
   def ownContactValue = Node[C](nodeId, Instant.now(), toContact(nodeId))
 
-  override def ownContact: F[Node[C]] = ME.pure(ownContactValue)
+  override def ownContact: F[Node[C]] = F.pure(ownContactValue)
 
-  override def rpc(contact: C): KademliaRpc[F, C] = new KademliaRpc[F, C] {
+  override def rpc(contact: C): KademliaRpc.Aux[F, C, E] = new KademliaRpc[F, C] {
+    override type Error = E
+
     val kad = getKademlia(contact)
 
     /**
      * Ping the contact, get its actual Node status, or fail
      */
     override def ping() =
-      kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.ping())
+      EitherT.rightT[F, E](kad.update(ownContactValue)).flatMap(_ ⇒ kad.handleRPC.ping().leftMap[E](_ ⇒ ???))
 
     /**
      * Perform a local lookup for a key, return K closest known nodes
@@ -63,7 +65,7 @@ class TestKademlia[F[_], C](
      * @param key Key to lookup
      */
     override def lookup(key: Key, numberOfNodes: Int) =
-      kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes))
+      EitherT.rightT[F, E](kad.update(ownContactValue)).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes).leftMap[E](_ ⇒ ???))
 
     /**
      * Perform a local lookup for a key, return K closest known nodes, going away from the second key
@@ -71,7 +73,7 @@ class TestKademlia[F[_], C](
      * @param key Key to lookup
      */
     override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) =
-      kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.lookupAway(key, moveAwayFrom, numberOfNodes))
+      EitherT.rightT[F, E](kad.update(ownContactValue)).flatMap(_ ⇒ kad.handleRPC.lookupAway(key, moveAwayFrom, numberOfNodes).leftMap[E](_ ⇒ ???))
 
   }
 
@@ -90,30 +92,30 @@ object TestKademlia {
     override def parallel = sequential
   }
 
-  def coeval[C](
+  def coeval[C, E](
     nodeId: Key,
     alpha: Int,
     k: Int,
-    getKademlia: C ⇒ Kademlia[Coeval, C],
+    getKademlia: C ⇒ Kademlia[Coeval, C, E],
     toContact: Key ⇒ C,
-    pingExpiresIn: FiniteDuration = 1.second): Kademlia[Coeval, C] =
-    new TestKademlia[Coeval, C](nodeId, alpha, k, getKademlia, toContact, pingExpiresIn)(
-      ME = implicitly[MonadError[Coeval, Throwable]],
+    pingExpiresIn: FiniteDuration = 1.second): Kademlia[Coeval, C, E] =
+    new TestKademlia[Coeval, C, E](nodeId, alpha, k, getKademlia, toContact, pingExpiresIn)(
+      F = Monad[Coeval],
       BW = new TestBucketOps[C](k),
       SW = new TestSiblingOps[C](nodeId, k),
       P = CoevalParallel)
 
-  def coevalSimulation[C](
+  def coevalSimulation[C, E](
     k: Int,
     n: Int,
     toContact: Key ⇒ C,
     nextRandomKey: ⇒ Key,
     joinPeers: Int = 0,
     alpha: Int = 3,
-    pingExpiresIn: FiniteDuration = 1.second): Map[C, Kademlia[Coeval, C]] = {
-    lazy val kads: Map[C, Kademlia[Coeval, C]] =
+    pingExpiresIn: FiniteDuration = 1.second): Map[C, Kademlia[Coeval, C, E]] = {
+    lazy val kads: Map[C, Kademlia[Coeval, C, E]] =
       Stream.fill(n)(nextRandomKey)
-        .foldLeft(Map.empty[C, Kademlia[Coeval, C]]) {
+        .foldLeft(Map.empty[C, Kademlia[Coeval, C, E]]) {
           case (acc, key) ⇒
             acc + (toContact(key) -> TestKademlia.coeval(key, alpha, k, kads(_), toContact, pingExpiresIn))
         }
@@ -121,22 +123,22 @@ object TestKademlia {
     val peers = kads.keys.take(joinPeers).toSeq
 
     if (peers.nonEmpty)
-      kads.values.foreach(_.join(peers, k).run.value)
+      kads.values.foreach(_.join(peers, k).value.run.value)
 
     kads
   }
 
-  def coevalSimulationKP[C](
+  def coevalSimulationKP[C, E](
     k: Int,
     n: Int,
     toContact: Key ⇒ C,
     nextRandomKeyPair: ⇒ KeyPair,
     joinPeers: Int = 0,
     alpha: Int = 3,
-    pingExpiresIn: FiniteDuration = 1.second): Map[C, (Signer, Kademlia[Coeval, C])] = {
-    lazy val kads: Map[C, (Signer, Kademlia[Coeval, C])] =
+    pingExpiresIn: FiniteDuration = 1.second): Map[C, (Signer, Kademlia[Coeval, C, E])] = {
+    lazy val kads: Map[C, (Signer, Kademlia[Coeval, C, E])] =
       Stream.fill(n)(nextRandomKeyPair)
-        .foldLeft(Map.empty[C, (Signer, Kademlia[Coeval, C])]) {
+        .foldLeft(Map.empty[C, (Signer, Kademlia[Coeval, C, E])]) {
           case (acc, keyPair) ⇒
             val algo = SignAlgo.dumb
             val signer = algo.signer(keyPair)
@@ -147,7 +149,7 @@ object TestKademlia {
     val peers = kads.keys.take(joinPeers).toSeq
 
     if (peers.nonEmpty)
-      kads.values.foreach(_._2.join(peers, k).run.value)
+      kads.values.foreach(_._2.join(peers, k).value.run.value)
 
     kads
   }

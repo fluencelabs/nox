@@ -7,8 +7,26 @@ message Node {
     bytes contact = 2;
 }
 
-message NodesResponse {
+message Nodes {
     repeated Node nodes = 1;
+}
+
+message Error {
+    string message = 1;
+}
+
+message NodeResponse {
+    oneof response {
+        Node node = 1;
+        Error error = 2;
+    }
+}
+
+message NodesResponse {
+    oneof response {
+        Nodes nodes = 1;
+        Error error = 2;
+    }
 }
 
 message PingRequest {
@@ -26,7 +44,7 @@ message LookupAwayRequest {
 }
 
 service Kademlia {
-    rpc ping (PingRequest) returns (Node);
+    rpc ping (PingRequest) returns (NodeResponse);
     rpc lookup (LookupRequest) returns (NodesResponse);
     rpc lookupAway (LookupAwayRequest) returns (NodesResponse);
 }

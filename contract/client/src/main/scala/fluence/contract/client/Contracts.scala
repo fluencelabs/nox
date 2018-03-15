@@ -17,6 +17,7 @@
 
 package fluence.contract.client
 
+import cats.data.EitherT
 import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
@@ -43,10 +44,10 @@ import scala.util.control.NoStackTrace
  * @tparam Contract Contract
  * @tparam Contact Kademlia's Contact
  */
-class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
+class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact, KE](
     maxFindRequests: Int,
     maxAllocateRequests: Int ⇒ Int,
-    kademlia: Kademlia[F, Contact],
+    kademlia: Kademlia[F, Contact, KE],
     cacheRpc: Contact ⇒ ContractsCacheRpc[F, Contract],
     allocatorRpc: Contact ⇒ ContractAllocatorRpc[F, Contract]
 )(implicit ME: MonadError[F, Throwable], eq: Eq[Contract], P: Parallel[F, F], checker: SignatureChecker, show: Show[Contact]) extends slogging.LazyLogging {
@@ -65,15 +66,15 @@ class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
     // Check if contract is already known, return it immediately if it is
     for {
       _ ← ME.ensure(contract.isBlankOffer())(Contracts.IncorrectOfferContract)(identity)
-      contract ← kademlia.callIterative[Contract](
+      contract ← kademlia.callIterative[Contracts.NotFound.type, Contract](
         contract.id,
-        nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap { c ⇒
-          ME.ensure(c.participantSigned(nc.key))(Contracts.NotFound)(identity) map { _ ⇒ c }
-        },
+        nc ⇒ EitherT(allocatorRpc(nc.contact).offer(contract).flatMap { c ⇒
+          c.participantSigned[F](nc.key).map(Either.cond(_, c, Contracts.NotFound))
+        }),
         contract.participantsRequired,
         maxAllocateRequests(contract.participantsRequired),
         isIdempotentFn = false
-      ).flatMap {
+      ).value.map(_.right.toSeq.flatten).flatMap { // TODO propagate errors
           case agreements if agreements.lengthCompare(contract.participantsRequired) == 0 ⇒
             logger.debug(s"Agreements for contract $contract found. Contacts: ${agreements.map(_._1.contact.show)}")
             contract.addParticipants(agreements.map(_._2))
@@ -109,10 +110,8 @@ class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
   def find(key: Key): F[Contract] =
     // Try to lookup in the neighborhood
     // TODO: if contract is found "too far" from the neighborhood, ask key's neighbors to cache contract
-    kademlia.callIterative[Contract](key, nc ⇒ cacheRpc(nc.contact).find(key).flatMap {
-      case Some(v) ⇒ v.pure[F]
-      case None    ⇒ ME.raiseError(Contracts.NotFound)
-    }, 1, maxFindRequests, isIdempotentFn = true).flatMap {
+    kademlia.callIterative[Contracts.NotFound.type, Contract](key, nc ⇒
+      EitherT.fromOptionF(cacheRpc(nc.contact).find(key), Contracts.NotFound), 1, maxFindRequests, isIdempotentFn = true).value.map(_.right.toSeq.flatten).flatMap { // TODO propagate errors
       case sq if sq.nonEmpty ⇒
         // Contract is found; for the case several different versions are returned, find the most recent
         sq.map(_._2).maxBy(_.version).pure[F]

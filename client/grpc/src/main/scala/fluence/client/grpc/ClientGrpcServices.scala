@@ -17,8 +17,10 @@
 
 package fluence.client.grpc
 
+import cats.Applicative
 import cats.effect.Effect
 import fluence.client.core.ClientServices
+import fluence.codec.Codec
 import fluence.contract.BasicContract
 import fluence.contract.grpc.client.{ ContractAllocatorClient, ContractsCacheClient }
 import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
@@ -27,33 +29,43 @@ import fluence.dataset.grpc.DatasetStorageClient
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protocol.{ Contact, KademliaRpc }
-import fluence.transport.grpc.client.GrpcClient
+import fluence.transport.grpc.client.{ GrpcClient, GrpcError }
 import monix.execution.Scheduler
 import shapeless.HNil
 
 import scala.language.higherKinds
 
 object ClientGrpcServices {
+  type Error = Throwable
+
+  implicit def errorKadCodec[F[_] : Applicative]: Codec[F, Error, fluence.kad.grpc.Error] =
+    Codec.pure(
+      throwable ⇒ fluence.kad.grpc.Error(throwable.getMessage),
+      remote ⇒ new RuntimeException(remote.message): Throwable
+    )
+
   def build[F[_] : Effect](
     builder: GrpcClient.Builder[HNil]
   )(
     implicit
     checker: SignatureChecker,
     scheduler: Scheduler = Scheduler.global
-  ): Contact ⇒ ClientServices[F, BasicContract, Contact] = {
+  ): Contact ⇒ ClientServices[F, BasicContract, Contact, Error] = {
     import fluence.contract.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
     import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
+    implicit val convert: GrpcError ⇒ Error = _.cause
+    import fluence.transport.grpc.client.GrpcRunner.runner
 
     val client = builder
-      .add(KademliaClient.register[F]())
+      .add(KademliaClient.register[F, Error]())
       .add(ContractsCacheClient.register[F, BasicContract]())
       .add(ContractAllocatorClient.register[F, BasicContract]())
       .add(DatasetStorageClient.register[F]())
       .build
 
-    contact ⇒ new ClientServices[F, BasicContract, Contact] {
-      override def kademlia: KademliaRpc[F, Contact] =
-        client.service[KademliaRpc[F, Contact]](contact)
+    contact ⇒ new ClientServices[F, BasicContract, Contact, Error] {
+      override def kademlia: KademliaRpc.Aux[F, Contact, Error] =
+        client.service[KademliaRpc.Aux[F, Contact, Error]](contact)
 
       override def contractsCache: ContractsCacheRpc[F, BasicContract] =
         client.service[ContractsCacheRpc[F, BasicContract]](contact)

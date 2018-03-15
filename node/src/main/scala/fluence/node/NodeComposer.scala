@@ -42,23 +42,23 @@ import scala.language.higherKinds
 
 object NodeComposer {
 
-  type Services = NodeServices[Task, BasicContract, Contact]
+  type Services[Err] = NodeServices[Task, BasicContract, Contact, Err]
 
-  def services(
+  def services[Err](
     keyPair: KeyPair,
     contact: Contact,
     algo: SignAlgo,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    kadClient: Contact ⇒ KademliaRpc[Task, Contact],
+    kadClient: Contact ⇒ KademliaRpc.Aux[Task, Contact, Err],
     config: Config,
     acceptLocal: Boolean
-  ): IO[Services] =
+  ): IO[Services[Err]] =
     for {
       k ← Key.fromKeyPair[IO](keyPair)
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
       rocksDbFactory = new RocksDbStore.Factory
       contractsCacheStore ← ContractsCacheStore(config, dirName ⇒ rocksDbFactory[IO](dirName, config))
-    } yield new NodeServices[Task, BasicContract, Contact] {
+    } yield new NodeServices[Task, BasicContract, Contact, Err] {
       override val key: Key = k
 
       override def rocksFactory: RocksDbStore.Factory = rocksDbFactory
@@ -69,7 +69,7 @@ object NodeComposer {
 
       import algo.checker
 
-      override lazy val kademlia: Kademlia[Task, Contact] = KademliaMVar(
+      override lazy val kademlia: Kademlia[Task, Contact, Err] = KademliaMVar(
         k,
         Task.now(contact),
         kadClient,

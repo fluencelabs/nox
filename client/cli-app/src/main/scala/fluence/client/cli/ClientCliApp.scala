@@ -54,7 +54,7 @@ object ClientCliApp extends App with slogging.LazyLogging {
 
   val client = ClientGrpcServices.build[Task](GrpcClient.builder)
 
-  val buildClient: IO[FluenceClient] = for {
+  val buildClient: IO[FluenceClient[ClientGrpcServices.Error]] = for {
     seedsConf ← SeedsConfig.read(config)
     contacts ← seedsConf.contacts(checker)
     kadConfig ← KademliaConfigParser.readKademliaConfig[IO](config)

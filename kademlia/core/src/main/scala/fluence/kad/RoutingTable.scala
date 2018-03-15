@@ -17,14 +17,14 @@
 
 package fluence.kad
 
+import cats.data.{ EitherT, Ior, NonEmptyList }
 import cats.syntax.applicative._
-import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.monoid._
 import cats.syntax.order._
 import cats.instances.list._
-import cats.{ MonadError, Parallel }
+import cats.{ Monad, Parallel }
 import fluence.kad.protocol.{ KademliaRpc, Key, Node }
 
 import scala.annotation.tailrec
@@ -113,8 +113,8 @@ object RoutingTable {
   implicit class WriteOps[F[_], C](nodeId: Key)(implicit
       BW: Bucket.WriteOps[F, C],
       SW: Siblings.WriteOps[F, C],
-      ME: MonadError[F, Throwable],
-      P: Parallel[F, F]) extends slogging.LazyLogging {
+      P: Parallel[F, F],
+      F: Monad[F]) extends slogging.LazyLogging {
     /**
      * Locates the bucket responsible for given contact, and updates it using given ping function
      *
@@ -127,8 +127,8 @@ object RoutingTable {
     def update(node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration, checkNode: Node[C] ⇒ F[Boolean]): F[Boolean] =
       if (nodeId === node.key) false.pure[F]
       else {
-        checkNode(node).attempt.flatMap {
-          case Right(true) ⇒
+        checkNode(node).flatMap {
+          case true ⇒
             logger.trace("Update node: {}", node.key)
             for {
               // Update bucket, performing ping if necessary
@@ -139,11 +139,7 @@ object RoutingTable {
 
             } yield savedToBuckets || savedToSiblings
 
-          case Left(err) ⇒
-            logger.trace(s"Node check failed with an exception for $node", err)
-            false.pure[F]
-
-          case _ ⇒
+          case false ⇒
             false.pure[F]
         }
       }
@@ -246,7 +242,7 @@ object RoutingTable {
       pingExpiresIn: Duration,
       checkNode: Node[C] ⇒ F[Boolean]
 
-    ): F[Seq[Node[C]]] = {
+    ): F[Seq[Node[C]]] = { // TODO: should we have KademliaRpc.Error there?
       // Import for Traverse
       import cats.instances.list._
 
@@ -272,9 +268,9 @@ object RoutingTable {
 
           // Fetch remote lookups into F; filter previously seen nodes
           val remote0X = Parallel.parTraverse(handle) { c ⇒
-            rpc(c.contact).lookup(key, neighbors)
+            rpc(c.contact).lookup(key, neighbors).value.map(_.right.toOption)
           }.map[List[Node[C]]](
-            _.flatten
+            _.collect{ case Some(remoteFound) ⇒ remoteFound }.flatten
               .filterNot(c ⇒ updatedProbed(c.key)) // Filter away already seen nodes
           )
 
@@ -330,6 +326,7 @@ object RoutingTable {
      * @param rpc Used to perform lookups
      * @param pingExpiresIn Duration to prevent too frequent ping requests from buckets
      * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
+     * @tparam E Error type
      * @tparam A Return type
      * @return Pairs of unique nodes that has given reply, and replies.
      *         Size is <= `numToCollect` for non-idempotent `fn`,
@@ -338,9 +335,9 @@ object RoutingTable {
      *         for one of the reasons described above.
      *         If size is >= `numToCollect`, call should be considered completely successful
      */
-    def callIterative[A](
+    def callIterative[E, A](
       key: Key,
-      fn: Node[C] ⇒ F[A],
+      fn: Node[C] ⇒ EitherT[F, E, A],
       numToCollect: Int,
       parallelism: Int,
       maxNumOfCalls: Int,
@@ -349,8 +346,8 @@ object RoutingTable {
       rpc: C ⇒ KademliaRpc[F, C],
       pingExpiresIn: Duration,
       checkNode: Node[C] ⇒ F[Boolean]
-    ): F[Seq[(Node[C], A)]] =
-      lookupIterative(key, numToCollect max parallelism, parallelism, rpc, pingExpiresIn, checkNode).flatMap {
+    ): EitherT[F, Seq[(Node[C], E)], Seq[(Node[C], A)]] =
+      EitherT apply lookupIterative(key, numToCollect max parallelism, parallelism, rpc, pingExpiresIn, checkNode).flatMap {
         prefetchedNodes ⇒
 
           // Lazy stream that takes nodes from the right
@@ -372,10 +369,10 @@ object RoutingTable {
               val toLookup = tailStream(loaded).filter(nc ⇒ !lookedUp(nc.key)).take(parallelism).toList
 
               // Make lookup requests for node's own neighborhood
-              Parallel.parTraverse(toLookup){ n ⇒ rpc(n.contact).lookupAway(n.key, key, lookupSize).attempt }.flatMap {
+              Parallel.parTraverse(toLookup){ n ⇒ rpc(n.contact).lookupAway(n.key, key, lookupSize).value.map(_.right.toOption) }.flatMap {
                 lookupResult ⇒
                   val ns = lookupResult.collect {
-                    case Right(v) ⇒ v
+                    case Some(v) ⇒ v
                   }.flatten
                   // Add new nodes, sort & filter dups with SortedSet
                   val updatedLoaded = loaded ++ ns
@@ -391,9 +388,8 @@ object RoutingTable {
 
           // 2: on given nodes, call fn in parallel.
           // Return list of collected replies, and list of unsuccessful trials
-          def callFn(nodes: List[Node[C]]): F[Seq[(Node[C], A)]] =
-            Parallel.parTraverse(nodes)(n ⇒ fn(n).attempt.map(n -> _))
-              .map(_.collect{ case (n, Right(a)) ⇒ (n, a) })
+          def callFn(nodes: List[Node[C]]): F[List[(Node[C], Either[E, A])]] =
+            Parallel.parTraverse(nodes)(n ⇒ fn(n).value.map(n -> _))
 
           // 3: take nodes from 1, run 2, until one of conditions is met:
           // - numToCollect is collected
@@ -402,12 +398,13 @@ object RoutingTable {
           def iterate(
             nodes: SortedSet[Node[C]],
             replies: Seq[(Node[C], A)],
+            errors: Seq[(Node[C], E)],
             lookedUp: Set[Key],
             fnCalled: Set[Key],
-            requestsRemaining: Int): F[Seq[(Node[C], A)]] = {
+            requestsRemaining: Int): F[(Seq[(Node[C], E)], Seq[(Node[C], A)])] = {
             val needCollect = numToCollect - replies.size
             // If we've collected enough, stop
-            if (needCollect <= 0) replies.pure[F]
+            if (needCollect <= 0) (errors, replies).pure[F]
             else {
               // For idempotent requests, we could make more calls then needed to increase chances to success
               val callsNeeded = if (isIdempotentFn) parallelism else needCollect min parallelism
@@ -436,8 +433,17 @@ object RoutingTable {
                 case (updatedNodes, updatedLookedUp, hasMoreNodesToLookup, updatedCallOnNodes) ⇒
 
                   callFn(callOnNodes.toList).flatMap {
-                    newReplies ⇒
+                    newRepliesOrErrors ⇒
+                      val newReplies = newRepliesOrErrors.collect {
+                        case (n, Right(r)) ⇒ (n, r)
+                      }
+
+                      val newErrors = newRepliesOrErrors.collect {
+                        case (n, Left(err)) ⇒ (n, err)
+                      }
+
                       val updatedReplies = replies ++ newReplies
+                      lazy val updatedErrors = errors ++ newErrors
                       val updatedRequestsRemaining = requestsRemaining - updatedCallOnNodes.size
                       val updatedFnCalled = fnCalled ++ updatedCallOnNodes.map(_.key)
 
@@ -447,11 +453,12 @@ object RoutingTable {
                           (updatedFnCalled.size == updatedNodes.size && !hasMoreNodesToLookup) // No more nodes to call fn on
 
                       if (escapeCondition)
-                        updatedReplies.pure[F] // Stop iterations
+                        (updatedErrors, updatedReplies).pure[F] // Stop iterations
                       else
                         iterate(
                           updatedNodes,
                           updatedReplies,
+                          updatedErrors,
                           updatedLookedUp,
                           updatedFnCalled,
                           updatedRequestsRemaining
@@ -464,11 +471,15 @@ object RoutingTable {
           // Call with initial params
           iterate(
             nodes = SortedSet(prefetchedNodes: _*)(Node.relativeOrdering(key)),
-            replies = Seq.empty,
+            replies = Vector.empty,
+            errors = Vector.empty,
             lookedUp = Set.empty,
             fnCalled = Set.empty,
             requestsRemaining = maxNumOfCalls
-          )
+          ).map {
+              case (errors, replies) ⇒
+                Either.cond(replies.lengthCompare(numToCollect) >= 0, replies, errors)
+            }
       }
 
     /**
@@ -480,48 +491,53 @@ object RoutingTable {
      * @param numberOfNodes How many nodes to lookupIterative for each peer
      * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
      * @param parallelism Parallelism factor to perform self-[[lookupIterative()]] in case of successful join
-     * @return F[Unit], possibly a failure if were not able to join any node
+     * @return Either a non-empty list of errors, or the discovered node's neighborhood (up to numberOfNodes)
      */
-    def join(
+    def join[E](
       peers: Seq[C],
-      rpc: C ⇒ KademliaRpc[F, C],
+      rpc: C ⇒ KademliaRpc.Aux[F, C, E],
       pingExpiresIn: Duration,
       numberOfNodes: Int,
       checkNode: Node[C] ⇒ F[Boolean],
-      parallelism: Int): F[Unit] =
-      Parallel.parTraverse(peers.toList) { peer: C ⇒
+      parallelism: Int): EitherT[F, NonEmptyList[Either[E, JoinError]], Seq[Node[C]]] =
+      EitherT(Parallel.parTraverse(peers.toList) { peer: C ⇒
         logger.trace("Going to ping Peer to join: " + peer)
 
         // For each peer
         // Try to ping the peer; if no pings are performed, join is failed
-        rpc(peer).ping().attempt.flatMap[Option[(Node[C], List[Node[C]])]] {
+        rpc(peer).ping().value.flatMap[Ior[JoinError, (Node[C], List[Node[C]])]] {
           case Right(peerNode) if peerNode.key =!= nodeId ⇒ // Ping successful, lookup node's neighbors
             logger.info("PeerPing successful to " + peerNode.key)
 
-            rpc(peer).lookup(nodeId, numberOfNodes).attempt.map {
+            rpc(peer).lookup(nodeId, numberOfNodes).value.map {
               case Right(neighbors) if neighbors.isEmpty ⇒
                 logger.info("Neighbors list is empty for peer " + peerNode.key)
-                Some(peerNode -> Nil)
+                Ior.right(peerNode -> Nil)
 
               case Right(neighbors) ⇒
-                Some(peerNode -> neighbors.toList)
+                Ior.right(peerNode -> neighbors.toList)
 
               case Left(e) ⇒
                 logger.warn(s"Can't perform lookup for $peer during join", e)
-                Some(peerNode -> Nil)
+                Ior.both(CantLookupContact(peer), peerNode -> Nil)
             }
 
           case Right(_) ⇒
             logger.debug("Can't initialize from myself")
-            Option.empty[(Node[C], List[Node[C]])].pure[F]
+            F.pure(Ior.left(CantJoinMyself))
 
           case Left(e) ⇒
-            logger.warn(s"Can't perform ping for $peer during join", e)
-            Option.empty[(Node[C], List[Node[C]])].pure[F]
+            logger.debug(s"Can't perform ping for $peer during join", e)
+            F.pure(Ior.left(CantPingContact(peer)))
         }
 
-      }.map(_.flatten)
-        .flatMap { peerNeighbors ⇒
+      }
+        .flatMap { peerIorNeighbors ⇒
+
+          val peerNeighbors = peerIorNeighbors.collect {
+            case Ior.Right(r)   ⇒ r
+            case Ior.Both(_, r) ⇒ r
+          }
 
           val ps = peerNeighbors.map(_._1)
           val peerSet = ps.map(_.key).toSet
@@ -530,23 +546,67 @@ object RoutingTable {
 
           Parallel.parTraverse(
             ns
-          )(p ⇒ rpc(p.contact).ping().attempt).map(_.collect {
-            case Right(n) ⇒ n
-          }).map(_ ::: ps)
+          )(p ⇒ rpc(p.contact).ping().value)
+            .map{
+              listOfPingEither ⇒
+                (
+                  // All errors on the left (could be an empty list)
+                  peerIorNeighbors.map(_.left).collect {
+                    case Some(err) ⇒ Right[E, JoinError](err)
+                  } ::: listOfPingEither.collect {
+                    case Left(err) ⇒ Left[E, JoinError](err)
+                  },
+                  // All discovered neighbors on the right (could be an empty list)
+                  listOfPingEither.collect {
+                    case Right(n) ⇒ n
+                  } ::: ps
+                )
+            }
 
-        }.flatMap { ns ⇒
-          // Save discovered nodes to the routing table
-          logger.info("Discovered neighbors: " + ns.map(_.key))
-          updateList(ns, rpc, pingExpiresIn, checkNode)
-        }.map(_.nonEmpty).flatMap {
-          case true ⇒ // At least joined to a single node
+        }.flatMap[Ior[NonEmptyList[Either[E, JoinError]], List[Node[C]]]] {
+          case (errs, discoveredNeighbors) ⇒
+
+            // Save discovered nodes to the routing table
+            val updatedNeighborsF: F[List[Node[C]]] =
+              if (discoveredNeighbors.nonEmpty) {
+                logger.info("Discovered neighbors: " + discoveredNeighbors.map(_.key))
+                updateList(discoveredNeighbors, rpc, pingExpiresIn, checkNode)
+
+              } else {
+                F.pure(Nil)
+              }
+
+            // Manage error state
+            updatedNeighborsF.map {
+              case uns if uns.nonEmpty ⇒
+                NonEmptyList.fromList(errs) match {
+                  case Some(errsNel) ⇒ Ior.both(errsNel, uns)
+                  case None          ⇒ Ior.right(uns)
+                }
+
+              case _ ⇒
+                Ior.left(NonEmptyList(Right(CantJoinAnyContact), errs))
+            }
+
+        }.flatMap {
+          case r if r.isRight ⇒ // At least joined to a single node
             logger.info("Joined! " + Console.GREEN + nodeId + Console.RESET)
+            r.left.foreach { errs ⇒
+              logger.info("However, these errors occured during join: " + errs.toList.mkString(", "))
+            }
             lookupIterative(nodeId, numberOfNodes, numberOfNodes, rpc, pingExpiresIn, checkNode)
-              .attempt.map(_ ⇒ ())
-          case false ⇒ // Can't join to any node
-            logger.warn("Can't join!")
-            ME.raiseError[Unit](new RuntimeException("Can't join any node among known peers"))
-        }
+              .map(Right[NonEmptyList[Either[E, JoinError]], Seq[Node[C]]])
+
+          case r ⇒ // Can't join to any node
+            logger.warn("Can't join! " + r.left.toList.flatMap(_.toList).mkString(", "))
+            F.pure(Left[NonEmptyList[Either[E, JoinError]], Seq[Node[C]]](r.left.get))
+        })
   }
+
+  sealed trait JoinError
+  case object CantJoinMyself extends JoinError
+  case class CantPingContact[C](contact: C) extends JoinError
+  case class CantLookupContact[C](contact: C) extends JoinError
+  case object CantJoinAnyContact extends JoinError
 
 }

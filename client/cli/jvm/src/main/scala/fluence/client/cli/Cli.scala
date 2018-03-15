@@ -34,6 +34,8 @@ import scala.language.higherKinds
 
 object Cli extends slogging.LazyLogging {
 
+  type Err = Throwable
+
   //for terminal improvements: history, navigation
   private val terminal = TerminalBuilder.terminal()
   private val lineReader = LineReaderBuilder.builder().terminal(terminal).build()
@@ -45,7 +47,7 @@ object Cli extends slogging.LazyLogging {
     } yield (AesCrypt.forString(secretKey.value, withIV = false, aesConfig), AesCrypt.forString(secretKey.value, withIV = true, aesConfig))
   }
 
-  def restoreDataset(keyPair: KeyPair, fluenceClient: FluenceClient, config: Config, replicationN: Int): Task[ClientDatasetStorageApi[Task, String, String]] = {
+  def restoreDataset(keyPair: KeyPair, fluenceClient: FluenceClient[Err], config: Config, replicationN: Int): Task[ClientDatasetStorageApi[Task, String, String]] = {
     for {
       crypts ← cryptoMethods[Task](keyPair.secretKey, config)
       (keyCrypt, valueCrypt) = crypts
