@@ -500,40 +500,46 @@ object RoutingTable {
       numberOfNodes: Int,
       checkNode: Node[C] ⇒ F[Boolean],
       parallelism: Int): EitherT[F, NonEmptyList[Either[E, JoinError]], Seq[Node[C]]] =
-      EitherT(Parallel.parTraverse(peers.toList) { peer: C ⇒
-        logger.trace("Going to ping Peer to join: " + peer)
+      {
+        // For each peer contact,
+        // get an error,
+        // or peer Node[C] and its looked up nodeId neighborhood,
+        // or both (in case lookup fails)
+        def discoverPeer(peer: C): F[Ior[JoinError, (Node[C], List[Node[C]])]] = {
+          logger.trace("Going to ping Peer to join: " + peer)
 
-        // For each peer
-        // Try to ping the peer; if no pings are performed, join is failed
-        rpc(peer).ping().value.flatMap[Ior[JoinError, (Node[C], List[Node[C]])]] {
-          case Right(peerNode) if peerNode.key =!= nodeId ⇒ // Ping successful, lookup node's neighbors
-            logger.info("PeerPing successful to " + peerNode.key)
+          // For each peer
+          // Try to ping the peer; if no pings are performed, join is failed
+          rpc(peer).ping().value.flatMap[Ior[JoinError, (Node[C], List[Node[C]])]] {
+            case Right(peerNode) if peerNode.key =!= nodeId ⇒ // Ping successful, lookup node's neighbors
+              logger.info("PeerPing successful to " + peerNode.key)
 
-            rpc(peer).lookup(nodeId, numberOfNodes).value.map {
-              case Right(neighbors) if neighbors.isEmpty ⇒
-                logger.info("Neighbors list is empty for peer " + peerNode.key)
-                Ior.right(peerNode -> Nil)
+              // Perform lookup, map errors -- `.value` is just like `.attempt` call here
+              rpc(peer).lookup(nodeId, numberOfNodes).value.map {
+                case Right(neighbors) if neighbors.isEmpty ⇒
+                  logger.info("Neighbors list is empty for peer " + peerNode.key)
+                  Ior.right(peerNode -> Nil)
 
-              case Right(neighbors) ⇒
-                Ior.right(peerNode -> neighbors.toList)
+                case Right(neighbors) ⇒
+                  Ior.right(peerNode -> neighbors.toList)
 
-              case Left(e) ⇒
-                logger.warn(s"Can't perform lookup for $peer during join", e)
-                Ior.both(CantLookupContact(peer), peerNode -> Nil)
-            }
+                case Left(e) ⇒
+                  logger.warn(s"Can't perform lookup for $peer during join", e)
+                  Ior.both(CantLookupContact(peer), peerNode -> Nil)
+              }
 
-          case Right(_) ⇒
-            logger.debug("Can't initialize from myself")
-            F.pure(Ior.left(CantJoinMyself))
+            case Right(_) ⇒
+              logger.debug("Can't initialize from myself")
+              F.pure(Ior.left(CantJoinMyself))
 
-          case Left(e) ⇒
-            logger.debug(s"Can't perform ping for $peer during join", e)
-            F.pure(Ior.left(CantPingContact(peer)))
+            case Left(e) ⇒
+              logger.debug(s"Can't perform ping for $peer during join", e)
+              F.pure(Ior.left(CantPingContact(peer)))
+          }
         }
 
-      }
-        .flatMap { peerIorNeighbors ⇒
-
+        // Ping discovered neighbors, collect errors from previous step and this one
+        def pingNeighbors(peerIorNeighbors: List[Ior[JoinError, (Node[C], List[Node[C]])]]): F[(List[Either[E, JoinError]], List[Node[C]])] = {
           val peerNeighbors = peerIorNeighbors.collect {
             case Ior.Right(r)   ⇒ r
             case Ior.Both(_, r) ⇒ r
@@ -547,7 +553,7 @@ object RoutingTable {
           Parallel.parTraverse(
             ns
           )(p ⇒ rpc(p.contact).ping().value)
-            .map{
+            .map {
               listOfPingEither ⇒
                 (
                   // All errors on the left (could be an empty list)
@@ -562,45 +568,67 @@ object RoutingTable {
                   } ::: ps
                 )
             }
+        }
 
-        }.flatMap[Ior[NonEmptyList[Either[E, JoinError]], List[Node[C]]]] {
-          case (errs, discoveredNeighbors) ⇒
+        // Update discovered neighbors in RoutingTable, return Ior with collected errors and/or discovered neighbors
+        def updateNeighbors(errs: List[Either[E, JoinError]], discoveredNeighbors: List[Node[C]]): F[Ior[NonEmptyList[Either[E, JoinError]], List[Node[C]]]] = {
+          // Save discovered nodes to the routing table
+          val updatedNeighborsF: F[List[Node[C]]] =
+            if (discoveredNeighbors.nonEmpty) {
+              logger.info("Discovered neighbors: " + discoveredNeighbors.map(_.key))
+              updateList(discoveredNeighbors, rpc, pingExpiresIn, checkNode)
 
-            // Save discovered nodes to the routing table
-            val updatedNeighborsF: F[List[Node[C]]] =
-              if (discoveredNeighbors.nonEmpty) {
-                logger.info("Discovered neighbors: " + discoveredNeighbors.map(_.key))
-                updateList(discoveredNeighbors, rpc, pingExpiresIn, checkNode)
+            } else {
+              F.pure(Nil)
+            }
 
-              } else {
-                F.pure(Nil)
+          // Manage error state
+          updatedNeighborsF.map {
+            case uns if uns.nonEmpty ⇒
+              NonEmptyList.fromList(errs) match {
+                case Some(errsNel) ⇒ Ior.both(errsNel, uns)
+                case None          ⇒ Ior.right(uns)
               }
 
-            // Manage error state
-            updatedNeighborsF.map {
-              case uns if uns.nonEmpty ⇒
-                NonEmptyList.fromList(errs) match {
-                  case Some(errsNel) ⇒ Ior.both(errsNel, uns)
-                  case None          ⇒ Ior.right(uns)
-                }
+            case _ ⇒
+              Ior.left(NonEmptyList(Right(CantJoinAnyContact), errs))
+          }
+        }
 
-              case _ ⇒
-                Ior.left(NonEmptyList(Right(CantJoinAnyContact), errs))
-            }
+        def lookupOrFail(res: Ior[NonEmptyList[Either[E, JoinError]], Seq[Node[C]]]): F[Either[NonEmptyList[Either[E, JoinError]], Seq[Node[C]]]] =
+          res match {
+            case r if r.isRight ⇒ // At least joined to a single node
+              logger.info("Joined! " + Console.GREEN + nodeId + Console.RESET)
+              r.left.foreach { errs ⇒
+                logger.warn("However, these errors occured during join: " + errs.toList.mkString(", "))
+              }
+              lookupIterative(nodeId, numberOfNodes, numberOfNodes, rpc, pingExpiresIn, checkNode)
+                .map(Right[NonEmptyList[Either[E, JoinError]], Seq[Node[C]]])
 
-        }.flatMap {
-          case r if r.isRight ⇒ // At least joined to a single node
-            logger.info("Joined! " + Console.GREEN + nodeId + Console.RESET)
-            r.left.foreach { errs ⇒
-              logger.info("However, these errors occured during join: " + errs.toList.mkString(", "))
-            }
-            lookupIterative(nodeId, numberOfNodes, numberOfNodes, rpc, pingExpiresIn, checkNode)
-              .map(Right[NonEmptyList[Either[E, JoinError]], Seq[Node[C]]])
+            case r ⇒ // Can't join to any node
+              logger.error("Can't join! " + r.left.toList.flatMap(_.toList).mkString(", "))
+              F.pure(Left[NonEmptyList[Either[E, JoinError]], Seq[Node[C]]](r.left.get))
+          }
 
-          case r ⇒ // Can't join to any node
-            logger.warn("Can't join! " + r.left.toList.flatMap(_.toList).mkString(", "))
-            F.pure(Left[NonEmptyList[Either[E, JoinError]], Seq[Node[C]]](r.left.get))
-        })
+        // Composition of all steps
+        val joinF: F[Either[NonEmptyList[Either[E, JoinError]], Seq[Node[C]]]] =
+          for {
+            // For each peer contact, discover peer and lookup its neighbors
+            peerIorNeighbors ← Parallel.parTraverse(peers.toList)(discoverPeer)
+
+            // For each discovered neighbor, ping
+            errsAndDiscoveredNeighbors ← pingNeighbors(peerIorNeighbors)
+            (errs, discoveredNeighbors) = errsAndDiscoveredNeighbors
+
+            // Update RoutingTable with discovered neighbors
+            errsAndUpdatedNeighbors ← updateNeighbors(errs, discoveredNeighbors)
+
+            // In case of any successful discovery, lookupIterative this node's neighborhood; or fail
+            result ← lookupOrFail(errsAndUpdatedNeighbors)
+          } yield result
+
+        EitherT(joinF)
+      }
   }
 
   sealed trait JoinError

@@ -59,13 +59,17 @@ class RoutingTableSpec extends WordSpec with Matchers {
     }
 
     val failLocalRPC = (_: Long) ⇒ new KademliaRpc[Coeval, Long] {
-      override def ping() = EitherT.liftF(Coeval.raiseError(new NoSuchElementException))
+      override type Error = Throwable
+
+      override def ping() = EitherT.leftT[Coeval, Node[Long]](new NoSuchElementException)
 
       override def lookup(key: Key, numberOfNodes: Int) = ???
       override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
     }
 
     val successLocalRPC = (c: Long) ⇒ new KademliaRpc[Coeval, Long] {
+      override type Error = Throwable
+
       override def ping() = EitherT.liftF(Coeval(Node(c, now, c)))
 
       override def lookup(key: Key, numberOfNodes: Int) = ???
