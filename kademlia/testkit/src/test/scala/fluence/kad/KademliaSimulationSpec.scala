@@ -110,9 +110,9 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
       val counter = AtomicInt(0)
 
-      kad.callIterative[Throwable, Nothing](
+      kad.callIterative[Unit, Nothing](
         nodes.last._1,
-        _ ⇒ EitherT(Coeval(counter.increment()).map(_ ⇒ Left(new NoSuchElementException()))),
+        _ ⇒ EitherT[Coeval, Unit, Nothing](Coeval(counter.increment()).map(_ ⇒ Left(()))),
         K min P,
         K max P max (N / 3)
       ).value.value.right.toOption shouldBe empty
@@ -128,7 +128,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
       kad.callIterative(
         nodes.last._1,
-        _ ⇒ EitherT(Coeval(Right(counter.increment()))),
+        _ ⇒ EitherT[Coeval, Unit, Unit](Coeval(Right(counter.increment()))),
         K min P,
         K max P max (N / 3),
         isIdempotentFn = true
@@ -144,9 +144,9 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       val counter = AtomicInt(0)
       val numToFind = K min P
 
-      kad.callIterative(
+      kad.callIterative[Nothing, Unit](
         nodes.last._1,
-        _ ⇒ EitherT.rightT(counter.increment()),
+        _ ⇒ EitherT.rightT[Coeval, Nothing](counter.increment()),
         K min P,
         K max P max (N / 3),
         isIdempotentFn = false

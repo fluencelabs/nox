@@ -22,7 +22,7 @@ import java.net.InetAddress
 import cats.Applicative
 import cats.syntax.applicative._
 import cats.syntax.eq._
-import fluence.kad.protocol.{Contact, Key, Node}
+import fluence.kad.protocol.{ Contact, Key, Node }
 
 import scala.language.higherKinds
 import scala.util.control.NonFatal
