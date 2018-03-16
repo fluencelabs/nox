@@ -62,7 +62,7 @@ object ClientGrpcServices {
 
       override def contractAllocator: ContractAllocatorRpc[F, BasicContract] =
         client.service[ContractAllocatorRpc[F, BasicContract]](contact)
-
+      // todo generalize Observable
       override def datasetStorage: DatasetStorageRpc[F, Observable] =
         client.service[DatasetStorageRpc[F, Observable]](contact)
     }

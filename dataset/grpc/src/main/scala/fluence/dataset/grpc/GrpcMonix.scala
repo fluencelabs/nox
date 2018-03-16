@@ -19,8 +19,8 @@ package fluence.dataset.grpc
 
 import io.grpc.stub.StreamObserver
 import monix.eval.{ MVar, Task }
-import monix.execution.{ Ack, Cancelable }
 import monix.execution.Scheduler.Implicits.global
+import monix.execution.{ Ack, Cancelable }
 import monix.reactive._
 
 import scala.concurrent.Future

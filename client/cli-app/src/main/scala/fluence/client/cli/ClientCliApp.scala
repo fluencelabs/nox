@@ -30,7 +30,6 @@ import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.transport.grpc.client.GrpcClient
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
-import monix.reactive.Observable
 import slogging.MessageFormatter.PrefixFormatter
 import slogging._
 

@@ -102,8 +102,7 @@ object Cli extends slogging.LazyLogging {
         case Some(CliOp.Range(from, to)) ⇒
           val t = for {
             res ← ds.range(from, to).toListL
-            printRes = res.mkString("[", ",", "]")
-            _ = logger.info("Result: " + printRes)
+            _ = logger.info(s"Result: ${res.mkString("[", ",", "]")}")
           } yield true
           t.toIO
 

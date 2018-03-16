@@ -21,7 +21,7 @@ import scala.language.higherKinds
 
 /**
  * Dataset storage api interface. Main client interface for data manipulation.
- * TODO: consider removing it, as it seems to be useless
+ * The trait is used primarily to abstract out F and FS types, which are strictly defined in implementation
  *
  * @tparam F A box for returning value
  * @tparam FS A type of stream for returning key-value pairs

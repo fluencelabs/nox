@@ -30,12 +30,12 @@ import fluence.client.core.{ ClientServices, FluenceClient }
 import fluence.client.grpc.ClientGrpcServices
 import fluence.contract.BasicContract
 import fluence.contract.client.Contracts
+import fluence.contract.client.Contracts.NotFound
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher, TestCryptoHasher }
 import fluence.crypto.keypair.KeyPair
-import fluence.contract.client.Contracts.NotFound
 import fluence.dataset.client.{ ClientDatasetStorage, ClientDatasetStorageApi }
 import fluence.dataset.grpc.DatasetStorageClient.ServerError
 import fluence.dataset.grpc.DatasetStorageServer.ClientError

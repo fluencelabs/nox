@@ -19,9 +19,9 @@ package fluence.node
 
 import java.net.InetAddress
 
-import cats.instances.try_._
 import cats._
 import cats.effect.IO
+import cats.instances.try_._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
@@ -30,8 +30,8 @@ import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.{ KademliaGrpc, KademliaNodeCodec }
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
 import fluence.kad.{ KademliaConf, KademliaMVar }
-import fluence.transport.grpc.GrpcConf
 import fluence.transport.TransportSecurity
+import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.GrpcServer
 import monix.eval.Task
