@@ -151,8 +151,7 @@ object Bucket {
    * @tparam F Effect
    * @tparam C Node contacts
    */
-  trait WriteOps[F[_], C] extends ReadOps[C] {
-    protected implicit def F: Monad[F]
+  abstract class WriteOps[F[_] : Monad, C] extends ReadOps[C] {
 
     /**
      * Runs a mutation on bucket, blocks the bucket from writes until mutation is complete

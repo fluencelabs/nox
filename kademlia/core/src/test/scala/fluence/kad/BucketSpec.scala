@@ -37,7 +37,6 @@ class BucketSpec extends WordSpec with Matchers {
     type F[A] = StateT[Coeval, Bucket[C], A]
 
     implicit class BucketOps(state: Bucket[C]) extends Bucket.WriteOps[F, C] {
-      override protected implicit def F: Monad[F] = Monad[F]
 
       override protected def run[T](bucketId: Int, mod: StateT[F, Bucket[C], T]): F[T] =
         mod.run(state).flatMap{

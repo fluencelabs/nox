@@ -76,8 +76,6 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
     def bucketOps(maxBucketSize: Int): Bucket.WriteOps[Coeval, Long] =
       new Bucket.WriteOps[Coeval, Long] {
-        override protected implicit def F: Monad[Coeval] = Monad[Coeval]
-
         private val buckets = collection.mutable.Map.empty[Int, Bucket[Long]]
 
         override protected def run[T](bucketId: Int, mod: StateT[Coeval, Bucket[Long], T]) =

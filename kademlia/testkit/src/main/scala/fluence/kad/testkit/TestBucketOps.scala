@@ -17,7 +17,6 @@
 
 package fluence.kad.testkit
 
-import cats.Monad
 import cats.data.StateT
 import fluence.kad.Bucket
 import monix.eval.Coeval
@@ -29,8 +28,6 @@ class TestBucketOps[C](maxBucketSize: Int) extends Bucket.WriteOps[Coeval, C] {
 
   private val buckets = collection.mutable.Map.empty[Int, Bucket[C]]
   private val locks = collection.mutable.Map.empty[Int, Boolean].withDefaultValue(false)
-
-  override protected implicit def F: Monad[Coeval] = Monad[Coeval]
 
   override protected def run[T](bucketId: Int, mod: StateT[Coeval, Bucket[C], T]) = {
     require(!locks(bucketId), s"Bucket $bucketId must be not locked")
