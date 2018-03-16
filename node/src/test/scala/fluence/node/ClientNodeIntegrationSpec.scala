@@ -68,8 +68,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(5, Seconds), Span(250, Milliseconds))
 
   private val algo: SignAlgo = Ecdsa.signAlgo
-  //  private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
   private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
+  private val alternativeHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
   private val keyCrypt = NoOpCrypt.forString[Task]
   private val valueCrypt = NoOpCrypt.forString[Task]
 
@@ -251,7 +251,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           val putKey1Response = datasetStorage.put(key1, val1).failed.taskValue
           putKey1Response shouldBe a[ClientError]
           putKey1Response.getMessage should startWith("Server 'put response' didn't pass verifying for state=PutStateImpl")
-        }, serverHasher = JdkCryptoHasher.Sha256)
+        }, serverHasher = alternativeHasher)
       }
     }
 
@@ -285,7 +285,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val seedContact = makeKadNetwork(servers)
         val fluence = createFluenceClient(seedContact)
 
-        val datasetStorage = fluence.createNewContract(keyPair, 2, keyCrypt, valueCrypt).taskValue(Some(timeout(Span(5, Seconds))))
+        val datasetStorage = fluence.createNewContract(keyPair, 2, keyCrypt, valueCrypt).taskValue
         verifyReadAndWrite(datasetStorage)
         verifyRangeQueries(datasetStorage)
       }
@@ -405,13 +405,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   /** Makes many writes and read with range */
   private def verifyRangeQueries(
     datasetStorage: ClientDatasetStorageApi[Task, Observable, String, String],
-    numberOfKeys: Int = 512
+    numberOfKeys: Int = 256
   ): Unit = {
 
     val allRecords = Random.shuffle(1 to numberOfKeys).map(i ⇒ { f"k$i%04d" → f"v$i%04d" })
 
     // invoke numberOfKeys puts
-    Task.sequence(allRecords.map { case (k, v) ⇒ datasetStorage.put(k, v) }).taskValue(Some(timeout(Span(600, Seconds))))
+    Task.sequence(allRecords.map { case (k, v) ⇒ datasetStorage.put(k, v) }).taskValue(Some(timeout(Span(10, Seconds))))
 
     val firstKey = "k0001"
     val midKey = f"k${numberOfKeys / 2}%04d"
