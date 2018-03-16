@@ -19,7 +19,7 @@ package fluence.kad.grpc
 
 import java.time.Instant
 
-import cats.MonadError
+import cats.{ Applicative, MonadError }
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.applicative._
@@ -50,4 +50,11 @@ object KademliaNodeCodec {
           Instant.now(),
           c
         ))
+
+  // TODO: should be replaced with Kleisli, as it should only convert a Unit error (which should never happen) to Error on server side, and not vice versa
+  implicit def errorUnitCodec[F[_] : Applicative]: Codec[F, fluence.kad.grpc.Error, Unit] =
+    Codec.pure(
+      _ ⇒ (),
+      _ ⇒ ???
+    )
 }

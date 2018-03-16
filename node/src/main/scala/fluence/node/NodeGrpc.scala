@@ -86,13 +86,9 @@ object NodeGrpc {
 
       import fluence.contract.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
       import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
+      import fluence.kad.grpc.KademliaNodeCodec.errorUnitCodec
       val keyC = Key.bytesCodec[Task]
       import keyC.inverse
-
-      implicit val kadErrCodec: Codec[Task, fluence.kad.grpc.Error, Unit] = Codec.pure(
-        _ ⇒ (),
-        _ ⇒ ???
-      )
 
       serverBuilder
         .add(KademliaGrpc.bindService(new KademliaServer[Task, Unit](kademlia.handleRPC), ec))
