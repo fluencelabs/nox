@@ -17,17 +17,16 @@
 
 package fluence.kad
 
-import cats.syntax.applicative._
-import cats.syntax.functor._
+import cats.data.{ EitherT, NonEmptyList }
 import cats.syntax.eq._
-import cats.{ MonadError, Parallel }
+import cats.syntax.functor._
+import cats.{ Monad, Parallel }
 import fluence.kad.RoutingTable._
 import fluence.kad.protocol.{ KademliaRpc, Key, Node }
 import slogging.LazyLogging
 
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
-import scala.util.control.NoStackTrace
 
 /**
  * Kademlia interface for current node and all Kademlia-related RPC calls, both incoming and outgoing
@@ -36,16 +35,16 @@ import scala.util.control.NoStackTrace
  * @param parallelism   Parallelism factor (named Alpha in paper)
  * @param pingExpiresIn Duration to avoid too frequent ping requests, used in [[Bucket.update()]]
  * @param checkNode Check node correctness, e.g. signatures are correct, ip is public, etc.
- * @param F            Monad error
+ * @param F            Monad
  * @tparam F Effect
  * @tparam C Contact info
  */
-abstract class Kademlia[F[_], C](
+abstract class Kademlia[F[_], C, E](
     val nodeId: Key,
     parallelism: Int,
     val pingExpiresIn: Duration,
     checkNode: Node[C] ⇒ F[Boolean]
-)(implicit F: MonadError[F, Throwable], P: Parallel[F, F], BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C]) {
+)(implicit F: Monad[F], P: Parallel[F, F], BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C]) {
   self ⇒
 
   /**
@@ -54,7 +53,7 @@ abstract class Kademlia[F[_], C](
    * @param contact Description on how to connect to remote node
    * @return
    */
-  def rpc(contact: C): KademliaRpc[F, C]
+  def rpc(contact: C): KademliaRpc.Aux[F, C, E]
 
   /**
    * How to promote this node to others
@@ -73,16 +72,18 @@ abstract class Kademlia[F[_], C](
   /**
    * @return KademliaRPC instance to handle incoming RPC requests
    */
-  val handleRPC: KademliaRpc[F, C] = new KademliaRpc[F, C] with LazyLogging {
+  val handleRPC: KademliaRpc.Aux[F, C, Unit] = new KademliaRpc[F, C] with LazyLogging {
+
+    override type Error = Unit
 
     /**
      * Respond for a ping with node's own contact data
      *
      * @return
      */
-    override def ping(): F[Node[C]] = {
+    override def ping(): EitherT[F, Error, Node[C]] = {
       logger.trace(s"HandleRPC($nodeId): ping")
-      ownContact
+      EitherT.right(ownContact)
     }
 
     /**
@@ -92,9 +93,10 @@ abstract class Kademlia[F[_], C](
      * @param numberOfNodes How many nodes to return (upper bound)
      * @return locally known neighborhood
      */
-    override def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] = {
-      logger.trace(s"HandleRPC($nodeId): lookup($key, $numberOfNodes)")
-    }.pure[F].map(_ ⇒ nodeId.lookup(key).take(numberOfNodes))
+    override def lookup(key: Key, numberOfNodes: Int): EitherT[F, Error, Seq[Node[C]]] =
+      EitherT.rightT[F, Error](
+        logger.trace(s"HandleRPC($nodeId): lookup($key, $numberOfNodes)")
+      ).map(_ ⇒ nodeId.lookup(key).take(numberOfNodes))
 
     /**
      * Perform a lookup in local RoutingTable for a key,
@@ -103,12 +105,13 @@ abstract class Kademlia[F[_], C](
      * @param key Key to lookup
      * @param numberOfNodes How many nodes to return (upper bound)
      */
-    override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[C]]] = {
-      logger.trace(s"HandleRPC($nodeId): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
-    }.pure[F].map(_ ⇒
-      nodeId.lookupAway(key, moveAwayFrom)
-        .take(numberOfNodes)
-    )
+    override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): EitherT[F, Error, Seq[Node[C]]] =
+      EitherT.rightT{
+        logger.trace(s"HandleRPC($nodeId): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
+      }.map(_ ⇒
+        nodeId.lookupAway(key, moveAwayFrom)
+          .take(numberOfNodes)
+      )
   }
 
   /**
@@ -119,15 +122,17 @@ abstract class Kademlia[F[_], C](
    */
   def findNode(key: Key, maxRequests: Int): F[Option[Node[C]]] =
     nodeId.find(key) match {
-      case found @ Some(_) ⇒ (found: Option[Node[C]]).pure[F]
+      case found @ Some(_) ⇒
+        F.pure(found: Option[Node[C]])
 
       case None ⇒
-        callIterative(
+        callIterative[Unit, Unit](
           key,
-          n ⇒ if (n.key === key) F.pure(()) else F.raiseError[Unit](new RuntimeException("Mismatching node") with NoStackTrace),
+          n ⇒
+            EitherT.cond[F](n.key === key, (), ()),
           numToCollect = 1,
           maxNumOfCalls = maxRequests
-        ).map(_.headOption.map(_._1))
+        ).value.map(_.right.toOption.flatMap(_.headOption).map(_._1))
     }
 
   /**
@@ -148,10 +153,11 @@ abstract class Kademlia[F[_], C](
    * @param numToCollect   How many calls are expected to be made
    * @param maxNumOfCalls  Max num of calls before iterations are stopped
    * @param isIdempotentFn If true, there could be more then numToCollect successful calls made
+   * @tparam Er fn error type
    * @tparam A fn call type
-   * @return Sequence of nodes with corresponding successful replies, should be >= numToCollect in case of success
+   * @return Sequence of nodes with corresponding successful replies, should be >= numToCollect, or list of errors
    */
-  def callIterative[A](key: Key, fn: Node[C] ⇒ F[A], numToCollect: Int, maxNumOfCalls: Int, isIdempotentFn: Boolean = true): F[Seq[(Node[C], A)]] =
+  def callIterative[Er, A](key: Key, fn: Node[C] ⇒ EitherT[F, Er, A], numToCollect: Int, maxNumOfCalls: Int, isIdempotentFn: Boolean = true): EitherT[F, Seq[(Node[C], Er)], Seq[(Node[C], A)]] =
     nodeId.callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn, rpc, pingExpiresIn, checkNode)
 
   /**
@@ -160,6 +166,6 @@ abstract class Kademlia[F[_], C](
    * @param peers Peers contact info
    * @return
    */
-  def join(peers: Seq[C], numberOfNodes: Int): F[Unit] =
+  def join(peers: Seq[C], numberOfNodes: Int): EitherT[F, NonEmptyList[Either[E, JoinError]], Seq[Node[C]]] =
     nodeId.join(peers, rpc, pingExpiresIn, numberOfNodes, checkNode, parallelism)
 }

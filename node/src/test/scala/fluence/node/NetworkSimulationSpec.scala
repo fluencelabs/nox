@@ -23,6 +23,7 @@ import cats.instances.try_._
 import cats._
 import cats.effect.IO
 import com.typesafe.config.ConfigFactory
+import fluence.client.grpc.ClientGrpcServices
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.kad.grpc.client.KademliaClient
@@ -73,27 +74,23 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     private val serverBuilder = GrpcServer.builder(serverConf.copy(port = localPort))
 
-    val contact = Contact.buildOwn[Id](InetAddress.getLocalHost.getHostName, localPort, 0, "0", algo.signer(kp)).value.right.get
+    val contact: Contact = Contact.buildOwn[Id](InetAddress.getLocalHost.getHostName, localPort, 0, "0", algo.signer(kp)).value.right.get
 
-    private val client = GrpcClient.builder(key, IO.pure(contact.b64seed), clientConf)
-      .add(KademliaClient.register[Task]())
-      .build
-
-    private val kademliaClientRpc: Contact ⇒ KademliaRpc[Task, Contact] = c ⇒ {
-      logger.trace(s"Contact to get KC for: $c")
-      client.service[KademliaRpc[Task, Contact]](c)
-    }
+    private val client =
+      ClientGrpcServices.build[Task](GrpcClient.builder(key, IO.pure(contact.b64seed), clientConf))
 
     val kad = KademliaMVar(
       key,
       Task.pure(contact),
-      kademliaClientRpc,
+      client(_: Contact).kademlia,
       KademliaConf(6, 6, 3, 1.second),
 
       TransportSecurity.canBeSaved[Task](key, acceptLocal = true))
 
+    import fluence.kad.grpc.KademliaNodeCodec.errorUnitCodec
+
     val server = serverBuilder
-      .add(KademliaGrpc.bindService(new KademliaServer(kad.handleRPC), global))
+      .add(KademliaGrpc.bindService(new KademliaServer[Task, Unit](kad.handleRPC), global))
       .onNodeActivity(kad.update(_).toIO, clientConf)
       .build
 
@@ -124,7 +121,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
       servers.foreach { s ⇒
         logger.debug(Console.BLUE + s"Join: ${s.nodeId}" + Console.RESET)
-        s.join(Seq(firstContact, secondContact), 6).runAsync.futureValue
+        s.join(Seq(firstContact, secondContact), 6).value.runAsync.futureValue
         logger.debug(Console.BLUE + "Joined" + Console.RESET)
       }
 

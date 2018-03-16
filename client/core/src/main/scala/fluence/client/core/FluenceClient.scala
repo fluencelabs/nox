@@ -41,9 +41,9 @@ import scodec.bits.ByteVector
 import scala.concurrent.Future
 import scala.language.higherKinds
 
-class FluenceClient(
-    kademlia: Kademlia[Task, Contact],
-    contracts: Contracts[Task, BasicContract, Contact],
+class FluenceClient[Err](
+    kademlia: Kademlia[Task, Contact, Err],
+    contracts: Contracts[Task, BasicContract, Contact, Err],
     signAlgo: SignAlgo,
     storageRpc: Contact ⇒ DatasetStorageRpc[Task],
     storageHasher: CryptoHasher[Array[Byte], Array[Byte]]
@@ -211,13 +211,13 @@ object FluenceClient extends slogging.LazyLogging {
    * @param storageRpc     rpc for dataset communication
    * @param signAlgo       main algorithm for key verification
    */
-  def apply(
-    kademliaClient: Kademlia[Task, Contact],
-    contracts: Contracts[Task, BasicContract, Contact],
+  def apply[Err](
+    kademliaClient: Kademlia[Task, Contact, Err],
+    contracts: Contracts[Task, BasicContract, Contact, Err],
     storageRpc: Contact ⇒ DatasetStorageRpc[Task],
     signAlgo: SignAlgo = Ecdsa.signAlgo,
     storageHasher: CryptoHasher[Array[Byte], Array[Byte]]
-  ): FluenceClient = {
+  ): FluenceClient[Err] = {
     new FluenceClient(kademliaClient, contracts, signAlgo, storageRpc, storageHasher)
   }
 
@@ -231,25 +231,25 @@ object FluenceClient extends slogging.LazyLogging {
    * @param client Access to remote services
    * @return A FluenceClient ready to be used
    */
-  def build(
+  def build[Err](
     seeds: Seq[Contact],
     signAlgo: SignAlgo,
     storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
     kademliaConf: KademliaConf,
-    client: Contact ⇒ ClientServices[Task, BasicContract, Contact]
-  ): IO[FluenceClient] = {
+    client: Contact ⇒ ClientServices[Task, BasicContract, Contact, Err]
+  ): IO[FluenceClient[Err]] = {
 
     import signAlgo.checker
 
     logger.info("Creating kademlia client...")
-    val kademliaClient = createKademliaClient(kademliaConf, client(_).kademlia)
+    val kademliaClient = createClientKademlia(kademliaConf, client(_).kademlia)
 
     logger.info("Connecting to seed node...")
 
     for {
-      _ ← kademliaClient.join(seeds, 4).toIO(Scheduler.global)
+      _ ← kademliaClient.join(seeds, 4).value.toIO(Scheduler.global)
       _ = logger.info("Creating contracts api...")
-      contracts = new Contracts[Task, BasicContract, Contact](
+      contracts = new Contracts[Task, BasicContract, Contact, Err](
         maxFindRequests = 10,
         maxAllocateRequests = _ ⇒ 20,
         kademlia = kademliaClient,
@@ -259,7 +259,7 @@ object FluenceClient extends slogging.LazyLogging {
     } yield FluenceClient(kademliaClient, contracts, client(_).datasetStorage, signAlgo, storageHasher)
   }
 
-  private def createKademliaClient(conf: KademliaConf, kademliaRpc: Contact ⇒ KademliaRpc[Task, Contact]): Kademlia[Task, Contact] = {
+  private def createClientKademlia[Err](conf: KademliaConf, kademliaRpc: Contact ⇒ KademliaRpc.Aux[Task, Contact, Err]): Kademlia[Task, Contact, Err] = {
     val check = TransportSecurity.canBeSaved[Task](Monoid.empty[Key], acceptLocal = true)
     KademliaMVar.client(kademliaRpc, conf, check)
   }

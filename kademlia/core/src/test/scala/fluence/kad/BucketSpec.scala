@@ -19,7 +19,8 @@ package fluence.kad
 
 import java.time.Instant
 
-import cats.data.StateT
+import cats.Monad
+import cats.data.{ EitherT, StateT }
 import fluence.kad.protocol.{ KademliaRpc, Key, Node }
 import org.scalatest.{ Matchers, WordSpec }
 import monix.eval.Coeval
@@ -36,6 +37,7 @@ class BucketSpec extends WordSpec with Matchers {
     type F[A] = StateT[Coeval, Bucket[C], A]
 
     implicit class BucketOps(state: Bucket[C]) extends Bucket.WriteOps[F, C] {
+
       override protected def run[T](bucketId: Int, mod: StateT[F, Bucket[C], T]): F[T] =
         mod.run(state).flatMap{
           case (s, v) ⇒
@@ -54,7 +56,10 @@ class BucketSpec extends WordSpec with Matchers {
       val k2 = Key.fromBytes[Coeval](Array.fill(Key.Length)(3: Byte)).value
 
       val failRPC = (_: C) ⇒ new KademliaRpc[F, C] {
-        override def ping() = StateT.liftF(Coeval.raiseError(new NoSuchElementException))
+
+        override type Error = Throwable
+
+        override def ping(): EitherT[F, Error, Node[C]] = EitherT.leftT(new NoSuchElementException)
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
 
@@ -62,7 +67,9 @@ class BucketSpec extends WordSpec with Matchers {
       }
 
       val successRPC = (c: C) ⇒ new KademliaRpc[F, C] {
-        override def ping() = StateT.liftF(Coeval(Node(Key.fromBytes[Coeval](Array.fill(Key.Length)(c.toByte)).value, Instant.now(), c)))
+        override type Error = Throwable
+
+        override def ping(): EitherT[F, Error, Node[C]] = EitherT.rightT(Node(Key.fromBytes[Coeval](Array.fill(Key.Length)(c.toByte)).value, Instant.now(), c))
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
         override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???

@@ -7,6 +7,7 @@ commons
 grpc
 
 libraryDependencies ++= Seq(
+  catsEffect,
   shapeless,
   typeSafeConfig,
   ficus,

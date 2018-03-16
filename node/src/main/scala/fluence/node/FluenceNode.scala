@@ -27,6 +27,7 @@ import cats.syntax.show._
 import cats.{ Applicative, MonadError }
 import com.typesafe.config.{ Config, ConfigFactory, ConfigRenderOptions }
 import fluence.client.core.config.{ KeyPairConfig, SeedsConfig }
+import fluence.client.grpc.ClientGrpcServices
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.crypto.{ FileKeyStorage, SignAlgo }
@@ -41,21 +42,22 @@ import monix.execution.Scheduler
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-trait FluenceNode {
+trait FluenceNode[Err] {
   def config: Config
 
   def node: Task[Node[Contact]] = kademlia.ownContact
 
   def contact: Task[Contact] = node.map(_.contact)
 
-  def kademlia: Kademlia[Task, Contact]
+  def kademlia: Kademlia[Task, Contact, Err]
 
   def stop: IO[Unit]
 
-  def restart: IO[FluenceNode]
+  def restart: IO[FluenceNode[Err]]
 }
 
 object FluenceNode extends slogging.LazyLogging {
+  type Error = ClientGrpcServices.Error
 
   /**
    * Launches a node with all available and enabled network interfaces.
@@ -69,7 +71,7 @@ object FluenceNode extends slogging.LazyLogging {
     algo: SignAlgo = Ecdsa.signAlgo,
     hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
     config: Config = ConfigFactory.load()
-  ): IO[FluenceNode] = {
+  ): IO[FluenceNode[Error]] = {
     logger.debug("Node config is :" +
       config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false)))
     launchGrpc(algo, hasher, config)
@@ -114,7 +116,7 @@ object FluenceNode extends slogging.LazyLogging {
    * @return IO that will shutdown the node once ran
    */
   // todo write unit test, this method don't close resources correctly when initialisation failed
-  private def launchGrpc(algo: SignAlgo, hasher: CryptoHasher[Array[Byte], Array[Byte]], config: Config): IO[FluenceNode] = {
+  private def launchGrpc(algo: SignAlgo, hasher: CryptoHasher[Array[Byte], Array[Byte]], config: Config): IO[FluenceNode[Error]] = {
     import algo.checker
     for {
       _ ← initDirectory(config.getString("fluence.directory")) // TODO config
@@ -153,7 +155,7 @@ object FluenceNode extends slogging.LazyLogging {
       seedConfig ← SeedsConfig.read(config).onFail(closeAll)
       seedContacts ← seedConfig.contacts.onFail(closeAll)
 
-      _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO(Scheduler.global) else IO {
+      _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).value.toIO(Scheduler.global) else IO {
         logger.info("You should add some seed node contacts to join. Take a look on reference.conf")
       }.onFail(closeAll)
     } yield {
@@ -165,10 +167,10 @@ object FluenceNode extends slogging.LazyLogging {
 
       val _conf = config
 
-      val node = new FluenceNode {
+      val node = new FluenceNode[Error] {
         override def config: Config = _conf
 
-        override def kademlia: Kademlia[Task, Contact] = services.kademlia
+        override def kademlia: Kademlia[Task, Contact, Error] = services.kademlia
 
         override def stop: IO[Unit] =
           Applicative[IO].map3(
@@ -179,7 +181,7 @@ object FluenceNode extends slogging.LazyLogging {
               (_, _, _) ⇒ ()
             }
 
-        override def restart: IO[FluenceNode] =
+        override def restart: IO[FluenceNode[Error]] =
           stop.flatMap(_ ⇒ launchGrpc(algo, hasher, _conf))
       }
 

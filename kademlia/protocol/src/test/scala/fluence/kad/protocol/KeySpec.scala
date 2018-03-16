@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.kad
+package fluence.kad.protocol
 
 import java.nio.ByteBuffer
 
@@ -23,7 +23,6 @@ import cats.kernel.{ Eq, Monoid }
 import org.scalatest.{ Matchers, WordSpec }
 import cats.syntax.monoid._
 import cats.syntax.order._
-import fluence.kad.protocol.Key
 import monix.eval.Coeval
 
 import scala.language.implicitConversions

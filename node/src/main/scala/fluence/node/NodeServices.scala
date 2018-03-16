@@ -28,7 +28,7 @@ import fluence.storage.rocksdb.RocksDbStore
 
 import scala.language.higherKinds
 
-abstract class NodeServices[F[_], Contract, Contact] {
+abstract class NodeServices[F[_], Contract, Contact, Error] {
 
   def key: Key
 
@@ -38,7 +38,7 @@ abstract class NodeServices[F[_], Contract, Contact] {
 
   def rocksFactory: RocksDbStore.Factory
 
-  def kademlia: Kademlia[F, Contact]
+  def kademlia: Kademlia[F, Contact, Error]
 
   def contractsCache: ContractsCacheRpc[F, Contract]
 

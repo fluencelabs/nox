@@ -20,7 +20,7 @@ package fluence.kad
 import java.time.Instant
 
 import cats.{ Applicative, Monad, Parallel, ~> }
-import cats.data.StateT
+import cats.data.{ EitherT, StateT }
 import fluence.kad.RoutingTable._
 import fluence.kad.protocol.{ KademliaRpc, Key, Node }
 import monix.eval.Coeval
@@ -59,14 +59,14 @@ class RoutingTableSpec extends WordSpec with Matchers {
     }
 
     val failLocalRPC = (_: Long) ⇒ new KademliaRpc[Coeval, Long] {
-      override def ping() = Coeval.raiseError(new NoSuchElementException)
+      override def ping() = EitherT.liftF(Coeval.raiseError(new NoSuchElementException))
 
       override def lookup(key: Key, numberOfNodes: Int) = ???
       override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
     }
 
     val successLocalRPC = (c: Long) ⇒ new KademliaRpc[Coeval, Long] {
-      override def ping() = Coeval(Node(c, now, c))
+      override def ping() = EitherT.liftF(Coeval(Node(c, now, c)))
 
       override def lookup(key: Key, numberOfNodes: Int) = ???
       override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???

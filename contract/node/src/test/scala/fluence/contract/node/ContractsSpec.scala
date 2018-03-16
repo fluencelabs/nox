@@ -61,17 +61,17 @@ class ContractsSpec extends WordSpec with Matchers {
     }
 
   case class TestNode(
-      kademlia: Kademlia[Coeval, String],
+      kademlia: Kademlia[Coeval, String, String],
       cacheRpc: ContractsCacheRpc[Coeval, BasicContract],
       allocatorRpc: ContractAllocatorRpc[Coeval, BasicContract],
-      allocator: Contracts[Coeval, BasicContract, String]
+      contracts: Contracts[Coeval, BasicContract, String, String]
   )
 
   import TestKademlia.CoevalParallel
 
   lazy val network: Map[String, TestNode] = {
     val random = new Random(123123)
-    TestKademlia.coevalSimulationKP[String](16, 100, _.b64, {
+    TestKademlia.coevalSimulationKP[String, String](16, 100, _.b64, {
       val seed = random.nextLong().toString.getBytes
       KeyPair.fromBytes(seed, seed)
     }, joinPeers = 3)
@@ -122,11 +122,11 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val signer = offerSigner("dumb0")
 
-      val allocated = network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).value
+      val allocated = network.head._2.contracts.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).value
 
       allocated.participants.size shouldBe 1
 
-      network.head._2.allocator.find(contract.id).value shouldBe allocated
+      network.head._2.contracts.find(contract.id).value shouldBe allocated
     }
 
     "place a contract on 5 nodes" in {
@@ -136,11 +136,11 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val signer = offerSigner("dumb1")
 
-      val allocated = network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).value
+      val allocated = network.head._2.contracts.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).value
 
       allocated.participants.size shouldBe 5
 
-      network.head._2.allocator.find(contract.id).value shouldBe allocated
+      network.head._2.contracts.find(contract.id).value shouldBe allocated
     }
 
     "reject unsealed contracts" in {
@@ -150,7 +150,7 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val signer = offerSigner("dumb2")
 
-      val allocated = network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).attempt.value
+      val allocated = network.head._2.contracts.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).attempt.value
 
       allocated should be.leftSide
     }

@@ -24,6 +24,7 @@ import cats.~>
 import com.typesafe.config.Config
 import fluence.client.core.ClientServices
 import fluence.client.grpc.ClientGrpcServices
+import fluence.codec.Codec
 import fluence.contract.BasicContract
 import fluence.crypto.signature.SignatureChecker
 import fluence.contract.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
@@ -44,6 +45,8 @@ import scala.language.higherKinds
 
 object NodeGrpc {
 
+  type Error = ClientGrpcServices.Error
+
   private implicit val runTask: Task ~> Future = new (Task ~> Future) {
     // TODO: add logging
     override def apply[A](fa: Task[A]): Future[A] = fa.runAsync(Scheduler.global)
@@ -54,7 +57,7 @@ object NodeGrpc {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
-  def grpcClient(key: Key, contact: Contact, config: Config)(implicit checker: SignatureChecker): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact]] =
+  def grpcClient(key: Key, contact: Contact, config: Config)(implicit checker: SignatureChecker): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact, Error]] =
     for {
       clientConf ← GrpcConf.read[IO](config)
       client = {
@@ -66,7 +69,7 @@ object NodeGrpc {
 
   // Add server (with kademlia inside), build
   def grpcServer(
-    services: Services,
+    services: Services[Error],
     serverBuilder: GrpcServer.Builder,
     config: Config
   ): IO[GrpcServer] =
@@ -83,11 +86,12 @@ object NodeGrpc {
 
       import fluence.contract.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
       import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
+      import fluence.kad.grpc.KademliaNodeCodec.errorUnitCodec
       val keyC = Key.bytesCodec[Task]
       import keyC.inverse
 
       serverBuilder
-        .add(KademliaGrpc.bindService(new KademliaServer[Task](kademlia.handleRPC), ec))
+        .add(KademliaGrpc.bindService(new KademliaServer[Task, Unit](kademlia.handleRPC), ec))
         .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsCache), ec))
         .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractAllocator), ec))
         .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), ec))

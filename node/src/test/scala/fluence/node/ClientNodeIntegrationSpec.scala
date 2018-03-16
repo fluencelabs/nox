@@ -66,6 +66,8 @@ import scala.util.{ Failure, Random, Success, Try }
 class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(5, Seconds), Span(250, Milliseconds))
 
+  import ClientGrpcServices.Error
+
   private val algo: SignAlgo = Ecdsa.signAlgo
   private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
   private val keyCrypt = NoOpCrypt.forString[Task]
@@ -112,7 +114,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
       "tries joins the Kademlia network via dead node" in {
         runNodes { servers ⇒
-          val exception = servers.head._2.kademlia.join(Seq(dummyContact), 1).failed.taskValue
+          val exception = servers.head._2.kademlia.join(Seq(dummyContact), 1).value.failed.taskValue
           exception shouldBe a[RuntimeException]
           exception should have message "Can't join any node among known peers"
         }
@@ -135,7 +137,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val client = ClientGrpcServices.build[Task](GrpcClient.builder)
         val kadClient = client(dummyContact).kademlia
 
-        val result = kadClient.ping().failed.taskValue
+        val result = kadClient.ping().value.failed.taskValue
         result shouldBe a[StatusRuntimeException]
         // todo there should be more describable exception appears like NetworkException or TimeoutException with cause
       }
@@ -341,7 +343,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   }
 
-  private def shutdownNodeAndRestart(nodeExecutor: FluenceNode)(action: Contact ⇒ Unit): Unit = {
+  private def shutdownNodeAndRestart(nodeExecutor: FluenceNode[Error])(action: Contact ⇒ Unit): Unit = {
     val contact: Contact = nodeExecutor.contact.taskValue
     // restart
     val restarted = nodeExecutor.restart.unsafeRunSync()
@@ -373,7 +375,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     getUpdatedKey1Response shouldBe Some("value1-NEW")
   }
 
-  private def createClientApi[T <: HList](seedContact: Contact, client: Contact ⇒ ClientServices[Task, BasicContract, Contact]) = {
+  private def createClientApi(seedContact: Contact, client: Contact ⇒ ClientServices[Task, BasicContract, Contact, Error]) = {
 
     val conf = KademliaConf(100, 10, 2, 5.seconds)
     val clKey = Monoid.empty[Key]
@@ -381,9 +383,9 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     val kademliaRpc = client(_: Contact).kademlia
     val kademliaClient = KademliaMVar.client(kademliaRpc, conf, check)
 
-    kademliaClient.join(Seq(seedContact), 2).taskValue
+    kademliaClient.join(Seq(seedContact), 2).value.taskValue
 
-    (kademliaClient, new Contracts[Task, BasicContract, Contact](
+    (kademliaClient, new Contracts[Task, BasicContract, Contact, Error](
       maxFindRequests = 10,
       maxAllocateRequests = _ ⇒ 20,
       kademlia = kademliaClient,
@@ -392,10 +394,10 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     ))
   }
 
-  private def makeKadNetwork(servers: Map[Contact, FluenceNode]) = {
+  private def makeKadNetwork(servers: Map[Contact, FluenceNode[Error]]) = {
     val firstContact: Contact = servers.head._1
     val lastContact = servers.last._1
-    servers.foreach { _._2.kademlia.join(Seq(firstContact, lastContact), 8).taskValue }
+    servers.foreach { _._2.kademlia.join(Seq(firstContact, lastContact), 8).value.taskValue }
     firstContact
   }
 
@@ -420,12 +422,12 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
    * @param action An action to executing
    */
   private def runNodes(
-    action: Map[Contact, FluenceNode] ⇒ Unit,
+    action: Map[Contact, FluenceNode[Error]] ⇒ Unit,
     numberOfNodes: Int = 10,
     serverHasher: CryptoHasher[Array[Byte], Array[Byte]] = testHasher
   ): Unit = {
 
-    var servers: Seq[FluenceNode] = Nil
+    var servers: Seq[FluenceNode[Error]] = Nil
 
     try {
       // start all nodes Grpc servers
@@ -467,7 +469,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   }
 
-  private def createFluenceClient(seed: Contact): FluenceClient = {
+  private def createFluenceClient(seed: Contact): FluenceClient[Error] = {
     val grpcClient = ClientGrpcServices.build[Task](GrpcClient.builder)
     val (kademliaClient, contractsApi) = createClientApi(seed, grpcClient)
     FluenceClient(kademliaClient, contractsApi, grpcClient(_).datasetStorage, algo, testHasher)

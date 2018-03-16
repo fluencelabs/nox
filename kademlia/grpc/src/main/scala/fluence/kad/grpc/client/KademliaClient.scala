@@ -17,46 +17,71 @@
 
 package fluence.kad.grpc.client
 
-import cats.effect.{ Async, IO }
+import cats.data.{ EitherT, Kleisli }
+import cats.effect.Async
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.~>
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
+import fluence.kad.grpc.NodesResponse
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
 import fluence.kad.{ grpc, protocol }
 import fluence.transport.grpc.GrpcCodecs._
+import fluence.transport.grpc.client.GrpcRunner
 import io.grpc.{ CallOptions, ManagedChannel }
 
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.language.{ higherKinds, implicitConversions }
+import scala.concurrent.Future
+import scala.language.{ higherKinds, implicitConversions, reflectiveCalls }
 
 /**
  * Implementation of KademliaClient over GRPC, with Task and Contact.
  *
  * @param stub GRPC Kademlia Stub
  */
-class KademliaClient[F[_] : Async](stub: grpc.KademliaGrpc.KademliaStub)(implicit
+class KademliaClient[F[_] : Async, E](stub: grpc.KademliaGrpc.KademliaStub)(implicit
+    run: GrpcRunner.Run[F, E],
     codec: Codec[F, protocol.Node[Contact], grpc.Node],
-    ec: ExecutionContext) extends KademliaRpc[F, Contact] {
+    errorCodec: Codec[F, E, grpc.Error]) extends KademliaRpc[F, Contact] {
+
+  override type Error = E
 
   private val keyBS = Codec.codec[F, ByteString, Key].inverse
-
-  private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
 
   import cats.instances.stream._
 
   private val streamCodec = Codec.codec[F, Stream[protocol.Node[Contact]], Stream[grpc.Node]]
+
+  private val streamEitherK = Kleisli[F, NodesResponse.Response, Either[E, Seq[protocol.Node[Contact]]]]{
+    case resp if resp.isError ⇒
+      errorCodec.decode(resp.error.get)
+        .map(Left(_))
+
+    case resp if resp.isNodes ⇒
+      streamCodec
+        .decode(resp.nodes.get.nodes.toStream)
+        .map(Right(_))
+
+    case _ ⇒
+      Async[F].raiseError(new IllegalArgumentException("Response message is empty")) // TODO: it also should be an error of type E
+  }
 
   /**
    * Ping the contact, get its actual Node status, or fail
    *
    * @return
    */
-  override def ping(): F[Node[Contact]] =
-    for {
-      n ← run(stub.ping(grpc.PingRequest()))
-      nc ← codec.decode(n)
-    } yield nc
+  override def ping(): EitherT[F, E, Node[Contact]] =
+    run(stub.ping(grpc.PingRequest())).map(_.response).flatMapF[E, Node[Contact]]{
+      case resp if resp.isError ⇒
+        errorCodec.decode(resp.error.get).map(Left(_))
+
+      case resp if resp.isNode ⇒
+        codec.decode(resp.node.get).map(Right(_))
+
+      case _ ⇒
+        Async[F].raiseError(new IllegalArgumentException("Response message is empty")) // TODO: it also should be an error of type E
+    }
 
   /**
    * Perform a local lookup for a key, return K closest known nodes
@@ -64,27 +89,31 @@ class KademliaClient[F[_] : Async](stub: grpc.KademliaGrpc.KademliaStub)(implici
    * @param key Key to lookup
    * @return
    */
-  override def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[Contact]]] =
-    for {
+  override def lookup(key: Key, numberOfNodes: Int): EitherT[F, E, Seq[Node[Contact]]] =
+    EitherT(for {
       k ← keyBS(key)
       res ← run(stub.lookup(grpc.LookupRequest(k, numberOfNodes)))
-      resDec ← streamCodec.decode(res.nodes.toStream)
-    } yield resDec
+        .map(_.response)
+        .flatMapF(streamEitherK.run)
+        .value
+    } yield res)
 
   /**
    * Perform a local lookup for a key, return K closest known nodes, going away from the second key
    *
    * @param key Key to lookup
    */
-  override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[Contact]]] =
-    for {
+  override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): EitherT[F, E, Seq[Node[Contact]]] =
+    EitherT(for {
       k ← keyBS(key)
       moveAwayK ← keyBS(moveAwayFrom)
       res ← run(
         stub.lookupAway(grpc.LookupAwayRequest(k, moveAwayK, numberOfNodes))
       )
-      resDec ← streamCodec.decode(res.nodes.toStream)
-    } yield resDec
+        .map(_.response)
+        .flatMapF(streamEitherK.run)
+        .value
+    } yield res)
 }
 
 object KademliaClient {
@@ -94,12 +123,14 @@ object KademliaClient {
    * @param channel     Channel to remote node
    * @param callOptions Call options
    */
-  def register[F[_] : Async]()(
+  def register[F[_] : Async, E]()(
     channel: ManagedChannel,
     callOptions: CallOptions
   )(implicit
+    run: GrpcRunner.Run[F, E],
     codec: Codec[F, protocol.Node[Contact], grpc.Node],
-    ec: ExecutionContext): KademliaRpc[F, Contact] =
-    new KademliaClient(new grpc.KademliaGrpc.KademliaStub(channel, callOptions))
+    errorCodec: Codec[F, E, grpc.Error]
+  ): KademliaRpc.Aux[F, Contact, E] =
+    new KademliaClient[F, E](new grpc.KademliaGrpc.KademliaStub(channel, callOptions))
 
 }
