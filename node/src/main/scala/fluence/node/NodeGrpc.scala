@@ -25,10 +25,10 @@ import com.typesafe.config.Config
 import fluence.client.core.ClientServices
 import fluence.client.grpc.ClientGrpcServices
 import fluence.contract.BasicContract
-import fluence.crypto.signature.SignatureChecker
 import fluence.contract.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
-import fluence.dataset.grpc.{ DatasetStorageRpcGrpc, DatasetStorageServer }
 import fluence.contract.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc }
+import fluence.crypto.signature.SignatureChecker
+import fluence.dataset.grpc.{ DatasetStorageRpcGrpc, DatasetStorageServer }
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
@@ -54,7 +54,11 @@ object NodeGrpc {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
-  def grpcClient(key: Key, contact: Contact, config: Config)(implicit checker: SignatureChecker): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact]] =
+  def grpcClient(
+    key: Key,
+    contact: Contact,
+    config: Config
+  )(implicit checker: SignatureChecker): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact]] =
     for {
       clientConf ← GrpcConf.read[IO](config)
       client = {

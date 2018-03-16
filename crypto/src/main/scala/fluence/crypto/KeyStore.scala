@@ -22,9 +22,9 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.data.EitherT
 import fluence.crypto.keypair.KeyPair
+import io.circe.parser.decode
 import io.circe.{ Decoder, Encoder, HCursor, Json }
 import scodec.bits.{ Bases, ByteVector }
-import io.circe.parser.decode
 
 import scala.language.higherKinds
 

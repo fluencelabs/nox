@@ -24,6 +24,8 @@ import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.DatasetStorageRpc
 import monix.eval.Task
+import monix.reactive.Observable
+import Ordered._
 
 import scala.language.higherKinds
 
@@ -43,13 +45,13 @@ import scala.language.higherKinds
 class ClientDatasetStorage[K, V](
     datasetId: Array[Byte],
     bTreeIndex: MerkleBTreeClientApi[Task, K],
-    storageRpc: DatasetStorageRpc[Task],
+    storageRpc: DatasetStorageRpc[Task, Observable],
+    keyCrypt: Crypt[Task, K, Array[Byte]],
     valueCrypt: Crypt[Task, V, Array[Byte]],
     hasher: CryptoHasher[Array[Byte], Hash]
-) extends ClientDatasetStorageApi[Task, K, V] with slogging.LazyLogging {
+)(implicit ord: Ordering[K]) extends ClientDatasetStorageApi[Task, Observable, K, V] with slogging.LazyLogging {
 
-  override def get(key: K): Task[Option[V]] = {
-
+  override def get(key: K): Task[Option[V]] =
     for {
       getCallbacks ← bTreeIndex.initGet(key)
       serverResponse ← storageRpc.get(datasetId, getCallbacks)
@@ -58,10 +60,35 @@ class ClientDatasetStorage[K, V](
       resp ← decryptOption(serverResponse)
     } yield resp
 
-  }
+  override def range(from: K, to: K): Observable[(K, V)] =
+    for {
+      rangeCallbacks ← Observable.fromTask(bTreeIndex.initRange(from))
+      pair ← storageRpc
+        .range(datasetId, rangeCallbacks)
+        .doAfterTerminateTask { _ ⇒ rangeCallbacks.recoverState() }
+        // decrypt key
+        .mapTask {
+          case (encKey, encValue) ⇒
+            keyCrypt
+              .decrypt(encKey)
+              .map(plainKey ⇒ plainKey → encValue)
+        }
+        // check key upper bound
+        .takeWhile { case (key, _) ⇒ key <= to }
+        // decrypt value
+        .mapTask {
+          case (plainKey, encValue) ⇒
+            valueCrypt
+              .decrypt(encValue)
+              .map(plainValue ⇒ plainKey → plainValue)
+        }
 
-  override def put(key: K, value: V): Task[Option[V]] = {
+    } yield {
+      logger.trace(s"Client receive $pair for range query from=$from, to=$to ")
+      pair
+    }
 
+  override def put(key: K, value: V): Task[Option[V]] =
     for {
       encValue ← valueCrypt.encrypt(value)
       encValueHash ← Task(hasher.hash(encValue))
@@ -76,8 +103,6 @@ class ClientDatasetStorage[K, V](
 
       resp ← decryptOption(serverResponse)
     } yield resp
-
-  }
 
   override def remove(key: K): Task[Option[V]] =
     for {
@@ -114,7 +139,7 @@ object ClientDatasetStorage {
   def apply[K, V](
     datasetId: Array[Byte],
     hasher: CryptoHasher[Array[Byte], Array[Byte]],
-    storageRpc: DatasetStorageRpc[Task],
+    storageRpc: DatasetStorageRpc[Task, Observable],
     keyCrypt: Crypt[Task, K, Array[Byte]],
     valueCrypt: Crypt[Task, V, Array[Byte]],
     clientState: Option[ClientState]
@@ -123,6 +148,6 @@ object ClientDatasetStorage {
     val wrappedHasher = hasher.map(Hash(_))
 
     val bTreeIndex = MerkleBTreeClient(clientState, keyCrypt, wrappedHasher)
-    new ClientDatasetStorage[K, V](datasetId, bTreeIndex, storageRpc, valueCrypt, wrappedHasher)
+    new ClientDatasetStorage[K, V](datasetId, bTreeIndex, storageRpc, keyCrypt, valueCrypt, wrappedHasher)
   }
 }

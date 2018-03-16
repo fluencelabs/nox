@@ -18,8 +18,8 @@
 package fluence.cofail
 
 import cats.Monad
-import cats.syntax.flatMap._
 import cats.data.EitherT
+import cats.syntax.flatMap._
 import shapeless._
 
 import scala.language.higherKinds

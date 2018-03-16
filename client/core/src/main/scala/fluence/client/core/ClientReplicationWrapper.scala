@@ -20,6 +20,7 @@ package fluence.client.core
 import fluence.dataset.client.ClientDatasetStorageApi
 import fluence.kad.protocol.Contact
 import monix.eval.Task
+import monix.reactive.Observable
 
 import scala.language.higherKinds
 
@@ -28,8 +29,8 @@ import scala.language.higherKinds
  * This is naive implementation of replication and it will be removed in future.
  */
 class ClientReplicationWrapper[K, V](
-    datasetReplicas: List[(ClientDatasetStorageApi[Task, K, V], Contact)]
-) extends ClientDatasetStorageApi[Task, K, V] with slogging.LazyLogging {
+    datasetReplicas: List[(ClientDatasetStorageApi[Task, Observable, K, V], Contact)]
+) extends ClientDatasetStorageApi[Task, Observable, K, V] with slogging.LazyLogging {
 
   private val replicationFactor = datasetReplicas.size
   /**
@@ -40,7 +41,7 @@ class ClientReplicationWrapper[K, V](
    */
   override def get(key: K): Task[Option[V]] = {
 
-    def getRec(replicas: List[(ClientDatasetStorageApi[Task, K, V], Contact)]): Task[Option[V]] = {
+    def getRec(replicas: List[(ClientDatasetStorageApi[Task, Observable, K, V], Contact)]): Task[Option[V]] = {
       val (store, contact) = replicas.head
       logger.info(s"Reading key=$key from ${contact.addr}:${contact.grpcPort}")
       store.get(key).onErrorHandleWith { e ⇒
@@ -54,6 +55,31 @@ class ClientReplicationWrapper[K, V](
     }
 
     getRec(datasetReplicas)
+  }
+
+  /**
+   * Fetches stored key-value pairs for specified key range as stream.
+   *
+   * @param from Plain text key, start of range.
+   * @param to   Plain text key, end of range.
+   * @return returns stream of found key-value pairs.
+   */
+  override def range(from: K, to: K): Observable[(K, V)] = {
+
+    def rangeRec(replicas: List[(ClientDatasetStorageApi[Task, Observable, K, V], Contact)]): Observable[(K, V)] = {
+      val (store, contact) = replicas.head
+      logger.info(s"Reading key=$from from ${contact.addr}:${contact.grpcPort}")
+      store.range(from, to).onErrorHandleWith { e ⇒
+        logger.warn(s"Can't get value from ${contact.addr}:${contact.grpcPort} for key=$from, cause=$e")
+        if (replicas.tail.isEmpty)
+          Observable.raiseError[(K, V)](e)
+        else {
+          rangeRec(replicas.tail)
+        }
+      }
+    }
+
+    rangeRec(datasetReplicas)
   }
 
   /**
@@ -87,4 +113,5 @@ class ClientReplicationWrapper[K, V](
    * @return returns old value that was deleted, None if nothing was deleted.
    */
   override def remove(key: K): Task[Option[V]] = ???
+
 }

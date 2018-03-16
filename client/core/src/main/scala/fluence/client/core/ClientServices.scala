@@ -20,6 +20,7 @@ package fluence.client.core
 import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.KademliaRpc
+import monix.reactive.Observable
 
 import scala.language.higherKinds
 
@@ -30,7 +31,7 @@ abstract class ClientServices[F[_], Contract, Contact] {
   def contractsCache: ContractsCacheRpc[F, Contract]
 
   def contractAllocator: ContractAllocatorRpc[F, Contract]
-
-  def datasetStorage: DatasetStorageRpc[F]
+  // todo generalize Observable
+  def datasetStorage: DatasetStorageRpc[F, Observable]
 
 }

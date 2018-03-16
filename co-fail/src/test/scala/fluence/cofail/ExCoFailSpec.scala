@@ -20,6 +20,7 @@ package fluence.cofail
 import cats.MonadError
 import org.scalatest.{ Matchers, WordSpec }
 import shapeless._
+
 import scala.language.higherKinds
 
 class ExCoFailSpec extends WordSpec with Matchers {

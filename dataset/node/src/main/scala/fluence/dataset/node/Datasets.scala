@@ -26,6 +26,7 @@ import fluence.kad.protocol.Key
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import monix.execution.atomic.AtomicLong
+import monix.reactive.Observable
 import scodec.bits.{ Bases, ByteVector }
 
 import scala.collection.concurrent.TrieMap
@@ -46,7 +47,7 @@ class Datasets(
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     servesDataset: Key ⇒ Task[Option[Long]],
     contractUpdated: (Key, Long, ByteVector) ⇒ Task[Unit] // TODO: pass signature as well
-) extends DatasetStorageRpc[Task] with slogging.LazyLogging {
+) extends DatasetStorageRpc[Task, Observable] with slogging.LazyLogging {
 
   private val datasets = TrieMap.empty[ByteVector, Task[DatasetNodeStorage]]
 
@@ -91,6 +92,20 @@ class Datasets(
    */
   override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[Task]): Task[Option[Array[Byte]]] =
     storage(datasetId).flatMap(_.get(getCallbacks))
+
+  /**
+   * @param datasetId       Dataset ID
+   * @param searchCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
+   * @return returns stream of found value.
+   */
+  override def range(
+    datasetId: Array[Byte],
+    searchCallbacks: BTreeRpc.SearchCallback[Task]
+  ): Observable[(Array[Byte], Array[Byte])] =
+    for {
+      store ← Observable.fromTask(storage(datasetId))
+      stream ← store.range(searchCallbacks)
+    } yield stream
 
   /**
    * @param datasetId      Dataset ID

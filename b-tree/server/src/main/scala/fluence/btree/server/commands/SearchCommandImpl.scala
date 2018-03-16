@@ -31,18 +31,18 @@ import scala.language.higherKinds
  * Command for searching some value in BTree (by client search key).
  * Search key is stored at the client. BTree server will never know search key.
  *
- * @param getCallbacks A pack of functions that ask client to give some required details for the next step
+ * @param searchCallbacks A pack of functions that ask client to give some required details for the next step
  * @tparam F The type of effect, box for returning value
  */
-case class SearchCommandImpl[F[_]](getCallbacks: SearchCallback[F])(implicit ME: MonadError[F, Throwable])
-  extends BaseSearchCommand[F](getCallbacks) with SearchCommand[F, Key, ValueRef, NodeId] {
+case class SearchCommandImpl[F[_]](searchCallbacks: SearchCallback[F])(implicit ME: MonadError[F, Throwable])
+  extends BaseSearchCommand[F](searchCallbacks) with SearchCommand[F, Key, ValueRef, NodeId] {
 
   override def submitLeaf(leaf: Option[LeafNode[Key, ValueRef, NodeId]]): F[SearchResult] = {
     val (keys, valuesChecksums) =
       leaf.map(l ⇒ l.keys → l.valuesChecksums)
         .getOrElse(Array.empty[Key] → Array.empty[Hash])
 
-    getCallbacks.submitLeaf(keys, valuesChecksums)
+    searchCallbacks.submitLeaf(keys, valuesChecksums)
   }
 
 }

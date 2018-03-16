@@ -1,6 +1,7 @@
 import sbt._
-import scalajscrossproject.ScalaJSCrossPlugin.autoImport._
 import sbtcrossproject.CrossPlugin.autoImport._
+
+import scalajscrossproject.ScalaJSCrossPlugin.autoImport._
 
 /**
   * cross types https://github.com/portable-scala/sbt-crossproject

@@ -30,9 +30,9 @@ import com.typesafe.config.Config
 import fluence.codec.Codec
 import fluence.contract
 import fluence.contract.BasicContract
+import fluence.contract.node.cache.ContractRecord
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
-import fluence.contract.node.cache.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.node.persistence.{ BasicContractCache, Participant }
 import fluence.storage.KVStore

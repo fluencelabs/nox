@@ -29,11 +29,13 @@ import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protocol.{ Contact, KademliaRpc }
 import fluence.transport.grpc.client.GrpcClient
 import monix.execution.Scheduler
+import monix.reactive.Observable
 import shapeless.HNil
 
 import scala.language.higherKinds
 
 object ClientGrpcServices {
+
   def build[F[_] : Effect](
     builder: GrpcClient.Builder[HNil]
   )(
@@ -60,9 +62,9 @@ object ClientGrpcServices {
 
       override def contractAllocator: ContractAllocatorRpc[F, BasicContract] =
         client.service[ContractAllocatorRpc[F, BasicContract]](contact)
-
-      override def datasetStorage: DatasetStorageRpc[F] =
-        client.service[DatasetStorageRpc[F]](contact)
+      // todo generalize Observable
+      override def datasetStorage: DatasetStorageRpc[F, Observable] =
+        client.service[DatasetStorageRpc[F, Observable]](contact)
     }
   }
 }
