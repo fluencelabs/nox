@@ -410,7 +410,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     val allRecords = Random.shuffle(1 to numberOfKeys).map(i ⇒ { f"k$i%04d" → f"v$i%04d" })
 
     // invoke numberOfKeys puts
-    Task.sequence(allRecords.map { case (k, v) ⇒ datasetStorage.put(k, v) }).taskValue(Some(timeout(Span(120, Seconds))))
+    Task.sequence(allRecords.map { case (k, v) ⇒ datasetStorage.put(k, v) }).taskValue(Some(timeout(Span.Max(1, DAYS))))
 
     val firstKey = "k0001"
     val midKey = f"k${numberOfKeys / 2}%04d"
