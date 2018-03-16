@@ -28,25 +28,35 @@ class CommandParserSpec extends WordSpec with Matchers {
       CommandParser.parseCommand("exit and some '\" other string").get shouldBe Exit
       CommandParser.parseCommand("exit").get shouldBe Exit
 
-      val key = "somekey"
+      val key1 = "somekey1"
+      val key2 = "somekey2"
       val value = "somevalue"
-      CommandParser.parseCommand(s"""put $key $value""").get shouldBe Put(key, value)
-      CommandParser.parseCommand(s"""put '$key' '$value' """).get shouldBe Put(key, value)
-      CommandParser.parseCommand(s"""put '$key' $value """).get shouldBe Put(key, value)
-      CommandParser.parseCommand(s"""put '$key' "$value" """).get shouldBe Put(key, value)
-      CommandParser.parseCommand(s"""put $key "$value" """).get shouldBe Put(key, value)
-      CommandParser.parseCommand(s"""put "$key" "$value" """).get shouldBe Put(key, value)
-      CommandParser.parseCommand(s"""put "$key" $value""").get shouldBe Put(key, value)
-      CommandParser.parseCommand(s"""put "$key" '$value'""").get shouldBe Put(key, value)
+      CommandParser.parseCommand(s"""put $key1 $value""").get shouldBe Put(key1, value)
+      CommandParser.parseCommand(s"""put '$key1' '$value' """).get shouldBe Put(key1, value)
+      CommandParser.parseCommand(s"""put '$key1' $value """).get shouldBe Put(key1, value)
+      CommandParser.parseCommand(s"""put '$key1' "$value" """).get shouldBe Put(key1, value)
+      CommandParser.parseCommand(s"""put $key1 "$value" """).get shouldBe Put(key1, value)
+      CommandParser.parseCommand(s"""put "$key1" "$value" """).get shouldBe Put(key1, value)
+      CommandParser.parseCommand(s"""put "$key1" $value""").get shouldBe Put(key1, value)
+      CommandParser.parseCommand(s"""put "$key1" '$value'""").get shouldBe Put(key1, value)
 
-      CommandParser.parseCommand(s"""get $key """).get shouldBe Get(key)
-      CommandParser.parseCommand(s"""get '$key' """).get shouldBe Get(key)
-      CommandParser.parseCommand(s"""get '$key'  """).get shouldBe Get(key)
-      CommandParser.parseCommand(s"""get '$key'  """).get shouldBe Get(key)
-      CommandParser.parseCommand(s"""get $key  """).get shouldBe Get(key)
-      CommandParser.parseCommand(s"""get "$key"  """).get shouldBe Get(key)
-      CommandParser.parseCommand(s"""get "$key" """).get shouldBe Get(key)
-      CommandParser.parseCommand(s"""get "$key" """).get shouldBe Get(key)
+      CommandParser.parseCommand(s"""get $key1 """).get shouldBe Get(key1)
+      CommandParser.parseCommand(s"""get '$key1' """).get shouldBe Get(key1)
+      CommandParser.parseCommand(s"""get '$key1'  """).get shouldBe Get(key1)
+      CommandParser.parseCommand(s"""get '$key1'  """).get shouldBe Get(key1)
+      CommandParser.parseCommand(s"""get $key1  """).get shouldBe Get(key1)
+      CommandParser.parseCommand(s"""get "$key1"  """).get shouldBe Get(key1)
+      CommandParser.parseCommand(s"""get "$key1" """).get shouldBe Get(key1)
+      CommandParser.parseCommand(s"""get "$key1" """).get shouldBe Get(key1)
+
+      CommandParser.parseCommand(s"""range $key1 $key2""").get shouldBe Range(key1, key2)
+      CommandParser.parseCommand(s"""range '$key1' '$key2' """).get shouldBe Range(key1, key2)
+      CommandParser.parseCommand(s"""range '$key1' $key2 """).get shouldBe Range(key1, key2)
+      CommandParser.parseCommand(s"""range '$key1' "$key2" """).get shouldBe Range(key1, key2)
+      CommandParser.parseCommand(s"""range $key1 "$key2" """).get shouldBe Range(key1, key2)
+      CommandParser.parseCommand(s"""range "$key1" "$key2" """).get shouldBe Range(key1, key2)
+      CommandParser.parseCommand(s"""range "$key1" $key2""").get shouldBe Range(key1, key2)
+      CommandParser.parseCommand(s"""range "$key1" '$key2'""").get shouldBe Range(key1, key2)
     }
   }
 

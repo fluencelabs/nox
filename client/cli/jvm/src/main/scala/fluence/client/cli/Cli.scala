@@ -99,6 +99,14 @@ object Cli extends slogging.LazyLogging {
           } yield true
           t.toIO
 
+        case Some(CliOp.Range(from, to)) ⇒
+          val t = for {
+            res ← ds.range(from, to).toListL
+            printRes = res.mkString("[", ",", "]")
+            _ = logger.info("Result: " + printRes)
+          } yield true
+          t.toIO
+
         case _ ⇒
           IO {
             logger.info("Wrong command.")

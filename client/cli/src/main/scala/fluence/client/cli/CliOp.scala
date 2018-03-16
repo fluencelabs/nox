@@ -28,6 +28,8 @@ object CliOp {
 
   case class Get(key: String) extends CliOp[Unit]
 
+  case class Range(from: String, to: String) extends CliOp[Unit]
+
   case class ReadLine(prefix: String) extends CliOp[String]
 
   case class PrintLines(lines: Seq[String]) extends CliOp[Unit]

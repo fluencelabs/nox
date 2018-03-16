@@ -28,7 +28,6 @@ import com.google.protobuf.ByteString
 import fluence.btree.core.{ ClientPutDetails, Hash, Key }
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.grpc.GrpcMonix._
-import fluence.dataset.grpc._
 import fluence.dataset.protocol.DatasetStorageRpc
 import io.grpc.stub.StreamObserver
 import monix.eval.Task
@@ -419,7 +418,7 @@ class DatasetStorageServer[F[_] : Async](
           // if all is ok server should close the stream(is done in ObserverGrpcOps.completeWith)  and send value to client
           Async[F].pure(PutCallback(PutCallback.Callback.Value(PreviousValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
         case Left(clientError: ClientError) ⇒
-          // when server recieve client error, server shouln't close the stream(is done in ObserverGrpcOps.completeWith)  and lift up client error
+          // when server receive client error, server shouldn't close the stream(is done in ObserverGrpcOps.completeWith)  and lift up client error
           Async[F].raiseError[PutCallback](clientError)
         case Left(exception) ⇒
           // when server error appears, server should log it and send to client

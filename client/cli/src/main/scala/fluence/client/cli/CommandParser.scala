@@ -40,8 +40,9 @@ object CommandParser {
     val exit = P(Start ~ "exit").map(_ ⇒ Exit)
     val putCommand = P(Start ~ "put" ~ string ~ string).map{ case (k, v) ⇒ Put(k, v) }
     val getCommand = P(Start ~ "get" ~ string).map(k ⇒ Get(k))
+    val rangeCommand = P(Start ~ "range" ~ string ~ string).map { case (from, to) ⇒ Range(from, to) }
 
-    P(exit | putCommand | getCommand)
+    P(exit | putCommand | getCommand | rangeCommand)
   }
 
   //todo improve escape characters in put and get commands
