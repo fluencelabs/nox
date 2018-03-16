@@ -68,7 +68,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(5, Seconds), Span(250, Milliseconds))
 
   private val algo: SignAlgo = Ecdsa.signAlgo
-  private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
+  //  private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
+  private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
   private val keyCrypt = NoOpCrypt.forString[Task]
   private val valueCrypt = NoOpCrypt.forString[Task]
 
@@ -410,7 +411,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     val allRecords = Random.shuffle(1 to numberOfKeys).map(i ⇒ { f"k$i%04d" → f"v$i%04d" })
 
     // invoke numberOfKeys puts
-    Task.sequence(allRecords.map { case (k, v) ⇒ datasetStorage.put(k, v) }).taskValue(Some(timeout(Span.Max(1, DAYS))))
+    Task.sequence(allRecords.map { case (k, v) ⇒ datasetStorage.put(k, v) }).taskValue(Some(timeout(Span(600, Seconds))))
 
     val firstKey = "k0001"
     val midKey = f"k${numberOfKeys / 2}%04d"
