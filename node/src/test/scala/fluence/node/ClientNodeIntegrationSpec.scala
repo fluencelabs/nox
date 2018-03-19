@@ -288,7 +288,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val datasetStorage = fluence.createNewContract(keyPair, 2, keyCrypt, valueCrypt).taskValue
         verifyReadAndWrite(datasetStorage)
         // todo enable when understand why travis failed this test
-//        verifyRangeQueries(datasetStorage)
+        verifyRangeQueries(datasetStorage)
       }
     }
 
@@ -406,7 +406,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   /** Makes many writes and read with range */
   private def verifyRangeQueries(
     datasetStorage: ClientDatasetStorageApi[Task, Observable, String, String],
-    numberOfKeys: Int = 512
+    numberOfKeys: Int = 128
   ): Unit = {
 
     val allRecords = Random.shuffle(1 to numberOfKeys).map(i ⇒ { f"k$i%04d" → f"v$i%04d" })
@@ -582,7 +582,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   override protected def beforeAll(): Unit = {
     LoggerConfig.factory = PrintLoggerFactory
-    LoggerConfig.level = LogLevel.OFF
+    LoggerConfig.level = LogLevel.TRACE
     super.beforeAll()
   }
 
