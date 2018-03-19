@@ -6,8 +6,6 @@ enablePlugins(JavaAppPackaging, DockerPlugin, AutomateHeaderPlugin)
 
 commons
 
-protobuf
-
 libraryDependencies ++= Seq(
   scalatest
 )

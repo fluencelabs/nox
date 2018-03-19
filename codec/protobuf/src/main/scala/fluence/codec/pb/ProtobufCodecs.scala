@@ -15,20 +15,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node.config
+package fluence.codec.pb
 
-import cats.effect.IO
-import com.typesafe.config.Config
+import cats.{ Applicative, MonadError }
+import com.google.protobuf.ByteString
+import fluence.codec.Codec
+import fluence.kad.protocol.Key
+import scodec.bits.ByteVector
 
-case class UPnPConf(grpc: Option[Int]) {
-  def isEnabled: Boolean = grpc.isDefined
-}
+import scala.language.higherKinds
 
-object UPnPConf {
-  def read(conf: Config): IO[UPnPConf] =
-    IO {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[UPnPConf]("fluence.network.upnp")
-    }
+object ProtobufCodecs {
+
+  implicit def byteVectorByteString[F[_] : Applicative]: Codec[F, ByteString, ByteVector] =
+    Codec.pure(
+      str ⇒ ByteVector(str.toByteArray),
+      vec ⇒ ByteString.copyFrom(vec.toArray)
+    )
+
+  // TODO: more precise error
+  implicit def keyByteString[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, ByteString, Key] =
+    byteVectorByteString[F] andThen Key.vectorCodec.swap
 }

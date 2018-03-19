@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.node.core
 
 import java.time.Instant
 
@@ -36,7 +36,7 @@ import fluence.crypto.signature.Signature
 import fluence.kad.protocol.Key
 import fluence.node.persistence.{ BasicContractCache, Participant }
 import fluence.storage.KVStore
-import fluence.transport.grpc.GrpcCodecs._
+import fluence.codec.pb.ProtobufCodecs._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds

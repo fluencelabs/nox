@@ -32,7 +32,9 @@ import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
 import fluence.crypto.{ FileKeyStorage, SignAlgo }
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{ Contact, Key, Node }
-import fluence.node.config.{ ContactConf, UPnPConf }
+import fluence.node.core.NodeComposer
+import fluence.node.core.config.{ ContactConf, UPnPConf }
+import fluence.node.grpc.NodeGrpc
 import fluence.transport.UPnP
 import fluence.transport.grpc.server.GrpcServerConf
 import monix.eval.Task

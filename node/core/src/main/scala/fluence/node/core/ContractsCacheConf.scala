@@ -15,25 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport.grpc
+package fluence.node.core
 
-import cats.{ Applicative, MonadError }
-import com.google.protobuf.ByteString
-import fluence.codec.Codec
-import fluence.kad.protocol.Key
-import scodec.bits.ByteVector
+import cats.effect.IO
+import com.typesafe.config.Config
 
-import scala.language.higherKinds
+case class ContractsCacheConf(dataDir: String)
 
-object GrpcCodecs {
+object ContractsCacheConf {
+  val ConfigPath = "fluence.contract.cache"
 
-  implicit def byteVectorByteString[F[_] : Applicative]: Codec[F, ByteString, ByteVector] =
-    Codec.pure(
-      str ⇒ ByteVector(str.toByteArray),
-      vec ⇒ ByteString.copyFrom(vec.toArray)
-    )
-
-  // TODO: more precise error
-  implicit def keyByteString[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, ByteString, Key] =
-    byteVectorByteString[F] andThen Key.vectorCodec.swap
+  def read(conf: Config, confPath: String = ConfigPath): IO[ContractsCacheConf] =
+    IO {
+      import net.ceedubs.ficus.Ficus._
+      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+      conf.as[ContractsCacheConf](confPath)
+    }
 }

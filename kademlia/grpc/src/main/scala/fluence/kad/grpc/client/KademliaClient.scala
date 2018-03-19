@@ -24,7 +24,7 @@ import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
 import fluence.kad.{ grpc, protocol }
-import fluence.transport.grpc.GrpcCodecs._
+import fluence.codec.pb.ProtobufCodecs._
 import io.grpc.{ CallOptions, ManagedChannel }
 
 import scala.concurrent.{ ExecutionContext, Future }

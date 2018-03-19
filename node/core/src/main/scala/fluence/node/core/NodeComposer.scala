@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.node.core
 
 import java.time.Instant
 

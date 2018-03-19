@@ -29,7 +29,7 @@ import cats.instances.list._
 import cats.instances.option._
 import fluence.contract
 import fluence.contract.BasicContract.ExecutionState
-import fluence.transport.grpc.GrpcCodecs._
+import fluence.codec.pb.ProtobufCodecs._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
