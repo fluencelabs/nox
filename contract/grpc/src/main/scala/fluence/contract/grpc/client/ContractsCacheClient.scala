@@ -27,7 +27,7 @@ import fluence.contract.protocol.ContractsCacheRpc
 import fluence.contract.grpc.ContractsCacheGrpc.ContractsCacheStub
 import fluence.contract.grpc.{ BasicContract, ContractsCacheGrpc, FindRequest }
 import fluence.kad.protocol.Key
-import fluence.transport.grpc.GrpcCodecs._
+import fluence.codec.pb.ProtobufCodecs._
 import io.grpc.{ CallOptions, ManagedChannel }
 
 import scala.concurrent.{ ExecutionContext, Future }

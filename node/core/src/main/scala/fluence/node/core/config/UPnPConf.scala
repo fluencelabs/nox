@@ -15,20 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.node.core.config
 
 import cats.effect.IO
 import com.typesafe.config.Config
 
-case class ContractsCacheConf(dataDir: String)
+case class UPnPConf(grpc: Option[Int]) {
+  def isEnabled: Boolean = grpc.isDefined
+}
 
-object ContractsCacheConf {
-  val ConfigPath = "fluence.contract.cache"
-
-  def read(conf: Config, confPath: String = ConfigPath): IO[ContractsCacheConf] =
+object UPnPConf {
+  def read(conf: Config): IO[UPnPConf] =
     IO {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[ContractsCacheConf](confPath)
+      conf.as[UPnPConf]("fluence.network.upnp")
     }
 }
