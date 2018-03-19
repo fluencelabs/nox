@@ -582,7 +582,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   override protected def beforeAll(): Unit = {
     LoggerConfig.factory = PrintLoggerFactory
-    LoggerConfig.level = LogLevel.TRACE
+    LoggerConfig.level = LogLevel.INFO
     super.beforeAll()
   }
 
