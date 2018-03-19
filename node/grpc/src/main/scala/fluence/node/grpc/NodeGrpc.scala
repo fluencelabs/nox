@@ -83,8 +83,8 @@ object NodeGrpc {
       // TODO: check if it's optimal
       implicit val ec: Scheduler = Scheduler(Executors.newCachedThreadPool())
 
-      import fluence.contract.grpc.BasicContractCodec.{ codec => contractCodec }
-      import fluence.kad.grpc.KademliaNodeCodec.{ codec => nodeCodec }
+      import fluence.contract.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
+      import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
       val keyC = Key.bytesCodec[Task]
       import keyC.inverse
 
