@@ -72,13 +72,13 @@ class DatasetStorageClient[F[_] : Effect](
       })
       .multicast
 
-    val clientError = MVar.empty[Throwable]
+    val clientError = MVar(Option.empty[Throwable])
 
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
     def handleClientErr(err: Throwable): F[GetCallbackReply] = {
       run(
         clientError
-          .put(ClientError(err.getMessage))
+          .put(Some(ClientError(err.getMessage)))
           .map(_ ⇒ GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage))))
       )
     }
@@ -146,11 +146,11 @@ class DatasetStorageClient[F[_] : Effect](
                   .filterNot(_.isEmpty)
                   .map(_.toByteArray)
               }
-        }.headOptionL // Take the first option value or server error
+        }.headL.flatten // Take the first option value or server error
 
-    run(errorOrValue.flatMap {
-      case Some(value) ⇒ value // return success result or server error in first
-      case None        ⇒ clientError.take.flatMap(err ⇒ Task.raiseError(err)) // return occurred clients error
+    run(clientError.read.flatMap {
+      case Some(clientErr) ⇒ Task.raiseError(clientErr) // return occurred clients error
+      case None            ⇒ errorOrValue // return success result or server error
     })
 
   }
@@ -271,13 +271,13 @@ class DatasetStorageClient[F[_] : Effect](
       })
       .multicast
 
-    val clientError = MVar.empty[Throwable]
+    val clientError = MVar(Option.empty[Throwable])
 
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
     def handleClientErr(err: Throwable): F[PutCallbackReply] = {
       run(
         clientError
-          .put(ClientError(err.getMessage))
+          .put(Some(ClientError(err.getMessage)))
           .map(_ ⇒ PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage))))
       )
     }
@@ -373,11 +373,11 @@ class DatasetStorageClient[F[_] : Effect](
                   .filterNot(_.isEmpty)
                   .map(_.toByteArray)
               }
-        }.headOptionL // Take the first option value or server error
+        }.headL.flatten // Take the first option value or server error
 
-    run(errorOrValue.flatMap {
-      case Some(value) ⇒ value // return success result or server error in first
-      case None        ⇒ clientError.take.flatMap(err ⇒ Task.raiseError(err)) // return occurred clients error
+    run(clientError.read.flatMap {
+      case Some(clientErr) ⇒ Task.raiseError(clientErr) // return occurred clients error
+      case None            ⇒ errorOrValue // return success result or server error
     })
 
   }
