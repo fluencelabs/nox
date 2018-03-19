@@ -146,13 +146,12 @@ class DatasetStorageClient[F[_] : Effect](
                   .filterNot(_.isEmpty)
                   .map(_.toByteArray)
               }
+        }.headOptionL // Take the first option value or server error
 
-        }.headL.flatten // Take the first value, wrapped with Task
-
-    run(Task.raceMany(Seq(
-      clientError.take.flatMap(err ⇒ Task.raiseError(err)), // returns occurred clients error as return value
-      errorOrValue // return success result or server error
-    )))
+    run(errorOrValue.flatMap {
+      case Some(value) ⇒ value // return success result or server error in first
+      case None        ⇒ clientError.take.flatMap(err ⇒ Task.raiseError(err)) // return occurred clients error
+    })
 
   }
 
@@ -374,12 +373,12 @@ class DatasetStorageClient[F[_] : Effect](
                   .filterNot(_.isEmpty)
                   .map(_.toByteArray)
               }
-        }.headL.flatten // Take the first value, wrapped with Task
+        }.headOptionL // Take the first option value or server error
 
-    run(Task.raceMany(Seq(
-      clientError.take.flatMap(err ⇒ Task.raiseError(err)), // returns occurred clients error as return value
-      errorOrValue // return success result or server error
-    )))
+    run(errorOrValue.flatMap {
+      case Some(value) ⇒ value // return success result or server error in first
+      case None        ⇒ clientError.take.flatMap(err ⇒ Task.raiseError(err)) // return occurred clients error
+    })
 
   }
 
