@@ -228,7 +228,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           putResponse shouldBe a[ServerError]
           putResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
 
-          val rangeResponse = datasetStorage.range("start key", "end key").failed.headL.taskValue
+          val rangeResponse = datasetStorage.range("1 start key", "2 end key").failed.headL.taskValue
           rangeResponse shouldBe a[ServerError]
           rangeResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
 
@@ -286,10 +286,12 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val fluence = createFluenceClient(seedContact)
 
         val datasetStorage = fluence.createNewContract(keyPair, 2, keyCrypt, valueCrypt).taskValue
+        LoggerConfig.level = LogLevel.INFO
         verifyReadAndWrite(datasetStorage)
         // todo enable when understand why travis failed this test
         verifyRangeQueries(datasetStorage)
       }
+      LoggerConfig.level = LogLevel.OFF
     }
 
     "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
@@ -582,7 +584,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   override protected def beforeAll(): Unit = {
     LoggerConfig.factory = PrintLoggerFactory
-    LoggerConfig.level = LogLevel.INFO
+    LoggerConfig.level = LogLevel.OFF
     super.beforeAll()
   }
 
