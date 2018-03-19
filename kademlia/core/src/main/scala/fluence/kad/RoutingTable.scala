@@ -39,10 +39,7 @@ import scala.language.higherKinds
  */
 object RoutingTable {
 
-  implicit class ReadOps[C : Bucket.ReadOps : Siblings.ReadOps](nodeId: Key) {
-    private def SR = implicitly[Siblings.ReadOps[C]]
-
-    private def BR = implicitly[Bucket.ReadOps[C]]
+  implicit class ReadOps[C](nodeId: Key)(implicit SR: Siblings.ReadOps[C], BR: Bucket.ReadOps[C]) {
 
     /**
      * Tries to route a key to a Contact, if it's known locally
@@ -182,15 +179,19 @@ object RoutingTable {
         }
       }
 
-      // Update each portion in parallel
-      def updateParPortions(portions: List[List[Node[C]]], agg: List[Node[C]] = Nil): F[List[Node[C]]] = portions match {
-        case Nil         ⇒ agg.pure[F]
-        case Nil :: tail ⇒ updateParPortions(tail, agg)
-        case portion :: tail ⇒
-          Parallel.parTraverse(portion)(update(_, rpc, pingExpiresIn, checkNode)).flatMap(_ ⇒
-            updateParPortions(tail, portion ::: agg)
-          )
+      // Update portion, taking nodes one by one, and return all updated nodes
+      def updatePortion(portion: List[Node[C]], agg: Stream[Node[C]] = Stream.empty): F[Stream[Node[C]]] = portion match {
+        case Nil ⇒ agg.pure[F]
+        case node :: tail ⇒
+          update(node, rpc, pingExpiresIn, checkNode).flatMap{
+            case true  ⇒ updatePortion(tail, node #:: agg)
+            case false ⇒ updatePortion(tail, agg)
+          }
       }
+
+      // Update each portion in parallel, and return all updated nodes
+      def updateParPortions(portions: List[List[Node[C]]]): F[Stream[Node[C]]] =
+        Parallel.parTraverse(portions)(updatePortion(_)).map(_.foldLeft(Stream.empty[Node[C]])(_ #::: _))
 
       updateParPortions(
         // Rearrange in portions with distinct bucket ids, so that it's possible to update it in parallel
@@ -349,13 +350,13 @@ object RoutingTable {
       rpc: C ⇒ KademliaRpc[F, C],
       pingExpiresIn: Duration,
       checkNode: Node[C] ⇒ F[Boolean]
-    ): F[Seq[(Node[C], A)]] =
+    ): F[Vector[(Node[C], A)]] =
       lookupIterative(key, numToCollect max parallelism, parallelism, rpc, pingExpiresIn, checkNode).flatMap {
         prefetchedNodes ⇒
 
           // Lazy stream that takes nodes from the right
           def tailStream[T](from: SortedSet[T]): Stream[T] =
-            from.lastOption.fold(Stream.empty[T])(last ⇒ Stream.cons(last, tailStream(from.init)))
+            from.toVector.reverseIterator.toStream
 
           // How many nodes to lookup, should be not too much to reduce network load,
           // and not too less to avoid network roundtrips
@@ -401,10 +402,10 @@ object RoutingTable {
           // - no more nodes to query are available
           def iterate(
             nodes: SortedSet[Node[C]],
-            replies: Seq[(Node[C], A)],
+            replies: Vector[(Node[C], A)],
             lookedUp: Set[Key],
             fnCalled: Set[Key],
-            requestsRemaining: Int): F[Seq[(Node[C], A)]] = {
+            requestsRemaining: Int): F[Vector[(Node[C], A)]] = {
             val needCollect = numToCollect - replies.size
             // If we've collected enough, stop
             if (needCollect <= 0) replies.pure[F]
@@ -464,7 +465,7 @@ object RoutingTable {
           // Call with initial params
           iterate(
             nodes = SortedSet(prefetchedNodes: _*)(Node.relativeOrdering(key)),
-            replies = Seq.empty,
+            replies = Vector.empty,
             lookedUp = Set.empty,
             fnCalled = Set.empty,
             requestsRemaining = maxNumOfCalls
