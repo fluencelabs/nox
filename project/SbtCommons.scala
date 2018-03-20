@@ -1,11 +1,8 @@
-import com.typesafe.sbt.SbtScalariform.autoImport.scalariformPreferences
 import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.headerLicense
 import de.heikoseeberger.sbtheader.License
 import sbt.Keys._
 import sbt._
 import sbtprotoc.ProtocPlugin.autoImport.PB
-
-import scalariform.formatter.preferences._
 
 object SbtCommons {
 
