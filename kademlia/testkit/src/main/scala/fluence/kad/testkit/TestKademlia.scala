@@ -32,54 +32,6 @@ import monix.eval.Coeval
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-class TestKademlia[F[_], C](
-  nodeId: Key,
-  alpha: Int,
-  k: Int,
-  getKademlia: C ⇒ Kademlia[F, C],
-  toContact: Key ⇒ C,
-  pingExpiresIn: FiniteDuration = 1.second
-)(
-  implicit
-  BW: Bucket.WriteOps[F, C],
-  SW: Siblings.WriteOps[F, C],
-  ME: MonadError[F, Throwable],
-  P: Parallel[F, F]
-) extends Kademlia[F, C](nodeId, alpha, pingExpiresIn, _ ⇒ true.pure[F]) {
-
-  def ownContactValue = Node[C](nodeId, Instant.now(), toContact(nodeId))
-
-  override def ownContact: F[Node[C]] = ME.pure(ownContactValue)
-
-  override def rpc(contact: C): KademliaRpc[F, C] = new KademliaRpc[F, C] {
-    val kad = getKademlia(contact)
-
-    /**
-     * Ping the contact, get its actual Node status, or fail
-     */
-    override def ping() =
-      kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.ping())
-
-    /**
-     * Perform a local lookup for a key, return K closest known nodes
-     *
-     * @param key Key to lookup
-     */
-    override def lookup(key: Key, numberOfNodes: Int) =
-      kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes))
-
-    /**
-     * Perform a local lookup for a key, return K closest known nodes, going away from the second key
-     *
-     * @param key Key to lookup
-     */
-    override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) =
-      kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.lookupAway(key, moveAwayFrom, numberOfNodes))
-
-  }
-
-}
-
 object TestKademlia {
   implicit val CoevalParallel: Parallel[Coeval, Coeval] = new Parallel[Coeval, Coeval] {
     override def applicative = Applicative[Coeval]
@@ -93,6 +45,57 @@ object TestKademlia {
     override def parallel = sequential
   }
 
+  def apply[F[_], G[_], C](
+    nodeId: Key,
+    alpha: Int,
+    k: Int,
+    getKademlia: C ⇒ Kademlia[F, C],
+    toContact: Key ⇒ C,
+    pingExpiresIn: FiniteDuration = 1.second
+  )(
+    implicit
+    BW: Bucket.WriteOps[F, C],
+    SW: Siblings.WriteOps[F, C],
+    ME: MonadError[F, Throwable],
+    P: Parallel[F, G]
+  ): Kademlia[F, C] = {
+    def ownContactValue = Node[C](nodeId, Instant.now(), toContact(nodeId))
+    Kademlia[F, G, C](
+      nodeId,
+      alpha,
+      pingExpiresIn,
+      _ ⇒ true.pure[F],
+      ME.pure(ownContactValue),
+      contact ⇒
+        new KademliaRpc[F, C] {
+          val kad = getKademlia(contact)
+
+          /**
+           * Ping the contact, get its actual Node status, or fail
+           */
+          override def ping() =
+            kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.ping())
+
+          /**
+           * Perform a local lookup for a key, return K closest known nodes
+           *
+           * @param key Key to lookup
+           */
+          override def lookup(key: Key, numberOfNodes: Int) =
+            kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes))
+
+          /**
+           * Perform a local lookup for a key, return K closest known nodes, going away from the second key
+           *
+           * @param key Key to lookup
+           */
+          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) =
+            kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.lookupAway(key, moveAwayFrom, numberOfNodes))
+
+      }
+    )
+  }
+
   def coeval[C](
     nodeId: Key,
     alpha: Int,
@@ -101,7 +104,7 @@ object TestKademlia {
     toContact: Key ⇒ C,
     pingExpiresIn: FiniteDuration = 1.second
   ): Kademlia[Coeval, C] =
-    new TestKademlia[Coeval, C](nodeId, alpha, k, getKademlia, toContact, pingExpiresIn)(
+    TestKademlia[Coeval, Coeval, C](nodeId, alpha, k, getKademlia, toContact, pingExpiresIn)(
       ME = implicitly[MonadError[Coeval, Throwable]],
       BW = new TestBucketOps[C](k),
       SW = new TestSiblingOps[C](nodeId, k),

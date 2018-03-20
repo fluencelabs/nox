@@ -47,7 +47,7 @@ class MerkleBTreeClient[K] private (
 )(implicit ord: Ordering[K])
     extends MerkleBTreeClientApi[Task, K] with slogging.LazyLogging {
 
-  private val clientStateMVar = MVar(initClientState)
+  private val clientStateMVar = MVar(initClientState).memoize
 
   /**
    * State for each search ('Get', 'Range', 'Delete') request to remote BTree.
@@ -62,35 +62,35 @@ class MerkleBTreeClient[K] private (
   ) extends SearchState[Task] with SearchCallback[Task] {
 
     /** Tree path traveled on the server. Updatable for round trip session */
-    private val merklePathMVar: MVar[MerklePath] = MVar(MerklePath.empty)
+    private val merklePathMVar: Task[MVar[MerklePath]] = MVar(MerklePath.empty).memoize
 
     // case when server asks next child
-    override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = {
-      merklePathMVar.take.flatMap { mPath ⇒
-        logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
-
-        processSearch(key, merkleRoot, mPath, keys, childsChecksums).flatMap {
-          case (newMPath, foundIdx) ⇒
-            merklePathMVar
-              .put(newMPath)
-              .map(_ ⇒ foundIdx)
-        }
-      }
-    }
+    override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] =
+      for {
+        mvar ← merklePathMVar
+        mPath ← mvar.take
+        _ = logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
+        up ← processSearch(key, merkleRoot, mPath, keys, childsChecksums)
+        (newMPath, foundIdx) = up
+        _ ← mvar.put(newMPath)
+      } yield foundIdx
 
     // case when server returns founded leaf, this leaf either contains key, or key may be inserted in this leaf
-    override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): Task[SearchResult] = {
-
-      merklePathMVar.take.flatMap { mPath ⇒
-        logger.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
-
-        val leafProof = verifier.getLeafProof(keys, valuesChecksums)
-        if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
+    override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): Task[SearchResult] =
+      for {
+        mvar ← merklePathMVar
+        mPath ← mvar.take
+        leafProof = {
+          logger.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
+          verifier.getLeafProof(keys, valuesChecksums)
+        }
+        result ← if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
           binarySearch(key, keys).flatMap { searchResult ⇒
             logger.debug(s"Searching for key=$key returns $searchResult")
-            merklePathMVar.put(mPath.add(leafProof)).map(_ ⇒ searchResult)
+            mvar.put(mPath.add(leafProof)).map(_ ⇒ searchResult)
           }
         } else {
+          // TODO: return business error as value
           Task.raiseError(
             new IllegalStateException(
               s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.mkString(",")}, " +
@@ -98,12 +98,11 @@ class MerkleBTreeClient[K] private (
             )
           )
         }
-      }
-    }
+      } yield result
 
     override def recoverState(): Task[Unit] = {
       logger.debug(s"Recover client state for search with key=$key mRoot=$merkleRoot")
-      clientStateMVar.put(ClientState(merkleRoot))
+      clientStateMVar.flatMap(_.put(ClientState(merkleRoot)))
     }
 
   }
@@ -122,60 +121,62 @@ class MerkleBTreeClient[K] private (
   ) extends PutState[Task] with PutCallbacks[Task] {
 
     /** Tree path traveled on the server */
-    private val merklePathMVar: MVar[MerklePath] = MVar(MerklePath.empty)
+    private val merklePathMVar: Task[MVar[MerklePath]] = MVar(MerklePath.empty).memoize
 
     /** All details needed for putting key and value to BTree */
-    private val putDetailsMVar: MVar[Option[ClientPutDetails]] = MVar.empty
+    private val putDetailsMVar: Task[MVar[Option[ClientPutDetails]]] = MVar.empty.memoize
 
     /** New valid client merkle root */
-    private val newMerkleRoot: MVar[Hash] = MVar.empty
+    private val newMerkleRoot: Task[MVar[Hash]] = MVar.empty.memoize
 
     // case when server asks next child
-    override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = {
-      merklePathMVar.take.flatMap { mPath ⇒
-        logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
-
-        processSearch(key, merkleRoot, mPath, keys, childsChecksums).flatMap {
-          case (newMPath, foundIdx) ⇒
-            merklePathMVar
-              .put(newMPath)
-              .map(_ ⇒ foundIdx)
-        }
-      }
-    }
+    override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] =
+      for {
+        mvar ← merklePathMVar
+        mPath ← mvar.take
+        _ = logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
+        searched ← processSearch(key, merkleRoot, mPath, keys, childsChecksums)
+        (newMPath, foundIdx) = searched
+        _ ← mvar.put(newMPath)
+      } yield foundIdx
 
     // case when server returns founded leaf
-    override def putDetails(keys: Array[Key], values: Array[Hash]): Task[ClientPutDetails] = {
-      merklePathMVar.take.flatMap { mPath ⇒
-        logger.debug(s"putDetails starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
+    override def putDetails(keys: Array[Key], values: Array[Hash]): Task[ClientPutDetails] =
+      merklePathMVar.flatMap { mvar ⇒
+        mvar.take.flatMap { mPath ⇒
+          logger.debug(s"putDetails starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
 
-        val leafProof = verifier.getLeafProof(keys, values)
-        if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
+          val leafProof = verifier.getLeafProof(keys, values)
+          if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
 
-          for {
-            searchResult ← binarySearch(key, keys)
-            nodeProofWithIdx = leafProof.copy(substitutionIdx = searchResult.insertionPoint)
-            encrypted ← keyCrypt.encrypt(key)
-            putDetails = ClientPutDetails(encrypted, valueChecksum, searchResult)
-            _ ← putDetailsMVar.put(Some(putDetails))
-            _ ← merklePathMVar.put(mPath.add(nodeProofWithIdx))
-          } yield putDetails
+            for {
+              searchResult ← binarySearch(key, keys)
+              nodeProofWithIdx = leafProof.copy(substitutionIdx = searchResult.insertionPoint)
+              encrypted ← keyCrypt.encrypt(key)
+              putDetails = ClientPutDetails(encrypted, valueChecksum, searchResult)
+              putMvar ← putDetailsMVar
+              _ ← putMvar.put(Some(putDetails))
+              _ ← mvar.put(mPath.add(nodeProofWithIdx))
+            } yield putDetails
 
-        } else {
-          Task.raiseError(
-            new IllegalStateException(
-              s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.mkString(",")}, ${keys.mkString(",")})"
+          } else {
+            Task.raiseError(
+              new IllegalStateException(
+                s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.mkString(",")}, ${keys.mkString(",")})"
+              )
             )
-          )
+          }
         }
       }
-    }
 
     // case when server asks verify made changes
     override def verifyChanges(serverMRoot: Hash, wasSplitting: Boolean): Task[Unit] = {
       for {
-        mPath ← merklePathMVar.read
-        optDetails ← putDetailsMVar.read
+        mpVar ← merklePathMVar
+        mPath ← mpVar.read
+        pdMvar ← putDetailsMVar
+        optDetails ← pdMvar.read
+        newMVar ← newMerkleRoot
         _ ← {
           logger.debug(
             s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=$serverMRoot"
@@ -191,7 +192,7 @@ class MerkleBTreeClient[K] private (
                     )
                   )
                 case Some(newMRoot) ⇒ // all is fine, send Confirm to server
-                  newMerkleRoot.put(newMRoot) // TODO: here we have a new merkle root and should sign it with version
+                  newMVar.put(newMRoot) // TODO: here we have a new merkle root and should sign it with version
               }
             case None ⇒
               Task.raiseError(
@@ -208,16 +209,16 @@ class MerkleBTreeClient[K] private (
     // case when server confirmed changes persisted
     override def changesStored(): Task[Unit] = {
       // change global client state with new merkle root
-      newMerkleRoot.take.flatMap { newMRoot ⇒
+      newMerkleRoot.flatMap(_.take).flatMap { newMRoot ⇒
         logger.debug(s"changesStored starts for key=$key, newMRoot=$newMRoot")
 
-        clientStateMVar.put(ClientState(newMRoot))
+        clientStateMVar.flatMap(_.put(ClientState(newMRoot)))
       }
     }
 
     override def recoverState(): Task[Unit] = {
       logger.debug(s"Recover client state for put; mRoot=$merkleRoot")
-      clientStateMVar.put(ClientState(merkleRoot))
+      clientStateMVar.flatMap(_.put(ClientState(merkleRoot)))
     }
 
   }
@@ -231,7 +232,8 @@ class MerkleBTreeClient[K] private (
     logger.debug(s"initGet starts for key=$key")
 
     for {
-      clientState ← clientStateMVar.take
+      csMVar ← clientStateMVar
+      clientState ← csMVar.take
     } yield SearchStateImpl(key, clientState.merkleRoot.copy)
 
   }
@@ -245,7 +247,8 @@ class MerkleBTreeClient[K] private (
     logger.debug(s"initRange starts for from=$from")
 
     for {
-      clientState ← clientStateMVar.take
+      csMVar ← clientStateMVar
+      clientState ← csMVar.take
     } yield SearchStateImpl(from, clientState.merkleRoot.copy)
 
   }
@@ -260,7 +263,8 @@ class MerkleBTreeClient[K] private (
     logger.debug(s"initPut starts put for key=$key, value=$valueChecksum")
 
     for {
-      clientState ← clientStateMVar.take
+      csMVar ← clientStateMVar
+      clientState ← csMVar.take
     } yield PutStateImpl(key, valueChecksum, clientState.merkleRoot.copy)
 
   }
