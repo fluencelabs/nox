@@ -89,14 +89,18 @@ object GrpcMonix {
       observable.subscribe(stream: Observer[T])
 
     def pullable: () ⇒ Task[T] = {
-      val variable = MVar.empty[T]
+      val variable = MVar.empty[T].memoize
 
       observable.subscribe(
-        nextFn = v ⇒ variable.put(v).map(_ ⇒ Ack.Continue).runAsync
+        nextFn = v ⇒
+          (for {
+            vr ← variable
+            _ ← vr.put(v)
+          } yield Ack.Continue).runAsync
       )
 
       () ⇒
-        variable.take
+        variable.flatMap(_.take)
     }
   }
 

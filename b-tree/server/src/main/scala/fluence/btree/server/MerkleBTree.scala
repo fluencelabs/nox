@@ -79,7 +79,7 @@ class MerkleBTree private[server] (
   /* number of tree levels */
   private val depth = AtomicInt(0)
   /* mutex for single-thread access to a tree */
-  private val globalMutex = TaskSemaphore(1)
+  private val globalMutex = TaskSemaphore(1).memoize
 
   /* Public methods */
 
@@ -95,7 +95,7 @@ class MerkleBTree private[server] (
    * @return reference to value that corresponds search Key, or None if Key was not found in tree
    */
   def get(cmd: Get): Task[Option[ValueRef]] = {
-    globalMutex.greenLight(getRoot.flatMap(root ⇒ getForRoot(root, cmd)))
+    globalMutex.flatMap(_.greenLight(getRoot.flatMap(root ⇒ getForRoot(root, cmd))))
   }
 
   /**
@@ -113,7 +113,7 @@ class MerkleBTree private[server] (
    */
   def range(cmd: Range): Observable[(Key, ValueRef)] = {
     Observable
-      .fromTask(globalMutex.greenLight(getRoot))
+      .fromTask(globalMutex.flatMap(_.greenLight(getRoot)))
       .flatMap(mRoot ⇒ rangeForRoot(mRoot, cmd))
   }
 
@@ -137,7 +137,7 @@ class MerkleBTree private[server] (
    *          in insert case will be created new reference to value
    */
   def put(cmd: Put): Task[ValueRef] = {
-    globalMutex.greenLight(getRoot.flatMap(root ⇒ putForRoot(root, cmd)))
+    globalMutex.flatMap(_.greenLight(getRoot.flatMap(root ⇒ putForRoot(root, cmd))))
   }
 
   def getDepth: Int = depth.get // todo remove depth or move to root node

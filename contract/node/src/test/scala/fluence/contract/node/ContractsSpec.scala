@@ -65,7 +65,7 @@ class ContractsSpec extends WordSpec with Matchers {
     kademlia: Kademlia[Coeval, String],
     cacheRpc: ContractsCacheRpc[Coeval, BasicContract],
     allocatorRpc: ContractAllocatorRpc[Coeval, BasicContract],
-    allocator: Contracts[Coeval, BasicContract, String]
+    allocator: Contracts[Coeval, BasicContract]
   )
 
   import TestKademlia.CoevalParallel
@@ -95,7 +95,7 @@ class ContractsSpec extends WordSpec with Matchers {
           _ ⇒ Coeval.unit,
           signer
         ),
-        new Contracts(
+        Contracts[Coeval, Coeval, BasicContract, String](
           10,
           _ ⇒ 20,
           kad,
