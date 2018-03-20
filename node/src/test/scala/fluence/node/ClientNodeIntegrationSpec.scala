@@ -406,13 +406,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   /** Makes many writes and read with range */
   private def verifyRangeQueries(
     datasetStorage: ClientDatasetStorageApi[Task, Observable, String, String],
-    numberOfKeys: Int = 128
+    numberOfKeys: Int = 32
   ): Unit = {
 
     val allRecords = Random.shuffle(1 to numberOfKeys).map(i ⇒ { f"k$i%04d" → f"v$i%04d" })
 
     // invoke numberOfKeys puts
-    Task.sequence(allRecords.map { case (k, v) ⇒ datasetStorage.put(k, v) }).taskValue(Some(timeout(Span(15, Seconds))))
+    Task.sequence(allRecords.map { case (k, v) ⇒ datasetStorage.put(k, v) }).taskValue(Some(timeout(Span(20, Seconds))))
 
     val firstKey = "k0001"
     val midKey = f"k${numberOfKeys / 2}%04d"
