@@ -9,21 +9,10 @@ import scalariform.formatter.preferences._
 
 object SbtCommons {
 
-  val scalariformPrefs = scalariformPreferences := scalariformPreferences.value
-    .setPreference(AlignSingleLineCaseStatements, true)
-    .setPreference(DoubleIndentConstructorArguments, true)
-    .setPreference(PreserveSpaceBeforeArguments, true)
-    .setPreference(RewriteArrowSymbols, true)
-    .setPreference(DoubleIndentConstructorArguments, true)
-    .setPreference(DanglingCloseParenthesis, Preserve)
-    .setPreference(SpaceBeforeContextColon, true)
-    .setPreference(NewlineAtEndOfFile, true)
-
   val scalaV = scalaVersion := "2.12.4"
 
   val commons = Seq(
     scalaV,
-    scalariformPrefs,
     version                   := "0.1",
     fork in Test              := true,
     parallelExecution in Test := false,
