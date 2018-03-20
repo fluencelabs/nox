@@ -17,7 +17,7 @@
 
 package fluence.btree.core
 
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 class HashJvmSpec extends WordSpec with Matchers {
   "ArrayHashOps.rewriteValue" should {

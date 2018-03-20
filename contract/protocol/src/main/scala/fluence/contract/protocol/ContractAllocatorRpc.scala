@@ -26,6 +26,7 @@ import scala.language.higherKinds
  * @tparam C Contract
  */
 trait ContractAllocatorRpc[F[_], C] {
+
   /**
    * Offer a contract. Node should check and preallocate required resources, save offer, and sign it
    *

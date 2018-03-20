@@ -17,14 +17,15 @@
 
 package fluence.storage
 
-import cats.{ ApplicativeError, Eval, ~> }
+import cats.{~>, ApplicativeError, Eval}
 
 import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
 
 class TrieMapKVStore[F[_], K, V](
-    private val data: TrieMap[K, V] = TrieMap.empty[K, V]
-)(implicit F: ApplicativeError[F, Throwable]) extends KVStore[F, K, V] {
+  private val data: TrieMap[K, V] = TrieMap.empty[K, V]
+)(implicit F: ApplicativeError[F, Throwable])
+    extends KVStore[F, K, V] {
 
   protected def iterator: Iterator[(K, V)] = data.iterator
 
@@ -42,7 +43,7 @@ class TrieMapKVStore[F[_], K, V](
    * @param key   The specified key to be inserted
    * @param value The value associated with the specified key
    */
-  override def put(key: K, value: V): F[Unit] = F.catchNonFatalEval(Eval.later(data(key)= value))
+  override def put(key: K, value: V): F[Unit] = F.catchNonFatalEval(Eval.later(data(key) = value))
 
   /**
    * Removes pair (K, V) for specified key.
@@ -63,8 +64,11 @@ object TrieMapKVStore {
   /**
    * Build an in-memory KVStore with TraversableKVStore support
    */
-  def withTraverse[F[_], FS[_], K, V](fromIterator: Iterator ~> FS)(implicit F: ApplicativeError[F, Throwable]): KVStore[F, K, V] with TraversableKVStore[FS, K, V] =
+  def withTraverse[F[_], FS[_], K, V](
+    fromIterator: Iterator ~> FS
+  )(implicit F: ApplicativeError[F, Throwable]): KVStore[F, K, V] with TraversableKVStore[FS, K, V] =
     new TrieMapKVStore[F, K, V]() with TraversableKVStore[FS, K, V] {
+
       /**
        * Return all pairs (K, V) for specified dataSet.
        *

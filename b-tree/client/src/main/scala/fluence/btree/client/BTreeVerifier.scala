@@ -18,12 +18,11 @@
 package fluence.btree.client
 
 import cats.syntax.eq._
-import fluence.btree.common._
-import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath, MerkleRootCalculator, NodeProof }
-import fluence.btree.core.{ ClientPutDetails, Hash, Key }
+import fluence.btree.common.merkle.{GeneralNodeProof, MerklePath, MerkleRootCalculator, NodeProof}
+import fluence.btree.core.{ClientPutDetails, Hash, Key}
 import fluence.crypto.hash.CryptoHasher
 
-import scala.collection.Searching.{ Found, InsertionPoint }
+import scala.collection.Searching.{Found, InsertionPoint}
 
 /**
  * Arbiter for checking correctness of Btree server responses.
@@ -33,8 +32,8 @@ import scala.collection.Searching.{ Found, InsertionPoint }
  * @param merkleRootCalculator Merkle proof service that allows calculate merkle root from merkle path
  */
 class BTreeVerifier(
-    cryptoHasher: CryptoHasher[Array[Byte], Hash],
-    merkleRootCalculator: MerkleRootCalculator
+  cryptoHasher: CryptoHasher[Array[Byte], Hash],
+  merkleRootCalculator: MerkleRootCalculator
 ) extends slogging.LazyLogging {
 
   /**
@@ -127,15 +126,12 @@ class BTreeVerifier(
       case ClientPutDetails(cipherKey, valChecksum, InsertionPoint(_)) ⇒
         val keyValChecksum = cryptoHasher.hash(cipherKey.bytes, valChecksum.bytes)
 
-        val mPathAfterInserting = clientMPath.path
-          .lastOption
-          .map {
-            case proof @ GeneralNodeProof(_, childrenChecksums, idx) ⇒
-              val lastProofAfterInserting =
-                proof.copy(childrenChecksums = childrenChecksums.insertValue(keyValChecksum, idx))
-              MerklePath(clientMPath.path.init :+ lastProofAfterInserting)
-          }
-          .getOrElse(MerklePath(Seq(GeneralNodeProof(Hash.empty, Array(keyValChecksum), 0))))
+        val mPathAfterInserting = clientMPath.path.lastOption.map {
+          case proof @ GeneralNodeProof(_, childrenChecksums, idx) ⇒
+            val lastProofAfterInserting =
+              proof.copy(childrenChecksums = childrenChecksums.insertValue(keyValChecksum, idx))
+            MerklePath(clientMPath.path.init :+ lastProofAfterInserting)
+        }.getOrElse(MerklePath(Seq(GeneralNodeProof(Hash.empty, Array(keyValChecksum), 0))))
 
         merkleRootCalculator.calcMerkleRoot(mPathAfterInserting)
     }

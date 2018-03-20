@@ -21,11 +21,15 @@ import java.io.File
 
 import fluence.crypto.KeyStore
 import scopt.Read.reads
-import scopt.{ OptionParser, Read }
+import scopt.{OptionParser, Read}
 
 // TODO: actually it isn't used
 object ArgsParser {
-  case class CommandLineConfig(config: Option[File] = None, seed: Seq[String] = Seq.empty, keyStore: Option[KeyStore] = None)
+  case class CommandLineConfig(
+    config: Option[File] = None,
+    seed: Seq[String] = Seq.empty,
+    keyStore: Option[KeyStore] = None
+  )
 
   implicit val keyStoreRead: Read[KeyStore] = {
     reads { str ⇒
@@ -36,15 +40,18 @@ object ArgsParser {
   private lazy val parser = new OptionParser[CommandLineConfig]("fluenceClient") {
     head("Fluence client")
 
-    opt[File]('c', "config").valueName("<file>")
+    opt[File]('c', "config")
+      .valueName("<file>")
       .action((x, c) ⇒ c.copy(config = Some(x)))
       .text("Path to config file")
 
-    opt[Seq[String]]('s', "seed").valueName("<seed1>,<seed2>...")
+    opt[Seq[String]]('s', "seed")
+      .valueName("<seed1>,<seed2>...")
       .action((x, c) ⇒ c.copy(seed = x))
       .text("Initial kademlia nodes contacts in base64 to connect with")
 
-    opt[KeyStore]('k', "keystore").valueName("<keystore>")
+    opt[KeyStore]('k', "keystore")
+      .valueName("<keystore>")
       .action((x, c) ⇒ c.copy(keyStore = Some(x)))
       .text("Key pair in base64")
 

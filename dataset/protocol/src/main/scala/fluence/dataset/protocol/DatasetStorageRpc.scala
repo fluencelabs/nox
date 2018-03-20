@@ -17,7 +17,7 @@
 
 package fluence.dataset.protocol
 
-import fluence.btree.protocol.BTreeRpc.{ SearchCallback, PutCallbacks, RemoveCallback }
+import fluence.btree.protocol.BTreeRpc.{PutCallbacks, RemoveCallback, SearchCallback}
 
 import scala.language.higherKinds
 

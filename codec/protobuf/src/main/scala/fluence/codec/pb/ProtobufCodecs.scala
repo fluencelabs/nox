@@ -17,7 +17,7 @@
 
 package fluence.codec.pb
 
-import cats.{ Applicative, MonadError }
+import cats.{Applicative, MonadError}
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.kad.protocol.Key
@@ -27,7 +27,7 @@ import scala.language.higherKinds
 
 object ProtobufCodecs {
 
-  implicit def byteVectorByteString[F[_] : Applicative]: Codec[F, ByteString, ByteVector] =
+  implicit def byteVectorByteString[F[_]: Applicative]: Codec[F, ByteString, ByteVector] =
     Codec.pure(
       str ⇒ ByteVector(str.toByteArray),
       vec ⇒ ByteString.copyFrom(vec.toArray)

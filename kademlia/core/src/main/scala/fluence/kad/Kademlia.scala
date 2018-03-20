@@ -20,9 +20,9 @@ package fluence.kad
 import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.eq._
-import cats.{ MonadError, Parallel }
+import cats.{MonadError, Parallel}
 import fluence.kad.RoutingTable._
-import fluence.kad.protocol.{ KademliaRpc, Key, Node }
+import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import slogging.LazyLogging
 
 import scala.concurrent.duration.Duration
@@ -41,10 +41,10 @@ import scala.util.control.NoStackTrace
  * @tparam C Contact info
  */
 abstract class Kademlia[F[_], C](
-    val nodeId: Key,
-    parallelism: Int,
-    val pingExpiresIn: Duration,
-    checkNode: Node[C] ⇒ F[Boolean]
+  val nodeId: Key,
+  parallelism: Int,
+  val pingExpiresIn: Duration,
+  checkNode: Node[C] ⇒ F[Boolean]
 )(implicit F: MonadError[F, Throwable], P: Parallel[F, F], BW: Bucket.WriteOps[F, C], SW: Siblings.WriteOps[F, C]) {
   self ⇒
 
@@ -105,10 +105,13 @@ abstract class Kademlia[F[_], C](
      */
     override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[C]]] = {
       logger.trace(s"HandleRPC($nodeId): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
-    }.pure[F].map(_ ⇒
-      nodeId.lookupAway(key, moveAwayFrom)
-        .take(numberOfNodes)
-    )
+    }.pure[F]
+      .map(
+        _ ⇒
+          nodeId
+            .lookupAway(key, moveAwayFrom)
+            .take(numberOfNodes)
+      )
   }
 
   /**
@@ -124,7 +127,9 @@ abstract class Kademlia[F[_], C](
       case None ⇒
         callIterative(
           key,
-          n ⇒ if (n.key === key) F.pure(()) else F.raiseError[Unit](new RuntimeException("Mismatching node") with NoStackTrace),
+          n ⇒
+            if (n.key === key) F.pure(())
+            else F.raiseError[Unit](new RuntimeException("Mismatching node") with NoStackTrace),
           numToCollect = 1,
           maxNumOfCalls = maxRequests
         ).map(_.headOption.map(_._1))
@@ -151,8 +156,16 @@ abstract class Kademlia[F[_], C](
    * @tparam A fn call type
    * @return Sequence of nodes with corresponding successful replies, should be >= numToCollect in case of success
    */
-  def callIterative[A](key: Key, fn: Node[C] ⇒ F[A], numToCollect: Int, maxNumOfCalls: Int, isIdempotentFn: Boolean = true): F[Seq[(Node[C], A)]] =
-    nodeId.callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn, rpc, pingExpiresIn, checkNode).map(_.toSeq)
+  def callIterative[A](
+    key: Key,
+    fn: Node[C] ⇒ F[A],
+    numToCollect: Int,
+    maxNumOfCalls: Int,
+    isIdempotentFn: Boolean = true
+  ): F[Seq[(Node[C], A)]] =
+    nodeId
+      .callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn, rpc, pingExpiresIn, checkNode)
+      .map(_.toSeq)
 
   /**
    * Joins the Kademlia network by a list of known peers. Fails if no join operations performed successfully

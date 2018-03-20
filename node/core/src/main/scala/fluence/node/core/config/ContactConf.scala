@@ -24,21 +24,20 @@ import com.typesafe.config.Config
 import net.ceedubs.ficus.readers.ValueReader
 
 case class ContactConf(
-    host: Option[InetAddress],
-    grpcPort: Option[Int],
-
-    gitHash: String,
-    protocolVersion: Long
+  host: Option[InetAddress],
+  grpcPort: Option[Int],
+  gitHash: String,
+  protocolVersion: Long
 )
 
 object ContactConf {
+
   def read(config: Config): IO[ContactConf] =
     IO {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
       implicit val inetAddressRead: ValueReader[InetAddress] =
-        (config: Config, path: String) ⇒
-          InetAddress.getByName(config.as[String](path))
+        (config: Config, path: String) ⇒ InetAddress.getByName(config.as[String](path))
       config.as[ContactConf]("fluence.network.contact")
     }
 }

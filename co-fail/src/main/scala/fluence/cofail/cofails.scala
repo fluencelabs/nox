@@ -68,7 +68,7 @@ object CryptoErr {
 
   def apply(reason: Throwable): CryptoErr = new CryptoErr(reason.getMessage)
 
-  def catchNonFatal[F[_] : Applicative, A](errorText: ⇒ String, a: ⇒ A): EitherT[F, CryptoErr, A] =
+  def catchNonFatal[F[_]: Applicative, A](errorText: ⇒ String, a: ⇒ A): EitherT[F, CryptoErr, A] =
     try EitherT.pure(a)
     catch {
       case NonFatal(e) ⇒ EitherT.leftT(CryptoErr(errorText + " " + e.getLocalizedMessage))

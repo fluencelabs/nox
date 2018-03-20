@@ -21,14 +21,15 @@ import cats.Applicative
 import cats.data.EitherT
 
 import scala.language.higherKinds
-import scala.util.control.{ NoStackTrace, NonFatal }
+import scala.util.control.{NoStackTrace, NonFatal}
 
 @deprecated("Use co-fail's CryptoErr instead", "21.02.2018")
 case class CryptoErr(errorMessage: String) extends Throwable(errorMessage) with NoStackTrace
 
 object CryptoErr {
+
   @deprecated("Use co-fail's CryptoErr.catchNonFatal instead", "21.02.2018")
-  def nonFatalHandling[F[_] : Applicative, A](a: ⇒ A)(errorText: String): EitherT[F, CryptoErr, A] = {
+  def nonFatalHandling[F[_]: Applicative, A](a: ⇒ A)(errorText: String): EitherT[F, CryptoErr, A] = {
     try EitherT.pure(a)
     catch {
       case NonFatal(e) ⇒ EitherT.leftT(CryptoErr(errorText + ": " + e.getLocalizedMessage))

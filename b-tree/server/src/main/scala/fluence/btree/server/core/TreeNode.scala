@@ -55,14 +55,13 @@ sealed trait TreeNode[K] {
  * @tparam C The type of reference to child nodes
  */
 case class LeafNode[K, V, C](
-    override val keys: Array[K],
-    valuesReferences: Array[V],
-    valuesChecksums: Array[Hash],
-    kvChecksums: Array[Hash],
-
-    override val size: Int,
-    override val checksum: Hash,
-    rightSibling: Option[C]
+  override val keys: Array[K],
+  valuesReferences: Array[V],
+  valuesChecksums: Array[Hash],
+  kvChecksums: Array[Hash],
+  override val size: Int,
+  override val checksum: Hash,
+  rightSibling: Option[C]
 ) extends TreeNode[K] {
   override def toString: String = LeafNode.show(this)
 }
@@ -139,12 +138,11 @@ object LeafNode {
  * @tparam C The type of reference to child nodes
  */
 case class BranchNode[K, C](
-    override val keys: Array[K],
-    childsReferences: Array[C],
-    childsChecksums: Array[Hash],
-
-    override val size: Int,
-    override val checksum: Hash
+  override val keys: Array[K],
+  childsReferences: Array[C],
+  childsChecksums: Array[Hash],
+  override val size: Int,
+  override val checksum: Hash
 ) extends TreeNode[K] {
   override def toString: String = BranchNode.show(this)
 }

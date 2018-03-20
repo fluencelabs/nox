@@ -29,10 +29,11 @@ import scala.language.higherKinds
  * This is naive implementation of replication and it will be removed in future.
  */
 class ClientReplicationWrapper[K, V](
-    datasetReplicas: List[(ClientDatasetStorageApi[Task, Observable, K, V], Contact)]
+  datasetReplicas: List[(ClientDatasetStorageApi[Task, Observable, K, V], Contact)]
 ) extends ClientDatasetStorageApi[Task, Observable, K, V] with slogging.LazyLogging {
 
   private val replicationFactor = datasetReplicas.size
+
   /**
    * Gets stored value for specified key from first server.
    *
@@ -93,12 +94,10 @@ class ClientReplicationWrapper[K, V](
     for {
       //check that all datasets is available, for demo purpose only
       getRes ← Task.sequence(
-        datasetReplicas
-          .map { case (store, _) ⇒ store.get(key) }
+        datasetReplicas.map { case (store, _) ⇒ store.get(key) }
       )
       res ← Task.sequence(
-        datasetReplicas
-          .map { case (store, _) ⇒ store.put(key, value) }
+        datasetReplicas.map { case (store, _) ⇒ store.put(key, value) }
       )
     } yield {
       logger.info(s"$key and $value was written to $replicationFactor nodes")

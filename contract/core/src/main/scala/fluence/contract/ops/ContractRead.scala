@@ -21,8 +21,8 @@ import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ MonadError, Traverse }
-import fluence.crypto.signature.{ Signature, SignatureChecker }
+import cats.{MonadError, Traverse}
+import fluence.crypto.signature.{Signature, SignatureChecker}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
@@ -33,6 +33,7 @@ import scala.language.higherKinds
  * @tparam C Contract's type
  */
 trait ContractRead[C] {
+
   /**
    * Cluster ID
    *
@@ -114,12 +115,10 @@ object ContractRead {
      */
     def getParticipantsBytes: ByteVector =
       // TODO: review, document & optimize
-      participants
-        .toSeq
+      participants.toSeq
         .sorted(Key.relativeOrdering(id))
-        .map(k ⇒
-          participantSignature(k).fold(ByteVector.empty)(_.sign)
-        ).foldLeft(id.value)(_ ++ _)
+        .map(k ⇒ participantSignature(k).fold(ByteVector.empty)(_.sign))
+        .foldLeft(id.value)(_ ++ _)
 
     /**
      * Checks that client's seal for the contract offer is correct
@@ -137,7 +136,9 @@ object ContractRead {
      * @param signature Signature to check
      * @param checker Signature checker
      */
-    def checkOfferSignature[F[_]](signature: Signature)(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Unit] =
+    def checkOfferSignature[F[_]](
+      signature: Signature
+    )(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Unit] =
       checker.check[F](signature, getOfferBytes).value.map(_.isRight) // TODO EitherT
 
     /**
@@ -164,10 +165,12 @@ object ContractRead {
      * @param participant Participating node's key
      * @param checker Signature checker
      */
-    def participantSigned[F[_]](participant: Key)(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] = {
+    def participantSigned[F[_]](
+      participant: Key
+    )(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] = {
       participantSignature(participant) match {
         case Some(ps) ⇒ checkOfferSignature(ps).map(_ ⇒ Key.checkPublicKey(participant, ps.publicKey))
-        case None     ⇒ F.pure(false)
+        case None ⇒ F.pure(false)
       }
     }
 
@@ -191,7 +194,7 @@ object ContractRead {
         participants ← Traverse[List].traverse(participants.map(participantSigned(_)).toList)(identity)
         participantSealResult ← participantsSeal.filter(seal ⇒ Key.checkPublicKey(id, seal.publicKey)) match {
           case Some(sign) ⇒ checker.check[F](sign, getParticipantsBytes).value.map(_.isRight)
-          case None       ⇒ F.pure(false)
+          case None ⇒ F.pure(false)
         }
       } yield offerSealResult && participants.forall(identity) && participantSealResult
     }

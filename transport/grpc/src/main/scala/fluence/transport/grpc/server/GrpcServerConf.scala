@@ -18,5 +18,5 @@
 package fluence.transport.grpc.server
 
 case class GrpcServerConf(
-    port: Int
+  port: Int
 )

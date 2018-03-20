@@ -32,7 +32,7 @@ import fluence.kad.protocol.Key
 import fluence.storage.KVStore
 
 import scala.concurrent.duration.FiniteDuration
-import scala.language.{ higherKinds, implicitConversions }
+import scala.language.{higherKinds, implicitConversions}
 
 /**
  * Contracts cache.
@@ -45,10 +45,12 @@ import scala.language.{ higherKinds, implicitConversions }
  * @tparam F Effect
  * @tparam C Contract
  */
-class ContractsCache[F[_], C : ContractRead](
-    nodeId: Key,
-    storage: KVStore[F, Key, ContractRecord[C]],
-    cacheTtl: FiniteDuration)(implicit ME: MonadError[F, Throwable], checker: SignatureChecker) extends ContractsCacheRpc[F, C] {
+class ContractsCache[F[_], C: ContractRead](
+  nodeId: Key,
+  storage: KVStore[F, Key, ContractRecord[C]],
+  cacheTtl: FiniteDuration
+)(implicit ME: MonadError[F, Throwable], checker: SignatureChecker)
+    extends ContractsCacheRpc[F, C] {
 
   import ContractRead._
 

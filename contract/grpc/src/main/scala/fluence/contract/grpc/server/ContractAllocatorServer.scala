@@ -17,21 +17,22 @@
 
 package fluence.contract.grpc.server
 
-import cats.{ Monad, ~> }
+import cats.{~>, Monad}
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractAllocatorRpc
-import fluence.contract.grpc.{ BasicContract, ContractAllocatorGrpc }
+import fluence.contract.grpc.{BasicContract, ContractAllocatorGrpc}
 
 import scala.concurrent.Future
 import scala.language.higherKinds
 
-class ContractAllocatorServer[F[_], C](contractAllocator: ContractAllocatorRpc[F, C])(implicit
-    F: Monad[F],
-    codec: Codec[F, C, BasicContract],
-    run: F ~> Future)
-  extends ContractAllocatorGrpc.ContractAllocator {
+class ContractAllocatorServer[F[_], C](contractAllocator: ContractAllocatorRpc[F, C])(
+  implicit
+  F: Monad[F],
+  codec: Codec[F, C, BasicContract],
+  run: F ~> Future
+) extends ContractAllocatorGrpc.ContractAllocator {
 
   override def offer(request: BasicContract): Future[BasicContract] =
     run(

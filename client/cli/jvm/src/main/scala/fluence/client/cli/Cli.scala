@@ -18,7 +18,7 @@
 package fluence.client.cli
 
 import cats.effect.IO
-import cats.{ Applicative, MonadError }
+import cats.{Applicative, MonadError}
 import com.typesafe.config.Config
 import fluence.client.core.FluenceClient
 import fluence.client.core.config.AesConfigParser
@@ -40,16 +40,17 @@ object Cli extends slogging.LazyLogging {
   private val lineReader = LineReaderBuilder.builder().terminal(terminal).build()
   private val readLine = IO(lineReader.readLine("fluence< "))
 
-  def cryptoMethods[F[_] : Applicative](
+  def cryptoMethods[F[_]: Applicative](
     secretKey: KeyPair.Secret,
     config: Config
   )(implicit F: MonadError[F, Throwable]): Task[(AesCrypt[F, String], AesCrypt[F, String])] = {
     for {
       aesConfig ← AesConfigParser.readAesConfigOrGetDefault[Task](config)
-    } yield (
-      AesCrypt.forString(secretKey.value, withIV = false, aesConfig),
-      AesCrypt.forString(secretKey.value, withIV = true, aesConfig)
-    )
+    } yield
+      (
+        AesCrypt.forString(secretKey.value, withIV = false, aesConfig),
+        AesCrypt.forString(secretKey.value, withIV = true, aesConfig)
+      )
   }
 
   def restoreDataset(
@@ -93,7 +94,7 @@ object Cli extends slogging.LazyLogging {
             res ← ds.get(k)
             printRes = res match {
               case Some(r) ⇒ "\"" + r + "\""
-              case None    ⇒ "<null>"
+              case None ⇒ "<null>"
             }
             _ = logger.info("Result: " + printRes)
           } yield true

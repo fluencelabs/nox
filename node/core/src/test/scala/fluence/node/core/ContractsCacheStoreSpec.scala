@@ -18,15 +18,15 @@
 package fluence.node.core
 
 import cats.effect.IO
-import com.typesafe.config.{ ConfigException, ConfigFactory }
+import com.typesafe.config.{ConfigException, ConfigFactory}
 import fluence.codec.Codec
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.kad.protocol.Key
-import fluence.storage.{ KVStore, TrieMapKVStore }
-import org.scalatest.{ Matchers, WordSpec }
+import fluence.storage.{KVStore, TrieMapKVStore}
+import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
 class ContractsCacheStoreSpec extends WordSpec with Matchers {
@@ -68,7 +68,8 @@ class ContractsCacheStoreSpec extends WordSpec with Matchers {
     }
 
     "performs all operations success" in {
-      val store: KVStore[IO, Key, ContractRecord[BasicContract]] = ContractsCacheStore(config, createKVStore).unsafeRunSync()
+      val store: KVStore[IO, Key, ContractRecord[BasicContract]] =
+        ContractsCacheStore(config, createKVStore).unsafeRunSync()
 
       val seed = "seed".getBytes()
       val keyPair = KeyPair.fromBytes(seed, seed)

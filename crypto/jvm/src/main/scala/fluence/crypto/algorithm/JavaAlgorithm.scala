@@ -21,7 +21,7 @@ import java.security.Security
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 
-import scala.language.{ higherKinds, implicitConversions }
+import scala.language.{higherKinds, implicitConversions}
 
 /**
  * trait that initializes a JVM-specific provider to work with cryptography
@@ -31,6 +31,7 @@ private[crypto] trait JavaAlgorithm extends Algorithm {
 }
 
 object JavaAlgorithm {
+
   /**
    * add JVM-specific security provider in class loader
    */

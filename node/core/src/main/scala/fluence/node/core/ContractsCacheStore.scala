@@ -24,7 +24,7 @@ import cats.instances.list._
 import cats.instances.option._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ MonadError, Traverse }
+import cats.{MonadError, Traverse}
 import com.google.protobuf.ByteString
 import com.typesafe.config.Config
 import fluence.codec.Codec
@@ -34,7 +34,7 @@ import fluence.contract.node.cache.ContractRecord
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
 import fluence.kad.protocol.Key
-import fluence.node.persistence.{ BasicContractCache, Participant }
+import fluence.node.persistence.{BasicContractCache, Participant}
 import fluence.storage.KVStore
 import fluence.codec.pb.ProtobufCodecs._
 import scodec.bits.ByteVector
@@ -82,26 +82,20 @@ object ContractsCacheStore {
 
           merkleRootBs ← strVec.encode(bc.executionState.merkleRoot)
 
-        } yield BasicContractCache(
-          id = idBs,
-          publicKey = pkBs,
-
-          participantsRequired = bc.offer.participantsRequired,
-
-          offerSeal = offSBs,
-
-          participants = participantsBs,
-
-          participantsSeal = participantsSealBs.getOrElse(ByteString.EMPTY),
-
-          version = bc.executionState.version,
-          merkleRoot = merkleRootBs,
-          executionSeal = executionSealBs.getOrElse(ByteString.EMPTY),
-
-          lastUpdated = contractRec.lastUpdated.toEpochMilli
-        )
+        } yield
+          BasicContractCache(
+            id = idBs,
+            publicKey = pkBs,
+            participantsRequired = bc.offer.participantsRequired,
+            offerSeal = offSBs,
+            participants = participantsBs,
+            participantsSeal = participantsSealBs.getOrElse(ByteString.EMPTY),
+            version = bc.executionState.version,
+            merkleRoot = merkleRootBs,
+            executionSeal = executionSealBs.getOrElse(ByteString.EMPTY),
+            lastUpdated = contractRec.lastUpdated.toEpochMilli
+          )
       },
-
       basicContractCache ⇒ {
         def read[T](name: String, f: BasicContractCache ⇒ T): F[T] =
           Option(f(basicContractCache))
@@ -141,31 +135,25 @@ object ContractsCacheStore {
           execSeal ← optStrVecC.decode(toOption(basicContractCache.executionSeal))
 
           lastUpdated ← read("lastUpdated", _.lastUpdated)
-        } yield ContractRecord(
-
-          contract.BasicContract(
-            id = id,
-
-            offer = fluence.contract.BasicContract.Offer(
-              participantsRequired = participantsRequired
+        } yield
+          ContractRecord(
+            contract.BasicContract(
+              id = id,
+              offer = fluence.contract.BasicContract.Offer(
+                participantsRequired = participantsRequired
+              ),
+              offerSeal = Signature(pk, offerSealVec),
+              participants = participants.toMap,
+              participantsSeal = participantsSealOpt
+                .map(Signature(pk, _)),
+              executionState = BasicContract.ExecutionState(
+                version = version,
+                merkleRoot = merkleRoot
+              ),
+              executionSeal = execSeal.map(Signature(pk, _))
             ),
-
-            offerSeal = Signature(pk, offerSealVec),
-
-            participants = participants.toMap,
-
-            participantsSeal = participantsSealOpt
-              .map(Signature(pk, _)),
-
-            executionState = BasicContract.ExecutionState(
-              version = version,
-              merkleRoot = merkleRoot
-            ),
-            executionSeal = execSeal.map(Signature(pk, _))
-
-          ),
-          Instant.ofEpochMilli(lastUpdated)
-        )
+            Instant.ofEpochMilli(lastUpdated)
+          )
       }
     )
   }
@@ -173,7 +161,9 @@ object ContractsCacheStore {
   private def toOption[F[_]](byteStr: ByteString) = if (byteStr.isEmpty) None else Option(byteStr)
 
   /** Creates [[fluence.codec.Codec]] instance for {{{BasicContractCache}}} and {{{Array[Byte]}}} */
-  private def contractCache2Bytes[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, BasicContractCache, Array[Byte]] =
+  private def contractCache2Bytes[F[_]](
+    implicit F: MonadError[F, Throwable]
+  ): Codec[F, BasicContractCache, Array[Byte]] =
     Codec[F, BasicContractCache, Array[Byte]](
       bcc ⇒ F.pure(bcc.toByteArray),
       bytes ⇒ F.pure(BasicContractCache.parseFrom(bytes))

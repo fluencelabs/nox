@@ -19,11 +19,11 @@ package fluence.crypto
 
 import cats.data.EitherT
 import cats.instances.try_._
-import fluence.crypto.algorithm.{ CryptoErr, Ecdsa }
-import org.scalatest.{ Matchers, WordSpec }
+import fluence.crypto.algorithm.{CryptoErr, Ecdsa}
+import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
-import scala.util.{ Random, Try }
+import scala.util.{Random, Try}
 
 class EcdsaSpec extends WordSpec with Matchers {
 
@@ -32,10 +32,12 @@ class EcdsaSpec extends WordSpec with Matchers {
   def rndByteVector(size: Int) = ByteVector(rndBytes(size))
 
   private implicit class TryEitherTExtractor[A <: Throwable, B](et: EitherT[Try, A, B]) {
-    def extract: B = et.value.map {
-      case Left(e)  ⇒ fail(e) // for making test fail message more describable
-      case Right(v) ⇒ v
-    }.get
+
+    def extract: B =
+      et.value.map {
+        case Left(e) ⇒ fail(e) // for making test fail message more describable
+        case Right(v) ⇒ v
+      }.get
 
     def isOk: Boolean = et.value.fold(_ ⇒ false, _.isRight)
   }
@@ -81,7 +83,11 @@ class EcdsaSpec extends WordSpec with Matchers {
       val sign = signer.sign(data).extract
 
       the[CryptoErr] thrownBy algo.checker.check(sign.copy(sign = rndByteVector(10)), data).value.flatMap(_.toTry).get
-      the[CryptoErr] thrownBy algo.checker.check(sign.copy(publicKey = sign.publicKey.copy(value = rndByteVector(10))), data).value.flatMap(_.toTry).get
+      the[CryptoErr] thrownBy algo.checker
+        .check(sign.copy(publicKey = sign.publicKey.copy(value = rndByteVector(10))), data)
+        .value
+        .flatMap(_.toTry)
+        .get
     }
   }
 }

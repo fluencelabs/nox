@@ -23,6 +23,6 @@ package fluence.crypto.algorithm
  * @param salt Salt, which will be mixed with the password
  */
 case class AesConfig(
-    iterationCount: Int = 50,
-    salt: String = "fluence"
+  iterationCount: Int = 50,
+  salt: String = "fluence"
 )

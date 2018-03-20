@@ -24,5 +24,5 @@ import fluence.crypto.keypair.KeyPair
 import scala.language.higherKinds
 
 trait KeyGenerator {
-  def generateKeyPair[F[_] : Monad](seed: Option[Array[Byte]] = None): EitherT[F, CryptoErr, KeyPair]
+  def generateKeyPair[F[_]: Monad](seed: Option[Array[Byte]] = None): EitherT[F, CryptoErr, KeyPair]
 }

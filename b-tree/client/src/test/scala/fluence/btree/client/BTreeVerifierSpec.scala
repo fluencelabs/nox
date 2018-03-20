@@ -17,12 +17,12 @@
 
 package fluence.btree.client
 
-import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
-import fluence.btree.core.{ ClientPutDetails, Hash, Key }
+import fluence.btree.common.merkle.{GeneralNodeProof, MerklePath}
+import fluence.btree.core.{ClientPutDetails, Hash, Key}
 import fluence.crypto.hash.TestCryptoHasher
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
-import scala.collection.Searching.{ Found, InsertionPoint }
+import scala.collection.Searching.{Found, InsertionPoint}
 
 class BTreeVerifierSpec extends WordSpec with Matchers {
 
@@ -62,8 +62,10 @@ class BTreeVerifierSpec extends WordSpec with Matchers {
       }
       "if server proof isn't correct (second tree lvl checking)" in {
         val proofFromServer = GeneralNodeProof("H<k1k2k3>".toHash, childsChecksums, 0)
-        val clientsProofInMerklePath = GeneralNodeProof("not matter".toHash, Array(child1hash, child2hash, child3hash), 1)
-        verifier.checkProof(proofFromServer, "not matter".toHash, MerklePath(Seq(clientsProofInMerklePath))) shouldBe false
+        val clientsProofInMerklePath =
+          GeneralNodeProof("not matter".toHash, Array(child1hash, child2hash, child3hash), 1)
+        verifier
+          .checkProof(proofFromServer, "not matter".toHash, MerklePath(Seq(clientsProofInMerklePath))) shouldBe false
       }
     }
 
@@ -78,16 +80,26 @@ class BTreeVerifierSpec extends WordSpec with Matchers {
         val expectedServerProofChecksum = proofFromServer.calcChecksum(testHasher, None)
         val expectedServerProofIdx = 1
         val clientsProofInMerklePath =
-          GeneralNodeProof("not matter".toHash, Array(child1hash, expectedServerProofChecksum, child3hash), expectedServerProofIdx)
-        verifier.checkProof(proofFromServer, "not matter".toHash, MerklePath(Seq(clientsProofInMerklePath))) shouldBe true
+          GeneralNodeProof(
+            "not matter".toHash,
+            Array(child1hash, expectedServerProofChecksum, child3hash),
+            expectedServerProofIdx
+          )
+        verifier
+          .checkProof(proofFromServer, "not matter".toHash, MerklePath(Seq(clientsProofInMerklePath))) shouldBe true
       }
       "if server proof is correct for leaf (second tree lvl checking)" in {
         val proofFromServer = GeneralNodeProof(Hash.empty, childsChecksums, 0)
         val expectedServerProofChecksum = proofFromServer.calcChecksum(testHasher, None)
         val expectedServerProofIdx = 1
         val clientsProofInMerklePath =
-          GeneralNodeProof("not matter".toHash, Array(child1hash, expectedServerProofChecksum, child3hash), expectedServerProofIdx)
-        verifier.checkProof(proofFromServer, "not matter".toHash, MerklePath(Seq(clientsProofInMerklePath))) shouldBe true
+          GeneralNodeProof(
+            "not matter".toHash,
+            Array(child1hash, expectedServerProofChecksum, child3hash),
+            expectedServerProofIdx
+          )
+        verifier
+          .checkProof(proofFromServer, "not matter".toHash, MerklePath(Seq(clientsProofInMerklePath))) shouldBe true
       }
     }
   }

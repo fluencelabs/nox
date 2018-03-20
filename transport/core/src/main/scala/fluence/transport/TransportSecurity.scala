@@ -22,7 +22,7 @@ import java.net.InetAddress
 import cats.Applicative
 import cats.syntax.applicative._
 import cats.syntax.eq._
-import fluence.kad.protocol.{ Contact, Key, Node }
+import fluence.kad.protocol.{Contact, Key, Node}
 
 import scala.language.higherKinds
 
@@ -37,25 +37,26 @@ object TransportSecurity {
    * @tparam F Effect
    * @return Function to be called for each node prior to updating RoutingTable; returns F[true] if checks passed
    */
-  def canBeSaved[F[_] : Applicative](self: Key, acceptLocal: Boolean): Node[Contact] ⇒ F[Boolean] =
+  def canBeSaved[F[_]: Applicative](self: Key, acceptLocal: Boolean): Node[Contact] ⇒ F[Boolean] =
     node ⇒ {
       if (node.key === self || !Key.checkPublicKey(node.key, node.contact.publicKey)) false.pure[F]
       else if (acceptLocal) true.pure[F]
-      else try {
-        val ip = InetAddress.getByName(node.contact.addr)
-        val isLocal = ip.isLoopbackAddress ||
-          ip.isAnyLocalAddress ||
-          ip.isLinkLocalAddress ||
-          ip.isSiteLocalAddress ||
-          ip.isMCSiteLocal ||
-          ip.isMCGlobal ||
-          ip.isMCLinkLocal ||
-          ip.isMCNodeLocal ||
-          ip.isMCOrgLocal
-        (!isLocal).pure[F]
-      } catch {
-        case _: Throwable ⇒ false.pure[F] // TODO: return in Either
-      }
+      else
+        try {
+          val ip = InetAddress.getByName(node.contact.addr)
+          val isLocal = ip.isLoopbackAddress ||
+            ip.isAnyLocalAddress ||
+            ip.isLinkLocalAddress ||
+            ip.isSiteLocalAddress ||
+            ip.isMCSiteLocal ||
+            ip.isMCGlobal ||
+            ip.isMCLinkLocal ||
+            ip.isMCNodeLocal ||
+            ip.isMCOrgLocal
+          (!isLocal).pure[F]
+        } catch {
+          case _: Throwable ⇒ false.pure[F] // TODO: return in Either
+        }
     }
 
 }

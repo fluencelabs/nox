@@ -17,27 +17,29 @@
 
 package fluence.kad.grpc.client
 
-import cats.effect.{ Async, IO }
+import cats.effect.{Async, IO}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
-import fluence.kad.protocol.{ Contact, KademliaRpc, Key, Node }
-import fluence.kad.{ grpc, protocol }
+import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
+import fluence.kad.{grpc, protocol}
 import fluence.codec.pb.ProtobufCodecs._
-import io.grpc.{ CallOptions, ManagedChannel }
+import io.grpc.{CallOptions, ManagedChannel}
 
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.language.{ higherKinds, implicitConversions }
+import scala.concurrent.{ExecutionContext, Future}
+import scala.language.{higherKinds, implicitConversions}
 
 /**
  * Implementation of KademliaClient over GRPC, with Task and Contact.
  *
  * @param stub GRPC Kademlia Stub
  */
-class KademliaClient[F[_] : Async](stub: grpc.KademliaGrpc.KademliaStub)(implicit
-    codec: Codec[F, protocol.Node[Contact], grpc.Node],
-    ec: ExecutionContext) extends KademliaRpc[F, Contact] {
+class KademliaClient[F[_]: Async](stub: grpc.KademliaGrpc.KademliaStub)(
+  implicit
+  codec: Codec[F, protocol.Node[Contact], grpc.Node],
+  ec: ExecutionContext
+) extends KademliaRpc[F, Contact] {
 
   private val keyBS = Codec.codec[F, ByteString, Key].inverse
 
@@ -88,18 +90,21 @@ class KademliaClient[F[_] : Async](stub: grpc.KademliaGrpc.KademliaStub)(implici
 }
 
 object KademliaClient {
+
   /**
    * Shorthand to register KademliaClient inside NetworkClient.
    *
    * @param channel     Channel to remote node
    * @param callOptions Call options
    */
-  def register[F[_] : Async]()(
+  def register[F[_]: Async]()(
     channel: ManagedChannel,
     callOptions: CallOptions
-  )(implicit
+  )(
+    implicit
     codec: Codec[F, protocol.Node[Contact], grpc.Node],
-    ec: ExecutionContext): KademliaRpc[F, Contact] =
+    ec: ExecutionContext
+  ): KademliaRpc[F, Contact] =
     new KademliaClient(new grpc.KademliaGrpc.KademliaStub(channel, callOptions))
 
 }

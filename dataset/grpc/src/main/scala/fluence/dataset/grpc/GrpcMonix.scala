@@ -18,14 +18,14 @@
 package fluence.dataset.grpc
 
 import io.grpc.stub.StreamObserver
-import monix.eval.{ MVar, Task }
+import monix.eval.{MVar, Task}
 import monix.execution.Scheduler.Implicits.global
-import monix.execution.{ Ack, Cancelable }
+import monix.execution.{Ack, Cancelable}
 import monix.reactive._
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.util.{ Failure, Success }
+import scala.util.{Failure, Success}
 
 object GrpcMonix {
 
@@ -61,11 +61,11 @@ object GrpcMonix {
     override def onNext(elem: T): Future[Ack] =
       Task(stream.onNext(elem))
         .map(_ ⇒ Ack.Continue)
-        .onErrorHandle {
-          t ⇒
-            onError(t)
-            Ack.Stop
-        }.runAsync
+        .onErrorHandle { t ⇒
+          onError(t)
+          Ack.Stop
+        }
+        .runAsync
   }
 
   def streamObservable[T]: (Observable[T], StreamObserver[T]) = {
@@ -84,6 +84,7 @@ object GrpcMonix {
   }
 
   implicit class ObservableGrpcOps[T](observable: Observable[T]) {
+
     def pipeTo(stream: StreamObserver[T]): Cancelable =
       observable.subscribe(stream: Observer[T])
 
@@ -94,14 +95,16 @@ object GrpcMonix {
         nextFn = v ⇒ variable.put(v).map(_ ⇒ Ack.Continue).runAsync
       )
 
-      () ⇒ variable.take
+      () ⇒
+        variable.take
     }
   }
 
   implicit class ObserverGrpcOps[T](observer: Observer[T]) {
+
     def completeWith(task: Task[T]): Unit =
       task.runAsync.flatMap(observer.onNext).onComplete {
-        case Success(_)  ⇒ observer.onComplete()
+        case Success(_) ⇒ observer.onComplete()
         case Failure(ex) ⇒ observer.onError(ex)
       }
   }

@@ -19,7 +19,7 @@ package fluence.kad.protocol
 
 import java.time.Instant
 
-import cats.{ Order, Show }
+import cats.{Order, Show}
 
 /**
  * Kademlia's Node representation.
@@ -30,9 +30,9 @@ import cats.{ Order, Show }
  * @tparam C Contact info
  */
 case class Node[C](
-    key: Key,
-    lastSeen: Instant,
-    contact: C
+  key: Key,
+  lastSeen: Instant,
+  contact: C
 )
 
 object Node {

@@ -19,7 +19,7 @@ package fluence.btree
 
 import fluence.btree.common.ValueRef
 import fluence.btree.core.Key
-import fluence.btree.server.core.{ BranchNode, LeafNode, NodeWithId, _ }
+import fluence.btree.server.core.{BranchNode, LeafNode, NodeWithId, _}
 import monix.eval.Task
 
 package object server {

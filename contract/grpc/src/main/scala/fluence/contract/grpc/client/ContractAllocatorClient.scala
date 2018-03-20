@@ -17,24 +17,25 @@
 
 package fluence.contract.grpc.client
 
-import cats.effect.{ Async, IO }
+import cats.effect.{Async, IO}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractAllocatorRpc
-import fluence.contract.grpc.{ BasicContract, ContractAllocatorGrpc }
+import fluence.contract.grpc.{BasicContract, ContractAllocatorGrpc}
 import fluence.contract.grpc.ContractAllocatorGrpc.ContractAllocatorStub
-import io.grpc.{ CallOptions, ManagedChannel }
+import io.grpc.{CallOptions, ManagedChannel}
 
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
 
-class ContractAllocatorClient[F[_] : Async, C](
-    stub: ContractAllocatorStub
-)(implicit
-    codec: Codec[F, C, BasicContract],
-    ec: ExecutionContext)
-  extends ContractAllocatorRpc[F, C] {
+class ContractAllocatorClient[F[_]: Async, C](
+  stub: ContractAllocatorStub
+)(
+  implicit
+  codec: Codec[F, C, BasicContract],
+  ec: ExecutionContext
+) extends ContractAllocatorRpc[F, C] {
 
   private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
 
@@ -67,18 +68,21 @@ class ContractAllocatorClient[F[_] : Async, C](
 }
 
 object ContractAllocatorClient {
+
   /**
    * Shorthand to register inside NetworkClient.
    *
    * @param channel     Channel to remote node
    * @param callOptions Call options
    */
-  def register[F[_] : Async, C]()(
+  def register[F[_]: Async, C]()(
     channel: ManagedChannel,
     callOptions: CallOptions
-  )(implicit
+  )(
+    implicit
     codec: Codec[F, C, BasicContract],
-    ec: ExecutionContext): ContractAllocatorRpc[F, C] =
+    ec: ExecutionContext
+  ): ContractAllocatorRpc[F, C] =
     new ContractAllocatorClient[F, C](new ContractAllocatorGrpc.ContractAllocatorStub(channel, callOptions))
 
 }

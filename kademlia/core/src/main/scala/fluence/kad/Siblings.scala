@@ -17,11 +17,11 @@
 
 package fluence.kad
 
-import cats.{ Applicative, Show }
+import cats.{Applicative, Show}
 import cats.data.StateT
 import cats.syntax.eq._
 import cats.syntax.functor._
-import fluence.kad.protocol.{ Key, Node }
+import fluence.kad.protocol.{Key, Node}
 
 import scala.collection.SortedSet
 import scala.language.higherKinds

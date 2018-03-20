@@ -18,7 +18,7 @@
 package fluence.crypto
 
 import java.io.File
-import java.nio.file.{ Files, Paths }
+import java.nio.file.{Files, Paths}
 
 import cats.MonadError
 import cats.syntax.flatMap._
@@ -81,6 +81,7 @@ class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) ext
 }
 
 object FileKeyStorage {
+
   /**
    * Generates or loads keypair
    *

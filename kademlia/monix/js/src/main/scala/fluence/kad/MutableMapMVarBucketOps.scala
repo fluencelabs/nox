@@ -18,7 +18,7 @@
 package fluence.kad
 
 import cats.data.StateT
-import monix.eval.{ MVar, Task }
+import monix.eval.{MVar, Task}
 
 /**
  * Implementation of Bucket.WriteOps, based on MVar and mutable map -- good for JS

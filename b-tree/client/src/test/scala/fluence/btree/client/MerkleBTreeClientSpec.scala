@@ -18,17 +18,17 @@
 package fluence.btree.client
 
 import fluence.btree.client.MerkleBTreeClient.ClientState
-import fluence.btree.core.{ Hash, Key }
+import fluence.btree.core.{Hash, Key}
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.TestCryptoHasher
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
-import scala.collection.Searching.{ Found, InsertionPoint }
-import scala.concurrent.duration.{ FiniteDuration, _ }
+import scala.collection.Searching.{Found, InsertionPoint}
+import scala.concurrent.duration.{FiniteDuration, _}
 
 class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
@@ -66,7 +66,8 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val result = wait(
           getCallbacks
             .nextChildIndex(Array("unexpected key returned from server".toKey), childChecksums)
-            .map(_ ⇒ ()).failed
+            .map(_ ⇒ ())
+            .failed
         )
 
         result.getMessage should startWith("Checksum of branch didn't pass verifying")
@@ -83,7 +84,9 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
             .submitLeaf(
               Array(key1.toKey, "unexpected key returned from server".toKey),
               Array(val1Hash.toHash, val2Hash.toHash)
-            ).map(_ ⇒ ()).failed
+            )
+            .map(_ ⇒ ())
+            .failed
         )
 
         result.getMessage should startWith("Checksum of leaf didn't pass verifying")
@@ -141,7 +144,8 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val putCallbacks = wait(client.initPut(key1, val1Hash.toHash))
 
         val childChecksums = Array("H<H<k1v1>H<k2v2>>".toHash, "H<H<k3v3>H<k4v4>>".toHash)
-        val result = wait(putCallbacks.nextChildIndex(Array("unexpected key returned from server".toKey), childChecksums).failed)
+        val result =
+          wait(putCallbacks.nextChildIndex(Array("unexpected key returned from server".toKey), childChecksums).failed)
 
         result.getMessage should startWith("Checksum of branch didn't pass verifying")
       }
@@ -152,10 +156,14 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         val client = createClient("H<H<k1v1>H<k2v2>>")
         val putCallbacks = wait(client.initPut(key1, val1Hash.toHash))
 
-        val result = wait(putCallbacks.putDetails(
-          Array(key1.toKey, "unexpected key returned from server".toKey),
-          Array(val1Hash.toHash, val2Hash.toHash)
-        ).failed)
+        val result = wait(
+          putCallbacks
+            .putDetails(
+              Array(key1.toKey, "unexpected key returned from server".toKey),
+              Array(val1Hash.toHash, val2Hash.toHash)
+            )
+            .failed
+        )
 
         result.getMessage should startWith("Checksum of leaf didn't pass verifying")
       }
@@ -200,7 +208,10 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
           for {
             _ ← putCallbacks.nextChildIndex(Array(key2.toKey), childChecksums)
             _ ← putCallbacks.putDetails(Array(key4.toKey, key5.toKey), Array(val4Hash.toHash, val5Hash.toHash))
-            _ ← putCallbacks.verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k3v3-cs>H<k4v4-cs>H<k5v5-cs>>>".toHash, wasSplitting = false)
+            _ ← putCallbacks.verifyChanges(
+              "H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k3v3-cs>H<k4v4-cs>H<k5v5-cs>>>".toHash,
+              wasSplitting = false
+            )
             _ ← putCallbacks.changesStored()
           } yield ()
         ) shouldBe ()
@@ -216,7 +227,8 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
           for {
             _ ← putCallbacks.nextChildIndex(Array(key2.toKey), childChecksums)
             _ ← putCallbacks.putDetails(Array(key4.toKey, key5.toKey), Array(val4Hash.toHash, val5Hash.toHash))
-            _ ← putCallbacks.verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v3-cs>H<k5v5-cs>>>".toHash, wasSplitting = false)
+            _ ← putCallbacks
+              .verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v3-cs>H<k5v5-cs>>>".toHash, wasSplitting = false)
             _ ← putCallbacks.changesStored()
           } yield ()
         ) shouldBe ()

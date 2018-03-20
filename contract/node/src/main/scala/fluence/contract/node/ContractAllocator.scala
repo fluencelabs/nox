@@ -23,15 +23,15 @@ import cats.syntax.eq._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.show._
-import cats.{ Eq, MonadError }
-import fluence.contract.ops.{ ContractRead, ContractWrite }
+import cats.{Eq, MonadError}
+import fluence.contract.ops.{ContractRead, ContractWrite}
 import fluence.contract.protocol.ContractAllocatorRpc
-import fluence.crypto.signature.{ SignatureChecker, Signer }
+import fluence.crypto.signature.{SignatureChecker, Signer}
 import fluence.contract.node.cache.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.storage.KVStore
 
-import scala.language.{ higherKinds, implicitConversions }
+import scala.language.{higherKinds, implicitConversions}
 
 /**
  * Performs contracts allocation on local node.
@@ -43,17 +43,17 @@ import scala.language.{ higherKinds, implicitConversions }
  * @tparam F Effect
  * @tparam C Contract
  */
-class ContractAllocator[F[_], C : ContractRead : ContractWrite](
-    nodeId: Key,
-    storage: KVStore[F, Key, ContractRecord[C]],
-    createDataset: C ⇒ F[Unit],
-    checkAllocationPossible: C ⇒ F[Unit],
-    signer: Signer
+class ContractAllocator[F[_], C: ContractRead: ContractWrite](
+  nodeId: Key,
+  storage: KVStore[F, Key, ContractRecord[C]],
+  createDataset: C ⇒ F[Unit],
+  checkAllocationPossible: C ⇒ F[Unit],
+  signer: Signer
 )(
-    implicit
-    ME: MonadError[F, Throwable],
-    eq: Eq[C],
-    checker: SignatureChecker
+  implicit
+  ME: MonadError[F, Throwable],
+  eq: Eq[C],
+  checker: SignatureChecker
 ) extends ContractAllocatorRpc[F, C] with slogging.LazyLogging {
 
   import ContractRead._
@@ -67,19 +67,24 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
    */
   override def allocate(contract: C): F[C] = {
     for {
-      _ ← illegalIfNo(contract.participantSigned(nodeId), "Contract should be offered to this node and signed by it prior to allocation")
+      _ ← illegalIfNo(
+        contract.participantSigned(nodeId),
+        "Contract should be offered to this node and signed by it prior to allocation"
+      )
       _ ← illegalIfNo(contract.isActiveContract(), "Contract should be active -- sealed by client")
       contract ← storage.get(contract.id).attempt.map(_.toOption).flatMap {
         case Some(cr) ⇒
           cr.contract.isBlankOffer().flatMap {
             case false ⇒ cr.contract.pure[F]
-            case true  ⇒ storage.remove(contract.id).flatMap(_ ⇒ putContract(contract))
+            case true ⇒ storage.remove(contract.id).flatMap(_ ⇒ putContract(contract))
           }
         case None ⇒
           putContract(contract)
       }
     } yield {
-      logger.info(s"Contract with id=${contract.id.show} was successfully allocated, this node (${nodeId.show}) is contract participant now")
+      logger.info(
+        s"Contract with id=${contract.id.show} was successfully allocated, this node (${nodeId.show}) is contract participant now"
+      )
       contract
     }
   }

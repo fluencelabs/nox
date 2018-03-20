@@ -29,14 +29,14 @@ import scala.language.higherKinds
 
 class DumbSign extends KeyGenerator with SignatureFunctions {
 
-  override def generateKeyPair[F[_] : Monad](seed: Option[Array[Byte]] = None): EitherT[F, CryptoErr, KeyPair] = {
+  override def generateKeyPair[F[_]: Monad](seed: Option[Array[Byte]] = None): EitherT[F, CryptoErr, KeyPair] = {
     val s = seed.getOrElse(new SecureRandom().generateSeed(10))
     EitherT.pure(KeyPair.fromBytes(s, s))
   }
 
-  override def sign[F[_] : Monad](keyPair: KeyPair, message: ByteVector): EitherT[F, CryptoErr, Signature] =
+  override def sign[F[_]: Monad](keyPair: KeyPair, message: ByteVector): EitherT[F, CryptoErr, Signature] =
     EitherT.pure(Signature(keyPair.publicKey, message.reverse))
 
-  override def verify[F[_] : Monad](signature: Signature, message: ByteVector): EitherT[F, CryptoErr, Unit] =
+  override def verify[F[_]: Monad](signature: Signature, message: ByteVector): EitherT[F, CryptoErr, Unit] =
     EitherT.cond[F](signature.sign == message.reverse, (), CryptoErr("Invalid Signature"))
 }

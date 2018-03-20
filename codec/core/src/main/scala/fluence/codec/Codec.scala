@@ -18,11 +18,11 @@
 package fluence.codec
 
 import cats.data.Kleisli
-import cats.{ Applicative, ApplicativeError, FlatMap, Traverse }
+import cats.{Applicative, ApplicativeError, FlatMap, Traverse}
 import cats.syntax.applicative._
 import scodec.bits.ByteVector
 
-import scala.language.{ higherKinds, implicitConversions }
+import scala.language.{higherKinds, implicitConversions}
 
 /**
  * Base trait for serialize/deserialize objects.
@@ -48,10 +48,12 @@ final case class Codec[F[_], A, B](encode: A ⇒ F[B], decode: B ⇒ F[A]) {
 }
 
 object Codec {
-  implicit def identityCodec[F[_] : Applicative, T]: Codec[F, T, T] =
+  implicit def identityCodec[F[_]: Applicative, T]: Codec[F, T, T] =
     Codec(_.pure[F], _.pure[F])
 
-  implicit def traverseCodec[F[_] : Applicative, G[_] : Traverse, O, B](implicit codec: Codec[F, O, B]): Codec[F, G[O], G[B]] =
+  implicit def traverseCodec[F[_]: Applicative, G[_]: Traverse, O, B](
+    implicit codec: Codec[F, O, B]
+  ): Codec[F, G[O], G[B]] =
     Codec[F, G[O], G[B]](Traverse[G].traverse[F, O, B](_)(codec.encode), Traverse[G].traverse[F, B, O](_)(codec.decode))
 
   implicit def toDirect[F[_], A, B](implicit cod: Codec[F, A, B]): Kleisli[F, A, B] =
@@ -63,17 +65,18 @@ object Codec {
   implicit def swap[F[_], A, B](implicit cod: Codec[F, A, B]): Codec[F, B, A] =
     Codec[F, B, A](cod.decode, cod.encode)
 
-  implicit def byteVectorArray[F[_] : Applicative]: Codec[F, Array[Byte], ByteVector] =
+  implicit def byteVectorArray[F[_]: Applicative]: Codec[F, Array[Byte], ByteVector] =
     pure(ByteVector.apply, _.toArray)
 
   // TODO: descriptive error
   implicit def byteVectorB64[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, String, ByteVector] =
     Codec(
       str ⇒
-        ByteVector.fromBase64(str).fold[F[ByteVector]](
-          F.raiseError(new IllegalArgumentException(s"Given string is not valid b64: $str"))
-        )(_.pure[F]),
-
+        ByteVector
+          .fromBase64(str)
+          .fold[F[ByteVector]](
+            F.raiseError(new IllegalArgumentException(s"Given string is not valid b64: $str"))
+          )(_.pure[F]),
       _.toBase64.pure[F]
     )
 
@@ -89,6 +92,6 @@ object Codec {
    * @tparam B Encoded type
    * @return New codec for O and B
    */
-  def pure[F[_] : Applicative, O, B](encodeFn: O ⇒ B, decodeFn: B ⇒ O): Codec[F, O, B] =
+  def pure[F[_]: Applicative, O, B](encodeFn: O ⇒ B, decodeFn: B ⇒ O): Codec[F, O, B] =
     Codec(encodeFn(_).pure[F], decodeFn(_).pure[F])
 }

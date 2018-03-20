@@ -32,9 +32,9 @@ import scala.language.higherKinds
  * @param assertions Configuration of 'assertions' for checking inner state btree invariants.
  */
 case class MerkleBTreeConfig(
-    arity: Int = 8,
-    alpha: Double = 0.25D,
-    assertions: Assertions = Assertions(isKeyOrderRequired = false)
+  arity: Int = 8,
+  alpha: Double = 0.25D,
+  assertions: Assertions = Assertions(isKeyOrderRequired = false)
 ) {
   require(arity % 2 == 0, "arity should be even")
   require(0 < alpha && alpha < 0.5, "alpha should be between 0 and 0.5")
@@ -44,7 +44,9 @@ object MerkleBTreeConfig {
 
   val ConfigPath = "fluence.merkleBTree"
 
-  def read[F[_]](conf: Config, configPath: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[MerkleBTreeConfig] =
+  def read[F[_]](conf: Config, configPath: String = ConfigPath)(
+    implicit F: ApplicativeError[F, Throwable]
+  ): F[MerkleBTreeConfig] =
     F.catchNonFatal {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
@@ -53,7 +55,7 @@ object MerkleBTreeConfig {
 
   /** Configuration of 'assertions' for checking inner state btree invariants. */
   case class Assertions(
-      isKeyOrderRequired: Boolean
+    isKeyOrderRequired: Boolean
   )
 
 }

@@ -20,10 +20,10 @@ package fluence.contract
 import java.nio.ByteBuffer
 
 import cats.syntax.flatMap._
-import cats.{ Eq, MonadError }
+import cats.{Eq, MonadError}
 import fluence.contract.BasicContract.ExecutionState
-import fluence.contract.ops.{ ContractRead, ContractWrite }
-import fluence.crypto.signature.{ Signature, Signer }
+import fluence.contract.ops.{ContractRead, ContractWrite}
+import fluence.crypto.signature.{Signature, Signer}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
@@ -41,18 +41,13 @@ import scala.language.higherKinds
  * @param executionSeal Client's signature for executionState
  */
 case class BasicContract(
-    id: Key,
-
-    offer: BasicContract.Offer,
-
-    offerSeal: Signature,
-
-    participants: Map[Key, Signature],
-
-    participantsSeal: Option[Signature],
-
-    executionState: ExecutionState,
-    executionSeal: Option[Signature]
+  id: Key,
+  offer: BasicContract.Offer,
+  offerSeal: Signature,
+  participants: Map[Key, Signature],
+  participantsSeal: Option[Signature],
+  executionState: ExecutionState,
+  executionSeal: Option[Signature]
 )
 
 object BasicContract {
@@ -68,15 +63,20 @@ object BasicContract {
   }
 
   case class ExecutionState(
-      version: Long,
-      merkleRoot: ByteVector
+    version: Long,
+    merkleRoot: ByteVector
   )
 
-  def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(implicit F: MonadError[F, Throwable]): F[BasicContract] =
-    {
-      val offer = Offer(participantsRequired)
-      signer.sign(offer.getBytes).map(BasicContract(id, offer, _, Map.empty, None, ExecutionState(0, ByteVector.empty), None)).value.flatMap(F.fromEither)
-    }
+  def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(
+    implicit F: MonadError[F, Throwable]
+  ): F[BasicContract] = {
+    val offer = Offer(participantsRequired)
+    signer
+      .sign(offer.getBytes)
+      .map(BasicContract(id, offer, _, Map.empty, None, ExecutionState(0, ByteVector.empty), None))
+      .value
+      .flatMap(F.fromEither)
+  }
 
   // TODO: there should be contract laws, like "init empty - not signed -- sign offer -- signed, no participants -- add participant -- ..."
 
@@ -92,6 +92,7 @@ object BasicContract {
   }
 
   implicit object BasicContractRead extends ContractRead[BasicContract] {
+
     /**
      * Dataset ID
      *

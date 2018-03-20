@@ -24,6 +24,4 @@ import java.time.Instant
  *
  * @tparam C contract's type
  */
-case class ContractRecord[C](
-    contract: C,
-    lastUpdated: Instant = Instant.now())
+case class ContractRecord[C](contract: C, lastUpdated: Instant = Instant.now())

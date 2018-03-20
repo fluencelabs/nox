@@ -17,7 +17,7 @@
 
 package fluence.client.core
 
-import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.KademliaRpc
 import monix.reactive.Observable

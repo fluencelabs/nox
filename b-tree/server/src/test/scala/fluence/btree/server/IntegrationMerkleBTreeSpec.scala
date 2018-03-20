@@ -22,9 +22,9 @@ import java.nio.ByteBuffer
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.common.merkle.MerkleRootCalculator
-import fluence.btree.core.{ Hash, Key }
-import fluence.btree.server.commands.{ PutCommandImpl, SearchCommandImpl }
-import fluence.btree.server.core.{ BTreeBinaryStore, NodeOps }
+import fluence.btree.core.{Hash, Key}
+import fluence.btree.server.commands.{PutCommandImpl, SearchCommandImpl}
+import fluence.btree.server.core.{BTreeBinaryStore, NodeOps}
 import fluence.codec.kryo.KryoCodecs
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.storage.TrieMapKVStore
@@ -33,9 +33,9 @@ import monix.execution.ExecutionModel
 import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.time.{ Milliseconds, Seconds, Span }
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
-import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
+import org.scalatest.time.{Milliseconds, Seconds, Span}
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
@@ -152,14 +152,18 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
         // insert 1024 unique values
 
-        val putRes1 = wait(Task.gather(
-          Random.shuffle(1 to 512).map(i ⇒ {
-            for {
-              cb ← client.initPut(f"k$i%04d", f"v$i%04d".toHash)
-              res ← bTree.put(PutCommandImpl(mRCalc, cb, () ⇒ counter.incrementAndGet()))
-            } yield res
-          })
-        ))
+        val putRes1 = wait(
+          Task.gather(
+            Random
+              .shuffle(1 to 512)
+              .map(i ⇒ {
+                for {
+                  cb ← client.initPut(f"k$i%04d", f"v$i%04d".toHash)
+                  res ← bTree.put(PutCommandImpl(mRCalc, cb, () ⇒ counter.incrementAndGet()))
+                } yield res
+              })
+          )
+        )
 
         putRes1 should have size 512
         putRes1 should contain allElementsOf (1 to 512)
@@ -227,14 +231,18 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
         // insert 512 new and 512 duplicated values
 
-        val putRes2 = wait(Task.gather(
-          Random.shuffle(1 to 1024).map(i ⇒ {
-            for {
-              putCb ← client.initPut(f"k$i%04d", f"v$i%04d new".toHash)
-              res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
-            } yield res
-          })
-        ))
+        val putRes2 = wait(
+          Task.gather(
+            Random
+              .shuffle(1 to 1024)
+              .map(i ⇒ {
+                for {
+                  putCb ← client.initPut(f"k$i%04d", f"v$i%04d new".toHash)
+                  res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
+                } yield res
+              })
+          )
+        )
 
         putRes2 should have size 1024
         putRes2 should contain allElementsOf (1 to 1024)
@@ -333,7 +341,6 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
       .add[Node]
       .add[Option[NodeId]]
       .add[None.type]
-
       .addCase(classOf[Leaf])
       .addCase(classOf[Branch])
       .build[Task]()

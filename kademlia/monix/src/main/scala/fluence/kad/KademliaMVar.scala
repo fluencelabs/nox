@@ -21,9 +21,9 @@ import java.time.Instant
 
 import cats.data.StateT
 import cats.kernel.Monoid
-import cats.{ MonadError, Parallel }
-import fluence.kad.protocol.{ KademliaRpc, Key, Node }
-import monix.eval.{ MVar, Task }
+import cats.{MonadError, Parallel}
+import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import monix.eval.{MVar, Task}
 import monix.execution.atomic.AtomicAny
 
 import scala.language.implicitConversions
@@ -47,16 +47,17 @@ object KademliaMVar {
     rpcForContact: C ⇒ KademliaRpc[Task, C],
     conf: KademliaConf,
     checkNode: Node[C] ⇒ Task[Boolean]
-  ): Kademlia[Task, C] = new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
-    implicitly[MonadError[Task, Throwable]],
-    implicitly[Parallel[Task, Task]],
-    MVarBucketOps.task[C](conf.maxBucketSize),
-    KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
-  ) {
-    override def rpc(contact: C): KademliaRpc[Task, C] = rpcForContact(contact)
+  ): Kademlia[Task, C] =
+    new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
+      implicitly[MonadError[Task, Throwable]],
+      implicitly[Parallel[Task, Task]],
+      MVarBucketOps.task[C](conf.maxBucketSize),
+      KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
+    ) {
+      override def rpc(contact: C): KademliaRpc[Task, C] = rpcForContact(contact)
 
-    override def ownContact: Task[Node[C]] = contact.map(c ⇒ Node(nodeId, Instant.now(), c))
-  }
+      override def ownContact: Task[Node[C]] = contact.map(c ⇒ Node(nodeId, Instant.now(), c))
+    }
 
   /**
    * Builder for client-side implementation of KademliaMVar

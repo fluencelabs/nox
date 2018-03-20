@@ -40,10 +40,10 @@ class BTreeBinaryStore[F[_], Id, Node](
   kvStore: KVStore[F, Array[Byte], Array[Byte]],
   valueIdGenerator: () ⇒ Id,
 )(
-    implicit
-    idCodec: Codec[F, Id, Array[Byte]],
-    nodeCodec: Codec[F, Node, Array[Byte]],
-    F: MonadError[F, Throwable]
+  implicit
+  idCodec: Codec[F, Id, Array[Byte]],
+  nodeCodec: Codec[F, Node, Array[Byte]],
+  F: MonadError[F, Throwable]
 ) extends BTreeStore[F, Id, Node] {
 
   override def nextId(): Id =
