@@ -72,13 +72,13 @@ class DatasetStorageClient[F[_] : Effect](
       })
       .multicast
 
-    val clientError = MVar(Option.empty[Throwable])
+    val clientError = MVar.empty[ClientError]
 
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
     def handleClientErr(err: Throwable): F[GetCallbackReply] = {
       run(
         clientError
-          .put(Some(ClientError(err.getMessage)))
+          .put(ClientError(err.getMessage))
           .map(_ ⇒ GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage))))
       )
     }
@@ -128,7 +128,7 @@ class DatasetStorageClient[F[_] : Effect](
       ) ++ handleAsks
     ).subscribe(pushClientReply) // And clientReply response back to server
 
-    val errorOrValue =
+    val serverErrOrVal =
       pullServerAsk
         .collect { // Collect terminal task with value/error
           case ask if ask.isServerError ⇒
@@ -146,12 +146,9 @@ class DatasetStorageClient[F[_] : Effect](
                   .filterNot(_.isEmpty)
                   .map(_.toByteArray)
               }
-        }.headL.flatten // Take the first option value or server error
+        }.headOptionL // Take the first option value or server error
 
-    run(clientError.read.flatMap {
-      case Some(clientErr) ⇒ Task.raiseError(clientErr) // return occurred clients error
-      case None            ⇒ errorOrValue // return success result or server error
-    })
+    composeResult(clientError, serverErrOrVal)
 
   }
 
@@ -179,7 +176,7 @@ class DatasetStorageClient[F[_] : Effect](
       })
       .multicast
 
-    val clientError = MVar.empty[Throwable]
+    val clientError = MVar.empty[ClientError]
 
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
     def handleClientErr(err: Throwable): F[RangeCallbackReply] = {
@@ -271,13 +268,13 @@ class DatasetStorageClient[F[_] : Effect](
       })
       .multicast
 
-    val clientError = MVar(Option.empty[Throwable])
+    val clientError = MVar.empty[ClientError]
 
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
     def handleClientErr(err: Throwable): F[PutCallbackReply] = {
       run(
         clientError
-          .put(Some(ClientError(err.getMessage)))
+          .put(ClientError(err.getMessage))
           .map(_ ⇒ PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage))))
       )
     }
@@ -355,7 +352,7 @@ class DatasetStorageClient[F[_] : Effect](
       ) ++ handleAsks
     ).subscribe(pushClientReply) // And push response back to server
 
-    val errorOrValue =
+    val serverErrOrVal =
       pullServerAsk
         .collect { // Collect terminal task with value/error
           case ask if ask.isServerError ⇒
@@ -373,12 +370,9 @@ class DatasetStorageClient[F[_] : Effect](
                   .filterNot(_.isEmpty)
                   .map(_.toByteArray)
               }
-        }.headL.flatten // Take the first option value or server error
+        }.headOptionL // Take the first option value or server error
 
-    run(clientError.read.flatMap {
-      case Some(clientErr) ⇒ Task.raiseError(clientErr) // return occurred clients error
-      case None            ⇒ errorOrValue // return success result or server error
-    })
+    composeResult(clientError, serverErrOrVal)
 
   }
 
@@ -390,6 +384,21 @@ class DatasetStorageClient[F[_] : Effect](
    * @return returns old value that was deleted, None if nothing was deleted.
    */
   override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[F]): F[Option[Array[Byte]]] = ???
+
+  /** Returns either client error if present, or server error, or value from server */
+  private def composeResult(
+    clientError: MVar[ClientError],
+    serverErrOrVal: Task[Option[Task[Option[Array[Byte]]]]]
+  ): F[Option[Array[Byte]]] =
+    run(Task.raceMany(Seq(
+      clientError.take.flatMap(err ⇒ Task.raiseError(err)), // trying return success result or server error
+      serverErrOrVal.flatMap {
+        // return success result or server error
+        case Some(errOrValue) ⇒ errOrValue
+        // return occurred clients error
+        case None             ⇒ clientError.read.flatMap(err ⇒ Task.raiseError(err))
+      }
+    )))
 
 }
 
