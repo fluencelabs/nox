@@ -17,6 +17,8 @@
 
 package fluence.contract.node
 
+import java.time.Clock
+
 import cats.instances.try_._
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
@@ -31,6 +33,7 @@ import scala.concurrent.duration._
 
 class ContractsCacheSpec extends WordSpec with Matchers {
 
+  private val clock = Clock.systemUTC()
   def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
   val algo = SignAlgo.dumb
   import algo.checker
@@ -51,7 +54,7 @@ class ContractsCacheSpec extends WordSpec with Matchers {
   }
 
   val cache: ContractsCache[Coeval, BasicContract] =
-    new ContractsCache[Coeval, BasicContract](nodeId, store, 1.minute)
+    new ContractsCache[Coeval, BasicContract](nodeId, store, 1.minute, clock)
 
   import fluence.contract.ops.ContractWrite._
 

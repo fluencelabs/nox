@@ -17,7 +17,7 @@
 
 package fluence.node.core
 
-import java.time.Instant
+import java.time.Clock
 
 import cats.effect.IO
 import com.typesafe.config.Config
@@ -52,7 +52,8 @@ object NodeComposer {
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     kadClient: Contact ⇒ KademliaRpc[Task, Contact],
     config: Config,
-    acceptLocal: Boolean
+    acceptLocal: Boolean,
+    clock: Clock
   ): IO[Services] =
     for {
       k ← Key.fromKeyPair[IO](keyPair)
@@ -82,7 +83,8 @@ object NodeComposer {
         new ContractsCache[Task, BasicContract](
           nodeId = k,
           storage = contractsCacheStore,
-          cacheTtl = 1.day
+          cacheTtl = 1.day,
+          clock
         )
 
       override lazy val contractAllocator: ContractAllocatorRpc[Task, BasicContract] =
@@ -91,7 +93,8 @@ object NodeComposer {
           storage = contractsCacheStore,
           createDataset = _ ⇒ Task.unit, // TODO: dataset creation
           checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
-          signer = signer
+          signer = signer,
+          clock
         )
 
       override lazy val datasets: DatasetStorageRpc[Task, Observable] =
@@ -119,7 +122,7 @@ object NodeComposer {
                     merkleRoot = mr
                   )
                 ),
-                lastUpdated = Instant.now()
+                lastUpdated = clock.instant()
               )
               _ ← contractsCacheStore.put(dsId, u)
             } yield () // TODO: schedule broadcasting the contract to kademlia

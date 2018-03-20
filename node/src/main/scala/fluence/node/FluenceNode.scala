@@ -18,6 +18,7 @@
 package fluence.node
 
 import java.io.File
+import java.time.Clock
 
 import cats.effect.IO
 import cats.instances.list._
@@ -116,7 +117,12 @@ object FluenceNode extends slogging.LazyLogging {
    * @return IO that will shutdown the node once ran
    */
   // todo write unit test, this method don't close resources correctly when initialisation failed
-  private def launchGrpc(algo: SignAlgo, hasher: CryptoHasher[Array[Byte], Array[Byte]], config: Config): IO[FluenceNode] = {
+  private def launchGrpc(
+    algo: SignAlgo,
+    hasher: CryptoHasher[Array[Byte], Array[Byte]],
+    config: Config,
+    clock: Clock = Clock.systemUTC()
+  ): IO[FluenceNode] = {
     import algo.checker
     for {
       _ ← initDirectory(config.getString("fluence.directory")) // TODO config
@@ -144,7 +150,8 @@ object FluenceNode extends slogging.LazyLogging {
       client ← NodeGrpc.grpcClient(key, contact, config)
       kadClient = client(_: Contact).kademlia
 
-      services ← NodeComposer.services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true).onFail(upnpShutdown)
+      services ← NodeComposer.services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true, clock)
+        .onFail(upnpShutdown)
       closeUpNpAndServices = upnpShutdown.flatMap(_ ⇒ services.close)
 
       server ← NodeGrpc.grpcServer(services, builder, config).onFail(closeUpNpAndServices)

@@ -17,6 +17,8 @@
 
 package fluence.contract.node
 
+import java.time.Clock
+
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.eq._
@@ -48,7 +50,8 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
     storage: KVStore[F, Key, ContractRecord[C]],
     createDataset: C ⇒ F[Unit],
     checkAllocationPossible: C ⇒ F[Unit],
-    signer: Signer
+    signer: Signer,
+    clock: Clock
 )(
     implicit
     ME: MonadError[F, Throwable],
@@ -87,7 +90,7 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
   private def putContract(contract: C): F[C] = {
     for {
       _ ← checkAllocationPossible(contract)
-      _ ← storage.put(contract.id, ContractRecord(contract))
+      _ ← storage.put(contract.id, ContractRecord(contract, clock.instant()))
       _ ← createDataset(contract).onError {
         case e ⇒
           storage.remove(contract.id).flatMap(_ ⇒ ME.raiseError(e))
@@ -119,7 +122,7 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
                 for {
                   _ ← storage.remove(contract.id)
                   _ ← checkAllocationPossible(contract)
-                  _ ← storage.put(contract.id, ContractRecord(contract))
+                  _ ← storage.put(contract.id, ContractRecord(contract, clock.instant()))
                   sContract ← signedContract
                 } yield sContract
               } else {
@@ -130,7 +133,7 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
           case None ⇒
             for {
               _ ← checkAllocationPossible(contract)
-              _ ← storage.put(contract.id, ContractRecord(contract))
+              _ ← storage.put(contract.id, ContractRecord(contract, clock.instant()))
               sContract ← signedContract
             } yield sContract
         }

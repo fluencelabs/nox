@@ -17,15 +17,17 @@
 
 package fluence.contract.node
 
-import cats.instances.try_._
+import java.time.Clock
+
 import cats.implicits.catsStdShowForString
+import cats.instances.try_._
 import fluence.contract.BasicContract
-import fluence.crypto.SignAlgo
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.Signer
 import fluence.contract.client.Contracts
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.crypto.SignAlgo
+import fluence.crypto.keypair.KeyPair
+import fluence.crypto.signature.Signer
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
 import fluence.kad.testkit.TestKademlia
@@ -40,6 +42,7 @@ import scala.util.Random
 
 class ContractsSpec extends WordSpec with Matchers {
 
+  private val clock = Clock.systemUTC()
   val dsCreated = TrieMap.empty[String, Set[Key]].withDefaultValue(Set.empty)
   val algo = SignAlgo.dumb
   import algo.checker
@@ -86,14 +89,16 @@ class ContractsSpec extends WordSpec with Matchers {
         new ContractsCache[Coeval, BasicContract](
           kad.nodeId,
           store,
-          1.second
+          1.second,
+          clock
         ),
         new ContractAllocator(
           kad.nodeId,
           store,
           createDS(contact),
           _ ⇒ Coeval.unit,
-          signer
+          signer,
+          clock
         ),
         new Contracts(
           10,

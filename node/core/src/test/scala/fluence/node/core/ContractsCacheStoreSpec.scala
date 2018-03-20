@@ -17,6 +17,8 @@
 
 package fluence.node.core
 
+import java.time.Clock
+
 import cats.effect.IO
 import com.typesafe.config.{ ConfigException, ConfigFactory }
 import fluence.codec.Codec
@@ -32,6 +34,7 @@ import scodec.bits.ByteVector
 class ContractsCacheStoreSpec extends WordSpec with Matchers {
 
   private val config = ConfigFactory.load()
+  private val clock = Clock.systemUTC()
 
   implicit val strVec: Codec[IO, Array[Byte], ByteVector] = Codec.byteVectorArray
   implicit val idCodec: Codec[IO, Array[Byte], Array[Byte]] = Codec.identityCodec
@@ -76,8 +79,8 @@ class ContractsCacheStoreSpec extends WordSpec with Matchers {
       val signer = signAlgo.signer(keyPair)
 
       val key1 = Key.fromKeyPair[IO](keyPair).unsafeRunSync()
-      val val1 = ContractRecord(BasicContract.offer[IO](key1, 2, signer).unsafeRunSync())
-      val val2 = ContractRecord(BasicContract.offer[IO](key1, 4, signer).unsafeRunSync())
+      val val1 = ContractRecord(BasicContract.offer[IO](key1, 2, signer).unsafeRunSync(), clock.instant())
+      val val2 = ContractRecord(BasicContract.offer[IO](key1, 4, signer).unsafeRunSync(), clock.instant())
 
       val get1 = store.get(key1).attempt.unsafeRunSync()
       get1.left.get shouldBe a[NoSuchElementException]

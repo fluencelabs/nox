@@ -17,13 +17,13 @@
 
 package fluence.contract.node
 
-import java.time.Instant
+import java.time.Clock
 
 import cats.MonadError
 import cats.syntax.applicative._
-import cats.syntax.functor._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.ops.ContractRead
 import fluence.contract.protocol.ContractsCacheRpc
@@ -48,7 +48,9 @@ import scala.language.{ higherKinds, implicitConversions }
 class ContractsCache[F[_], C : ContractRead](
     nodeId: Key,
     storage: KVStore[F, Key, ContractRecord[C]],
-    cacheTtl: FiniteDuration)(implicit ME: MonadError[F, Throwable], checker: SignatureChecker) extends ContractsCacheRpc[F, C] {
+    cacheTtl: FiniteDuration,
+    clock: Clock
+)(implicit ME: MonadError[F, Throwable], checker: SignatureChecker) extends ContractsCacheRpc[F, C] {
 
   import ContractRead._
 
@@ -59,7 +61,7 @@ class ContractsCache[F[_], C : ContractRead](
   // TODO: remove Instant.now() usage
   private def isExpired(cr: ContractRecord[C]): Boolean =
     !cr.contract.participants.contains(nodeId) &&
-      java.time.Duration.between(cr.lastUpdated, Instant.now()).toMillis >= ttlMillis
+      java.time.Duration.between(cr.lastUpdated, clock.instant()).toMillis >= ttlMillis
 
   private def canBeCached(contract: C): F[Boolean] = {
     if (cacheEnabled && !contract.participants.contains(nodeId))
@@ -103,7 +105,7 @@ class ContractsCache[F[_], C : ContractRead](
         storage.get(contract.id).attempt.map(_.toOption).flatMap {
           case Some(cr) if cr.contract.version < contract.version ⇒ // Contract updated
             storage
-              .put(contract.id, ContractRecord(contract))
+              .put(contract.id, ContractRecord(contract, clock.instant()))
               .map(_ ⇒ true)
 
           case Some(_) ⇒ // Can't update contract with an old version
@@ -111,7 +113,7 @@ class ContractsCache[F[_], C : ContractRead](
 
           case None ⇒ // Contract is unknown, save it
             storage
-              .put(contract.id, ContractRecord(contract))
+              .put(contract.id, ContractRecord(contract, clock.instant()))
               .map(_ ⇒ true)
         }
     }
