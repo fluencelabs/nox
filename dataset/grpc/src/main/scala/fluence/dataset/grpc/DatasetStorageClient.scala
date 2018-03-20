@@ -72,7 +72,7 @@ class DatasetStorageClient[F[_] : Effect](
       })
       .multicast
 
-    val clientError = MVar.empty[Throwable]
+    val clientError = MVar.empty[ClientError]
 
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
     def handleClientErr(err: Throwable): F[GetCallbackReply] = {
@@ -128,7 +128,7 @@ class DatasetStorageClient[F[_] : Effect](
       ) ++ handleAsks
     ).subscribe(pushClientReply) // And clientReply response back to server
 
-    val errorOrValue =
+    val serverErrOrVal =
       pullServerAsk
         .collect { // Collect terminal task with value/error
           case ask if ask.isServerError ⇒
@@ -146,13 +146,9 @@ class DatasetStorageClient[F[_] : Effect](
                   .filterNot(_.isEmpty)
                   .map(_.toByteArray)
               }
+        }.headOptionL // Take the first option value or server error
 
-        }.headL.flatten // Take the first value, wrapped with Task
-
-    run(Task.raceMany(Seq(
-      clientError.take.flatMap(err ⇒ Task.raiseError(err)), // returns occurred clients error as return value
-      errorOrValue // return success result or server error
-    )))
+    composeResult(clientError, serverErrOrVal)
 
   }
 
@@ -180,15 +176,9 @@ class DatasetStorageClient[F[_] : Effect](
       })
       .multicast
 
-    val clientError = MVar.empty[Throwable]
-
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
     def handleClientErr(err: Throwable): F[RangeCallbackReply] = {
-      run(
-        clientError
-          .put(ClientError(err.getMessage))
-          .map(_ ⇒ RangeCallbackReply(RangeCallbackReply.Reply.ClientError(Error(err.getMessage))))
-      )
+      Effect[F].pure(RangeCallbackReply(RangeCallbackReply.Reply.ClientError(Error(err.getMessage))))
     }
 
     val handleAsks = pullServerAsk
@@ -272,7 +262,7 @@ class DatasetStorageClient[F[_] : Effect](
       })
       .multicast
 
-    val clientError = MVar.empty[Throwable]
+    val clientError = MVar.empty[ClientError]
 
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
     def handleClientErr(err: Throwable): F[PutCallbackReply] = {
@@ -356,7 +346,7 @@ class DatasetStorageClient[F[_] : Effect](
       ) ++ handleAsks
     ).subscribe(pushClientReply) // And push response back to server
 
-    val errorOrValue =
+    val serverErrOrVal =
       pullServerAsk
         .collect { // Collect terminal task with value/error
           case ask if ask.isServerError ⇒
@@ -374,12 +364,9 @@ class DatasetStorageClient[F[_] : Effect](
                   .filterNot(_.isEmpty)
                   .map(_.toByteArray)
               }
-        }.headL.flatten // Take the first value, wrapped with Task
+        }.headOptionL // Take the first option value or server error
 
-    run(Task.raceMany(Seq(
-      clientError.take.flatMap(err ⇒ Task.raiseError(err)), // returns occurred clients error as return value
-      errorOrValue // return success result or server error
-    )))
+    composeResult(clientError, serverErrOrVal)
 
   }
 
@@ -391,6 +378,21 @@ class DatasetStorageClient[F[_] : Effect](
    * @return returns old value that was deleted, None if nothing was deleted.
    */
   override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[F]): F[Option[Array[Byte]]] = ???
+
+  /** Returns either client error if present, or server error, or value from server */
+  private def composeResult(
+    clientError: MVar[ClientError],
+    serverErrOrVal: Task[Option[Task[Option[Array[Byte]]]]]
+  ): F[Option[Array[Byte]]] =
+    run(Task.raceMany(Seq(
+      clientError.read.flatMap(err ⇒ Task.raiseError(err)), // trying return occurred clients error
+      serverErrOrVal.flatMap {
+        // return success result or server error
+        case Some(errOrValue) ⇒ errOrValue
+        // return occurred clients error
+        case None             ⇒ clientError.read.flatMap(err ⇒ Task.raiseError(err))
+      }
+    )))
 
 }
 

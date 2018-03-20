@@ -163,7 +163,7 @@ class DatasetStorageServer[F[_] : Async](
             )
         })
       } yield {
-        logger.info(s"Was found value=${foundValue.show} for client 'get' request for dataset=${did.show}")
+        logger.debug(s"Was found value=${foundValue.show} for client 'get' request for dataset=${did.show}")
         foundValue
       }
 
@@ -267,7 +267,7 @@ class DatasetStorageServer[F[_] : Async](
             )
         })
       } yield {
-        logger.trace(s"Was found value=${valuesStream.show} for client 'range' request for dataset=${did.show}")
+        logger.debug(s"Was found value=${valuesStream.show} for client 'range' request for dataset=${did.show}")
         valuesStream
       }
 
@@ -406,7 +406,7 @@ class DatasetStorageServer[F[_] : Async](
             )
         }, putValue)
       } yield {
-        logger.info(s"Was stored new value=${putValue.show} for client 'put' request for dataset=${did.show}," +
+        logger.debug(s"Was stored new value=${putValue.show} for client 'put' request for dataset=${did.show}," +
           s" old value=${oldValue.show} was overwritten")
         oldValue
       }

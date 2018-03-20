@@ -229,7 +229,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           putResponse shouldBe a[ServerError]
           putResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
 
-          val rangeResponse = datasetStorage.range("start key", "end key").failed.headL.taskValue
+          val rangeResponse = datasetStorage.range("1 start key", "2 end key").failed.headL.taskValue
           rangeResponse shouldBe a[ServerError]
           rangeResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
 
@@ -288,8 +288,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         val datasetStorage = fluence.createNewContract(keyPair, 2, keyCrypt, valueCrypt).taskValue
         verifyReadAndWrite(datasetStorage)
-        // todo enable when understand why travis failed this test
-        //        verifyRangeQueries(datasetStorage)
+        verifyRangeQueries(datasetStorage)
       }
     }
 
@@ -407,13 +406,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   /** Makes many writes and read with range */
   private def verifyRangeQueries(
     datasetStorage: ClientDatasetStorageApi[Task, Observable, String, String],
-    numberOfKeys: Int = 512
+    numberOfKeys: Int = 128
   ): Unit = {
 
     val allRecords = Random.shuffle(1 to numberOfKeys).map(i ⇒ { f"k$i%04d" → f"v$i%04d" })
 
     // invoke numberOfKeys puts
-    Task.sequence(allRecords.map { case (k, v) ⇒ datasetStorage.put(k, v) }).taskValue(Some(timeout(Span(10, Seconds))))
+    Task.sequence(allRecords.map { case (k, v) ⇒ datasetStorage.put(k, v) }).taskValue(Some(timeout(Span(15, Seconds))))
 
     val firstKey = "k0001"
     val midKey = f"k${numberOfKeys / 2}%04d"
