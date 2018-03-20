@@ -25,6 +25,6 @@ import java.time.Instant
  * @tparam C contract's type
  */
 case class ContractRecord[C](
-    contract: C,
-    lastUpdated: Instant
+  contract: C,
+  lastUpdated: Instant
 )

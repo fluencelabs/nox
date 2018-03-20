@@ -21,8 +21,8 @@ import cats.data.StateT
 import cats.syntax.applicativeError._
 import cats.syntax.eq._
 import cats.syntax.applicative._
-import cats.{ MonadError, Show }
-import fluence.kad.protocol.{ KademliaRpc, Key, Node }
+import cats.{MonadError, Show}
+import fluence.kad.protocol.{KademliaRpc, Key, Node}
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration.Duration
@@ -65,9 +65,10 @@ case class Bucket[C](maxSize: Int, nodes: Queue[Node[C]] = Queue.empty) {
    * @param pingExpiresIn Duration to ignore updates for a node
    */
   def shouldUpdate(node: Node[C], pingExpiresIn: Duration): Boolean =
-    find(node.key).fold(true)(n ⇒
-      !pingExpiresIn.isFinite() ||
-        java.time.Duration.between(n.lastSeen, node.lastSeen).toMillis >= pingExpiresIn.toMillis
+    find(node.key).fold(true)(
+      n ⇒
+        !pingExpiresIn.isFinite() ||
+          java.time.Duration.between(n.lastSeen, node.lastSeen).toMillis >= pingExpiresIn.toMillis
     )
 }
 
@@ -94,7 +95,9 @@ object Bucket {
    * @tparam F StateT effect
    * @return updated Bucket, and true if bucket was updated with this node, false if it wasn't
    */
-  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration)(implicit ME: MonadError[F, Throwable]): StateT[F, Bucket[C], Boolean] = {
+  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration)(
+    implicit ME: MonadError[F, Throwable]
+  ): StateT[F, Bucket[C], Boolean] = {
     StateT.get[F, Bucket[C]].flatMap { b ⇒
       b.find(node.key) match {
         case Some(c) ⇒
@@ -108,7 +111,9 @@ object Bucket {
 
           // The last contact in the queue is the oldest
           // If it's still very fresh, drop incoming node without pings
-          if (pingExpiresIn.isFinite() && java.time.Duration.between(last.lastSeen, node.lastSeen).toMillis <= pingExpiresIn.toMillis) {
+          if (pingExpiresIn.isFinite() && java.time.Duration
+                .between(last.lastSeen, node.lastSeen)
+                .toMillis <= pingExpiresIn.toMillis) {
             StateT.pure(false)
           } else {
 
@@ -134,6 +139,7 @@ object Bucket {
    * @tparam C Node contacts
    */
   trait ReadOps[C] {
+
     /**
      * Returns current bucket state
      * @param bucketId Bucket id, 0 to [[Key.BitLength]]
@@ -172,7 +178,9 @@ object Bucket {
      * @param ME Monad error instance for the effect
      * @return True if node is updated in a bucket, false otherwise
      */
-    def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration)(implicit ME: MonadError[F, Throwable]): F[Boolean] =
+    def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration)(
+      implicit ME: MonadError[F, Throwable]
+    ): F[Boolean] =
       if (read(bucketId).shouldUpdate(node, pingExpiresIn)) {
         run(bucketId, Bucket.update(node, rpc, pingExpiresIn))
       } else {

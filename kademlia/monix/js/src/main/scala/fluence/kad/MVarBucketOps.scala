@@ -20,6 +20,7 @@ package fluence.kad
 import monix.eval.Task
 
 object MVarBucketOps {
+
   /**
    * Builds and returns a default implementation for WriteOps with Task effect
    *

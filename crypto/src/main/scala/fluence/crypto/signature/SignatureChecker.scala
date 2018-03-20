@@ -25,5 +25,5 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 
 trait SignatureChecker {
-  def check[F[_] : Monad](signature: Signature, plain: ByteVector): EitherT[F, CryptoErr, Unit]
+  def check[F[_]: Monad](signature: Signature, plain: ByteVector): EitherT[F, CryptoErr, Unit]
 }

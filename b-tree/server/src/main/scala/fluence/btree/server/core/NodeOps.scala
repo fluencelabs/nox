@@ -18,8 +18,8 @@
 package fluence.btree.server.core
 
 import fluence.btree.common.ValueRef
-import fluence.btree.common.merkle.{ GeneralNodeProof, NodeProof }
-import fluence.btree.core.{ Hash, Key }
+import fluence.btree.common.merkle.{GeneralNodeProof, NodeProof}
+import fluence.btree.core.{Hash, Key}
 import fluence.btree.server._
 import fluence.crypto.hash.CryptoHasher
 
@@ -122,10 +122,18 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
       val (leftChildsChecksums, rightChildsChecksums) = branch.childsChecksums.splitAt(splitIdx)
 
       val leftBranch = BranchNode(
-        leftKeys, leftChildren, leftChildsChecksums, leftKeys.length, getBranchChecksum(leftKeys, leftChildsChecksums)
+        leftKeys,
+        leftChildren,
+        leftChildsChecksums,
+        leftKeys.length,
+        getBranchChecksum(leftKeys, leftChildsChecksums)
       )
       val rightBranch = BranchNode(
-        rightKeys, rightChildren, rightChildsChecksums, rightKeys.length, getBranchChecksum(rightKeys, rightChildsChecksums)
+        rightKeys,
+        rightChildren,
+        rightChildsChecksums,
+        rightKeys.length,
+        getBranchChecksum(rightKeys, rightChildsChecksums)
       )
 
       leftBranch → rightBranch
@@ -137,9 +145,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
 
     override def updateChildChecksum(newChildHash: Hash, idx: Int): BranchNode[Key, NodeId] = {
       val newChildsChecksums = rewriteElementInArray(branch.childsChecksums, newChildHash, idx)
-      branch.copy(
-        childsChecksums = newChildsChecksums,
-        checksum = getBranchChecksum(branch.keys, newChildsChecksums))
+      branch.copy(childsChecksums = newChildsChecksums, checksum = getBranchChecksum(branch.keys, newChildsChecksums))
     }
 
     override def updateChildRef(childRef: ChildRef[NodeId], idx: Int): BranchNode[Key, NodeId] = {
@@ -148,7 +154,8 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
       branch.copy(
         childsReferences = newChildsReferences,
         childsChecksums = newChildsChecksums,
-        checksum = getBranchChecksum(branch.keys, newChildsChecksums))
+        checksum = getBranchChecksum(branch.keys, newChildsChecksums)
+      )
     }
 
     override def toProof(substitutionIdx: Int): NodeProof = {
@@ -198,7 +205,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
    * We choose variant with array copying for prevent changing input parameters.
    * Work with mutable structures is more error-prone. It may be changed in the future by performance reason.
    */
-  private def rewriteElementInArray[T : ClassTag](array: Array[T], insElem: T, insIdx: Int): Array[T] = {
+  private def rewriteElementInArray[T: ClassTag](array: Array[T], insElem: T, insIdx: Int): Array[T] = {
     // todo perhaps, more optimal implementation might be needed with array mutation in the future
     val newArray = Array.ofDim[T](array.length)
     Array.copy(array, 0, newArray, 0, array.length)
@@ -207,7 +214,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
   }
 
   /** Returns updated copy of array with the inserted element for ''insIdx'' index. */
-  private def insertElementToArray[T : ClassTag](array: Array[T], insElem: T, insIdx: Int): Array[T] = {
+  private def insertElementToArray[T: ClassTag](array: Array[T], insElem: T, insIdx: Int): Array[T] = {
     val newArray = Array.ofDim[T](array.length + 1)
     Array.copy(array, 0, newArray, 0, insIdx)
     Array.copy(array, insIdx, newArray, insIdx + 1, array.length - insIdx)

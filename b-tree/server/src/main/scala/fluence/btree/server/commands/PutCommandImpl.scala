@@ -21,11 +21,11 @@ import cats.MonadError
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.btree.common.ValueRef
-import fluence.btree.common.merkle.{ MerklePath, MerkleRootCalculator }
-import fluence.btree.core.{ Hash, Key }
+import fluence.btree.common.merkle.{MerklePath, MerkleRootCalculator}
+import fluence.btree.core.{Hash, Key}
 import fluence.btree.protocol.BTreeRpc.PutCallbacks
 import fluence.btree.server.core._
-import fluence.btree.server.{ Leaf, NodeId }
+import fluence.btree.server.{Leaf, NodeId}
 
 import scala.language.higherKinds
 
@@ -38,14 +38,16 @@ import scala.language.higherKinds
  * @tparam F The type of effect, box for returning value
  */
 case class PutCommandImpl[F[_]](
-    merkleRootCalculator: MerkleRootCalculator,
-    putCallbacks: PutCallbacks[F],
-    valueRefProvider: () ⇒ ValueRef
-)(implicit ME: MonadError[F, Throwable]) extends BaseSearchCommand[F](putCallbacks) with PutCommand[F, Key, ValueRef, NodeId] {
+  merkleRootCalculator: MerkleRootCalculator,
+  putCallbacks: PutCallbacks[F],
+  valueRefProvider: () ⇒ ValueRef
+)(implicit ME: MonadError[F, Throwable])
+    extends BaseSearchCommand[F](putCallbacks) with PutCommand[F, Key, ValueRef, NodeId] {
 
   def putDetails(leaf: Option[Leaf]): F[BTreePutDetails] = {
     val (keys, valuesChecksums) =
-      leaf.map(l ⇒ l.keys → l.valuesChecksums)
+      leaf
+        .map(l ⇒ l.keys → l.valuesChecksums)
         .getOrElse(Array.empty[Key] → Array.empty[Hash])
 
     putCallbacks
@@ -54,7 +56,8 @@ case class PutCommandImpl[F[_]](
   }
 
   override def verifyChanges(merklePath: MerklePath, wasSplitting: Boolean): F[Unit] = {
-    putCallbacks.verifyChanges(merkleRootCalculator.calcMerkleRoot(merklePath), wasSplitting)
-      .flatMap { _ ⇒ putCallbacks.changesStored() }
+    putCallbacks.verifyChanges(merkleRootCalculator.calcMerkleRoot(merklePath), wasSplitting).flatMap { _ ⇒
+      putCallbacks.changesStored()
+    }
   }
 }

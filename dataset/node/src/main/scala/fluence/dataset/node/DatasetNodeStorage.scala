@@ -21,19 +21,19 @@ import java.nio.ByteBuffer
 
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ MonadError, ~> }
+import cats.{~>, MonadError}
 import com.typesafe.config.Config
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.common.ValueRef
 import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
-import fluence.btree.protocol.BTreeRpc.{ PutCallbacks, SearchCallback }
+import fluence.btree.protocol.BTreeRpc.{PutCallbacks, SearchCallback}
 import fluence.btree.server.MerkleBTree
-import fluence.btree.server.commands.{ PutCommandImpl, SearchCommandImpl }
+import fluence.btree.server.commands.{PutCommandImpl, SearchCommandImpl}
 import fluence.codec.Codec
 import fluence.crypto.hash.CryptoHasher
 import fluence.storage.KVStore
-import fluence.storage.rocksdb.{ IdSeqProvider, RocksDbStore }
+import fluence.storage.rocksdb.{IdSeqProvider, RocksDbStore}
 import monix.eval.Task
 import monix.reactive.Observable
 import scodec.bits.ByteVector
@@ -50,11 +50,11 @@ import scala.language.higherKinds
  * @param onMRChange            Callback that will be called when merkle root change
  */
 class DatasetNodeStorage private[node] (
-    bTreeIndex: MerkleBTree,
-    kVStore: KVStore[Task, ValueRef, Array[Byte]],
-    merkleRootCalculator: MerkleRootCalculator,
-    valueIdGenerator: () ⇒ ValueRef,
-    onMRChange: ByteVector ⇒ Task[Unit]
+  bTreeIndex: MerkleBTree,
+  kVStore: KVStore[Task, ValueRef, Array[Byte]],
+  merkleRootCalculator: MerkleRootCalculator,
+  valueIdGenerator: () ⇒ ValueRef,
+  onMRChange: ByteVector ⇒ Task[Unit]
 ) {
 
   /**
@@ -64,13 +64,12 @@ class DatasetNodeStorage private[node] (
    * @return returns found value, None if nothing was found.
    */
   def get(searchCallbacks: SearchCallback[Task]): Task[Option[Array[Byte]]] =
-    bTreeIndex.get(SearchCommandImpl(searchCallbacks))
-      .flatMap {
-        case Some(reference) ⇒
-          kVStore.get(reference).map(Option(_))
-        case None ⇒
-          Task(None)
-      }
+    bTreeIndex.get(SearchCommandImpl(searchCallbacks)).flatMap {
+      case Some(reference) ⇒
+        kVStore.get(reference).map(Option(_))
+      case None ⇒
+        Task(None)
+    }
 
   /**
    * Initiates ''Range'' operation in remote MerkleBTree.
@@ -79,11 +78,10 @@ class DatasetNodeStorage private[node] (
    * @return returns found key-value pairs as stream
    */
   def range(searchCallbacks: SearchCallback[Task]): Observable[(Array[Byte], Array[Byte])] =
-    bTreeIndex.range(SearchCommandImpl(searchCallbacks))
-      .mapTask {
-        case (key, valRef) ⇒
-          kVStore.get(valRef).map(value ⇒ key.bytes → value)
-      }
+    bTreeIndex.range(SearchCommandImpl(searchCallbacks)).mapTask {
+      case (key, valRef) ⇒
+        kVStore.get(valRef).map(value ⇒ key.bytes → value)
+    }
 
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.

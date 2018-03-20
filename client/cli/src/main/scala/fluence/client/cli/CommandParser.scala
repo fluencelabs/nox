@@ -38,7 +38,7 @@ object CommandParser {
     val string: P[String] = P(string0("'") | string0("\"") | stringSpace)
 
     val exit = P(Start ~ "exit").map(_ ⇒ Exit)
-    val putCommand = P(Start ~ "put" ~ string ~ string).map{ case (k, v) ⇒ Put(k, v) }
+    val putCommand = P(Start ~ "put" ~ string ~ string).map { case (k, v) ⇒ Put(k, v) }
     val getCommand = P(Start ~ "get" ~ string).map(k ⇒ Get(k))
     val rangeCommand = P(Start ~ "range" ~ string ~ string).map { case (from, to) ⇒ Range(from, to) }
 
@@ -49,7 +49,7 @@ object CommandParser {
   def parseCommand(str: String): Option[CliOp[_]] = {
     parserCli.parse(str) match {
       case Parsed.Success(op, _) ⇒ Some(op)
-      case _                     ⇒ None
+      case _ ⇒ None
     }
   }
 }

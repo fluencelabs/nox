@@ -28,8 +28,8 @@ import scala.language.higherKinds
  * @param pingExpiresIn   Duration to avoid too frequent ping requests, used in [[fluence.kad.Bucket.update]]
  */
 case class KademliaConf(
-    maxBucketSize: Int,
-    maxSiblingsSize: Int,
-    parallelism: Int,
-    pingExpiresIn: Duration
+  maxBucketSize: Int,
+  maxSiblingsSize: Int,
+  parallelism: Int,
+  pingExpiresIn: Duration
 )

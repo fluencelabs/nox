@@ -18,7 +18,7 @@
 package fluence.btree.server
 
 import fluence.btree.core.Hash
-import fluence.crypto.hash.{ CryptoHasher, TestCryptoHasher }
+import fluence.crypto.hash.{CryptoHasher, TestCryptoHasher}
 
 class TestHasher(hasher: CryptoHasher[Array[Byte], Array[Byte]]) extends CryptoHasher[Array[Byte], Hash] {
 
@@ -31,4 +31,3 @@ class TestHasher(hasher: CryptoHasher[Array[Byte], Array[Byte]]) extends CryptoH
 object TestHasher {
   def apply(hasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher): TestHasher = new TestHasher(hasher)
 }
-

@@ -24,16 +24,16 @@ import cats.instances.try_._
 import fluence.contract.BasicContract
 import fluence.contract.client.Contracts
 import fluence.contract.node.cache.ContractRecord
-import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
 import fluence.kad.testkit.TestKademlia
-import fluence.storage.{ KVStore, TrieMapKVStore }
+import fluence.storage.{KVStore, TrieMapKVStore}
 import monix.eval.Coeval
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
@@ -45,29 +45,31 @@ class ContractsSpec extends WordSpec with Matchers {
   private val clock = Clock.systemUTC()
   val dsCreated = TrieMap.empty[String, Set[Key]].withDefaultValue(Set.empty)
   val algo = SignAlgo.dumb
+
   import algo.checker
 
   def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
 
-  val createDS: String ⇒ BasicContract ⇒ Coeval[Unit] = id ⇒ c ⇒
-    if (c.executionState.version == 0)
-      Coeval.evalOnce(dsCreated(id)= dsCreated(id) + c.id)
-    else {
-      Coeval.raiseError(new IllegalArgumentException("Can't allocate this"))
-    }
+  val createDS: String ⇒ BasicContract ⇒ Coeval[Unit] = id ⇒
+    c ⇒
+      if (c.executionState.version == 0)
+        Coeval.evalOnce(dsCreated(id) = dsCreated(id) + c.id)
+      else {
+        Coeval.raiseError(new IllegalArgumentException("Can't allocate this"))
+  }
 
   val checkAllocationPossible: BasicContract ⇒ Coeval[Unit] = c ⇒
     if (c.executionState.version == 0)
       Coeval.unit
     else {
       Coeval.raiseError(new IllegalArgumentException("Can't allocate this!"))
-    }
+  }
 
   case class TestNode(
-      kademlia: Kademlia[Coeval, String],
-      cacheRpc: ContractsCacheRpc[Coeval, BasicContract],
-      allocatorRpc: ContractAllocatorRpc[Coeval, BasicContract],
-      allocator: Contracts[Coeval, BasicContract, String]
+    kademlia: Kademlia[Coeval, String],
+    cacheRpc: ContractsCacheRpc[Coeval, BasicContract],
+    allocatorRpc: ContractAllocatorRpc[Coeval, BasicContract],
+    allocator: Contracts[Coeval, BasicContract, String]
   )
 
   import TestKademlia.CoevalParallel
@@ -80,7 +82,6 @@ class ContractsSpec extends WordSpec with Matchers {
     }, joinPeers = 3)
   }.map {
     case (contact, (signer, kad)) ⇒
-
       val store: KVStore[Coeval, Key, ContractRecord[BasicContract]] =
         TrieMapKVStore()
 
@@ -127,7 +128,8 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val signer = offerSigner("dumb0")
 
-      val allocated = network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).value
+      val allocated =
+        network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).value
 
       allocated.participants.size shouldBe 1
 
@@ -141,7 +143,8 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val signer = offerSigner("dumb1")
 
-      val allocated = network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).value
+      val allocated =
+        network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).value
 
       allocated.participants.size shouldBe 5
 
@@ -155,7 +158,8 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val signer = offerSigner("dumb2")
 
-      val allocated = network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).attempt.value
+      val allocated =
+        network.head._2.allocator.allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).get)).attempt.value
 
       allocated should be.leftSide
     }

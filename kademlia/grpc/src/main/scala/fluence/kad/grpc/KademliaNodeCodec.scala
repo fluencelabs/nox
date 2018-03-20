@@ -27,12 +27,15 @@ import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.crypto.signature.SignatureChecker
 import fluence.kad.protocol
-import fluence.kad.protocol.{ Contact, Key }
+import fluence.kad.protocol.{Contact, Key}
 
 import scala.language.higherKinds
 
 object KademliaNodeCodec {
-  implicit def codec[F[_]](implicit F: MonadError[F, Throwable], checker: SignatureChecker): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
+  implicit def codec[F[_]](
+    implicit F: MonadError[F, Throwable],
+    checker: SignatureChecker
+  ): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
     Codec(
       obj ⇒
         Node(
@@ -42,12 +45,19 @@ object KademliaNodeCodec {
       binary ⇒
         for {
           k ← Key.fromBytes[F](binary.id.toByteArray) // TODO err: wrong key size
-          c ← Contact.readB64seed[F](new String(binary.contact.toByteArray)).value.flatMap(F.fromEither) // TODO err: crypto
-          _ ← if (Key.checkPublicKey(k, c.publicKey)) F.pure(()) else F.raiseError(new IllegalArgumentException("Key doesn't conform to signature")) // TODO err: crypto -- keys mismatch
-        } yield protocol.Node[Contact](
-          k,
-          // TODO: consider removing Instant.now(). It could be really incorrect, as nodes taken from lookup replies are not seen at the moment
-          Instant.now(),
-          c
-        ))
+          c ← Contact
+            .readB64seed[F](new String(binary.contact.toByteArray))
+            .value
+            .flatMap(F.fromEither) // TODO err: crypto
+          _ ← if (Key.checkPublicKey(k, c.publicKey)) F.pure(())
+          else
+            F.raiseError(new IllegalArgumentException("Key doesn't conform to signature")) // TODO err: crypto -- keys mismatch
+        } yield
+          protocol.Node[Contact](
+            k,
+            // TODO: consider removing Instant.now(). It could be really incorrect, as nodes taken from lookup replies are not seen at the moment
+            Instant.now(),
+            c
+        )
+    )
 }

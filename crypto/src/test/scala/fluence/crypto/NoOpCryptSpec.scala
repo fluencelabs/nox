@@ -18,7 +18,7 @@
 package fluence.crypto
 
 import fluence.crypto.cipher.NoOpCrypt
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 class NoOpCryptSpec extends WordSpec with Matchers {
 

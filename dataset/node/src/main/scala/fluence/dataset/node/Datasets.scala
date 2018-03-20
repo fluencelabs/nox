@@ -27,7 +27,7 @@ import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import monix.execution.atomic.AtomicLong
 import monix.reactive.Observable
-import scodec.bits.{ Bases, ByteVector }
+import scodec.bits.{Bases, ByteVector}
 
 import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
@@ -42,11 +42,11 @@ import scala.language.higherKinds
  */
 // todo create unit test!
 class Datasets(
-    config: Config,
-    rocksFactory: RocksDbStore.Factory,
-    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    servesDataset: Key ⇒ Task[Option[Long]],
-    contractUpdated: (Key, Long, ByteVector) ⇒ Task[Unit] // TODO: pass signature as well
+  config: Config,
+  rocksFactory: RocksDbStore.Factory,
+  cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
+  servesDataset: Key ⇒ Task[Option[Long]],
+  contractUpdated: (Key, Long, ByteVector) ⇒ Task[Unit] // TODO: pass signature as well
 ) extends DatasetStorageRpc[Task, Observable] with slogging.LazyLogging {
 
   private val datasets = TrieMap.empty[ByteVector, Task[DatasetNodeStorage]]
@@ -113,7 +113,11 @@ class Datasets(
    * @param encryptedValue Encrypted value.
    * @return returns old value if old value was overridden, None otherwise.
    */
-  override def put(datasetId: Array[Byte], putCallbacks: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] =
+  override def put(
+    datasetId: Array[Byte],
+    putCallbacks: BTreeRpc.PutCallbacks[Task],
+    encryptedValue: Array[Byte]
+  ): Task[Option[Array[Byte]]] =
     storage(datasetId).flatMap(_.put(putCallbacks, encryptedValue))
 
   /**
@@ -121,7 +125,10 @@ class Datasets(
    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
    * @return returns old value that was deleted, None if nothing was deleted.
    */
-  override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] =
+  override def remove(
+    datasetId: Array[Byte],
+    removeCallbacks: BTreeRpc.RemoveCallback[Task]
+  ): Task[Option[Array[Byte]]] =
     storage(datasetId).flatMap(_.remove(removeCallbacks))
 
   private implicit def runId[F[_]]: F ~> F = new (F ~> F) {

@@ -40,10 +40,10 @@ object Hash {
 
   def empty: Hash = Hash(Array.emptyByteArray)
 
-  implicit def hashCodec[F[_] : Applicative]: Codec[F, Hash, Array[Byte]] = Codec.pure(_.bytes, b ⇒ Hash(b))
+  implicit def hashCodec[F[_]: Applicative]: Codec[F, Hash, Array[Byte]] = Codec.pure(_.bytes, b ⇒ Hash(b))
 
-  implicit val hashEq: Eq[Hash] = {
-    (k1, k2) ⇒ ByteBuffer.wrap(k1.bytes).equals(ByteBuffer.wrap(k2.bytes))
+  implicit val hashEq: Eq[Hash] = { (k1, k2) ⇒
+    ByteBuffer.wrap(k1.bytes).equals(ByteBuffer.wrap(k2.bytes))
   }
 
   implicit class HashOps(originHash: Hash) {
@@ -88,4 +88,3 @@ object Hash {
   }
 
 }
-

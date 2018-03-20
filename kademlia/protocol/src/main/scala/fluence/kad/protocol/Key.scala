@@ -22,11 +22,11 @@ import java.nio.charset.Charset
 import cats.syntax.monoid._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
-import cats.{ MonadError, Monoid, Order, Show }
+import cats.{MonadError, Monoid, Order, Show}
 import fluence.codec.Codec
 import fluence.crypto.hash.CryptoHashers
 import fluence.crypto.keypair.KeyPair
-import scodec.bits.{ BitVector, ByteVector }
+import scodec.bits.{BitVector, ByteVector}
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -118,7 +118,7 @@ object Key {
    * @param bytes Bytes to hash
    */
   def sha1[F[_]](bytes: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Key] =
-    F.catchNonFatal{
+    F.catchNonFatal {
       CryptoHashers.Sha1.hash(bytes)
     }.flatMap(fromBytes[F])
 
@@ -128,7 +128,9 @@ object Key {
   def fromPublicKey[F[_]](publicKey: KeyPair.Public)(implicit F: MonadError[F, Throwable]): F[Key] =
     sha1(publicKey.value.toArray)
 
-  def fromString[F[_]](str: String, charset: Charset = Charset.defaultCharset())(implicit F: MonadError[F, Throwable]): F[Key] =
+  def fromString[F[_]](str: String, charset: Charset = Charset.defaultCharset())(
+    implicit F: MonadError[F, Throwable]
+  ): F[Key] =
     sha1(str.getBytes)
 
   def fromBytes[F[_]](bytes: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Key] =

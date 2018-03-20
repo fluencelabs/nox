@@ -19,14 +19,14 @@ package fluence.btree.client
 
 import fluence.btree.client.MerkleBTreeClient._
 import fluence.btree.common.merkle.MerklePath
-import fluence.btree.core.{ ClientPutDetails, Hash, Key }
-import fluence.btree.protocol.BTreeRpc.{ PutCallbacks, SearchCallback }
+import fluence.btree.core.{ClientPutDetails, Hash, Key}
+import fluence.btree.protocol.BTreeRpc.{PutCallbacks, SearchCallback}
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
-import monix.eval.{ MVar, Task }
+import monix.eval.{MVar, Task}
 import scodec.bits.ByteVector
 
-import scala.collection.Searching.{ Found, SearchResult }
+import scala.collection.Searching.{Found, SearchResult}
 
 /**
  * Base implementation of [[MerkleBTreeClientApi]] to calls for a remote MerkleBTree.
@@ -41,10 +41,11 @@ import scala.collection.Searching.{ Found, SearchResult }
  * @tparam K The type of keys
  */
 class MerkleBTreeClient[K] private (
-    initClientState: ClientState,
-    keyCrypt: Crypt[Task, K, Key],
-    verifier: BTreeVerifier
-)(implicit ord: Ordering[K]) extends MerkleBTreeClientApi[Task, K] with slogging.LazyLogging {
+  initClientState: ClientState,
+  keyCrypt: Crypt[Task, K, Key],
+  verifier: BTreeVerifier
+)(implicit ord: Ordering[K])
+    extends MerkleBTreeClientApi[Task, K] with slogging.LazyLogging {
 
   private val clientStateMVar = MVar(initClientState)
 
@@ -56,8 +57,8 @@ class MerkleBTreeClient[K] private (
    * @param merkleRoot Copy of client merkle root at the beginning of the request. Constant for round trip session.
    */
   case class SearchStateImpl(
-      key: K,
-      merkleRoot: Hash
+    key: K,
+    merkleRoot: Hash
   ) extends SearchState[Task] with SearchCallback[Task] {
 
     /** Tree path traveled on the server. Updatable for round trip session */
@@ -68,13 +69,12 @@ class MerkleBTreeClient[K] private (
       merklePathMVar.take.flatMap { mPath ⇒
         logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
 
-        processSearch(key, merkleRoot, mPath, keys, childsChecksums)
-          .flatMap {
-            case (newMPath, foundIdx) ⇒
-              merklePathMVar
-                .put(newMPath)
-                .map(_ ⇒ foundIdx)
-          }
+        processSearch(key, merkleRoot, mPath, keys, childsChecksums).flatMap {
+          case (newMPath, foundIdx) ⇒
+            merklePathMVar
+              .put(newMPath)
+              .map(_ ⇒ foundIdx)
+        }
       }
     }
 
@@ -91,10 +91,12 @@ class MerkleBTreeClient[K] private (
             merklePathMVar.put(mPath.add(leafProof)).map(_ ⇒ searchResult)
           }
         } else {
-          Task.raiseError(new IllegalStateException(
-            s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.mkString(",")}, " +
-              s"${valuesChecksums.mkString(",")})"
-          ))
+          Task.raiseError(
+            new IllegalStateException(
+              s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.mkString(",")}, " +
+                s"${valuesChecksums.mkString(",")})"
+            )
+          )
         }
       }
     }
@@ -114,9 +116,9 @@ class MerkleBTreeClient[K] private (
    * @param merkleRoot     Copy of client merkle root at the beginning of the request
    */
   case class PutStateImpl private (
-      key: K,
-      valueChecksum: Hash,
-      merkleRoot: Hash
+    key: K,
+    valueChecksum: Hash,
+    merkleRoot: Hash
   ) extends PutState[Task] with PutCallbacks[Task] {
 
     /** Tree path traveled on the server */
@@ -133,13 +135,12 @@ class MerkleBTreeClient[K] private (
       merklePathMVar.take.flatMap { mPath ⇒
         logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
 
-        processSearch(key, merkleRoot, mPath, keys, childsChecksums)
-          .flatMap {
-            case (newMPath, foundIdx) ⇒
-              merklePathMVar
-                .put(newMPath)
-                .map(_ ⇒ foundIdx)
-          }
+        processSearch(key, merkleRoot, mPath, keys, childsChecksums).flatMap {
+          case (newMPath, foundIdx) ⇒
+            merklePathMVar
+              .put(newMPath)
+              .map(_ ⇒ foundIdx)
+        }
       }
     }
 
@@ -161,9 +162,11 @@ class MerkleBTreeClient[K] private (
           } yield putDetails
 
         } else {
-          Task.raiseError(new IllegalStateException(
-            s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.mkString(",")}, ${keys.mkString(",")})"
-          ))
+          Task.raiseError(
+            new IllegalStateException(
+              s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.mkString(",")}, ${keys.mkString(",")})"
+            )
+          )
         }
       }
     }
@@ -174,23 +177,28 @@ class MerkleBTreeClient[K] private (
         mPath ← merklePathMVar.read
         optDetails ← putDetailsMVar.read
         _ ← {
-          logger.debug(s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=$serverMRoot")
+          logger.debug(
+            s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=$serverMRoot"
+          )
 
           optDetails match {
             case Some(details) ⇒
-              Task(verifier.newMerkleRoot(mPath, details, serverMRoot, wasSplitting))
-                .flatMap {
-                  case None ⇒ // server was failed verification
-                    Task.raiseError(new IllegalStateException(
+              Task(verifier.newMerkleRoot(mPath, details, serverMRoot, wasSplitting)).flatMap {
+                case None ⇒ // server was failed verification
+                  Task.raiseError(
+                    new IllegalStateException(
                       s"Server 'put response' didn't pass verifying for state=$this, serverMRoot=$serverMRoot"
-                    ))
-                  case Some(newMRoot) ⇒ // all is fine, send Confirm to server
-                    newMerkleRoot.put(newMRoot) // TODO: here we have a new merkle root and should sign it with version
-                }
+                    )
+                  )
+                case Some(newMRoot) ⇒ // all is fine, send Confirm to server
+                  newMerkleRoot.put(newMRoot) // TODO: here we have a new merkle root and should sign it with version
+              }
             case None ⇒
-              Task.raiseError(new IllegalStateException(
-                s"Client put details isn't defined, it's should be defined at previous step"
-              ))
+              Task.raiseError(
+                new IllegalStateException(
+                  s"Client put details isn't defined, it's should be defined at previous step"
+                )
+              )
           }
         }
       } yield ()
@@ -200,12 +208,11 @@ class MerkleBTreeClient[K] private (
     // case when server confirmed changes persisted
     override def changesStored(): Task[Unit] = {
       // change global client state with new merkle root
-      newMerkleRoot.take
-        .flatMap { newMRoot ⇒
-          logger.debug(s"changesStored starts for key=$key, newMRoot=$newMRoot")
+      newMerkleRoot.take.flatMap { newMRoot ⇒
+        logger.debug(s"changesStored starts for key=$key, newMRoot=$newMRoot")
 
-          clientStateMVar.put(ClientState(newMRoot))
-        }
+        clientStateMVar.put(ClientState(newMRoot))
+      }
     }
 
     override def recoverState(): Task[Unit] = {
@@ -298,9 +305,11 @@ class MerkleBTreeClient[K] private (
         updatedMPath → searchResult.insertionPoint
       }
     } else {
-      Task.raiseError(new IllegalStateException(
-        s"Checksum of branch didn't pass verifying for key=$key, Branch(${keys.mkString(",")}, ${keys.mkString(",")})"
-      ))
+      Task.raiseError(
+        new IllegalStateException(
+          s"Checksum of branch didn't pass verifying for key=$key, Branch(${keys.mkString(",")}, ${keys.mkString(",")})"
+        )
+      )
     }
   }
 

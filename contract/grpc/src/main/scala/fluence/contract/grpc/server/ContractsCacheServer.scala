@@ -20,7 +20,7 @@ package fluence.contract.grpc.server
 import cats.data.Kleisli
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ MonadError, ~> }
+import cats.{~>, MonadError}
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractsCacheRpc
 import fluence.contract.grpc._
@@ -38,13 +38,13 @@ import scala.language.higherKinds
  * @tparam F Effect
  * @tparam C Domain-level Contract
  */
-class ContractsCacheServer[F[_], C](
-    cache: ContractsCacheRpc[F, C])(implicit
-    F: MonadError[F, Throwable],
-    codec: Codec[F, C, BasicContract],
-    keyK: Kleisli[F, Array[Byte], Key],
-    run: F ~> Future)
-  extends ContractsCacheGrpc.ContractsCache {
+class ContractsCacheServer[F[_], C](cache: ContractsCacheRpc[F, C])(
+  implicit
+  F: MonadError[F, Throwable],
+  codec: Codec[F, C, BasicContract],
+  keyK: Kleisli[F, Array[Byte], Key],
+  run: F ~> Future
+) extends ContractsCacheGrpc.ContractsCache {
 
   override def find(request: FindRequest): Future[BasicContract] =
     run(
@@ -52,7 +52,7 @@ class ContractsCacheServer[F[_], C](
         k ← keyK(request.id.toByteArray)
         resp ← cache.find(k).flatMap[BasicContract] {
           case Some(c) ⇒ codec.encode(c)
-          case None    ⇒ F.raiseError(new NoSuchElementException(""))
+          case None ⇒ F.raiseError(new NoSuchElementException(""))
         }
       } yield resp
     )

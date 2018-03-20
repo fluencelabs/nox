@@ -22,9 +22,9 @@ import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.show._
-import cats.{ Eq, MonadError, Parallel, Show }
-import fluence.contract.ops.{ ContractRead, ContractWrite }
-import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import cats.{Eq, MonadError, Parallel, Show}
+import fluence.contract.ops.{ContractRead, ContractWrite}
+import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
 import fluence.crypto.signature.SignatureChecker
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
@@ -43,13 +43,19 @@ import scala.util.control.NoStackTrace
  * @tparam Contract Contract
  * @tparam Contact Kademlia's Contact
  */
-class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
-    maxFindRequests: Int,
-    maxAllocateRequests: Int ⇒ Int,
-    kademlia: Kademlia[F, Contact],
-    cacheRpc: Contact ⇒ ContractsCacheRpc[F, Contract],
-    allocatorRpc: Contact ⇒ ContractAllocatorRpc[F, Contract]
-)(implicit ME: MonadError[F, Throwable], eq: Eq[Contract], P: Parallel[F, F], checker: SignatureChecker, show: Show[Contact]) extends slogging.LazyLogging {
+class Contracts[F[_], Contract: ContractRead: ContractWrite, Contact](
+  maxFindRequests: Int,
+  maxAllocateRequests: Int ⇒ Int,
+  kademlia: Kademlia[F, Contact],
+  cacheRpc: Contact ⇒ ContractsCacheRpc[F, Contract],
+  allocatorRpc: Contact ⇒ ContractAllocatorRpc[F, Contract]
+)(
+  implicit ME: MonadError[F, Throwable],
+  eq: Eq[Contract],
+  P: Parallel[F, F],
+  checker: SignatureChecker,
+  show: Show[Contact]
+) extends slogging.LazyLogging {
 
   import ContractRead._
   import ContractWrite._
@@ -65,29 +71,36 @@ class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
     // Check if contract is already known, return it immediately if it is
     for {
       _ ← ME.ensure(contract.isBlankOffer())(Contracts.IncorrectOfferContract)(identity)
-      contract ← kademlia.callIterative[Contract](
-        contract.id,
-        nc ⇒ allocatorRpc(nc.contact).offer(contract).flatMap { c ⇒
-          ME.ensure(c.participantSigned(nc.key))(Contracts.NotFound)(identity) map { _ ⇒ c }
-        },
-        contract.participantsRequired,
-        maxAllocateRequests(contract.participantsRequired),
-        isIdempotentFn = false
-      ).flatMap {
+      contract ← kademlia
+        .callIterative[Contract](
+          contract.id,
+          nc ⇒
+            allocatorRpc(nc.contact).offer(contract).flatMap { c ⇒
+              ME.ensure(c.participantSigned(nc.key))(Contracts.NotFound)(identity) map { _ ⇒
+                c
+              }
+          },
+          contract.participantsRequired,
+          maxAllocateRequests(contract.participantsRequired),
+          isIdempotentFn = false
+        )
+        .flatMap {
           case agreements if agreements.lengthCompare(contract.participantsRequired) == 0 ⇒
             logger.debug(s"Agreements for contract $contract found. Contacts: ${agreements.map(_._1.contact.show)}")
-            contract.addParticipants(agreements.map(_._2))
+            contract
+              .addParticipants(agreements.map(_._2))
               .flatMap { contractToSeal ⇒
                 sealParticipants(contractToSeal)
-              }.flatMap {
-                sealedContract ⇒
-                  Parallel.parSequence[List, F, F, Contract](
-                    agreements
-                      .map(_._1.contact)
-                      .map(c ⇒ allocatorRpc(c).allocate(sealedContract)) // In case any allocation failed, failure will be propagated
-                      .toList
-                  )
-              }.flatMap {
+              }
+              .flatMap { sealedContract ⇒
+                Parallel.parSequence[List, F, F, Contract](
+                  agreements
+                    .map(_._1.contact)
+                    .map(c ⇒ allocatorRpc(c).allocate(sealedContract)) // In case any allocation failed, failure will be propagated
+                    .toList
+                )
+              }
+              .flatMap {
                 case c :: _ ⇒
                   c.pure[F]
 
@@ -109,18 +122,27 @@ class Contracts[F[_], Contract : ContractRead : ContractWrite, Contact](
   def find(key: Key): F[Contract] =
     // Try to lookup in the neighborhood
     // TODO: if contract is found "too far" from the neighborhood, ask key's neighbors to cache contract
-    kademlia.callIterative[Contract](key, nc ⇒ cacheRpc(nc.contact).find(key).flatMap {
-      case Some(v) ⇒ v.pure[F]
-      case None    ⇒ ME.raiseError(Contracts.NotFound)
-    }, 1, maxFindRequests, isIdempotentFn = true).flatMap {
-      case sq if sq.nonEmpty ⇒
-        // Contract is found; for the case several different versions are returned, find the most recent
-        sq.map(_._2).maxBy(_.version).pure[F]
+    kademlia
+      .callIterative[Contract](
+        key,
+        nc ⇒
+          cacheRpc(nc.contact).find(key).flatMap {
+            case Some(v) ⇒ v.pure[F]
+            case None ⇒ ME.raiseError(Contracts.NotFound)
+        },
+        1,
+        maxFindRequests,
+        isIdempotentFn = true
+      )
+      .flatMap {
+        case sq if sq.nonEmpty ⇒
+          // Contract is found; for the case several different versions are returned, find the most recent
+          sq.map(_._2).maxBy(_.version).pure[F]
 
-      case _ ⇒
-        // Not found -- can't do anything
-        ME.raiseError(Contracts.NotFound)
-    }
+        case _ ⇒
+          // Not found -- can't do anything
+          ME.raiseError(Contracts.NotFound)
+      }
 
 }
 

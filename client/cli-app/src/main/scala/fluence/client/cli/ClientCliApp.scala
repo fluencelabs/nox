@@ -19,14 +19,14 @@ package fluence.client.cli
 
 import cats.Apply
 import cats.effect.IO
-import com.typesafe.config.{ Config, ConfigFactory, ConfigRenderOptions }
+import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
 import fluence.client.core.FluenceClient
-import fluence.client.core.config.{ KademliaConfigParser, KeyPairConfig, SeedsConfig }
+import fluence.client.core.config.{KademliaConfigParser, KeyPairConfig, SeedsConfig}
 import fluence.client.grpc.ClientGrpcServices
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
+import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher}
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.{ FileKeyStorage, SignAlgo }
+import fluence.crypto.{FileKeyStorage, SignAlgo}
 import fluence.transport.grpc.client.GrpcClient
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
@@ -49,8 +49,10 @@ object ClientCliApp extends App with slogging.LazyLogging {
   val hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
   val config: Config = ConfigFactory.load()
 
-  logger.debug("Client config is :" +
-    config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false)))
+  logger.debug(
+    "Client config is :" +
+      config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false))
+  )
 
   val client = ClientGrpcServices.build[Task](GrpcClient.builder)
 
@@ -68,25 +70,24 @@ object ClientCliApp extends App with slogging.LazyLogging {
     } yield kp
 
   // Run Command Line Interface
-  Apply[IO].map2(
-    buildClient,
-    getKeyPair(config, algo)
-  ){
-      (fluenceClient, keyPair) ⇒
-        Cli.restoreDataset(keyPair, fluenceClient, config, replicationN = 2).toIO
-    }.flatMap(identity).flatMap {
-      ds ⇒
-        lazy val handle: IO[Unit] =
-          Cli.handleCmds(ds, config)
-            .attempt
-            .flatMap{
-              case Right(true)  ⇒ handle
-              case Right(false) ⇒ IO.unit
-              case Left(t) ⇒
-                logger.error(s"Error while handling a command, cause=$t")
-                handle
-            }
-        handle
+  Apply[IO]
+    .map2(
+      buildClient,
+      getKeyPair(config, algo)
+    ) { (fluenceClient, keyPair) ⇒
+      Cli.restoreDataset(keyPair, fluenceClient, config, replicationN = 2).toIO
+    }
+    .flatMap(identity)
+    .flatMap { ds ⇒
+      lazy val handle: IO[Unit] =
+        Cli.handleCmds(ds, config).attempt.flatMap {
+          case Right(true) ⇒ handle
+          case Right(false) ⇒ IO.unit
+          case Left(t) ⇒
+            logger.error(s"Error while handling a command, cause=$t")
+            handle
+        }
+      handle
     }
     .unsafeRunSync()
 

@@ -20,7 +20,7 @@ package fluence.crypto.cipher
 import cats.Monad
 import cats.syntax.functor._
 
-import scala.collection.Searching.{ Found, InsertionPoint, SearchResult }
+import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 import scala.language.implicitConversions
 import scala.math.Ordering
 
@@ -60,18 +60,18 @@ object CryptoSearching {
           decrypt(coll(idx)).map { d ⇒
             math.signum(ordering.compare(searchElem, d)) match {
               case -1 ⇒ Left((from, idx))
-              case 1  ⇒ Left((idx + 1, to))
-              case _  ⇒ Right(Found(idx))
+              case 1 ⇒ Left((idx + 1, to))
+              case _ ⇒ Right(Found(idx))
             }
           }
       }
     }
   }
 
-  implicit def search[F[_] : Monad, A](indexedSeq: IndexedSeq[A]): CryptoSearchImpl[F, A] =
+  implicit def search[F[_]: Monad, A](indexedSeq: IndexedSeq[A]): CryptoSearchImpl[F, A] =
     new CryptoSearchImpl(indexedSeq)
 
-  implicit def search[F[_] : Monad, A](array: Array[A]): CryptoSearchImpl[F, A] =
+  implicit def search[F[_]: Monad, A](array: Array[A]): CryptoSearchImpl[F, A] =
     new CryptoSearchImpl(array)
 
 }

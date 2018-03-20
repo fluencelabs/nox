@@ -21,7 +21,7 @@ import cats.data.StateT
 import fluence.kad.Siblings
 import fluence.kad.protocol.Key
 import monix.eval.Coeval
-import monix.execution.atomic.{ Atomic, AtomicBoolean }
+import monix.execution.atomic.{Atomic, AtomicBoolean}
 
 import scala.language.higherKinds
 
@@ -35,12 +35,17 @@ class TestSiblingOps[C](nodeId: Key, maxSiblingsSize: Int) extends Siblings.Writ
     Coeval {
       require(lock.flip(true), "Siblings must be unlocked")
       lock.set(true)
-    }.flatMap(_ ⇒
-      mod.run(read).map {
-        case (s, v) ⇒
-          state.set(s)
-          v
-      }.doOnFinish(_ ⇒ Coeval.now(lock.flip(false))))
+    }.flatMap(
+      _ ⇒
+        mod
+          .run(read)
+          .map {
+            case (s, v) ⇒
+              state.set(s)
+              v
+          }
+          .doOnFinish(_ ⇒ Coeval.now(lock.flip(false)))
+    )
   }
 
   override def read: Siblings[C] =

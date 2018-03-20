@@ -25,9 +25,9 @@ import fluence.contract.node.cache.ContractRecord
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.kad.protocol.Key
-import fluence.storage.{ KVStore, TrieMapKVStore }
+import fluence.storage.{KVStore, TrieMapKVStore}
 import monix.eval.Coeval
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.duration._
 
@@ -70,12 +70,18 @@ class ContractsCacheSpec extends WordSpec with Matchers {
     }
 
     "reject caching contracts where node participates" in {
-      cache.cache(offer("reject3").signOffer(nodeId, nodeSigner).get.sealParticipants(offerSigner("reject3")).get).value shouldBe false
+      cache
+        .cache(offer("reject3").signOffer(nodeId, nodeSigner).get.sealParticipants(offerSigner("reject3")).get)
+        .value shouldBe false
 
     }
 
     "cache correct contract" in {
-      val v1 = offer("accept").signOffer(unsafeKey("some node"), offerSigner("some node")).get.sealParticipants(offerSigner("accept")).get
+      val v1 = offer("accept")
+        .signOffer(unsafeKey("some node"), offerSigner("some node"))
+        .get
+        .sealParticipants(offerSigner("accept"))
+        .get
       cache.cache(v1).value shouldBe true
 
       cache.find(v1.id).value shouldBe Some(v1)
@@ -89,7 +95,7 @@ class ContractsCacheSpec extends WordSpec with Matchers {
       cache.cache(v2).value shouldBe true
 
       cache.find(v1.id).value shouldBe Some(v2)
-      */
+     */
 
     }
   }

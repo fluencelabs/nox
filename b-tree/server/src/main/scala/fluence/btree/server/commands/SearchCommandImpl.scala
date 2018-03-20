@@ -19,10 +19,10 @@ package fluence.btree.server.commands
 
 import cats.MonadError
 import fluence.btree.common.ValueRef
-import fluence.btree.core.{ Hash, Key }
+import fluence.btree.core.{Hash, Key}
 import fluence.btree.protocol.BTreeRpc.SearchCallback
 import fluence.btree.server.NodeId
-import fluence.btree.server.core.{ LeafNode, SearchCommand }
+import fluence.btree.server.core.{LeafNode, SearchCommand}
 
 import scala.collection.Searching.SearchResult
 import scala.language.higherKinds
@@ -35,11 +35,12 @@ import scala.language.higherKinds
  * @tparam F The type of effect, box for returning value
  */
 case class SearchCommandImpl[F[_]](searchCallbacks: SearchCallback[F])(implicit ME: MonadError[F, Throwable])
-  extends BaseSearchCommand[F](searchCallbacks) with SearchCommand[F, Key, ValueRef, NodeId] {
+    extends BaseSearchCommand[F](searchCallbacks) with SearchCommand[F, Key, ValueRef, NodeId] {
 
   override def submitLeaf(leaf: Option[LeafNode[Key, ValueRef, NodeId]]): F[SearchResult] = {
     val (keys, valuesChecksums) =
-      leaf.map(l ⇒ l.keys → l.valuesChecksums)
+      leaf
+        .map(l ⇒ l.keys → l.valuesChecksums)
         .getOrElse(Array.empty[Key] → Array.empty[Hash])
 
     searchCallbacks.submitLeaf(keys, valuesChecksums)

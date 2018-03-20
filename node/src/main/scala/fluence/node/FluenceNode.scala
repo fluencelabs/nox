@@ -25,16 +25,16 @@ import cats.instances.list._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.show._
-import cats.{ Applicative, MonadError }
-import com.typesafe.config.{ Config, ConfigFactory, ConfigRenderOptions }
-import fluence.client.core.config.{ KeyPairConfig, SeedsConfig }
+import cats.{Applicative, MonadError}
+import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
+import fluence.client.core.config.{KeyPairConfig, SeedsConfig}
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.hash.{ CryptoHasher, JdkCryptoHasher }
-import fluence.crypto.{ FileKeyStorage, SignAlgo }
+import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher}
+import fluence.crypto.{FileKeyStorage, SignAlgo}
 import fluence.kad.Kademlia
-import fluence.kad.protocol.{ Contact, Key, Node }
+import fluence.kad.protocol.{Contact, Key, Node}
 import fluence.node.core.NodeComposer
-import fluence.node.core.config.{ ContactConf, UPnPConf }
+import fluence.node.core.config.{ContactConf, UPnPConf}
 import fluence.node.grpc.NodeGrpc
 import fluence.transport.UPnP
 import fluence.transport.grpc.server.GrpcServerConf
@@ -73,8 +73,10 @@ object FluenceNode extends slogging.LazyLogging {
     hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
     config: Config = ConfigFactory.load()
   ): IO[FluenceNode] = {
-    logger.debug("Node config is :" +
-      config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false)))
+    logger.debug(
+      "Node config is :" +
+        config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false))
+    )
     launchGrpc(algo, hasher, config)
   }
 
@@ -98,17 +100,16 @@ object FluenceNode extends slogging.LazyLogging {
     UPnPConf.read(config).flatMap {
       case u if !u.isEnabled ⇒ IO.pure(contactConf -> IO.unit)
       case u ⇒
-        UPnP().flatMap {
-          upnp ⇒
-            // Provide upnp-discovered external address to contact conf
-            val contact = contactConf.copy(host = Some(upnp.externalAddress))
+        UPnP().flatMap { upnp ⇒
+          // Provide upnp-discovered external address to contact conf
+          val contact = contactConf.copy(host = Some(upnp.externalAddress))
 
-            // Forward grpc port
-            u.grpc.fold(IO.pure(contact -> IO.unit)){ grpcExternalPort ⇒
-              upnp.addPort(grpcExternalPort, grpc.port).map(_ ⇒
-                contact.copy(grpcPort = Some(grpcExternalPort)) -> upnp.deletePort(grpcExternalPort)
-              )
-            }
+          // Forward grpc port
+          u.grpc.fold(IO.pure(contact -> IO.unit)) { grpcExternalPort ⇒
+            upnp
+              .addPort(grpcExternalPort, grpc.port)
+              .map(_ ⇒ contact.copy(grpcPort = Some(grpcExternalPort)) -> upnp.deletePort(grpcExternalPort))
+          }
         }
     }
 
@@ -139,18 +140,23 @@ object FluenceNode extends slogging.LazyLogging {
 
       (upnpContact, upnpShutdown) = upnpContactStop
 
-      contact ← Contact.buildOwn[IO](
-        addr = upnpContact.host.getOrElse(builder.address).getHostName,
-        port = upnpContact.grpcPort.getOrElse(builder.port),
-        protocolVersion = upnpContact.protocolVersion,
-        gitHash = upnpContact.gitHash,
-        signer = algo.signer(kp)
-      ).value.flatMap(MonadError[IO, Throwable].fromEither).onFail(upnpShutdown)
+      contact ← Contact
+        .buildOwn[IO](
+          addr = upnpContact.host.getOrElse(builder.address).getHostName,
+          port = upnpContact.grpcPort.getOrElse(builder.port),
+          protocolVersion = upnpContact.protocolVersion,
+          gitHash = upnpContact.gitHash,
+          signer = algo.signer(kp)
+        )
+        .value
+        .flatMap(MonadError[IO, Throwable].fromEither)
+        .onFail(upnpShutdown)
 
       client ← NodeGrpc.grpcClient(key, contact, config)
       kadClient = client(_: Contact).kademlia
 
-      services ← NodeComposer.services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true, clock)
+      services ← NodeComposer
+        .services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true, clock)
         .onFail(upnpShutdown)
       closeUpNpAndServices = upnpShutdown.flatMap(_ ⇒ services.close)
 
@@ -162,15 +168,19 @@ object FluenceNode extends slogging.LazyLogging {
       seedConfig ← SeedsConfig.read(config).onFail(closeAll)
       seedContacts ← seedConfig.contacts.onFail(closeAll)
 
-      _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO(Scheduler.global) else IO {
-        logger.info("You should add some seed node contacts to join. Take a look on reference.conf")
-      }.onFail(closeAll)
+      _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO(Scheduler.global)
+      else
+        IO {
+          logger.info("You should add some seed node contacts to join. Take a look on reference.conf")
+        }.onFail(closeAll)
     } yield {
 
       logger.info("Server launched")
       logger.info("Your contact is: " + contact.show)
 
-      logger.info("You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
+      logger.info(
+        "You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET
+      )
 
       val _conf = config
 
@@ -184,9 +194,9 @@ object FluenceNode extends slogging.LazyLogging {
             server.shutdown,
             services.close,
             upnpShutdown
-          ){
-              (_, _, _) ⇒ ()
-            }
+          ) { (_, _, _) ⇒
+            ()
+          }
 
         override def restart: IO[FluenceNode] =
           stop.flatMap(_ ⇒ launchGrpc(algo, hasher, _conf))
@@ -203,15 +213,14 @@ object FluenceNode extends slogging.LazyLogging {
   }
 
   implicit class ResourceCloser[F[_], T](origin: F[T])(implicit val ME: MonadError[F, Throwable]) {
+
     /** Invoke ''closeFn'' and raise error if ''origin'' failed */
     def onFail(closeFn: F[Unit]): F[T] = {
-      origin
-        .attempt
-        .flatMap {
-          case Left(err) ⇒
-            closeFn.flatMap(_ ⇒ ME.raiseError(err))
-          case Right(s) ⇒ ME.pure(s)
-        }
+      origin.attempt.flatMap {
+        case Left(err) ⇒
+          closeFn.flatMap(_ ⇒ ME.raiseError(err))
+        case Right(s) ⇒ ME.pure(s)
+      }
     }
   }
 

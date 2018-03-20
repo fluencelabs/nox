@@ -18,9 +18,10 @@
 package fluence.transport
 
 import fluence.kad.protocol.Contact
-import shapeless.{ HList, ops }
+import shapeless.{ops, HList}
 
 trait TransportClient[CL <: HList] {
+
   /**
    * Returns a service stub for a particular contact.
    *

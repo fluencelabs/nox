@@ -18,8 +18,8 @@
 package fluence.crypto
 
 import fluence.crypto.keypair.KeyPair
-import org.scalatest.{ Matchers, WordSpec }
-import scodec.bits.{ Bases, ByteVector }
+import org.scalatest.{Matchers, WordSpec}
+import scodec.bits.{Bases, ByteVector}
 
 class KeyStoreSpec extends WordSpec with Matchers {
 

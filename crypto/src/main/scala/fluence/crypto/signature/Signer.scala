@@ -31,7 +31,7 @@ import scala.language.higherKinds
 trait Signer {
   def publicKey: KeyPair.Public
 
-  def sign[F[_] : Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature]
+  def sign[F[_]: Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature]
 }
 
 object Signer {
@@ -39,7 +39,7 @@ object Signer {
   class DumbSigner(keyPair: KeyPair) extends Signer {
     override def publicKey: KeyPair.Public = keyPair.publicKey
 
-    override def sign[F[_] : Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature] =
+    override def sign[F[_]: Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature] =
       EitherT.pure(Signature(keyPair.publicKey, plain.reverse))
   }
 

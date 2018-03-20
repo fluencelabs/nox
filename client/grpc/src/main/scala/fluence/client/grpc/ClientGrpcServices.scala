@@ -20,13 +20,13 @@ package fluence.client.grpc
 import cats.effect.Effect
 import fluence.client.core.ClientServices
 import fluence.contract.BasicContract
-import fluence.contract.grpc.client.{ ContractAllocatorClient, ContractsCacheClient }
-import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }
+import fluence.contract.grpc.client.{ContractAllocatorClient, ContractsCacheClient}
+import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.grpc.DatasetStorageClient
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.grpc.client.KademliaClient
-import fluence.kad.protocol.{ Contact, KademliaRpc }
+import fluence.kad.protocol.{Contact, KademliaRpc}
 import fluence.transport.grpc.client.GrpcClient
 import monix.execution.Scheduler
 import monix.reactive.Observable
@@ -36,15 +36,15 @@ import scala.language.higherKinds
 
 object ClientGrpcServices {
 
-  def build[F[_] : Effect](
+  def build[F[_]: Effect](
     builder: GrpcClient.Builder[HNil]
   )(
     implicit
     checker: SignatureChecker,
     scheduler: Scheduler = Scheduler.global
   ): Contact ⇒ ClientServices[F, BasicContract, Contact] = {
-    import fluence.contract.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
-    import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
+    import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}
+    import fluence.kad.grpc.KademliaNodeCodec.{codec ⇒ nodeCodec}
 
     val client = builder
       .add(KademliaClient.register[F]())
@@ -53,18 +53,19 @@ object ClientGrpcServices {
       .add(DatasetStorageClient.register[F]())
       .build
 
-    contact ⇒ new ClientServices[F, BasicContract, Contact] {
-      override def kademlia: KademliaRpc[F, Contact] =
-        client.service[KademliaRpc[F, Contact]](contact)
+    contact ⇒
+      new ClientServices[F, BasicContract, Contact] {
+        override def kademlia: KademliaRpc[F, Contact] =
+          client.service[KademliaRpc[F, Contact]](contact)
 
-      override def contractsCache: ContractsCacheRpc[F, BasicContract] =
-        client.service[ContractsCacheRpc[F, BasicContract]](contact)
+        override def contractsCache: ContractsCacheRpc[F, BasicContract] =
+          client.service[ContractsCacheRpc[F, BasicContract]](contact)
 
-      override def contractAllocator: ContractAllocatorRpc[F, BasicContract] =
-        client.service[ContractAllocatorRpc[F, BasicContract]](contact)
-      // todo generalize Observable
-      override def datasetStorage: DatasetStorageRpc[F, Observable] =
-        client.service[DatasetStorageRpc[F, Observable]](contact)
-    }
+        override def contractAllocator: ContractAllocatorRpc[F, BasicContract] =
+          client.service[ContractAllocatorRpc[F, BasicContract]](contact)
+        // todo generalize Observable
+        override def datasetStorage: DatasetStorageRpc[F, Observable] =
+          client.service[DatasetStorageRpc[F, Observable]](contact)
+      }
   }
 }

@@ -21,11 +21,11 @@ import cats.instances.try_._
 import cats.kernel.Eq
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.SignAlgo
-import org.scalatest.{ Matchers, WordSpec }
-import fluence.contract.{ BasicContract ⇒ BC }
+import org.scalatest.{Matchers, WordSpec}
+import fluence.contract.{BasicContract ⇒ BC}
 import fluence.kad.protocol.Key
 
-import scala.util.{ Success, Try }
+import scala.util.{Success, Try}
 
 class BasicContractCodecSpec extends WordSpec with Matchers {
 

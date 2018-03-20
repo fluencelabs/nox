@@ -17,8 +17,8 @@
 
 package fluence.crypto
 
-import fluence.crypto.facade.ecdsa.{ SHA1, SHA256 }
-import org.scalatest.{ Matchers, WordSpec }
+import fluence.crypto.facade.ecdsa.{SHA1, SHA256}
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.scalajs.js.JSConverters._
 

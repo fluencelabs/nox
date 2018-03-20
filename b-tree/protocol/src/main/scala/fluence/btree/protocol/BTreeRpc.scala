@@ -17,7 +17,7 @@
 
 package fluence.btree.protocol
 
-import fluence.btree.core.{ ClientPutDetails, Hash, Key }
+import fluence.btree.core.{ClientPutDetails, Hash, Key}
 
 import scala.collection.Searching.SearchResult
 import scala.language.higherKinds

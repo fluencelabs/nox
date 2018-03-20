@@ -4,18 +4,18 @@ import sbtcrossproject.CrossPlugin.autoImport._
 import scalajscrossproject.ScalaJSCrossPlugin.autoImport._
 
 /**
-  * cross types https://github.com/portable-scala/sbt-crossproject
-  * http://xuwei-k.github.io/slides/scala-js-matsuri/#21
-  * avoid move files
-  */
+ * cross types https://github.com/portable-scala/sbt-crossproject
+ * http://xuwei-k.github.io/slides/scala-js-matsuri/#21
+ * avoid move files
+ */
 object FluenceCrossType extends sbtcrossproject.CrossType {
   override def projectDir(crossBase: File, projectType: String) =
     crossBase / projectType
 
   override def projectDir(crossBase: File, projectType: sbtcrossproject.Platform) = {
     val dir = projectType match {
-      case JVMPlatform => "jvm"
-      case JSPlatform => "js"
+      case JVMPlatform ⇒ "jvm"
+      case JSPlatform ⇒ "js"
     }
     crossBase / dir
   }

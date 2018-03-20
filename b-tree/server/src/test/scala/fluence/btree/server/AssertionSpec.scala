@@ -17,7 +17,7 @@
 
 package fluence.btree.server
 
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 class AssertionSpec extends WordSpec with Matchers {
 

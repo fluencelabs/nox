@@ -18,9 +18,10 @@
 package fluence.kad
 
 import cats.data.StateT
-import monix.eval.{ MVar, Task }
+import monix.eval.{MVar, Task}
 
 object RunOnMVar {
+
   /**
    * Runs a state modification on state V enclosed within MVar, and updates read model before return
    *

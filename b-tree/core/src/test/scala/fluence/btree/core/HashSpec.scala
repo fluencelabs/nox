@@ -17,7 +17,7 @@
 
 package fluence.btree.core
 
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 class HashSpec extends WordSpec with Matchers {
 

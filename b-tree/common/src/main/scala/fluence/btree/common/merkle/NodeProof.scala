@@ -57,9 +57,9 @@ sealed trait NodeProof {
  * @param substitutionIdx   Index for substitution some child checksum to ''childrenChecksums''
  */
 case class GeneralNodeProof(
-    stateChecksum: Hash,
-    childrenChecksums: Array[Hash],
-    substitutionIdx: Int
+  stateChecksum: Hash,
+  childrenChecksums: Array[Hash],
+  substitutionIdx: Int
 ) extends NodeProof {
 
   override def calcChecksum(
@@ -80,6 +80,7 @@ case class GeneralNodeProof(
 
   }
 
-  override def toString: String = s"NodeProof(stateChecksum=$stateChecksum, " +
-    s"childrenChecksums=${childrenChecksums.mkString(",")}, substitutionIdx=$substitutionIdx)"
+  override def toString: String =
+    s"NodeProof(stateChecksum=$stateChecksum, " +
+      s"childrenChecksums=${childrenChecksums.mkString(",")}, substitutionIdx=$substitutionIdx)"
 }
