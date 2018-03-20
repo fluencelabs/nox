@@ -28,13 +28,13 @@ import scala.language.higherKinds
 object IdSeqProvider {
 
   /**
-    * Returns in memory id sequence provider for Longs.
-    * Reads from local RocksDb a record with ''max key'' and create 'id sequence provider' started with ''max key''.
-    * In case where there is no local RocksDb instance, makes 'id sequence provider' started with zero.
-    *
-    * @param rocksDB            Local RocksDb instance for scanning
-    * @param defaultStartValue Start id value for new database (when specified RocksDn is empty)
-    */
+   * Returns in memory id sequence provider for Longs.
+   * Reads from local RocksDb a record with ''max key'' and create 'id sequence provider' started with ''max key''.
+   * In case where there is no local RocksDb instance, makes 'id sequence provider' started with zero.
+   *
+   * @param rocksDB            Local RocksDb instance for scanning
+   * @param defaultStartValue Start id value for new database (when specified RocksDn is empty)
+   */
   def longSeqProvider[F[_]: Monad](
     rocksDB: RocksDbStore,
     defaultStartValue: Long = 0L

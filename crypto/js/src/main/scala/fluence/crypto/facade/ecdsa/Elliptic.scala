@@ -22,8 +22,8 @@ import scala.scalajs.js.annotation._
 
 //TODO hide enc argument in methods, make it `hex` by default
 /**
-  * https://github.com/indutny/elliptic - fast elliptic-curve cryptography in a plain javascript implementation
-  */
+ * https://github.com/indutny/elliptic - fast elliptic-curve cryptography in a plain javascript implementation
+ */
 @js.native
 @JSImport("elliptic", "ec")
 class EC(curve: String) extends js.Object {

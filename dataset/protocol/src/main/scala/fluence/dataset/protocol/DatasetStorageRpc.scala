@@ -22,48 +22,48 @@ import fluence.btree.protocol.BTreeRpc.{PutCallbacks, RemoveCallback, SearchCall
 import scala.language.higherKinds
 
 /**
-  * Remotely-accessible interface to value storage. All parts of storage(btree index, value storage) use this Rpc.
-  *
-  * @tparam F  A box for returning value
-  * @tparam FS A type of stream for returning values
-  */
+ * Remotely-accessible interface to value storage. All parts of storage(btree index, value storage) use this Rpc.
+ *
+ * @tparam F  A box for returning value
+ * @tparam FS A type of stream for returning values
+ */
 trait DatasetStorageRpc[F[_], FS[_]] {
 
   /**
-    * Initiates ''Get'' operation in remote MerkleBTree.
-    *
-    * @param datasetId Dataset ID
-    * @param searchCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
-    * @return returns found value, None if nothing was found.
-    */
+   * Initiates ''Get'' operation in remote MerkleBTree.
+   *
+   * @param datasetId Dataset ID
+   * @param searchCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
+   * @return returns found value, None if nothing was found.
+   */
   def get(datasetId: Array[Byte], searchCallbacks: SearchCallback[F]): F[Option[Array[Byte]]]
 
   /**
-    * Initiates ''Range'' operation in remote MerkleBTree.
-    *
-    * @param datasetId Dataset ID
-    * @param searchCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
-    * @return returns stream of found value.
-    */
+   * Initiates ''Range'' operation in remote MerkleBTree.
+   *
+   * @param datasetId Dataset ID
+   * @param searchCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
+   * @return returns stream of found value.
+   */
   def range(datasetId: Array[Byte], searchCallbacks: SearchCallback[F]): FS[(Array[Byte], Array[Byte])]
 
   /**
-    * Initiates ''Put'' operation in remote MerkleBTree.
-    *
-    * @param datasetId Dataset ID
-    * @param putCallbacks     Wrapper for all callback needed for ''Put'' operation to the BTree.
-    * @param encryptedValue  Encrypted value.
-    * @return returns old value if old value was overridden, None otherwise.
-    */
+   * Initiates ''Put'' operation in remote MerkleBTree.
+   *
+   * @param datasetId Dataset ID
+   * @param putCallbacks     Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param encryptedValue  Encrypted value.
+   * @return returns old value if old value was overridden, None otherwise.
+   */
   def put(datasetId: Array[Byte], putCallbacks: PutCallbacks[F], encryptedValue: Array[Byte]): F[Option[Array[Byte]]]
 
   /**
-    * Initiates ''Remove'' operation in remote MerkleBTree.
-    *
-    * @param datasetId Dataset ID
-    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
-    * @return returns old value that was deleted, None if nothing was deleted.
-    */
+   * Initiates ''Remove'' operation in remote MerkleBTree.
+   *
+   * @param datasetId Dataset ID
+   * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
+   * @return returns old value that was deleted, None if nothing was deleted.
+   */
   def remove(datasetId: Array[Byte], removeCallbacks: RemoveCallback[F]): F[Option[Array[Byte]]]
 
 }

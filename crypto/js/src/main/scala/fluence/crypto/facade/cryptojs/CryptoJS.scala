@@ -29,9 +29,9 @@ object CryptoJS extends js.Object {
   def AES: AES = js.native
 
   /**
-    * https://en.wikipedia.org/wiki/PBKDF2
-    * @return Salted and hashed key
-    */
+   * https://en.wikipedia.org/wiki/PBKDF2
+   * @return Salted and hashed key
+   */
   def PBKDF2(pass: String, salt: String, options: KeyOptions): Key = js.native
 
   def lib: Lib = js.native

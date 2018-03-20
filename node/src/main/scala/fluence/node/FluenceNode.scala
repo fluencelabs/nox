@@ -60,13 +60,13 @@ trait FluenceNode {
 object FluenceNode extends slogging.LazyLogging {
 
   /**
-    * Launches a node with all available and enabled network interfaces.
-    *
-    * @param algo Algorithm to use for signatures
-    * @param hasher Hasher, used in b-tree
-    * @param config Configuration to read from
-    * @return An IO that can be used to shut down the node
-    */
+   * Launches a node with all available and enabled network interfaces.
+   *
+   * @param algo Algorithm to use for signatures
+   * @param hasher Hasher, used in b-tree
+   * @param config Configuration to read from
+   * @return An IO that can be used to shut down the node
+   */
   def startNode(
     algo: SignAlgo = Ecdsa.signAlgo,
     hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
@@ -79,11 +79,11 @@ object FluenceNode extends slogging.LazyLogging {
   }
 
   /**
-    * Initiates a directory with all its parents
-    *
-    * @param path Directory path to create
-    * @return Existing directory
-    */
+   * Initiates a directory with all its parents
+   *
+   * @param path Directory path to create
+   * @return Existing directory
+   */
   private def initDirectory(path: String): IO[File] =
     IO {
       val appDir = new File(path)
@@ -112,9 +112,9 @@ object FluenceNode extends slogging.LazyLogging {
     }
 
   /**
-    * Launches GRPC node, using all the provided configs.
-    * @return IO that will shutdown the node once ran
-    */
+   * Launches GRPC node, using all the provided configs.
+   * @return IO that will shutdown the node once ran
+   */
   // todo write unit test, this method don't close resources correctly when initialisation failed
   private def launchGrpc(
     algo: SignAlgo,

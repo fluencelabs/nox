@@ -59,10 +59,10 @@ object Hash {
   implicit class ArrayHashOps(hashes: Array[Hash]) {
 
     /**
-      * Returns updated copy of hash array with the updated element for ''insIdx'' index.
-      * We choose variant with array copying for prevent changing input parameters.
-      * Work with mutable structures is more error-prone. It may be changed in the future by performance reason.
-      */
+     * Returns updated copy of hash array with the updated element for ''insIdx'' index.
+     * We choose variant with array copying for prevent changing input parameters.
+     * Work with mutable structures is more error-prone. It may be changed in the future by performance reason.
+     */
     def rewriteValue(newElement: Hash, idx: Int): Array[Hash] = {
       val newArray = hashes.clone()
       newArray(idx) = newElement
@@ -70,9 +70,9 @@ object Hash {
     }
 
     /**
-      * Returns updated copy of hash array with the inserted element at the specified position(''insIdx'').
-      * Current array will grow up by one.
-      */
+     * Returns updated copy of hash array with the inserted element at the specified position(''insIdx'').
+     * Current array will grow up by one.
+     */
     def insertValue(newElement: Hash, idx: Int): Array[Hash] = {
       val newArray = new Array[Hash](hashes.length + 1)
       // copying init of array

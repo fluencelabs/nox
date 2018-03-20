@@ -21,11 +21,11 @@ import cats.data.StateT
 import monix.eval.{MVar, Task}
 
 /**
-  * Implementation of Bucket.WriteOps, based on MVar and mutable map -- good for JS
-  *
-  * @param maxBucketSize Max number of nodes in each bucket
-  * @tparam C Node contacts
-  */
+ * Implementation of Bucket.WriteOps, based on MVar and mutable map -- good for JS
+ *
+ * @param maxBucketSize Max number of nodes in each bucket
+ * @tparam C Node contacts
+ */
 class MutableMapMVarBucketOps[C](maxBucketSize: Int) extends Bucket.WriteOps[Task, C] {
   private val writeState = collection.mutable.Map.empty[Int, MVar[Bucket[C]]]
   private val readState = collection.mutable.Map.empty[Int, Bucket[C]]

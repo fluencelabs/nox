@@ -39,17 +39,17 @@ case class DetachedData(ivData: Array[Byte], encData: Array[Byte])
 case class DataWithParams(data: Array[Byte], params: CipherParameters)
 
 /**
-  * PBEWithSHA256And256BitAES-CBC-BC cryptography
-  * PBE - Password-based encryption
-  * SHA256 - hash for password
-  * AES with CBC BC - Advanced Encryption Standard with Cipher Block Chaining
-  * https://ru.wikipedia.org/wiki/Advanced_Encryption_Standard
-  * https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Block_Chaining_(CBC)
-  * @param password User entered password
-  * @param withIV Initialization vector to achieve semantic security, a property whereby repeated usage of the scheme
-  *               under the same key does not allow an attacker to infer relationships between segments of the encrypted
-  *               message
-  */
+ * PBEWithSHA256And256BitAES-CBC-BC cryptography
+ * PBE - Password-based encryption
+ * SHA256 - hash for password
+ * AES with CBC BC - Advanced Encryption Standard with Cipher Block Chaining
+ * https://ru.wikipedia.org/wiki/Advanced_Encryption_Standard
+ * https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Block_Chaining_(CBC)
+ * @param password User entered password
+ * @param withIV Initialization vector to achieve semantic security, a property whereby repeated usage of the scheme
+ *               under the same key does not allow an attacker to infer relationships between segments of the encrypted
+ *               message
+ */
 class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(
   implicit ME: MonadError[F, Throwable],
   codec: Codec[F, T, Array[Byte]])
@@ -92,10 +92,10 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   }
 
   /**
-    * Generate key parameters with IV if it is necessary
-    * @param key Password
-    * @return Optional IV and cipher parameters
-    */
+   * Generate key parameters with IV if it is necessary
+   * @param key Password
+   * @return Optional IV and cipher parameters
+   */
   def extDataWithParams(key: Array[Byte]): EitherT[F, CryptoErr, (Option[Array[Byte]], CipherParameters)] = {
     if (withIV) {
       val ivData = generateIV
@@ -108,18 +108,18 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   }
 
   /**
-    * Key spec initialization
-    */
+   * Key spec initialization
+   */
   private def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] =
     nonFatalHandling {
       PBEParametersGenerator.PKCS5PasswordToUTF8Bytes(password)
     }("Cannot init secret key.")
 
   /**
-    * Setup AES CBC cipher
-    * @param encrypt True for encryption and false for decryption
-    * @return cipher
-    */
+   * Setup AES CBC cipher
+   * @param encrypt True for encryption and false for decryption
+   * @return cipher
+   */
   private def setupAesCipher(
     params: CipherParameters,
     encrypt: Boolean): EitherT[F, CryptoErr, PaddedBufferedBlockCipher] = {
@@ -146,12 +146,12 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   }
 
   /**
-    *
-    * @param dataWithParams Cata with cipher parameters
-    * @param addData Additional data (nonce)
-    * @param encrypt True for encryption and false for decryption
-    * @return Crypted bytes
-    */
+   *
+   * @param dataWithParams Cata with cipher parameters
+   * @param addData Additional data (nonce)
+   * @param encrypt True for encryption and false for decryption
+   * @return Crypted bytes
+   */
   private def processData(
     dataWithParams: DataWithParams,
     addData: Option[Array[Byte]],
@@ -164,8 +164,8 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   }
 
   /**
-    * encrypted data = initialization vector + data
-    */
+   * encrypted data = initialization vector + data
+   */
   private def detachIV(data: Array[Byte], ivSize: Int): EitherT[F, CryptoErr, DetachedData] = {
     nonFatalHandling {
       val ivData = data.slice(0, ivSize)

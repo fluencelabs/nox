@@ -30,13 +30,13 @@ import fluence.btree.server.{Leaf, NodeId}
 import scala.language.higherKinds
 
 /**
-  * Command for putting key and value to the BTree.
-  *
-  * @param merkleRootCalculator A function that ask client to give some required details for the next step
-  * @param putCallbacks          A pack of functions that ask client to give some required details for the next step
-  * @param valueRefProvider      A function for getting next value reference
-  * @tparam F The type of effect, box for returning value
-  */
+ * Command for putting key and value to the BTree.
+ *
+ * @param merkleRootCalculator A function that ask client to give some required details for the next step
+ * @param putCallbacks          A pack of functions that ask client to give some required details for the next step
+ * @param valueRefProvider      A function for getting next value reference
+ * @tparam F The type of effect, box for returning value
+ */
 case class PutCommandImpl[F[_]](
   merkleRootCalculator: MerkleRootCalculator,
   putCallbacks: PutCallbacks[F],

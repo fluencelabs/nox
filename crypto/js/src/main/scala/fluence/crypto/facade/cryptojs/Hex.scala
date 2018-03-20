@@ -23,8 +23,8 @@ import scala.scalajs.js
 trait Hex extends js.Object {
 
   /**
-    * Parse from HEX to JS byte representation
-    * @param str Hex
-    */
+   * Parse from HEX to JS byte representation
+   * @param str Hex
+   */
   def parse(str: String): WordArray = js.native
 }

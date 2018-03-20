@@ -25,9 +25,9 @@ import monix.reactive.Observable
 import scala.language.higherKinds
 
 /**
-  * Wrapper with dataset replication. Allows writes data to all nodes and reads data if at least one node is alive.
-  * This is naive implementation of replication and it will be removed in future.
-  */
+ * Wrapper with dataset replication. Allows writes data to all nodes and reads data if at least one node is alive.
+ * This is naive implementation of replication and it will be removed in future.
+ */
 class ClientReplicationWrapper[K, V](
   datasetReplicas: List[(ClientDatasetStorageApi[Task, Observable, K, V], Contact)]
 ) extends ClientDatasetStorageApi[Task, Observable, K, V] with slogging.LazyLogging {
@@ -35,11 +35,11 @@ class ClientReplicationWrapper[K, V](
   private val replicationFactor = datasetReplicas.size
 
   /**
-    * Gets stored value for specified key from first server.
-    *
-    * @param key The key retrieve the value.
-    * @return returns found value, None if nothing was found.
-    */
+   * Gets stored value for specified key from first server.
+   *
+   * @param key The key retrieve the value.
+   * @return returns found value, None if nothing was found.
+   */
   override def get(key: K): Task[Option[V]] = {
 
     def getRec(replicas: List[(ClientDatasetStorageApi[Task, Observable, K, V], Contact)]): Task[Option[V]] = {
@@ -59,12 +59,12 @@ class ClientReplicationWrapper[K, V](
   }
 
   /**
-    * Fetches stored key-value pairs for specified key range as stream.
-    *
-    * @param from Plain text key, start of range.
-    * @param to   Plain text key, end of range.
-    * @return returns stream of found key-value pairs.
-    */
+   * Fetches stored key-value pairs for specified key range as stream.
+   *
+   * @param from Plain text key, start of range.
+   * @param to   Plain text key, end of range.
+   * @return returns stream of found key-value pairs.
+   */
   override def range(from: K, to: K): Observable[(K, V)] = {
 
     def rangeRec(replicas: List[(ClientDatasetStorageApi[Task, Observable, K, V], Contact)]): Observable[(K, V)] = {
@@ -84,12 +84,12 @@ class ClientReplicationWrapper[K, V](
   }
 
   /**
-    * Puts key value pair (K, V) on each server, waits all responses and return first result.
-    *
-    * @param key   The specified key to be inserted
-    * @param value The value associated with the specified key
-    * @return returns old value if old value was overridden, None otherwise.
-    */
+   * Puts key value pair (K, V) on each server, waits all responses and return first result.
+   *
+   * @param key   The specified key to be inserted
+   * @param value The value associated with the specified key
+   * @return returns old value if old value was overridden, None otherwise.
+   */
   override def put(key: K, value: V): Task[Option[V]] = {
     for {
       //check that all datasets is available, for demo purpose only
@@ -106,11 +106,11 @@ class ClientReplicationWrapper[K, V](
   }
 
   /**
-    * Removes pair (K, V) for specified key.
-    *
-    * @param key The key to delete within database
-    * @return returns old value that was deleted, None if nothing was deleted.
-    */
+   * Removes pair (K, V) for specified key.
+   *
+   * @param key The key to delete within database
+   * @return returns old value that was deleted, None if nothing was deleted.
+   */
   override def remove(key: K): Task[Option[V]] = ???
 
 }

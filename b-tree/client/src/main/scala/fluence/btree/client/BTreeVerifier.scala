@@ -18,7 +18,6 @@
 package fluence.btree.client
 
 import cats.syntax.eq._
-import fluence.btree.common._
 import fluence.btree.common.merkle.{GeneralNodeProof, MerklePath, MerkleRootCalculator, NodeProof}
 import fluence.btree.core.{ClientPutDetails, Hash, Key}
 import fluence.crypto.hash.CryptoHasher
@@ -26,24 +25,24 @@ import fluence.crypto.hash.CryptoHasher
 import scala.collection.Searching.{Found, InsertionPoint}
 
 /**
-  * Arbiter for checking correctness of Btree server responses.
-  * This implementation is thread-safe if corresponded ''cryptoHash'' and ''merkleRootCalculator'' is thread-safe.
-  *
-  * @param cryptoHasher          Hash provider
-  * @param merkleRootCalculator Merkle proof service that allows calculate merkle root from merkle path
-  */
+ * Arbiter for checking correctness of Btree server responses.
+ * This implementation is thread-safe if corresponded ''cryptoHash'' and ''merkleRootCalculator'' is thread-safe.
+ *
+ * @param cryptoHasher          Hash provider
+ * @param merkleRootCalculator Merkle proof service that allows calculate merkle root from merkle path
+ */
 class BTreeVerifier(
   cryptoHasher: CryptoHasher[Array[Byte], Hash],
   merkleRootCalculator: MerkleRootCalculator
 ) extends slogging.LazyLogging {
 
   /**
-    * Checks 'servers proof' correctness. Calculates proof checksums and compares it with expected checksum.
-    *
-    * @param serverProof A [[NodeProof]] of branch/leaf for verify from server
-    * @param mRoot       The merkle root of server tree
-    * @param mPath       The merkle path passed from tree root at this moment
-    */
+   * Checks 'servers proof' correctness. Calculates proof checksums and compares it with expected checksum.
+   *
+   * @param serverProof A [[NodeProof]] of branch/leaf for verify from server
+   * @param mRoot       The merkle root of server tree
+   * @param mPath       The merkle path passed from tree root at this moment
+   */
   def checkProof(serverProof: NodeProof, mRoot: Hash, mPath: MerklePath): Boolean = {
 
     val calcChecksum = serverProof.calcChecksum(cryptoHasher, None)
@@ -56,12 +55,12 @@ class BTreeVerifier(
   }
 
   /**
-    * Returns [[NodeProof]] for branch details from server.
-    *
-    * @param keys             Keys of branch for verify
-    * @param childsChecksums Childs checksum of branch for verify
-    * @param substitutionIdx Next child index.
-    */
+   * Returns [[NodeProof]] for branch details from server.
+   *
+   * @param keys             Keys of branch for verify
+   * @param childsChecksums Childs checksum of branch for verify
+   * @param substitutionIdx Next child index.
+   */
   def getBranchProof(
     keys: Array[Key],
     childsChecksums: Array[Hash],
@@ -72,11 +71,11 @@ class BTreeVerifier(
   }
 
   /**
-    * Returns [[NodeProof]] for branch details from server.
-    *
-    * @param keys              Keys of leaf for verify
-    * @param valuesChecksums  Checksums of leaf values for verify
-    */
+   * Returns [[NodeProof]] for branch details from server.
+   *
+   * @param keys              Keys of leaf for verify
+   * @param valuesChecksums  Checksums of leaf values for verify
+   */
   def getLeafProof(keys: Array[Key], valuesChecksums: Array[Hash]): GeneralNodeProof = {
     val childsChecksums =
       keys.zip(valuesChecksums).map { case (key, valChecksum) ⇒ cryptoHasher.hash(key.bytes, valChecksum.bytes) }
@@ -84,12 +83,12 @@ class BTreeVerifier(
   }
 
   /**
-    * Verifies that server made correct tree modification.
-    * Returns Some(newRoot) if server pass verifying, None otherwise.
-    * Client can update merkle root if this method returns true.
-    *
-    * @param clientMPath Clients merkle path
-    */
+   * Verifies that server made correct tree modification.
+   * Returns Some(newRoot) if server pass verifying, None otherwise.
+   * Client can update merkle root if this method returns true.
+   *
+   * @param clientMPath Clients merkle path
+   */
   def newMerkleRoot(
     clientMPath: MerklePath,
     putDetails: ClientPutDetails,
@@ -113,10 +112,10 @@ class BTreeVerifier(
   }
 
   /**
-    * Verifies that server made correct tree modification without rebalancing.
-    * Client can update merkle root if this method returns true.
-    * @return Returns Some(newRoot) if server pass verifying, None otherwise.
-    */
+   * Verifies that server made correct tree modification without rebalancing.
+   * Client can update merkle root if this method returns true.
+   * @return Returns Some(newRoot) if server pass verifying, None otherwise.
+   */
   private def verifySimplePut(clientMPath: MerklePath, putDetails: ClientPutDetails): Hash = {
 
     putDetails match {
@@ -139,10 +138,10 @@ class BTreeVerifier(
   }
 
   /**
-    * Verifies that server made correct tree modification with tree rebalancing.
-    * Client can update merkle root if this method returns true.
-    * @return Returns Some(newRoot) if server pass verifying, None otherwise.
-    */
+   * Verifies that server made correct tree modification with tree rebalancing.
+   * Client can update merkle root if this method returns true.
+   * @return Returns Some(newRoot) if server pass verifying, None otherwise.
+   */
   private def verifyPutWithRebalancing(
     clientMPath: MerklePath,
     putDetails: ClientPutDetails,
@@ -155,11 +154,11 @@ class BTreeVerifier(
   }
 
   /**
-    * Returns expected checksum of next branch that should be returned from server
-    *
-    * @param mRoot The merkle root of server tree
-    * @param mPath The merkle path already passed from tree root
-    */
+   * Returns expected checksum of next branch that should be returned from server
+   *
+   * @param mRoot The merkle root of server tree
+   * @param mPath The merkle path already passed from tree root
+   */
   private def calcExpectedChecksum(mRoot: Hash, mPath: MerklePath): Hash = {
     mPath.path.lastOption.map {
       case GeneralNodeProof(_, childrenChecksums, substitutionIdx) ⇒

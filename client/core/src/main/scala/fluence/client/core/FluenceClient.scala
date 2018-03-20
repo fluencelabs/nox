@@ -51,13 +51,13 @@ class FluenceClient(
 ) extends slogging.LazyLogging {
 
   /**
-    * Restore dataset from cache or from contract in kademlia net
-    *
-    * @param keyPair    Key pair of client
-    * @param keyCrypt   Encryption method for key
-    * @param valueCrypt Encryption method for value
-    * @return Dataset or None if no contract in kademlia network
-    */
+   * Restore dataset from cache or from contract in kademlia net
+   *
+   * @param keyPair    Key pair of client
+   * @param keyCrypt   Encryption method for key
+   * @param valueCrypt Encryption method for value
+   * @return Dataset or None if no contract in kademlia network
+   */
   def getDataset(
     keyPair: KeyPair,
     keyCrypt: Crypt[Task, String, Array[Byte]],
@@ -67,13 +67,13 @@ class FluenceClient(
   }
 
   /**
-    * Create string dataset with noop-encryption
-    * private until multiple datasets per authorized client is supported
-    *
-    * @param contact     node where we will store dataset
-    * @param clientState merkle root if it is not a new dataset
-    * @return dataset representation
-    */
+   * Create string dataset with noop-encryption
+   * private until multiple datasets per authorized client is supported
+   *
+   * @param contact     node where we will store dataset
+   * @param clientState merkle root if it is not a new dataset
+   * @return dataset representation
+   */
   private def addEncryptedDataset(
     keyPair: KeyPair,
     contact: Contact,
@@ -91,15 +91,15 @@ class FluenceClient(
     )
 
   /**
-    *
-    * Use string only info now
-    * private until multiple datasets per authorized client is supported
-    *
-    * @param storageRpc  transport to dataset
-    * @param clientState merkle root of dataset, stored in contract
-    * @param nonce       some numbers to iterate through the list of data sets, empty-only for now
-    * @return dataset representation
-    */
+   *
+   * Use string only info now
+   * private until multiple datasets per authorized client is supported
+   *
+   * @param storageRpc  transport to dataset
+   * @param clientState merkle root of dataset, stored in contract
+   * @param nonce       some numbers to iterate through the list of data sets, empty-only for now
+   * @return dataset representation
+   */
   private def addDataset(
     keyPair: KeyPair,
     storageRpc: DatasetStorageRpc[Task, Observable],
@@ -150,8 +150,8 @@ class FluenceClient(
   }
 
   /**
-    * Try to find contract in kademlia net and restore dataset from contract
-    */
+   * Try to find contract in kademlia net and restore dataset from contract
+   */
   // multi-write support
   private def restoreReplicatedDataset(
     keyPair: KeyPair,
@@ -212,14 +212,14 @@ object FluenceClient extends slogging.LazyLogging {
   }
 
   /**
-    * Client for multiple authorized users (with different key pairs).
-    * Only one dataset for one user is supported at this moment.
-    *
-    * @param kademliaClient client for kademlia network, could be shared, it is necessary to join with seed node before
-    * @param contracts      client for work with contracts, could be shared
-    * @param storageRpc     rpc for dataset communication
-    * @param signAlgo       main algorithm for key verification
-    */
+   * Client for multiple authorized users (with different key pairs).
+   * Only one dataset for one user is supported at this moment.
+   *
+   * @param kademliaClient client for kademlia network, could be shared, it is necessary to join with seed node before
+   * @param contracts      client for work with contracts, could be shared
+   * @param storageRpc     rpc for dataset communication
+   * @param signAlgo       main algorithm for key verification
+   */
   def apply(
     kademliaClient: Kademlia[Task, Contact],
     contracts: Contracts[Task, BasicContract, Contact],
@@ -231,15 +231,15 @@ object FluenceClient extends slogging.LazyLogging {
   }
 
   /**
-    * Builds FluenceClient with its enclosed services
-    *
-    * @param seeds Seed nodes to use for network discovery
-    * @param signAlgo Signing algorithm
-    * @param storageHasher Hasher used for b-tree
-    * @param kademliaConf Configuration for Kademlia
-    * @param client Access to remote services
-    * @return A FluenceClient ready to be used
-    */
+   * Builds FluenceClient with its enclosed services
+   *
+   * @param seeds Seed nodes to use for network discovery
+   * @param signAlgo Signing algorithm
+   * @param storageHasher Hasher used for b-tree
+   * @param kademliaConf Configuration for Kademlia
+   * @param client Access to remote services
+   * @return A FluenceClient ready to be used
+   */
   def build(
     seeds: Seq[Contact],
     signAlgo: SignAlgo,

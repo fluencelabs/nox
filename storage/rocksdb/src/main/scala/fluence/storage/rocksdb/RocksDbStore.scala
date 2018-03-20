@@ -35,15 +35,15 @@ import scala.language.higherKinds
 import scala.reflect.io.Path
 
 /**
-  * Implementation of [[KVStore]] with embedded RocksDB database.
-  * For each dataSet will be created new RocksDB instance in a separate folder.
-  * All defaults for all instances are stored in the typeSafe config (see ''reference.conf''),
-  * you can overload them into ''reference.conf''
-  * '''Note: only single thread should write to DB''', but reading database allowed to multiply threads.
-  *
-  * @param db        Instance of RocksDbJava driver
-  * @param dbOptions Needed for run [[dbOptions.close]] simultaneously with [[db.close]].
-  */
+ * Implementation of [[KVStore]] with embedded RocksDB database.
+ * For each dataSet will be created new RocksDB instance in a separate folder.
+ * All defaults for all instances are stored in the typeSafe config (see ''reference.conf''),
+ * you can overload them into ''reference.conf''
+ * '''Note: only single thread should write to DB''', but reading database allowed to multiply threads.
+ *
+ * @param db        Instance of RocksDbJava driver
+ * @param dbOptions Needed for run [[dbOptions.close]] simultaneously with [[db.close]].
+ */
 class RocksDbStore(
   val db: RocksDB,
   private val dbOptions: Options
@@ -54,10 +54,10 @@ class RocksDbStore(
   // todo logging
 
   /**
-    * Gets stored value for specified key.
-    *
-    * @param key The key retrieve the value.
-    */
+   * Gets stored value for specified key.
+   *
+   * @param key The key retrieve the value.
+   */
   override def get(key: Key): Task[Value] =
     Task.eval(Option(db.get(key))).flatMap {
       case Some(v) ⇒ Task.now(v)
@@ -65,31 +65,31 @@ class RocksDbStore(
     }
 
   /**
-    * Puts key value pair (K, V). Put is synchronous operation.
-    * '''Note that concurrent writing is not supported!'''
-    *
-    * @param key   the specified key to be inserted
-    * @param value the value associated with the specified key
-    */
+   * Puts key value pair (K, V). Put is synchronous operation.
+   * '''Note that concurrent writing is not supported!'''
+   *
+   * @param key   the specified key to be inserted
+   * @param value the value associated with the specified key
+   */
   override def put(key: Key, value: Value): Task[Unit] = {
     writeMutex.greenLight(Task(db.put(key, value)))
   }
 
   /**
-    * Removes pair (K, V) for specified key.
-    * '''Note that concurrent writing is not supported!'''
-    *
-    * @param key Key to delete within database
-    */
+   * Removes pair (K, V) for specified key.
+   * '''Note that concurrent writing is not supported!'''
+   *
+   * @param key Key to delete within database
+   */
   override def remove(key: Key): Task[Unit] = {
     writeMutex.greenLight(Task(db.delete(key)))
   }
 
   /**
-    * Return all pairs (K, V) for specified dataSet.
-    *
-    * @return Cursor for found pairs (K,V)
-    */
+   * Return all pairs (K, V) for specified dataSet.
+   *
+   * @return Cursor for found pairs (K,V)
+   */
   override def traverse(): Observable[(Key, Value)] = {
 
     lazy val snapshot = db.getSnapshot
@@ -107,14 +107,14 @@ class RocksDbStore(
   }
 
   /**
-    * Gets max stored 'key'.
-    * '''Note''' returns not the last stored 'key', but the max key in natural order!
-    * {{{
-    *  For example:
-    *    For numbers from 1 to 100, max key was 100.
-    *    But for strings from k1 to k100, max key was k99, cause k100 < k99 in bytes representation
-    * }}}
-    */
+   * Gets max stored 'key'.
+   * '''Note''' returns not the last stored 'key', but the max key in natural order!
+   * {{{
+   *  For example:
+   *    For numbers from 1 to 100, max key was 100.
+   *    But for strings from k1 to k100, max key was k99, cause k100 < k99 in bytes representation
+   * }}}
+   */
   def getMaxKey: Task[Key] = {
     val iterator = db.newIterator()
     Task(iterator.seekToLast())
@@ -138,18 +138,18 @@ object RocksDbStore {
   type Value = Array[Byte]
 
   /**
-    * Factory should be used to create all the instances of RocksDbStore
-    */
+   * Factory should be used to create all the instances of RocksDbStore
+   */
   class Factory extends slogging.LazyLogging {
     private val instances = TrieMap.empty[String, RocksDbStore]
 
     /**
-      * Create RocksDb instance for specified name.
-      * All data will be stored in {{{ s"${RocksDbConf.dataDir}/storeName" }}}.
-      *
-      * @param storeName The name of current RocksDbStore instance
-      * @param conf       TypeSafe config
-      */
+     * Create RocksDb instance for specified name.
+     * All data will be stored in {{{ s"${RocksDbConf.dataDir}/storeName" }}}.
+     *
+     * @param storeName The name of current RocksDbStore instance
+     * @param conf       TypeSafe config
+     */
 
     def apply[F[_]](storeName: String, conf: Config)(implicit F: MonadError[F, Throwable]): F[RocksDbStore] =
       RocksDbConf.read(conf).flatMap(apply(storeName, _))
@@ -169,8 +169,8 @@ object RocksDbStore {
     }
 
     /**
-      * Closes all launched instances of RocksDB
-      */
+     * Closes all launched instances of RocksDB
+     */
     def close: IO[Unit] = IO {
       logger.info(s"Closing RocksDB instances: ${instances.keys.mkString(", ")}")
       instances.keySet.flatMap(ds ⇒ instances.remove(ds)).foreach(_.close())

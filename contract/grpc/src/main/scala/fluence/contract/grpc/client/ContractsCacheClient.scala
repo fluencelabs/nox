@@ -42,11 +42,11 @@ class ContractsCacheClient[F[_]: Async, C](stub: ContractsCacheStub)(
   private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
 
   /**
-    * Tries to find a contract in local cache.
-    *
-    * @param id Dataset ID
-    * @return Optional locally found contract
-    */
+   * Tries to find a contract in local cache.
+   *
+   * @param id Dataset ID
+   * @return Optional locally found contract
+   */
   override def find(id: Key): F[Option[C]] =
     (for {
       idBs ← Codec.codec[F, ByteString, Key].decode(id)
@@ -58,11 +58,11 @@ class ContractsCacheClient[F[_]: Async, C](stub: ContractsCacheStub)(
     }
 
   /**
-    * Ask node to cache the contract.
-    *
-    * @param contract Contract to cache
-    * @return If the contract is cached or not
-    */
+   * Ask node to cache the contract.
+   *
+   * @param contract Contract to cache
+   * @return If the contract is cached or not
+   */
   override def cache(contract: C): F[Boolean] =
     for {
       c ← codec.encode(contract)
@@ -73,11 +73,11 @@ class ContractsCacheClient[F[_]: Async, C](stub: ContractsCacheStub)(
 object ContractsCacheClient {
 
   /**
-    * Shorthand to register inside NetworkClient.
-    *
-    * @param channel     Channel to remote node
-    * @param callOptions Call options
-    */
+   * Shorthand to register inside NetworkClient.
+   *
+   * @param channel     Channel to remote node
+   * @param callOptions Call options
+   */
   def register[F[_]: Async, C]()(
     channel: ManagedChannel,
     callOptions: CallOptions

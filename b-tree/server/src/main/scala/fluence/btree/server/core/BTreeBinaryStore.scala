@@ -26,16 +26,16 @@ import fluence.storage.KVStore
 import scala.language.higherKinds
 
 /**
-  * Base implementation of [[BTreeStore]] that stores tree nodes in the binary key-value store.
-  *
-  * @param kvStore          Binary key-value store
-  * @param valueIdGenerator Generator which creates surrogate id for new value when putting to dataset store.
-  * @param idCodec          Node id binary serializer
-  * @param nodeCodec        Node binary serializer
-  * @tparam Id   The type of node id
-  * @tparam Node The type of node
-  * @tparam F Box for returning value
-  */
+ * Base implementation of [[BTreeStore]] that stores tree nodes in the binary key-value store.
+ *
+ * @param kvStore          Binary key-value store
+ * @param valueIdGenerator Generator which creates surrogate id for new value when putting to dataset store.
+ * @param idCodec          Node id binary serializer
+ * @param nodeCodec        Node binary serializer
+ * @tparam Id   The type of node id
+ * @tparam Node The type of node
+ * @tparam F Box for returning value
+ */
 class BTreeBinaryStore[F[_], Id, Node](
   kvStore: KVStore[F, Array[Byte], Array[Byte]],
   valueIdGenerator: () ⇒ Id,

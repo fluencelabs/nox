@@ -23,11 +23,11 @@ import monix.eval.{MVar, Task}
 import scala.collection.concurrent.TrieMap
 
 /**
-  * Implementation of Bucket.WriteOps, based on MVar and TrieMap -- available only on JVM
-  *
-  * @param maxBucketSize Max number of nodes in each bucket
-  * @tparam C Node contacts
-  */
+ * Implementation of Bucket.WriteOps, based on MVar and TrieMap -- available only on JVM
+ *
+ * @param maxBucketSize Max number of nodes in each bucket
+ * @tparam C Node contacts
+ */
 class TrieMapMVarBucketOps[C](maxBucketSize: Int) extends Bucket.WriteOps[Task, C] {
   private val writeState = TrieMap.empty[Int, MVar[Bucket[C]]]
   private val readState = TrieMap.empty[Int, Bucket[C]]

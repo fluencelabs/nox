@@ -841,9 +841,9 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
   private case object ChangesStoredStage extends PutStage
 
   /**
-    * Creates Seq of PutCommand for specified Range of key indexes and raise exception
-    * for specified BTreeServerResponse type.
-    */
+   * Creates Seq of PutCommand for specified Range of key indexes and raise exception
+   * for specified BTreeServerResponse type.
+   */
   private def failedPutCmd[T](
     seq: Seq[Int],
     stageOfFail: PutStage,

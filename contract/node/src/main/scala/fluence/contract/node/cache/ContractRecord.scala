@@ -20,8 +20,8 @@ package fluence.contract.node.cache
 import java.time.Instant
 
 /**
-  * Wrapper for internal node's contracts cache with lastUpdated timestamp to invalidate caches
-  *
-  * @tparam C contract's type
-  */
+ * Wrapper for internal node's contracts cache with lastUpdated timestamp to invalidate caches
+ *
+ * @tparam C contract's type
+ */
 case class ContractRecord[C](contract: C, lastUpdated: Instant = Instant.now())

@@ -33,13 +33,13 @@ import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
 
 /**
-  * Node implementation for [[DatasetStorageRpc]].
-  * Caches launched [[DatasetNodeStorage]]s, routes client requests for them.
-  *
-  * @param config Typesafe config to use in [[DatasetNodeStorage]]
-  * @param cryptoHasher Used in b-tree
-  * @param servesDataset Check whether this node serves particular dataset or not
-  */
+ * Node implementation for [[DatasetStorageRpc]].
+ * Caches launched [[DatasetNodeStorage]]s, routes client requests for them.
+ *
+ * @param config Typesafe config to use in [[DatasetNodeStorage]]
+ * @param cryptoHasher Used in b-tree
+ * @param servesDataset Check whether this node serves particular dataset or not
+ */
 // todo create unit test!
 class Datasets(
   config: Config,
@@ -86,18 +86,18 @@ class Datasets(
   }
 
   /**
-    * @param datasetId    Dataset ID
-    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
-    * @return returns found value, None if nothing was found.
-    */
+   * @param datasetId    Dataset ID
+   * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
+   * @return returns found value, None if nothing was found.
+   */
   override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[Task]): Task[Option[Array[Byte]]] =
     storage(datasetId).flatMap(_.get(getCallbacks))
 
   /**
-    * @param datasetId       Dataset ID
-    * @param searchCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
-    * @return returns stream of found value.
-    */
+   * @param datasetId       Dataset ID
+   * @param searchCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
+   * @return returns stream of found value.
+   */
   override def range(
     datasetId: Array[Byte],
     searchCallbacks: BTreeRpc.SearchCallback[Task]
@@ -108,11 +108,11 @@ class Datasets(
     } yield stream
 
   /**
-    * @param datasetId      Dataset ID
-    * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
-    * @param encryptedValue Encrypted value.
-    * @return returns old value if old value was overridden, None otherwise.
-    */
+   * @param datasetId      Dataset ID
+   * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param encryptedValue Encrypted value.
+   * @return returns old value if old value was overridden, None otherwise.
+   */
   override def put(
     datasetId: Array[Byte],
     putCallbacks: BTreeRpc.PutCallbacks[Task],
@@ -120,10 +120,10 @@ class Datasets(
     storage(datasetId).flatMap(_.put(putCallbacks, encryptedValue))
 
   /**
-    * @param datasetId       Dataset ID
-    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
-    * @return returns old value that was deleted, None if nothing was deleted.
-    */
+   * @param datasetId       Dataset ID
+   * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
+   * @return returns old value that was deleted, None if nothing was deleted.
+   */
   override def remove(
     datasetId: Array[Byte],
     removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] =

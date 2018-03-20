@@ -34,14 +34,14 @@ import io.grpc._
 import scala.util.Try
 
 /**
-  * Server wrapper
-  *
-  * @param server     grpc Server instance
-  * @param address    Most accessible address for the server (may be local)
-  * @param port       Most accessible port for the server (may be local)
-  * @param onStart    Callback to launch before start; should be used to grab UPnP ports etc.
-  * @param onShutdown Callback to launch on shutdown; should be used to release UPnP ports etc.
-  */
+ * Server wrapper
+ *
+ * @param server     grpc Server instance
+ * @param address    Most accessible address for the server (may be local)
+ * @param port       Most accessible port for the server (may be local)
+ * @param onStart    Callback to launch before start; should be used to grab UPnP ports etc.
+ * @param onShutdown Callback to launch on shutdown; should be used to release UPnP ports etc.
+ */
 class GrpcServer private (
   server: ⇒ Server,
   val address: InetAddress,
@@ -52,8 +52,8 @@ class GrpcServer private (
   private val serverRef = new AtomicReference[Server](null)
 
   /**
-    * Launch server, grab ports, or fail
-    */
+   * Launch server, grab ports, or fail
+   */
   val start: IO[Unit] =
     for {
       _ ← if (serverRef.get() == null) IO.unit else shutdown
@@ -65,8 +65,8 @@ class GrpcServer private (
     }
 
   /**
-    * Shut the server down, release ports
-    */
+   * Shut the server down, release ports
+   */
   lazy val shutdown: IO[Unit] =
     Option(serverRef.getAndSet(null)).fold(IO(logger.debug("Already shut down? " + port)))(srv ⇒
       for {
@@ -80,14 +80,14 @@ class GrpcServer private (
 object GrpcServer extends slogging.LazyLogging {
 
   /**
-    *
-    * @param onShutdown   Callback to be launched before server shut down
-    * @param onStart      Callback to be launched before server starts
-    * @param address      Most accessible address
-    * @param port         Most accessible port
-    * @param services     List of services to register with the server
-    * @param interceptors List of call interceptors to register with the server
-    */
+   *
+   * @param onShutdown   Callback to be launched before server shut down
+   * @param onStart      Callback to be launched before server starts
+   * @param address      Most accessible address
+   * @param port         Most accessible port
+   * @param services     List of services to register with the server
+   * @param interceptors List of call interceptors to register with the server
+   */
   case class Builder(
     onShutdown: IO[Unit],
     onStart: IO[Unit],
@@ -97,20 +97,20 @@ object GrpcServer extends slogging.LazyLogging {
     interceptors: List[ServerInterceptor]) {
 
     /**
-      * Add new grpc service to the server
-      *
-      * @param service Service definition
-      */
+     * Add new grpc service to the server
+     *
+     * @param service Service definition
+     */
     def add(service: ServerServiceDefinition): Builder =
       copy(services = service :: services)
 
     /**
-      * Registers an interceptor.
-      * Marked private, as it's easy to do weird things while writing interceptor.
-      * But could be made public if necessary.
-      *
-      * @param interceptor Interceptor for incoming requests and messages
-      */
+     * Registers an interceptor.
+     * Marked private, as it's easy to do weird things while writing interceptor.
+     * But could be made public if necessary.
+     *
+     * @param interceptor Interceptor for incoming requests and messages
+     */
     private def addInterceptor(interceptor: ServerInterceptor): Builder =
       copy(interceptors = interceptor :: interceptors)
 
@@ -118,11 +118,11 @@ object GrpcServer extends slogging.LazyLogging {
       Option(headers.get(Metadata.Key.of(name, Metadata.ASCII_STRING_MARSHALLER)))
 
     /**
-      * Register a callback to be called each time a node is active
-      *
-      * @param cb         To be called on ready and on each message
-      * @param clientConf Conf to get header names from
-      */
+     * Register a callback to be called each time a node is active
+     *
+     * @param cb         To be called on ready and on each message
+     * @param clientConf Conf to get header names from
+     */
     def onNodeActivity(cb: Node[Contact] ⇒ IO[Any], clientConf: GrpcConf)(implicit checker: SignatureChecker): Builder =
       addInterceptor(new ServerInterceptor {
         override def interceptCall[ReqT, RespT](
@@ -166,10 +166,10 @@ object GrpcServer extends slogging.LazyLogging {
       })
 
     /**
-      * Build grpc server with all the defined services
-      *
-      * @return
-      */
+     * Build grpc server with all the defined services
+     *
+     * @return
+     */
     def build: GrpcServer =
       new GrpcServer(
         server = {
@@ -192,10 +192,10 @@ object GrpcServer extends slogging.LazyLogging {
   }
 
   /**
-    * Builder for config object
-    *
-    * @param conf Server config object
-    */
+   * Builder for config object
+   *
+   * @param conf Server config object
+   */
   def builder(conf: GrpcServerConf): Builder =
     Builder(
       onStart = IO.unit,

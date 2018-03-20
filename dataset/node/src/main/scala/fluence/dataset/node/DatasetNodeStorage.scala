@@ -41,14 +41,14 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 
 /**
-  * Dataset node storage (node side).
-  *
-  * @param bTreeIndex            Merkle btree index.
-  * @param kVStore               Blob storage for persisting encrypted values.
-  * @param merkleRootCalculator Merkle root calculator (temp? will be deleted in future)
-  * @param valueIdGenerator     Generator which creates surrogate id for new value when putting to dataset store.
-  * @param onMRChange            Callback that will be called when merkle root change
-  */
+ * Dataset node storage (node side).
+ *
+ * @param bTreeIndex            Merkle btree index.
+ * @param kVStore               Blob storage for persisting encrypted values.
+ * @param merkleRootCalculator Merkle root calculator (temp? will be deleted in future)
+ * @param valueIdGenerator     Generator which creates surrogate id for new value when putting to dataset store.
+ * @param onMRChange            Callback that will be called when merkle root change
+ */
 class DatasetNodeStorage private[node] (
   bTreeIndex: MerkleBTree,
   kVStore: KVStore[Task, ValueRef, Array[Byte]],
@@ -58,11 +58,11 @@ class DatasetNodeStorage private[node] (
 ) {
 
   /**
-    * Initiates ''Get'' operation in remote MerkleBTree.
-    *
-    * @param searchCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
-    * @return returns found value, None if nothing was found.
-    */
+   * Initiates ''Get'' operation in remote MerkleBTree.
+   *
+   * @param searchCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
+   * @return returns found value, None if nothing was found.
+   */
   def get(searchCallbacks: SearchCallback[Task]): Task[Option[Array[Byte]]] =
     bTreeIndex.get(SearchCommandImpl(searchCallbacks)).flatMap {
       case Some(reference) ⇒
@@ -72,11 +72,11 @@ class DatasetNodeStorage private[node] (
     }
 
   /**
-    * Initiates ''Range'' operation in remote MerkleBTree.
-    *
-    * @param searchCallbacks Wrapper for all callback needed for searching start key into the BTree
-    * @return returns found key-value pairs as stream
-    */
+   * Initiates ''Range'' operation in remote MerkleBTree.
+   *
+   * @param searchCallbacks Wrapper for all callback needed for searching start key into the BTree
+   * @return returns found key-value pairs as stream
+   */
   def range(searchCallbacks: SearchCallback[Task]): Observable[(Array[Byte], Array[Byte])] =
     bTreeIndex.range(SearchCommandImpl(searchCallbacks)).mapTask {
       case (key, valRef) ⇒
@@ -84,12 +84,12 @@ class DatasetNodeStorage private[node] (
     }
 
   /**
-    * Initiates ''Put'' operation in remote MerkleBTree.
-    *
-    * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
-    * @param encryptedValue Encrypted value.
-    * @return returns old value if old value was overridden, None otherwise.
-    */
+   * Initiates ''Put'' operation in remote MerkleBTree.
+   *
+   * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param encryptedValue Encrypted value.
+   * @return returns old value if old value was overridden, None otherwise.
+   */
   def put(
     putCallbacks: PutCallbacks[Task],
     encryptedValue: Array[Byte]
@@ -113,11 +113,11 @@ class DatasetNodeStorage private[node] (
   }
 
   /**
-    * Initiates ''Remove'' operation in remote MerkleBTree.
-    *
-    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
-    * @return returns old value that was deleted, None if nothing was deleted.
-    */
+   * Initiates ''Remove'' operation in remote MerkleBTree.
+   *
+   * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
+   * @return returns old value that was deleted, None if nothing was deleted.
+   */
   def remove(removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
 
     // todo start transaction
@@ -133,12 +133,12 @@ class DatasetNodeStorage private[node] (
 object DatasetNodeStorage {
 
   /**
-    * Dataset node storage (node side).
-    *
-    * @param datasetId Some describable name of this dataset, should be unique.
-    * @param cryptoHasher Hash service uses for calculating checksums.
-    * @return
-    */
+   * Dataset node storage (node side).
+   *
+   * @param datasetId Some describable name of this dataset, should be unique.
+   * @param cryptoHasher Hash service uses for calculating checksums.
+   * @return
+   */
   def apply[F[_]](
     datasetId: String,
     rocksFactory: RocksDbStore.Factory,

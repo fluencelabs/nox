@@ -31,14 +31,14 @@ import scala.language.higherKinds
 case class KeyStore(keyPair: KeyPair)
 
 /**
-  * Json example:
-  * {
-  *   "keystore" : {
-  *     "secret" : "SFcDtZClfcxx75w9xJpQgBm09d6h9tVmVUEgHYxlews=",
-  *     "public" : "AlTBivFrIYe++9Me4gr4R11BtRzjZ2WXZGDNWD/bEPka"
-  *   }
-  * }
-  */
+ * Json example:
+ * {
+ *   "keystore" : {
+ *     "secret" : "SFcDtZClfcxx75w9xJpQgBm09d6h9tVmVUEgHYxlews=",
+ *     "public" : "AlTBivFrIYe++9Me4gr4R11BtRzjZ2WXZGDNWD/bEPka"
+ *   }
+ * }
+ */
 object KeyStore {
 
   private val alphabet = Bases.Alphabets.Base64Url

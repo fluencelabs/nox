@@ -31,9 +31,9 @@ import scala.scalajs.js
 import scala.scalajs.js.JSConverters._
 
 /**
-  * Return in all js methods hex, because in the other case we will receive javascript objects
-  * @param ec implementation of ecdsa logic for different curves
-  */
+ * Return in all js methods hex, because in the other case we will receive javascript objects
+ * @param ec implementation of ecdsa logic for different curves
+ */
 class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
     extends Algorithm with SignatureFunctions with KeyGenerator {
   import CryptoErr._

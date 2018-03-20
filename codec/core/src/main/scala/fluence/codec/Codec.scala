@@ -25,12 +25,12 @@ import scodec.bits.ByteVector
 import scala.language.{higherKinds, implicitConversions}
 
 /**
-  * Base trait for serialize/deserialize objects.
-  *
-  * @tparam A The type of plain object representation
-  * @tparam B The type of binary representation
-  * @tparam F Encoding/decoding effect
-  */
+ * Base trait for serialize/deserialize objects.
+ *
+ * @tparam A The type of plain object representation
+ * @tparam B The type of binary representation
+ * @tparam F Encoding/decoding effect
+ */
 final case class Codec[F[_], A, B](encode: A ⇒ F[B], decode: B ⇒ F[A]) {
   self ⇒
 
@@ -82,15 +82,15 @@ object Codec {
   def codec[F[_], O, B](implicit codec: Codec[F, O, B]): Codec[F, O, B] = codec
 
   /**
-    * Constructs a Codec from pure encode/decode functions and an Applicative
-    *
-    * @param encodeFn Encode function that never fail
-    * @param decodeFn Decode function that never fail
-    * @tparam F Applicative effect
-    * @tparam O Raw type
-    * @tparam B Encoded type
-    * @return New codec for O and B
-    */
+   * Constructs a Codec from pure encode/decode functions and an Applicative
+   *
+   * @param encodeFn Encode function that never fail
+   * @param decodeFn Decode function that never fail
+   * @tparam F Applicative effect
+   * @tparam O Raw type
+   * @tparam B Encoded type
+   * @return New codec for O and B
+   */
   def pure[F[_]: Applicative, O, B](encodeFn: O ⇒ B, decodeFn: B ⇒ O): Codec[F, O, B] =
     Codec(encodeFn(_).pure[F], decodeFn(_).pure[F])
 }

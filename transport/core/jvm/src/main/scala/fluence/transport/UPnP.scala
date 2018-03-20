@@ -26,12 +26,12 @@ import scala.concurrent.duration.Duration
 import scala.collection.JavaConverters._
 
 /**
-  * UPnP port forwarding utility
-  * @param clientName Client name to register on gateway
-  * @param protocol Protocol name to register on gateway
-  * @param gateway UPnP gateway
-  * @param externalAddress This node's external address
-  */
+ * UPnP port forwarding utility
+ * @param clientName Client name to register on gateway
+ * @param protocol Protocol name to register on gateway
+ * @param gateway UPnP gateway
+ * @param externalAddress This node's external address
+ */
 class UPnP(
   clientName: String,
   protocol: String,
@@ -40,11 +40,11 @@ class UPnP(
 ) extends slogging.LazyLogging {
 
   /**
-    * Add external port on gateway or fail with exception
-    * @param localPort Port on local interface
-    * @param externalPort External port to forward to local port
-    * @return Either successful IO or an error
-    */
+   * Add external port on gateway or fail with exception
+   * @param localPort Port on local interface
+   * @param externalPort External port to forward to local port
+   * @return Either successful IO or an error
+   */
   def addPort(externalPort: Int, localPort: Int): IO[Unit] =
     IO {
       logger.info("Going to add port mapping: {} => {}", externalPort, localPort)
@@ -60,10 +60,10 @@ class UPnP(
     }
 
   /**
-    * Remove external port mapping on gateway
-    * @param externalPort External port with registered mapping
-    * @return
-    */
+   * Remove external port mapping on gateway
+   * @param externalPort External port with registered mapping
+   * @return
+   */
   def deletePort(externalPort: Int): IO[Unit] =
     IO(gateway.deletePortMapping(externalPort, protocol))
 
@@ -72,15 +72,15 @@ class UPnP(
 object UPnP extends slogging.LazyLogging {
 
   /**
-    * Builds an UPnP instance.
-    * Notice that executing it produces effects of changing [[GatewayDevice]]'s timeouts
-    * and looking up [[GatewayDevice]] in the network.
-    *
-    * @param clientName Client name to register on gateway
-    * @param protocol Protocol name to register on gateway (TCP or UDP)
-    * @param httpReadTimeout Http Read Timeout for gateway requests
-    * @param discoverTimeout Timeout to lookup gateway in local network
-    */
+   * Builds an UPnP instance.
+   * Notice that executing it produces effects of changing [[GatewayDevice]]'s timeouts
+   * and looking up [[GatewayDevice]] in the network.
+   *
+   * @param clientName Client name to register on gateway
+   * @param protocol Protocol name to register on gateway (TCP or UDP)
+   * @param httpReadTimeout Http Read Timeout for gateway requests
+   * @param discoverTimeout Timeout to lookup gateway in local network
+   */
   def apply(
     clientName: String = "Fluence",
     protocol: String = "TCP",

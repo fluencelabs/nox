@@ -35,8 +35,8 @@ case class SeedsConfig(
 object SeedsConfig {
 
   /**
-    * Reads seed nodes contacts from config
-    */
+   * Reads seed nodes contacts from config
+   */
   def read(conf: Config): IO[SeedsConfig] =
     IO {
       import net.ceedubs.ficus.Ficus._

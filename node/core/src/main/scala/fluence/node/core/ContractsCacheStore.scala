@@ -42,8 +42,8 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 
 /**
-  * Factory for creating [[KVStore]] instance for caching contracts on the node side.
-  */
+ * Factory for creating [[KVStore]] instance for caching contracts on the node side.
+ */
 object ContractsCacheStore {
 
   /** Creates [[fluence.codec.Codec]] instance for {{{ContractRecord[BasicContract]}}} and {{{BasicContractCache}}} */
@@ -169,12 +169,12 @@ object ContractsCacheStore {
     )
 
   /**
-    * Creates [[KVStore]] for caching contracts. Wraps 'binary store' with key and value codecs.
-    *
-    * @param config          Global typeSafe config
-    * @param kvStoreFactory Takes storage string name and return binary KVStore
-    * @return contract cache key/value Store
-    */
+   * Creates [[KVStore]] for caching contracts. Wraps 'binary store' with key and value codecs.
+   *
+   * @param config          Global typeSafe config
+   * @param kvStoreFactory Takes storage string name and return binary KVStore
+   * @return contract cache key/value Store
+   */
   def apply[F[_]](
     config: Config,
     kvStoreFactory: String ⇒ IO[KVStore[F, Array[Byte], Array[Byte]]]
@@ -187,11 +187,11 @@ object ContractsCacheStore {
     }
 
   /**
-    * Creates [[KVStore]] for caching contracts. Wraps 'binary store' with key and value codecs.
-    *
-    * @param contractCacheBinaryStore Task based key/value store for binary data
-    * @return contract cache key/value Store
-    */
+   * Creates [[KVStore]] for caching contracts. Wraps 'binary store' with key and value codecs.
+   *
+   * @param contractCacheBinaryStore Task based key/value store for binary data
+   * @return contract cache key/value Store
+   */
   def apply[F[_]](
     contractCacheBinaryStore: KVStore[F, Array[Byte], Array[Byte]]
   )(implicit F: MonadError[F, Throwable]): KVStore[F, Key, ContractRecord[BasicContract]] = {

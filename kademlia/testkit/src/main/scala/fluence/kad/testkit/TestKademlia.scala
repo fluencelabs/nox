@@ -54,24 +54,24 @@ class TestKademlia[F[_], C](
     val kad = getKademlia(contact)
 
     /**
-      * Ping the contact, get its actual Node status, or fail
-      */
+     * Ping the contact, get its actual Node status, or fail
+     */
     override def ping() =
       kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.ping())
 
     /**
-      * Perform a local lookup for a key, return K closest known nodes
-      *
-      * @param key Key to lookup
-      */
+     * Perform a local lookup for a key, return K closest known nodes
+     *
+     * @param key Key to lookup
+     */
     override def lookup(key: Key, numberOfNodes: Int) =
       kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes))
 
     /**
-      * Perform a local lookup for a key, return K closest known nodes, going away from the second key
-      *
-      * @param key Key to lookup
-      */
+     * Perform a local lookup for a key, return K closest known nodes, going away from the second key
+     *
+     * @param key Key to lookup
+     */
     override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) =
       kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.lookupAway(key, moveAwayFrom, numberOfNodes))
 

@@ -29,17 +29,17 @@ import scodec.bits.ByteVector
 import scala.collection.Searching.{Found, SearchResult}
 
 /**
-  * Base implementation of [[MerkleBTreeClientApi]] to calls for a remote MerkleBTree.
-  * '''Note that this version is single-thread for Put operation, and multi-thread for Get operation.'''
-  *
-  * @param initClientState General state holder for btree client. For new dataset should be ''None''
-  * @param keyCrypt        Encrypting/decrypting provider for ''key''
-  * @param verifier        Arbiter for checking correctness of Btree server responses.
-  *
-  * @param ord              The ordering to be used to compare keys.
-  *
-  * @tparam K The type of keys
-  */
+ * Base implementation of [[MerkleBTreeClientApi]] to calls for a remote MerkleBTree.
+ * '''Note that this version is single-thread for Put operation, and multi-thread for Get operation.'''
+ *
+ * @param initClientState General state holder for btree client. For new dataset should be ''None''
+ * @param keyCrypt        Encrypting/decrypting provider for ''key''
+ * @param verifier        Arbiter for checking correctness of Btree server responses.
+ *
+ * @param ord              The ordering to be used to compare keys.
+ *
+ * @tparam K The type of keys
+ */
 class MerkleBTreeClient[K] private (
   initClientState: ClientState,
   keyCrypt: Crypt[Task, K, Key],
@@ -50,12 +50,12 @@ class MerkleBTreeClient[K] private (
   private val clientStateMVar = MVar(initClientState)
 
   /**
-    * State for each search ('Get', 'Range', 'Delete') request to remote BTree.
-    * One ''SearchState'' corresponds to one series of round trip requests.
-    *
-    * @param key        The search plain text ''key''. Constant for round trip session.
-    * @param merkleRoot Copy of client merkle root at the beginning of the request. Constant for round trip session.
-    */
+   * State for each search ('Get', 'Range', 'Delete') request to remote BTree.
+   * One ''SearchState'' corresponds to one series of round trip requests.
+   *
+   * @param key        The search plain text ''key''. Constant for round trip session.
+   * @param merkleRoot Copy of client merkle root at the beginning of the request. Constant for round trip session.
+   */
   case class SearchStateImpl(
     key: K,
     merkleRoot: Hash
@@ -108,12 +108,12 @@ class MerkleBTreeClient[K] private (
   }
 
   /**
-    * State for each 'Put' request to remote BTree. One ''PutState'' corresponds to one series of round trip requests
-    *
-    * @param key            The search plain text ''key''
-    * @param valueChecksum Checksum of encrypted value to be store
-    * @param merkleRoot     Copy of client merkle root at the beginning of the request
-    */
+   * State for each 'Put' request to remote BTree. One ''PutState'' corresponds to one series of round trip requests
+   *
+   * @param key            The search plain text ''key''
+   * @param valueChecksum Checksum of encrypted value to be store
+   * @param merkleRoot     Copy of client merkle root at the beginning of the request
+   */
   case class PutStateImpl private (
     key: K,
     valueChecksum: Hash,
@@ -218,10 +218,10 @@ class MerkleBTreeClient[K] private (
   }
 
   /**
-    * Returns callbacks for finding ''value'' for specified ''key'' in remote MerkleBTree.
-    *
-    * @param key Plain text key
-    */
+   * Returns callbacks for finding ''value'' for specified ''key'' in remote MerkleBTree.
+   *
+   * @param key Plain text key
+   */
   override def initGet(key: K): Task[SearchState[Task]] = {
     logger.debug(s"initGet starts for key=$key")
 
@@ -232,10 +232,10 @@ class MerkleBTreeClient[K] private (
   }
 
   /**
-    * Returns callbacks for finding start of range stream in remote MerkleBTree.
-    *
-    * @param from Plain text key, start of range
-    */
+   * Returns callbacks for finding start of range stream in remote MerkleBTree.
+   *
+   * @param from Plain text key, start of range
+   */
   override def initRange(from: K): Task[SearchState[Task]] = {
     logger.debug(s"initRange starts for from=$from")
 
@@ -246,11 +246,11 @@ class MerkleBTreeClient[K] private (
   }
 
   /**
-    * Returns callbacks for saving encrypted ''key'' and ''value'' into remote MerkleBTree.
-    *
-    * @param key             Plain text key
-    * @param valueChecksum  Checksum of encrypted value to be store
-    */
+   * Returns callbacks for saving encrypted ''key'' and ''value'' into remote MerkleBTree.
+   *
+   * @param key             Plain text key
+   * @param valueChecksum  Checksum of encrypted value to be store
+   */
   override def initPut(key: K, valueChecksum: Hash): Task[PutState[Task]] = {
     logger.debug(s"initPut starts put for key=$key, value=$valueChecksum")
 
@@ -261,10 +261,10 @@ class MerkleBTreeClient[K] private (
   }
 
   /**
-    * Returns callbacks for deleting ''key value pair'' into remote MerkleBTree by specifying plain text key.
-    *
-    * @param key Plain text key
-    */
+   * Returns callbacks for deleting ''key value pair'' into remote MerkleBTree by specifying plain text key.
+   *
+   * @param key Plain text key
+   */
   override def initRemove(key: K): Task[RemoveState[Task]] = ???
 
   private def binarySearch(key: K, keys: Array[Key]): Task[SearchResult] = {
@@ -274,15 +274,15 @@ class MerkleBTreeClient[K] private (
   }
 
   /**
-    * Verifies merkle proof for server response, after that search index of next child of branch.
-    *
-    * @param key             Plain text key
-    * @param mRoot           Merkle root for current request
-    * @param mPath           Merkle path for current request
-    * @param keys            Encrypted keys from server for deciding next tree child
-    * @param childsChecksums Checksums of current branch children, for merkle proof checking
-    * @return A tuple with updated mPath and searched next tree child index
-    */
+   * Verifies merkle proof for server response, after that search index of next child of branch.
+   *
+   * @param key             Plain text key
+   * @param mRoot           Merkle root for current request
+   * @param mPath           Merkle path for current request
+   * @param keys            Encrypted keys from server for deciding next tree child
+   * @param childsChecksums Checksums of current branch children, for merkle proof checking
+   * @return A tuple with updated mPath and searched next tree child index
+   */
   private def processSearch(
     key: K,
     mRoot: Hash,
@@ -312,16 +312,16 @@ class MerkleBTreeClient[K] private (
 object MerkleBTreeClient {
 
   /**
-    * Creates base implementation of [[MerkleBTreeClientApi]] to calls for a remote MerkleBTree.
-    *
-    * @param initClientState General state holder for btree client. For new dataset should be ''None''
-    * @param keyCrypt         Encrypting/decrypting provider for ''key''
-    * @param cryptoHasher    Hash provider
-    *
-    * @param ord              The ordering to be used to compare keys.
-    *
-    * @tparam K The type of keys
-    */
+   * Creates base implementation of [[MerkleBTreeClientApi]] to calls for a remote MerkleBTree.
+   *
+   * @param initClientState General state holder for btree client. For new dataset should be ''None''
+   * @param keyCrypt         Encrypting/decrypting provider for ''key''
+   * @param cryptoHasher    Hash provider
+   *
+   * @param ord              The ordering to be used to compare keys.
+   *
+   * @tparam K The type of keys
+   */
   def apply[K](
     initClientState: Option[ClientState],
     keyCrypt: Crypt[Task, K, Array[Byte]],
@@ -338,8 +338,8 @@ object MerkleBTreeClient {
   }
 
   /**
-    * Global state of BTree client.
-    */
+   * Global state of BTree client.
+   */
   case class ClientState(merkleRoot: Hash)
 
   object ClientState {

@@ -522,9 +522,9 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   }
 
   /**
-    * Test utility method for running N nodes and shutting down after all.
-    * @param action An action to executing
-    */
+   * Test utility method for running N nodes and shutting down after all.
+   * @param action An action to executing
+   */
   private def runNodes(
     action: Map[Contact, FluenceNode] ⇒ Unit,
     numberOfNodes: Int = 10,

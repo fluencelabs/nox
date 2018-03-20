@@ -28,12 +28,12 @@ import scala.collection.Searching.SearchResult
 import scala.language.higherKinds
 
 /**
-  * Command for searching some value in BTree (by client search key).
-  * Search key is stored at the client. BTree server will never know search key.
-  *
-  * @param searchCallbacks A pack of functions that ask client to give some required details for the next step
-  * @tparam F The type of effect, box for returning value
-  */
+ * Command for searching some value in BTree (by client search key).
+ * Search key is stored at the client. BTree server will never know search key.
+ *
+ * @param searchCallbacks A pack of functions that ask client to give some required details for the next step
+ * @tparam F The type of effect, box for returning value
+ */
 case class SearchCommandImpl[F[_]](searchCallbacks: SearchCallback[F])(implicit ME: MonadError[F, Throwable])
     extends BaseSearchCommand[F](searchCallbacks) with SearchCommand[F, Key, ValueRef, NodeId] {
 

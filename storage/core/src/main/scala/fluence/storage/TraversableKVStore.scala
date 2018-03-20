@@ -20,18 +20,18 @@ package fluence.storage
 import scala.language.higherKinds
 
 /**
-  * Traversable Key-value storage api interface.
-  *
-  * @tparam FS A box for returning stream(cursor) of value
-  * @tparam K The type of keys
-  * @tparam V The type of stored values
-  */
+ * Traversable Key-value storage api interface.
+ *
+ * @tparam FS A box for returning stream(cursor) of value
+ * @tparam K The type of keys
+ * @tparam V The type of stored values
+ */
 trait TraversableKVStore[FS[_], K, V] {
 
   /**
-    * Return all pairs (K, V) for specified dataSet.
-    *
-    * @return Cursor for found pairs (K,V)
-    */
+   * Return all pairs (K, V) for specified dataSet.
+   *
+   * @return Cursor for found pairs (K,V)
+   */
   def traverse(): FS[(K, V)]
 }

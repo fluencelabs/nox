@@ -34,15 +34,15 @@ import fluence.storage.KVStore
 import scala.language.{higherKinds, implicitConversions}
 
 /**
-  * Performs contracts allocation on local node.
-  *
-  * @param storage Contracts storage
-  * @param createDataset Callback to create a dataset for a successfully allocated contract
-  * @param ME Monad error
-  * @param eq Contracts equality
-  * @tparam F Effect
-  * @tparam C Contract
-  */
+ * Performs contracts allocation on local node.
+ *
+ * @param storage Contracts storage
+ * @param createDataset Callback to create a dataset for a successfully allocated contract
+ * @param ME Monad error
+ * @param eq Contracts equality
+ * @tparam F Effect
+ * @tparam C Contract
+ */
 class ContractAllocator[F[_], C: ContractRead: ContractWrite](
   nodeId: Key,
   storage: KVStore[F, Key, ContractRecord[C]],
@@ -60,11 +60,11 @@ class ContractAllocator[F[_], C: ContractRead: ContractWrite](
   import ContractWrite._
 
   /**
-    * Try to allocate a contract.
-    *
-    * @param contract A sealed contract with all nodes and client signatures
-    * @return Allocated contract
-    */
+   * Try to allocate a contract.
+   *
+   * @param contract A sealed contract with all nodes and client signatures
+   * @return Allocated contract
+   */
   override def allocate(contract: C): F[C] = {
     for {
       _ ← illegalIfNo(
@@ -103,11 +103,11 @@ class ContractAllocator[F[_], C: ContractRead: ContractWrite](
   }
 
   /**
-    * Offer a contract to node.
-    *
-    * @param contract A blank contract
-    * @return Signed contract, or F is an error
-    */
+   * Offer a contract to node.
+   *
+   * @param contract A blank contract
+   * @return Signed contract, or F is an error
+   */
   override def offer(contract: C): F[C] = {
     def signedContract: F[C] = contract.signOffer(nodeId, signer)
 

@@ -25,8 +25,8 @@ import scala.collection.concurrent.TrieMap
 //todo move this to some utility module, replace all similar caches with MVarCache
 //todo we always return non-default parameters, prove it on types
 /**
-  * WIP
-  */
+ * WIP
+ */
 class MVarMapCache[K, V](default: V) {
   //todo maybe store Option[V] and add MVar(None) for default as values, on `get` return None if None in MVar (flatten)
   private val writeState = TrieMap.empty[K, MVar[V]]

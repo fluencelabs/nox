@@ -30,14 +30,14 @@ import scala.concurrent.Future
 import scala.language.higherKinds
 
 /**
-  * ContractsCache GRPC server implementation.
-  *
-  * @param cache Delegate implementation
-  * @param F MonadError instance
-  * @param run Runs F and produces Future
-  * @tparam F Effect
-  * @tparam C Domain-level Contract
-  */
+ * ContractsCache GRPC server implementation.
+ *
+ * @param cache Delegate implementation
+ * @param F MonadError instance
+ * @param run Runs F and produces Future
+ * @tparam F Effect
+ * @tparam C Domain-level Contract
+ */
 class ContractsCacheServer[F[_], C](cache: ContractsCacheRpc[F, C])(
   implicit
   F: MonadError[F, Throwable],

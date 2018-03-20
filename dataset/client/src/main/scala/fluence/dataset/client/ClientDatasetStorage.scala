@@ -31,17 +31,17 @@ import scala.language.higherKinds
 
 //todo datasetId - kademlia key
 /**
-  * Dataset storage that allows save and retrieve some value by key from remote dataset.
-  *
-  * @param datasetId   Dataset ID
-  * @param bTreeIndex  An interface to dataset index.
-  * @param storageRpc  Remotely-accessible interface to all dataset storage operation.
-  * @param valueCrypt  Encrypting/decrypting provider for ''Value''
-  * @param hasher      Hash provider
-  *
-  * @tparam K The type of keys
-  * @tparam V The type of stored values
-  */
+ * Dataset storage that allows save and retrieve some value by key from remote dataset.
+ *
+ * @param datasetId   Dataset ID
+ * @param bTreeIndex  An interface to dataset index.
+ * @param storageRpc  Remotely-accessible interface to all dataset storage operation.
+ * @param valueCrypt  Encrypting/decrypting provider for ''Value''
+ * @param hasher      Hash provider
+ *
+ * @tparam K The type of keys
+ * @tparam V The type of stored values
+ */
 class ClientDatasetStorage[K, V](
   datasetId: Array[Byte],
   bTreeIndex: MerkleBTreeClientApi[Task, K],
@@ -135,20 +135,20 @@ class ClientDatasetStorage[K, V](
 object ClientDatasetStorage {
 
   /**
-    * Creates Dataset storage that allows save and retrieve some value by key from remote dataset.
-    *
-    * @param datasetId   Dataset ID
-    * @param hasher      Hash provider
-    * @param storageRpc  Remotely-accessible interface to all dataset storage operation.
-    * @param keyCrypt    Encrypting/decrypting provider for ''key''
-    * @param valueCrypt  Encrypting/decrypting provider for ''Value''
-    * @param clientState  Initial client state, includes merkle root for dataset. For new dataset should be ''None''
-    *
-    * @param ord         The ordering to be used to compare keys.
-    *
-    * @tparam K The type of keys
-    * @tparam V The type of stored values
-    */
+   * Creates Dataset storage that allows save and retrieve some value by key from remote dataset.
+   *
+   * @param datasetId   Dataset ID
+   * @param hasher      Hash provider
+   * @param storageRpc  Remotely-accessible interface to all dataset storage operation.
+   * @param keyCrypt    Encrypting/decrypting provider for ''key''
+   * @param valueCrypt  Encrypting/decrypting provider for ''Value''
+   * @param clientState  Initial client state, includes merkle root for dataset. For new dataset should be ''None''
+   *
+   * @param ord         The ordering to be used to compare keys.
+   *
+   * @tparam K The type of keys
+   * @tparam V The type of stored values
+   */
   def apply[K, V](
     datasetId: Array[Byte],
     hasher: CryptoHasher[Array[Byte], Array[Byte]],

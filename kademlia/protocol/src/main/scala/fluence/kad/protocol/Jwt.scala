@@ -29,22 +29,22 @@ import scodec.bits.{Bases, ByteVector}
 import scala.language.higherKinds
 
 /**
-  * Primitivized implementation for JWT, used in [[Contact]] (de)serialization.
-  */
+ * Primitivized implementation for JWT, used in [[Contact]] (de)serialization.
+ */
 private[protocol] object Jwt {
   private val alphabet = Bases.Alphabets.Base64Url
 
   class WritePartial[F[_]: Monad] {
 
     /**
-      *
-      * @param header JWT header object
-      * @param claim  JWT claim (data) object
-      * @param signer Signer
-      * @tparam H Header type
-      * @tparam C Claim type
-      * @return
-      */
+     *
+     * @param header JWT header object
+     * @param claim  JWT claim (data) object
+     * @param signer Signer
+     * @tparam H Header type
+     * @tparam C Claim type
+     * @return
+     */
     def apply[H: Encoder, C: Encoder](header: H, claim: C, signer: Signer): EitherT[F, CryptoErr, String] = {
       val h = ByteVector(Encoder[H].apply(header).noSpaces.getBytes()).toBase64(alphabet)
       val c = ByteVector(Encoder[C].apply(claim).noSpaces.getBytes()).toBase64(alphabet)
@@ -57,26 +57,26 @@ private[protocol] object Jwt {
   }
 
   /**
-    * Takes header and claim objects along with theirs Circe Json encoders and signer, and serializes to JWT token string.
-    * Notice that either header or claim must contain corresponding PublicKey.
-    *
-    * @tparam F Effect for signer.sign
-    * @return Serialized JWT
-    */
+   * Takes header and claim objects along with theirs Circe Json encoders and signer, and serializes to JWT token string.
+   * Notice that either header or claim must contain corresponding PublicKey.
+   *
+   * @tparam F Effect for signer.sign
+   * @return Serialized JWT
+   */
   def write[F[_]: Monad]: WritePartial[F] = new WritePartial[F]
 
   /**
-    * Parses JWT header and claim from string representation and checks the signature.
-    * You must verify that PublicKey is correct for the sender.
-    *
-    * @param token   JWT token generated with [[write]]
-    * @param getPk   Getter for primary key from header and claim
-    * @param checker Signature checker
-    * @tparam F Effect for signature checker
-    * @tparam H Header type
-    * @tparam C Claim type
-    * @return Deserialized header and claim, or error
-    */
+   * Parses JWT header and claim from string representation and checks the signature.
+   * You must verify that PublicKey is correct for the sender.
+   *
+   * @param token   JWT token generated with [[write]]
+   * @param getPk   Getter for primary key from header and claim
+   * @param checker Signature checker
+   * @tparam F Effect for signature checker
+   * @tparam H Header type
+   * @tparam C Claim type
+   * @return Deserialized header and claim, or error
+   */
   def read[F[_]: Monad, H: Decoder, C: Decoder](
     token: String,
     getPk: (H, C) ⇒ Either[NoSuchElementException, KeyPair.Public]

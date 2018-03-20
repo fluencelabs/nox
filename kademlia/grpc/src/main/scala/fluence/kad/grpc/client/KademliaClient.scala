@@ -31,10 +31,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.language.{higherKinds, implicitConversions}
 
 /**
-  * Implementation of KademliaClient over GRPC, with Task and Contact.
-  *
-  * @param stub GRPC Kademlia Stub
-  */
+ * Implementation of KademliaClient over GRPC, with Task and Contact.
+ *
+ * @param stub GRPC Kademlia Stub
+ */
 class KademliaClient[F[_]: Async](stub: grpc.KademliaGrpc.KademliaStub)(
   implicit
   codec: Codec[F, protocol.Node[Contact], grpc.Node],
@@ -50,10 +50,10 @@ class KademliaClient[F[_]: Async](stub: grpc.KademliaGrpc.KademliaStub)(
   private val streamCodec = Codec.codec[F, Stream[protocol.Node[Contact]], Stream[grpc.Node]]
 
   /**
-    * Ping the contact, get its actual Node status, or fail
-    *
-    * @return
-    */
+   * Ping the contact, get its actual Node status, or fail
+   *
+   * @return
+   */
   override def ping(): F[Node[Contact]] =
     for {
       n ← run(stub.ping(grpc.PingRequest()))
@@ -61,11 +61,11 @@ class KademliaClient[F[_]: Async](stub: grpc.KademliaGrpc.KademliaStub)(
     } yield nc
 
   /**
-    * Perform a local lookup for a key, return K closest known nodes
-    *
-    * @param key Key to lookup
-    * @return
-    */
+   * Perform a local lookup for a key, return K closest known nodes
+   *
+   * @param key Key to lookup
+   * @return
+   */
   override def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[Contact]]] =
     for {
       k ← keyBS(key)
@@ -74,10 +74,10 @@ class KademliaClient[F[_]: Async](stub: grpc.KademliaGrpc.KademliaStub)(
     } yield resDec
 
   /**
-    * Perform a local lookup for a key, return K closest known nodes, going away from the second key
-    *
-    * @param key Key to lookup
-    */
+   * Perform a local lookup for a key, return K closest known nodes, going away from the second key
+   *
+   * @param key Key to lookup
+   */
   override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[Contact]]] =
     for {
       k ← keyBS(key)
@@ -92,11 +92,11 @@ class KademliaClient[F[_]: Async](stub: grpc.KademliaGrpc.KademliaStub)(
 object KademliaClient {
 
   /**
-    * Shorthand to register KademliaClient inside NetworkClient.
-    *
-    * @param channel     Channel to remote node
-    * @param callOptions Call options
-    */
+   * Shorthand to register KademliaClient inside NetworkClient.
+   *
+   * @param channel     Channel to remote node
+   * @param callOptions Call options
+   */
   def register[F[_]: Async]()(
     channel: ManagedChannel,
     callOptions: CallOptions

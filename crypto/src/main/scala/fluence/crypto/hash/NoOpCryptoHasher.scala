@@ -18,8 +18,8 @@
 package fluence.crypto.hash
 
 /**
-  * No operation implementation. Do nothing, just return the same value.
-  */
+ * No operation implementation. Do nothing, just return the same value.
+ */
 object NoOpCryptoHasher extends CryptoHasher[Array[Byte], Array[Byte]] {
 
   override def hash(msg: Array[Byte]): Array[Byte] = msg

@@ -32,19 +32,19 @@ import scala.language.higherKinds
 import scala.util.Try
 
 /**
-  * Kademlia Key is 160 bits (sha-1 length) in byte array.
-  * We use value case class for type safety, and typeclasses for ops.
-  *
-  * @param value ID wrapped with ByteVector
-  */
+ * Kademlia Key is 160 bits (sha-1 length) in byte array.
+ * We use value case class for type safety, and typeclasses for ops.
+ *
+ * @param value ID wrapped with ByteVector
+ */
 final case class Key private (value: ByteVector) {
   lazy val id: Array[Byte] = value.toArray
 
   lazy val bits: BitVector = value.toBitVector.padLeft(Key.BitLength)
 
   /**
-    * Number of leading zeros
-    */
+   * Number of leading zeros
+   */
   lazy val zerosPrefixLen: Int =
     bits.toIndexedSeq.takeWhile(!_).size
 
@@ -93,18 +93,18 @@ object Key {
   }
 
   /**
-    * Tries to read base64 form of Kademlia key.
-    */
+   * Tries to read base64 form of Kademlia key.
+   */
   def fromB64[F[_]](str: String)(implicit F: MonadError[F, Throwable]): F[Key] =
     b64Codec[F].decode(str)
 
   /**
-    * Checks that given key is produced form that publicKey
-    *
-    * @param key Kademlia Key, should be sha1 of publicKey
-    * @param publicKey Public Key
-    * @return
-    */
+   * Checks that given key is produced form that publicKey
+   *
+   * @param key Kademlia Key, should be sha1 of publicKey
+   * @param publicKey Public Key
+   * @return
+   */
   def checkPublicKey(key: Key, publicKey: KeyPair.Public): Boolean = {
     import cats.instances.try_._
     import cats.syntax.eq._
@@ -112,11 +112,11 @@ object Key {
   }
 
   /**
-    * Calculates sha-1 hash of the payload, and wraps it with Key.
-    * We keep using sha-1 instead of sha-2, because randomness is provided with keypair generation, not hash function.
-    *
-    * @param bytes Bytes to hash
-    */
+   * Calculates sha-1 hash of the payload, and wraps it with Key.
+   * We keep using sha-1 instead of sha-2, because randomness is provided with keypair generation, not hash function.
+   *
+   * @param bytes Bytes to hash
+   */
   def sha1[F[_]](bytes: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Key] =
     F.catchNonFatal {
       CryptoHashers.Sha1.hash(bytes)

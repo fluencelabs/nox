@@ -25,8 +25,8 @@ import cats.syntax.applicative._
 import scala.language.higherKinds
 
 /**
-  * No operation implementation. Just convert the element to bytes back and forth without any cryptography.
-  */
+ * No operation implementation. Just convert the element to bytes back and forth without any cryptography.
+ */
 class NoOpCrypt[F[_], T](serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T])
     extends Crypt[F, T, Array[Byte]] {
 

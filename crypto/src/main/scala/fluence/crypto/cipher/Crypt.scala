@@ -25,12 +25,12 @@ import fluence.codec.Codec
 import scala.language.higherKinds
 
 /**
-  * Base interface for encrypting/decrypting.
-  * TODO: switch to Codec; notice that Crypt provides effect: decrypt may fail
-  *
-  * @tparam P The type of plain text, input
-  * @tparam C The type of cipher text, output
-  */
+ * Base interface for encrypting/decrypting.
+ * TODO: switch to Codec; notice that Crypt provides effect: decrypt may fail
+ *
+ * @tparam P The type of plain text, input
+ * @tparam C The type of cipher text, output
+ */
 trait Crypt[F[_], P, C] {
 
   def encrypt(plainText: P): F[C]

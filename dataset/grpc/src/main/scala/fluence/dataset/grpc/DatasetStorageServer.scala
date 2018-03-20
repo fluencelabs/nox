@@ -40,13 +40,13 @@ import scala.language.higherKinds
 import scala.util.control.NoStackTrace
 
 /**
-  * Server implementation of [[DatasetStorageRpcGrpc.DatasetStorageRpc]], allows talking to client via network.
-  * All public methods called from the server side.
-  * DatasetStorageServer is active and initiates requests to client.
-  *
-  * @param service Server implementation of [[DatasetStorageRpc]] to which the calls will be delegated
-  * @tparam F A box for returning value
-  */
+ * Server implementation of [[DatasetStorageRpcGrpc.DatasetStorageRpc]], allows talking to client via network.
+ * All public methods called from the server side.
+ * DatasetStorageServer is active and initiates requests to client.
+ *
+ * @param service Server implementation of [[DatasetStorageRpc]] to which the calls will be delegated
+ * @tparam F A box for returning value
+ */
 class DatasetStorageServer[F[_]: Async](
   service: DatasetStorageRpc[F, Observable]
 )(
@@ -68,12 +68,12 @@ class DatasetStorageServer[F[_]: Async](
   }
 
   /**
-    * Convert function: {{{ EitherT[Task, E, V] => Eff[V] }}}.
-    * It's temporary decision, it will be removed when EitherT[F, E, V] was everywhere.
-    *
-    * @tparam E Type of exception, should be subclass of [[Throwable]]
-    * @tparam V Type of value
-    */
+   * Convert function: {{{ EitherT[Task, E, V] => Eff[V] }}}.
+   * It's temporary decision, it will be removed when EitherT[F, E, V] was everywhere.
+   *
+   * @tparam E Type of exception, should be subclass of [[Throwable]]
+   * @tparam V Type of value
+   */
   private def eitherTaskToF[Eff[_], E <: Throwable, V](eitherT: EitherT[Task, E, V])(implicit fn: Task ~> Eff): Eff[V] =
     fn(eitherT.value.flatMap {
       case Left(clientError) ⇒
@@ -122,12 +122,12 @@ class DatasetStorageServer[F[_]: Async](
             }
 
             /**
-              * Server sends founded leaf details.
-              *
-              * @param keys            Keys of current leaf
-              * @param valuesChecksums Checksums of values for current leaf
-              * @return index of searched value, or None if key wasn't found
-              */
+             * Server sends founded leaf details.
+             *
+             * @param keys            Keys of current leaf
+             * @param valuesChecksums Checksums of values for current leaf
+             * @return index of searched value, or None if key wasn't found
+             */
             override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Searching.SearchResult] =
               toF(
                 for {
@@ -148,11 +148,11 @@ class DatasetStorageServer[F[_]: Async](
               )
 
             /**
-              * Server asks next child node index.
-              *
-              * @param keys            Keys of current branch for searching index
-              * @param childsChecksums All children checksums of current branch
-              */
+             * Server asks next child node index.
+             *
+             * @param keys            Keys of current branch for searching index
+             * @param childsChecksums All children checksums of current branch
+             */
             override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
               toF(
                 for {
@@ -233,12 +233,12 @@ class DatasetStorageServer[F[_]: Async](
             }
 
             /**
-              * Server sends founded leaf details.
-              *
-              * @param keys            Keys of current leaf
-              * @param valuesChecksums Checksums of values for current leaf
-              * @return index of searched value, or None if key wasn't found
-              */
+             * Server sends founded leaf details.
+             *
+             * @param keys            Keys of current leaf
+             * @param valuesChecksums Checksums of values for current leaf
+             * @return index of searched value, or None if key wasn't found
+             */
             override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Searching.SearchResult] =
               toF(
                 for {
@@ -259,11 +259,11 @@ class DatasetStorageServer[F[_]: Async](
               )
 
             /**
-              * Server asks next child node index.
-              *
-              * @param keys            Keys of current branch for searching index
-              * @param childsChecksums All children checksums of current branch
-              */
+             * Server asks next child node index.
+             *
+             * @param keys            Keys of current branch for searching index
+             * @param childsChecksums All children checksums of current branch
+             */
             override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
               toF(
                 for {
@@ -343,11 +343,11 @@ class DatasetStorageServer[F[_]: Async](
             }
 
             /**
-              * Server asks next child node index.
-              *
-              * @param keys            Keys of current branch for searching index
-              * @param childsChecksums All children checksums of current branch
-              */
+             * Server asks next child node index.
+             *
+             * @param keys            Keys of current branch for searching index
+             * @param childsChecksums All children checksums of current branch
+             */
             override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
               toF(
                 for {
@@ -364,11 +364,11 @@ class DatasetStorageServer[F[_]: Async](
               )
 
             /**
-              * Server sends founded leaf details.
-              *
-              * @param keys            Keys of current leaf
-              * @param valuesChecksums Checksums of values for current leaf
-              */
+             * Server sends founded leaf details.
+             *
+             * @param keys            Keys of current leaf
+             * @param valuesChecksums Checksums of values for current leaf
+             */
             override def putDetails(keys: Array[Key], valuesChecksums: Array[Hash]): F[ClientPutDetails] =
               toF(
                 for {
@@ -392,11 +392,11 @@ class DatasetStorageServer[F[_]: Async](
               )
 
             /**
-              * Server sends new merkle root to client for approve made changes.
-              *
-              * @param serverMerkleRoot New merkle root after putting key/value
-              * @param wasSplitting     'True' id server performed tree rebalancing, 'False' otherwise
-              */
+             * Server sends new merkle root to client for approve made changes.
+             *
+             * @param serverMerkleRoot New merkle root after putting key/value
+             * @param wasSplitting     'True' id server performed tree rebalancing, 'False' otherwise
+             */
             override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[Unit] =
               toF(
                 for {
@@ -413,8 +413,8 @@ class DatasetStorageServer[F[_]: Async](
               )
 
             /**
-              * Server confirms that all changes was persisted.
-              */
+             * Server confirms that all changes was persisted.
+             */
             override def changesStored(): F[Unit] =
               toF(
                 for {

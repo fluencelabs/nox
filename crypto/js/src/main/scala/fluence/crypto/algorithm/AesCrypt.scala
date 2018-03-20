@@ -76,11 +76,11 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   }
 
   /**
-    * Encrypt data.
-    * @param data Data to encrypt
-    * @param key Salted and hashed password
-    * @return Encrypted data with IV
-    */
+   * Encrypt data.
+   * @param data Data to encrypt
+   * @param key Salted and hashed password
+   * @return Encrypted data with IV
+   */
   private def encryptData(data: Array[Byte], key: Key): EitherT[F, CryptoErr, Array[Byte]] = {
     nonFatalHandling {
       //transform data to JS type
@@ -105,9 +105,9 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   }
 
   /**
-    * @param cipherText Encrypted data with IV
-    * @return IV in hex and data in base64
-    */
+   * @param cipherText Encrypted data with IV
+   * @return IV in hex and data in base64
+   */
   private def detachData(cipherText: Array[Byte]): EitherT[F, CryptoErr, (Option[String], String)] = {
     nonFatalHandling {
       val dataWithParams = if (withIV) {
@@ -122,8 +122,8 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   }
 
   /**
-    * Hash password with salt `iterationCount` times
-    */
+   * Hash password with salt `iterationCount` times
+   */
   private def initSecretKey(): EitherT[F, CryptoErr, Key] = {
     nonFatalHandling {
       // get raw key from password and salt

@@ -29,14 +29,14 @@ import scala.language.higherKinds
 object TransportSecurity {
 
   /**
-    * Checks if a node can be saved to RoutingTable.
-    * TODO: return the reason in Either, why exactly can't node be saved
-    *
-    * @param self This node's Key
-    * @param acceptLocal If true, local addresses will be accepted; should be used only in testing
-    * @tparam F Effect
-    * @return Function to be called for each node prior to updating RoutingTable; returns F[true] if checks passed
-    */
+   * Checks if a node can be saved to RoutingTable.
+   * TODO: return the reason in Either, why exactly can't node be saved
+   *
+   * @param self This node's Key
+   * @param acceptLocal If true, local addresses will be accepted; should be used only in testing
+   * @tparam F Effect
+   * @return Function to be called for each node prior to updating RoutingTable; returns F[true] if checks passed
+   */
   def canBeSaved[F[_]: Applicative](self: Key, acceptLocal: Boolean): Node[Contact] ⇒ F[Boolean] =
     node ⇒ {
       if (node.key === self || !Key.checkPublicKey(node.key, node.contact.publicKey)) false.pure[F]

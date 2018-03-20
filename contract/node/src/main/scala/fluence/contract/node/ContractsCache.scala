@@ -35,16 +35,16 @@ import scala.concurrent.duration.FiniteDuration
 import scala.language.{higherKinds, implicitConversions}
 
 /**
-  * Contracts cache.
-  *
-  * @param nodeId Current node id, to check participation
-  * @param storage     Contracts storage
-  * @param checker Signature checker
-  * @param cacheTtl    Cache time-to-live
-  * @param ME          Monad error
-  * @tparam F Effect
-  * @tparam C Contract
-  */
+ * Contracts cache.
+ *
+ * @param nodeId Current node id, to check participation
+ * @param storage     Contracts storage
+ * @param checker Signature checker
+ * @param cacheTtl    Cache time-to-live
+ * @param ME          Monad error
+ * @tparam F Effect
+ * @tparam C Contract
+ */
 class ContractsCache[F[_], C: ContractRead](
   nodeId: Key,
   storage: KVStore[F, Key, ContractRecord[C]],
@@ -69,11 +69,11 @@ class ContractsCache[F[_], C: ContractRead](
   }
 
   /**
-    * Find a contract in local storage.
-    *
-    * @param id Dataset ID
-    * @return Optional locally found contract
-    */
+   * Find a contract in local storage.
+   *
+   * @param id Dataset ID
+   * @return Optional locally found contract
+   */
   override def find(id: Key): F[Option[C]] = {
     storage.get(id).attempt.map(_.toOption).flatMap {
       case Some(cr) if isExpired(cr) ⇒
@@ -90,11 +90,11 @@ class ContractsCache[F[_], C: ContractRead](
   }
 
   /**
-    * Ask to add contract to local storage.
-    *
-    * @param contract Contract to cache
-    * @return If the contract is cached or not
-    */
+   * Ask to add contract to local storage.
+   *
+   * @param contract Contract to cache
+   * @return If the contract is cached or not
+   */
   override def cache(contract: C): F[Boolean] = {
     canBeCached(contract).flatMap {
       case false ⇒ false.pure[F]

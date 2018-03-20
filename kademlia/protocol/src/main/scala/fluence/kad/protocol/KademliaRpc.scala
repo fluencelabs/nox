@@ -20,32 +20,32 @@ package fluence.kad.protocol
 import scala.language.higherKinds
 
 /**
-  * An interface to Kademlia-related calls for a remote node.
-  *
-  * @tparam F An effect, with MonadError
-  * @tparam C Type for contact data
-  */
+ * An interface to Kademlia-related calls for a remote node.
+ *
+ * @tparam F An effect, with MonadError
+ * @tparam C Type for contact data
+ */
 trait KademliaRpc[F[_], C] {
 
   // TODO: errors: network, codec -- including contact's crypto check
   /**
-    * Ping the contact, get its actual Node status, or fail.
-    */
+   * Ping the contact, get its actual Node status, or fail.
+   */
   def ping(): F[Node[C]]
 
   // TODO: errors: network, codec -- including contact's crypto check
   /**
-    * Perform a local lookup for a key, return K closest known nodes.
-    *
-    * @param key Key to lookup
-    */
+   * Perform a local lookup for a key, return K closest known nodes.
+   *
+   * @param key Key to lookup
+   */
   def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[C]]]
 
   // TODO: errors: network, codec -- including contact's crypto check
   /**
-    * Perform a local lookup for a key, return K closest known nodes, going away from the second key.
-    *
-    * @param key Key to lookup
-    */
+   * Perform a local lookup for a key, return K closest known nodes, going away from the second key.
+   *
+   * @param key Key to lookup
+   */
   def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[C]]]
 }

@@ -21,18 +21,18 @@ import fluence.btree.core.Hash
 import fluence.crypto.hash.CryptoHasher
 
 /**
-  * Contains all information needed for recalculating checksum of node with substituting child's checksum, for verifying
-  * child's checksum or recalculating checksum of the node.
-  */
+ * Contains all information needed for recalculating checksum of node with substituting child's checksum, for verifying
+ * child's checksum or recalculating checksum of the node.
+ */
 sealed trait NodeProof {
 
   /**
-    * Calculates checksum of current ''NodeProof''.
-    *
-    * @param cryptoHasher Hash service uses for calculating nodes checksums.
-    * @param checksumForSubstitution Child's checksum for substitution to ''childrenChecksums''
-    * @return Checksum of current ''NodeProof''
-    */
+   * Calculates checksum of current ''NodeProof''.
+   *
+   * @param cryptoHasher Hash service uses for calculating nodes checksums.
+   * @param checksumForSubstitution Child's checksum for substitution to ''childrenChecksums''
+   * @return Checksum of current ''NodeProof''
+   */
   def calcChecksum(
     cryptoHasher: CryptoHasher[Array[Byte], Hash],
     checksumForSubstitution: Option[Hash]
@@ -41,21 +41,21 @@ sealed trait NodeProof {
 }
 
 /**
-  * ''GeneralNodeProof'' contains 2 part:
-  *    ''stateChecksum'' - a checksum of node state, which is not related to the checksums of node children
-  *    ''childrenChecksums'' - an array of childs checksums, which participates in the substitution
-  * GenerateNodeProof's checksum is a hash of ''stateChecksum'' and ''childrenChecksums''
-  *
-  * For leaf ''childrenChecksums'' is sequence with checksums of each 'key-value' pair of this leaf and ''substitutionIdx''
-  * is index for inserting checksum of 'key-value' pair.
-  *
-  * For branch ''childrenChecksums'' is sequence with checksums for each children of this branch and ''substitutionIdx''
-  * is index for inserting checksum of child.
-  *
-  * @param stateChecksum     A checksum of node state, which is not related to the checksums of children
-  * @param childrenChecksums Checksums of all node children
-  * @param substitutionIdx   Index for substitution some child checksum to ''childrenChecksums''
-  */
+ * ''GeneralNodeProof'' contains 2 part:
+ *    ''stateChecksum'' - a checksum of node state, which is not related to the checksums of node children
+ *    ''childrenChecksums'' - an array of childs checksums, which participates in the substitution
+ * GenerateNodeProof's checksum is a hash of ''stateChecksum'' and ''childrenChecksums''
+ *
+ * For leaf ''childrenChecksums'' is sequence with checksums of each 'key-value' pair of this leaf and ''substitutionIdx''
+ * is index for inserting checksum of 'key-value' pair.
+ *
+ * For branch ''childrenChecksums'' is sequence with checksums for each children of this branch and ''substitutionIdx''
+ * is index for inserting checksum of child.
+ *
+ * @param stateChecksum     A checksum of node state, which is not related to the checksums of children
+ * @param childrenChecksums Checksums of all node children
+ * @param substitutionIdx   Index for substitution some child checksum to ''childrenChecksums''
+ */
 case class GeneralNodeProof(
   stateChecksum: Hash,
   childrenChecksums: Array[Hash],

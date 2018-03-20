@@ -25,19 +25,19 @@ import scala.reflect.ClassTag
 import scala.util.control.NoStackTrace
 
 /**
-  * CoFail makes some Coproduct throwable by extending NoStackTrace.
-  * When ''MonadError[F, Throwable]'' is converted to ''MonadError[F, X :+: Y :+: ... :+: CNil]'',
-  * collected failures are wrapped into CoFail
-  *
-  * @param failure Non-empty Coproduct with a failure
-  * @tparam T Disjoint union of possible failure types
-  */
+ * CoFail makes some Coproduct throwable by extending NoStackTrace.
+ * When ''MonadError[F, Throwable]'' is converted to ''MonadError[F, X :+: Y :+: ... :+: CNil]'',
+ * collected failures are wrapped into CoFail
+ *
+ * @param failure Non-empty Coproduct with a failure
+ * @tparam T Disjoint union of possible failure types
+ */
 @deprecated("Use CoFail with EitherT instead", "21.02.2018")
 case class ExCoFail[T <: Coproduct](failure: T) extends NoStackTrace {
 
   /**
-    * Returns an actual value held in failure Coproduct -- useful for pattern matching
-    */
+   * Returns an actual value held in failure Coproduct -- useful for pattern matching
+   */
   def unsafeGet: Any = Coproduct.unsafeGet(failure)
 }
 

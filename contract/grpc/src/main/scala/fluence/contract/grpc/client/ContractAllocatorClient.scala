@@ -40,11 +40,11 @@ class ContractAllocatorClient[F[_]: Async, C](
   private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
 
   /**
-    * Offer a contract. Node should check and preallocate required resources, save offer, and sign it.
-    *
-    * @param contract A blank contract
-    * @return Signed contract, or F is an error
-    */
+   * Offer a contract. Node should check and preallocate required resources, save offer, and sign it.
+   *
+   * @param contract A blank contract
+   * @return Signed contract, or F is an error
+   */
   override def offer(contract: C): F[C] =
     for {
       offer ← codec.encode(contract)
@@ -53,11 +53,11 @@ class ContractAllocatorClient[F[_]: Async, C](
     } yield contract
 
   /**
-    * Allocate dataset: store the contract, create storage structures, form cluster.
-    *
-    * @param contract A sealed contract with all nodes and client signatures
-    * @return Allocated contract
-    */
+   * Allocate dataset: store the contract, create storage structures, form cluster.
+   *
+   * @param contract A sealed contract with all nodes and client signatures
+   * @return Allocated contract
+   */
   override def allocate(contract: C): F[C] =
     for {
       offer ← codec.encode(contract)
@@ -70,11 +70,11 @@ class ContractAllocatorClient[F[_]: Async, C](
 object ContractAllocatorClient {
 
   /**
-    * Shorthand to register inside NetworkClient.
-    *
-    * @param channel     Channel to remote node
-    * @param callOptions Call options
-    */
+   * Shorthand to register inside NetworkClient.
+   *
+   * @param channel     Channel to remote node
+   * @param callOptions Call options
+   */
   def register[F[_]: Async, C]()(
     channel: ManagedChannel,
     callOptions: CallOptions

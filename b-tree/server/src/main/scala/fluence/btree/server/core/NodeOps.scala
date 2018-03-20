@@ -26,10 +26,10 @@ import fluence.crypto.hash.CryptoHasher
 import scala.reflect.ClassTag
 
 /**
-  * Operations performed on nodes.
-  *
-  * @param cryptoHasher Hash service uses for calculating nodes checksums.
-  */
+ * Operations performed on nodes.
+ *
+ * @param cryptoHasher Hash service uses for calculating nodes checksums.
+ */
 private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
 
   implicit class LeafOps(leaf: Leaf) extends LeafNode.Ops[Key, ValueRef, NodeId] {
@@ -200,10 +200,10 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
       .calcChecksum(cryptoHasher, None)
 
   /**
-    * Returns updated copy of array with the updated element for ''insIdx'' index.
-    * We choose variant with array copying for prevent changing input parameters.
-    * Work with mutable structures is more error-prone. It may be changed in the future by performance reason.
-    */
+   * Returns updated copy of array with the updated element for ''insIdx'' index.
+   * We choose variant with array copying for prevent changing input parameters.
+   * Work with mutable structures is more error-prone. It may be changed in the future by performance reason.
+   */
   private def rewriteElementInArray[T: ClassTag](array: Array[T], insElem: T, insIdx: Int): Array[T] = {
     // todo perhaps, more optimal implementation might be needed with array mutation in the future
     val newArray = Array.ofDim[T](array.length)

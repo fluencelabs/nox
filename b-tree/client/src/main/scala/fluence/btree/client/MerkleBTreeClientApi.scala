@@ -22,41 +22,41 @@ import fluence.btree.core.Hash
 import scala.language.higherKinds
 
 /**
-  * Remote MerkleBTree api.
-  *
-  * @tparam F A box for returning value
-  * @tparam K The type of plain text keys
-  */
+ * Remote MerkleBTree api.
+ *
+ * @tparam F A box for returning value
+ * @tparam K The type of plain text keys
+ */
 trait MerkleBTreeClientApi[F[_], K] {
 
   /**
-    * Returns ''SearchState'' with callbacks for finding ''value'' for specified ''key'' in remote MerkleBTree.
-    *
-    * @param key Plain text key
-    */
+   * Returns ''SearchState'' with callbacks for finding ''value'' for specified ''key'' in remote MerkleBTree.
+   *
+   * @param key Plain text key
+   */
   def initGet(key: K): F[SearchState[F]]
 
   /**
-    * Returns ''SearchState'' with callbacks for finding range of ''values''.
-    *
-    * @param from Plain text key, start of range
-    */
+   * Returns ''SearchState'' with callbacks for finding range of ''values''.
+   *
+   * @param from Plain text key, start of range
+   */
   def initRange(from: K): F[SearchState[F]]
 
   /**
-    * Returns ''PutState'' with callbacks for saving encrypted ''key'' and ''value'' into remote MerkleBTree.
-    *
-    * @param key             Plain text key
-    * @param valueChecksum  Checksum of encrypted value to be store
-    */
+   * Returns ''PutState'' with callbacks for saving encrypted ''key'' and ''value'' into remote MerkleBTree.
+   *
+   * @param key             Plain text key
+   * @param valueChecksum  Checksum of encrypted value to be store
+   */
   def initPut(key: K, valueChecksum: Hash): F[PutState[F]]
 
   /**
-    * Returns ''RemoveState'' with callbacks for deleting ''key value pair'' into remote MerkleBTree by
-    * specifying plain text key.
-    *
-    * @param key Plain text key
-    */
+   * Returns ''RemoveState'' with callbacks for deleting ''key value pair'' into remote MerkleBTree by
+   * specifying plain text key.
+   *
+   * @param key Plain text key
+   */
   def initRemove(key: K): F[RemoveState[F]]
 
 }

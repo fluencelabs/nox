@@ -39,13 +39,13 @@ import scala.language.{higherKinds, implicitConversions}
 import scala.util.control.NoStackTrace
 
 /**
-  * Clients implementation of [[DatasetStorageRpc]], allows talking to server via network.
-  * All public methods called from the client side.
-  * DatasetStorageClient initiates first request to server and then answered to server requests.
-  *
-  * @param stub Stub for calling server methods of [[DatasetStorageRpc]]
-  * @tparam F A box for returning value
-  */
+ * Clients implementation of [[DatasetStorageRpc]], allows talking to server via network.
+ * All public methods called from the client side.
+ * DatasetStorageClient initiates first request to server and then answered to server requests.
+ *
+ * @param stub Stub for calling server methods of [[DatasetStorageRpc]]
+ * @tparam F A box for returning value
+ */
 class DatasetStorageClient[F[_]: Effect](
   stub: DatasetStorageRpcStub
 )(implicit sch: Scheduler)
@@ -54,12 +54,12 @@ class DatasetStorageClient[F[_]: Effect](
   private def run[A](fa: Task[A]): F[A] = fa.toIO.to[F]
 
   /**
-    * Initiates ''Get'' operation in remote MerkleBTree.
-    *
-    * @param datasetId    Dataset ID
-    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
-    * @return returns found value, None if nothing was found.
-    */
+   * Initiates ''Get'' operation in remote MerkleBTree.
+   *
+   * @param datasetId    Dataset ID
+   * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
+   * @return returns found value, None if nothing was found.
+   */
   override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[F]): F[Option[Array[Byte]]] = {
     // Convert a remote stub call to monix pipe
     val pipe = callToPipe(stub.get)
@@ -155,12 +155,12 @@ class DatasetStorageClient[F[_]: Effect](
   }
 
   /**
-    * Initiates ''Range'' operation in remote MerkleBTree.
-    *
-    * @param datasetId       Dataset ID
-    * @param rangeCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
-    * @return returns stream of found value.
-    */
+   * Initiates ''Range'' operation in remote MerkleBTree.
+   *
+   * @param datasetId       Dataset ID
+   * @param rangeCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
+   * @return returns stream of found value.
+   */
   override def range(
     datasetId: Array[Byte],
     rangeCallbacks: BTreeRpc.SearchCallback[F]
@@ -247,13 +247,13 @@ class DatasetStorageClient[F[_]: Effect](
   }
 
   /**
-    * Initiates ''Put'' operation in remote MerkleBTree.
-    *
-    * @param datasetId      Dataset ID
-    * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
-    * @param encryptedValue Encrypted value.
-    * @return returns old value if old value was overridden, None otherwise.
-    */
+   * Initiates ''Put'' operation in remote MerkleBTree.
+   *
+   * @param datasetId      Dataset ID
+   * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param encryptedValue Encrypted value.
+   * @return returns old value if old value was overridden, None otherwise.
+   */
   override def put(
     datasetId: Array[Byte],
     putCallbacks: BTreeRpc.PutCallbacks[F],
@@ -381,12 +381,12 @@ class DatasetStorageClient[F[_]: Effect](
   }
 
   /**
-    * Initiates ''Remove'' operation in remote MerkleBTree.
-    *
-    * @param datasetId Dataset ID
-    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
-    * @return returns old value that was deleted, None if nothing was deleted.
-    */
+   * Initiates ''Remove'' operation in remote MerkleBTree.
+   *
+   * @param datasetId Dataset ID
+   * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
+   * @return returns old value that was deleted, None if nothing was deleted.
+   */
   override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[F]): F[Option[Array[Byte]]] = ???
 
   /** Returns either client error if present, or server error, or value from server */
@@ -410,11 +410,11 @@ class DatasetStorageClient[F[_]: Effect](
 object DatasetStorageClient {
 
   /**
-    * Shorthand to register [[DatasetStorageClient]] inside [[GrpcClient]].
-    *
-    * @param channel     Channel to remote node
-    * @param callOptions Call options
-    */
+   * Shorthand to register [[DatasetStorageClient]] inside [[GrpcClient]].
+   *
+   * @param channel     Channel to remote node
+   * @param callOptions Call options
+   */
   def register[F[_]: Effect]()(
     channel: ManagedChannel,
     callOptions: CallOptions

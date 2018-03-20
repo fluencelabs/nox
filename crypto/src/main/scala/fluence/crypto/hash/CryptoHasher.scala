@@ -23,12 +23,12 @@ import cats.{Contravariant, Functor, Monoid, Traverse}
 import scala.language.{higherKinds, reflectiveCalls}
 
 /**
-  * TODO add F[_] effect
-  * Base interface for hashing.
-  *
-  * @tparam M type of message for hashing
-  * @tparam H type of hashed message
-  */
+ * TODO add F[_] effect
+ * Base interface for hashing.
+ *
+ * @tparam M type of message for hashing
+ * @tparam H type of hashed message
+ */
 trait CryptoHasher[M, H] {
   self ⇒
 

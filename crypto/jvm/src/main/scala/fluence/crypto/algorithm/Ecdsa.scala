@@ -35,10 +35,10 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 
 /**
-  * Elliptic Curve Digital Signature Algorithm
-  * @param curveType http://www.bouncycastle.org/wiki/display/JA1/Supported+Curves+%28ECDSA+and+ECGOST%29
-  * @param scheme https://bouncycastle.org/specifications.html
-  */
+ * Elliptic Curve Digital Signature Algorithm
+ * @param curveType http://www.bouncycastle.org/wiki/display/JA1/Supported+Curves+%28ECDSA+and+ECGOST%29
+ * @param scheme https://bouncycastle.org/specifications.html
+ */
 class Ecdsa(curveType: String, scheme: String, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
     extends JavaAlgorithm with SignatureFunctions with KeyGenerator {
   import CryptoErr._
@@ -139,11 +139,11 @@ object Ecdsa {
   val ECDSA = "ECDSA"
 
   /**
-    * size of key is 256 bit
-    * `secp256k1` refers to the parameters of the ECDSA curve
-    * `NONEwithECDSA with sha-256 hasher` Preferably the size of the key is greater than or equal to the digest algorithm
-    * don't use `SHA256WithECDSA` because of non-compatibility with javascript libraries
-    */
+   * size of key is 256 bit
+   * `secp256k1` refers to the parameters of the ECDSA curve
+   * `NONEwithECDSA with sha-256 hasher` Preferably the size of the key is greater than or equal to the digest algorithm
+   * don't use `SHA256WithECDSA` because of non-compatibility with javascript libraries
+   */
   val ecdsa_secp256k1_sha256 = new Ecdsa("secp256k1", "NONEwithECDSA", Some(JdkCryptoHasher.Sha256))
 
   val signAlgo = new SignAlgo("ecdsa_secp256k1_sha256", ecdsa_secp256k1_sha256)

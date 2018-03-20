@@ -28,15 +28,15 @@ import scodec.bits.{Bases, ByteVector}
 import scala.language.higherKinds
 
 /**
-  * Node contact
-  *
-  * @param addr IP address
-  * @param grpcPort Port for GRPC server
-  * @param publicKey Public key of the node
-  * @param protocolVersion Protocol version the node is known to follow
-  * @param gitHash Git hash of current build running on node
-  * @param b64seed Serialized JWT
-  */
+ * Node contact
+ *
+ * @param addr IP address
+ * @param grpcPort Port for GRPC server
+ * @param publicKey Public key of the node
+ * @param protocolVersion Protocol version the node is known to follow
+ * @param gitHash Git hash of current build running on node
+ * @param b64seed Serialized JWT
+ */
 case class Contact(
   addr: String,
   grpcPort: Int, // httpPort, websocketPort and other transports //
@@ -50,15 +50,15 @@ case class Contact(
 object Contact {
 
   /**
-    * Builder for Node's own contact: node don't have JWT seed for it, but can produce it with its Signer
-    * @param addr Node's ip
-    * @param port Node's external port
-    * @param protocolVersion Protocol version
-    * @param gitHash Current build's git hash
-    * @param signer Node's signer
-    * @tparam F Monad
-    * @return Either Contact if built, or error
-    */
+   * Builder for Node's own contact: node don't have JWT seed for it, but can produce it with its Signer
+   * @param addr Node's ip
+   * @param port Node's external port
+   * @param protocolVersion Protocol version
+   * @param gitHash Current build's git hash
+   * @param signer Node's signer
+   * @tparam F Monad
+   * @return Either Contact if built, or error
+   */
   def buildOwn[F[_]: Monad](
     addr: String,
     port: Int, // httpPort, websocketPort and other transports //

@@ -33,16 +33,16 @@ import scala.language.higherKinds
 import scala.util.control.NoStackTrace
 
 /**
-  * Client-facing API for contracts allocation
-  *
-  * @param maxFindRequests Max number of network requests to perform during the find op
-  * @param maxAllocateRequests participantsRequired => maxNum of network requests to collect that number of participants
-  * @param checker Signature checker
-  * @param kademlia Kademlia service
-  * @tparam F Effect
-  * @tparam Contract Contract
-  * @tparam Contact Kademlia's Contact
-  */
+ * Client-facing API for contracts allocation
+ *
+ * @param maxFindRequests Max number of network requests to perform during the find op
+ * @param maxAllocateRequests participantsRequired => maxNum of network requests to collect that number of participants
+ * @param checker Signature checker
+ * @param kademlia Kademlia service
+ * @tparam F Effect
+ * @tparam Contract Contract
+ * @tparam Contact Kademlia's Contact
+ */
 class Contracts[F[_], Contract: ContractRead: ContractWrite, Contact](
   maxFindRequests: Int,
   maxAllocateRequests: Int ⇒ Int,
@@ -61,12 +61,12 @@ class Contracts[F[_], Contract: ContractRead: ContractWrite, Contact](
   import ContractWrite._
 
   /**
-    * Search nodes to offer contract, collect participants, allocate dataset on them.
-    *
-    * @param contract         Contract to allocate
-    * @param sealParticipants Client's callback to seal list of participants with a signature
-    * @return Sealed contract with a list of participants, or failure
-    */
+   * Search nodes to offer contract, collect participants, allocate dataset on them.
+   *
+   * @param contract         Contract to allocate
+   * @param sealParticipants Client's callback to seal list of participants with a signature
+   * @return Sealed contract with a list of participants, or failure
+   */
   def allocate(contract: Contract, sealParticipants: Contract ⇒ F[Contract]): F[Contract] = {
     // Check if contract is already known, return it immediately if it is
     for {
@@ -115,10 +115,10 @@ class Contracts[F[_], Contract: ContractRead: ContractWrite, Contact](
   }
 
   /**
-    * Try to find dataset's contract by dataset's kademlia id, or fail.
-    *
-    * @param key Dataset ID
-    */
+   * Try to find dataset's contract by dataset's kademlia id, or fail.
+   *
+   * @param key Dataset ID
+   */
   def find(key: Key): F[Contract] =
     // Try to lookup in the neighborhood
     // TODO: if contract is found "too far" from the neighborhood, ask key's neighbors to cache contract
