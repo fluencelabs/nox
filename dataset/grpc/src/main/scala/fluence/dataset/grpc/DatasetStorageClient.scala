@@ -391,7 +391,7 @@ class DatasetStorageClient[F[_] : Effect](
     serverErrOrVal: Task[Option[Task[Option[Array[Byte]]]]]
   ): F[Option[Array[Byte]]] =
     run(Task.raceMany(Seq(
-      clientError.take.flatMap(err ⇒ Task.raiseError(err)), // trying return success result or server error
+      clientError.take.flatMap(err ⇒ Task.raiseError(err)), // trying return occurred clients error
       serverErrOrVal.flatMap {
         // return success result or server error
         case Some(errOrValue) ⇒ errOrValue

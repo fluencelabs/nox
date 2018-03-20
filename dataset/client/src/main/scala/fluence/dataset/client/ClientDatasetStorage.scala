@@ -62,6 +62,7 @@ class ClientDatasetStorage[K, V](
 
   override def range(from: K, to: K): Observable[(K, V)] =
     for {
+      _ ← validateRange(from, to)
       rangeCallbacks ← Observable.fromTask(bTreeIndex.initRange(from))
       pair ← storageRpc
         .range(datasetId, rangeCallbacks)
@@ -116,6 +117,13 @@ class ClientDatasetStorage[K, V](
       case Some(r) ⇒ valueCrypt.decrypt(r).map(Option.apply)
       case None    ⇒ Task(None)
     }
+
+  private def validateRange(from: K, to: K): Observable[Unit] =
+    if (from > to)
+      Observable.raiseError(new IllegalArgumentException(
+        "Reverse order traversal is not yet supported, range start point should be less or equals than end point"
+      ))
+    else Observable(())
 
 }
 
