@@ -176,15 +176,9 @@ class DatasetStorageClient[F[_] : Effect](
       })
       .multicast
 
-    val clientError = MVar.empty[ClientError]
-
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
     def handleClientErr(err: Throwable): F[RangeCallbackReply] = {
-      run(
-        clientError
-          .put(ClientError(err.getMessage))
-          .map(_ ⇒ RangeCallbackReply(RangeCallbackReply.Reply.ClientError(Error(err.getMessage))))
-      )
+      Effect[F].pure(RangeCallbackReply(RangeCallbackReply.Reply.ClientError(Error(err.getMessage))))
     }
 
     val handleAsks = pullServerAsk
@@ -391,7 +385,7 @@ class DatasetStorageClient[F[_] : Effect](
     serverErrOrVal: Task[Option[Task[Option[Array[Byte]]]]]
   ): F[Option[Array[Byte]]] =
     run(Task.raceMany(Seq(
-      clientError.take.flatMap(err ⇒ Task.raiseError(err)), // trying return occurred clients error
+      clientError.read.flatMap(err ⇒ Task.raiseError(err)), // trying return occurred clients error
       serverErrOrVal.flatMap {
         // return success result or server error
         case Some(errOrValue) ⇒ errOrValue
