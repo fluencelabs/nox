@@ -286,7 +286,7 @@ class DatasetStorageClient[F[_]: Effect](
       })
       .multicast
 
-    val clientError = MVar.empty[ClientError]
+    val clientError = MVar.empty[ClientError].memoize
 
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
     def handleClientErr(err: Throwable): F[PutCallbackReply] =
