@@ -152,7 +152,7 @@ abstract class Kademlia[F[_], C](
    * @return Sequence of nodes with corresponding successful replies, should be >= numToCollect in case of success
    */
   def callIterative[A](key: Key, fn: Node[C] ⇒ F[A], numToCollect: Int, maxNumOfCalls: Int, isIdempotentFn: Boolean = true): F[Seq[(Node[C], A)]] =
-    nodeId.callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn, rpc, pingExpiresIn, checkNode)
+    nodeId.callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn, rpc, pingExpiresIn, checkNode).map(_.toSeq)
 
   /**
    * Joins the Kademlia network by a list of known peers. Fails if no join operations performed successfully

@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.node.grpc
 
 import java.util.concurrent.Executors
 
@@ -32,7 +32,7 @@ import fluence.dataset.grpc.{ DatasetStorageRpcGrpc, DatasetStorageServer }
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.protocol.{ Contact, Key }
-import fluence.node.NodeComposer.Services
+import fluence.node.core.NodeComposer.Services
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
@@ -57,8 +57,7 @@ object NodeGrpc {
   def grpcClient(
     key: Key,
     contact: Contact,
-    config: Config
-  )(implicit checker: SignatureChecker): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact]] =
+    config: Config)(implicit checker: SignatureChecker): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact]] =
     for {
       clientConf ← GrpcConf.read[IO](config)
       client = {
@@ -72,8 +71,7 @@ object NodeGrpc {
   def grpcServer(
     services: Services,
     serverBuilder: GrpcServer.Builder,
-    config: Config
-  ): IO[GrpcServer] =
+    config: Config): IO[GrpcServer] =
     for {
       clientConf ← GrpcConf.read[IO](config)
     } yield {
@@ -104,7 +102,7 @@ object NodeGrpc {
       serverConfOpt ← GrpcConf.read[IO](config).map(_.server)
       serverConf ← serverConfOpt match {
         case Some(sc) ⇒ IO.pure(sc)
-        case None     ⇒ IO.raiseError(new IllegalStateException("fluence.grpc.server config is not defined"))
+        case None ⇒ IO.raiseError(new IllegalStateException("fluence.grpc.server config is not defined"))
       }
     } yield serverConf
 

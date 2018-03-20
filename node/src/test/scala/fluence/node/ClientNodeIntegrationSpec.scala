@@ -42,6 +42,7 @@ import fluence.dataset.grpc.DatasetStorageServer.ClientError
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.{ Contact, Key }
 import fluence.kad.{ KademliaConf, KademliaMVar }
+import fluence.node.core.ContractsCacheConf
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.StatusRuntimeException

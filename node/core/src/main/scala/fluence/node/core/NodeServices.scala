@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.node.core
 
 import cats.effect.IO
 import fluence.contract.protocol.{ ContractAllocatorRpc, ContractsCacheRpc }

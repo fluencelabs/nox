@@ -26,7 +26,7 @@ import fluence.codec.Codec
 import fluence.kad.grpc._
 import fluence.kad.protocol
 import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
-import fluence.transport.grpc.GrpcCodecs._
+import fluence.codec.pb.ProtobufCodecs._
 
 import scala.concurrent.Future
 import scala.language.{ higherKinds, implicitConversions }

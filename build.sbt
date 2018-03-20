@@ -53,7 +53,17 @@ lazy val `codec-core-jvm` = `codec-core`.jvm
 lazy val `codec-core-js` = `codec-core`.js
 
 lazy val `codec-kryo` = project.in(file("codec/kryo"))
+  .settings(commons)
   .dependsOn(`codec-core-jvm`)
+
+// TODO: protobuf codec could be cross-compiled
+lazy val `codec-protobuf` = project.in(file("codec/protobuf"))
+  .settings(
+    commons,
+    protobuf
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`codec-core-jvm`, `kademlia-protocol-jvm`)
 
 lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -134,7 +144,7 @@ lazy val `kademlia-monix-js` = `kademlia-monix`.js
 lazy val `kademlia-monix-jvm` = `kademlia-monix`.jvm
 
 lazy val `transport-grpc` = project.in(file("transport/grpc"))
-  .dependsOn(`transport-core-jvm`, `codec-core-jvm`)
+  .dependsOn(`transport-core-jvm`, `codec-protobuf`)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -437,12 +447,12 @@ lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )
-    .jvmSettings(
-      libraryDependencies ++= Seq(
-        jline,
-        scopt
-      )
+  .jvmSettings(
+    libraryDependencies ++= Seq(
+      jline,
+      scopt
     )
+  )
   .jsSettings(
     fork in Test := false
   ).enablePlugins(AutomateHeaderPlugin)
@@ -452,7 +462,21 @@ lazy val `client-cli-js` = `client-cli`.js
 lazy val `client-cli-jvm` = `client-cli`.jvm
 
 lazy val `client-cli-app` = project.in(file("client/cli-app"))
+  .settings(commons)
   .dependsOn(`client-cli-jvm`, `client-grpc`)
 
+lazy val `node-core` = project.in(file("node/core"))
+    .settings(
+      commons,
+      protobuf,
+      libraryDependencies ++= Seq(
+        scalatest
+      )
+    ).enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`dataset-node`, `contract-node`, `client-core-jvm`, `codec-protobuf`)
+
+lazy val `node-grpc` = project.in(file("node/grpc"))
+  .dependsOn(`node-core`, `client-grpc`)
+
 lazy val `node` = project
-  .dependsOn(`dataset-node`, `contract-node`, `client-grpc`)
+  .dependsOn(`node-grpc`)
