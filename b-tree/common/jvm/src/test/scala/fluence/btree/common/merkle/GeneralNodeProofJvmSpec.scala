@@ -19,7 +19,7 @@ package fluence.btree.common.merkle
 
 import fluence.btree.core.Hash
 import fluence.crypto.hash.TestCryptoHasher
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 class GeneralNodeProofJvmSpec extends WordSpec with Matchers {
 

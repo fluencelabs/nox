@@ -27,6 +27,7 @@ trait KeyOptions extends js.Object {
 }
 
 object KeyOptions {
+
   def apply(keySizeBits: Int, iterations: Int, hasher: Algo): KeyOptions = {
     js.Dynamic.literal(keySize = keySizeBits / 32, iterations = iterations, hasher = hasher).asInstanceOf[KeyOptions]
   }

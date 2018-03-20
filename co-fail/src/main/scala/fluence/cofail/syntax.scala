@@ -42,8 +42,10 @@ object syntax {
   implicit def notA[A]: NotA[A] = ???
   implicit def notNotA[A](implicit a: A): NotA[A] = ???
 
-  implicit class EitherTSyntax[F[_] : Monad, A, B](self: EitherT[F, A, B]) {
-    def flatMap[AA, D, R](f: B ⇒ EitherT[F, AA, D])(implicit evNeq: AA =:!= A, leftMerger: LeftMergerAux[AA, A, R]): EitherT[F, R, D] =
+  implicit class EitherTSyntax[F[_]: Monad, A, B](self: EitherT[F, A, B]) {
+
+    def flatMap[AA, D, R](
+      f: B ⇒ EitherT[F, AA, D])(implicit evNeq: AA =:!= A, leftMerger: LeftMergerAux[AA, A, R]): EitherT[F, R, D] =
       EitherT[F, R, D](self.value.flatMap {
         case Right(r) ⇒
           f(r).leftMap(leftMerger.lift1).value

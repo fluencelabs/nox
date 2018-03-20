@@ -20,7 +20,7 @@ package fluence.node
 import cats.effect.IO
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
-import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.language.higherKinds
 
@@ -32,10 +32,11 @@ object NodeApp extends App with slogging.LazyLogging {
 
   logger.info("Going to run Fluence Server...")
 
-  FluenceNode.startNode()
+  FluenceNode
+    .startNode()
     .attempt
     .flatMap {
-      case Left(t)  ⇒ IO.raiseError(t)
+      case Left(t) ⇒ IO.raiseError(t)
       case Right(_) ⇒ Task.never.toIO
     }
     .unsafeRunSync()

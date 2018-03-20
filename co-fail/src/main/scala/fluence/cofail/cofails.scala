@@ -24,17 +24,17 @@ import scala.language.higherKinds
 import scala.util.control.NonFatal
 
 /**
- * This is a common supertype for all application-specific errors.
- * We consider subtyped errors as managed by us, and all others as exceptions.
- *
- * @param message Human-readable message
- */
+  * This is a common supertype for all application-specific errors.
+  * We consider subtyped errors as managed by us, and all others as exceptions.
+  *
+  * @param message Human-readable message
+  */
 private[cofail] sealed abstract class CoFail(val message: String, val errorType: String)
 
 /**
- * Error for any kind of input format validation
- * @param message Human-readable message
- */
+  * Error for any kind of input format validation
+  * @param message Human-readable message
+  */
 sealed class InputErr(message: String) extends CoFail(message, "input")
 
 object InputErr {
@@ -44,9 +44,9 @@ object InputErr {
 }
 
 /**
- * Network-related errors
- * @param message Human-readable message
- */
+  * Network-related errors
+  * @param message Human-readable message
+  */
 sealed class NetworkErr(message: String) extends CoFail(message, "network")
 
 object NetworkErr {
@@ -58,9 +58,9 @@ object NetworkErr {
 }
 
 /**
- * Errors in crypto, both
- * @param message Human-readable message
- */
+  * Errors in crypto, both
+  * @param message Human-readable message
+  */
 sealed class CryptoErr(message: String) extends CoFail(message, "crypto")
 
 object CryptoErr {
@@ -68,7 +68,7 @@ object CryptoErr {
 
   def apply(reason: Throwable): CryptoErr = new CryptoErr(reason.getMessage)
 
-  def catchNonFatal[F[_] : Applicative, A](errorText: ⇒ String, a: ⇒ A): EitherT[F, CryptoErr, A] =
+  def catchNonFatal[F[_]: Applicative, A](errorText: ⇒ String, a: ⇒ A): EitherT[F, CryptoErr, A] =
     try EitherT.pure(a)
     catch {
       case NonFatal(e) ⇒ EitherT.leftT(CryptoErr(errorText + " " + e.getLocalizedMessage))

@@ -18,20 +18,23 @@
 package fluence.crypto.algorithm
 
 import cats.data.EitherT
-import cats.{ Applicative, Monad, MonadError }
+import cats.{Applicative, Monad, MonadError}
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import fluence.codec.Codec
 import fluence.crypto.algorithm.CryptoErr.nonFatalHandling
 import fluence.crypto.cipher.Crypt
-import fluence.crypto.facade.cryptojs.{ CryptOptions, CryptoJS, Key, KeyOptions }
+import fluence.crypto.facade.cryptojs.{CryptOptions, CryptoJS, Key, KeyOptions}
 import scodec.bits.ByteVector
 
 import scalajs.js.JSConverters._
 import scala.language.higherKinds
 import scala.scalajs.js.typedarray.Int8Array
 
-class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable], codec: Codec[F, T, Array[Byte]]) extends Crypt[F, T, Array[Byte]] {
+class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(
+  implicit ME: MonadError[F, Throwable],
+  codec: Codec[F, T, Array[Byte]])
+    extends Crypt[F, T, Array[Byte]] {
 
   private val salt = config.salt
 
@@ -73,11 +76,11 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
   }
 
   /**
-   * Encrypt data.
-   * @param data Data to encrypt
-   * @param key Salted and hashed password
-   * @return Encrypted data with IV
-   */
+    * Encrypt data.
+    * @param data Data to encrypt
+    * @param key Salted and hashed password
+    * @return Encrypted data with IV
+    */
   private def encryptData(data: Array[Byte], key: Key): EitherT[F, CryptoErr, Array[Byte]] = {
     nonFatalHandling {
       //transform data to JS type
@@ -102,9 +105,9 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
   }
 
   /**
-   * @param cipherText Encrypted data with IV
-   * @return IV in hex and data in base64
-   */
+    * @param cipherText Encrypted data with IV
+    * @return IV in hex and data in base64
+    */
   private def detachData(cipherText: Array[Byte]): EitherT[F, CryptoErr, (Option[String], String)] = {
     nonFatalHandling {
       val dataWithParams = if (withIV) {
@@ -119,8 +122,8 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
   }
 
   /**
-   * Hash password with salt `iterationCount` times
-   */
+    * Hash password with salt `iterationCount` times
+    */
   private def initSecretKey(): EitherT[F, CryptoErr, Key] = {
     nonFatalHandling {
       // get raw key from password and salt
@@ -132,11 +135,15 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
 
 object AesCrypt extends slogging.LazyLogging {
 
-  def forString[F[_] : Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] = {
-    implicit val codec: Codec[F, String, Array[Byte]] = Codec[F, String, Array[Byte]](_.getBytes.pure[F], bytes ⇒ new String(bytes).pure[F])
+  def forString[F[_]: Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(
+    implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] = {
+    implicit val codec: Codec[F, String, Array[Byte]] =
+      Codec[F, String, Array[Byte]](_.getBytes.pure[F], bytes ⇒ new String(bytes).pure[F])
     apply[F, String](password, withIV, config)
   }
 
-  def apply[F[_] : Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable], codec: Codec[F, T, Array[Byte]]): AesCrypt[F, T] =
+  def apply[F[_]: Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(
+    implicit ME: MonadError[F, Throwable],
+    codec: Codec[F, T, Array[Byte]]): AesCrypt[F, T] =
     new AesCrypt(password.toHex.toCharArray, withIV, config)
 }

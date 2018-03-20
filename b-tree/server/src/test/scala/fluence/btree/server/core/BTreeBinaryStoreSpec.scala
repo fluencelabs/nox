@@ -26,7 +26,7 @@ import monix.execution.ExecutionModel
 import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
@@ -51,7 +51,8 @@ class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
       val blobIdCounter = Atomic(0L)
 
       val trieMap = new TrieMap[Array[Byte], Array[Byte]](MurmurHash3.arrayHashing, Equiv.fromComparator(BytesOrdering))
-      val store = new BTreeBinaryStore[Task, Long, String](new TrieMapKVStore(trieMap), () ⇒ blobIdCounter.incrementAndGet())
+      val store =
+        new BTreeBinaryStore[Task, Long, String](new TrieMapKVStore(trieMap), () ⇒ blobIdCounter.incrementAndGet())
 
       val node1 = "node1"
       val node1Idx = 2L
@@ -68,15 +69,18 @@ class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
       val case0Result = case0.eitherValue
       case0Result.map {
         case left: Left[_, _] ⇒ succeed
-        case _                ⇒ fail()
+        case _ ⇒ fail()
       }
 
       // check write and read
 
-      val case1 = Task.sequence(Seq(
-        store.put(node1Idx, node1),
-        store.get(node1Idx)
-      )).runAsync
+      val case1 = Task
+        .sequence(
+          Seq(
+            store.put(node1Idx, node1),
+            store.get(node1Idx)
+          ))
+        .runAsync
 
       testScheduler.tick(5.seconds)
 
@@ -85,12 +89,15 @@ class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       // check update
 
-      val case2 = Task.sequence(Seq(
-        store.put(node2Idx, node2),
-        store.get(node2Idx),
-        store.put(node2Idx, node2new),
-        store.get(node2Idx)
-      )).runAsync
+      val case2 = Task
+        .sequence(
+          Seq(
+            store.put(node2Idx, node2),
+            store.get(node2Idx),
+            store.put(node2Idx, node2new),
+            store.get(node2Idx)
+          ))
+        .runAsync
 
       testScheduler.tick(5.seconds)
 

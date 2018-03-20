@@ -21,71 +21,72 @@ import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ MonadError, Traverse }
-import fluence.crypto.signature.{ Signature, SignatureChecker }
+import cats.{MonadError, Traverse}
+import fluence.crypto.signature.{Signature, SignatureChecker}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 /**
- * Abstracts out read operations for the contract
- * @tparam C Contract's type
- */
+  * Abstracts out read operations for the contract
+  * @tparam C Contract's type
+  */
 trait ContractRead[C] {
+
   /**
-   * Cluster ID
-   *
-   * @return Kademlia key of Dataset
-   */
+    * Cluster ID
+    *
+    * @return Kademlia key of Dataset
+    */
   def id(contract: C): Key
 
   /**
-   * Contract's version; used to check when a contract could be replaced with another one in cache.
-   * Even if another contract is as cryptographically secure as current one, but is older, it should be rejected
-   * to prevent replay attack on cache.
-   *
-   * @return Monotonic increasing contract version number
-   */
+    * Contract's version; used to check when a contract could be replaced with another one in cache.
+    * Even if another contract is as cryptographically secure as current one, but is older, it should be rejected
+    * to prevent replay attack on cache.
+    *
+    * @return Monotonic increasing contract version number
+    */
   def version(contract: C): Long
 
   /**
-   * List of participating nodes Kademlia keys
-   */
+    * List of participating nodes Kademlia keys
+    */
   def participants(contract: C): Set[Key]
 
   /**
-   * How many participants (=replicas) is required for the contract
-   */
+    * How many participants (=replicas) is required for the contract
+    */
   def participantsRequired(contract: C): Int
 
   /**
-   * Participant's signature for an offer, if any
-   *
-   * @param contract Contract
-   * @param participant Participating node's key
-   */
+    * Participant's signature for an offer, if any
+    *
+    * @param contract Contract
+    * @param participant Participating node's key
+    */
   def participantSignature(contract: C, participant: Key): Option[Signature]
 
   /**
-   * Returns contract offer's bytes representation, used to sign & verify signatures
-   *
-   * @param contract Contract
-   */
+    * Returns contract offer's bytes representation, used to sign & verify signatures
+    *
+    * @param contract Contract
+    */
   def getOfferBytes(contract: C): ByteVector
 
   /**
-   * Returns client's signature for offer bytes
-   *
-   * @param contract Contract
-   */
+    * Returns client's signature for offer bytes
+    *
+    * @param contract Contract
+    */
   def offerSeal(contract: C): Signature
 
   /**
-   * Returns client's signature for participants list, if it's already sealed
-   *
-   * @param contract Contract
-   */
+    * Returns client's signature for participants list, if it's already sealed
+    *
+    * @param contract Contract
+    */
   def participantsSeal(contract: C): Option[Signature]
 }
 
@@ -110,45 +111,44 @@ object ContractRead {
     def participantsSeal: Option[Signature] = read.participantsSeal(contract)
 
     /**
-     * Returns participants bytes representation to be sealed by client
-     */
+      * Returns participants bytes representation to be sealed by client
+      */
     def getParticipantsBytes: ByteVector =
       // TODO: review, document & optimize
-      participants
-        .toSeq
+      participants.toSeq
         .sorted(Key.relativeOrdering(id))
-        .map(k ⇒
-          participantSignature(k).fold(ByteVector.empty)(_.sign)
-        ).foldLeft(id.value)(_ ++ _)
+        .map(k ⇒ participantSignature(k).fold(ByteVector.empty)(_.sign))
+        .foldLeft(id.value)(_ ++ _)
 
     /**
-     * Checks that client's seal for the contract offer is correct
-     *
-     * @param checker Signature checker
-     */
+      * Checks that client's seal for the contract offer is correct
+      *
+      * @param checker Signature checker
+      */
     def checkOfferSeal[F[_]]()(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] =
       for {
         _ ← checkOfferSignature(offerSeal)
       } yield Key.checkPublicKey(id, offerSeal.publicKey)
 
     /**
-     * Checks that signature matches contract's offer
-     *
-     * @param signature Signature to check
-     * @param checker Signature checker
-     */
-    def checkOfferSignature[F[_]](signature: Signature)(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Unit] =
+      * Checks that signature matches contract's offer
+      *
+      * @param signature Signature to check
+      * @param checker Signature checker
+      */
+    def checkOfferSignature[F[_]](
+      signature: Signature)(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Unit] =
       checker.check[F](signature, getOfferBytes).value.map(_.isRight) // TODO EitherT
 
     /**
-     * @return Whether this contract is a valid blank offer (with no participants, with client's signature)
-     */
+      * @return Whether this contract is a valid blank offer (with no participants, with client's signature)
+      */
     def isBlankOffer[F[_]]()(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] =
       if (participants.isEmpty) checkOfferSeal() else false.pure[F]
 
     /**
-     * @return Whether this contract offer was signed by a single node and client, but participants list is not sealed yet
-     */
+      * @return Whether this contract offer was signed by a single node and client, but participants list is not sealed yet
+      */
     def isSignedParticipant[F[_]]()(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] =
       participants.toList match {
         case single :: Nil ⇒
@@ -159,23 +159,24 @@ object ContractRead {
       }
 
     /**
-     * Checks that participant has signed an offer
-     *
-     * @param participant Participating node's key
-     * @param checker Signature checker
-     */
-    def participantSigned[F[_]](participant: Key)(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] = {
+      * Checks that participant has signed an offer
+      *
+      * @param participant Participating node's key
+      * @param checker Signature checker
+      */
+    def participantSigned[F[_]](
+      participant: Key)(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] = {
       participantSignature(participant) match {
         case Some(ps) ⇒ checkOfferSignature(ps).map(_ ⇒ Key.checkPublicKey(participant, ps.publicKey))
-        case None     ⇒ F.pure(false)
+        case None ⇒ F.pure(false)
       }
     }
 
     /**
-     * Checks that number of participants is correct, and all signatures are valid
-     *
-     * @param checker Signature checker
-     */
+      * Checks that number of participants is correct, and all signatures are valid
+      *
+      * @param checker Signature checker
+      */
     def checkAllParticipants[F[_]]()(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] = {
       if (participants.size == participantsRequired)
         Traverse[List].traverse(participants.map(participantSigned(_)).toList)(identity).map(_.forall(identity))
@@ -183,15 +184,15 @@ object ContractRead {
     }
 
     /**
-     * @return Whether this contract is successfully signed by all participants, and participants list is sealed by client
-     */
+      * @return Whether this contract is successfully signed by all participants, and participants list is sealed by client
+      */
     def isActiveContract[F[_]]()(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] = {
       for {
         offerSealResult ← checkOfferSeal()
         participants ← Traverse[List].traverse(participants.map(participantSigned(_)).toList)(identity)
         participantSealResult ← participantsSeal.filter(seal ⇒ Key.checkPublicKey(id, seal.publicKey)) match {
           case Some(sign) ⇒ checker.check[F](sign, getParticipantsBytes).value.map(_.isRight)
-          case None       ⇒ F.pure(false)
+          case None ⇒ F.pure(false)
         }
       } yield offerSealResult && participants.forall(identity) && participantSealResult
     }

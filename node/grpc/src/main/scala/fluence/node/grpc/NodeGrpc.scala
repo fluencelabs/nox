@@ -25,17 +25,17 @@ import com.typesafe.config.Config
 import fluence.client.core.ClientServices
 import fluence.client.grpc.ClientGrpcServices
 import fluence.contract.BasicContract
-import fluence.contract.grpc.server.{ ContractAllocatorServer, ContractsCacheServer }
-import fluence.contract.grpc.{ ContractAllocatorGrpc, ContractsCacheGrpc }
+import fluence.contract.grpc.server.{ContractAllocatorServer, ContractsCacheServer}
+import fluence.contract.grpc.{ContractAllocatorGrpc, ContractsCacheGrpc}
 import fluence.crypto.signature.SignatureChecker
-import fluence.dataset.grpc.{ DatasetStorageRpcGrpc, DatasetStorageServer }
+import fluence.dataset.grpc.{DatasetStorageRpcGrpc, DatasetStorageServer}
 import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.server.KademliaServer
-import fluence.kad.protocol.{ Contact, Key }
+import fluence.kad.protocol.{Contact, Key}
 import fluence.node.core.NodeComposer.Services
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
-import fluence.transport.grpc.server.{ GrpcServer, GrpcServerConf }
+import fluence.transport.grpc.server.{GrpcServer, GrpcServerConf}
 import monix.eval.Task
 import monix.execution.Scheduler
 
@@ -54,10 +54,8 @@ object NodeGrpc {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
-  def grpcClient(
-    key: Key,
-    contact: Contact,
-    config: Config)(implicit checker: SignatureChecker): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact]] =
+  def grpcClient(key: Key, contact: Contact, config: Config)(
+    implicit checker: SignatureChecker): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact]] =
     for {
       clientConf ← GrpcConf.read[IO](config)
       client = {
@@ -68,10 +66,7 @@ object NodeGrpc {
     } yield client
 
   // Add server (with kademlia inside), build
-  def grpcServer(
-    services: Services,
-    serverBuilder: GrpcServer.Builder,
-    config: Config): IO[GrpcServer] =
+  def grpcServer(services: Services, serverBuilder: GrpcServer.Builder, config: Config): IO[GrpcServer] =
     for {
       clientConf ← GrpcConf.read[IO](config)
     } yield {
@@ -83,8 +78,8 @@ object NodeGrpc {
       // TODO: check if it's optimal
       implicit val ec: Scheduler = Scheduler(Executors.newCachedThreadPool())
 
-      import fluence.contract.grpc.BasicContractCodec.{ codec ⇒ contractCodec }
-      import fluence.kad.grpc.KademliaNodeCodec.{ codec ⇒ nodeCodec }
+      import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}
+      import fluence.kad.grpc.KademliaNodeCodec.{codec ⇒ nodeCodec}
       val keyC = Key.bytesCodec[Task]
       import keyC.inverse
 

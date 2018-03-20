@@ -21,10 +21,11 @@ import cats.effect.IO
 import com.typesafe.config.Config
 
 case class KeyPairConfig(
-    keyPath: String
+  keyPath: String
 )
 
 object KeyPairConfig {
+
   def read(config: Config): IO[KeyPairConfig] =
     IO {
       import net.ceedubs.ficus.Ficus._

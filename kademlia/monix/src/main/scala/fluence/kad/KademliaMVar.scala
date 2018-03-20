@@ -21,9 +21,9 @@ import java.time.Instant
 
 import cats.data.StateT
 import cats.kernel.Monoid
-import cats.{ MonadError, Parallel }
-import fluence.kad.protocol.{ KademliaRpc, Key, Node }
-import monix.eval.{ MVar, Task }
+import cats.{MonadError, Parallel}
+import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import monix.eval.{MVar, Task}
 import monix.execution.atomic.AtomicAny
 
 import scala.language.implicitConversions
@@ -32,40 +32,41 @@ import scala.language.implicitConversions
 object KademliaMVar {
 
   /**
-   * Kademlia service to be launched as a singleton on local node.
-   *
-   * @param nodeId        Current node ID
-   * @param contact       Node's contact to advertise
-   * @param rpcForContact Getter for RPC calling of another nodes
-   * @param conf          Kademlia conf
-   * @param checkNode     Node could be saved to RoutingTable only if checker returns F[ true ]
-   * @tparam C Contact info
-   */
+    * Kademlia service to be launched as a singleton on local node.
+    *
+    * @param nodeId        Current node ID
+    * @param contact       Node's contact to advertise
+    * @param rpcForContact Getter for RPC calling of another nodes
+    * @param conf          Kademlia conf
+    * @param checkNode     Node could be saved to RoutingTable only if checker returns F[ true ]
+    * @tparam C Contact info
+    */
   def apply[C](
     nodeId: Key,
     contact: Task[C],
     rpcForContact: C ⇒ KademliaRpc[Task, C],
     conf: KademliaConf,
     checkNode: Node[C] ⇒ Task[Boolean]
-  ): Kademlia[Task, C] = new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
-    implicitly[MonadError[Task, Throwable]],
-    implicitly[Parallel[Task, Task]],
-    MVarBucketOps.task[C](conf.maxBucketSize),
-    KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
-  ) {
-    override def rpc(contact: C): KademliaRpc[Task, C] = rpcForContact(contact)
+  ): Kademlia[Task, C] =
+    new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
+      implicitly[MonadError[Task, Throwable]],
+      implicitly[Parallel[Task, Task]],
+      MVarBucketOps.task[C](conf.maxBucketSize),
+      KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
+    ) {
+      override def rpc(contact: C): KademliaRpc[Task, C] = rpcForContact(contact)
 
-    override def ownContact: Task[Node[C]] = contact.map(c ⇒ Node(nodeId, Instant.now(), c))
-  }
+      override def ownContact: Task[Node[C]] = contact.map(c ⇒ Node(nodeId, Instant.now(), c))
+    }
 
   /**
-   * Builder for client-side implementation of KademliaMVar
-   *
-   * @param rpc       Getter for RPC calling of another nodes
-   * @param conf      Kademlia conf
-   * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
-   * @tparam C Contact info
-   */
+    * Builder for client-side implementation of KademliaMVar
+    *
+    * @param rpc       Getter for RPC calling of another nodes
+    * @param conf      Kademlia conf
+    * @param checkNode Node could be saved to RoutingTable only if checker returns F[ true ]
+    * @tparam C Contact info
+    */
   def client[C](
     rpc: C ⇒ KademliaRpc[Task, C],
     conf: KademliaConf,
@@ -80,14 +81,14 @@ object KademliaMVar {
     )
 
   /**
-   * Performs atomic update on a MVar, blocking asynchronously if another update is in progress.
-   *
-   * @param mvar       State variable
-   * @param mod        Modifier
-   * @param updateRead Callback to update read model
-   * @tparam S State
-   * @tparam T Return value
-   */
+    * Performs atomic update on a MVar, blocking asynchronously if another update is in progress.
+    *
+    * @param mvar       State variable
+    * @param mod        Modifier
+    * @param updateRead Callback to update read model
+    * @tparam S State
+    * @tparam T Return value
+    */
   private def runOnMVar[S, T](mvar: MVar[S], mod: StateT[Task, S, T], updateRead: S ⇒ Unit): Task[T] =
     mvar.take.flatMap { init ⇒
       // Run modification
@@ -103,12 +104,12 @@ object KademliaMVar {
     }
 
   /**
-   * Builds asynchronous sibling ops with $maxSiblings nodes max.
-   *
-   * @param nodeId      Siblings are sorted by distance to this nodeId
-   * @param maxSiblings Max number of closest siblings to store
-   * @tparam C Node contacts type
-   */
+    * Builds asynchronous sibling ops with $maxSiblings nodes max.
+    *
+    * @param nodeId      Siblings are sorted by distance to this nodeId
+    * @param maxSiblings Max number of closest siblings to store
+    * @tparam C Node contacts type
+    */
   private def siblingsOps[C](nodeId: Key, maxSiblings: Int): Siblings.WriteOps[Task, C] =
     new Siblings.WriteOps[Task, C] {
       private val readState = AtomicAny(Siblings[C](nodeId, maxSiblings))

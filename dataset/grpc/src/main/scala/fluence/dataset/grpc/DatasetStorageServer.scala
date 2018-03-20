@@ -23,37 +23,37 @@ import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.show._
-import cats.{ Monad, Show, ~> }
+import cats.{~>, Monad, Show}
 import com.google.protobuf.ByteString
-import fluence.btree.core.{ ClientPutDetails, Hash, Key }
+import fluence.btree.core.{ClientPutDetails, Hash, Key}
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.protocol.DatasetStorageRpc
 import io.grpc.stub.StreamObserver
 import monix.eval.Task
-import monix.execution.{ Ack, Scheduler }
-import monix.reactive.{ Observable, Observer }
-import scodec.bits.{ Bases, ByteVector }
+import monix.execution.{Ack, Scheduler}
+import monix.reactive.{Observable, Observer}
+import scodec.bits.{Bases, ByteVector}
 
 import scala.collection.Searching
 import scala.language.higherKinds
 import scala.util.control.NoStackTrace
 
 /**
- * Server implementation of [[DatasetStorageRpcGrpc.DatasetStorageRpc]], allows talking to client via network.
- * All public methods called from the server side.
- * DatasetStorageServer is active and initiates requests to client.
- *
- * @param service Server implementation of [[DatasetStorageRpc]] to which the calls will be delegated
- * @tparam F A box for returning value
- */
-class DatasetStorageServer[F[_] : Async](
-    service: DatasetStorageRpc[F, Observable]
+  * Server implementation of [[DatasetStorageRpcGrpc.DatasetStorageRpc]], allows talking to client via network.
+  * All public methods called from the server side.
+  * DatasetStorageServer is active and initiates requests to client.
+  *
+  * @param service Server implementation of [[DatasetStorageRpc]] to which the calls will be delegated
+  * @tparam F A box for returning value
+  */
+class DatasetStorageServer[F[_]: Async](
+  service: DatasetStorageRpc[F, Observable]
 )(
-    implicit
-    F: Monad[F],
-    runF: F ~> Task,
-    scheduler: Scheduler
+  implicit
+  F: Monad[F],
+  runF: F ~> Task,
+  scheduler: Scheduler
 ) extends DatasetStorageRpcGrpc.DatasetStorageRpc with slogging.LazyLogging {
   import DatasetStorageServer._
 
@@ -68,12 +68,12 @@ class DatasetStorageServer[F[_] : Async](
   }
 
   /**
-   * Convert function: {{{ EitherT[Task, E, V] => Eff[V] }}}.
-   * It's temporary decision, it will be removed when EitherT[F, E, V] was everywhere.
-   *
-   * @tparam E Type of exception, should be subclass of [[Throwable]]
-   * @tparam V Type of value
-   */
+    * Convert function: {{{ EitherT[Task, E, V] => Eff[V] }}}.
+    * It's temporary decision, it will be removed when EitherT[F, E, V] was everywhere.
+    *
+    * @tparam E Type of exception, should be subclass of [[Throwable]]
+    * @tparam V Type of value
+    */
   private def eitherTaskToF[Eff[_], E <: Throwable, V](eitherT: EitherT[Task, E, V])(implicit fn: Task ~> Eff): Eff[V] =
     fn(eitherT.value.flatMap {
       case Left(clientError) ⇒
@@ -94,18 +94,17 @@ class DatasetStorageServer[F[_] : Async](
       extract: GetCallbackReply.Reply ⇒ T
     ): EitherT[Task, ClientError, T] = {
 
-      val clReply = pullClientReply()
-        .map {
-          case GetCallbackReply(reply) ⇒
-            logger.trace(s"DatasetStorageServer.get() received client reply=$reply")
-            reply
-        }.map {
-          case r if check(r) ⇒
-            Right(extract(r))
-          case r ⇒
-            val errMsg = r.clientError.map(_.msg).getOrElse("Wrong reply received, protocol error")
-            Left(ClientError(errMsg))
-        }
+      val clReply = pullClientReply().map {
+        case GetCallbackReply(reply) ⇒
+          logger.trace(s"DatasetStorageServer.get() received client reply=$reply")
+          reply
+      }.map {
+        case r if check(r) ⇒
+          Right(extract(r))
+        case r ⇒
+          val errMsg = r.clientError.map(_.msg).getOrElse("Wrong reply received, protocol error")
+          Left(ClientError(errMsg))
+      }
 
       EitherT(clReply)
     }
@@ -113,55 +112,62 @@ class DatasetStorageServer[F[_] : Async](
     val valueF =
       for {
         did ← toF(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
-        foundValue ← service.get(did, new BTreeRpc.SearchCallback[F] {
+        foundValue ← service.get(
+          did,
+          new BTreeRpc.SearchCallback[F] {
 
-          private val pushServerAsk: GetCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
-            EitherT(Task.fromFuture(resp.onNext(GetCallback(callback = callback))).attempt)
-              .leftMap(t ⇒ ClientError(t.getMessage))
+            private val pushServerAsk: GetCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
+              EitherT(Task.fromFuture(resp.onNext(GetCallback(callback = callback))).attempt)
+                .leftMap(t ⇒ ClientError(t.getMessage))
+            }
+
+            /**
+              * Server sends founded leaf details.
+              *
+              * @param keys            Keys of current leaf
+              * @param valuesChecksums Checksums of values for current leaf
+              * @return index of searched value, or None if key wasn't found
+              */
+            override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Searching.SearchResult] =
+              toF(
+                for {
+                  _ ← pushServerAsk(
+                    GetCallback.Callback.SubmitLeaf(
+                      AskSubmitLeaf(
+                        keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
+                        valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+                      ))
+                  )
+                  sl ← getReply(_.isSubmitLeaf, _.submitLeaf.get)
+                } yield {
+                  sl.searchResult.found
+                    .map(Searching.Found)
+                    .orElse(sl.searchResult.insertionPoint.map(Searching.InsertionPoint))
+                    .get
+                }
+              )
+
+            /**
+              * Server asks next child node index.
+              *
+              * @param keys            Keys of current branch for searching index
+              * @param childsChecksums All children checksums of current branch
+              */
+            override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
+              toF(
+                for {
+                  _ ← pushServerAsk(
+                    GetCallback.Callback.NextChildIndex(
+                      AskNextChildIndex(
+                        keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
+                        childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+                      ))
+                  )
+                  nci ← getReply(_.isNextChildIndex, _.nextChildIndex.get)
+                } yield nci.index
+              )
           }
-
-          /**
-           * Server sends founded leaf details.
-           *
-           * @param keys            Keys of current leaf
-           * @param valuesChecksums Checksums of values for current leaf
-           * @return index of searched value, or None if key wasn't found
-           */
-          override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Searching.SearchResult] =
-            toF(
-              for {
-                _ ← pushServerAsk(
-                  GetCallback.Callback.SubmitLeaf(AskSubmitLeaf(
-                    keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                    valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
-                  ))
-                )
-                sl ← getReply(_.isSubmitLeaf, _.submitLeaf.get)
-              } yield {
-                sl.searchResult.found.map(Searching.Found)
-                  .orElse(sl.searchResult.insertionPoint.map(Searching.InsertionPoint)).get
-              }
-            )
-
-          /**
-           * Server asks next child node index.
-           *
-           * @param keys            Keys of current branch for searching index
-           * @param childsChecksums All children checksums of current branch
-           */
-          override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
-            toF(
-              for {
-                _ ← pushServerAsk(
-                  GetCallback.Callback.NextChildIndex(AskNextChildIndex(
-                    keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                    childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
-                  ))
-                )
-                nci ← getReply(_.isNextChildIndex, _.nextChildIndex.get)
-              } yield nci.index
-            )
-        })
+        )
       } yield {
         logger.debug(s"Was found value=${foundValue.show} for client 'get' request for dataset=${did.show}")
         foundValue
@@ -172,7 +178,8 @@ class DatasetStorageServer[F[_] : Async](
       valueF.attempt.flatMap {
         case Right(value) ⇒
           // if all is ok server should close the stream (is done in ObserverGrpcOps.completeWith) and send value to client
-          Async[F].pure(GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
+          Async[F].pure(
+            GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
         case Left(clientError: ClientError) ⇒
           logger.warn(s"Client replied with an error=$clientError")
           // when server receive client error, server shouldn't close the stream (is done in ObserverGrpcOps.completeWith) and lift up client error
@@ -198,18 +205,17 @@ class DatasetStorageServer[F[_] : Async](
       extract: RangeCallbackReply.Reply ⇒ T
     ): EitherT[Task, ClientError, T] = {
 
-      val clReply = pullClientReply()
-        .map {
-          case RangeCallbackReply(reply) ⇒
-            logger.trace(s"DatasetStorageServer.range() received client reply=$reply")
-            reply
-        }.map {
-          case r if check(r) ⇒
-            Right(extract(r))
-          case r ⇒
-            val errMsg = r.clientError.map(_.msg).getOrElse("Wrong reply received, protocol error")
-            Left(ClientError(errMsg))
-        }
+      val clReply = pullClientReply().map {
+        case RangeCallbackReply(reply) ⇒
+          logger.trace(s"DatasetStorageServer.range() received client reply=$reply")
+          reply
+      }.map {
+        case r if check(r) ⇒
+          Right(extract(r))
+        case r ⇒
+          val errMsg = r.clientError.map(_.msg).getOrElse("Wrong reply received, protocol error")
+          Left(ClientError(errMsg))
+      }
 
       EitherT(clReply)
     }
@@ -217,55 +223,62 @@ class DatasetStorageServer[F[_] : Async](
     val valueF =
       for {
         did ← toObservable(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
-        valuesStream ← service.range(did, new BTreeRpc.SearchCallback[F] {
+        valuesStream ← service.range(
+          did,
+          new BTreeRpc.SearchCallback[F] {
 
-          private val pushServerAsk: RangeCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
-            EitherT(Task.fromFuture(resp.onNext(RangeCallback(callback = callback))).attempt)
-              .leftMap(t ⇒ ClientError(t.getMessage))
+            private val pushServerAsk: RangeCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
+              EitherT(Task.fromFuture(resp.onNext(RangeCallback(callback = callback))).attempt)
+                .leftMap(t ⇒ ClientError(t.getMessage))
+            }
+
+            /**
+              * Server sends founded leaf details.
+              *
+              * @param keys            Keys of current leaf
+              * @param valuesChecksums Checksums of values for current leaf
+              * @return index of searched value, or None if key wasn't found
+              */
+            override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Searching.SearchResult] =
+              toF(
+                for {
+                  _ ← pushServerAsk(
+                    RangeCallback.Callback.SubmitLeaf(
+                      AskSubmitLeaf(
+                        keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
+                        valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+                      ))
+                  )
+                  sl ← getReply(_.isSubmitLeaf, _.submitLeaf.get)
+                } yield {
+                  sl.searchResult.found
+                    .map(Searching.Found)
+                    .orElse(sl.searchResult.insertionPoint.map(Searching.InsertionPoint))
+                    .get
+                }
+              )
+
+            /**
+              * Server asks next child node index.
+              *
+              * @param keys            Keys of current branch for searching index
+              * @param childsChecksums All children checksums of current branch
+              */
+            override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
+              toF(
+                for {
+                  _ ← pushServerAsk(
+                    RangeCallback.Callback.NextChildIndex(
+                      AskNextChildIndex(
+                        keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
+                        childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+                      ))
+                  )
+                  nci ← getReply(_.isNextChildIndex, _.nextChildIndex.get)
+                } yield nci.index
+              )
           }
-
-          /**
-           * Server sends founded leaf details.
-           *
-           * @param keys            Keys of current leaf
-           * @param valuesChecksums Checksums of values for current leaf
-           * @return index of searched value, or None if key wasn't found
-           */
-          override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Searching.SearchResult] =
-            toF(
-              for {
-                _ ← pushServerAsk(
-                  RangeCallback.Callback.SubmitLeaf(AskSubmitLeaf(
-                    keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                    valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
-                  ))
-                )
-                sl ← getReply(_.isSubmitLeaf, _.submitLeaf.get)
-              } yield {
-                sl.searchResult.found.map(Searching.Found)
-                  .orElse(sl.searchResult.insertionPoint.map(Searching.InsertionPoint)).get
-              }
-            )
-
-          /**
-           * Server asks next child node index.
-           *
-           * @param keys            Keys of current branch for searching index
-           * @param childsChecksums All children checksums of current branch
-           */
-          override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
-            toF(
-              for {
-                _ ← pushServerAsk(
-                  RangeCallback.Callback.NextChildIndex(AskNextChildIndex(
-                    keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                    childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
-                  ))
-                )
-                nci ← getReply(_.isNextChildIndex, _.nextChildIndex.get)
-              } yield nci.index
-            )
-        })
+        )
       } yield {
         logger.debug(s"Was found value=${valuesStream.show} for client 'range' request for dataset=${did.show}")
         valuesStream
@@ -274,7 +287,8 @@ class DatasetStorageServer[F[_] : Async](
     valueF.attempt.flatMap {
       case Right((key, value)) ⇒
         // if all is ok server should send value to client
-        Observable.pure(RangeCallback(RangeCallback.Callback.Value(RangeValue(ByteString.copyFrom(key), ByteString.copyFrom(value)))))
+        Observable.pure(
+          RangeCallback(RangeCallback.Callback.Value(RangeValue(ByteString.copyFrom(key), ByteString.copyFrom(value)))))
       case Left(clientError: ClientError) ⇒
         logger.warn(s"Client replied with an error=$clientError")
         // if server receive client error server should lift it up
@@ -300,18 +314,17 @@ class DatasetStorageServer[F[_] : Async](
       extract: PutCallbackReply.Reply ⇒ T
     ): EitherT[Task, ClientError, T] = {
 
-      val reply = pullClientReply()
-        .map {
-          case PutCallbackReply(r) ⇒
-            logger.trace(s"DatasetStorageServer.put() received client reply=$r")
-            r
-        }.map {
-          case r if check(r) ⇒
-            Right(extract(r))
-          case r ⇒
-            val errMsg = r.clientError.map(_.msg).getOrElse("Wrong reply received, protocol error")
-            Left(ClientError(errMsg))
-        }
+      val reply = pullClientReply().map {
+        case PutCallbackReply(r) ⇒
+          logger.trace(s"DatasetStorageServer.put() received client reply=$r")
+          r
+      }.map {
+        case r if check(r) ⇒
+          Right(extract(r))
+        case r ⇒
+          val errMsg = r.clientError.map(_.msg).getOrElse("Wrong reply received, protocol error")
+          Left(ClientError(errMsg))
+      }
 
       EitherT(reply)
     }
@@ -320,94 +333,102 @@ class DatasetStorageServer[F[_] : Async](
       for {
         did ← toF(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
         putValue ← toF(getReply(_.isValue, _._value.map(_.value.toByteArray).getOrElse(Array.emptyByteArray)))
-        oldValue ← service.put(did, new BTreeRpc.PutCallbacks[F] {
+        oldValue ← service.put(
+          did,
+          new BTreeRpc.PutCallbacks[F] {
 
-          private val pushServerAsk: PutCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
-            EitherT(Task.fromFuture(resp.onNext(PutCallback(callback = callback))).attempt)
-              .leftMap(t ⇒ ClientError(t.getMessage))
-          }
+            private val pushServerAsk: PutCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
+              EitherT(Task.fromFuture(resp.onNext(PutCallback(callback = callback))).attempt)
+                .leftMap(t ⇒ ClientError(t.getMessage))
+            }
 
-          /**
-           * Server asks next child node index.
-           *
-           * @param keys            Keys of current branch for searching index
-           * @param childsChecksums All children checksums of current branch
-           */
-          override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
-            toF(
-              for {
-                _ ← pushServerAsk(
-                  PutCallback.Callback.NextChildIndex(
-                    AskNextChildIndex(
-                      keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                      childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+            /**
+              * Server asks next child node index.
+              *
+              * @param keys            Keys of current branch for searching index
+              * @param childsChecksums All children checksums of current branch
+              */
+            override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
+              toF(
+                for {
+                  _ ← pushServerAsk(
+                    PutCallback.Callback.NextChildIndex(
+                      AskNextChildIndex(
+                        keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
+                        childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+                      )
                     )
                   )
-                )
-                nci ← getReply(_.isNextChildIndex, _.nextChildIndex.get)
-              } yield nci.index
-            )
-
-          /**
-           * Server sends founded leaf details.
-           *
-           * @param keys            Keys of current leaf
-           * @param valuesChecksums Checksums of values for current leaf
-           */
-          override def putDetails(keys: Array[Key], valuesChecksums: Array[Hash]): F[ClientPutDetails] =
-            toF(
-              for {
-                _ ← pushServerAsk(
-                  PutCallback.Callback.PutDetails(AskPutDetails(
-                    keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                    valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
-                  ))
-                )
-                pd ← getReply(r ⇒ r.isPutDetails && r.putDetails.exists(_.searchResult.isDefined), _.putDetails.get)
-              } yield ClientPutDetails(
-                key = Key(pd.key.toByteArray),
-                valChecksum = Hash(pd.checksum.toByteArray),
-                searchResult = (
-                  pd.searchResult.found.map(Searching.Found) orElse
-                  pd.searchResult.insertionPoint.map(Searching.InsertionPoint)
-                ).get
+                  nci ← getReply(_.isNextChildIndex, _.nextChildIndex.get)
+                } yield nci.index
               )
-            )
 
-          /**
-           * Server sends new merkle root to client for approve made changes.
-           *
-           * @param serverMerkleRoot New merkle root after putting key/value
-           * @param wasSplitting     'True' id server performed tree rebalancing, 'False' otherwise
-           */
-          override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[Unit] =
-            toF(
-              for {
-                _ ← pushServerAsk(
-                  PutCallback.Callback.VerifyChanges(AskVerifyChanges(
-                    version = 1, // TODO: pass prevVersion + 1
-                    serverMerkleRoot = ByteString.copyFrom(serverMerkleRoot.bytes),
-                    splitted = wasSplitting
-                  ))
-                )
-                _ ← getReply(_.isVerifyChanges, _.verifyChanges.get) // TODO: here we get signature
-              } yield ()
-            )
+            /**
+              * Server sends founded leaf details.
+              *
+              * @param keys            Keys of current leaf
+              * @param valuesChecksums Checksums of values for current leaf
+              */
+            override def putDetails(keys: Array[Key], valuesChecksums: Array[Hash]): F[ClientPutDetails] =
+              toF(
+                for {
+                  _ ← pushServerAsk(
+                    PutCallback.Callback.PutDetails(
+                      AskPutDetails(
+                        keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
+                        valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+                      ))
+                  )
+                  pd ← getReply(r ⇒ r.isPutDetails && r.putDetails.exists(_.searchResult.isDefined), _.putDetails.get)
+                } yield
+                  ClientPutDetails(
+                    key = Key(pd.key.toByteArray),
+                    valChecksum = Hash(pd.checksum.toByteArray),
+                    searchResult = (
+                      pd.searchResult.found.map(Searching.Found) orElse
+                        pd.searchResult.insertionPoint.map(Searching.InsertionPoint)
+                    ).get
+                  )
+              )
 
-          /**
-           * Server confirms that all changes was persisted.
-           */
-          override def changesStored(): F[Unit] =
-            toF(
-              for {
-                _ ← pushServerAsk(PutCallback.Callback.ChangesStored(AskChangesStored()))
-                _ ← getReply(_.isChangesStored, _.changesStored.get)
-              } yield ()
-            )
-        }, putValue)
+            /**
+              * Server sends new merkle root to client for approve made changes.
+              *
+              * @param serverMerkleRoot New merkle root after putting key/value
+              * @param wasSplitting     'True' id server performed tree rebalancing, 'False' otherwise
+              */
+            override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[Unit] =
+              toF(
+                for {
+                  _ ← pushServerAsk(
+                    PutCallback.Callback.VerifyChanges(
+                      AskVerifyChanges(
+                        version = 1, // TODO: pass prevVersion + 1
+                        serverMerkleRoot = ByteString.copyFrom(serverMerkleRoot.bytes),
+                        splitted = wasSplitting
+                      ))
+                  )
+                  _ ← getReply(_.isVerifyChanges, _.verifyChanges.get) // TODO: here we get signature
+                } yield ()
+              )
+
+            /**
+              * Server confirms that all changes was persisted.
+              */
+            override def changesStored(): F[Unit] =
+              toF(
+                for {
+                  _ ← pushServerAsk(PutCallback.Callback.ChangesStored(AskChangesStored()))
+                  _ ← getReply(_.isChangesStored, _.changesStored.get)
+                } yield ()
+              )
+          },
+          putValue
+        )
       } yield {
-        logger.debug(s"Was stored new value=${putValue.show} for client 'put' request for dataset=${did.show}," +
-          s" old value=${oldValue.show} was overwritten")
+        logger.debug(
+          s"Was stored new value=${putValue.show} for client 'put' request for dataset=${did.show}," +
+            s" old value=${oldValue.show} was overwritten")
         oldValue
       }
 
@@ -416,7 +437,8 @@ class DatasetStorageServer[F[_] : Async](
       valueF.attempt.flatMap {
         case Right(value) ⇒
           // if all is ok server should close the stream(is done in ObserverGrpcOps.completeWith)  and send value to client
-          Async[F].pure(PutCallback(PutCallback.Callback.Value(PreviousValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
+          Async[F].pure(
+            PutCallback(PutCallback.Callback.Value(PreviousValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
         case Left(clientError: ClientError) ⇒
           // when server receive client error, server shouldn't close the stream(is done in ObserverGrpcOps.completeWith)  and lift up client error
           Async[F].raiseError[PutCallback](clientError)
@@ -442,12 +464,12 @@ object DatasetStorageServer {
 
   private implicit val showBytes: Show[Array[Byte]] = (b: Array[Byte]) ⇒ ByteVector(b).toBase64(alphabet)
 
-  private implicit def showOption[T](implicit showT: Show[T]): Show[Option[T]] = {
-    (o: Option[T]) ⇒ o.map(showT.show).toString
+  private implicit def showOption[T](implicit showT: Show[T]): Show[Option[T]] = { (o: Option[T]) ⇒
+    o.map(showT.show).toString
   }
 
-  private implicit def showTuple[T](implicit showT: Show[T]): Show[(T, T)] = {
-    (o: (T, T)) ⇒ s"(${showT.show(o._1)},${showT.show(o._2)})"
+  private implicit def showTuple[T](implicit showT: Show[T]): Show[(T, T)] = { (o: (T, T)) ⇒
+    s"(${showT.show(o._1)},${showT.show(o._2)})"
   }
 
 }

@@ -20,31 +20,31 @@ package fluence.btree.server.core
 import scala.language.higherKinds
 
 /**
- * BTree persistence store.
- *
- * @tparam F Some box for returning value
- * @tparam Id   The type of node id
- * @tparam Node The type of node
- */
+  * BTree persistence store.
+  *
+  * @tparam F Some box for returning value
+  * @tparam Id   The type of node id
+  * @tparam Node The type of node
+  */
 trait BTreeStore[F[_], Id, Node] {
 
   /**
-   * Returns next surrogate Id for storing new node.
-   */
+    * Returns next surrogate Id for storing new node.
+    */
   def nextId(): Id
 
   /**
-   * Gets stored node for specified id.
-   * @param nodeId - id of stored the node.
-   */
+    * Gets stored node for specified id.
+    * @param nodeId - id of stored the node.
+    */
   def get(nodeId: Id): F[Node]
 
   /**
-   * Store specified node with specified id.
-   * Rewrite existing value if it's present.
-   * @param nodeId - the specified node id to be inserted
-   * @param node - the node associated with the specified node id
-   */
+    * Store specified node with specified id.
+    * Rewrite existing value if it's present.
+    * @param nodeId - the specified node id to be inserted
+    * @param node - the node associated with the specified node id
+    */
   def put(nodeId: Id, node: Node): F[Unit]
 
   // todo: additional methods like 'remove' will be created on demand

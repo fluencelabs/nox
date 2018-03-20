@@ -24,8 +24,8 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 
 /**
- * Ciphered btree key
- */
+  * Ciphered btree key
+  */
 case class Key(bytes: Array[Byte]) extends AnyVal {
 
   def copy: Key = Key(bytes.clone())
@@ -37,7 +37,7 @@ case class Key(bytes: Array[Byte]) extends AnyVal {
 
 object Key {
 
-  implicit def keyCodec[F[_] : Applicative]: Codec[F, Key, Array[Byte]] = Codec.pure(_.bytes, b ⇒ Key(b))
+  implicit def keyCodec[F[_]: Applicative]: Codec[F, Key, Array[Byte]] = Codec.pure(_.bytes, b ⇒ Key(b))
 
   implicit class KeyOps(originKey: Key) {
 

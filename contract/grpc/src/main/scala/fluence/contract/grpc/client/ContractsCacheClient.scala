@@ -17,7 +17,7 @@
 
 package fluence.contract.grpc.client
 
-import cats.effect.{ Async, IO }
+import cats.effect.{Async, IO}
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -25,28 +25,28 @@ import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractsCacheRpc
 import fluence.contract.grpc.ContractsCacheGrpc.ContractsCacheStub
-import fluence.contract.grpc.{ BasicContract, ContractsCacheGrpc, FindRequest }
+import fluence.contract.grpc.{BasicContract, ContractsCacheGrpc, FindRequest}
 import fluence.kad.protocol.Key
 import fluence.codec.pb.ProtobufCodecs._
-import io.grpc.{ CallOptions, ManagedChannel }
+import io.grpc.{CallOptions, ManagedChannel}
 
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
 
-class ContractsCacheClient[F[_] : Async, C](
-    stub: ContractsCacheStub)(implicit
-    codec: Codec[F, C, BasicContract],
-    ec: ExecutionContext)
-  extends ContractsCacheRpc[F, C] {
+class ContractsCacheClient[F[_]: Async, C](stub: ContractsCacheStub)(
+  implicit
+  codec: Codec[F, C, BasicContract],
+  ec: ExecutionContext)
+    extends ContractsCacheRpc[F, C] {
 
   private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
 
   /**
-   * Tries to find a contract in local cache.
-   *
-   * @param id Dataset ID
-   * @return Optional locally found contract
-   */
+    * Tries to find a contract in local cache.
+    *
+    * @param id Dataset ID
+    * @return Optional locally found contract
+    */
   override def find(id: Key): F[Option[C]] =
     (for {
       idBs ← Codec.codec[F, ByteString, Key].decode(id)
@@ -58,11 +58,11 @@ class ContractsCacheClient[F[_] : Async, C](
     }
 
   /**
-   * Ask node to cache the contract.
-   *
-   * @param contract Contract to cache
-   * @return If the contract is cached or not
-   */
+    * Ask node to cache the contract.
+    *
+    * @param contract Contract to cache
+    * @return If the contract is cached or not
+    */
   override def cache(contract: C): F[Boolean] =
     for {
       c ← codec.encode(contract)
@@ -71,16 +71,18 @@ class ContractsCacheClient[F[_] : Async, C](
 }
 
 object ContractsCacheClient {
+
   /**
-   * Shorthand to register inside NetworkClient.
-   *
-   * @param channel     Channel to remote node
-   * @param callOptions Call options
-   */
-  def register[F[_] : Async, C]()(
+    * Shorthand to register inside NetworkClient.
+    *
+    * @param channel     Channel to remote node
+    * @param callOptions Call options
+    */
+  def register[F[_]: Async, C]()(
     channel: ManagedChannel,
     callOptions: CallOptions
-  )(implicit
+  )(
+    implicit
     codec: Codec[F, C, BasicContract],
     ec: ExecutionContext): ContractsCacheRpc[F, C] =
     new ContractsCacheClient[F, C](new ContractsCacheGrpc.ContractsCacheStub(channel, callOptions))

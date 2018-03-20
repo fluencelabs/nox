@@ -18,11 +18,11 @@
 package fluence.crypto.algorithm
 
 /**
- * Config for AES-256 password based encryption
- * @param iterationCount The number of iterations of hashing the password
- * @param salt Salt, which will be mixed with the password
- */
+  * Config for AES-256 password based encryption
+  * @param iterationCount The number of iterations of hashing the password
+  * @param salt Salt, which will be mixed with the password
+  */
 case class AesConfig(
-    iterationCount: Int = 50,
-    salt: String = "fluence"
+  iterationCount: Int = 50,
+  salt: String = "fluence"
 )

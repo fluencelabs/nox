@@ -21,50 +21,50 @@ import java.nio.ByteBuffer
 
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ MonadError, ~> }
+import cats.{~>, MonadError}
 import com.typesafe.config.Config
-import fluence.btree.common.merkle.{ GeneralNodeProof, MerklePath }
+import fluence.btree.common.merkle.{GeneralNodeProof, MerklePath}
 import fluence.btree.common.ValueRef
-import fluence.btree.core.{ ClientPutDetails, Hash, Key }
+import fluence.btree.core.{ClientPutDetails, Hash, Key}
 import fluence.btree.server.core.TreePath.PathElem
 import fluence.btree.server.core._
 import fluence.codec.kryo.KryoCodecs
 import fluence.crypto.hash.CryptoHasher
-import fluence.storage.rocksdb.{ IdSeqProvider, RocksDbStore }
-import monix.eval.{ Task, TaskSemaphore }
+import fluence.storage.rocksdb.{IdSeqProvider, RocksDbStore}
+import monix.eval.{Task, TaskSemaphore}
 import monix.execution.atomic.AtomicInt
 import monix.reactive.Observable
 
-import scala.collection.Searching.{ Found, InsertionPoint, SearchResult }
+import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 import scala.language.higherKinds
 
 /**
- * This class implements a search tree, which allows to run queries over encrypted data. This code based on research paper:
- * '''Popa R.A.,Li F.H., Zeldovich N. 'An ideal-security protocol for order-preserving encoding.' 2013 '''
- *
- * In its essence this tree is a hybrid of B+Tree [[https://en.wikipedia.org/wiki/B%2B_tree]] and MerkleTree
- * [[https://en.wikipedia.org/wiki/Merkle_tree]] data structures.
- *
- * This ''B+tree'' is an N-ary tree with a number of children per node ranging between ''MinDegree'' and ''MaxDegree''.
- * A tree consists of a root, internal branch nodes and leaves. The root may be either a leaf or a node with two or
- * more children. Copies of the some keys are stored in the internal nodes (for efficient searching); keys and
- * records are stored in leaves. Tree is kept balanced by requiring that all leaf nodes are at the same depth.
- * This depth will increase slowly as elements are added to the tree. Depth increases only when the root is being splitted.
- *
- * Note that the tree provides only algorithms (i.e., functions) to search, insert and delete elements.
- * Tree nodes are actually stored externally using the [[BTreeStore]] to make the tree
- * maximally pluggable and seamlessly switch between in memory, on disk, or maybe, over network storages. Key comparison
- * operations in the tree are also pluggable and are provided by the [[BTreeCommand]] implementations, which helps to
- * impose an order over for example encrypted nodes data.
- *
- * @param conf    Config for this tree
- * @param store   BTree persistence store for persisting tree nodes
- * @param nodeOps Operations performed on nodes
- */
+  * This class implements a search tree, which allows to run queries over encrypted data. This code based on research paper:
+  * '''Popa R.A.,Li F.H., Zeldovich N. 'An ideal-security protocol for order-preserving encoding.' 2013 '''
+  *
+  * In its essence this tree is a hybrid of B+Tree [[https://en.wikipedia.org/wiki/B%2B_tree]] and MerkleTree
+  * [[https://en.wikipedia.org/wiki/Merkle_tree]] data structures.
+  *
+  * This ''B+tree'' is an N-ary tree with a number of children per node ranging between ''MinDegree'' and ''MaxDegree''.
+  * A tree consists of a root, internal branch nodes and leaves. The root may be either a leaf or a node with two or
+  * more children. Copies of the some keys are stored in the internal nodes (for efficient searching); keys and
+  * records are stored in leaves. Tree is kept balanced by requiring that all leaf nodes are at the same depth.
+  * This depth will increase slowly as elements are added to the tree. Depth increases only when the root is being splitted.
+  *
+  * Note that the tree provides only algorithms (i.e., functions) to search, insert and delete elements.
+  * Tree nodes are actually stored externally using the [[BTreeStore]] to make the tree
+  * maximally pluggable and seamlessly switch between in memory, on disk, or maybe, over network storages. Key comparison
+  * operations in the tree are also pluggable and are provided by the [[BTreeCommand]] implementations, which helps to
+  * impose an order over for example encrypted nodes data.
+  *
+  * @param conf    Config for this tree
+  * @param store   BTree persistence store for persisting tree nodes
+  * @param nodeOps Operations performed on nodes
+  */
 class MerkleBTree private[server] (
-    conf: MerkleBTreeConfig,
-    store: BTreeStore[Task, NodeId, Node],
-    nodeOps: NodeOps
+  conf: MerkleBTreeConfig,
+  store: BTreeStore[Task, NodeId, Node],
+  nodeOps: NodeOps
 ) extends slogging.LazyLogging {
 
   import MerkleBTree._
@@ -72,6 +72,7 @@ class MerkleBTree private[server] (
 
   /** max of node size */
   private val MaxDegree = conf.arity
+
   /** min of node size except root */
   private val MinDegree = conf.alpha * conf.arity
 
@@ -83,57 +84,58 @@ class MerkleBTree private[server] (
   /* Public methods */
 
   /**
-   * === GET ===
-   *
-   * We are looking for a specified key in this B+Tree.
-   * Starting from the root, we are looking for some leaf which needed to the BTree client. We using [[Get]]
-   * for communication with client. At each node, we figure out which internal pointer we should follow.
-   * Get have O(log,,arity,,n) algorithmic complexity.
-   *
-   * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
-   * @return reference to value that corresponds search Key, or None if Key was not found in tree
-   */
+    * === GET ===
+    *
+    * We are looking for a specified key in this B+Tree.
+    * Starting from the root, we are looking for some leaf which needed to the BTree client. We using [[Get]]
+    * for communication with client. At each node, we figure out which internal pointer we should follow.
+    * Get have O(log,,arity,,n) algorithmic complexity.
+    *
+    * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
+    * @return reference to value that corresponds search Key, or None if Key was not found in tree
+    */
   def get(cmd: Get): Task[Option[ValueRef]] = {
     globalMutex.greenLight(getRoot.flatMap(root ⇒ getForRoot(root, cmd)))
   }
 
   /**
-   * === Range ===
-   *
-   * We are looking for a starting key of range in this B+Tree.
-   * Starting from the root, we are looking for some leaf which needed to the BTree client. We using [[Range]]
-   * for communication with client. At each node, we figure out which internal pointer we should follow.
-   * When we found specified search key in a leaf, we should be returning all key-value pairs from searched position
-   * until the stream won't stopped by consumer
-   * Range have O(log,,arity,,n+k) algorithmic complexity, where ''k'' is number of returned pairs.
-   *
-   * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
-   * @return stream of references to values that corresponds search command, or empty if nothing was found
-   */
+    * === Range ===
+    *
+    * We are looking for a starting key of range in this B+Tree.
+    * Starting from the root, we are looking for some leaf which needed to the BTree client. We using [[Range]]
+    * for communication with client. At each node, we figure out which internal pointer we should follow.
+    * When we found specified search key in a leaf, we should be returning all key-value pairs from searched position
+    * until the stream won't stopped by consumer
+    * Range have O(log,,arity,,n+k) algorithmic complexity, where ''k'' is number of returned pairs.
+    *
+    * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
+    * @return stream of references to values that corresponds search command, or empty if nothing was found
+    */
   def range(cmd: Range): Observable[(Key, ValueRef)] = {
-    Observable.fromTask(globalMutex.greenLight(getRoot))
+    Observable
+      .fromTask(globalMutex.greenLight(getRoot))
       .flatMap(mRoot ⇒ rangeForRoot(mRoot, cmd))
   }
 
   /**
-   * === PUT ===
-   *
-   * Starting from the root, we are looking for some place for putting key and value in this B+Tree.
-   * We using [[Get]] for communication with client. At each node, we figure out which internal pointer we
-   * should follow. When we go down the tree we put each visited node to ''Trail''(see [[TreePath]]) in the same
-   * order. Trail is just a array of all visited nodes from root to leaf. When we found slot for insertion we do all
-   * tree transformation in logical copy of sector of tree; actually ''Trail'' is this copy - copy of visited nodes
-   * that will be changed after insert. We insert new ''key'' and ''value'' and split leaf if leaf is full and we
-   * split leaf parent if parent is filled and so on to the root. Also after changing leaf we should re-calculate
-   * merkle root and update checksums of all visited nodes. Absolutely all tree transformations are performed on
-   * copies and do not change the tree. When all transformation in logical state ended we commit changes (see method
-   * 'commitNewState').
-   * Put have O(log,,arity,,n) algorithmic complexity.
-   *
-   * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
-   * @return reference to value that corresponds search Key. In update case will be returned old reference,
-   *          in insert case will be created new reference to value
-   */
+    * === PUT ===
+    *
+    * Starting from the root, we are looking for some place for putting key and value in this B+Tree.
+    * We using [[Get]] for communication with client. At each node, we figure out which internal pointer we
+    * should follow. When we go down the tree we put each visited node to ''Trail''(see [[TreePath]]) in the same
+    * order. Trail is just a array of all visited nodes from root to leaf. When we found slot for insertion we do all
+    * tree transformation in logical copy of sector of tree; actually ''Trail'' is this copy - copy of visited nodes
+    * that will be changed after insert. We insert new ''key'' and ''value'' and split leaf if leaf is full and we
+    * split leaf parent if parent is filled and so on to the root. Also after changing leaf we should re-calculate
+    * merkle root and update checksums of all visited nodes. Absolutely all tree transformations are performed on
+    * copies and do not change the tree. When all transformation in logical state ended we commit changes (see method
+    * 'commitNewState').
+    * Put have O(log,,arity,,n) algorithmic complexity.
+    *
+    * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
+    * @return reference to value that corresponds search Key. In update case will be returned old reference,
+    *          in insert case will be created new reference to value
+    */
   def put(cmd: Put): Task[ValueRef] = {
     globalMutex.greenLight(getRoot.flatMap(root ⇒ putForRoot(root, cmd)))
   }
@@ -149,15 +151,14 @@ class MerkleBTree private[server] (
   private def hasOverflow(node: Node): Boolean = node.size > MaxDegree
 
   private[btree] def getRoot: Task[Node] = {
-    store.get(RootId).attempt.map(_.toOption)
-      .flatMap {
-        case Some(node) ⇒
-          Task(node)
-        case None ⇒
-          val emptyLeaf = nodeOps.createEmptyLeaf
-          commitNewState(PutTask(Seq(NodeWithId(RootId, emptyLeaf))))
-            .map(_ ⇒ emptyLeaf)
-      }
+    store.get(RootId).attempt.map(_.toOption).flatMap {
+      case Some(node) ⇒
+        Task(node)
+      case None ⇒
+        val emptyLeaf = nodeOps.createEmptyLeaf
+        commitNewState(PutTask(Seq(NodeWithId(RootId, emptyLeaf))))
+          .map(_ ⇒ emptyLeaf)
+    }
   }
 
   /* GET */
@@ -185,11 +186,10 @@ class MerkleBTree private[server] (
   private def getForBranch(branch: Branch, cmd: Get): Task[Option[ValueRef]] = {
     logger.debug(s"Get for branch=$branch")
 
-    searchChild(branch, cmd)
-      .flatMap {
-        case (_, child) ⇒
-          getForNode(child, cmd)
-      }
+    searchChild(branch, cmd).flatMap {
+      case (_, child) ⇒
+        getForNode(child, cmd)
+    }
   }
 
   /** '''Method makes remote call!'''. This is the terminal method. */
@@ -197,7 +197,7 @@ class MerkleBTree private[server] (
     logger.debug(s"Get for leaf=$leaf")
     cmd.submitLeaf(Some(leaf)).map {
       case Found(idx) ⇒ Some(leaf.valuesReferences(idx))
-      case _          ⇒ None
+      case _ ⇒ None
     } // get value ref from leaf by searched index
   }
 
@@ -225,23 +225,23 @@ class MerkleBTree private[server] (
   private def rangeForBranch(branch: Branch, cmd: Get): Observable[(Key, ValueRef)] = {
     logger.debug(s"Range for branch=$branch")
 
-    Observable.fromTask(searchChild(branch, cmd))
-      .flatMap { case (_, child) ⇒ rangeForNode(child, cmd) }
+    Observable.fromTask(searchChild(branch, cmd)).flatMap { case (_, child) ⇒ rangeForNode(child, cmd) }
   }
 
   /** '''Method makes remote call!'''. This is the terminal method. */
   private def rangeForLeaf(leaf: Leaf, cmd: Get): Observable[(Key, ValueRef)] = {
     logger.debug(s"Range for leaf=$leaf")
 
-    Observable.fromTask(cmd.submitLeaf(Some(leaf)))
+    Observable
+      .fromTask(cmd.submitLeaf(Some(leaf)))
       .flatMap(searchResult ⇒ fetchPairs(Task(Some(leaf)), searchResult.insertionPoint))
   }
 
   /**
-   * Fetches all key-value pairs from current leaf and all leafs from right (right siblings).
-   * Starts at starting index of current leaf, ends when client close this stream
-   * or is fetched last element from the last (rightmost) leaf.
-   */
+    * Fetches all key-value pairs from current leaf and all leafs from right (right siblings).
+    * Starts at starting index of current leaf, ends when client close this stream
+    * or is fetched last element from the last (rightmost) leaf.
+    */
   private def fetchPairs(currentLeaf: Task[Option[Leaf]], idxToStartWith: Int = 0): Observable[(Key, ValueRef)] =
     Observable.fromTask(currentLeaf).flatMap {
       case None ⇒
@@ -263,9 +263,10 @@ class MerkleBTree private[server] (
             logger.debug(s"Next leaf is $leaf")
             Task(Some(leaf))
           case node ⇒
-            Task.raiseError(new IllegalStateException(
-              s"Unexpected exception, should be fetched leaf ${classOf[Leaf]}, but actually is ${node.getClass}"
-            ))
+            Task.raiseError(
+              new IllegalStateException(
+                s"Unexpected exception, should be fetched leaf ${classOf[Leaf]}, but actually is ${node.getClass}"
+              ))
         }
       case None ⇒
         logger.debug(s"There is no right sibling for current leaf=$leaf")
@@ -282,18 +283,19 @@ class MerkleBTree private[server] (
     if (isEmpty(root)) {
       logger.debug(s"Root is empty")
 
-      cmd.putDetails(None)
-        .flatMap {
-          case BTreePutDetails(ClientPutDetails(key, valChecksum, _), valRefProvider) ⇒
-            val newValRef = valRefProvider()
-            val newLeaf = createLeaf(key, newValRef, valChecksum)
-            // send the merkle path to the client for verification
-            val leafProof = GeneralNodeProof(Hash.empty, newLeaf.kvChecksums, 0)
-            cmd.verifyChanges(MerklePath(Seq(leafProof)), wasSplitting = false)
-              .flatMap { _ ⇒ // TODO here we could have a signature
-                commitNewState(PutTask(nodesToSave = Seq(NodeWithId(RootId, newLeaf)), increaseDepth = true))
-              }.map(_ ⇒ newValRef)
-        }
+      cmd.putDetails(None).flatMap {
+        case BTreePutDetails(ClientPutDetails(key, valChecksum, _), valRefProvider) ⇒
+          val newValRef = valRefProvider()
+          val newLeaf = createLeaf(key, newValRef, valChecksum)
+          // send the merkle path to the client for verification
+          val leafProof = GeneralNodeProof(Hash.empty, newLeaf.kvChecksums, 0)
+          cmd
+            .verifyChanges(MerklePath(Seq(leafProof)), wasSplitting = false)
+            .flatMap { _ ⇒ // TODO here we could have a signature
+              commitNewState(PutTask(nodesToSave = Seq(NodeWithId(RootId, newLeaf)), increaseDepth = true))
+            }
+            .map(_ ⇒ newValRef)
+      }
     } else {
       putForNode(cmd, RootId, root, TreePath.empty)
     }
@@ -309,39 +311,39 @@ class MerkleBTree private[server] (
   }
 
   /**
-   * '''Method makes remote call!'''.
-   * This method finds and fetches next child, makes step down the tree and updates trail.
-   *
-   * @param cmd       A command for BTree execution (it's a 'bridge' for communicate with BTree client)
-   * @param branchId Id of walk-through branch node
-   * @param branch   Walk-through branch node
-   * @param trail    The path traversed from the root
-   */
+    * '''Method makes remote call!'''.
+    * This method finds and fetches next child, makes step down the tree and updates trail.
+    *
+    * @param cmd       A command for BTree execution (it's a 'bridge' for communicate with BTree client)
+    * @param branchId Id of walk-through branch node
+    * @param branch   Walk-through branch node
+    * @param trail    The path traversed from the root
+    */
   private def putForBranch(cmd: Put, branchId: NodeId, branch: Branch, trail: Trail): Task[ValueRef] = {
     logger.debug(s"Put to branch=$branch, id=$branchId")
 
-    cmd.nextChildIndex(branch)
+    cmd
+      .nextChildIndex(branch)
       .flatMap(searchedIdx ⇒ {
         val childId = branch.childsReferences(searchedIdx)
-        store.get(childId)
-          .flatMap { child ⇒
-            val newTrail = trail.addBranch(branchId, branch, searchedIdx)
-            putForNode(cmd, childId, child, newTrail)
-          }
+        store.get(childId).flatMap { child ⇒
+          val newTrail = trail.addBranch(branchId, branch, searchedIdx)
+          putForNode(cmd, childId, child, newTrail)
+        }
       })
   }
 
   /**
-   * '''Method makes remote call!'''.
-   * Puts new ''key'' and ''value'' to this leaf.
-   * Also makes all tree transformation (rebalancing, persisting to store).
-   * This is the terminal method.
-   *
-   * @param cmd     A command for BTree execution (it's a 'bridge' for communicate with BTree client)
-   * @param leafId Id of updatable leaf
-   * @param leaf   Updatable Leaf
-   * @param trail  The path traversed from the root
-   */
+    * '''Method makes remote call!'''.
+    * Puts new ''key'' and ''value'' to this leaf.
+    * Also makes all tree transformation (rebalancing, persisting to store).
+    * This is the terminal method.
+    *
+    * @param cmd     A command for BTree execution (it's a 'bridge' for communicate with BTree client)
+    * @param leafId Id of updatable leaf
+    * @param leaf   Updatable Leaf
+    * @param trail  The path traversed from the root
+    */
   private def putForLeaf(
     cmd: Put,
     leafId: NodeId,
@@ -350,32 +352,33 @@ class MerkleBTree private[server] (
   ): Task[ValueRef] = {
     logger.debug(s"Put to leaf=$leaf, id=$leafId")
 
-    cmd.putDetails(Some(leaf))
-      .flatMap { putDetails: BTreePutDetails ⇒
-        val (updatedLeaf, valueRef) = updateLeaf(putDetails, leaf)
-        // makes all transformations over the copy of tree
-        val (newStateProof, putTask) =
-          logicalPut(leafId, updatedLeaf, putDetails.clientPutDetails.searchResult.insertionPoint, trail)
-        // after all the logical operations, we need to send the merkle path to the client for verification
-        cmd.verifyChanges(newStateProof, putTask.wasSplitting) // TODO here we could have new signature
-          .flatMap { _ ⇒
-            // persist all changes
-            commitNewState(putTask)
-          }.map(_ ⇒ valueRef)
-      }
+    cmd.putDetails(Some(leaf)).flatMap { putDetails: BTreePutDetails ⇒
+      val (updatedLeaf, valueRef) = updateLeaf(putDetails, leaf)
+      // makes all transformations over the copy of tree
+      val (newStateProof, putTask) =
+        logicalPut(leafId, updatedLeaf, putDetails.clientPutDetails.searchResult.insertionPoint, trail)
+      // after all the logical operations, we need to send the merkle path to the client for verification
+      cmd
+        .verifyChanges(newStateProof, putTask.wasSplitting) // TODO here we could have new signature
+        .flatMap { _ ⇒
+          // persist all changes
+          commitNewState(putTask)
+        }
+        .map(_ ⇒ valueRef)
+    }
   }
 
   /**
-   * This method do all mutation operations over the tree in memory without changing tree state
-   * and composes merkle path for new tree state. It inserts new value to leaf, and do tree rebalancing if it needed.
-   * All changes occur over copies of the visited nodes and actually don't change the tree.
-   *
-   * @param leafId           Id of leaf that was updated
-   * @param newLeaf          Leaf that was updated with new key and value
-   * @param searchedValueIdx Insertion index of a new value
-   * @param trail            The path traversed from the root to a leaf with all visited tree nodes.
-   * @return Tuple with [[MerklePath]] for tree after updating and [[PutTask]] for persisting changes
-   */
+    * This method do all mutation operations over the tree in memory without changing tree state
+    * and composes merkle path for new tree state. It inserts new value to leaf, and do tree rebalancing if it needed.
+    * All changes occur over copies of the visited nodes and actually don't change the tree.
+    *
+    * @param leafId           Id of leaf that was updated
+    * @param newLeaf          Leaf that was updated with new key and value
+    * @param searchedValueIdx Insertion index of a new value
+    * @param trail            The path traversed from the root to a leaf with all visited tree nodes.
+    * @return Tuple with [[MerklePath]] for tree after updating and [[PutTask]] for persisting changes
+    */
   private def logicalPut(
     leafId: NodeId,
     newLeaf: Leaf,
@@ -385,29 +388,29 @@ class MerkleBTree private[server] (
     logger.debug(s"Logic put for leafId=$leafId, leaf=$newLeaf, trail=$trail")
 
     /**
-     * Just a state for each recursive operation of ''logicalPut''.
-     *
-     * @param updateParentFn Function-mutator that will be applied to parent of current node
-     */
+      * Just a state for each recursive operation of ''logicalPut''.
+      *
+      * @param updateParentFn Function-mutator that will be applied to parent of current node
+      */
     case class PutCtx(
-        newStateProof: MerklePath,
-        updateParentFn: PathElem[NodeId, Branch] ⇒ PathElem[NodeId, Branch] = identity,
-        putTask: PutTask
+      newStateProof: MerklePath,
+      updateParentFn: PathElem[NodeId, Branch] ⇒ PathElem[NodeId, Branch] = identity,
+      putTask: PutTask
     )
 
     /**
-     * If leaf isn't overflowed
-     * - updates leaf checksum into parent node and put leaf and it's parent to ''nodesToSave'' into [[PutTask]].
-     *
-     * If it's overflowed
-     * - splits leaf into two, adds left leaf to parent as new child and update right leaf checksum into parent node.
-     * - if parent ins't exist create new parent with 2 new children.
-     * - puts all updated and new nodes to ''nodesToSave'' into [[PutTask]]
-     *
-     * @param leafId           Id of leaf that was updated
-     * @param newLeaf          Leaf that was updated with new key and value
-     * @param searchedValueIdx Insertion index of a new value
-     */
+      * If leaf isn't overflowed
+      * - updates leaf checksum into parent node and put leaf and it's parent to ''nodesToSave'' into [[PutTask]].
+      *
+      * If it's overflowed
+      * - splits leaf into two, adds left leaf to parent as new child and update right leaf checksum into parent node.
+      * - if parent ins't exist create new parent with 2 new children.
+      * - puts all updated and new nodes to ''nodesToSave'' into [[PutTask]]
+      *
+      * @param leafId           Id of leaf that was updated
+      * @param newLeaf          Leaf that was updated with new key and value
+      * @param searchedValueIdx Insertion index of a new value
+      */
     def createLeafCtx(leafId: NodeId, newLeaf: Leaf, searchedValueIdx: Int): PutCtx = {
 
       if (hasOverflow(newLeaf)) {
@@ -444,8 +447,10 @@ class MerkleBTree private[server] (
           // some regular leaf was splitted
           PutCtx(
             newStateProof = merklePath,
-            updateParentFn = updateAfterChildSplitting(NodeWithId(leftId, left), NodeWithId(rightId, right), isInsertToTheLeft),
-            putTask = PutTask(nodesToSave = Seq(NodeWithId(leftId, left), NodeWithId(rightId, right)), wasSplitting = true)
+            updateParentFn =
+              updateAfterChildSplitting(NodeWithId(leftId, left), NodeWithId(rightId, right), isInsertToTheLeft),
+            putTask =
+              PutTask(nodesToSave = Seq(NodeWithId(leftId, left), NodeWithId(rightId, right)), wasSplitting = true)
           )
         }
       } else {
@@ -458,21 +463,20 @@ class MerkleBTree private[server] (
     }
 
     /**
-     * Note that this method returns function that used for folding all visited branches from ''trail''.
-     *
-     * Returned function do as follow:
-     *
-     * If branch isn't overflowed
-     * - updates branch checksum into parent node and put branch and it's parent to ''nodesToSave'' into [[PutTask]].
-     *
-     * If it's overflowed
-     * - splits branch into two, adds left branch to parent as new child and update right branch checksum into parent node.
-     * - If parent ins't exist create new parent with 2 new children.
-     * - Put all updated and new nodes to ''nodesToSave'' into [[PutTask]]
-     */
+      * Note that this method returns function that used for folding all visited branches from ''trail''.
+      *
+      * Returned function do as follow:
+      *
+      * If branch isn't overflowed
+      * - updates branch checksum into parent node and put branch and it's parent to ''nodesToSave'' into [[PutTask]].
+      *
+      * If it's overflowed
+      * - splits branch into two, adds left branch to parent as new child and update right branch checksum into parent node.
+      * - If parent ins't exist create new parent with 2 new children.
+      * - Put all updated and new nodes to ''nodesToSave'' into [[PutTask]]
+      */
     def createTreePathCtx: (PathElem[NodeId, Branch], PutCtx) ⇒ PutCtx = {
       case (visitedBranch, PutCtx(merklePath, updateParentFn, PutTask(nodesToSave, _, wasSplitting))) ⇒
-
         val PathElem(branchId, branch, nextChildIdx) = updateParentFn(visitedBranch)
 
         if (hasOverflow(branch)) {
@@ -499,7 +503,10 @@ class MerkleBTree private[server] (
             PutCtx(
               newStateProof = MerklePath(newParent.toProof(affectedNewParentIdx) +: newMerklePath.path),
               putTask = PutTask(
-                nodesToSave = nodesToSave ++ Seq(NodeWithId(leftId, left), NodeWithId(rightId, right), NodeWithId(RootId, newParent)),
+                nodesToSave = nodesToSave ++ Seq(
+                  NodeWithId(leftId, left),
+                  NodeWithId(rightId, right),
+                  NodeWithId(RootId, newParent)),
                 increaseDepth = true, // if splitting root node appears - increase depth of the tree
                 wasSplitting = true
               )
@@ -508,8 +515,10 @@ class MerkleBTree private[server] (
             // some regular leaf was splitting
             PutCtx(
               newStateProof = newMerklePath,
-              updateParentFn = updateAfterChildSplitting(NodeWithId(leftId, left), NodeWithId(rightId, right), isInsertToTheLeft),
-              putTask = PutTask(nodesToSave ++ Seq(NodeWithId(leftId, left), NodeWithId(rightId, right)), wasSplitting = true)
+              updateParentFn =
+                updateAfterChildSplitting(NodeWithId(leftId, left), NodeWithId(rightId, right), isInsertToTheLeft),
+              putTask =
+                PutTask(nodesToSave ++ Seq(NodeWithId(leftId, left), NodeWithId(rightId, right)), wasSplitting = true)
             )
           }
         } else {
@@ -527,15 +536,15 @@ class MerkleBTree private[server] (
         visitedBranch.copy(branch = visitedBranch.branch.updateChildChecksum(childChecksum, visitedBranch.nextChildIdx))
 
     /**
-     * This method returns function that makes two changes into the parent node:
-     *  1. It inserts left node as new child before right node.
-     *  2. It updates checksum and id of changed right node.
-     *
-     * @param left              Left node with their id
-     * @param right             Right node with their id
-     * @param isInsertToTheLeft Direction of further descent. True if inserted value will be update left node, false otherwise.
-     * @return Function for parent updating
-     */
+      * This method returns function that makes two changes into the parent node:
+      *  1. It inserts left node as new child before right node.
+      *  2. It updates checksum and id of changed right node.
+      *
+      * @param left              Left node with their id
+      * @param right             Right node with their id
+      * @param isInsertToTheLeft Direction of further descent. True if inserted value will be update left node, false otherwise.
+      * @return Function for parent updating
+      */
     def updateAfterChildSplitting(
       left: NodeAndId,
       right: NodeAndId,
@@ -562,24 +571,25 @@ class MerkleBTree private[server] (
   }
 
   /**
-   * Save all changed nodes to tree store. Apply putTask to old tree state for getting new tree state.
-   *
-   * @param putTask Pool of changed nodes
-   */
+    * Save all changed nodes to tree store. Apply putTask to old tree state for getting new tree state.
+    *
+    * @param putTask Pool of changed nodes
+    */
   private def commitNewState(putTask: PutTask): Task[Unit] = {
     logger.debug(s"commitNewState for nodes=${putTask.nodesToSave}")
     // todo start transaction
-    Task.gatherUnordered(putTask.nodesToSave.map { case NodeWithId(id, node) ⇒ saveNode(id, node) })
+    Task
+      .gatherUnordered(putTask.nodesToSave.map { case NodeWithId(id, node) ⇒ saveNode(id, node) })
       .foreachL(_ ⇒ if (putTask.increaseDepth) this.depth.increment())
     // todo end transaction
   }
 
   /**
-   * Puts new ''key'' and ''value'' to this leaf.
-   * If search key was found - rewrites key and value, if key wasn't found - inserts new key and value.
-   *
-   * @return Updated leaf with new ''key'' and ''value''
-   */
+    * Puts new ''key'' and ''value'' to this leaf.
+    * If search key was found - rewrites key and value, if key wasn't found - inserts new key and value.
+    *
+    * @return Updated leaf with new ''key'' and ''value''
+    */
   private def updateLeaf(putDetails: BTreePutDetails, leaf: Leaf): (Leaf, ValueRef) = {
     logger.debug(s"Update leaf=$leaf, putDetails=$putDetails")
 
@@ -606,16 +616,17 @@ class MerkleBTree private[server] (
   }
 
   /**
-   * '''Method makes remote call!'''. Searches and returns next child node of tree.
-   * First of all we call remote client for getting index of child.
-   * After that we gets child ''nodeId'' by this index. By ''nodeId'' we fetch ''child node'' from store.
-   *
-   * @param branch Branch node for searching
-   * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
-   * @return Index of searched child and the child
-   */
+    * '''Method makes remote call!'''. Searches and returns next child node of tree.
+    * First of all we call remote client for getting index of child.
+    * After that we gets child ''nodeId'' by this index. By ''nodeId'' we fetch ''child node'' from store.
+    *
+    * @param branch Branch node for searching
+    * @param cmd A command for BTree execution (it's a 'bridge' for communicate with BTree client)
+    * @return Index of searched child and the child
+    */
   private def searchChild(branch: Branch, cmd: BTreeCommand[Task, Key]): Task[(Int, Node)] = {
-    cmd.nextChildIndex(branch)
+    cmd
+      .nextChildIndex(branch)
       .flatMap(searchedIdx ⇒ {
         val childId = branch.childsReferences(searchedIdx)
         store.get(childId).map(searchedIdx → _)
@@ -623,14 +634,14 @@ class MerkleBTree private[server] (
   }
 
   /**
-   * This method used only with enabled assertion in tests for verifying order of keys into node.
-   * For disabling this check makes {{{fluence.merkleBTree.assertions.isKeyOrderRequired=false}}} or disable assertions.
-   */
+    * This method used only with enabled assertion in tests for verifying order of keys into node.
+    * For disabling this check makes {{{fluence.merkleBTree.assertions.isKeyOrderRequired=false}}} or disable assertions.
+    */
   private def assertKeyIanAscOrder(node: Node): Boolean = {
     val lt: (Key, Key) ⇒ Boolean = (x, y) ⇒ ByteBuffer.wrap(x.bytes).compareTo(ByteBuffer.wrap(y.bytes)) < 0
     !conf.assertions.isKeyOrderRequired || node.keys.sliding(2).forall {
       case Array(prev, next) ⇒ lt(prev, next)
-      case _                 ⇒ true
+      case _ ⇒ true
     }
   }
 
@@ -642,13 +653,13 @@ object MerkleBTree {
   private val RootId = 0L
 
   /**
-   * Creates new instance of MerkleBTree.
-   *
-   * @param name          Name of this btree (will be created RockDb instance with data folder == name), should be unique
-   * @param rocksFactory RocksDb factory for getting registered instance of RocksDb
-   * @param hasher        Hash service uses for calculating nodes checksums.
-   * @param conf          MerkleBTree config
-   */
+    * Creates new instance of MerkleBTree.
+    *
+    * @param name          Name of this btree (will be created RockDb instance with data folder == name), should be unique
+    * @param rocksFactory RocksDb factory for getting registered instance of RocksDb
+    * @param hasher        Hash service uses for calculating nodes checksums.
+    * @param conf          MerkleBTree config
+    */
   def apply[F[_]](
     name: String,
     rocksFactory: RocksDbStore.Factory,
@@ -658,18 +669,17 @@ object MerkleBTree {
     F.map2(
       defaultStore(name, rocksFactory, conf),
       MerkleBTreeConfig.read(conf)
-    ) {
-        (store, conf) ⇒
-          new MerkleBTree(conf, store, NodeOps(hasher))
-      }
+    ) { (store, conf) ⇒
+      new MerkleBTree(conf, store, NodeOps(hasher))
+    }
 
   /**
-   * Default tree store with RockDb key-value storage under the hood.
-   *
-   * @param storeName    Store name for persisting this btree
-   * @param rocksFactory Factory for creating manageable RocksDb instance.
-   * @param conf          MerkleBTree config
-   */
+    * Default tree store with RockDb key-value storage under the hood.
+    *
+    * @param storeName    Store name for persisting this btree
+    * @param rocksFactory Factory for creating manageable RocksDb instance.
+    * @param conf          MerkleBTree config
+    */
   private def defaultStore[F[_]](
     storeName: String,
     rocksFactory: RocksDbStore.Factory,
@@ -686,7 +696,6 @@ object MerkleBTree {
       .add[Node]
       .add[Option[NodeId]]
       .add[None.type]
-
       .addCase(classOf[Leaf])
       .addCase(classOf[Branch])
       .build[Task]()
@@ -700,18 +709,18 @@ object MerkleBTree {
   }
 
   /**
-   * Task for persisting. Contains updated node after inserting new value and rebalancing the tree.
-   *
-   * @param nodesToSave   Pool of changed nodes that should be persisted to tree store
-   * @param increaseDepth If root node was splitted than tree depth should be increased.
-   *                      If true - tree depth will be increased in physical state, if false - depth won't changed.
-   *                      Note that each put operation might increase root depth only by one.
-   * @param wasSplitting Indicator of the fact that during putting there was a rebalancing
-   */
+    * Task for persisting. Contains updated node after inserting new value and rebalancing the tree.
+    *
+    * @param nodesToSave   Pool of changed nodes that should be persisted to tree store
+    * @param increaseDepth If root node was splitted than tree depth should be increased.
+    *                      If true - tree depth will be increased in physical state, if false - depth won't changed.
+    *                      Note that each put operation might increase root depth only by one.
+    * @param wasSplitting Indicator of the fact that during putting there was a rebalancing
+    */
   case class PutTask(
-      nodesToSave: Seq[NodeWithId[NodeId, Node]],
-      increaseDepth: Boolean = false,
-      wasSplitting: Boolean = false
+    nodesToSave: Seq[NodeWithId[NodeId, Node]],
+    increaseDepth: Boolean = false,
+    wasSplitting: Boolean = false
   )
 
 }

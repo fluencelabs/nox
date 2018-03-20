@@ -20,11 +20,11 @@ package fluence.btree.core
 import scala.collection.Searching.SearchResult
 
 /**
- * Structure for holding all client details needed for putting key and value to BTree.
- *
- * @param key           The key that will be placed to the BTree
- * @param valChecksum  The value checksum that will be placed to the BTree
- * @param searchResult  A result of searching client key in server leaf keys. Contains an index
- *                       for putting specified key and value
- */
+  * Structure for holding all client details needed for putting key and value to BTree.
+  *
+  * @param key           The key that will be placed to the BTree
+  * @param valChecksum  The value checksum that will be placed to the BTree
+  * @param searchResult  A result of searching client key in server leaf keys. Contains an index
+  *                       for putting specified key and value
+  */
 case class ClientPutDetails(key: Key, valChecksum: Hash, searchResult: SearchResult)

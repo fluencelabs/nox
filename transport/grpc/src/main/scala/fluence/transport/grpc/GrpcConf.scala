@@ -24,9 +24,9 @@ import fluence.transport.grpc.server.GrpcServerConf
 import scala.language.higherKinds
 
 case class GrpcConf(
-    keyHeader: String,
-    contactHeader: String,
-    server: Option[GrpcServerConf]
+  keyHeader: String,
+  contactHeader: String,
+  server: Option[GrpcServerConf]
 )
 
 object GrpcConf {

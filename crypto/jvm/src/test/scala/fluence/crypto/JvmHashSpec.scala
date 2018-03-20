@@ -18,7 +18,7 @@
 package fluence.crypto
 
 import fluence.crypto.hash.JdkCryptoHasher
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
 class JvmHashSpec extends WordSpec with Matchers {

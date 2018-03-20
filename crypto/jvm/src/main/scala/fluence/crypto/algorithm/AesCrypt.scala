@@ -20,16 +20,16 @@ package fluence.crypto.algorithm
 import cats.data.EitherT
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
-import cats.{ Applicative, Monad, MonadError }
+import cats.{Applicative, Monad, MonadError}
 import fluence.codec.Codec
 import fluence.crypto.cipher.Crypt
-import org.bouncycastle.crypto.{ CipherParameters, PBEParametersGenerator }
+import org.bouncycastle.crypto.{CipherParameters, PBEParametersGenerator}
 import org.bouncycastle.crypto.digests.SHA256Digest
 import org.bouncycastle.crypto.engines.AESEngine
 import org.bouncycastle.crypto.generators.PKCS5S2ParametersGenerator
 import org.bouncycastle.crypto.modes.CBCBlockCipher
-import org.bouncycastle.crypto.paddings.{ PKCS7Padding, PaddedBufferedBlockCipher }
-import org.bouncycastle.crypto.params.{ KeyParameter, ParametersWithIV }
+import org.bouncycastle.crypto.paddings.{PKCS7Padding, PaddedBufferedBlockCipher}
+import org.bouncycastle.crypto.params.{KeyParameter, ParametersWithIV}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -39,19 +39,21 @@ case class DetachedData(ivData: Array[Byte], encData: Array[Byte])
 case class DataWithParams(data: Array[Byte], params: CipherParameters)
 
 /**
- * PBEWithSHA256And256BitAES-CBC-BC cryptography
- * PBE - Password-based encryption
- * SHA256 - hash for password
- * AES with CBC BC - Advanced Encryption Standard with Cipher Block Chaining
- * https://ru.wikipedia.org/wiki/Advanced_Encryption_Standard
- * https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Block_Chaining_(CBC)
- * @param password User entered password
- * @param withIV Initialization vector to achieve semantic security, a property whereby repeated usage of the scheme
- *               under the same key does not allow an attacker to infer relationships between segments of the encrypted
- *               message
- */
-class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable], codec: Codec[F, T, Array[Byte]])
-  extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
+  * PBEWithSHA256And256BitAES-CBC-BC cryptography
+  * PBE - Password-based encryption
+  * SHA256 - hash for password
+  * AES with CBC BC - Advanced Encryption Standard with Cipher Block Chaining
+  * https://ru.wikipedia.org/wiki/Advanced_Encryption_Standard
+  * https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Block_Chaining_(CBC)
+  * @param password User entered password
+  * @param withIV Initialization vector to achieve semantic security, a property whereby repeated usage of the scheme
+  *               under the same key does not allow an attacker to infer relationships between segments of the encrypted
+  *               message
+  */
+class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(
+  implicit ME: MonadError[F, Throwable],
+  codec: Codec[F, T, Array[Byte]])
+    extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
   import CryptoErr._
 
   private val rnd = Random
@@ -90,10 +92,10 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
   }
 
   /**
-   * Generate key parameters with IV if it is necessary
-   * @param key Password
-   * @return Optional IV and cipher parameters
-   */
+    * Generate key parameters with IV if it is necessary
+    * @param key Password
+    * @return Optional IV and cipher parameters
+    */
   def extDataWithParams(key: Array[Byte]): EitherT[F, CryptoErr, (Option[Array[Byte]], CipherParameters)] = {
     if (withIV) {
       val ivData = generateIV
@@ -106,18 +108,21 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
   }
 
   /**
-   * Key spec initialization
-   */
-  private def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] = nonFatalHandling {
-    PBEParametersGenerator.PKCS5PasswordToUTF8Bytes(password)
-  }("Cannot init secret key.")
+    * Key spec initialization
+    */
+  private def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] =
+    nonFatalHandling {
+      PBEParametersGenerator.PKCS5PasswordToUTF8Bytes(password)
+    }("Cannot init secret key.")
 
   /**
-   * Setup AES CBC cipher
-   * @param encrypt True for encryption and false for decryption
-   * @return cipher
-   */
-  private def setupAesCipher(params: CipherParameters, encrypt: Boolean): EitherT[F, CryptoErr, PaddedBufferedBlockCipher] = {
+    * Setup AES CBC cipher
+    * @param encrypt True for encryption and false for decryption
+    * @return cipher
+    */
+  private def setupAesCipher(
+    params: CipherParameters,
+    encrypt: Boolean): EitherT[F, CryptoErr, PaddedBufferedBlockCipher] = {
     nonFatalHandling {
       // setup AES cipher in CBC mode with PKCS7 padding
       val padding = new PKCS7Padding
@@ -141,13 +146,16 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
   }
 
   /**
-   *
-   * @param dataWithParams Cata with cipher parameters
-   * @param addData Additional data (nonce)
-   * @param encrypt True for encryption and false for decryption
-   * @return Crypted bytes
-   */
-  private def processData(dataWithParams: DataWithParams, addData: Option[Array[Byte]], encrypt: Boolean): EitherT[F, CryptoErr, Array[Byte]] = {
+    *
+    * @param dataWithParams Cata with cipher parameters
+    * @param addData Additional data (nonce)
+    * @param encrypt True for encryption and false for decryption
+    * @return Crypted bytes
+    */
+  private def processData(
+    dataWithParams: DataWithParams,
+    addData: Option[Array[Byte]],
+    encrypt: Boolean): EitherT[F, CryptoErr, Array[Byte]] = {
     for {
       cipher ← setupAesCipher(dataWithParams.params, encrypt = encrypt)
       buf ← cipherBytes(dataWithParams.data, cipher)
@@ -156,8 +164,8 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
   }
 
   /**
-   * encrypted data = initialization vector + data
-   */
+    * encrypted data = initialization vector + data
+    */
   private def detachIV(data: Array[Byte], ivSize: Int): EitherT[F, CryptoErr, DetachedData] = {
     nonFatalHandling {
       val ivData = data.slice(0, ivSize)
@@ -181,7 +189,11 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
     }("Cannot generate key parameters")
   }
 
-  private def detachDataAndGetParams(data: Array[Byte], password: Array[Char], salt: Array[Byte], withIV: Boolean): EitherT[F, CryptoErr, DataWithParams] = {
+  private def detachDataAndGetParams(
+    data: Array[Byte],
+    password: Array[Char],
+    salt: Array[Byte],
+    withIV: Boolean): EitherT[F, CryptoErr, DataWithParams] = {
     if (withIV) {
       for {
         ivDataWithEncData ← detachIV(data, IV_SIZE)
@@ -201,11 +213,15 @@ class AesCrypt[F[_] : Monad, T](password: Array[Char], withIV: Boolean, config: 
 
 object AesCrypt extends slogging.LazyLogging {
 
-  def forString[F[_] : Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] = {
-    implicit val codec: Codec[F, String, Array[Byte]] = Codec[F, String, Array[Byte]](_.getBytes.pure[F], bytes ⇒ new String(bytes).pure[F])
+  def forString[F[_]: Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(
+    implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] = {
+    implicit val codec: Codec[F, String, Array[Byte]] =
+      Codec[F, String, Array[Byte]](_.getBytes.pure[F], bytes ⇒ new String(bytes).pure[F])
     apply[F, String](password, withIV, config)
   }
 
-  def apply[F[_] : Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(implicit ME: MonadError[F, Throwable], codec: Codec[F, T, Array[Byte]]): AesCrypt[F, T] =
+  def apply[F[_]: Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(
+    implicit ME: MonadError[F, Throwable],
+    codec: Codec[F, T, Array[Byte]]): AesCrypt[F, T] =
     new AesCrypt(password.toHex.toCharArray, withIV, config)
 }

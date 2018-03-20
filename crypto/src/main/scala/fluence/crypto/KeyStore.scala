@@ -23,22 +23,22 @@ import cats.syntax.flatMap._
 import cats.data.EitherT
 import fluence.crypto.keypair.KeyPair
 import io.circe.parser.decode
-import io.circe.{ Decoder, Encoder, HCursor, Json }
-import scodec.bits.{ Bases, ByteVector }
+import io.circe.{Decoder, Encoder, HCursor, Json}
+import scodec.bits.{Bases, ByteVector}
 
 import scala.language.higherKinds
 
 case class KeyStore(keyPair: KeyPair)
 
 /**
- * Json example:
- * {
- *   "keystore" : {
- *     "secret" : "SFcDtZClfcxx75w9xJpQgBm09d6h9tVmVUEgHYxlews=",
- *     "public" : "AlTBivFrIYe++9Me4gr4R11BtRzjZ2WXZGDNWD/bEPka"
- *   }
- * }
- */
+  * Json example:
+  * {
+  *   "keystore" : {
+  *     "secret" : "SFcDtZClfcxx75w9xJpQgBm09d6h9tVmVUEgHYxlews=",
+  *     "public" : "AlTBivFrIYe++9Me4gr4R11BtRzjZ2WXZGDNWD/bEPka"
+  *   }
+  * }
+  */
 object KeyStore {
 
   private val alphabet = Bases.Alphabets.Base64Url
@@ -49,11 +49,14 @@ object KeyStore {
     val Public = "public"
   }
 
-  implicit val encodeKeyStorage: Encoder[KeyStore] = (ks: KeyStore) ⇒ Json.obj(
-    (Field.Keystore, Json.obj(
-      (Field.Secret, Json.fromString(ks.keyPair.secretKey.value.toBase64(alphabet))),
-      (Field.Public, Json.fromString(ks.keyPair.publicKey.value.toBase64(alphabet))))
-    ))
+  implicit val encodeKeyStorage: Encoder[KeyStore] = (ks: KeyStore) ⇒
+    Json.obj(
+      (
+        Field.Keystore,
+        Json.obj(
+          (Field.Secret, Json.fromString(ks.keyPair.secretKey.value.toBase64(alphabet))),
+          (Field.Public, Json.fromString(ks.keyPair.publicKey.value.toBase64(alphabet)))
+        )))
 
   implicit val decodeKeyStorage: Decoder[Option[KeyStore]] =
     (c: HCursor) ⇒
@@ -65,20 +68,23 @@ object KeyStore {
           secret ← ByteVector.fromBase64(secret, alphabet)
           public ← ByteVector.fromBase64(public, alphabet)
         } yield KeyStore(KeyPair.fromByteVectors(public, secret))
-      }
+    }
 
-  def fromBase64[F[_] : Monad](base64: String): EitherT[F, IllegalArgumentException, KeyStore] =
+  def fromBase64[F[_]: Monad](base64: String): EitherT[F, IllegalArgumentException, KeyStore] =
     for {
       jsonStr ← ByteVector.fromBase64(base64, alphabet) match {
         case Some(bv) ⇒ EitherT.pure[F, IllegalArgumentException](new String(bv.toArray))
-        case None ⇒ EitherT.leftT(
-          new IllegalArgumentException("'" + base64 + "' is not a valid base64.")
-        )
+        case None ⇒
+          EitherT.leftT(
+            new IllegalArgumentException("'" + base64 + "' is not a valid base64.")
+          )
       }
       keyStore ← decode[Option[KeyStore]](jsonStr) match {
         case Right(Some(ks)) ⇒ EitherT.pure[F, IllegalArgumentException](ks)
-        case Right(None)     ⇒ EitherT.leftT[F, KeyStore](new IllegalArgumentException("'" + base64 + "' is not a valid key store."))
-        case Left(err)       ⇒ EitherT.leftT[F, KeyStore](new IllegalArgumentException("'" + base64 + "' is not a valid key store.", err))
+        case Right(None) ⇒
+          EitherT.leftT[F, KeyStore](new IllegalArgumentException("'" + base64 + "' is not a valid key store."))
+        case Left(err) ⇒
+          EitherT.leftT[F, KeyStore](new IllegalArgumentException("'" + base64 + "' is not a valid key store.", err))
       }
     } yield keyStore
 }

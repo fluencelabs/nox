@@ -21,19 +21,20 @@ import java.security.Security
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 
-import scala.language.{ higherKinds, implicitConversions }
+import scala.language.{higherKinds, implicitConversions}
 
 /**
- * trait that initializes a JVM-specific provider to work with cryptography
- */
+  * trait that initializes a JVM-specific provider to work with cryptography
+  */
 private[crypto] trait JavaAlgorithm extends Algorithm {
   JavaAlgorithm.addProvider
 }
 
 object JavaAlgorithm {
+
   /**
-   * add JVM-specific security provider in class loader
-   */
+    * add JVM-specific security provider in class loader
+    */
   private lazy val addProvider = {
     Option(Security.getProvider(BouncyCastleProvider.PROVIDER_NAME))
       .foreach(_ ⇒ Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME))

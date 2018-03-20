@@ -14,8 +14,8 @@ object FluenceCrossType extends sbtcrossproject.CrossType {
 
   override def projectDir(crossBase: File, projectType: sbtcrossproject.Platform) = {
     val dir = projectType match {
-      case JVMPlatform => "jvm"
-      case JSPlatform => "js"
+      case JVMPlatform ⇒ "jvm"
+      case JSPlatform ⇒ "js"
     }
     crossBase / dir
   }

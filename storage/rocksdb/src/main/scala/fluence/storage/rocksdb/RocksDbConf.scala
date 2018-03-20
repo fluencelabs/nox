@@ -28,7 +28,7 @@ object RocksDbConf {
   val ConfigPath = "fluence.storage.rocksDb"
 
   def read[F[_]](conf: Config, name: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbConf] =
-    F.catchNonFatal{
+    F.catchNonFatal {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
       conf.as[RocksDbConf](name)

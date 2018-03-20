@@ -19,23 +19,25 @@ package fluence.kad.grpc.server
 
 import cats.syntax.functor._
 import cats.instances.stream._
-import cats.{ MonadError, ~> }
+import cats.{~>, MonadError}
 import cats.syntax.flatMap._
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.kad.grpc._
 import fluence.kad.protocol
-import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
+import fluence.kad.protocol.{Contact, KademliaRpc, Key}
 import fluence.codec.pb.ProtobufCodecs._
 
 import scala.concurrent.Future
-import scala.language.{ higherKinds, implicitConversions }
+import scala.language.{higherKinds, implicitConversions}
 
 // TODO: cover with tests
-class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(implicit
-    F: MonadError[F, Throwable],
-    codec: Codec[F, protocol.Node[Contact], Node],
-    run: F ~> Future) extends KademliaGrpc.Kademlia {
+class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(
+  implicit
+  F: MonadError[F, Throwable],
+  codec: Codec[F, protocol.Node[Contact], Node],
+  run: F ~> Future)
+    extends KademliaGrpc.Kademlia {
 
   private val streamCodec = Codec.codec[F, Stream[protocol.Node[Contact]], Stream[Node]]
 

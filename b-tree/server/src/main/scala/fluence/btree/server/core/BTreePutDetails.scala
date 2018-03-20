@@ -21,9 +21,9 @@ import fluence.btree.common.ValueRef
 import fluence.btree.core.ClientPutDetails
 
 /**
- * Structure for holding all details needed for putting new record to Btree index.
- *
- * @param clientPutDetails  Structure for holding all client details needed for putting key and valueChecksums to Btree
- * @param valRefProvider    Generates new value reference
- */
+  * Structure for holding all details needed for putting new record to Btree index.
+  *
+  * @param clientPutDetails  Structure for holding all client details needed for putting key and valueChecksums to Btree
+  * @param valRefProvider    Generates new value reference
+  */
 case class BTreePutDetails(clientPutDetails: ClientPutDetails, private val valRefProvider: () ⇒ ValueRef)

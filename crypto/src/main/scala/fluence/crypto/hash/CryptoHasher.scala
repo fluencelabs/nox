@@ -18,17 +18,17 @@
 package fluence.crypto.hash
 
 import cats.kernel.Semigroup
-import cats.{ Contravariant, Functor, Monoid, Traverse }
+import cats.{Contravariant, Functor, Monoid, Traverse}
 
-import scala.language.{ higherKinds, reflectiveCalls }
+import scala.language.{higherKinds, reflectiveCalls}
 
 /**
- * TODO add F[_] effect
- * Base interface for hashing.
- *
- * @tparam M type of message for hashing
- * @tparam H type of hashed message
- */
+  * TODO add F[_] effect
+  * Base interface for hashing.
+  *
+  * @tparam M type of message for hashing
+  * @tparam H type of hashed message
+  */
 trait CryptoHasher[M, H] {
   self ⇒
 
@@ -36,7 +36,7 @@ trait CryptoHasher[M, H] {
 
   def hash(msg1: M, msgN: M*): H
 
-  def hashM[F[_] : Traverse](ms: F[M])(implicit M: Monoid[M]): H =
+  def hashM[F[_]: Traverse](ms: F[M])(implicit M: Monoid[M]): H =
     hash(Traverse[F].fold(ms))
 
   final def map[B](f: H ⇒ B): CryptoHasher[M, B] = new CryptoHasher[M, B] {
@@ -56,7 +56,7 @@ trait CryptoHasher[M, H] {
 object CryptoHasher {
   type Bytes = CryptoHasher[Array[Byte], Array[Byte]]
 
-  def buildM[M : Semigroup, H](h: M ⇒ H): CryptoHasher[M, H] = new CryptoHasher[M, H] {
+  def buildM[M: Semigroup, H](h: M ⇒ H): CryptoHasher[M, H] = new CryptoHasher[M, H] {
     override def hash(msg: M): H = h(msg)
 
     override def hash(msg1: M, msgN: M*): H = h(msgN.foldLeft(msg1)(Semigroup[M].combine))

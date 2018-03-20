@@ -19,7 +19,7 @@ package fluence.btree.server.core
 
 import fluence.btree.core.Hash
 import fluence.btree.server.core.TreePath.PathElem
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 class TreePathSpec extends WordSpec with Matchers {
 

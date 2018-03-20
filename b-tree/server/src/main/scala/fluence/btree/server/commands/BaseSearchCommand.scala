@@ -20,20 +20,20 @@ package fluence.btree.server.commands
 import cats.MonadError
 import fluence.btree.core.Key
 import fluence.btree.protocol.BTreeRpc.BtreeCallback
-import fluence.btree.server.core.{ BranchNode, BTreeCommand }
+import fluence.btree.server.core.{BTreeCommand, BranchNode}
 
 import scala.language.higherKinds
 
 /**
- * Abstract command implementation for searching some value in BTree (by client search key).
- * Search key is stored at the client. BTree server will never know search key.
- *
- * @param searchCallback A search callback that allowed the server asks next child node index
- * @param ME              Monad error
- * @tparam F              The type of effect, box for returning value
- */
+  * Abstract command implementation for searching some value in BTree (by client search key).
+  * Search key is stored at the client. BTree server will never know search key.
+  *
+  * @param searchCallback A search callback that allowed the server asks next child node index
+  * @param ME              Monad error
+  * @tparam F              The type of effect, box for returning value
+  */
 abstract class BaseSearchCommand[F[_]](searchCallback: BtreeCallback[F])(implicit ME: MonadError[F, Throwable])
-  extends BTreeCommand[F, Key] {
+    extends BTreeCommand[F, Key] {
 
   override def nextChildIndex(branch: BranchNode[Key, _]): F[Int] =
     searchCallback.nextChildIndex(branch.keys, branch.childsChecksums)

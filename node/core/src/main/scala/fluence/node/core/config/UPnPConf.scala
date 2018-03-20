@@ -25,6 +25,7 @@ case class UPnPConf(grpc: Option[Int]) {
 }
 
 object UPnPConf {
+
   def read(conf: Config): IO[UPnPConf] =
     IO {
       import net.ceedubs.ficus.Ficus._

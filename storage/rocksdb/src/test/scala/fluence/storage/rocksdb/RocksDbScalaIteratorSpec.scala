@@ -20,7 +20,7 @@ package fluence.storage.rocksdb
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.rocksdb.RocksIterator
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 class RocksDbScalaIteratorSpec extends WordSpec with Matchers {
 

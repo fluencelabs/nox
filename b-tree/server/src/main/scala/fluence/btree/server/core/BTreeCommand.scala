@@ -23,69 +23,69 @@ import scala.collection.Searching.SearchResult
 import scala.language.higherKinds
 
 /**
- * Root interface for all BTree commands.
- *
- * @tparam F The type of effect, box for returning value
- * @tparam K The type of search key
- */
+  * Root interface for all BTree commands.
+  *
+  * @tparam F The type of effect, box for returning value
+  * @tparam K The type of search key
+  */
 trait BTreeCommand[F[_], K] {
 
   /**
-   * Returns next child index to makes next step down the tree.
-   * The BTree client searches for required key in the given keys and returns index.
-   *
-   * @param branch Current branch node of tree
-   * @return Index of next child
-   */
+    * Returns next child index to makes next step down the tree.
+    * The BTree client searches for required key in the given keys and returns index.
+    *
+    * @param branch Current branch node of tree
+    * @return Index of next child
+    */
   def nextChildIndex(branch: BranchNode[K, _]): F[Int]
 
 }
 
 /**
- * Command for searching some value in BTree (by client search key).
- * Search key is stored at the client.
- *
- * @tparam F The type of effect, box for returning value
- * @tparam K The type of search key
- * @tparam V The type of value
- * @tparam C The type of reference to child nodes
- */
+  * Command for searching some value in BTree (by client search key).
+  * Search key is stored at the client.
+  *
+  * @tparam F The type of effect, box for returning value
+  * @tparam K The type of search key
+  * @tparam V The type of value
+  * @tparam C The type of reference to child nodes
+  */
 trait SearchCommand[F[_], K, V, C] extends BTreeCommand[F, K] {
 
   /**
-   * Sends founded leaf with all keys and checksums of values to client.
-   * If tree hasn't any leaf sends None.
-   *
-   * @param leaf Current leaf node of tree
-   * @return A result of searching client key in server leaf keys.
-   */
+    * Sends founded leaf with all keys and checksums of values to client.
+    * If tree hasn't any leaf sends None.
+    *
+    * @param leaf Current leaf node of tree
+    * @return A result of searching client key in server leaf keys.
+    */
   def submitLeaf(leaf: Option[LeafNode[K, V, C]]): F[SearchResult]
 }
 
 /**
- * Command for putting key and value to the BTree.
- *
- * @tparam F The type of effect, box for returning value
- * @tparam K The type of search key
- * @tparam V The type of value stored to leaf
- * @tparam C The type of reference to child nodes
- */
+  * Command for putting key and value to the BTree.
+  *
+  * @tparam F The type of effect, box for returning value
+  * @tparam K The type of search key
+  * @tparam V The type of value stored to leaf
+  * @tparam C The type of reference to child nodes
+  */
 trait PutCommand[F[_], K, V, C] extends BTreeCommand[F, K] {
 
   /**
-   * Returns all details needed for putting key and value to BTree.
-   *
-   * @param leaf Values for calculating current node checksum on the client and find index to insert.
-   * @return  Data structure with putting details.
-   */
+    * Returns all details needed for putting key and value to BTree.
+    *
+    * @param leaf Values for calculating current node checksum on the client and find index to insert.
+    * @return  Data structure with putting details.
+    */
   def putDetails(leaf: Option[LeafNode[K, V, C]]): F[BTreePutDetails]
 
   /**
-   * Sends merkle path to client after putting key-value pair into the tree.
-   *
-   * @param merklePath   Tree path traveled in tree from root to leaf
-   * @param wasSplitting Indicator of the fact that during putting there was a rebalancing
-   */
+    * Sends merkle path to client after putting key-value pair into the tree.
+    *
+    * @param merklePath   Tree path traveled in tree from root to leaf
+    * @param wasSplitting Indicator of the fact that during putting there was a rebalancing
+    */
   def verifyChanges(merklePath: MerklePath, wasSplitting: Boolean): F[Unit]
 
 }

@@ -23,63 +23,66 @@ import cats.syntax.eq._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.show._
-import cats.{ Eq, MonadError }
-import fluence.contract.ops.{ ContractRead, ContractWrite }
+import cats.{Eq, MonadError}
+import fluence.contract.ops.{ContractRead, ContractWrite}
 import fluence.contract.protocol.ContractAllocatorRpc
-import fluence.crypto.signature.{ SignatureChecker, Signer }
+import fluence.crypto.signature.{SignatureChecker, Signer}
 import fluence.contract.node.cache.ContractRecord
 import fluence.kad.protocol.Key
 import fluence.storage.KVStore
 
-import scala.language.{ higherKinds, implicitConversions }
+import scala.language.{higherKinds, implicitConversions}
 
 /**
- * Performs contracts allocation on local node.
- *
- * @param storage Contracts storage
- * @param createDataset Callback to create a dataset for a successfully allocated contract
- * @param ME Monad error
- * @param eq Contracts equality
- * @tparam F Effect
- * @tparam C Contract
- */
-class ContractAllocator[F[_], C : ContractRead : ContractWrite](
-    nodeId: Key,
-    storage: KVStore[F, Key, ContractRecord[C]],
-    createDataset: C ⇒ F[Unit],
-    checkAllocationPossible: C ⇒ F[Unit],
-    signer: Signer
+  * Performs contracts allocation on local node.
+  *
+  * @param storage Contracts storage
+  * @param createDataset Callback to create a dataset for a successfully allocated contract
+  * @param ME Monad error
+  * @param eq Contracts equality
+  * @tparam F Effect
+  * @tparam C Contract
+  */
+class ContractAllocator[F[_], C: ContractRead: ContractWrite](
+  nodeId: Key,
+  storage: KVStore[F, Key, ContractRecord[C]],
+  createDataset: C ⇒ F[Unit],
+  checkAllocationPossible: C ⇒ F[Unit],
+  signer: Signer
 )(
-    implicit
-    ME: MonadError[F, Throwable],
-    eq: Eq[C],
-    checker: SignatureChecker
+  implicit
+  ME: MonadError[F, Throwable],
+  eq: Eq[C],
+  checker: SignatureChecker
 ) extends ContractAllocatorRpc[F, C] with slogging.LazyLogging {
 
   import ContractRead._
   import ContractWrite._
 
   /**
-   * Try to allocate a contract.
-   *
-   * @param contract A sealed contract with all nodes and client signatures
-   * @return Allocated contract
-   */
+    * Try to allocate a contract.
+    *
+    * @param contract A sealed contract with all nodes and client signatures
+    * @return Allocated contract
+    */
   override def allocate(contract: C): F[C] = {
     for {
-      _ ← illegalIfNo(contract.participantSigned(nodeId), "Contract should be offered to this node and signed by it prior to allocation")
+      _ ← illegalIfNo(
+        contract.participantSigned(nodeId),
+        "Contract should be offered to this node and signed by it prior to allocation")
       _ ← illegalIfNo(contract.isActiveContract(), "Contract should be active -- sealed by client")
       contract ← storage.get(contract.id).attempt.map(_.toOption).flatMap {
         case Some(cr) ⇒
           cr.contract.isBlankOffer().flatMap {
             case false ⇒ cr.contract.pure[F]
-            case true  ⇒ storage.remove(contract.id).flatMap(_ ⇒ putContract(contract))
+            case true ⇒ storage.remove(contract.id).flatMap(_ ⇒ putContract(contract))
           }
         case None ⇒
           putContract(contract)
       }
     } yield {
-      logger.info(s"Contract with id=${contract.id.show} was successfully allocated, this node (${nodeId.show}) is contract participant now")
+      logger.info(
+        s"Contract with id=${contract.id.show} was successfully allocated, this node (${nodeId.show}) is contract participant now")
       contract
     }
   }
@@ -100,11 +103,11 @@ class ContractAllocator[F[_], C : ContractRead : ContractWrite](
   }
 
   /**
-   * Offer a contract to node.
-   *
-   * @param contract A blank contract
-   * @return Signed contract, or F is an error
-   */
+    * Offer a contract to node.
+    *
+    * @param contract A blank contract
+    * @return Signed contract, or F is an error
+    */
   override def offer(contract: C): F[C] = {
     def signedContract: F[C] = contract.signOffer(nodeId, signer)
 

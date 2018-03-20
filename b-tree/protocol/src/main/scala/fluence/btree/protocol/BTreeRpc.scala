@@ -17,7 +17,7 @@
 
 package fluence.btree.protocol
 
-import fluence.btree.core.{ ClientPutDetails, Hash, Key }
+import fluence.btree.core.{ClientPutDetails, Hash, Key}
 
 import scala.collection.Searching.SearchResult
 import scala.language.higherKinds
@@ -25,69 +25,69 @@ import scala.language.higherKinds
 object BTreeRpc {
 
   /**
-   * Base parent for all callback wrappers needed for any operation to the BTree.
-   *
-   * @tparam F An effect, with MonadError
-   */
+    * Base parent for all callback wrappers needed for any operation to the BTree.
+    *
+    * @tparam F An effect, with MonadError
+    */
   trait BtreeCallback[F[_]] {
 
     /**
-     * Server asks next child node index.
-     *
-     * @param keys              Keys of current branch for searching index
-     * @param childsChecksums  All children checksums of current branch
-     */
+      * Server asks next child node index.
+      *
+      * @param keys              Keys of current branch for searching index
+      * @param childsChecksums  All children checksums of current branch
+      */
     def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int]
 
   }
 
   /**
-   * Wrapper for all callback needed for search operation to the BTree.
-   * Each callback corresponds to operation needed btree for traversing and getting index.
-   *
-   * @tparam F An effect, with MonadError
-   */
+    * Wrapper for all callback needed for search operation to the BTree.
+    * Each callback corresponds to operation needed btree for traversing and getting index.
+    *
+    * @tparam F An effect, with MonadError
+    */
   trait SearchCallback[F[_]] extends BtreeCallback[F] {
 
     /**
-     * Server sends founded leaf details.
-     *
-     * @param keys              Keys of current leaf
-     * @param valuesChecksums  Checksums of values for current leaf
-     * @return [[scala.collection.Searching.Found]] is key was found,
-     *          [[scala.collection.Searching.InsertionPoint]] otherwise
-     */
+      * Server sends founded leaf details.
+      *
+      * @param keys              Keys of current leaf
+      * @param valuesChecksums  Checksums of values for current leaf
+      * @return [[scala.collection.Searching.Found]] is key was found,
+      *          [[scala.collection.Searching.InsertionPoint]] otherwise
+      */
     def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[SearchResult]
 
   }
 
   /**
-   * Wrapper for all callback needed for ''Put'' operation to the BTree.
-   * Each callback corresponds to operation needed btree for traversing and putting value.
-   *
-   * @tparam F An effect, with MonadError
-   */
+    * Wrapper for all callback needed for ''Put'' operation to the BTree.
+    * Each callback corresponds to operation needed btree for traversing and putting value.
+    *
+    * @tparam F An effect, with MonadError
+    */
   trait PutCallbacks[F[_]] extends BtreeCallback[F] {
 
     /**
-     * Server sends founded leaf details.
-     *
-     * @param keys              Keys of current leaf
-     * @param valuesChecksums  Checksums of values for current leaf
-     */
+      * Server sends founded leaf details.
+      *
+      * @param keys              Keys of current leaf
+      * @param valuesChecksums  Checksums of values for current leaf
+      */
     def putDetails(keys: Array[Key], valuesChecksums: Array[Hash]): F[ClientPutDetails]
 
     /**
-     * Server sends new merkle root to client for approve made changes.
-     *
-     * @param serverMerkleRoot New merkle root after putting key/value
-     * @param wasSplitting      'True' id server performed tree rebalancing, 'False' otherwise
-     */
+      * Server sends new merkle root to client for approve made changes.
+      *
+      * @param serverMerkleRoot New merkle root after putting key/value
+      * @param wasSplitting      'True' id server performed tree rebalancing, 'False' otherwise
+      */
     def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[Unit]
 
     /**
-     * Server confirms that all changes was persisted.
-     */
+      * Server confirms that all changes was persisted.
+      */
     def changesStored(): F[Unit]
 
   }

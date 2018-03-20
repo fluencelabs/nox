@@ -20,8 +20,8 @@ package fluence.kad
 import java.time.Instant
 
 import cats.data.StateT
-import fluence.kad.protocol.{ KademliaRpc, Key, Node }
-import org.scalatest.{ Matchers, WordSpec }
+import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import org.scalatest.{Matchers, WordSpec}
 import monix.eval.Coeval
 
 import scala.concurrent.duration._
@@ -37,7 +37,7 @@ class BucketSpec extends WordSpec with Matchers {
 
     implicit class BucketOps(state: Bucket[C]) extends Bucket.WriteOps[F, C] {
       override protected def run[T](bucketId: Int, mod: StateT[F, Bucket[C], T]): F[T] =
-        mod.run(state).flatMap{
+        mod.run(state).flatMap {
           case (s, v) ⇒
             StateT.set[Coeval, Bucket[C]](s).map(_ ⇒ v)
         }
@@ -53,19 +53,22 @@ class BucketSpec extends WordSpec with Matchers {
       val k1 = Key.fromBytes[Coeval](Array.fill(Key.Length)(2: Byte)).value
       val k2 = Key.fromBytes[Coeval](Array.fill(Key.Length)(3: Byte)).value
 
-      val failRPC = (_: C) ⇒ new KademliaRpc[F, C] {
-        override def ping() = StateT.liftF(Coeval.raiseError(new NoSuchElementException))
+      val failRPC = (_: C) ⇒
+        new KademliaRpc[F, C] {
+          override def ping() = StateT.liftF(Coeval.raiseError(new NoSuchElementException))
 
-        override def lookup(key: Key, numberOfNodes: Int) = ???
+          override def lookup(key: Key, numberOfNodes: Int) = ???
 
-        override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???
+          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???
       }
 
-      val successRPC = (c: C) ⇒ new KademliaRpc[F, C] {
-        override def ping() = StateT.liftF(Coeval(Node(Key.fromBytes[Coeval](Array.fill(Key.Length)(c.toByte)).value, Instant.now(), c)))
+      val successRPC = (c: C) ⇒
+        new KademliaRpc[F, C] {
+          override def ping() =
+            StateT.liftF(Coeval(Node(Key.fromBytes[Coeval](Array.fill(Key.Length)(c.toByte)).value, Instant.now(), c)))
 
-        override def lookup(key: Key, numberOfNodes: Int) = ???
-        override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???
+          override def lookup(key: Key, numberOfNodes: Int) = ???
+          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???
       }
 
       // By default, bucket is empty

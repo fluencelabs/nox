@@ -27,9 +27,9 @@ import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
-import fluence.kad.grpc.{ KademliaGrpc, KademliaNodeCodec }
-import fluence.kad.protocol.{ Contact, KademliaRpc, Key }
-import fluence.kad.{ KademliaConf, KademliaMVar }
+import fluence.kad.grpc.{KademliaGrpc, KademliaNodeCodec}
+import fluence.kad.protocol.{Contact, KademliaRpc, Key}
+import fluence.kad.{KademliaConf, KademliaMVar}
 import fluence.transport.TransportSecurity
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
@@ -37,8 +37,8 @@ import fluence.transport.grpc.server.GrpcServer
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.time.{ Milliseconds, Seconds, Span }
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpec }
+import org.scalatest.time.{Milliseconds, Seconds, Span}
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import slogging._
 
 import scala.concurrent.Future
@@ -73,9 +73,11 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     private val serverBuilder = GrpcServer.builder(serverConf.copy(port = localPort))
 
-    val contact = Contact.buildOwn[Id](InetAddress.getLocalHost.getHostName, localPort, 0, "0", algo.signer(kp)).value.right.get
+    val contact =
+      Contact.buildOwn[Id](InetAddress.getLocalHost.getHostName, localPort, 0, "0", algo.signer(kp)).value.right.get
 
-    private val client = GrpcClient.builder(key, IO.pure(contact.b64seed), clientConf)
+    private val client = GrpcClient
+      .builder(key, IO.pure(contact.b64seed), clientConf)
       .add(KademliaClient.register[Task]())
       .build
 
@@ -89,7 +91,6 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       Task.pure(contact),
       kademliaClientRpc,
       KademliaConf(6, 6, 3, 1.second),
-
       TransportSecurity.canBeSaved[Task](key, acceptLocal = true))
 
     val server = serverBuilder
@@ -133,8 +134,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
     "Find itself by lookup iterative" in {
       servers.foreach { s ⇒
         servers.map(_.key).filterNot(_ === s.key).foreach { k ⇒
-          val li = s.kad.findNode(k, 8).runAsync
-            .futureValue.map(_.key)
+          val li = s.kad.findNode(k, 8).runAsync.futureValue.map(_.key)
 
           li should be('nonEmpty)
 
