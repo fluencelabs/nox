@@ -266,7 +266,8 @@ class MerkleBTree private[server] (
             Task.raiseError(
               new IllegalStateException(
                 s"Unexpected exception, should be fetched leaf ${classOf[Leaf]}, but actually is ${node.getClass}"
-              ))
+              )
+            )
         }
       case None ⇒
         logger.debug(s"There is no right sibling for current leaf=$leaf")
@@ -506,7 +507,8 @@ class MerkleBTree private[server] (
                 nodesToSave = nodesToSave ++ Seq(
                   NodeWithId(leftId, left),
                   NodeWithId(rightId, right),
-                  NodeWithId(RootId, newParent)),
+                  NodeWithId(RootId, newParent)
+                ),
                 increaseDepth = true, // if splitting root node appears - increase depth of the tree
                 wasSplitting = true
               )

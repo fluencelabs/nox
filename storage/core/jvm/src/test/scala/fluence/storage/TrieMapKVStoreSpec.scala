@@ -59,7 +59,8 @@ class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
             store.get(key1).attempt.map(_.toOption),
             store.put(key1, val1),
             store.get(key1)
-          ))
+          )
+        )
         .runAsync
 
       testScheduler.tick(5.seconds)
@@ -76,7 +77,8 @@ class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
             store.get(key2),
             store.put(key2, newVal2),
             store.get(key2)
-          ))
+          )
+        )
         .runAsync
 
       testScheduler.tick(5.seconds)
@@ -92,7 +94,8 @@ class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
             store.get(key1),
             store.remove(key1),
             store.get(key1).attempt.map(_.toOption)
-          ))
+          )
+        )
         .runAsync
 
       testScheduler.tick(5.seconds)

@@ -54,8 +54,8 @@ class Contracts[F[_], Contract: ContractRead: ContractWrite, Contact](
   eq: Eq[Contract],
   P: Parallel[F, F],
   checker: SignatureChecker,
-  show: Show[Contact])
-    extends slogging.LazyLogging {
+  show: Show[Contact]
+) extends slogging.LazyLogging {
 
   import ContractRead._
   import ContractWrite._
@@ -132,7 +132,8 @@ class Contracts[F[_], Contract: ContractRead: ContractWrite, Contact](
         },
         1,
         maxFindRequests,
-        isIdempotentFn = true)
+        isIdempotentFn = true
+      )
       .flatMap {
         case sq if sq.nonEmpty ⇒
           // Contract is found; for the case several different versions are returned, find the most recent

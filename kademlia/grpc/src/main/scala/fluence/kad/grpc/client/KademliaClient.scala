@@ -38,8 +38,8 @@ import scala.language.{higherKinds, implicitConversions}
 class KademliaClient[F[_]: Async](stub: grpc.KademliaGrpc.KademliaStub)(
   implicit
   codec: Codec[F, protocol.Node[Contact], grpc.Node],
-  ec: ExecutionContext)
-    extends KademliaRpc[F, Contact] {
+  ec: ExecutionContext
+) extends KademliaRpc[F, Contact] {
 
   private val keyBS = Codec.codec[F, ByteString, Key].inverse
 
@@ -103,7 +103,8 @@ object KademliaClient {
   )(
     implicit
     codec: Codec[F, protocol.Node[Contact], grpc.Node],
-    ec: ExecutionContext): KademliaRpc[F, Contact] =
+    ec: ExecutionContext
+  ): KademliaRpc[F, Contact] =
     new KademliaClient(new grpc.KademliaGrpc.KademliaStub(channel, callOptions))
 
 }

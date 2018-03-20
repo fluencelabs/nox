@@ -38,13 +38,14 @@ class TestKademlia[F[_], C](
   k: Int,
   getKademlia: C ⇒ Kademlia[F, C],
   toContact: Key ⇒ C,
-  pingExpiresIn: FiniteDuration = 1.second)(
+  pingExpiresIn: FiniteDuration = 1.second
+)(
   implicit
   BW: Bucket.WriteOps[F, C],
   SW: Siblings.WriteOps[F, C],
   ME: MonadError[F, Throwable],
-  P: Parallel[F, F])
-    extends Kademlia[F, C](nodeId, alpha, pingExpiresIn, _ ⇒ true.pure[F]) {
+  P: Parallel[F, F]
+) extends Kademlia[F, C](nodeId, alpha, pingExpiresIn, _ ⇒ true.pure[F]) {
 
   def ownContactValue = Node[C](nodeId, Instant.now(), toContact(nodeId))
 
@@ -98,12 +99,14 @@ object TestKademlia {
     k: Int,
     getKademlia: C ⇒ Kademlia[Coeval, C],
     toContact: Key ⇒ C,
-    pingExpiresIn: FiniteDuration = 1.second): Kademlia[Coeval, C] =
+    pingExpiresIn: FiniteDuration = 1.second
+  ): Kademlia[Coeval, C] =
     new TestKademlia[Coeval, C](nodeId, alpha, k, getKademlia, toContact, pingExpiresIn)(
       ME = implicitly[MonadError[Coeval, Throwable]],
       BW = new TestBucketOps[C](k),
       SW = new TestSiblingOps[C](nodeId, k),
-      P = CoevalParallel)
+      P = CoevalParallel
+    )
 
   def coevalSimulation[C](
     k: Int,
@@ -112,7 +115,8 @@ object TestKademlia {
     nextRandomKey: ⇒ Key,
     joinPeers: Int = 0,
     alpha: Int = 3,
-    pingExpiresIn: FiniteDuration = 1.second): Map[C, Kademlia[Coeval, C]] = {
+    pingExpiresIn: FiniteDuration = 1.second
+  ): Map[C, Kademlia[Coeval, C]] = {
     lazy val kads: Map[C, Kademlia[Coeval, C]] =
       Stream
         .fill(n)(nextRandomKey)
@@ -136,7 +140,8 @@ object TestKademlia {
     nextRandomKeyPair: ⇒ KeyPair,
     joinPeers: Int = 0,
     alpha: Int = 3,
-    pingExpiresIn: FiniteDuration = 1.second): Map[C, (Signer, Kademlia[Coeval, C])] = {
+    pingExpiresIn: FiniteDuration = 1.second
+  ): Map[C, (Signer, Kademlia[Coeval, C])] = {
     lazy val kads: Map[C, (Signer, Kademlia[Coeval, C])] =
       Stream
         .fill(n)(nextRandomKeyPair)

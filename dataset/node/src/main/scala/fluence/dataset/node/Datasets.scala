@@ -116,7 +116,8 @@ class Datasets(
   override def put(
     datasetId: Array[Byte],
     putCallbacks: BTreeRpc.PutCallbacks[Task],
-    encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] =
+    encryptedValue: Array[Byte]
+  ): Task[Option[Array[Byte]]] =
     storage(datasetId).flatMap(_.put(putCallbacks, encryptedValue))
 
   /**
@@ -126,7 +127,8 @@ class Datasets(
    */
   override def remove(
     datasetId: Array[Byte],
-    removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] =
+    removeCallbacks: BTreeRpc.RemoveCallback[Task]
+  ): Task[Option[Array[Byte]]] =
     storage(datasetId).flatMap(_.remove(removeCallbacks))
 
   private implicit def runId[F[_]]: F ~> F = new (F ~> F) {

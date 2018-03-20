@@ -68,7 +68,8 @@ object BasicContract {
   )
 
   def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(
-    implicit F: MonadError[F, Throwable]): F[BasicContract] = {
+    implicit F: MonadError[F, Throwable]
+  ): F[BasicContract] = {
     val offer = Offer(participantsRequired)
     signer
       .sign(offer.getBytes)

@@ -73,7 +73,8 @@ object BasicContractCodec {
             offer = Some(
               new BasicContractOffer(
                 participantsRequired = bc.offer.participantsRequired
-              )),
+              )
+            ),
             offerSeal = offSBs,
             participants = participantsBs,
             participantsSeal = participantsSealBs.getOrElse(ByteString.EMPTY),

@@ -86,13 +86,16 @@ private[protocol] object Jwt {
         for {
           hbv ← EitherT.fromOption(
             ByteVector.fromBase64(h, alphabet),
-            new IllegalArgumentException("Can't read base64 header, got " + h))
+            new IllegalArgumentException("Can't read base64 header, got " + h)
+          )
           cbv ← EitherT.fromOption(
             ByteVector.fromBase64(c, alphabet),
-            new IllegalArgumentException("Can't read base64 claim, got " + c))
+            new IllegalArgumentException("Can't read base64 claim, got " + c)
+          )
           sgn ← EitherT.fromOption(
             ByteVector.fromBase64(s, alphabet),
-            new IllegalArgumentException("Can't read base64 signature, got " + s))
+            new IllegalArgumentException("Can't read base64 signature, got " + s)
+          )
 
           hc ← EitherT.fromEither[F](for {
             hj ← parse(new String(hbv.toArray))

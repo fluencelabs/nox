@@ -83,7 +83,8 @@ class BTreeVerifierSpec extends WordSpec with Matchers {
           GeneralNodeProof(
             "not matter".toHash,
             Array(child1hash, expectedServerProofChecksum, child3hash),
-            expectedServerProofIdx)
+            expectedServerProofIdx
+          )
         verifier
           .checkProof(proofFromServer, "not matter".toHash, MerklePath(Seq(clientsProofInMerklePath))) shouldBe true
       }
@@ -95,7 +96,8 @@ class BTreeVerifierSpec extends WordSpec with Matchers {
           GeneralNodeProof(
             "not matter".toHash,
             Array(child1hash, expectedServerProofChecksum, child3hash),
-            expectedServerProofIdx)
+            expectedServerProofIdx
+          )
         verifier
           .checkProof(proofFromServer, "not matter".toHash, MerklePath(Seq(clientsProofInMerklePath))) shouldBe true
       }

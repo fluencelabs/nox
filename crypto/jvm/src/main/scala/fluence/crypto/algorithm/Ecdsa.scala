@@ -50,7 +50,8 @@ class Ecdsa(curveType: String, scheme: String, hasher: Option[CryptoHasher[Array
     for {
       ecSpec ← EitherT.fromOption(
         Option(ECNamedCurveTable.getParameterSpec(curveType)),
-        CryptoErr("Parameter spec for the curve is not available."))
+        CryptoErr("Parameter spec for the curve is not available.")
+      )
       g ← getKeyPairGenerator
       _ ← nonFatalHandling {
         g.initialize(ecSpec, seed.map(new SecureRandom(_)).getOrElse(new SecureRandom()))
@@ -68,20 +69,23 @@ class Ecdsa(curveType: String, scheme: String, hasher: Option[CryptoHasher[Array
 
   override def sign[F[_]: Monad](
     keyPair: KeyPair,
-    message: ByteVector): EitherT[F, CryptoErr, fluence.crypto.signature.Signature] = {
+    message: ByteVector
+  ): EitherT[F, CryptoErr, fluence.crypto.signature.Signature] = {
     signMessage(new BigInteger(keyPair.secretKey.value.toHex, HEXradix), message.toArray)
       .map(bb ⇒ fluence.crypto.signature.Signature(keyPair.publicKey, ByteVector(bb)))
   }
 
   override def verify[F[_]: Monad](
     signature: fluence.crypto.signature.Signature,
-    message: ByteVector): EitherT[F, CryptoErr, Unit] = {
+    message: ByteVector
+  ): EitherT[F, CryptoErr, Unit] = {
     verifySign(signature.publicKey.value.toArray, message.toArray, signature.sign.toArray)
   }
 
   private def signMessage[F[_]: Monad](
     privateKey: BigInteger,
-    message: Array[Byte]): EitherT[F, CryptoErr, Array[Byte]] = {
+    message: Array[Byte]
+  ): EitherT[F, CryptoErr, Array[Byte]] = {
     for {
       ec ← curveSpec
       keySpec ← nonFatalHandling(new ECPrivateKeySpec(privateKey, ec))("Cannot read private key.")
@@ -100,7 +104,8 @@ class Ecdsa(curveType: String, scheme: String, hasher: Option[CryptoHasher[Array
   private def verifySign[F[_]: Monad](
     publicKey: Array[Byte],
     message: Array[Byte],
-    signature: Array[Byte]): EitherT[F, CryptoErr, Unit] = {
+    signature: Array[Byte]
+  ): EitherT[F, CryptoErr, Unit] = {
     for {
       ec ← curveSpec
       keySpec ← nonFatalHandling(new ECPublicKeySpec(ec.getCurve.decodePoint(publicKey), ec))("Cannot read public key.")
@@ -119,19 +124,23 @@ class Ecdsa(curveType: String, scheme: String, hasher: Option[CryptoHasher[Array
 
   private def curveSpec[F[_]: Monad] =
     nonFatalHandling(ECNamedCurveTable.getParameterSpec(curveType).asInstanceOf[ECParameterSpec])(
-      "Cannot get curve parameters.")
+      "Cannot get curve parameters."
+    )
 
   private def getKeyPairGenerator[F[_]: Monad] =
     nonFatalHandling(KeyPairGenerator.getInstance(ECDSA, BouncyCastleProvider.PROVIDER_NAME))(
-      "Cannot get key pair generator.")
+      "Cannot get key pair generator."
+    )
 
   private def getKeyFactory[F[_]: Monad] =
     nonFatalHandling(KeyFactory.getInstance(ECDSA, BouncyCastleProvider.PROVIDER_NAME))(
-      "Cannot get key factory instance.")
+      "Cannot get key factory instance."
+    )
 
   private def getSignatureProvider[F[_]: Monad] =
     nonFatalHandling(Signature.getInstance(scheme, BouncyCastleProvider.PROVIDER_NAME))(
-      "Cannot get signature instance.")
+      "Cannot get signature instance."
+    )
 }
 
 object Ecdsa {

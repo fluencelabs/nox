@@ -55,7 +55,8 @@ object NodeGrpc {
   }
 
   def grpcClient(key: Key, contact: Contact, config: Config)(
-    implicit checker: SignatureChecker): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact]] =
+    implicit checker: SignatureChecker
+  ): IO[Contact ⇒ ClientServices[Task, BasicContract, Contact]] =
     for {
       clientConf ← GrpcConf.read[IO](config)
       client = {

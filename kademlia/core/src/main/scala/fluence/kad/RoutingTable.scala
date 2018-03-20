@@ -71,9 +71,11 @@ object RoutingTable {
             (if (idx - i >= 0) Stream(idx - i) else Stream.empty) append
               (if (idx + i < Key.BitLength) Stream(idx + i) else Stream.empty)
           })
-          .flatMap(idx ⇒
-            // Take contacts from the bucket, and sort them
-            BR.read(idx).stream)
+          .flatMap(
+            idx ⇒
+              // Take contacts from the bucket, and sort them
+              BR.read(idx).stream
+          )
       }
 
       // Stream of neighbors, taken from siblings
@@ -111,8 +113,8 @@ object RoutingTable {
     BW: Bucket.WriteOps[F, C],
     SW: Siblings.WriteOps[F, C],
     ME: MonadError[F, Throwable],
-    P: Parallel[F, F])
-      extends slogging.LazyLogging {
+    P: Parallel[F, F]
+  ) extends slogging.LazyLogging {
 
     /**
      * Locates the bucket responsible for given contact, and updates it using given ping function
@@ -127,7 +129,8 @@ object RoutingTable {
       node: Node[C],
       rpc: C ⇒ KademliaRpc[F, C],
       pingExpiresIn: Duration,
-      checkNode: Node[C] ⇒ F[Boolean]): F[Boolean] =
+      checkNode: Node[C] ⇒ F[Boolean]
+    ): F[Boolean] =
       if (nodeId === node.key) false.pure[F]
       else {
         checkNode(node).attempt.flatMap {
@@ -370,7 +373,8 @@ object RoutingTable {
           def moreNodes(
             loaded: SortedSet[Node[C]],
             lookedUp: Set[Key],
-            loadMore: Int): F[(SortedSet[Node[C]], Set[Key])] = {
+            loadMore: Int
+          ): F[(SortedSet[Node[C]], Set[Key])] = {
             // If we can't expand the set, don't try
             if (lookedUp.size == loaded.size) (loaded, lookedUp).pure[F]
             else {
@@ -414,7 +418,8 @@ object RoutingTable {
             replies: Vector[(Node[C], A)],
             lookedUp: Set[Key],
             fnCalled: Set[Key],
-            requestsRemaining: Int): F[Vector[(Node[C], A)]] = {
+            requestsRemaining: Int
+          ): F[Vector[(Node[C], A)]] = {
             val needCollect = numToCollect - replies.size
             // If we've collected enough, stop
             if (needCollect <= 0) replies.pure[F]
@@ -496,7 +501,8 @@ object RoutingTable {
       pingExpiresIn: Duration,
       numberOfNodes: Int,
       checkNode: Node[C] ⇒ F[Boolean],
-      parallelism: Int): F[Unit] =
+      parallelism: Int
+    ): F[Unit] =
       Parallel
         .parTraverse(peers.toList) { peer: C ⇒
           logger.trace("Going to ping Peer to join: " + peer)

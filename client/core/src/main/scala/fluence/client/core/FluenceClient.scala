@@ -143,8 +143,9 @@ class FluenceClient(
               contact,
               Some(ClientState(newContract.executionState.merkleRoot)),
               keyCrypt,
-              valueCrypt)
-              .map(store ⇒ store → contact))
+              valueCrypt
+            ).map(store ⇒ store → contact)
+        )
       )
     } yield new ClientReplicationWrapper(datasets.toList)
   }
@@ -175,8 +176,9 @@ class FluenceClient(
                     contact,
                     Some(ClientState(basicContract.executionState.merkleRoot)),
                     keyCrypt,
-                    valueCrypt)
-                    .map(store ⇒ store → contact))
+                    valueCrypt
+                  ).map(store ⇒ store → contact)
+              )
             )
           } yield Some(datasets)
         case None ⇒ Task.pure(None)
@@ -270,7 +272,8 @@ object FluenceClient extends slogging.LazyLogging {
 
   private def createKademliaClient(
     conf: KademliaConf,
-    kademliaRpc: Contact ⇒ KademliaRpc[Task, Contact]): Kademlia[Task, Contact] = {
+    kademliaRpc: Contact ⇒ KademliaRpc[Task, Contact]
+  ): Kademlia[Task, Contact] = {
     val check = TransportSecurity.canBeSaved[Task](Monoid.empty[Key], acceptLocal = true)
     KademliaMVar.client(kademliaRpc, conf, check)
   }

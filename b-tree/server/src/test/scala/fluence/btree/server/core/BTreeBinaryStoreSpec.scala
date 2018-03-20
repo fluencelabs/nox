@@ -79,7 +79,8 @@ class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
           Seq(
             store.put(node1Idx, node1),
             store.get(node1Idx)
-          ))
+          )
+        )
         .runAsync
 
       testScheduler.tick(5.seconds)
@@ -96,7 +97,8 @@ class BTreeBinaryStoreSpec extends WordSpec with Matchers with ScalaFutures {
             store.get(node2Idx),
             store.put(node2Idx, node2new),
             store.get(node2Idx)
-          ))
+          )
+        )
         .runAsync
 
       testScheduler.tick(5.seconds)

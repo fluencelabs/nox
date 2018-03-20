@@ -110,7 +110,8 @@ abstract class Kademlia[F[_], C](
         _ ⇒
           nodeId
             .lookupAway(key, moveAwayFrom)
-            .take(numberOfNodes))
+            .take(numberOfNodes)
+      )
   }
 
   /**
@@ -160,7 +161,8 @@ abstract class Kademlia[F[_], C](
     fn: Node[C] ⇒ F[A],
     numToCollect: Int,
     maxNumOfCalls: Int,
-    isIdempotentFn: Boolean = true): F[Seq[(Node[C], A)]] =
+    isIdempotentFn: Boolean = true
+  ): F[Seq[(Node[C], A)]] =
     nodeId
       .callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn, rpc, pingExpiresIn, checkNode)
       .map(_.toSeq)

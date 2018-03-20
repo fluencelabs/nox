@@ -65,7 +65,8 @@ object KVStore {
   implicit def transform[F[_]: Monad, K, K1, V, V1](store: KVStore[F, K, V])(
     implicit
     kCodec: Codec[F, K1, K],
-    vCodec: Codec[F, V1, V]): KVStore[F, K1, V1] =
+    vCodec: Codec[F, V1, V]
+  ): KVStore[F, K1, V1] =
     new KVStore[F, K1, V1] {
 
       /**

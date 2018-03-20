@@ -75,7 +75,8 @@ object KryoCodecs {
      * @return Extended builder
      */
     def addCase[T, S <: HList](
-      klass: Class[T])(implicit gen: Generic.Aux[T, S], sa: ops.hlist.SelectAll[L, S]): Builder[T :: L] =
+      klass: Class[T]
+    )(implicit gen: Generic.Aux[T, S], sa: ops.hlist.SelectAll[L, S]): Builder[T :: L] =
       new Builder[T :: L](klasses :+ klass)
 
     /**
@@ -93,8 +94,9 @@ object KryoCodecs {
      * @tparam F Effect type
      * @return Configured instance of KryoCodecs
      */
-    def build[F[_]](poolSize: Int = Runtime.getRuntime.availableProcessors)(
-      implicit F: MonadError[F, Throwable]): KryoCodecs[F, L] =
+    def build[F[_]](
+      poolSize: Int = Runtime.getRuntime.availableProcessors
+    )(implicit F: MonadError[F, Throwable]): KryoCodecs[F, L] =
       new KryoCodecs[F, L](
         KryoPool.withByteArrayOutputStream(
           poolSize,

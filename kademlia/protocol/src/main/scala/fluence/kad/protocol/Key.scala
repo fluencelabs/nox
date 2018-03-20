@@ -129,7 +129,8 @@ object Key {
     sha1(publicKey.value.toArray)
 
   def fromString[F[_]](str: String, charset: Charset = Charset.defaultCharset())(
-    implicit F: MonadError[F, Throwable]): F[Key] =
+    implicit F: MonadError[F, Throwable]
+  ): F[Key] =
     sha1(str.getBytes)
 
   def fromBytes[F[_]](bytes: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Key] =

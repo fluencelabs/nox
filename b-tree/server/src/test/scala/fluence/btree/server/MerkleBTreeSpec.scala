@@ -116,7 +116,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
             .sequence(failedPutCmd(1 to 1, PutDetailsStage) map { cmd ⇒
               tree.put(cmd)
             })
-            .failed)
+            .failed
+        )
         result.getMessage shouldBe "Client unavailable"
       }
 
@@ -129,7 +130,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
             .sequence(failedPutCmd(1 to 1, VerifyChangesStage) map { cmd ⇒
               tree.put(cmd)
             })
-            .failed)
+            .failed
+        )
 
         result.getMessage shouldBe "Client unavailable"
 
@@ -315,19 +317,22 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
           tree.put(cmd)
         }))
         val putRes2 = wait(
-          tree.put(new PutCommandImpl[Task](
-            mRootCalculator,
-            new PutCallbacks[Task] {
-              override def putDetails(
-                keys: Array[Key],
-                values: Array[Hash]
-              ): Task[ClientPutDetails] = Task(ClientPutDetails(key1, value2, Found(0)))
-              override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): Task[Unit] = Task(())
-              override def changesStored(): Task[Unit] = Task(())
-              override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = ???
-            },
-            () ⇒ 2l
-          )))
+          tree.put(
+            new PutCommandImpl[Task](
+              mRootCalculator,
+              new PutCallbacks[Task] {
+                override def putDetails(
+                  keys: Array[Key],
+                  values: Array[Hash]
+                ): Task[ClientPutDetails] = Task(ClientPutDetails(key1, value2, Found(0)))
+                override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): Task[Unit] = Task(())
+                override def changesStored(): Task[Unit] = Task(())
+                override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = ???
+              },
+              () ⇒ 2l
+            )
+          )
+        )
 
         putRes1 shouldBe Seq(1l)
         putRes2 shouldBe 1l
@@ -345,21 +350,24 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
           tree.put(cmd)
         }))
         val putRes2 = wait(
-          tree.put(new PutCommandImpl[Task](
-            mRootCalculator,
-            new PutCallbacks[Task] {
-              val idx = Atomic(0L)
+          tree.put(
+            new PutCommandImpl[Task](
+              mRootCalculator,
+              new PutCallbacks[Task] {
+                val idx = Atomic(0L)
 
-              override def putDetails(
-                keys: Array[Key],
-                values: Array[Hash]
-              ): Task[ClientPutDetails] = Task(ClientPutDetails(key2, value5, Found(1)))
-              override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): Task[Unit] = Task(())
-              override def changesStored(): Task[Unit] = Task(())
-              override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = ???
-            },
-            () ⇒ 5l
-          )))
+                override def putDetails(
+                  keys: Array[Key],
+                  values: Array[Hash]
+                ): Task[ClientPutDetails] = Task(ClientPutDetails(key2, value5, Found(1)))
+                override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): Task[Unit] = Task(())
+                override def changesStored(): Task[Unit] = Task(())
+                override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = ???
+              },
+              () ⇒ 5l
+            )
+          )
+        )
 
         putRes1 shouldBe Seq(1l, 2l, 3l, 4l)
         putRes2 shouldBe 2l
@@ -369,7 +377,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
           Array(key1, key2, key3, key4),
           Array(valRef1, valRef2, valRef3, valRef4),
           Array(value1, value5, value3, value4),
-          root)
+          root
+        )
       }
     }
   }
@@ -498,7 +507,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
             .range(searchCmd(key1, { result ⇒
               result shouldBe None
             }))
-            .toListL)
+            .toListL
+        )
         result shouldBe empty
       }
 
@@ -514,7 +524,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
             .range(searchCmd(key1, { result ⇒
               result.get.bytes shouldBe value1.bytes
             }))
-            .toListL)
+            .toListL
+        )
         verifyRangeResults(result, List(key1 → valRef1))
       }
 
@@ -530,7 +541,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
             .range(searchCmd(key2, { result ⇒
               result.get.bytes shouldBe value2.bytes
             }))
-            .toListL)
+            .toListL
+        )
         verifyRangeResults(result, List(key2 → valRef2, key3 → valRef3, key4 → valRef4))
       }
 
@@ -554,7 +566,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
             .range(searchCmd("abc".toKey, { result ⇒
               result shouldBe None
             }))
-            .toListL)
+            .toListL
+        )
         notFoundStartKey.size shouldBe 129
         notFoundStartKey.head._1.toByteVector shouldBe minKey.toByteVector
         notFoundStartKey.last._1.toByteVector shouldBe maxKey.toByteVector
@@ -566,7 +579,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
               result.get.bytes shouldBe "v0128".getBytes
             }))
             .take(1)
-            .toListL)
+            .toListL
+        )
         oneElem.size shouldBe 1
         oneElem.head._1.toByteVector shouldBe midKey.toByteVector
         checkOrder(oneElem)
@@ -577,7 +591,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
               result.get.bytes shouldBe "v0000".getBytes
             }))
             .take(10)
-            .toListL)
+            .toListL
+        )
         fromStartTenPairs.size shouldBe 10
         fromStartTenPairs.head._1.toByteVector shouldBe minKey.toByteVector
         fromStartTenPairs.last._1.toByteVector shouldBe "k0018".toKey.toByteVector
@@ -588,7 +603,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
             .range(searchCmd(midKey, { result ⇒
               result.get.bytes shouldBe "v0128".getBytes
             }))
-            .toListL)
+            .toListL
+        )
         fromMidToEnd.size shouldBe 65
         fromMidToEnd.head._1.toByteVector shouldBe midKey.toByteVector
         fromMidToEnd.last._1.toByteVector shouldBe maxKey.toByteVector
@@ -600,7 +616,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
               result.get.bytes shouldBe "v0256".getBytes
             }))
             .take(10)
-            .toListL)
+            .toListL
+        )
         fromLastTenPairs.size shouldBe 1
         fromLastTenPairs.head._1.toByteVector shouldBe maxKey.toByteVector
         checkOrder(fromLastTenPairs)
@@ -611,7 +628,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
               result shouldBe None
             }))
             .take(1)
-            .toListL)
+            .toListL
+        )
         fromSkippedKeyOneElem.size shouldBe 1
         fromSkippedKeyOneElem.head._1.toByteVector shouldBe "k0002".toKey.toByteVector
         checkOrder(fromSkippedKeyOneElem)
@@ -622,7 +640,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
               result shouldBe None
             }))
             .take(10)
-            .toListL)
+            .toListL
+        )
         fromSkippedKeyTenElem.size shouldBe 10
         fromSkippedKeyTenElem.head._1.toByteVector shouldBe "k0002".toKey.toByteVector
         fromSkippedKeyTenElem.last._1.toByteVector shouldBe "k0020".toKey.toByteVector
@@ -633,7 +652,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
             .range(searchCmd(absentKey, { result ⇒
               result shouldBe None
             }))
-            .toListL)
+            .toListL
+        )
         notOverlap shouldBe empty
 
       }
@@ -659,7 +679,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
             .range(searchCmd(key1, { result ⇒
               result.get.bytes shouldBe value1.bytes
             }))
-            .toListL)
+            .toListL
+        )
 
         putRes.head shouldBe getRes.get
         rangeRes.size shouldBe 1
@@ -700,7 +721,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
           .range(searchCmd(minKey, { result ⇒
             result.get.bytes shouldBe value1.bytes
           }))
-          .toListL)
+          .toListL
+      )
       fetchAll.size shouldBe 1024
       checkOrder(fetchAll)
     }
@@ -746,7 +768,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
           .range(searchCmd(minKey, { result ⇒
             result.get.bytes shouldBe value1.bytes
           }))
-          .toListL)
+          .toListL
+      )
       fetchAll.size shouldBe 1024
       checkOrder(fetchAll)
     }
@@ -760,7 +783,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
     val tMap = new TrieMap[Array[Byte], Array[Byte]](MurmurHash3.arrayHashing, Equiv.fromComparator(BytesOrdering))
     new BTreeBinaryStore[Task, NodeId, Node](
       new TrieMapKVStore[Task, Array[Byte], Array[Byte]](tMap),
-      () ⇒ blobIdCounter.incrementAndGet())
+      () ⇒ blobIdCounter.incrementAndGet()
+    )
   }
 
   private def createTree(store: BTreeBinaryStore[Task, NodeId, Node] = createTreeStore): MerkleBTree =

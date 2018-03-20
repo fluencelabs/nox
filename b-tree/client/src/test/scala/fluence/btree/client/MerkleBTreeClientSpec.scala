@@ -162,7 +162,8 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
               Array(key1.toKey, "unexpected key returned from server".toKey),
               Array(val1Hash.toHash, val2Hash.toHash)
             )
-            .failed)
+            .failed
+        )
 
         result.getMessage should startWith("Checksum of leaf didn't pass verifying")
       }
@@ -209,7 +210,8 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
             _ ← putCallbacks.putDetails(Array(key4.toKey, key5.toKey), Array(val4Hash.toHash, val5Hash.toHash))
             _ ← putCallbacks.verifyChanges(
               "H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k3v3-cs>H<k4v4-cs>H<k5v5-cs>>>".toHash,
-              wasSplitting = false)
+              wasSplitting = false
+            )
             _ ← putCallbacks.changesStored()
           } yield ()
         ) shouldBe ()

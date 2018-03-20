@@ -64,8 +64,9 @@ object TrieMapKVStore {
   /**
    * Build an in-memory KVStore with TraversableKVStore support
    */
-  def withTraverse[F[_], FS[_], K, V](fromIterator: Iterator ~> FS)(
-    implicit F: ApplicativeError[F, Throwable]): KVStore[F, K, V] with TraversableKVStore[FS, K, V] =
+  def withTraverse[F[_], FS[_], K, V](
+    fromIterator: Iterator ~> FS
+  )(implicit F: ApplicativeError[F, Throwable]): KVStore[F, K, V] with TraversableKVStore[FS, K, V] =
     new TrieMapKVStore[F, K, V]() with TraversableKVStore[FS, K, V] {
 
       /**

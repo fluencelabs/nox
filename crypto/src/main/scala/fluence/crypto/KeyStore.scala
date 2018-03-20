@@ -56,7 +56,9 @@ object KeyStore {
         Json.obj(
           (Field.Secret, Json.fromString(ks.keyPair.secretKey.value.toBase64(alphabet))),
           (Field.Public, Json.fromString(ks.keyPair.publicKey.value.toBase64(alphabet)))
-        )))
+        )
+      )
+  )
 
   implicit val decodeKeyStorage: Decoder[Option[KeyStore]] =
     (c: HCursor) ⇒

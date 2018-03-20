@@ -52,7 +52,8 @@ object Codec {
     Codec(_.pure[F], _.pure[F])
 
   implicit def traverseCodec[F[_]: Applicative, G[_]: Traverse, O, B](
-    implicit codec: Codec[F, O, B]): Codec[F, G[O], G[B]] =
+    implicit codec: Codec[F, O, B]
+  ): Codec[F, G[O], G[B]] =
     Codec[F, G[O], G[B]](Traverse[G].traverse[F, O, B](_)(codec.encode), Traverse[G].traverse[F, B, O](_)(codec.decode))
 
   implicit def toDirect[F[_], A, B](implicit cod: Codec[F, A, B]): Kleisli[F, A, B] =

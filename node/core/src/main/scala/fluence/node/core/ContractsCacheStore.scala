@@ -162,7 +162,8 @@ object ContractsCacheStore {
 
   /** Creates [[fluence.codec.Codec]] instance for {{{BasicContractCache}}} and {{{Array[Byte]}}} */
   private def contractCache2Bytes[F[_]](
-    implicit F: MonadError[F, Throwable]): Codec[F, BasicContractCache, Array[Byte]] =
+    implicit F: MonadError[F, Throwable]
+  ): Codec[F, BasicContractCache, Array[Byte]] =
     Codec[F, BasicContractCache, Array[Byte]](
       bcc ⇒ F.pure(bcc.toByteArray),
       bytes ⇒ F.pure(BasicContractCache.parseFrom(bytes))

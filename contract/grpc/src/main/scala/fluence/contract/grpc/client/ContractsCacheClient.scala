@@ -36,8 +36,8 @@ import scala.language.higherKinds
 class ContractsCacheClient[F[_]: Async, C](stub: ContractsCacheStub)(
   implicit
   codec: Codec[F, C, BasicContract],
-  ec: ExecutionContext)
-    extends ContractsCacheRpc[F, C] {
+  ec: ExecutionContext
+) extends ContractsCacheRpc[F, C] {
 
   private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
 
@@ -84,6 +84,7 @@ object ContractsCacheClient {
   )(
     implicit
     codec: Codec[F, C, BasicContract],
-    ec: ExecutionContext): ContractsCacheRpc[F, C] =
+    ec: ExecutionContext
+  ): ContractsCacheRpc[F, C] =
     new ContractsCacheClient[F, C](new ContractsCacheGrpc.ContractsCacheStub(channel, callOptions))
 }

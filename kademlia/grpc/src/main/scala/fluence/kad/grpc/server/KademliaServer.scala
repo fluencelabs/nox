@@ -36,8 +36,8 @@ class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(
   implicit
   F: MonadError[F, Throwable],
   codec: Codec[F, protocol.Node[Contact], Node],
-  run: F ~> Future)
-    extends KademliaGrpc.Kademlia {
+  run: F ~> Future
+) extends KademliaGrpc.Kademlia {
 
   private val streamCodec = Codec.codec[F, Stream[protocol.Node[Contact]], Stream[Node]]
 

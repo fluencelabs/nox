@@ -31,8 +31,8 @@ class ContractAllocatorServer[F[_], C](contractAllocator: ContractAllocatorRpc[F
   implicit
   F: Monad[F],
   codec: Codec[F, C, BasicContract],
-  run: F ~> Future)
-    extends ContractAllocatorGrpc.ContractAllocator {
+  run: F ~> Future
+) extends ContractAllocatorGrpc.ContractAllocator {
 
   override def offer(request: BasicContract): Future[BasicContract] =
     run(

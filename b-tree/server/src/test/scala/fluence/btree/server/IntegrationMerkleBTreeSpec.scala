@@ -162,7 +162,8 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
                   res ← bTree.put(PutCommandImpl(mRCalc, cb, () ⇒ counter.incrementAndGet()))
                 } yield res
               })
-          ))
+          )
+        )
 
         putRes1 should have size 512
         putRes1 should contain allElementsOf (1 to 512)
@@ -240,7 +241,8 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
                   res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
                 } yield res
               })
-          ))
+          )
+        )
 
         putRes2 should have size 1024
         putRes2 should contain allElementsOf (1 to 1024)

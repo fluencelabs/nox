@@ -155,7 +155,8 @@ object RocksDbStore {
       RocksDbConf.read(conf).flatMap(apply(storeName, _))
 
     def apply[F[_]](storeName: String, config: RocksDbConf)(
-      implicit F: ApplicativeError[F, Throwable]): F[RocksDbStore] = {
+      implicit F: ApplicativeError[F, Throwable]
+    ): F[RocksDbStore] = {
       val dbRoot = s"${config.dataDir}/$storeName"
       val options = createOptionsFromConfig(config)
 
@@ -177,7 +178,8 @@ object RocksDbStore {
     }
 
     private def createDb[F[_]](folder: String, options: Options)(
-      implicit F: ApplicativeError[F, Throwable]): F[RocksDB] =
+      implicit F: ApplicativeError[F, Throwable]
+    ): F[RocksDB] =
       F.catchNonFatal {
         RocksDB.loadLibrary()
         val dataDir = new File(folder)

@@ -44,7 +44,8 @@ class TestSiblingOps[C](nodeId: Key, maxSiblingsSize: Int) extends Siblings.Writ
               state.set(s)
               v
           }
-          .doOnFinish(_ ⇒ Coeval.now(lock.flip(false))))
+          .doOnFinish(_ ⇒ Coeval.now(lock.flip(false)))
+    )
   }
 
   override def read: Siblings[C] =

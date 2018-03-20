@@ -111,8 +111,11 @@ object NodeComposer {
                 c ← contractsCacheStore.get(dsId)
                 _ ← if (c.contract.executionState.version == v - 1) Task.unit
                 else
-                  Task.raiseError(new IllegalStateException(
-                    s"Inconsistent state for contract $dsId, contract version=${c.contract.executionState.version}, asking for update to $v"))
+                  Task.raiseError(
+                    new IllegalStateException(
+                      s"Inconsistent state for contract $dsId, contract version=${c.contract.executionState.version}, asking for update to $v"
+                    )
+                  )
 
                 u = c.copy(
                   contract = c.contract.copy(

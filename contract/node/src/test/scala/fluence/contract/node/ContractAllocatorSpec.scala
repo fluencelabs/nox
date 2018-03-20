@@ -90,7 +90,8 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
     "reject offer with unsufficent resources" in {
       val contract = offer("should reject").copy(
-        executionState = BasicContract.ExecutionState(version = -1, merkleRoot = ByteVector.empty))
+        executionState = BasicContract.ExecutionState(version = -1, merkleRoot = ByteVector.empty)
+      )
       allocator.offer(contract).attempt.unsafeRunSync().isLeft shouldBe true
     }
 

@@ -52,8 +52,8 @@ case class DataWithParams(data: Array[Byte], params: CipherParameters)
  */
 class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(
   implicit ME: MonadError[F, Throwable],
-  codec: Codec[F, T, Array[Byte]])
-    extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
+  codec: Codec[F, T, Array[Byte]]
+) extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
   import CryptoErr._
 
   private val rnd = Random
@@ -122,7 +122,8 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
    */
   private def setupAesCipher(
     params: CipherParameters,
-    encrypt: Boolean): EitherT[F, CryptoErr, PaddedBufferedBlockCipher] = {
+    encrypt: Boolean
+  ): EitherT[F, CryptoErr, PaddedBufferedBlockCipher] = {
     nonFatalHandling {
       // setup AES cipher in CBC mode with PKCS7 padding
       val padding = new PKCS7Padding
@@ -155,7 +156,8 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   private def processData(
     dataWithParams: DataWithParams,
     addData: Option[Array[Byte]],
-    encrypt: Boolean): EitherT[F, CryptoErr, Array[Byte]] = {
+    encrypt: Boolean
+  ): EitherT[F, CryptoErr, Array[Byte]] = {
     for {
       cipher ← setupAesCipher(dataWithParams.params, encrypt = encrypt)
       buf ← cipherBytes(dataWithParams.data, cipher)
@@ -193,7 +195,8 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
     data: Array[Byte],
     password: Array[Char],
     salt: Array[Byte],
-    withIV: Boolean): EitherT[F, CryptoErr, DataWithParams] = {
+    withIV: Boolean
+  ): EitherT[F, CryptoErr, DataWithParams] = {
     if (withIV) {
       for {
         ivDataWithEncData ← detachIV(data, IV_SIZE)
@@ -214,7 +217,8 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
 object AesCrypt extends slogging.LazyLogging {
 
   def forString[F[_]: Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(
-    implicit ME: MonadError[F, Throwable]): AesCrypt[F, String] = {
+    implicit ME: MonadError[F, Throwable]
+  ): AesCrypt[F, String] = {
     implicit val codec: Codec[F, String, Array[Byte]] =
       Codec[F, String, Array[Byte]](_.getBytes.pure[F], bytes ⇒ new String(bytes).pure[F])
     apply[F, String](password, withIV, config)
@@ -222,6 +226,7 @@ object AesCrypt extends slogging.LazyLogging {
 
   def apply[F[_]: Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(
     implicit ME: MonadError[F, Throwable],
-    codec: Codec[F, T, Array[Byte]]): AesCrypt[F, T] =
+    codec: Codec[F, T, Array[Byte]]
+  ): AesCrypt[F, T] =
     new AesCrypt(password.toHex.toCharArray, withIV, config)
 }

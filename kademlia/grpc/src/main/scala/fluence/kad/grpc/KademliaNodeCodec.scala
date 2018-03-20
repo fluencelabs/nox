@@ -34,7 +34,8 @@ import scala.language.higherKinds
 object KademliaNodeCodec {
   implicit def codec[F[_]](
     implicit F: MonadError[F, Throwable],
-    checker: SignatureChecker): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
+    checker: SignatureChecker
+  ): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
     Codec(
       obj ⇒
         Node(

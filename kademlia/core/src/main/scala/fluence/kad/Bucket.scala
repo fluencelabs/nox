@@ -68,7 +68,8 @@ case class Bucket[C](maxSize: Int, nodes: Queue[Node[C]] = Queue.empty) {
     find(node.key).fold(true)(
       n ⇒
         !pingExpiresIn.isFinite() ||
-          java.time.Duration.between(n.lastSeen, node.lastSeen).toMillis >= pingExpiresIn.toMillis)
+          java.time.Duration.between(n.lastSeen, node.lastSeen).toMillis >= pingExpiresIn.toMillis
+    )
 }
 
 object Bucket {
@@ -95,7 +96,8 @@ object Bucket {
    * @return updated Bucket, and true if bucket was updated with this node, false if it wasn't
    */
   def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration)(
-    implicit ME: MonadError[F, Throwable]): StateT[F, Bucket[C], Boolean] = {
+    implicit ME: MonadError[F, Throwable]
+  ): StateT[F, Bucket[C], Boolean] = {
     StateT.get[F, Bucket[C]].flatMap { b ⇒
       b.find(node.key) match {
         case Some(c) ⇒
@@ -177,7 +179,8 @@ object Bucket {
      * @return True if node is updated in a bucket, false otherwise
      */
     def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration)(
-      implicit ME: MonadError[F, Throwable]): F[Boolean] =
+      implicit ME: MonadError[F, Throwable]
+    ): F[Boolean] =
       if (read(bucketId).shouldUpdate(node, pingExpiresIn)) {
         run(bucketId, Bucket.update(node, rpc, pingExpiresIn))
       } else {

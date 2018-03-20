@@ -290,7 +290,8 @@ lazy val `b-tree-server` = project
     `codec-kryo`,
     `b-tree-common-jvm`,
     `b-tree-protocol-jvm`,
-    `b-tree-client-jvm` % "compile->test")
+    `b-tree-client-jvm` % "compile->test"
+  )
 
 lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)

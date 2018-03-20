@@ -74,7 +74,8 @@ object FluenceNode extends slogging.LazyLogging {
   ): IO[FluenceNode] = {
     logger.debug(
       "Node config is :" +
-        config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false)))
+        config.getConfig("fluence").root().render(ConfigRenderOptions.defaults().setOriginComments(false))
+    )
     launchGrpc(algo, hasher, config)
   }
 
@@ -119,7 +120,8 @@ object FluenceNode extends slogging.LazyLogging {
   private def launchGrpc(
     algo: SignAlgo,
     hasher: CryptoHasher[Array[Byte], Array[Byte]],
-    config: Config): IO[FluenceNode] = {
+    config: Config
+  ): IO[FluenceNode] = {
     import algo.checker
     for {
       _ ← initDirectory(config.getString("fluence.directory")) // TODO config
@@ -175,7 +177,8 @@ object FluenceNode extends slogging.LazyLogging {
       logger.info("Your contact is: " + contact.show)
 
       logger.info(
-        "You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET)
+        "You may share this seed for others to join you: " + Console.MAGENTA + contact.b64seed + Console.RESET
+      )
 
       val _conf = config
 

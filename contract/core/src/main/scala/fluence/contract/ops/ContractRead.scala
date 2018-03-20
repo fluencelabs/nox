@@ -137,7 +137,8 @@ object ContractRead {
      * @param checker Signature checker
      */
     def checkOfferSignature[F[_]](
-      signature: Signature)(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Unit] =
+      signature: Signature
+    )(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Unit] =
       checker.check[F](signature, getOfferBytes).value.map(_.isRight) // TODO EitherT
 
     /**
@@ -165,7 +166,8 @@ object ContractRead {
      * @param checker Signature checker
      */
     def participantSigned[F[_]](
-      participant: Key)(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] = {
+      participant: Key
+    )(implicit F: MonadError[F, Throwable], checker: SignatureChecker): F[Boolean] = {
       participantSignature(participant) match {
         case Some(ps) ⇒ checkOfferSignature(ps).map(_ ⇒ Key.checkPublicKey(participant, ps.publicKey))
         case None ⇒ F.pure(false)

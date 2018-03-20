@@ -93,7 +93,8 @@ class DatasetStorageClient[F[_]: Effect](
           getCallbacks
             .nextChildIndex(
               nci.keys.map(k ⇒ Key(k.toByteArray)).toArray,
-              nci.childsChecksums.map(c ⇒ Hash(c.toByteArray)).toArray)
+              nci.childsChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
+            )
             .attempt
             .flatMap {
               case Left(err) ⇒
@@ -108,18 +109,25 @@ class DatasetStorageClient[F[_]: Effect](
           getCallbacks
             .submitLeaf(
               sl.keys.map(k ⇒ Key(k.toByteArray)).toArray,
-              sl.valuesChecksums.map(c ⇒ Hash(c.toByteArray)).toArray)
+              sl.valuesChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
+            )
             .attempt
             .flatMap {
               case Left(err) ⇒
                 handleClientErr(err)
               case Right(searchResult) ⇒
-                Effect[F].pure(GetCallbackReply(GetCallbackReply.Reply.SubmitLeaf(ReplySubmitLeaf(
-                  searchResult match {
-                    case Searching.Found(i) ⇒ ReplySubmitLeaf.SearchResult.Found(i)
-                    case Searching.InsertionPoint(i) ⇒ ReplySubmitLeaf.SearchResult.InsertionPoint(i)
-                  }
-                ))))
+                Effect[F].pure(
+                  GetCallbackReply(
+                    GetCallbackReply.Reply.SubmitLeaf(
+                      ReplySubmitLeaf(
+                        searchResult match {
+                          case Searching.Found(i) ⇒ ReplySubmitLeaf.SearchResult.Found(i)
+                          case Searching.InsertionPoint(i) ⇒ ReplySubmitLeaf.SearchResult.InsertionPoint(i)
+                        }
+                      )
+                    )
+                  )
+                )
             }
 
       }
@@ -192,7 +200,8 @@ class DatasetStorageClient[F[_]: Effect](
           rangeCallbacks
             .nextChildIndex(
               nci.keys.map(k ⇒ Key(k.toByteArray)).toArray,
-              nci.childsChecksums.map(c ⇒ Hash(c.toByteArray)).toArray)
+              nci.childsChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
+            )
             .attempt
             .flatMap {
               case Left(err) ⇒
@@ -207,18 +216,25 @@ class DatasetStorageClient[F[_]: Effect](
           rangeCallbacks
             .submitLeaf(
               sl.keys.map(k ⇒ Key(k.toByteArray)).toArray,
-              sl.valuesChecksums.map(c ⇒ Hash(c.toByteArray)).toArray)
+              sl.valuesChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
+            )
             .attempt
             .flatMap {
               case Left(err) ⇒
                 handleClientErr(err)
               case Right(searchResult) ⇒
-                Effect[F].pure(RangeCallbackReply(RangeCallbackReply.Reply.SubmitLeaf(ReplySubmitLeaf(
-                  searchResult match {
-                    case Searching.Found(i) ⇒ ReplySubmitLeaf.SearchResult.Found(i)
-                    case Searching.InsertionPoint(i) ⇒ ReplySubmitLeaf.SearchResult.InsertionPoint(i)
-                  }
-                ))))
+                Effect[F].pure(
+                  RangeCallbackReply(
+                    RangeCallbackReply.Reply.SubmitLeaf(
+                      ReplySubmitLeaf(
+                        searchResult match {
+                          case Searching.Found(i) ⇒ ReplySubmitLeaf.SearchResult.Found(i)
+                          case Searching.InsertionPoint(i) ⇒ ReplySubmitLeaf.SearchResult.InsertionPoint(i)
+                        }
+                      )
+                    )
+                  )
+                )
             }
 
       }
@@ -257,7 +273,8 @@ class DatasetStorageClient[F[_]: Effect](
   override def put(
     datasetId: Array[Byte],
     putCallbacks: BTreeRpc.PutCallbacks[F],
-    encryptedValue: Array[Byte]): F[Option[Array[Byte]]] = {
+    encryptedValue: Array[Byte]
+  ): F[Option[Array[Byte]]] = {
     // Convert a remote stub call to monix pipe
     val pipe = callToPipe(stub.put)
 
@@ -289,7 +306,8 @@ class DatasetStorageClient[F[_]: Effect](
           putCallbacks
             .nextChildIndex(
               nci.keys.map(k ⇒ Key(k.toByteArray)).toArray,
-              nci.childsChecksums.map(c ⇒ Hash(c.toByteArray)).toArray)
+              nci.childsChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
+            )
             .attempt
             .flatMap {
               case Left(err) ⇒
@@ -304,7 +322,8 @@ class DatasetStorageClient[F[_]: Effect](
           putCallbacks
             .putDetails(
               pd.keys.map(k ⇒ Key(k.toByteArray)).toArray,
-              pd.valuesChecksums.map(c ⇒ Hash(c.toByteArray)).toArray)
+              pd.valuesChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
+            )
             .attempt
             .flatMap {
               case Left(err) ⇒
@@ -395,15 +414,18 @@ class DatasetStorageClient[F[_]: Effect](
     serverErrOrVal: Task[Option[Task[Option[Array[Byte]]]]]
   ): F[Option[Array[Byte]]] =
     run(
-      Task.raceMany(Seq(
-        clientError.read.flatMap(err ⇒ Task.raiseError(err)), // trying return occurred clients error
-        serverErrOrVal.flatMap {
-          // return success result or server error
-          case Some(errOrValue) ⇒ errOrValue
-          // return occurred clients error
-          case None ⇒ clientError.read.flatMap(err ⇒ Task.raiseError(err))
-        }
-      )))
+      Task.raceMany(
+        Seq(
+          clientError.read.flatMap(err ⇒ Task.raiseError(err)), // trying return occurred clients error
+          serverErrOrVal.flatMap {
+            // return success result or server error
+            case Some(errOrValue) ⇒ errOrValue
+            // return occurred clients error
+            case None ⇒ clientError.read.flatMap(err ⇒ Task.raiseError(err))
+          }
+        )
+      )
+    )
 
 }
 

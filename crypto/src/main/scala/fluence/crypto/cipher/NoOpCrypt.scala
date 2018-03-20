@@ -44,7 +44,8 @@ object NoOpCrypt {
   def forLong[F[_]: Applicative]: NoOpCrypt[F, Long] =
     apply[F, Long](
       serializer = ByteBuffer.allocate(java.lang.Long.BYTES).putLong(_).array().pure[F],
-      deserializer = bytes ⇒ ByteBuffer.wrap(bytes).getLong().pure[F])
+      deserializer = bytes ⇒ ByteBuffer.wrap(bytes).getLong().pure[F]
+    )
 
   def apply[F[_], T](serializer: T ⇒ F[Array[Byte]], deserializer: Array[Byte] ⇒ F[T]): NoOpCrypt[F, T] =
     new NoOpCrypt(serializer, deserializer)

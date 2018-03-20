@@ -51,7 +51,8 @@ object ContractWrite {
   implicit class WriteOps[F[_], C](contract: C)(
     implicit read: ContractRead[C],
     write: ContractWrite[C],
-    ME: MonadError[F, Throwable]) {
+    ME: MonadError[F, Throwable]
+  ) {
     import ContractRead.ReadOps
 
     def sealOffer(signer: Signer): F[C] =

@@ -154,7 +154,8 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
       branch.copy(
         childsReferences = newChildsReferences,
         childsChecksums = newChildsChecksums,
-        checksum = getBranchChecksum(branch.keys, newChildsChecksums))
+        checksum = getBranchChecksum(branch.keys, newChildsChecksums)
+      )
     }
 
     override def toProof(substitutionIdx: Int): NodeProof = {

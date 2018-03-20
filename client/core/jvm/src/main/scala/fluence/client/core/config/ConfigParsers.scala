@@ -27,7 +27,8 @@ import scala.language.higherKinds
 object KademliaConfigParser {
 
   def readKademliaConfig[F[_]](config: Config, path: String = "fluence.kademlia")(
-    implicit F: ApplicativeError[F, Throwable]): F[KademliaConf] =
+    implicit F: ApplicativeError[F, Throwable]
+  ): F[KademliaConf] =
     F.catchNonFatal {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._
@@ -40,7 +41,8 @@ object AesConfigParser {
   def readAesConfigOrGetDefault[F[_]](
     config: Config,
     path: String = "fluence.cipher.aes",
-    default: AesConfig = AesConfig())(implicit F: ApplicativeError[F, Throwable]): F[AesConfig] =
+    default: AesConfig = AesConfig()
+  )(implicit F: ApplicativeError[F, Throwable]): F[AesConfig] =
     F.catchNonFatal {
       import net.ceedubs.ficus.Ficus._
       import net.ceedubs.ficus.readers.ArbitraryTypeReader._

@@ -28,7 +28,8 @@ object ArgsParser {
   case class CommandLineConfig(
     config: Option[File] = None,
     seed: Seq[String] = Seq.empty,
-    keyStore: Option[KeyStore] = None)
+    keyStore: Option[KeyStore] = None
+  )
 
   implicit val keyStoreRead: Read[KeyStore] = {
     reads { str ⇒

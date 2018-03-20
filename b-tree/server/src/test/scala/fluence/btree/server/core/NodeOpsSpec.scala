@@ -86,7 +86,8 @@ class NodeOpsSpec extends WordSpec with Matchers {
         updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(
           val1Checksum,
           val4Checksum,
-          val6Checksum)
+          val6Checksum
+        )
         checkLeafHashes(updatedLeaf, Array(kV1Hash, kV4Hash, kV6Hash), leaf.size)
         updatedLeaf.rightSibling shouldBe None
       }
@@ -99,7 +100,8 @@ class NodeOpsSpec extends WordSpec with Matchers {
         updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(
           val2Checksum,
           val5Checksum,
-          val6Checksum)
+          val6Checksum
+        )
         checkLeafHashes(updatedLeaf, Array(kV2Hash, kV5Hash, kV6Hash), leaf.size)
         updatedLeaf.rightSibling shouldBe Some(10L)
       }
@@ -112,7 +114,8 @@ class NodeOpsSpec extends WordSpec with Matchers {
         updatedLeaf.valuesChecksums should contain theSameElementsInOrderAs Array(
           val2Checksum,
           val4Checksum,
-          val7Checksum)
+          val7Checksum
+        )
         checkLeafHashes(updatedLeaf, Array(kV2Hash, kV4Hash, kV7Hash), leaf.size)
       }
     }
@@ -146,7 +149,8 @@ class NodeOpsSpec extends WordSpec with Matchers {
           val1Checksum,
           val2Checksum,
           val4Checksum,
-          val6Checksum)
+          val6Checksum
+        )
         checkLeafHashes(updatedLeaf, Array(kV1Hash, kV2Hash, kV4Hash, kV6Hash), leaf.size + 1)
         updatedLeaf.rightSibling shouldBe None
       }
@@ -160,7 +164,8 @@ class NodeOpsSpec extends WordSpec with Matchers {
           val2Checksum,
           val3Checksum,
           val4Checksum,
-          val6Checksum)
+          val6Checksum
+        )
         checkLeafHashes(updatedLeaf, Array(kV2Hash, kV3Hash, kV4Hash, kV6Hash), leaf.size + 1)
         updatedLeaf.rightSibling shouldBe Some(10L)
       }
@@ -174,7 +179,8 @@ class NodeOpsSpec extends WordSpec with Matchers {
           val2Checksum,
           val4Checksum,
           val6Checksum,
-          val7Checksum)
+          val7Checksum
+        )
         checkLeafHashes(updatedLeaf, Array(kV2Hash, kV4Hash, kV6Hash, kV7Hash), leaf.size + 1)
         updatedLeaf.rightSibling shouldBe None
       }
@@ -354,7 +360,8 @@ class NodeOpsSpec extends WordSpec with Matchers {
           updatedTree,
           Array(child1Hash, child2Hash, child5Hash, child4Hash),
           Array(1L, 2L, 5L, 4L),
-          3)
+          3
+        )
       }
     }
   }
@@ -455,7 +462,8 @@ class NodeOpsSpec extends WordSpec with Matchers {
     keys: Array[Key],
     valuesRef: Array[Long],
     valuesChecksums: Array[Hash],
-    rightSib: Option[Long] = None): Leaf = {
+    rightSib: Option[Long] = None
+  ): Leaf = {
     val kvHashes = getKvChecksums(keys, valuesChecksums)
     LeafNode(keys, valuesRef, valuesChecksums, kvHashes, keys.length, getLeafChecksum(kvHashes), rightSib)
   }

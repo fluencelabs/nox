@@ -91,7 +91,8 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       Task.pure(contact),
       kademliaClientRpc,
       KademliaConf(6, 6, 3, 1.second),
-      TransportSecurity.canBeSaved[Task](key, acceptLocal = true))
+      TransportSecurity.canBeSaved[Task](key, acceptLocal = true)
+    )
 
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServer(kad.handleRPC), global))

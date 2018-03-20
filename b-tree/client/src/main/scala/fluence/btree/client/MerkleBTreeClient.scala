@@ -95,7 +95,8 @@ class MerkleBTreeClient[K] private (
             new IllegalStateException(
               s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.mkString(",")}, " +
                 s"${valuesChecksums.mkString(",")})"
-            ))
+            )
+          )
         }
       }
     }
@@ -164,7 +165,8 @@ class MerkleBTreeClient[K] private (
           Task.raiseError(
             new IllegalStateException(
               s"Checksum of leaf didn't pass verifying for key=$key, Leaf(${keys.mkString(",")}, ${keys.mkString(",")})"
-            ))
+            )
+          )
         }
       }
     }
@@ -176,7 +178,8 @@ class MerkleBTreeClient[K] private (
         optDetails ← putDetailsMVar.read
         _ ← {
           logger.debug(
-            s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=$serverMRoot")
+            s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=$serverMRoot"
+          )
 
           optDetails match {
             case Some(details) ⇒
@@ -185,7 +188,8 @@ class MerkleBTreeClient[K] private (
                   Task.raiseError(
                     new IllegalStateException(
                       s"Server 'put response' didn't pass verifying for state=$this, serverMRoot=$serverMRoot"
-                    ))
+                    )
+                  )
                 case Some(newMRoot) ⇒ // all is fine, send Confirm to server
                   newMerkleRoot.put(newMRoot) // TODO: here we have a new merkle root and should sign it with version
               }
@@ -193,7 +197,8 @@ class MerkleBTreeClient[K] private (
               Task.raiseError(
                 new IllegalStateException(
                   s"Client put details isn't defined, it's should be defined at previous step"
-                ))
+                )
+              )
           }
         }
       } yield ()
@@ -303,7 +308,8 @@ class MerkleBTreeClient[K] private (
       Task.raiseError(
         new IllegalStateException(
           s"Checksum of branch didn't pass verifying for key=$key, Branch(${keys.mkString(",")}, ${keys.mkString(",")})"
-        ))
+        )
+      )
     }
   }
 

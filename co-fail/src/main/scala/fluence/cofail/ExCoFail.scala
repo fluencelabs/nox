@@ -67,7 +67,8 @@ object ExCoFail {
     implicit
     ME: MonadError[F, T],
     basis: Lazy[ops.coproduct.Basis[T, TT]],
-    typesNeqEvidence: T =:!= TT): MonadError[F, TT] =
+    typesNeqEvidence: T =:!= TT
+  ): MonadError[F, TT] =
     new MonadError[F, TT] {
       override def flatMap[A, B](fa: F[A])(f: A ⇒ F[B]): F[B] = ME.flatMap(fa)(f)
 
@@ -94,7 +95,8 @@ object ExCoFail {
     implicit
     ME: MonadError[F, T],
     select: Lazy[ops.coproduct.Selector[T, TT]],
-    inject: Lazy[ops.coproduct.Inject[T, TT]]): MonadError[F, TT] =
+    inject: Lazy[ops.coproduct.Inject[T, TT]]
+  ): MonadError[F, TT] =
     new MonadError[F, TT] {
 
       override def flatMap[A, B](fa: F[A])(f: A ⇒ F[B]): F[B] = ME.flatMap(fa)(f)

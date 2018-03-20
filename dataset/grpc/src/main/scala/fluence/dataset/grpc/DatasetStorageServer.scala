@@ -136,7 +136,8 @@ class DatasetStorageServer[F[_]: Async](
                       AskSubmitLeaf(
                         keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
                         valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
-                      ))
+                      )
+                    )
                   )
                   sl ← getReply(_.isSubmitLeaf, _.submitLeaf.get)
                 } yield {
@@ -161,7 +162,8 @@ class DatasetStorageServer[F[_]: Async](
                       AskNextChildIndex(
                         keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
                         childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
-                      ))
+                      )
+                    )
                   )
                   nci ← getReply(_.isNextChildIndex, _.nextChildIndex.get)
                 } yield nci.index
@@ -179,7 +181,8 @@ class DatasetStorageServer[F[_]: Async](
         case Right(value) ⇒
           // if all is ok server should close the stream (is done in ObserverGrpcOps.completeWith) and send value to client
           Async[F].pure(
-            GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
+            GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom))))
+          )
         case Left(clientError: ClientError) ⇒
           logger.warn(s"Client replied with an error=$clientError")
           // when server receive client error, server shouldn't close the stream (is done in ObserverGrpcOps.completeWith) and lift up client error
@@ -247,7 +250,8 @@ class DatasetStorageServer[F[_]: Async](
                       AskSubmitLeaf(
                         keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
                         valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
-                      ))
+                      )
+                    )
                   )
                   sl ← getReply(_.isSubmitLeaf, _.submitLeaf.get)
                 } yield {
@@ -272,7 +276,8 @@ class DatasetStorageServer[F[_]: Async](
                       AskNextChildIndex(
                         keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
                         childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
-                      ))
+                      )
+                    )
                   )
                   nci ← getReply(_.isNextChildIndex, _.nextChildIndex.get)
                 } yield nci.index
@@ -288,7 +293,8 @@ class DatasetStorageServer[F[_]: Async](
       case Right((key, value)) ⇒
         // if all is ok server should send value to client
         Observable.pure(
-          RangeCallback(RangeCallback.Callback.Value(RangeValue(ByteString.copyFrom(key), ByteString.copyFrom(value)))))
+          RangeCallback(RangeCallback.Callback.Value(RangeValue(ByteString.copyFrom(key), ByteString.copyFrom(value))))
+        )
       case Left(clientError: ClientError) ⇒
         logger.warn(s"Client replied with an error=$clientError")
         // if server receive client error server should lift it up
@@ -377,7 +383,8 @@ class DatasetStorageServer[F[_]: Async](
                       AskPutDetails(
                         keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
                         valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
-                      ))
+                      )
+                    )
                   )
                   pd ← getReply(r ⇒ r.isPutDetails && r.putDetails.exists(_.searchResult.isDefined), _.putDetails.get)
                 } yield
@@ -406,7 +413,8 @@ class DatasetStorageServer[F[_]: Async](
                         version = 1, // TODO: pass prevVersion + 1
                         serverMerkleRoot = ByteString.copyFrom(serverMerkleRoot.bytes),
                         splitted = wasSplitting
-                      ))
+                      )
+                    )
                   )
                   _ ← getReply(_.isVerifyChanges, _.verifyChanges.get) // TODO: here we get signature
                 } yield ()
@@ -428,7 +436,8 @@ class DatasetStorageServer[F[_]: Async](
       } yield {
         logger.debug(
           s"Was stored new value=${putValue.show} for client 'put' request for dataset=${did.show}," +
-            s" old value=${oldValue.show} was overwritten")
+            s" old value=${oldValue.show} was overwritten"
+        )
         oldValue
       }
 
@@ -438,7 +447,8 @@ class DatasetStorageServer[F[_]: Async](
         case Right(value) ⇒
           // if all is ok server should close the stream(is done in ObserverGrpcOps.completeWith)  and send value to client
           Async[F].pure(
-            PutCallback(PutCallback.Callback.Value(PreviousValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom)))))
+            PutCallback(PutCallback.Callback.Value(PreviousValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom))))
+          )
         case Left(clientError: ClientError) ⇒
           // when server receive client error, server shouldn't close the stream(is done in ObserverGrpcOps.completeWith)  and lift up client error
           Async[F].raiseError[PutCallback](clientError)

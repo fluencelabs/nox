@@ -94,7 +94,8 @@ object Contact {
     implicit val encodeHeader: Encoder[JwtHeader] = header ⇒
       Json.obj(
         "pk" -> Json.fromString(header.publicKey.value.toBase64(Bases.Alphabets.Base64Url)),
-        "pv" -> Json.fromLong(header.protocolVersion))
+        "pv" -> Json.fromLong(header.protocolVersion)
+    )
 
     implicit val decodeHeader: Decoder[JwtHeader] = c ⇒
       for {

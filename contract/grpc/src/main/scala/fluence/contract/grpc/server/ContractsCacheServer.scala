@@ -43,8 +43,8 @@ class ContractsCacheServer[F[_], C](cache: ContractsCacheRpc[F, C])(
   F: MonadError[F, Throwable],
   codec: Codec[F, C, BasicContract],
   keyK: Kleisli[F, Array[Byte], Key],
-  run: F ~> Future)
-    extends ContractsCacheGrpc.ContractsCache {
+  run: F ~> Future
+) extends ContractsCacheGrpc.ContractsCache {
 
   override def find(request: FindRequest): Future[BasicContract] =
     run(

@@ -48,7 +48,8 @@ import scala.language.{higherKinds, implicitConversions}
 class ContractsCache[F[_], C: ContractRead](
   nodeId: Key,
   storage: KVStore[F, Key, ContractRecord[C]],
-  cacheTtl: FiniteDuration)(implicit ME: MonadError[F, Throwable], checker: SignatureChecker)
+  cacheTtl: FiniteDuration
+)(implicit ME: MonadError[F, Throwable], checker: SignatureChecker)
     extends ContractsCacheRpc[F, C] {
 
   import ContractRead._

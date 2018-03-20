@@ -127,7 +127,8 @@ class ClientDatasetStorage[K, V](
       Observable.raiseError(
         new IllegalArgumentException(
           "Reverse order traversal is not yet supported, range start point should be less or equals than end point"
-        ))
+        )
+      )
     else Observable(())
 
 }

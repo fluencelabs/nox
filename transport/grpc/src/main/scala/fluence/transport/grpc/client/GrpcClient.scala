@@ -93,7 +93,8 @@ class GrpcClient[CL <: HList](
                 method: MethodDescriptor[_, _],
                 attrs: Attributes,
                 appExecutor: Executor,
-                applier: CallCredentials.MetadataApplier): Unit = {
+                applier: CallCredentials.MetadataApplier
+              ): Unit = {
 
                 val setHeaders = (headers: Map[String, String]) ⇒ {
                   logger.trace("Writing metadata: {}", headers)
@@ -116,7 +117,8 @@ class GrpcClient[CL <: HList](
               }
 
               override def thisUsesUnstableApi(): Unit = ()
-            })
+            }
+          )
         )
       }
     )
@@ -148,7 +150,8 @@ object GrpcClient {
   class Builder[CL <: HList] private[GrpcClient] (
     buildStubs: (ManagedChannel, CallOptions) ⇒ CL,
     syncHeaders: Map[String, String],
-    asyncHeaders: IO[Map[String, String]]) {
+    asyncHeaders: IO[Map[String, String]]
+  ) {
     self ⇒
 
     /**
