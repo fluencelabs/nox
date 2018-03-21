@@ -19,11 +19,10 @@ package fluence.contract.node
 
 import java.time.Instant
 
-import cats.MonadError
+import cats.{~>, Monad}
+import cats.effect.IO
 import cats.syntax.applicative._
 import cats.syntax.functor._
-import cats.syntax.applicativeError._
-import cats.syntax.flatMap._
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.ops.ContractRead
 import fluence.contract.protocol.ContractsCacheRpc
@@ -36,21 +35,22 @@ import scala.language.{higherKinds, implicitConversions}
 
 /**
  * Contracts cache.
+ * TODO: we have a number of toIO convertions due to wrong [[KVStore.get]] signature; it should be fixed
  *
  * @param nodeId Current node id, to check participation
  * @param storage     Contracts storage
  * @param checker Signature checker
  * @param cacheTtl    Cache time-to-live
- * @param ME          Monad error
  * @tparam F Effect
  * @tparam C Contract
  */
-class ContractsCache[F[_], C: ContractRead](
+class ContractsCache[F[_]: Monad, C: ContractRead](
   nodeId: Key,
   storage: KVStore[F, Key, ContractRecord[C]],
-  cacheTtl: FiniteDuration
-)(implicit ME: MonadError[F, Throwable], checker: SignatureChecker)
-    extends ContractsCacheRpc[F, C] {
+  cacheTtl: FiniteDuration,
+  toIO: F ~> IO
+)(implicit checker: SignatureChecker)
+    extends ContractsCacheRpc[C] {
 
   import ContractRead._
 
@@ -63,11 +63,10 @@ class ContractsCache[F[_], C: ContractRead](
     !cr.contract.participants.contains(nodeId) &&
       java.time.Duration.between(cr.lastUpdated, Instant.now()).toMillis >= ttlMillis
 
-  private def canBeCached(contract: C): F[Boolean] = {
+  private def canBeCached(contract: C): F[Boolean] =
     if (cacheEnabled && !contract.participants.contains(nodeId))
-      contract.isActiveContract()
+      contract.isActiveContract().value.map(_.contains(true))
     else false.pure[F]
-  }
 
   /**
    * Find a contract in local storage.
@@ -75,20 +74,21 @@ class ContractsCache[F[_], C: ContractRead](
    * @param id Dataset ID
    * @return Optional locally found contract
    */
-  override def find(id: Key): F[Option[C]] = {
-    storage.get(id).attempt.map(_.toOption).flatMap {
+  override def find(id: Key): IO[Option[C]] =
+    toIO(storage.get(id)).attempt.map(_.toOption).flatMap {
       case Some(cr) if isExpired(cr) ⇒
-        storage
-          .remove(id)
-          .map(_ ⇒ None)
+        toIO(
+          storage
+            .remove(id)
+            .map(_ ⇒ None)
+        )
 
       case Some(cr) ⇒
-        cr.contract.isBlankOffer().map { b ⇒
-          if (!b) Some(cr.contract) else None
+        cr.contract.isBlankOffer[IO]().value.map {
+          _.toOption.filter(identity).map(_ ⇒ cr.contract)
         }
-      case None ⇒ Option.empty[C].pure[F]
+      case None ⇒ Option.empty[C].pure[IO]
     }
-  }
 
   /**
    * Ask to add contract to local storage.
@@ -96,26 +96,29 @@ class ContractsCache[F[_], C: ContractRead](
    * @param contract Contract to cache
    * @return If the contract is cached or not
    */
-  override def cache(contract: C): F[Boolean] = {
-    canBeCached(contract).flatMap {
-      case false ⇒ false.pure[F]
+  override def cache(contract: C): IO[Boolean] =
+    toIO(canBeCached(contract)).flatMap {
+      case false ⇒ false.pure[IO]
       case true ⇒
         // We're deciding to cache basing on crypto check, done with canBeCached, and (signed) version number only
         // It allows us to avoid multiplexing network calls with asking to cache stale contracts
-        storage.get(contract.id).attempt.map(_.toOption).flatMap {
+        toIO(storage.get(contract.id)).attempt.map(_.toOption).flatMap {
           case Some(cr) if cr.contract.version < contract.version ⇒ // Contract updated
-            storage
-              .put(contract.id, ContractRecord(contract))
-              .map(_ ⇒ true)
+            toIO(
+              storage
+                .put(contract.id, ContractRecord(contract))
+                .map(_ ⇒ true)
+            )
 
           case Some(_) ⇒ // Can't update contract with an old version
-            false.pure[F]
+            false.pure[IO]
 
           case None ⇒ // Contract is unknown, save it
-            storage
-              .put(contract.id, ContractRecord(contract))
-              .map(_ ⇒ true)
+            toIO(
+              storage
+                .put(contract.id, ContractRecord(contract))
+                .map(_ ⇒ true)
+            )
         }
     }
-  }
 }

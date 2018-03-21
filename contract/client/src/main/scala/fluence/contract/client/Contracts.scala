@@ -43,7 +43,7 @@ trait Contracts[F[_], Contract] {
    */
   def allocate(
     contract: Contract,
-    sealParticipants: Contract ⇒ F[Contract] // TODO: sealing could fail -- e.g. user rejected
+    sealParticipants: Contract ⇒ F[Contract] // TODO: sealing could fail -- e.g. user rejected; make EitherT
   ): EitherT[F, Contracts.AllocateError, Contract]
 
   /**
