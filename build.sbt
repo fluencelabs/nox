@@ -126,9 +126,30 @@ lazy val `kademlia-testkit` = crossProject(JVMPlatform, JSPlatform)
 lazy val `kademlia-testkit-js` = `kademlia-testkit`.js
 lazy val `kademlia-testkit-jvm` = `kademlia-testkit`.jvm
 
-lazy val `kademlia-grpc` = project
+lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
   .in(file("kademlia/grpc"))
-  .dependsOn(`transport-grpc-jvm`, `kademlia-protocol-jvm`, `codec-core-jvm`, `kademlia-testkit-jvm` % Test)
+  .settings(
+    commons,
+    protobuf,
+    PB.protoSources in Compile := Seq(file("kademlia/grpc/src/main/protobuf"))
+  )
+  .jvmSettings(
+    grpc
+  )
+  .jsSettings(
+    fork in Test      := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule,
+    PB.targets in Compile := Seq(
+      scalapb.gen(grpc=false) -> (sourceManaged in Compile).value
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`transport-grpc`, `kademlia-protocol`, `codec-core`, `kademlia-testkit` % Test)
+
+lazy val `kademlia-grpc-js` = `kademlia-grpc`.js
+lazy val `kademlia-grpc-jvm` = `kademlia-grpc`.jvm
 
 lazy val `kademlia-monix` =
   crossProject(JVMPlatform, JSPlatform)
@@ -493,7 +514,7 @@ lazy val `client-grpc` = project
   .in(file("client/grpc"))
   .settings(commons)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`client-core-jvm`, `transport-grpc-jvm`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`)
+  .dependsOn(`client-core-jvm`, `transport-grpc-jvm`, `kademlia-grpc-jvm`, `dataset-grpc`, `contract-grpc`)
 
 lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
