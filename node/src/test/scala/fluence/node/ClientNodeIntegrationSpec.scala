@@ -122,9 +122,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
       "tries joins the Kademlia network via dead node" in {
         runNodes { servers ⇒
-          val exception = servers.head._2.kademlia.join(Seq(dummyContact), 1).failed.taskValue
-          exception shouldBe a[RuntimeException]
-          exception should have message "Can't join any node among known peers"
+          servers.head._2.kademlia.join(Seq(dummyContact), 1).taskValue shouldBe false
         }
       }
 
