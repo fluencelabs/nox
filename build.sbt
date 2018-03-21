@@ -20,7 +20,7 @@ lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
     commons,
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core"   % Cats1V,
-      "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
+      "org.scodec"    %%% "scodec-bits" % ScodecBitsV
     )
   )
   .jsSettings(
@@ -98,13 +98,30 @@ lazy val `kademlia-core` = crossProject(JVMPlatform, JSPlatform)
 lazy val `kademlia-core-js` = `kademlia-core`.js
 lazy val `kademlia-core-jvm` = `kademlia-core`.jvm
 
-lazy val `kademlia-testkit` = project
+lazy val `kademlia-testkit` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
   .in(file("kademlia/testkit"))
-  .dependsOn(`kademlia-core-jvm`)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "io.monix"      %%% "monix"     % MonixV,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+    )
+  )
+  .jsSettings(
+    fork in Test      := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`kademlia-core`)
+
+lazy val `kademlia-testkit-js` = `kademlia-testkit`.js
+lazy val `kademlia-testkit-jvm` = `kademlia-testkit`.jvm
 
 lazy val `kademlia-grpc` = project
   .in(file("kademlia/grpc"))
-  .dependsOn(`transport-grpc`, `kademlia-protocol-jvm`, `codec-core-jvm`, `kademlia-testkit` % Test)
+  .dependsOn(`transport-grpc`, `kademlia-protocol-jvm`, `codec-core-jvm`, `kademlia-testkit-jvm` % Test)
 
 lazy val `kademlia-monix` =
   crossProject(JVMPlatform, JSPlatform)
@@ -406,7 +423,7 @@ lazy val `contract-node` = project
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`contract-core-jvm`, `storage-core-jvm`, `contract-client-jvm` % Test, `kademlia-testkit` % Test)
+  .dependsOn(`contract-core-jvm`, `storage-core-jvm`, `contract-client-jvm` % Test, `kademlia-testkit-jvm` % Test)
 
 lazy val `contract-grpc` = project
   .in(file("contract/grpc"))

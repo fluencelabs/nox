@@ -33,7 +33,7 @@ import scala.language.implicitConversions
  *
  * @param stub GRPC Kademlia Stub
  */
-class KademliaClient(stub: grpc.KademliaGrpc.KademliaStub)(
+class KademliaClient(stub: grpc.KademliaGrpc.Kademlia)(
   implicit
   codec: Codec[IO, protocol.Node[Contact], grpc.Node],
   ec: ExecutionContext
