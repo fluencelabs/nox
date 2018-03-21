@@ -489,7 +489,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
     (
       kademliaClient,
-      new Contracts[Task, BasicContract, Contact](
+      Contracts[Task, Task.Par, BasicContract, Contact](
         maxFindRequests = 10,
         maxAllocateRequests = _ ⇒ 20,
         kademlia = kademliaClient,

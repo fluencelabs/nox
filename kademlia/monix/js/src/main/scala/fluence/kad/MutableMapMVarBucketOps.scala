@@ -27,17 +27,20 @@ import monix.eval.{MVar, Task}
  * @tparam C Node contacts
  */
 class MutableMapMVarBucketOps[C](maxBucketSize: Int) extends Bucket.WriteOps[Task, C] {
-  private val writeState = collection.mutable.Map.empty[Int, MVar[Bucket[C]]]
+  private val writeState = collection.mutable.Map.empty[Int, Task[MVar[Bucket[C]]]]
   private val readState = collection.mutable.Map.empty[Int, Bucket[C]]
 
   import RunOnMVar.runOnMVar
 
   override protected def run[T](bucketId: Int, mod: StateT[Task, Bucket[C], T]): Task[T] =
-    runOnMVar(
-      writeState.getOrElseUpdate(bucketId, MVar(read(bucketId))),
-      mod,
-      readState.update(bucketId, _: Bucket[C])
-    )
+    for {
+      ws <- writeState.getOrElseUpdate(bucketId, MVar(read(bucketId)).memoize)
+      res <- runOnMVar(
+        ws,
+        mod,
+        readState.update(bucketId, _: Bucket[C])
+      )
+    } yield res
 
   override def read(bucketId: Int): Bucket[C] =
     readState.getOrElseUpdate(bucketId, Bucket[C](maxBucketSize))

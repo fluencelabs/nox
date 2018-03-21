@@ -108,12 +108,12 @@ object RoutingTable {
       lookup(key).filter(n ⇒ (n.key |+| key) < (n.key |+| moveAwayFrom))
   }
 
-  implicit class WriteOps[F[_], C](nodeId: Key)(
+  implicit class WriteOps[F[_], G[_], C](nodeId: Key)(
     implicit
     BW: Bucket.WriteOps[F, C],
     SW: Siblings.WriteOps[F, C],
     ME: MonadError[F, Throwable],
-    P: Parallel[F, F]
+    P: Parallel[F, G]
   ) extends slogging.LazyLogging {
 
     /**

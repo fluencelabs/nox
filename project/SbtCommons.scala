@@ -20,8 +20,8 @@ object SbtCommons {
     headerLicense := Some(License.AGPLv3("2017", organizationName.value))
   )
 
-  val Cats1V = "1.0.1"
-  val CatsEffectV = "0.9"
+  val Cats1V = "1.1.0"
+  val CatsEffectV = "0.10"
   val ScodecBitsV = "1.1.5"
   val ScodecCoreV = "1.10.3"
   val RocksDbV = "5.9.2"
@@ -29,12 +29,12 @@ object SbtCommons {
   val FicusV = "1.4.3"
   val MockitoV = "2.13.0"
   val MonocleV = "1.5.0-cats"
-  val CirceV = "0.9.1"
-  val AirflameV = "0.38"
+  val CirceV = "0.9.2"
+  val AirflameV = "0.41"
   val ScalatestV = "3.0.+"
   val SloggingV = "0.6.1"
   val ShapelessV = "2.3.+"
-  val MonixV = "3.0.0-M3"
+  val MonixV = "3.0.0-RC1"
   val FastparseV = "1.0.0"
 
   val slogging = "biz.enef"      %% "slogging"       % SloggingV

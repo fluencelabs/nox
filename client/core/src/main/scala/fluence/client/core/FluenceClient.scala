@@ -44,7 +44,7 @@ import scala.language.higherKinds
 
 class FluenceClient(
   kademlia: Kademlia[Task, Contact],
-  contracts: Contracts[Task, BasicContract, Contact],
+  contracts: Contracts[Task, BasicContract],
   signAlgo: SignAlgo,
   storageRpc: Contact ⇒ DatasetStorageRpc[Task, Observable],
   storageHasher: CryptoHasher[Array[Byte], Array[Byte]]
@@ -224,13 +224,12 @@ object FluenceClient extends slogging.LazyLogging {
    */
   def apply(
     kademliaClient: Kademlia[Task, Contact],
-    contracts: Contracts[Task, BasicContract, Contact],
+    contracts: Contracts[Task, BasicContract],
     storageRpc: Contact ⇒ DatasetStorageRpc[Task, Observable],
     signAlgo: SignAlgo = Ecdsa.signAlgo,
     storageHasher: CryptoHasher[Array[Byte], Array[Byte]]
-  ): FluenceClient = {
+  ): FluenceClient =
     new FluenceClient(kademliaClient, contracts, signAlgo, storageRpc, storageHasher)
-  }
 
   /**
    * Builds FluenceClient with its enclosed services
@@ -260,7 +259,7 @@ object FluenceClient extends slogging.LazyLogging {
     for {
       _ ← kademliaClient.join(seeds, 4).toIO(Scheduler.global)
       _ = logger.info("Creating contracts api...")
-      contracts = new Contracts[Task, BasicContract, Contact](
+      contracts = Contracts[Task, Task.Par, BasicContract, Contact](
         maxFindRequests = 10,
         maxAllocateRequests = _ ⇒ 20,
         kademlia = kademliaClient,

@@ -49,7 +49,7 @@ class RocksDbStore(
   private val dbOptions: Options
 ) extends KVStore[Task, Key, Value] with TraversableKVStore[Observable, Key, Value] with AutoCloseable {
 
-  private val writeMutex = TaskSemaphore(1)
+  private val writeMutex = TaskSemaphore(1).memoize
 
   // todo logging
 
@@ -72,7 +72,7 @@ class RocksDbStore(
    * @param value the value associated with the specified key
    */
   override def put(key: Key, value: Value): Task[Unit] = {
-    writeMutex.greenLight(Task(db.put(key, value)))
+    writeMutex.flatMap(_.greenLight(Task(db.put(key, value))))
   }
 
   /**
@@ -82,7 +82,7 @@ class RocksDbStore(
    * @param key Key to delete within database
    */
   override def remove(key: Key): Task[Unit] = {
-    writeMutex.greenLight(Task(db.delete(key)))
+    writeMutex.flatMap(_.greenLight(Task(db.delete(key))))
   }
 
   /**
