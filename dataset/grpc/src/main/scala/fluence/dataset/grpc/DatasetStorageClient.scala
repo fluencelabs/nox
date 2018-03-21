@@ -51,7 +51,7 @@ class DatasetStorageClient[F[_]: Effect](
 )(implicit sch: Scheduler)
     extends DatasetStorageRpc[F, Observable] with slogging.LazyLogging {
 
-  private def run[A](fa: Task[A]): F[A] = fa.toIO.to[F]
+  private def run[A](fa: Task[A]): F[A] = fa.to[F]
 
   /**
    * Initiates ''Get'' operation in remote MerkleBTree.
@@ -73,16 +73,16 @@ class DatasetStorageClient[F[_]: Effect](
       })
       .multicast
 
-    val clientError = MVar.empty[ClientError]
+    val clientError = MVar.empty[ClientError].memoize
 
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
-    def handleClientErr(err: Throwable): F[GetCallbackReply] = {
+    def handleClientErr(err: Throwable): F[GetCallbackReply] =
       run(
-        clientError
-          .put(ClientError(err.getMessage))
-          .map(_ ⇒ GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage))))
+        for {
+          ce ← clientError
+          _ ← ce.put(ClientError(err.getMessage))
+        } yield GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage)))
       )
-    }
 
     val handleAsks = pullServerAsk.collect { case ask if ask.isDefined && !ask.isValue && !ask.isServerError ⇒ ask } // Collect callbacks
       .mapEval[F, GetCallbackReply] {
@@ -286,16 +286,16 @@ class DatasetStorageClient[F[_]: Effect](
       })
       .multicast
 
-    val clientError = MVar.empty[ClientError]
+    val clientError = MVar.empty[ClientError].memoize
 
     /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
-    def handleClientErr(err: Throwable): F[PutCallbackReply] = {
+    def handleClientErr(err: Throwable): F[PutCallbackReply] =
       run(
-        clientError
-          .put(ClientError(err.getMessage))
-          .map(_ ⇒ PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage))))
+        for {
+          ce ← clientError
+          _ ← ce.put(ClientError(err.getMessage))
+        } yield PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
       )
-    }
 
     val handleAsks = pullServerAsk.collect { case ask if ask.isDefined && !ask.isValue ⇒ ask } // Collect callbacks
       .mapEval[F, PutCallbackReply] {
@@ -410,18 +410,18 @@ class DatasetStorageClient[F[_]: Effect](
 
   /** Returns either client error if present, or server error, or value from server */
   private def composeResult(
-    clientError: MVar[ClientError],
+    clientError: Task[MVar[ClientError]],
     serverErrOrVal: Task[Option[Task[Option[Array[Byte]]]]]
   ): F[Option[Array[Byte]]] =
     run(
       Task.raceMany(
         Seq(
-          clientError.read.flatMap(err ⇒ Task.raiseError(err)), // trying return occurred clients error
+          clientError.flatMap(_.read).flatMap(err ⇒ Task.raiseError(err)), // trying to return occurred clients error
           serverErrOrVal.flatMap {
             // return success result or server error
             case Some(errOrValue) ⇒ errOrValue
             // return occurred clients error
-            case None ⇒ clientError.read.flatMap(err ⇒ Task.raiseError(err))
+            case None ⇒ clientError.flatMap(_.read).flatMap(err ⇒ Task.raiseError(err))
           }
         )
       )

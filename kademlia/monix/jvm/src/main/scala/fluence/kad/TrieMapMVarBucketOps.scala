@@ -29,18 +29,23 @@ import scala.collection.concurrent.TrieMap
  * @tparam C Node contacts
  */
 class TrieMapMVarBucketOps[C](maxBucketSize: Int) extends Bucket.WriteOps[Task, C] {
-  private val writeState = TrieMap.empty[Int, MVar[Bucket[C]]]
+  private val writeState = TrieMap.empty[Int, Task[MVar[Bucket[C]]]]
   private val readState = TrieMap.empty[Int, Bucket[C]]
+
+  private val emptyBucket = Bucket[C](maxBucketSize)
 
   import RunOnMVar.runOnMVar
 
   override protected def run[T](bucketId: Int, mod: StateT[Task, Bucket[C], T]): Task[T] =
-    runOnMVar(
-      writeState.getOrElseUpdate(bucketId, MVar(read(bucketId))),
-      mod,
-      readState.update(bucketId, _: Bucket[C])
-    )
+    for {
+      s <-  writeState.getOrElseUpdate(bucketId, MVar(read(bucketId)).memoize)
+      res <- runOnMVar(
+        s,
+        mod,
+        readState.update(bucketId, _: Bucket[C])
+      )
+    } yield res
 
   override def read(bucketId: Int): Bucket[C] =
-    readState.getOrElseUpdate(bucketId, Bucket[C](maxBucketSize))
+    readState.getOrElseUpdate(bucketId, emptyBucket)
 }

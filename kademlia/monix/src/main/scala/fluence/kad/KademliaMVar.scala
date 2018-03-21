@@ -48,16 +48,19 @@ object KademliaMVar {
     conf: KademliaConf,
     checkNode: Node[C] ⇒ Task[Boolean]
   ): Kademlia[Task, C] =
-    new Kademlia[Task, C](nodeId, conf.parallelism, conf.pingExpiresIn, checkNode)(
+    Kademlia[Task, Task.Par, C](
+      nodeId,
+      conf.parallelism,
+      conf.pingExpiresIn,
+      checkNode,
+      contact.map(c ⇒ Node(nodeId, Instant.now(), c)),
+      rpcForContact
+    )(
       implicitly[MonadError[Task, Throwable]],
-      implicitly[Parallel[Task, Task]],
+      implicitly[Parallel[Task, Task.Par]],
       MVarBucketOps.task[C](conf.maxBucketSize),
       KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
-    ) {
-      override def rpc(contact: C): KademliaRpc[Task, C] = rpcForContact(contact)
-
-      override def ownContact: Task[Node[C]] = contact.map(c ⇒ Node(nodeId, Instant.now(), c))
-    }
+    )
 
   /**
    * Builder for client-side implementation of KademliaMVar
@@ -113,14 +116,17 @@ object KademliaMVar {
   private def siblingsOps[C](nodeId: Key, maxSiblings: Int): Siblings.WriteOps[Task, C] =
     new Siblings.WriteOps[Task, C] {
       private val readState = AtomicAny(Siblings[C](nodeId, maxSiblings))
-      private val writeState = MVar(Siblings[C](nodeId, maxSiblings))
+      private val writeState = MVar(Siblings[C](nodeId, maxSiblings)).memoize
 
       override protected def run[T](mod: StateT[Task, Siblings[C], T]): Task[T] =
-        runOnMVar(
-          writeState,
-          mod,
-          readState.set
-        )
+        for {
+          ws ← writeState
+          res ← runOnMVar(
+            ws,
+            mod,
+            readState.set
+          )
+        } yield res
 
       override def read: Siblings[C] =
         readState.get
