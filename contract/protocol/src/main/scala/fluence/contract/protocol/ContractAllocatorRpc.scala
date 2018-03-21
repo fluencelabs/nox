@@ -17,15 +17,14 @@
 
 package fluence.contract.protocol
 
-import scala.language.higherKinds
+import cats.effect.IO
 
 /**
  * Remotely-accessible interface to negotiate allocation of a dataset contract
  *
- * @tparam F Effect
  * @tparam C Contract
  */
-trait ContractAllocatorRpc[F[_], C] {
+trait ContractAllocatorRpc[C] {
 
   /**
    * Offer a contract. Node should check and preallocate required resources, save offer, and sign it
@@ -33,7 +32,7 @@ trait ContractAllocatorRpc[F[_], C] {
    * @param contract A blank contract
    * @return Signed contract, or F is an error
    */
-  def offer(contract: C): F[C]
+  def offer(contract: C): IO[C]
 
   /**
    * Allocate dataset: store the contract, create storage structures, form cluster
@@ -41,6 +40,6 @@ trait ContractAllocatorRpc[F[_], C] {
    * @param contract A sealed contract with all nodes and client signatures
    * @return Allocated contract
    */
-  def allocate(contract: C): F[C]
+  def allocate(contract: C): IO[C]
 
 }

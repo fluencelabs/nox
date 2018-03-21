@@ -18,20 +18,19 @@
 package fluence.contract.client
 
 import cats.data.EitherT
+import cats.effect.LiftIO
 import cats.instances.list._
-import cats.syntax.applicative._
-import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.show._
-import cats.{Eq, MonadError, Parallel, Show}
+import cats.{Eq, Monad, Parallel, Show}
 import fluence.contract.ops.{ContractRead, ContractWrite}
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
+import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.signature.SignatureChecker
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
 
 import scala.language.higherKinds
-import scala.util.control.NoStackTrace
 
 trait Contracts[F[_], Contract] {
 
@@ -42,14 +41,17 @@ trait Contracts[F[_], Contract] {
    * @param sealParticipants Client's callback to seal list of participants with a signature
    * @return Sealed contract with a list of participants, or failure
    */
-  def allocate(contract: Contract, sealParticipants: Contract ⇒ F[Contract]): F[Contract]
+  def allocate(
+    contract: Contract,
+    sealParticipants: Contract ⇒ F[Contract] // TODO: sealing could fail -- e.g. user rejected
+  ): EitherT[F, Contracts.AllocateError, Contract]
 
   /**
    * Try to find dataset's contract by dataset's kademlia id, or fail.
    *
    * @param key Dataset ID
    */
-  def find(key: Key): F[Contract]
+  def find(key: Key): EitherT[F, Contracts.AllocateError, Contract]
 }
 
 object Contracts {
@@ -65,14 +67,14 @@ object Contracts {
    * @tparam Contract Contract
    * @tparam Contact Kademlia's Contact
    */
-  def apply[F[_], G[_], Contract: ContractRead: ContractWrite, Contact](
+  def apply[F[_]: LiftIO: Monad, G[_], Contract: ContractRead: ContractWrite, Contact](
     maxFindRequests: Int,
     maxAllocateRequests: Int ⇒ Int,
     kademlia: Kademlia[F, Contact],
-    cacheRpc: Contact ⇒ ContractsCacheRpc[F, Contract],
-    allocatorRpc: Contact ⇒ ContractAllocatorRpc[F, Contract]
+    cacheRpc: Contact ⇒ ContractsCacheRpc[Contract],
+    allocatorRpc: Contact ⇒ ContractAllocatorRpc[Contract]
   )(
-    implicit ME: MonadError[F, Throwable],
+    implicit
     eq: Eq[Contract],
     P: Parallel[F, G],
     checker: SignatureChecker,
@@ -82,7 +84,6 @@ object Contracts {
     import ContractRead._
     import ContractWrite._
 
-    // TODO: return error in EitherT, never use .raise nor throw
     /**
      * Search nodes to offer contract, collect participants, allocate dataset on them.
      *
@@ -90,90 +91,106 @@ object Contracts {
      * @param sealParticipants Client's callback to seal list of participants with a signature
      * @return Sealed contract with a list of participants, or failure
      */
-    override def allocate(contract: Contract, sealParticipants: Contract ⇒ F[Contract]): F[Contract] = {
+    override def allocate(
+      contract: Contract,
+      sealParticipants: Contract ⇒ F[Contract]
+    ): EitherT[F, AllocateError, Contract] =
       // Check if contract is already known, return it immediately if it is
       for {
-        _ ← ME.ensure(contract.isBlankOffer())(Contracts.IncorrectOfferContract)(identity)
-        contract ← kademlia
-          .callIterative[Contracts.NotFound.type, Contract](
-            contract.id,
-            nc ⇒
-              EitherT(allocatorRpc(nc.contact).offer(contract).flatMap { c ⇒
-                c.participantSigned(nc.key).map[Either[Contracts.NotFound.type, Contract]] {
-                  case true ⇒ Right(c)
-                  case false ⇒ Left(Contracts.NotFound)
-                }
-              }),
-            contract.participantsRequired,
-            maxAllocateRequests(contract.participantsRequired),
-            isIdempotentFn = false
+        _ ← contract
+          .isBlankOffer[F]()
+          .leftMap(CryptoError)
+          .subflatMap(Either.cond[AllocateError, Unit](_, (), Contracts.IncorrectOfferContract))
+
+        agreements ← EitherT.right[AllocateError](
+          kademlia
+            .callIterative[AllocateError, Contract](
+              contract.id,
+              nc ⇒
+                EitherT(allocatorRpc(nc.contact).offer(contract).attempt.to[F])
+                  .leftMap(_ ⇒ Contracts.NotFound)
+                  .flatMap { c ⇒
+                    c.participantSigned[F](nc.key)
+                      .leftMap(CryptoError)
+                      .subflatMap(Either.cond(_, c, Contracts.NotFound))
+                },
+              contract.participantsRequired,
+              maxAllocateRequests(contract.participantsRequired),
+              isIdempotentFn = false
+            )
+        )
+
+        _ ← EitherT.cond[F](
+          agreements.lengthCompare(contract.participantsRequired) == 0,
+          (),
+          Contracts.CantFindEnoughNodes(agreements.size): AllocateError
+        )
+
+        _ = logger.debug(s"Agreements for contract $contract found. Contacts: ${agreements.map(_._1.contact.show)}")
+
+        contractToSeal ← WriteOps[F, Contract](contract)
+          .addParticipants(agreements.map(_._2))
+          .leftMap[AllocateError](CryptoError)
+
+        sealedContract ← EitherT.right[AllocateError](sealParticipants(contractToSeal)) // TODO: it could fail
+
+        allocated ← EitherT.right[AllocateError](
+          Parallel.parSequence[List, F, G, Contract]( // TODO: failure handling could be incorrect
+            agreements
+              .map(_._1.contact)
+              .map(c ⇒ allocatorRpc(c).allocate(sealedContract).to[F]) // In case any allocation failed, failure will be propagated
+              .toList
           )
-          .flatMap {
-            case agreements if agreements.lengthCompare(contract.participantsRequired) == 0 ⇒
-              logger.debug(s"Agreements for contract $contract found. Contacts: ${agreements.map(_._1.contact.show)}")
-              contract
-                .addParticipants(agreements.map(_._2))
-                .flatMap { contractToSeal ⇒
-                  sealParticipants(contractToSeal)
-                }
-                .flatMap { sealedContract ⇒
-                  Parallel.parSequence[List, F, G, Contract](
-                    agreements
-                      .map(_._1.contact)
-                      .map(c ⇒ allocatorRpc(c).allocate(sealedContract)) // In case any allocation failed, failure will be propagated
-                      .toList
-                  )
-                }
-                .flatMap {
-                  case c :: _ ⇒
-                    c.pure[F]
+        )
 
-                  case Nil ⇒ // Should never happen
-                    ME.raiseError[Contract](Contracts.CantFindEnoughNodes(-1))
-                }
+        finalContract ← EitherT
+          .fromOption[F](allocated.headOption, Contracts.CantFindEnoughNodes(-1): AllocateError) // TODO: this should never fail; however, error message should be descriptive
 
-            case agreements ⇒
-              ME.raiseError[Contract](Contracts.CantFindEnoughNodes(agreements.size))
-          }
-      } yield contract
-    }
+      } yield finalContract
 
     /**
      * Try to find dataset's contract by dataset's kademlia id, or fail.
      *
      * @param key Dataset ID
      */
-    override def find(key: Key): F[Contract] =
+    override def find(key: Key): EitherT[F, AllocateError, Contract] =
       // Try to lookup in the neighborhood
       // TODO: if contract is found "too far" from the neighborhood, ask key's neighbors to cache contract
-      kademlia
-        .callIterative[Contracts.NotFound.type, Contract](
-          key,
-          nc ⇒
-            EitherT(cacheRpc(nc.contact).find(key).map[Either[Contracts.NotFound.type, Contract]] {
-              case Some(v) ⇒ Right(v)
-              case None ⇒ Left(Contracts.NotFound)
-            }),
-          1,
-          maxFindRequests,
-          isIdempotentFn = true
-        )
-        .flatMap {
-          case sq if sq.nonEmpty ⇒
-            // Contract is found; for the case several different versions are returned, find the most recent
-            sq.map(_._2).maxBy(_.version).pure[F]
+      EitherT(
+        kademlia
+          .callIterative[AllocateError, Contract](
+            key,
+            nc ⇒
+              EitherT(cacheRpc(nc.contact).find(key).attempt.to[F].map[Either[AllocateError, Contract]] {
+                case Right(Some(v)) ⇒ Right(v)
+                case _ ⇒ Left(Contracts.NotFound)
+              }),
+            1,
+            maxFindRequests,
+            isIdempotentFn = true
+          )
+          .map {
+            case sq if sq.nonEmpty ⇒
+              // Contract is found; for the case several different versions are returned, find the most recent
+              Right(sq.map(_._2).maxBy(_.version))
 
-          case _ ⇒
-            // Not found -- can't do anything
-            ME.raiseError(Contracts.NotFound)
-        }
+            case _ ⇒
+              // Not found -- can't do anything
+              Left(Contracts.NotFound)
+          }
+      )
 
   }
 
-  case object IncorrectOfferContract extends NoStackTrace
+  sealed trait AllocateError
 
-  case object NotFound extends NoStackTrace
+  // TODO: this wrapper is ugly, but if we want to avoid use of CoFail, what else could we do?
+  case class CryptoError(err: CryptoErr) extends AllocateError
 
-  case class CantFindEnoughNodes(nodesFound: Int) extends NoStackTrace
+  case object IncorrectOfferContract extends AllocateError
+
+  case object NotFound extends AllocateError
+
+  case class CantFindEnoughNodes(nodesFound: Int) extends AllocateError
 
 }
