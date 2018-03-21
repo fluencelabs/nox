@@ -21,7 +21,7 @@ import java.time.Instant
 
 import cats.{~>, Applicative, Monad, Parallel}
 import cats.data.StateT
-import fluence.kad.RoutingTable._
+import cats.effect.{IO, LiftIO}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import monix.eval.Coeval
 import monix.execution.atomic.Atomic
@@ -43,6 +43,10 @@ class RoutingTableSpec extends WordSpec with Matchers {
     k.value.toLong()
   }
 
+  implicit object liftCoeval extends LiftIO[Coeval] {
+    override def liftIO[A](ioa: IO[A]): Coeval[A] = Coeval(ioa.unsafeRunSync())
+  }
+
   private val pingDuration = Duration.Undefined
 
   private def now = Instant.now()
@@ -62,22 +66,22 @@ class RoutingTableSpec extends WordSpec with Matchers {
     }
 
     val failLocalRPC = (_: Long) ⇒
-      new KademliaRpc[Coeval, Long] {
-        override def ping() = Coeval.raiseError(new NoSuchElementException)
+      new KademliaRpc[Long] {
+        override def ping() = IO.raiseError(new NoSuchElementException)
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
         override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
     }
 
     val successLocalRPC = (c: Long) ⇒
-      new KademliaRpc[Coeval, Long] {
-        override def ping() = Coeval(Node(c, now, c))
+      new KademliaRpc[Long] {
+        override def ping() = IO(Node(c, now, c))
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
         override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
     }
 
-    val checkNode: Node[Long] ⇒ Coeval[Boolean] = _ ⇒ Coeval(true)
+    val checkNode: Node[Long] ⇒ IO[Boolean] = _ ⇒ IO(true)
 
     def bucketOps(maxBucketSize: Int): Bucket.WriteOps[Coeval, Long] =
       new Bucket.WriteOps[Coeval, Long] {
@@ -119,9 +123,10 @@ class RoutingTableSpec extends WordSpec with Matchers {
       val nodeId: Key = 0l
       implicit val bo = bucketOps(2)
       implicit val so = siblingsOps(nodeId, 2)
+      val rt = new RoutingTable[Long](nodeId)
 
-      nodeId.find(0l) shouldBe empty
-      nodeId.lookup(0l) shouldBe empty
+      rt.find(0l) shouldBe empty
+      rt.lookup(0l) shouldBe empty
     }
 
     "find nodes correctly" in {
@@ -129,30 +134,31 @@ class RoutingTableSpec extends WordSpec with Matchers {
       val nodeId: Key = 0l
       implicit val bo = bucketOps(2)
       implicit val so = siblingsOps(nodeId, 2)
+      val rt = new RoutingTable[Long](nodeId)
 
       (1l to 5l).foreach { i ⇒
-        nodeId.update(Node(i, now, i), failLocalRPC, pingDuration, checkNode).run
+        rt.update[Coeval](Node(i, now, i), failLocalRPC, pingDuration, checkNode).run
         (1l to i).foreach { n ⇒
-          nodeId.find(n) shouldBe defined
+          rt.find(n) shouldBe defined
         }
       }
 
-      nodeId.find(4l) shouldBe defined
+      rt.find(4l) shouldBe defined
 
-      nodeId.update(Node(6l, now, 6l), failLocalRPC, pingDuration, checkNode).value shouldBe true
+      rt.update[Coeval](Node(6l, now, 6l), failLocalRPC, pingDuration, checkNode).value shouldBe true
 
-      nodeId.find(4l) shouldBe empty
-      nodeId.find(6l) shouldBe defined
+      rt.find(4l) shouldBe empty
+      rt.find(6l) shouldBe defined
 
-      nodeId.update(Node(4l, now, 4l), successLocalRPC, pingDuration, checkNode).value shouldBe false
+      rt.update[Coeval](Node(4l, now, 4l), successLocalRPC, pingDuration, checkNode).value shouldBe false
 
-      nodeId.find(4l) shouldBe empty
-      nodeId.find(6l) shouldBe defined
+      rt.find(4l) shouldBe empty
+      rt.find(6l) shouldBe defined
 
-      nodeId.update(Node(4l, now, 4l), failLocalRPC, pingDuration, checkNode).value shouldBe true
+      rt.update[Coeval](Node(4l, now, 4l), failLocalRPC, pingDuration, checkNode).value shouldBe true
 
-      nodeId.find(4l) shouldBe defined
-      nodeId.find(6l) shouldBe empty
+      rt.find(4l) shouldBe defined
+      rt.find(6l) shouldBe empty
 
       so.read.nodes.toList.map(_.contact) shouldBe List(1l, 2l)
 
@@ -162,20 +168,21 @@ class RoutingTableSpec extends WordSpec with Matchers {
       val nodeId: Key = 0l
       implicit val bo = bucketOps(2)
       implicit val so = siblingsOps(nodeId, 10)
+      val rt = new RoutingTable[Long](nodeId)
 
       (1l to 10l).foreach { i ⇒
-        nodeId.update(Node(i, now, i), successLocalRPC, pingDuration, checkNode).run
+        rt.update[Coeval](Node(i, now, i), successLocalRPC, pingDuration, checkNode).run
       }
 
-      val nbs10 = nodeId.lookup(100l)
+      val nbs10 = rt.lookup(100l)
       nbs10.size should be >= 7
 
       (1l to 127l).foreach { i ⇒
-        nodeId.update(Node(i, now, i), successLocalRPC, pingDuration, checkNode).run
+        rt.update[Coeval](Node(i, now, i), successLocalRPC, pingDuration, checkNode).run
       }
 
       (1l to 127l).foreach { i ⇒
-        nodeId.lookup(i).size should be >= 10
+        rt.lookup(i).size should be >= 10
       }
 
       so.read.nodes.toList.map(_.contact) shouldBe (1l to 10l).toList

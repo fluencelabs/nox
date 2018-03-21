@@ -17,6 +17,7 @@
 
 package fluence.contract.client
 
+import cats.data.EitherT
 import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
@@ -94,14 +95,15 @@ object Contracts {
       for {
         _ ← ME.ensure(contract.isBlankOffer())(Contracts.IncorrectOfferContract)(identity)
         contract ← kademlia
-          .callIterative[Contract](
+          .callIterative[Contracts.NotFound.type, Contract](
             contract.id,
             nc ⇒
-              allocatorRpc(nc.contact).offer(contract).flatMap { c ⇒
-                ME.ensure(c.participantSigned(nc.key))(Contracts.NotFound)(identity) map { _ ⇒
-                  c
+              EitherT(allocatorRpc(nc.contact).offer(contract).flatMap { c ⇒
+                c.participantSigned(nc.key).map[Either[Contracts.NotFound.type, Contract]] {
+                  case true ⇒ Right(c)
+                  case false ⇒ Left(Contracts.NotFound)
                 }
-            },
+              }),
             contract.participantsRequired,
             maxAllocateRequests(contract.participantsRequired),
             isIdempotentFn = false
@@ -145,13 +147,13 @@ object Contracts {
       // Try to lookup in the neighborhood
       // TODO: if contract is found "too far" from the neighborhood, ask key's neighbors to cache contract
       kademlia
-        .callIterative[Contract](
+        .callIterative[Contracts.NotFound.type, Contract](
           key,
           nc ⇒
-            cacheRpc(nc.contact).find(key).flatMap {
-              case Some(v) ⇒ v.pure[F]
-              case None ⇒ ME.raiseError(Contracts.NotFound)
-          },
+            EitherT(cacheRpc(nc.contact).find(key).map[Either[Contracts.NotFound.type, Contract]] {
+              case Some(v) ⇒ Right(v)
+              case None ⇒ Left(Contracts.NotFound)
+            }),
           1,
           maxFindRequests,
           isIdempotentFn = true

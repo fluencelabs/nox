@@ -18,10 +18,10 @@
 package fluence.kad
 
 import cats.data.StateT
-import cats.syntax.applicativeError._
+import cats.effect.LiftIO
 import cats.syntax.eq._
 import cats.syntax.applicative._
-import cats.{MonadError, Show}
+import cats.{Monad, Show}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 
 import scala.collection.immutable.Queue
@@ -91,12 +91,13 @@ object Bucket {
    *
    * @param node Contact to check and update
    * @param rpc    Ping function
-   * @param ME      Monad error for StateT effect
    * @tparam F StateT effect
    * @return updated Bucket, and true if bucket was updated with this node, false if it wasn't
    */
-  def update[F[_], C](node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration)(
-    implicit ME: MonadError[F, Throwable]
+  def update[F[_]: LiftIO: Monad, C](
+    node: Node[C],
+    rpc: C ⇒ KademliaRpc[C],
+    pingExpiresIn: Duration
   ): StateT[F, Bucket[C], Boolean] = {
     StateT.get[F, Bucket[C]].flatMap { b ⇒
       b.find(node.key) match {
@@ -119,7 +120,7 @@ object Bucket {
 
             // Ping last contact.
             // If it responds, enqueue it and drop the new node, otherwise, drop it and enqueue new one
-            StateT.liftF(rpc(last.contact).ping().attempt).flatMap {
+            StateT.liftF(rpc(last.contact).ping().attempt.to[F]).flatMap {
               case Left(_) ⇒
                 StateT.set(b.copy(nodes = nodes.enqueue(node))).map(_ ⇒ true)
               case Right(updatedLastContact) ⇒
@@ -175,11 +176,11 @@ object Bucket {
      * @param node Fresh node
      * @param rpc RPC caller for Kademlia functions
      * @param pingExpiresIn Duration for the ping to be considered relevant
-     * @param ME Monad error instance for the effect
      * @return True if node is updated in a bucket, false otherwise
      */
-    def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration)(
-      implicit ME: MonadError[F, Throwable]
+    def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRpc[C], pingExpiresIn: Duration)(
+      implicit liftIO: LiftIO[F],
+      F: Monad[F]
     ): F[Boolean] =
       if (read(bucketId).shouldUpdate(node, pingExpiresIn)) {
         run(bucketId, Bucket.update(node, rpc, pingExpiresIn))

@@ -12,26 +12,6 @@ commons
 
 enablePlugins(AutomateHeaderPlugin)
 
-lazy val `co-fail` = crossProject(JVMPlatform, JSPlatform)
-  .withoutSuffixFor(JVMPlatform)
-  .crossType(FluenceCrossType)
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % Cats1V,
-      "com.chuusai"   %%% "shapeless" % ShapelessV,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test
-    )
-  )
-  .enablePlugins(AutomateHeaderPlugin)
-
-lazy val `co-fail-jvm` = `co-fail`.jvm
-
-lazy val `co-fail-js` = `co-fail`.js
-  .settings(
-    fork in Test := false
-  )
-
 lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
@@ -77,6 +57,7 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
       "io.circe"      %%% "circe-core"   % CirceV,
       "io.circe"      %%% "circe-parser" % CirceV,
       "org.typelevel" %%% "cats-core"    % Cats1V,
+      "org.typelevel" %%% "cats-effect" % CatsEffectV,
       "org.scalatest" %%% "scalatest"    % ScalatestV % Test
     )
   )

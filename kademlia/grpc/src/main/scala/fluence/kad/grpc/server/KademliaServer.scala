@@ -17,10 +17,8 @@
 
 package fluence.kad.grpc.server
 
-import cats.syntax.functor._
+import cats.effect.IO
 import cats.instances.stream._
-import cats.{~>, MonadError}
-import cats.syntax.flatMap._
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.kad.grpc._
@@ -29,37 +27,33 @@ import fluence.kad.protocol.{Contact, KademliaRpc, Key}
 import fluence.codec.pb.ProtobufCodecs._
 
 import scala.concurrent.Future
-import scala.language.{higherKinds, implicitConversions}
+import scala.language.implicitConversions
 
 // TODO: cover with tests
-class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(
+class KademliaServer(kademlia: KademliaRpc[Contact])(
   implicit
-  F: MonadError[F, Throwable],
-  codec: Codec[F, protocol.Node[Contact], Node],
-  run: F ~> Future
+  codec: Codec[IO, protocol.Node[Contact], Node]
 ) extends KademliaGrpc.Kademlia {
 
-  private val streamCodec = Codec.codec[F, Stream[protocol.Node[Contact]], Stream[Node]]
+  private val streamCodec = Codec.codec[IO, Stream[protocol.Node[Contact]], Stream[Node]]
 
-  private val keyCodec = Codec.codec[F, Key, ByteString]
+  private val keyCodec = Codec.codec[IO, Key, ByteString]
 
   override def ping(request: PingRequest): Future[Node] =
-    run(
-      kademlia.ping().flatMap(codec.encode)
-    )
+    kademlia.ping().flatMap(codec.encode).unsafeToFuture()
 
   override def lookup(request: LookupRequest): Future[NodesResponse] =
-    run(
+    (
       for {
         key ← keyCodec.decode(request.key)
         ns ← kademlia
           .lookup(key, request.numberOfNodes)
         resp ← streamCodec.encode(ns.toStream)
       } yield NodesResponse(resp)
-    )
+    ).unsafeToFuture()
 
   override def lookupAway(request: LookupAwayRequest): Future[NodesResponse] =
-    run(
+    (
       for {
         key ← keyCodec.decode(request.key)
         moveAwayKey ← keyCodec.decode(request.moveAwayFrom)
@@ -67,6 +61,6 @@ class KademliaServer[F[_]](kademlia: KademliaRpc[F, Contact])(
           .lookupAway(key, moveAwayKey, request.numberOfNodes)
         resp ← streamCodec.encode(ns.toStream)
       } yield NodesResponse(resp)
-    )
+    ).unsafeToFuture()
 
 }

@@ -50,7 +50,7 @@ object NodeComposer {
     contact: Contact,
     algo: SignAlgo,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    kadClient: Contact ⇒ KademliaRpc[Task, Contact],
+    kadClient: Contact ⇒ KademliaRpc[Contact],
     config: Config,
     acceptLocal: Boolean
   ): IO[Services] =
@@ -73,10 +73,10 @@ object NodeComposer {
 
         override lazy val kademlia: Kademlia[Task, Contact] = KademliaMVar(
           k,
-          Task.now(contact),
+          IO.pure(contact),
           kadClient,
           kadConf,
-          TransportSecurity.canBeSaved[Task](k, acceptLocal = acceptLocal)
+          TransportSecurity.canBeSaved[IO](k, acceptLocal = acceptLocal)
         )
 
         override lazy val contractsCache: ContractsCacheRpc[Task, BasicContract] =

@@ -20,10 +20,11 @@ package fluence.kad
 import java.time.Instant
 
 import cats.data.StateT
+import cats.effect.IO
 import cats.kernel.Monoid
-import cats.{MonadError, Parallel}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import monix.eval.{MVar, Task}
+import monix.execution.Scheduler
 import monix.execution.atomic.AtomicAny
 
 import scala.language.implicitConversions
@@ -43,11 +44,14 @@ object KademliaMVar {
    */
   def apply[C](
     nodeId: Key,
-    contact: Task[C],
-    rpcForContact: C ⇒ KademliaRpc[Task, C],
+    contact: IO[C],
+    rpcForContact: C ⇒ KademliaRpc[C],
     conf: KademliaConf,
-    checkNode: Node[C] ⇒ Task[Boolean]
-  ): Kademlia[Task, C] =
+    checkNode: Node[C] ⇒ IO[Boolean]
+  ): Kademlia[Task, C] = {
+    implicit val bucketOps: Bucket.WriteOps[Task, C] = MVarBucketOps.task[C](conf.maxBucketSize)
+    implicit val siblingOps: Siblings.WriteOps[Task, C] = KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
+
     Kademlia[Task, Task.Par, C](
       nodeId,
       conf.parallelism,
@@ -55,12 +59,8 @@ object KademliaMVar {
       checkNode,
       contact.map(c ⇒ Node(nodeId, Instant.now(), c)),
       rpcForContact
-    )(
-      implicitly[MonadError[Task, Throwable]],
-      implicitly[Parallel[Task, Task.Par]],
-      MVarBucketOps.task[C](conf.maxBucketSize),
-      KademliaMVar.siblingsOps(nodeId, conf.maxSiblingsSize)
     )
+  }
 
   /**
    * Builder for client-side implementation of KademliaMVar
@@ -71,13 +71,13 @@ object KademliaMVar {
    * @tparam C Contact info
    */
   def client[C](
-    rpc: C ⇒ KademliaRpc[Task, C],
+    rpc: C ⇒ KademliaRpc[C],
     conf: KademliaConf,
-    checkNode: Node[C] ⇒ Task[Boolean]
+    checkNode: Node[C] ⇒ IO[Boolean]
   ): Kademlia[Task, C] =
     apply[C](
       Monoid.empty[Key],
-      Task.raiseError(new IllegalStateException("Client may not have a Contact")),
+      IO.raiseError(new IllegalStateException("Client may not have a Contact")),
       rpc,
       conf,
       checkNode

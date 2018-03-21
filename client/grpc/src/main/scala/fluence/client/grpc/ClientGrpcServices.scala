@@ -47,7 +47,7 @@ object ClientGrpcServices {
     import fluence.kad.grpc.KademliaNodeCodec.{codec ⇒ nodeCodec}
 
     val client = builder
-      .add(KademliaClient.register[F]())
+      .add(KademliaClient.register())
       .add(ContractsCacheClient.register[F, BasicContract]())
       .add(ContractAllocatorClient.register[F, BasicContract]())
       .add(DatasetStorageClient.register[F]())
@@ -55,8 +55,8 @@ object ClientGrpcServices {
 
     contact ⇒
       new ClientServices[F, BasicContract, Contact] {
-        override def kademlia: KademliaRpc[F, Contact] =
-          client.service[KademliaRpc[F, Contact]](contact)
+        override def kademlia: KademliaRpc[Contact] =
+          client.service[KademliaRpc[Contact]](contact)
 
         override def contractsCache: ContractsCacheRpc[F, BasicContract] =
           client.service[ContractsCacheRpc[F, BasicContract]](contact)
