@@ -128,7 +128,7 @@ lazy val `kademlia-testkit-jvm` = `kademlia-testkit`.jvm
 
 lazy val `kademlia-grpc` = project
   .in(file("kademlia/grpc"))
-  .dependsOn(`transport-grpc`, `kademlia-protocol-jvm`, `codec-core-jvm`, `kademlia-testkit-jvm` % Test)
+  .dependsOn(`transport-grpc-jvm`, `kademlia-protocol-jvm`, `codec-core-jvm`, `kademlia-testkit-jvm` % Test)
 
 lazy val `kademlia-monix` =
   crossProject(JVMPlatform, JSPlatform)
@@ -152,9 +152,34 @@ lazy val `kademlia-monix` =
 lazy val `kademlia-monix-js` = `kademlia-monix`.js
 lazy val `kademlia-monix-jvm` = `kademlia-monix`.jvm
 
-lazy val `transport-grpc` = project
+lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
   .in(file("transport/grpc"))
-  .dependsOn(`transport-core-jvm`, `codec-protobuf-jvm`)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "com.chuusai"   %%% "shapeless"   % ShapelessV,
+      "biz.enef"      %%% "slogging"    % SloggingV,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+    )
+  )
+  .jvmSettings(
+    grpc,
+    libraryDependencies ++= Seq(
+      typeSafeConfig,
+      ficus
+    )
+  )
+  .jsSettings(
+    fork in Test      := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`transport-core`, `codec-protobuf`)
+
+lazy val `transport-grpc-js` = `transport-grpc`.js
+lazy val `transport-grpc-jvm` = `transport-grpc`.jvm
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -356,7 +381,7 @@ lazy val `dataset-protocol-js` = `dataset-protocol`.js
 
 lazy val `dataset-grpc` = project
   .in(file("dataset/grpc"))
-  .dependsOn(`dataset-client-jvm`, `transport-grpc`)
+  .dependsOn(`dataset-client-jvm`, `transport-grpc-jvm`)
 
 lazy val `dataset-client` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -442,7 +467,7 @@ lazy val `contract-grpc` = project
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`contract-core-jvm`, `transport-grpc`)
+  .dependsOn(`contract-core-jvm`, `transport-grpc-jvm`)
 
 lazy val `client-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -468,7 +493,7 @@ lazy val `client-grpc` = project
   .in(file("client/grpc"))
   .settings(commons)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`client-core-jvm`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`)
+  .dependsOn(`client-core-jvm`, `transport-grpc-jvm`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`)
 
 lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
