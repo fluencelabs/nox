@@ -21,6 +21,7 @@ import java.io.IOException
 import java.net.ServerSocket
 
 import cats.data.EitherT
+import cats.effect.IO
 import cats.instances.option._
 import cats.kernel.Monoid
 import cats.~>
@@ -153,8 +154,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val client = ClientGrpcServices.build[Task](GrpcClient.builder)
         val kadClient = client(dummyContact).kademlia
 
-        val result = kadClient.ping().failed.taskValue
-        result shouldBe a[StatusRuntimeException]
+        val result = kadClient.ping().attempt.unsafeRunSync()
+        result.left.get shouldBe a[StatusRuntimeException]
         // todo there should be more describable exception appears like NetworkException or TimeoutException with cause
       }
 
@@ -476,13 +477,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     checkOrder(fromMidNRecords)
   }
 
-  private def createClientApi[T <: HList](
+  private def createClientApi(
     seedContact: Contact,
     client: Contact ⇒ ClientServices[Task, BasicContract, Contact]
   ) = {
     val conf = KademliaConf(100, 10, 2, 5.seconds)
     val clKey = Monoid.empty[Key]
-    val check = TransportSecurity.canBeSaved[Task](clKey, acceptLocal = true)
+    val check = TransportSecurity.canBeSaved[IO](clKey, acceptLocal = true)
     val kademliaRpc = client(_: Contact).kademlia
     val kademliaClient = KademliaMVar.client(kademliaRpc, conf, check)
 

@@ -22,6 +22,7 @@ import java.time.Instant
 
 import cats.syntax.show._
 import cats.Show
+import cats.data.EitherT
 import fluence.kad.protocol.{Key, Node}
 import fluence.kad.testkit.TestKademlia
 import monix.eval.Coeval
@@ -112,9 +113,9 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       val counter = AtomicInt(0)
 
       kad
-        .callIterative(
+        .callIterative[Throwable, Unit](
           nodes.last._1,
-          _ ⇒ Coeval(counter.increment()).flatMap(_ ⇒ Coeval.raiseError(new NoSuchElementException())),
+          _ ⇒ EitherT(Coeval(counter.increment()).map[Either[Throwable, Unit]](_ ⇒ Left(new NoSuchElementException()))),
           K min P,
           K max P max (N / 3)
         )
@@ -130,9 +131,9 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       val numToFind = K min P
 
       kad
-        .callIterative(
+        .callIterative[Throwable, Unit](
           nodes.last._1,
-          _ ⇒ Coeval(counter.increment()),
+          _ ⇒ EitherT.rightT[Coeval, Throwable](counter.increment()),
           K min P,
           K max P max (N / 3),
           isIdempotentFn = true
@@ -151,9 +152,9 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       val numToFind = K min P
 
       kad
-        .callIterative(
+        .callIterative[Throwable, Unit](
           nodes.last._1,
-          _ ⇒ Coeval(counter.increment()),
+          _ ⇒ EitherT.rightT[Coeval, Throwable](counter.increment()),
           K min P,
           K max P max (N / 3),
           isIdempotentFn = false

@@ -17,11 +17,12 @@
 
 package fluence.kad
 
+import cats.data.EitherT
+import cats.effect.{IO, LiftIO}
 import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.eq._
-import cats.{MonadError, Parallel}
-import fluence.kad.RoutingTable._
+import cats.{Monad, Parallel}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import slogging.LazyLogging
 
@@ -42,7 +43,7 @@ trait Kademlia[F[_], C] {
    * @param contact Description on how to connect to remote node
    * @return
    */
-  def rpc(contact: C): KademliaRpc[F, C]
+  def rpc(contact: C): KademliaRpc[C]
 
   /**
    * How to promote this node to others
@@ -60,7 +61,7 @@ trait Kademlia[F[_], C] {
   /**
    * @return KademliaRPC instance to handle incoming RPC requests
    */
-  def handleRPC: KademliaRpc[F, C]
+  def handleRPC: KademliaRpc[C]
 
   /**
    * Finds a node by its key, either in a local RoutingTable or doing up to ''maxRequests'' lookup calls
@@ -71,7 +72,7 @@ trait Kademlia[F[_], C] {
   def findNode(key: Key, maxRequests: Int): F[Option[Node[C]]]
 
   /**
-   * Perform iterative lookup, see [[RoutingTable.WriteOps.lookupIterative]]
+   * Perform iterative lookup, see [[RoutingTable.lookupIterative]]
    *
    * @param key Key to lookup
    * @return key's neighborhood
@@ -80,7 +81,7 @@ trait Kademlia[F[_], C] {
 
   /**
    * Performs lookupIterative for a key, and then callIterative for neighborhood.
-   * See [[RoutingTable.WriteOps.callIterative]]
+   * See [[RoutingTable.callIterative]]
    *
    * @param key            Key to call function near
    * @param fn             Function to call
@@ -90,9 +91,9 @@ trait Kademlia[F[_], C] {
    * @tparam A fn call type
    * @return Sequence of nodes with corresponding successful replies, should be >= numToCollect in case of success
    */
-  def callIterative[A](
+  def callIterative[E, A](
     key: Key,
-    fn: Node[C] ⇒ F[A],
+    fn: Node[C] ⇒ EitherT[F, E, A],
     numToCollect: Int,
     maxNumOfCalls: Int,
     isIdempotentFn: Boolean = true
@@ -102,9 +103,9 @@ trait Kademlia[F[_], C] {
    * Joins the Kademlia network by a list of known peers. Fails if no join operations performed successfully
    *
    * @param peers Peers contact info
-   * @return
+   * @return Whether joined or not
    */
-  def join(peers: Seq[C], numberOfNodes: Int): F[Unit]
+  def join(peers: Seq[C], numberOfNodes: Int): F[Boolean]
 }
 
 object Kademlia {
@@ -124,18 +125,21 @@ object Kademlia {
     nodeIdK: Key,
     parallelism: Int,
     pingExpiresIn: Duration,
-    checkNode: Node[C] ⇒ F[Boolean],
-    ownContactGetter: F[Node[C]],
-    kademliaRpc: C ⇒ KademliaRpc[F, C]
+    checkNode: Node[C] ⇒ IO[Boolean],
+    ownContactGetter: IO[Node[C]],
+    kademliaRpc: C ⇒ KademliaRpc[C]
   )(
-    implicit F: MonadError[F, Throwable],
+    implicit F: Monad[F],
+    LI: LiftIO[F],
     P: Parallel[F, G],
     BW: Bucket.WriteOps[F, C],
     SW: Siblings.WriteOps[F, C]
   ): Kademlia[F, C] = new Kademlia[F, C] {
     self ⇒
 
-    override val nodeId = nodeIdK
+    val routingTable = new RoutingTable[C](nodeIdK)
+
+    override val nodeId: Key = nodeIdK
 
     /**
      * Returns a network wrapper around a contact C, allowing querying it with Kademlia protocol
@@ -143,12 +147,12 @@ object Kademlia {
      * @param contact Description on how to connect to remote node
      * @return
      */
-    override def rpc(contact: C): KademliaRpc[F, C] = kademliaRpc(contact)
+    override def rpc(contact: C): KademliaRpc[C] = kademliaRpc(contact)
 
     /**
      * How to promote this node to others
      */
-    override val ownContact: F[Node[C]] = ownContactGetter
+    override val ownContact: F[Node[C]] = ownContactGetter.to[F]
 
     /**
      * Update RoutingTable with a freshly seen node
@@ -157,21 +161,21 @@ object Kademlia {
      * @return true if node is present in routing table after update, false if it's dropped
      */
     override def update(node: Node[C]): F[Boolean] =
-      nodeId.update(node, rpc, pingExpiresIn, checkNode)
+      routingTable.update(node, rpc, pingExpiresIn, checkNode)
 
     /**
      * @return KademliaRPC instance to handle incoming RPC requests
      */
-    override val handleRPC: KademliaRpc[F, C] = new KademliaRpc[F, C] with LazyLogging {
+    override val handleRPC: KademliaRpc[C] = new KademliaRpc[C] with LazyLogging {
 
       /**
        * Respond for a ping with node's own contact data
        *
        * @return
        */
-      override def ping(): F[Node[C]] = {
+      override def ping(): IO[Node[C]] = {
         logger.trace(s"HandleRPC($nodeId): ping")
-        ownContact
+        ownContactGetter
       }
 
       /**
@@ -181,9 +185,12 @@ object Kademlia {
        * @param numberOfNodes How many nodes to return (upper bound)
        * @return locally known neighborhood
        */
-      override def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] = {
-        logger.trace(s"HandleRPC($nodeId): lookup($key, $numberOfNodes)")
-      }.pure[F].map(_ ⇒ nodeId.lookup(key).take(numberOfNodes))
+      override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[C]]] =
+        IO {
+          logger.trace(s"HandleRPC($nodeId): lookup($key, $numberOfNodes)")
+
+          routingTable.lookup(key).take(numberOfNodes)
+        }
 
       /**
        * Perform a lookup in local RoutingTable for a key,
@@ -192,15 +199,14 @@ object Kademlia {
        * @param key           Key to lookup
        * @param numberOfNodes How many nodes to return (upper bound)
        */
-      override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[C]]] = {
-        logger.trace(s"HandleRPC($nodeId): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
-      }.pure[F]
-        .map(
-          _ ⇒
-            nodeId
-              .lookupAway(key, moveAwayFrom)
-              .take(numberOfNodes)
-        )
+      override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): IO[Seq[Node[C]]] =
+        IO {
+          logger.trace(s"HandleRPC($nodeId): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
+
+          routingTable
+            .lookupAway(key, moveAwayFrom)
+            .take(numberOfNodes)
+        }
     }
 
     /**
@@ -210,32 +216,32 @@ object Kademlia {
      * @param maxRequests Max number of remote requests
      */
     override def findNode(key: Key, maxRequests: Int): F[Option[Node[C]]] =
-      nodeId.find(key) match {
+      routingTable.find(key) match {
         case found @ Some(_) ⇒ (found: Option[Node[C]]).pure[F]
 
         case None ⇒
-          callIterative(
+          callIterative[Throwable, Unit](
             key,
             n ⇒
-              if (n.key === key) F.pure(())
-              else F.raiseError[Unit](new RuntimeException("Mismatching node") with NoStackTrace),
+              if (n.key === key) EitherT.rightT(())
+              else EitherT.leftT(new RuntimeException("Mismatching node") with NoStackTrace),
             numToCollect = 1,
             maxNumOfCalls = maxRequests
           ).map(_.headOption.map(_._1))
       }
 
     /**
-     * Perform iterative lookup, see [[RoutingTable.WriteOps.lookupIterative]]
+     * Perform iterative lookup, see [[RoutingTable.lookupIterative]]
      *
      * @param key Key to lookup
      * @return key's neighborhood
      */
     override def lookupIterative(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
-      nodeId.lookupIterative(key, numberOfNodes, parallelism, rpc, pingExpiresIn, checkNode)
+      routingTable.lookupIterative(key, numberOfNodes, parallelism, rpc, pingExpiresIn, checkNode)
 
     /**
      * Performs lookupIterative for a key, and then callIterative for neighborhood.
-     * See [[RoutingTable.WriteOps.callIterative]]
+     * See [[RoutingTable.callIterative]]
      *
      * @param key            Key to call function near
      * @param fn             Function to call
@@ -245,14 +251,14 @@ object Kademlia {
      * @tparam A fn call type
      * @return Sequence of nodes with corresponding successful replies, should be >= numToCollect in case of success
      */
-    override def callIterative[A](
+    override def callIterative[E, A](
       key: Key,
-      fn: Node[C] ⇒ F[A],
+      fn: Node[C] ⇒ EitherT[F, E, A],
       numToCollect: Int,
       maxNumOfCalls: Int,
       isIdempotentFn: Boolean = true
     ): F[Seq[(Node[C], A)]] =
-      nodeId
+      routingTable
         .callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn, rpc, pingExpiresIn, checkNode)
         .map(_.toSeq)
 
@@ -262,8 +268,8 @@ object Kademlia {
      * @param peers Peers contact info
      * @return
      */
-    override def join(peers: Seq[C], numberOfNodes: Int): F[Unit] =
-      nodeId.join(peers, rpc, pingExpiresIn, numberOfNodes, checkNode, parallelism)
+    override def join(peers: Seq[C], numberOfNodes: Int): F[Boolean] =
+      routingTable.join(peers, rpc, pingExpiresIn, numberOfNodes, checkNode, parallelism).value.map(_.isRight)
   }
 
 }

@@ -85,7 +85,7 @@ object NodeGrpc {
       import keyC.inverse
 
       serverBuilder
-        .add(KademliaGrpc.bindService(new KademliaServer[Task](kademlia.handleRPC), ec))
+        .add(KademliaGrpc.bindService(new KademliaServer(kademlia.handleRPC), ec))
         .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsCache), ec))
         .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractAllocator), ec))
         .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), ec))
