@@ -84,10 +84,12 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
         )
 
       case Some(cr) ⇒
-        cr.contract.isBlankOffer[IO]().value.map {
-          _.toOption.filter(identity).map(_ ⇒ cr.contract)
-        }
-      case None ⇒ Option.empty[C].pure[IO]
+        for {
+          ibo ← cr.contract.isBlankOffer[IO]().value
+        } yield Option(cr.contract).filter(_ ⇒ ibo.contains(false))
+
+      case None ⇒
+        Option.empty[C].pure[IO]
     }
 
   /**

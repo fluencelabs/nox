@@ -96,14 +96,21 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
 
   private def putContract(contract: C): EitherT[F, Throwable, C] =
     for {
-      z ← EitherT(
+      _ ← EitherT(
         checkAllocationPossible(contract)
           .map(p ⇒ Either.cond(p, p, new RuntimeException("Allocation is not possible")))
       )
-      _ ← EitherT.rightT[F, Throwable](storage.put(contract.id, ContractRecord(contract)))
+      _ ← EitherT.right[Throwable](storage.put(contract.id, ContractRecord(contract)))
       created ← EitherT.right[Throwable](createDataset(contract))
+
       // TODO: error should be returned as value
-      _ ← if (created) EitherT.rightT[F, Throwable](()) else EitherT.right[Throwable](storage.remove(contract.id))
+      _ ← if (created) EitherT.rightT[F, Throwable](())
+      else
+        EitherT
+          .right[Throwable](storage.remove(contract.id))
+          .subflatMap(_ ⇒ Left(new RuntimeException("Creation is not possible")))
+
+      _ ← EitherT.right[Throwable](storage.get(contract.id).map(_.contract))
     } yield contract
 
   private def eitherFail(check: EitherT[IO, CryptoErr, Boolean], msg: String): IO[Unit] =
@@ -141,6 +148,7 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
           eitherFail(cr.contract.isBlankOffer(), "Different contract is already stored for this ID").flatMap { _ ⇒
             if (cr.contract =!= contract) {
               // contract preallocated for id, but it's changed now
+              logger.debug("preallocated, but changed")
               for {
                 _ ← toIO(storage.remove(contract.id))
                 ap ← toIO(checkAllocationPossible(contract))

@@ -57,7 +57,6 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   val checkAllocationPossible: BasicContract ⇒ IO[Boolean] =
     c ⇒
       IO {
-        println("possible? " + c.executionState + Console.RED + (c.executionState.version == 0) + Console.RESET)
         c.executionState.version == 0
     }
 

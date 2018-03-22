@@ -163,7 +163,7 @@ object Contracts {
             nc ⇒
               EitherT(cacheRpc(nc.contact).find(key).attempt.to[F].map[Either[AllocateError, Contract]] {
                 case Right(Some(v)) ⇒ Right(v)
-                case _ ⇒ Left(Contracts.NotFound)
+                case o ⇒ Left(Contracts.NotFound)
               }),
             1,
             maxFindRequests,

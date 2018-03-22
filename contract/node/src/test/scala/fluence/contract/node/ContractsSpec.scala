@@ -139,10 +139,19 @@ class ContractsSpec extends WordSpec with Matchers {
           .allocate(contract, dc ⇒ WriteOps[Coeval, BasicContract](dc).sealParticipants(signer).leftMap(_.errorMessage))
           .value
           .map(_.right.get)
+          .value
 
-      allocated.value.participants.size shouldBe 1
+      allocated.id shouldBe contract.id
 
-      network.head._2.allocator.find(contract.id).value.value shouldBe allocated.value
+      allocated.participants.size shouldBe 1
+
+      val participants = allocated.participants.keySet
+
+      network.values.filter(n ⇒ participants(n.kademlia.nodeId)).foreach {
+        _.cacheRpc.find(contract.id).unsafeRunSync() shouldBe defined
+      }
+
+      network.head._2.allocator.find(contract.id).value.value.right.get shouldBe allocated
     }
 
     "place a contract on 5 nodes" in {
@@ -157,10 +166,11 @@ class ContractsSpec extends WordSpec with Matchers {
           .allocate(contract, dc ⇒ WriteOps[Coeval, BasicContract](dc).sealParticipants(signer).leftMap(_.errorMessage))
           .value
           .map(_.right.get)
+          .value
 
-      allocated.value.participants.size shouldBe 5
+      allocated.participants.size shouldBe 5
 
-      network.head._2.allocator.find(contract.id).value shouldBe allocated
+      network.head._2.allocator.find(contract.id).value.value.right.get shouldBe allocated
     }
 
     "reject unsealed contracts" in {
