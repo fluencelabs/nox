@@ -194,7 +194,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           offer.checkOfferSeal[Task]().etaskValue shouldBe true
 
           val result =
-            contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer).value.map(_.right.get)).value.taskValue
+            contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer).leftMap(_.errorMessage)).value.taskValue
           result.left.get shouldBe Contracts.CantFindEnoughNodes(10)
         }
       }
@@ -216,7 +216,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signerBad).taskValue
           offer.checkOfferSeal[Task]().etaskValue shouldBe false
           val result = contractsApi
-            .allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signerValid).value.map(_.right.get))
+            .allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signerValid).leftMap(_.errorMessage))
             .value
             .taskValue
             .left.get
@@ -290,7 +290,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val (_, contractsApi) = createClientApi(seedContact, client)
 
         val acceptedContract =
-          contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer).value.map(_.right.get)).etaskValue
+          contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer).leftMap(_.errorMessage)).etaskValue
 
         acceptedContract.participants.size shouldBe 4
         contractsApi.find(kadKey).etaskValue shouldBe acceptedContract

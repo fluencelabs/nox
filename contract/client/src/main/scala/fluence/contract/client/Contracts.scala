@@ -43,7 +43,7 @@ trait Contracts[F[_], Contract] {
    */
   def allocate(
     contract: Contract,
-    sealParticipants: Contract ⇒ F[Contract] // TODO: sealing could fail -- e.g. user rejected; make EitherT
+    sealParticipants: Contract ⇒ EitherT[F, String, Contract]
   ): EitherT[F, Contracts.AllocateError, Contract]
 
   /**
@@ -93,7 +93,7 @@ object Contracts {
      */
     override def allocate(
       contract: Contract,
-      sealParticipants: Contract ⇒ F[Contract]
+      sealParticipants: Contract ⇒ EitherT[F, String, Contract]
     ): EitherT[F, AllocateError, Contract] =
       // Check if contract is already known, return it immediately if it is
       for {
@@ -132,7 +132,7 @@ object Contracts {
           .addParticipants(agreements.map(_._2))
           .leftMap[AllocateError](CryptoError)
 
-        sealedContract ← EitherT.right[AllocateError](sealParticipants(contractToSeal)) // TODO: it could fail
+        sealedContract ← sealParticipants(contractToSeal).leftMap[AllocateError](ClientError)
 
         allocated ← EitherT.right[AllocateError](
           Parallel.parSequence[List, F, G, Contract]( // TODO: failure handling could be incorrect
@@ -192,5 +192,7 @@ object Contracts {
   case object NotFound extends AllocateError
 
   case class CantFindEnoughNodes(nodesFound: Int) extends AllocateError
+
+  case class ClientError(message: String) extends AllocateError
 
 }

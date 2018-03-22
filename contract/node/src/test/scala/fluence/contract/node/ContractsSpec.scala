@@ -136,12 +136,13 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val allocated =
         network.head._2.allocator
-          .allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).value.get).map(_.right.get))
+          .allocate(contract, dc ⇒ WriteOps[Coeval, BasicContract](dc).sealParticipants(signer).leftMap(_.errorMessage))
           .value
+          .map(_.right.get)
 
-      allocated.value.right.get.participants.size shouldBe 1
+      allocated.value.participants.size shouldBe 1
 
-      network.head._2.allocator.find(contract.id).value shouldBe allocated
+      network.head._2.allocator.find(contract.id).value.value shouldBe allocated.value
     }
 
     "place a contract on 5 nodes" in {
@@ -153,10 +154,11 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val allocated =
         network.head._2.allocator
-          .allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).value.get).map(_.right.get))
+          .allocate(contract, dc ⇒ WriteOps[Coeval, BasicContract](dc).sealParticipants(signer).leftMap(_.errorMessage))
           .value
+          .map(_.right.get)
 
-      allocated.value.right.get.participants.size shouldBe 5
+      allocated.value.participants.size shouldBe 5
 
       network.head._2.allocator.find(contract.id).value shouldBe allocated
     }
@@ -170,7 +172,7 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val allocated =
         network.head._2.allocator
-          .allocate(contract, dc ⇒ Coeval.eval(dc.sealParticipants(signer).value.get).map(_.right.get))
+          .allocate(contract, dc ⇒ WriteOps[Coeval, BasicContract](dc).sealParticipants(signer).leftMap(_.errorMessage))
           .value
           .attempt
           .value

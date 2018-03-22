@@ -136,14 +136,11 @@ class FluenceClient(
       newContract ← contracts
         .allocate(
           offer,
-          // TODO: refactor this to EitherT
           dc ⇒
             WriteOps[Task, BasicContract](dc)
               .sealParticipants(signer)
-              .value
-              .map(v ⇒ Try(v.right.get))
-              .flatMap(Task.fromTry)
-        ) // TODO: refactor this to EitherT as well
+              .leftMap(_.errorMessage)
+        ) // TODO: refactor this to EitherT
         .value
         .flatMap(v ⇒ Task(v.right.get))
 
