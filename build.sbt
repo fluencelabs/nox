@@ -139,16 +139,24 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
     grpc
   )
   .jsSettings(
-    fork in Test      := false,
+    npmDependencies in Compile ++= Seq(
+      "google-protobuf" -> "3.5.0",
+      "@types/google-protobuf" -> "3.2.7",
+      "grpc-web-client" -> "0.5.0"
+    ),
     scalaJSModuleKind := ModuleKind.CommonJSModule,
+    //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
+    skip in packageJSDependencies := false,
+    fork in Test                  := false,
     PB.targets in Compile := Seq(
       scalapb.gen(grpc=false) -> (sourceManaged in Compile).value
-    )
+    ),
+    scalaJSUseMainModuleInitializer := true
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`transport-grpc`, `kademlia-protocol`, `codec-core`, `kademlia-testkit` % Test)
 
-lazy val `kademlia-grpc-js` = `kademlia-grpc`.js
+lazy val `kademlia-grpc-js` = `kademlia-grpc`.js.enablePlugins(ScalaJSBundlerPlugin)
 lazy val `kademlia-grpc-jvm` = `kademlia-grpc`.jvm
 
 lazy val `kademlia-monix` =
