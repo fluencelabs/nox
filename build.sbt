@@ -132,7 +132,6 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
   .in(file("kademlia/grpc"))
   .settings(
     commons,
-    protobuf,
     PB.protoSources in Compile := Seq(file("kademlia/grpc/src/main/protobuf"))
   )
   .jvmSettings(
@@ -160,9 +159,6 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies := false,
     fork in Test                  := false,
-    PB.targets in Compile := Seq(
-      scalapb.gen(grpc=false) -> (sourceManaged in Compile).value
-    ),
     scalaJSUseMainModuleInitializer := true
   )
   .enablePlugins(AutomateHeaderPlugin)
