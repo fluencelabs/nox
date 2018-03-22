@@ -2,9 +2,11 @@ syntax = "proto3";
 
 package fluence.dataset;
 
-message DatasetId {
-    // Kademlia key of the contract
+message DatasetInfo {
+    // datset id - acctually kademlia key of the contract
     bytes id = 1;
+    // expected dataset version
+    int64 version = 2;
 }
 
 // BtreeCallback
@@ -41,8 +43,8 @@ message Error {
 // GET: Client replies
 message GetCallbackReply {
     oneof reply {
-        // sends dataset id
-        DatasetId datasetId = 1;
+        // sends dataset info (id and version)
+        DatasetInfo datasetInfo = 1;
 
         // sends index of search key in branch
         ReplyNextChildIndex nextChildIndex = 10;
@@ -79,8 +81,8 @@ message RangeValue {
 // RANGE: Client replies
 message RangeCallbackReply {
     oneof reply {
-        // sends dataset id
-        DatasetId datasetId = 1;
+        // sends dataset info (id and version)
+        DatasetInfo datasetInfo = 1;
 
         // sends index of search key in branch
         ReplyNextChildIndex nextChildIndex = 10;
@@ -128,7 +130,6 @@ message ReplyPutDetails {
 message AskVerifyChanges {
     bytes serverMerkleRoot = 1;
     bool splitted = 2;
-    int64 version = 3;
 }
 
 message ReplyVerifyChanges {
@@ -152,8 +153,8 @@ message PutValue {
 // PUT: Client replies
 message PutCallbackReply {
     oneof reply {
-        // sends dataset id
-        DatasetId datasetId = 1;
+        // sends dataset info (id and version)
+        DatasetInfo datasetInfo = 1;
         // sends value for puttig
         PutValue value = 2;
 

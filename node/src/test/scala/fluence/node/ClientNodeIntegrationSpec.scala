@@ -234,15 +234,15 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
           val getResponse = datasetStorage.get("request key").failed.taskValue
           getResponse shouldBe a[ServerError]
-          getResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
+          getResponse.getMessage should startWith("Can't create DatasetNodeStorage for Dataset(id=")
 
           val putResponse = datasetStorage.put("key", "value").failed.taskValue
           putResponse shouldBe a[ServerError]
-          putResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
+          putResponse.getMessage should startWith("Can't create DatasetNodeStorage for Dataset(id=")
 
           val rangeResponse = datasetStorage.range("1 start key", "2 end key").failed.headL.taskValue
           rangeResponse shouldBe a[ServerError]
-          rangeResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
+          rangeResponse.getMessage should startWith("Can't create DatasetNodeStorage for Dataset(id=")
 
         }
       }
@@ -508,11 +508,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private def createDatasetStorage(
     datasetId: Array[Byte],
     grpc: DatasetStorageRpc[Task, Observable],
-    merkleRoot: Option[Array[Byte]] = None
+    merkleRoot: Option[Array[Byte]] = None,
+    version: Long = 0L
   ): ClientDatasetStorage[String, String] = {
     val value1: Option[ClientState] = merkleRoot.map(mr ⇒ ClientState(ByteVector(mr)))
     ClientDatasetStorage(
       datasetId,
+      version,
       testHasher,
       grpc,
       keyCrypt,

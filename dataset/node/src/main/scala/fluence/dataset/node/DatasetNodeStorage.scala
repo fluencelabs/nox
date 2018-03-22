@@ -47,14 +47,14 @@ import scala.language.higherKinds
  * @param kVStore               Blob storage for persisting encrypted values.
  * @param merkleRootCalculator Merkle root calculator (temp? will be deleted in future)
  * @param valueIdGenerator     Generator which creates surrogate id for new value when putting to dataset store.
- * @param onMRChange            Callback that will be called when merkle root change
+ * @param onDatasetChange      Callback that will be called when dataset change
  */
 class DatasetNodeStorage private[node] (
   bTreeIndex: MerkleBTree,
   kVStore: KVStore[Task, ValueRef, Array[Byte]],
   merkleRootCalculator: MerkleRootCalculator,
   valueIdGenerator: () ⇒ ValueRef,
-  onMRChange: ByteVector ⇒ Task[Unit]
+  onDatasetChange: (ByteVector, Long) ⇒ Task[Unit]
 ) {
 
   /**
@@ -86,11 +86,13 @@ class DatasetNodeStorage private[node] (
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.
    *
-   * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param version      Dataset version expected to the client
+   * @param putCallbacks Wrapper for all callback needed for ''Put'' operation to the BTree.
    * @param encryptedValue Encrypted value.
    * @return returns old value if old value was overridden, None otherwise.
    */
   def put(
+    version: Long,
     putCallbacks: PutCallbacks[Task],
     encryptedValue: Array[Byte]
   ): Task[Option[Array[Byte]]] = {
@@ -105,7 +107,7 @@ class DatasetNodeStorage private[node] (
       // save new blob to kvStore
       _ ← kVStore.put(valRef, encryptedValue)
       updatedMR ← bTreeIndex.getMerkleRoot
-      _ ← onMRChange(ByteVector(updatedMR.bytes))
+      _ ← onDatasetChange(ByteVector(updatedMR.bytes), version)
     } yield oldVal
 
     // todo end transaction, revert all changes if error appears
@@ -115,10 +117,14 @@ class DatasetNodeStorage private[node] (
   /**
    * Initiates ''Remove'' operation in remote MerkleBTree.
    *
+   * @param version      Dataset version expected to the client
    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
    * @return returns old value that was deleted, None if nothing was deleted.
    */
-  def remove(removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
+  def remove(
+    version: Long,
+    removeCallbacks: BTreeRpc.RemoveCallback[Task]
+  ): Task[Option[Array[Byte]]] = {
 
     // todo start transaction
 
@@ -136,15 +142,17 @@ object DatasetNodeStorage {
    * Dataset node storage (node side).
    *
    * @param datasetId Some describable name of this dataset, should be unique.
+   * @param rocksFactory RocksDb factory for getting registered instance of RocksDb
+   * @param config  Global typeSafe config for node
    * @param cryptoHasher Hash service uses for calculating checksums.
-   * @return
+   * @param onDatasetChange Callback that will be called when dataset change
    */
   def apply[F[_]](
     datasetId: String,
     rocksFactory: RocksDbStore.Factory,
     config: Config,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    onMRChange: ByteVector ⇒ Task[Unit]
+    onDatasetChange: (ByteVector, Long) ⇒ Task[Unit]
   )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[DatasetNodeStorage] = {
     import Codec.identityCodec
 
@@ -166,7 +174,7 @@ object DatasetNodeStorage {
         KVStore.transform(rocksDb),
         MerkleRootCalculator(wrappedHasher),
         idSeqProvider,
-        onMRChange
+        onDatasetChange
       )
     }
 

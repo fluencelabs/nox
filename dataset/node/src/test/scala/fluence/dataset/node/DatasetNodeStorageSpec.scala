@@ -41,7 +41,7 @@ class DatasetNodeStorageSpec
   private val mrCalc = mock[MerkleRootCalculator]
 
   private val valGen = () ⇒ 5L
-  private val onMRChange: ByteVector ⇒ Task[Unit] = b ⇒ Task(())
+  private val onMRChange: (ByteVector, Long) ⇒ Task[Unit] = (mr, ver) ⇒ Task(())
 
   private val key1 = "k1".toKey
   private val key2 = "k2".toKey
@@ -184,7 +184,7 @@ class DatasetNodeStorageSpec
 
         val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
-        val result = store.put(put, expValue1).failed.runAsync.futureValue
+        val result = store.put(10L, put, expValue1).failed.runAsync.futureValue
         result shouldBe someError
       }
 
@@ -201,7 +201,7 @@ class DatasetNodeStorageSpec
 
         val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
-        val result = store.put(put, expValue1).failed.runAsync.futureValue
+        val result = store.put(10L, put, expValue1).failed.runAsync.futureValue
         result shouldBe someError
       }
 
@@ -219,7 +219,7 @@ class DatasetNodeStorageSpec
 
         val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
-        val result = store.put(put, expValue1).failed.runAsync.futureValue
+        val result = store.put(10L, put, expValue1).failed.runAsync.futureValue
         result shouldBe someError
       }
     }
@@ -240,7 +240,7 @@ class DatasetNodeStorageSpec
 
       val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
-      val result = store.put(put, expValue1).runAsync.futureValue
+      val result = store.put(10L, put, expValue1).runAsync.futureValue
       result shouldBe None
     }
 
@@ -261,7 +261,7 @@ class DatasetNodeStorageSpec
 
       val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
-      val result = store.put(put, expValue1).runAsync.futureValue
+      val result = store.put(10L, put, expValue1).runAsync.futureValue
       result.get shouldBe oldValue
     }
 

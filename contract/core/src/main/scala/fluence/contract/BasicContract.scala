@@ -40,6 +40,7 @@ import scala.language.higherKinds
  * @param executionState          State of the contract that changes over time, e.g. when merkle root changes
  * @param executionSeal Client's signature for executionState
  */
+// todo add publicKey of contract owner into the contract
 case class BasicContract(
   id: Key,
   offer: BasicContract.Offer,
@@ -53,29 +54,27 @@ case class BasicContract(
 object BasicContract {
 
   case class Offer(participantsRequired: Int) {
-    lazy val getBytes: ByteVector = {
-      val buffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
-
-      buffer.putInt(participantsRequired)
-
-      ByteVector(buffer.array())
-    }
+    lazy val getBytes: ByteVector = ByteVector.fromInt(participantsRequired)
   }
 
-  case class ExecutionState(
-    version: Long,
-    merkleRoot: ByteVector
-  )
+  case class ExecutionState(version: Long, merkleRoot: ByteVector) {
+    lazy val getBytes: ByteVector = ByteVector.fromLong(version) ++ merkleRoot
+  }
 
   def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(
     implicit F: MonadError[F, Throwable]
   ): F[BasicContract] = {
     val offer = Offer(participantsRequired)
-    signer
-      .sign(offer.getBytes)
-      .map(BasicContract(id, offer, _, Map.empty, None, ExecutionState(0, ByteVector.empty), None))
-      .value
-      .flatMap(F.fromEither)
+    val execState = ExecutionState(0, ByteVector.empty)
+
+    val newContract = for {
+      offerSeal ← signer.sign(offer.getBytes)
+      execStateSeal ← signer.sign(execState.getBytes)
+    } yield {
+      BasicContract(id, offer, offerSeal, Map.empty, None, execState, Some(execStateSeal))
+    }
+
+    newContract.value.flatMap(F.fromEither)
   }
 
   // TODO: there should be contract laws, like "init empty - not signed -- sign offer -- signed, no participants -- add participant -- ..."

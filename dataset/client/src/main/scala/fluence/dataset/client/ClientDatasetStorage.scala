@@ -17,6 +17,7 @@
 
 package fluence.dataset.client
 
+import cats.effect.IO
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.client.{MerkleBTreeClient, MerkleBTreeClientApi}
 import fluence.btree.core.Hash
@@ -24,26 +25,29 @@ import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.dataset.protocol.DatasetStorageRpc
 import monix.eval.Task
+import monix.execution.atomic.Atomic
 import monix.reactive.Observable
-import Ordered._
 
+import Ordered._
 import scala.language.higherKinds
 
 //todo datasetId - kademlia key
 /**
  * Dataset storage that allows save and retrieve some value by key from remote dataset.
  *
- * @param datasetId   Dataset ID
- * @param bTreeIndex  An interface to dataset index.
- * @param storageRpc  Remotely-accessible interface to all dataset storage operation.
- * @param valueCrypt  Encrypting/decrypting provider for ''Value''
- * @param hasher      Hash provider
+ * @param datasetId Dataset ID
+ * @param datasetStartVer Dataset version at the moment of creating this storage
+ * @param bTreeIndex An interface to dataset index.
+ * @param storageRpc Remotely-accessible interface to all dataset storage operation.
+ * @param valueCrypt Encrypting/decrypting provider for ''Value''
+ * @param hasher     Hash provider
  *
  * @tparam K The type of keys
  * @tparam V The type of stored values
  */
 class ClientDatasetStorage[K, V](
   datasetId: Array[Byte],
+  datasetStartVer: Long,
   bTreeIndex: MerkleBTreeClientApi[Task, K],
   storageRpc: DatasetStorageRpc[Task, Observable],
   keyCrypt: Crypt[Task, K, Array[Byte]],
@@ -52,10 +56,13 @@ class ClientDatasetStorage[K, V](
 )(implicit ord: Ordering[K])
     extends ClientDatasetStorageApi[Task, Observable, K, V] with slogging.LazyLogging {
 
+  private val datasetVer = IO.pure(Atomic(datasetStartVer))
+
   override def get(key: K): Task[Option[V]] =
     for {
       getCallbacks ← bTreeIndex.initGet(key)
-      serverResponse ← storageRpc.get(datasetId, getCallbacks).doOnFinish { _ ⇒
+      version ← Task.fromIO(datasetVer).map(_.get)
+      serverResponse ← storageRpc.get(datasetId, version, getCallbacks).doOnFinish { _ ⇒
         getCallbacks.recoverState()
       }
 
@@ -66,8 +73,9 @@ class ClientDatasetStorage[K, V](
     for {
       _ ← validateRange(from, to)
       rangeCallbacks ← Observable.fromTask(bTreeIndex.initRange(from))
+      version ← Observable.fromIO(datasetVer).map(_.get)
       pair ← storageRpc
-        .range(datasetId, rangeCallbacks)
+        .range(datasetId, version, rangeCallbacks)
         .doAfterTerminateTask { _ ⇒
           rangeCallbacks.recoverState()
         }
@@ -98,8 +106,9 @@ class ClientDatasetStorage[K, V](
       encValue ← valueCrypt.encrypt(value)
       encValueHash ← Task(hasher.hash(encValue))
       putCallbacks ← bTreeIndex.initPut(key, encValueHash)
+      version ← Task.fromIO(datasetVer).map(_.get)
       serverResponse ← storageRpc
-        .put(datasetId, putCallbacks, encValue)
+        .put(datasetId, version, putCallbacks, encValue)
         .doOnFinish {
           // in error case we should return old value of clientState back
           case Some(e) ⇒ putCallbacks.recoverState()
@@ -107,13 +116,16 @@ class ClientDatasetStorage[K, V](
         }
 
       resp ← decryptOption(serverResponse)
+      _ ← Task.fromIO(datasetVer).map(_.increment())
     } yield resp
 
   override def remove(key: K): Task[Option[V]] =
     for {
       removeCmd ← bTreeIndex.initRemove(key)
-      serverResponse ← storageRpc.remove(datasetId, removeCmd)
+      version ← Task.fromIO(datasetVer).map(_.get)
+      serverResponse ← storageRpc.remove(datasetId, version, removeCmd)
       resp ← decryptOption(serverResponse)
+      _ ← Task.fromIO(datasetVer).map(_.increment())
     } yield resp
 
   private def decryptOption(response: Option[Array[Byte]]): Task[Option[V]] =
@@ -138,12 +150,13 @@ object ClientDatasetStorage {
   /**
    * Creates Dataset storage that allows save and retrieve some value by key from remote dataset.
    *
-   * @param datasetId   Dataset ID
-   * @param hasher      Hash provider
-   * @param storageRpc  Remotely-accessible interface to all dataset storage operation.
-   * @param keyCrypt    Encrypting/decrypting provider for ''key''
-   * @param valueCrypt  Encrypting/decrypting provider for ''Value''
-   * @param clientState  Initial client state, includes merkle root for dataset. For new dataset should be ''None''
+   * @param datasetId Dataset ID
+   * @param datasetStartVer Dataset version at the moment of creating this storage
+   * @param hasher Hash provider
+   * @param storageRpc Remotely-accessible interface to all dataset storage operation.
+   * @param keyCrypt Encrypting/decrypting provider for ''key''
+   * @param valueCrypt Encrypting/decrypting provider for ''Value''
+   * @param clientState Initial client state, includes merkle root for dataset. For new dataset should be ''None''
    *
    * @param ord         The ordering to be used to compare keys.
    *
@@ -152,6 +165,7 @@ object ClientDatasetStorage {
    */
   def apply[K, V](
     datasetId: Array[Byte],
+    datasetStartVer: Long,
     hasher: CryptoHasher[Array[Byte], Array[Byte]],
     storageRpc: DatasetStorageRpc[Task, Observable],
     keyCrypt: Crypt[Task, K, Array[Byte]],
@@ -162,6 +176,15 @@ object ClientDatasetStorage {
     val wrappedHasher = hasher.map(Hash(_))
 
     val bTreeIndex = MerkleBTreeClient(clientState, keyCrypt, wrappedHasher)
-    new ClientDatasetStorage[K, V](datasetId, bTreeIndex, storageRpc, keyCrypt, valueCrypt, wrappedHasher)
+    new ClientDatasetStorage[K, V](
+      datasetId,
+      datasetStartVer,
+      bTreeIndex,
+      storageRpc,
+      keyCrypt,
+      valueCrypt,
+      wrappedHasher
+    )
   }
+
 }
