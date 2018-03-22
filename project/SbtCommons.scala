@@ -72,14 +72,14 @@ object SbtCommons {
       scalapb.gen() -> (sourceManaged in Compile).value
     ),
     libraryDependencies ++= Seq(
-      "com.trueaccord.scalapb" %%% "scalapb-runtime" % com.trueaccord.scalapb.compiler.Version.scalapbVersion % "protobuf"
+      "com.thesamet.scalapb" %%% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf"
     )
   )
 
   val grpc = protobuf ++ Seq(
     libraryDependencies ++= Seq(
-      "io.grpc"                % "grpc-netty"            % com.trueaccord.scalapb.compiler.Version.grpcJavaVersion,
-      "com.trueaccord.scalapb" %% "scalapb-runtime-grpc" % com.trueaccord.scalapb.compiler.Version.scalapbVersion
+      "io.grpc"              % "grpc-netty"            % scalapb.compiler.Version.grpcJavaVersion,
+      "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion
     )
   )
   val chill = "com.twitter" %% "chill" % "0.9.2"
