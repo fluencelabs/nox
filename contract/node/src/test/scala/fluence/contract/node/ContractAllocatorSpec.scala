@@ -55,7 +55,11 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   }
 
   val checkAllocationPossible: BasicContract ⇒ IO[Boolean] =
-    c ⇒ IO(c.executionState.version == 0)
+    c ⇒
+      IO {
+        println("possible? " + c.executionState + Console.RED + (c.executionState.version == 0) + Console.RESET)
+        c.executionState.version == 0
+    }
 
   val store: KVStore[IO, Key, ContractRecord[BasicContract]] =
     TrieMapKVStore()
@@ -96,7 +100,9 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       val contract = offer("should reject").copy(
         executionState = BasicContract.ExecutionState(version = -1, merkleRoot = ByteVector.empty)
       )
-      allocator.offer(contract).attempt.unsafeRunSync().isLeft shouldBe true
+      val result = allocator.offer(contract).attempt.unsafeRunSync()
+
+      result.isLeft shouldBe true
     }
 
     "accept offer (idempotently)" in {
@@ -131,7 +137,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       val contract = offer("should accept, but not return")
       val accepted = allocator.offer(contract).unsafeRunSync()
 
-      cache.find(accepted.id).unsafeRunSync() should be('empty)
+      cache.find(accepted.id).unsafeRunSync() shouldBe empty
     }
 
     "reject allocation when not in the list of participants" in {

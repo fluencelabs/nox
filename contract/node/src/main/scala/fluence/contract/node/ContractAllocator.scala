@@ -19,7 +19,6 @@ package fluence.contract.node
 
 import cats.data.EitherT
 import cats.effect.IO
-import cats.syntax.applicative._
 import cats.syntax.eq._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -73,17 +72,21 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
         contract.participantSigned(nodeId),
         "Contract should be offered to this node and signed by it prior to allocation"
       )
+
       _ ← eitherFail(contract.isActiveContract(), "Contract should be active -- sealed by client")
 
-      contract ← toIO(storage.get(contract.id)).attempt.map(_.toOption).flatMap {
-        case Some(cr) ⇒
-          cr.contract.isBlankOffer[IO]().value.map(_.contains(true)).flatMap {
-            case false ⇒ cr.contract.pure[IO]
-            case true ⇒ toIO(storage.remove(contract.id).flatMap(_ ⇒ putContract(contract)))
-          }
-        case None ⇒
-          toIO(putContract(contract))
-      }
+      contract ← toIO(storage.get(contract.id)).attempt
+        .map(_.toOption)
+        .flatMap {
+          case Some(cr) ⇒
+            cr.contract.isBlankOffer[IO]().value.map(_.contains(true)).flatMap {
+              case false ⇒ IO.pure(Right(cr.contract))
+              case true ⇒ toIO(storage.remove(contract.id).flatMap(_ ⇒ putContract(contract).value))
+            }
+          case None ⇒
+            toIO(putContract(contract).value)
+        }
+        .flatMap(IO.fromEither)
     } yield {
       logger.info(
         s"Contract with id=${contract.id.show} was successfully allocated, this node (${nodeId.show}) is contract participant now"
@@ -91,13 +94,16 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
       contract
     }
 
-  private def putContract(contract: C): F[C] =
+  private def putContract(contract: C): EitherT[F, Throwable, C] =
     for {
-      _ ← checkAllocationPossible(contract)
-      _ ← storage.put(contract.id, ContractRecord(contract))
-      created ← createDataset(contract)
+      z ← EitherT(
+        checkAllocationPossible(contract)
+          .map(p ⇒ Either.cond(p, p, new RuntimeException("Allocation is not possible")))
+      )
+      _ ← EitherT.rightT[F, Throwable](storage.put(contract.id, ContractRecord(contract)))
+      created ← EitherT.right[Throwable](createDataset(contract))
       // TODO: error should be returned as value
-      _ ← if (created) ().pure[F] else storage.remove(contract.id)
+      _ ← if (created) EitherT.rightT[F, Throwable](()) else EitherT.right[Throwable](storage.remove(contract.id))
     } yield contract
 
   private def eitherFail(check: EitherT[IO, CryptoErr, Boolean], msg: String): IO[Unit] =
@@ -137,7 +143,8 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
               // contract preallocated for id, but it's changed now
               for {
                 _ ← toIO(storage.remove(contract.id))
-                _ ← toIO(checkAllocationPossible(contract))
+                ap ← toIO(checkAllocationPossible(contract))
+                _ ← IO.fromEither(Either.cond(ap, (), new RuntimeException("Allocation is not possible")))
                 _ ← toIO(storage.put(contract.id, ContractRecord(contract)))
                 sContract ← signedContract
               } yield sContract
@@ -149,7 +156,8 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
 
         case None ⇒
           for {
-            _ ← toIO(checkAllocationPossible(contract))
+            ap ← toIO(checkAllocationPossible(contract))
+            _ ← IO.fromEither(Either.cond(ap, (), new RuntimeException("Allocation is not possible")))
             _ ← toIO(storage.put(contract.id, ContractRecord(contract)))
             sContract ← signedContract
           } yield sContract
