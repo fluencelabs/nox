@@ -393,7 +393,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   }
 
   /** Makes some reads and writes and check results */
-  private def verifyReadAndWrite(datasetStorage: ClientDatasetStorageApi[Task, Observable, String, String]) = {
+  private def verifyReadAndWrite(datasetStorage: ClientDatasetStorageApi[Task, Observable, String, String])(implicit pos: Position) = {
     // read non-existent value
     val nonExistentKeyResponse = datasetStorage.get(absentKey).taskValue
     nonExistentKeyResponse shouldBe None
@@ -425,7 +425,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private def verifyRangeQueries(
     datasetStorage: ClientDatasetStorageApi[Task, Observable, String, String],
     numberOfKeys: Int = 32
-  ): Unit = {
+  )(implicit pos: Position): Unit = {
 
     val allRecords = Random.shuffle(1 to numberOfKeys).map(i ⇒ { f"k$i%04d" → f"v$i%04d" })
 
