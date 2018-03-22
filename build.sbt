@@ -144,6 +144,18 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
       "@types/google-protobuf" -> "3.2.7",
       "grpc-web-client" -> "0.5.0"
     ),
+    jsDependencies ++= Seq(
+      /*
+        generated with protoc
+        protoc --plugin=protoc-gen-js_service=./node_modules/.bin/protoc-gen-js_service \
+        --js_out=import_style=commonjs,binary:generated \
+        --js_service_out=generated -I protobuf protobuf/\*
+        do not forget to regenerate the code if grpc.proto is changes
+        TODO do it automatically
+       */
+      ProvidedJS / "generated/grpc_pb.js",
+      ProvidedJS / "generated/grpc_pb_service.js"
+    ),
     scalaJSModuleKind := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies := false,
