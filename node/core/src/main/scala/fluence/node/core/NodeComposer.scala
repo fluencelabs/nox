@@ -65,7 +65,7 @@ object NodeComposer {
     contact: Contact,
     algo: SignAlgo,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    kadClient: Contact ⇒ KademliaRpc[Task, Contact],
+    kadClient: Contact ⇒ KademliaRpc[Contact],
     config: Config,
     acceptLocal: Boolean, // todo move acceptLocal to node config, and remove from here
     clock: Clock
@@ -89,10 +89,10 @@ object NodeComposer {
 
         override lazy val kademlia: Kademlia[Task, Contact] = KademliaMVar(
           nodeKey,
-          Task.now(contact),
+          IO.pure(contact),
           kadClient,
           kadConf,
-          TransportSecurity.canBeSaved[Task](nodeKey, acceptLocal = acceptLocal)
+          TransportSecurity.canBeSaved[IO](nodeKey, acceptLocal = acceptLocal)
         )
 
         override lazy val contractsCache: ContractsCacheRpc[Task, BasicContract] =

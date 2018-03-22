@@ -277,9 +277,9 @@ object FluenceClient extends slogging.LazyLogging {
 
   private def createKademliaClient(
     conf: KademliaConf,
-    kademliaRpc: Contact ⇒ KademliaRpc[Task, Contact]
+    kademliaRpc: Contact ⇒ KademliaRpc[Contact]
   ): Kademlia[Task, Contact] = {
-    val check = TransportSecurity.canBeSaved[Task](Monoid.empty[Key], acceptLocal = true)
+    val check = TransportSecurity.canBeSaved[IO](Monoid.empty[Key], acceptLocal = true)
     KademliaMVar.client(kademliaRpc, conf, check)
   }
 }

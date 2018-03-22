@@ -26,7 +26,7 @@ import scala.language.higherKinds
 
 abstract class ClientServices[F[_], Contract, Contact] {
 
-  def kademlia: KademliaRpc[F, Contact]
+  def kademlia: KademliaRpc[Contact]
 
   def contractsCache: ContractsCacheRpc[F, Contract]
 

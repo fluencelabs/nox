@@ -61,7 +61,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   import algo.checker
 
-  implicit val kadCodec = KademliaNodeCodec.codec[Task]
+  import KademliaNodeCodec.{codec ⇒ kadCodec}
 
   private val config = ConfigFactory.load()
 
@@ -78,20 +78,20 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     private val client = GrpcClient
       .builder(key, IO.pure(contact.b64seed), clientConf)
-      .add(KademliaClient.register[Task]())
+      .add(KademliaClient.register())
       .build
 
-    private val kademliaClientRpc: Contact ⇒ KademliaRpc[Task, Contact] = c ⇒ {
+    private val kademliaClientRpc: Contact ⇒ KademliaRpc[Contact] = c ⇒ {
       logger.trace(s"Contact to get KC for: $c")
-      client.service[KademliaRpc[Task, Contact]](c)
+      client.service[KademliaRpc[Contact]](c)
     }
 
     val kad = KademliaMVar(
       key,
-      Task.pure(contact),
+      IO.pure(contact),
       kademliaClientRpc,
       KademliaConf(6, 6, 3, 1.second),
-      TransportSecurity.canBeSaved[Task](key, acceptLocal = true)
+      TransportSecurity.canBeSaved[IO](key, acceptLocal = true)
     )
 
     val server = serverBuilder

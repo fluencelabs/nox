@@ -21,6 +21,7 @@ import java.io.IOException
 import java.net.ServerSocket
 
 import cats.data.EitherT
+import cats.effect.IO
 import cats.instances.option._
 import cats.kernel.Monoid
 import cats.~>
@@ -121,9 +122,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
       "tries joins the Kademlia network via dead node" in {
         runNodes { servers ⇒
-          val exception = servers.head._2.kademlia.join(Seq(dummyContact), 1).failed.taskValue
-          exception shouldBe a[RuntimeException]
-          exception should have message "Can't join any node among known peers"
+          servers.head._2.kademlia.join(Seq(dummyContact), 1).taskValue shouldBe false
         }
       }
 
@@ -153,8 +152,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val client = ClientGrpcServices.build[Task](GrpcClient.builder)
         val kadClient = client(dummyContact).kademlia
 
-        val result = kadClient.ping().failed.taskValue
-        result shouldBe a[StatusRuntimeException]
+        val result = kadClient.ping().attempt.unsafeRunSync()
+        result.left.get shouldBe a[StatusRuntimeException]
         // todo there should be more describable exception appears like NetworkException or TimeoutException with cause
       }
 
@@ -407,9 +406,11 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     getKey1Response shouldBe Some(val1)
     val rangeKey1Response = datasetStorage.range(key1, key1).toListL.taskValue
     rangeKey1Response should contain only key1 → val1
+
     // put new and override old value
     val putKey2Response = datasetStorage.put(key2, val2).taskValue
     putKey2Response shouldBe None
+
     val putKey1Again = datasetStorage.put(key1, val1New).taskValue
     putKey1Again shouldBe Some(val1)
     // read updated value
@@ -475,13 +476,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     checkOrder(fromMidNRecords)
   }
 
-  private def createClientApi[T <: HList](
+  private def createClientApi(
     seedContact: Contact,
     client: Contact ⇒ ClientServices[Task, BasicContract, Contact]
   ) = {
     val conf = KademliaConf(100, 10, 2, 5.seconds)
     val clKey = Monoid.empty[Key]
-    val check = TransportSecurity.canBeSaved[Task](clKey, acceptLocal = true)
+    val check = TransportSecurity.canBeSaved[IO](clKey, acceptLocal = true)
     val kademliaRpc = client(_: Contact).kademlia
     val kademliaClient = KademliaMVar.client(kademliaRpc, conf, check)
 

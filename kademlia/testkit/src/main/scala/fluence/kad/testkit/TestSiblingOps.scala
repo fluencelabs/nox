@@ -33,7 +33,7 @@ class TestSiblingOps[C](nodeId: Key, maxSiblingsSize: Int) extends Siblings.Writ
 
   override protected def run[T](mod: StateT[Coeval, Siblings[C], T]): Coeval[T] = {
     Coeval {
-      require(lock.flip(true), "Siblings must be unlocked")
+      require(lock.compareAndSet(false, true), "Siblings must be unlocked")
       lock.set(true)
     }.flatMap(
       _ ⇒
@@ -44,7 +44,7 @@ class TestSiblingOps[C](nodeId: Key, maxSiblingsSize: Int) extends Siblings.Writ
               state.set(s)
               v
           }
-          .doOnFinish(_ ⇒ Coeval.now(lock.flip(false)))
+          .doOnFinish(_ ⇒ Coeval.now(lock.compareAndSet(expect = true, update = false)))
     )
   }
 

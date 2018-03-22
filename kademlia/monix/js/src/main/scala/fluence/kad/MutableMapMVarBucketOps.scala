@@ -34,8 +34,8 @@ class MutableMapMVarBucketOps[C](maxBucketSize: Int) extends Bucket.WriteOps[Tas
 
   override protected def run[T](bucketId: Int, mod: StateT[Task, Bucket[C], T]): Task[T] =
     for {
-      ws <- writeState.getOrElseUpdate(bucketId, MVar(read(bucketId)).memoize)
-      res <- runOnMVar(
+      ws ← writeState.getOrElseUpdate(bucketId, MVar(read(bucketId)).memoize)
+      res ← runOnMVar(
         ws,
         mod,
         readState.update(bucketId, _: Bucket[C])

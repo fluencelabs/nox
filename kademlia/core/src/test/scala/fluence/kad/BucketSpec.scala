@@ -20,6 +20,7 @@ package fluence.kad
 import java.time.Instant
 
 import cats.data.StateT
+import cats.effect.{IO, LiftIO}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import org.scalatest.{Matchers, WordSpec}
 import monix.eval.Coeval
@@ -30,21 +31,15 @@ class BucketSpec extends WordSpec with Matchers {
 
   "kademlia bucket" should {
 
-    val pingDuration = Duration.Undefined
-
     type C = Int
     type F[A] = StateT[Coeval, Bucket[C], A]
 
-    implicit class BucketOps(state: Bucket[C]) extends Bucket.WriteOps[F, C] {
-      override protected def run[T](bucketId: Int, mod: StateT[F, Bucket[C], T]): F[T] =
-        mod.run(state).flatMap {
-          case (s, v) ⇒
-            StateT.set[Coeval, Bucket[C]](s).map(_ ⇒ v)
-        }
-
-      override def read(bucketId: Int): Bucket[C] =
-        state
+    implicit object liftCoeval extends LiftIO[Coeval] {
+      override def liftIO[A](ioa: IO[A]): Coeval[A] = Coeval(ioa.unsafeRunSync())
     }
+
+    def update(node: Node[Int], rpc: C ⇒ KademliaRpc[C]): F[Boolean] =
+      Bucket.update[Coeval, C](node, rpc, Duration.Undefined)
 
     "update contacts" in {
 
@@ -54,8 +49,8 @@ class BucketSpec extends WordSpec with Matchers {
       val k2 = Key.fromBytes[Coeval](Array.fill(Key.Length)(3: Byte)).value
 
       val failRPC = (_: C) ⇒
-        new KademliaRpc[F, C] {
-          override def ping() = StateT.liftF(Coeval.raiseError(new NoSuchElementException))
+        new KademliaRpc[C] {
+          override def ping() = IO.raiseError(new NoSuchElementException)
 
           override def lookup(key: Key, numberOfNodes: Int) = ???
 
@@ -63,9 +58,9 @@ class BucketSpec extends WordSpec with Matchers {
       }
 
       val successRPC = (c: C) ⇒
-        new KademliaRpc[F, C] {
+        new KademliaRpc[C] {
           override def ping() =
-            StateT.liftF(Coeval(Node(Key.fromBytes[Coeval](Array.fill(Key.Length)(c.toByte)).value, Instant.now(), c)))
+            IO(Node(Key.fromBytes[Coeval](Array.fill(Key.Length)(c.toByte)).value, Instant.now(), c))
 
           override def lookup(key: Key, numberOfNodes: Int) = ???
           override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???
@@ -75,25 +70,25 @@ class BucketSpec extends WordSpec with Matchers {
       b0.find(k0) shouldBe empty
 
       // Adding one contact, bucket should save it
-      val (b1, true) = b0.update(0, Node[C](k0, Instant.now(), 1), failRPC, pingDuration).run(b0).value
+      val (b1, true) = update(Node[C](k0, Instant.now(), 1), failRPC).run(b0).value
 
       b1.find(k0) shouldBe defined
 
       // Adding second contact, bucket should save it
-      val (b2, true) = b1.update(0, Node(k1, Instant.now(), 2), failRPC, pingDuration).run(b1).value
+      val (b2, true) = update(Node(k1, Instant.now(), 2), failRPC).run(b1).value
 
       b2.find(k0) shouldBe defined
       b2.find(k1) shouldBe defined
 
       // Adding third contact, bucket is full, so if the least recent item is not responding, drop it
-      val (b3, true) = b2.update(0, Node(k2, Instant.now(), 3), failRPC, pingDuration).run(b2).value
+      val (b3, true) = update(Node(k2, Instant.now(), 3), failRPC).run(b2).value
 
       b3.find(k0) shouldBe empty
       b3.find(k1) shouldBe defined
       b3.find(k2) shouldBe defined
 
       // Adding third contact, bucket is full, so if the least recent item is responding, drop the new contact
-      val (b4, false) = b2.update(0, Node(k2, Instant.now(), 3), successRPC, pingDuration).run(b2).value
+      val (b4, false) = update(Node(k2, Instant.now(), 3), successRPC).run(b2).value
 
       b4.find(k0) shouldBe defined
       b4.find(k1) shouldBe defined

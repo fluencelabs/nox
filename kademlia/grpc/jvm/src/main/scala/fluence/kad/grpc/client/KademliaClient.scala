@@ -17,9 +17,7 @@
 
 package fluence.kad.grpc.client
 
-import cats.effect.{Async, IO}
-import cats.syntax.flatMap._
-import cats.syntax.functor._
+import cats.effect.IO
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
@@ -27,36 +25,34 @@ import fluence.kad.{grpc, protocol}
 import fluence.codec.pb.ProtobufCodecs._
 import io.grpc.{CallOptions, ManagedChannel}
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.language.{higherKinds, implicitConversions}
+import scala.concurrent.ExecutionContext
+import scala.language.implicitConversions
 
 /**
  * Implementation of KademliaClient over GRPC, with Task and Contact.
  *
  * @param stub GRPC Kademlia Stub
  */
-class KademliaClient[F[_]: Async](stub: grpc.KademliaGrpc.KademliaStub)(
+class KademliaClient(stub: grpc.KademliaGrpc.Kademlia)(
   implicit
-  codec: Codec[F, protocol.Node[Contact], grpc.Node],
+  codec: Codec[IO, protocol.Node[Contact], grpc.Node],
   ec: ExecutionContext
-) extends KademliaRpc[F, Contact] {
+) extends KademliaRpc[Contact] {
 
-  private val keyBS = Codec.codec[F, ByteString, Key].inverse
-
-  private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
+  private val keyBS = Codec.codec[IO, ByteString, Key].inverse
 
   import cats.instances.stream._
 
-  private val streamCodec = Codec.codec[F, Stream[protocol.Node[Contact]], Stream[grpc.Node]]
+  private val streamCodec = Codec.codec[IO, Stream[protocol.Node[Contact]], Stream[grpc.Node]]
 
   /**
    * Ping the contact, get its actual Node status, or fail
    *
    * @return
    */
-  override def ping(): F[Node[Contact]] =
+  override def ping(): IO[Node[Contact]] =
     for {
-      n ← run(stub.ping(grpc.PingRequest()))
+      n ← IO.fromFuture(IO(stub.ping(grpc.PingRequest())))
       nc ← codec.decode(n)
     } yield nc
 
@@ -66,10 +62,10 @@ class KademliaClient[F[_]: Async](stub: grpc.KademliaGrpc.KademliaStub)(
    * @param key Key to lookup
    * @return
    */
-  override def lookup(key: Key, numberOfNodes: Int): F[Seq[Node[Contact]]] =
+  override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] =
     for {
       k ← keyBS(key)
-      res ← run(stub.lookup(grpc.LookupRequest(k, numberOfNodes)))
+      res ← IO.fromFuture(IO(stub.lookup(grpc.LookupRequest(k, numberOfNodes))))
       resDec ← streamCodec.decode(res.nodes.toStream)
     } yield resDec
 
@@ -78,12 +74,14 @@ class KademliaClient[F[_]: Async](stub: grpc.KademliaGrpc.KademliaStub)(
    *
    * @param key Key to lookup
    */
-  override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): F[Seq[Node[Contact]]] =
+  override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] =
     for {
       k ← keyBS(key)
       moveAwayK ← keyBS(moveAwayFrom)
-      res ← run(
-        stub.lookupAway(grpc.LookupAwayRequest(k, moveAwayK, numberOfNodes))
+      res ← IO.fromFuture(
+        IO(
+          stub.lookupAway(grpc.LookupAwayRequest(k, moveAwayK, numberOfNodes))
+        )
       )
       resDec ← streamCodec.decode(res.nodes.toStream)
     } yield resDec
@@ -97,14 +95,14 @@ object KademliaClient {
    * @param channel     Channel to remote node
    * @param callOptions Call options
    */
-  def register[F[_]: Async]()(
+  def register()(
     channel: ManagedChannel,
     callOptions: CallOptions
   )(
     implicit
-    codec: Codec[F, protocol.Node[Contact], grpc.Node],
+    codec: Codec[IO, protocol.Node[Contact], grpc.Node],
     ec: ExecutionContext
-  ): KademliaRpc[F, Contact] =
+  ): KademliaRpc[Contact] =
     new KademliaClient(new grpc.KademliaGrpc.KademliaStub(channel, callOptions))
 
 }
