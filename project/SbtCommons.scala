@@ -3,6 +3,7 @@ import de.heikoseeberger.sbtheader.License
 import sbt.Keys._
 import sbt._
 import sbtprotoc.ProtocPlugin.autoImport.PB
+import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 
 object SbtCommons {
 
@@ -71,7 +72,7 @@ object SbtCommons {
       scalapb.gen() -> (sourceManaged in Compile).value
     ),
     libraryDependencies ++= Seq(
-      "com.trueaccord.scalapb" %% "scalapb-runtime" % com.trueaccord.scalapb.compiler.Version.scalapbVersion % "protobuf"
+      "com.trueaccord.scalapb" %%% "scalapb-runtime" % com.trueaccord.scalapb.compiler.Version.scalapbVersion % "protobuf"
     )
   )
 
