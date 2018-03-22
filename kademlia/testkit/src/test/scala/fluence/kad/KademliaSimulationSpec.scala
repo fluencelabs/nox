@@ -56,7 +56,8 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
   private def now = Instant.now()
 
-  "kademlia simulation" should {
+  //TODO ~10 minute duration is very long for regular testing
+  "kademlia simulation" ignore {
     "launch with 200 nodes" in {
       // Kademlia's K
       val K = 16
