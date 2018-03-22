@@ -173,8 +173,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         runNodes { servers ⇒
           val (_, contractsApi) = createClientApi(servers.head._1, client)
 
-          val resultContact = contractsApi.find(Key.fromString[Task]("non-exists contract").taskValue).value.failed.taskValue
-          resultContact shouldBe NotFound
+          val resultContact = contractsApi.find(Key.fromString[Task]("non-exists contract").taskValue).value.taskValue
+          resultContact.left.get shouldBe NotFound
         }
       }
 
