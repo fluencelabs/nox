@@ -326,7 +326,9 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val getKey1Result = datasetStorage2.get(key1).taskValue
         getKey1Result shouldBe Some(val1New)
 
+        LoggerConfig.level = LogLevel.DEBUG
         val putKey2Result = datasetStorage2.put(key3, val3).taskValue
+        LoggerConfig.level = LogLevel.OFF
         putKey2Result shouldBe None
 
         val getKey2Result = datasetStorage2.get(key3).taskValue
@@ -393,7 +395,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   }
 
   /** Makes some reads and writes and check results */
-  private def verifyReadAndWrite(datasetStorage: ClientDatasetStorageApi[Task, Observable, String, String])(implicit pos: Position) = {
+  private def verifyReadAndWrite(datasetStorage: ClientDatasetStorageApi[Task, Observable, String, String]) = {
     // read non-existent value
     val nonExistentKeyResponse = datasetStorage.get(absentKey).taskValue
     nonExistentKeyResponse shouldBe None
@@ -425,7 +427,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private def verifyRangeQueries(
     datasetStorage: ClientDatasetStorageApi[Task, Observable, String, String],
     numberOfKeys: Int = 32
-  )(implicit pos: Position): Unit = {
+  ): Unit = {
 
     val allRecords = Random.shuffle(1 to numberOfKeys).map(i ⇒ { f"k$i%04d" → f"v$i%04d" })
 
