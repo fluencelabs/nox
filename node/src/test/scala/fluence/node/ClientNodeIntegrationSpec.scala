@@ -326,9 +326,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val getKey1Result = datasetStorage2.get(key1).taskValue
         getKey1Result shouldBe Some(val1New)
 
-        LoggerConfig.level = LogLevel.DEBUG
         val putKey2Result = datasetStorage2.put(key3, val3).taskValue
-        LoggerConfig.level = LogLevel.OFF
         putKey2Result shouldBe None
 
         val getKey2Result = datasetStorage2.get(key3).taskValue
@@ -410,8 +408,14 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     val rangeKey1Response = datasetStorage.range(key1, key1).toListL.taskValue
     rangeKey1Response should contain only key1 → val1
     // put new and override old value
-    val putKey2Response = datasetStorage.put(key2, val2).taskValue
-    putKey2Response shouldBe None
+    LoggerConfig.level = LogLevel.DEBUG
+    try {
+      val putKey2Response = datasetStorage.put(key2, val2).taskValue
+      putKey2Response shouldBe None
+    } finally {
+      LoggerConfig.level = LogLevel.OFF
+    }
+
     val putKey1Again = datasetStorage.put(key1, val1New).taskValue
     putKey1Again shouldBe Some(val1)
     // read updated value
