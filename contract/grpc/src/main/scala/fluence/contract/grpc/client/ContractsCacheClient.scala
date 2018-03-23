@@ -17,10 +17,8 @@
 
 package fluence.contract.grpc.client
 
-import cats.effect.{Async, IO}
+import cats.effect.IO
 import cats.syntax.applicativeError._
-import cats.syntax.flatMap._
-import cats.syntax.functor._
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractsCacheRpc
@@ -30,16 +28,13 @@ import fluence.kad.protocol.Key
 import fluence.codec.pb.ProtobufCodecs._
 import io.grpc.{CallOptions, ManagedChannel}
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.language.higherKinds
+import scala.concurrent.ExecutionContext
 
-class ContractsCacheClient[F[_]: Async, C](stub: ContractsCacheStub)(
+class ContractsCacheClient[C](stub: ContractsCacheStub)(
   implicit
-  codec: Codec[F, C, BasicContract],
+  codec: Codec[IO, C, BasicContract],
   ec: ExecutionContext
-) extends ContractsCacheRpc[F, C] {
-
-  private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
+) extends ContractsCacheRpc[C] {
 
   /**
    * Tries to find a contract in local cache.
@@ -47,11 +42,11 @@ class ContractsCacheClient[F[_]: Async, C](stub: ContractsCacheStub)(
    * @param id Dataset ID
    * @return Optional locally found contract
    */
-  override def find(id: Key): F[Option[C]] =
+  override def find(id: Key): IO[Option[C]] =
     (for {
-      idBs ← Codec.codec[F, ByteString, Key].decode(id)
+      idBs ← Codec.codec[IO, ByteString, Key].decode(id)
       req = FindRequest(idBs)
-      resRaw ← run(stub.find(req))
+      resRaw ← IO.fromFuture(IO(stub.find(req)))
       res ← codec.decode(resRaw)
     } yield Option(res)).recover {
       case _ ⇒ None
@@ -63,10 +58,10 @@ class ContractsCacheClient[F[_]: Async, C](stub: ContractsCacheStub)(
    * @param contract Contract to cache
    * @return If the contract is cached or not
    */
-  override def cache(contract: C): F[Boolean] =
+  override def cache(contract: C): IO[Boolean] =
     for {
       c ← codec.encode(contract)
-      resp ← run(stub.cache(c))
+      resp ← IO.fromFuture(IO(stub.cache(c)))
     } yield resp.cached
 }
 
@@ -78,13 +73,13 @@ object ContractsCacheClient {
    * @param channel     Channel to remote node
    * @param callOptions Call options
    */
-  def register[F[_]: Async, C]()(
+  def register[C]()(
     channel: ManagedChannel,
     callOptions: CallOptions
   )(
     implicit
-    codec: Codec[F, C, BasicContract],
+    codec: Codec[IO, C, BasicContract],
     ec: ExecutionContext
-  ): ContractsCacheRpc[F, C] =
-    new ContractsCacheClient[F, C](new ContractsCacheGrpc.ContractsCacheStub(channel, callOptions))
+  ): ContractsCacheRpc[C] =
+    new ContractsCacheClient[C](new ContractsCacheGrpc.ContractsCacheStub(channel, callOptions))
 }

@@ -156,7 +156,7 @@ object FluenceNode extends slogging.LazyLogging {
       kadClient = client(_: Contact).kademlia
 
       services ← NodeComposer
-        .services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true, clock)
+        .services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true, clock)(Scheduler.global) // TODO: it should be custom
         .onFail(upnpShutdown)
       closeUpNpAndServices = upnpShutdown.flatMap(_ ⇒ services.close)
 

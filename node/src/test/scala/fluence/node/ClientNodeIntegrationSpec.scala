@@ -173,8 +173,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         runNodes { servers ⇒
           val (_, contractsApi) = createClientApi(servers.head._1, client)
 
-          val resultContact = contractsApi.find(Key.fromString[Task]("non-exists contract").taskValue).failed.taskValue
-          resultContact shouldBe NotFound
+          val resultContact = contractsApi.find(Key.fromString[Task]("non-exists contract").taskValue).value.taskValue
+          resultContact.left.get shouldBe NotFound
         }
       }
 
@@ -191,11 +191,11 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           val seedContact: Contact = makeKadNetwork(servers)
           val (_, contractsApi) = createClientApi(seedContact, client)
           val offer = BasicContract.offer[Task](kadKey, participantsRequired = 999, signer = signer).taskValue
-          offer.checkOfferSeal[Task]().taskValue shouldBe true
+          offer.checkOfferSeal[Task]().etaskValue shouldBe true
 
           val result =
-            contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).failed.taskValue
-          result shouldBe Contracts.CantFindEnoughNodes(10)
+            contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer).leftMap(_.errorMessage)).value.taskValue
+          result.left.get shouldBe Contracts.CantFindEnoughNodes(10)
         }
       }
 
@@ -214,11 +214,12 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           val seedContact = makeKadNetwork(servers)
           val (_, contractsApi) = createClientApi(seedContact, client)
           val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signerBad).taskValue
-          offer.checkOfferSeal[Task]().taskValue shouldBe false
+          offer.checkOfferSeal[Task]().etaskValue shouldBe false
           val result = contractsApi
-            .allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signerValid))
-            .failed
+            .allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signerValid).leftMap(_.errorMessage))
+            .value
             .taskValue
+            .left.get
           result shouldBe Contracts.IncorrectOfferContract
         }
       }
@@ -282,17 +283,17 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       val kadKey = Key.fromKeyPair[Task](keyPair).taskValue
       val signer = algo.signer(keyPair)
       val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signer).taskValue
-      offer.checkOfferSeal[Task]().taskValue shouldBe true
+      offer.checkOfferSeal[Task]().etaskValue shouldBe true
 
       runNodes { servers ⇒
         val seedContact = makeKadNetwork(servers)
         val (_, contractsApi) = createClientApi(seedContact, client)
 
         val acceptedContract =
-          contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer)).taskValue
+          contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer).leftMap(_.errorMessage)).etaskValue
 
         acceptedContract.participants.size shouldBe 4
-        contractsApi.find(kadKey).taskValue shouldBe acceptedContract
+        contractsApi.find(kadKey).etaskValue shouldBe acceptedContract
       }
     }
 
@@ -609,6 +610,10 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }(s)
       future.futureValue(timeoutOp.getOrElse(timeout(implicitly[PatienceConfig].timeout)))
     }
+  }
+
+  private implicit class WaitEitherTask[E, T](etask: EitherT[Task, E, T]) {
+    def etaskValue(implicit s: Scheduler, pos: Position): T = etask.value.map(_.right.get).taskValue(s, pos)
   }
 
   private implicit class OptionEitherTExtractor[A, B](et: EitherT[Option, A, B]) {

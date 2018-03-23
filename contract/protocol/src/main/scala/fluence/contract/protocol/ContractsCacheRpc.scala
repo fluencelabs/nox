@@ -17,17 +17,15 @@
 
 package fluence.contract.protocol
 
+import cats.effect.IO
 import fluence.kad.protocol.Key
-
-import scala.language.higherKinds
 
 /**
  * RPC for node's local cache for contracts
  *
- * @tparam F Effect
  * @tparam C Contract
  */
-trait ContractsCacheRpc[F[_], C] {
+trait ContractsCacheRpc[C] {
 
   /**
    * Tries to find a contract in local cache
@@ -35,7 +33,7 @@ trait ContractsCacheRpc[F[_], C] {
    * @param id Dataset ID
    * @return Optional locally found contract
    */
-  def find(id: Key): F[Option[C]]
+  def find(id: Key): IO[Option[C]]
 
   /**
    * Ask node to cache the contract
@@ -43,6 +41,6 @@ trait ContractsCacheRpc[F[_], C] {
    * @param contract Contract to cache
    * @return If the contract is cached or not
    */
-  def cache(contract: C): F[Boolean]
+  def cache(contract: C): IO[Boolean]
 
 }

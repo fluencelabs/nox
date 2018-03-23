@@ -20,6 +20,7 @@ package fluence.node.core
 import java.time.Clock
 
 import cats.effect.IO
+import cats.~>
 import com.typesafe.config.Config
 import fluence.client.core.config.KademliaConfigParser
 import fluence.contract.BasicContract
@@ -38,6 +39,7 @@ import fluence.storage.KVStore
 import fluence.storage.rocksdb.RocksDbStore
 import fluence.transport.TransportSecurity
 import monix.eval.Task
+import monix.execution.Scheduler
 import monix.reactive.Observable
 import scodec.bits.ByteVector
 
@@ -67,9 +69,14 @@ object NodeComposer {
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
     kadClient: Contact ⇒ KademliaRpc[Contact],
     config: Config,
+<<<<<<< HEAD
     acceptLocal: Boolean, // todo move acceptLocal to node config, and remove from here
     clock: Clock
   ): IO[Services] =
+=======
+    acceptLocal: Boolean
+  )(implicit scheduler: Scheduler): IO[Services] =
+>>>>>>> 1809e41ace2640c3113e54234ace1d6bf1e6c076
     for {
       nodeKey ← Key.fromKeyPair[IO](keyPair)
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
@@ -87,6 +94,10 @@ object NodeComposer {
 
         import algo.checker
 
+        private object taskToIO extends (Task ~> IO) {
+          override def apply[A](fa: Task[A]): IO[A] = fa.toIO(scheduler)
+        }
+
         override lazy val kademlia: Kademlia[Task, Contact] = KademliaMVar(
           nodeKey,
           IO.pure(contact),
@@ -95,22 +106,33 @@ object NodeComposer {
           TransportSecurity.canBeSaved[IO](nodeKey, acceptLocal = acceptLocal)
         )
 
-        override lazy val contractsCache: ContractsCacheRpc[Task, BasicContract] =
+        override lazy val contractsCache: ContractsCacheRpc[BasicContract] =
           new ContractsCache[Task, BasicContract](
             nodeId = nodeKey,
             storage = contractsCacheStore,
             cacheTtl = 1.day,
+<<<<<<< HEAD
             clock
+=======
+            taskToIO
+>>>>>>> 1809e41ace2640c3113e54234ace1d6bf1e6c076
           )
 
-        override lazy val contractAllocator: ContractAllocatorRpc[Task, BasicContract] =
+        override lazy val contractAllocator: ContractAllocatorRpc[BasicContract] =
           new ContractAllocator[Task, BasicContract](
             nodeId = nodeKey,
             storage = contractsCacheStore,
+<<<<<<< HEAD
             createDataset = _ ⇒ Task.unit, // TODO: dataset creation
             checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
             signer = signer,
             clock
+=======
+            createDataset = _ ⇒ Task(true), // TODO: dataset creation
+            checkAllocationPossible = _ ⇒ Task(true), // TODO: check allocation possible
+            signer = signer,
+            toIO = taskToIO
+>>>>>>> 1809e41ace2640c3113e54234ace1d6bf1e6c076
           )
 
         override lazy val datasets: DatasetStorageRpc[Task, Observable] =

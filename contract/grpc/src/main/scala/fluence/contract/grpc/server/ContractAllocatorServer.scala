@@ -17,38 +17,33 @@
 
 package fluence.contract.grpc.server
 
-import cats.{~>, Monad}
-import cats.syntax.functor._
-import cats.syntax.flatMap._
+import cats.effect.IO
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.contract.grpc.{BasicContract, ContractAllocatorGrpc}
 
 import scala.concurrent.Future
-import scala.language.higherKinds
 
-class ContractAllocatorServer[F[_], C](contractAllocator: ContractAllocatorRpc[F, C])(
+class ContractAllocatorServer[C](contractAllocator: ContractAllocatorRpc[C])(
   implicit
-  F: Monad[F],
-  codec: Codec[F, C, BasicContract],
-  run: F ~> Future
+  codec: Codec[IO, C, BasicContract]
 ) extends ContractAllocatorGrpc.ContractAllocator {
 
   override def offer(request: BasicContract): Future[BasicContract] =
-    run(
+    (
       for {
         c ← codec.decode(request)
         offered ← contractAllocator.offer(c)
         resp ← codec.encode(offered)
       } yield resp
-    )
+    ).unsafeToFuture()
 
   override def allocate(request: BasicContract): Future[BasicContract] =
-    run(
+    (
       for {
         c ← codec.decode(request)
         allocated ← contractAllocator.allocate(c)
         resp ← codec.encode(allocated)
       } yield resp
-    )
+    ).unsafeToFuture()
 }

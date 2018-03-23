@@ -19,7 +19,9 @@ package fluence.contract.node
 
 import java.time.Clock
 
+import cats.effect.IO
 import cats.instances.try_._
+import cats.~>
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
 import fluence.crypto.SignAlgo
@@ -53,8 +55,12 @@ class ContractsCacheSpec extends WordSpec with Matchers {
     algo.signer(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
   }
 
+  object coevalIO extends (Coeval ~> IO) {
+    override def apply[A](fa: Coeval[A]): IO[A] = fa.toIO
+  }
+
   val cache: ContractsCache[Coeval, BasicContract] =
-    new ContractsCache[Coeval, BasicContract](nodeId, store, 1.minute, clock)
+    new ContractsCache[Coeval, BasicContract](nodeId, store, 1.minute, clock, coevalIO)
 
   import fluence.contract.ops.ContractWrite._
 
@@ -64,27 +70,45 @@ class ContractsCacheSpec extends WordSpec with Matchers {
       val signer = offerSigner("reject2")
       val key = Key.fromPublicKey[Coeval](signer.publicKey).value
 
-      cache.cache(offer("reject")).value shouldBe false
-      cache.cache(offer("reject2").signOffer(key, signer).get).value shouldBe false
+      cache.cache(offer("reject")).unsafeRunSync() shouldBe false
+      cache.cache(offer("reject2").signOffer(key, signer).value.get.right.get).unsafeRunSync() shouldBe false
 
     }
 
     "reject caching contracts where node participates" in {
       cache
-        .cache(offer("reject3").signOffer(nodeId, nodeSigner).get.sealParticipants(offerSigner("reject3")).get)
-        .value shouldBe false
+        .cache(
+          offer("reject3")
+            .signOffer(nodeId, nodeSigner)
+            .value
+            .get
+            .right
+            .get
+            .sealParticipants(offerSigner("reject3"))
+            .value
+            .get
+            .right
+            .get
+        )
+        .unsafeRunSync() shouldBe false
 
     }
 
     "cache correct contract" in {
       val v1 = offer("accept")
         .signOffer(unsafeKey("some node"), offerSigner("some node"))
+        .value
+        .get
+        .right
         .get
         .sealParticipants(offerSigner("accept"))
+        .value
         .get
-      cache.cache(v1).value shouldBe true
+        .right
+        .get
+      cache.cache(v1).unsafeRunSync() shouldBe true
 
-      cache.find(v1.id).value shouldBe Some(v1)
+      cache.find(v1.id).unsafeRunSync() shouldBe Some(v1)
 
       /*
       TODO: test updates when there's some data in the contract

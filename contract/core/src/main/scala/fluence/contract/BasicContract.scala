@@ -60,6 +60,7 @@ object BasicContract {
     lazy val getBytes: ByteVector = ByteVector.fromLong(version) ++ merkleRoot
   }
 
+  // TODO: EitherT instead of MonadError
   def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(
     implicit F: MonadError[F, Throwable]
   ): F[BasicContract] = {
