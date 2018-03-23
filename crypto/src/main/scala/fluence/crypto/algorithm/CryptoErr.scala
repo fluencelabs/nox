@@ -23,12 +23,12 @@ import cats.data.EitherT
 import scala.language.higherKinds
 import scala.util.control.{NoStackTrace, NonFatal}
 
-@deprecated("Use co-fail's CryptoErr instead", "21.02.2018")
+// TODO: it could be useful to add smth like "source" or "trace" field, to help understand where exactly the check happened
 case class CryptoErr(errorMessage: String) extends Throwable(errorMessage) with NoStackTrace
 
 object CryptoErr {
 
-  @deprecated("Use co-fail's CryptoErr.catchNonFatal instead", "21.02.2018")
+  // TODO: there's a common `catchNonFatal` pattern, we should refactor this metod onto it
   def nonFatalHandling[F[_]: Applicative, A](a: ⇒ A)(errorText: String): EitherT[F, CryptoErr, A] = {
     try EitherT.pure(a)
     catch {

@@ -17,9 +17,7 @@
 
 package fluence.contract.grpc.client
 
-import cats.effect.{Async, IO}
-import cats.syntax.flatMap._
-import cats.syntax.functor._
+import cats.effect.IO
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.contract.grpc.{BasicContract, ContractAllocatorGrpc}
@@ -27,17 +25,16 @@ import fluence.contract.grpc.ContractAllocatorGrpc.ContractAllocatorStub
 import io.grpc.{CallOptions, ManagedChannel}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.higherKinds
 
-class ContractAllocatorClient[F[_]: Async, C](
+class ContractAllocatorClient[C](
   stub: ContractAllocatorStub
 )(
   implicit
-  codec: Codec[F, C, BasicContract],
+  codec: Codec[IO, C, BasicContract],
   ec: ExecutionContext
-) extends ContractAllocatorRpc[F, C] {
+) extends ContractAllocatorRpc[C] {
 
-  private def run[A](fa: Future[A]): F[A] = IO.fromFuture(IO(fa)).to[F]
+  private def run[A](fa: Future[A]): IO[A] = IO.fromFuture(IO(fa))
 
   /**
    * Offer a contract. Node should check and preallocate required resources, save offer, and sign it.
@@ -45,7 +42,7 @@ class ContractAllocatorClient[F[_]: Async, C](
    * @param contract A blank contract
    * @return Signed contract, or F is an error
    */
-  override def offer(contract: C): F[C] =
+  override def offer(contract: C): IO[C] =
     for {
       offer ← codec.encode(contract)
       resp ← run(stub.offer(offer))
@@ -58,7 +55,7 @@ class ContractAllocatorClient[F[_]: Async, C](
    * @param contract A sealed contract with all nodes and client signatures
    * @return Allocated contract
    */
-  override def allocate(contract: C): F[C] =
+  override def allocate(contract: C): IO[C] =
     for {
       offer ← codec.encode(contract)
       resp ← run(stub.allocate(offer))
@@ -75,14 +72,14 @@ object ContractAllocatorClient {
    * @param channel     Channel to remote node
    * @param callOptions Call options
    */
-  def register[F[_]: Async, C]()(
+  def register[C]()(
     channel: ManagedChannel,
     callOptions: CallOptions
   )(
     implicit
-    codec: Codec[F, C, BasicContract],
+    codec: Codec[IO, C, BasicContract],
     ec: ExecutionContext
-  ): ContractAllocatorRpc[F, C] =
-    new ContractAllocatorClient[F, C](new ContractAllocatorGrpc.ContractAllocatorStub(channel, callOptions))
+  ): ContractAllocatorRpc[C] =
+    new ContractAllocatorClient[C](new ContractAllocatorGrpc.ContractAllocatorStub(channel, callOptions))
 
 }

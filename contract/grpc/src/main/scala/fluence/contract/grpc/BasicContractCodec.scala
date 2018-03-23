@@ -63,7 +63,7 @@ object BasicContractCodec {
           offSBs ← strVec.encode(bc.offerSeal.sign)
 
           participantsSealBs ← optStrVecC.encode(bc.participantsSeal.map(_.sign))
-          executionSealBs ← optStrVecC.encode(bc.executionSeal.map(_.sign))
+          executionSealBs ← strVec.encode(bc.executionSeal.sign)
 
           merkleRootBs ← strVec.encode(bc.executionState.merkleRoot)
         } yield
@@ -80,7 +80,7 @@ object BasicContractCodec {
             participantsSeal = participantsSealBs.getOrElse(ByteString.EMPTY),
             version = bc.executionState.version,
             merkleRoot = merkleRootBs,
-            executionSeal = executionSealBs.getOrElse(ByteString.EMPTY)
+            executionSeal = executionSealBs
         ),
       g ⇒ {
         def read[T](name: String, f: BasicContract ⇒ T): F[T] =
@@ -121,7 +121,7 @@ object BasicContractCodec {
           merkleRootBS ← read("merkleRoot", _.merkleRoot)
           merkleRoot ← strVec.decode(merkleRootBS)
 
-          execV ← optStrVecC.decode(Option(g.executionSeal))
+          execSeal ← strVec.decode(g.executionSeal)
         } yield
           contract.BasicContract(
             id = id,
@@ -136,7 +136,7 @@ object BasicContractCodec {
               version = version,
               merkleRoot = merkleRoot
             ),
-            executionSeal = execV.filter(_.nonEmpty).map(Signature(pk, _)) // TODO: validate seal in codec
+            executionSeal = Signature(pk, execSeal) // TODO: validate seal in codec
           )
       }
     )

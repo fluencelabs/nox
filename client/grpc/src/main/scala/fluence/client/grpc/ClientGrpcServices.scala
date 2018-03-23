@@ -48,8 +48,8 @@ object ClientGrpcServices {
 
     val client = builder
       .add(KademliaClient.register())
-      .add(ContractsCacheClient.register[F, BasicContract]())
-      .add(ContractAllocatorClient.register[F, BasicContract]())
+      .add(ContractsCacheClient.register[BasicContract]())
+      .add(ContractAllocatorClient.register[BasicContract]())
       .add(DatasetStorageClient.register[F]())
       .build
 
@@ -58,11 +58,11 @@ object ClientGrpcServices {
         override def kademlia: KademliaRpc[Contact] =
           client.service[KademliaRpc[Contact]](contact)
 
-        override def contractsCache: ContractsCacheRpc[F, BasicContract] =
-          client.service[ContractsCacheRpc[F, BasicContract]](contact)
+        override def contractsCache: ContractsCacheRpc[BasicContract] =
+          client.service[ContractsCacheRpc[BasicContract]](contact)
 
-        override def contractAllocator: ContractAllocatorRpc[F, BasicContract] =
-          client.service[ContractAllocatorRpc[F, BasicContract]](contact)
+        override def contractAllocator: ContractAllocatorRpc[BasicContract] =
+          client.service[ContractAllocatorRpc[BasicContract]](contact)
         // todo generalize Observable
         override def datasetStorage: DatasetStorageRpc[F, Observable] =
           client.service[DatasetStorageRpc[F, Observable]](contact)

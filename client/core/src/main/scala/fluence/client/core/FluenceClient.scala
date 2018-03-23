@@ -41,6 +41,7 @@ import scodec.bits.ByteVector
 
 import scala.concurrent.Future
 import scala.language.higherKinds
+import scala.util.Try
 
 class FluenceClient(
   kademlia: Kademlia[Task, Contact],
@@ -78,6 +79,7 @@ class FluenceClient(
     keyPair: KeyPair,
     contact: Contact,
     clientState: Option[ClientState],
+    datasetVer: Long,
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]]
   ): Task[ClientDatasetStorage[String, String]] =
@@ -87,6 +89,7 @@ class FluenceClient(
       keyCrypt,
       valueCrypt,
       clientState,
+      datasetVer,
       storageHasher
     )
 
@@ -106,12 +109,14 @@ class FluenceClient(
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]],
     clientState: Option[ClientState],
+    datasetVer: Long,
     hasher: CryptoHasher[Array[Byte], Array[Byte]],
     nonce: ByteVector = ByteVector.empty
   ): Task[ClientDatasetStorage[String, String]] = {
     for {
       datasetId ← Key.sha1[Task]((nonce ++ keyPair.publicKey.value).toArray)
-    } yield ClientDatasetStorage(datasetId.value.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
+    } yield
+      ClientDatasetStorage(datasetId.value.toArray, datasetVer, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
   }
 
   private def loadDatasetFromCache(
@@ -132,7 +137,17 @@ class FluenceClient(
       key ← Key.fromKeyPair[Task](keyPair)
       signer = signAlgo.signer(keyPair)
       offer ← BasicContract.offer[Task](key, participantsRequired = participantsRequired, signer = signer)
-      newContract ← contracts.allocate(offer, dc ⇒ WriteOps[Task, BasicContract](dc).sealParticipants(signer))
+      newContract ← contracts
+        .allocate(
+          offer,
+          dc ⇒
+            WriteOps[Task, BasicContract](dc)
+              .sealParticipants(signer)
+              .leftMap(_.errorMessage)
+        ) // TODO: refactor this to EitherT
+        .value
+        .flatMap(v ⇒ Task(v.right.get))
+
       _ = logger.debug("New allocated contract: " + newContract)
       nodes ← findContactsOfAllParticipants(newContract)
       datasets ← Task.sequence(
@@ -142,6 +157,7 @@ class FluenceClient(
               keyPair,
               contact,
               Some(ClientState(newContract.executionState.merkleRoot)),
+              newContract.executionState.version,
               keyCrypt,
               valueCrypt
             ).map(store ⇒ store → contact)
@@ -161,10 +177,10 @@ class FluenceClient(
   ): Task[Option[ClientDatasetStorageApi[Task, Observable, String, String]]] = {
     for {
       key ← Key.fromKeyPair[Task](keyPair)
-      bcOp ← contracts.find(key).attempt.map(_.toOption)
+      bcOp ← contracts.find(key).value.attempt
       dataStorages ← bcOp match {
 
-        case Some(basicContract) ⇒ //create storage from existed contract
+        case Right(Right(basicContract)) ⇒ //create storage from existed contract
           logger.debug(s"Client found contract in kademlia net: $basicContract")
           for {
             nodes ← findContactsOfAllParticipants(basicContract)
@@ -175,13 +191,14 @@ class FluenceClient(
                     keyPair,
                     contact,
                     Some(ClientState(basicContract.executionState.merkleRoot)),
+                    basicContract.executionState.version,
                     keyCrypt,
                     valueCrypt
                   ).map(store ⇒ store → contact)
               )
             )
           } yield Some(datasets)
-        case None ⇒ Task.pure(None)
+        case _ ⇒ Task.pure(None)
       }
     } yield dataStorages.map(ds ⇒ new ClientReplicationWrapper(ds.toList))
   }

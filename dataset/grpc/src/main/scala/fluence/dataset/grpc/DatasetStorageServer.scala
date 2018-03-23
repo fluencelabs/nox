@@ -111,9 +111,10 @@ class DatasetStorageServer[F[_]: Async](
 
     val valueF =
       for {
-        did ← toF(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
+        datasetInfo ← toF(getReply(_.isDatasetInfo, _.datasetInfo.get))
         foundValue ← service.get(
-          did,
+          datasetInfo.id.toByteArray,
+          datasetInfo.version,
           new BTreeRpc.SearchCallback[F] {
 
             private val pushServerAsk: GetCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
@@ -171,7 +172,7 @@ class DatasetStorageServer[F[_]: Async](
           }
         )
       } yield {
-        logger.debug(s"Was found value=${foundValue.show} for client 'get' request for dataset=${did.show}")
+        logger.debug(s"Was found value=${foundValue.show} for client 'get' request for dataset=${datasetInfo.show}")
         foundValue
       }
 
@@ -225,9 +226,10 @@ class DatasetStorageServer[F[_]: Async](
 
     val valueF =
       for {
-        did ← toObservable(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
+        datasetInfo ← toObservable(getReply(_.isDatasetInfo, _.datasetInfo.get))
         valuesStream ← service.range(
-          did,
+          datasetInfo.id.toByteArray,
+          datasetInfo.version,
           new BTreeRpc.SearchCallback[F] {
 
             private val pushServerAsk: RangeCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
@@ -285,7 +287,7 @@ class DatasetStorageServer[F[_]: Async](
           }
         )
       } yield {
-        logger.debug(s"Was found value=${valuesStream.show} for client 'range' request for dataset=${did.show}")
+        logger.debug(s"Was found value=${valuesStream.show} for client 'range' request for ${datasetInfo.show}")
         valuesStream
       }
 
@@ -337,10 +339,11 @@ class DatasetStorageServer[F[_]: Async](
 
     val valueF =
       for {
-        did ← toF(getReply(_.isDatasetId, _.datasetId.get.id.toByteArray))
+        datasetInfo ← toF(getReply(_.isDatasetInfo, _.datasetInfo.get))
         putValue ← toF(getReply(_.isValue, _._value.map(_.value.toByteArray).getOrElse(Array.emptyByteArray)))
         oldValue ← service.put(
-          did,
+          datasetInfo.id.toByteArray,
+          datasetInfo.version,
           new BTreeRpc.PutCallbacks[F] {
 
             private val pushServerAsk: PutCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
@@ -410,7 +413,6 @@ class DatasetStorageServer[F[_]: Async](
                   _ ← pushServerAsk(
                     PutCallback.Callback.VerifyChanges(
                       AskVerifyChanges(
-                        version = 1, // TODO: pass prevVersion + 1
                         serverMerkleRoot = ByteString.copyFrom(serverMerkleRoot.bytes),
                         splitted = wasSplitting
                       )
@@ -435,7 +437,7 @@ class DatasetStorageServer[F[_]: Async](
         )
       } yield {
         logger.debug(
-          s"Was stored new value=${putValue.show} for client 'put' request for dataset=${did.show}," +
+          s"Was stored new value=${putValue.show} for client 'put' request for ${datasetInfo.show}" +
             s" old value=${oldValue.show} was overwritten"
         )
         oldValue
@@ -454,7 +456,7 @@ class DatasetStorageServer[F[_]: Async](
           Async[F].raiseError[PutCallback](clientError)
         case Left(exception) ⇒
           // when server error appears, server should log it and send to client
-          logger.warn(s"Severs throw an exception=$exception and send cause to client")
+          logger.warn(s"Severs throw an exception=($exception) and send cause to client")
           F.pure(PutCallback(PutCallback.Callback.ServerError(Error(exception.getMessage))))
       }
     )
@@ -480,6 +482,11 @@ object DatasetStorageServer {
 
   private implicit def showTuple[T](implicit showT: Show[T]): Show[(T, T)] = { (o: (T, T)) ⇒
     s"(${showT.show(o._1)},${showT.show(o._2)})"
+  }
+
+  private implicit def showDatasetInfo(implicit showBytes: Show[Array[Byte]]): Show[DatasetInfo] = {
+    (dsi: (DatasetInfo)) ⇒
+      s"(DatasetInfo(id=${showBytes.show(dsi.id.toByteArray)},ver=${dsi.version})"
   }
 
 }

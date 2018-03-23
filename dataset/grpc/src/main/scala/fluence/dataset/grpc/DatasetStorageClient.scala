@@ -56,11 +56,16 @@ class DatasetStorageClient[F[_]: Effect](
   /**
    * Initiates ''Get'' operation in remote MerkleBTree.
    *
-   * @param datasetId    Dataset ID
+   * @param datasetId Dataset ID
+   * @param version Dataset version expected to the client
    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[F]): F[Option[Array[Byte]]] = {
+  override def get(
+    datasetId: Array[Byte],
+    version: Long,
+    getCallbacks: BTreeRpc.SearchCallback[F]
+  ): F[Option[Array[Byte]]] = {
     // Convert a remote stub call to monix pipe
     val pipe = callToPipe(stub.get)
 
@@ -135,7 +140,7 @@ class DatasetStorageClient[F[_]: Effect](
     (
       Observable(
         GetCallbackReply(
-          GetCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
+          GetCallbackReply.Reply.DatasetInfo(DatasetInfo(ByteString.copyFrom(datasetId), version))
         )
       ) ++ handleAsks
     ).subscribe(pushClientReply) // And clientReply response back to server
@@ -165,12 +170,14 @@ class DatasetStorageClient[F[_]: Effect](
   /**
    * Initiates ''Range'' operation in remote MerkleBTree.
    *
-   * @param datasetId       Dataset ID
+   * @param datasetId Dataset ID
+   * @param version Dataset version expected to the client
    * @param rangeCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
    * @return returns stream of found value.
    */
   override def range(
     datasetId: Array[Byte],
+    version: Long,
     rangeCallbacks: BTreeRpc.SearchCallback[F]
   ): Observable[(Array[Byte], Array[Byte])] = {
 
@@ -242,7 +249,7 @@ class DatasetStorageClient[F[_]: Effect](
     (
       Observable(
         RangeCallbackReply(
-          RangeCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
+          RangeCallbackReply.Reply.DatasetInfo(DatasetInfo(ByteString.copyFrom(datasetId), version))
         )
       ) ++ handleAsks
     ).subscribe(pushClientReply) // And clientReply response back to server
@@ -265,13 +272,15 @@ class DatasetStorageClient[F[_]: Effect](
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.
    *
-   * @param datasetId      Dataset ID
-   * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param datasetId Dataset ID
+   * @param version Dataset version expected to the client
+   * @param putCallbacks Wrapper for all callback needed for ''Put'' operation to the BTree.
    * @param encryptedValue Encrypted value.
    * @return returns old value if old value was overridden, None otherwise.
    */
   override def put(
     datasetId: Array[Byte],
+    version: Long,
     putCallbacks: BTreeRpc.PutCallbacks[F],
     encryptedValue: Array[Byte]
   ): F[Option[Array[Byte]]] = {
@@ -369,7 +378,7 @@ class DatasetStorageClient[F[_]: Effect](
     (
       Observable( // Pass the datasetId and value as the first, unasked pushes
         PutCallbackReply(
-          PutCallbackReply.Reply.DatasetId(DatasetId(ByteString.copyFrom(datasetId)))
+          PutCallbackReply.Reply.DatasetInfo(DatasetInfo(ByteString.copyFrom(datasetId), version))
         ),
         PutCallbackReply(
           PutCallbackReply.Reply.Value(PutValue(ByteString.copyFrom(encryptedValue)))
@@ -403,10 +412,15 @@ class DatasetStorageClient[F[_]: Effect](
    * Initiates ''Remove'' operation in remote MerkleBTree.
    *
    * @param datasetId Dataset ID
+   * @param version Dataset version expected to the client
    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
    * @return returns old value that was deleted, None if nothing was deleted.
    */
-  override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[F]): F[Option[Array[Byte]]] = ???
+  override def remove(
+    datasetId: Array[Byte],
+    version: Long,
+    removeCallbacks: BTreeRpc.RemoveCallback[F]
+  ): F[Option[Array[Byte]]] = ???
 
   /** Returns either client error if present, or server error, or value from server */
   private def composeResult(

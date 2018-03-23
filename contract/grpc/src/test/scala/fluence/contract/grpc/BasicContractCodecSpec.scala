@@ -57,8 +57,9 @@ class BasicContractCodecSpec extends WordSpec with Matchers {
 
       Seq(
         BC.offer(key, 1, signer),
-        BC.offer(key, 1, signer).flatMap(_.signOffer(key, signer)),
-        BC.offer(key, 1, signer).flatMap(_.signOffer(key, signer).flatMap(_.sealParticipants(signer)))
+        BC.offer(key, 1, signer).flatMap(_.signOffer(key, signer).value.map(_.right.get)),
+        BC.offer(key, 1, signer)
+          .flatMap(_.signOffer(key, signer).flatMap(_.sealParticipants(signer)).value.map(_.right.get))
       ).map(_.get).foreach(checkInvariance)
 
     }
