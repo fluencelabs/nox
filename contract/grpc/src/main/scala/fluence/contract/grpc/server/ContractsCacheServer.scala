@@ -18,9 +18,7 @@
 package fluence.contract.grpc.server
 
 import cats.data.Kleisli
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.{~>, MonadError}
+import cats.effect.IO
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractsCacheRpc
 import fluence.contract.grpc._
@@ -33,35 +31,30 @@ import scala.language.higherKinds
  * ContractsCache GRPC server implementation.
  *
  * @param cache Delegate implementation
- * @param F MonadError instance
- * @param run Runs F and produces Future
- * @tparam F Effect
  * @tparam C Domain-level Contract
  */
-class ContractsCacheServer[F[_], C](cache: ContractsCacheRpc[F, C])(
+class ContractsCacheServer[C](cache: ContractsCacheRpc[C])(
   implicit
-  F: MonadError[F, Throwable],
-  codec: Codec[F, C, BasicContract],
-  keyK: Kleisli[F, Array[Byte], Key],
-  run: F ~> Future
+  codec: Codec[IO, C, BasicContract],
+  keyK: Kleisli[IO, Array[Byte], Key]
 ) extends ContractsCacheGrpc.ContractsCache {
 
   override def find(request: FindRequest): Future[BasicContract] =
-    run(
+    (
       for {
         k ← keyK(request.id.toByteArray)
         resp ← cache.find(k).flatMap[BasicContract] {
           case Some(c) ⇒ codec.encode(c)
-          case None ⇒ F.raiseError(new NoSuchElementException(""))
+          case None ⇒ IO.raiseError(new NoSuchElementException(""))
         }
       } yield resp
-    )
+    ).unsafeToFuture()
 
   override def cache(request: BasicContract): Future[CacheResponse] =
-    run(
+    (
       for {
         c ← codec.decode(request)
         resp ← cache.cache(c)
       } yield CacheResponse(resp)
-    )
+    ).unsafeToFuture()
 }

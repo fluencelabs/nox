@@ -44,9 +44,9 @@ import scala.language.higherKinds
 
 object NodeGrpc {
 
-  private implicit val runTask: Task ~> Future = new (Task ~> Future) {
+  private implicit def runTask(implicit scheduler: Scheduler): Task ~> Future = new (Task ~> Future) {
     // TODO: add logging
-    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync(Scheduler.global)
+    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync(scheduler)
   }
 
   // TODO: remove it
@@ -81,13 +81,13 @@ object NodeGrpc {
 
       import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}
       import fluence.kad.grpc.KademliaNodeCodec.{codec ⇒ nodeCodec}
-      val keyC = Key.bytesCodec[Task]
-      import keyC.inverse
+      val keyI = Key.bytesCodec[IO]
+      import keyI.inverse
 
       serverBuilder
         .add(KademliaGrpc.bindService(new KademliaServer(kademlia.handleRPC), ec))
-        .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[Task, BasicContract](contractsCache), ec))
-        .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[Task, BasicContract](contractAllocator), ec))
+        .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[BasicContract](contractsCache), ec))
+        .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[BasicContract](contractAllocator), ec))
         .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), ec))
         .onNodeActivity(kademlia.update(_).toIO(Scheduler.global), clientConf)
         .build

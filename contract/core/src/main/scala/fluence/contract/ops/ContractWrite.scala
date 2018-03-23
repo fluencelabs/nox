@@ -17,9 +17,9 @@
 
 package fluence.contract.ops
 
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.{Invariant, MonadError}
+import cats.data.EitherT
+import cats.{Invariant, Monad}
+import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.signature.{Signature, SignatureChecker, Signer}
 import fluence.kad.protocol.Key
 
@@ -48,36 +48,30 @@ object ContractWrite {
       }
   }
 
-  implicit class WriteOps[F[_], C](contract: C)(
+  implicit class WriteOps[F[_]: Monad, C](contract: C)(
     implicit read: ContractRead[C],
-    write: ContractWrite[C],
-    ME: MonadError[F, Throwable]
+    write: ContractWrite[C]
   ) {
     import ContractRead.ReadOps
 
-    def sealOffer(signer: Signer): F[C] =
+    def sealOffer(signer: Signer): EitherT[F, CryptoErr, C] =
       signer
         .sign(contract.getOfferBytes)
         .map(s ⇒ write.setOfferSeal(contract, s))
-        .value
-        .flatMap(ME.fromEither(_))
 
-    def signOffer(participant: Key, signer: Signer): F[C] =
+    def signOffer(participant: Key, signer: Signer): EitherT[F, CryptoErr, C] =
       signer
         .sign(contract.getOfferBytes)
-        .value
-        .flatMap(ME.fromEither(_))
         .map(s ⇒ write.setOfferSignature(contract, participant, s))
 
-    def sealParticipants(signer: Signer): F[C] =
+    def sealParticipants(signer: Signer): EitherT[F, CryptoErr, C] =
       signer
         .sign(contract.getParticipantsBytes)
-        .value
-        .flatMap(ME.fromEither(_))
-        .flatMap(s ⇒ ME.catchNonFatal(write.setParticipantsSeal(contract, s)))
+        .map(s ⇒ write.setParticipantsSeal(contract, s))
 
-    def addParticipants(participants: Seq[C])(implicit checker: SignatureChecker): F[C] =
-      ME.catchNonFatal(participants.foldLeft(contract) {
+    def addParticipants(participants: Seq[C])(implicit checker: SignatureChecker): EitherT[F, CryptoErr, C] =
+      EitherT
+        .rightT(participants.foldLeft(contract) {
           case (agg, part) if part.participants.size == 1 ⇒
             part.participants.headOption
               .flatMap(p ⇒ part.participantSignature(p).map(p -> _))
@@ -90,8 +84,10 @@ object ContractWrite {
         })
         .flatMap { signed ⇒
           signed.checkAllParticipants().flatMap {
-            case true ⇒ ME.pure(signed)
-            case false ⇒ ME.raiseError(new IllegalArgumentException("Wrong number of participants or wrong signatures"))
+            case true ⇒ EitherT.rightT(signed)
+            case false ⇒
+              // TODO: actually it's not a crypto err
+              EitherT.leftT(CryptoErr("Wrong number of participants or wrong signatures"))
           }
         }
   }

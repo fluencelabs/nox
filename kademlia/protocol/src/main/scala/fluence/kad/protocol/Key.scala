@@ -22,7 +22,7 @@ import java.nio.charset.Charset
 import cats.syntax.monoid._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
-import cats.{MonadError, Monoid, Order, Show}
+import cats.{ApplicativeError, MonadError, Monoid, Order, Show}
 import fluence.codec.Codec
 import fluence.crypto.hash.CryptoHashers
 import fluence.crypto.keypair.KeyPair
@@ -96,7 +96,7 @@ object Key {
    * Tries to read base64 form of Kademlia key.
    */
   def fromB64[F[_]](str: String)(implicit F: MonadError[F, Throwable]): F[Key] =
-    b64Codec[F].decode(str)
+    Codec.codec[F, Key, String].decode(str)
 
   /**
    * Checks that given key is produced form that publicKey
@@ -142,7 +142,7 @@ object Key {
   implicit def b64Codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Key, String] =
     vectorCodec[F] andThen Codec.codec[F, ByteVector, String]
 
-  implicit def vectorCodec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Key, ByteVector] =
+  implicit def vectorCodec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, ByteVector] =
     Codec(
       _.value.pure[F],
       vec ⇒

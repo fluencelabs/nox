@@ -19,6 +19,7 @@ package fluence.contract.node
 
 import cats.effect.IO
 import cats.instances.try_._
+import cats.~>
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.protocol.ContractAllocatorRpc
@@ -48,29 +49,35 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
   import signAlgo.checker
 
-  val createDS: BasicContract ⇒ IO[Unit] = c ⇒ {
-    if (denyDS(c.id)) IO.raiseError(new IllegalArgumentException(s"Can't create dataset for ${c.id}"))
-    else IO(dsCreated += c.id)
+  val createDS: BasicContract ⇒ IO[Boolean] = c ⇒ {
+    if (denyDS(c.id)) IO(false)
+    else IO(dsCreated += c.id).map(_ ⇒ true)
   }
 
-  val checkAllocationPossible: BasicContract ⇒ IO[Unit] =
+  val checkAllocationPossible: BasicContract ⇒ IO[Boolean] =
     c ⇒
-      if (c.executionState.version == 0) IO.unit
-      else IO.raiseError(new IllegalArgumentException("allocation not possible"))
+      IO {
+        c.executionState.version == 0
+    }
 
   val store: KVStore[IO, Key, ContractRecord[BasicContract]] =
     TrieMapKVStore()
 
-  val allocator: ContractAllocatorRpc[IO, BasicContract] = new ContractAllocator[IO, BasicContract](
+  implicit def toID[F[_]]: F ~> F = new (F ~> F) {
+    override def apply[A](fa: F[A]): F[A] = fa
+  }
+
+  val allocator: ContractAllocatorRpc[BasicContract] = new ContractAllocator[IO, BasicContract](
     nodeId,
     store,
     createDS,
     checkAllocationPossible,
-    signer
+    signer,
+    toID
   )
 
   val cache: ContractsCache[IO, BasicContract] =
-    new ContractsCache[IO, BasicContract](nodeId, store, 1.minute)
+    new ContractsCache[IO, BasicContract](nodeId, store, 1.minute, toID)
 
   def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
     val s = offerSigner(signAlgo, seed)
@@ -92,7 +99,9 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       val contract = offer("should reject").copy(
         executionState = BasicContract.ExecutionState(version = -1, merkleRoot = ByteVector.empty)
       )
-      allocator.offer(contract).attempt.unsafeRunSync().isLeft shouldBe true
+      val result = allocator.offer(contract).attempt.unsafeRunSync()
+
+      result.isLeft shouldBe true
     }
 
     "accept offer (idempotently)" in {
@@ -127,7 +136,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       val contract = offer("should accept, but not return")
       val accepted = allocator.offer(contract).unsafeRunSync()
 
-      cache.find(accepted.id).unsafeRunSync() should be('empty)
+      cache.find(accepted.id).unsafeRunSync() shouldBe empty
     }
 
     "reject allocation when not in the list of participants" in {
@@ -139,6 +148,9 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
       val c2 = offer("should not allocate, as not a participant, even with a list of participants")
         .signOffer(Key.fromPublicKey[IO](s2.publicKey).unsafeRunSync(), s2)
+        .value
+        .get
+        .right
         .get
 
       allocator.allocate(c2).attempt.unsafeRunSync().isLeft shouldBe true
@@ -156,6 +168,9 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
         .allocate(
           accepted
             .sealParticipants(signer)
+            .value
+            .get
+            .right
             .get
             .copy(executionState = BasicContract.ExecutionState(version = -1, merkleRoot = ByteVector.empty))
         )
@@ -164,7 +179,11 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
         .isLeft shouldBe true
 
       denyDS += offerC.id
-      allocator.allocate(accepted.sealParticipants(signer).get).attempt.unsafeRunSync().isLeft shouldBe true
+      allocator
+        .allocate(accepted.sealParticipants(signer).value.get.right.get)
+        .attempt
+        .unsafeRunSync()
+        .isLeft shouldBe true
     }
 
     "allocate (idempotently) and return from cache" in {
@@ -172,7 +191,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
       val offerC = offer("should accept offer and allocate")
       val signer = offerSigner(signAlgo, "should accept offer and allocate")
-      val accepted = allocator.offer(offerC).unsafeRunSync().sealParticipants(signer).get
+      val accepted = allocator.offer(offerC).unsafeRunSync().sealParticipants(signer).value.get.right.get
       val contract = allocator.allocate(accepted).unsafeRunSync()
 
       contract shouldBe accepted

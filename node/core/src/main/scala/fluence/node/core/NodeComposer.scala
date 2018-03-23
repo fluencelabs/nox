@@ -20,6 +20,7 @@ package fluence.node.core
 import java.time.Instant
 
 import cats.effect.IO
+import cats.~>
 import com.typesafe.config.Config
 import fluence.client.core.config.KademliaConfigParser
 import fluence.contract.BasicContract
@@ -36,6 +37,7 @@ import fluence.kad.{Kademlia, KademliaMVar}
 import fluence.storage.rocksdb.RocksDbStore
 import fluence.transport.TransportSecurity
 import monix.eval.Task
+import monix.execution.Scheduler
 import monix.reactive.Observable
 
 import scala.concurrent.duration._
@@ -53,7 +55,7 @@ object NodeComposer {
     kadClient: Contact ⇒ KademliaRpc[Contact],
     config: Config,
     acceptLocal: Boolean
-  ): IO[Services] =
+  )(implicit scheduler: Scheduler): IO[Services] =
     for {
       k ← Key.fromKeyPair[IO](keyPair)
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
@@ -71,6 +73,10 @@ object NodeComposer {
 
         import algo.checker
 
+        private object taskToIO extends (Task ~> IO) {
+          override def apply[A](fa: Task[A]): IO[A] = fa.toIO(scheduler)
+        }
+
         override lazy val kademlia: Kademlia[Task, Contact] = KademliaMVar(
           k,
           IO.pure(contact),
@@ -79,20 +85,22 @@ object NodeComposer {
           TransportSecurity.canBeSaved[IO](k, acceptLocal = acceptLocal)
         )
 
-        override lazy val contractsCache: ContractsCacheRpc[Task, BasicContract] =
+        override lazy val contractsCache: ContractsCacheRpc[BasicContract] =
           new ContractsCache[Task, BasicContract](
             nodeId = k,
             storage = contractsCacheStore,
-            cacheTtl = 1.day
+            cacheTtl = 1.day,
+            taskToIO
           )
 
-        override lazy val contractAllocator: ContractAllocatorRpc[Task, BasicContract] =
+        override lazy val contractAllocator: ContractAllocatorRpc[BasicContract] =
           new ContractAllocator[Task, BasicContract](
             nodeId = k,
             storage = contractsCacheStore,
-            createDataset = _ ⇒ Task.unit, // TODO: dataset creation
-            checkAllocationPossible = _ ⇒ Task.unit, // TODO: check allocation possible
-            signer = signer
+            createDataset = _ ⇒ Task(true), // TODO: dataset creation
+            checkAllocationPossible = _ ⇒ Task(true), // TODO: check allocation possible
+            signer = signer,
+            toIO = taskToIO
           )
 
         override lazy val datasets: DatasetStorageRpc[Task, Observable] =

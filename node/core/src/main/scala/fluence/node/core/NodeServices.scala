@@ -40,9 +40,9 @@ abstract class NodeServices[F[_], FS[_], Contract, Contact] {
 
   def kademlia: Kademlia[F, Contact]
 
-  def contractsCache: ContractsCacheRpc[F, Contract]
+  def contractsCache: ContractsCacheRpc[Contract]
 
-  def contractAllocator: ContractAllocatorRpc[F, Contract]
+  def contractAllocator: ContractAllocatorRpc[Contract]
 
   def datasets: DatasetStorageRpc[F, FS]
 

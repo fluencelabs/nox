@@ -67,6 +67,7 @@ object BasicContract {
     merkleRoot: ByteVector
   )
 
+  // TODO: EitherT instead of MonadError
   def offer[F[_]](id: Key, participantsRequired: Int, signer: Signer)(
     implicit F: MonadError[F, Throwable]
   ): F[BasicContract] = {

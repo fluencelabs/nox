@@ -28,9 +28,9 @@ abstract class ClientServices[F[_], Contract, Contact] {
 
   def kademlia: KademliaRpc[Contact]
 
-  def contractsCache: ContractsCacheRpc[F, Contract]
+  def contractsCache: ContractsCacheRpc[Contract]
 
-  def contractAllocator: ContractAllocatorRpc[F, Contract]
+  def contractAllocator: ContractAllocatorRpc[Contract]
   // todo generalize Observable
   def datasetStorage: DatasetStorageRpc[F, Observable]
 
