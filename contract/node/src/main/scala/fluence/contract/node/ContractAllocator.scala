@@ -17,6 +17,10 @@
 
 package fluence.contract.node
 
+import java.time.Clock
+
+import cats.syntax.applicative._
+import cats.syntax.applicativeError._
 import cats.data.EitherT
 import cats.effect.IO
 import cats.syntax.eq._
@@ -38,7 +42,7 @@ import scala.language.{higherKinds, implicitConversions}
  * Performs contracts allocation on local node.
  * TODO: we have a number of toIO convertions due to wrong [[KVStore.get]] signature; it should be fixed
  *
- * @param storage Contracts storage
+ * @param storage       Contracts storage
  * @param createDataset Callback to create a dataset for a successfully allocated contract
  * @param eq Contracts equality
  * @tparam F Effect
@@ -50,6 +54,7 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
   createDataset: C ⇒ F[Boolean],
   checkAllocationPossible: C ⇒ F[Boolean],
   signer: Signer,
+  clock: Clock,
   toIO: F ~> IO
 )(
   implicit
@@ -100,7 +105,7 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
         checkAllocationPossible(contract)
           .map(p ⇒ Either.cond(p, p, new RuntimeException("Allocation is not possible")))
       )
-      _ ← EitherT.right[Throwable](storage.put(contract.id, ContractRecord(contract)))
+      _ ← EitherT.right[Throwable](storage.put(contract.id, ContractRecord(contract, clock.instant())))
       created ← EitherT.right[Throwable](createDataset(contract))
 
       // TODO: error should be returned as value
@@ -153,7 +158,7 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
                 _ ← toIO(storage.remove(contract.id))
                 ap ← toIO(checkAllocationPossible(contract))
                 _ ← IO.fromEither(Either.cond(ap, (), new RuntimeException("Allocation is not possible")))
-                _ ← toIO(storage.put(contract.id, ContractRecord(contract)))
+                _ ← toIO(storage.put(contract.id, ContractRecord(contract, clock.instant())))
                 sContract ← signedContract
               } yield sContract
             } else {
@@ -166,7 +171,7 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
           for {
             ap ← toIO(checkAllocationPossible(contract))
             _ ← IO.fromEither(Either.cond(ap, (), new RuntimeException("Allocation is not possible")))
-            _ ← toIO(storage.put(contract.id, ContractRecord(contract)))
+            _ ← toIO(storage.put(contract.id, ContractRecord(contract, clock.instant())))
             sContract ← signedContract
           } yield sContract
       }

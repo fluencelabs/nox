@@ -79,6 +79,7 @@ class FluenceClient(
     keyPair: KeyPair,
     contact: Contact,
     clientState: Option[ClientState],
+    datasetVer: Long,
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]]
   ): Task[ClientDatasetStorage[String, String]] =
@@ -88,6 +89,7 @@ class FluenceClient(
       keyCrypt,
       valueCrypt,
       clientState,
+      datasetVer,
       storageHasher
     )
 
@@ -107,12 +109,14 @@ class FluenceClient(
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]],
     clientState: Option[ClientState],
+    datasetVer: Long,
     hasher: CryptoHasher[Array[Byte], Array[Byte]],
     nonce: ByteVector = ByteVector.empty
   ): Task[ClientDatasetStorage[String, String]] = {
     for {
       datasetId ← Key.sha1[Task]((nonce ++ keyPair.publicKey.value).toArray)
-    } yield ClientDatasetStorage(datasetId.value.toArray, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
+    } yield
+      ClientDatasetStorage(datasetId.value.toArray, datasetVer, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
   }
 
   private def loadDatasetFromCache(
@@ -153,6 +157,7 @@ class FluenceClient(
               keyPair,
               contact,
               Some(ClientState(newContract.executionState.merkleRoot)),
+              newContract.executionState.version,
               keyCrypt,
               valueCrypt
             ).map(store ⇒ store → contact)
@@ -186,6 +191,7 @@ class FluenceClient(
                     keyPair,
                     contact,
                     Some(ClientState(basicContract.executionState.merkleRoot)),
+                    basicContract.executionState.version,
                     keyCrypt,
                     valueCrypt
                   ).map(store ⇒ store → contact)

@@ -17,6 +17,8 @@
 
 package fluence.contract.node
 
+import java.time.Clock
+
 import cats.effect.IO
 import cats.instances.try_._
 import cats.~>
@@ -36,6 +38,8 @@ import scala.language.higherKinds
 import scala.util.Try
 
 class ContractAllocatorSpec extends WordSpec with Matchers {
+
+  private val clock = Clock.systemUTC()
   @volatile var denyDS: Set[Key] = Set.empty
 
   @volatile var dsCreated: Set[Key] = Set.empty
@@ -73,11 +77,12 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
     createDS,
     checkAllocationPossible,
     signer,
+    clock,
     toID
   )
 
   val cache: ContractsCache[IO, BasicContract] =
-    new ContractsCache[IO, BasicContract](nodeId, store, 1.minute, toID)
+    new ContractsCache[IO, BasicContract](nodeId, store, 1.minute, clock, toID)
 
   def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
     val s = offerSigner(signAlgo, seed)

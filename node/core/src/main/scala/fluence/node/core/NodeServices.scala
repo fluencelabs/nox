@@ -30,6 +30,9 @@ import scala.language.higherKinds
 
 abstract class NodeServices[F[_], FS[_], Contract, Contact] {
 
+  /**
+   * Node key. Kademlia key that corresponds this node.
+   */
   def key: Key
 
   def signer: Signer

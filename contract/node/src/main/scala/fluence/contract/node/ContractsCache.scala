@@ -17,11 +17,13 @@
 
 package fluence.contract.node
 
-import java.time.Instant
+import java.time.Clock
 
 import cats.{~>, Monad}
 import cats.effect.IO
 import cats.syntax.applicative._
+import cats.syntax.applicativeError._
+import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.ops.ContractRead
@@ -38,9 +40,8 @@ import scala.language.{higherKinds, implicitConversions}
  * TODO: we have a number of toIO convertions due to wrong [[KVStore.get]] signature; it should be fixed
  *
  * @param nodeId Current node id, to check participation
- * @param storage     Contracts storage
- * @param checker Signature checker
- * @param cacheTtl    Cache time-to-live
+ * @param storage Contracts storage
+ * @param cacheTtl Cache time-to-live
  * @tparam F Effect
  * @tparam C Contract
  */
@@ -48,6 +49,7 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
   nodeId: Key,
   storage: KVStore[F, Key, ContractRecord[C]],
   cacheTtl: FiniteDuration,
+  clock: Clock,
   toIO: F ~> IO
 )(implicit checker: SignatureChecker)
     extends ContractsCacheRpc[C] {
@@ -61,7 +63,7 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
   // TODO: remove Instant.now() usage
   private def isExpired(cr: ContractRecord[C]): Boolean =
     !cr.contract.participants.contains(nodeId) &&
-      java.time.Duration.between(cr.lastUpdated, Instant.now()).toMillis >= ttlMillis
+      java.time.Duration.between(cr.lastUpdated, clock.instant()).toMillis >= ttlMillis
 
   private def canBeCached(contract: C): F[Boolean] =
     if (cacheEnabled && !contract.participants.contains(nodeId))
@@ -108,7 +110,7 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
           case Some(cr) if cr.contract.version < contract.version ⇒ // Contract updated
             toIO(
               storage
-                .put(contract.id, ContractRecord(contract))
+                .put(contract.id, ContractRecord(contract, clock.instant()))
                 .map(_ ⇒ true)
             )
 
@@ -118,7 +120,7 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
           case None ⇒ // Contract is unknown, save it
             toIO(
               storage
-                .put(contract.id, ContractRecord(contract))
+                .put(contract.id, ContractRecord(contract, clock.instant()))
                 .map(_ ⇒ true)
             )
         }

@@ -25,7 +25,6 @@ import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.Key
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
-import monix.execution.atomic.AtomicLong
 import monix.reactive.Observable
 import scodec.bits.{Bases, ByteVector}
 
@@ -46,90 +45,149 @@ class Datasets(
   rocksFactory: RocksDbStore.Factory,
   cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
   servesDataset: Key ⇒ Task[Option[Long]],
-  contractUpdated: (Key, Long, ByteVector) ⇒ Task[Unit] // TODO: pass signature as well
+  contractUpdated: (Key, ByteVector, Long) ⇒ Task[Unit] // TODO: pass signature as well
 ) extends DatasetStorageRpc[Task, Observable] with slogging.LazyLogging {
 
   private val datasets = TrieMap.empty[ByteVector, Task[DatasetNodeStorage]]
 
-  private def storage(datasetId: Array[Byte]): Task[DatasetNodeStorage] = {
-    val id = ByteVector(datasetId)
+  /**
+   * Checks client and node dataset versions.
+   * Returns existent or create new dataset store and.
+   *
+   * @param datasetId     Current dataset id
+   * @param clientVersion Dataset version expected to the client
+   * @return dataset node storage [[DatasetNodeStorage]]
+   */
+  private def storage(datasetId: Array[Byte], clientVersion: Long): Task[DatasetNodeStorage] = {
 
-    val newDataset = for {
+    val resultStorage = for {
       key ← Key.fromBytes[Task](datasetId)
-      ds ← servesDataset(key).flatMap {
-        case Some(currentVersion) ⇒ // TODO: ensure merkle roots matches
-          val version = AtomicLong(currentVersion)
-
+      nodeExecState ← servesDataset(key)
+      _ ← nodeExecState match {
+        case Some(currentNodeVersion) ⇒
+          checkVersions(clientVersion, currentNodeVersion) // checking client and node consistency
+        case None ⇒
+          Task.raiseError(new IllegalArgumentException(s"Dataset(key=$key) is not allocated on the node"))
+      }
+      store ← {
+        val id = ByteVector(datasetId)
+        datasets.getOrElseUpdate(
+          id,
           DatasetNodeStorage[Task](
             id.toBase64(Bases.Alphabets.Base64Url),
             rocksFactory,
             config,
             cryptoHasher,
-            mrHash ⇒ contractUpdated(key, version.incrementAndGet(), mrHash) // TODO: there should be signature
-          )
-
-        case None ⇒
-          Task.raiseError(new IllegalArgumentException(s"Dataset(key=$key) is not allocated on the node"))
-      }.onErrorRecoverWith[DatasetNodeStorage] {
-        case e ⇒
-          //todo this block is temporary convenience, will be removed when grpc will be serialize errors
-          val errMsg = s"Can't create DatasetNodeStorage for datasetId=$key"
-          logger.warn(errMsg, e)
-          Task.raiseError(new IllegalStateException(errMsg, e))
+            (mrHash, clientVer) ⇒ contractUpdated(key, mrHash, clientVer) // TODO: there should be clients signature
+          ).map { store ⇒
+            logger.info(s"For dataset=$key was successfully created storage.")
+            store
+          }.memoizeOnSuccess
+        )
       }
-    } yield {
-      logger.info(s"For dataset=$key was successfully created storage.")
-      ds
+
+    } yield store
+
+    resultStorage.onErrorRecoverWith[DatasetNodeStorage] {
+      case e ⇒
+        val errMsg = s"Can't create DatasetNodeStorage for Dataset(id=${ByteVector(datasetId)}, " +
+          s"version=$clientVersion) cause ${e.getMessage}"
+        logger.warn(errMsg, e)
+        Task.raiseError(new IllegalStateException(errMsg, e))
     }
 
-    datasets.getOrElseUpdate(id, newDataset.memoizeOnSuccess)
   }
 
   /**
    * @param datasetId    Dataset ID
+   * @param version      Dataset version expected to the client
    * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[Task]): Task[Option[Array[Byte]]] =
-    storage(datasetId).flatMap(_.get(getCallbacks))
+  override def get(
+    datasetId: Array[Byte],
+    version: Long,
+    getCallbacks: BTreeRpc.SearchCallback[Task]
+  ): Task[Option[Array[Byte]]] =
+    for {
+      store ← storage(datasetId, version)
+      result ← store.get(getCallbacks)
+    } yield result
 
   /**
    * @param datasetId       Dataset ID
+   * @param version         Dataset version expected to the client
    * @param searchCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
    * @return returns stream of found value.
    */
   override def range(
     datasetId: Array[Byte],
+    version: Long,
     searchCallbacks: BTreeRpc.SearchCallback[Task]
   ): Observable[(Array[Byte], Array[Byte])] =
     for {
-      store ← Observable.fromTask(storage(datasetId))
+      store ← Observable.fromTask(storage(datasetId, version))
       stream ← store.range(searchCallbacks)
     } yield stream
 
   /**
    * @param datasetId      Dataset ID
+   * @param version        Dataset version expected to the client
    * @param putCallbacks   Wrapper for all callback needed for ''Put'' operation to the BTree.
    * @param encryptedValue Encrypted value.
    * @return returns old value if old value was overridden, None otherwise.
    */
   override def put(
     datasetId: Array[Byte],
+    version: Long,
     putCallbacks: BTreeRpc.PutCallbacks[Task],
     encryptedValue: Array[Byte]
   ): Task[Option[Array[Byte]]] =
-    storage(datasetId).flatMap(_.put(putCallbacks, encryptedValue))
+    for {
+      store ← storage(datasetId, version)
+      oldValue ← store.put(version, putCallbacks, encryptedValue)
+    } yield oldValue
 
   /**
    * @param datasetId       Dataset ID
+   * @param version         Dataset version expected to the client
    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
    * @return returns old value that was deleted, None if nothing was deleted.
    */
   override def remove(
     datasetId: Array[Byte],
+    version: Long,
     removeCallbacks: BTreeRpc.RemoveCallback[Task]
   ): Task[Option[Array[Byte]]] =
-    storage(datasetId).flatMap(_.remove(removeCallbacks))
+    for {
+      store ← storage(datasetId, version)
+      deletedValue ← store.remove(version, removeCallbacks)
+    } yield deletedValue
+
+  /**
+   * Compare client and node dataset versions.
+   * @param clientVersion  dataset version  expected to the client
+   */
+  private def checkVersions(nodeVersion: Long, clientVersion: Long): Task[Boolean] = {
+
+    if (clientVersion > nodeVersion)
+      Task.raiseError(
+        new IllegalStateException(
+          s"Node version '$nodeVersion' is less than client version '$clientVersion'." +
+            s"Node is in inconsistent state. Try to reconnect to another node."
+        )
+      )
+    // todo if client version < node version, send to client newest dataset state
+    else if (clientVersion < nodeVersion)
+      Task.raiseError(
+        new NotImplementedError(
+          s"Node version '$nodeVersion' is more than client version '$clientVersion'." +
+            s"Node should send to client newest version and mRoot, but this functionality is not yet implemented!"
+        )
+      )
+    else
+      Task(true)
+  }
 
   private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
     override def apply[A](fa: F[A]): F[A] = fa

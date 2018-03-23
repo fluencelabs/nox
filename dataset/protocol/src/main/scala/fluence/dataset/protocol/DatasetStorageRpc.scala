@@ -33,37 +33,54 @@ trait DatasetStorageRpc[F[_], FS[_]] {
    * Initiates ''Get'' operation in remote MerkleBTree.
    *
    * @param datasetId Dataset ID
+   * @param version   Dataset version expected to the client
    * @param searchCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
    * @return returns found value, None if nothing was found.
    */
-  def get(datasetId: Array[Byte], searchCallbacks: SearchCallback[F]): F[Option[Array[Byte]]]
+  def get(
+    datasetId: Array[Byte],
+    version: Long,
+    searchCallbacks: SearchCallback[F]
+  ): F[Option[Array[Byte]]]
 
   /**
    * Initiates ''Range'' operation in remote MerkleBTree.
    *
    * @param datasetId Dataset ID
+   * @param version   Dataset version expected to the client
    * @param searchCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
    * @return returns stream of found value.
    */
-  def range(datasetId: Array[Byte], searchCallbacks: SearchCallback[F]): FS[(Array[Byte], Array[Byte])]
+  def range(
+    datasetId: Array[Byte],
+    version: Long,
+    searchCallbacks: SearchCallback[F]
+  ): FS[(Array[Byte], Array[Byte])]
 
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.
    *
    * @param datasetId Dataset ID
-   * @param putCallbacks     Wrapper for all callback needed for ''Put'' operation to the BTree.
-   * @param encryptedValue  Encrypted value.
+   * @param version   Dataset version expected to the client
+   * @param putCallbacks Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param encryptedValue Encrypted value.
    * @return returns old value if old value was overridden, None otherwise.
    */
-  def put(datasetId: Array[Byte], putCallbacks: PutCallbacks[F], encryptedValue: Array[Byte]): F[Option[Array[Byte]]]
+  def put(
+    datasetId: Array[Byte],
+    version: Long,
+    putCallbacks: PutCallbacks[F],
+    encryptedValue: Array[Byte]
+  ): F[Option[Array[Byte]]]
 
   /**
    * Initiates ''Remove'' operation in remote MerkleBTree.
    *
    * @param datasetId Dataset ID
+   * @param version   Dataset version expected to the client
    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
    * @return returns old value that was deleted, None if nothing was deleted.
    */
-  def remove(datasetId: Array[Byte], removeCallbacks: RemoveCallback[F]): F[Option[Array[Byte]]]
+  def remove(datasetId: Array[Byte], version: Long, removeCallbacks: RemoveCallback[F]): F[Option[Array[Byte]]]
 
 }

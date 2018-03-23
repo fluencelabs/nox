@@ -18,6 +18,7 @@
 package fluence.node
 
 import java.io.File
+import java.time.Clock
 
 import cats.effect.IO
 import cats.instances.list._
@@ -120,7 +121,8 @@ object FluenceNode extends slogging.LazyLogging {
   private def launchGrpc(
     algo: SignAlgo,
     hasher: CryptoHasher[Array[Byte], Array[Byte]],
-    config: Config
+    config: Config,
+    clock: Clock = Clock.systemUTC()
   ): IO[FluenceNode] = {
     import algo.checker
     for {
@@ -154,7 +156,7 @@ object FluenceNode extends slogging.LazyLogging {
       kadClient = client(_: Contact).kademlia
 
       services ← NodeComposer
-        .services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true)(Scheduler.global) // TODO: it should be custom
+        .services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true, clock)(Scheduler.global) // TODO: it should be custom
         .onFail(upnpShutdown)
       closeUpNpAndServices = upnpShutdown.flatMap(_ ⇒ services.close)
 

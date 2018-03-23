@@ -92,8 +92,9 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         val counter = Atomic(0L)
         val clientWithCorruption: ClientDatasetStorage[String, User] = new ClientDatasetStorage(
           "test0".getBytes(),
+          0L,
           createBTreeClient(),
-          createStorageRpcWithNetworkError("test0", mr ⇒ Task(counter.incrementAndGet())),
+          createStorageRpcWithNetworkError("test0", (mr, ver) ⇒ Task(counter.incrementAndGet())),
           keyCrypt,
           valueCryptWithError,
           testHasher
@@ -291,7 +292,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     }
   )
 
-  private def createDatasetNodeStorage(dbName: String, counter: ByteVector ⇒ Task[Unit]): DatasetNodeStorage = {
+  private def createDatasetNodeStorage(dbName: String, counter: (ByteVector, Long) ⇒ Task[Unit]): DatasetNodeStorage = {
     implicit def runId[F[_]]: F ~> F = new (F ~> F) { override def apply[A](fa: F[A]): F[A] = fa }
     DatasetNodeStorage[Task](dbName, rocksFactory, ConfigFactory.load(), hasher, counter)
       .runAsync(monix.execution.Scheduler.Implicits.global).futureValue
@@ -301,6 +302,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     val fullName = makeUnique(dbName)
     new ClientDatasetStorage(
       fullName.getBytes(),
+      0L,
       createBTreeClient(clientState),
       createStorageRpc(fullName),
       keyCrypt,
@@ -309,24 +311,38 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     )
   }
 
-  private def createStorageRpcWithNetworkError(dbName: String, counter: ByteVector ⇒ Task[Unit]): DatasetStorageRpc[Task, Observable] = {
+  private def createStorageRpcWithNetworkError(dbName: String, counter: (ByteVector, Long) ⇒ Task[Unit]): DatasetStorageRpc[Task, Observable] = {
     val origin = createDatasetNodeStorage(makeUnique(dbName), counter)
     new DatasetStorageRpc[Task, Observable] {
-      override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] = {
-        origin.remove(removeCallbacks)
+      override def remove(
+        datasetId: Array[Byte],
+        version: Long,
+        removeCallbacks: BTreeRpc.RemoveCallback[Task]
+      ): Task[Option[Array[Byte]]] = {
+        origin.remove(version, removeCallbacks)
       }
-      override def put(datasetId: Array[Byte], putCallback: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] = {
+      override def put(
+        datasetId: Array[Byte],
+        version: Long,
+        putCallback: BTreeRpc.PutCallbacks[Task],
+        encryptedValue: Array[Byte]
+      ): Task[Option[Array[Byte]]] = {
         if (new String(encryptedValue) == "ENC[Alan,33]") {
           Task.raiseError(new IllegalStateException("some network error"))
         } else {
-          origin.put(putCallback, encryptedValue)
+          origin.put(version, putCallback, encryptedValue)
         }
       }
-      override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[Task]): Task[Option[Array[Byte]]] =
+      override def get(
+        datasetId: Array[Byte],
+        version: Long,
+        getCallbacks: BTreeRpc.SearchCallback[Task]
+      ): Task[Option[Array[Byte]]] =
         origin.get(getCallbacks)
 
       override def range(
         datasetId: Array[Byte],
+        version: Long,
         searchCallbacks: BTreeRpc.SearchCallback[Task]
       ): Observable[(Array[Byte], Array[Byte])] = {
         origin.range(searchCallbacks)
@@ -336,19 +352,33 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
   private def createStorageRpc(dbName: String): DatasetStorageRpc[Task, Observable] =
     new DatasetStorageRpc[Task, Observable] {
-      private val storage = createDatasetNodeStorage(dbName, _ ⇒ Task.unit)
+      private val storage = createDatasetNodeStorage(dbName, (_, _) ⇒ Task.unit)
 
-      override def remove(datasetId: Array[Byte], removeCallbacks: BTreeRpc.RemoveCallback[Task]): Task[Option[Array[Byte]]] =
-        storage.remove(removeCallbacks)
+      override def remove(
+        datasetId: Array[Byte],
+        version: Long,
+        removeCallbacks: BTreeRpc.RemoveCallback[Task]
+      ): Task[Option[Array[Byte]]] =
+        storage.remove(version, removeCallbacks)
 
-      override def put(datasetId: Array[Byte], putCallbacks: BTreeRpc.PutCallbacks[Task], encryptedValue: Array[Byte]): Task[Option[Array[Byte]]] =
-        storage.put(putCallbacks, encryptedValue)
+      override def put(
+        datasetId: Array[Byte],
+        version: Long,
+        putCallbacks: BTreeRpc.PutCallbacks[Task],
+        encryptedValue: Array[Byte]
+      ): Task[Option[Array[Byte]]] =
+        storage.put(version, putCallbacks, encryptedValue)
 
-      override def get(datasetId: Array[Byte], getCallbacks: BTreeRpc.SearchCallback[Task]): Task[Option[Array[Byte]]] =
+      override def get(
+        datasetId: Array[Byte],
+        version: Long,
+        getCallbacks: BTreeRpc.SearchCallback[Task]
+      ): Task[Option[Array[Byte]]] =
         storage.get(getCallbacks)
 
       override def range(
         datasetId: Array[Byte],
+        version: Long,
         searchCallbacks: BTreeRpc.SearchCallback[Task]
       ): Observable[(Array[Byte], Array[Byte])] = {
         storage.range(searchCallbacks)

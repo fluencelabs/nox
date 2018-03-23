@@ -234,15 +234,15 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
           val getResponse = datasetStorage.get("request key").failed.taskValue
           getResponse shouldBe a[ServerError]
-          getResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
+          getResponse.getMessage should startWith("Can't create DatasetNodeStorage for Dataset(id=")
 
           val putResponse = datasetStorage.put("key", "value").failed.taskValue
           putResponse shouldBe a[ServerError]
-          putResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
+          putResponse.getMessage should startWith("Can't create DatasetNodeStorage for Dataset(id=")
 
           val rangeResponse = datasetStorage.range("1 start key", "2 end key").failed.headL.taskValue
           rangeResponse shouldBe a[ServerError]
-          rangeResponse.getMessage shouldBe "Can't create DatasetNodeStorage for datasetId=ZHVtbXkgZGF0YXNldCAqKioqKio="
+          rangeResponse.getMessage should startWith("Can't create DatasetNodeStorage for Dataset(id=")
 
         }
       }
@@ -305,8 +305,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         val datasetStorage = fluence.createNewContract(keyPair, 2, keyCrypt, valueCrypt).taskValue
         verifyReadAndWrite(datasetStorage)
-        //  todo it's still failed
-//        verifyRangeQueries(datasetStorage)
+        verifyRangeQueries(datasetStorage)
       }
     }
 
@@ -427,13 +426,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   /** Makes many writes and read with range */
   private def verifyRangeQueries(
     datasetStorage: ClientDatasetStorageApi[Task, Observable, String, String],
-    numberOfKeys: Int = 32
+    numberOfKeys: Int = 16
   ): Unit = {
 
     val allRecords = Random.shuffle(1 to numberOfKeys).map(i ⇒ { f"k$i%04d" → f"v$i%04d" })
 
     // invoke numberOfKeys puts
-    Task.sequence(allRecords.map { case (k, v) ⇒ datasetStorage.put(k, v) }).taskValue(Some(timeout(Span(20, Seconds))))
+    Task.sequence(allRecords.map { case (k, v) ⇒ datasetStorage.put(k, v) }).taskValue(Some(timeout(Span(25, Seconds))))
 
     val firstKey = "k0001"
     val midKey = f"k${numberOfKeys / 2}%04d"
@@ -470,7 +469,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     fromFirstToMid.size shouldBe numberOfKeys / 2
     checkOrder(fromFirstToMid)
 
-    val N = 10
+    val N = numberOfKeys / 2
     val fromMidNRecords = datasetStorage.range(midKey, lastKey).take(N).toListL.taskValue
     fromMidNRecords.head shouldBe midKey → midVal
     fromMidNRecords.last shouldBe f"k${(numberOfKeys / 2) + N - 1}%04d" → f"v${(numberOfKeys / 2) + N - 1}%04d"
@@ -511,11 +510,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private def createDatasetStorage(
     datasetId: Array[Byte],
     grpc: DatasetStorageRpc[Task, Observable],
-    merkleRoot: Option[Array[Byte]] = None
+    merkleRoot: Option[Array[Byte]] = None,
+    version: Long = 0L
   ): ClientDatasetStorage[String, String] = {
     val value1: Option[ClientState] = merkleRoot.map(mr ⇒ ClientState(ByteVector(mr)))
     ClientDatasetStorage(
       datasetId,
+      version,
       testHasher,
       grpc,
       keyCrypt,
