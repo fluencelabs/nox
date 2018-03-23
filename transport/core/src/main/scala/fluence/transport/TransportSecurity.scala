@@ -20,9 +20,11 @@ package fluence.transport
 import java.net.InetAddress
 
 import cats.Applicative
+import cats.data.Reader
 import cats.syntax.applicative._
 import cats.syntax.eq._
-import fluence.kad.protocol.{Contact, Key, Node}
+import fluence.crypto.keypair.KeyPair
+import fluence.kad.protocol.{Key, Node}
 
 import scala.language.higherKinds
 
@@ -37,13 +39,16 @@ object TransportSecurity {
    * @tparam F Effect
    * @return Function to be called for each node prior to updating RoutingTable; returns F[true] if checks passed
    */
-  def canBeSaved[F[_]: Applicative](self: Key, acceptLocal: Boolean): Node[Contact] ⇒ F[Boolean] =
+  def canBeSaved[F[_]: Applicative, C](
+    self: Key,
+    acceptLocal: Boolean
+  )(implicit publicKeyR: Reader[C, KeyPair.Public], addrR: Reader[C, String]): Node[C] ⇒ F[Boolean] =
     node ⇒ {
-      if (node.key === self || !Key.checkPublicKey(node.key, node.contact.publicKey)) false.pure[F]
+      if (node.key === self || !Key.checkPublicKey(node.key, publicKeyR(node.contact))) false.pure[F]
       else if (acceptLocal) true.pure[F]
       else
         try {
-          val ip = InetAddress.getByName(node.contact.addr)
+          val ip = InetAddress.getByName(addrR(node.contact))
           val isLocal = ip.isLoopbackAddress ||
             ip.isAnyLocalAddress ||
             ip.isLinkLocalAddress ||

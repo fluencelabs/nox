@@ -91,7 +91,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       IO.pure(contact),
       kademliaClientRpc,
       KademliaConf(6, 6, 3, 1.second),
-      TransportSecurity.canBeSaved[IO](key, acceptLocal = true)
+      TransportSecurity.canBeSaved[IO, Contact](key, acceptLocal = true)
     )
 
     val server = serverBuilder

@@ -483,7 +483,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   ) = {
     val conf = KademliaConf(100, 10, 2, 5.seconds)
     val clKey = Monoid.empty[Key]
-    val check = TransportSecurity.canBeSaved[IO](clKey, acceptLocal = true)
+    val check = TransportSecurity.canBeSaved[IO, Contact](clKey, acceptLocal = true)
     val kademliaRpc = client(_: Contact).kademlia
     val kademliaClient = KademliaMVar.client(kademliaRpc, conf, check)
 

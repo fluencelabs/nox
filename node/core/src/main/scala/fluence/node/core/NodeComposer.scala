@@ -98,7 +98,7 @@ object NodeComposer {
           IO.pure(contact),
           kadClient,
           kadConf,
-          TransportSecurity.canBeSaved[IO](nodeKey, acceptLocal = acceptLocal)
+          TransportSecurity.canBeSaved[IO, Contact](nodeKey, acceptLocal = acceptLocal)
         )
 
         override lazy val contractsCache: ContractsCacheRpc[BasicContract] =
