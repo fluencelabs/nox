@@ -108,12 +108,12 @@ private[protocol] object Jwt {
 
           _ ← checker
             .check(Signature(pk, sgn), ByteVector((h + c).getBytes()))
-            .leftMap(err ⇒ err: Throwable) // TODO: coproduct
+            .leftMap(err ⇒ err: Throwable)
 
         } yield hc
 
       case _ ⇒
-        EitherT.leftT(new IllegalArgumentException("Token malformed: must contain exactly two dots")) // TODO: coproduct
+        EitherT.leftT(new IllegalArgumentException("Token malformed: must contain exactly two dots"))
 
     }
 
