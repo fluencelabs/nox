@@ -72,7 +72,7 @@ object SbtCommons {
       scalapb.gen() -> (sourceManaged in Compile).value
     ),
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb" %%% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf"
+      "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf"
     )
   )
 

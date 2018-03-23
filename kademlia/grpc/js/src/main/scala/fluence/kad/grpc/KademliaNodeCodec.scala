@@ -26,8 +26,11 @@ import cats.syntax.functor._
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.crypto.signature.SignatureChecker
+import fluence.kad.grpc.facade.Node
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
+import scala.scalajs.js.typedarray.Uint8Array
+import scala.scalajs.js.JSConverters._
 
 import scala.language.higherKinds
 
@@ -38,15 +41,15 @@ object KademliaNodeCodec {
   ): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
     Codec(
       obj ⇒
-        Node(
-          id = ByteString.copyFrom(obj.key.id),
-          contact = ByteString.copyFrom(obj.contact.b64seed.getBytes())
+        new Node(
+          id = new Uint8Array(obj.key.id.toJSArray),
+          contact = new Uint8Array(obj.contact.b64seed.getBytes().toJSArray)
         ).pure[F],
       binary ⇒
         for {
-          k ← Key.fromBytes[F](binary.id.toByteArray) // TODO err: wrong key size
+          k ← Key.fromBytes[F](binary.id.toJSArray.toArray.map(_.toByte)) // TODO err: wrong key size
           c ← Contact
-            .readB64seed[F](new String(binary.contact.toByteArray))
+            .readB64seed[F](new String(binary.contact.toJSArray.toArray.map(_.toByte)))
             .value
             .flatMap(F.fromEither) // TODO err: crypto
           _ ← if (Key.checkPublicKey(k, c.publicKey)) F.pure(())

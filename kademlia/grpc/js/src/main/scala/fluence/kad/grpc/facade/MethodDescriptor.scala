@@ -15,13 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.kad.grpc
+package fluence.kad.grpc.facade
 
-import fluence.kad.grpc.facade._
+import scala.scalajs.js
 
-trait KademliaGrpcService {
-  def ping(request: PingRequest): scala.concurrent.Future[Node]
-  def lookup(request: LookupRequest): scala.concurrent.Future[NodesResponse]
-  def lookupAway(request: LookupAwayRequest): scala.concurrent.Future[NodesResponse]
-
-}
+@js.native
+trait MethodDescriptor extends js.Object {}

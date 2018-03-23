@@ -20,13 +20,14 @@ package fluence.kad.grpc.client
 import cats.effect.IO
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
-import fluence.codec.pb.ProtobufCodecs._
+import fluence.kad.grpc.JSCodecs._
 import fluence.kad.grpc.KademliaGrpcService
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.kad.{grpc, protocol}
 
 import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
+import scala.scalajs.js.typedarray.Uint8Array
 
 /**
  * Implementation of KademliaClient over GRPC, with Task and Contact.
@@ -35,15 +36,15 @@ import scala.language.implicitConversions
  */
 class KademliaJSClient(stub: KademliaGrpcService)(
   implicit
-  codec: Codec[IO, protocol.Node[Contact], grpc.Node],
+  codec: Codec[IO, protocol.Node[Contact], grpc.facade.Node],
   ec: ExecutionContext
 ) extends KademliaRpc[Contact] {
 
-  private val keyBS = Codec.codec[IO, ByteString, Key].inverse
+  private val keyBS = Codec.codec[IO, Uint8Array, Key].inverse
 
   import cats.instances.stream._
 
-  private val streamCodec = Codec.codec[IO, Stream[protocol.Node[Contact]], Stream[grpc.Node]]
+  private val streamCodec = Codec.codec[IO, Stream[protocol.Node[Contact]], Stream[grpc.facade.Node]]
 
   /**
    * Ping the contact, get its actual Node status, or fail
@@ -52,7 +53,7 @@ class KademliaJSClient(stub: KademliaGrpcService)(
    */
   override def ping(): IO[Node[Contact]] =
     for {
-      n ← IO.fromFuture(IO(stub.ping(grpc.PingRequest())))
+      n ← IO.fromFuture(IO(stub.ping(new grpc.facade.PingRequest())))
       nc ← codec.decode(n)
     } yield nc
 
@@ -65,7 +66,7 @@ class KademliaJSClient(stub: KademliaGrpcService)(
   override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] =
     for {
       k ← keyBS(key)
-      res ← IO.fromFuture(IO(stub.lookup(grpc.LookupRequest(k, numberOfNodes))))
+      res ← IO.fromFuture(IO(stub.lookup(new grpc.facade.LookupRequest(k, numberOfNodes))))
       resDec ← streamCodec.decode(res.nodes.toStream)
     } yield resDec
 
@@ -80,7 +81,7 @@ class KademliaJSClient(stub: KademliaGrpcService)(
       moveAwayK ← keyBS(moveAwayFrom)
       res ← IO.fromFuture(
         IO(
-          stub.lookupAway(grpc.LookupAwayRequest(k, moveAwayK, numberOfNodes))
+          stub.lookupAway(new grpc.facade.LookupAwayRequest(k, moveAwayK, numberOfNodes))
         )
       )
       resDec ← streamCodec.decode(res.nodes.toStream)
@@ -94,7 +95,7 @@ object KademliaJSClient {
    */
   def register(service: KademliaGrpcService)(
     implicit
-    codec: Codec[IO, protocol.Node[Contact], grpc.Node],
+    codec: Codec[IO, protocol.Node[Contact], grpc.facade.Node],
     ec: ExecutionContext
   ): KademliaRpc[Contact] =
     new KademliaJSClient(service)

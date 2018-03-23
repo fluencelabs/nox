@@ -21,13 +21,15 @@ import cats.effect.IO
 import cats.instances.stream._
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
-import fluence.codec.pb.ProtobufCodecs._
+import fluence.kad.grpc.JSCodecs._
 import fluence.kad.grpc._
+import fluence.kad.grpc.facade._
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, KademliaRpc, Key}
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
+import scala.scalajs.js.typedarray.Uint8Array
 
 // TODO: cover with tests
 class KademliaJSServer(kademlia: KademliaRpc[Contact])(
@@ -37,7 +39,7 @@ class KademliaJSServer(kademlia: KademliaRpc[Contact])(
 
   private val streamCodec = Codec.codec[IO, Stream[protocol.Node[Contact]], Stream[Node]]
 
-  private val keyCodec = Codec.codec[IO, Key, ByteString]
+  private val keyCodec = Codec.codec[IO, Key, Uint8Array]
 
   override def ping(request: PingRequest): Future[Node] =
     kademlia.ping().flatMap(codec.encode).unsafeToFuture()
@@ -49,7 +51,7 @@ class KademliaJSServer(kademlia: KademliaRpc[Contact])(
         ns ← kademlia
           .lookup(key, request.numberOfNodes)
         resp ← streamCodec.encode(ns.toStream)
-      } yield NodesResponse(resp)
+      } yield new NodesResponse(resp)
     ).unsafeToFuture()
 
   override def lookupAway(request: LookupAwayRequest): Future[NodesResponse] =
@@ -60,7 +62,7 @@ class KademliaJSServer(kademlia: KademliaRpc[Contact])(
         ns ← kademlia
           .lookupAway(key, moveAwayKey, request.numberOfNodes)
         resp ← streamCodec.encode(ns.toStream)
-      } yield NodesResponse(resp)
+      } yield new NodesResponse(resp)
     ).unsafeToFuture()
 
 }

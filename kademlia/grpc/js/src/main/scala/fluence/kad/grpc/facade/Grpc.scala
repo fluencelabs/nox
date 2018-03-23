@@ -15,13 +15,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.kad.grpc
+package fluence.kad.grpc.facade
 
-import fluence.kad.grpc.facade._
+import scala.scalajs.js
+import scala.scalajs.js.annotation.JSImport
 
-trait KademliaGrpcService {
-  def ping(request: PingRequest): scala.concurrent.Future[Node]
-  def lookup(request: LookupRequest): scala.concurrent.Future[NodesResponse]
-  def lookupAway(request: LookupAwayRequest): scala.concurrent.Future[NodesResponse]
+@js.native
+@JSImport("grpc-web-client", "grpc")
+object Grpc extends js.Object {
 
+  def unary[Req <: js.Any, Resp <: js.Any](methodDescriptor: MethodDescriptor, props: UnaryRpcOptions[Req, Resp]) =
+    js.native
+
+  def invoke[Req <: js.Any, Resp <: js.Any](methodDescriptor: MethodDescriptor, props: InvokeRpcOptions[Req, Resp]) =
+    js.native
+  def client = js.native
 }
