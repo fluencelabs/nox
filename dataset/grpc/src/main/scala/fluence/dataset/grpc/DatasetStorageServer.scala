@@ -456,7 +456,7 @@ class DatasetStorageServer[F[_]: Async](
           Async[F].raiseError[PutCallback](clientError)
         case Left(exception) ⇒
           // when server error appears, server should log it and send to client
-          logger.debug(s"Severs throw an exception=($exception) and send cause to client")
+          logger.warn(s"Severs throw an exception=($exception) and send cause to client")
           F.pure(PutCallback(PutCallback.Callback.ServerError(Error(exception.getMessage))))
       }
     )

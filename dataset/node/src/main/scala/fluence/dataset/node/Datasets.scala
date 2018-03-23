@@ -109,7 +109,10 @@ class Datasets(
     version: Long,
     getCallbacks: BTreeRpc.SearchCallback[Task]
   ): Task[Option[Array[Byte]]] =
-    storage(datasetId, version).flatMap(_.get(getCallbacks))
+    for {
+      store ← storage(datasetId, version)
+      result ← store.get(getCallbacks)
+    } yield result
 
   /**
    * @param datasetId       Dataset ID
@@ -156,7 +159,10 @@ class Datasets(
     version: Long,
     removeCallbacks: BTreeRpc.RemoveCallback[Task]
   ): Task[Option[Array[Byte]]] =
-    storage(datasetId, version).flatMap(_.remove(version, removeCallbacks))
+    for {
+      store ← storage(datasetId, version)
+      deletedValue ← store.remove(version, removeCallbacks)
+    } yield deletedValue
 
   /**
    * Compare client and node dataset versions.

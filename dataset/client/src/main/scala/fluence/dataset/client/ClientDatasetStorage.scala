@@ -115,8 +115,8 @@ class ClientDatasetStorage[K, V](
           case _ ⇒ Task.unit
         }
 
-      resp ← decryptOption(serverResponse)
       _ ← Task.fromIO(datasetVer).map(_.increment())
+      resp ← decryptOption(serverResponse)
     } yield resp
 
   override def remove(key: K): Task[Option[V]] =
@@ -124,8 +124,8 @@ class ClientDatasetStorage[K, V](
       removeCmd ← bTreeIndex.initRemove(key)
       version ← Task.fromIO(datasetVer).map(_.get)
       serverResponse ← storageRpc.remove(datasetId, version, removeCmd)
-      resp ← decryptOption(serverResponse)
       _ ← Task.fromIO(datasetVer).map(_.increment())
+      resp ← decryptOption(serverResponse)
     } yield resp
 
   private def decryptOption(response: Option[Array[Byte]]): Task[Option[V]] =

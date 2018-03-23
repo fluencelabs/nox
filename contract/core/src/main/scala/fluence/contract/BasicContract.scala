@@ -40,7 +40,6 @@ import scala.language.higherKinds
  * @param executionState          State of the contract that changes over time, e.g. when merkle root changes
  * @param executionSeal Client's signature for executionState
  */
-// todo add publicKey of contract owner into the contract
 case class BasicContract(
   id: Key,
   offer: BasicContract.Offer,
@@ -48,7 +47,7 @@ case class BasicContract(
   participants: Map[Key, Signature],
   participantsSeal: Option[Signature],
   executionState: ExecutionState,
-  executionSeal: Option[Signature]
+  executionSeal: Signature
 )
 
 object BasicContract {
@@ -71,7 +70,7 @@ object BasicContract {
       offerSeal ← signer.sign(offer.getBytes)
       execStateSeal ← signer.sign(execState.getBytes)
     } yield {
-      BasicContract(id, offer, offerSeal, Map.empty, None, execState, Some(execStateSeal))
+      BasicContract(id, offer, offerSeal, Map.empty, None, execState, execStateSeal)
     }
 
     newContract.value.flatMap(F.fromEither)

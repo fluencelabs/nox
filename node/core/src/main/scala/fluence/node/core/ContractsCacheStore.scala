@@ -78,7 +78,7 @@ object ContractsCacheStore {
           offSBs ← strVec.encode(bc.offerSeal.sign)
 
           participantsSealBs ← optStrVecC.encode(bc.participantsSeal.map(_.sign))
-          executionSealBs ← optStrVecC.encode(bc.executionSeal.map(_.sign))
+          executionSealBs ← strVec.encode(bc.executionSeal.sign)
 
           merkleRootBs ← strVec.encode(bc.executionState.merkleRoot)
 
@@ -92,7 +92,7 @@ object ContractsCacheStore {
             participantsSeal = participantsSealBs.getOrElse(ByteString.EMPTY),
             version = bc.executionState.version,
             merkleRoot = merkleRootBs,
-            executionSeal = executionSealBs.getOrElse(ByteString.EMPTY),
+            executionSeal = executionSealBs,
             lastUpdated = contractRec.lastUpdated.toEpochMilli
           )
       },
@@ -132,7 +132,7 @@ object ContractsCacheStore {
           merkleRootBS ← read("merkleRoot", _.merkleRoot)
           merkleRoot ← strVec.decode(merkleRootBS)
 
-          execSeal ← optStrVecC.decode(toOption(basicContractCache.executionSeal))
+          execSeal ← strVec.decode(basicContractCache.executionSeal)
 
           lastUpdated ← read("lastUpdated", _.lastUpdated)
         } yield
@@ -150,7 +150,7 @@ object ContractsCacheStore {
                 version = version,
                 merkleRoot = merkleRoot
               ),
-              executionSeal = execSeal.map(Signature(pk, _))
+              executionSeal = Signature(pk, execSeal)
             ),
             Instant.ofEpochMilli(lastUpdated)
           )
