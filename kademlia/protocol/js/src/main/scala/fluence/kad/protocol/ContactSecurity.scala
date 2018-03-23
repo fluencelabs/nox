@@ -15,28 +15,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport.grpc
+package fluence.kad.protocol
 
-import cats.ApplicativeError
-import com.typesafe.config.Config
-import fluence.transport.grpc.server.GrpcServerConf
+import cats.Applicative
+import cats.syntax.eq._
 
 import scala.language.higherKinds
 
-// TODO: these headers should not belong to GrpcConf, as they are Kademlia-grpc-specific
-case class GrpcConf(
-  keyHeader: String,
-  contactHeader: String,
-  server: Option[GrpcServerConf]
-)
+/**
+ * ContactSecurity provides checks that particular Node[Contact] could be saved to a RoutingTable
+ * JS version doesn't make use of java.net.InetAddress
+ */
+object ContactSecurity {
 
-object GrpcConf {
-  val ConfigPath = "fluence.grpc"
+  private def checkMaybeLocal[F[_]: Applicative](self: Key): Node[Contact] ⇒ F[Boolean] =
+    node ⇒ Applicative[F].pure(node.key =!= self && Key.checkPublicKey(node.key, node.contact.publicKey))
 
-  def read[F[_]](config: Config, path: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[GrpcConf] =
-    F.catchNonFatal {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      config.as[GrpcConf](path)
-    }
+  def check[F[_]: Applicative](self: Key, acceptLocal: Boolean): Node[Contact] ⇒ F[Boolean] =
+    checkMaybeLocal[F](self)
 }

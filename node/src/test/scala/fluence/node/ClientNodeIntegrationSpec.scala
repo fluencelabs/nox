@@ -41,10 +41,9 @@ import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.grpc.DatasetStorageClient.ServerError
 import fluence.dataset.grpc.DatasetStorageServer.ClientError
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.kad.protocol.{Contact, Key}
+import fluence.kad.protocol.{Contact, ContactSecurity, Key}
 import fluence.kad.{KademliaConf, KademliaMVar}
 import fluence.node.core.ContractsCacheConf
-import fluence.transport.TransportSecurity
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.StatusRuntimeException
 import monix.eval.Task
@@ -483,7 +482,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   ) = {
     val conf = KademliaConf(100, 10, 2, 5.seconds)
     val clKey = Monoid.empty[Key]
-    val check = TransportSecurity.canBeSaved[IO, Contact](clKey, acceptLocal = true)
+    val check = ContactSecurity.check[IO](Monoid.empty[Key], acceptLocal = true)
     val kademliaRpc = client(_: Contact).kademlia
     val kademliaClient = KademliaMVar.client(kademliaRpc, conf, check)
 

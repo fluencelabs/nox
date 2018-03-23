@@ -32,8 +32,7 @@ import fluence.crypto.keypair.KeyPair
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.{Kademlia, KademliaConf, KademliaMVar}
-import fluence.kad.protocol.{Contact, KademliaRpc, Key}
-import fluence.transport.TransportSecurity
+import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.reactive.Observable
@@ -290,7 +289,7 @@ object FluenceClient extends slogging.LazyLogging {
     conf: KademliaConf,
     kademliaRpc: Contact ⇒ KademliaRpc[Contact]
   ): Kademlia[Task, Contact] = {
-    val check = TransportSecurity.canBeSaved[IO, Contact](Monoid.empty[Key], acceptLocal = true)
+    val check = ContactSecurity.check[IO](Monoid.empty[Key], acceptLocal = true)
     KademliaMVar.client(kademliaRpc, conf, check)
   }
 }

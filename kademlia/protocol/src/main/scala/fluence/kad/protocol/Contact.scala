@@ -17,8 +17,11 @@
 
 package fluence.kad.protocol
 
+import java.net.InetAddress
+
 import cats.data.{EitherT, Reader}
-import cats.{Monad, Show}
+import cats.{Applicative, Monad, Show}
+import cats.syntax.eq._
 import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{SignatureChecker, Signer}

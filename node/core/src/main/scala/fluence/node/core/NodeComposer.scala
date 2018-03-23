@@ -33,11 +33,10 @@ import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
 import fluence.dataset.node.Datasets
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.kad.protocol.{Contact, KademliaRpc, Key}
+import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
 import fluence.kad.{Kademlia, KademliaMVar}
 import fluence.storage.KVStore
 import fluence.storage.rocksdb.RocksDbStore
-import fluence.transport.TransportSecurity
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.reactive.Observable
@@ -98,7 +97,7 @@ object NodeComposer {
           IO.pure(contact),
           kadClient,
           kadConf,
-          TransportSecurity.canBeSaved[IO, Contact](nodeKey, acceptLocal = acceptLocal)
+          ContactSecurity.check[IO](nodeKey, acceptLocal = acceptLocal)
         )
 
         override lazy val contractsCache: ContractsCacheRpc[BasicContract] =

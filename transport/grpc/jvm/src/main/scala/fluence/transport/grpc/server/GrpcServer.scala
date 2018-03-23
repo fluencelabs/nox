@@ -18,21 +18,12 @@
 package fluence.transport.grpc.server
 
 import java.net.InetAddress
-import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
-import cats._
 import cats.data.Kleisli
 import cats.effect.IO
-import cats.instances.try_._
-import fluence.crypto.signature.SignatureChecker
-import fluence.kad.protocol
-import fluence.kad.protocol.{Contact, Key, Node}
 import fluence.transport.TransportServer
-import fluence.transport.grpc.GrpcConf
 import io.grpc._
-
-import scala.util.Try
 
 /**
  * Server wrapper
@@ -151,28 +142,6 @@ object GrpcServer extends slogging.LazyLogging {
             }
           }
         }
-      })
-
-    /**
-     * Register a callback to be called each time a node is active
-     * TODO: this seems not necessary for transport
-     *
-     * @param cb         To be called on ready and on each message
-     * @param clientConf Conf to get header names from
-     */
-    def onNodeActivity(cb: Node[Contact] ⇒ IO[Unit], clientConf: GrpcConf)(
-      implicit checker: SignatureChecker
-    ): Builder =
-      onCall({ (headers, message) ⇒
-        val remoteNode = for {
-          remoteB64key ← headers(clientConf.keyHeader)
-          remoteKey ← Key.fromB64[Try](remoteB64key).toOption
-
-          remoteSeed ← headers(clientConf.contactHeader)
-          remoteContact ← Contact.readB64seed[Id](remoteSeed).value.toOption
-        } yield protocol.Node(remoteKey, Instant.now(), remoteContact)
-
-        remoteNode.fold(IO.unit)(cb)
       })
 
     /**
