@@ -27,23 +27,6 @@ import scala.scalajs.js
 import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
 import scala.util.Try
 
-/*
- * Copyright (C) 2017  Fluence Labs Limited
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 @JSExport
 object Main {
 
@@ -68,7 +51,9 @@ object Main {
       println("KEY === " + key)
       val contact = Contact.readB64seed[Try](new String(array.tail.head.toJSArray.toArray.map(_.toByte)))
       println("CONTACT === " + contact)
-      val node = KademliaNodeCodec.codec[Try].decode(out)
+      val codec = KademliaNodeCodec.codec[Try]
+      println("codec === " + codec)
+      val node = codec.decode(out)
       println("FULL NODE === " + node)
       println("FULL contact === " + node.get.contact)
     }
@@ -85,10 +70,8 @@ object Main {
     println(descriptor)
 
     val request = new PingRequest()
-    println("TEST!")
-    println("TEST!")
-    println("TEST!")
-    println("TEST!")
+    println("After ping request")
+
     val options = InvokeRpcOptions[PingRequest, Node](
       request,
       "http://localhost:8080",

@@ -24,12 +24,15 @@ import scala.scalajs.js.JSConverters._
 
 @js.native
 @JSImport("./generated/grpc_pb", "Node")
-class Node(val array: js.Array[Uint8Array]) extends js.Object {
+class Node(@js.native val array: js.Array[Uint8Array]) extends js.Object
 
-  def this(id: Uint8Array, contact: Uint8Array) = this(js.Array(id, contact))
+object Node {
+  implicit class NodeOps(node: Node) {
+    def id = node.array(0)
+    def contact = node.array(1)
+  }
 
-  val id: Uint8Array = array.head
-  val contact: Uint8Array = array.tail.head
+  def apply(id: Uint8Array, contact: Uint8Array) = new Node(js.Array(id, contact))
 }
 
 @js.native

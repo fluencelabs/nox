@@ -23,33 +23,37 @@ import cats.MonadError
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.crypto.signature.SignatureChecker
 import fluence.kad.grpc.facade.Node
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
+
 import scala.scalajs.js.typedarray.Uint8Array
 import scala.scalajs.js.JSConverters._
-
 import scala.language.higherKinds
 
 object KademliaNodeCodec {
   implicit def codec[F[_]](
     implicit F: MonadError[F, Throwable],
     checker: SignatureChecker
-  ): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
-    Codec(
+  ): Codec[F, fluence.kad.protocol.Node[Contact], Node] = {
+
+    def encode: fluence.kad.protocol.Node[Contact] ⇒ F[Node] =
       obj ⇒
-        new Node(
+        Node(
           id = new Uint8Array(obj.key.id.toJSArray),
           contact = new Uint8Array(obj.contact.b64seed.getBytes().toJSArray)
-        ).pure[F],
-      binary ⇒
+        ).pure[F]
+
+    def decode: Node ⇒ F[fluence.kad.protocol.Node[Contact]] =
+      binary ⇒ {
         for {
-          k ← Key.fromBytes[F](binary.id.toJSArray.toArray.map(_.toByte)) // TODO err: wrong key size
+          id ← JSCodecs.byteVectorUint8Array.encode(binary.id)
+          k ← Key.fromBytes[F](id.toArray) // TODO err: wrong key size
+          contact ← JSCodecs.byteVectorUint8Array.encode(binary.contact)
           c ← Contact
-            .readB64seed[F](new String(binary.contact.toJSArray.toArray.map(_.toByte)))
+            .readB64seed[F](new String(contact.toArray))
             .value
             .flatMap(F.fromEither) // TODO err: crypto
           _ ← if (Key.checkPublicKey(k, c.publicKey)) F.pure(())
@@ -61,6 +65,12 @@ object KademliaNodeCodec {
             // TODO: consider removing Instant.now(). It could be really incorrect, as nodes taken from lookup replies are not seen at the moment
             Instant.now(),
             c
-        )
+          )
+      }
+
+    Codec(
+      encode,
+      decode
     )
+  }
 }

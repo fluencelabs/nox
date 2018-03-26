@@ -21,20 +21,21 @@ import fluence.crypto.facade.ecdsa.{SHA1, SHA256}
 import scodec.bits.ByteVector
 
 import scala.scalajs.js.JSConverters._
+import scala.scalajs.js.typedarray.Uint8Array
 
 object JsCryptoHasher {
 
   lazy val Sha256: CryptoHasher.Bytes =
     CryptoHasher.buildM[Array[Byte], Array[Byte]] { msg ⇒
       val sha256 = new SHA256()
-      sha256.update(msg.toJSArray)
+      sha256.update(new Uint8Array(msg.toJSArray))
       ByteVector.fromValidHex(sha256.digest("hex")).toArray
     }(_ ++ _)
 
   lazy val Sha1: CryptoHasher.Bytes =
     CryptoHasher.buildM[Array[Byte], Array[Byte]] { msg ⇒
       val sha1 = new SHA1()
-      sha1.update(msg.toJSArray)
+      sha1.update(new Uint8Array(msg.toJSArray))
       ByteVector.fromValidHex(sha1.digest("hex")).toArray
     }(_ ++ _)
 }

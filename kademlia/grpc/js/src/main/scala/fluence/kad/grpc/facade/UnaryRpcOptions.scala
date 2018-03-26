@@ -19,6 +19,7 @@ package fluence.kad.grpc.facade
 
 import scala.scalajs.js
 
+@js.native
 trait UnaryRpcOptions[Req <: js.Any, Resp <: js.Any] extends js.Object {
   val request: Req = js.native
   val host: String = js.native

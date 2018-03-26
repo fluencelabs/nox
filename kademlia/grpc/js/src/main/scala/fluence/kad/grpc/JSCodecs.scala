@@ -27,18 +27,16 @@ import scala.language.higherKinds
 import scala.scalajs.js.typedarray.Uint8Array
 
 object JSCodecs {
-  implicit def byteVectorUint8Array[F[_]: Applicative]: Codec[F, Uint8Array, ByteVector] =
-    Codec.pure(
+  implicit def byteVectorUint8Array[F[_]: Applicative](
+    implicit F: MonadError[F, Throwable]
+  ): Codec[F, Uint8Array, ByteVector] =
+    Codec.apply(
       str ⇒ {
-        val jsArray = str.toJSArray
-        println("js array == " + jsArray)
-        val array = jsArray.toArray
-        println("array == " + jsArray)
-        val toByte = array.map(_.toByte)
-        println("toByte == " + jsArray)
-        ByteVector(toByte)
+        F.catchNonFatal {
+          ByteVector(str.toArray.map(_.toByte))
+        }
       },
-      vec ⇒ new Uint8Array(vec.toArray.map(_.toShort).toJSArray)
+      vec ⇒ F.catchNonFatal(new Uint8Array(vec.toArray.map(_.toShort).toJSArray))
     )
 
   // TODO: more precise error

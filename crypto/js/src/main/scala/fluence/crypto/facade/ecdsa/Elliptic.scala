@@ -19,6 +19,7 @@ package fluence.crypto.facade.ecdsa
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation._
+import scala.scalajs.js.typedarray.Uint8Array
 
 //TODO hide enc argument in methods, make it `hex` by default
 /**
@@ -36,8 +37,8 @@ class EC(curve: String) extends js.Object {
 @js.native
 @JSImport("elliptic", "ec")
 class KeyPair(ec: EC, options: js.Dynamic) extends js.Object {
-  def verify(msg: js.Array[Byte], signature: String): Boolean = js.native
-  def sign(msg: js.Array[Byte]): Signature = js.native
+  def verify(msg: Uint8Array, signature: String): Boolean = js.native
+  def sign(msg: Uint8Array): Signature = js.native
 
   def getPublic(compact: Boolean, enc: String): String = js.native
   def getPrivate(enc: String): String = js.native

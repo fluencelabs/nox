@@ -19,6 +19,7 @@ package fluence.crypto.facade.ecdsa
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation.JSImport
+import scala.scalajs.js.typedarray.Uint8Array
 
 //TODO hide enc argument in methods, make it `hex` by default
 /**
@@ -27,13 +28,13 @@ import scala.scalajs.js.annotation.JSImport
 @js.native
 @JSImport("hash.js", "sha256")
 class SHA256() extends js.Object {
-  def update(msg: js.Array[Byte]): Unit = js.native
+  def update(msg: Uint8Array): Unit = js.native
   def digest(enc: String): String = js.native
 }
 
 @js.native
 @JSImport("hash.js", "sha1")
 class SHA1() extends js.Object {
-  def update(msg: js.Array[Byte]): Unit = js.native
+  def update(msg: Uint8Array): Unit = js.native
   def digest(enc: String): String = js.native
 }
