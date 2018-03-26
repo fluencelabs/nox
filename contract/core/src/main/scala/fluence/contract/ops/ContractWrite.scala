@@ -33,6 +33,8 @@ trait ContractWrite[C] {
 
   def setParticipantsSeal(contract: C, signature: Signature): C
 
+  def setExecStateSeal(contract: C, signature: Signature): C
+
 }
 
 object ContractWrite {
@@ -48,6 +50,9 @@ object ContractWrite {
 
         override def setParticipantsSeal(contract: B, signature: Signature): B =
           f(fa.setParticipantsSeal(g(contract), signature))
+
+        override def setExecStateSeal(contract: B, signature: Signature): B =
+          f(fa.setExecStateSeal(g(contract), signature))
       }
   }
 
@@ -57,13 +62,18 @@ object ContractWrite {
   ) {
     import ContractRead.ReadOps
 
+    /**
+     * Seals contract offer.
+     *
+     * @param signer Algorithm to produce signatures for this participant
+     */
     def sealOffer(signer: Signer): EitherT[F, CryptoErr, C] =
       signer
         .sign(contract.getOfferBytes)
         .map(s ⇒ write.setOfferSeal(contract, s))
 
     /**
-     * Sign the contract with the specified key.
+     * Signs contracts offer with the specified key and add this signature as participant into contract.
      *
      * @param participant Participants private key
      * @param signer Algorithm to produce signatures for this participant
@@ -84,7 +94,7 @@ object ContractWrite {
         .map(s ⇒ write.setParticipantsSeal(contract, s))
 
     /**
-     * Add contracts signed by participants to base contract.
+     * Adds specified contracts (signed by participants) as participants to base contract.
      *
      * @param participants Contracts signed by participants
      * @param checker Algorithm to produce signatures for this participant
@@ -97,7 +107,7 @@ object ContractWrite {
             part.participants.headOption
               .flatMap(p ⇒ part.participantSignature(p).map(p -> _))
               .fold(agg) {
-                case (p, sign) ⇒ write.setOfferSignature(agg, p, sign)
+                case (participantKey, participantSign) ⇒ write.setOfferSignature(agg, participantKey, participantSign)
               }
 
           case (agg, _) ⇒
@@ -106,5 +116,15 @@ object ContractWrite {
         .flatMap { signed ⇒
           signed.checkAllParticipants().map(_ ⇒ signed)
         }
+
+    /**
+     * Seals contract execution state.
+     *
+     * @param signer Algorithm to produce signatures for this participant
+     */
+    def sealExecState(signer: Signer): EitherT[F, CryptoErr, C] =
+      signer
+        .sign(contract.getExecutionStateBytes)
+        .map(s ⇒ write.setExecStateSeal(contract, s))
   }
 }
