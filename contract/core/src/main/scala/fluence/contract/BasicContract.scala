@@ -81,6 +81,7 @@ object BasicContract {
   // TODO: there should be contract laws, like "init empty - not signed -- sign offer -- signed, no participants -- add participant -- ..."
 
   implicit object BasicContractWrite extends ContractWrite[BasicContract] {
+
     override def setOfferSeal(contract: BasicContract, signature: Signature): BasicContract =
       contract.copy(offerSeal = signature)
 
@@ -89,6 +90,10 @@ object BasicContract {
 
     override def setParticipantsSeal(contract: BasicContract, signature: Signature): BasicContract =
       contract.copy(participantsSeal = Some(signature))
+
+    override def setExecStateSeal(contract: BasicContract, signature: Signature): BasicContract =
+      contract.copy(executionSeal = signature)
+
   }
 
   implicit object BasicContractRead extends ContractRead[BasicContract] {

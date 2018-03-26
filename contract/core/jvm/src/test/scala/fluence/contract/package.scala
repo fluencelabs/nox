@@ -15,12 +15,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.contract
+package fluence
 
-import org.scalatest.{Matchers, WordSpec}
+import cats.data.EitherT
 
-class BasicContractSpec extends WordSpec with Matchers {
+package object contract {
 
-  // todo finish
+  implicit class EitherTValueReader[E, V](origin: EitherT[Option, E, V]) {
 
+    def success: V =
+      origin.value.get.right.get
+
+    def failed: E =
+      origin.value.get.left.get
+  }
 }
