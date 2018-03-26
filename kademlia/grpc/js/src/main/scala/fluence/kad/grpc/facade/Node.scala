@@ -18,9 +18,8 @@
 package fluence.kad.grpc.facade
 
 import scala.scalajs.js
-import scala.scalajs.js.annotation.{JSGlobal, JSImport}
+import scala.scalajs.js.annotation.JSImport
 import scala.scalajs.js.typedarray.Uint8Array
-import scala.scalajs.js.JSConverters._
 
 @js.native
 @JSImport("./generated/grpc_pb", "Node")
@@ -33,28 +32,4 @@ object Node {
   }
 
   def apply(id: Uint8Array, contact: Uint8Array) = new Node(js.Array(id, contact))
-}
-
-@js.native
-@JSImport("./generated/grpc_pb", "NodesResponse")
-class NodesResponse(val nodes: Seq[Node]) extends js.Object
-
-@js.native
-@JSImport("./generated/grpc_pb", "PingRequest")
-class PingRequest() extends js.Object
-
-@js.native
-@JSImport("./generated/grpc_pb", "LookupRequest")
-class LookupRequest(val key: Uint8Array, val numberOfNodes: Int) extends js.Object {
-  key.toJSArray.toArray.map(_.toByte)
-}
-
-@js.native
-@JSImport("./generated/grpc_pb", "LookupAwayRequest")
-class LookupAwayRequest(val key: Uint8Array, val moveAwayFrom: Uint8Array, val numberOfNodes: Int) extends js.Object {
-  //key.toJSArray.toArray.map(_.toByte)
-}
-
-object Proto {
-  val module = "./generated/grpc_pb"
 }

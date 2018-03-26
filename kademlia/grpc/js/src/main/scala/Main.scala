@@ -22,10 +22,14 @@ import cats.instances.try_._
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 
+import scala.concurrent.Promise
 import scala.scalajs.js.JSConverters._
 import scala.scalajs.js
-import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
+import scala.scalajs.js.annotation.JSExport
+import scala.scalajs.js.typedarray.Uint8Array
 import scala.util.Try
+
+import scala.concurrent.ExecutionContext.Implicits.global
 
 @JSExport
 object Main {
@@ -37,6 +41,8 @@ object Main {
   def someCoolMethod(): Unit = {
     println("Hello world!")
 
+    var prKey: Promise[Key] = Promise[Key]()
+
     val grpc = Grpc
     val onMessage: Node ⇒ Unit = { out ⇒
       println("ON MESSAGE")
@@ -46,9 +52,10 @@ object Main {
       println("11111")
       val idBytes = JSCodecs.byteVectorUint8Array.encode(array.head)
       println("222222")
-      val key = Key.fromBytes[Try](idBytes.get.toArray)
+      val key = Key.fromBytes[Try](idBytes.get.toArray).get
       println("33333")
       println("KEY === " + key)
+      prKey.success(key)
       val contact = Contact.readB64seed[Try](new String(array.tail.head.toJSArray.toArray.map(_.toByte)))
       println("CONTACT === " + contact)
       val codec = KademliaNodeCodec.codec[Try]
@@ -82,6 +89,72 @@ object Main {
       debug = true
     )
     grpc.invoke[PingRequest, Node](descriptor, options)
+
+    val pr2 = Promise[Key]()
+
+    prKey.future.onComplete { somekey ⇒
+      val descriptor2 = Kademlia.lookup
+      val request2 = LookupRequest(new Uint8Array(somekey.get.value.toArray.toJSArray), 2)
+
+      request2.setNumberofnodes(2)
+
+      val onMessage2: NodesResponse ⇒ Unit = { nodesResp ⇒
+        println("NODES RESP === " + nodesResp)
+
+        val nodes = nodesResp.nodes()
+        val codec = KademliaNodeCodec.codec[Try]
+        val decNodes = nodes.map(n ⇒ codec.decode(n).get)
+        println(decNodes.mkString("\n"))
+        println("NODES SIZE === " + decNodes.length)
+
+        pr2.success(decNodes.head.key)
+      }
+
+      val options2 = InvokeRpcOptions[LookupRequest, NodesResponse](
+        request2,
+        "http://localhost:8080",
+        "",
+        onHeaders,
+        onMessage2,
+        onEnd,
+        debug = true
+      )
+
+      grpc.invoke[LookupRequest, NodesResponse](descriptor2, options2)
+    }
+
+    pr2.future.onComplete { somekey ⇒
+      println("GOGOGO")
+      val key = new Uint8Array(somekey.get.value.toArray.toJSArray)
+      val key2 = new Uint8Array(prKey.future.value.get.get.value.toArray.toJSArray)
+      println("GOGOGO1")
+      val request3 = LookupAwayRequest(key, key2, 2)
+      println("GOGOGO2")
+      val descriptor3 = Kademlia.lookupAway
+      println("GOGOGO3")
+      val onMessage3: NodesResponse ⇒ Unit = { nodesResp ⇒
+        println("NODES RESP === " + nodesResp)
+
+        val nodes = nodesResp.nodes()
+        val codec = KademliaNodeCodec.codec[Try]
+        val decNodes = nodes.map(n ⇒ codec.decode(n).get)
+        println(decNodes.mkString("\n"))
+        println("NODES SIZE === " + decNodes.length)
+      }
+
+      val options2 = InvokeRpcOptions[LookupAwayRequest, NodesResponse](
+        request3,
+        "http://localhost:8080",
+        "",
+        onHeaders,
+        onMessage3,
+        onEnd,
+        debug = true
+      )
+
+      grpc.invoke[LookupAwayRequest, NodesResponse](descriptor3, options2)
+    }
+
   }
 
   def main(args: Array[String]): Unit = {

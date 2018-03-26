@@ -39,6 +39,14 @@ object KademliaNodeCodec {
     checker: SignatureChecker
   ): Codec[F, fluence.kad.protocol.Node[Contact], Node] = {
 
+    def contactFromBase64(str: String) =
+      Contact
+        .readB64seed[F](str)
+        .value
+        .flatMap(F.fromEither) // TODO err: crypto
+
+    def keyFromBytes(arr: Array[Byte]) = Key.fromBytes[F](arr) // TODO err: wrong key size
+
     def encode: fluence.kad.protocol.Node[Contact] ⇒ F[Node] =
       obj ⇒
         Node(
@@ -50,12 +58,9 @@ object KademliaNodeCodec {
       binary ⇒ {
         for {
           id ← JSCodecs.byteVectorUint8Array.encode(binary.id)
-          k ← Key.fromBytes[F](id.toArray) // TODO err: wrong key size
+          k ← keyFromBytes(id.toArray)
           contact ← JSCodecs.byteVectorUint8Array.encode(binary.contact)
-          c ← Contact
-            .readB64seed[F](new String(contact.toArray))
-            .value
-            .flatMap(F.fromEither) // TODO err: crypto
+          c ← contactFromBase64(new String(contact.toArray))
           _ ← if (Key.checkPublicKey(k, c.publicKey)) F.pure(())
           else
             F.raiseError(new IllegalArgumentException("Key doesn't conform to signature")) // TODO err: crypto -- keys mismatch

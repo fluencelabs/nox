@@ -21,19 +21,5 @@ import scala.scalajs.js
 import scala.scalajs.js.annotation.JSImport
 
 @js.native
-@JSImport("grpc-web-client", "grpc")
-object Grpc extends js.Object {
-
-  def unary[Req <: js.Any, Resp <: js.Any](
-    methodDescriptor: MethodDescriptor,
-    props: UnaryRpcOptions[Req, Resp]
-  ): js.Any =
-    js.native
-
-  def invoke[Req <: js.Any, Resp <: js.Any](
-    methodDescriptor: MethodDescriptor,
-    props: InvokeRpcOptions[Req, Resp]
-  ): js.Any =
-    js.native
-  def client: js.Any = js.native
-}
+@JSImport("./generated/grpc_pb", "PingRequest")
+class PingRequest() extends js.Object

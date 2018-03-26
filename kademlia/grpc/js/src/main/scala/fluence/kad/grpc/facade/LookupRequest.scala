@@ -19,21 +19,28 @@ package fluence.kad.grpc.facade
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation.JSImport
+import scala.scalajs.js.typedarray.Uint8Array
 
 @js.native
-@JSImport("grpc-web-client", "grpc")
-object Grpc extends js.Object {
+@JSImport("./generated/grpc_pb", "LookupRequest")
+class LookupRequest() extends js.Object {
 
-  def unary[Req <: js.Any, Resp <: js.Any](
-    methodDescriptor: MethodDescriptor,
-    props: UnaryRpcOptions[Req, Resp]
-  ): js.Any =
-    js.native
+  def setKey(key: Uint8Array): Unit = js.native
+  def setNumberofnodes(num: Int): Unit = js.native
+  def getKey(): Uint8Array = js.native
+  def getNumberofnodes(): Int = js.native
+}
 
-  def invoke[Req <: js.Any, Resp <: js.Any](
-    methodDescriptor: MethodDescriptor,
-    props: InvokeRpcOptions[Req, Resp]
-  ): js.Any =
-    js.native
-  def client: js.Any = js.native
+object LookupRequest {
+  implicit class LookupRequestOps(req: LookupRequest) {
+    def key: Uint8Array = req.getKey()
+    def numberOfNodes: Int = req.getNumberofnodes()
+  }
+
+  def apply(key: Uint8Array, numberOfNodes: Int): LookupRequest = {
+    val req = new LookupRequest()
+    req.setKey(key)
+    req.setNumberofnodes(numberOfNodes)
+    req
+  }
 }

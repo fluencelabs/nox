@@ -66,8 +66,8 @@ class KademliaJSClient(stub: KademliaGrpcService)(
   override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] =
     for {
       k ← keyBS(key)
-      res ← IO.fromFuture(IO(stub.lookup(new grpc.facade.LookupRequest(k, numberOfNodes))))
-      resDec ← streamCodec.decode(res.nodes.toStream)
+      res ← IO.fromFuture(IO(stub.lookup(grpc.facade.LookupRequest(k, numberOfNodes))))
+      resDec ← streamCodec.decode(res.nodes().toStream)
     } yield resDec
 
   /**
@@ -81,10 +81,10 @@ class KademliaJSClient(stub: KademliaGrpcService)(
       moveAwayK ← keyBS(moveAwayFrom)
       res ← IO.fromFuture(
         IO(
-          stub.lookupAway(new grpc.facade.LookupAwayRequest(k, moveAwayK, numberOfNodes))
+          stub.lookupAway(grpc.facade.LookupAwayRequest(k, moveAwayK, numberOfNodes))
         )
       )
-      resDec ← streamCodec.decode(res.nodes.toStream)
+      resDec ← streamCodec.decode(res.nodes().toStream)
     } yield resDec
 }
 
