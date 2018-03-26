@@ -32,8 +32,8 @@ class ContractAllocatorServer[C](contractAllocator: ContractAllocatorRpc[C])(
   override def offer(request: BasicContract): Future[BasicContract] =
     (
       for {
-        c ← codec.decode(request)
-        offered ← contractAllocator.offer(c)
+        contract ← codec.decode(request)
+        offered ← contractAllocator.offer(contract)
         resp ← codec.encode(offered)
       } yield resp
     ).unsafeToFuture()
@@ -41,8 +41,8 @@ class ContractAllocatorServer[C](contractAllocator: ContractAllocatorRpc[C])(
   override def allocate(request: BasicContract): Future[BasicContract] =
     (
       for {
-        c ← codec.decode(request)
-        allocated ← contractAllocator.allocate(c)
+        contract ← codec.decode(request)
+        allocated ← contractAllocator.allocate(contract)
         resp ← codec.encode(allocated)
       } yield resp
     ).unsafeToFuture()

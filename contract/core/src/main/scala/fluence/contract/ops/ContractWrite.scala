@@ -26,14 +26,17 @@ import fluence.kad.protocol.Key
 import scala.language.higherKinds
 
 trait ContractWrite[C] {
+
   def setOfferSeal(contract: C, signature: Signature): C
 
   def setOfferSignature(contract: C, participant: Key, signature: Signature): C
 
   def setParticipantsSeal(contract: C, signature: Signature): C
+
 }
 
 object ContractWrite {
+
   implicit object inv extends Invariant[ContractWrite] {
     override def imap[A, B](fa: ContractWrite[A])(f: A ⇒ B)(g: B ⇒ A): ContractWrite[B] =
       new ContractWrite[B] {
@@ -59,16 +62,34 @@ object ContractWrite {
         .sign(contract.getOfferBytes)
         .map(s ⇒ write.setOfferSeal(contract, s))
 
+    /**
+     * Sign the contract with the specified key.
+     *
+     * @param participant Participants private key
+     * @param signer Algorithm to produce signatures for this participant
+     */
     def signOffer(participant: Key, signer: Signer): EitherT[F, CryptoErr, C] =
       signer
         .sign(contract.getOfferBytes)
         .map(s ⇒ write.setOfferSignature(contract, participant, s))
 
+    /**
+     * Seals participants into contract.
+     *
+     * @param signer Algorithm to produce signatures for this participant
+     */
     def sealParticipants(signer: Signer): EitherT[F, CryptoErr, C] =
       signer
         .sign(contract.getParticipantsBytes)
         .map(s ⇒ write.setParticipantsSeal(contract, s))
 
+    /**
+     * Add contracts signed by participants to base contract.
+     *
+     * @param participants Contracts signed by participants
+     * @param checker Algorithm to produce signatures for this participant
+     * @return Contract with filled participants signatures
+     */
     def addParticipants(participants: Seq[C])(implicit checker: SignatureChecker): EitherT[F, CryptoErr, C] =
       EitherT
         .rightT(participants.foldLeft(contract) {
@@ -83,12 +104,7 @@ object ContractWrite {
             agg
         })
         .flatMap { signed ⇒
-          signed.checkAllParticipants().flatMap {
-            case true ⇒ EitherT.rightT(signed)
-            case false ⇒
-              // TODO: actually it's not a crypto err
-              EitherT.leftT(CryptoErr("Wrong number of participants or wrong signatures"))
-          }
+          signed.checkAllParticipants().map(_ ⇒ signed)
         }
   }
 }

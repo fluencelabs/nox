@@ -3,7 +3,7 @@ syntax = "proto3";
 package fluence.dataset;
 
 message DatasetInfo {
-    // datset id - acctually kademlia key of the contract
+    // dataset id - acctually kademlia key of the contract
     bytes id = 1;
     // expected dataset version
     int64 version = 2;

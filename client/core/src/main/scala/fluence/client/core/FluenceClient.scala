@@ -64,7 +64,8 @@ class FluenceClient(
     keyCrypt: Crypt[Task, String, Array[Byte]],
     valueCrypt: Crypt[Task, String, Array[Byte]]
   ): Task[Option[ClientDatasetStorageApi[Task, Observable, String, String]]] = {
-    loadDatasetFromCache(keyPair.publicKey, restoreReplicatedDataset(keyPair, keyCrypt, valueCrypt)) // todo: do replication or don't, should be configurable
+    // todo: do replication or don't, should be configurable
+    restoreReplicatedDataset(keyPair, keyCrypt, valueCrypt).memoizeOnSuccess
   }
 
   /**
@@ -117,13 +118,6 @@ class FluenceClient(
       datasetId ← Key.sha1[Task]((nonce ++ keyPair.publicKey.value).toArray)
     } yield
       ClientDatasetStorage(datasetId.value.toArray, datasetVer, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
-  }
-
-  private def loadDatasetFromCache(
-    pk: KeyPair.Public,
-    dataStorage: Task[Option[ClientDatasetStorageApi[Task, Observable, String, String]]]
-  ): Task[Option[ClientDatasetStorageApi[Task, Observable, String, String]]] = {
-    dataStorage.memoizeOnSuccess
   }
 
   def createNewContract(
@@ -198,7 +192,9 @@ class FluenceClient(
               )
             )
           } yield Some(datasets)
-        case _ ⇒ Task.pure(None)
+        case _ ⇒
+          logger.warn(s"Contract for specified key=$key was not found")
+          Task.pure(None)
       }
     } yield dataStorages.map(ds ⇒ new ClientReplicationWrapper(ds.toList))
   }

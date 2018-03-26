@@ -17,51 +17,59 @@
 
 package fluence.contract.grpc
 
+import cats.instances.list._
+import cats.instances.option._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{MonadError, Traverse}
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.Signature
-import fluence.kad.protocol.Key
-import cats.instances.list._
-import cats.instances.option._
+import fluence.codec.pb.ProtobufCodecs._
 import fluence.contract
 import fluence.contract.BasicContract.ExecutionState
-import fluence.codec.pb.ProtobufCodecs._
+import fluence.crypto.keypair.KeyPair
+import fluence.crypto.signature.{Signature, SignatureChecker}
+import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 object BasicContractCodec {
 
-  implicit def codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, contract.BasicContract, BasicContract] = {
+  /**
+   * Codec for convert BasicContract into grpc representation. Checks all signatures as well.
+   *
+   * @param checker Checker for all signatures in contract
+   */
+  implicit def codec[F[_]](
+    implicit F: MonadError[F, Throwable],
+    checker: SignatureChecker
+  ): Codec[F, contract.BasicContract, BasicContract] = {
+
     val keyC = Codec.codec[F, Key, ByteString]
     val strVec = Codec.codec[F, ByteVector, ByteString]
-
     val pubKeyCV: Codec[F, KeyPair.Public, ByteVector] = Codec.pure(_.value, KeyPair.Public)
     val pubKeyC = pubKeyCV andThen strVec
-
     val optStrVecC = Codec.codec[F, Option[ByteVector], Option[ByteString]]
 
-    Codec(
-      bc ⇒
+    val serialize: contract.BasicContract ⇒ F[BasicContract] =
+      (bc: contract.BasicContract) ⇒
         for {
+          // check all signatures before serialize
+          _ ← verifyAllContractSeals(bc)
           idBs ← keyC.encode(bc.id)
+          pubKBs ← pubKeyC.encode(bc.publicKey)
 
           participantsBs ← Traverse[List].traverse(bc.participants.toList) {
-            case (pk, ps) ⇒
+            case (pK: Key, pS: Signature) ⇒
               for {
-                pkBs ← keyC.encode(pk)
-                pubkBs ← pubKeyC.encode(ps.publicKey)
-                signBs ← strVec.encode(ps.sign)
-              } yield Participant(id = pkBs, publicKey = pubkBs, signature = signBs)
+                pkBs ← keyC.encode(pK)
+                pubKBs ← pubKeyC.encode(pS.publicKey)
+                signBs ← strVec.encode(pS.sign)
+              } yield Participant(id = pkBs, publicKey = pubKBs, signature = signBs)
           }
 
-          pkBs ← pubKeyC.encode(bc.offerSeal.publicKey)
           offSBs ← strVec.encode(bc.offerSeal.sign)
-
           participantsSealBs ← optStrVecC.encode(bc.participantsSeal.map(_.sign))
           executionSealBs ← strVec.encode(bc.executionSeal.sign)
 
@@ -69,11 +77,9 @@ object BasicContractCodec {
         } yield
           BasicContract(
             id = idBs,
-            publicKey = pkBs,
+            publicKey = pubKBs,
             offer = Some(
-              new BasicContractOffer(
-                participantsRequired = bc.offer.participantsRequired
-              )
+              new BasicContractOffer(participantsRequired = bc.offer.participantsRequired)
             ),
             offerSeal = offSBs,
             participants = participantsBs,
@@ -81,65 +87,87 @@ object BasicContractCodec {
             version = bc.executionState.version,
             merkleRoot = merkleRootBs,
             executionSeal = executionSealBs
-        ),
-      g ⇒ {
+        )
+
+    val deserialize: BasicContract ⇒ F[contract.BasicContract] =
+      grpcContact ⇒ {
         def read[T](name: String, f: BasicContract ⇒ T): F[T] =
-          Option(f(g))
+          Option(f(grpcContact))
             .fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
 
         def readFromOpt[T](name: String, f: BasicContract ⇒ Option[T]): F[T] =
-          f(g).fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
+          f(grpcContact)
+            .fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
 
         def readParticipantsSeal: F[Option[ByteVector]] =
-          Option(g.participantsSeal)
+          Option(grpcContact.participantsSeal)
             .filter(_.size() > 0)
             .fold(F.pure(Option.empty[ByteVector]))(sl ⇒ strVec.decode(sl).map(Option(_)))
 
         for {
-          pk ← pubKeyC.decode(g.publicKey)
+          pubKey ← read("publicKey", _.publicKey).flatMap(pubKeyC.decode)
 
-          idb ← read("id", _.id)
-          id ← keyC.decode(idb)
+          id ← read("id", _.id).flatMap(keyC.decode)
 
           participantsRequired ← readFromOpt("participantsRequired", _.offer.map(_.participantsRequired))
 
-          offerSealBS ← read("offerSeal", _.offerSeal)
-          offerSealVec ← strVec.decode(offerSealBS)
+          offerSeal ← read("offerSeal", _.offerSeal).flatMap(strVec.decode)
 
-          participants ← Traverse[List].traverse(g.participants.toList) { p ⇒
+          participants ← Traverse[List].traverse(grpcContact.participants.toList) { participant ⇒
             for {
-              k ← keyC.decode(p.id)
-              kp ← pubKeyC.decode(p.publicKey)
-              s ← strVec.decode(p.signature)
-            } yield k -> Signature(kp, s)
+              key ← keyC.decode(participant.id)
+              pubK ← pubKeyC.decode(participant.publicKey)
+              sign ← strVec.decode(participant.signature)
+            } yield key -> Signature(pubK, sign)
           }
 
           version ← read("version", _.version)
 
           participantsSealOpt ← readParticipantsSeal
 
-          merkleRootBS ← read("merkleRoot", _.merkleRoot)
-          merkleRoot ← strVec.decode(merkleRootBS)
+          merkleRoot ← read("merkleRoot", _.merkleRoot).flatMap(strVec.decode)
 
-          execSeal ← strVec.decode(g.executionSeal)
-        } yield
-          contract.BasicContract(
+          execSeal ← read("executionSeal", _.executionSeal).flatMap(strVec.decode)
+
+          deserializedContract = contract.BasicContract(
             id = id,
+            publicKey = pubKey,
             offer = fluence.contract.BasicContract.Offer(
               participantsRequired = participantsRequired
             ),
-            offerSeal = Signature(pk, offerSealVec), // TODO: validate seal in codec
+            offerSeal = Signature(pubKey, offerSeal),
             participants = participants.toMap,
             participantsSeal = participantsSealOpt
-              .map(Signature(pk, _)),
+              .map(Signature(pubKey, _)),
             executionState = ExecutionState(
               version = version,
               merkleRoot = merkleRoot
             ),
-            executionSeal = Signature(pk, execSeal) // TODO: validate seal in codec
+            executionSeal = Signature(pubKey, execSeal)
           )
+
+          // check all signatures after deserialize
+          _ ← verifyAllContractSeals(deserializedContract)
+        } yield deserializedContract
       }
-    )
+
+    Codec(serialize, deserialize)
+  }
+
+  /**
+   * Check all seals in current contract.
+   * Remove this methods when EitherT will be everywhere
+   */
+  private def verifyAllContractSeals[F[_]](bContract: contract.BasicContract)(
+    implicit F: MonadError[F, Throwable],
+    checker: SignatureChecker
+  ): F[Unit] = {
+    import fluence.contract.ops.ContractRead._
+
+    bContract.checkAllSeals[F]().value.flatMap {
+      case Left(err) ⇒ F.raiseError(err)
+      case Right(_) ⇒ F.unit
+    }
   }
 
 }
