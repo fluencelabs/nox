@@ -18,12 +18,12 @@
 package fluence.kad.grpc.facade
 
 import scala.scalajs.js
-import scala.scalajs.js.annotation.{JSGlobal, JSImport}
+import scala.scalajs.js.annotation.JSImport
 
 @js.native
 @JSImport("./generated/grpc_pb_service", "Kademlia")
-object Kademlia extends js.Object {
-  val ping: MethodDescriptor = js.native
-  val lookup: MethodDescriptor = js.native
-  val lookupAway: MethodDescriptor = js.native
+object KademliaDescriptors extends js.Object {
+  val ping: MethodDescriptor[PingRequest, Node] = js.native
+  val lookup: MethodDescriptor[LookupRequest, NodesResponse] = js.native
+  val lookupAway: MethodDescriptor[LookupAwayRequest, NodesResponse] = js.native
 }

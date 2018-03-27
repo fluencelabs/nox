@@ -19,9 +19,30 @@ package fluence.kad.grpc
 
 import fluence.kad.grpc.facade._
 
+import scala.concurrent.Future
+
 trait KademliaGrpcService {
   def ping(request: PingRequest): scala.concurrent.Future[Node]
   def lookup(request: LookupRequest): scala.concurrent.Future[NodesResponse]
   def lookupAway(request: LookupAwayRequest): scala.concurrent.Future[NodesResponse]
+}
 
+object KademliaGrpcService {
+
+  def apply(host: String, debug: Boolean = false): KademliaGrpcService =
+    new KademliaGrpcService() with slogging.LazyLogging {
+      private val grpc = new GrpcJSService(host, debug)
+
+      override def ping(request: PingRequest): Future[Node] = {
+        grpc.unary(KademliaDescriptors.ping, request)
+      }
+
+      override def lookup(request: LookupRequest): Future[NodesResponse] = {
+        grpc.unary(KademliaDescriptors.lookup, request)
+      }
+
+      override def lookupAway(request: LookupAwayRequest): Future[NodesResponse] = {
+        grpc.unary(KademliaDescriptors.lookupAway, request)
+      }
+    }
 }

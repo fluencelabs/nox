@@ -25,13 +25,13 @@ import scala.scalajs.js.annotation.JSImport
 object Grpc extends js.Object {
 
   def unary[Req <: js.Any, Resp <: js.Any](
-    methodDescriptor: MethodDescriptor,
+    methodDescriptor: MethodDescriptor[Req, Resp],
     props: UnaryRpcOptions[Req, Resp]
   ): js.Any =
     js.native
 
   def invoke[Req <: js.Any, Resp <: js.Any](
-    methodDescriptor: MethodDescriptor,
+    methodDescriptor: MethodDescriptor[Req, Resp],
     props: InvokeRpcOptions[Req, Resp]
   ): js.Any =
     js.native

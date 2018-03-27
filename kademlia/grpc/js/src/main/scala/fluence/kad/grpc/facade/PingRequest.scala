@@ -23,3 +23,7 @@ import scala.scalajs.js.annotation.JSImport
 @js.native
 @JSImport("./generated/grpc_pb", "PingRequest")
 class PingRequest() extends js.Object
+
+object PingRequest {
+  def apply(): PingRequest = new PingRequest()
+}

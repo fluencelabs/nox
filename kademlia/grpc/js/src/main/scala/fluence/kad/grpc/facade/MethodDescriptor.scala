@@ -20,4 +20,4 @@ package fluence.kad.grpc.facade
 import scala.scalajs.js
 
 @js.native
-trait MethodDescriptor extends js.Object {}
+trait MethodDescriptor[Req <: js.Any, Resp <: js.Any] extends js.Object {}
