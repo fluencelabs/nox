@@ -33,6 +33,7 @@ import scala.scalajs.js.typedarray.Uint8Array
 import scala.scalajs.js.JSConverters._
 import scala.language.higherKinds
 
+//TODO merge it with KademliaNodeCodec in jvm project
 object KademliaNodeCodec {
   implicit def codec[F[_]](
     implicit F: MonadError[F, Throwable],
