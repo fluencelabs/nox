@@ -46,7 +46,10 @@ import scala.language.higherKinds
  */
 object ContractsCacheStore {
 
-  /** Creates [[fluence.codec.Codec]] instance for {{{ContractRecord[BasicContract]}}} and {{{BasicContractCache}}} */
+  /**
+   * Creates [[fluence.codec.Codec]] instance for {{{ContractRecord[BasicContract]}}} and {{{BasicContractCache}}}
+   * Don't need checking 'seals' because we store only valid contracts.
+   */
   private def contractRec2ContractCacheCodec[F[_]](
     implicit
     F: MonadError[F, Throwable]
@@ -59,13 +62,14 @@ object ContractsCacheStore {
 
     val optStrVecC = Codec.codec[F, Option[ByteVector], Option[ByteString]]
 
-    Codec(
+    val serializer: ContractRecord[BasicContract] ⇒ F[BasicContractCache] =
       contractRec ⇒ {
-        val bc = contractRec.contract
+        val contract = contractRec.contract
         for {
-          idBs ← keyC.encode(bc.id)
+          idBs ← keyC.encode(contract.id)
+          pubKey ← strVec.encode(contract.publicKey.value)
 
-          participantsBs ← Traverse[List].traverse(bc.participants.toList) {
+          participantsBs ← Traverse[List].traverse(contract.participants.toList) {
             case (pk, ps) ⇒
               for {
                 pkBs ← keyC.encode(pk)
@@ -74,28 +78,29 @@ object ContractsCacheStore {
               } yield Participant(id = pkBs, publicKey = pubkBs, signature = signBs)
           }
 
-          pkBs ← pubKeyC.encode(bc.offerSeal.publicKey)
-          offSBs ← strVec.encode(bc.offerSeal.sign)
+          offSBs ← strVec.encode(contract.offerSeal.sign)
 
-          participantsSealBs ← optStrVecC.encode(bc.participantsSeal.map(_.sign))
-          executionSealBs ← strVec.encode(bc.executionSeal.sign)
+          participantsSealBs ← optStrVecC.encode(contract.participantsSeal.map(_.sign))
+          executionSealBs ← strVec.encode(contract.executionSeal.sign)
 
-          merkleRootBs ← strVec.encode(bc.executionState.merkleRoot)
+          merkleRootBs ← strVec.encode(contract.executionState.merkleRoot)
 
         } yield
           BasicContractCache(
             id = idBs,
-            publicKey = pkBs,
-            participantsRequired = bc.offer.participantsRequired,
+            publicKey = pubKey,
+            participantsRequired = contract.offer.participantsRequired,
             offerSeal = offSBs,
             participants = participantsBs,
             participantsSeal = participantsSealBs.getOrElse(ByteString.EMPTY),
-            version = bc.executionState.version,
+            version = contract.executionState.version,
             merkleRoot = merkleRootBs,
             executionSeal = executionSealBs,
             lastUpdated = contractRec.lastUpdated.toEpochMilli
           )
-      },
+      }
+
+    val deserializer: BasicContractCache ⇒ F[ContractRecord[BasicContract]] =
       basicContractCache ⇒ {
         def read[T](name: String, f: BasicContractCache ⇒ T): F[T] =
           Option(f(basicContractCache))
@@ -107,7 +112,7 @@ object ContractsCacheStore {
             .fold(F.pure(Option.empty[ByteVector]))(sl ⇒ strVec.decode(sl).map(Option(_)))
 
         for {
-          pk ← pubKeyC.decode(basicContractCache.publicKey)
+          pubKey ← pubKeyC.decode(basicContractCache.publicKey)
 
           idb ← read("id", _.id)
           id ← keyC.decode(idb)
@@ -139,26 +144,26 @@ object ContractsCacheStore {
           ContractRecord(
             contract.BasicContract(
               id = id,
+              publicKey = pubKey,
               offer = fluence.contract.BasicContract.Offer(
                 participantsRequired = participantsRequired
               ),
-              offerSeal = Signature(pk, offerSealVec),
+              offerSeal = Signature(pubKey, offerSealVec),
               participants = participants.toMap,
               participantsSeal = participantsSealOpt
-                .map(Signature(pk, _)),
+                .map(Signature(pubKey, _)),
               executionState = BasicContract.ExecutionState(
                 version = version,
                 merkleRoot = merkleRoot
               ),
-              executionSeal = Signature(pk, execSeal)
+              executionSeal = Signature(pubKey, execSeal)
             ),
             Instant.ofEpochMilli(lastUpdated)
           )
       }
-    )
-  }
 
-  private def toOption[F[_]](byteStr: ByteString) = if (byteStr.isEmpty) None else Option(byteStr)
+    Codec(serializer, deserializer)
+  }
 
   /** Creates [[fluence.codec.Codec]] instance for {{{BasicContractCache}}} and {{{Array[Byte]}}} */
   private def contractCache2Bytes[F[_]](

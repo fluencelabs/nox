@@ -109,10 +109,11 @@ object Contracts {
               nc ⇒
                 EitherT(allocatorRpc(nc.contact).offer(contract).attempt.to[F])
                   .leftMap(_ ⇒ Contracts.NotFound)
-                  .flatMap { c ⇒
-                    c.participantSigned[F](nc.key)
+                  .flatMap { contract ⇒
+                    contract
+                      .participantSigned[F](nc.key)
                       .leftMap(CryptoError)
-                      .subflatMap(Either.cond(_, c, Contracts.NotFound))
+                      .subflatMap(Either.cond(_, contract, Contracts.NotFound))
                 },
               contract.participantsRequired,
               maxAllocateRequests(contract.participantsRequired),
