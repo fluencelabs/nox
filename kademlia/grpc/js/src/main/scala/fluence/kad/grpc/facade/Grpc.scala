@@ -24,16 +24,34 @@ import scala.scalajs.js.annotation.JSImport
 @JSImport("grpc-web-client", "grpc")
 object Grpc extends js.Object {
 
+  /**
+   * Single request - single response method
+   * @param methodDescriptor Descriptor from generated code, describing the relationship between request and response
+   * @param options Request, host, metadata and callback on response
+   * @tparam Req Type of request
+   * @tparam Resp Type of response
+   * @return Unit, the response is handled by the callback in options
+   */
   def unary[Req <: js.Any, Resp <: js.Any](
     methodDescriptor: MethodDescriptor[Req, Resp],
-    props: UnaryRpcOptions[Req, Resp]
+    options: UnaryRpcOptions[Req, Resp]
+  ): Unit =
+    js.native
+
+  /**
+   * Single request - stream response method
+   * @param methodDescriptor Descriptor from generated code, describing the relationship between request and response
+   * @param options Request, host, metadata and callbacks on headers, on messages, on end of stream
+   * @tparam Req Type of request
+   * @tparam Resp Type of response
+   * @return Unit, the response is handled by the callback in options
+   */
+  def invoke[Req <: js.Any, Resp <: js.Any](
+    methodDescriptor: MethodDescriptor[Req, Resp],
+    options: InvokeRpcOptions[Req, Resp]
   ): js.Any =
     js.native
 
-  def invoke[Req <: js.Any, Resp <: js.Any](
-    methodDescriptor: MethodDescriptor[Req, Resp],
-    props: InvokeRpcOptions[Req, Resp]
-  ): js.Any =
-    js.native
+  //not implemented yet
   def client: js.Any = js.native
 }

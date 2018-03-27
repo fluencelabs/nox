@@ -43,7 +43,7 @@ object Main extends slogging.LazyLogging {
   val client = new KademliaJSClient(grpcService)
 
   @JSExport
-  def someCoolMethod(): Unit = {
+  def logic(): Unit = {
     println("Hello world!")
     val io = for {
       node ← client.ping()
@@ -56,10 +56,10 @@ object Main extends slogging.LazyLogging {
       logger.info("Lookup away nodes response: " + listOfNodes2.mkString("\n", "\n", "\n"))
     }
 
-    io.attempt.unsafeRunAsync(_ ⇒ ())
+    io.attempt.unsafeRunAsync(res ⇒ logger.info("Result: " + res))
   }
 
   def main(args: Array[String]): Unit = {
-    someCoolMethod()
+    logic()
   }
 }

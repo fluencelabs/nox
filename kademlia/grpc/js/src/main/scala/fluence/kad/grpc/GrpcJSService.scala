@@ -21,27 +21,42 @@ import fluence.kad.grpc.facade.{Grpc, MethodDescriptor, UnaryOutput, UnaryRpcOpt
 
 import scala.concurrent.{Future, Promise}
 import scala.scalajs.js
-import scala.util.Try
+import scala.util.{Failure, Try}
 
-class GrpcJSService(host: String, debug: Boolean = false) extends slogging.LazyLogging {
+/**
+ * Service for communication on the GRPC (http2) protocol from the browser
+ * @param address Server address "host:port"
+ * @param debug Debug info from js service
+ */
+class GrpcJSService(address: String, debug: Boolean = false) extends slogging.LazyLogging {
 
-  val grpc: Grpc.type = Grpc
+  private val grpc = Grpc
 
+  /**
+   * Single request - single response method
+   * @param descriptor  Descriptor from generated code, describing the relationship between request and response
+   * @param req Single request
+   * @tparam Req Type of request
+   * @tparam Resp Type of response
+   */
   def unary[Req <: js.Any, Resp <: js.Any](descriptor: MethodDescriptor[Req, Resp], req: Req): Future[Resp] = {
     val promise = Promise[Resp]
 
     val onEnd: UnaryOutput[Resp] ⇒ Unit = { out ⇒
       promise.tryComplete {
-        Try {
-          logger.debug(s"Response on $descriptor with status: ${out.status}")
-          out.message
-        }
+
+        logger.debug(s"Response on $descriptor with status: ${out.status}")
+
+        //TODO handle all response statuses https://godoc.org/google.golang.org/grpc/codes
+        if (out.status == 0) Try(out.message)
+        else if (out.status == 13) Failure(new RuntimeException("No connection"))
+        else Failure(new RuntimeException(s"Status of response: ${out.status}"))
       }
     }
 
     val options = UnaryRpcOptions[Req, Resp](
       req,
-      host,
+      address,
       "", //TODO add metadata facade and add metadata to api
       onEnd,
       debug = debug
