@@ -45,10 +45,12 @@ object SbtCommons {
   val npmProtobufV = "3.5.0"
   val npmTypesProtobufV = "3.2.7"
   val npmGrpcWebClientV = "0.5.0"
+  val npmTsProtocGenV = "0.5.2"
 
   val npmProtobuf = "google-protobuf" -> npmProtobufV
   val npmTypesProtobuf = "@types/google-protobuf" -> npmTypesProtobufV
   val npmGrpcWebClient = "grpc-web-client" -> npmGrpcWebClientV
+  val npmTsProtocGen = "ts-protoc-gen" -> npmTsProtocGenV
 
   val cats1 = "org.typelevel"                     %% "cats-core"     % Cats1V
   val catsFree = "org.typelevel"                  %% "cats-free"     % Cats1V

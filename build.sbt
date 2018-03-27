@@ -126,6 +126,37 @@ lazy val `kademlia-testkit` = crossProject(JVMPlatform, JSPlatform)
 lazy val `kademlia-testkit-js` = `kademlia-testkit`.js
 lazy val `kademlia-testkit-jvm` = `kademlia-testkit`.jvm
 
+lazy val protobufJSGenerator = TaskKey[Int]("generate protobuf for js")
+
+lazy val protobufJSGeneratorSettings = protobufJSGenerator := {
+
+  val baseDir = baseDirectory.value
+  val targetDir = target.value
+
+  val targetPath = targetDir.absolutePath
+
+  val generatedDir = new File(targetPath + "/scala-2.12/scalajs-bundler/main/generated/")
+  generatedDir.mkdirs()
+  val generatedDirStr = generatedDir.absolutePath
+
+  val path = baseDir.getParentFile.absolutePath
+
+  val protoPathOption = s"-I$path/src/main/protobuf/"
+  val protoOption = s"$path/src/main/protobuf/grpc.proto"
+  val pluginOption =
+    s"--plugin=protoc-gen-ts=$targetPath/scala-2.12/scalajs-bundler/main/node_modules/.bin/protoc-gen-ts"
+
+  val pbOptions = Array(
+    pluginOption,
+    s"--js_out=import_style=commonjs,binary:$generatedDirStr",
+    s"--ts_out=service=true:$generatedDirStr",
+    protoPathOption,
+    protoOption
+  )
+
+  com.github.os72.protocjar.Protoc.runProtoc(pbOptions)
+}
+
 lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
@@ -141,17 +172,20 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
     npmDependencies in Compile ++= Seq(
       npmProtobuf,
       npmTypesProtobuf,
-      npmGrpcWebClient
+      npmGrpcWebClient,
+      npmTsProtocGen
     ),
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-java-time" % jsJavaTimeV
     ),
     workbenchStartMode := WorkbenchStartModes.OnCompile,
-    scalaJSModuleKind := ModuleKind.CommonJSModule,
+    scalaJSModuleKind  := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
-    skip in packageJSDependencies := false,
-    fork in Test                  := false,
-    scalaJSUseMainModuleInitializer := true
+    skip in packageJSDependencies   := false,
+    fork in Test                    := false,
+    scalaJSUseMainModuleInitializer := true,
+    protobufJSGeneratorSettings,
+    fastOptJS in Compile := fastOptJS.in(Compile).dependsOn(protobufJSGenerator).value
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`transport-grpc`, `kademlia-protocol`, `codec-core`, `kademlia-testkit` % Test)
@@ -190,8 +224,8 @@ lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "com.chuusai"   %%% "shapeless"   % ShapelessV,
-      "biz.enef"      %%% "slogging"    % SloggingV,
+      "com.chuusai"   %%% "shapeless" % ShapelessV,
+      "biz.enef"      %%% "slogging"  % SloggingV,
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )
