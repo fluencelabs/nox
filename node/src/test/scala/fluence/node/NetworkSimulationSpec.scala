@@ -27,10 +27,9 @@ import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
-import fluence.kad.grpc.{KademliaGrpc, KademliaNodeCodec}
-import fluence.kad.protocol.{Contact, KademliaRpc, Key}
+import fluence.kad.grpc.{KademliaGrpc, KademliaGrpcUpdate, KademliaNodeCodec}
+import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
 import fluence.kad.{KademliaConf, KademliaMVar}
-import fluence.transport.TransportSecurity
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.GrpcServer
@@ -91,12 +90,12 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       IO.pure(contact),
       kademliaClientRpc,
       KademliaConf(6, 6, 3, 1.second),
-      TransportSecurity.canBeSaved[IO](key, acceptLocal = true)
+      ContactSecurity.check[IO](key, acceptLocal = true)
     )
 
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServer(kad.handleRPC), global))
-      .onNodeActivity(kad.update(_).toIO, clientConf)
+      .onCall(KademliaGrpcUpdate.grpcCallback(kad.update(_).map(_ ⇒ ()).toIO(global), clientConf))
       .build
 
     def nodeId = key

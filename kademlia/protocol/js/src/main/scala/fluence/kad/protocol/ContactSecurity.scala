@@ -15,19 +15,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport
+package fluence.kad.protocol
 
-import shapeless.{ops, HList}
+import cats.Applicative
+import cats.syntax.eq._
 
-trait TransportClient[C, CL <: HList] {
+import scala.language.higherKinds
 
-  /**
-   * Returns a service stub for a particular contact.
-   *
-   * @param contact To open service for
-   * @param sel     Implicit selector from HList
-   * @tparam T Type of the service
-   * @return
-   */
-  def service[T](contact: C)(implicit sel: ops.hlist.Selector[CL, T]): T
+/**
+ * ContactSecurity provides checks that particular Node[Contact] could be saved to a RoutingTable
+ * JS version doesn't make use of java.net.InetAddress
+ */
+object ContactSecurity {
+
+  private def checkMaybeLocal[F[_]: Applicative](self: Key): Node[Contact] ⇒ F[Boolean] =
+    node ⇒ Applicative[F].pure(node.key =!= self && Key.checkPublicKey(node.key, node.contact.publicKey))
+
+  def check[F[_]: Applicative](self: Key, acceptLocal: Boolean): Node[Contact] ⇒ F[Boolean] =
+    checkMaybeLocal[F](self)
 }

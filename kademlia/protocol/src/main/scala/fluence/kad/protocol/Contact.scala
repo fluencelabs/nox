@@ -17,8 +17,11 @@
 
 package fluence.kad.protocol
 
-import cats.data.EitherT
-import cats.{Monad, Show}
+import java.net.InetAddress
+
+import cats.data.{EitherT, Reader}
+import cats.{Applicative, Monad, Show}
+import cats.syntax.eq._
 import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{SignatureChecker, Signer}
@@ -48,6 +51,8 @@ case class Contact(
 )
 
 object Contact {
+  implicit val publicKeyR: Reader[Contact, KeyPair.Public] = Reader(_.publicKey)
+  implicit val addrR: Reader[Contact, String] = Reader(_.addr)
 
   /**
    * Builder for Node's own contact: node don't have JWT seed for it, but can produce it with its Signer

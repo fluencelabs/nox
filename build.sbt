@@ -197,7 +197,7 @@ lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`transport-core`, `codec-protobuf`)
+  .dependsOn(`transport-core`, `codec-protobuf`, `kademlia-protocol`)
 
 lazy val `transport-grpc-js` = `transport-grpc`.js
 lazy val `transport-grpc-jvm` = `transport-grpc`.jvm
@@ -225,7 +225,6 @@ lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`kademlia-protocol`)
 
 lazy val `transport-core-js` = `transport-core`.js
 lazy val `transport-core-jvm` = `transport-core`.jvm

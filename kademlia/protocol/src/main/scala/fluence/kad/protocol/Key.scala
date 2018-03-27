@@ -38,7 +38,7 @@ import scala.util.Try
  * @param value ID wrapped with ByteVector
  */
 final case class Key private (value: ByteVector) {
-  lazy val id: Array[Byte] = value.toArray
+  def id: Array[Byte] = value.toArray
 
   lazy val bits: BitVector = value.toBitVector.padLeft(Key.BitLength)
 
