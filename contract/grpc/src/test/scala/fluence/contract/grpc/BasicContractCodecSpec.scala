@@ -23,11 +23,17 @@ import fluence.crypto.keypair.KeyPair
 import fluence.crypto.SignAlgo
 import org.scalatest.{Matchers, WordSpec}
 import fluence.contract.{BasicContract ⇒ BC}
+import fluence.crypto.algorithm.Ecdsa
 import fluence.kad.protocol.Key
 
 import scala.util.{Success, Try}
 
+// todo add test cases fot failed signature checking
 class BasicContractCodecSpec extends WordSpec with Matchers {
+
+  private val signAlgo = SignAlgo.dumb
+
+  import signAlgo.checker
 
   "BasicContractCodec" should {
     def checkInvariance(bc: BC) = {
@@ -51,7 +57,6 @@ class BasicContractCodecSpec extends WordSpec with Matchers {
 
       val seed = "seed".getBytes()
       val keyPair = KeyPair.fromBytes(seed, seed)
-      val signAlgo = SignAlgo.dumb
       val signer = signAlgo.signer(keyPair)
       val key = Key.fromKeyPair(keyPair).get
 

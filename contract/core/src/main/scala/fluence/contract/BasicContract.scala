@@ -17,12 +17,11 @@
 
 package fluence.contract
 
-import java.nio.ByteBuffer
-
 import cats.syntax.flatMap._
 import cats.{Eq, MonadError}
 import fluence.contract.BasicContract.ExecutionState
 import fluence.contract.ops.{ContractRead, ContractWrite}
+import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{Signature, Signer}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
@@ -32,16 +31,18 @@ import scala.language.higherKinds
 /**
  * TODO: shouldn't it be in protocol?
  *
- * @param id               Contract/cluster ID
+ * @param id                Contract/cluster, actually is ''hash(publicKey)''
+ * @param publicKey        Public key of this contract owner
  * @param offer            The offer from client
  * @param offerSeal        Client's signature for contract offer
  * @param participants     Map of participant node keys to participant signatures, sorted by distance from id
  * @param participantsSeal Client's signature for a list of participants
- * @param executionState          State of the contract that changes over time, e.g. when merkle root changes
+ * @param executionState   State of the contract that changes over time, e.g. when merkle root changes
  * @param executionSeal Client's signature for executionState
  */
 case class BasicContract(
   id: Key,
+  publicKey: KeyPair.Public,
   offer: BasicContract.Offer,
   offerSeal: Signature,
   participants: Map[Key, Signature],
@@ -71,7 +72,7 @@ object BasicContract {
       offerSeal ← signer.sign(offer.getBytes)
       execStateSeal ← signer.sign(execState.getBytes)
     } yield {
-      BasicContract(id, offer, offerSeal, Map.empty, None, execState, execStateSeal)
+      BasicContract(id, signer.publicKey, offer, offerSeal, Map.empty, None, execState, execStateSeal)
     }
 
     newContract.value.flatMap(F.fromEither)
@@ -80,6 +81,7 @@ object BasicContract {
   // TODO: there should be contract laws, like "init empty - not signed -- sign offer -- signed, no participants -- add participant -- ..."
 
   implicit object BasicContractWrite extends ContractWrite[BasicContract] {
+
     override def setOfferSeal(contract: BasicContract, signature: Signature): BasicContract =
       contract.copy(offerSeal = signature)
 
@@ -88,6 +90,10 @@ object BasicContract {
 
     override def setParticipantsSeal(contract: BasicContract, signature: Signature): BasicContract =
       contract.copy(participantsSeal = Some(signature))
+
+    override def setExecStateSeal(contract: BasicContract, signature: Signature): BasicContract =
+      contract.copy(executionSeal = signature)
+
   }
 
   implicit object BasicContractRead extends ContractRead[BasicContract] {
@@ -101,6 +107,12 @@ object BasicContract {
       contract.id
 
     /**
+     * Public key of this contract owner
+     */
+    override def publicKey(contract: BasicContract): KeyPair.Public =
+      contract.publicKey
+
+    /**
      * Contract's version; used to check when a contract could be replaced with another one in cache.
      * Even if another contract is as cryptographically secure as current one, but is older, it should be rejected
      * to prevent replay attack on cache.
@@ -108,7 +120,7 @@ object BasicContract {
      * @return Monotonic increasing contract version number
      */
     override def version(contract: BasicContract): Long =
-      0 // TODO: version updates must be signed somehow in order to avoid unauthorized changes; unless it's done, versioning is not supported
+      contract.executionState.version
 
     /**
      * List of participating nodes Kademlia keys
@@ -148,12 +160,33 @@ object BasicContract {
       contract.offerSeal
 
     /**
+     * Returns participants bytes representation to be sealed by client
+     */
+    override def getParticipantsBytes(contract: BasicContract): ByteVector =
+      participants(contract).toSeq
+        .sorted(Key.relativeOrdering(contract.id))
+        .map(key ⇒ participantSignature(contract, key).fold(ByteVector.empty)(_.sign))
+        .foldLeft(contract.id.value)(_ ++ _)
+
+    /**
+     * Returns client's signature for participants list, if it's already sealed
+     */
+    override def participantsSeal(contract: BasicContract): Option[Signature] =
+      contract.participantsSeal
+
+    /**
+     * Returns contract execution state's bytes representation, used to sign & verify signatures
+     */
+    override def getExecutionStateBytes(contract: BasicContract): ByteVector =
+      contract.executionState.getBytes
+
+    /**
      * Returns client's signature for participants list, if it's already sealed
      *
      * @param contract Contract
      */
-    override def participantsSeal(contract: BasicContract): Option[Signature] =
-      contract.participantsSeal
+    override def executionStateSeal(contract: BasicContract): Signature =
+      contract.executionSeal
   }
 
   implicit val eq: Eq[BasicContract] = Eq.fromUniversalEquals
