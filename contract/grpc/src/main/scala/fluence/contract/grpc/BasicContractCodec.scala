@@ -164,7 +164,7 @@ object BasicContractCodec {
   ): F[Unit] = {
     import fluence.contract.ops.ContractRead._
 
-    bContract.checkAllSeals[F]().value.flatMap {
+    bContract.checkAllOwnerSeals[F]().value.flatMap {
       case Left(err) ⇒ F.raiseError(err)
       case Right(_) ⇒ F.unit
     }

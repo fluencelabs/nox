@@ -149,7 +149,7 @@ object ContractRead {
      * @param signature Signature to check
      * @param checker Signature checker
      */
-    def checkOfferSignature[F[_]: Monad](
+    private def checkOfferSignature[F[_]: Monad](
       signature: Signature
     )(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Unit] =
       checker.check[F](signature, getOfferBytes)
@@ -181,7 +181,7 @@ object ContractRead {
       }.getOrElse(EitherT.rightT(false))
 
     /**
-     * Checks that client's seal for the contract participant is correct if it present
+     * Checks that seal for the contracts participants is correct if it present.
      *
      * @param checker Signature checker
      */
@@ -236,7 +236,7 @@ object ContractRead {
      * @param signature Signature to check
      * @param checker Signature checker
      */
-    def checkExecStateSignature[F[_]: Monad](
+    private def checkExecStateSignature[F[_]: Monad](
       signature: Signature
     )(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Unit] =
       checker.check[F](signature, getExecutionStateBytes)
@@ -247,6 +247,7 @@ object ContractRead {
     def isActiveContract[F[_]: Monad]()(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Boolean] =
       for {
         _ ← checkOfferSeal()
+        _ ← checkExecStateSeal()
         _ ← checkAllParticipants()
         participantSealResult ← checkParticipantsSeal
       } yield
@@ -256,9 +257,10 @@ object ContractRead {
         }
 
     /**
-     * @return Right(unit) if all seals is correct, Left(error) otherwise.
+     * Checks all seals sealed by contract owner. Note that this method don't check participants signatures.
+     * @return Right(unit) if all owners seals is correct, Left(error) otherwise.
      */
-    def checkAllSeals[F[_]: Monad]()(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Unit] =
+    def checkAllOwnerSeals[F[_]: Monad]()(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Unit] =
       for {
         _ ← contract.checkOfferSeal()
         _ ← contract.checkParticipantsSeal()
