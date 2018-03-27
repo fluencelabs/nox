@@ -178,14 +178,15 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-java-time" % jsJavaTimeV
     ),
-    workbenchStartMode := WorkbenchStartModes.OnCompile,
+    workbenchStartMode := WorkbenchStartModes.Manual,
     scalaJSModuleKind  := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies   := false,
     fork in Test                    := false,
     scalaJSUseMainModuleInitializer := true,
     protobufJSGeneratorSettings,
-    fastOptJS in Compile := fastOptJS.in(Compile).dependsOn(protobufJSGenerator).value
+    fastOptJS in Compile := fastOptJS.in(Compile).dependsOn(protobufJSGenerator).value,
+    fastOptJS in Test := fastOptJS.in(Compile).dependsOn(protobufJSGenerator).value
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`transport-grpc`, `kademlia-protocol`, `codec-core`, `kademlia-testkit` % Test)
