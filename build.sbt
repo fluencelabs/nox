@@ -485,7 +485,12 @@ lazy val `contract-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
   .in(file("contract/core"))
-  .settings(commons)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      scalatest
+    )
+  )
   .jsSettings(
     fork in Test      := false,
     scalaJSModuleKind := ModuleKind.CommonJSModule
