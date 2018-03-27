@@ -48,15 +48,17 @@ trait MerkleBTreeClientApi[F[_], K] {
    *
    * @param key             Plain text key
    * @param valueChecksum  Checksum of encrypted value to be store
+   * @param version Dataset version expected to the client
    */
-  def initPut(key: K, valueChecksum: Hash): F[PutState[F]]
+  def initPut(key: K, valueChecksum: Hash, version: Long): F[PutState[F]]
 
   /**
    * Returns ''RemoveState'' with callbacks for deleting ''key value pair'' into remote MerkleBTree by
    * specifying plain text key.
    *
    * @param key Plain text key
+   * @param version Dataset version expected to the client
    */
-  def initRemove(key: K): F[RemoveState[F]]
+  def initRemove(key: K, version: Long): F[RemoveState[F]]
 
 }

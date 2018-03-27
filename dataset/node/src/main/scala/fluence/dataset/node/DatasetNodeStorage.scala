@@ -100,13 +100,15 @@ class DatasetNodeStorage private[node] (
     // todo start transaction
 
     for {
+      putCmd ← Task(PutCommandImpl(merkleRootCalculator, putCallbacks, valueIdGenerator))
       // find place into index and get value reference (id of current enc. value blob)
-      valRef ← bTreeIndex.put(PutCommandImpl(merkleRootCalculator, putCallbacks, valueIdGenerator))
+      valRef ← bTreeIndex.put(putCmd)
       // fetch old value from blob kvStore
       oldVal ← kVStore.get(valRef).attempt.map(_.toOption)
       // save new blob to kvStore
       _ ← kVStore.put(valRef, encryptedValue)
       updatedMR ← bTreeIndex.getMerkleRoot
+      signedState ← putCmd.getClientStateSignature // todo put this state into callback
       _ ← onDatasetChange(ByteVector(updatedMR.bytes), version)
     } yield oldVal
 

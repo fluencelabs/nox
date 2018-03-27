@@ -18,12 +18,13 @@
 package fluence.dataset.node
 
 import cats.instances.try_._
-import cats.~>
+import cats.{Id, ~>}
 import com.typesafe.config.ConfigFactory
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
+import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.dataset.client.ClientDatasetStorage
@@ -47,6 +48,10 @@ import scala.util.{ Random, Try }
 
 class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterEach with BeforeAndAfterAll {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
+
+  private val signAlgo = Ecdsa.signAlgo
+  private val keyPair = signAlgo.generateKeyPair[Id]().value.right.get
+  private val signer = signAlgo.signer(keyPair)
 
   case class User(name: String, age: Int)
 
@@ -389,7 +394,8 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     MerkleBTreeClient(
       clientState,
       keyCrypt,
-      testHasher
+      testHasher,
+      signer
     )
   }
 

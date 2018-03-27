@@ -37,6 +37,7 @@ import fluence.crypto.algorithm.{CryptoErr, Ecdsa}
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher, TestCryptoHasher}
 import fluence.crypto.keypair.KeyPair
+import fluence.crypto.signature.Signer
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.grpc.DatasetStorageClient.ServerError
 import fluence.dataset.grpc.DatasetStorageServer.ClientError
@@ -69,6 +70,9 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(5, Seconds), Span(250, Milliseconds))
 
   private val algo: SignAlgo = Ecdsa.signAlgo
+  private val keyPair: KeyPair = algo.generateKeyPair[Id]().value.right.get
+  private val singer: Signer = algo.signer(keyPair)
+
   private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
   private val alternativeHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
   private val keyCrypt = NoOpCrypt.forString[Task]
@@ -522,7 +526,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       grpc,
       keyCrypt,
       valueCrypt,
-      value1
+      value1,
+      singer
     )
   }
 

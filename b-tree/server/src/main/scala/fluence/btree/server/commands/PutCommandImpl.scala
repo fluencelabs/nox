@@ -18,6 +18,7 @@
 package fluence.btree.server.commands
 
 import cats.MonadError
+import cats.effect.{IO, LiftIO}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.btree.common.ValueRef
@@ -26,6 +27,8 @@ import fluence.btree.core.{Hash, Key}
 import fluence.btree.protocol.BTreeRpc.PutCallbacks
 import fluence.btree.server.core._
 import fluence.btree.server.{Leaf, NodeId}
+import monix.execution.atomic.Atomic
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -37,12 +40,14 @@ import scala.language.higherKinds
  * @param valueRefProvider      A function for getting next value reference
  * @tparam F The type of effect, box for returning value
  */
-case class PutCommandImpl[F[_]](
+case class PutCommandImpl[F[_]: LiftIO](
   merkleRootCalculator: MerkleRootCalculator,
   putCallbacks: PutCallbacks[F],
   valueRefProvider: () ⇒ ValueRef
 )(implicit ME: MonadError[F, Throwable])
     extends BaseSearchCommand[F](putCallbacks) with PutCommand[F, Key, ValueRef, NodeId] {
+
+  private val clientSignature = IO.pure(Atomic(ByteVector.empty))
 
   def putDetails(leaf: Option[Leaf]): F[BTreePutDetails] = {
     val (keys, valuesChecksums) =
@@ -55,9 +60,14 @@ case class PutCommandImpl[F[_]](
       .map(clientPutDetails ⇒ BTreePutDetails(clientPutDetails, valueRefProvider))
   }
 
-  override def verifyChanges(merklePath: MerklePath, wasSplitting: Boolean): F[Unit] = {
-    putCallbacks.verifyChanges(merkleRootCalculator.calcMerkleRoot(merklePath), wasSplitting).flatMap { _ ⇒
-      putCallbacks.changesStored()
-    }
-  }
+  override def verifyChanges(merklePath: MerklePath, wasSplitting: Boolean): F[Unit] =
+    for {
+      signedState ← putCallbacks.verifyChanges(merkleRootCalculator.calcMerkleRoot(merklePath), wasSplitting)
+      _ ← clientSignature.map(_.set(signedState)).to[F]
+      _ ← putCallbacks.changesStored()
+    } yield ()
+
+  def getClientStateSignature: F[ByteVector] =
+    clientSignature.map(_.get).to[F]
+
 }

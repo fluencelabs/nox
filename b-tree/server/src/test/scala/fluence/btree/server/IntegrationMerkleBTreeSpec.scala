@@ -19,6 +19,7 @@ package fluence.btree.server
 
 import java.nio.ByteBuffer
 
+import cats.Id
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.common.merkle.MerkleRootCalculator
@@ -26,6 +27,8 @@ import fluence.btree.core.{Hash, Key}
 import fluence.btree.server.commands.{PutCommandImpl, SearchCommandImpl}
 import fluence.btree.server.core.{BTreeBinaryStore, NodeOps}
 import fluence.codec.kryo.KryoCodecs
+import fluence.crypto.SignAlgo
+import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
@@ -45,6 +48,10 @@ import scala.util.hashing.MurmurHash3
 
 class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
+
+  private val signAlgo = SignAlgo.dumb
+  private val keyPair = signAlgo.generateKeyPair[Id]().value.right.get
+  private val signer = signAlgo.signer(keyPair)
 
   implicit class Str2Key(str: String) {
     def toKey: Key = Key(str.getBytes)
@@ -115,7 +122,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
         } yield res)
 
         val putRes1 = wait(for {
-          cb ← client.initPut(key1, val1.toHash)
+          cb ← client.initPut(key1, val1.toHash, 0L)
           res ← bTree.put(PutCommandImpl(mRCalc, cb, () ⇒ counter.incrementAndGet()))
         } yield res)
 
@@ -158,7 +165,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
               .shuffle(1 to 512)
               .map(i ⇒ {
                 for {
-                  cb ← client.initPut(f"k$i%04d", f"v$i%04d".toHash)
+                  cb ← client.initPut(f"k$i%04d", f"v$i%04d".toHash, 0L)
                   res ← bTree.put(PutCommandImpl(mRCalc, cb, () ⇒ counter.incrementAndGet()))
                 } yield res
               })
@@ -237,7 +244,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
               .shuffle(1 to 1024)
               .map(i ⇒ {
                 for {
-                  putCb ← client.initPut(f"k$i%04d", f"v$i%04d new".toHash)
+                  putCb ← client.initPut(f"k$i%04d", f"v$i%04d new".toHash, 0L)
                   res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
                 } yield res
               })
@@ -324,7 +331,8 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
     MerkleBTreeClient(
       clientState,
       keyCrypt,
-      hasher
+      hasher,
+      signer
     )
   }
 

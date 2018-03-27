@@ -250,11 +250,7 @@ object ContractRead {
         _ ← checkExecStateSeal()
         _ ← checkAllParticipants()
         participantSealResult ← checkParticipantsSeal
-      } yield
-        participantSealResult match {
-          case Some(_) ⇒ true
-          case None ⇒ false // participants seal is absent
-        }
+      } yield participantSealResult.isDefined
 
     /**
      * Checks all seals sealed by contract owner. Note that this method don't check participants signatures.

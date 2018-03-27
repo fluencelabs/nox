@@ -23,6 +23,7 @@ import fluence.btree.core.{ClientPutDetails, Hash, Key}
 import fluence.btree.protocol.BTreeRpc.{PutCallbacks, SearchCallback}
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
+import fluence.crypto.signature.Signer
 import monix.eval.{MVar, Task}
 import scodec.bits.ByteVector
 
@@ -35,6 +36,7 @@ import scala.collection.Searching.{Found, SearchResult}
  * @param initClientState General state holder for btree client. For new dataset should be ''None''
  * @param keyCrypt        Encrypting/decrypting provider for ''key''
  * @param verifier        Arbiter for checking correctness of Btree server responses.
+ * @param signer          Algorithm to produce signatures. Used for sealing execState by contract owner
  *
  * @param ord              The ordering to be used to compare keys.
  *
@@ -43,7 +45,8 @@ import scala.collection.Searching.{Found, SearchResult}
 class MerkleBTreeClient[K] private (
   initClientState: ClientState,
   keyCrypt: Crypt[Task, K, Key],
-  verifier: BTreeVerifier
+  verifier: BTreeVerifier,
+  signer: Signer
 )(implicit ord: Ordering[K])
     extends MerkleBTreeClientApi[Task, K] with slogging.LazyLogging {
 
@@ -112,11 +115,13 @@ class MerkleBTreeClient[K] private (
    *
    * @param key            The search plain text ''key''
    * @param valueChecksum Checksum of encrypted value to be store
+   * @param version        Dataset version expected to the client
    * @param merkleRoot     Copy of client merkle root at the beginning of the request
    */
   case class PutStateImpl private (
     key: K,
     valueChecksum: Hash,
+    version: Long,
     merkleRoot: Hash
   ) extends PutState[Task] with PutCallbacks[Task] {
 
@@ -170,14 +175,11 @@ class MerkleBTreeClient[K] private (
       }
 
     // case when server asks verify made changes
-    override def verifyChanges(serverMRoot: Hash, wasSplitting: Boolean): Task[Unit] = {
+    override def verifyChanges(serverMRoot: Hash, wasSplitting: Boolean): Task[ByteVector] = {
       for {
-        mpVar ← merklePathMVar
-        mPath ← mpVar.read
-        pdMvar ← putDetailsMVar
-        optDetails ← pdMvar.read
-        newMVar ← newMerkleRoot
-        _ ← {
+        mPath ← merklePathMVar.flatMap(_.read)
+        optDetails ← putDetailsMVar.flatMap(_.read)
+        signedNewState ← {
           logger.debug(
             s"verifyChanges starts for key=$key, mPath=$mPath, details=$optDetails, serverMRoot=$serverMRoot"
           )
@@ -192,7 +194,12 @@ class MerkleBTreeClient[K] private (
                     )
                   )
                 case Some(newMRoot) ⇒ // all is fine, send Confirm to server
-                  newMVar.put(newMRoot) // TODO: here we have a new merkle root and should sign it with version
+                  for {
+                    // safe new merkle root on the client
+                    _ ← newMerkleRoot.flatMap(_.put(newMRoot))
+                    // sign version with new merkle root and send back to node
+                    signedState ← signNewState(version, newMRoot.asByteVector)
+                  } yield signedState
               }
             case None ⇒
               Task.raiseError(
@@ -202,7 +209,7 @@ class MerkleBTreeClient[K] private (
               )
           }
         }
-      } yield ()
+      } yield signedNewState
 
     }
 
@@ -219,6 +226,14 @@ class MerkleBTreeClient[K] private (
     override def recoverState(): Task[Unit] = {
       logger.debug(s"Recover client state for put; mRoot=$merkleRoot")
       clientStateMVar.flatMap(_.put(ClientState(merkleRoot)))
+    }
+
+    /** Signs version concatenated with new merkle root */
+    private def signNewState(ver: Long, mRoot: ByteVector): Task[ByteVector] = {
+      signer.sign[Task](ByteVector.fromLong(ver) ++ mRoot).value.flatMap {
+        case Left(err) ⇒ Task.raiseError(err)
+        case Right(signetState) ⇒ Task(signetState.sign)
+      }
     }
 
   }
@@ -258,14 +273,15 @@ class MerkleBTreeClient[K] private (
    *
    * @param key             Plain text key
    * @param valueChecksum  Checksum of encrypted value to be store
+   * @param version         Dataset version expected to the client
    */
-  override def initPut(key: K, valueChecksum: Hash): Task[PutState[Task]] = {
-    logger.debug(s"initPut starts put for key=$key, value=$valueChecksum")
+  override def initPut(key: K, valueChecksum: Hash, version: Long): Task[PutState[Task]] = {
+    logger.debug(s"initPut starts put for key=$key, value=$valueChecksum, version=$version")
 
     for {
       csMVar ← clientStateMVar
       clientState ← csMVar.take
-    } yield PutStateImpl(key, valueChecksum, clientState.merkleRoot.copy)
+    } yield PutStateImpl(key, valueChecksum, version, clientState.merkleRoot.copy)
 
   }
 
@@ -273,8 +289,9 @@ class MerkleBTreeClient[K] private (
    * Returns callbacks for deleting ''key value pair'' into remote MerkleBTree by specifying plain text key.
    *
    * @param key Plain text key
+   * @param version Dataset version expected to the client
    */
-  override def initRemove(key: K): Task[RemoveState[Task]] = ???
+  override def initRemove(key: K, version: Long): Task[RemoveState[Task]] = ???
 
   private def binarySearch(key: K, keys: Array[Key]): Task[SearchResult] = {
     import fluence.crypto.cipher.CryptoSearching._
@@ -327,7 +344,7 @@ object MerkleBTreeClient {
    * @param initClientState General state holder for btree client. For new dataset should be ''None''
    * @param keyCrypt         Encrypting/decrypting provider for ''key''
    * @param cryptoHasher    Hash provider
-   *
+   * @param signer          Algorithm to produce signatures. Used for sealing execState by contract owner
    * @param ord              The ordering to be used to compare keys.
    *
    * @tparam K The type of keys
@@ -335,7 +352,8 @@ object MerkleBTreeClient {
   def apply[K](
     initClientState: Option[ClientState],
     keyCrypt: Crypt[Task, K, Array[Byte]],
-    cryptoHasher: CryptoHasher[Array[Byte], Hash]
+    cryptoHasher: CryptoHasher[Array[Byte], Hash],
+    signer: Signer
   )(implicit ord: Ordering[K]): MerkleBTreeClient[K] = {
     import Key._
     import fluence.codec.Codec.identityCodec
@@ -343,7 +361,8 @@ object MerkleBTreeClient {
     new MerkleBTreeClient[K](
       initClientState.getOrElse(ClientState(Hash.empty)),
       Crypt.transform(keyCrypt),
-      BTreeVerifier(cryptoHasher)
+      BTreeVerifier(cryptoHasher),
+      signer
     )
   }
 

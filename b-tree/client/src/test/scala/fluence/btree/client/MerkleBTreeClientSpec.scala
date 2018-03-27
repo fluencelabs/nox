@@ -19,6 +19,7 @@ package fluence.btree.client
 
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.core.{Hash, Key}
+import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.TestCryptoHasher
 import monix.eval.Task
@@ -31,6 +32,10 @@ import scala.collection.Searching.{Found, InsertionPoint}
 import scala.concurrent.duration.{FiniteDuration, _}
 
 class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
+
+  private val signAlgo = Ecdsa.signAlgo
+  private val keyPair = signAlgo.generateKeyPair().value.right.get
+  private val signer = signAlgo.signer(keyPair)
 
   implicit class Str2Key(str: String) {
     def toKey: Key = Key(str.getBytes)
@@ -141,7 +146,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k1v1>>")
-        val putCallbacks = wait(client.initPut(key1, val1Hash.toHash))
+        val putCallbacks = wait(client.initPut(key1, val1Hash.toHash, 0L))
 
         val childChecksums = Array("H<H<k1v1>H<k2v2>>".toHash, "H<H<k3v3>H<k4v4>>".toHash)
         val result =
@@ -154,7 +159,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k1v1>H<k2v2>>")
-        val putCallbacks = wait(client.initPut(key1, val1Hash.toHash))
+        val putCallbacks = wait(client.initPut(key1, val1Hash.toHash, 0L))
 
         val result = wait(
           putCallbacks
@@ -173,7 +178,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
       "key ins't present in tree (root inserting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k1v1-cs>>")
-        val putCallbacks = wait(client.initPut(key2, val2Hash.toHash))
+        val putCallbacks = wait(client.initPut(key2, val2Hash.toHash, 0L))
 
         wait(
           for {
@@ -187,7 +192,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
       "key was found in tree (root inserting) " in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k1v1-cs>>")
-        val putCallbacks = wait(client.initPut(key1, val2Hash.toHash))
+        val putCallbacks = wait(client.initPut(key1, val2Hash.toHash, 0L))
 
         wait(
           for {
@@ -201,7 +206,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
       "key ins't present in tree (second level inserting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v4-cs>H<k5v5-cs>>>")
-        val putCallbacks = wait(client.initPut(key3, val3Hash.toHash))
+        val putCallbacks = wait(client.initPut(key3, val3Hash.toHash, 0L))
 
         val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".toHash, "H<H<k4v4-cs>H<k5v5-cs>>".toHash)
         val result = wait(
@@ -221,7 +226,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v4-cs>H<k5v5-cs>>>")
-        val putCallbacks = wait(client.initPut(key4, val3Hash.toHash))
+        val putCallbacks = wait(client.initPut(key4, val3Hash.toHash, 0L))
         val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".toHash, "H<H<k4v4-cs>H<k5v5-cs>>".toHash)
         wait(
           for {
@@ -249,7 +254,8 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
     MerkleBTreeClient[String](
       Some(ClientState(mRoot.toHash)),
       NoOpCrypt.forString,
-      testHasher
+      testHasher,
+      signer
     )
   }
 
