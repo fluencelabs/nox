@@ -310,7 +310,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         verifyRangeQueries(datasetStorage)
       }
     }
-
+    // todo it will be enabled when client will be sign state
     "reads and puts values to dataset, client are restarted and continue to reading and writing" ignore {
 
       runNodes { servers ⇒
@@ -324,7 +324,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         // create new client (restart imitation)
         val fluence2 = createFluenceClient(seedContact)
 
-        val datasetStorage2 = fluence2.getDataset(keyPair, keyCrypt, valueCrypt).taskValue.get // todo fix
+        val datasetStorage2 = fluence2.getDataset(keyPair, keyCrypt, valueCrypt).taskValue.get
         val getKey1Result = datasetStorage2.get(key1).taskValue
         getKey1Result shouldBe Some(val1New)
 
@@ -336,7 +336,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
 
     }
-
+    // todo it will be enabled when client will be sign state
     "reads and puts values to dataset, executor-node are restarted, client reconnect and continue to reading and writing" ignore {
 
       runNodes { servers ⇒

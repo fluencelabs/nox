@@ -34,7 +34,7 @@ class ContractsCacheClient[C](stub: ContractsCacheStub)(
   implicit
   codec: Codec[IO, C, BasicContract],
   ec: ExecutionContext
-) extends ContractsCacheRpc[C] {
+) extends ContractsCacheRpc[C] with slogging.LazyLogging {
 
   /**
    * Tries to find a contract in local cache.
@@ -49,7 +49,9 @@ class ContractsCacheClient[C](stub: ContractsCacheStub)(
       resRaw ← IO.fromFuture(IO(stub.find(req)))
       res ← codec.decode(resRaw)
     } yield Option(res)).recover {
-      case _ ⇒ None
+      case err ⇒
+        logger.warn(s"Finding contract failed, cause=$err", err)
+        None
     }
 
   /**

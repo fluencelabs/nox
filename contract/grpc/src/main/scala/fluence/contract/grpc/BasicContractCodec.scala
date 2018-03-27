@@ -55,7 +55,7 @@ object BasicContractCodec {
     val serialize: contract.BasicContract ⇒ F[BasicContract] =
       (bc: contract.BasicContract) ⇒
         for {
-          // check all signatures before serialize
+          // check all signatures before serialize, todo think about moving 'signatures checking' in separate lvl
           _ ← verifyAllContractSeals(bc)
           idBs ← keyC.encode(bc.id)
           pubKBs ← pubKeyC.encode(bc.publicKey)
@@ -146,7 +146,7 @@ object BasicContractCodec {
             executionSeal = Signature(pubKey, execSeal)
           )
 
-          // check all signatures after deserialize
+          // check all signatures after deserialize, todo think about moving 'signatures checking' in separate lvl
           _ ← verifyAllContractSeals(deserializedContract)
         } yield deserializedContract
       }
