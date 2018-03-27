@@ -23,6 +23,7 @@ import fluence.transport.grpc.server.GrpcServerConf
 
 import scala.language.higherKinds
 
+// TODO: these headers should not belong to GrpcConf, as they are Kademlia-grpc-specific
 case class GrpcConf(
   keyHeader: String,
   contactHeader: String,

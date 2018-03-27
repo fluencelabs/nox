@@ -18,20 +18,12 @@
 package fluence.transport.grpc.server
 
 import java.net.InetAddress
-import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
-import cats._
+import cats.data.Kleisli
 import cats.effect.IO
-import cats.instances.try_._
-import fluence.crypto.signature.SignatureChecker
-import fluence.kad.protocol
-import fluence.kad.protocol.{Contact, Key, Node}
 import fluence.transport.TransportServer
-import fluence.transport.grpc.GrpcConf
 import io.grpc._
-
-import scala.util.Try
 
 /**
  * Server wrapper
@@ -123,46 +115,29 @@ object GrpcServer extends slogging.LazyLogging {
     /**
      * Register a callback to be called each time a node is active
      *
-     * @param cb         To be called on ready and on each message
-     * @param clientConf Conf to get header names from
+     * @param cb         To be called on ready and on each message, gets headers and optional message as an input
      */
-    def onNodeActivity(cb: Node[Contact] ⇒ IO[Any], clientConf: GrpcConf)(implicit checker: SignatureChecker): Builder =
+    def onCall(cb: (Kleisli[Option, String, String], Option[Any]) ⇒ IO[Unit]): Builder =
       addInterceptor(new ServerInterceptor {
         override def interceptCall[ReqT, RespT](
           call: ServerCall[ReqT, RespT],
           headers: Metadata,
           next: ServerCallHandler[ReqT, RespT]
         ): ServerCall.Listener[ReqT] = {
-          val remoteKey =
-            readStringHeader(clientConf.keyHeader, headers).flatMap { b64key ⇒
-              Key.fromB64[Try](b64key).toOption
-            }
 
-          // TODO: check that contact IP matches request source, if it's possible
-          val remoteContact =
-            readStringHeader(clientConf.contactHeader, headers).flatMap { b64contact ⇒
-              Contact.readB64seed[Id](b64contact).value.toOption
-            }
-
-          def remoteNode: Option[Node[Contact]] =
-            for {
-              k ← remoteKey
-              c ← remoteContact
-            } yield protocol.Node(k, Instant.now(), c)
-
-          def runCb(): Unit = remoteNode.map(cb).foreach(_.unsafeRunAsync(_ ⇒ ()))
+          val headersK = Kleisli[Option, String, String](readStringHeader(_, headers))
 
           val listener = next.startCall(call, headers)
 
           new ForwardingServerCallListener.SimpleForwardingServerCallListener[ReqT](listener) {
 
             override def onMessage(message: ReqT): Unit = {
-              runCb()
+              cb(headersK, Some(message)).unsafeRunSync()
               super.onMessage(message)
             }
 
             override def onReady(): Unit = {
-              runCb()
+              cb(headersK, None).unsafeRunSync()
               super.onReady()
             }
           }
