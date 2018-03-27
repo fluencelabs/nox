@@ -19,6 +19,11 @@ package fluence.kad.grpc.facade
 
 import scala.scalajs.js
 
+/**
+ * Options for unary grpc method
+ * @tparam Req Type of request
+ * @tparam Resp Type of response
+ */
 @js.native
 trait UnaryRpcOptions[Req <: js.Any, Resp <: js.Any] extends js.Object {
   val request: Req = js.native
@@ -30,6 +35,12 @@ trait UnaryRpcOptions[Req <: js.Any, Resp <: js.Any] extends js.Object {
 
 object UnaryRpcOptions {
 
+  /**
+   *
+   * @param onEnd Callback for handling response
+   * @tparam Req Type of request
+   * @tparam Resp Type of response
+   */
   def apply[Req <: js.Any, Resp <: js.Any](
     request: Req,
     host: String,

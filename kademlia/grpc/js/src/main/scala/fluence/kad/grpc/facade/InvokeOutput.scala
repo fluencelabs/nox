@@ -19,6 +19,9 @@ package fluence.kad.grpc.facade
 
 import scala.scalajs.js
 
+/**
+ * Output on end of stream for unary request
+ */
 @js.native
 trait InvokeOutput extends js.Object {
   val code: Int = js.native

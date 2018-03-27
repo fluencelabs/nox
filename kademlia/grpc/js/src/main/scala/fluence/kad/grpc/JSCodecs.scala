@@ -31,9 +31,9 @@ object JSCodecs {
     implicit F: MonadError[F, Throwable]
   ): Codec[F, Uint8Array, ByteVector] =
     Codec.apply(
-      str ⇒ {
+      jsUnsignedArray ⇒ {
         F.catchNonFatal {
-          ByteVector(str.toArray.map(_.toByte))
+          ByteVector(jsUnsignedArray.toArray.map(_.toByte))
         }
       },
       vec ⇒ F.catchNonFatal(new Uint8Array(vec.toArray.map(_.toShort).toJSArray))

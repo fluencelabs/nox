@@ -19,6 +19,11 @@ package fluence.kad.grpc.facade
 
 import scala.scalajs.js
 
+/**
+ * Options for invoke grpc method
+ * @tparam Req Type of request
+ * @tparam Resp Type of response
+ */
 @js.native
 trait InvokeRpcOptions[Req <: js.Any, Resp <: js.Any] extends js.Object {
   val request: Req = js.native
@@ -32,6 +37,14 @@ trait InvokeRpcOptions[Req <: js.Any, Resp <: js.Any] extends js.Object {
 
 object InvokeRpcOptions {
 
+  /**
+   *
+   * @param onHeaders Callback for headers, not implemented yet
+   * @param onMessage Callback for handling responses
+   * @param onEnd Callback for handling end of response stream
+   * @tparam Req Type of request
+   * @tparam Resp Type of response
+   */
   def apply[Req <: js.Any, Resp <: js.Any](
     request: Req,
     host: String,

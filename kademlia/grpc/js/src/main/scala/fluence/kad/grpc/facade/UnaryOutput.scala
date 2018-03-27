@@ -19,6 +19,10 @@ package fluence.kad.grpc.facade
 
 import scala.scalajs.js
 
+/**
+ * Output of unary method
+ * @tparam Resp Type of response
+ */
 @js.native
 trait UnaryOutput[Resp] extends js.Object {
   val status: Int = js.native

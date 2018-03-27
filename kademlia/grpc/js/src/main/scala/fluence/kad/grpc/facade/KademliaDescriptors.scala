@@ -20,6 +20,9 @@ package fluence.kad.grpc.facade
 import scala.scalajs.js
 import scala.scalajs.js.annotation.JSImport
 
+/**
+ * Descriptors from generated code, describing the relationship between request and response
+ */
 @js.native
 @JSImport("./generated/grpc_pb_service", "Kademlia")
 object KademliaDescriptors extends js.Object {
