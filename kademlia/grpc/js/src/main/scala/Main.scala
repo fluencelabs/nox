@@ -15,47 +15,48 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import cats.effect.IO
 import cats.instances.try_._
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
-import fluence.kad.grpc.facade._
+import fluence.kad.grpc.client.KademliaJSClient
 import fluence.kad.grpc.{KademliaGrpcService, KademliaNodeCodec}
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.scalajs.js.JSConverters._
 import scala.scalajs.js.annotation.JSExport
-import scala.scalajs.js.typedarray.Uint8Array
-import scala.util.Try
 
 @JSExport
-object Main {
+object Main extends slogging.LazyLogging {
+
+  LoggerConfig.factory = PrintLoggerFactory()
+  LoggerConfig.level = LogLevel.DEBUG
 
   val algo: SignAlgo = Ecdsa.signAlgo
   import algo.checker
 
+  implicit val codec = KademliaNodeCodec.codec[IO]
+
   val host = "http://localhost:8080"
 
   val grpcService = KademliaGrpcService(host, false)
+  val client = new KademliaJSClient(grpcService)
 
   @JSExport
   def someCoolMethod(): Unit = {
     println("Hello world!")
-    for {
-      jsNode ← grpcService.ping(PingRequest())
-      codec = KademliaNodeCodec.codec[Try]
-      node = codec.decode(jsNode).get
-      _ = println("NODE === " + node)
-      key = new Uint8Array(node.key.id.toJSArray)
-      _ = println("JS KEY === " + key)
-      listOfNodes ← grpcService.lookup(LookupRequest(key, 2))
-      decNodes = listOfNodes.nodes().map(n ⇒ codec.decode(n).get)
-      _ = println("LOOKUP NODES === " + decNodes.mkString("\n"))
-      key2 = new Uint8Array(decNodes.head.key.id.toJSArray)
-      listOfNodes2 ← grpcService.lookupAway(LookupAwayRequest(key2, key, 2))
-      decNodes2 = listOfNodes2.nodes().map(n ⇒ codec.decode(n).get)
+    val io = for {
+      node ← client.ping()
+      _ = logger.info("Ping node response: " + node)
+      listOfNodes ← client.lookup(node.key, 2)
+      _ = logger.info("Lookup nodes response: " + listOfNodes.mkString("\n"))
+      key2 = listOfNodes.head.key
+      listOfNodes2 ← client.lookupAway(key2, node.key, 2)
     } yield {
-      println("LOOKUP AWAY NODES === " + decNodes2.mkString("\n"))
+      logger.info("Lookup away nodes response: " + listOfNodes2.mkString("\n", "\n", "\n"))
     }
+
+    io.attempt.unsafeRunAsync(_ ⇒ ())
   }
 
   def main(args: Array[String]): Unit = {

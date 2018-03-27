@@ -18,7 +18,6 @@
 package fluence.kad.grpc.client
 
 import cats.effect.IO
-import com.google.protobuf.ByteString
 import fluence.codec.Codec
 import fluence.kad.grpc.JSCodecs._
 import fluence.kad.grpc.KademliaGrpcService
@@ -40,7 +39,7 @@ class KademliaJSClient(stub: KademliaGrpcService)(
   ec: ExecutionContext
 ) extends KademliaRpc[Contact] {
 
-  private val keyBS = Codec.codec[IO, Uint8Array, Key].inverse
+  private val keyUint = Codec.codec[IO, Uint8Array, Key].inverse
 
   import cats.instances.stream._
 
@@ -65,7 +64,7 @@ class KademliaJSClient(stub: KademliaGrpcService)(
    */
   override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] =
     for {
-      k ← keyBS(key)
+      k ← keyUint(key)
       res ← IO.fromFuture(IO(stub.lookup(grpc.facade.LookupRequest(k, numberOfNodes))))
       resDec ← streamCodec.decode(res.nodes().toStream)
     } yield resDec
@@ -77,8 +76,8 @@ class KademliaJSClient(stub: KademliaGrpcService)(
    */
   override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] =
     for {
-      k ← keyBS(key)
-      moveAwayK ← keyBS(moveAwayFrom)
+      k ← keyUint(key)
+      moveAwayK ← keyUint(moveAwayFrom)
       res ← IO.fromFuture(
         IO(
           stub.lookupAway(grpc.facade.LookupAwayRequest(k, moveAwayK, numberOfNodes))
