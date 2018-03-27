@@ -37,9 +37,18 @@ object SbtCommons {
   val ShapelessV = "2.3.+"
   val MonixV = "3.0.0-RC1"
   val FastparseV = "1.0.0"
+  val jsJavaTimeV = "0.2.3"
 
   val slogging = "biz.enef"      %% "slogging"       % SloggingV
   val sloggingSlf4j = "biz.enef" %% "slogging-slf4j" % SloggingV
+
+  val npmProtobufV = "3.5.0"
+  val npmTypesProtobufV = "3.2.7"
+  val npmGrpcWebClientV = "0.5.0"
+
+  val npmProtobuf = "google-protobuf" -> npmProtobufV
+  val npmTypesProtobuf = "@types/google-protobuf" -> npmTypesProtobufV
+  val npmGrpcWebClient = "grpc-web-client" -> npmGrpcWebClientV
 
   val cats1 = "org.typelevel"                     %% "cats-core"     % Cats1V
   val catsFree = "org.typelevel"                  %% "cats-free"     % Cats1V

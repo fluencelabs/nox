@@ -28,6 +28,7 @@ import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
 import scala.scalajs.js.typedarray.Uint8Array
 
+//TODO write integration test with kademlia network
 /**
  * Implementation of KademliaClient over GRPC, with Task and Contact.
  *

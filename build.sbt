@@ -94,7 +94,7 @@ lazy val `kademlia-core` = crossProject(JVMPlatform, JSPlatform)
   )
   .jsSettings(
     libraryDependencies ++= Seq(
-      "org.scala-js" %%% "scalajs-java-time" % "0.2.3"
+      "org.scala-js" %%% "scalajs-java-time" % jsJavaTimeV
     ),
     fork in Test      := false,
     scalaJSModuleKind := ModuleKind.CommonJSModule
@@ -139,10 +139,9 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
   )
   .jsSettings(
     npmDependencies in Compile ++= Seq(
-      "google-protobuf" -> "3.5.0",
-      "@types/google-protobuf" -> "3.2.7",
-      "grpc-web-client" -> "0.5.0",
-      "requirejs" -> "2.3.5"
+      npmProtobuf,
+      npmTypesProtobuf,
+      npmGrpcWebClient
     ),
     jsDependencies ++= Seq(
       /*
@@ -157,7 +156,7 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
       ProvidedJS / "generated/grpc_pb_service.js"
     ),
     libraryDependencies ++= Seq(
-      "org.scala-js" %%% "scalajs-java-time" % "0.2.3"
+      "org.scala-js" %%% "scalajs-java-time" % jsJavaTimeV
     ),
     workbenchStartMode := WorkbenchStartModes.OnCompile,
     scalaJSModuleKind := ModuleKind.CommonJSModule,
