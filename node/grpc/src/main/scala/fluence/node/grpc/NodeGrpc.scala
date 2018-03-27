@@ -19,6 +19,7 @@ package fluence.node.grpc
 
 import java.util.concurrent.Executors
 
+import cats.data.Kleisli
 import cats.effect.IO
 import cats.~>
 import com.typesafe.config.Config
@@ -29,8 +30,8 @@ import fluence.contract.grpc.server.{ContractAllocatorServer, ContractsCacheServ
 import fluence.contract.grpc.{ContractAllocatorGrpc, ContractsCacheGrpc}
 import fluence.crypto.signature.SignatureChecker
 import fluence.dataset.grpc.{DatasetStorageRpcGrpc, DatasetStorageServer}
-import fluence.kad.grpc.KademliaGrpc
 import fluence.kad.grpc.server.KademliaServer
+import fluence.kad.grpc.{KademliaGrpc, KademliaGrpcUpdate}
 import fluence.kad.protocol.{Contact, Key}
 import fluence.node.core.NodeComposer.Services
 import fluence.transport.grpc.GrpcConf
@@ -84,12 +85,16 @@ object NodeGrpc {
       val keyI = Key.bytesCodec[IO]
       import keyI.inverse
 
+      // GRPC-specific Kademlia update callback, takes headers reader and optional message, provides an update
+      val onGrpcCall: (Kleisli[Option, String, String], Option[Any]) ⇒ IO[Unit] =
+        KademliaGrpcUpdate.grpcCallback(kademlia.update(_).map(_ ⇒ ()).toIO(ec), clientConf)
+
       serverBuilder
         .add(KademliaGrpc.bindService(new KademliaServer(kademlia.handleRPC), ec))
         .add(ContractsCacheGrpc.bindService(new ContractsCacheServer[BasicContract](contractsCache), ec))
         .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[BasicContract](contractAllocator), ec))
         .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), ec))
-        .onNodeActivity(kademlia.update(_).toIO(Scheduler.global), clientConf)
+        .onCall(onGrpcCall)
         .build
     }
 
