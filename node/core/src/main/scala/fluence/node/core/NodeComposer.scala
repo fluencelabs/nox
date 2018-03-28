@@ -31,7 +31,7 @@ import fluence.crypto.SignAlgo
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.Signer
+import fluence.crypto.signature.{Signature, Signer}
 import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.dataset.node.Datasets
 import fluence.dataset.protocol.DatasetStorageRpc
@@ -163,34 +163,37 @@ object NodeComposer {
     contractsCacheStore: KVStore[Task, Key, ContractRecord[BasicContract]]
   )(implicit checkerFn: CheckerFn): (Key, DatasetChanged) ⇒ Task[Unit] =
     (datasetId, datasetChanged) ⇒ {
-      val DatasetChanged(merkleRoot, datasetVer, clientSignature) = datasetChanged
+      val DatasetChanged(newMerkleRoot, newDatasetVer, clientSignature) = datasetChanged
 
       for {
         contract ← contractsCacheStore.get(datasetId)
         _ ← checkerFn(contract.contract.publicKey)
-          .check[Task](clientSignature, ByteVector.fromLong(datasetVer) ++ merkleRoot)
+          .check[Task](clientSignature, ByteVector.fromLong(newDatasetVer) ++ newMerkleRoot)
           .value
           .flatMap {
             case Left(err) ⇒ Task.raiseError(err)
             case Right(value) ⇒ Task(value)
           }
         updatedContract ← {
-          if (contract.contract.executionState.version == datasetVer)
+          if (contract.contract.executionState.version == newDatasetVer - 1)
             Task {
               contract.copy(
                 contract = contract.contract.copy(
                   executionState = BasicContract.ExecutionState(
-                    version = datasetVer + 1, // increment expected client version by one, because dataset change state
-                    merkleRoot = merkleRoot // new merkle root after made changes
-                  )
+                    version = newDatasetVer,
+                    merkleRoot = newMerkleRoot // new merkle root after made changes
+                  ),
+                  // node updates contract with client seal for new exec state
+                  executionSeal = Signature(contract.contract.publicKey, clientSignature)
                 ),
                 lastUpdated = clock.instant()
               )
-            } else
+            }
+          else
             Task.raiseError(
               new IllegalStateException(
                 s"Inconsistent state for contract $datasetId, contract version=${contract.contract.executionState.version}," +
-                  s" asking for update to $datasetVer"
+                  s" asking for update to $newDatasetVer"
               )
             )
         }

@@ -53,7 +53,7 @@ object BasicContractCodec {
     val pubKeyC = pubKeyCV andThen strVec
     val optStrVecC = Codec.codec[F, Option[ByteVector], Option[ByteString]]
 
-    val serialize: contract.BasicContract ⇒ F[BasicContract] =
+    val encode: contract.BasicContract ⇒ F[BasicContract] =
       (bc: contract.BasicContract) ⇒
         for {
           // check all signatures before serialize, todo think about moving 'signatures checking' in separate lvl
@@ -90,7 +90,7 @@ object BasicContractCodec {
             executionSeal = executionSealBs
         )
 
-    val deserialize: BasicContract ⇒ F[contract.BasicContract] =
+    val decode: BasicContract ⇒ F[contract.BasicContract] =
       grpcContact ⇒ {
         def read[T](name: String, f: BasicContract ⇒ T): F[T] =
           Option(f(grpcContact))
@@ -152,7 +152,7 @@ object BasicContractCodec {
         } yield deserializedContract
       }
 
-    Codec(serialize, deserialize)
+    Codec(encode, decode)
   }
 
   /**

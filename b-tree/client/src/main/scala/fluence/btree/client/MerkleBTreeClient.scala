@@ -27,7 +27,7 @@ import fluence.crypto.signature.Signer
 import monix.eval.{MVar, Task}
 import scodec.bits.ByteVector
 
-import scala.collection.Searching.{Found, SearchResult}
+import scala.collection.Searching.SearchResult
 
 /**
  * Base implementation of [[MerkleBTreeClientApi]] to calls for a remote MerkleBTree.
@@ -198,7 +198,7 @@ class MerkleBTreeClient[K] private (
                     // safe new merkle root on the client
                     _ ← newMerkleRoot.flatMap(_.put(newMRoot))
                     // sign version with new merkle root and send back to node
-                    signedState ← signNewState(version, newMRoot.asByteVector)
+                    signedState ← signNewState(version + 1, newMRoot.asByteVector)
                   } yield signedState
               }
             case None ⇒
@@ -229,8 +229,8 @@ class MerkleBTreeClient[K] private (
     }
 
     /** Signs version concatenated with new merkle root */
-    private def signNewState(ver: Long, mRoot: ByteVector): Task[ByteVector] = {
-      signer.sign[Task](ByteVector.fromLong(ver) ++ mRoot).value.flatMap {
+    private def signNewState(newVer: Long, newMRoot: ByteVector): Task[ByteVector] = {
+      signer.sign[Task](ByteVector.fromLong(newVer) ++ newMRoot).value.flatMap {
         case Left(err) ⇒ Task.raiseError(err)
         case Right(signetState) ⇒ Task(signetState.sign)
       }

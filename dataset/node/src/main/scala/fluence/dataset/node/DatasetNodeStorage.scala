@@ -110,7 +110,8 @@ class DatasetNodeStorage private[node] (
       _ ← kVStore.put(valRef, encryptedValue)
       updatedMR ← bTreeIndex.getMerkleRoot
       signedState ← putCmd.getClientStateSignature
-      _ ← onDatasetChange(DatasetChanged(ByteVector(updatedMR.bytes), version, signedState))
+      // increment expected client version by one, because dataset change state
+      _ ← onDatasetChange(DatasetChanged(ByteVector(updatedMR.bytes), version + 1, signedState))
     } yield oldVal
 
     // todo end transaction, revert all changes if error appears

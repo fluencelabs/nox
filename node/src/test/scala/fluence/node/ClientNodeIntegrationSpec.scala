@@ -313,8 +313,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         verifyRangeQueries(datasetStorage)
       }
     }
-    // todo it will be enabled when client will be sign state
-    "reads and puts values to dataset, client are restarted and continue to reading and writing" ignore {
+
+    "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
 
       runNodes { servers ⇒
         val keyPair = algo.generateKeyPair[Id]().value.right.get
@@ -339,8 +339,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       }
 
     }
-    // todo it will be enabled when client will be sign state
-    "reads and puts values to dataset, executor-node are restarted, client reconnect and continue to reading and writing" ignore {
+
+    "reads and puts values to dataset, executor-node are restarted, client reconnect and continue to reading and writing" in {
 
       runNodes { servers ⇒
         // create client and write to db

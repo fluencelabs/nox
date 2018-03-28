@@ -155,6 +155,7 @@ object ContractRead {
       checker: SignatureChecker
     ): EitherT[F, CryptoErr, Unit] =
       checker.check[F](signature.sign, getOfferBytes)
+        .leftMap(e ⇒ e.copy(errorMessage = s"Offer seal has is not verified for contract(id=$id)"))
 
     /**
      * @return Whether this contract is a valid blank offer (with no participants, with client's signature)
@@ -195,6 +196,7 @@ object ContractRead {
         case Some(sign) ⇒
           for {
             _ ← checkerFn(publicKey).check[F](sign.sign, getParticipantsBytes)
+                .leftMap(e ⇒ e.copy(errorMessage = s"Participants seal is not verified for contract(id=$id)"))
             _ ← checkPubKey
           } yield Some(())
         case None ⇒
@@ -243,6 +245,7 @@ object ContractRead {
       signature: Signature
     )(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, Unit] =
       checkerFn(publicKey).check[F](signature.sign, getExecutionStateBytes)
+        .leftMap(e ⇒ e.copy(errorMessage = s"Execution state seal is not verified for contract(id=$id)"))
 
     /**
      * @return Whether this contract is successfully signed by all participants, and participants list is sealed by client
