@@ -22,7 +22,7 @@ import fluence.client.core.ClientServices
 import fluence.contract.BasicContract
 import fluence.contract.grpc.client.{ContractAllocatorClient, ContractsCacheClient}
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
-import fluence.crypto.signature.SignatureChecker
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.dataset.grpc.DatasetStorageClient
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.grpc.client.KademliaClient
@@ -40,7 +40,7 @@ object ClientGrpcServices {
     builder: GrpcClient.Builder[HNil]
   )(
     implicit
-    checker: SignatureChecker,
+    checkerFn: CheckerFn,
     scheduler: Scheduler = Scheduler.global
   ): Contact ⇒ ClientServices[F, BasicContract, Contact] = {
     import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}

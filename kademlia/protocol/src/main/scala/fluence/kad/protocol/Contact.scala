@@ -22,6 +22,7 @@ import java.net.InetAddress
 import cats.data.{EitherT, Reader}
 import cats.{Applicative, Monad, Show}
 import cats.syntax.eq._
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{SignatureChecker, Signer}
@@ -133,7 +134,7 @@ object Contact {
   implicit val show: Show[Contact] =
     (c: Contact) ⇒ s"$c"
 
-  def readB64seed[F[_]: Monad](str: String)(implicit checker: SignatureChecker): EitherT[F, Throwable, Contact] =
+  def readB64seed[F[_]: Monad](str: String)(implicit checkerFn: CheckerFn): EitherT[F, Throwable, Contact] =
     Jwt.read[F, JwtHeader, JwtData](str, (h, b) ⇒ Right(h.publicKey)).map {
       case (header, data) ⇒
         Contact(

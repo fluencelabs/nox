@@ -27,8 +27,9 @@ import fluence.codec.Codec
 import fluence.codec.pb.ProtobufCodecs._
 import fluence.contract
 import fluence.contract.BasicContract.ExecutionState
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{Signature, SignatureChecker}
+import fluence.crypto.signature.Signature
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
@@ -39,11 +40,11 @@ object BasicContractCodec {
   /**
    * Codec for convert BasicContract into grpc representation. Checks all signatures as well.
    *
-   * @param checker Checker for all signatures in contract
+   * @param checkerFn Creates checker for specified public key
    */
   implicit def codec[F[_]](
     implicit F: MonadError[F, Throwable],
-    checker: SignatureChecker
+    checkerFn: CheckerFn
   ): Codec[F, contract.BasicContract, BasicContract] = {
 
     val keyC = Codec.codec[F, Key, ByteString]
@@ -157,10 +158,11 @@ object BasicContractCodec {
   /**
    * Check all seals in current contract.
    * Remove this methods when EitherT will be everywhere
+   * @param checkerFn Creates checker for specified public key
    */
   private def verifyAllContractSeals[F[_]](bContract: contract.BasicContract)(
     implicit F: MonadError[F, Throwable],
-    checker: SignatureChecker
+    checkerFn: CheckerFn
   ): F[Unit] = {
     import fluence.contract.ops.ContractRead._
 

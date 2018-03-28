@@ -27,7 +27,7 @@ class ContactSpec extends WordSpec with Matchers {
     "serialize and deserialize in Id" in {
 
       val algo = Ecdsa.signAlgo
-      import algo.checker
+      import algo.checkerFn
 
       val Right(kp) = algo.generateKeyPair[Id]().value
 

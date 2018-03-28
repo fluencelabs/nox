@@ -28,9 +28,11 @@ import fluence.contract.node.cache.ContractRecord
 import fluence.contract.node.{ContractAllocator, ContractsCache}
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
 import fluence.crypto.SignAlgo
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
+import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.dataset.node.Datasets
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
@@ -86,7 +88,7 @@ object NodeComposer {
 
         override val signAlgo: SignAlgo = algo
 
-        import algo.checker
+        import algo.checkerFn
 
         private object taskToIO extends (Task ~> IO) {
           override def apply[A](fa: Task[A]): IO[A] = fa.toIO(scheduler)
@@ -159,10 +161,19 @@ object NodeComposer {
   private[core] def updateContractFn(
     clock: Clock,
     contractsCacheStore: KVStore[Task, Key, ContractRecord[BasicContract]]
-  ): (Key, ByteVector, Long) ⇒ Task[Unit] =
-    (datasetId, merkleRoot, datasetVer) ⇒ { // todo add client sign
+  )(implicit checkerFn: CheckerFn): (Key, DatasetChanged) ⇒ Task[Unit] =
+    (datasetId, datasetChanged) ⇒ {
+      val DatasetChanged(merkleRoot, datasetVer, clientSignature) = datasetChanged
+
       for {
         contract ← contractsCacheStore.get(datasetId)
+        _ ← checkerFn(contract.contract.publicKey)
+          .check[Task](clientSignature, ByteVector.fromLong(datasetVer) ++ merkleRoot)
+          .value
+          .flatMap {
+            case Left(err) ⇒ Task.raiseError(err)
+            case Right(value) ⇒ Task(value)
+          }
         updatedContract ← {
           if (contract.contract.executionState.version == datasetVer)
             Task {

@@ -21,6 +21,7 @@ import cats.~>
 import com.typesafe.config.Config
 import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.hash.CryptoHasher
+import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.Key
 import fluence.storage.rocksdb.RocksDbStore
@@ -45,7 +46,7 @@ class Datasets(
   rocksFactory: RocksDbStore.Factory,
   cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
   servesDataset: Key ⇒ Task[Option[Long]],
-  contractUpdated: (Key, ByteVector, Long) ⇒ Task[Unit] // TODO: pass signature as well
+  contractUpdated: (Key, DatasetChanged) ⇒ Task[Unit]
 ) extends DatasetStorageRpc[Task, Observable] with slogging.LazyLogging {
 
   private val datasets = TrieMap.empty[ByteVector, Task[DatasetNodeStorage]]
@@ -78,7 +79,7 @@ class Datasets(
             rocksFactory,
             config,
             cryptoHasher,
-            (mrHash, clientVer) ⇒ contractUpdated(key, mrHash, clientVer) // TODO: there should be clients signature
+            datasetChanged ⇒ contractUpdated(key, datasetChanged)
           ).map { store ⇒
             logger.info(s"For dataset=$key was successfully created storage.")
             store

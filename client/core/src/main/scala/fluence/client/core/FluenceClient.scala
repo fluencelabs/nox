@@ -276,7 +276,7 @@ object FluenceClient extends slogging.LazyLogging {
     client: Contact ⇒ ClientServices[Task, BasicContract, Contact]
   ): IO[FluenceClient] = {
 
-    import signAlgo.checker
+    import signAlgo.checkerFn
 
     logger.info("Creating kademlia client...")
     val kademliaClient = createKademliaClient(kademliaConf, client(_).kademlia)

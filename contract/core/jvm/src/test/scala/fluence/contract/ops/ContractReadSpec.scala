@@ -21,8 +21,9 @@ import cats.Now
 import cats.instances.option._
 import cats.instances.try_._
 import fluence.contract.{BasicContract, _}
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.{CryptoErr, Ecdsa}
-import fluence.crypto.signature.{Signature, SignatureChecker}
+import fluence.crypto.signature.Signature
 import fluence.kad.protocol.Key
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
@@ -39,7 +40,7 @@ class ContractReadSpec extends WordSpec with Matchers {
 
   import ContractRead.ReadOps
   import ContractWrite.WriteOps
-  import signAlgo.checker
+  import signAlgo.checkerFn
 
   private val contract: BasicContract = BasicContract.offer(contractKadKey, 2, contractOwnerSigner).get
   private val corruptedSignature: Signature =
@@ -64,7 +65,7 @@ class ContractReadSpec extends WordSpec with Matchers {
       }
       "public key is malicious (substituted)" in {
         val result = sealOffer(contract)
-          .copy(offerSeal = changeToMaliciousPubKey(contract.offerSeal))
+          .copy(publicKey = maliciousPubKey)
           .checkOfferSeal[Option]
 
         result.failed shouldBe CryptoErr("Signature is not verified")
@@ -90,7 +91,7 @@ class ContractReadSpec extends WordSpec with Matchers {
       }
       "public key is malicious (substituted)" in {
         val result = sealOffer(contract)
-          .copy(offerSeal = changeToMaliciousPubKey(contract.offerSeal))
+          .copy(publicKey = maliciousPubKey)
           .isBlankOffer[Option]
 
         result.failed shouldBe CryptoErr("Signature is not verified")
@@ -162,7 +163,7 @@ class ContractReadSpec extends WordSpec with Matchers {
       }
       "public key is malicious (substituted)" in {
         val result = sealParticipants(contract)
-          .copy(participantsSeal = Some(changeToMaliciousPubKey(contract.offerSeal)))
+          .copy(publicKey = maliciousPubKey)
           .checkParticipantsSeal[Option]
 
         result.failed shouldBe CryptoErr("Signature is not verified")
@@ -220,7 +221,7 @@ class ContractReadSpec extends WordSpec with Matchers {
       }
       "public key is malicious (substituted)" in {
         val result = sealExecState(contract)
-          .copy(executionSeal = changeToMaliciousPubKey(contract.executionSeal))
+          .copy(publicKey = maliciousPubKey)
           .checkExecStateSeal[Option]
 
         result.failed shouldBe CryptoErr("Signature is not verified")
@@ -346,16 +347,20 @@ class ContractReadSpec extends WordSpec with Matchers {
     }
   }
 
-  private def sealOffer(contract: BasicContract)(implicit checker: SignatureChecker): BasicContract =
+  private def sealOffer(contract: BasicContract)(implicit checkerFn: CheckerFn): BasicContract =
     WriteOps[Option, BasicContract](contract).sealOffer(contractOwnerSigner).success
 
-  private def sealParticipants(contract: BasicContract)(implicit checker: SignatureChecker): BasicContract =
+  private def sealParticipants(
+    contract: BasicContract
+  )(implicit checkerFn: CheckerFn): BasicContract =
     WriteOps[Option, BasicContract](contract).sealParticipants(contractOwnerSigner).success
 
-  private def sealExecState(contract: BasicContract)(implicit checker: SignatureChecker): BasicContract =
+  private def sealExecState(
+    contract: BasicContract
+  )(implicit checkerFn: CheckerFn): BasicContract =
     WriteOps[Option, BasicContract](contract).sealExecState(contractOwnerSigner).success
 
-  private def sealAll(contract: BasicContract)(implicit checker: SignatureChecker): BasicContract =
+  private def sealAll(contract: BasicContract)(implicit checkerFn: CheckerFn): BasicContract =
     Now(contract)
       .map(sealOffer)
       .map(sealParticipants)
@@ -368,8 +373,8 @@ class ContractReadSpec extends WordSpec with Matchers {
   private def signWithParticipants(
     contract: BasicContract,
     participantsNumber: Int = 2
-  )(implicit checker: SignatureChecker): BasicContract = {
-    val signed =
+  )(implicit checkerFn: CheckerFn): BasicContract = {
+    val signedSeq =
       for {
         index ← 1 to participantsNumber
       } yield {
@@ -379,7 +384,7 @@ class ContractReadSpec extends WordSpec with Matchers {
 
         WriteOps[Option, BasicContract](contract).signOffer(pKadKey, pSigner).success
       }
-    WriteOps[Option, BasicContract](contract).addParticipants(signed).success
+    WriteOps[Option, BasicContract](contract).addParticipants(signedSeq).success
   }
 
 }

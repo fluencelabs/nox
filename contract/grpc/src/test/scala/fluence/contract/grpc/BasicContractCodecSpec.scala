@@ -33,7 +33,7 @@ class BasicContractCodecSpec extends WordSpec with Matchers {
 
   private val signAlgo = SignAlgo.dumb
 
-  import signAlgo.checker
+  import signAlgo.checkerFn
 
   "BasicContractCodec" should {
     def checkInvariance(bc: BC) = {

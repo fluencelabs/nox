@@ -19,9 +19,10 @@ package fluence.contract.ops
 
 import cats.data.EitherT
 import cats.Monad
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{Signature, SignatureChecker}
+import fluence.crypto.signature.{ Signature, SignatureChecker }
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
@@ -135,11 +136,11 @@ object ContractRead {
     /**
      * Checks that client's seal for the contract offer is correct
      *
-     * @param checker Signature checker
+     * @param checkerFn Creates checker for specified public key
      */
-    def checkOfferSeal[F[_]: Monad]()(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Unit] =
+    def checkOfferSeal[F[_]: Monad]()(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, Unit] =
       for {
-        _ ← checkOfferSignature(offerSeal)
+        _ ← checkOfferSignature(offerSeal, checkerFn(publicKey))
         _ ← checkPubKey
       } yield ()
 
@@ -150,14 +151,15 @@ object ContractRead {
      * @param checker Signature checker
      */
     private def checkOfferSignature[F[_]: Monad](
-      signature: Signature
-    )(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Unit] =
-      checker.check[F](signature, getOfferBytes)
+      signature: Signature,
+      checker: SignatureChecker
+    ): EitherT[F, CryptoErr, Unit] =
+      checker.check[F](signature.sign, getOfferBytes)
 
     /**
      * @return Whether this contract is a valid blank offer (with no participants, with client's signature)
      */
-    def isBlankOffer[F[_]: Monad]()(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Boolean] =
+    def isBlankOffer[F[_]: Monad]()(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, Boolean] =
       if (participants.isEmpty)
         checkOfferSeal().map(_ ⇒ true)
       else
@@ -167,15 +169,16 @@ object ContractRead {
      * Checks that participant has signed an offer
      *
      * @param participant Participating node's key
-     * @param checker Signature checker
+     * @param checkerFn Creates checker for specified public key
      * @return ''true'' if participant has signed an offer, ''false'' otherwise or ''CryptoError'' is something go wrong
      */
     def participantSigned[F[_]: Monad](
       participant: Key
-    )(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Boolean] =
+    )(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, Boolean] =
       participantSignature(participant).map { pSignature ⇒
+        val participantChecker = checkerFn(pSignature.publicKey)
         for {
-          _ ← checkOfferSignature(pSignature)
+          _ ← checkOfferSignature(pSignature, participantChecker)
           _ ← checkPubKey
         } yield true
       }.getOrElse(EitherT.rightT(false))
@@ -183,15 +186,15 @@ object ContractRead {
     /**
      * Checks that seal for the contracts participants is correct if it present.
      *
-     * @param checker Signature checker
+     * @param checkerFn Creates checker for specified public keyr
      */
     def checkParticipantsSeal[F[_]: Monad]()(
-      implicit checker: SignatureChecker
+      implicit checkerFn: CheckerFn
     ): EitherT[F, CryptoErr, Option[Unit]] =
       participantsSeal match {
         case Some(sign) ⇒
           for {
-            _ ← checker.check[F](sign, getParticipantsBytes)
+            _ ← checkerFn(publicKey).check[F](sign.sign, getParticipantsBytes)
             _ ← checkPubKey
           } yield Some(())
         case None ⇒
@@ -201,10 +204,10 @@ object ContractRead {
     /**
      * Checks that number of participants is correct, and all signatures are valid.
      *
-     * @param checker Signature checker
+     * @param checkerFn Creates checker for specified public key
      * @return Unit if signatures of all required participants is valid, raise error otherwise
      */
-    def checkAllParticipants[F[_]: Monad]()(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Unit] =
+    def checkAllParticipants[F[_]: Monad]()(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, Unit] =
       if (participants.size == participantsRequired) {
         type M[A] = EitherT[F, CryptoErr, A]
         Monad[M].tailRecM(participants.toStream) {
@@ -222,9 +225,9 @@ object ContractRead {
     /**
      * Checks that client's seal for the contract execution state is correct
      *
-     * @param checker Signature checker
+     * @param checkerFn Creates checker for specified public key
      */
-    def checkExecStateSeal[F[_]: Monad]()(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Unit] =
+    def checkExecStateSeal[F[_]: Monad]()(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, Unit] =
       for {
         _ ← checkExecStateSignature(executionStateSeal)
         _ ← checkPubKey
@@ -234,17 +237,17 @@ object ContractRead {
      * Checks that signature matches contract's execution state
      *
      * @param signature Signature to check
-     * @param checker Signature checker
+     * @param checkerFn Creates checker for specified public key
      */
     private def checkExecStateSignature[F[_]: Monad](
       signature: Signature
-    )(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Unit] =
-      checker.check[F](signature, getExecutionStateBytes)
+    )(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, Unit] =
+      checkerFn(publicKey).check[F](signature.sign, getExecutionStateBytes)
 
     /**
      * @return Whether this contract is successfully signed by all participants, and participants list is sealed by client
      */
-    def isActiveContract[F[_]: Monad]()(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Boolean] =
+    def isActiveContract[F[_]: Monad]()(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, Boolean] =
       for {
         _ ← checkOfferSeal()
         _ ← checkExecStateSeal()
@@ -256,7 +259,7 @@ object ContractRead {
      * Checks all seals sealed by contract owner. Note that this method don't check participants signatures.
      * @return Right(unit) if all owners seals is correct, Left(error) otherwise.
      */
-    def checkAllOwnerSeals[F[_]: Monad]()(implicit checker: SignatureChecker): EitherT[F, CryptoErr, Unit] =
+    def checkAllOwnerSeals[F[_]: Monad]()(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, Unit] =
       for {
         _ ← contract.checkOfferSeal()
         _ ← contract.checkParticipantsSeal()

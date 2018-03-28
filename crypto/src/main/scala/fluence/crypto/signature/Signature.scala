@@ -20,4 +20,5 @@ package fluence.crypto.signature
 import fluence.crypto.keypair.KeyPair
 import scodec.bits.ByteVector
 
+// todo remove PubKey from signature
 case class Signature(publicKey: KeyPair.Public, sign: ByteVector)

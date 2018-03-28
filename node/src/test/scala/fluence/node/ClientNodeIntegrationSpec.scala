@@ -78,7 +78,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private val keyCrypt = NoOpCrypt.forString[Task]
   private val valueCrypt = NoOpCrypt.forString[Task]
 
-  import algo.checker
+  import algo.checkerFn
 
   private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
     override def apply[A](fa: F[A]): F[A] = fa

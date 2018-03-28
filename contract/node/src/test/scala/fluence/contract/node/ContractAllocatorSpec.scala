@@ -51,7 +51,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   val signAlgo = SignAlgo.dumb
   val signer = signAlgo.signer(keypair)
 
-  import signAlgo.checker
+  import signAlgo.checkerFn
 
   val createDS: BasicContract ⇒ IO[Boolean] = c ⇒ {
     if (denyDS(c.id)) IO(false)

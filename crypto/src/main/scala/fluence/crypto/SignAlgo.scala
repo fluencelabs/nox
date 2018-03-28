@@ -19,6 +19,7 @@ package fluence.crypto
 
 import cats.Monad
 import cats.data.EitherT
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.{CryptoErr, DumbSign, KeyGenerator, SignatureFunctions}
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{Signature, SignatureChecker, Signer}
@@ -49,18 +50,26 @@ class SignAlgo(name: String, algo: KeyGenerator with SignatureFunctions) {
   }
 
   /**
-   * Checker is single for each algo, and does not contain any state
+   * Checker is specific for public key
+   * @param publicKey Public key of signature maker
+   * @return
    */
-  implicit val checker: SignatureChecker = new SignatureChecker {
-    override def check[F[_]: Monad](signature: Signature, plain: ByteVector): EitherT[F, CryptoErr, Unit] =
-      algo.verify(signature, plain)
+  def checker(publicKey: KeyPair.Public): SignatureChecker = new SignatureChecker {
+    override def check[F[_]: Monad](signature: ByteVector, plain: ByteVector): EitherT[F, CryptoErr, Unit] =
+      algo.verify(Signature(publicKey, signature), plain)
 
     override def toString: String = s"SignatureChecker($name)"
   }
+
+  /** Fn for creating checker for specified public key */
+  implicit val checkerFn: CheckerFn = pubKey ⇒ checker(pubKey)
 
   override def toString: String = s"SignAlgo($name)"
 }
 
 object SignAlgo {
+
+  type CheckerFn = KeyPair.Public ⇒ SignatureChecker
+
   val dumb = new SignAlgo("dumb", new DumbSign())
 }
