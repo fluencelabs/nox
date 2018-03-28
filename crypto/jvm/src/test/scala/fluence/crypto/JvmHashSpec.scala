@@ -39,5 +39,17 @@ class JvmHashSpec extends WordSpec with Matchers {
       val hasher = JdkCryptoHasher.Sha1
       ByteVector(hasher.hash(str.getBytes())).toHex shouldBe sha1TesterHex
     }
+
+    "check unsigned array with sha1" in {
+
+      val arr = Array[Byte](3, -9, -31, 48, 10, 125, 51, -39, -20, -125, 123, 61, -36, 49, 76, 90, -16, 54, -61, 62, 50,
+        -116, -37, -88, -125, -32, -105, 120, 118, 13, -37, 33, -36)
+
+      val base64Check = "9keNwsj08vKTlwIpHAEYvsfpdP4="
+
+      val hasher = JdkCryptoHasher.Sha1
+
+      ByteVector(hasher.hash(arr)).toBase64 shouldBe base64Check
+    }
   }
 }

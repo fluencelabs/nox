@@ -29,6 +29,7 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 import scala.scalajs.js
 import scala.scalajs.js.JSConverters._
+import scala.scalajs.js.typedarray.Uint8Array
 
 /**
  * Return in all js methods hex, because in the other case we will receive javascript objects
@@ -56,7 +57,7 @@ class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
         ec.keyFromPrivate(keyPair.secretKey.value.toHex, "hex")
       }("Cannot get private key from key pair.")
       hash ← hash(message)
-      signHex ← nonFatalHandling(secret.sign(hash).toDER("hex"))("Cannot sign message")
+      signHex ← nonFatalHandling(secret.sign(new Uint8Array(hash)).toDER("hex"))("Cannot sign message")
     } yield Signature(keyPair.publicKey, ByteVector.fromValidHex(signHex))
   }
 
@@ -78,7 +79,7 @@ class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
         ec.keyFromPublic(hex, "hex")
       }("Incorrect public key format.")
       hash ← hash(message)
-      verify ← nonFatalHandling(public.verify(hash, signature.sign.toHex))("Cannot verify message.")
+      verify ← nonFatalHandling(public.verify(new Uint8Array(hash), signature.sign.toHex))("Cannot verify message.")
       _ ← EitherT.cond[F](verify, (), CryptoErr("Signature is not verified"))
     } yield ()
   }

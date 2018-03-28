@@ -15,27 +15,31 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.hash
+package fluence.kad.grpc
 
-import fluence.crypto.facade.ecdsa.{SHA1, SHA256}
+import cats.{Applicative, MonadError}
+import fluence.codec.Codec
+import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
-
 import scala.scalajs.js.JSConverters._
+
+import scala.language.higherKinds
 import scala.scalajs.js.typedarray.Uint8Array
 
-object JsCryptoHasher {
+object JSCodecs {
+  implicit def byteVectorUint8Array[F[_]: Applicative](
+    implicit F: MonadError[F, Throwable]
+  ): Codec[F, Uint8Array, ByteVector] =
+    Codec.apply(
+      jsUnsignedArray ⇒ {
+        F.catchNonFatal {
+          ByteVector(jsUnsignedArray.toArray.map(_.toByte))
+        }
+      },
+      vec ⇒ F.catchNonFatal(new Uint8Array(vec.toArray.map(_.toShort).toJSArray))
+    )
 
-  lazy val Sha256: CryptoHasher.Bytes =
-    CryptoHasher.buildM[Array[Byte], Array[Byte]] { msg ⇒
-      val sha256 = new SHA256()
-      sha256.update(new Uint8Array(msg.toJSArray))
-      ByteVector.fromValidHex(sha256.digest("hex")).toArray
-    }(_ ++ _)
-
-  lazy val Sha1: CryptoHasher.Bytes =
-    CryptoHasher.buildM[Array[Byte], Array[Byte]] { msg ⇒
-      val sha1 = new SHA1()
-      sha1.update(new Uint8Array(msg.toJSArray))
-      ByteVector.fromValidHex(sha1.digest("hex")).toArray
-    }(_ ++ _)
+  // TODO: more precise error
+  implicit def keyUint8Array[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Uint8Array, Key] =
+    byteVectorUint8Array[F] andThen Key.vectorCodec.swap
 }

@@ -15,26 +15,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.facade.ecdsa
+package fluence.kad.grpc.facade
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation.JSImport
-import scala.scalajs.js.typedarray.Uint8Array
 
-//TODO hide enc argument in methods, make it `hex` by default
 /**
- * https://github.com/indutny/hash.js - part of elliptic library
+ * Descriptors from generated code, describing the relationship between request and response
  */
 @js.native
-@JSImport("hash.js", "sha256")
-class SHA256() extends js.Object {
-  def update(msg: Uint8Array): Unit = js.native
-  def digest(enc: String): String = js.native
-}
-
-@js.native
-@JSImport("hash.js", "sha1")
-class SHA1() extends js.Object {
-  def update(msg: Uint8Array): Unit = js.native
-  def digest(enc: String): String = js.native
+@JSImport("./generated/grpc_pb_service", "Kademlia")
+object KademliaDescriptors extends js.Object {
+  val ping: MethodDescriptor[PingRequest, Node] = js.native
+  val lookup: MethodDescriptor[LookupRequest, NodesResponse] = js.native
+  val lookupAway: MethodDescriptor[LookupAwayRequest, NodesResponse] = js.native
 }

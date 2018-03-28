@@ -37,9 +37,20 @@ object SbtCommons {
   val ShapelessV = "2.3.+"
   val MonixV = "3.0.0-RC1"
   val FastparseV = "1.0.0"
+  val jsJavaTimeV = "0.2.3"
 
   val slogging = "biz.enef"      %% "slogging"       % SloggingV
   val sloggingSlf4j = "biz.enef" %% "slogging-slf4j" % SloggingV
+
+  val npmProtobufV = "3.5.0"
+  val npmTypesProtobufV = "3.2.7"
+  val npmGrpcWebClientV = "0.5.0"
+  val npmTsProtocGenV = "0.5.2"
+
+  val npmProtobuf = "google-protobuf" -> npmProtobufV
+  val npmTypesProtobuf = "@types/google-protobuf" -> npmTypesProtobufV
+  val npmGrpcWebClient = "grpc-web-client" -> npmGrpcWebClientV
+  val npmTsProtocGen = "ts-protoc-gen" -> npmTsProtocGenV
 
   val cats1 = "org.typelevel"                     %% "cats-core"     % Cats1V
   val catsFree = "org.typelevel"                  %% "cats-free"     % Cats1V
@@ -72,14 +83,14 @@ object SbtCommons {
       scalapb.gen() -> (sourceManaged in Compile).value
     ),
     libraryDependencies ++= Seq(
-      "com.trueaccord.scalapb" %%% "scalapb-runtime" % com.trueaccord.scalapb.compiler.Version.scalapbVersion % "protobuf"
+      "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf"
     )
   )
 
   val grpc = protobuf ++ Seq(
     libraryDependencies ++= Seq(
-      "io.grpc"                % "grpc-netty"            % com.trueaccord.scalapb.compiler.Version.grpcJavaVersion,
-      "com.trueaccord.scalapb" %% "scalapb-runtime-grpc" % com.trueaccord.scalapb.compiler.Version.scalapbVersion
+      "io.grpc"              % "grpc-netty"            % scalapb.compiler.Version.grpcJavaVersion,
+      "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion
     )
   )
   val chill = "com.twitter" %% "chill" % "0.9.2"

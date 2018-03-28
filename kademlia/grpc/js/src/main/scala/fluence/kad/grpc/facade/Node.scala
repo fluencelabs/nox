@@ -15,26 +15,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.facade.ecdsa
+package fluence.kad.grpc.facade
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation.JSImport
 import scala.scalajs.js.typedarray.Uint8Array
 
-//TODO hide enc argument in methods, make it `hex` by default
-/**
- * https://github.com/indutny/hash.js - part of elliptic library
- */
 @js.native
-@JSImport("hash.js", "sha256")
-class SHA256() extends js.Object {
-  def update(msg: Uint8Array): Unit = js.native
-  def digest(enc: String): String = js.native
-}
+@JSImport("./generated/grpc_pb", "Node")
+class Node(@js.native val array: js.Array[Uint8Array]) extends js.Object
 
-@js.native
-@JSImport("hash.js", "sha1")
-class SHA1() extends js.Object {
-  def update(msg: Uint8Array): Unit = js.native
-  def digest(enc: String): String = js.native
+object Node {
+  implicit class NodeOps(node: Node) {
+    def id = node.array(0)
+    def contact = node.array(1)
+  }
+
+  def apply(id: Uint8Array, contact: Uint8Array) = new Node(js.Array(id, contact))
 }
