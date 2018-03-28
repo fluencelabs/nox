@@ -61,14 +61,14 @@ class ContractReadSpec extends WordSpec with Matchers {
             .copy(offerSeal = corruptSignature(contract.offerSeal))
             .checkOfferSeal[Option]
 
-        result.failed shouldBe CryptoErr("Signature is not verified")
+        result.failed.getMessage should startWith("Offer seal is not verified for contract")
       }
       "public key is malicious (substituted)" in {
         val result = sealOffer(contract)
           .copy(publicKey = maliciousPubKey)
           .checkOfferSeal[Option]
 
-        result.failed shouldBe CryptoErr("Signature is not verified")
+        result.failed.getMessage should startWith("Offer seal is not verified for contract")
       }
     }
     "return () when offer seal is correct" in {
@@ -87,14 +87,14 @@ class ContractReadSpec extends WordSpec with Matchers {
             .copy(offerSeal = corruptSignature(contract.offerSeal))
             .isBlankOffer[Option]
 
-        result.failed shouldBe CryptoErr("Signature is not verified")
+        result.failed.getMessage should startWith("Offer seal is not verified for contract")
       }
       "public key is malicious (substituted)" in {
         val result = sealOffer(contract)
           .copy(publicKey = maliciousPubKey)
           .isBlankOffer[Option]
 
-        result.failed shouldBe CryptoErr("Signature is not verified")
+        result.failed.getMessage should startWith("Offer seal is not verified for contract")
       }
     }
     "return true when offer seal is correct and no participant found" in {
@@ -120,7 +120,7 @@ class ContractReadSpec extends WordSpec with Matchers {
         val contractWithCorruptedSign = signedContract.copy(participants = corruptedSignedParticipants)
 
         val result = contractWithCorruptedSign.participantSigned[Option](signedContract.participants.head._1)
-        result.failed shouldBe CryptoErr("Signature is not verified")
+        result.failed.getMessage should startWith("Offer seal is not verified for contract")
       }
       "public key is malicious (substituted)" in {
         val signedContract = signWithParticipants(contract)
@@ -129,7 +129,7 @@ class ContractReadSpec extends WordSpec with Matchers {
         val contractWithBadPubKeySign = signedContract.copy(participants = signedParticipantsWithBadPubKey)
 
         val result = contractWithBadPubKeySign.participantSigned[Option](contractWithBadPubKeySign.participants.head._1)
-        result.failed shouldBe CryptoErr("Signature is not verified")
+        result.failed.getMessage should startWith("Offer seal is not verified for contract")
       }
       "id of contract is invalid" in {
         val signedContract = signWithParticipants(contract).copy(id = Key.fromString("123123123").get)
@@ -159,14 +159,14 @@ class ContractReadSpec extends WordSpec with Matchers {
             .copy(participantsSeal = Some(corruptSignature(contract.offerSeal)))
             .checkParticipantsSeal[Option]
 
-        result.failed shouldBe CryptoErr("Signature is not verified")
+        result.failed.getMessage should startWith("Participants seal is not verified for contract")
       }
       "public key is malicious (substituted)" in {
         val result = sealParticipants(contract)
           .copy(publicKey = maliciousPubKey)
           .checkParticipantsSeal[Option]
 
-        result.failed shouldBe CryptoErr("Signature is not verified")
+        result.failed.getMessage should startWith("Participants seal is not verified for contract")
       }
     }
     "return None when offer seal is correct" in {
@@ -199,7 +199,7 @@ class ContractReadSpec extends WordSpec with Matchers {
         val contractWithCorruptedSign = signedContract.copy(participants = corruptedSignedParticipants)
 
         val result = contractWithCorruptedSign.checkAllParticipants[Option]()
-        result.failed shouldBe CryptoErr("Signature is not verified")
+        result.failed.getMessage should startWith("Offer seal is not verified for contract")
       }
     }
     "success when signatures of all required participants is valid" in {
@@ -217,14 +217,14 @@ class ContractReadSpec extends WordSpec with Matchers {
             .copy(executionSeal = corruptSignature(contract.executionSeal))
             .checkExecStateSeal[Option]
 
-        result.failed shouldBe CryptoErr("Signature is not verified")
+        result.failed.getMessage should startWith("Execution state seal is not verified for contract")
       }
       "public key is malicious (substituted)" in {
         val result = sealExecState(contract)
           .copy(publicKey = maliciousPubKey)
           .checkExecStateSeal[Option]
 
-        result.failed shouldBe CryptoErr("Signature is not verified")
+        result.failed.getMessage should startWith("Execution state seal is not verified for contract")
       }
     }
     "return () when offer seal is correct" in {
@@ -241,27 +241,24 @@ class ContractReadSpec extends WordSpec with Matchers {
         val result = sealAll(signWithParticipants(contract))
           .copy(offerSeal = corruptedSignature)
           .isActiveContract[Option]
-          .failed
 
-        result shouldBe a[CryptoErr]
+        result.failed.getMessage should startWith("Offer seal is not verified for contract")
       }
       "participants seal is invalid" in {
         val result =
           sealAll(signWithParticipants(contract))
             .copy(participantsSeal = Some(corruptedSignature))
             .isActiveContract[Option]
-            .failed
 
-        result shouldBe a[CryptoErr]
+        result.failed.getMessage should startWith("Participants seal is not verified for contract")
       }
       "execution seal is invalid" in {
         val result =
           sealAll(contract)
             .copy(executionSeal = corruptedSignature)
             .isActiveContract[Option]
-            .failed
 
-        result shouldBe a[CryptoErr]
+        result.failed.getMessage should startWith("Execution state seal is not verified for contract")
       }
       "all seals are correct but participants is not enough" in {
         val contractWith2Participants: BasicContract = signWithParticipants(contract)
@@ -295,27 +292,24 @@ class ContractReadSpec extends WordSpec with Matchers {
         val result = sealAll(contract)
           .copy(offerSeal = corruptedSignature)
           .checkAllOwnerSeals[Option]
-          .failed
 
-        result shouldBe a[CryptoErr]
+        result.failed.getMessage should startWith("Offer seal is not verified for contract")
       }
       "participants seal is invalid" in {
         val result =
           sealAll(contract)
             .copy(participantsSeal = Some(corruptedSignature))
             .checkAllOwnerSeals[Option]
-            .failed
 
-        result shouldBe a[CryptoErr]
+        result.failed.getMessage should startWith("Participants seal is not verified for contract")
       }
       "execution seal is invalid" in {
         val result =
           sealAll(contract)
             .copy(executionSeal = corruptedSignature)
             .checkAllOwnerSeals[Option]
-            .failed
 
-        result shouldBe a[CryptoErr]
+        result.failed.getMessage should startWith("Execution state seal is not verified for contract")
       }
     }
     "return ()" when {
@@ -338,7 +332,7 @@ class ContractReadSpec extends WordSpec with Matchers {
     "fail when id of contract is invalid" in {
       val signedContract = signWithParticipants(contract).copy(id = Key.fromString("123123123").get)
       val result = signedContract.checkPubKey[Option]
-      result.failed shouldBe a[CryptoErr]
+      result.failed.getMessage should startWith("Contract id is not equals to hash(pubKey);")
     }
     "success" in {
       val signedContract = signWithParticipants(contract)

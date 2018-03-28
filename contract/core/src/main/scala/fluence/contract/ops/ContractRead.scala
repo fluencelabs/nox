@@ -155,7 +155,7 @@ object ContractRead {
       checker: SignatureChecker
     ): EitherT[F, CryptoErr, Unit] =
       checker.check[F](signature.sign, getOfferBytes)
-        .leftMap(e ⇒ e.copy(errorMessage = s"Offer seal has is not verified for contract(id=$id)"))
+        .leftMap(e ⇒ e.copy(errorMessage = s"Offer seal is not verified for contract(id=$id)"))
 
     /**
      * @return Whether this contract is a valid blank offer (with no participants, with client's signature)
