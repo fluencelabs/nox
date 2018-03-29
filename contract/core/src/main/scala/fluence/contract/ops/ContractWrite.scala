@@ -19,8 +19,9 @@ package fluence.contract.ops
 
 import cats.data.EitherT
 import cats.{Invariant, Monad}
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.CryptoErr
-import fluence.crypto.signature.{Signature, SignatureChecker, Signer}
+import fluence.crypto.signature.{Signature, Signer}
 import fluence.kad.protocol.Key
 
 import scala.language.higherKinds
@@ -97,10 +98,10 @@ object ContractWrite {
      * Adds specified contracts (signed by participants) as participants to base contract.
      *
      * @param participants Contracts signed by participants
-     * @param checker Algorithm to produce signatures for this participant
+     * @param checkerFn Creates checker for specified public key
      * @return Contract with filled participants signatures
      */
-    def addParticipants(participants: Seq[C])(implicit checker: SignatureChecker): EitherT[F, CryptoErr, C] =
+    def addParticipants(participants: Seq[C])(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, C] =
       EitherT
         .rightT(participants.foldLeft(contract) {
           case (agg, part) if part.participants.size == 1 ⇒

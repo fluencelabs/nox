@@ -25,8 +25,8 @@ import cats.syntax.show._
 import cats.{Eq, Monad, Parallel, Show}
 import fluence.contract.ops.{ContractRead, ContractWrite}
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.CryptoErr
-import fluence.crypto.signature.SignatureChecker
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
 
@@ -61,7 +61,7 @@ object Contracts {
    *
    * @param maxFindRequests Max number of network requests to perform during the find op
    * @param maxAllocateRequests participantsRequired => maxNum of network requests to collect that number of participants
-   * @param checker Signature checker
+   * @param checkerFn Creates checker for specified public key
    * @param kademlia Kademlia service
    * @tparam F Effect
    * @tparam Contract Contract
@@ -77,7 +77,7 @@ object Contracts {
     implicit
     eq: Eq[Contract],
     P: Parallel[F, G],
-    checker: SignatureChecker,
+    checkerFn: CheckerFn,
     show: Show[Contact]
   ): Contracts[F, Contract] = new Contracts[F, Contract] with slogging.LazyLogging {
 

@@ -29,10 +29,11 @@ import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
+import fluence.crypto.signature.Signer
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.kad.{Kademlia, KademliaConf, KademliaMVar}
 import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
+import fluence.kad.{Kademlia, KademliaConf, KademliaMVar}
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.reactive.Observable
@@ -40,7 +41,6 @@ import scodec.bits.ByteVector
 
 import scala.concurrent.Future
 import scala.language.higherKinds
-import scala.util.Try
 
 class FluenceClient(
   kademlia: Kademlia[Task, Contact],
@@ -81,7 +81,8 @@ class FluenceClient(
     clientState: Option[ClientState],
     datasetVer: Long,
     keyCrypt: Crypt[Task, String, Array[Byte]],
-    valueCrypt: Crypt[Task, String, Array[Byte]]
+    valueCrypt: Crypt[Task, String, Array[Byte]],
+    signer: Signer
   ): Task[ClientDatasetStorage[String, String]] =
     addDataset(
       keyPair,
@@ -90,7 +91,8 @@ class FluenceClient(
       valueCrypt,
       clientState,
       datasetVer,
-      storageHasher
+      storageHasher,
+      signer
     )
 
   /**
@@ -111,12 +113,22 @@ class FluenceClient(
     clientState: Option[ClientState],
     datasetVer: Long,
     hasher: CryptoHasher[Array[Byte], Array[Byte]],
+    signer: Signer,
     nonce: ByteVector = ByteVector.empty
   ): Task[ClientDatasetStorage[String, String]] = {
     for {
       datasetId ← Key.sha1[Task]((nonce ++ keyPair.publicKey.value).toArray)
     } yield
-      ClientDatasetStorage(datasetId.value.toArray, datasetVer, hasher, storageRpc, keyCrypt, valueCrypt, clientState)
+      ClientDatasetStorage(
+        datasetId.value.toArray,
+        datasetVer,
+        hasher,
+        storageRpc,
+        keyCrypt,
+        valueCrypt,
+        clientState,
+        signer
+      )
   }
 
   def createNewContract(
@@ -152,7 +164,8 @@ class FluenceClient(
               Some(ClientState(newContract.executionState.merkleRoot)),
               newContract.executionState.version,
               keyCrypt,
-              valueCrypt
+              valueCrypt,
+              signer
             ).map(store ⇒ store → contact)
         )
       )
@@ -171,6 +184,7 @@ class FluenceClient(
     for {
       key ← Key.fromKeyPair[Task](keyPair)
       bcOp ← contracts.find(key).value.attempt
+      signer = signAlgo.signer(keyPair)
       dataStorages ← bcOp match {
 
         case Right(Right(basicContract)) ⇒ //create storage from existed contract
@@ -186,7 +200,8 @@ class FluenceClient(
                     Some(ClientState(basicContract.executionState.merkleRoot)),
                     basicContract.executionState.version,
                     keyCrypt,
-                    valueCrypt
+                    valueCrypt,
+                    signer
                   ).map(store ⇒ store → contact)
               )
             )
@@ -261,7 +276,7 @@ object FluenceClient extends slogging.LazyLogging {
     client: Contact ⇒ ClientServices[Task, BasicContract, Contact]
   ): IO[FluenceClient] = {
 
-    import signAlgo.checker
+    import signAlgo.checkerFn
 
     logger.info("Creating kademlia client...")
     val kademliaClient = createKademliaClient(kademliaConf, client(_).kademlia)

@@ -19,6 +19,7 @@ package fluence.btree.server
 
 import java.nio.ByteBuffer
 
+import cats.Id
 import fluence.btree.common._
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.core.{ClientPutDetails, Hash, Key}
@@ -26,6 +27,7 @@ import fluence.btree.protocol.BTreeRpc.{PutCallbacks, SearchCallback}
 import fluence.btree.server.commands.{PutCommandImpl, SearchCommandImpl}
 import fluence.btree.server.core.{BTreeBinaryStore, NodeOps, SearchCommand}
 import fluence.codec.kryo.KryoCodecs
+import fluence.crypto.algorithm.Ecdsa
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -229,7 +231,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
         rootChildren.foldLeft(0)((acc, node) ⇒ acc + node.size) shouldBe 11
         rootChildren.foreach(child ⇒ checkNodeValidity(child))
         // only rightmost leaf should be without right sibling
-        rootChildren.map { case l: Leaf ⇒ l.rightSibling }.count(_.isEmpty) shouldBe 1
+        rootChildren.map(l ⇒ l.asInstanceOf[Leaf].rightSibling).count(_.isEmpty) shouldBe 1
       }
 
       "many put operation with descending keys (only leaf is spiting)" in {
@@ -250,7 +252,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
         rootChildren.foldLeft(0)((acc, node) ⇒ acc + node.size) shouldBe 11
         rootChildren.foreach(child ⇒ checkNodeValidity(child))
         // only rightmost leaf should be without right sibling
-        rootChildren.map { case l: Leaf ⇒ l.rightSibling }.count(_.isEmpty) shouldBe 1
+        rootChildren.map(l ⇒ l.asInstanceOf[Leaf].rightSibling).count(_.isEmpty) shouldBe 1
       }
 
       "many put operation with ascending keys (leafs and trees are splitting)" in {
@@ -325,7 +327,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
                   keys: Array[Key],
                   values: Array[Hash]
                 ): Task[ClientPutDetails] = Task(ClientPutDetails(key1, value2, Found(0)))
-                override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): Task[Unit] = Task(())
+                override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): Task[ByteVector] =
+                  Task(ByteVector.empty) // don't matter for this test
                 override def changesStored(): Task[Unit] = Task(())
                 override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = ???
               },
@@ -360,7 +363,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
                   keys: Array[Key],
                   values: Array[Hash]
                 ): Task[ClientPutDetails] = Task(ClientPutDetails(key2, value5, Found(1)))
-                override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): Task[Unit] = Task(())
+                override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): Task[ByteVector] =
+                  Task(ByteVector.empty) // don't matter for this test
                 override def changesStored(): Task[Unit] = Task(())
                 override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] = ???
               },
@@ -846,8 +850,8 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
           import scala.collection.Searching._
           override def putDetails(keys: Array[Key], values: Array[Hash]): Task[ClientPutDetails] =
             Task(ClientPutDetails(f"k$i%04d".toKey, f"v$i%04d".toHash, keys.search(f"k$i%04d".toKey)))
-          override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): Task[Unit] =
-            Task(())
+          override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): Task[ByteVector] =
+            Task(ByteVector.empty) // don't matter for this test
           override def changesStored(): Task[Unit] =
             Task(())
           override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): Task[Int] =
@@ -885,11 +889,11 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
             else
               Task(ClientPutDetails(f"k$i%04d".toKey, f"v$i%04d".toHash, keys.search(f"k$i%04d".toKey)))
           }
-          override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): Task[Unit] = {
+          override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): Task[ByteVector] = {
             if (stageOfFail == VerifyChangesStage)
               Task.raiseError(new Exception(errMsg))
             else
-              Task(())
+              Task(ByteVector.empty) // don't matter for this test
           }
           override def changesStored(): Task[Unit] = {
             if (stageOfFail == ChangesStoredStage)

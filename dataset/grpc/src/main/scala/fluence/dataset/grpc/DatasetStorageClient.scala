@@ -359,8 +359,12 @@ class DatasetStorageClient[F[_]: Effect](
             .flatMap {
               case Left(err) ⇒
                 handleClientErr(err)
-              case Right(idx) ⇒
-                Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges()))) // TODO: here should be signature
+              case Right(signature) ⇒
+                Effect[F].pure(
+                  PutCallbackReply(
+                    PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges(ByteString.copyFrom(signature.toArray)))
+                  )
+                )
             }
 
         case ask if ask.isChangesStored ⇒

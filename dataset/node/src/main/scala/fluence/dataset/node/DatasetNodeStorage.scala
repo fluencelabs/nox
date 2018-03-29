@@ -23,8 +23,8 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{~>, MonadError}
 import com.typesafe.config.Config
-import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.common.ValueRef
+import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
 import fluence.btree.protocol.BTreeRpc.{PutCallbacks, SearchCallback}
@@ -32,6 +32,7 @@ import fluence.btree.server.MerkleBTree
 import fluence.btree.server.commands.{PutCommandImpl, SearchCommandImpl}
 import fluence.codec.Codec
 import fluence.crypto.hash.CryptoHasher
+import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.storage.KVStore
 import fluence.storage.rocksdb.{IdSeqProvider, RocksDbStore}
 import monix.eval.Task
@@ -54,7 +55,7 @@ class DatasetNodeStorage private[node] (
   kVStore: KVStore[Task, ValueRef, Array[Byte]],
   merkleRootCalculator: MerkleRootCalculator,
   valueIdGenerator: () ⇒ ValueRef,
-  onDatasetChange: (ByteVector, Long) ⇒ Task[Unit]
+  onDatasetChange: DatasetChanged ⇒ Task[Unit]
 ) {
 
   /**
@@ -100,14 +101,17 @@ class DatasetNodeStorage private[node] (
     // todo start transaction
 
     for {
+      putCmd ← Task(PutCommandImpl(merkleRootCalculator, putCallbacks, valueIdGenerator))
       // find place into index and get value reference (id of current enc. value blob)
-      valRef ← bTreeIndex.put(PutCommandImpl(merkleRootCalculator, putCallbacks, valueIdGenerator))
+      valRef ← bTreeIndex.put(putCmd)
       // fetch old value from blob kvStore
       oldVal ← kVStore.get(valRef).attempt.map(_.toOption)
       // save new blob to kvStore
       _ ← kVStore.put(valRef, encryptedValue)
       updatedMR ← bTreeIndex.getMerkleRoot
-      _ ← onDatasetChange(ByteVector(updatedMR.bytes), version)
+      signedState ← putCmd.getClientStateSignature
+      // increment expected client version by one, because dataset change state
+      _ ← onDatasetChange(DatasetChanged(ByteVector(updatedMR.bytes), version + 1, signedState))
     } yield oldVal
 
     // todo end transaction, revert all changes if error appears
@@ -138,6 +142,8 @@ class DatasetNodeStorage private[node] (
 
 object DatasetNodeStorage {
 
+  case class DatasetChanged(newMRoot: ByteVector, newVersion: Long, clientSignature: ByteVector)
+
   /**
    * Dataset node storage (node side).
    *
@@ -152,7 +158,7 @@ object DatasetNodeStorage {
     rocksFactory: RocksDbStore.Factory,
     config: Config,
     cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
-    onDatasetChange: (ByteVector, Long) ⇒ Task[Unit]
+    onDatasetChange: DatasetChanged ⇒ Task[Unit]
   )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[DatasetNodeStorage] = {
     import Codec.identityCodec
 

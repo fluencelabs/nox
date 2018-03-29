@@ -18,15 +18,17 @@
 package fluence.dataset.node
 
 import cats.instances.try_._
-import cats.~>
+import cats.{Id, ~>}
 import com.typesafe.config.ConfigFactory
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
+import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.dataset.client.ClientDatasetStorage
+import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.storage.rocksdb.{ RocksDbConf, RocksDbStore }
 import monix.eval.Task
@@ -37,7 +39,6 @@ import monix.reactive.Observable
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Milliseconds, Seconds, Span }
 import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpec }
-import scodec.bits.ByteVector
 import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
 
 import scala.concurrent.duration.{ FiniteDuration, _ }
@@ -45,8 +46,13 @@ import scala.language.higherKinds
 import scala.reflect.io.Path
 import scala.util.{ Random, Try }
 
+// todo test this callback onDatasetChange callback
 class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterEach with BeforeAndAfterAll {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
+
+  private val signAlgo = Ecdsa.signAlgo
+  private val keyPair = signAlgo.generateKeyPair[Id]().value.right.get
+  private val signer = signAlgo.signer(keyPair)
 
   case class User(name: String, age: Int)
 
@@ -94,7 +100,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
           "test0".getBytes(),
           0L,
           createBTreeClient(),
-          createStorageRpcWithNetworkError("test0", (mr, ver) ⇒ Task(counter.incrementAndGet())),
+          createStorageRpcWithNetworkError("test0", _ ⇒ Task(counter.incrementAndGet())),
           keyCrypt,
           valueCryptWithError,
           testHasher
@@ -292,9 +298,9 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     }
   )
 
-  private def createDatasetNodeStorage(dbName: String, counter: (ByteVector, Long) ⇒ Task[Unit]): DatasetNodeStorage = {
+  private def createDatasetNodeStorage(dbName: String, onChange: DatasetChanged ⇒ Task[Unit]): DatasetNodeStorage = {
     implicit def runId[F[_]]: F ~> F = new (F ~> F) { override def apply[A](fa: F[A]): F[A] = fa }
-    DatasetNodeStorage[Task](dbName, rocksFactory, ConfigFactory.load(), hasher, counter)
+    DatasetNodeStorage[Task](dbName, rocksFactory, ConfigFactory.load(), hasher, onChange)
       .runAsync(monix.execution.Scheduler.Implicits.global).futureValue
   }
 
@@ -311,7 +317,10 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     )
   }
 
-  private def createStorageRpcWithNetworkError(dbName: String, counter: (ByteVector, Long) ⇒ Task[Unit]): DatasetStorageRpc[Task, Observable] = {
+  private def createStorageRpcWithNetworkError(
+    dbName: String,
+    counter: DatasetChanged ⇒ Task[Unit]
+  ): DatasetStorageRpc[Task, Observable] = {
     val origin = createDatasetNodeStorage(makeUnique(dbName), counter)
     new DatasetStorageRpc[Task, Observable] {
       override def remove(
@@ -352,7 +361,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
 
   private def createStorageRpc(dbName: String): DatasetStorageRpc[Task, Observable] =
     new DatasetStorageRpc[Task, Observable] {
-      private val storage = createDatasetNodeStorage(dbName, (_, _) ⇒ Task.unit)
+      private val storage = createDatasetNodeStorage(dbName, _ ⇒ Task.unit)
 
       override def remove(
         datasetId: Array[Byte],
@@ -389,7 +398,8 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     MerkleBTreeClient(
       clientState,
       keyCrypt,
-      testHasher
+      testHasher,
+      signer
     )
   }
 

@@ -21,6 +21,7 @@ import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.core.{Hash, Key}
 import fluence.btree.protocol.BTreeRpc.{PutCallbacks, SearchCallback}
 import fluence.btree.server.{Get, MerkleBTree, Put, Range}
+import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.storage.KVStore
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
@@ -29,7 +30,6 @@ import org.mockito.{ArgumentMatchers, Mockito}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpec}
-import scodec.bits.ByteVector
 
 class DatasetNodeStorageSpec
     extends WordSpec with Matchers with MockitoSugar with ScalaFutures with BeforeAndAfterEach {
@@ -41,7 +41,7 @@ class DatasetNodeStorageSpec
   private val mrCalc = mock[MerkleRootCalculator]
 
   private val valGen = () ⇒ 5L
-  private val onMRChange: (ByteVector, Long) ⇒ Task[Unit] = (mr, ver) ⇒ Task(())
+  private val onMRChange: DatasetChanged ⇒ Task[Unit] = dc ⇒ Task(()) // todo test this callback
 
   private val key1 = "k1".toKey
   private val key2 = "k2".toKey

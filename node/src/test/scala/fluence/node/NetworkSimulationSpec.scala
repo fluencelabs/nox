@@ -58,7 +58,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   private val algo = SignAlgo.dumb
 
-  import algo.checker
+  import algo.checkerFn
 
   import KademliaNodeCodec.{codec ⇒ kadCodec}
 

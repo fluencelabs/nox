@@ -21,19 +21,28 @@ import cats.effect.IO
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.contract.grpc.{BasicContract, ContractAllocatorGrpc}
+import fluence.contract.ops.ContractValidate
+import fluence.crypto.SignAlgo.CheckerFn
 
 import scala.concurrent.Future
 
-class ContractAllocatorServer[C](contractAllocator: ContractAllocatorRpc[C])(
+// todo unit test
+class ContractAllocatorServer[C: ContractValidate](contractAllocator: ContractAllocatorRpc[C])(
   implicit
-  codec: Codec[IO, C, BasicContract]
+  codec: Codec[IO, C, BasicContract],
+  checkerFn: CheckerFn,
 ) extends ContractAllocatorGrpc.ContractAllocator {
+  import ContractValidate.ContractValidatorOps
 
   override def offer(request: BasicContract): Future[BasicContract] =
     (
       for {
         contract ← codec.decode(request)
+        // contract from the outside required validation
+        _ ← contract.validateME[IO]
         offered ← contractAllocator.offer(contract)
+        // we should validate contract before send outside for 'offering'
+        _ ← offered.validateME[IO]
         resp ← codec.encode(offered)
       } yield resp
     ).unsafeToFuture()
@@ -42,7 +51,11 @@ class ContractAllocatorServer[C](contractAllocator: ContractAllocatorRpc[C])(
     (
       for {
         contract ← codec.decode(request)
+        // contract from the outside required validation
+        _ ← contract.validateME[IO]
         allocated ← contractAllocator.allocate(contract)
+        // we should validate contract before send outside for 'allocating'
+        _ ← allocated.validateME[IO]
         resp ← codec.encode(allocated)
       } yield resp
     ).unsafeToFuture()

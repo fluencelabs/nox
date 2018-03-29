@@ -54,6 +54,8 @@ object Hash {
 
     def concat(hash: Array[Hash]): Hash = Hash(Array.concat(originHash.bytes, hash.flatMap(_.bytes)))
 
+    def asByteVector: ByteVector = ByteVector(originHash.bytes)
+
   }
 
   implicit class ArrayHashOps(hashes: Array[Hash]) {

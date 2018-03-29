@@ -117,6 +117,20 @@ class HashSpec extends WordSpec with Matchers {
     }
   }
 
+  "ArrayHashOps.asByteVector" should {
+    "copy underlying array into ByteVector" in {
+      val array = "some".getBytes
+      val hash = Hash(array)
+      hash.bytes sameElements array
+
+      val asBVector = hash.asByteVector
+      asBVector.toArray sameElements hash.bytes
+      // change underlying array
+      array(0) = 'z'
+      asBVector.toArray == hash.bytes shouldBe false
+    }
+  }
+
   private implicit class Hashes2Strings(hashArr: Array[Hash]) {
     def asStr: Array[String] = hashArr.map(h ⇒ new String(h.bytes))
   }

@@ -17,10 +17,13 @@
 
 package fluence.contract
 
+import cats.data.EitherT
 import cats.syntax.flatMap._
-import cats.{Eq, MonadError}
+import cats.{Eq, Monad, MonadError}
 import fluence.contract.BasicContract.ExecutionState
-import fluence.contract.ops.{ContractRead, ContractWrite}
+import fluence.contract.ops.ContractValidate.ValidationErr
+import fluence.contract.ops.{ContractRead, ContractValidate, ContractWrite}
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{Signature, Signer}
 import fluence.kad.protocol.Key
@@ -187,6 +190,32 @@ object BasicContract {
      */
     override def executionStateSeal(contract: BasicContract): Signature =
       contract.executionSeal
+  }
+
+  implicit object BasicContractValidate extends ContractValidate[BasicContract] {
+    import fluence.contract.ops.ContractRead.ReadOps
+
+    /**
+     * Verifies the correctness of the contract.
+     */
+    override def validate[F[_]: Monad](
+      contract: BasicContract
+    )(implicit checkerFn: CheckerFn): EitherT[F, ValidationErr, Unit] =
+      contract
+        .checkAllOwnerSeals[F]()
+        .leftMap(e ⇒ ValidationErr(s"Contract with is=${contract.id} is invalid.", e))
+
+    /**
+     * Verifies the correctness of the contract. Do the same as [[ContractValidate.validate]],
+     * but return MonadError instead EitherT.
+     *
+     * Todo: will be removed in future, used only as temporary adapter
+     */
+    override def validateME[F[_]](
+      contract: BasicContract
+    )(implicit ME: MonadError[F, Throwable], checkerFn: CheckerFn): F[Unit] =
+      validate(contract).value.flatMap(ME.fromEither[Unit])
+
   }
 
   implicit val eq: Eq[BasicContract] = Eq.fromUniversalEquals
