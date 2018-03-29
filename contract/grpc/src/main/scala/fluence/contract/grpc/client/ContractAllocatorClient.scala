@@ -22,17 +22,21 @@ import fluence.codec.Codec
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.contract.grpc.{BasicContract, ContractAllocatorGrpc}
 import fluence.contract.grpc.ContractAllocatorGrpc.ContractAllocatorStub
+import fluence.contract.ops.ContractValidate
+import fluence.crypto.SignAlgo.CheckerFn
 import io.grpc.{CallOptions, ManagedChannel}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ContractAllocatorClient[C](
+class ContractAllocatorClient[C: ContractValidate](
   stub: ContractAllocatorStub
 )(
   implicit
   codec: Codec[IO, C, BasicContract],
+  checkerFn: CheckerFn,
   ec: ExecutionContext
 ) extends ContractAllocatorRpc[C] {
+  import ContractValidate.ContractValidatorOps
 
   private def run[A](fa: Future[A]): IO[A] = IO.fromFuture(IO(fa))
 
@@ -44,9 +48,13 @@ class ContractAllocatorClient[C](
    */
   override def offer(contract: C): IO[C] =
     for {
+      // we should validate contract before send outside for 'offering'
+      _ ← contract.validateME[IO]
       offer ← codec.encode(contract)
       resp ← run(stub.offer(offer))
       contract ← codec.decode(resp)
+      // contract from the outside required validation
+      _ ← contract.validateME[IO]
     } yield contract
 
   /**
@@ -57,9 +65,13 @@ class ContractAllocatorClient[C](
    */
   override def allocate(contract: C): IO[C] =
     for {
+      // we should validate contract before send outside for 'allocating'
+      _ ← contract.validateME[IO]
       offer ← codec.encode(contract)
       resp ← run(stub.allocate(offer))
       contract ← codec.decode(resp)
+      // contract from the outside required validation
+      _ ← contract.validateME[IO]
     } yield contract
 
 }
@@ -72,12 +84,13 @@ object ContractAllocatorClient {
    * @param channel     Channel to remote node
    * @param callOptions Call options
    */
-  def register[C]()(
+  def register[C: ContractValidate]()(
     channel: ManagedChannel,
     callOptions: CallOptions
   )(
     implicit
     codec: Codec[IO, C, BasicContract],
+    checkerFn: CheckerFn,
     ec: ExecutionContext
   ): ContractAllocatorRpc[C] =
     new ContractAllocatorClient[C](new ContractAllocatorGrpc.ContractAllocatorStub(channel, callOptions))

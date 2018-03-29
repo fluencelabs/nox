@@ -27,7 +27,6 @@ import fluence.codec.Codec
 import fluence.codec.pb.ProtobufCodecs._
 import fluence.contract
 import fluence.contract.BasicContract.ExecutionState
-import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signature
 import fluence.kad.protocol.Key
@@ -39,12 +38,9 @@ object BasicContractCodec {
 
   /**
    * Codec for convert BasicContract into grpc representation. Checks all signatures as well.
-   *
-   * @param checkerFn Creates checker for specified public key
    */
   implicit def codec[F[_]](
     implicit F: MonadError[F, Throwable],
-    checkerFn: CheckerFn
   ): Codec[F, contract.BasicContract, BasicContract] = {
 
     val keyC = Codec.codec[F, Key, ByteString]
@@ -56,8 +52,6 @@ object BasicContractCodec {
     val encode: contract.BasicContract ⇒ F[BasicContract] =
       (bc: contract.BasicContract) ⇒
         for {
-          // check all signatures before serialize, todo think about moving 'signatures checking' in separate lvl
-          _ ← verifyAllContractSeals(bc)
           idBs ← keyC.encode(bc.id)
           pubKBs ← pubKeyC.encode(bc.publicKey)
 
@@ -146,30 +140,10 @@ object BasicContractCodec {
             ),
             executionSeal = Signature(pubKey, execSeal)
           )
-
-          // check all signatures after deserialize, todo think about moving 'signatures checking' in separate lvl
-          _ ← verifyAllContractSeals(deserializedContract)
         } yield deserializedContract
       }
 
     Codec(encode, decode)
-  }
-
-  /**
-   * Check all seals in current contract.
-   * Remove this methods when EitherT will be everywhere
-   * @param checkerFn Creates checker for specified public key
-   */
-  private def verifyAllContractSeals[F[_]](bContract: contract.BasicContract)(
-    implicit F: MonadError[F, Throwable],
-    checkerFn: CheckerFn
-  ): F[Unit] = {
-    import fluence.contract.ops.ContractRead._
-
-    bContract.checkAllOwnerSeals[F]().value.flatMap {
-      case Left(err) ⇒ F.raiseError(err)
-      case Right(_) ⇒ F.unit
-    }
   }
 
 }

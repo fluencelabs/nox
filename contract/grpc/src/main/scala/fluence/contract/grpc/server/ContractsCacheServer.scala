@@ -22,6 +22,8 @@ import cats.effect.IO
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractsCacheRpc
 import fluence.contract.grpc._
+import fluence.contract.ops.ContractValidate
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.protocol.Key
 
 import scala.concurrent.Future
@@ -33,17 +35,20 @@ import scala.language.higherKinds
  * @param cache Delegate implementation
  * @tparam C Domain-level Contract
  */
-class ContractsCacheServer[C](cache: ContractsCacheRpc[C])(
+class ContractsCacheServer[C: ContractValidate](cache: ContractsCacheRpc[C])(
   implicit
   codec: Codec[IO, C, BasicContract],
+  checkerFn: CheckerFn,
   keyK: Kleisli[IO, Array[Byte], Key]
 ) extends ContractsCacheGrpc.ContractsCache {
+  import ContractValidate.ContractValidatorOps
 
   override def find(request: FindRequest): Future[BasicContract] =
     (
       for {
         k ← keyK(request.id.toByteArray)
         resp ← cache.find(k).flatMap[BasicContract] {
+          // validating contracts from the local repository is not required
           case Some(c) ⇒ codec.encode(c)
           case None ⇒ IO.raiseError(new NoSuchElementException(""))
         }
@@ -53,8 +58,10 @@ class ContractsCacheServer[C](cache: ContractsCacheRpc[C])(
   override def cache(request: BasicContract): Future[CacheResponse] =
     (
       for {
-        c ← codec.decode(request)
-        resp ← cache.cache(c)
+        contract ← codec.decode(request)
+        // we should validate contract before saving in local storage
+        _ ← contract.validateME[IO]
+        resp ← cache.cache(contract)
       } yield CacheResponse(resp)
     ).unsafeToFuture()
 }
