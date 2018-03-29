@@ -17,11 +17,17 @@
 
 package fluence.codec
 
+import cats.arrow.Compose
+
 import scala.language.higherKinds
 import scala.language.implicitConversions
 
 case class BifuncE[E <: Throwable, A, B](direct: FuncE[E, A, B], inverse: FuncE[E, B, A]) {
   def swap: BifuncE[E, B, A] = BifuncE(inverse, direct)
+
+  // This is given with Compose, but IDEA fails to perform typecheck due to kind projector
+  def andThen[C](other: BifuncE[E, B, C]): BifuncE[E, A, C] =
+    implicitly[Compose[BifuncE[E, ?, ?]]].andThen(this, other)
 }
 
 object BifuncE extends PureCodecInstances {

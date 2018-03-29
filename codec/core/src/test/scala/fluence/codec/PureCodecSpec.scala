@@ -19,29 +19,40 @@ package fluence.codec
 
 import cats.Id
 import cats.instances.try_._
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalatest.prop.Checkers
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
 import scala.util.Try
 
-class PureCodecSpec extends WordSpec with Matchers {
+class PureCodecSpec extends WordSpec with Matchers with Checkers {
+
   "PureCodec" should {
     "summon implicit identity" in {
       val intId = implicitly[PureCodec[Int, Int]]
-      (-10 to 10).foreach { i ⇒
-        intId.direct.toKleisli[Try].run(i).get shouldBe i
-        intId.inverse.toKleisli[Try].run(i).get shouldBe i
+      check { (i: Int) ⇒
+        intId.direct.toKleisli[Try].run(i).get == i &&
+        intId.inverse.toKleisli[Try].run(i).get == i
       }
+
     }
 
-    "convert base64 strings to byte vectors" in {
+    "convert base64 strings to byte vectors and vice versa" in {
 
-      val codec = implicitly[PureCodec[Array[Byte], ByteVector]]
+      val arrCodec = implicitly[PureCodec[Array[Byte], ByteVector]]
+      val b64Codec = implicitly[PureCodec[ByteVector, String]]
 
-      Arbitrary.arbitrary[Array[Byte]]
+      check { (bytes: List[Byte]) ⇒
+        (arrCodec andThen arrCodec.swap).direct.apply[Id](bytes.toArray).value.map(_.toList).contains(bytes) &&
+        (arrCodec andThen b64Codec andThen b64Codec.swap andThen arrCodec.swap).direct
+          .apply[Id](bytes.toArray)
+          .value
+          .map(_.toList)
+          .contains(bytes)
+      }
 
-      //codec.direct[Id]()
+      b64Codec.inverse[Id]("wrong input!").value.isLeft shouldBe true
+
     }
   }
 }

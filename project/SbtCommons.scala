@@ -7,7 +7,7 @@ import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 
 object SbtCommons {
 
-  val scalaV = scalaVersion := "2.12.4"
+  val scalaV = scalaVersion := "2.12.5"
 
   val commons = Seq(
     scalaV,

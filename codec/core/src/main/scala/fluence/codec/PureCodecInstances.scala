@@ -30,8 +30,9 @@ private[codec] trait PureCodecInstances extends BifuncEInstances {
     liftEither(
       str ⇒
         ByteVector
-          .fromBase64(str, Bases.Alphabets.Base64Url)
-          .toRight(CodecError(s"Given string is not valid b64: $str")),
+          .fromBase64Descriptive(str, Bases.Alphabets.Base64Url)
+          .left
+          .map(CodecError(_)),
       vec ⇒ Right(vec.toBase64(Bases.Alphabets.Base64Url))
     )
 
