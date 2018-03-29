@@ -46,6 +46,7 @@ import scala.language.higherKinds
  * @tparam K The type of keys
  * @tparam V The type of stored values
  */
+// todo unit test
 class ClientDatasetStorage[K, V](
   datasetId: Array[Byte],
   datasetStartVer: Long,

@@ -196,6 +196,8 @@ class MerkleBTreeClient[K] private (
                 case Some(newMRoot) ⇒ // all is fine, send Confirm to server
                   for {
                     // sign version with new merkle root
+                    // todo it looks like not responsibility of MerkleBTreeClient, it should be moved outside,
+                    // for example as callback like 'makeSignatureMadeChanges' or smth like that
                     signedState ← signNewState(version + 1, newMRoot.asByteVector)
                     // safe new merkle root on the client
                     _ ← newMerkleRoot.flatMap(_.put(newMRoot))

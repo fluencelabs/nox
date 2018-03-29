@@ -165,7 +165,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
               .shuffle(1 to 512)
               .map(i ⇒ {
                 for {
-                  cb ← client.initPut(f"k$i%04d", f"v$i%04d".toHash, 0L)
+                  cb ← client.initPut(f"k$i%04d", f"v$i%04d".toHash, i)
                   res ← bTree.put(PutCommandImpl(mRCalc, cb, () ⇒ counter.incrementAndGet()))
                 } yield res
               })
@@ -244,7 +244,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
               .shuffle(1 to 1024)
               .map(i ⇒ {
                 for {
-                  putCb ← client.initPut(f"k$i%04d", f"v$i%04d new".toHash, 0L)
+                  putCb ← client.initPut(f"k$i%04d", f"v$i%04d new".toHash, i)
                   res ← bTree.put(PutCommandImpl(mRCalc, putCb, () ⇒ counter.incrementAndGet()))
                 } yield res
               })
