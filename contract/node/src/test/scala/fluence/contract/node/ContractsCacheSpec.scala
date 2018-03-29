@@ -36,7 +36,7 @@ import scala.concurrent.duration._
 class ContractsCacheSpec extends WordSpec with Matchers {
 
   private val clock = Clock.systemUTC()
-  def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
+  def unsafeKey(str: String): Key = Key.fromStringSha1.unsafe(str)
   val algo = SignAlgo.dumb
   import algo.checkerFn
 
@@ -48,7 +48,7 @@ class ContractsCacheSpec extends WordSpec with Matchers {
 
   def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
     val s = offerSigner(seed)
-    BasicContract.offer(Key.fromPublicKey[Coeval](s.publicKey).value, participantsRequired, s).get
+    BasicContract.offer(Key.fromPublicKey.unsafe(s.publicKey), participantsRequired, s).get
   }
 
   def offerSigner(seed: String) = {
@@ -68,7 +68,7 @@ class ContractsCacheSpec extends WordSpec with Matchers {
     "reject caching empty and unsigned contracts" in {
 
       val signer = offerSigner("reject2")
-      val key = Key.fromPublicKey[Coeval](signer.publicKey).value
+      val key = Key.fromPublicKey.unsafe(signer.publicKey)
 
       cache.cache(offer("reject")).unsafeRunSync() shouldBe false
       cache.cache(offer("reject2").signOffer(key, signer).value.get.right.get).unsafeRunSync() shouldBe false

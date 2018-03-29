@@ -17,6 +17,7 @@
 
 package fluence.codec
 
+import cats.MonadError
 import cats.arrow.Compose
 
 import scala.language.higherKinds
@@ -28,6 +29,9 @@ case class BifuncE[E <: Throwable, A, B](direct: FuncE[E, A, B], inverse: FuncE[
   // This is given with Compose, but IDEA fails to perform typecheck due to kind projector
   def andThen[C](other: BifuncE[E, B, C]): BifuncE[E, A, C] =
     implicitly[Compose[BifuncE[E, ?, ?]]].andThen(this, other)
+
+  def toCodec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, A, B] =
+    Codec(direct.toKleisli.run, inverse.toKleisli.run)
 }
 
 object BifuncE extends PureCodecInstances {

@@ -52,7 +52,7 @@ class ContractsSpec extends WordSpec with Matchers {
 
   import algo.checkerFn
 
-  def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
+  def unsafeKey(str: String): Key = Key.fromStringSha1.unsafe(str)
 
   implicit object CoevalLift extends LiftIO[Coeval] {
     override def liftIO[A](ioa: IO[A]): Coeval[A] = Coeval(ioa.unsafeRunSync())
@@ -127,7 +127,7 @@ class ContractsSpec extends WordSpec with Matchers {
 
   def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
     val s = offerSigner(seed)
-    BasicContract.offer(Key.fromPublicKey[Coeval](s.publicKey).value, participantsRequired, s).get
+    BasicContract.offer(Key.fromPublicKey.unsafe(s.publicKey), participantsRequired, s).get
   }
 
   def offerSigner(seed: String) = {

@@ -41,5 +41,5 @@ object JSCodecs {
 
   // TODO: more precise error
   implicit def keyUint8Array[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Uint8Array, Key] =
-    byteVectorUint8Array[F] andThen Key.vectorCodec.swap
+    byteVectorUint8Array[F] andThen Key.keyVectorCodec.toCodec[F].swap
 }

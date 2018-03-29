@@ -20,7 +20,7 @@ package fluence.kad.grpc.server
 import cats.effect.IO
 import cats.instances.stream._
 import com.google.protobuf.ByteString
-import fluence.codec.Codec
+import fluence.codec.{Codec, PureCodec}
 import fluence.kad.grpc._
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, KademliaRpc, Key}
@@ -37,7 +37,7 @@ class KademliaServer(kademlia: KademliaRpc[Contact])(
 
   private val streamCodec = Codec.codec[IO, Stream[protocol.Node[Contact]], Stream[Node]]
 
-  private val keyCodec = Codec.codec[IO, Key, ByteString]
+  private val keyCodec = PureCodec.codec[Key, ByteString].toCodec[IO]
 
   override def ping(request: PingRequest): Future[Node] =
     kademlia.ping().flatMap(codec.encode).unsafeToFuture()

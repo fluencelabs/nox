@@ -18,7 +18,7 @@ lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
   .in(file("codec/core"))
   .settings(
     commons,
-    addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.6"),
+    kindProjector,
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core"   % Cats1V,
       "org.scodec"    %%% "scodec-bits" % ScodecBitsV,

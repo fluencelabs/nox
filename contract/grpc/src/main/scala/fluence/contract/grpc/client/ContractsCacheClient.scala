@@ -20,7 +20,7 @@ package fluence.contract.grpc.client
 import cats.effect.IO
 import cats.syntax.applicativeError._
 import com.google.protobuf.ByteString
-import fluence.codec.Codec
+import fluence.codec.{Codec, PureCodec}
 import fluence.contract.protocol.ContractsCacheRpc
 import fluence.contract.grpc.ContractsCacheGrpc.ContractsCacheStub
 import fluence.contract.grpc.{BasicContract, ContractsCacheGrpc, FindRequest}
@@ -48,7 +48,7 @@ class ContractsCacheClient[C: ContractValidate](stub: ContractsCacheStub)(
    */
   override def find(id: Key): IO[Option[C]] =
     (for {
-      idBs ← Codec.codec[IO, ByteString, Key].decode(id)
+      idBs ← PureCodec.codec[ByteString, Key].toCodec[IO].decode(id)
       req = FindRequest(idBs)
       binContract ← IO.fromFuture(IO(stub.find(req)))
       contract ← codec.decode(binContract)

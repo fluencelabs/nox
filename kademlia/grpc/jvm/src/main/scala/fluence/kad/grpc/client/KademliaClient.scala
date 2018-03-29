@@ -19,7 +19,7 @@ package fluence.kad.grpc.client
 
 import cats.effect.IO
 import com.google.protobuf.ByteString
-import fluence.codec.Codec
+import fluence.codec.{Codec, PureCodec}
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.kad.{grpc, protocol}
 import fluence.codec.pb.ProtobufCodecs._
@@ -39,7 +39,7 @@ class KademliaClient(stub: grpc.KademliaGrpc.Kademlia)(
   ec: ExecutionContext
 ) extends KademliaRpc[Contact] {
 
-  private val keyBS = Codec.codec[IO, ByteString, Key].inverse
+  private val keyBS = PureCodec.codec[ByteString, Key].inverse.toKleisli[IO]
 
   import cats.instances.stream._
 

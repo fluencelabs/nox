@@ -17,7 +17,7 @@
 
 package fluence.contract.ops
 
-import cats.Now
+import cats.{Id, Now}
 import cats.instances.option._
 import cats.instances.try_._
 import fluence.contract.{BasicContract, _}
@@ -36,7 +36,7 @@ class ContractReadSpec extends WordSpec with Matchers {
   private val signAlgo = Ecdsa.signAlgo
   private val contractOwnerKeyPair = signAlgo.generateKeyPair[Option]().success
   private val contractOwnerSigner = signAlgo.signer(contractOwnerKeyPair)
-  private val contractKadKey = Key.fromKeyPair[Try](contractOwnerKeyPair).get
+  private val contractKadKey = Key.fromKeyPair.unsafe(contractOwnerKeyPair)
 
   import ContractRead.ReadOps
   import ContractWrite.WriteOps
@@ -132,7 +132,8 @@ class ContractReadSpec extends WordSpec with Matchers {
         result.failed.getMessage should startWith("Offer seal is not verified for contract")
       }
       "id of contract is invalid" in {
-        val signedContract = signWithParticipants(contract).copy(id = Key.fromString("123123123").get)
+        val signedContract =
+          signWithParticipants(contract).copy(id = Key.fromStringSha1[Id]("123123123").value.right.get)
         val result = signedContract.participantSigned[Option](signedContract.participants.head._1)
         result.failed shouldBe a[CryptoErr]
       }
@@ -330,7 +331,7 @@ class ContractReadSpec extends WordSpec with Matchers {
 
   "ContractRead.ReadOps.checkPubKey" should {
     "fail when id of contract is invalid" in {
-      val signedContract = signWithParticipants(contract).copy(id = Key.fromString("123123123").get)
+      val signedContract = signWithParticipants(contract).copy(id = Key.fromStringSha1[Id]("123123123").value.right.get)
       val result = signedContract.checkPubKey[Option]
       result.failed.getMessage should startWith("Contract id is not equals to hash(pubKey);")
     }
@@ -374,7 +375,7 @@ class ContractReadSpec extends WordSpec with Matchers {
       } yield {
         val pKeyPair = signAlgo.generateKeyPair[Option](None).success
         val pSigner = signAlgo.signer(pKeyPair)
-        val pKadKey = Key.fromKeyPair[Try](pKeyPair).get
+        val pKadKey = Key.fromKeyPair.unsafe(pKeyPair)
 
         WriteOps[Option, BasicContract](contract).signOffer(pKadKey, pSigner).success
       }

@@ -24,6 +24,7 @@ import cats.syntax.flatMap._
 
 import scala.language.higherKinds
 import scala.language.implicitConversions
+import scala.util.Try
 
 /**
  * FuncE is a special kind of arrow: A => EitherT[F, E, B] for any monad F[_]
@@ -42,6 +43,15 @@ abstract class FuncE[E <: Throwable, A, B] {
    * @tparam F Monad
    */
   def apply[F[_]: Monad](a: A): EitherT[F, E, B]
+
+  /**
+   * Unsafe run for the function, throws exceptions -- only to be used in tests!
+   * @param a Input
+   */
+  def unsafe(a: A): B = {
+    import cats.instances.try_._
+    toKleisli[Try].run(a).get
+  }
 
   /**
    * Run the function, getting a String on the left side -- useful for EitherT composition.
@@ -139,14 +149,14 @@ object FuncE {
        * @tparam F Monad
        */
       override def apply[F[_]: Monad](a: G[A]): EitherT[F, E, G[B]] =
-        Traverse[G].traverse[EitherT[F, E, ?], A, B](a)(funcE.apply)
+        Traverse[G].traverse[λ[α ⇒ EitherT[F, E, α]], A, B](a)(funcE.apply)
     }
 
   /**
    * FuncE obeys arrow choice laws with any fixed E
    * @tparam E Error type
    */
-  implicit def catsArrowChoice[E <: Throwable]: ArrowChoice[FuncE[E, ?, ?]] = {
+  implicit def catsArrowChoice[E <: Throwable]: ArrowChoice[λ[(α, β) ⇒ FuncE[E, α, β]]] = {
     type G[A, B] = FuncE[E, A, B]
     new ArrowChoice[G] {
       override def choose[A, B, C, D](f: G[A, C])(g: G[B, D]): G[Either[A, B], Either[C, D]] =

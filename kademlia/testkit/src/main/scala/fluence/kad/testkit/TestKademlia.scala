@@ -160,7 +160,7 @@ object TestKademlia {
           case (acc, keyPair) ⇒
             val algo = SignAlgo.dumb
             val signer = algo.signer(keyPair)
-            val key = Key.fromPublicKey[Coeval](keyPair.publicKey).value
+            val key = Key.fromPublicKey.unsafe(keyPair.publicKey)
             acc + (toContact(key) -> (signer, TestKademlia.coeval(key, alpha, k, kads(_)._2, toContact, pingExpiresIn)))
         }
 

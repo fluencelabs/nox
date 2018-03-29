@@ -33,11 +33,9 @@ import scala.language.implicitConversions
 
 class RoutingTableSpec extends WordSpec with Matchers {
   implicit def key(i: Long): Key =
-    Key
-      .fromBytes[Coeval](Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
-        ByteVector.fromLong(i).toArray
-      }))
-      .value
+    Key.fromBytes.unsafe(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
+      ByteVector.fromLong(i).toArray
+    }))
 
   implicit def toLong(k: Key): Long = {
     k.value.toLong()

@@ -23,8 +23,11 @@ import scala.language.higherKinds
  * PureCodec builder functions
  */
 object PureCodec {
+  type Func[A, B] = FuncE[CodecError, A, B]
 
-  def apply[A, B](f: FuncE[CodecError, A, B], g: FuncE[CodecError, B, A]): PureCodec[A, B] =
+  def codec[A, B](implicit c: PureCodec[A, B]): PureCodec[A, B] = c
+
+  def apply[A, B](f: Func[A, B], g: Func[B, A]): PureCodec[A, B] =
     BifuncE(f, g)
 
   def lift[A, B](f: A ⇒ B, g: B ⇒ A): PureCodec[A, B] =
@@ -32,5 +35,9 @@ object PureCodec {
 
   def liftEither[A, B](f: A ⇒ Either[CodecError, B], g: B ⇒ Either[CodecError, A]): PureCodec[A, B] =
     BifuncE.liftEither(f, g)
+
+  def func[A, B](f: A ⇒ B): Func[A, B] = FuncE.lift(f)
+
+  def funcEither[A, B](f: A ⇒ Either[CodecError, B]): Func[A, B] = FuncE.liftEither(f)
 
 }

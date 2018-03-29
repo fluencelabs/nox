@@ -82,7 +82,7 @@ object NodeGrpc {
 
       import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}
       import fluence.kad.grpc.KademliaNodeCodec.{codec ⇒ nodeCodec}
-      val keyI = Key.bytesCodec[IO]
+      val keyI = Key.bytesCodec.toCodec[IO]
       import keyI.inverse
 
       // GRPC-specific Kademlia update callback, takes headers reader and optional message, provides an update

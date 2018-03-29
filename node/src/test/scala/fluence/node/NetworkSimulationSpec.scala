@@ -110,7 +110,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
   private val servers = (0 to 10).map { n ⇒
     val port = 3000 + n
     val kp = algo.generateKeyPair[Try]().value.get.right.get
-    val k = Key.fromKeyPair[Try](kp).get
+    val k = Key.fromKeyPair.unsafe(kp)
     new Node(k, port, kp)
   }
 

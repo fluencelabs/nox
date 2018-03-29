@@ -78,6 +78,8 @@ object SbtCommons {
   val scalatestKit = "org.scalatest" %% "scalatest" % ScalatestV
   val scalatest = scalatestKit       % Test
 
+  val kindProjector = addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.6")
+
   val protobuf = Seq(
     PB.targets in Compile := Seq(
       scalapb.gen() -> (sourceManaged in Compile).value

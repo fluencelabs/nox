@@ -27,7 +27,7 @@ import fluence.codec.Codec
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.grpc.facade.Node
 import fluence.kad.protocol
-import fluence.kad.protocol.{ Contact, Key }
+import fluence.kad.protocol.{Contact, Key}
 
 import scala.scalajs.js.typedarray.Uint8Array
 import scala.scalajs.js.JSConverters._
@@ -46,7 +46,7 @@ object KademliaNodeCodec {
         .value
         .flatMap(F.fromEither) // TODO err: crypto
 
-    def keyFromBytes(arr: Array[Byte]) = Key.fromBytes[F](arr) // TODO err: wrong key size
+    def keyFromBytes(arr: Array[Byte]) = Key.fromBytes.toKleisli[F].run(arr) // TODO err: wrong key size
 
     def encode: fluence.kad.protocol.Node[Contact] ⇒ F[Node] =
       obj ⇒

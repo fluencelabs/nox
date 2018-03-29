@@ -74,7 +74,7 @@ object NodeComposer {
     clock: Clock
   )(implicit scheduler: Scheduler): IO[Services] =
     for {
-      nodeKey ← Key.fromKeyPair[IO](keyPair)
+      nodeKey ← Key.fromKeyPair.toKleisli[IO].run(keyPair)
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
       rocksDbFactory = new RocksDbStore.Factory
       contractsCacheStore ← ContractsCacheStore(config, dirName ⇒ rocksDbFactory[IO](dirName, config))
@@ -188,8 +188,7 @@ object NodeComposer {
                 ),
                 lastUpdated = clock.instant()
               )
-            }
-          else
+            } else
             Task.raiseError(
               new IllegalStateException(
                 s"Inconsistent state for contract $datasetId, contract version=${contract.contract.executionState.version}," +

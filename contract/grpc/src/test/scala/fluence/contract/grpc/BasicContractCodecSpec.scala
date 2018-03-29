@@ -54,7 +54,7 @@ class BasicContractCodecSpec extends WordSpec with Matchers {
       val seed = "seed".getBytes()
       val keyPair = KeyPair.fromBytes(seed, seed)
       val signer = signAlgo.signer(keyPair)
-      val key = Key.fromKeyPair(keyPair).get
+      val key = Key.fromKeyPair.unsafe(keyPair)
 
       Seq(
         BC.offer(key, 1, signer),

@@ -25,8 +25,10 @@ import scala.util.control.NoStackTrace
  * Left side for Codec functions
  * @param message Error message
  */
-case class CodecError(message: String) extends NoStackTrace {
+case class CodecError(message: String, causedBy: Option[Throwable] = None) extends NoStackTrace {
   override def getMessage: String = message
+
+  override def getCause: Throwable = causedBy getOrElse super.getCause
 }
 
 object CodecError {
