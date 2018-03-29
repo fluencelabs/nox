@@ -195,10 +195,10 @@ class MerkleBTreeClient[K] private (
                   )
                 case Some(newMRoot) ⇒ // all is fine, send Confirm to server
                   for {
+                    // sign version with new merkle root
+                    signedState ← signNewState(version + 1, newMRoot.asByteVector)
                     // safe new merkle root on the client
                     _ ← newMerkleRoot.flatMap(_.put(newMRoot))
-                    // sign version with new merkle root and send back to node
-                    signedState ← signNewState(version + 1, newMRoot.asByteVector)
                   } yield signedState
               }
             case None ⇒
