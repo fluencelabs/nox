@@ -22,6 +22,9 @@ lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core"   % Cats1V,
       "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
+      "org.typelevel" %%% "cats-laws" % Cats1V % Test,
+      "org.typelevel" %%% "cats-testkit" % Cats1V % Test,
+      "com.github.alexarchambault" %%% "scalacheck-shapeless_1.13" % "1.1.6" % Test,
       "org.scalatest" %%% "scalatest"    % ScalatestV % Test
     )
   )

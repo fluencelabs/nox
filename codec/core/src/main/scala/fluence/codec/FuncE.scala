@@ -142,6 +142,10 @@ object FuncE {
         Traverse[G].traverse[EitherT[F, E, ?], A, B](a)(funcE.apply)
     }
 
+  /**
+   * FuncE obeys arrow choice laws with any fixed E
+   * @tparam E Error type
+   */
   implicit def catsArrowChoice[E <: Throwable]: ArrowChoice[FuncE[E, ?, ?]] = {
     type G[A, B] = FuncE[E, A, B]
     new ArrowChoice[G] {
