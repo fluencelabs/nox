@@ -24,10 +24,10 @@ import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.codec.Codec
-import fluence.crypto.signature.SignatureChecker
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.grpc.facade.Node
 import fluence.kad.protocol
-import fluence.kad.protocol.{Contact, Key}
+import fluence.kad.protocol.{ Contact, Key }
 
 import scala.scalajs.js.typedarray.Uint8Array
 import scala.scalajs.js.JSConverters._
@@ -37,7 +37,7 @@ import scala.language.higherKinds
 object KademliaNodeCodec {
   implicit def codec[F[_]](
     implicit F: MonadError[F, Throwable],
-    checker: SignatureChecker
+    checkerFn: CheckerFn
   ): Codec[F, fluence.kad.protocol.Node[Contact], Node] = {
 
     def contactFromBase64(str: String) =
