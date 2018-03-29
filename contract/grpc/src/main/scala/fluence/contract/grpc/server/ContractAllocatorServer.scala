@@ -40,9 +40,9 @@ class ContractAllocatorServer[C: ContractValidate](contractAllocator: ContractAl
         // contract from the outside required validation
         _ ← contract.validateME[IO]
         offered ← contractAllocator.offer(contract)
-        resp ← codec.encode(offered)
         // we should validate contract before send outside for 'offering'
-        _ ← contract.validateME[IO]
+        _ ← offered.validateME[IO]
+        resp ← codec.encode(offered)
       } yield resp
     ).unsafeToFuture()
 

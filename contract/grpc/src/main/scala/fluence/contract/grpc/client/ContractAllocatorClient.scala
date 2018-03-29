@@ -52,10 +52,10 @@ class ContractAllocatorClient[C: ContractValidate](
       _ ← contract.validateME[IO]
       offer ← codec.encode(contract)
       resp ← run(stub.offer(offer))
-      contract ← codec.decode(resp)
+      respContract ← codec.decode(resp)
       // contract from the outside required validation
-      _ ← contract.validateME[IO]
-    } yield contract
+      _ ← respContract.validateME[IO]
+    } yield respContract
 
   /**
    * Allocate dataset: store the contract, create storage structures, form cluster.
