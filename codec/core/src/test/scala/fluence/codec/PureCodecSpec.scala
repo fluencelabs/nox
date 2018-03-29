@@ -17,16 +17,31 @@
 
 package fluence.codec
 
-import cats.laws.discipline.ArrowChoiceTests
-import cats.tests.CatsSuite
-import org.scalacheck.ScalacheckShapeless._
+import cats.Id
+import cats.instances.try_._
+import org.scalacheck.{Arbitrary, Gen}
+import org.scalatest.{Matchers, WordSpec}
+import scodec.bits.ByteVector
 
-class FuncELawsSpec extends CatsSuite {
+import scala.util.Try
 
-  import FuncEInstances._
+class PureCodecSpec extends WordSpec with Matchers {
+  "PureCodec" should {
+    "summon implicit identity" in {
+      val intId = implicitly[PureCodec[Int, Int]]
+      (-10 to 10).foreach { i ⇒
+        intId.direct.toKleisli[Try].run(i).get shouldBe i
+        intId.inverse.toKleisli[Try].run(i).get shouldBe i
+      }
+    }
 
-  checkAll(
-    "FuncE.ArrowChoiceLaws",
-    ArrowChoiceTests[FuncE[CodecError, ?, ?]].arrowChoice[Int, String, Double, BigDecimal, Long, Short]
-  )
+    "convert base64 strings to byte vectors" in {
+
+      val codec = implicitly[PureCodec[Array[Byte], ByteVector]]
+
+      Arbitrary.arbitrary[Array[Byte]]
+
+      //codec.direct[Id]()
+    }
+  }
 }

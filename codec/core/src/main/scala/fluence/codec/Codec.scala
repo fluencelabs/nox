@@ -17,10 +17,9 @@
 
 package fluence.codec
 
-import cats.data.{EitherT, Kleisli}
-import cats.{Applicative, ApplicativeError, FlatMap, Monad, MonadError, Traverse}
+import cats.data.Kleisli
+import cats.{Applicative, ApplicativeError, FlatMap, Traverse}
 import cats.syntax.applicative._
-import cats.syntax.flatMap._
 import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, implicitConversions}

@@ -17,16 +17,22 @@
 
 package fluence.codec
 
-import cats.laws.discipline.ArrowChoiceTests
-import cats.tests.CatsSuite
-import org.scalacheck.ScalacheckShapeless._
+import fluence.codec.PureCodec.{lift, liftEither}
+import scodec.bits.{Bases, ByteVector}
+import scala.language.higherKinds
 
-class FuncELawsSpec extends CatsSuite {
+private[codec] trait PureCodecInstances extends BifuncEInstances {
 
-  import FuncEInstances._
+  implicit val byteArrayToVector: PureCodec[Array[Byte], ByteVector] =
+    lift(ByteVector.apply, _.toArray)
 
-  checkAll(
-    "FuncE.ArrowChoiceLaws",
-    ArrowChoiceTests[FuncE[CodecError, ?, ?]].arrowChoice[Int, String, Double, BigDecimal, Long, Short]
-  )
+  implicit val base64ToVector: PureCodec[String, ByteVector] =
+    liftEither(
+      str ⇒
+        ByteVector
+          .fromBase64(str, Bases.Alphabets.Base64Url)
+          .toRight(CodecError(s"Given string is not valid b64: $str")),
+      vec ⇒ Right(vec.toBase64(Bases.Alphabets.Base64Url))
+    )
+
 }

@@ -17,11 +17,11 @@
 
 package fluence.codec
 
-import cats.{MonadError, Traverse}
-import cats.arrow.Compose
-
 import scala.language.higherKinds
 
+/**
+ * PureCodec builder functions
+ */
 object PureCodec {
 
   def apply[A, B](f: FuncE[CodecError, A, B], g: FuncE[CodecError, B, A]): PureCodec[A, B] =
@@ -33,28 +33,4 @@ object PureCodec {
   def liftEither[A, B](f: A ⇒ Either[CodecError, B], g: B ⇒ Either[CodecError, A]): PureCodec[A, B] =
     BifuncE.liftEither(f, g)
 
-  implicit def identityPureCodec[T]: PureCodec[T, T] = lift(identity, identity)
-
-  implicit def swapPureCodec[A, B](implicit codec: PureCodec[A, B]): PureCodec[B, A] = codec.swap
-
-  /**
-   * Picking the concrete F monad, we can convert PureCodec to a Codec with error effect beared inside the monad
-   */
-  implicit def toCodecF[F[_], A, B](implicit codec: PureCodec[A, B], F: MonadError[F, Throwable]): Codec[F, A, B] =
-    Codec(codec.direct.toKleisli.run, codec.inverse.toKleisli.run)
-
-  /**
-   * Generates a BifuncE, traversing the input with the given BifuncE
-   */
-  implicit def forTraversePureCodec[G[_]: Traverse, A, B](
-    implicit codec: PureCodec[A, B]
-  ): PureCodec[G[A], G[B]] = {
-    import FuncE.{forTraverseFuncE ⇒ funcE}
-    apply(funcE(Traverse[G], codec.direct), funcE(Traverse[G], codec.inverse))
-  }
-
-  implicit object pureCodecCompose extends Compose[PureCodec] {
-    override def compose[A, B, C](f: PureCodec[B, C], g: PureCodec[A, B]): PureCodec[A, C] =
-      BifuncE[CodecError, A, C](f.direct compose g.direct, g.inverse compose f.inverse)
-  }
 }
