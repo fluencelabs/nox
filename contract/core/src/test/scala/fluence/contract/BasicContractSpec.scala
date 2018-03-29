@@ -37,7 +37,7 @@ class BasicContractSpec extends WordSpec with Matchers {
   private val signAlgo = Ecdsa.signAlgo
   private val contractOwnerKeyPair = signAlgo.generateKeyPair[Option]().success
   private val signer = signAlgo.signer(contractOwnerKeyPair)
-  private val checker = signAlgo.checker
+  private val checker = signAlgo.checker(contractOwnerKeyPair.publicKey)
   private val contractKadKey = Key.fromKeyPair[Try](contractOwnerKeyPair).get
 
   private val signerWithException = new Signer {
@@ -60,11 +60,11 @@ class BasicContractSpec extends WordSpec with Matchers {
       contract.id shouldBe contractKadKey
       contract.publicKey shouldBe signer.publicKey
       contract.offer shouldBe Offer(4)
-      checker.check[Option](contract.offerSeal, contract.offer.getBytes).success shouldBe ()
+      checker.check[Option](contract.offerSeal.sign, contract.offer.getBytes).success shouldBe ()
       contract.participants shouldBe empty
       contract.participantsSeal shouldBe None
       contract.executionState shouldBe ExecutionState(0, ByteVector.empty)
-      checker.check[Option](contract.executionSeal, contract.executionState.getBytes).success shouldBe ()
+      checker.check[Option](contract.executionSeal.sign, contract.executionState.getBytes).success shouldBe ()
     }
   }
 

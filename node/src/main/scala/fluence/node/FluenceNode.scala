@@ -124,7 +124,7 @@ object FluenceNode extends slogging.LazyLogging {
     config: Config,
     clock: Clock = Clock.systemUTC()
   ): IO[FluenceNode] = {
-    import algo.checker
+    import algo.checkerFn
     for {
       _ ← initDirectory(config.getString("fluence.directory")) // TODO config
       kpConf ← KeyPairConfig.read(config)

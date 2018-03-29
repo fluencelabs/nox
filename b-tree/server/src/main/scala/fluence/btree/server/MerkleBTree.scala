@@ -292,7 +292,7 @@ class MerkleBTree private[server] (
           val leafProof = GeneralNodeProof(Hash.empty, newLeaf.kvChecksums, 0)
           cmd
             .verifyChanges(MerklePath(Seq(leafProof)), wasSplitting = false)
-            .flatMap { _ ⇒ // TODO here we could have a signature
+            .flatMap { _ ⇒
               commitNewState(PutTask(nodesToSave = Seq(NodeWithId(RootId, newLeaf)), increaseDepth = true))
             }
             .map(_ ⇒ newValRef)
@@ -360,7 +360,7 @@ class MerkleBTree private[server] (
         logicalPut(leafId, updatedLeaf, putDetails.clientPutDetails.searchResult.insertionPoint, trail)
       // after all the logical operations, we need to send the merkle path to the client for verification
       cmd
-        .verifyChanges(newStateProof, putTask.wasSplitting) // TODO here we could have new signature
+        .verifyChanges(newStateProof, putTask.wasSplitting)
         .flatMap { _ ⇒
           // persist all changes
           commitNewState(putTask)

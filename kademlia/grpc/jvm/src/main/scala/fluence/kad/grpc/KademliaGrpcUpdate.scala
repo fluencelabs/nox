@@ -23,7 +23,7 @@ import cats.Id
 import cats.data.Kleisli
 import cats.effect.IO
 import cats.instances.try_._
-import fluence.crypto.signature.SignatureChecker
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
 import fluence.transport.grpc.GrpcConf
@@ -42,16 +42,17 @@ object KademliaGrpcUpdate {
   def grpcCallback(
     update: fluence.kad.protocol.Node[Contact] ⇒ IO[Unit],
     clientConf: GrpcConf
-  )(implicit checker: SignatureChecker): (Kleisli[Option, String, String], Option[Any]) ⇒ IO[Unit] = {
-    (headers, message) ⇒
-      val remoteNode = for {
-        remoteB64key ← headers(clientConf.keyHeader)
-        remoteKey ← Key.fromB64[Try](remoteB64key).toOption
+  )(
+    implicit checkerFn: CheckerFn
+  ): (Kleisli[Option, String, String], Option[Any]) ⇒ IO[Unit] = { (headers, message) ⇒
+    val remoteNode = for {
+      remoteB64key ← headers(clientConf.keyHeader)
+      remoteKey ← Key.fromB64[Try](remoteB64key).toOption
 
-        remoteSeed ← headers(clientConf.contactHeader)
-        remoteContact ← Contact.readB64seed[Id](remoteSeed).value.toOption
-      } yield protocol.Node(remoteKey, Instant.now(), remoteContact)
+      remoteSeed ← headers(clientConf.contactHeader)
+      remoteContact ← Contact.readB64seed[Id](remoteSeed).value.toOption
+    } yield protocol.Node(remoteKey, Instant.now(), remoteContact)
 
-      remoteNode.fold(IO.unit)(update)
+    remoteNode.fold(IO.unit)(update)
   }
 }

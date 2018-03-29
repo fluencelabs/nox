@@ -33,7 +33,7 @@ object Main extends slogging.LazyLogging {
   LoggerConfig.level = LogLevel.DEBUG
 
   val algo: SignAlgo = Ecdsa.signAlgo
-  import algo.checker
+  import algo.checkerFn
 
   implicit val codec = KademliaNodeCodec.codec[IO]
 

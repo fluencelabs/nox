@@ -375,7 +375,8 @@ lazy val `b-tree-client` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    fork in Test := false
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`b-tree-common`, `b-tree-protocol`)

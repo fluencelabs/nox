@@ -45,7 +45,7 @@ object ClientCliApp extends App with slogging.LazyLogging {
   LoggerConfig.level = LogLevel.INFO
 
   val algo: SignAlgo = Ecdsa.signAlgo
-  import algo.checker
+  import algo.checkerFn
   val hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
   val config: Config = ConfigFactory.load()
 
@@ -58,7 +58,7 @@ object ClientCliApp extends App with slogging.LazyLogging {
 
   val buildClient: IO[FluenceClient] = for {
     seedsConf ← SeedsConfig.read(config)
-    contacts ← seedsConf.contacts(checker)
+    contacts ← seedsConf.contacts
     kadConfig ← KademliaConfigParser.readKademliaConfig[IO](config)
     client ← FluenceClient.build(contacts, algo, hasher, kadConfig, client)
   } yield client

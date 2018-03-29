@@ -17,8 +17,10 @@
 
 package fluence.btree.client
 
+import cats.Id
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.core.{Hash, Key}
+import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.TestCryptoHasher
 import monix.eval.Task
@@ -26,11 +28,17 @@ import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpec}
+import scodec.bits.ByteVector
 
 import scala.collection.Searching.{Found, InsertionPoint}
 import scala.concurrent.duration.{FiniteDuration, _}
 
 class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
+
+  private val signAlgo = Ecdsa.signAlgo
+  private val keyPair = signAlgo.generateKeyPair().value.right.get
+  private val signer = signAlgo.signer(keyPair)
+  private val checker = signAlgo.checker(keyPair.publicKey)
 
   implicit class Str2Key(str: String) {
     def toKey: Key = Key(str.getBytes)
@@ -57,7 +65,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
   "getCmd" should {
     "returns error" when {
 
-      "verifying server NextChildSearchResponse was failed" in {
+      "server request 'nextChildIndex' is in invalid" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k1v1-cs>>")
@@ -73,7 +81,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         result.getMessage should startWith("Checksum of branch didn't pass verifying")
       }
 
-      "verifying server LeafResponse was failed" in {
+      "server request 'submitLeaf' is in invalid" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k1v1>H<k2v2-cs>>")
@@ -137,11 +145,11 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
   "put" should {
     "returns error" when {
-      "verifying server NextChildSearchResponse was failed" in {
+      "server request 'nextChildIndex' is in invalid" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k1v1>>")
-        val putCallbacks = wait(client.initPut(key1, val1Hash.toHash))
+        val putCallbacks = wait(client.initPut(key1, val1Hash.toHash, 0L))
 
         val childChecksums = Array("H<H<k1v1>H<k2v2>>".toHash, "H<H<k3v3>H<k4v4>>".toHash)
         val result =
@@ -150,11 +158,11 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
         result.getMessage should startWith("Checksum of branch didn't pass verifying")
       }
 
-      "verifying server LeafResponse was failed" in {
+      "server request 'putDetails' is in invalid" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k1v1>H<k2v2>>")
-        val putCallbacks = wait(client.initPut(key1, val1Hash.toHash))
+        val putCallbacks = wait(client.initPut(key1, val1Hash.toHash, 0L))
 
         val result = wait(
           putCallbacks
@@ -167,71 +175,110 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
         result.getMessage should startWith("Checksum of leaf didn't pass verifying")
       }
+
+      "server request 'verifyChanges' is in invalid" in {
+        implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
+        val client = createClient("H<H<k1v1-cs>>")
+        val version = 0L
+        val invalidNewMRoot = "H<H<k1v1-cs>H<k2v2-cs>> broken".toHash
+
+        val putCallbacks = wait(client.initPut(key2, val2Hash.toHash, version))
+
+        val result = wait(
+          (for {
+            _ ← putCallbacks.putDetails(Array(key1.toKey), Array(val1Hash.toHash))
+            signed ← putCallbacks.verifyChanges(invalidNewMRoot, wasSplitting = false)
+            _ ← putCallbacks.changesStored()
+          } yield signed).failed
+        )
+        result.getMessage should startWith("Server 'put response' didn't pass verifying for state")
+      }
+
     }
 
     "put new key/value to tree" when {
       "key ins't present in tree (root inserting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k1v1-cs>>")
-        val putCallbacks = wait(client.initPut(key2, val2Hash.toHash))
+        val version = 0L
+        val newVersion = ByteVector.fromLong(version + 1)
+        val newMRoot = "H<H<k1v1-cs>H<k2v2-cs>>".toHash
 
-        wait(
+        val putCallbacks = wait(client.initPut(key2, val2Hash.toHash, version))
+
+        val signedState = wait(
           for {
             _ ← putCallbacks.putDetails(Array(key1.toKey), Array(val1Hash.toHash))
-            _ ← putCallbacks.verifyChanges("H<H<k1v1-cs>H<k2v2-cs>>".toHash, wasSplitting = false)
+            signed ← putCallbacks.verifyChanges(newMRoot, wasSplitting = false)
             _ ← putCallbacks.changesStored()
-          } yield ()
-        ) shouldBe ()
+          } yield signed
+        )
+        checker.check[Id](signedState, newVersion ++ newMRoot.asByteVector).value.right.get shouldBe ()
       }
 
       "key was found in tree (root inserting) " in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k1v1-cs>>")
-        val putCallbacks = wait(client.initPut(key1, val2Hash.toHash))
+        val version = 0L
+        val newVersion = ByteVector.fromLong(version + 1)
+        val newMRoot = "H<H<k1v2-cs>>".toHash
 
-        wait(
+        val putCallbacks = wait(client.initPut(key1, val2Hash.toHash, version))
+
+        val signedState = wait(
           for {
             _ ← putCallbacks.putDetails(Array(key1.toKey), Array(val1Hash.toHash))
-            _ ← putCallbacks.verifyChanges("H<H<k1v2-cs>>".toHash, wasSplitting = false)
+            signed ← putCallbacks.verifyChanges(newMRoot, wasSplitting = false)
             _ ← putCallbacks.changesStored()
-          } yield ()
-        ) shouldBe ()
+          } yield signed
+        )
+
+        checker.check[Id](signedState, newVersion ++ newMRoot.asByteVector).value.right.get shouldBe ()
       }
 
       "key ins't present in tree (second level inserting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
         val client = createClient("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v4-cs>H<k5v5-cs>>>")
-        val putCallbacks = wait(client.initPut(key3, val3Hash.toHash))
-
+        val version = 0L
+        val newVersion = ByteVector.fromLong(version + 1)
+        val newMRoot = "H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k3v3-cs>H<k4v4-cs>H<k5v5-cs>>>".toHash
         val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".toHash, "H<H<k4v4-cs>H<k5v5-cs>>".toHash)
-        val result = wait(
+
+        val putCallbacks = wait(client.initPut(key3, val3Hash.toHash, version))
+
+        val signedState = wait(
           for {
             _ ← putCallbacks.nextChildIndex(Array(key2.toKey), childChecksums)
             _ ← putCallbacks.putDetails(Array(key4.toKey, key5.toKey), Array(val4Hash.toHash, val5Hash.toHash))
-            _ ← putCallbacks.verifyChanges(
-              "H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k3v3-cs>H<k4v4-cs>H<k5v5-cs>>>".toHash,
-              wasSplitting = false
-            )
+            signed ← putCallbacks.verifyChanges(newMRoot, wasSplitting = false)
             _ ← putCallbacks.changesStored()
-          } yield ()
-        ) shouldBe ()
+          } yield signed
+        )
+
+        checker.check[Id](signedState, newVersion ++ newMRoot.asByteVector).value.right.get shouldBe ()
       }
 
       "key was present in tree (second level inserting)" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
         val client = createClient("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v4-cs>H<k5v5-cs>>>")
-        val putCallbacks = wait(client.initPut(key4, val3Hash.toHash))
+        val version = 0L
+        val newVersion = ByteVector.fromLong(version + 1)
+        val newMRoot = "H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v3-cs>H<k5v5-cs>>>".toHash
         val childChecksums = Array("H<H<k1v1-cs>H<k2v2-cs>>".toHash, "H<H<k4v4-cs>H<k5v5-cs>>".toHash)
-        wait(
+
+        val putCallbacks = wait(client.initPut(key4, val3Hash.toHash, version))
+
+        val signedState = wait(
           for {
             _ ← putCallbacks.nextChildIndex(Array(key2.toKey), childChecksums)
             _ ← putCallbacks.putDetails(Array(key4.toKey, key5.toKey), Array(val4Hash.toHash, val5Hash.toHash))
-            _ ← putCallbacks
-              .verifyChanges("H<H<k2>H<H<k1v1-cs>H<k2v2-cs>>H<H<k4v3-cs>H<k5v5-cs>>>".toHash, wasSplitting = false)
+            signed ← putCallbacks.verifyChanges(newMRoot, wasSplitting = false)
             _ ← putCallbacks.changesStored()
-          } yield ()
-        ) shouldBe ()
+          } yield signed
+        )
+
+        checker.check[Id](signedState, newVersion ++ newMRoot.asByteVector).value.right.get shouldBe ()
       }
 
       //   todo add case with tree rebalancing later
@@ -249,7 +296,8 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
     MerkleBTreeClient[String](
       Some(ClientState(mRoot.toHash)),
       NoOpCrypt.forString,
-      testHasher
+      testHasher,
+      signer
     )
   }
 

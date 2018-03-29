@@ -28,7 +28,7 @@ import fluence.codec.pb.ProtobufCodecs._
 import fluence.contract
 import fluence.contract.BasicContract.ExecutionState
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{Signature, SignatureChecker}
+import fluence.crypto.signature.Signature
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
@@ -38,12 +38,9 @@ object BasicContractCodec {
 
   /**
    * Codec for convert BasicContract into grpc representation. Checks all signatures as well.
-   *
-   * @param checker Checker for all signatures in contract
    */
   implicit def codec[F[_]](
     implicit F: MonadError[F, Throwable],
-    checker: SignatureChecker
   ): Codec[F, contract.BasicContract, BasicContract] = {
 
     val keyC = Codec.codec[F, Key, ByteString]
@@ -52,11 +49,9 @@ object BasicContractCodec {
     val pubKeyC = pubKeyCV andThen strVec
     val optStrVecC = Codec.codec[F, Option[ByteVector], Option[ByteString]]
 
-    val serialize: contract.BasicContract ⇒ F[BasicContract] =
+    val encode: contract.BasicContract ⇒ F[BasicContract] =
       (bc: contract.BasicContract) ⇒
         for {
-          // check all signatures before serialize, todo think about moving 'signatures checking' in separate lvl
-          _ ← verifyAllContractSeals(bc)
           idBs ← keyC.encode(bc.id)
           pubKBs ← pubKeyC.encode(bc.publicKey)
 
@@ -89,7 +84,7 @@ object BasicContractCodec {
             executionSeal = executionSealBs
         )
 
-    val deserialize: BasicContract ⇒ F[contract.BasicContract] =
+    val decode: BasicContract ⇒ F[contract.BasicContract] =
       grpcContact ⇒ {
         def read[T](name: String, f: BasicContract ⇒ T): F[T] =
           Option(f(grpcContact))
@@ -145,29 +140,10 @@ object BasicContractCodec {
             ),
             executionSeal = Signature(pubKey, execSeal)
           )
-
-          // check all signatures after deserialize, todo think about moving 'signatures checking' in separate lvl
-          _ ← verifyAllContractSeals(deserializedContract)
         } yield deserializedContract
       }
 
-    Codec(serialize, deserialize)
-  }
-
-  /**
-   * Check all seals in current contract.
-   * Remove this methods when EitherT will be everywhere
-   */
-  private def verifyAllContractSeals[F[_]](bContract: contract.BasicContract)(
-    implicit F: MonadError[F, Throwable],
-    checker: SignatureChecker
-  ): F[Unit] = {
-    import fluence.contract.ops.ContractRead._
-
-    bContract.checkAllOwnerSeals[F]().value.flatMap {
-      case Left(err) ⇒ F.raiseError(err)
-      case Right(_) ⇒ F.unit
-    }
+    Codec(encode, decode)
   }
 
 }

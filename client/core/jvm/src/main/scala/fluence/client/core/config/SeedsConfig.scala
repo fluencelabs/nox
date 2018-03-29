@@ -21,14 +21,14 @@ import cats.Traverse
 import cats.effect.IO
 import cats.instances.list._
 import com.typesafe.config.Config
-import fluence.crypto.signature.SignatureChecker
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.protocol.Contact
 
 case class SeedsConfig(
   seeds: List[String]
 ) {
 
-  def contacts(implicit checker: SignatureChecker): IO[List[Contact]] =
+  def contacts(implicit checkerFn: CheckerFn): IO[List[Contact]] =
     Traverse[List].traverse(seeds)(s ⇒ Contact.readB64seed[IO](s).value.flatMap(IO.fromEither))
 }
 

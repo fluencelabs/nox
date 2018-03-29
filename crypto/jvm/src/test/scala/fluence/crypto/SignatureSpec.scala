@@ -22,6 +22,7 @@ import java.io.File
 import cats.data.EitherT
 import cats.instances.try_._
 import fluence.crypto.algorithm.{CryptoErr, Ecdsa}
+import fluence.crypto.keypair.KeyPair
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
@@ -66,30 +67,33 @@ class SignatureSpec extends WordSpec with Matchers {
       val algo = Ecdsa.signAlgo
       val keys = algo.generateKeyPair().extract
       val signer = algo.signer(keys)
+      val checker = algo.checker(keys.publicKey)
 
       val data = rndByteVector(10)
-      val sign = signer.sign(data).extract
+      val sign = signer.sign(data).extract.sign
 
-      algo.checker.check(sign, data).isOk shouldBe true
+      checker.check(sign, data).isOk shouldBe true
 
-      val randomSign = signer.sign(rndByteVector(10)).extract
-      algo.checker.check(randomSign, data).isOk shouldBe false
+      val randomSign = signer.sign(rndByteVector(10)).extract.sign
+      checker.check(randomSign, data).isOk shouldBe false
     }
 
     "throw an errors on invalid data" in {
       val algo = Ecdsa.signAlgo
       val keys = algo.generateKeyPair().extract
       val signer = algo.signer(keys)
+      val checker = algo.checker(keys.publicKey)
       val data = rndByteVector(10)
 
-      val sign = signer.sign(data).extract
+      val sign = signer.sign(data).extract.sign
 
       the[CryptoErr] thrownBy {
-        algo.checker.check(sign.copy(sign = rndByteVector(10)), data).value.flatMap(_.toTry).get
+        checker.check(rndByteVector(10), data).value.flatMap(_.toTry).get
       }
+      val invalidChecker = algo.checker(KeyPair.fromByteVectors(rndByteVector(10), rndByteVector(10)).publicKey)
       the[CryptoErr] thrownBy {
-        algo.checker
-          .check(sign.copy(publicKey = sign.publicKey.copy(value = rndByteVector(10))), data)
+        invalidChecker
+          .check(sign, data)
           .value
           .flatMap(_.toTry)
           .get
@@ -111,10 +115,10 @@ class SignatureSpec extends WordSpec with Matchers {
 
       val signer = algo.signer(keys)
       val data = rndByteVector(10)
-      val sign = signer.sign(data).extract
+      val sign = signer.sign(data).extract.sign
 
-      algo.checker.check(sign.copy(publicKey = keysRead.publicKey), data).isOk shouldBe true
-      algo.checker.check(sign, data).isOk shouldBe true
+      algo.checker(keys.publicKey).check(sign, data).isOk shouldBe true
+      algo.checker(keysRead.publicKey).check(sign, data).isOk shouldBe true
 
       //try to store key into previously created file
       storage.storeSecretKey(keys).isFailure shouldBe true

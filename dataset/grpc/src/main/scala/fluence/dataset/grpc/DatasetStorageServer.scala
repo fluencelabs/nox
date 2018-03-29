@@ -315,8 +315,6 @@ class DatasetStorageServer[F[_]: Async](
     val (repl, stream) = streamObservable[PutCallbackReply]
     val pullClientReply = repl.pullable
 
-    // TODO: we should have version here
-
     def getReply[T](
       check: PutCallbackReply.Reply ⇒ Boolean,
       extract: PutCallbackReply.Reply ⇒ T
@@ -407,7 +405,7 @@ class DatasetStorageServer[F[_]: Async](
              * @param serverMerkleRoot New merkle root after putting key/value
              * @param wasSplitting     'True' id server performed tree rebalancing, 'False' otherwise
              */
-            override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[Unit] =
+            override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[ByteVector] =
               toF(
                 for {
                   _ ← pushServerAsk(
@@ -418,8 +416,8 @@ class DatasetStorageServer[F[_]: Async](
                       )
                     )
                   )
-                  _ ← getReply(_.isVerifyChanges, _.verifyChanges.get) // TODO: here we get signature
-                } yield ()
+                  clientSignature ← getReply(_.isVerifyChanges, _.verifyChanges.get.signature)
+                } yield ByteVector(clientSignature.toByteArray)
               )
 
             /**
