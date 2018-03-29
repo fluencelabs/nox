@@ -17,7 +17,7 @@
 
 package fluence.codec
 
-import cats.Traverse
+import cats.{MonadError, Traverse}
 import cats.arrow.Compose
 
 import scala.language.higherKinds
@@ -36,6 +36,12 @@ object PureCodec {
   implicit def identityPureCodec[T]: PureCodec[T, T] = lift(identity, identity)
 
   implicit def swapPureCodec[A, B](implicit codec: PureCodec[A, B]): PureCodec[B, A] = codec.swap
+
+  /**
+   * Picking the concrete F monad, we can convert PureCodec to a Codec with error effect beared inside the monad
+   */
+  implicit def toCodecF[F[_], A, B](implicit codec: PureCodec[A, B], F: MonadError[F, Throwable]): Codec[F, A, B] =
+    Codec(codec.direct.toKleisli.run, codec.inverse.toKleisli.run)
 
   /**
    * Generates a BifuncE, traversing the input with the given BifuncE

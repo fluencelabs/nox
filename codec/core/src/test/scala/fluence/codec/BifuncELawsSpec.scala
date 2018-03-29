@@ -17,18 +17,22 @@
 
 package fluence.codec
 
+import cats.laws.discipline.ComposeTests
+import cats.tests.CatsSuite
 import cats.Eq
+import org.scalacheck.ScalacheckShapeless._
 
-import scala.util.control.NoStackTrace
+class BifuncELawsSpec extends CatsSuite {
+  import FuncEInstances._
 
-/**
- * Left side for Codec functions
- * @param message Error message
- */
-case class CodecError(message: String) extends NoStackTrace {
-  override def getMessage: String = message
-}
+  implicit def eqBifuncE[E <: Throwable, A, B](
+    implicit directEq: Eq[FuncE[E, A, B]],
+    inverseEq: Eq[FuncE[E, B, A]]
+  ): Eq[BifuncE[E, A, B]] =
+    Eq.instance((x, y) ⇒ directEq.eqv(x.direct, y.direct) && inverseEq.eqv(x.inverse, y.inverse))
 
-object CodecError {
-  implicit val codecErrorEq: Eq[CodecError] = Eq.fromUniversalEquals
+  checkAll(
+    "BifuncE.ComposeLaws",
+    ComposeTests[BifuncE[CodecError, ?, ?]].compose[Int, String, Double, BigDecimal]
+  )
 }

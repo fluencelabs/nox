@@ -18,18 +18,25 @@
 package fluence.codec
 
 import cats.{Eq, Id}
-import cats.laws.discipline.ArrowChoiceTests
 import cats.laws.discipline.eq._
-import cats.tests.CatsSuite
 import org.scalacheck.{Arbitrary, Cogen, Gen}
-import org.scalacheck.ScalacheckShapeless._
 
-class FuncELawsSpec extends CatsSuite {
+object FuncEInstances {
+  implicit def arbFunc[E <: Throwable: Arbitrary, A: Arbitrary: Cogen, B: Arbitrary]: Arbitrary[FuncE[E, A, B]] =
+    Arbitrary(
+      Gen
+        .function1[A, (Boolean, B, E)](
+          Gen.zip(Arbitrary.arbitrary[Boolean], Arbitrary.arbitrary[B], Arbitrary.arbitrary[E])
+        )
+        .map(_.andThen { case (x, y, z) ⇒ Either.cond(x, y, z) })
+        .map(f ⇒ FuncE.liftEither(f))
+    )
 
-  import FuncEInstances._
-
-  checkAll(
-    "FuncE.ArrowChoiceLaws",
-    ArrowChoiceTests[FuncE[CodecError, ?, ?]].arrowChoice[Int, String, Double, BigDecimal, Long, Short]
-  )
+  implicit def eqFunc[E <: Throwable: Eq, A: Arbitrary, B: Eq]: Eq[FuncE[E, A, B]] = {
+    implicit val eitherEq: Eq[Either[E, B]] = Eq.instance((x, y) ⇒ x.fold(y.left.toOption.contains, y.contains))
+    val fnEq = implicitly[Eq[A ⇒ Either[E, B]]]
+    Eq.instance { (x, y) ⇒
+      fnEq.eqv(x.apply[Id](_).value, y.apply[Id](_).value)
+    }
+  }
 }
