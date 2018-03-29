@@ -28,6 +28,7 @@ import io.grpc.{CallOptions, ManagedChannel}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+// todo unit test
 class ContractAllocatorClient[C: ContractValidate](
   stub: ContractAllocatorStub
 )(
@@ -69,10 +70,10 @@ class ContractAllocatorClient[C: ContractValidate](
       _ ← contract.validateME[IO]
       offer ← codec.encode(contract)
       resp ← run(stub.allocate(offer))
-      contract ← codec.decode(resp)
+      respContract ← codec.decode(resp)
       // contract from the outside required validation
-      _ ← contract.validateME[IO]
-    } yield contract
+      _ ← respContract.validateME[IO]
+    } yield respContract
 
 }
 

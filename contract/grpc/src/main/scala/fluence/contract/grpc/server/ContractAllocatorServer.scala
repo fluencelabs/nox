@@ -26,6 +26,7 @@ import fluence.crypto.SignAlgo.CheckerFn
 
 import scala.concurrent.Future
 
+// todo unit test
 class ContractAllocatorServer[C: ContractValidate](contractAllocator: ContractAllocatorRpc[C])(
   implicit
   codec: Codec[IO, C, BasicContract],
@@ -53,9 +54,9 @@ class ContractAllocatorServer[C: ContractValidate](contractAllocator: ContractAl
         // contract from the outside required validation
         _ ← contract.validateME[IO]
         allocated ← contractAllocator.allocate(contract)
-        resp ← codec.encode(allocated)
         // we should validate contract before send outside for 'allocating'
-        _ ← contract.validateME[IO]
+        _ ← allocated.validateME[IO]
+        resp ← codec.encode(allocated)
       } yield resp
     ).unsafeToFuture()
 }
