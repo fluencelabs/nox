@@ -223,6 +223,25 @@ lazy val `kademlia-monix` =
 lazy val `kademlia-monix-js` = `kademlia-monix`.js
 lazy val `kademlia-monix-jvm` = `kademlia-monix`.jvm
 
+// Default Kademlia bundle and integration tests
+lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+    )
+  ).jsSettings(
+  fork in Test      := false,
+  scalaJSModuleKind := ModuleKind.CommonJSModule
+)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`kademlia-monix`, `kademlia-grpc`, `kademlia-testkit` % Test)
+
+lazy val `kademlia-js` = `kademlia`.js
+lazy val `kademlia-jvm` = `kademlia`.jvm
+
 lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)

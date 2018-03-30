@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.kad
 
 import java.net.InetAddress
 
@@ -29,7 +29,6 @@ import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.{KademliaGrpc, KademliaGrpcUpdate, KademliaNodeCodec}
 import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
-import fluence.kad.{KademliaConf, KademliaMVar}
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.GrpcServer
@@ -58,9 +57,8 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   private val algo = SignAlgo.dumb
 
-  import algo.checkerFn
-
   import KademliaNodeCodec.{codec ⇒ kadCodec}
+  import algo.checkerFn
 
   private val config = ConfigFactory.load()
 
@@ -124,9 +122,9 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       val secondContact = servers.last.contact
 
       servers.foreach { s ⇒
-        logger.debug(Console.BLUE + s"Join: ${s.nodeId}" + Console.RESET)
+        println(Console.BLUE + s"Join: ${s.nodeId}" + Console.RESET)
         s.join(Seq(firstContact, secondContact), 6).runAsync.futureValue
-        logger.debug(Console.BLUE + "Joined" + Console.RESET)
+        println(Console.BLUE + "Joined" + Console.RESET)
       }
 
     }
@@ -136,7 +134,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
         servers.map(_.key).filterNot(_ === s.key).foreach { k ⇒
           val li = s.kad.findNode(k, 8).runAsync.futureValue.map(_.key)
 
-          li should be('nonEmpty)
+          li shouldBe defined
 
           //println(Console.MAGENTA + li + Console.RESET)
 

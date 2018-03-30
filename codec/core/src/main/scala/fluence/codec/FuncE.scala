@@ -27,7 +27,7 @@ import scala.language.implicitConversions
 import scala.util.Try
 
 /**
- * FuncE is a special kind of arrow: A => EitherT[F, E, B] for any monad F[_]
+ * FuncE is a special kind of arrow: A => EitherT[F, E, B] for any monad F[_].
  * This signature makes the type both flexible and pure. It could be eager or lazy, synchronous or not depending on the
  * call site context.
  *
@@ -57,15 +57,6 @@ abstract class FuncE[E <: Throwable, A, B] {
   }
 
   /**
-   * Run the function, getting a String on the left side -- useful for EitherT composition.
-   *
-   * @param a Input
-   * @tparam F Monad
-   */
-  def applyS[F[_]: Monad](a: A): EitherT[F, String, B] =
-    apply(a).leftMap(_.getMessage)
-
-  /**
    * Wraps the function into concrete monad, lifting error side into MonadError effect.
    *
    * @param F Monad
@@ -83,7 +74,7 @@ abstract class FuncE[E <: Throwable, A, B] {
     apply(a).value.flatMap(F.fromEither)
 
   /**
-   * Compose two FuncE
+   * Composes two instances of FuncE in a new FuncE, with this function applied last.
    *
    * @param other FuncE to compose over this
    * @tparam EE Other's error type
@@ -165,7 +156,7 @@ object FuncE {
        * @tparam F Monad
        */
       override def apply[F[_]: Monad](a: G[A]): EitherT[F, E, G[B]] =
-        Traverse[G].traverse[λ[α ⇒ EitherT[F, E, α]], A, B](a)(funcE.apply)
+        Traverse[G].traverse[EitherT[F, E, ?], A, B](a)(funcE.apply)
     }
 
   /**
@@ -173,7 +164,7 @@ object FuncE {
    *
    * @tparam E Error type
    */
-  implicit def catsArrowChoice[E <: Throwable]: ArrowChoice[λ[(α, β) ⇒ FuncE[E, α, β]]] = {
+  implicit def catsArrowChoice[E <: Throwable]: ArrowChoice[FuncE[E, ?, ?]] = {
     type G[A, B] = FuncE[E, A, B]
     new ArrowChoice[G] {
       override def choose[A, B, C, D](f: G[A, C])(g: G[B, D]): G[Either[A, B], Either[C, D]] =
