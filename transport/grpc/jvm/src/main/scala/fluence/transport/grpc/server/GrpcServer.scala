@@ -17,58 +17,31 @@
 
 package fluence.transport.grpc.server
 
-import java.net.InetAddress
-import java.util.concurrent.atomic.AtomicReference
-
 import cats.data.Kleisli
 import cats.effect.IO
 import fluence.transport.TransportServer
 import io.grpc._
 
-/**
- * Server wrapper
- *
- * @param server     grpc Server instance
- * @param address    Most accessible address for the server (may be local)
- * @param port       Most accessible port for the server (may be local)
- * @param onStart    Callback to launch before start; should be used to grab UPnP ports etc.
- * @param onShutdown Callback to launch on shutdown; should be used to release UPnP ports etc.
- */
 class GrpcServer private (
-  server: ⇒ Server,
-  val address: InetAddress,
-  val port: Int,
-  onStart: IO[Unit],
-  onShutdown: IO[Unit]
-) extends TransportServer with slogging.LazyLogging {
-  private val serverRef = new AtomicReference[Server](null)
+  builderImpl: ⇒ IO[Server],
+  onStartImpl: IO[Unit],
+  onShutdownImpl: ⇒ IO[Unit]
+) extends TransportServer[Server, Server] {
 
-  /**
-   * Launch server, grab ports, or fail
-   */
-  val start: IO[Unit] =
+  override def startServer: Server ⇒ IO[Server] = s ⇒ IO(s.start())
+
+  override def shutdownServer: Server ⇒ IO[Unit] = { s ⇒
     for {
-      _ ← if (serverRef.get() == null) IO.unit else shutdown
-      _ ← onStart
-      s ← IO(server.start())
-    } yield {
-      serverRef.set(s)
-      logger.info("Server started on port " + port)
-    }
+      _ ← IO(s.shutdown())
+      _ ← IO(s.awaitTermination())
+    } yield ()
+  }
 
-  /**
-   * Shut the server down, release ports
-   */
-  lazy val shutdown: IO[Unit] =
-    Option(serverRef.getAndSet(null)).fold(IO(logger.debug("Already shut down? " + port)))(
-      srv ⇒
-        for {
-          _ ← IO(srv.shutdown())
-          _ ← onShutdown
-          _ ← IO(srv.awaitTermination())
-        } yield logger.info("Shut down on port: " + port)
-    )
+  override def onStart: IO[Unit] = onStartImpl
 
+  override def onShutdown: IO[Unit] = onShutdownImpl
+
+  override lazy val builder: IO[Server] = builderImpl
 }
 
 object GrpcServer extends slogging.LazyLogging {
@@ -77,7 +50,6 @@ object GrpcServer extends slogging.LazyLogging {
    *
    * @param onShutdown   Callback to be launched before server shut down
    * @param onStart      Callback to be launched before server starts
-   * @param address      Most accessible address
    * @param port         Most accessible port
    * @param services     List of services to register with the server
    * @param interceptors List of call interceptors to register with the server
@@ -85,7 +57,6 @@ object GrpcServer extends slogging.LazyLogging {
   case class Builder(
     onShutdown: IO[Unit],
     onStart: IO[Unit],
-    address: InetAddress,
     port: Int,
     services: List[ServerServiceDefinition],
     interceptors: List[ServerInterceptor]
@@ -149,9 +120,9 @@ object GrpcServer extends slogging.LazyLogging {
      *
      * @return
      */
-    def build: GrpcServer =
+    def build: GrpcServer = {
       new GrpcServer(
-        server = {
+        builderImpl = IO {
           logger.info(s"Building GRPC server forPort($port)")
 
           val sb = ServerBuilder
@@ -163,11 +134,10 @@ object GrpcServer extends slogging.LazyLogging {
 
           sb.build()
         },
-        address = address,
-        port = port,
-        onStart = onStart,
-        onShutdown = onShutdown
+        onStartImpl = onStart,
+        onShutdownImpl = onShutdown
       )
+    }
   }
 
   /**
@@ -175,13 +145,14 @@ object GrpcServer extends slogging.LazyLogging {
    *
    * @param conf Server config object
    */
-  def builder(conf: GrpcServerConf): Builder =
+  def builder(conf: GrpcServerConf): Builder = {
+    val port = conf.port
     Builder(
-      onStart = IO.unit,
-      onShutdown = IO.unit,
-      address = InetAddress.getLocalHost,
+      onStart = IO(logger.info("Server started on port " + port)),
+      onShutdown = IO(logger.info("Shut down on port: " + port)),
       port = conf.port,
       services = Nil,
       interceptors = Nil
     )
+  }
 }

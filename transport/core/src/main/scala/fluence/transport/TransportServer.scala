@@ -17,5 +17,44 @@
 
 package fluence.transport
 
-// TODO: expose lifecycle events, allow subscribing on them
-trait TransportServer
+import java.util.concurrent.atomic.AtomicReference
+
+import cats.effect.IO
+
+trait TransportServer[B, S] extends slogging.LazyLogging {
+
+  private val serverRef = new AtomicReference[S](null.asInstanceOf[S])
+
+  def onStart: IO[Unit]
+  def onShutdown: IO[Unit]
+
+  def builder: IO[B]
+
+  def startServer: B ⇒ IO[S]
+  def shutdownServer: S ⇒ IO[Unit]
+
+  /**
+   * Launch server, grab ports, or fail
+   */
+  val start: IO[Unit] =
+    for {
+      _ ← if (serverRef.get() == null) IO.unit else shutdown
+      ser ← builder
+      s ← startServer(ser)
+      _ ← onStart
+    } yield {
+      serverRef.set(s)
+    }
+
+  /**
+   * Shut the server down, release ports
+   */
+  lazy val shutdown: IO[Unit] =
+    Option(serverRef.getAndSet(null.asInstanceOf[S])).fold(IO.unit)(
+      srv ⇒
+        for {
+          _ ← onShutdown
+          _ ← shutdownServer(srv)
+        } yield {}
+    )
+}
