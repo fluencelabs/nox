@@ -38,7 +38,7 @@ import fluence.node.core.NodeComposer
 import fluence.node.core.config.{ContactConf, UPnPConf}
 import fluence.node.grpc.NodeGrpc
 import fluence.transport.UPnP
-import fluence.transport.grpc.server.{GrpcServerConf, HttpProxy}
+import fluence.transport.grpc.server.GrpcServerConf
 import monix.eval.Task
 import monix.execution.Scheduler
 
@@ -163,9 +163,8 @@ object FluenceNode extends slogging.LazyLogging {
 
       server ← NodeGrpc.grpcServer(services, builder, config).onFail(closeUpNpAndServices)
 
-      http4s ← IO(HttpProxyHttp4s.builder.unsafeRunSync())
-
       _ ← server.start.onFail(closeUpNpAndServices)
+      http4s ← IO(HttpProxyHttp4s.builder(server).unsafeRunSync())
       closeAll = closeUpNpAndServices.flatMap(_ ⇒ server.shutdown).flatMap(_ ⇒ http4s.shutdown)
 
       seedConfig ← SeedsConfig.read(config).onFail(closeAll)

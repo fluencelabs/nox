@@ -21,6 +21,7 @@ import cats.data.Kleisli
 import cats.effect.IO
 import fluence.transport.TransportServer
 import io.grpc._
+import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 
 class GrpcServer private (
   builderImpl: ⇒ IO[Server],
@@ -132,7 +133,9 @@ object GrpcServer extends slogging.LazyLogging {
 
           interceptors.reverseIterator.foreach(sb.intercept)
 
-          sb.build()
+          val ser = sb.build()
+
+          ser
         },
         onStartImpl = onStart,
         onShutdownImpl = onShutdown

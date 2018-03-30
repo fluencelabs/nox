@@ -23,7 +23,7 @@ import cats.effect.IO
 
 trait TransportServer[B, S] extends slogging.LazyLogging {
 
-  private val serverRef = new AtomicReference[S](null.asInstanceOf[S])
+  val serverRef = new AtomicReference[S](null.asInstanceOf[S])
 
   def onStart: IO[Unit]
   def onShutdown: IO[Unit]
