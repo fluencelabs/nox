@@ -597,12 +597,16 @@ lazy val `client-cli-app` = project
   .settings(commons)
   .dependsOn(`client-cli-jvm`, `client-grpc`)
 
+val http4sVersion = "0.18.5"
+
 lazy val `node-core` = project
   .in(file("node/core"))
   .settings(
     commons,
     protobuf,
     libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-dsl" % http4sVersion,
+      "org.http4s" %% "http4s-blaze-server" % http4sVersion,
       scalatest
     )
   )
