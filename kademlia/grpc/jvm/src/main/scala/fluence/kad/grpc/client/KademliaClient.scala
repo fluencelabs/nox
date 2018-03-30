@@ -47,8 +47,6 @@ class KademliaClient(stub: grpc.KademliaGrpc.Kademlia)(
 
   /**
    * Ping the contact, get its actual Node status, or fail
-   *
-   * @return
    */
   override def ping(): IO[Node[Contact]] =
     for {
@@ -60,7 +58,6 @@ class KademliaClient(stub: grpc.KademliaGrpc.Kademlia)(
    * Perform a local lookup for a key, return K closest known nodes
    *
    * @param key Key to lookup
-   * @return
    */
   override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] =
     for {

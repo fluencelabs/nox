@@ -44,7 +44,7 @@ object KademliaNodeCodec {
         ).pure[F],
       binary ⇒
         for {
-          k ← Key.fromBytes.toKleisli[F].run(binary.id.toByteArray) // TODO err: wrong key size
+          k ← Key.fromBytes.runF[F](binary.id.toByteArray)
           c ← Contact
             .readB64seed[F](new String(binary.contact.toByteArray))
             .value

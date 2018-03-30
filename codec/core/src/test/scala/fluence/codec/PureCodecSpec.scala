@@ -31,8 +31,8 @@ class PureCodecSpec extends WordSpec with Matchers with Checkers {
     "summon implicit identity" in {
       val intId = implicitly[PureCodec[Int, Int]]
       check { (i: Int) ⇒
-        intId.direct.toKleisli[Try].run(i).get == i &&
-        intId.inverse.toKleisli[Try].run(i).get == i
+        intId.direct.runF[Try](i).get == i &&
+        intId.inverse.runF[Try](i).get == i
       }
 
     }

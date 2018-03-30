@@ -31,7 +31,7 @@ case class BifuncE[E <: Throwable, A, B](direct: FuncE[E, A, B], inverse: FuncE[
     implicitly[Compose[BifuncE[E, ?, ?]]].andThen(this, other)
 
   def toCodec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, A, B] =
-    Codec(direct.toKleisli.run, inverse.toKleisli.run)
+    Codec(direct.runF[F], inverse.runF[F])
 }
 
 object BifuncE extends PureCodecInstances {

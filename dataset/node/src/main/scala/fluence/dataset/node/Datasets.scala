@@ -62,7 +62,7 @@ class Datasets(
   private def storage(datasetId: Array[Byte], clientVersion: Long): Task[DatasetNodeStorage] = {
 
     val resultStorage = for {
-      key ← Key.fromBytes.toKleisli[Task].run(datasetId)
+      key ← Key.fromBytes.runF[Task](datasetId)
       nodeExecState ← servesDataset(key)
       _ ← nodeExecState match {
         case Some(currentNodeVersion) ⇒

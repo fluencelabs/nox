@@ -46,7 +46,7 @@ object KademliaNodeCodec {
         .value
         .flatMap(F.fromEither) // TODO err: crypto
 
-    def keyFromBytes(arr: Array[Byte]) = Key.fromBytes.toKleisli[F].run(arr) // TODO err: wrong key size
+    def keyFromBytes(arr: Array[Byte]) = Key.fromBytes.runF[F](arr)
 
     def encode: fluence.kad.protocol.Node[Contact] ⇒ F[Node] =
       obj ⇒

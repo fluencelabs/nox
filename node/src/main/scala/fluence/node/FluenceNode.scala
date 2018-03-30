@@ -129,7 +129,7 @@ object FluenceNode extends slogging.LazyLogging {
       _ ← initDirectory(config.getString("fluence.directory")) // TODO config
       kpConf ← KeyPairConfig.read(config)
       kp ← FileKeyStorage.getKeyPair[IO](kpConf.keyPath, algo)
-      key ← Key.fromKeyPair.toKleisli[IO].run(kp)
+      key ← Key.fromKeyPair.runF[IO](kp)
 
       grpcServerConf ← NodeGrpc.grpcServerConf(config)
       builder ← NodeGrpc.grpcServerBuilder(grpcServerConf)

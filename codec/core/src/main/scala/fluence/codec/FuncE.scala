@@ -30,6 +30,7 @@ import scala.util.Try
  * FuncE is a special kind of arrow: A => EitherT[F, E, B] for any monad F[_]
  * This signature makes the type both flexible and pure. It could be eager or lazy, synchronous or not depending on the
  * call site context.
+ *
  * @tparam E Error type
  * @tparam A Input type
  * @tparam B Successful result type
@@ -39,6 +40,7 @@ abstract class FuncE[E <: Throwable, A, B] {
 
   /**
    * Run the function, using F monad.
+   *
    * @param a Input
    * @tparam F Monad
    */
@@ -46,15 +48,17 @@ abstract class FuncE[E <: Throwable, A, B] {
 
   /**
    * Unsafe run for the function, throws exceptions -- only to be used in tests!
+   *
    * @param a Input
    */
   def unsafe(a: A): B = {
     import cats.instances.try_._
-    toKleisli[Try].run(a).get
+    runF[Try](a).get
   }
 
   /**
    * Run the function, getting a String on the left side -- useful for EitherT composition.
+   *
    * @param a Input
    * @tparam F Monad
    */
@@ -63,15 +67,24 @@ abstract class FuncE[E <: Throwable, A, B] {
 
   /**
    * Wraps the function into concrete monad, lifting error side into MonadError effect.
+   *
    * @param F Monad
    * @tparam F MonadError instance to lift E into Throwable
-   * @return
    */
   def toKleisli[F[_]](implicit F: MonadError[F, Throwable]): Kleisli[F, A, B] =
-    Kleisli(apply(_).value.flatMap(F.fromEither))
+    Kleisli(runF[F])
+
+  /**
+   * Runs the function with concrete MonadError effect.
+   *
+   * @tparam F MonadError instance to lift E into Throwable
+   */
+  def runF[F[_]](a: A)(implicit F: MonadError[F, Throwable]): F[B] =
+    apply(a).value.flatMap(F.fromEither)
 
   /**
    * Compose two FuncE
+   *
    * @param other FuncE to compose over this
    * @tparam EE Other's error type
    * @tparam C The new input type
@@ -97,6 +110,7 @@ object FuncE {
 
   /**
    * Lift a pure function into FuncE.
+   *
    * @param f The function to lift
    * @tparam A Input
    * @tparam E Error type
@@ -109,6 +123,7 @@ object FuncE {
 
   /**
    * Lift a pure function that uses Either to return errors.
+   *
    * @param f The function to lift
    * @tparam A Input
    * @tparam E Error type
@@ -121,6 +136,7 @@ object FuncE {
 
   /**
    * FuncE that does nothing.
+   *
    * @tparam E Error type
    * @tparam T Input and output type
    */
@@ -154,6 +170,7 @@ object FuncE {
 
   /**
    * FuncE obeys arrow choice laws with any fixed E
+   *
    * @tparam E Error type
    */
   implicit def catsArrowChoice[E <: Throwable]: ArrowChoice[λ[(α, β) ⇒ FuncE[E, α, β]]] = {

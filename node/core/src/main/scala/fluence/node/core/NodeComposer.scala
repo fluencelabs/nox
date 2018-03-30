@@ -74,7 +74,7 @@ object NodeComposer {
     clock: Clock
   )(implicit scheduler: Scheduler): IO[Services] =
     for {
-      nodeKey ← Key.fromKeyPair.toKleisli[IO].run(keyPair)
+      nodeKey ← Key.fromKeyPair.runF[IO](keyPair)
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
       rocksDbFactory = new RocksDbStore.Factory
       contractsCacheStore ← ContractsCacheStore(config, dirName ⇒ rocksDbFactory[IO](dirName, config))

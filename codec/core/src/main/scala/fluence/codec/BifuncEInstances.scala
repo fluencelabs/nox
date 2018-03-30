@@ -36,7 +36,7 @@ private[codec] trait BifuncEInstances {
     implicit codec: BifuncE[E, A, B],
     F: MonadError[F, Throwable]
   ): Codec[F, A, B] =
-    Codec(codec.direct.toKleisli.run, codec.inverse.toKleisli.run)
+    codec.toCodec[F]
 
   /**
    * Generates a BifuncE, traversing the input with the given BifuncE
