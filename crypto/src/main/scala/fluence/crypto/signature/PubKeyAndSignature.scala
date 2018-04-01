@@ -18,7 +18,6 @@
 package fluence.crypto.signature
 
 import fluence.crypto.keypair.KeyPair
-import scodec.bits.ByteVector
 
 /**
  * Container for public key of signer and a signature.
@@ -26,4 +25,4 @@ import scodec.bits.ByteVector
  * @param publicKey Public key of signature maker
  * @param signature Some signature
  */
-case class PubKeyAndSignature(publicKey: KeyPair.Public, signature: ByteVector)
+case class PubKeyAndSignature(publicKey: KeyPair.Public, signature: Signature)

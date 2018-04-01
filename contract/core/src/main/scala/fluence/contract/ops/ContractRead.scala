@@ -17,12 +17,12 @@
 
 package fluence.contract.ops
 
-import cats.data.EitherT
 import cats.Monad
+import cats.data.EitherT
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{ Signature, SignatureChecker }
+import fluence.crypto.signature.{PubKeyAndSignature, Signature, SignatureChecker}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
@@ -71,7 +71,7 @@ trait ContractRead[C] {
    * @param contract Contract
    * @param participant Participating node's key
    */
-  def participantSignature(contract: C, participant: Key): Option[Signature]
+  def participantSignature(contract: C, participant: Key): Option[PubKeyAndSignature]
 
   /**
    * Returns contract offer's bytes representation, used to sign & verify signatures
@@ -119,7 +119,8 @@ object ContractRead {
 
     def participantsRequired: Int = read.participantsRequired(contract)
 
-    def participantSignature(participant: Key): Option[Signature] = read.participantSignature(contract, participant)
+    def participantSignature(participant: Key): Option[PubKeyAndSignature] =
+      read.participantSignature(contract, participant)
 
     def getOfferBytes: ByteVector = read.getOfferBytes(contract)
 
@@ -154,7 +155,8 @@ object ContractRead {
       signature: Signature,
       checker: SignatureChecker
     ): EitherT[F, CryptoErr, Unit] =
-      checker.check[F](signature.sign, getOfferBytes)
+      checker
+        .check[F](signature, getOfferBytes)
         .leftMap(e ⇒ e.copy(errorMessage = s"Offer seal is not verified for contract(id=$id)"))
 
     /**
@@ -179,7 +181,7 @@ object ContractRead {
       participantSignature(participant).map { pSignature ⇒
         val participantChecker = checkerFn(pSignature.publicKey)
         for {
-          _ ← checkOfferSignature(pSignature, participantChecker)
+          _ ← checkOfferSignature(pSignature.signature, participantChecker)
           _ ← checkPubKey
         } yield true
       }.getOrElse(EitherT.rightT(false))
@@ -195,8 +197,9 @@ object ContractRead {
       participantsSeal match {
         case Some(sign) ⇒
           for {
-            _ ← checkerFn(publicKey).check[F](sign.sign, getParticipantsBytes)
-                .leftMap(e ⇒ e.copy(errorMessage = s"Participants seal is not verified for contract(id=$id)"))
+            _ ← checkerFn(publicKey)
+              .check[F](sign, getParticipantsBytes)
+              .leftMap(e ⇒ e.copy(errorMessage = s"Participants seal is not verified for contract(id=$id)"))
             _ ← checkPubKey
           } yield Some(())
         case None ⇒
@@ -217,7 +220,7 @@ object ContractRead {
             participantSigned[F](pk)
               .map[Either[Stream[Key], Unit]] {
                 case true ⇒ Left(tail)
-                case false ⇒ Right(false)
+                case false ⇒ Right(())
               }
           case _ ⇒
             Monad[M].pure(Right[Stream[Key], Unit](()))
@@ -244,7 +247,8 @@ object ContractRead {
     private def checkExecStateSignature[F[_]: Monad](
       signature: Signature
     )(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, Unit] =
-      checkerFn(publicKey).check[F](signature.sign, getExecutionStateBytes)
+      checkerFn(publicKey)
+        .check[F](signature, getExecutionStateBytes)
         .leftMap(e ⇒ e.copy(errorMessage = s"Execution state seal is not verified for contract(id=$id)"))
 
     /**

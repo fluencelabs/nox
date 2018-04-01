@@ -28,7 +28,7 @@ import fluence.codec.pb.ProtobufCodecs._
 import fluence.contract
 import fluence.contract.BasicContract.ExecutionState
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.Signature
+import fluence.crypto.signature.{PubKeyAndSignature, Signature}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
@@ -56,11 +56,11 @@ object BasicContractCodec {
           pubKBs ← pubKeyC.encode(bc.publicKey)
 
           participantsBs ← Traverse[List].traverse(bc.participants.toList) {
-            case (pK: Key, pS: Signature) ⇒
+            case (pK: Key, pS: PubKeyAndSignature) ⇒
               for {
                 pkBs ← keyC.encode(pK)
                 pubKBs ← pubKeyC.encode(pS.publicKey)
-                signBs ← strVec.encode(pS.sign)
+                signBs ← strVec.encode(pS.signature.sign)
               } yield Participant(id = pkBs, publicKey = pubKBs, signature = signBs)
           }
 
@@ -113,7 +113,7 @@ object BasicContractCodec {
               key ← keyC.decode(participant.id)
               pubK ← pubKeyC.decode(participant.publicKey)
               sign ← strVec.decode(participant.signature)
-            } yield key -> Signature(pubK, sign)
+            } yield key -> PubKeyAndSignature(pubK, Signature(sign))
           }
 
           version ← read("version", _.version)
@@ -130,15 +130,14 @@ object BasicContractCodec {
             offer = fluence.contract.BasicContract.Offer(
               participantsRequired = participantsRequired
             ),
-            offerSeal = Signature(pubKey, offerSeal),
+            offerSeal = Signature(offerSeal),
             participants = participants.toMap,
-            participantsSeal = participantsSealOpt
-              .map(Signature(pubKey, _)),
+            participantsSeal = participantsSealOpt.map(Signature(_)),
             executionState = ExecutionState(
               version = version,
               merkleRoot = merkleRoot
             ),
-            executionSeal = Signature(pubKey, execSeal)
+            executionSeal = Signature(execSeal)
           )
         } yield deserializedContract
       }
