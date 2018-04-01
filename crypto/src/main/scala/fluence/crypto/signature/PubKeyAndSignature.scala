@@ -17,13 +17,13 @@
 
 package fluence.crypto.signature
 
-import cats.Monad
-import cats.data.EitherT
-import fluence.crypto.algorithm.CryptoErr
+import fluence.crypto.keypair.KeyPair
 import scodec.bits.ByteVector
 
-import scala.language.higherKinds
-
-trait SignatureChecker {
-  def check[F[_]: Monad](signature: Signature, plain: ByteVector): EitherT[F, CryptoErr, Unit]
-}
+/**
+ * Container for public key of signer and a signature.
+ *
+ * @param publicKey Public key of signature maker
+ * @param signature Some signature
+ */
+case class PubKeyAndSignature(publicKey: KeyPair.Public, signature: ByteVector)

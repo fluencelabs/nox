@@ -40,7 +40,7 @@ object Signer {
     override def publicKey: KeyPair.Public = keyPair.publicKey
 
     override def sign[F[_]: Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature] =
-      EitherT.pure(Signature(keyPair.publicKey, plain.reverse))
+      EitherT.pure(Signature(plain.reverse))
   }
 
 }
