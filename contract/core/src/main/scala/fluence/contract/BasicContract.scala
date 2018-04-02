@@ -25,7 +25,7 @@ import fluence.contract.ops.ContractValidate.ValidationErr
 import fluence.contract.ops.{ContractRead, ContractValidate, ContractWrite}
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{Signature, Signer}
+import fluence.crypto.signature.{PubKeyAndSignature, Signature, Signer}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
@@ -48,7 +48,7 @@ case class BasicContract(
   publicKey: KeyPair.Public,
   offer: BasicContract.Offer,
   offerSeal: Signature,
-  participants: Map[Key, Signature],
+  participants: Map[Key, PubKeyAndSignature],
   participantsSeal: Option[Signature],
   executionState: ExecutionState,
   executionSeal: Signature
@@ -88,8 +88,12 @@ object BasicContract {
     override def setOfferSeal(contract: BasicContract, signature: Signature): BasicContract =
       contract.copy(offerSeal = signature)
 
-    override def setOfferSignature(contract: BasicContract, participant: Key, signature: Signature): BasicContract =
-      contract.copy(participants = contract.participants + (participant -> signature))
+    override def setOfferSignature(
+      contract: BasicContract,
+      participant: Key,
+      keyAndSign: PubKeyAndSignature
+    ): BasicContract =
+      contract.copy(participants = contract.participants + (participant -> keyAndSign))
 
     override def setParticipantsSeal(contract: BasicContract, signature: Signature): BasicContract =
       contract.copy(participantsSeal = Some(signature))
@@ -143,7 +147,7 @@ object BasicContract {
      * @param contract    Contract
      * @param participant Participating node's key
      */
-    override def participantSignature(contract: BasicContract, participant: Key): Option[Signature] =
+    override def participantSignature(contract: BasicContract, participant: Key): Option[PubKeyAndSignature] =
       contract.participants.get(participant)
 
     /**
@@ -168,7 +172,7 @@ object BasicContract {
     override def getParticipantsBytes(contract: BasicContract): ByteVector =
       participants(contract).toSeq
         .sorted(Key.relativeOrdering(contract.id))
-        .map(key ⇒ participantSignature(contract, key).fold(ByteVector.empty)(_.sign))
+        .map(key ⇒ participantSignature(contract, key).fold(ByteVector.empty)(_.signature.sign))
         .foldLeft(contract.id.value)(_ ++ _)
 
     /**

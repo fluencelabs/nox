@@ -55,8 +55,8 @@ class SignAlgo(name: String, algo: KeyGenerator with SignatureFunctions) {
    * @return
    */
   def checker(publicKey: KeyPair.Public): SignatureChecker = new SignatureChecker {
-    override def check[F[_]: Monad](signature: ByteVector, plain: ByteVector): EitherT[F, CryptoErr, Unit] =
-      algo.verify(Signature(publicKey, signature), plain)
+    override def check[F[_]: Monad](signature: Signature, plain: ByteVector): EitherT[F, CryptoErr, Unit] =
+      algo.verify(publicKey, signature, plain)
 
     override def toString: String = s"SignatureChecker($name)"
   }

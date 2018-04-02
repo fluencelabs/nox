@@ -23,7 +23,7 @@ import cats.instances.try_._
 import fluence.contract.{BasicContract, _}
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.{CryptoErr, Ecdsa}
-import fluence.crypto.signature.Signature
+import fluence.crypto.signature.{PubKeyAndSignature, Signature}
 import fluence.kad.protocol.Key
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
@@ -47,10 +47,7 @@ class ContractReadSpec extends WordSpec with Matchers {
     contractOwnerSigner.sign[Option](ByteVector("corruption".getBytes)).success
   private val maliciousPubKey = signAlgo.generateKeyPair[Option]().success.publicKey
 
-  private def corruptSignature(signature: Signature): Signature =
-    signature.copy(sign = corruptedSignature.sign)
-
-  private def changeToMaliciousPubKey(signature: Signature): Signature =
+  private def changeToMaliciousPubKey(signature: PubKeyAndSignature): PubKeyAndSignature =
     signature.copy(publicKey = maliciousPubKey)
 
   "ContractRead.ReadOps.checkOfferSeal" should {
@@ -58,7 +55,7 @@ class ContractReadSpec extends WordSpec with Matchers {
       "offer seal is corrupted" in {
         val result =
           sealOffer(contract)
-            .copy(offerSeal = corruptSignature(contract.offerSeal))
+            .copy(offerSeal = corruptedSignature)
             .checkOfferSeal[Option]
 
         result.failed.getMessage should startWith("Offer seal is not verified for contract")
@@ -84,7 +81,7 @@ class ContractReadSpec extends WordSpec with Matchers {
       "offer seal is corrupted" in {
         val result =
           sealOffer(contract)
-            .copy(offerSeal = corruptSignature(contract.offerSeal))
+            .copy(offerSeal = corruptedSignature)
             .isBlankOffer[Option]
 
         result.failed.getMessage should startWith("Offer seal is not verified for contract")
@@ -115,8 +112,8 @@ class ContractReadSpec extends WordSpec with Matchers {
     "fail" when {
       "sign is corrupted" in {
         val signedContract = signWithParticipants(contract)
-        val corruptedSignedParticipants: Map[Key, Signature] =
-          signedContract.participants.map { case (k, s) ⇒ k → corruptSignature(s) }
+        val corruptedSignedParticipants: Map[Key, PubKeyAndSignature] =
+          signedContract.participants.map { case (k, s) ⇒ k → s.copy(signature = corruptedSignature) }
         val contractWithCorruptedSign = signedContract.copy(participants = corruptedSignedParticipants)
 
         val result = contractWithCorruptedSign.participantSigned[Option](signedContract.participants.head._1)
@@ -124,7 +121,7 @@ class ContractReadSpec extends WordSpec with Matchers {
       }
       "public key is malicious (substituted)" in {
         val signedContract = signWithParticipants(contract)
-        val signedParticipantsWithBadPubKey: Map[Key, Signature] =
+        val signedParticipantsWithBadPubKey: Map[Key, PubKeyAndSignature] =
           signedContract.participants.map { case (k, s) ⇒ k → changeToMaliciousPubKey(s) }
         val contractWithBadPubKeySign = signedContract.copy(participants = signedParticipantsWithBadPubKey)
 
@@ -157,7 +154,7 @@ class ContractReadSpec extends WordSpec with Matchers {
       "participant seal is corrupted" in {
         val result =
           sealParticipants(contract)
-            .copy(participantsSeal = Some(corruptSignature(contract.offerSeal)))
+            .copy(participantsSeal = Some(corruptedSignature))
             .checkParticipantsSeal[Option]
 
         result.failed.getMessage should startWith("Participants seal is not verified for contract")
@@ -192,10 +189,12 @@ class ContractReadSpec extends WordSpec with Matchers {
       }
       "one signatures are invalid" in {
         val signedContract: BasicContract = signWithParticipants(contract)
-        val corruptedSignedParticipants: Map[Key, Signature] =
+        val corruptedSignedParticipants: Map[Key, PubKeyAndSignature] =
           signedContract.participants.map {
             case (k, s) ⇒
-              k → s.copy(sign = contractOwnerSigner.sign[Option](ByteVector("corruption".getBytes)).success.sign)
+              k → s.copy(
+                signature = contractOwnerSigner.sign[Option](ByteVector("corruption".getBytes)).success
+              )
           }
         val contractWithCorruptedSign = signedContract.copy(participants = corruptedSignedParticipants)
 
@@ -215,7 +214,7 @@ class ContractReadSpec extends WordSpec with Matchers {
       "execution state seal is corrupted" in {
         val result =
           sealExecState(contract)
-            .copy(executionSeal = corruptSignature(contract.executionSeal))
+            .copy(executionSeal = corruptedSignature)
             .checkExecStateSeal[Option]
 
         result.failed.getMessage should startWith("Execution state seal is not verified for contract")

@@ -17,8 +17,17 @@
 
 package fluence.crypto.signature
 
-import fluence.crypto.keypair.KeyPair
 import scodec.bits.ByteVector
 
-// todo remove PubKey from signature
-case class Signature(publicKey: KeyPair.Public, sign: ByteVector)
+/** Container for a signature. */
+case class Signature private (sign: ByteVector) extends AnyVal {
+  def bytes: Array[Byte] = sign.toArray
+}
+
+object Signature {
+
+  def apply(sign: ByteVector): Signature = new Signature(sign)
+
+  def apply(sign: Array[Byte]): Signature = new Signature(ByteVector(sign))
+
+}

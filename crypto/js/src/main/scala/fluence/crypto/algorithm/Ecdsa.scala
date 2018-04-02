@@ -17,8 +17,8 @@
 
 package fluence.crypto.algorithm
 
-import cats.data.EitherT
 import cats.Monad
+import cats.data.EitherT
 import fluence.crypto.SignAlgo
 import fluence.crypto.facade.ecdsa.EC
 import fluence.crypto.hash.{CryptoHasher, JsCryptoHasher}
@@ -58,7 +58,7 @@ class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
       }("Cannot get private key from key pair.")
       hash ← hash(message)
       signHex ← nonFatalHandling(secret.sign(new Uint8Array(hash)).toDER("hex"))("Cannot sign message")
-    } yield Signature(keyPair.publicKey, ByteVector.fromValidHex(signHex))
+    } yield Signature(ByteVector.fromValidHex(signHex))
   }
 
   def hash[F[_]: Monad](message: ByteVector): EitherT[F, CryptoErr, js.Array[Byte]] = {
@@ -72,10 +72,14 @@ class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
       .map(_.toJSArray)
   }
 
-  override def verify[F[_]: Monad](signature: Signature, message: ByteVector): EitherT[F, CryptoErr, Unit] = {
+  override def verify[F[_]: Monad](
+    pubKey: KeyPair.Public,
+    signature: Signature,
+    message: ByteVector
+  ): EitherT[F, CryptoErr, Unit] = {
     for {
       public ← nonFatalHandling {
-        val hex = signature.publicKey.value.toHex
+        val hex = pubKey.value.toHex
         ec.keyFromPublic(hex, "hex")
       }("Incorrect public key format.")
       hash ← hash(message)

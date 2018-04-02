@@ -96,7 +96,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   "contract allocator" should {
 
     "reject offer with wrong signature" in {
-      val contract = offer("dumb0").copy(offerSeal = Signature(KeyPair.Public(ByteVector.empty), ByteVector.empty))
+      val contract = offer("dumb0").copy(offerSeal = Signature(ByteVector.empty))
       allocator.offer(contract).attempt.unsafeRunSync().isLeft shouldBe true
     }
 

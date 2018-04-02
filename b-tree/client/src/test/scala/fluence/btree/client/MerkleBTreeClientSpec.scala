@@ -23,6 +23,7 @@ import fluence.btree.core.{Hash, Key}
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.TestCryptoHasher
+import fluence.crypto.signature.Signature
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.schedulers.TestScheduler
@@ -213,7 +214,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
             _ ← putCallbacks.changesStored()
           } yield signed
         )
-        checker.check[Id](signedState, newVersion ++ newMRoot.asByteVector).value.right.get shouldBe ()
+        checker.check[Id](Signature(signedState), newVersion ++ newMRoot.asByteVector).value.right.get shouldBe ()
       }
 
       "key was found in tree (root inserting) " in {
@@ -233,7 +234,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
           } yield signed
         )
 
-        checker.check[Id](signedState, newVersion ++ newMRoot.asByteVector).value.right.get shouldBe ()
+        checker.check[Id](Signature(signedState), newVersion ++ newMRoot.asByteVector).value.right.get shouldBe ()
       }
 
       "key ins't present in tree (second level inserting)" in {
@@ -255,7 +256,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
           } yield signed
         )
 
-        checker.check[Id](signedState, newVersion ++ newMRoot.asByteVector).value.right.get shouldBe ()
+        checker.check[Id](Signature(signedState), newVersion ++ newMRoot.asByteVector).value.right.get shouldBe ()
       }
 
       "key was present in tree (second level inserting)" in {
@@ -278,7 +279,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
           } yield signed
         )
 
-        checker.check[Id](signedState, newVersion ++ newMRoot.asByteVector).value.right.get shouldBe ()
+        checker.check[Id](Signature(signedState), newVersion ++ newMRoot.asByteVector).value.right.get shouldBe ()
       }
 
       //   todo add case with tree rebalancing later

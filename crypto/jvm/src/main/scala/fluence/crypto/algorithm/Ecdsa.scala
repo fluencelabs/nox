@@ -72,14 +72,15 @@ class Ecdsa(curveType: String, scheme: String, hasher: Option[CryptoHasher[Array
     message: ByteVector
   ): EitherT[F, CryptoErr, fluence.crypto.signature.Signature] = {
     signMessage(new BigInteger(keyPair.secretKey.value.toHex, HEXradix), message.toArray)
-      .map(bb ⇒ fluence.crypto.signature.Signature(keyPair.publicKey, ByteVector(bb)))
+      .map(bb ⇒ fluence.crypto.signature.Signature(ByteVector(bb)))
   }
 
   override def verify[F[_]: Monad](
+    publicKey: KeyPair.Public,
     signature: fluence.crypto.signature.Signature,
     message: ByteVector
   ): EitherT[F, CryptoErr, Unit] = {
-    verifySign(signature.publicKey.value.toArray, message.toArray, signature.sign.toArray)
+    verifySign(publicKey.bytes, signature.bytes, message.toArray)
   }
 
   private def signMessage[F[_]: Monad](
@@ -103,8 +104,8 @@ class Ecdsa(curveType: String, scheme: String, hasher: Option[CryptoHasher[Array
 
   private def verifySign[F[_]: Monad](
     publicKey: Array[Byte],
+    signature: Array[Byte],
     message: Array[Byte],
-    signature: Array[Byte]
   ): EitherT[F, CryptoErr, Unit] = {
     for {
       ec ← curveSpec

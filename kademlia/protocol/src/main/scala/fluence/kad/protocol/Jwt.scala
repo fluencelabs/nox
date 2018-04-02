@@ -22,7 +22,7 @@ import cats.data.EitherT
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{Signature, SignatureChecker, Signer}
+import fluence.crypto.signature.{Signature, Signer}
 import io.circe._
 import io.circe.parser._
 import scodec.bits.{Bases, ByteVector}
@@ -108,7 +108,7 @@ private[protocol] object Jwt {
           pk ← EitherT.fromEither(getPk(hc._1, hc._2))
 
           _ ← checkerFn(pk)
-            .check(sgn, ByteVector((h + c).getBytes()))
+            .check(Signature(sgn), ByteVector((h + c).getBytes()))
             .leftMap(err ⇒ err: Throwable)
 
         } yield hc

@@ -24,7 +24,7 @@ import cats.instances.try_._
 import fluence.contract.BasicContract.{BasicContractRead, BasicContractWrite, ExecutionState, Offer}
 import fluence.crypto.algorithm.{CryptoErr, Ecdsa}
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{Signature, Signer}
+import fluence.crypto.signature.{PubKeyAndSignature, Signature, Signer}
 import fluence.kad.protocol.Key
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
@@ -60,17 +60,17 @@ class BasicContractSpec extends WordSpec with Matchers {
       contract.id shouldBe contractKadKey
       contract.publicKey shouldBe signer.publicKey
       contract.offer shouldBe Offer(4)
-      checker.check[Option](contract.offerSeal.sign, contract.offer.getBytes).success shouldBe ()
+      checker.check[Option](contract.offerSeal, contract.offer.getBytes).success shouldBe ()
       contract.participants shouldBe empty
       contract.participantsSeal shouldBe None
       contract.executionState shouldBe ExecutionState(0, ByteVector.empty)
-      checker.check[Option](contract.executionSeal.sign, contract.executionState.getBytes).success shouldBe ()
+      checker.check[Option](contract.executionSeal, contract.executionState.getBytes).success shouldBe ()
     }
   }
 
   "BasicContractWrite" should {
     "correct perform all methods" in {
-      val signature = Signature(contractOwnerKeyPair.publicKey, ByteVector("some".getBytes))
+      val signature = Signature(ByteVector("some".getBytes))
       BasicContractWrite.setOfferSeal(contract, signature) shouldBe contract.copy(offerSeal = signature)
       BasicContractWrite.setParticipantsSeal(contract, signature) shouldBe contract.copy(
         participantsSeal = Some(signature)
@@ -79,8 +79,10 @@ class BasicContractSpec extends WordSpec with Matchers {
 
       val participantKeyPair = signAlgo.generateKeyPair[Option]().success
       val participantKey = Key.fromKeyPair.unsafe(participantKeyPair)
-      BasicContractWrite.setOfferSignature(contract, participantKey, signature) shouldBe
-        contract.copy(participants = Map(participantKey → signature))
+      val participantSignature = PubKeyAndSignature(participantKeyPair.publicKey, signature)
+      BasicContractWrite
+        .setOfferSignature(contract, participantKey, participantSignature) shouldBe
+        contract.copy(participants = Map(participantKey → participantSignature))
     }
   }
 

@@ -32,6 +32,7 @@ import fluence.btree.server.MerkleBTree
 import fluence.btree.server.commands.{PutCommandImpl, SearchCommandImpl}
 import fluence.codec.Codec
 import fluence.crypto.hash.CryptoHasher
+import fluence.crypto.signature.Signature
 import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.storage.KVStore
 import fluence.storage.rocksdb.{IdSeqProvider, RocksDbStore}
@@ -111,7 +112,7 @@ class DatasetNodeStorage private[node] (
       updatedMR ← bTreeIndex.getMerkleRoot
       signedState ← putCmd.getClientStateSignature
       // increment expected client version by one, because dataset change state
-      _ ← onDatasetChange(DatasetChanged(ByteVector(updatedMR.bytes), version + 1, signedState))
+      _ ← onDatasetChange(DatasetChanged(ByteVector(updatedMR.bytes), version + 1, Signature(signedState)))
     } yield oldVal
 
     // todo end transaction, revert all changes if error appears
@@ -142,7 +143,7 @@ class DatasetNodeStorage private[node] (
 
 object DatasetNodeStorage {
 
-  case class DatasetChanged(newMRoot: ByteVector, newVersion: Long, clientSignature: ByteVector)
+  case class DatasetChanged(newMRoot: ByteVector, newVersion: Long, clientSignature: Signature)
 
   /**
    * Dataset node storage (node side).

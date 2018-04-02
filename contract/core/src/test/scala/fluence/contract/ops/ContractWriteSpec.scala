@@ -55,7 +55,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
 
     "sign offer and set signature in contract" in {
       val result = WriteOps[Option, BasicContract](contract).sealOffer(signer).success
-      checker.check[Option](result.offerSeal.sign, result.getOfferBytes).success shouldBe ()
+      checker.check[Option](result.offerSeal, result.getOfferBytes).success shouldBe ()
     }
   }
 
@@ -71,7 +71,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
       result.participants should not be empty
       result.participants.head._1 shouldBe participantKey
       participantChecker
-        .check[Option](result.participants.head._2.sign, result.getOfferBytes)
+        .check[Option](result.participants.head._2.signature, result.getOfferBytes)
         .success shouldBe ()
     }
   }
@@ -88,7 +88,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
       val result = WriteOps[Option, BasicContract](contractWithOneParticipant).sealParticipants(signer).success
 
       result.participantsSeal shouldBe defined
-      checker.check[Option](result.participantsSeal.get.sign, result.getParticipantsBytes).success shouldBe ()
+      checker.check[Option](result.participantsSeal.get, result.getParticipantsBytes).success shouldBe ()
     }
   }
 
@@ -136,11 +136,11 @@ class ContractWriteSpec extends WordSpec with Matchers {
       result.participants.size shouldBe 2
       result.participants.keys should contain allOf (participantKey, participantKey2)
       participantChecker
-        .check[Option](result.participants.head._2.sign, result.getOfferBytes)
+        .check[Option](result.participants.head._2.signature, result.getOfferBytes)
         .success shouldBe ()
 
       participantChecker2
-        .check[Option](result.participants.last._2.sign, result.getOfferBytes)
+        .check[Option](result.participants.last._2.signature, result.getOfferBytes)
         .success shouldBe ()
 
     }
@@ -154,7 +154,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
 
     "sign execution state and set signature in contract" in {
       val result = WriteOps[Option, BasicContract](contract).sealExecState(signer).success
-      checker.check[Option](result.executionSeal.sign, result.getExecutionStateBytes).success shouldBe ()
+      checker.check[Option](result.executionSeal, result.getExecutionStateBytes).success shouldBe ()
     }
   }
 
