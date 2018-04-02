@@ -23,7 +23,7 @@ import cats.Eq
 import org.scalacheck.ScalacheckShapeless._
 
 class BifuncELawsSpec extends CatsSuite {
-  import FuncEInstances._
+  import FuncETestInstances._
 
   implicit def eqBifuncE[E <: Throwable, A, B](
     implicit directEq: Eq[FuncE[E, A, B]],

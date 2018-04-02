@@ -21,7 +21,7 @@ import cats.{Eq, Id}
 import cats.laws.discipline.eq._
 import org.scalacheck.{Arbitrary, Cogen, Gen}
 
-object FuncEInstances {
+object FuncETestInstances {
   implicit def arbFunc[E <: Throwable: Arbitrary, A: Arbitrary: Cogen, B: Arbitrary]: Arbitrary[FuncE[E, A, B]] =
     Arbitrary(
       Gen

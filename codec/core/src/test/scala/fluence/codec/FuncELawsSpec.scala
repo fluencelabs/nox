@@ -23,7 +23,7 @@ import org.scalacheck.ScalacheckShapeless._
 
 class FuncELawsSpec extends CatsSuite {
 
-  import FuncEInstances._
+  import FuncETestInstances._
 
   checkAll(
     "FuncE.ArrowChoiceLaws",

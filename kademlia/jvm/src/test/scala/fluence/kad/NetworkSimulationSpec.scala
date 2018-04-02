@@ -95,7 +95,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServer(kad.handleRPC), global))
       .onCall(
-        KademliaGrpcUpdate.grpcCallback(kad.update(_).toIO(global), clientConf)
+        KademliaGrpcUpdate.grpcCallback(kad.update(_).map(_ ⇒ ()).toIO(global), clientConf)
       )
       .build
 
