@@ -30,10 +30,10 @@ private[codec] trait PureCodecInstances extends BifuncEInstances {
     liftEither(
       str ⇒
         ByteVector
-          .fromBase64Descriptive(str, Bases.Alphabets.Base64Url)
+          .fromBase64Descriptive(str, Bases.Alphabets.Base64)
           .left
           .map(CodecError(_)),
-      vec ⇒ Right(vec.toBase64(Bases.Alphabets.Base64Url))
+      vec ⇒ Right(vec.toBase64(Bases.Alphabets.Base64))
     )
 
 }

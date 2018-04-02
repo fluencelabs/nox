@@ -22,6 +22,7 @@ import java.net.InetAddress
 import cats._
 import cats.effect.IO
 import cats.instances.try_._
+import cats.syntax.eq._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
@@ -93,7 +94,9 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServer(kad.handleRPC), global))
-      .onCall(KademliaGrpcUpdate.grpcCallback(kad.update(_).map(_ ⇒ ()).toIO(global), clientConf))
+      .onCall(
+        KademliaGrpcUpdate.grpcCallback(kad.update(_).toIO(global), clientConf)
+      )
       .build
 
     def nodeId = key
@@ -105,12 +108,12 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
     def shutdown(): IO[Unit] = server.shutdown
   }
 
-  private val servers = (0 to 10).map { n ⇒
+  private val servers = (0 to 20).map { n ⇒
     val port = 3000 + n
     val kp = algo.generateKeyPair[Try]().value.get.right.get
     val k = Key.fromKeyPair.unsafe(kp)
     new Node(k, port, kp)
-  }
+  }.toVector
 
   "Network simulation" should {
     "launch 20 nodes and join network" in {
@@ -122,16 +125,21 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       val secondContact = servers.last.contact
 
       servers.foreach { s ⇒
-        println(Console.BLUE + s"Join: ${s.nodeId}" + Console.RESET)
-        s.join(Seq(firstContact, secondContact), 6).runAsync.futureValue
-        println(Console.BLUE + "Joined" + Console.RESET)
+        logger.debug(Console.BLUE + s"Join: ${s.nodeId}" + Console.RESET)
+        s.join(Seq(firstContact, secondContact), 6).runAsync.futureValue shouldBe true
+
+        // Check that RoutingTable is not empty after join
+        s.kad.lookupIterative(servers.last.key, 5).runAsync.futureValue should be('nonEmpty)
       }
 
     }
 
-    "Find itself by lookup iterative" in {
+    "find itself by lookup iterative" in {
+      LoggerConfig.level = LogLevel.INFO
       servers.foreach { s ⇒
-        servers.map(_.key).filterNot(_ === s.key).foreach { k ⇒
+        servers.reverseIterator.map(_.key).filter(_ =!= s.key).foreach { k ⇒
+          logger.debug(s"Trying to find $k with ${s.key}")
+
           val li = s.kad.findNode(k, 8).runAsync.futureValue.map(_.key)
 
           li shouldBe defined
@@ -139,6 +147,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
           //println(Console.MAGENTA + li + Console.RESET)
 
           li.exists(Key.OrderedKeys.eqv(_, k)) shouldBe true
+          logger.debug(Console.GREEN + "Found" + Console.RESET)
         }
       }
     }
