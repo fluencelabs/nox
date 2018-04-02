@@ -15,31 +15,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.node.grpc
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, SequenceInputStream}
-import java.nio.ByteBuffer
+import java.io.{ByteArrayInputStream, InputStream, SequenceInputStream}
 
-import cats.data.EitherT
 import cats.effect._
-import com.google.protobuf.{ByteString, NioByteString}
-import fluence.kad.grpc.KademliaGrpc.Kademlia
-import fluence.kad.grpc.{KademliaGrpc, LookupRequest}
 import fluence.transport.grpc.server.GrpcServer
-import io.grpc
 import io.grpc._
-import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
-import io.grpc.internal.IoUtils
+import org.http4s.EntityEncoder._
 import org.http4s._
 import org.http4s.dsl.io._
 import org.http4s.server.Server
 import org.http4s.server.blaze.BlazeBuilder
+import org.http4s.util.CaseInsensitiveString
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
-import org.http4s.EntityEncoder._
-import org.http4s.util.CaseInsensitiveString
-
 import scala.concurrent.Promise
 import scala.util.Try
 
@@ -47,46 +38,9 @@ case class Result(resp: Any, headers: Metadata, status: io.grpc.Status, trailers
 
 class HttpProxyHttp4s(server: GrpcServer) extends slogging.LazyLogging {
 
-  val list: List[ServerServiceDefinition] = Nil
+  val services = server.serverRef.get().getImmutableServices.asScala.toList
 
-  val services = server.serverRef.get().getImmutableServices.asScala
-
-  val pp = InProcessServerBuilder.forName("in-process")
-  services.foreach(s ⇒ pp.addService(s))
-  pp.build().start()
-
-  val ss = pp.build()
-
-  val chs = InProcessChannelBuilder.forName("in-process").build()
-
-  def listener[T](
-    onMessagePr: Promise[T],
-    onHeadersPr: Promise[Metadata],
-    onClosePr: Promise[(io.grpc.Status, Metadata)]
-  ) = new ClientCall.Listener[T] {
-    override def onHeaders(headers: Metadata): Unit = {
-      super.onHeaders(headers)
-      onHeadersPr.trySuccess(headers)
-      logger.error("HEADERS === " + headers)
-    }
-
-    override def onClose(status: io.grpc.Status, trailers: Metadata): Unit = {
-      logger.error("ON CLOSE === " + status + "   " + trailers)
-      onClosePr.trySuccess((status, trailers))
-      super.onClose(status, trailers)
-    }
-
-    override def onMessage(message: T): Unit = {
-      logger.error("ON MESSAGE === " + message)
-      onMessagePr.trySuccess(message)
-      super.onMessage(message)
-    }
-
-    override def onReady(): Unit = {
-      logger.error("ON READY === ")
-      super.onReady()
-    }
-  }
+  val inp = new InProcessGrpc("in-process", services)
 
   val helloWorldService = HttpService[IO] {
     case req @ GET ⇒
@@ -101,16 +55,8 @@ class HttpProxyHttp4s(server: GrpcServer) extends slogging.LazyLogging {
       val stringReq = req.as[Array[Byte]].unsafeRunSync()
       logger.error(s"Req as string === " + stringReq.mkString(","))
 
-      def getMd(): Option[ServerMethodDefinition[Any, Any]] = {
-        for {
-          sd ← services.find(_.getServiceDescriptor.getName == service)
-          _ = logger.error("SERVICE DESCRIPTION == " + sd)
-          m ← Option(sd.getMethod(service + "/" + method).asInstanceOf[ServerMethodDefinition[Any, Any]])
-        } yield m
-      }
-
       val methodDescriptor = for {
-        m ← getMd()
+        m ← inp.getMd[Any, Any](service, method)
       } yield {
         logger.error("CALL THIS!!!")
 
@@ -123,9 +69,9 @@ class HttpProxyHttp4s(server: GrpcServer) extends slogging.LazyLogging {
             md.parseRequest(new ByteArrayInputStream(stringReq.slice(5, stringReq.length)))
 
           val metadata = new Metadata()
-          val call = chs.newCall(md, CallOptions.DEFAULT)
+          val call = inp.chs.newCall[Any, Any](md, CallOptions.DEFAULT)
 
-          call.start(listener(onMessagePr, onHeadersPr, onClosePr), metadata)
+          call.start(new ProxyListener[Any](onMessagePr, onHeadersPr, onClosePr), metadata)
           call.sendMessage(marshalledReq)
           call.request(1)
           call.halfClose()
@@ -151,7 +97,7 @@ class HttpProxyHttp4s(server: GrpcServer) extends slogging.LazyLogging {
         stat ← res match {
           case Right(r) ⇒
             println("RESPONSE === " + r)
-            val m = getMd().get
+            val m = inp.getMd[Any, Any](service, method).get
             println("11111")
             val md = m.getMethodDescriptor
             println("222222")
