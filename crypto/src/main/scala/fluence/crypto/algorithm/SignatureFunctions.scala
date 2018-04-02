@@ -28,5 +28,5 @@ import scala.language.higherKinds
 trait SignatureFunctions {
   def sign[F[_]: Monad](keyPair: KeyPair, message: ByteVector): EitherT[F, CryptoErr, Signature]
 
-  def verify[F[_]: Monad](signature: Signature, message: ByteVector): EitherT[F, CryptoErr, Unit]
+  def verify[F[_]: Monad](pubKey: KeyPair.Public, signature: Signature, message: ByteVector): EitherT[F, CryptoErr, Unit]
 }

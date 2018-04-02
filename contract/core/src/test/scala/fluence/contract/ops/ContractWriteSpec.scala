@@ -21,6 +21,7 @@ import cats.instances.option._
 import cats.instances.try_._
 import fluence.contract.{BasicContract, _}
 import fluence.crypto.algorithm.{CryptoErr, Ecdsa}
+import fluence.crypto.signature.SignatureChecker
 import fluence.kad.protocol.Key
 import org.scalatest.{Matchers, WordSpec}
 
@@ -35,6 +36,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
   private val signAlgo = Ecdsa.signAlgo
   private val keyPair = signAlgo.generateKeyPair[Option]().success
   private val signer = signAlgo.signer(keyPair)
+  private implicit val checker: SignatureChecker = signAlgo.checker(keyPair.publicKey)
   private val contractKadKey = Key.fromKeyPair[Try](keyPair).get
 
   private val contract: BasicContract = BasicContract.offer(contractKadKey, 2, signer).get
@@ -42,6 +44,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
   private val participantKeyPair = signAlgo.generateKeyPair[Option]().success
   private val participantKey = Key.fromPublicKey(participantKeyPair.publicKey).get
   private val participantSigner = signAlgo.signer(participantKeyPair)
+  private val participantChecker = signAlgo.checker(participantKeyPair.publicKey)
 
   "sealOffer" should {
     "fail when signing is failed" in {
@@ -51,7 +54,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
 
     "sign offer and set signature in contract" in {
       val result = WriteOps[Option, BasicContract](contract).sealOffer(signer).success
-      signAlgo.checker.check[Option](result.offerSeal, result.getOfferBytes).success shouldBe ()
+      checker.check[Option](result.offerSeal, result.getOfferBytes).success shouldBe ()
     }
   }
 
@@ -66,8 +69,8 @@ class ContractWriteSpec extends WordSpec with Matchers {
       val result = WriteOps[Option, BasicContract](contract).signOffer(participantKey, participantSigner).success
       result.participants should not be empty
       result.participants.head._1 shouldBe participantKey
-      signAlgo.checker
-        .check[Option](result.participants.head._2, result.getOfferBytes)
+      participantChecker
+        .check[Option](result.participants.head._2.signature, result.getOfferBytes)
         .success shouldBe ()
     }
   }
@@ -84,12 +87,12 @@ class ContractWriteSpec extends WordSpec with Matchers {
       val result = WriteOps[Option, BasicContract](contractWithOneParticipant).sealParticipants(signer).success
 
       result.participantsSeal shouldBe defined
-      signAlgo.checker.check[Option](result.participantsSeal.get, result.getParticipantsBytes).success shouldBe ()
+      checker.check[Option](result.participantsSeal.get, result.getParticipantsBytes).success shouldBe ()
     }
   }
 
   "addParticipants" should {
-    import signAlgo.checker
+    import signAlgo.checkerFn
 
     "fail" when {
       "not enough participant in contract (zero participants, required 2)" in {
@@ -116,6 +119,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
       val participantKeyPair2 = signAlgo.generateKeyPair[Option]().success
       val participantKey2 = Key.fromPublicKey(participantKeyPair2.publicKey).get
       val participantSigner2 = signAlgo.signer(participantKeyPair2)
+      val participantChecker2 = signAlgo.checker(participantKeyPair2.publicKey)
 
       val contractWithParticipant1 =
         WriteOps[Option, BasicContract](contract).signOffer(participantKey, participantSigner).success
@@ -130,12 +134,12 @@ class ContractWriteSpec extends WordSpec with Matchers {
 
       result.participants.size shouldBe 2
       result.participants.keys should contain allOf (participantKey, participantKey2)
-      signAlgo.checker
-        .check[Option](result.participants.head._2, result.getOfferBytes)
+      participantChecker
+        .check[Option](result.participants.head._2.signature, result.getOfferBytes)
         .success shouldBe ()
 
-      signAlgo.checker
-        .check[Option](result.participants.last._2, result.getOfferBytes)
+      participantChecker2
+        .check[Option](result.participants.last._2.signature, result.getOfferBytes)
         .success shouldBe ()
 
     }
@@ -149,7 +153,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
 
     "sign execution state and set signature in contract" in {
       val result = WriteOps[Option, BasicContract](contract).sealExecState(signer).success
-      signAlgo.checker.check[Option](result.executionSeal, result.getExecutionStateBytes).success shouldBe ()
+      checker.check[Option](result.executionSeal, result.getExecutionStateBytes).success shouldBe ()
     }
   }
 

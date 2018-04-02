@@ -25,7 +25,7 @@ import cats.syntax.functor._
 import cats.syntax.applicative._
 import com.google.protobuf.ByteString
 import fluence.codec.Codec
-import fluence.crypto.signature.SignatureChecker
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
 
@@ -34,7 +34,7 @@ import scala.language.higherKinds
 object KademliaNodeCodec {
   implicit def codec[F[_]](
     implicit F: MonadError[F, Throwable],
-    checker: SignatureChecker
+    checkerFn: CheckerFn
   ): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
     Codec(
       obj ⇒

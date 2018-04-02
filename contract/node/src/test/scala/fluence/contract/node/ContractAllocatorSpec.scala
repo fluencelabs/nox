@@ -51,7 +51,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   val signAlgo = SignAlgo.dumb
   val signer = signAlgo.signer(keypair)
 
-  import signAlgo.checker
+  import signAlgo.checkerFn
 
   val createDS: BasicContract ⇒ IO[Boolean] = c ⇒ {
     if (denyDS(c.id)) IO(false)
@@ -96,7 +96,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
   "contract allocator" should {
 
     "reject offer with wrong signature" in {
-      val contract = offer("dumb0").copy(offerSeal = Signature(KeyPair.Public(ByteVector.empty), ByteVector.empty))
+      val contract = offer("dumb0").copy(offerSeal = Signature(ByteVector.empty))
       allocator.offer(contract).attempt.unsafeRunSync().isLeft shouldBe true
     }
 

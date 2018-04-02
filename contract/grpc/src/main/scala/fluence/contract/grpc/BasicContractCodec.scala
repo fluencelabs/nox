@@ -28,7 +28,7 @@ import fluence.codec.pb.ProtobufCodecs._
 import fluence.contract
 import fluence.contract.BasicContract.ExecutionState
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{Signature, SignatureChecker}
+import fluence.crypto.signature.{PubKeyAndSignature, Signature}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
@@ -38,12 +38,9 @@ object BasicContractCodec {
 
   /**
    * Codec for convert BasicContract into grpc representation. Checks all signatures as well.
-   *
-   * @param checker Checker for all signatures in contract
    */
   implicit def codec[F[_]](
     implicit F: MonadError[F, Throwable],
-    checker: SignatureChecker
   ): Codec[F, contract.BasicContract, BasicContract] = {
 
     val keyC = Codec.codec[F, Key, ByteString]
@@ -52,20 +49,18 @@ object BasicContractCodec {
     val pubKeyC = pubKeyCV andThen strVec
     val optStrVecC = Codec.codec[F, Option[ByteVector], Option[ByteString]]
 
-    val serialize: contract.BasicContract ⇒ F[BasicContract] =
+    val encode: contract.BasicContract ⇒ F[BasicContract] =
       (bc: contract.BasicContract) ⇒
         for {
-          // check all signatures before serialize, todo think about moving 'signatures checking' in separate lvl
-          _ ← verifyAllContractSeals(bc)
           idBs ← keyC.encode(bc.id)
           pubKBs ← pubKeyC.encode(bc.publicKey)
 
           participantsBs ← Traverse[List].traverse(bc.participants.toList) {
-            case (pK: Key, pS: Signature) ⇒
+            case (pK: Key, pS: PubKeyAndSignature) ⇒
               for {
                 pkBs ← keyC.encode(pK)
                 pubKBs ← pubKeyC.encode(pS.publicKey)
-                signBs ← strVec.encode(pS.sign)
+                signBs ← strVec.encode(pS.signature.sign)
               } yield Participant(id = pkBs, publicKey = pubKBs, signature = signBs)
           }
 
@@ -89,7 +84,7 @@ object BasicContractCodec {
             executionSeal = executionSealBs
         )
 
-    val deserialize: BasicContract ⇒ F[contract.BasicContract] =
+    val decode: BasicContract ⇒ F[contract.BasicContract] =
       grpcContact ⇒ {
         def read[T](name: String, f: BasicContract ⇒ T): F[T] =
           Option(f(grpcContact))
@@ -118,7 +113,7 @@ object BasicContractCodec {
               key ← keyC.decode(participant.id)
               pubK ← pubKeyC.decode(participant.publicKey)
               sign ← strVec.decode(participant.signature)
-            } yield key -> Signature(pubK, sign)
+            } yield key -> PubKeyAndSignature(pubK, Signature(sign))
           }
 
           version ← read("version", _.version)
@@ -135,39 +130,19 @@ object BasicContractCodec {
             offer = fluence.contract.BasicContract.Offer(
               participantsRequired = participantsRequired
             ),
-            offerSeal = Signature(pubKey, offerSeal),
+            offerSeal = Signature(offerSeal),
             participants = participants.toMap,
-            participantsSeal = participantsSealOpt
-              .map(Signature(pubKey, _)),
+            participantsSeal = participantsSealOpt.map(Signature(_)),
             executionState = ExecutionState(
               version = version,
               merkleRoot = merkleRoot
             ),
-            executionSeal = Signature(pubKey, execSeal)
+            executionSeal = Signature(execSeal)
           )
-
-          // check all signatures after deserialize, todo think about moving 'signatures checking' in separate lvl
-          _ ← verifyAllContractSeals(deserializedContract)
         } yield deserializedContract
       }
 
-    Codec(serialize, deserialize)
-  }
-
-  /**
-   * Check all seals in current contract.
-   * Remove this methods when EitherT will be everywhere
-   */
-  private def verifyAllContractSeals[F[_]](bContract: contract.BasicContract)(
-    implicit F: MonadError[F, Throwable],
-    checker: SignatureChecker
-  ): F[Unit] = {
-    import fluence.contract.ops.ContractRead._
-
-    bContract.checkAllOwnerSeals[F]().value.flatMap {
-      case Left(err) ⇒ F.raiseError(err)
-      case Right(_) ⇒ F.unit
-    }
+    Codec(encode, decode)
   }
 
 }

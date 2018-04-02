@@ -35,8 +35,8 @@ class DumbSign extends KeyGenerator with SignatureFunctions {
   }
 
   override def sign[F[_]: Monad](keyPair: KeyPair, message: ByteVector): EitherT[F, CryptoErr, Signature] =
-    EitherT.pure(Signature(keyPair.publicKey, message.reverse))
+    EitherT.pure(Signature(message.reverse))
 
-  override def verify[F[_]: Monad](signature: Signature, message: ByteVector): EitherT[F, CryptoErr, Unit] =
+  override def verify[F[_]: Monad](pubKey: KeyPair.Public, signature: Signature, message: ByteVector): EitherT[F, CryptoErr, Unit] =
     EitherT.cond[F](signature.sign == message.reverse, (), CryptoErr("Invalid Signature"))
 }

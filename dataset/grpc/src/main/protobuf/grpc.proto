@@ -135,8 +135,6 @@ message AskVerifyChanges {
 message ReplyVerifyChanges {
     // Signature for concatenation of version and serverMerkleRoot
     bytes signature = 1;
-    // Signer's publicKey; usually matches contract's owner PK
-    bytes publicKey = 2;
 }
 
 message AskChangesStored {}

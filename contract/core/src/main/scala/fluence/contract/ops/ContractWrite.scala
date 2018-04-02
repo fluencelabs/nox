@@ -19,8 +19,9 @@ package fluence.contract.ops
 
 import cats.data.EitherT
 import cats.{Invariant, Monad}
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.CryptoErr
-import fluence.crypto.signature.{Signature, SignatureChecker, Signer}
+import fluence.crypto.signature.{PubKeyAndSignature, Signature, Signer}
 import fluence.kad.protocol.Key
 
 import scala.language.higherKinds
@@ -29,7 +30,7 @@ trait ContractWrite[C] {
 
   def setOfferSeal(contract: C, signature: Signature): C
 
-  def setOfferSignature(contract: C, participant: Key, signature: Signature): C
+  def setOfferSignature(contract: C, participant: Key, keyAndSign: PubKeyAndSignature): C
 
   def setParticipantsSeal(contract: C, signature: Signature): C
 
@@ -45,8 +46,8 @@ object ContractWrite {
         override def setOfferSeal(contract: B, signature: Signature): B =
           f(fa.setOfferSeal(g(contract), signature))
 
-        override def setOfferSignature(contract: B, participant: Key, signature: Signature): B =
-          f(fa.setOfferSignature(g(contract), participant, signature))
+        override def setOfferSignature(contract: B, participant: Key, keyAndSign: PubKeyAndSignature): B =
+          f(fa.setOfferSignature(g(contract), participant, keyAndSign))
 
         override def setParticipantsSeal(contract: B, signature: Signature): B =
           f(fa.setParticipantsSeal(g(contract), signature))
@@ -81,7 +82,7 @@ object ContractWrite {
     def signOffer(participant: Key, signer: Signer): EitherT[F, CryptoErr, C] =
       signer
         .sign(contract.getOfferBytes)
-        .map(s ⇒ write.setOfferSignature(contract, participant, s))
+        .map(s ⇒ write.setOfferSignature(contract, participant, PubKeyAndSignature(signer.publicKey, s)))
 
     /**
      * Seals participants into contract.
@@ -97,10 +98,10 @@ object ContractWrite {
      * Adds specified contracts (signed by participants) as participants to base contract.
      *
      * @param participants Contracts signed by participants
-     * @param checker Algorithm to produce signatures for this participant
+     * @param checkerFn Creates checker for specified public key
      * @return Contract with filled participants signatures
      */
-    def addParticipants(participants: Seq[C])(implicit checker: SignatureChecker): EitherT[F, CryptoErr, C] =
+    def addParticipants(participants: Seq[C])(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, C] =
       EitherT
         .rightT(participants.foldLeft(contract) {
           case (agg, part) if part.participants.size == 1 ⇒

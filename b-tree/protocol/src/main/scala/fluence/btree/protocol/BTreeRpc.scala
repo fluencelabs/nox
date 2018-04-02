@@ -18,6 +18,7 @@
 package fluence.btree.protocol
 
 import fluence.btree.core.{ClientPutDetails, Hash, Key}
+import scodec.bits.ByteVector
 
 import scala.collection.Searching.SearchResult
 import scala.language.higherKinds
@@ -81,9 +82,10 @@ object BTreeRpc {
      * Server sends new merkle root to client for approve made changes.
      *
      * @param serverMerkleRoot New merkle root after putting key/value
-     * @param wasSplitting      'True' id server performed tree rebalancing, 'False' otherwise
+     * @param wasSplitting 'True' id server performed tree rebalancing, 'False' otherwise
+     * @return signed by client new contract execution state
      */
-    def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[Unit]
+    def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[ByteVector]
 
     /**
      * Server confirms that all changes was persisted.

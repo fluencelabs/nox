@@ -22,6 +22,8 @@ import java.io.File
 import cats.data.EitherT
 import cats.instances.try_._
 import fluence.crypto.algorithm.{CryptoErr, Ecdsa}
+import fluence.crypto.keypair.KeyPair
+import fluence.crypto.signature.Signature
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
@@ -49,47 +51,51 @@ class SignatureSpec extends WordSpec with Matchers {
       val algorithm = Ecdsa.ecdsa_secp256k1_sha256
 
       val keys = algorithm.generateKeyPair[Try]().extract
+      val pubKey = keys.publicKey
       val data = rndByteVector(10)
       val sign = algorithm.sign[Try](keys, data).extract
 
-      algorithm.verify[Try](sign, data).isOk shouldBe true
+      algorithm.verify[Try](pubKey, sign, data).isOk shouldBe true
 
       val randomData = rndByteVector(10)
       val randomSign = algorithm.sign(keys, randomData).extract
 
-      algorithm.verify(sign.copy(sign = randomSign.sign), data).isOk shouldBe false
+      algorithm.verify(pubKey, randomSign, data).isOk shouldBe false
 
-      algorithm.verify(sign, randomData).isOk shouldBe false
+      algorithm.verify(pubKey, sign, randomData).isOk shouldBe false
     }
 
     "correctly work with signer and checker" in {
       val algo = Ecdsa.signAlgo
       val keys = algo.generateKeyPair().extract
       val signer = algo.signer(keys)
+      val checker = algo.checker(keys.publicKey)
 
       val data = rndByteVector(10)
       val sign = signer.sign(data).extract
 
-      algo.checker.check(sign, data).isOk shouldBe true
+      checker.check(sign, data).isOk shouldBe true
 
       val randomSign = signer.sign(rndByteVector(10)).extract
-      algo.checker.check(randomSign, data).isOk shouldBe false
+      checker.check(randomSign, data).isOk shouldBe false
     }
 
     "throw an errors on invalid data" in {
       val algo = Ecdsa.signAlgo
       val keys = algo.generateKeyPair().extract
       val signer = algo.signer(keys)
+      val checker = algo.checker(keys.publicKey)
       val data = rndByteVector(10)
 
       val sign = signer.sign(data).extract
 
       the[CryptoErr] thrownBy {
-        algo.checker.check(sign.copy(sign = rndByteVector(10)), data).value.flatMap(_.toTry).get
+        checker.check(Signature(rndByteVector(10)), data).value.flatMap(_.toTry).get
       }
+      val invalidChecker = algo.checker(KeyPair.fromByteVectors(rndByteVector(10), rndByteVector(10)).publicKey)
       the[CryptoErr] thrownBy {
-        algo.checker
-          .check(sign.copy(publicKey = sign.publicKey.copy(value = rndByteVector(10))), data)
+        invalidChecker
+          .check(sign, data)
           .value
           .flatMap(_.toTry)
           .get
@@ -113,8 +119,8 @@ class SignatureSpec extends WordSpec with Matchers {
       val data = rndByteVector(10)
       val sign = signer.sign(data).extract
 
-      algo.checker.check(sign.copy(publicKey = keysRead.publicKey), data).isOk shouldBe true
-      algo.checker.check(sign, data).isOk shouldBe true
+      algo.checker(keys.publicKey).check(sign, data).isOk shouldBe true
+      algo.checker(keysRead.publicKey).check(sign, data).isOk shouldBe true
 
       //try to store key into previously created file
       storage.storeSecretKey(keys).isFailure shouldBe true

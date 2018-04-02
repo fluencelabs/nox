@@ -93,7 +93,7 @@ class ClientReplicationWrapper[K, V](
   override def put(key: K, value: V): Task[Option[V]] = {
     for {
       //check that all datasets is available, for demo purpose only
-      getRes ← Task.sequence(
+      _ ← Task.sequence(
         datasetReplicas.map { case (store, _) ⇒ store.get(key) }
       )
       res ← Task.sequence(

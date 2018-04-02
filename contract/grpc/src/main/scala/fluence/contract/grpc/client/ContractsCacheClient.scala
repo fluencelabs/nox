@@ -26,15 +26,19 @@ import fluence.contract.grpc.ContractsCacheGrpc.ContractsCacheStub
 import fluence.contract.grpc.{BasicContract, ContractsCacheGrpc, FindRequest}
 import fluence.kad.protocol.Key
 import fluence.codec.pb.ProtobufCodecs._
+import fluence.contract.ops.ContractValidate
+import fluence.crypto.SignAlgo.CheckerFn
 import io.grpc.{CallOptions, ManagedChannel}
 
 import scala.concurrent.ExecutionContext
 
-class ContractsCacheClient[C](stub: ContractsCacheStub)(
+class ContractsCacheClient[C: ContractValidate](stub: ContractsCacheStub)(
   implicit
   codec: Codec[IO, C, BasicContract],
+  checkerFn: CheckerFn,
   ec: ExecutionContext
 ) extends ContractsCacheRpc[C] with slogging.LazyLogging {
+  import ContractValidate.ContractValidatorOps
 
   /**
    * Tries to find a contract in local cache.
@@ -46,9 +50,11 @@ class ContractsCacheClient[C](stub: ContractsCacheStub)(
     (for {
       idBs ← Codec.codec[IO, ByteString, Key].decode(id)
       req = FindRequest(idBs)
-      resRaw ← IO.fromFuture(IO(stub.find(req)))
-      res ← codec.decode(resRaw)
-    } yield Option(res)).recover {
+      binContract ← IO.fromFuture(IO(stub.find(req)))
+      contract ← codec.decode(binContract)
+      // contract from the outside required validation
+      _ ← contract.validateME[IO]
+    } yield Option(contract)).recover {
       case err ⇒
         logger.warn(s"Finding contract failed, cause=$err", err)
         None
@@ -62,8 +68,10 @@ class ContractsCacheClient[C](stub: ContractsCacheStub)(
    */
   override def cache(contract: C): IO[Boolean] =
     for {
-      c ← codec.encode(contract)
-      resp ← IO.fromFuture(IO(stub.cache(c)))
+      // we should validate contract before send outside to caching
+      _ ← contract.validateME[IO]
+      binContract ← codec.encode(contract)
+      resp ← IO.fromFuture(IO(stub.cache(binContract)))
     } yield resp.cached
 }
 
@@ -75,12 +83,13 @@ object ContractsCacheClient {
    * @param channel     Channel to remote node
    * @param callOptions Call options
    */
-  def register[C]()(
+  def register[C: ContractValidate]()(
     channel: ManagedChannel,
     callOptions: CallOptions
   )(
     implicit
     codec: Codec[IO, C, BasicContract],
+    checkerFn: CheckerFn,
     ec: ExecutionContext
   ): ContractsCacheRpc[C] =
     new ContractsCacheClient[C](new ContractsCacheGrpc.ContractsCacheStub(channel, callOptions))

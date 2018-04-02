@@ -50,7 +50,7 @@ class ContractsSpec extends WordSpec with Matchers {
   val dsCreated = TrieMap.empty[String, Set[Key]].withDefaultValue(Set.empty)
   val algo = SignAlgo.dumb
 
-  import algo.checker
+  import algo.checkerFn
 
   def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
 

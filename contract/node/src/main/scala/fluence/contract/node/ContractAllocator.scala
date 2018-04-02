@@ -30,8 +30,9 @@ import cats.syntax.show._
 import cats.{~>, Eq, Monad}
 import fluence.contract.ops.{ContractRead, ContractWrite}
 import fluence.contract.protocol.ContractAllocatorRpc
-import fluence.crypto.signature.{SignatureChecker, Signer}
+import fluence.crypto.signature.Signer
 import fluence.contract.node.cache.ContractRecord
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.CryptoErr
 import fluence.kad.protocol.Key
 import fluence.storage.KVStore
@@ -59,7 +60,7 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
 )(
   implicit
   eq: Eq[C],
-  checker: SignatureChecker
+  checkerFn: CheckerFn
 ) extends ContractAllocatorRpc[C] with slogging.LazyLogging {
 
   import ContractRead._

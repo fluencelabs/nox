@@ -28,7 +28,7 @@ import cats.syntax.functor._
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.ops.ContractRead
 import fluence.contract.protocol.ContractsCacheRpc
-import fluence.crypto.signature.SignatureChecker
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.protocol.Key
 import fluence.storage.KVStore
 
@@ -51,7 +51,7 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
   cacheTtl: FiniteDuration,
   clock: Clock,
   toIO: F ~> IO
-)(implicit checker: SignatureChecker)
+)(implicit checkerFn: CheckerFn)
     extends ContractsCacheRpc[C] {
 
   import ContractRead._

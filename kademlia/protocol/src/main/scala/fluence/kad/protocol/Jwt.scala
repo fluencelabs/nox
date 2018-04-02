@@ -19,9 +19,10 @@ package fluence.kad.protocol
 
 import cats.Monad
 import cats.data.EitherT
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{Signature, SignatureChecker, Signer}
+import fluence.crypto.signature.{Signature, Signer}
 import io.circe._
 import io.circe.parser._
 import scodec.bits.{Bases, ByteVector}
@@ -69,9 +70,9 @@ private[protocol] object Jwt {
    * Parses JWT header and claim from string representation and checks the signature.
    * You must verify that PublicKey is correct for the sender.
    *
-   * @param token   JWT token generated with [[write]]
-   * @param getPk   Getter for primary key from header and claim
-   * @param checker Signature checker
+   * @param token JWT token generated with [[write]]
+   * @param getPk Getter for primary key from header and claim
+   * @param checkerFn Creates checker for specified public key
    * @tparam F Effect for signature checker
    * @tparam H Header type
    * @tparam C Claim type
@@ -80,7 +81,7 @@ private[protocol] object Jwt {
   def read[F[_]: Monad, H: Decoder, C: Decoder](
     token: String,
     getPk: (H, C) ⇒ Either[NoSuchElementException, KeyPair.Public]
-  )(implicit checker: SignatureChecker): EitherT[F, Throwable, (H, C)] = // InputErr :+: CryptoErr :+: CNil
+  )(implicit checkerFn: CheckerFn): EitherT[F, Throwable, (H, C)] = // InputErr :+: CryptoErr :+: CNil
     token.split('.').toList match {
       case h :: c :: s :: Nil ⇒
         for {
@@ -106,8 +107,8 @@ private[protocol] object Jwt {
 
           pk ← EitherT.fromEither(getPk(hc._1, hc._2))
 
-          _ ← checker
-            .check(Signature(pk, sgn), ByteVector((h + c).getBytes()))
+          _ ← checkerFn(pk)
+            .check(Signature(sgn), ByteVector((h + c).getBytes()))
             .leftMap(err ⇒ err: Throwable)
 
         } yield hc

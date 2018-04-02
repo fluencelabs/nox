@@ -23,6 +23,7 @@ import fluence.btree.client.{MerkleBTreeClient, MerkleBTreeClientApi}
 import fluence.btree.core.Hash
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
+import fluence.crypto.signature.Signer
 import fluence.dataset.protocol.DatasetStorageRpc
 import monix.eval.Task
 import monix.execution.atomic.Atomic
@@ -45,6 +46,7 @@ import scala.language.higherKinds
  * @tparam K The type of keys
  * @tparam V The type of stored values
  */
+// todo unit test
 class ClientDatasetStorage[K, V](
   datasetId: Array[Byte],
   datasetStartVer: Long,
@@ -105,8 +107,8 @@ class ClientDatasetStorage[K, V](
     for {
       encValue ← valueCrypt.encrypt(value)
       encValueHash ← Task(hasher.hash(encValue))
-      putCallbacks ← bTreeIndex.initPut(key, encValueHash)
       version ← Task.fromIO(datasetVer).map(_.get)
+      putCallbacks ← bTreeIndex.initPut(key, encValueHash, version)
       serverResponse ← storageRpc
         .put(datasetId, version, putCallbacks, encValue)
         .doOnFinish {
@@ -121,8 +123,8 @@ class ClientDatasetStorage[K, V](
 
   override def remove(key: K): Task[Option[V]] =
     for {
-      removeCmd ← bTreeIndex.initRemove(key)
       version ← Task.fromIO(datasetVer).map(_.get)
+      removeCmd ← bTreeIndex.initRemove(key, version)
       serverResponse ← storageRpc.remove(datasetId, version, removeCmd)
       _ ← Task.fromIO(datasetVer).map(_.increment())
       resp ← decryptOption(serverResponse)
@@ -157,6 +159,7 @@ object ClientDatasetStorage {
    * @param keyCrypt Encrypting/decrypting provider for ''key''
    * @param valueCrypt Encrypting/decrypting provider for ''Value''
    * @param clientState Initial client state, includes merkle root for dataset. For new dataset should be ''None''
+   * @param signer          Algorithm to produce signatures. Used for sealing execState by contract owner
    *
    * @param ord         The ordering to be used to compare keys.
    *
@@ -170,12 +173,13 @@ object ClientDatasetStorage {
     storageRpc: DatasetStorageRpc[Task, Observable],
     keyCrypt: Crypt[Task, K, Array[Byte]],
     valueCrypt: Crypt[Task, V, Array[Byte]],
-    clientState: Option[ClientState]
+    clientState: Option[ClientState],
+    signer: Signer
   )(implicit ord: Ordering[K]): ClientDatasetStorage[K, V] = {
 
     val wrappedHasher = hasher.map(Hash(_))
 
-    val bTreeIndex = MerkleBTreeClient(clientState, keyCrypt, wrappedHasher)
+    val bTreeIndex = MerkleBTreeClient(clientState, keyCrypt, wrappedHasher, signer)
     new ClientDatasetStorage[K, V](
       datasetId,
       datasetStartVer,

@@ -17,12 +17,15 @@
 
 package fluence.contract
 
+import cats.data.EitherT
 import cats.syntax.flatMap._
-import cats.{Eq, MonadError}
+import cats.{Eq, Monad, MonadError}
 import fluence.contract.BasicContract.ExecutionState
-import fluence.contract.ops.{ContractRead, ContractWrite}
+import fluence.contract.ops.ContractValidate.ValidationErr
+import fluence.contract.ops.{ContractRead, ContractValidate, ContractWrite}
+import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{Signature, Signer}
+import fluence.crypto.signature.{PubKeyAndSignature, Signature, Signer}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 
@@ -45,7 +48,7 @@ case class BasicContract(
   publicKey: KeyPair.Public,
   offer: BasicContract.Offer,
   offerSeal: Signature,
-  participants: Map[Key, Signature],
+  participants: Map[Key, PubKeyAndSignature],
   participantsSeal: Option[Signature],
   executionState: ExecutionState,
   executionSeal: Signature
@@ -85,8 +88,12 @@ object BasicContract {
     override def setOfferSeal(contract: BasicContract, signature: Signature): BasicContract =
       contract.copy(offerSeal = signature)
 
-    override def setOfferSignature(contract: BasicContract, participant: Key, signature: Signature): BasicContract =
-      contract.copy(participants = contract.participants + (participant -> signature))
+    override def setOfferSignature(
+      contract: BasicContract,
+      participant: Key,
+      keyAndSign: PubKeyAndSignature
+    ): BasicContract =
+      contract.copy(participants = contract.participants + (participant -> keyAndSign))
 
     override def setParticipantsSeal(contract: BasicContract, signature: Signature): BasicContract =
       contract.copy(participantsSeal = Some(signature))
@@ -140,7 +147,7 @@ object BasicContract {
      * @param contract    Contract
      * @param participant Participating node's key
      */
-    override def participantSignature(contract: BasicContract, participant: Key): Option[Signature] =
+    override def participantSignature(contract: BasicContract, participant: Key): Option[PubKeyAndSignature] =
       contract.participants.get(participant)
 
     /**
@@ -165,7 +172,7 @@ object BasicContract {
     override def getParticipantsBytes(contract: BasicContract): ByteVector =
       participants(contract).toSeq
         .sorted(Key.relativeOrdering(contract.id))
-        .map(key ⇒ participantSignature(contract, key).fold(ByteVector.empty)(_.sign))
+        .map(key ⇒ participantSignature(contract, key).fold(ByteVector.empty)(_.signature.sign))
         .foldLeft(contract.id.value)(_ ++ _)
 
     /**
@@ -187,6 +194,32 @@ object BasicContract {
      */
     override def executionStateSeal(contract: BasicContract): Signature =
       contract.executionSeal
+  }
+
+  implicit object BasicContractValidate extends ContractValidate[BasicContract] {
+    import fluence.contract.ops.ContractRead.ReadOps
+
+    /**
+     * Verifies the correctness of the contract.
+     */
+    override def validate[F[_]: Monad](
+      contract: BasicContract
+    )(implicit checkerFn: CheckerFn): EitherT[F, ValidationErr, Unit] =
+      contract
+        .checkAllOwnerSeals[F]()
+        .leftMap(e ⇒ ValidationErr(s"Contract with is=${contract.id} is invalid.", e))
+
+    /**
+     * Verifies the correctness of the contract. Do the same as [[ContractValidate.validate]],
+     * but return MonadError instead EitherT.
+     *
+     * Todo: will be removed in future, used only as temporary adapter
+     */
+    override def validateME[F[_]](
+      contract: BasicContract
+    )(implicit ME: MonadError[F, Throwable], checkerFn: CheckerFn): F[Unit] =
+      validate(contract).value.flatMap(ME.fromEither[Unit])
+
   }
 
   implicit val eq: Eq[BasicContract] = Eq.fromUniversalEquals

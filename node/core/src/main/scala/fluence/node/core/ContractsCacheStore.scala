@@ -28,15 +28,15 @@ import cats.{MonadError, Traverse}
 import com.google.protobuf.ByteString
 import com.typesafe.config.Config
 import fluence.codec.Codec
+import fluence.codec.pb.ProtobufCodecs._
 import fluence.contract
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.Signature
+import fluence.crypto.signature.{PubKeyAndSignature, Signature}
 import fluence.kad.protocol.Key
 import fluence.node.persistence.{BasicContractCache, Participant}
 import fluence.storage.KVStore
-import fluence.codec.pb.ProtobufCodecs._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -74,7 +74,7 @@ object ContractsCacheStore {
               for {
                 pkBs ← keyC.encode(pk)
                 pubkBs ← pubKeyC.encode(ps.publicKey)
-                signBs ← strVec.encode(ps.sign)
+                signBs ← strVec.encode(ps.signature.sign)
               } yield Participant(id = pkBs, publicKey = pubkBs, signature = signBs)
           }
 
@@ -127,7 +127,7 @@ object ContractsCacheStore {
               k ← keyC.decode(p.id)
               kp ← pubKeyC.decode(p.publicKey)
               s ← strVec.decode(p.signature)
-            } yield k -> Signature(kp, s)
+            } yield k -> PubKeyAndSignature(kp, Signature(s))
           }
 
           version ← read("version", _.version)
@@ -148,15 +148,14 @@ object ContractsCacheStore {
               offer = fluence.contract.BasicContract.Offer(
                 participantsRequired = participantsRequired
               ),
-              offerSeal = Signature(pubKey, offerSealVec),
+              offerSeal = Signature(offerSealVec),
               participants = participants.toMap,
-              participantsSeal = participantsSealOpt
-                .map(Signature(pubKey, _)),
+              participantsSeal = participantsSealOpt.map(Signature(_)),
               executionState = BasicContract.ExecutionState(
                 version = version,
                 merkleRoot = merkleRoot
               ),
-              executionSeal = Signature(pubKey, execSeal)
+              executionSeal = Signature(execSeal)
             ),
             Instant.ofEpochMilli(lastUpdated)
           )

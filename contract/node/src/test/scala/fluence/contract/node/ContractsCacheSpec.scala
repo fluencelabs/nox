@@ -38,7 +38,7 @@ class ContractsCacheSpec extends WordSpec with Matchers {
   private val clock = Clock.systemUTC()
   def unsafeKey(str: String): Key = Key.fromString[Coeval](str).value
   val algo = SignAlgo.dumb
-  import algo.checker
+  import algo.checkerFn
 
   val nodeId: Key = unsafeKey("node id")
   val nodeSigner = offerSigner("node id")

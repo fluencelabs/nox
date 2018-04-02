@@ -15,39 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.kad.protocol
+package fluence.crypto.signature
 
-import cats._
-import fluence.crypto.algorithm.Ecdsa
-import org.scalatest.{Matchers, WordSpec}
+import fluence.crypto.keypair.KeyPair
 
-class ContactSpec extends WordSpec with Matchers {
-
-  "Contact" should {
-    "serialize and deserialize in Id" in {
-
-      val algo = Ecdsa.signAlgo
-      import algo.checkerFn
-
-      val Right(kp) = algo.generateKeyPair[Id]().value
-
-      val c = Contact
-        .buildOwn[Id](
-          "127.0.0.1",
-          8080,
-          10l,
-          "hash",
-          algo.signer(kp)
-        )
-        .value
-        .right
-        .get
-
-      val seed = c.b64seed
-
-      Contact.readB64seed[Id](seed).value.isRight shouldBe true
-      Contact.readB64seed[Id](seed).value shouldBe Right(c)
-    }
-  }
-
-}
+/**
+ * Container for public key of signer and a signature.
+ *
+ * @param publicKey Public key of signature maker
+ * @param signature Some signature
+ */
+case class PubKeyAndSignature(publicKey: KeyPair.Public, signature: Signature)
