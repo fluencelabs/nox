@@ -31,7 +31,7 @@ import fluence.crypto.SignAlgo
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{Signature, Signer}
+import fluence.crypto.signature.Signer
 import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.dataset.node.Datasets
 import fluence.dataset.protocol.DatasetStorageRpc
@@ -184,12 +184,11 @@ object NodeComposer {
                     merkleRoot = newMerkleRoot // new merkle root after made changes
                   ),
                   // node updates contract with client seal for new exec state
-                  executionSeal = Signature(contract.contract.publicKey, clientSignature)
+                  executionSeal = clientSignature
                 ),
                 lastUpdated = clock.instant()
               )
-            }
-          else
+            } else
             Task.raiseError(
               new IllegalStateException(
                 s"Inconsistent state for contract $datasetId, contract version=${contract.contract.executionState.version}," +
