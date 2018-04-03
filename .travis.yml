@@ -7,7 +7,7 @@ jdk:
   - oraclejdk8
 
 env:
-  - SBT_OPTS:-Xmx2G
+  - SBT_OPTS:-Xmx4G
 
 after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ]; then
