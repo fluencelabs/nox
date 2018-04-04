@@ -136,8 +136,8 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     "find itself by lookup iterative" in {
       //LoggerConfig.level = LogLevel.INFO
-      servers.foreach { s ⇒
-        servers.reverseIterator.map(_.key).filter(_ =!= s.key).foreach { k ⇒
+      servers.take(10).foreach { s ⇒
+        servers.reverseIterator.map(_.key).filter(_ =!= s.key).slice(5, 15).foreach { k ⇒
           logger.debug(s"Trying to find $k with ${s.key}")
 
           val li = s.kad.findNode(k, 8).runAsync.futureValue.map(_.key)
