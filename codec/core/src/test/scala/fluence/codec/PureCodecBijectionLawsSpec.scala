@@ -17,23 +17,22 @@
 
 package fluence.codec
 
-import fluence.codec.PureCodec.{lift, liftEither}
-import scodec.bits.{Bases, ByteVector}
-import scala.language.higherKinds
+import cats.laws.discipline.ComposeTests
+import cats.tests.CatsSuite
+import cats.Eq
+import org.scalacheck.ScalacheckShapeless._
 
-private[codec] trait PureCodecInstances extends BifuncEInstances {
+class PureCodecBijectionLawsSpec extends CatsSuite {
+  import PureCodecFuncTestInstances._
 
-  implicit val byteArrayToVector: PureCodec[Array[Byte], ByteVector] =
-    lift(ByteVector.apply, _.toArray)
+  implicit def eqBifuncE[A, B](
+    implicit directEq: Eq[PureCodec.Func[A, B]],
+    inverseEq: Eq[PureCodec.Func[B, A]]
+  ): Eq[PureCodec.Bijection[A, B]] =
+    Eq.instance((x, y) ⇒ directEq.eqv(x.direct, y.direct) && inverseEq.eqv(x.inverse, y.inverse))
 
-  implicit val base64ToVector: PureCodec[String, ByteVector] =
-    liftEither(
-      str ⇒
-        ByteVector
-          .fromBase64Descriptive(str, Bases.Alphabets.Base64)
-          .left
-          .map(CodecError(_)),
-      vec ⇒ Right(vec.toBase64(Bases.Alphabets.Base64))
-    )
-
+  checkAll(
+    "PureCodec.Bijection.ComposeLaws",
+    ComposeTests[PureCodec].compose[Int, String, Double, BigDecimal]
+  )
 }

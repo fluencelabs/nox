@@ -18,5 +18,5 @@
 package fluence
 
 package object codec {
-  type PureCodec[A, B] = BifuncE[CodecError, A, B]
+  type PureCodec[A, B] = PureCodec.Bijection[A, B]
 }

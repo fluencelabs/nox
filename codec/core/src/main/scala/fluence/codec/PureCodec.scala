@@ -17,27 +17,28 @@
 
 package fluence.codec
 
-import scala.language.higherKinds
+import scodec.bits.{Bases, ByteVector}
 
 /**
- * PureCodec builder functions
+ * PureCodec default values.
  */
-object PureCodec {
-  type Func[A, B] = FuncE[CodecError, A, B]
+object PureCodec extends MonadicalEitherFunc[CodecError] {
 
-  def codec[A, B](implicit c: PureCodec[A, B]): PureCodec[A, B] = c
+  implicit val byteArrayToVector: PureCodec[Array[Byte], ByteVector] =
+    liftB(ByteVector.apply, _.toArray)
 
-  def apply[A, B](f: Func[A, B], g: Func[B, A]): PureCodec[A, B] =
-    BifuncE(f, g)
+  implicit val base64ToVector: PureCodec[String, ByteVector] =
+    liftEitherB(
+      str ⇒
+        ByteVector
+          .fromBase64Descriptive(str, Bases.Alphabets.Base64)
+          .left
+          .map(CodecError(_)),
+      vec ⇒ Right(vec.toBase64(Bases.Alphabets.Base64))
+    )
 
-  def lift[A, B](f: A ⇒ B, g: B ⇒ A): PureCodec[A, B] =
-    BifuncE.lift(f, g)
-
-  def liftEither[A, B](f: A ⇒ Either[CodecError, B], g: B ⇒ Either[CodecError, A]): PureCodec[A, B] =
-    BifuncE.liftEither(f, g)
-
-  def func[A, B](f: A ⇒ B): Func[A, B] = FuncE.lift(f)
-
-  def funcEither[A, B](f: A ⇒ Either[CodecError, B]): Func[A, B] = FuncE.liftEither(f)
-
+  /**
+   * Summons an implicit codec.
+   */
+  def codec[A, B](implicit pc: PureCodec[A, B]): PureCodec[A, B] = pc
 }

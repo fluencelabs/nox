@@ -19,6 +19,7 @@ package fluence.codec
 
 import cats.Id
 import cats.instances.try_._
+import cats.syntax.compose._
 import org.scalatest.prop.Checkers
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector

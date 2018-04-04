@@ -20,21 +20,23 @@ package fluence.codec
 import cats.{Eq, Id}
 import cats.laws.discipline.eq._
 import org.scalacheck.{Arbitrary, Cogen, Gen}
+import org.scalacheck.ScalacheckShapeless._
 
-object FuncETestInstances {
-  implicit def arbFunc[E <: Throwable: Arbitrary, A: Arbitrary: Cogen, B: Arbitrary]: Arbitrary[FuncE[E, A, B]] =
+object PureCodecFuncTestInstances {
+  implicit def arbFunc[A: Arbitrary: Cogen, B: Arbitrary]: Arbitrary[PureCodec.Func[A, B]] =
     Arbitrary(
       Gen
-        .function1[A, (Boolean, B, E)](
-          Gen.zip(Arbitrary.arbitrary[Boolean], Arbitrary.arbitrary[B], Arbitrary.arbitrary[E])
+        .function1[A, (Boolean, B, PureCodec.Error)](
+          Gen.zip(Arbitrary.arbitrary[Boolean], Arbitrary.arbitrary[B], Arbitrary.arbitrary[PureCodec.Error])
         )
         .map(_.andThen { case (x, y, z) ⇒ Either.cond(x, y, z) })
-        .map(f ⇒ FuncE.liftEither(f))
+        .map(f ⇒ PureCodec.liftFuncEither(f))
     )
 
-  implicit def eqFunc[E <: Throwable: Eq, A: Arbitrary, B: Eq]: Eq[FuncE[E, A, B]] = {
-    implicit val eitherEq: Eq[Either[E, B]] = Eq.instance((x, y) ⇒ x.fold(y.left.toOption.contains, y.contains))
-    val fnEq = implicitly[Eq[A ⇒ Either[E, B]]]
+  implicit def eqFunc[A: Arbitrary, B: Eq]: Eq[PureCodec.Func[A, B]] = {
+    implicit val eitherEq: Eq[Either[PureCodec.Error, B]] =
+      Eq.instance((x, y) ⇒ x.fold(y.left.toOption.contains, y.contains))
+    val fnEq = implicitly[Eq[A ⇒ Either[PureCodec.Error, B]]]
     Eq.instance { (x, y) ⇒
       fnEq.eqv(x.apply[Id](_).value, y.apply[Id](_).value)
     }

@@ -17,6 +17,7 @@
 
 package fluence.codec.pb
 
+import cats.syntax.compose._
 import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
 import fluence.kad.protocol.Key
@@ -27,7 +28,7 @@ import scala.language.higherKinds
 object ProtobufCodecs {
 
   implicit val byteVectorByteString: PureCodec[ByteString, ByteVector] =
-    PureCodec.lift(
+    PureCodec.liftB(
       str ⇒ ByteVector(str.toByteArray),
       vec ⇒ ByteString.copyFrom(vec.toArray)
     )

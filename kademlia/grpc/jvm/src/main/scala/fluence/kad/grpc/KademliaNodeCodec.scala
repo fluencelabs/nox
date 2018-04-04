@@ -19,15 +19,17 @@ package fluence.kad.grpc
 
 import java.time.Instant
 
-import cats.MonadError
+import cats.data.EitherT
+import cats.{Monad, MonadError}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.applicative._
 import com.google.protobuf.ByteString
-import fluence.codec.Codec
+import fluence.codec.{Codec, CodecError, PureCodec}
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 

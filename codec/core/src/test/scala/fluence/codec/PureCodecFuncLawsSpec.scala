@@ -17,22 +17,16 @@
 
 package fluence.codec
 
-import cats.laws.discipline.ComposeTests
+import cats.laws.discipline.ArrowChoiceTests
 import cats.tests.CatsSuite
-import cats.Eq
 import org.scalacheck.ScalacheckShapeless._
 
-class BifuncELawsSpec extends CatsSuite {
-  import FuncETestInstances._
+class PureCodecFuncLawsSpec extends CatsSuite {
 
-  implicit def eqBifuncE[E <: Throwable, A, B](
-    implicit directEq: Eq[FuncE[E, A, B]],
-    inverseEq: Eq[FuncE[E, B, A]]
-  ): Eq[BifuncE[E, A, B]] =
-    Eq.instance((x, y) ⇒ directEq.eqv(x.direct, y.direct) && inverseEq.eqv(x.inverse, y.inverse))
+  import PureCodecFuncTestInstances._
 
   checkAll(
-    "BifuncE.ComposeLaws",
-    ComposeTests[BifuncE[CodecError, ?, ?]].compose[Int, String, Double, BigDecimal]
+    "PureCodec.Func.ArrowChoiceLaws",
+    ArrowChoiceTests[PureCodec.Func].arrowChoice[Int, String, Double, BigDecimal, Long, Short]
   )
 }

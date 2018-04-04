@@ -91,7 +91,7 @@ object Key {
   }
 
   implicit val keyVectorCodec: PureCodec[Key, ByteVector] =
-    PureCodec.liftEither(
+    PureCodec.liftEitherB(
       k ⇒ Right(k.value),
       vec ⇒
         if (vec.size == Length) Right(Key(vec))
@@ -99,10 +99,10 @@ object Key {
     )
 
   implicit val b64Codec: PureCodec[Key, String] =
-    keyVectorCodec andThen PureCodec.codec[ByteVector, String]
+    keyVectorCodec andThen implicitly[PureCodec[ByteVector, String]]
 
   implicit val bytesCodec: PureCodec[Key, Array[Byte]] =
-    keyVectorCodec andThen PureCodec.codec[ByteVector, Array[Byte]]
+    keyVectorCodec andThen implicitly[PureCodec[ByteVector, Array[Byte]]]
 
   val fromBytes: PureCodec.Func[Array[Byte], Key] =
     bytesCodec.inverse
@@ -119,7 +119,7 @@ object Key {
    */
   val sha1: PureCodec.Func[Array[Byte], Key] = {
     // TODO: it should come from crypto
-    PureCodec.funcEither[Array[Byte], Array[Byte]](
+    PureCodec.liftFuncEither[Array[Byte], Array[Byte]](
       bytes ⇒
         Try(CryptoHashers.Sha1.hash(bytes)).toEither.left
           .map(t ⇒ CodecError("Can't calculate sha1 to produce a Kademlia Key", Some(t)))
@@ -130,7 +130,7 @@ object Key {
     sha1.lmap[String](_.getBytes)
 
   val fromPublicKey: PureCodec.Func[KeyPair.Public, Key] =
-    sha1 compose PureCodec.func(_.value.toArray)
+    sha1 compose PureCodec.liftFunc(_.value.toArray)
 
   val fromKeyPair: PureCodec.Func[KeyPair, Key] =
     fromPublicKey.lmap[KeyPair](_.publicKey)
