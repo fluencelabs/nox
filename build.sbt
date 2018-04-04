@@ -616,6 +616,13 @@ lazy val `node-core` = project
 
 lazy val `node-grpc` = project
   .in(file("node/grpc"))
+  .settings(
+    protobuf,
+    libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-dsl" % http4sVersion,
+      "org.http4s" %% "http4s-blaze-server" % http4sVersion
+    )
+  )
   .dependsOn(`node-core`, `client-grpc`)
 
 lazy val `node` = project

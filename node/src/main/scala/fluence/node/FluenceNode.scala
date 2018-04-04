@@ -164,8 +164,8 @@ object FluenceNode extends slogging.LazyLogging {
       server ← NodeGrpc.grpcServer(services, builder, config).onFail(closeUpNpAndServices)
 
       _ ← server.start.onFail(closeUpNpAndServices)
-      http4s ← IO(HttpProxyHttp4s.builder(server).unsafeRunSync())
-      closeAll = closeUpNpAndServices.flatMap(_ ⇒ server.shutdown).flatMap(_ ⇒ http4s.shutdown)
+
+      closeAll = closeUpNpAndServices.flatMap(_ ⇒ server.shutdown)
 
       seedConfig ← SeedsConfig.read(config).onFail(closeAll)
       seedContacts ← seedConfig.contacts.onFail(closeAll)
