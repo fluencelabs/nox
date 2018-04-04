@@ -54,7 +54,7 @@ lazy val `codec-protobuf` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`codec-core`, `kademlia-protocol`)
+  .dependsOn(`codec-core`)
 
 lazy val `codec-protobuf-jvm` = `codec-protobuf`.jvm
 lazy val `codec-protobuf-js` = `codec-protobuf`.js

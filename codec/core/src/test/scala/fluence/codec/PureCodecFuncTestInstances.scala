@@ -36,7 +36,9 @@ object PureCodecFuncTestInstances {
   implicit def eqFunc[A: Arbitrary, B: Eq]: Eq[PureCodec.Func[A, B]] = {
     implicit val eitherEq: Eq[Either[PureCodec.Error, B]] =
       Eq.instance((x, y) ⇒ x.fold(y.left.toOption.contains, y.contains))
+
     val fnEq = implicitly[Eq[A ⇒ Either[PureCodec.Error, B]]]
+
     Eq.instance { (x, y) ⇒
       fnEq.eqv(x.apply[Id](_).value, y.apply[Id](_).value)
     }

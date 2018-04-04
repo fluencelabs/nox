@@ -21,6 +21,7 @@ import cats.instances.list._
 import cats.instances.option._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.compose._
 import cats.{MonadError, Traverse}
 import com.google.protobuf.ByteString
 import fluence.codec.{Codec, PureCodec}
@@ -43,7 +44,7 @@ object BasicContractCodec {
     implicit F: MonadError[F, Throwable],
   ): Codec[F, contract.BasicContract, BasicContract] = {
 
-    val keyC = PureCodec.codec[Key, ByteString].toCodec[F]
+    val keyC = (PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, ByteString]).toCodec[F]
     val strVec = PureCodec.codec[ByteVector, ByteString].toCodec[F]
     val pubKeyCV: Codec[F, KeyPair.Public, ByteVector] = Codec.pure(_.value, KeyPair.Public)
     val pubKeyC = pubKeyCV andThen strVec

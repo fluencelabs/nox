@@ -18,12 +18,14 @@
 package fluence.kad.grpc.client
 
 import cats.effect.IO
+import cats.syntax.compose._
 import com.google.protobuf.ByteString
 import fluence.codec.{Codec, PureCodec}
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.kad.{grpc, protocol}
 import fluence.codec.pb.ProtobufCodecs._
 import io.grpc.{CallOptions, ManagedChannel}
+import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
@@ -39,7 +41,8 @@ class KademliaClient(stub: grpc.KademliaGrpc.Kademlia)(
   ec: ExecutionContext
 ) extends KademliaRpc[Contact] {
 
-  private val keyBS = PureCodec.codec[ByteString, Key].inverse.toKleisli[IO]
+  private val keyBS =
+    (PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, ByteString]).direct.toKleisli[IO]
 
   import cats.instances.stream._
 
