@@ -8,6 +8,9 @@ jdk:
 
 sbt_args: -J-Xmx4G -J-Xms4G -J-XX:MaxPermSize=2048M
 
+before_script:
+  - sbt test:compile
+
 after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ]; then
     docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD";

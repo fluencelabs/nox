@@ -30,7 +30,7 @@ object SbtCommons {
   val FicusV = "1.4.3"
   val MockitoV = "2.13.0"
   val MonocleV = "1.5.0-cats"
-  val CirceV = "0.9.2"
+  val CirceV = "0.9.3"
   val AirflameV = "0.41"
   val ScalatestV = "3.0.+"
   val SloggingV = "0.6.1"

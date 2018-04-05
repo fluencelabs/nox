@@ -22,7 +22,9 @@ import cats.Eq
 import scala.util.control.NoStackTrace
 
 /**
- * Left side for Codec functions
+ * CodecError represents the error for encoding and decoding:
+ * it's returned in the left side of Either(T) by PureCodec transformations.
+ *
  * @param message Error message
  */
 case class CodecError(message: String, causedBy: Option[Throwable] = None) extends NoStackTrace {
