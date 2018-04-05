@@ -37,7 +37,7 @@ object KademliaNodeCodec {
     val keyCodec = PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, ByteString]
     val contactCodec = PureCodec.codec[Contact, Array[Byte]] andThen PureCodec.codec[Array[Byte], ByteString]
 
-    PureCodec.Bijection(
+    PureCodec(
       new PureCodec.Func[fluence.kad.protocol.Node[Contact], Node] {
         override def apply[F[_]: Monad](input: protocol.Node[Contact]): EitherT[F, CodecError, Node] =
           for {

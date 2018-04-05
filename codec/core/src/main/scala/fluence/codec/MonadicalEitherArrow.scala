@@ -21,7 +21,6 @@ import cats.{Monad, MonadError, Traverse}
 import cats.arrow.{ArrowChoice, Compose}
 import cats.data.{EitherT, Kleisli}
 import cats.syntax.flatMap._
-import cats.syntax.functor._
 import cats.syntax.compose._
 
 import scala.language.higherKinds
@@ -32,7 +31,7 @@ import scala.util.Try
  *
  * @tparam E Error type
  */
-abstract class MonadicalEitherFunc[E <: Throwable] {
+abstract class MonadicalEitherArrow[E <: Throwable] {
 
   /**
    * Alias for error type
@@ -124,11 +123,11 @@ abstract class MonadicalEitherFunc[E <: Throwable] {
    * @return Func, produced from the other func by leftMapping its result
    */
   implicit def fromOtherFunc[EE <: Throwable, A, B](
-    other: MonadicalEitherFunc[EE]#Func[A, B]
+    other: MonadicalEitherArrow[EE]#Func[A, B]
   )(implicit convertE: EE ⇒ E): Func[A, B] =
     new Func[A, B] {
       override def apply[F[_]: Monad](input: A): EitherT[F, E, B] =
-        other.apply(input).leftMap(convertE)
+        other(input).leftMap(convertE)
     }
 
   /**
@@ -183,10 +182,8 @@ abstract class MonadicalEitherFunc[E <: Throwable] {
           )
       }
 
-    override def lift[A, B](f: A ⇒ B): Func[A, B] = new Func[A, B] {
-      override def apply[F[_]: Monad](input: A): EitherT[F, E, B] =
-        EitherT.rightT[F, E](input).map(f)
-    }
+    override def lift[A, B](f: A ⇒ B): Func[A, B] =
+      liftFunc(f)
 
     override def first[A, B, C](fa: Func[A, B]): Func[(A, C), (B, C)] = new Func[(A, C), (B, C)] {
       override def apply[F[_]: Monad](input: (A, C)): EitherT[F, E, (B, C)] =

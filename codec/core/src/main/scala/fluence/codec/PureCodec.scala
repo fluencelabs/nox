@@ -22,7 +22,7 @@ import scodec.bits.{Bases, ByteVector}
 /**
  * PureCodec default values.
  */
-object PureCodec extends MonadicalEitherFunc[CodecError] {
+object PureCodec extends MonadicalEitherArrow[CodecError] {
 
   implicit val byteArrayToVector: PureCodec[Array[Byte], ByteVector] =
     liftB(ByteVector.apply, _.toArray)
@@ -41,4 +41,16 @@ object PureCodec extends MonadicalEitherFunc[CodecError] {
    * Summons an implicit codec.
    */
   def codec[A, B](implicit pc: PureCodec[A, B]): PureCodec[A, B] = pc
+
+  /**
+   * Shortcut to build a PureCodec.Bijection with two Func's
+   */
+  def apply[A, B](direct: Func[A, B], inverse: Func[B, A]): Bijection[A, B] =
+    Bijection(direct, inverse)
+
+  /**
+   * Shortcut to build a PureCodec.Bijection with two pure functions
+   */
+  def apply[A, B](direct: A ⇒ B, inverse: B ⇒ A): Bijection[A, B] =
+    liftB(direct, inverse)
 }
