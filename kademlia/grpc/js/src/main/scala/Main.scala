@@ -24,9 +24,9 @@ import fluence.kad.grpc.{KademliaGrpcService, KademliaNodeCodec}
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.scalajs.js.annotation.JSExport
+import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
 
-@JSExport
+@JSExportTopLevel("Main")
 object Main extends slogging.LazyLogging {
 
   LoggerConfig.factory = PrintLoggerFactory()
