@@ -9,6 +9,8 @@ jdk:
 env:
   - SBT_OPTS:-Xmx4G
 
+sbt_args: -J-Xmx4G -J-Xms4G -J-XX:MaxPermSize=2048M
+
 after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ]; then
     docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD";
@@ -20,6 +22,7 @@ cache:
   directories:
     - $HOME/.ivy2/cache
     - $HOME/.sbt/boot
+    - $HOME/.sbt/launchers
 
 before_cache:
   # Tricks to avoid unnecessary cache updates

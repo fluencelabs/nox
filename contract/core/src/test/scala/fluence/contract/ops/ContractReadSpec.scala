@@ -332,7 +332,7 @@ class ContractReadSpec extends WordSpec with Matchers {
     "fail when id of contract is invalid" in {
       val signedContract = signWithParticipants(contract).copy(id = Key.fromStringSha1[Id]("123123123").value.right.get)
       val result = signedContract.checkPubKey[Option]
-      result.failed.getMessage should startWith("Contract id is not equals to hash(pubKey);")
+      result.failed.getMessage should startWith("Kademlia key doesn't match hash(pubKey);")
     }
     "success" in {
       val signedContract = signWithParticipants(contract)
