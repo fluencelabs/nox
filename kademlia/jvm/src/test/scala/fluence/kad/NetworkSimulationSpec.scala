@@ -33,14 +33,12 @@ import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.GrpcServer
-import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import slogging._
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Try
 
@@ -48,17 +46,9 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(10, Seconds), Span(250, Milliseconds))
 
-  implicit val runFuture = new (Future ~> Task) {
-    override def apply[A](fa: Future[A]): Task[A] = Task.deferFuture(fa)
-  }
-
-  implicit val runTask = new (Task ~> Future) {
-    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
-  }
-
   private val algo = SignAlgo.dumb
 
-  import KademliaNodeCodec.{codec ⇒ kadCodec}
+  import KademliaNodeCodec.{pureCodec ⇒ kadCodec}
   import algo.checkerFn
 
   private val config = ConfigFactory.load()

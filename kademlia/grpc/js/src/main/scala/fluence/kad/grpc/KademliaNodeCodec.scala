@@ -62,9 +62,7 @@ object KademliaNodeCodec {
           k ← keyFromBytes(id.toArray)
           contact ← JSCodecs.byteVectorUint8Array.encode(binary.contact)
           c ← contactFromBase64(new String(contact.toArray))
-          _ ← if (Key.checkPublicKey(k, c.publicKey)) F.pure(())
-          else
-            F.raiseError(new IllegalArgumentException("Key doesn't conform to signature")) // TODO err: crypto -- keys mismatch
+          _ ← Key.checkPublicKey[F](k, c.publicKey).value.flatMap(F.fromEither)
         } yield
           protocol.Node[Contact](
             k,

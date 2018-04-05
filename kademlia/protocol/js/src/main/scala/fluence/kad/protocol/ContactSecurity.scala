@@ -17,7 +17,7 @@
 
 package fluence.kad.protocol
 
-import cats.Applicative
+import cats.{Applicative, Id}
 import cats.syntax.eq._
 
 import scala.language.higherKinds
@@ -29,7 +29,8 @@ import scala.language.higherKinds
 object ContactSecurity {
 
   private def checkMaybeLocal[F[_]: Applicative](self: Key): Node[Contact] ⇒ F[Boolean] =
-    node ⇒ Applicative[F].pure(node.key =!= self && Key.checkPublicKey(node.key, node.contact.publicKey))
+    node ⇒
+      Applicative[F].pure(node.key =!= self && Key.checkPublicKey[Id](node.key, node.contact.publicKey).value.isRight)
 
   def check[F[_]: Applicative](self: Key, acceptLocal: Boolean): Node[Contact] ⇒ F[Boolean] =
     checkMaybeLocal[F](self)

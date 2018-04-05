@@ -20,46 +20,47 @@ package fluence.kad.grpc
 import java.time.Instant
 
 import cats.data.EitherT
-import cats.{Monad, MonadError}
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.syntax.applicative._
+import cats.Monad
+import cats.syntax.compose._
 import com.google.protobuf.ByteString
-import fluence.codec.{Codec, CodecError, PureCodec}
+import fluence.codec.{CodecError, PureCodec}
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
 import scodec.bits.ByteVector
+import fluence.codec.pb.ProtobufCodecs._
 
 import scala.language.higherKinds
 
 object KademliaNodeCodec {
-  implicit def codec[F[_]](
-    implicit F: MonadError[F, Throwable],
-    checkerFn: CheckerFn
-  ): Codec[F, fluence.kad.protocol.Node[Contact], Node] =
-    Codec(
-      obj ⇒
-        Node(
-          id = ByteString.copyFrom(obj.key.id),
-          contact = ByteString.copyFrom(obj.contact.b64seed.getBytes())
-        ).pure[F],
-      binary ⇒
-        for {
-          k ← Key.fromBytes.runF[F](binary.id.toByteArray)
-          c ← Contact
-            .readB64seed[F](new String(binary.contact.toByteArray))
-            .value
-            .flatMap(F.fromEither) // TODO err: crypto
-          _ ← if (Key.checkPublicKey(k, c.publicKey)) F.pure(())
-          else
-            F.raiseError(new IllegalArgumentException("Key doesn't conform to signature")) // TODO err: crypto -- keys mismatch
-        } yield
-          protocol.Node[Contact](
-            k,
-            // TODO: consider removing Instant.now(). It could be really incorrect, as nodes taken from lookup replies are not seen at the moment
-            Instant.now(),
-            c
-        )
+  implicit def pureCodec(implicit checkerFn: CheckerFn): PureCodec[fluence.kad.protocol.Node[Contact], Node] = {
+    val keyCodec = PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, ByteString]
+    val contactCodec = PureCodec.codec[Contact, Array[Byte]] andThen PureCodec.codec[Array[Byte], ByteString]
+
+    PureCodec.Bijection(
+      new PureCodec.Func[fluence.kad.protocol.Node[Contact], Node] {
+        override def apply[F[_]: Monad](input: protocol.Node[Contact]): EitherT[F, CodecError, Node] =
+          for {
+            id ← keyCodec.direct[F](input.key)
+            contact ← contactCodec.direct[F](input.contact)
+          } yield Node(id, contact)
+      },
+      new PureCodec.Func[Node, fluence.kad.protocol.Node[Contact]] {
+        override def apply[F[_]: Monad](input: Node): EitherT[F, CodecError, protocol.Node[Contact]] =
+          for {
+            id ← keyCodec.inverse[F](input.id)
+            contact ← contactCodec.inverse[F](input.contact)
+            _ ← Key
+              .checkPublicKey[F](id, contact.publicKey)
+              .leftMap(t ⇒ CodecError(s"Decoding node with key=$id failed", causedBy = Some(t)))
+          } yield
+            protocol.Node[Contact](
+              id,
+              Instant
+                .now(), // TODO: remove Instant.now, it is incorrect and should never be set in codec: decoding a Node doesn't mean it's being freshly seen
+              contact
+            )
+      }
     )
+  }
 }

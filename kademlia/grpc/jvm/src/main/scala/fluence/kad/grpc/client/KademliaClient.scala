@@ -20,7 +20,7 @@ package fluence.kad.grpc.client
 import cats.effect.IO
 import cats.syntax.compose._
 import com.google.protobuf.ByteString
-import fluence.codec.{Codec, PureCodec}
+import fluence.codec.PureCodec
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.kad.{grpc, protocol}
 import fluence.codec.pb.ProtobufCodecs._
@@ -37,7 +37,7 @@ import scala.language.implicitConversions
  */
 class KademliaClient(stub: grpc.KademliaGrpc.Kademlia)(
   implicit
-  codec: Codec[IO, protocol.Node[Contact], grpc.Node],
+  codec: PureCodec[protocol.Node[Contact], grpc.Node],
   ec: ExecutionContext
 ) extends KademliaRpc[Contact] {
 
@@ -46,7 +46,7 @@ class KademliaClient(stub: grpc.KademliaGrpc.Kademlia)(
 
   import cats.instances.stream._
 
-  private val streamCodec = Codec.codec[IO, Stream[protocol.Node[Contact]], Stream[grpc.Node]]
+  private val streamCodec = PureCodec.codec[Stream[protocol.Node[Contact]], Stream[grpc.Node]]
 
   /**
    * Ping the contact, get its actual Node status, or fail
@@ -54,7 +54,7 @@ class KademliaClient(stub: grpc.KademliaGrpc.Kademlia)(
   override def ping(): IO[Node[Contact]] =
     for {
       n ← IO.fromFuture(IO(stub.ping(grpc.PingRequest())))
-      nc ← codec.decode(n)
+      nc ← codec.inverse.runF[IO](n)
     } yield nc
 
   /**
@@ -66,7 +66,7 @@ class KademliaClient(stub: grpc.KademliaGrpc.Kademlia)(
     for {
       k ← keyBS(key)
       res ← IO.fromFuture(IO(stub.lookup(grpc.LookupRequest(k, numberOfNodes))))
-      resDec ← streamCodec.decode(res.nodes.toStream)
+      resDec ← streamCodec.inverse.runF[IO](res.nodes.toStream)
     } yield resDec
 
   /**
@@ -83,7 +83,7 @@ class KademliaClient(stub: grpc.KademliaGrpc.Kademlia)(
           stub.lookupAway(grpc.LookupAwayRequest(k, moveAwayK, numberOfNodes))
         )
       )
-      resDec ← streamCodec.decode(res.nodes.toStream)
+      resDec ← streamCodec.inverse.runF[IO](res.nodes.toStream)
     } yield resDec
 }
 
@@ -100,7 +100,7 @@ object KademliaClient {
     callOptions: CallOptions
   )(
     implicit
-    codec: Codec[IO, protocol.Node[Contact], grpc.Node],
+    codec: PureCodec[protocol.Node[Contact], grpc.Node],
     ec: ExecutionContext
   ): KademliaRpc[Contact] =
     new KademliaClient(new grpc.KademliaGrpc.KademliaStub(channel, callOptions))

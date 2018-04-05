@@ -31,4 +31,10 @@ object ProtobufCodecs {
       vec ⇒ ByteString.copyFrom(vec.toArray)
     )
 
+  implicit val byteArrayByteString: PureCodec[ByteString, Array[Byte]] =
+    PureCodec.liftB(
+      str ⇒ str.toByteArray,
+      arr ⇒ ByteString.copyFrom(arr)
+    )
+
 }

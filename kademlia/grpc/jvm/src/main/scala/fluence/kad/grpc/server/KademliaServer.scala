@@ -21,7 +21,7 @@ import cats.effect.IO
 import cats.instances.stream._
 import cats.syntax.compose._
 import com.google.protobuf.ByteString
-import fluence.codec.{Codec, PureCodec}
+import fluence.codec.PureCodec
 import fluence.kad.grpc._
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, KademliaRpc, Key}
@@ -34,15 +34,15 @@ import scala.language.implicitConversions
 // TODO: cover with tests
 class KademliaServer(kademlia: KademliaRpc[Contact])(
   implicit
-  codec: Codec[IO, protocol.Node[Contact], Node]
+  codec: PureCodec[protocol.Node[Contact], Node]
 ) extends KademliaGrpc.Kademlia {
 
-  private val streamCodec = Codec.codec[IO, Stream[protocol.Node[Contact]], Stream[Node]]
+  private val streamCodec = PureCodec.codec[Stream[protocol.Node[Contact]], Stream[Node]]
 
   private val keyCodec = (PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, ByteString]).toCodec[IO]
 
   override def ping(request: PingRequest): Future[Node] =
-    kademlia.ping().flatMap(codec.encode).unsafeToFuture()
+    kademlia.ping().flatMap(codec.direct.runF[IO]).unsafeToFuture()
 
   override def lookup(request: LookupRequest): Future[NodesResponse] =
     (
@@ -50,7 +50,7 @@ class KademliaServer(kademlia: KademliaRpc[Contact])(
         key ← keyCodec.decode(request.key)
         ns ← kademlia
           .lookup(key, request.numberOfNodes)
-        resp ← streamCodec.encode(ns.toStream)
+        resp ← streamCodec.direct.runF[IO](ns.toStream)
       } yield NodesResponse(resp)
     ).unsafeToFuture()
 
@@ -61,7 +61,7 @@ class KademliaServer(kademlia: KademliaRpc[Contact])(
         moveAwayKey ← keyCodec.decode(request.moveAwayFrom)
         ns ← kademlia
           .lookupAway(key, moveAwayKey, request.numberOfNodes)
-        resp ← streamCodec.encode(ns.toStream)
+        resp ← streamCodec.direct.runF[IO](ns.toStream)
       } yield NodesResponse(resp)
     ).unsafeToFuture()
 

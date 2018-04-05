@@ -55,7 +55,7 @@ abstract class MonadicalEitherFunc[E <: Throwable] {
      * @param input Input
      * @tparam F All internal maps and composes are to be executed with this Monad
      */
-    def runEither[F[_]: Monad](input: A): F[Either[E, B]]
+    def runEither[F[_]: Monad](input: A): F[Either[E, B]] = apply[F](input).value
 
     /**
      * Run the func on input, lifting the error into MonadError effect.
@@ -72,7 +72,7 @@ abstract class MonadicalEitherFunc[E <: Throwable] {
      * @param input Input
      * @tparam F All internal maps and composes are to be executed with this Monad
      */
-    def apply[F[_]: Monad](input: A): EitherT[F, E, B] = EitherT(runEither(input))
+    def apply[F[_]: Monad](input: A): EitherT[F, E, B]
 
     /**
      * Converts this Func to Kleisli, using MonadError to execute upon and to lift errors into.
@@ -127,8 +127,8 @@ abstract class MonadicalEitherFunc[E <: Throwable] {
     other: MonadicalEitherFunc[EE]#Func[A, B]
   )(implicit convertE: EE ⇒ E): Func[A, B] =
     new Func[A, B] {
-      override def runEither[F[_]: Monad](input: A): F[Either[E, B]] =
-        other.runEither(input).map(_.left.map(convertE))
+      override def apply[F[_]: Monad](input: A): EitherT[F, E, B] =
+        other.apply(input).leftMap(convertE)
     }
 
   /**
@@ -141,9 +141,8 @@ abstract class MonadicalEitherFunc[E <: Throwable] {
    */
   implicit def funcForTraverse[G[_]: Traverse, A, B](implicit f: Func[A, B]): Func[G[A], G[B]] =
     new Func[G[A], G[B]] {
-      override def runEither[F[_]: Monad](input: G[A]): F[Either[E, G[B]]] = {
-        Traverse[G].traverse[EitherT[F, E, ?], A, B](input)(f.apply[F](_)).value
-      }
+      override def apply[F[_]: Monad](input: G[A]): EitherT[F, E, G[B]] =
+        Traverse[G].traverse[EitherT[F, E, ?], A, B](input)(f.apply[F](_))
     }
 
   /**
@@ -152,8 +151,8 @@ abstract class MonadicalEitherFunc[E <: Throwable] {
    * @param f Function to lift
    */
   def liftFunc[A, B](f: A ⇒ B): Func[A, B] = new Func[A, B] {
-    override def runEither[F[_]: Monad](input: A): F[Either[E, B]] =
-      Monad[F].pure(input).map(f andThen Right.apply)
+    override def apply[F[_]: Monad](input: A): EitherT[F, E, B] =
+      EitherT.rightT[F, E](input).map(f)
   }
 
   /**
@@ -162,8 +161,8 @@ abstract class MonadicalEitherFunc[E <: Throwable] {
    * @param f Function to lift
    */
   def liftFuncEither[A, B](f: A ⇒ Either[E, B]): Func[A, B] = new Func[A, B] {
-    override def runEither[F[_]: Monad](input: A): F[Either[E, B]] =
-      Monad[F].pure(input).map(f)
+    override def apply[F[_]: Monad](input: A): EitherT[F, E, B] =
+      EitherT.rightT[F, E](input).subflatMap(f)
   }
 
   /**
@@ -177,33 +176,27 @@ abstract class MonadicalEitherFunc[E <: Throwable] {
   implicit object catsMonadicalEitherArrowChoice extends ArrowChoice[Func] {
     override def choose[A, B, C, D](f: Func[A, C])(g: Func[B, D]): Func[Either[A, B], Either[C, D]] =
       new Func[Either[A, B], Either[C, D]] {
-        override def runEither[F[_]: Monad](input: Either[A, B]): F[Either[E, Either[C, D]]] =
+        override def apply[F[_]: Monad](input: Either[A, B]): EitherT[F, E, Either[C, D]] =
           input.fold(
-            f.runEither(_).map(_.map(Left(_))),
-            g.runEither(_).map(_.map(Right(_)))
+            f(_).map(Left(_)),
+            g(_).map(Right(_))
           )
       }
 
     override def lift[A, B](f: A ⇒ B): Func[A, B] = new Func[A, B] {
-      override def runEither[F[_]: Monad](input: A): F[Either[E, B]] =
-        Monad[F].pure(input).map(f andThen Right.apply)
+      override def apply[F[_]: Monad](input: A): EitherT[F, E, B] =
+        EitherT.rightT[F, E](input).map(f)
     }
 
     override def first[A, B, C](fa: Func[A, B]): Func[(A, C), (B, C)] = new Func[(A, C), (B, C)] {
-      override def runEither[F[_]: Monad](input: (A, C)): F[Either[E, (B, C)]] =
-        fa.runEither(input._1).map(_.map(_ → input._2))
+      override def apply[F[_]: Monad](input: (A, C)): EitherT[F, E, (B, C)] =
+        fa(input._1).map(_ → input._2)
     }
 
     override def compose[A, B, C](f: Func[B, C], g: Func[A, B]): Func[A, C] =
       new Func[A, C] {
-        override def runEither[F[_]: Monad](input: A): F[Either[E, C]] =
-          g.runEither(input)
-            .flatMap(
-              _.fold(
-                e ⇒ Monad[F].pure(Left(e)),
-                f.runEither[F]
-              )
-            )
+        override def apply[F[_]: Monad](input: A): EitherT[F, E, C] =
+          g(input).flatMap(f(_))
       }
   }
 

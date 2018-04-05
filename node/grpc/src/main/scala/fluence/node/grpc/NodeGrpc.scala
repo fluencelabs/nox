@@ -81,7 +81,7 @@ object NodeGrpc {
       implicit val ec: Scheduler = Scheduler(Executors.newCachedThreadPool())
 
       import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}
-      import fluence.kad.grpc.KademliaNodeCodec.{codec ⇒ nodeCodec}
+      import fluence.kad.grpc.KademliaNodeCodec.{pureCodec ⇒ nodeCodec}
       val keyI = Key.bytesCodec.toCodec[IO]
       import keyI.inverse
 
