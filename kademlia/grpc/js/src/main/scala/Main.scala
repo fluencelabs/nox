@@ -35,7 +35,7 @@ object Main extends slogging.LazyLogging {
   val algo: SignAlgo = Ecdsa.signAlgo
   import algo.checkerFn
 
-  implicit val codec = KademliaNodeCodec.codec[IO]
+  implicit val codec = KademliaNodeCodec.pureCodec
 
   val host = "http://localhost:8080"
 

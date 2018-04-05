@@ -19,62 +19,50 @@ package fluence.kad.grpc
 
 import java.time.Instant
 
-import cats.MonadError
-import cats.syntax.applicative._
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import fluence.codec.Codec
+import cats.Monad
+import cats.data.EitherT
+import cats.syntax.compose._
+import fluence.codec.{CodecError, PureCodec}
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.grpc.facade.Node
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
+import scodec.bits.ByteVector
 
-import scala.scalajs.js.typedarray.Uint8Array
-import scala.scalajs.js.JSConverters._
+import fluence.codec.Uint8ArrayCodecs._
+
 import scala.language.higherKinds
+import scala.scalajs.js.typedarray.Uint8Array
 
-//TODO merge it with KademliaNodeCodec in jvm project
 object KademliaNodeCodec {
-  implicit def codec[F[_]](
-    implicit F: MonadError[F, Throwable],
-    checkerFn: CheckerFn
-  ): Codec[F, fluence.kad.protocol.Node[Contact], Node] = {
+  implicit def pureCodec(implicit checkerFn: CheckerFn): PureCodec[fluence.kad.protocol.Node[Contact], Node] = {
+    val keyCodec = PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, Uint8Array]
+    val contactCodec = PureCodec.codec[Contact, Array[Byte]] andThen PureCodec.codec[Array[Byte], Uint8Array]
 
-    def contactFromBase64(str: String) =
-      Contact
-        .readB64seed[F](str)
-        .value
-        .flatMap(F.fromEither) // TODO err: crypto
-
-    def keyFromBytes(arr: Array[Byte]) = Key.fromBytes.runF[F](arr)
-
-    def encode: fluence.kad.protocol.Node[Contact] ⇒ F[Node] =
-      obj ⇒
-        Node(
-          id = new Uint8Array(obj.key.id.toJSArray),
-          contact = new Uint8Array(obj.contact.b64seed.getBytes().toJSArray)
-        ).pure[F]
-
-    def decode: Node ⇒ F[fluence.kad.protocol.Node[Contact]] =
-      binary ⇒ {
-        for {
-          id ← JSCodecs.byteVectorUint8Array.encode(binary.id)
-          k ← keyFromBytes(id.toArray)
-          contact ← JSCodecs.byteVectorUint8Array.encode(binary.contact)
-          c ← contactFromBase64(new String(contact.toArray))
-          _ ← Key.checkPublicKey[F](k, c.publicKey).value.flatMap(F.fromEither)
-        } yield
-          protocol.Node[Contact](
-            k,
-            // TODO: consider removing Instant.now(). It could be really incorrect, as nodes taken from lookup replies are not seen at the moment
-            Instant.now(),
-            c
-          )
+    PureCodec.Bijection(
+      new PureCodec.Func[fluence.kad.protocol.Node[Contact], Node] {
+        override def apply[F[_]: Monad](input: protocol.Node[Contact]): EitherT[F, CodecError, Node] =
+          for {
+            id ← keyCodec.direct[F](input.key)
+            contact ← contactCodec.direct[F](input.contact)
+          } yield Node(id, contact)
+      },
+      new PureCodec.Func[Node, fluence.kad.protocol.Node[Contact]] {
+        override def apply[F[_]: Monad](input: Node): EitherT[F, CodecError, protocol.Node[Contact]] =
+          for {
+            id ← keyCodec.inverse[F](input.id)
+            contact ← contactCodec.inverse[F](input.contact)
+            _ ← Key
+              .checkPublicKey[F](id, contact.publicKey)
+              .leftMap(t ⇒ CodecError(s"Decoding node with key=$id failed", causedBy = Some(t)))
+          } yield
+            protocol.Node[Contact](
+              id,
+              Instant
+                .now(), // TODO: remove Instant.now, it is incorrect and should never be set in codec: decoding a Node doesn't mean it's being freshly seen
+              contact
+            )
       }
-
-    Codec(
-      encode,
-      decode
     )
   }
 }
