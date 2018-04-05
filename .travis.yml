@@ -6,9 +6,6 @@ scala:
 jdk:
   - oraclejdk8
 
-env:
-  - SBT_OPTS:-Xmx4G
-
 sbt_args: -J-Xmx4G -J-Xms4G -J-XX:MaxPermSize=2048M
 
 after_success:
