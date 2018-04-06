@@ -55,7 +55,7 @@ class KryoCodecsSpec extends WordSpec with Matchers {
   }
 
   "encode" should {
-    "don't write full class name to binary representation" when {
+    "not write full class name to binary representation" when {
       "class registered" in {
         //val codec = KryoCodec[TestClass](Seq(classOf[TestClass], classOf[Array[Byte]], classOf[Array[Array[Byte]]]), registerRequired = true)
         val codec = testCodecs.codec[TestClass]

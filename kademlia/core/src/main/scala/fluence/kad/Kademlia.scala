@@ -156,6 +156,7 @@ object Kademlia {
 
     /**
      * Update RoutingTable with a freshly seen node
+     * TODO: return the reason, why its not added to the routing table
      *
      * @param node Discovered node, known to be alive and reachable
      * @return true if node is present in routing table after update, false if it's dropped
@@ -220,11 +221,11 @@ object Kademlia {
         case found @ Some(_) ⇒ (found: Option[Node[C]]).pure[F]
 
         case None ⇒
-          callIterative[Throwable, Unit](
+          callIterative[String, Unit](
             key,
             n ⇒
               if (n.key === key) EitherT.rightT(())
-              else EitherT.leftT(new RuntimeException("Mismatching node") with NoStackTrace),
+              else EitherT.leftT("Mismatching node"),
             numToCollect = 1,
             maxNumOfCalls = maxRequests
           ).map(_.headOption.map(_._1))

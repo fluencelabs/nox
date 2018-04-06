@@ -24,10 +24,11 @@ import cats.instances.list._
 import cats.instances.option._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.compose._
 import cats.{MonadError, Traverse}
 import com.google.protobuf.ByteString
 import com.typesafe.config.Config
-import fluence.codec.Codec
+import fluence.codec.{Codec, PureCodec}
 import fluence.codec.pb.ProtobufCodecs._
 import fluence.contract
 import fluence.contract.BasicContract
@@ -54,13 +55,13 @@ object ContractsCacheStore {
     implicit
     F: MonadError[F, Throwable]
   ): Codec[F, ContractRecord[BasicContract], BasicContractCache] = {
-    val keyC = Codec.codec[F, Key, ByteString]
-    val strVec = Codec.codec[F, ByteVector, ByteString]
+    val keyC = (PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, ByteString]).toCodec[F]
+    val strVec = PureCodec.codec[ByteVector, ByteString].toCodec[F]
 
     val pubKeyCV: Codec[F, KeyPair.Public, ByteVector] = Codec.pure(_.value, KeyPair.Public)
     val pubKeyC = pubKeyCV andThen strVec
 
-    val optStrVecC = Codec.codec[F, Option[ByteVector], Option[ByteString]]
+    val optStrVecC = PureCodec.codec[Option[ByteVector], Option[ByteString]].toCodec[F]
 
     val serializer: ContractRecord[BasicContract] ⇒ F[BasicContractCache] =
       contractRec ⇒ {
@@ -201,6 +202,8 @@ object ContractsCacheStore {
     contractCacheBinaryStore: KVStore[F, Array[Byte], Array[Byte]]
   )(implicit F: MonadError[F, Throwable]): KVStore[F, Key, ContractRecord[BasicContract]] = {
     import Key.bytesCodec
+
+    implicit val keyBytesCodec: Codec[F, Array[Byte], Key] = bytesCodec.toCodec[F].swap
 
     implicit val contractRecord2BytesCodec: Codec[F, ContractRecord[BasicContract], Array[Byte]] =
       contractRec2ContractCacheCodec[F] andThen contractCache2Bytes[F]

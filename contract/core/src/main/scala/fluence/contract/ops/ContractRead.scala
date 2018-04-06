@@ -277,11 +277,7 @@ object ContractRead {
      * Checks that given key is produced form that publicKey
      */
     def checkPubKey[F[_]: Monad]: EitherT[F, CryptoErr, Unit] =
-      EitherT.cond(
-        Key.checkPublicKey(id, publicKey),
-        (),
-        CryptoErr(s"Contract id is not equals to hash(pubKey); id=$id pubKey=$publicKey")
-      )
+      Key.checkPublicKey(id, publicKey)
 
   }
 

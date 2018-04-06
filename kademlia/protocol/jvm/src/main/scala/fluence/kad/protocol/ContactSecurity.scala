@@ -19,7 +19,7 @@ package fluence.kad.protocol
 
 import java.net.InetAddress
 
-import cats.Applicative
+import cats.{Applicative, Id}
 import cats.syntax.eq._
 import cats.syntax.applicative._
 import cats.syntax.apply._
@@ -38,7 +38,8 @@ object ContactSecurity {
    * @return Whether the node can be saved or not
    */
   private def cryptoCheck[F[_]: Applicative](self: Key): Node[Contact] ⇒ F[Boolean] =
-    node ⇒ Applicative[F].pure(node.key =!= self && Key.checkPublicKey(node.key, node.contact.publicKey))
+    node ⇒
+      Applicative[F].pure(node.key =!= self && Key.checkPublicKey[Id](node.key, node.contact.publicKey).value.isRight)
 
   /**
    * Performs a check for Node's address, trying to prove that it's not a loopback

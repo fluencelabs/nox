@@ -22,13 +22,10 @@ import java.time.Instant
 import cats.Id
 import cats.data.Kleisli
 import cats.effect.IO
-import cats.instances.try_._
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
 import fluence.transport.grpc.GrpcConf
-
-import scala.util.Try
 
 object KademliaGrpcUpdate {
 
@@ -47,7 +44,7 @@ object KademliaGrpcUpdate {
   ): (Kleisli[Option, String, String], Option[Any]) ⇒ IO[Unit] = { (headers, message) ⇒
     val remoteNode = for {
       remoteB64key ← headers(clientConf.keyHeader)
-      remoteKey ← Key.fromB64[Try](remoteB64key).toOption
+      remoteKey ← Key.fromB64[Id](remoteB64key).value.toOption
 
       remoteSeed ← headers(clientConf.contactHeader)
       remoteContact ← Contact.readB64seed[Id](remoteSeed).value.toOption

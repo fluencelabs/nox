@@ -7,7 +7,7 @@ import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 
 object SbtCommons {
 
-  val scalaV = scalaVersion := "2.12.4"
+  val scalaV = scalaVersion := "2.12.5"
 
   val commons = Seq(
     scalaV,
@@ -30,7 +30,7 @@ object SbtCommons {
   val FicusV = "1.4.3"
   val MockitoV = "2.13.0"
   val MonocleV = "1.5.0-cats"
-  val CirceV = "0.9.2"
+  val CirceV = "0.9.3"
   val AirflameV = "0.41"
   val ScalatestV = "3.0.+"
   val SloggingV = "0.6.1"
@@ -77,6 +77,8 @@ object SbtCommons {
   val mockito = "org.mockito"        % "mockito-core" % MockitoV % Test
   val scalatestKit = "org.scalatest" %% "scalatest" % ScalatestV
   val scalatest = scalatestKit       % Test
+
+  val kindProjector = addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.6")
 
   val protobuf = Seq(
     PB.targets in Compile := Seq(

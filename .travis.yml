@@ -2,12 +2,14 @@ sudo: required
 
 language: scala
 scala:
-   - 2.12.4
+   - 2.12.5
 jdk:
   - oraclejdk8
 
-env:
-  - SBT_OPTS:-Xmx2G
+sbt_args: -J-Xmx4G -J-Xms4G -J-XX:MaxPermSize=2048M
+
+before_script:
+  - sbt test:compile
 
 after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ]; then
@@ -19,7 +21,8 @@ after_success:
 cache:
   directories:
     - $HOME/.ivy2/cache
-    - $HOME/.sbt/boot/
+    - $HOME/.sbt/boot
+    - $HOME/.sbt/launchers
 
 before_cache:
   # Tricks to avoid unnecessary cache updates

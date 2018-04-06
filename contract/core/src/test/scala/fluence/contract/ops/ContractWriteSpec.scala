@@ -17,6 +17,7 @@
 
 package fluence.contract.ops
 
+import cats.Id
 import cats.instances.option._
 import cats.instances.try_._
 import fluence.contract.{BasicContract, _}
@@ -37,12 +38,12 @@ class ContractWriteSpec extends WordSpec with Matchers {
   private val keyPair = signAlgo.generateKeyPair[Option]().success
   private val signer = signAlgo.signer(keyPair)
   private implicit val checker: SignatureChecker = signAlgo.checker(keyPair.publicKey)
-  private val contractKadKey = Key.fromKeyPair[Try](keyPair).get
+  private val contractKadKey = Key.fromKeyPair.unsafe(keyPair)
 
   private val contract: BasicContract = BasicContract.offer(contractKadKey, 2, signer).get
 
   private val participantKeyPair = signAlgo.generateKeyPair[Option]().success
-  private val participantKey = Key.fromPublicKey(participantKeyPair.publicKey).get
+  private val participantKey = Key.fromPublicKey.unsafe(participantKeyPair.publicKey)
   private val participantSigner = signAlgo.signer(participantKeyPair)
   private val participantChecker = signAlgo.checker(participantKeyPair.publicKey)
 
@@ -117,7 +118,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
     "add signed by participant contract as participants to base contract " in {
 
       val participantKeyPair2 = signAlgo.generateKeyPair[Option]().success
-      val participantKey2 = Key.fromPublicKey(participantKeyPair2.publicKey).get
+      val participantKey2 = Key.fromPublicKey.unsafe(participantKeyPair2.publicKey)
       val participantSigner2 = signAlgo.signer(participantKeyPair2)
       val participantChecker2 = signAlgo.checker(participantKeyPair2.publicKey)
 

@@ -18,9 +18,14 @@ lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
   .in(file("codec/core"))
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core"   % Cats1V,
-      "org.scodec"    %%% "scodec-bits" % ScodecBitsV
+      "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
+      "org.typelevel" %%% "cats-laws" % Cats1V % Test,
+      "org.typelevel" %%% "cats-testkit" % Cats1V % Test,
+      "com.github.alexarchambault" %%% "scalacheck-shapeless_1.13" % "1.1.6" % Test,
+      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -49,7 +54,7 @@ lazy val `codec-protobuf` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`codec-core`, `kademlia-protocol`)
+  .dependsOn(`codec-core`)
 
 lazy val `codec-protobuf-jvm` = `codec-protobuf`.jvm
 lazy val `codec-protobuf-js` = `codec-protobuf`.js
@@ -217,6 +222,25 @@ lazy val `kademlia-monix` =
 
 lazy val `kademlia-monix-js` = `kademlia-monix`.js
 lazy val `kademlia-monix-jvm` = `kademlia-monix`.jvm
+
+// Default Kademlia bundle and integration tests
+lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+    )
+  ).jsSettings(
+  fork in Test      := false,
+  scalaJSModuleKind := ModuleKind.CommonJSModule
+)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`kademlia-monix`, `kademlia-grpc`, `kademlia-testkit` % Test)
+
+lazy val `kademlia-js` = `kademlia`.js
+lazy val `kademlia-jvm` = `kademlia`.jvm
 
 lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)

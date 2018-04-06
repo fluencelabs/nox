@@ -46,7 +46,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
   val keypair = KeyPair.fromBytes(Array.emptyByteArray, Array.emptyByteArray)
 
-  val nodeId: Key = Key.fromPublicKey[IO](keypair.publicKey).unsafeRunSync()
+  val nodeId: Key = Key.fromPublicKey.unsafe(keypair.publicKey)
 
   val signAlgo = SignAlgo.dumb
   val signer = signAlgo.signer(keypair)
@@ -86,7 +86,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
   def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
     val s = offerSigner(signAlgo, seed)
-    BasicContract.offer[Try](Key.fromPublicKey[IO](s.publicKey).unsafeRunSync(), participantsRequired, s).get
+    BasicContract.offer[Try](Key.fromPublicKey.unsafe(s.publicKey), participantsRequired, s).get
   }
 
   def offerSigner(signAlgo: SignAlgo, seed: String) = {
@@ -152,7 +152,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
       import fluence.contract.ops.ContractWrite._
 
       val c2 = offer("should not allocate, as not a participant, even with a list of participants")
-        .signOffer(Key.fromPublicKey[IO](s2.publicKey).unsafeRunSync(), s2)
+        .signOffer(Key.fromPublicKey.unsafe(s2.publicKey), s2)
         .value
         .get
         .right

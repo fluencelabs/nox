@@ -17,29 +17,25 @@
 
 package fluence.kad.grpc
 
-import cats.{Applicative, MonadError}
-import fluence.codec.Codec
+import cats.syntax.compose._
+import fluence.codec.PureCodec
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
-import scala.scalajs.js.JSConverters._
 
 import scala.language.higherKinds
+import scala.scalajs.js.JSConverters._
 import scala.scalajs.js.typedarray.Uint8Array
 
 object JSCodecs {
-  implicit def byteVectorUint8Array[F[_]: Applicative](
-    implicit F: MonadError[F, Throwable]
-  ): Codec[F, Uint8Array, ByteVector] =
-    Codec.apply(
+  implicit def byteVectorUint8Array: PureCodec[Uint8Array, ByteVector] =
+    PureCodec(
       jsUnsignedArray ⇒ {
-        F.catchNonFatal {
-          ByteVector(jsUnsignedArray.toArray.map(_.toByte))
-        }
+        ByteVector(jsUnsignedArray.toArray.map(_.toByte))
       },
-      vec ⇒ F.catchNonFatal(new Uint8Array(vec.toArray.map(_.toShort).toJSArray))
+      vec ⇒ new Uint8Array(vec.toArray.map(_.toShort).toJSArray)
     )
 
   // TODO: more precise error
-  implicit def keyUint8Array[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Uint8Array, Key] =
-    byteVectorUint8Array[F] andThen Key.vectorCodec.swap
+  implicit def keyUint8Array: PureCodec[Uint8Array, Key] =
+    byteVectorUint8Array andThen Key.keyVectorCodec.swap
 }

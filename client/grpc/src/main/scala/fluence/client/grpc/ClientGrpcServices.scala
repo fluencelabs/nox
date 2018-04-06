@@ -44,7 +44,7 @@ object ClientGrpcServices {
     scheduler: Scheduler = Scheduler.global
   ): Contact ⇒ ClientServices[F, BasicContract, Contact] = {
     import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}
-    import fluence.kad.grpc.KademliaNodeCodec.{codec ⇒ nodeCodec}
+    import fluence.kad.grpc.KademliaNodeCodec.{pureCodec ⇒ nodeCodec}
 
     val client = builder
       .add(KademliaClient.register())

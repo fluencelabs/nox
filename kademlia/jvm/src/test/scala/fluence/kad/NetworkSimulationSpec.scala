@@ -15,13 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.node
+package fluence.kad
 
 import java.net.InetAddress
 
 import cats._
 import cats.effect.IO
 import cats.instances.try_._
+import cats.syntax.eq._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.SignAlgo
 import fluence.crypto.keypair.KeyPair
@@ -29,18 +30,15 @@ import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.{KademliaGrpc, KademliaGrpcUpdate, KademliaNodeCodec}
 import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
-import fluence.kad.{KademliaConf, KademliaMVar}
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.GrpcServer
-import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import slogging._
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Try
 
@@ -48,19 +46,10 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(10, Seconds), Span(250, Milliseconds))
 
-  implicit val runFuture = new (Future ~> Task) {
-    override def apply[A](fa: Future[A]): Task[A] = Task.deferFuture(fa)
-  }
-
-  implicit val runTask = new (Task ~> Future) {
-    override def apply[A](fa: Task[A]): Future[A] = fa.runAsync
-  }
-
   private val algo = SignAlgo.dumb
 
+  import KademliaNodeCodec.{pureCodec ⇒ kadCodec}
   import algo.checkerFn
-
-  import KademliaNodeCodec.{codec ⇒ kadCodec}
 
   private val config = ConfigFactory.load()
 
@@ -95,7 +84,9 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     val server = serverBuilder
       .add(KademliaGrpc.bindService(new KademliaServer(kad.handleRPC), global))
-      .onCall(KademliaGrpcUpdate.grpcCallback(kad.update(_).map(_ ⇒ ()).toIO(global), clientConf))
+      .onCall(
+        KademliaGrpcUpdate.grpcCallback(kad.update(_).map(_ ⇒ ()).toIO(global), clientConf)
+      )
       .build
 
     def nodeId = key
@@ -107,12 +98,12 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
     def shutdown(): IO[Unit] = server.shutdown
   }
 
-  private val servers = (0 to 10).map { n ⇒
+  private val servers = (0 to 20).map { n ⇒
     val port = 3000 + n
     val kp = algo.generateKeyPair[Try]().value.get.right.get
-    val k = Key.fromKeyPair[Try](kp).get
+    val k = Key.fromKeyPair.unsafe(kp)
     new Node(k, port, kp)
-  }
+  }.toVector
 
   "Network simulation" should {
     "launch 20 nodes and join network" in {
@@ -125,22 +116,28 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
       servers.foreach { s ⇒
         logger.debug(Console.BLUE + s"Join: ${s.nodeId}" + Console.RESET)
-        s.join(Seq(firstContact, secondContact), 6).runAsync.futureValue
-        logger.debug(Console.BLUE + "Joined" + Console.RESET)
+        s.join(Seq(firstContact, secondContact), 6).runAsync.futureValue shouldBe true
+
+        // Check that RoutingTable is not empty after join
+        s.kad.lookupIterative(servers.last.key, 5).runAsync.futureValue should be('nonEmpty)
       }
 
     }
 
-    "Find itself by lookup iterative" in {
-      servers.foreach { s ⇒
-        servers.map(_.key).filterNot(_ === s.key).foreach { k ⇒
+    "find itself by lookup iterative" in {
+      //LoggerConfig.level = LogLevel.INFO
+      servers.take(10).foreach { s ⇒
+        servers.reverseIterator.map(_.key).filter(_ =!= s.key).slice(5, 15).foreach { k ⇒
+          logger.debug(s"Trying to find $k with ${s.key}")
+
           val li = s.kad.findNode(k, 8).runAsync.futureValue.map(_.key)
 
-          li should be('nonEmpty)
+          li shouldBe defined
 
           //println(Console.MAGENTA + li + Console.RESET)
 
           li.exists(Key.OrderedKeys.eqv(_, k)) shouldBe true
+          logger.debug(Console.GREEN + "Found" + Console.RESET)
         }
       }
     }
