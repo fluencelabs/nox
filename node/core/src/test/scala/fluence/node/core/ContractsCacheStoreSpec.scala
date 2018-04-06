@@ -21,7 +21,7 @@ import java.time.Clock
 
 import cats.effect.IO
 import com.typesafe.config.{ConfigException, ConfigFactory}
-import fluence.codec.Codec
+import fluence.codec.{Codec, PureCodec}
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
 import fluence.crypto.SignAlgo
@@ -30,13 +30,14 @@ import fluence.kad.protocol.Key
 import fluence.storage.{KVStore, TrieMapKVStore}
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
+import fluence.codec.bits.BitsCodecs._
 
 class ContractsCacheStoreSpec extends WordSpec with Matchers {
 
   private val config = ConfigFactory.load()
   private val clock = Clock.systemUTC()
 
-  implicit val strVec: Codec[IO, Array[Byte], ByteVector] = Codec.byteVectorArray
+  implicit val strVec: Codec[IO, Array[Byte], ByteVector] = PureCodec[Array[Byte], ByteVector].toCodec[IO]
   implicit val idCodec: Codec[IO, Array[Byte], Array[Byte]] = Codec.identityCodec
 
   val inMemStore: KVStore[IO, ByteVector, Array[Byte]] = new TrieMapKVStore[IO, ByteVector, Array[Byte]]()

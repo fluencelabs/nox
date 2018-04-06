@@ -15,27 +15,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.codec
+package fluence.transport.grpc
 
-/**
- * PureCodec default values.
- */
-object PureCodec extends MonadicalEitherArrow[CodecError] {
+import cats.syntax.compose._
+import fluence.codec.PureCodec
+import fluence.kad.protocol.Key
+import scodec.bits.ByteVector
+import fluence.codec.bits.BitsUint8Codecs._
 
-  /**
-   * Summons an implicit codec.
-   */
-  def codec[A, B](implicit pc: PureCodec[A, B]): PureCodec[A, B] = pc
+import scala.scalajs.js.typedarray.Uint8Array
 
-  /**
-   * Shortcut to build a PureCodec.Bijection with two Func's
-   */
-  def build[A, B](direct: Func[A, B], inverse: Func[B, A]): Bijection[A, B] =
-    Bijection(direct, inverse)
-
-  /**
-   * Shortcut to build a PureCodec.Bijection with two pure functions
-   */
-  def build[A, B](direct: A ⇒ B, inverse: B ⇒ A): Bijection[A, B] =
-    liftB(direct, inverse)
+object KeyUint8Codecs {
+  implicit val uint8KeyCodec: PureCodec[Key, Uint8Array] =
+    PureCodec[Key, ByteVector] andThen PureCodec[ByteVector, Uint8Array]
 }

@@ -17,12 +17,9 @@
 
 package fluence.codec
 
-import cats.Id
 import cats.instances.try_._
-import cats.syntax.compose._
 import org.scalatest.prop.Checkers
 import org.scalatest.{Matchers, WordSpec}
-import scodec.bits.ByteVector
 
 import scala.util.Try
 
@@ -35,24 +32,6 @@ class PureCodecSpec extends WordSpec with Matchers with Checkers {
         intId.direct.runF[Try](i).get == i &&
         intId.inverse.runF[Try](i).get == i
       }
-
-    }
-
-    "convert base64 strings to byte vectors and vice versa" in {
-
-      val arrCodec = implicitly[PureCodec[Array[Byte], ByteVector]]
-      val b64Codec = implicitly[PureCodec[ByteVector, String]]
-
-      check { (bytes: List[Byte]) ⇒
-        (arrCodec andThen arrCodec.swap).direct.apply[Id](bytes.toArray).value.map(_.toList).contains(bytes) &&
-        (arrCodec andThen b64Codec andThen b64Codec.swap andThen arrCodec.swap).direct
-          .apply[Id](bytes.toArray)
-          .value
-          .map(_.toList)
-          .contains(bytes)
-      }
-
-      b64Codec.inverse[Id]("wrong input!").value.isLeft shouldBe true
 
     }
   }

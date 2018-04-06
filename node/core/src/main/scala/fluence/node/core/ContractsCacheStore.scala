@@ -39,6 +39,7 @@ import fluence.kad.protocol.Key
 import fluence.node.persistence.{BasicContractCache, Participant}
 import fluence.storage.KVStore
 import scodec.bits.ByteVector
+import fluence.codec.bits.BitsCodecs._
 
 import scala.language.higherKinds
 
@@ -55,13 +56,15 @@ object ContractsCacheStore {
     implicit
     F: MonadError[F, Throwable]
   ): Codec[F, ContractRecord[BasicContract], BasicContractCache] = {
-    val keyC = (PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, ByteString]).toCodec[F]
-    val strVec = PureCodec.codec[ByteVector, ByteString].toCodec[F]
+    val keyC = (PureCodec[Key, Array[Byte]] andThen PureCodec[Array[Byte], ByteString]).toCodec[F]
+    implicit val strVecP: PureCodec[ByteVector, ByteString] =
+      PureCodec[ByteVector, Array[Byte]] andThen PureCodec[Array[Byte], ByteString]
+    val strVec = strVecP.toCodec[F]
 
     val pubKeyCV: Codec[F, KeyPair.Public, ByteVector] = Codec.pure(_.value, KeyPair.Public)
     val pubKeyC = pubKeyCV andThen strVec
 
-    val optStrVecC = PureCodec.codec[Option[ByteVector], Option[ByteString]].toCodec[F]
+    val optStrVecC = PureCodec[Option[ByteVector], Option[ByteString]].toCodec[F]
 
     val serializer: ContractRecord[BasicContract] ⇒ F[BasicContractCache] =
       contractRec ⇒ {

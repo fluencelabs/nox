@@ -17,20 +17,10 @@
 
 package fluence.codec
 
-import scodec.bits.ByteVector
-
-import scala.language.higherKinds
-
-import scala.scalajs.js.typedarray.Uint8Array
 import scala.scalajs.js.JSConverters._
+import scala.scalajs.js.typedarray.Uint8Array
 
-object Uint8ArrayCodecs {
-
-  implicit val byteVectorUint8Array: PureCodec[Uint8Array, ByteVector] =
-    PureCodec.liftB(
-      uint8 ⇒ ByteVector(uint8.toArray.map(_.toByte)),
-      vec ⇒ new Uint8Array(vec.toArray.map(_.toShort).toJSArray)
-    )
+object Uint8Codecs {
 
   implicit val byteArrayUint8Array: PureCodec[Uint8Array, Array[Byte]] =
     PureCodec.liftB(

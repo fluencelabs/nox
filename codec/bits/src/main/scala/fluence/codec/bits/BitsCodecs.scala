@@ -15,27 +15,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.codec
+package fluence.codec.bits
+
+import fluence.codec.{CodecError, PureCodec}
+import scodec.bits.{Bases, ByteVector}
 
 /**
- * PureCodec default values.
+ * Implicit codecs for scodec data structures.
  */
-object PureCodec extends MonadicalEitherArrow[CodecError] {
+object BitsCodecs {
+  import PureCodec.{liftB, liftEitherB}
 
-  /**
-   * Summons an implicit codec.
-   */
-  def codec[A, B](implicit pc: PureCodec[A, B]): PureCodec[A, B] = pc
+  implicit val byteArrayToVector: PureCodec[Array[Byte], ByteVector] =
+    liftB(ByteVector.apply, _.toArray)
 
-  /**
-   * Shortcut to build a PureCodec.Bijection with two Func's
-   */
-  def build[A, B](direct: Func[A, B], inverse: Func[B, A]): Bijection[A, B] =
-    Bijection(direct, inverse)
+  // Notice the use of default Base64 alphabet
+  implicit val base64ToVector: PureCodec[String, ByteVector] =
+    liftEitherB(
+      str ⇒
+        ByteVector
+          .fromBase64Descriptive(str, Bases.Alphabets.Base64)
+          .left
+          .map(CodecError(_)),
+      vec ⇒ Right(vec.toBase64(Bases.Alphabets.Base64))
+    )
 
-  /**
-   * Shortcut to build a PureCodec.Bijection with two pure functions
-   */
-  def build[A, B](direct: A ⇒ B, inverse: B ⇒ A): Bijection[A, B] =
-    liftB(direct, inverse)
 }

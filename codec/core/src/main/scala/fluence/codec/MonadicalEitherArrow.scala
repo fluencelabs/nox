@@ -27,7 +27,7 @@ import scala.language.higherKinds
 import scala.util.Try
 
 /**
- * MonadicalEitherFunc wraps Func and Bijection with a fixed E error type.
+ * MonadicalEitherArrow wraps Func and Bijection with a fixed E error type.
  *
  * @tparam E Error type
  */
@@ -108,6 +108,10 @@ abstract class MonadicalEitherArrow[E <: Throwable] {
      */
     lazy val swap: Bijection[B, A] = Bijection(inverse, direct)
 
+    @deprecated(
+      "You should keep codec Pure until running direct or inverse on it: there's no reason to bind effect into Codec",
+      "6.4.2018"
+    )
     def toCodec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, A, B] =
       Codec(direct.runF[F], inverse.runF[F])
   }
@@ -143,6 +147,11 @@ abstract class MonadicalEitherArrow[E <: Throwable] {
       override def apply[F[_]: Monad](input: G[A]): EitherT[F, E, G[B]] =
         Traverse[G].traverse[EitherT[F, E, ?], A, B](input)(f.apply[F](_))
     }
+
+  /**
+   * Bijection Summoner -- useful for making a composition of bijections.
+   */
+  def apply[A, B](implicit bijection: Bijection[A, B]): Bijection[A, B] = bijection
 
   /**
    * Lifts a pure function into Func context.

@@ -32,6 +32,8 @@ import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{PubKeyAndSignature, Signature}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
+import fluence.transport.grpc.KeyProtobufCodecs._
+import fluence.codec.bits.BitsCodecs._
 
 import scala.language.higherKinds
 
@@ -44,11 +46,13 @@ object BasicContractCodec {
     implicit F: MonadError[F, Throwable],
   ): Codec[F, contract.BasicContract, BasicContract] = {
 
-    val keyC = (PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, ByteString]).toCodec[F]
-    val strVec = PureCodec.codec[ByteVector, ByteString].toCodec[F]
+    val keyC = PureCodec.codec[Key, ByteString].toCodec[F]
+    implicit val strVecP: PureCodec[ByteVector, ByteString] =
+      PureCodec[ByteVector, Array[Byte]] andThen PureCodec[Array[Byte], ByteString]
+    val strVec = strVecP.toCodec[F]
     val pubKeyCV: Codec[F, KeyPair.Public, ByteVector] = Codec.pure(_.value, KeyPair.Public)
     val pubKeyC = pubKeyCV andThen strVec
-    val optStrVecC = PureCodec.codec[Option[ByteVector], Option[ByteString]].toCodec[F]
+    val optStrVecC = PureCodec[Option[ByteVector], Option[ByteString]].toCodec[F]
 
     val encode: contract.BasicContract ⇒ F[BasicContract] =
       (bc: contract.BasicContract) ⇒

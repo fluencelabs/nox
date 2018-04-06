@@ -27,17 +27,17 @@ import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.grpc.facade.Node
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
-import scodec.bits.ByteVector
+import fluence.transport.grpc.KeyUint8Codecs._
 
-import fluence.codec.Uint8ArrayCodecs._
+import fluence.codec.Uint8Codecs._
 
 import scala.language.higherKinds
 import scala.scalajs.js.typedarray.Uint8Array
 
 object KademliaNodeCodec {
   implicit def pureCodec(implicit checkerFn: CheckerFn): PureCodec[fluence.kad.protocol.Node[Contact], Node] = {
-    val keyCodec = PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, Uint8Array]
-    val contactCodec = PureCodec.codec[Contact, Array[Byte]] andThen PureCodec.codec[Array[Byte], Uint8Array]
+    val keyCodec = PureCodec[Key, Uint8Array]
+    val contactCodec = PureCodec[Contact, Array[Byte]] andThen PureCodec[Array[Byte], Uint8Array]
 
     PureCodec.Bijection(
       new PureCodec.Func[fluence.kad.protocol.Node[Contact], Node] {

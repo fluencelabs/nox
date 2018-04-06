@@ -15,27 +15,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.codec
+package fluence.codec.bits
 
-/**
- * PureCodec default values.
- */
-object PureCodec extends MonadicalEitherArrow[CodecError] {
+import fluence.codec.PureCodec
+import scodec.bits.ByteVector
 
-  /**
-   * Summons an implicit codec.
-   */
-  def codec[A, B](implicit pc: PureCodec[A, B]): PureCodec[A, B] = pc
+import scala.scalajs.js.typedarray.Uint8Array
+import scala.scalajs.js.JSConverters._
 
-  /**
-   * Shortcut to build a PureCodec.Bijection with two Func's
-   */
-  def build[A, B](direct: Func[A, B], inverse: Func[B, A]): Bijection[A, B] =
-    Bijection(direct, inverse)
-
-  /**
-   * Shortcut to build a PureCodec.Bijection with two pure functions
-   */
-  def build[A, B](direct: A ⇒ B, inverse: B ⇒ A): Bijection[A, B] =
-    liftB(direct, inverse)
+object BitsUint8Codecs {
+  implicit val byteVectorUint8Array: PureCodec[Uint8Array, ByteVector] =
+    PureCodec.liftB(
+      uint8 ⇒ ByteVector(uint8.toArray.map(_.toByte)),
+      vec ⇒ new Uint8Array(vec.toArray.map(_.toShort).toJSArray)
+    )
 }

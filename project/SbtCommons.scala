@@ -33,6 +33,7 @@ object SbtCommons {
   val CirceV = "0.9.3"
   val AirflameV = "0.41"
   val ScalatestV = "3.0.+"
+  val ScalacheckV = "1.13.4"
   val SloggingV = "0.6.1"
   val ShapelessV = "2.3.+"
   val MonixV = "3.0.0-RC1"
@@ -76,6 +77,7 @@ object SbtCommons {
 
   val mockito = "org.mockito"        % "mockito-core" % MockitoV % Test
   val scalatestKit = "org.scalatest" %% "scalatest" % ScalatestV
+  val scalacheck = "org.scalacheck"  %% "scalacheck" % ScalacheckV % Test
   val scalatest = scalatestKit       % Test
 
   val kindProjector = addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.6")
