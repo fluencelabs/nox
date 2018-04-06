@@ -28,6 +28,7 @@ import fluence.kad.testkit.TestKademlia
 import monix.eval.Coeval
 import monix.execution.atomic.AtomicInt
 import org.scalatest.{Matchers, WordSpec}
+import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
 import scala.language.implicitConversions
@@ -36,9 +37,7 @@ import scala.util.Random
 class KademliaSimulationSpec extends WordSpec with Matchers {
   implicit def key(i: Long): Key =
     Key.fromBytes.unsafe(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
-      val buffer = ByteBuffer.allocate(java.lang.Long.BYTES)
-      buffer.putLong(i)
-      buffer.array()
+      ByteVector.fromLong(i).toArray
     }))
 
   def keyToLong(k: Key): Long =

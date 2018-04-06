@@ -24,6 +24,7 @@ import org.scalatest.{Matchers, WordSpec}
 import cats.syntax.monoid._
 import cats.syntax.order._
 import fluence.kad.protocol.Key
+import scodec.bits.ByteVector
 
 import scala.language.implicitConversions
 
@@ -33,9 +34,7 @@ class KeySpec extends WordSpec with Matchers {
 
     implicit def key(i: Long): Key =
       Key.fromBytes.unsafe(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
-        val buffer = ByteBuffer.allocate(java.lang.Long.BYTES)
-        buffer.putLong(i)
-        buffer.array()
+        ByteVector.fromLong(i).toArray
       }))
 
     implicit def toLong(k: Key): Long = {

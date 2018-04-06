@@ -26,6 +26,7 @@ import scala.util.control.NoStackTrace
  * it's returned in the left side of Either(T) by PureCodec transformations.
  *
  * @param message Error message
+ * @param causedBy Error cause for wrapped exceptions
  */
 case class CodecError(message: String, causedBy: Option[Throwable] = None) extends NoStackTrace {
   override def getMessage: String = message

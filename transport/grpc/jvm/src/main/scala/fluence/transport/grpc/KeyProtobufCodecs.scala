@@ -15,27 +15,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.kad.grpc
+package fluence.transport.grpc
 
 import cats.syntax.compose._
+import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
+import fluence.codec.pb.ProtobufCodecs._
+import fluence.codec.bits.BitsCodecs._
 
-import scala.language.higherKinds
-import scala.scalajs.js.JSConverters._
-import scala.scalajs.js.typedarray.Uint8Array
-
-object JSCodecs {
-  implicit def byteVectorUint8Array: PureCodec[Uint8Array, ByteVector] =
-    PureCodec(
-      jsUnsignedArray ⇒ {
-        ByteVector(jsUnsignedArray.toArray.map(_.toByte))
-      },
-      vec ⇒ new Uint8Array(vec.toArray.map(_.toShort).toJSArray)
-    )
-
-  // TODO: more precise error
-  implicit def keyUint8Array: PureCodec[Uint8Array, Key] =
-    byteVectorUint8Array andThen Key.keyVectorCodec.swap
+object KeyProtobufCodecs {
+  implicit val protobufKeyCodec: PureCodec[Key, ByteString] =
+    PureCodec[Key, ByteVector] andThen PureCodec[ByteVector, Array[Byte]] andThen PureCodec[Array[Byte], ByteString]
 }

@@ -17,25 +17,10 @@
 
 package fluence.codec
 
-import scodec.bits.{Bases, ByteVector}
-
 /**
  * PureCodec default values.
  */
 object PureCodec extends MonadicalEitherArrow[CodecError] {
-
-  implicit val byteArrayToVector: PureCodec[Array[Byte], ByteVector] =
-    liftB(ByteVector.apply, _.toArray)
-
-  implicit val base64ToVector: PureCodec[String, ByteVector] =
-    liftEitherB(
-      str ⇒
-        ByteVector
-          .fromBase64Descriptive(str, Bases.Alphabets.Base64)
-          .left
-          .map(CodecError(_)),
-      vec ⇒ Right(vec.toBase64(Bases.Alphabets.Base64))
-    )
 
   /**
    * Summons an implicit codec.
@@ -45,12 +30,12 @@ object PureCodec extends MonadicalEitherArrow[CodecError] {
   /**
    * Shortcut to build a PureCodec.Bijection with two Func's
    */
-  def apply[A, B](direct: Func[A, B], inverse: Func[B, A]): Bijection[A, B] =
+  def build[A, B](direct: Func[A, B], inverse: Func[B, A]): Bijection[A, B] =
     Bijection(direct, inverse)
 
   /**
    * Shortcut to build a PureCodec.Bijection with two pure functions
    */
-  def apply[A, B](direct: A ⇒ B, inverse: B ⇒ A): Bijection[A, B] =
+  def build[A, B](direct: A ⇒ B, inverse: B ⇒ A): Bijection[A, B] =
     liftB(direct, inverse)
 }

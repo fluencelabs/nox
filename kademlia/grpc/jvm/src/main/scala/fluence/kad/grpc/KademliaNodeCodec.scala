@@ -27,17 +27,17 @@ import fluence.codec.{CodecError, PureCodec}
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
-import scodec.bits.ByteVector
 import fluence.codec.pb.ProtobufCodecs._
+import fluence.transport.grpc.KeyProtobufCodecs._
 
 import scala.language.higherKinds
 
 object KademliaNodeCodec {
   implicit def pureCodec(implicit checkerFn: CheckerFn): PureCodec[fluence.kad.protocol.Node[Contact], Node] = {
-    val keyCodec = PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, ByteString]
+    val keyCodec = PureCodec.codec[Key, ByteString]
     val contactCodec = PureCodec.codec[Contact, Array[Byte]] andThen PureCodec.codec[Array[Byte], ByteString]
 
-    PureCodec(
+    PureCodec.build(
       new PureCodec.Func[fluence.kad.protocol.Node[Contact], Node] {
         override def apply[F[_]: Monad](input: protocol.Node[Contact]): EitherT[F, CodecError, Node] =
           for {

@@ -18,10 +18,9 @@
 package fluence.crypto.algorithm
 
 import cats.data.EitherT
-import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.{Applicative, Monad, MonadError}
-import fluence.codec.Codec
+import fluence.codec.PureCodec
 import fluence.crypto.cipher.Crypt
 import org.bouncycastle.crypto.{CipherParameters, PBEParametersGenerator}
 import org.bouncycastle.crypto.digests.SHA256Digest
@@ -52,7 +51,7 @@ case class DataWithParams(data: Array[Byte], params: CipherParameters)
  */
 class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(
   implicit ME: MonadError[F, Throwable],
-  codec: Codec[F, T, Array[Byte]]
+  codec: PureCodec[T, Array[Byte]]
 ) extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
   import CryptoErr._
 
@@ -72,7 +71,9 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
 
   override def encrypt(plainText: T): F[Array[Byte]] = {
     val e = for {
-      data ← EitherT.liftF(codec.encode(plainText))
+      data ← codec
+        .direct[F](plainText)
+        .leftMap(err ⇒ CryptoErr("Cannot encode plain text to bytes to encrypt it", Some(err)))
       key ← initSecretKey(password, salt)
       extDataWithParams ← extDataWithParams(key)
       encData ← processData(DataWithParams(data, extDataWithParams._2), extDataWithParams._1, encrypt = true)
@@ -85,7 +86,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
     val e = for {
       dataWithParams ← detachDataAndGetParams(cipherText, password, salt, withIV)
       decData ← processData(dataWithParams, None, encrypt = false)
-      plain ← EitherT.liftF[F, CryptoErr, T](codec.decode(decData))
+      plain ← codec.inverse[F](decData).leftMap(err ⇒ CryptoErr("Cannot decode decrypted text", Some(err)))
     } yield plain
 
     e.value.flatMap(ME.fromEither)
@@ -219,14 +220,14 @@ object AesCrypt extends slogging.LazyLogging {
   def forString[F[_]: Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(
     implicit ME: MonadError[F, Throwable]
   ): AesCrypt[F, String] = {
-    implicit val codec: Codec[F, String, Array[Byte]] =
-      Codec[F, String, Array[Byte]](_.getBytes.pure[F], bytes ⇒ new String(bytes).pure[F])
+    implicit val codec: PureCodec[String, Array[Byte]] =
+      PureCodec.liftB[String, Array[Byte]](_.getBytes, new String(_))
     apply[F, String](password, withIV, config)
   }
 
   def apply[F[_]: Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(
     implicit ME: MonadError[F, Throwable],
-    codec: Codec[F, T, Array[Byte]]
+    codec: PureCodec[T, Array[Byte]]
   ): AesCrypt[F, T] =
     new AesCrypt(password.toHex.toCharArray, withIV, config)
 }
