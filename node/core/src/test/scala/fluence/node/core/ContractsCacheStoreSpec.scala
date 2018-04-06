@@ -79,7 +79,7 @@ class ContractsCacheStoreSpec extends WordSpec with Matchers {
       val signAlgo = SignAlgo.dumb
       val signer = signAlgo.signer(keyPair)
 
-      val key1 = Key.fromKeyPair[IO](keyPair).unsafeRunSync()
+      val key1 = Key.fromKeyPair.unsafe(keyPair)
       val val1 = ContractRecord(BasicContract.offer[IO](key1, 2, signer).unsafeRunSync(), clock.instant())
       val val2 = ContractRecord(BasicContract.offer[IO](key1, 4, signer).unsafeRunSync(), clock.instant())
 

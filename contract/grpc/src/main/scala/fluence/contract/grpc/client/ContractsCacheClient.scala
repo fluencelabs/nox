@@ -19,8 +19,9 @@ package fluence.contract.grpc.client
 
 import cats.effect.IO
 import cats.syntax.applicativeError._
+import cats.syntax.compose._
 import com.google.protobuf.ByteString
-import fluence.codec.Codec
+import fluence.codec.{Codec, PureCodec}
 import fluence.contract.protocol.ContractsCacheRpc
 import fluence.contract.grpc.ContractsCacheGrpc.ContractsCacheStub
 import fluence.contract.grpc.{BasicContract, ContractsCacheGrpc, FindRequest}
@@ -29,6 +30,7 @@ import fluence.codec.pb.ProtobufCodecs._
 import fluence.contract.ops.ContractValidate
 import fluence.crypto.SignAlgo.CheckerFn
 import io.grpc.{CallOptions, ManagedChannel}
+import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext
 
@@ -40,6 +42,8 @@ class ContractsCacheClient[C: ContractValidate](stub: ContractsCacheStub)(
 ) extends ContractsCacheRpc[C] with slogging.LazyLogging {
   import ContractValidate.ContractValidatorOps
 
+  private val keyC = PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, ByteString]
+
   /**
    * Tries to find a contract in local cache.
    *
@@ -48,7 +52,7 @@ class ContractsCacheClient[C: ContractValidate](stub: ContractsCacheStub)(
    */
   override def find(id: Key): IO[Option[C]] =
     (for {
-      idBs ← Codec.codec[IO, ByteString, Key].decode(id)
+      idBs ← keyC.direct.runF[IO](id)
       req = FindRequest(idBs)
       binContract ← IO.fromFuture(IO(stub.find(req)))
       contract ← codec.decode(binContract)

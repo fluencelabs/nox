@@ -22,6 +22,8 @@ import java.net.InetAddress
 import cats.data.{EitherT, Reader}
 import cats.{Applicative, Monad, Show}
 import cats.syntax.eq._
+import fluence.codec
+import fluence.codec.{CodecError, PureCodec}
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.keypair.KeyPair
@@ -55,8 +57,25 @@ object Contact {
   implicit val publicKeyR: Reader[Contact, KeyPair.Public] = Reader(_.publicKey)
   implicit val addrR: Reader[Contact, String] = Reader(_.addr)
 
+  implicit def contactBytesCodec(implicit checkerFn: CheckerFn): PureCodec[Contact, Array[Byte]] =
+    PureCodec.Bijection(
+      new codec.PureCodec.Func[Contact, Array[Byte]] {
+        override def apply[F[_]: Monad](input: Contact): EitherT[F, CodecError, Array[Byte]] =
+          EitherT.rightT(input.b64seed.getBytes())
+      },
+      new codec.PureCodec.Func[Array[Byte], Contact] {
+        override def apply[F[_]: Monad](input: Array[Byte]): EitherT[F, CodecError, Contact] = {
+          EitherT
+            .rightT[F, Throwable](new String(input))
+            .flatMap(readB64seed[F])
+            .leftMap(t ⇒ CodecError("Cannot decode Contact", causedBy = Some(t)))
+        }
+      }
+    )
+
   /**
    * Builder for Node's own contact: node don't have JWT seed for it, but can produce it with its Signer
+   *
    * @param addr Node's ip
    * @param port Node's external port
    * @param protocolVersion Protocol version

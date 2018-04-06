@@ -15,8 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import cats.effect.IO
-import cats.instances.try_._
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.kad.grpc.client.KademliaJSClient
@@ -37,7 +35,7 @@ object Main extends slogging.LazyLogging {
   val algo: SignAlgo = Ecdsa.signAlgo
   import algo.checkerFn
 
-  implicit val codec = KademliaNodeCodec.codec[IO]
+  implicit val codec = KademliaNodeCodec.pureCodec
 
   val host = "http://localhost:8090"
 

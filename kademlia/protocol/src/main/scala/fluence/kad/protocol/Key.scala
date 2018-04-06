@@ -17,19 +17,20 @@
 
 package fluence.kad.protocol
 
-import java.nio.charset.Charset
-
+import cats.data.EitherT
 import cats.syntax.monoid._
-import cats.syntax.applicative._
-import cats.syntax.flatMap._
-import cats.{ApplicativeError, MonadError, Monoid, Order, Show}
-import fluence.codec.Codec
+import cats.syntax.profunctor._
+import cats.syntax.compose._
+import cats.syntax.eq._
+import cats.{Applicative, Id, Monad, Monoid, Order, Show}
+import fluence.codec.{CodecError, PureCodec}
+import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.hash.CryptoHashers
 import fluence.crypto.keypair.KeyPair
 import scodec.bits.{BitVector, ByteVector}
 
-import scala.language.higherKinds
 import scala.util.Try
+import scala.language.higherKinds
 
 /**
  * Kademlia Key is 160 bits (sha-1 length) in byte array.
@@ -92,11 +93,50 @@ object Key {
     override def show(f: Key): String = f.b64
   }
 
+  implicit val keyVectorCodec: PureCodec[Key, ByteVector] =
+    PureCodec.liftEitherB(
+      k ⇒ Right(k.value),
+      vec ⇒
+        if (vec.size == Length) Right(Key(vec))
+        else Left(CodecError(s"Key length in bytes must be $Length, but ${vec.size} given"))
+    )
+
+  implicit val b64Codec: PureCodec[Key, String] =
+    keyVectorCodec andThen implicitly[PureCodec[ByteVector, String]]
+
+  implicit val bytesCodec: PureCodec[Key, Array[Byte]] =
+    keyVectorCodec andThen implicitly[PureCodec[ByteVector, Array[Byte]]]
+
+  val fromBytes: PureCodec.Func[Array[Byte], Key] =
+    bytesCodec.inverse
+
   /**
    * Tries to read base64 form of Kademlia key.
    */
-  def fromB64[F[_]](str: String)(implicit F: MonadError[F, Throwable]): F[Key] =
-    Codec.codec[F, Key, String].decode(str)
+  val fromB64: PureCodec.Func[String, Key] =
+    b64Codec.inverse
+
+  /**
+   * Calculates sha-1 hash of the payload, and wraps it with Key.
+   * We keep using sha-1 instead of sha-2, because randomness is provided with keypair generation, not hash function.
+   */
+  val sha1: PureCodec.Func[Array[Byte], Key] = {
+    // TODO: it should come from crypto
+    PureCodec.liftFuncEither[Array[Byte], Array[Byte]](
+      bytes ⇒
+        Try(CryptoHashers.Sha1.hash(bytes)).toEither.left
+          .map(t ⇒ CodecError("Can't calculate sha1 to produce a Kademlia Key", Some(t)))
+    ) andThen fromBytes
+  }
+
+  val fromStringSha1: PureCodec.Func[String, Key] =
+    sha1.lmap[String](_.getBytes)
+
+  val fromPublicKey: PureCodec.Func[KeyPair.Public, Key] =
+    sha1 compose PureCodec.liftFunc(_.value.toArray)
+
+  val fromKeyPair: PureCodec.Func[KeyPair, Key] =
+    fromPublicKey.lmap[KeyPair](_.publicKey)
 
   /**
    * Checks that given key is produced form that publicKey
@@ -105,48 +145,11 @@ object Key {
    * @param publicKey Public Key
    * @return
    */
-  def checkPublicKey(key: Key, publicKey: KeyPair.Public): Boolean = {
-    import cats.instances.try_._
-    import cats.syntax.eq._
-    sha1[Try](publicKey.value.toArray).filter(_ === key).isSuccess
-  }
-
-  /**
-   * Calculates sha-1 hash of the payload, and wraps it with Key.
-   * We keep using sha-1 instead of sha-2, because randomness is provided with keypair generation, not hash function.
-   *
-   * @param bytes Bytes to hash
-   */
-  def sha1[F[_]](bytes: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Key] =
-    F.catchNonFatal {
-      CryptoHashers.Sha1.hash(bytes)
-    }.flatMap(fromBytes[F])
-
-  def fromKeyPair[F[_]](keyPair: KeyPair)(implicit F: MonadError[F, Throwable]): F[Key] =
-    fromPublicKey(keyPair.publicKey)
-
-  def fromPublicKey[F[_]](publicKey: KeyPair.Public)(implicit F: MonadError[F, Throwable]): F[Key] =
-    sha1(publicKey.value.toArray)
-
-  def fromString[F[_]](str: String, charset: Charset = Charset.defaultCharset())(
-    implicit F: MonadError[F, Throwable]
-  ): F[Key] =
-    sha1(str.getBytes)
-
-  def fromBytes[F[_]](bytes: Array[Byte])(implicit F: MonadError[F, Throwable]): F[Key] =
-    bytesCodec[F].decode(bytes)
-
-  implicit def bytesCodec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Key, Array[Byte]] =
-    vectorCodec[F] andThen Codec.codec[F, ByteVector, Array[Byte]]
-
-  implicit def b64Codec[F[_]](implicit F: MonadError[F, Throwable]): Codec[F, Key, String] =
-    vectorCodec[F] andThen Codec.codec[F, ByteVector, String]
-
-  implicit def vectorCodec[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, Key, ByteVector] =
-    Codec(
-      _.value.pure[F],
-      vec ⇒
-        if (vec.size == Length) Key(vec).pure[F]
-        else F.raiseError(new IllegalArgumentException(s"Key length in bytes must be $Length, but ${vec.size} given"))
+  def checkPublicKey[F[_]: Monad](key: Key, publicKey: KeyPair.Public): EitherT[F, CryptoErr, Unit] =
+    EitherT.cond(
+      sha1[Id](publicKey.value.toArray).value.toOption.exists(_ === key), // TODO: take error from sha1 crypto, when any
+      (),
+      CryptoErr(s"Kademlia key doesn't match hash(pubKey); key=$key pubKey=$publicKey")
     )
+
 }

@@ -117,7 +117,7 @@ class FluenceClient(
     nonce: ByteVector = ByteVector.empty
   ): Task[ClientDatasetStorage[String, String]] = {
     for {
-      datasetId ← Key.sha1[Task]((nonce ++ keyPair.publicKey.value).toArray)
+      datasetId ← Key.sha1.runF[Task]((nonce ++ keyPair.publicKey.value).toArray)
     } yield
       ClientDatasetStorage(
         datasetId.value.toArray,
@@ -139,7 +139,7 @@ class FluenceClient(
   ): Task[ClientDatasetStorageApi[Task, Observable, String, String]] = {
     import fluence.contract.ops.ContractWrite._
     for {
-      key ← Key.fromKeyPair[Task](keyPair)
+      key ← Key.fromKeyPair.runF[Task](keyPair)
       signer = signAlgo.signer(keyPair)
       offer ← BasicContract.offer[Task](key, participantsRequired = participantsRequired, signer = signer)
       newContract ← contracts
@@ -182,7 +182,7 @@ class FluenceClient(
     valueCrypt: Crypt[Task, String, Array[Byte]]
   ): Task[Option[ClientDatasetStorageApi[Task, Observable, String, String]]] = {
     for {
-      key ← Key.fromKeyPair[Task](keyPair)
+      key ← Key.fromKeyPair.runF[Task](keyPair)
       bcOp ← contracts.find(key).value.attempt
       signer = signAlgo.signer(keyPair)
       dataStorages ← bcOp match {

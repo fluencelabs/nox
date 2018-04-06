@@ -17,7 +17,7 @@
 
 package fluence.contract
 
-import cats.Monad
+import cats.{Id, Monad}
 import cats.data.EitherT
 import cats.instances.option._
 import cats.instances.try_._
@@ -38,7 +38,7 @@ class BasicContractSpec extends WordSpec with Matchers {
   private val contractOwnerKeyPair = signAlgo.generateKeyPair[Option]().success
   private val signer = signAlgo.signer(contractOwnerKeyPair)
   private val checker = signAlgo.checker(contractOwnerKeyPair.publicKey)
-  private val contractKadKey = Key.fromKeyPair[Try](contractOwnerKeyPair).get
+  private val contractKadKey = Key.fromKeyPair.unsafe(contractOwnerKeyPair)
 
   private val signerWithException = new Signer {
     override def sign[F[_]: Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature] =
@@ -78,7 +78,7 @@ class BasicContractSpec extends WordSpec with Matchers {
       BasicContractWrite.setExecStateSeal(contract, signature) shouldBe contract.copy(executionSeal = signature)
 
       val participantKeyPair = signAlgo.generateKeyPair[Option]().success
-      val participantKey = Key.fromKeyPair[Try](participantKeyPair).get
+      val participantKey = Key.fromKeyPair.unsafe(participantKeyPair)
       val participantSignature = PubKeyAndSignature(participantKeyPair.publicKey, signature)
       BasicContractWrite
         .setOfferSignature(contract, participantKey, participantSignature) shouldBe

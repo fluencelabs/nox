@@ -166,7 +166,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           val (kademliaClient, _) = createClientApi(servers.head._1, client)
 
           val resultContact =
-            kademliaClient.findNode(Key.fromString[Task]("non-exists contract").taskValue, 5).taskValue
+            kademliaClient.findNode(Key.fromStringSha1.unsafe("non-exists contract"), 5).taskValue
           resultContact shouldBe None
         }
       }
@@ -176,7 +176,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         runNodes { servers ⇒
           val (_, contractsApi) = createClientApi(servers.head._1, client)
 
-          val resultContact = contractsApi.find(Key.fromString[Task]("non-exists contract").taskValue).value.taskValue
+          val resultContact = contractsApi.find(Key.fromStringSha1.unsafe("non-exists contract")).value.taskValue
           resultContact.left.get shouldBe NotFound
         }
       }
@@ -187,7 +187,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         val client = ClientGrpcServices.build[Task](GrpcClient.builder)
         val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
-        val kadKey = Key.fromKeyPair[Task](keyPair).taskValue
+        val kadKey = Key.fromKeyPair.unsafe(keyPair)
         val signer = algo.signer(keyPair)
 
         runNodes { servers ⇒
@@ -209,7 +209,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         val client = ClientGrpcServices.build[Task](GrpcClient.builder)
         val keyPairValid = algo.generateKeyPair[Task]().value.taskValue.right.get
         val keyPairBad = algo.generateKeyPair[Task]().value.taskValue.right.get
-        val kadKey = Key.fromKeyPair[Task](keyPairValid).taskValue
+        val kadKey = Key.fromKeyPair.unsafe(keyPairValid)
         val signerValid = algo.signer(keyPairValid)
         val signerBad = algo.signer(keyPairBad)
 
@@ -283,7 +283,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       val client = ClientGrpcServices.build[Task](GrpcClient.builder)
       // create offer
       val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
-      val kadKey = Key.fromKeyPair[Task](keyPair).taskValue
+      val kadKey = Key.fromKeyPair.unsafe(keyPair)
       val signer = algo.signer(keyPair)
       val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signer).taskValue
       offer.checkOfferSeal[Task]().eTaskValue.right.get shouldBe()

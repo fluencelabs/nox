@@ -18,16 +18,18 @@
 package fluence.codec.kryo
 
 import cats.MonadError
-import cats.syntax.flatMap._
 import com.twitter.chill.KryoPool
-import fluence.codec.Codec
+import fluence.codec.{Codec, CodecError, PureCodec}
 import shapeless._
 
 import scala.language.higherKinds
 import scala.reflect.ClassTag
+import scala.util.Try
+import scala.util.control.NonFatal
 
 /**
  * Wrapper for a KryoPool with a list of registered classes
+ *
  * @param pool Pre-configured KryoPool
  * @param F Applicative error
  * @tparam L List of classes registered with kryo
@@ -37,23 +39,39 @@ class KryoCodecs[F[_], L <: HList] private (pool: KryoPool)(implicit F: MonadErr
 
   /**
    * Returns a codec for any registered type
+   *
    * @param sel Shows the presence of type T within list L
    * @tparam T Object type
    * @return Freshly created Codec with Kryo inside
    */
   implicit def codec[T](implicit sel: ops.hlist.Selector[L, T]): Codec[F, T, Array[Byte]] =
-    Codec(
-      obj ⇒
-        Option(obj) match {
-          case Some(o) ⇒
-            F.catchNonFatal(Option(pool.toBytesWithClass(o))).flatMap {
-              case Some(v) ⇒ F.pure(v)
-              case None ⇒ F.raiseError(new NullPointerException("Obj is encoded into null"))
+    pureCodec[T].toCodec[F]
+
+  implicit def pureCodec[T](implicit sel: ops.hlist.Selector[L, T]): PureCodec[T, Array[Byte]] =
+    PureCodec.Bijection(
+      PureCodec.liftFuncEither { input ⇒
+        type R = Either[CodecError, Array[Byte]]
+        def err(s: String): R = Left(CodecError(s))
+
+        Option(input).fold[R](err("Input is null, encoding is impossible")) { o ⇒
+          try {
+            Option(pool.toBytesWithClass(o)).fold[R](err("Input is encoded into null")) { v ⇒
+              Right(v)
             }
-          case None ⇒
-            F.raiseError[Array[Byte]](new NullPointerException("Obj is null, encoding is impossible"))
+          } catch {
+            case NonFatal(e) ⇒
+              Left(CodecError("Cannot encode to Kryo due to internal error", causedBy = Some(e)))
+          }
+        }
       },
-      binary ⇒ F.catchNonFatal(pool.fromBytes(binary).asInstanceOf[T])
+      PureCodec.liftFuncEither(
+        input ⇒
+          try Right(pool.fromBytes(input).asInstanceOf[T])
+          catch {
+            case NonFatal(e) ⇒
+              Left(CodecError("Failed to decode Kryo byte array", causedBy = Some(e)))
+        }
+      )
     )
 }
 
