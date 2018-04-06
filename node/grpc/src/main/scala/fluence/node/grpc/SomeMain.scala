@@ -23,8 +23,8 @@ object SomeMain extends App {
   import algo.checkerFn
 
   import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}
-  import fluence.kad.grpc.KademliaNodeCodec.{codec ⇒ nodeCodec}
-  val keyI = Key.bytesCodec[IO]
+  import fluence.kad.grpc.KademliaNodeCodec.{pureCodec ⇒ nodeCodec}
+  val keyI = Key.bytesCodec
 
   import keyI.inverse
 
@@ -32,13 +32,13 @@ object SomeMain extends App {
   val contact = Contact("", 1, kp.publicKey, 1L, "", "")
 
   def rndString(size: Int = 10): String = Random.nextString(size)
-  def rndNode() = Node[C](Key.fromString[Try](rndString(10)).get, Instant.now(), contact)
+  def rndNode() = Node[C](Key.fromStringSha1.runF[Try](rndString(10)).get, Instant.now(), contact)
 
   val RPC = {
     new KademliaRpc[C] {
       override def ping(): IO[Node[C]] = {
         println("PING REQUEST")
-        IO(Node[C](Key.fromString[Try]("123123").get, Instant.now(), contact))
+        IO(Node[C](Key.fromStringSha1.runF[Try]("123123").get, Instant.now(), contact))
       }
 
       override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[C]]] = IO(List.fill(5)(rndNode()))
