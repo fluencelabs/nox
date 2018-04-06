@@ -39,7 +39,7 @@ import scala.language.higherKinds
 private[protocol] object Jwt {
   private val alphabet = Bases.Alphabets.Base64Url
 
-  private val bytesString = PureCodec.build[String, Array[Byte]](_.getBytes(), new String(_))
+  private val bytesString = PureCodec.liftB[String, Array[Byte]](_.getBytes(), new String(_))
 
   private val base64StringBytes =
     base64AlphabetToVector(alphabet) andThen PureCodec[ByteVector, Array[Byte]] andThen bytesString.swap
