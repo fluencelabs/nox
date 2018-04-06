@@ -15,32 +15,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.codec.bits
+package fluence.codec.circe
 
 import fluence.codec.{CodecError, PureCodec}
-import scodec.bits.{Bases, ByteVector}
+import io.circe._
 
-/**
- * Implicit codecs for scodec data structures.
- */
-object BitsCodecs {
-  import PureCodec.{liftB, liftEitherB}
+object CirceCodecs {
 
-  implicit val byteArrayToVector: PureCodec[Array[Byte], ByteVector] =
-    liftB(ByteVector.apply, _.toArray)
+  implicit def circeJsonCodec[T](encoder: Encoder[T], decoder: Decoder[T]): PureCodec[T, Json] =
+    PureCodec.liftEitherB[T, Json](
+      t ⇒ Right(encoder.apply(t)),
+      json ⇒ decoder.decodeJson(json).left.map(f ⇒ CodecError("Cannot decode json value", causedBy = Some(f)))
+    )
 
-  // Notice the use of default Base64 alphabet
-  implicit val base64ToVector: PureCodec[String, ByteVector] =
-    base64AlphabetToVector(Bases.Alphabets.Base64)
-
-  def base64AlphabetToVector(alphabet: Bases.Base64Alphabet): PureCodec[String, ByteVector] =
-    liftEitherB(
-      str ⇒
-        ByteVector
-          .fromBase64Descriptive(str, alphabet)
-          .left
-          .map(CodecError(_)),
-      vec ⇒ Right(vec.toBase64(alphabet))
+  implicit val circeJsonParseCodec: PureCodec[Json, String] =
+    PureCodec.liftEitherB(
+      json ⇒ Right(json.noSpaces),
+      str ⇒ parser.parse(str).left.map(f ⇒ CodecError("Cannot parse json string", causedBy = Some(f)))
     )
 
 }
