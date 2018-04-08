@@ -15,10 +15,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
 
 /**
- * Websocket-to-grpc proxy app
- * @param proxyGrpc Proxy grpc API
+ * Websocket-to-grpc proxy app.
+ *
+ * @param proxyGrpc Proxy grpc API.
  */
-class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F])(implicit F: Effect[F]) extends StreamApp[F] with Http4sDsl[F] {
+class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F], port: Int = 8080)(implicit F: Effect[F])
+    extends StreamApp[F] with Http4sDsl[F] {
 
   def route(scheduler: Scheduler): HttpService[F] = HttpService[F] {
 
@@ -46,9 +48,9 @@ class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F])(implicit F: Effect[F]) e
     for {
       scheduler ← Scheduler[F](corePoolSize = 2)
       exitCode ← BlazeBuilder[F]
-        .bindHttp(8080)
+        .bindHttp(port)
         .withWebSockets(true)
-        .mountService(route(scheduler), "/http4s")
+        .mountService(route(scheduler))
         .serve
     } yield exitCode
 

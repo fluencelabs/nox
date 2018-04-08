@@ -6,9 +6,11 @@ import scala.concurrent.Promise
 
 /**
  * Callbacks for receiving metadata, response messages and completion status from the server.
+ *
  * @param onMessagePr Promise on message received.
  * @param onHeadersPr Promise on headers received.
  * @param onClosePr Promise on close call received.
+ *
  * @tparam T Type of the message.
  */
 class ProxyListener[T](

@@ -19,8 +19,9 @@ import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
 import io.grpc.MethodDescriptor
 import scalapb.GeneratedMessage
-import fluence.codec.pb.ProtobufCodecs._
 import scodec.bits.ByteVector
+import fluence.codec.bits.BitsCodecs._
+import fluence.codec.pb.ProtobufCodecs._
 
 import scala.concurrent.Future
 import scala.util.{Random, Try}
@@ -35,7 +36,9 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
   val algo: SignAlgo = Ecdsa.signAlgo
   import algo.checkerFn
   import fluence.kad.grpc.KademliaNodeCodec.{pureCodec ⇒ nodeCodec}
-  val keyC = PureCodec.codec[Key, ByteVector] andThen PureCodec.codec[ByteVector, ByteString]
+  implicit val strVecP: PureCodec[ByteVector, ByteString] =
+    PureCodec[ByteVector, Array[Byte]] andThen PureCodec[Array[Byte], ByteString]
+  val keyC = PureCodec.codec[Key, ByteVector] andThen strVecP
 
   def rndString(size: Int = 10): String = Random.nextString(size)
 
