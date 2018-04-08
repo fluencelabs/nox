@@ -41,11 +41,11 @@ object IdSeqProvider {
   )(implicit codec: Codec[Task, Array[Byte], Long], runTask: Task ~> F): F[() ⇒ Long] = {
 
     val idGenerator: Task[AtomicLong] =
-      rocksDB.getMaxKey.attempt.flatMap {
-        case Left(ex) ⇒
-          Task(defaultStartValue)
-        case Right(keyAsBytes) ⇒
+      rocksDB.getMaxKey.flatMap {
+        case Some(keyAsBytes) ⇒
           codec.encode(keyAsBytes)
+        case None ⇒
+          Task(defaultStartValue)
       }.map {
         AtomicLong(_)
       }.memoizeOnSuccess // important to save this Atomic into Task as result

@@ -22,8 +22,6 @@ import java.time.Clock
 import cats.{~>, Monad}
 import cats.effect.IO
 import cats.syntax.applicative._
-import cats.syntax.applicativeError._
-import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.ops.ContractRead
@@ -77,7 +75,7 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
    * @return Optional locally found contract
    */
   override def find(id: Key): IO[Option[C]] =
-    toIO(storage.get(id)).attempt.map(_.toOption).flatMap {
+    toIO(storage.get(id)).flatMap {
       case Some(cr) if isExpired(cr) ⇒
         toIO(
           storage
@@ -106,7 +104,7 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
       case true ⇒
         // We're deciding to cache basing on crypto check, done with canBeCached, and (signed) version number only
         // It allows us to avoid multiplexing network calls with asking to cache stale contracts
-        toIO(storage.get(contract.id)).attempt.map(_.toOption).flatMap {
+        toIO(storage.get(contract.id)).flatMap {
           case Some(cr) if cr.contract.version < contract.version ⇒ // Contract updated
             toIO(
               storage

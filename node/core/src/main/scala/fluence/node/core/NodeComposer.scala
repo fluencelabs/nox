@@ -19,6 +19,7 @@ package fluence.node.core
 
 import java.time.Clock
 
+import cats.data.OptionT
 import cats.effect.IO
 import cats.~>
 import com.typesafe.config.Config
@@ -149,8 +150,9 @@ object NodeComposer {
       contractsCacheStore
         .get(contractKey)
         .map { contract ⇒
-          Option(contract.contract.executionState.version)
-            .filter(_ ⇒ contract.contract.participants.contains(nodeKey))
+          contract
+            .filter(_.contract.participants.contains(nodeKey))
+            .map(_.contract.executionState.version)
         }
     }
 
@@ -166,7 +168,9 @@ object NodeComposer {
       val DatasetChanged(newMerkleRoot, newDatasetVer, clientSignature) = datasetChanged
 
       for {
-        contract ← contractsCacheStore.get(datasetId)
+        contract ← OptionT(contractsCacheStore.get(datasetId))
+          .getOrElseF(Task.raiseError(new RuntimeException(s"For dataset=$datasetId wasn't found correspond contract")))
+
         _ ← checkerFn(contract.contract.publicKey)
           .check[Task](clientSignature, ByteVector.fromLong(newDatasetVer) ++ newMerkleRoot)
           .value

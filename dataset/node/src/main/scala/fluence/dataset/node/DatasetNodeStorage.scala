@@ -19,6 +19,7 @@ package fluence.dataset.node
 
 import java.nio.ByteBuffer
 
+import cats.data.OptionT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{~>, MonadError}
@@ -68,7 +69,7 @@ class DatasetNodeStorage private[node] (
   def get(searchCallbacks: SearchCallback[Task]): Task[Option[Array[Byte]]] =
     bTreeIndex.get(SearchCommandImpl(searchCallbacks)).flatMap {
       case Some(reference) ⇒
-        kVStore.get(reference).map(Option(_))
+        kVStore.get(reference)
       case None ⇒
         Task(None)
     }
@@ -82,7 +83,9 @@ class DatasetNodeStorage private[node] (
   def range(searchCallbacks: SearchCallback[Task]): Observable[(Array[Byte], Array[Byte])] =
     bTreeIndex.range(SearchCommandImpl(searchCallbacks)).mapTask {
       case (key, valRef) ⇒
-        kVStore.get(valRef).map(value ⇒ key.bytes → value)
+        OptionT(kVStore.get(valRef))
+          .map(value ⇒ key.bytes → value)
+          .getOrElseF(Task.raiseError(new RuntimeException(s"For key $key wan't found correspond value")))
     }
 
   /**
@@ -106,7 +109,7 @@ class DatasetNodeStorage private[node] (
       // find place into index and get value reference (id of current enc. value blob)
       valRef ← bTreeIndex.put(putCmd)
       // fetch old value from blob kvStore
-      oldVal ← kVStore.get(valRef).attempt.map(_.toOption)
+      oldVal ← kVStore.get(valRef)
       // save new blob to kvStore
       _ ← kVStore.put(valRef, encryptedValue)
       updatedMR ← bTreeIndex.getMerkleRoot

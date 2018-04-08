@@ -18,6 +18,7 @@
 package fluence.btree.server.core
 
 import cats.MonadError
+import cats.data.OptionT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.codec.Codec
@@ -52,8 +53,10 @@ class BTreeBinaryStore[F[_], Id, Node](
   override def get(id: Id): F[Node] =
     for {
       binId ← idCodec.encode(id)
-      binNode ← kvStore.get(binId)
-      node ← nodeCodec.decode(binNode)
+      node ← OptionT(kvStore.get(binId))
+        .semiflatMap(nodeCodec.decode)
+        .getOrElseF(F.raiseError(new RuntimeException(s"Node with id=$id wasn't found.")))
+
     } yield node
 
   override def put(id: Id, node: Node): F[Unit] =
