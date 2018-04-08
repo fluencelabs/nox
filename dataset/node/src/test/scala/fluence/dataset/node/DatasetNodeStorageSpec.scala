@@ -95,7 +95,7 @@ class DatasetNodeStorageSpec
         .thenReturn(Task(Some(1L)))
       Mockito
         .when(kvStore.get(ArgumentMatchers.eq(1L)))
-        .thenReturn(Task(expValue1))
+        .thenReturn(Task(Some(expValue1)))
 
       val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
@@ -150,7 +150,7 @@ class DatasetNodeStorageSpec
         .thenReturn(Observable(key1 → 1L))
       Mockito
         .when(kvStore.get(ArgumentMatchers.eq(1L)))
-        .thenReturn(Task(expValue1))
+        .thenReturn(Task(Some(expValue1)))
 
       val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
@@ -164,7 +164,7 @@ class DatasetNodeStorageSpec
         .thenReturn(Observable(key1 → 1L, key2 → 1L))
       Mockito
         .when(kvStore.get(ArgumentMatchers.anyLong()))
-        .thenReturn(Task(expValue1), Task(expValue2))
+        .thenReturn(Task(Some(expValue1)), Task(Some(expValue2)))
 
       val store = new DatasetNodeStorage(mBtree, kvStore, mrCalc, valGen, onMRChange)
 
@@ -230,7 +230,7 @@ class DatasetNodeStorageSpec
         .thenReturn(Task(1L))
       Mockito
         .when(kvStore.get(1L))
-        .thenReturn(Task.raiseError(someError))
+        .thenReturn(Task(None))
       Mockito
         .when(kvStore.put(1L, expValue1))
         .thenReturn(Task(()))
@@ -251,7 +251,7 @@ class DatasetNodeStorageSpec
         .thenReturn(Task(1L))
       Mockito
         .when(kvStore.get(1L))
-        .thenReturn(Task(oldValue))
+        .thenReturn(Task(Some(oldValue)))
       Mockito
         .when(kvStore.put(1L, expValue1))
         .thenReturn(Task(()))

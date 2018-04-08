@@ -149,8 +149,9 @@ object NodeComposer {
       contractsCacheStore
         .get(contractKey)
         .map { contract ⇒
-          Option(contract.contract.executionState.version)
-            .filter(_ ⇒ contract.contract.participants.contains(nodeKey))
+          contract
+            .filter(_.contract.participants.contains(nodeKey))
+            .map(_.contract.executionState.version)
         }
     }
 
@@ -166,7 +167,10 @@ object NodeComposer {
       val DatasetChanged(newMerkleRoot, newDatasetVer, clientSignature) = datasetChanged
 
       for {
-        contract ← contractsCacheStore.get(datasetId)
+        contract ← contractsCacheStore.get(datasetId).flatMap {
+          case Some(c) ⇒ Task(c)
+          case None ⇒ Task.raiseError(new RuntimeException(s"For dataset=$datasetId wasn't found correspond contract"))
+        }
         _ ← checkerFn(contract.contract.publicKey)
           .check[Task](clientSignature, ByteVector.fromLong(newDatasetVer) ++ newMerkleRoot)
           .value

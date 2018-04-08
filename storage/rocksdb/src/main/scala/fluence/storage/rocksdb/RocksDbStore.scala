@@ -32,7 +32,6 @@ import org.rocksdb.{Options, ReadOptions, RocksDB}
 
 import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
-import scala.reflect.io.Path
 
 /**
  * Implementation of [[KVStore]] with embedded RocksDB database.
@@ -58,11 +57,8 @@ class RocksDbStore(
    *
    * @param key The key retrieve the value.
    */
-  override def get(key: Key): Task[Value] =
-    Task.eval(Option(db.get(key))).flatMap {
-      case Some(v) ⇒ Task.now(v)
-      case None ⇒ Task.raiseError(KVStore.KeyNotFound)
-    }
+  override def get(key: Key): Task[Option[Value]] =
+    Task.eval(Option(db.get(key)))
 
   /**
    * Puts key value pair (K, V). Put is synchronous operation.
@@ -115,10 +111,10 @@ class RocksDbStore(
    *    But for strings from k1 to k100, max key was k99, cause k100 < k99 in bytes representation
    * }}}
    */
-  def getMaxKey: Task[Key] = {
+  def getMaxKey: Task[Option[Key]] = {
     val iterator = db.newIterator()
     Task(iterator.seekToLast())
-      .flatMap(_ ⇒ if (iterator.isValid) Task(iterator.key()) else Task.raiseError(KVStore.KeyNotFound))
+      .map(_ ⇒ if (iterator.isValid) Option(iterator.key()) else None)
       .doOnFinish { _ ⇒
         Task(iterator.close())
       }

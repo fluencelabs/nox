@@ -21,7 +21,6 @@ import java.nio.ByteBuffer
 
 import cats.instances.try_._
 import com.typesafe.config.ConfigFactory
-import fluence.storage.KVStore.KeyNotFound
 import fluence.storage.rocksdb.RocksDbStore.{Key, Value}
 import monix.eval.Task
 import monix.execution.{ExecutionModel, Scheduler}
@@ -62,7 +61,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
         val case1Result = Task
           .sequence(
             Seq(
-              store.get(key1).attempt.map(_.toOption),
+              store.get(key1),
               store.put(key1, val1),
               store.get(key1)
             )
@@ -70,7 +69,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
           .runAsync
           .futureValue
 
-        case1Result should contain theSameElementsInOrderAs Seq(None, (), val1)
+        check(case1Result, Seq(None, (), val1))
 
         // check update
 
@@ -86,7 +85,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
           .runAsync
           .futureValue
 
-        case2Result should contain theSameElementsInOrderAs Seq((), val2, (), newVal2)
+        check(case2Result, Seq((), val2, (), newVal2))
 
         // check delete
 
@@ -95,13 +94,13 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
             Seq(
               store.get(key1),
               store.remove(key1),
-              store.get(key1).attempt.map(_.toOption)
+              store.get(key1)
             )
           )
           .runAsync
           .futureValue
 
-        case3Result should contain theSameElementsInOrderAs Seq(val1, (), None)
+        check(case3Result, Seq(val1, (), None))
 
         // check traverse
 
@@ -114,7 +113,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
         bytesToStr(traverseResult) should contain theSameElementsAs bytesToStr(manyPairs)
 
         val maxKey = store.getMaxKey.runAsync.futureValue
-        maxKey shouldBe "key99".getBytes // cause k99 > k100 in bytes representation
+        maxKey.get shouldBe "key99".getBytes // cause k99 > k100 in bytes representation
       }
 
     }
@@ -142,8 +141,8 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
     "return KeyNotFound when store is empty" in {
       runRocksDb("test3") { store ⇒
-        val maxLongKey = store.getMaxKey.failed.runAsync.futureValue
-        maxLongKey shouldBe KeyNotFound
+        val maxLongKey = store.getMaxKey.runAsync.futureValue
+        maxLongKey shouldBe None
       }
     }
 
@@ -156,7 +155,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
         Task.sequence(inserts).flatMap(_ ⇒ store.traverse().toListL).runAsync.futureValue
 
         val maxLongKey = store.getMaxKey.runAsync.futureValue
-        maxLongKey shouldBe "key99".getBytes
+        maxLongKey.get shouldBe "key99".getBytes
       }
     }
 
@@ -169,7 +168,7 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
         Task.sequence(inserts).flatMap(_ ⇒ store.traverse().toListL).runAsync.futureValue
 
         val maxLongKey = store.getMaxKey.runAsync.futureValue
-        maxLongKey shouldBe long2Bytes(100L)
+        maxLongKey.get shouldBe long2Bytes(100L)
       }
     }
 
@@ -234,6 +233,12 @@ class RocksDbStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
   private def bytesToStr(bytes: Seq[(Array[Byte], Array[Byte])]): Seq[(String, String)] = {
     bytes.map { case (k, v) ⇒ new String(k) → new String(v) }
   }
+
+  private def check(result: Seq[Any], expected: Seq[Any]): Unit =
+    result.map {
+      case Some(v) ⇒ v
+      case x ⇒ x
+    } should contain theSameElementsInOrderAs expected
 
   override protected def afterAll(): Unit = {
     Path(rDBConf.dataDir).deleteRecursively()

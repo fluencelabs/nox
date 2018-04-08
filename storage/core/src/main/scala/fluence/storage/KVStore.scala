@@ -23,7 +23,6 @@ import cats.syntax.functor._
 import fluence.codec.Codec
 
 import scala.language.higherKinds
-import scala.util.control.NoStackTrace
 
 /**
  * Key-value storage api interface.
@@ -38,7 +37,7 @@ trait KVStore[F[_], K, V] {
    * Gets stored value for specified key.
    * @param key The key retrieve the value.
    */
-  def get(key: K): F[V]
+  def get(key: K): F[Option[V]]
 
   /**
    * Puts key value pair (K, V).
@@ -57,7 +56,6 @@ trait KVStore[F[_], K, V] {
 }
 
 object KVStore {
-  case object KeyNotFound extends NoStackTrace
 
   // Summoner
   def apply[F[_], K, V](implicit store: KVStore[F, K, V]): KVStore[F, K, V] = store
@@ -74,11 +72,14 @@ object KVStore {
        *
        * @param key The key retrieve the value.
        */
-      override def get(key: K1): F[V1] =
+      override def get(key: K1): F[Option[V1]] =
         for {
           k ← kCodec.encode(key)
           v ← store.get(k)
-          v1 ← vCodec.decode(v)
+          v1 ← v match {
+            case Some(v2) ⇒ vCodec.decode(v2).map(Option(_))
+            case None ⇒ Monad[F].pure(None)
+          }
         } yield v1
 
       /**

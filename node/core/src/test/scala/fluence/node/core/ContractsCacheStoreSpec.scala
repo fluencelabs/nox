@@ -84,18 +84,18 @@ class ContractsCacheStoreSpec extends WordSpec with Matchers {
       val val1 = ContractRecord(BasicContract.offer[IO](key1, 2, signer).unsafeRunSync(), clock.instant())
       val val2 = ContractRecord(BasicContract.offer[IO](key1, 4, signer).unsafeRunSync(), clock.instant())
 
-      val get1 = store.get(key1).attempt.unsafeRunSync()
-      get1.left.get shouldBe a[NoSuchElementException]
+      val get1 = store.get(key1).unsafeRunSync()
+      get1 shouldBe None
 
       store.put(key1, val1).unsafeRunSync()
 
-      val get2 = store.get(key1).attempt.unsafeRunSync()
-      get2.right.get shouldBe val1
+      val get2 = store.get(key1).unsafeRunSync()
+      get2.get shouldBe val1
 
       store.put(key1, val2).unsafeRunSync()
 
-      val get3 = store.get(key1).attempt.unsafeRunSync()
-      get3.right.get shouldBe val2
+      val get3 = store.get(key1).unsafeRunSync()
+      get3.get shouldBe val2
 
     }
 

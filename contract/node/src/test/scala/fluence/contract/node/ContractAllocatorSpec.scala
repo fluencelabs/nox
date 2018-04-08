@@ -117,7 +117,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
       allocator.offer(contract).unsafeRunSync() shouldBe accepted
 
-      store.get(accepted.id).unsafeRunSync().contract shouldBe accepted.copy(participants = Map.empty)
+      store.get(accepted.id).unsafeRunSync().get.contract shouldBe accepted.copy(participants = Map.empty)
     }
 
     "update accepted offer" in {

@@ -53,7 +53,10 @@ class BTreeBinaryStore[F[_], Id, Node](
     for {
       binId ← idCodec.encode(id)
       binNode ← kvStore.get(binId)
-      node ← nodeCodec.decode(binNode)
+      node ← binNode match {
+        case Some(bNode) ⇒ nodeCodec.decode(bNode)
+        case None ⇒ F.raiseError(new RuntimeException(s"Node with id=$id wasn't found."))
+      }
     } yield node
 
   override def put(id: Id, node: Node): F[Unit] =

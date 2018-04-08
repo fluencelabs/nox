@@ -81,18 +81,15 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
 
       _ ← eitherFail(contract.isActiveContract(), "Contract should be active -- sealed by client")
 
-      contract ← toIO(storage.get(contract.id)).attempt
-        .map(_.toOption)
-        .flatMap {
-          case Some(cr) ⇒
-            cr.contract.isBlankOffer[IO]().value.map(_.contains(true)).flatMap {
-              case false ⇒ IO.pure(Right(cr.contract))
-              case true ⇒ toIO(storage.remove(contract.id).flatMap(_ ⇒ putContract(contract).value))
-            }
-          case None ⇒
-            toIO(putContract(contract).value)
-        }
-        .flatMap(IO.fromEither)
+      contract ← toIO(storage.get(contract.id)).flatMap {
+        case Some(cr) ⇒
+          cr.contract.isBlankOffer[IO]().value.map(_.contains(true)).flatMap {
+            case false ⇒ IO.pure(Right(cr.contract))
+            case true ⇒ toIO(storage.remove(contract.id).flatMap(_ ⇒ putContract(contract).value))
+          }
+        case None ⇒
+          toIO(putContract(contract).value)
+      }.flatMap(IO.fromEither)
     } yield {
       logger.info(
         s"Contract with id=${contract.id.show} was successfully allocated, this node (${nodeId.show}) is contract participant now"
@@ -110,13 +107,21 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
       created ← EitherT.right[Throwable](createDataset(contract))
 
       // TODO: error should be returned as value
-      _ ← if (created) EitherT.rightT[F, Throwable](())
-      else
-        EitherT
-          .right[Throwable](storage.remove(contract.id))
-          .subflatMap(_ ⇒ Left(new RuntimeException("Creation is not possible")))
+      _ ← {
+        if (created)
+          EitherT.rightT[F, Throwable](())
+        else
+          EitherT
+            .right[Throwable](storage.remove(contract.id))
+            .subflatMap(_ ⇒ Left(new RuntimeException("Creation is not possible")))
+      }
 
-      _ ← EitherT.right[Throwable](storage.get(contract.id).map(_.contract))
+      _ ← EitherT
+        .fromOptionF[F, Throwable, ContractRecord[C]](
+          storage.get(contract.id),
+          new RuntimeException("Creation is not possible")
+        )
+
     } yield contract
 
   private def eitherFail(check: EitherT[IO, CryptoErr, Boolean], msg: String): IO[Unit] =
@@ -147,7 +152,7 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
     for {
       _ ← eitherFail(contract.isBlankOffer[IO](), "This is not a valid blank offer")
 
-      contractOpt ← toIO(storage.get(contract.id)).attempt.map(_.toOption)
+      contractOpt ← toIO(storage.get(contract.id))
 
       contract ← contractOpt match {
         case Some(cr) ⇒
