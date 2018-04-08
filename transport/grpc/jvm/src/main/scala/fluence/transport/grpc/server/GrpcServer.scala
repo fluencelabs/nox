@@ -21,7 +21,6 @@ import cats.data.Kleisli
 import cats.effect.IO
 import fluence.transport.TransportServer
 import io.grpc._
-import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 
 class GrpcServer private (
   builderImpl: ⇒ IO[Server],
