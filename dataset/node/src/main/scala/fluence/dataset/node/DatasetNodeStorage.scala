@@ -19,6 +19,7 @@ package fluence.dataset.node
 
 import java.nio.ByteBuffer
 
+import cats.data.OptionT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{~>, MonadError}
@@ -82,10 +83,9 @@ class DatasetNodeStorage private[node] (
   def range(searchCallbacks: SearchCallback[Task]): Observable[(Array[Byte], Array[Byte])] =
     bTreeIndex.range(SearchCommandImpl(searchCallbacks)).mapTask {
       case (key, valRef) ⇒
-        kVStore.get(valRef).flatMap {
-          case Some(value) ⇒ Task(key.bytes → value)
-          case None ⇒ Task.raiseError(new RuntimeException(s"For key $key wan't found correspond value"))
-        }
+        OptionT(kVStore.get(valRef))
+          .map(value ⇒ key.bytes → value)
+          .getOrElseF(Task.raiseError(new RuntimeException(s"For key $key wan't found correspond value")))
     }
 
   /**
