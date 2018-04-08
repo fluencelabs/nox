@@ -20,12 +20,12 @@ lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      "org.typelevel"              %%% "cats-core"                 % Cats1V,
-      "org.scodec"                 %%% "scodec-bits"               % ScodecBitsV,
-      "org.typelevel"              %%% "cats-laws"                 % Cats1V % Test,
-      "org.typelevel"              %%% "cats-testkit"              % Cats1V % Test,
-      "com.github.alexarchambault" %%% "scalacheck-shapeless_1.13" % "1.1.6" % Test,
-      "org.scalatest"              %%% "scalatest"                 % ScalatestV % Test
+      "org.typelevel" %%% "cats-core"   % Cats1V,
+      "org.typelevel" %%% "cats-laws" % Cats1V % Test,
+      "org.typelevel" %%% "cats-testkit" % Cats1V % Test,
+      "com.github.alexarchambault" %%% "scalacheck-shapeless_1.13" % "1.1.8" % Test,
+      "org.scalacheck"  %%% "scalacheck" % ScalacheckV % Test,
+      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -35,6 +35,48 @@ lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
 
 lazy val `codec-core-jvm` = `codec-core`.jvm
 lazy val `codec-core-js` = `codec-core`.js
+
+lazy val `codec-bits` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("codec/bits"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
+      "org.scalacheck"  %%% "scalacheck" % ScalacheckV % Test,
+      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
+    )
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`codec-core`)
+
+lazy val `codec-bits-js` = `codec-bits`.js
+lazy val `codec-bits-jvm` = `codec-bits`.jvm
+
+lazy val `codec-circe` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("codec/circe"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "io.circe"      %%% "circe-core"   % CirceV,
+      "io.circe"      %%% "circe-parser" % CirceV,
+      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
+    )
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`codec-core`)
+
+lazy val `codec-circe-js` = `codec-circe`.js
+lazy val `codec-circe-jvm` = `codec-circe`.jvm
 
 lazy val `codec-kryo` = project
   .in(file("codec/kryo"))
@@ -66,8 +108,6 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "io.circe"      %%% "circe-core"   % CirceV,
-      "io.circe"      %%% "circe-parser" % CirceV,
       "org.typelevel" %%% "cats-core"    % Cats1V,
       "org.typelevel" %%% "cats-effect"  % CatsEffectV,
       "org.scalatest" %%% "scalatest"    % ScalatestV % Test
@@ -77,7 +117,7 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
     fork in Test      := false,
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
-  .dependsOn(`codec-core`, `crypto`)
+  .dependsOn(`codec-circe`, `codec-bits`, `crypto`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-protocol-js` = `kademlia-protocol`.js
@@ -421,9 +461,6 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
     commons,
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core"    % Cats1V,
-      "org.scodec"    %%% "scodec-bits"  % ScodecBitsV,
-      "io.circe"      %%% "circe-core"   % CirceV,
-      "io.circe"      %%% "circe-parser" % CirceV,
       "biz.enef"      %%% "slogging"     % SloggingV,
       "org.scalatest" %%% "scalatest"    % ScalatestV % Test
     )
@@ -445,7 +482,7 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
     fork in Test                  := false
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`codec-core`)
+  .dependsOn(`codec-circe`, `codec-bits`)
 
 lazy val `crypto-jvm` = `crypto`.jvm
 

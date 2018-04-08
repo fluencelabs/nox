@@ -22,12 +22,13 @@ import cats.syntax.monoid._
 import cats.syntax.profunctor._
 import cats.syntax.compose._
 import cats.syntax.eq._
-import cats.{Applicative, Id, Monad, Monoid, Order, Show}
+import cats.{Id, Monad, Monoid, Order, Show}
 import fluence.codec.{CodecError, PureCodec}
 import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.hash.CryptoHashers
 import fluence.crypto.keypair.KeyPair
 import scodec.bits.{BitVector, ByteVector}
+import fluence.codec.bits.BitsCodecs._
 
 import scala.util.Try
 import scala.language.higherKinds

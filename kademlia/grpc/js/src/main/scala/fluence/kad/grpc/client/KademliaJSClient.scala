@@ -19,10 +19,10 @@ package fluence.kad.grpc.client
 
 import cats.effect.IO
 import fluence.codec.PureCodec
-import fluence.kad.grpc.JSCodecs._
 import fluence.kad.grpc.KademliaGrpcService
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.kad.{grpc, protocol}
+import fluence.transport.grpc.KeyUint8Codecs._
 
 import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
@@ -41,7 +41,7 @@ class KademliaJSClient(stub: KademliaGrpcService)(
   ec: ExecutionContext
 ) extends KademliaRpc[Contact] {
 
-  private val keyUint = PureCodec.codec[Uint8Array, Key].inverse
+  private val keyUint = PureCodec[Uint8Array, Key].inverse
 
   import cats.instances.stream._
 

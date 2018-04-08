@@ -18,7 +18,7 @@
 package fluence.crypto
 
 import java.io.File
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 
 import cats.MonadError
 import cats.syntax.flatMap._

@@ -18,8 +18,6 @@
 package fluence.crypto
 
 import cats.Monad
-import cats.syntax.functor._
-import cats.syntax.flatMap._
 import cats.data.EitherT
 import fluence.crypto.keypair.KeyPair
 import io.circe.parser.decode

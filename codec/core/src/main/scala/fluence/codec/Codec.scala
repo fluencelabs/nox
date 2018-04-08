@@ -18,9 +18,8 @@
 package fluence.codec
 
 import cats.data.Kleisli
-import cats.{Applicative, ApplicativeError, FlatMap, Traverse}
+import cats.{Applicative, FlatMap, Traverse}
 import cats.syntax.applicative._
-import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, implicitConversions}
 
@@ -31,6 +30,10 @@ import scala.language.{higherKinds, implicitConversions}
  * @tparam B The type of binary representation
  * @tparam F Encoding/decoding effect
  */
+@deprecated(
+  "Codec is planned for removing soon, as it's impure and not properly tested. Use PureCodec instead.",
+  "6.4.2018"
+)
 final case class Codec[F[_], A, B](encode: A ⇒ F[B], decode: B ⇒ F[A]) {
   self ⇒
 
@@ -47,6 +50,10 @@ final case class Codec[F[_], A, B](encode: A ⇒ F[B], decode: B ⇒ F[A]) {
   def swap: Codec[F, B, A] = Codec(decode, encode)
 }
 
+@deprecated(
+  "Codec is planned for removing soon, as it's impure and not properly tested. Use PureCodec instead.",
+  "6.4.2018"
+)
 object Codec {
   implicit def identityCodec[F[_]: Applicative, T]: Codec[F, T, T] =
     Codec(_.pure[F], _.pure[F])
@@ -65,21 +72,10 @@ object Codec {
   implicit def swap[F[_], A, B](implicit cod: Codec[F, A, B]): Codec[F, B, A] =
     Codec[F, B, A](cod.decode, cod.encode)
 
-  implicit def byteVectorArray[F[_]: Applicative]: Codec[F, Array[Byte], ByteVector] =
-    pure(ByteVector.apply, _.toArray)
-
-  // TODO: descriptive error
-  implicit def byteVectorB64[F[_]](implicit F: ApplicativeError[F, Throwable]): Codec[F, String, ByteVector] =
-    Codec(
-      str ⇒
-        ByteVector
-          .fromBase64(str)
-          .fold[F[ByteVector]](
-            F.raiseError(new IllegalArgumentException(s"Given string is not valid b64: $str"))
-          )(_.pure[F]),
-      _.toBase64.pure[F]
-    )
-
+  @deprecated(
+    "Codec is planned for removing soon, as it's impure and not properly tested. Use PureCodec instead.",
+    "6.4.2018"
+  )
   def codec[F[_], O, B](implicit codec: Codec[F, O, B]): Codec[F, O, B] = codec
 
   /**
@@ -92,6 +88,10 @@ object Codec {
    * @tparam B Encoded type
    * @return New codec for O and B
    */
+  @deprecated(
+    "Codec is planned for removing soon, as it's impure and not properly tested. Use PureCodec instead.",
+    "6.4.2018"
+  )
   def pure[F[_]: Applicative, O, B](encodeFn: O ⇒ B, decodeFn: B ⇒ O): Codec[F, O, B] =
     Codec(encodeFn(_).pure[F], decodeFn(_).pure[F])
 }

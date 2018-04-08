@@ -34,7 +34,7 @@ class TrieMapKVStore[F[_], K, V](
    *
    * @param key The key retrieve the value.
    */
-  override def get(key: K): F[V] = F.catchNonFatalEval(Eval.later(data(key)))
+  override def get(key: K): F[Option[V]] = F.catchNonFatalEval(Eval.later(data.get(key)))
 
   /**
    * Puts key value pair (K, V).

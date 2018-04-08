@@ -21,7 +21,7 @@ import java.time.Clock
 
 import cats.effect.IO
 import com.typesafe.config.{ConfigException, ConfigFactory}
-import fluence.codec.Codec
+import fluence.codec.{Codec, PureCodec}
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
 import fluence.crypto.SignAlgo
@@ -30,13 +30,14 @@ import fluence.kad.protocol.Key
 import fluence.storage.{KVStore, TrieMapKVStore}
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
+import fluence.codec.bits.BitsCodecs._
 
 class ContractsCacheStoreSpec extends WordSpec with Matchers {
 
   private val config = ConfigFactory.load()
   private val clock = Clock.systemUTC()
 
-  implicit val strVec: Codec[IO, Array[Byte], ByteVector] = Codec.byteVectorArray
+  implicit val strVec: Codec[IO, Array[Byte], ByteVector] = PureCodec[Array[Byte], ByteVector].toCodec[IO]
   implicit val idCodec: Codec[IO, Array[Byte], Array[Byte]] = Codec.identityCodec
 
   val inMemStore: KVStore[IO, ByteVector, Array[Byte]] = new TrieMapKVStore[IO, ByteVector, Array[Byte]]()
@@ -83,18 +84,18 @@ class ContractsCacheStoreSpec extends WordSpec with Matchers {
       val val1 = ContractRecord(BasicContract.offer[IO](key1, 2, signer).unsafeRunSync(), clock.instant())
       val val2 = ContractRecord(BasicContract.offer[IO](key1, 4, signer).unsafeRunSync(), clock.instant())
 
-      val get1 = store.get(key1).attempt.unsafeRunSync()
-      get1.left.get shouldBe a[NoSuchElementException]
+      val get1 = store.get(key1).unsafeRunSync()
+      get1 shouldBe None
 
       store.put(key1, val1).unsafeRunSync()
 
-      val get2 = store.get(key1).attempt.unsafeRunSync()
-      get2.right.get shouldBe val1
+      val get2 = store.get(key1).unsafeRunSync()
+      get2.get shouldBe val1
 
       store.put(key1, val2).unsafeRunSync()
 
-      val get3 = store.get(key1).attempt.unsafeRunSync()
-      get3.right.get shouldBe val2
+      val get3 = store.get(key1).unsafeRunSync()
+      get3.get shouldBe val2
 
     }
 

@@ -66,7 +66,7 @@ class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       testScheduler.tick(5.seconds)
 
       val case1Result = case1.futureValue
-      case1Result should contain theSameElementsInOrderAs Seq(None, (), val1)
+      check(case1Result, Seq(None, (), val1))
 
       // check update
 
@@ -84,7 +84,7 @@ class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       testScheduler.tick(5.seconds)
 
       val case2Result = case2.futureValue
-      case2Result should contain theSameElementsInOrderAs Seq((), val2, (), newVal2)
+      check(case2Result, Seq((), val2, (), newVal2))
 
       // check delete
 
@@ -101,7 +101,7 @@ class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       testScheduler.tick(5.seconds)
 
       val case3Result = case3.futureValue
-      case3Result should contain theSameElementsInOrderAs Seq(val1, (), None)
+      check(case3Result, Seq(val1, (), None))
 
       // check traverse
 
@@ -125,5 +125,11 @@ class TrieMapKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
   private def bytesToStr(bytes: Seq[(Array[Byte], Array[Byte])]): Seq[(String, String)] = {
     bytes.map { case (k, v) ⇒ new String(k) → new String(v) }
   }
+
+  private def check(result: Seq[Any], expected: Seq[Any]): Unit =
+    result.map {
+      case Some(v) ⇒ v
+      case x ⇒ x
+    } should contain theSameElementsInOrderAs expected
 
 }

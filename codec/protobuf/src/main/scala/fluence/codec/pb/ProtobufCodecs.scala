@@ -19,17 +19,10 @@ package fluence.codec.pb
 
 import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
-import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 object ProtobufCodecs {
-
-  implicit val byteVectorByteString: PureCodec[ByteString, ByteVector] =
-    PureCodec.liftB(
-      str ⇒ ByteVector(str.toByteArray),
-      vec ⇒ ByteString.copyFrom(vec.toArray)
-    )
 
   implicit val byteArrayByteString: PureCodec[ByteString, Array[Byte]] =
     PureCodec.liftB(
