@@ -3,30 +3,31 @@ package fluence.node.grpc
 import java.time.Instant
 
 import cats.effect.IO
+import cats.instances.try_._
+import cats.~>
 import fluence.crypto.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
-import fluence.kad.grpc.KademliaGrpc.Kademlia
-import fluence.kad.grpc.{KademliaGrpc, PingRequest}
+import fluence.grpc.proxy.ProxyGrpc
 import fluence.kad.grpc.server.KademliaServer
+import fluence.kad.grpc.{KademliaGrpc, PingRequest}
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.proxy.grpc.WebsocketMessage
-import cats.instances.try_._
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
+import scala.concurrent.Future
 import scala.util.{Random, Try}
 
 object SomeMain extends App {
+
+  LoggerConfig.factory = PrintLoggerFactory()
+  LoggerConfig.level = LogLevel.INFO
 
   type C = Contact
 
   val algo: SignAlgo = Ecdsa.signAlgo
   import algo.checkerFn
-
-  import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}
   import fluence.kad.grpc.KademliaNodeCodec.{pureCodec ⇒ nodeCodec}
-  val keyI = Key.bytesCodec
-
-  import keyI.inverse
 
   val kp = algo.generateKeyPair[Try]().value.get.right.get
   val contact = Contact("", 1, kp.publicKey, 1L, "", "")
@@ -61,6 +62,9 @@ object SomeMain extends App {
     InProcessChannelBuilder.forName("in-process").build()
   }
 
+  implicit def runFuture: Future ~> IO = new (Future ~> IO) {
+    override def apply[A](fa: Future[A]): IO[A] = IO.fromFuture(IO(fa))
+  }
   val inProcessGrpc = new ProxyGrpc[IO](List(service), chs)
 
   val ping = PingRequest()
@@ -70,9 +74,20 @@ object SomeMain extends App {
 
   val msg = WebsocketMessage(splitted(0), splitted(1), ping.toByteString)
 
-  val resp = inProcessGrpc.handleMessage(msg.service, msg.method, msg.protoMessage.newInput()).unsafeRunSync()
-  val resp1 = inProcessGrpc.handleMessage(msg.service, msg.method, msg.protoMessage.newInput()).unsafeRunSync()
-  val resp2 = inProcessGrpc.handleMessage(msg.service, msg.method, msg.protoMessage.newInput()).unsafeRunSync()
+  val resp = inProcessGrpc
+    .handleMessage(msg.service, msg.method, msg.protoMessage.newInput())
+    .flatMap(f ⇒ runFuture(f))
+    .unsafeRunSync()
+
+  val resp1 = inProcessGrpc
+    .handleMessage(msg.service, msg.method, msg.protoMessage.newInput())
+    .flatMap(f ⇒ runFuture(f))
+    .unsafeRunSync()
+
+  val resp2 = inProcessGrpc
+    .handleMessage(msg.service, msg.method, msg.protoMessage.newInput())
+    .flatMap(f ⇒ runFuture(f))
+    .unsafeRunSync()
 
   val classResp = fluence.kad.grpc.Node.parseFrom(resp)
   val classResp1 = fluence.kad.grpc.Node.parseFrom(resp1)

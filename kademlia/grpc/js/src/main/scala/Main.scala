@@ -45,8 +45,8 @@ object Main extends slogging.LazyLogging {
   @JSExport
   def logic(): Unit = {
     println("Hello world!")
-    val keyP = algo.generateKeyPair().value.get.toOption.get
-    val key = Key.fromPublicKey(keyP.publicKey).get
+    val keyP = algo.generateKeyPair().value.toOption.get
+    val key = Key.fromPublicKey(keyP.publicKey).value.toOption.get
     val io = for {
       node ← client.ping()
       _ = logger.info("Ping node response: " + node)

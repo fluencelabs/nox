@@ -1,6 +1,6 @@
-package fluence.node.grpc
+package fluence.grpc.proxy
 
-import io.grpc.{ClientCall, Metadata, Status}
+import io.grpc.{ClientCall, Metadata}
 
 import scala.concurrent.Promise
 
