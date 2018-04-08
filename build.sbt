@@ -20,12 +20,12 @@ lazy val `codec-core` = crossProject(JVMPlatform, JSPlatform)
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"   % Cats1V,
-      "org.typelevel" %%% "cats-laws" % Cats1V % Test,
-      "org.typelevel" %%% "cats-testkit" % Cats1V % Test,
+      "org.typelevel"              %%% "cats-core"                 % Cats1V,
+      "org.typelevel"              %%% "cats-laws"                 % Cats1V % Test,
+      "org.typelevel"              %%% "cats-testkit"              % Cats1V % Test,
       "com.github.alexarchambault" %%% "scalacheck-shapeless_1.13" % "1.1.8" % Test,
-      "org.scalacheck"  %%% "scalacheck" % ScalacheckV % Test,
-      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
+      "org.scalacheck"             %%% "scalacheck"                % ScalacheckV % Test,
+      "org.scalatest"              %%% "scalatest"                 % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -43,9 +43,9 @@ lazy val `codec-bits` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
-      "org.scalacheck"  %%% "scalacheck" % ScalacheckV % Test,
-      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
+      "org.scodec"     %%% "scodec-bits" % ScodecBitsV,
+      "org.scalacheck" %%% "scalacheck"  % ScalacheckV % Test,
+      "org.scalatest"  %%% "scalatest"   % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -108,9 +108,9 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"    % Cats1V,
-      "org.typelevel" %%% "cats-effect"  % CatsEffectV,
-      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
+      "org.typelevel" %%% "cats-core"   % Cats1V,
+      "org.typelevel" %%% "cats-effect" % CatsEffectV,
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -460,9 +460,9 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"    % Cats1V,
-      "biz.enef"      %%% "slogging"     % SloggingV,
-      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
+      "org.typelevel" %%% "cats-core" % Cats1V,
+      "biz.enef"      %%% "slogging"  % SloggingV,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )
   .jvmSettings(
