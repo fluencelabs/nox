@@ -453,6 +453,24 @@ lazy val `b-tree-server` = project
     `b-tree-client-jvm` % "compile->test"
   )
 
+lazy val `crypto-core` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("crypto/core"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.typelevel" %%% "cats-core"    % Cats1V
+    )
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `crypto-core-js` = `crypto-core`.js
+lazy val `crypto-core-jvm` = `crypto-core`.jvm
+
 lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
@@ -481,7 +499,7 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
     fork in Test                  := false
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`codec-circe`, `codec-bits`)
+  .dependsOn(`codec-circe`, `codec-bits`, `crypto-core`)
 
 lazy val `crypto-jvm` = `crypto`.jvm
 
