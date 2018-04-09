@@ -33,7 +33,7 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
    *
    * @return Method descriptor or None, if there is no descriptor in registered services.
    */
-  def getMethodDescriptor[Req, Resp](service: String, method: String): Option[MethodDescriptor[Req, Resp]] = {
+  private def getMethodDescriptor[Req, Resp](service: String, method: String): Option[MethodDescriptor[Req, Resp]] = {
     for {
       sd ← inProcessGrpc.services.find(_.getServiceDescriptor.getName == service)
       m ← Option(sd.getMethod(service + "/" + method).asInstanceOf[ServerMethodDefinition[Req, Resp]])
@@ -41,7 +41,7 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
     } yield descriptor
   }
 
-  def getMethodDescriptorF[Req, Resp](service: String, method: String): F[MethodDescriptor[Req, Resp]] = {
+  private def getMethodDescriptorF[Req, Resp](service: String, method: String): F[MethodDescriptor[Req, Resp]] = {
     F.delay(getMethodDescriptor[Req, Resp](service, method)).flatMap {
       case Some(md) ⇒ F.pure(md)
       case None ⇒ F.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
@@ -52,7 +52,7 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
    * Unary call to grpc service.
    *
    */
-  def unaryCall[Req, Resp](req: Req, methodDescriptor: MethodDescriptor[Req, Resp]): F[Future[Resp]] = {
+  private def unaryCall[Req, Resp](req: Req, methodDescriptor: MethodDescriptor[Req, Resp]): F[Future[Resp]] = {
     val onMessagePr = Promise[Resp]
     val f = F.delay {
       val metadata = new Metadata()
