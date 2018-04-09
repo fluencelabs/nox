@@ -15,10 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport.grpc.server
+package fluence.grpc.proxy
 
 import cats.effect.IO
-import fluence.grpc.proxy.InProcessGrpc
 import fluence.transport.TransportServer
 import io.grpc.ServerServiceDefinition
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
@@ -48,7 +47,15 @@ class InProcessGrpcServer private (
     } yield ()
   }
 
-  def inProcess = IO(Option(serverRef.get()))
+  def getServer: IO[InProcessGrpc] = {
+    for {
+      serverOp ← IO(serverRef.get)
+      server ← serverOp match {
+        case Some(s) ⇒ IO.pure(s)
+        case None ⇒ IO.raiseError(new RuntimeException("Server was shutdown."))
+      }
+    } yield server
+  }
 }
 
 object InProcessGrpcServer {

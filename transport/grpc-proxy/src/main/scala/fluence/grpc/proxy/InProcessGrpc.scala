@@ -15,17 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport.grpc
+package fluence.grpc.proxy
 
-import cats.syntax.compose._
-import fluence.codec.PureCodec
-import fluence.kad.protocol.Key
-import scodec.bits.ByteVector
-import fluence.codec.bits.BitsUint8Codecs._
+import io.grpc.{ManagedChannel, Server, ServerServiceDefinition}
 
-import scala.scalajs.js.typedarray.Uint8Array
+import scala.collection.JavaConverters._
+import scala.language.higherKinds
 
-object KeyUint8Codecs {
-  implicit val uint8KeyCodec: PureCodec[Key, Uint8Array] =
-    PureCodec[Key, ByteVector] andThen PureCodec[ByteVector, Uint8Array]
+final case class InProcessGrpc(server: Server, channel: ManagedChannel) {
+  val services: List[ServerServiceDefinition] = server.getServices.asScala.toList
 }

@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2017  Fluence Labs Limited
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package fluence.grpc.proxy
 
 import java.io.InputStream
@@ -35,10 +52,12 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
    */
   private def getMethodDescriptor[Req, Resp](service: String, method: String): Option[MethodDescriptor[Req, Resp]] = {
     for {
-      sd ← inProcessGrpc.services.find(_.getServiceDescriptor.getName == service)
-      m ← Option(sd.getMethod(service + "/" + method).asInstanceOf[ServerMethodDefinition[Req, Resp]])
-      descriptor ← Option(m.getMethodDescriptor)
-    } yield descriptor
+      serviceDescriptor ← inProcessGrpc.services.find(_.getServiceDescriptor.getName == service)
+      serverMethodDefinition ← Option(
+        serviceDescriptor.getMethod(service + "/" + method).asInstanceOf[ServerMethodDefinition[Req, Resp]]
+      )
+      methodDescriptor ← Option(serverMethodDefinition.getMethodDescriptor)
+    } yield methodDescriptor
   }
 
   private def getMethodDescriptorF[Req, Resp](service: String, method: String): F[MethodDescriptor[Req, Resp]] = {

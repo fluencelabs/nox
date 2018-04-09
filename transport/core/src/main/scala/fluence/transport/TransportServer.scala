@@ -21,9 +21,15 @@ import java.util.concurrent.atomic.AtomicReference
 
 import cats.effect.IO
 
-trait TransportServer[B, S] extends slogging.LazyLogging {
+/**
+ * Trait to control server lifecycle.
+ *
+ * @tparam B Server builder.
+ * @tparam S Server implementation.
+ */
+trait TransportServer[B, S] {
 
-  protected val serverRef = new AtomicReference[S](null.asInstanceOf[S])
+  protected val serverRef = new AtomicReference[Option[S]](None)
 
   protected def onStart: IO[Unit]
   protected def onShutdown: IO[Unit]
@@ -43,18 +49,20 @@ trait TransportServer[B, S] extends slogging.LazyLogging {
       s ← startServer(ser)
       _ ← onStart
     } yield {
-      serverRef.set(s)
+      serverRef.set(Some(s))
     }
 
   /**
    * Shut the server down, release ports
    */
   lazy val shutdown: IO[Unit] =
-    Option(serverRef.getAndSet(null.asInstanceOf[S])).fold(IO.unit)(
-      srv ⇒
-        for {
-          _ ← onShutdown
-          _ ← shutdownServer(srv)
-        } yield {}
-    )
+    serverRef
+      .getAndSet(None)
+      .fold(IO.unit)(
+        srv ⇒
+          for {
+            _ ← onShutdown
+            _ ← shutdownServer(srv)
+          } yield {}
+      )
 }

@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2017  Fluence Labs Limited
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package fluence.grpc.proxy
 
 import cats.effect._
@@ -25,7 +42,7 @@ class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F], port: Int = 8080)(implic
   def route(scheduler: Scheduler): HttpService[F] = HttpService[F] {
 
     case GET -> Root / "ws" ⇒
-      val queue = async.unboundedQueue[F, WebSocketFrame]
+      val queueF = async.unboundedQueue[F, WebSocketFrame]
 
       val echoReply: Pipe[F, WebSocketFrame, WebSocketFrame] = _.evalMap {
         case Binary(data, _) ⇒
@@ -33,13 +50,13 @@ class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F], port: Int = 8080)(implic
             message ← F.delay(WebsocketMessage.parseFrom(data))
             response ← proxyGrpc.handleMessage(message.service, message.method, message.protoMessage.newInput())
           } yield Binary(response): WebSocketFrame
-        case _ ⇒
-          F.pure(Text("Unexpected message."): WebSocketFrame)
+        case m ⇒
+          F.pure(Text(s"Unexpected message: $m"): WebSocketFrame)
       }
 
-      queue.flatMap { q ⇒
-        val d = q.dequeue.through(echoReply)
-        val e = q.enqueue
+      queueF.flatMap { queue ⇒
+        val d = queue.dequeue.through(echoReply)
+        val e = queue.enqueue
         WebSocketBuilder[F].build(d, e)
       }
   }

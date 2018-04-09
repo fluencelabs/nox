@@ -310,7 +310,20 @@ lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
   .dependsOn(`transport-core`, `codec-protobuf`, `kademlia-protocol`)
 
 lazy val `transport-grpc-js` = `transport-grpc`.js
-lazy val `transport-grpc-jvm` = `transport-grpc`.jvm.dependsOn(`grpc-proxy`)
+lazy val `transport-grpc-jvm` = `transport-grpc`.jvm
+
+lazy val `transport-grpc-proxy` = project
+  .in(file("transport/grpc-proxy"))
+  .settings(
+    commons,
+    grpc,
+    libraryDependencies ++= Seq(
+      http4sDsl,
+      http4sBlazeServer,
+      slogging,
+      scalatest
+    )
+  ).dependsOn(`transport-core-jvm`, `codec-protobuf-jvm`)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -600,7 +613,7 @@ lazy val `contract-grpc` = project
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`contract-core-jvm`, `transport-grpc-jvm`)
+  .dependsOn(`contract-core-jvm`, `transport-grpc-jvm`, `kademlia-grpc-jvm`)
 
 lazy val `client-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -660,19 +673,6 @@ lazy val `client-cli-app` = project
   .settings(commons)
   .dependsOn(`client-cli-jvm`, `client-grpc`)
 
-lazy val `grpc-proxy` = project
-  .in(file("grpc-proxy"))
-  .settings(
-    commons,
-    grpc,
-    libraryDependencies ++= Seq(
-      http4sDsl,
-      http4sBlazeServer,
-      slogging,
-      scalatest
-    )
-  )
-
 lazy val `node-core` = project
   .in(file("node/core"))
   .settings(
@@ -687,7 +687,10 @@ lazy val `node-core` = project
 
 lazy val `node-grpc` = project
   .in(file("node/grpc"))
-  .dependsOn(`node-core`, `client-grpc`, `grpc-proxy`)
+  .settings(
+    commons
+  )
+  .dependsOn(`node-core`, `client-grpc`)
 
 lazy val `node` = project
   .dependsOn(`node-grpc`)
