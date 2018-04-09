@@ -28,20 +28,20 @@ class GrpcServer private (
   onShutdownImpl: ⇒ IO[Unit]
 ) extends TransportServer[Server, Server] {
 
-  override def startServer: Server ⇒ IO[Server] = s ⇒ IO(s.start())
+  override protected def startServer: Server ⇒ IO[Server] = s ⇒ IO(s.start())
 
-  override def shutdownServer: Server ⇒ IO[Unit] = { s ⇒
+  override protected def shutdownServer: Server ⇒ IO[Unit] = { s ⇒
     for {
       _ ← IO(s.shutdown())
       _ ← IO(s.awaitTermination())
     } yield ()
   }
 
-  override def onStart: IO[Unit] = onStartImpl
+  override protected def onStart: IO[Unit] = onStartImpl
 
-  override def onShutdown: IO[Unit] = onShutdownImpl
+  override protected def onShutdown: IO[Unit] = onShutdownImpl
 
-  override lazy val builder: IO[Server] = builderImpl
+  override lazy protected val builder: IO[Server] = builderImpl
 }
 
 object GrpcServer extends slogging.LazyLogging {

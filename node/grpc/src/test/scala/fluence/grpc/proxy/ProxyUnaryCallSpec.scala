@@ -22,10 +22,12 @@ import scalapb.GeneratedMessage
 import scodec.bits.ByteVector
 import fluence.codec.bits.BitsCodecs._
 import fluence.codec.pb.ProtobufCodecs._
+import fluence.transport.grpc.server.InProcessGrpcServer
 
 import scala.concurrent.Future
 import scala.util.{Random, Try}
 
+//TODO move test in proxy module and rewrite with synthetic grpc services
 class ProxyUnaryCallSpec extends WordSpec with Matchers {
 
   LoggerConfig.factory = PrintLoggerFactory()
@@ -67,7 +69,10 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
 
     val service = KademliaGrpc.bindService(new KademliaServer(RPC), scala.concurrent.ExecutionContext.global)
 
-    val inProcessGrpc = InProcessGrpc.build[IO]("in-process", List(service)).unsafeRunSync()
+    val inProcessGrpcServer = InProcessGrpcServer.build("in-process", List(service))
+    inProcessGrpcServer.start.unsafeRunSync()
+
+    val inProcessGrpc = inProcessGrpcServer.inProcess.unsafeRunSync().get
 
     implicit def runFuture: Future ~> IO = new (Future ~> IO) {
       override def apply[A](fa: Future[A]): IO[A] = IO.fromFuture(IO(fa))

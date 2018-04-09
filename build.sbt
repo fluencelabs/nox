@@ -310,7 +310,7 @@ lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
   .dependsOn(`transport-core`, `codec-protobuf`, `kademlia-protocol`)
 
 lazy val `transport-grpc-js` = `transport-grpc`.js
-lazy val `transport-grpc-jvm` = `transport-grpc`.jvm
+lazy val `transport-grpc-jvm` = `transport-grpc`.jvm.dependsOn(`grpc-proxy`)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)

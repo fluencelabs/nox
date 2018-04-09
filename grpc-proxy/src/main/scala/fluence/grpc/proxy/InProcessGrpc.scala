@@ -1,24 +1,10 @@
 package fluence.grpc.proxy
 
-import cats.effect.Effect
-import io.grpc.{ManagedChannel, ServerServiceDefinition}
-import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
+import io.grpc.{ManagedChannel, Server, ServerServiceDefinition}
 
+import scala.collection.JavaConverters._
 import scala.language.higherKinds
 
-final case class InProcessGrpc(services: List[ServerServiceDefinition], channel: ManagedChannel)
-
-object InProcessGrpc {
-
-  def build[F[_]](name: String, services: List[ServerServiceDefinition])(implicit F: Effect[F]): F[InProcessGrpc] = {
-    F.delay {
-      val inProcessServer = InProcessServerBuilder.forName(name)
-      services.foreach(s ⇒ inProcessServer.addService(s))
-      inProcessServer.build().start()
-
-      val channel = InProcessChannelBuilder.forName(name).build()
-
-      InProcessGrpc(services, channel)
-    }
-  }
+final case class InProcessGrpc(server: Server, channel: ManagedChannel) {
+  val services: List[ServerServiceDefinition] = server.getServices.asScala.toList
 }
