@@ -46,16 +46,6 @@ class InProcessGrpcServer private (
       _ ← IO(s.channel.shutdown())
     } yield ()
   }
-
-  def getServer: IO[InProcessGrpc] = {
-    for {
-      serverOp ← IO(serverRef.get)
-      server ← serverOp match {
-        case Some(s) ⇒ IO.pure(s)
-        case None ⇒ IO.raiseError(new RuntimeException("Server was shutdown."))
-      }
-    } yield server
-  }
 }
 
 object InProcessGrpcServer {

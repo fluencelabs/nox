@@ -29,7 +29,7 @@ import cats.effect.IO
  */
 trait TransportServer[B, S] {
 
-  protected val serverRef = new AtomicReference[Option[S]](None)
+  private val serverRef = new AtomicReference[Option[S]](None)
 
   protected def onStart: IO[Unit]
   protected def onShutdown: IO[Unit]
@@ -44,12 +44,13 @@ trait TransportServer[B, S] {
    */
   val start: IO[Unit] =
     for {
-      _ ← if (serverRef.get() == null) IO.unit else shutdown
-      ser ← builder
-      s ← startServer(ser)
+      _ ← if (serverRef.get().isEmpty) IO.unit else shutdown
+      b ← builder
+      server ← startServer(b)
       _ ← onStart
     } yield {
-      serverRef.set(Some(s))
+
+      serverRef.set(Some(server))
     }
 
   /**
@@ -65,4 +66,14 @@ trait TransportServer[B, S] {
             _ ← shutdownServer(srv)
           } yield {}
       )
+
+  def getServer: IO[S] = {
+    for {
+      serverOp ← IO(serverRef.get)
+      server ← serverOp match {
+        case Some(s) ⇒ IO.pure(s)
+        case None ⇒ IO.raiseError(new RuntimeException("Server was shutdown."))
+      }
+    } yield server
+  }
 }
