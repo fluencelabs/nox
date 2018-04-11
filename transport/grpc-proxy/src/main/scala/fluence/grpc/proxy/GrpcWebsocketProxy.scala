@@ -26,7 +26,8 @@ import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.websocket._
-import org.http4s.websocket.WebsocketBits._
+import org.http4s.websocket.WebsocketBits
+import org.http4s.websocket.WebsocketBits.{WebSocketFrame, _}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
@@ -48,8 +49,15 @@ class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F], port: Int = 8080)(implic
         case Binary(data, _) ⇒
           for {
             message ← F.delay(WebsocketMessage.parseFrom(data))
-            response ← proxyGrpc.handleMessage(message.service, message.method, message.protoMessage.newInput())
-          } yield Binary(response): WebSocketFrame
+            response ← proxyGrpc
+              .handleMessage(message.service, message.method, message.streamId, ProxyGrpc.replyConverter(message.reply))
+          } yield {
+            response match {
+              case ResponseArrayByte(bytes) ⇒ Binary(bytes): WebSocketFrame
+              case NoResponse ⇒ WebsocketBits.Close(): WebSocketFrame
+            }
+
+          }
         case m ⇒
           F.pure(Text(s"Unexpected message: $m"): WebSocketFrame)
       }

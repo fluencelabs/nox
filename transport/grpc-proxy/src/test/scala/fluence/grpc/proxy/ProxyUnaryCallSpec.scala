@@ -23,13 +23,16 @@ import com.google.protobuf.ByteString
 import fluence.grpc.proxy.test.TestServiceGrpc.TestService
 import fluence.grpc.proxy.test.{TestMessage, TestRequest, TestResponse, TestServiceGrpc}
 import fluence.proxy.grpc.WebsocketMessage
+import fluence.proxy.grpc.WebsocketMessage.Reply.ProtoMessage
 import io.grpc.MethodDescriptor
+import io.grpc.stub.StreamObserver
 import org.scalatest.{Matchers, WordSpec}
 import scalapb.GeneratedMessage
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.Random
 
 //TODO move test in proxy module and rewrite with synthetic grpc services
 class ProxyUnaryCallSpec extends WordSpec with Matchers {
@@ -49,6 +52,22 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
             r.copy(str = r.str + respChecker, listStr = r.listStr :+ respChecker, r.byteArray.concat(respCheckerBytes))
           }
           Future(TestResponse(resp))
+        }
+
+        override def testCount(responseObserver: StreamObserver[TestResponse]): StreamObserver[TestRequest] = {
+          new StreamObserver[TestRequest] {
+            override def onNext(value: TestRequest): Unit = {
+              println(s"SERVER ON NEXT $value")
+              responseObserver.onNext(TestResponse(value.message.map(m ⇒ m.copy(counter = m.counter + 1))))
+            }
+
+            override def onError(t: Throwable): Unit = {
+              println(s"ON ERROR:")
+              t.printStackTrace()
+            }
+
+            override def onCompleted(): Unit = println("ON COMPLETED")
+          }
         }
       }
     }
@@ -72,7 +91,7 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
     ): WebsocketMessage = {
       val splitted = descriptor.getFullMethodName.split("/").toList
 
-      WebsocketMessage(splitted(0), splitted(1), req.toByteString)
+      WebsocketMessage(splitted(0), splitted(1), Random.nextLong(), ProtoMessage(req.toByteString))
     }
 
     "work with unary calls" in {
@@ -85,10 +104,53 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
         generateMessage(TestRequest(Some(TestMessage(str, listStr, byteArray))), TestServiceGrpc.METHOD_TEST)
 
       val testResp = proxyGrpc
-        .handleMessage(testMessage.service, testMessage.method, testMessage.protoMessage.newInput())
+        .handleMessage(
+          testMessage.service,
+          testMessage.method,
+          testMessage.streamId,
+          ProxyGrpc.replyConverter(testMessage.reply)
+        )
         .unsafeRunSync()
 
-      val resp = TestRequest.parseFrom(testResp).message.get
+      val respBytes = testResp match {
+        case ResponseArrayByte(b) ⇒ b
+        case _ ⇒ throw new RuntimeException("error")
+      }
+
+      val resp = TestRequest.parseFrom(respBytes).message.get
+      resp.str shouldBe str + "resp"
+      resp.listStr shouldBe listStr :+ "resp"
+      resp.byteArray shouldBe byteArray.concat(respCheckerBytes)
+    }
+
+    "work with bidi streams" in {
+
+      val str = "test"
+      val listStr = Seq("test1", "test2")
+      val byteArray = ByteString.copyFrom(Array[Byte](1, 2, 3, 4, 5))
+      val counter = 1
+
+      val testMessage =
+        generateMessage(
+          TestRequest(Some(TestMessage(str, listStr, byteArray, counter))),
+          TestServiceGrpc.METHOD_TEST_COUNT
+        )
+
+      val testResp = proxyGrpc
+        .handleMessage(
+          testMessage.service,
+          testMessage.method,
+          testMessage.streamId,
+          ProxyGrpc.replyConverter(testMessage.reply)
+        )
+        .unsafeRunSync()
+
+      val respBytes = testResp match {
+        case ResponseArrayByte(b) ⇒ b
+        case _ ⇒ throw new RuntimeException("error")
+      }
+
+      val resp = TestRequest.parseFrom(respBytes).message.get
       resp.str shouldBe str + "resp"
       resp.listStr shouldBe listStr :+ "resp"
       resp.byteArray shouldBe byteArray.concat(respCheckerBytes)

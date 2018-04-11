@@ -6,6 +6,7 @@ message TestMessage {
     string str = 1;
     repeated string listStr = 2;
     bytes byteArray = 3;
+    int32 counter = 4;
 }
 
 message TestRequest {
@@ -18,4 +19,5 @@ message TestResponse {
 
 service TestService {
     rpc test(TestRequest) returns (TestResponse);
+    rpc testCount(stream TestRequest) returns (stream TestResponse);
 }
