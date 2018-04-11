@@ -57,6 +57,7 @@ object SbtCommons {
   val npmGrpcWebClient = "grpc-web-client" -> npmGrpcWebClientV
   val npmTsProtocGen = "ts-protoc-gen" -> npmTsProtocGenV
 
+  val fluenceCodec = "one.fluence"                %% "codec-core"          % CodecV
   val cats1 = "org.typelevel"                     %% "cats-core"           % Cats1V
   val catsFree = "org.typelevel"                  %% "cats-free"           % Cats1V
   val catsEffect = "org.typelevel"                %% "cats-effect"         % CatsEffectV

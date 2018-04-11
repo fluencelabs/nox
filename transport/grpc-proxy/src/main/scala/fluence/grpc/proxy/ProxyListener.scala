@@ -32,8 +32,8 @@ import scala.concurrent.Promise
  */
 class ProxyListener[T](
   onMessagePr: Promise[T],
+  onClosePr: Promise[(io.grpc.Status, Metadata)],
   onHeadersPr: Option[Promise[Metadata]] = None,
-  onClosePr: Option[Promise[(io.grpc.Status, Metadata)]] = None
 ) extends ClientCall.Listener[T] with slogging.LazyLogging {
 
   override def onHeaders(headers: Metadata): Unit = {
@@ -45,7 +45,7 @@ class ProxyListener[T](
   override def onClose(status: io.grpc.Status, trailers: Metadata): Unit = {
     super.onClose(status, trailers)
     logger.debug(s"onClose callback: Status: $status, trailers: $trailers")
-    onClosePr.foreach(_.trySuccess((status, trailers)))
+    onClosePr.trySuccess((status, trailers))
   }
 
   override def onMessage(message: T): Unit = {

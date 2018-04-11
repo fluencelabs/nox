@@ -55,16 +55,9 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
 
     val service = TestServiceGrpc.bindService(RPC, scala.concurrent.ExecutionContext.global)
 
-    val inProcessGrpcServer = InProcessGrpcServer.build("in-process", List(service))
-    inProcessGrpcServer.start.unsafeRunSync()
-
-    val inProcessGrpc = inProcessGrpcServer.getServer.unsafeRunSync()
-
     implicit def runFuture: Future ~> IO = new (Future ~> IO) {
       override def apply[A](fa: Future[A]): IO[A] = IO.fromFuture(IO(fa))
     }
-
-    val proxyGrpc = new ProxyGrpc[IO](inProcessGrpc)
 
     def generateMessage[Req <: GeneratedMessage, Resp](
       req: Req,
@@ -76,6 +69,9 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
     }
 
     "work with unary calls" in {
+      val inProcessGrpc = InProcessGrpc.build("in-process", List(service)).unsafeRunSync()
+
+      val proxyGrpc = new ProxyGrpc[IO](inProcessGrpc)
 
       val str = "test"
       val listStr = Seq("test1", "test2")
@@ -92,6 +88,48 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
       resp.str shouldBe str + "resp"
       resp.listStr shouldBe listStr :+ "resp"
       resp.byteArray shouldBe byteArray.concat(respCheckerBytes)
+
+      inProcessGrpc.close().unsafeRunSync()
+    }
+
+    "raise error if the proxy was closed" in {
+      val inProcessGrpc = InProcessGrpc.build("in-process", List(service)).unsafeRunSync()
+
+      val proxyGrpc = new ProxyGrpc[IO](inProcessGrpc)
+
+      inProcessGrpc.close().unsafeRunSync()
+
+      val testMessage =
+        generateMessage(TestRequest(Some(TestMessage())), TestServiceGrpc.METHOD_TEST)
+
+      the[RuntimeException] thrownBy {
+        proxyGrpc
+          .handleMessage(testMessage.service, testMessage.method, testMessage.protoMessage.newInput())
+          .unsafeRunSync()
+      }
+    }
+
+    "raise error if no method or service descriptor in proxy" in {
+      val inProcessGrpc = InProcessGrpc.build("in-process", List(service)).unsafeRunSync()
+
+      val proxyGrpc = new ProxyGrpc[IO](inProcessGrpc)
+
+      val testMessage =
+        generateMessage(TestRequest(Some(TestMessage())), TestServiceGrpc.METHOD_TEST)
+
+      the[RuntimeException] thrownBy {
+        proxyGrpc
+          .handleMessage("rndservice", testMessage.method, testMessage.protoMessage.newInput())
+          .unsafeRunSync()
+      }
+
+      the[RuntimeException] thrownBy {
+        proxyGrpc
+          .handleMessage(testMessage.service, "rndmethod", testMessage.protoMessage.newInput())
+          .unsafeRunSync()
+      }
+
+      inProcessGrpc.close().unsafeRunSync()
     }
   }
 }

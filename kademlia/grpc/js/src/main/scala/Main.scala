@@ -20,13 +20,12 @@ import fluence.crypto.algorithm.Ecdsa
 import fluence.kad.grpc.client.KademliaJSClient
 import fluence.kad.grpc.{KademliaGrpcService, KademliaNodeCodec}
 import fluence.kad.protocol.Key
-import scodec.bits.ByteVector
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
 
-@JSExportTopLevel("SomeMain")
+@JSExportTopLevel("Main")
 object Main extends slogging.LazyLogging {
 
   LoggerConfig.factory = PrintLoggerFactory()

@@ -18,7 +18,6 @@
 package fluence.node
 
 import java.io.File
-import java.net.InetAddress
 import java.time.Clock
 
 import cats.effect.IO
@@ -143,7 +142,7 @@ object FluenceNode extends slogging.LazyLogging {
 
       contact ← Contact
         .buildOwn[IO](
-          addr = upnpContact.host.getOrElse(InetAddress.getLocalHost).getHostName,
+          addr = upnpContact.host.getOrElse(builder.address).getHostName,
           port = upnpContact.grpcPort.getOrElse(builder.port),
           protocolVersion = upnpContact.protocolVersion,
           gitHash = upnpContact.gitHash,
@@ -164,7 +163,6 @@ object FluenceNode extends slogging.LazyLogging {
       server ← NodeGrpc.grpcServer(services, builder, config).onFail(closeUpNpAndServices)
 
       _ ← server.start.onFail(closeUpNpAndServices)
-
       closeAll = closeUpNpAndServices.flatMap(_ ⇒ server.shutdown)
 
       seedConfig ← SeedsConfig.read(config).onFail(closeAll)

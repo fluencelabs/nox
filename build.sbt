@@ -238,9 +238,10 @@ lazy val `transport-grpc-proxy` = project
       http4sDsl,
       http4sBlazeServer,
       slogging,
+      fluenceCodec,
       scalatest
     )
-  ).dependsOn(`transport-core-jvm`, `codec-protobuf-jvm`)
+  ).dependsOn(`transport-core-jvm`)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
