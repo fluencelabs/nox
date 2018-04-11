@@ -26,16 +26,12 @@ import fluence.proxy.grpc.WebsocketMessage
 import io.grpc.MethodDescriptor
 import org.scalatest.{Matchers, WordSpec}
 import scalapb.GeneratedMessage
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 //TODO move test in proxy module and rewrite with synthetic grpc services
 class ProxyUnaryCallSpec extends WordSpec with Matchers {
-
-  LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.INFO
 
   "proxy" should {
 

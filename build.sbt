@@ -240,7 +240,8 @@ lazy val `transport-grpc-proxy` = project
       slogging,
       fluenceCodec,
       scalatest
-    )
+    ),
+    PB.protoSources in Compile += file(baseDirectory.value.absolutePath + "/src/test/protobuf/")
   ).dependsOn(`transport-core-jvm`)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)

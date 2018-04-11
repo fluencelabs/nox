@@ -18,7 +18,8 @@
 package fluence.grpc.proxy
 
 import cats.effect._
-import cats.implicits._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.proxy.grpc.WebsocketMessage
 import fs2.StreamApp.ExitCode
 import fs2.{io ⇒ _, _}
@@ -32,8 +33,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
 
 /**
- * Websocket-to-grpc proxy app.
- *
+ * Websocket-to-grpc proxy standalone app.
+ * TODO make it pluggable and abstract from Stream
  * @param proxyGrpc Proxy grpc API.
  */
 class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F], port: Int = 8080)(implicit F: Effect[F])
@@ -42,7 +43,8 @@ class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F], port: Int = 8080)(implic
   def route(scheduler: Scheduler): HttpService[F] = HttpService[F] {
 
     case GET -> Root / "ws" ⇒
-      val queueF = async.unboundedQueue[F, WebSocketFrame]
+      //TODO add size of queue to config
+      val queueF = async.boundedQueue[F, WebSocketFrame](100)
 
       val echoReply: Pipe[F, WebSocketFrame, WebSocketFrame] = _.evalMap {
         case Binary(data, _) ⇒
@@ -61,7 +63,7 @@ class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F], port: Int = 8080)(implic
       }
   }
 
-  def stream(args: List[String], requestShutdown: F[Unit]): Stream[F, ExitCode] =
+  override def stream(args: List[String], requestShutdown: F[Unit]): Stream[F, ExitCode] =
     for {
       scheduler ← Scheduler[F](corePoolSize = 2)
       exitCode ← BlazeBuilder[F]
