@@ -29,7 +29,7 @@ import io.grpc._
 import io.grpc.internal.IoUtils
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.higherKinds
 
 /**
@@ -39,7 +39,8 @@ import scala.language.higherKinds
  */
 class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
   implicit F: Effect[F],
-  runFuture: Future ~> F
+  runFuture: Future ~> F,
+  ec: ExecutionContext
 ) extends slogging.LazyLogging {
 
   /**
@@ -73,6 +74,7 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
    */
   private def unaryCall(req: Any, methodDescriptor: MethodDescriptor[Any, Any]): F[Future[Any]] = {
     val onMessagePr = Promise[Any]
+    val onClosePr = Promise[(io.grpc.Status, Metadata)]
     val f = F.delay {
       val metadata = new Metadata()
       val call = inProcessGrpc.channel.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
@@ -99,7 +101,7 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
     onClosePr: Promise[(io.grpc.Status, Metadata)]
   ) = {
     val metadata = new Metadata()
-    val call = inProcessGrpc.channel.newCall[Req, Resp](methodDescriptor, CallOptions.DEFAULT)
+    val call = inProcessGrpc.newCall[Req, Resp](methodDescriptor, CallOptions.DEFAULT)
 
     call.start(new ProxyListener[Resp](onMessagePr, onClosePr = Some(onClosePr)), metadata)
 
@@ -119,7 +121,14 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
 
       call.halfClose()
 
-      onMessagePr.future
+      //If onClose will be completed earlier, than onMessage, we will raise error
+
+      runFuture(onClosePr.future)
+      val raiseErrorOnClose: Future[Resp] = onClosePr.future.flatMap(
+        _ ⇒ Future.failed(new RuntimeException("The call was completed before the message was received"))
+      )
+
+      Future.firstCompletedOf(Seq(onMessagePr.future, raiseErrorOnClose))
     }
     F.handleError(f) { e: Throwable ⇒
       onMessagePr.tryFailure(e)

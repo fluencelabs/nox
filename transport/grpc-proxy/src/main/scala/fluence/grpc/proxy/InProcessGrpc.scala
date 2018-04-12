@@ -17,11 +17,49 @@
 
 package fluence.grpc.proxy
 
-import io.grpc.{ManagedChannel, Server, ServerServiceDefinition}
+import cats.effect.IO
+import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
+import io.grpc._
 
 import scala.collection.JavaConverters._
 import scala.language.higherKinds
 
-final case class InProcessGrpc(server: Server, channel: ManagedChannel) {
+/**
+ * Grpc server and channel, that work in memory without transport.
+ */
+final class InProcessGrpc private (private val server: Server, private val channel: ManagedChannel) {
   val services: List[ServerServiceDefinition] = server.getServices.asScala.toList
+
+  /**
+   * Create new call from channel to server.
+   * @param methodDescriptor The method descrpiptor to be used for the call.
+   * @param callOptions The collection of runtime options for a new RPC call.
+   */
+  def newCall[Req, Resp](
+    methodDescriptor: MethodDescriptor[Req, Resp],
+    callOptions: CallOptions
+  ): ClientCall[Req, Resp] = {
+    channel.newCall[Req, Resp](methodDescriptor, callOptions)
+  }
+
+  /**
+   * Once the server and the channel are closed, it will throw errors on each call.
+   */
+  def close(): IO[Unit] = {
+    IO(server.shutdown()).map(_ ⇒ channel.shutdown())
+  }
+}
+
+object InProcessGrpc {
+
+  def build(name: String, services: List[ServerServiceDefinition]): IO[InProcessGrpc] = {
+    for {
+      server ← IO {
+        val builder = InProcessServerBuilder.forName(name)
+        services.foreach(s ⇒ builder.addService(s))
+        builder.build().start()
+      }
+      channel ← IO(InProcessChannelBuilder.forName(name).build())
+    } yield new InProcessGrpc(server, channel)
+  }
 }

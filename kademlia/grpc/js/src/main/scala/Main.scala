@@ -20,13 +20,12 @@ import fluence.crypto.algorithm.Ecdsa
 import fluence.kad.grpc.client.KademliaJSClient
 import fluence.kad.grpc.{KademliaGrpcService, KademliaNodeCodec}
 import fluence.kad.protocol.Key
-import scodec.bits.ByteVector
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
 
-@JSExportTopLevel("SomeMain")
+@JSExportTopLevel("Main")
 object Main extends slogging.LazyLogging {
 
   LoggerConfig.factory = PrintLoggerFactory()
@@ -44,17 +43,13 @@ object Main extends slogging.LazyLogging {
 
   @JSExport
   def logic(): Unit = {
-    println("Hello world!")
     val keyP = algo.generateKeyPair().value.toOption.get
     val key = Key.fromPublicKey(keyP.publicKey).value.toOption.get
     val io = for {
       node ← client.ping()
       _ = logger.info("Ping node response: " + node)
-      _ = println("Ping node response: " + node)
-
       listOfNodes ← client.lookup(key, 2)
       _ = logger.info("Lookup nodes response: " + listOfNodes.mkString("\n"))
-      _ = println("Lookup nodes response: " + listOfNodes.mkString("\n"))
       key2 = listOfNodes.head.key
       listOfNodes2 ← client.lookupAway(key2, key, 2)
     } yield {
