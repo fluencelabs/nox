@@ -17,7 +17,9 @@
 
 package fluence.grpc.proxy
 
+import cats.effect.IO
 import io.grpc.{ClientCall, Metadata}
+import monix.reactive.{Observable, Observer, OverflowStrategy}
 
 import scala.concurrent.Promise
 
@@ -57,5 +59,34 @@ class ProxyListener[T](
   override def onReady(): Unit = {
     super.onReady()
     logger.debug("onReady callback.")
+  }
+}
+
+class StreamProxyListener[T](
+  obs: Observer[T]
+) extends ClientCall.Listener[T] with slogging.LazyLogging {
+
+  override def onHeaders(headers: Metadata): Unit = {
+    super.onHeaders(headers)
+    logger.debug("STREAM: onHeaders callback: " + headers)
+
+  }
+
+  override def onClose(status: io.grpc.Status, trailers: Metadata): Unit = {
+    super.onClose(status, trailers)
+    obs.onComplete()
+    logger.debug(s"STREAM: onClose callback: Status: $status, trailers: $trailers")
+
+  }
+
+  override def onMessage(message: T): Unit = {
+    super.onMessage(message)
+    obs.onNext(message)
+    logger.debug("STREAM: onMessage callback: " + message)
+  }
+
+  override def onReady(): Unit = {
+    super.onReady()
+    logger.debug("STREAM: onReady callback.")
   }
 }

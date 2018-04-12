@@ -22,15 +22,21 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.proxy.grpc.WebsocketMessage
 import fs2.StreamApp.ExitCode
+import fs2.async.mutable.{Queue, Topic}
 import fs2.{io ⇒ _, _}
+import fs2._
+import monix.eval.Task
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.websocket._
 import org.http4s.websocket.WebsocketBits
 import org.http4s.websocket.WebsocketBits.{WebSocketFrame, _}
+import org.reactivestreams.Publisher
+import fs2.interop.reactivestreams._
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
+import monix.execution.Scheduler.Implicits.global
 import scala.language.higherKinds
 
 /**
@@ -47,24 +53,26 @@ class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F], port: Int = 8080)(implic
       //TODO add size of queue to config
       val queueF = async.boundedQueue[F, WebSocketFrame](100)
 
-      val echoReply: Pipe[F, WebSocketFrame, WebSocketFrame] = _.evalMap {
+      val echoReply: Pipe[F, WebSocketFrame, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
-          for {
+          val a = for {
             message ← F.delay(WebsocketMessage.parseFrom(data))
             response ← proxyGrpc
               .handleMessage(message.service, message.method, message.streamId, ProxyGrpc.replyConverter(message.reply))
           } yield {
-            response match {
+            response.map {
               case ResponseArrayByte(bytes) ⇒ Binary(bytes): WebSocketFrame
               case NoResponse ⇒ WebsocketBits.Close(): WebSocketFrame
-            }
+            }.take(1)
 
           }
+
+          Stream.eval(a).flatMap(_.toReactivePublisher.toStream[F]())
         case m ⇒
-          F.pure(Text(s"Unexpected message: $m"): WebSocketFrame)
+          Stream.eval(F.pure(Text(s"Unexpected message: $m"): WebSocketFrame))
       }
 
-      queueF.flatMap { queue ⇒
+      queueF.flatMap { queue: Queue[F, WebSocketFrame] ⇒
         val d = queue.dequeue.through(echoReply)
         val e = queue.enqueue
         WebSocketBuilder[F].build(d, e)

@@ -239,6 +239,8 @@ lazy val `transport-grpc-proxy` = project
       http4sBlazeServer,
       slogging,
       fluenceCodec,
+      monix3,
+      "com.github.zainab-ali" %% "fs2-reactive-streams" % "0.5.1",
       scalatest
     ),
     PB.protoSources in Compile += file(baseDirectory.value.absolutePath + "/src/test/protobuf/")

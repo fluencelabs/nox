@@ -50,9 +50,20 @@ final class InProcessGrpc private (private val server: Server, private val chann
   def close(): IO[Unit] = {
     for {
       _ ← IO(server.shutdown())
-      _ ← IO(server.awaitTermination())
+      _ ← IO(server.awaitTermination()).attempt.map(println)
       _ ← IO(channel.shutdown())
       _ ← IO(channel.awaitTermination(10L, TimeUnit.SECONDS))
+    } yield ()
+  }
+
+  /**
+   * Close server and channel even with the open calls
+   * Once the server and the channel are closed, it will throw errors on each call.
+   */
+  def unsafeClose(): IO[Unit] = {
+    for {
+      _ ← IO(server.shutdownNow())
+      _ ← IO(channel.shutdownNow())
     } yield ()
   }
 }
