@@ -28,6 +28,7 @@ import io.grpc.MethodDescriptor
 import io.grpc.stub.StreamObserver
 import org.scalatest.{Matchers, WordSpec}
 import scalapb.GeneratedMessage
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -35,6 +36,9 @@ import scala.util.Random
 
 //TODO move test in proxy module and rewrite with synthetic grpc services
 class ProxyUnaryCallSpec extends WordSpec with Matchers {
+
+  LoggerConfig.factory = PrintLoggerFactory()
+  LoggerConfig.level = LogLevel.DEBUG
 
   "proxy" should {
 
@@ -113,41 +117,51 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
       resp.str shouldBe str + "resp"
       resp.listStr shouldBe listStr :+ "resp"
       resp.byteArray shouldBe byteArray.concat(respCheckerBytes)
+
+      inProcessGrpc.close().unsafeRunSync()
     }
 
     "work with bidi streams" in {
 
-      val str = "test"
-      val listStr = Seq("test1", "test2")
-      val byteArray = ByteString.copyFrom(Array[Byte](1, 2, 3, 4, 5))
-      val counter = 1
+      val inProcessGrpc = InProcessGrpc.build("in-process", List(service)).unsafeRunSync()
 
-      val testMessage =
-        generateMessage(
-          TestRequest(Some(TestMessage(str, listStr, byteArray, counter))),
-          TestServiceGrpc.METHOD_TEST_COUNT
-        )
+      val proxyGrpc = new ProxyGrpc[IO](inProcessGrpc)
 
-      val testResp = proxyGrpc
-        .handleMessage(
-          testMessage.service,
-          testMessage.method,
-          testMessage.streamId,
-          ProxyGrpc.replyConverter(testMessage.reply)
-        )
-        .unsafeRunSync()
+      try {
+        val str = "test"
+        val listStr = Seq("test1", "test2")
+        val byteArray = ByteString.copyFrom(Array[Byte](1, 2, 3, 4, 5))
+        val counter = 1
 
-      val respBytes = testResp match {
-        case ResponseArrayByte(b) ⇒ b
-        case _ ⇒ throw new RuntimeException("error")
+        val testMessage =
+          generateMessage(
+            TestRequest(Some(TestMessage(str, listStr, byteArray, counter))),
+            TestServiceGrpc.METHOD_TEST_COUNT
+          )
+
+        val testResp = proxyGrpc
+          .handleMessage(
+            testMessage.service,
+            testMessage.method,
+            testMessage.streamId,
+            ProxyGrpc.replyConverter(testMessage.reply)
+          )
+          .unsafeRunSync()
+
+        val respBytes = testResp match {
+          case ResponseArrayByte(b) ⇒ b
+          case _ ⇒ throw new RuntimeException("error")
+        }
+
+        val resp = TestRequest.parseFrom(respBytes).message.get
+        resp.str shouldBe str + "resp"
+        resp.listStr shouldBe listStr :+ "resp"
+        resp.byteArray shouldBe byteArray.concat(respCheckerBytes)
+      } catch {
+        case e: Throwable ⇒ e.printStackTrace()
+      } finally {
+        inProcessGrpc.close().unsafeRunSync()
       }
-
-      val resp = TestRequest.parseFrom(respBytes).message.get
-      resp.str shouldBe str + "resp"
-      resp.listStr shouldBe listStr :+ "resp"
-      resp.byteArray shouldBe byteArray.concat(respCheckerBytes)
-
-      inProcessGrpc.close().unsafeRunSync()
     }
 
     "raise error if the proxy was closed" in {
@@ -162,9 +176,11 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
 
       the[RuntimeException] thrownBy {
         proxyGrpc
-          .handleMessage(testMessage.service, testMessage.method, testMessage.protoMessage.newInput())
+          .handleMessage(testMessage.service, testMessage.method, 1L, ProxyGrpc.replyConverter(testMessage.reply))
           .unsafeRunSync()
       }
+
+      inProcessGrpc.close().unsafeRunSync()
     }
 
     "raise error if no method or service descriptor in proxy" in {
@@ -177,13 +193,13 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
 
       the[RuntimeException] thrownBy {
         proxyGrpc
-          .handleMessage("rndservice", testMessage.method, testMessage.protoMessage.newInput())
+          .handleMessage("rndservice", testMessage.method, 1L, ProxyGrpc.replyConverter(testMessage.reply))
           .unsafeRunSync()
       }
 
       the[RuntimeException] thrownBy {
         proxyGrpc
-          .handleMessage(testMessage.service, "rndmethod", testMessage.protoMessage.newInput())
+          .handleMessage(testMessage.service, "rndmethod", 1L, ProxyGrpc.replyConverter(testMessage.reply))
           .unsafeRunSync()
       }
 

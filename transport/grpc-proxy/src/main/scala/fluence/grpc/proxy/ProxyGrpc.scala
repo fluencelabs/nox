@@ -77,15 +77,20 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
     val onClosePr = Promise[(io.grpc.Status, Metadata)]
     val f = F.delay {
       val metadata = new Metadata()
-      val call = inProcessGrpc.channel.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
+      val call = inProcessGrpc.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
 
-      call.start(new ProxyListener[Any](onMessagePr), metadata)
+      call.start(new ProxyListener[Any](onMessagePr, onClosePr), metadata)
 
       call.sendMessage(req)
       call.request(1)
       call.halfClose()
 
-      onMessagePr.future
+      runFuture(onClosePr.future)
+      val raiseErrorOnClose: Future[Any] = onClosePr.future.flatMap(
+        _ ⇒ Future.failed(new RuntimeException("The call was completed before the message was received"))
+      )
+
+      Future.firstCompletedOf(Seq(onMessagePr.future, raiseErrorOnClose))
     }
     F.handleError(f) { e: Throwable ⇒
       onMessagePr.tryFailure(e)
@@ -103,7 +108,7 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
     val metadata = new Metadata()
     val call = inProcessGrpc.newCall[Req, Resp](methodDescriptor, CallOptions.DEFAULT)
 
-    call.start(new ProxyListener[Resp](onMessagePr, onClosePr = Some(onClosePr)), metadata)
+    call.start(new ProxyListener[Resp](onMessagePr, onClosePr = onClosePr), metadata)
 
     call
   }
@@ -113,8 +118,6 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
     val onClosePr = Promise[(io.grpc.Status, Metadata)]
     val f = F.delay {
       val call = openBidiCall(methodDescriptor, onMessagePr, onClosePr)
-
-      val a = StreamObserver[Resp]
 
       call.sendMessage(req)
       call.request(1)
