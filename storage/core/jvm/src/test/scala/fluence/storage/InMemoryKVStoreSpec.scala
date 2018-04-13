@@ -109,6 +109,38 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
     }
 
+    "perform all Remove operations correctly" in {
+
+      val store = InMemoryKVStore[String, String]
+
+      val key1 = "key1"
+      val val1 = "val1"
+      val key2 = "key2"
+      val val2 = "val2"
+      val key3 = "key3"
+      val val3 = "val3"
+      val key4 = "key4"
+      val val4 = "val4"
+
+      store.remove(key1).run[Id].value.right.get shouldBe ()
+      store.remove(key2).runF[IO].unsafeRunSync() shouldBe ()
+      store.remove(key3).runEither[Id].right.get shouldBe ()
+      store.remove(key4).runUnsafe() shouldBe ()
+
+      store.put(key1, val1).run[Id].value.right.get shouldBe ()
+      store.put(key2, val2).runEither[Id].right.get shouldBe ()
+      store.put(key3, val3).runF[IO].unsafeRunSync() shouldBe ()
+      store.put(key4, val4).runUnsafe() shouldBe ()
+
+      store.remove(key1).run[Id].value.right.get shouldBe ()
+      store.remove(key2).runF[IO].unsafeRunSync() shouldBe ()
+      store.remove(key3).runEither[Id].right.get shouldBe ()
+      store.remove(key4).runUnsafe() shouldBe ()
+
+      store.traverse.runUnsafe.toList shouldBe empty
+
+    }
+
     "performs all operations correctly" in {
 
       val store = InMemoryKVStore[ByteBuffer, Array[Byte]]
@@ -135,7 +167,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       // check delete
 
       store.get(key1).runUnsafe().get shouldBe val1
-      store.remove[Id](key1).right.get shouldBe ()
+      store.remove(key1).runUnsafe() shouldBe ()
       store.get(key1).runUnsafe() shouldBe None
 
       // check traverse

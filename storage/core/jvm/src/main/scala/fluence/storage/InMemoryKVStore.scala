@@ -18,11 +18,10 @@
 package fluence.storage
 
 import cats.data.EitherT
-import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.{~>, Applicative, Monad, MonadError}
 import fluence.kvstore._
-import fluence.kvstore.ops.{Get, Put, Traverse}
+import fluence.kvstore.ops.{Get, Put, Remove, Traverse}
 
 import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
@@ -117,12 +116,27 @@ private trait InMemoryKVStoreWrite[K, V] extends InMemoryKVStore[K, V] with KVSt
 
   }
 
-  override def remove[F[_]: Monad](key: K): F[Either[StoreError, Unit]] =
-    Try(data.remove(key)).toEither.left
-      .map(err ⇒ StoreError.removeError(key, Some(err)))
-      .right
-      .map(_ ⇒ ())
-      .pure[F]
+  /**
+   * Returns lazy ''remove'' representation (see [[Remove]])
+   *
+   * @param key The specified key to be inserted
+   */
+  override def remove(key: K): Remove[K, StoreError] = new Remove[K, StoreError] {
+
+    override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
+      // format: off
+      EitherT.fromEither {
+        Try(data.remove(key))
+          .toEither
+          .left.map(err ⇒ StoreError.removeError(key, Some(err)))
+          .right.map(_ ⇒ ())
+      }
+      // format: on
+
+    override def runUnsafe(): Unit =
+      data.remove(key)
+
+  }
 
 }
 

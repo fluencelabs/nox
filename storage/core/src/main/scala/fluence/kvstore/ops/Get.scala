@@ -17,55 +17,11 @@
 
 package fluence.kvstore.ops
 
-import cats.syntax.flatMap._
-import cats.{Monad, MonadError}
-import cats.data.EitherT
 import fluence.kvstore.{KVStorage, StoreError}
 
 import scala.language.higherKinds
 
-/**
- * Lazy representation for getting value by specified key.
- *
- * @tparam K A type of search key
- * @tparam V A type of value
- * @tparam E A type for any storage errors
- */
-trait Get[K, V, E <: StoreError] {
-
-  /**
-   * Runs the getting value by specified key, using the user defined monad,
-   * returns EitherT-wrapped result.
-   *
-   * @tparam F User defined type of monad
-   */
-  def run[F[_]: Monad]: EitherT[F, E, Option[V]]
-
-  /**
-   * Runs the getting value by specified key, using the user defined monad,
-   * returns Either wrapped to F.
-   *
-   * @tparam F User defined type of monad
-   */
-  def runEither[F[_]: Monad]: F[Either[E, Option[V]]] =
-    run[F].value
-
-  /**
-   * Runs the getting value by specified key, using the user defined MonadError
-   * lifts an error into MonadError effect.
-
-   * @tparam F User defined type of monad
-   */
-  def runF[F[_]: Monad](implicit F: MonadError[F, E]): F[Option[V]] =
-    runEither.flatMap(F.fromEither)
-
-  /**
-   * Runs the getting value by specified key, '''throw the error if it happens'''.
-   * Intended to be used '''only in tests'''.
-   */
-  def runUnsafe(): Option[V]
-
-}
+trait Get[K, V, E <: StoreError] extends Operation[K, Option[V], E]
 
 object Get {
 

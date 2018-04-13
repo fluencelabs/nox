@@ -15,29 +15,38 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.kvstore
+package fluence.kvstore.ops
 
-import cats.{Applicative, Monad}
-import fluence.kvstore.ops.Get.KVStoreGet
-import fluence.kvstore.ops.Put.KVStorePut
-import fluence.kvstore.ops.Remove.KVStoreRemove
-import fluence.kvstore.ops.Traverse.KVStoreTraverse
+import fluence.kvstore.{KVStorage, StoreError}
 
 import scala.language.higherKinds
 
 /**
- * Top type for any key value storage.
+ * Lazy representation for removing key and value.
+ *
+ * @tparam K A type of search key
+ * @tparam E A type for any storage errors
  */
-trait KVStorage
+trait Remove[K, E <: StoreError] extends Operation[K, Unit, E]
 
-trait Snapshot[S <: KVStorage] {
+object Remove {
 
-  def createSnapshot[F[_]: Applicative](): F[S]
+  /**
+   * Contract for removing key and value from KVStore.
+   * In other words ''mixin'' with ''remove'' functionality.
+   *
+   * @tparam K A type of search key
+   * @tparam E A type for any storage errors
+   */
+  trait KVStoreRemove[K, E <: StoreError] extends KVStorage {
+
+    /**
+     * Returns lazy ''remove'' representation (see [[Remove]])
+     *
+     * @param key The specified key to be inserted
+     */
+    def remove(key: K): Remove[K, E]
+
+  }
 
 }
-
-trait KVStoreRead[K, V, E <: StoreError] extends KVStoreGet[K, V, E] with KVStoreTraverse[K, V, E]
-
-trait KVStoreWrite[K, V, E <: StoreError] extends KVStorePut[K, V, E] with KVStoreRemove[K, E]
-
-trait ReadWriteKVStore[K, V, E <: StoreError] extends KVStoreRead[K, V, E] with KVStoreWrite[K, V, E]
