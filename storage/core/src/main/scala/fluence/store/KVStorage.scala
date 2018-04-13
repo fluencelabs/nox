@@ -54,7 +54,7 @@ trait KVStoreGet[K, V, E <: StoreError] extends KVStorage {
 trait Get[K, V, E <: StoreError] {
 
   /**
-   * Runs the getting value by specified key, using the given monad,
+   * Runs the getting value by specified key, using the user defined monad,
    * returns EitherT-wrapped result.
    *
    * @param key Search key
@@ -79,7 +79,7 @@ trait Get[K, V, E <: StoreError] {
    * @param key Search key
    * @tparam F User defined type of monad
    */
-  def runF[F[_]: Monad](key: K)(implicit F: MonadError[F, StoreError]): F[Option[V]] =
+  def runF[F[_]: Monad](key: K)(implicit F: MonadError[F, E]): F[Option[V]] =
     runEither(key).flatMap(F.fromEither)
 
   /**
@@ -136,13 +136,69 @@ trait Traverse[K, V, E <: StoreError] {
 
 }
 
-// todo finish
-
+/**
+ * Contract for putting key and value into KVStore.
+ * In other words ''mixin'' with ''put'' functionality.
+ *
+ * @tparam K A type of search key
+ * @tparam V A type of value
+ * @tparam E A type for any storage errors
+ */
 trait KVStorePut[K, V, E <: StoreError] extends KVStorage {
 
-  def put[F[_]](key: K, value: V)(implicit F: Monad[F]): F[Either[E, Unit]]
+  /**
+   * Returns lazy ''put'' representation (see [[Put]])
+   *
+   * @param key The specified key to be inserted
+   * @param value The value associated with the specified key
+   */
+  def put(key: K, value: V): Put[K, V, E]
 
 }
+
+/**
+ * Lazy representation for putting key and value.
+ *
+ * @tparam K A type of search key
+ * @tparam V A type of value
+ * @tparam E A type for any storage errors
+ */
+trait Put[K, V, E] {
+
+  /**
+   * Runs putting a key and value into KVStore, using the user defined monad,
+   * returns EitherT-wrapped result.
+   *
+   * @tparam F User defined type of monad
+   */
+  def run[F[_]: Monad]: EitherT[F, E, Unit]
+
+  /**
+   * Runs putting a key and value into KVStore, using the user defined monad,
+   * returns Either wrapped to F.
+   *
+   * @tparam F User defined type of monad
+   */
+  def runEither[F[_]: Monad]: F[Either[E, Unit]] =
+    run[F].value
+
+  /**
+   * Runs putting a key and value into KVStore, using the user defined MonadError,
+   * lifts an error into MonadError effect.
+   *
+   * @tparam F User defined type of monad
+   */
+  def runF[F[_]: Monad](implicit F: MonadError[F, E]): F[Unit] =
+    runEither.flatMap(F.fromEither)
+
+  /**
+   * Runs putting a key and value into KVStore, '''throw the error if it happens'''.
+   * Intended to be used '''only in tests'''.
+   */
+  def runUnsafe(): Unit
+}
+
+// todo finish
 
 trait KVStoreRemove[K, V, E <: StoreError] extends KVStorage {
 

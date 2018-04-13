@@ -41,7 +41,7 @@ private sealed trait InMemoryKVStore[K, V] extends KVStorage {
 }
 
 /**
- * Lazy representation for getting value by specified key.
+ * Allows reading keys and values from KVStore.
  *
  * @tparam K A type of search key
  * @tparam V A type of value
@@ -83,14 +83,36 @@ private trait InMemoryKVStoreRead[K, V] extends InMemoryKVStore[K, V] with KVSto
 
 }
 
+/**
+ * Allows writing and removing keys and values from KVStore.
+ *
+ * @tparam K A type of search key
+ * @tparam V A type of value
+ */
 private trait InMemoryKVStoreWrite[K, V] extends InMemoryKVStore[K, V] with KVStoreWrite[K, V, StoreError] { self ⇒
 
-  override def put[F[_]: Monad](key: K, value: V): F[Either[StoreError, Unit]] =
-    Try(data.put(key, value)).toEither.left
-      .map(err ⇒ StoreError.putError(key, value, Some(err)))
-      .right
-      .map(_ ⇒ ())
-      .pure[F]
+  /**
+   * Returns lazy ''put'' representation (see [[Put]])
+   *
+   * @param key The specified key to be inserted
+   * @param value The value associated with the specified key
+   */
+  override def put(key: K, value: V): Put[K, V, StoreError] = new Put[K, V, StoreError] {
+
+    override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
+      // format: off
+      EitherT.fromEither {
+        Try(data.put(key, value))
+          .toEither
+          .left.map(err ⇒ StoreError.putError(key, value, Some(err)))
+          .right.map(_ ⇒ ())
+      }
+      // format: on
+
+    override def runUnsafe(): Unit =
+      data.put(key, value)
+
+  }
 
   override def remove[F[_]: Monad](key: K): F[Either[StoreError, Unit]] =
     Try(data.remove(key)).toEither.left

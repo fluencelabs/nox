@@ -56,7 +56,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       store.get.runEither[Id](key1).right.get shouldBe None
       store.get.runUnsafe(key1) shouldBe None
 
-      store.put[Id](key1, val1).right.get shouldBe ()
+      store.put(key1, val1).runUnsafe() shouldBe ()
 
       store.get.run[Id](key1).value.right.get.get shouldBe val1
       store.get.runF[IO](key1).unsafeRunSync().get shouldBe val1
@@ -77,11 +77,34 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       store.traverse.run[Observable].toListL.runAsync.futureValue shouldBe empty
       store.traverse.runUnsafe shouldBe empty
 
-      store.put[Id](key1, val1).right.get shouldBe ()
-      store.put[Id](key2, val2).right.get shouldBe ()
+      store.put(key1, val1).runUnsafe() shouldBe ()
+      store.put(key2, val2).runUnsafe() shouldBe ()
 
       val expectedPairs = List(key1 → val1, key2 → val2)
       store.traverse.run[Observable].toListL.runAsync.futureValue should contain theSameElementsAs expectedPairs
+      store.traverse.runUnsafe.toList should contain theSameElementsAs expectedPairs
+
+    }
+
+    "perform all Put operations correctly" in {
+
+      val store = InMemoryKVStore[String, String]
+
+      val key1 = "key1"
+      val val1 = "val1"
+      val key2 = "key2"
+      val val2 = "val2"
+      val key3 = "key3"
+      val val3 = "val3"
+      val key4 = "key4"
+      val val4 = "val4"
+
+      store.put(key1, val1).run[Id].value.right.get shouldBe ()
+      store.put(key2, val2).runEither[Id].right.get shouldBe ()
+      store.put(key3, val3).runF[IO].unsafeRunSync() shouldBe ()
+      store.put(key4, val4).runUnsafe() shouldBe ()
+
+      val expectedPairs = Seq(key1 → val1, key2 → val2, key3 → val3, key4 → val4)
       store.traverse.runUnsafe.toList should contain theSameElementsAs expectedPairs
 
     }
@@ -99,14 +122,14 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       // check write and read
 
       store.get.runUnsafe(key1) shouldBe None
-      store.put[Id](key1, val1).right.get shouldBe ()
+      store.put(key1, val1).runUnsafe() shouldBe ()
       store.get.runUnsafe(key1).get shouldBe val1
 
       // check update
 
-      store.put[Id](key2, val2).right.get shouldBe ()
+      store.put(key2, val2).runUnsafe() shouldBe ()
       store.get.runUnsafe(key2).get shouldBe val2
-      store.put[Id](key2, newVal2).right.get shouldBe ()
+      store.put(key2, newVal2).runUnsafe() shouldBe ()
       store.get.runUnsafe(key2).get shouldBe newVal2
 
       // check delete
@@ -120,7 +143,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       val manyPairs: Seq[(Key, Value)] = 1 to 100 map { n ⇒
         s"key$n".getBytes() → s"val$n".getBytes()
       }
-      val inserts = manyPairs.map { case (k, v) ⇒ store.put[Id](k, v).right.get }
+      val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v).runUnsafe() }
       inserts should have size 100
 
       val traverseResult = store.traverse.run[Observable].toListL.runSyncUnsafe(1.seconds)
@@ -134,6 +157,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
     "performs all operations correctly with snapshot" in {
       // todo finish
     }
+
   }
 
   private def bytesToStr(bytes: Seq[(Array[Byte], Array[Byte])]): Seq[(String, String)] = {
