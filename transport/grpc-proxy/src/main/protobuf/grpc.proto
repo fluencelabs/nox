@@ -2,14 +2,10 @@ syntax = "proto3";
 
 package fluence.proxy;
 
-message Close {}
-
 message WebsocketMessage {
     string service = 1;
     string method = 2;
     int64 streamId = 3;
-    oneof reply {
-        bytes protoMessage = 10;
-        Close close = 20;
-    }
+    bytes protoMessage = 10;
+
 }

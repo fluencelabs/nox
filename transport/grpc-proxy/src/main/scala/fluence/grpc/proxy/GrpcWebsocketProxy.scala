@@ -44,21 +44,20 @@ import scala.language.higherKinds
  * TODO make it pluggable and abstract from Stream
  * @param proxyGrpc Proxy grpc API.
  */
-class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F], port: Int = 8080)(implicit F: Effect[F])
-    extends StreamApp[F] with Http4sDsl[F] {
+class GrpcWebsocketProxy(proxyGrpc: ProxyGrpc, port: Int = 8080) extends StreamApp[Task] with Http4sDsl[Task] {
 
-  def route(scheduler: Scheduler): HttpService[F] = HttpService[F] {
+  def route(scheduler: Scheduler): HttpService[Task] = HttpService[Task] {
 
     case GET -> Root / "ws" ⇒
       //TODO add size of queue to config
-      val queueF = async.boundedQueue[F, WebSocketFrame](100)
+      val queueF = async.boundedQueue[Task, WebSocketFrame](100)
 
-      val echoReply: Pipe[F, WebSocketFrame, WebSocketFrame] = _.flatMap {
+      val echoReply: Pipe[Task, WebSocketFrame, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
           val a = for {
-            message ← F.delay(WebsocketMessage.parseFrom(data))
+            message ← Task.eval(WebsocketMessage.parseFrom(data))
             response ← proxyGrpc
-              .handleMessage(message.service, message.method, message.streamId, ProxyGrpc.replyConverter(message.reply))
+              .handleMessage(message.service, message.method, message.streamId, message.protoMessage.newInput())
           } yield {
             response.map {
               case ResponseArrayByte(bytes) ⇒ Binary(bytes): WebSocketFrame
@@ -67,22 +66,22 @@ class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F], port: Int = 8080)(implic
 
           }
 
-          Stream.eval(a).flatMap(_.toReactivePublisher.toStream[F]())
+          Stream.eval(a).flatMap(a ⇒ a.toReactivePublisher.toStream[Task]())
         case m ⇒
-          Stream.eval(F.pure(Text(s"Unexpected message: $m"): WebSocketFrame))
+          Stream.eval(Task.pure(Text(s"Unexpected message: $m"): WebSocketFrame))
       }
 
-      queueF.flatMap { queue: Queue[F, WebSocketFrame] ⇒
+      queueF.flatMap { queue: Queue[Task, WebSocketFrame] ⇒
         val d = queue.dequeue.through(echoReply)
         val e = queue.enqueue
-        WebSocketBuilder[F].build(d, e)
+        WebSocketBuilder[Task].build(d, e)
       }
   }
 
-  override def stream(args: List[String], requestShutdown: F[Unit]): Stream[F, ExitCode] =
+  override def stream(args: List[String], requestShutdown: Task[Unit]): Stream[Task, ExitCode] =
     for {
-      scheduler ← Scheduler[F](corePoolSize = 2)
-      exitCode ← BlazeBuilder[F]
+      scheduler ← Scheduler[Task](corePoolSize = 2)
+      exitCode ← BlazeBuilder[Task]
         .bindHttp(port)
         .withWebSockets(true)
         .mountService(route(scheduler))

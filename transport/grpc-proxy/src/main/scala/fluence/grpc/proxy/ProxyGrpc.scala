@@ -19,21 +19,14 @@ package fluence.grpc.proxy
 
 import java.io.InputStream
 
-import cats.effect.Effect
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.~>
-import fluence.proxy.grpc.WebsocketMessage
-import fluence.proxy.grpc.WebsocketMessage.Reply.ProtoMessage
 import io.grpc.MethodDescriptor.MethodType
 import io.grpc._
 import io.grpc.internal.IoUtils
+import monix.eval.{MVar, Task}
+import monix.execution.Scheduler.Implicits.global
 import monix.reactive.{MulticastStrategy, Observable, OverflowStrategy}
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
-import monix.execution.Scheduler.Implicits.global
-
-import scala.collection.mutable
+import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 
 /**
@@ -41,10 +34,8 @@ import scala.language.higherKinds
  *
  * @param inProcessGrpc In-process services and client channel.
  */
-class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
-  implicit F: Effect[F],
-  runFuture: Future ~> F,
-  ec: ExecutionContext
+class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
+  implicit ec: ExecutionContext
 ) extends slogging.LazyLogging {
 
   /**
@@ -65,64 +56,36 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
     } yield methodDescriptor
   }
 
-  private def getMethodDescriptorF(service: String, method: String): F[MethodDescriptor[Any, Any]] = {
-    F.delay(getMethodDescriptor(service, method)).flatMap {
-      case Some(md) ⇒ F.pure(md)
-      case None ⇒ F.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
+  private def getMethodDescriptorF(service: String, method: String): Task[MethodDescriptor[Any, Any]] = {
+    Task.eval(getMethodDescriptor(service, method)).flatMap {
+      case Some(md) ⇒ Task.pure(md)
+      case None ⇒ Task.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
     }
   }
 
-  /**
-   * Unary call to grpc service.
-   *
-   */
-  private def unaryCall(req: Any, methodDescriptor: MethodDescriptor[Any, Any]): F[Future[Any]] = {
-    val onMessagePr = Promise[Any]
-    val onClosePr = Promise[(io.grpc.Status, Metadata)]
-    val f = F.delay {
-      val metadata = new Metadata()
-      val call = inProcessGrpc.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
-
-      call.start(new ProxyListener[Any](onMessagePr, onClosePr), metadata)
-
-      call.sendMessage(req)
-      call.request(1)
-      call.halfClose()
-
-      runFuture(onClosePr.future)
-      val raiseErrorOnClose: Future[Any] = onClosePr.future.flatMap(
-        _ ⇒ Future.failed(new RuntimeException("The call was completed before the message was received"))
-      )
-
-      Future.firstCompletedOf(Seq(onMessagePr.future, raiseErrorOnClose))
-    }
-    F.handleError(f) { e: Throwable ⇒
-      onMessagePr.tryFailure(e)
-      onMessagePr.future
-    }
-  }
-
-  val bidiMap = mutable.Map.empty[Long, (ClientCall[Any, Any], Observable[Any])]
+  val callCache: Task[MVar[Map[Long, ClientCall[Any, Any]]]] = MVar(Map.empty[Long, ClientCall[Any, Any]]).memoize
 
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
   def openBidiCall[Req, Resp](
     methodDescriptor: MethodDescriptor[Req, Resp]
-  ): (ClientCall[Req, Resp], Observable[Response]) = {
-    val metadata = new Metadata()
-    val call = inProcessGrpc.newCall[Req, Resp](methodDescriptor, CallOptions.DEFAULT)
+  ): Task[(ClientCall[Req, Resp], Observable[Response])] = {
+    Task.eval {
+      val metadata = new Metadata()
+      val call = inProcessGrpc.newCall[Req, Resp](methodDescriptor, CallOptions.DEFAULT)
 
-    val (in, out) = Observable.multicast[Resp](MulticastStrategy.replay, overflow)
+      val (in, out) = Observable.multicast[Resp](MulticastStrategy.replay, overflow)
 
-    call.start(new StreamProxyListener[Resp](in), metadata)
+      call.start(new StreamProxyListener[Resp](in), metadata)
 
-    val mappedOut = out.collect {
-      case r ⇒
-        println("IN MAPPED === " + r)
-        ResponseArrayByte(IoUtils.toByteArray(methodDescriptor.streamResponse(r))): Response
+      val mappedOut = out.collect {
+        case r ⇒
+          println("IN MAPPED === " + r)
+          ResponseArrayByte(IoUtils.toByteArray(methodDescriptor.streamResponse(r))): Response
+      }
+
+      (call, mappedOut)
     }
-
-    (call, mappedOut)
   }
 
   /**
@@ -130,58 +93,45 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
    *
    * @param service Name of grpc service (class name of service).
    * @param method Name of grpc method (method name of service).
-   * @param request Input stream of bytes or close stream flag.
+   * @param stream Input stream of bytes.
    *
    * @return Response as array of bytes.
    */
-  def handleMessage(service: String, method: String, streamId: Long, request: Request): F[Observable[Response]] = {
+  def handleMessage(
+    service: String,
+    method: String,
+    streamId: Long,
+    stream: InputStream
+  ): Task[Observable[Response]] = {
     for {
       methodDescriptor ← getMethodDescriptorF(service, method)
-      _ = println("TYPE = " + methodDescriptor.getType)
-      resp ← request match {
-        case RequestInputStream(stream) ⇒
-          for {
-            call ← F.delay(bidiMap.get(streamId))
-            o ← call match {
-              case Some((c, obs)) ⇒
-                println("DO SOME CALL")
-                F.delay {
-                  val req = methodDescriptor.parseRequest(stream)
-                  c.sendMessage(req)
-                  c.request(1)
-                  val dropped = obs.foreachL { r ⇒
-                    println("DROP === " + r)
-                  }
-                  Observable(NoResponse: Response)
 
-                }
-              case None ⇒
-                for {
-                  req ← F.delay(methodDescriptor.parseRequest(stream))
-                  (c, obs) = openBidiCall[Any, Any](methodDescriptor)
-                  _ = if (methodDescriptor.getType != MethodType.UNARY) bidiMap.put(streamId, (c, obs))
-                } yield {
-                  println("SEND MESSAGE == " + request)
-                  c.sendMessage(req)
-                  println("sending")
-                  c.request(1)
-
-                  println("request")
-//                  obs.doOnNext(r ⇒ "callback on resp === " + r)
-
-                  if (methodDescriptor.getType == MethodType.UNARY) c.halfClose()
-                  obs
-                }
-            }
-          } yield o
-        case Close ⇒
-          println("CLOSING === ")
-          bidiMap.get(streamId).foreach {
-            case (c, o) ⇒
-              c.halfClose()
+      callOp ← callCache.flatMap(_.read).map(_.get(streamId))
+      req ← Task.eval(methodDescriptor.parseRequest(stream))
+      resp ← callOp match {
+        case Some(c) ⇒
+          Task.eval {
+            c.sendMessage(req)
+            c.request(1)
+            Observable(NoResponse: Response)
           }
-          bidiMap.remove(streamId)
-          F.delay(Observable(NoResponse: Response))
+        case None ⇒
+          for {
+            callWithObs ← openBidiCall[Any, Any](methodDescriptor)
+            (c, obs) = callWithObs
+            _ ← if (methodDescriptor.getType != MethodType.UNARY) {
+              for {
+                map ← callCache.flatMap(_.take)
+                _ ← callCache.flatMap(_.put(map + (streamId -> c)))
+              } yield ()
+            } else Task.unit
+          } yield {
+            c.sendMessage(req)
+            c.request(1)
+
+            if (methodDescriptor.getType == MethodType.UNARY) c.halfClose()
+            obs
+          }
       }
 
     } yield resp
@@ -189,20 +139,6 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
 
 }
 
-sealed trait Request
-final case class RequestInputStream(stream: InputStream) extends Request
-object Close extends Request
-
 sealed trait Response
 final case class ResponseArrayByte(bytes: Array[Byte]) extends Response
 object NoResponse extends Response
-
-object ProxyGrpc {
-
-  def replyConverter(reply: WebsocketMessage.Reply): Request = {
-    reply match {
-      case ProtoMessage(value) ⇒ RequestInputStream(value.newInput())
-      case WebsocketMessage.Reply.Close(_) ⇒ Close
-    }
-  }
-}
