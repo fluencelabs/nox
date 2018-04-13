@@ -24,7 +24,7 @@ import com.google.protobuf.ByteString
 import fluence.btree.core.{Hash, Key}
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset._
-import fluence.dataset.grpc.{ClientError, ServerError}
+import fluence.dataset.grpc.server.ServerError
 import monix.eval.{MVar, Task}
 import monix.execution.Scheduler
 import monix.reactive.{Observable, Pipe}

@@ -103,13 +103,4 @@ object GrpcMonix {
         variable.flatMap(_.take)
     }
   }
-
-  implicit class ObserverGrpcOps[T](observer: Observer[T]) {
-
-    def completeWith(task: Task[T]): Unit =
-      task.runAsync.flatMap(observer.onNext).onComplete {
-        case Success(_) ⇒ observer.onComplete()
-        case Failure(ex) ⇒ observer.onError(ex)
-      }
-  }
 }

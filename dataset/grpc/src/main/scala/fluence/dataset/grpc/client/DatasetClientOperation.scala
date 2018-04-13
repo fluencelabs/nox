@@ -18,7 +18,6 @@
 package fluence.dataset.grpc.client
 
 import cats.effect.Effect
-import fluence.dataset.grpc.ClientError
 import monix.eval.{MVar, Task}
 import monix.execution.Scheduler
 
