@@ -19,8 +19,7 @@ package fluence.dataset.grpc
 
 import io.grpc.stub.StreamObserver
 import monix.eval.Task
-import monix.execution.Scheduler.Implicits.global
-import monix.execution.{Ack, Cancelable}
+import monix.execution.{Ack, Cancelable, Scheduler}
 import monix.reactive._
 
 import scala.concurrent.Future
@@ -30,27 +29,28 @@ object GrpcMonix {
 
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
-  def callToPipe[I, O](call: StreamObserver[O] ⇒ StreamObserver[I]): Pipe[I, O] = new Pipe[I, O] {
-    override def unicast: (Observer[I], Observable[O]) = {
+  def callToPipe[I, O](call: StreamObserver[O] ⇒ StreamObserver[I])(implicit sch: Scheduler): Pipe[I, O] =
+    new Pipe[I, O] {
+      override def unicast: (Observer[I], Observable[O]) = {
 
-      val (in, inOut) = Observable.multicast[I](MulticastStrategy.replay, overflow)
+        val (in, inOut) = Observable.multicast[I](MulticastStrategy.replay, overflow)
 
-      in -> Observable.create[O](overflow) { sync ⇒
-        inOut.subscribe(streamToObserver(call(new StreamObserver[O] {
-          override def onError(t: Throwable): Unit =
-            sync.onError(t)
+        in -> Observable.create[O](overflow) { sync ⇒
+          inOut.subscribe(streamToObserver(call(new StreamObserver[O] {
+            override def onError(t: Throwable): Unit =
+              sync.onError(t)
 
-          override def onCompleted(): Unit =
-            sync.onComplete()
+            override def onCompleted(): Unit =
+              sync.onComplete()
 
-          override def onNext(value: O): Unit =
-            sync.onNext(value).failed.foreach(onError)
-        })))
+            override def onNext(value: O): Unit =
+              sync.onNext(value).failed.foreach(onError)
+          })))
+        }
       }
     }
-  }
 
-  implicit def streamToObserver[T](stream: StreamObserver[T]): Observer[T] = new Observer[T] {
+  implicit def streamToObserver[T](stream: StreamObserver[T])(implicit sch: Scheduler): Observer[T] = new Observer[T] {
     override def onError(ex: Throwable): Unit =
       stream.onError(ex)
 
@@ -67,7 +67,7 @@ object GrpcMonix {
         .runAsync
   }
 
-  def streamObservable[T]: (Observable[T], StreamObserver[T]) = {
+  def streamObservable[T](implicit sch: Scheduler): (Observable[T], StreamObserver[T]) = {
     val (in, out) = Observable.multicast[T](MulticastStrategy.replay, overflow)
 
     (out, new StreamObserver[T] {
@@ -84,7 +84,7 @@ object GrpcMonix {
 
   implicit class ObservableGrpcOps[T](observable: Observable[T]) {
 
-    def pipeTo(stream: StreamObserver[T]): Cancelable =
+    def pipeTo(stream: StreamObserver[T])(implicit sch: Scheduler): Cancelable =
       observable.subscribe(stream: Observer[T])
   }
 }

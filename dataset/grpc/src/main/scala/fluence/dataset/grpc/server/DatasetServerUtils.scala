@@ -30,7 +30,7 @@ import scala.util.{Failure, Success}
 
 object DatasetServerUtils extends slogging.LazyLogging {
 
-  def pullable[T](observable: Observable[T]): () ⇒ Task[T] = {
+  def pullable[T](observable: Observable[T])(implicit scheduler: Scheduler): () ⇒ Task[T] = {
     val variable = MVar.empty[T].memoize
 
     observable.subscribe(
