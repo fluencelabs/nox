@@ -50,21 +50,39 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       val key1 = "key1".getBytes()
       val val1 = "val1".getBytes()
-      val key2 = "key2".getBytes()
-      val val2 = "val2".getBytes()
-      val newVal2 = "new val2".getBytes()
 
-      store.get.apply[Id](key1).value.right.get shouldBe None
+      store.get.run[Id](key1).value.right.get shouldBe None
       store.get.runF[IO](key1).unsafeRunSync() shouldBe None
       store.get.runEither[Id](key1).right.get shouldBe None
       store.get.runUnsafe(key1) shouldBe None
 
       store.put[Id](key1, val1).right.get shouldBe ()
 
-      store.get.apply[Id](key1).value.right.get.get shouldBe val1
+      store.get.run[Id](key1).value.right.get.get shouldBe val1
       store.get.runF[IO](key1).unsafeRunSync().get shouldBe val1
       store.get.runEither[Id](key1).right.get.get shouldBe val1
       store.get.runUnsafe(key1).get shouldBe val1
+
+    }
+
+    "perform all Traverse operations correctly" in {
+
+      val store = InMemoryKVStore[String, String]
+
+      val key1 = "key1"
+      val val1 = "val1"
+      val key2 = "key2"
+      val val2 = "val2"
+
+      store.traverse.run[Observable].toListL.runAsync.futureValue shouldBe empty
+      store.traverse.runUnsafe shouldBe empty
+
+      store.put[Id](key1, val1).right.get shouldBe ()
+      store.put[Id](key2, val2).right.get shouldBe ()
+
+      val expectedPairs = List(key1 → val1, key2 → val2)
+      store.traverse.run[Observable].toListL.runAsync.futureValue should contain theSameElementsAs expectedPairs
+      store.traverse.runUnsafe.toList should contain theSameElementsAs expectedPairs
 
     }
 
@@ -95,7 +113,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       store.get.runUnsafe(key1).get shouldBe val1
       store.remove[Id](key1).right.get shouldBe ()
-      store.get.runUnsafe(key1).get shouldBe None
+      store.get.runUnsafe(key1) shouldBe None
 
       // check traverse
 
@@ -105,7 +123,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       val inserts = manyPairs.map { case (k, v) ⇒ store.put[Id](k, v).right.get }
       inserts should have size 100
 
-      val traverseResult = store.traverse[Observable]().toListL.runSyncUnsafe(1.seconds)
+      val traverseResult = store.traverse.run[Observable].toListL.runSyncUnsafe(1.seconds)
 
       bytesToStr(traverseResult.map {
         case (bb, v) ⇒ bb.array() -> v

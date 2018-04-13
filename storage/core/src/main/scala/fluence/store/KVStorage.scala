@@ -38,7 +38,7 @@ trait KVStorage
 trait KVStoreGet[K, V, E <: StoreError] extends KVStorage {
 
   /**
-   *  Returns lazy ''get'' representation (see [[Get]])
+   * Returns lazy ''get'' representation (see [[Get]])
    */
   def get: Get[K, V, StoreError]
 
@@ -60,7 +60,7 @@ trait Get[K, V, E <: StoreError] {
    * @param key Search key
    * @tparam F User defined type of monad
    */
-  def apply[F[_]: Monad](key: K): EitherT[F, E, Option[V]]
+  def run[F[_]: Monad](key: K): EitherT[F, E, Option[V]]
 
   /**
    * Runs the getting value by specified key, using the user defined monad,
@@ -70,7 +70,7 @@ trait Get[K, V, E <: StoreError] {
    * @tparam F User defined type of monad
    */
   def runEither[F[_]: Monad](key: K): F[Either[E, Option[V]]] =
-    apply[F](key).value
+    run[F](key).value
 
   /**
    * Runs the getting value by specified key, using the user defined MonadError
@@ -79,11 +79,11 @@ trait Get[K, V, E <: StoreError] {
    * @param key Search key
    * @tparam F User defined type of monad
    */
-  def runF[F[_]](key: K)(implicit F: MonadError[F, StoreError]): F[Option[V]] =
+  def runF[F[_]: Monad](key: K)(implicit F: MonadError[F, StoreError]): F[Option[V]] =
     runEither(key).flatMap(F.fromEither)
 
   /**
-   * Run the getting value by specified key, '''throw the error if it happens'''.
+   * Runs the getting value by specified key, '''throw the error if it happens'''.
    * Intended to be used '''only in tests'''.
    *
    * @param key Search key
@@ -92,13 +92,51 @@ trait Get[K, V, E <: StoreError] {
 
 }
 
-// todo finish
-
+/**
+ * Contract for traversing all key-value pairs.
+ * In other words ''mixin'' with ''traverse'' functionality.
+ *
+ * @tparam K A type of search key
+ * @tparam V A type of value
+ * @tparam E A type for any storage errors
+ */
 trait KVStoreTraverse[K, V, E <: StoreError] extends KVStorage {
 
-  def traverse[FS[_]]()(implicit FS: MonadError[FS, E], liftFS: Iterator ~> FS): FS[(K, V)]
+  /**
+   * Returns lazy ''traverse'' representation (see [[Traverse]])
+   */
+  def traverse: Traverse[K, V, E]
 
 }
+
+/**
+ * Lazy representation for traversing all values.
+ *
+ * @tparam K A type of search key
+ * @tparam V A type of value
+ * @tparam E A type for any storage errors
+ */
+trait Traverse[K, V, E <: StoreError] {
+
+  /**
+   * Returns FS stream of all pairs in current key-value store.
+   *
+   * @param FS MonadError type class for user defined type FS
+   * @param liftIterator Creates FS stream from [[Iterator]]
+   *
+   * @tparam FS User defined type of monadError
+   */
+  def run[FS[_]: Monad](implicit FS: MonadError[FS, E], liftIterator: Iterator ~> FS): FS[(K, V)]
+
+  /**
+   * Returns [[Iterator]] with all key-value pairs for current KVStore,
+   * '''throw the error if it happens'''. Intended to be used '''only in tests'''.
+   */
+  def runUnsafe: Iterator[(K, V)]
+
+}
+
+// todo finish
 
 trait KVStorePut[K, V, E <: StoreError] extends KVStorage {
 

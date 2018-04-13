@@ -19,6 +19,7 @@ package fluence.storage
 
 import cats.data.EitherT
 import cats.syntax.applicative._
+import cats.syntax.flatMap._
 import cats.{~>, Applicative, Monad, MonadError}
 import fluence.store._
 
@@ -52,7 +53,7 @@ private trait InMemoryKVStoreRead[K, V] extends InMemoryKVStore[K, V] with KVSto
    */
   override def get: Get[K, V, StoreError] = new Get[K, V, StoreError] {
 
-    override def apply[F[_]: Monad](key: K): EitherT[F, StoreError, Option[V]] =
+    override def run[F[_]: Monad](key: K): EitherT[F, StoreError, Option[V]] =
       EitherT.fromEither(
         Try(data.get(key)).toEither.left.map(err ⇒ StoreError.getError(key, Some(err)))
       )
@@ -62,8 +63,23 @@ private trait InMemoryKVStoreRead[K, V] extends InMemoryKVStore[K, V] with KVSto
 
   }
 
-  override def traverse[FS[_]]()(implicit ME: MonadError[FS, StoreError], liftToFS: Iterator ~> FS): FS[(K, V)] =
-    liftToFS(data.iterator)
+  /**
+   * Returns lazy ''traverse'' representation (see [[Traverse]])
+   */
+  override def traverse: Traverse[K, V, StoreError] = new Traverse[K, V, StoreError] {
+
+    override def run[FS[_]: Monad](
+      implicit FS: MonadError[FS, StoreError],
+      liftIterator: ~>[Iterator, FS]
+    ): FS[(K, V)] =
+      FS.fromEither {
+        Try(liftIterator(data.iterator)).toEither.left.map(err ⇒ StoreError.traverseError(Some(err)))
+      }.flatten
+
+    override def runUnsafe: Iterator[(K, V)] =
+      data.iterator
+
+  }
 
 }
 

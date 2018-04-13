@@ -42,6 +42,9 @@ object StoreError {
   def getError[K](key: K, causedBy: Option[Throwable] = None): StoreError =
     new StoreError(s"Can't get value for key=$key", causedBy)
 
+  def traverseError[K](causedBy: Option[Throwable] = None): StoreError =
+    new StoreError(s"Traverse failed", causedBy)
+
   def putError[K, V](key: K, value: V, causedBy: Option[Throwable] = None): StoreError =
     new StoreError(s"Can't put ($key, $value)", causedBy)
 
