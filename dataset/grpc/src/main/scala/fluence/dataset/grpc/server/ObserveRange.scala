@@ -44,13 +44,14 @@ object ObserveRange extends slogging.LazyLogging {
   def apply[F[_]: Async](
     service: DatasetStorageRpc[F, Observable],
     resp: Observer[RangeCallback],
-    repl: Observable[RangeCallbackReply],
-    pullClientReply: () ⇒ Task[RangeCallbackReply]
+    repl: Observable[RangeCallbackReply]
   )(
     implicit
     runF: F ~> Task,
     scheduler: Scheduler
   ): Unit = {
+
+    val pullClientReply: () ⇒ Task[RangeCallbackReply] = pullable(repl)
 
     def getReply[T](
       check: RangeCallbackReply.Reply ⇒ Boolean,

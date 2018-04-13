@@ -45,13 +45,14 @@ object ObservePut extends slogging.LazyLogging {
   def apply[F[_]: Async](
     service: DatasetStorageRpc[F, Observable],
     resp: Observer[PutCallback],
-    repl: Observable[PutCallbackReply],
-    pullClientReply: () ⇒ Task[PutCallbackReply]
+    repl: Observable[PutCallbackReply]
   )(
     implicit
     runF: F ~> Task,
     scheduler: Scheduler
   ): Unit = {
+
+    val pullClientReply: () ⇒ Task[PutCallbackReply] = pullable(repl)
 
     def getReply[T](
       check: PutCallbackReply.Reply ⇒ Boolean,

@@ -464,7 +464,7 @@ lazy val `dataset-grpc` = crossProject(JVMPlatform, JSPlatform)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`dataset-protobuf`, `dataset-client`, `transport-grpc`)
 
-lazy val `dataset-grpc-jvm` = `dataset-grpc`.jvm.dependsOn(`dataset-protobuf-jvm`)
+lazy val `dataset-grpc-jvm` = `dataset-grpc`.jvm
 lazy val `dataset-grpc-js` = `dataset-grpc`.js
 
 lazy val `dataset-client` = crossProject(JVMPlatform, JSPlatform)

@@ -50,10 +50,9 @@ class DatasetStorageServer[F[_]: Async](
   override def get(responseObserver: StreamObserver[GetCallback]): StreamObserver[GetCallbackReply] = {
 
     val resp: Observer[GetCallback] = responseObserver
-    val (repl: Observable[GetCallbackReply], stream) = streamObservable[GetCallbackReply]
-    val pullClientReply: () ⇒ Task[GetCallbackReply] = repl.pullable
+    val (repl, stream) = streamObservable[GetCallbackReply]
 
-    ObserveGet(service, resp, repl, pullClientReply)
+    ObserveGet(service, resp, repl)
 
     stream
   }
@@ -62,9 +61,8 @@ class DatasetStorageServer[F[_]: Async](
 
     val resp: Observer[RangeCallback] = responseObserver
     val (repl, stream) = streamObservable[RangeCallbackReply]
-    val pullClientReply = repl.pullable
 
-    ObserveRange(service, resp, repl, pullClientReply)
+    ObserveRange(service, resp, repl)
 
     stream
   }
@@ -72,9 +70,8 @@ class DatasetStorageServer[F[_]: Async](
   override def put(responseObserver: StreamObserver[PutCallback]): StreamObserver[PutCallbackReply] = {
     val resp: Observer[PutCallback] = responseObserver
     val (repl, stream) = streamObservable[PutCallbackReply]
-    val pullClientReply = repl.pullable
 
-    ObservePut(service, resp, repl, pullClientReply)
+    ObservePut(service, resp, repl)
 
     stream
   }

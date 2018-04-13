@@ -19,16 +19,31 @@ package fluence.dataset.grpc.server
 
 import cats.data.EitherT
 import cats.effect.Async
-import cats.{~>, Monad, Show}
+import cats.{~>, Show}
 import fluence.dataset.DatasetInfo
-import monix.eval.Task
-import monix.execution.Scheduler
+import monix.eval.{MVar, Task}
+import monix.execution.{Ack, Scheduler}
 import monix.reactive.{Observable, Observer}
 import scodec.bits.{Bases, ByteVector}
 
 import scala.util.{Failure, Success}
 
 object DatasetServerUtils extends slogging.LazyLogging {
+
+  def pullable[T](observable: Observable[T]): () ⇒ Task[T] = {
+    val variable = MVar.empty[T].memoize
+
+    observable.subscribe(
+      nextFn = v ⇒
+        (for {
+          vr ← variable
+          _ ← vr.put(v)
+        } yield Ack.Continue).runAsync
+    )
+
+    () ⇒
+      variable.flatMap(_.take)
+  }
 
   def toF[F[_]: Async, E <: Throwable, V](
     eitherT: EitherT[Task, E, V]

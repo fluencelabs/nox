@@ -18,14 +18,13 @@
 package fluence.dataset.grpc
 
 import io.grpc.stub.StreamObserver
-import monix.eval.{MVar, Task}
+import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import monix.execution.{Ack, Cancelable}
 import monix.reactive._
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.util.{Failure, Success}
 
 object GrpcMonix {
 
@@ -87,20 +86,5 @@ object GrpcMonix {
 
     def pipeTo(stream: StreamObserver[T]): Cancelable =
       observable.subscribe(stream: Observer[T])
-
-    def pullable: () ⇒ Task[T] = {
-      val variable = MVar.empty[T].memoize
-
-      observable.subscribe(
-        nextFn = v ⇒
-          (for {
-            vr ← variable
-            _ ← vr.put(v)
-          } yield Ack.Continue).runAsync
-      )
-
-      () ⇒
-        variable.flatMap(_.take)
-    }
   }
 }
