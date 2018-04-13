@@ -187,7 +187,55 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
     }
 
     "performs all operations correctly with snapshot" in {
-      // todo finish
+
+      val store = withSnapshots[ByteBuffer, Array[Byte]]
+
+      val key1 = "key1".getBytes()
+      val val1 = "val1".getBytes()
+      val key2 = "key2".getBytes()
+      val val2 = "val2".getBytes()
+      val newVal2 = "new val2".getBytes()
+
+      store.put(key1, val1).runUnsafe() shouldBe ()
+      store.put(key2, val2).runUnsafe() shouldBe ()
+
+      // check delete
+
+      val storeSnapshot1 = store.createSnapshot[Id]()
+      storeSnapshot1.get(key1).runUnsafe().get shouldBe val1
+
+      store.get(key1).runUnsafe().get shouldBe val1
+      store.remove(key1).runUnsafe() shouldBe ()
+      store.get(key1).runUnsafe() shouldBe None
+      storeSnapshot1.get(key1).runUnsafe().get shouldBe val1
+
+      // check traverse
+
+      val manyPairs: Seq[(Key, Value)] = 1 to 100 map { n ⇒
+        s"key$n".getBytes() → s"val$n".getBytes()
+      }
+      val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v).runUnsafe() }
+      inserts should have size 100
+
+      val traverseResult = store.traverse.runUnsafe.toList
+
+      bytesToStr(traverseResult.map {
+        case (bb, v) ⇒ bb.array() -> v
+      }) should contain theSameElementsAs bytesToStr(manyPairs)
+
+      // take snapshot and remove all element in store
+      val storeSnapshot2 = store.createSnapshot[Id]()
+
+      traverseResult.foreach { case (k, _) ⇒ store.remove(k).runUnsafe() }
+      val traverseResult2 = store.traverse.runUnsafe.toList
+      traverseResult2 shouldBe empty
+
+      val traverseResult3 = storeSnapshot2.traverse.runUnsafe.toList
+
+      bytesToStr(traverseResult3.map {
+        case (bb, v) ⇒ bb.array() -> v
+      }) should contain theSameElementsAs bytesToStr(manyPairs)
+
     }
 
   }

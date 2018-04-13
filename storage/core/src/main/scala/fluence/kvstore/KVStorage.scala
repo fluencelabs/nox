@@ -17,7 +17,7 @@
 
 package fluence.kvstore
 
-import cats.{Applicative, Monad}
+import cats.Applicative
 import fluence.kvstore.ops.Get.KVStoreGet
 import fluence.kvstore.ops.Put.KVStorePut
 import fluence.kvstore.ops.Remove.KVStoreRemove
@@ -30,14 +30,14 @@ import scala.language.higherKinds
  */
 trait KVStorage
 
-trait Snapshot[S <: KVStorage] {
-
-  def createSnapshot[F[_]: Applicative](): F[S]
-
-}
-
 trait KVStoreRead[K, V, E <: StoreError] extends KVStoreGet[K, V, E] with KVStoreTraverse[K, V, E]
 
 trait KVStoreWrite[K, V, E <: StoreError] extends KVStorePut[K, V, E] with KVStoreRemove[K, E]
 
 trait ReadWriteKVStore[K, V, E <: StoreError] extends KVStoreRead[K, V, E] with KVStoreWrite[K, V, E]
+
+trait Snapshot[S <: KVStorage] {
+
+  def createSnapshot[F[_]: Applicative](): F[S]
+
+}

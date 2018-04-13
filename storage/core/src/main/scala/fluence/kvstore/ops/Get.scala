@@ -21,7 +21,7 @@ import fluence.kvstore.{KVStorage, StoreError}
 
 import scala.language.higherKinds
 
-trait Get[K, V, E <: StoreError] extends Operation[K, Option[V], E]
+trait Get[K, V, E <: StoreError] extends Operation[Option[V], E]
 
 object Get {
 

@@ -17,9 +17,6 @@
 
 package fluence.kvstore.ops
 
-import cats.data.EitherT
-import cats.syntax.flatMap._
-import cats.{Monad, MonadError}
 import fluence.kvstore.{KVStorage, StoreError}
 
 import scala.language.higherKinds
@@ -31,40 +28,7 @@ import scala.language.higherKinds
  * @tparam V A type of value
  * @tparam E A type for any storage errors
  */
-trait Put[K, V, E] {
-
-  /**
-   * Runs putting a key and value into KVStore, using the user defined monad,
-   * returns EitherT-wrapped result.
-   *
-   * @tparam F User defined type of monad
-   */
-  def run[F[_]: Monad]: EitherT[F, E, Unit]
-
-  /**
-   * Runs putting a key and value into KVStore, using the user defined monad,
-   * returns Either wrapped to F.
-   *
-   * @tparam F User defined type of monad
-   */
-  def runEither[F[_]: Monad]: F[Either[E, Unit]] =
-    run[F].value
-
-  /**
-   * Runs putting a key and value into KVStore, using the user defined MonadError,
-   * lifts an error into MonadError effect.
-   *
-   * @tparam F User defined type of monad
-   */
-  def runF[F[_]: Monad](implicit F: MonadError[F, E]): F[Unit] =
-    runEither.flatMap(F.fromEither)
-
-  /**
-   * Runs putting a key and value into KVStore, '''throw the error if it happens'''.
-   * Intended to be used '''only in tests'''.
-   */
-  def runUnsafe(): Unit
-}
+trait Put[K, V, E <: StoreError] extends Operation[Unit, E]
 
 object Put {
 

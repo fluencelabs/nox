@@ -27,7 +27,7 @@ import scala.language.higherKinds
  * @tparam K A type of search key
  * @tparam E A type for any storage errors
  */
-trait Remove[K, E <: StoreError] extends Operation[K, Unit, E]
+trait Remove[K, E <: StoreError] extends Operation[Unit, E]
 
 object Remove {
 
