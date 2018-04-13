@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.store
+package fluence.kvstore
 
 import scala.util.control.NoStackTrace
 

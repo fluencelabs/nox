@@ -21,7 +21,8 @@ import cats.data.EitherT
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.{~>, Applicative, Monad, MonadError}
-import fluence.store._
+import fluence.kvstore._
+import fluence.kvstore.ops.{Get, Put, Traverse}
 
 import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
@@ -49,16 +50,18 @@ private sealed trait InMemoryKVStore[K, V] extends KVStorage {
 private trait InMemoryKVStoreRead[K, V] extends InMemoryKVStore[K, V] with KVStoreRead[K, V, StoreError] { self ⇒
 
   /**
-   * Returns lazy ''get'' representation (see [[Get]])
+   * Returns lazy ''get'' representation (see [[fluence.kvstore.ops.Get]])
+   *
+   * @param key Search key
    */
-  override def get: Get[K, V, StoreError] = new Get[K, V, StoreError] {
+  override def get(key: K): Get[K, V, StoreError] = new Get[K, V, StoreError] {
 
-    override def run[F[_]: Monad](key: K): EitherT[F, StoreError, Option[V]] =
+    override def run[F[_]: Monad]: EitherT[F, StoreError, Option[V]] =
       EitherT.fromEither(
         Try(data.get(key)).toEither.left.map(err ⇒ StoreError.getError(key, Some(err)))
       )
 
-    override def runUnsafe(key: K): Option[V] =
+    override def runUnsafe(): Option[V] =
       data.get(key)
 
   }
@@ -145,13 +148,13 @@ object InMemoryKVStore {
   }
 
   // this MonadError is needed for travers
-  implicit def storeMonadError[F[_], E <: StoreError](implicit ME: MonadError[F, Throwable]): MonadError[F, E] =
-    new MonadError[F, E] {
+  implicit def storeMonadError[F[_]](implicit ME: MonadError[F, Throwable]): MonadError[F, StoreError] =
+    new MonadError[F, StoreError] {
       override def flatMap[A, B](fa: F[A])(f: A ⇒ F[B]): F[B] = ME.flatMap(fa)(f)
       override def tailRecM[A, B](a: A)(f: A ⇒ F[Either[A, B]]): F[B] = ME.tailRecM(a)(f)
-      override def raiseError[A](e: E): F[A] = ME.raiseError(e)
-      override def handleErrorWith[A](fa: F[A])(f: E ⇒ F[A]): F[A] = ME.handleErrorWith(fa) {
-        case cf: E ⇒ f(cf)
+      override def raiseError[A](e: StoreError): F[A] = ME.raiseError(e)
+      override def handleErrorWith[A](fa: F[A])(f: StoreError ⇒ F[A]): F[A] = ME.handleErrorWith(fa) {
+        case cf: StoreError ⇒ f(cf)
         case t ⇒ ME.raiseError(t)
       }
       override def pure[A](x: A): F[A] =

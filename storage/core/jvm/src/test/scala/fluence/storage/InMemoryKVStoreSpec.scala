@@ -51,17 +51,17 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       val key1 = "key1".getBytes()
       val val1 = "val1".getBytes()
 
-      store.get.run[Id](key1).value.right.get shouldBe None
-      store.get.runF[IO](key1).unsafeRunSync() shouldBe None
-      store.get.runEither[Id](key1).right.get shouldBe None
-      store.get.runUnsafe(key1) shouldBe None
+      store.get(key1).run[Id].value.right.get shouldBe None
+      store.get(key1).runF[IO].unsafeRunSync() shouldBe None
+      store.get(key1).runEither[Id].right.get shouldBe None
+      store.get(key1).runUnsafe() shouldBe None
 
       store.put(key1, val1).runUnsafe() shouldBe ()
 
-      store.get.run[Id](key1).value.right.get.get shouldBe val1
-      store.get.runF[IO](key1).unsafeRunSync().get shouldBe val1
-      store.get.runEither[Id](key1).right.get.get shouldBe val1
-      store.get.runUnsafe(key1).get shouldBe val1
+      store.get(key1).run[Id].value.right.get.get shouldBe val1
+      store.get(key1).runF[IO].unsafeRunSync().get shouldBe val1
+      store.get(key1).runEither[Id].right.get.get shouldBe val1
+      store.get(key1).runUnsafe().get shouldBe val1
 
     }
 
@@ -121,22 +121,22 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       // check write and read
 
-      store.get.runUnsafe(key1) shouldBe None
+      store.get(key1).runUnsafe() shouldBe None
       store.put(key1, val1).runUnsafe() shouldBe ()
-      store.get.runUnsafe(key1).get shouldBe val1
+      store.get(key1).runUnsafe().get shouldBe val1
 
       // check update
 
       store.put(key2, val2).runUnsafe() shouldBe ()
-      store.get.runUnsafe(key2).get shouldBe val2
+      store.get(key2).runUnsafe().get shouldBe val2
       store.put(key2, newVal2).runUnsafe() shouldBe ()
-      store.get.runUnsafe(key2).get shouldBe newVal2
+      store.get(key2).runUnsafe().get shouldBe newVal2
 
       // check delete
 
-      store.get.runUnsafe(key1).get shouldBe val1
+      store.get(key1).runUnsafe().get shouldBe val1
       store.remove[Id](key1).right.get shouldBe ()
-      store.get.runUnsafe(key1) shouldBe None
+      store.get(key1).runUnsafe() shouldBe None
 
       // check traverse
 
