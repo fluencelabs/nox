@@ -15,20 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc
+package fluence.dataset.grpc.client
 
 import cats.effect.Effect
 import fluence.btree.protocol.BTreeRpc
-import fluence.dataset.grpc.DatasetStorageRpcGrpc.DatasetStorageRpcStub
+import fluence.dataset._
 import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.protocol.DatasetStorageRpc
+import fluence.dataset.service.DatasetStorageRpcGrpc.DatasetStorageRpcStub
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.{CallOptions, ManagedChannel}
 import monix.execution.Scheduler
 import monix.reactive.{Observable, Pipe}
 
 import scala.language.{higherKinds, implicitConversions}
-import scala.util.control.NoStackTrace
 
 /**
  * Clients implementation of [[DatasetStorageRpc]], allows talking to server via network.
@@ -79,7 +79,7 @@ class DatasetStorageClient[F[_]: Effect](
     // Convert a remote stub call to monix pipe
     val pipe: Pipe[RangeCallbackReply, RangeCallback] = callToPipe(stub.range)
 
-    Range(pipe, datasetId, version, rangeCallbacks)
+    fluence.dataset.grpc.client.Range(pipe, datasetId, version, rangeCallbacks)
   }
 
   /**
@@ -131,10 +131,4 @@ object DatasetStorageClient {
     callOptions: CallOptions
   )(implicit scheduler: Scheduler): DatasetStorageRpc[F, Observable] =
     new DatasetStorageClient[F](new DatasetStorageRpcStub(channel, callOptions))
-
-  /**  Error from server(node) side. */
-  case class ServerError(msg: String) extends NoStackTrace {
-    override def getMessage: String = msg
-  }
-
 }

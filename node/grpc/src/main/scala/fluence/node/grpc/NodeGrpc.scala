@@ -29,7 +29,8 @@ import fluence.contract.BasicContract
 import fluence.contract.grpc.server.{ContractAllocatorServer, ContractsCacheServer}
 import fluence.contract.grpc.{ContractAllocatorGrpc, ContractsCacheGrpc}
 import fluence.crypto.SignAlgo.CheckerFn
-import fluence.dataset.grpc.{DatasetStorageRpcGrpc, DatasetStorageServer}
+import fluence.dataset.grpc.server.DatasetStorageServer
+import fluence.dataset.service.DatasetStorageRpcGrpc
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.{KademliaGrpc, KademliaGrpcUpdate}
 import fluence.kad.protocol.{Contact, Key}

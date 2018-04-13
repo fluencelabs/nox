@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc
+package fluence.dataset.grpc.client
 
 import cats.effect.Effect
 import cats.syntax.applicativeError._
@@ -23,34 +23,36 @@ import cats.syntax.flatMap._
 import com.google.protobuf.ByteString
 import fluence.btree.core.{Hash, Key}
 import fluence.btree.protocol.BTreeRpc
-import fluence.dataset.grpc.DatasetStorageClient.ServerError
-import fluence.dataset.grpc.DatasetStorageServer.ClientError
+import fluence.dataset._
+import fluence.dataset.grpc.{ClientError, ServerError}
 import monix.eval.{MVar, Task}
 import monix.execution.Scheduler
 import monix.reactive.{Observable, Pipe}
 
 import scala.collection.Searching
+import scala.language.higherKinds
 
-class Put[F[_]: Effect] private ()(implicit sch: Scheduler) extends slogging.LazyLogging {
+object Put extends slogging.LazyLogging {
 
-  import DatasetOperation._
+  import DatasetClientOperation._
 
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.
    *
+   * @param pipe Bidi pipe for transport layer
    * @param datasetId Dataset ID
    * @param version Dataset version expected to the client
    * @param putCallbacks Wrapper for all callback needed for ''Put'' operation to the BTree.
    * @param encryptedValue Encrypted value.
    * @return returns old value if old value was overridden, None otherwise.
    */
-  def put(
+  def apply[F[_]: Effect](
     pipe: Pipe[PutCallbackReply, PutCallback],
     datasetId: Array[Byte],
     version: Long,
     putCallbacks: BTreeRpc.PutCallbacks[F],
     encryptedValue: Array[Byte]
-  ): F[Option[Array[Byte]]] = {
+  )(implicit sch: Scheduler): F[Option[Array[Byte]]] = {
 
     val (pushClientReply, pullServerAsk) = pipe
       .transform(_.map {
@@ -176,16 +178,4 @@ class Put[F[_]: Effect] private ()(implicit sch: Scheduler) extends slogging.Laz
     composeResult(clientError, serverErrOrVal)
 
   }
-}
-
-object Put {
-
-  def apply[F[_]: Effect](
-    pipe: Pipe[PutCallbackReply, PutCallback],
-    datasetId: Array[Byte],
-    version: Long,
-    putCallbacks: BTreeRpc.PutCallbacks[F],
-    encryptedValue: Array[Byte]
-  )(implicit sch: Scheduler): F[Option[Array[Byte]]] =
-    new Put().put(pipe, datasetId, version, putCallbacks, encryptedValue)
 }

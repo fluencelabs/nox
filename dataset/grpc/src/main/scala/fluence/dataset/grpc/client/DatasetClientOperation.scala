@@ -15,16 +15,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc
+package fluence.dataset.grpc.client
 
 import cats.effect.Effect
-import fluence.dataset.grpc.DatasetStorageServer.ClientError
+import fluence.dataset.grpc.ClientError
 import monix.eval.{MVar, Task}
 import monix.execution.Scheduler
 
 import scala.language.higherKinds
 
-object DatasetOperation {
+object DatasetClientOperation {
 
   def run[F[_]: Effect, A](fa: Task[A])(implicit sch: Scheduler): F[A] = fa.to[F]
 

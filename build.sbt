@@ -19,11 +19,11 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"    % Cats1V,
-      "org.typelevel" %%% "cats-effect"  % CatsEffectV,
-      "one.fluence" %%% "codec-circe" % CodecV,
-      "one.fluence" %%% "codec-bits" % CodecV,
-      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
+      "org.typelevel" %%% "cats-core"   % Cats1V,
+      "org.typelevel" %%% "cats-effect" % CatsEffectV,
+      "one.fluence"   %%% "codec-circe" % CodecV,
+      "one.fluence"   %%% "codec-bits"  % CodecV,
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -147,7 +147,7 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
     scalaJSUseMainModuleInitializer := true,
     protobufJSGeneratorSettings,
     fastOptJS in Compile := fastOptJS.in(Compile).dependsOn(protobufJSGenerator).value,
-    fastOptJS in Test := fastOptJS.in(Compile).dependsOn(protobufJSGenerator).value
+    fastOptJS in Test    := fastOptJS.in(Compile).dependsOn(protobufJSGenerator).value
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`transport-grpc`, `kademlia-protocol`, `kademlia-testkit` % Test)
@@ -188,10 +188,11 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
-  ).jsSettings(
-  fork in Test      := false,
-  scalaJSModuleKind := ModuleKind.CommonJSModule
-)
+  )
+  .jsSettings(
+    fork in Test      := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`kademlia-monix`, `kademlia-grpc`, `kademlia-testkit` % Test)
 
@@ -205,10 +206,10 @@ lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "com.chuusai"   %%% "shapeless" % ShapelessV,
-      "biz.enef"      %%% "slogging"  % SloggingV,
-      "one.fluence" %%% "codec-protobuf" % CodecV,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+      "com.chuusai"   %%% "shapeless"      % ShapelessV,
+      "biz.enef"      %%% "slogging"       % SloggingV,
+      "one.fluence"   %%% "codec-protobuf" % CodecV,
+      "org.scalatest" %%% "scalatest"      % ScalatestV % Test
     )
   )
   .jvmSettings(
@@ -262,9 +263,9 @@ lazy val `storage-core` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %%% "codec-core" % CodecV,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test,
-      "io.monix"      %%% "monix"     % MonixV     % Test
+      "one.fluence"   %%% "codec-core" % CodecV,
+      "org.scalatest" %%% "scalatest"  % ScalatestV % Test,
+      "io.monix"      %%% "monix"      % MonixV % Test
     )
   )
   .jsSettings(
@@ -288,7 +289,7 @@ lazy val `b-tree-core` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %%% "codec-core" % CodecV,
+      "one.fluence"   %%% "codec-core"  % CodecV,
       "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
       "org.typelevel" %%% "cats-core"   % Cats1V,
       "org.scalatest" %%% "scalatest"   % ScalatestV % Test
@@ -351,7 +352,7 @@ lazy val `b-tree-client` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    fork in Test := false,
+    fork in Test      := false,
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
@@ -381,11 +382,11 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %%% "codec-bits" % CodecV,
-      "one.fluence" %%% "codec-circe" % CodecV,
-      "org.typelevel" %%% "cats-core"    % Cats1V,
-      "biz.enef"      %%% "slogging"     % SloggingV,
-      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
+      "one.fluence"   %%% "codec-bits"  % CodecV,
+      "one.fluence"   %%% "codec-circe" % CodecV,
+      "org.typelevel" %%% "cats-core"   % Cats1V,
+      "biz.enef"      %%% "slogging"    % SloggingV,
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
   )
   .jvmSettings(
@@ -429,9 +430,42 @@ lazy val `dataset-protocol` = crossProject(JVMPlatform, JSPlatform)
 lazy val `dataset-protocol-jvm` = `dataset-protocol`.jvm
 lazy val `dataset-protocol-js` = `dataset-protocol`.js
 
-lazy val `dataset-grpc` = project
+lazy val `dataset-protobuf` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("dataset/protobuf"))
+  .settings(
+    commons,
+    protobuf,
+    PB.protoSources in Compile := Seq(file("dataset/protobuf/src/main/protobuf"))
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `dataset-protobuf-jvm` = `dataset-protobuf`.jvm
+lazy val `dataset-protobuf-js` = `dataset-protobuf`.js
+
+lazy val `dataset-grpc` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
   .in(file("dataset/grpc"))
-  .dependsOn(`dataset-client-jvm`, `transport-grpc-jvm`)
+  .settings(
+    commons
+  )
+  .jvmSettings(
+    grpc,
+    PB.protoSources in Compile := Seq(file("dataset/grpc/jvm/src/main/protobuf"))
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`dataset-protobuf`, `dataset-client`, `transport-grpc`)
+
+lazy val `dataset-grpc-jvm` = `dataset-grpc`.jvm.dependsOn(`dataset-protobuf-jvm`)
+lazy val `dataset-grpc-js` = `dataset-grpc`.js
 
 lazy val `dataset-client` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -548,7 +582,7 @@ lazy val `client-grpc` = project
   .in(file("client/grpc"))
   .settings(commons)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`client-core-jvm`, `transport-grpc-jvm`, `kademlia-grpc-jvm`, `dataset-grpc`, `contract-grpc`)
+  .dependsOn(`client-core-jvm`, `transport-grpc-jvm`, `kademlia-grpc-jvm`, `dataset-grpc-jvm`, `contract-grpc`)
 
 lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)

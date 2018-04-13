@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package fluence.dataset;
+
+import "dataset.proto";
+
+service DatasetStorageRpc {
+    rpc get(stream GetCallbackReply) returns (stream GetCallback);
+
+    rpc range(stream RangeCallbackReply) returns (stream RangeCallback);
+
+    rpc put(stream PutCallbackReply) returns (stream PutCallback);
+}
+

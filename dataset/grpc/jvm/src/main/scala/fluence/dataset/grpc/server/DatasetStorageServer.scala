@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc
+package fluence.dataset.grpc.server
 
 import cats.data.EitherT
 import cats.effect.Async
@@ -27,8 +27,11 @@ import cats.{~>, Monad, Show}
 import com.google.protobuf.ByteString
 import fluence.btree.core.{ClientPutDetails, Hash, Key}
 import fluence.btree.protocol.BTreeRpc
+import fluence.dataset._
+import fluence.dataset.grpc._
 import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.protocol.DatasetStorageRpc
+import fluence.dataset.service.DatasetStorageRpcGrpc
 import io.grpc.stub.StreamObserver
 import monix.eval.Task
 import monix.execution.{Ack, Scheduler}
@@ -466,11 +469,6 @@ class DatasetStorageServer[F[_]: Async](
 object DatasetStorageServer {
 
   private val alphabet = Bases.Alphabets.Base64Url
-
-  /**  Error from client side. */
-  case class ClientError(msg: String) extends NoStackTrace {
-    override def getMessage: String = msg
-  }
 
   private implicit val showBytes: Show[Array[Byte]] = (b: Array[Byte]) ⇒ ByteVector(b).toBase64(alphabet)
 
