@@ -37,15 +37,15 @@ import monix.reactive.{Observable, Observer}
 
 import scala.collection.Searching
 
-object Get extends slogging.LazyLogging {
+object ObserveRange extends slogging.LazyLogging {
 
-  import DatasetServerOperation._
+  import DatasetServerUtils._
 
   def apply[F[_]: Async](
     service: DatasetStorageRpc[F, Observable],
-    resp: Observer[GetCallback],
-    repl: Observable[GetCallbackReply],
-    pullClientReply: () ⇒ Task[GetCallbackReply]
+    resp: Observer[RangeCallback],
+    repl: Observable[RangeCallbackReply],
+    pullClientReply: () ⇒ Task[RangeCallbackReply]
   )(
     implicit
     runF: F ~> Task,
@@ -53,13 +53,13 @@ object Get extends slogging.LazyLogging {
   ): Unit = {
 
     def getReply[T](
-      check: GetCallbackReply.Reply ⇒ Boolean,
-      extract: GetCallbackReply.Reply ⇒ T
+      check: RangeCallbackReply.Reply ⇒ Boolean,
+      extract: RangeCallbackReply.Reply ⇒ T
     ): EitherT[Task, ClientError, T] = {
 
       val clReply = pullClientReply().map {
-        case GetCallbackReply(reply) ⇒
-          logger.trace(s"DatasetStorageServer.get() received client reply=$reply")
+        case RangeCallbackReply(reply) ⇒
+          logger.trace(s"DatasetStorageServer.range() received client reply=$reply")
           reply
       }.map {
         case r if check(r) ⇒
@@ -74,14 +74,14 @@ object Get extends slogging.LazyLogging {
 
     val valueF =
       for {
-        datasetInfo ← toF(getReply(_.isDatasetInfo, _.datasetInfo.get))
-        foundValue ← service.get(
+        datasetInfo ← toObservable(getReply(_.isDatasetInfo, _.datasetInfo.get))
+        valuesStream ← service.range(
           datasetInfo.id.toByteArray,
           datasetInfo.version,
           new BTreeRpc.SearchCallback[F] {
 
-            private val pushServerAsk: GetCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
-              EitherT(Task.fromFuture(resp.onNext(GetCallback(callback = callback))).attempt)
+            private val pushServerAsk: RangeCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
+              EitherT(Task.fromFuture(resp.onNext(RangeCallback(callback = callback))).attempt)
                 .leftMap(t ⇒ ClientError(t.getMessage))
             }
 
@@ -96,7 +96,7 @@ object Get extends slogging.LazyLogging {
               toF(
                 for {
                   _ ← pushServerAsk(
-                    GetCallback.Callback.SubmitLeaf(
+                    RangeCallback.Callback.SubmitLeaf(
                       AskSubmitLeaf(
                         keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
                         valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
@@ -122,7 +122,7 @@ object Get extends slogging.LazyLogging {
               toF(
                 for {
                   _ ← pushServerAsk(
-                    GetCallback.Callback.NextChildIndex(
+                    RangeCallback.Callback.NextChildIndex(
                       AskNextChildIndex(
                         keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
                         childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
@@ -135,27 +135,24 @@ object Get extends slogging.LazyLogging {
           }
         )
       } yield {
-        logger.debug(s"Was found value=${foundValue.show} for client 'get' request for dataset=${datasetInfo.show}")
-        foundValue
+        logger.debug(s"Was found value=${valuesStream.show} for client 'range' request for ${datasetInfo.show}")
+        valuesStream
       }
 
-    // Launch service call, push the value once it's received
-    resp completeWith runF(
-      valueF.attempt.flatMap {
-        case Right(value) ⇒
-          // if all is ok server should close the stream (is done in ObserverGrpcOps.completeWith) and send value to client
-          Async[F].pure(
-            GetCallback(GetCallback.Callback.Value(GetValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom))))
-          )
-        case Left(clientError: ClientError) ⇒
-          logger.warn(s"Client replied with an error=$clientError")
-          // when server receive client error, server shouldn't close the stream (is done in ObserverGrpcOps.completeWith) and lift up client error
-          Async[F].raiseError[GetCallback](clientError)
-        case Left(exception) ⇒
-          // when server error appears, server should log it and send to client
-          logger.warn(s"Server threw an exception=$exception and sends cause to client")
-          GetCallback(GetCallback.Callback.ServerError(Error(exception.getMessage))).pure[F]
-      }
-    )
+    valueF.attempt.flatMap {
+      case Right((key, value)) ⇒
+        // if all is ok server should send value to client
+        Observable.pure(
+          RangeCallback(RangeCallback.Callback.Value(RangeValue(ByteString.copyFrom(key), ByteString.copyFrom(value))))
+        )
+      case Left(clientError: ClientError) ⇒
+        logger.warn(s"Client replied with an error=$clientError")
+        // if server receive client error server should lift it up
+        Observable.raiseError(clientError)
+      case Left(exception) ⇒
+        // when server error appears, server should log it and send to client
+        logger.warn(s"Server threw an exception=$exception and sends cause to client")
+        Observable.pure(RangeCallback(RangeCallback.Callback.ServerError(Error(exception.getMessage))))
+    }.subscribe(resp)
   }
 }

@@ -23,7 +23,7 @@ import monix.execution.Scheduler
 
 import scala.language.higherKinds
 
-object DatasetClientOperation {
+object DatasetClientUtils {
 
   def run[F[_]: Effect, A](fa: Task[A])(implicit sch: Scheduler): F[A] = fa.to[F]
 

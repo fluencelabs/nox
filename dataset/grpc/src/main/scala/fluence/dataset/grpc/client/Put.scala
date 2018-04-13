@@ -34,7 +34,7 @@ import scala.language.higherKinds
 
 object Put extends slogging.LazyLogging {
 
-  import DatasetClientOperation._
+  import DatasetClientUtils._
 
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.

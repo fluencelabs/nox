@@ -34,7 +34,7 @@ import scala.language.higherKinds
 
 object Get extends slogging.LazyLogging {
 
-  import DatasetClientOperation._
+  import DatasetClientUtils._
 
   /**
    * Initiates ''Get'' operation in remote MerkleBTree.

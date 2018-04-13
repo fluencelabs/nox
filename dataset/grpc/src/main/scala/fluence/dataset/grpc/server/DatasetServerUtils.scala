@@ -28,7 +28,7 @@ import scodec.bits.{Bases, ByteVector}
 
 import scala.util.{Failure, Success}
 
-object DatasetServerOperation extends slogging.LazyLogging {
+object DatasetServerUtils extends slogging.LazyLogging {
 
   def toF[F[_]: Async, E <: Throwable, V](
     eitherT: EitherT[Task, E, V]
