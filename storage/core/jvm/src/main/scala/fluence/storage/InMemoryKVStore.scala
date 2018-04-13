@@ -17,6 +17,7 @@
 
 package fluence.storage
 
+import cats.data.EitherT
 import cats.syntax.applicative._
 import cats.{~>, Applicative, Monad, MonadError}
 import fluence.store._
@@ -25,19 +26,41 @@ import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
 import scala.util.Try
 
-// todo docs
+/**
+ * Top type for in memory kvStore implementation,
+ * just holds kvStore state.
+ *
+ * @tparam K A type of search key
+ * @tparam V A type of value
+ */
 private sealed trait InMemoryKVStore[K, V] extends KVStorage {
 
   protected def data: TrieMap[K, V]
 
 }
 
+/**
+ * Lazy representation for getting value by specified key.
+ *
+ * @tparam K A type of search key
+ * @tparam V A type of value
+ */
 private trait InMemoryKVStoreRead[K, V] extends InMemoryKVStore[K, V] with KVStoreRead[K, V, StoreError] { self ⇒
 
-  override def get[F[_]: Monad](key: K): F[Either[StoreError, Option[V]]] =
-    Try(data.get(key)).toEither.left
-      .map(err ⇒ StoreError.getError(key, Some(err)))
-      .pure[F]
+  /**
+   * Returns lazy ''get'' representation (see [[Get]])
+   */
+  override def get: Get[K, V, StoreError] = new Get[K, V, StoreError] {
+
+    override def apply[F[_]: Monad](key: K): EitherT[F, StoreError, Option[V]] =
+      EitherT.fromEither(
+        Try(data.get(key)).toEither.left.map(err ⇒ StoreError.getError(key, Some(err)))
+      )
+
+    override def runUnsafe(key: K): Option[V] =
+      data.get(key)
+
+  }
 
   override def traverse[FS[_]]()(implicit ME: MonadError[FS, StoreError], liftToFS: Iterator ~> FS): FS[(K, V)] =
     liftToFS(data.iterator)

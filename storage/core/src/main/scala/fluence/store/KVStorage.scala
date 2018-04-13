@@ -17,17 +17,82 @@
 
 package fluence.store
 
+import cats.data.EitherT
+import cats.syntax.flatMap._
 import cats.{~>, Applicative, Monad, MonadError}
 
 import scala.language.higherKinds
 
+/**
+ * Top type for any key value storage.
+ */
 trait KVStorage
 
+/**
+ * Contract for obtaining values by key. In other words ''mixin'' with ''get'' functionality.
+ *
+ * @tparam K A type of search key
+ * @tparam V A type of value
+ * @tparam E A type for any storage errors
+ */
 trait KVStoreGet[K, V, E <: StoreError] extends KVStorage {
 
-  def get[F[_]](key: K)(implicit F: Monad[F]): F[Either[E, Option[V]]]
+  /**
+   *  Returns lazy ''get'' representation (see [[Get]])
+   */
+  def get: Get[K, V, StoreError]
 
 }
+
+/**
+ * Lazy representation for getting value by specified key.
+ *
+ * @tparam K A type of search key
+ * @tparam V A type of value
+ * @tparam E A type for any storage errors
+ */
+trait Get[K, V, E <: StoreError] {
+
+  /**
+   * Runs the getting value by specified key, using the given monad,
+   * returns EitherT-wrapped result.
+   *
+   * @param key Search key
+   * @tparam F User defined type of monad
+   */
+  def apply[F[_]: Monad](key: K): EitherT[F, E, Option[V]]
+
+  /**
+   * Runs the getting value by specified key, using the user defined monad,
+   * returns Either wrapped to F.
+   *
+   * @param key Search key
+   * @tparam F User defined type of monad
+   */
+  def runEither[F[_]: Monad](key: K): F[Either[E, Option[V]]] =
+    apply[F](key).value
+
+  /**
+   * Runs the getting value by specified key, using the user defined MonadError
+   * lifts an error into MonadError effect.
+   *
+   * @param key Search key
+   * @tparam F User defined type of monad
+   */
+  def runF[F[_]](key: K)(implicit F: MonadError[F, StoreError]): F[Option[V]] =
+    runEither(key).flatMap(F.fromEither)
+
+  /**
+   * Run the getting value by specified key, '''throw the error if it happens'''.
+   * Intended to be used '''only in tests'''.
+   *
+   * @param key Search key
+   */
+  def runUnsafe(key: K): Option[V]
+
+}
+
+// todo finish
 
 trait KVStoreTraverse[K, V, E <: StoreError] extends KVStorage {
 
