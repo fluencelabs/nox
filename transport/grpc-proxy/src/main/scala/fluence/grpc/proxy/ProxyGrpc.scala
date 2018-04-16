@@ -60,7 +60,7 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
 
   private def getMethodDescriptorF(service: String, method: String): F[MethodDescriptor[Any, Any]] =
     F.catchNonFatal(getMethodDescriptor(service, method)).flatMap {
-      case Some(md) ⇒ F.catchNonFatal(md.asInstanceOf)
+      case Some(md) ⇒ F.pure(md)
       case None ⇒ F.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
     }
 
