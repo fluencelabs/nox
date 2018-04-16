@@ -28,9 +28,9 @@ import cats.~>
 import com.google.protobuf.ByteString
 import fluence.btree.core.{Hash, Key}
 import fluence.btree.protocol.BTreeRpc
-import fluence.dataset._
 import fluence.dataset.grpc.client.ClientError
 import fluence.dataset.protocol.DatasetStorageRpc
+import fluence.protobuf.dataset._
 import monix.eval.Task
 import monix.execution.{Ack, Scheduler}
 import monix.reactive.{Observable, Observer}

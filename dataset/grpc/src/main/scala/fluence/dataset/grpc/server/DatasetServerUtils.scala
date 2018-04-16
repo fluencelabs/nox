@@ -20,7 +20,7 @@ package fluence.dataset.grpc.server
 import cats.data.EitherT
 import cats.effect.Async
 import cats.{~>, Show}
-import fluence.dataset.DatasetInfo
+import fluence.protobuf.dataset.DatasetInfo
 import monix.eval.{MVar, Task}
 import monix.execution.{Ack, Scheduler}
 import monix.reactive.{Observable, Observer}

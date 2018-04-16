@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package fluence.dataset;
+package fluence.protobuf.dataset;
 
 import "dataset.proto";
 

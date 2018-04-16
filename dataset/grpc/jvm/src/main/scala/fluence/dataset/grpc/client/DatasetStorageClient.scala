@@ -19,10 +19,10 @@ package fluence.dataset.grpc.client
 
 import cats.effect.Effect
 import fluence.btree.protocol.BTreeRpc
-import fluence.dataset._
 import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.dataset.service.DatasetStorageRpcGrpc.DatasetStorageRpcStub
+import fluence.protobuf.dataset._
+import fluence.protobuf.dataset.grpc.DatasetStorageRpcGrpc.DatasetStorageRpcStub
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.{CallOptions, ManagedChannel}
 import monix.execution.Scheduler

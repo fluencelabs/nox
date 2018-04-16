@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package fluence;
+package fluence.protobuf;
 
 message DatasetInfo {
     // dataset id - acctually kademlia key of the contract

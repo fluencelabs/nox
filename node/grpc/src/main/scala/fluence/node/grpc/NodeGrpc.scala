@@ -30,11 +30,11 @@ import fluence.contract.grpc.server.{ContractAllocatorServer, ContractsCacheServ
 import fluence.contract.grpc.{ContractAllocatorGrpc, ContractsCacheGrpc}
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.dataset.grpc.server.DatasetStorageServer
-import fluence.dataset.service.DatasetStorageRpcGrpc
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.{KademliaGrpc, KademliaGrpcUpdate}
 import fluence.kad.protocol.{Contact, Key}
 import fluence.node.core.NodeComposer.Services
+import fluence.protobuf.dataset.grpc.DatasetStorageRpcGrpc
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.{GrpcServer, GrpcServerConf}

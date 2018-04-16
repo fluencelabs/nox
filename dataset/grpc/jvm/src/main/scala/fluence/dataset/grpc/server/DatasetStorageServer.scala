@@ -19,10 +19,10 @@ package fluence.dataset.grpc.server
 
 import cats.effect.Async
 import cats.{~>, Monad}
-import fluence.dataset._
 import fluence.dataset.grpc.GrpcMonix._
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.dataset.service.DatasetStorageRpcGrpc
+import fluence.protobuf.dataset._
+import fluence.protobuf.dataset.grpc.DatasetStorageRpcGrpc
 import io.grpc.stub.StreamObserver
 import monix.eval.Task
 import monix.execution.Scheduler
