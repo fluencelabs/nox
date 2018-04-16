@@ -80,7 +80,6 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
 
       val mappedOut = out.collect {
         case r ⇒
-          println("IN MAPPED === " + r)
           ResponseArrayByte(IoUtils.toByteArray(methodDescriptor.streamResponse(r))): Response
       }
 

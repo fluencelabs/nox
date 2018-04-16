@@ -152,7 +152,7 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers with slogging.LazyLoggin
               message.service,
               message.method,
               message.streamId,
-              message.protoMessage.newInput()
+              message.payload.newInput()
             )
             .runSyncUnsafe(5.seconds)
         }
