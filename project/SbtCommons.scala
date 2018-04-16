@@ -42,6 +42,7 @@ object SbtCommons {
   val MonixV = "3.0.0-RC1"
   val FastparseV = "1.0.0"
   val jsJavaTimeV = "0.2.3"
+  val Http4sV = "0.18.5"
 
   val slogging = "biz.enef"      %% "slogging"       % SloggingV
   val sloggingSlf4j = "biz.enef" %% "slogging-slf4j" % SloggingV
@@ -56,16 +57,19 @@ object SbtCommons {
   val npmGrpcWebClient = "grpc-web-client" -> npmGrpcWebClientV
   val npmTsProtocGen = "ts-protoc-gen" -> npmTsProtocGenV
 
-  val cats1 = "org.typelevel"                     %% "cats-core"     % Cats1V
-  val catsFree = "org.typelevel"                  %% "cats-free"     % Cats1V
-  val catsEffect = "org.typelevel"                %% "cats-effect"   % CatsEffectV
-  val monix3 = "io.monix"                         %% "monix"         % MonixV
-  val shapeless = "com.chuusai"                   %% "shapeless"     % ShapelessV
-  val monocle = "com.github.julien-truffaut"      %% "monocle-core"  % MonocleV
-  val monocleMacro = "com.github.julien-truffaut" %% "monocle-macro" % MonocleV
-  val scodecBits = "org.scodec"                   %% "scodec-bits"   % ScodecBitsV
-  val scodecCore = "org.scodec"                   %% "scodec-core"   % ScodecCoreV
-  val bouncyCastle = "org.bouncycastle"           % "bcprov-jdk15on" % "1.59"
+  val fluenceCodec = "one.fluence"                %% "codec-core"          % CodecV
+  val cats1 = "org.typelevel"                     %% "cats-core"           % Cats1V
+  val catsFree = "org.typelevel"                  %% "cats-free"           % Cats1V
+  val catsEffect = "org.typelevel"                %% "cats-effect"         % CatsEffectV
+  val monix3 = "io.monix"                         %% "monix"               % MonixV
+  val shapeless = "com.chuusai"                   %% "shapeless"           % ShapelessV
+  val monocle = "com.github.julien-truffaut"      %% "monocle-core"        % MonocleV
+  val monocleMacro = "com.github.julien-truffaut" %% "monocle-macro"       % MonocleV
+  val scodecBits = "org.scodec"                   %% "scodec-bits"         % ScodecBitsV
+  val scodecCore = "org.scodec"                   %% "scodec-core"         % ScodecCoreV
+  val bouncyCastle = "org.bouncycastle"           % "bcprov-jdk15on"       % "1.59"
+  val http4sDsl = "org.http4s"                    %% "http4s-dsl"          % Http4sV
+  val http4sBlazeServer = "org.http4s"            %% "http4s-blaze-server" % Http4sV
 
   val circeCore = "io.circe"   %% "circe-core"   % CirceV
   val circeParser = "io.circe" %% "circe-parser" % CirceV

@@ -23,13 +23,13 @@ import com.google.protobuf.ByteString
 import fluence.codec.{Codec, PureCodec}
 import fluence.contract.protocol.ContractsCacheRpc
 import fluence.kad.protocol.Key
+import fluence.kad.KeyProtobufCodecs._
 import fluence.contract.ops.ContractValidate
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.protobuf.contract.grpc.ContractsCacheGrpc
 import fluence.protobuf.contract.{BasicContract, FindRequest}
 import fluence.protobuf.contract.grpc.ContractsCacheGrpc.ContractsCacheStub
 import io.grpc.{CallOptions, ManagedChannel}
-import fluence.transport.grpc.KeyProtobufCodecs._
 
 import scala.concurrent.ExecutionContext
 

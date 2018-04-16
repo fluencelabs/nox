@@ -25,7 +25,7 @@ import fluence.kad.protocol
 import fluence.protobuf.kad
 import fluence.protobuf.kad.grpc.KademliaGrpc
 import io.grpc.{CallOptions, ManagedChannel}
-import fluence.transport.grpc.KeyProtobufCodecs._
+import fluence.kad.KeyProtobufCodecs._
 
 import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
