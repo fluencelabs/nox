@@ -21,9 +21,10 @@ import cats.effect.IO
 import cats.instances.stream._
 import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
-import fluence.kad.grpc._
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, KademliaRpc, Key}
+import fluence.protobuf.kad._
+import fluence.protobuf.kad.grpc.KademliaGrpc
 import fluence.transport.grpc.KeyProtobufCodecs._
 
 import scala.concurrent.Future

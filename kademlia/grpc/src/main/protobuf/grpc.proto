@@ -1,29 +1,8 @@
 syntax = "proto3";
 
-package fluence.kad;
+package fluence.protobuf.kad;
 
-message Node {
-    bytes id = 1;
-    bytes contact = 2;
-}
-
-message NodesResponse {
-    repeated Node nodes = 1;
-}
-
-message PingRequest {
-}
-
-message LookupRequest {
-    bytes key = 1;
-    int32 numberOfNodes = 2;
-}
-
-message LookupAwayRequest {
-    bytes key = 1;
-    bytes moveAwayFrom = 2;
-    int32 numberOfNodes = 3;
-}
+import "kad.proto";
 
 service Kademlia {
     rpc ping (PingRequest) returns (Node);
