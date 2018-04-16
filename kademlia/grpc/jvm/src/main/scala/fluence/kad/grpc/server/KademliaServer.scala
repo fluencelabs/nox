@@ -24,7 +24,7 @@ import fluence.codec.PureCodec
 import fluence.kad.grpc._
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, KademliaRpc, Key}
-import fluence.transport.grpc.KeyProtobufCodecs._
+import fluence.kad.KeyProtobufCodecs._
 
 import scala.concurrent.Future
 import scala.language.implicitConversions

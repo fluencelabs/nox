@@ -25,10 +25,10 @@ import fluence.contract.protocol.ContractsCacheRpc
 import fluence.contract.grpc.ContractsCacheGrpc.ContractsCacheStub
 import fluence.contract.grpc.{BasicContract, ContractsCacheGrpc, FindRequest}
 import fluence.kad.protocol.Key
+import fluence.kad.KeyProtobufCodecs._
 import fluence.contract.ops.ContractValidate
 import fluence.crypto.SignAlgo.CheckerFn
 import io.grpc.{CallOptions, ManagedChannel}
-import fluence.transport.grpc.KeyProtobufCodecs._
 
 import scala.concurrent.ExecutionContext
 

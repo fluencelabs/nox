@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport.grpc
+package fluence.kad
 
 import cats.syntax.compose._
 import com.google.protobuf.ByteString
