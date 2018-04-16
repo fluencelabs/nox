@@ -17,7 +17,7 @@
 
 package fluence.kvstore
 
-import cats.Applicative
+import cats.{Applicative, MonadError}
 import fluence.kvstore.ops.Get.KVStoreGet
 import fluence.kvstore.ops.Put.KVStorePut
 import fluence.kvstore.ops.Remove.KVStoreRemove
@@ -30,14 +30,58 @@ import scala.language.higherKinds
  */
 trait KVStorage
 
+/**
+ * Key-value storage api for reading values.
+ *
+ * @tparam K The type of keys
+ * @tparam V The type of stored values
+ * @tparam E The type of storage error
+ */
 trait KVStoreRead[K, V, E <: StoreError] extends KVStoreGet[K, V, E] with KVStoreTraverse[K, V, E]
 
+/**
+ * Key-value storage api for writing values.
+ *
+ * @tparam K The type of keys
+ * @tparam V The type of stored values
+ * @tparam E The type of storage error
+ */
 trait KVStoreWrite[K, V, E <: StoreError] extends KVStorePut[K, V, E] with KVStoreRemove[K, E]
 
+/**
+ * Key-value storage api for reading and writing.
+ *
+ * @tparam K The type of keys
+ * @tparam V The type of stored values
+ * @tparam E The type of storage error
+ */
 trait ReadWriteKVStore[K, V, E <: StoreError] extends KVStoreRead[K, V, E] with KVStoreWrite[K, V, E]
 
+/**
+ * Key-value storage api for getting storage snapshot.
+ *
+ * @tparam S The type of returned storage snapshot.
+ */
 trait Snapshot[S <: KVStorage] {
 
   def createSnapshot[F[_]: Applicative](): F[S]
+
+}
+
+object KVStorage {
+
+  // this MonadError is needed for travers and runF operations
+  implicit def storeMonadError[F[_]](implicit ME: MonadError[F, Throwable]): MonadError[F, StoreError] =
+    new MonadError[F, StoreError] {
+      override def flatMap[A, B](fa: F[A])(f: A ⇒ F[B]): F[B] = ME.flatMap(fa)(f)
+      override def tailRecM[A, B](a: A)(f: A ⇒ F[Either[A, B]]): F[B] = ME.tailRecM(a)(f)
+      override def raiseError[A](e: StoreError): F[A] = ME.raiseError(e)
+      override def handleErrorWith[A](fa: F[A])(f: StoreError ⇒ F[A]): F[A] = ME.handleErrorWith(fa) {
+        case cf: StoreError ⇒ f(cf)
+        case t ⇒ ME.raiseError(t)
+      }
+      override def pure[A](x: A): F[A] =
+        ME.pure(x)
+    }
 
 }

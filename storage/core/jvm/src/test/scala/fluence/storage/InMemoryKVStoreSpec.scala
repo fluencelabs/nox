@@ -31,7 +31,7 @@ import scala.language.{higherKinds, implicitConversions}
 
 class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
-  import fluence.storage.InMemoryKVStore._
+  import fluence.kvstore.KVStorage._
 
   type Key = Array[Byte]
   type Value = Array[Byte]
@@ -188,7 +188,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
     "performs all operations correctly with snapshot" in {
 
-      val store = withSnapshots[ByteBuffer, Array[Byte]]
+      val store = InMemoryKVStore.withSnapshots[ByteBuffer, Array[Byte]]
 
       val key1 = "key1".getBytes()
       val val1 = "val1".getBytes()
