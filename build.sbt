@@ -512,6 +512,23 @@ lazy val `contract-node` = project
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`contract-core-jvm`, `storage-core-jvm`, `contract-client-jvm` % Test, `kademlia-testkit-jvm` % Test)
 
+lazy val `contract-protobuf` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("contract/protobuf"))
+  .settings(
+    commons,
+    protobuf,
+    PB.protoSources in Compile := Seq(file("contract/protobuf/src/main/protobuf"))
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `contract-protobuf-js` = `contract-protobuf`.js
+lazy val `contract-protobuf-jvm` = `contract-protobuf`.jvm
+
 lazy val `contract-grpc` = project
   .in(file("contract/grpc"))
   .settings(
@@ -522,7 +539,7 @@ lazy val `contract-grpc` = project
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`contract-core-jvm`, `transport-grpc-jvm`)
+  .dependsOn(`contract-core-jvm`, `transport-grpc-jvm`, `contract-protobuf-jvm`)
 
 lazy val `client-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)

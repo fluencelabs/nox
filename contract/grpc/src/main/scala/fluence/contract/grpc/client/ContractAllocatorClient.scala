@@ -20,10 +20,11 @@ package fluence.contract.grpc.client
 import cats.effect.IO
 import fluence.codec.Codec
 import fluence.contract.protocol.ContractAllocatorRpc
-import fluence.contract.grpc.{BasicContract, ContractAllocatorGrpc}
-import fluence.contract.grpc.ContractAllocatorGrpc.ContractAllocatorStub
 import fluence.contract.ops.ContractValidate
 import fluence.crypto.SignAlgo.CheckerFn
+import fluence.protobuf.contract.BasicContract
+import fluence.protobuf.contract.grpc.ContractAllocatorGrpc
+import fluence.protobuf.contract.grpc.ContractAllocatorGrpc.ContractAllocatorStub
 import io.grpc.{CallOptions, ManagedChannel}
 
 import scala.concurrent.{ExecutionContext, Future}

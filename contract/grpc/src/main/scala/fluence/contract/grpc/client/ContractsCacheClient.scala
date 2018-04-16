@@ -22,11 +22,12 @@ import cats.syntax.applicativeError._
 import com.google.protobuf.ByteString
 import fluence.codec.{Codec, PureCodec}
 import fluence.contract.protocol.ContractsCacheRpc
-import fluence.contract.grpc.ContractsCacheGrpc.ContractsCacheStub
-import fluence.contract.grpc.{BasicContract, ContractsCacheGrpc, FindRequest}
 import fluence.kad.protocol.Key
 import fluence.contract.ops.ContractValidate
 import fluence.crypto.SignAlgo.CheckerFn
+import fluence.protobuf.contract.grpc.ContractsCacheGrpc
+import fluence.protobuf.contract.{BasicContract, FindRequest}
+import fluence.protobuf.contract.grpc.ContractsCacheGrpc.ContractsCacheStub
 import io.grpc.{CallOptions, ManagedChannel}
 import fluence.transport.grpc.KeyProtobufCodecs._
 
