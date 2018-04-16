@@ -61,7 +61,6 @@ class GrpcWebsocketProxy(proxyGrpc: ProxyGrpc, port: Int = 8080) extends StreamA
           } yield {
             response.map {
               case ResponseArrayByte(bytes) ⇒ Binary(bytes): WebSocketFrame
-              case NoResponse ⇒ WebsocketBits.Close(): WebSocketFrame
             }.take(1)
 
           }

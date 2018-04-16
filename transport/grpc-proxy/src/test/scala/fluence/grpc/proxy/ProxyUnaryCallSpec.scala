@@ -35,7 +35,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 //TODO move test in proxy module and rewrite with synthetic grpc services
-class ProxyUnaryCallSpec extends WordSpec with Matchers {
+class ProxyUnaryCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
 
   LoggerConfig.factory = PrintLoggerFactory()
   LoggerConfig.level = LogLevel.DEBUG
@@ -48,7 +48,7 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
     val RPC = {
       new TestService {
         override def test(request: TestRequest): Future[TestResponse] = {
-          println("REQUEST === " + request)
+          logger.debug("REQUEST === " + request)
           val resp = request.message.map { r ⇒
             r.copy(str = r.str + respChecker, listStr = r.listStr :+ respChecker, r.byteArray.concat(respCheckerBytes))
           }
@@ -58,7 +58,7 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
         override def testCount(responseObserver: StreamObserver[TestResponse]): StreamObserver[TestRequest] = {
           new StreamObserver[TestRequest] {
             override def onNext(value: TestRequest): Unit = {
-              println(s"SERVER ON NEXT $value")
+              logger.debug(s"SERVER ON NEXT $value")
               if (!value.close) {
                 val resp = TestResponse(value.message.map(m ⇒ m.copy(counter = m.counter + 1)))
                 responseObserver.onNext(resp)
@@ -68,11 +68,11 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
             }
 
             override def onError(t: Throwable): Unit = {
-              println(s"ON ERROR:")
+              logger.debug(s"ON ERROR:")
               t.printStackTrace()
             }
 
-            override def onCompleted(): Unit = println("ON COMPLETED")
+            override def onCompleted(): Unit = logger.debug("ON COMPLETED")
           }
         }
       }
@@ -167,33 +167,28 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
         val testRespF = sendMessage(testMessage)
 
         val m = testRespF.collect {
-          case a ⇒
-            println("A === " + a)
-            val resp = a match {
-              case ResponseArrayByte(b) ⇒
-                val resp = TestRequest.parseFrom(b)
-                println("COUNTER === " + resp.message.get.counter)
-                resp.message.get.counter match {
-                  case 10 ⇒
-                    val msgClose = generateMessage(
-                      123L,
-                      TestRequest(Some(TestMessage(str, listStr, byteArray, 10)), close = true),
-                      TestServiceGrpc.METHOD_TEST_COUNT
-                    )
-                    sendMessage(msgClose)
-                    ()
-                  case c ⇒
-                    val testMessage =
-                      generateMessage(
-                        123L,
-                        TestRequest(Some(TestMessage(str, listStr, byteArray, c))),
-                        TestServiceGrpc.METHOD_TEST_COUNT
-                      )
-                    sendMessage(testMessage)
-                    ()
+          case ResponseArrayByte(b) ⇒
+            val resp = TestRequest.parseFrom(b)
+            logger.debug("counter: " + resp.message.get.counter)
+            resp.message.get.counter match {
+              case 10 ⇒
+                val msgClose = generateMessage(
+                  123L,
+                  TestRequest(Some(TestMessage(str, listStr, byteArray, 10)), close = true),
+                  TestServiceGrpc.METHOD_TEST_COUNT
+                )
+                sendMessage(msgClose)
+                ()
+              case c ⇒
+                val testMessage =
+                  generateMessage(
+                    123L,
+                    TestRequest(Some(TestMessage(str, listStr, byteArray, c))),
+                    TestServiceGrpc.METHOD_TEST_COUNT
+                  )
+                sendMessage(testMessage)
+                ()
 
-                }
-              case NoResponse ⇒ ()
             }
         }.foreach(a ⇒ println(a))
 
@@ -203,10 +198,8 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
         case e: Throwable ⇒
           throw e
       } finally {
-        println("???")
         try {
           inProcessGrpc.unsafeClose().unsafeRunSync()
-          println("!!!")
         } catch {
           case e: Throwable ⇒ e.printStackTrace()
         }

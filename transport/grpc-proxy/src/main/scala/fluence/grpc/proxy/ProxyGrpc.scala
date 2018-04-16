@@ -113,7 +113,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
           Task.eval {
             c.sendMessage(req)
             c.request(1)
-            Observable(NoResponse: Response)
+            Observable()
           }
         case None ⇒
           for {
@@ -141,4 +141,3 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
 
 sealed trait Response
 final case class ResponseArrayByte(bytes: Array[Byte]) extends Response
-object NoResponse extends Response
