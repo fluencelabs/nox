@@ -24,11 +24,9 @@ import scala.language.higherKinds
 /**
  * Lazy representation for putting key and value.
  *
- * @tparam K A type of search key
- * @tparam V A type of value
  * @tparam E A type for any storage errors
  */
-trait Put[K, V, E <: StoreError] extends Operation[Unit, E]
+trait Put[E <: StoreError] extends Operation[Unit, E]
 
 object Put {
 
@@ -48,7 +46,7 @@ object Put {
      * @param key The specified key to be inserted
      * @param value The value associated with the specified key
      */
-    def put(key: K, value: V): Put[K, V, E]
+    def put(key: K, value: V): Put[E]
 
   }
 

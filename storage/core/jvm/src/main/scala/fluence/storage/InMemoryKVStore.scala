@@ -101,7 +101,7 @@ object InMemoryKVStore {
      * @param key The specified key to be inserted
      * @param value The value associated with the specified key
      */
-    override def put(key: K, value: V): Put[K, V, StoreError] = new Put[K, V, StoreError] {
+    override def put(key: K, value: V): Put[StoreError] = new Put[StoreError] {
 
       override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
         // format: off

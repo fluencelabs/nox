@@ -58,7 +58,7 @@ class TestKVStore[K, V] extends KVStorage with ReadWriteKVStore[K, V, StoreError
 
   }
 
-  override def put(key: K, value: V): Put[K, V, StoreError] = new Put[K, V, StoreError] {
+  override def put(key: K, value: V): Put[StoreError] = new Put[StoreError] {
 
     override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
       // format: off

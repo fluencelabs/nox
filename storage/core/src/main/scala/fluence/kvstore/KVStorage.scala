@@ -156,7 +156,7 @@ object KVStorage {
        * @param key   The specified key to be inserted
        * @param value The value associated with the specified key
        */
-      override def put(key: K1, value: V1): Put[K1, V1, StoreError] = new Put[K1, V1, StoreError] {
+      override def put(key: K1, value: V1): Put[StoreError] = new Put[StoreError] {
 
         override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
           for {
