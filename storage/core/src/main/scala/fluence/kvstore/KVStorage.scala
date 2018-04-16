@@ -17,11 +17,15 @@
 
 package fluence.kvstore
 
-import cats.{Applicative, MonadError}
+import cats.data.EitherT
+import cats.syntax.flatMap._
+import cats.{~>, Applicative, Monad, MonadError}
+import fluence.codec.PureCodec
 import fluence.kvstore.ops.Get.KVStoreGet
 import fluence.kvstore.ops.Put.KVStorePut
 import fluence.kvstore.ops.Remove.KVStoreRemove
 import fluence.kvstore.ops.Traverse.KVStoreTraverse
+import fluence.kvstore.ops.{Get, Put, Remove, Traverse}
 
 import scala.language.higherKinds
 
@@ -82,6 +86,108 @@ object KVStorage {
       }
       override def pure[A](x: A): F[A] =
         ME.pure(x)
+    }
+
+  implicit def withCodecs[K, K1, V, V1](store: ReadWriteKVStore[K, V, StoreError])(
+    implicit
+    kCodec: PureCodec[K1, K],
+    vCodec: PureCodec[V1, V]
+  ): ReadWriteKVStore[K1, V1, StoreError] =
+    new ReadWriteKVStore[K1, V1, StoreError] {
+
+      /**
+       * Returns lazy ''get'' representation (see [[Get]])
+       *
+       * @param key Search key
+       */
+      override def get(key: K1): Get[K1, V1, StoreError] = new Get[K1, V1, StoreError] {
+
+        override def run[F[_]: Monad]: EitherT[F, StoreError, Option[V1]] =
+          for {
+            k ← kCodec.direct[F](key).leftMap(ce ⇒ StoreError(ce))
+            v ← store.get(k).run
+            v1 ← v match {
+              case Some(v2) ⇒
+                vCodec.inverse(v2).map(Option(_)).leftMap(ce ⇒ StoreError(ce))
+              case None ⇒
+                EitherT.right[StoreError](Monad[F].pure[Option[V1]](None))
+            }
+          } yield v1
+
+        override def runUnsafe(): Option[V1] = {
+          store
+            .get(kCodec.direct.unsafe(key))
+            .runUnsafe()
+            .map(vCodec.inverse.unsafe)
+        }
+
+      }
+
+      /**
+       * Returns lazy ''traverse'' representation (see [[Traverse]])
+       */
+      override def traverse: Traverse[K1, V1, StoreError] = new Traverse[K1, V1, StoreError] {
+        override def run[FS[_]: Monad](
+          implicit FS: MonadError[FS, StoreError],
+          liftIterator: ~>[Iterator, FS]
+        ): FS[(K1, V1)] = {
+          store.traverse.run.flatMap {
+            case (k, v) ⇒
+              val decodedPair = for {
+                key ← kCodec.inverse(k)
+                value ← vCodec.inverse(v)
+              } yield key → value
+
+              decodedPair.value.flatMap {
+                case Right(pair) ⇒ FS.pure(pair)
+                case Left(err) ⇒ FS.raiseError[(K1, V1)](StoreError(err))
+              }
+          }
+        }
+
+        override def runUnsafe: Iterator[(K1, V1)] =
+          store.traverse.runUnsafe.map { case (k, v) ⇒ kCodec.inverse.unsafe(k) -> vCodec.inverse.unsafe(v) }
+
+      }
+
+      /**
+       * Returns lazy ''put'' representation (see [[Put]])
+       *
+       * @param key   The specified key to be inserted
+       * @param value The value associated with the specified key
+       */
+      override def put(key: K1, value: V1): Put[K1, V1, StoreError] = new Put[K1, V1, StoreError] {
+
+        override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
+          for {
+            k ← kCodec.direct[F](key).leftMap(ce ⇒ StoreError(ce))
+            v ← vCodec.direct[F](value).leftMap(ce ⇒ StoreError(ce))
+          } yield store.put(k, v).run
+
+        override def runUnsafe(): Unit = {
+          val k = kCodec.direct.unsafe(key)
+          val v = vCodec.direct.unsafe(value)
+          store.put(k, v).runUnsafe()
+        }
+
+      }
+
+      /**
+       * Returns lazy ''remove'' representation (see [[Remove]])
+       *
+       * @param key The specified key to be inserted
+       */
+      override def remove(key: K1): Remove[K1, StoreError] = new Remove[K1, StoreError] {
+
+        override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
+          for {
+            k ← kCodec.direct[F](key).leftMap(ce ⇒ StoreError(ce))
+          } yield store.remove(k).run
+
+        override def runUnsafe(): Unit =
+          store.remove(kCodec.direct.unsafe(key)).runUnsafe()
+
+      }
     }
 
 }
