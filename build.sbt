@@ -19,11 +19,11 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"    % Cats1V,
-      "org.typelevel" %%% "cats-effect"  % CatsEffectV,
+      "org.typelevel" %%% "cats-core"   % Cats1V,
+      "org.typelevel" %%% "cats-effect" % CatsEffectV,
       "one.fluence" %%% "codec-circe" % CodecV,
       "one.fluence" %%% "codec-bits" % CodecV,
-      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -147,7 +147,7 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
     scalaJSUseMainModuleInitializer := true,
     protobufJSGeneratorSettings,
     fastOptJS in Compile := fastOptJS.in(Compile).dependsOn(protobufJSGenerator).value,
-    fastOptJS in Test := fastOptJS.in(Compile).dependsOn(protobufJSGenerator).value
+    fastOptJS in Test    := fastOptJS.in(Compile).dependsOn(protobufJSGenerator).value
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`transport-grpc`, `kademlia-protocol`, `kademlia-testkit` % Test)
@@ -188,10 +188,11 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
-  ).jsSettings(
-  fork in Test      := false,
-  scalaJSModuleKind := ModuleKind.CommonJSModule
-)
+  )
+  .jsSettings(
+    fork in Test      := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`kademlia-monix`, `kademlia-grpc`, `kademlia-testkit` % Test)
 
@@ -227,6 +228,21 @@ lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
 
 lazy val `transport-grpc-js` = `transport-grpc`.js
 lazy val `transport-grpc-jvm` = `transport-grpc`.jvm
+
+lazy val `transport-grpc-proxy` = project
+  .in(file("transport/grpc-proxy"))
+  .settings(
+    commons,
+    grpc,
+    libraryDependencies ++= Seq(
+      http4sDsl,
+      http4sBlazeServer,
+      slogging,
+      fluenceCodec,
+      scalatest
+    ),
+    PB.protoSources in Compile += file(baseDirectory.value.absolutePath + "/src/test/protobuf/")
+  ).dependsOn(`transport-core-jvm`)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -351,7 +367,7 @@ lazy val `b-tree-client` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    fork in Test := false,
+    fork in Test      := false,
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
@@ -383,9 +399,9 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       "one.fluence" %%% "codec-bits" % CodecV,
       "one.fluence" %%% "codec-circe" % CodecV,
-      "org.typelevel" %%% "cats-core"    % Cats1V,
-      "biz.enef"      %%% "slogging"     % SloggingV,
-      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
+      "org.typelevel" %%% "cats-core" % Cats1V,
+      "biz.enef"      %%% "slogging"  % SloggingV,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )
   .jvmSettings(
@@ -522,7 +538,7 @@ lazy val `contract-grpc` = project
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`contract-core-jvm`, `transport-grpc-jvm`)
+  .dependsOn(`contract-core-jvm`, `transport-grpc-jvm`, `kademlia-grpc-jvm`)
 
 lazy val `client-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -597,6 +613,9 @@ lazy val `node-core` = project
 
 lazy val `node-grpc` = project
   .in(file("node/grpc"))
+  .settings(
+    commons
+  )
   .dependsOn(`node-core`, `client-grpc`)
 
 lazy val `node` = project

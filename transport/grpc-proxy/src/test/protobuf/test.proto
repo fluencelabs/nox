@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package fluence.grpc.proxy;
+
+message TestMessage {
+    string str = 1;
+    repeated string listStr = 2;
+    bytes byteArray = 3;
+}
+
+message TestRequest {
+    TestMessage message = 1;
+}
+
+message TestResponse {
+    TestMessage message = 1;
+}
+
+service TestService {
+    rpc test(TestRequest) returns (TestResponse);
+}

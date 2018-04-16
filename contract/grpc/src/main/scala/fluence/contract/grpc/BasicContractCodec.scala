@@ -32,7 +32,7 @@ import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.{PubKeyAndSignature, Signature}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
-import fluence.transport.grpc.KeyProtobufCodecs._
+import fluence.kad.KeyProtobufCodecs._
 import fluence.codec.bits.BitsCodecs._
 
 import scala.language.higherKinds

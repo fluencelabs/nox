@@ -28,7 +28,7 @@ import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
 import fluence.codec.pb.ProtobufCodecs._
-import fluence.transport.grpc.KeyProtobufCodecs._
+import fluence.kad.KeyProtobufCodecs._
 
 import scala.language.higherKinds
 

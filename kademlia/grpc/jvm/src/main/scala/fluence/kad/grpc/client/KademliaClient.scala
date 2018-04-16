@@ -23,7 +23,7 @@ import fluence.codec.PureCodec
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.kad.{grpc, protocol}
 import io.grpc.{CallOptions, ManagedChannel}
-import fluence.transport.grpc.KeyProtobufCodecs._
+import fluence.kad.KeyProtobufCodecs._
 
 import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
