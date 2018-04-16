@@ -46,40 +46,36 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
    * @param service Name of service.
    * @param method Name of method.
    *
-   * @tparam Req Request type.
-   * @tparam Resp Response type.
-   *
    * @return Method descriptor or None, if there is no descriptor in registered services.
    */
-  private def getMethodDescriptor[Req, Resp](service: String, method: String): Option[MethodDescriptor[Req, Resp]] = {
+  private def getMethodDescriptor(service: String, method: String): Option[MethodDescriptor[Any, Any]] = {
     for {
       serviceDescriptor ← inProcessGrpc.services.find(_.getServiceDescriptor.getName == service)
       serverMethodDefinition ← Option(
-        serviceDescriptor.getMethod(service + "/" + method).asInstanceOf[ServerMethodDefinition[Req, Resp]]
+        serviceDescriptor.getMethod(service + "/" + method).asInstanceOf[ServerMethodDefinition[Any, Any]]
       )
       methodDescriptor ← Option(serverMethodDefinition.getMethodDescriptor)
     } yield methodDescriptor
   }
 
-  private def getMethodDescriptorF[Req, Resp](service: String, method: String): F[MethodDescriptor[Req, Resp]] = {
-    F.delay(getMethodDescriptor[Req, Resp](service, method)).flatMap {
-      case Some(md) ⇒ F.pure(md)
+  private def getMethodDescriptorF(service: String, method: String): F[MethodDescriptor[Any, Any]] =
+    F.catchNonFatal(getMethodDescriptor(service, method)).flatMap {
+      case Some(md) ⇒ F.catchNonFatal(md.asInstanceOf)
       case None ⇒ F.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
     }
-  }
 
   /**
    * Unary call to grpc service.
    *
    */
-  private def unaryCall[Req, Resp](req: Req, methodDescriptor: MethodDescriptor[Req, Resp]): F[Future[Resp]] = {
-    val onMessagePr = Promise[Resp]
+  private def unaryCall(req: Any, methodDescriptor: MethodDescriptor[Any, Any]): F[Future[Any]] = {
+    val onMessagePr = Promise[Any]
     val onClosePr = Promise[(io.grpc.Status, Metadata)]
     val f = F.delay {
       val metadata = new Metadata()
-      val call = inProcessGrpc.newCall[Req, Resp](methodDescriptor, CallOptions.DEFAULT)
+      val call = inProcessGrpc.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
 
-      call.start(new ProxyListener[Resp](onMessagePr, onClosePr), metadata)
+      call.start(new ProxyListener[Any](onMessagePr, onClosePr), metadata)
 
       call.sendMessage(req)
       call.request(1)
@@ -88,7 +84,7 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
       //If onClose will be completed earlier, than onMessage, we will raise error
 
       runFuture(onClosePr.future)
-      val raiseErrorOnClose: Future[Resp] = onClosePr.future.flatMap(
+      val raiseErrorOnClose: Future[Any] = onClosePr.future.flatMap(
         _ ⇒ Future.failed(new RuntimeException("The call was completed before the message was received"))
       )
 
@@ -111,7 +107,7 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
    */
   def handleMessage(service: String, method: String, request: InputStream): F[Array[Byte]] = {
     for {
-      methodDescriptor ← getMethodDescriptorF[Any, Any](service, method)
+      methodDescriptor ← getMethodDescriptorF(service, method)
       request ← F.delay(methodDescriptor.parseRequest(request))
       responseF ← unaryCall(request, methodDescriptor)
       response ← runFuture(responseF)
