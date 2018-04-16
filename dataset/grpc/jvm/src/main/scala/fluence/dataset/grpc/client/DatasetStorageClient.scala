@@ -59,7 +59,7 @@ class DatasetStorageClient[F[_]: Effect](
     // Convert a remote stub call to monix pipe
     val pipe: Pipe[GetCallbackReply, GetCallback] = callToPipe(stub.get)
 
-    Get(pipe, datasetId, version, getCallbacks)
+    ClientGet(datasetId, version, getCallbacks).runStream(pipe)
   }
 
   /**
@@ -79,7 +79,7 @@ class DatasetStorageClient[F[_]: Effect](
     // Convert a remote stub call to monix pipe
     val pipe: Pipe[RangeCallbackReply, RangeCallback] = callToPipe(stub.range)
 
-    fluence.dataset.grpc.client.Range(pipe, datasetId, version, rangeCallbacks)
+    fluence.dataset.grpc.client.ClientRange(datasetId, version, rangeCallbacks).runStream(pipe)
   }
 
   /**
@@ -100,7 +100,7 @@ class DatasetStorageClient[F[_]: Effect](
     // Convert a remote stub call to monix pipe
     val pipe: Pipe[PutCallbackReply, PutCallback] = callToPipe(stub.put)
 
-    Put(pipe, datasetId, version, putCallbacks, encryptedValue)
+    ClientPut(datasetId, version, putCallbacks, encryptedValue).runStream(pipe)
   }
 
   /**

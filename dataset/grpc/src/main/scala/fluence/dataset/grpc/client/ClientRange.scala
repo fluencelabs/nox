@@ -31,39 +31,16 @@ import monix.reactive.{Observable, Pipe}
 import scala.collection.Searching
 import scala.language.higherKinds
 
-object Range extends slogging.LazyLogging {
+class ClientRange[F[_]: Effect](datasetId: Array[Byte], version: Long, rangeCallbacks: BTreeRpc.SearchCallback[F])
+    extends slogging.LazyLogging {
 
-  /**
-   * Initiates ''Range'' operation in remote MerkleBTree.
-   *
-   * @param pipe Bidi pipe for transport layer
-   * @param datasetId Dataset ID
-   * @param version Dataset version expected to the client
-   * @param rangeCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
-   * @return returns stream of found value.
-   */
-  def apply[F[_]: Effect](
-    pipe: Pipe[RangeCallbackReply, RangeCallback],
-    datasetId: Array[Byte],
-    version: Long,
-    rangeCallbacks: BTreeRpc.SearchCallback[F]
-  )(implicit sch: Scheduler): Observable[(Array[Byte], Array[Byte])] = {
-    // Get observer/observable for request's bidiflow
+  /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
+  private def handleClientErr(err: Throwable): F[RangeCallbackReply] = {
+    Effect[F].pure(RangeCallbackReply(RangeCallbackReply.Reply.ClientError(Error(err.getMessage))))
+  }
 
-    val (pushClientReply, pullServerAsk) = pipe
-      .transform(_.map {
-        case RangeCallback(callback) ⇒
-          logger.trace(s"DatasetStorageClient.range() received server ask=$callback")
-          callback
-      })
-      .multicast
-
-    /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
-    def handleClientErr(err: Throwable): F[RangeCallbackReply] = {
-      Effect[F].pure(RangeCallbackReply(RangeCallbackReply.Reply.ClientError(Error(err.getMessage))))
-    }
-
-    val handleAsks = pullServerAsk.collect { case ask if ask.isDefined && !ask.isValue && !ask.isServerError ⇒ ask } // Collect callbacks
+  private def handleAsks(source: Observable[RangeCallback.Callback]): Observable[RangeCallbackReply] =
+    source.collect { case ask if ask.isDefined && !ask.isValue && !ask.isServerError ⇒ ask } // Collect callbacks
       .mapEval[F, RangeCallbackReply] {
 
         case ask if ask.isNextChildIndex ⇒
@@ -111,12 +88,30 @@ object Range extends slogging.LazyLogging {
 
       }
 
+  /**
+   * Run client bidi stream.
+   *
+   * @param pipe Bidi pipe for transport layer
+   * @return
+   */
+  def runStream(
+    pipe: Pipe[RangeCallbackReply, RangeCallback]
+  )(implicit sch: Scheduler): Observable[(Array[Byte], Array[Byte])] = {
+    // Get observer/observable for request's bidiflow
+    val (pushClientReply, pullServerAsk) = pipe
+      .transform(_.map {
+        case RangeCallback(callback) ⇒
+          logger.trace(s"DatasetStorageClient.range() received server ask=$callback")
+          callback
+      })
+      .multicast
+
     (
       Observable(
         RangeCallbackReply(
           RangeCallbackReply.Reply.DatasetInfo(DatasetInfo(ByteString.copyFrom(datasetId), version))
         )
-      ) ++ handleAsks
+      ) ++ handleAsks(pullServerAsk)
     ).subscribe(pushClientReply) // And clientReply response back to server
 
     pullServerAsk.collect {
@@ -131,5 +126,25 @@ object Range extends slogging.LazyLogging {
         Observable(key.toByteArray → value.toByteArray)
 
     }.flatten
+  }
+
+}
+
+object ClientRange extends slogging.LazyLogging {
+
+  /**
+   * Prepare ''Range'' operation in remote MerkleBTree.
+   *
+   * @param datasetId Dataset ID
+   * @param version Dataset version expected to the client
+   * @param rangeCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
+   * @return returns stream of found value.
+   */
+  def apply[F[_]: Effect](
+    datasetId: Array[Byte],
+    version: Long,
+    rangeCallbacks: BTreeRpc.SearchCallback[F]
+  ): ClientRange[F] = {
+    new ClientRange(datasetId, version, rangeCallbacks)
   }
 }

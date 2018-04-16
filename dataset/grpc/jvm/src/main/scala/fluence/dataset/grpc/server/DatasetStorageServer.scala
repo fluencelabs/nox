@@ -52,7 +52,7 @@ class DatasetStorageServer[F[_]: Async](
     val resp: Observer[GetCallback] = responseObserver
     val (repl, stream) = streamObservable[GetCallbackReply]
 
-    ObserveGet(service, resp, repl)
+    ServerGet(service).runStream(resp, repl)
 
     stream
   }
@@ -62,7 +62,7 @@ class DatasetStorageServer[F[_]: Async](
     val resp: Observer[RangeCallback] = responseObserver
     val (repl, stream) = streamObservable[RangeCallbackReply]
 
-    ObserveRange(service, resp, repl)
+    ServerRange(service, resp, repl).runStream(resp, repl)
 
     stream
   }
@@ -71,7 +71,7 @@ class DatasetStorageServer[F[_]: Async](
     val resp: Observer[PutCallback] = responseObserver
     val (repl, stream) = streamObservable[PutCallbackReply]
 
-    ObservePut(service, resp, repl)
+    ServerPut(service, resp, repl).runStream(resp, repl)
 
     stream
   }

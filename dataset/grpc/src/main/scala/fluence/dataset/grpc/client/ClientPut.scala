@@ -32,48 +32,28 @@ import monix.reactive.{Observable, Pipe}
 import scala.collection.Searching
 import scala.language.higherKinds
 
-object Put extends slogging.LazyLogging {
+class ClientPut[F[_]: Effect](
+  datasetId: Array[Byte],
+  version: Long,
+  putCallbacks: BTreeRpc.PutCallbacks[F],
+  encryptedValue: Array[Byte]
+) extends slogging.LazyLogging {
 
   import DatasetClientUtils._
 
-  /**
-   * Initiates ''Put'' operation in remote MerkleBTree.
-   *
-   * @param pipe Bidi pipe for transport layer
-   * @param datasetId Dataset ID
-   * @param version Dataset version expected to the client
-   * @param putCallbacks Wrapper for all callback needed for ''Put'' operation to the BTree.
-   * @param encryptedValue Encrypted value.
-   * @return returns old value if old value was overridden, None otherwise.
-   */
-  def apply[F[_]: Effect](
-    pipe: Pipe[PutCallbackReply, PutCallback],
-    datasetId: Array[Byte],
-    version: Long,
-    putCallbacks: BTreeRpc.PutCallbacks[F],
-    encryptedValue: Array[Byte]
-  )(implicit sch: Scheduler): F[Option[Array[Byte]]] = {
+  private val clientError = MVar.empty[ClientError].memoize
 
-    val (pushClientReply, pullServerAsk) = pipe
-      .transform(_.map {
-        case PutCallback(callback) ⇒
-          logger.trace(s"DatasetStorageClient.put() received server ask=$callback")
-          callback
-      })
-      .multicast
+  /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
+  private def handleClientErr(err: Throwable)(implicit sch: Scheduler): F[PutCallbackReply] =
+    run(
+      for {
+        ce ← clientError
+        _ ← ce.put(ClientError(err.getMessage))
+      } yield PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
+    )
 
-    val clientError = MVar.empty[ClientError].memoize
-
-    /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
-    def handleClientErr(err: Throwable): F[PutCallbackReply] =
-      run(
-        for {
-          ce ← clientError
-          _ ← ce.put(ClientError(err.getMessage))
-        } yield PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
-      )
-
-    val handleAsks = pullServerAsk.collect { case ask if ask.isDefined && !ask.isValue ⇒ ask } // Collect callbacks
+  private def handleAsks(source: Observable[PutCallback.Callback])(implicit sch: Scheduler) =
+    source.collect { case ask if ask.isDefined && !ask.isValue ⇒ ask } // Collect callbacks
       .mapEval[F, PutCallbackReply] {
 
         case ask if ask.isNextChildIndex ⇒
@@ -146,6 +126,20 @@ object Put extends slogging.LazyLogging {
             }
       }
 
+  /**
+   *
+   * @param pipe Bidi pipe for transport layer
+   * @return
+   */
+  def runStream(pipe: Pipe[PutCallbackReply, PutCallback])(implicit sch: Scheduler): F[Option[Array[Byte]]] = {
+    val (pushClientReply, pullServerAsk) = pipe
+      .transform(_.map {
+        case PutCallback(callback) ⇒
+          logger.trace(s"DatasetStorageClient.put() received server ask=$callback")
+          callback
+      })
+      .multicast
+
     (
       Observable( // Pass the datasetId and value as the first, unasked pushes
         PutCallbackReply(
@@ -154,7 +148,7 @@ object Put extends slogging.LazyLogging {
         PutCallbackReply(
           PutCallbackReply.Reply.Value(PutValue(ByteString.copyFrom(encryptedValue)))
         )
-      ) ++ handleAsks
+      ) ++ handleAsks(pullServerAsk)
     ).subscribe(pushClientReply) // And push response back to server
 
     val serverErrOrVal =
@@ -176,6 +170,28 @@ object Put extends slogging.LazyLogging {
       }.headOptionL // Take the first option value or server error
 
     composeResult(clientError, serverErrOrVal)
+  }
 
+}
+
+object ClientPut extends slogging.LazyLogging {
+
+  /**
+   * Initiates ''Put'' operation in remote MerkleBTree.
+   *
+
+   * @param datasetId Dataset ID
+   * @param version Dataset version expected to the client
+   * @param putCallbacks Wrapper for all callback needed for ''Put'' operation to the BTree.
+   * @param encryptedValue Encrypted value.
+   * @return returns old value if old value was overridden, None otherwise.
+   */
+  def apply[F[_]: Effect](
+    datasetId: Array[Byte],
+    version: Long,
+    putCallbacks: BTreeRpc.PutCallbacks[F],
+    encryptedValue: Array[Byte]
+  ): ClientPut[F] = {
+    new ClientPut(datasetId, version, putCallbacks, encryptedValue)
   }
 }

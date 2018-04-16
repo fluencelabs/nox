@@ -23,56 +23,35 @@ import cats.syntax.flatMap._
 import com.google.protobuf.ByteString
 import fluence.btree.core.{Hash, Key}
 import fluence.btree.protocol.BTreeRpc
-import fluence.dataset._
 import fluence.dataset.grpc.server.ServerError
 import fluence.protobuf.dataset._
 import monix.eval.{MVar, Task}
 import monix.execution.Scheduler
-import monix.reactive.{Observable, Pipe}
+import monix.reactive.{Observable, Observer, Pipe}
 
 import scala.collection.Searching
 import scala.language.higherKinds
 
-object Get extends slogging.LazyLogging {
+class ClientGet[F[_]: Effect](datasetId: Array[Byte], version: Long, getCallbacks: BTreeRpc.SearchCallback[F])
+    extends slogging.LazyLogging {
 
   import DatasetClientUtils._
 
-  /**
-   * Initiates ''Get'' operation in remote MerkleBTree.
-   *
-   * @param pipe Bidi pipe for transport layer
-   * @param datasetId Dataset ID
-   * @param version Dataset version expected to the client
-   * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
-   * @return returns found value, None if nothing was found.
-   */
-  def apply[F[_]: Effect](
-    pipe: Pipe[GetCallbackReply, GetCallback],
-    datasetId: Array[Byte],
-    version: Long,
-    getCallbacks: BTreeRpc.SearchCallback[F]
-  )(implicit sch: Scheduler): F[Option[Array[Byte]]] = {
-    // Get observer/observable for request's bidiflow
-    val (pushClientReply, pullServerAsk) = pipe
-      .transform(_.map {
-        case GetCallback(callback) ⇒
-          logger.trace(s"DatasetStorageClient.get() received server ask=$callback")
-          callback
-      })
-      .multicast
+  private val clientError = MVar.empty[ClientError].memoize
 
-    val clientError = MVar.empty[ClientError].memoize
+  /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
+  private def handleClientErr(err: Throwable)(implicit sch: Scheduler): F[GetCallbackReply] =
+    (
+      for {
+        ce ← clientError
+        _ ← ce.put(ClientError(err.getMessage))
+      } yield GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage)))
+    ).to[F]
 
-    /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
-    def handleClientErr(err: Throwable): F[GetCallbackReply] =
-      (
-        for {
-          ce ← clientError
-          _ ← ce.put(ClientError(err.getMessage))
-        } yield GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage)))
-      ).to[F]
-
-    val handleAsks = pullServerAsk.collect { case ask if ask.isDefined && !ask.isValue && !ask.isServerError ⇒ ask } // Collect callbacks
+  private def handleAsks(
+    source: Observable[GetCallback.Callback]
+  )(implicit sch: Scheduler): Observable[GetCallbackReply] =
+    source.collect { case ask if ask.isDefined && !ask.isValue && !ask.isServerError ⇒ ask } // Collect callbacks
       .mapEval[F, GetCallbackReply] {
 
         case ask if ask.isNextChildIndex ⇒
@@ -120,12 +99,31 @@ object Get extends slogging.LazyLogging {
 
       }
 
+  /**
+   * Initiate observable schema with pipe and run stream.
+   *
+   * @param pipe Bidi pipe for transport layer
+   * @return returns found value, None if nothing was found.
+   */
+  def runStream(
+    pipe: Pipe[GetCallbackReply, GetCallback]
+  )(implicit sch: Scheduler): F[Option[Array[Byte]]] = {
+
+    // Get observer/observable for request's bidiflow
+    val (pushClientReply: Observer[GetCallbackReply], pullServerAsk: Observable[GetCallback.Callback]) = pipe
+      .transform(_.map {
+        case GetCallback(callback) ⇒
+          logger.trace(s"DatasetStorageClient.get() received server ask=$callback")
+          callback
+      })
+      .multicast
+
     (
       Observable(
         GetCallbackReply(
           GetCallbackReply.Reply.DatasetInfo(DatasetInfo(ByteString.copyFrom(datasetId), version))
         )
-      ) ++ handleAsks
+      ) ++ handleAsks(pullServerAsk)
     ).subscribe(pushClientReply) // And clientReply response back to server
 
     val serverErrOrVal =
@@ -147,6 +145,25 @@ object Get extends slogging.LazyLogging {
       }.headOptionL // Take the first option value or server error
 
     composeResult(clientError, serverErrOrVal)
+  }
 
+}
+
+object ClientGet {
+
+  /**
+   * Prepare ''Get'' operation in remote MerkleBTree.
+   *
+   * @param datasetId Dataset ID
+   * @param version Dataset version expected to the client
+   * @param getCallbacks Wrapper for all callback needed for ''Get'' operation to the BTree
+   */
+  def apply[F[_]: Effect](
+    datasetId: Array[Byte],
+    version: Long,
+    getCallbacks: BTreeRpc.SearchCallback[F]
+  ): ClientGet[F] = {
+
+    new ClientGet(datasetId, version, getCallbacks)
   }
 }
