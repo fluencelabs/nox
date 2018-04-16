@@ -32,7 +32,7 @@ import scala.language.higherKinds
 /**
  * Top type for any key value storage.
  */
-trait KVStorage
+trait KVStore
 
 /**
  * Key-value storage api for reading values.
@@ -66,13 +66,13 @@ trait ReadWriteKVStore[K, V, E <: StoreError] extends KVStoreRead[K, V, E] with 
  *
  * @tparam S The type of returned storage snapshot.
  */
-trait Snapshot[S <: KVStorage] {
+trait Snapshot[S <: KVStore] {
 
   def createSnapshot[F[_]: Applicative](): F[S]
 
 }
 
-object KVStorage {
+object KVStore {
 
   // this MonadError is needed for travers and runF operations
   implicit def storeMonadError[F[_]](implicit ME: MonadError[F, Throwable]): MonadError[F, StoreError] =
@@ -100,7 +100,7 @@ object KVStorage {
        *
        * @param key Search key
        */
-      override def get(key: K1): Get[K1, V1, StoreError] = new Get[K1, V1, StoreError] {
+      override def get(key: K1): Get[V1, StoreError] = new Get[V1, StoreError] {
 
         override def run[F[_]: Monad]: EitherT[F, StoreError, Option[V1]] =
           for {
@@ -129,7 +129,7 @@ object KVStorage {
       override def traverse: Traverse[K1, V1, StoreError] = new Traverse[K1, V1, StoreError] {
         override def run[FS[_]: Monad](
           implicit FS: MonadError[FS, StoreError],
-          liftIterator: ~>[Iterator, FS]
+          liftIterator: Iterator ~> FS
         ): FS[(K1, V1)] = {
           store.traverse.run.flatMap {
             case (k, v) ⇒

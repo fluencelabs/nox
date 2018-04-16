@@ -17,7 +17,7 @@
 
 package fluence.kvstore.ops
 
-import fluence.kvstore.{KVStorage, StoreError}
+import fluence.kvstore.{KVStore, StoreError}
 
 import scala.language.higherKinds
 
@@ -37,7 +37,7 @@ object Remove {
    * @tparam K A type of search key
    * @tparam E A type for any storage errors
    */
-  trait KVStoreRemove[K, E <: StoreError] extends KVStorage {
+  trait KVStoreRemove[K, E <: StoreError] extends KVStore {
 
     /**
      * Returns lazy ''remove'' representation (see [[Remove]])

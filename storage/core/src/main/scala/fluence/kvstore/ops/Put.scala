@@ -17,7 +17,7 @@
 
 package fluence.kvstore.ops
 
-import fluence.kvstore.{KVStorage, StoreError}
+import fluence.kvstore.{KVStore, StoreError}
 
 import scala.language.higherKinds
 
@@ -38,7 +38,7 @@ object Put {
    * @tparam V A type of value
    * @tparam E A type for any storage errors
    */
-  trait KVStorePut[K, V, E <: StoreError] extends KVStorage {
+  trait KVStorePut[K, V, E <: StoreError] extends KVStore {
 
     /**
      * Returns lazy ''put'' representation (see [[Put]])

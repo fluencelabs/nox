@@ -15,10 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.storage
+package fluence.kvstore
 
 import fluence.codec.PureCodec
-import fluence.kvstore.{ReadWriteKVStore, StoreError}
 import org.scalatest.{Matchers, WordSpec}
 
 class KVStorageSpec extends WordSpec with Matchers {

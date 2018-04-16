@@ -17,11 +17,11 @@
 
 package fluence.kvstore.ops
 
-import fluence.kvstore.{KVStorage, StoreError}
+import fluence.kvstore.{KVStore, StoreError}
 
 import scala.language.higherKinds
 
-trait Get[K, V, E <: StoreError] extends Operation[Option[V], E]
+trait Get[V, E <: StoreError] extends Operation[Option[V], E]
 
 object Get {
 
@@ -32,14 +32,14 @@ object Get {
    * @tparam V A type of value
    * @tparam E A type for any storage errors
    */
-  trait KVStoreGet[K, V, E <: StoreError] extends KVStorage {
+  trait KVStoreGet[K, V, E <: StoreError] extends KVStore {
 
     /**
      * Returns lazy ''get'' representation (see [[Get]])
      *
      * @param key Search key
      */
-    def get(key: K): Get[K, V, StoreError]
+    def get(key: K): Get[V, StoreError]
 
   }
 

@@ -15,24 +15,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.storage
+package fluence.kvstore
 
 import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.{~>, Monad, MonadError}
 import fluence.kvstore.ops.{Get, Put, Remove, Traverse}
-import fluence.kvstore.{KVStorage, ReadWriteKVStore, StoreError}
 
 import scala.collection.mutable
 import scala.language.higherKinds
 import scala.util.Try
 
-class TestKVStore[K, V] extends KVStorage with ReadWriteKVStore[K, V, StoreError] {
+class TestKVStore[K, V] extends KVStore with ReadWriteKVStore[K, V, StoreError] {
 
   private val data = mutable.Map.empty[K, V]
 
-  override def get(key: K): Get[K, V, StoreError] =
-    new Get[K, V, StoreError] {
+  override def get(key: K): Get[V, StoreError] =
+    new Get[V, StoreError] {
 
       override def run[F[_]: Monad]: EitherT[F, StoreError, Option[V]] =
         EitherT.fromEither(
@@ -47,7 +46,7 @@ class TestKVStore[K, V] extends KVStorage with ReadWriteKVStore[K, V, StoreError
 
     override def run[FS[_]: Monad](
       implicit FS: MonadError[FS, StoreError],
-      liftIterator: ~>[Iterator, FS]
+      liftIterator: Iterator ~> FS
     ): FS[(K, V)] =
       FS.fromEither {
         Try(liftIterator(data.iterator)).toEither.left.map(err ⇒ StoreError.traverseError(Some(err)))

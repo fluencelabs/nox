@@ -18,7 +18,7 @@
 package fluence.kvstore.ops
 
 import cats.{~>, Monad, MonadError}
-import fluence.kvstore.{KVStorage, StoreError}
+import fluence.kvstore.{KVStore, StoreError}
 
 import scala.language.higherKinds
 
@@ -59,7 +59,7 @@ object Traverse {
    * @tparam V A type of value
    * @tparam E A type for any storage errors
    */
-  trait KVStoreTraverse[K, V, E <: StoreError] extends KVStorage {
+  trait KVStoreTraverse[K, V, E <: StoreError] extends KVStore {
 
     /**
      * Returns lazy ''traverse'' representation (see [[Traverse]])

@@ -15,12 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.storage
+package fluence.kvstore
 
 import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.{~>, Applicative, Monad, MonadError}
-import fluence.kvstore._
 import fluence.kvstore.ops.{Get, Put, Remove, Traverse}
 
 import scala.collection.concurrent.TrieMap
@@ -34,7 +33,7 @@ import scala.util.Try
  * @tparam K A type of search key
  * @tparam V A type of value
  */
-private sealed trait InMemoryKVStore[K, V] extends KVStorage {
+private sealed trait InMemoryKVStore[K, V] extends KVStore {
 
   protected def data: TrieMap[K, V]
 
@@ -55,7 +54,7 @@ object InMemoryKVStore {
      *
      * @param key Search key
      */
-    override def get(key: K): Get[K, V, StoreError] = new Get[K, V, StoreError] {
+    override def get(key: K): Get[V, StoreError] = new Get[V, StoreError] {
 
       override def run[F[_]: Monad]: EitherT[F, StoreError, Option[V]] =
         EitherT.fromEither(
@@ -74,7 +73,7 @@ object InMemoryKVStore {
 
       override def run[FS[_]: Monad](
         implicit FS: MonadError[FS, StoreError],
-        liftIterator: ~>[Iterator, FS]
+        liftIterator: Iterator ~> FS
       ): FS[(K, V)] =
         FS.fromEither {
           Try(liftIterator(data.iterator)).toEither.left.map(err ⇒ StoreError.traverseError(Some(err)))

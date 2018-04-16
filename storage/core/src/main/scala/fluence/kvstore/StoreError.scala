@@ -25,7 +25,7 @@ import scala.util.control.NoStackTrace
  * @param message Error message
  * @param causedBy Error cause for wrapped exceptions
  */
-class StoreError(message: String, causedBy: Option[Throwable] = None) extends NoStackTrace {
+case class StoreError(message: String, causedBy: Option[Throwable] = None) extends NoStackTrace {
 
   override def getMessage: String = message
 

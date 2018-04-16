@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.storage
+package fluence.kvstore
 
 import java.nio.ByteBuffer
 
@@ -31,7 +31,7 @@ import scala.language.{higherKinds, implicitConversions}
 
 class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
-  import fluence.kvstore.KVStorage._
+  import fluence.kvstore.KVStore._
 
   type Key = Array[Byte]
   type Value = Array[Byte]
