@@ -50,16 +50,16 @@ class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F], port: Int = 8080)(implic
         case Binary(data, _) ⇒
           for {
             message ← F.delay(WebsocketMessage.parseFrom(data))
-            response ← proxyGrpc.handleMessage(message.service, message.method, message.protoMessage.newInput())
+            response ← proxyGrpc.handleMessage(message.service, message.method, message.payload.newInput())
           } yield Binary(response): WebSocketFrame
         case m ⇒
           F.pure(Text(s"Unexpected message: $m"): WebSocketFrame)
       }
 
       queueF.flatMap { queue ⇒
-        val d = queue.dequeue.through(echoReply)
-        val e = queue.enqueue
-        WebSocketBuilder[F].build(d, e)
+        val dequeueStream = queue.dequeue.through(echoReply)
+        val enqueueStream = queue.enqueue
+        WebSocketBuilder[F].build(dequeueStream, enqueueStream)
       }
   }
 

@@ -77,7 +77,7 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
         generateMessage(TestRequest(Some(TestMessage(str, listStr, byteArray))), TestServiceGrpc.METHOD_TEST)
 
       val testResp = proxyGrpc
-        .handleMessage(testMessage.service, testMessage.method, testMessage.protoMessage.newInput())
+        .handleMessage(testMessage.service, testMessage.method, testMessage.payload.newInput())
         .unsafeRunSync()
 
       val resp = TestRequest.parseFrom(testResp).message.get
@@ -100,7 +100,7 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
 
       the[RuntimeException] thrownBy {
         proxyGrpc
-          .handleMessage(testMessage.service, testMessage.method, testMessage.protoMessage.newInput())
+          .handleMessage(testMessage.service, testMessage.method, testMessage.payload.newInput())
           .unsafeRunSync()
       }
     }
@@ -115,13 +115,13 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers {
 
       the[RuntimeException] thrownBy {
         proxyGrpc
-          .handleMessage("rndservice", testMessage.method, testMessage.protoMessage.newInput())
+          .handleMessage("rndservice", testMessage.method, testMessage.payload.newInput())
           .unsafeRunSync()
       }
 
       the[RuntimeException] thrownBy {
         proxyGrpc
-          .handleMessage(testMessage.service, "rndmethod", testMessage.protoMessage.newInput())
+          .handleMessage(testMessage.service, "rndmethod", testMessage.payload.newInput())
           .unsafeRunSync()
       }
 

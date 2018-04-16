@@ -5,6 +5,6 @@ package fluence.proxy;
 message WebsocketMessage {
     string service = 1;
     string method = 2;
-    bytes protoMessage = 3;
+    bytes payload = 3;
 
 }
