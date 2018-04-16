@@ -6,6 +6,6 @@ message WebsocketMessage {
     string service = 1;
     string method = 2;
     int64 streamId = 3;
-    bytes protoMessage = 10;
+    bytes payload = 10;
 
 }

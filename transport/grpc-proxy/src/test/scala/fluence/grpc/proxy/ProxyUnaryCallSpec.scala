@@ -113,7 +113,7 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers with slogging.LazyLoggin
               testMessage.service,
               testMessage.method,
               testMessage.streamId,
-              testMessage.protoMessage.newInput()
+              testMessage.payload.newInput()
             )
             .runSyncUnsafe(5.seconds)
             .runAsyncGetLast,
@@ -218,7 +218,7 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers with slogging.LazyLoggin
 
       the[RuntimeException] thrownBy {
         proxyGrpc
-          .handleMessage(testMessage.service, testMessage.method, 1L, testMessage.protoMessage.newInput())
+          .handleMessage(testMessage.service, testMessage.method, 1L, testMessage.payload.newInput())
           .runSyncUnsafe(5.seconds)
       }
 
@@ -235,13 +235,13 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers with slogging.LazyLoggin
 
       the[RuntimeException] thrownBy {
         proxyGrpc
-          .handleMessage("rndservice", testMessage.method, 1L, testMessage.protoMessage.newInput())
+          .handleMessage("rndservice", testMessage.method, 1L, testMessage.payload.newInput())
           .runSyncUnsafe(5.seconds)
       }
 
       the[RuntimeException] thrownBy {
         proxyGrpc
-          .handleMessage(testMessage.service, "rndmethod", 1L, testMessage.protoMessage.newInput())
+          .handleMessage(testMessage.service, "rndmethod", 1L, testMessage.payload.newInput())
           .runSyncUnsafe(5.seconds)
       }
 

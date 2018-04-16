@@ -57,7 +57,7 @@ class GrpcWebsocketProxy(proxyGrpc: ProxyGrpc, port: Int = 8080) extends StreamA
           val a = for {
             message ← Task.eval(WebsocketMessage.parseFrom(data))
             response ← proxyGrpc
-              .handleMessage(message.service, message.method, message.streamId, message.protoMessage.newInput())
+              .handleMessage(message.service, message.method, message.streamId, message.payload.newInput())
           } yield {
             response.map {
               case ResponseArrayByte(bytes) ⇒ Binary(bytes): WebSocketFrame
@@ -71,9 +71,9 @@ class GrpcWebsocketProxy(proxyGrpc: ProxyGrpc, port: Int = 8080) extends StreamA
       }
 
       queueF.flatMap { queue: Queue[Task, WebSocketFrame] ⇒
-        val d = queue.dequeue.through(echoReply)
-        val e = queue.enqueue
-        WebSocketBuilder[Task].build(d, e)
+        val dequeueStream = queue.dequeue.through(echoReply)
+        val enqueueStream = queue.enqueue
+        WebSocketBuilder[Task].build(dequeueStream, enqueueStream)
       }
   }
 
