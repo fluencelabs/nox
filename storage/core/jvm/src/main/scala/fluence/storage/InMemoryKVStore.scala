@@ -27,47 +27,20 @@ import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
 import scala.util.Try
 
+/**
+ * Top type for in memory kvStore implementation,
+ * just holds kvStore state.
+ *
+ * @tparam K A type of search key
+ * @tparam V A type of value
+ */
+private sealed trait InMemoryKVStore[K, V] extends KVStorage {
+
+  protected def data: TrieMap[K, V]
+
+}
+
 object InMemoryKVStore {
-
-  /**
-   * Create in memory [[ReadWriteKVStore]].
-   *
-   * @tparam K A type of search key
-   * @tparam V A type of value
-   */
-  def apply[K, V]: ReadWriteKVStore[K, V, StoreError] =
-    new TrieMapKVStore[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V]
-    with ReadWriteKVStore[K, V, StoreError]
-
-  /**
-   * Create in memory [[ReadWriteKVStore]] with snapshot functionality.
-   *
-   * @tparam K A type of search key
-   * @tparam V A type of value
-   */
-  def withSnapshots[K, V]: ReadWriteKVStore[K, V, StoreError] with Snapshot[KVStoreRead[K, V, StoreError]] = {
-    new TrieMapKVStore[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V]
-    with ReadWriteKVStore[K, V, StoreError] with Snapshot[KVStoreRead[K, V, StoreError]] {
-      override def createSnapshot[F[_]: Applicative](): F[KVStoreRead[K, V, StoreError]] = {
-        Applicative[F].pure(
-          new TrieMapKVStore(data.snapshot()) with InMemoryKVStoreRead[K, V]
-        )
-      }
-    }
-  }
-
-  /**
-   * Top type for in memory kvStore implementation,
-   * just holds kvStore state.
-   *
-   * @tparam K A type of search key
-   * @tparam V A type of value
-   */
-  private sealed trait InMemoryKVStore[K, V] extends KVStorage {
-
-    protected def data: TrieMap[K, V]
-
-  }
 
   /**
    * Allows reading keys and values from KVStore.
@@ -167,6 +140,33 @@ object InMemoryKVStore {
 
     }
 
+  }
+
+  /**
+   * Create in memory [[ReadWriteKVStore]].
+   *
+   * @tparam K A type of search key
+   * @tparam V A type of value
+   */
+  def apply[K, V]: ReadWriteKVStore[K, V, StoreError] =
+    new TrieMapKVStore[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V]
+    with ReadWriteKVStore[K, V, StoreError]
+
+  /**
+   * Create in memory [[ReadWriteKVStore]] with snapshot functionality.
+   *
+   * @tparam K A type of search key
+   * @tparam V A type of value
+   */
+  def withSnapshots[K, V]: ReadWriteKVStore[K, V, StoreError] with Snapshot[KVStoreRead[K, V, StoreError]] = {
+    new TrieMapKVStore[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V]
+    with ReadWriteKVStore[K, V, StoreError] with Snapshot[KVStoreRead[K, V, StoreError]] {
+      override def createSnapshot[F[_]: Applicative](): F[KVStoreRead[K, V, StoreError]] = {
+        Applicative[F].pure(
+          new TrieMapKVStore(data.snapshot()) with InMemoryKVStoreRead[K, V]
+        )
+      }
+    }
   }
 
   private abstract class TrieMapKVStore[K, V](map: TrieMap[K, V] = TrieMap.empty[K, V]) extends InMemoryKVStore[K, V] {
