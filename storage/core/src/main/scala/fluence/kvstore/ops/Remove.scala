@@ -24,10 +24,9 @@ import scala.language.higherKinds
 /**
  * Lazy representation for removing key and value.
  *
- * @tparam K A type of search key
  * @tparam E A type for any storage errors
  */
-trait Remove[K, E <: StoreError] extends Operation[Unit, E]
+trait Remove[E <: StoreError] extends Operation[Unit, E]
 
 object Remove {
 
@@ -45,7 +44,7 @@ object Remove {
      *
      * @param key The specified key to be inserted
      */
-    def remove(key: K): Remove[K, E]
+    def remove(key: K): Remove[E]
 
   }
 

@@ -75,7 +75,7 @@ class TestKVStore[K, V] extends KVStorage with ReadWriteKVStore[K, V, StoreError
 
   }
 
-  override def remove(key: K): Remove[K, StoreError] = new Remove[K, StoreError] {
+  override def remove(key: K): Remove[StoreError] = new Remove[StoreError] {
 
     override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
       // format: off
