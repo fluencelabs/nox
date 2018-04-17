@@ -15,11 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc.client
+package fluence.dataset.protocol
 
 import scala.util.control.NoStackTrace
 
-/**  Error from client side. */
-case class ClientError(msg: String) extends NoStackTrace {
+/**  Error from server(node) side. */
+case class ServerError(msg: String) extends NoStackTrace {
   override def getMessage: String = msg
 }

@@ -19,7 +19,7 @@ package fluence.dataset.grpc.client
 
 import cats.effect.Effect
 import fluence.btree.protocol.BTreeRpc
-import fluence.dataset.grpc.GrpcMonix._
+import fluence.dataset.client.{ClientGet, ClientPut, ClientRange}
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.protobuf.dataset._
 import fluence.protobuf.dataset.grpc.DatasetStorageRpcGrpc.DatasetStorageRpcStub
@@ -42,6 +42,8 @@ class DatasetStorageClient[F[_]: Effect](
   stub: DatasetStorageRpcStub
 )(implicit sch: Scheduler)
     extends DatasetStorageRpc[F, Observable] with slogging.LazyLogging {
+
+  import fluence.dataset.grpc.GrpcMonix._
 
   /**
    * Initiates ''Get'' operation in remote MerkleBTree.
@@ -79,7 +81,7 @@ class DatasetStorageClient[F[_]: Effect](
     // Convert a remote stub call to monix pipe
     val pipe: Pipe[RangeCallbackReply, RangeCallback] = callToPipe(stub.range)
 
-    fluence.dataset.grpc.client.ClientRange(datasetId, version, rangeCallbacks).runStream(pipe)
+    ClientRange(datasetId, version, rangeCallbacks).runStream(pipe)
   }
 
   /**

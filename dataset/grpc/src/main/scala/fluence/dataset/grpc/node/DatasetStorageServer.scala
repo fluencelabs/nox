@@ -15,11 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc.server
+package fluence.dataset.grpc.node
 
 import cats.effect.Async
 import cats.{~>, Monad}
-import fluence.dataset.grpc.GrpcMonix._
+import fluence.dataset.node.{NodeGet, NodePut, NodeRange}
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.protobuf.dataset._
 import fluence.protobuf.dataset.grpc.DatasetStorageRpcGrpc
@@ -47,12 +47,14 @@ class DatasetStorageServer[F[_]: Async](
   scheduler: Scheduler
 ) extends DatasetStorageRpcGrpc.DatasetStorageRpc with slogging.LazyLogging {
 
+  import fluence.dataset.grpc.GrpcMonix._
+
   override def get(responseObserver: StreamObserver[GetCallback]): StreamObserver[GetCallbackReply] = {
 
     val resp: Observer[GetCallback] = responseObserver
     val (repl, stream) = streamObservable[GetCallbackReply]
 
-    ServerGet(service).runStream(resp, repl)
+    NodeGet(service).runStream(resp, repl)
 
     stream
   }
@@ -62,7 +64,7 @@ class DatasetStorageServer[F[_]: Async](
     val resp: Observer[RangeCallback] = responseObserver
     val (repl, stream) = streamObservable[RangeCallbackReply]
 
-    ServerRange(service, resp, repl).runStream(resp, repl)
+    NodeRange(service, resp, repl).runStream(resp, repl)
 
     stream
   }
@@ -71,7 +73,7 @@ class DatasetStorageServer[F[_]: Async](
     val resp: Observer[PutCallback] = responseObserver
     val (repl, stream) = streamObservable[PutCallbackReply]
 
-    ServerPut(service, resp, repl).runStream(resp, repl)
+    NodePut(service, resp, repl).runStream(resp, repl)
 
     stream
   }

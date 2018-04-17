@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc.client
+package fluence.dataset.client
 
 import cats.effect.Effect
 import cats.syntax.applicativeError._
@@ -23,7 +23,7 @@ import cats.syntax.flatMap._
 import com.google.protobuf.ByteString
 import fluence.btree.core.{Hash, Key}
 import fluence.btree.protocol.BTreeRpc
-import fluence.dataset.grpc.server.ServerError
+import fluence.dataset.protocol.ServerError
 import fluence.protobuf.dataset._
 import monix.execution.Scheduler
 import monix.reactive.{Observable, Pipe}

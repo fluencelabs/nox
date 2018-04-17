@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc.server
+package fluence.dataset.node
 
 import cats.data.EitherT
 import cats.effect.Async
@@ -25,16 +25,16 @@ import cats.~>
 import com.google.protobuf.ByteString
 import fluence.btree.core.{Hash, Key}
 import fluence.btree.protocol.BTreeRpc
-import fluence.dataset.grpc.client.ClientError
-import fluence.dataset.protocol.DatasetStorageRpc
+import fluence.dataset.protocol.{ClientError, DatasetStorageRpc}
 import fluence.protobuf.dataset._
 import monix.eval.Task
 import monix.execution.{Ack, Cancelable, Scheduler}
 import monix.reactive.{Observable, Observer}
 
 import scala.collection.Searching
+import scala.language.higherKinds
 
-class ServerRange[F[_]: Async](service: DatasetStorageRpc[F, Observable])(
+class NodeRange[F[_]: Async](service: DatasetStorageRpc[F, Observable])(
   implicit
   runF: F ~> Task,
   scheduler: Scheduler
@@ -154,7 +154,7 @@ class ServerRange[F[_]: Async](service: DatasetStorageRpc[F, Observable])(
   }
 }
 
-object ServerRange extends slogging.LazyLogging {
+object NodeRange extends slogging.LazyLogging {
 
   def apply[F[_]: Async](
     service: DatasetStorageRpc[F, Observable],
@@ -164,7 +164,7 @@ object ServerRange extends slogging.LazyLogging {
     implicit
     runF: F ~> Task,
     scheduler: Scheduler
-  ): ServerRange[F] = {
-    new ServerRange(service)
+  ): NodeRange[F] = {
+    new NodeRange(service)
   }
 }

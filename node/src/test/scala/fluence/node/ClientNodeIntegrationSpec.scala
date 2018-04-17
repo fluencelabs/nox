@@ -39,9 +39,8 @@ import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher, TestCryptoHasher}
 import fluence.crypto.keypair.KeyPair
 import fluence.crypto.signature.Signer
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
-import fluence.dataset.grpc.client.ClientError
-import fluence.dataset.grpc.server.ServerError
-import fluence.dataset.protocol.DatasetStorageRpc
+import fluence.dataset.grpc.node.ServerError
+import fluence.dataset.protocol.{ClientError, DatasetStorageRpc}
 import fluence.kad.protocol.{Contact, ContactSecurity, Key}
 import fluence.kad.{KademliaConf, KademliaMVar}
 import fluence.node.core.ContractsCacheConf

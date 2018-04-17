@@ -15,9 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc.client
+package fluence.dataset.client
 
 import cats.effect.Effect
+import fluence.dataset.protocol.ClientError
 import monix.eval.{MVar, Task}
 import monix.execution.Scheduler
 

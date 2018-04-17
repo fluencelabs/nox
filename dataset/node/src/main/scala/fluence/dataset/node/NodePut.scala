@@ -15,21 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc.server
+package fluence.dataset.node
 
 import cats.data.EitherT
 import cats.effect.Async
-import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.applicative._
 import cats.syntax.show._
 import cats.~>
 import com.google.protobuf.ByteString
 import fluence.btree.core.{ClientPutDetails, Hash, Key}
 import fluence.btree.protocol.BTreeRpc
-import fluence.dataset.grpc.client.ClientError
-import fluence.dataset.protocol.DatasetStorageRpc
+import fluence.dataset.protocol.{ClientError, DatasetStorageRpc}
 import fluence.protobuf.dataset._
 import monix.eval.Task
 import monix.execution.{Ack, Scheduler}
@@ -37,8 +36,9 @@ import monix.reactive.{Observable, Observer}
 import scodec.bits.ByteVector
 
 import scala.collection.Searching
+import scala.language.higherKinds
 
-class ServerPut[F[_]: Async](service: DatasetStorageRpc[F, Observable])(
+class NodePut[F[_]: Async](service: DatasetStorageRpc[F, Observable])(
   implicit
   runF: F ~> Task,
   scheduler: Scheduler
@@ -203,7 +203,7 @@ class ServerPut[F[_]: Async](service: DatasetStorageRpc[F, Observable])(
 
 }
 
-object ServerPut extends slogging.LazyLogging {
+object NodePut extends slogging.LazyLogging {
 
   def apply[F[_]: Async](
     service: DatasetStorageRpc[F, Observable],
@@ -213,7 +213,7 @@ object ServerPut extends slogging.LazyLogging {
     implicit
     runF: F ~> Task,
     scheduler: Scheduler
-  ): ServerPut[F] = {
-    new ServerPut(service)
+  ): NodePut[F] = {
+    new NodePut(service)
   }
 }

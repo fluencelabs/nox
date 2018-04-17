@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc.server
+package fluence.dataset.node
 
 import cats.data.EitherT
 import cats.effect.Async
@@ -26,6 +26,7 @@ import monix.execution.{Ack, Scheduler}
 import monix.reactive.{Observable, Observer}
 import scodec.bits.{Bases, ByteVector}
 
+import scala.language.higherKinds
 import scala.util.{Failure, Success}
 
 object DatasetServerUtils extends slogging.LazyLogging {
