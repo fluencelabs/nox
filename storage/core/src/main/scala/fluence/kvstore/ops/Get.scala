@@ -21,26 +21,9 @@ import fluence.kvstore.{KVStore, StoreError}
 
 import scala.language.higherKinds
 
+/**
+ * Lazy representation for getting key and value.
+ *
+ * @tparam E A type for any storage errors
+ */
 trait Get[V, E <: StoreError] extends Operation[Option[V], E]
-
-object Get {
-
-  /**
-   * Contract for obtaining values by key. In other words ''mixin'' with ''get'' functionality.
-   *
-   * @tparam K A type of search key
-   * @tparam V A type of value
-   * @tparam E A type for any storage errors
-   */
-  trait KVStoreGet[K, V, E <: StoreError] extends KVStore {
-
-    /**
-     * Returns lazy ''get'' representation (see [[Get]])
-     *
-     * @param key Search key
-     */
-    def get(key: K): Get[V, StoreError]
-
-  }
-
-}

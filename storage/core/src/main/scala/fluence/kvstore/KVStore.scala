@@ -21,10 +21,6 @@ import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.{~>, ApplicativeError, Monad, MonadError}
 import fluence.codec.PureCodec
-import fluence.kvstore.ops.Get.KVStoreGet
-import fluence.kvstore.ops.Put.KVStorePut
-import fluence.kvstore.ops.Remove.KVStoreRemove
-import fluence.kvstore.ops.Traverse.KVStoreTraverse
 import fluence.kvstore.ops.{Get, Put, Remove, Traverse}
 
 import scala.language.higherKinds
@@ -41,7 +37,21 @@ trait KVStore
  * @tparam V The type of stored values
  * @tparam E The type of storage error
  */
-trait KVStoreRead[K, V, E <: StoreError] extends KVStoreGet[K, V, E] with KVStoreTraverse[K, V, E]
+trait KVStoreRead[K, V, E <: StoreError] extends KVStore {
+
+  /**
+   * Returns lazy ''get'' representation (see [[Get]])
+   *
+   * @param key Search key
+   */
+  def get(key: K): Get[V, StoreError]
+
+  /**
+   * Returns lazy ''traverse'' representation (see [[Traverse]])
+   */
+  def traverse: Traverse[K, V, E]
+
+}
 
 /**
  * Key-value storage api for writing values.
@@ -50,7 +60,24 @@ trait KVStoreRead[K, V, E <: StoreError] extends KVStoreGet[K, V, E] with KVStor
  * @tparam V The type of stored values
  * @tparam E The type of storage error
  */
-trait KVStoreWrite[K, V, E <: StoreError] extends KVStorePut[K, V, E] with KVStoreRemove[K, E]
+trait KVStoreWrite[K, V, E <: StoreError] extends KVStore {
+
+  /**
+   * Returns lazy ''put'' representation (see [[Put]])
+   *
+   * @param key The specified key to be inserted
+   * @param value The value associated with the specified key
+   */
+  def put(key: K, value: V): Put[E]
+
+  /**
+   * Returns lazy ''remove'' representation (see [[Remove]])
+   *
+   * @param key The specified key to be inserted
+   */
+  def remove(key: K): Remove[E]
+
+}
 
 /**
  * Key-value storage api for reading and writing.

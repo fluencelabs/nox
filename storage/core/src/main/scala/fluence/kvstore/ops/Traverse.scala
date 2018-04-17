@@ -18,7 +18,7 @@
 package fluence.kvstore.ops
 
 import cats.{~>, Monad, MonadError}
-import fluence.kvstore.{KVStore, StoreError}
+import fluence.kvstore.StoreError
 
 import scala.language.higherKinds
 
@@ -46,26 +46,5 @@ trait Traverse[K, V, E <: StoreError] {
    * '''throw the error if it happens'''. Intended to be used '''only in tests'''.
    */
   def runUnsafe: Iterator[(K, V)]
-
-}
-
-object Traverse {
-
-  /**
-   * Contract for traversing all key-value pairs.
-   * In other words ''mixin'' with ''traverse'' functionality.
-   *
-   * @tparam K A type of search key
-   * @tparam V A type of value
-   * @tparam E A type for any storage errors
-   */
-  trait KVStoreTraverse[K, V, E <: StoreError] extends KVStore {
-
-    /**
-     * Returns lazy ''traverse'' representation (see [[Traverse]])
-     */
-    def traverse: Traverse[K, V, E]
-
-  }
 
 }

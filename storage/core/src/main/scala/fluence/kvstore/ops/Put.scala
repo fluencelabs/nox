@@ -17,7 +17,7 @@
 
 package fluence.kvstore.ops
 
-import fluence.kvstore.{KVStore, StoreError}
+import fluence.kvstore.StoreError
 
 import scala.language.higherKinds
 
@@ -27,27 +27,3 @@ import scala.language.higherKinds
  * @tparam E A type for any storage errors
  */
 trait Put[E <: StoreError] extends Operation[Unit, E]
-
-object Put {
-
-  /**
-   * Contract for putting key and value into KVStore.
-   * In other words ''mixin'' with ''put'' functionality.
-   *
-   * @tparam K A type of search key
-   * @tparam V A type of value
-   * @tparam E A type for any storage errors
-   */
-  trait KVStorePut[K, V, E <: StoreError] extends KVStore {
-
-    /**
-     * Returns lazy ''put'' representation (see [[Put]])
-     *
-     * @param key The specified key to be inserted
-     * @param value The value associated with the specified key
-     */
-    def put(key: K, value: V): Put[E]
-
-  }
-
-}
