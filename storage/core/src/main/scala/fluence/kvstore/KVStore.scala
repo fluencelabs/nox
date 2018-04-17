@@ -155,7 +155,7 @@ object KVStore {
        * Returns lazy ''traverse'' representation (see [[Traverse]])
        */
       override def traverse: Traverse[K1, V1, StoreError] = new Traverse[K1, V1, StoreError] {
-        override def run[FS[_]: Monad](
+        override def run[FS[_]: Monad: LiftIO](
           implicit FS: MonadError[FS, StoreError],
           liftIterator: Iterator ~> FS
         ): FS[(K1, V1)] =

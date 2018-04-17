@@ -32,6 +32,7 @@ import scala.language.{higherKinds, implicitConversions}
 class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
   import fluence.kvstore.KVStore._
+  import ObservableLiftIO._
 
   type Key = Array[Byte]
   type Value = Array[Byte]

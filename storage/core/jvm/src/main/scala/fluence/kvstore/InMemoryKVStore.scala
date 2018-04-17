@@ -71,11 +71,11 @@ object InMemoryKVStore {
      */
     override def traverse: Traverse[K, V, StoreError] = new Traverse[K, V, StoreError] {
 
-      override def run[FS[_]: Monad](
+      override def run[FS[_]: Monad: LiftIO](
         implicit FS: MonadError[FS, StoreError],
         liftIterator: Iterator ~> FS
       ): FS[(K, V)] =
-        FS.pure(()).flatMap(_ ⇒ liftIterator(data.iterator))
+        IO(liftIterator(data.iterator)).to[FS].flatten
 
       override def runUnsafe: Iterator[(K, V)] =
         data.iterator

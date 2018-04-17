@@ -17,6 +17,7 @@
 
 package fluence.kvstore.ops
 
+import cats.effect.LiftIO
 import cats.{~>, Monad, MonadError}
 import fluence.kvstore.StoreError
 
@@ -39,7 +40,7 @@ trait Traverse[K, V, E <: StoreError] {
    *
    * @tparam FS User defined type of stream with monadError
    */
-  def run[FS[_]: Monad](implicit FS: MonadError[FS, E], liftIterator: Iterator ~> FS): FS[(K, V)]
+  def run[FS[_]: Monad: LiftIO](implicit FS: MonadError[FS, E], liftIterator: Iterator ~> FS): FS[(K, V)]
 
   /**
    * Returns [[Iterator]] with all key-value pairs for current KVStore,
