@@ -28,7 +28,6 @@ import slogging.LazyLogging
 
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
-import scala.util.control.NoStackTrace
 
 trait Kademlia[F[_], C] {
 

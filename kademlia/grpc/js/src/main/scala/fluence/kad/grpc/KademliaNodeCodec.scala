@@ -27,7 +27,7 @@ import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.grpc.facade.Node
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
-import fluence.transport.grpc.KeyUint8Codecs._
+import fluence.kad.grpc.KeyUint8Codecs._
 
 import fluence.codec.Uint8Codecs._
 
