@@ -19,7 +19,7 @@ package fluence.kvstore
 
 import cats.data.EitherT
 import cats.syntax.flatMap._
-import cats.{~>, Applicative, Monad, MonadError}
+import cats.{~>, ApplicativeError, Monad, MonadError}
 import fluence.codec.PureCodec
 import fluence.kvstore.ops.Get.KVStoreGet
 import fluence.kvstore.ops.Put.KVStorePut
@@ -68,24 +68,24 @@ trait ReadWriteKVStore[K, V, E <: StoreError] extends KVStoreRead[K, V, E] with 
  */
 trait Snapshot[S <: KVStore] {
 
-  def createSnapshot[F[_]: Applicative](): F[S]
+  def createSnapshot[F[_]]()(implicit F: ApplicativeError[F, StoreError]): F[S]
 
 }
 
 object KVStore {
 
-  // this MonadError is needed for travers and runF operations
-  implicit def storeMonadError[F[_]](implicit ME: MonadError[F, Throwable]): MonadError[F, StoreError] =
+  // this MonadError is needed for travers and runF and getSnapshot operations
+  implicit def storeMonadError[F[_]](implicit F: MonadError[F, Throwable]): MonadError[F, StoreError] =
     new MonadError[F, StoreError] {
-      override def flatMap[A, B](fa: F[A])(f: A ⇒ F[B]): F[B] = ME.flatMap(fa)(f)
-      override def tailRecM[A, B](a: A)(f: A ⇒ F[Either[A, B]]): F[B] = ME.tailRecM(a)(f)
-      override def raiseError[A](e: StoreError): F[A] = ME.raiseError(e)
-      override def handleErrorWith[A](fa: F[A])(f: StoreError ⇒ F[A]): F[A] = ME.handleErrorWith(fa) {
+      override def flatMap[A, B](fa: F[A])(f: A ⇒ F[B]): F[B] = F.flatMap(fa)(f)
+      override def tailRecM[A, B](a: A)(f: A ⇒ F[Either[A, B]]): F[B] = F.tailRecM(a)(f)
+      override def raiseError[A](e: StoreError): F[A] = F.raiseError(e)
+      override def handleErrorWith[A](fa: F[A])(f: StoreError ⇒ F[A]): F[A] = F.handleErrorWith(fa) {
         case cf: StoreError ⇒ f(cf)
-        case t ⇒ ME.raiseError(t)
+        case t ⇒ F.raiseError(t)
       }
       override def pure[A](x: A): F[A] =
-        ME.pure(x)
+        F.pure(x)
     }
 
   implicit def withCodecs[K, K1, V, V1](store: ReadWriteKVStore[K, V, StoreError])(

@@ -19,12 +19,13 @@ package fluence.kvstore
 
 import cats.data.EitherT
 import cats.syntax.flatMap._
-import cats.{~>, Applicative, Monad, MonadError}
+import cats.{~>, ApplicativeError, Monad, MonadError}
 import fluence.kvstore.ops.{Get, Put, Remove, Traverse}
 
 import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
 import scala.util.Try
+import scala.util.control.NonFatal
 
 /**
  * Top type for in memory kvStore implementation,
@@ -150,10 +151,13 @@ object InMemoryKVStore {
   def withSnapshots[K, V]: ReadWriteKVStore[K, V, StoreError] with Snapshot[KVStoreRead[K, V, StoreError]] = {
     new TrieMapKVStore[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V]
     with ReadWriteKVStore[K, V, StoreError] with Snapshot[KVStoreRead[K, V, StoreError]] {
-      override def createSnapshot[F[_]: Applicative](): F[KVStoreRead[K, V, StoreError]] = {
-        Applicative[F].pure(
-          new TrieMapKVStore(data.snapshot()) with InMemoryKVStoreRead[K, V]
-        )
+      override def createSnapshot[F[_]]()(
+        implicit F: ApplicativeError[F, StoreError]
+      ): F[KVStoreRead[K, V, StoreError]] = {
+        try F.pure(new TrieMapKVStore(data.snapshot()) with InMemoryKVStoreRead[K, V])
+        catch {
+          case NonFatal(e) ⇒ F.raiseError(StoreError.apply(e))
+        }
       }
     }
   }

@@ -201,7 +201,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       // check delete
 
-      val storeSnapshot1 = store.createSnapshot[Id]()
+      val storeSnapshot1 = store.createSnapshot[IO]().unsafeRunSync()
       storeSnapshot1.get(key1).runUnsafe().get shouldBe val1
 
       store.get(key1).runUnsafe().get shouldBe val1
@@ -224,7 +224,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       }) should contain theSameElementsAs bytesToStr(manyPairs)
 
       // take snapshot and remove all element in store
-      val storeSnapshot2 = store.createSnapshot[Id]()
+      val storeSnapshot2 = store.createSnapshot[IO]().unsafeRunSync()
 
       traverseResult.foreach { case (k, _) ⇒ store.remove(k).runUnsafe() }
       val traverseResult2 = store.traverse.runUnsafe.toList
