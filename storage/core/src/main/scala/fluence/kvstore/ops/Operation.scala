@@ -20,6 +20,7 @@ package fluence.kvstore.ops
 import cats.syntax.flatMap._
 import cats.{Monad, MonadError}
 import cats.data.EitherT
+import cats.effect.LiftIO
 import fluence.kvstore.StoreError
 
 import scala.language.higherKinds
@@ -38,7 +39,7 @@ trait Operation[V, E <: StoreError] {
    *
    * @tparam F User defined type of monad
    */
-  def run[F[_]: Monad]: EitherT[F, E, V]
+  def run[F[_]: Monad: LiftIO]: EitherT[F, E, V]
 
   /**
    * Runs unsafe operation, '''throw the error if it happens'''.
@@ -52,7 +53,7 @@ trait Operation[V, E <: StoreError] {
    *
    * @tparam F User defined type of monad
    */
-  def runEither[F[_]: Monad]: F[Either[E, V]] =
+  def runEither[F[_]: Monad: LiftIO]: F[Either[E, V]] =
     run[F].value
 
   /**
@@ -61,7 +62,7 @@ trait Operation[V, E <: StoreError] {
    *
    * @tparam F User defined type of monad
    */
-  def runF[F[_]: Monad](implicit F: MonadError[F, E]): F[V] =
+  def runF[F[_]: Monad: LiftIO](implicit F: MonadError[F, E]): F[V] =
     runEither.flatMap(F.fromEither)
 
 }

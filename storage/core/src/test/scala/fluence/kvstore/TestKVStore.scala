@@ -18,6 +18,7 @@
 package fluence.kvstore
 
 import cats.data.EitherT
+import cats.effect.LiftIO
 import cats.syntax.flatMap._
 import cats.{~>, Monad, MonadError}
 import fluence.kvstore.ops.{Get, Put, Remove, Traverse}
@@ -33,7 +34,7 @@ class TestKVStore[K, V] extends KVStore with ReadWriteKVStore[K, V, StoreError] 
   override def get(key: K): Get[V, StoreError] =
     new Get[V, StoreError] {
 
-      override def run[F[_]: Monad]: EitherT[F, StoreError, Option[V]] =
+      override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Option[V]] =
         EitherT.fromEither(
           Try(data.get(key)).toEither.left.map(err ⇒ StoreError.getError(key, Some(err)))
         )
@@ -59,7 +60,7 @@ class TestKVStore[K, V] extends KVStore with ReadWriteKVStore[K, V, StoreError] 
 
   override def put(key: K, value: V): Put[StoreError] = new Put[StoreError] {
 
-    override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
+    override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
       // format: off
       EitherT.fromEither {
         Try(data.put(key, value))
@@ -76,7 +77,7 @@ class TestKVStore[K, V] extends KVStore with ReadWriteKVStore[K, V, StoreError] 
 
   override def remove(key: K): Remove[StoreError] = new Remove[StoreError] {
 
-    override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
+    override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
       // format: off
       EitherT.fromEither {
         Try(data.remove(key))

@@ -18,13 +18,13 @@
 package fluence.kvstore
 
 import cats.data.EitherT
+import cats.effect.{IO, LiftIO}
 import cats.syntax.flatMap._
 import cats.{~>, ApplicativeError, Monad, MonadError}
 import fluence.kvstore.ops.{Get, Put, Remove, Traverse}
 
 import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
-import scala.util.Try
 import scala.util.control.NonFatal
 
 /**
@@ -57,10 +57,9 @@ object InMemoryKVStore {
      */
     override def get(key: K): Get[V, StoreError] = new Get[V, StoreError] {
 
-      override def run[F[_]: Monad]: EitherT[F, StoreError, Option[V]] =
-        EitherT
-          .rightT(key)
-          .subflatMap(k ⇒ Try(data.get(k)).toEither.left.map(err ⇒ StoreError.getError(key, Some(err))))
+      override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Option[V]] =
+        EitherT(IO(data.get(key)).attempt.to[F])
+          .leftMap(err ⇒ StoreError.getError(key, Some(err)))
 
       override def runUnsafe(): Option[V] =
         data.get(key)
@@ -101,10 +100,9 @@ object InMemoryKVStore {
      */
     override def put(key: K, value: V): Put[StoreError] = new Put[StoreError] {
 
-      override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
-        EitherT
-          .rightT(key → value)
-          .subflatMap { case (k, v) ⇒ Try(data.put(k, v)).toEither.left.map(err ⇒ StoreError.putError(key, Some(err))) }
+      override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
+        EitherT(IO(data.put(key, value)).attempt.to[F])
+          .leftMap(err ⇒ StoreError.putError(key, value, Some(err)))
           .map(_ ⇒ ())
 
       override def runUnsafe(): Unit =
@@ -119,10 +117,9 @@ object InMemoryKVStore {
      */
     override def remove(key: K): Remove[StoreError] = new Remove[StoreError] {
 
-      override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
-        EitherT
-          .rightT(key)
-          .subflatMap(k ⇒ Try(data.remove(k)).toEither.left.map(err ⇒ StoreError.putError(key, Some(err))))
+      override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
+        EitherT(IO(data.remove(key)).attempt.to[F])
+          .leftMap(err ⇒ StoreError.removeError(key, Some(err)))
           .map(_ ⇒ ())
 
       override def runUnsafe(): Unit =

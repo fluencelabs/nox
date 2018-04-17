@@ -20,7 +20,7 @@ package fluence.kvstore
 import java.nio.ByteBuffer
 
 import cats.effect.IO
-import cats.{~>, Id}
+import cats.~>
 import monix.execution.Scheduler.Implicits.global
 import monix.reactive.Observable
 import org.scalatest.concurrent.ScalaFutures
@@ -51,16 +51,16 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       val key1 = "key1".getBytes()
       val val1 = "val1".getBytes()
 
-      store.get(key1).run[Id].value.right.get shouldBe None
+      store.get(key1).run[IO].value.unsafeRunSync().right.get shouldBe None
       store.get(key1).runF[IO].unsafeRunSync() shouldBe None
-      store.get(key1).runEither[Id].right.get shouldBe None
+      store.get(key1).runEither[IO].unsafeRunSync().right.get shouldBe None
       store.get(key1).runUnsafe() shouldBe None
 
       store.put(key1, val1).runUnsafe() shouldBe ()
 
-      store.get(key1).run[Id].value.right.get.get shouldBe val1
+      store.get(key1).run[IO].value.unsafeRunSync().right.get.get shouldBe val1
       store.get(key1).runF[IO].unsafeRunSync().get shouldBe val1
-      store.get(key1).runEither[Id].right.get.get shouldBe val1
+      store.get(key1).runEither[IO].unsafeRunSync().right.get.get shouldBe val1
       store.get(key1).runUnsafe().get shouldBe val1
 
     }
@@ -99,8 +99,8 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       val key4 = "key4"
       val val4 = "val4"
 
-      store.put(key1, val1).run[Id].value.right.get shouldBe ()
-      store.put(key2, val2).runEither[Id].right.get shouldBe ()
+      store.put(key1, val1).run[IO].value.unsafeRunSync().right.get shouldBe ()
+      store.put(key2, val2).runEither[IO].unsafeRunSync().right.get shouldBe ()
       store.put(key3, val3).runF[IO].unsafeRunSync() shouldBe ()
       store.put(key4, val4).runUnsafe() shouldBe ()
 
@@ -122,19 +122,19 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       val key4 = "key4"
       val val4 = "val4"
 
-      store.remove(key1).run[Id].value.right.get shouldBe ()
+      store.remove(key1).run[IO].value.unsafeRunSync().right.get shouldBe ()
+      store.remove(key3).runEither[IO].unsafeRunSync().right.get shouldBe ()
       store.remove(key2).runF[IO].unsafeRunSync() shouldBe ()
-      store.remove(key3).runEither[Id].right.get shouldBe ()
       store.remove(key4).runUnsafe() shouldBe ()
 
-      store.put(key1, val1).run[Id].value.right.get shouldBe ()
-      store.put(key2, val2).runEither[Id].right.get shouldBe ()
+      store.put(key1, val1).run[IO].value.unsafeRunSync().right.get shouldBe ()
+      store.put(key2, val2).runEither[IO].unsafeRunSync().right.get shouldBe ()
       store.put(key3, val3).runF[IO].unsafeRunSync() shouldBe ()
       store.put(key4, val4).runUnsafe() shouldBe ()
 
-      store.remove(key1).run[Id].value.right.get shouldBe ()
+      store.remove(key1).run[IO].value.unsafeRunSync().right.get shouldBe ()
+      store.remove(key3).runEither[IO].unsafeRunSync().right.get shouldBe ()
       store.remove(key2).runF[IO].unsafeRunSync() shouldBe ()
-      store.remove(key3).runEither[Id].right.get shouldBe ()
       store.remove(key4).runUnsafe() shouldBe ()
 
       store.traverse.runUnsafe.toList shouldBe empty

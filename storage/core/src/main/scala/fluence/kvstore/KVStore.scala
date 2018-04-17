@@ -18,6 +18,7 @@
 package fluence.kvstore
 
 import cats.data.EitherT
+import cats.effect.LiftIO
 import cats.syntax.flatMap._
 import cats.{~>, ApplicativeError, Monad, MonadError}
 import fluence.codec.PureCodec
@@ -129,7 +130,7 @@ object KVStore {
        */
       override def get(key: K1): Get[V1, StoreError] = new Get[V1, StoreError] {
 
-        override def run[F[_]: Monad]: EitherT[F, StoreError, Option[V1]] =
+        override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Option[V1]] =
           for {
             k ← kCodec.direct[F](key).leftMap(ce ⇒ StoreError(ce))
             v ← store.get(k).run
@@ -157,7 +158,7 @@ object KVStore {
         override def run[FS[_]: Monad](
           implicit FS: MonadError[FS, StoreError],
           liftIterator: Iterator ~> FS
-        ): FS[(K1, V1)] = {
+        ): FS[(K1, V1)] =
           store.traverse.run.flatMap {
             case (k, v) ⇒
               val decodedPair = for {
@@ -170,7 +171,6 @@ object KVStore {
                 case Left(err) ⇒ FS.raiseError[(K1, V1)](StoreError(err))
               }
           }
-        }
 
         override def runUnsafe: Iterator[(K1, V1)] =
           store.traverse.runUnsafe.map { case (k, v) ⇒ kCodec.inverse.unsafe(k) -> vCodec.inverse.unsafe(v) }
@@ -185,7 +185,7 @@ object KVStore {
        */
       override def put(key: K1, value: V1): Put[StoreError] = new Put[StoreError] {
 
-        override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
+        override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
           for {
             k ← kCodec.direct[F](key).leftMap(ce ⇒ StoreError(ce))
             v ← vCodec.direct[F](value).leftMap(ce ⇒ StoreError(ce))
@@ -206,7 +206,7 @@ object KVStore {
        */
       override def remove(key: K1): Remove[StoreError] = new Remove[StoreError] {
 
-        override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
+        override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
           for {
             k ← kCodec.direct[F](key).leftMap(ce ⇒ StoreError(ce))
           } yield store.remove(k).run
