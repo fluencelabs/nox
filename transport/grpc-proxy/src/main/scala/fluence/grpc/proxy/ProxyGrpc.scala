@@ -56,7 +56,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
     } yield methodDescriptor
   }
 
-  private def getMethodDescriptorF(service: String, method: String): Task[MethodDescriptor[Any, Any]] = {
+  private def getMethodDescriptorF(service: String, method: String): Task[MethodDescriptor[Any, Any]] =
     Task.eval(getMethodDescriptor(service, method)).flatMap {
       case Some(md) ⇒ Task.pure(md)
       case None ⇒ Task.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
@@ -66,16 +66,16 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
 
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
-  def openBidiCall[Req, Resp](
-    methodDescriptor: MethodDescriptor[Req, Resp]
-  ): Task[(ClientCall[Req, Resp], Observable[Response])] = {
+  def openBidiCall(
+    methodDescriptor: MethodDescriptor[Any, Any]
+  ): Task[(ClientCall[Any, Any], Observable[Response])] = {
     Task.eval {
       val metadata = new Metadata()
       val call = inProcessGrpc.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
 
       val (in, out) = Observable.multicast[Any](MulticastStrategy.replay, overflow)
 
-      call.start(new StreamProxyListener[Resp](in), metadata)
+      call.start(new StreamProxyListener[Any](in), metadata)
 
       val mappedOut = out.collect {
         case r ⇒
@@ -115,7 +115,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
           }
         case None ⇒
           for {
-            callWithObs ← openBidiCall[Any, Any](methodDescriptor)
+            callWithObs ← openBidiCall(methodDescriptor)
             (c, obs) = callWithObs
             _ ← if (methodDescriptor.getType != MethodType.UNARY) {
               for {
