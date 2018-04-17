@@ -22,8 +22,8 @@ import fluence.codec.Codec
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.contract.ops.ContractValidate
 import fluence.crypto.SignAlgo.CheckerFn
-import fluence.protobuf.contract.BasicContract
-import fluence.protobuf.contract.grpc.ContractAllocatorGrpc
+import fluence.contract.protobuf.BasicContract
+import fluence.contract.protobuf.grpc.ContractAllocatorGrpc
 
 import scala.concurrent.Future
 

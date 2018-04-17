@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package fluence.protobuf.contract;
+package fluence.contract.protobuf;
 
-import "contract.proto";
+import "protobuf.proto";
 
 service ContractAllocator {
     rpc offer (BasicContract) returns (BasicContract);

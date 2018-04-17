@@ -23,8 +23,8 @@ import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, KademliaRpc, Key}
-import fluence.protobuf.kad._
-import fluence.protobuf.kad.grpc.KademliaGrpc
+import fluence.kad.protobuf._
+import fluence.kad.protobuf.grpc.KademliaGrpc
 import fluence.kad.KeyProtobufCodecs._
 
 import scala.concurrent.Future

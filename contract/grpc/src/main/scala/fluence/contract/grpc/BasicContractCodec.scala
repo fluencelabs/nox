@@ -34,7 +34,7 @@ import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 import fluence.kad.KeyProtobufCodecs._
 import fluence.codec.bits.BitsCodecs._
-import fluence.protobuf.contract.{BasicContract, BasicContractOffer, Participant}
+import fluence.contract.protobuf.{BasicContract, BasicContractOffer, Participant}
 
 import scala.language.higherKinds
 

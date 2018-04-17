@@ -30,7 +30,7 @@ import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.{KademliaGrpcUpdate, KademliaNodeCodec}
 import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
-import fluence.protobuf.kad.grpc.KademliaGrpc
+import fluence.kad.protobuf.grpc.KademliaGrpc
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.GrpcServer

@@ -24,8 +24,8 @@ import fluence.contract.protocol.ContractsCacheRpc
 import fluence.contract.ops.ContractValidate
 import fluence.crypto.SignAlgo.CheckerFn
 import fluence.kad.protocol.Key
-import fluence.protobuf.contract.{BasicContract, CacheResponse, FindRequest}
-import fluence.protobuf.contract.grpc.ContractsCacheGrpc
+import fluence.contract.protobuf.{BasicContract, CacheResponse, FindRequest}
+import fluence.contract.protobuf.grpc.ContractsCacheGrpc
 
 import scala.concurrent.Future
 import scala.language.higherKinds
