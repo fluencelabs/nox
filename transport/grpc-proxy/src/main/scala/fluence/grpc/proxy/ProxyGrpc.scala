@@ -62,13 +62,15 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
       case None ⇒ Task.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
     }
 
+  //TODO add autoclean of old streamId
+  //TODO split cache for several clients
   val callCache: Task[MVar[Map[Long, ClientCall[Any, Any]]]] = MVar(Map.empty[Long, ClientCall[Any, Any]]).memoize
 
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
   def openBidiCall(
     methodDescriptor: MethodDescriptor[Any, Any]
-  ): Task[(ClientCall[Any, Any], Observable[Response])] = {
+  ): Task[(ClientCall[Any, Any], Observable[Array[Byte]])] = {
     Task.eval {
       val metadata = new Metadata()
       val call = inProcessGrpc.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
@@ -79,7 +81,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
 
       val mappedOut = out.collect {
         case r ⇒
-          ResponseArrayByte(IoUtils.toByteArray(methodDescriptor.streamResponse(r))): Response
+          IoUtils.toByteArray(methodDescriptor.streamResponse(r))
       }
 
       (call, mappedOut)
@@ -100,12 +102,11 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
     method: String,
     streamId: Long,
     stream: InputStream
-  ): Task[Observable[Response]] = {
+  ): Task[Observable[Array[Byte]]] = {
     for {
       methodDescriptor ← getMethodDescriptorF(service, method)
-
-      callOp ← callCache.flatMap(_.read).map(_.get(streamId))
       req ← Task.eval(methodDescriptor.parseRequest(stream))
+      callOp ← callCache.flatMap(_.read).map(_.get(streamId))
       resp ← callOp match {
         case Some(c) ⇒
           Task.eval {
@@ -136,6 +137,3 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   }
 
 }
-
-sealed trait Response
-final case class ResponseArrayByte(bytes: Array[Byte]) extends Response

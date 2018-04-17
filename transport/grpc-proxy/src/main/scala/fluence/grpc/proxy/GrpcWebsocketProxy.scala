@@ -17,26 +17,19 @@
 
 package fluence.grpc.proxy
 
-import cats.effect._
-import cats.syntax.flatMap._
-import cats.syntax.functor._
 import fluence.proxy.grpc.WebsocketMessage
 import fs2.StreamApp.ExitCode
-import fs2.async.mutable.{Queue, Topic}
+import fs2.async.mutable.Queue
+import fs2.interop.reactivestreams._
 import fs2.{io ⇒ _, _}
-import fs2._
 import monix.eval.Task
+import monix.execution.Scheduler.Implicits.global
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.websocket._
-import org.http4s.websocket.WebsocketBits
 import org.http4s.websocket.WebsocketBits.{WebSocketFrame, _}
-import org.reactivestreams.Publisher
-import fs2.interop.reactivestreams._
 
-import scala.concurrent.ExecutionContext
-import monix.execution.Scheduler.Implicits.global
 import scala.language.higherKinds
 
 /**
@@ -60,7 +53,7 @@ class GrpcWebsocketProxy(proxyGrpc: ProxyGrpc, port: Int = 8080) extends StreamA
               .handleMessage(message.service, message.method, message.streamId, message.payload.newInput())
           } yield {
             response.map {
-              case ResponseArrayByte(bytes) ⇒ Binary(bytes): WebSocketFrame
+              Binary(_): WebSocketFrame
             }.take(1)
 
           }

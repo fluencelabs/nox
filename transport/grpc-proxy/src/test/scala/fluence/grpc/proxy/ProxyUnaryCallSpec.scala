@@ -121,10 +121,7 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers with slogging.LazyLoggin
         )
         .get
 
-      val respBytes = testResp match {
-        case ResponseArrayByte(b) ⇒ b
-        case _ ⇒ throw new RuntimeException("error")
-      }
+      val respBytes = testResp
 
       val resp = TestRequest.parseFrom(respBytes).message.get
       resp.str shouldBe str + "resp"
@@ -145,7 +142,7 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers with slogging.LazyLoggin
         val listStr = Seq("test1", "test2")
         val byteArray = ByteString.copyFrom(Array[Byte](1, 2, 3, 4, 5))
 
-        def sendMessage(message: WebsocketMessage): Observable[Response] = {
+        def sendMessage(message: WebsocketMessage): Observable[Array[Byte]] = {
 
           proxyGrpc
             .handleMessage(
@@ -167,7 +164,7 @@ class ProxyUnaryCallSpec extends WordSpec with Matchers with slogging.LazyLoggin
         val testRespF = sendMessage(testMessage)
 
         val m = testRespF.collect {
-          case ResponseArrayByte(b) ⇒
+          case b ⇒
             val resp = TestRequest.parseFrom(b)
             logger.debug("counter: " + resp.message.get.counter)
             resp.message.get.counter match {
