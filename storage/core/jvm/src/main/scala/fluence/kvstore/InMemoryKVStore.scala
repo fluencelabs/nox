@@ -57,9 +57,9 @@ object InMemoryKVStore {
     override def get(key: K): Get[V, StoreError] = new Get[V, StoreError] {
 
       override def run[F[_]: Monad]: EitherT[F, StoreError, Option[V]] =
-        EitherT.fromEither(
-          Try(data.get(key)).toEither.left.map(err ⇒ StoreError.getError(key, Some(err)))
-        )
+        EitherT
+          .rightT(key)
+          .subflatMap(k ⇒ Try(data.get(k)).toEither.left.map(err ⇒ StoreError.getError(key, Some(err))))
 
       override def runUnsafe(): Option[V] =
         data.get(key)
@@ -75,9 +75,7 @@ object InMemoryKVStore {
         implicit FS: MonadError[FS, StoreError],
         liftIterator: Iterator ~> FS
       ): FS[(K, V)] =
-        FS.fromEither {
-          Try(liftIterator(data.iterator)).toEither.left.map(err ⇒ StoreError.traverseError(Some(err)))
-        }.flatten
+        FS.pure(()).flatMap(_ ⇒ liftIterator(data.iterator))
 
       override def runUnsafe: Iterator[(K, V)] =
         data.iterator
@@ -103,14 +101,10 @@ object InMemoryKVStore {
     override def put(key: K, value: V): Put[StoreError] = new Put[StoreError] {
 
       override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
-        // format: off
-      EitherT.fromEither {
-        Try(data.put(key, value))
-          .toEither
-          .left.map(err ⇒ StoreError.putError(key, value, Some(err)))
-          .right.map(_ ⇒ ())
-      }
-      // format: on
+        EitherT
+          .rightT(key → value)
+          .subflatMap { case (k, v) ⇒ Try(data.put(k, v)).toEither.left.map(err ⇒ StoreError.putError(key, Some(err))) }
+          .map(_ ⇒ ())
 
       override def runUnsafe(): Unit =
         data.put(key, value)
@@ -125,14 +119,10 @@ object InMemoryKVStore {
     override def remove(key: K): Remove[StoreError] = new Remove[StoreError] {
 
       override def run[F[_]: Monad]: EitherT[F, StoreError, Unit] =
-        // format: off
-      EitherT.fromEither {
-        Try(data.remove(key))
-          .toEither
-          .left.map(err ⇒ StoreError.removeError(key, Some(err)))
-          .right.map(_ ⇒ ())
-      }
-      // format: on
+        EitherT
+          .rightT(key)
+          .subflatMap(k ⇒ Try(data.remove(k)).toEither.left.map(err ⇒ StoreError.putError(key, Some(err))))
+          .map(_ ⇒ ())
 
       override def runUnsafe(): Unit =
         data.remove(key)
