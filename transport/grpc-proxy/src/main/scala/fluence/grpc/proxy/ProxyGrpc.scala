@@ -61,7 +61,6 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
       case Some(md) ⇒ Task.pure(md)
       case None ⇒ Task.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
     }
-  }
 
   val callCache: Task[MVar[Map[Long, ClientCall[Any, Any]]]] = MVar(Map.empty[Long, ClientCall[Any, Any]]).memoize
 
@@ -72,9 +71,9 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   ): Task[(ClientCall[Req, Resp], Observable[Response])] = {
     Task.eval {
       val metadata = new Metadata()
-      val call = inProcessGrpc.newCall[Req, Resp](methodDescriptor, CallOptions.DEFAULT)
+      val call = inProcessGrpc.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
 
-      val (in, out) = Observable.multicast[Resp](MulticastStrategy.replay, overflow)
+      val (in, out) = Observable.multicast[Any](MulticastStrategy.replay, overflow)
 
       call.start(new StreamProxyListener[Resp](in), metadata)
 
