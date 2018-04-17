@@ -28,9 +28,8 @@ import scala.language.higherKinds
  *
  * @tparam K A type of search key
  * @tparam V A type of value
- * @tparam E A type for any storage errors
  */
-trait Traverse[K, V, E <: StoreError] {
+trait Traverse[K, V] {
 
   /**
    * Returns FS stream of all pairs in current key-value store.
@@ -40,7 +39,7 @@ trait Traverse[K, V, E <: StoreError] {
    *
    * @tparam FS User defined type of stream with monadError
    */
-  def run[FS[_]: Monad: LiftIO](implicit FS: MonadError[FS, E], liftIterator: Iterator ~> FS): FS[(K, V)]
+  def run[FS[_]: Monad: LiftIO](implicit FS: MonadError[FS, StoreError], liftIterator: Iterator ~> FS): FS[(K, V)]
 
   /**
    * Returns [[Iterator]] with all key-value pairs for current KVStore,

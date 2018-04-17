@@ -29,9 +29,13 @@ import scala.language.higherKinds
  * Representation for kvStore lazy operations.
  *
  * @tparam V A type of returned value
- * @tparam E A type for any storage errors
  */
-trait Operation[V, E <: StoreError] {
+trait Operation[V] {
+
+  /**
+   *  A type for any storage errors
+   */
+  type E = StoreError
 
   /**
    * Runs operation using the user defined monad,

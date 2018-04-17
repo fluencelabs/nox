@@ -17,13 +17,9 @@
 
 package fluence.kvstore.ops
 
-import fluence.kvstore.StoreError
-
 import scala.language.higherKinds
 
 /**
  * Lazy representation for removing key and value.
- *
- * @tparam E A type for any storage errors
  */
-trait Remove[E <: StoreError] extends Operation[Unit, E]
+trait Remove extends Operation[Unit]

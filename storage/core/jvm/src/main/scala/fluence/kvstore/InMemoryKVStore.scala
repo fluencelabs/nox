@@ -48,14 +48,14 @@ object InMemoryKVStore {
    * @tparam K A type of search key
    * @tparam V A type of value
    */
-  private trait InMemoryKVStoreRead[K, V] extends InMemoryKVStore[K, V] with KVStoreRead[K, V, StoreError] { self ⇒
+  private trait InMemoryKVStoreRead[K, V] extends InMemoryKVStore[K, V] with KVStoreRead[K, V] { self ⇒
 
     /**
      * Returns lazy ''get'' representation (see [[fluence.kvstore.ops.Get]])
      *
      * @param key Search key
      */
-    override def get(key: K): Get[V, StoreError] = new Get[V, StoreError] {
+    override def get(key: K): Get[V] = new Get[V] {
 
       override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Option[V]] =
         EitherT(IO(data.get(key)).attempt.to[F])
@@ -69,7 +69,7 @@ object InMemoryKVStore {
     /**
      * Returns lazy ''traverse'' representation (see [[Traverse]])
      */
-    override def traverse: Traverse[K, V, StoreError] = new Traverse[K, V, StoreError] {
+    override def traverse: Traverse[K, V] = new Traverse[K, V] {
 
       override def run[FS[_]: Monad: LiftIO](
         implicit FS: MonadError[FS, StoreError],
@@ -90,7 +90,7 @@ object InMemoryKVStore {
    * @tparam K A type of search key
    * @tparam V A type of value
    */
-  private trait InMemoryKVStoreWrite[K, V] extends InMemoryKVStore[K, V] with KVStoreWrite[K, V, StoreError] { self ⇒
+  private trait InMemoryKVStoreWrite[K, V] extends InMemoryKVStore[K, V] with KVStoreWrite[K, V] { self ⇒
 
     /**
      * Returns lazy ''put'' representation (see [[Put]])
@@ -98,7 +98,7 @@ object InMemoryKVStore {
      * @param key The specified key to be inserted
      * @param value The value associated with the specified key
      */
-    override def put(key: K, value: V): Put[StoreError] = new Put[StoreError] {
+    override def put(key: K, value: V): Put = new Put {
 
       override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
         EitherT(IO(data.put(key, value)).attempt.to[F])
@@ -115,7 +115,7 @@ object InMemoryKVStore {
      *
      * @param key The specified key to be inserted
      */
-    override def remove(key: K): Remove[StoreError] = new Remove[StoreError] {
+    override def remove(key: K): Remove = new Remove {
 
       override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
         EitherT(IO(data.remove(key)).attempt.to[F])
@@ -135,9 +135,8 @@ object InMemoryKVStore {
    * @tparam K A type of search key
    * @tparam V A type of value
    */
-  def apply[K, V]: ReadWriteKVStore[K, V, StoreError] =
-    new TrieMapKVStore[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V]
-    with ReadWriteKVStore[K, V, StoreError]
+  def apply[K, V]: ReadWriteKVStore[K, V] =
+    new TrieMapKVStore[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V] with ReadWriteKVStore[K, V]
 
   /**
    * Create in memory [[ReadWriteKVStore]] with snapshot functionality.
@@ -145,12 +144,12 @@ object InMemoryKVStore {
    * @tparam K A type of search key
    * @tparam V A type of value
    */
-  def withSnapshots[K, V]: ReadWriteKVStore[K, V, StoreError] with Snapshot[KVStoreRead[K, V, StoreError]] = {
-    new TrieMapKVStore[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V]
-    with ReadWriteKVStore[K, V, StoreError] with Snapshot[KVStoreRead[K, V, StoreError]] {
+  def withSnapshots[K, V]: ReadWriteKVStore[K, V] with Snapshot[KVStoreRead[K, V]] = {
+    new TrieMapKVStore[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V] with ReadWriteKVStore[K, V]
+    with Snapshot[KVStoreRead[K, V]] {
       override def createSnapshot[F[_]]()(
         implicit F: ApplicativeError[F, StoreError]
-      ): F[KVStoreRead[K, V, StoreError]] = {
+      ): F[KVStoreRead[K, V]] = {
         try F.pure(new TrieMapKVStore(data.snapshot()) with InMemoryKVStoreRead[K, V])
         catch {
           case NonFatal(e) ⇒ F.raiseError(StoreError.apply(e))

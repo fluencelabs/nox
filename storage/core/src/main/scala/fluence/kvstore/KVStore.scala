@@ -36,21 +36,20 @@ trait KVStore
  *
  * @tparam K The type of keys
  * @tparam V The type of stored values
- * @tparam E The type of storage error
  */
-trait KVStoreRead[K, V, E <: StoreError] extends KVStore {
+trait KVStoreRead[K, V] extends KVStore {
 
   /**
    * Returns lazy ''get'' representation (see [[Get]])
    *
    * @param key Search key
    */
-  def get(key: K): Get[V, StoreError]
+  def get(key: K): Get[V]
 
   /**
    * Returns lazy ''traverse'' representation (see [[Traverse]])
    */
-  def traverse: Traverse[K, V, E]
+  def traverse: Traverse[K, V]
 
 }
 
@@ -59,9 +58,8 @@ trait KVStoreRead[K, V, E <: StoreError] extends KVStore {
  *
  * @tparam K The type of keys
  * @tparam V The type of stored values
- * @tparam E The type of storage error
  */
-trait KVStoreWrite[K, V, E <: StoreError] extends KVStore {
+trait KVStoreWrite[K, V] extends KVStore {
 
   /**
    * Returns lazy ''put'' representation (see [[Put]])
@@ -69,14 +67,14 @@ trait KVStoreWrite[K, V, E <: StoreError] extends KVStore {
    * @param key The specified key to be inserted
    * @param value The value associated with the specified key
    */
-  def put(key: K, value: V): Put[E]
+  def put(key: K, value: V): Put
 
   /**
    * Returns lazy ''remove'' representation (see [[Remove]])
    *
    * @param key The specified key to be inserted
    */
-  def remove(key: K): Remove[E]
+  def remove(key: K): Remove
 
 }
 
@@ -85,9 +83,8 @@ trait KVStoreWrite[K, V, E <: StoreError] extends KVStore {
  *
  * @tparam K The type of keys
  * @tparam V The type of stored values
- * @tparam E The type of storage error
  */
-trait ReadWriteKVStore[K, V, E <: StoreError] extends KVStoreRead[K, V, E] with KVStoreWrite[K, V, E]
+trait ReadWriteKVStore[K, V] extends KVStoreRead[K, V] with KVStoreWrite[K, V]
 
 /**
  * Key-value storage api for getting storage snapshot.
@@ -116,19 +113,19 @@ object KVStore {
         F.pure(x)
     }
 
-  implicit def withCodecs[K, K1, V, V1](store: ReadWriteKVStore[K, V, StoreError])(
+  implicit def withCodecs[K, K1, V, V1](store: ReadWriteKVStore[K, V])(
     implicit
     kCodec: PureCodec[K1, K],
     vCodec: PureCodec[V1, V]
-  ): ReadWriteKVStore[K1, V1, StoreError] =
-    new ReadWriteKVStore[K1, V1, StoreError] {
+  ): ReadWriteKVStore[K1, V1] =
+    new ReadWriteKVStore[K1, V1] {
 
       /**
        * Returns lazy ''get'' representation (see [[Get]])
        *
        * @param key Search key
        */
-      override def get(key: K1): Get[V1, StoreError] = new Get[V1, StoreError] {
+      override def get(key: K1): Get[V1] = new Get[V1] {
 
         override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Option[V1]] =
           for {
@@ -154,7 +151,7 @@ object KVStore {
       /**
        * Returns lazy ''traverse'' representation (see [[Traverse]])
        */
-      override def traverse: Traverse[K1, V1, StoreError] = new Traverse[K1, V1, StoreError] {
+      override def traverse: Traverse[K1, V1] = new Traverse[K1, V1] {
         override def run[FS[_]: Monad: LiftIO](
           implicit FS: MonadError[FS, StoreError],
           liftIterator: Iterator ~> FS
@@ -183,7 +180,7 @@ object KVStore {
        * @param key   The specified key to be inserted
        * @param value The value associated with the specified key
        */
-      override def put(key: K1, value: V1): Put[StoreError] = new Put[StoreError] {
+      override def put(key: K1, value: V1): Put = new Put {
 
         override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
           for {
@@ -204,7 +201,7 @@ object KVStore {
        *
        * @param key The specified key to be inserted
        */
-      override def remove(key: K1): Remove[StoreError] = new Remove[StoreError] {
+      override def remove(key: K1): Remove = new Remove {
 
         override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
           for {

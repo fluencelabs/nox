@@ -17,13 +17,9 @@
 
 package fluence.kvstore.ops
 
-import fluence.kvstore.{KVStore, StoreError}
-
 import scala.language.higherKinds
 
 /**
  * Lazy representation for getting key and value.
- *
- * @tparam E A type for any storage errors
  */
-trait Get[V, E <: StoreError] extends Operation[Option[V], E]
+trait Get[V] extends Operation[Option[V]]

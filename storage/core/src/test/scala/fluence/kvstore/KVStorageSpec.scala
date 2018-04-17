@@ -28,7 +28,7 @@ class KVStorageSpec extends WordSpec with Matchers {
       implicit val strCodec = PureCodec.liftB[String, Array[Byte]](str ⇒ str.getBytes, bytes ⇒ new String(bytes))
       implicit val longCodec = PureCodec.liftB[Long, String](long ⇒ long.toString, str ⇒ str.toLong)
 
-      val store: ReadWriteKVStore[Long, String, StoreError] = new TestKVStore[String, Array[Byte]]
+      val store: ReadWriteKVStore[Long, String] = new TestKVStore[String, Array[Byte]]
 
       store.put(1L, "test").runUnsafe() shouldBe ()
       store.get(1L).runUnsafe() shouldBe Some("test")
