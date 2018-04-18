@@ -306,9 +306,10 @@ lazy val `storage-core` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence"   %%% "codec-core" % CodecV,
-      "org.scalatest" %%% "scalatest"  % ScalatestV % Test,
-      "io.monix"      %%% "monix"      % MonixV % Test
+      "one.fluence" %%% "codec-core" % CodecV,
+      "org.typelevel" %%% "cats-effect" % CatsEffectV,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test,
+      "io.monix"      %%% "monix"     % MonixV     % Test
     )
   )
   .jsSettings(
