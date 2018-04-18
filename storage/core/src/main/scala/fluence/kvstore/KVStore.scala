@@ -18,7 +18,7 @@
 package fluence.kvstore
 
 import cats.data.EitherT
-import cats.effect.LiftIO
+import cats.effect.{IO, LiftIO}
 import cats.syntax.flatMap._
 import cats.{~>, ApplicativeError, Monad, MonadError}
 import fluence.codec.PureCodec
@@ -93,25 +93,11 @@ trait ReadWriteKVStore[K, V] extends KVStoreRead[K, V] with KVStoreWrite[K, V]
  */
 trait Snapshot[S <: KVStore] {
 
-  def createSnapshot[F[_]]()(implicit F: ApplicativeError[F, StoreError]): F[S]
+  def createSnapshot[F[_]: LiftIO](): F[S]
 
 }
 
 object KVStore {
-
-  // this MonadError is needed for travers and runF and getSnapshot operations
-  implicit def storeMonadError[F[_]](implicit F: MonadError[F, Throwable]): MonadError[F, StoreError] =
-    new MonadError[F, StoreError] {
-      override def flatMap[A, B](fa: F[A])(f: A ⇒ F[B]): F[B] = F.flatMap(fa)(f)
-      override def tailRecM[A, B](a: A)(f: A ⇒ F[Either[A, B]]): F[B] = F.tailRecM(a)(f)
-      override def raiseError[A](e: StoreError): F[A] = F.raiseError(e)
-      override def handleErrorWith[A](fa: F[A])(f: StoreError ⇒ F[A]): F[A] = F.handleErrorWith(fa) {
-        case cf: StoreError ⇒ f(cf)
-        case t ⇒ F.raiseError(t)
-      }
-      override def pure[A](x: A): F[A] =
-        F.pure(x)
-    }
 
   implicit def withCodecs[K, K1, V, V1](store: ReadWriteKVStore[K, V])(
     implicit
@@ -135,7 +121,7 @@ object KVStore {
               case Some(v2) ⇒
                 vCodec.inverse(v2).map(Option(_)).leftMap(ce ⇒ StoreError(ce))
               case None ⇒
-                EitherT.right[StoreError](Monad[F].pure[Option[V1]](None))
+                EitherT.rightT[F, StoreError](None)
             }
           } yield v1
 
@@ -153,8 +139,7 @@ object KVStore {
        */
       override def traverse: Traverse[K1, V1] = new Traverse[K1, V1] {
         override def run[FS[_]: Monad: LiftIO](
-          implicit FS: MonadError[FS, StoreError],
-          liftIterator: Iterator ~> FS
+          implicit liftIterator: Iterator ~> FS
         ): FS[(K1, V1)] =
           store.traverse.run.flatMap {
             case (k, v) ⇒
@@ -164,8 +149,8 @@ object KVStore {
               } yield key → value
 
               decodedPair.value.flatMap {
-                case Right(pair) ⇒ FS.pure(pair)
-                case Left(err) ⇒ FS.raiseError[(K1, V1)](StoreError(err))
+                case Right(pair) ⇒ Monad[FS].pure(pair)
+                case Left(err) ⇒ IO.raiseError[(K1, V1)](StoreError(err)).to[FS]
               }
           }
 

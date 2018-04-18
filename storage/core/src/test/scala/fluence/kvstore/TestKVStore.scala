@@ -20,7 +20,7 @@ package fluence.kvstore
 import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
 import cats.syntax.flatMap._
-import cats.{~>, Monad, MonadError}
+import cats.{~>, Monad}
 import fluence.kvstore.ops.{Get, Put, Remove, Traverse}
 
 import scala.collection.mutable
@@ -46,8 +46,7 @@ class TestKVStore[K, V] extends KVStore with ReadWriteKVStore[K, V] {
   override def traverse: Traverse[K, V] = new Traverse[K, V] {
 
     override def run[FS[_]: Monad: LiftIO](
-      implicit FS: MonadError[FS, StoreError],
-      liftIterator: Iterator ~> FS
+      implicit liftIterator: Iterator ~> FS
     ): FS[(K, V)] =
       IO(liftIterator(data.iterator)).to[FS].flatten
 

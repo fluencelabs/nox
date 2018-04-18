@@ -20,12 +20,11 @@ package fluence.kvstore
 import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
 import cats.syntax.flatMap._
-import cats.{~>, ApplicativeError, Monad, MonadError}
+import cats.{~>, Monad}
 import fluence.kvstore.ops.{Get, Put, Remove, Traverse}
 
 import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
-import scala.util.control.NonFatal
 
 /**
  * Top type for in memory kvStore implementation,
@@ -72,8 +71,7 @@ object InMemoryKVStore {
     override def traverse: Traverse[K, V] = new Traverse[K, V] {
 
       override def run[FS[_]: Monad: LiftIO](
-        implicit FS: MonadError[FS, StoreError],
-        liftIterator: Iterator ~> FS
+        implicit liftIterator: Iterator ~> FS
       ): FS[(K, V)] =
         IO(liftIterator(data.iterator)).to[FS].flatten
 
@@ -147,14 +145,8 @@ object InMemoryKVStore {
   def withSnapshots[K, V]: ReadWriteKVStore[K, V] with Snapshot[KVStoreRead[K, V]] = {
     new TrieMapKVStore[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V] with ReadWriteKVStore[K, V]
     with Snapshot[KVStoreRead[K, V]] {
-      override def createSnapshot[F[_]]()(
-        implicit F: ApplicativeError[F, StoreError]
-      ): F[KVStoreRead[K, V]] = {
-        try F.pure(new TrieMapKVStore(data.snapshot()) with InMemoryKVStoreRead[K, V])
-        catch {
-          case NonFatal(e) ⇒ F.raiseError(StoreError.apply(e))
-        }
-      }
+      override def createSnapshot[F[_]: LiftIO](): F[KVStoreRead[K, V]] =
+        IO[KVStoreRead[K, V]](new TrieMapKVStore(data.snapshot()) with InMemoryKVStoreRead[K, V]).to[F]
     }
   }
 

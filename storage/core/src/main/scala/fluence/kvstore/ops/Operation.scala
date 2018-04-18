@@ -17,10 +17,11 @@
 
 package fluence.kvstore.ops
 
-import cats.syntax.flatMap._
-import cats.{Monad, MonadError}
+import cats.Monad
 import cats.data.EitherT
-import cats.effect.LiftIO
+import cats.effect.{IO, LiftIO}
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.kvstore.StoreError
 
 import scala.language.higherKinds
@@ -66,7 +67,7 @@ trait Operation[V] {
    *
    * @tparam F User defined type of monad
    */
-  def runF[F[_]: Monad: LiftIO](implicit F: MonadError[F, E]): F[V] =
-    runEither.flatMap(F.fromEither)
+  def runF[F[_]: Monad: LiftIO]: F[V] =
+    runEither.map(IO.fromEither).flatMap(_.to[F])
 
 }
