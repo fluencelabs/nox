@@ -678,7 +678,6 @@ lazy val `node-core` = project
     commons,
     protobuf,
     PB.protoSources in Compile := {
-      println(PB.protoSources)
       Seq(file("node/core/src/main/protobuf"))
     },
     libraryDependencies ++= Seq(
