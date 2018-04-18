@@ -17,9 +17,32 @@
 
 package fluence.kvstore.ops
 
+import cats.effect.LiftIO
+import cats.{~>, Monad}
+
 import scala.language.higherKinds
 
 /**
- * Lazy representation for putting key and value.
+ * Lazy representation for traversing all values.
+ *
+ * @tparam K A type of search key
+ * @tparam V A type of value
  */
-trait Put extends Operation[Unit]
+trait TraverseOperation[K, V] {
+
+  /**
+   * Returns FS stream of all pairs in current key-value store.
+   *
+   * @param liftIterator Creates FS stream from [[Iterator]]
+   *
+   * @tparam FS User defined type of stream with monadError
+   */
+  def run[FS[_]: Monad: LiftIO](implicit liftIterator: Iterator ~> FS): FS[(K, V)]
+
+  /**
+   * Returns [[Iterator]] with all key-value pairs for current KVStore,
+   * '''throw the error if it happens'''. Intended to be used '''only in tests'''.
+   */
+  def runUnsafe: Iterator[(K, V)]
+
+}

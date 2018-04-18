@@ -39,16 +39,16 @@ object StoreError {
 
   def apply(exception: Throwable): StoreError = new StoreError(exception.getMessage, Some(exception))
 
-  def getError[K](key: K, causedBy: Option[Throwable] = None): StoreError =
+  def forGet[K](key: K, causedBy: Option[Throwable] = None): StoreError =
     new StoreError(s"Can't get value for key=$key", causedBy)
 
-  def traverseError(causedBy: Option[Throwable] = None): StoreError =
+  def forTraverse(causedBy: Option[Throwable] = None): StoreError =
     new StoreError(s"Traverse failed", causedBy)
 
-  def putError[K, V](key: K, value: V, causedBy: Option[Throwable] = None): StoreError =
+  def forPut[K, V](key: K, value: V, causedBy: Option[Throwable] = None): StoreError =
     new StoreError(s"Can't put ($key, $value)", causedBy)
 
-  def removeError[K](key: K, causedBy: Option[Throwable] = None): StoreError =
+  def forRemove[K](key: K, causedBy: Option[Throwable] = None): StoreError =
     new StoreError(s"Can't remove key-value pair for key=$key", causedBy)
 
 }

@@ -21,7 +21,7 @@ import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
 import cats.syntax.flatMap._
 import cats.{~>, Monad}
-import fluence.kvstore.ops.{Get, Put, Remove, Traverse}
+import fluence.kvstore.KVStore.{GetOp, PutOp, RemoveOp, TraverseOp}
 
 import scala.collection.mutable
 import scala.language.higherKinds
@@ -31,19 +31,19 @@ class TestKVStore[K, V] extends KVStore with ReadWriteKVStore[K, V] {
 
   private val data = mutable.Map.empty[K, V]
 
-  override def get(key: K): Get[V] =
-    new Get[V] {
+  override def get(key: K): GetOp[V] =
+    new GetOp[V] {
 
       override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Option[V]] =
         EitherT.fromEither(
-          Try(data.get(key)).toEither.left.map(err ⇒ StoreError.getError(key, Some(err)))
+          Try(data.get(key)).toEither.left.map(err ⇒ StoreError.forGet(key, Some(err)))
         )
       override def runUnsafe(): Option[V] =
         data.get(key)
 
     }
 
-  override def traverse: Traverse[K, V] = new Traverse[K, V] {
+  override def traverse: TraverseOp[K, V] = new TraverseOp[K, V] {
 
     override def run[FS[_]: Monad: LiftIO](
       implicit liftIterator: Iterator ~> FS
@@ -55,14 +55,14 @@ class TestKVStore[K, V] extends KVStore with ReadWriteKVStore[K, V] {
 
   }
 
-  override def put(key: K, value: V): Put = new Put {
+  override def put(key: K, value: V): PutOp = new PutOp {
 
     override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
       // format: off
       EitherT.fromEither {
         Try(data.put(key, value))
           .toEither
-          .left.map(err ⇒ StoreError.putError(key, value, Some(err)))
+          .left.map(err ⇒ StoreError.forPut(key, value, Some(err)))
           .right.map(_ ⇒ ())
       }
     // format: on
@@ -72,14 +72,14 @@ class TestKVStore[K, V] extends KVStore with ReadWriteKVStore[K, V] {
 
   }
 
-  override def remove(key: K): Remove = new Remove {
+  override def remove(key: K): RemoveOp = new RemoveOp {
 
     override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
       // format: off
       EitherT.fromEither {
         Try(data.remove(key))
           .toEither
-          .left.map(err ⇒ StoreError.removeError(key, Some(err)))
+          .left.map(err ⇒ StoreError.forRemove(key, Some(err)))
           .right.map(_ ⇒ ())
       }
     // format: on

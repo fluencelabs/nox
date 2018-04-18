@@ -21,7 +21,8 @@ import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
 import cats.syntax.flatMap._
 import cats.{~>, Monad}
-import fluence.kvstore.ops.{Get, Put, Remove, Traverse}
+import fluence.kvstore.KVStore.TraverseOp
+import fluence.kvstore.ops._
 
 import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
@@ -50,15 +51,15 @@ object InMemoryKVStore {
   private trait InMemoryKVStoreRead[K, V] extends InMemoryKVStore[K, V] with KVStoreRead[K, V] { self ⇒
 
     /**
-     * Returns lazy ''get'' representation (see [[fluence.kvstore.ops.Get]])
+     * Returns lazy ''get'' representation (see [[Operation]])
      *
      * @param key Search key
      */
-    override def get(key: K): Get[V] = new Get[V] {
+    override def get(key: K): Operation[Option[V]] = new Operation[Option[V]] {
 
       override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Option[V]] =
         EitherT(IO(data.get(key)).attempt.to[F])
-          .leftMap(err ⇒ StoreError.getError(key, Some(err)))
+          .leftMap(err ⇒ StoreError.forGet(key, Some(err)))
 
       override def runUnsafe(): Option[V] =
         data.get(key)
@@ -66,9 +67,9 @@ object InMemoryKVStore {
     }
 
     /**
-     * Returns lazy ''traverse'' representation (see [[Traverse]])
+     * Returns lazy ''traverse'' representation (see [[TraverseOperation]])
      */
-    override def traverse: Traverse[K, V] = new Traverse[K, V] {
+    override def traverse: TraverseOp[K, V] = new TraverseOp[K, V] {
 
       override def run[FS[_]: Monad: LiftIO](
         implicit liftIterator: Iterator ~> FS
@@ -91,16 +92,16 @@ object InMemoryKVStore {
   private trait InMemoryKVStoreWrite[K, V] extends InMemoryKVStore[K, V] with KVStoreWrite[K, V] { self ⇒
 
     /**
-     * Returns lazy ''put'' representation (see [[Put]])
+     * Returns lazy ''put'' representation (see [[Operation]])
      *
      * @param key The specified key to be inserted
      * @param value The value associated with the specified key
      */
-    override def put(key: K, value: V): Put = new Put {
+    override def put(key: K, value: V): Operation[Unit] = new Operation[Unit] {
 
       override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
         EitherT(IO(data.put(key, value)).attempt.to[F])
-          .leftMap(err ⇒ StoreError.putError(key, value, Some(err)))
+          .leftMap(err ⇒ StoreError.forPut(key, value, Some(err)))
           .map(_ ⇒ ())
 
       override def runUnsafe(): Unit =
@@ -109,15 +110,15 @@ object InMemoryKVStore {
     }
 
     /**
-     * Returns lazy ''remove'' representation (see [[Remove]])
+     * Returns lazy ''remove'' representation (see [[Operation]])
      *
      * @param key The specified key to be inserted
      */
-    override def remove(key: K): Remove = new Remove {
+    override def remove(key: K): Operation[Unit] = new Operation[Unit] {
 
       override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
         EitherT(IO(data.remove(key)).attempt.to[F])
-          .leftMap(err ⇒ StoreError.removeError(key, Some(err)))
+          .leftMap(err ⇒ StoreError.forRemove(key, Some(err)))
           .map(_ ⇒ ())
 
       override def runUnsafe(): Unit =
