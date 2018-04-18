@@ -461,7 +461,7 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
     fork in Test                  := false
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`codec-circe`, `codec-bits`, `crypto-core`)
+  .dependsOn(`crypto-core`)
 
 lazy val `crypto-jvm` = `crypto`.jvm
 
