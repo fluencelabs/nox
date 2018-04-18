@@ -21,8 +21,8 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core"   % Cats1V,
       "org.typelevel" %%% "cats-effect" % CatsEffectV,
-      "one.fluence" %%% "codec-circe" % CodecV,
-      "one.fluence" %%% "codec-bits" % CodecV,
+      "one.fluence"   %%% "codec-circe" % CodecV,
+      "one.fluence"   %%% "codec-bits"  % CodecV,
       "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
   )
@@ -228,10 +228,10 @@ lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "com.chuusai"   %%% "shapeless" % ShapelessV,
-      "biz.enef"      %%% "slogging"  % SloggingV,
-      "one.fluence" %%% "codec-protobuf" % CodecV,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+      "com.chuusai"   %%% "shapeless"      % ShapelessV,
+      "biz.enef"      %%% "slogging"       % SloggingV,
+      "one.fluence"   %%% "codec-protobuf" % CodecV,
+      "org.scalatest" %%% "scalatest"      % ScalatestV % Test
     )
   )
   .jvmSettings(
@@ -256,15 +256,19 @@ lazy val `transport-grpc-proxy` = project
   .settings(
     commons,
     grpc,
+    PB.protoSources in Compile := Seq(
+      file("transport/grpc-proxy/src/main/protobuf"),
+      file(baseDirectory.value.absolutePath + "/src/test/protobuf/")
+    ),
     libraryDependencies ++= Seq(
       http4sDsl,
       http4sBlazeServer,
       slogging,
       fluenceCodec,
       scalatest
-    ),
-    PB.protoSources in Compile += file(baseDirectory.value.absolutePath + "/src/test/protobuf/")
-  ).dependsOn(`transport-core-jvm`)
+    )
+  )
+  .dependsOn(`transport-core-jvm`)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -300,9 +304,9 @@ lazy val `storage-core` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %%% "codec-core" % CodecV,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test,
-      "io.monix"      %%% "monix"     % MonixV     % Test
+      "one.fluence"   %%% "codec-core" % CodecV,
+      "org.scalatest" %%% "scalatest"  % ScalatestV % Test,
+      "io.monix"      %%% "monix"      % MonixV % Test
     )
   )
   .jsSettings(
@@ -326,7 +330,7 @@ lazy val `b-tree-core` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %%% "codec-core" % CodecV,
+      "one.fluence"   %%% "codec-core"  % CodecV,
       "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
       "org.typelevel" %%% "cats-core"   % Cats1V,
       "org.scalatest" %%% "scalatest"   % ScalatestV % Test
@@ -419,11 +423,11 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %%% "codec-bits" % CodecV,
-      "one.fluence" %%% "codec-circe" % CodecV,
-      "org.typelevel" %%% "cats-core" % Cats1V,
-      "biz.enef"      %%% "slogging"  % SloggingV,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+      "one.fluence"   %%% "codec-bits"  % CodecV,
+      "one.fluence"   %%% "codec-circe" % CodecV,
+      "org.typelevel" %%% "cats-core"   % Cats1V,
+      "biz.enef"      %%% "slogging"    % SloggingV,
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
   )
   .jvmSettings(
@@ -451,7 +455,14 @@ lazy val `crypto-js` = `crypto`.js
 
 lazy val `dataset-node` = project
   .in(file("dataset/node"))
-  .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `dataset-client-jvm`, `b-tree-client-jvm`)
+  .dependsOn(
+    `storage-core-jvm`,
+    `kademlia-core-jvm`,
+    `b-tree-server`,
+    `dataset-client-jvm`,
+    `b-tree-client-jvm`,
+    `dataset-protobuf-jvm`
+  )
 
 lazy val `dataset-protocol` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -467,9 +478,32 @@ lazy val `dataset-protocol` = crossProject(JVMPlatform, JSPlatform)
 lazy val `dataset-protocol-jvm` = `dataset-protocol`.jvm
 lazy val `dataset-protocol-js` = `dataset-protocol`.js
 
+lazy val `dataset-protobuf` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("dataset/protobuf"))
+  .settings(
+    commons,
+    protobuf,
+    PB.protoSources in Compile := Seq(file("dataset/protobuf/src/main/protobuf"))
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `dataset-protobuf-jvm` = `dataset-protobuf`.jvm
+lazy val `dataset-protobuf-js` = `dataset-protobuf`.js
+
 lazy val `dataset-grpc` = project
   .in(file("dataset/grpc"))
-  .dependsOn(`dataset-client-jvm`, `transport-grpc-jvm`)
+  .settings(
+    commons,
+    grpc,
+    PB.protoSources in Compile := Seq(file("dataset/grpc/src/main/protobuf"))
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`dataset-client-jvm`, `dataset-node`, `transport-grpc-jvm`)
 
 lazy val `dataset-client` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -485,7 +519,7 @@ lazy val `dataset-client` = crossProject(JVMPlatform, JSPlatform)
     fork in Test := false
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`dataset-protocol`, `crypto`, `b-tree-client`, `kademlia-core`)
+  .dependsOn(`dataset-protocol`, `crypto`, `b-tree-client`, `kademlia-core`, `dataset-protobuf`)
 
 lazy val `dataset-client-js` = `dataset-client`.js
 lazy val `dataset-client-jvm` = `dataset-client`.jvm
@@ -572,6 +606,7 @@ lazy val `contract-grpc` = project
   .settings(
     commons,
     grpc,
+    PB.protoSources in Compile := Seq(file("contract/grpc/src/main/protobuf")),
     libraryDependencies ++= Seq(
       scalatest
     )
@@ -642,6 +677,9 @@ lazy val `node-core` = project
   .settings(
     commons,
     protobuf,
+    PB.protoSources in Compile := {
+      Seq(file("node/core/src/main/protobuf"))
+    },
     libraryDependencies ++= Seq(
       "one.fluence" %% "codec-protobuf" % CodecV,
       scalatest

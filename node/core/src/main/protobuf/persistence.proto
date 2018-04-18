@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package fluence.node;
+package fluence.node.persistence;
 
 message Participant {
     bytes id = 1;
