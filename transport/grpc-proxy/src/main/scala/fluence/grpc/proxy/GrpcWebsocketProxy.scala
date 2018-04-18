@@ -49,7 +49,7 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] {
           val responseStream = for {
             message ← Task.eval(WebsocketMessage.parseFrom(data))
             response ← proxyGrpc
-              .handleMessage(message.service, message.method, message.streamId, message.payload.newInput())
+              .handleMessage(message.service, message.method, message.requestId, message.payload.newInput())
           } yield {
             response.map {
               Binary(_): WebSocketFrame

@@ -50,7 +50,7 @@ final class InProcessGrpc private (private val server: Server, private val chann
   def close(): IO[Unit] = {
     for {
       _ ← IO(server.shutdown())
-      _ ← IO(server.awaitTermination()).attempt.map(println)
+      _ ← IO(server.awaitTermination())
       _ ← IO(channel.shutdown())
       _ ← IO(channel.awaitTermination(10L, TimeUnit.SECONDS))
     } yield ()

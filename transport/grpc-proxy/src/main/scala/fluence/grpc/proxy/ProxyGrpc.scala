@@ -62,7 +62,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
       case None ⇒ Task.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
     }
 
-  //TODO add autoclean of old overdue streamId
+  //TODO add autoclean of old overdue requestId
   val callCache: Task[MVar[Map[Long, ClientCall[Any, Any]]]] = MVar(Map.empty[Long, ClientCall[Any, Any]]).memoize
 
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
@@ -91,6 +91,47 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
     }
   }
 
+  private def handleUnaryCall(req: Any, methodDescriptor: MethodDescriptor[Any, Any]): Task[Observable[Array[Byte]]] = {
+    for {
+      callWithObs ← openBidiCall(methodDescriptor)
+      (c, obs) = callWithObs
+    } yield {
+      c.sendMessage(req)
+      c.request(1)
+      c.halfClose()
+      obs
+    }
+  }
+
+  private def handleStreamCall(
+    req: Any,
+    methodDescriptor: MethodDescriptor[Any, Any],
+    requestId: Long
+  ): Task[Observable[Array[Byte]]] = {
+    for {
+      callOp ← callCache.flatMap(_.read).map(_.get(requestId))
+      resp ← callOp match {
+        case Some(c) ⇒
+          Task.eval {
+            c.sendMessage(req)
+            c.request(1)
+            Observable()
+          }
+        case None ⇒
+          for {
+            callWithObs ← openBidiCall(methodDescriptor)
+            (c, obs) = callWithObs
+            map ← callCache.flatMap(_.take)
+            _ ← callCache.flatMap(_.put(map + (requestId -> c)))
+          } yield {
+            c.sendMessage(req)
+            c.request(1)
+            obs
+          }
+      }
+    } yield resp
+  }
+
   /**
    * Handle proxying request for some service and method that registered in grpc server.
    *
@@ -103,39 +144,18 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   def handleMessage(
     service: String,
     method: String,
-    streamId: Long,
+    requestId: Long,
     stream: InputStream
   ): Task[Observable[Array[Byte]]] = {
     for {
       methodDescriptor ← getMethodDescriptorF(service, method)
       req ← Task.eval(methodDescriptor.parseRequest(stream))
-      callOp ← callCache.flatMap(_.read).map(_.get(streamId))
-      resp ← callOp match {
-        case Some(c) ⇒
-          Task.eval {
-            c.sendMessage(req)
-            c.request(1)
-            Observable()
-          }
-        case None ⇒
-          for {
-            callWithObs ← openBidiCall(methodDescriptor)
-            (c, obs) = callWithObs
-            _ ← if (methodDescriptor.getType != MethodType.UNARY) {
-              for {
-                map ← callCache.flatMap(_.take)
-                _ ← callCache.flatMap(_.put(map + (streamId -> c)))
-              } yield ()
-            } else Task.unit
-          } yield {
-            c.sendMessage(req)
-            c.request(1)
-
-            if (methodDescriptor.getType == MethodType.UNARY) c.halfClose()
-            obs
-          }
+      resp ← {
+        if (methodDescriptor.getType == MethodType.UNARY)
+          handleUnaryCall(req, methodDescriptor)
+        else
+          handleStreamCall(req, methodDescriptor, requestId)
       }
-
     } yield resp
   }
 

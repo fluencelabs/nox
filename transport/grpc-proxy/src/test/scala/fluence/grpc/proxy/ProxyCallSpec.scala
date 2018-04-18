@@ -79,18 +79,18 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
         .runSyncUnsafe(15.seconds)
 
     def generateMessage[Req <: GeneratedMessage, Resp](
-      streamId: Long,
+      requestId: Long,
       req: Req,
       descriptor: MethodDescriptor[Req, Resp]
     ): WebsocketMessage = {
       val splitted = descriptor.getFullMethodName.split("/").toList
 
-      WebsocketMessage(splitted(0), splitted(1), streamId, req.toByteString)
+      WebsocketMessage(splitted(0), splitted(1), requestId, req.toByteString)
     }
 
-    def message(streamId: Long, c: Int, close: Boolean = false): WebsocketMessage =
+    def message(requestId: Long, c: Int, close: Boolean = false): WebsocketMessage =
       generateMessage(
-        streamId,
+        requestId,
         TestRequest(Some(TestMessage("", List(), ByteString.copyFrom(Array[Byte]()), c)), close = close),
         TestServiceGrpc.METHOD_TEST_COUNT
       )
@@ -101,7 +101,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
         .handleMessage(
           message.service,
           message.method,
-          message.streamId,
+          message.requestId,
           message.payload.newInput()
         )
         .runSyncUnsafe(5.seconds)
@@ -115,11 +115,11 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
         val listStr = Seq("test1", "test2")
         val byteArray = ByteString.copyFrom(Array[Byte](1, 2, 3, 4, 5))
 
-        val streamId = Random.nextLong()
+        val requestId = Random.nextLong()
 
         val testMessage =
           generateMessage(
-            streamId,
+            requestId,
             TestRequest(Some(TestMessage(str, listStr, byteArray))),
             TestServiceGrpc.METHOD_TEST
           )
@@ -140,21 +140,21 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
       inService() { inProcessGrpc ⇒
         val proxyGrpc = new ProxyGrpc(inProcessGrpc)
 
-        val streamId = Random.nextLong()
+        val requestId = Random.nextLong()
 
         val results = Range(1, 10).toList
         val lastResult = results.last
 
         val responseObservable =
-          sendMessage(proxyGrpc, message(streamId, 0)).map(bytes ⇒ TestRequest.parseFrom(bytes).message.get.counter)
+          sendMessage(proxyGrpc, message(requestId, 0)).map(bytes ⇒ TestRequest.parseFrom(bytes).message.get.counter)
 
         //imitate client that do request on every response
         responseObservable.flatMap {
           case counter if counter == lastResult ⇒
-            val msgClose = message(streamId, results.last, close = true)
+            val msgClose = message(requestId, results.last, close = true)
             sendMessage(proxyGrpc, msgClose)
           case counter ⇒
-            val testMessage = message(streamId, counter)
+            val testMessage = message(requestId, counter)
             sendMessage(proxyGrpc, testMessage)
         }.subscribe()
 
