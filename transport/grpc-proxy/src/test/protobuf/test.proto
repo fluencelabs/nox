@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package fluence.grpc.proxy;
+package fluence.grpc.proxy.test;
 
 message TestMessage {
     string str = 1;
