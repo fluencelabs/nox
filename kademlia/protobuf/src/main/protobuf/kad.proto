@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package fluence.kad;
+package fluence.kad.protobuf;
 
 message Node {
     bytes id = 1;

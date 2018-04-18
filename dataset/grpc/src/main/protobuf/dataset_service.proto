@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package fluence.dataset.protobuf;
+package fluence.dataset.protobuf.grpc;
 
-import "protobuf.proto";
+import "dataset.proto";
 
 service DatasetStorageRpc {
     rpc get(stream GetCallbackReply) returns (stream GetCallback);
