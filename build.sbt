@@ -256,15 +256,19 @@ lazy val `transport-grpc-proxy` = project
   .settings(
     commons,
     grpc,
+    PB.protoSources in Compile := Seq(
+      file("transport/grpc-proxy/src/main/protobuf"),
+      file(baseDirectory.value.absolutePath + "/src/test/protobuf/")
+    ),
     libraryDependencies ++= Seq(
       http4sDsl,
       http4sBlazeServer,
       slogging,
       fluenceCodec,
       scalatest
-    ),
-    PB.protoSources in Compile += file(baseDirectory.value.absolutePath + "/src/test/protobuf/")
-  ).dependsOn(`transport-core-jvm`)
+    )
+  )
+  .dependsOn(`transport-core-jvm`)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -419,11 +423,11 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %%% "codec-bits" % CodecV,
-      "one.fluence" %%% "codec-circe" % CodecV,
-      "org.typelevel" %%% "cats-core"    % Cats1V,
-      "biz.enef"      %%% "slogging"     % SloggingV,
-      "org.scalatest" %%% "scalatest"    % ScalatestV % Test
+      "one.fluence"   %%% "codec-bits"  % CodecV,
+      "one.fluence"   %%% "codec-circe" % CodecV,
+      "org.typelevel" %%% "cats-core"   % Cats1V,
+      "biz.enef"      %%% "slogging"    % SloggingV,
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
   )
   .jvmSettings(
@@ -451,7 +455,14 @@ lazy val `crypto-js` = `crypto`.js
 
 lazy val `dataset-node` = project
   .in(file("dataset/node"))
-  .dependsOn(`storage-core-jvm`, `kademlia-core-jvm`, `b-tree-server`, `dataset-client-jvm`, `b-tree-client-jvm`, `dataset-protobuf-jvm`)
+  .dependsOn(
+    `storage-core-jvm`,
+    `kademlia-core-jvm`,
+    `b-tree-server`,
+    `dataset-client-jvm`,
+    `b-tree-client-jvm`,
+    `dataset-protobuf-jvm`
+  )
 
 lazy val `dataset-protocol` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -488,7 +499,8 @@ lazy val `dataset-grpc` = project
   .in(file("dataset/grpc"))
   .settings(
     commons,
-    grpc
+    grpc,
+    PB.protoSources in Compile := Seq(file("dataset/grpc/src/main/protobuf"))
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`dataset-client-jvm`, `dataset-node`, `transport-grpc-jvm`)
@@ -594,6 +606,7 @@ lazy val `contract-grpc` = project
   .settings(
     commons,
     grpc,
+    PB.protoSources in Compile := Seq(file("contract/grpc/src/main/protobuf")),
     libraryDependencies ++= Seq(
       scalatest
     )
@@ -664,6 +677,10 @@ lazy val `node-core` = project
   .settings(
     commons,
     protobuf,
+    PB.protoSources in Compile := {
+      println(PB.protoSources)
+      Seq(file("node/core/src/main/protobuf"))
+    },
     libraryDependencies ++= Seq(
       "one.fluence" %% "codec-protobuf" % CodecV,
       scalatest
