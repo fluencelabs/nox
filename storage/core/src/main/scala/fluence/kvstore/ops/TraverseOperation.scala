@@ -17,8 +17,7 @@
 
 package fluence.kvstore.ops
 
-import cats.effect.{IO, LiftIO}
-import cats.syntax.flatMap._
+import cats.effect.LiftIO
 import cats.{~>, Monad}
 
 import scala.language.higherKinds
@@ -38,13 +37,13 @@ trait TraverseOperation[K, V] {
    *
    * @tparam FS User defined type of stream with monadError
    */
-  def run[FS[_]: Monad: LiftIO](implicit liftIterator: Iterator ~> FS): FS[(K, V)] =
-    IO(liftIterator(runUnsafe)).to[FS].flatten
+  def run[FS[_]: Monad: LiftIO](implicit liftIterator: Iterator ~> FS): FS[(K, V)]
 
   /**
    * Returns [[Iterator]] with all key-value pairs for current KVStore,
    * '''throw the error if it happens'''. Intended to be used '''only in tests'''.
    */
+  // todo find a way to express this method via 'run' and make it final
   def runUnsafe: Iterator[(K, V)]
 
 }

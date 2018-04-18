@@ -50,7 +50,7 @@ trait Operation[V] {
    * Runs unsafe operation, '''throw the error if it happens'''.
    * Intended to be used '''only in tests'''.
    */
-  def runUnsafe(): V =
+  final def runUnsafe(): V =
     runF[IO].unsafeRunSync()
 
   /**
@@ -59,7 +59,7 @@ trait Operation[V] {
    *
    * @tparam F User defined type of monad
    */
-  def runEither[F[_]: Monad: LiftIO]: F[Either[E, V]] =
+  final def runEither[F[_]: Monad: LiftIO]: F[Either[E, V]] =
     run[F].value
 
   /**
@@ -68,7 +68,7 @@ trait Operation[V] {
    *
    * @tparam F User defined type of monad
    */
-  def runF[F[_]: Monad: LiftIO]: F[V] =
+  final def runF[F[_]: Monad: LiftIO]: F[V] =
     runEither.map(IO.fromEither).flatMap(_.to[F])
 
 }

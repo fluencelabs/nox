@@ -17,8 +17,9 @@
 
 package fluence.kvstore
 
-import cats.Monad
+import cats.{~>, Monad}
 import cats.data.EitherT
+import cats.syntax.flatMap._
 import cats.effect.{IO, LiftIO}
 import fluence.kvstore.KVStore.TraverseOp
 import fluence.kvstore.ops._
@@ -66,6 +67,9 @@ object InMemoryKVStore {
      * Returns lazy ''traverse'' representation (see [[TraverseOperation]])
      */
     override def traverse: TraverseOp[K, V] = new TraverseOp[K, V] {
+
+      override def run[FS[_]: Monad: LiftIO](implicit liftIterator: ~>[Iterator, FS]): FS[(K, V)] =
+        IO(liftIterator(runUnsafe)).to[FS].flatten
 
       override def runUnsafe: Iterator[(K, V)] =
         data.iterator

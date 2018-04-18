@@ -38,8 +38,6 @@ class TestKVStore[K, V] extends KVStore with ReadWriteKVStore[K, V] {
         EitherT.fromEither(
           Try(data.get(key)).toEither.left.map(err ⇒ StoreError.forGet(key, Some(err)))
         )
-      override def runUnsafe(): Option[V] =
-        data.get(key)
 
     }
 
@@ -67,9 +65,6 @@ class TestKVStore[K, V] extends KVStore with ReadWriteKVStore[K, V] {
       }
     // format: on
 
-    override def runUnsafe(): Unit =
-      data.put(key, value)
-
   }
 
   override def remove(key: K): RemoveOp = new RemoveOp {
@@ -83,9 +78,6 @@ class TestKVStore[K, V] extends KVStore with ReadWriteKVStore[K, V] {
           .right.map(_ ⇒ ())
       }
     // format: on
-
-    override def runUnsafe(): Unit =
-      data.remove(key)
 
   }
 

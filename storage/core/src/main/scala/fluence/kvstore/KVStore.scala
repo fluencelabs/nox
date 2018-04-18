@@ -131,13 +131,6 @@ object KVStore {
             }
           } yield v1
 
-        override def runUnsafe(): Option[V1] = {
-          store
-            .get(kCodec.direct.unsafe(key))
-            .runUnsafe()
-            .map(vCodec.inverse.unsafe)
-        }
-
       }
 
       /**
@@ -179,12 +172,6 @@ object KVStore {
             v ← vCodec.direct[F](value).leftMap(ce ⇒ StoreError(ce))
           } yield store.put(k, v).run
 
-        override def runUnsafe(): Unit = {
-          val k = kCodec.direct.unsafe(key)
-          val v = vCodec.direct.unsafe(value)
-          store.put(k, v).runUnsafe()
-        }
-
       }
 
       /**
@@ -198,9 +185,6 @@ object KVStore {
           for {
             k ← kCodec.direct[F](key).leftMap(ce ⇒ StoreError(ce))
           } yield store.remove(k).run
-
-        override def runUnsafe(): Unit =
-          store.remove(kCodec.direct.unsafe(key)).runUnsafe()
 
       }
     }
