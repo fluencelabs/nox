@@ -18,7 +18,6 @@
 package fluence.grpc.proxy
 
 import fluence.proxy.grpc.WebsocketMessage
-import fs2.StreamApp.ExitCode
 import fs2.async.mutable.Queue
 import fs2.interop.reactivestreams._
 import fs2.{io ⇒ _, _}
@@ -26,6 +25,7 @@ import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
+import org.http4s.server.Server
 import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.websocket._
 import org.http4s.websocket.WebsocketBits.{WebSocketFrame, _}
@@ -33,21 +33,20 @@ import org.http4s.websocket.WebsocketBits.{WebSocketFrame, _}
 import scala.language.higherKinds
 
 /**
- * Websocket-to-grpc proxy standalone app.
- * TODO make it pluggable and abstract from Stream
- * @param proxyGrpc Proxy grpc API.
+ * Websocket-to-grpc proxy server.
  */
-class GrpcWebsocketProxy(proxyGrpc: ProxyGrpc, port: Int = 8080) extends StreamApp[Task] with Http4sDsl[Task] {
+object GrpcWebsocketProxy extends Http4sDsl[Task] {
 
-  def route(scheduler: Scheduler): HttpService[Task] = HttpService[Task] {
+  private def route(inProcessGrpc: InProcessGrpc, scheduler: Scheduler): HttpService[Task] = HttpService[Task] {
 
     case GET -> Root / "ws" ⇒
       //TODO add size of queue to config
       val queueF = async.boundedQueue[Task, WebSocketFrame](100)
+      val proxyGrpc = new ProxyGrpc(inProcessGrpc)
 
       val echoReply: Pipe[Task, WebSocketFrame, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
-          val a = for {
+          val responseStream = for {
             message ← Task.eval(WebsocketMessage.parseFrom(data))
             response ← proxyGrpc
               .handleMessage(message.service, message.method, message.streamId, message.payload.newInput())
@@ -58,7 +57,7 @@ class GrpcWebsocketProxy(proxyGrpc: ProxyGrpc, port: Int = 8080) extends StreamA
 
           }
 
-          Stream.eval(a).flatMap(a ⇒ a.toReactivePublisher.toStream[Task]())
+          Stream.eval(responseStream).flatMap(_.toReactivePublisher.toStream[Task]())
         case m ⇒
           Stream.eval(Task.pure(Text(s"Unexpected message: $m"): WebSocketFrame))
       }
@@ -70,14 +69,14 @@ class GrpcWebsocketProxy(proxyGrpc: ProxyGrpc, port: Int = 8080) extends StreamA
       }
   }
 
-  override def stream(args: List[String], requestShutdown: Task[Unit]): Stream[Task, ExitCode] =
+  def startWebsocketServer(inProcessGrpc: InProcessGrpc, scheduler: Scheduler, port: Int): Task[Server[Task]] =
     for {
-      scheduler ← Scheduler[Task](corePoolSize = 2)
-      exitCode ← BlazeBuilder[Task]
+
+      server ← BlazeBuilder[Task]
         .bindHttp(port)
         .withWebSockets(true)
-        .mountService(route(scheduler))
-        .serve
-    } yield exitCode
+        .mountService(route(inProcessGrpc, scheduler))
+        .start
+    } yield server
 
 }

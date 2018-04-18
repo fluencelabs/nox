@@ -62,13 +62,16 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
       case None ⇒ Task.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
     }
 
-  //TODO add autoclean of old streamId
-  //TODO split cache for several clients
+  //TODO add autoclean of old overdue streamId
   val callCache: Task[MVar[Map[Long, ClientCall[Any, Any]]]] = MVar(Map.empty[Long, ClientCall[Any, Any]]).memoize
 
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
-  def openBidiCall(
+  /**
+   * Create listener for client call and connect it with observable.
+   *
+   */
+  private def openBidiCall(
     methodDescriptor: MethodDescriptor[Any, Any]
   ): Task[(ClientCall[Any, Any], Observable[Array[Byte]])] = {
     Task.eval {
