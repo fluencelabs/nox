@@ -20,7 +20,7 @@ package fluence.dataset.node
 import cats.data.EitherT
 import cats.effect.Async
 import cats.{~>, Show}
-import fluence.protobuf.dataset.DatasetInfo
+import fluence.dataset.protobuf.DatasetInfo
 import monix.eval.{MVar, Task}
 import monix.execution.{Ack, Scheduler}
 import monix.reactive.{Observable, Observer}

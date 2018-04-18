@@ -21,8 +21,8 @@ import cats.effect.Async
 import cats.{~>, Monad}
 import fluence.dataset.node.{NodeGet, NodePut, NodeRange}
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.protobuf.dataset._
-import fluence.protobuf.dataset.grpc.DatasetStorageRpcGrpc
+import fluence.dataset.protobuf._
+import fluence.dataset.protobuf.grpc.DatasetStorageRpcGrpc
 import io.grpc.stub.StreamObserver
 import monix.eval.Task
 import monix.execution.Scheduler

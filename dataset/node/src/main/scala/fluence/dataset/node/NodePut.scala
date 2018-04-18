@@ -29,7 +29,7 @@ import com.google.protobuf.ByteString
 import fluence.btree.core.{ClientPutDetails, Hash, Key}
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.protocol.{ClientError, DatasetStorageRpc}
-import fluence.protobuf.dataset._
+import fluence.dataset.protobuf._
 import monix.eval.Task
 import monix.execution.{Ack, Scheduler}
 import monix.reactive.{Observable, Observer}

@@ -21,8 +21,8 @@ import cats.effect.Effect
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.client.{ClientGet, ClientPut, ClientRange}
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.protobuf.dataset._
-import fluence.protobuf.dataset.grpc.DatasetStorageRpcGrpc.DatasetStorageRpcStub
+import fluence.dataset.protobuf._
+import fluence.dataset.protobuf.grpc.DatasetStorageRpcGrpc.DatasetStorageRpcStub
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.{CallOptions, ManagedChannel}
 import monix.execution.Scheduler

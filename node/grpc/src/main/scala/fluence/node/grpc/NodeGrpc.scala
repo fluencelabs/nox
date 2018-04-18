@@ -35,7 +35,7 @@ import fluence.kad.protocol.{Contact, Key}
 import fluence.node.core.NodeComposer.Services
 import fluence.contract.protobuf.grpc.{ContractAllocatorGrpc, ContractsCacheGrpc}
 import fluence.kad.protobuf.grpc.KademliaGrpc
-import fluence.protobuf.dataset.grpc.DatasetStorageRpcGrpc
+import fluence.dataset.protobuf.grpc.DatasetStorageRpcGrpc
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.{GrpcServer, GrpcServerConf}
