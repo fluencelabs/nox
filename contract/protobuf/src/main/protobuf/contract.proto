@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package fluence.contract;
+package fluence.contract.protobuf;
 
 message FindRequest {
     bytes id = 1;

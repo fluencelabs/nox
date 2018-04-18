@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package fluence.proxy;
+package fluence.proxy.grpc;
 
 message WebsocketMessage {
     string service = 1;
