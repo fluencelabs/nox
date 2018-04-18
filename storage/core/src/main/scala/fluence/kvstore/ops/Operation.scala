@@ -50,7 +50,8 @@ trait Operation[V] {
    * Runs unsafe operation, '''throw the error if it happens'''.
    * Intended to be used '''only in tests'''.
    */
-  def runUnsafe(): V
+  def runUnsafe(): V =
+    runF[IO].unsafeRunSync()
 
   /**
    * Runs operation using the user defined monad,

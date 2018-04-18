@@ -17,7 +17,8 @@
 
 package fluence.kvstore.ops
 
-import cats.effect.LiftIO
+import cats.effect.{IO, LiftIO}
+import cats.syntax.flatMap._
 import cats.{~>, Monad}
 
 import scala.language.higherKinds
@@ -37,7 +38,8 @@ trait TraverseOperation[K, V] {
    *
    * @tparam FS User defined type of stream with monadError
    */
-  def run[FS[_]: Monad: LiftIO](implicit liftIterator: Iterator ~> FS): FS[(K, V)]
+  def run[FS[_]: Monad: LiftIO](implicit liftIterator: Iterator ~> FS): FS[(K, V)] =
+    IO(liftIterator(runUnsafe)).to[FS].flatten
 
   /**
    * Returns [[Iterator]] with all key-value pairs for current KVStore,

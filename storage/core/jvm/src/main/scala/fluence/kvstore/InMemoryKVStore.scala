@@ -17,10 +17,9 @@
 
 package fluence.kvstore
 
+import cats.Monad
 import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
-import cats.syntax.flatMap._
-import cats.{~>, Monad}
 import fluence.kvstore.KVStore.TraverseOp
 import fluence.kvstore.ops._
 
@@ -61,20 +60,12 @@ object InMemoryKVStore {
         EitherT(IO(data.get(key)).attempt.to[F])
           .leftMap(err ⇒ StoreError.forGet(key, Some(err)))
 
-      override def runUnsafe(): Option[V] =
-        data.get(key)
-
     }
 
     /**
      * Returns lazy ''traverse'' representation (see [[TraverseOperation]])
      */
     override def traverse: TraverseOp[K, V] = new TraverseOp[K, V] {
-
-      override def run[FS[_]: Monad: LiftIO](
-        implicit liftIterator: Iterator ~> FS
-      ): FS[(K, V)] =
-        IO(liftIterator(data.iterator)).to[FS].flatten
 
       override def runUnsafe: Iterator[(K, V)] =
         data.iterator
@@ -104,9 +95,6 @@ object InMemoryKVStore {
           .leftMap(err ⇒ StoreError.forPut(key, value, Some(err)))
           .map(_ ⇒ ())
 
-      override def runUnsafe(): Unit =
-        data.put(key, value)
-
     }
 
     /**
@@ -120,9 +108,6 @@ object InMemoryKVStore {
         EitherT(IO(data.remove(key)).attempt.to[F])
           .leftMap(err ⇒ StoreError.forRemove(key, Some(err)))
           .map(_ ⇒ ())
-
-      override def runUnsafe(): Unit =
-        data.remove(key)
 
     }
 
