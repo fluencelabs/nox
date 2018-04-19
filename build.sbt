@@ -265,7 +265,7 @@ lazy val `transport-grpc-proxy` = project
       http4sBlazeServer,
       slogging,
       monix3,
-      "com.github.zainab-ali" %% "fs2-reactive-streams" % "0.5.1",
+      fs2ReactiveStreams,
       fluenceCodec,
       scalatest
     )

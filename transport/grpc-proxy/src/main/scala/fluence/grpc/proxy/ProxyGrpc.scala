@@ -38,7 +38,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   implicit ec: ExecutionContext
 ) extends slogging.LazyLogging {
 
-  //TODO add autoclean of old overdue requestId
+  //TODO add auto-cleanup for old expired invoices
   val callCache: Task[MVar[Map[Long, ClientCall[Any, Any]]]] = MVar(Map.empty[Long, ClientCall[Any, Any]]).memoize
 
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
