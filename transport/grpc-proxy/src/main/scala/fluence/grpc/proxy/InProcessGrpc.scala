@@ -57,7 +57,7 @@ final class InProcessGrpc private (private val server: Server, private val chann
   }
 
   /**
-   * Close server and channel even with the open calls
+   * Close server and channel even with the open calls.
    * Once the server and the channel are closed, it will throw errors on each call.
    */
   def unsafeClose(): IO[Unit] = {
@@ -70,6 +70,12 @@ final class InProcessGrpc private (private val server: Server, private val chann
 
 object InProcessGrpc {
 
+  /**
+   *
+   * @param name Service identifier, which must be unique.
+   * @param services List of registered in grpc services.
+   * @return Grpc with the server and client running in memory.
+   */
   def build(name: String, services: List[ServerServiceDefinition]): IO[InProcessGrpc] = {
     for {
       server ← IO {

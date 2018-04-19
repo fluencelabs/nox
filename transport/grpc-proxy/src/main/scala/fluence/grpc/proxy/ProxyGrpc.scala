@@ -38,6 +38,11 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   implicit ec: ExecutionContext
 ) extends slogging.LazyLogging {
 
+  //TODO add autoclean of old overdue requestId
+  val callCache: Task[MVar[Map[Long, ClientCall[Any, Any]]]] = MVar(Map.empty[Long, ClientCall[Any, Any]]).memoize
+
+  private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
+
   /**
    * Get grpc method descriptor from registered services.
    *
@@ -61,11 +66,6 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
       case Some(md) ⇒ Task.pure(md)
       case None ⇒ Task.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
     }
-
-  //TODO add autoclean of old overdue requestId
-  val callCache: Task[MVar[Map[Long, ClientCall[Any, Any]]]] = MVar(Map.empty[Long, ClientCall[Any, Any]]).memoize
-
-  private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
   /**
    * Create listener for client call and connect it with observable.
@@ -91,6 +91,10 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
     }
   }
 
+  /**
+   * Creates observable, send single request and close stream on proxy side.
+   * The observable and the call will close automatically when the response returns.
+   */
   private def handleUnaryCall(req: Any, methodDescriptor: MethodDescriptor[Any, Any]): Task[Observable[Array[Byte]]] = {
     for {
       callWithObs ← openBidiCall(methodDescriptor)
@@ -103,6 +107,10 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
     }
   }
 
+  /**
+   * If it is new requestId, creates call and observable, that connects proxy server with proxy client and sends first message.
+   * For requests that are cached we use an already created call, that connected with client through observable.
+   */
   private def handleStreamCall(
     req: Any,
     methodDescriptor: MethodDescriptor[Any, Any],

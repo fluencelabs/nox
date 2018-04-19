@@ -42,9 +42,10 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] {
     case GET -> Root / "ws" ⇒
       //TODO add size of queue to config
       val queueF = async.boundedQueue[Task, WebSocketFrame](100)
+      //Creates a proxy for each connection to separate the cache for all clients.
       val proxyGrpc = new ProxyGrpc(inProcessGrpc)
 
-      val echoReply: Pipe[Task, WebSocketFrame, WebSocketFrame] = _.flatMap {
+      val replyPipe: Pipe[Task, WebSocketFrame, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
           val responseStream = for {
             message ← Task.eval(WebsocketMessage.parseFrom(data))
@@ -53,7 +54,7 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] {
           } yield {
             response.map {
               Binary(_): WebSocketFrame
-            }.take(1)
+            }
 
           }
 
@@ -63,7 +64,7 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] {
       }
 
       queueF.flatMap { queue: Queue[Task, WebSocketFrame] ⇒
-        val dequeueStream = queue.dequeue.through(echoReply)
+        val dequeueStream = queue.dequeue.through(replyPipe)
         val enqueueStream = queue.enqueue
         WebSocketBuilder[Task].build(dequeueStream, enqueueStream)
       }
