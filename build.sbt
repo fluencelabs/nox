@@ -270,6 +270,27 @@ lazy val `transport-grpc-proxy` = project
   )
   .dependsOn(`transport-core-jvm`)
 
+lazy val `transport-websocket-js` = project
+  .in(file("transport/websocket-js"))
+  .settings(
+    commons,
+    PB.targets in Compile := Seq(
+      scalapb.gen(flatPackage = true) -> (sourceManaged in Compile).value
+    ),
+    libraryDependencies ++= Seq(
+      "io.monix"             %%% "monix"           % MonixV,
+      "org.scalatest"        %%% "scalatest"       % ScalatestV % Test,
+      "org.typelevel"        %%% "cats-core"       % Cats1V,
+      "biz.enef"             %%% "slogging"        % SloggingV,
+      "org.typelevel"        %%% "cats-effect"     % CatsEffectV,
+      "one.fluence"          %%% "codec-core"      % CodecV,
+      "org.scala-js"         %%% "scalajs-dom"     % "0.9.2",
+      "com.thesamet.scalapb" %%% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf"
+    ),
+    fork in Test := false
+  )
+  .enablePlugins(ScalaJSPlugin)
+
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
@@ -304,10 +325,10 @@ lazy val `storage-core` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %%% "codec-core" % CodecV,
+      "one.fluence"   %%% "codec-core"  % CodecV,
       "org.typelevel" %%% "cats-effect" % CatsEffectV,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test,
-      "io.monix"      %%% "monix"     % MonixV     % Test
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test,
+      "io.monix"      %%% "monix"       % MonixV % Test
     )
   )
   .jsSettings(
