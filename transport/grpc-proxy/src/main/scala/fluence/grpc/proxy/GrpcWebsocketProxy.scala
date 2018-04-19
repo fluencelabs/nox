@@ -17,6 +17,7 @@
 
 package fluence.grpc.proxy
 
+import com.google.protobuf.ByteString
 import fluence.proxy.grpc.WebsocketMessage
 import fs2.async.mutable.Queue
 import fs2.interop.reactivestreams._
@@ -49,13 +50,13 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] {
         case Binary(data, _) ⇒
           val responseStream = for {
             message ← Task.eval(WebsocketMessage.parseFrom(data))
-            response ← proxyGrpc
+            responseObservable ← proxyGrpc
               .handleMessage(message.service, message.method, message.requestId, message.payload.newInput())
           } yield {
-            response.map {
-              Binary(_): WebSocketFrame
+            responseObservable.map { bytes ⇒
+              val responseMessage = message.copy(payload = ByteString.copyFrom(bytes))
+              Binary(responseMessage.toByteString.toByteArray): WebSocketFrame
             }
-
           }
 
           Stream.eval(responseStream).flatMap(_.toReactivePublisher.toStream[Task]())
