@@ -44,7 +44,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
   /**
-   * Get grpc method descriptor from registered services.
+   * Gets grpc method descriptor from registered services.
    *
    * @param service Name of service.
    * @param method Name of method.
@@ -62,19 +62,19 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   }
 
   private def getMethodDescriptorF(service: String, method: String): Task[MethodDescriptor[Any, Any]] =
-    Task.eval(getMethodDescriptor(service, method)).flatMap {
+    Task(getMethodDescriptor(service, method)).flatMap {
       case Some(md) ⇒ Task.pure(md)
       case None ⇒ Task.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
     }
 
   /**
-   * Create listener for client call and connect it with observable.
+   * Creates listener for client call and connects it with observable.
    *
    */
   private def openBidiCall(
     methodDescriptor: MethodDescriptor[Any, Any]
   ): Task[(ClientCall[Any, Any], Observable[Array[Byte]])] = {
-    Task.eval {
+    Task {
       val metadata = new Metadata()
       val call = inProcessGrpc.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
 
@@ -92,7 +92,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   }
 
   /**
-   * Creates observable, send single request and close stream on proxy side.
+   * Creates observable, sends single request and closes stream on proxy side.
    * The observable and the call will close automatically when the response returns.
    */
   private def handleUnaryCall(req: Any, methodDescriptor: MethodDescriptor[Any, Any]): Task[Observable[Array[Byte]]] = {
@@ -120,7 +120,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
       callOp ← callCache.flatMap(_.read).map(_.get(requestId))
       resp ← callOp match {
         case Some(c) ⇒
-          Task.eval {
+          Task {
             c.sendMessage(req)
             c.request(1)
             Observable()
@@ -141,7 +141,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   }
 
   /**
-   * Handle proxying request for some service and method that registered in grpc server.
+   * Handles proxying request for some service and method that registered in grpc server.
    *
    * @param service Name of grpc service (class name of service).
    * @param method Name of grpc method (method name of service).
@@ -157,7 +157,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   ): Task[Observable[Array[Byte]]] = {
     for {
       methodDescriptor ← getMethodDescriptorF(service, method)
-      req ← Task.eval(methodDescriptor.parseRequest(stream))
+      req ← Task(methodDescriptor.parseRequest(stream))
       resp ← {
         if (methodDescriptor.getType == MethodType.UNARY)
           handleUnaryCall(req, methodDescriptor)
