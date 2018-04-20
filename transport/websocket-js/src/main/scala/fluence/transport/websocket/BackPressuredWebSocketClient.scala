@@ -2,7 +2,7 @@ package fluence.transport.websocket
 
 import monix.execution.{Ack, Cancelable}
 import monix.execution.rstreams.Subscription
-import monix.reactive.{Observable, Observer}
+import monix.reactive.{Observable, Observer, OverflowStrategy}
 import monix.reactive.observers.Subscriber
 import org.scalajs.dom._
 
@@ -10,10 +10,13 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
-final class BackPressuredWebSocketClient private (url: String) extends Observable[String] { self ⇒
+final class BackPressuredWebSocketClient private (url: String, in: Observer.Sync[Int]) extends Observable[String] {
+  self ⇒
+
+  private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
   private val channel: Observable[String] =
-    Observable.unsafeCreate { subscriber ⇒
+    Observable.create[String](overflow) { subscriber ⇒
       def closeConnection(webSocket: WebSocket): Unit = {
         println(s"Closing connection to $url")
         if (webSocket != null && webSocket.readyState <= 1)
