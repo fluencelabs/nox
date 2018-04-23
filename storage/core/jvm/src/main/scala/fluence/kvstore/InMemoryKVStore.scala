@@ -17,10 +17,11 @@
 
 package fluence.kvstore
 
-import cats.{~>, Monad}
 import cats.data.EitherT
-import cats.syntax.flatMap._
 import cats.effect.{IO, LiftIO}
+import cats.syntax.flatMap._
+import cats.{~>, Monad}
+import fluence.kvstore.InMemoryKVStore.{InMemoryKVStoreGet, InMemoryKVStoreWrite, TrieMapKVStore}
 import fluence.kvstore.KVStore.TraverseOp
 import fluence.kvstore.ops._
 
@@ -28,27 +29,35 @@ import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
 
 /**
- * Top type for in memory kvStore implementation,
- * just holds kvStore state.
+ * Base in memory KVStore implementation, that allow 'put', 'remove' and 'get' by key.
  *
- * @tparam K A type of search key
- * @tparam V A type of value
+ * @tparam K The type of keys
+ * @tparam V The type of stored values
  */
-private sealed trait InMemoryKVStore[K, V] extends KVStore {
-
-  protected def data: TrieMap[K, V]
-
-}
+class InMemoryKVStore[K, V] extends TrieMapKVStore[K, V] with InMemoryKVStoreGet[K, V] with InMemoryKVStoreWrite[K, V]
 
 object InMemoryKVStore {
 
   /**
-   * Allows reading keys and values from KVStore.
+   * Top type for in memory kvStore implementation,
+   * just holds kvStore state.
    *
    * @tparam K A type of search key
    * @tparam V A type of value
    */
-  private trait InMemoryKVStoreRead[K, V] extends InMemoryKVStore[K, V] with KVStoreRead[K, V] { self ⇒
+  private[kvstore] sealed trait InMemoryKVStoreBase[K, V] extends KVStore {
+
+    protected def data: TrieMap[K, V]
+
+  }
+
+  /**
+   * Allows getting values from KVStore by the key.
+   *
+   * @tparam K The type of keys
+   * @tparam V The type of stored values
+   */
+  private[kvstore] trait InMemoryKVStoreGet[K, V] extends InMemoryKVStoreBase[K, V] with KVStoreGet[K, V] {
 
     /**
      * Returns lazy ''get'' representation (see [[Operation]])
@@ -63,13 +72,24 @@ object InMemoryKVStore {
 
     }
 
+  }
+
+  /**
+   * Allows to 'traverse' KVStore keys-values pairs.
+   * '''Note that''', 'traverse' method appears only after taking snapshot.
+   *
+   * @tparam K A type of search key
+   * @tparam V A type of value
+   */
+  private[kvstore] trait InMemoryKVStoreTraverse[K, V] extends InMemoryKVStoreBase[K, V] with KVStoreTraverse[K, V] {
+
     /**
      * Returns lazy ''traverse'' representation (see [[TraverseOperation]])
      */
     override def traverse: TraverseOp[K, V] = new TraverseOp[K, V] {
 
       override def run[FS[_]: Monad: LiftIO](implicit liftIterator: ~>[Iterator, FS]): FS[(K, V)] =
-        IO(liftIterator(runUnsafe)).to[FS].flatten
+        IO(liftIterator(data.iterator)).to[FS].flatten
 
       override def runUnsafe: Iterator[(K, V)] =
         data.iterator
@@ -79,12 +99,21 @@ object InMemoryKVStore {
   }
 
   /**
+   * Allows reading keys and values from KVStore.
+   *
+   * @tparam K A type of search key
+   * @tparam V A type of value
+   */
+  private[kvstore] trait InMemoryKVStoreRead[K, V]
+      extends InMemoryKVStoreGet[K, V] with InMemoryKVStoreTraverse[K, V] with KVStoreRead[K, V]
+
+  /**
    * Allows writing and removing keys and values from KVStore.
    *
    * @tparam K A type of search key
    * @tparam V A type of value
    */
-  private trait InMemoryKVStoreWrite[K, V] extends InMemoryKVStore[K, V] with KVStoreWrite[K, V] { self ⇒
+  private[kvstore] trait InMemoryKVStoreWrite[K, V] extends InMemoryKVStoreBase[K, V] with KVStoreWrite[K, V] {
 
     /**
      * Returns lazy ''put'' representation (see [[Operation]])
@@ -118,29 +147,32 @@ object InMemoryKVStore {
   }
 
   /**
-   * Create in memory [[ReadWriteKVStore]].
+   * Create base in memory KVStore implementation, without snapshot and traverse
+   * functionality. See class [[InMemoryKVStore]]
    *
    * @tparam K A type of search key
    * @tparam V A type of value
    */
-  def apply[K, V]: ReadWriteKVStore[K, V] =
-    new TrieMapKVStore[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V] with ReadWriteKVStore[K, V]
+  def apply[K, V]: InMemoryKVStore[K, V] =
+    new InMemoryKVStore[K, V]
 
   /**
-   * Create in memory [[ReadWriteKVStore]] with snapshot functionality.
+   * Create base in memory KVStore implementation, with snapshot and traverse
+   * functionality.
    *
    * @tparam K A type of search key
    * @tparam V A type of value
    */
-  def withSnapshots[K, V]: ReadWriteKVStore[K, V] with Snapshot[KVStoreRead[K, V]] = {
-    new TrieMapKVStore[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V] with ReadWriteKVStore[K, V]
-    with Snapshot[KVStoreRead[K, V]] {
-      override def createSnapshot[F[_]: LiftIO](): F[KVStoreRead[K, V]] =
-        IO[KVStoreRead[K, V]](new TrieMapKVStore(data.snapshot()) with InMemoryKVStoreRead[K, V]).to[F]
+  def withSnapshots[K, V]: InMemoryKVStore[K, V] with Snapshotable[InMemoryKVStoreRead[K, V]] = {
+    new InMemoryKVStore[K, V] with Snapshotable[InMemoryKVStoreRead[K, V]] {
+      override def createSnapshot[F[_]: LiftIO](): F[InMemoryKVStoreRead[K, V]] =
+        IO[InMemoryKVStoreRead[K, V]](new TrieMapKVStore(data.snapshot()) with InMemoryKVStoreRead[K, V]).to[F]
     }
   }
 
-  private abstract class TrieMapKVStore[K, V](map: TrieMap[K, V] = TrieMap.empty[K, V]) extends InMemoryKVStore[K, V] {
+  private[kvstore] abstract class TrieMapKVStore[K, V](
+    map: TrieMap[K, V] = TrieMap.empty[K, V]
+  ) extends InMemoryKVStoreBase[K, V] {
     protected val data: TrieMap[K, V] = map
   }
 
