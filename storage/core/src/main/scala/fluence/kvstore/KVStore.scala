@@ -38,7 +38,15 @@ trait KVStore
  * @tparam K The type of keys
  * @tparam V The type of stored values
  */
-trait KVStoreRead[K, V] extends KVStore {
+trait KVStoreRead[K, V] extends KVStoreGet[K, V] with KVStoreTraverse[K, V]
+
+/**
+ * Key-value storage api for reading values by key.
+ *
+ * @tparam K The type of keys
+ * @tparam V The type of stored values
+ */
+trait KVStoreGet[K, V] extends KVStore {
 
   /**
    * Returns lazy ''get'' representation (see [[Operation]])
@@ -47,8 +55,20 @@ trait KVStoreRead[K, V] extends KVStore {
    */
   def get(key: K): GetOp[V]
 
+}
+
+/**
+ * Key-value storage api for traversing key-value pairs.
+ *
+ * @tparam K The type of keys
+ * @tparam V The type of stored values
+ */
+trait KVStoreTraverse[K, V] extends KVStore {
+
   /**
    * Returns lazy ''traverse'' representation (see [[TraverseOperation]])
+   * '''Note that''', 'traverse' without taking snapshot can lead to non
+   * deterministic behavior.
    */
   def traverse: TraverseOp[K, V]
 
@@ -92,7 +112,7 @@ trait ReadWriteKVStore[K, V] extends KVStoreRead[K, V] with KVStoreWrite[K, V]
  *
  * @tparam S The type of returned storage snapshot.
  */
-trait Snapshot[S <: KVStore] {
+trait Snapshot[S <: KVStoreRead[_, _]] {
 
   def createSnapshot[F[_]: LiftIO](): F[S]
 
