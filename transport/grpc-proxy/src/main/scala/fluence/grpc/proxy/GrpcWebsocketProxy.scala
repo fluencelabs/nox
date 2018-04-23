@@ -17,60 +17,68 @@
 
 package fluence.grpc.proxy
 
-import cats.effect._
-import cats.syntax.flatMap._
-import cats.syntax.functor._
+import com.google.protobuf.ByteString
 import fluence.proxy.grpc.WebsocketMessage
-import fs2.StreamApp.ExitCode
+import fs2.async.mutable.Queue
+import fs2.interop.reactivestreams._
 import fs2.{io ⇒ _, _}
+import monix.eval.Task
+import monix.execution.Scheduler.Implicits.global
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
+import org.http4s.server.Server
 import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.websocket._
-import org.http4s.websocket.WebsocketBits._
+import org.http4s.websocket.WebsocketBits.{WebSocketFrame, _}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
 
 /**
- * Websocket-to-grpc proxy standalone app.
- * TODO make it pluggable and abstract from Stream
- * @param proxyGrpc Proxy grpc API.
+ * Websocket-to-grpc proxy server.
  */
-class GrpcWebsocketProxy[F[_]](proxyGrpc: ProxyGrpc[F], port: Int = 8080)(implicit F: Effect[F])
-    extends StreamApp[F] with Http4sDsl[F] {
+object GrpcWebsocketProxy extends Http4sDsl[Task] {
 
-  def route(scheduler: Scheduler): HttpService[F] = HttpService[F] {
+  private def route(inProcessGrpc: InProcessGrpc, scheduler: Scheduler): HttpService[Task] = HttpService[Task] {
 
     case GET -> Root / "ws" ⇒
       //TODO add size of queue to config
-      val queueF = async.boundedQueue[F, WebSocketFrame](100)
+      val queueF = async.boundedQueue[Task, WebSocketFrame](100)
+      //Creates a proxy for each connection to separate the cache for all clients.
+      val proxyGrpc = new ProxyGrpc(inProcessGrpc)
 
-      val echoReply: Pipe[F, WebSocketFrame, WebSocketFrame] = _.evalMap {
+      val replyPipe: Pipe[Task, WebSocketFrame, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
-          for {
-            message ← F.delay(WebsocketMessage.parseFrom(data))
-            response ← proxyGrpc.handleMessage(message.service, message.method, message.payload.newInput())
-          } yield Binary(response): WebSocketFrame
+          val responseStream = for {
+            message ← Task(WebsocketMessage.parseFrom(data))
+            responseObservable ← proxyGrpc
+              .handleMessage(message.service, message.method, message.requestId, message.payload.newInput())
+          } yield {
+            responseObservable.map { bytes ⇒
+              val responseMessage = message.copy(payload = ByteString.copyFrom(bytes))
+              Binary(responseMessage.toByteString.toByteArray): WebSocketFrame
+            }
+          }
+
+          Stream.eval(responseStream).flatMap(_.toReactivePublisher.toStream[Task]())
         case m ⇒
-          F.pure(Text(s"Unexpected message: $m"): WebSocketFrame)
+          Stream.eval(Task.pure(Text(s"Unexpected message: $m"): WebSocketFrame))
       }
 
-      queueF.flatMap { queue ⇒
-        val dequeueStream = queue.dequeue.through(echoReply)
+      queueF.flatMap { queue: Queue[Task, WebSocketFrame] ⇒
+        val dequeueStream = queue.dequeue.through(replyPipe)
         val enqueueStream = queue.enqueue
-        WebSocketBuilder[F].build(dequeueStream, enqueueStream)
+        WebSocketBuilder[Task].build(dequeueStream, enqueueStream)
       }
   }
 
-  override def stream(args: List[String], requestShutdown: F[Unit]): Stream[F, ExitCode] =
+  def startWebsocketServer(inProcessGrpc: InProcessGrpc, scheduler: Scheduler, port: Int): Task[Server[Task]] =
     for {
-      scheduler ← Scheduler[F](corePoolSize = 2)
-      exitCode ← BlazeBuilder[F]
+
+      server ← BlazeBuilder[Task]
         .bindHttp(port)
         .withWebSockets(true)
-        .mountService(route(scheduler))
-        .serve
-    } yield exitCode
+        .mountService(route(inProcessGrpc, scheduler))
+        .start
+    } yield server
 
 }

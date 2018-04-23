@@ -5,6 +5,7 @@ package fluence.proxy.grpc;
 message WebsocketMessage {
     string service = 1;
     string method = 2;
-    bytes payload = 3;
+    int64 requestId = 3;
+    bytes payload = 10;
 
 }

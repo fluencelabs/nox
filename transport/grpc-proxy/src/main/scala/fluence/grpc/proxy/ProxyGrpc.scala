@@ -19,14 +19,14 @@ package fluence.grpc.proxy
 
 import java.io.InputStream
 
-import cats.effect.Effect
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.~>
+import io.grpc.MethodDescriptor.MethodType
 import io.grpc._
 import io.grpc.internal.IoUtils
+import monix.eval.{MVar, Task}
+import monix.execution.Scheduler.Implicits.global
+import monix.reactive.{MulticastStrategy, Observable, OverflowStrategy}
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 
 /**
@@ -34,14 +34,17 @@ import scala.language.higherKinds
  *
  * @param inProcessGrpc In-process services and client channel.
  */
-class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
-  implicit F: Effect[F],
-  runFuture: Future ~> F,
-  ec: ExecutionContext
+class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
+  implicit ec: ExecutionContext
 ) extends slogging.LazyLogging {
 
+  //TODO add auto-cleanup for old expired invoices
+  val callCache: Task[MVar[Map[Long, ClientCall[Any, Any]]]] = MVar(Map.empty[Long, ClientCall[Any, Any]]).memoize
+
+  private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
+
   /**
-   * Get grpc method descriptor from registered services.
+   * Gets grpc method descriptor from registered services.
    *
    * @param service Name of service.
    * @param method Name of method.
@@ -58,62 +61,110 @@ class ProxyGrpc[F[_]](inProcessGrpc: InProcessGrpc)(
     } yield methodDescriptor
   }
 
-  private def getMethodDescriptorF(service: String, method: String): F[MethodDescriptor[Any, Any]] =
-    F.catchNonFatal(getMethodDescriptor(service, method)).flatMap {
-      case Some(md) ⇒ F.pure(md)
-      case None ⇒ F.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
+  private def getMethodDescriptorF(service: String, method: String): Task[MethodDescriptor[Any, Any]] =
+    Task(getMethodDescriptor(service, method)).flatMap {
+      case Some(md) ⇒ Task.pure(md)
+      case None ⇒ Task.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
     }
 
   /**
-   * Unary call to grpc service.
+   * Creates listener for client call and connects it with observable.
    *
    */
-  private def unaryCall(req: Any, methodDescriptor: MethodDescriptor[Any, Any]): F[Future[Any]] = {
-    val onMessagePr = Promise[Any]
-    val onClosePr = Promise[(io.grpc.Status, Metadata)]
-    val f = F.delay {
+  private def openBidiCall(
+    methodDescriptor: MethodDescriptor[Any, Any]
+  ): Task[(ClientCall[Any, Any], Observable[Array[Byte]])] = {
+    Task {
       val metadata = new Metadata()
       val call = inProcessGrpc.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
 
-      call.start(new ProxyListener[Any](onMessagePr, onClosePr), metadata)
+      val (in, out) = Observable.multicast[Any](MulticastStrategy.replay, overflow)
 
-      call.sendMessage(req)
-      call.request(1)
-      call.halfClose()
+      call.start(new StreamProxyListener[Any](in), metadata)
 
-      //If onClose will be completed earlier, than onMessage, we will raise error
+      val mappedOut = out.collect {
+        case r ⇒
+          IoUtils.toByteArray(methodDescriptor.streamResponse(r))
+      }
 
-      runFuture(onClosePr.future)
-      val raiseErrorOnClose: Future[Any] = onClosePr.future.flatMap(
-        _ ⇒ Future.failed(new RuntimeException("The call was completed before the message was received"))
-      )
-
-      Future.firstCompletedOf(Seq(onMessagePr.future, raiseErrorOnClose))
-    }
-    F.handleError(f) { e: Throwable ⇒
-      onMessagePr.tryFailure(e)
-      onMessagePr.future
+      (call, mappedOut)
     }
   }
 
   /**
-   * Handle proxying request for some service and method that registered in grpc server.
+   * Creates observable, sends single request and closes stream on proxy side.
+   * The observable and the call will close automatically when the response returns.
+   */
+  private def handleUnaryCall(req: Any, methodDescriptor: MethodDescriptor[Any, Any]): Task[Observable[Array[Byte]]] = {
+    for {
+      callWithObs ← openBidiCall(methodDescriptor)
+      (c, obs) = callWithObs
+    } yield {
+      c.sendMessage(req)
+      c.request(1)
+      c.halfClose()
+      obs
+    }
+  }
+
+  /**
+   * If it is new requestId, creates call and observable, that connects proxy server with proxy client and sends first message.
+   * For requests that are cached we use an already created call, that connected with client through observable.
+   */
+  private def handleStreamCall(
+    req: Any,
+    methodDescriptor: MethodDescriptor[Any, Any],
+    requestId: Long
+  ): Task[Observable[Array[Byte]]] = {
+    for {
+      callOp ← callCache.flatMap(_.read).map(_.get(requestId))
+      resp ← callOp match {
+        case Some(c) ⇒
+          Task {
+            c.sendMessage(req)
+            c.request(1)
+            Observable()
+          }
+        case None ⇒
+          for {
+            callWithObs ← openBidiCall(methodDescriptor)
+            (c, obs) = callWithObs
+            map ← callCache.flatMap(_.take)
+            _ ← callCache.flatMap(_.put(map + (requestId -> c)))
+          } yield {
+            c.sendMessage(req)
+            c.request(1)
+            obs
+          }
+      }
+    } yield resp
+  }
+
+  /**
+   * Handles proxying request for some service and method that registered in grpc server.
    *
    * @param service Name of grpc service (class name of service).
    * @param method Name of grpc method (method name of service).
-   * @param request Input stream of bytes.
+   * @param stream Input stream of bytes.
    *
    * @return Response as array of bytes.
    */
-  def handleMessage(service: String, method: String, request: InputStream): F[Array[Byte]] = {
+  def handleMessage(
+    service: String,
+    method: String,
+    requestId: Long,
+    stream: InputStream
+  ): Task[Observable[Array[Byte]]] = {
     for {
       methodDescriptor ← getMethodDescriptorF(service, method)
-      request ← F.delay(methodDescriptor.parseRequest(request))
-      responseF ← unaryCall(request, methodDescriptor)
-      response ← runFuture(responseF)
-    } yield {
-      IoUtils.toByteArray(methodDescriptor.streamResponse(response))
-    }
+      req ← Task(methodDescriptor.parseRequest(stream))
+      resp ← {
+        if (methodDescriptor.getType == MethodType.UNARY)
+          handleUnaryCall(req, methodDescriptor)
+        else
+          handleStreamCall(req, methodDescriptor, requestId)
+      }
+    } yield resp
   }
 
 }
