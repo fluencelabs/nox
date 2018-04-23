@@ -17,6 +17,8 @@
 
 package fluence.grpc.proxy
 
+import java.util.concurrent.TimeUnit
+
 import cats.effect.IO
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc._
@@ -46,12 +48,34 @@ final class InProcessGrpc private (private val server: Server, private val chann
    * Once the server and the channel are closed, it will throw errors on each call.
    */
   def close(): IO[Unit] = {
-    IO(server.shutdown()).map(_ ⇒ channel.shutdown())
+    for {
+      _ ← IO(server.shutdown())
+      _ ← IO(server.awaitTermination())
+      _ ← IO(channel.shutdown())
+      _ ← IO(channel.awaitTermination(10L, TimeUnit.SECONDS))
+    } yield ()
+  }
+
+  /**
+   * Close server and channel even with the open calls.
+   * Once the server and the channel are closed, it will throw errors on each call.
+   */
+  def unsafeClose(): IO[Unit] = {
+    for {
+      _ ← IO(server.shutdownNow())
+      _ ← IO(channel.shutdownNow())
+    } yield ()
   }
 }
 
 object InProcessGrpc {
 
+  /**
+   *
+   * @param name Service identifier, which must be unique.
+   * @param services List of registered in grpc services.
+   * @return Grpc with the server and client running in memory.
+   */
   def build(name: String, services: List[ServerServiceDefinition]): IO[InProcessGrpc] = {
     for {
       server ← IO {
