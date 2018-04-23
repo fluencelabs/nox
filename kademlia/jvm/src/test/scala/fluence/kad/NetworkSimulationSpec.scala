@@ -45,7 +45,7 @@ import scala.util.Try
 
 class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll with LazyLogging {
 
-  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(10, Seconds), Span(250, Milliseconds))
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(15, Seconds), Span(250, Milliseconds))
 
   private val algo = SignAlgo.dumb
 

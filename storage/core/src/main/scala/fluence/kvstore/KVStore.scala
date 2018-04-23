@@ -112,7 +112,7 @@ trait ReadWriteKVStore[K, V] extends KVStoreRead[K, V] with KVStoreWrite[K, V]
  *
  * @tparam S The type of returned storage snapshot.
  */
-trait Snapshot[S <: KVStoreRead[_, _]] {
+trait Snapshotable[S <: KVStoreRead[_, _]] {
 
   def createSnapshot[F[_]: LiftIO](): F[S]
 

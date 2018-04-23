@@ -163,8 +163,8 @@ object InMemoryKVStore {
    * @tparam K A type of search key
    * @tparam V A type of value
    */
-  def withSnapshots[K, V]: InMemoryKVStore[K, V] with Snapshot[InMemoryKVStoreRead[K, V]] = {
-    new InMemoryKVStore[K, V] with Snapshot[InMemoryKVStoreRead[K, V]] {
+  def withSnapshots[K, V]: InMemoryKVStore[K, V] with Snapshotable[InMemoryKVStoreRead[K, V]] = {
+    new InMemoryKVStore[K, V] with Snapshotable[InMemoryKVStoreRead[K, V]] {
       override def createSnapshot[F[_]: LiftIO](): F[InMemoryKVStoreRead[K, V]] =
         IO[InMemoryKVStoreRead[K, V]](new TrieMapKVStore(data.snapshot()) with InMemoryKVStoreRead[K, V]).to[F]
     }
