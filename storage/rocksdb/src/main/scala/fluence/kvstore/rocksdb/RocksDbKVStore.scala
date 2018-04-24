@@ -1,21 +1,16 @@
 package fluence.kvstore.rocksdb
 
-import java.io.File
-
 import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
 import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.{~>, ApplicativeError, Monad, MonadError}
-import com.typesafe.config.Config
+import cats.{~>, Monad}
 import fluence.kvstore.KVStore.TraverseOp
-import fluence.kvstore._
 import fluence.kvstore.ops.{Operation, TraverseOperation}
 import fluence.kvstore.rocksdb.RocksDbKVStore.{RocksDbKVStoreGet, RocksDbStoreBaseImpl}
-import fluence.storage.rocksdb.{RocksDbConf, RocksDbScalaIterator}
+import fluence.kvstore.{Snapshotable, _}
+import fluence.storage.rocksdb.RocksDbScalaIterator
 import org.rocksdb.{Options, ReadOptions, RocksDB}
 
-import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
 
 /**
@@ -28,31 +23,46 @@ import scala.language.higherKinds
  */
 class RocksDbKVStore(
   private val db: RocksDB,
-  private val dbOps: Options
-) extends RocksDbStoreBaseImpl(db, dbOps) with RocksDbKVStoreGet /*with RocksDbKVStoreWrite*/
+  private val dbOps: Options,
+  private val readOpt: ReadOptions = new ReadOptions()
+) extends RocksDbStoreBaseImpl(db, dbOps, readOpt) with RocksDbKVStoreGet /*with RocksDbKVStoreWrite*/
 
+// todo there need a special ThreadPool for IO operations in RocksDb
 object RocksDbKVStore {
 
-  lazy val factory: RocksDbKVStore.Factory = new RocksDbKVStore.Factory
-
-  // todo there need a special ThreadPool for IO operations in RocksDb
+  lazy val create: RocksDbFactory = new RocksDbFactory
 
   type Key = Array[Byte]
   type Value = Array[Byte]
 
   /**
-   * Top type for kvStore implementation based on RocksDb, it just holds kvStore state.
+   * Top type for kvStore implementation based on RocksDb, it just holds kvStore state and meta information.
    */
   private[kvstore] sealed trait RocksDbKVStoreBase extends KVStore {
 
+    /**
+     * Java representation for c++ driver for RocksDb.
+     */
     protected val data: RocksDB
+
+    /**
+     * Options to control common the behavior of a database.  It will be used
+     * during the creation of a [[org.rocksdb.RocksDB]] (i.e., RocksDB.open())
+     */
+    protected val dbOptions: Options
+
+    /**
+     * The class that controls read behavior.
+     */
+    protected val readOptions: ReadOptions
 
   }
 
   /**
    * Allows reading keys and values from KVStore.
    */
-  private trait RocksDbKVStoreRead extends RocksDbKVStoreGet with RocksDbKVStoreTraverse with KVStoreRead[Key, Value]
+  private[kvstore] trait RocksDbKVStoreRead
+      extends RocksDbKVStoreGet with RocksDbKVStoreTraverse with KVStoreRead[Key, Value]
 
   /**
    * Allows getting values from KVStore by the key.
@@ -67,7 +77,7 @@ object RocksDbKVStore {
     override def get(key: Key): Operation[Option[Value]] = new Operation[Option[Value]] {
 
       override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Option[Value]] =
-        EitherT(IO(Option(data.get(key))).attempt.to[F])
+        EitherT(IO(Option(data.get(readOptions, key))).attempt.to[F])
           .leftMap(err ⇒ StoreError.forGet(key, Some(err)))
 
     }
@@ -78,7 +88,7 @@ object RocksDbKVStore {
    * Allows to 'traverse' KVStore keys-values pairs.
    * '''Note that''', 'traverse' method appears only after taking snapshot.
    */
-  private trait RocksDbKVStoreTraverse extends RocksDbKVStoreBase with KVStoreTraverse[Key, Value] {
+  private[kvstore] trait RocksDbKVStoreTraverse extends RocksDbKVStoreBase with KVStoreTraverse[Key, Value] {
 
     /**
      * Returns lazy ''traverse'' representation (see [[TraverseOperation]])
@@ -87,7 +97,7 @@ object RocksDbKVStore {
 
       override def run[FS[_]: Monad: LiftIO](implicit liftIterator: Iterator ~> FS): FS[(Key, Value)] =
         IO {
-          new ReadOptions().setTailing(true) // sequential read optimization
+          new ReadOptions(readOptions).setTailing(true) // sequential read optimization
         }.bracket { opt ⇒
           IO(liftIterator(new RocksDbScalaIterator(data.newIterator(opt))))
         } { opt ⇒
@@ -101,6 +111,32 @@ object RocksDbKVStore {
 
   }
 
+  /**
+   * Allows to taking snapshot for the RocksDbKVStore.
+   */
+  private[kvstore] trait RocksDbSnapshotable extends RocksDbKVStoreBase with Snapshotable[RocksDbKVStoreRead] { self ⇒
+
+    /**
+     * Returns read-only key-value store snapshot with traverse functionality.
+     */
+    override def createSnapshot[F[_]: LiftIO](): F[RocksDbKVStoreRead] = {
+      val newInstance: IO[RocksDbKVStoreRead] =
+        for {
+          snapshot ← IO(self.data.getSnapshot)
+          readOp ← IO(new ReadOptions(readOptions).setSnapshot(snapshot))
+        } yield
+          new RocksDbStoreBaseImpl(self.data, self.dbOptions, readOp) with RocksDbKVStoreRead {
+            override def close(): Unit = {
+              super.close()
+              readOp.close()
+              snapshot.close()
+            }
+          }
+
+      newInstance.to[F]
+    }
+  }
+
   // todo implement RocksDbKVStoreWrite
 
   // todo create 2 apply methods: for binary store and store with codecs
@@ -110,79 +146,22 @@ object RocksDbKVStore {
   /**
    * Implementation of KVStore inner state holder, based on RocksDb java driver.
    */
-  private[kvstore] abstract class RocksDbStoreBaseImpl(
-    private val db: RocksDB,
-    private val dbOptions: Options
+  private[kvstore] class RocksDbStoreBaseImpl(
+    override val data: RocksDB,
+    override val dbOptions: Options,
+    override val readOptions: ReadOptions
   ) extends RocksDbKVStoreBase with AutoCloseable {
 
-    override protected val data: RocksDB = db
-
+    // todo consider more functional interface for closing resources with IO
     /**
      * Users should always explicitly call close() methods for this entity!
      */
     override def close(): Unit = {
-      db.close()
+      data.close()
       dbOptions.close()
+      readOptions.close()
     }
 
   }
 
-  // todo finish @@@@ don't forget about scheduler
-  /**
-   * Factory should be used to create all the instances of RocksDbKVStore
-   * todo discuss, global state isn't good approach, needed to consider consider another way
-   */
-  private[kvstore] class Factory extends slogging.LazyLogging {
-    private val instances = TrieMap.empty[String, RocksDbKVStore]
-
-    /**
-     * Create RocksDb instance for specified name.
-     * All data will be stored in {{{ s"${RocksDbConf.dataDir}/storeName" }}}.
-     *
-     * @param storeName The name of current RocksDbStore instance
-     * @param conf       TypeSafe config
-     */
-
-    def apply[F[_]](storeName: String, conf: Config)(implicit F: MonadError[F, Throwable]): F[RocksDbKVStore] =
-      RocksDbConf.read(conf).flatMap(apply(storeName, _))
-
-    def apply[F[_]](storeName: String, config: RocksDbConf)(
-      implicit F: ApplicativeError[F, Throwable]
-    ): F[RocksDbKVStore] = {
-      val dbRoot = s"${config.dataDir}/$storeName"
-      val options = createOptionsFromConfig(config)
-
-      createDb(dbRoot, options).map { rdb ⇒
-        // Registering an instance
-        val store = new RocksDbKVStore(rdb, options)
-        instances(storeName) = store
-        logger.info(s"RocksDB instance created for $storeName")
-        store
-      }
-    }
-
-    /**
-     * Closes all launched instances of RocksDB
-     */
-    def close: IO[Unit] = IO {
-      logger.info(s"Closing RocksDB instances: ${instances.keys.mkString(", ")}")
-      instances.keySet.flatMap(ds ⇒ instances.remove(ds)).foreach(_.close())
-    }
-
-    private def createDb[F[_]](folder: String, options: Options)(
-      implicit F: ApplicativeError[F, Throwable]
-    ): F[RocksDB] =
-      F.catchNonFatal {
-        RocksDB.loadLibrary()
-        val dataDir = new File(folder)
-        if (!dataDir.exists()) dataDir.mkdirs()
-        RocksDB.open(options, folder)
-      }
-
-    private def createOptionsFromConfig(conf: RocksDbConf): Options = {
-      val opt = new Options()
-      opt.setCreateIfMissing(conf.createIfMissing)
-      opt
-    }
-  }
 }
