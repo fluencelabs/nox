@@ -19,7 +19,7 @@ package fluence.kvstore
 
 import java.nio.ByteBuffer
 
-import cats.effect.IO
+import cats.effect.{IO, LiftIO}
 import cats.~>
 import monix.execution.Scheduler.Implicits.global
 import monix.reactive.Observable
@@ -31,8 +31,6 @@ import scala.language.{higherKinds, implicitConversions}
 
 class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
-  import ObservableLiftIO._
-
   type Key = Array[Byte]
   type Value = Array[Byte]
 
@@ -40,6 +38,10 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
   implicit val liftToObservable: Iterator ~> Observable = new (Iterator ~> Observable) {
     override def apply[A](fa: Iterator[A]): Observable[A] = Observable.fromIterator(fa)
+  }
+
+  implicit val catsObservableLiftIO = new LiftIO[Observable] {
+    override def liftIO[A](ioa: IO[A]): Observable[A] = Observable.fromIO(ioa)
   }
 
   "InMemoryKVStore" should {

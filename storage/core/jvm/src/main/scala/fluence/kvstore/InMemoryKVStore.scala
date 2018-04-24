@@ -53,6 +53,15 @@ object InMemoryKVStore {
   }
 
   /**
+   * Allows reading keys and values from KVStore.
+   *
+   * @tparam K A type of search key
+   * @tparam V A type of value
+   */
+  private[kvstore] trait InMemoryKVStoreRead[K, V]
+      extends InMemoryKVStoreGet[K, V] with InMemoryKVStoreTraverse[K, V] with KVStoreRead[K, V]
+
+  /**
    * Allows getting values from KVStore by the key.
    *
    * @tparam K The type of keys
@@ -98,15 +107,6 @@ object InMemoryKVStore {
     }
 
   }
-
-  /**
-   * Allows reading keys and values from KVStore.
-   *
-   * @tparam K A type of search key
-   * @tparam V A type of value
-   */
-  private[kvstore] trait InMemoryKVStoreRead[K, V]
-      extends InMemoryKVStoreGet[K, V] with InMemoryKVStoreTraverse[K, V] with KVStoreRead[K, V]
 
   /**
    * Allows writing and removing keys and values from KVStore.

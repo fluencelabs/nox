@@ -114,6 +114,9 @@ trait ReadWriteKVStore[K, V] extends KVStoreRead[K, V] with KVStoreWrite[K, V]
  */
 trait Snapshotable[S <: KVStoreRead[_, _]] {
 
+  /**
+   * Returns read-only key-value store snapshot.
+   */
   def createSnapshot[F[_]: LiftIO](): F[S]
 
 }
