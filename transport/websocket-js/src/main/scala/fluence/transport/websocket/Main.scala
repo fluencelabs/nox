@@ -1,60 +1,53 @@
 package fluence.transport.websocket
 
-import io.grpc.stub.StreamObserver
-import monix.eval.Task
 import monix.execution.Ack.Continue
 import monix.execution.{Ack, Scheduler}
 import monix.reactive._
-import org.scalajs.dom.{MessageEvent, WebSocket}
+import org.scalajs.dom.{CloseEvent, Event, MessageEvent, WebSocket}
+import scodec.bits.ByteVector
+import monix.execution.Scheduler.Implicits.global
 
-import scala.scalajs.js
+import scala.concurrent.{Await, Future, Promise}
 
 object Main extends App {
 
   val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
-  val webSocket = new WebSocket("")
+  val (observer, observable) = WebsocketPipe.websocketPipe[ByteVector, ByteVector](
+    "ws://localhost:8080/http4s/wsecho",
+    implicitly[Scheduler],
+    identity,
+    identity
+  )
 
-  type I = String
-  type O = String
-
-  def pipeIn(ws: WebSocket) = {
-    new Pipe[I, O] {
-      override def unicast: (Observer[I], Observable[O]) = {
-
-        val (in, out) = Observable.multicast[I](MulticastStrategy.replay, overflow)
-
-        ws.onmessage = (event: MessageEvent) ⇒ {
-          in.onNext(event.data.asInstanceOf[String])
-        }
-
-        //in is for pushing messages from websocket
-        //out is observable for processing messages from websocket
-        //  websocket.onmessage ---> in ---> out
-        in -> out
-      }
-    }
-  }
-
-  def pipeOut(ws: WebSocket) =
-    new Pipe[I, O] {
-      override def unicast: (Observer[I], Observable[O]) = {
-
-        val (in, out) = Observable.multicast[I](MulticastStrategy.replay, overflow)
-        //in is for pushing messages from client
-        //out is observable for senging messages to websocket
-        //  in ---> out ---> websocket.send
-        in -> Observable.create[O](overflow) { sync ⇒
-          out.subscribe(new Observer.Sync[I] {
-            def onNext(elem: I): Ack = {
-              ws.send(elem)
-              Continue
-            }
-            def onError(ex: Throwable): Unit = ()
-            def onComplete(): Unit = ()
-          })
-        }
-      }
-    }
+  observable.subscribe(bv ⇒ {
+    println("111 " + bv)
+    Future(Continue)
+  })
+  observable.subscribe(bv ⇒ {
+    println("222 " + bv)
+    Future(Continue)
+  })
+  observable.subscribe(bv ⇒ {
+    println("333 " + bv)
+    Future(Continue)
+  })
+  observer.onNext(ByteVector(1, 2, 3, 4, 5))
+  observer.onNext(ByteVector(1, 2, 3, 4, 5))
+  observer.onNext(ByteVector(1, 2, 3, 4, 5))
+  observer.onNext(ByteVector(1, 2, 3, 4, 5))
+  observer.onNext(ByteVector(1, 2, 3, 4, 5))
+  observable.subscribe(bv ⇒ {
+    println("444 " + bv)
+    Future(Continue)
+  })
+  observable.subscribe(bv ⇒ {
+    println("555 " + bv)
+    Future(Continue)
+  })
+  observable.subscribe(bv ⇒ {
+    println("666  " + bv)
+    Future(Continue)
+  })
 
 }

@@ -287,9 +287,14 @@ lazy val `transport-websocket-js` = project
       "org.typelevel"        %%% "cats-effect"     % CatsEffectV,
       "one.fluence"          %%% "codec-core"      % CodecV,
       "org.scala-js"         %%% "scalajs-dom"     % "0.9.2",
+      "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
       "com.thesamet.scalapb" %%% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf"
     ),
-    fork in Test := false
+    scalaJSUseMainModuleInitializer := true,
+    workbenchStartMode := WorkbenchStartModes.Manual,
+    scalaJSModuleKind  := ModuleKind.NoModule,
+    fork in Test := false,
+    jsEnv := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
   )
   .enablePlugins(ScalaJSPlugin)
 
