@@ -21,7 +21,7 @@ import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
 import cats.syntax.flatMap._
 import cats.{~>, Monad}
-import fluence.kvstore.InMemoryKVStore.{InMemoryKVStoreGet, InMemoryKVStoreWrite, TrieMapKVStore}
+import fluence.kvstore.InMemoryKVStore.{InMemoryKVStoreGet, InMemoryKVStoreWrite, TrieMapKVStoreBase}
 import fluence.kvstore.KVStore.TraverseOp
 import fluence.kvstore.ops._
 
@@ -34,7 +34,8 @@ import scala.language.higherKinds
  * @tparam K The type of keys
  * @tparam V The type of stored values
  */
-class InMemoryKVStore[K, V] extends TrieMapKVStore[K, V] with InMemoryKVStoreGet[K, V] with InMemoryKVStoreWrite[K, V]
+class InMemoryKVStore[K, V]
+    extends TrieMapKVStoreBase[K, V] with InMemoryKVStoreGet[K, V] with InMemoryKVStoreWrite[K, V]
 
 object InMemoryKVStore {
 
@@ -166,12 +167,15 @@ object InMemoryKVStore {
   def withSnapshots[K, V]: InMemoryKVStore[K, V] with Snapshotable[InMemoryKVStoreRead[K, V]] = {
     new InMemoryKVStore[K, V] with Snapshotable[InMemoryKVStoreRead[K, V]] {
       override def createSnapshot[F[_]: LiftIO](): F[InMemoryKVStoreRead[K, V]] =
-        IO[InMemoryKVStoreRead[K, V]](new TrieMapKVStore(data.snapshot()) with InMemoryKVStoreRead[K, V]).to[F]
+        IO[InMemoryKVStoreRead[K, V]](new TrieMapKVStoreBase(data.snapshot()) with InMemoryKVStoreRead[K, V]).to[F]
     }
   }
 
-  private[kvstore] abstract class TrieMapKVStore[K, V](
-    map: TrieMap[K, V] = TrieMap.empty[K, V]
+  /**
+   * TrieMap based implementation of KVStore inner state holder.
+   */
+  private[kvstore] abstract class TrieMapKVStoreBase[K, V](
+    private val map: TrieMap[K, V] = TrieMap.empty[K, V]
   ) extends InMemoryKVStoreBase[K, V] {
     protected val data: TrieMap[K, V] = map
   }
