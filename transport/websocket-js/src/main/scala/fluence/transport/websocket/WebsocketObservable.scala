@@ -13,8 +13,8 @@ import scala.concurrent.duration._
 import scala.scalajs.js.typedarray.{ArrayBuffer, Int8Array, TypedArrayBuffer}
 import scala.util.control.NonFatal
 
-final class BackPressuredWebSocketClient(webSocket: WebSocket, observer: CacheUntilConnectSubscriber[_])
-    extends Observable[ByteVector] {
+final class WebsocketObservable(webSocket: WebSocket, observer: CacheUntilConnectSubscriber[_])
+    extends Observable[WebsocketFrame] {
   self ⇒
 
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
@@ -24,8 +24,8 @@ final class BackPressuredWebSocketClient(webSocket: WebSocket, observer: CacheUn
     ByteVector(typed)
   }
 
-  private val channel: Observable[ByteVector] =
-    Observable.create[ByteVector](overflow) { subscriber ⇒
+  private val channel: Observable[WebsocketFrame] =
+    Observable.create[WebsocketFrame](overflow) { subscriber ⇒
       def closeConnection(webSocket: WebSocket): Unit = {
         println(s"Closing connection to ${webSocket.url}")
         if (webSocket != null && webSocket.readyState <= 1)
@@ -43,7 +43,7 @@ final class BackPressuredWebSocketClient(webSocket: WebSocket, observer: CacheUn
           observer.connect()
         }
         webSocket.onerror = (event: ErrorEvent) ⇒ {
-          subscriber.onError(BackPressuredWebSocketClient.Exception(event.message))
+          subscriber.onError(WebsocketObservable.Exception(event.message))
         }
         webSocket.onclose = (event: CloseEvent) ⇒ {
           subscriber.onComplete()
@@ -52,18 +52,16 @@ final class BackPressuredWebSocketClient(webSocket: WebSocket, observer: CacheUn
           event.data match {
             case s: String ⇒
               subscriber.onError(
-                BackPressuredWebSocketClient.Exception(s"String message event is unsupported. Message: $s")
+                WebsocketObservable.Exception(s"String message event is unsupported. Message: $s")
               )
             case buf: ArrayBuffer ⇒
-              subscriber.onNext(arrayToByteVector(buf))
+              subscriber.onNext(Binary(arrayToByteVector(buf)))
             case b: Blob ⇒
               val fReader = new FileReader()
               fReader.onload = (event: UIEvent) ⇒ {
                 val buf = fReader.result.asInstanceOf[ArrayBuffer]
-                println("BUF === " + buf)
                 val bv = arrayToByteVector(buf)
-                println("ON NEXT === " + bv)
-                subscriber.onNext(bv)
+                subscriber.onNext(Binary(bv))
               }
               fReader.readAsArrayBuffer(b)
           }
@@ -78,11 +76,11 @@ final class BackPressuredWebSocketClient(webSocket: WebSocket, observer: CacheUn
       }
     }
 
-  override def unsafeSubscribeFn(subscriber: Subscriber[ByteVector]): Cancelable = {
+  override def unsafeSubscribeFn(subscriber: Subscriber[WebsocketFrame]): Cancelable = {
     import subscriber.scheduler
 
-    channel.unsafeSubscribeFn(new Observer[ByteVector] {
-      def onNext(elem: ByteVector): Future[Ack] =
+    channel.unsafeSubscribeFn(new Observer[WebsocketFrame] {
+      def onNext(elem: WebsocketFrame): Future[Ack] =
         subscriber.onNext(elem)
 
       def onError(ex: Throwable): Unit = {
@@ -101,7 +99,7 @@ final class BackPressuredWebSocketClient(webSocket: WebSocket, observer: CacheUn
   }
 }
 
-object BackPressuredWebSocketClient {
+object WebsocketObservable {
 
   case class Exception(msg: String) extends RuntimeException(msg)
 }
