@@ -22,20 +22,23 @@ import java.nio.ByteBuffer
 import cats.effect.IO
 import cats.~>
 import com.typesafe.config.ConfigFactory
-import fluence.storage.rocksdb.RocksDbConf
+import fluence.kvstore.rocksdb.ObservableLiftIO._
+import fluence.kvstore.rocksdb.RocksDbKVStore.RocksDbSnapshotable
+import monix.execution.{ExecutionModel, Scheduler}
 import monix.reactive.Observable
 import org.rocksdb.{RocksDB, RocksIterator}
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
+import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 
 import scala.language.{higherKinds, implicitConversions}
 import scala.reflect.io.Path
 import scala.util.Random
 
-class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockitoSugar {
-
-  type Key = Array[Byte]
-  type Value = Array[Byte]
+class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockitoSugar with ScalaFutures {
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
+  implicit val scheduler: Scheduler = Scheduler(ExecutionModel.AlwaysAsyncExecution)
 
   implicit def wrapBytes(bytes: Array[Byte]): ByteBuffer = ByteBuffer.wrap(bytes)
 
@@ -44,7 +47,7 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
   }
 
   private val config = ConfigFactory.load()
-  private val rDBConf = RocksDbConf.read[IO](config).unsafeRunSync()
+  private val rDBConf = RocksDbConf.read[IO](config).value.unsafeRunSync().right.get
   assert(rDBConf.dataDir.startsWith(System.getProperty("java.io.tmpdir")))
 
   "InMemoryKVStore" should {
@@ -71,30 +74,30 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
 
     }
 
-//    "perform all Traverse operations correctly" in {
+    "perform all Traverse operations correctly" in {
+
+      val key1 = "key1"
+      val val1 = "val1"
+      val key2 = "key2"
+      val val2 = "val2"
+
+      runRocksDbWithSnapshots("test2") { store ⇒
+        val store1 = store.createSnapshot[IO]().unsafeRunSync()
+        store1.traverse.run[Observable].toListL.runAsync.futureValue shouldBe empty
+        store1.traverse.runUnsafe shouldBe empty
+
+//        store.put(key1, val1).runUnsafe() shouldBe ()
+//        store.put(key2, val2).runUnsafe() shouldBe ()
 //
-//      val store = InMemoryKVStore.withSnapshots[String, String]
+//        val expectedPairs = List(key1 → val1, key2 → val2)
 //
-//      val key1 = "key1"
-//      val val1 = "val1"
-//      val key2 = "key2"
-//      val val2 = "val2"
+//        val store2 = store.createSnapshot[IO]().unsafeRunSync()
 //
-//      val store1 = store.createSnapshot[IO]().unsafeRunSync()
-//      store1.traverse.run[Observable].toListL.runAsync.futureValue shouldBe empty
-//      store1.traverse.runUnsafe shouldBe empty
-//
-//      store.put(key1, val1).runUnsafe() shouldBe ()
-//      store.put(key2, val2).runUnsafe() shouldBe ()
-//
-//      val expectedPairs = List(key1 → val1, key2 → val2)
-//
-//      val store2 = store.createSnapshot[IO]().unsafeRunSync()
-//
-//      store2.traverse.run[Observable].toListL.runAsync.futureValue should contain theSameElementsAs expectedPairs
-//      store2.traverse.runUnsafe.toList should contain theSameElementsAs expectedPairs
-//
-//    }
+//        store2.traverse.run[Observable].toListL.runAsync.futureValue should contain theSameElementsAs expectedPairs
+//        store2.traverse.runUnsafe.toList should contain theSameElementsAs expectedPairs
+      }
+
+    }
 
 //    "perform all Put operations correctly" in {
 //
@@ -262,9 +265,15 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
   }
 
   private def runRocksDb(name: String)(action: RocksDbKVStore ⇒ Unit): Unit = {
-    val store = RocksDbKVStore.factory[IO](makeUnique(name), config).unsafeRunSync()
+    val store = RocksDbKVStore.create[IO](makeUnique(name), config).value.unsafeRunSync().right.get
     try action(store)
-    finally store.close()
+    finally store.close().unsafeRunSync()
+  }
+
+  private def runRocksDbWithSnapshots(name: String)(action: RocksDbKVStore with RocksDbSnapshotable ⇒ Unit): Unit = {
+    val store = RocksDbKVStore.create.withSnapshots[IO](makeUnique(name), config).value.unsafeRunSync().right.get
+    try action(store)
+    finally store.close().unsafeRunSync()
   }
 
   private def createTestRocksIterator(limit: Int): RocksIterator = {

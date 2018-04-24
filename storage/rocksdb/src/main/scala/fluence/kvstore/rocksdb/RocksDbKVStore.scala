@@ -6,7 +6,7 @@ import cats.syntax.flatMap._
 import cats.{~>, Monad}
 import fluence.kvstore.KVStore.TraverseOp
 import fluence.kvstore.ops.{Operation, TraverseOperation}
-import fluence.kvstore.rocksdb.RocksDbKVStore.{RocksDbKVStoreGet, RocksDbStoreBaseImpl}
+import fluence.kvstore.rocksdb.RocksDbKVStore.{RocksDbKVStoreBase, RocksDbKVStoreGet}
 import fluence.kvstore.{Snapshotable, _}
 import fluence.storage.rocksdb.RocksDbScalaIterator
 import org.rocksdb.{Options, ReadOptions, RocksDB}
@@ -25,7 +25,11 @@ class RocksDbKVStore(
   private val db: RocksDB,
   private val dbOps: Options,
   private val readOpt: ReadOptions = new ReadOptions()
-) extends RocksDbStoreBaseImpl(db, dbOps, readOpt) with RocksDbKVStoreGet /*with RocksDbKVStoreWrite*/
+) extends RocksDbKVStoreBase with RocksDbKVStoreGet /*with RocksDbKVStoreWrite*/ {
+  override protected val data: RocksDB = db
+  override protected val dbOptions: Options = dbOps
+  override protected val readOptions: ReadOptions = readOpt
+}
 
 // todo there need a special ThreadPool for IO operations in RocksDb
 object RocksDbKVStore {
@@ -55,6 +59,15 @@ object RocksDbKVStore {
      * The class that controls read behavior.
      */
     protected val readOptions: ReadOptions
+
+    /**
+     * Users should always explicitly call close() methods for this entity!
+     */
+    def close(): IO[Unit] = IO {
+      data.close()
+      dbOptions.close()
+      readOptions.close()
+    }
 
   }
 
@@ -125,12 +138,16 @@ object RocksDbKVStore {
           snapshot ← IO(self.data.getSnapshot)
           readOp ← IO(new ReadOptions(readOptions).setSnapshot(snapshot))
         } yield
-          new RocksDbStoreBaseImpl(self.data, self.dbOptions, readOp) with RocksDbKVStoreRead {
-            override def close(): Unit = {
-              super.close()
-              readOp.close()
-              snapshot.close()
-            }
+          new RocksDbKVStoreBase with RocksDbKVStoreRead {
+            override protected val data: RocksDB = self.data
+            override protected val dbOptions: Options = self.dbOptions
+            override protected val readOptions: ReadOptions = readOp
+
+            override def close(): IO[Unit] =
+              super.close().map { _ ⇒
+                readOp.close()
+                snapshot.close()
+              }
           }
 
       newInstance.to[F]
@@ -142,26 +159,5 @@ object RocksDbKVStore {
   // todo create 2 apply methods: for binary store and store with codecs
 
   // todo try to avoid double convert when F is Task
-
-  /**
-   * Implementation of KVStore inner state holder, based on RocksDb java driver.
-   */
-  private[kvstore] class RocksDbStoreBaseImpl(
-    override val data: RocksDB,
-    override val dbOptions: Options,
-    override val readOptions: ReadOptions
-  ) extends RocksDbKVStoreBase with AutoCloseable {
-
-    // todo consider more functional interface for closing resources with IO
-    /**
-     * Users should always explicitly call close() methods for this entity!
-     */
-    override def close(): Unit = {
-      data.close()
-      dbOptions.close()
-      readOptions.close()
-    }
-
-  }
 
 }
