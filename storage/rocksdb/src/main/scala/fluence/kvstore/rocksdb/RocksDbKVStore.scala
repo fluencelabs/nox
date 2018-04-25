@@ -184,6 +184,7 @@ object RocksDbKVStore {
 
     /**
      * Returns lazy ''put'' representation (see [[Operation]])
+     * '''Note that concurrent writing is not supported!'''
      *
      * @param key The specified key to be inserted
      * @param value The value associated with the specified key
@@ -204,17 +205,23 @@ object RocksDbKVStore {
 
     /**
      * Returns lazy ''remove'' representation (see [[Operation]])
+     * '''Note that concurrent writing is not supported!'''
      *
-     * @param key The specified key to be inserted
+     * @param key A key to delete within database
      */
     override def remove(key: Key): RemoveOp = new RemoveOp {
 
-      // todo
-      override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
-        EitherT(IO(data.remove(key)).attempt.to[F])
-          .leftMap(err ⇒ StoreError.forRemove(key, Some(err)))
+      override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] = {
+        EitherT(
+          writeMutex
+            .flatMap(_.greenLight(Task(data.delete(key))))
+            .attempt
+            .toIO(kvStorePool) // task will be executed on the kvStorePool
+            .to[F]
+        ).leftMap(err ⇒ StoreError.forRemove(key, Some(err)))
           .map(_ ⇒ ())
 
+      }
     }
 
   }

@@ -93,7 +93,7 @@ trait KVStoreWrite[K, V] extends KVStore {
   /**
    * Returns lazy ''remove'' representation (see [[Operation]])
    *
-   * @param key The specified key to be inserted
+   * @param key A key to delete within database
    */
   def remove(key: K): RemoveOp
 
@@ -200,7 +200,7 @@ object KVStore {
       /**
        * Returns lazy ''remove'' representation (see [[Operation]])
        *
-       * @param key The specified key to be inserted
+       * @param key A key to delete within database
        */
       override def remove(key: K1): RemoveOp = new RemoveOp {
 
