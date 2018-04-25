@@ -8,20 +8,26 @@ import cats.effect.{IO, LiftIO}
 import com.typesafe.config.Config
 import fluence.kvstore.StoreError
 import fluence.kvstore.rocksdb.RocksDbKVStore._
+import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
 import org.rocksdb.{Options, RocksDB}
 
 import scala.collection.concurrent.TrieMap
 import scala.language.higherKinds
 
-// todo don't forget about scheduler for RocksDbStore
-// todo write unit test
+// todo: unit test
+// todo: write examples of creating different instances of RocksDb
 
 /**
- * Factory should be used to create all the instances of RocksDbKVStore
- * todo discuss, global state isn't good approach, needed to consider consider another way
+ * This factory should be used to create every instances of RocksDbKVStore.
+ * This factory registers all created instances for possibility to close its all
+ * in one place, see [[RocksDbFactory#close()]].
+ *
+ * @param defaultPool Default thread pool for each created instances.
+ *                      Can be overridden in ''apply'' method.
  */
-private[kvstore] class RocksDbFactory extends slogging.LazyLogging {
+// todo discuss, global state isn't good approach, needed to consider another way
+private[kvstore] class RocksDbFactory(defaultPool: Scheduler) extends slogging.LazyLogging {
 
   private val isClosed = IO.pure(AtomicBoolean(false))
   private val instances = IO.pure(TrieMap.empty[String, RocksDbKVStore])
@@ -32,9 +38,15 @@ private[kvstore] class RocksDbFactory extends slogging.LazyLogging {
    *
    * @param storeName The name of current RocksDbStore instance
    * @param conf       TypeSafe config
+   * @param threadPool All operations of created RocksDbKVStore will be perform
+   *                     on this thread pool
    */
-  def apply[F[_]: Monad: LiftIO](storeName: String, conf: Config): EitherT[F, StoreError, RocksDbKVStore] =
-    apply(storeName, conf, new RocksDbKVStore(_, _))
+  def apply[F[_]: Monad: LiftIO](
+    storeName: String,
+    conf: Config,
+    threadPool: Scheduler = defaultPool
+  ): EitherT[F, StoreError, RocksDbKVStore] =
+    apply(storeName, conf, new RocksDbKVStore(_, _, defaultPool))
 
   /**
    * Creates RocksDb instance for specified name with snapshot and traverse
@@ -42,15 +54,18 @@ private[kvstore] class RocksDbFactory extends slogging.LazyLogging {
    *
    * @param storeName The name of current RocksDbStore instance
    * @param conf       TypeSafe config
+   * @param threadPool All operations of created RocksDbKVStore will be perform
+   *                     on this thread pool
    */
   def withSnapshots[F[_]: Monad: LiftIO](
     storeName: String,
-    conf: Config
+    conf: Config,
+    threadPool: Scheduler = defaultPool
   ): EitherT[F, StoreError, RocksDbKVStore with RocksDbSnapshotable] =
-    apply(storeName, conf, new RocksDbKVStore(_, _) with RocksDbSnapshotable)
+    apply(storeName, conf, new RocksDbKVStore(_, _, defaultPool) with RocksDbSnapshotable)
 
   /**
-   * Closes all launched instances of RocksDB
+   * Closes all launched instances of RocksDB.
    */
   def close: IO[Unit] =
     for {

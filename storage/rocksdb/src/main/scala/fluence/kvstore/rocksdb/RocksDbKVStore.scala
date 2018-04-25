@@ -2,13 +2,16 @@ package fluence.kvstore.rocksdb
 
 import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
+import cats.syntax.apply._
 import cats.syntax.flatMap._
-import cats.{~>, Monad}
-import fluence.kvstore.KVStore.TraverseOp
+import cats.{~>, Eval, Monad}
+import fluence.kvstore.KVStore.{GetOp, PutOp, RemoveOp, TraverseOp}
 import fluence.kvstore.ops.{Operation, TraverseOperation}
-import fluence.kvstore.rocksdb.RocksDbKVStore.{RocksDbKVStoreBase, RocksDbKVStoreGet}
+import fluence.kvstore.rocksdb.RocksDbKVStore.{RocksDbKVStoreBase, RocksDbKVStoreGet, RocksDbKVStoreWrite}
 import fluence.kvstore.{Snapshotable, _}
 import fluence.storage.rocksdb.RocksDbScalaIterator
+import monix.eval.{Task, TaskSemaphore}
+import monix.execution.Scheduler
 import org.rocksdb.{Options, ReadOptions, RocksDB}
 
 import scala.language.higherKinds
@@ -22,19 +25,25 @@ import scala.language.higherKinds
  * }}}
  */
 class RocksDbKVStore(
-  private val db: RocksDB,
-  private val dbOps: Options,
-  private val readOpt: ReadOptions = new ReadOptions()
-) extends RocksDbKVStoreBase with RocksDbKVStoreGet /*with RocksDbKVStoreWrite*/ {
-  override protected val data: RocksDB = db
-  override protected val dbOptions: Options = dbOps
-  override protected val readOptions: ReadOptions = readOpt
-}
+  override protected val data: RocksDB,
+  override protected val dbOptions: Options,
+  override protected val kvStorePool: Scheduler,
+  override protected val readOptions: ReadOptions = new ReadOptions()
+) extends RocksDbKVStoreBase with RocksDbKVStoreGet with RocksDbKVStoreWrite
 
-// todo there need a special ThreadPool for IO operations in RocksDb
 object RocksDbKVStore {
 
-  lazy val create: RocksDbFactory = new RocksDbFactory
+  /**
+   * Returns single factory for creating RocksDbKVStore instances.
+   * '''Note that''': every created RocksDb store is registered in global scope.
+   * This method always returns the same global instance of RocksDbFactory.
+   *
+   * @param threadPool Default thread pool for each created instances.
+   *                     Can be overridden in ''apply'' method.
+   */
+  def getFactory(threadPool: Scheduler = Scheduler.Implicits.global): Eval[RocksDbFactory] = {
+    Eval.later(new RocksDbFactory(threadPool)).memoize
+  }
 
   type Key = Array[Byte]
   type Value = Array[Byte]
@@ -59,6 +68,11 @@ object RocksDbKVStore {
      * The class that controls read behavior.
      */
     protected val readOptions: ReadOptions
+
+    /**
+     * Thread pool for perform all storage operations.
+     */
+    protected val kvStorePool: Scheduler
 
     /**
      * Users should always explicitly call close() methods for this entity!
@@ -87,11 +101,13 @@ object RocksDbKVStore {
      *
      * @param key Search key
      */
-    override def get(key: Key): Operation[Option[Value]] = new Operation[Option[Value]] {
+    override def get(key: Key): GetOp[Value] = new GetOp[Value] {
 
       override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Option[Value]] =
-        EitherT(IO(Option(data.get(readOptions, key))).attempt.to[F])
-          .leftMap(err ⇒ StoreError.forGet(key, Some(err)))
+        EitherT {
+          val io = IO.shift(kvStorePool) *> IO(Option(data.get(readOptions, key)))
+          io.attempt.to[F]
+        }.leftMap(err ⇒ StoreError.forGet(key, Some(err)))
 
     }
 
@@ -106,16 +122,17 @@ object RocksDbKVStore {
     /**
      * Returns lazy ''traverse'' representation (see [[TraverseOperation]])
      */
-    override def traverse: TraverseOp[Key, Value] = new TraverseOp[Key, Value] {
+    override def traverse: TraverseOp[Key, Value] = new TraverseOp[Key, Value] { // todo scheuler
 
-      override def run[FS[_]: Monad: LiftIO](implicit liftIterator: Iterator ~> FS): FS[(Key, Value)] =
-        IO {
+      override def run[FS[_]: Monad: LiftIO](implicit liftIterator: Iterator ~> FS): FS[(Key, Value)] = {
+        IO.shift(kvStorePool) *> IO {
           new ReadOptions(readOptions).setTailing(true) // sequential read optimization
         }.bracket { opt ⇒
           IO(liftIterator(new RocksDbScalaIterator(data.newIterator(opt))))
         } { opt ⇒
           IO(opt.close()) // each RocksDb class should be closed for release the allocated memory in c++
-        }.to[FS].flatten
+        }
+      }.to[FS].flatten
 
       override def runUnsafe: Iterator[(Key, Value)] =
         new RocksDbScalaIterator(data.newIterator)
@@ -135,29 +152,73 @@ object RocksDbKVStore {
     override def createSnapshot[F[_]: LiftIO](): F[RocksDbKVStoreRead] = {
       val newInstance: IO[RocksDbKVStoreRead] =
         for {
-          snapshot ← IO(self.data.getSnapshot)
+          snapshot ← IO.shift(kvStorePool) *> IO(self.data.getSnapshot)
           readOp ← IO(new ReadOptions(readOptions).setSnapshot(snapshot))
         } yield
           new RocksDbKVStoreBase with RocksDbKVStoreRead {
             override protected val data: RocksDB = self.data
             override protected val dbOptions: Options = self.dbOptions
             override protected val readOptions: ReadOptions = readOp
+            override protected val kvStorePool: Scheduler = self.kvStorePool
 
             override def close(): IO[Unit] =
               super.close().map { _ ⇒
                 readOp.close()
                 snapshot.close()
               }
+
           }
 
       newInstance.to[F]
     }
   }
 
-  // todo implement RocksDbKVStoreWrite
+  // todo try to avoid double convert when F is Task
+
+  /**
+   * Allows writing and removing keys and values from KVStore.
+   */
+  private[kvstore] trait RocksDbKVStoreWrite extends RocksDbKVStoreBase with KVStoreWrite[Key, Value] {
+
+    private val writeMutex = TaskSemaphore(1).memoizeOnSuccess
+
+    /**
+     * Returns lazy ''put'' representation (see [[Operation]])
+     *
+     * @param key The specified key to be inserted
+     * @param value The value associated with the specified key
+     */
+    override def put(key: Key, value: Value): PutOp = new PutOp {
+
+      override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
+        EitherT(
+          writeMutex
+            .flatMap(_.greenLight(Task(data.put(key, value))))
+            .attempt
+            .toIO(kvStorePool) // task will be executed on the kvStorePool
+            .to[F]
+        ).leftMap(err ⇒ StoreError.forPut(key, value, Some(err)))
+          .map(_ ⇒ ())
+
+    }
+
+    /**
+     * Returns lazy ''remove'' representation (see [[Operation]])
+     *
+     * @param key The specified key to be inserted
+     */
+    override def remove(key: Key): RemoveOp = new RemoveOp {
+
+      // todo
+      override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
+        EitherT(IO(data.remove(key)).attempt.to[F])
+          .leftMap(err ⇒ StoreError.forRemove(key, Some(err)))
+          .map(_ ⇒ ())
+
+    }
+
+  }
 
   // todo create 2 apply methods: for binary store and store with codecs
-
-  // todo try to avoid double convert when F is Task
 
 }
