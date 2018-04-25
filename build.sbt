@@ -280,21 +280,16 @@ lazy val `transport-websocket-js` = project
       scalapb.gen(flatPackage = true) -> (sourceManaged in Compile).value
     ),
     libraryDependencies ++= Seq(
-      "io.monix"             %%% "monix"           % MonixV,
-      "org.scalatest"        %%% "scalatest"       % ScalatestV % Test,
-      "org.typelevel"        %%% "cats-core"       % Cats1V,
-      "biz.enef"             %%% "slogging"        % SloggingV,
-      "org.typelevel"        %%% "cats-effect"     % CatsEffectV,
-      "one.fluence"          %%% "codec-core"      % CodecV,
-      "org.scala-js"         %%% "scalajs-dom"     % "0.9.2",
+      "io.monix"      %%% "monix"       % MonixV,
+      "biz.enef"      %%% "slogging"    % SloggingV,
+      "org.scala-js"  %%% "scalajs-dom" % "0.9.2",
       "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
-      "com.thesamet.scalapb" %%% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf"
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     ),
     scalaJSUseMainModuleInitializer := true,
-    workbenchStartMode := WorkbenchStartModes.Manual,
-    scalaJSModuleKind  := ModuleKind.NoModule,
-    fork in Test := false,
-    jsEnv := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
+    scalaJSModuleKind               := ModuleKind.NoModule,
+    fork in Test                    := false,
+    jsEnv                           := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
   )
   .enablePlugins(ScalaJSPlugin)
 

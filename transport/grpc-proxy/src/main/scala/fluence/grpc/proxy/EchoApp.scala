@@ -14,37 +14,23 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-object BlazeWebSocketExample extends EchoApp[IO]
+/**
+ * Echo server for debugging websocket connections.
+ */
+object EchoApp extends EchoApp[IO]
 
 class EchoApp[F[_]](implicit F: Effect[F]) extends StreamApp[F] with Http4sDsl[F] {
 
   def route(scheduler: Scheduler): HttpService[F] = HttpService[F] {
-    case GET -> Root / "hello" ⇒
-      Ok("Hello world.")
-
-    case GET -> Root / "ws" ⇒
-      val toClient: Stream[F, WebSocketFrame] =
-        scheduler.awakeEvery[F](1.seconds).map(d ⇒ Text(s"Ping! $d"))
-      val fromClient: Sink[F, WebSocketFrame] = _.evalMap { (ws: WebSocketFrame) ⇒
-        ws match {
-          case Text(t, _) ⇒ F.delay(println(t))
-          case f ⇒ F.delay(println(s"Unknown type: $f"))
-        }
-      }
-      WebSocketBuilder[F].build(toClient, fromClient)
 
     case GET -> Root / "wsecho" ⇒
       val queue = async.unboundedQueue[F, WebSocketFrame]
       val echoReply: Pipe[F, WebSocketFrame, WebSocketFrame] = _.collect {
-        case Text(msg, _) ⇒
-          println("You sent the server: " + msg)
-          Text("You sent the server: " + msg)
         case Binary(msg, _) ⇒
-          println("You sent the server binary: " + msg.mkString(","))
+          println("You sent to the server binary: " + msg.mkString(","))
           Binary(msg)
         case m ⇒
-          println("WHATS THIS?! === " + m)
-          Text("Something new")
+          Text("Unsupported.")
       }
 
       val toClient: Stream[F, WebSocketFrame] =
