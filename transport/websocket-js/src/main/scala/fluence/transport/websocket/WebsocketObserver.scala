@@ -29,7 +29,9 @@ class WebsocketObserver private[websocket] (webSocket: WebSocket)(implicit conte
     }
   }
 
-  override def onError(ex: Throwable): Unit = ex.printStackTrace()
+  override def onError(ex: Throwable): Unit = {
+    logger.error(s"The exception happened in the websocket observer ${webSocket.url}", ex)
+  }
 
   override def onComplete(): Unit = ()
 }

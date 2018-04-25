@@ -9,14 +9,13 @@ import monix.execution.Scheduler.Implicits.global
 
 import scala.concurrent.{Await, Future, Promise}
 
-object Main extends App {
+//an example that will move to tests later
+object Example extends App {
 
   val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
-  val (observer, observable) = WebsocketClient.binaryClient[ByteVector, ByteVector](
-    "ws://localhost:8080/http4s/wsecho",
-    identity,
-    identity
+  val (observer, observable) = WebsocketClient.binaryClient(
+    "ws://localhost:8080/http4s/wsecho"
   )
 
   val pr11 = Promise[Unit]

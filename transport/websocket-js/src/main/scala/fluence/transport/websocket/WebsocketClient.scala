@@ -10,8 +10,14 @@ import scala.concurrent.Future
 
 object WebsocketClient {
 
+  /**
+   *
+   * @param url Address to connect by websocket
+   * @return An observer that will be an input into a websocket and observable - output
+   */
   def apply(url: String)(implicit scheduler: Scheduler): (Observer[WebsocketFrame], Observable[WebsocketFrame]) = {
 
+    //TODO use https://github.com/joewalnes/reconnecting-websocket for stable websocket reconnection
     val ws = new WebSocket(url)
 
     val observer = new WebsocketObserver(ws)
@@ -26,18 +32,18 @@ object WebsocketClient {
     cacheUntilConnectSubscriber -> coldObservable
   }
 
-  def binaryClient[I, O](
-    url: String,
-    out: ByteVector ⇒ O,
-    in: I ⇒ ByteVector
-  )(implicit scheduler: Scheduler): (Observer[I], Observable[ByteVector]) = {
+  /**
+   * Client that accepts only binary data.
+   */
+  def binaryClient(
+    url: String
+  )(implicit scheduler: Scheduler): (Observer[ByteVector], Observable[ByteVector]) = {
 
     val (wsObserver, wsObservable) = WebsocketClient(url)
 
-    val binaryClient: Observer[I] = new Observer[I] {
-      override def onNext(elem: I): Future[Ack] = {
-        val byteVector = in(elem)
-        wsObserver.onNext(Binary(byteVector))
+    val binaryClient: Observer[ByteVector] = new Observer[ByteVector] {
+      override def onNext(elem: ByteVector): Future[Ack] = {
+        wsObserver.onNext(Binary(elem))
       }
 
       override def onError(ex: Throwable): Unit = wsObserver.onError(ex)
