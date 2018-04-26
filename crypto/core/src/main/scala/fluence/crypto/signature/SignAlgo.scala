@@ -19,6 +19,14 @@ package fluence.crypto.signature
 
 import fluence.crypto.{Crypto, KeyPair}
 
+/**
+ * Signature algorithm -- cryptographically coupled keypair, signer and signature checker.
+ *
+ * @param name Algorithm name
+ * @param generateKeyPair Keypair generator; note that you must ensure the seed entropy is secure
+ * @param signer Signer for a given keypair
+ * @param checker Checker for a given public key
+ */
 case class SignAlgo(
   name: String,
   generateKeyPair: Crypto.KeyPairGenerator,

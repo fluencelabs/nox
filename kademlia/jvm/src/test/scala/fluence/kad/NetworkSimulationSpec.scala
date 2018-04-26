@@ -18,6 +18,7 @@
 package fluence.kad
 
 import java.net.InetAddress
+import java.security.SecureRandom
 
 import cats._
 import cats.effect.IO
@@ -100,7 +101,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   private val servers = (0 to 20).map { n ⇒
     val port = 3000 + n
-    val kp = signAlgo.generateKeyPair.unsafe(None)
+    val kp = signAlgo.generateKeyPair.unsafe(Some(new SecureRandom().generateSeed(20)))
     val k = Key.fromKeyPair.unsafe(kp)
     new Node(k, port, kp)
   }.toVector
@@ -114,9 +115,16 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
       val firstContact = servers.head.contact
       val secondContact = servers.last.contact
 
+      firstContact shouldNot be(secondContact)
+
+      val seedContacts = Seq(firstContact, secondContact)
+
       servers.foreach { s ⇒
         logger.debug(Console.BLUE + s"Join: ${s.nodeId}" + Console.RESET)
-        s.join(Seq(firstContact, secondContact), 6).runAsync.futureValue shouldBe true
+
+        seedContacts.exists(_.publicKey != s.contact.publicKey) shouldBe true
+
+        s.join(seedContacts, 6).runAsync.futureValue shouldBe true
 
         // Check that RoutingTable is not empty after join
         s.kad.lookupIterative(servers.last.key, 5).runAsync.futureValue should be('nonEmpty)
