@@ -16,7 +16,7 @@
  */
 
 import fluence.crypto.signature.SignAlgo
-import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.ecdsa.Ecdsa
 import fluence.kad.grpc.client.KademliaJSClient
 import fluence.kad.grpc.{KademliaGrpcService, KademliaNodeCodec}
 import fluence.kad.protocol.Key

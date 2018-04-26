@@ -25,7 +25,7 @@ import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.contract.BasicContract
 import fluence.contract.client.Contracts
 import fluence.crypto.{Crypto, KeyPair}
-import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.signature.{SignAlgo, Signer}
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.protocol.DatasetStorageRpc

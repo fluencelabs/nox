@@ -19,7 +19,7 @@ package fluence.client.core.config
 
 import cats.ApplicativeError
 import com.typesafe.config.Config
-import fluence.crypto.algorithm.AesConfig
+import fluence.crypto.aes.AesConfig
 import fluence.kad.KademliaConf
 
 import scala.language.higherKinds

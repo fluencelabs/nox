@@ -28,10 +28,10 @@ import cats.syntax.show._
 import cats.{Applicative, MonadError}
 import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
 import fluence.client.core.config.{KeyPairConfig, SeedsConfig}
-import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keystore.FileKeyStorage
 import fluence.crypto.Crypto
+import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.signature.SignAlgo
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{Contact, Key, Node}

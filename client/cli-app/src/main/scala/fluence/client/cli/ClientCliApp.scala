@@ -23,7 +23,7 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
 import fluence.client.core.FluenceClient
 import fluence.client.core.config.{KademliaConfigParser, KeyPairConfig, SeedsConfig}
 import fluence.client.grpc.ClientGrpcServices
-import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keystore.FileKeyStorage
 import fluence.crypto.signature.SignAlgo

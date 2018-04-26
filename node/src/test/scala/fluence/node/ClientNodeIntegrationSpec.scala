@@ -31,8 +31,8 @@ import fluence.client.grpc.ClientGrpcServices
 import fluence.contract.BasicContract
 import fluence.contract.client.Contracts
 import fluence.contract.client.Contracts.NotFound
+import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.{Crypto, CryptoError, DumbCrypto, KeyPair}
-import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.signature.{SignAlgo, Signer}
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}

@@ -22,7 +22,7 @@ import cats.syntax.profunctor._
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.core.{Hash, Key}
 import fluence.crypto.DumbCrypto
-import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.signature.Signature
 import monix.eval.Task
 import monix.execution.ExecutionModel
