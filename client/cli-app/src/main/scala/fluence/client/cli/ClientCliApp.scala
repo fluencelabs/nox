@@ -25,8 +25,9 @@ import fluence.client.core.config.{KademliaConfigParser, KeyPairConfig, SeedsCon
 import fluence.client.grpc.ClientGrpcServices
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.JdkCryptoHasher
+import fluence.crypto.keystore.FileKeyStorage
 import fluence.crypto.signature.SignAlgo
-import fluence.crypto.{Crypto, FileKeyStorage, KeyPair}
+import fluence.crypto.{Crypto, KeyPair}
 import fluence.transport.grpc.client.GrpcClient
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global

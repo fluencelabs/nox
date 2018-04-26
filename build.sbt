@@ -30,7 +30,7 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
     fork in Test      := false,
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
-  .dependsOn(`crypto`)
+  .dependsOn(`crypto-algorithm`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-protocol-js` = `kademlia-protocol`.js
@@ -378,7 +378,7 @@ lazy val `b-tree-common` = crossProject(JVMPlatform, JSPlatform)
     fork in Test := false
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`b-tree-core`, `crypto`)
+  .dependsOn(`b-tree-core`, `crypto-core`)
 
 lazy val `b-tree-common-js` = `b-tree-common`.js
 lazy val `b-tree-common-jvm` = `b-tree-common`.jvm
@@ -400,7 +400,7 @@ lazy val `b-tree-client` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`b-tree-common`, `b-tree-protocol`)
+  .dependsOn(`b-tree-common`, `b-tree-protocol`, `crypto-algorithm` % Test)
 
 lazy val `b-tree-client-js` = `b-tree-client`.js
 lazy val `b-tree-client-jvm` = `b-tree-client`.jvm
@@ -442,15 +442,34 @@ lazy val `crypto-core` = crossProject(JVMPlatform, JSPlatform)
 lazy val `crypto-core-js` = `crypto-core`.js
 lazy val `crypto-core-jvm` = `crypto-core`.jvm
 
-lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
+lazy val `crypto-keystore` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
+  .in(file("crypto/keystore"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence"   %%% "codec-bits"  % CodecV,
-      "one.fluence"   %%% "codec-circe" % CodecV,
-      "org.typelevel" %%% "cats-core"   % Cats1V,
+      "one.fluence" %%% "codec-circe" % CodecV,
+      "biz.enef"      %%% "slogging"    % SloggingV,
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
+    )
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`crypto-core`)
+
+lazy val `crypto-keystore-js` = `crypto-keystore`.js
+lazy val `crypto-keystore-jvm` = `crypto-keystore`.jvm
+
+lazy val `crypto-algorithm` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("crypto/algorithm"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
       "biz.enef"      %%% "slogging"    % SloggingV,
       "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
@@ -472,12 +491,12 @@ lazy val `crypto` = crossProject(JVMPlatform, JSPlatform)
     fork in Test                  := false
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`crypto-core`)
+  .dependsOn(`crypto-core`, `crypto-keystore` % Test)
 
-lazy val `crypto-jvm` = `crypto`.jvm
-
-lazy val `crypto-js` = `crypto`.js
+lazy val `crypto-algorithm-js` = `crypto-algorithm`.js
   .enablePlugins(ScalaJSBundlerPlugin)
+lazy val `crypto-algorithm-jvm` = `crypto-algorithm`.jvm
+
 //////////////////////////////////////////////////////////////
 //////////////          CRYPTO END         ///////////////////
 //////////////////////////////////////////////////////////////
@@ -548,7 +567,7 @@ lazy val `dataset-client` = crossProject(JVMPlatform, JSPlatform)
     fork in Test := false
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`dataset-protocol`, `crypto`, `b-tree-client`, `kademlia-core`, `dataset-protobuf`)
+  .dependsOn(`dataset-protocol`, `crypto-core`, `b-tree-client`, `kademlia-core`, `dataset-protobuf`)
 
 lazy val `dataset-client-js` = `dataset-client`.js
 lazy val `dataset-client-jvm` = `dataset-client`.jvm
@@ -582,7 +601,7 @@ lazy val `contract-core` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`contract-protocol`, `crypto`)
+  .dependsOn(`contract-protocol`, `crypto-core`)
 
 lazy val `contract-core-js` = `contract-core`.js
 lazy val `contract-core-jvm` = `contract-core`.jvm
@@ -699,7 +718,7 @@ lazy val `client-cli-jvm` = `client-cli`.jvm
 lazy val `client-cli-app` = project
   .in(file("client/cli-app"))
   .settings(commons)
-  .dependsOn(`client-cli-jvm`, `client-grpc`)
+  .dependsOn(`client-cli-jvm`, `client-grpc`, `crypto-keystore-jvm`, `crypto-algorithm-jvm`)
 
 lazy val `node-core` = project
   .in(file("node/core"))
@@ -725,4 +744,4 @@ lazy val `node-grpc` = project
   .dependsOn(`node-core`, `client-grpc`)
 
 lazy val `node` = project
-  .dependsOn(`node-grpc`)
+  .dependsOn(`node-grpc`, `crypto-keystore-jvm`, `crypto-algorithm-jvm`)
