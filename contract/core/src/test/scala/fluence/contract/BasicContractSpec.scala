@@ -21,7 +21,7 @@ import cats.instances.option._
 import cats.instances.try_._
 import fluence.contract.BasicContract.{BasicContractRead, BasicContractWrite, ExecutionState, Offer}
 import fluence.crypto.{Crypto, CryptoError, KeyPair}
-import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.signature.{PubKeyAndSignature, Signature, Signer}
 import fluence.kad.protocol.Key
 import org.scalatest.{Matchers, WordSpec}

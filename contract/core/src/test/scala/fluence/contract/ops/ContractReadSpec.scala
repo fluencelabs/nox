@@ -22,7 +22,7 @@ import cats.instances.option._
 import cats.instances.try_._
 import fluence.contract.{BasicContract, _}
 import fluence.crypto.CryptoError
-import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.signature.{PubKeyAndSignature, Signature}
 import fluence.kad.protocol.Key
 import org.scalatest.{Matchers, WordSpec}

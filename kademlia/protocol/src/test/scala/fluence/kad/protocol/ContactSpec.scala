@@ -18,7 +18,7 @@
 package fluence.kad.protocol
 
 import cats._
-import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.ecdsa.Ecdsa
 import org.scalatest.{Matchers, WordSpec}
 
 class ContactSpec extends WordSpec with Matchers {

@@ -18,7 +18,7 @@
 package fluence.crypto
 
 import cats.instances.try_._
-import fluence.crypto.aes.AesConfig
+import fluence.crypto.aes.{AesConfig, AesCrypt}
 import org.scalactic.source.Position
 import org.scalatest.{Assertion, Matchers, WordSpec}
 import scodec.bits.ByteVector

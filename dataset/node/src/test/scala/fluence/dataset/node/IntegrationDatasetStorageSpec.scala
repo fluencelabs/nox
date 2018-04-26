@@ -27,7 +27,7 @@ import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
 import fluence.crypto.{Crypto, CryptoError, DumbCrypto}
-import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.dataset.client.ClientDatasetStorage
 import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
