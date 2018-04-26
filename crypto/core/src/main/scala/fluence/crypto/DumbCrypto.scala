@@ -17,12 +17,13 @@
 
 package fluence.crypto
 
+import java.security.SecureRandom
+
 import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.signature.{SignAlgo, Signature, SignatureChecker, Signer}
 import scodec.bits.ByteVector
 
-import scala.util.Random
 import scala.language.higherKinds
 
 object DumbCrypto {
@@ -32,9 +33,7 @@ object DumbCrypto {
       "dumb",
       Crypto.liftFunc { seedOpt ⇒
         val seed = seedOpt.getOrElse {
-          val s = new Array[Byte](0)
-          Random.nextBytes(s)
-          s
+          new SecureRandom().generateSeed(32)
         }
         KeyPair.fromBytes(seed, seed)
       },
