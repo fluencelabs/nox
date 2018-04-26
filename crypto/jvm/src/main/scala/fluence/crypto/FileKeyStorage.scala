@@ -23,7 +23,6 @@ import java.nio.file.Files
 import cats.MonadError
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.crypto.keypair.KeyPair
 import io.circe.parser.decode
 import io.circe.syntax._
 
@@ -89,9 +88,9 @@ object FileKeyStorage {
    * @param algo Sign algo
    * @return Keypair, either loaded or freshly generated
    */
-  def getKeyPair[F[_]](keyPath: String, algo: SignAlgo)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
+  def getKeyPair[F[_]](keyPath: String, algo: signature.SignAlgo)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
     val keyFile = new File(keyPath)
     val keyStorage = new FileKeyStorage[F](keyFile)
-    keyStorage.getOrCreateKeyPair(algo.generateKeyPair[F]().value.flatMap(F.fromEither))
+    keyStorage.getOrCreateKeyPair(algo.generateKeyPair.runF[F](None))
   }
 }

@@ -24,8 +24,7 @@ import cats.effect.IO
 import cats.instances.try_._
 import cats.syntax.eq._
 import com.typesafe.config.ConfigFactory
-import fluence.crypto.SignAlgo
-import fluence.crypto.keypair.KeyPair
+import fluence.crypto.KeyPair
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.{KademliaGrpcUpdate, KademliaNodeCodec}
@@ -47,10 +46,10 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(10, Seconds), Span(250, Milliseconds))
 
-  private val algo = SignAlgo.dumb
+  import fluence.crypto.DumbCrypto.signAlgo
 
   import KademliaNodeCodec.{pureCodec ⇒ kadCodec}
-  import algo.checkerFn
+  import signAlgo.checker
 
   private val config = ConfigFactory.load()
 
@@ -63,7 +62,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
     private val serverBuilder = GrpcServer.builder(serverConf.copy(port = localPort))
 
     val contact =
-      Contact.buildOwn[Id](InetAddress.getLocalHost.getHostName, localPort, 0, "0", algo.signer(kp)).value.right.get
+      Contact.buildOwn[Id](InetAddress.getLocalHost.getHostName, localPort, 0, "0", signAlgo.signer(kp)).value.right.get
 
     private val client = GrpcClient
       .builder(key, IO.pure(contact.b64seed), clientConf)
@@ -101,7 +100,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
   private val servers = (0 to 20).map { n ⇒
     val port = 3000 + n
-    val kp = algo.generateKeyPair[Try]().value.get.right.get
+    val kp = signAlgo.generateKeyPair.unsafe(None)
     val k = Key.fromKeyPair.unsafe(kp)
     new Node(k, port, kp)
   }.toVector

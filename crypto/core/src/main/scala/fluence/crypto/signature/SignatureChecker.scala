@@ -15,27 +15,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.algorithm
+package fluence.crypto.signature
 
-import cats.Applicative
+import cats.Monad
 import cats.data.EitherT
+import fluence.crypto.CryptoError
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
-import scala.util.control.{NoStackTrace, NonFatal}
 
-case class CryptoErr(errorMessage: String, causedBy: Option[Throwable] = None)
-    extends Throwable(errorMessage) with NoStackTrace {
-
-  override def getCause: Throwable = causedBy getOrElse super.getCause
-}
-
-object CryptoErr {
-
-  // TODO: there's a common `catchNonFatal` pattern, we should refactor this metod onto it
-  def nonFatalHandling[F[_]: Applicative, A](a: ⇒ A)(errorText: String): EitherT[F, CryptoErr, A] = {
-    try EitherT.pure(a)
-    catch {
-      case NonFatal(e) ⇒ EitherT.leftT(CryptoErr(errorText + ": " + e.getLocalizedMessage, Some(e)))
-    }
-  }
+trait SignatureChecker {
+  def check[F[_]: Monad](signature: Signature, plain: ByteVector): EitherT[F, CryptoError, Unit]
 }

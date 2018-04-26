@@ -15,39 +15,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.kad.protocol
+package fluence.crypto
 
-import cats._
-import fluence.crypto.algorithm.Ecdsa
-import org.scalatest.{Matchers, WordSpec}
+import cats.Applicative
+import cats.data.EitherT
 
-class ContactSpec extends WordSpec with Matchers {
+import scala.util.control.{NoStackTrace, NonFatal}
 
-  "Contact" should {
-    "serialize and deserialize in Id" in {
+case class CryptoError(message: String, causedBy: Option[Throwable] = None) extends NoStackTrace {
+  override def getMessage: String = message
 
-      val algo = Ecdsa.signAlgo
-      import algo.checker
+  override def getCause: Throwable = causedBy getOrElse super.getCause
+}
 
-      val kp = algo.generateKeyPair.unsafe(None)
+object CryptoError {
 
-      val c = Contact
-        .buildOwn[Id](
-          "127.0.0.1",
-          8080,
-          10l,
-          "hash",
-          algo.signer(kp)
-        )
-        .value
-        .right
-        .get
-
-      val seed = c.b64seed
-
-      Contact.readB64seed[Id](seed).value.isRight shouldBe true
-      Contact.readB64seed[Id](seed).value shouldBe Right(c)
+  // TODO: there's a common `catchNonFatal` pattern, we should refactor this metod onto it
+  def nonFatalHandling[F[_]: Applicative, A](a: ⇒ A)(errorText: String): EitherT[F, CryptoError, A] =
+    try EitherT.pure(a)
+    catch {
+      case NonFatal(e) ⇒ EitherT.leftT(CryptoError(errorText + ": " + e.getLocalizedMessage, Some(e)))
     }
-  }
-
 }

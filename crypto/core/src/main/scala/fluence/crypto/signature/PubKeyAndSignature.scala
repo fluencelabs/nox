@@ -17,7 +17,7 @@
 
 package fluence.crypto.signature
 
-import fluence.crypto.keypair.KeyPair
+import fluence.crypto.KeyPair
 
 /**
  * Container for public key of signer and a signature.

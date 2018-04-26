@@ -25,8 +25,8 @@ import fluence.client.core.config.{KademliaConfigParser, KeyPairConfig, SeedsCon
 import fluence.client.grpc.ClientGrpcServices
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher}
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.{FileKeyStorage, SignAlgo}
+import fluence.crypto.signature.SignAlgo
+import fluence.crypto.{FileKeyStorage, KeyPair}
 import fluence.transport.grpc.client.GrpcClient
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
@@ -45,7 +45,7 @@ object ClientCliApp extends App with slogging.LazyLogging {
   LoggerConfig.level = LogLevel.INFO
 
   val algo: SignAlgo = Ecdsa.signAlgo
-  import algo.checkerFn
+  import algo.checker
   val hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
   val config: Config = ConfigFactory.load()
 

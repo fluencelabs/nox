@@ -19,11 +19,10 @@ package fluence.crypto.algorithm
 
 import cats.Monad
 import cats.data.EitherT
-import fluence.crypto.SignAlgo
+import fluence.crypto._
 import fluence.crypto.facade.ecdsa.EC
 import fluence.crypto.hash.{CryptoHasher, JsCryptoHasher}
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.Signature
+import fluence.crypto.signature.{SignAlgo, Signature, SignatureChecker, Signer}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -37,21 +36,23 @@ import scala.scalajs.js.typedarray.Uint8Array
  */
 class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
     extends Algorithm with SignatureFunctions with KeyGenerator {
-  import CryptoErr._
+  import CryptoError.nonFatalHandling
 
-  override def generateKeyPair[F[_]: Monad](seed: Option[Array[Byte]] = None): EitherT[F, CryptoErr, KeyPair] = {
-    nonFatalHandling {
-      val seedJs = seed.map(bs ⇒ js.Dynamic.literal(entropy = bs.toJSArray))
-      val key = ec.genKeyPair(seedJs)
-      val publicHex = key.getPublic(true, "hex")
-      val secretHex = key.getPrivate("hex")
-      val public = ByteVector.fromValidHex(publicHex)
-      val secret = ByteVector.fromValidHex(secretHex)
-      KeyPair.fromByteVectors(public, secret)
-    }("Failed to generate key pair.")
-  }
+  override def generateKeyPair: Crypto.KeyPairGenerator =
+    new Crypto.Func[Option[Array[Byte]], KeyPair] {
+      override def apply[F[_]](input: Option[Array[Byte]])(implicit F: Monad[F]): EitherT[F, CryptoError, KeyPair] =
+        nonFatalHandling {
+          val seedJs = input.map(bs ⇒ js.Dynamic.literal(entropy = bs.toJSArray))
+          val key = ec.genKeyPair(seedJs)
+          val publicHex = key.getPublic(true, "hex")
+          val secretHex = key.getPrivate("hex")
+          val public = ByteVector.fromValidHex(publicHex)
+          val secret = ByteVector.fromValidHex(secretHex)
+          KeyPair.fromByteVectors(public, secret)
+        }("Failed to generate key pair.")
+    }
 
-  override def sign[F[_]: Monad](keyPair: KeyPair, message: ByteVector): EitherT[F, CryptoErr, Signature] = {
+  override def sign[F[_]: Monad](keyPair: KeyPair, message: ByteVector): EitherT[F, CryptoError, Signature] =
     for {
       secret ← nonFatalHandling {
         ec.keyFromPrivate(keyPair.secretKey.value.toHex, "hex")
@@ -59,14 +60,13 @@ class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
       hash ← hash(message)
       signHex ← nonFatalHandling(secret.sign(new Uint8Array(hash)).toDER("hex"))("Cannot sign message")
     } yield Signature(ByteVector.fromValidHex(signHex))
-  }
 
-  def hash[F[_]: Monad](message: ByteVector): EitherT[F, CryptoErr, js.Array[Byte]] = {
+  def hash[F[_]: Monad](message: ByteVector): EitherT[F, CryptoError, js.Array[Byte]] = {
     val arr = message.toArray
     hasher
-      .fold(EitherT.pure[F, CryptoErr](arr)) { h ⇒
+      .fold(EitherT.pure[F, CryptoError](arr)) { h ⇒
         nonFatalHandling {
-          h.hash(message.toArray)
+          h.hash(arr)
         }("Cannot hash message.")
       }
       .map(_.toJSArray)
@@ -76,7 +76,7 @@ class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
     pubKey: KeyPair.Public,
     signature: Signature,
     message: ByteVector
-  ): EitherT[F, CryptoErr, Unit] = {
+  ): EitherT[F, CryptoError, Unit] =
     for {
       public ← nonFatalHandling {
         val hex = pubKey.value.toHex
@@ -84,14 +84,33 @@ class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
       }("Incorrect public key format.")
       hash ← hash(message)
       verify ← nonFatalHandling(public.verify(new Uint8Array(hash), signature.sign.toHex))("Cannot verify message.")
-      _ ← EitherT.cond[F](verify, (), CryptoErr("Signature is not verified"))
+      _ ← EitherT.cond[F](verify, (), CryptoError("Signature is not verified"))
     } yield ()
-  }
-
 }
 
 object Ecdsa {
   val ecdsa_secp256k1_sha256 = new Ecdsa(new EC("secp256k1"), Some(JsCryptoHasher.Sha256))
 
-  val signAlgo = new SignAlgo("ecdsa/secp256k1/sha256/js", ecdsa_secp256k1_sha256)
+  val signAlgo: SignAlgo = SignAlgo(
+    "ecdsa/secp256k1/sha256/js",
+    generateKeyPair = ecdsa_secp256k1_sha256.generateKeyPair,
+    signer = kp ⇒
+      Signer(
+        kp.publicKey,
+        new Crypto.Func[ByteVector, signature.Signature] {
+          override def apply[F[_]](
+            input: ByteVector
+          )(implicit F: Monad[F]): EitherT[F, CryptoError, signature.Signature] =
+            ecdsa_secp256k1_sha256.sign(kp, input)
+        }
+    ),
+    checker = pk ⇒
+      new SignatureChecker {
+        override def check[F[_]: Monad](
+          signature: fluence.crypto.signature.Signature,
+          plain: ByteVector
+        ): EitherT[F, CryptoError, Unit] =
+          ecdsa_secp256k1_sha256.verify(pk, signature, plain)
+    }
+  )
 }

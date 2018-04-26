@@ -37,7 +37,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
 class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
   private val signAlgo = Ecdsa.signAlgo
-  private val keyPair = signAlgo.generateKeyPair().value.right.get
+  private val keyPair = signAlgo.generateKeyPair.unsafe(None)
   private val signer = signAlgo.signer(keyPair)
   private val checker = signAlgo.checker(keyPair.publicKey)
 

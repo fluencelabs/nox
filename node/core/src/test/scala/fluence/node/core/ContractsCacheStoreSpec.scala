@@ -24,8 +24,7 @@ import com.typesafe.config.{ConfigException, ConfigFactory}
 import fluence.codec.{Codec, PureCodec}
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
-import fluence.crypto.SignAlgo
-import fluence.crypto.keypair.KeyPair
+import fluence.crypto.KeyPair
 import fluence.kad.protocol.Key
 import fluence.storage.{KVStore, TrieMapKVStore}
 import org.scalatest.{Matchers, WordSpec}
@@ -77,7 +76,7 @@ class ContractsCacheStoreSpec extends WordSpec with Matchers {
 
       val seed = "seed".getBytes()
       val keyPair = KeyPair.fromBytes(seed, seed)
-      val signAlgo = SignAlgo.dumb
+      import fluence.crypto.DumbCrypto.signAlgo
       val signer = signAlgo.signer(keyPair)
 
       val key1 = Key.fromKeyPair.unsafe(keyPair)

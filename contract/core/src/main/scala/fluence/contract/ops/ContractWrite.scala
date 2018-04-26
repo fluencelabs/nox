@@ -19,8 +19,8 @@ package fluence.contract.ops
 
 import cats.data.EitherT
 import cats.{Invariant, Monad}
-import fluence.crypto.SignAlgo.CheckerFn
-import fluence.crypto.algorithm.CryptoErr
+import fluence.crypto.signature.SignAlgo.CheckerFn
+import fluence.crypto.CryptoError
 import fluence.crypto.signature.{PubKeyAndSignature, Signature, Signer}
 import fluence.kad.protocol.Key
 
@@ -68,7 +68,7 @@ object ContractWrite {
      *
      * @param signer Algorithm to produce signatures for this participant
      */
-    def sealOffer(signer: Signer): EitherT[F, CryptoErr, C] =
+    def sealOffer(signer: Signer): EitherT[F, CryptoError, C] =
       signer
         .sign(contract.getOfferBytes)
         .map(s ⇒ write.setOfferSeal(contract, s))
@@ -79,7 +79,7 @@ object ContractWrite {
      * @param participant Participants private key
      * @param signer Algorithm to produce signatures for this participant
      */
-    def signOffer(participant: Key, signer: Signer): EitherT[F, CryptoErr, C] =
+    def signOffer(participant: Key, signer: Signer): EitherT[F, CryptoError, C] =
       signer
         .sign(contract.getOfferBytes)
         .map(s ⇒ write.setOfferSignature(contract, participant, PubKeyAndSignature(signer.publicKey, s)))
@@ -89,7 +89,7 @@ object ContractWrite {
      *
      * @param signer Algorithm to produce signatures for this participant
      */
-    def sealParticipants(signer: Signer): EitherT[F, CryptoErr, C] =
+    def sealParticipants(signer: Signer): EitherT[F, CryptoError, C] =
       signer
         .sign(contract.getParticipantsBytes)
         .map(s ⇒ write.setParticipantsSeal(contract, s))
@@ -101,7 +101,7 @@ object ContractWrite {
      * @param checkerFn Creates checker for specified public key
      * @return Contract with filled participants signatures
      */
-    def addParticipants(participants: Seq[C])(implicit checkerFn: CheckerFn): EitherT[F, CryptoErr, C] =
+    def addParticipants(participants: Seq[C])(implicit checkerFn: CheckerFn): EitherT[F, CryptoError, C] =
       EitherT
         .rightT(participants.foldLeft(contract) {
           case (agg, part) if part.participants.size == 1 ⇒
@@ -123,7 +123,7 @@ object ContractWrite {
      *
      * @param signer Algorithm to produce signatures for this participant
      */
-    def sealExecState(signer: Signer): EitherT[F, CryptoErr, C] =
+    def sealExecState(signer: Signer): EitherT[F, CryptoError, C] =
       signer
         .sign(contract.getExecutionStateBytes)
         .map(s ⇒ write.setExecStateSeal(contract, s))

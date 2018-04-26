@@ -17,7 +17,7 @@
 
 package fluence.crypto
 
-import fluence.crypto.algorithm.{AesConfig, AesCrypt, CryptoErr}
+import fluence.crypto.algorithm.{AesConfig, AesCrypt}
 import cats.instances.try_._
 import org.scalactic.source.Position
 import org.scalatest.{Assertion, Matchers, WordSpec}
@@ -73,7 +73,7 @@ class AesSpec extends WordSpec with Matchers with slogging.LazyLogging {
   def checkCryptoError(tr: Try[String])(implicit pos: Position): Assertion = {
     tr.map(_ ⇒ false)
       .recover {
-        case e: CryptoErr ⇒ true
+        case e: CryptoError ⇒ true
         case e ⇒
           logger.error("Unexpected error", e)
           false

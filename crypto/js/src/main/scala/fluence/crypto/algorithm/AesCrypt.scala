@@ -22,7 +22,8 @@ import cats.{Applicative, Monad, MonadError}
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import fluence.codec.Codec
-import fluence.crypto.algorithm.CryptoErr.nonFatalHandling
+import fluence.crypto.CryptoError
+import fluence.crypto.CryptoError.nonFatalHandling
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.facade.cryptojs.{CryptOptions, CryptoJS, Key, KeyOptions}
 import scodec.bits.ByteVector
@@ -68,8 +69,8 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
       (iv, base64) = detachedData
       key ← initSecretKey()
       decData ← decryptData(key, base64, iv)
-      _ ← EitherT.cond(decData.nonEmpty, decData, CryptoErr("Cannot decrypt message with this password."))
-      plain ← EitherT.liftF[F, CryptoErr, T](codec.decode(decData.toArray))
+      _ ← EitherT.cond(decData.nonEmpty, decData, CryptoError("Cannot decrypt message with this password."))
+      plain ← EitherT.liftF[F, CryptoError, T](codec.decode(decData.toArray))
     } yield plain
 
     e.value.flatMap(ME.fromEither)
@@ -81,7 +82,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
    * @param key Salted and hashed password
    * @return Encrypted data with IV
    */
-  private def encryptData(data: Array[Byte], key: Key): EitherT[F, CryptoErr, Array[Byte]] = {
+  private def encryptData(data: Array[Byte], key: Key): EitherT[F, CryptoError, Array[Byte]] = {
     nonFatalHandling {
       //transform data to JS type
       val wordArray = CryptoJS.lib.WordArray.create(new Int8Array(data.toJSArray))
@@ -108,7 +109,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
    * @param cipherText Encrypted data with IV
    * @return IV in hex and data in base64
    */
-  private def detachData(cipherText: Array[Byte]): EitherT[F, CryptoErr, (Option[String], String)] = {
+  private def detachData(cipherText: Array[Byte]): EitherT[F, CryptoError, (Option[String], String)] = {
     nonFatalHandling {
       val dataWithParams = if (withIV) {
         val ivDec = ByteVector(cipherText.slice(0, IV_SIZE)).toHex
@@ -124,7 +125,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   /**
    * Hash password with salt `iterationCount` times
    */
-  private def initSecretKey(): EitherT[F, CryptoErr, Key] = {
+  private def initSecretKey(): EitherT[F, CryptoError, Key] = {
     nonFatalHandling {
       // get raw key from password and salt
       val keyOption = KeyOptions(BITS, iterations = iterationCount, hasher = CryptoJS.algo.SHA256)

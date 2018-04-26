@@ -21,8 +21,7 @@ import java.io.File
 
 import cats.data.EitherT
 import cats.instances.try_._
-import fluence.crypto.algorithm.{CryptoErr, Ecdsa}
-import fluence.crypto.keypair.KeyPair
+import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.signature.Signature
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
@@ -50,7 +49,7 @@ class SignatureSpec extends WordSpec with Matchers {
     "correct sign and verify data" in {
       val algorithm = Ecdsa.ecdsa_secp256k1_sha256
 
-      val keys = algorithm.generateKeyPair[Try]().extract
+      val keys = algorithm.generateKeyPair.unsafe(None)
       val pubKey = keys.publicKey
       val data = rndByteVector(10)
       val sign = algorithm.sign[Try](keys, data).extract
@@ -67,7 +66,7 @@ class SignatureSpec extends WordSpec with Matchers {
 
     "correctly work with signer and checker" in {
       val algo = Ecdsa.signAlgo
-      val keys = algo.generateKeyPair().extract
+      val keys = algo.generateKeyPair.unsafe(None)
       val signer = algo.signer(keys)
       val checker = algo.checker(keys.publicKey)
 
@@ -82,18 +81,18 @@ class SignatureSpec extends WordSpec with Matchers {
 
     "throw an errors on invalid data" in {
       val algo = Ecdsa.signAlgo
-      val keys = algo.generateKeyPair().extract
+      val keys = algo.generateKeyPair.unsafe(None)
       val signer = algo.signer(keys)
       val checker = algo.checker(keys.publicKey)
       val data = rndByteVector(10)
 
       val sign = signer.sign(data).extract
 
-      the[CryptoErr] thrownBy {
+      the[CryptoError] thrownBy {
         checker.check(Signature(rndByteVector(10)), data).value.flatMap(_.toTry).get
       }
       val invalidChecker = algo.checker(KeyPair.fromByteVectors(rndByteVector(10), rndByteVector(10)).publicKey)
-      the[CryptoErr] thrownBy {
+      the[CryptoError] thrownBy {
         invalidChecker
           .check(sign, data)
           .value
@@ -104,7 +103,7 @@ class SignatureSpec extends WordSpec with Matchers {
 
     "store and read key from file" in {
       val algo = Ecdsa.signAlgo
-      val keys = algo.generateKeyPair().extract
+      val keys = algo.generateKeyPair.unsafe(None)
 
       val keyFile = File.createTempFile("test", "")
       if (keyFile.exists()) keyFile.delete()

@@ -15,15 +15,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.signature
+package fluence.crypto
 
-import cats.Monad
-import cats.data.EitherT
-import fluence.crypto.algorithm.CryptoErr
-import scodec.bits.ByteVector
+import fluence.codec.{CodecError, MonadicalEitherArrow}
 
-import scala.language.higherKinds
+object Crypto extends MonadicalEitherArrow[CryptoError] {
+  type Hasher[A, B] = Func[A, B]
 
-trait SignatureChecker {
-  def check[F[_]: Monad](signature: Signature, plain: ByteVector): EitherT[F, CryptoErr, Unit]
+  type Cipher[A] = Bijection[A, Array[Byte]]
+
+  type KeyPairGenerator = Func[Option[Array[Byte]], KeyPair]
+
+  implicit val liftCodecErrorToCrypto: CodecError ⇒ CryptoError = err ⇒ CryptoError("Codec error", Some(err))
 }

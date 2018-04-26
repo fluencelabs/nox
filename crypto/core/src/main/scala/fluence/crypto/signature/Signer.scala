@@ -15,22 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.keypair
+package fluence.crypto.signature
 
+import cats.syntax.profunctor._
+import fluence.crypto.{Crypto, KeyPair}
 import scodec.bits.ByteVector
 
-case class KeyPair(publicKey: KeyPair.Public, secretKey: KeyPair.Secret)
-
-object KeyPair {
-
-  case class Public(value: ByteVector) extends AnyVal {
-    def bytes: Array[Byte] = value.toArray
-  }
-
-  case class Secret(value: ByteVector) extends AnyVal {
-    def bytes: Array[Byte] = value.toArray
-  }
-
-  def fromBytes(pk: Array[Byte], sk: Array[Byte]): KeyPair = fromByteVectors(ByteVector(pk), ByteVector(sk))
-  def fromByteVectors(pk: ByteVector, sk: ByteVector): KeyPair = KeyPair(Public(pk), Secret(sk))
+case class Signer(publicKey: KeyPair.Public, sign: Crypto.Func[ByteVector, Signature]) {
+  lazy val signWithPK: Crypto.Func[ByteVector, PubKeyAndSignature] = sign.rmap(PubKeyAndSignature(publicKey, _))
 }

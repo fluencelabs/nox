@@ -17,7 +17,7 @@
 
 package fluence.crypto.algorithm
 
-import fluence.crypto.keypair.KeyPair
+import fluence.crypto.KeyPair
 
 import scala.language.higherKinds
 

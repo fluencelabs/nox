@@ -21,7 +21,7 @@ import cats.Monad
 import cats.syntax.functor._
 
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
-import scala.language.implicitConversions
+import scala.language.{higherKinds, implicitConversions}
 import scala.math.Ordering
 
 /**

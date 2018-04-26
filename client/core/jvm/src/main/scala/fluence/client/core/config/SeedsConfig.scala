@@ -21,7 +21,7 @@ import cats.Traverse
 import cats.effect.IO
 import cats.instances.list._
 import com.typesafe.config.Config
-import fluence.crypto.SignAlgo.CheckerFn
+import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.protocol.Contact
 
 case class SeedsConfig(

@@ -22,8 +22,8 @@ import cats.{Applicative, MonadError}
 import com.typesafe.config.Config
 import fluence.client.core.FluenceClient
 import fluence.client.core.config.AesConfigParser
+import fluence.crypto.KeyPair
 import fluence.crypto.algorithm.AesCrypt
-import fluence.crypto.keypair.KeyPair
 import fluence.dataset.client.ClientDatasetStorageApi
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global

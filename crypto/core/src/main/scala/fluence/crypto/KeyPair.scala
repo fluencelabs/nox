@@ -15,32 +15,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.crypto.signature
+package fluence.crypto
 
-import cats.Monad
-import cats.data.EitherT
-import fluence.crypto.algorithm.CryptoErr
-import fluence.crypto.keypair.KeyPair
 import scodec.bits.ByteVector
 
-import scala.language.higherKinds
+case class KeyPair(publicKey: KeyPair.Public, secretKey: KeyPair.Secret)
 
-/**
- * Wraps public and private key, along with signing algorithm, to produce signatures
- */
-trait Signer {
-  def publicKey: KeyPair.Public
+object KeyPair {
 
-  def sign[F[_]: Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature]
-}
-
-object Signer {
-
-  class DumbSigner(keyPair: KeyPair) extends Signer {
-    override def publicKey: KeyPair.Public = keyPair.publicKey
-
-    override def sign[F[_]: Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature] =
-      EitherT.pure(Signature(plain.reverse))
+  case class Public(value: ByteVector) extends AnyVal {
+    def bytes: Array[Byte] = value.toArray
   }
 
+  case class Secret(value: ByteVector) extends AnyVal {
+    def bytes: Array[Byte] = value.toArray
+  }
+
+  def fromBytes(pk: Array[Byte], sk: Array[Byte]): KeyPair = fromByteVectors(ByteVector(pk), ByteVector(sk))
+  def fromByteVectors(pk: ByteVector, sk: ByteVector): KeyPair = KeyPair(Public(pk), Secret(sk))
 }

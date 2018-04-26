@@ -29,8 +29,7 @@ import fluence.contract.BasicContract
 import fluence.contract.client.Contracts
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
-import fluence.crypto.SignAlgo
-import fluence.crypto.keypair.KeyPair
+import fluence.crypto.KeyPair
 import fluence.crypto.signature.Signer
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
@@ -48,9 +47,9 @@ class ContractsSpec extends WordSpec with Matchers {
 
   private val clock = Clock.systemUTC()
   val dsCreated = TrieMap.empty[String, Set[Key]].withDefaultValue(Set.empty)
-  val algo = SignAlgo.dumb
+  import fluence.crypto.DumbCrypto.signAlgo
 
-  import algo.checkerFn
+  import signAlgo.checker
 
   def unsafeKey(str: String): Key = Key.fromStringSha1.unsafe(str)
 
@@ -131,7 +130,7 @@ class ContractsSpec extends WordSpec with Matchers {
   }
 
   def offerSigner(seed: String) = {
-    new Signer.DumbSigner(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
+    signAlgo.signer(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
   }
 
   "contract allocator api" should {
@@ -144,7 +143,7 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val allocated =
         network.head._2.allocator
-          .allocate(contract, dc ⇒ WriteOps[Coeval, BasicContract](dc).sealParticipants(signer).leftMap(_.errorMessage))
+          .allocate(contract, dc ⇒ WriteOps[Coeval, BasicContract](dc).sealParticipants(signer).leftMap(_.message))
           .value
           .map(_.right.get)
           .value
@@ -171,7 +170,7 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val allocated =
         network.head._2.allocator
-          .allocate(contract, dc ⇒ WriteOps[Coeval, BasicContract](dc).sealParticipants(signer).leftMap(_.errorMessage))
+          .allocate(contract, dc ⇒ WriteOps[Coeval, BasicContract](dc).sealParticipants(signer).leftMap(_.message))
           .value
           .map(_.right.get)
           .value
@@ -190,7 +189,7 @@ class ContractsSpec extends WordSpec with Matchers {
 
       val allocated =
         network.head._2.allocator
-          .allocate(contract, dc ⇒ WriteOps[Coeval, BasicContract](dc).sealParticipants(signer).leftMap(_.errorMessage))
+          .allocate(contract, dc ⇒ WriteOps[Coeval, BasicContract](dc).sealParticipants(signer).leftMap(_.message))
           .value
           .attempt
           .value

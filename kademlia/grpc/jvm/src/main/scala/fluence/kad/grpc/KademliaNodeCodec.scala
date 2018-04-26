@@ -25,7 +25,7 @@ import cats.syntax.compose._
 import com.google.protobuf.ByteString
 import fluence.codec.pb.ProtobufCodecs._
 import fluence.codec.{CodecError, PureCodec}
-import fluence.crypto.SignAlgo.CheckerFn
+import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.KeyProtobufCodecs._
 import fluence.kad.protobuf.Node
 import fluence.kad.protocol

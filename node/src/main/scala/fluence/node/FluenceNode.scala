@@ -30,7 +30,8 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
 import fluence.client.core.config.{KeyPairConfig, SeedsConfig}
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher}
-import fluence.crypto.{FileKeyStorage, SignAlgo}
+import fluence.crypto.FileKeyStorage
+import fluence.crypto.signature.SignAlgo
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{Contact, Key, Node}
 import fluence.node.core.NodeComposer
@@ -124,7 +125,7 @@ object FluenceNode extends slogging.LazyLogging {
     config: Config,
     clock: Clock = Clock.systemUTC()
   ): IO[FluenceNode] = {
-    import algo.checkerFn
+    import algo.checker
     for {
       _ ← initDirectory(config.getString("fluence.directory")) // TODO config
       kpConf ← KeyPairConfig.read(config)

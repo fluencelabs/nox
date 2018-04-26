@@ -51,7 +51,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
 
   private val signAlgo = Ecdsa.signAlgo
-  private val keyPair = signAlgo.generateKeyPair[Id]().value.right.get
+  private val keyPair = signAlgo.generateKeyPair.unsafe(None)
   private val signer = signAlgo.signer(keyPair)
 
   case class User(name: String, age: Int)

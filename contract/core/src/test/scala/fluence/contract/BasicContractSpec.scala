@@ -17,13 +17,11 @@
 
 package fluence.contract
 
-import cats.{Id, Monad}
-import cats.data.EitherT
 import cats.instances.option._
 import cats.instances.try_._
 import fluence.contract.BasicContract.{BasicContractRead, BasicContractWrite, ExecutionState, Offer}
-import fluence.crypto.algorithm.{CryptoErr, Ecdsa}
-import fluence.crypto.keypair.KeyPair
+import fluence.crypto.{Crypto, CryptoError, KeyPair}
+import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.signature.{PubKeyAndSignature, Signature, Signer}
 import fluence.kad.protocol.Key
 import org.scalatest.{Matchers, WordSpec}
@@ -35,17 +33,13 @@ import scala.util.Try
 class BasicContractSpec extends WordSpec with Matchers {
 
   private val signAlgo = Ecdsa.signAlgo
-  private val contractOwnerKeyPair = signAlgo.generateKeyPair[Option]().success
+  private val contractOwnerKeyPair = signAlgo.generateKeyPair.unsafe(None)
   private val signer = signAlgo.signer(contractOwnerKeyPair)
   private val checker = signAlgo.checker(contractOwnerKeyPair.publicKey)
   private val contractKadKey = Key.fromKeyPair.unsafe(contractOwnerKeyPair)
 
-  private val signerWithException = new Signer {
-    override def sign[F[_]: Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature] =
-      EitherT.leftT(CryptoErr("FAIL"))
-    override def publicKey: KeyPair.Public = ???
-    override def toString: String = ???
-  }
+  private val signerWithException =
+    Signer(KeyPair.Public(ByteVector.empty), Crypto.liftFuncEither(_ ⇒ Left(CryptoError("FAIL"))))
 
   val contract: BasicContract = BasicContract.offer[Try](contractKadKey, 4, signer).get
 
@@ -53,7 +47,7 @@ class BasicContractSpec extends WordSpec with Matchers {
     "fail" when {
       "'offer' or 'execution state' sealing was failed" in {
         val result = BasicContract.offer[Try](contractKadKey, 4, signerWithException)
-        result.failed.get shouldBe a[CryptoErr]
+        result.failed.get shouldBe a[CryptoError]
       }
     }
     "return valid contract" in {
@@ -77,7 +71,7 @@ class BasicContractSpec extends WordSpec with Matchers {
       )
       BasicContractWrite.setExecStateSeal(contract, signature) shouldBe contract.copy(executionSeal = signature)
 
-      val participantKeyPair = signAlgo.generateKeyPair[Option]().success
+      val participantKeyPair = signAlgo.generateKeyPair.unsafe(None)
       val participantKey = Key.fromKeyPair.unsafe(participantKeyPair)
       val participantSignature = PubKeyAndSignature(participantKeyPair.publicKey, signature)
       BasicContractWrite

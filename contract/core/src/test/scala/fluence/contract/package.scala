@@ -17,11 +17,9 @@
 
 package fluence
 
-import cats.Monad
 import cats.data.EitherT
-import fluence.crypto.algorithm.CryptoErr
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{Signature, Signer}
+import fluence.crypto.signature.Signer
+import fluence.crypto.{Crypto, CryptoError, KeyPair}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -37,11 +35,7 @@ package object contract {
       origin.value.get.left.get
   }
 
-  val signerWithException: Signer = new Signer {
-    override def sign[F[_]: Monad](plain: ByteVector): EitherT[F, CryptoErr, Signature] =
-      EitherT.leftT(CryptoErr("FAIL"))
-    override def publicKey: KeyPair.Public = ???
-    override def toString: String = ???
-  }
+  val signerWithException: Signer =
+    Signer(KeyPair.Public(ByteVector.empty), Crypto.liftFuncEither(_ ⇒ Left(CryptoError("FAIL"))))
 
 }

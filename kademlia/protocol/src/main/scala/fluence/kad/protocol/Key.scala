@@ -24,11 +24,10 @@ import cats.syntax.compose._
 import cats.syntax.eq._
 import cats.{Id, Monad, Monoid, Order, Show}
 import fluence.codec.{CodecError, PureCodec}
-import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.hash.CryptoHashers
-import fluence.crypto.keypair.KeyPair
 import scodec.bits.{BitVector, ByteVector}
 import fluence.codec.bits.BitsCodecs._
+import fluence.crypto.{CryptoError, KeyPair}
 
 import scala.util.Try
 import scala.language.higherKinds
@@ -146,11 +145,11 @@ object Key {
    * @param publicKey Public Key
    * @return
    */
-  def checkPublicKey[F[_]: Monad](key: Key, publicKey: KeyPair.Public): EitherT[F, CryptoErr, Unit] =
+  def checkPublicKey[F[_]: Monad](key: Key, publicKey: KeyPair.Public): EitherT[F, CryptoError, Unit] =
     EitherT.cond(
       sha1[Id](publicKey.value.toArray).value.toOption.exists(_ === key), // TODO: take error from sha1 crypto, when any
       (),
-      CryptoErr(s"Kademlia key doesn't match hash(pubKey); key=$key pubKey=$publicKey")
+      CryptoError(s"Kademlia key doesn't match hash(pubKey); key=$key pubKey=$publicKey")
     )
 
 }

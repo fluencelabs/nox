@@ -28,11 +28,10 @@ import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.node.{ContractAllocator, ContractsCache}
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
-import fluence.crypto.SignAlgo
-import fluence.crypto.SignAlgo.CheckerFn
+import fluence.crypto.KeyPair
+import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.crypto.hash.CryptoHasher
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.Signer
+import fluence.crypto.signature.{SignAlgo, Signer}
 import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.dataset.node.Datasets
 import fluence.dataset.protocol.DatasetStorageRpc
@@ -89,7 +88,7 @@ object NodeComposer {
 
         override val signAlgo: SignAlgo = algo
 
-        import algo.checkerFn
+        import algo.checker
 
         private object taskToIO extends (Task ~> IO) {
           override def apply[A](fa: Task[A]): IO[A] = fa.toIO(scheduler)

@@ -32,12 +32,11 @@ import fluence.client.grpc.ClientGrpcServices
 import fluence.contract.BasicContract
 import fluence.contract.client.Contracts
 import fluence.contract.client.Contracts.NotFound
-import fluence.crypto.SignAlgo
-import fluence.crypto.algorithm.{CryptoErr, Ecdsa}
+import fluence.crypto.{CryptoError, KeyPair}
+import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher, TestCryptoHasher}
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.Signer
+import fluence.crypto.signature.{SignAlgo, Signer}
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.protocol.{ClientError, DatasetStorageRpc, ServerError}
 import fluence.kad.protocol.{Contact, ContactSecurity, Key}
@@ -68,7 +67,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(5, Seconds), Span(250, Milliseconds))
 
   private val algo: SignAlgo = Ecdsa.signAlgo
-  private val keyPair: KeyPair = algo.generateKeyPair[Id]().value.right.get
+  private val keyPair: KeyPair = algo.generateKeyPair.unsafe(None)
   private val singer: Signer = algo.signer(keyPair)
 
   private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
@@ -76,7 +75,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private val keyCrypt = NoOpCrypt.forString[Task]
   private val valueCrypt = NoOpCrypt.forString[Task]
 
-  import algo.checkerFn
+  import algo.checker
 
   private implicit def runId[F[_]]: F ~> F = new (F ~> F) {
     override def apply[A](fa: F[A]): F[A] = fa
@@ -184,7 +183,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         import fluence.contract.ops.ContractWrite._
 
         val client = ClientGrpcServices.build[Task](GrpcClient.builder)
-        val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
+        val keyPair = algo.generateKeyPair.unsafe(None)
         val kadKey = Key.fromKeyPair.unsafe(keyPair)
         val signer = algo.signer(keyPair)
 
@@ -195,7 +194,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           offer.checkOfferSeal[Task]().eTaskValue.right.get shouldBe()
 
           val result =
-            contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer).leftMap(_.errorMessage)).value.taskValue
+            contractsApi.allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer).leftMap(_.message)).value.taskValue
           result.left.get shouldBe Contracts.CantFindEnoughNodes(10)
         }
       }
@@ -205,8 +204,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         import fluence.contract.ops.ContractWrite._
 
         val client = ClientGrpcServices.build[Task](GrpcClient.builder)
-        val keyPairValid = algo.generateKeyPair[Task]().value.taskValue.right.get
-        val keyPairBad = algo.generateKeyPair[Task]().value.taskValue.right.get
+        val keyPairValid = algo.generateKeyPair.unsafe(None)
+        val keyPairBad = algo.generateKeyPair.unsafe(None)
         val kadKey = Key.fromKeyPair.unsafe(keyPairValid)
         val signerValid = algo.signer(keyPairValid)
         val signerBad = algo.signer(keyPairBad)
@@ -215,13 +214,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           val seedContact = makeKadNetwork(servers)
           val (_, contractsApi) = createClientApi(seedContact, client)
           val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signerBad).taskValue
-          offer.checkOfferSeal[Task]().eTaskValue.left.get shouldBe a[CryptoErr]
+          offer.checkOfferSeal[Task]().eTaskValue.left.get shouldBe a[CryptoError]
           val result = contractsApi
-            .allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signerValid).leftMap(_.errorMessage))
+            .allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signerValid).leftMap(_.message))
             .value
             .taskValue
             .left.get
-          result shouldBe a[Contracts.CryptoError]
+          result shouldBe a[Contracts.CryptoErr]
         }
       }
 
@@ -251,7 +250,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       "client and server use different types of hasher" in {
         runNodes(
           { servers ⇒
-            val keyPair = algo.generateKeyPair[Id]().value.right.get
+            val keyPair = algo.generateKeyPair.unsafe(None)
             val seedContact = makeKadNetwork(servers)
             val fluence = createFluenceClient(seedContact)
 
@@ -280,7 +279,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       // create client
       val client = ClientGrpcServices.build[Task](GrpcClient.builder)
       // create offer
-      val keyPair = algo.generateKeyPair[Task]().value.taskValue.right.get
+      val keyPair = algo.generateKeyPair.unsafe(None)
       val kadKey = Key.fromKeyPair.unsafe(keyPair)
       val signer = algo.signer(keyPair)
       val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signer).taskValue
@@ -292,7 +291,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
         val acceptedContract =
           contractsApi
-            .allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer).leftMap(_.errorMessage))
+            .allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signer).leftMap(_.message))
             .eTaskValue.right.get
 
         acceptedContract.participants.size shouldBe 4
@@ -302,7 +301,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
     "success write and read from dataset" in {
       runNodes { servers ⇒
-        val keyPair = algo.generateKeyPair[Id]().value.right.get
+        val keyPair = algo.generateKeyPair.unsafe(None)
         val seedContact = makeKadNetwork(servers)
         val fluence = createFluenceClient(seedContact)
 
@@ -315,7 +314,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
     "reads and puts values to dataset, client are restarted and continue to reading and writing" in {
 
       runNodes { servers ⇒
-        val keyPair = algo.generateKeyPair[Id]().value.right.get
+        val keyPair = algo.generateKeyPair.unsafe(None)
         val seedContact = makeKadNetwork(servers)
         val fluence1 = createFluenceClient(seedContact)
 
@@ -342,7 +341,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
       runNodes { servers ⇒
         // create client and write to db
-        val keyPair = algo.generateKeyPair[Id]().value.right.get
+        val keyPair = algo.generateKeyPair.unsafe(None)
         val seedContact = makeKadNetwork(servers)
         val grpcClient = ClientGrpcServices.build[Task](GrpcClient.builder)
         val (kademliaClient, contractsApi) = createClientApi(seedContact, grpcClient)

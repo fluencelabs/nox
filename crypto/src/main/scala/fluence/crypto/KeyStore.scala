@@ -19,7 +19,6 @@ package fluence.crypto
 
 import cats.Monad
 import cats.data.EitherT
-import fluence.crypto.keypair.KeyPair
 import io.circe.parser.decode
 import io.circe.{Decoder, Encoder, HCursor, Json}
 import scodec.bits.{Bases, ByteVector}

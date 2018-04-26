@@ -17,7 +17,6 @@
 
 package fluence.crypto
 
-import fluence.crypto.keypair.KeyPair
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.{Bases, ByteVector}
 

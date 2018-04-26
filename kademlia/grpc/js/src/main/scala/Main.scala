@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import fluence.crypto.SignAlgo
+import fluence.crypto.signature.SignAlgo
 import fluence.crypto.algorithm.Ecdsa
 import fluence.kad.grpc.client.KademliaJSClient
 import fluence.kad.grpc.{KademliaGrpcService, KademliaNodeCodec}
@@ -32,7 +32,7 @@ object Main extends slogging.LazyLogging {
   LoggerConfig.level = LogLevel.DEBUG
 
   val algo: SignAlgo = Ecdsa.signAlgo
-  import algo.checkerFn
+  import algo.checker
 
   implicit val codec = KademliaNodeCodec.pureCodec
 
@@ -43,7 +43,7 @@ object Main extends slogging.LazyLogging {
 
   @JSExport
   def logic(): Unit = {
-    val keyP = algo.generateKeyPair().value.toOption.get
+    val keyP = algo.generateKeyPair.unsafe(None)
     val key = Key.fromPublicKey(keyP.publicKey).value.toOption.get
     val io = for {
       node ← client.ping()

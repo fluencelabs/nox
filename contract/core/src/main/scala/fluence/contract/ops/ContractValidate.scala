@@ -20,7 +20,7 @@ package fluence.contract.ops
 import cats.data.EitherT
 import cats.{Monad, MonadError}
 import fluence.contract.ops.ContractValidate.ValidationErr
-import fluence.crypto.SignAlgo.CheckerFn
+import fluence.crypto.signature.SignAlgo.CheckerFn
 
 import scala.language.higherKinds
 import scala.util.control.NoStackTrace

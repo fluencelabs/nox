@@ -27,7 +27,7 @@ import fluence.client.core.ClientServices
 import fluence.client.grpc.ClientGrpcServices
 import fluence.contract.BasicContract
 import fluence.contract.grpc.server.{ContractAllocatorServer, ContractsCacheServer}
-import fluence.crypto.SignAlgo.CheckerFn
+import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.dataset.grpc.node.DatasetStorageServer
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.KademliaGrpcUpdate
@@ -77,7 +77,7 @@ object NodeGrpc {
       import services._
 
       val _signAlgo = services.signAlgo
-      import _signAlgo.checkerFn
+      import _signAlgo.checker
 
       // TODO: check if it's optimal
       implicit val ec: Scheduler = Scheduler(Executors.newCachedThreadPool())

@@ -27,8 +27,6 @@ import fluence.btree.core.{Hash, Key}
 import fluence.btree.server.commands.{PutCommandImpl, SearchCommandImpl}
 import fluence.btree.server.core.{BTreeBinaryStore, NodeOps}
 import fluence.codec.kryo.KryoCodecs
-import fluence.crypto.SignAlgo
-import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
@@ -49,8 +47,8 @@ import scala.util.hashing.MurmurHash3
 class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
 
-  private val signAlgo = SignAlgo.dumb
-  private val keyPair = signAlgo.generateKeyPair[Id]().value.right.get
+  import fluence.crypto.DumbCrypto.signAlgo
+  private val keyPair = signAlgo.generateKeyPair.unsafe(None)
   private val signer = signAlgo.signer(keyPair)
 
   implicit class Str2Key(str: String) {

@@ -420,6 +420,9 @@ lazy val `b-tree-server` = project
     `b-tree-client-jvm` % "compile->test"
   )
 
+//////////////////////////////////////////////////////////////
+//////////////         CRYPTO BEGIN        ///////////////////
+//////////////////////////////////////////////////////////////
 lazy val `crypto-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
@@ -427,7 +430,8 @@ lazy val `crypto-core` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"    % Cats1V
+      "one.fluence" %%% "codec-bits" % CodecV,
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -474,6 +478,9 @@ lazy val `crypto-jvm` = `crypto`.jvm
 
 lazy val `crypto-js` = `crypto`.js
   .enablePlugins(ScalaJSBundlerPlugin)
+//////////////////////////////////////////////////////////////
+//////////////          CRYPTO END         ///////////////////
+//////////////////////////////////////////////////////////////
 
 lazy val `dataset-node` = project
   .in(file("dataset/node"))

@@ -24,12 +24,11 @@ import cats.~>
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.contract.BasicContract
 import fluence.contract.client.Contracts
-import fluence.crypto.SignAlgo
+import fluence.crypto.KeyPair
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.Crypt
 import fluence.crypto.hash.CryptoHasher
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.Signer
+import fluence.crypto.signature.{SignAlgo, Signer}
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
@@ -148,7 +147,7 @@ class FluenceClient(
           dc ⇒
             WriteOps[Task, BasicContract](dc)
               .sealParticipants(signer)
-              .leftMap(_.errorMessage)
+              .leftMap(_.message)
         ) // TODO: refactor this to EitherT
         .value
         .flatMap(v ⇒ Task(v.right.get))
@@ -276,7 +275,7 @@ object FluenceClient extends slogging.LazyLogging {
     client: Contact ⇒ ClientServices[Task, BasicContract, Contact]
   ): IO[FluenceClient] = {
 
-    import signAlgo.checkerFn
+    import signAlgo.checker
 
     logger.info("Creating kademlia client...")
     val kademliaClient = createKademliaClient(kademliaConf, client(_).kademlia)
