@@ -165,6 +165,8 @@ object InMemoryKVStore {
    * @tparam V A type of value
    */
   def withSnapshots[K, V]: InMemoryKVStore[K, V] with Snapshotable[InMemoryKVStoreRead[K, V]] = {
+
+    /** Allows to create a point-in-time view of a storage. */
     new InMemoryKVStore[K, V] with Snapshotable[InMemoryKVStoreRead[K, V]] {
       override def createSnapshot[F[_]: LiftIO]: F[InMemoryKVStoreRead[K, V]] =
         IO[InMemoryKVStoreRead[K, V]](new TrieMapKVStoreBase(data.snapshot()) with InMemoryKVStoreRead[K, V]).to[F]

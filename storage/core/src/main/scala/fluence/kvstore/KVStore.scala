@@ -108,7 +108,7 @@ trait KVStoreWrite[K, V] extends KVStore {
 trait ReadWriteKVStore[K, V] extends KVStoreRead[K, V] with KVStoreWrite[K, V]
 
 /**
- * Key-value storage api for getting storage snapshot.
+ * Allows to create a point-in-time view of a storage.
  *
  * @tparam S The type of returned storage snapshot.
  */

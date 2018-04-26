@@ -17,6 +17,7 @@ import scala.language.higherKinds
 
 // todo: unit test
 // todo: write examples of creating different instances of RocksDb
+// todo create apply method: for binary store and store with codecs
 
 /**
  * This factory should be used to create every instances of RocksDbKVStore.

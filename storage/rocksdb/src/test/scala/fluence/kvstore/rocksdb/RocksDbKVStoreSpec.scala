@@ -25,6 +25,7 @@ import com.typesafe.config.ConfigFactory
 import fluence.kvstore.rocksdb.ObservableLiftIO._
 import fluence.kvstore.rocksdb.RocksDbKVStore.RocksDbSnapshotable
 import fluence.storage.rocksdb.RocksDbStore.{Key, Value}
+import monix.eval.Task
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.reactive.Observable
 import org.rocksdb.{RocksDB, RocksIterator}
@@ -51,7 +52,7 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
   private val rDBConf = RocksDbConf.read[IO](config).value.unsafeRunSync().right.get
   assert(rDBConf.dataDir.startsWith(System.getProperty("java.io.tmpdir")))
 
-  "InMemoryKVStore" should {
+  "RocksDbKVStore" should {
 
     "perform all Get operations correctly" in {
 
@@ -322,7 +323,45 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
 
     }
 
-    // todo add concurrent tests
+    "perform all concurrent mutation and read correctly" in {
+
+      runRocksDbWithSnapshots("test2") { store ⇒
+        1 to 500 foreach { n ⇒
+          store.put(s"_key$n".getBytes(), s"value$n".getBytes()).runUnsafe()
+        }
+
+        val snapshotBefore = store.createSnapshot[IO].unsafeRunSync()
+
+        val batchInsert = 1 to 1000 map { n ⇒
+          store.put(s"key$n".getBytes(), s"value$n".getBytes()).runF[Task]
+        }
+
+        val batchRewriteInsert = 1 to 1000 map { n ⇒
+          store.put(s"key$n".getBytes(), s"new value$n".getBytes()).runF[Task]
+        }
+
+        val batchDeleteInsert = 1 to 500 map { n ⇒
+          store.remove(s"_key$n".getBytes()).runF[Task]
+        }
+
+        val traverseBeforeTask = snapshotBefore.traverse.run[Observable].toListL
+
+        val traverseBefore = Task
+          .gatherUnordered(batchInsert ++ batchRewriteInsert ++ batchDeleteInsert ++ Seq(traverseBeforeTask))
+          .runAsync
+          .futureValue
+          .filter(_ != ())
+          .map(_.asInstanceOf[Seq[(Key, Value)]])
+
+        traverseBefore.head should have size 500
+        snapshotBefore.close().unsafeRunSync()
+
+        val snapshotAfter = store.createSnapshot[IO].unsafeRunSync()
+        snapshotAfter.traverse.runUnsafe.toList should have size 1000
+        snapshotAfter.close().unsafeRunSync()
+      }
+    }
+
   }
 
   private implicit def long2Bytes(long: Long): Array[Byte] = {

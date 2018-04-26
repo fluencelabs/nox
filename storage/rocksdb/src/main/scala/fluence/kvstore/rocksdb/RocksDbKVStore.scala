@@ -10,7 +10,6 @@ import fluence.kvstore.ops.{Operation, TraverseOperation}
 import fluence.kvstore.rocksdb.RocksDbKVStore.{RocksDbKVStoreBase, RocksDbKVStoreGet, RocksDbKVStoreWrite}
 import fluence.kvstore.{Snapshotable, _}
 import fluence.storage.rocksdb.RocksDbScalaIterator
-import monix.eval.{Task, TaskSemaphore}
 import monix.execution.Scheduler
 import org.rocksdb.{Options, ReadOptions, RocksDB, RocksIterator}
 
@@ -112,7 +111,7 @@ object RocksDbKVStore {
     }
 
   }
-
+  // todo merge get and traverse implementations
   /**
    * Allows to 'traverse' KVStore keys-values pairs.
    * '''Note that''', 'traverse' method appears only after taking snapshot.
@@ -186,7 +185,7 @@ object RocksDbKVStore {
   }
 
   /**
-   * Allows to taking snapshot for the RocksDbKVStore.
+   * Allows to create a point-in-time view of a storage.
    */
   private[kvstore] trait RocksDbSnapshotable extends RocksDbKVStoreBase with Snapshotable[RocksDbKVStoreRead] { self ⇒
 
@@ -218,18 +217,13 @@ object RocksDbKVStore {
     }
   }
 
-  // todo try to avoid double convert when F is Task
-
   /**
    * Allows writing and removing keys and values from KVStore.
    */
   private[kvstore] trait RocksDbKVStoreWrite extends RocksDbKVStoreBase with KVStoreWrite[Key, Value] {
 
-    private val writeMutex = TaskSemaphore(1).memoizeOnSuccess
-
     /**
      * Returns lazy ''put'' representation (see [[Operation]])
-     * '''Note that concurrent writing is not supported!'''
      *
      * @param key The specified key to be inserted
      * @param value The value associated with the specified key
@@ -237,13 +231,10 @@ object RocksDbKVStore {
     override def put(key: Key, value: Value): PutOp = new PutOp {
 
       override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
-        EitherT(
-          writeMutex
-            .flatMap(_.greenLight(Task(data.put(key, value))))
-            .attempt
-            .toIO(kvStorePool) // task will be executed on the kvStorePool
-            .to[F]
-        ).leftMap(err ⇒ StoreError.forPut(key, value, Some(err)))
+        EitherT {
+          val io = IO.shift(kvStorePool) *> IO(data.put(key, value))
+          io.attempt.to[F]
+        }.leftMap(err ⇒ StoreError.forPut(key, value, Some(err)))
           .map(_ ⇒ ())
 
     }
@@ -256,21 +247,15 @@ object RocksDbKVStore {
      */
     override def remove(key: Key): RemoveOp = new RemoveOp {
 
-      override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] = {
-        EitherT(
-          writeMutex
-            .flatMap(_.greenLight(Task(data.delete(key))))
-            .attempt
-            .toIO(kvStorePool) // task will be executed on the kvStorePool
-            .to[F]
-        ).leftMap(err ⇒ StoreError.forRemove(key, Some(err)))
+      override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
+        EitherT {
+          val io = IO.shift(kvStorePool) *> IO(data.delete(key))
+          io.attempt.to[F]
+        }.leftMap(err ⇒ StoreError.forRemove(key, Some(err)))
           .map(_ ⇒ ())
 
-      }
     }
 
   }
-
-  // todo create 2 apply methods: for binary store and store with codecs
 
 }
