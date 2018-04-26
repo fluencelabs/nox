@@ -18,13 +18,11 @@
 package fluence.crypto.algorithm
 
 import cats.data.EitherT
-import cats.{Applicative, Monad, MonadError}
-import cats.syntax.applicative._
-import cats.syntax.flatMap._
-import fluence.codec.Codec
-import fluence.crypto.CryptoError
+import cats.Monad
+import cats.syntax.compose._
+import fluence.codec.PureCodec
+import fluence.crypto.{Crypto, CryptoError}
 import fluence.crypto.CryptoError.nonFatalHandling
-import fluence.crypto.cipher.Crypt
 import fluence.crypto.facade.cryptojs.{CryptOptions, CryptoJS, Key, KeyOptions}
 import scodec.bits.ByteVector
 
@@ -32,10 +30,7 @@ import scalajs.js.JSConverters._
 import scala.language.higherKinds
 import scala.scalajs.js.typedarray.Int8Array
 
-class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(
-  implicit ME: MonadError[F, Throwable],
-  codec: Codec[F, T, Array[Byte]]
-) extends Crypt[F, T, Array[Byte]] {
+class AesCrypt(password: Array[Char], withIV: Boolean, config: AesConfig) {
 
   private val salt = config.salt
 
@@ -53,28 +48,26 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   private val mode = CryptoJS.mode.CBC
   private val aes = CryptoJS.AES
 
-  override def encrypt(plainText: T): F[Array[Byte]] = {
-    val e = for {
-      data ← EitherT.liftF(codec.encode(plainText))
-      key ← initSecretKey()
-      encrypted ← encryptData(data, key)
-    } yield encrypted
+  val encrypt: Crypto.Func[Array[Byte], Array[Byte]] =
+    new Crypto.Func[Array[Byte], Array[Byte]] {
+      override def apply[F[_]: Monad](input: Array[Byte]): EitherT[F, CryptoError, Array[Byte]] =
+        for {
+          key ← initSecretKey()
+          encrypted ← encryptData(input, key)
+        } yield encrypted
+    }
 
-    e.value.flatMap(ME.fromEither)
-  }
-
-  override def decrypt(cipherText: Array[Byte]): F[T] = {
-    val e = for {
-      detachedData ← detachData(cipherText)
-      (iv, base64) = detachedData
-      key ← initSecretKey()
-      decData ← decryptData(key, base64, iv)
-      _ ← EitherT.cond(decData.nonEmpty, decData, CryptoError("Cannot decrypt message with this password."))
-      plain ← EitherT.liftF[F, CryptoError, T](codec.decode(decData.toArray))
-    } yield plain
-
-    e.value.flatMap(ME.fromEither)
-  }
+  val decrypt: Crypto.Func[Array[Byte], Array[Byte]] =
+    new Crypto.Func[Array[Byte], Array[Byte]] {
+      override def apply[F[_]: Monad](input: Array[Byte]): EitherT[F, CryptoError, Array[Byte]] =
+        for {
+          detachedData ← detachData(input)
+          (iv, base64) = detachedData
+          key ← initSecretKey()
+          decData ← decryptData(key, base64, iv)
+          _ ← EitherT.cond(decData.nonEmpty, decData, CryptoError("Cannot decrypt message with this password."))
+        } yield decData.toArray
+    }
 
   /**
    * Encrypt data.
@@ -82,7 +75,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
    * @param key Salted and hashed password
    * @return Encrypted data with IV
    */
-  private def encryptData(data: Array[Byte], key: Key): EitherT[F, CryptoError, Array[Byte]] = {
+  private def encryptData[F[_]: Monad](data: Array[Byte], key: Key): EitherT[F, CryptoError, Array[Byte]] = {
     nonFatalHandling {
       //transform data to JS type
       val wordArray = CryptoJS.lib.WordArray.create(new Int8Array(data.toJSArray))
@@ -96,7 +89,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
     }("Cannot encrypt data.")
   }
 
-  private def decryptData(key: Key, base64Data: String, iv: Option[String]) = {
+  private def decryptData[F[_]: Monad](key: Key, base64Data: String, iv: Option[String]) = {
     nonFatalHandling {
       //parse IV to WordArray JS format
       val cryptOptions = CryptOptions(iv = iv.map(i ⇒ CryptoJS.enc.Hex.parse(i)), padding = pad, mode = mode)
@@ -109,7 +102,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
    * @param cipherText Encrypted data with IV
    * @return IV in hex and data in base64
    */
-  private def detachData(cipherText: Array[Byte]): EitherT[F, CryptoError, (Option[String], String)] = {
+  private def detachData[F[_]: Monad](cipherText: Array[Byte]): EitherT[F, CryptoError, (Option[String], String)] = {
     nonFatalHandling {
       val dataWithParams = if (withIV) {
         val ivDec = ByteVector(cipherText.slice(0, IV_SIZE)).toHex
@@ -125,7 +118,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   /**
    * Hash password with salt `iterationCount` times
    */
-  private def initSecretKey(): EitherT[F, CryptoError, Key] = {
+  private def initSecretKey[F[_]: Monad](): EitherT[F, CryptoError, Key] = {
     nonFatalHandling {
       // get raw key from password and salt
       val keyOption = KeyOptions(BITS, iterations = iterationCount, hasher = CryptoJS.algo.SHA256)
@@ -136,17 +129,19 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
 
 object AesCrypt extends slogging.LazyLogging {
 
-  def forString[F[_]: Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(
-    implicit ME: MonadError[F, Throwable]
-  ): AesCrypt[F, String] = {
-    implicit val codec: Codec[F, String, Array[Byte]] =
-      Codec[F, String, Array[Byte]](_.getBytes.pure[F], bytes ⇒ new String(bytes).pure[F])
-    apply[F, String](password, withIV, config)
+  def build(password: ByteVector, withIV: Boolean, config: AesConfig): Crypto.Cipher[Array[Byte]] = {
+    val aes = new AesCrypt(password.toHex.toCharArray, withIV, config)
+    Crypto.Bijection(aes.encrypt, aes.decrypt)
   }
 
-  def apply[F[_]: Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(
-    implicit ME: MonadError[F, Throwable],
-    codec: Codec[F, T, Array[Byte]]
-  ): AesCrypt[F, T] =
-    new AesCrypt(password.toHex.toCharArray, withIV, config)
+  def forString(password: ByteVector, withIV: Boolean, config: AesConfig): Crypto.Cipher[String] = {
+    implicit val codec: PureCodec[String, Array[Byte]] =
+      PureCodec.build(_.getBytes, bytes ⇒ new String(bytes))
+    apply[String](password, withIV, config)
+  }
+
+  def apply[T](password: ByteVector, withIV: Boolean, config: AesConfig)(
+    implicit codec: PureCodec[T, Array[Byte]]
+  ): Crypto.Cipher[T] =
+    Crypto.codec[T, Array[Byte]] andThen build(password, withIV, config)
 }

@@ -18,34 +18,35 @@
 package fluence.dataset.node
 
 import cats.instances.try_._
-import cats.{Id, ~>}
+import cats.~>
+import cats.syntax.compose._
 import cats.syntax.profunctor._
 import com.typesafe.config.ConfigFactory
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.core.Hash
 import fluence.btree.protocol.BTreeRpc
+import fluence.crypto.{Crypto, CryptoError, DumbCrypto}
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.dataset.client.ClientDatasetStorage
 import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.storage.rocksdb.{ RocksDbConf, RocksDbStore }
+import fluence.storage.rocksdb.{RocksDbConf, RocksDbStore}
 import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
 import monix.reactive.Observable
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.time.{ Milliseconds, Seconds, Span }
-import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpec }
-import slogging.{ LogLevel, LoggerConfig, PrintLoggerFactory }
+import org.scalatest.time.{Milliseconds, Seconds, Span}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpec}
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
-import scala.concurrent.duration.{ FiniteDuration, _ }
+import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.higherKinds
 import scala.reflect.io.Path
-import scala.util.{ Random, Try }
+import scala.util.{Random, Try}
 
 // todo test this callback onDatasetChange callback
 class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterEach with BeforeAndAfterAll {
@@ -84,15 +85,14 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
       "decrypt failed" in {
         implicit val testScheduler: TestScheduler = TestScheduler(ExecutionModel.AlwaysAsyncExecution)
 
-        val valueCryptWithError = NoOpCrypt[Task, User](
-          user ⇒ Task(s"ENC[${user.name},${user.age}]".getBytes()),
-          bytes ⇒ {
+        val valueCryptWithError = DumbCrypto.cipherString compose Crypto.liftEitherB[User, String](
+          user ⇒ Right(s"ENC[${user.name},${user.age}]"),
+          string ⇒ {
             val pattern = "ENC\\[([^,]*),([^\\]]*)\\]".r
-            val pattern(name, age) = new String(bytes)
+            val pattern(name, age) = string
             if (name == val2.name) {
-              throw new IllegalStateException("Can't decrypt value") // will fail when will get key2
-            }
-            Task(User(name, age.toInt))
+              Left(CryptoError("Can't decrypt value")) // will fail when will get key2
+            } else Right(User(name, age.toInt))
           }
         )
 
@@ -289,13 +289,13 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   }
 
   /* util methods */
-  private val keyCrypt = NoOpCrypt.forString[Task]
-  private val valueCrypt = NoOpCrypt[Task, User](
-    user ⇒ Task(s"ENC[${user.name},${user.age}]".getBytes()),
-    bytes ⇒ {
+  private val keyCrypt = DumbCrypto.cipherString
+  private val valueCrypt = DumbCrypto.cipherString compose Crypto.liftB[User, String](
+    user ⇒ s"ENC[${user.name},${user.age}]",
+    string ⇒ {
       val pattern = "ENC\\[([^,]*),([^\\]]*)\\]".r
-      val pattern(name, age) = new String(bytes)
-      Task(User(name, age.toInt))
+      val pattern(name, age) = string
+      User(name, age.toInt)
     }
   )
 

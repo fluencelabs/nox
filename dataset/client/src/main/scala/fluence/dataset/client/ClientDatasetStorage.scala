@@ -23,7 +23,6 @@ import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.client.{MerkleBTreeClient, MerkleBTreeClientApi}
 import fluence.btree.core.Hash
 import fluence.crypto.Crypto
-import fluence.crypto.cipher.Crypt
 import fluence.crypto.signature.Signer
 import fluence.dataset.protocol.DatasetStorageRpc
 import monix.eval.Task
@@ -53,8 +52,8 @@ class ClientDatasetStorage[K, V](
   datasetStartVer: Long,
   bTreeIndex: MerkleBTreeClientApi[Task, K],
   storageRpc: DatasetStorageRpc[Task, Observable],
-  keyCrypt: Crypt[Task, K, Array[Byte]],
-  valueCrypt: Crypt[Task, V, Array[Byte]],
+  keyCrypt: Crypto.Cipher[K],
+  valueCrypt: Crypto.Cipher[V],
   hasher: Crypto.Hasher[Array[Byte], Hash]
 )(implicit ord: Ordering[K])
     extends ClientDatasetStorageApi[Task, Observable, K, V] with slogging.LazyLogging {
@@ -85,8 +84,8 @@ class ClientDatasetStorage[K, V](
         // decrypt key
         .mapTask {
           case (encKey, encValue) ⇒
-            keyCrypt
-              .decrypt(encKey)
+            keyCrypt.inverse
+              .runF[Task](encKey)
               .map(plainKey ⇒ plainKey → encValue)
         }
         // check key upper bound
@@ -94,8 +93,8 @@ class ClientDatasetStorage[K, V](
         // decrypt value
         .mapTask {
           case (plainKey, encValue) ⇒
-            valueCrypt
-              .decrypt(encValue)
+            valueCrypt.inverse
+              .runF[Task](encValue)
               .map(plainValue ⇒ plainKey → plainValue)
         }
 
@@ -106,7 +105,7 @@ class ClientDatasetStorage[K, V](
 
   override def put(key: K, value: V): Task[Option[V]] =
     for {
-      encValue ← valueCrypt.encrypt(value)
+      encValue ← valueCrypt.direct.runF[Task](value)
       encValueHash ← hasher.runF[Task](encValue)
       version ← Task.fromIO(datasetVer).map(_.get)
       putCallbacks ← bTreeIndex.initPut(key, encValueHash, version)
@@ -133,7 +132,7 @@ class ClientDatasetStorage[K, V](
 
   private def decryptOption(response: Option[Array[Byte]]): Task[Option[V]] =
     response match {
-      case Some(r) ⇒ valueCrypt.decrypt(r).map(Option.apply)
+      case Some(r) ⇒ valueCrypt.inverse.runF[Task](r).map(Option.apply)
       case None ⇒ Task(None)
     }
 
@@ -172,8 +171,8 @@ object ClientDatasetStorage {
     datasetStartVer: Long,
     hasher: Crypto.Hasher[Array[Byte], Array[Byte]],
     storageRpc: DatasetStorageRpc[Task, Observable],
-    keyCrypt: Crypt[Task, K, Array[Byte]],
-    valueCrypt: Crypt[Task, V, Array[Byte]],
+    keyCrypt: Crypto.Cipher[K],
+    valueCrypt: Crypto.Cipher[V],
     clientState: Option[ClientState],
     signer: Signer
   )(implicit ord: Ordering[K]): ClientDatasetStorage[K, V] = {

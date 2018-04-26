@@ -26,7 +26,6 @@ import fluence.contract.BasicContract
 import fluence.contract.client.Contracts
 import fluence.crypto.{Crypto, KeyPair}
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.cipher.Crypt
 import fluence.crypto.signature.{SignAlgo, Signer}
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.protocol.DatasetStorageRpc
@@ -58,8 +57,8 @@ class FluenceClient(
    */
   def getDataset(
     keyPair: KeyPair,
-    keyCrypt: Crypt[Task, String, Array[Byte]],
-    valueCrypt: Crypt[Task, String, Array[Byte]]
+    keyCrypt: Crypto.Cipher[String],
+    valueCrypt: Crypto.Cipher[String]
   ): Task[Option[ClientDatasetStorageApi[Task, Observable, String, String]]] = {
     // todo: do replication or don't, should be configurable
     restoreReplicatedDataset(keyPair, keyCrypt, valueCrypt).memoizeOnSuccess
@@ -78,8 +77,8 @@ class FluenceClient(
     contact: Contact,
     clientState: Option[ClientState],
     datasetVer: Long,
-    keyCrypt: Crypt[Task, String, Array[Byte]],
-    valueCrypt: Crypt[Task, String, Array[Byte]],
+    keyCrypt: Crypto.Cipher[String],
+    valueCrypt: Crypto.Cipher[String],
     signer: Signer
   ): Task[ClientDatasetStorage[String, String]] =
     addDataset(
@@ -106,8 +105,8 @@ class FluenceClient(
   private def addDataset(
     keyPair: KeyPair,
     storageRpc: DatasetStorageRpc[Task, Observable],
-    keyCrypt: Crypt[Task, String, Array[Byte]],
-    valueCrypt: Crypt[Task, String, Array[Byte]],
+    keyCrypt: Crypto.Cipher[String],
+    valueCrypt: Crypto.Cipher[String],
     clientState: Option[ClientState],
     datasetVer: Long,
     hasher: Crypto.Hasher[Array[Byte], Array[Byte]],
@@ -132,8 +131,8 @@ class FluenceClient(
   def createNewContract(
     keyPair: KeyPair,
     participantsRequired: Int,
-    keyCrypt: Crypt[Task, String, Array[Byte]],
-    valueCrypt: Crypt[Task, String, Array[Byte]]
+    keyCrypt: Crypto.Cipher[String],
+    valueCrypt: Crypto.Cipher[String]
   ): Task[ClientDatasetStorageApi[Task, Observable, String, String]] = {
     import fluence.contract.ops.ContractWrite._
     for {
@@ -176,8 +175,8 @@ class FluenceClient(
   // multi-write support
   private def restoreReplicatedDataset(
     keyPair: KeyPair,
-    keyCrypt: Crypt[Task, String, Array[Byte]],
-    valueCrypt: Crypt[Task, String, Array[Byte]]
+    keyCrypt: Crypto.Cipher[String],
+    valueCrypt: Crypto.Cipher[String]
   ): Task[Option[ClientDatasetStorageApi[Task, Observable, String, String]]] = {
     for {
       key ← Key.fromKeyPair.runF[Task](keyPair)

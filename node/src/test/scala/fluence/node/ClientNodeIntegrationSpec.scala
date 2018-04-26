@@ -22,7 +22,6 @@ import java.net.ServerSocket
 
 import cats.data.EitherT
 import cats.effect.IO
-import cats.instances.option._
 import cats.kernel.Monoid
 import cats.~>
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
@@ -34,7 +33,6 @@ import fluence.contract.client.Contracts
 import fluence.contract.client.Contracts.NotFound
 import fluence.crypto.{Crypto, CryptoError, DumbCrypto, KeyPair}
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.signature.{SignAlgo, Signer}
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
@@ -54,7 +52,6 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import scodec.bits.ByteVector
-import shapeless._
 import slogging._
 
 import scala.concurrent.Future
@@ -72,8 +69,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
   private val testHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
   private val alternativeHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = DumbCrypto.testHasher
-  private val keyCrypt = NoOpCrypt.forString[Task]
-  private val valueCrypt = NoOpCrypt.forString[Task]
+  private val keyCrypt = DumbCrypto.cipherString
+  private val valueCrypt = DumbCrypto.cipherString
 
   import algo.checker
 

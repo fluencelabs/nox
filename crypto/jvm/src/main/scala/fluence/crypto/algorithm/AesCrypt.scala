@@ -18,11 +18,10 @@
 package fluence.crypto.algorithm
 
 import cats.data.EitherT
-import cats.syntax.flatMap._
-import cats.{Applicative, Monad, MonadError}
+import cats.syntax.compose._
+import cats.Monad
 import fluence.codec.PureCodec
-import fluence.crypto.CryptoError
-import fluence.crypto.cipher.Crypt
+import fluence.crypto.{Crypto, CryptoError}
 import org.bouncycastle.crypto.{CipherParameters, PBEParametersGenerator}
 import org.bouncycastle.crypto.digests.SHA256Digest
 import org.bouncycastle.crypto.engines.AESEngine
@@ -50,10 +49,7 @@ case class DataWithParams(data: Array[Byte], params: CipherParameters)
  *               under the same key does not allow an attacker to infer relationships between segments of the encrypted
  *               message
  */
-class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: AesConfig)(
-  implicit ME: MonadError[F, Throwable],
-  codec: PureCodec[T, Array[Byte]]
-) extends Crypt[F, T, Array[Byte]] with JavaAlgorithm {
+class AesCrypt(password: Array[Char], withIV: Boolean, config: AesConfig) extends JavaAlgorithm {
   import CryptoError.nonFatalHandling
 
   private val rnd = Random
@@ -70,35 +66,34 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
     iv
   }
 
-  override def encrypt(plainText: T): F[Array[Byte]] = {
-    val e = for {
-      data ← codec
-        .direct[F](plainText)
-        .leftMap(err ⇒ CryptoError("Cannot encode plain text to bytes to encrypt it", Some(err)))
-      key ← initSecretKey(password, salt)
-      extDataWithParams ← extDataWithParams(key)
-      encData ← processData(DataWithParams(data, extDataWithParams._2), extDataWithParams._1, encrypt = true)
-    } yield encData
+  val encrypt: Crypto.Func[Array[Byte], Array[Byte]] =
+    new Crypto.Func[Array[Byte], Array[Byte]] {
+      override def apply[F[_]: Monad](input: Array[Byte]): EitherT[F, CryptoError, Array[Byte]] =
+        for {
+          key ← initSecretKey(password, salt)
+          extDataWithParams ← extDataWithParams(key)
+          encData ← processData(DataWithParams(input, extDataWithParams._2), extDataWithParams._1, encrypt = true)
+        } yield encData
 
-    e.value.flatMap(ME.fromEither)
-  }
+    }
 
-  override def decrypt(cipherText: Array[Byte]): F[T] = {
-    val e = for {
-      dataWithParams ← detachDataAndGetParams(cipherText, password, salt, withIV)
-      decData ← processData(dataWithParams, None, encrypt = false)
-      plain ← codec.inverse[F](decData).leftMap(err ⇒ CryptoError("Cannot decode decrypted text", Some(err)))
-    } yield plain
-
-    e.value.flatMap(ME.fromEither)
-  }
+  val decrypt: Crypto.Func[Array[Byte], Array[Byte]] =
+    new Crypto.Func[Array[Byte], Array[Byte]] {
+      override def apply[F[_]: Monad](input: Array[Byte]): EitherT[F, CryptoError, Array[Byte]] =
+        for {
+          dataWithParams ← detachDataAndGetParams(input, password, salt, withIV)
+          decData ← processData(dataWithParams, None, encrypt = false)
+        } yield decData
+    }
 
   /**
    * Generate key parameters with IV if it is necessary
    * @param key Password
    * @return Optional IV and cipher parameters
    */
-  def extDataWithParams(key: Array[Byte]): EitherT[F, CryptoError, (Option[Array[Byte]], CipherParameters)] = {
+  def extDataWithParams[F[_]: Monad](
+    key: Array[Byte]
+  ): EitherT[F, CryptoError, (Option[Array[Byte]], CipherParameters)] = {
     if (withIV) {
       val ivData = generateIV
 
@@ -112,7 +107,10 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   /**
    * Key spec initialization
    */
-  private def initSecretKey(password: Array[Char], salt: Array[Byte]): EitherT[F, CryptoError, Array[Byte]] =
+  private def initSecretKey[F[_]: Monad](
+    password: Array[Char],
+    salt: Array[Byte]
+  ): EitherT[F, CryptoError, Array[Byte]] =
     nonFatalHandling {
       PBEParametersGenerator.PKCS5PasswordToUTF8Bytes(password)
     }("Cannot init secret key.")
@@ -122,7 +120,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
    * @param encrypt True for encryption and false for decryption
    * @return cipher
    */
-  private def setupAesCipher(
+  private def setupAesCipher[F[_]: Monad](
     params: CipherParameters,
     encrypt: Boolean
   ): EitherT[F, CryptoError, PaddedBufferedBlockCipher] = {
@@ -137,7 +135,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
     }("Cannot setup aes cipher.")
   }
 
-  private def cipherBytes(
+  private def cipherBytes[F[_]: Monad](
     data: Array[Byte],
     cipher: PaddedBufferedBlockCipher
   ): EitherT[F, CryptoError, Array[Byte]] = {
@@ -158,7 +156,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
    * @param encrypt True for encryption and false for decryption
    * @return Crypted bytes
    */
-  private def processData(
+  private def processData[F[_]: Monad](
     dataWithParams: DataWithParams,
     addData: Option[Array[Byte]],
     encrypt: Boolean
@@ -173,7 +171,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
   /**
    * encrypted data = initialization vector + data
    */
-  private def detachIV(data: Array[Byte], ivSize: Int): EitherT[F, CryptoError, DetachedData] = {
+  private def detachIV[F[_]: Monad](data: Array[Byte], ivSize: Int): EitherT[F, CryptoError, DetachedData] = {
     nonFatalHandling {
       val ivData = data.slice(0, ivSize)
       val encData = data.slice(ivSize, data.length)
@@ -181,13 +179,16 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
     }("Cannot detach data and IV.")
   }
 
-  private def paramsWithIV(key: Array[Byte], iv: Array[Byte]): EitherT[F, CryptoError, ParametersWithIV] = {
+  private def paramsWithIV[F[_]: Monad](
+    key: Array[Byte],
+    iv: Array[Byte]
+  ): EitherT[F, CryptoError, ParametersWithIV] = {
     params(key).flatMap { keyParam ⇒
       nonFatalHandling(new ParametersWithIV(keyParam, iv))("Cannot generate key parameters with IV")
     }
   }
 
-  private def params(key: Array[Byte]): EitherT[F, CryptoError, KeyParameter] = {
+  private def params[F[_]: Monad](key: Array[Byte]): EitherT[F, CryptoError, KeyParameter] = {
     nonFatalHandling {
       val pGen = new PKCS5S2ParametersGenerator(new SHA256Digest)
       pGen.init(key, salt, iterationCount)
@@ -196,7 +197,7 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
     }("Cannot generate key parameters")
   }
 
-  private def detachDataAndGetParams(
+  private def detachDataAndGetParams[F[_]: Monad](
     data: Array[Byte],
     password: Array[Char],
     salt: Array[Byte],
@@ -221,17 +222,19 @@ class AesCrypt[F[_]: Monad, T](password: Array[Char], withIV: Boolean, config: A
 
 object AesCrypt extends slogging.LazyLogging {
 
-  def forString[F[_]: Applicative](password: ByteVector, withIV: Boolean, config: AesConfig)(
-    implicit ME: MonadError[F, Throwable]
-  ): AesCrypt[F, String] = {
-    implicit val codec: PureCodec[String, Array[Byte]] =
-      PureCodec.liftB[String, Array[Byte]](_.getBytes, new String(_))
-    apply[F, String](password, withIV, config)
+  def build(password: ByteVector, withIV: Boolean, config: AesConfig): Crypto.Cipher[Array[Byte]] = {
+    val aes = new AesCrypt(password.toHex.toCharArray, withIV, config)
+    Crypto.Bijection(aes.encrypt, aes.decrypt)
   }
 
-  def apply[F[_]: Applicative, T](password: ByteVector, withIV: Boolean, config: AesConfig)(
-    implicit ME: MonadError[F, Throwable],
-    codec: PureCodec[T, Array[Byte]]
-  ): AesCrypt[F, T] =
-    new AesCrypt(password.toHex.toCharArray, withIV, config)
+  def forString(password: ByteVector, withIV: Boolean, config: AesConfig): Crypto.Cipher[String] = {
+    implicit val codec: PureCodec[String, Array[Byte]] =
+      PureCodec.build(_.getBytes, bytes ⇒ new String(bytes))
+    apply[String](password, withIV, config)
+  }
+
+  def apply[T](password: ByteVector, withIV: Boolean, config: AesConfig)(
+    implicit codec: PureCodec[T, Array[Byte]]
+  ): Crypto.Cipher[T] =
+    Crypto.codec[T, Array[Byte]] andThen build(password, withIV, config)
 }

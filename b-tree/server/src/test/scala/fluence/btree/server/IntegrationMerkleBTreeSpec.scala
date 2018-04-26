@@ -29,7 +29,6 @@ import fluence.btree.server.commands.{PutCommandImpl, SearchCommandImpl}
 import fluence.btree.server.core.{BTreeBinaryStore, NodeOps}
 import fluence.codec.kryo.KryoCodecs
 import fluence.crypto.DumbCrypto
-import fluence.crypto.cipher.NoOpCrypt
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -327,7 +326,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
   /* util methods */
 
   private def createBTreeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String] = {
-    val keyCrypt = NoOpCrypt.forString[Task]
+    val keyCrypt = DumbCrypto.cipherString
     MerkleBTreeClient(
       clientState,
       keyCrypt,

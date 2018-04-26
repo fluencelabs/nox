@@ -23,7 +23,6 @@ import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.core.{Hash, Key}
 import fluence.crypto.DumbCrypto
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.cipher.NoOpCrypt
 import fluence.crypto.signature.Signature
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -297,7 +296,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
   private def createClient(mRoot: String): MerkleBTreeClient[String] = {
     MerkleBTreeClient[String](
       Some(ClientState(mRoot.toHash)),
-      NoOpCrypt.forString,
+      DumbCrypto.cipherString,
       testHasher,
       signer
     )

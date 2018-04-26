@@ -17,7 +17,7 @@
 
 package fluence.crypto
 
-import fluence.codec.{CodecError, MonadicalEitherArrow}
+import fluence.codec.{CodecError, MonadicalEitherArrow, PureCodec}
 
 object Crypto extends MonadicalEitherArrow[CryptoError] {
   type Hasher[A, B] = Func[A, B]
@@ -26,5 +26,9 @@ object Crypto extends MonadicalEitherArrow[CryptoError] {
 
   type KeyPairGenerator = Func[Option[Array[Byte]], KeyPair]
 
+  // TODO: move it to MonadicalEitherArrow, make liftTry with try-catch, and easy conversions for other funcs and bijections
   implicit val liftCodecErrorToCrypto: CodecError ⇒ CryptoError = err ⇒ CryptoError("Codec error", Some(err))
+
+  implicit def codec[A, B](implicit codec: PureCodec[A, B]): Bijection[A, B] =
+    Bijection(fromOtherFunc(codec.direct), fromOtherFunc(codec.inverse))
 }

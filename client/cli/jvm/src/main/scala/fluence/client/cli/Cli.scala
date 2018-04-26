@@ -18,11 +18,11 @@
 package fluence.client.cli
 
 import cats.effect.IO
-import cats.{Applicative, MonadError}
+import cats.Applicative
 import com.typesafe.config.Config
 import fluence.client.core.FluenceClient
 import fluence.client.core.config.AesConfigParser
-import fluence.crypto.KeyPair
+import fluence.crypto.{Crypto, KeyPair}
 import fluence.crypto.algorithm.AesCrypt
 import fluence.dataset.client.ClientDatasetStorageApi
 import monix.eval.Task
@@ -43,7 +43,7 @@ object Cli extends slogging.LazyLogging {
   def cryptoMethods[F[_]: Applicative](
     secretKey: KeyPair.Secret,
     config: Config
-  )(implicit F: MonadError[F, Throwable]): Task[(AesCrypt[F, String], AesCrypt[F, String])] = {
+  ): Task[(Crypto.Cipher[String], Crypto.Cipher[String])] =
     for {
       aesConfig ← AesConfigParser.readAesConfigOrGetDefault[Task](config)
     } yield
@@ -51,14 +51,13 @@ object Cli extends slogging.LazyLogging {
         AesCrypt.forString(secretKey.value, withIV = false, aesConfig),
         AesCrypt.forString(secretKey.value, withIV = true, aesConfig)
       )
-  }
 
   def restoreDataset(
     keyPair: KeyPair,
     fluenceClient: FluenceClient,
     config: Config,
     replicationN: Int
-  ): Task[ClientDatasetStorageApi[Task, Observable, String, String]] = {
+  ): Task[ClientDatasetStorageApi[Task, Observable, String, String]] =
     for {
       crypts ← cryptoMethods[Task](keyPair.secretKey, config)
       (keyCrypt, valueCrypt) = crypts
@@ -70,7 +69,6 @@ object Cli extends slogging.LazyLogging {
           fluenceClient.createNewContract(keyPair, replicationN, keyCrypt, valueCrypt)
       }
     } yield ds
-  }
 
   def handleCmds(ds: ClientDatasetStorageApi[Task, Observable, String, String], config: Config): IO[Boolean] =
     for {
