@@ -31,6 +31,6 @@ trait ObservableLiftIO extends LiftIO[Observable] {
 
 object ObservableLiftIO {
 
-  implicit def catsObservableLiftIO: ObservableLiftIO = new ObservableLiftIO {}
+  implicit val catsObservableLiftIO: ObservableLiftIO = new ObservableLiftIO {}
 
 }

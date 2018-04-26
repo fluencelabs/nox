@@ -38,7 +38,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
   implicit def wrapBytes(bytes: Array[Byte]): ByteBuffer = ByteBuffer.wrap(bytes)
 
-  implicit val liftToObservable = new (Iterator ~> Observable) {
+  implicit val liftToObservable: Iterator ~> Observable = new (Iterator ~> Observable) {
     override def apply[A](fa: Iterator[A]): Observable[A] = Observable.fromIterator(fa)
   }
 
@@ -67,28 +67,32 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
     "perform all Traverse operations correctly" in {
 
-      val store = InMemoryKVStore[String, String]
+      val store = InMemoryKVStore.withSnapshots[String, String]
 
       val key1 = "key1"
       val val1 = "val1"
       val key2 = "key2"
       val val2 = "val2"
 
-      store.traverse.run[Observable].toListL.runAsync.futureValue shouldBe empty
-      store.traverse.runUnsafe shouldBe empty
+      val store1 = store.createSnapshot[IO]().unsafeRunSync()
+      store1.traverse.run[Observable].toListL.runAsync.futureValue shouldBe empty
+      store1.traverse.runUnsafe shouldBe empty
 
       store.put(key1, val1).runUnsafe() shouldBe ()
       store.put(key2, val2).runUnsafe() shouldBe ()
 
       val expectedPairs = List(key1 → val1, key2 → val2)
-      store.traverse.run[Observable].toListL.runAsync.futureValue should contain theSameElementsAs expectedPairs
-      store.traverse.runUnsafe.toList should contain theSameElementsAs expectedPairs
+
+      val store2 = store.createSnapshot[IO]().unsafeRunSync()
+
+      store2.traverse.run[Observable].toListL.runAsync.futureValue should contain theSameElementsAs expectedPairs
+      store2.traverse.runUnsafe.toList should contain theSameElementsAs expectedPairs
 
     }
 
     "perform all Put operations correctly" in {
 
-      val store = InMemoryKVStore[String, String]
+      val store = InMemoryKVStore.withSnapshots[String, String]
 
       val key1 = "key1"
       val val1 = "val1"
@@ -105,13 +109,18 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       store.put(key4, val4).runUnsafe() shouldBe ()
 
       val expectedPairs = Seq(key1 → val1, key2 → val2, key3 → val3, key4 → val4)
-      store.traverse.runUnsafe.toList should contain theSameElementsAs expectedPairs
+      store
+        .createSnapshot[IO]()
+        .unsafeRunSync()
+        .traverse
+        .runUnsafe
+        .toList should contain theSameElementsAs expectedPairs
 
     }
 
     "perform all Remove operations correctly" in {
 
-      val store = InMemoryKVStore[String, String]
+      val store = InMemoryKVStore.withSnapshots[String, String]
 
       val key1 = "key1"
       val val1 = "val1"
@@ -137,13 +146,13 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       store.remove(key2).runF[IO].unsafeRunSync() shouldBe ()
       store.remove(key4).runUnsafe() shouldBe ()
 
-      store.traverse.runUnsafe.toList shouldBe empty
+      store.createSnapshot[IO]().unsafeRunSync().traverse.runUnsafe.toList shouldBe empty
 
     }
 
     "performs all operations correctly" in {
 
-      val store = InMemoryKVStore[ByteBuffer, Array[Byte]]
+      val store = InMemoryKVStore.withSnapshots[ByteBuffer, Array[Byte]]
 
       val key1 = "key1".getBytes()
       val val1 = "val1".getBytes()
@@ -178,7 +187,8 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v).runUnsafe() }
       inserts should have size 100
 
-      val traverseResult = store.traverse.run[Observable].toListL.runSyncUnsafe(1.seconds)
+      val traverseResult =
+        store.createSnapshot[IO]().unsafeRunSync().traverse.run[Observable].toListL.runSyncUnsafe(1.seconds)
 
       bytesToStr(traverseResult.map {
         case (bb, v) ⇒ bb.array() -> v
@@ -217,7 +227,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v).runUnsafe() }
       inserts should have size 100
 
-      val traverseResult = store.traverse.runUnsafe.toList
+      val traverseResult = store.createSnapshot[IO]().map(_.traverse.runUnsafe.toList).unsafeRunSync()
 
       bytesToStr(traverseResult.map {
         case (bb, v) ⇒ bb.array() -> v
@@ -227,7 +237,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
       val storeSnapshot2 = store.createSnapshot[IO]().unsafeRunSync()
 
       traverseResult.foreach { case (k, _) ⇒ store.remove(k).runUnsafe() }
-      val traverseResult2 = store.traverse.runUnsafe.toList
+      val traverseResult2 = store.createSnapshot[IO]().map(_.traverse.runUnsafe.toList).unsafeRunSync()
       traverseResult2 shouldBe empty
 
       val traverseResult3 = storeSnapshot2.traverse.runUnsafe.toList
