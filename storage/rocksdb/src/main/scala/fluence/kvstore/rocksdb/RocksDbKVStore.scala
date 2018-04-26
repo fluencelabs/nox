@@ -12,7 +12,7 @@ import fluence.kvstore.{Snapshotable, _}
 import fluence.storage.rocksdb.RocksDbScalaIterator
 import monix.eval.{Task, TaskSemaphore}
 import monix.execution.Scheduler
-import org.rocksdb.{Options, ReadOptions, RocksDB}
+import org.rocksdb.{Options, ReadOptions, RocksDB, RocksIterator}
 
 import scala.language.higherKinds
 
@@ -122,22 +122,66 @@ object RocksDbKVStore {
     /**
      * Returns lazy ''traverse'' representation (see [[TraverseOperation]])
      */
-    override def traverse: TraverseOp[Key, Value] = new TraverseOp[Key, Value] { // todo scheuler
+    override def traverse: TraverseOp[Key, Value] = new TraverseOp[Key, Value] {
 
-      override def run[FS[_]: Monad: LiftIO](implicit liftIterator: Iterator ~> FS): FS[(Key, Value)] = {
-        IO.shift(kvStorePool) *> IO {
-          new ReadOptions(readOptions).setTailing(true) // sequential read optimization
-        }.bracket { opt ⇒
-          IO(liftIterator(new RocksDbScalaIterator(data.newIterator(opt))))
-        } { opt ⇒
-          IO(opt.close()) // each RocksDb class should be closed for release the allocated memory in c++
-        }
-      }.to[FS].flatten
+      override def run[FS[_]: Monad: LiftIO](implicit liftIterator: Iterator ~> FS): FS[(Key, Value)] =
+        newIterator.map(i ⇒ liftIterator(new RocksDbScalaIterator(i))).to[FS].flatten
 
       override def runUnsafe: Iterator[(Key, Value)] =
-        new RocksDbScalaIterator(data.newIterator)
+        newIterator.map(i ⇒ new RocksDbScalaIterator(i)) unsafeRunSync ()
 
     }
+
+    /**
+     * Returns lazy operation for getting max stored 'key'.
+     * '''Note''' returns not the last stored 'key', but the max key in natural order!
+     * {{{
+     *  For example:
+     *    For numbers from 1 to 100, max key was 100.
+     *    But for strings from k1 to k100, max key was k99, cause k100 < k99 in bytes representation
+     * }}}
+     */
+    def getMaxKey: Operation[Option[Key]] = new Operation[Option[Key]] {
+
+      override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Option[Key]] = {
+
+        val result = {
+          IO.shift(kvStorePool) *> newIterator.bracket { iterator ⇒
+            IO(iterator.seekToLast())
+              .map[Option[Key]](_ ⇒ if (iterator.isValid) Option(iterator.key()) else None)
+          } { iterator ⇒
+            IO(iterator.close())
+          }
+        }.attempt.to[F]
+
+        EitherT(result)
+          .leftMap(err ⇒ StoreError("Can't get max key.", Some(err)))
+
+      }
+
+    }
+
+    /**
+     * Returns RocksDb iterator with resource managing.
+     */
+    private def newIterator: IO[RocksIterator] =
+      IO.shift(kvStorePool) *> IO {
+
+        /**
+         * Tailing iterator needed for sequential read optimization, but it doesn't
+         * take a snapshot when it's created and should not be used with Snapshotable,
+         * see docs: [[https://github.com/facebook/rocksdb/wiki/Tailing-Iterator]]
+         */
+        if (readOptions.snapshot() == null)
+          new ReadOptions(readOptions).setTailing(true) // do optimisation
+        else
+          new ReadOptions(readOptions) // skip optimisation, because snapshot is taken
+
+      }.bracket { opt ⇒
+        IO(data.newIterator(opt))
+      } { opt ⇒
+        IO(opt.close()) // each RocksDb class should be closed for release the allocated memory in c++
+      }
 
   }
 
@@ -148,8 +192,13 @@ object RocksDbKVStore {
 
     /**
      * Returns read-only key-value store snapshot with traverse functionality.
+     * '''Note that''' you should invoke [[RocksDbKVStoreRead#close()]]
+     * when current snapshot isn't needed anymore.
+     *
+     * If master RocksDbStore will be closed, every snapshots becomes in inconsistent state.
+     * todo master kvstore should close all snapshots before it becomes closed
      */
-    override def createSnapshot[F[_]: LiftIO](): F[RocksDbKVStoreRead] = {
+    override def createSnapshot[F[_]: LiftIO]: F[RocksDbKVStoreRead] = {
       val newInstance: IO[RocksDbKVStoreRead] =
         for {
           snapshot ← IO.shift(kvStorePool) *> IO(self.data.getSnapshot)
@@ -162,11 +211,7 @@ object RocksDbKVStore {
             override protected val kvStorePool: Scheduler = self.kvStorePool
 
             override def close(): IO[Unit] =
-              super.close().map { _ ⇒
-                readOp.close()
-                snapshot.close()
-              }
-
+              IO(data.releaseSnapshot(snapshot))
           }
 
       newInstance.to[F]

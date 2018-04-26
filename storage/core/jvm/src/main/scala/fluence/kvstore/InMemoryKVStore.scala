@@ -166,7 +166,7 @@ object InMemoryKVStore {
    */
   def withSnapshots[K, V]: InMemoryKVStore[K, V] with Snapshotable[InMemoryKVStoreRead[K, V]] = {
     new InMemoryKVStore[K, V] with Snapshotable[InMemoryKVStoreRead[K, V]] {
-      override def createSnapshot[F[_]: LiftIO](): F[InMemoryKVStoreRead[K, V]] =
+      override def createSnapshot[F[_]: LiftIO]: F[InMemoryKVStoreRead[K, V]] =
         IO[InMemoryKVStoreRead[K, V]](new TrieMapKVStoreBase(data.snapshot()) with InMemoryKVStoreRead[K, V]).to[F]
     }
   }

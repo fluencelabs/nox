@@ -24,6 +24,7 @@ import cats.~>
 import com.typesafe.config.ConfigFactory
 import fluence.kvstore.rocksdb.ObservableLiftIO._
 import fluence.kvstore.rocksdb.RocksDbKVStore.RocksDbSnapshotable
+import fluence.storage.rocksdb.RocksDbStore.{Key, Value}
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.reactive.Observable
 import org.rocksdb.{RocksDB, RocksIterator}
@@ -82,7 +83,7 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
       val val2 = "val2".getBytes()
 
       runRocksDbWithSnapshots("test2") { store ⇒
-        val store1 = store.createSnapshot[IO]().unsafeRunSync()
+        val store1 = store.createSnapshot[IO].unsafeRunSync()
         store1.traverse.run[Observable].toListL.runAsync.futureValue shouldBe empty
         store1.traverse.runUnsafe shouldBe empty
 
@@ -91,7 +92,7 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
 
         val expectedPairs = List(key1 → val1, key2 → val2)
 
-        val store2 = store.createSnapshot[IO]().unsafeRunSync()
+        val store2 = store.createSnapshot[IO].unsafeRunSync()
 
         val traverseResult1 = store2.traverse.run[Observable].toListL.runAsync.futureValue
         bytesToStr(traverseResult1) should contain theSameElementsAs bytesToStr(expectedPairs)
@@ -121,7 +122,7 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
         store.put(key4, val4).runUnsafe() shouldBe ()
 
         val expectedPairs = Seq(key1 → val1, key2 → val2, key3 → val3, key4 → val4)
-        val traverseResult = store.createSnapshot[IO]().unsafeRunSync().traverse.runUnsafe.toList
+        val traverseResult = store.createSnapshot[IO].unsafeRunSync().traverse.runUnsafe.toList
         bytesToStr(traverseResult) should contain theSameElementsAs bytesToStr(expectedPairs)
 
       }
@@ -155,13 +156,12 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
         store.remove(key2).runF[IO].unsafeRunSync() shouldBe ()
         store.remove(key4).runUnsafe() shouldBe ()
 
-        store.createSnapshot[IO]().unsafeRunSync().traverse.runUnsafe.toList shouldBe empty
+        store.createSnapshot[IO].unsafeRunSync().traverse.runUnsafe.toList shouldBe empty
       }
 
     }
 
     "performs all operations correctly" in {
-      import RocksDbKVStore._
 
       val key1 = "key1".getBytes()
       val val1 = "val1".getBytes()
@@ -209,68 +209,120 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
 
         manyPairs.foreach { case (k, v) ⇒ store.put(k, v).runUnsafe() }
 
-        val traverseResult = store.createSnapshot[IO].unsafeRunSync().traverse.runUnsafe.toList
+        val snapshot = store.createSnapshot[IO].unsafeRunSync()
+        val traverseResult = snapshot.traverse.runUnsafe.toList
         bytesToStr(traverseResult) should contain theSameElementsAs bytesToStr(manyPairs)
 
-        //        val maxKey = store.getMaxKey.runAsync.futureValue
-        //        maxKey.get shouldBe "key99".getBytes // cause k99 > k100 in bytes representation
+        val maxKey = snapshot.getMaxKey.runUnsafe()
+        maxKey.get shouldBe "key99".getBytes // cause k99 > k100 in bytes representation
+        snapshot.close().unsafeRunSync()
 
       }
     }
 
-//    "performs all operations correctly with snapshot" in {
-//
-//      val store = InMemoryKVStore.withSnapshots[ByteBuffer, Array[Byte]]
-//
-//      val key1 = "key1".getBytes()
-//      val val1 = "val1".getBytes()
-//      val key2 = "key2".getBytes()
-//      val val2 = "val2".getBytes()
-//      val newVal2 = "new val2".getBytes()
-//
-//      store.put(key1, val1).runUnsafe() shouldBe ()
-//      store.put(key2, val2).runUnsafe() shouldBe ()
-//
-//      // check delete
-//
-//      val storeSnapshot1 = store.createSnapshot[IO]().unsafeRunSync()
-//      storeSnapshot1.get(key1).runUnsafe().get shouldBe val1
-//
-//      store.get(key1).runUnsafe().get shouldBe val1
-//      store.remove(key1).runUnsafe() shouldBe ()
-//      store.get(key1).runUnsafe() shouldBe None
-//      storeSnapshot1.get(key1).runUnsafe().get shouldBe val1
-//
-//      // check traverse
-//
-//      val manyPairs: Seq[(Key, Value)] = 1 to 100 map { n ⇒
-//        s"key$n".getBytes() → s"val$n".getBytes()
-//      }
-//      val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v).runUnsafe() }
-//      inserts should have size 100
-//
-//      val traverseResult = store.createSnapshot[IO]().map(_.traverse.runUnsafe.toList).unsafeRunSync()
-//
-//      bytesToStr(traverseResult.map {
-//        case (bb, v) ⇒ bb.array() -> v
-//      }) should contain theSameElementsAs bytesToStr(manyPairs)
-//
-//      // take snapshot and remove all element in store
-//      val storeSnapshot2 = store.createSnapshot[IO]().unsafeRunSync()
-//
-//      traverseResult.foreach { case (k, _) ⇒ store.remove(k).runUnsafe() }
-//      val traverseResult2 = store.createSnapshot[IO]().map(_.traverse.runUnsafe.toList).unsafeRunSync()
-//      traverseResult2 shouldBe empty
-//
-//      val traverseResult3 = storeSnapshot2.traverse.runUnsafe.toList
-//
-//      bytesToStr(traverseResult3.map {
-//        case (bb, v) ⇒ bb.array() -> v
-//      }) should contain theSameElementsAs bytesToStr(manyPairs)
-//
-//    }
+    "performs all operations correctly with snapshot" in {
 
-    // todo add RocksBd Specific test
+      val key1 = "key1".getBytes()
+      val val1 = "val1".getBytes()
+      val key2 = "key2".getBytes()
+      val val2 = "val2".getBytes()
+      val key3 = "key3".getBytes()
+      val val3 = "val3".getBytes()
+
+      runRocksDbWithSnapshots("test5") { store ⇒
+        store.put(key1, val1).runUnsafe() shouldBe ()
+        store.put(key2, val2).runUnsafe() shouldBe ()
+
+        // check get
+
+        val storeSnapshot1 = store.createSnapshot[IO].unsafeRunSync()
+
+        storeSnapshot1.get(key1).runUnsafe().get shouldBe val1
+        store.get(key1).runUnsafe().get shouldBe val1
+
+        store.remove(key1).runUnsafe() shouldBe ()
+
+        store.get(key1).runUnsafe() shouldBe None
+        storeSnapshot1.get(key1).runUnsafe().get shouldBe val1
+
+        store.put(key3, val3).runUnsafe() shouldBe ()
+
+        store.get(key3).runUnsafe().get shouldBe val3
+        storeSnapshot1.get(key3).runUnsafe() shouldBe None
+
+        storeSnapshot1.close().unsafeRunSync()
+
+        // check traverse
+
+        val manyPairs: Seq[(Key, Value)] = 1 to 100 map { n ⇒
+          s"key$n".getBytes() → s"val$n".getBytes()
+        }
+        manyPairs.map { case (k, v) ⇒ store.put(k, v).runUnsafe() }
+
+        // take snapshot and remove all element in store
+        val storeSnapshot2 = store.createSnapshot[IO].unsafeRunSync()
+
+        val traverseBeforeDelete = storeSnapshot2.traverse.runUnsafe.toList
+        bytesToStr(traverseBeforeDelete) should contain theSameElementsAs bytesToStr(manyPairs)
+
+        // do delete
+        traverseBeforeDelete.foreach { case (k, _) ⇒ store.remove(k).runUnsafe() }
+
+        val traverseAfterDeleteWithSnapshot = storeSnapshot2.traverse.runUnsafe.toList
+        bytesToStr(traverseAfterDeleteWithSnapshot) should contain theSameElementsAs bytesToStr(manyPairs)
+        storeSnapshot2.close().unsafeRunSync()
+
+        val snapshot = store.createSnapshot[IO].unsafeRunSync()
+        val traversAfterDeleteWithoutSnapshot = snapshot.traverse.runUnsafe.toList
+        traversAfterDeleteWithoutSnapshot shouldBe empty
+        snapshot.close().unsafeRunSync()
+
+      }
+
+    }
+
+    "getMaxKey" should {
+
+      "return KeyNotFound when store is empty" in {
+        runRocksDbWithSnapshots("test6") { store ⇒
+          val snapshot = store.createSnapshot[IO].unsafeRunSync()
+          val maxLongKey = snapshot.getMaxKey.runUnsafe()
+          maxLongKey shouldBe None
+        }
+      }
+
+      "get max key for String" in {
+        runRocksDbWithSnapshots("test7") { store ⇒
+          Random.shuffle(1 to 100).map { n ⇒
+            s"key$n".getBytes() → s"val$n".getBytes()
+          } foreach { case (k, v) ⇒ store.put(k, v).runUnsafe() }
+
+          val snapshot = store.createSnapshot[IO].unsafeRunSync()
+          val maxLongKey = snapshot.getMaxKey.runUnsafe()
+          maxLongKey.get shouldBe "key99".getBytes
+          snapshot.close().unsafeRunSync()
+        }
+      }
+
+      "get max key for Long" in {
+        runRocksDbWithSnapshots("test8") { store ⇒
+          Random
+            .shuffle(1 to 100)
+            .map { n ⇒
+              long2Bytes(n) → s"val$n".getBytes()
+            }
+            .foreach { case (k, v) ⇒ store.put(k, v).runUnsafe() }
+
+          val snapshot = store.createSnapshot[IO].unsafeRunSync()
+          val maxLongKey = snapshot.getMaxKey.runUnsafe()
+          maxLongKey.get shouldBe long2Bytes(100L)
+          snapshot.close().unsafeRunSync()
+        }
+      }
+
+    }
+
+    // todo add concurrent tests
   }
 
   private implicit def long2Bytes(long: Long): Array[Byte] = {
@@ -285,7 +337,10 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
 
   private def runRocksDbWithSnapshots(name: String)(action: RocksDbKVStore with RocksDbSnapshotable ⇒ Unit): Unit = {
     val store =
-      RocksDbKVStore.getFactory().value.withSnapshots[IO](makeUnique(name), config).value.unsafeRunSync().right.get
+      // @formatter:off
+      RocksDbKVStore.getFactory(scheduler).value
+        .withSnapshots[IO](makeUnique(name), config).value.unsafeRunSync().right.get
+    // @formatter:on
     try action(store)
     finally store.close().unsafeRunSync()
   }
