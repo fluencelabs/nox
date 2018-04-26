@@ -19,29 +19,26 @@ package fluence.crypto.hash
 
 import java.security.MessageDigest
 
-/**
- * Thread-safe implementation of [[CryptoHasher]] with standard jdk [[java.security.MessageDigest]]
- *
- * @param algorithm one of allowed hashing algorithms
- *                  [[https://docs.oracle.com/javase/7/docs/technotes/guides/security/StandardNames.html#MessageDigest]]
- */
-class JdkCryptoHasher(algorithm: String) extends CryptoHasher[Array[Byte], Array[Byte]] {
+import fluence.crypto.{Crypto, CryptoError}
 
-  override def hash(msg1: Array[Byte]): Array[Byte] = {
-    MessageDigest.getInstance(algorithm).digest(msg1)
-  }
-
-  override def hash(msg1: Array[Byte], msg2: Array[Byte]*): Array[Byte] = {
-    hash(msg1 ++ msg2.flatten)
-  }
-
-}
+import scala.util.Try
 
 object JdkCryptoHasher {
 
-  lazy val Sha256: CryptoHasher[Array[Byte], Array[Byte]] = apply("SHA-256")
-  lazy val Sha1: CryptoHasher[Array[Byte], Array[Byte]] = apply("SHA-1")
+  lazy val Sha256: Crypto.Hasher[Array[Byte], Array[Byte]] = apply("SHA-256")
+  lazy val Sha1: Crypto.Hasher[Array[Byte], Array[Byte]] = apply("SHA-1")
 
-  def apply(algorithm: String): CryptoHasher[Array[Byte], Array[Byte]] = new JdkCryptoHasher(algorithm)
+  /**
+   * Thread-safe implementation of [[Crypto.Hasher]] with standard jdk [[java.security.MessageDigest]]
+   *
+   * @param algorithm one of allowed hashing algorithms
+   *                  [[https://docs.oracle.com/javase/7/docs/technotes/guides/security/StandardNames.html#MessageDigest]]
+   */
+  def apply(algorithm: String): Crypto.Hasher[Array[Byte], Array[Byte]] =
+    Crypto.liftFuncEither(
+      bytes ⇒
+        Try(MessageDigest.getInstance(algorithm).digest(bytes)).toEither.left
+          .map(err ⇒ CryptoError(s"Cannot get $algorithm hash", Some(err)))
+    )
 
 }

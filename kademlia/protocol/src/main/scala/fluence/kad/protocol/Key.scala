@@ -29,7 +29,6 @@ import scodec.bits.{BitVector, ByteVector}
 import fluence.codec.bits.BitsCodecs._
 import fluence.crypto.{CryptoError, KeyPair}
 
-import scala.util.Try
 import scala.language.higherKinds
 
 /**
@@ -120,14 +119,8 @@ object Key {
    * Calculates sha-1 hash of the payload, and wraps it with Key.
    * We keep using sha-1 instead of sha-2, because randomness is provided with keypair generation, not hash function.
    */
-  val sha1: PureCodec.Func[Array[Byte], Key] = {
-    // TODO: it should come from crypto
-    PureCodec.liftFuncEither[Array[Byte], Array[Byte]](
-      bytes ⇒
-        Try(CryptoHashers.Sha1.hash(bytes)).toEither.left
-          .map(t ⇒ CodecError("Can't calculate sha1 to produce a Kademlia Key", Some(t)))
-    ) andThen fromBytes
-  }
+  val sha1: PureCodec.Func[Array[Byte], Key] =
+    PureCodec.fromOtherFunc(CryptoHashers.Sha1)(err ⇒ CodecError("Crypto error", Some(err))) andThen fromBytes
 
   val fromStringSha1: PureCodec.Func[String, Key] =
     sha1.lmap[String](_.getBytes)

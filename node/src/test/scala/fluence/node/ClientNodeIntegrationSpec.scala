@@ -32,10 +32,10 @@ import fluence.client.grpc.ClientGrpcServices
 import fluence.contract.BasicContract
 import fluence.contract.client.Contracts
 import fluence.contract.client.Contracts.NotFound
-import fluence.crypto.{CryptoError, KeyPair}
+import fluence.crypto.{Crypto, CryptoError, DumbCrypto, KeyPair}
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher, TestCryptoHasher}
+import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.signature.{SignAlgo, Signer}
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.protocol.{ClientError, DatasetStorageRpc, ServerError}
@@ -70,8 +70,8 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private val keyPair: KeyPair = algo.generateKeyPair.unsafe(None)
   private val singer: Signer = algo.signer(keyPair)
 
-  private val testHasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
-  private val alternativeHasher: CryptoHasher[Array[Byte], Array[Byte]] = TestCryptoHasher
+  private val testHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
+  private val alternativeHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = DumbCrypto.testHasher
   private val keyCrypt = NoOpCrypt.forString[Task]
   private val valueCrypt = NoOpCrypt.forString[Task]
 
@@ -535,7 +535,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private def runNodes(
     action: Map[Contact, FluenceNode] ⇒ Unit,
     numberOfNodes: Int = 10,
-    serverHasher: CryptoHasher[Array[Byte], Array[Byte]] = testHasher
+    serverHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = testHasher
   ): Unit = {
 
     var servers: Seq[FluenceNode] = Nil

@@ -20,7 +20,7 @@ package fluence.btree.client
 import cats.syntax.eq._
 import fluence.btree.common.merkle.{GeneralNodeProof, MerklePath, MerkleRootCalculator, NodeProof}
 import fluence.btree.core.{ClientPutDetails, Hash, Key}
-import fluence.crypto.hash.CryptoHasher
+import fluence.crypto.Crypto
 
 import scala.collection.Searching.{Found, InsertionPoint}
 
@@ -32,7 +32,7 @@ import scala.collection.Searching.{Found, InsertionPoint}
  * @param merkleRootCalculator Merkle proof service that allows calculate merkle root from merkle path
  */
 class BTreeVerifier(
-  cryptoHasher: CryptoHasher[Array[Byte], Hash],
+  cryptoHasher: Crypto.Hasher[Array[Byte], Hash],
   merkleRootCalculator: MerkleRootCalculator
 ) extends slogging.LazyLogging {
 
@@ -66,7 +66,7 @@ class BTreeVerifier(
     childsChecksums: Array[Hash],
     substitutionIdx: Int
   ): GeneralNodeProof = {
-    val keysChecksum = cryptoHasher.hash(keys.flatMap(_.bytes))
+    val keysChecksum = cryptoHasher.unsafe(keys.flatMap(_.bytes))
     GeneralNodeProof(keysChecksum, childsChecksums, substitutionIdx)
   }
 
@@ -78,7 +78,7 @@ class BTreeVerifier(
    */
   def getLeafProof(keys: Array[Key], valuesChecksums: Array[Hash]): GeneralNodeProof = {
     val childsChecksums =
-      keys.zip(valuesChecksums).map { case (key, valChecksum) ⇒ cryptoHasher.hash(key.bytes, valChecksum.bytes) }
+      keys.zip(valuesChecksums).map { case (key, valChecksum) ⇒ cryptoHasher.unsafe(key.bytes ++ valChecksum.bytes) }
     GeneralNodeProof(Hash.empty, childsChecksums, -1)
   }
 
@@ -120,11 +120,11 @@ class BTreeVerifier(
 
     putDetails match {
       case ClientPutDetails(cipherKey, valChecksum, Found(_)) ⇒
-        val keyValChecksum = cryptoHasher.hash(cipherKey.bytes, valChecksum.bytes)
+        val keyValChecksum = cryptoHasher.unsafe(cipherKey.bytes ++ valChecksum.bytes)
         merkleRootCalculator.calcMerkleRoot(clientMPath, Some(keyValChecksum))
 
       case ClientPutDetails(cipherKey, valChecksum, InsertionPoint(_)) ⇒
-        val keyValChecksum = cryptoHasher.hash(cipherKey.bytes, valChecksum.bytes)
+        val keyValChecksum = cryptoHasher.unsafe(cipherKey.bytes ++ valChecksum.bytes)
 
         val mPathAfterInserting = clientMPath.path.lastOption.map {
           case proof @ GeneralNodeProof(_, childrenChecksums, idx) ⇒
@@ -170,7 +170,7 @@ class BTreeVerifier(
 
 object BTreeVerifier {
 
-  def apply(cryptoHasher: CryptoHasher[Array[Byte], Hash]): BTreeVerifier =
+  def apply(cryptoHasher: Crypto.Hasher[Array[Byte], Hash]): BTreeVerifier =
     new BTreeVerifier(cryptoHasher, new MerkleRootCalculator(cryptoHasher))
 
 }

@@ -18,7 +18,7 @@
 package fluence.btree.common.merkle
 
 import fluence.btree.core.Hash
-import fluence.crypto.hash.CryptoHasher
+import fluence.crypto.Crypto
 
 /**
  * Contains all information needed for recalculating checksum of node with substituting child's checksum, for verifying
@@ -34,7 +34,7 @@ sealed trait NodeProof {
    * @return Checksum of current ''NodeProof''
    */
   def calcChecksum(
-    cryptoHasher: CryptoHasher[Array[Byte], Hash],
+    cryptoHasher: Crypto.Hasher[Array[Byte], Hash],
     checksumForSubstitution: Option[Hash]
   ): Hash
 
@@ -63,7 +63,7 @@ case class GeneralNodeProof(
 ) extends NodeProof {
 
   override def calcChecksum(
-    cryptoHasher: CryptoHasher[Array[Byte], Hash],
+    cryptoHasher: Crypto.Hasher[Array[Byte], Hash],
     checksumForSubstitution: Option[Hash]
   ): Hash = {
 
@@ -71,11 +71,11 @@ case class GeneralNodeProof(
       case None ⇒
         // if checksum for substitution isn't defined just calculate node checksum
         val checksum = stateChecksum.concat(childrenChecksums)
-        if (checksum.isEmpty) checksum else cryptoHasher.hash(checksum.bytes)
+        if (checksum.isEmpty) checksum else cryptoHasher.unsafe(checksum.bytes)
       case Some(checksum) ⇒
         // if checksum is defined substitute it to childsChecksum and calculate node checksum
         val updatedArray = childrenChecksums.rewriteValue(checksum, substitutionIdx)
-        cryptoHasher.hash(stateChecksum.concat(updatedArray).bytes)
+        cryptoHasher.unsafe(stateChecksum.concat(updatedArray).bytes)
     }
 
   }

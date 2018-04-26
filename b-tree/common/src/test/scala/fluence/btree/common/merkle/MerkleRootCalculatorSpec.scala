@@ -18,7 +18,8 @@
 package fluence.btree.common.merkle
 
 import fluence.btree.core.Hash
-import fluence.crypto.hash.{CryptoHasher, TestCryptoHasher}
+import fluence.crypto.DumbCrypto
+import cats.syntax.profunctor._
 import org.scalatest.{Matchers, WordSpec}
 
 class MerkleRootCalculatorSpec extends WordSpec with Matchers {
@@ -27,7 +28,7 @@ class MerkleRootCalculatorSpec extends WordSpec with Matchers {
     def toHash: Hash = Hash(str.getBytes)
   }
 
-  private val testHasher = TestCryptoHasher.map(Hash(_))
+  private val testHasher = DumbCrypto.testHasher.rmap(Hash(_))
 
   private val hash0 = "0".toHash
   private val hash1 = "1".toHash

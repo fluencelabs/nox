@@ -20,6 +20,7 @@ package fluence.btree.server
 import java.nio.ByteBuffer
 
 import cats.Id
+import cats.syntax.profunctor._
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.common.merkle.MerkleRootCalculator
@@ -27,6 +28,7 @@ import fluence.btree.core.{Hash, Key}
 import fluence.btree.server.commands.{PutCommandImpl, SearchCommandImpl}
 import fluence.btree.server.core.{BTreeBinaryStore, NodeOps}
 import fluence.codec.kryo.KryoCodecs
+import fluence.crypto.DumbCrypto
 import fluence.crypto.cipher.NoOpCrypt
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
@@ -65,7 +67,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
   private val blobIdCounter = Atomic(0L)
 
-  private val hasher = TestHasher()
+  private val hasher = DumbCrypto.testHasher.rmap(Hash(_))
   private val mRCalc = MerkleRootCalculator(hasher)
 
   private val key1 = "k0001"

@@ -24,7 +24,7 @@ import java.security.interfaces.ECPrivateKey
 import cats.data.EitherT
 import cats.{Applicative, Monad}
 import fluence.crypto.{signature, Crypto, CryptoError, KeyPair}
-import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher}
+import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.signature.{SignAlgo, SignatureChecker, Signer}
 import org.bouncycastle.jce.ECNamedCurveTable
 import org.bouncycastle.jce.interfaces.ECPublicKey
@@ -40,7 +40,7 @@ import scala.util.control.NonFatal
  * @param curveType http://www.bouncycastle.org/wiki/display/JA1/Supported+Curves+%28ECDSA+and+ECGOST%29
  * @param scheme https://bouncycastle.org/specifications.html
  */
-class Ecdsa(curveType: String, scheme: String, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
+class Ecdsa(curveType: String, scheme: String, hasher: Option[Crypto.Hasher[Array[Byte], Array[Byte]]])
     extends JavaAlgorithm with SignatureFunctions with KeyGenerator {
 
   import Ecdsa._
@@ -102,7 +102,7 @@ class Ecdsa(curveType: String, scheme: String, hasher: Option[CryptoHasher[Array
       signProvider ← getSignatureProvider
       sign ← nonFatalHandling {
         signProvider.initSign(keyFactory.generatePrivate(keySpec))
-        signProvider.update(hasher.map(h ⇒ h.hash(message)).getOrElse(message))
+        signProvider.update(hasher.map(_.unsafe(message)).getOrElse(message))
         signProvider.sign()
       }("Cannot sign message.")
 
@@ -120,7 +120,7 @@ class Ecdsa(curveType: String, scheme: String, hasher: Option[CryptoHasher[Array
       signProvider ← getSignatureProvider
       verify ← nonFatalHandling {
         signProvider.initVerify(keyFactory.generatePublic(keySpec))
-        signProvider.update(hasher.map(h ⇒ h.hash(message)).getOrElse(message))
+        signProvider.update(hasher.map(_.unsafe(message)).getOrElse(message))
         signProvider.verify(signature)
       }("Cannot verify message.")
 

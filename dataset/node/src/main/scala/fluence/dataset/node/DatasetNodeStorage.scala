@@ -22,6 +22,7 @@ import java.nio.ByteBuffer
 import cats.data.OptionT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.profunctor._
 import cats.{~>, MonadError}
 import com.typesafe.config.Config
 import fluence.btree.common.ValueRef
@@ -32,7 +33,7 @@ import fluence.btree.protocol.BTreeRpc.{PutCallbacks, SearchCallback}
 import fluence.btree.server.MerkleBTree
 import fluence.btree.server.commands.{PutCommandImpl, SearchCommandImpl}
 import fluence.codec.Codec
-import fluence.crypto.hash.CryptoHasher
+import fluence.crypto.Crypto
 import fluence.crypto.signature.Signature
 import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.storage.KVStore
@@ -161,7 +162,7 @@ object DatasetNodeStorage {
     datasetId: String,
     rocksFactory: RocksDbStore.Factory,
     config: Config,
-    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
+    cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]],
     onDatasetChange: DatasetChanged ⇒ Task[Unit]
   )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[DatasetNodeStorage] = {
     import Codec.identityCodec
@@ -172,7 +173,7 @@ object DatasetNodeStorage {
       ByteBuffer.allocate(java.lang.Long.BYTES).putLong(_).array()
     )
 
-    val wrappedHasher = cryptoHasher.map(Hash(_))
+    val wrappedHasher = cryptoHasher.rmap(Hash(_))
 
     for {
       rocksDb ← rocksFactory(s"$datasetId/blob_data", config)

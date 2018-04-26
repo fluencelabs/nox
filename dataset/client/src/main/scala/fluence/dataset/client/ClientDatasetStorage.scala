@@ -18,11 +18,12 @@
 package fluence.dataset.client
 
 import cats.effect.IO
+import cats.syntax.profunctor._
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.client.{MerkleBTreeClient, MerkleBTreeClientApi}
 import fluence.btree.core.Hash
+import fluence.crypto.Crypto
 import fluence.crypto.cipher.Crypt
-import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.signature.Signer
 import fluence.dataset.protocol.DatasetStorageRpc
 import monix.eval.Task
@@ -54,7 +55,7 @@ class ClientDatasetStorage[K, V](
   storageRpc: DatasetStorageRpc[Task, Observable],
   keyCrypt: Crypt[Task, K, Array[Byte]],
   valueCrypt: Crypt[Task, V, Array[Byte]],
-  hasher: CryptoHasher[Array[Byte], Hash]
+  hasher: Crypto.Hasher[Array[Byte], Hash]
 )(implicit ord: Ordering[K])
     extends ClientDatasetStorageApi[Task, Observable, K, V] with slogging.LazyLogging {
 
@@ -106,7 +107,7 @@ class ClientDatasetStorage[K, V](
   override def put(key: K, value: V): Task[Option[V]] =
     for {
       encValue ← valueCrypt.encrypt(value)
-      encValueHash ← Task(hasher.hash(encValue))
+      encValueHash ← hasher.runF[Task](encValue)
       version ← Task.fromIO(datasetVer).map(_.get)
       putCallbacks ← bTreeIndex.initPut(key, encValueHash, version)
       serverResponse ← storageRpc
@@ -169,7 +170,7 @@ object ClientDatasetStorage {
   def apply[K, V](
     datasetId: Array[Byte],
     datasetStartVer: Long,
-    hasher: CryptoHasher[Array[Byte], Array[Byte]],
+    hasher: Crypto.Hasher[Array[Byte], Array[Byte]],
     storageRpc: DatasetStorageRpc[Task, Observable],
     keyCrypt: Crypt[Task, K, Array[Byte]],
     valueCrypt: Crypt[Task, V, Array[Byte]],
@@ -177,7 +178,7 @@ object ClientDatasetStorage {
     signer: Signer
   )(implicit ord: Ordering[K]): ClientDatasetStorage[K, V] = {
 
-    val wrappedHasher = hasher.map(Hash(_))
+    val wrappedHasher = hasher.rmap(Hash(_))
 
     val bTreeIndex = MerkleBTreeClient(clientState, keyCrypt, wrappedHasher, signer)
     new ClientDatasetStorage[K, V](

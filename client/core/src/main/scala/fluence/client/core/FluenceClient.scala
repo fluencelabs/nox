@@ -24,10 +24,9 @@ import cats.~>
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.contract.BasicContract
 import fluence.contract.client.Contracts
-import fluence.crypto.KeyPair
+import fluence.crypto.{Crypto, KeyPair}
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.Crypt
-import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.signature.{SignAlgo, Signer}
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.protocol.DatasetStorageRpc
@@ -46,7 +45,7 @@ class FluenceClient(
   contracts: Contracts[Task, BasicContract],
   signAlgo: SignAlgo,
   storageRpc: Contact ⇒ DatasetStorageRpc[Task, Observable],
-  storageHasher: CryptoHasher[Array[Byte], Array[Byte]]
+  storageHasher: Crypto.Hasher[Array[Byte], Array[Byte]]
 ) extends slogging.LazyLogging {
 
   /**
@@ -111,7 +110,7 @@ class FluenceClient(
     valueCrypt: Crypt[Task, String, Array[Byte]],
     clientState: Option[ClientState],
     datasetVer: Long,
-    hasher: CryptoHasher[Array[Byte], Array[Byte]],
+    hasher: Crypto.Hasher[Array[Byte], Array[Byte]],
     signer: Signer,
     nonce: ByteVector = ByteVector.empty
   ): Task[ClientDatasetStorage[String, String]] = {
@@ -253,7 +252,7 @@ object FluenceClient extends slogging.LazyLogging {
     contracts: Contracts[Task, BasicContract],
     storageRpc: Contact ⇒ DatasetStorageRpc[Task, Observable],
     signAlgo: SignAlgo = Ecdsa.signAlgo,
-    storageHasher: CryptoHasher[Array[Byte], Array[Byte]]
+    storageHasher: Crypto.Hasher[Array[Byte], Array[Byte]]
   ): FluenceClient =
     new FluenceClient(kademliaClient, contracts, signAlgo, storageRpc, storageHasher)
 
@@ -270,7 +269,7 @@ object FluenceClient extends slogging.LazyLogging {
   def build(
     seeds: Seq[Contact],
     signAlgo: SignAlgo,
-    storageHasher: CryptoHasher[Array[Byte], Array[Byte]],
+    storageHasher: Crypto.Hasher[Array[Byte], Array[Byte]],
     kademliaConf: KademliaConf,
     client: Contact ⇒ ClientServices[Task, BasicContract, Contact]
   ): IO[FluenceClient] = {

@@ -17,8 +17,10 @@
 
 package fluence.crypto.hash
 
-object CryptoHashers {
-  lazy val Sha1: CryptoHasher.Bytes = JsCryptoHasher.Sha1
+import fluence.crypto.Crypto
 
-  lazy val Sha256: CryptoHasher.Bytes = JsCryptoHasher.Sha256
+object CryptoHashers {
+  lazy val Sha1: Crypto.Hasher[Array[Byte], Array[Byte]] = JsCryptoHasher.Sha1
+
+  lazy val Sha256: Crypto.Hasher[Array[Byte], Array[Byte]] = JsCryptoHasher.Sha256
 }

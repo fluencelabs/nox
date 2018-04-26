@@ -28,9 +28,8 @@ import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.node.{ContractAllocator, ContractsCache}
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
-import fluence.crypto.KeyPair
+import fluence.crypto.{Crypto, KeyPair}
 import fluence.crypto.signature.SignAlgo.CheckerFn
-import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.signature.{SignAlgo, Signer}
 import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.dataset.node.Datasets
@@ -67,7 +66,7 @@ object NodeComposer {
     keyPair: KeyPair,
     contact: Contact,
     algo: SignAlgo,
-    cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
+    cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]],
     kadClient: Contact ⇒ KademliaRpc[Contact],
     config: Config,
     acceptLocal: Boolean, // todo move acceptLocal to node config, and remove from here

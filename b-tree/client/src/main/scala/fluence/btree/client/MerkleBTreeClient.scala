@@ -21,8 +21,8 @@ import fluence.btree.client.MerkleBTreeClient._
 import fluence.btree.common.merkle.MerklePath
 import fluence.btree.core.{ClientPutDetails, Hash, Key}
 import fluence.btree.protocol.BTreeRpc.{PutCallbacks, SearchCallback}
+import fluence.crypto.Crypto
 import fluence.crypto.cipher.Crypt
-import fluence.crypto.hash.CryptoHasher
 import fluence.crypto.signature.Signer
 import monix.eval.{MVar, Task}
 import scodec.bits.ByteVector
@@ -354,7 +354,7 @@ object MerkleBTreeClient {
   def apply[K](
     initClientState: Option[ClientState],
     keyCrypt: Crypt[Task, K, Array[Byte]],
-    cryptoHasher: CryptoHasher[Array[Byte], Hash],
+    cryptoHasher: Crypto.Hasher[Array[Byte], Hash],
     signer: Signer
   )(implicit ord: Ordering[K]): MerkleBTreeClient[K] = {
     import Key._

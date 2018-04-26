@@ -29,7 +29,7 @@ class JvmHashSpec extends WordSpec with Matchers {
       val sha256TesterHex = "513c17f8cf6ba96ce412cc2ae82f68821e9a2c6ae7a2fb1f5e46d08c387c8e65"
 
       val hasher = JdkCryptoHasher.Sha256
-      ByteVector(hasher.hash(str.getBytes())).toHex shouldBe sha256TesterHex
+      ByteVector(hasher.unsafe(str.getBytes())).toHex shouldBe sha256TesterHex
     }
 
     "work with sha1" in {
@@ -37,7 +37,7 @@ class JvmHashSpec extends WordSpec with Matchers {
       val sha1TesterHex = "879db20eabcecea7d4736a8bae5bc64564b76b2f"
 
       val hasher = JdkCryptoHasher.Sha1
-      ByteVector(hasher.hash(str.getBytes())).toHex shouldBe sha1TesterHex
+      ByteVector(hasher.unsafe(str.getBytes())).toHex shouldBe sha1TesterHex
     }
 
     "check unsigned array with sha1" in {
@@ -49,7 +49,7 @@ class JvmHashSpec extends WordSpec with Matchers {
 
       val hasher = JdkCryptoHasher.Sha1
 
-      ByteVector(hasher.hash(arr)).toBase64 shouldBe base64Check
+      ByteVector(hasher.unsafe(arr)).toBase64 shouldBe base64Check
     }
   }
 }

@@ -21,7 +21,7 @@ import cats.Monad
 import cats.data.EitherT
 import fluence.crypto._
 import fluence.crypto.facade.ecdsa.EC
-import fluence.crypto.hash.{CryptoHasher, JsCryptoHasher}
+import fluence.crypto.hash.JsCryptoHasher
 import fluence.crypto.signature.{SignAlgo, Signature, SignatureChecker, Signer}
 import scodec.bits.ByteVector
 
@@ -34,7 +34,7 @@ import scala.scalajs.js.typedarray.Uint8Array
  * Return in all js methods hex, because in the other case we will receive javascript objects
  * @param ec implementation of ecdsa logic for different curves
  */
-class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
+class Ecdsa(ec: EC, hasher: Option[Crypto.Hasher[Array[Byte], Array[Byte]]])
     extends Algorithm with SignatureFunctions with KeyGenerator {
   import CryptoError.nonFatalHandling
 
@@ -65,9 +65,7 @@ class Ecdsa(ec: EC, hasher: Option[CryptoHasher[Array[Byte], Array[Byte]]])
     val arr = message.toArray
     hasher
       .fold(EitherT.pure[F, CryptoError](arr)) { h ⇒
-        nonFatalHandling {
-          h.hash(arr)
-        }("Cannot hash message.")
+        h[F](arr)
       }
       .map(_.toJSArray)
   }

@@ -17,25 +17,31 @@
 
 package fluence.crypto.hash
 
+import fluence.crypto.{Crypto, CryptoError}
 import fluence.crypto.facade.ecdsa.{SHA1, SHA256}
 import scodec.bits.ByteVector
 
 import scala.scalajs.js.JSConverters._
 import scala.scalajs.js.typedarray.Uint8Array
+import scala.util.Try
 
 object JsCryptoHasher {
 
-  lazy val Sha256: CryptoHasher.Bytes =
-    CryptoHasher.buildM[Array[Byte], Array[Byte]] { msg ⇒
-      val sha256 = new SHA256()
-      sha256.update(new Uint8Array(msg.toJSArray))
-      ByteVector.fromValidHex(sha256.digest("hex")).toArray
-    }(_ ++ _)
+  lazy val Sha256: Crypto.Hasher[Array[Byte], Array[Byte]] =
+    Crypto.liftFuncEither[Array[Byte], Array[Byte]] { msg ⇒
+      Try {
+        val sha256 = new SHA256()
+        sha256.update(new Uint8Array(msg.toJSArray))
+        ByteVector.fromValidHex(sha256.digest("hex")).toArray
+      }.toEither.left.map(err ⇒ CryptoError("Cannot calculate Sha256 hash", Some(err)))
+    }
 
-  lazy val Sha1: CryptoHasher.Bytes =
-    CryptoHasher.buildM[Array[Byte], Array[Byte]] { msg ⇒
-      val sha1 = new SHA1()
-      sha1.update(new Uint8Array(msg.toJSArray))
-      ByteVector.fromValidHex(sha1.digest("hex")).toArray
-    }(_ ++ _)
+  lazy val Sha1: Crypto.Hasher[Array[Byte], Array[Byte]] =
+    Crypto.liftFuncEither[Array[Byte], Array[Byte]] { msg ⇒
+      Try {
+        val sha1 = new SHA1()
+        sha1.update(new Uint8Array(msg.toJSArray))
+        ByteVector.fromValidHex(sha1.digest("hex")).toArray
+      }.toEither.left.map(err ⇒ CryptoError("Cannot calculate Sha256 hash", Some(err)))
+    }
 }

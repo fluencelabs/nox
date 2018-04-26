@@ -29,8 +29,8 @@ import cats.{Applicative, MonadError}
 import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
 import fluence.client.core.config.{KeyPairConfig, SeedsConfig}
 import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher}
-import fluence.crypto.FileKeyStorage
+import fluence.crypto.hash.JdkCryptoHasher
+import fluence.crypto.{Crypto, FileKeyStorage}
 import fluence.crypto.signature.SignAlgo
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{Contact, Key, Node}
@@ -71,7 +71,7 @@ object FluenceNode extends slogging.LazyLogging {
    */
   def startNode(
     algo: SignAlgo = Ecdsa.signAlgo,
-    hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
+    hasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
     config: Config = ConfigFactory.load()
   ): IO[FluenceNode] = {
     logger.debug(
@@ -121,7 +121,7 @@ object FluenceNode extends slogging.LazyLogging {
   // todo write unit test, this method don't close resources correctly when initialisation failed
   private def launchGrpc(
     algo: SignAlgo,
-    hasher: CryptoHasher[Array[Byte], Array[Byte]],
+    hasher: Crypto.Hasher[Array[Byte], Array[Byte]],
     config: Config,
     clock: Clock = Clock.systemUTC()
   ): IO[FluenceNode] = {

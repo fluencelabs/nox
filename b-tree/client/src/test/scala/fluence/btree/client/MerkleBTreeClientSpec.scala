@@ -18,11 +18,12 @@
 package fluence.btree.client
 
 import cats.Id
+import cats.syntax.profunctor._
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.core.{Hash, Key}
+import fluence.crypto.DumbCrypto
 import fluence.crypto.algorithm.Ecdsa
 import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.TestCryptoHasher
 import fluence.crypto.signature.Signature
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -49,7 +50,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
     def toHash: Hash = Hash(str.getBytes)
   }
 
-  private val testHasher = TestCryptoHasher.map(Hash(_))
+  private val testHasher = DumbCrypto.testHasher.rmap(Hash(_))
 
   val key1 = "k1"
   val key2 = "k2"

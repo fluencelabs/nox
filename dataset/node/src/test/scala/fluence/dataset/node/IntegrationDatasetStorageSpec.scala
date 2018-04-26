@@ -19,6 +19,7 @@ package fluence.dataset.node
 
 import cats.instances.try_._
 import cats.{Id, ~>}
+import cats.syntax.profunctor._
 import com.typesafe.config.ConfigFactory
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
@@ -63,7 +64,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   //  private val hasher = TestCryptoHasher
   private val hasher = JdkCryptoHasher.Sha256
 
-  private val testHasher = hasher.map(Hash(_))
+  private val testHasher = hasher.rmap(Hash(_))
 
   private val key1 = "k0001"
   private val val1 = User("Rico", 31)
