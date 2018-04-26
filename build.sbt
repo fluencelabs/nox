@@ -324,6 +324,7 @@ lazy val `storage-core-js` = `storage-core`.js
 lazy val `storage-rocksdb` = project
   .in(file("storage/rocksdb"))
   .dependsOn(`storage-core-jvm`)
+  .enablePlugins(AutomateHeaderPlugin)
 
 // core entities for all b-tree modules
 lazy val `b-tree-core` = crossProject(JVMPlatform, JSPlatform)

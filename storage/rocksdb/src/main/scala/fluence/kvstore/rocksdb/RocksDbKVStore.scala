@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2017  Fluence Labs Limited
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package fluence.kvstore.rocksdb
 
 import cats.data.EitherT
@@ -7,7 +24,7 @@ import cats.syntax.flatMap._
 import cats.{~>, Eval, Monad}
 import fluence.kvstore.KVStore.{GetOp, PutOp, RemoveOp, TraverseOp}
 import fluence.kvstore.ops.{Operation, TraverseOperation}
-import fluence.kvstore.rocksdb.RocksDbKVStore.{RocksDbKVStoreBase, RocksDbKVStoreGet, RocksDbKVStoreWrite}
+import fluence.kvstore.rocksdb.RocksDbKVStore.{RocksDbKVStoreBase, RocksDbKVStoreRead, RocksDbKVStoreWrite}
 import fluence.kvstore.{Snapshotable, _}
 import fluence.storage.rocksdb.RocksDbScalaIterator
 import monix.execution.Scheduler
@@ -16,9 +33,10 @@ import org.rocksdb.{Options, ReadOptions, RocksDB, RocksIterator}
 import scala.language.higherKinds
 
 /**
- * Base kvStore implementation based on RocksDb, that allow 'put', 'remove' and
- * 'get' by key. '''Note that''' RocksDb can store only binary data. For creating
- * KVStore for any type of key and value use [[KVStore.withCodecs()]] like this:
+ * Base thread-safe kvStore implementation based on RocksDb, that allow 'put',
+ * 'remove' and 'get' by key. '''Note that''' RocksDb can store only binary data.
+ * For creating KVStore for any type of key and value use [[KVStore.withCodecs()]]
+ * like this:
  * {{{
  *   todo write example, there may be special method in RocksDbFactory for comfort use
  * }}}
@@ -28,7 +46,7 @@ class RocksDbKVStore(
   override protected val dbOptions: Options,
   override protected val kvStorePool: Scheduler,
   override protected val readOptions: ReadOptions = new ReadOptions()
-) extends RocksDbKVStoreBase with RocksDbKVStoreGet with RocksDbKVStoreWrite
+) extends RocksDbKVStoreBase with RocksDbKVStoreRead with RocksDbKVStoreWrite
 
 object RocksDbKVStore {
 
@@ -87,13 +105,7 @@ object RocksDbKVStore {
   /**
    * Allows reading keys and values from KVStore.
    */
-  private[kvstore] trait RocksDbKVStoreRead
-      extends RocksDbKVStoreGet with RocksDbKVStoreTraverse with KVStoreRead[Key, Value]
-
-  /**
-   * Allows getting values from KVStore by the key.
-   */
-  private[kvstore] trait RocksDbKVStoreGet extends RocksDbKVStoreBase with KVStoreGet[Key, Value] {
+  private[kvstore] trait RocksDbKVStoreRead extends RocksDbKVStoreBase with KVStoreRead[Key, Value] {
 
     /**
      * Returns lazy ''get'' representation (see [[Operation]])
@@ -110,24 +122,20 @@ object RocksDbKVStore {
 
     }
 
-  }
-  // todo merge get and traverse implementations
-  /**
-   * Allows to 'traverse' KVStore keys-values pairs.
-   * '''Note that''', 'traverse' method appears only after taking snapshot.
-   */
-  private[kvstore] trait RocksDbKVStoreTraverse extends RocksDbKVStoreBase with KVStoreTraverse[Key, Value] {
-
     /**
      * Returns lazy ''traverse'' representation (see [[TraverseOperation]])
+     * Storage takes a implicit snapshot before make 'traverse' automatically.
+     * Short-lived/foreground scans are best done via an 'traverse'
+     * while long-running/background scans are better done via explicitly taking
+     * 'snapshot' and invoking 'traverse' on the snapshot
      */
     override def traverse: TraverseOp[Key, Value] = new TraverseOp[Key, Value] {
 
       override def run[FS[_]: Monad: LiftIO](implicit liftIterator: Iterator ~> FS): FS[(Key, Value)] =
-        newIterator.map(i ⇒ liftIterator(new RocksDbScalaIterator(i))).to[FS].flatten
+        newIterator().map(i ⇒ liftIterator(new RocksDbScalaIterator(i))).to[FS].flatten
 
       override def runUnsafe: Iterator[(Key, Value)] =
-        newIterator.map(i ⇒ new RocksDbScalaIterator(i)) unsafeRunSync ()
+        newIterator().map(i ⇒ new RocksDbScalaIterator(i)) unsafeRunSync ()
 
     }
 
@@ -145,7 +153,8 @@ object RocksDbKVStore {
       override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Option[Key]] = {
 
         val result = {
-          IO.shift(kvStorePool) *> newIterator.bracket { iterator ⇒
+          // 'tailing iterator' and 'seekToLast' isn't compatible options
+          IO.shift(kvStorePool) *> newIterator(isTailing = false).bracket { iterator ⇒
             IO(iterator.seekToLast())
               .map[Option[Key]](_ ⇒ if (iterator.isValid) Option(iterator.key()) else None)
           } { iterator ⇒
@@ -163,7 +172,7 @@ object RocksDbKVStore {
     /**
      * Returns RocksDb iterator with resource managing.
      */
-    private def newIterator: IO[RocksIterator] =
+    private def newIterator(isTailing: Boolean = true): IO[RocksIterator] =
       IO.shift(kvStorePool) *> IO {
 
         /**
@@ -172,7 +181,7 @@ object RocksDbKVStore {
          * see docs: [[https://github.com/facebook/rocksdb/wiki/Tailing-Iterator]]
          */
         if (readOptions.snapshot() == null)
-          new ReadOptions(readOptions).setTailing(true) // do optimisation
+          new ReadOptions(readOptions).setTailing(isTailing) // do optimisation
         else
           new ReadOptions(readOptions) // skip optimisation, because snapshot is taken
 
