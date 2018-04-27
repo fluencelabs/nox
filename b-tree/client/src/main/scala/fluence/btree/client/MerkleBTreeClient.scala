@@ -297,7 +297,7 @@ class MerkleBTreeClient[K] private (
   override def initRemove(key: K, version: Long): Task[RemoveState[Task]] = ???
 
   private def binarySearch(key: K, keys: Array[Key]): Task[SearchResult] =
-    CipherSearch.binary(keys, keyCrypt.inverse).runF[Task](key)
+    CipherSearch.binarySearch(keys, keyCrypt.inverse).runF[Task](key)
 
   /**
    * Verifies merkle proof for server response, after that search index of next child of branch.

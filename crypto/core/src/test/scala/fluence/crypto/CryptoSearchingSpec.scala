@@ -32,7 +32,7 @@ class CryptoSearchingSpec extends WordSpec with Matchers {
       val plainTextElements = Array("A", "B", "C", "D", "E")
       val encryptedElements = plainTextElements.map(t ⇒ crypt.direct.unsafe(t))
 
-      val search = CipherSearch.binary(encryptedElements, crypt.inverse)
+      val search = CipherSearch.binarySearch(encryptedElements, crypt.inverse)
 
       search.unsafe("B") shouldBe Found(1)
       search.unsafe("D") shouldBe Found(3)

@@ -26,7 +26,19 @@ import scala.language.higherKinds
 
 object CipherSearch {
 
-  def binary[A, B](coll: IndexedSeq[A], decrypt: Crypto.Func[A, B])(
+  /**
+   * Searches the specified indexedSeq for the search element using the binary search algorithm.		
+   * The sequence should be sorted with the same `Ordering` before calling, otherwise, the results are undefined.		
+   *		
+   * @param coll       Ordered collection of encrypted elements to search in.
+   * @param decrypt    Decryption function for sequence elements.
+   * @param ordering   The ordering to be used to compare elements.		
+   *		
+   * @return A `Found` value containing the index corresponding to the search element in the		
+   *         sequence. A `InsertionPoint` value containing the index where the element would be inserted if		
+   *         the search element is not found in the sequence.		
+   */
+  def binarySearch[A, B](coll: IndexedSeq[A], decrypt: Crypto.Func[A, B])(
     implicit ordering: Ordering[B]
   ): Crypto.Func[B, SearchResult] =
     new Crypto.Func[B, SearchResult] {
