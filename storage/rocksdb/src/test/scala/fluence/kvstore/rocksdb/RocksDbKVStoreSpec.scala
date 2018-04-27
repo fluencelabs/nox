@@ -17,6 +17,7 @@
 package fluence.kvstore.rocksdb
 
 import java.nio.ByteBuffer
+import java.util.concurrent.Executors
 
 import cats.effect.IO
 import cats.~>
@@ -33,13 +34,14 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 
+import scala.concurrent.ExecutionContext
 import scala.language.{higherKinds, implicitConversions}
 import scala.reflect.io.Path
 import scala.util.Random
 
 class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll with MockitoSugar with ScalaFutures {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
-  implicit val scheduler: Scheduler = Scheduler(ExecutionModel.AlwaysAsyncExecution)
+  implicit val scheduler: Scheduler = Scheduler(executionModel = ExecutionModel.AlwaysAsyncExecution)
 
   implicit def wrapBytes(bytes: Array[Byte]): ByteBuffer = ByteBuffer.wrap(bytes)
 
@@ -312,7 +314,9 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
 
     "perform all concurrent mutation and read correctly" in {
 
-      runRocksDbWithSnapshots("test2") { store ⇒
+      val pool = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(32))
+
+      runRocksDbWithSnapshots("test2", pool) { store ⇒
         1 to 500 foreach { n ⇒
           store.put(s"_key$n".getBytes(), s"value$n".getBytes()).runUnsafe()
         }
@@ -359,10 +363,12 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
     finally store.close().unsafeRunSync()
   }
 
-  private def runRocksDbWithSnapshots(name: String)(action: RocksDbKVStore with RocksDbSnapshotable ⇒ Unit): Unit = {
+  private def runRocksDbWithSnapshots(name: String, tPool: ExecutionContext = scheduler)(
+    action: RocksDbKVStore with RocksDbSnapshotable ⇒ Unit
+  ): Unit = {
     val store =
       // @formatter:off
-      RocksDbKVStore.getFactory(scheduler).value
+      RocksDbKVStore.getFactory(tPool).value
         .withSnapshots[IO](makeUnique(name), config).value.unsafeRunSync().right.get
     // @formatter:on
     try action(store)

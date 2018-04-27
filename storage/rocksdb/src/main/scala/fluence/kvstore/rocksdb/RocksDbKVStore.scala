@@ -27,16 +27,16 @@ import fluence.kvstore.ops.{Operation, TraverseOperation}
 import fluence.kvstore.rocksdb.RocksDbKVStore.{RocksDbKVStoreBase, RocksDbKVStoreRead, RocksDbKVStoreWrite}
 import fluence.kvstore.{Snapshotable, _}
 import fluence.storage.rocksdb.RocksDbScalaIterator
-import monix.execution.Scheduler
 import org.rocksdb.{Options, ReadOptions, RocksDB, RocksIterator}
 
+import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 
 /**
  * Base thread-safe kvStore implementation based on RocksDb, that allow 'put',
- * 'remove' and 'get' by key. '''Note that''' RocksDb can store only binary data.
- * For creating KVStore for any type of key and value use [[KVStore.withCodecs()]]
- * like this:
+ * 'remove' and 'get' by key and 'traverse'. '''Note that''' RocksDb can store
+ * only binary data. For creating KVStore for any type of key and value use
+ * [[KVStore.withCodecs()]] like this:
  * {{{
  *   todo write example, there may be special method in RocksDbFactory for comfort use
  * }}}
@@ -44,7 +44,7 @@ import scala.language.higherKinds
 class RocksDbKVStore(
   override protected val data: RocksDB,
   override protected val dbOptions: Options,
-  override protected val kvStorePool: Scheduler,
+  override protected val kvStorePool: ExecutionContext,
   override protected val readOptions: ReadOptions = new ReadOptions()
 ) extends RocksDbKVStoreBase with RocksDbKVStoreRead with RocksDbKVStoreWrite
 
@@ -58,7 +58,7 @@ object RocksDbKVStore {
    * @param threadPool Default thread pool for each created instances.
    *                     Can be overridden in ''apply'' method.
    */
-  def getFactory(threadPool: Scheduler = Scheduler.Implicits.global): Eval[RocksDbFactory] = {
+  def getFactory(threadPool: ExecutionContext = ExecutionContext.Implicits.global): Eval[RocksDbFactory] = {
     Eval.later(new RocksDbFactory(threadPool)).memoize
   }
 
@@ -82,14 +82,14 @@ object RocksDbKVStore {
     protected val dbOptions: Options
 
     /**
-     * The class that controls read behavior.
+     * Options that controls read behavior.
      */
     protected val readOptions: ReadOptions
 
     /**
      * Thread pool for perform all storage operations.
      */
-    protected val kvStorePool: Scheduler
+    protected val kvStorePool: ExecutionContext
 
     /**
      * Users should always explicitly call close() methods for this entity!
@@ -135,7 +135,7 @@ object RocksDbKVStore {
         newIterator().map(i ⇒ liftIterator(new RocksDbScalaIterator(i))).to[FS].flatten
 
       override def runUnsafe: Iterator[(Key, Value)] =
-        newIterator().map(i ⇒ new RocksDbScalaIterator(i)) unsafeRunSync ()
+        newIterator().map(i ⇒ new RocksDbScalaIterator(i)).unsafeRunSync()
 
     }
 
@@ -215,8 +215,8 @@ object RocksDbKVStore {
           new RocksDbKVStoreBase with RocksDbKVStoreRead {
             override protected val data: RocksDB = self.data
             override protected val dbOptions: Options = self.dbOptions
+            override protected val kvStorePool: ExecutionContext = self.kvStorePool
             override protected val readOptions: ReadOptions = readOp
-            override protected val kvStorePool: Scheduler = self.kvStorePool
 
             override def close(): IO[Unit] =
               IO(data.releaseSnapshot(snapshot))

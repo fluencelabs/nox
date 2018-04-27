@@ -324,6 +324,18 @@ lazy val `storage-core-js` = `storage-core`.js
 lazy val `storage-rocksdb` = project
   .in(file("storage/rocksdb"))
   .dependsOn(`storage-core-jvm`)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      rocksDb,
+      typeSafeConfig,
+      ficus,
+      monix3,
+      slogging,
+      scalatest,
+      mockito
+    )
+  )
   .enablePlugins(AutomateHeaderPlugin)
 
 // core entities for all b-tree modules

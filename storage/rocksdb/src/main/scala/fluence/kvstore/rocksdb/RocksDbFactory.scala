@@ -25,11 +25,11 @@ import cats.effect.{IO, LiftIO}
 import com.typesafe.config.Config
 import fluence.kvstore.StoreError
 import fluence.kvstore.rocksdb.RocksDbKVStore._
-import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
 import org.rocksdb.{Options, RocksDB}
 
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 
 // todo: unit test
@@ -45,7 +45,7 @@ import scala.language.higherKinds
  *                      Can be overridden in ''apply'' method.
  */
 // todo discuss, global state isn't good approach, needed to consider another way
-private[kvstore] class RocksDbFactory(defaultPool: Scheduler) extends slogging.LazyLogging {
+private[kvstore] class RocksDbFactory(defaultPool: ExecutionContext) extends slogging.LazyLogging {
 
   private val isClosed = IO.pure(AtomicBoolean(false))
   private val instances = IO.pure(TrieMap.empty[String, RocksDbKVStore])
@@ -62,7 +62,7 @@ private[kvstore] class RocksDbFactory(defaultPool: Scheduler) extends slogging.L
   def apply[F[_]: Monad: LiftIO](
     storeName: String,
     conf: Config,
-    threadPool: Scheduler = defaultPool
+    threadPool: ExecutionContext = defaultPool
   ): EitherT[F, StoreError, RocksDbKVStore] =
     apply(storeName, conf, new RocksDbKVStore(_, _, defaultPool))
 
@@ -78,7 +78,7 @@ private[kvstore] class RocksDbFactory(defaultPool: Scheduler) extends slogging.L
   def withSnapshots[F[_]: Monad: LiftIO](
     storeName: String,
     conf: Config,
-    threadPool: Scheduler = defaultPool
+    threadPool: ExecutionContext = defaultPool
   ): EitherT[F, StoreError, RocksDbKVStore with RocksDbSnapshotable] =
     apply(storeName, conf, new RocksDbKVStore(_, _, defaultPool) with RocksDbSnapshotable)
 

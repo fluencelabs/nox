@@ -76,7 +76,7 @@ object InMemoryKVStore {
 
     /**
      * Returns lazy ''traverse'' representation (see [[TraverseOperation]])
-     * Storage takes a snapshot before making 'traverse' operation.
+     * Storage takes a snapshot before making 'traverse' operation automatically.
      */
     override def traverse: TraverseOp[K, V] = new TraverseOp[K, V] {
 
@@ -159,9 +159,7 @@ object InMemoryKVStore {
    * TrieMap based implementation of KVStore inner state holder.
    */
   private[kvstore] abstract class TrieMapKVStoreBase[K, V](
-    private val map: TrieMap[K, V] = TrieMap.empty[K, V]
-  ) extends InMemoryKVStoreBase[K, V] {
-    protected val data: TrieMap[K, V] = map
-  }
+    override protected val data: TrieMap[K, V] = TrieMap.empty[K, V]
+  ) extends InMemoryKVStoreBase[K, V]
 
 }
