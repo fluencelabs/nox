@@ -15,16 +15,14 @@ object WebsocketClient {
    */
   def apply(url: String)(implicit scheduler: Scheduler): (Observer[WebsocketFrame], Observable[WebsocketFrame]) = {
 
-    //TODO use https://github.com/joewalnes/reconnecting-websocket for stable websocket reconnection
-
     val (input, inputOut) = Observable.multicast[WebsocketFrame](MulticastStrategy.publish, OverflowStrategy.Unbounded)
 
     val observable = new WebsocketObservable(url, inputOut)
 
-    val coldObservable = observable.multicast(Pipe.publish[WebsocketFrame])
-    coldObservable.connect()
+    val hotObservable = observable.multicast(Pipe.publish[WebsocketFrame])
+    hotObservable.connect()
 
-    input -> coldObservable
+    input -> hotObservable
   }
 
   /**
@@ -37,14 +35,9 @@ object WebsocketClient {
     val (wsObserver, wsObservable) = WebsocketClient(url)
 
     val binaryClient: Observer[ByteVector] = new Observer[ByteVector] {
-      override def onNext(elem: ByteVector): Future[Ack] = {
-        wsObserver.onNext(Binary(elem))
-      }
+      override def onNext(elem: ByteVector): Future[Ack] = wsObserver.onNext(Binary(elem))
 
-      override def onError(ex: Throwable): Unit = {
-        ex.printStackTrace()
-        wsObserver.onError(ex)
-      }
+      override def onError(ex: Throwable): Unit = wsObserver.onError(ex)
 
       override def onComplete(): Unit = wsObserver.onComplete()
     }

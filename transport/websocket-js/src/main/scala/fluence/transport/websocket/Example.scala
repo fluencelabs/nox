@@ -7,6 +7,7 @@ import monix.execution.Scheduler.Implicits.global
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration._
 
 //an example that will move to tests later
 object Example extends App {
@@ -80,6 +81,5 @@ object Example extends App {
     println("HEHEY")
   }
 
-  val a = Observable(List.fill(10)(ByteVector(2, 5, 7, 9, 0)): _*).subscribe(observer)
-
+  Observable.timerRepeated(1.second, 1.second, ByteVector(2, 5, 7, 9, 0)).subscribe(observer)
 }

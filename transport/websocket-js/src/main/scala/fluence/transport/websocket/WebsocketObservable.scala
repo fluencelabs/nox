@@ -9,11 +9,11 @@ import org.scalajs.dom._
 import scodec.bits.ByteVector
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.scalajs.js.JSConverters._
 import scala.scalajs.js.typedarray.TypedArrayBufferOps._
 import scala.scalajs.js.typedarray.{ArrayBuffer, Int8Array, TypedArrayBuffer}
 import scala.util.control.{NoStackTrace, NonFatal}
-import scala.concurrent.duration._
 
 /**
  * Ouput of websocket.
@@ -70,12 +70,10 @@ final class WebsocketObservable(url: String, input: Observable[WebsocketFrame], 
             }
           }
 
-          override def onError(ex: Throwable): Unit = {
-            println("ON ERROR")
-            ex.printStackTrace()
-          }
+          override def onError(ex: Throwable): Unit =
+            logger.error(s"Unexpected error in observer in websocket ${webSocket.url}", ex)
 
-          override def onComplete(): Unit = println("ON COMPLETE")
+          override def onComplete(): Unit = ()
         }
 
         val cacheUntilConnect = CacheUntilConnectSubscriber(Subscriber(obs, scheduler))
@@ -87,7 +85,7 @@ final class WebsocketObservable(url: String, input: Observable[WebsocketFrame], 
           cacheUntilConnect.connect()
         }
         webSocket.onerror = (event: ErrorEvent) ⇒ {
-          println("WEBSOCKET ON ERROR")
+          logger.error(s"Error in websocket ${webSocket.url}: ${event.message}")
           subscriber.onError(WebsocketObservable.WebsocketException(event.message))
         }
         webSocket.onclose = (event: CloseEvent) ⇒ {
@@ -135,7 +133,6 @@ final class WebsocketObservable(url: String, input: Observable[WebsocketFrame], 
 
       def tryReconnect(call: ⇒ Unit): Unit = {
         if (!closed.get && numberOfAttempts >= attempts.get) {
-          println("ATTEMPT == " + attempts.get)
           attempts.increment()
           self
             .delaySubscription(3.seconds)
@@ -143,17 +140,11 @@ final class WebsocketObservable(url: String, input: Observable[WebsocketFrame], 
         }
       }
 
-      def onNext(elem: WebsocketFrame): Future[Ack] = {
-        subscriber.onNext(elem)
-      }
+      def onNext(elem: WebsocketFrame): Future[Ack] = subscriber.onNext(elem)
 
-      def onError(ex: Throwable): Unit = {
-        tryReconnect(subscriber.onError(ex))
-      }
+      def onError(ex: Throwable): Unit = tryReconnect(subscriber.onError(ex))
 
-      def onComplete(): Unit = {
-        tryReconnect(subscriber.onComplete())
-      }
+      def onComplete(): Unit = tryReconnect(subscriber.onComplete())
     })
   }
 }
