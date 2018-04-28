@@ -17,7 +17,7 @@ import scala.language.higherKinds
 /**
  * Echo server for debugging websocket connections.
  */
-object EchoApp extends EchoApp[IO]
+object EchoMain extends EchoApp[IO]
 
 class EchoApp[F[_]](implicit F: Effect[F]) extends StreamApp[F] with Http4sDsl[F] {
 

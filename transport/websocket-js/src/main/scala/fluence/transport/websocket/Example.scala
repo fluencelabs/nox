@@ -1,16 +1,18 @@
 package fluence.transport.websocket
 
 import monix.execution.Ack.Continue
-import monix.execution.{Ack, Scheduler}
 import monix.reactive._
-import org.scalajs.dom.{CloseEvent, Event, MessageEvent, WebSocket}
 import scodec.bits.ByteVector
 import monix.execution.Scheduler.Implicits.global
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.{Future, Promise}
 
 //an example that will move to tests later
 object Example extends App {
+
+  LoggerConfig.factory = PrintLoggerFactory()
+  LoggerConfig.level = LogLevel.DEBUG
 
   val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
@@ -71,7 +73,13 @@ object Example extends App {
     _ = observer.onNext(ByteVector(4))
     _ ← pr51.future
   } yield {
+    val obs6 = observable.subscribe(bv ⇒ {
+      println("666 === " + bv.toArray.mkString(","))
+      Future(Continue)
+    })
     println("HEHEY")
   }
+
+  val a = Observable(List.fill(10)(ByteVector(2, 5, 7, 9, 0)): _*).subscribe(observer)
 
 }

@@ -1,22 +1,30 @@
 package fluence.transport.websocket
 
-import monix.execution.{Ack, Cancelable}
+import monix.execution.Ack.{Continue, Stop}
+import monix.execution.atomic.{AtomicBoolean, AtomicInt}
+import monix.execution.{Ack, Cancelable, Scheduler}
 import monix.reactive.observers.{CacheUntilConnectSubscriber, Subscriber}
 import monix.reactive.{Observable, Observer, OverflowStrategy}
 import org.scalajs.dom._
 import scodec.bits.ByteVector
 
 import scala.concurrent.Future
-import scala.scalajs.js.typedarray.{ArrayBuffer, TypedArrayBuffer}
+import scala.scalajs.js.JSConverters._
+import scala.scalajs.js.typedarray.TypedArrayBufferOps._
+import scala.scalajs.js.typedarray.{ArrayBuffer, Int8Array, TypedArrayBuffer}
 import scala.util.control.{NoStackTrace, NonFatal}
+import scala.concurrent.duration._
 
 /**
  * Ouput of websocket.
- * @param observer a subscriber who will cache messages until the WebSocket connects
  */
-final class WebsocketObservable(webSocket: WebSocket, observer: CacheUntilConnectSubscriber[_])
-    extends Observable[WebsocketFrame] with slogging.LazyLogging {
+final class WebsocketObservable(url: String, input: Observable[WebsocketFrame], numberOfAttempts: Int = 13)(
+  implicit scheduler: Scheduler
+) extends Observable[WebsocketFrame] with slogging.LazyLogging {
   self ⇒
+
+  private val closed = AtomicBoolean(false)
+  private val attempts = AtomicInt(0)
 
   //TODO control overflow strategy
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
@@ -28,16 +36,62 @@ final class WebsocketObservable(webSocket: WebSocket, observer: CacheUntilConnec
 
   private val channel: Observable[WebsocketFrame] =
     Observable.create[WebsocketFrame](overflow) { subscriber ⇒
+      def closeConnection(webSocket: WebSocket): Unit = {
+        if (webSocket != null && webSocket.readyState <= 1)
+          try webSocket.close()
+          catch {
+            case _: Throwable ⇒ ()
+          }
+      }
+
       try {
+        val webSocket = new WebSocket(url)
+
         logger.info(s"Connecting to ${webSocket.url}")
 
+        val obs = new Observer[WebsocketFrame] {
+          override def onNext(elem: WebsocketFrame): Future[Ack] = {
+            Future {
+              elem match {
+                case Binary(data) ⇒
+                  val arr = new Int8Array(data.toArray.toJSArray)
+                  val buffer = TypedArrayBuffer.wrap(arr).arrayBuffer()
+                  webSocket.send(buffer)
+                case Text(data) ⇒
+                  webSocket.send(data)
+                case CloseFrame(cause) ⇒
+                  closed.set(true)
+                  closeConnection(webSocket)
+              }
+            }.map(_ ⇒ Continue).recover {
+              case e: Throwable ⇒
+                logger.error("Unsupported exception", e)
+                Stop
+            }
+          }
+
+          override def onError(ex: Throwable): Unit = {
+            println("ON ERROR")
+            ex.printStackTrace()
+          }
+
+          override def onComplete(): Unit = println("ON COMPLETE")
+        }
+
+        val cacheUntilConnect = CacheUntilConnectSubscriber(Subscriber(obs, scheduler))
+
+        val cancelable = input.subscribe(cacheUntilConnect)
+
         webSocket.onopen = (event: Event) ⇒ {
-          observer.connect()
+          attempts.set(0)
+          cacheUntilConnect.connect()
         }
         webSocket.onerror = (event: ErrorEvent) ⇒ {
+          println("WEBSOCKET ON ERROR")
           subscriber.onError(WebsocketObservable.WebsocketException(event.message))
         }
         webSocket.onclose = (event: CloseEvent) ⇒ {
+          cancelable.cancel()
           subscriber.onComplete()
         }
         webSocket.onmessage = (event: MessageEvent) ⇒ {
@@ -66,12 +120,7 @@ final class WebsocketObservable(webSocket: WebSocket, observer: CacheUntilConnec
 
         Cancelable(() ⇒ {
           logger.info(s"Closing connection to ${webSocket.url}")
-          if (webSocket != null && webSocket.readyState <= 1)
-            try webSocket.close()
-            catch {
-              case _: Throwable ⇒ ()
-            }
-          observer.onComplete()
+
         })
       } catch {
         case NonFatal(ex) ⇒
@@ -81,18 +130,30 @@ final class WebsocketObservable(webSocket: WebSocket, observer: CacheUntilConnec
     }
 
   override def unsafeSubscribeFn(subscriber: Subscriber[WebsocketFrame]): Cancelable = {
-    import subscriber.scheduler
 
     channel.unsafeSubscribeFn(new Observer[WebsocketFrame] {
-      def onNext(elem: WebsocketFrame): Future[Ack] =
-        subscriber.onNext(elem)
 
-      //TODO try to reconnect on error and on complete
-      def onError(ex: Throwable): Unit = {
-        scheduler.reportFailure(ex)
+      def tryReconnect(call: ⇒ Unit): Unit = {
+        if (!closed.get && numberOfAttempts >= attempts.get) {
+          println("ATTEMPT == " + attempts.get)
+          attempts.increment()
+          self
+            .delaySubscription(3.seconds)
+            .unsafeSubscribeFn(subscriber)
+        }
       }
 
-      def onComplete(): Unit = {}
+      def onNext(elem: WebsocketFrame): Future[Ack] = {
+        subscriber.onNext(elem)
+      }
+
+      def onError(ex: Throwable): Unit = {
+        tryReconnect(subscriber.onError(ex))
+      }
+
+      def onComplete(): Unit = {
+        tryReconnect(subscriber.onComplete())
+      }
     })
   }
 }
