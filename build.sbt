@@ -251,6 +251,23 @@ lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
 lazy val `transport-grpc-js` = `transport-grpc`.js
 lazy val `transport-grpc-jvm` = `transport-grpc`.jvm
 
+lazy val `websocket-protobuf` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("transport/websocket-protobuf"))
+  .settings(
+    commons,
+    protobuf,
+    PB.protoSources in Compile := Seq(file("transport/websocket-protobuf/src/main/protobuf"))
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `websocket-protobuf-js` = `websocket-protobuf`.js
+lazy val `websocket-protobuf-jvm` = `websocket-protobuf`.jvm
+
 lazy val `transport-grpc-proxy` = project
   .in(file("transport/grpc-proxy"))
   .settings(
@@ -270,7 +287,7 @@ lazy val `transport-grpc-proxy` = project
       scalatest
     )
   )
-  .dependsOn(`transport-core-jvm`)
+  .dependsOn(`transport-core-jvm`, `websocket-protobuf-jvm`)
 
 lazy val `transport-websocket-js` = project
   .in(file("transport/websocket-js"))
@@ -345,6 +362,19 @@ lazy val `storage-core-js` = `storage-core`.js
 lazy val `storage-rocksdb` = project
   .in(file("storage/rocksdb"))
   .dependsOn(`storage-core-jvm`)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      rocksDb,
+      typeSafeConfig,
+      ficus,
+      monix3,
+      slogging,
+      scalatest,
+      mockito
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
 
 // core entities for all b-tree modules
 lazy val `b-tree-core` = crossProject(JVMPlatform, JSPlatform)

@@ -25,7 +25,7 @@ object SbtCommons {
   val CodecV = "0.0.1"
 
   val Cats1V = "1.1.0"
-  val CatsEffectV = "0.10"
+  val CatsEffectV = "1.0.0-RC"
   val ScodecBitsV = "1.1.5"
   val ScodecCoreV = "1.10.3"
   val RocksDbV = "5.9.2"

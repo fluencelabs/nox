@@ -38,15 +38,7 @@ trait KVStore
  * @tparam K The type of keys
  * @tparam V The type of stored values
  */
-trait KVStoreRead[K, V] extends KVStoreGet[K, V] with KVStoreTraverse[K, V]
-
-/**
- * Key-value storage api for reading values by key.
- *
- * @tparam K The type of keys
- * @tparam V The type of stored values
- */
-trait KVStoreGet[K, V] extends KVStore {
+trait KVStoreRead[K, V] extends KVStore {
 
   /**
    * Returns lazy ''get'' representation (see [[Operation]])
@@ -54,16 +46,6 @@ trait KVStoreGet[K, V] extends KVStore {
    * @param key Search key
    */
   def get(key: K): GetOp[V]
-
-}
-
-/**
- * Key-value storage api for traversing key-value pairs.
- *
- * @tparam K The type of keys
- * @tparam V The type of stored values
- */
-trait KVStoreTraverse[K, V] extends KVStore {
 
   /**
    * Returns lazy ''traverse'' representation (see [[TraverseOperation]])
@@ -93,7 +75,7 @@ trait KVStoreWrite[K, V] extends KVStore {
   /**
    * Returns lazy ''remove'' representation (see [[Operation]])
    *
-   * @param key The specified key to be inserted
+   * @param key A key to delete within database
    */
   def remove(key: K): RemoveOp
 
@@ -108,13 +90,16 @@ trait KVStoreWrite[K, V] extends KVStore {
 trait ReadWriteKVStore[K, V] extends KVStoreRead[K, V] with KVStoreWrite[K, V]
 
 /**
- * Key-value storage api for getting storage snapshot.
+ * Allows to create a point-in-time view of a storage.
  *
  * @tparam S The type of returned storage snapshot.
  */
 trait Snapshotable[S <: KVStoreRead[_, _]] {
 
-  def createSnapshot[F[_]: LiftIO](): F[S]
+  /**
+   * Returns read-only key-value store snapshot.
+   */
+  def createSnapshot[F[_]: LiftIO]: F[S]
 
 }
 
@@ -197,7 +182,7 @@ object KVStore {
       /**
        * Returns lazy ''remove'' representation (see [[Operation]])
        *
-       * @param key The specified key to be inserted
+       * @param key A key to delete within database
        */
       override def remove(key: K1): RemoveOp = new RemoveOp {
 
