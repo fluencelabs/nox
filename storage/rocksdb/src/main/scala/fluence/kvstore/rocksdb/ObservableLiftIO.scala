@@ -15,12 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.kvstore
+package fluence.kvstore.rocksdb
 
 import cats.effect.{IO, LiftIO}
 import monix.reactive.Observable
-
-import scala.language.{higherKinds, reflectiveCalls}
 
 /**
  * [[LiftIO]] instance built for `monix.reactive.Observable`.
