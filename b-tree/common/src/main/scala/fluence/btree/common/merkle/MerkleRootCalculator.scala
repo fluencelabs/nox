@@ -18,7 +18,7 @@
 package fluence.btree.common.merkle
 
 import fluence.btree.core.Hash
-import fluence.crypto.hash.CryptoHasher
+import fluence.crypto.Crypto
 
 /**
  * Merkle proof service that allows calculate merkle root from merkle path.
@@ -26,7 +26,7 @@ import fluence.crypto.hash.CryptoHasher
  *
  * @param cryptoHasher Hash provider
  */
-class MerkleRootCalculator(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
+class MerkleRootCalculator(cryptoHasher: Crypto.Hasher[Array[Byte], Hash]) {
 
   /**
    * Calculates new merkle root from merkle path. Folds merkle path from the right to the left and
@@ -44,7 +44,7 @@ class MerkleRootCalculator(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
       }
       .getOrElse(
         substitutedChecksum
-          .map(cs ⇒ cryptoHasher.hash(cs.bytes))
+          .map(cs ⇒ cryptoHasher.unsafe(cs.bytes))
           .getOrElse(Hash.empty)
       )
   }
@@ -53,6 +53,6 @@ class MerkleRootCalculator(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
 
 object MerkleRootCalculator {
 
-  def apply(cryptoHash: CryptoHasher[Array[Byte], Hash]): MerkleRootCalculator =
+  def apply(cryptoHash: Crypto.Hasher[Array[Byte], Hash]): MerkleRootCalculator =
     new MerkleRootCalculator(cryptoHash)
 }

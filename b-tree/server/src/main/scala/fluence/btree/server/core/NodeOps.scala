@@ -21,7 +21,7 @@ import fluence.btree.common.ValueRef
 import fluence.btree.common.merkle.{GeneralNodeProof, NodeProof}
 import fluence.btree.core.{Hash, Key}
 import fluence.btree.server._
-import fluence.crypto.hash.CryptoHasher
+import fluence.crypto.Crypto
 
 import scala.reflect.ClassTag
 
@@ -30,7 +30,7 @@ import scala.reflect.ClassTag
  *
  * @param cryptoHasher Hash service uses for calculating nodes checksums.
  */
-private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
+private[server] class NodeOps(cryptoHasher: Crypto.Hasher[Array[Byte], Hash]) {
 
   implicit class LeafOps(leaf: Leaf) extends LeafNode.Ops[Key, ValueRef, NodeId] {
 
@@ -159,7 +159,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
     }
 
     override def toProof(substitutionIdx: Int): NodeProof = {
-      GeneralNodeProof(cryptoHasher.hash(branch.keys.flatMap(_.bytes)), branch.childsChecksums, substitutionIdx)
+      GeneralNodeProof(cryptoHasher.unsafe(branch.keys.flatMap(_.bytes)), branch.childsChecksums, substitutionIdx)
     }
 
   }
@@ -187,7 +187,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
 
   /** Returns array of checksums for each key-value pair */
   private[server] def getKvChecksums(keys: Array[Key], values: Array[Hash]): Array[Hash] = {
-    keys.zip(values).map { case (key, value) ⇒ cryptoHasher.hash(key.bytes, value.bytes) }
+    keys.zip(values).map { case (key, value) ⇒ cryptoHasher.unsafe(key.bytes ++ value.bytes) }
   }
 
   /** Returns checksum of leaf */
@@ -197,7 +197,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
 
   /** Returns checksum of branch node */
   def getBranchChecksum(keys: Array[Key], childsChecksums: Array[Hash]): Hash =
-    GeneralNodeProof(cryptoHasher.hash(keys.flatMap(_.bytes)), childsChecksums, -1)
+    GeneralNodeProof(cryptoHasher.unsafe(keys.flatMap(_.bytes)), childsChecksums, -1)
       .calcChecksum(cryptoHasher, None)
 
   /**
@@ -226,7 +226,7 @@ private[server] class NodeOps(cryptoHasher: CryptoHasher[Array[Byte], Hash]) {
 
 private[server] object NodeOps {
 
-  def apply(cryptoHasher: CryptoHasher[Array[Byte], Hash]): NodeOps = {
+  def apply(cryptoHasher: Crypto.Hasher[Array[Byte], Hash]): NodeOps = {
     new NodeOps(cryptoHasher)
   }
 

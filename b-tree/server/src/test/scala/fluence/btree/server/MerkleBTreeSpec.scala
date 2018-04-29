@@ -19,7 +19,7 @@ package fluence.btree.server
 
 import java.nio.ByteBuffer
 
-import cats.Id
+import cats.syntax.profunctor._
 import fluence.btree.common._
 import fluence.btree.common.merkle.MerkleRootCalculator
 import fluence.btree.core.{ClientPutDetails, Hash, Key}
@@ -27,7 +27,7 @@ import fluence.btree.protocol.BTreeRpc.{PutCallbacks, SearchCallback}
 import fluence.btree.server.commands.{PutCommandImpl, SearchCommandImpl}
 import fluence.btree.server.core.{BTreeBinaryStore, NodeOps, SearchCommand}
 import fluence.codec.kryo.KryoCodecs
-import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.DumbCrypto
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -63,7 +63,7 @@ class MerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with Befo
     override def compare(x: Key, y: Key): Int = BytesOrdering.compare(x.bytes, y.bytes)
   }
 
-  private val hasher = TestHasher()
+  private val hasher = DumbCrypto.testHasher.rmap(Hash(_))
 
   private val Arity = 4
   private val Alpha = 0.25F

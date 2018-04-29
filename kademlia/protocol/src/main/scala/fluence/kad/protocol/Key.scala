@@ -24,13 +24,11 @@ import cats.syntax.compose._
 import cats.syntax.eq._
 import cats.{Id, Monad, Monoid, Order, Show}
 import fluence.codec.{CodecError, PureCodec}
-import fluence.crypto.algorithm.CryptoErr
 import fluence.crypto.hash.CryptoHashers
-import fluence.crypto.keypair.KeyPair
 import scodec.bits.{BitVector, ByteVector}
 import fluence.codec.bits.BitsCodecs._
+import fluence.crypto.{CryptoError, KeyPair}
 
-import scala.util.Try
 import scala.language.higherKinds
 
 /**
@@ -121,14 +119,8 @@ object Key {
    * Calculates sha-1 hash of the payload, and wraps it with Key.
    * We keep using sha-1 instead of sha-2, because randomness is provided with keypair generation, not hash function.
    */
-  val sha1: PureCodec.Func[Array[Byte], Key] = {
-    // TODO: it should come from crypto
-    PureCodec.liftFuncEither[Array[Byte], Array[Byte]](
-      bytes ⇒
-        Try(CryptoHashers.Sha1.hash(bytes)).toEither.left
-          .map(t ⇒ CodecError("Can't calculate sha1 to produce a Kademlia Key", Some(t)))
-    ) andThen fromBytes
-  }
+  val sha1: PureCodec.Func[Array[Byte], Key] =
+    PureCodec.fromOtherFunc(CryptoHashers.Sha1)(err ⇒ CodecError("Crypto error", Some(err))) andThen fromBytes
 
   val fromStringSha1: PureCodec.Func[String, Key] =
     sha1.lmap[String](_.getBytes)
@@ -146,11 +138,11 @@ object Key {
    * @param publicKey Public Key
    * @return
    */
-  def checkPublicKey[F[_]: Monad](key: Key, publicKey: KeyPair.Public): EitherT[F, CryptoErr, Unit] =
+  def checkPublicKey[F[_]: Monad](key: Key, publicKey: KeyPair.Public): EitherT[F, CryptoError, Unit] =
     EitherT.cond(
       sha1[Id](publicKey.value.toArray).value.toOption.exists(_ === key), // TODO: take error from sha1 crypto, when any
       (),
-      CryptoErr(s"Kademlia key doesn't match hash(pubKey); key=$key pubKey=$publicKey")
+      CryptoError(s"Kademlia key doesn't match hash(pubKey); key=$key pubKey=$publicKey")
     )
 
 }

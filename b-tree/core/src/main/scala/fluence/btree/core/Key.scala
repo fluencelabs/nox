@@ -17,8 +17,7 @@
 
 package fluence.btree.core
 
-import cats.Applicative
-import fluence.codec.Codec
+import fluence.codec.PureCodec
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -37,7 +36,7 @@ case class Key(bytes: Array[Byte]) extends AnyVal {
 
 object Key {
 
-  implicit def keyCodec[F[_]: Applicative]: Codec[F, Key, Array[Byte]] = Codec.pure(_.bytes, b ⇒ Key(b))
+  implicit val keyCodec: PureCodec[Key, Array[Byte]] = PureCodec.build(_.bytes, b ⇒ Key(b))
 
   implicit class KeyOps(originKey: Key) {
 

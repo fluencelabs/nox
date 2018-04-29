@@ -22,9 +22,8 @@ import java.time.Instant
 import cats.effect.{IO, LiftIO}
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
-import cats.{~>, Applicative, Monad, MonadError, Parallel}
-import fluence.crypto.SignAlgo
-import fluence.crypto.keypair.KeyPair
+import cats.{~>, Applicative, Monad, Parallel}
+import fluence.crypto.KeyPair
 import fluence.crypto.signature.Signer
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import fluence.kad.{Bucket, Kademlia, Siblings}
@@ -158,8 +157,8 @@ object TestKademlia {
         .fill(n)(nextRandomKeyPair)
         .foldLeft(Map.empty[C, (Signer, Kademlia[Coeval, C])]) {
           case (acc, keyPair) ⇒
-            val algo = SignAlgo.dumb
-            val signer = algo.signer(keyPair)
+            import fluence.crypto.DumbCrypto.signAlgo
+            val signer = signAlgo.signer(keyPair)
             val key = Key.fromPublicKey.unsafe(keyPair.publicKey)
             acc + (toContact(key) -> (signer, TestKademlia.coeval(key, alpha, k, kads(_)._2, toContact, pingExpiresIn)))
         }

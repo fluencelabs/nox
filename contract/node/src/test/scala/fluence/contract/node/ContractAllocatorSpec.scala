@@ -25,9 +25,8 @@ import cats.~>
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.protocol.ContractAllocatorRpc
-import fluence.crypto.SignAlgo
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.Signature
+import fluence.crypto.{DumbCrypto, KeyPair}
+import fluence.crypto.signature.{SignAlgo, Signature}
 import fluence.kad.protocol.Key
 import fluence.storage.{KVStore, TrieMapKVStore}
 import org.scalatest.{Matchers, WordSpec}
@@ -48,10 +47,10 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
   val nodeId: Key = Key.fromPublicKey.unsafe(keypair.publicKey)
 
-  val signAlgo = SignAlgo.dumb
+  import DumbCrypto.signAlgo
   val signer = signAlgo.signer(keypair)
 
-  import signAlgo.checkerFn
+  import signAlgo.checker
 
   val createDS: BasicContract ⇒ IO[Boolean] = c ⇒ {
     if (denyDS(c.id)) IO(false)

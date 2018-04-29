@@ -19,8 +19,7 @@ package fluence.contract.grpc
 
 import cats.instances.try_._
 import cats.kernel.Eq
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.SignAlgo
+import fluence.crypto.KeyPair
 import org.scalatest.{Matchers, WordSpec}
 import fluence.contract.{BasicContract ⇒ BC}
 import fluence.kad.protocol.Key
@@ -29,7 +28,7 @@ import scala.util.{Success, Try}
 
 class BasicContractCodecSpec extends WordSpec with Matchers {
 
-  private val signAlgo = SignAlgo.dumb
+  import fluence.crypto.DumbCrypto.signAlgo
 
   "BasicContractCodec" should {
     def checkInvariance(bc: BC) = {

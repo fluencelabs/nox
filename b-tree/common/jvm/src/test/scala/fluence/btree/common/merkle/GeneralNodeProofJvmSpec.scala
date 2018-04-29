@@ -17,8 +17,9 @@
 
 package fluence.btree.common.merkle
 
+import cats.syntax.profunctor._
 import fluence.btree.core.Hash
-import fluence.crypto.hash.TestCryptoHasher
+import fluence.crypto.DumbCrypto
 import org.scalatest.{Matchers, WordSpec}
 
 class GeneralNodeProofJvmSpec extends WordSpec with Matchers {
@@ -27,7 +28,7 @@ class GeneralNodeProofJvmSpec extends WordSpec with Matchers {
     def toHash: Hash = Hash(str.getBytes)
   }
 
-  private val testHasher = TestCryptoHasher.map(Hash(_))
+  private val testHasher = DumbCrypto.testHasher.rmap(Hash(_))
 
   "calcChecksum" should {
     "throw exception" when {

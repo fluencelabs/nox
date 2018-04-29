@@ -28,9 +28,11 @@ import cats.syntax.show._
 import cats.{Applicative, MonadError}
 import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
 import fluence.client.core.config.{KeyPairConfig, SeedsConfig}
-import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.hash.{CryptoHasher, JdkCryptoHasher}
-import fluence.crypto.{FileKeyStorage, SignAlgo}
+import fluence.crypto.hash.JdkCryptoHasher
+import fluence.crypto.keystore.FileKeyStorage
+import fluence.crypto.Crypto
+import fluence.crypto.ecdsa.Ecdsa
+import fluence.crypto.signature.SignAlgo
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{Contact, Key, Node}
 import fluence.node.core.NodeComposer
@@ -70,7 +72,7 @@ object FluenceNode extends slogging.LazyLogging {
    */
   def startNode(
     algo: SignAlgo = Ecdsa.signAlgo,
-    hasher: CryptoHasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
+    hasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
     config: Config = ConfigFactory.load()
   ): IO[FluenceNode] = {
     logger.debug(
@@ -120,11 +122,11 @@ object FluenceNode extends slogging.LazyLogging {
   // todo write unit test, this method don't close resources correctly when initialisation failed
   private def launchGrpc(
     algo: SignAlgo,
-    hasher: CryptoHasher[Array[Byte], Array[Byte]],
+    hasher: Crypto.Hasher[Array[Byte], Array[Byte]],
     config: Config,
     clock: Clock = Clock.systemUTC()
   ): IO[FluenceNode] = {
-    import algo.checkerFn
+    import algo.checker
     for {
       _ ← initDirectory(config.getString("fluence.directory")) // TODO config
       kpConf ← KeyPairConfig.read(config)

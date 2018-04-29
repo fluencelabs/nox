@@ -29,7 +29,7 @@ import fluence.btree.core.{ClientPutDetails, Hash, Key}
 import fluence.btree.server.core.TreePath.PathElem
 import fluence.btree.server.core._
 import fluence.codec.kryo.KryoCodecs
-import fluence.crypto.hash.CryptoHasher
+import fluence.crypto.Crypto
 import fluence.storage.rocksdb.{IdSeqProvider, RocksDbStore}
 import monix.eval.{Task, TaskSemaphore}
 import monix.execution.atomic.AtomicInt
@@ -665,7 +665,7 @@ object MerkleBTree {
   def apply[F[_]](
     name: String,
     rocksFactory: RocksDbStore.Factory,
-    hasher: CryptoHasher[Array[Byte], Hash],
+    hasher: Crypto.Hasher[Array[Byte], Hash],
     conf: Config
   )(implicit F: MonadError[F, Throwable], runTask: Task ~> F): F[MerkleBTree] =
     F.map2(

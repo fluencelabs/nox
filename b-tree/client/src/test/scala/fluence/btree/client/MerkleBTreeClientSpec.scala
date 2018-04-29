@@ -18,11 +18,11 @@
 package fluence.btree.client
 
 import cats.Id
+import cats.syntax.profunctor._
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.core.{Hash, Key}
-import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.cipher.NoOpCrypt
-import fluence.crypto.hash.TestCryptoHasher
+import fluence.crypto.DumbCrypto
+import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.signature.Signature
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -37,7 +37,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
 class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
 
   private val signAlgo = Ecdsa.signAlgo
-  private val keyPair = signAlgo.generateKeyPair().value.right.get
+  private val keyPair = signAlgo.generateKeyPair.unsafe(None)
   private val signer = signAlgo.signer(keyPair)
   private val checker = signAlgo.checker(keyPair.publicKey)
 
@@ -49,7 +49,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
     def toHash: Hash = Hash(str.getBytes)
   }
 
-  private val testHasher = TestCryptoHasher.map(Hash(_))
+  private val testHasher = DumbCrypto.testHasher.rmap(Hash(_))
 
   val key1 = "k1"
   val key2 = "k2"
@@ -296,7 +296,7 @@ class MerkleBTreeClientSpec extends WordSpec with Matchers with ScalaFutures {
   private def createClient(mRoot: String): MerkleBTreeClient[String] = {
     MerkleBTreeClient[String](
       Some(ClientState(mRoot.toHash)),
-      NoOpCrypt.forString,
+      DumbCrypto.cipherString,
       testHasher,
       signer
     )

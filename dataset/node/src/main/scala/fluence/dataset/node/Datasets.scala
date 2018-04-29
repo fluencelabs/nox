@@ -20,7 +20,7 @@ package fluence.dataset.node
 import cats.~>
 import com.typesafe.config.Config
 import fluence.btree.protocol.BTreeRpc
-import fluence.crypto.hash.CryptoHasher
+import fluence.crypto.Crypto
 import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.Key
@@ -44,7 +44,7 @@ import scala.language.higherKinds
 class Datasets(
   config: Config,
   rocksFactory: RocksDbStore.Factory,
-  cryptoHasher: CryptoHasher[Array[Byte], Array[Byte]],
+  cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]],
   servesDataset: Key ⇒ Task[Option[Long]],
   contractUpdated: (Key, DatasetChanged) ⇒ Task[Unit]
 ) extends DatasetStorageRpc[Task, Observable] with slogging.LazyLogging {
