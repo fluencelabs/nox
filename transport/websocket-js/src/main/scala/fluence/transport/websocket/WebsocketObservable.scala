@@ -16,14 +16,32 @@ import scala.scalajs.js.typedarray.{ArrayBuffer, Int8Array, TypedArrayBuffer}
 import scala.util.control.{NoStackTrace, NonFatal}
 
 /**
- * Ouput of websocket.
+ * Output of websocket.
+ * @param url Connecting with websocket.
+ * @param input Stream of events that we send by websocket.
+ * @param numberOfAttempts Number of attempts to reconnect if we have an error or the connection will break.
+ * @param connectTimeout Timeout to reconnect.
  */
-final class WebsocketObservable(url: String, input: Observable[WebsocketFrame], numberOfAttempts: Int = 13)(
+final class WebsocketObservable(
+  url: String,
+  input: Observable[WebsocketFrame],
+  numberOfAttempts: Int = 13,
+  connectTimeout: FiniteDuration = 3.seconds
+)(
   implicit scheduler: Scheduler
 ) extends Observable[WebsocketFrame] with slogging.LazyLogging {
   self ⇒
 
+  /**
+   * Flag, that can be changed to `true` by `CloseFrame`.
+   * If it is `true`, websocket can't reconnect and receive messages.
+   * Observable is only for deleting by GC.
+   */
   private val closed = AtomicBoolean(false)
+
+  /**
+   * Number of reconnecting attempts.
+   */
   private val attempts = AtomicInt(0)
 
   //TODO control overflow strategy
@@ -34,6 +52,9 @@ final class WebsocketObservable(url: String, input: Observable[WebsocketFrame], 
     ByteVector(typed)
   }
 
+  /** An `Observable` that upon subscription will open a
+   *  web-socket connection.
+   */
   private val channel: Observable[WebsocketFrame] =
     Observable.create[WebsocketFrame](overflow) { subscriber ⇒
       def closeConnection(webSocket: WebSocket): Unit = {
@@ -45,11 +66,12 @@ final class WebsocketObservable(url: String, input: Observable[WebsocketFrame], 
       }
 
       try {
+        // Opening a WebSocket connection using Javascript's API
+        logger.info(s"Connecting to $url")
         val webSocket = new WebSocket(url)
 
-        logger.info(s"Connecting to ${webSocket.url}")
-
-        val obs = new Observer[WebsocketFrame] {
+        // An observer that will send events from input observable
+        val inputObserver = new Observer[WebsocketFrame] {
           override def onNext(elem: WebsocketFrame): Future[Ack] = {
             Future {
               elem match {
@@ -76,22 +98,28 @@ final class WebsocketObservable(url: String, input: Observable[WebsocketFrame], 
           override def onComplete(): Unit = ()
         }
 
-        val cacheUntilConnect = CacheUntilConnectSubscriber(Subscriber(obs, scheduler))
+        // We cannot send messages until websocket does onopen event.
+        // So, we will buffer messages until we call method `connect`.
+        val cacheUntilConnect = CacheUntilConnectSubscriber(Subscriber(inputObserver, scheduler))
 
+        // Subscribe on input. Messages began to be accepted by observer.
         val cancelable = input.subscribe(cacheUntilConnect)
 
         webSocket.onopen = (event: Event) ⇒ {
           attempts.set(0)
           cacheUntilConnect.connect()
         }
+
         webSocket.onerror = (event: ErrorEvent) ⇒ {
           logger.error(s"Error in websocket ${webSocket.url}: ${event.message}")
           subscriber.onError(WebsocketObservable.WebsocketException(event.message))
         }
+
         webSocket.onclose = (event: CloseEvent) ⇒ {
           cancelable.cancel()
           subscriber.onComplete()
         }
+
         webSocket.onmessage = (event: MessageEvent) ⇒ {
           event.data match {
             case s: String ⇒
@@ -99,7 +127,7 @@ final class WebsocketObservable(url: String, input: Observable[WebsocketFrame], 
             case buf: ArrayBuffer ⇒
               subscriber.onNext(Binary(arrayToByteVector(buf)))
             case b: Blob ⇒
-              //we get binary data in websockets usually in blobs
+              // We get binary data in websockets usually in blobs.
               val fReader = new FileReader()
               fReader.onload = (event: UIEvent) ⇒ {
                 val buf = fReader.result.asInstanceOf[ArrayBuffer]
@@ -134,8 +162,9 @@ final class WebsocketObservable(url: String, input: Observable[WebsocketFrame], 
       def tryReconnect(call: ⇒ Unit): Unit = {
         if (!closed.get && numberOfAttempts >= attempts.get) {
           attempts.increment()
+          // Subscribing we reconnect to the websocket.
           self
-            .delaySubscription(3.seconds)
+            .delaySubscription(connectTimeout)
             .unsafeSubscribeFn(subscriber)
         }
       }
