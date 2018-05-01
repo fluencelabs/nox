@@ -274,7 +274,6 @@ lazy val `transport-grpc-proxy` = project
     commons,
     grpc,
     PB.protoSources in Compile := Seq(
-      file("transport/grpc-proxy/src/main/protobuf"),
       file(baseDirectory.value.absolutePath + "/src/test/protobuf/")
     ),
     libraryDependencies ++= Seq(

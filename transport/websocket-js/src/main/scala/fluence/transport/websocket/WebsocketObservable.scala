@@ -8,6 +8,7 @@ import monix.reactive.{Observable, Observer, OverflowStrategy}
 import org.scalajs.dom._
 import scodec.bits.ByteVector
 
+import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.scalajs.js.JSConverters._
@@ -44,6 +45,13 @@ final class WebsocketObservable(
    */
   private val attempts = AtomicInt(0)
 
+  // Storage of messages when websocket is reconnecting
+  private val initQueue = mutable.Queue.empty[WebsocketFrame]
+
+  // Store here subscription to cache messages when websocket is reconnecting
+  // TODO there is no concurrency access, but rewrite this in better way
+  private var cancelableCache: Option[Cancelable] = None
+
   //TODO control overflow strategy
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
@@ -52,19 +60,33 @@ final class WebsocketObservable(
     ByteVector(typed)
   }
 
+  private def closeConnection(webSocket: WebSocket): Unit = {
+    if (webSocket != null && webSocket.readyState <= 1)
+      try webSocket.close()
+      catch {
+        case _: Throwable ⇒ ()
+      }
+  }
+
+  private def sendFrame(ws: WebSocket, fr: WebsocketFrame): Unit = {
+    fr match {
+      case Binary(data) ⇒
+        val arr = new Int8Array(data.toArray.toJSArray)
+        val buffer = TypedArrayBuffer.wrap(arr).arrayBuffer()
+        ws.send(buffer)
+      case Text(data) ⇒
+        ws.send(data)
+      case CloseFrame(cause) ⇒
+        closed.set(true)
+        closeConnection(ws)
+    }
+  }
+
   /** An `Observable` that upon subscription will open a
    *  web-socket connection.
    */
   private val channel: Observable[WebsocketFrame] =
     Observable.create[WebsocketFrame](overflow) { subscriber ⇒
-      def closeConnection(webSocket: WebSocket): Unit = {
-        if (webSocket != null && webSocket.readyState <= 1)
-          try webSocket.close()
-          catch {
-            case _: Throwable ⇒ ()
-          }
-      }
-
       try {
         // Opening a WebSocket connection using Javascript's API
         logger.info(s"Connecting to $url")
@@ -74,17 +96,7 @@ final class WebsocketObservable(
         val inputObserver = new Observer[WebsocketFrame] {
           override def onNext(elem: WebsocketFrame): Future[Ack] = {
             Future {
-              elem match {
-                case Binary(data) ⇒
-                  val arr = new Int8Array(data.toArray.toJSArray)
-                  val buffer = TypedArrayBuffer.wrap(arr).arrayBuffer()
-                  webSocket.send(buffer)
-                case Text(data) ⇒
-                  webSocket.send(data)
-                case CloseFrame(cause) ⇒
-                  closed.set(true)
-                  closeConnection(webSocket)
-              }
+              sendFrame(webSocket, elem)
             }.map(_ ⇒ Continue).recover {
               case e: Throwable ⇒
                 logger.error("Unsupported exception", e)
@@ -102,20 +114,27 @@ final class WebsocketObservable(
         // So, we will buffer messages until we call method `connect`.
         val cacheUntilConnect = CacheUntilConnectSubscriber(Subscriber(inputObserver, scheduler))
 
-        // Subscribe on input. Messages began to be accepted by observer.
+        // Subscribe on input. Observer is beginning to receive messages.
         val cancelable = input.subscribe(cacheUntilConnect)
 
         webSocket.onopen = (event: Event) ⇒ {
           attempts.set(0)
           cacheUntilConnect.connect()
+          cancelableCache.foreach(_.cancel())
+          cancelableCache = None
+          initQueue.foreach(fr ⇒ sendFrame(webSocket, fr))
+          initQueue.clear()
         }
 
         webSocket.onerror = (event: ErrorEvent) ⇒ {
+          println("ON ERROR")
           logger.error(s"Error in websocket ${webSocket.url}: ${event.message}")
           subscriber.onError(WebsocketObservable.WebsocketException(event.message))
         }
 
         webSocket.onclose = (event: CloseEvent) ⇒ {
+          cancelableCache.foreach(_.cancel())
+          cancelableCache = None
           cancelable.cancel()
           subscriber.onComplete()
         }
@@ -162,10 +181,16 @@ final class WebsocketObservable(
       def tryReconnect(call: ⇒ Unit): Unit = {
         if (!closed.get && numberOfAttempts >= attempts.get) {
           attempts.increment()
+
+          cancelableCache = Option(input.subscribe(nextFn = { fr ⇒
+            Future.successful(initQueue.enqueue(fr)).map(_ ⇒ Continue)
+          }))
+
           // Subscribing we reconnect to the websocket.
-          self
+          val canc = self
             .delaySubscription(connectTimeout)
             .unsafeSubscribeFn(subscriber)
+
         }
       }
 

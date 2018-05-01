@@ -1,5 +1,7 @@
 package fluence.transport.websocket
 
+import java.nio.ByteBuffer
+
 import monix.execution.Ack.Continue
 import monix.reactive._
 import scodec.bits.ByteVector
@@ -81,5 +83,10 @@ object Example extends App {
     println("HEHEY")
   }
 
-  Observable.timerRepeated(1.second, 1.second, ByteVector(2, 5, 7, 9, 0)).subscribe(observer)
+  Observable
+    .interval(1.second)
+    .map { l ⇒
+      ByteVector.fromLong(l)
+    }
+    .subscribe(observer)
 }
