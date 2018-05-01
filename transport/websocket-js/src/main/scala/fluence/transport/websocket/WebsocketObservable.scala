@@ -46,11 +46,12 @@ final class WebsocketObservable(
   private val attempts = AtomicInt(0)
 
   // Storage of messages when websocket is reconnecting
+  // TODO there is no concurrency access, but rewrite this in better way
   private val initQueue = mutable.Queue.empty[WebsocketFrame]
 
   // Store here subscription to cache messages when websocket is reconnecting
   // TODO there is no concurrency access, but rewrite this in better way
-  private var cancelableCache: Option[Cancelable] = None
+  @volatile private var cancelableCache: Option[Cancelable] = None
 
   //TODO control overflow strategy
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
@@ -80,6 +81,11 @@ final class WebsocketObservable(
         closed.set(true)
         closeConnection(ws)
     }
+  }
+
+  private def cancelCache(): Unit = {
+    cancelableCache.foreach(_.cancel())
+    cancelableCache = None
   }
 
   /** An `Observable` that upon subscription will open a
@@ -120,21 +126,18 @@ final class WebsocketObservable(
         webSocket.onopen = (event: Event) ⇒ {
           attempts.set(0)
           cacheUntilConnect.connect()
-          cancelableCache.foreach(_.cancel())
-          cancelableCache = None
+          cancelCache()
           initQueue.foreach(fr ⇒ sendFrame(webSocket, fr))
           initQueue.clear()
         }
 
         webSocket.onerror = (event: ErrorEvent) ⇒ {
-          println("ON ERROR")
           logger.error(s"Error in websocket ${webSocket.url}: ${event.message}")
           subscriber.onError(WebsocketObservable.WebsocketException(event.message))
         }
 
         webSocket.onclose = (event: CloseEvent) ⇒ {
-          cancelableCache.foreach(_.cancel())
-          cancelableCache = None
+          cancelCache()
           cancelable.cancel()
           subscriber.onComplete()
         }
