@@ -15,14 +15,14 @@ object WebsocketClient {
    */
   def apply(url: String)(implicit scheduler: Scheduler): (Observer[WebsocketFrame], Observable[WebsocketFrame]) = {
 
-    val (input, inputOut) = Observable.multicast[WebsocketFrame](MulticastStrategy.publish, OverflowStrategy.Unbounded)
+    val queueingSubject = new QueueingSubject[WebsocketFrame]
 
-    val observable = new WebsocketObservable(url, inputOut)
+    val observable = new WebsocketObservable(url, queueingSubject)
 
     val hotObservable = observable.multicast(Pipe.publish[WebsocketFrame])
     hotObservable.connect()
 
-    input -> hotObservable
+    queueingSubject -> hotObservable
   }
 
   /**
