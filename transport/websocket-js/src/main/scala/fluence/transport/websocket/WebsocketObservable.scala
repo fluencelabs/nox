@@ -3,7 +3,7 @@ package fluence.transport.websocket
 import monix.execution.Ack.{Continue, Stop}
 import monix.execution.atomic.{AtomicBoolean, AtomicInt}
 import monix.execution.{Ack, Cancelable, Scheduler}
-import monix.reactive.observers.{CacheUntilConnectSubscriber, Subscriber}
+import monix.reactive.observers.Subscriber
 import monix.reactive.{Observable, Observer, OverflowStrategy}
 import org.scalajs.dom._
 import scodec.bits.ByteVector
@@ -25,6 +25,7 @@ import scala.util.control.{NoStackTrace, NonFatal}
  */
 final class WebsocketObservable(
   url: String,
+  builder: String ⇒ WebsocketT,
   input: Observable[WebsocketFrame],
   numberOfAttempts: Int = 13,
   connectTimeout: FiniteDuration = 3.seconds
@@ -53,7 +54,7 @@ final class WebsocketObservable(
     ByteVector(typed)
   }
 
-  private def closeConnection(webSocket: WebSocket): Unit = {
+  private def closeConnection(webSocket: WebsocketT): Unit = {
     if (webSocket != null && webSocket.readyState <= 1)
       try webSocket.close()
       catch {
@@ -61,7 +62,7 @@ final class WebsocketObservable(
       }
   }
 
-  private def sendFrame(ws: WebSocket, fr: WebsocketFrame): Unit = {
+  private def sendFrame(ws: WebsocketT, fr: WebsocketFrame): Unit = {
     fr match {
       case Binary(data) ⇒
         val arr = new Int8Array(data.toArray.toJSArray)
@@ -78,9 +79,9 @@ final class WebsocketObservable(
   var lastFrame: Option[WebsocketFrame] = None
 
   // An observer that will send events from input observable
-  private val inputObserver: Observer[(WebSocket, WebsocketFrame)] = new Observer[(WebSocket, WebsocketFrame)] {
+  private val inputObserver: Observer[(WebsocketT, WebsocketFrame)] = new Observer[(WebsocketT, WebsocketFrame)] {
 
-    override def onNext(elem: (WebSocket, WebsocketFrame)): Future[Ack] = {
+    override def onNext(elem: (WebsocketT, WebsocketFrame)): Future[Ack] = {
       val websocket = elem._1
       val frame = elem._2
       val try_ = Try(sendFrame(websocket, frame))
@@ -111,28 +112,33 @@ final class WebsocketObservable(
       try {
         // Opening a WebSocket connection using Javascript's API
         logger.info(s"Connecting to $url")
-        val webSocket = new WebSocket(url)
+        val webSocket = builder(url)
 
         // Input subscription
         var cancelable: Option[Cancelable] = None
 
-        webSocket.onopen = (event: Event) ⇒ {
-          attempts.set(0)
-          cancelable = Some(input.map(fr ⇒ (webSocket, fr)).subscribe(inputObserver))
-          lastFrame.foreach(fr ⇒ inputObserver.onNext((webSocket, fr)))
+        try {
+          webSocket.setOnopen((event: Event) ⇒ {
+            println("ON OPEN")
+            attempts.set(0)
+            cancelable = Some(input.map(fr ⇒ (webSocket, fr)).subscribe(inputObserver))
+            lastFrame.foreach(fr ⇒ inputObserver.onNext((webSocket, fr)))
+          })
+        } catch {
+          case e: Throwable ⇒ e.printStackTrace()
         }
 
-        webSocket.onerror = (event: ErrorEvent) ⇒ {
-          logger.error(s"Error in websocket ${webSocket.url}: ${event.message}")
+        webSocket.setOnerror((event: ErrorEvent) ⇒ {
+          logger.error(s"Error in websocket $url: ${event.message}")
           subscriber.onError(WebsocketObservable.WebsocketException(event.message))
-        }
+        })
 
-        webSocket.onclose = (event: CloseEvent) ⇒ {
+        webSocket.setOnclose((event: CloseEvent) ⇒ {
           cancelable.foreach(_.cancel())
           subscriber.onComplete()
-        }
+        })
 
-        webSocket.onmessage = (event: MessageEvent) ⇒ {
+        webSocket.setOnmessage((event: MessageEvent) ⇒ {
           event.data match {
             case s: String ⇒
               subscriber.onNext(Text(s))
@@ -147,17 +153,17 @@ final class WebsocketObservable(
                 subscriber.onNext(Binary(bv))
               }
               fReader.onerror = (event: Event) ⇒ {
-                logger.error(s"Unexpected error on reading binary frame from websocket ${webSocket.url}")
+                logger.error(s"Unexpected error on reading binary frame from websocket $url}")
                 subscriber.onError(WebsocketObservable.WebsocketException("Unexpected error on reading binary frame."))
               }
 
               fReader.readAsArrayBuffer(b)
           }
 
-        }
+        })
 
         Cancelable(() ⇒ {
-          logger.info(s"Closing connection to ${webSocket.url}")
+          logger.info(s"Closing connection to $url")
 
         })
       } catch {

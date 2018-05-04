@@ -20,7 +20,8 @@ object Example extends App {
   val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
   val (observer, observable) = WebsocketClient.binaryClient(
-    "ws://localhost:8080/http4s/wsecho"
+    "ws://localhost:8080/http4s/wsecho",
+    s ⇒ Websocket(s)
   )
 
   val pr11 = Promise[Unit]

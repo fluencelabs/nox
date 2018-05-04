@@ -13,11 +13,13 @@ object WebsocketClient {
    * @param url Address to connect by websocket
    * @return An observer that will be an input into a websocket and observable - output
    */
-  def apply(url: String)(implicit scheduler: Scheduler): (Observer[WebsocketFrame], Observable[WebsocketFrame]) = {
+  def apply(url: String, builder: String ⇒ WebsocketT)(
+    implicit scheduler: Scheduler
+  ): (Observer[WebsocketFrame], Observable[WebsocketFrame]) = {
 
     val queueingSubject = new QueueingSubject[WebsocketFrame]
 
-    val observable = new WebsocketObservable(url, queueingSubject)
+    val observable = new WebsocketObservable(url, builder, queueingSubject)
 
     val hotObservable = observable.multicast(Pipe.publish[WebsocketFrame])
     hotObservable.connect()
@@ -29,10 +31,11 @@ object WebsocketClient {
    * Client that accepts only binary data.
    */
   def binaryClient(
-    url: String
+    url: String,
+    builder: String ⇒ WebsocketT
   )(implicit scheduler: Scheduler): (Observer[ByteVector], Observable[ByteVector]) = {
 
-    val (wsObserver, wsObservable) = WebsocketClient(url)
+    val (wsObserver, wsObservable) = WebsocketClient(url, builder)
 
     val binaryClient: Observer[ByteVector] = new Observer[ByteVector] {
       override def onNext(elem: ByteVector): Future[Ack] = wsObserver.onNext(Binary(elem))
