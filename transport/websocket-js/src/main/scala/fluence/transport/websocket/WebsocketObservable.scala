@@ -94,7 +94,8 @@ final class WebsocketObservable(
       Future { try_.get }.map(_ ⇒ Continue).recover {
         case e: Throwable ⇒
           logger.error("Unsupported exception", e)
-          Stop
+          websocket.close()
+          Continue
       }
     }
 
