@@ -24,8 +24,7 @@ import cats.instances.try_._
 import cats.~>
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
-import fluence.crypto.SignAlgo
-import fluence.crypto.keypair.KeyPair
+import fluence.crypto.KeyPair
 import fluence.kad.protocol.Key
 import fluence.storage.{KVStore, TrieMapKVStore}
 import monix.eval.Coeval
@@ -37,8 +36,8 @@ class ContractsCacheSpec extends WordSpec with Matchers {
 
   private val clock = Clock.systemUTC()
   def unsafeKey(str: String): Key = Key.fromStringSha1.unsafe(str)
-  val algo = SignAlgo.dumb
-  import algo.checkerFn
+  import fluence.crypto.DumbCrypto.signAlgo
+  import signAlgo.checker
 
   val nodeId: Key = unsafeKey("node id")
   val nodeSigner = offerSigner("node id")
@@ -52,7 +51,7 @@ class ContractsCacheSpec extends WordSpec with Matchers {
   }
 
   def offerSigner(seed: String) = {
-    algo.signer(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
+    signAlgo.signer(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
   }
 
   object coevalIO extends (Coeval ~> IO) {

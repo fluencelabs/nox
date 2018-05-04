@@ -524,7 +524,7 @@ class RoutingTable[C](nodeId: Key)(implicit SR: Siblings.ReadOps[C], BR: Bucket.
               }
 
             case Right(_) ⇒
-              logger.debug("Can't initialize from myself")
+              logger.debug(s"Can't initialize from myself ($nodeId)")
               Option.empty[(Node[C], List[Node[C]])].pure[F]
 
             case Left(e) ⇒

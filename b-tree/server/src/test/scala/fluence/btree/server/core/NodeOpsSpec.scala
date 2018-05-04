@@ -17,8 +17,10 @@
 
 package fluence.btree.server.core
 
+import cats.syntax.profunctor._
 import fluence.btree.core.{Hash, Key}
-import fluence.btree.server.{Leaf, NodeId, TestHasher}
+import fluence.btree.server.{Leaf, NodeId}
+import fluence.crypto.DumbCrypto
 import org.scalatest.{Matchers, WordSpec}
 
 class NodeOpsSpec extends WordSpec with Matchers {
@@ -31,7 +33,7 @@ class NodeOpsSpec extends WordSpec with Matchers {
     def toHash: Hash = Hash(str.getBytes)
   }
 
-  private val nodeOps = NodeOps(TestHasher())
+  private val nodeOps = NodeOps(DumbCrypto.testHasher.rmap(Hash(_)))
   import nodeOps._
 
   private val key1 = "k1".toKey

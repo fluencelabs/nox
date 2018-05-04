@@ -20,6 +20,7 @@ package fluence.btree.server
 import java.nio.ByteBuffer
 
 import cats.Id
+import cats.syntax.profunctor._
 import fluence.btree.client.MerkleBTreeClient
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.btree.common.merkle.MerkleRootCalculator
@@ -27,9 +28,7 @@ import fluence.btree.core.{Hash, Key}
 import fluence.btree.server.commands.{PutCommandImpl, SearchCommandImpl}
 import fluence.btree.server.core.{BTreeBinaryStore, NodeOps}
 import fluence.codec.kryo.KryoCodecs
-import fluence.crypto.SignAlgo
-import fluence.crypto.algorithm.Ecdsa
-import fluence.crypto.cipher.NoOpCrypt
+import fluence.crypto.DumbCrypto
 import fluence.storage.TrieMapKVStore
 import monix.eval.Task
 import monix.execution.ExecutionModel
@@ -49,8 +48,8 @@ import scala.util.hashing.MurmurHash3
 class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(1, Seconds), Span(250, Milliseconds))
 
-  private val signAlgo = SignAlgo.dumb
-  private val keyPair = signAlgo.generateKeyPair[Id]().value.right.get
+  import fluence.crypto.DumbCrypto.signAlgo
+  private val keyPair = signAlgo.generateKeyPair.unsafe(None)
   private val signer = signAlgo.signer(keyPair)
 
   implicit class Str2Key(str: String) {
@@ -67,7 +66,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
 
   private val blobIdCounter = Atomic(0L)
 
-  private val hasher = TestHasher()
+  private val hasher = DumbCrypto.testHasher.rmap(Hash(_))
   private val mRCalc = MerkleRootCalculator(hasher)
 
   private val key1 = "k0001"
@@ -327,7 +326,7 @@ class IntegrationMerkleBTreeSpec extends WordSpec with Matchers with ScalaFuture
   /* util methods */
 
   private def createBTreeClient(clientState: Option[ClientState] = None): MerkleBTreeClient[String] = {
-    val keyCrypt = NoOpCrypt.forString[Task]
+    val keyCrypt = DumbCrypto.cipherString
     MerkleBTreeClient(
       clientState,
       keyCrypt,

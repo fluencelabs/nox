@@ -23,8 +23,8 @@ import cats.{Eq, Monad, MonadError}
 import fluence.contract.BasicContract.ExecutionState
 import fluence.contract.ops.ContractValidate.ValidationErr
 import fluence.contract.ops.{ContractRead, ContractValidate, ContractWrite}
-import fluence.crypto.SignAlgo.CheckerFn
-import fluence.crypto.keypair.KeyPair
+import fluence.crypto.KeyPair
+import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.crypto.signature.{PubKeyAndSignature, Signature, Signer}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector

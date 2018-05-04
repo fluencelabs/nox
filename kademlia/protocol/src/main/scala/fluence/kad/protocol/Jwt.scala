@@ -21,15 +21,14 @@ import cats.Monad
 import cats.data.EitherT
 import cats.syntax.compose._
 import fluence.codec.PureCodec
-import fluence.crypto.SignAlgo.CheckerFn
-import fluence.crypto.algorithm.CryptoErr
-import fluence.crypto.keypair.KeyPair
+import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.crypto.signature.{Signature, Signer}
 import io.circe._
 import io.circe.parser._
 import scodec.bits.{Bases, ByteVector}
 import fluence.codec.bits.BitsCodecs._
 import fluence.codec.circe.CirceCodecs._
+import fluence.crypto.{CryptoError, KeyPair}
 
 import scala.language.higherKinds
 
@@ -57,7 +56,7 @@ private[protocol] object Jwt {
      * @tparam C Claim type
      * @return
      */
-    def apply[H: Encoder, C: Encoder](header: H, claim: C, signer: Signer): EitherT[F, CryptoErr, String] = {
+    def apply[H: Encoder, C: Encoder](header: H, claim: C, signer: Signer): EitherT[F, CryptoError, String] = {
       val h = ByteVector(Encoder[H].apply(header).noSpaces.getBytes()).toBase64(alphabet)
       val c = ByteVector(Encoder[C].apply(claim).noSpaces.getBytes()).toBase64(alphabet)
 

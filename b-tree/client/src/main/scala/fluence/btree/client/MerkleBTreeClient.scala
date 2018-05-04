@@ -17,12 +17,13 @@
 
 package fluence.btree.client
 
+import cats.syntax.compose._
 import fluence.btree.client.MerkleBTreeClient._
 import fluence.btree.common.merkle.MerklePath
 import fluence.btree.core.{ClientPutDetails, Hash, Key}
 import fluence.btree.protocol.BTreeRpc.{PutCallbacks, SearchCallback}
-import fluence.crypto.cipher.Crypt
-import fluence.crypto.hash.CryptoHasher
+import fluence.crypto.Crypto
+import fluence.crypto.cipher.CipherSearch
 import fluence.crypto.signature.Signer
 import monix.eval.{MVar, Task}
 import scodec.bits.ByteVector
@@ -44,7 +45,7 @@ import scala.collection.Searching.SearchResult
  */
 class MerkleBTreeClient[K] private (
   initClientState: ClientState,
-  keyCrypt: Crypt[Task, K, Key],
+  keyCrypt: Crypto.Bijection[K, Key],
   verifier: BTreeVerifier,
   signer: Signer
 )(implicit ord: Ordering[K])
@@ -157,7 +158,7 @@ class MerkleBTreeClient[K] private (
             for {
               searchResult ← binarySearch(key, keys)
               nodeProofWithIdx = leafProof.copy(substitutionIdx = searchResult.insertionPoint)
-              encrypted ← keyCrypt.encrypt(key)
+              encrypted ← keyCrypt.direct.runF[Task](key)
               putDetails = ClientPutDetails(encrypted, valueChecksum, searchResult)
               putMvar ← putDetailsMVar
               _ ← putMvar.put(Some(putDetails))
@@ -295,11 +296,8 @@ class MerkleBTreeClient[K] private (
    */
   override def initRemove(key: K, version: Long): Task[RemoveState[Task]] = ???
 
-  private def binarySearch(key: K, keys: Array[Key]): Task[SearchResult] = {
-    import fluence.crypto.cipher.CryptoSearching._
-    implicit val decrypt: Key ⇒ Task[K] = keyCrypt.decrypt
-    search[Task, Key](keys).binarySearch(key)
-  }
+  private def binarySearch(key: K, keys: Array[Key]): Task[SearchResult] =
+    CipherSearch.binarySearch(keys, keyCrypt.inverse).runF[Task](key)
 
   /**
    * Verifies merkle proof for server response, after that search index of next child of branch.
@@ -353,16 +351,15 @@ object MerkleBTreeClient {
    */
   def apply[K](
     initClientState: Option[ClientState],
-    keyCrypt: Crypt[Task, K, Array[Byte]],
-    cryptoHasher: CryptoHasher[Array[Byte], Hash],
+    keyCrypt: Crypto.Cipher[K],
+    cryptoHasher: Crypto.Hasher[Array[Byte], Hash],
     signer: Signer
   )(implicit ord: Ordering[K]): MerkleBTreeClient[K] = {
     import Key._
-    import fluence.codec.Codec.identityCodec
 
     new MerkleBTreeClient[K](
       initClientState.getOrElse(ClientState(Hash.empty)),
-      Crypt.transform(keyCrypt),
+      keyCrypt andThen Crypto.codec[Array[Byte], Key],
       BTreeVerifier(cryptoHasher),
       signer
     )

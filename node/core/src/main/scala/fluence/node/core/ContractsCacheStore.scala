@@ -33,13 +33,13 @@ import fluence.codec.pb.ProtobufCodecs._
 import fluence.contract
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{PubKeyAndSignature, Signature}
 import fluence.kad.protocol.Key
 import fluence.node.persistence.{BasicContractCache, Participant}
 import fluence.storage.KVStore
 import scodec.bits.ByteVector
 import fluence.codec.bits.BitsCodecs._
+import fluence.crypto.KeyPair
+import fluence.crypto.signature.{PubKeyAndSignature, Signature}
 
 import scala.language.higherKinds
 

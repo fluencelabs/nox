@@ -19,7 +19,7 @@ package fluence.node.core
 
 import cats.effect.IO
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
-import fluence.crypto.SignAlgo
+import fluence.crypto.signature.SignAlgo
 import fluence.crypto.signature.Signer
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.Kademlia

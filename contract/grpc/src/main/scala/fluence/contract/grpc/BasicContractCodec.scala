@@ -28,13 +28,13 @@ import fluence.codec.{Codec, PureCodec}
 import fluence.codec.pb.ProtobufCodecs._
 import fluence.contract
 import fluence.contract.BasicContract.ExecutionState
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{PubKeyAndSignature, Signature}
 import fluence.kad.protocol.Key
 import scodec.bits.ByteVector
 import fluence.kad.KeyProtobufCodecs._
 import fluence.codec.bits.BitsCodecs._
 import fluence.contract.protobuf.{BasicContract, BasicContractOffer, Participant}
+import fluence.crypto.KeyPair
+import fluence.crypto.signature.{PubKeyAndSignature, Signature}
 
 import scala.language.higherKinds
 

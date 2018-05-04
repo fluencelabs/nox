@@ -23,7 +23,7 @@ import cats.Monad
 import cats.data.EitherT
 import cats.syntax.compose._
 import fluence.codec.{CodecError, PureCodec}
-import fluence.crypto.SignAlgo.CheckerFn
+import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.grpc.facade.Node
 import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}

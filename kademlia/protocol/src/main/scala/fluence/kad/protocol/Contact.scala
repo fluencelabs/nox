@@ -17,17 +17,13 @@
 
 package fluence.kad.protocol
 
-import java.net.InetAddress
-
 import cats.data.{EitherT, Reader}
-import cats.{Applicative, Monad, Show}
-import cats.syntax.eq._
+import cats.{Monad, Show}
 import fluence.codec
 import fluence.codec.{CodecError, PureCodec}
-import fluence.crypto.SignAlgo.CheckerFn
-import fluence.crypto.algorithm.CryptoErr
-import fluence.crypto.keypair.KeyPair
-import fluence.crypto.signature.{SignatureChecker, Signer}
+import fluence.crypto.{CryptoError, KeyPair}
+import fluence.crypto.signature.SignAlgo.CheckerFn
+import fluence.crypto.signature.Signer
 import io.circe._
 import scodec.bits.{Bases, ByteVector}
 
@@ -91,7 +87,7 @@ object Contact {
     protocolVersion: Long,
     gitHash: String,
     signer: Signer
-  ): EitherT[F, CryptoErr, Contact] = {
+  ): EitherT[F, CryptoError, Contact] = {
     val jwtHeader =
       Contact.JwtHeader(signer.publicKey, protocolVersion)
 

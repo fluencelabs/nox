@@ -18,7 +18,7 @@
 package fluence.kad.protocol
 
 import cats._
-import fluence.crypto.algorithm.Ecdsa
+import fluence.crypto.ecdsa.Ecdsa
 import org.scalatest.{Matchers, WordSpec}
 
 class ContactSpec extends WordSpec with Matchers {
@@ -27,9 +27,9 @@ class ContactSpec extends WordSpec with Matchers {
     "serialize and deserialize in Id" in {
 
       val algo = Ecdsa.signAlgo
-      import algo.checkerFn
+      import algo.checker
 
-      val Right(kp) = algo.generateKeyPair[Id]().value
+      val kp = algo.generateKeyPair.unsafe(None)
 
       val c = Contact
         .buildOwn[Id](

@@ -19,8 +19,6 @@ package fluence.contract.node
 
 import java.time.Clock
 
-import cats.syntax.applicative._
-import cats.syntax.applicativeError._
 import cats.data.EitherT
 import cats.effect.IO
 import cats.syntax.eq._
@@ -32,8 +30,8 @@ import fluence.contract.ops.{ContractRead, ContractWrite}
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.crypto.signature.Signer
 import fluence.contract.node.cache.ContractRecord
-import fluence.crypto.SignAlgo.CheckerFn
-import fluence.crypto.algorithm.CryptoErr
+import fluence.crypto.CryptoError
+import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.protocol.Key
 import fluence.storage.KVStore
 
@@ -124,9 +122,9 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
 
     } yield contract
 
-  private def eitherFail(check: EitherT[IO, CryptoErr, Boolean], msg: String): IO[Unit] =
+  private def eitherFail(check: EitherT[IO, CryptoError, Boolean], msg: String): IO[Unit] =
     check
-      .leftMap(_.errorMessage)
+      .leftMap(_.message)
       .flatMap(
         EitherT.cond[IO](_, (), msg)
       )
@@ -144,7 +142,7 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
     def signedContract: IO[C] =
       WriteOps[IO, C](contract)
         .signOffer(nodeId, signer)
-        .leftMap(_.errorMessage)
+        .leftMap(_.message)
         .leftMap(new RuntimeException(_))
         .value
         .flatMap(IO.fromEither)
