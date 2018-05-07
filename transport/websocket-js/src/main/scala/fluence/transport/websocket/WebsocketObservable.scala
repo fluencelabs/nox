@@ -90,11 +90,11 @@ final class WebsocketObservable(
           lastFrame = None
         case Failure(ex) ⇒
           lastFrame = Option(frame)
+          websocket.close()
       }
       Future { try_.get }.map(_ ⇒ Continue).recover {
         case e: Throwable ⇒
-          logger.error("Unsupported exception", e)
-          websocket.close()
+          logger.error(s"Unsupported exception on sending message through websocket to $url", e)
           Continue
       }
     }
@@ -113,21 +113,11 @@ final class WebsocketObservable(
       try {
         // Opening a WebSocket connection using Javascript's API
         logger.info(s"Connecting to $url")
+
         val webSocket = builder(url)
 
         // Input subscription
         var cancelable: Option[Cancelable] = None
-
-        try {
-          webSocket.setOnopen((event: Event) ⇒ {
-            println("ON OPEN")
-            attempts.set(0)
-            cancelable = Some(input.map(fr ⇒ (webSocket, fr)).subscribe(inputObserver))
-            lastFrame.foreach(fr ⇒ inputObserver.onNext((webSocket, fr)))
-          })
-        } catch {
-          case e: Throwable ⇒ e.printStackTrace()
-        }
 
         webSocket.setOnerror((event: ErrorEvent) ⇒ {
           logger.error(s"Error in websocket $url: ${event.message}")
@@ -135,11 +125,13 @@ final class WebsocketObservable(
         })
 
         webSocket.setOnclose((event: CloseEvent) ⇒ {
+          logger.debug(s"OnClose event $event in websocket $url")
           cancelable.foreach(_.cancel())
           subscriber.onComplete()
         })
 
         webSocket.setOnmessage((event: MessageEvent) ⇒ {
+          logger.debug(s"OnMessage event $event in websocket $url")
           event.data match {
             case s: String ⇒
               subscriber.onNext(Text(s))
@@ -163,9 +155,15 @@ final class WebsocketObservable(
 
         })
 
+        webSocket.setOnopen((event: Event) ⇒ {
+          logger.debug(s"OnOpen event $event in websocket $url")
+          attempts.set(0)
+          cancelable = Some(input.map(fr ⇒ (webSocket, fr)).subscribe(inputObserver))
+          lastFrame.foreach(fr ⇒ inputObserver.onNext((webSocket, fr)))
+        })
+
         Cancelable(() ⇒ {
           logger.info(s"Closing connection to $url")
-
         })
       } catch {
         case NonFatal(ex) ⇒

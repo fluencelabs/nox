@@ -26,13 +26,16 @@ case class WebsocketEcho(
   }
 
   def closeEvent(code: Int, message: String): CloseEvent = {
-    val me: CloseEvent = document.createEvent("CloseEvent").asInstanceOf[CloseEvent]
-    me.initCloseEvent("CloseEvent", true, false, true, code, message)
-    me
+    val event = js.Dynamic
+      .literal(
+        reason = message,
+        code = code
+      )
+      .asInstanceOf[CloseEvent]
+    event
   }
 
   private val errorOnceBytes: ByteBuffer = TypedArrayBuffer.wrap(new Int8Array(WebsocketEcho.errorOnceArray.toJSArray))
-  var errored = false
 
   var onopen: Event ⇒ Unit = null
   var onmessage: MessageEvent ⇒ Unit = null
@@ -44,17 +47,15 @@ case class WebsocketEcho(
   override def send(data: Blob): Unit = onmessage(newEvent(data))
 
   override def send(data: ArrayBuffer): Unit = {
-    if (!errored && errorOnceBytes == TypedArrayBuffer.wrap(data)) {
-      errored = true
-      onerror(errorEvent("BOOM"))
-    } else {
-      onmessage(newEvent(data))
-    }
+    if (!WebsocketEcho.errored && errorOnceBytes == TypedArrayBuffer.wrap(data)) {
+      WebsocketEcho.errored = true
+      throw new RuntimeException("Some error")
+    } else onmessage(newEvent(data))
   }
 
   override def close(code: Int, reason: String): Unit = onclose(closeEvent(code, reason))
 
-  override def close(): Unit = onclose(closeEvent(0, ""))
+  override def close(): Unit = onclose(closeEvent(1000, ""))
 
   override def setOnopen(onopen: Event ⇒ Unit): Unit = {
     this.onopen = onopen
@@ -69,4 +70,5 @@ case class WebsocketEcho(
 
 object WebsocketEcho {
   val errorOnceArray: Array[Byte] = Array[Byte](1, 1, 1, 1, 1, 1, 1)
+  var errored = false
 }

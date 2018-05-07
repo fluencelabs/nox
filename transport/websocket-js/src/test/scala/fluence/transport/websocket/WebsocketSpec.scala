@@ -13,10 +13,10 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
 
   implicit override def executionContext = monix.execution.Scheduler.Implicits.global
 
-  it should "work with multiple subscribers" in {
-    LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.DEBUG
+//  LoggerConfig.factory = PrintLoggerFactory()
+//  LoggerConfig.level = LogLevel.DEBUG
 
+  it should "work with multiple subscribers" in {
     val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
     val (observer, observable) = WebsocketClient.binaryClient(
@@ -81,5 +81,38 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
     }
 
     resultPromise.future
+  }
+
+  it should "not lose message after exception on send" in {
+    val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
+
+    val pr11 = Promise[Unit]
+    val pr21 = Promise[Unit]
+
+    val (observer, observable) = WebsocketClient.binaryClient(
+      "ws://localhost:8080/",
+      s ⇒ WebsocketEcho(s)
+    )
+
+    val obs1 = observable.subscribe(bv ⇒ {
+      pr11.trySuccess(())
+      println("OBS1 === " + bv)
+      Future(Continue)
+    })
+
+    val obs2 = observable.subscribe(bv ⇒ {
+      println("OBS2 === " + bv)
+      pr21.trySuccess(())
+      Future(Continue)
+    })
+
+    Try(observer.onNext(ByteVector.apply(WebsocketEcho.errorOnceArray)))
+
+    for {
+      _ ← pr11.future
+      _ ← pr21.future
+    } yield {
+      assert(true)
+    }
   }
 }
