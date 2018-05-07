@@ -19,7 +19,7 @@ import scala.util.control.{NoStackTrace, NonFatal}
 /**
  * Output of websocket.
  * @param url Connecting with websocket.
- * @param input Stream of events that we send by websocket.
+ * @param input Stream of events that we send by websocket. Will subscribe on it only when websocket is available.
  * @param numberOfAttempts Number of attempts to reconnect if we have an error or the connection will break.
  * @param connectTimeout Timeout to reconnect.
  */
@@ -33,6 +33,8 @@ final class WebsocketObservable(
   implicit scheduler: Scheduler
 ) extends Observable[WebsocketFrame] with slogging.LazyLogging {
   self ⇒
+
+  case class SendingElement(websocket: WebsocketT, frame: WebsocketFrame)
 
   /**
    * Flag, that can be changed to `true` by `CloseFrame`.
@@ -54,6 +56,9 @@ final class WebsocketObservable(
     ByteVector(typed)
   }
 
+  /**
+   * Close connection to websocket. This will cause the restart of observable.
+   */
   private def closeConnection(webSocket: WebsocketT): Unit = {
     if (webSocket != null && webSocket.readyState <= 1)
       try webSocket.close()
@@ -76,27 +81,28 @@ final class WebsocketObservable(
     }
   }
 
+  /**
+   * Cached frame if we got exception on sending this frame.
+   */
   var lastFrame: Option[WebsocketFrame] = None
 
   // An observer that will send events from input observable
-  private val inputObserver: Observer[(WebsocketT, WebsocketFrame)] = new Observer[(WebsocketT, WebsocketFrame)] {
+  private val inputObserver: Observer[SendingElement] = new Observer[SendingElement] {
 
-    override def onNext(elem: (WebsocketT, WebsocketFrame)): Future[Ack] = {
-      val websocket = elem._1
-      val frame = elem._2
-      val try_ = Try(sendFrame(websocket, frame))
+    override def onNext(elem: SendingElement): Future[Ack] = {
+      val try_ = Try(sendFrame(elem.websocket, elem.frame))
       try_ match {
         case Success(_) ⇒
           lastFrame = None
         case Failure(ex) ⇒
-          lastFrame = Option(frame)
-          websocket.close()
+          lastFrame = Option(elem.frame)
+          logger.error(
+            s"Unsupported exception on sending message through websocket to $url. Store frame and restart websocket.",
+            ex
+          )
+          elem.websocket.close()
       }
-      Future { try_.get }.map(_ ⇒ Continue).recover {
-        case e: Throwable ⇒
-          logger.error(s"Unsupported exception on sending message through websocket to $url", e)
-          Continue
-      }
+      Future(Continue)
     }
 
     override def onError(ex: Throwable): Unit =
@@ -119,11 +125,13 @@ final class WebsocketObservable(
         // Input subscription
         var cancelable: Option[Cancelable] = None
 
+        // Send exception to subscriber on error. This will restart observable and reconnect websocket.
         webSocket.setOnerror((event: ErrorEvent) ⇒ {
           logger.error(s"Error in websocket $url: ${event.message}")
           subscriber.onError(WebsocketObservable.WebsocketException(event.message))
         })
 
+        // Send onComplete to subscriber. This will restart observable and reconnect websocket.
         webSocket.setOnclose((event: CloseEvent) ⇒ {
           logger.debug(s"OnClose event $event in websocket $url")
           cancelable.foreach(_.cancel())
@@ -155,11 +163,12 @@ final class WebsocketObservable(
 
         })
 
+        // Subscribe to incoming messages here. Send cached frame if it was error on sending message before.
         webSocket.setOnopen((event: Event) ⇒ {
           logger.debug(s"OnOpen event $event in websocket $url")
           attempts.set(0)
-          cancelable = Some(input.map(fr ⇒ (webSocket, fr)).subscribe(inputObserver))
-          lastFrame.foreach(fr ⇒ inputObserver.onNext((webSocket, fr)))
+          cancelable = Some(input.map(fr ⇒ SendingElement(webSocket, fr)).subscribe(inputObserver))
+          lastFrame.foreach(fr ⇒ inputObserver.onNext(SendingElement(webSocket, fr)))
         })
 
         Cancelable(() ⇒ {
@@ -176,11 +185,14 @@ final class WebsocketObservable(
 
     channel.unsafeSubscribeFn(new Observer[WebsocketFrame] {
 
+      /**
+       * We will reconnect until the observable is `closed` or until the `attempts` ends.
+       */
       def tryReconnect(call: ⇒ Unit): Unit = {
         if (!closed.get && numberOfAttempts >= attempts.get) {
           attempts.increment()
 
-          // Subscribing we reconnect to the websocket.
+          // By subscribing we reconnect to the websocket.
           val canc = self
             .delaySubscription(connectTimeout)
             .unsafeSubscribeFn(subscriber)
