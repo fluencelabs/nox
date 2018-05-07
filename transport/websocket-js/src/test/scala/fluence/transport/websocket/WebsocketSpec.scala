@@ -4,7 +4,6 @@ import monix.execution.Ack.Continue
 import monix.reactive.OverflowStrategy
 import org.scalatest.{Assertion, AsyncFlatSpec, Matchers}
 import scodec.bits.ByteVector
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.{Future, Promise}
 import scala.util.Try
@@ -12,9 +11,6 @@ import scala.util.Try
 class WebsocketSpec extends AsyncFlatSpec with Matchers {
 
   implicit override def executionContext = monix.execution.Scheduler.Implicits.global
-
-//  LoggerConfig.factory = PrintLoggerFactory()
-//  LoggerConfig.level = LogLevel.DEBUG
 
   it should "work with multiple subscribers" in {
     val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded

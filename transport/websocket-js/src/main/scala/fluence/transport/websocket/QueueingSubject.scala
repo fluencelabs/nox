@@ -10,6 +10,10 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import monix.execution.Scheduler.Implicits.global
 
+/**
+ * Subject that cache input messages if there is no subscribers.
+ * @tparam T In/out type.
+ */
 class QueueingSubject[T] extends Subject[T, T] {
   val publishSubject: PublishSubject[T] = PublishSubject[T]()
   val inputCache: mutable.Queue[T] = mutable.Queue.empty[T]

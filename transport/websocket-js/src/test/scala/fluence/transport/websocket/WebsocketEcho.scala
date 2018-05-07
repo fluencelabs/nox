@@ -9,6 +9,10 @@ import scala.scalajs.js
 import scala.scalajs.js.typedarray.{ArrayBuffer, Int8Array, TypedArrayBuffer}
 import scala.scalajs.js.JSConverters._
 
+/**
+ * Mock websocket that echo for each messages except `errorOnceBytes` and `closeWebsocketBytes` control messages.
+ * @param url
+ */
 case class WebsocketEcho(
   url: String
 ) extends WebsocketT {

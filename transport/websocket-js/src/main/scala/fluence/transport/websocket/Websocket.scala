@@ -5,6 +5,9 @@ import org.scalajs.dom._
 
 import scala.scalajs.js.typedarray.ArrayBuffer
 
+/**
+ * Trait for wrapping websocket.
+ */
 trait WebsocketT {
   def setOnopen(onopen: Event ⇒ Unit): Unit
   def setOnmessage(onmessage: MessageEvent ⇒ Unit): Unit
