@@ -96,21 +96,72 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
 
     val obs1 = observable.subscribe(bv ⇒ {
       pr11.trySuccess(())
-      println("OBS1 === " + bv)
       Future(Continue)
     })
 
     val obs2 = observable.subscribe(bv ⇒ {
-      println("OBS2 === " + bv)
       pr21.trySuccess(())
       Future(Continue)
     })
 
-    Try(observer.onNext(ByteVector.apply(WebsocketEcho.errorOnceArray)))
+    Try(observer.onNext(ByteVector.apply(WebsocketEcho.errorOnceMessage)))
 
     for {
       _ ← pr11.future
       _ ← pr21.future
+    } yield {
+      assert(true)
+    }
+  }
+
+  it should "work if server restarted" in {
+    val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
+
+    val pr11 = Promise[Unit]
+    val pr12 = Promise[Unit]
+    val pr13 = Promise[Unit]
+    val pr14 = Promise[Unit]
+    val pr21 = Promise[Unit]
+    val pr22 = Promise[Unit]
+    val pr23 = Promise[Unit]
+    val pr24 = Promise[Unit]
+
+    val (observer, observable) = WebsocketClient.binaryClient(
+      "ws://localhost:8080/",
+      s ⇒ WebsocketEcho(s)
+    )
+
+    val obs1 = observable.subscribe(bv ⇒ {
+      if (bv == ByteVector(1)) pr11.trySuccess(())
+      if (bv == ByteVector(2)) pr12.trySuccess(())
+      if (bv == ByteVector(3)) pr13.trySuccess(())
+      if (bv == ByteVector(4)) pr14.trySuccess(())
+      Future(Continue)
+    })
+
+    val obs2 = observable.subscribe(bv ⇒ {
+      if (bv == ByteVector(1)) pr21.trySuccess(())
+      if (bv == ByteVector(2)) pr22.trySuccess(())
+      if (bv == ByteVector(3)) pr23.trySuccess(())
+      if (bv == ByteVector(4)) pr24.trySuccess(())
+      Future(Continue)
+    })
+
+    observer.onNext(ByteVector(1))
+    observer.onNext(ByteVector(2))
+    observer.onNext(ByteVector.apply(WebsocketEcho.closeWebsocketMessage))
+    observer.onNext(ByteVector(3))
+    observer.onNext(ByteVector(4))
+
+    for {
+      _ ← pr11.future
+      _ ← pr12.future
+      _ ← pr13.future
+      _ ← pr14.future
+      _ ← pr21.future
+      _ ← pr22.future
+      _ ← pr23.future
+      _ ← pr24.future
     } yield {
       assert(true)
     }

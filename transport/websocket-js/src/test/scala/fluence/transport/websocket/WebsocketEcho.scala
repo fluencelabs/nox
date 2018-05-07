@@ -35,7 +35,10 @@ case class WebsocketEcho(
     event
   }
 
-  private val errorOnceBytes: ByteBuffer = TypedArrayBuffer.wrap(new Int8Array(WebsocketEcho.errorOnceArray.toJSArray))
+  private val errorOnceBytes: ByteBuffer =
+    TypedArrayBuffer.wrap(new Int8Array(WebsocketEcho.errorOnceMessage.toJSArray))
+  private val closeWebsocketBytes: ByteBuffer =
+    TypedArrayBuffer.wrap(new Int8Array(WebsocketEcho.closeWebsocketMessage.toJSArray))
 
   var onopen: Event ⇒ Unit = null
   var onmessage: MessageEvent ⇒ Unit = null
@@ -50,7 +53,9 @@ case class WebsocketEcho(
     if (!WebsocketEcho.errored && errorOnceBytes == TypedArrayBuffer.wrap(data)) {
       WebsocketEcho.errored = true
       throw new RuntimeException("Some error")
-    } else onmessage(newEvent(data))
+    } else if (closeWebsocketBytes == TypedArrayBuffer.wrap(data))
+      close()
+    else onmessage(newEvent(data))
   }
 
   override def close(code: Int, reason: String): Unit = onclose(closeEvent(code, reason))
@@ -69,6 +74,7 @@ case class WebsocketEcho(
 }
 
 object WebsocketEcho {
-  val errorOnceArray: Array[Byte] = Array[Byte](1, 1, 1, 1, 1, 1, 1)
+  val errorOnceMessage: Array[Byte] = Array[Byte](1, 1, 1, 1, 1, 1, 1)
+  val closeWebsocketMessage: Array[Byte] = Array[Byte](2, 2, 2, 2, 2, 2, 2)
   var errored = false
 }
