@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2017  Fluence Labs Limited
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package fluence.transport.websocket
 
 import monix.execution.Ack.{Continue, Stop}
@@ -27,7 +44,9 @@ final class WebsocketObservable(
   url: String,
   builder: String ⇒ WebsocketT,
   input: Observable[WebsocketFrame],
-  numberOfAttempts: Int = 13,
+  statusOutput: Observer[StatusFrame],
+  // TODO add these values to the config in the future
+  numberOfAttempts: Int = 3,
   connectTimeout: FiniteDuration = 3.seconds
 )(
   implicit scheduler: Scheduler
@@ -90,17 +109,17 @@ final class WebsocketObservable(
   private val inputObserver: Observer[SendingElement] = new Observer[SendingElement] {
 
     override def onNext(elem: SendingElement): Future[Ack] = {
-      val try_ = Try(sendFrame(elem.websocket, elem.frame))
-      try_ match {
+      val sendingAttempt = Try(sendFrame(elem.websocket, elem.frame))
+      lastFrame = sendingAttempt match {
         case Success(_) ⇒
-          lastFrame = None
+          None
         case Failure(ex) ⇒
-          lastFrame = Option(elem.frame)
           logger.error(
             s"Unsupported exception on sending message through websocket to $url. Store frame and restart websocket.",
             ex
           )
           elem.websocket.close()
+          Option(elem.frame)
       }
       Future(Continue)
     }
@@ -128,12 +147,14 @@ final class WebsocketObservable(
         // Send exception to subscriber on error. This will restart observable and reconnect websocket.
         webSocket.setOnerror((event: ErrorEvent) ⇒ {
           logger.error(s"Error in websocket $url: ${event.message}")
+          statusOutput.onNext(WebsocketOnError(event.message))
           subscriber.onError(WebsocketObservable.WebsocketException(event.message))
         })
 
         // Send onComplete to subscriber. This will restart observable and reconnect websocket.
         webSocket.setOnclose((event: CloseEvent) ⇒ {
           logger.debug(s"OnClose event $event in websocket $url")
+          statusOutput.onNext(WebsocketOnClose(event.code, event.reason))
           cancelable.foreach(_.cancel())
           subscriber.onComplete()
         })
@@ -166,6 +187,7 @@ final class WebsocketObservable(
         // Subscribe to incoming messages here. Send cached frame if it was error on sending message before.
         webSocket.setOnopen((event: Event) ⇒ {
           logger.debug(s"OnOpen event $event in websocket $url")
+          statusOutput.onNext(WebsocketOnOpen)
           attempts.set(0)
           cancelable = Some(input.map(fr ⇒ SendingElement(webSocket, fr)).subscribe(inputObserver))
           lastFrame.foreach(fr ⇒ inputObserver.onNext(SendingElement(webSocket, fr)))
@@ -176,6 +198,7 @@ final class WebsocketObservable(
         })
       } catch {
         case NonFatal(ex) ⇒
+          logger.error(s"The creation of a websocket $url passed with an error. Trying to restart observable.")
           subscriber.onError(ex)
           Cancelable.empty
       }

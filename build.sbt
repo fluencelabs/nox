@@ -298,7 +298,7 @@ lazy val `transport-websocket-js` = project
     libraryDependencies ++= Seq(
       "io.monix"      %%% "monix"       % MonixV,
       "biz.enef"      %%% "slogging"    % SloggingV,
-      "org.scala-js"  %%% "scalajs-dom" % "0.9.2",
+      "org.scala-js"  %%% "scalajs-dom" % scalajsDomV,
       "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
       "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     ),
@@ -308,6 +308,7 @@ lazy val `transport-websocket-js` = project
     jsEnv                           := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
   )
   .enablePlugins(ScalaJSPlugin)
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)

@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2017  Fluence Labs Limited
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package fluence.transport.websocket
 
 import monix.execution.Ack.Continue
@@ -15,7 +32,7 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
   it should "work with multiple subscribers" in {
     val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
-    val (observer, observable) = WebsocketClient.binaryClient(
+    val WebsocketClient(observer, observable, _) = WebsocketClient.binaryClient(
       "ws://localhost:8080/",
       s ⇒ WebsocketEcho(s)
     )
@@ -43,7 +60,7 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
 
     val resultPromise = Promise[Assertion]
 
-    for {
+    (for {
       _ ← pr11.future
       _ ← pr21.future
       _ = obs2.cancel()
@@ -73,10 +90,12 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
       val obs6 = observable.subscribe(bv ⇒ {
         Future(Continue)
       })
-      resultPromise.trySuccess(assert(true))
+      assert(true)
+    }).recover {
+      case e: Throwable ⇒
+        e.printStackTrace()
+        assert(false)
     }
-
-    resultPromise.future
   }
 
   it should "not lose message after exception on send" in {
@@ -85,7 +104,7 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
     val pr11 = Promise[Unit]
     val pr21 = Promise[Unit]
 
-    val (observer, observable) = WebsocketClient.binaryClient(
+    val WebsocketClient(observer, observable, _) = WebsocketClient.binaryClient(
       "ws://localhost:8080/",
       s ⇒ WebsocketEcho(s)
     )
@@ -100,13 +119,17 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
       Future(Continue)
     })
 
-    Try(observer.onNext(ByteVector.apply(WebsocketEcho.errorOnceMessage)))
+    observer.onNext(ByteVector.apply(WebsocketEcho.errorOnceOnSendMessage))
 
-    for {
+    (for {
       _ ← pr11.future
       _ ← pr21.future
     } yield {
       assert(true)
+    }).recover {
+      case e: Throwable ⇒
+        e.printStackTrace()
+        assert(false)
     }
   }
 
@@ -122,7 +145,7 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
     val pr23 = Promise[Unit]
     val pr24 = Promise[Unit]
 
-    val (observer, observable) = WebsocketClient.binaryClient(
+    val WebsocketClient(observer, observable, _) = WebsocketClient.binaryClient(
       "ws://localhost:8080/",
       s ⇒ WebsocketEcho(s)
     )
@@ -149,7 +172,7 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
     observer.onNext(ByteVector(3))
     observer.onNext(ByteVector(4))
 
-    for {
+    (for {
       _ ← pr11.future
       _ ← pr12.future
       _ ← pr13.future
@@ -160,6 +183,118 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
       _ ← pr24.future
     } yield {
       assert(true)
+    }).recover {
+      case e: Throwable ⇒
+        e.printStackTrace()
+        assert(false)
+    }
+  }
+
+  "error status" should "be sent to status observable" in {
+    val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
+
+    val prOnOpen = Promise[Unit]
+    val prOnError = Promise[Unit]
+
+    val WebsocketClient(observer, observable, statusOutput) = WebsocketClient.binaryClient(
+      "ws://localhost:8080/",
+      s ⇒ WebsocketEcho(s)
+    )
+
+    val obs1 = statusOutput.subscribe(status ⇒ {
+      status match {
+        case WebsocketOnOpen ⇒ prOnOpen.success(())
+        case WebsocketOnError(_) ⇒ prOnError.success(())
+        case _ ⇒
+      }
+      Future(Continue)
+    })
+
+    (for {
+      _ ← prOnOpen.future
+      _ = observer.onNext(ByteVector.apply(WebsocketEcho.errorWebsocketMessage))
+      _ ← prOnError.future
+    } yield {
+      obs1.cancel()
+      assert(true)
+    }).recover {
+      case e: Throwable ⇒
+        e.printStackTrace()
+        assert(false)
+    }
+  }
+
+  "close status" should "be sent to status observable" in {
+    val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
+
+    val prOnOpen = Promise[Unit]
+    val prOnOpen2 = Promise[Unit]
+    val prOnClose = Promise[Unit]
+
+    val WebsocketClient(observer, observable, statusOutput) = WebsocketClient.binaryClient(
+      "ws://localhost:8080/",
+      s ⇒ WebsocketEcho(s)
+    )
+
+    val obs1 = statusOutput.subscribe(status ⇒ {
+      status match {
+        case WebsocketOnOpen if prOnOpen.isCompleted ⇒ prOnOpen2.success(())
+        case WebsocketOnOpen ⇒ prOnOpen.success(())
+        case WebsocketOnClose(_, _) if !prOnClose.isCompleted ⇒ prOnClose.success(())
+        case _ ⇒
+      }
+      Future(Continue)
+    })
+
+    (for {
+      _ ← prOnOpen.future
+      _ = observer.onNext(ByteVector.apply(WebsocketEcho.closeWebsocketMessage))
+      _ ← prOnClose.future
+      _ ← prOnOpen2.future
+    } yield {
+      obs1.cancel()
+      assert(true)
+    }).recover {
+      case e: Throwable ⇒
+        e.printStackTrace()
+        assert(false)
+    }
+  }
+
+  "websocket" should "be restarted on error on send" in {
+    val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
+
+    val prOnOpen = Promise[Unit]
+    val prOnOpen2 = Promise[Unit]
+    val prOnClose = Promise[Unit]
+
+    val WebsocketClient(observer, observable, statusOutput) = WebsocketClient.binaryClient(
+      "ws://localhost:8080/",
+      s ⇒ WebsocketEcho(s)
+    )
+
+    val obs1 = statusOutput.subscribe(status ⇒ {
+      status match {
+        case WebsocketOnOpen if prOnOpen.isCompleted ⇒ prOnOpen2.success(())
+        case WebsocketOnOpen ⇒ prOnOpen.success(())
+        case WebsocketOnClose(_, _) if !prOnClose.isCompleted ⇒ prOnClose.success(())
+        case _ ⇒
+      }
+      Future(Continue)
+    })
+
+    (for {
+      _ ← prOnOpen.future
+      _ = observer.onNext(ByteVector.apply(WebsocketEcho.errorOnceOnSendMessage))
+      _ ← prOnClose.future
+      _ ← prOnOpen2.future
+    } yield {
+      obs1.cancel()
+      assert(true)
+    }).recover {
+      case e: Throwable ⇒
+        e.printStackTrace()
+        assert(false)
     }
   }
 }
