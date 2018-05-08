@@ -287,6 +287,7 @@ lazy val `transport-grpc-proxy` = project
     )
   )
   .dependsOn(`transport-core-jvm`, `websocket-protobuf-jvm`)
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `transport-websocket-js` = project
   .in(file("transport/websocket-js"))

@@ -59,12 +59,12 @@ object WebsocketClient {
   def binaryClient(
     url: String,
     builder: String ⇒ WebsocketT
-  )(implicit scheduler: Scheduler): WebsocketClient[ByteVector] = {
+  )(implicit scheduler: Scheduler): WebsocketClient[Array[Byte]] = {
 
     val WebsocketClient(wsObserver, wsObservable, statusOutput) = WebsocketClient(url, builder)
 
-    val binaryClient: Observer[ByteVector] = new Observer[ByteVector] {
-      override def onNext(elem: ByteVector): Future[Ack] = wsObserver.onNext(Binary(elem))
+    val binaryClient: Observer[Array[Byte]] = new Observer[Array[Byte]] {
+      override def onNext(elem: Array[Byte]): Future[Ack] = wsObserver.onNext(Binary(elem))
 
       override def onError(ex: Throwable): Unit = wsObserver.onError(ex)
 

@@ -23,24 +23,77 @@ import org.scalajs.dom._
 import scala.scalajs.js.typedarray.ArrayBuffer
 
 /**
- * Trait for wrapping websocket.
+ * Trait for wrapping websocket. For possibility to mock websocket and test logic.
  */
 trait WebsocketT {
+
+  /**
+   * An event listener to be called when the WebSocket connection's readyState changes
+   * to OPEN; this indicates that the connection is ready to send and receive data. The
+   * event is a simple one with the name "open".
+   *
+   * MDN
+   */
   def setOnopen(onopen: Event ⇒ Unit): Unit
+
+  /**
+   * An event listener to be called when a message is received from the server. The
+   * listener receives a MessageEvent named "message".
+   *
+   * MDN
+   */
   def setOnmessage(onmessage: MessageEvent ⇒ Unit): Unit
+
+  /**
+   * An event listener to be called when an error occurs. This is a simple event named
+   * "error".
+   *
+   * MDN
+   */
   def setOnerror(onerror: ErrorEvent ⇒ Unit): Unit
+
+  /**
+   * An event listener to be called when the WebSocket connection's readyState changes
+   * to CLOSED. The listener receives a CloseEvent named "close".
+   *
+   * MDN
+   */
   def setOnclose(onclose: CloseEvent ⇒ Unit): Unit
+
+  /**
+   * The current state of the connection; this is one of the Ready state constants. Read
+   * only.
+   *
+   * MDN
+   */
   def readyState: Int
+
+  /**
+   * Transmits data to the server over the WebSocket connection.
+   *
+   * MDN
+   */
   def send(data: String): Unit
   def send(data: Blob): Unit
   def send(data: ArrayBuffer): Unit
+
+  /**
+   * Closes the WebSocket connection or connection attempt, if any. If the connection
+   * is already CLOSED, this method does nothing.
+   *
+   * MDN
+   */
   def close(code: Int, reason: String)
   def close()
 }
 
+/**
+ * Implementation of trait WebsocketT with dom.WebSocket from browser.
+ * @param url Address to connect.
+ */
 case class Websocket(url: String) extends WebsocketT {
 
-  val websocket = new WebSocket(url)
+  private val websocket = new WebSocket(url)
 
   override def send(data: String): Unit = websocket.send(data)
   override def send(data: Blob): Unit = websocket.send(data)

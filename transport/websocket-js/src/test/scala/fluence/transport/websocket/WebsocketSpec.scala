@@ -42,8 +42,8 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
     val pr21 = Promise[Unit]
 
     val obs1 = observable.subscribe(bv ⇒ {
-      if (bv == ByteVector(1)) pr11.trySuccess(())
-      if (bv == ByteVector(2)) pr12.trySuccess(())
+      if (bv sameElements Array[Byte](1)) pr11.trySuccess(())
+      if (bv sameElements Array[Byte](2)) pr12.trySuccess(())
       Future(Continue)
     })
 
@@ -52,7 +52,7 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
       Future(Continue)
     })
 
-    Try(observer.onNext(ByteVector(1)))
+    observer.onNext(Array[Byte](1))
 
     val pr31 = Promise[Unit]
     val pr41 = Promise[Unit]
@@ -64,27 +64,27 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
       _ ← pr11.future
       _ ← pr21.future
       _ = obs2.cancel()
-      _ = observer.onNext(ByteVector(2))
+      _ = observer.onNext(Array[Byte](2))
       _ ← pr12.future
       obs3 = observable.subscribe(bv ⇒ {
-        if (bv == ByteVector(3)) pr31.trySuccess(())
+        if (bv sameElements Array[Byte](3)) pr31.trySuccess(())
         Future(Continue)
       })
       obs4 = observable.subscribe(bv ⇒ {
-        if (bv == ByteVector(3)) pr41.trySuccess(())
+        if (bv sameElements Array[Byte](3)) pr41.trySuccess(())
         Future(Continue)
       })
-      _ = observer.onNext(ByteVector(3))
+      _ = observer.onNext(Array[Byte](3))
       _ ← pr31.future
       _ ← pr41.future
       _ = obs1.cancel()
       _ = obs3.cancel()
       _ = obs4.cancel()
       obs5 = observable.subscribe(bv ⇒ {
-        if (bv == ByteVector(4)) pr51.trySuccess(())
+        if (bv sameElements Array[Byte](4)) pr51.trySuccess(())
         Future(Continue)
       })
-      _ = observer.onNext(ByteVector(4))
+      _ = observer.onNext(Array[Byte](4))
       _ ← pr51.future
     } yield {
       val obs6 = observable.subscribe(bv ⇒ {
@@ -119,7 +119,7 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
       Future(Continue)
     })
 
-    observer.onNext(ByteVector.apply(WebsocketEcho.errorOnceOnSendMessage))
+    observer.onNext(WebsocketEcho.errorOnceOnSendMessage)
 
     (for {
       _ ← pr11.future
@@ -151,26 +151,26 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
     )
 
     val obs1 = observable.subscribe(bv ⇒ {
-      if (bv == ByteVector(1)) pr11.trySuccess(())
-      if (bv == ByteVector(2)) pr12.trySuccess(())
-      if (bv == ByteVector(3)) pr13.trySuccess(())
-      if (bv == ByteVector(4)) pr14.trySuccess(())
+      if (bv sameElements Array[Byte](1)) pr11.trySuccess(())
+      if (bv sameElements Array[Byte](2)) pr12.trySuccess(())
+      if (bv sameElements Array[Byte](3)) pr13.trySuccess(())
+      if (bv sameElements Array[Byte](4)) pr14.trySuccess(())
       Future(Continue)
     })
 
     val obs2 = observable.subscribe(bv ⇒ {
-      if (bv == ByteVector(1)) pr21.trySuccess(())
-      if (bv == ByteVector(2)) pr22.trySuccess(())
-      if (bv == ByteVector(3)) pr23.trySuccess(())
-      if (bv == ByteVector(4)) pr24.trySuccess(())
+      if (bv sameElements Array[Byte](1)) pr21.trySuccess(())
+      if (bv sameElements Array[Byte](2)) pr22.trySuccess(())
+      if (bv sameElements Array[Byte](3)) pr23.trySuccess(())
+      if (bv sameElements Array[Byte](4)) pr24.trySuccess(())
       Future(Continue)
     })
 
-    observer.onNext(ByteVector(1))
-    observer.onNext(ByteVector(2))
-    observer.onNext(ByteVector.apply(WebsocketEcho.closeWebsocketMessage))
-    observer.onNext(ByteVector(3))
-    observer.onNext(ByteVector(4))
+    observer.onNext(Array[Byte](1))
+    observer.onNext(Array[Byte](2))
+    observer.onNext(WebsocketEcho.closeWebsocketMessage)
+    observer.onNext(Array[Byte](3))
+    observer.onNext(Array[Byte](4))
 
     (for {
       _ ← pr11.future
@@ -212,7 +212,7 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
 
     (for {
       _ ← prOnOpen.future
-      _ = observer.onNext(ByteVector.apply(WebsocketEcho.errorWebsocketMessage))
+      _ = observer.onNext(WebsocketEcho.errorWebsocketMessage)
       _ ← prOnError.future
     } yield {
       obs1.cancel()
@@ -248,7 +248,7 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
 
     (for {
       _ ← prOnOpen.future
-      _ = observer.onNext(ByteVector.apply(WebsocketEcho.closeWebsocketMessage))
+      _ = observer.onNext(WebsocketEcho.closeWebsocketMessage)
       _ ← prOnClose.future
       _ ← prOnOpen2.future
     } yield {
@@ -285,7 +285,7 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
 
     (for {
       _ ← prOnOpen.future
-      _ = observer.onNext(ByteVector.apply(WebsocketEcho.errorOnceOnSendMessage))
+      _ = observer.onNext(WebsocketEcho.errorOnceOnSendMessage)
       _ ← prOnClose.future
       _ ← prOnOpen2.future
     } yield {

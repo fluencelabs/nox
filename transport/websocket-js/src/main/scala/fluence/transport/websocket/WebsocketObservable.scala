@@ -17,13 +17,12 @@
 
 package fluence.transport.websocket
 
-import monix.execution.Ack.{Continue, Stop}
+import monix.execution.Ack.Continue
 import monix.execution.atomic.{AtomicBoolean, AtomicInt}
 import monix.execution.{Ack, Cancelable, Scheduler}
 import monix.reactive.observers.Subscriber
 import monix.reactive.{Observable, Observer, OverflowStrategy}
 import org.scalajs.dom._
-import scodec.bits.ByteVector
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -70,9 +69,11 @@ final class WebsocketObservable(
   //TODO control overflow strategy
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
-  private def arrayToByteVector(buf: ArrayBuffer): ByteVector = {
+  private def arrayToByteVector(buf: ArrayBuffer): Array[Byte] = {
     val typed = TypedArrayBuffer.wrap(buf)
-    ByteVector(typed)
+    val arr = Array.ofDim[Byte](typed.remaining)
+    typed.get(arr)
+    arr
   }
 
   /**
