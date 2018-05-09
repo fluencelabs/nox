@@ -17,12 +17,17 @@
 
 import fluence.crypto.signature.SignAlgo
 import fluence.crypto.ecdsa.Ecdsa
-import fluence.kad.grpc.client.KademliaJSClient
-import fluence.kad.grpc.{KademliaGrpcService, KademliaNodeCodec}
+import fluence.kad.grpc.KademliaNodeCodecGrpc
+import fluence.kad.grpc.client.KademliaWebsocketClient
 import fluence.kad.protocol.Key
+import fluence.proxy.grpc.WebsocketMessage
+import fluence.transport.websocket.{Websocket, WebsocketPipe, WebsocketT}
+import monix.execution.Ack
+import monix.reactive.Observer
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
+import monix.execution.Scheduler.Implicits.global
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
 
 @JSExportTopLevel("Main")
@@ -34,12 +39,15 @@ object Main extends slogging.LazyLogging {
   val algo: SignAlgo = Ecdsa.signAlgo
   import algo.checker
 
-  implicit val codec = KademliaNodeCodec.pureCodec
+  implicit val codec = KademliaNodeCodecGrpc.pureCodec
 
-  val host = "http://localhost:8090"
+  val host = "ws://127.0.0.1:8080"
 
-  val grpcService = KademliaGrpcService(host, true)
-  val client = new KademliaJSClient(grpcService)
+  val builder: String ⇒ WebsocketT = str ⇒ Websocket(str)
+  val wsRawClient = WebsocketPipe.binaryClient(host, builder)
+
+  val ws = wsRawClient.xmap[WebsocketMessage, WebsocketMessage](_.toByteString.toByteArray, WebsocketMessage.parseFrom)
+  val client = new KademliaWebsocketClient(ws)
 
   @JSExport
   def logic(): Unit = {

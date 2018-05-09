@@ -15,16 +15,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.kad.grpc.facade
+package fluence.transport.websocket
 
-import scala.scalajs.js
+import fluence.transport.websocket.WebsocketPipe.WebsocketClient
+import monix.execution.Scheduler
 
-/**
- * Output on end of stream for unary request
- */
-@js.native
-trait InvokeOutput extends js.Object {
-  val code: Int = js.native
-  val message: String = js.native
-  val trailers: js.Any = js.native
+object ConnectionPool {
+  private var connections: Map[String, WebsocketClient[Array[Byte]]] = Map.empty
+
+  def getOrCreateConnection(url: String, builder: String ⇒ WebsocketT)(
+    implicit scheduler: Scheduler
+  ): WebsocketClient[Array[Byte]] = {
+    connections.getOrElse(url, {
+      val client = WebsocketPipe.binaryClient(url, builder)
+      connections = connections.updated(url, client)
+      client
+    })
+  }
 }

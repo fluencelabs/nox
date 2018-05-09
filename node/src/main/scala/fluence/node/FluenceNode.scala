@@ -33,6 +33,7 @@ import fluence.crypto.keystore.FileKeyStorage
 import fluence.crypto.Crypto
 import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.signature.SignAlgo
+import fluence.grpc.proxy.{GrpcWebsocketProxy, InProcessGrpc}
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{Contact, Key, Node}
 import fluence.node.core.NodeComposer
@@ -164,8 +165,13 @@ object FluenceNode extends slogging.LazyLogging {
 
       server ← NodeGrpc.grpcServer(services, builder, config).onFail(closeUpNpAndServices)
 
+      inProcessGrpc ← InProcessGrpc.build("in-process", builder.services)
+      fs2SchedulerWithShutdownTask ← fs2.Scheduler.allocate[IO](2)
+      (fs2Scheduler, fs2Shutdown) = fs2SchedulerWithShutdownTask
+      _ ← GrpcWebsocketProxy.startWebsocketServer(inProcessGrpc, fs2Scheduler, 8080).toIO(Scheduler.global)
+
       _ ← server.start.onFail(closeUpNpAndServices)
-      closeAll = closeUpNpAndServices.flatMap(_ ⇒ server.shutdown)
+      closeAll = closeUpNpAndServices.flatMap(_ ⇒ fs2Shutdown.attempt).flatMap(_ ⇒ server.shutdown)
 
       seedConfig ← SeedsConfig.read(config).onFail(closeAll)
       seedContacts ← seedConfig.contacts.onFail(closeAll)

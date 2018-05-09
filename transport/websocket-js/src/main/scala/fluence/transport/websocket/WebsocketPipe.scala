@@ -17,20 +17,41 @@
 
 package fluence.transport.websocket
 
+import fluence.proxy.grpc.WebsocketMessage
 import monix.execution.{Ack, Scheduler}
 import monix.reactive._
-import scodec.bits.ByteVector
 
 import scala.concurrent.Future
 import scala.language.higherKinds
 
-case class WebsocketClient[T] private (
-  input: Observer[T],
-  output: Observable[T],
+case class WebsocketPipe[A, B] private (
+  input: Observer[A],
+  output: Observable[B],
   statusOutput: Observable[StatusFrame]
-)
+) {
 
-object WebsocketClient {
+  def xmap[A1, B1](inputCodec: A1 ⇒ A, outputCodec: B ⇒ B1): WebsocketPipe[A1, B1] = {
+
+    val tObserver: Observer[A1] = new Observer[A1] {
+      override def onNext(elem: A1): Future[Ack] = {
+        val message = inputCodec(elem)
+        input.onNext(message)
+      }
+
+      override def onError(ex: Throwable): Unit = input.onError(ex)
+
+      override def onComplete(): Unit = input.onComplete()
+    }
+
+    val tObservable = output.map(outputCodec)
+
+    WebsocketPipe(tObserver, tObservable, statusOutput)
+  }
+}
+
+object WebsocketPipe {
+
+  type WebsocketClient[T] = WebsocketPipe[T, T]
 
   /**
    *
@@ -50,7 +71,7 @@ object WebsocketClient {
     val hotObservable = observable.multicast(Pipe.publish[WebsocketFrame])
     hotObservable.connect()
 
-    WebsocketClient(queueingSubject, hotObservable, statusOutput)
+    WebsocketPipe(queueingSubject, hotObservable, statusOutput)
   }
 
   /**
@@ -61,7 +82,7 @@ object WebsocketClient {
     builder: String ⇒ WebsocketT
   )(implicit scheduler: Scheduler): WebsocketClient[Array[Byte]] = {
 
-    val WebsocketClient(wsObserver, wsObservable, statusOutput) = WebsocketClient(url, builder)
+    val WebsocketPipe(wsObserver, wsObservable, statusOutput) = WebsocketPipe(url, builder)
 
     val binaryClient: Observer[Array[Byte]] = new Observer[Array[Byte]] {
       override def onNext(elem: Array[Byte]): Future[Ack] = wsObserver.onNext(Binary(elem))
@@ -75,6 +96,6 @@ object WebsocketClient {
       case Binary(data) ⇒ data
     }
 
-    WebsocketClient(binaryClient, binaryObservable, statusOutput)
+    WebsocketPipe(binaryClient, binaryObservable, statusOutput)
   }
 }

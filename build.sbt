@@ -126,7 +126,13 @@ lazy val `kademlia-protobuf` = crossProject(JVMPlatform, JSPlatform)
   .in(file("kademlia/protobuf"))
   .settings(
     commons,
-    protobuf,
+    PB.targets in Compile := Seq(
+      scalapb.gen(flatPackage = true) -> (sourceManaged in Compile).value
+    ),
+    libraryDependencies ++= Seq(
+      "com.thesamet.scalapb" %%% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion,
+      "com.thesamet.scalapb" %%% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf"
+    ),
     PB.protoSources in Compile := Seq(file("kademlia/protobuf/src/main/protobuf"))
   )
   .jsSettings(
@@ -152,17 +158,12 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
     grpc
   )
   .jsSettings(
-    npmDependencies in Compile ++= Seq(
-      npmProtobuf,
-      npmTypesProtobuf,
-      npmGrpcWebClient,
-      npmTsProtocGen
-    ),
+    scalaJSModuleKind               := ModuleKind.NoModule,
+    jsEnv                           := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv(),
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-java-time" % jsJavaTimeV
     ),
     workbenchStartMode := WorkbenchStartModes.Manual,
-    scalaJSModuleKind  := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies   := false,
     fork in Test                    := false,
@@ -175,8 +176,9 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
   .dependsOn(`kademlia-protobuf`, `transport-grpc`, `kademlia-protocol`, `kademlia-testkit` % Test)
 
 lazy val `kademlia-grpc-js` = `kademlia-grpc`.js
-  .enablePlugins(ScalaJSBundlerPlugin)
   .enablePlugins(WorkbenchPlugin)
+  .dependsOn(`transport-websocket-js`)
+
 lazy val `kademlia-grpc-jvm` = `kademlia-grpc`.jvm
 
 lazy val `kademlia-monix` =
@@ -301,6 +303,7 @@ lazy val `transport-websocket-js` = project
       "biz.enef"      %%% "slogging"    % SloggingV,
       "org.scala-js"  %%% "scalajs-dom" % scalajsDomV,
       "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
+      "one.fluence"   %%% "codec-core"  % CodecV,
       "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     ),
     scalaJSUseMainModuleInitializer := true,
@@ -310,6 +313,7 @@ lazy val `transport-websocket-js` = project
   )
   .enablePlugins(ScalaJSPlugin)
   .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`websocket-protobuf-js`)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -536,7 +540,6 @@ lazy val `crypto-hashsign` = crossProject(JVMPlatform, JSPlatform)
     npmDependencies in Compile ++= Seq(
       "elliptic" -> "6.4.0"
     ),
-    scalaJSModuleKind := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies := false,
     fork in Test                  := false
@@ -568,7 +571,6 @@ lazy val `crypto-cipher` = crossProject(JVMPlatform, JSPlatform)
     npmDependencies in Compile ++= Seq(
       "crypto-js" -> "3.1.9-1"
     ),
-    scalaJSModuleKind := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies := false,
     fork in Test                  := false
@@ -824,7 +826,7 @@ lazy val `node-grpc` = project
   .settings(
     commons
   )
-  .dependsOn(`node-core`, `client-grpc`)
+  .dependsOn(`node-core`, `client-grpc`, `transport-grpc-proxy`)
 
 lazy val `node` = project
   .dependsOn(`node-grpc`, `crypto-keystore-jvm`)
