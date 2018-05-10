@@ -52,6 +52,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
    * @return Method descriptor or None, if there is no descriptor in registered services.
    */
   private def getMethodDescriptor(service: String, method: String): Option[MethodDescriptor[Any, Any]] = {
+    println("METHODS === " + inProcessGrpc.services.map(_.getServiceDescriptor.getName))
     for {
       serviceDescriptor ← inProcessGrpc.services.find(_.getServiceDescriptor.getName == service)
       serverMethodDefinition ← Option(
@@ -157,13 +158,16 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   ): Task[Observable[Array[Byte]]] = {
     for {
       methodDescriptor ← getMethodDescriptorF(service, method)
+      _ = println(" DESCRIPTOR === " + methodDescriptor)
       req ← Task(methodDescriptor.parseRequest(stream))
+      _ = println(" REQ === " + req)
       resp ← {
         if (methodDescriptor.getType == MethodType.UNARY)
           handleUnaryCall(req, methodDescriptor)
         else
           handleStreamCall(req, methodDescriptor, requestId)
       }
+      _ = println(" RESP === " + resp)
     } yield resp
   }
 

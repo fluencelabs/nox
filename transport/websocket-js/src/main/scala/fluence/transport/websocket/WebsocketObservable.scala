@@ -110,6 +110,7 @@ final class WebsocketObservable(
   private val inputObserver: Observer[SendingElement] = new Observer[SendingElement] {
 
     override def onNext(elem: SendingElement): Future[Ack] = {
+      println("SENDING ELEMENT === " + elem)
       val sendingAttempt = Try(sendFrame(elem.websocket, elem.frame))
       lastFrame = sendingAttempt match {
         case Success(_) ⇒
@@ -199,6 +200,7 @@ final class WebsocketObservable(
         })
       } catch {
         case NonFatal(ex) ⇒
+          ex.printStackTrace()
           logger.error(s"The creation of a websocket $url passed with an error. Trying to restart observable.")
           subscriber.onError(ex)
           Cancelable.empty

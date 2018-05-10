@@ -163,12 +163,14 @@ object FluenceNode extends slogging.LazyLogging {
         .onFail(upnpShutdown)
       closeUpNpAndServices = upnpShutdown.flatMap(_ ⇒ services.close)
 
-      server ← NodeGrpc.grpcServer(services, builder, config).onFail(closeUpNpAndServices)
+      serverBuilder ← NodeGrpc.grpcServer(services, builder, config).onFail(closeUpNpAndServices)
+      serviceDefinitions = serverBuilder.services
+      server ← IO(serverBuilder.build)
 
-      inProcessGrpc ← InProcessGrpc.build("in-process", builder.services)
+      inProcessGrpc ← InProcessGrpc.build("in-process", serviceDefinitions)
       fs2SchedulerWithShutdownTask ← fs2.Scheduler.allocate[IO](2)
       (fs2Scheduler, fs2Shutdown) = fs2SchedulerWithShutdownTask
-      _ ← GrpcWebsocketProxy.startWebsocketServer(inProcessGrpc, fs2Scheduler, 8080).toIO(Scheduler.global)
+      _ ← GrpcWebsocketProxy.startWebsocketServer(inProcessGrpc, fs2Scheduler, 8090).toIO(Scheduler.global)
 
       _ ← server.start.onFail(closeUpNpAndServices)
       closeAll = closeUpNpAndServices.flatMap(_ ⇒ fs2Shutdown.attempt).flatMap(_ ⇒ server.shutdown)

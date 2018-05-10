@@ -43,7 +43,11 @@ case class WebsocketPipe[A, B] private (
       override def onComplete(): Unit = input.onComplete()
     }
 
-    val tObservable = output.map(outputCodec)
+    val tObservable = output.map { el ⇒
+      val a = outputCodec(el)
+      println("A ==== " + a)
+      a
+    }
 
     WebsocketPipe(tObserver, tObservable, statusOutput)
   }

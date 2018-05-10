@@ -50,7 +50,9 @@ object GrpcProxyClient {
 
     val tObserver: Observer[A] = new Observer[A] {
       override def onNext(elem: A): Future[Ack] = {
+        println("SENDING IN PROXY === " + elem)
         val message = messageCr(requestCodec.unsafe(elem))
+        println("MESSAGE === " + message)
         wsObserver.onNext(message)
       }
 
@@ -60,8 +62,10 @@ object GrpcProxyClient {
     }
 
     val tObservable = wsObservable.collect {
-      case WebsocketMessage(s, m, rId, payload) if s == service && m == method && rId == rId ⇒
-        responseCodec.unsafe(payload.toByteArray)
+      case mes @ WebsocketMessage(s, m, rId, payload) if s == service && m == method && rId == rId ⇒
+        println("MESSAGE IN OBSERVABLE === " + mes)
+        val resp = responseCodec.unsafe(payload.toByteArray)
+        resp
     }
 
     WebsocketPipe(tObserver, tObservable, websocketClient.statusOutput)

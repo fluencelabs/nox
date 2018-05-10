@@ -26,10 +26,14 @@ import fluence.kad.{protobuf, protocol}
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.proxy.grpc.WebsocketMessage
 import fluence.transport.websocket.WebsocketPipe.WebsocketClient
-import fluence.transport.websocket.{GrpcProxyClient, WebsocketPipe}
+import fluence.transport.websocket.GrpcProxyClient
+import monix.execution.Ack
+import monix.execution.Ack.Stop
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import monix.execution.Scheduler.Implicits.global
+import monix.reactive.Observer
+
 import scala.language.higherKinds
 import scala.util.Random
 
@@ -39,41 +43,70 @@ class KademliaWebsocketClient(websocket: WebsocketClient[WebsocketMessage])(
   ec: ExecutionContext
 ) extends KademliaRpc[Contact] {
 
-  val service = "kademlia"
+  val service = "fluence.kad.protobuf.grpc.Kademlia"
 
   /**
    * Ping the contact, get its actual Node status, or fail.
    */
   override def ping(): IO[Node[Contact]] = {
-    val requestId = Random.nextLong()
 
-    val requestCodec = new PureCodec.Func[PingRequest, Array[Byte]] {
-      override def apply[F[_]](input: PingRequest)(implicit F: Monad[F]): EitherT[F, CodecError, Array[Byte]] = {
-        EitherT.liftF(F.pure(input.toByteString.toByteArray))
+    try {
+      println(" START PINGING ===================")
+      val requestId = Random.nextLong()
+
+      val requestCodec = new PureCodec.Func[PingRequest, Array[Byte]] {
+        override def apply[F[_]](input: PingRequest)(implicit F: Monad[F]): EitherT[F, CodecError, Array[Byte]] = {
+          EitherT.liftF(F.pure(input.toByteString.toByteArray))
+        }
       }
-    }
 
-    val responseCodec1 = new PureCodec.Func[Array[Byte], fluence.kad.protobuf.Node] {
-      override def apply[F[_]](
-        input: Array[Byte]
-      )(implicit F: Monad[F]): EitherT[F, CodecError, fluence.kad.protobuf.Node] = {
-        EitherT.liftF(F.pure(fluence.kad.protobuf.Node.parseFrom(input)))
+      val responseCodec1 = new PureCodec.Func[Array[Byte], fluence.kad.protobuf.Node] {
+        override def apply[F[_]](
+          input: Array[Byte]
+        )(implicit F: Monad[F]): EitherT[F, CodecError, fluence.kad.protobuf.Node] = {
+          EitherT.liftF(F.pure(fluence.kad.protobuf.Node.parseFrom(input)))
+        }
       }
-    }
 
-    val responseCodec2 = new PureCodec.Func[Array[Byte], protocol.Node[Contact]] {
-      override def apply[F[_]](
-        input: Array[Byte]
-      )(implicit F: Monad[F]): EitherT[F, CodecError, protocol.Node[Contact]] = {
-        val a = responseCodec1.unsafe(input)
-        EitherT.liftF(F.pure(codec.inverse.unsafe(a)))
+      val responseCodec2 = new PureCodec.Func[Array[Byte], protocol.Node[Contact]] {
+        override def apply[F[_]](
+          input: Array[Byte]
+        )(implicit F: Monad[F]): EitherT[F, CodecError, protocol.Node[Contact]] = {
+          val a = responseCodec1.unsafe(input)
+          EitherT.liftF(F.pure(codec.inverse.unsafe(a)))
+        }
       }
+
+      val proxy = GrpcProxyClient.proxy(service, "ping", requestId, websocket, requestCodec, responseCodec2)
+
+      val result: Promise[Node[Contact]] = Promise[protocol.Node[Contact]]
+
+      val obs = new Observer[protocol.Node[Contact]] {
+
+        override def onNext(elem: Node[Contact]): Future[Ack] = {
+          result.success(elem)
+          Future(Stop)
+        }
+
+        override def onError(ex: Throwable): Unit = {
+          result.failure(ex)
+          onComplete()
+        }
+
+        override def onComplete(): Unit = ()
+      }
+
+      proxy.input.onNext(PingRequest())
+
+      proxy.output.subscribe(obs)
+
+      IO.fromFuture(IO(result.future))
+    } catch {
+      case e: Throwable ⇒
+        println("SOMETHING WRONG!!!")
+        e.printStackTrace()
+        throw e
     }
-
-    val proxy = GrpcProxyClient.proxy(service, "ping", requestId, websocket, requestCodec, responseCodec2)
-
-    proxy.input.onNext(PingRequest())
-    proxy.output.lastL.toIO
   }
 
   /**

@@ -70,7 +70,7 @@ object NodeGrpc {
     } yield client
 
   // Add server (with kademlia inside), build
-  def grpcServer(services: Services, serverBuilder: GrpcServer.Builder, config: Config): IO[GrpcServer] =
+  def grpcServer(services: Services, serverBuilder: GrpcServer.Builder, config: Config): IO[GrpcServer.Builder] =
     for {
       clientConf ← GrpcConf.read[IO](config)
     } yield {
@@ -97,7 +97,6 @@ object NodeGrpc {
         .add(ContractAllocatorGrpc.bindService(new ContractAllocatorServer[BasicContract](contractAllocator), ec))
         .add(DatasetStorageRpcGrpc.bindService(new DatasetStorageServer[Task](datasets), ec))
         .onCall(onGrpcCall)
-        .build
     }
 
   def grpcServerConf(config: Config): IO[GrpcServerConf] =

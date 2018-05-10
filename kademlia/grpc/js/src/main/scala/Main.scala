@@ -41,7 +41,7 @@ object Main extends slogging.LazyLogging {
 
   implicit val codec = KademliaNodeCodecGrpc.pureCodec
 
-  val host = "ws://127.0.0.1:8080"
+  val host = "ws://127.0.0.1:8090/ws"
 
   val builder: String ⇒ WebsocketT = str ⇒ Websocket(str)
   val wsRawClient = WebsocketPipe.binaryClient(host, builder)
@@ -52,9 +52,13 @@ object Main extends slogging.LazyLogging {
   @JSExport
   def logic(): Unit = {
     val keyP = algo.generateKeyPair.unsafe(None)
+    println("KEYP === " + keyP)
     val key = Key.fromPublicKey(keyP.publicKey).value.toOption.get
+    println("KEY === " + key)
+    println("PINGING")
     val io = for {
       node ← client.ping()
+      _ = println("Ping node response: " + node)
       _ = logger.info("Ping node response: " + node)
       listOfNodes ← client.lookup(key, 2)
       _ = logger.info("Lookup nodes response: " + listOfNodes.mkString("\n"))
@@ -64,7 +68,10 @@ object Main extends slogging.LazyLogging {
       logger.info("Lookup away nodes response: " + listOfNodes2.mkString("\n", "\n", "\n"))
     }
 
-    io.attempt.unsafeRunAsync(res ⇒ logger.info("Result: " + res))
+    io.attempt.map { e ⇒
+      println("EITHER E === " + e)
+      e
+    }.unsafeRunAsync(res ⇒ logger.info("Result: " + res))
   }
 
   def main(args: Array[String]): Unit = {
