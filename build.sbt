@@ -274,7 +274,6 @@ lazy val `transport-grpc-proxy` = project
     commons,
     grpc,
     PB.protoSources in Compile := Seq(
-      file("transport/grpc-proxy/src/main/protobuf"),
       file(baseDirectory.value.absolutePath + "/src/test/protobuf/")
     ),
     libraryDependencies ++= Seq(
@@ -288,6 +287,29 @@ lazy val `transport-grpc-proxy` = project
     )
   )
   .dependsOn(`transport-core-jvm`, `websocket-protobuf-jvm`)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `transport-websocket-js` = project
+  .in(file("transport/websocket-js"))
+  .settings(
+    commons,
+    PB.targets in Compile := Seq(
+      scalapb.gen(flatPackage = true) -> (sourceManaged in Compile).value
+    ),
+    libraryDependencies ++= Seq(
+      "io.monix"      %%% "monix"       % MonixV,
+      "biz.enef"      %%% "slogging"    % SloggingV,
+      "org.scala-js"  %%% "scalajs-dom" % scalajsDomV,
+      "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
+    ),
+    scalaJSUseMainModuleInitializer := true,
+    scalaJSModuleKind               := ModuleKind.NoModule,
+    fork in Test                    := false,
+    jsEnv                           := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
+  )
+  .enablePlugins(ScalaJSPlugin)
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -323,10 +345,10 @@ lazy val `storage-core` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %%% "codec-core" % CodecV,
+      "one.fluence"   %%% "codec-core"  % CodecV,
       "org.typelevel" %%% "cats-effect" % CatsEffectV,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test,
-      "io.monix"      %%% "monix"     % MonixV     % Test
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test,
+      "io.monix"      %%% "monix"       % MonixV % Test
     )
   )
   .jsSettings(

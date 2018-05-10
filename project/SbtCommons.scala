@@ -3,7 +3,6 @@ import de.heikoseeberger.sbtheader.License
 import sbt.Keys._
 import sbt._
 import sbtprotoc.ProtocPlugin.autoImport.PB
-import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 
 object SbtCommons {
 
@@ -42,6 +41,7 @@ object SbtCommons {
   val MonixV = "3.0.0-RC1"
   val FastparseV = "1.0.0"
   val jsJavaTimeV = "0.2.3"
+  val scalajsDomV = "0.9.2"
   val Http4sV = "0.18.5"
   val fs2ReactiveStreamsV = "0.5.1"
 
