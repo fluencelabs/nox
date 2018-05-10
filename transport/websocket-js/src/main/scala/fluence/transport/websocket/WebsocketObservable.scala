@@ -199,8 +199,7 @@ final class WebsocketObservable(
         })
       } catch {
         case NonFatal(ex) ⇒
-          ex.printStackTrace()
-          logger.error(s"The creation of a websocket $url passed with an error. Trying to restart observable.", ex)
+          logger.error(s"The creation of a websocket $url passed with an error. Trying to restart observable.")
           subscriber.onError(ex)
           Cancelable.empty
       }
