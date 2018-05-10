@@ -19,47 +19,43 @@ package fluence.transport.websocket
 
 import monix.execution.Ack.Continue
 import monix.reactive.{Observable, Observer}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{AsyncFlatSpec, Matchers}
 
 import scala.concurrent.Future
-import monix.execution.Scheduler.Implicits.global
 
 import scala.collection.mutable
 
-class SubjectQueueSpec extends WordSpec with Matchers {
-  "QueueingSubject" should {
-    "buffer elements if no subscribers and emit buffered elements after subscribe" in {
-      val subject = new SubjectQueue[String]
+class SubjectQueueSpec extends AsyncFlatSpec with Matchers {
 
-      val checker = mutable.ListBuffer.empty[String]
+  implicit override def executionContext = monix.execution.Scheduler.Implicits.global
 
-      val observer: Observer[String] = subject
-      val observable: Observable[String] = subject
+  "SubjectQueue" should "buffer elements if no subscribers and emit buffered elements after subscribe" in {
+    val subject = new SubjectQueue[String]
 
-      observer.onNext("1")
-      observer.onNext("2")
+    val checker = mutable.ListBuffer.empty[String]
 
-      val cancel = observable.subscribe(nextFn = { s ⇒
+    val observer: Observer[String] = subject
+    val observable: Observable[String] = subject
+
+    for {
+      _ ← observer.onNext("1")
+      _ ← observer.onNext("2")
+      cancel = observable.subscribe(nextFn = { s ⇒
         checker += s
         Future(Continue)
       })
-
-      observer.onNext("3")
-      observer.onNext("4")
-
-      cancel.cancel()
-
-      observer.onNext("5")
-      observer.onNext("6")
-
-      val cancel2 = observable.subscribe(nextFn = { s ⇒
+      _ ← observer.onNext("3")
+      _ ← observer.onNext("4")
+      _ = cancel.cancel()
+      _ ← observer.onNext("5")
+      _ ← observer.onNext("6")
+      cancel2 = observable.subscribe(nextFn = { s ⇒
         checker += s
         Future(Continue)
       })
-
-      observer.onNext("7")
-      observer.onNext("8")
-
+      _ ← observer.onNext("7")
+      _ ← observer.onNext("8")
+    } yield {
       checker should contain theSameElementsInOrderAs Range(1, 9).map(_.toString)
     }
   }
