@@ -26,23 +26,38 @@ import monix.reactive.subjects.{PublishSubject, Subject}
 import scala.collection.mutable
 import scala.concurrent.Future
 import monix.execution.Scheduler.Implicits.global
+import monix.execution.exceptions.APIContractViolationException
 
 /**
- * Subject that cache input messages if there is no subscribers.
+ * Subject that cache input messages if there is no subscriber. `SubjectQueue` can be subscribed at most once.
+ *
+ * If someone subscribe, observable will consume all cached elements at once and clear cache.
+ *
+ * In case the subject gets subscribed more than once, then the
+ * subscribers will be notified with a
+ * [[monix.execution.exceptions.APIContractViolationException APIContractViolationException]]
+ * error.
+ *
  * @tparam T In/out type.
  */
 class SubjectQueue[T] extends Subject[T, T] {
-  val publishSubject: PublishSubject[T] = PublishSubject[T]()
-  val inputCache: mutable.Queue[T] = mutable.Queue.empty[T]
+  private val publishSubject: PublishSubject[T] = PublishSubject[T]()
+  private val inputCache: mutable.Queue[T] = mutable.Queue.empty[T]
 
   override def unsafeSubscribeFn(subscriber: Subscriber[T]): Cancelable = {
-    Observable
-      .fromIterable(inputCache)
-      .doOnNext(el ⇒ subscriber.onNext(el))
-      .doOnComplete(() ⇒ inputCache.clear())
-      .subscribe()
 
-    publishSubject.subscribe(subscriber)
+    if (size >= 1) {
+      subscriber.onError(APIContractViolationException("PublishToOneSubject does not support multiple subscribers"))
+      Cancelable.empty
+    } else {
+      val cacheObservable = Observable
+        .fromIterable(inputCache)
+        .doOnNext(el ⇒ subscriber.onNext(el))
+        .doOnComplete(() ⇒ inputCache.clear())
+        .subscribe()
+
+      publishSubject.subscribe(subscriber)
+    }
   }
 
   override def size: Int = publishSubject.size
