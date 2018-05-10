@@ -61,6 +61,7 @@ object Main extends slogging.LazyLogging {
       _ = println("Ping node response: " + node)
       _ = logger.info("Ping node response: " + node)
       listOfNodes ← client.lookup(key, 2)
+      _ = println("Lookup nodes response: " + listOfNodes.mkString("\n"))
       _ = logger.info("Lookup nodes response: " + listOfNodes.mkString("\n"))
       key2 = listOfNodes.head.key
       listOfNodes2 ← client.lookupAway(key2, key, 2)

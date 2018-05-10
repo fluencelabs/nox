@@ -20,19 +20,22 @@ package fluence.kad.grpc.client
 import cats.Monad
 import cats.data.EitherT
 import cats.effect.IO
+import com.google.protobuf.ByteString
 import fluence.codec.{CodecError, PureCodec}
 import fluence.kad.protobuf.PingRequest
 import fluence.kad.{protobuf, protocol}
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.proxy.grpc.WebsocketMessage
 import fluence.transport.websocket.WebsocketPipe.WebsocketClient
-import fluence.transport.websocket.GrpcProxyClient
+import fluence.transport.websocket.{GrpcProxyClient, WebsocketPipe}
 import monix.execution.Ack
 import monix.execution.Ack.Stop
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import monix.execution.Scheduler.Implicits.global
-import monix.reactive.Observer
+import monix.reactive.{Observable, Observer}
+import fluence.kad.KeyProtobufCodecs._
+import scalapb.GeneratedMessage
 
 import scala.language.higherKinds
 import scala.util.Random
@@ -45,6 +48,44 @@ class KademliaWebsocketClient(websocket: WebsocketClient[WebsocketMessage])(
 
   val service = "fluence.kad.protobuf.grpc.Kademlia"
 
+  private val keyBS = PureCodec.codec[Key, ByteString].direct.toKleisli[IO]
+
+  private val streamCodec = {
+    import cats.instances.stream._
+    PureCodec.codec[Stream[protocol.Node[Contact]], Stream[protobuf.Node]]
+  }
+
+  def requestAndWaitOneResult[A, B](request: A, pipe: WebsocketPipe[A, B]): Future[B] = {
+    val result: Promise[B] = Promise[B]
+
+    val obs = new Observer[B] {
+
+      override def onNext(elem: B): Future[Ack] = {
+        result.success(elem)
+        Future(Stop)
+      }
+
+      override def onError(ex: Throwable): Unit = {
+        result.failure(ex)
+        onComplete()
+      }
+
+      override def onComplete(): Unit = ()
+    }
+
+    pipe.output.subscribe(obs)
+
+    pipe.input.onNext(request)
+
+    result.future
+  }
+
+  val requestCodec = new PureCodec.Func[GeneratedMessage, Array[Byte]] {
+    override def apply[F[_]](input: GeneratedMessage)(implicit F: Monad[F]): EitherT[F, CodecError, Array[Byte]] = {
+      EitherT.liftF(F.pure(input.toByteString.toByteArray))
+    }
+  }
+
   /**
    * Ping the contact, get its actual Node status, or fail.
    */
@@ -53,12 +94,6 @@ class KademliaWebsocketClient(websocket: WebsocketClient[WebsocketMessage])(
     try {
       println(" START PINGING ===================")
       val requestId = Random.nextLong()
-
-      val requestCodec = new PureCodec.Func[PingRequest, Array[Byte]] {
-        override def apply[F[_]](input: PingRequest)(implicit F: Monad[F]): EitherT[F, CodecError, Array[Byte]] = {
-          EitherT.liftF(F.pure(input.toByteString.toByteArray))
-        }
-      }
 
       val responseCodec1 = new PureCodec.Func[Array[Byte], fluence.kad.protobuf.Node] {
         override def apply[F[_]](
@@ -77,30 +112,10 @@ class KademliaWebsocketClient(websocket: WebsocketClient[WebsocketMessage])(
         }
       }
 
-      val proxy = GrpcProxyClient.proxy(service, "ping", requestId, websocket, requestCodec, responseCodec2)
+      val proxy: WebsocketPipe[GeneratedMessage, Node[Contact]] =
+        GrpcProxyClient.proxy(service, "ping", requestId, websocket, requestCodec, responseCodec2)
 
-      val result: Promise[Node[Contact]] = Promise[protocol.Node[Contact]]
-
-      val obs = new Observer[protocol.Node[Contact]] {
-
-        override def onNext(elem: Node[Contact]): Future[Ack] = {
-          result.success(elem)
-          Future(Stop)
-        }
-
-        override def onError(ex: Throwable): Unit = {
-          result.failure(ex)
-          onComplete()
-        }
-
-        override def onComplete(): Unit = ()
-      }
-
-      proxy.input.onNext(PingRequest())
-
-      proxy.output.subscribe(obs)
-
-      IO.fromFuture(IO(result.future))
+      IO.fromFuture(IO(requestAndWaitOneResult(PingRequest(), proxy)))
     } catch {
       case e: Throwable ⇒
         println("SOMETHING WRONG!!!")
@@ -114,7 +129,30 @@ class KademliaWebsocketClient(websocket: WebsocketClient[WebsocketMessage])(
    *
    * @param key Key to lookup
    */
-  override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] = ???
+  override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] = {
+    for {
+      k ← keyBS(key)
+      requestId = Random.nextLong()
+      request = protobuf.LookupRequest(k, numberOfNodes)
+      val responseCodec1 = new PureCodec.Func[Array[Byte], fluence.kad.protobuf.NodesResponse] {
+        override def apply[F[_]](
+          input: Array[Byte]
+        )(implicit F: Monad[F]): EitherT[F, CodecError, fluence.kad.protobuf.NodesResponse] = {
+          EitherT.liftF(F.pure(fluence.kad.protobuf.NodesResponse.parseFrom(input)))
+        }
+      }
+      responseCodec = new PureCodec.Func[Array[Byte], Seq[protocol.Node[Contact]]] {
+        override def apply[F[_]](
+          input: Array[Byte]
+        )(implicit F: Monad[F]): EitherT[F, CodecError, Seq[protocol.Node[Contact]]] = {
+          val res = responseCodec1.unsafe(input)
+          streamCodec.inverse(res.nodes.toStream).map(_.toSeq)
+        }
+      }
+      proxy = GrpcProxyClient.proxy(service, "lookup", requestId, websocket, requestCodec, responseCodec)
+      res ← IO.fromFuture(IO(requestAndWaitOneResult(request, proxy)))
+    } yield res
+  }
 
   /**
    * Perform a local lookup for a key, return K closest known nodes, going away from the second key.
