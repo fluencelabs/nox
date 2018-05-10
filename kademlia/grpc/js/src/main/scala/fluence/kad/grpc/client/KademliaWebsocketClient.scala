@@ -93,7 +93,6 @@ class KademliaWebsocketClient(websocket: WebsocketClient[WebsocketMessage])(
 
     try {
       println(" START PINGING ===================")
-      val requestId = Random.nextLong()
 
       val responseCodec1 = new PureCodec.Func[Array[Byte], fluence.kad.protobuf.Node] {
         override def apply[F[_]](
@@ -113,7 +112,7 @@ class KademliaWebsocketClient(websocket: WebsocketClient[WebsocketMessage])(
       }
 
       val proxy: WebsocketPipe[GeneratedMessage, Node[Contact]] =
-        GrpcProxyClient.proxy(service, "ping", requestId, websocket, requestCodec, responseCodec2)
+        GrpcProxyClient.proxy(service, "ping", websocket, requestCodec, responseCodec2)
 
       IO.fromFuture(IO(requestAndWaitOneResult(PingRequest(), proxy)))
     } catch {
@@ -132,9 +131,8 @@ class KademliaWebsocketClient(websocket: WebsocketClient[WebsocketMessage])(
   override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] = {
     for {
       k ← keyBS(key)
-      requestId = Random.nextLong()
       request = protobuf.LookupRequest(k, numberOfNodes)
-      val responseCodec1 = new PureCodec.Func[Array[Byte], fluence.kad.protobuf.NodesResponse] {
+      responseCodec1 = new PureCodec.Func[Array[Byte], fluence.kad.protobuf.NodesResponse] {
         override def apply[F[_]](
           input: Array[Byte]
         )(implicit F: Monad[F]): EitherT[F, CodecError, fluence.kad.protobuf.NodesResponse] = {
@@ -149,7 +147,7 @@ class KademliaWebsocketClient(websocket: WebsocketClient[WebsocketMessage])(
           streamCodec.inverse(res.nodes.toStream).map(_.toSeq)
         }
       }
-      proxy = GrpcProxyClient.proxy(service, "lookup", requestId, websocket, requestCodec, responseCodec)
+      proxy = GrpcProxyClient.proxy(service, "lookup", websocket, requestCodec, responseCodec)
       res ← IO.fromFuture(IO(requestAndWaitOneResult(request, proxy)))
     } yield res
   }
@@ -159,5 +157,28 @@ class KademliaWebsocketClient(websocket: WebsocketClient[WebsocketMessage])(
    *
    * @param key Key to lookup
    */
-  override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] = ???
+  override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] = {
+    for {
+      k ← keyBS(key)
+      moveAwayK ← keyBS(moveAwayFrom)
+      req = protobuf.LookupAwayRequest(k, moveAwayK, numberOfNodes)
+      responseCodec1 = new PureCodec.Func[Array[Byte], fluence.kad.protobuf.NodesResponse] {
+        override def apply[F[_]](
+          input: Array[Byte]
+        )(implicit F: Monad[F]): EitherT[F, CodecError, fluence.kad.protobuf.NodesResponse] = {
+          EitherT.liftF(F.pure(fluence.kad.protobuf.NodesResponse.parseFrom(input)))
+        }
+      }
+      responseCodec = new PureCodec.Func[Array[Byte], Seq[protocol.Node[Contact]]] {
+        override def apply[F[_]](
+          input: Array[Byte]
+        )(implicit F: Monad[F]): EitherT[F, CodecError, Seq[protocol.Node[Contact]]] = {
+          val res = responseCodec1.unsafe(input)
+          streamCodec.inverse(res.nodes.toStream).map(_.toSeq)
+        }
+      }
+      proxy = GrpcProxyClient.proxy(service, "lookupAway", websocket, requestCodec, responseCodec)
+      res ← IO.fromFuture(IO(requestAndWaitOneResult(req, proxy)))
+    } yield res
+  }
 }

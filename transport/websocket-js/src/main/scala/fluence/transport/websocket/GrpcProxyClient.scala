@@ -28,6 +28,7 @@ import monix.execution.Ack
 import monix.reactive.{Observable, Observer}
 
 import scala.concurrent.Future
+import scala.util.Random
 
 object GrpcProxyClient {
 
@@ -38,11 +39,11 @@ object GrpcProxyClient {
   def proxy[A, B](
     service: String,
     method: String,
-    requestId: Long,
     websocketClient: WebsocketClient[WebsocketMessage],
     requestCodec: PureCodec.Func[A, Array[Byte]],
     responseCodec: PureCodec.Func[Array[Byte], B]
   ): WebsocketPipe[A, B] = {
+    val requestId = Random.nextLong()
     def messageCr: Array[Byte] ⇒ WebsocketMessage = message(service, method, requestId)
 
     val wsObserver = websocketClient.input
