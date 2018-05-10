@@ -84,42 +84,6 @@ lazy val `kademlia-testkit` = crossProject(JVMPlatform, JSPlatform)
 lazy val `kademlia-testkit-js` = `kademlia-testkit`.js
 lazy val `kademlia-testkit-jvm` = `kademlia-testkit`.jvm
 
-lazy val protobufJSGenerator = TaskKey[Int]("generate protobuf for js")
-
-lazy val protobufJSGeneratorSettings = protobufJSGenerator := {
-
-  val baseDir = baseDirectory.value
-  val targetDir = target.value
-
-  val targetPath = targetDir.absolutePath
-
-  val generatedDir = new File(targetPath + "/scala-2.12/scalajs-bundler/main/generated/")
-  generatedDir.mkdirs()
-  val generatedDirStr = generatedDir.absolutePath
-
-  val path = baseDir.getParentFile.absolutePath
-
-  //path to kademlia/protobuf module should be without dots for protoc
-  val protobufPath = file(s"$path/../protobuf/src/main/protobuf").getCanonicalPath
-
-  val protoPathOption = s"-I$path/src/main/protobuf/"
-  val protobufPathOption = s"-I$protobufPath"
-  val protoOption = s"grpc.proto"
-  val pluginOption =
-    s"--plugin=protoc-gen-ts=$targetPath/scala-2.12/scalajs-bundler/main/node_modules/.bin/protoc-gen-ts"
-
-  val pbOptions = Array(
-    pluginOption,
-    s"--js_out=import_style=commonjs,binary:$generatedDirStr",
-    s"--ts_out=service=true:$generatedDirStr",
-    protoPathOption,
-    protobufPathOption,
-    protoOption
-  )
-
-  com.github.os72.protocjar.Protoc.runProtoc(pbOptions)
-}
-
 lazy val `kademlia-protobuf` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
@@ -158,8 +122,7 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
     grpc
   )
   .jsSettings(
-    scalaJSModuleKind               := ModuleKind.NoModule,
-    jsEnv                           := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv(),
+    jsEnv := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv(),
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-java-time" % jsJavaTimeV
     ),
@@ -167,16 +130,14 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies   := false,
     fork in Test                    := false,
-    scalaJSUseMainModuleInitializer := true,
-    protobufJSGeneratorSettings,
-    fastOptJS in Compile := fastOptJS.in(Compile).dependsOn(protobufJSGenerator).value,
-    fastOptJS in Test    := fastOptJS.in(Compile).dependsOn(protobufJSGenerator).value
+    scalaJSUseMainModuleInitializer := true
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`kademlia-protobuf`, `transport-grpc`, `kademlia-protocol`, `kademlia-testkit` % Test)
 
 lazy val `kademlia-grpc-js` = `kademlia-grpc`.js
   .enablePlugins(WorkbenchPlugin)
+  .enablePlugins(ScalaJSBundlerPlugin)
   .dependsOn(`transport-websocket-js`)
 
 lazy val `kademlia-grpc-jvm` = `kademlia-grpc`.jvm
@@ -486,8 +447,8 @@ lazy val `crypto-core` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %%% "codec-bits" % CodecV,
-      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
+      "one.fluence"   %%% "codec-bits" % CodecV,
+      "org.scalatest" %%% "scalatest"  % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -505,7 +466,7 @@ lazy val `crypto-keystore` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %%% "codec-circe" % CodecV,
+      "one.fluence"   %%% "codec-circe" % CodecV,
       "biz.enef"      %%% "slogging"    % SloggingV,
       "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
@@ -526,8 +487,8 @@ lazy val `crypto-hashsign` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "biz.enef"      %%% "slogging"    % SloggingV,
-      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
+      "biz.enef"      %%% "slogging"  % SloggingV,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )
   .jvmSettings(
@@ -558,7 +519,7 @@ lazy val `crypto-cipher` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )
   .jvmSettings(
