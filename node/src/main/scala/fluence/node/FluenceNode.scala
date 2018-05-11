@@ -41,6 +41,7 @@ import fluence.node.core.config.{ContactConf, UPnPConf}
 import fluence.node.grpc.NodeGrpc
 import fluence.transport.UPnP
 import fluence.transport.grpc.server.GrpcServerConf
+import io.grpc.ServerServiceDefinition
 import monix.eval.Task
 import monix.execution.Scheduler
 
@@ -116,6 +117,15 @@ object FluenceNode extends slogging.LazyLogging {
         }
     }
 
+  private def startWebsocketServer(port: Int, serviceDefinitions: List[ServerServiceDefinition]) = {
+    for {
+      inProcessGrpc ← InProcessGrpc.build("in-process", serviceDefinitions)
+      fs2SchedulerWithShutdownTask ← fs2.Scheduler.allocate[IO](2)
+      (fs2Scheduler, fs2Shutdown) = fs2SchedulerWithShutdownTask
+      _ ← GrpcWebsocketProxy.startWebsocketServer(inProcessGrpc, fs2Scheduler, port).toIO(Scheduler.global)
+    } yield fs2Shutdown
+  }
+
   /**
    * Launches GRPC node, using all the provided configs.
    * @return IO that will shutdown the node once ran
@@ -147,6 +157,7 @@ object FluenceNode extends slogging.LazyLogging {
         .buildOwn[IO](
           addr = upnpContact.host.getOrElse(builder.address).getHostName,
           port = upnpContact.grpcPort.getOrElse(builder.port),
+          websocketPort = contactConf.websocketPort,
           protocolVersion = upnpContact.protocolVersion,
           gitHash = upnpContact.gitHash,
           signer = algo.signer(kp)
@@ -154,6 +165,9 @@ object FluenceNode extends slogging.LazyLogging {
         .value
         .flatMap(MonadError[IO, Throwable].fromEither)
         .onFail(upnpShutdown)
+
+      _ = println("UPNP CONTACT === " + upnpContact)
+      _ = println("CONTACT === " + contact)
 
       client ← NodeGrpc.grpcClient(key, contact, config)
       kadClient = client(_: Contact).kademlia
@@ -167,10 +181,12 @@ object FluenceNode extends slogging.LazyLogging {
       serviceDefinitions = serverBuilder.services
       server ← IO(serverBuilder.build)
 
-      inProcessGrpc ← InProcessGrpc.build("in-process", serviceDefinitions)
-      fs2SchedulerWithShutdownTask ← fs2.Scheduler.allocate[IO](2)
-      (fs2Scheduler, fs2Shutdown) = fs2SchedulerWithShutdownTask
-      _ ← GrpcWebsocketProxy.startWebsocketServer(inProcessGrpc, fs2Scheduler, 8090).toIO(Scheduler.global)
+      fs2Shutdown ← contact.websocketPort match {
+        case Some(wsPort) ⇒
+          println("WEBSOCKET PORT STARTING === " + wsPort)
+          startWebsocketServer(wsPort, serviceDefinitions)
+        case None ⇒ IO(IO.unit)
+      }
 
       _ ← server.start.onFail(closeUpNpAndServices)
       closeAll = closeUpNpAndServices.flatMap(_ ⇒ fs2Shutdown.attempt).flatMap(_ ⇒ server.shutdown)

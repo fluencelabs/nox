@@ -42,7 +42,7 @@ import scala.language.higherKinds
 case class Contact(
   addr: String,
   grpcPort: Int, // httpPort, websocketPort and other transports //
-
+  websocketPort: Option[Int],
   publicKey: KeyPair.Public,
   protocolVersion: Long,
   gitHash: String,
@@ -83,7 +83,7 @@ object Contact {
   def buildOwn[F[_]: Monad](
     addr: String,
     port: Int, // httpPort, websocketPort and other transports //
-
+    websocketPort: Option[Int],
     protocolVersion: Long,
     gitHash: String,
     signer: Signer
@@ -92,13 +92,14 @@ object Contact {
       Contact.JwtHeader(signer.publicKey, protocolVersion)
 
     val jwtData =
-      Contact.JwtData(addr, port, gitHash)
+      Contact.JwtData(addr, port, websocketPort, gitHash)
 
     import Contact.JwtImplicits._
     Jwt.write[F].apply(jwtHeader, jwtData, signer).map { seed ⇒
       Contact(
         addr,
         port,
+        websocketPort,
         signer.publicKey,
         protocolVersion,
         gitHash,
@@ -109,7 +110,7 @@ object Contact {
 
   case class JwtHeader(publicKey: KeyPair.Public, protocolVersion: Long)
 
-  case class JwtData(addr: String, grpcPort: Int, gitHash: String)
+  case class JwtData(addr: String, grpcPort: Int, websocketPort: Option[Int], gitHash: String)
 
   object JwtImplicits {
     implicit val encodeHeader: Encoder[JwtHeader] = header ⇒
@@ -133,6 +134,7 @@ object Contact {
       Json.obj(
         "a" -> Json.fromString(data.addr),
         "gp" -> Json.fromInt(data.grpcPort),
+        "wp" -> data.websocketPort.map(Json.fromInt).getOrElse(Json.Null),
         "gh" -> Json.fromString(data.gitHash)
     )
 
@@ -141,7 +143,8 @@ object Contact {
         addr ← c.downField("a").as[String]
         p ← c.downField("gp").as[Int]
         gh ← c.downField("gh").as[String]
-      } yield JwtData(addr = addr, grpcPort = p, gitHash = gh)
+        wp ← c.downField("wp").as[Option[Int]]
+      } yield JwtData(addr = addr, grpcPort = p, websocketPort = wp, gitHash = gh)
   }
 
   import JwtImplicits._
@@ -155,6 +158,7 @@ object Contact {
         Contact(
           addr = data.addr,
           grpcPort = data.grpcPort,
+          websocketPort = data.websocketPort,
           publicKey = header.publicKey,
           protocolVersion = header.protocolVersion,
           gitHash = data.gitHash,

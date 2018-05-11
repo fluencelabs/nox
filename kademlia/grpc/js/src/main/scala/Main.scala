@@ -67,6 +67,7 @@ object Main extends slogging.LazyLogging {
       listOfNodes2 ← client.lookupAway(key2, key, 2)
     } yield {
       logger.info("Lookup away nodes response: " + listOfNodes2.mkString("\n", "\n", "\n"))
+      println("Lookup away nodes response: " + listOfNodes2.mkString("\n", "\n", "\n"))
     }
 
     io.attempt.map { e ⇒

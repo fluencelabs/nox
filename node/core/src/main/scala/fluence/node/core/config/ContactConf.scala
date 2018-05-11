@@ -26,6 +26,7 @@ import net.ceedubs.ficus.readers.ValueReader
 case class ContactConf(
   host: Option[InetAddress],
   grpcPort: Option[Int],
+  websocketPort: Option[Int],
   gitHash: String,
   protocolVersion: Long
 )
