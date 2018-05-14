@@ -117,7 +117,7 @@ object FluenceNode extends slogging.LazyLogging {
                 websocketExternalPort ← (u.websocketPort, contact.websocketPort) match {
                   case (Some(wpPortExternal), Some(wpPort)) ⇒
                     upnp.addPort(wpPortExternal, wpPort).map(_ ⇒ Some(wpPortExternal))
-                  case _ ⇒ IO(None)
+                  case _ ⇒ IO(contact.websocketPort)
                 }
               } yield {
                 contact.copy(grpcPort = Some(grpcExternalPort), websocketPort = websocketExternalPort) -> upnp

@@ -560,6 +560,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       // start all nodes Grpc servers
       servers = (0 until numberOfNodes).map { n ⇒
         val port = 6112 + n
+        val websocketPort = port + 321*(n + 1)
         // storage root directory, keys directory, etc should be modified to isolate nodes
         FluenceNode
           .startNode(
@@ -567,6 +568,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
             serverHasher,
             config
               .withValue("fluence.grpc.server.port", ConfigValueFactory.fromAnyRef(port))
+              .withValue("fluence.network.contact.websocketPort", ConfigValueFactory.fromAnyRef(websocketPort))
               .withValue("fluence.network.acceptLocal", ConfigValueFactory.fromAnyRef(true))
               .withValue(ContractsCacheConf.ConfigPath + "dirName", ConfigValueFactory.fromAnyRef("node_cache_" + n))
               .withValue(
