@@ -115,9 +115,9 @@ object FluenceNode extends slogging.LazyLogging {
               for {
                 _ ← upnp.addPort(grpcExternalPort, grpc.port)
                 websocketExternalPort ← (u.websocketPort, contact.websocketPort) match {
-                  case _ ⇒ IO(None)
                   case (Some(wpPortExternal), Some(wpPort)) ⇒
                     upnp.addPort(wpPortExternal, wpPort).map(_ ⇒ Some(wpPortExternal))
+                  case _ ⇒ IO(None)
                 }
               } yield {
                 contact.copy(grpcPort = Some(grpcExternalPort), websocketPort = websocketExternalPort) -> upnp
@@ -130,7 +130,7 @@ object FluenceNode extends slogging.LazyLogging {
 
   private def startWebsocketServer(port: Int, serviceDefinitions: List[ServerServiceDefinition]) = {
     for {
-      inProcessGrpc ← InProcessGrpc.build("in-process", serviceDefinitions)
+      inProcessGrpc ← InProcessGrpc.build(s"inprocess-websocket-proxy-$port", serviceDefinitions)
       fs2SchedulerWithShutdownTask ← fs2.Scheduler.allocate[IO](2)
       (fs2Scheduler, fs2Shutdown) = fs2SchedulerWithShutdownTask
       websocketServerShutdown ← GrpcWebsocketProxy

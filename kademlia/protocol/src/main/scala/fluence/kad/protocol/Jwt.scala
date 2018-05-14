@@ -57,8 +57,13 @@ private[protocol] object Jwt {
      * @return
      */
     def apply[H: Encoder, C: Encoder](header: H, claim: C, signer: Signer): EitherT[F, CryptoError, String] = {
-      val h = ByteVector(Encoder[H].apply(header).noSpaces.getBytes()).toBase64(alphabet)
-      val c = ByteVector(Encoder[C].apply(claim).noSpaces.getBytes()).toBase64(alphabet)
+      val printer = Printer(
+        preserveOrder = true,
+        dropNullValues = true,
+        indent = ""
+      )
+      val h = ByteVector(Encoder[H].apply(header).pretty(printer).getBytes()).toBase64(alphabet)
+      val c = ByteVector(Encoder[C].apply(claim).pretty(printer).getBytes()).toBase64(alphabet)
 
       signer
         .sign[F](ByteVector((h + c).getBytes))
