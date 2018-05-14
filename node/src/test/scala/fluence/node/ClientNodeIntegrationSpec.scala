@@ -91,6 +91,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
   private val dummyContact = Contact(
     "localhost",
     80,
+    Option(8090),
     KeyPair.Public(ByteVector("k".getBytes)),
     0L,
     "gitHash",

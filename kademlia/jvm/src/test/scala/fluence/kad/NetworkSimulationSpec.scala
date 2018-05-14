@@ -63,7 +63,18 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
     private val serverBuilder = GrpcServer.builder(serverConf.copy(port = localPort))
 
     val contact =
-      Contact.buildOwn[Id](InetAddress.getLocalHost.getHostName, localPort, 0, "0", signAlgo.signer(kp)).value.right.get
+      Contact
+        .buildOwn[Id](
+          InetAddress.getLocalHost.getHostName,
+          localPort,
+          Some(localPort + 123),
+          0,
+          "0",
+          signAlgo.signer(kp)
+        )
+        .value
+        .right
+        .get
 
     private val client = GrpcClient
       .builder(key, IO.pure(contact.b64seed), clientConf)

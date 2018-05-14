@@ -35,6 +35,7 @@ class ContactSpec extends WordSpec with Matchers {
         .buildOwn[Id](
           "127.0.0.1",
           8080,
+          Some(8090),
           10l,
           "hash",
           algo.signer(kp)

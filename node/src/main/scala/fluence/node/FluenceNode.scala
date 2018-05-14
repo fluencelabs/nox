@@ -33,6 +33,7 @@ import fluence.crypto.keystore.FileKeyStorage
 import fluence.crypto.Crypto
 import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.signature.SignAlgo
+import fluence.grpc.proxy.{GrpcWebsocketProxy, InProcessGrpc}
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{Contact, Key, Node}
 import fluence.node.core.NodeComposer
@@ -40,6 +41,7 @@ import fluence.node.core.config.{ContactConf, UPnPConf}
 import fluence.node.grpc.NodeGrpc
 import fluence.transport.UPnP
 import fluence.transport.grpc.server.GrpcServerConf
+import io.grpc.ServerServiceDefinition
 import monix.eval.Task
 import monix.execution.Scheduler
 
@@ -107,13 +109,38 @@ object FluenceNode extends slogging.LazyLogging {
           val contact = contactConf.copy(host = Some(upnp.externalAddress))
 
           // Forward grpc port
-          u.grpc.fold(IO.pure(contact -> IO.unit)) { grpcExternalPort ⇒
-            upnp
-              .addPort(grpcExternalPort, grpc.port)
-              .map(_ ⇒ contact.copy(grpcPort = Some(grpcExternalPort)) -> upnp.deletePort(grpcExternalPort))
+          u.grpc match {
+            case None ⇒ IO.pure(contact -> IO.unit)
+            case Some(grpcExternalPort) ⇒
+              for {
+                _ ← upnp.addPort(grpcExternalPort, grpc.port)
+                websocketExternalPort ← (u.websocketPort, contact.websocketPort) match {
+                  case _ ⇒ IO(None)
+                  case (Some(wpPortExternal), Some(wpPort)) ⇒
+                    upnp.addPort(wpPortExternal, wpPort).map(_ ⇒ Some(wpPortExternal))
+                }
+              } yield {
+                contact.copy(grpcPort = Some(grpcExternalPort), websocketPort = websocketExternalPort) -> upnp
+                  .deletePort(grpcExternalPort)
+              }
           }
+
         }
     }
+
+  private def startWebsocketServer(port: Int, serviceDefinitions: List[ServerServiceDefinition]) = {
+    for {
+      inProcessGrpc ← InProcessGrpc.build("in-process", serviceDefinitions)
+      fs2SchedulerWithShutdownTask ← fs2.Scheduler.allocate[IO](2)
+      (fs2Scheduler, fs2Shutdown) = fs2SchedulerWithShutdownTask
+      websocketServerShutdown ← GrpcWebsocketProxy
+        .startWebsocketServer(inProcessGrpc, fs2Scheduler, port)
+        .toIO(Scheduler.global)
+    } yield
+      fs2Shutdown
+        .flatMap(_ ⇒ websocketServerShutdown.shutdown.toIO(Scheduler.global))
+        .flatMap(_ ⇒ inProcessGrpc.close())
+  }
 
   /**
    * Launches GRPC node, using all the provided configs.
@@ -146,6 +173,7 @@ object FluenceNode extends slogging.LazyLogging {
         .buildOwn[IO](
           addr = upnpContact.host.getOrElse(builder.address).getHostName,
           port = upnpContact.grpcPort.getOrElse(builder.port),
+          websocketPort = upnpContact.websocketPort,
           protocolVersion = upnpContact.protocolVersion,
           gitHash = upnpContact.gitHash,
           signer = algo.signer(kp)
@@ -162,10 +190,18 @@ object FluenceNode extends slogging.LazyLogging {
         .onFail(upnpShutdown)
       closeUpNpAndServices = upnpShutdown.flatMap(_ ⇒ services.close)
 
-      server ← NodeGrpc.grpcServer(services, builder, config).onFail(closeUpNpAndServices)
+      serverBuilder ← NodeGrpc.grpcServerBuilder(services, builder, config).onFail(closeUpNpAndServices)
+
+      server ← IO(serverBuilder.build)
 
       _ ← server.start.onFail(closeUpNpAndServices)
-      closeAll = closeUpNpAndServices.flatMap(_ ⇒ server.shutdown)
+
+      websocketShutdown ← upnpContact.websocketPort match {
+        case None ⇒ IO(IO.unit)
+        case Some(wpPort) ⇒ startWebsocketServer(wpPort, serverBuilder.services)
+      }
+
+      closeAll = closeUpNpAndServices.flatMap(_ ⇒ server.shutdown).flatMap(_ ⇒ websocketShutdown)
 
       seedConfig ← SeedsConfig.read(config).onFail(closeAll)
       seedContacts ← seedConfig.contacts.onFail(closeAll)
@@ -192,11 +228,12 @@ object FluenceNode extends slogging.LazyLogging {
         override def kademlia: Kademlia[Task, Contact] = services.kademlia
 
         override def stop: IO[Unit] =
-          Applicative[IO].map3(
+          Applicative[IO].map4(
             server.shutdown,
             services.close,
-            upnpShutdown
-          ) { (_, _, _) ⇒
+            upnpShutdown,
+            websocketShutdown
+          ) { (_, _, _, _) ⇒
             ()
           }
 
