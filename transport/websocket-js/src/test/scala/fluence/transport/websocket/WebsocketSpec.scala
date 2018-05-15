@@ -20,10 +20,9 @@ package fluence.transport.websocket
 import monix.execution.Ack.Continue
 import monix.reactive.OverflowStrategy
 import org.scalatest.{Assertion, AsyncFlatSpec, Matchers}
-import scodec.bits.ByteVector
 
+import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
-import scala.util.Try
 
 class WebsocketSpec extends AsyncFlatSpec with Matchers {
 
@@ -32,9 +31,11 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
   it should "work with multiple subscribers" in {
     val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
-    val WebsocketClient(observer, observable, _) = WebsocketClient.binaryClient(
+    val WebsocketPipe(observer, observable, _) = WebsocketPipe.binaryClient(
       "ws://localhost:8080/",
-      s ⇒ WebsocketEcho(s)
+      s ⇒ WebsocketEcho(s),
+      1,
+      10.millis
     )
 
     val pr11 = Promise[Unit]
@@ -87,9 +88,6 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
       _ = observer.onNext(Array[Byte](4))
       _ ← pr51.future
     } yield {
-      val obs6 = observable.subscribe(bv ⇒ {
-        Future(Continue)
-      })
       assert(true)
     }).recover {
       case e: Throwable ⇒
@@ -104,9 +102,11 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
     val pr11 = Promise[Unit]
     val pr21 = Promise[Unit]
 
-    val WebsocketClient(observer, observable, _) = WebsocketClient.binaryClient(
+    val WebsocketPipe(observer, observable, _) = WebsocketPipe.binaryClient(
       "ws://localhost:8080/",
-      s ⇒ WebsocketEcho(s)
+      s ⇒ WebsocketEcho(s),
+      1,
+      10.millis
     )
 
     val obs1 = observable.subscribe(bv ⇒ {
@@ -145,9 +145,11 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
     val pr23 = Promise[Unit]
     val pr24 = Promise[Unit]
 
-    val WebsocketClient(observer, observable, _) = WebsocketClient.binaryClient(
+    val WebsocketPipe(observer, observable, _) = WebsocketPipe.binaryClient(
       "ws://localhost:8080/",
-      s ⇒ WebsocketEcho(s)
+      s ⇒ WebsocketEcho(s),
+      1,
+      10.millis
     )
 
     val obs1 = observable.subscribe(bv ⇒ {
@@ -196,7 +198,7 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
     val prOnOpen = Promise[Unit]
     val prOnError = Promise[Unit]
 
-    val WebsocketClient(observer, observable, statusOutput) = WebsocketClient.binaryClient(
+    val WebsocketPipe(observer, observable, statusOutput) = WebsocketPipe.binaryClient(
       "ws://localhost:8080/",
       s ⇒ WebsocketEcho(s)
     )
@@ -231,9 +233,11 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
     val prOnOpen2 = Promise[Unit]
     val prOnClose = Promise[Unit]
 
-    val WebsocketClient(observer, observable, statusOutput) = WebsocketClient.binaryClient(
+    val WebsocketPipe(observer, observable, statusOutput) = WebsocketPipe.binaryClient(
       "ws://localhost:8080/",
-      s ⇒ WebsocketEcho(s)
+      s ⇒ WebsocketEcho(s),
+      1,
+      10.millis
     )
 
     val obs1 = statusOutput.subscribe(status ⇒ {
@@ -268,9 +272,11 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
     val prOnOpen2 = Promise[Unit]
     val prOnClose = Promise[Unit]
 
-    val WebsocketClient(observer, observable, statusOutput) = WebsocketClient.binaryClient(
+    val WebsocketPipe(observer, observable, statusOutput) = WebsocketPipe.binaryClient(
       "ws://localhost:8080/",
-      s ⇒ WebsocketEcho(s)
+      s ⇒ WebsocketEcho(s),
+      1,
+      10.millis
     )
 
     val obs1 = statusOutput.subscribe(status ⇒ {

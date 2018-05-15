@@ -27,7 +27,7 @@ import monix.reactive.Observer
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 import monix.execution.Scheduler.Implicits.global
 
-import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
 
 @JSExportTopLevel("Main")
@@ -44,7 +44,7 @@ object Main extends slogging.LazyLogging {
   val host = "ws://127.0.0.1:8090/ws"
 
   val builder: String ⇒ WebsocketT = str ⇒ Websocket(str)
-  val wsRawClient = WebsocketPipe.binaryClient(host, builder)
+  val wsRawClient = WebsocketPipe.binaryClient(host, builder, 1, 10.millis)
 
   val ws = wsRawClient.xmap[WebsocketMessage, WebsocketMessage](_.toByteString.toByteArray, WebsocketMessage.parseFrom)
   val client = new KademliaWebsocketClient(ws)

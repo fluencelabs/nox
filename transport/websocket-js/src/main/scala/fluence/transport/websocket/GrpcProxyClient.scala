@@ -19,12 +19,13 @@ package fluence.transport.websocket
 
 import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
+import cats.instances.future._
 import fluence.proxy.grpc.WebsocketMessage
 import fluence.transport.websocket.WebsocketPipe.WebsocketClient
 import monix.execution.Ack
 import monix.reactive.Observer
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
 import scala.util.Random
 
@@ -40,7 +41,7 @@ object GrpcProxyClient {
     websocketClient: WebsocketClient[WebsocketMessage],
     requestCodec: PureCodec.Func[A, Array[Byte]],
     responseCodec: PureCodec.Func[Array[Byte], B]
-  ): WebsocketPipe[A, B] = {
+  )(implicit ec: ExecutionContext): WebsocketPipe[A, B] = {
     val requestId = Random.nextLong()
     def messageCr: Array[Byte] ⇒ WebsocketMessage = message(service, method, requestId)
 
@@ -49,8 +50,11 @@ object GrpcProxyClient {
 
     val tObserver: Observer[A] = new Observer[A] {
       override def onNext(elem: A): Future[Ack] = {
-        val message = messageCr(requestCodec.unsafe(elem))
-        wsObserver.onNext(message)
+        for {
+          req ← requestCodec.runF(elem)
+          message = messageCr(req)
+          ack ← wsObserver.onNext(message)
+        } yield ack
       }
 
       override def onError(ex: Throwable): Unit = wsObserver.onError(ex)

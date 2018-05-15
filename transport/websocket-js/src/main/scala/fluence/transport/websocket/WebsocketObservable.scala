@@ -45,8 +45,8 @@ final class WebsocketObservable(
   input: Observable[WebsocketFrame],
   statusOutput: Observer[StatusFrame],
   // TODO add these values to the config in the future
-  numberOfAttempts: Int = 3,
-  connectTimeout: FiniteDuration = 3.seconds
+  numberOfAttempts: Int,
+  connectTimeout: FiniteDuration
 )(
   implicit scheduler: Scheduler
 ) extends Observable[WebsocketFrame] with slogging.LazyLogging {
@@ -110,7 +110,6 @@ final class WebsocketObservable(
   private val inputObserver: Observer[SendingElement] = new Observer[SendingElement] {
 
     override def onNext(elem: SendingElement): Future[Ack] = {
-      println("SENDING ELEMENT === " + elem)
       val sendingAttempt = Try(sendFrame(elem.websocket, elem.frame))
       lastFrame = sendingAttempt match {
         case Success(_) ⇒

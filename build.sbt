@@ -27,6 +27,7 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
+    scalaJSModuleKind := ModuleKind.CommonJSModule,
     fork in Test := false
   )
   .dependsOn(`crypto-hashsign`)
@@ -53,6 +54,7 @@ lazy val `kademlia-core` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-java-time" % jsJavaTimeV
     ),
+    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
     fork in Test := false
   )
   .enablePlugins(AutomateHeaderPlugin)
@@ -73,6 +75,7 @@ lazy val `kademlia-testkit` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
+    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
     fork in Test := false
   )
   .enablePlugins(AutomateHeaderPlugin)
@@ -170,6 +173,7 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
+    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
     fork in Test := false
   )
   .enablePlugins(AutomateHeaderPlugin)
@@ -261,6 +265,7 @@ lazy val `transport-websocket-js` = project
       "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     ),
     scalaJSUseMainModuleInitializer := true,
+    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
     fork in Test                    := false,
     jsEnv                           := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
   )

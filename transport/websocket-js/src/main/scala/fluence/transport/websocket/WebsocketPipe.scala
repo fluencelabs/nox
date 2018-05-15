@@ -17,11 +17,13 @@
 
 package fluence.transport.websocket
 
-import fluence.proxy.grpc.WebsocketMessage
+import monix.execution.Ack.Stop
 import monix.execution.{Ack, Scheduler}
 import monix.reactive._
 
-import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 case class WebsocketPipe[A, B] private (
@@ -44,12 +46,35 @@ case class WebsocketPipe[A, B] private (
     }
 
     val tObservable = output.map { el ⇒
-      val a = outputCodec(el)
-      println("A ==== " + a)
-      a
+      outputCodec(el)
     }
 
     WebsocketPipe(tObserver, tObservable, statusOutput)
+  }
+
+  def requestAndWaitOneResult(request: A)(implicit scheduler: Scheduler): Future[B] = {
+    val result: Promise[B] = Promise[B]
+
+    val obs = new Observer[B] {
+
+      override def onNext(elem: B): Future[Ack] = {
+        result.success(elem)
+        Future(Stop)
+      }
+
+      override def onError(ex: Throwable): Unit = {
+        result.failure(ex)
+        onComplete()
+      }
+
+      override def onComplete(): Unit = ()
+    }
+
+    output.subscribe(obs)
+
+    input.onNext(request)
+
+    result.future
   }
 }
 
@@ -62,7 +87,12 @@ object WebsocketPipe {
    * @param url Address to connect by websocket
    * @return An observer that will be an input into a websocket and observable - output
    */
-  def apply(url: String, builder: String ⇒ WebsocketT)(
+  def apply(
+    url: String,
+    builder: String ⇒ WebsocketT,
+    numberOfAttempts: Int = 3,
+    connectTimeout: FiniteDuration = 3.seconds
+  )(
     implicit scheduler: Scheduler
   ): WebsocketClient[WebsocketFrame] = {
 
@@ -70,7 +100,8 @@ object WebsocketPipe {
 
     val (statusInput, statusOutput) = Observable.multicast(MulticastStrategy.publish[StatusFrame])
 
-    val observable = new WebsocketObservable(url, builder, queueingSubject, statusInput)
+    val observable =
+      new WebsocketObservable(url, builder, queueingSubject, statusInput, numberOfAttempts, connectTimeout)
 
     val hotObservable = observable.multicast(Pipe.publish[WebsocketFrame])
     hotObservable.connect()
@@ -83,10 +114,13 @@ object WebsocketPipe {
    */
   def binaryClient(
     url: String,
-    builder: String ⇒ WebsocketT
+    builder: String ⇒ WebsocketT,
+    numberOfAttempts: Int = 3,
+    connectTimeout: FiniteDuration = 3.seconds
   )(implicit scheduler: Scheduler): WebsocketClient[Array[Byte]] = {
 
-    val WebsocketPipe(wsObserver, wsObservable, statusOutput) = WebsocketPipe(url, builder)
+    val WebsocketPipe(wsObserver, wsObservable, statusOutput) =
+      WebsocketPipe(url, builder, numberOfAttempts, connectTimeout)
 
     val binaryClient: Observer[Array[Byte]] = new Observer[Array[Byte]] {
       override def onNext(elem: Array[Byte]): Future[Ack] = wsObserver.onNext(Binary(elem))
