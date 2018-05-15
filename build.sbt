@@ -824,7 +824,7 @@ lazy val `node-grpc` = project
   .settings(
     commons
   )
-  .dependsOn(`node-core`, `client-grpc`)
+  .dependsOn(`node-core`, `client-grpc`, `transport-grpc-proxy`)
 
 lazy val `node` = project
   .dependsOn(`node-grpc`, `crypto-keystore-jvm`)
