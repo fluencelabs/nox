@@ -28,7 +28,7 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
   )
   .jsSettings(
     scalaJSModuleKind := ModuleKind.CommonJSModule,
-    fork in Test := false
+    fork in Test      := false
   )
   .dependsOn(`crypto-hashsign`)
   .enablePlugins(AutomateHeaderPlugin)
@@ -54,8 +54,8 @@ lazy val `kademlia-core` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-java-time" % jsJavaTimeV
     ),
-    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
-    fork in Test := false
+    fork in Test              := false,
+    scalaJSModuleKind in Test := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`kademlia-protocol`)
@@ -75,8 +75,8 @@ lazy val `kademlia-testkit` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
-    fork in Test := false
+    fork in Test              := false,
+    scalaJSModuleKind in Test := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`kademlia-core`)
@@ -173,8 +173,8 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
-    fork in Test := false
+    fork in Test              := false,
+    scalaJSModuleKind in Test := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`kademlia-monix`, `kademlia-grpc`, `kademlia-testkit` % Test)
@@ -265,7 +265,7 @@ lazy val `transport-websocket-js` = project
       "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     ),
     scalaJSUseMainModuleInitializer := true,
-    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
+    scalaJSModuleKind in Test       := ModuleKind.CommonJSModule,
     fork in Test                    := false,
     jsEnv                           := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
   )
@@ -292,7 +292,8 @@ lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    fork in Test := false
+    fork in Test      := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
 
@@ -313,7 +314,8 @@ lazy val `storage-core` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    fork in Test := false
+    fork in Test      := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
 
@@ -408,7 +410,8 @@ lazy val `b-tree-client` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    fork in Test := false
+    fork in Test      := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`b-tree-common`, `b-tree-protocol`, `crypto-hashsign` % Test)
@@ -495,6 +498,7 @@ lazy val `crypto-hashsign` = crossProject(JVMPlatform, JSPlatform)
     npmDependencies in Compile ++= Seq(
       "elliptic" -> "6.4.0"
     ),
+    scalaJSModuleKind := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies := false,
     fork in Test                  := false
@@ -528,7 +532,8 @@ lazy val `crypto-cipher` = crossProject(JVMPlatform, JSPlatform)
     ),
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies := false,
-    fork in Test                  := false
+    fork in Test                  := false,
+    scalaJSModuleKind             := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`crypto-hashsign`)
@@ -637,7 +642,8 @@ lazy val `contract-core` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    fork in Test := false
+    fork in Test      := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`contract-protocol`, `crypto-core`)
