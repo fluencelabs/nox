@@ -17,27 +17,39 @@
 
 package fluence.transport.websocket
 
-import monix.execution.Ack.Stop
+import fluence.codec.PureCodec
+import cats.instances.future._
+import monix.execution.Ack.{Continue, Stop}
 import monix.execution.{Ack, Scheduler}
 import monix.reactive._
 
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
+//TODO add error field in WebsocketMessage and Either in WebsocketPipe to handle and return errors between nodes
 case class WebsocketPipe[A, B] private (
   input: Observer[A],
   output: Observable[B],
   statusOutput: Observable[StatusFrame]
-) {
+) extends slogging.LazyLogging {
 
-  def xmap[A1, B1](inputCodec: A1 ⇒ A, outputCodec: B ⇒ B1): WebsocketPipe[A1, B1] = {
+  def xmap[A1, B1](inputCodec: PureCodec.Func[A1, A], outputCodec: PureCodec.Func[B, B1])(
+    implicit ec: ExecutionContext
+  ): WebsocketPipe[A1, B1] = {
 
     val tObserver: Observer[A1] = new Observer[A1] {
       override def onNext(elem: A1): Future[Ack] = {
-        val message = inputCodec(elem)
-        input.onNext(message)
+        inputCodec
+          .runF[Future](elem)
+          .flatMap(input.onNext)
+          .recover {
+            case e: Throwable ⇒
+              //TODO add either and send error message
+              logger.error(s"Error on converting message $elem with $inputCodec", e)
+              Continue
+          }
       }
 
       override def onError(ex: Throwable): Unit = input.onError(ex)
@@ -45,8 +57,9 @@ case class WebsocketPipe[A, B] private (
       override def onComplete(): Unit = input.onComplete()
     }
 
-    val tObservable = output.map { el ⇒
-      outputCodec(el)
+    val tObservable = output.mapFuture { el ⇒
+      //TODO add either or observable will stop now after error
+      outputCodec.runF[Future](el)
     }
 
     WebsocketPipe(tObserver, tObservable, statusOutput)

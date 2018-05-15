@@ -15,17 +15,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import fluence.crypto.signature.SignAlgo
+import fluence.codec.PureCodec
 import fluence.crypto.ecdsa.Ecdsa
+import fluence.crypto.signature.SignAlgo
 import fluence.kad.grpc.KademliaNodeCodecGrpc
 import fluence.kad.grpc.client.KademliaWebsocketClient
 import fluence.kad.protocol.Key
 import fluence.proxy.grpc.WebsocketMessage
 import fluence.transport.websocket.{Websocket, WebsocketPipe, WebsocketT}
-import monix.execution.Ack
-import monix.reactive.Observer
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 import monix.execution.Scheduler.Implicits.global
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.duration._
 import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
@@ -36,21 +35,26 @@ object Main extends slogging.LazyLogging {
   LoggerConfig.factory = PrintLoggerFactory()
   LoggerConfig.level = LogLevel.DEBUG
 
-  val algo: SignAlgo = Ecdsa.signAlgo
-  import algo.checker
-
-  implicit val codec = KademliaNodeCodecGrpc.pureCodec
-
-  val host = "ws://127.0.0.1:8090/ws"
-
-  val builder: String ⇒ WebsocketT = str ⇒ Websocket(str)
-  val wsRawClient = WebsocketPipe.binaryClient(host, builder, 1, 10.millis)
-
-  val ws = wsRawClient.xmap[WebsocketMessage, WebsocketMessage](_.toByteString.toByteArray, WebsocketMessage.parseFrom)
-  val client = new KademliaWebsocketClient(ws)
-
   @JSExport
   def logic(): Unit = {
+
+    val algo: SignAlgo = Ecdsa.signAlgo
+    import algo.checker
+
+    implicit val codec = KademliaNodeCodecGrpc.pureCodec
+
+    val host = "ws://127.0.0.1:8090/ws"
+
+    val builder: String ⇒ WebsocketT = str ⇒ Websocket(str)
+    val wsRawClient = WebsocketPipe.binaryClient(host, builder, 1, 10.millis)
+
+    val websocketMessageCodec =
+      PureCodec.build[WebsocketMessage, Array[Byte]](_.toByteString.toByteArray, WebsocketMessage.parseFrom)
+
+    val ws =
+      wsRawClient.xmap[WebsocketMessage, WebsocketMessage](websocketMessageCodec.direct, websocketMessageCodec.inverse)
+    val client = new KademliaWebsocketClient(ws)
+
     val keyP = algo.generateKeyPair.unsafe(None)
     println("KEYP === " + keyP)
     val key = Key.fromPublicKey(keyP.publicKey).value.toOption.get
@@ -77,6 +81,6 @@ object Main extends slogging.LazyLogging {
   }
 
   def main(args: Array[String]): Unit = {
-    logic()
+//    logic()
   }
 }
