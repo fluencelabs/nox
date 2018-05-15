@@ -19,7 +19,11 @@ package fluence.kad.protocol
 
 import cats._
 import fluence.crypto.ecdsa.Ecdsa
+import fluence.kad.protocol.Contact.JwtData
+import io.circe.Decoder
+import io.circe.parser._
 import org.scalatest.{Matchers, WordSpec}
+import scodec.bits.Bases
 
 class ContactSpec extends WordSpec with Matchers {
 
@@ -48,6 +52,49 @@ class ContactSpec extends WordSpec with Matchers {
 
       Contact.readB64seed[Id](seed).value.isRight shouldBe true
       Contact.readB64seed[Id](seed).value shouldBe Right(c)
+    }
+
+    "serialize and deserialize without websocket port" in {
+      val algo = Ecdsa.signAlgo
+      import algo.checker
+
+      val kp = algo.generateKeyPair.unsafe(None)
+
+      val c = Contact
+        .buildOwn[Id](
+          "127.0.0.1",
+          8080,
+          None,
+          10l,
+          "hash",
+          algo.signer(kp)
+        )
+        .value
+        .right
+        .get
+
+      val seed = c.b64seed
+
+      Contact.readB64seed[Id](seed).value.isRight shouldBe true
+      Contact.readB64seed[Id](seed).value shouldBe Right(c)
+    }
+
+    "serialize and deserialize JwtData with null in json" in {
+
+      import Contact.JwtImplicits._
+
+      val json = """{
+                   |    "a" : "127.0.0.1",
+                   |    "gp" : 8080,
+                   |    "gh" : "hash",
+                   |    "wp" : null
+                   |}""".stripMargin
+
+      val alphabet = Bases.Alphabets.Base64Url
+
+      val data = Decoder[JwtData].decodeJson(parse(json).toOption.get).right.get
+
+      data shouldBe JwtData("127.0.0.1", 8080, None, "hash")
     }
   }
 

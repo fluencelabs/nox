@@ -112,10 +112,12 @@ object FluenceNode extends slogging.LazyLogging {
           u.grpc match {
             case None ⇒ IO.pure(contact -> IO.unit)
             case Some(grpcExternalPort) ⇒
+              logger.debug(s"Change grpc port ${grpc.port} to external upnp port $grpcExternalPort in contact.")
               for {
                 _ ← upnp.addPort(grpcExternalPort, grpc.port)
                 websocketExternalPort ← (u.websocketPort, contact.websocketPort) match {
                   case (Some(wpPortExternal), Some(wpPort)) ⇒
+                    logger.debug(s"Change websocket port $wpPort to external upnp port $wpPortExternal in contact.")
                     upnp.addPort(wpPortExternal, wpPort).map(_ ⇒ Some(wpPortExternal))
                   case _ ⇒ IO(contact.websocketPort)
                 }
