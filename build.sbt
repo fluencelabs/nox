@@ -154,7 +154,8 @@ lazy val `kademlia-monix` =
       )
     )
     .jsSettings(
-      fork in Test := false
+      fork in Test              := false,
+      scalaJSModuleKind in Test := ModuleKind.CommonJSModule
     )
     .enablePlugins(AutomateHeaderPlugin)
     .dependsOn(`kademlia-core`)
@@ -203,7 +204,8 @@ lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    fork in Test := false
+    fork in Test              := false,
+    scalaJSModuleKind in Test := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`transport-core`, `kademlia-protocol`)
@@ -498,7 +500,7 @@ lazy val `crypto-hashsign` = crossProject(JVMPlatform, JSPlatform)
     npmDependencies in Compile ++= Seq(
       "elliptic" -> "6.4.0"
     ),
-    scalaJSModuleKind := ModuleKind.CommonJSModule,
+    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies := false,
     fork in Test                  := false
