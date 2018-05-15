@@ -99,7 +99,7 @@ object Contact {
       Contact(
         addr,
         port,
-        websocketPort,
+        websocketPort: Option[Int],
         signer.publicKey,
         protocolVersion,
         gitHash,
@@ -134,8 +134,8 @@ object Contact {
       Json.obj(
         "a" -> Json.fromString(data.addr),
         "gp" -> Json.fromInt(data.grpcPort),
-        "wp" -> data.websocketPort.map(Json.fromInt).getOrElse(Json.Null),
-        "gh" -> Json.fromString(data.gitHash)
+        "gh" -> Json.fromString(data.gitHash),
+        "wp" -> data.websocketPort.map(Json.fromInt).getOrElse(Json.Null)
     )
 
     implicit val decodeData: Decoder[JwtData] = c ⇒

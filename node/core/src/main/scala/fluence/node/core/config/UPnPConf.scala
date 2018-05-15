@@ -20,7 +20,7 @@ package fluence.node.core.config
 import cats.effect.IO
 import com.typesafe.config.Config
 
-case class UPnPConf(grpc: Option[Int]) {
+case class UPnPConf(grpc: Option[Int], websocketPort: Option[Int]) {
   def isEnabled: Boolean = grpc.isDefined
 }
 

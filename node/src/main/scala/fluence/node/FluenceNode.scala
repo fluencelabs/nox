@@ -109,11 +109,22 @@ object FluenceNode extends slogging.LazyLogging {
           val contact = contactConf.copy(host = Some(upnp.externalAddress))
 
           // Forward grpc port
-          u.grpc.fold(IO.pure(contact -> IO.unit)) { grpcExternalPort ⇒
-            upnp
-              .addPort(grpcExternalPort, grpc.port)
-              .map(_ ⇒ contact.copy(grpcPort = Some(grpcExternalPort)) -> upnp.deletePort(grpcExternalPort))
+          u.grpc match {
+            case None ⇒ IO.pure(contact -> IO.unit)
+            case Some(grpcExternalPort) ⇒
+              for {
+                _ ← upnp.addPort(grpcExternalPort, grpc.port)
+                websocketExternalPort ← (u.websocketPort, contact.websocketPort) match {
+                  case _ ⇒ IO(None)
+                  case (Some(wpPortExternal), Some(wpPort)) ⇒
+                    upnp.addPort(wpPortExternal, wpPort).map(_ ⇒ Some(wpPortExternal))
+                }
+              } yield {
+                contact.copy(grpcPort = Some(grpcExternalPort), websocketPort = websocketExternalPort) -> upnp
+                  .deletePort(grpcExternalPort)
+              }
           }
+
         }
     }
 
@@ -122,8 +133,13 @@ object FluenceNode extends slogging.LazyLogging {
       inProcessGrpc ← InProcessGrpc.build("in-process", serviceDefinitions)
       fs2SchedulerWithShutdownTask ← fs2.Scheduler.allocate[IO](2)
       (fs2Scheduler, fs2Shutdown) = fs2SchedulerWithShutdownTask
-      _ ← GrpcWebsocketProxy.startWebsocketServer(inProcessGrpc, fs2Scheduler, port).toIO(Scheduler.global)
-    } yield fs2Shutdown
+      websocketServerShutdown ← GrpcWebsocketProxy
+        .startWebsocketServer(inProcessGrpc, fs2Scheduler, port)
+        .toIO(Scheduler.global)
+    } yield
+      fs2Shutdown
+        .flatMap(_ ⇒ websocketServerShutdown.shutdown.toIO(Scheduler.global))
+        .flatMap(_ ⇒ inProcessGrpc.close())
   }
 
   /**
@@ -157,7 +173,7 @@ object FluenceNode extends slogging.LazyLogging {
         .buildOwn[IO](
           addr = upnpContact.host.getOrElse(builder.address).getHostName,
           port = upnpContact.grpcPort.getOrElse(builder.port),
-          websocketPort = contactConf.websocketPort,
+          websocketPort = upnpContact.websocketPort,
           protocolVersion = upnpContact.protocolVersion,
           gitHash = upnpContact.gitHash,
           signer = algo.signer(kp)
@@ -165,9 +181,6 @@ object FluenceNode extends slogging.LazyLogging {
         .value
         .flatMap(MonadError[IO, Throwable].fromEither)
         .onFail(upnpShutdown)
-
-      _ = println("UPNP CONTACT === " + upnpContact)
-      _ = println("CONTACT === " + contact)
 
       client ← NodeGrpc.grpcClient(key, contact, config)
       kadClient = client(_: Contact).kademlia
@@ -177,19 +190,18 @@ object FluenceNode extends slogging.LazyLogging {
         .onFail(upnpShutdown)
       closeUpNpAndServices = upnpShutdown.flatMap(_ ⇒ services.close)
 
-      serverBuilder ← NodeGrpc.grpcServer(services, builder, config).onFail(closeUpNpAndServices)
-      serviceDefinitions = serverBuilder.services
+      serverBuilder ← NodeGrpc.grpcServerBuilder(services, builder, config).onFail(closeUpNpAndServices)
+
       server ← IO(serverBuilder.build)
 
-      fs2Shutdown ← contact.websocketPort match {
-        case Some(wsPort) ⇒
-          println("WEBSOCKET PORT STARTING === " + wsPort)
-          startWebsocketServer(wsPort, serviceDefinitions)
+      _ ← server.start.onFail(closeUpNpAndServices)
+
+      websocketShutdown ← upnpContact.websocketPort match {
         case None ⇒ IO(IO.unit)
+        case Some(wpPort) ⇒ startWebsocketServer(wpPort, serverBuilder.services)
       }
 
-      _ ← server.start.onFail(closeUpNpAndServices)
-      closeAll = closeUpNpAndServices.flatMap(_ ⇒ fs2Shutdown.attempt).flatMap(_ ⇒ server.shutdown)
+      closeAll = closeUpNpAndServices.flatMap(_ ⇒ server.shutdown).flatMap(_ ⇒ websocketShutdown)
 
       seedConfig ← SeedsConfig.read(config).onFail(closeAll)
       seedContacts ← seedConfig.contacts.onFail(closeAll)
@@ -216,11 +228,12 @@ object FluenceNode extends slogging.LazyLogging {
         override def kademlia: Kademlia[Task, Contact] = services.kademlia
 
         override def stop: IO[Unit] =
-          Applicative[IO].map3(
+          Applicative[IO].map4(
             server.shutdown,
             services.close,
-            upnpShutdown
-          ) { (_, _, _) ⇒
+            upnpShutdown,
+            websocketShutdown
+          ) { (_, _, _, _) ⇒
             ()
           }
 

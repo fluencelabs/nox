@@ -69,8 +69,8 @@ object NodeGrpc {
       }
     } yield client
 
-  // Add server (with kademlia inside), build
-  def grpcServer(services: Services, serverBuilder: GrpcServer.Builder, config: Config): IO[GrpcServer.Builder] =
+  // Add server (with kademlia inside)
+  def grpcServerBuilder(services: Services, serverBuilder: GrpcServer.Builder, config: Config): IO[GrpcServer.Builder] =
     for {
       clientConf ← GrpcConf.read[IO](config)
     } yield {
