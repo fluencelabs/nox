@@ -35,6 +35,17 @@ object GrpcProxyClient {
     WebsocketMessage(service, method, requestId, ByteString.copyFrom(payload))
   }
 
+  /**
+   * Create proxy WebsocketPipe for working with GRPC interfaces on server.
+   * @param service Name of GRPC service.
+   * @param method Name of GRPC method.
+   * @param websocketClient Websocket transport layer.
+   * @param requestCodec Codec for converting requests to byte array.
+   * @param responseCodec Codec for converting responses from byte array.
+   * @tparam A Request type.
+   * @tparam B Response type.
+   * @return Pipe with input observer, output observable and websocket status observable.
+   */
   def proxy[A, B](
     service: String,
     method: String,
@@ -48,7 +59,7 @@ object GrpcProxyClient {
     val wsObserver = websocketClient.input
     val wsObservable = websocketClient.output
 
-    val tObserver: Observer[A] = new Observer[A] {
+    val proxyObserver: Observer[A] = new Observer[A] {
       override def onNext(elem: A): Future[Ack] = {
         for {
           req ← requestCodec.runF(elem)
@@ -62,12 +73,12 @@ object GrpcProxyClient {
       override def onComplete(): Unit = wsObserver.onComplete()
     }
 
-    val tObservable = wsObservable.collect {
+    val proxyObservable = wsObservable.collect {
       case mes @ WebsocketMessage(s, m, rId, payload) if s == service && m == method && rId == rId ⇒
         val resp = responseCodec.unsafe(payload.toByteArray)
         resp
     }
 
-    WebsocketPipe(tObserver, tObservable, websocketClient.statusOutput)
+    WebsocketPipe(proxyObserver, proxyObservable, websocketClient.statusOutput)
   }
 }

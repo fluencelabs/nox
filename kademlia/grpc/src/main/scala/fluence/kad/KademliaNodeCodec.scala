@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.kad.grpc
+package fluence.kad
 
 import java.time.Instant
 
@@ -28,7 +28,6 @@ import fluence.codec.{CodecError, PureCodec}
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.KeyProtobufCodecs._
 import fluence.kad.protobuf.Node
-import fluence.kad.protocol
 import fluence.kad.protocol.{Contact, Key}
 
 import scala.language.higherKinds

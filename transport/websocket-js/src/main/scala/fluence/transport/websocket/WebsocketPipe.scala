@@ -35,6 +35,15 @@ case class WebsocketPipe[A, B] private (
   statusOutput: Observable[StatusFrame]
 ) extends slogging.LazyLogging {
 
+  /**
+   * Convert WebsocketPipe to another one.
+   *
+   * @param inputCodec Codec to converting input elements.
+   * @param outputCodec Condec to converting output elements.
+   * @tparam A1 Type of new input.
+   * @tparam B1 Type on new output.
+   * @return New WebsocketPipe.
+   */
   def xmap[A1, B1](inputCodec: PureCodec.Func[A1, A], outputCodec: PureCodec.Func[B, B1])(
     implicit ec: ExecutionContext
   ): WebsocketPipe[A1, B1] = {
@@ -65,6 +74,11 @@ case class WebsocketPipe[A, B] private (
     WebsocketPipe(tObserver, tObservable, statusOutput)
   }
 
+  /**
+   * Send request to websocket and wait one result. For unary call.
+   * @param request Request to send.
+   * @return Response in future.
+   */
   def requestAndWaitOneResult(request: A)(implicit scheduler: Scheduler): Future[B] = {
     val result: Promise[B] = Promise[B]
 
@@ -93,18 +107,25 @@ case class WebsocketPipe[A, B] private (
 
 object WebsocketPipe {
 
+  /**
+   * Type to simplify pipes with equals request and response.
+   */
   type WebsocketClient[T] = WebsocketPipe[T, T]
 
   /**
+   * Creates WebsocketPipe.
    *
-   * @param url Address to connect by websocket
+   * @param url Address to connect by websocket.
+   * @param builder Builder for native websocket client.
+   * @param numberOfAttempts Number for attempts to try reconnect websocket.
+   * @param connectTimeout Timeout between reconnections.
    * @return An observer that will be an input into a websocket and observable - output
    */
   def apply(
     url: String,
     builder: String ⇒ WebsocketT,
-    numberOfAttempts: Int = 3,
-    connectTimeout: FiniteDuration = 3.seconds
+    numberOfAttempts: Int,
+    connectTimeout: FiniteDuration
   )(
     implicit scheduler: Scheduler
   ): WebsocketClient[WebsocketFrame] = {

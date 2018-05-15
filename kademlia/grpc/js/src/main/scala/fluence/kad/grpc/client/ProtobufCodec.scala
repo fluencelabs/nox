@@ -26,6 +26,12 @@ import scala.language.higherKinds
 
 object ProtobufCodec {
 
+  /**
+   * Codec for converting byte array to protobuf class.
+   *
+   * @param gen Protobuf class's companion.
+   * @return New codec for converting byte array to a specific protobuf class.
+   */
   def protobufDynamicCodec[A <: GeneratedMessage with Message[A]](
     gen: GeneratedMessageCompanion[A]
   ): fluence.codec.PureCodec.Func[Array[Byte], A] = {
@@ -38,6 +44,9 @@ object ProtobufCodec {
     }
   }
 
+  /**
+   * Codec for converting protobuf class to a byte array.
+   */
   val generatedMessageCodec: fluence.codec.PureCodec.Func[GeneratedMessage, Array[Byte]] =
     new PureCodec.Func[GeneratedMessage, Array[Byte]] {
       override def apply[F[_]](input: GeneratedMessage)(implicit F: Monad[F]): EitherT[F, CodecError, Array[Byte]] = {
