@@ -54,7 +54,7 @@ object GrpcProxyClient {
     responseCodec: PureCodec.Func[Array[Byte], B]
   )(implicit ec: ExecutionContext): WebsocketPipe[A, B] = {
     val requestId = Random.nextLong()
-    def messageCr: Array[Byte] ⇒ WebsocketMessage = message(service, method, requestId)
+    def messageCreation: Array[Byte] ⇒ WebsocketMessage = message(service, method, requestId)
 
     val wsObserver = websocketClient.input
     val wsObservable = websocketClient.output
@@ -63,7 +63,7 @@ object GrpcProxyClient {
       override def onNext(elem: A): Future[Ack] = {
         for {
           req ← requestCodec.runF(elem)
-          message = messageCr(req)
+          message = messageCreation(req)
           ack ← wsObserver.onNext(message)
         } yield ack
       }
@@ -73,8 +73,9 @@ object GrpcProxyClient {
       override def onComplete(): Unit = wsObserver.onComplete()
     }
 
+    //we will collect only messages that have equals method name, service name and request id
     val proxyObservable = wsObservable.collect {
-      case mes @ WebsocketMessage(s, m, rId, payload) if s == service && m == method && rId == rId ⇒
+      case WebsocketMessage(s, m, rId, payload) if s == service && m == method && rId == rId ⇒
         val resp = responseCodec.unsafe(payload.toByteArray)
         resp
     }
