@@ -124,6 +124,7 @@ object FluenceNode extends slogging.LazyLogging {
               } yield {
                 contact.copy(grpcPort = Some(grpcExternalPort), websocketPort = websocketExternalPort) -> upnp
                   .deletePort(grpcExternalPort)
+                  .flatMap(_ ⇒ websocketExternalPort.fold(IO.unit)(wp ⇒ upnp.deletePort(wp)))
               }
           }
 
