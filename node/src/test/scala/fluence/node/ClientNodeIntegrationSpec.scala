@@ -118,6 +118,24 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
         }
       }
 
+      "websocket port is already used" in {
+        val port = 8098
+        val server = new ServerSocket(port)
+        try {
+          // run node on the busy port
+
+          val result = FluenceNode.startNode(
+            config = config
+              .withValue("fluence.grpc.server.port", ConfigValueFactory.fromAnyRef(port + 10))
+              .withValue("fluence.network.contact.websocketPort", ConfigValueFactory.fromAnyRef(port))
+              .withValue("fluence.network.acceptLocal", ConfigValueFactory.fromAnyRef(true)))
+          Try(result.unsafeRunSync()).failed.get shouldBe a[IOException]
+
+        } finally {
+          server.close()
+        }
+      }
+
       "tries joins the Kademlia network via dead node" in {
         runNodes { servers ⇒
           servers.head._2.kademlia.join(Seq(dummyContact), 1).taskValue shouldBe false
@@ -542,6 +560,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
       // start all nodes Grpc servers
       servers = (0 until numberOfNodes).map { n ⇒
         val port = 6112 + n
+        val websocketPort = port + 321*(n + 1)
         // storage root directory, keys directory, etc should be modified to isolate nodes
         FluenceNode
           .startNode(
@@ -549,6 +568,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
             serverHasher,
             config
               .withValue("fluence.grpc.server.port", ConfigValueFactory.fromAnyRef(port))
+              .withValue("fluence.network.contact.websocketPort", ConfigValueFactory.fromAnyRef(websocketPort))
               .withValue("fluence.network.acceptLocal", ConfigValueFactory.fromAnyRef(true))
               .withValue(ContractsCacheConf.ConfigPath + "dirName", ConfigValueFactory.fromAnyRef("node_cache_" + n))
               .withValue(
