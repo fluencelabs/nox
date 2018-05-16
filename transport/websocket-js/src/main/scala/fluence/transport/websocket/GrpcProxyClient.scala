@@ -76,8 +76,7 @@ object GrpcProxyClient {
     //we will collect only messages that have equals method name, service name and request id
     val proxyObservable = wsObservable.collect {
       case WebsocketMessage(s, m, rId, payload) if s == service && m == method && rId == rId ⇒
-        val resp = responseCodec.unsafe(payload.toByteArray)
-        resp
+        responseCodec.unsafe(payload.toByteArray)
     }
 
     WebsocketPipe(proxyObserver, proxyObservable, websocketClient.statusOutput)
