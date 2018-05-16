@@ -36,7 +36,7 @@ import scala.collection.concurrent.TrieMap
  * @tparam CL HList of all known services
  */
 class GrpcClient[CL <: HList](
-  buildStubs: (ManagedChannel, CallOptions) ⇒ CL,
+  buildStubs: IO[(ManagedChannel, CallOptions)] ⇒ CL,
   addHeaders: IO[Map[String, String]]
 ) extends TransportClient[Contact, CL] with slogging.LazyLogging {
 
@@ -63,15 +63,17 @@ class GrpcClient[CL <: HList](
    *
    * @param contact to open channel for
    */
-  private def channel(contact: Contact): ManagedChannel =
-    channels.getOrElseUpdate(
-      contactKey(contact), {
-        logger.debug("Open new channel: {}", contactKey(contact))
-        ManagedChannelBuilder
-          .forAddress(contact.addr, contact.grpcPort)
-          .usePlaintext(true)
-          .build
-      }
+  private def channel(contact: Contact): IO[ManagedChannel] =
+    IO(
+      channels.getOrElseUpdate(
+        contactKey(contact), {
+          logger.debug("Open new channel: {}", contactKey(contact))
+          ManagedChannelBuilder
+            .forAddress(contact.addr, contact.grpcPort)
+            .usePlaintext()
+            .build
+        }
+      )
     )
 
   /**
@@ -83,41 +85,43 @@ class GrpcClient[CL <: HList](
   private def services(contact: Contact): CL =
     serviceStubs.getOrElseUpdate(
       contactKey(contact), {
-        logger.info("Build services: {}", contactKey(contact))
-        val ch = channel(contact)
+        logger.debug("Build services: {}", contactKey(contact))
+
         buildStubs(
-          ch,
-          CallOptions.DEFAULT.withCallCredentials( // TODO: is it a correct way to pass headers with the request?
-            new CallCredentials {
-              override def applyRequestMetadata(
-                method: MethodDescriptor[_, _],
-                attrs: Attributes,
-                appExecutor: Executor,
-                applier: CallCredentials.MetadataApplier
-              ): Unit = {
+          channel(contact).map(
+            _ →
+              CallOptions.DEFAULT.withCallCredentials( // TODO: is it a correct way to pass headers with the request?
+                new CallCredentials {
+                  override def applyRequestMetadata(
+                    method: MethodDescriptor[_, _],
+                    attrs: Attributes,
+                    appExecutor: Executor,
+                    applier: CallCredentials.MetadataApplier
+                  ): Unit = {
 
-                val setHeaders = (headers: Map[String, String]) ⇒ {
-                  logger.trace("Writing metadata: {}", headers)
-                  val md = new Metadata()
-                  headers.foreach {
-                    case (k, v) ⇒
-                      md.put(Metadata.Key.of(k, Metadata.ASCII_STRING_MARSHALLER), v)
+                    val setHeaders = (headers: Map[String, String]) ⇒ {
+                      logger.trace("Writing metadata: {}", headers)
+                      val md = new Metadata()
+                      headers.foreach {
+                        case (k, v) ⇒
+                          md.put(Metadata.Key.of(k, Metadata.ASCII_STRING_MARSHALLER), v)
+                      }
+                      applier.apply(md)
+                    }
+
+                    addHeaders.unsafeRunAsync {
+                      case Right(headers) ⇒
+                        setHeaders(headers)
+
+                      case Left(err) ⇒
+                        logger.error("Cannot build network request headers!", err)
+                        applier.fail(Status.UNKNOWN)
+                    }
                   }
-                  applier.apply(md)
+
+                  override def thisUsesUnstableApi(): Unit = ()
                 }
-
-                addHeaders.unsafeRunAsync {
-                  case Right(headers) ⇒
-                    setHeaders(headers)
-
-                  case Left(err) ⇒
-                    logger.error("Cannot build network request headers!", err)
-                    applier.fail(Status.UNKNOWN)
-                }
-              }
-
-              override def thisUsesUnstableApi(): Unit = ()
-            }
+              )
           )
         )
       }
@@ -148,7 +152,7 @@ object GrpcClient {
    * @tparam CL HList with all the services
    */
   class Builder[CL <: HList] private[GrpcClient] (
-    buildStubs: (ManagedChannel, CallOptions) ⇒ CL,
+    buildStubs: IO[(ManagedChannel, CallOptions)] ⇒ CL,
     syncHeaders: Map[String, String],
     asyncHeaders: IO[Map[String, String]]
   ) {
@@ -160,8 +164,8 @@ object GrpcClient {
      * @param buildStub E.g. `new ServiceStub(_, _)`
      * @tparam T Type of the service
      */
-    def add[T](buildStub: (ManagedChannel, CallOptions) ⇒ T): Builder[T :: CL] =
-      new Builder[T :: CL]((ch, co) ⇒ buildStub(ch, co) :: self.buildStubs(ch, co), syncHeaders, asyncHeaders)
+    def add[T](buildStub: IO[(ManagedChannel, CallOptions)] ⇒ T): Builder[T :: CL] =
+      new Builder[T :: CL](chco ⇒ buildStub(chco) :: self.buildStubs(chco), syncHeaders, asyncHeaders)
 
     /**
      * Add a header that will be passed with every request.
@@ -196,7 +200,7 @@ object GrpcClient {
    * An empty builder.
    */
   val builder: Builder[HNil] =
-    new Builder[HNil]((_: ManagedChannel, _: CallOptions) ⇒ HNil, Map.empty, IO.pure(Map.empty))
+    new Builder[HNil](_ ⇒ HNil, Map.empty, IO.pure(Map.empty))
 
   /**
    * Builder with pre-defined credential headers.

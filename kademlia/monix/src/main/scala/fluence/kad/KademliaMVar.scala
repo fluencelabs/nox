@@ -24,7 +24,6 @@ import cats.effect.IO
 import cats.kernel.Monoid
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import monix.eval.{MVar, Task}
-import monix.execution.Scheduler
 import monix.execution.atomic.AtomicAny
 
 import scala.language.implicitConversions

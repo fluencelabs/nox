@@ -73,104 +73,106 @@ class NodePut[F[_]: Async](service: DatasetStorageRpc[F, Observable])(
       putValue ← toF(
         getReply(pullClientReply, _.isValue, _._value.map(_.value.toByteArray).getOrElse(Array.emptyByteArray))
       )
-      oldValue ← service.put(
-        datasetInfo.id.toByteArray,
-        datasetInfo.version,
-        new BTreeRpc.PutCallbacks[F] {
+      oldValue ← service
+        .put(
+          datasetInfo.id.toByteArray,
+          datasetInfo.version,
+          new BTreeRpc.PutCallbacks[F] {
 
-          private val pushServerAsk: PutCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
-            EitherT(Task.fromFuture(resp.onNext(PutCallback(callback = callback))).attempt)
-              .leftMap(t ⇒ ClientError(t.getMessage))
-          }
+            private val pushServerAsk: PutCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
+              EitherT(Task.fromFuture(resp.onNext(PutCallback(callback = callback))).attempt)
+                .leftMap(t ⇒ ClientError(t.getMessage))
+            }
 
-          /**
-           * Server asks next child node index.
-           *
-           * @param keys            Keys of current branch for searching index
-           * @param childsChecksums All children checksums of current branch
-           */
-          override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
-            toF(
-              for {
-                _ ← pushServerAsk(
-                  PutCallback.Callback.NextChildIndex(
-                    AskNextChildIndex(
-                      keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                      childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+            /**
+             * Server asks next child node index.
+             *
+             * @param keys            Keys of current branch for searching index
+             * @param childsChecksums All children checksums of current branch
+             */
+            override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
+              toF(
+                for {
+                  _ ← pushServerAsk(
+                    PutCallback.Callback.NextChildIndex(
+                      AskNextChildIndex(
+                        keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
+                        childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+                      )
                     )
                   )
-                )
-                nci ← getReply(pullClientReply, _.isNextChildIndex, _.nextChildIndex.get)
-              } yield nci.index
-            )
+                  nci ← getReply(pullClientReply, _.isNextChildIndex, _.nextChildIndex.get)
+                } yield nci.index
+              )
 
-          /**
-           * Server sends founded leaf details.
-           *
-           * @param keys            Keys of current leaf
-           * @param valuesChecksums Checksums of values for current leaf
-           */
-          override def putDetails(keys: Array[Key], valuesChecksums: Array[Hash]): F[ClientPutDetails] =
-            toF(
-              for {
-                _ ← pushServerAsk(
-                  PutCallback.Callback.PutDetails(
-                    AskPutDetails(
-                      keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                      valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+            /**
+             * Server sends founded leaf details.
+             *
+             * @param keys            Keys of current leaf
+             * @param valuesChecksums Checksums of values for current leaf
+             */
+            override def putDetails(keys: Array[Key], valuesChecksums: Array[Hash]): F[ClientPutDetails] =
+              toF(
+                for {
+                  _ ← pushServerAsk(
+                    PutCallback.Callback.PutDetails(
+                      AskPutDetails(
+                        keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
+                        valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+                      )
                     )
                   )
-                )
-                pd ← getReply(
-                  pullClientReply,
-                  r ⇒ r.isPutDetails && r.putDetails.exists(_.searchResult.isDefined),
-                  _.putDetails.get
-                )
-              } yield
-                ClientPutDetails(
-                  key = Key(pd.key.toByteArray),
-                  valChecksum = Hash(pd.checksum.toByteArray),
-                  searchResult = (
-                    pd.searchResult.found.map(Searching.Found) orElse
-                      pd.searchResult.insertionPoint.map(Searching.InsertionPoint)
-                  ).get
-                )
-            )
+                  pd ← getReply(
+                    pullClientReply,
+                    r ⇒ r.isPutDetails && r.putDetails.exists(_.searchResult.isDefined),
+                    _.putDetails.get
+                  )
+                } yield
+                  ClientPutDetails(
+                    key = Key(pd.key.toByteArray),
+                    valChecksum = Hash(pd.checksum.toByteArray),
+                    searchResult = (
+                      pd.searchResult.found.map(Searching.Found) orElse
+                        pd.searchResult.insertionPoint.map(Searching.InsertionPoint)
+                    ).get
+                  )
+              )
 
-          /**
-           * Server sends new merkle root to client for approve made changes.
-           *
-           * @param serverMerkleRoot New merkle root after putting key/value
-           * @param wasSplitting     'True' id server performed tree rebalancing, 'False' otherwise
-           */
-          override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[ByteVector] =
-            toF(
-              for {
-                _ ← pushServerAsk(
-                  PutCallback.Callback.VerifyChanges(
-                    AskVerifyChanges(
-                      serverMerkleRoot = ByteString.copyFrom(serverMerkleRoot.bytes),
-                      splitted = wasSplitting
+            /**
+             * Server sends new merkle root to client for approve made changes.
+             *
+             * @param serverMerkleRoot New merkle root after putting key/value
+             * @param wasSplitting     'True' id server performed tree rebalancing, 'False' otherwise
+             */
+            override def verifyChanges(serverMerkleRoot: Hash, wasSplitting: Boolean): F[ByteVector] =
+              toF(
+                for {
+                  _ ← pushServerAsk(
+                    PutCallback.Callback.VerifyChanges(
+                      AskVerifyChanges(
+                        serverMerkleRoot = ByteString.copyFrom(serverMerkleRoot.bytes),
+                        splitted = wasSplitting
+                      )
                     )
                   )
-                )
-                clientSignature ← getReply(pullClientReply, _.isVerifyChanges, _.verifyChanges.get.signature)
-              } yield ByteVector(clientSignature.toByteArray)
-            )
+                  clientSignature ← getReply(pullClientReply, _.isVerifyChanges, _.verifyChanges.get.signature)
+                } yield ByteVector(clientSignature.toByteArray)
+              )
 
-          /**
-           * Server confirms that all changes was persisted.
-           */
-          override def changesStored(): F[Unit] =
-            toF(
-              for {
-                _ ← pushServerAsk(PutCallback.Callback.ChangesStored(AskChangesStored()))
-                _ ← getReply(pullClientReply, _.isChangesStored, _.changesStored.get)
-              } yield ()
-            )
-        },
-        putValue
-      )
+            /**
+             * Server confirms that all changes was persisted.
+             */
+            override def changesStored(): F[Unit] =
+              toF(
+                for {
+                  _ ← pushServerAsk(PutCallback.Callback.ChangesStored(AskChangesStored()))
+                  _ ← getReply(pullClientReply, _.isChangesStored, _.changesStored.get)
+                } yield ()
+              )
+          },
+          putValue
+        )
+        .to[F]
     } yield {
       logger.debug(
         s"Was stored new value=${putValue.show} for client 'put' request for ${datasetInfo.show}" +
