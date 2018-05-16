@@ -64,7 +64,7 @@ class ClientDatasetStorage[K, V](
     for {
       getCallbacks ← bTreeIndex.initGet(key)
       version ← Task.fromIO(datasetVer).map(_.get)
-      serverResponse ← storageRpc.get(datasetId, version, getCallbacks).doOnFinish { _ ⇒
+      serverResponse ← Task.fromIO(storageRpc.get(datasetId, version, getCallbacks)).doOnFinish { _ ⇒
         getCallbacks.recoverState()
       }
 
@@ -109,8 +109,11 @@ class ClientDatasetStorage[K, V](
       encValueHash ← hasher.runF[Task](encValue)
       version ← Task.fromIO(datasetVer).map(_.get)
       putCallbacks ← bTreeIndex.initPut(key, encValueHash, version)
-      serverResponse ← storageRpc
-        .put(datasetId, version, putCallbacks, encValue)
+      serverResponse ← Task
+        .fromIO(
+          storageRpc
+            .put(datasetId, version, putCallbacks, encValue)
+        )
         .doOnFinish {
           // in error case we should return old value of clientState back
           case Some(e) ⇒ putCallbacks.recoverState()
@@ -125,7 +128,7 @@ class ClientDatasetStorage[K, V](
     for {
       version ← Task.fromIO(datasetVer).map(_.get)
       removeCmd ← bTreeIndex.initRemove(key, version)
-      serverResponse ← storageRpc.remove(datasetId, version, removeCmd)
+      serverResponse ← Task.fromIO(storageRpc.remove(datasetId, version, removeCmd))
       _ ← Task.fromIO(datasetVer).map(_.increment())
       resp ← decryptOption(serverResponse)
     } yield resp

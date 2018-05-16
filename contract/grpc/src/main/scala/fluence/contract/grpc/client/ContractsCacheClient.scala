@@ -33,7 +33,7 @@ import io.grpc.{CallOptions, ManagedChannel}
 
 import scala.concurrent.ExecutionContext
 
-class ContractsCacheClient[C: ContractValidate](stub: ContractsCacheStub)(
+class ContractsCacheClient[C: ContractValidate](stub: IO[ContractsCacheStub])(
   implicit
   codec: Codec[IO, C, BasicContract],
   checkerFn: CheckerFn,
@@ -53,13 +53,15 @@ class ContractsCacheClient[C: ContractValidate](stub: ContractsCacheStub)(
     (for {
       idBs ← keyC.direct.runF[IO](id)
       req = FindRequest(idBs)
-      binContract ← IO.fromFuture(IO(stub.find(req)))
+      binContract ← IO.fromFuture(stub.map(_.find(req)))
       contract ← codec.decode(binContract)
       // contract from the outside required validation
       _ ← contract.validateME[IO]
     } yield Option(contract)).recover {
       case err ⇒
         logger.warn(s"Finding contract failed, cause=$err", err)
+        logger.warn(err.toString)
+        err.printStackTrace()
         None
     }
 
@@ -74,7 +76,7 @@ class ContractsCacheClient[C: ContractValidate](stub: ContractsCacheStub)(
       // we should validate contract before send outside to caching
       _ ← contract.validateME[IO]
       binContract ← codec.encode(contract)
-      resp ← IO.fromFuture(IO(stub.cache(binContract)))
+      resp ← IO.fromFuture(stub.map(_.cache(binContract)))
     } yield resp.cached
 }
 
@@ -83,17 +85,17 @@ object ContractsCacheClient {
   /**
    * Shorthand to register inside NetworkClient.
    *
-   * @param channel     Channel to remote node
-   * @param callOptions Call options
+   * @param channelOptions     Channel to remote node and Call options
    */
   def register[C: ContractValidate]()(
-    channel: ManagedChannel,
-    callOptions: CallOptions
+    channelOptions: IO[(ManagedChannel, CallOptions)]
   )(
     implicit
     codec: Codec[IO, C, BasicContract],
     checkerFn: CheckerFn,
     ec: ExecutionContext
   ): ContractsCacheRpc[C] =
-    new ContractsCacheClient[C](new ContractsCacheGrpc.ContractsCacheStub(channel, callOptions))
+    new ContractsCacheClient[C](channelOptions.map {
+      case (channel, callOptions) ⇒ new ContractsCacheGrpc.ContractsCacheStub(channel, callOptions)
+    })
 }

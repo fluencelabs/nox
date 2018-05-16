@@ -17,7 +17,7 @@
 
 package fluence.dataset.client
 
-import cats.effect.Effect
+import cats.effect.{Effect, IO}
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import com.google.protobuf.ByteString
@@ -107,7 +107,7 @@ class ClientGet[F[_]: Effect](datasetId: Array[Byte], version: Long, getCallback
    */
   def runStream(
     pipe: Pipe[GetCallbackReply, GetCallback]
-  )(implicit sch: Scheduler): F[Option[Array[Byte]]] = {
+  )(implicit sch: Scheduler): IO[Option[Array[Byte]]] = {
 
     // Get observer/observable for request's bidiflow
     val (pushClientReply: Observer[GetCallbackReply], pullServerAsk: Observable[GetCallback.Callback]) = pipe
@@ -144,7 +144,7 @@ class ClientGet[F[_]: Effect](datasetId: Array[Byte], version: Long, getCallback
           }
       }.headOptionL // Take the first option value or server error
 
-    composeResult(clientError, serverErrOrVal)
+    composeResult[IO](clientError, serverErrOrVal)
   }
 
 }
