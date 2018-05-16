@@ -15,31 +15,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.kad.grpc
+package fluence.kad
 
 import java.time.Instant
 
 import cats.Monad
 import cats.data.EitherT
 import cats.syntax.compose._
+import com.google.protobuf.ByteString
+import fluence.codec.pb.ProtobufCodecs._
 import fluence.codec.{CodecError, PureCodec}
 import fluence.crypto.signature.SignAlgo.CheckerFn
-import fluence.kad.grpc.facade.Node
-import fluence.kad.protocol
+import fluence.kad.KeyProtobufCodecs._
+import fluence.kad.protobuf.Node
 import fluence.kad.protocol.{Contact, Key}
-import fluence.kad.grpc.KeyUint8Codecs._
-
-import fluence.codec.Uint8Codecs._
 
 import scala.language.higherKinds
-import scala.scalajs.js.typedarray.Uint8Array
 
 object KademliaNodeCodec {
   implicit def pureCodec(implicit checkerFn: CheckerFn): PureCodec[fluence.kad.protocol.Node[Contact], Node] = {
-    val keyCodec = PureCodec[Key, Uint8Array]
-    val contactCodec = PureCodec[Contact, Array[Byte]] andThen PureCodec[Array[Byte], Uint8Array]
+    val keyCodec = PureCodec.codec[Key, ByteString]
+    val contactCodec = PureCodec.codec[Contact, Array[Byte]] andThen PureCodec.codec[Array[Byte], ByteString]
 
-    PureCodec.Bijection(
+    PureCodec.build(
       new PureCodec.Func[fluence.kad.protocol.Node[Contact], Node] {
         override def apply[F[_]: Monad](input: protocol.Node[Contact]): EitherT[F, CodecError, Node] =
           for {

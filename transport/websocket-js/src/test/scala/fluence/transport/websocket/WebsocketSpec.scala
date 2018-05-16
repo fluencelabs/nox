@@ -17,24 +17,25 @@
 
 package fluence.transport.websocket
 
+import fluence.codec.PureCodec
 import monix.execution.Ack.Continue
-import monix.reactive.OverflowStrategy
 import org.scalatest.{Assertion, AsyncFlatSpec, Matchers}
 import scodec.bits.ByteVector
 
+import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
-import scala.util.Try
 
 class WebsocketSpec extends AsyncFlatSpec with Matchers {
 
   implicit override def executionContext = monix.execution.Scheduler.Implicits.global
 
   it should "work with multiple subscribers" in {
-    val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
-    val WebsocketClient(observer, observable, _) = WebsocketClient.binaryClient(
+    val WebsocketPipe(observer, observable, _) = WebsocketPipe.binaryClient(
       "ws://localhost:8080/",
-      s ⇒ WebsocketEcho(s)
+      s ⇒ WebsocketEcho(s),
+      1,
+      10.millis
     )
 
     val pr11 = Promise[Unit]
@@ -87,9 +88,6 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
       _ = observer.onNext(Array[Byte](4))
       _ ← pr51.future
     } yield {
-      val obs6 = observable.subscribe(bv ⇒ {
-        Future(Continue)
-      })
       assert(true)
     }).recover {
       case e: Throwable ⇒
@@ -99,14 +97,14 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
   }
 
   it should "not lose message after exception on send" in {
-    val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
-
     val pr11 = Promise[Unit]
     val pr21 = Promise[Unit]
 
-    val WebsocketClient(observer, observable, _) = WebsocketClient.binaryClient(
+    val WebsocketPipe(observer, observable, _) = WebsocketPipe.binaryClient(
       "ws://localhost:8080/",
-      s ⇒ WebsocketEcho(s)
+      s ⇒ WebsocketEcho(s),
+      1,
+      10.millis
     )
 
     val obs1 = observable.subscribe(bv ⇒ {
@@ -134,8 +132,6 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
   }
 
   it should "work if server restarted" in {
-    val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
-
     val pr11 = Promise[Unit]
     val pr12 = Promise[Unit]
     val pr13 = Promise[Unit]
@@ -145,9 +141,11 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
     val pr23 = Promise[Unit]
     val pr24 = Promise[Unit]
 
-    val WebsocketClient(observer, observable, _) = WebsocketClient.binaryClient(
+    val WebsocketPipe(observer, observable, _) = WebsocketPipe.binaryClient(
       "ws://localhost:8080/",
-      s ⇒ WebsocketEcho(s)
+      s ⇒ WebsocketEcho(s),
+      1,
+      10.millis
     )
 
     val obs1 = observable.subscribe(bv ⇒ {
@@ -191,12 +189,10 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
   }
 
   "error status" should "be sent to status observable" in {
-    val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
-
     val prOnOpen = Promise[Unit]
     val prOnError = Promise[Unit]
 
-    val WebsocketClient(observer, observable, statusOutput) = WebsocketClient.binaryClient(
+    val WebsocketPipe(observer, observable, statusOutput) = WebsocketPipe.binaryClient(
       "ws://localhost:8080/",
       s ⇒ WebsocketEcho(s)
     )
@@ -225,15 +221,15 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
   }
 
   "close status" should "be sent to status observable" in {
-    val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
-
     val prOnOpen = Promise[Unit]
     val prOnOpen2 = Promise[Unit]
     val prOnClose = Promise[Unit]
 
-    val WebsocketClient(observer, observable, statusOutput) = WebsocketClient.binaryClient(
+    val WebsocketPipe(observer, observable, statusOutput) = WebsocketPipe.binaryClient(
       "ws://localhost:8080/",
-      s ⇒ WebsocketEcho(s)
+      s ⇒ WebsocketEcho(s),
+      1,
+      10.millis
     )
 
     val obs1 = statusOutput.subscribe(status ⇒ {
@@ -262,15 +258,15 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
   }
 
   "websocket" should "be restarted on error on send" in {
-    val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
-
     val prOnOpen = Promise[Unit]
     val prOnOpen2 = Promise[Unit]
     val prOnClose = Promise[Unit]
 
-    val WebsocketClient(observer, observable, statusOutput) = WebsocketClient.binaryClient(
+    val WebsocketPipe(observer, observable, statusOutput) = WebsocketPipe.binaryClient(
       "ws://localhost:8080/",
-      s ⇒ WebsocketEcho(s)
+      s ⇒ WebsocketEcho(s),
+      1,
+      10.millis
     )
 
     val obs1 = statusOutput.subscribe(status ⇒ {
@@ -293,6 +289,58 @@ class WebsocketSpec extends AsyncFlatSpec with Matchers {
       assert(true)
     }).recover {
       case e: Throwable ⇒
+        e.printStackTrace()
+        assert(false)
+    }
+  }
+
+  //TODO rewrite this test when it will be handling in WebsocketPipe by either or seomthing else
+  "websocket pipe" should "work with errors is codec" in {
+    val pr1 = Promise[Unit]
+
+    val pipe = WebsocketPipe.binaryClient(
+      "ws://localhost:8080/",
+      s ⇒ WebsocketEcho(s),
+      1,
+      10.millis
+    )
+
+    case class SomeMessage(bv: ByteVector)
+
+    val killArray = Array[Byte](2, 3, 4)
+
+    val websocketMessageCodec =
+      PureCodec.build[SomeMessage, Array[Byte]](
+        (wm: SomeMessage) ⇒ {
+          val ab = wm.bv.toArray
+          if (ab sameElements killArray) {
+            throw new RuntimeException("error")
+          } else
+            ab
+        },
+        (ab: Array[Byte]) ⇒ SomeMessage(ByteVector(ab))
+      )
+    val codecPipe =
+      pipe.xmap[SomeMessage, SomeMessage](websocketMessageCodec.direct, websocketMessageCodec.inverse)
+
+    val obs1 = codecPipe.output.subscribe(
+      nextFn = wsMessage ⇒ {
+        pr1.success(())
+        Future(Continue)
+      }
+    )
+
+    codecPipe.input.onNext(SomeMessage(ByteVector(killArray)))
+    codecPipe.input.onNext(SomeMessage(ByteVector(Array[Byte](5, 6, 7))))
+
+    (for {
+      _ ← pr1.future
+    } yield {
+      obs1.cancel()
+      assert(true)
+    }).recover {
+      case e: Throwable ⇒
+        println("ERROR ON RECOVER")
         e.printStackTrace()
         assert(false)
     }
