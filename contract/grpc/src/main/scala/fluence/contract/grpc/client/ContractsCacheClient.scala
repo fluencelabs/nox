@@ -60,8 +60,6 @@ class ContractsCacheClient[C: ContractValidate](stub: IO[ContractsCacheStub])(
     } yield Option(contract)).recover {
       case err ⇒
         logger.warn(s"Finding contract failed, cause=$err", err)
-        logger.warn(err.toString)
-        err.printStackTrace()
         None
     }
 
