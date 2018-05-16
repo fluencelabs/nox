@@ -306,7 +306,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
       .runAsync(monix.execution.Scheduler.Implicits.global).futureValue
   }
 
-  private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] = {
+  private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None)(implicit scheduler:Scheduler): ClientDatasetStorage[String, User] = {
     val fullName = makeUnique(dbName)
     new ClientDatasetStorage(
       fullName.getBytes(),
@@ -322,7 +322,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   private def createStorageRpcWithNetworkError(
     dbName: String,
     counter: DatasetChanged ⇒ Task[Unit]
-  ): DatasetStorageRpc[Task, Observable] = {
+  )(implicit scheduler:Scheduler): DatasetStorageRpc[Task, Observable] = {
     val origin = createDatasetNodeStorage(makeUnique(dbName), counter)
     new DatasetStorageRpc[Task, Observable] {
       override def remove(
@@ -330,7 +330,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         version: Long,
         removeCallbacks: BTreeRpc.RemoveCallback[Task]
       ): IO[Option[Array[Byte]]] = {
-        origin.remove(version, removeCallbacks).toIO(Scheduler.global)
+        origin.remove(version, removeCallbacks).toIO
       }
       override def put(
         datasetId: Array[Byte],
@@ -341,7 +341,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         if (new String(encryptedValue) == "ENC[Alan,33]") {
           IO.raiseError(new IllegalStateException("some network error"))
         } else {
-          origin.put(version, putCallback, encryptedValue).toIO(Scheduler.global)
+          origin.put(version, putCallback, encryptedValue).toIO
         }
       }
       override def get(
@@ -349,7 +349,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         version: Long,
         getCallbacks: BTreeRpc.SearchCallback[Task]
       ): IO[Option[Array[Byte]]] =
-        origin.get(getCallbacks).toIO(Scheduler.global)
+        origin.get(getCallbacks).toIO
 
       override def range(
         datasetId: Array[Byte],
@@ -361,7 +361,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     }
   }
 
-  private def createStorageRpc(dbName: String): DatasetStorageRpc[Task, Observable] =
+  private def createStorageRpc(dbName: String)(implicit scheduler:Scheduler): DatasetStorageRpc[Task, Observable] =
     new DatasetStorageRpc[Task, Observable] {
       private val storage = createDatasetNodeStorage(dbName, _ ⇒ Task.unit)
 
@@ -370,7 +370,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         version: Long,
         removeCallbacks: BTreeRpc.RemoveCallback[Task]
       ): IO[Option[Array[Byte]]] =
-        storage.remove(version, removeCallbacks).toIO(Scheduler.global)
+        storage.remove(version, removeCallbacks).toIO
 
       override def put(
         datasetId: Array[Byte],
@@ -378,14 +378,14 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         putCallbacks: BTreeRpc.PutCallbacks[Task],
         encryptedValue: Array[Byte]
       ): IO[Option[Array[Byte]]] =
-        storage.put(version, putCallbacks, encryptedValue).toIO(Scheduler.global)
+        storage.put(version, putCallbacks, encryptedValue).toIO
 
       override def get(
         datasetId: Array[Byte],
         version: Long,
         getCallbacks: BTreeRpc.SearchCallback[Task]
       ): IO[Option[Array[Byte]]] =
-        storage.get(getCallbacks).toIO(Scheduler.global)
+        storage.get(getCallbacks).toIO
 
       override def range(
         datasetId: Array[Byte],
