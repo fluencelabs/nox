@@ -17,7 +17,7 @@
 
 package fluence.dataset.client
 
-import cats.effect.Effect
+import cats.effect.{Effect, IO}
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import com.google.protobuf.ByteString
@@ -131,7 +131,7 @@ class ClientPut[F[_]: Effect](
    * @param pipe Bidi pipe for transport layer
    * @return
    */
-  def runStream(pipe: Pipe[PutCallbackReply, PutCallback])(implicit sch: Scheduler): F[Option[Array[Byte]]] = {
+  def runStream(pipe: Pipe[PutCallbackReply, PutCallback])(implicit sch: Scheduler): IO[Option[Array[Byte]]] = {
     val (pushClientReply, pullServerAsk) = pipe
       .transform(_.map {
         case PutCallback(callback) ⇒
@@ -169,7 +169,7 @@ class ClientPut[F[_]: Effect](
           }
       }.headOptionL // Take the first option value or server error
 
-    composeResult(clientError, serverErrOrVal)
+    composeResult[IO](clientError, serverErrOrVal)
   }
 
 }

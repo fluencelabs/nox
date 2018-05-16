@@ -35,7 +35,7 @@ import scala.language.implicitConversions
  *
  * @param stub GRPC Kademlia Stub
  */
-class KademliaClient(stub: KademliaGrpc.Kademlia)(
+class KademliaClient(stub: IO[KademliaGrpc.Kademlia])(
   implicit
   codec: PureCodec[protocol.Node[Contact], protobuf.Node],
   ec: ExecutionContext
@@ -52,7 +52,7 @@ class KademliaClient(stub: KademliaGrpc.Kademlia)(
    */
   override def ping(): IO[Node[Contact]] =
     for {
-      n ← IO.fromFuture(IO(stub.ping(protobuf.PingRequest())))
+      n ← IO.fromFuture(stub.map(_.ping(protobuf.PingRequest())))
       nc ← codec.inverse.runF[IO](n)
     } yield nc
 
@@ -64,7 +64,7 @@ class KademliaClient(stub: KademliaGrpc.Kademlia)(
   override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] =
     for {
       k ← keyBS(key)
-      res ← IO.fromFuture(IO(stub.lookup(protobuf.LookupRequest(k, numberOfNodes))))
+      res ← IO.fromFuture(stub.map(_.lookup(protobuf.LookupRequest(k, numberOfNodes))))
       resDec ← streamCodec.inverse.runF[IO](res.nodes.toStream)
     } yield resDec
 
@@ -78,9 +78,7 @@ class KademliaClient(stub: KademliaGrpc.Kademlia)(
       k ← keyBS(key)
       moveAwayK ← keyBS(moveAwayFrom)
       res ← IO.fromFuture(
-        IO(
-          stub.lookupAway(protobuf.LookupAwayRequest(k, moveAwayK, numberOfNodes))
-        )
+        stub.map(_.lookupAway(protobuf.LookupAwayRequest(k, moveAwayK, numberOfNodes)))
       )
       resDec ← streamCodec.inverse.runF[IO](res.nodes.toStream)
     } yield resDec
@@ -91,17 +89,15 @@ object KademliaClient {
   /**
    * Shorthand to register KademliaClient inside NetworkClient.
    *
-   * @param channel     Channel to remote node
-   * @param callOptions Call options
+   * @param channelOptions     Channel to remote node and Call options
    */
   def register()(
-    channel: ManagedChannel,
-    callOptions: CallOptions
+    channelOptions: IO[(ManagedChannel, CallOptions)]
   )(
     implicit
     codec: PureCodec[protocol.Node[Contact], protobuf.Node],
     ec: ExecutionContext
   ): KademliaRpc[Contact] =
-    new KademliaClient(new KademliaGrpc.KademliaStub(channel, callOptions))
+    new KademliaClient(channelOptions.map { case (ch, opts) ⇒ new KademliaGrpc.KademliaStub(ch, opts) })
 
 }

@@ -17,6 +17,7 @@
 
 package fluence.dataset.node
 
+import cats.effect.IO
 import cats.instances.try_._
 import cats.~>
 import cats.syntax.compose._
@@ -34,7 +35,7 @@ import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.storage.rocksdb.{RocksDbConf, RocksDbStore}
 import monix.eval.Task
-import monix.execution.ExecutionModel
+import monix.execution.{ExecutionModel, Scheduler}
 import monix.execution.atomic.Atomic
 import monix.execution.schedulers.TestScheduler
 import monix.reactive.Observable
@@ -305,7 +306,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
       .runAsync(monix.execution.Scheduler.Implicits.global).futureValue
   }
 
-  private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None): ClientDatasetStorage[String, User] = {
+  private def createClientDbDriver(dbName: String, clientState: Option[ClientState] = None)(implicit scheduler:Scheduler): ClientDatasetStorage[String, User] = {
     val fullName = makeUnique(dbName)
     new ClientDatasetStorage(
       fullName.getBytes(),
@@ -321,34 +322,34 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
   private def createStorageRpcWithNetworkError(
     dbName: String,
     counter: DatasetChanged ⇒ Task[Unit]
-  ): DatasetStorageRpc[Task, Observable] = {
+  )(implicit scheduler:Scheduler): DatasetStorageRpc[Task, Observable] = {
     val origin = createDatasetNodeStorage(makeUnique(dbName), counter)
     new DatasetStorageRpc[Task, Observable] {
       override def remove(
         datasetId: Array[Byte],
         version: Long,
         removeCallbacks: BTreeRpc.RemoveCallback[Task]
-      ): Task[Option[Array[Byte]]] = {
-        origin.remove(version, removeCallbacks)
+      ): IO[Option[Array[Byte]]] = {
+        origin.remove(version, removeCallbacks).toIO
       }
       override def put(
         datasetId: Array[Byte],
         version: Long,
         putCallback: BTreeRpc.PutCallbacks[Task],
         encryptedValue: Array[Byte]
-      ): Task[Option[Array[Byte]]] = {
+      ): IO[Option[Array[Byte]]] = {
         if (new String(encryptedValue) == "ENC[Alan,33]") {
-          Task.raiseError(new IllegalStateException("some network error"))
+          IO.raiseError(new IllegalStateException("some network error"))
         } else {
-          origin.put(version, putCallback, encryptedValue)
+          origin.put(version, putCallback, encryptedValue).toIO
         }
       }
       override def get(
         datasetId: Array[Byte],
         version: Long,
         getCallbacks: BTreeRpc.SearchCallback[Task]
-      ): Task[Option[Array[Byte]]] =
-        origin.get(getCallbacks)
+      ): IO[Option[Array[Byte]]] =
+        origin.get(getCallbacks).toIO
 
       override def range(
         datasetId: Array[Byte],
@@ -360,7 +361,7 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
     }
   }
 
-  private def createStorageRpc(dbName: String): DatasetStorageRpc[Task, Observable] =
+  private def createStorageRpc(dbName: String)(implicit scheduler:Scheduler): DatasetStorageRpc[Task, Observable] =
     new DatasetStorageRpc[Task, Observable] {
       private val storage = createDatasetNodeStorage(dbName, _ ⇒ Task.unit)
 
@@ -368,23 +369,23 @@ class IntegrationDatasetStorageSpec extends WordSpec with Matchers with ScalaFut
         datasetId: Array[Byte],
         version: Long,
         removeCallbacks: BTreeRpc.RemoveCallback[Task]
-      ): Task[Option[Array[Byte]]] =
-        storage.remove(version, removeCallbacks)
+      ): IO[Option[Array[Byte]]] =
+        storage.remove(version, removeCallbacks).toIO
 
       override def put(
         datasetId: Array[Byte],
         version: Long,
         putCallbacks: BTreeRpc.PutCallbacks[Task],
         encryptedValue: Array[Byte]
-      ): Task[Option[Array[Byte]]] =
-        storage.put(version, putCallbacks, encryptedValue)
+      ): IO[Option[Array[Byte]]] =
+        storage.put(version, putCallbacks, encryptedValue).toIO
 
       override def get(
         datasetId: Array[Byte],
         version: Long,
         getCallbacks: BTreeRpc.SearchCallback[Task]
-      ): Task[Option[Array[Byte]]] =
-        storage.get(getCallbacks)
+      ): IO[Option[Array[Byte]]] =
+        storage.get(getCallbacks).toIO
 
       override def range(
         datasetId: Array[Byte],

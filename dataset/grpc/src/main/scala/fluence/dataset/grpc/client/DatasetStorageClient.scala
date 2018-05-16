@@ -17,7 +17,7 @@
 
 package fluence.dataset.grpc.client
 
-import cats.effect.Effect
+import cats.effect.{Effect, IO}
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.client.{ClientGet, ClientPut, ClientRange}
 import fluence.dataset.protocol.DatasetStorageRpc
@@ -39,7 +39,7 @@ import scala.language.{higherKinds, implicitConversions}
  * @tparam F A box for returning value
  */
 class DatasetStorageClient[F[_]: Effect](
-  stub: DatasetStorageRpcStub
+  stub: IO[DatasetStorageRpcStub]
 )(implicit sch: Scheduler)
     extends DatasetStorageRpc[F, Observable] with slogging.LazyLogging {
 
@@ -57,9 +57,9 @@ class DatasetStorageClient[F[_]: Effect](
     datasetId: Array[Byte],
     version: Long,
     getCallbacks: BTreeRpc.SearchCallback[F]
-  ): F[Option[Array[Byte]]] = {
+  ): IO[Option[Array[Byte]]] = stub.flatMap { rpcStub ⇒
     // Convert a remote stub call to monix pipe
-    val pipe: Pipe[GetCallbackReply, GetCallback] = callToPipe(stub.get)
+    val pipe: Pipe[GetCallbackReply, GetCallback] = callToPipe(rpcStub.get)
 
     ClientGet(datasetId, version, getCallbacks).runStream(pipe)
   }
@@ -76,10 +76,9 @@ class DatasetStorageClient[F[_]: Effect](
     datasetId: Array[Byte],
     version: Long,
     rangeCallbacks: BTreeRpc.SearchCallback[F]
-  ): Observable[(Array[Byte], Array[Byte])] = {
-
+  ): Observable[(Array[Byte], Array[Byte])] = Observable.fromIO(stub).flatMap { rpcStub ⇒
     // Convert a remote stub call to monix pipe
-    val pipe: Pipe[RangeCallbackReply, RangeCallback] = callToPipe(stub.range)
+    val pipe: Pipe[RangeCallbackReply, RangeCallback] = callToPipe(rpcStub.range)
 
     ClientRange(datasetId, version, rangeCallbacks).runStream(pipe)
   }
@@ -98,9 +97,9 @@ class DatasetStorageClient[F[_]: Effect](
     version: Long,
     putCallbacks: BTreeRpc.PutCallbacks[F],
     encryptedValue: Array[Byte]
-  ): F[Option[Array[Byte]]] = {
+  ): IO[Option[Array[Byte]]] = stub.flatMap { rpcStub ⇒
     // Convert a remote stub call to monix pipe
-    val pipe: Pipe[PutCallbackReply, PutCallback] = callToPipe(stub.put)
+    val pipe: Pipe[PutCallbackReply, PutCallback] = callToPipe(rpcStub.put)
 
     ClientPut(datasetId, version, putCallbacks, encryptedValue).runStream(pipe)
   }
@@ -117,7 +116,7 @@ class DatasetStorageClient[F[_]: Effect](
     datasetId: Array[Byte],
     version: Long,
     removeCallbacks: BTreeRpc.RemoveCallback[F]
-  ): F[Option[Array[Byte]]] = ???
+  ): IO[Option[Array[Byte]]] = IO(???)
 }
 
 object DatasetStorageClient {
@@ -125,12 +124,10 @@ object DatasetStorageClient {
   /**
    * Shorthand to register [[DatasetStorageClient]] inside [[GrpcClient]].
    *
-   * @param channel     Channel to remote node
-   * @param callOptions Call options
+   * @param channelOptions     Channel to remote node and call options
    */
   def register[F[_]: Effect]()(
-    channel: ManagedChannel,
-    callOptions: CallOptions
+    channelOptions: IO[(ManagedChannel, CallOptions)]
   )(implicit scheduler: Scheduler): DatasetStorageRpc[F, Observable] =
-    new DatasetStorageClient[F](new DatasetStorageRpcStub(channel, callOptions))
+    new DatasetStorageClient[F](channelOptions.map { case (ch, opts) ⇒ new DatasetStorageRpcStub(ch, opts) })
 }

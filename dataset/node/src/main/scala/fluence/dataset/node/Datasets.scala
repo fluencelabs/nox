@@ -17,6 +17,7 @@
 
 package fluence.dataset.node
 
+import cats.effect.IO
 import cats.~>
 import com.typesafe.config.Config
 import fluence.btree.protocol.BTreeRpc
@@ -26,6 +27,7 @@ import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.Key
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
+import monix.execution.Scheduler
 import monix.reactive.Observable
 import scodec.bits.{Bases, ByteVector}
 
@@ -47,7 +49,8 @@ class Datasets(
   cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]],
   servesDataset: Key ⇒ Task[Option[Long]],
   contractUpdated: (Key, DatasetChanged) ⇒ Task[Unit]
-) extends DatasetStorageRpc[Task, Observable] with slogging.LazyLogging {
+)(implicit scheduler: Scheduler)
+    extends DatasetStorageRpc[Task, Observable] with slogging.LazyLogging {
 
   private val datasets = TrieMap.empty[ByteVector, Task[DatasetNodeStorage]]
 
@@ -109,11 +112,11 @@ class Datasets(
     datasetId: Array[Byte],
     version: Long,
     getCallbacks: BTreeRpc.SearchCallback[Task]
-  ): Task[Option[Array[Byte]]] =
-    for {
+  ): IO[Option[Array[Byte]]] =
+    (for {
       store ← storage(datasetId, version)
       result ← store.get(getCallbacks)
-    } yield result
+    } yield result).toIO
 
   /**
    * @param datasetId       Dataset ID
@@ -143,11 +146,11 @@ class Datasets(
     version: Long,
     putCallbacks: BTreeRpc.PutCallbacks[Task],
     encryptedValue: Array[Byte]
-  ): Task[Option[Array[Byte]]] =
-    for {
+  ): IO[Option[Array[Byte]]] =
+    (for {
       store ← storage(datasetId, version)
       oldValue ← store.put(version, putCallbacks, encryptedValue)
-    } yield oldValue
+    } yield oldValue).toIO
 
   /**
    * @param datasetId       Dataset ID
@@ -159,11 +162,11 @@ class Datasets(
     datasetId: Array[Byte],
     version: Long,
     removeCallbacks: BTreeRpc.RemoveCallback[Task]
-  ): Task[Option[Array[Byte]]] =
-    for {
+  ): IO[Option[Array[Byte]]] =
+    (for {
       store ← storage(datasetId, version)
       deletedValue ← store.remove(version, removeCallbacks)
-    } yield deletedValue
+    } yield deletedValue).toIO
 
   /**
    * Compare client and node dataset versions.

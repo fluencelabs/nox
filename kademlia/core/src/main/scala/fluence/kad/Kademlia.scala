@@ -27,7 +27,7 @@ import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import slogging.LazyLogging
 
 import scala.concurrent.duration.Duration
-import scala.language.higherKinds
+import scala.language.{existentials, higherKinds}
 
 trait Kademlia[F[_], C] {
 
