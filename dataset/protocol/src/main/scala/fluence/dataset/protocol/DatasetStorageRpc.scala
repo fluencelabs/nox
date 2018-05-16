@@ -17,6 +17,7 @@
 
 package fluence.dataset.protocol
 
+import cats.effect.IO
 import fluence.btree.protocol.BTreeRpc.{PutCallbacks, RemoveCallback, SearchCallback}
 
 import scala.language.higherKinds
@@ -41,7 +42,7 @@ trait DatasetStorageRpc[F[_], FS[_]] {
     datasetId: Array[Byte],
     version: Long,
     searchCallbacks: SearchCallback[F]
-  ): F[Option[Array[Byte]]]
+  ): IO[Option[Array[Byte]]]
 
   /**
    * Initiates ''Range'' operation in remote MerkleBTree.
@@ -71,7 +72,7 @@ trait DatasetStorageRpc[F[_], FS[_]] {
     version: Long,
     putCallbacks: PutCallbacks[F],
     encryptedValue: Array[Byte]
-  ): F[Option[Array[Byte]]]
+  ): IO[Option[Array[Byte]]]
 
   /**
    * Initiates ''Remove'' operation in remote MerkleBTree.
@@ -81,6 +82,6 @@ trait DatasetStorageRpc[F[_], FS[_]] {
    * @param removeCallbacks Wrapper for all callback needed for ''Remove'' operation to the BTree.
    * @return returns old value that was deleted, None if nothing was deleted.
    */
-  def remove(datasetId: Array[Byte], version: Long, removeCallbacks: RemoveCallback[F]): F[Option[Array[Byte]]]
+  def remove(datasetId: Array[Byte], version: Long, removeCallbacks: RemoveCallback[F]): IO[Option[Array[Byte]]]
 
 }

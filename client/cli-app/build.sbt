@@ -8,7 +8,7 @@ commons
 
 mainClass := Some("fluence.client.ClientApp")
 
-packageName in Docker := "fluencelabs/client"
+packageName in Docker := "fluencelabs/client-cli"
 
 dockerCommands ++= Seq(
   Cmd("ENV", "FLUENCE_GIT_HASH", sys.process.Process("git rev-parse HEAD").lineStream_!.head),

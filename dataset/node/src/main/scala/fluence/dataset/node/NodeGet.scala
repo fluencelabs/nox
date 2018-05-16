@@ -71,65 +71,67 @@ class NodeGet[F[_]: Async](service: DatasetStorageRpc[F, Observable])(
   ): F[Option[Array[Byte]]] =
     for {
       datasetInfo ← toF(getReply(pullClientReply, _.isDatasetInfo, _.datasetInfo.get))
-      foundValue ← service.get(
-        datasetInfo.id.toByteArray,
-        datasetInfo.version,
-        new BTreeRpc.SearchCallback[F] {
+      foundValue ← service
+        .get(
+          datasetInfo.id.toByteArray,
+          datasetInfo.version,
+          new BTreeRpc.SearchCallback[F] {
 
-          private val pushServerAsk: GetCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
-            EitherT(Task.fromFuture(resp.onNext(GetCallback(callback = callback))).attempt)
-              .leftMap(t ⇒ ClientError(t.getMessage))
+            private val pushServerAsk: GetCallback.Callback ⇒ EitherT[Task, ClientError, Ack] = callback ⇒ {
+              EitherT(Task.fromFuture(resp.onNext(GetCallback(callback = callback))).attempt)
+                .leftMap(t ⇒ ClientError(t.getMessage))
+            }
+
+            /**
+             * Server sends founded leaf details.
+             *
+             * @param keys            Keys of current leaf
+             * @param valuesChecksums Checksums of values for current leaf
+             * @return index of searched value, or None if key wasn't found
+             */
+            override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Searching.SearchResult] =
+              toF(
+                for {
+                  _ ← pushServerAsk(
+                    GetCallback.Callback.SubmitLeaf(
+                      AskSubmitLeaf(
+                        keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
+                        valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+                      )
+                    )
+                  )
+                  sl ← getReply(pullClientReply, _.isSubmitLeaf, _.submitLeaf.get)
+                } yield {
+                  sl.searchResult.found
+                    .map(Searching.Found)
+                    .orElse(sl.searchResult.insertionPoint.map(Searching.InsertionPoint))
+                    .get
+                }
+              )
+
+            /**
+             * Server asks next child node index.
+             *
+             * @param keys            Keys of current branch for searching index
+             * @param childsChecksums All children checksums of current branch
+             */
+            override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
+              toF(
+                for {
+                  _ ← pushServerAsk(
+                    GetCallback.Callback.NextChildIndex(
+                      AskNextChildIndex(
+                        keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
+                        childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
+                      )
+                    )
+                  )
+                  nci ← getReply(pullClientReply, _.isNextChildIndex, _.nextChildIndex.get)
+                } yield nci.index
+              )
           }
-
-          /**
-           * Server sends founded leaf details.
-           *
-           * @param keys            Keys of current leaf
-           * @param valuesChecksums Checksums of values for current leaf
-           * @return index of searched value, or None if key wasn't found
-           */
-          override def submitLeaf(keys: Array[Key], valuesChecksums: Array[Hash]): F[Searching.SearchResult] =
-            toF(
-              for {
-                _ ← pushServerAsk(
-                  GetCallback.Callback.SubmitLeaf(
-                    AskSubmitLeaf(
-                      keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                      valuesChecksums = valuesChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
-                    )
-                  )
-                )
-                sl ← getReply(pullClientReply, _.isSubmitLeaf, _.submitLeaf.get)
-              } yield {
-                sl.searchResult.found
-                  .map(Searching.Found)
-                  .orElse(sl.searchResult.insertionPoint.map(Searching.InsertionPoint))
-                  .get
-              }
-            )
-
-          /**
-           * Server asks next child node index.
-           *
-           * @param keys            Keys of current branch for searching index
-           * @param childsChecksums All children checksums of current branch
-           */
-          override def nextChildIndex(keys: Array[Key], childsChecksums: Array[Hash]): F[Int] =
-            toF(
-              for {
-                _ ← pushServerAsk(
-                  GetCallback.Callback.NextChildIndex(
-                    AskNextChildIndex(
-                      keys = keys.map(k ⇒ ByteString.copyFrom(k.bytes)),
-                      childsChecksums = childsChecksums.map(c ⇒ ByteString.copyFrom(c.bytes))
-                    )
-                  )
-                )
-                nci ← getReply(pullClientReply, _.isNextChildIndex, _.nextChildIndex.get)
-              } yield nci.index
-            )
-        }
-      )
+        )
+        .to[F]
     } yield {
       logger.debug(s"Was found value=${foundValue.show} for client 'get' request for dataset=${datasetInfo.show}")
       foundValue
