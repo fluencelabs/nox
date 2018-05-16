@@ -590,15 +590,32 @@ lazy val `dataset-protobuf` = crossProject(JVMPlatform, JSPlatform)
 lazy val `dataset-protobuf-jvm` = `dataset-protobuf`.jvm
 lazy val `dataset-protobuf-js` = `dataset-protobuf`.js
 
-lazy val `dataset-grpc` = project
+lazy val `dataset-grpc` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
   .in(file("dataset/grpc"))
   .settings(
     commons,
-    grpc,
     PB.protoSources in Compile := Seq(file("dataset/grpc/src/main/protobuf"))
   )
+  .jvmSettings(
+    grpc
+  )
+  .jsSettings(
+    workbenchStartMode := WorkbenchStartModes.Manual,
+    //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
+    skip in packageJSDependencies   := false,
+    fork in Test                    := false,
+    scalaJSUseMainModuleInitializer := true
+  )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`dataset-client-jvm`, `dataset-node`, `transport-grpc-jvm`)
+  .dependsOn(`dataset-client`, `transport-grpc`)
+
+lazy val `dataset-grpc-jvm` = `dataset-grpc`.jvm.dependsOn(`dataset-node`)
+lazy val `dataset-grpc-js` = `dataset-grpc`.js
+  .enablePlugins(WorkbenchPlugin)
+  .enablePlugins(ScalaJSBundlerPlugin)
+  .dependsOn(`transport-websocket-js`)
 
 lazy val `dataset-client` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -733,7 +750,7 @@ lazy val `client-grpc` = project
   .in(file("client/grpc"))
   .settings(commons)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`client-core-jvm`, `transport-grpc-jvm`, `kademlia-grpc-jvm`, `dataset-grpc`, `contract-grpc`)
+  .dependsOn(`client-core-jvm`, `transport-grpc-jvm`, `kademlia-grpc-jvm`, `dataset-grpc-jvm`, `contract-grpc`)
 
 lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
