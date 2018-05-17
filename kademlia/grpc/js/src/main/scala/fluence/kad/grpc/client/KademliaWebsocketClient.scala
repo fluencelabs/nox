@@ -17,11 +17,11 @@
 
 package fluence.kad.grpc.client
 
-import cats.Monad
-import cats.data.EitherT
+import cats.syntax.compose._
+import cats.syntax.profunctor._
 import cats.effect.IO
 import com.google.protobuf.ByteString
-import fluence.codec.{CodecError, PureCodec}
+import fluence.codec.PureCodec
 import fluence.kad.KeyProtobufCodecs._
 import fluence.kad.grpc.client.ProtobufCodec._
 import fluence.kad.protobuf.{NodesResponse, PingRequest}
@@ -51,26 +51,12 @@ class KademliaWebsocketClient(websocket: WebsocketClient[WebsocketMessage])(
     PureCodec.codec[Stream[protocol.Node[Contact]], Stream[protobuf.Node]]
   }
 
-  private val nodeContactCodec: fluence.codec.PureCodec.Func[Array[Byte], Seq[Node[Contact]]] =
-    new PureCodec.Func[Array[Byte], Seq[protocol.Node[Contact]]] {
-      override def apply[F[_]](
-        input: Array[Byte]
-      )(implicit F: Monad[F]): EitherT[F, CodecError, Seq[protocol.Node[Contact]]] = {
-        protobufDynamicCodec(NodesResponse)(input)
-          .map(_.nodes.toStream)
-          .flatMap(s ⇒ streamCodec.inverse.apply(s))
-          .map(_.toSeq)
-      }
-    }
+  private val nodeContactCodec: PureCodec.Func[Array[Byte], Seq[Node[Contact]]] =
+    protobufDynamicCodec(NodesResponse).rmap(_.nodes.toStream) andThen
+      streamCodec.inverse.rmap(_.toSeq)
 
   private val pingCodec: fluence.codec.PureCodec.Func[Array[Byte], Node[Contact]] =
-    new PureCodec.Func[Array[Byte], protocol.Node[Contact]] {
-      override def apply[F[_]](
-        input: Array[Byte]
-      )(implicit F: Monad[F]): EitherT[F, CodecError, protocol.Node[Contact]] = {
-        protobufDynamicCodec(fluence.kad.protobuf.Node)(input).flatMap(n ⇒ codec.inverse.apply(n))
-      }
-    }
+    protobufDynamicCodec(fluence.kad.protobuf.Node) andThen codec.inverse
 
   /**
    * Ping the contact, get its actual Node status, or fail.
