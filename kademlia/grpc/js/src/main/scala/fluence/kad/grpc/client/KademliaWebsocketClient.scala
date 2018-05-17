@@ -23,7 +23,7 @@ import cats.effect.IO
 import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
 import fluence.kad.KeyProtobufCodecs._
-import fluence.kad.grpc.client.ProtobufCodec._
+import fluence.transport.websocket.ProtobufCodec._
 import fluence.kad.protobuf.{NodesResponse, PingRequest}
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.kad.{protobuf, protocol}

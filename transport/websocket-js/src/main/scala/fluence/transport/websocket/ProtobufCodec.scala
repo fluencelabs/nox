@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.kad.grpc.client
+package fluence.transport.websocket
 
 import fluence.codec.PureCodec
 import scalapb.{GeneratedMessage, GeneratedMessageCompanion, Message}
