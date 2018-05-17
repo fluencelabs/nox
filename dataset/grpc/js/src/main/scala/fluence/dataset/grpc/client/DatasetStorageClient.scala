@@ -51,7 +51,7 @@ class DatasetStorageClient[F[_]: Effect](
   val rangePipe: Pipe[RangeCallbackReply, RangeCallback] = new Pipe[RangeCallbackReply, RangeCallback] {
     override def unicast: (Observer[RangeCallbackReply], Observable[RangeCallback]) = {
       val proxy =
-        GrpcProxyClient.proxy(service, "get", websocket, generatedMessageCodec, protobufDynamicCodec(RangeCallback))
+        GrpcProxyClient.proxy(service, "range", websocket, generatedMessageCodec, protobufDynamicCodec(RangeCallback))
 
       (proxy.input, proxy.output)
     }
@@ -60,7 +60,7 @@ class DatasetStorageClient[F[_]: Effect](
   val putPipe: Pipe[PutCallbackReply, PutCallback] = new Pipe[PutCallbackReply, PutCallback] {
     override def unicast: (Observer[PutCallbackReply], Observable[PutCallback]) = {
       val proxy =
-        GrpcProxyClient.proxy(service, "get", websocket, generatedMessageCodec, protobufDynamicCodec(PutCallback))
+        GrpcProxyClient.proxy(service, "put", websocket, generatedMessageCodec, protobufDynamicCodec(PutCallback))
 
       (proxy.input, proxy.output)
     }
