@@ -27,8 +27,8 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    scalaJSModuleKind := ModuleKind.CommonJSModule,
-    fork in Test      := false
+    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
+    fork in Test              := false
   )
   .dependsOn(`crypto-hashsign`)
   .enablePlugins(AutomateHeaderPlugin)
@@ -728,7 +728,7 @@ lazy val `contract-grpc` = crossProject(JVMPlatform, JSPlatform)
     grpc
   )
   .jsSettings(
-    workbenchStartMode := WorkbenchStartModes.Manual,
+    workbenchStartMode              := WorkbenchStartModes.Manual,
     skip in packageJSDependencies   := false,
     fork in Test                    := false,
     scalaJSUseMainModuleInitializer := true
@@ -762,11 +762,23 @@ lazy val `client-core` = crossProject(JVMPlatform, JSPlatform)
 lazy val `client-core-js` = `client-core`.js
 lazy val `client-core-jvm` = `client-core`.jvm
 
-lazy val `client-grpc` = project
+lazy val `client-grpc` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
   .in(file("client/grpc"))
   .settings(commons)
+  .jsSettings(
+    workbenchStartMode              := WorkbenchStartModes.Manual,
+    skip in packageJSDependencies   := false,
+    scalaJSModuleKind in Test       := ModuleKind.CommonJSModule,
+    fork in Test                    := false,
+    scalaJSUseMainModuleInitializer := true
+  )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`client-core-jvm`, `transport-grpc-jvm`, `kademlia-grpc-jvm`, `dataset-grpc-jvm`, `contract-grpc-jvm`)
+  .dependsOn(`client-core`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`)
+
+lazy val `client-grpc-js` = `client-grpc`.js
+lazy val `client-grpc-jvm` = `client-grpc`.jvm
 
 lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -784,7 +796,7 @@ lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       jline,
       scopt
-    ) 
+    )
   )
   .jsSettings(
     fork in Test := false
@@ -798,7 +810,7 @@ lazy val `client-cli-jvm` = `client-cli`.jvm
 lazy val `client-cli-app` = project
   .in(file("client/cli-app"))
   .settings(commons)
-  .dependsOn(`client-cli-jvm`, `client-grpc`, `crypto-keystore-jvm`)
+  .dependsOn(`client-cli-jvm`, `client-grpc-jvm`, `crypto-keystore-jvm`)
 
 lazy val `node-core` = project
   .in(file("node/core"))
@@ -821,7 +833,7 @@ lazy val `node-grpc` = project
   .settings(
     commons
   )
-  .dependsOn(`node-core`, `client-grpc`, `transport-grpc-proxy`)
+  .dependsOn(`node-core`, `client-grpc-jvm`, `transport-grpc-proxy`)
 
 lazy val `node` = project
   .dependsOn(`node-grpc`, `crypto-keystore-jvm`)
