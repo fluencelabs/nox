@@ -20,12 +20,12 @@ package fluence.contract.grpc.server
 import cats.data.Kleisli
 import cats.effect.IO
 import fluence.codec.Codec
-import fluence.contract.protocol.ContractsCacheRpc
 import fluence.contract.ops.ContractValidate
+import fluence.contract.protobuf.grpc.ContractsCacheGrpc
+import fluence.contract.protobuf.{BasicContract, CacheResponse, FindRequest}
+import fluence.contract.protocol.ContractsCacheRpc
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.protocol.Key
-import fluence.contract.protobuf.{BasicContract, CacheResponse, FindRequest}
-import fluence.contract.protobuf.grpc.ContractsCacheGrpc
 
 import scala.concurrent.Future
 import scala.language.higherKinds

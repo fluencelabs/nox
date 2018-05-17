@@ -713,18 +713,34 @@ lazy val `contract-protobuf` = crossProject(JVMPlatform, JSPlatform)
 lazy val `contract-protobuf-js` = `contract-protobuf`.js
 lazy val `contract-protobuf-jvm` = `contract-protobuf`.jvm
 
-lazy val `contract-grpc` = project
+lazy val `contract-grpc` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
   .in(file("contract/grpc"))
   .settings(
     commons,
-    grpc,
     PB.protoSources in Compile := Seq(file("contract/grpc/src/main/protobuf")),
     libraryDependencies ++= Seq(
       scalatest
     )
   )
+  .jvmSettings(
+    grpc
+  )
+  .jsSettings(
+    workbenchStartMode := WorkbenchStartModes.Manual,
+    skip in packageJSDependencies   := false,
+    fork in Test                    := false,
+    scalaJSUseMainModuleInitializer := true
+  )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`contract-core-jvm`, `transport-grpc-jvm`, `contract-protobuf-jvm`, `kademlia-grpc-jvm`)
+  .dependsOn(`contract-core`, `transport-grpc`, `contract-protobuf`, `kademlia-grpc`)
+
+lazy val `contract-grpc-js` = `contract-grpc`.js
+  .enablePlugins(WorkbenchPlugin)
+  .enablePlugins(ScalaJSBundlerPlugin)
+  .dependsOn(`transport-websocket-js`)
+lazy val `contract-grpc-jvm` = `contract-grpc`.jvm
 
 lazy val `client-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -750,7 +766,7 @@ lazy val `client-grpc` = project
   .in(file("client/grpc"))
   .settings(commons)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`client-core-jvm`, `transport-grpc-jvm`, `kademlia-grpc-jvm`, `dataset-grpc-jvm`, `contract-grpc`)
+  .dependsOn(`client-core-jvm`, `transport-grpc-jvm`, `kademlia-grpc-jvm`, `dataset-grpc-jvm`, `contract-grpc-jvm`)
 
 lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -768,7 +784,7 @@ lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       jline,
       scopt
-    )
+    ) 
   )
   .jsSettings(
     fork in Test := false

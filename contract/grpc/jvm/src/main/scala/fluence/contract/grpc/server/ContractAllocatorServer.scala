@@ -19,11 +19,11 @@ package fluence.contract.grpc.server
 
 import cats.effect.IO
 import fluence.codec.Codec
-import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.contract.ops.ContractValidate
-import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.contract.protobuf.BasicContract
 import fluence.contract.protobuf.grpc.ContractAllocatorGrpc
+import fluence.contract.protocol.ContractAllocatorRpc
+import fluence.crypto.signature.SignAlgo.CheckerFn
 
 import scala.concurrent.Future
 

@@ -19,12 +19,12 @@ package fluence.contract.grpc.client
 
 import cats.effect.IO
 import fluence.codec.Codec
-import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.contract.ops.ContractValidate
-import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.contract.protobuf.BasicContract
 import fluence.contract.protobuf.grpc.ContractAllocatorGrpc
 import fluence.contract.protobuf.grpc.ContractAllocatorGrpc.ContractAllocatorStub
+import fluence.contract.protocol.ContractAllocatorRpc
+import fluence.crypto.signature.SignAlgo.CheckerFn
 import io.grpc.{CallOptions, ManagedChannel}
 
 import scala.concurrent.{ExecutionContext, Future}
