@@ -22,27 +22,27 @@ import org.scalatest.{Matchers, WordSpec}
 
 class KeyStoreSpec extends WordSpec with Matchers {
 
-  private val keyStore = KeyStore(KeyPair.fromBytes("pubKey".getBytes, "secKey".getBytes))
+  private val keyPair = KeyPair.fromBytes("pubKey".getBytes, "secKey".getBytes)
   private val jsonString = """{"keystore":{"secret":"c2VjS2V5","public":"cHViS2V5"}}"""
 
   "KeyStore.encodeKeyStorage" should {
     "transform KeyStore to json" in {
-      val result = KeyStore.keyStoreJsonStringCodec.direct.unsafe(keyStore)
+      val result = KeyStore.keyPairJsonStringCodec.direct.unsafe(keyPair)
       result shouldBe jsonString
     }
   }
 
   "KeyStore.decodeKeyStorage" should {
     "transform KeyStore to json" in {
-      val result = KeyStore.keyStoreJsonStringCodec.inverse.unsafe(jsonString)
-      result shouldBe keyStore
+      val result = KeyStore.keyPairJsonStringCodec.inverse.unsafe(jsonString)
+      result shouldBe keyPair
     }
   }
 
   "KeyStore" should {
     "transform KeyStore to json and back" in {
-      val result = KeyStore.keyStoreJsonCodec.inverse.unsafe(KeyStore.keyStoreJsonCodec.direct.unsafe(keyStore))
-      result shouldBe keyStore
+      val result = KeyStore.keyPairJsonCodec.inverse.unsafe(KeyStore.keyPairJsonCodec.direct.unsafe(keyPair))
+      result shouldBe keyPair
     }
   }
 

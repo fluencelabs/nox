@@ -78,7 +78,7 @@ object KeyStore {
       }
     ) andThen (vecToStr split vecToStr) andThen pubSecJsonCodec
 
-  implicit val keyStoreJsonStringCodec: PureCodec[KeyPair, String] =
+  implicit val keyPairJsonStringCodec: PureCodec[KeyPair, String] =
     keyPairJsonCodec andThen CirceCodecs.circeJsonParseCodec
 
 }
