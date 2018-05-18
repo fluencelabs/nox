@@ -67,7 +67,7 @@ object ClientCliApp extends App with slogging.LazyLogging {
   def getKeyPair(config: Config, algo: SignAlgo): IO[KeyPair] =
     for {
       kpConf ← KeyPairConfig.read(config)
-      kp ← FileKeyStorage.getKeyPair[IO](kpConf.keyPath, algo)
+      kp ← FileKeyStorage.getKeyPair(kpConf.keyPath, algo)
     } yield kp
 
   // Run Command Line Interface
