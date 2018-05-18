@@ -38,9 +38,10 @@ object Cli extends slogging.LazyLogging {
   //for terminal improvements: history, navigation
   private val terminal = TerminalBuilder.terminal()
   private val lineReader = LineReaderBuilder.builder().terminal(terminal).build()
-  private val readLine = IO(lineReader.readLine("fluence< "))
+  private val readLine = IO(lineReader.readLine(Console.BLUE + "fluence" + Console.RESET + "< "))
 
-  def cryptoMethods[F[_]: Applicative](
+  // TODO: what do it do? Why do we need it? Documentation needed
+  def keyValueCryptoMethods[F[_]: Applicative](
     secretKey: KeyPair.Secret,
     config: Config
   ): Task[(Crypto.Cipher[String], Crypto.Cipher[String])] =
@@ -59,7 +60,7 @@ object Cli extends slogging.LazyLogging {
     replicationN: Int
   ): Task[ClientDatasetStorageApi[Task, Observable, String, String]] =
     for {
-      crypts ← cryptoMethods[Task](keyPair.secretKey, config)
+      crypts ← keyValueCryptoMethods[Task](keyPair.secretKey, config)
       (keyCrypt, valueCrypt) = crypts
       dsOp ← fluenceClient.getDataset(keyPair, keyCrypt, valueCrypt)
       ds ← dsOp match {
