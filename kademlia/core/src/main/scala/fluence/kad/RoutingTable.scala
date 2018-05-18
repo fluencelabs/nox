@@ -272,7 +272,17 @@ class RoutingTable[C](nodeId: Key)(implicit SR: Siblings.ReadOps[C], BR: Bucket.
         // Fetch remote lookups into F; filter previously seen nodes
         val remote0X = Parallel
           .parTraverse(handle) { c ⇒
-            rpc(c.contact).lookup(key, neighbors).to[F]
+            rpc(c.contact)
+              .lookup(key, neighbors)
+              .attempt
+              .map {
+                case Left(err) ⇒
+                  logger.warn(s"Cannot call lookupIterative on node $c", err)
+                  Seq.empty
+                case Right(sqnc) ⇒
+                  sqnc
+              }
+              .to[F]
           }
           .map[List[Node[C]]](
             _.flatten

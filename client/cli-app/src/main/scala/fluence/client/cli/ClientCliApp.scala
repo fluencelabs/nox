@@ -40,10 +40,10 @@ object ClientCliApp extends App with slogging.LazyLogging {
 
   // Pretty logger
   PrintLoggerFactory.formatter = new PrefixFormatter {
-    override def formatPrefix(level: MessageLevel, name: String): String = "[fluence] "
+    override def formatPrefix(level: MessageLevel, name: String): String = s"[${Console.BLUE}fluence${Console.RESET}] "
   }
   LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.INFO
+  LoggerConfig.level = LogLevel.DEBUG
 
   val algo: SignAlgo = Ecdsa.signAlgo
   import algo.checker
@@ -76,6 +76,7 @@ object ClientCliApp extends App with slogging.LazyLogging {
       buildClient,
       getKeyPair(config, algo)
     ) { (fluenceClient, keyPair) ⇒
+      logger.debug("Going to restore client's datset...")
       Cli.restoreDataset(keyPair, fluenceClient, config, replicationN = 2).toIO
     }
     .flatMap(identity)
