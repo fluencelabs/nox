@@ -58,7 +58,8 @@ class FileKeyStorage(file: File) extends slogging.LazyLogging {
 
   def readOrCreateKeyPair(createKey: IO[KeyPair]): IO[KeyPair] =
     readKeyPair.recoverWith {
-      case NonFatal(_) ⇒
+      case NonFatal(e) ⇒
+        logger.debug(s"KeyPair can't be loaded from $file, going to generate new keys", e)
         for {
           ks ← createKey
           _ ← storeKeyPair(ks)
