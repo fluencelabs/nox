@@ -473,6 +473,9 @@ lazy val `crypto-keystore` = crossProject(JVMPlatform, JSPlatform)
   .jsSettings(
     fork in Test := false
   )
+  .jvmSettings(
+    libraryDependencies += "org.typelevel" %% "cats-effect" % CatsEffectV,
+  )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`crypto-core`)
 

@@ -19,7 +19,6 @@ package fluence.client.cli
 
 import java.io.File
 
-import fluence.crypto.keystore.KeyStore
 import scopt.Read.reads
 import scopt.{OptionParser, Read}
 
@@ -27,15 +26,8 @@ import scopt.{OptionParser, Read}
 object ArgsParser {
   case class CommandLineConfig(
     config: Option[File] = None,
-    seed: Seq[String] = Seq.empty,
-    keyStore: Option[KeyStore] = None
+    seed: Seq[String] = Seq.empty
   )
-
-  implicit val keyStoreRead: Read[KeyStore] = {
-    reads { str ⇒
-      KeyStore.fromBase64(str).value.toTry.get // TODO: this is impure
-    }
-  }
 
   private lazy val parser = new OptionParser[CommandLineConfig]("fluenceClient") {
     head("Fluence client")
@@ -50,10 +42,10 @@ object ArgsParser {
       .action((x, c) ⇒ c.copy(seed = x))
       .text("Initial kademlia nodes contacts in base64 to connect with")
 
-    opt[KeyStore]('k', "keystore")
-      .valueName("<keystore>")
-      .action((x, c) ⇒ c.copy(keyStore = Some(x)))
-      .text("Key pair in base64")
+//    opt[KeyStore]('k', "keystore")
+//      .valueName("<keystore>")
+//      .action((x, c) ⇒ c.copy(keyStore = Some(x)))
+//      .text("Key pair in base64")
 
     help("help").text("Write help message")
 
