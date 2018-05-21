@@ -17,12 +17,16 @@
 
 package fluence.crypto.jwt
 
-import cats.Id
+import cats.{Id, Monad}
+import cats.data.EitherT
 import fluence.codec.PureCodec
-import fluence.crypto.{DumbCrypto, KeyPair}
+import fluence.crypto.signature.{SignAlgo, Signature, SignatureChecker, Signer}
+import fluence.crypto.{Crypto, CryptoError, KeyPair}
 import io.circe.{Json, JsonNumber, JsonObject}
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
+
+import scala.language.higherKinds
 
 class CryptoJwtSpec extends WordSpec with Matchers {
   "CryptoJwt" should {
@@ -34,13 +38,20 @@ class CryptoJwtSpec extends WordSpec with Matchers {
         PureCodec.liftFunc(n ⇒ KeyPair.Public(ByteVector.fromInt(n._1.toInt.get)))
       )
 
-    val algo = DumbCrypto.signAlgo
-    import algo.checker
+    implicit val checker: SignAlgo.CheckerFn =
+      publicKey ⇒
+        new SignatureChecker {
+          override def check[F[_]: Monad](signature: Signature, plain: ByteVector): EitherT[F, CryptoError, Unit] =
+            EitherT.cond[F](signature.sign == plain.reverse, (), CryptoError("Signatures mismatch"))
+      }
+
+    val signer: SignAlgo.SignerFn =
+      keyPair ⇒ Signer(keyPair.publicKey, Crypto.liftFunc(plain ⇒ Signature(plain.reverse)))
 
     "be a total bijection for valid JWT" in {
       val kp = keys.head
       val str = cryptoJwt
-        .writer(algo.signer(kp))
+        .writer(signer(kp))
         .unsafe((JsonNumber.fromIntegralStringUnsafe("0"), JsonObject("test" → Json.fromString("value. of test"))))
 
       str.count(_ == '.') shouldBe 2
@@ -51,7 +62,7 @@ class CryptoJwtSpec extends WordSpec with Matchers {
     "fail with wrong signer" in {
       val kp = keys.tail.head
       val str = cryptoJwt
-        .writer(algo.signer(kp))
+        .writer(signer(kp))
         .runEither[Id](
           (JsonNumber.fromIntegralStringUnsafe("0"), JsonObject("test" → Json.fromString("value of test")))
         )
@@ -62,7 +73,7 @@ class CryptoJwtSpec extends WordSpec with Matchers {
     "fail with wrong signature" in {
       val kp = keys.head
       val str = cryptoJwt
-        .writer(algo.signer(kp))
+        .writer(signer(kp))
         .unsafe((JsonNumber.fromIntegralStringUnsafe("0"), JsonObject("test" → Json.fromString("value of test"))))
 
       cryptoJwt.reader(checker).runEither[Id](str + "m").isLeft shouldBe true

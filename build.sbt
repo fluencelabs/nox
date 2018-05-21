@@ -559,7 +559,8 @@ lazy val `crypto-jwt` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    fork in Test := false
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`crypto-core`)
