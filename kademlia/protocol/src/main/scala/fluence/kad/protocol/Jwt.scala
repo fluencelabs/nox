@@ -19,15 +19,11 @@ package fluence.kad.protocol
 
 import cats.Monad
 import cats.data.EitherT
-import cats.syntax.compose._
-import fluence.codec.PureCodec
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.crypto.signature.{Signature, Signer}
 import io.circe._
 import io.circe.parser._
 import scodec.bits.{Bases, ByteVector}
-import fluence.codec.bits.BitsCodecs._
-import fluence.codec.circe.CirceCodecs._
 import fluence.crypto.{CryptoError, KeyPair}
 
 import scala.language.higherKinds
@@ -37,13 +33,6 @@ import scala.language.higherKinds
  */
 private[protocol] object Jwt {
   private val alphabet = Bases.Alphabets.Base64Url
-
-  private val bytesString = PureCodec.liftB[String, Array[Byte]](_.getBytes(), new String(_))
-
-  private val base64StringBytes =
-    base64AlphabetToVector(alphabet) andThen PureCodec[ByteVector, Array[Byte]] andThen bytesString.swap
-
-  private val base64json = base64StringBytes andThen PureCodec[String, Json]
 
   class WritePartial[F[_]: Monad] {
 

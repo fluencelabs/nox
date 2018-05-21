@@ -95,6 +95,7 @@ object Contact {
       Contact.JwtData(addr, port, websocketPort, gitHash)
 
     import Contact.JwtImplicits._
+
     Jwt.write[F].apply(jwtHeader, jwtData, signer).map { seed ⇒
       Contact(
         addr,
