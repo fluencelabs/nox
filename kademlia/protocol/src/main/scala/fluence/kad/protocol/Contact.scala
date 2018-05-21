@@ -17,11 +17,15 @@
 
 package fluence.kad.protocol
 
-import cats.data.{EitherT, Reader}
-import cats.{Monad, Show}
-import fluence.codec
+import cats.data.Reader
+import cats.Show
+import cats.syntax.functor._
+import cats.syntax.profunctor._
+import cats.syntax.strong._
+import cats.syntax.compose._
 import fluence.codec.{CodecError, PureCodec}
-import fluence.crypto.{CryptoError, KeyPair}
+import fluence.crypto.jwt.CryptoJwt
+import fluence.crypto.{Crypto, KeyPair}
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.crypto.signature.Signer
 import io.circe._
@@ -55,59 +59,12 @@ object Contact {
 
   implicit def contactBytesCodec(implicit checkerFn: CheckerFn): PureCodec[Contact, Array[Byte]] =
     PureCodec.Bijection(
-      new codec.PureCodec.Func[Contact, Array[Byte]] {
-        override def apply[F[_]: Monad](input: Contact): EitherT[F, CodecError, Array[Byte]] =
-          EitherT.rightT(input.b64seed.getBytes())
-      },
-      new codec.PureCodec.Func[Array[Byte], Contact] {
-        override def apply[F[_]: Monad](input: Array[Byte]): EitherT[F, CodecError, Contact] = {
-          EitherT
-            .rightT[F, Throwable](new String(input))
-            .flatMap(readB64seed[F])
-            .leftMap(t ⇒ CodecError("Cannot decode Contact", causedBy = Some(t)))
-        }
-      }
+      PureCodec
+        .liftFunc(_.b64seed.getBytes()),
+      PureCodec
+        .fromOtherFunc(readB64seed)(e ⇒ CodecError("JWT token verification failed", Some(e)))
+        .lmap[Array[Byte]](new String(_))
     )
-
-  /**
-   * Builder for Node's own contact: node don't have JWT seed for it, but can produce it with its Signer
-   *
-   * @param addr Node's ip
-   * @param port Node's external port
-   * @param protocolVersion Protocol version
-   * @param gitHash Current build's git hash
-   * @param signer Node's signer
-   * @tparam F Monad
-   * @return Either Contact if built, or error
-   */
-  def buildOwn[F[_]: Monad](
-    addr: String,
-    port: Int, // httpPort, websocketPort and other transports //
-    websocketPort: Option[Int],
-    protocolVersion: Long,
-    gitHash: String,
-    signer: Signer
-  ): EitherT[F, CryptoError, Contact] = {
-    val jwtHeader =
-      Contact.JwtHeader(signer.publicKey, protocolVersion)
-
-    val jwtData =
-      Contact.JwtData(addr, port, websocketPort, gitHash)
-
-    import Contact.JwtImplicits._
-
-    Jwt.write[F].apply(jwtHeader, jwtData, signer).map { seed ⇒
-      Contact(
-        addr,
-        port,
-        websocketPort: Option[Int],
-        signer.publicKey,
-        protocolVersion,
-        gitHash,
-        seed
-      )
-    }
-  }
 
   case class JwtHeader(publicKey: KeyPair.Public, protocolVersion: Long)
 
@@ -148,14 +105,64 @@ object Contact {
       } yield JwtData(addr = addr, grpcPort = p, websocketPort = wp, gitHash = gh)
   }
 
-  import JwtImplicits._
+  val cryptoJwt: CryptoJwt[JwtHeader, JwtData] = {
+    import JwtImplicits._
+
+    new CryptoJwt[JwtHeader, JwtData](PureCodec.liftFunc(_._1.publicKey))
+  }
 
   implicit val show: Show[Contact] =
     (c: Contact) ⇒ s"$c"
 
-  def readB64seed[F[_]: Monad](str: String)(implicit checkerFn: CheckerFn): EitherT[F, Throwable, Contact] =
-    Jwt.read[F, JwtHeader, JwtData](str, (h, b) ⇒ Right(h.publicKey)).map {
-      case (header, data) ⇒
+  /**
+   * Builder for Node's own contact: node don't have JWT seed for it, but can produce it with its Signer
+   *
+   * @param addr Node's ip
+   * @param port Node's external port
+   * @param protocolVersion Protocol version
+   * @param gitHash Current build's git hash
+   * @param signer Node's signer
+   * @return Either Contact if built, or error
+   */
+  def buildOwn(
+    addr: String,
+    port: Int, // httpPort, websocketPort and other transports //
+    websocketPort: Option[Int],
+    protocolVersion: Long,
+    gitHash: String,
+    signer: Signer
+  ): Crypto.Point[Contact] = {
+    val jwtHeader =
+      Contact.JwtHeader(signer.publicKey, protocolVersion)
+
+    val jwtData =
+      Contact.JwtData(addr, port, websocketPort, gitHash)
+
+    cryptoJwt
+      .write(signer)
+      .pointAt(jwtHeader → jwtData)
+      .map { seed ⇒
+        Contact(
+          addr,
+          port,
+          websocketPort: Option[Int],
+          signer.publicKey,
+          protocolVersion,
+          gitHash,
+          seed
+        )
+      }
+  }
+
+  /**
+   * Parse contact's JWT, using signature checker
+   *
+   * @param checkerFn Signature checker
+   * @return Func from JWT to Contact
+   */
+  def readB64seed(implicit checkerFn: CheckerFn): Crypto.Func[String, Contact] =
+    (Crypto.liftFunc[String, (String, String)](str ⇒ (str, str)) andThen cryptoJwt.read(checkerFn).first[String]).rmap {
+      case ((header, data), str) ⇒
         Contact(
           addr = data.addr,
           grpcPort = data.grpcPort,

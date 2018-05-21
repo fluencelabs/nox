@@ -173,7 +173,7 @@ object FluenceNode extends slogging.LazyLogging {
       (upnpContact, upnpShutdown) = upnpContactStop
 
       contact ← Contact
-        .buildOwn[IO](
+        .buildOwn(
           addr = upnpContact.host.getOrElse(builder.address).getHostName,
           port = upnpContact.grpcPort.getOrElse(builder.port),
           websocketPort = upnpContact.websocketPort,
@@ -181,8 +181,7 @@ object FluenceNode extends slogging.LazyLogging {
           gitHash = upnpContact.gitHash,
           signer = algo.signer(kp)
         )
-        .value
-        .flatMap(MonadError[IO, Throwable].fromEither)
+        .runF[IO](())
         .onFail(upnpShutdown)
 
       client ← NodeGrpc.grpcClient(key, contact, config)
