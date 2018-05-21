@@ -40,18 +40,18 @@ class CryptoJwtSpec extends WordSpec with Matchers {
     "be a total bijection for valid JWT" in {
       val kp = keys.head
       val str = cryptoJwt
-        .write(algo.signer(kp))
+        .writer(algo.signer(kp))
         .unsafe((JsonNumber.fromIntegralStringUnsafe("0"), JsonObject("test" → Json.fromString("value of test"))))
 
       str.count(_ == '.') shouldBe 2
 
-      cryptoJwt.read(checker).unsafe(str)._2.kleisli.run("test").get shouldBe Json.fromString("value of test")
+      cryptoJwt.reader(checker).unsafe(str)._2.kleisli.run("test").get shouldBe Json.fromString("value of test")
     }
 
     "fail with wrong signer" in {
       val kp = keys.tail.head
       val str = cryptoJwt
-        .write(algo.signer(kp))
+        .writer(algo.signer(kp))
         .runEither[Id](
           (JsonNumber.fromIntegralStringUnsafe("0"), JsonObject("test" → Json.fromString("value of test")))
         )
@@ -62,10 +62,10 @@ class CryptoJwtSpec extends WordSpec with Matchers {
     "fail with wrong signature" in {
       val kp = keys.head
       val str = cryptoJwt
-        .write(algo.signer(kp))
+        .writer(algo.signer(kp))
         .unsafe((JsonNumber.fromIntegralStringUnsafe("0"), JsonObject("test" → Json.fromString("value of test"))))
 
-      cryptoJwt.read(checker).runEither[Id](str + "m").isLeft shouldBe true
+      cryptoJwt.reader(checker).runEither[Id](str + "m").isLeft shouldBe true
     }
   }
 }

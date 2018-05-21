@@ -49,7 +49,7 @@ class CryptoJwt[H: Encoder: Decoder, C: Encoder: Decoder](
   private val stringTripleCodec = Crypto.codec(CryptoJwt.stringTripleCodec)
 
   // Take a JWT string, parse and deserialize it, check signature, return Header and Claim on success
-  def read(checkerFn: CheckerFn): Crypto.Func[String, (H, C)] =
+  def reader(checkerFn: CheckerFn): Crypto.Func[String, (H, C)] =
     Crypto.liftFuncPoint[String, (H, C)](
       jwtToken ⇒
         for {
@@ -57,14 +57,14 @@ class CryptoJwt[H: Encoder: Decoder, C: Encoder: Decoder](
           (hc @ (h, c), s) = triple
           headerAndClaim ← headerAndClaimCodec.inverse.pointAt(hc)
           pk ← readPK.pointAt(headerAndClaim)
-          signature ← Crypto.codec(CryptoJwt.signatureCodec).inverse.pointAt(s)
+          signature ← signatureCodec.inverse.pointAt(s)
           plainData = ByteVector((h + c).getBytes())
           _ ← SignAlgo.checkerFunc(checkerFn).pointAt(PubKeyAndSignature(pk, signature) → plainData)
         } yield headerAndClaim
     )
 
   // With the given Signer, serialize Header and Claim into JWT string, signing it on the way
-  def write(signer: Signer): Crypto.Func[(H, C), String] =
+  def writer(signer: Signer): Crypto.Func[(H, C), String] =
     Crypto.liftFuncPoint[(H, C), String](
       headerAndClaim ⇒
         for {

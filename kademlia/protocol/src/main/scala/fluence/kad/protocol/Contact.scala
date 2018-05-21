@@ -139,7 +139,7 @@ object Contact {
       Contact.JwtData(addr, port, websocketPort, gitHash)
 
     cryptoJwt
-      .write(signer)
+      .writer(signer)
       .pointAt(jwtHeader → jwtData)
       .map { seed ⇒
         Contact(
@@ -161,7 +161,9 @@ object Contact {
    * @return Func from JWT to Contact
    */
   def readB64seed(implicit checkerFn: CheckerFn): Crypto.Func[String, Contact] =
-    (Crypto.liftFunc[String, (String, String)](str ⇒ (str, str)) andThen cryptoJwt.read(checkerFn).first[String]).rmap {
+    (Crypto.liftFunc[String, (String, String)](str ⇒ (str, str)) andThen cryptoJwt
+      .reader(checkerFn)
+      .first[String]).rmap {
       case ((header, data), str) ⇒
         Contact(
           addr = data.addr,
