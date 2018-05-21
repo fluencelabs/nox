@@ -64,7 +64,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     val contact =
       Contact
-        .buildOwn[Id](
+        .buildOwn(
           InetAddress.getLocalHost.getHostName,
           localPort,
           Some(localPort + 123),
@@ -72,9 +72,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
           "0",
           signAlgo.signer(kp)
         )
-        .value
-        .right
-        .get
+        .unsafe(())
 
     private val client = GrpcClient
       .builder(key, IO.pure(contact.b64seed), clientConf)

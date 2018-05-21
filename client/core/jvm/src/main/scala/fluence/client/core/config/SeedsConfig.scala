@@ -29,7 +29,7 @@ case class SeedsConfig(
 ) {
 
   def contacts(implicit checkerFn: CheckerFn): IO[List[Contact]] =
-    Traverse[List].traverse(seeds)(s ⇒ Contact.readB64seed[IO](s).value.flatMap(IO.fromEither))
+    Traverse[List].traverse(seeds)(s ⇒ Contact.readB64seed.runF[IO](s))
 }
 
 object SeedsConfig {

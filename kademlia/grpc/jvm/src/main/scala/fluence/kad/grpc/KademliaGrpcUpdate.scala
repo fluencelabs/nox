@@ -47,7 +47,7 @@ object KademliaGrpcUpdate {
       remoteKey ← Key.fromB64[Id](remoteB64key).value.toOption
 
       remoteSeed ← headers(clientConf.contactHeader)
-      remoteContact ← Contact.readB64seed[Id](remoteSeed).value.toOption
+      remoteContact ← Contact.readB64seed.runEither[Id](remoteSeed).toOption
     } yield protocol.Node(remoteKey, Instant.now(), remoteContact)
 
     remoteNode.fold(IO.unit)(update)

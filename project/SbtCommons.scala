@@ -21,7 +21,7 @@ object SbtCommons {
     resolvers += Resolver.bintrayRepo("fluencelabs", "releases")
   )
 
-  val CodecV = "0.0.2"
+  val CodecV = "0.0.3"
 
   val Cats1V = "1.1.0"
   val CatsEffectV = "1.0.0-RC"
