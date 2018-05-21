@@ -41,11 +41,11 @@ class CryptoJwtSpec extends WordSpec with Matchers {
       val kp = keys.head
       val str = cryptoJwt
         .writer(algo.signer(kp))
-        .unsafe((JsonNumber.fromIntegralStringUnsafe("0"), JsonObject("test" → Json.fromString("value of test"))))
+        .unsafe((JsonNumber.fromIntegralStringUnsafe("0"), JsonObject("test" → Json.fromString("value. of test"))))
 
       str.count(_ == '.') shouldBe 2
 
-      cryptoJwt.reader(checker).unsafe(str)._2.kleisli.run("test").get shouldBe Json.fromString("value of test")
+      cryptoJwt.reader(checker).unsafe(str)._2.kleisli.run("test").get shouldBe Json.fromString("value. of test")
     }
 
     "fail with wrong signer" in {

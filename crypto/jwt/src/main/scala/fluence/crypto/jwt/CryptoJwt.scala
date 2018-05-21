@@ -21,6 +21,7 @@ import cats.syntax.compose._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.codec.bits.BitsCodecs
+import fluence.codec.bits.BitsCodecs._
 import fluence.codec.{CodecError, PureCodec}
 import fluence.codec.circe.CirceCodecs
 import fluence.crypto.{Crypto, CryptoError, KeyPair}
@@ -93,7 +94,11 @@ object CryptoJwt {
     PureCodec.liftB[Signature, ByteVector](_.sign, Signature(_)) andThen strVec
 
   private def jsonCodec[T: Encoder: Decoder]: PureCodec[T, String] =
-    CirceCodecs.circeJsonCodec[T] andThen CirceCodecs.circeJsonParseCodec
+    CirceCodecs.circeJsonCodec[T] andThen
+      CirceCodecs.circeJsonParseCodec andThen
+      PureCodec.liftB[String, Array[Byte]](_.getBytes(), new String(_)) andThen
+      PureCodec[Array[Byte], ByteVector] andThen
+      strVec
 
   val stringTripleCodec: PureCodec[((String, String), String), String] =
     PureCodec.liftEitherB(
