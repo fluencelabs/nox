@@ -22,6 +22,7 @@ import com.typesafe.config.Config
 
 import scala.language.higherKinds
 
+@deprecated("use kvstore.rocksdb.RocksDbConf instead.")
 case class RocksDbConf(dataDir: String, createIfMissing: Boolean)
 
 object RocksDbConf {

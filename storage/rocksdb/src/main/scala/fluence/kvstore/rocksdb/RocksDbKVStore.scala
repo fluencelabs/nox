@@ -26,7 +26,6 @@ import fluence.kvstore.KVStore.{GetOp, PutOp, RemoveOp, TraverseOp}
 import fluence.kvstore.ops.{Operation, TraverseOperation}
 import fluence.kvstore.rocksdb.RocksDbKVStore.{RocksDbKVStoreBase, RocksDbKVStoreRead, RocksDbKVStoreWrite}
 import fluence.kvstore.{Snapshotable, _}
-import fluence.storage.rocksdb.RocksDbScalaIterator
 import org.rocksdb.{Options, ReadOptions, RocksDB, RocksIterator}
 
 import scala.concurrent.ExecutionContext

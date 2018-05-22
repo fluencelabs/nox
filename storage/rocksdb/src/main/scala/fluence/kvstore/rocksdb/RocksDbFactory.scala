@@ -35,6 +35,7 @@ import scala.language.higherKinds
 // todo: unit test
 // todo: write examples of creating different instances of RocksDb
 // todo create apply method: for binary store and store with codecs
+// todo discuss, global state isn't good approach, needed to consider another way
 
 /**
  * This factory should be used to create every instances of RocksDbKVStore.
@@ -44,8 +45,7 @@ import scala.language.higherKinds
  * @param defaultPool Default thread pool for each created instances.
  *                      Can be overridden in ''apply'' method.
  */
-// todo discuss, global state isn't good approach, needed to consider another way
-private[kvstore] class RocksDbFactory(defaultPool: ExecutionContext) extends slogging.LazyLogging {
+class RocksDbFactory private[kvstore] (defaultPool: ExecutionContext) extends slogging.LazyLogging {
 
   private val isClosed = IO.pure(AtomicBoolean(false))
   private val instances = IO.pure(TrieMap.empty[String, RocksDbKVStore])

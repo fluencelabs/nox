@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.storage.rocksdb
+package fluence.kvstore.rocksdb
 
 import org.rocksdb.RocksIterator
 
