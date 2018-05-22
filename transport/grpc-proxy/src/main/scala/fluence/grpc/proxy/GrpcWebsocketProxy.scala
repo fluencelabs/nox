@@ -24,6 +24,7 @@ import fs2.interop.reactivestreams._
 import fs2.{io ⇒ _, _}
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
+import monix.reactive.Observable
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Server
@@ -36,31 +37,41 @@ import scala.language.higherKinds
 /**
  * Websocket-to-grpc proxy server.
  */
-object GrpcWebsocketProxy extends Http4sDsl[Task] {
+object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
 
   private def route(inProcessGrpc: InProcessGrpc, scheduler: Scheduler): HttpService[Task] = HttpService[Task] {
 
     case GET -> Root / "ws" ⇒
-      //TODO add size of queue to config
-      val queueF = async.boundedQueue[Task, WebSocketFrame](100)
       //Creates a proxy for each connection to separate the cache for all clients.
       val proxyGrpc = new ProxyGrpc(inProcessGrpc)
 
       val replyPipe: Pipe[Task, WebSocketFrame, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
-          val responseStream = for {
+          println("REACEIVE MESSAGE DATA === " + data.mkString(","))
+          val responseStream = (for {
             message ← Task(WebsocketMessage.parseFrom(data))
+            _ = logger.debug(s"Handle websocket message $message")
             responseObservable ← proxyGrpc
               .handleMessage(message.service, message.method, message.requestId, message.payload.newInput())
           } yield {
-            responseObservable.map { bytes ⇒
-              val responseMessage = message.copy(payload = ByteString.copyFrom(bytes))
-              Binary(responseMessage.toByteString.toByteArray): WebSocketFrame
-            }
+            (message, responseObservable)
+          }).attempt.map {
+            case Right((message, responseObservable)) ⇒
+              responseObservable.map { bytes ⇒
+                val responseMessage = message.copy(payload = ByteString.copyFrom(bytes))
+                println("RESPONSE === " + responseMessage)
+                Binary(responseMessage.toByteString.toByteArray): WebSocketFrame
+              }
+            case Left(ex) ⇒
+              logger.error(s"Error on handling message ${data.mkString(",")}", ex)
+              ex.fillInStackTrace()
+              Observable(Binary(Array[Byte]()))
           }
 
-          Stream.eval(responseStream).flatMap(_.toReactivePublisher.toStream[Task]())
+          val a = Stream.eval(responseStream).flatMap(_.toReactivePublisher.toStream[Task]())
+          a
         case m ⇒
+          println("UNEXPECTED MESSAGE === " + m)
           Stream.eval(Task.pure(Text(s"Unexpected message: $m"): WebSocketFrame))
       }
 

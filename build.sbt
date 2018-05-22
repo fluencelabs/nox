@@ -778,6 +778,8 @@ lazy val `client-grpc` = crossProject(JVMPlatform, JSPlatform)
   .dependsOn(`client-core`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`)
 
 lazy val `client-grpc-js` = `client-grpc`.js
+  .enablePlugins(WorkbenchPlugin)
+  .enablePlugins(ScalaJSBundlerPlugin)
 lazy val `client-grpc-jvm` = `client-grpc`.jvm
 
 lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)

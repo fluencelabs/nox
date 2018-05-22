@@ -71,14 +71,21 @@ object GrpcMonix {
     val (in, out) = Observable.multicast[T](MulticastStrategy.replay, overflow)
 
     (out, new StreamObserver[T] {
-      override def onError(t: Throwable): Unit =
+      override def onError(t: Throwable): Unit = {
+        println("STREAM OBSERVABLE ERROR === ")
+        t.printStackTrace()
         in.onError(t)
+      }
 
-      override def onCompleted(): Unit =
+      override def onCompleted(): Unit = {
+        println("STREAM OBSERVABLE ON COMPLETE === ")
         in.onComplete()
+      }
 
-      override def onNext(value: T): Unit =
+      override def onNext(value: T): Unit = {
+        println("STREAM OBSERVABLE ON NEXT === " + value)
         in.onNext(value)
+      }
     })
   }
 

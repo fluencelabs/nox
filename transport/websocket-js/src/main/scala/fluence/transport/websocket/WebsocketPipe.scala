@@ -63,7 +63,7 @@ case class WebsocketPipe[A, B] private (
 
       override def onError(ex: Throwable): Unit = input.onError(ex)
 
-      override def onComplete(): Unit = input.onComplete()
+      override def onComplete(): Unit = ()
     }
 
     val tObservable = output.mapFuture { el ⇒
@@ -91,7 +91,6 @@ case class WebsocketPipe[A, B] private (
 
       override def onError(ex: Throwable): Unit = {
         result.failure(ex)
-        onComplete()
       }
 
       override def onComplete(): Unit = ()
@@ -161,7 +160,7 @@ object WebsocketPipe {
 
       override def onError(ex: Throwable): Unit = wsObserver.onError(ex)
 
-      override def onComplete(): Unit = wsObserver.onComplete()
+      override def onComplete(): Unit = ()
     }
 
     val binaryObservable = wsObservable.collect {

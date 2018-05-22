@@ -157,7 +157,9 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   ): Task[Observable[Array[Byte]]] = {
     for {
       methodDescriptor ← getMethodDescriptorF(service, method)
+      _ = logger.debug("Websocket method descriptor: " + methodDescriptor.toString)
       req ← Task(methodDescriptor.parseRequest(stream))
+      _ = logger.debug("Websocket request: " + req)
       resp ← {
         if (methodDescriptor.getType == MethodType.UNARY)
           handleUnaryCall(req, methodDescriptor)

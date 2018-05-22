@@ -90,7 +90,7 @@ final class WebsocketObservable(
   private def sendFrame(ws: WebsocketT, fr: WebsocketFrame): Unit = {
     fr match {
       case Binary(data) ⇒
-        val arr = new Int8Array(data.toArray.toJSArray)
+        val arr = new Int8Array(data.toJSArray)
         val buffer = TypedArrayBuffer.wrap(arr).arrayBuffer()
         ws.send(buffer)
       case Text(data) ⇒
@@ -213,14 +213,16 @@ final class WebsocketObservable(
        * We will reconnect until the observable is `closed` or until the `attempts` ends.
        */
       def tryReconnect(call: ⇒ Unit): Unit = {
-        if (!closed.get && numberOfAttempts >= attempts.get) {
-          attempts.increment()
+        if (!closed.get) {
+          if (numberOfAttempts >= attempts.get) {
+            attempts.increment()
 
-          // By subscribing we reconnect to the websocket.
-          val canc = self
-            .delaySubscription(connectTimeout)
-            .unsafeSubscribeFn(subscriber)
-
+            // By subscribing we reconnect to the websocket.
+            val canc = self
+              .delaySubscription(connectTimeout)
+              .unsafeSubscribeFn(subscriber)
+          } else
+            closed.set(true)
         }
       }
 
