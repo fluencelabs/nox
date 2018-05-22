@@ -21,8 +21,9 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core"   % Cats1V,
       "org.typelevel" %%% "cats-effect" % CatsEffectV,
-      "one.fluence"   %%% "codec-circe" % CodecV,
       "one.fluence"   %%% "codec-bits"  % CodecV,
+      "one.fluence"   %%% "crypto-jwt"  % CryptoV,
+      "one.fluence"   %%% "crypto-hashsign"  % CryptoV,
       "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
   )
@@ -30,7 +31,6 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind := ModuleKind.CommonJSModule,
     fork in Test      := false
   )
-  .dependsOn(`crypto-hashsign`, `crypto-jwt`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-protocol-js` = `kademlia-protocol`.js
@@ -262,8 +262,7 @@ lazy val `transport-websocket-js` = project
       "io.monix"      %%% "monix"       % MonixV,
       "biz.enef"      %%% "slogging"    % SloggingV,
       "org.scala-js"  %%% "scalajs-dom" % scalajsDomV,
-      "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
-      "one.fluence"   %%% "codec-core"  % CodecV,
+      "one.fluence"   %%% "codec-bits"  % CodecV,
       "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     ),
     scalaJSUseMainModuleInitializer := true,
@@ -349,8 +348,7 @@ lazy val `b-tree-core` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence"   %%% "codec-core"  % CodecV,
-      "org.scodec"    %%% "scodec-bits" % ScodecBitsV,
+      "one.fluence"   %%% "codec-bits"  % CodecV,
       "org.typelevel" %%% "cats-core"   % Cats1V,
       "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
@@ -387,6 +385,7 @@ lazy val `b-tree-common` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
+      "one.fluence" %%% "crypto-core" % CryptoV,
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )
@@ -394,7 +393,7 @@ lazy val `b-tree-common` = crossProject(JVMPlatform, JSPlatform)
     fork in Test := false
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`b-tree-core`, `crypto-core`)
+  .dependsOn(`b-tree-core`)
 
 lazy val `b-tree-common-js` = `b-tree-common`.js
 lazy val `b-tree-common-jvm` = `b-tree-common`.jvm
@@ -408,6 +407,7 @@ lazy val `b-tree-client` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       "io.monix"      %%% "monix"     % MonixV,
       "biz.enef"      %%% "slogging"  % SloggingV,
+      "one.fluence"   %%% "crypto-hashsign" % CryptoV % Test,
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
     )
   )
@@ -416,7 +416,7 @@ lazy val `b-tree-client` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`b-tree-common`, `b-tree-protocol`, `crypto-hashsign` % Test)
+  .dependsOn(`b-tree-common`, `b-tree-protocol`)
 
 lazy val `b-tree-client-js` = `b-tree-client`.js
 lazy val `b-tree-client-jvm` = `b-tree-client`.jvm
@@ -435,142 +435,6 @@ lazy val `b-tree-server` = project
     `b-tree-protocol-jvm`,
     `b-tree-client-jvm` % "compile->test"
   )
-
-//////////////////////////////////////////////////////////////
-//////////////         CRYPTO BEGIN        ///////////////////
-//////////////////////////////////////////////////////////////
-lazy val `crypto-core` = crossProject(JVMPlatform, JSPlatform)
-  .withoutSuffixFor(JVMPlatform)
-  .crossType(FluenceCrossType)
-  .in(file("crypto/core"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      "one.fluence"   %%% "codec-bits" % CodecV,
-      "org.scalatest" %%% "scalatest"  % ScalatestV % Test
-    )
-  )
-  .jsSettings(
-    fork in Test := false
-  )
-  .enablePlugins(AutomateHeaderPlugin)
-
-lazy val `crypto-core-js` = `crypto-core`.js
-lazy val `crypto-core-jvm` = `crypto-core`.jvm
-
-lazy val `crypto-keystore` = crossProject(JVMPlatform, JSPlatform)
-  .withoutSuffixFor(JVMPlatform)
-  .crossType(FluenceCrossType)
-  .in(file("crypto/keystore"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      "one.fluence"   %%% "codec-circe" % CodecV,
-      "biz.enef"      %%% "slogging"    % SloggingV,
-      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
-    )
-  )
-  .jsSettings(
-    fork in Test := false
-  )
-  .jvmSettings(
-    libraryDependencies += "org.typelevel" %% "cats-effect" % CatsEffectV,
-  )
-  .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`crypto-core`)
-
-lazy val `crypto-keystore-js` = `crypto-keystore`.js
-lazy val `crypto-keystore-jvm` = `crypto-keystore`.jvm
-
-lazy val `crypto-hashsign` = crossProject(JVMPlatform, JSPlatform)
-  .withoutSuffixFor(JVMPlatform)
-  .crossType(FluenceCrossType)
-  .in(file("crypto/hashsign"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      "biz.enef"      %%% "slogging"  % SloggingV,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test
-    )
-  )
-  .jvmSettings(
-    libraryDependencies ++= Seq(
-      //JVM-specific provider for cryptography
-      bouncyCastle
-    )
-  )
-  .jsSettings(
-    npmDependencies in Compile ++= Seq(
-      "elliptic" -> "6.4.0"
-    ),
-    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
-    //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
-    skip in packageJSDependencies := false,
-    fork in Test                  := false
-  )
-  .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`crypto-core`, `crypto-keystore` % Test)
-
-lazy val `crypto-hashsign-js` = `crypto-hashsign`.js
-  .enablePlugins(ScalaJSBundlerPlugin)
-lazy val `crypto-hashsign-jvm` = `crypto-hashsign`.jvm
-
-lazy val `crypto-cipher` = crossProject(JVMPlatform, JSPlatform)
-  .withoutSuffixFor(JVMPlatform)
-  .crossType(FluenceCrossType)
-  .in(file("crypto/cipher"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test
-    )
-  )
-  .jvmSettings(
-    libraryDependencies ++= Seq(
-      //JVM-specific provider for cryptography
-      bouncyCastle
-    )
-  )
-  .jsSettings(
-    npmDependencies in Compile ++= Seq(
-      "crypto-js" -> "3.1.9-1"
-    ),
-    //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
-    skip in packageJSDependencies := false,
-    fork in Test                  := false,
-    scalaJSModuleKind             := ModuleKind.CommonJSModule
-  )
-  .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`crypto-hashsign`)
-
-lazy val `crypto-cipher-js` = `crypto-cipher`.js
-  .enablePlugins(ScalaJSBundlerPlugin)
-lazy val `crypto-cipher-jvm` = `crypto-cipher`.jvm
-
-lazy val `crypto-jwt` = crossProject(JVMPlatform, JSPlatform)
-  .withoutSuffixFor(JVMPlatform)
-  .crossType(FluenceCrossType)
-  .in(file("crypto/jwt"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      "one.fluence" %%% "codec-circe" % CodecV,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test
-    )
-  )
-  .jsSettings(
-    fork in Test := false,
-    scalaJSModuleKind := ModuleKind.CommonJSModule
-  )
-  .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`crypto-core`)
-
-lazy val `crypto-jwt-js` = `crypto-jwt`.js
-lazy val `crypto-jwt-jvm` = `crypto-jwt`.jvm
-
-//////////////////////////////////////////////////////////////
-//////////////          CRYPTO END         ///////////////////
-//////////////////////////////////////////////////////////////
 
 lazy val `dataset-node` = project
   .in(file("dataset/node"))
@@ -631,14 +495,15 @@ lazy val `dataset-client` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % Cats1V
+      "org.typelevel" %%% "cats-core" % Cats1V,
+      "one.fluence" %%% "crypto-core" % CryptoV
     )
   )
   .jsSettings(
     fork in Test := false
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`dataset-protocol`, `crypto-core`, `b-tree-client`, `kademlia-core`, `dataset-protobuf`)
+  .dependsOn(`dataset-protocol`, `b-tree-client`, `kademlia-core`, `dataset-protobuf`)
 
 lazy val `dataset-client-js` = `dataset-client`.js
 lazy val `dataset-client-jvm` = `dataset-client`.jvm
@@ -664,6 +529,7 @@ lazy val `contract-core` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
+      "one.fluence" %%% "crypto-core" % CryptoV,
       scalatest
     )
   )
@@ -672,7 +538,7 @@ lazy val `contract-core` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`contract-protocol`, `crypto-core`)
+  .dependsOn(`contract-protocol`)
 
 lazy val `contract-core-js` = `contract-core`.js
 lazy val `contract-core-jvm` = `contract-core`.jvm
@@ -737,7 +603,12 @@ lazy val `client-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
   .in(file("client/core"))
-  .settings(commons)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "one.fluence" %%% "crypto-cipher" % CryptoV
+    )
+  )
   .jvmSettings(
     libraryDependencies ++= Seq(
       typeSafeConfig,
@@ -748,7 +619,7 @@ lazy val `client-core` = crossProject(JVMPlatform, JSPlatform)
     fork in Test := false
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`kademlia-monix`, `contract-client`, `dataset-client`, `transport-core`, `crypto-cipher`)
+  .dependsOn(`kademlia-monix`, `contract-client`, `dataset-client`, `transport-core`)
 
 lazy val `client-core-js` = `client-core`.js
 lazy val `client-core-jvm` = `client-core`.jvm
@@ -788,8 +659,13 @@ lazy val `client-cli-jvm` = `client-cli`.jvm
 
 lazy val `client-cli-app` = project
   .in(file("client/cli-app"))
-  .settings(commons)
-  .dependsOn(`client-cli-jvm`, `client-grpc`, `crypto-keystore-jvm`)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "one.fluence" %% "crypto-keystore" % CryptoV
+    )
+  )
+  .dependsOn(`client-cli-jvm`, `client-grpc`)
 
 lazy val `node-core` = project
   .in(file("node/core"))
@@ -812,7 +688,15 @@ lazy val `node-grpc` = project
   .settings(
     commons
   )
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`node-core`, `client-grpc`, `transport-grpc-proxy`)
 
 lazy val `node` = project
-  .dependsOn(`node-grpc`, `crypto-keystore-jvm`)
+    .settings(
+      commons,
+      libraryDependencies ++= Seq(
+        "one.fluence" %% "crypto-keystore" % CryptoV
+      )
+    )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`node-grpc`)

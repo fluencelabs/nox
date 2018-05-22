@@ -22,18 +22,14 @@ object SbtCommons {
   )
 
   val CodecV = "0.0.3"
+  val CryptoV = "0.0.1"
 
   val Cats1V = "1.1.0"
   val CatsEffectV = "1.0.0-RC"
-  val ScodecBitsV = "1.1.5"
-  val ScodecCoreV = "1.10.3"
   val RocksDbV = "5.9.2"
   val TypeSafeConfV = "1.3.2"
   val FicusV = "1.4.3"
   val MockitoV = "2.13.0"
-  val MonocleV = "1.5.0-cats"
-  val CirceV = "0.9.3"
-  val AirflameV = "0.41"
   val ScalatestV = "3.0.+"
   val ScalacheckV = "1.13.4"
   val SloggingV = "0.6.1"
@@ -64,17 +60,9 @@ object SbtCommons {
   val catsEffect = "org.typelevel"                 %% "cats-effect"          % CatsEffectV
   val monix3 = "io.monix"                          %% "monix"                % MonixV
   val shapeless = "com.chuusai"                    %% "shapeless"            % ShapelessV
-  val monocle = "com.github.julien-truffaut"       %% "monocle-core"         % MonocleV
-  val monocleMacro = "com.github.julien-truffaut"  %% "monocle-macro"        % MonocleV
-  val scodecBits = "org.scodec"                    %% "scodec-bits"          % ScodecBitsV
-  val scodecCore = "org.scodec"                    %% "scodec-core"          % ScodecCoreV
-  val bouncyCastle = "org.bouncycastle"            % "bcprov-jdk15on"        % "1.59"
   val http4sDsl = "org.http4s"                     %% "http4s-dsl"           % Http4sV
   val http4sBlazeServer = "org.http4s"             %% "http4s-blaze-server"  % Http4sV
   val fs2ReactiveStreams = "com.github.zainab-ali" %% "fs2-reactive-streams" % fs2ReactiveStreamsV
-
-  val circeCore = "io.circe"   %% "circe-core"   % CirceV
-  val circeParser = "io.circe" %% "circe-parser" % CirceV
 
   val fastParse = "com.lihaoyi"  %% "fastparse"   % FastparseV
   val scopt = "com.github.scopt" %% "scopt"       % "3.7.0"
@@ -106,5 +94,4 @@ object SbtCommons {
       "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion
     )
   )
-  val chill = "com.twitter" %% "chill" % "0.9.2"
 }
