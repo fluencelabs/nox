@@ -30,7 +30,7 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
     fork in Test              := false
   )
-  .dependsOn(`crypto-hashsign`)
+  .dependsOn(`crypto-hashsign`, `crypto-jwt`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-protocol-js` = `kademlia-protocol`.js
@@ -473,6 +473,9 @@ lazy val `crypto-keystore` = crossProject(JVMPlatform, JSPlatform)
   .jsSettings(
     fork in Test := false
   )
+  .jvmSettings(
+    libraryDependencies += "org.typelevel" %% "cats-effect" % CatsEffectV,
+  )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`crypto-core`)
 
@@ -543,6 +546,27 @@ lazy val `crypto-cipher` = crossProject(JVMPlatform, JSPlatform)
 lazy val `crypto-cipher-js` = `crypto-cipher`.js
   .enablePlugins(ScalaJSBundlerPlugin)
 lazy val `crypto-cipher-jvm` = `crypto-cipher`.jvm
+
+lazy val `crypto-jwt` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("crypto/jwt"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "one.fluence" %%% "codec-circe" % CodecV,
+      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+    )
+  )
+  .jsSettings(
+    fork in Test := false,
+    scalaJSModuleKind := ModuleKind.CommonJSModule
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`crypto-core`)
+
+lazy val `crypto-jwt-js` = `crypto-jwt`.js
+lazy val `crypto-jwt-jvm` = `crypto-jwt`.jvm
 
 //////////////////////////////////////////////////////////////
 //////////////          CRYPTO END         ///////////////////

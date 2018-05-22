@@ -19,57 +19,30 @@ package fluence.crypto.keystore
 
 import fluence.crypto.KeyPair
 import org.scalatest.{Matchers, WordSpec}
-import scodec.bits.{Bases, ByteVector}
 
 class KeyStoreSpec extends WordSpec with Matchers {
 
-  private val alphabet = Bases.Alphabets.Base64Url
-
-  private val keyStore = KeyStore(KeyPair.fromBytes("pubKey".getBytes, "secKey".getBytes))
+  private val keyPair = KeyPair.fromBytes("pubKey".getBytes, "secKey".getBytes)
   private val jsonString = """{"keystore":{"secret":"c2VjS2V5","public":"cHViS2V5"}}"""
 
   "KeyStore.encodeKeyStorage" should {
     "transform KeyStore to json" in {
-      val result = KeyStore.encodeKeyStorage(keyStore)
-      result.noSpaces shouldBe jsonString
+      val result = KeyStore.keyPairJsonStringCodec.direct.unsafe(keyPair)
+      result shouldBe jsonString
     }
   }
 
   "KeyStore.decodeKeyStorage" should {
     "transform KeyStore to json" in {
-      import io.circe.parser._
-      val result = KeyStore.decodeKeyStorage.decodeJson(parse(jsonString).right.get)
-      result.right.get.get shouldBe keyStore
+      val result = KeyStore.keyPairJsonStringCodec.inverse.unsafe(jsonString)
+      result shouldBe keyPair
     }
   }
 
   "KeyStore" should {
     "transform KeyStore to json and back" in {
-      val result = KeyStore.decodeKeyStorage.decodeJson(KeyStore.encodeKeyStorage(keyStore))
-      result.right.get.get shouldBe keyStore
-    }
-  }
-
-  "fromBase64" should {
-    "throw an exception" when {
-      "invalid base64 format" in {
-        val invalidBase64 = "!@#$%"
-
-        val e = KeyStore.fromBase64(invalidBase64).value.left.get
-        e should have message "'" + invalidBase64 + "' is not a valid base64."
-      }
-      "invalid decoded json" in {
-        val invalidJson = ByteVector("""{"keystore":{"public":"cHViS2V5"}}""".getBytes).toBase64(alphabet)
-
-        KeyStore.fromBase64(invalidJson).value.isLeft shouldBe true
-
-      }
-    }
-
-    "fetch KeyStore from valid base64" in {
-      val invalidJson = ByteVector(jsonString.getBytes).toBase64(alphabet)
-      val result = KeyStore.fromBase64(invalidJson).value.right.get
-      result shouldBe keyStore
+      val result = KeyStore.keyPairJsonCodec.inverse.unsafe(KeyStore.keyPairJsonCodec.direct.unsafe(keyPair))
+      result shouldBe keyPair
     }
   }
 

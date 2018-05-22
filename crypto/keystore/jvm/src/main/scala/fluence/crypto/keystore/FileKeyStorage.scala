@@ -20,63 +20,50 @@ package fluence.crypto.keystore
 import java.io.File
 import java.nio.file.Files
 
-import cats.MonadError
-import cats.syntax.flatMap._
-import cats.syntax.functor._
+import cats.syntax.applicativeError._
+import cats.effect.IO
+import fluence.codec.PureCodec
 import fluence.crypto.{signature, KeyPair}
-import io.circe.parser.decode
-import io.circe.syntax._
 
 import scala.language.higherKinds
+import scala.util.control.NonFatal
 
 /**
- * TODO use cats IO
  * File based storage for crypto keys.
  *
  * @param file Path to keys in file system
  */
-class FileKeyStorage[F[_]](file: File)(implicit F: MonadError[F, Throwable]) extends slogging.LazyLogging {
+class FileKeyStorage(file: File) extends slogging.LazyLogging {
   import KeyStore._
 
-  def readKeyPair: F[KeyPair] = {
-    val keyBytes = Files.readAllBytes(file.toPath) // TODO: it throws!
-    for {
-      storageOp ← F.fromEither(decode[Option[KeyStore]](new String(keyBytes)))
-      storage ← storageOp match {
-        case None ⇒
-          logger.warn(s"Reading keys from file=$file was failed")
-          F.raiseError[KeyStore](new RuntimeException("Cannot parse file with keys."))
-        case Some(ks) ⇒
-          logger.info(s"Reading keys from file=$file was success")
-          F.pure(ks)
-      }
-    } yield storage.keyPair
+  private val codec = PureCodec[KeyPair, String]
+
+  private val readFile: IO[String] =
+    IO(Files.readAllBytes(file.toPath)).map(new String(_))
+
+  val readKeyPair: IO[KeyPair] = readFile.flatMap(codec.inverse.runF[IO])
+
+  private def writeFile(data: String): IO[Unit] = IO {
+    logger.info("Storing secret key to file: " + file)
+    if (!file.getParentFile.exists()) {
+      logger.info(s"Parent directory does not exist: ${file.getParentFile}, trying to create")
+      Files.createDirectories(file.getParentFile.toPath)
+    }
+    if (!file.exists()) file.createNewFile() else throw new RuntimeException(file.getAbsolutePath + " already exists")
+    Files.write(file.toPath, data.getBytes)
   }
 
-  def storeSecretKey(key: KeyPair): F[Unit] =
-    F.catchNonFatal {
-      logger.info("Storing secret key to file: " + file)
-      if (!file.getParentFile.exists()) {
-        logger.info(s"Parent directory does not exist: ${file.getParentFile}, trying to create")
-        Files.createDirectories(file.getParentFile.toPath)
-      }
-      if (!file.exists()) file.createNewFile() else throw new RuntimeException(file.getAbsolutePath + " already exists")
-      val str = KeyStore(key).asJson.toString()
+  def storeKeyPair(keyPair: KeyPair): IO[Unit] =
+    codec.direct.runF[IO](keyPair).flatMap(writeFile)
 
-      Files.write(file.toPath, str.getBytes)
-    }
-
-  def getOrCreateKeyPair(f: ⇒ F[KeyPair]): F[KeyPair] =
-    if (file.exists()) {
-      readKeyPair
-    } else {
-      for {
-        newKeys ← f
-        _ ← storeSecretKey(newKeys)
-      } yield {
-        logger.info(s"New keys were generated and saved to file=$file")
-        newKeys
-      }
+  def readOrCreateKeyPair(createKey: IO[KeyPair]): IO[KeyPair] =
+    readKeyPair.recoverWith {
+      case NonFatal(e) ⇒
+        logger.debug(s"KeyPair can't be loaded from $file, going to generate new keys", e)
+        for {
+          ks ← createKey
+          _ ← storeKeyPair(ks)
+        } yield ks
     }
 }
 
@@ -89,9 +76,8 @@ object FileKeyStorage {
    * @param algo Sign algo
    * @return Keypair, either loaded or freshly generated
    */
-  def getKeyPair[F[_]](keyPath: String, algo: signature.SignAlgo)(implicit F: MonadError[F, Throwable]): F[KeyPair] = {
-    val keyFile = new File(keyPath)
-    val keyStorage = new FileKeyStorage[F](keyFile)
-    keyStorage.getOrCreateKeyPair(algo.generateKeyPair.runF[F](None))
-  }
+  def getKeyPair(keyPath: String, algo: signature.SignAlgo): IO[KeyPair] =
+    IO(new FileKeyStorage(new File(keyPath)))
+      .flatMap(_.readOrCreateKeyPair(algo.generateKeyPair.runF[IO](None)))
+
 }

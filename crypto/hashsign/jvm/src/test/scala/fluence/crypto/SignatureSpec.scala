@@ -110,10 +110,10 @@ class SignatureSpec extends WordSpec with Matchers {
       if (keyFile.exists()) keyFile.delete()
       val storage = new FileKeyStorage(keyFile)
 
-      storage.storeSecretKey(keys)
+      storage.storeKeyPair(keys).unsafeRunSync()
 
       val keysReadE = storage.readKeyPair
-      val keysRead = keysReadE.get
+      val keysRead = keysReadE.unsafeRunSync()
 
       val signer = algo.signer(keys)
       val data = rndByteVector(10)
@@ -123,7 +123,7 @@ class SignatureSpec extends WordSpec with Matchers {
       algo.checker(keysRead.publicKey).check(sign, data).isOk shouldBe true
 
       //try to store key into previously created file
-      storage.storeSecretKey(keys).isFailure shouldBe true
+      storage.storeKeyPair(keys).attempt.unsafeRunSync().isLeft shouldBe true
     }
   }
 }

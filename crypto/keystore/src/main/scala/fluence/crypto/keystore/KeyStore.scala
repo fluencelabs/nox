@@ -17,16 +17,15 @@
 
 package fluence.crypto.keystore
 
-import cats.Monad
-import cats.data.EitherT
+import cats.syntax.compose._
+import fluence.codec.PureCodec
+import fluence.codec.bits.BitsCodecs
+import fluence.codec.circe.CirceCodecs
 import fluence.crypto.KeyPair
-import io.circe.parser.decode
-import io.circe.{Decoder, Encoder, HCursor, Json}
+import io.circe.{HCursor, Json}
 import scodec.bits.{Bases, ByteVector}
 
 import scala.language.higherKinds
-
-case class KeyStore(keyPair: KeyPair)
 
 /**
  * Json example:
@@ -47,44 +46,39 @@ object KeyStore {
     val Public = "public"
   }
 
-  implicit val encodeKeyStorage: Encoder[KeyStore] = (ks: KeyStore) ⇒
-    Json.obj(
-      (
-        Field.Keystore,
-        Json.obj(
-          (Field.Secret, Json.fromString(ks.keyPair.secretKey.value.toBase64(alphabet))),
-          (Field.Public, Json.fromString(ks.keyPair.publicKey.value.toBase64(alphabet)))
-        )
-      )
-  )
-
-  implicit val decodeKeyStorage: Decoder[Option[KeyStore]] =
-    (c: HCursor) ⇒
-      for {
-        secret ← c.downField(Field.Keystore).downField(Field.Secret).as[String]
-        public ← c.downField(Field.Keystore).downField(Field.Public).as[String]
-      } yield {
-        for {
-          secret ← ByteVector.fromBase64(secret, alphabet)
-          public ← ByteVector.fromBase64(public, alphabet)
-        } yield KeyStore(KeyPair.fromByteVectors(public, secret))
-    }
-
-  def fromBase64[F[_]: Monad](base64: String): EitherT[F, IllegalArgumentException, KeyStore] =
-    for {
-      jsonStr ← ByteVector.fromBase64(base64, alphabet) match {
-        case Some(bv) ⇒ EitherT.pure[F, IllegalArgumentException](new String(bv.toArray))
-        case None ⇒
-          EitherT.leftT(
-            new IllegalArgumentException("'" + base64 + "' is not a valid base64.")
+  // Codec for a tuple of already serialized public and secret keys to json
+  private val pubSecJsonCodec: PureCodec[(String, String), Json] =
+    CirceCodecs.circeJsonCodec(
+      {
+        case (pub, sec) ⇒
+          Json.obj(
+            (
+              Field.Keystore,
+              Json.obj(
+                (Field.Secret, Json.fromString(sec)),
+                (Field.Public, Json.fromString(pub))
+              )
+            )
           )
+      },
+      (c: HCursor) ⇒
+        for {
+          sec ← c.downField(Field.Keystore).downField(Field.Secret).as[String]
+          pub ← c.downField(Field.Keystore).downField(Field.Public).as[String]
+        } yield (pub, sec)
+    )
+
+  // ByteVector to/from String, with the chosen alphabet
+  private val vecToStr = BitsCodecs.base64AlphabetToVector(alphabet).swap
+
+  implicit val keyPairJsonCodec: PureCodec[KeyPair, Json] =
+    PureCodec.liftB[KeyPair, (ByteVector, ByteVector)](
+      kp ⇒ (kp.publicKey.value, kp.secretKey.value), {
+        case (pub, sec) ⇒ KeyPair(KeyPair.Public(pub), KeyPair.Secret(sec))
       }
-      keyStore ← decode[Option[KeyStore]](jsonStr) match {
-        case Right(Some(ks)) ⇒ EitherT.pure[F, IllegalArgumentException](ks)
-        case Right(None) ⇒
-          EitherT.leftT[F, KeyStore](new IllegalArgumentException("'" + base64 + "' is not a valid key store."))
-        case Left(err) ⇒
-          EitherT.leftT[F, KeyStore](new IllegalArgumentException("'" + base64 + "' is not a valid key store.", err))
-      }
-    } yield keyStore
+    ) andThen (vecToStr split vecToStr) andThen pubSecJsonCodec
+
+  implicit val keyPairJsonStringCodec: PureCodec[KeyPair, String] =
+    keyPairJsonCodec andThen CirceCodecs.circeJsonParseCodec
+
 }

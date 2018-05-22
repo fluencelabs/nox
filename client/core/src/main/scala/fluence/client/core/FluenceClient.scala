@@ -180,10 +180,11 @@ class FluenceClient(
   ): Task[Option[ClientDatasetStorageApi[Task, Observable, String, String]]] = {
     for {
       key ← Key.fromKeyPair.runF[Task](keyPair)
+      _ = logger.debug(s"Contract key: $key")
       bcOp ← contracts.find(key).value.attempt
       signer = signAlgo.signer(keyPair)
-      dataStorages ← bcOp match {
 
+      dataStorages ← bcOp match {
         case Right(Right(basicContract)) ⇒ //create storage from existed contract
           logger.debug(s"Client found contract in kademlia net: $basicContract")
           for {

@@ -17,7 +17,6 @@
 
 package fluence.kad.protocol
 
-import cats._
 import fluence.crypto.ecdsa.Ecdsa
 import fluence.kad.protocol.Contact.JwtData
 import io.circe.Decoder
@@ -36,7 +35,7 @@ class ContactSpec extends WordSpec with Matchers {
       val kp = algo.generateKeyPair.unsafe(None)
 
       val c = Contact
-        .buildOwn[Id](
+        .buildOwn(
           "127.0.0.1",
           8080,
           Some(8090),
@@ -44,14 +43,11 @@ class ContactSpec extends WordSpec with Matchers {
           "hash",
           algo.signer(kp)
         )
-        .value
-        .right
-        .get
+        .unsafe(())
 
       val seed = c.b64seed
 
-      Contact.readB64seed[Id](seed).value.isRight shouldBe true
-      Contact.readB64seed[Id](seed).value shouldBe Right(c)
+      Contact.readB64seed.unsafe(seed) shouldBe c
     }
 
     "serialize and deserialize without websocket port" in {
@@ -61,7 +57,7 @@ class ContactSpec extends WordSpec with Matchers {
       val kp = algo.generateKeyPair.unsafe(None)
 
       val c = Contact
-        .buildOwn[Id](
+        .buildOwn(
           "127.0.0.1",
           8080,
           None,
@@ -69,14 +65,11 @@ class ContactSpec extends WordSpec with Matchers {
           "hash",
           algo.signer(kp)
         )
-        .value
-        .right
-        .get
+        .unsafe(())
 
       val seed = c.b64seed
 
-      Contact.readB64seed[Id](seed).value.isRight shouldBe true
-      Contact.readB64seed[Id](seed).value shouldBe Right(c)
+      Contact.readB64seed.unsafe(seed) shouldBe c
     }
 
     "serialize and deserialize JwtData with null in json" in {
