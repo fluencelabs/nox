@@ -21,7 +21,6 @@ import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.{Eq, Monad, MonadError}
 import fluence.contract.BasicContract.ExecutionState
-import fluence.contract.ops.ContractValidate.ValidationErr
 import fluence.contract.ops.{ContractRead, ContractValidate, ContractWrite}
 import fluence.crypto.KeyPair
 import fluence.crypto.signature.SignAlgo.CheckerFn
@@ -204,10 +203,10 @@ object BasicContract {
      */
     override def validate[F[_]: Monad](
       contract: BasicContract
-    )(implicit checkerFn: CheckerFn): EitherT[F, ValidationErr, Unit] =
+    )(implicit checkerFn: CheckerFn): EitherT[F, ContractError, Unit] =
       contract
         .checkAllOwnerSeals[F]()
-        .leftMap(e ⇒ ValidationErr(s"Contract with is=${contract.id} is invalid.", e))
+        .leftMap(e ⇒ ContractError(s"Contract with is=${contract.id} is invalid.", e))
 
     /**
      * Verifies the correctness of the contract. Do the same as [[ContractValidate.validate]],
