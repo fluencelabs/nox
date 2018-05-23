@@ -37,6 +37,7 @@ import scala.language.higherKinds
  */
 class InMemoryKVStore[K, V]
     extends TrieMapKVStoreBase[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V]
+    with ReadWriteKVStore[K, V]
 
 object InMemoryKVStore {
 

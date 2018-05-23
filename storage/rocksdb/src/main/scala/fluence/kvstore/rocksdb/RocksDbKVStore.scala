@@ -24,7 +24,7 @@ import cats.syntax.flatMap._
 import cats.{~>, Eval, Monad}
 import fluence.kvstore.KVStore.{GetOp, PutOp, RemoveOp, TraverseOp}
 import fluence.kvstore.ops.{Operation, TraverseOperation}
-import fluence.kvstore.rocksdb.RocksDbKVStore.{RocksDbKVStoreBase, RocksDbKVStoreRead, RocksDbKVStoreWrite}
+import fluence.kvstore.rocksdb.RocksDbKVStore._
 import fluence.kvstore.{Snapshotable, _}
 import org.rocksdb.{Options, ReadOptions, RocksDB, RocksIterator}
 
@@ -45,7 +45,7 @@ class RocksDbKVStore(
   override protected val dbOptions: Options,
   override protected val kvStorePool: ExecutionContext,
   override protected val readOptions: ReadOptions = new ReadOptions()
-) extends RocksDbKVStoreBase with RocksDbKVStoreRead with RocksDbKVStoreWrite
+) extends ReadWriteKVStore[Key, Value] with RocksDbKVStoreRead with RocksDbKVStoreWrite
 
 object RocksDbKVStore {
 
