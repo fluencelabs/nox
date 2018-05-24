@@ -38,5 +38,5 @@ object ProtobufCodec {
    * Codec for converting protobuf class to a byte array.
    */
   val generatedMessageCodec: PureCodec.Func[GeneratedMessage, Array[Byte]] =
-    PureCodec.liftFunc[GeneratedMessage, Array[Byte]](_.toByteString.toByteArray)
+    PureCodec.liftFunc[GeneratedMessage, Array[Byte]](_.toByteArray)
 }

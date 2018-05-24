@@ -72,13 +72,9 @@ object Main extends slogging.LazyLogging {
 
     val hasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JsCryptoHasher.Sha256
 
-    val seedContact = Contact
-      .readB64seed[Id](
-        "eyJwayI6IkFfZmhNQXA5TTluc2czczkzREZNV3ZBMnd6NHlqTnVvZy1DWGVIWU4yeUhjIiwicHYiOjB9.eyJhIjoiZGllbXVzdC1HUzQzVlItN1JFIiwiZ3AiOjExMDIyLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTJ9.MEUCIQDuTTVy4LoaKd2rHTZmPxuFmNBO64v1yJ5bMz6IHpaz5AIgCqbXdbyBxPaIs0srjhGV9nQodmprTjDamYh8MFVby9U="
-      )
-      .value
-      .right
-      .get
+    val seedContact = Contact.readB64seed.unsafe(
+      "eyJwayI6IkF3RDNJWlJsYlFidkFISlRfRzYxRnZkT0xtVHRjdDU1NlJjZDBmeGxOa3huIiwicHYiOjB9.eyJhIjoiZGllbXVzdC1HUzQzVlItN1JFIiwiZ3AiOjExMDIxLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTF9.MEUCIQCfncSwcDNSSET29HJqeenxGbYCpB3RcC_kgcD3CPSMQwIgCSdT_JFHHXPhpEpkVqovbNBzteM96TN1Osh045SDiY0="
+    )
 
     val kadConfig = KademliaConf(3, 3, 1, 5.seconds)
 
@@ -104,15 +100,27 @@ object Main extends slogging.LazyLogging {
       crypts = cryptoMethods(newkey.secretKey)
       (keyCrypt, valueCrypt) = crypts
       _ = println("111111111")
-      dataset ← cl.createNewContract(newkey, 2, keyCrypt, valueCrypt).toIO
+      dataset ← cl.createNewContract(newkey, 1, keyCrypt, valueCrypt).toIO
       _ = println("222222222")
-      _ ← dataset.get("1234").toIO
-      _ = println("232323232323")
-      _ ← dataset.put("1", "").toIO
-      _ ← dataset.put("1235", "123").toIO
-      _ = println("3333333333")
-      _ ← dataset.get("1236").toIO
-    } yield {}
+      _ ← {
+        (for {
+          b ← dataset.get("1234")
+          _ = println("GETTED B === " + b)
+          _ ← dataset.put("1", "23")
+          res ← dataset.put("1235", "123")
+          _ = println("RESULT === " + res)
+          _ = println("444444444444")
+          a ← dataset.get("1235")
+          _ = println("GETTED === " + a)
+          _ = println("55555555555")
+          _ ← dataset.get("1236")
+          _ = println("666666666666")
+        } yield ()).toIO
+      }
+
+    } yield {
+      println("HURAAAH!!")
+    }
 
     r.attempt.unsafeToFuture()
   }

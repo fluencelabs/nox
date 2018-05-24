@@ -39,12 +39,16 @@ class DatasetStorageClient[F[_]: Effect](
 
   val service = "fluence.dataset.protobuf.grpc.DatasetStorageRpc"
 
-  val getPipe: Pipe[GetCallbackReply, GetCallback] = new Pipe[GetCallbackReply, GetCallback] {
-    override def unicast: (Observer[GetCallbackReply], Observable[GetCallback]) = {
-      val proxy =
-        GrpcProxyClient.proxy(service, "get", websocket, generatedMessageCodec, protobufDynamicCodec(GetCallback))
+  def getPipe: Pipe[GetCallbackReply, GetCallback] = {
 
-      (proxy.input, proxy.output)
+    val proxy =
+      GrpcProxyClient.proxy(service, "get", websocket, generatedMessageCodec, protobufDynamicCodec(GetCallback))
+
+    new Pipe[GetCallbackReply, GetCallback] {
+
+      override def unicast: (Observer[GetCallbackReply], Observable[GetCallback]) = {
+        (proxy.input, proxy.output)
+      }
     }
   }
 
