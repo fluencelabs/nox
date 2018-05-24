@@ -63,11 +63,12 @@ case class WebsocketPipe[A, B] private (
 
       override def onError(ex: Throwable): Unit = input.onError(ex)
 
+      //we do nothing here, because we don't need to close downstreaming websocket
       override def onComplete(): Unit = ()
     }
 
     val tObservable = output.mapFuture { el ⇒
-      //TODO add either or observable will stop now after error
+      //TODO add either support in websocket logic or observable will stop here after error
       outputCodec.runF[Future](el)
     }
 
@@ -93,6 +94,7 @@ case class WebsocketPipe[A, B] private (
         result.failure(ex)
       }
 
+      //we do nothing here, because we don't need to close downstreaming websocket
       override def onComplete(): Unit = ()
     }
 

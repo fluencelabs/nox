@@ -21,7 +21,7 @@ import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
 import fluence.proxy.grpc.WebsocketMessage
 import fluence.transport.websocket.WebsocketPipe.WebsocketClient
-import monix.execution.{Ack, Scheduler}
+import monix.execution.Ack
 import monix.execution.Ack.Continue
 import monix.reactive.Observer
 
@@ -52,7 +52,7 @@ object GrpcProxyClient {
     websocketClient: WebsocketClient[WebsocketMessage],
     requestCodec: PureCodec.Func[A, Array[Byte]],
     responseCodec: PureCodec.Func[Array[Byte], B]
-  )(implicit sch: Scheduler): WebsocketPipe[A, B] = {
+  )(implicit ec: ExecutionContext): WebsocketPipe[A, B] = {
     val requestId = Random.nextLong()
     def messageCreation: Array[Byte] ⇒ WebsocketMessage = message(service, method, requestId)
 
@@ -66,6 +66,7 @@ object GrpcProxyClient {
         wsObserver.onNext(message)
         // this will break backpressure, but if we do the chain of futures,
         // logic will be broken due to incomprehensible circumstances
+        // TODO investigate and fix it
         Future(Continue)
       }
 

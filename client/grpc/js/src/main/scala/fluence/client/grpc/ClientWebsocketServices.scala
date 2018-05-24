@@ -48,7 +48,7 @@ object ClientWebsocketServices {
     contact ⇒
       {
 
-        val url = "ws://" + "127.0.0.1" + ":" + contact.websocketPort.get + "/ws"
+        val url = "ws://" + "127.0.0.1" + ":" + contact.websocketPort.get
 
         new ClientServices[F, BasicContract, Contact] {
           override def kademlia: KademliaRpc[Contact] =

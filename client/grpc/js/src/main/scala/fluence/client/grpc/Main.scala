@@ -35,7 +35,6 @@ package fluence.client.grpc
  */
 
 import cats.effect.IO
-import cats.{Applicative, Id}
 import fluence.client.core.FluenceClient
 import fluence.crypto.aes.{AesConfig, AesCrypt}
 import fluence.crypto.ecdsa.Ecdsa
@@ -45,9 +44,8 @@ import fluence.crypto.{Crypto, KeyPair}
 import fluence.kad.KademliaConf
 import fluence.kad.protocol.Contact
 import monix.eval.Task
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
-
 import monix.execution.Scheduler.Implicits.global
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -99,28 +97,22 @@ object Main extends slogging.LazyLogging {
       newkey ← algo.generateKeyPair.runF[IO](None)
       crypts = cryptoMethods(newkey.secretKey)
       (keyCrypt, valueCrypt) = crypts
-      _ = println("111111111")
       dataset ← cl.createNewContract(newkey, 1, keyCrypt, valueCrypt).toIO
-      _ = println("222222222")
       _ ← {
         (for {
-          b ← dataset.get("1234")
-          _ = println("GETTED B === " + b)
+          a ← dataset.get("1234")
+          _ = println("a == None: " + a.isEmpty)
           _ ← dataset.put("1", "23")
           res ← dataset.put("1235", "123")
-          _ = println("RESULT === " + res)
-          _ = println("444444444444")
-          a ← dataset.get("1235")
-          _ = println("GETTED === " + a)
-          _ = println("55555555555")
-          _ ← dataset.get("1236")
-          _ = println("666666666666")
+          _ = println("res == None: " + res.isEmpty)
+          b ← dataset.get("1235")
+          _ = println("b == 123: " + b.contains("123"))
+          c ← dataset.get("1236")
+          _ = println("c == None: " + c.isEmpty)
         } yield ()).toIO
       }
 
-    } yield {
-      println("HURAAAH!!")
-    }
+    } yield {}
 
     r.attempt.unsafeToFuture()
   }

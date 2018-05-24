@@ -17,6 +17,7 @@
 
 package fluence.transport.websocket
 
+import fluence.codec
 import fluence.codec.PureCodec
 import fluence.proxy.grpc.WebsocketMessage
 import fluence.transport.websocket.WebsocketPipe.WebsocketClient
@@ -32,10 +33,10 @@ object ConnectionPool {
       url, {
         val client = WebsocketPipe.binaryClient(url, builder)
 
-        val websocketMessageCodec =
+        val websocketMessageCodec: codec.PureCodec[WebsocketMessage, Array[Byte]] =
           PureCodec.build[WebsocketMessage, Array[Byte]](
-            _.toByteArray,
-            WebsocketMessage.parseFrom
+            (m: WebsocketMessage) ⇒ m.toByteArray,
+            (arr: Array[Byte]) ⇒ WebsocketMessage.parseFrom(arr)
           )
 
         val ws =
