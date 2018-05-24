@@ -19,12 +19,12 @@ package fluence.grpc.proxy
 
 import com.google.protobuf.ByteString
 import fluence.proxy.grpc.WebsocketMessage
-import fs2.async.mutable.Queue
-import fs2.interop.reactivestreams._
+import fs2.async.mutable.Topic
 import fs2.{io ⇒ _, _}
 import monix.eval.Task
+import monix.execution.Ack
 import monix.execution.Scheduler.Implicits.global
-import monix.reactive.Observable
+import monix.reactive.Observer
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Server
@@ -32,6 +32,7 @@ import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.websocket._
 import org.http4s.websocket.WebsocketBits.{WebSocketFrame, _}
 
+import scala.concurrent.Future
 import scala.language.higherKinds
 
 /**
@@ -41,44 +42,48 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
 
   private def route(inProcessGrpc: InProcessGrpc, scheduler: Scheduler): HttpService[Task] = HttpService[Task] {
 
-    case GET -> Root / "ws" ⇒
+    case GET -> Root ⇒
       //Creates a proxy for each connection to separate the cache for all clients.
       val proxyGrpc = new ProxyGrpc(inProcessGrpc)
 
-      val replyPipe: Pipe[Task, WebSocketFrame, WebSocketFrame] = _.flatMap {
+      def replyPipe(topic: Topic[Task, WebSocketFrame]): Sink[Task, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
-          println("REACEIVE MESSAGE DATA === " + data.mkString(","))
-          val responseStream = (for {
+          val responseStream = for {
             message ← Task(WebsocketMessage.parseFrom(data))
             _ = logger.debug(s"Handle websocket message $message")
             responseObservable ← proxyGrpc
               .handleMessage(message.service, message.method, message.requestId, message.payload.newInput())
+            binaryObservable = responseObservable.map { bytes ⇒
+              val responseMessage = message.copy(payload = ByteString.copyFrom(bytes))
+              Binary(responseMessage.toByteArray): WebSocketFrame
+            }
           } yield {
-            (message, responseObservable)
-          }).attempt.map {
-            case Right((message, responseObservable)) ⇒
-              responseObservable.map { bytes ⇒
-                val responseMessage = message.copy(payload = ByteString.copyFrom(bytes))
-                println("RESPONSE === " + responseMessage)
-                Binary(responseMessage.toByteString.toByteArray): WebSocketFrame
-              }
-            case Left(ex) ⇒
-              logger.error(s"Error on handling message ${data.mkString(",")}", ex)
-              ex.fillInStackTrace()
-              Observable(Binary(Array[Byte]()))
+            //splitting observer and topic for asynchronous request handling
+            val obs = new Observer[WebSocketFrame] {
+              override def onNext(elem: WebSocketFrame): Future[Ack] =
+                topic.publish1(elem).map(_ ⇒ Ack.Continue).runAsync
+
+              override def onError(ex: Throwable): Unit = ex.printStackTrace()
+
+              override def onComplete(): Unit = ()
+            }
+
+            binaryObservable.subscribe(obs)
           }
 
-          val a = Stream.eval(responseStream).flatMap(_.toReactivePublisher.toStream[Task]())
-          a
+          Stream.eval(responseStream.map(_ ⇒ ()))
         case m ⇒
-          println("UNEXPECTED MESSAGE === " + m)
-          Stream.eval(Task.pure(Text(s"Unexpected message: $m"): WebSocketFrame))
+          logger.warn(s"Unexpected message in GrpcWebsocketProxy: $m")
+          Stream.eval(Task.pure(()))
       }
 
-      queueF.flatMap { queue: Queue[Task, WebSocketFrame] ⇒
-        val dequeueStream = queue.dequeue.through(replyPipe)
-        val enqueueStream = queue.enqueue
-        WebSocketBuilder[Task].build(dequeueStream, enqueueStream)
+      for {
+        topic ← async.topic[Task, WebSocketFrame](Ping())
+        // publish to topic from websocket and send to websocket from topic publisher
+        // TODO add maxQueued to config
+        ws ← WebSocketBuilder[Task].build(topic.subscribe(1000), replyPipe(topic))
+      } yield {
+        ws
       }
   }
 

@@ -92,7 +92,7 @@ class MerkleBTreeClient[K] private (
           )
           verifier.getLeafProof(keys, valuesChecksums)
         }
-        result ← if (verifier.checkProof(leafProof, mrkroot, mPath)) {
+        result ← if (verifier.checkProof(leafProof, merkleRoot, mPath)) {
           binarySearch(key, keys).flatMap { searchResult ⇒
             logger.debug(s"Searching for key=$key returns $searchResult")
             mvar.put(mPath.add(leafProof)).map(_ ⇒ searchResult)

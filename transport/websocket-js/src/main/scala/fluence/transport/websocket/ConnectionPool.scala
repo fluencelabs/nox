@@ -34,15 +34,8 @@ object ConnectionPool {
 
         val websocketMessageCodec =
           PureCodec.build[WebsocketMessage, Array[Byte]](
-            (a: WebsocketMessage) ⇒ {
-              println("WEBSOCKET MESSAGE === " + a)
-              a.toByteArray
-            },
-            (ab: Array[Byte]) ⇒ {
-              val wm = WebsocketMessage.parseFrom(ab)
-              println("GET WEBSOCKETMESSAGE === " + wm)
-              wm
-            }
+            _.toByteArray,
+            WebsocketMessage.parseFrom
           )
 
         val ws =
