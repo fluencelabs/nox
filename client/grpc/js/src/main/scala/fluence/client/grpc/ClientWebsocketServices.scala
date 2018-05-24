@@ -41,27 +41,28 @@ object ClientWebsocketServices {
     implicit
     checkerFn: CheckerFn,
     scheduler: Scheduler = Scheduler.global
-  ): Contact ⇒ ClientServices[F, BasicContract, Contact] = {
+  ): Contact ⇒ Option[ClientServices[F, BasicContract, Contact]] = {
     import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}
     import fluence.kad.KademliaNodeCodec.{pureCodec ⇒ nodeCodec}
 
     contact ⇒
       {
+        contact.websocketPort.map { wsPort ⇒
+          val url = "ws://" + "127.0.0.1" + ":" + contact.websocketPort.get
 
-        val url = "ws://" + "127.0.0.1" + ":" + contact.websocketPort.get
+          new ClientServices[F, BasicContract, Contact] {
+            override def kademlia: KademliaRpc[Contact] =
+              new KademliaWebsocketClient(ConnectionPool.getOrCreateConnection(url, builder))
 
-        new ClientServices[F, BasicContract, Contact] {
-          override def kademlia: KademliaRpc[Contact] =
-            new KademliaWebsocketClient(ConnectionPool.getOrCreateConnection(url, builder))
+            override def contractsCache: ContractsCacheRpc[BasicContract] =
+              new ContractsCacheClient[BasicContract](ConnectionPool.getOrCreateConnection(url, builder))
 
-          override def contractsCache: ContractsCacheRpc[BasicContract] =
-            new ContractsCacheClient[BasicContract](ConnectionPool.getOrCreateConnection(url, builder))
-
-          override def contractAllocator: ContractAllocatorRpc[BasicContract] =
-            new ContractAllocatorClient[BasicContract](ConnectionPool.getOrCreateConnection(url, builder))
-          // todo generalize Observable
-          override def datasetStorage: DatasetStorageRpc[F, Observable] =
-            new DatasetStorageClient(ConnectionPool.getOrCreateConnection(url, builder))
+            override def contractAllocator: ContractAllocatorRpc[BasicContract] =
+              new ContractAllocatorClient[BasicContract](ConnectionPool.getOrCreateConnection(url, builder))
+            // todo generalize Observable
+            override def datasetStorage: DatasetStorageRpc[F, Observable] =
+              new DatasetStorageClient(ConnectionPool.getOrCreateConnection(url, builder))
+          }
         }
       }
   }

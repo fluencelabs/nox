@@ -78,7 +78,7 @@ object Main extends slogging.LazyLogging {
 
     val client = ClientWebsocketServices.build[Task]
 
-    val clIO = FluenceClient.build(Seq(seedContact), algo, hasher, kadConfig, client)
+    val clIO = FluenceClient.build(Seq(seedContact), algo, hasher, kadConfig, client andThen (_.get))
 
     def cryptoMethods(
       secretKey: KeyPair.Secret
