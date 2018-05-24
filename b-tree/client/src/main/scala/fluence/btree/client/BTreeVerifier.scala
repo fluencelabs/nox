@@ -50,7 +50,7 @@ class BTreeVerifier(
 
     val verifyingResult = calcChecksum === expectedChecksum
     if (!verifyingResult)
-      logger.warn(s"Verify branch returns false; expected=$expectedChecksum, calcChecksum=$calcChecksum")
+      logger.warn(s"Merkle proof verifying failed; expected=$expectedChecksum, calcChecksum=$calcChecksum")
     verifyingResult
   }
 

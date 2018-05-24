@@ -17,13 +17,13 @@
 
 package fluence.client.cli
 
-import cats.effect.IO
 import cats.Applicative
+import cats.effect.IO
 import com.typesafe.config.Config
 import fluence.client.core.FluenceClient
 import fluence.client.core.config.AesConfigParser
-import fluence.crypto.{Crypto, KeyPair}
 import fluence.crypto.aes.AesCrypt
+import fluence.crypto.{Crypto, KeyPair}
 import fluence.dataset.client.ClientDatasetStorageApi
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
@@ -50,7 +50,7 @@ object Cli extends slogging.LazyLogging {
     } yield
       (
         AesCrypt.forString(secretKey.value, withIV = false, aesConfig),
-        AesCrypt.forString(secretKey.value, withIV = true, aesConfig)
+        AesCrypt.forString(secretKey.value, withIV = false, aesConfig)
       )
 
   def restoreDataset(

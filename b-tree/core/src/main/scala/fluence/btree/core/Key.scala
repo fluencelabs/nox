@@ -30,7 +30,7 @@ case class Key(bytes: Array[Byte]) extends AnyVal {
   def copy: Key = Key(bytes.clone())
 
   override def toString: String =
-    if (bytes.isEmpty) "Key(empty)" else s"Key(${bytes.length} bytes, 0x${ByteVector.view(bytes).toHex})"
+    if (bytes.isEmpty) "Key(empty)" else s"Key(${bytes.length} bytes, hex=${ByteVector.view(bytes).toHex})"
 
 }
 
