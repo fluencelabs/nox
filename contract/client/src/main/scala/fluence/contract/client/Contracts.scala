@@ -31,6 +31,7 @@ import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
 
 import scala.language.higherKinds
+import scala.util.control.NoStackTrace
 
 trait Contracts[F[_], Contract] {
 
@@ -183,7 +184,7 @@ object Contracts {
 
   }
 
-  sealed trait AllocateError
+  sealed trait AllocateError extends NoStackTrace
 
   // TODO: this wrapper is ugly, but if we want to avoid use of CoFail, what else could we do?
   case class CryptoErr(err: CryptoError) extends AllocateError
