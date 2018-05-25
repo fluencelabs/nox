@@ -30,3 +30,4 @@ object WebsocketOnOpen extends StatusFrame
 final case class WebsocketOnError(message: String) extends StatusFrame
 final case class WebsocketOnClose(code: Int, reason: String) extends StatusFrame
 final case class WebsocketLastUsage(time: Double) extends StatusFrame
+object WebsocketClosed extends StatusFrame

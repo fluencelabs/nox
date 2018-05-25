@@ -91,6 +91,7 @@ final class WebsocketObservable(
   }
 
   private def sendFrame(ws: WebsocketT, fr: WebsocketFrame): Unit = {
+    logger.debug(s"Websocket frame in $url: $fr")
     fr match {
       case Binary(data) ⇒
         lastUsage.set(new Date().getTime())

@@ -43,12 +43,14 @@ import fluence.crypto.signature.SignAlgo
 import fluence.crypto.{Crypto, KeyPair}
 import fluence.kad.KademliaConf
 import fluence.kad.protocol.Contact
+import fluence.transport.websocket.ConnectionPool
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
+import scala.scalajs.js.Date
 import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
 
 /**
@@ -76,7 +78,16 @@ object Main extends slogging.LazyLogging {
 
     val kadConfig = KademliaConf(3, 3, 1, 5.seconds)
 
-    val client = ClientWebsocketServices.build[Task]
+    val timeout = {
+      val date = new Date(0)
+      date.setSeconds(3)
+      date
+    }
+
+    val connectionPool = new ConnectionPool(timeout)
+    val clientWebsocketServices = new ClientWebsocketServices(connectionPool)
+
+    val client = clientWebsocketServices.build[Task]
 
     val clIO = FluenceClient.build(Seq(seedContact), algo, hasher, kadConfig, client andThen (_.get))
 
@@ -111,7 +122,20 @@ object Main extends slogging.LazyLogging {
           _ = println("c == None: " + c.isEmpty)
         } yield ()).toIO
       }
-
+      _ ← IO.sleep(6.seconds)
+      _ ← {
+        (for {
+          a ← dataset.get("1234")
+          _ = println("a == None: " + a.isEmpty)
+          _ ← dataset.put("1", "23")
+          res ← dataset.put("1235", "123")
+          _ = println("res == None: " + res.isEmpty)
+          b ← dataset.get("1235")
+          _ = println("b == 123: " + b.contains("123"))
+          c ← dataset.get("1236")
+          _ = println("c == None: " + c.isEmpty)
+        } yield ()).toIO
+      }
     } yield {
       println("finished")
     }

@@ -125,8 +125,8 @@ object WebsocketPipe {
   def apply(
     url: String,
     builder: String ⇒ WebsocketT,
-    numberOfAttempts: Int,
-    connectTimeout: FiniteDuration
+    numberOfAttempts: Int = 3,
+    connectTimeout: FiniteDuration = 3.seconds
   )(
     implicit scheduler: Scheduler
   ): WebsocketClient[WebsocketFrame] = {
@@ -154,8 +154,14 @@ object WebsocketPipe {
     connectTimeout: FiniteDuration = 3.seconds
   )(implicit scheduler: Scheduler): WebsocketClient[Array[Byte]] = {
 
-    val WebsocketPipe(wsObserver, wsObservable, statusOutput) =
-      WebsocketPipe(url, builder, numberOfAttempts, connectTimeout)
+    val pipe = WebsocketPipe(url, builder, numberOfAttempts, connectTimeout)
+
+    binaryClient(pipe)
+  }
+
+  def binaryClient(pipe: WebsocketClient[WebsocketFrame]): WebsocketPipe[Array[Byte], Array[Byte]] = {
+
+    val WebsocketPipe(wsObserver, wsObservable, statusOutput) = pipe
 
     val binaryClient: Observer[Array[Byte]] = new Observer[Array[Byte]] {
       override def onNext(elem: Array[Byte]): Future[Ack] = wsObserver.onNext(Binary(elem))

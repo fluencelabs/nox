@@ -22,8 +22,12 @@ import fluence.codec.PureCodec
 import fluence.proxy.grpc.WebsocketMessage
 import fluence.transport.websocket.WebsocketPipe.WebsocketClient
 import monix.execution.Scheduler
+import monix.reactive.Observable
 
-object ConnectionPool {
+import scala.concurrent.duration._
+import scala.scalajs.js.Date
+
+class ConnectionPool(timeout: Date) {
 
   private var connections: Map[String, WebsocketClient[WebsocketMessage]] = Map.empty
 
@@ -32,7 +36,8 @@ object ConnectionPool {
   ): WebsocketClient[WebsocketMessage] = {
     connections.getOrElse(
       url, {
-        val client = WebsocketPipe.binaryClient(url, builder)
+        val pipe = WebsocketPipe(url, builder)
+        val client = WebsocketPipe.binaryClient(pipe)
 
         val websocketMessageCodec: codec.PureCodec[WebsocketMessage, Array[Byte]] =
           PureCodec.build[WebsocketMessage, Array[Byte]](
@@ -40,8 +45,21 @@ object ConnectionPool {
             (arr: Array[Byte]) ⇒ WebsocketMessage.parseFrom(arr)
           )
 
+        val subscription =
+          Observable.timerRepeated[WebsocketFrame](5.seconds, 5.seconds, CheckTimeFrame).subscribe(pipe.input)
+
         val ws =
           client.xmap[WebsocketMessage, WebsocketMessage](websocketMessageCodec.direct, websocketMessageCodec.inverse)
+
+        client.statusOutput.collect {
+          case WebsocketLastUsage(time) ⇒
+            val now = new Date()
+            if ((now.getTime() - new Date(time).getTime()) > timeout.getTime())
+              pipe.input.onNext(CloseFrame("Usage timeout."))
+          case WebsocketClosed ⇒
+            subscription.cancel()
+            connections = connections - url
+        }.subscribe()
 
         connections = connections.updated(url, ws)
         ws

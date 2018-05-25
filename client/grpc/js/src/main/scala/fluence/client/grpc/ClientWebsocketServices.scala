@@ -33,7 +33,7 @@ import monix.reactive.Observable
 
 import scala.language.higherKinds
 
-object ClientWebsocketServices {
+class ClientWebsocketServices(connectionPool: ConnectionPool) {
 
   val builder: String ⇒ WebsocketT = Websocket.builder
 
@@ -52,16 +52,16 @@ object ClientWebsocketServices {
 
           new ClientServices[F, BasicContract, Contact] {
             override def kademlia: KademliaRpc[Contact] =
-              new KademliaWebsocketClient(ConnectionPool.getOrCreateConnection(url, builder))
+              new KademliaWebsocketClient(connectionPool.getOrCreateConnection(url, builder))
 
             override def contractsCache: ContractsCacheRpc[BasicContract] =
-              new ContractsCacheClient[BasicContract](ConnectionPool.getOrCreateConnection(url, builder))
+              new ContractsCacheClient[BasicContract](connectionPool.getOrCreateConnection(url, builder))
 
             override def contractAllocator: ContractAllocatorRpc[BasicContract] =
-              new ContractAllocatorClient[BasicContract](ConnectionPool.getOrCreateConnection(url, builder))
+              new ContractAllocatorClient[BasicContract](connectionPool.getOrCreateConnection(url, builder))
             // todo generalize Observable
             override def datasetStorage: DatasetStorageRpc[F, Observable] =
-              new DatasetStorageClient(ConnectionPool.getOrCreateConnection(url, builder))
+              new DatasetStorageClient(connectionPool.getOrCreateConnection(url, builder))
           }
         }
       }
