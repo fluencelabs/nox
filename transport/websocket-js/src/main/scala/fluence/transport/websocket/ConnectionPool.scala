@@ -24,6 +24,7 @@ import fluence.transport.websocket.WebsocketPipe.WebsocketClient
 import monix.execution.Scheduler
 
 object ConnectionPool {
+
   private var connections: Map[String, WebsocketClient[WebsocketMessage]] = Map.empty
 
   def getOrCreateConnection(url: String, builder: String ⇒ WebsocketT)(

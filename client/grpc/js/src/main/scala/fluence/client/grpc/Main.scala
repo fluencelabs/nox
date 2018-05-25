@@ -71,7 +71,7 @@ object Main extends slogging.LazyLogging {
     val hasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JsCryptoHasher.Sha256
 
     val seedContact = Contact.readB64seed.unsafe(
-      "eyJwayI6IkF3RDNJWlJsYlFidkFISlRfRzYxRnZkT0xtVHRjdDU1NlJjZDBmeGxOa3huIiwicHYiOjB9.eyJhIjoiZGllbXVzdC1HUzQzVlItN1JFIiwiZ3AiOjExMDIxLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTF9.MEUCIQCfncSwcDNSSET29HJqeenxGbYCpB3RcC_kgcD3CPSMQwIgCSdT_JFHHXPhpEpkVqovbNBzteM96TN1Osh045SDiY0="
+      "eyJwayI6IkE5ZmZaWS1FbG5aSlNCWEJBMno4Q2FpWTNLT051Y3doTkdfY0FmRVNNU3liIiwicHYiOjB9.eyJhIjoiMTI3LjAuMC4xIiwiZ3AiOjExMDIxLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTF9.MEYCIQCxT-B1-oaVqCKEiNSlk6rIJNrtUpLc2Pxgq8vw0fwhbgIhAKlf_VEwQoBFdkTdF3YYZQpFruVSVM9F71YpUtapmpbR"
     )
 
     val kadConfig = KademliaConf(3, 3, 1, 5.seconds)
@@ -88,7 +88,7 @@ object Main extends slogging.LazyLogging {
       )
       (
         AesCrypt.forString(secretKey.value, withIV = false, aesConfig),
-        AesCrypt.forString(secretKey.value, withIV = true, aesConfig)
+        AesCrypt.forString(secretKey.value, withIV = false, aesConfig)
       )
     }
 
@@ -97,7 +97,7 @@ object Main extends slogging.LazyLogging {
       newkey ← algo.generateKeyPair.runF[IO](None)
       crypts = cryptoMethods(newkey.secretKey)
       (keyCrypt, valueCrypt) = crypts
-      dataset ← cl.createNewContract(newkey, 1, keyCrypt, valueCrypt).toIO
+      dataset ← cl.createNewContract(newkey, 2, keyCrypt, valueCrypt).toIO
       _ ← {
         (for {
           a ← dataset.get("1234")
@@ -112,7 +112,9 @@ object Main extends slogging.LazyLogging {
         } yield ()).toIO
       }
 
-    } yield {}
+    } yield {
+      println("finished")
+    }
 
     r.attempt.unsafeToFuture()
   }

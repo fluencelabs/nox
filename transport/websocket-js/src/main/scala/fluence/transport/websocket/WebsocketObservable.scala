@@ -18,7 +18,7 @@
 package fluence.transport.websocket
 
 import monix.execution.Ack.Continue
-import monix.execution.atomic.{AtomicBoolean, AtomicInt}
+import monix.execution.atomic.{AtomicBoolean, AtomicDouble, AtomicInt, AtomicLong}
 import monix.execution.{Ack, Cancelable, Scheduler}
 import monix.reactive.observers.Subscriber
 import monix.reactive.{Observable, Observer, OverflowStrategy}
@@ -26,6 +26,7 @@ import org.scalajs.dom._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.scalajs.js.Date
 import scala.scalajs.js.JSConverters._
 import scala.scalajs.js.typedarray.TypedArrayBufferOps._
 import scala.scalajs.js.typedarray.{ArrayBuffer, Int8Array, TypedArrayBuffer}
@@ -66,6 +67,8 @@ final class WebsocketObservable(
    */
   private val attempts = AtomicInt(0)
 
+  private val lastUsage = AtomicDouble(new Date().getTime())
+
   //TODO control overflow strategy
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
@@ -90,14 +93,18 @@ final class WebsocketObservable(
   private def sendFrame(ws: WebsocketT, fr: WebsocketFrame): Unit = {
     fr match {
       case Binary(data) ⇒
+        lastUsage.set(new Date().getTime())
         val arr = new Int8Array(data.toJSArray)
         val buffer = TypedArrayBuffer.wrap(arr).arrayBuffer()
         ws.send(buffer)
       case Text(data) ⇒
+        lastUsage.set(new Date().getTime())
         ws.send(data)
       case CloseFrame(cause) ⇒
         closed.set(true)
         closeConnection(ws)
+      case CheckTimeFrame ⇒
+        statusOutput.onNext(WebsocketLastUsage(lastUsage.get))
     }
   }
 
@@ -162,6 +169,7 @@ final class WebsocketObservable(
 
         webSocket.setOnmessage((event: MessageEvent) ⇒ {
           logger.debug(s"OnMessage event $event in websocket $url")
+          lastUsage.set(new Date().getTime())
           event.data match {
             case s: String ⇒
               subscriber.onNext(Text(s))

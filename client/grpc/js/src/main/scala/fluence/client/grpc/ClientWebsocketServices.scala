@@ -35,7 +35,7 @@ import scala.language.higherKinds
 
 object ClientWebsocketServices {
 
-  val builder: String ⇒ WebsocketT = str ⇒ Websocket(str)
+  val builder: String ⇒ WebsocketT = Websocket.builder
 
   def build[F[_]: Effect](
     implicit
@@ -48,7 +48,7 @@ object ClientWebsocketServices {
     contact ⇒
       {
         contact.websocketPort.map { wsPort ⇒
-          val url = "ws://" + "127.0.0.1" + ":" + contact.websocketPort.get
+          val url = "ws://" + contact.addr + ":" + wsPort
 
           new ClientServices[F, BasicContract, Contact] {
             override def kademlia: KademliaRpc[Contact] =

@@ -33,6 +33,7 @@ import org.http4s.server.websocket._
 import org.http4s.websocket.WebsocketBits.{WebSocketFrame, _}
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 /**
@@ -79,6 +80,7 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
 
       for {
         topic ← async.topic[Task, WebSocketFrame](Ping())
+        _ = scheduler.awakeEvery[Task](1.seconds).map(d ⇒ topic.publish1(Ping()))
         // publish to topic from websocket and send to websocket from topic publisher
         // TODO add maxQueued to config
         ws ← WebSocketBuilder[Task].build(topic.subscribe(1000), replyPipe(topic))

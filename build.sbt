@@ -19,12 +19,12 @@ lazy val `kademlia-protocol` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"   % Cats1V,
-      "org.typelevel" %%% "cats-effect" % CatsEffectV,
-      "one.fluence"   %%% "codec-bits"  % CodecV,
-      "one.fluence"   %%% "crypto-jwt"  % CryptoV,
-      "one.fluence"   %%% "crypto-hashsign"  % CryptoV,
-      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
+      "org.typelevel" %%% "cats-core"       % Cats1V,
+      "org.typelevel" %%% "cats-effect"     % CatsEffectV,
+      "one.fluence"   %%% "codec-bits"      % CodecV,
+      "one.fluence"   %%% "crypto-jwt"      % CryptoV,
+      "one.fluence"   %%% "crypto-hashsign" % CryptoV,
+      "org.scalatest" %%% "scalatest"       % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -348,9 +348,9 @@ lazy val `b-tree-core` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence"   %%% "codec-bits"  % CodecV,
-      "org.typelevel" %%% "cats-core"   % Cats1V,
-      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
+      "one.fluence"   %%% "codec-bits" % CodecV,
+      "org.typelevel" %%% "cats-core"  % Cats1V,
+      "org.scalatest" %%% "scalatest"  % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -385,8 +385,8 @@ lazy val `b-tree-common` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %%% "crypto-core" % CryptoV,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+      "one.fluence"   %%% "crypto-core" % CryptoV,
+      "org.scalatest" %%% "scalatest"   % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -405,10 +405,10 @@ lazy val `b-tree-client` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "io.monix"      %%% "monix"     % MonixV,
-      "biz.enef"      %%% "slogging"  % SloggingV,
+      "io.monix"      %%% "monix"           % MonixV,
+      "biz.enef"      %%% "slogging"        % SloggingV,
       "one.fluence"   %%% "crypto-hashsign" % CryptoV % Test,
-      "org.scalatest" %%% "scalatest" % ScalatestV % Test
+      "org.scalatest" %%% "scalatest"       % ScalatestV % Test
     )
   )
   .jsSettings(
@@ -512,8 +512,8 @@ lazy val `dataset-client` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % Cats1V,
-      "one.fluence" %%% "crypto-core" % CryptoV
+      "org.typelevel" %%% "cats-core"   % Cats1V,
+      "one.fluence"   %%% "crypto-core" % CryptoV
     )
   )
   .jsSettings(
@@ -739,11 +739,11 @@ lazy val `node-grpc` = project
   .dependsOn(`node-core`, `client-grpc-jvm`, `transport-grpc-proxy`)
 
 lazy val `node` = project
-    .settings(
-      commons,
-      libraryDependencies ++= Seq(
-        "one.fluence" %% "crypto-keystore" % CryptoV
-      )
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "one.fluence" %% "crypto-keystore" % CryptoV
     )
+  )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`node-grpc`)
