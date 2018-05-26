@@ -28,7 +28,7 @@ object NodeApp extends App with slogging.LazyLogging {
 
   // Simply log everything to stdout
   LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.DEBUG
+  LoggerConfig.level = LogLevel.INFO
 
   logger.info("Going to run Fluence Server...")
 

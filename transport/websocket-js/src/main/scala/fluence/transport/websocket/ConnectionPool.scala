@@ -64,8 +64,7 @@ class ConnectionPool[I, O](timeout: Date, checkInterval: FiniteDuration = 5.seco
             connections = connections - url
         }.subscribe()
 
-        val ws =
-          binaryPipe.xmap[I, O](inCodec, outCodec)
+        val ws = binaryPipe.xmap[I, O](inCodec, outCodec)
 
         connections = connections.updated(url, ws)
         ws
