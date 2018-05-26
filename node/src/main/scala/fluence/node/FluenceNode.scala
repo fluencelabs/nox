@@ -174,7 +174,7 @@ object FluenceNode extends slogging.LazyLogging {
 
       contact ← Contact
         .buildOwn(
-          addr = upnpContact.host.getOrElse(builder.address).getHostName,
+          addr = upnpContact.host.getOrElse(builder.address).getHostAddress,
           port = upnpContact.grpcPort.getOrElse(builder.port),
           websocketPort = upnpContact.websocketPort,
           protocolVersion = upnpContact.protocolVersion,

@@ -93,7 +93,7 @@ object Main extends slogging.LazyLogging {
         (arr: Array[Byte]) ⇒ WebsocketMessage.parseFrom(arr)
       )
 
-    val connectionPool = new ConnectionPool[WebsocketMessage, WebsocketMessage](timeout, builder = Websocket.builder)
+    val connectionPool = ConnectionPool[WebsocketMessage](timeout, builder = Websocket.builder)
     val clientWebsocketServices = new ClientWebsocketServices(connectionPool)
 
     val client = clientWebsocketServices.build[Task]
@@ -143,7 +143,7 @@ object Main extends slogging.LazyLogging {
           _ = println("b == 123: " + b.contains("123"))
           c ← dataset.get("1236")
           _ = println("c == None: " + c.isEmpty)
-        } yield ()).toIO
+        } yield {}).toIO
       }
     } yield {
       println("finished")

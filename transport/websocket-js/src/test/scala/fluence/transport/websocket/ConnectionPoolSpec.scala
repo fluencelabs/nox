@@ -40,14 +40,10 @@ class ConnectionPoolSpec extends AsyncWordSpec with Matchers {
 
       case class Wrapper(arr: Array[Byte])
 
-      implicit val wrapperCodec: codec.PureCodec[Wrapper, WebsocketFrame] =
-        PureCodec.build[Wrapper, WebsocketFrame](
-          (m: Wrapper) ⇒ Binary(m.arr): WebsocketFrame,
-          (fr: WebsocketFrame) ⇒
-            fr match {
-              case Binary(arr) ⇒ Wrapper(arr)
-              case _ ⇒ Wrapper(Array.empty[Byte])
-          }
+      implicit val wrapperCodec: codec.PureCodec[Wrapper, Array[Byte]] =
+        PureCodec.build[Wrapper, Array[Byte]](
+          (m: Wrapper) ⇒ m.arr: Array[Byte],
+          (arr: Array[Byte]) ⇒ Wrapper(arr)
         )
 
       val pool = ConnectionPool[Wrapper](timeout, 100.millis, builder = WebsocketEcho.builder)

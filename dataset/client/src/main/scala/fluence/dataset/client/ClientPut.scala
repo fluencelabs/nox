@@ -161,6 +161,7 @@ class ClientPut[F[_]: Effect](
             .flatMap(_ ⇒ Task.raiseError[Option[Array[Byte]]](serverError))
         case ask if ask.isValue ⇒
           val Some(getValue) = ask._value
+          logger.trace(s"DatasetStorageClient.put() received server value=$getValue")
           // if got success response or server error close stream and return value\error to user of this client
           Task(cancelable.cancel()).map { _ ⇒
             Option(getValue.value)

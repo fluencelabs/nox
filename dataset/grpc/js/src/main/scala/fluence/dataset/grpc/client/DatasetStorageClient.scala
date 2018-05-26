@@ -92,11 +92,13 @@ class DatasetStorageClient[F[_]: Effect](
    * @param searchCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
    * @return returns stream of found value.
    */
+  // TODO range request is not working for now for websockets
   override def range(
     datasetId: Array[Byte],
     version: Long,
     searchCallbacks: BTreeRpc.SearchCallback[F]
-  ): Observable[(Array[Byte], Array[Byte])] = ClientRange(datasetId, version, searchCallbacks).runStream(rangePipe)
+  ): Observable[(Array[Byte], Array[Byte])] =
+    ??? //ClientRange(datasetId, version, searchCallbacks).runStream(rangePipe)
 
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.

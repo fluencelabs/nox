@@ -34,6 +34,11 @@ import monix.reactive.Observable
 
 import scala.language.higherKinds
 
+/**
+ * Client services that can interact with nodes by websocket connections.
+ *
+ * @param connectionPool Pool of websocket connections.
+ */
 class ClientWebsocketServices(connectionPool: ConnectionPool[WebsocketMessage, WebsocketMessage]) {
 
   def build[F[_]: Effect](
