@@ -17,41 +17,31 @@
 
 package fluence.transport.websocket
 
-import fluence.codec
 import fluence.codec.PureCodec
-import fluence.proxy.grpc.WebsocketMessage
-import fluence.transport.websocket.WebsocketPipe.WebsocketClient
 import monix.execution.Scheduler
 import monix.reactive.Observable
 
 import scala.concurrent.duration._
 import scala.scalajs.js.Date
 
-class ConnectionPool(timeout: Date) {
+class ConnectionPool[I, O](timeout: Date, checkInterval: FiniteDuration = 5.seconds, builder: String ⇒ WebsocketT)(
+  implicit inCodec: PureCodec.Func[I, WebsocketFrame],
+  outCodec: PureCodec.Func[WebsocketFrame, O]
+) {
 
-  private var connections: Map[String, WebsocketClient[WebsocketMessage]] = Map.empty
+  private var connections: Map[String, WebsocketPipe[I, O]] = Map.empty
 
-  def getOrCreateConnection(url: String, builder: String ⇒ WebsocketT)(
+  def getOrCreateConnection(url: String)(
     implicit scheduler: Scheduler
-  ): WebsocketClient[WebsocketMessage] = {
+  ): WebsocketPipe[I, O] = {
     connections.getOrElse(
       url, {
         val pipe = WebsocketPipe(url, builder)
-        val client = WebsocketPipe.binaryClient(pipe)
-
-        val websocketMessageCodec: codec.PureCodec[WebsocketMessage, Array[Byte]] =
-          PureCodec.build[WebsocketMessage, Array[Byte]](
-            (m: WebsocketMessage) ⇒ m.toByteArray,
-            (arr: Array[Byte]) ⇒ WebsocketMessage.parseFrom(arr)
-          )
 
         val subscription =
-          Observable.timerRepeated[WebsocketFrame](5.seconds, 5.seconds, CheckTimeFrame).subscribe(pipe.input)
+          Observable.timerRepeated[WebsocketFrame](checkInterval, checkInterval, CheckTimeFrame).subscribe(pipe.input)
 
-        val ws =
-          client.xmap[WebsocketMessage, WebsocketMessage](websocketMessageCodec.direct, websocketMessageCodec.inverse)
-
-        client.statusOutput.collect {
+        pipe.statusOutput.collect {
           case WebsocketLastUsage(time) ⇒
             val now = new Date()
             if ((now.getTime() - new Date(time).getTime()) > timeout.getTime())
@@ -61,9 +51,26 @@ class ConnectionPool(timeout: Date) {
             connections = connections - url
         }.subscribe()
 
+        val ws =
+          pipe.xmap[I, O](inCodec, outCodec)
+
         connections = connections.updated(url, ws)
         ws
       }
     )
+  }
+
+  /**
+   * For tests purpose only.
+   */
+  def getConnections: Map[String, WebsocketPipe[I, O]] = connections
+}
+
+object ConnectionPool {
+
+  def apply[T](timeout: Date, checkInterval: FiniteDuration = 5.seconds, builder: String ⇒ WebsocketT)(
+    implicit codec: PureCodec[T, WebsocketFrame]
+  ): ConnectionPool[T, T] = {
+    new ConnectionPool[T, T](timeout, checkInterval, builder)(codec.direct, codec.inverse)
   }
 }

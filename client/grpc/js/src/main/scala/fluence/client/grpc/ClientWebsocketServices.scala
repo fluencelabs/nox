@@ -27,15 +27,14 @@ import fluence.dataset.grpc.client.DatasetStorageClient
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.grpc.client.KademliaWebsocketClient
 import fluence.kad.protocol.{Contact, KademliaRpc}
+import fluence.proxy.grpc.WebsocketMessage
 import fluence.transport.websocket.{ConnectionPool, Websocket, WebsocketT}
 import monix.execution.Scheduler
 import monix.reactive.Observable
 
 import scala.language.higherKinds
 
-class ClientWebsocketServices(connectionPool: ConnectionPool) {
-
-  val builder: String ⇒ WebsocketT = Websocket.builder
+class ClientWebsocketServices(connectionPool: ConnectionPool[WebsocketMessage, WebsocketMessage]) {
 
   def build[F[_]: Effect](
     implicit
@@ -52,16 +51,16 @@ class ClientWebsocketServices(connectionPool: ConnectionPool) {
 
           new ClientServices[F, BasicContract, Contact] {
             override def kademlia: KademliaRpc[Contact] =
-              new KademliaWebsocketClient(connectionPool.getOrCreateConnection(url, builder))
+              new KademliaWebsocketClient(connectionPool.getOrCreateConnection(url))
 
             override def contractsCache: ContractsCacheRpc[BasicContract] =
-              new ContractsCacheClient[BasicContract](connectionPool.getOrCreateConnection(url, builder))
+              new ContractsCacheClient[BasicContract](connectionPool.getOrCreateConnection(url))
 
             override def contractAllocator: ContractAllocatorRpc[BasicContract] =
-              new ContractAllocatorClient[BasicContract](connectionPool.getOrCreateConnection(url, builder))
+              new ContractAllocatorClient[BasicContract](connectionPool.getOrCreateConnection(url))
             // todo generalize Observable
             override def datasetStorage: DatasetStorageRpc[F, Observable] =
-              new DatasetStorageClient(connectionPool.getOrCreateConnection(url, builder))
+              new DatasetStorageClient(connectionPool.getOrCreateConnection(url))
           }
         }
       }

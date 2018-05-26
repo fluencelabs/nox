@@ -104,6 +104,7 @@ final class WebsocketObservable(
       case CloseFrame(cause) ⇒
         closed.set(true)
         closeConnection(ws)
+        statusOutput.onNext(WebsocketClosed)
       case CheckTimeFrame ⇒
         statusOutput.onNext(WebsocketLastUsage(lastUsage.get))
     }

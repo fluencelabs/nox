@@ -268,7 +268,7 @@ lazy val `transport-websocket-js` = project
     scalaJSUseMainModuleInitializer := true,
     scalaJSModuleKind in Test       := ModuleKind.CommonJSModule,
     fork in Test                    := false,
-    jsEnv                           := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
+    jsEnv in Compile                := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
   )
   .enablePlugins(ScalaJSPlugin)
   .enablePlugins(AutomateHeaderPlugin)

@@ -36,6 +36,8 @@ package fluence.client.grpc
 
 import cats.effect.IO
 import fluence.client.core.FluenceClient
+import fluence.codec
+import fluence.codec.PureCodec
 import fluence.crypto.aes.{AesConfig, AesCrypt}
 import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.hash.JsCryptoHasher
@@ -43,7 +45,8 @@ import fluence.crypto.signature.SignAlgo
 import fluence.crypto.{Crypto, KeyPair}
 import fluence.kad.KademliaConf
 import fluence.kad.protocol.Contact
-import fluence.transport.websocket.ConnectionPool
+import fluence.proxy.grpc.WebsocketMessage
+import fluence.transport.websocket.{ConnectionPool, Websocket}
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
@@ -84,7 +87,13 @@ object Main extends slogging.LazyLogging {
       date
     }
 
-    val connectionPool = new ConnectionPool(timeout)
+    implicit val websocketMessageCodec: codec.PureCodec[WebsocketMessage, Array[Byte]] =
+      PureCodec.build[WebsocketMessage, Array[Byte]](
+        (m: WebsocketMessage) ⇒ m.toByteArray,
+        (arr: Array[Byte]) ⇒ WebsocketMessage.parseFrom(arr)
+      )
+
+    val connectionPool = new ConnectionPool[WebsocketMessage, WebsocketMessage](timeout, builder = Websocket.builder)
     val clientWebsocketServices = new ClientWebsocketServices(connectionPool)
 
     val client = clientWebsocketServices.build[Task]
