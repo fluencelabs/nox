@@ -148,7 +148,10 @@ class FluenceClient(
               .leftMap(_.message)
         ) // TODO: refactor this to EitherT
         .value
-        .flatMap(v ⇒ Task(v.right.get))
+        .flatMap {
+          case Right(value) ⇒ Task(value)
+          case Left(err) ⇒ Task.raiseError(err)
+        }
 
       _ = logger.debug("New allocated contract: " + newContract)
       nodes ← findContactsOfAllParticipants(newContract)
