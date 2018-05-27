@@ -28,7 +28,6 @@ import fluence.transport.websocket.GrpcProxyClient
 import fluence.transport.websocket.WebsocketPipe.WebsocketClient
 import monix.execution.Scheduler
 
-// todo unit test
 class ContractAllocatorClient[C: ContractValidate](
   websocket: WebsocketClient[WebsocketMessage]
 )(

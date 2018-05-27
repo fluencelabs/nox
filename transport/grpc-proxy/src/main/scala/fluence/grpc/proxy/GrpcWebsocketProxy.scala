@@ -41,7 +41,11 @@ import scala.language.higherKinds
  */
 object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
 
-  private def route(inProcessGrpc: InProcessGrpc, scheduler: Scheduler): HttpService[Task] = HttpService[Task] {
+  private def route(
+    inProcessGrpc: InProcessGrpc,
+    scheduler: Scheduler,
+    pingInterval: FiniteDuration = 2.seconds
+  ): HttpService[Task] = HttpService[Task] {
 
     case GET -> Root ⇒
       //Creates a proxy for each connection to separate the cache for all clients.
@@ -80,7 +84,7 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
 
       for {
         topic ← async.topic[Task, WebSocketFrame](Ping())
-        _ = scheduler.awakeEvery[Task](1.seconds).map(d ⇒ topic.publish1(Ping()))
+        _ = scheduler.awakeEvery[Task](pingInterval).map(d ⇒ topic.publish1(Ping()))
         // publish to topic from websocket and send to websocket from topic publisher
         // TODO add maxQueued to config
         ws ← WebSocketBuilder[Task].build(topic.subscribe(1000), replyPipe(topic))
