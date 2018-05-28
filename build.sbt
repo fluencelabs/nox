@@ -125,7 +125,6 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-java-time" % jsJavaTimeV
     ),
-    workbenchStartMode := WorkbenchStartModes.Manual,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies   := false,
     fork in Test                    := false,
@@ -135,7 +134,6 @@ lazy val `kademlia-grpc` = crossProject(JVMPlatform, JSPlatform)
   .dependsOn(`kademlia-protobuf`, `transport-grpc`, `kademlia-protocol`, `kademlia-testkit` % Test)
 
 lazy val `kademlia-grpc-js` = `kademlia-grpc`.js
-  .enablePlugins(WorkbenchPlugin)
   .enablePlugins(ScalaJSBundlerPlugin)
   .dependsOn(`transport-websocket-js`)
 
@@ -490,7 +488,6 @@ lazy val `dataset-grpc` = crossProject(JVMPlatform, JSPlatform)
     grpc
   )
   .jsSettings(
-    workbenchStartMode := WorkbenchStartModes.Manual,
     //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
     skip in packageJSDependencies   := false,
     fork in Test                    := false,
@@ -501,7 +498,6 @@ lazy val `dataset-grpc` = crossProject(JVMPlatform, JSPlatform)
 
 lazy val `dataset-grpc-jvm` = `dataset-grpc`.jvm.dependsOn(`dataset-node`)
 lazy val `dataset-grpc-js` = `dataset-grpc`.js
-  .enablePlugins(WorkbenchPlugin)
   .enablePlugins(ScalaJSBundlerPlugin)
   .dependsOn(`transport-websocket-js`)
 
@@ -618,7 +614,6 @@ lazy val `contract-grpc` = crossProject(JVMPlatform, JSPlatform)
     grpc
   )
   .jsSettings(
-    workbenchStartMode              := WorkbenchStartModes.Manual,
     skip in packageJSDependencies   := false,
     fork in Test                    := false,
     scalaJSUseMainModuleInitializer := true
@@ -627,7 +622,6 @@ lazy val `contract-grpc` = crossProject(JVMPlatform, JSPlatform)
   .dependsOn(`contract-core`, `transport-grpc`, `contract-protobuf`, `kademlia-grpc`)
 
 lazy val `contract-grpc-js` = `contract-grpc`.js
-  .enablePlugins(WorkbenchPlugin)
   .enablePlugins(ScalaJSBundlerPlugin)
   .dependsOn(`transport-websocket-js`)
 lazy val `contract-grpc-jvm` = `contract-grpc`.jvm
@@ -663,17 +657,13 @@ lazy val `client-grpc` = crossProject(JVMPlatform, JSPlatform)
   .in(file("client/grpc"))
   .settings(commons)
   .jsSettings(
-    workbenchStartMode              := WorkbenchStartModes.Manual,
-    skip in packageJSDependencies   := false,
     scalaJSModuleKind in Test       := ModuleKind.CommonJSModule,
-    fork in Test                    := false,
-    scalaJSUseMainModuleInitializer := true
+    fork in Test                    := false
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`client-core`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`)
 
 lazy val `client-grpc-js` = `client-grpc`.js
-  .enablePlugins(WorkbenchPlugin)
   .enablePlugins(ScalaJSBundlerPlugin)
 lazy val `client-grpc-jvm` = `client-grpc`.jvm
 
@@ -697,17 +687,36 @@ lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
 lazy val `client-cli-js` = `client-cli`.js
 lazy val `client-cli-jvm` = `client-cli`.jvm
 
-lazy val `client-cli-app` = project
+lazy val `client-cli-app` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
   .in(file("client/cli-app"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %% "crypto-keystore" % CryptoV,
-      jline,
-      scopt
+      "one.fluence" %% "crypto-keystore" % CryptoV
     )
   )
-  .dependsOn(`client-cli-jvm`, `client-grpc-jvm`)
+  .jvmSettings(
+    libraryDependencies ++= Seq(
+      jline,
+      scopt
+    ),
+    workbenchStartMode              := WorkbenchStartModes.Manual,
+    skip in packageJSDependencies   := false,
+    scalaJSModuleKind in Test       := ModuleKind.CommonJSModule,
+    fork in Test                    := false,
+    scalaJSUseMainModuleInitializer := true
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .dependsOn(`client-cli`, `client-grpc`)
+
+lazy val `client-cli-app-js` = `client-cli-app`.js
+  .enablePlugins(WorkbenchPlugin)
+  .enablePlugins(ScalaJSBundlerPlugin)
+lazy val `client-cli-app-jvm` = `client-cli-app`.jvm
 
 lazy val `node-core` = project
   .in(file("node/core"))

@@ -19,8 +19,7 @@ package fluence.client.cli
 
 import java.io.File
 
-import scopt.Read.reads
-import scopt.{OptionParser, Read}
+import scopt.OptionParser
 
 // TODO: actually it isn't used
 object ArgsParser {
