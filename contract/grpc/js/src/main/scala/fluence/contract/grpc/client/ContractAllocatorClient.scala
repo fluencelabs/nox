@@ -40,7 +40,7 @@ class ContractAllocatorClient[C: ContractValidate](
 
   import fluence.transport.websocket.ProtobufCodec._
 
-  val service = "fluence.contract.protobuf.grpc.ContractAllocator"
+  private val service = "fluence.contract.protobuf.grpc.ContractAllocator"
 
   /**
    * Offer a contract. Node should check and preallocate required resources, save offer, and sign it.

@@ -37,7 +37,7 @@ class DatasetStorageClient[F[_]: Effect](
 
   import fluence.transport.websocket.ProtobufCodec._
 
-  val service = "fluence.dataset.protobuf.grpc.DatasetStorageRpc"
+  private val service = "fluence.dataset.protobuf.grpc.DatasetStorageRpc"
 
   def getPipe: Pipe[GetCallbackReply, GetCallback] = {
 
