@@ -685,14 +685,7 @@ lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
     commons,
     libraryDependencies ++= Seq(
       "com.lihaoyi"   %%% "fastparse" % FastparseV,
-      "org.typelevel" %%% "cats-free" % Cats1V,
       "org.scalatest" %%% "scalatest" % ScalatestV % Test
-    )
-  )
-  .jvmSettings(
-    libraryDependencies ++= Seq(
-      jline,
-      scopt
     )
   )
   .jsSettings(
@@ -709,7 +702,9 @@ lazy val `client-cli-app` = project
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %% "crypto-keystore" % CryptoV
+      "one.fluence" %% "crypto-keystore" % CryptoV,
+      jline,
+      scopt
     )
   )
   .dependsOn(`client-cli-jvm`, `client-grpc-jvm`)

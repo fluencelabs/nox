@@ -17,12 +17,12 @@
 
 package fluence.client.cli
 
-import cats.Apply
 import cats.effect.IO
 import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
 import fluence.client.core.FluenceClient
-import fluence.client.core.config.{KademliaConfigParser, KeyPairConfig, SeedsConfig}
+import fluence.client.core.config.{AesConfigParser, KademliaConfigParser, KeyPairConfig, SeedsConfig}
 import fluence.client.grpc.ClientGrpcServices
+import fluence.crypto.aes.AesCrypt
 import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.keystore.FileKeyStorage
@@ -31,6 +31,8 @@ import fluence.crypto.{Crypto, KeyPair}
 import fluence.transport.grpc.client.GrpcClient
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
+import org.jline.reader.LineReaderBuilder
+import org.jline.terminal.TerminalBuilder
 import slogging.MessageFormatter.PrefixFormatter
 import slogging._
 
@@ -70,19 +72,49 @@ object ClientCliApp extends App with slogging.LazyLogging {
       kp ← FileKeyStorage.getKeyPair(kpConf.keyPath, algo)
     } yield kp
 
-  // Run Command Line Interface
-  Apply[IO]
-    .map2(
-      buildClient,
-      getKeyPair(config, algo)
-    ) { (fluenceClient, keyPair) ⇒
-      logger.debug("Going to restore client's datset...")
-      Cli.restoreDataset(keyPair, fluenceClient, config, replicationN = 2).toIO
-    }
-    .flatMap(identity)
-    .flatMap { ds ⇒
+  /**
+   * Initiation of cryptographic algorithms for key and value encryption depending on the config parameters.
+   *
+   * @param secretKey Secret key for dataset.
+   * @param config Main configuration.
+   * @return Tuple of cryptographic algorithms for key and value.
+   */
+  def keyValueCryptoMethods(
+    secretKey: KeyPair.Secret,
+    config: Config
+  ): IO[(Crypto.Cipher[String], Crypto.Cipher[String])] =
+    for {
+      aesConfig ← AesConfigParser.readAesConfigOrGetDefault[IO](config)
+    } yield
+      (
+        AesCrypt.forString(secretKey.value, withIV = false, aesConfig),
+        AesCrypt.forString(secretKey.value, withIV = false, aesConfig)
+      )
+
+  /**
+   * Method to get commands from user interface.
+   */
+  val readLineOp =
+    for {
+      terminal ← IO(TerminalBuilder.terminal())
+      lineReader ← IO(LineReaderBuilder.builder().terminal(terminal).build())
+    } yield lineReader.readLine(Console.BLUE + "fluence" + Console.RESET + "< ")
+
+  /**
+   * Command handler.
+   */
+  val cliHandler = new CommandHandler(readLineOp)
+
+  val cliOp = for {
+    fluenceClient ← buildClient
+    keyPair ← getKeyPair(config, algo)
+    keyValueCryptography ← keyValueCryptoMethods(keyPair.secretKey, config)
+    (keyCrypto, valueCrypto) = keyValueCryptography
+    _ = logger.debug("Going to restore client's datset...")
+    dataset ← fluenceClient.restoreDataset(keyPair, keyCrypto, valueCrypto, replicationN = 2).toIO
+    _ ← {
       lazy val handle: IO[Unit] =
-        Cli.handleCmds(ds, config).attempt.flatMap {
+        cliHandler.handleCmds(dataset).attempt.flatMap {
           case Right(true) ⇒ handle
           case Right(false) ⇒ IO.unit
           case Left(t) ⇒
@@ -91,6 +123,9 @@ object ClientCliApp extends App with slogging.LazyLogging {
         }
       handle
     }
-    .unsafeRunSync()
+  } yield {}
+
+  // Run Command Line Interface
+  cliOp.unsafeRunSync()
 
 }

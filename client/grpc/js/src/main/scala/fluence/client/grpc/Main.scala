@@ -76,7 +76,7 @@ object Main extends slogging.LazyLogging {
     val hasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JsCryptoHasher.Sha256
 
     val seedContact = Contact.readB64seed.unsafe(
-      "eyJwayI6IkE5ZmZaWS1FbG5aSlNCWEJBMno4Q2FpWTNLT051Y3doTkdfY0FmRVNNU3liIiwicHYiOjB9.eyJhIjoiMTI3LjAuMC4xIiwiZ3AiOjExMDIxLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTF9.MEYCIQCxT-B1-oaVqCKEiNSlk6rIJNrtUpLc2Pxgq8vw0fwhbgIhAKlf_VEwQoBFdkTdF3YYZQpFruVSVM9F71YpUtapmpbR"
+      "someseed"
     )
 
     val kadConfig = KademliaConf(3, 3, 1, 5.seconds)
