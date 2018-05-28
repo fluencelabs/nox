@@ -42,7 +42,7 @@ class KademliaWebsocketClient(websocket: WebsocketClient[WebsocketMessage])(
   ec: ExecutionContext
 ) extends KademliaRpc[Contact] {
 
-  val service = "fluence.kad.protobuf.grpc.Kademlia"
+  private val service = "fluence.kad.protobuf.grpc.Kademlia"
 
   private val keyBS = PureCodec.codec[Key, ByteString].direct.toKleisli[IO]
 

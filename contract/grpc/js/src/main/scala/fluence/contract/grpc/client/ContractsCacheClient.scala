@@ -44,7 +44,7 @@ class ContractsCacheClient[C: ContractValidate](websocket: WebsocketClient[Webso
 
   import fluence.transport.websocket.ProtobufCodec._
 
-  val service = "fluence.contract.protobuf.grpc.ContractsCache"
+  private val service = "fluence.contract.protobuf.grpc.ContractsCache"
 
   /**
    * Tries to find a contract in local cache.
