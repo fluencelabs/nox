@@ -25,10 +25,10 @@ import cats.~>
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.protocol.ContractAllocatorRpc
+import fluence.crypto.signature.{SignAlgo, Signature, Signer}
 import fluence.crypto.{DumbCrypto, KeyPair}
-import fluence.crypto.signature.{SignAlgo, Signature}
 import fluence.kad.protocol.Key
-import fluence.storage.{KVStore, TrieMapKVStore}
+import fluence.kvstore.{InMemoryKVStore, ReadWriteKVStore}
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
@@ -43,7 +43,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
   @volatile var dsCreated: Set[Key] = Set.empty
 
-  val keypair = KeyPair.fromBytes(Array.emptyByteArray, Array.emptyByteArray)
+  val keypair: KeyPair = KeyPair.fromBytes(Array.emptyByteArray, Array.emptyByteArray)
 
   val nodeId: Key = Key.fromPublicKey.unsafe(keypair.publicKey)
 
@@ -63,32 +63,31 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
         c.executionState.version == 0
     }
 
-  val store: KVStore[IO, Key, ContractRecord[BasicContract]] =
-    TrieMapKVStore()
+  val store: ReadWriteKVStore[Key, ContractRecord[BasicContract]] =
+    InMemoryKVStore[Key, ContractRecord[BasicContract]]
 
   implicit def toID[F[_]]: F ~> F = new (F ~> F) {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 
-  val allocator: ContractAllocatorRpc[BasicContract] = new ContractAllocator[IO, BasicContract](
+  val allocator: ContractAllocatorRpc[BasicContract] = new ContractAllocator[BasicContract](
     nodeId,
     store,
     createDS,
     checkAllocationPossible,
     signer,
-    clock,
-    toID
+    clock
   )
 
   val cache: ContractsCache[IO, BasicContract] =
-    new ContractsCache[IO, BasicContract](nodeId, store, 1.minute, clock, toID)
+    new ContractsCache[IO, BasicContract](nodeId, store, 1.minute, clock)
 
   def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
     val s = offerSigner(signAlgo, seed)
     BasicContract.offer[Try](Key.fromPublicKey.unsafe(s.publicKey), participantsRequired, s).get
   }
 
-  def offerSigner(signAlgo: SignAlgo, seed: String) = {
+  def offerSigner(signAlgo: SignAlgo, seed: String): Signer = {
     signAlgo.signer(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
   }
 
@@ -116,7 +115,7 @@ class ContractAllocatorSpec extends WordSpec with Matchers {
 
       allocator.offer(contract).unsafeRunSync() shouldBe accepted
 
-      store.get(accepted.id).unsafeRunSync().get.contract shouldBe accepted.copy(participants = Map.empty)
+      store.get(accepted.id).runUnsafe().get.contract shouldBe accepted.copy(participants = Map.empty)
     }
 
     "update accepted offer" in {

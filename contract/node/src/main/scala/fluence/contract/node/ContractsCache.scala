@@ -22,13 +22,13 @@ import java.time.Clock
 import cats.Monad
 import cats.data.EitherT
 import cats.effect.IO
+import fluence.contract.ContractError
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.ops.ContractRead
 import fluence.contract.protocol.ContractsCacheRpc
-import fluence.crypto.CryptoError
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.protocol.Key
-import fluence.kvstore.{ReadWriteKVStore, StoreError}
+import fluence.kvstore.ReadWriteKVStore
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.{higherKinds, implicitConversions}
@@ -60,9 +60,9 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
     !cr.contract.participants.contains(nodeId) &&
       java.time.Duration.between(cr.lastUpdated, clock.instant()).toMillis >= ttlMillis
 
-  private def canBeCached(contract: C): EitherT[IO, CryptoError, Boolean] =
+  private def canBeCached(contract: C): EitherT[IO, ContractError, Boolean] =
     if (cacheEnabled && !contract.participants.contains(nodeId))
-      contract.isActiveContract()
+      contract.isActiveContract[IO]().leftMap(ContractError(_))
     else
       EitherT.rightT(false)
 
@@ -75,25 +75,25 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
   override def find(id: Key): IO[Option[C]] =
     storage
       .get(id)
-      .run[IO]
+      .run[IO, ContractError](ContractError(_))
       .flatMap {
         case Some(contractRecord) if isExpired(contractRecord) ⇒
           storage
             .remove(id)
-            .run[IO]
+            .run[IO, ContractError](ContractError(_))
             .map(_ ⇒ Option.empty[C])
 
         case Some(contractRecord) ⇒
           contractRecord.contract
             .isBlankOffer[IO]
-            .leftMap(StoreError(_))
+            .leftMap(ContractError(_))
             .map {
               case false ⇒ Some(contractRecord.contract)
               case true ⇒ Option.empty[C]
             }
 
         case None ⇒
-          EitherT.rightT[IO, StoreError](Option.empty[C])
+          EitherT.rightT[IO, ContractError](Option.empty[C])
       }
       .recover {
         case error ⇒
@@ -109,37 +109,36 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
    * @return If the contract is cached or not
    */
   override def cache(contract: C): IO[Boolean] =
-    canBeCached(contract)
-      .leftMap(StoreError(_))
-      .flatMap {
-        case false ⇒
-          EitherT.rightT[IO, StoreError](false)
-        case true ⇒
-          // We're deciding to cache basing on crypto check, done with canBeCached, and (signed) version number only
-          // It allows us to avoid multiplexing network calls with asking to cache stale contracts
-          storage.get(contract.id).run[IO].flatMap {
+    canBeCached(contract).flatMap {
+      case false ⇒
+        EitherT.rightT[IO, ContractError](false)
+      case true ⇒
+        // We're deciding to cache basing on crypto check, done with canBeCached, and (signed) version number only
+        // It allows us to avoid multiplexing network calls with asking to cache stale contracts
+        storage
+          .get(contract.id)
+          .run[IO, ContractError](ContractError(_))
+          .flatMap {
             case Some(cr) if cr.contract.version < contract.version ⇒ // Contract updated
               storage
                 .put(contract.id, ContractRecord(contract, clock.instant()))
-                .run[IO]
+                .run[IO, ContractError](ContractError(_))
                 .map(_ ⇒ true)
 
             case Some(_) ⇒ // Can't update contract with an old version
-              EitherT.rightT[IO, StoreError](false)
+              EitherT.rightT[IO, ContractError](false)
 
             case None ⇒ // Contract is unknown, save it
               storage
                 .put(contract.id, ContractRecord(contract, clock.instant()))
-                .run[IO]
+                .run[IO, ContractError](ContractError(_))
                 .map(_ ⇒ true)
           }
-      }
-      .recover {
-        case error ⇒
-          logger.warn(s"Contract ${contract.id} can't be cached, cause: $error", error)
-          false
-      }
-      .toIO
+    }.recover {
+      case error ⇒
+        logger.warn(s"Contract ${contract.id} can't be cached, cause: $error", error)
+        false
+    }.toIO
 
   // todo will be removed when all API will be 'EitherT compatible'
   private implicit class EitherT2IO[E <: Throwable, V](origin: EitherT[IO, E, V]) {
