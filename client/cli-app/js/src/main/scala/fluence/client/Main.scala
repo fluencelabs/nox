@@ -157,6 +157,4 @@ object Main extends slogging.LazyLogging {
     println("start main")
 //    logic()
   }
-
-  logic()
 }
