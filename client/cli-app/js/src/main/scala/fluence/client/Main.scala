@@ -34,7 +34,7 @@ import fluence.transport.websocket.{ConnectionPool, Websocket}
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.scalajs.dom.document
-import org.scalajs.dom.html.{Form, Input, TextArea}
+import org.scalajs.dom.html.{Button, Input, TextArea}
 import slogging.{LogLevel, LoggerConfig}
 
 import scala.concurrent.duration._
@@ -106,35 +106,10 @@ object Main extends slogging.LazyLogging {
       crypts = cryptoMethods(newkey.secretKey)
       (keyCrypt, valueCrypt) = crypts
       dataset ← cl.createNewContract(newkey, 2, keyCrypt, valueCrypt).toIO
-      _ ← {
-        (for {
-          a ← dataset.get("1234")
-          _ = println("a == None: " + a.isEmpty)
-          _ ← dataset.put("1", "23")
-          res ← dataset.put("1235", "123")
-          _ = println("res == None: " + res.isEmpty)
-          b ← dataset.get("1235")
-          _ = println("b == 123: " + b.contains("123"))
-          c ← dataset.get("1236")
-          _ = println("c == None: " + c.isEmpty)
-        } yield ()).toIO
-      }
-      _ ← IO.sleep(6.seconds)
-      _ ← {
-        (for {
-          a ← dataset.get("1234")
-          _ = println("a == None: " + a.isEmpty)
-          _ ← dataset.put("1", "23")
-          res ← dataset.put("1235", "123")
-          _ = println("res == None: " + res.isEmpty)
-          b ← dataset.get("1235")
-          _ = println("b == 123: " + b.contains("123"))
-          c ← dataset.get("1236")
-          _ = println("c == None: " + c.isEmpty)
-        } yield {}).toIO
-      }
+      _ = addGetForm(dataset.get)
+      _ = addPutForm(dataset.put)
     } yield {
-      println("finished")
+      logger.info("Initialization finished.")
     }
 
     r.attempt.unsafeToFuture()
@@ -145,42 +120,74 @@ object Main extends slogging.LazyLogging {
 //    logic()
   }
 
-  def addGetForm() = {
-    val getForm = document.createElement("form").asInstanceOf[Form]
+  def addGetForm(action: String ⇒ Task[Option[String]]): Unit = {
     val getInput = document.createElement("input").asInstanceOf[Input]
     getInput.`type` = "input"
     getInput.name = "put"
-    getForm.appendChild(getInput)
 
     val getButton = document.createElement("input").asInstanceOf[Input]
     getButton.`type` = "submit"
     getButton.value = "Get"
-    getForm.appendChild(getButton)
 
-    getForm.action
+    document.body.appendChild(getInput)
+    document.body.appendChild(getButton)
 
-    document.body.appendChild(getForm)
-
-    getForm
+    getButton.onclick = mouseEvent ⇒ {
+      getButton.disabled = true
+      val key = getInput.value
+      logger.info("\n")
+      logger.info("==========GET START==========")
+      logger.info(s"Get key: $key")
+      val t = for {
+        res ← action(key)
+      } yield {
+        logger.info(s"Get operation success. Value: ${prettyResult(res)}")
+        getInput.value = ""
+        logger.info("==========GET END==========\n")
+      }
+      t.runAsync.onComplete(_ ⇒ getButton.disabled = false)
+    }
   }
 
-  def addPutForm() = {
-    val putForm = document.createElement("form").asInstanceOf[Form]
-    val putInput = document.createElement("input").asInstanceOf[Input]
-    putInput.`type` = "text"
-    putInput.name = "put"
-    putForm.appendChild(putInput)
+  def prettyResult(result: Option[String]) = s"`${result.getOrElse("null")}`"
 
-    val putButton = document.createElement("input").asInstanceOf[Input]
+  def addPutForm(action: (String, String) ⇒ Task[Option[String]]): Unit = {
+
+    val putKeyInput = document.createElement("input").asInstanceOf[Input]
+    putKeyInput.`type` = "text"
+    putKeyInput.name = "putKey"
+    putKeyInput.value = ""
+
+    val putValueInput = document.createElement("input").asInstanceOf[Input]
+    putValueInput.`type` = "text"
+    putValueInput.name = "putValue"
+    putValueInput.value = ""
+
+    val putButton = document.createElement("input").asInstanceOf[Button]
     putButton.`type` = "submit"
     putButton.value = "Put"
-    putForm.appendChild(putButton)
 
-    putForm.action
+    document.body.appendChild(putKeyInput)
+    document.body.appendChild(putValueInput)
+    document.body.appendChild(putButton)
 
-    document.body.appendChild(putForm)
-
-    putForm
+    putButton.onclick = mouseEvent ⇒ {
+      putButton.disabled = true
+      val key = putKeyInput.value
+      val value = putValueInput.value
+      logger.info("\n")
+      logger.info("==========PUT START==========")
+      logger.info(s"Put key: $key and value: $value")
+      val t = for {
+        res ← action(key, value)
+      } yield {
+        logger.info(s"Put operation success. Old value: ${prettyResult(res)}")
+        putValueInput.value = ""
+        putKeyInput.value = ""
+        logger.info("==========PUT END==========\n")
+      }
+      t.runAsync.onComplete(_ ⇒ putButton.disabled = false)
+    }
   }
 
   def addTextArea() = {
@@ -194,9 +201,6 @@ object Main extends slogging.LazyLogging {
 
     textArea
   }
-
-  addPutForm()
-  addGetForm()
 
   val textArea = addTextArea()
 
