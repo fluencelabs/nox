@@ -33,7 +33,9 @@ import fluence.proxy.grpc.WebsocketMessage
 import fluence.transport.websocket.{ConnectionPool, Websocket}
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
+import org.scalajs.dom.document
+import org.scalajs.dom.html.{Form, Input, TextArea}
+import slogging.{LogLevel, LoggerConfig}
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -48,14 +50,16 @@ import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
 @JSExportTopLevel("MainD")
 object Main extends slogging.LazyLogging {
 
-  LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.DEBUG
-
   @JSExport
-  def logic(): Unit = {
+  def logic(logArea: TextArea): Unit = {
+
+    LoggerConfig.factory = new TextAreaWithConsoleLoggerFactory(logArea, 100)
+    LoggerConfig.level = LogLevel.INFO
 
     val algo: SignAlgo = Ecdsa.signAlgo
     import algo.checker
+
+    logger.info("")
 
     val hasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JsCryptoHasher.Sha256
 
@@ -140,4 +144,63 @@ object Main extends slogging.LazyLogging {
     println("start main")
 //    logic()
   }
+
+  def addGetForm() = {
+    val getForm = document.createElement("form").asInstanceOf[Form]
+    val getInput = document.createElement("input").asInstanceOf[Input]
+    getInput.`type` = "input"
+    getInput.name = "put"
+    getForm.appendChild(getInput)
+
+    val getButton = document.createElement("input").asInstanceOf[Input]
+    getButton.`type` = "submit"
+    getButton.value = "Get"
+    getForm.appendChild(getButton)
+
+    getForm.action
+
+    document.body.appendChild(getForm)
+
+    getForm
+  }
+
+  def addPutForm() = {
+    val putForm = document.createElement("form").asInstanceOf[Form]
+    val putInput = document.createElement("input").asInstanceOf[Input]
+    putInput.`type` = "text"
+    putInput.name = "put"
+    putForm.appendChild(putInput)
+
+    val putButton = document.createElement("input").asInstanceOf[Input]
+    putButton.`type` = "submit"
+    putButton.value = "Put"
+    putForm.appendChild(putButton)
+
+    putForm.action
+
+    document.body.appendChild(putForm)
+
+    putForm
+  }
+
+  def addTextArea() = {
+    val textArea = document.createElement("textarea").asInstanceOf[TextArea]
+    textArea.value = "PUSTO"
+    textArea.readOnly = true
+    textArea.cols = 200
+    textArea.rows = 40
+
+    document.body.appendChild(textArea)
+
+    textArea
+  }
+
+  addPutForm()
+  addGetForm()
+
+  val textArea = addTextArea()
+
+  println("CREATE TEXT AREA")
+
+  logic(textArea)
 }
