@@ -18,7 +18,7 @@
 package fluence.node
 
 import java.io.IOException
-import java.net.ServerSocket
+import java.net.{BindException, ServerSocket}
 
 import cats.data.EitherT
 import cats.effect.IO
@@ -130,7 +130,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
               .withValue("fluence.grpc.server.port", ConfigValueFactory.fromAnyRef(port + 10))
               .withValue("fluence.network.contact.websocketPort", ConfigValueFactory.fromAnyRef(port))
               .withValue("fluence.network.acceptLocal", ConfigValueFactory.fromAnyRef(true)))
-          Try(result.unsafeRunSync()).failed.get shouldBe a[StoreError]
+          Try(result.unsafeRunSync()).failed.get shouldBe a[BindException]
 
         } finally {
           server.close()
@@ -354,7 +354,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
     }
 
-    "reads and puts values to dataset, executor-node are restarted, client reconnect and continue to reading and writing" ignore {
+    "reads and puts values to dataset, executor-node are restarted, client reconnect and continue to reading and writing" in {
 
       runNodes { servers ⇒
         // create client and write to db

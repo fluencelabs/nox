@@ -85,18 +85,16 @@ class RocksDbFactory private[kvstore] (defaultPool: ExecutionContext) extends sl
   /**
    * Closes all launched instances of RocksDB.
    */
-  def close: IO[Unit] =
+  def close: IO[Unit] = {
+    import cats.implicits._
     for {
       _ ← isClosed.map(_.set(true))
       allInstances ← instances
+      _ ← allInstances.values.map(_.close()).toList.sequence
     } yield {
       logger.info(s"Closing RocksDB instances: ${allInstances.keys.mkString(", ")}")
-      val set =
-        allInstances.keySet
-          .flatMap(ds ⇒ allInstances.remove(ds))
-          .map(_.close())
-          .fold(IO.unit)(_)
     }
+  }
 
   /* Utils methods */
 

@@ -87,8 +87,8 @@ object NodeComposer {
       nodeKey ← Key.fromKeyPair.runF[IO](keyPair)
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
       rocksDbFactoryOld = new RocksDbStore.Factory // todo will be removed later
-      rocksDbFactoryNew = RocksDbKVStore.getFactory(threadPool = IoPool)
-      contractsCacheStore ← ContractsCacheStore.applyOld(config, name ⇒ rocksDbFactoryNew.value(name, config))
+      rocksDbFactoryNew = RocksDbKVStore.getFactory(threadPool = IoPool).value
+      contractsCacheStore ← ContractsCacheStore.applyOld(config, name ⇒ rocksDbFactoryNew(name, config))
     } yield
       new NodeServices[Task, Observable, BasicContract, Contact] {
         override val key: Key = nodeKey
@@ -139,10 +139,11 @@ object NodeComposer {
           )(GlobalPool)
 
         // Register everything that should be closed or cleaned up on shutdown here
-        override def close: IO[Unit] = {
-          rocksFactory.close
-          rocksDbFactoryOld.close // todo will be removed later
-        }
+        override def close: IO[Unit] =
+          for {
+            _ ← rocksDbFactoryNew.close // todo will be removed later, when btree will be with new KVStore
+            _ ← rocksFactory.close
+          } yield ()
       }
 
   /**
