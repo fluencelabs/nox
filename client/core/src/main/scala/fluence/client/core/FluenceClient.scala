@@ -128,6 +128,31 @@ class FluenceClient(
       )
   }
 
+  /**
+   * Try to find an existoing contract or create a new one depending on the kye pair.
+   *
+   * @param keyPair Main identifier of dataset.
+   * @param keyCrypt Cryptography for keys of dataset.
+   * @param valueCrypt Cryptography for values of dataset.
+   * @param replicationN Number of replicas for new contract
+   * @return
+   */
+  def restoreDataset(
+    keyPair: KeyPair,
+    keyCrypt: Crypto.Cipher[String],
+    valueCrypt: Crypto.Cipher[String],
+    replicationN: Int
+  ): Task[ClientDatasetStorageApi[Task, Observable, String, String]] =
+    for {
+      dsOp ← getDataset(keyPair, keyCrypt, valueCrypt)
+      ds ← dsOp match {
+        case Some(ds) ⇒ Task.pure(ds)
+        case None ⇒
+          logger.info("Contract not found, try to create new one.")
+          createNewContract(keyPair, replicationN, keyCrypt, valueCrypt)
+      }
+    } yield ds
+
   def createNewContract(
     keyPair: KeyPair,
     participantsRequired: Int,

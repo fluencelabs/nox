@@ -63,11 +63,12 @@ case class WebsocketPipe[A, B] private (
 
       override def onError(ex: Throwable): Unit = input.onError(ex)
 
-      override def onComplete(): Unit = input.onComplete()
+      //we do nothing here, because we don't need to close downstreaming websocket
+      override def onComplete(): Unit = ()
     }
 
     val tObservable = output.mapFuture { el ⇒
-      //TODO add either or observable will stop now after error
+      //TODO add either support in websocket logic or observable will stop here after error
       outputCodec.runF[Future](el)
     }
 
@@ -91,9 +92,9 @@ case class WebsocketPipe[A, B] private (
 
       override def onError(ex: Throwable): Unit = {
         result.failure(ex)
-        onComplete()
       }
 
+      //we do nothing here, because we don't need to close downstreaming websocket
       override def onComplete(): Unit = ()
     }
 
@@ -124,8 +125,8 @@ object WebsocketPipe {
   def apply(
     url: String,
     builder: String ⇒ WebsocketT,
-    numberOfAttempts: Int,
-    connectTimeout: FiniteDuration
+    numberOfAttempts: Int = 3,
+    connectTimeout: FiniteDuration = 3.seconds
   )(
     implicit scheduler: Scheduler
   ): WebsocketClient[WebsocketFrame] = {
@@ -153,15 +154,21 @@ object WebsocketPipe {
     connectTimeout: FiniteDuration = 3.seconds
   )(implicit scheduler: Scheduler): WebsocketClient[Array[Byte]] = {
 
-    val WebsocketPipe(wsObserver, wsObservable, statusOutput) =
-      WebsocketPipe(url, builder, numberOfAttempts, connectTimeout)
+    val pipe = WebsocketPipe(url, builder, numberOfAttempts, connectTimeout)
+
+    binaryClient(pipe)
+  }
+
+  def binaryClient(pipe: WebsocketClient[WebsocketFrame]): WebsocketPipe[Array[Byte], Array[Byte]] = {
+
+    val WebsocketPipe(wsObserver, wsObservable, statusOutput) = pipe
 
     val binaryClient: Observer[Array[Byte]] = new Observer[Array[Byte]] {
       override def onNext(elem: Array[Byte]): Future[Ack] = wsObserver.onNext(Binary(elem))
 
       override def onError(ex: Throwable): Unit = wsObserver.onError(ex)
 
-      override def onComplete(): Unit = wsObserver.onComplete()
+      override def onComplete(): Unit = ()
     }
 
     val binaryObservable = wsObservable.collect {

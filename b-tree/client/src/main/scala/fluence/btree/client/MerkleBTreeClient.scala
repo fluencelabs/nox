@@ -73,7 +73,9 @@ class MerkleBTreeClient[K] private (
       for {
         mvar ← merklePathMVar
         mPath ← mvar.take
-        _ = logger.debug(s"nextChildIndex starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
+        _ = logger.debug(
+          s"nextChildIndex starts for key=$key, merkleRoot=$merkleRoot, mPath=$mPath, keys=${keys.mkString(",")}"
+        )
         up ← processSearch(key, merkleRoot, mPath, keys, childsChecksums)
         (newMPath, foundIdx) = up
         _ ← mvar.put(newMPath)
@@ -85,7 +87,9 @@ class MerkleBTreeClient[K] private (
         mvar ← merklePathMVar
         mPath ← mvar.take
         leafProof = {
-          logger.debug(s"submitLeaf starts for key=$key, mPath=$mPath, keys=${keys.mkString(",")}")
+          logger.debug(
+            s"submitLeaf starts for key=$key, merkleRoot=$merkleRoot, mPath=$mPath, keys=${keys.mkString(",")}"
+          )
           verifier.getLeafProof(keys, valuesChecksums)
         }
         result ← if (verifier.checkProof(leafProof, merkleRoot, mPath)) {

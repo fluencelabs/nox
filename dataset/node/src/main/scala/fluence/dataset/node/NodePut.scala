@@ -188,12 +188,12 @@ class NodePut[F[_]: Async](service: DatasetStorageRpc[F, Observable])(
     resp completeWith runF(
       valueF(pullClientReply, resp).attempt.flatMap {
         case Right(value) ⇒
-          // if all is ok server should close the stream(is done in ObserverGrpcOps.completeWith)  and send value to client
+          // if all is ok server should close the stream(is done in ObserverCompleteWithOps.completeWith)  and send value to client
           Async[F].pure(
             PutCallback(PutCallback.Callback.Value(PreviousValue(value.fold(ByteString.EMPTY)(ByteString.copyFrom))))
           )
         case Left(clientError: ClientError) ⇒
-          // when server receive client error, server shouldn't close the stream(is done in ObserverGrpcOps.completeWith)  and lift up client error
+          // when server receive client error, server shouldn't close the stream(is done in ObserverCompleteWithOps.completeWith)  and lift up client error
           Async[F].raiseError[PutCallback](clientError)
         case Left(exception) ⇒
           // when server error appears, server should log it and send to client

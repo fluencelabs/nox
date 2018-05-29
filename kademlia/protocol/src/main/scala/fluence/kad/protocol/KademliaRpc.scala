@@ -28,6 +28,8 @@ import scala.language.higherKinds
  */
 trait KademliaRpc[C] {
 
+  // TODO refactor API for avoiding code repeating
+
   /**
    * Ping the contact, get its actual Node status, or fail.
    */

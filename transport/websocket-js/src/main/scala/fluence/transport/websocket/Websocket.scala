@@ -109,3 +109,7 @@ case class Websocket(url: String) extends WebsocketT {
 
   override def readyState: Int = websocket.readyState
 }
+
+object Websocket {
+  def builder: String ⇒ WebsocketT = str ⇒ Websocket(str)
+}

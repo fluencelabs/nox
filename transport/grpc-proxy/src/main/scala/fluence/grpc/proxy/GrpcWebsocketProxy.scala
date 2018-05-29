@@ -19,11 +19,12 @@ package fluence.grpc.proxy
 
 import com.google.protobuf.ByteString
 import fluence.proxy.grpc.WebsocketMessage
-import fs2.async.mutable.Queue
-import fs2.interop.reactivestreams._
+import fs2.async.mutable.Topic
 import fs2.{io ⇒ _, _}
 import monix.eval.Task
+import monix.execution.Ack
 import monix.execution.Scheduler.Implicits.global
+import monix.reactive.Observer
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Server
@@ -31,43 +32,64 @@ import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.websocket._
 import org.http4s.websocket.WebsocketBits.{WebSocketFrame, _}
 
+import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 /**
  * Websocket-to-grpc proxy server.
  */
-object GrpcWebsocketProxy extends Http4sDsl[Task] {
+object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
 
-  private def route(inProcessGrpc: InProcessGrpc, scheduler: Scheduler): HttpService[Task] = HttpService[Task] {
+  private def route(
+    inProcessGrpc: InProcessGrpc,
+    scheduler: Scheduler,
+    pingInterval: FiniteDuration = 2.seconds
+  ): HttpService[Task] = HttpService[Task] {
 
-    case GET -> Root / "ws" ⇒
-      //TODO add size of queue to config
-      val queueF = async.boundedQueue[Task, WebSocketFrame](100)
+    case GET -> Root ⇒
       //Creates a proxy for each connection to separate the cache for all clients.
       val proxyGrpc = new ProxyGrpc(inProcessGrpc)
 
-      val replyPipe: Pipe[Task, WebSocketFrame, WebSocketFrame] = _.flatMap {
+      def replyPipe(topic: Topic[Task, WebSocketFrame]): Sink[Task, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
           val responseStream = for {
             message ← Task(WebsocketMessage.parseFrom(data))
+            _ = logger.debug(s"Handle websocket message $message")
             responseObservable ← proxyGrpc
               .handleMessage(message.service, message.method, message.requestId, message.payload.newInput())
-          } yield {
-            responseObservable.map { bytes ⇒
+            binaryObservable = responseObservable.map { bytes ⇒
               val responseMessage = message.copy(payload = ByteString.copyFrom(bytes))
-              Binary(responseMessage.toByteString.toByteArray): WebSocketFrame
+              Binary(responseMessage.toByteArray): WebSocketFrame
             }
+          } yield {
+            //splitting observer and topic for asynchronous request handling
+            val obs = new Observer[WebSocketFrame] {
+              override def onNext(elem: WebSocketFrame): Future[Ack] =
+                topic.publish1(elem).map(_ ⇒ Ack.Continue).runAsync
+
+              override def onError(ex: Throwable): Unit = ex.printStackTrace()
+
+              override def onComplete(): Unit = ()
+            }
+
+            binaryObservable.subscribe(obs)
           }
 
-          Stream.eval(responseStream).flatMap(_.toReactivePublisher.toStream[Task]())
+          Stream.eval(responseStream.map(_ ⇒ ()))
         case m ⇒
-          Stream.eval(Task.pure(Text(s"Unexpected message: $m"): WebSocketFrame))
+          logger.warn(s"Unexpected message in GrpcWebsocketProxy: $m")
+          Stream.eval(Task.pure(()))
       }
 
-      queueF.flatMap { queue: Queue[Task, WebSocketFrame] ⇒
-        val dequeueStream = queue.dequeue.through(replyPipe)
-        val enqueueStream = queue.enqueue
-        WebSocketBuilder[Task].build(dequeueStream, enqueueStream)
+      for {
+        topic ← async.topic[Task, WebSocketFrame](Ping())
+        _ = scheduler.awakeEvery[Task](pingInterval).map(d ⇒ topic.publish1(Ping()))
+        // publish to topic from websocket and send to websocket from topic publisher
+        // TODO add maxQueued to config
+        ws ← WebSocketBuilder[Task].build(topic.subscribe(1000), replyPipe(topic))
+      } yield {
+        ws
       }
   }
 

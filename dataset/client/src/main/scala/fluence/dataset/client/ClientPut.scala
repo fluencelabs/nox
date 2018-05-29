@@ -140,7 +140,7 @@ class ClientPut[F[_]: Effect](
       })
       .multicast
 
-    (
+    val cancelable = (
       Observable( // Pass the datasetId and value as the first, unasked pushes
         PutCallbackReply(
           PutCallbackReply.Reply.DatasetInfo(DatasetInfo(ByteString.copyFrom(datasetId), version))
@@ -157,12 +157,13 @@ class ClientPut[F[_]: Effect](
           val Some(err) = ask.serverError
           val serverError = ServerError(err.msg)
           // if server send the error we should close stream and lift error up
-          Task(pushClientReply.onError(serverError))
+          Task(cancelable.cancel())
             .flatMap(_ ⇒ Task.raiseError[Option[Array[Byte]]](serverError))
         case ask if ask.isValue ⇒
           val Some(getValue) = ask._value
+          logger.trace(s"DatasetStorageClient.put() received server value=$getValue")
           // if got success response or server error close stream and return value\error to user of this client
-          Task(pushClientReply.onComplete()).map { _ ⇒
+          Task(cancelable.cancel()).map { _ ⇒
             Option(getValue.value)
               .filterNot(_.isEmpty)
               .map(_.toByteArray)

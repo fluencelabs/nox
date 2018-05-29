@@ -110,4 +110,6 @@ object WebsocketEcho {
   val closeWebsocketMessage: Array[Byte] = Array[Byte](2, 2, 2, 2, 2, 2, 2)
   val errorWebsocketMessage: Array[Byte] = Array[Byte](3, 3, 3, 3, 3, 3, 3)
   var errored = false
+
+  def builder: String ⇒ WebsocketT = str ⇒ WebsocketEcho(str)
 }

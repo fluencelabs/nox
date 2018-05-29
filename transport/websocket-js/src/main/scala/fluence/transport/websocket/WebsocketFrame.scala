@@ -23,8 +23,11 @@ final case class Text(data: String) extends AnyVal with WebsocketFrame
 
 sealed trait ControlFrame extends WebsocketFrame
 final case class CloseFrame(cause: String) extends ControlFrame
+object CheckTimeFrame extends ControlFrame
 
 sealed trait StatusFrame
 object WebsocketOnOpen extends StatusFrame
 final case class WebsocketOnError(message: String) extends StatusFrame
 final case class WebsocketOnClose(code: Int, reason: String) extends StatusFrame
+final case class WebsocketLastUsage(time: Double) extends StatusFrame
+object WebsocketClosed extends StatusFrame

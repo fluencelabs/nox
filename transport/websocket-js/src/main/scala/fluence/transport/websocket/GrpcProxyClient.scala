@@ -19,10 +19,10 @@ package fluence.transport.websocket
 
 import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
-import cats.instances.future._
 import fluence.proxy.grpc.WebsocketMessage
 import fluence.transport.websocket.WebsocketPipe.WebsocketClient
 import monix.execution.Ack
+import monix.execution.Ack.Continue
 import monix.reactive.Observer
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -61,11 +61,13 @@ object GrpcProxyClient {
 
     val proxyObserver: Observer[A] = new Observer[A] {
       override def onNext(elem: A): Future[Ack] = {
-        for {
-          req ← requestCodec.runF(elem)
-          message = messageCreation(req)
-          ack ← wsObserver.onNext(message)
-        } yield ack
+        val req = requestCodec.unsafe(elem)
+        val message = messageCreation(req)
+        wsObserver.onNext(message)
+        // this will break backpressure, but if we do the chain of futures,
+        // logic will be broken due to incomprehensible circumstances
+        // TODO investigate and fix it
+        Future(Continue)
       }
 
       override def onError(ex: Throwable): Unit = wsObserver.onError(ex)

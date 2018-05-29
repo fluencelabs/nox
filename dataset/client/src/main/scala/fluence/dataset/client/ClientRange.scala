@@ -123,6 +123,7 @@ class ClientRange[F[_]: Effect](datasetId: Array[Byte], version: Long, rangeCall
           .flatMap(_ ⇒ Observable.raiseError[(Array[Byte], Array[Byte])](serverError))
       case ask if ask.isValue ⇒
         val Some(RangeValue(key, value)) = ask._value
+        logger.trace(s"DatasetStorageClient.range() received server value=$value for key=$key")
         Observable(key.toByteArray → value.toByteArray)
 
     }.flatten
