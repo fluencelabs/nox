@@ -206,7 +206,7 @@ object BasicContract {
     )(implicit checkerFn: CheckerFn): EitherT[F, ContractError, Unit] =
       contract
         .checkAllOwnerSeals[F]()
-        .leftMap(e ⇒ ContractError(s"Contract with is=${contract.id} is invalid.", e))
+        .leftMap(e ⇒ ContractError(s"Contract with is=${contract.id} is invalid.", Some(e)))
 
     /**
      * Verifies the correctness of the contract. Do the same as [[ContractValidate.validate]],

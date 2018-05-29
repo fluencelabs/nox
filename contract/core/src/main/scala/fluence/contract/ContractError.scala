@@ -32,3 +32,13 @@ case class ContractError(message: String, causedBy: Option[Throwable] = None) ex
   override def getCause: Throwable = causedBy getOrElse super.getCause
 
 }
+
+object ContractError {
+
+  def apply(message: String, causedBy: Option[Throwable] = None): ContractError =
+    new ContractError(message, causedBy)
+
+  def apply(exception: Throwable): ContractError =
+    new ContractError(exception.getMessage, Some(exception))
+
+}

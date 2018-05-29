@@ -17,6 +17,7 @@
 
 package fluence.storage.rocksdb
 
+import fluence.kvstore.rocksdb.RocksDbScalaIterator
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.rocksdb.RocksIterator

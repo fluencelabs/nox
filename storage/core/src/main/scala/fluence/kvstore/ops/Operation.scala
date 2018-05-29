@@ -47,6 +47,17 @@ trait Operation[V] {
   def run[F[_]: Monad: LiftIO]: EitherT[F, E, V]
 
   /**
+   * Runs operation using the user defined monad,
+   * returns EitherT-wrapped result.
+   * The same as `run` but with converting the error for comfort use.
+   *
+   * @param mapErr Fn to map error type from E to EE
+   * @tparam F User defined type of monad
+   */
+  def run[F[_]: Monad: LiftIO, EE <: Throwable](mapErr: E ⇒ EE): EitherT[F, EE, V] =
+    run[F].leftMap(mapErr)
+
+  /**
    * Runs unsafe operation, '''throw the error if it happens'''.
    * Intended to be used '''only in tests'''.
    */
