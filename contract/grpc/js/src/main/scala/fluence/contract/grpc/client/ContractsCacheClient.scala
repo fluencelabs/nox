@@ -28,13 +28,15 @@ import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.KeyProtobufCodecs._
 import fluence.kad.protocol.Key
 import fluence.proxy.grpc.WebsocketMessage
-import fluence.transport.websocket.{ConnectionPool, GrpcProxyClient}
+import fluence.transport.websocket.{ConnectionPool, GrpcProxyClient, WebsocketPipe}
 import monix.execution.Scheduler
 
-class ContractsCacheClient[C: ContractValidate](
-  url: String,
-  connectionPool: ConnectionPool[WebsocketMessage, WebsocketMessage]
-)(
+/**
+ * Contract client for websocket.
+ *
+ * @param connection Websocket pipe.
+ */
+class ContractsCacheClient[C: ContractValidate](connection: IO[WebsocketPipe[WebsocketMessage, WebsocketMessage]])(
   implicit
   codec: Codec[IO, C, BasicContract],
   checkerFn: CheckerFn,
@@ -57,7 +59,7 @@ class ContractsCacheClient[C: ContractValidate](
   override def find(id: Key): IO[Option[C]] =
     (for {
       idBs ← keyC.direct.runF[IO](id)
-      websocket = connectionPool.getOrCreateConnection(url)
+      websocket ← connection
       req = FindRequest(idBs)
       proxy = GrpcProxyClient
         .proxy(service, "find", websocket, generatedMessageCodec, protobufDynamicCodec(BasicContract))
@@ -82,7 +84,7 @@ class ContractsCacheClient[C: ContractValidate](
       // we should validate contract before send outside to caching
       _ ← contract.validateME[IO]
       binContract ← codec.encode(contract)
-      websocket = connectionPool.getOrCreateConnection(url)
+      websocket ← connection
       proxy = GrpcProxyClient
         .proxy(service, "cache", websocket, generatedMessageCodec, protobufDynamicCodec(CacheResponse))
       resp ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(binContract)))

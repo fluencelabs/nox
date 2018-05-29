@@ -17,7 +17,7 @@
 
 package fluence.client.grpc
 
-import cats.effect.Effect
+import cats.effect.{Effect, IO}
 import fluence.client.core.ClientServices
 import fluence.contract.BasicContract
 import fluence.contract.grpc.client.{ContractAllocatorClient, ContractsCacheClient}
@@ -28,7 +28,7 @@ import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.grpc.client.KademliaWebsocketClient
 import fluence.kad.protocol.{Contact, KademliaRpc}
 import fluence.proxy.grpc.WebsocketMessage
-import fluence.transport.websocket.{ConnectionPool, Websocket, WebsocketT}
+import fluence.transport.websocket.{ConnectionPool, WebsocketPipe, WebsocketT}
 import monix.execution.Scheduler
 import monix.reactive.Observable
 
@@ -54,18 +54,21 @@ class ClientWebsocketServices(connectionPool: ConnectionPool[WebsocketMessage, W
         contact.websocketPort.map { wsPort ⇒
           val url = "ws://" + contact.addr + ":" + wsPort
 
+          def connection: IO[WebsocketPipe[WebsocketMessage, WebsocketMessage]] =
+            IO(connectionPool.getOrCreateConnection(url))
+
           new ClientServices[F, BasicContract, Contact] {
             override def kademlia: KademliaRpc[Contact] =
-              new KademliaWebsocketClient(connectionPool.getOrCreateConnection(url))
+              new KademliaWebsocketClient(connection)
 
             override def contractsCache: ContractsCacheRpc[BasicContract] =
-              new ContractsCacheClient[BasicContract](url, connectionPool)
+              new ContractsCacheClient[BasicContract](connection)
 
             override def contractAllocator: ContractAllocatorRpc[BasicContract] =
-              new ContractAllocatorClient[BasicContract](url, connectionPool)
+              new ContractAllocatorClient[BasicContract](connection)
             // todo generalize Observable
             override def datasetStorage: DatasetStorageRpc[F, Observable] =
-              new DatasetStorageClient(url, connectionPool)
+              new DatasetStorageClient(connection)
           }
         }
       }

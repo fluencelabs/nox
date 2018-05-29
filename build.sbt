@@ -699,8 +699,7 @@ lazy val `client-cli-app` = crossProject(JVMPlatform, JSPlatform)
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
-      jline,
-      scopt
+      jline
     ),
     jsEnv in Compile                := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv(),
     workbenchStartMode              := WorkbenchStartModes.Manual,

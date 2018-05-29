@@ -24,13 +24,15 @@ import fluence.contract.protobuf.BasicContract
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.proxy.grpc.WebsocketMessage
-import fluence.transport.websocket.{ConnectionPool, GrpcProxyClient}
+import fluence.transport.websocket.{ConnectionPool, GrpcProxyClient, WebsocketPipe}
 import monix.execution.Scheduler
 
-class ContractAllocatorClient[C: ContractValidate](
-  url: String,
-  connectionPool: ConnectionPool[WebsocketMessage, WebsocketMessage]
-)(
+/**
+ * Contract allocator client for websocket.
+ *
+ * @param connection Websocket pipe.
+ */
+class ContractAllocatorClient[C: ContractValidate](connection: IO[WebsocketPipe[WebsocketMessage, WebsocketMessage]])(
   implicit
   codec: Codec[IO, C, BasicContract],
   checkerFn: CheckerFn,
@@ -53,7 +55,7 @@ class ContractAllocatorClient[C: ContractValidate](
       // we should validate contract before send outside for 'offering'
       _ ← contract.validateME[IO]
       offer ← codec.encode(contract)
-      websocket = connectionPool.getOrCreateConnection(url)
+      websocket ← connection
       proxy = GrpcProxyClient
         .proxy(service, "offer", websocket, generatedMessageCodec, protobufDynamicCodec(BasicContract))
       resp ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(offer)))
@@ -73,7 +75,7 @@ class ContractAllocatorClient[C: ContractValidate](
       // we should validate contract before send outside for 'allocating'
       _ ← contract.validateME[IO]
       offer ← codec.encode(contract)
-      websocket = connectionPool.getOrCreateConnection(url)
+      websocket ← connection
       proxy = GrpcProxyClient
         .proxy(service, "allocate", websocket, generatedMessageCodec, protobufDynamicCodec(BasicContract))
       resp ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(offer)))

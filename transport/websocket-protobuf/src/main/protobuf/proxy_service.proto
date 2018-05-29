@@ -9,5 +9,4 @@ message WebsocketMessage {
     string method = 2;
     int64 requestId = 3;
     bytes payload = 10;
-
 }
