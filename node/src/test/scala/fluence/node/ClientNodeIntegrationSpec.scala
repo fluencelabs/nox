@@ -39,6 +39,7 @@ import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.protocol.{ClientError, DatasetStorageRpc, ServerError}
 import fluence.kad.protocol.{Contact, ContactSecurity, Key}
 import fluence.kad.{KademliaConf, KademliaMVar}
+import fluence.kvstore.StoreError
 import fluence.node.core.ContractsCacheConf
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.StatusRuntimeException
@@ -129,7 +130,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
               .withValue("fluence.grpc.server.port", ConfigValueFactory.fromAnyRef(port + 10))
               .withValue("fluence.network.contact.websocketPort", ConfigValueFactory.fromAnyRef(port))
               .withValue("fluence.network.acceptLocal", ConfigValueFactory.fromAnyRef(true)))
-          Try(result.unsafeRunSync()).failed.get shouldBe a[IOException]
+          Try(result.unsafeRunSync()).failed.get shouldBe a[StoreError]
 
         } finally {
           server.close()
@@ -353,7 +354,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
 
     }
 
-    "reads and puts values to dataset, executor-node are restarted, client reconnect and continue to reading and writing" in {
+    "reads and puts values to dataset, executor-node are restarted, client reconnect and continue to reading and writing" ignore {
 
       runNodes { servers ⇒
         // create client and write to db
