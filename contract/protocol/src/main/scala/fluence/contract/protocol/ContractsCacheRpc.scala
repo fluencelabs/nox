@@ -27,6 +27,8 @@ import fluence.kad.protocol.Key
  */
 trait ContractsCacheRpc[C] {
 
+  // TODO refactor API for avoiding code repeating
+
   /**
    * Tries to find a contract in local cache
    *

@@ -26,6 +26,8 @@ import cats.effect.IO
  */
 trait ContractAllocatorRpc[C] {
 
+  // TODO refactor API for avoiding code repeating
+
   /**
    * Offer a contract. Node should check and preallocate required resources, save offer, and sign it
    *

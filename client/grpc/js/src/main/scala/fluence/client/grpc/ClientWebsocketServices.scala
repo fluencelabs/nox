@@ -59,13 +59,13 @@ class ClientWebsocketServices(connectionPool: ConnectionPool[WebsocketMessage, W
               new KademliaWebsocketClient(connectionPool.getOrCreateConnection(url))
 
             override def contractsCache: ContractsCacheRpc[BasicContract] =
-              new ContractsCacheClient[BasicContract](connectionPool.getOrCreateConnection(url))
+              new ContractsCacheClient[BasicContract](url, connectionPool)
 
             override def contractAllocator: ContractAllocatorRpc[BasicContract] =
-              new ContractAllocatorClient[BasicContract](connectionPool.getOrCreateConnection(url))
+              new ContractAllocatorClient[BasicContract](url, connectionPool)
             // todo generalize Observable
             override def datasetStorage: DatasetStorageRpc[F, Observable] =
-              new DatasetStorageClient(connectionPool.getOrCreateConnection(url))
+              new DatasetStorageClient(url, connectionPool)
           }
         }
       }

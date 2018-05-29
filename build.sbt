@@ -702,6 +702,7 @@ lazy val `client-cli-app` = crossProject(JVMPlatform, JSPlatform)
       jline,
       scopt
     ),
+    jsEnv in Compile                := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv(),
     workbenchStartMode              := WorkbenchStartModes.Manual,
     skip in packageJSDependencies   := false,
     scalaJSModuleKind in Test       := ModuleKind.CommonJSModule,

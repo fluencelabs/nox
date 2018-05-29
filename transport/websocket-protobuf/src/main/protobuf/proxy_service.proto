@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package fluence.proxy.grpc;
 
+// TODO add onComplete and onError messages, like in reactive streaming
+
 message WebsocketMessage {
     string service = 1;
     string method = 2;

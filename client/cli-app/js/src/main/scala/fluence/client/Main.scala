@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.client.grpc
+package fluence.client
 
 /*
  * Copyright (C) 2017  Fluence Labs Limited
@@ -36,6 +36,7 @@ package fluence.client.grpc
 
 import cats.effect.IO
 import fluence.client.core.FluenceClient
+import fluence.client.grpc.ClientWebsocketServices
 import fluence.codec
 import fluence.codec.PureCodec
 import fluence.crypto.aes.{AesConfig, AesCrypt}
@@ -76,7 +77,7 @@ object Main extends slogging.LazyLogging {
     val hasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JsCryptoHasher.Sha256
 
     val seedContact = Contact.readB64seed.unsafe(
-      "someseed"
+      "eyJwayI6IkE1dXlwajBkcXBZdDYtcWNvMmhMME14Y2Flbm4xUHF2X1FmTXNrMG1uaFpDIiwicHYiOjB9.eyJhIjoiMTI3LjAuMC4xIiwiZ3AiOjExMDIyLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTJ9.MEUCIE94PSeplPfqkoDGU22ckOxQv2gpb5TN2E2MbSQIvTr7AiEAyLrGLC4RnsqlBuAo-AmegXeibYpjTtjteZHRAZrHdf8="
     )
 
     val kadConfig = KademliaConf(3, 3, 1, 5.seconds)
@@ -93,7 +94,7 @@ object Main extends slogging.LazyLogging {
         (arr: Array[Byte]) ⇒ WebsocketMessage.parseFrom(arr)
       )
 
-    val connectionPool = ConnectionPool[WebsocketMessage](timeout, builder = Websocket.builder)
+    val connectionPool = ConnectionPool[WebsocketMessage](timeout, 1.second, builder = Websocket.builder)
     val clientWebsocketServices = new ClientWebsocketServices(connectionPool)
 
     val client = clientWebsocketServices.build[Task]
@@ -154,6 +155,8 @@ object Main extends slogging.LazyLogging {
 
   def main(args: Array[String]): Unit = {
     println("start main")
-    logic()
+//    logic()
   }
+
+  logic()
 }

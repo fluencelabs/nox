@@ -23,15 +23,15 @@ import fluence.dataset.client.{ClientGet, ClientPut, ClientRange}
 import fluence.dataset.protobuf._
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.proxy.grpc.WebsocketMessage
-import fluence.transport.websocket.GrpcProxyClient
-import fluence.transport.websocket.WebsocketPipe.WebsocketClient
+import fluence.transport.websocket.{ConnectionPool, GrpcProxyClient}
 import monix.execution.Scheduler
 import monix.reactive.{Observable, Observer, Pipe}
 
 import scala.language.higherKinds
 
 class DatasetStorageClient[F[_]: Effect](
-  websocket: WebsocketClient[WebsocketMessage]
+  url: String,
+  connectionPool: ConnectionPool[WebsocketMessage, WebsocketMessage]
 )(implicit sch: Scheduler)
     extends DatasetStorageRpc[F, Observable] with slogging.LazyLogging {
 
@@ -40,7 +40,7 @@ class DatasetStorageClient[F[_]: Effect](
   private val service = "fluence.dataset.protobuf.grpc.DatasetStorageRpc"
 
   def getPipe: Pipe[GetCallbackReply, GetCallback] = {
-
+    val websocket = connectionPool.getOrCreateConnection(url)
     val proxy =
       GrpcProxyClient.proxy(service, "get", websocket, generatedMessageCodec, protobufDynamicCodec(GetCallback))
 
@@ -54,6 +54,7 @@ class DatasetStorageClient[F[_]: Effect](
 
   val rangePipe: Pipe[RangeCallbackReply, RangeCallback] = new Pipe[RangeCallbackReply, RangeCallback] {
     override def unicast: (Observer[RangeCallbackReply], Observable[RangeCallback]) = {
+      val websocket = connectionPool.getOrCreateConnection(url)
       val proxy =
         GrpcProxyClient.proxy(service, "range", websocket, generatedMessageCodec, protobufDynamicCodec(RangeCallback))
 
@@ -63,6 +64,7 @@ class DatasetStorageClient[F[_]: Effect](
 
   val putPipe: Pipe[PutCallbackReply, PutCallback] = new Pipe[PutCallbackReply, PutCallback] {
     override def unicast: (Observer[PutCallbackReply], Observable[PutCallback]) = {
+      val websocket = connectionPool.getOrCreateConnection(url)
       val proxy =
         GrpcProxyClient.proxy(service, "put", websocket, generatedMessageCodec, protobufDynamicCodec(PutCallback))
 

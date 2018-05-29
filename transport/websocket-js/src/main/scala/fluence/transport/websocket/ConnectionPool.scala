@@ -40,6 +40,8 @@ class ConnectionPool[I, O](timeout: Date, checkInterval: FiniteDuration = 5.seco
   outCodec: PureCodec.Func[Array[Byte], O]
 ) {
 
+  //TODO do better API for connection pool (like client: `send`, `stream` and other, without `getOrCreateConnection`)
+
   private var connections: Map[String, WebsocketPipe[I, O]] = Map.empty
 
   def getOrCreateConnection(url: String)(
