@@ -6,6 +6,11 @@ import slogging.LoggingUtils.argsBracketFormat
 
 import scala.collection.mutable
 
+/**
+ * Logger, that will append logs to text area.
+ *
+ * @param lineLimit Limit of log lines in text area.
+ */
 class TextAreaLogger(textarea: TextArea, lineLimit: Int) extends AbstractUnderlyingLogger {
 
   val queue = new mutable.Queue[String]()
@@ -24,7 +29,6 @@ class TextAreaLogger(textarea: TextArea, lineLimit: Int) extends AbstractUnderly
     s"${prefix(level, src)} ${argsBracketFormat(msg, args)}"
 
   private def addMessage(message: String): Unit = {
-    println("QUEUE SIZE LIMIT === " + queue.size)
     if (queue.size >= lineLimit) {
       queue.dequeue()
     }
