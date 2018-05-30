@@ -43,7 +43,7 @@ object NaiveDataset {
 
     val timeout = {
       val date = new Date(0)
-      date.setSeconds(3)
+      date.setSeconds(30)
       date
     }
 
@@ -53,7 +53,7 @@ object NaiveDataset {
         (arr: Array[Byte]) ⇒ WebsocketMessage.parseFrom(arr)
       )
 
-    val connectionPool = ConnectionPool[WebsocketMessage](timeout, 1.second, builder = Websocket.builder)
+    val connectionPool = ConnectionPool[WebsocketMessage](timeout, 5.second, builder = Websocket.builder)
     val clientWebsocketServices = new ClientWebsocketServices(connectionPool)
 
     val client = clientWebsocketServices.build[Task]
