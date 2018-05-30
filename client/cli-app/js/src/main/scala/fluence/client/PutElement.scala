@@ -24,11 +24,13 @@ object PutElement extends slogging.LazyLogging {
     putKeyInput.`type` = "text"
     putKeyInput.name = "putKey"
     putKeyInput.value = ""
+    putKeyInput.placeholder = "Key"
 
     val putValueInput = document.createElement("input").asInstanceOf[Input]
     putValueInput.`type` = "text"
     putValueInput.name = "putValue"
     putValueInput.value = ""
+    putValueInput.placeholder = "Value"
 
     val putButton = document.createElement("input").asInstanceOf[Button]
     putButton.`type` = "submit"

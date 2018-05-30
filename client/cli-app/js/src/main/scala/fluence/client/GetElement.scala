@@ -24,6 +24,7 @@ object GetElement extends slogging.LazyLogging {
     val getInput = document.createElement("input").asInstanceOf[Input]
     getInput.`type` = "input"
     getInput.name = "put"
+    getInput.placeholder = "Key"
 
     val getButton = document.createElement("input").asInstanceOf[Input]
     getButton.`type` = "submit"
