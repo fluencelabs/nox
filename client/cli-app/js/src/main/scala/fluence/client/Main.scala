@@ -17,12 +17,20 @@
 
 package fluence.client
 
+import fluence.crypto.KeyPair
+import fluence.crypto.ecdsa.Ecdsa
+import fluence.crypto.keystore.KeyStore
+import fluence.crypto.signature.SignAlgo
+import fluence.kad.protocol.Contact
+import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.scalajs.dom.document
-import org.scalajs.dom.html.TextArea
+import org.scalajs.dom.html.{Div, TextArea}
+import org.scalajs.dom.raw.HTMLElement
 import slogging.{LogLevel, LoggerConfig}
 
 import scala.language.higherKinds
+import scala.scalajs.js.{Any, Array, JSON}
 import scala.scalajs.js.annotation.JSExportTopLevel
 
 /**
@@ -33,31 +41,66 @@ import scala.scalajs.js.annotation.JSExportTopLevel
 @JSExportTopLevel("MainInterface")
 object Main extends slogging.LazyLogging {
 
+  def main(args: Array[String]) = {}
+
   def initLogging(): Unit = {
     val textArea = document.createElement("textarea").asInstanceOf[TextArea]
     textArea.readOnly = true
-    textArea.cols = 200
-    textArea.rows = 40
+    textArea.cols = 160
+    textArea.rows = 30
     document.body.appendChild(textArea)
 
     LoggerConfig.factory = new TextAreaWithConsoleLoggerFactory(textArea, 100)
     LoggerConfig.level = LogLevel.INFO
   }
 
-  def buildInterface(): Unit = {
+  def mainWorkAction(keysJson: Option[String], keysElement: HTMLElement, algo: SignAlgo) = {
 
-    initLogging()
+    import algo.checker
 
-    val r = for {
-      dataset ← NaiveDataset.createNewDataset()
+    val seedContact = Contact.readB64seed.unsafe(
+      "eyJwayI6IkE5ZmZaWS1FbG5aSlNCWEJBMno4Q2FpWTNLT051Y3doTkdfY0FmRVNNU3liIiwicHYiOjB9.eyJhIjoiMTI3LjAuMC4xIiwiZ3AiOjExMDIxLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTF9.MEUCIAu0lDokN_cMOZzgVXzCdPNPhhFVWEBkhP5vbv_EGUL3AiEA73MbbvNAANW6BTin-jho9Dsv42X2iqtgv-s5vpgGdQo="
+    )
+
+    val keyPair = algo.generateKeyPair.unsafe(None)
+
+    for {
+      dataset ← NaiveDataset.createNewDataset(keysJson, algo, seedContact, keyPair)
       lastResultElement = LastResult.addLastResultElement(document.body)
       _ = GetElement.addGetElement(document.body, dataset.get, lastResultElement)
       _ = PutElement.addPutElement(document.body, dataset.put, lastResultElement)
     } yield {
       logger.info("Initialization finished.")
     }
+  }
 
-    r.attempt.unsafeToFuture()
+  def buildInterface(): Unit = {
+
+    initLogging()
+
+    val algo: SignAlgo = Ecdsa.signAlgo
+    import KeyStore._
+
+    val generateAction: Task[String] =
+      for {
+        kp ← algo.generateKeyPair.runF[Task](None)
+        kpStr ← keyPairJsonStringCodec.direct.runF[Task](kp)
+      } yield JSON.stringify(JSON.parse(kpStr), null: Array[Any], 2)
+
+    def validateAction(keyPair: String): Task[Either[String, KeyPair]] =
+      keyPairJsonStringCodec
+        .inverse[Task](keyPair)
+        .leftMap(_.message)
+        .value
+
+    def submitAction(keyPair: KeyPair): Task[Unit] = {
+      for {
+        _ ← Task.unit
+      } yield {}
+    }
+
+    KeysElement.addKeysElement(document.body, generateAction, validateAction, submitAction)
+
   }
 
   buildInterface()

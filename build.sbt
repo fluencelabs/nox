@@ -694,7 +694,7 @@ lazy val `client-cli-app` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %% "crypto-keystore" % CryptoV
+      "one.fluence" %%% "crypto-keystore" % CryptoV
     )
   )
   .jvmSettings(

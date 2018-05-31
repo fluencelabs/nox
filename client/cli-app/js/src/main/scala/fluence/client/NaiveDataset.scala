@@ -27,17 +27,13 @@ object NaiveDataset {
   /**
    * Create always new fluence client, and return new dataset
    */
-  def createNewDataset()(
+  def createNewDataset(keysJson: Option[String], algo: SignAlgo, seed: Contact, keyPair: KeyPair)(
     implicit scheduler: Scheduler
   ): IO[ClientDatasetStorageApi[Task, Observable, String, String]] = {
     val algo: SignAlgo = Ecdsa.signAlgo
     import algo.checker
 
     val hasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JsCryptoHasher.Sha256
-
-    val seedContact = Contact.readB64seed.unsafe(
-      "eyJwayI6IkE5ZmZaWS1FbG5aSlNCWEJBMno4Q2FpWTNLT051Y3doTkdfY0FmRVNNU3liIiwicHYiOjB9.eyJhIjoiMTI3LjAuMC4xIiwiZ3AiOjExMDIxLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTF9.MEUCIAu0lDokN_cMOZzgVXzCdPNPhhFVWEBkhP5vbv_EGUL3AiEA73MbbvNAANW6BTin-jho9Dsv42X2iqtgv-s5vpgGdQo="
-    )
 
     val kadConfig = KademliaConf(3, 3, 1, 5.seconds)
 
@@ -58,7 +54,7 @@ object NaiveDataset {
 
     val client = clientWebsocketServices.build[Task]
 
-    val clIO = FluenceClient.build(Seq(seedContact), algo, hasher, kadConfig, client andThen (_.get))
+    val clIO = FluenceClient.build(Seq(seed), algo, hasher, kadConfig, client andThen (_.get))
 
     def cryptoMethods(
       secretKey: KeyPair.Secret
@@ -72,9 +68,8 @@ object NaiveDataset {
 
     for {
       cl ← clIO
-      newkey ← algo.generateKeyPair.runF[IO](None)
-      (keyCrypt, valueCrypt) = cryptoMethods(newkey.secretKey)
-      dataset ← cl.createNewContract(newkey, 2, keyCrypt, valueCrypt).toIO
+      (keyCrypt, valueCrypt) = cryptoMethods(keyPair.secretKey)
+      dataset ← cl.createNewContract(keyPair, 2, keyCrypt, valueCrypt).toIO
     } yield dataset
   }
 }
