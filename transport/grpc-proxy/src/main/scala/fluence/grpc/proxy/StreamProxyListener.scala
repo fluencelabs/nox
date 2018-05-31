@@ -37,8 +37,9 @@ class StreamProxyListener[T](
 
   override def onClose(status: io.grpc.Status, trailers: Metadata): Unit = {
     super.onClose(status, trailers)
-    obs.onComplete()
     logger.debug(s"STREAM: onClose callback: Status: $status, trailers: $trailers")
+    if (status.isOk) obs.onComplete()
+    else obs.onError(status.asException())
 
   }
 

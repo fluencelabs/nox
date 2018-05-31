@@ -82,9 +82,8 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
 
       call.start(new StreamProxyListener[Any](in), metadata)
 
-      val mappedOut = out.collect {
-        case r ⇒
-          IoUtils.toByteArray(methodDescriptor.streamResponse(r))
+      val mappedOut = out.map { r ⇒
+        IoUtils.toByteArray(methodDescriptor.streamResponse(r))
       }
 
       (call, mappedOut)

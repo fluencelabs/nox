@@ -8,5 +8,8 @@ message WebsocketMessage {
     string service = 1;
     string method = 2;
     int64 requestId = 3;
-    bytes payload = 10;
+    oneof response {
+        bytes payload = 10;
+        string error = 11;
+    }
 }

@@ -56,11 +56,18 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
           val responseStream = for {
             message ← Task(WebsocketMessage.parseFrom(data))
             _ = logger.debug(s"Handle websocket message $message")
+            // TODO message.response.payload.get.newInput() rewrite with error handling
             responseObservable ← proxyGrpc
-              .handleMessage(message.service, message.method, message.requestId, message.payload.newInput())
+              .handleMessage(
+                message.service,
+                message.method,
+                message.requestId,
+                message.response.payload.get.newInput()
+              )
             binaryObservable = responseObservable.map { bytes ⇒
-              val responseMessage = message.copy(payload = ByteString.copyFrom(bytes))
-              Binary(responseMessage.toByteArray): WebSocketFrame
+              val responseMessage =
+                message.copy(response = WebsocketMessage.Response.Payload(ByteString.copyFrom(bytes)))
+              Binary(responseMessage.toByteArray)
             }
           } yield {
             //splitting observer and topic for asynchronous request handling
@@ -68,7 +75,12 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
               override def onNext(elem: WebSocketFrame): Future[Ack] =
                 topic.publish1(elem).map(_ ⇒ Ack.Continue).runAsync
 
-              override def onError(ex: Throwable): Unit = ex.printStackTrace()
+              override def onError(ex: Throwable): Unit = {
+                val errorMessage = message.copy(response = WebsocketMessage.Response.Error(ex.getLocalizedMessage))
+                val frame = Binary(errorMessage.toByteArray)
+                topic.publish1(frame)
+                ex.printStackTrace()
+              }
 
               override def onComplete(): Unit = ()
             }

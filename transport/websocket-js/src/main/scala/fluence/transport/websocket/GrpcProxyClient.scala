@@ -23,7 +23,7 @@ import fluence.proxy.grpc.WebsocketMessage
 import fluence.transport.websocket.WebsocketPipe.WebsocketClient
 import monix.execution.Ack
 import monix.execution.Ack.Continue
-import monix.reactive.Observer
+import monix.reactive.{Observable, Observer}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
@@ -32,7 +32,7 @@ import scala.util.Random
 object GrpcProxyClient {
 
   private def message(service: String, method: String, requestId: Long)(payload: Array[Byte]): WebsocketMessage = {
-    WebsocketMessage(service, method, requestId, ByteString.copyFrom(payload))
+    WebsocketMessage(service, method, requestId, WebsocketMessage.Response.Payload(ByteString.copyFrom(payload)))
   }
 
   /**
@@ -78,7 +78,12 @@ object GrpcProxyClient {
     //we will collect only messages that have equals method name, service name and request id
     val proxyObservable = wsObservable.collect {
       case WebsocketMessage(s, m, rId, payload) if s == service && m == method && rId == rId ⇒
-        responseCodec.unsafe(payload.toByteArray)
+        payload
+    }.flatMap {
+      case WebsocketMessage.Response.Payload(payload) ⇒
+        Observable(responseCodec.unsafe(payload.toByteArray))
+      case WebsocketMessage.Response.Error(errorMessage) ⇒
+        Observable.raiseError(new Exception(errorMessage))
     }
 
     WebsocketPipe(proxyObserver, proxyObservable, websocketClient.statusOutput)
