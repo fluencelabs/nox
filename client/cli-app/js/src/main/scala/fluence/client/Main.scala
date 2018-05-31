@@ -26,11 +26,10 @@ import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.scalajs.dom.document
 import org.scalajs.dom.html.{Div, TextArea}
-import org.scalajs.dom.raw.HTMLElement
 import slogging.{LogLevel, LoggerConfig}
 
 import scala.language.higherKinds
-import scala.scalajs.js.{Any, Array, JSON}
+import scala.scalajs.js.{Any, JSON}
 import scala.scalajs.js.annotation.JSExportTopLevel
 
 /**
@@ -54,7 +53,7 @@ object Main extends slogging.LazyLogging {
     LoggerConfig.level = LogLevel.INFO
   }
 
-  def mainWorkAction(keysJson: Option[String], keysElement: HTMLElement, algo: SignAlgo) = {
+  def mainWorkAction(keysPair: KeyPair, algo: SignAlgo) = {
 
     import algo.checker
 
@@ -62,10 +61,8 @@ object Main extends slogging.LazyLogging {
       "eyJwayI6IkE5ZmZaWS1FbG5aSlNCWEJBMno4Q2FpWTNLT051Y3doTkdfY0FmRVNNU3liIiwicHYiOjB9.eyJhIjoiMTI3LjAuMC4xIiwiZ3AiOjExMDIxLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTF9.MEUCIAu0lDokN_cMOZzgVXzCdPNPhhFVWEBkhP5vbv_EGUL3AiEA73MbbvNAANW6BTin-jho9Dsv42X2iqtgv-s5vpgGdQo="
     )
 
-    val keyPair = algo.generateKeyPair.unsafe(None)
-
     for {
-      dataset ← NaiveDataset.createNewDataset(keysJson, algo, seedContact, keyPair)
+      dataset ← NaiveDataset.createNewDataset(algo, seedContact, keysPair)
       lastResultElement = LastResult.addLastResultElement(document.body)
       _ = GetElement.addGetElement(document.body, dataset.get, lastResultElement)
       _ = PutElement.addPutElement(document.body, dataset.put, lastResultElement)
@@ -81,11 +78,15 @@ object Main extends slogging.LazyLogging {
     val algo: SignAlgo = Ecdsa.signAlgo
     import KeyStore._
 
-    val generateAction: Task[String] =
+    def generateAction: Task[String] = Task.defer {
       for {
         kp ← algo.generateKeyPair.runF[Task](None)
         kpStr ← keyPairJsonStringCodec.direct.runF[Task](kp)
-      } yield JSON.stringify(JSON.parse(kpStr), null: Array[Any], 2)
+
+      } yield {
+        JSON.stringify(JSON.parse(kpStr), null: scala.scalajs.js.Array[Any], 2)
+      }
+    }
 
     def validateAction(keyPair: String): Task[Either[String, KeyPair]] =
       keyPairJsonStringCodec
@@ -93,13 +94,24 @@ object Main extends slogging.LazyLogging {
         .leftMap(_.message)
         .value
 
-    def submitAction(keyPair: KeyPair): Task[Unit] = {
+    var keyElement: Div = null
+
+    def submitAction(keyPairStr: String): Task[Unit] = {
       for {
-        _ ← Task.unit
+        validate ← validateAction(keyPairStr)
+        _ ← validate match {
+          case Left(err) ⇒
+            logger.info(s"Key is not correct. Error: $err")
+            Task.unit
+          case Right(kp) ⇒
+            document.body.removeChild(keyElement)
+            Task.fromIO(mainWorkAction(kp, algo))
+
+        }
       } yield {}
     }
 
-    KeysElement.addKeysElement(document.body, generateAction, validateAction, submitAction)
+    keyElement = KeysElement.addKeysElement(document.body, generateAction, submitAction)
 
   }
 

@@ -27,7 +27,7 @@ object NaiveDataset {
   /**
    * Create always new fluence client, and return new dataset
    */
-  def createNewDataset(keysJson: Option[String], algo: SignAlgo, seed: Contact, keyPair: KeyPair)(
+  def createNewDataset(algo: SignAlgo, seed: Contact, keyPair: KeyPair)(
     implicit scheduler: Scheduler
   ): IO[ClientDatasetStorageApi[Task, Observable, String, String]] = {
     val algo: SignAlgo = Ecdsa.signAlgo
@@ -69,7 +69,8 @@ object NaiveDataset {
     for {
       cl ← clIO
       (keyCrypt, valueCrypt) = cryptoMethods(keyPair.secretKey)
-      dataset ← cl.createNewContract(keyPair, 2, keyCrypt, valueCrypt).toIO
+      // TODO this is not working now, because missing dataset contract on node is throwing as an error
+      dataset ← cl.restoreDataset(keyPair, keyCrypt, valueCrypt, 2).toIO
     } yield dataset
   }
 }

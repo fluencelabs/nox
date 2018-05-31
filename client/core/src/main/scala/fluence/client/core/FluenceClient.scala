@@ -129,7 +129,7 @@ class FluenceClient(
   }
 
   /**
-   * Try to find an existoing contract or create a new one depending on the kye pair.
+   * Try to find an existoing contract or create a new one depending on the key pair.
    *
    * @param keyPair Main identifier of dataset.
    * @param keyCrypt Cryptography for keys of dataset.

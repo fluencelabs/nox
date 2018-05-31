@@ -1,6 +1,5 @@
 package fluence.client
 
-import fluence.crypto.KeyPair
 import monix.eval.Task
 import monix.execution.Scheduler
 import org.scalajs.dom.document
@@ -22,8 +21,7 @@ object KeysElement {
   }
 
   private def submitButton(
-    validatingAction: String ⇒ Task[Either[String, KeyPair]],
-    submitAction: KeyPair ⇒ Task[Unit],
+    submitAction: String ⇒ Task[Unit],
     text: TextArea
   )(implicit scheduler: Scheduler) = {
     val submitButton = document.createElement("input").asInstanceOf[Button]
@@ -34,19 +32,7 @@ object KeysElement {
 
       val keyPairStr = text.value
 
-      val onError = for {
-        _ ← Task.unit
-        _ = println("ALL BAD")
-      } yield {}
-
-      val t = for {
-        validate ← validatingAction(keyPairStr)
-        _ ← validate match {
-          case Left(str) ⇒ onError
-          case Right(kp) ⇒ submitAction(kp)
-        }
-      } yield {}
-      t.runAsync
+      submitAction(keyPairStr).runAsync
     }
 
     submitButton
@@ -55,17 +41,16 @@ object KeysElement {
   def addKeysElement(
     el: HTMLElement,
     generateKeyAction: Task[String],
-    validatingAction: String ⇒ Task[Either[String, KeyPair]],
-    submitAction: KeyPair ⇒ Task[Unit]
-  )(implicit scheduler: Scheduler) = {
+    submitAction: String ⇒ Task[Unit]
+  )(implicit scheduler: Scheduler): Div = {
     val div = document.createElement("div").asInstanceOf[Div]
 
     div.innerHTML += "Add your keys here or generate a new one and save it:"
     div.appendChild(document.createElement("br"))
 
     val textArea = document.createElement("textarea").asInstanceOf[TextArea]
-    textArea.cols = 100
-    textArea.rows = 20
+    textArea.cols = 60
+    textArea.rows = 8
     div.appendChild(textArea)
 
     div.appendChild(document.createElement("br"))
@@ -76,12 +61,13 @@ object KeysElement {
 
     div.appendChild(document.createElement("br"))
 
-    val submitedButton = submitButton(validatingAction, submitAction, textArea)
+    val submitedButton = submitButton(submitAction, textArea)
     div.appendChild(submitedButton)
 
     div.appendChild(document.createElement("br"))
 
     el.appendChild(div)
 
+    div
   }
 }
