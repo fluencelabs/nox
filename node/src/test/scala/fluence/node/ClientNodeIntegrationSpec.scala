@@ -237,7 +237,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
             .value
             .taskValue
             .left.get
-          result shouldBe a[Contracts.CryptoErr]
+          result shouldBe a[Contracts.ContractErr]
         }
       }
 

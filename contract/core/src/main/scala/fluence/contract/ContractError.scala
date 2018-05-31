@@ -35,10 +35,7 @@ case class ContractError(message: String, causedBy: Option[Throwable] = None) ex
 
 object ContractError {
 
-  def apply(message: String, causedBy: Option[Throwable] = None): ContractError =
-    new ContractError(message, causedBy)
-
-  def apply(exception: Throwable): ContractError =
-    new ContractError(exception.getMessage, Some(exception))
+  def apply(message: String, causedBy: Throwable): ContractError =
+    new ContractError(message, Some(causedBy))
 
 }

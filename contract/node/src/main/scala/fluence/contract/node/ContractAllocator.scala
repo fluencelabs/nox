@@ -25,6 +25,7 @@ import cats.effect.IO
 import cats.syntax.eq._
 import cats.syntax.show._
 import fluence.contract.ContractError
+import fluence.contract.node.ContractsCache._
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.ops.{ContractRead, ContractWrite}
 import fluence.contract.protocol.ContractAllocatorRpc
@@ -78,7 +79,7 @@ class ContractAllocator[C: ContractRead: ContractWrite](
 
         contract ← storage
           .get(contract.id)
-          .run[IO, ContractError](ContractError(_))
+          .run[IO, ContractError](getError)
           .flatMap {
             case Some(cr) ⇒
               updateIfBlankOffer(contract, cr)
@@ -98,14 +99,13 @@ class ContractAllocator[C: ContractRead: ContractWrite](
   private def updateIfBlankOffer(allocatedContract: C, contractFromStorage: ContractRecord[C]) = {
     contractFromStorage.contract
       .isBlankOffer[IO]()
-      .leftMap(ContractError(_))
       .flatMap {
         case false ⇒
           EitherT.rightT[IO, ContractError](contractFromStorage.contract)
         case true ⇒
           storage
             .remove(allocatedContract.id)
-            .run[IO, ContractError](ContractError(_))
+            .run[IO, ContractError](removeError)
             .flatMap(_ ⇒ putContract(allocatedContract))
       }
   }
@@ -118,7 +118,7 @@ class ContractAllocator[C: ContractRead: ContractWrite](
 
       _ ← storage
         .put(contract.id, ContractRecord(contract, clock.instant()))
-        .run[IO, ContractError](ContractError(_))
+        .run[IO, ContractError](putError)
 
       isDsCreated ← EitherT.right[ContractError](createDataset(contract))
 
@@ -128,14 +128,17 @@ class ContractAllocator[C: ContractRead: ContractWrite](
         else
           storage
             .remove(contract.id)
-            .run[IO, ContractError](ContractError(_))
+            .run[IO, ContractError](removeError)
             .subflatMap[ContractError, Unit](_ ⇒ Left(new ContractError("Creation is not possible")))
       }
 
-      _ ← storage.get(contract.id).run[IO, ContractError](ContractError(_)).flatMap[ContractError, ContractRecord[C]] {
-        case Some(c) ⇒ EitherT.rightT(c)
-        case None ⇒ EitherT.leftT(new ContractError("Creation is not possible"))
-      }
+      _ ← storage
+        .get(contract.id)
+        .run[IO, ContractError](getError)
+        .flatMap[ContractError, ContractRecord[C]] {
+          case Some(c) ⇒ EitherT.rightT(c)
+          case None ⇒ EitherT.leftT(new ContractError("Creation is not possible"))
+        }
 
     } yield contract
 
@@ -157,7 +160,9 @@ class ContractAllocator[C: ContractRead: ContractWrite](
       for {
         _ ← failIfFalse(contract.isBlankOffer[IO](), "This is not a valid blank offer")
 
-        contractOpt ← storage.get(contract.id).run[IO, ContractError](ContractError(_))
+        contractOpt ← storage
+          .get(contract.id)
+          .run[IO, ContractError](getError)
 
         contract ← contractOpt match {
           case Some(cr) ⇒
@@ -166,11 +171,11 @@ class ContractAllocator[C: ContractRead: ContractWrite](
                 // contract preallocated for id, but it's changed now
                 logger.debug("preallocated, but changed")
                 for {
-                  _ ← storage.remove(contract.id).run[IO, ContractError](ContractError(_))
+                  _ ← storage.remove(contract.id).run[IO, ContractError](removeError)
                   ap ← failIfFalseIo(checkAllocationPossible(contract), "Allocation is not possible")
                   _ ← storage
                     .put(contract.id, ContractRecord(contract, clock.instant()))
-                    .run[IO, ContractError](ContractError(_))
+                    .run[IO, ContractError](putError)
                   sContract ← signedContract
                 } yield sContract
               } else {
@@ -185,7 +190,7 @@ class ContractAllocator[C: ContractRead: ContractWrite](
               ap ← failIfFalseIo(checkAllocationPossible(contract), "Allocation is not possible")
               _ ← storage
                 .put(contract.id, ContractRecord(contract, clock.instant()))
-                .run[IO, ContractError](ContractError(_))
+                .run[IO, ContractError](putError)
               sContract ← signedContract
             } yield sContract
 
@@ -201,17 +206,15 @@ class ContractAllocator[C: ContractRead: ContractWrite](
   }
 
   /** If Right(false) - fail EtherT with error msg, return Left(Unit) otherwise */
-  private def failIfFalse[E <: Throwable](
-    check: EitherT[IO, E, Boolean],
+  private def failIfFalse(
+    check: EitherT[IO, ContractError, Boolean],
     msg: String
   ): EitherT[IO, ContractError, Unit] =
-    check
-      .leftMap(ContractError(_))
-      .flatMap(EitherT.cond[IO](_, (), ContractError(msg)))
+    check.flatMap(EitherT.cond[IO](_, (), ContractError(msg)))
 
   /** If IO(false) - fail IO with error msg, return IO(Unit) value otherwise */
   private def failIfFalseIo(check: IO[Boolean], msg: String): EitherT[IO, ContractError, Unit] = {
-    val value = EitherT.right[Throwable](check)
+    val value = EitherT.right[ContractError](check)
     failIfFalse(value, msg)
   }
 

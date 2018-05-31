@@ -24,11 +24,12 @@ import cats.data.EitherT
 import cats.effect.IO
 import fluence.contract.ContractError
 import fluence.contract.node.cache.ContractRecord
+import fluence.contract.node.ContractsCache._
 import fluence.contract.ops.ContractRead
 import fluence.contract.protocol.ContractsCacheRpc
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.protocol.Key
-import fluence.kvstore.ReadWriteKVStore
+import fluence.kvstore.{ReadWriteKVStore, StoreError}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.{higherKinds, implicitConversions}
@@ -62,7 +63,7 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
 
   private def canBeCached(contract: C): EitherT[IO, ContractError, Boolean] =
     if (cacheEnabled && !contract.participants.contains(nodeId))
-      contract.isActiveContract[IO]().leftMap(ContractError(_))
+      contract.isActiveContract[IO]()
     else
       EitherT.rightT(false)
 
@@ -75,18 +76,17 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
   override def find(id: Key): IO[Option[C]] =
     storage
       .get(id)
-      .run[IO, ContractError](ContractError(_))
+      .run[IO, ContractError](getError)
       .flatMap {
         case Some(contractRecord) if isExpired(contractRecord) ⇒
           storage
             .remove(id)
-            .run[IO, ContractError](ContractError(_))
+            .run[IO, ContractError](removeError)
             .map(_ ⇒ Option.empty[C])
 
         case Some(contractRecord) ⇒
           contractRecord.contract
             .isBlankOffer[IO]
-            .leftMap(ContractError(_))
             .map {
               case false ⇒ Some(contractRecord.contract)
               case true ⇒ Option.empty[C]
@@ -117,12 +117,12 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
         // It allows us to avoid multiplexing network calls with asking to cache stale contracts
         storage
           .get(contract.id)
-          .run[IO, ContractError](ContractError(_))
+          .run[IO, ContractError](getError)
           .flatMap {
             case Some(cr) if cr.contract.version < contract.version ⇒ // Contract updated
               storage
                 .put(contract.id, ContractRecord(contract, clock.instant()))
-                .run[IO, ContractError](ContractError(_))
+                .run[IO, ContractError](putError)
                 .map(_ ⇒ true)
 
             case Some(_) ⇒ // Can't update contract with an old version
@@ -131,7 +131,7 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
             case None ⇒ // Contract is unknown, save it
               storage
                 .put(contract.id, ContractRecord(contract, clock.instant()))
-                .run[IO, ContractError](ContractError(_))
+                .run[IO, ContractError](putError)
                 .map(_ ⇒ true)
           }
     }.recover {
@@ -150,4 +150,14 @@ class ContractsCache[F[_]: Monad, C: ContractRead](
       }
   }
 
+}
+
+object ContractsCache {
+  // todo move this functions to 'ContractsCache' class and make them private
+  // when 'ContractsCacheRpc' will return EitherT instead IO
+  // this functions won't shared between 'ContractsCache' and 'ContractAllocator'
+  // when we refactor ContractsCache with EitherT
+  private[node] val putError = (e: StoreError) ⇒ ContractError("Can't put contract to storage", e)
+  private[node] val removeError = (e: StoreError) ⇒ ContractError("Can't remove contract from storage", e)
+  private[node] val getError = (e: StoreError) ⇒ ContractError("Can't get contract from storage", e)
 }
