@@ -81,18 +81,7 @@ class ContractAllocator[C: ContractRead: ContractWrite](
           .run[IO, ContractError](ContractError(_))
           .flatMap {
             case Some(cr) ⇒
-              cr.contract
-                .isBlankOffer[IO]()
-                .leftMap(ContractError(_))
-                .flatMap {
-                  case false ⇒
-                    EitherT.rightT[IO, ContractError](cr.contract)
-                  case true ⇒
-                    storage
-                      .remove(contract.id)
-                      .run[IO, ContractError](ContractError(_))
-                      .flatMap(_ ⇒ putContract(contract))
-                }
+              updateIfBlankOffer(contract, cr)
             case None ⇒
               putContract(contract)
           }
@@ -104,6 +93,21 @@ class ContractAllocator[C: ContractRead: ContractWrite](
       }
 
     allocatedContract.toIO
+  }
+
+  private def updateIfBlankOffer(allocatedContract: C, contractFromStorage: ContractRecord[C]) = {
+    contractFromStorage.contract
+      .isBlankOffer[IO]()
+      .leftMap(ContractError(_))
+      .flatMap {
+        case false ⇒
+          EitherT.rightT[IO, ContractError](contractFromStorage.contract)
+        case true ⇒
+          storage
+            .remove(allocatedContract.id)
+            .run[IO, ContractError](ContractError(_))
+            .flatMap(_ ⇒ putContract(allocatedContract))
+      }
   }
 
   private def putContract(contract: C): EitherT[IO, ContractError, C] = {

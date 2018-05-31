@@ -51,27 +51,19 @@ object NodeComposer {
   type Services = NodeServices[Task, Observable, BasicContract, Contact]
 
   /**
-   * Global thread pool for all business logic.
-   */
-  private val GlobalPool = Scheduler.global
-
-  /**
-   * Thread pool for all input\output operation. If you need separate thread pool
-   * for network or disc operation feel free to create it.
-   */ // Unfortunately Idea uses sjs sources here and don't know 'io' method
-  private val IoPool = Scheduler.io(name = "io-pool")
-
-  /**
    * Builds all node services.
    *
-   * @param keyPair Node keyPair with private and public keys
-   * @param contact Node contact
-   * @param algo    Crypto algorithm for generation keys, creating signers and checkers
+   * @param keyPair      Node keyPair with private and public keys
+   * @param contact      Node contact
+   * @param algo         Crypto algorithm for generation keys, creating signers and checkers
    * @param cryptoHasher Crypto hash function provider
    * @param kadClient    Provider for creating KademliaRpc for specific contact
    * @param config       Global typeSafe config for node
-   * @param acceptLocal If true, local addresses will be accepted; should be used only in testing (will be removed later)
+   * @param acceptLocal  If true, local addresses will be accepted; should be used only in testing (will be removed later)
    * @param clock        Physic time provider
+   * @param globalPool   Global thread pool for all business logic.
+   * @param ioPool       Thread pool for all input\output operation. If you need separate thread pool
+   *                      for network or disc operation feel free to create it.
    */
   def services(
     keyPair: KeyPair,
@@ -81,13 +73,15 @@ object NodeComposer {
     kadClient: Contact ⇒ KademliaRpc[Contact],
     config: Config,
     acceptLocal: Boolean, // todo move acceptLocal to node config, and remove from here
-    clock: Clock
+    clock: Clock,
+    globalPool: Scheduler,
+    ioPool: Scheduler
   ): IO[Services] =
     for {
       nodeKey ← Key.fromKeyPair.runF[IO](keyPair)
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
       rocksDbFactoryOld = new RocksDbStore.Factory // todo will be removed later
-      rocksDbFactoryNew = RocksDbKVStore.getFactory(threadPool = IoPool).value
+      rocksDbFactoryNew = RocksDbKVStore.getFactory(threadPool = ioPool).value
       contractsCacheStore ← ContractsCacheStore.applyOld(config, name ⇒ rocksDbFactoryNew(name, config))
     } yield
       new NodeServices[Task, Observable, BasicContract, Contact] {
@@ -136,7 +130,7 @@ object NodeComposer {
             servesDatasetFn(contractsCacheStore, key),
             // Update contract's version and merkle root, if newVersion = currentVersion+1
             updateContractFn(clock, contractsCacheStore),
-          )(GlobalPool)
+          )(globalPool)
 
         // Register everything that should be closed or cleaned up on shutdown here
         override def close: IO[Unit] =
