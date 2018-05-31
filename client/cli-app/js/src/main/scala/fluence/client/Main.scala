@@ -17,127 +17,48 @@
 
 package fluence.client
 
-import cats.effect.IO
-import fluence.client.core.FluenceClient
-import fluence.client.grpc.ClientWebsocketServices
-import fluence.codec
-import fluence.codec.PureCodec
-import fluence.crypto.aes.{AesConfig, AesCrypt}
-import fluence.crypto.ecdsa.Ecdsa
-import fluence.crypto.hash.JsCryptoHasher
-import fluence.crypto.signature.SignAlgo
-import fluence.crypto.{Crypto, KeyPair}
-import fluence.kad.KademliaConf
-import fluence.kad.protocol.Contact
-import fluence.proxy.grpc.WebsocketMessage
-import fluence.transport.websocket.{ConnectionPool, Websocket}
-import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
+import org.scalajs.dom.document
+import org.scalajs.dom.html.TextArea
+import slogging.{LogLevel, LoggerConfig}
 
-import scala.concurrent.duration._
 import scala.language.higherKinds
-import scala.scalajs.js.Date
-import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
+import scala.scalajs.js.annotation.JSExportTopLevel
 
 /**
  *
  * This is class for tests only, will be deleted after implementation of browser client.
  *
  */
-@JSExportTopLevel("MainD")
+@JSExportTopLevel("MainInterface")
 object Main extends slogging.LazyLogging {
 
-  LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.DEBUG
+  def initLogging(): Unit = {
+    val textArea = document.createElement("textarea").asInstanceOf[TextArea]
+    textArea.readOnly = true
+    textArea.cols = 200
+    textArea.rows = 40
+    document.body.appendChild(textArea)
 
-  @JSExport
-  def logic(): Unit = {
+    LoggerConfig.factory = new TextAreaWithConsoleLoggerFactory(textArea, 100)
+    LoggerConfig.level = LogLevel.INFO
+  }
 
-    val algo: SignAlgo = Ecdsa.signAlgo
-    import algo.checker
+  def buildInterface(): Unit = {
 
-    val hasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JsCryptoHasher.Sha256
-
-    val seedContact = Contact.readB64seed.unsafe(
-      "eyJwayI6IkE1dXlwajBkcXBZdDYtcWNvMmhMME14Y2Flbm4xUHF2X1FmTXNrMG1uaFpDIiwicHYiOjB9.eyJhIjoiMTI3LjAuMC4xIiwiZ3AiOjExMDIyLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTJ9.MEUCIE94PSeplPfqkoDGU22ckOxQv2gpb5TN2E2MbSQIvTr7AiEAyLrGLC4RnsqlBuAo-AmegXeibYpjTtjteZHRAZrHdf8="
-    )
-
-    val kadConfig = KademliaConf(3, 3, 1, 5.seconds)
-
-    val timeout = {
-      val date = new Date(0)
-      date.setSeconds(3)
-      date
-    }
-
-    implicit val websocketMessageCodec: codec.PureCodec[WebsocketMessage, Array[Byte]] =
-      PureCodec.build[WebsocketMessage, Array[Byte]](
-        (m: WebsocketMessage) ⇒ m.toByteArray,
-        (arr: Array[Byte]) ⇒ WebsocketMessage.parseFrom(arr)
-      )
-
-    val connectionPool = ConnectionPool[WebsocketMessage](timeout, 1.second, builder = Websocket.builder)
-    val clientWebsocketServices = new ClientWebsocketServices(connectionPool)
-
-    val client = clientWebsocketServices.build[Task]
-
-    val clIO = FluenceClient.build(Seq(seedContact), algo, hasher, kadConfig, client andThen (_.get))
-
-    def cryptoMethods(
-      secretKey: KeyPair.Secret
-    ): (Crypto.Cipher[String], Crypto.Cipher[String]) = {
-      val aesConfig = AesConfig(
-        50
-      )
-      (
-        AesCrypt.forString(secretKey.value, withIV = false, aesConfig),
-        AesCrypt.forString(secretKey.value, withIV = false, aesConfig)
-      )
-    }
+    initLogging()
 
     val r = for {
-      cl ← clIO
-      newkey ← algo.generateKeyPair.runF[IO](None)
-      crypts = cryptoMethods(newkey.secretKey)
-      (keyCrypt, valueCrypt) = crypts
-      dataset ← cl.createNewContract(newkey, 2, keyCrypt, valueCrypt).toIO
-      _ ← {
-        (for {
-          a ← dataset.get("1234")
-          _ = println("a == None: " + a.isEmpty)
-          _ ← dataset.put("1", "23")
-          res ← dataset.put("1235", "123")
-          _ = println("res == None: " + res.isEmpty)
-          b ← dataset.get("1235")
-          _ = println("b == 123: " + b.contains("123"))
-          c ← dataset.get("1236")
-          _ = println("c == None: " + c.isEmpty)
-        } yield ()).toIO
-      }
-      _ ← IO.sleep(6.seconds)
-      _ ← {
-        (for {
-          a ← dataset.get("1234")
-          _ = println("a == None: " + a.isEmpty)
-          _ ← dataset.put("1", "23")
-          res ← dataset.put("1235", "123")
-          _ = println("res == None: " + res.isEmpty)
-          b ← dataset.get("1235")
-          _ = println("b == 123: " + b.contains("123"))
-          c ← dataset.get("1236")
-          _ = println("c == None: " + c.isEmpty)
-        } yield {}).toIO
-      }
+      dataset ← NaiveDataset.createNewDataset()
+      lastResultElement = LastResult.addLastResultElement(document.body)
+      _ = GetElement.addGetElement(document.body, dataset.get, lastResultElement)
+      _ = PutElement.addPutElement(document.body, dataset.put, lastResultElement)
     } yield {
-      println("finished")
+      logger.info("Initialization finished.")
     }
 
     r.attempt.unsafeToFuture()
   }
 
-  def main(args: Array[String]): Unit = {
-    println("start main")
-//    logic()
-  }
+  buildInterface()
 }

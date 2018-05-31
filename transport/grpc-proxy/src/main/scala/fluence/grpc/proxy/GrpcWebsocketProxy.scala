@@ -97,7 +97,7 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
     for {
 
       server ← BlazeBuilder[Task]
-        .bindHttp(port)
+        .bindHttp(port, "0.0.0.0")
         .withWebSockets(true)
         .mountService(route(inProcessGrpc, scheduler))
         .start
