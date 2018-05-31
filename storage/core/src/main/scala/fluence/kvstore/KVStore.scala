@@ -126,11 +126,11 @@ object KVStore {
 
         override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Option[V1]] =
           for {
-            k ← kCodec.direct[F](key).leftMap(ce ⇒ StoreError(ce))
+            k ← kCodec.direct[F](key).leftMap(StoreError(_))
             v ← store.get(k).run
             v1 ← v match {
               case Some(v2) ⇒
-                vCodec.inverse(v2).map(Option(_)).leftMap(ce ⇒ StoreError(ce))
+                vCodec.inverse(v2).map(Option(_)).leftMap(StoreError(_))
               case None ⇒
                 EitherT.rightT[F, StoreError](None)
             }
@@ -173,9 +173,10 @@ object KVStore {
 
         override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
           for {
-            k ← kCodec.direct[F](key).leftMap(ce ⇒ StoreError(ce))
-            v ← vCodec.direct[F](value).leftMap(ce ⇒ StoreError(ce))
-          } yield store.put(k, v).run
+            k ← kCodec.direct[F](key).leftMap(StoreError(_))
+            v ← vCodec.direct[F](value).leftMap(StoreError(_))
+            r ← store.put(k, v).run
+          } yield r
 
       }
 
@@ -188,8 +189,9 @@ object KVStore {
 
         override def run[F[_]: Monad: LiftIO]: EitherT[F, StoreError, Unit] =
           for {
-            k ← kCodec.direct[F](key).leftMap(ce ⇒ StoreError(ce))
-          } yield store.remove(k).run
+            k ← kCodec.direct[F](key).leftMap(StoreError(_))
+            r ← store.remove(k).run
+          } yield r
 
       }
     }

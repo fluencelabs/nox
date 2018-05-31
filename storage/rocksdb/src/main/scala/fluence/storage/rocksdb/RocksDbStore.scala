@@ -24,6 +24,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{ApplicativeError, MonadError}
 import com.typesafe.config.Config
+import fluence.kvstore.rocksdb.RocksDbScalaIterator
 import fluence.storage.rocksdb.RocksDbStore._
 import fluence.storage.{KVStore, TraversableKVStore}
 import monix.eval.{Task, TaskSemaphore}
@@ -43,6 +44,7 @@ import scala.language.higherKinds
  * @param db        Instance of RocksDbJava driver
  * @param dbOptions Needed for run [[dbOptions.close]] simultaneously with [[db.close]].
  */
+@deprecated("use RocksDbKVStore instead.")
 class RocksDbStore(
   val db: RocksDB,
   private val dbOptions: Options
@@ -128,6 +130,7 @@ class RocksDbStore(
 
 }
 
+@deprecated("use RocksDbKVStore instead.")
 object RocksDbStore {
 
   type Key = Array[Byte]
@@ -136,6 +139,7 @@ object RocksDbStore {
   /**
    * Factory should be used to create all the instances of RocksDbStore
    */
+  @deprecated("use RocksDbFactory instead.")
   class Factory extends slogging.LazyLogging {
     private val instances = TrieMap.empty[String, RocksDbStore]
 

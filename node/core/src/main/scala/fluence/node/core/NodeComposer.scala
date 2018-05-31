@@ -21,22 +21,22 @@ import java.time.Clock
 
 import cats.data.OptionT
 import cats.effect.IO
-import cats.~>
 import com.typesafe.config.Config
 import fluence.client.core.config.KademliaConfigParser
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.node.{ContractAllocator, ContractsCache}
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
-import fluence.crypto.{Crypto, KeyPair}
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.crypto.signature.{SignAlgo, Signer}
+import fluence.crypto.{Crypto, KeyPair}
 import fluence.dataset.node.DatasetNodeStorage.DatasetChanged
 import fluence.dataset.node.Datasets
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
 import fluence.kad.{Kademlia, KademliaMVar}
-import fluence.storage.KVStore
+import fluence.kvstore.ReadWriteKVStore
+import fluence.kvstore.rocksdb.RocksDbKVStore
 import fluence.storage.rocksdb.RocksDbStore
 import monix.eval.Task
 import monix.execution.Scheduler
@@ -53,14 +53,17 @@ object NodeComposer {
   /**
    * Builds all node services.
    *
-   * @param keyPair Node keyPair with private and public keys
-   * @param contact Node contact
-   * @param algo    Crypto algorithm for generation keys, creating signers and checkers
+   * @param keyPair      Node keyPair with private and public keys
+   * @param contact      Node contact
+   * @param algo         Crypto algorithm for generation keys, creating signers and checkers
    * @param cryptoHasher Crypto hash function provider
    * @param kadClient    Provider for creating KademliaRpc for specific contact
    * @param config       Global typeSafe config for node
-   * @param acceptLocal If true, local addresses will be accepted; should be used only in testing (will be removed later)
+   * @param acceptLocal  If true, local addresses will be accepted; should be used only in testing (will be removed later)
    * @param clock        Physic time provider
+   * @param globalPool   Global thread pool for all business logic.
+   * @param ioPool       Thread pool for all input\output operation. If you need separate thread pool
+   *                      for network or disc operation feel free to create it.
    */
   def services(
     keyPair: KeyPair,
@@ -70,28 +73,27 @@ object NodeComposer {
     kadClient: Contact ⇒ KademliaRpc[Contact],
     config: Config,
     acceptLocal: Boolean, // todo move acceptLocal to node config, and remove from here
-    clock: Clock
-  )(implicit scheduler: Scheduler): IO[Services] =
+    clock: Clock,
+    globalPool: Scheduler,
+    ioPool: Scheduler
+  ): IO[Services] =
     for {
       nodeKey ← Key.fromKeyPair.runF[IO](keyPair)
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
-      rocksDbFactory = new RocksDbStore.Factory
-      contractsCacheStore ← ContractsCacheStore(config, dirName ⇒ rocksDbFactory[IO](dirName, config))
+      rocksDbFactoryOld = new RocksDbStore.Factory // todo will be removed later
+      rocksDbFactoryNew = RocksDbKVStore.getFactory(threadPool = ioPool).value
+      contractsCacheStore ← ContractsCacheStore.applyOld(config, name ⇒ rocksDbFactoryNew(name, config))
     } yield
       new NodeServices[Task, Observable, BasicContract, Contact] {
         override val key: Key = nodeKey
 
-        override def rocksFactory: RocksDbStore.Factory = rocksDbFactory
+        override def rocksFactory: RocksDbStore.Factory = rocksDbFactoryOld
 
         override val signer: Signer = algo.signer(keyPair)
 
         override val signAlgo: SignAlgo = algo
 
         import algo.checker
-
-        private object taskToIO extends (Task ~> IO) {
-          override def apply[A](fa: Task[A]): IO[A] = fa.toIO(scheduler)
-        }
 
         override lazy val kademlia: Kademlia[Task, Contact] = KademliaMVar(
           nodeKey,
@@ -106,19 +108,17 @@ object NodeComposer {
             nodeId = nodeKey,
             storage = contractsCacheStore,
             cacheTtl = 1.day,
-            clock,
-            taskToIO
+            clock
           )
 
         override lazy val contractAllocator: ContractAllocatorRpc[BasicContract] =
-          new ContractAllocator[Task, BasicContract](
+          new ContractAllocator[BasicContract](
             nodeId = nodeKey,
             storage = contractsCacheStore,
-            createDataset = _ ⇒ Task(true), // TODO: dataset creation
-            checkAllocationPossible = _ ⇒ Task(true), // TODO: check allocation possible
+            createDataset = _ ⇒ IO(true), // TODO: dataset creation
+            checkAllocationPossible = _ ⇒ IO(true), // TODO: check allocation possible
             signer = signer,
-            clock,
-            toIO = taskToIO
+            clock
           )
 
         override lazy val datasets: DatasetStorageRpc[Task, Observable] =
@@ -130,23 +130,27 @@ object NodeComposer {
             servesDatasetFn(contractsCacheStore, key),
             // Update contract's version and merkle root, if newVersion = currentVersion+1
             updateContractFn(clock, contractsCacheStore),
-          )
+          )(globalPool)
 
         // Register everything that should be closed or cleaned up on shutdown here
         override def close: IO[Unit] =
-          rocksFactory.close
+          for {
+            _ ← rocksDbFactoryNew.close // todo will be removed later, when btree will be with new KVStore
+            _ ← rocksFactory.close
+          } yield ()
       }
 
   /**
    * Creates function that returns contract state, if current node participates in it, and None otherwise
    */
   private[core] def servesDatasetFn(
-    contractsCacheStore: KVStore[Task, Key, ContractRecord[BasicContract]],
+    contractsCacheStore: ReadWriteKVStore[Key, ContractRecord[BasicContract]],
     nodeKey: Key
   ): Key ⇒ Task[Option[Long]] =
     contractKey ⇒ {
       contractsCacheStore
         .get(contractKey)
+        .runF[Task]
         .map { contract ⇒
           contract
             .filter(_.contract.participants.contains(nodeKey))
@@ -160,13 +164,13 @@ object NodeComposer {
    */
   private[core] def updateContractFn(
     clock: Clock,
-    contractsCacheStore: KVStore[Task, Key, ContractRecord[BasicContract]]
+    contractsCacheStore: ReadWriteKVStore[Key, ContractRecord[BasicContract]]
   )(implicit checkerFn: CheckerFn): (Key, DatasetChanged) ⇒ Task[Unit] =
     (datasetId, datasetChanged) ⇒ {
       val DatasetChanged(newMerkleRoot, newDatasetVer, clientSignature) = datasetChanged
 
       for {
-        contract ← OptionT(contractsCacheStore.get(datasetId))
+        contract ← OptionT(contractsCacheStore.get(datasetId).runF[Task])
           .getOrElseF(Task.raiseError(new RuntimeException(s"For dataset=$datasetId wasn't found correspond contract")))
 
         _ ← checkerFn(contract.contract.publicKey)
@@ -199,7 +203,7 @@ object NodeComposer {
             )
         }
 
-        _ ← contractsCacheStore.put(datasetId, updatedContract)
+        _ ← contractsCacheStore.put(datasetId, updatedContract).runF[Task]
       } yield () // TODO: schedule broadcasting the contract to kademlia
 
     }

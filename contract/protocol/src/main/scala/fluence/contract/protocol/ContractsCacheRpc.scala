@@ -25,6 +25,7 @@ import fluence.kad.protocol.Key
  *
  * @tparam C Contract
  */
+// todo change return type of this methods to EitherT for consistency and comparability reasons
 trait ContractsCacheRpc[C] {
 
   // TODO refactor API for avoiding code repeating

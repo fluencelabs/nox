@@ -19,14 +19,13 @@ package fluence.contract.node
 
 import java.time.Clock
 
-import cats.effect.IO
 import cats.instances.try_._
-import cats.~>
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
 import fluence.crypto.KeyPair
+import fluence.crypto.signature.Signer
 import fluence.kad.protocol.Key
-import fluence.storage.{KVStore, TrieMapKVStore}
+import fluence.kvstore.{InMemoryKVStore, ReadWriteKVStore}
 import monix.eval.Coeval
 import org.scalatest.{Matchers, WordSpec}
 
@@ -40,26 +39,22 @@ class ContractsCacheSpec extends WordSpec with Matchers {
   import signAlgo.checker
 
   val nodeId: Key = unsafeKey("node id")
-  val nodeSigner = offerSigner("node id")
+  val nodeSigner: Signer = offerSigner("node id")
 
-  val store: KVStore[Coeval, Key, ContractRecord[BasicContract]] =
-    TrieMapKVStore()
+  val store: ReadWriteKVStore[Key, ContractRecord[BasicContract]] =
+    InMemoryKVStore[Key, ContractRecord[BasicContract]]
 
   def offer(seed: String, participantsRequired: Int = 1): BasicContract = {
     val s = offerSigner(seed)
     BasicContract.offer(Key.fromPublicKey.unsafe(s.publicKey), participantsRequired, s).get
   }
 
-  def offerSigner(seed: String) = {
+  def offerSigner(seed: String): Signer = {
     signAlgo.signer(KeyPair.fromBytes(seed.getBytes(), seed.getBytes()))
   }
 
-  object coevalIO extends (Coeval ~> IO) {
-    override def apply[A](fa: Coeval[A]): IO[A] = fa.toIO
-  }
-
   val cache: ContractsCache[Coeval, BasicContract] =
-    new ContractsCache[Coeval, BasicContract](nodeId, store, 1.minute, clock, coevalIO)
+    new ContractsCache[Coeval, BasicContract](nodeId, store, 1.minute, clock)
 
   import fluence.contract.ops.ContractWrite._
 

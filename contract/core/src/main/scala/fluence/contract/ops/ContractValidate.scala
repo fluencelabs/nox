@@ -19,11 +19,10 @@ package fluence.contract.ops
 
 import cats.data.EitherT
 import cats.{Monad, MonadError}
-import fluence.contract.ops.ContractValidate.ValidationErr
+import fluence.contract.ContractError
 import fluence.crypto.signature.SignAlgo.CheckerFn
 
 import scala.language.higherKinds
-import scala.util.control.NoStackTrace
 
 /**
  * Contract validator. Try to use it near to Contract codec,
@@ -36,7 +35,7 @@ trait ContractValidate[C] {
   /**
    * Verifies the correctness of the contract.
    */
-  def validate[F[_]: Monad](contract: C)(implicit checkerFn: CheckerFn): EitherT[F, ValidationErr, Unit]
+  def validate[F[_]: Monad](contract: C)(implicit checkerFn: CheckerFn): EitherT[F, ContractError, Unit]
 
   /**
    * Verifies the correctness of the contract. Do the same as [[ContractValidate.validate]],
@@ -51,14 +50,9 @@ trait ContractValidate[C] {
 
 object ContractValidate {
 
-  case class ValidationErr(msg: String, cause: Throwable) extends NoStackTrace {
-    override def getMessage: String = msg
-    override def getCause: Throwable = cause
-  }
-
   implicit class ContractValidatorOps[C](contract: C)(implicit cValidate: ContractValidate[C], checkerFn: CheckerFn) {
 
-    def validate[F[_]: Monad]: EitherT[F, ValidationErr, Unit] =
+    def validate[F[_]: Monad]: EitherT[F, ContractError, Unit] =
       cValidate.validate(contract)
 
     @deprecated("Try to use validate with EitherT instead if it's possible")

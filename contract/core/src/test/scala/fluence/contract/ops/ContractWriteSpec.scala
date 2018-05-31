@@ -20,7 +20,6 @@ package fluence.contract.ops
 import cats.instances.option._
 import cats.instances.try_._
 import fluence.contract.{BasicContract, _}
-import fluence.crypto.CryptoError
 import fluence.crypto.ecdsa.Ecdsa
 import fluence.kad.protocol.Key
 import org.scalatest.{Matchers, WordSpec}
@@ -50,7 +49,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
   "sealOffer" should {
     "fail when signing is failed" in {
       val result = WriteOps[Option, BasicContract](contract).sealOffer(signerWithException).failed
-      result shouldBe a[CryptoError]
+      result shouldBe a[ContractError]
     }
 
     "sign offer and set signature in contract" in {
@@ -63,7 +62,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
     "fail when signing is failed" in {
 
       val result = WriteOps[Option, BasicContract](contract).signOffer(participantKey, signerWithException).failed
-      result shouldBe a[CryptoError]
+      result shouldBe a[ContractError]
     }
 
     "sign offer and set participant key and signature to participants" in {
@@ -79,7 +78,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
   "sealParticipants" should {
     "fail when signing is failed" in {
       val result = WriteOps[Option, BasicContract](contract).sealParticipants(signerWithException).failed
-      result shouldBe a[CryptoError]
+      result shouldBe a[ContractError]
     }
 
     "sign participants and set signature in contract" in {
@@ -100,7 +99,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
       "not enough participant in contract (zero participants, required 2)" in {
         val result =
           WriteOps[Option, BasicContract](contract).addParticipants(Seq.empty[BasicContract]).failed
-        result shouldBe CryptoError("Wrong number of participants")
+        result shouldBe ContractError("Wrong number of participants")
       }
 
       "not enough participant in contract (1 participant, required 2)" in {
@@ -111,7 +110,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
             .addParticipants(Seq(contractWithOneParticipant))
             .failed
 
-        result shouldBe CryptoError("Wrong number of participants")
+        result shouldBe ContractError("Wrong number of participants")
       }
 
     }
@@ -150,7 +149,7 @@ class ContractWriteSpec extends WordSpec with Matchers {
   "sealExecState" should {
     "fail when signing is failed" in {
       val result = WriteOps[Option, BasicContract](contract).sealExecState(signerWithException).failed
-      result shouldBe a[CryptoError]
+      result shouldBe a[ContractError]
     }
 
     "sign execution state and set signature in contract" in {

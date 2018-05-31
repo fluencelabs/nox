@@ -18,7 +18,7 @@
 package fluence.node
 
 import java.io.IOException
-import java.net.ServerSocket
+import java.net.{BindException, ServerSocket}
 
 import cats.data.EitherT
 import cats.effect.IO
@@ -28,7 +28,7 @@ import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.client.core.{ClientServices, FluenceClient}
 import fluence.client.grpc.ClientGrpcServices
-import fluence.contract.BasicContract
+import fluence.contract.{BasicContract, ContractError}
 import fluence.contract.client.Contracts
 import fluence.contract.client.Contracts.NotFound
 import fluence.crypto.ecdsa.Ecdsa
@@ -39,6 +39,7 @@ import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.protocol.{ClientError, DatasetStorageRpc, ServerError}
 import fluence.kad.protocol.{Contact, ContactSecurity, Key}
 import fluence.kad.{KademliaConf, KademliaMVar}
+import fluence.kvstore.StoreError
 import fluence.node.core.ContractsCacheConf
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.StatusRuntimeException
@@ -129,7 +130,7 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
               .withValue("fluence.grpc.server.port", ConfigValueFactory.fromAnyRef(port + 10))
               .withValue("fluence.network.contact.websocketPort", ConfigValueFactory.fromAnyRef(port))
               .withValue("fluence.network.acceptLocal", ConfigValueFactory.fromAnyRef(true)))
-          Try(result.unsafeRunSync()).failed.get shouldBe a[IOException]
+          Try(result.unsafeRunSync()).failed.get shouldBe a[BindException]
 
         } finally {
           server.close()
@@ -230,13 +231,13 @@ class ClientNodeIntegrationSpec extends WordSpec with Matchers with ScalaFutures
           val seedContact = makeKadNetwork(servers)
           val (_, contractsApi) = createClientApi(seedContact, client)
           val offer = BasicContract.offer[Task](kadKey, participantsRequired = 4, signer = signerBad).taskValue
-          offer.checkOfferSeal[Task]().eTaskValue.left.get shouldBe a[CryptoError]
+          offer.checkOfferSeal[Task]().eTaskValue.left.get shouldBe a[ContractError]
           val result = contractsApi
             .allocate(offer, c ⇒ WriteOps[Task, BasicContract](c).sealParticipants(signerValid).leftMap(_.message))
             .value
             .taskValue
             .left.get
-          result shouldBe a[Contracts.CryptoErr]
+          result shouldBe a[Contracts.ContractErr]
         }
       }
 
