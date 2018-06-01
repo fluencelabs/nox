@@ -19,7 +19,7 @@ package fluence.transport.websocket
 
 import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
-import fluence.proxy.grpc.WebsocketMessage
+import fluence.proxy.grpc.{Status, WebsocketMessage}
 import fluence.transport.websocket.WebsocketPipe.WebsocketClient
 import monix.execution.Ack
 import monix.execution.Ack.Continue
@@ -82,8 +82,10 @@ object GrpcProxyClient {
     }.flatMap {
       case WebsocketMessage.Response.Payload(payload) ⇒
         Observable(responseCodec.unsafe(payload.toByteArray))
-      case WebsocketMessage.Response.Error(errorMessage) ⇒
-        Observable.raiseError(new Exception(errorMessage))
+      case WebsocketMessage.Response.CompleteStatus(status) ⇒
+        Observable.raiseError(new StatusException(status))
+      case WebsocketMessage.Response.Empty ⇒
+        Observable.raiseError(new StatusException(Status(Status.Code.UNKNOWN, "Empty response received.")))
     }
 
     WebsocketPipe(proxyObserver, proxyObservable, websocketClient.statusOutput)

@@ -21,6 +21,7 @@ import com.google.protobuf.ByteString
 import fluence.proxy.grpc.WebsocketMessage
 import fs2.async.mutable.Topic
 import fs2.{io ⇒ _, _}
+import io.grpc.StatusException
 import monix.eval.Task
 import monix.execution.Ack
 import monix.execution.Scheduler.Implicits.global
@@ -51,6 +52,12 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
       //Creates a proxy for each connection to separate the cache for all clients.
       val proxyGrpc = new ProxyGrpc(inProcessGrpc)
 
+      def genCompleteMessage(message: WebsocketMessage, code: Int, description: String) = {
+        val statusCode = fluence.proxy.grpc.Status.Code.fromValue(code)
+        val status = fluence.proxy.grpc.Status(statusCode, description)
+        message.copy(response = WebsocketMessage.Response.CompleteStatus(status))
+      }
+
       def replyPipe(topic: Topic[Task, WebSocketFrame]): Sink[Task, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
           val responseStream = for {
@@ -76,13 +83,21 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
                 topic.publish1(elem).map(_ ⇒ Ack.Continue).runAsync
 
               override def onError(ex: Throwable): Unit = {
-                val errorMessage = message.copy(response = WebsocketMessage.Response.Error(ex.getLocalizedMessage))
+                val errorMessage = ex match {
+                  case ex: StatusException ⇒
+                    val grpcStatus = ex.getStatus
+                    genCompleteMessage(message, grpcStatus.getCode.value(), grpcStatus.getDescription)
+                  case ex: Throwable ⇒
+                    genCompleteMessage(message, fluence.proxy.grpc.Status.Code.INTERNAL.value, ex.getLocalizedMessage)
+                }
                 val frame = Binary(errorMessage.toByteArray)
                 topic.publish1(frame)
                 ex.printStackTrace()
               }
 
-              override def onComplete(): Unit = ()
+              override def onComplete(): Unit = {
+                genCompleteMessage(message, fluence.proxy.grpc.Status.Code.OK.value, "")
+              }
             }
 
             binaryObservable.subscribe(obs)
