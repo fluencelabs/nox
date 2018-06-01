@@ -19,6 +19,7 @@ package fluence.transport.websocket
 
 import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
+import fluence.proxy.grpc.Status.Code
 import fluence.proxy.grpc.{Status, WebsocketMessage}
 import fluence.transport.websocket.WebsocketPipe.WebsocketClient
 import monix.execution.Ack
@@ -79,9 +80,15 @@ object GrpcProxyClient {
     val proxyObservable = wsObservable.collect {
       case WebsocketMessage(s, m, rId, payload) if s == service && m == method && rId == rId ⇒
         payload
+    }.takeWhile {
+      case WebsocketMessage.Response.CompleteStatus(status) if status.code == Code.OK ⇒
+        false
+      case _ ⇒ true
     }.flatMap {
       case WebsocketMessage.Response.Payload(payload) ⇒
         Observable(responseCodec.unsafe(payload.toByteArray))
+      case WebsocketMessage.Response.CompleteStatus(status) if status.code == Code.OK ⇒
+        Observable()
       case WebsocketMessage.Response.CompleteStatus(status) ⇒
         Observable.raiseError(new StatusException(status))
       case WebsocketMessage.Response.Empty ⇒
