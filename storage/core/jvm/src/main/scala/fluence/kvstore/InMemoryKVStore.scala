@@ -30,13 +30,15 @@ import scala.language.higherKinds
 
 /**
  * Base thread-safe in memory KVStore implementation, that allow 'put', 'remove'
- * and 'get' by key.
+ * and 'get' by key. Note that K should be with correct hash function (Array[Byte]
+ * shouldn't be used as is)
  *
  * @tparam K The type of keys
  * @tparam V The type of stored values
  */
 class InMemoryKVStore[K, V]
     extends TrieMapKVStoreBase[K, V] with InMemoryKVStoreRead[K, V] with InMemoryKVStoreWrite[K, V]
+    with ReadWriteKVStore[K, V]
 
 object InMemoryKVStore {
 

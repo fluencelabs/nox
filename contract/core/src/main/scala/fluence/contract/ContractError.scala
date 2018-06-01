@@ -15,23 +15,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.storage.rocksdb
+package fluence.contract
 
-import cats.ApplicativeError
-import com.typesafe.config.Config
+import scala.util.control.NoStackTrace
 
-import scala.language.higherKinds
+/**
+ * Error related to contract processing or incorrect contract state.
+ *
+ * @param message Error message
+ * @param causedBy Error cause for wrapped exceptions
+ */
+case class ContractError(message: String, causedBy: Option[Throwable] = None) extends NoStackTrace {
 
-@deprecated("use kvstore.rocksdb.RocksDbConf instead.")
-case class RocksDbConf(dataDir: String, createIfMissing: Boolean)
+  override def getMessage: String = message
 
-object RocksDbConf {
-  val ConfigPath = "fluence.storage.rocksDb"
+  override def getCause: Throwable = causedBy getOrElse super.getCause
 
-  def read[F[_]](conf: Config, name: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbConf] =
-    F.catchNonFatal {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[RocksDbConf](name)
-    }
+}
+
+object ContractError {
+
+  def apply(message: String, causedBy: Throwable): ContractError =
+    new ContractError(message, Some(causedBy))
+
 }

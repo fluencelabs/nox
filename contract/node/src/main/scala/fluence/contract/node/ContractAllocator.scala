@@ -19,42 +19,38 @@ package fluence.contract.node
 
 import java.time.Clock
 
+import cats.Eq
 import cats.data.EitherT
 import cats.effect.IO
 import cats.syntax.eq._
-import cats.syntax.flatMap._
-import cats.syntax.functor._
 import cats.syntax.show._
-import cats.{~>, Eq, Monad}
+import fluence.contract.ContractError
+import fluence.contract.node.ContractsCache._
+import fluence.contract.node.cache.ContractRecord
 import fluence.contract.ops.{ContractRead, ContractWrite}
 import fluence.contract.protocol.ContractAllocatorRpc
-import fluence.crypto.signature.Signer
-import fluence.contract.node.cache.ContractRecord
-import fluence.crypto.CryptoError
 import fluence.crypto.signature.SignAlgo.CheckerFn
+import fluence.crypto.signature.Signer
 import fluence.kad.protocol.Key
-import fluence.storage.KVStore
+import fluence.kvstore.ReadWriteKVStore
 
 import scala.language.{higherKinds, implicitConversions}
 
 /**
  * Performs contracts allocation on local node.
- * TODO: we have a number of toIO convertions due to wrong [[KVStore.get]] signature; it should be fixed
  *
  * @param storage       Contracts storage
  * @param createDataset Callback to create a dataset for a successfully allocated contract
  * @param eq Contracts equality
- * @tparam F Effect
  * @tparam C Contract
  */
-class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
+class ContractAllocator[C: ContractRead: ContractWrite](
   nodeId: Key,
-  storage: KVStore[F, Key, ContractRecord[C]],
-  createDataset: C ⇒ F[Boolean],
-  checkAllocationPossible: C ⇒ F[Boolean],
+  storage: ReadWriteKVStore[Key, ContractRecord[C]],
+  createDataset: C ⇒ IO[Boolean],
+  checkAllocationPossible: C ⇒ IO[Boolean],
   signer: Signer,
-  clock: Clock,
-  toIO: F ~> IO
+  clock: Clock
 )(
   implicit
   eq: Eq[C],
@@ -70,67 +66,83 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
    * @param contract A sealed contract with all nodes and client signatures
    * @return Allocated contract
    */
-  override def allocate(contract: C): IO[C] =
-    for {
-      _ ← eitherFail(
-        contract.participantSigned(nodeId),
-        "Contract should be offered to this node and signed by it prior to allocation"
-      )
+  override def allocate(contract: C): IO[C] = {
 
-      _ ← eitherFail(contract.isActiveContract(), "Contract should be active -- sealed by client")
+    val allocatedContract =
+      for {
+        _ ← failIfFalse(
+          contract.participantSigned(nodeId),
+          "Contract should be offered to this node and signed by it prior to allocation"
+        )
 
-      contract ← toIO(storage.get(contract.id)).flatMap {
-        case Some(cr) ⇒
-          cr.contract.isBlankOffer[IO]().value.map(_.contains(true)).flatMap {
-            case false ⇒ IO.pure(Right(cr.contract))
-            case true ⇒ toIO(storage.remove(contract.id).flatMap(_ ⇒ putContract(contract).value))
+        _ ← failIfFalse(contract.isActiveContract(), "Contract should be active -- sealed by client")
+
+        contract ← storage
+          .get(contract.id)
+          .run[IO, ContractError](getError)
+          .flatMap {
+            case Some(cr) ⇒
+              updateIfBlankOffer(contract, cr)
+            case None ⇒
+              putContract(contract)
           }
-        case None ⇒
-          toIO(putContract(contract).value)
-      }.flatMap(IO.fromEither)
-    } yield {
-      logger.info(
-        s"Contract with id=${contract.id.show} was successfully allocated, this node (${nodeId.show}) is contract participant now"
-      )
-      contract
-    }
-
-  private def putContract(contract: C): EitherT[F, Throwable, C] =
-    for {
-      _ ← EitherT(
-        checkAllocationPossible(contract)
-          .map(p ⇒ Either.cond(p, p, new RuntimeException("Allocation is not possible")))
-      )
-      _ ← EitherT.right[Throwable](storage.put(contract.id, ContractRecord(contract, clock.instant())))
-      created ← EitherT.right[Throwable](createDataset(contract))
-
-      // TODO: error should be returned as value
-      _ ← {
-        if (created)
-          EitherT.rightT[F, Throwable](())
-        else
-          EitherT
-            .right[Throwable](storage.remove(contract.id))
-            .subflatMap(_ ⇒ Left(new RuntimeException("Creation is not possible")))
+      } yield {
+        logger.info(
+          s"Contract with id=${contract.id.show} was successfully allocated, this node (${nodeId.show}) is contract participant now"
+        )
+        contract
       }
 
-      _ ← EitherT
-        .fromOptionF[F, Throwable, ContractRecord[C]](
-          storage.get(contract.id),
-          new RuntimeException("Creation is not possible")
-        )
+    allocatedContract.toIO
+  }
+
+  private def updateIfBlankOffer(allocatedContract: C, contractFromStorage: ContractRecord[C]) = {
+    contractFromStorage.contract
+      .isBlankOffer[IO]()
+      .flatMap {
+        case false ⇒
+          EitherT.rightT[IO, ContractError](contractFromStorage.contract)
+        case true ⇒
+          storage
+            .remove(allocatedContract.id)
+            .run[IO, ContractError](removeError)
+            .flatMap(_ ⇒ putContract(allocatedContract))
+      }
+  }
+
+  private def putContract(contract: C): EitherT[IO, ContractError, C] = {
+
+    for {
+
+      _ ← failIfFalseIo(checkAllocationPossible(contract), "Allocation is not possible")
+
+      _ ← storage
+        .put(contract.id, ContractRecord(contract, clock.instant()))
+        .run[IO, ContractError](putError)
+
+      isDsCreated ← EitherT.right[ContractError](createDataset(contract))
+
+      _ ← { // TODO: error should be returned as value
+        if (isDsCreated)
+          EitherT.right[ContractError](IO.unit)
+        else
+          storage
+            .remove(contract.id)
+            .run[IO, ContractError](removeError)
+            .subflatMap[ContractError, Unit](_ ⇒ Left(new ContractError("Creation is not possible")))
+      }
+
+      _ ← storage
+        .get(contract.id)
+        .run[IO, ContractError](getError)
+        .flatMap[ContractError, ContractRecord[C]] {
+          case Some(c) ⇒ EitherT.rightT(c)
+          case None ⇒ EitherT.leftT(new ContractError("Creation is not possible"))
+        }
 
     } yield contract
 
-  private def eitherFail(check: EitherT[IO, CryptoError, Boolean], msg: String): IO[Unit] =
-    check
-      .leftMap(_.message)
-      .flatMap(
-        EitherT.cond[IO](_, (), msg)
-      )
-      .leftMap(new RuntimeException(_))
-      .value
-      .flatMap(IO.fromEither)
+  }
 
   /**
    * Offer a contract to node.
@@ -139,51 +151,81 @@ class ContractAllocator[F[_]: Monad, C: ContractRead: ContractWrite](
    * @return Signed contract, or F is an error
    */
   override def offer(contract: C): IO[C] = {
-    def signedContract: IO[C] =
+    def signedContract: EitherT[IO, ContractError, C] =
       WriteOps[IO, C](contract)
         .signOffer(nodeId, signer)
-        .leftMap(_.message)
-        .leftMap(new RuntimeException(_))
-        .value
-        .flatMap(IO.fromEither)
+        .leftMap(e ⇒ ContractError(e.message))
 
-    for {
-      _ ← eitherFail(contract.isBlankOffer[IO](), "This is not a valid blank offer")
+    val signedAndCheckedContract =
+      for {
+        _ ← failIfFalse(contract.isBlankOffer[IO](), "This is not a valid blank offer")
 
-      contractOpt ← toIO(storage.get(contract.id))
+        contractOpt ← storage
+          .get(contract.id)
+          .run[IO, ContractError](getError)
 
-      contract ← contractOpt match {
-        case Some(cr) ⇒
-          eitherFail(cr.contract.isBlankOffer(), "Different contract is already stored for this ID").flatMap { _ ⇒
-            if (cr.contract =!= contract) {
-              // contract preallocated for id, but it's changed now
-              logger.debug("preallocated, but changed")
-              for {
-                _ ← toIO(storage.remove(contract.id))
-                ap ← toIO(checkAllocationPossible(contract))
-                _ ← IO.fromEither(Either.cond(ap, (), new RuntimeException("Allocation is not possible")))
-                _ ← toIO(storage.put(contract.id, ContractRecord(contract, clock.instant())))
-                sContract ← signedContract
-              } yield sContract
-            } else {
-              // contracts are equal
-              signedContract
+        contract ← contractOpt match {
+          case Some(cr) ⇒
+            failIfFalse(cr.contract.isBlankOffer(), "Different contract is already stored for this ID").flatMap { _ ⇒
+              if (cr.contract =!= contract) {
+                // contract preallocated for id, but it's changed now
+                logger.debug("preallocated, but changed")
+                for {
+                  _ ← storage.remove(contract.id).run[IO, ContractError](removeError)
+                  ap ← failIfFalseIo(checkAllocationPossible(contract), "Allocation is not possible")
+                  _ ← storage
+                    .put(contract.id, ContractRecord(contract, clock.instant()))
+                    .run[IO, ContractError](putError)
+                  sContract ← signedContract
+                } yield sContract
+              } else {
+                // contracts are equal
+                signedContract
+              }
+
             }
-          }
 
-        case None ⇒
-          for {
-            ap ← toIO(checkAllocationPossible(contract))
-            _ ← IO.fromEither(Either.cond(ap, (), new RuntimeException("Allocation is not possible")))
-            _ ← toIO(storage.put(contract.id, ContractRecord(contract, clock.instant())))
-            sContract ← signedContract
-          } yield sContract
+          case None ⇒
+            for {
+              ap ← failIfFalseIo(checkAllocationPossible(contract), "Allocation is not possible")
+              _ ← storage
+                .put(contract.id, ContractRecord(contract, clock.instant()))
+                .run[IO, ContractError](putError)
+              sContract ← signedContract
+            } yield sContract
+
+        }
+
+      } yield {
+        logger.info(s"Contract offer with id=${contract.id.show} was accepted with node=${nodeId.show}")
+        contract
       }
 
-    } yield {
-      logger.info(s"Contract offer with id=${contract.id.show} was accepted with node=${nodeId.show}")
-      contract
-    }
+    signedAndCheckedContract.toIO
+
+  }
+
+  /** If Right(false) - fail EtherT with error msg, return Left(Unit) otherwise */
+  private def failIfFalse(
+    check: EitherT[IO, ContractError, Boolean],
+    msg: String
+  ): EitherT[IO, ContractError, Unit] =
+    check.flatMap(EitherT.cond[IO](_, (), ContractError(msg)))
+
+  /** If IO(false) - fail IO with error msg, return IO(Unit) value otherwise */
+  private def failIfFalseIo(check: IO[Boolean], msg: String): EitherT[IO, ContractError, Unit] = {
+    val value = EitherT.right[ContractError](check)
+    failIfFalse(value, msg)
+  }
+
+  // todo will be removed when all API will be 'EitherT compatible'
+  private implicit class EitherT2IO[E <: Throwable, V](origin: EitherT[IO, E, V]) {
+
+    def toIO: IO[V] =
+      origin.value.flatMap {
+        case Right(value) ⇒ IO.pure(value)
+        case Left(error) ⇒ IO.raiseError(error)
+      }
   }
 
 }

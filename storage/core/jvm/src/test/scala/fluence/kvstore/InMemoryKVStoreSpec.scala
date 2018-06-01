@@ -21,6 +21,7 @@ import java.nio.ByteBuffer
 
 import cats.effect.{IO, LiftIO}
 import cats.~>
+import fluence.codec.PureCodec
 import monix.execution.Scheduler.Implicits.global
 import monix.reactive.Observable
 import org.scalatest.concurrent.ScalaFutures
@@ -40,7 +41,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
     override def apply[A](fa: Iterator[A]): Observable[A] = Observable.fromIterator(fa)
   }
 
-  implicit val catsObservableLiftIO = new LiftIO[Observable] {
+  implicit val catsObservableLiftIO: LiftIO[Observable] = new LiftIO[Observable] {
     override def liftIO[A](ioa: IO[A]): Observable[A] = Observable.fromIO(ioa)
   }
 
@@ -239,6 +240,53 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
         case (bb, v) ⇒ bb.array() -> v
       }) should contain theSameElementsAs bytesToStr(manyPairs)
 
+    }
+
+    "performs all operations correctly with codecs" in {
+
+      implicit val direct: PureCodec[Int, String] = PureCodec.build(_.toString, _.toInt)
+
+      val originStore: ReadWriteKVStore[String, String] = InMemoryKVStore[String, String]
+
+      val store: ReadWriteKVStore[String, String] = KVStore.withCodecs(originStore)
+
+      val key1 = 1
+      val val1 = 11
+      val key2 = 2
+      val val2 = 22
+      val newVal2 = 222
+
+      // check write and read
+
+      store.get(key1).runUnsafe() shouldBe None
+      store.put(key1, val1).runUnsafe() shouldBe ()
+      store.get(key1).runUnsafe().get shouldBe val1
+
+      // check update
+
+      store.put(key2, val2).runUnsafe() shouldBe ()
+      store.get(key2).runUnsafe().get shouldBe val2
+      store.put(key2, newVal2).runUnsafe() shouldBe ()
+      store.get(key2).runUnsafe().get shouldBe newVal2
+
+      // check delete
+
+      store.get(key1).runUnsafe().get shouldBe val1
+      store.remove(key1).runUnsafe() shouldBe ()
+      store.get(key1).runUnsafe() shouldBe None
+
+      // check traverse
+
+      val manyPairs: Seq[(String, String)] = 1 to 100 map { n ⇒
+        n.toString → n.toString
+      }
+      val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v).runUnsafe() }
+      inserts should have size 100
+
+      val traverseResult =
+        store.traverse.run[Observable].toListL.runSyncUnsafe(1.seconds)
+
+      traverseResult should contain theSameElementsAs manyPairs
     }
 
   }

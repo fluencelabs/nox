@@ -151,17 +151,17 @@ object FluenceNode extends slogging.LazyLogging {
    */
   // todo write unit test, this method don't close resources correctly when initialisation failed
   private def launchGrpc(
-    algo: SignAlgo,
+    signAlgo: SignAlgo,
     hasher: Crypto.Hasher[Array[Byte], Array[Byte]],
     config: Config,
     clock: Clock = Clock.systemUTC()
   ): IO[FluenceNode] = {
-    import algo.checker
+    import signAlgo.checker
     for {
       _ ← initDirectory(config.getString("fluence.directory")) // TODO config
       kpConf ← KeyPairConfig.read(config)
-      kp ← FileKeyStorage.getKeyPair(kpConf.keyPath, algo)
-      key ← Key.fromKeyPair.runF[IO](kp)
+      keyPair ← FileKeyStorage.getKeyPair(kpConf.keyPath, signAlgo)
+      key ← Key.fromKeyPair.runF[IO](keyPair)
 
       grpcServerConf ← NodeGrpc.grpcServerConf(config)
       builder ← NodeGrpc.grpcServerBuilder(grpcServerConf)
@@ -179,7 +179,7 @@ object FluenceNode extends slogging.LazyLogging {
           websocketPort = upnpContact.websocketPort,
           protocolVersion = upnpContact.protocolVersion,
           gitHash = upnpContact.gitHash,
-          signer = algo.signer(kp)
+          signer = signAlgo.signer(keyPair)
         )
         .runF[IO](())
         .onFail(upnpShutdown)
@@ -188,7 +188,18 @@ object FluenceNode extends slogging.LazyLogging {
       kadClient = client(_: Contact).kademlia
 
       services ← NodeComposer
-        .services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true, clock)(Scheduler.global) // TODO: it should be custom
+        .services(
+          keyPair,
+          contact,
+          signAlgo,
+          hasher,
+          kadClient,
+          config,
+          acceptLocal = true,
+          clock,
+          Scheduler.global,
+          Scheduler.io(name = "io-pool") // Unfortunately Idea uses sjs sources here and don't know 'io' method
+        )
         .onFail(upnpShutdown)
       closeUpNpAndServices = upnpShutdown.flatMap(_ ⇒ services.close)
 
@@ -240,7 +251,7 @@ object FluenceNode extends slogging.LazyLogging {
           }
 
         override def restart: IO[FluenceNode] =
-          stop.flatMap(_ ⇒ launchGrpc(algo, hasher, _conf))
+          stop.flatMap(_ ⇒ launchGrpc(signAlgo, hasher, _conf))
       }
 
       sys.addShutdownHook {

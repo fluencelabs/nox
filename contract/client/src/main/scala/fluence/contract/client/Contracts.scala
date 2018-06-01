@@ -23,9 +23,9 @@ import cats.instances.list._
 import cats.syntax.functor._
 import cats.syntax.show._
 import cats.{Eq, Monad, Parallel, Show}
+import fluence.contract.ContractError
 import fluence.contract.ops.{ContractRead, ContractWrite}
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
-import fluence.crypto.CryptoError
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
@@ -100,7 +100,7 @@ object Contracts {
       for {
         _ ← contract
           .isBlankOffer[F]()
-          .leftMap(CryptoErr)
+          .leftMap(ContractErr)
           .subflatMap(Either.cond[AllocateError, Unit](_, (), Contracts.IncorrectOfferContract))
 
         agreements ← EitherT.right[AllocateError](
@@ -113,7 +113,7 @@ object Contracts {
                   .flatMap { contract ⇒
                     contract
                       .participantSigned[F](nc.key)
-                      .leftMap(CryptoErr)
+                      .leftMap(ContractErr)
                       .subflatMap(Either.cond(_, contract, Contracts.NotFound))
                 },
               contract.participantsRequired,
@@ -132,7 +132,7 @@ object Contracts {
 
         contractToSeal ← WriteOps[F, Contract](contract)
           .addParticipants(agreements.map(_._2))
-          .leftMap[AllocateError](CryptoErr)
+          .leftMap[AllocateError](ContractErr)
 
         sealedContract ← sealParticipants(contractToSeal).leftMap[AllocateError](ClientError)
 
@@ -187,7 +187,7 @@ object Contracts {
   sealed trait AllocateError extends NoStackTrace
 
   // TODO: this wrapper is ugly, but if we want to avoid use of CoFail, what else could we do?
-  case class CryptoErr(err: CryptoError) extends AllocateError
+  case class ContractErr(err: ContractError) extends AllocateError
 
   case object IncorrectOfferContract extends AllocateError
 

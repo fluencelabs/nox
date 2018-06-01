@@ -25,6 +25,7 @@ import monix.execution.atomic.AtomicLong
 
 import scala.language.higherKinds
 
+// todo create the same for new RocksDbKVStore
 object IdSeqProvider {
 
   /**

@@ -102,7 +102,7 @@ object BasicContractCodec {
 
         def readParticipantsSeal: F[Option[ByteVector]] =
           Option(grpcContact.participantsSeal)
-            .filter(_.size() > 0)
+            .filterNot(_.isEmpty)
             .fold(F.pure(Option.empty[ByteVector]))(sl ⇒ strVec.decode(sl).map(Option(_)))
 
         for {

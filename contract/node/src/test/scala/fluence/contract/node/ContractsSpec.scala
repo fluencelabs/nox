@@ -19,26 +19,23 @@ package fluence.contract.node
 
 import java.time.Clock
 
-import cats.implicits.catsStdShowForString
-import cats.instances.try_._
 import cats.effect.{IO, LiftIO}
-import cats.instances.try_._
 import cats.implicits.catsStdShowForString
-import cats.~>
+import cats.instances.try_._
 import fluence.contract.BasicContract
 import fluence.contract.client.Contracts
 import fluence.contract.node.cache.ContractRecord
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
 import fluence.crypto.KeyPair
-import fluence.crypto.signature.Signer
 import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
 import fluence.kad.testkit.TestKademlia
-import fluence.storage.{KVStore, TrieMapKVStore}
+import fluence.kvstore.{InMemoryKVStore, ReadWriteKVStore}
 import monix.eval.Coeval
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.concurrent.TrieMap
+import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.language.higherKinds
 import scala.util.Random
@@ -46,9 +43,10 @@ import scala.util.Random
 class ContractsSpec extends WordSpec with Matchers {
 
   private val clock = Clock.systemUTC()
-  val dsCreated = TrieMap.empty[String, Set[Key]].withDefaultValue(Set.empty)
-  import fluence.crypto.DumbCrypto.signAlgo
 
+  val dsCreated: mutable.Map[String, Set[Key]] =
+    TrieMap.empty[String, Set[Key]].withDefaultValue(Set.empty)
+  import fluence.crypto.DumbCrypto.signAlgo
   import signAlgo.checker
 
   def unsafeKey(str: String): Key = Key.fromStringSha1.unsafe(str)
@@ -57,12 +55,12 @@ class ContractsSpec extends WordSpec with Matchers {
     override def liftIO[A](ioa: IO[A]): Coeval[A] = Coeval(ioa.unsafeRunSync())
   }
 
-  val createDS: String ⇒ BasicContract ⇒ Coeval[Boolean] = id ⇒
+  val createDS: String ⇒ BasicContract ⇒ IO[Boolean] = id ⇒
     c ⇒
       if (c.executionState.version == 0)
-        Coeval.evalOnce(dsCreated(id) = dsCreated(id) + c.id).map(_ ⇒ true)
+        IO.pure(dsCreated(id) = dsCreated(id) + c.id).map(_ ⇒ true)
       else {
-        Coeval.evalOnce(false)
+        IO.pure(false)
   }
 
   val checkAllocationPossible: BasicContract ⇒ Coeval[Unit] = c ⇒
@@ -81,10 +79,6 @@ class ContractsSpec extends WordSpec with Matchers {
 
   import TestKademlia.CoevalParallel
 
-  object coevalIO extends (Coeval ~> IO) {
-    override def apply[A](fa: Coeval[A]): IO[A] = fa.toIO
-  }
-
   lazy val network: Map[String, TestNode] = {
     val random = new Random(123123)
     TestKademlia.coevalSimulationKP[String](16, 100, _.b64, {
@@ -93,8 +87,8 @@ class ContractsSpec extends WordSpec with Matchers {
     }, joinPeers = 3)
   }.map {
     case (contact, (signer, kad)) ⇒
-      val store: KVStore[Coeval, Key, ContractRecord[BasicContract]] =
-        TrieMapKVStore()
+      val store: ReadWriteKVStore[Key, ContractRecord[BasicContract]] =
+        InMemoryKVStore[Key, ContractRecord[BasicContract]]
 
       contact -> TestNode(
         kad,
@@ -102,17 +96,15 @@ class ContractsSpec extends WordSpec with Matchers {
           kad.nodeId,
           store,
           1.second,
-          clock,
-          coevalIO
+          clock
         ),
-        new ContractAllocator[Coeval, BasicContract](
+        new ContractAllocator[BasicContract](
           kad.nodeId,
           store,
           createDS(contact),
-          _ ⇒ Coeval(true),
+          _ ⇒ IO(true),
           signer,
-          clock,
-          coevalIO
+          clock
         ),
         Contracts[Coeval, Coeval, BasicContract, String](
           10,

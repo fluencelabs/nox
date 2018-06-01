@@ -21,7 +21,6 @@ import cats.{Id, Now}
 import cats.instances.option._
 import cats.instances.try_._
 import fluence.contract.{BasicContract, _}
-import fluence.crypto.CryptoError
 import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.signature.{PubKeyAndSignature, Signature}
 import fluence.kad.protocol.Key
@@ -132,7 +131,7 @@ class ContractReadSpec extends WordSpec with Matchers {
         val signedContract =
           signWithParticipants(contract).copy(id = Key.fromStringSha1[Id]("123123123").value.right.get)
         val result = signedContract.participantSigned[Option](signedContract.participants.head._1)
-        result.failed shouldBe a[CryptoError]
+        result.failed shouldBe a[ContractError]
       }
     }
     "return false when participant wasn't sign contract" in {
@@ -185,7 +184,7 @@ class ContractReadSpec extends WordSpec with Matchers {
     "fail" when {
       "number of participants is not enough" in {
         val result = contract.checkAllParticipants[Option]()
-        result.failed shouldBe CryptoError("Wrong number of participants")
+        result.failed shouldBe ContractError("Wrong number of participants")
       }
       "one signatures are invalid" in {
         val signedContract: BasicContract = signWithParticipants(contract)
@@ -266,7 +265,7 @@ class ContractReadSpec extends WordSpec with Matchers {
           sealAll(contractWith2Participants.copy(participants = Map(contractWith2Participants.participants.head)))
             .isActiveContract[Option]
 
-        result.failed shouldBe a[CryptoError]
+        result.failed shouldBe a[ContractError]
       }
     }
     "return true" when {
@@ -332,7 +331,7 @@ class ContractReadSpec extends WordSpec with Matchers {
     "fail when id of contract is invalid" in {
       val signedContract = signWithParticipants(contract).copy(id = Key.fromStringSha1[Id]("123123123").value.right.get)
       val result = signedContract.checkPubKey[Option]
-      result.failed.getMessage should startWith("Kademlia key doesn't match hash(pubKey);")
+      result.failed.getMessage should include("isn't produced form the publicKey")
     }
     "success" in {
       val signedContract = signWithParticipants(contract)
