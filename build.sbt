@@ -181,6 +181,18 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
 lazy val `kademlia-js` = `kademlia`.js
 lazy val `kademlia-jvm` = `kademlia`.jvm
 
+lazy val `transport-grpc-monix` = project
+  .in(file("transport/grpc-monix"))
+  .settings(
+    commons,
+    grpc,
+    libraryDependencies ++= Seq(
+      monix3,
+      "org.scalatest" %% "scalatest"      % ScalatestV % Test
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
 lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)
@@ -246,7 +258,7 @@ lazy val `transport-grpc-proxy` = project
       scalatest
     )
   )
-  .dependsOn(`transport-core-jvm`, `websocket-protobuf-jvm`)
+  .dependsOn(`transport-core-jvm`, `websocket-protobuf-jvm`, `transport-grpc-monix`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `transport-websocket-js` = project
@@ -496,7 +508,7 @@ lazy val `dataset-grpc` = crossProject(JVMPlatform, JSPlatform)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`dataset-client`, `transport-grpc`)
 
-lazy val `dataset-grpc-jvm` = `dataset-grpc`.jvm.dependsOn(`dataset-node`)
+lazy val `dataset-grpc-jvm` = `dataset-grpc`.jvm.dependsOn(`dataset-node`, `transport-grpc-monix`)
 lazy val `dataset-grpc-js` = `dataset-grpc`.js
   .enablePlugins(ScalaJSBundlerPlugin)
   .dependsOn(`transport-websocket-js`)

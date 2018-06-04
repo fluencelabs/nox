@@ -21,8 +21,8 @@ import com.google.protobuf.ByteString
 import fluence.grpc.proxy.test.TestServiceGrpc.TestService
 import fluence.grpc.proxy.test.{TestMessage, TestRequest, TestResponse, TestServiceGrpc}
 import fluence.proxy.grpc.WebsocketMessage
+import io.grpc.{MethodDescriptor, ServerServiceDefinition, StatusRuntimeException}
 import io.grpc.stub.StreamObserver
-import io.grpc.{MethodDescriptor, ServerServiceDefinition, Status, StatusException}
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import monix.reactive.Observable
@@ -172,14 +172,13 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
         val testMessage =
           generateMessage(1111L, TestRequest(Some(TestMessage())), TestServiceGrpc.METHOD_TEST)
 
-        val exception = the[StatusException] thrownBy {
+        val exception = the[StatusRuntimeException] thrownBy {
           proxyGrpc
             .handleMessage(testMessage.service, testMessage.method, 1L, testMessage.response.payload.get.newInput())
             .runSyncUnsafe(5.seconds)
             .lastL
             .runSyncUnsafe(5.seconds)
         }
-        exception.getStatus.getCode shouldBe Status.UNAVAILABLE.getCode
       }
     }
 

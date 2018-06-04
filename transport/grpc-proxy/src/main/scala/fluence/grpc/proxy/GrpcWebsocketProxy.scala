@@ -21,11 +21,8 @@ import com.google.protobuf.ByteString
 import fluence.proxy.grpc.WebsocketMessage
 import fs2.async.mutable.Topic
 import fs2.{io ⇒ _, _}
-import io.grpc.StatusException
 import monix.eval.Task
-import monix.execution.Ack
 import monix.execution.Scheduler.Implicits.global
-import monix.reactive.Observer
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Server
@@ -33,7 +30,6 @@ import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.websocket._
 import org.http4s.websocket.WebsocketBits.{WebSocketFrame, _}
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
@@ -60,7 +56,7 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
 
       def replyPipe(topic: Topic[Task, WebSocketFrame]): Sink[Task, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
-          val responseStream = for {
+          val handleRequest = for {
             message ← Task(WebsocketMessage.parseFrom(data))
             _ = logger.debug(s"Handle websocket message $message")
             // TODO message.response.payload.get.newInput() rewrite with error handling
@@ -78,32 +74,12 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
             }
           } yield {
             //splitting observer and topic for asynchronous request handling
-            val obs = new Observer[WebSocketFrame] {
-              override def onNext(elem: WebSocketFrame): Future[Ack] =
-                topic.publish1(elem).map(_ ⇒ Ack.Continue).runAsync
-
-              override def onError(ex: Throwable): Unit = {
-                val errorMessage = ex match {
-                  case ex: StatusException ⇒
-                    val grpcStatus = ex.getStatus
-                    genCompleteMessage(message, grpcStatus.getCode.value(), grpcStatus.getDescription)
-                  case ex: Throwable ⇒
-                    genCompleteMessage(message, fluence.proxy.grpc.Status.Code.INTERNAL.value, ex.getLocalizedMessage)
-                }
-                val frame = Binary(errorMessage.toByteArray)
-                topic.publish1(frame)
-                ex.printStackTrace()
-              }
-
-              override def onComplete(): Unit = {
-                genCompleteMessage(message, fluence.proxy.grpc.Status.Code.OK.value, "")
-              }
-            }
+            val obs = new WebsocketPublishObserver(topic, message.service, message.method, message.requestId)
 
             binaryObservable.subscribe(obs)
           }
 
-          Stream.eval(responseStream.map(_ ⇒ ()))
+          Stream.eval(handleRequest.map(_ ⇒ ()))
         case m ⇒
           logger.warn(s"Unexpected message in GrpcWebsocketProxy: $m")
           Stream.eval(Task.pure(()))
