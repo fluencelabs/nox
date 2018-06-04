@@ -62,6 +62,10 @@ object GrpcMonix {
         Try {
           stream.onNext(elem)
           Ack.Continue
+        }.recover {
+          case e: Throwable ⇒
+            onError(e)
+            Ack.Stop
         }.getOrElse(Ack.Stop)
       }
     }
