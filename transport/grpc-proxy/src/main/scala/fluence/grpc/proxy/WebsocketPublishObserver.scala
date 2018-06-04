@@ -26,6 +26,7 @@ import monix.reactive.Observer
 import org.http4s.websocket.WebsocketBits.{Binary, WebSocketFrame}
 
 import scala.concurrent.Future
+import scala.language.higherKinds
 
 /**
  * Observer, that will publish every message or status changes to topic as WebsocketMessage.
@@ -35,36 +36,39 @@ import scala.concurrent.Future
  * @param method Name of request's method.
  * @param requestId Id of request.
  */
-class WebsocketPublishObserver(topic: Topic[Task, WebSocketFrame], service: String, method: String, requestId: Long)(
-  implicit scheduler: Scheduler
-) extends Observer[WebSocketFrame] {
+class WebsocketPublishObserver(
+  topic: Topic[Task, WebSocketFrame],
+  service: String,
+  method: String,
+  requestId: Long
+)(implicit scheduler: Scheduler)
+    extends Observer[WebSocketFrame] {
 
-  private def genCompleteMessage(code: Int, description: String): WebsocketMessage = {
+  private def genCompleteFrame(code: Int, description: String): WebSocketFrame = {
     val statusCode = fluence.proxy.grpc.Status.Code.fromValue(code)
     val status = fluence.proxy.grpc.Status(statusCode, description)
-    WebsocketMessage(service, method, requestId, response = WebsocketMessage.Response.CompleteStatus(status))
+    val message =
+      WebsocketMessage(service, method, requestId, response = WebsocketMessage.Response.CompleteStatus(status))
+    Binary(message.toByteArray)
   }
 
   override def onNext(elem: WebSocketFrame): Future[Ack] =
     topic.publish1(elem).map(_ ⇒ Ack.Continue).runAsync
 
   override def onError(ex: Throwable): Unit = {
-    val errorMessage = ex match {
+    val errorFrame = ex match {
       case ex: StatusException ⇒
         val grpcStatus = ex.getStatus
-        genCompleteMessage(grpcStatus.getCode.value(), grpcStatus.getDescription)
+        genCompleteFrame(grpcStatus.getCode.value(), grpcStatus.getDescription)
       case ex: StatusRuntimeException ⇒
         val grpcStatus = ex.getStatus
-        genCompleteMessage(grpcStatus.getCode.value(), grpcStatus.getDescription)
+        genCompleteFrame(grpcStatus.getCode.value(), grpcStatus.getDescription)
       case ex: Throwable ⇒
-        genCompleteMessage(fluence.proxy.grpc.Status.Code.INTERNAL.value, ex.getLocalizedMessage)
+        genCompleteFrame(fluence.proxy.grpc.Status.Code.INTERNAL.value, Option(ex.getLocalizedMessage).getOrElse(""))
     }
-    val frame = Binary(errorMessage.toByteArray)
-    topic.publish1(frame)
-    ex.printStackTrace()
+    topic.publish1(errorFrame).runAsync
   }
 
-  override def onComplete(): Unit = {
-    genCompleteMessage(fluence.proxy.grpc.Status.Code.OK.value, "")
-  }
+  override def onComplete(): Unit =
+    topic.publish1(genCompleteFrame(fluence.proxy.grpc.Status.Code.OK.value, "")).runAsync
 }

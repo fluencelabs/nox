@@ -22,7 +22,7 @@ import fluence.proxy.grpc.WebsocketMessage
 import fs2.async.mutable.Topic
 import fs2.{io ⇒ _, _}
 import monix.eval.Task
-import monix.execution.Scheduler.Implicits.global
+import monix.execution.{Scheduler ⇒ TaskScheduler}
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Server
@@ -42,7 +42,7 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
     inProcessGrpc: InProcessGrpc,
     scheduler: Scheduler,
     pingInterval: FiniteDuration = 2.seconds
-  ): HttpService[Task] = HttpService[Task] {
+  )(implicit taskScheduler: TaskScheduler): HttpService[Task] = HttpService[Task] {
 
     case GET -> Root ⇒
       //Creates a proxy for each connection to separate the cache for all clients.
@@ -90,9 +90,12 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
       }
   }
 
-  def startWebsocketServer(inProcessGrpc: InProcessGrpc, scheduler: Scheduler, port: Int): Task[Server[Task]] =
+  def startWebsocketServer(
+    inProcessGrpc: InProcessGrpc,
+    scheduler: Scheduler,
+    port: Int
+  )(implicit taskScheduler: TaskScheduler): Task[Server[Task]] =
     for {
-
       server ← BlazeBuilder[Task]
         .bindHttp(port, "0.0.0.0")
         .withWebSockets(true)

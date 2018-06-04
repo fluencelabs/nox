@@ -137,7 +137,7 @@ object FluenceNode extends slogging.LazyLogging {
       fs2SchedulerWithShutdownTask ← fs2.Scheduler.allocate[IO](2)
       (fs2Scheduler, fs2Shutdown) = fs2SchedulerWithShutdownTask
       websocketServerShutdown ← GrpcWebsocketProxy
-        .startWebsocketServer(inProcessGrpc, fs2Scheduler, port)
+        .startWebsocketServer(inProcessGrpc, fs2Scheduler, port)(Scheduler.global)
         .toIO(Scheduler.global)
     } yield
       fs2Shutdown
