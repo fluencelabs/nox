@@ -48,12 +48,6 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
       //Creates a proxy for each connection to separate the cache for all clients.
       val proxyGrpc = new ProxyGrpc(inProcessGrpc)
 
-      def genCompleteMessage(message: WebsocketMessage, code: Int, description: String) = {
-        val statusCode = fluence.proxy.grpc.Status.Code.fromValue(code)
-        val status = fluence.proxy.grpc.Status(statusCode, description)
-        message.copy(response = WebsocketMessage.Response.CompleteStatus(status))
-      }
-
       def replyPipe(topic: Topic[Task, WebSocketFrame]): Sink[Task, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
           val handleRequest = for {

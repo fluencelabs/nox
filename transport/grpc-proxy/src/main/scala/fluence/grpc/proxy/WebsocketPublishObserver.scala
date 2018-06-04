@@ -27,6 +27,14 @@ import org.http4s.websocket.WebsocketBits.{Binary, WebSocketFrame}
 
 import scala.concurrent.Future
 
+/**
+ * Observer, that will publish every message or status changes to topic as WebsocketMessage.
+ *
+ * @param topic Publisher.
+ * @param service Name of request's service.
+ * @param method Name of request's method.
+ * @param requestId Id of request.
+ */
 class WebsocketPublishObserver(topic: Topic[Task, WebSocketFrame], service: String, method: String, requestId: Long)(
   implicit scheduler: Scheduler
 ) extends Observer[WebSocketFrame] {

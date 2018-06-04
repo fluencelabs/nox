@@ -108,11 +108,9 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
       val (inResp, outResp) = Observable.multicast[Any](MulticastStrategy.replay, overflow)
       ClientCalls.asyncUnaryCall(call, req, observerToStream(inResp))
 
-      val mappedOut = outResp.map { r ⇒
+      outResp.map { r ⇒
         IoUtils.toByteArray(methodDescriptor.streamResponse(r))
       }
-
-      mappedOut
     }
   }
 
