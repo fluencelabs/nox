@@ -62,7 +62,7 @@ class WebsocketLifecycleSpec extends AsyncWordSpec with Matchers with slogging.L
           .compile
           .drain
           .runAsync
-        publisher = new WebsocketPublishObserver(topic, service, method, reqId)
+        publisher = new WebsocketPublishObserver(topic, service, method, reqId, true)
         _ = publisher.onComplete()
       } yield ()
 
@@ -97,7 +97,7 @@ class WebsocketLifecycleSpec extends AsyncWordSpec with Matchers with slogging.L
           .compile
           .drain
           .runAsync
-        publisher = new WebsocketPublishObserver(topic, service, method, reqId)
+        publisher = new WebsocketPublishObserver(topic, service, method, reqId, true)
         _ = publisher.onError(new RuntimeException("msg"))
       } yield ()
 
