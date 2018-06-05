@@ -134,14 +134,14 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
     req: Either[StatusException, Any],
     methodDescriptor: MethodDescriptor[Any, Any],
     requestId: Long
-  ): Task[Observable[Array[Byte]]] = {
+  ): Task[Option[Observable[Array[Byte]]]] = {
     for {
       callOp ← callCache.flatMap(_.read).map(_.get(requestId))
       resp ← callOp match {
         case Some(c) ⇒
           Task {
             call(c, req)
-            Observable()
+            None
           }
         case None ⇒
           for {
@@ -151,7 +151,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
             _ ← callCache.flatMap(_.put(map + (requestId -> c)))
           } yield {
             call(c, req)
-            obs
+            Some(obs)
           }
       }
     } yield resp
@@ -164,14 +164,14 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
    * @param method Name of grpc method (method name of service).
    * @param reqE Input stream of bytes or grpc error.
    *
-   * @return Response as array of bytes.
+   * @return Response as array of bytes or None, if there is no response.
    */
   def handleMessage(
     service: String,
     method: String,
     requestId: Long,
     reqE: Either[StatusException, InputStream]
-  ): Task[Observable[Array[Byte]]] = {
+  ): Task[Option[Observable[Array[Byte]]]] = {
     for {
       methodDescriptor ← getMethodDescriptorF(service, method)
       _ = logger.debug("Websocket method descriptor: " + methodDescriptor.toString)
@@ -179,7 +179,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
       _ = logger.debug("Websocket request: " + req)
       resp ← {
         if (methodDescriptor.getType == MethodType.UNARY)
-          handleUnaryCall(req, methodDescriptor)
+          handleUnaryCall(req, methodDescriptor).map(Some.apply)
         else
           handleStreamCall(req, methodDescriptor, requestId)
       }

@@ -23,6 +23,7 @@ import fs2.async.mutable.Topic
 import fs2.{io ⇒ _, _}
 import monix.eval.Task
 import monix.execution.{Scheduler ⇒ TaskScheduler}
+import monix.reactive.Observable
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Server
@@ -54,23 +55,26 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
             message ← Task(WebsocketMessage.parseFrom(data))
             _ = logger.debug(s"Handle websocket message $message")
             // TODO message.response.payload.get.newInput() rewrite with error handling
-            responseObservable ← proxyGrpc
+            responseObservableOp ← proxyGrpc
               .handleMessage(
                 message.service,
                 message.method,
                 message.requestId,
                 RequestConverter.toEither(message.response)
               )
-            binaryObservable = responseObservable.map { bytes ⇒
-              val responseMessage =
-                message.copy(response = WebsocketMessage.Response.Payload(ByteString.copyFrom(bytes)))
-              Binary(responseMessage.toByteArray)
-            }
           } yield {
-            //splitting observer and topic for asynchronous request handling
-            val obs = new WebsocketPublishObserver(topic, message.service, message.method, message.requestId)
+            responseObservableOp.map { responseObservable ⇒
+              val binaryObservable = responseObservable.map { bytes ⇒
+                val responseMessage =
+                  message.copy(response = WebsocketMessage.Response.Payload(ByteString.copyFrom(bytes)))
+                Binary(responseMessage.toByteArray)
+              }
 
-            binaryObservable.subscribe(obs)
+              //splitting observer and topic for asynchronous request handling
+              val obs = new WebsocketPublishObserver(topic, message.service, message.method, message.requestId)
+
+              binaryObservable.subscribe(obs)
+            }.getOrElse(Observable())
           }
 
           Stream.eval(handleRequest.map(_ ⇒ ()))

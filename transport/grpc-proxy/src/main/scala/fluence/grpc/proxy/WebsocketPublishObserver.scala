@@ -21,6 +21,7 @@ import fluence.proxy.grpc.WebsocketMessage
 import fs2.async.mutable.Topic
 import io.grpc.{StatusException, StatusRuntimeException}
 import monix.eval.Task
+import monix.execution.Ack.Continue
 import monix.execution.{Ack, Scheduler}
 import monix.reactive.Observer
 import org.http4s.websocket.WebsocketBits.{Binary, WebSocketFrame}
@@ -42,7 +43,10 @@ class WebsocketPublishObserver(
   method: String,
   requestId: Long
 )(implicit scheduler: Scheduler)
-    extends Observer[WebSocketFrame] {
+    extends Observer[WebSocketFrame] with slogging.LazyLogging {
+
+  // we need to support backpressure on onError and onComplete with this promise
+  private[this] var ack: Future[Ack] = Continue
 
   private def genCompleteFrame(code: Int, description: String): WebSocketFrame = {
     val statusCode = fluence.proxy.grpc.Status.Code.fromValue(code)
@@ -52,8 +56,11 @@ class WebsocketPublishObserver(
     Binary(message.toByteArray)
   }
 
-  override def onNext(elem: WebSocketFrame): Future[Ack] =
-    topic.publish1(elem).map(_ ⇒ Ack.Continue).runAsync
+  override def onNext(elem: WebSocketFrame): Future[Ack] = {
+    logger.debug(s"Send message: $elem. Service: $service, method: $method, requestId: $requestId")
+    ack = topic.publish1(elem).map(_ ⇒ Ack.Continue).runAsync
+    ack
+  }
 
   override def onError(ex: Throwable): Unit = {
     val errorFrame = ex match {
@@ -66,9 +73,13 @@ class WebsocketPublishObserver(
       case ex: Throwable ⇒
         genCompleteFrame(fluence.proxy.grpc.Status.Code.INTERNAL.value, Option(ex.getLocalizedMessage).getOrElse(""))
     }
-    topic.publish1(errorFrame).runAsync
+    logger.debug(s"Error message $errorFrame. Service: $service, method: $method, requestId: $requestId")
+    ack.flatMap(_ ⇒ topic.publish1(errorFrame).runAsync)
   }
 
-  override def onComplete(): Unit =
-    topic.publish1(genCompleteFrame(fluence.proxy.grpc.Status.Code.OK.value, "")).runAsync
+  override def onComplete(): Unit = {
+    val completeFrame = genCompleteFrame(fluence.proxy.grpc.Status.Code.OK.value, "")
+    logger.debug(s"Complete message $completeFrame. Service: $service, method: $method, requestId: $requestId")
+    ack.flatMap(_ ⇒ topic.publish1(completeFrame).runAsync)
+  }
 }

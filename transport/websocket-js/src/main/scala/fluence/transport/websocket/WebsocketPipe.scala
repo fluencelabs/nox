@@ -28,7 +28,6 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-//TODO add error field in WebsocketMessage and Either in WebsocketPipe to handle and return errors between nodes
 case class WebsocketPipe[A, B] private (
   input: Observer[A],
   output: Observable[B],
@@ -55,7 +54,6 @@ case class WebsocketPipe[A, B] private (
           .flatMap(input.onNext)
           .recover {
             case e: Throwable ⇒
-              //TODO add either and send error message
               logger.error(s"Error on converting message $elem with $inputCodec", e)
               Continue
           }
@@ -68,7 +66,6 @@ case class WebsocketPipe[A, B] private (
     }
 
     val tObservable = output.mapFuture { el ⇒
-      //TODO add either support in websocket logic or observable will stop here after error
       outputCodec.runF[Future](el)
     }
 
