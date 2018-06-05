@@ -59,7 +59,7 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
                 message.service,
                 message.method,
                 message.requestId,
-                message.response.payload.get.newInput()
+                RequestConverter.toEither(message.response)
               )
             binaryObservable = responseObservable.map { bytes ⇒
               val responseMessage =

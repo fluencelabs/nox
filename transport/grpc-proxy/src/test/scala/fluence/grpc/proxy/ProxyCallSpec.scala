@@ -21,7 +21,7 @@ import com.google.protobuf.ByteString
 import fluence.grpc.proxy.test.TestServiceGrpc.TestService
 import fluence.grpc.proxy.test.{TestMessage, TestRequest, TestResponse, TestServiceGrpc}
 import fluence.proxy.grpc.WebsocketMessage
-import io.grpc.{MethodDescriptor, ServerServiceDefinition, StatusRuntimeException}
+import io.grpc.{MethodDescriptor, ServerServiceDefinition, StatusException, StatusRuntimeException}
 import io.grpc.stub.StreamObserver
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
@@ -102,7 +102,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
           message.service,
           message.method,
           message.requestId,
-          message.response.payload.get.newInput()
+          RequestConverter.toEither(message.response)
         )
         .runSyncUnsafe(5.seconds)
     }
@@ -174,11 +174,54 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
 
         val exception = the[StatusRuntimeException] thrownBy {
           proxyGrpc
-            .handleMessage(testMessage.service, testMessage.method, 1L, testMessage.response.payload.get.newInput())
+            .handleMessage(testMessage.service, testMessage.method, 1L, RequestConverter.toEither(testMessage.response))
             .runSyncUnsafe(5.seconds)
             .lastL
             .runSyncUnsafe(5.seconds)
         }
+      }
+    }
+
+    "close stream on error from client" in {
+      inService() { inProcessGrpc ⇒
+        val proxyGrpc = new ProxyGrpc(inProcessGrpc)
+
+        val testMessage =
+          generateMessage(1111L, TestRequest(Some(TestMessage())), TestServiceGrpc.METHOD_TEST)
+
+        val exception = the[StatusException] thrownBy {
+          proxyGrpc
+            .handleMessage(
+              testMessage.service,
+              testMessage.method,
+              1L,
+              Left(new StatusException(io.grpc.Status.UNAUTHENTICATED))
+            )
+            .runSyncUnsafe(5.seconds)
+            .lastL
+            .runSyncUnsafe(5.seconds)
+        }
+
+        exception.getStatus shouldBe io.grpc.Status.UNAUTHENTICATED
+      }
+    }
+
+    "close stream on close from client" in {
+      inService() { inProcessGrpc ⇒
+        val proxyGrpc = new ProxyGrpc(inProcessGrpc)
+
+        val testMessage =
+          generateMessage(1111L, TestRequest(Some(TestMessage())), TestServiceGrpc.METHOD_TEST_COUNT)
+
+        val exception = the[StatusRuntimeException] thrownBy {
+          proxyGrpc
+            .handleMessage(testMessage.service, testMessage.method, 1L, Left(new StatusException(io.grpc.Status.OK)))
+            .runSyncUnsafe(5.seconds)
+            .lastL
+            .runSyncUnsafe(5.seconds)
+        }
+
+        exception.getStatus.getCode shouldBe io.grpc.Status.CANCELLED.getCode
       }
     }
 
@@ -191,13 +234,13 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
 
         the[RuntimeException] thrownBy {
           proxyGrpc
-            .handleMessage("rndservice", testMessage.method, 1L, testMessage.response.payload.get.newInput())
+            .handleMessage("rndservice", testMessage.method, 1L, RequestConverter.toEither(testMessage.response))
             .runSyncUnsafe(5.seconds)
         }
 
         the[RuntimeException] thrownBy {
           proxyGrpc
-            .handleMessage(testMessage.service, "rndmethod", 1L, testMessage.response.payload.get.newInput())
+            .handleMessage(testMessage.service, "rndmethod", 1L, RequestConverter.toEither(testMessage.response))
             .runSyncUnsafe(5.seconds)
         }
       }
