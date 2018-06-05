@@ -31,6 +31,15 @@ import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 
 /**
+ * Result of message handling.
+ * TODO this class add strong coupling with websocket logic. Refactor it in future.
+ *
+ * @param observable Stream of responses.
+ * @param controlOnComplete Send message when stream is completed.
+ */
+case class Result(observable: Observable[Array[Byte]], controlOnComplete: Boolean = true)
+
+/**
  * Service to proxy requests in grpc from another source.
  *
  * @param inProcessGrpc In-process services and client channel.
@@ -171,7 +180,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
     method: String,
     requestId: Long,
     reqE: Either[StatusException, InputStream]
-  ): Task[Option[Observable[Array[Byte]]]] = {
+  ): Task[Option[Result]] = {
     for {
       methodDescriptor ← getMethodDescriptorF(service, method)
       _ = logger.debug("Websocket method descriptor: " + methodDescriptor.toString)
@@ -179,9 +188,9 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
       _ = logger.debug("Websocket request: " + req)
       resp ← {
         if (methodDescriptor.getType == MethodType.UNARY)
-          handleUnaryCall(req, methodDescriptor).map(Some.apply)
+          handleUnaryCall(req, methodDescriptor).map(r ⇒ Some(Result(r, controlOnComplete = false)))
         else
-          handleStreamCall(req, methodDescriptor, requestId)
+          handleStreamCall(req, methodDescriptor, requestId).map(_.map(r ⇒ Result(r)))
       }
     } yield resp
   }

@@ -41,7 +41,8 @@ class WebsocketPublishObserver(
   topic: Topic[Task, WebSocketFrame],
   service: String,
   method: String,
-  requestId: Long
+  requestId: Long,
+  controlOnComplete: Boolean
 )(implicit scheduler: Scheduler)
     extends Observer[WebSocketFrame] with slogging.LazyLogging {
 
@@ -78,8 +79,10 @@ class WebsocketPublishObserver(
   }
 
   override def onComplete(): Unit = {
-    val completeFrame = genCompleteFrame(fluence.proxy.grpc.Status.Code.OK.value, "")
-    logger.debug(s"Complete message $completeFrame. Service: $service, method: $method, requestId: $requestId")
-    ack.flatMap(_ ⇒ topic.publish1(completeFrame).runAsync)
+    if (controlOnComplete) {
+      val completeFrame = genCompleteFrame(fluence.proxy.grpc.Status.Code.OK.value, "")
+      logger.debug(s"Complete message $completeFrame. Service: $service, method: $method, requestId: $requestId")
+      ack.flatMap(_ ⇒ topic.publish1(completeFrame).runAsync)
+    }
   }
 }

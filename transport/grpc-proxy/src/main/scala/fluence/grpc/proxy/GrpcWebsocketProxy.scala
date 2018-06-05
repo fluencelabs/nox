@@ -54,7 +54,6 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
           val handleRequest = for {
             message ← Task(WebsocketMessage.parseFrom(data))
             _ = logger.debug(s"Handle websocket message $message")
-            // TODO message.response.payload.get.newInput() rewrite with error handling
             responseObservableOp ← proxyGrpc
               .handleMessage(
                 message.service,
@@ -63,18 +62,25 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
                 RequestConverter.toEither(message.response)
               )
           } yield {
-            responseObservableOp.map { responseObservable ⇒
-              val binaryObservable = responseObservable.map { bytes ⇒
-                val responseMessage =
-                  message.copy(response = WebsocketMessage.Response.Payload(ByteString.copyFrom(bytes)))
-                Binary(responseMessage.toByteArray)
-              }
+            responseObservableOp.map {
+              case Result(responseObservable, controlOnComplete) ⇒
+                val binaryObservable = responseObservable.map { bytes ⇒
+                  val responseMessage =
+                    message.copy(response = WebsocketMessage.Response.Payload(ByteString.copyFrom(bytes)))
+                  Binary(responseMessage.toByteArray)
+                }
 
-              //splitting observer and topic for asynchronous request handling
-              val obs = new WebsocketPublishObserver(topic, message.service, message.method, message.requestId)
+                //splitting observer and topic for asynchronous request handling
+                val obs = new WebsocketPublishObserver(
+                  topic,
+                  message.service,
+                  message.method,
+                  message.requestId,
+                  controlOnComplete
+                )
 
-              binaryObservable.subscribe(obs)
-            }.getOrElse(Observable())
+                binaryObservable.subscribe(obs)
+            }
           }
 
           Stream.eval(handleRequest.map(_ ⇒ ()))
