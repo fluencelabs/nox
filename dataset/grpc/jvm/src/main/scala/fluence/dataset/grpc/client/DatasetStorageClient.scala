@@ -43,7 +43,7 @@ class DatasetStorageClient[F[_]: Effect](
 )(implicit sch: Scheduler)
     extends DatasetStorageRpc[F, Observable] with slogging.LazyLogging {
 
-  import fluence.dataset.grpc.GrpcMonix._
+  import fluence.grpc.GrpcMonix._
 
   /**
    * Initiates ''Get'' operation in remote MerkleBTree.

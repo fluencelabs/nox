@@ -15,23 +15,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.storage.rocksdb
+package fluence.grpc.proxy
 
-import cats.ApplicativeError
-import com.typesafe.config.Config
+import java.io.InputStream
 
-import scala.language.higherKinds
+import fluence.proxy.grpc.WebsocketMessage
+import fluence.proxy.grpc.WebsocketMessage.Response
+import io.grpc.{Status, StatusException}
 
-@deprecated("use kvstore.rocksdb.RocksDbConf instead.")
-case class RocksDbConf(dataDir: String, createIfMissing: Boolean)
+object RequestConverter {
 
-object RocksDbConf {
-  val ConfigPath = "fluence.storage.rocksDb"
-
-  def read[F[_]](conf: Config, name: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbConf] =
-    F.catchNonFatal {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[RocksDbConf](name)
+  def toEither(message: WebsocketMessage.Response): Either[StatusException, InputStream] = {
+    message match {
+      case Response.Payload(payload) ⇒ Right(payload.newInput())
+      case Response.CompleteStatus(status) ⇒
+        val ex = new StatusException(Status.fromCodeValue(status.code.value))
+        Left(ex)
+      case Response.Empty ⇒
+        val ex = new StatusException(Status.UNKNOWN.withDescription("Empty response field."))
+        Left(ex)
     }
+  }
 }

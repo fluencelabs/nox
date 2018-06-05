@@ -19,27 +19,27 @@ package fluence.node.core
 
 import java.time.Instant
 
+import cats.data.EitherT
 import cats.effect.IO
 import cats.instances.list._
 import cats.instances.option._
-import cats.syntax.flatMap._
-import cats.syntax.functor._
 import cats.syntax.compose._
-import cats.{MonadError, Traverse}
+import cats.syntax.functor._
+import cats.{Monad, Traverse}
 import com.google.protobuf.ByteString
 import com.typesafe.config.Config
-import fluence.codec.{Codec, PureCodec}
+import fluence.codec.bits.BitsCodecs._
 import fluence.codec.pb.ProtobufCodecs._
+import fluence.codec.{CodecError, PureCodec}
 import fluence.contract
 import fluence.contract.BasicContract
 import fluence.contract.node.cache.ContractRecord
-import fluence.kad.protocol.Key
-import fluence.node.persistence.{BasicContractCache, Participant}
-import fluence.storage.KVStore
-import scodec.bits.ByteVector
-import fluence.codec.bits.BitsCodecs._
 import fluence.crypto.KeyPair
 import fluence.crypto.signature.{PubKeyAndSignature, Signature}
+import fluence.kad.protocol.Key
+import fluence.kvstore.{KVStore, ReadWriteKVStore, StoreError}
+import fluence.node.persistence.{BasicContractCache, Participant}
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -49,45 +49,53 @@ import scala.language.higherKinds
 object ContractsCacheStore {
 
   /**
-   * Creates [[fluence.codec.Codec]] instance for {{{ContractRecord[BasicContract]}}} and {{{BasicContractCache}}}
+   * Creates [[fluence.codec.PureCodec]] instance for {{{ContractRecord[BasicContract]}}} and {{{BasicContractCache}}}
    * Don't need checking 'seals' because we store only valid contracts.
    */
-  private def contractRec2ContractCacheCodec[F[_]](
-    implicit
-    F: MonadError[F, Throwable]
-  ): Codec[F, ContractRecord[BasicContract], BasicContractCache] = {
-    val keyC = (PureCodec[Key, Array[Byte]] andThen PureCodec[Array[Byte], ByteString]).toCodec[F]
-    implicit val strVecP: PureCodec[ByteVector, ByteString] =
+  private def contractRec2ContractCacheCodec: PureCodec[ContractRecord[BasicContract], BasicContractCache] = {
+
+    implicit val byteVec2byteStr: PureCodec[ByteVector, ByteString] =
       PureCodec[ByteVector, Array[Byte]] andThen PureCodec[Array[Byte], ByteString]
-    val strVec = strVecP.toCodec[F]
 
-    val pubKeyCV: Codec[F, KeyPair.Public, ByteVector] = Codec.pure(_.value, KeyPair.Public)
-    val pubKeyC = pubKeyCV andThen strVec
+    val key2byteStr: PureCodec[Key, ByteString] =
+      PureCodec[Key, Array[Byte]] andThen PureCodec[Array[Byte], ByteString]
 
-    val optStrVecC = PureCodec[Option[ByteVector], Option[ByteString]].toCodec[F]
+    val pubKey2ByteStr: PureCodec[KeyPair.Public, ByteString] =
+      PureCodec.build[KeyPair.Public, ByteVector]((p: KeyPair.Public) ⇒ p.value, KeyPair.Public) andThen byteVec2byteStr
 
-    val serializer: ContractRecord[BasicContract] ⇒ F[BasicContractCache] =
-      contractRec ⇒ {
-        val contract = contractRec.contract
+    val opByteVec2opByteStr: PureCodec[Option[ByteVector], Option[ByteString]] =
+      PureCodec[Option[ByteVector], Option[ByteString]]
+
+    val serializer = new PureCodec.Func[ContractRecord[BasicContract], BasicContractCache] {
+      override def apply[F[_]: Monad](
+        input: ContractRecord[BasicContract]
+      ): EitherT[F, CodecError, BasicContractCache] = {
+        val contract = input.contract
         for {
-          idBs ← keyC.encode(contract.id)
-          pubKey ← strVec.encode(contract.publicKey.value)
+          idBs ← key2byteStr.direct[F](contract.id)
+          pubKey ← byteVec2byteStr.direct[F](contract.publicKey.value)
 
-          participantsBs ← Traverse[List].traverse(contract.participants.toList) {
-            case (pk, ps) ⇒
-              for {
-                pkBs ← keyC.encode(pk)
-                pubkBs ← pubKeyC.encode(ps.publicKey)
-                signBs ← strVec.encode(ps.signature.sign)
-              } yield Participant(id = pkBs, publicKey = pubkBs, signature = signBs)
+          participants ← {
+            val pList: F[List[Either[CodecError, Participant]]] = Traverse[List]
+              .traverse[F, (Key, PubKeyAndSignature), Either[CodecError, Participant]](contract.participants.toList) {
+                case (pk, ps) ⇒ {
+                  for {
+                    pId ← key2byteStr.direct[F](pk)
+                    pPubKey ← pubKey2ByteStr.direct[F](ps.publicKey)
+                    pSignature ← byteVec2byteStr.direct[F](ps.signature.sign)
+                  } yield Participant(id = pId, publicKey = pPubKey, signature = pSignature)
+                }.value
+              }
+
+            EitherT(pList.map(list2either))
           }
 
-          offSBs ← strVec.encode(contract.offerSeal.sign)
+          offSBs ← byteVec2byteStr.direct[F](contract.offerSeal.sign)
 
-          participantsSealBs ← optStrVecC.encode(contract.participantsSeal.map(_.sign))
-          executionSealBs ← strVec.encode(contract.executionSeal.sign)
+          participantsSealBs ← opByteVec2opByteStr.direct[F](contract.participantsSeal.map(_.sign))
+          executionSealBs ← byteVec2byteStr.direct[F](contract.executionSeal.sign)
 
-          merkleRootBs ← strVec.encode(contract.executionState.merkleRoot)
+          merkleRootBs ← byteVec2byteStr.direct[F](contract.executionState.merkleRoot)
 
         } yield
           BasicContractCache(
@@ -95,43 +103,56 @@ object ContractsCacheStore {
             publicKey = pubKey,
             participantsRequired = contract.offer.participantsRequired,
             offerSeal = offSBs,
-            participants = participantsBs,
+            participants = participants,
             participantsSeal = participantsSealBs.getOrElse(ByteString.EMPTY),
             version = contract.executionState.version,
             merkleRoot = merkleRootBs,
             executionSeal = executionSealBs,
-            lastUpdated = contractRec.lastUpdated.toEpochMilli
+            lastUpdated = input.lastUpdated.toEpochMilli
           )
       }
+    }
 
-    val deserializer: BasicContractCache ⇒ F[ContractRecord[BasicContract]] =
-      basicContractCache ⇒ {
-        def read[T](name: String, f: BasicContractCache ⇒ T): F[T] =
-          Option(f(basicContractCache))
-            .fold[F[T]](F.raiseError(new IllegalArgumentException(s"Required field not found: $name")))(F.pure)
+    val deserializer = new PureCodec.Func[BasicContractCache, ContractRecord[BasicContract]] {
+      override def apply[F[_]: Monad](
+        input: BasicContractCache
+      ): EitherT[F, CodecError, ContractRecord[BasicContract]] = {
 
-        def readParticipantsSeal: F[Option[ByteVector]] =
-          Option(basicContractCache.participantsSeal)
-            .filter(_.size() > 0)
-            .fold(F.pure(Option.empty[ByteVector]))(sl ⇒ strVec.decode(sl).map(Option(_)))
+        def read[T](name: String, fn: BasicContractCache ⇒ T): EitherT[F, CodecError, T] =
+          EitherT.fromOption(Option(fn(input)), CodecError(s"Required field is not found: $name"))
+
+        def readParticipantsSeal: EitherT[F, CodecError, Option[ByteVector]] =
+          Option(input.participantsSeal)
+            .filterNot(_.isEmpty)
+            .fold(EitherT.rightT[F, CodecError](Option.empty[ByteVector]))(
+              sl ⇒ byteVec2byteStr.inverse[F](sl).map(Option(_))
+            )
 
         for {
-          pubKey ← pubKeyC.decode(basicContractCache.publicKey)
+          pubKey ← pubKey2ByteStr.inverse[F](input.publicKey)
 
           idb ← read("id", _.id)
-          id ← keyC.decode(idb)
+          id ← key2byteStr.inverse[F](idb)
 
           participantsRequired ← read("participantsRequired", _.participantsRequired)
 
           offerSealBS ← read("offerSeal", _.offerSeal)
-          offerSealVec ← strVec.decode(offerSealBS)
+          offerSealVec ← byteVec2byteStr.inverse[F](offerSealBS)
 
-          participants ← Traverse[List].traverse(basicContractCache.participants.toList) { p ⇒
-            for {
-              k ← keyC.decode(p.id)
-              kp ← pubKeyC.decode(p.publicKey)
-              s ← strVec.decode(p.signature)
-            } yield k -> PubKeyAndSignature(kp, Signature(s))
+          participants ← {
+            val pList = Traverse[List]
+              .traverse[F, Participant, Either[CodecError, (Key, PubKeyAndSignature)]](input.participants.toList) {
+                participant ⇒
+                  {
+                    for {
+                      pId ← key2byteStr.inverse[F](participant.id)
+                      pPubKey ← pubKey2ByteStr.inverse[F](participant.publicKey)
+                      pSignature ← byteVec2byteStr.inverse[F](participant.signature)
+                    } yield pId -> PubKeyAndSignature(pPubKey, Signature(pSignature))
+                  }.value
+              }
+
+            EitherT(pList.map(list2either))
           }
 
           version ← read("version", _.version)
@@ -139,9 +160,9 @@ object ContractsCacheStore {
           participantsSealOpt ← readParticipantsSeal
 
           merkleRootBS ← read("merkleRoot", _.merkleRoot)
-          merkleRoot ← strVec.decode(merkleRootBS)
+          merkleRoot ← byteVec2byteStr.inverse[F](merkleRootBS)
 
-          execSeal ← strVec.decode(basicContractCache.executionSeal)
+          execSeal ← byteVec2byteStr.inverse[F](input.executionSeal)
 
           lastUpdated ← read("lastUpdated", _.lastUpdated)
         } yield
@@ -164,32 +185,37 @@ object ContractsCacheStore {
             Instant.ofEpochMilli(lastUpdated)
           )
       }
+    }
 
-    Codec(serializer, deserializer)
+    PureCodec.build(serializer, deserializer)
   }
 
-  /** Creates [[fluence.codec.Codec]] instance for {{{BasicContractCache}}} and {{{Array[Byte]}}} */
-  private def contractCache2Bytes[F[_]](
-    implicit F: MonadError[F, Throwable]
-  ): Codec[F, BasicContractCache, Array[Byte]] =
-    Codec[F, BasicContractCache, Array[Byte]](
-      bcc ⇒ F.pure(bcc.toByteArray),
-      bytes ⇒ F.pure(BasicContractCache.parseFrom(bytes))
+  /** Creates [[fluence.codec.PureCodec]] instance for {{{BasicContractCache}}} and {{{Array[Byte]}}} */
+  private def contractCache2Bytes: PureCodec[BasicContractCache, Array[Byte]] = {
+    PureCodec.build(
+      bcc ⇒ bcc.toByteArray,
+      bytes ⇒ BasicContractCache.parseFrom(bytes)
     )
+  }
+
+  private def list2either[A, B](list: List[Either[A, B]]): Either[A, List[B]] =
+    list.foldRight(Right(Nil): Either[A, List[B]]) { (either, acc) ⇒
+      for (xs ← acc.right; x ← either.right) yield x :: xs
+    }
 
   /**
    * Creates [[KVStore]] for caching contracts. Wraps 'binary store' with key and value codecs.
    *
    * @param config          Global typeSafe config
-   * @param kvStoreFactory Takes storage string name and return binary KVStore
+   * @param kvStoreFactory Factory for creating RocksDbKVStore instances
    * @return contract cache key/value Store
    */
-  def apply[F[_]](
+  def apply[Store <: ReadWriteKVStore[Array[Byte], Array[Byte]]](
     config: Config,
-    kvStoreFactory: String ⇒ IO[KVStore[F, Array[Byte], Array[Byte]]]
-  )(implicit F: MonadError[F, Throwable]): IO[KVStore[F, Key, ContractRecord[BasicContract]]] =
+    kvStoreFactory: String ⇒ EitherT[IO, StoreError, Store]
+  ): EitherT[IO, StoreError, ReadWriteKVStore[Key, ContractRecord[BasicContract]]] =
     for {
-      conf ← ContractsCacheConf.read(config)
+      conf ← EitherT(ContractsCacheConf.read(config).attempt).leftMap(StoreError(_))
       binStore ← kvStoreFactory(conf.dataDir)
     } yield {
       apply(binStore)
@@ -198,20 +224,32 @@ object ContractsCacheStore {
   /**
    * Creates [[KVStore]] for caching contracts. Wraps 'binary store' with key and value codecs.
    *
+   * @param config          Global typeSafe config
+   * @param kvStoreFactory Factory for creating RocksDbKVStore instances
+   * @return contract cache key/value Store
+   */
+  @deprecated(
+    "Use 'apply' version with EitherT return value instead. Will be removed when all API will be 'EitherT compatible'."
+  )
+  def applyOld[Store <: ReadWriteKVStore[Array[Byte], Array[Byte]]](
+    config: Config,
+    kvStoreFactory: String ⇒ EitherT[IO, StoreError, Store]
+  ): IO[ReadWriteKVStore[Key, ContractRecord[BasicContract]]] =
+    apply(config, kvStoreFactory).value.flatMap(IO.fromEither)
+
+  /**
+   * Creates [[KVStore]] for caching contracts. Wraps 'binary store' with key and value codecs.
+   *
    * @param contractCacheBinaryStore Task based key/value store for binary data
    * @return contract cache key/value Store
    */
-  def apply[F[_]](
-    contractCacheBinaryStore: KVStore[F, Array[Byte], Array[Byte]]
-  )(implicit F: MonadError[F, Throwable]): KVStore[F, Key, ContractRecord[BasicContract]] = {
-    import Key.bytesCodec
-
-    implicit val keyBytesCodec: Codec[F, Array[Byte], Key] = bytesCodec.toCodec[F].swap
-
-    implicit val contractRecord2BytesCodec: Codec[F, ContractRecord[BasicContract], Array[Byte]] =
-      contractRec2ContractCacheCodec[F] andThen contractCache2Bytes[F]
-
-    contractCacheBinaryStore
-  }
+  def apply[Store <: ReadWriteKVStore[Array[Byte], Array[Byte]]](
+    contractCacheBinaryStore: Store
+  ): ReadWriteKVStore[Key, ContractRecord[BasicContract]] =
+    KVStore
+      .withCodecs(contractCacheBinaryStore)(
+        Key.bytesCodec,
+        contractRec2ContractCacheCodec andThen contractCache2Bytes
+      )
 
 }

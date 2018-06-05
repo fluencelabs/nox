@@ -64,6 +64,8 @@ trait FluenceNode {
 
 object FluenceNode extends slogging.LazyLogging {
 
+  implicit val scheduler = Scheduler.global
+
   /**
    * Launches a node with all available and enabled network interfaces.
    *
@@ -137,11 +139,11 @@ object FluenceNode extends slogging.LazyLogging {
       fs2SchedulerWithShutdownTask ← fs2.Scheduler.allocate[IO](2)
       (fs2Scheduler, fs2Shutdown) = fs2SchedulerWithShutdownTask
       websocketServerShutdown ← GrpcWebsocketProxy
-        .startWebsocketServer(inProcessGrpc, fs2Scheduler, port)
-        .toIO(Scheduler.global)
+        .startWebsocketServer(inProcessGrpc, fs2Scheduler, port)(scheduler)
+        .toIO
     } yield
       fs2Shutdown
-        .flatMap(_ ⇒ websocketServerShutdown.shutdown.toIO(Scheduler.global))
+        .flatMap(_ ⇒ websocketServerShutdown.shutdown.toIO)
         .flatMap(_ ⇒ inProcessGrpc.close())
   }
 
@@ -151,17 +153,17 @@ object FluenceNode extends slogging.LazyLogging {
    */
   // todo write unit test, this method don't close resources correctly when initialisation failed
   private def launchGrpc(
-    algo: SignAlgo,
+    signAlgo: SignAlgo,
     hasher: Crypto.Hasher[Array[Byte], Array[Byte]],
     config: Config,
     clock: Clock = Clock.systemUTC()
   ): IO[FluenceNode] = {
-    import algo.checker
+    import signAlgo.checker
     for {
       _ ← initDirectory(config.getString("fluence.directory")) // TODO config
       kpConf ← KeyPairConfig.read(config)
-      kp ← FileKeyStorage.getKeyPair(kpConf.keyPath, algo)
-      key ← Key.fromKeyPair.runF[IO](kp)
+      keyPair ← FileKeyStorage.getKeyPair(kpConf.keyPath, signAlgo)
+      key ← Key.fromKeyPair.runF[IO](keyPair)
 
       grpcServerConf ← NodeGrpc.grpcServerConf(config)
       builder ← NodeGrpc.grpcServerBuilder(grpcServerConf)
@@ -179,7 +181,7 @@ object FluenceNode extends slogging.LazyLogging {
           websocketPort = upnpContact.websocketPort,
           protocolVersion = upnpContact.protocolVersion,
           gitHash = upnpContact.gitHash,
-          signer = algo.signer(kp)
+          signer = signAlgo.signer(keyPair)
         )
         .runF[IO](())
         .onFail(upnpShutdown)
@@ -188,7 +190,18 @@ object FluenceNode extends slogging.LazyLogging {
       kadClient = client(_: Contact).kademlia
 
       services ← NodeComposer
-        .services(kp, contact, algo, hasher, kadClient, config, acceptLocal = true, clock)(Scheduler.global) // TODO: it should be custom
+        .services(
+          keyPair,
+          contact,
+          signAlgo,
+          hasher,
+          kadClient,
+          config,
+          acceptLocal = true,
+          clock,
+          scheduler,
+          Scheduler.io(name = "io-pool") // Unfortunately Idea uses sjs sources here and don't know 'io' method
+        )
         .onFail(upnpShutdown)
       closeUpNpAndServices = upnpShutdown.flatMap(_ ⇒ services.close)
 
@@ -208,7 +221,7 @@ object FluenceNode extends slogging.LazyLogging {
       seedConfig ← SeedsConfig.read(config).onFail(closeAll)
       seedContacts ← seedConfig.contacts.onFail(closeAll)
 
-      _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO(Scheduler.global)
+      _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO
       else
         IO {
           logger.info("You should add some seed node contacts to join. Take a look on reference.conf")
@@ -240,7 +253,7 @@ object FluenceNode extends slogging.LazyLogging {
           }
 
         override def restart: IO[FluenceNode] =
-          stop.flatMap(_ ⇒ launchGrpc(algo, hasher, _conf))
+          stop.flatMap(_ ⇒ launchGrpc(signAlgo, hasher, _conf))
       }
 
       sys.addShutdownHook {

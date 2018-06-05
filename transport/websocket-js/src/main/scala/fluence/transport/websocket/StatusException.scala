@@ -15,23 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.storage.rocksdb
+package fluence.transport.websocket
 
-import cats.ApplicativeError
-import com.typesafe.config.Config
+import fluence.proxy.grpc.Status
 
-import scala.language.higherKinds
-
-@deprecated("use kvstore.rocksdb.RocksDbConf instead.")
-case class RocksDbConf(dataDir: String, createIfMissing: Boolean)
-
-object RocksDbConf {
-  val ConfigPath = "fluence.storage.rocksDb"
-
-  def read[F[_]](conf: Config, name: String = ConfigPath)(implicit F: ApplicativeError[F, Throwable]): F[RocksDbConf] =
-    F.catchNonFatal {
-      import net.ceedubs.ficus.Ficus._
-      import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-      conf.as[RocksDbConf](name)
-    }
-}
+/**
+ * Mirror of grpc.StatusException for js
+ * @param status Status code and description of exception.
+ */
+class StatusException(status: Status) extends Throwable
