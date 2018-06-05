@@ -46,7 +46,7 @@ class WebsocketPublishObserver(
 )(implicit scheduler: Scheduler)
     extends Observer[WebSocketFrame] with slogging.LazyLogging {
 
-  // we need to support backpressure on onError and onComplete with this promise
+  // we need this Future to support backpressure on onError and onComplete
   private[this] var ack: Future[Ack] = Continue
 
   private def genCompleteFrame(code: Int, description: String): WebSocketFrame = {
