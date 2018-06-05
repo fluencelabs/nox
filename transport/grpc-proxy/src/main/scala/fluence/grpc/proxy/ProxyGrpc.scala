@@ -22,9 +22,10 @@ import java.io.InputStream
 import io.grpc.MethodDescriptor.MethodType
 import io.grpc._
 import io.grpc.internal.IoUtils
+import io.grpc.stub.ClientCalls
 import monix.eval.{MVar, Task}
 import monix.execution.Scheduler.Implicits.global
-import monix.reactive.{MulticastStrategy, Observable, OverflowStrategy}
+import monix.reactive.{MulticastStrategy, Observable, Observer, OverflowStrategy}
 
 import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
@@ -38,8 +39,10 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   implicit ec: ExecutionContext
 ) extends slogging.LazyLogging {
 
+  import fluence.grpc.GrpcMonix._
+
   //TODO add auto-cleanup for old expired invoices
-  val callCache: Task[MVar[Map[Long, ClientCall[Any, Any]]]] = MVar(Map.empty[Long, ClientCall[Any, Any]]).memoize
+  val callCache: Task[MVar[Map[Long, Observer.Sync[Any]]]] = MVar(Map.empty[Long, Observer.Sync[Any]]).memoize
 
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
@@ -73,21 +76,20 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
    */
   private def openBidiCall(
     methodDescriptor: MethodDescriptor[Any, Any]
-  ): Task[(ClientCall[Any, Any], Observable[Array[Byte]])] = {
+  ): Task[(Observer.Sync[Any], Observable[Array[Byte]])] = {
     Task {
-      val metadata = new Metadata()
+
       val call = inProcessGrpc.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
 
-      val (in, out) = Observable.multicast[Any](MulticastStrategy.replay, overflow)
+      val (inResp, outResp) = Observable.multicast[Any](MulticastStrategy.replay, overflow)
+      val reqStreamObserver = ClientCalls.asyncBidiStreamingCall(call, observerToStream(inResp))
+      val reqObserver = streamToObserver(reqStreamObserver)
 
-      call.start(new StreamProxyListener[Any](in), metadata)
-
-      val mappedOut = out.collect {
-        case r ⇒
-          IoUtils.toByteArray(methodDescriptor.streamResponse(r))
+      val mappedOut = outResp.map { r ⇒
+        IoUtils.toByteArray(methodDescriptor.streamResponse(r))
       }
 
-      (call, mappedOut)
+      (reqObserver, mappedOut)
     }
   }
 
@@ -95,15 +97,32 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
    * Creates observable, sends single request and closes stream on proxy side.
    * The observable and the call will close automatically when the response returns.
    */
-  private def handleUnaryCall(req: Any, methodDescriptor: MethodDescriptor[Any, Any]): Task[Observable[Array[Byte]]] = {
-    for {
-      callWithObs ← openBidiCall(methodDescriptor)
-      (c, obs) = callWithObs
-    } yield {
-      c.sendMessage(req)
-      c.request(1)
-      c.halfClose()
-      obs
+  private def handleUnaryCall(
+    reqE: Either[StatusException, Any],
+    methodDescriptor: MethodDescriptor[Any, Any]
+  ): Task[Observable[Array[Byte]]] = {
+    Task {
+
+      val call = inProcessGrpc.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
+
+      val (inResp, outResp) = Observable.multicast[Any](MulticastStrategy.replay, overflow)
+      reqE match {
+        case Right(req) ⇒
+          ClientCalls.asyncUnaryCall(call, req, observerToStream(inResp))
+
+          outResp.map { r ⇒
+            IoUtils.toByteArray(methodDescriptor.streamResponse(r))
+          }
+        case Left(ex) ⇒
+          Observable.raiseError[Array[Byte]](ex)
+      }
+    }
+  }
+
+  private def call(obs: Observer.Sync[Any], reqE: Either[StatusException, Any]) = {
+    reqE match {
+      case Right(req) ⇒ obs.onNext(req)
+      case Left(ex) ⇒ obs.onError(ex)
     }
   }
 
@@ -112,7 +131,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
    * For requests that are cached we use an already created call, that connected with client through observable.
    */
   private def handleStreamCall(
-    req: Any,
+    req: Either[StatusException, Any],
     methodDescriptor: MethodDescriptor[Any, Any],
     requestId: Long
   ): Task[Observable[Array[Byte]]] = {
@@ -121,8 +140,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
       resp ← callOp match {
         case Some(c) ⇒
           Task {
-            c.sendMessage(req)
-            c.request(1)
+            call(c, req)
             Observable()
           }
         case None ⇒
@@ -132,8 +150,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
             map ← callCache.flatMap(_.take)
             _ ← callCache.flatMap(_.put(map + (requestId -> c)))
           } yield {
-            c.sendMessage(req)
-            c.request(1)
+            call(c, req)
             obs
           }
       }
@@ -145,7 +162,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
    *
    * @param service Name of grpc service (class name of service).
    * @param method Name of grpc method (method name of service).
-   * @param stream Input stream of bytes.
+   * @param reqE Input stream of bytes or grpc error.
    *
    * @return Response as array of bytes.
    */
@@ -153,12 +170,12 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
     service: String,
     method: String,
     requestId: Long,
-    stream: InputStream
+    reqE: Either[StatusException, InputStream]
   ): Task[Observable[Array[Byte]]] = {
     for {
       methodDescriptor ← getMethodDescriptorF(service, method)
       _ = logger.debug("Websocket method descriptor: " + methodDescriptor.toString)
-      req ← Task(methodDescriptor.parseRequest(stream))
+      req ← Task(reqE.map(methodDescriptor.parseRequest))
       _ = logger.debug("Websocket request: " + req)
       resp ← {
         if (methodDescriptor.getType == MethodType.UNARY)

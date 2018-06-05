@@ -22,9 +22,7 @@ import fluence.proxy.grpc.WebsocketMessage
 import fs2.async.mutable.Topic
 import fs2.{io ⇒ _, _}
 import monix.eval.Task
-import monix.execution.Ack
-import monix.execution.Scheduler.Implicits.global
-import monix.reactive.Observer
+import monix.execution.{Scheduler ⇒ TaskScheduler}
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Server
@@ -32,7 +30,6 @@ import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.websocket._
 import org.http4s.websocket.WebsocketBits.{WebSocketFrame, _}
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
@@ -45,7 +42,7 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
     inProcessGrpc: InProcessGrpc,
     scheduler: Scheduler,
     pingInterval: FiniteDuration = 2.seconds
-  ): HttpService[Task] = HttpService[Task] {
+  )(implicit taskScheduler: TaskScheduler): HttpService[Task] = HttpService[Task] {
 
     case GET -> Root ⇒
       //Creates a proxy for each connection to separate the cache for all clients.
@@ -53,30 +50,30 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
 
       def replyPipe(topic: Topic[Task, WebSocketFrame]): Sink[Task, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
-          val responseStream = for {
+          val handleRequest = for {
             message ← Task(WebsocketMessage.parseFrom(data))
             _ = logger.debug(s"Handle websocket message $message")
+            // TODO message.response.payload.get.newInput() rewrite with error handling
             responseObservable ← proxyGrpc
-              .handleMessage(message.service, message.method, message.requestId, message.payload.newInput())
+              .handleMessage(
+                message.service,
+                message.method,
+                message.requestId,
+                RequestConverter.toEither(message.response)
+              )
             binaryObservable = responseObservable.map { bytes ⇒
-              val responseMessage = message.copy(payload = ByteString.copyFrom(bytes))
-              Binary(responseMessage.toByteArray): WebSocketFrame
+              val responseMessage =
+                message.copy(response = WebsocketMessage.Response.Payload(ByteString.copyFrom(bytes)))
+              Binary(responseMessage.toByteArray)
             }
           } yield {
             //splitting observer and topic for asynchronous request handling
-            val obs = new Observer[WebSocketFrame] {
-              override def onNext(elem: WebSocketFrame): Future[Ack] =
-                topic.publish1(elem).map(_ ⇒ Ack.Continue).runAsync
-
-              override def onError(ex: Throwable): Unit = ex.printStackTrace()
-
-              override def onComplete(): Unit = ()
-            }
+            val obs = new WebsocketPublishObserver(topic, message.service, message.method, message.requestId)
 
             binaryObservable.subscribe(obs)
           }
 
-          Stream.eval(responseStream.map(_ ⇒ ()))
+          Stream.eval(handleRequest.map(_ ⇒ ()))
         case m ⇒
           logger.warn(s"Unexpected message in GrpcWebsocketProxy: $m")
           Stream.eval(Task.pure(()))
@@ -93,9 +90,12 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
       }
   }
 
-  def startWebsocketServer(inProcessGrpc: InProcessGrpc, scheduler: Scheduler, port: Int): Task[Server[Task]] =
+  def startWebsocketServer(
+    inProcessGrpc: InProcessGrpc,
+    scheduler: Scheduler,
+    port: Int
+  )(implicit taskScheduler: TaskScheduler): Task[Server[Task]] =
     for {
-
       server ← BlazeBuilder[Task]
         .bindHttp(port, "0.0.0.0")
         .withWebSockets(true)

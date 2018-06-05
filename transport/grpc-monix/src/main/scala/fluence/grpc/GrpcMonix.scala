@@ -15,15 +15,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.dataset.grpc
+package fluence.grpc
 
 import io.grpc.stub.StreamObserver
-import monix.eval.Task
 import monix.execution.{Ack, Cancelable, Scheduler}
+import monix.reactive.Observer.Sync
 import monix.reactive._
 
-import scala.concurrent.Future
 import scala.language.implicitConversions
+import scala.util.Try
 
 object GrpcMonix {
 
@@ -44,27 +44,34 @@ object GrpcMonix {
               sync.onComplete()
 
             override def onNext(value: O): Unit =
-              sync.onNext(value).failed.foreach(onError)
+              sync.onNext(value)
           })))
         }
       }
     }
 
-  implicit def streamToObserver[T](stream: StreamObserver[T])(implicit sch: Scheduler): Observer[T] = new Observer[T] {
-    override def onError(ex: Throwable): Unit =
-      stream.onError(ex)
+  implicit def streamToObserver[T](stream: StreamObserver[T])(implicit sch: Scheduler): Observer.Sync[T] =
+    new Observer.Sync[T] {
+      override def onError(ex: Throwable): Unit =
+        stream.onError(ex)
 
-    override def onComplete(): Unit =
-      stream.onCompleted()
+      override def onComplete(): Unit =
+        stream.onCompleted()
 
-    override def onNext(elem: T): Future[Ack] =
-      Task(stream.onNext(elem))
-        .map(_ ⇒ Ack.Continue)
-        .onErrorHandle { t ⇒
-          onError(t)
-          Ack.Stop
-        }
-        .runAsync
+      override def onNext(elem: T): Ack = {
+        stream.onNext(elem)
+        Ack.Continue
+      }
+    }
+
+  implicit def observerToStream[T](observer: Sync[T])(implicit sch: Scheduler): StreamObserver[T] = {
+    new StreamObserver[T] {
+      override def onNext(value: T): Unit = observer.onNext(value)
+
+      override def onError(t: Throwable): Unit = observer.onError(t)
+
+      override def onCompleted(): Unit = observer.onComplete()
+    }
   }
 
   def streamObservable[T](implicit sch: Scheduler): (Observable[T], StreamObserver[T]) = {

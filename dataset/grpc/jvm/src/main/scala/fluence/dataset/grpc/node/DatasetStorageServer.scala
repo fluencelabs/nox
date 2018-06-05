@@ -47,7 +47,7 @@ class DatasetStorageServer[F[_]: Async](
   scheduler: Scheduler
 ) extends DatasetStorageRpcGrpc.DatasetStorageRpc with slogging.LazyLogging {
 
-  import fluence.dataset.grpc.GrpcMonix._
+  import fluence.grpc.GrpcMonix._
 
   override def get(responseObserver: StreamObserver[GetCallback]): StreamObserver[GetCallbackReply] = {
 

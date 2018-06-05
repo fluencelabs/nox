@@ -64,6 +64,8 @@ trait FluenceNode {
 
 object FluenceNode extends slogging.LazyLogging {
 
+  implicit val scheduler = Scheduler.global
+
   /**
    * Launches a node with all available and enabled network interfaces.
    *
@@ -137,11 +139,11 @@ object FluenceNode extends slogging.LazyLogging {
       fs2SchedulerWithShutdownTask ← fs2.Scheduler.allocate[IO](2)
       (fs2Scheduler, fs2Shutdown) = fs2SchedulerWithShutdownTask
       websocketServerShutdown ← GrpcWebsocketProxy
-        .startWebsocketServer(inProcessGrpc, fs2Scheduler, port)
-        .toIO(Scheduler.global)
+        .startWebsocketServer(inProcessGrpc, fs2Scheduler, port)(scheduler)
+        .toIO
     } yield
       fs2Shutdown
-        .flatMap(_ ⇒ websocketServerShutdown.shutdown.toIO(Scheduler.global))
+        .flatMap(_ ⇒ websocketServerShutdown.shutdown.toIO)
         .flatMap(_ ⇒ inProcessGrpc.close())
   }
 
@@ -197,7 +199,7 @@ object FluenceNode extends slogging.LazyLogging {
           config,
           acceptLocal = true,
           clock,
-          Scheduler.global,
+          scheduler,
           Scheduler.io(name = "io-pool") // Unfortunately Idea uses sjs sources here and don't know 'io' method
         )
         .onFail(upnpShutdown)
@@ -219,7 +221,7 @@ object FluenceNode extends slogging.LazyLogging {
       seedConfig ← SeedsConfig.read(config).onFail(closeAll)
       seedContacts ← seedConfig.contacts.onFail(closeAll)
 
-      _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO(Scheduler.global)
+      _ ← if (seedContacts.nonEmpty) services.kademlia.join(seedContacts, 10).toIO
       else
         IO {
           logger.info("You should add some seed node contacts to join. Take a look on reference.conf")

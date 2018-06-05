@@ -19,11 +19,12 @@ package fluence.transport.websocket
 
 import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
-import fluence.proxy.grpc.WebsocketMessage
+import fluence.proxy.grpc.Status.Code
+import fluence.proxy.grpc.{Status, WebsocketMessage}
 import fluence.transport.websocket.WebsocketPipe.WebsocketClient
 import monix.execution.Ack
 import monix.execution.Ack.Continue
-import monix.reactive.Observer
+import monix.reactive.{Observable, Observer}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
@@ -32,7 +33,7 @@ import scala.util.Random
 object GrpcProxyClient {
 
   private def message(service: String, method: String, requestId: Long)(payload: Array[Byte]): WebsocketMessage = {
-    WebsocketMessage(service, method, requestId, ByteString.copyFrom(payload))
+    WebsocketMessage(service, method, requestId, WebsocketMessage.Response.Payload(ByteString.copyFrom(payload)))
   }
 
   /**
@@ -78,7 +79,20 @@ object GrpcProxyClient {
     //we will collect only messages that have equals method name, service name and request id
     val proxyObservable = wsObservable.collect {
       case WebsocketMessage(s, m, rId, payload) if s == service && m == method && rId == rId ⇒
-        responseCodec.unsafe(payload.toByteArray)
+        payload
+    }.takeWhile {
+      case WebsocketMessage.Response.CompleteStatus(status) if status.code == Code.OK ⇒
+        false
+      case _ ⇒ true
+    }.flatMap {
+      case WebsocketMessage.Response.Payload(payload) ⇒
+        Observable(responseCodec.unsafe(payload.toByteArray))
+      case WebsocketMessage.Response.CompleteStatus(status) if status.code == Code.OK ⇒
+        Observable()
+      case WebsocketMessage.Response.CompleteStatus(status) ⇒
+        Observable.raiseError(new StatusException(status))
+      case WebsocketMessage.Response.Empty ⇒
+        Observable.raiseError(new StatusException(Status(Status.Code.UNKNOWN, "Empty response received.")))
     }
 
     WebsocketPipe(proxyObserver, proxyObservable, websocketClient.statusOutput)
