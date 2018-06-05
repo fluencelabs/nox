@@ -22,8 +22,10 @@ import fluence.proxy.grpc.WebsocketMessage.Response
 import org.scalatest.{Assertion, AsyncWordSpec, Matchers}
 import fs2._
 import monix.eval.Task
+import monix.execution.Ack
 import org.http4s.websocket.WebsocketBits.{Binary, Ping, WebSocketFrame}
 import monix.execution.Scheduler.Implicits.global
+import monix.reactive.{Observable, Observer}
 
 import scala.concurrent.Promise
 import scala.util.Random
@@ -74,23 +76,18 @@ class WebsocketLifecycleSpec extends AsyncWordSpec with Matchers with slogging.L
 
       val errorPromise = Promise[Assertion]
 
-      println("ERRPR")
-
       val task = for {
         topic ← async.topic[Task, WebSocketFrame](Ping())
         _ = topic
           .subscribe(10)
           .collect {
             case Binary(ab, _) ⇒
-              val msg = WebsocketMessage.parseFrom(ab)
-              println("MSG === " + msg)
-              msg
+              WebsocketMessage.parseFrom(ab)
           }
           .map {
             case WebsocketMessage(s, m, rId, resp) if s == service && m == method && rId == reqId ⇒
               resp match {
                 case Response.CompleteStatus(status) ⇒
-                  println("STATUS === " + status)
                   errorPromise.success(status.code.isInternal shouldBe true)
                 case _ ⇒ errorPromise.success(true shouldBe false)
               }
@@ -101,7 +98,6 @@ class WebsocketLifecycleSpec extends AsyncWordSpec with Matchers with slogging.L
           .drain
           .runAsync
         publisher = new WebsocketPublishObserver(topic, service, method, reqId)
-        _ = println("HEY ON ERROR")
         _ = publisher.onError(new RuntimeException("msg"))
       } yield ()
 

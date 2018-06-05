@@ -188,7 +188,7 @@ lazy val `transport-grpc-monix` = project
     grpc,
     libraryDependencies ++= Seq(
       monix3,
-      "org.scalatest" %% "scalatest"      % ScalatestV % Test
+      scalatestKit
     )
   )
   .enablePlugins(AutomateHeaderPlugin)

@@ -23,4 +23,4 @@ import fluence.proxy.grpc.Status
  * Mirror of grpc.StatusException for js
  * @param status Status code and description of exception.
  */
-class StatusException(status: Status) extends Throwable {}
+class StatusException(status: Status) extends Throwable

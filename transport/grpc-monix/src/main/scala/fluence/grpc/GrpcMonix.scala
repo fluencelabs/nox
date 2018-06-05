@@ -44,7 +44,7 @@ object GrpcMonix {
               sync.onComplete()
 
             override def onNext(value: O): Unit =
-              sync.onNext(value).failed.foreach(onError)
+              sync.onNext(value)
           })))
         }
       }
@@ -59,14 +59,8 @@ object GrpcMonix {
         stream.onCompleted()
 
       override def onNext(elem: T): Ack = {
-        Try {
-          stream.onNext(elem)
-          Ack.Continue
-        }.recover {
-          case e: Throwable ⇒
-            onError(e)
-            Ack.Stop
-        }.getOrElse(Ack.Stop)
+        stream.onNext(elem)
+        Ack.Continue
       }
     }
 
