@@ -17,6 +17,7 @@
 
 package fluence.client
 
+import cats.effect.IO
 import fluence.crypto.KeyPair
 import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.keystore.KeyStore
@@ -42,7 +43,7 @@ object Main extends slogging.LazyLogging {
 
   def main(args: Array[String]) = {}
 
-  def initLogging(): Unit = {
+  private def initLogging(): Unit = {
     val textArea = document.createElement("textarea").asInstanceOf[TextArea]
     textArea.readOnly = true
     textArea.cols = 160
@@ -53,7 +54,7 @@ object Main extends slogging.LazyLogging {
     LoggerConfig.level = LogLevel.INFO
   }
 
-  def mainWorkAction(keysPair: KeyPair, algo: SignAlgo) = {
+  private def mainWorkAction(keysPair: KeyPair, algo: SignAlgo): IO[Unit] = {
 
     import algo.checker
 
@@ -94,7 +95,7 @@ object Main extends slogging.LazyLogging {
         .leftMap(_.message)
         .value
 
-    var keyElement: Div = null
+    var keyId = "keys"
 
     def submitAction(keyPairStr: String): Task[Unit] = {
       for {
@@ -104,14 +105,14 @@ object Main extends slogging.LazyLogging {
             logger.info(s"Key is not correct. Error: $err")
             Task.unit
           case Right(kp) ⇒
-            document.body.removeChild(keyElement)
+            document.body.removeChild(document.getElementById(keyId))
             Task.fromIO(mainWorkAction(kp, algo))
 
         }
       } yield {}
     }
 
-    keyElement = KeysElement.addKeysElement(document.body, generateAction, submitAction)
+    KeysElement.addKeysElement(document.body, generateAction, submitAction, keyId)
 
   }
 

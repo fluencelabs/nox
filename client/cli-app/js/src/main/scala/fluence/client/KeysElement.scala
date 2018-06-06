@@ -58,9 +58,11 @@ object KeysElement {
   def addKeysElement(
     el: HTMLElement,
     generateKeyAction: Task[String],
-    submitAction: String ⇒ Task[Unit]
+    submitAction: String ⇒ Task[Unit],
+    id: String
   )(implicit scheduler: Scheduler): Div = {
     val div = document.createElement("div").asInstanceOf[Div]
+    div.id = id
 
     div.innerHTML += "Add your keys here or generate a new one and save it:"
     div.appendChild(document.createElement("br"))
