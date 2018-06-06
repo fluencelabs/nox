@@ -23,6 +23,7 @@ import monix.eval.Task
 import monix.reactive.Observable
 
 import scala.language.higherKinds
+import scala.util.Random
 
 /**
  * Wrapper with dataset replication. Allows writes data to all nodes and reads data if at least one node is alive.
@@ -43,14 +44,15 @@ class ClientReplicationWrapper[K, V](
   override def get(key: K): Task[Option[V]] = {
 
     def getRec(replicas: List[(ClientDatasetStorageApi[Task, Observable, K, V], Contact)]): Task[Option[V]] = {
-      val (store, contact) = replicas.head
+      val shuffled = Random.shuffle(replicas)
+      val (store, contact) = shuffled.head
       logger.info(s"Reading key=$key from ${contact.addr}:${contact.grpcPort}")
       store.get(key).onErrorHandleWith { e ⇒
         logger.warn(s"Can't get value from ${contact.addr}:${contact.grpcPort} for key=$key, cause=$e")
-        if (replicas.tail.isEmpty)
+        if (shuffled.tail.isEmpty)
           Task.raiseError[Option[V]](e)
         else {
-          getRec(replicas.tail)
+          getRec(shuffled.tail)
         }
       }
     }
@@ -68,14 +70,15 @@ class ClientReplicationWrapper[K, V](
   override def range(from: K, to: K): Observable[(K, V)] = {
 
     def rangeRec(replicas: List[(ClientDatasetStorageApi[Task, Observable, K, V], Contact)]): Observable[(K, V)] = {
-      val (store, contact) = replicas.head
+      val shuffled = Random.shuffle(replicas)
+      val (store, contact) = shuffled.head
       logger.info(s"Reading key=$from from ${contact.addr}:${contact.grpcPort}")
       store.range(from, to).onErrorHandleWith { e ⇒
         logger.warn(s"Can't get value from ${contact.addr}:${contact.grpcPort} for key=$from, cause=$e")
-        if (replicas.tail.isEmpty)
+        if (shuffled.tail.isEmpty)
           Observable.raiseError[(K, V)](e)
         else {
-          rangeRec(replicas.tail)
+          rangeRec(shuffled.tail)
         }
       }
     }

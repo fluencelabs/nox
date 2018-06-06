@@ -67,6 +67,7 @@ object Main extends slogging.LazyLogging {
       lastResultElement = LastResult.addLastResultElement(document.body)
       _ = GetElement.addGetElement(document.body, dataset.get, lastResultElement)
       _ = PutElement.addPutElement(document.body, dataset.put, lastResultElement)
+      _ = RangeElement.addrangeElement(document.body, dataset.range, lastResultElement)
     } yield {
       logger.info("Initialization finished.")
     }

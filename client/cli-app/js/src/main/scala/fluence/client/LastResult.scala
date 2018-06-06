@@ -34,7 +34,7 @@ object LastResult {
 
     text.`type` = "text"
     text.readOnly = true
-    text.size = 40
+    text.size = 80
 
     div.appendChild(document.createElement("br"))
     div.innerHTML += "Last result:"
