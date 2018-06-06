@@ -31,6 +31,15 @@ import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 
 /**
+ * Result of message handling.
+ * TODO this class add strong coupling with websocket logic. Refactor it in future.
+ *
+ * @param observable Stream of responses.
+ * @param controlOnComplete Send message when stream is completed.
+ */
+case class Result(observable: Observable[Array[Byte]], controlOnComplete: Boolean = true)
+
+/**
  * Service to proxy requests in grpc from another source.
  *
  * @param inProcessGrpc In-process services and client channel.
@@ -134,14 +143,14 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
     req: Either[StatusException, Any],
     methodDescriptor: MethodDescriptor[Any, Any],
     requestId: Long
-  ): Task[Observable[Array[Byte]]] = {
+  ): Task[Option[Observable[Array[Byte]]]] = {
     for {
       callOp ← callCache.flatMap(_.read).map(_.get(requestId))
       resp ← callOp match {
         case Some(c) ⇒
           Task {
             call(c, req)
-            Observable()
+            None
           }
         case None ⇒
           for {
@@ -151,7 +160,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
             _ ← callCache.flatMap(_.put(map + (requestId -> c)))
           } yield {
             call(c, req)
-            obs
+            Some(obs)
           }
       }
     } yield resp
@@ -164,14 +173,14 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
    * @param method Name of grpc method (method name of service).
    * @param reqE Input stream of bytes or grpc error.
    *
-   * @return Response as array of bytes.
+   * @return Response as array of bytes or None, if there is no response.
    */
   def handleMessage(
     service: String,
     method: String,
     requestId: Long,
     reqE: Either[StatusException, InputStream]
-  ): Task[Observable[Array[Byte]]] = {
+  ): Task[Option[Result]] = {
     for {
       methodDescriptor ← getMethodDescriptorF(service, method)
       _ = logger.debug("Websocket method descriptor: " + methodDescriptor.toString)
@@ -179,9 +188,9 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
       _ = logger.debug("Websocket request: " + req)
       resp ← {
         if (methodDescriptor.getType == MethodType.UNARY)
-          handleUnaryCall(req, methodDescriptor)
+          handleUnaryCall(req, methodDescriptor).map(r ⇒ Some(Result(r, controlOnComplete = false)))
         else
-          handleStreamCall(req, methodDescriptor, requestId)
+          handleStreamCall(req, methodDescriptor, requestId).map(_.map(r ⇒ Result(r)))
       }
     } yield resp
   }

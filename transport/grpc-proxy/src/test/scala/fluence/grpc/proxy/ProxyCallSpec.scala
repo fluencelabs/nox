@@ -104,6 +104,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
           message.requestId,
           RequestConverter.toEither(message.response)
         )
+        .map(_.map(_.observable).getOrElse(Observable()))
         .runSyncUnsafe(5.seconds)
     }
 
@@ -175,6 +176,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
         val exception = the[StatusRuntimeException] thrownBy {
           proxyGrpc
             .handleMessage(testMessage.service, testMessage.method, 1L, RequestConverter.toEither(testMessage.response))
+            .map(_.get.observable)
             .runSyncUnsafe(5.seconds)
             .lastL
             .runSyncUnsafe(5.seconds)
@@ -197,6 +199,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
               1L,
               Left(new StatusException(io.grpc.Status.UNAUTHENTICATED))
             )
+            .map(_.get.observable)
             .runSyncUnsafe(5.seconds)
             .lastL
             .runSyncUnsafe(5.seconds)
@@ -216,6 +219,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
         val exception = the[StatusRuntimeException] thrownBy {
           proxyGrpc
             .handleMessage(testMessage.service, testMessage.method, 1L, Left(new StatusException(io.grpc.Status.OK)))
+            .map(_.get.observable)
             .runSyncUnsafe(5.seconds)
             .lastL
             .runSyncUnsafe(5.seconds)

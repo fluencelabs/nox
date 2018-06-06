@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2017  Fluence Labs Limited
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package fluence.client
 
 import cats.effect.IO
@@ -27,17 +44,13 @@ object NaiveDataset {
   /**
    * Create always new fluence client, and return new dataset
    */
-  def createNewDataset()(
+  def createNewDataset(algo: SignAlgo, seed: Contact, keyPair: KeyPair)(
     implicit scheduler: Scheduler
   ): IO[ClientDatasetStorageApi[Task, Observable, String, String]] = {
     val algo: SignAlgo = Ecdsa.signAlgo
     import algo.checker
 
     val hasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JsCryptoHasher.Sha256
-
-    val seedContact = Contact.readB64seed.unsafe(
-      "eyJwayI6IkE5ZmZaWS1FbG5aSlNCWEJBMno4Q2FpWTNLT051Y3doTkdfY0FmRVNNU3liIiwicHYiOjB9.eyJhIjoiMTI3LjAuMC4xIiwiZ3AiOjExMDIxLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTF9.MEUCIAu0lDokN_cMOZzgVXzCdPNPhhFVWEBkhP5vbv_EGUL3AiEA73MbbvNAANW6BTin-jho9Dsv42X2iqtgv-s5vpgGdQo="
-    )
 
     val kadConfig = KademliaConf(3, 3, 1, 5.seconds)
 
@@ -58,7 +71,7 @@ object NaiveDataset {
 
     val client = clientWebsocketServices.build[Task]
 
-    val clIO = FluenceClient.build(Seq(seedContact), algo, hasher, kadConfig, client andThen (_.get))
+    val clIO = FluenceClient.build(Seq(seed), algo, hasher, kadConfig, client andThen (_.get))
 
     def cryptoMethods(
       secretKey: KeyPair.Secret
@@ -72,9 +85,9 @@ object NaiveDataset {
 
     for {
       cl ← clIO
-      newkey ← algo.generateKeyPair.runF[IO](None)
-      (keyCrypt, valueCrypt) = cryptoMethods(newkey.secretKey)
-      dataset ← cl.createNewContract(newkey, 2, keyCrypt, valueCrypt).toIO
+      (keyCrypt, valueCrypt) = cryptoMethods(keyPair.secretKey)
+      // TODO this is not working now, because missing dataset contract on node is throwing as an error
+      dataset ← cl.restoreDataset(keyPair, keyCrypt, valueCrypt, 2).toIO
     } yield dataset
   }
 }

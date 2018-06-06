@@ -706,7 +706,7 @@ lazy val `client-cli-app` = crossProject(JVMPlatform, JSPlatform)
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "one.fluence" %% "crypto-keystore" % CryptoV
+      "one.fluence" %%% "crypto-keystore" % CryptoV
     )
   )
   .jvmSettings(
@@ -723,6 +723,7 @@ lazy val `client-cli-app` = crossProject(JVMPlatform, JSPlatform)
   .jsSettings(
     fork in Test := false
   )
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`client-cli`, `client-grpc`)
 
 lazy val `client-cli-app-js` = `client-cli-app`.js
