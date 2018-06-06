@@ -723,6 +723,7 @@ lazy val `client-cli-app` = crossProject(JVMPlatform, JSPlatform)
   .jsSettings(
     fork in Test := false
   )
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`client-cli`, `client-grpc`)
 
 lazy val `client-cli-app-js` = `client-cli-app`.js
