@@ -106,7 +106,7 @@ class ClientRange[F[_]: Effect](datasetId: Array[Byte], version: Long, rangeCall
       })
       .multicast
 
-    (
+    val cancelable = (
       Observable(
         RangeCallbackReply(
           RangeCallbackReply.Reply.DatasetInfo(DatasetInfo(ByteString.copyFrom(datasetId), version))
@@ -126,7 +126,7 @@ class ClientRange[F[_]: Effect](datasetId: Array[Byte], version: Long, rangeCall
         logger.trace(s"DatasetStorageClient.range() received server value=$value for key=$key")
         Observable(key.toByteArray → value.toByteArray)
 
-    }.flatten
+    }.doAfterTerminate(_ ⇒ cancelable.cancel()).flatten
   }
 
 }

@@ -19,7 +19,7 @@ package fluence.dataset.grpc.client
 
 import cats.effect.{Effect, IO}
 import fluence.btree.protocol.BTreeRpc
-import fluence.dataset.client.{ClientGet, ClientPut}
+import fluence.dataset.client.{ClientGet, ClientPut, ClientRange}
 import fluence.dataset.protobuf._
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.proxy.grpc.WebsocketMessage
@@ -111,7 +111,7 @@ class DatasetStorageClient[F[_]: Effect](connection: IO[WebsocketPipe[WebsocketM
     version: Long,
     searchCallbacks: BTreeRpc.SearchCallback[F]
   ): Observable[(Array[Byte], Array[Byte])] =
-    ??? //ClientRange(datasetId, version, searchCallbacks).runStream(rangePipe)
+    Observable.fromIO(rangePipe).flatMap(ClientRange(datasetId, version, searchCallbacks).runStream)
 
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.
