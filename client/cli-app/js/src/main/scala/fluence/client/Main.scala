@@ -26,12 +26,12 @@ import fluence.kad.protocol.Contact
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.scalajs.dom.document
-import org.scalajs.dom.html.{Div, TextArea}
+import org.scalajs.dom.html.{Div, Input, TextArea}
 import slogging.{LogLevel, LoggerConfig}
 
 import scala.language.higherKinds
-import scala.scalajs.js.{Any, JSON}
 import scala.scalajs.js.annotation.JSExportTopLevel
+import scala.scalajs.js.{Any, JSON}
 
 /**
  *
@@ -44,11 +44,8 @@ object Main extends slogging.LazyLogging {
   def main(args: Array[String]) = {}
 
   private def initLogging(): Unit = {
-    val textArea = document.createElement("textarea").asInstanceOf[TextArea]
-    textArea.readOnly = true
-    textArea.cols = 160
-    textArea.rows = 30
-    document.body.appendChild(textArea)
+
+    val textArea = document.getElementById("logger").asInstanceOf[TextArea]
 
     LoggerConfig.factory = new TextAreaWithConsoleLoggerFactory(textArea, 100)
     LoggerConfig.level = LogLevel.INFO
@@ -64,10 +61,10 @@ object Main extends slogging.LazyLogging {
 
     for {
       dataset ← NaiveDataset.createNewDataset(algo, seedContact, keysPair)
-      lastResultElement = LastResult.addLastResultElement(document.body)
-      _ = GetElement.addGetElement(document.body, dataset.get, lastResultElement)
-      _ = PutElement.addPutElement(document.body, dataset.put, lastResultElement)
-      _ = RangeElement.addrangeElement(document.body, dataset.range, lastResultElement)
+      lastResultElement = document.getElementById("last-result").asInstanceOf[Input]
+      _ = GetElement.addGetElement(dataset.get, lastResultElement)
+      _ = PutElement.addPutElement(dataset.put, lastResultElement)
+      _ = RangeElement.addrangeElement(dataset.range, lastResultElement)
     } yield {
       logger.info("Initialization finished.")
     }
@@ -96,8 +93,6 @@ object Main extends slogging.LazyLogging {
         .leftMap(_.message)
         .value
 
-    var keyId = "keys"
-
     def submitAction(keyPairStr: String): Task[Unit] = {
       for {
         validate ← validateAction(keyPairStr)
@@ -106,15 +101,20 @@ object Main extends slogging.LazyLogging {
             logger.info(s"Key is not correct. Error: $err")
             Task.unit
           case Right(kp) ⇒
-            document.body.removeChild(document.getElementById(keyId))
-            Task.fromIO(mainWorkAction(kp, algo))
+            println("HEY")
+            val keysEl = document.getElementById("keysEl")
+            val parent = keysEl.parentNode
+            parent.removeChild(keysEl)
 
+            Task.fromIO(mainWorkAction(kp, algo)).map { _ ⇒
+              val mainDiv = document.getElementById("progress-block").asInstanceOf[Div]
+              mainDiv.style = "display: block;"
+            }
         }
       } yield {}
     }
 
-    KeysElement.addKeysElement(document.body, generateAction, submitAction, keyId)
-
+    KeysElement.addKeysElement(generateAction, submitAction)
   }
 
   buildInterface()

@@ -20,73 +20,27 @@ package fluence.client
 import monix.eval.Task
 import monix.execution.Scheduler
 import org.scalajs.dom.document
-import org.scalajs.dom.html.{Button, Div, TextArea}
-import org.scalajs.dom.raw.HTMLElement
+import org.scalajs.dom.html.{Button, TextArea}
 
 object KeysElement {
 
-  private def generateButton(generateKeyAction: Task[Unit])(implicit scheduler: Scheduler) = {
-    val generateButton = document.createElement("input").asInstanceOf[Button]
-    generateButton.`type` = "submit"
-    generateButton.value = "Generate"
-
-    generateButton.onclick = mouseEvent ⇒ {
-      generateKeyAction.runAsync
+  def addKeysElement(
+    generateKeyAction: Task[String],
+    submitAction: String ⇒ Task[Unit]
+  )(implicit scheduler: Scheduler): Unit = {
+    val genButton = document.getElementById("key-generator-gen").asInstanceOf[Button]
+    genButton.onclick = mouseEvent ⇒ {
+      generateKeyAction.map { keys ⇒
+        document.getElementById("key-generator").asInstanceOf[TextArea].value = keys
+      }.runAsync
     }
 
-    generateButton
-  }
-
-  private def submitButton(
-    submitAction: String ⇒ Task[Unit],
-    text: TextArea
-  )(implicit scheduler: Scheduler) = {
-    val submitButton = document.createElement("input").asInstanceOf[Button]
-    submitButton.`type` = "submit"
-    submitButton.value = "Submit"
-
+    val submitButton = document.getElementById("key-generator-submit").asInstanceOf[Button]
     submitButton.onclick = me ⇒ {
 
-      val keyPairStr = text.value
+      val keyPairStr = document.getElementById("key-generator").asInstanceOf[TextArea].value
 
       submitAction(keyPairStr).runAsync
     }
-
-    submitButton
-  }
-
-  def addKeysElement(
-    el: HTMLElement,
-    generateKeyAction: Task[String],
-    submitAction: String ⇒ Task[Unit],
-    id: String
-  )(implicit scheduler: Scheduler): Div = {
-    val div = document.createElement("div").asInstanceOf[Div]
-    div.id = id
-
-    div.innerHTML += "Add your keys here or generate a new one and save it:"
-    div.appendChild(document.createElement("br"))
-
-    val textArea = document.createElement("textarea").asInstanceOf[TextArea]
-    textArea.cols = 60
-    textArea.rows = 8
-    div.appendChild(textArea)
-
-    div.appendChild(document.createElement("br"))
-
-    val genAction = generateKeyAction.map(key ⇒ textArea.value = key)
-    val generatedButton = generateButton(genAction)
-    div.appendChild(generatedButton)
-
-    div.appendChild(document.createElement("br"))
-
-    val submitedButton = submitButton(submitAction, textArea)
-    div.appendChild(submitedButton)
-
-    div.appendChild(document.createElement("br"))
-
-    el.appendChild(div)
-
-    div
   }
 }

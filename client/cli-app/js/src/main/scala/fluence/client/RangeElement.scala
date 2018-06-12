@@ -20,44 +20,23 @@ package fluence.client
 import monix.execution.Scheduler
 import monix.reactive.Observable
 import org.scalajs.dom.document
-import org.scalajs.dom.html.{Button, Div, Input}
-import org.scalajs.dom.raw.HTMLElement
+import org.scalajs.dom.html.{Button, Input}
 
 object RangeElement extends slogging.LazyLogging {
 
   /**
    * Add element with `range` logic.
    *
-   * @param el Append range element to this element.
    * @param action Action, that will be processed on button click or by pressing `enter` key
    * @param resultField Field, that will be show the result of action.
    */
-  def addrangeElement(el: HTMLElement, action: (String, String) ⇒ Observable[(String, String)], resultField: Input)(
+  def addrangeElement(action: (String, String) ⇒ Observable[(String, String)], resultField: Input)(
     implicit scheduler: Scheduler
   ): Unit = {
-    val div = document.createElement("div").asInstanceOf[Div]
 
-    val rangeFromInput = document.createElement("input").asInstanceOf[Input]
-    rangeFromInput.`type` = "text"
-    rangeFromInput.name = "rangeFrom"
-    rangeFromInput.value = ""
-    rangeFromInput.placeholder = "From"
-
-    val rangeToInput = document.createElement("input").asInstanceOf[Input]
-    rangeToInput.`type` = "text"
-    rangeToInput.name = "rangeTo"
-    rangeToInput.value = ""
-    rangeToInput.placeholder = "To"
-
-    val rangeButton = document.createElement("input").asInstanceOf[Button]
-    rangeButton.`type` = "submit"
-    rangeButton.value = "Range Get"
-
-    div.appendChild(document.createElement("br"))
-    div.appendChild(rangeFromInput)
-    div.appendChild(rangeToInput)
-    div.appendChild(rangeButton)
-    div.appendChild(document.createElement("br"))
+    val rangeButton = document.getElementById("range-submit").asInstanceOf[Button]
+    val rangeFromInput = document.getElementById("range-from-input").asInstanceOf[Input]
+    val rangeToInput = document.getElementById("range-to-input").asInstanceOf[Input]
 
     def rangeAction = {
       if (!rangeButton.disabled) {
@@ -88,7 +67,5 @@ object RangeElement extends slogging.LazyLogging {
         rangeAction
       }
     }
-
-    el.appendChild(div)
   }
 }

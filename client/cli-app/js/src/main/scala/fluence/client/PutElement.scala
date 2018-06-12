@@ -20,44 +20,22 @@ package fluence.client
 import monix.eval.Task
 import monix.execution.Scheduler
 import org.scalajs.dom.document
-import org.scalajs.dom.html.{Button, Div, Input}
-import org.scalajs.dom.raw.{HTMLElement, Node}
+import org.scalajs.dom.html.{Button, Input}
 
 object PutElement extends slogging.LazyLogging {
 
   /**
    * Add element with `put` logic.
    *
-   * @param el Append put element to this element.
    * @param action Action, that will be processed on button click or by pressing `enter` key
    * @param resultField Field, that will be show the result of action.
    */
-  def addPutElement(el: HTMLElement, action: (String, String) ⇒ Task[Option[String]], resultField: Input)(
+  def addPutElement(action: (String, String) ⇒ Task[Option[String]], resultField: Input)(
     implicit scheduler: Scheduler
   ): Unit = {
-    val div = document.createElement("div").asInstanceOf[Div]
-
-    val putKeyInput = document.createElement("input").asInstanceOf[Input]
-    putKeyInput.`type` = "text"
-    putKeyInput.name = "putKey"
-    putKeyInput.value = ""
-    putKeyInput.placeholder = "Key"
-
-    val putValueInput = document.createElement("input").asInstanceOf[Input]
-    putValueInput.`type` = "text"
-    putValueInput.name = "putValue"
-    putValueInput.value = ""
-    putValueInput.placeholder = "Value"
-
-    val putButton = document.createElement("input").asInstanceOf[Button]
-    putButton.`type` = "submit"
-    putButton.value = "Put"
-
-    div.appendChild(document.createElement("br"))
-    div.appendChild(putKeyInput)
-    div.appendChild(putValueInput)
-    div.appendChild(putButton)
-    div.appendChild(document.createElement("br"))
+    val putButton = document.getElementById("put-submit").asInstanceOf[Button]
+    val putKeyInput = document.getElementById("put-key-input").asInstanceOf[Input]
+    val putValueInput = document.getElementById("put-value-input").asInstanceOf[Input]
 
     def putAction = {
       if (!putButton.disabled) {
@@ -87,7 +65,5 @@ object PutElement extends slogging.LazyLogging {
         putAction
       }
     }
-
-    el.appendChild(div)
   }
 }
