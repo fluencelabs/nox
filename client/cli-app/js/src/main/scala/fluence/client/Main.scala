@@ -30,7 +30,7 @@ import org.scalajs.dom.html.{Div, Input, TextArea}
 import slogging.{LogLevel, LoggerConfig}
 
 import scala.language.higherKinds
-import scala.scalajs.js.annotation.JSExportTopLevel
+import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
 import scala.scalajs.js.{Any, JSON}
 
 /**
@@ -41,8 +41,6 @@ import scala.scalajs.js.{Any, JSON}
 @JSExportTopLevel("MainInterface")
 object Main extends slogging.LazyLogging {
 
-  def main(args: Array[String]) = {}
-
   private def initLogging(): Unit = {
 
     val textArea = document.getElementById("logger").asInstanceOf[TextArea]
@@ -51,13 +49,11 @@ object Main extends slogging.LazyLogging {
     LoggerConfig.level = LogLevel.INFO
   }
 
-  private def mainWorkAction(keysPair: KeyPair, algo: SignAlgo): IO[Unit] = {
+  private def mainWorkAction(seed: String, keysPair: KeyPair, algo: SignAlgo): IO[Unit] = {
 
     import algo.checker
 
-    val seedContact = Contact.readB64seed.unsafe(
-      "eyJwayI6IkE5ZmZaWS1FbG5aSlNCWEJBMno4Q2FpWTNLT051Y3doTkdfY0FmRVNNU3liIiwicHYiOjB9.eyJhIjoiMTI3LjAuMC4xIiwiZ3AiOjExMDIxLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTF9.MEUCIAu0lDokN_cMOZzgVXzCdPNPhhFVWEBkhP5vbv_EGUL3AiEA73MbbvNAANW6BTin-jho9Dsv42X2iqtgv-s5vpgGdQo="
-    )
+    val seedContact = Contact.readB64seed.unsafe(seed)
 
     for {
       dataset ← NaiveDataset.createNewDataset(algo, seedContact, keysPair)
@@ -70,7 +66,8 @@ object Main extends slogging.LazyLogging {
     }
   }
 
-  def buildInterface(): Unit = {
+  @JSExport
+  def buildInterface(seed: String): Unit = {
 
     initLogging()
 
@@ -101,12 +98,11 @@ object Main extends slogging.LazyLogging {
             logger.info(s"Key is not correct. Error: $err")
             Task.unit
           case Right(kp) ⇒
-            println("HEY")
             val keysEl = document.getElementById("keysEl")
             val parent = keysEl.parentNode
             parent.removeChild(keysEl)
 
-            Task.fromIO(mainWorkAction(kp, algo)).map { _ ⇒
+            Task.fromIO(mainWorkAction(seed, kp, algo)).map { _ ⇒
               val mainDiv = document.getElementById("progress-block").asInstanceOf[Div]
               mainDiv.style = "display: block;"
             }
@@ -116,6 +112,4 @@ object Main extends slogging.LazyLogging {
 
     KeysElement.addKeysElement(generateAction, submitAction)
   }
-
-  buildInterface()
 }

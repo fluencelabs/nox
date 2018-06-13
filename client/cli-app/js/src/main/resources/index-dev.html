@@ -11,7 +11,7 @@
 <div class="container" id="main-div">
 
     <div class="row my-3">
-        <textarea readonly="" class="w-100 p-3" rows="22" id="logger"></textarea>
+        <textarea readonly="" class="w-100 p-3 bg-light" rows="22" id="logger"></textarea>
     </div>
 
     <div id="keysEl" class="form-group w-75 my-3">
@@ -22,33 +22,37 @@
     </div>
 
     <div id="progress-block" class="w-75 my-3" style="display: none;">
-    <div class="w-100" class="form-group my-3">
-        <label for="last-result">Last result:</label>
-        <input class="p-1" type="text" readonly="" size="80" id="last-result">
-    </div>
+        <div class="w-100 form-group my-4">
+            <label for="last-result">Last result:</label>
+            <input class="p-1" type="text" readonly="" size="80" id="last-result">
+        </div>
 
-    <div class="w-100 form-group my-2">
-        <input class="p-1" type="text" name="put" id="get-input" placeholder="Key">
-        <input class="btn btn-primary mx-1" type="submit" id="get-submit" value="Get">
-    </div>
+        <div id="control-panel" class="shadow-sm p-3 mb-5 rounded">
+            <div class="w-100 form-group my-2">
+                <input class="p-1" type="text" name="put" id="get-input" placeholder="Key">
+                <input class="btn btn-primary mx-1" type="submit" id="get-submit" value="Get">
+            </div>
 
-    <div class="w-100 form-group my-2">
-        <input class="p-1" type="text" name="putKey" placeholder="Key" id="put-key-input">
-        <input class="p-1" type="text" name="putValue" placeholder="Value" id="put-value-input">
-        <input class="btn btn-primary mx-1" type="submit" value="Put" id="put-submit">
-    </div>
+            <div class="w-100 form-group my-2">
+                <input class="p-1" type="text" name="putKey" placeholder="Key" id="put-key-input">
+                <input class="p-1" type="text" name="putValue" placeholder="Value" id="put-value-input">
+                <input class="btn btn-primary mx-1" type="submit" value="Put" id="put-submit">
+            </div>
 
-    <div class="w-100 form-group my-2">
-        <input class="p-1" type="text" name="rangeFrom" placeholder="From" id="range-from-input">
-        <input class="p-1" type="text" name="rangeTo" placeholder="To" id="range-to-input">
-        <input class="btn btn-primary mx-1" type="submit" value="Range Get" id="range-submit">
-    </div>
+            <div class="w-100 form-group my-2">
+                <input class="p-1" type="text" name="rangeFrom" placeholder="From" id="range-from-input">
+                <input class="p-1" type="text" name="rangeTo" placeholder="To" id="range-to-input">
+                <input class="btn btn-primary mx-1" type="submit" value="Range Get" id="range-submit">
+            </div>
+        </div>
+
     </div>
 
 </div>
 
 <script type="text/javascript" src="../scalajs-bundler/main/client-cli-app-fastopt-bundle.js"></script>
 <script type="text/javascript" src="/workbench.js"></script>
+<script type="text/javascript">MainInterface.buildInterface("eyJwayI6IkE5ZmZaWS1FbG5aSlNCWEJBMno4Q2FpWTNLT051Y3doTkdfY0FmRVNNU3liIiwicHYiOjB9.eyJhIjoiMTI3LjAuMC4xIiwiZ3AiOjExMDIxLCJnaCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwIiwid3AiOjgwOTF9.MEUCIAu0lDokN_cMOZzgVXzCdPNPhhFVWEBkhP5vbv_EGUL3AiEA73MbbvNAANW6BTin-jho9Dsv42X2iqtgv-s5vpgGdQo=")</script>
 <script>
 
 </script>
