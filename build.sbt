@@ -712,16 +712,17 @@ lazy val `client-cli-app` = crossProject(JVMPlatform, JSPlatform)
   .jvmSettings(
     libraryDependencies ++= Seq(
       jline
-    ),
+    )
+  )
+  .jsSettings(
+    fork in Test := false,
+    scalaJSUseMainModuleInitializer := false,
     jsEnv in Compile                := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv(),
     workbenchStartMode              := WorkbenchStartModes.Manual,
     skip in packageJSDependencies   := false,
     scalaJSModuleKind in Test       := ModuleKind.CommonJSModule,
-    fork in Test                    := false,
-    scalaJSUseMainModuleInitializer := true
-  )
-  .jsSettings(
-    fork in Test := false
+    webpackBundlingMode := BundlingMode.LibraryAndApplication(),
+    emitSourceMaps := false
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`client-cli`, `client-grpc`)
