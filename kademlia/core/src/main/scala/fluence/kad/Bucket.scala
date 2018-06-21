@@ -142,7 +142,7 @@ object Bucket {
 
           // The last contact in the queue is the oldest
           // If it's still very fresh, drop incoming node without pings
-          time.map(_ - last.lastSeenEpochMillis <= pingExpiresIn.toMillis).flatMap {
+          time.map(t ⇒ !pingExpiresIn.isFinite() || t - last.lastSeenEpochMillis <= pingExpiresIn.toMillis).flatMap {
             case false ⇒
               StateT.pure(false)
             case true ⇒
