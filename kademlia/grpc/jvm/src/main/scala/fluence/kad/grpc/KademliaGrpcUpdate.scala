@@ -17,8 +17,6 @@
 
 package fluence.kad.grpc
 
-import java.time.Instant
-
 import cats.Id
 import cats.data.Kleisli
 import cats.effect.IO
@@ -48,7 +46,7 @@ object KademliaGrpcUpdate {
 
       remoteSeed ← headers(clientConf.contactHeader)
       remoteContact ← Contact.readB64seed.runEither[Id](remoteSeed).toOption
-    } yield protocol.Node(remoteKey, Instant.now(), remoteContact)
+    } yield protocol.Node(remoteKey, remoteContact)
 
     remoteNode.fold(IO.unit)(update)
   }

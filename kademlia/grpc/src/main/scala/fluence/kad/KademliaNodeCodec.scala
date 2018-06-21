@@ -17,8 +17,6 @@
 
 package fluence.kad
 
-import java.time.Instant
-
 import cats.Monad
 import cats.data.EitherT
 import cats.syntax.compose._
@@ -56,8 +54,6 @@ object KademliaNodeCodec {
           } yield
             protocol.Node[Contact](
               id,
-              Instant
-                .now(), // TODO: remove Instant.now, it is incorrect and should never be set in codec: decoding a Node doesn't mean it's being freshly seen
               contact
             )
       }

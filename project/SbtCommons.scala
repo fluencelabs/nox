@@ -6,7 +6,7 @@ import sbtprotoc.ProtocPlugin.autoImport.PB
 
 object SbtCommons {
 
-  val scalaV = scalaVersion := "2.12.5"
+  val scalaV = scalaVersion := "2.12.6"
 
   val commons = Seq(
     scalaV,
