@@ -136,7 +136,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       val rt = new RoutingTable[Long](nodeId)
 
       (1l to 5l).foreach { i ⇒
-        rt.update[Coeval](Node(i, i), failLocalRPC, pingDuration, checkNode).run
+        rt.update[Coeval, Coeval](Node(i, i), failLocalRPC, pingDuration, checkNode).run
         (1l to i).foreach { n ⇒
           rt.find(n) shouldBe defined
         }
@@ -144,17 +144,17 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
       rt.find(4l) shouldBe defined
 
-      rt.update[Coeval](Node(6l, 6l), failLocalRPC, pingDuration, checkNode).value shouldBe true
+      rt.update[Coeval, Coeval](Node(6l, 6l), failLocalRPC, pingDuration, checkNode).value shouldBe true
 
       rt.find(4l) shouldBe empty
       rt.find(6l) shouldBe defined
 
-      rt.update[Coeval](Node(4l, 4l), successLocalRPC, pingDuration, checkNode).value shouldBe false
+      rt.update[Coeval, Coeval](Node(4l, 4l), successLocalRPC, pingDuration, checkNode).value shouldBe false
 
       rt.find(4l) shouldBe empty
       rt.find(6l) shouldBe defined
 
-      rt.update[Coeval](Node(4l, 4l), failLocalRPC, pingDuration, checkNode).value shouldBe true
+      rt.update[Coeval, Coeval](Node(4l, 4l), failLocalRPC, pingDuration, checkNode).value shouldBe true
 
       rt.find(4l) shouldBe defined
       rt.find(6l) shouldBe empty
@@ -170,14 +170,14 @@ class RoutingTableSpec extends WordSpec with Matchers {
       val rt = new RoutingTable[Long](nodeId)
 
       (1l to 10l).foreach { i ⇒
-        rt.update[Coeval](Node(i, i), successLocalRPC, pingDuration, checkNode).run
+        rt.update[Coeval, Coeval](Node(i, i), successLocalRPC, pingDuration, checkNode).run
       }
 
       val nbs10 = rt.lookup(100l)
       nbs10.size should be >= 7
 
       (1l to 127l).foreach { i ⇒
-        rt.update[Coeval](Node(i, i), successLocalRPC, pingDuration, checkNode).run
+        rt.update[Coeval, Coeval](Node(i, i), successLocalRPC, pingDuration, checkNode).run
       }
 
       (1l to 127l).foreach { i ⇒

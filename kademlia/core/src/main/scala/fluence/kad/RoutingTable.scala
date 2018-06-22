@@ -25,7 +25,7 @@ import cats.syntax.functor._
 import cats.syntax.monoid._
 import cats.syntax.order._
 import cats.instances.list._
-import cats.{Apply, Monad, Parallel}
+import cats.{Monad, Parallel}
 import fluence.kad.RoutingTable.CantJoinAnyNode
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 
@@ -117,23 +117,23 @@ class RoutingTable[C](nodeId: Key)(implicit SR: Siblings.ReadOps[C], BR: Bucket.
    * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
    * @return True if the node is saved into routing table
    */
-  def update[F[_]: Monad: LiftIO: Timer](
+  def update[F[_]: Monad: LiftIO: Timer, G[_]](
     node: Node[C],
     rpc: C ⇒ KademliaRpc[C],
     pingExpiresIn: Duration,
     checkNode: Node[C] ⇒ IO[Boolean]
-  )(implicit SW: Siblings.WriteOps[F, C], BW: Bucket.WriteOps[F, C]): F[Boolean] =
+  )(implicit SW: Siblings.WriteOps[F, C], BW: Bucket.WriteOps[F, C], P: Parallel[F, G]): F[Boolean] =
     if (nodeId === node.key) false.pure[F]
     else
       checkNode(node).attempt.to[F].flatMap {
         case Right(true) ⇒
           logger.trace("Update node: {}", node.key)
-          // TODO: this could be done in parallel, if Apply[F] is parallel; but we use Parallel[F, G]
-          Apply[F].map2(
+
+          P sequential P.apply.map2(
             // Update bucket, performing ping if necessary
-            BW.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingExpiresIn),
+            P parallel BW.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingExpiresIn),
             // Update siblings
-            SW.add(node)
+            P parallel SW.add(node)
           )(_ || _)
 
         case Left(err) ⇒
@@ -183,7 +183,7 @@ class RoutingTable[C](nodeId: Key)(implicit SR: Siblings.ReadOps[C], BR: Bucket.
       portion match {
         case Nil ⇒ agg.pure[F]
         case node :: tail ⇒
-          update[F](node, rpc, pingExpiresIn, checkNode).flatMap {
+          update[F, G](node, rpc, pingExpiresIn, checkNode).flatMap {
             case true ⇒ updatePortion(tail, node #:: agg)
             case false ⇒ updatePortion(tail, agg)
           }
