@@ -359,7 +359,7 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
   }
 
   private def runRocksDb(name: String)(action: RocksDbKVStore ⇒ Unit): Unit = {
-    val store = RocksDbKVStore.getFactory().value.apply[IO](makeUnique(name), config).value.unsafeRunSync().right.get
+    val store = RocksDbKVStore.getFactory()[IO](makeUnique(name), config).value.unsafeRunSync().right.get
     try action(store)
     finally store.close().unsafeRunSync()
   }
@@ -369,7 +369,7 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
   ): Unit = {
     val store =
       // @formatter:off
-      RocksDbKVStore.getFactory(tPool).value
+      RocksDbKVStore.getFactory(tPool)
         .withSnapshots[IO](makeUnique(name), config).value.unsafeRunSync().right.get
     // @formatter:on
     try action(store)

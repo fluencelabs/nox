@@ -81,7 +81,7 @@ object NodeComposer {
       nodeKey ← Key.fromKeyPair.runF[IO](keyPair)
       kadConf ← KademliaConfigParser.readKademliaConfig[IO](config)
       rocksDbFactoryOld = new RocksDbStore.Factory // todo will be removed later
-      rocksDbFactoryNew = RocksDbKVStore.getFactory(threadPool = ioPool).value
+      rocksDbFactoryNew = RocksDbKVStore.getFactory(threadPool = ioPool)
       contractsCacheStore ← ContractsCacheStore.applyOld(config, name ⇒ rocksDbFactoryNew(name, config))
     } yield
       new NodeServices[Task, Observable, BasicContract, Contact] {
