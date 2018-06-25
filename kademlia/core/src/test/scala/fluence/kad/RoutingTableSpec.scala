@@ -17,11 +17,9 @@
 
 package fluence.kad
 
-import java.time.Instant
-
 import cats.{~>, Applicative, Monad, Parallel}
 import cats.data.StateT
-import cats.effect.{IO, LiftIO}
+import cats.effect.{IO, LiftIO, Timer}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import monix.eval.Coeval
 import monix.execution.atomic.Atomic
@@ -45,9 +43,12 @@ class RoutingTableSpec extends WordSpec with Matchers {
     override def liftIO[A](ioa: IO[A]): Coeval[A] = Coeval(ioa.unsafeRunSync())
   }
 
-  private val pingDuration = Duration.Undefined
+  implicit val timerCoeval: Timer[Coeval] = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    Timer.derive
+  }
 
-  private def now = Instant.now()
+  private val pingDuration = Duration.Undefined
 
   "kademlia routing table (non-iterative)" should {
 
@@ -73,7 +74,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
     val successLocalRPC = (c: Long) ⇒
       new KademliaRpc[Long] {
-        override def ping() = IO(Node(c, now, c))
+        override def ping() = IO(Node(c, c))
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
         override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
@@ -135,7 +136,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       val rt = new RoutingTable[Long](nodeId)
 
       (1l to 5l).foreach { i ⇒
-        rt.update[Coeval](Node(i, now, i), failLocalRPC, pingDuration, checkNode).run
+        rt.update[Coeval, Coeval](Node(i, i), failLocalRPC, pingDuration, checkNode).run
         (1l to i).foreach { n ⇒
           rt.find(n) shouldBe defined
         }
@@ -143,17 +144,17 @@ class RoutingTableSpec extends WordSpec with Matchers {
 
       rt.find(4l) shouldBe defined
 
-      rt.update[Coeval](Node(6l, now, 6l), failLocalRPC, pingDuration, checkNode).value shouldBe true
+      rt.update[Coeval, Coeval](Node(6l, 6l), failLocalRPC, pingDuration, checkNode).value shouldBe true
 
       rt.find(4l) shouldBe empty
       rt.find(6l) shouldBe defined
 
-      rt.update[Coeval](Node(4l, now, 4l), successLocalRPC, pingDuration, checkNode).value shouldBe false
+      rt.update[Coeval, Coeval](Node(4l, 4l), successLocalRPC, pingDuration, checkNode).value shouldBe false
 
       rt.find(4l) shouldBe empty
       rt.find(6l) shouldBe defined
 
-      rt.update[Coeval](Node(4l, now, 4l), failLocalRPC, pingDuration, checkNode).value shouldBe true
+      rt.update[Coeval, Coeval](Node(4l, 4l), failLocalRPC, pingDuration, checkNode).value shouldBe true
 
       rt.find(4l) shouldBe defined
       rt.find(6l) shouldBe empty
@@ -169,14 +170,14 @@ class RoutingTableSpec extends WordSpec with Matchers {
       val rt = new RoutingTable[Long](nodeId)
 
       (1l to 10l).foreach { i ⇒
-        rt.update[Coeval](Node(i, now, i), successLocalRPC, pingDuration, checkNode).run
+        rt.update[Coeval, Coeval](Node(i, i), successLocalRPC, pingDuration, checkNode).run
       }
 
       val nbs10 = rt.lookup(100l)
       nbs10.size should be >= 7
 
       (1l to 127l).foreach { i ⇒
-        rt.update[Coeval](Node(i, now, i), successLocalRPC, pingDuration, checkNode).run
+        rt.update[Coeval, Coeval](Node(i, i), successLocalRPC, pingDuration, checkNode).run
       }
 
       (1l to 127l).foreach { i ⇒

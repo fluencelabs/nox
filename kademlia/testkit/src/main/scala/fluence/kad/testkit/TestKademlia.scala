@@ -17,9 +17,7 @@
 
 package fluence.kad.testkit
 
-import java.time.Instant
-
-import cats.effect.{IO, LiftIO}
+import cats.effect.{IO, LiftIO, Timer}
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.{~>, Applicative, Monad, Parallel}
@@ -29,6 +27,7 @@ import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import fluence.kad.{Bucket, Kademlia, Siblings}
 import monix.eval.Coeval
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
@@ -49,7 +48,7 @@ object TestKademlia {
     override def liftIO[A](ioa: IO[A]): Coeval[A] = Coeval(ioa.unsafeRunSync())
   }
 
-  def apply[F[_]: Monad: LiftIO, G[_], C](
+  def apply[F[_]: Monad: LiftIO: Timer, G[_], C](
     nodeId: Key,
     alpha: Int,
     k: Int,
@@ -63,7 +62,7 @@ object TestKademlia {
     SW: Siblings.WriteOps[F, C],
     P: Parallel[F, G]
   ): Kademlia[F, C] = {
-    def ownContactValue = Node[C](nodeId, Instant.now(), toContact(nodeId))
+    def ownContactValue = Node[C](nodeId, toContact(nodeId))
     Kademlia[F, G, C](
       nodeId,
       alpha,
@@ -112,6 +111,10 @@ object TestKademlia {
   ): Kademlia[Coeval, C] = {
     implicit val bucketOps: Bucket.WriteOps[Coeval, C] = new TestBucketOps[C](k)
     implicit val siblingsOps: Siblings.WriteOps[Coeval, C] = new TestSiblingOps[C](nodeId, k)
+
+    implicit val timer: Timer[Coeval] = Timer.derive(new LiftIO[Coeval] {
+      override def liftIO[A](ioa: IO[A]): Coeval[A] = Coeval(ioa.unsafeRunSync())
+    }, IO.timer(ExecutionContext.global))
 
     TestKademlia[Coeval, Coeval, C](nodeId, alpha, k, getKademlia, toContact, new (Coeval ~> IO) {
       override def apply[A](fa: Coeval[A]): IO[A] = fa.toIO

@@ -18,7 +18,7 @@
 package fluence.kad
 
 import cats.data.EitherT
-import cats.effect.{IO, LiftIO}
+import cats.effect.{IO, LiftIO, Timer}
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -117,25 +117,24 @@ class RoutingTable[C](nodeId: Key)(implicit SR: Siblings.ReadOps[C], BR: Bucket.
    * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
    * @return True if the node is saved into routing table
    */
-  def update[F[_]: Monad: LiftIO](
+  def update[F[_]: Monad: LiftIO: Timer, G[_]](
     node: Node[C],
     rpc: C ⇒ KademliaRpc[C],
     pingExpiresIn: Duration,
     checkNode: Node[C] ⇒ IO[Boolean]
-  )(implicit SW: Siblings.WriteOps[F, C], BW: Bucket.WriteOps[F, C]): F[Boolean] =
+  )(implicit SW: Siblings.WriteOps[F, C], BW: Bucket.WriteOps[F, C], P: Parallel[F, G]): F[Boolean] =
     if (nodeId === node.key) false.pure[F]
-    else {
+    else
       checkNode(node).attempt.to[F].flatMap {
         case Right(true) ⇒
           logger.trace("Update node: {}", node.key)
-          for {
+
+          P sequential P.apply.map2(
             // Update bucket, performing ping if necessary
-            savedToBuckets ← BW.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingExpiresIn)
-
+            P parallel BW.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingExpiresIn),
             // Update siblings
-            savedToSiblings ← SW.add(node)
-
-          } yield savedToBuckets || savedToSiblings
+            P parallel SW.add(node)
+          )(_ || _)
 
         case Left(err) ⇒
           logger.trace(s"Node check failed with an exception for $node", err)
@@ -144,7 +143,6 @@ class RoutingTable[C](nodeId: Key)(implicit SR: Siblings.ReadOps[C], BR: Bucket.
         case _ ⇒
           false.pure[F]
       }
-    }
 
   /**
    * Update RoutingTable with a list of fresh nodes
@@ -155,7 +153,7 @@ class RoutingTable[C](nodeId: Key)(implicit SR: Siblings.ReadOps[C], BR: Bucket.
    * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
    * @return The same list of `nodes`
    */
-  def updateList[F[_]: Monad: LiftIO, G[_]](
+  def updateList[F[_]: Monad: LiftIO: Timer, G[_]](
     nodes: List[Node[C]],
     rpc: C ⇒ KademliaRpc[C],
     pingExpiresIn: Duration,
@@ -185,7 +183,7 @@ class RoutingTable[C](nodeId: Key)(implicit SR: Siblings.ReadOps[C], BR: Bucket.
       portion match {
         case Nil ⇒ agg.pure[F]
         case node :: tail ⇒
-          update[F](node, rpc, pingExpiresIn, checkNode).flatMap {
+          update[F, G](node, rpc, pingExpiresIn, checkNode).flatMap {
             case true ⇒ updatePortion(tail, node #:: agg)
             case false ⇒ updatePortion(tail, agg)
           }
@@ -238,7 +236,7 @@ class RoutingTable[C](nodeId: Key)(implicit SR: Siblings.ReadOps[C], BR: Bucket.
    * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
    * @return
    */
-  def lookupIterative[F[_]: Monad: LiftIO, G[_]](
+  def lookupIterative[F[_]: Monad: LiftIO: Timer, G[_]](
     key: Key,
     neighbors: Int,
     parallelism: Int,
@@ -348,7 +346,7 @@ class RoutingTable[C](nodeId: Key)(implicit SR: Siblings.ReadOps[C], BR: Bucket.
    *         for one of the reasons described above.
    *         If size is >= `numToCollect`, call should be considered completely successful
    */
-  def callIterative[F[_]: Monad: LiftIO, G[_], E, A](
+  def callIterative[F[_]: Monad: LiftIO: Timer, G[_], E, A](
     key: Key,
     fn: Node[C] ⇒ EitherT[F, E, A],
     numToCollect: Int,
@@ -497,7 +495,7 @@ class RoutingTable[C](nodeId: Key)(implicit SR: Siblings.ReadOps[C], BR: Bucket.
    * @param parallelism Parallelism factor to perform self-[[lookupIterative()]] in case of successful join
    * @return F[Unit], possibly a failure if were not able to join any node
    */
-  def join[F[_]: Monad: LiftIO, G[_]](
+  def join[F[_]: Monad: LiftIO: Timer, G[_]](
     peers: Seq[C],
     rpc: C ⇒ KademliaRpc[C],
     pingExpiresIn: Duration,

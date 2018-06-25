@@ -18,7 +18,7 @@
 package fluence.kad
 
 import cats.data.EitherT
-import cats.effect.{IO, LiftIO}
+import cats.effect.{IO, LiftIO, Timer}
 import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.eq._
@@ -130,6 +130,7 @@ object Kademlia {
   )(
     implicit F: Monad[F],
     LI: LiftIO[F],
+    T: Timer[F],
     P: Parallel[F, G],
     BW: Bucket.WriteOps[F, C],
     SW: Siblings.WriteOps[F, C]

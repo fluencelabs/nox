@@ -17,10 +17,8 @@
 
 package fluence.kad
 
-import java.time.Instant
-
 import cats.data.StateT
-import cats.effect.{IO, LiftIO}
+import cats.effect.{IO, LiftIO, Timer}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import org.scalatest.{Matchers, WordSpec}
 import monix.eval.Coeval
@@ -36,6 +34,11 @@ class BucketSpec extends WordSpec with Matchers {
 
     implicit object liftCoeval extends LiftIO[Coeval] {
       override def liftIO[A](ioa: IO[A]): Coeval[A] = Coeval(ioa.unsafeRunSync())
+    }
+
+    implicit val timerCoeval: Timer[Coeval] = {
+      import scala.concurrent.ExecutionContext.Implicits.global
+      Timer.derive
     }
 
     def update(node: Node[Int], rpc: C ⇒ KademliaRpc[C]): F[Boolean] =
@@ -60,7 +63,7 @@ class BucketSpec extends WordSpec with Matchers {
       val successRPC = (c: C) ⇒
         new KademliaRpc[C] {
           override def ping() =
-            IO(Node(Key.fromBytes.unsafe(Array.fill(Key.Length)(c.toByte)), Instant.now(), c))
+            IO(Node(Key.fromBytes.unsafe(Array.fill(Key.Length)(c.toByte)), c))
 
           override def lookup(key: Key, numberOfNodes: Int) = ???
           override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???
@@ -70,25 +73,25 @@ class BucketSpec extends WordSpec with Matchers {
       b0.find(k0) shouldBe empty
 
       // Adding one contact, bucket should save it
-      val (b1, true) = update(Node[C](k0, Instant.now(), 1), failRPC).run(b0).value
+      val (b1, true) = update(Node[C](k0, 1), failRPC).run(b0).value
 
       b1.find(k0) shouldBe defined
 
       // Adding second contact, bucket should save it
-      val (b2, true) = update(Node(k1, Instant.now(), 2), failRPC).run(b1).value
+      val (b2, true) = update(Node(k1, 2), failRPC).run(b1).value
 
       b2.find(k0) shouldBe defined
       b2.find(k1) shouldBe defined
 
       // Adding third contact, bucket is full, so if the least recent item is not responding, drop it
-      val (b3, true) = update(Node(k2, Instant.now(), 3), failRPC).run(b2).value
+      val (b3, true) = update(Node(k2, 3), failRPC).run(b2).value
 
       b3.find(k0) shouldBe empty
       b3.find(k1) shouldBe defined
       b3.find(k2) shouldBe defined
 
       // Adding third contact, bucket is full, so if the least recent item is responding, drop the new contact
-      val (b4, false) = update(Node(k2, Instant.now(), 3), successRPC).run(b2).value
+      val (b4, false) = update(Node(k2, 3), successRPC).run(b2).value
 
       b4.find(k0) shouldBe defined
       b4.find(k1) shouldBe defined

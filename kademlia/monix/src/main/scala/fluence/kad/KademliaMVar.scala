@@ -56,7 +56,7 @@ object KademliaMVar {
       conf.parallelism,
       conf.pingExpiresIn,
       checkNode,
-      contact.map(c ⇒ Node(nodeId, Instant.now(), c)),
+      contact.map(c ⇒ Node(nodeId, c)),
       rpcForContact
     )
   }
