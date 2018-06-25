@@ -27,9 +27,9 @@ import scala.collection.mutable
 import scala.language.higherKinds
 import scala.util.Try
 
-class TestKVStore[K, V] extends KVStore with ReadWriteKVStore[K, V] {
-
-  private val data = mutable.Map.empty[K, V]
+class TestKVStore[K, V](
+  protected val data: mutable.Map[K, V] = mutable.Map.empty[K, V]
+) extends KVStore with ReadWriteKVStore[K, V] {
 
   override def get(key: K): GetOp[V] =
     new GetOp[V] {

@@ -248,7 +248,7 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       val originStore: ReadWriteKVStore[String, String] = InMemoryKVStore[String, String]
 
-      val store: ReadWriteKVStore[String, String] = KVStore.withCodecs(originStore)
+      val store: ReadWriteKVStore[Int, Int] = KVStore.withCodecs(originStore)
 
       val key1 = 1
       val val1 = 11
@@ -277,8 +277,8 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
 
       // check traverse
 
-      val manyPairs: Seq[(String, String)] = 1 to 100 map { n ⇒
-        n.toString → n.toString
+      val manyPairs = 1 to 100 map { n ⇒
+        n → n
       }
       val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v).runUnsafe() }
       inserts should have size 100
@@ -287,6 +287,57 @@ class InMemoryKVStoreSpec extends WordSpec with Matchers with ScalaFutures {
         store.traverse.run[Observable].toListL.runSyncUnsafe(1.seconds)
 
       traverseResult should contain theSameElementsAs manyPairs
+    }
+
+    "performs all operations correctly with snapshot and codecs" in {
+
+      implicit val direct: PureCodec[Int, String] = PureCodec.build(_.toString, _.toInt)
+
+      val originStore = InMemoryKVStore.withSnapshots[String, String]
+
+      val store = KVStore.withCodecsForSnapshotable(originStore)
+
+      val key1 = 1
+      val val1 = 11
+      val key2 = 2
+      val val2 = 22
+      val newVal2 = 222
+
+      store.put(key1, val1).runUnsafe() shouldBe ()
+      store.put(key2, val2).runUnsafe() shouldBe ()
+
+      // check delete
+
+      val storeSnapshot1 = store.createSnapshot[IO].unsafeRunSync()
+      storeSnapshot1.get(key1).runUnsafe().get shouldBe val1
+
+      store.get(key1).runUnsafe().get shouldBe val1
+      store.remove(key1).runUnsafe() shouldBe ()
+      store.get(key1).runUnsafe() shouldBe None
+      storeSnapshot1.get(key1).runUnsafe().get shouldBe val1
+
+      // check traverse
+
+      val manyPairs = 1 to 100 map { n ⇒
+        n → n
+      }
+      val inserts = manyPairs.map { case (k, v) ⇒ store.put(k, v).runUnsafe() }
+      inserts should have size 100
+
+      val traverseResult = store.traverse.runUnsafe.toList
+
+      traverseResult should contain theSameElementsAs manyPairs
+
+      // take snapshot and remove all element in store
+      val storeSnapshot2 = store.createSnapshot[IO].unsafeRunSync()
+
+      traverseResult.foreach { case (k, _) ⇒ store.remove(k).runUnsafe() }
+      val traverseResult2 = store.traverse.runUnsafe.toList
+      traverseResult2 shouldBe empty
+
+      val traverseResult3 = storeSnapshot2.traverse.runUnsafe.toList
+
+      storeSnapshot2.traverse.runUnsafe.toList should contain theSameElementsAs manyPairs
     }
 
   }

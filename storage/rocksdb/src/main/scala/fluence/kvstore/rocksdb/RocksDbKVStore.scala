@@ -225,7 +225,7 @@ object RocksDbKVStore {
      * If master RocksDbStore will be closed, every snapshots becomes in inconsistent state.
      * todo master kvstore should close all snapshots before it becomes closed
      */
-    override def createSnapshot[F[_]: LiftIO]: F[RocksDbKVStoreRead] = {
+    override def createSnapshot[F[_]: Monad: LiftIO]: F[RocksDbKVStoreRead] = {
       val newInstance: IO[RocksDbKVStoreRead] =
         for {
           snapshot ← IO.shift(kvStorePool) *> IO(self.data.getSnapshot)
