@@ -113,7 +113,7 @@ object RocksDbKVStore {
     /**
      * Users should always explicitly call close() methods for this entity!
      */
-    def close(): IO[Unit] = IO {
+    override def close(): IO[Unit] = IO {
       data.close()
       dbOptions.close()
       readOptions.close()

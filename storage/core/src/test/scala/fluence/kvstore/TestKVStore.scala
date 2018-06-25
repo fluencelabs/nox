@@ -81,4 +81,6 @@ class TestKVStore[K, V](
 
   }
 
+  override def close(): IO[Unit] = IO.unit
+
 }

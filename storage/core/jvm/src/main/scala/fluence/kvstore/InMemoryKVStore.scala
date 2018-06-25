@@ -53,6 +53,8 @@ object InMemoryKVStore {
 
     protected def data: TrieMap[K, V]
 
+    override def close(): IO[Unit] = IO.unit
+
   }
 
   /**

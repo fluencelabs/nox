@@ -31,7 +31,14 @@ import scala.language.higherKinds
 /**
  * Top type for any key value storage.
  */
-trait KVStore
+trait KVStore {
+
+  /**
+   * Release all resources acquired for the storage.
+   */
+  def close(): IO[Unit]
+
+}
 
 /**
  * Key-value storage api for reading values.
@@ -203,6 +210,12 @@ object KVStore {
         originStore.traverse.runUnsafe.map { case (k, v) ⇒ kCodec.inverse.unsafe(k) -> vCodec.inverse.unsafe(v) }
 
     }
+
+    /**
+     * Release all resources acquired for this storage.
+     */
+    override def close(): IO[Unit] = originStore.close()
+
   }
 
   /**
