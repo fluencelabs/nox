@@ -32,9 +32,9 @@ import scala.language.higherKinds
 /**
  * Client for interaction with the database.
  *
- * @param connection Websocket pipe.
+ * @param grpcProxyClient Websocket proxy client for grpc.
  */
-class DatasetStorageClient[F[_]: Effect](connection: IO[WebsocketPipe[WebsocketMessage, WebsocketMessage]])(
+class DatasetStorageClient[F[_]: Effect](grpcProxyClient: GrpcProxyClient)(
   implicit sch: Scheduler
 ) extends DatasetStorageRpc[F, Observable] with slogging.LazyLogging {
 
@@ -44,8 +44,7 @@ class DatasetStorageClient[F[_]: Effect](connection: IO[WebsocketPipe[WebsocketM
 
   def getPipe: IO[Pipe[GetCallbackReply, GetCallback]] = {
     for {
-      websocket ← connection
-      proxy = GrpcProxyClient.proxy(service, "get", websocket, generatedMessageCodec, protobufDynamicCodec(GetCallback))
+      proxy ← grpcProxyClient.proxy(service, "get", generatedMessageCodec, protobufDynamicCodec(GetCallback))
     } yield {
       new Pipe[GetCallbackReply, GetCallback] {
 
@@ -58,9 +57,8 @@ class DatasetStorageClient[F[_]: Effect](connection: IO[WebsocketPipe[WebsocketM
 
   val rangePipe: IO[Pipe[RangeCallbackReply, RangeCallback]] =
     for {
-      websocket ← connection
-      proxy = GrpcProxyClient
-        .proxy(service, "range", websocket, generatedMessageCodec, protobufDynamicCodec(RangeCallback))
+      proxy ← grpcProxyClient
+        .proxy(service, "range", generatedMessageCodec, protobufDynamicCodec(RangeCallback))
     } yield {
       new Pipe[RangeCallbackReply, RangeCallback] {
 
@@ -72,8 +70,7 @@ class DatasetStorageClient[F[_]: Effect](connection: IO[WebsocketPipe[WebsocketM
 
   val putPipe: IO[Pipe[PutCallbackReply, PutCallback]] = {
     for {
-      websocket ← connection
-      proxy = GrpcProxyClient.proxy(service, "put", websocket, generatedMessageCodec, protobufDynamicCodec(PutCallback))
+      proxy ← grpcProxyClient.proxy(service, "put", generatedMessageCodec, protobufDynamicCodec(PutCallback))
     } yield {
       new Pipe[PutCallbackReply, PutCallback] {
         override def unicast: (Observer[PutCallbackReply], Observable[PutCallback]) = {

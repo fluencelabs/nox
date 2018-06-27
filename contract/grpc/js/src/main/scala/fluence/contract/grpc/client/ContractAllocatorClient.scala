@@ -30,9 +30,9 @@ import monix.execution.Scheduler
 /**
  * Contract allocator client for websocket.
  *
- * @param connection Websocket pipe.
+ * @param grpcProxyClient Websocket proxy client for grpc.
  */
-class ContractAllocatorClient[C: ContractValidate](connection: IO[WebsocketPipe[WebsocketMessage, WebsocketMessage]])(
+class ContractAllocatorClient[C: ContractValidate](grpcProxyClient: GrpcProxyClient)(
   implicit
   codec: Codec[IO, C, BasicContract],
   checkerFn: CheckerFn,
@@ -55,9 +55,8 @@ class ContractAllocatorClient[C: ContractValidate](connection: IO[WebsocketPipe[
       // we should validate contract before send outside for 'offering'
       _ ← contract.validateME[IO]
       offer ← codec.encode(contract)
-      websocket ← connection
-      proxy = GrpcProxyClient
-        .proxy(service, "offer", websocket, generatedMessageCodec, protobufDynamicCodec(BasicContract))
+      proxy ← grpcProxyClient
+        .proxy(service, "offer", generatedMessageCodec, protobufDynamicCodec(BasicContract))
       resp ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(offer)))
       respContract ← codec.decode(resp)
       // contract from the outside required validation
@@ -75,9 +74,8 @@ class ContractAllocatorClient[C: ContractValidate](connection: IO[WebsocketPipe[
       // we should validate contract before send outside for 'allocating'
       _ ← contract.validateME[IO]
       offer ← codec.encode(contract)
-      websocket ← connection
-      proxy = GrpcProxyClient
-        .proxy(service, "allocate", websocket, generatedMessageCodec, protobufDynamicCodec(BasicContract))
+      proxy ← grpcProxyClient
+        .proxy(service, "allocate", generatedMessageCodec, protobufDynamicCodec(BasicContract))
       resp ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(offer)))
       respContract ← codec.decode(resp)
       // contract from the outside required validation

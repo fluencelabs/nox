@@ -34,9 +34,9 @@ import monix.execution.Scheduler
 /**
  * Contract client for websocket.
  *
- * @param connection Websocket pipe.
+ * @param grpcProxyClient Websocket proxy client for grpc.
  */
-class ContractsCacheClient[C: ContractValidate](connection: IO[WebsocketPipe[WebsocketMessage, WebsocketMessage]])(
+class ContractsCacheClient[C: ContractValidate](grpcProxyClient: GrpcProxyClient)(
   implicit
   codec: Codec[IO, C, BasicContract],
   checkerFn: CheckerFn,
@@ -59,10 +59,9 @@ class ContractsCacheClient[C: ContractValidate](connection: IO[WebsocketPipe[Web
   override def find(id: Key): IO[Option[C]] =
     (for {
       idBs ← keyC.direct.runF[IO](id)
-      websocket ← connection
       req = FindRequest(idBs)
-      proxy = GrpcProxyClient
-        .proxy(service, "find", websocket, generatedMessageCodec, protobufDynamicCodec(BasicContract))
+      proxy ← grpcProxyClient
+        .proxy(service, "find", generatedMessageCodec, protobufDynamicCodec(BasicContract))
       binContract ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(req)))
       contract ← codec.decode(binContract)
       // contract from the outside required validation
@@ -84,9 +83,8 @@ class ContractsCacheClient[C: ContractValidate](connection: IO[WebsocketPipe[Web
       // we should validate contract before send outside to caching
       _ ← contract.validateME[IO]
       binContract ← codec.encode(contract)
-      websocket ← connection
-      proxy = GrpcProxyClient
-        .proxy(service, "cache", websocket, generatedMessageCodec, protobufDynamicCodec(CacheResponse))
+      proxy ← grpcProxyClient
+        .proxy(service, "cache", generatedMessageCodec, protobufDynamicCodec(CacheResponse))
       resp ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(binContract)))
     } yield resp.cached
 }

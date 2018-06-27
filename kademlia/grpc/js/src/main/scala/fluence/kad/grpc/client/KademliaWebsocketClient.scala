@@ -38,9 +38,9 @@ import scala.language.higherKinds
 /**
  * Kademlia client for websocket.
  *
- * @param connection Websocket pipe.
+ * @param grpcProxyClient Websocket proxy client for grpc.
  */
-class KademliaWebsocketClient(connection: IO[WebsocketPipe[WebsocketMessage, WebsocketMessage]])(
+class KademliaWebsocketClient(grpcProxyClient: GrpcProxyClient)(
   implicit
   codec: PureCodec[protocol.Node[Contact], protobuf.Node],
   ec: ExecutionContext
@@ -67,9 +67,8 @@ class KademliaWebsocketClient(connection: IO[WebsocketPipe[WebsocketMessage, Web
    */
   override def ping(): IO[Node[Contact]] = {
     for {
-      websocket ← connection
-      proxy: WebsocketPipe[GeneratedMessage, Node[Contact]] = GrpcProxyClient
-        .proxy(service, "ping", websocket, generatedMessageCodec, pingCodec)
+      proxy ← grpcProxyClient
+        .proxy(service, "ping", generatedMessageCodec, pingCodec)
       response ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(PingRequest())))
     } yield response
   }
@@ -82,9 +81,8 @@ class KademliaWebsocketClient(connection: IO[WebsocketPipe[WebsocketMessage, Web
   override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] = {
     for {
       k ← keyBS(key)
-      websocket ← connection
       request = protobuf.LookupRequest(k, numberOfNodes)
-      proxy = GrpcProxyClient.proxy(service, "lookup", websocket, generatedMessageCodec, nodeContactCodec)
+      proxy ← grpcProxyClient.proxy(service, "lookup", generatedMessageCodec, nodeContactCodec)
       res ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(request)))
     } yield res
   }
@@ -98,9 +96,8 @@ class KademliaWebsocketClient(connection: IO[WebsocketPipe[WebsocketMessage, Web
     for {
       k ← keyBS(key)
       moveAwayK ← keyBS(moveAwayFrom)
-      websocket ← connection
       req = protobuf.LookupAwayRequest(k, moveAwayK, numberOfNodes)
-      proxy = GrpcProxyClient.proxy(service, "lookupAway", websocket, generatedMessageCodec, nodeContactCodec)
+      proxy ← grpcProxyClient.proxy(service, "lookupAway", generatedMessageCodec, nodeContactCodec)
       res ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(req)))
     } yield res
   }

@@ -28,7 +28,7 @@ import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.kad.grpc.client.KademliaWebsocketClient
 import fluence.kad.protocol.{Contact, KademliaRpc}
 import fluence.proxy.grpc.WebsocketMessage
-import fluence.transport.websocket.{ConnectionPool, WebsocketPipe, WebsocketT}
+import fluence.transport.websocket.{ConnectionPool, GrpcProxyClient, WebsocketPipe, WebsocketT}
 import monix.execution.Scheduler
 import monix.reactive.Observable
 
@@ -54,8 +54,8 @@ class ClientWebsocketServices(connectionPool: ConnectionPool[WebsocketMessage, W
         contact.websocketPort.map { wsPort ⇒
           val url = "ws://" + contact.addr + ":" + wsPort
 
-          def connection: IO[WebsocketPipe[WebsocketMessage, WebsocketMessage]] =
-            IO(connectionPool.getOrCreateConnection(url))
+          def connection: GrpcProxyClient =
+            new GrpcProxyClient(IO(connectionPool.getOrCreateConnection(url)))
 
           new ClientServices[F, BasicContract, Contact] {
             override def kademlia: KademliaRpc[Contact] =
