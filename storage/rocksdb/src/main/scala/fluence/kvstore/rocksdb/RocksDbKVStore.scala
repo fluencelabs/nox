@@ -21,7 +21,7 @@ import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
-import cats.{~>, Eval, Monad}
+import cats.{~>, Monad}
 import fluence.kvstore.KVStore.{GetOp, PutOp, RemoveOp, TraverseOp}
 import fluence.kvstore.ops.{Operation, TraverseOperation}
 import fluence.kvstore.rocksdb.RocksDbKVStore._
@@ -33,11 +33,33 @@ import scala.language.higherKinds
 
 /**
  * Base thread-safe kvStore implementation based on RocksDb, that allow 'put',
- * 'remove' and 'get' by key and 'traverse'. '''Note that''' RocksDb can store
- * only binary data. For creating KVStore for any type of key and value use
- * [[KVStore.withCodecs()]] like this:
+ * 'remove' and 'get' by key and 'traverse'. Usage:
+ *
  * {{{
- *   todo write example, there may be special method in RocksDbFactory for comfort use
+ *    // get factory instance, which manage resources, you can create several
+ *    // separated factories, but required single instance for application
+ *    val factory = RocksDbKVStore.getFactory()
+ *
+ *    // create simple rockDb store
+ *    val store: EitherT[IO, StoreError, RocksDbKVStore] = factory[IO](dbName, dbConfig, dbThreadPool)
+ *
+ *    // create rockDb store with snapshot possibility
+ *    val store: EitherT[IO, StoreError, RocksDbKVStore with RocksDbSnapshotable] =
+ *      factory.withSnapshots[IO](dbName, dbConfig, dbThreadPool)
+ * }}}
+ *
+ * '''Note that''' RocksDb can store only binary data. For creating KVStore for
+ * any type of key and value use [[KVStore.withCodecs()]] like this:
+ *
+ * {{{
+ *   // rocksDb based binary store RocksDbKVStore ~ KVStore[Array[Byte], Array[Byte]]
+ *   val binStore: RocksDbKVStore = ...
+ *
+ *   val store: ReadWriteKVStore[String, User]=
+ *   KVStore.withCodecs(binStore)(
+ *      bytes2StringCodec,
+ *      bytes2UserCodec
+ *   )
  * }}}
  */
 class RocksDbKVStore(
@@ -50,16 +72,14 @@ class RocksDbKVStore(
 object RocksDbKVStore {
 
   /**
-   * Returns single factory for creating RocksDbKVStore instances.
-   * '''Note that''': every created RocksDb store is registered in global scope.
-   * This method always returns the same global instance of RocksDbFactory.
+   * Returns factory for creating RocksDbKVStore instances.
+   * '''Note that''': each created RocksDb store is registered in factory.
    *
    * @param threadPool Default thread pool for each created instances.
    *                     Can be overridden in ''apply'' method.
    */
-  def getFactory(threadPool: ExecutionContext = ExecutionContext.Implicits.global): Eval[RocksDbFactory] = {
-    Eval.later(new RocksDbFactory(threadPool)).memoize
-  }
+  def getFactory(threadPool: ExecutionContext = ExecutionContext.Implicits.global): RocksDbFactory =
+    new RocksDbFactory(threadPool)
 
   type Key = Array[Byte]
   type Value = Array[Byte]
@@ -93,7 +113,7 @@ object RocksDbKVStore {
     /**
      * Users should always explicitly call close() methods for this entity!
      */
-    def close(): IO[Unit] = IO {
+    override def close(): IO[Unit] = IO {
       data.close()
       dbOptions.close()
       readOptions.close()
@@ -195,7 +215,7 @@ object RocksDbKVStore {
   /**
    * Allows to create a point-in-time view of a storage.
    */
-  private[kvstore] trait RocksDbSnapshotable extends RocksDbKVStoreBase with Snapshotable[RocksDbKVStoreRead] { self ⇒
+  private[kvstore] trait RocksDbSnapshotable extends RocksDbKVStoreBase with Snapshotable[Key, Value] { self ⇒
 
     /**
      * Returns read-only key-value store snapshot with traverse functionality.
@@ -205,8 +225,8 @@ object RocksDbKVStore {
      * If master RocksDbStore will be closed, every snapshots becomes in inconsistent state.
      * todo master kvstore should close all snapshots before it becomes closed
      */
-    override def createSnapshot[F[_]: LiftIO]: F[RocksDbKVStoreRead] = {
-      val newInstance: IO[RocksDbKVStoreRead] =
+    override def createSnapshot[F[_]: Monad: LiftIO]: F[KVStoreRead[Key, Value]] = {
+      val newInstance: IO[KVStoreRead[Key, Value]] =
         for {
           snapshot ← IO.shift(kvStorePool) *> IO(self.data.getSnapshot)
           readOp ← IO(new ReadOptions(readOptions).setSnapshot(snapshot))
