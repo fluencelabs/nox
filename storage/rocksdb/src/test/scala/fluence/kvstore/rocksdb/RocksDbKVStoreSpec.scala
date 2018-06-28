@@ -24,10 +24,9 @@ import cats.effect.IO
 import cats.~>
 import com.typesafe.config.ConfigFactory
 import fluence.codec.PureCodec
-import fluence.kvstore.{KVStore, KVStoreRead, ReadWriteKVStore, Snapshotable}
 import fluence.kvstore.rocksdb.ObservableLiftIO._
-import fluence.kvstore.rocksdb.RocksDbKVStore.RocksDbSnapshotable
-import fluence.storage.rocksdb.RocksDbStore.{Key, Value}
+import fluence.kvstore.rocksdb.RocksDbKVStore.{Key, RocksDbSnapshotable, Value}
+import fluence.kvstore.{KVStore, ReadWriteKVStore, Snapshotable}
 import monix.eval.Task
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.reactive.Observable
@@ -291,7 +290,7 @@ class RocksDbKVStoreSpec extends WordSpec with Matchers with BeforeAndAfterAll w
       val val3 = "val3"
 
       runRocksDbWithSnapshots("test5") { originStore ⇒
-        val store: ReadWriteKVStore[String, String] with Snapshotable[KVStoreRead[String, String]] =
+        val store: ReadWriteKVStore[String, String] with Snapshotable[String, String] =
           KVStore.withCodecsForSnapshotable(originStore)
 
         store.put(key1, val1).runUnsafe() shouldBe ()

@@ -215,7 +215,7 @@ object RocksDbKVStore {
   /**
    * Allows to create a point-in-time view of a storage.
    */
-  private[kvstore] trait RocksDbSnapshotable extends RocksDbKVStoreBase with Snapshotable[RocksDbKVStoreRead] { self ⇒
+  private[kvstore] trait RocksDbSnapshotable extends RocksDbKVStoreBase with Snapshotable[Key, Value] { self ⇒
 
     /**
      * Returns read-only key-value store snapshot with traverse functionality.
@@ -225,8 +225,8 @@ object RocksDbKVStore {
      * If master RocksDbStore will be closed, every snapshots becomes in inconsistent state.
      * todo master kvstore should close all snapshots before it becomes closed
      */
-    override def createSnapshot[F[_]: Monad: LiftIO]: F[RocksDbKVStoreRead] = {
-      val newInstance: IO[RocksDbKVStoreRead] =
+    override def createSnapshot[F[_]: Monad: LiftIO]: F[KVStoreRead[Key, Value]] = {
+      val newInstance: IO[KVStoreRead[Key, Value]] =
         for {
           snapshot ← IO.shift(kvStorePool) *> IO(self.data.getSnapshot)
           readOp ← IO(new ReadOptions(readOptions).setSnapshot(snapshot))

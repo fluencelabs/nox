@@ -100,14 +100,15 @@ trait ReadWriteKVStore[K, V] extends KVStoreRead[K, V] with KVStoreWrite[K, V]
 /**
  * Allows to create a point-in-time view of a storage.
  *
- * @tparam S The type of returned storage snapshot.
+ * @tparam K The type of keys
+ * @tparam V The type of stored values
  */
-trait Snapshotable[+S <: KVStoreRead[_, _]] {
+trait Snapshotable[K, V] {
 
   /**
    * Returns read-only key-value store snapshot.
    */
-  def createSnapshot[F[+ _]: Monad: LiftIO]: F[S]
+  def createSnapshot[F[_]: Monad: LiftIO]: F[KVStoreRead[K, V]]
 
 }
 
@@ -140,14 +141,14 @@ object KVStore {
    * @param vCodec Codec for value from type 'K' to type 'K1'
    */
   implicit def withCodecsForSnapshotable[K, K1, V, V1](
-    store: ReadWriteKVStore[K, V] with Snapshotable[KVStoreRead[K, V]]
+    store: ReadWriteKVStore[K, V] with Snapshotable[K, V]
   )(
     implicit
     kCodec: PureCodec[K1, K],
     vCodec: PureCodec[V1, V]
-  ): ReadWriteKVStore[K1, V1] with Snapshotable[KVStoreRead[K1, V1]] =
-    new WrappedReadWriteKVStore(store) with Snapshotable[KVStoreRead[K1, V1]] {
-      override def createSnapshot[F[+ _]: Monad: LiftIO]: F[KVStoreRead[K1, V1]] = {
+  ): ReadWriteKVStore[K1, V1] with Snapshotable[K1, V1] =
+    new WrappedReadWriteKVStore(store) with Snapshotable[K1, V1] {
+      override def createSnapshot[F[_]: Monad: LiftIO]: F[KVStoreRead[K1, V1]] = {
         val value: F[KVStoreRead[K1, V1]] =
           store.createSnapshot[F].map(new WrappedReadKVStore(_))
         value

@@ -47,10 +47,10 @@ class KVStorageSpec extends WordSpec with Matchers {
       implicit val strCodec = PureCodec.liftB[String, Array[Byte]](str ⇒ str.getBytes, bytes ⇒ new String(bytes))
       implicit val longCodec = PureCodec.liftB[Long, String](long ⇒ long.toString, str ⇒ str.toLong)
 
-      val store: ReadWriteKVStore[Long, String] with Snapshotable[KVStoreRead[Long, String]] =
-        new TestKVStore[String, Array[Byte]] with Snapshotable[TestKVStore[String, Array[Byte]]] {
-          override def createSnapshot[F[_]: Monad: LiftIO]: F[TestKVStore[String, Array[Byte]]] = {
-            IO(new TestKVStore(data.clone())).to[F]
+      val store: ReadWriteKVStore[Long, String] with Snapshotable[Long, String] =
+        new TestKVStore[String, Array[Byte]] with Snapshotable[String, Array[Byte]] {
+          override def createSnapshot[F[_]: Monad: LiftIO]: F[KVStoreRead[String, Array[Byte]]] = {
+            IO[KVStoreRead[String, Array[Byte]]](new TestKVStore(data.clone())).to[F]
           }
         }
 
