@@ -23,23 +23,21 @@ import fluence.contract.ops.ContractValidate
 import fluence.contract.protobuf.BasicContract
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.crypto.signature.SignAlgo.CheckerFn
-import fluence.proxy.grpc.WebsocketMessage
-import fluence.transport.websocket.{ConnectionPool, GrpcProxyClient, WebsocketPipe}
+import fluence.stream.StreamHandler
 import monix.execution.Scheduler
 
 /**
  * Contract allocator client for websocket.
  *
- * @param grpcProxyClient Websocket proxy client for grpc.
+ * @param streamHandler Websocket proxy client for grpc.
  */
-class ContractAllocatorClient[C: ContractValidate](grpcProxyClient: GrpcProxyClient)(
+class ContractAllocatorClient[C: ContractValidate](streamHandler: StreamHandler)(
   implicit
   codec: Codec[IO, C, BasicContract],
   checkerFn: CheckerFn,
   ec: Scheduler
 ) extends ContractAllocatorRpc[C] {
   import ContractValidate.ContractValidatorOps
-
   import fluence.transport.websocket.ProtobufCodec._
 
   private val service = "fluence.contract.protobuf.grpc.ContractAllocator"
@@ -55,9 +53,10 @@ class ContractAllocatorClient[C: ContractValidate](grpcProxyClient: GrpcProxyCli
       // we should validate contract before send outside for 'offering'
       _ ← contract.validateME[IO]
       offer ← codec.encode(contract)
-      proxy ← grpcProxyClient
-        .proxy(service, "offer", generatedMessageCodec, protobufDynamicCodec(BasicContract))
-      resp ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(offer)))
+      request ← generatedMessageCodec.runF[IO](offer)
+      responseBytes ← streamHandler
+        .handleUnary(service, "offer", request)
+      resp ← protobufDynamicCodec(BasicContract).runF[IO](responseBytes)
       respContract ← codec.decode(resp)
       // contract from the outside required validation
       _ ← respContract.validateME[IO]
@@ -74,9 +73,10 @@ class ContractAllocatorClient[C: ContractValidate](grpcProxyClient: GrpcProxyCli
       // we should validate contract before send outside for 'allocating'
       _ ← contract.validateME[IO]
       offer ← codec.encode(contract)
-      proxy ← grpcProxyClient
-        .proxy(service, "allocate", generatedMessageCodec, protobufDynamicCodec(BasicContract))
-      resp ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(offer)))
+      request ← generatedMessageCodec.runF[IO](offer)
+      responseBytes ← streamHandler
+        .handleUnary(service, "allocate", request)
+      resp ← protobufDynamicCodec(BasicContract).runF[IO](responseBytes)
       respContract ← codec.decode(resp)
       // contract from the outside required validation
       _ ← respContract.validateME[IO]

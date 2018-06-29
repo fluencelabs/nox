@@ -25,7 +25,7 @@ import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.dataset.grpc.client.DatasetStorageClient
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.kad.grpc.client.KademliaClient
+import fluence.kad.grpc.client.KademliaClientGrpc
 import fluence.kad.protocol.{Contact, KademliaRpc}
 import fluence.transport.grpc.client.GrpcClient
 import monix.execution.Scheduler
@@ -47,7 +47,7 @@ object ClientGrpcServices {
     import fluence.kad.KademliaNodeCodec.{pureCodec ⇒ nodeCodec}
 
     val client = builder
-      .add(KademliaClient.register())
+      .add(KademliaClientGrpc.register())
       .add(ContractsCacheClient.register[BasicContract]())
       .add(ContractAllocatorClient.register[BasicContract]())
       .add(DatasetStorageClient.register[F]())

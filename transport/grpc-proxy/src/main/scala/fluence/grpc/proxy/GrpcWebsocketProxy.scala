@@ -18,12 +18,12 @@
 package fluence.grpc.proxy
 
 import com.google.protobuf.ByteString
+import fluence.grpc.{InProcessGrpc, ProxyGrpc, Result}
 import fluence.proxy.grpc.WebsocketMessage
 import fs2.async.mutable.Topic
 import fs2.{io ⇒ _, _}
 import monix.eval.Task
 import monix.execution.{Scheduler ⇒ TaskScheduler}
-import monix.reactive.Observable
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Server

@@ -26,8 +26,8 @@ import fluence.kad.KeyProtobufCodecs._
 import fluence.kad.protobuf.{NodesResponse, PingRequest}
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.kad.{protobuf, protocol}
+import fluence.stream.StreamHandler
 import fluence.transport.websocket.ProtobufCodec._
-import fluence.transport.websocket.StreamHandler
 
 import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
@@ -37,7 +37,7 @@ import scala.language.higherKinds
  *
  * @param streamHandler Websocket proxy client for grpc.
  */
-class KademliaWebsocketClient(streamHandler: StreamHandler)(
+class KademliaClient(streamHandler: StreamHandler)(
   implicit
   codec: PureCodec[protocol.Node[Contact], protobuf.Node],
   ec: ExecutionContext
@@ -67,7 +67,7 @@ class KademliaWebsocketClient(streamHandler: StreamHandler)(
       request ← generatedMessageCodec.runF[IO](PingRequest())
       responseBytes ← streamHandler
         .handleUnary(service, "ping", request)
-      response ← pingCodec.runF(responseBytes)
+      response ← pingCodec.runF[IO](responseBytes)
     } yield response
   }
 
@@ -81,7 +81,7 @@ class KademliaWebsocketClient(streamHandler: StreamHandler)(
       k ← keyBS(key)
       request ← generatedMessageCodec.runF[IO](protobuf.LookupRequest(k, numberOfNodes))
       responseBytes ← streamHandler.handleUnary(service, "lookup", request)
-      res ← nodeContactCodec.runF(responseBytes)
+      res ← nodeContactCodec.runF[IO](responseBytes)
     } yield res
   }
 
@@ -96,7 +96,7 @@ class KademliaWebsocketClient(streamHandler: StreamHandler)(
       moveAwayK ← keyBS(moveAwayFrom)
       req ← generatedMessageCodec.runF[IO](protobuf.LookupAwayRequest(k, moveAwayK, numberOfNodes))
       responseBytes ← streamHandler.handleUnary(service, "lookupAway", req)
-      res ← nodeContactCodec.runF(responseBytes)
+      res ← nodeContactCodec.runF[IO](responseBytes)
     } yield res
   }
 }

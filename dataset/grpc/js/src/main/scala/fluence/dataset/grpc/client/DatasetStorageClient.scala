@@ -22,19 +22,18 @@ import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.client.{ClientGet, ClientPut, ClientRange}
 import fluence.dataset.protobuf._
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.proxy.grpc.WebsocketMessage
-import fluence.transport.websocket.{GrpcProxyClient, WebsocketPipe}
+import fluence.stream.StreamHandler
 import monix.execution.Scheduler
-import monix.reactive.{Observable, Observer, Pipe}
+import monix.reactive.{MulticastStrategy, Observable, Observer, Pipe}
 
 import scala.language.higherKinds
 
 /**
  * Client for interaction with the database.
  *
- * @param grpcProxyClient Websocket proxy client for grpc.
+ * @param streamHandler Websocket proxy client for grpc.
  */
-class DatasetStorageClient[F[_]: Effect](grpcProxyClient: GrpcProxyClient)(
+class DatasetStorageClient[F[_]: Effect](streamHandler: StreamHandler)(
   implicit sch: Scheduler
 ) extends DatasetStorageRpc[F, Observable] with slogging.LazyLogging {
 
@@ -43,38 +42,54 @@ class DatasetStorageClient[F[_]: Effect](grpcProxyClient: GrpcProxyClient)(
   private val service = "fluence.dataset.protobuf.grpc.DatasetStorageRpc"
 
   def getPipe: IO[Pipe[GetCallbackReply, GetCallback]] = {
+    val (obs, observbl) = Observable.multicast[GetCallbackReply](MulticastStrategy.publish)
+    val mapped = observbl.mapEval[IO, Array[Byte]](ab ⇒ generatedMessageCodec.runF[IO](ab))
     for {
-      proxy ← grpcProxyClient.proxy(service, "get", generatedMessageCodec, protobufDynamicCodec(GetCallback))
+      responseObservable ← streamHandler.handle(service, "get", mapped)
+      responseDeserialized = responseObservable.mapEval[IO, GetCallback](
+        resp ⇒ protobufDynamicCodec(GetCallback).runF[IO](resp)
+      )
     } yield {
       new Pipe[GetCallbackReply, GetCallback] {
 
         override def unicast: (Observer[GetCallbackReply], Observable[GetCallback]) = {
-          (proxy.input, proxy.output)
+          (obs, responseDeserialized)
         }
       }
     }
   }
 
-  val rangePipe: IO[Pipe[RangeCallbackReply, RangeCallback]] =
+  val rangePipe: IO[Pipe[RangeCallbackReply, RangeCallback]] = {
+    val (obs, observbl) = Observable.multicast[RangeCallbackReply](MulticastStrategy.publish)
+    val mapped = observbl.mapEval[IO, Array[Byte]](ab ⇒ generatedMessageCodec.runF[IO](ab))
     for {
-      proxy ← grpcProxyClient
-        .proxy(service, "range", generatedMessageCodec, protobufDynamicCodec(RangeCallback))
+      responseObservable ← streamHandler.handle(service, "get", mapped)
+      responseDeserialized = responseObservable.mapEval[IO, RangeCallback](
+        resp ⇒ protobufDynamicCodec(RangeCallback).runF[IO](resp)
+      )
     } yield {
       new Pipe[RangeCallbackReply, RangeCallback] {
 
         override def unicast: (Observer[RangeCallbackReply], Observable[RangeCallback]) = {
-          (proxy.input, proxy.output)
+          (obs, responseDeserialized)
         }
       }
     }
+  }
 
   val putPipe: IO[Pipe[PutCallbackReply, PutCallback]] = {
+    val (obs, observbl) = Observable.multicast[PutCallbackReply](MulticastStrategy.publish)
+    val mapped = observbl.mapEval[IO, Array[Byte]](ab ⇒ generatedMessageCodec.runF[IO](ab))
     for {
-      proxy ← grpcProxyClient.proxy(service, "put", generatedMessageCodec, protobufDynamicCodec(PutCallback))
+      responseObservable ← streamHandler.handle(service, "get", mapped)
+      responseDeserialized = responseObservable.mapEval[IO, PutCallback](
+        resp ⇒ protobufDynamicCodec(PutCallback).runF[IO](resp)
+      )
     } yield {
       new Pipe[PutCallbackReply, PutCallback] {
+
         override def unicast: (Observer[PutCallbackReply], Observable[PutCallback]) = {
-          (proxy.input, proxy.output)
+          (obs, responseDeserialized)
         }
       }
     }

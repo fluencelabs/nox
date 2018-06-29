@@ -26,7 +26,7 @@ import cats.instances.try_._
 import cats.syntax.eq._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.KeyPair
-import fluence.kad.grpc.client.KademliaClient
+import fluence.kad.grpc.client.KademliaClientGrpc
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.KademliaGrpcUpdate
 import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
@@ -76,7 +76,7 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
 
     private val client = GrpcClient
       .builder(key, IO.pure(contact.b64seed), clientConf)
-      .add(KademliaClient.register())
+      .add(KademliaClientGrpc.register())
       .build
 
     private val kademliaClientRpc: Contact ⇒ KademliaRpc[Contact] = c ⇒ {

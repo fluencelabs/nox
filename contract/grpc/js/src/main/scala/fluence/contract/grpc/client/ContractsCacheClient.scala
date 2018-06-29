@@ -27,15 +27,15 @@ import fluence.contract.protocol.ContractsCacheRpc
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.KeyProtobufCodecs._
 import fluence.kad.protocol.Key
-import fluence.transport.websocket.GrpcProxyClient
+import fluence.stream.StreamHandler
 import monix.execution.Scheduler
 
 /**
  * Contract client for websocket.
  *
- * @param grpcProxyClient Websocket proxy client for grpc.
+ * @param streamHandler Websocket proxy client for grpc.
  */
-class ContractsCacheClient[C: ContractValidate](grpcProxyClient: GrpcProxyClient)(
+class ContractsCacheClient[C: ContractValidate](streamHandler: StreamHandler)(
   implicit
   codec: Codec[IO, C, BasicContract],
   checkerFn: CheckerFn,
@@ -58,11 +58,10 @@ class ContractsCacheClient[C: ContractValidate](grpcProxyClient: GrpcProxyClient
   override def find(id: Key): IO[Option[C]] =
     (for {
       idBs ← keyC.direct.runF[IO](id)
-      req = FindRequest(idBs)
-      proxy ← grpcProxyClient
-        .proxy(service, "find", generatedMessageCodec, protobufDynamicCodec(BasicContract))
-      binContract ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(req)))
-      contract ← codec.decode(binContract)
+      req ← generatedMessageCodec.runF[IO](FindRequest(idBs))
+      responseBytes ← streamHandler.handleUnary(service, "find", req)
+      response ← protobufDynamicCodec(BasicContract).runF[IO](responseBytes)
+      contract ← codec.decode(response)
       // contract from the outside required validation
       _ ← contract.validateME[IO]
     } yield Option(contract)).recover {
@@ -82,8 +81,8 @@ class ContractsCacheClient[C: ContractValidate](grpcProxyClient: GrpcProxyClient
       // we should validate contract before send outside to caching
       _ ← contract.validateME[IO]
       binContract ← codec.encode(contract)
-      proxy ← grpcProxyClient
-        .proxy(service, "cache", generatedMessageCodec, protobufDynamicCodec(CacheResponse))
-      resp ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(binContract)))
+      req ← generatedMessageCodec.runF[IO](binContract)
+      responseBytes ← streamHandler.handleUnary(service, "cache", req)
+      resp ← protobufDynamicCodec(CacheResponse).runF[IO](responseBytes)
     } yield resp.cached
 }

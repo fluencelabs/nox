@@ -18,14 +18,19 @@
 package fluence.stream
 
 import cats.effect.IO
-import fluence.codec.PureCodec
-import monix.reactive.Pipe
-import org.reactivestreams.Subscriber
+import monix.reactive.Observable
 
-trait StreamHandler[F[_], A, B] {
+trait StreamHandler {
 
   def handle(
     service: String,
-    method: String
-  ): F[Pipe[A, B]]
+    method: String,
+    requests: Observable[Array[Byte]]
+  ): IO[Observable[Array[Byte]]]
+
+  def handleUnary(
+    service: String,
+    method: String,
+    request: Array[Byte]
+  ): IO[Array[Byte]]
 }

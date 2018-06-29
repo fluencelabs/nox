@@ -188,6 +188,7 @@ lazy val `transport-grpc-monix` = project
     grpc,
     libraryDependencies ++= Seq(
       monix3,
+      slogging,
       scalatestKit
     )
   )
@@ -218,7 +219,7 @@ lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind in Test := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`transport-core`, `kademlia-protocol`)
+  .dependsOn(`transport-core`, `kademlia-protocol`, `scala-multistream-select`)
 
 lazy val `transport-grpc-js` = `transport-grpc`.js
 lazy val `transport-grpc-jvm` = `transport-grpc`.jvm
@@ -282,7 +283,7 @@ lazy val `transport-websocket-js` = project
   )
   .enablePlugins(ScalaJSPlugin)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`websocket-protobuf-js`)
+  .dependsOn(`websocket-protobuf-js`, `scala-multistream-select-js`)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)

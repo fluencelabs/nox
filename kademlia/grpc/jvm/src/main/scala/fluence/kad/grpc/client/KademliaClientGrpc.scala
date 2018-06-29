@@ -35,7 +35,7 @@ import scala.language.implicitConversions
  *
  * @param stub GRPC Kademlia Stub
  */
-class KademliaClient(stub: IO[KademliaGrpc.Kademlia])(
+class KademliaClientGrpc(stub: IO[KademliaGrpc.Kademlia])(
   implicit
   codec: PureCodec[protocol.Node[Contact], protobuf.Node],
   ec: ExecutionContext
@@ -84,7 +84,7 @@ class KademliaClient(stub: IO[KademliaGrpc.Kademlia])(
     } yield resDec
 }
 
-object KademliaClient {
+object KademliaClientGrpc {
 
   /**
    * Shorthand to register KademliaClient inside NetworkClient.
@@ -98,6 +98,6 @@ object KademliaClient {
     codec: PureCodec[protocol.Node[Contact], protobuf.Node],
     ec: ExecutionContext
   ): KademliaRpc[Contact] =
-    new KademliaClient(channelOptions.map { case (ch, opts) ⇒ new KademliaGrpc.KademliaStub(ch, opts) })
+    new KademliaClientGrpc(channelOptions.map { case (ch, opts) ⇒ new KademliaGrpc.KademliaStub(ch, opts) })
 
 }
