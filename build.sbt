@@ -669,8 +669,8 @@ lazy val `client-grpc` = crossProject(JVMPlatform, JSPlatform)
   .in(file("client/grpc"))
   .settings(commons)
   .jsSettings(
-    scalaJSModuleKind in Test       := ModuleKind.CommonJSModule,
-    fork in Test                    := false
+    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
+    fork in Test              := false
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`client-core`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`)
@@ -715,14 +715,14 @@ lazy val `client-cli-app` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    fork in Test := false,
+    fork in Test                    := false,
     scalaJSUseMainModuleInitializer := false,
     jsEnv in Compile                := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv(),
     workbenchStartMode              := WorkbenchStartModes.Manual,
     skip in packageJSDependencies   := false,
     scalaJSModuleKind in Test       := ModuleKind.CommonJSModule,
-    webpackBundlingMode := BundlingMode.LibraryAndApplication(),
-    emitSourceMaps := false
+    webpackBundlingMode             := BundlingMode.LibraryAndApplication(),
+    emitSourceMaps                  := false
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`client-cli`, `client-grpc`)
@@ -765,3 +765,27 @@ lazy val `node` = project
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`node-grpc`)
+
+lazy val `scala-multistream-select` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("scala-multistream-select"))
+  .settings(
+    commons,
+    protobuf,
+    PB.protoSources in Compile := {
+      Seq(file("scala-multistream-select/src/main/protobuf"))
+    },
+    libraryDependencies ++= Seq(
+      "io.monix"    %%% "monix"          % MonixV,
+      "one.fluence" %%% "codec-protobuf" % CodecV,
+      scalatest
+    )
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `scala-multistream-select-js` = `scala-multistream-select`.js
+lazy val `scala-multistream-select-jvm` = `scala-multistream-select`.jvm

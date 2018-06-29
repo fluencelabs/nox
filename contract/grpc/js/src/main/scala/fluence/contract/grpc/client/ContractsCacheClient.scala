@@ -27,8 +27,7 @@ import fluence.contract.protocol.ContractsCacheRpc
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.KeyProtobufCodecs._
 import fluence.kad.protocol.Key
-import fluence.proxy.grpc.WebsocketMessage
-import fluence.transport.websocket.{ConnectionPool, GrpcProxyClient, WebsocketPipe}
+import fluence.transport.websocket.GrpcProxyClient
 import monix.execution.Scheduler
 
 /**

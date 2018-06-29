@@ -17,20 +17,17 @@
 
 package fluence.kad.grpc.client
 
+import cats.effect.IO
 import cats.syntax.compose._
 import cats.syntax.profunctor._
-import cats.effect.IO
 import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
 import fluence.kad.KeyProtobufCodecs._
-import fluence.transport.websocket.ProtobufCodec._
 import fluence.kad.protobuf.{NodesResponse, PingRequest}
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.kad.{protobuf, protocol}
-import fluence.proxy.grpc.WebsocketMessage
-import fluence.transport.websocket.{GrpcProxyClient, WebsocketPipe}
-import monix.execution.Scheduler.Implicits.global
-import scalapb.GeneratedMessage
+import fluence.transport.websocket.ProtobufCodec._
+import fluence.transport.websocket.StreamHandler
 
 import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
@@ -38,9 +35,9 @@ import scala.language.higherKinds
 /**
  * Kademlia client for websocket.
  *
- * @param grpcProxyClient Websocket proxy client for grpc.
+ * @param streamHandler Websocket proxy client for grpc.
  */
-class KademliaWebsocketClient(grpcProxyClient: GrpcProxyClient)(
+class KademliaWebsocketClient(streamHandler: StreamHandler)(
   implicit
   codec: PureCodec[protocol.Node[Contact], protobuf.Node],
   ec: ExecutionContext
@@ -67,9 +64,10 @@ class KademliaWebsocketClient(grpcProxyClient: GrpcProxyClient)(
    */
   override def ping(): IO[Node[Contact]] = {
     for {
-      proxy ← grpcProxyClient
-        .proxy(service, "ping", generatedMessageCodec, pingCodec)
-      response ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(PingRequest())))
+      request ← generatedMessageCodec.runF[IO](PingRequest())
+      responseBytes ← streamHandler
+        .handleUnary(service, "ping", request)
+      response ← pingCodec.runF(responseBytes)
     } yield response
   }
 
@@ -81,9 +79,9 @@ class KademliaWebsocketClient(grpcProxyClient: GrpcProxyClient)(
   override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] = {
     for {
       k ← keyBS(key)
-      request = protobuf.LookupRequest(k, numberOfNodes)
-      proxy ← grpcProxyClient.proxy(service, "lookup", generatedMessageCodec, nodeContactCodec)
-      res ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(request)))
+      request ← generatedMessageCodec.runF[IO](protobuf.LookupRequest(k, numberOfNodes))
+      responseBytes ← streamHandler.handleUnary(service, "lookup", request)
+      res ← nodeContactCodec.runF(responseBytes)
     } yield res
   }
 
@@ -96,9 +94,9 @@ class KademliaWebsocketClient(grpcProxyClient: GrpcProxyClient)(
     for {
       k ← keyBS(key)
       moveAwayK ← keyBS(moveAwayFrom)
-      req = protobuf.LookupAwayRequest(k, moveAwayK, numberOfNodes)
-      proxy ← grpcProxyClient.proxy(service, "lookupAway", generatedMessageCodec, nodeContactCodec)
-      res ← IO.fromFuture(IO(proxy.requestAndWaitOneResult(req)))
+      req ← generatedMessageCodec.runF[IO](protobuf.LookupAwayRequest(k, moveAwayK, numberOfNodes))
+      responseBytes ← streamHandler.handleUnary(service, "lookupAway", req)
+      res ← nodeContactCodec.runF(responseBytes)
     } yield res
   }
 }
