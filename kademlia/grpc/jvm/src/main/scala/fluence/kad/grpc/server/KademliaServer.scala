@@ -61,7 +61,6 @@ class KademliaServer(kademlia: KademliaRpc[Contact])(
         ns ← kademlia
           .lookupAway(key, moveAwayKey, request.numberOfNodes)
         resp ← streamCodec.direct.runF[IO](ns.toStream)
-        _ = println("LOOKUP AWAY RESPONSE SERVER === " + resp)
       } yield NodesResponse(resp)
     ).unsafeToFuture()
 

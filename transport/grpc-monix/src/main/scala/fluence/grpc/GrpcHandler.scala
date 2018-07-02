@@ -85,7 +85,7 @@ class GrpcHandler(
       channelOptions ← channelOptionsIO
       responseObservable ← IO {
         val (channel, callOptions) = channelOptions
-        val call = channel.newCall[Any, Any](methodDescriptor, CallOptions.DEFAULT)
+        val call = channel.newCall[Any, Any](methodDescriptor, callOptions)
 
         val (inResp, outResp) = Observable.multicast[Any](MulticastStrategy.replay, overflow)
 
