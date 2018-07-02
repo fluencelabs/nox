@@ -18,82 +18,31 @@
 package fluence.contract.grpc.client
 
 import cats.effect.IO
-import cats.syntax.applicativeError._
-import com.google.protobuf.ByteString
-import fluence.codec.{Codec, PureCodec}
+import fluence.codec.Codec
 import fluence.contract.ops.ContractValidate
-import fluence.contract.protobuf.grpc.ContractsCacheGrpc
-import fluence.contract.protobuf.grpc.ContractsCacheGrpc.ContractsCacheStub
-import fluence.contract.protobuf.{BasicContract, FindRequest}
+import fluence.contract.protobuf.BasicContract
 import fluence.contract.protocol.ContractsCacheRpc
 import fluence.crypto.signature.SignAlgo.CheckerFn
-import fluence.kad.KeyProtobufCodecs._
-import fluence.kad.protocol.Key
+import fluence.grpc.{GrpcHandler, ServiceManager}
 import io.grpc.{CallOptions, ManagedChannel}
+import monix.execution.Scheduler
 
-import scala.concurrent.ExecutionContext
-
-class ContractsCacheClient[C: ContractValidate](stub: IO[ContractsCacheStub])(
-  implicit
-  codec: Codec[IO, C, BasicContract],
-  checkerFn: CheckerFn,
-  ec: ExecutionContext
-) extends ContractsCacheRpc[C] with slogging.LazyLogging {
-  import ContractValidate.ContractValidatorOps
-
-  private val keyC = PureCodec.codec[Key, ByteString]
-
-  /**
-   * Tries to find a contract in local cache.
-   *
-   * @param id Dataset ID
-   * @return Optional locally found contract
-   */
-  override def find(id: Key): IO[Option[C]] =
-    (for {
-      idBs ← keyC.direct.runF[IO](id)
-      req = FindRequest(idBs)
-      binContract ← IO.fromFuture(stub.map(_.find(req)))
-      contract ← codec.decode(binContract)
-      // contract from the outside required validation
-      _ ← contract.validateME[IO]
-    } yield Option(contract)).recover {
-      case err ⇒
-        logger.warn(s"Finding contract failed, cause=$err", err)
-        None
-    }
-
-  /**
-   * Ask node to cache the contract.
-   *
-   * @param contract Contract to cache
-   * @return If the contract is cached or not
-   */
-  override def cache(contract: C): IO[Boolean] =
-    for {
-      // we should validate contract before send outside to caching
-      _ ← contract.validateME[IO]
-      binContract ← codec.encode(contract)
-      resp ← IO.fromFuture(stub.map(_.cache(binContract)))
-    } yield resp.cached
-}
-
-object ContractsCacheClient {
+object ContractsCacheClientGrpc {
 
   /**
    * Shorthand to register inside NetworkClient.
    *
    * @param channelOptions     Channel to remote node and Call options
    */
-  def register[C: ContractValidate]()(
+  def register[C: ContractValidate](serviceManager: ServiceManager)(
     channelOptions: IO[(ManagedChannel, CallOptions)]
   )(
     implicit
     codec: Codec[IO, C, BasicContract],
     checkerFn: CheckerFn,
-    ec: ExecutionContext
-  ): ContractsCacheRpc[C] =
-    new ContractsCacheClient[C](channelOptions.map {
-      case (channel, callOptions) ⇒ new ContractsCacheGrpc.ContractsCacheStub(channel, callOptions)
-    })
+    ec: Scheduler
+  ): ContractsCacheRpc[C] = {
+    val streamHandler = new GrpcHandler(serviceManager, channelOptions)
+    new ContractsCacheClient[C](streamHandler)
+  }
 }

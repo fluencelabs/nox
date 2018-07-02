@@ -45,7 +45,7 @@ class ContractsCacheClient[C: ContractValidate](streamHandler: StreamHandler)(
 
   private val keyC = PureCodec.codec[Key, ByteString]
 
-  import fluence.transport.websocket.ProtobufCodec._
+  import fluence.transport.ProtobufCodec._
 
   private val service = "fluence.contract.protobuf.grpc.ContractsCache"
 

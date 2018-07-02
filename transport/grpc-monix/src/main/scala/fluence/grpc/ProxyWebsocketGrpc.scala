@@ -44,7 +44,7 @@ case class Result(observable: Observable[Array[Byte]], controlOnComplete: Boolea
  *
  * @param inProcessGrpc In-process services and client channel.
  */
-class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
+class ProxyWebsocketGrpc(inProcessGrpc: InProcessGrpc)(
   implicit ec: ExecutionContext
 ) extends slogging.LazyLogging {
 
@@ -54,30 +54,6 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
   val callCache: Task[MVar[Map[Long, Observer.Sync[Any]]]] = MVar(Map.empty[Long, Observer.Sync[Any]]).memoize
 
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
-
-  /**
-   * Gets grpc method descriptor from registered services.
-   *
-   * @param service Name of service.
-   * @param method Name of method.
-   *
-   * @return Method descriptor or None, if there is no descriptor in registered services.
-   */
-  private def getMethodDescriptor(service: String, method: String): Option[MethodDescriptor[Any, Any]] = {
-    for {
-      serviceDescriptor ← inProcessGrpc.services.find(_.getServiceDescriptor.getName == service)
-      serverMethodDefinition ← Option(
-        serviceDescriptor.getMethod(service + "/" + method).asInstanceOf[ServerMethodDefinition[Any, Any]]
-      )
-      methodDescriptor ← Option(serverMethodDefinition.getMethodDescriptor)
-    } yield methodDescriptor
-  }
-
-  private def getMethodDescriptorF(service: String, method: String): Task[MethodDescriptor[Any, Any]] =
-    Task(getMethodDescriptor(service, method)).flatMap {
-      case Some(md) ⇒ Task.pure(md)
-      case None ⇒ Task.raiseError(new IllegalArgumentException(s"There is no $service/$method method."))
-    }
 
   /**
    * Creates listener for client call and connects it with observable.
@@ -182,7 +158,7 @@ class ProxyGrpc(inProcessGrpc: InProcessGrpc)(
     reqE: Either[StatusException, InputStream]
   ): Task[Option[Result]] = {
     for {
-      methodDescriptor ← getMethodDescriptorF(service, method)
+      methodDescriptor ← inProcessGrpc.serviceManager.getMethodDescriptorF[Task](service, method)
       _ = logger.debug("Websocket method descriptor: " + methodDescriptor.toString)
       req ← Task(reqE.map(methodDescriptor.parseRequest))
       _ = logger.debug("Websocket request: " + req)

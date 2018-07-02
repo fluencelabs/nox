@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.transport.websocket
+package fluence.transport
 
 import fluence.codec.PureCodec
 import scalapb.{GeneratedMessage, GeneratedMessageCompanion, Message}

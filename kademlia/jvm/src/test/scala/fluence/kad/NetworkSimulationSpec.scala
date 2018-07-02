@@ -20,12 +20,12 @@ package fluence.kad
 import java.net.InetAddress
 import java.security.SecureRandom
 
-import cats._
 import cats.effect.IO
 import cats.instances.try_._
 import cats.syntax.eq._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.KeyPair
+import fluence.grpc.ServiceManager
 import fluence.kad.grpc.client.KademliaClientGrpc
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.KademliaGrpcUpdate
@@ -74,9 +74,11 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
         )
         .unsafe(())
 
+    private val services = List(KademliaGrpc.SERVICE)
+
     private val client = GrpcClient
       .builder(key, IO.pure(contact.b64seed), clientConf)
-      .add(KademliaClientGrpc.register())
+      .add(KademliaClientGrpc.register(ServiceManager(services)))
       .build
 
     private val kademliaClientRpc: Contact ⇒ KademliaRpc[Contact] = c ⇒ {

@@ -27,7 +27,7 @@ import fluence.kad.protobuf.{NodesResponse, PingRequest}
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.kad.{protobuf, protocol}
 import fluence.stream.StreamHandler
-import fluence.transport.websocket.ProtobufCodec._
+import fluence.transport.ProtobufCodec._
 
 import scala.concurrent.ExecutionContext
 import scala.language.higherKinds

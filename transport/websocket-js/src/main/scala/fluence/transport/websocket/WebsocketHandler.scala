@@ -54,7 +54,7 @@ class WebsocketHandler(
 
       //we will collect only messages that have equals method name, service name and request id
       val proxyObservable = wsObservable.collect {
-        case WebsocketMessage(s, m, rId, payload) if s == service && m == method && rId == rId ⇒
+        case WebsocketMessage(srv, m, rId, payload) if srv == service && m == method && rId == rId ⇒
           payload
       }.takeWhile {
         case WebsocketMessage.Response.CompleteStatus(status) if status.code == Code.OK ⇒

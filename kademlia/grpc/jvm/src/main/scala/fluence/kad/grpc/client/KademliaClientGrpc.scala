@@ -18,71 +18,14 @@
 package fluence.kad.grpc.client
 
 import cats.effect.IO
-import com.google.protobuf.ByteString
 import fluence.codec.PureCodec
-import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
-import fluence.kad.protocol
-import fluence.kad.protobuf
-import fluence.kad.protobuf.grpc.KademliaGrpc
+import fluence.grpc.{GrpcHandler, ServiceManager}
+import fluence.kad.{protobuf, protocol}
+import fluence.kad.protocol.{Contact, KademliaRpc}
 import io.grpc.{CallOptions, ManagedChannel}
-import fluence.kad.KeyProtobufCodecs._
+import monix.execution.Scheduler
 
-import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
-
-/**
- * Implementation of KademliaClient over GRPC, with Task and Contact.
- *
- * @param stub GRPC Kademlia Stub
- */
-class KademliaClientGrpc(stub: IO[KademliaGrpc.Kademlia])(
-  implicit
-  codec: PureCodec[protocol.Node[Contact], protobuf.Node],
-  ec: ExecutionContext
-) extends KademliaRpc[Contact] {
-
-  private val keyBS = PureCodec.codec[Key, ByteString].direct.toKleisli[IO]
-
-  import cats.instances.stream._
-
-  private val streamCodec = PureCodec.codec[Stream[protocol.Node[Contact]], Stream[protobuf.Node]]
-
-  /**
-   * Ping the contact, get its actual Node status, or fail
-   */
-  override def ping(): IO[Node[Contact]] =
-    for {
-      n ← IO.fromFuture(stub.map(_.ping(protobuf.PingRequest())))
-      nc ← codec.inverse.runF[IO](n)
-    } yield nc
-
-  /**
-   * Perform a local lookup for a key, return K closest known nodes
-   *
-   * @param key Key to lookup
-   */
-  override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] =
-    for {
-      k ← keyBS(key)
-      res ← IO.fromFuture(stub.map(_.lookup(protobuf.LookupRequest(k, numberOfNodes))))
-      resDec ← streamCodec.inverse.runF[IO](res.nodes.toStream)
-    } yield resDec
-
-  /**
-   * Perform a local lookup for a key, return K closest known nodes, going away from the second key
-   *
-   * @param key Key to lookup
-   */
-  override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): IO[Seq[Node[Contact]]] =
-    for {
-      k ← keyBS(key)
-      moveAwayK ← keyBS(moveAwayFrom)
-      res ← IO.fromFuture(
-        stub.map(_.lookupAway(protobuf.LookupAwayRequest(k, moveAwayK, numberOfNodes)))
-      )
-      resDec ← streamCodec.inverse.runF[IO](res.nodes.toStream)
-    } yield resDec
-}
 
 object KademliaClientGrpc {
 
@@ -91,13 +34,15 @@ object KademliaClientGrpc {
    *
    * @param channelOptions     Channel to remote node and Call options
    */
-  def register()(
+  def register(serviceManager: ServiceManager)(
     channelOptions: IO[(ManagedChannel, CallOptions)]
   )(
     implicit
     codec: PureCodec[protocol.Node[Contact], protobuf.Node],
-    ec: ExecutionContext
-  ): KademliaRpc[Contact] =
-    new KademliaClientGrpc(channelOptions.map { case (ch, opts) ⇒ new KademliaGrpc.KademliaStub(ch, opts) })
+    ec: Scheduler
+  ): KademliaRpc[Contact] = {
+    val streamHandler = new GrpcHandler(serviceManager, channelOptions)
+    new KademliaClient(streamHandler)
+  }
 
 }

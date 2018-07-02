@@ -38,7 +38,7 @@ class ContractAllocatorClient[C: ContractValidate](streamHandler: StreamHandler)
   ec: Scheduler
 ) extends ContractAllocatorRpc[C] {
   import ContractValidate.ContractValidatorOps
-  import fluence.transport.websocket.ProtobufCodec._
+  import fluence.transport.ProtobufCodec._
 
   private val service = "fluence.contract.protobuf.grpc.ContractAllocator"
 

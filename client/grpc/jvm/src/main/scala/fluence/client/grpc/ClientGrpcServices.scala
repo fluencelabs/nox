@@ -20,12 +20,16 @@ package fluence.client.grpc
 import cats.effect.Effect
 import fluence.client.core.ClientServices
 import fluence.contract.BasicContract
-import fluence.contract.grpc.client.{ContractAllocatorClient, ContractsCacheClient}
+import fluence.contract.grpc.client.{ContractAllocatorClientGrpc, ContractsCacheClientGrpc}
+import fluence.contract.protobuf.grpc.{ContractAllocatorGrpc, ContractsCacheGrpc}
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.dataset.grpc.client.DatasetStorageClient
+import fluence.dataset.protobuf.grpc.DatasetStorageRpcGrpc
 import fluence.dataset.protocol.DatasetStorageRpc
+import fluence.grpc.ServiceManager
 import fluence.kad.grpc.client.KademliaClientGrpc
+import fluence.kad.protobuf.grpc.KademliaGrpc
 import fluence.kad.protocol.{Contact, KademliaRpc}
 import fluence.transport.grpc.client.GrpcClient
 import monix.execution.Scheduler
@@ -46,10 +50,19 @@ object ClientGrpcServices {
     import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}
     import fluence.kad.KademliaNodeCodec.{pureCodec ⇒ nodeCodec}
 
+    val services = List(
+      KademliaGrpc.SERVICE,
+      ContractsCacheGrpc.SERVICE,
+      ContractAllocatorGrpc.SERVICE,
+      DatasetStorageRpcGrpc.SERVICE
+    )
+
+    val serviceManager = ServiceManager(services)
+
     val client = builder
-      .add(KademliaClientGrpc.register())
-      .add(ContractsCacheClient.register[BasicContract]())
-      .add(ContractAllocatorClient.register[BasicContract]())
+      .add(KademliaClientGrpc.register(serviceManager))
+      .add(ContractsCacheClientGrpc.register[BasicContract](serviceManager))
+      .add(ContractAllocatorClientGrpc.register[BasicContract](serviceManager))
       .add(DatasetStorageClient.register[F]())
       .build
 

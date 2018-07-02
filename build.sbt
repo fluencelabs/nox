@@ -138,6 +138,7 @@ lazy val `kademlia-grpc-js` = `kademlia-grpc`.js
   .dependsOn(`transport-websocket-js`)
 
 lazy val `kademlia-grpc-jvm` = `kademlia-grpc`.jvm
+  .dependsOn(`transport-grpc-monix`)
 
 lazy val `kademlia-monix` =
   crossProject(JVMPlatform, JSPlatform)
@@ -192,6 +193,7 @@ lazy val `transport-grpc-monix` = project
       scalatestKit
     )
   )
+  .dependsOn(`scala-multistream-select-jvm`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
@@ -674,7 +676,7 @@ lazy val `client-grpc` = crossProject(JVMPlatform, JSPlatform)
     fork in Test              := false
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`client-core`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`)
+  .dependsOn(`client-core`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`)
 
 lazy val `client-grpc-js` = `client-grpc`.js
   .enablePlugins(ScalaJSBundlerPlugin)

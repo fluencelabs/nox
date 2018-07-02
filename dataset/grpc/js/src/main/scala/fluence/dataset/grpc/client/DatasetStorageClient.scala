@@ -37,7 +37,7 @@ class DatasetStorageClient[F[_]: Effect](streamHandler: StreamHandler)(
   implicit sch: Scheduler
 ) extends DatasetStorageRpc[F, Observable] with slogging.LazyLogging {
 
-  import fluence.transport.websocket.ProtobufCodec._
+  import fluence.transport.ProtobufCodec._
 
   private val service = "fluence.dataset.protobuf.grpc.DatasetStorageRpc"
 

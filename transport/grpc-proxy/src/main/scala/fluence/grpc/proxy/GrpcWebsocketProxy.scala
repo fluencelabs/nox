@@ -18,7 +18,7 @@
 package fluence.grpc.proxy
 
 import com.google.protobuf.ByteString
-import fluence.grpc.{InProcessGrpc, ProxyGrpc, Result}
+import fluence.grpc.{InProcessGrpc, ProxyWebsocketGrpc, Result}
 import fluence.proxy.grpc.WebsocketMessage
 import fs2.async.mutable.Topic
 import fs2.{io ⇒ _, _}
@@ -47,7 +47,7 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
 
     case GET -> Root ⇒
       //Creates a proxy for each connection to separate the cache for all clients.
-      val proxyGrpc = new ProxyGrpc(inProcessGrpc)
+      val proxyGrpc = new ProxyWebsocketGrpc(inProcessGrpc)
 
       def replyPipe(topic: Topic[Task, WebSocketFrame]): Sink[Task, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒
