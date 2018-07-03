@@ -20,14 +20,13 @@ package fluence.grpc
 import java.io.ByteArrayInputStream
 
 import cats.effect.IO
-import fluence.grpc.GrpcMonix.{observerToStream, streamToObserver}
 import fluence.stream.StreamHandler
 import io.grpc.{CallOptions, ManagedChannel, MethodDescriptor}
 import io.grpc.MethodDescriptor.MethodType
 import io.grpc.internal.IoUtils
-import io.grpc.stub.ClientCalls
+import io.grpc.stub.{ClientCalls, StreamObserver}
 import monix.execution.Scheduler
-import monix.reactive.{MulticastStrategy, Observable, OverflowStrategy}
+import monix.reactive.{Observable, OverflowStrategy}
 
 class GrpcHandler(
   private val serviceManager: ServiceManager,
@@ -62,17 +61,15 @@ class GrpcHandler(
           val (channel, callOptions) = channelOptions
           val call = channel.newCall[Any, Any](methodDescriptor, callOptions)
 
-          val (inResp, outResp) = Observable.multicast[Any](MulticastStrategy.publish, overflow)
-          val reqStreamObserver = ClientCalls.asyncBidiStreamingCall(call, observerToStream(inResp))
-          val reqObserver = streamToObserver(reqStreamObserver)
-
-          requests.map(r ⇒ methodDescriptor.parseRequest(new ByteArrayInputStream(r))).subscribe(reqObserver)
-
-          val mappedOut = outResp.map { r ⇒
-            IoUtils.toByteArray(methodDescriptor.streamResponse(r))
+          val operator = { obs: StreamObserver[Any] ⇒
+            ClientCalls.asyncBidiStreamingCall(call, obs)
           }
 
-          mappedOut
+          val requestsProto = requests.map(r ⇒ methodDescriptor.parseRequest(new ByteArrayInputStream(r)))
+
+          GrpcMonix.liftByGrpcOperator(requestsProto, operator).map { r ⇒
+            IoUtils.toByteArray(methodDescriptor.streamResponse(r))
+          }
         }
       }
     } yield responses
@@ -83,23 +80,21 @@ class GrpcHandler(
       methodDescriptor ← serviceManager.getMethodDescriptorF[IO](service, method)
       _ ← checkType(methodDescriptor, MethodType.UNARY)
       channelOptions ← channelOptionsIO
-      responseObservable ← IO {
+      response ← {
         val (channel, callOptions) = channelOptions
         val call = channel.newCall[Any, Any](methodDescriptor, callOptions)
 
-        val (inResp, outResp) = Observable.multicast[Any](MulticastStrategy.replay, overflow)
-
-        ClientCalls.asyncUnaryCall(
-          call,
-          methodDescriptor.parseRequest(new ByteArrayInputStream(request)),
-          observerToStream(inResp)
-        )
-
-        outResp.map { r ⇒
-          IoUtils.toByteArray(methodDescriptor.streamResponse(r))
-        }
+        GrpcMonix
+          .guavaFutureToIO(
+            ClientCalls.futureUnaryCall(
+              call,
+              methodDescriptor.parseRequest(new ByteArrayInputStream(request))
+            )
+          )
+          .map { r ⇒
+            IoUtils.toByteArray(methodDescriptor.streamResponse(r))
+          }
       }
-      response ← responseObservable.headL.toIO
     } yield response
   }
 

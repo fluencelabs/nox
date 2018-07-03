@@ -17,38 +17,61 @@
 
 package fluence.grpc
 
+import cats.effect.IO
+import com.google.common.util.concurrent.ListenableFuture
 import io.grpc.stub.StreamObserver
+import monix.execution.Ack.{Continue, Stop}
 import monix.execution.{Ack, Cancelable, Scheduler}
+import monix.reactive.Observable.Operator
 import monix.reactive.Observer.Sync
 import monix.reactive._
+import monix.reactive.observers.Subscriber
+import org.reactivestreams.{Subscriber ⇒ SubscriberR}
+import scalapb.grpc.Grpc
 
+import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.util.Try
 
 object GrpcMonix {
 
-  private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
+  type GrpcOperator[I, O] = StreamObserver[O] ⇒ StreamObserver[I]
 
-  def callToPipe[I, O](call: StreamObserver[O] ⇒ StreamObserver[I])(implicit sch: Scheduler): Pipe[I, O] =
-    new Pipe[I, O] {
-      override def unicast: (Observer[I], Observable[O]) = {
+  def liftByGrpcOperator[I, O](observable: Observable[I], operator: GrpcOperator[I, O]): Observable[O] =
+    observable.liftByOperator(
+      grpcOperatorToMonixOperator(operator)
+    )
 
-        val (in, inOut) = Observable.multicast[I](MulticastStrategy.replay, overflow)
+  def grpcOperatorToMonixOperator[I, O](grpcOperator: GrpcOperator[I, O]): Operator[I, O] = {
+    outputSubsriber: Subscriber[O] ⇒
+      val outputObserver: StreamObserver[O] = monixSubscriberToGrpcObserver(outputSubsriber)
+      val inputObserver: StreamObserver[I] = grpcOperator(outputObserver)
+      grpcObserverToMonixSubscriber(inputObserver, outputSubsriber.scheduler)
+  }
 
-        in -> Observable.create[O](overflow) { sync ⇒
-          inOut.subscribe(streamToObserver(call(new StreamObserver[O] {
-            override def onError(t: Throwable): Unit =
-              sync.onError(t)
-
-            override def onCompleted(): Unit =
-              sync.onComplete()
-
-            override def onNext(value: O): Unit =
-              sync.onNext(value)
-          })))
-        }
-      }
+  def monixSubscriberToGrpcObserver[T](subscriber: Subscriber[T]): StreamObserver[T] =
+    new StreamObserver[T] {
+      override def onError(t: Throwable): Unit = subscriber.onError(t)
+      override def onCompleted(): Unit = subscriber.onComplete()
+      override def onNext(value: T): Unit = subscriber.onNext(value)
     }
+
+  def grpcObserverToMonixSubscriber[T](observer: StreamObserver[T], s: Scheduler): Subscriber[T] =
+    new Subscriber[T] {
+      override implicit def scheduler: Scheduler = s
+      override def onError(t: Throwable): Unit = observer.onError(t)
+      override def onComplete(): Unit = observer.onCompleted()
+      override def onNext(value: T): Future[Ack] =
+        try {
+          observer.onNext(value)
+          Continue
+        } catch {
+          case t: Throwable ⇒
+            observer.onError(t)
+            Stop
+        }
+    }
+
+  private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
   implicit def streamToObserver[T](stream: StreamObserver[T])(implicit sch: Scheduler): Observer.Sync[T] =
     new Observer.Sync[T] {
@@ -63,6 +86,9 @@ object GrpcMonix {
         Ack.Continue
       }
     }
+
+  def guavaFutureToIO[T](future: ListenableFuture[T]): IO[T] =
+    IO.fromFuture(IO(Grpc.guavaFuture2ScalaFuture(future)))
 
   implicit def observerToStream[T](observer: Sync[T])(implicit sch: Scheduler): StreamObserver[T] = {
     new StreamObserver[T] {

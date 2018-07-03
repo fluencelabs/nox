@@ -28,18 +28,17 @@ import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import fluence.btree.client.MerkleBTreeClient.ClientState
 import fluence.client.core.{ClientServices, FluenceClient}
 import fluence.client.grpc.ClientGrpcServices
-import fluence.contract.{BasicContract, ContractError}
 import fluence.contract.client.Contracts
 import fluence.contract.client.Contracts.NotFound
+import fluence.contract.{BasicContract, ContractError}
 import fluence.crypto.ecdsa.Ecdsa
-import fluence.crypto.{Crypto, CryptoError, DumbCrypto, KeyPair}
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.crypto.signature.{SignAlgo, Signer}
+import fluence.crypto.{Crypto, DumbCrypto, KeyPair}
 import fluence.dataset.client.{ClientDatasetStorage, ClientDatasetStorageApi}
 import fluence.dataset.protocol.{ClientError, DatasetStorageRpc, ServerError}
 import fluence.kad.protocol.{Contact, ContactSecurity, Key}
 import fluence.kad.{KademliaConf, KademliaMVar}
-import fluence.kvstore.StoreError
 import fluence.node.core.ContractsCacheConf
 import fluence.transport.grpc.client.GrpcClient
 import io.grpc.StatusRuntimeException

@@ -24,7 +24,7 @@ import fluence.contract.grpc.client.{ContractAllocatorClientGrpc, ContractsCache
 import fluence.contract.protobuf.grpc.{ContractAllocatorGrpc, ContractsCacheGrpc}
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
 import fluence.crypto.signature.SignAlgo.CheckerFn
-import fluence.dataset.grpc.client.DatasetStorageClient
+import fluence.dataset.grpc.client.DatasetStorageClientGrpc
 import fluence.dataset.protobuf.grpc.DatasetStorageRpcGrpc
 import fluence.dataset.protocol.DatasetStorageRpc
 import fluence.grpc.ServiceManager
@@ -63,7 +63,7 @@ object ClientGrpcServices {
       .add(KademliaClientGrpc.register(serviceManager))
       .add(ContractsCacheClientGrpc.register[BasicContract](serviceManager))
       .add(ContractAllocatorClientGrpc.register[BasicContract](serviceManager))
-      .add(DatasetStorageClient.register[F]())
+      .add(DatasetStorageClientGrpc.register[F](serviceManager))
       .build
 
     contact ⇒

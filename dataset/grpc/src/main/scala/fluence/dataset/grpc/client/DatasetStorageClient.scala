@@ -63,7 +63,7 @@ class DatasetStorageClient[F[_]: Effect](streamHandler: StreamHandler)(
     val (obs, observbl) = Observable.multicast[RangeCallbackReply](MulticastStrategy.publish)
     val mapped = observbl.mapEval[IO, Array[Byte]](ab ⇒ generatedMessageCodec.runF[IO](ab))
     for {
-      responseObservable ← streamHandler.handle(service, "get", mapped)
+      responseObservable ← streamHandler.handle(service, "range", mapped)
       responseDeserialized = responseObservable.mapEval[IO, RangeCallback](
         resp ⇒ protobufDynamicCodec(RangeCallback).runF[IO](resp)
       )
@@ -81,7 +81,7 @@ class DatasetStorageClient[F[_]: Effect](streamHandler: StreamHandler)(
     val (obs, observbl) = Observable.multicast[PutCallbackReply](MulticastStrategy.publish)
     val mapped = observbl.mapEval[IO, Array[Byte]](ab ⇒ generatedMessageCodec.runF[IO](ab))
     for {
-      responseObservable ← streamHandler.handle(service, "get", mapped)
+      responseObservable ← streamHandler.handle(service, "put", mapped)
       responseDeserialized = responseObservable.mapEval[IO, PutCallback](
         resp ⇒ protobufDynamicCodec(PutCallback).runF[IO](resp)
       )
@@ -117,7 +117,6 @@ class DatasetStorageClient[F[_]: Effect](streamHandler: StreamHandler)(
    * @param searchCallbacks Wrapper for all callback needed for ''Range'' operation to the BTree
    * @return returns stream of found value.
    */
-  // TODO range request is not working for now for websockets
   override def range(
     datasetId: Array[Byte],
     version: Long,
