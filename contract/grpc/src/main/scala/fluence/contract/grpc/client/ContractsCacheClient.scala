@@ -86,3 +86,13 @@ class ContractsCacheClient[C: ContractValidate](streamHandler: StreamHandler)(
       resp ← protobufDynamicCodec(CacheResponse).runF[IO](responseBytes)
     } yield resp.cached
 }
+
+object ContractsCacheClient {
+
+  def apply[C: ContractValidate](streamHandler: StreamHandler)(
+    implicit
+    codec: Codec[IO, C, BasicContract],
+    checkerFn: CheckerFn,
+    ec: Scheduler
+  ): ContractsCacheRpc[C] = new ContractsCacheClient(streamHandler)
+}

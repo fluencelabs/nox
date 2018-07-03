@@ -21,10 +21,10 @@ import java.io.ByteArrayInputStream
 
 import cats.effect.IO
 import fluence.stream.StreamHandler
-import io.grpc.{CallOptions, ManagedChannel, MethodDescriptor}
 import io.grpc.MethodDescriptor.MethodType
 import io.grpc.internal.IoUtils
 import io.grpc.stub.{ClientCalls, StreamObserver}
+import io.grpc.{CallOptions, ManagedChannel, MethodDescriptor}
 import monix.execution.Scheduler
 import monix.reactive.{Observable, OverflowStrategy}
 
@@ -98,4 +98,10 @@ class GrpcHandler(
     } yield response
   }
 
+}
+
+object GrpcHandler {
+  def builder(serviceManager: ServiceManager)(channelOptions: IO[(ManagedChannel, CallOptions)])(implicit scheduler: Scheduler): GrpcHandler = {
+    new GrpcHandler(serviceManager, channelOptions)
+  }
 }

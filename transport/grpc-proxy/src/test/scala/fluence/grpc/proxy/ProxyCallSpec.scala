@@ -18,7 +18,6 @@
 package fluence.grpc.proxy
 
 import com.google.protobuf.ByteString
-import fluence.grpc.{InProcessGrpc, ProxyWebsocketGrpc}
 import fluence.grpc.proxy.test.TestServiceGrpc.TestService
 import fluence.grpc.proxy.test.{TestMessage, TestRequest, TestResponse, TestServiceGrpc}
 import fluence.proxy.grpc.WebsocketMessage

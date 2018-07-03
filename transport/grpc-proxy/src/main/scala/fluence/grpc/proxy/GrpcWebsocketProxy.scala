@@ -18,7 +18,6 @@
 package fluence.grpc.proxy
 
 import com.google.protobuf.ByteString
-import fluence.grpc.{InProcessGrpc, ProxyWebsocketGrpc, Result}
 import fluence.proxy.grpc.WebsocketMessage
 import fs2.async.mutable.Topic
 import fs2.{io ⇒ _, _}

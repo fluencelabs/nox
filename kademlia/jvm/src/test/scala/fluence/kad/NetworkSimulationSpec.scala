@@ -25,15 +25,16 @@ import cats.instances.try_._
 import cats.syntax.eq._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.KeyPair
-import fluence.grpc.ServiceManager
-import fluence.kad.grpc.client.KademliaClientGrpc
+import fluence.grpc.{GrpcHandler, ServiceManager}
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.KademliaGrpcUpdate
+import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protocol.{Contact, ContactSecurity, KademliaRpc, Key}
 import fluence.kad.protobuf.grpc.KademliaGrpc
 import fluence.transport.grpc.GrpcConf
 import fluence.transport.grpc.client.GrpcClient
 import fluence.transport.grpc.server.GrpcServer
+import io.grpc.{CallOptions, ManagedChannel}
 import monix.execution.Scheduler.Implicits.global
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Milliseconds, Seconds, Span}
@@ -75,10 +76,14 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
         .unsafe(())
 
     private val services = List(KademliaGrpc.SERVICE)
+    private val serviceManager = ServiceManager(services)
+
+    val builder: IO[(ManagedChannel, CallOptions)] => GrpcHandler =
+      GrpcHandler.builder(serviceManager)
 
     private val client = GrpcClient
       .builder(key, IO.pure(contact.b64seed), clientConf)
-      .add(KademliaClientGrpc.register(ServiceManager(services)))
+      .add(builder andThen KademliaClient.apply)
       .build
 
     private val kademliaClientRpc: Contact ⇒ KademliaRpc[Contact] = c ⇒ {

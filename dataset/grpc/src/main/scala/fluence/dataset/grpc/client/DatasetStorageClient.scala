@@ -154,3 +154,9 @@ class DatasetStorageClient[F[_]: Effect](streamHandler: StreamHandler)(
     removeCallbacks: BTreeRpc.RemoveCallback[F]
   ): IO[Option[Array[Byte]]] = ???
 }
+
+object DatasetStorageClient {
+  def apply[F[_] : Effect](streamHandler: StreamHandler)(
+    implicit sch: Scheduler
+  ): DatasetStorageRpc[F, Observable] = new DatasetStorageClient(streamHandler)
+}

@@ -26,7 +26,6 @@ import monix.reactive.Observable.Operator
 import monix.reactive.Observer.Sync
 import monix.reactive._
 import monix.reactive.observers.Subscriber
-import org.reactivestreams.{Subscriber ⇒ SubscriberR}
 import scalapb.grpc.Grpc
 
 import scala.concurrent.Future

@@ -83,3 +83,12 @@ class ContractAllocatorClient[C: ContractValidate](streamHandler: StreamHandler)
     } yield respContract
 
 }
+
+object ContractAllocatorClient {
+  def apply[C : ContractValidate](streamHandler: StreamHandler)(
+    implicit
+    codec: Codec[IO, C, BasicContract],
+    checkerFn: CheckerFn,
+    ec: Scheduler
+  ): ContractAllocatorRpc[C] = new ContractAllocatorClient(streamHandler)
+}

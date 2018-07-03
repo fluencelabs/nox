@@ -33,8 +33,7 @@ import fluence.crypto.keystore.FileKeyStorage
 import fluence.crypto.Crypto
 import fluence.crypto.ecdsa.Ecdsa
 import fluence.crypto.signature.SignAlgo
-import fluence.grpc.InProcessGrpc
-import fluence.grpc.proxy.GrpcWebsocketProxy
+import fluence.grpc.proxy.{GrpcWebsocketProxy, InProcessGrpc}
 import fluence.kad.Kademlia
 import fluence.kad.protocol.{Contact, Key, Node}
 import fluence.node.core.NodeComposer

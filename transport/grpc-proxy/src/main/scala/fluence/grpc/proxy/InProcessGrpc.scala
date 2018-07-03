@@ -15,15 +15,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.grpc
+package fluence.grpc.proxy
 
 import java.util.concurrent.TimeUnit
 
 import cats.effect.IO
+import fluence.grpc.ServiceManager
 import io.grpc._
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 
-import scala.collection.JavaConverters._
 import scala.language.higherKinds
 
 /**

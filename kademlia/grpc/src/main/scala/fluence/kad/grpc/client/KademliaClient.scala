@@ -100,3 +100,11 @@ class KademliaClient(streamHandler: StreamHandler)(
     } yield res
   }
 }
+
+object KademliaClient {
+  def apply(streamHandler: StreamHandler)(
+    implicit
+    codec: PureCodec[Node[Contact], protobuf.Node],
+    ec: ExecutionContext
+  ): KademliaRpc[Contact] = new KademliaClient(streamHandler)
+}
