@@ -20,14 +20,31 @@ package fluence.stream
 import cats.effect.IO
 import monix.reactive.Observable
 
-trait StreamHandler {
+/**
+  * Interface that generalize connection between nodes.
+  */
+trait Connection {
 
+  /**
+    * BIDI streaming request.
+    * @param service Protocol service name.
+    * @param method Protocol method name.
+    * @param requests Request stream.
+    * @return Response stream.
+    */
   def handle(
     service: String,
     method: String,
     requests: Observable[Array[Byte]]
   ): IO[Observable[Array[Byte]]]
 
+  /**
+    * One request - on response.
+    * @param service Protocol service name.
+    * @param method Protocol method name.
+    * @param request Request for opposite node.
+    * @return Response from opposite node.
+    */
   def handleUnary(
     service: String,
     method: String,

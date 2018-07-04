@@ -21,18 +21,18 @@ import cats.effect.IO
 import com.google.protobuf.ByteString
 import fluence.proxy.grpc.Status.Code
 import fluence.proxy.grpc.{Status, WebsocketMessage}
-import fluence.stream.StreamHandler
+import fluence.stream.Connection
 import monix.execution.Scheduler
 import monix.reactive.Observable
 
 import scala.language.higherKinds
 import scala.util.Random
 
-class WebsocketHandler(
+class WebsocketConnection(
   connection: IO[WebsocketPipe[WebsocketMessage, WebsocketMessage]]
 )(
   implicit s: Scheduler
-) extends StreamHandler {
+) extends Connection {
 
   private def message(service: String, method: String, requestId: Long)(payload: Array[Byte]): WebsocketMessage = {
     WebsocketMessage(service, method, requestId, WebsocketMessage.Response.Payload(ByteString.copyFrom(payload)))

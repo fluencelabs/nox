@@ -20,7 +20,7 @@ package fluence.grpc
 import java.io.ByteArrayInputStream
 
 import cats.effect.IO
-import fluence.stream.StreamHandler
+import fluence.stream.Connection
 import io.grpc.MethodDescriptor.MethodType
 import io.grpc.internal.IoUtils
 import io.grpc.stub.{ClientCalls, StreamObserver}
@@ -28,11 +28,11 @@ import io.grpc.{CallOptions, ManagedChannel, MethodDescriptor}
 import monix.execution.Scheduler
 import monix.reactive.{Observable, OverflowStrategy}
 
-class GrpcHandler(
+class GrpcConnection(
   private val serviceManager: ServiceManager,
   channelOptionsIO: IO[(ManagedChannel, CallOptions)]
 )(implicit sch: Scheduler)
-    extends StreamHandler {
+    extends Connection {
 
   private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
@@ -100,8 +100,8 @@ class GrpcHandler(
 
 }
 
-object GrpcHandler {
-  def builder(serviceManager: ServiceManager)(channelOptions: IO[(ManagedChannel, CallOptions)])(implicit scheduler: Scheduler): GrpcHandler = {
-    new GrpcHandler(serviceManager, channelOptions)
+object GrpcConnection {
+  def builder(serviceManager: ServiceManager)(channelOptions: IO[(ManagedChannel, CallOptions)])(implicit scheduler: Scheduler): GrpcConnection = {
+    new GrpcConnection(serviceManager, channelOptions)
   }
 }

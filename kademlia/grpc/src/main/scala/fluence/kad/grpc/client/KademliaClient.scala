@@ -26,18 +26,17 @@ import fluence.kad.KeyProtobufCodecs._
 import fluence.kad.protobuf.{NodesResponse, PingRequest}
 import fluence.kad.protocol.{Contact, KademliaRpc, Key, Node}
 import fluence.kad.{protobuf, protocol}
-import fluence.stream.StreamHandler
+import fluence.stream.Connection
 import fluence.transport.ProtobufCodec._
 
 import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 
 /**
- * Kademlia client for websocket.
+ * Kademlia client.
  *
- * @param streamHandler Websocket proxy client for grpc.
  */
-class KademliaClient(streamHandler: StreamHandler)(
+class KademliaClient(connection: Connection)(
   implicit
   codec: PureCodec[protocol.Node[Contact], protobuf.Node],
   ec: ExecutionContext
@@ -65,7 +64,7 @@ class KademliaClient(streamHandler: StreamHandler)(
   override def ping(): IO[Node[Contact]] = {
     for {
       request ← generatedMessageCodec.runF[IO](PingRequest())
-      responseBytes ← streamHandler
+      responseBytes ← connection
         .handleUnary(service, "ping", request)
       response ← pingCodec.runF[IO](responseBytes)
     } yield response
@@ -80,7 +79,7 @@ class KademliaClient(streamHandler: StreamHandler)(
     for {
       k ← keyBS(key)
       request ← generatedMessageCodec.runF[IO](protobuf.LookupRequest(k, numberOfNodes))
-      responseBytes ← streamHandler.handleUnary(service, "lookup", request)
+      responseBytes ← connection.handleUnary(service, "lookup", request)
       res ← nodeContactCodec.runF[IO](responseBytes)
     } yield res
   }
@@ -95,14 +94,14 @@ class KademliaClient(streamHandler: StreamHandler)(
       k ← keyBS(key)
       moveAwayK ← keyBS(moveAwayFrom)
       req ← generatedMessageCodec.runF[IO](protobuf.LookupAwayRequest(k, moveAwayK, numberOfNodes))
-      responseBytes ← streamHandler.handleUnary(service, "lookupAway", req)
+      responseBytes ← connection.handleUnary(service, "lookupAway", req)
       res ← nodeContactCodec.runF[IO](responseBytes)
     } yield res
   }
 }
 
 object KademliaClient {
-  def apply(streamHandler: StreamHandler)(
+  def apply(streamHandler: Connection)(
     implicit
     codec: PureCodec[Node[Contact], protobuf.Node],
     ec: ExecutionContext

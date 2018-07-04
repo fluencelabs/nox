@@ -54,8 +54,8 @@ class ClientWebsocketServices(connectionPool: ConnectionPool[WebsocketMessage, W
         contact.websocketPort.map { wsPort ⇒
           val url = "ws://" + contact.addr + ":" + wsPort
 
-          def connection: WebsocketHandler =
-            new WebsocketHandler(IO(connectionPool.getOrCreateConnection(url)))
+          def connection: WebsocketConnection =
+            new WebsocketConnection(IO(connectionPool.getOrCreateConnection(url)))
 
           new ClientServices[F, BasicContract, Contact] {
             override def kademlia: KademliaRpc[Contact] =

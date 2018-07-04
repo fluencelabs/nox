@@ -27,7 +27,7 @@ import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.dataset.grpc.client.DatasetStorageClient
 import fluence.dataset.protobuf.grpc.DatasetStorageRpcGrpc
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.grpc.{GrpcHandler, ServiceManager}
+import fluence.grpc.{GrpcConnection, ServiceManager}
 import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protobuf.grpc.KademliaGrpc
 import fluence.kad.protocol.{Contact, KademliaRpc}
@@ -59,7 +59,7 @@ object ClientGrpcServices {
     )
 
     val serviceManager = ServiceManager(services)
-    val handlerBuilder: IO[(ManagedChannel, CallOptions)] => GrpcHandler = GrpcHandler.builder(serviceManager)
+    val handlerBuilder: IO[(ManagedChannel, CallOptions)] => GrpcConnection = GrpcConnection.builder(serviceManager)
 
     val client = builder
       .add(handlerBuilder andThen KademliaClient.apply)

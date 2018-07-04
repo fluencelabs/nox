@@ -182,6 +182,7 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
 lazy val `kademlia-js` = `kademlia`.js
 lazy val `kademlia-jvm` = `kademlia`.jvm
 
+//TODO utility project, could be replaced to another project
 lazy val `grpc-monix-converter` = project
   .in(file("grpc-monix-converter"))
   .settings(
@@ -770,6 +771,7 @@ lazy val `node` = project
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`node-grpc`)
 
+//TODO replace to another project
 lazy val `scala-multistream` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(FluenceCrossType)

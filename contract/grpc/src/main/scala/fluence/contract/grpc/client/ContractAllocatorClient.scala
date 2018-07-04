@@ -23,15 +23,14 @@ import fluence.contract.ops.ContractValidate
 import fluence.contract.protobuf.BasicContract
 import fluence.contract.protocol.ContractAllocatorRpc
 import fluence.crypto.signature.SignAlgo.CheckerFn
-import fluence.stream.StreamHandler
+import fluence.stream.Connection
 import monix.execution.Scheduler
 
 /**
- * Contract allocator client for websocket.
+ * Contract allocator client.
  *
- * @param streamHandler Websocket proxy client for grpc.
  */
-class ContractAllocatorClient[C: ContractValidate](streamHandler: StreamHandler)(
+class ContractAllocatorClient[C: ContractValidate](connection: Connection)(
   implicit
   codec: Codec[IO, C, BasicContract],
   checkerFn: CheckerFn,
@@ -54,7 +53,7 @@ class ContractAllocatorClient[C: ContractValidate](streamHandler: StreamHandler)
       _ ← contract.validateME[IO]
       offer ← codec.encode(contract)
       request ← generatedMessageCodec.runF[IO](offer)
-      responseBytes ← streamHandler
+      responseBytes ← connection
         .handleUnary(service, "offer", request)
       resp ← protobufDynamicCodec(BasicContract).runF[IO](responseBytes)
       respContract ← codec.decode(resp)
@@ -74,7 +73,7 @@ class ContractAllocatorClient[C: ContractValidate](streamHandler: StreamHandler)
       _ ← contract.validateME[IO]
       offer ← codec.encode(contract)
       request ← generatedMessageCodec.runF[IO](offer)
-      responseBytes ← streamHandler
+      responseBytes ← connection
         .handleUnary(service, "allocate", request)
       resp ← protobufDynamicCodec(BasicContract).runF[IO](responseBytes)
       respContract ← codec.decode(resp)
@@ -85,7 +84,7 @@ class ContractAllocatorClient[C: ContractValidate](streamHandler: StreamHandler)
 }
 
 object ContractAllocatorClient {
-  def apply[C : ContractValidate](streamHandler: StreamHandler)(
+  def apply[C : ContractValidate](streamHandler: Connection)(
     implicit
     codec: Codec[IO, C, BasicContract],
     checkerFn: CheckerFn,

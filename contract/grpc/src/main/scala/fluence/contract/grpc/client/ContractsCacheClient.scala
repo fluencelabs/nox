@@ -27,15 +27,14 @@ import fluence.contract.protocol.ContractsCacheRpc
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.kad.KeyProtobufCodecs._
 import fluence.kad.protocol.Key
-import fluence.stream.StreamHandler
+import fluence.stream.Connection
 import monix.execution.Scheduler
 
 /**
- * Contract client for websocket.
+ * Contract client.
  *
- * @param streamHandler Websocket proxy client for grpc.
  */
-class ContractsCacheClient[C: ContractValidate](streamHandler: StreamHandler)(
+class ContractsCacheClient[C: ContractValidate](connection: Connection)(
   implicit
   codec: Codec[IO, C, BasicContract],
   checkerFn: CheckerFn,
@@ -59,7 +58,7 @@ class ContractsCacheClient[C: ContractValidate](streamHandler: StreamHandler)(
     (for {
       idBs ← keyC.direct.runF[IO](id)
       req ← generatedMessageCodec.runF[IO](FindRequest(idBs))
-      responseBytes ← streamHandler.handleUnary(service, "find", req)
+      responseBytes ← connection.handleUnary(service, "find", req)
       response ← protobufDynamicCodec(BasicContract).runF[IO](responseBytes)
       contract ← codec.decode(response)
       // contract from the outside required validation
@@ -82,14 +81,14 @@ class ContractsCacheClient[C: ContractValidate](streamHandler: StreamHandler)(
       _ ← contract.validateME[IO]
       binContract ← codec.encode(contract)
       req ← generatedMessageCodec.runF[IO](binContract)
-      responseBytes ← streamHandler.handleUnary(service, "cache", req)
+      responseBytes ← connection.handleUnary(service, "cache", req)
       resp ← protobufDynamicCodec(CacheResponse).runF[IO](responseBytes)
     } yield resp.cached
 }
 
 object ContractsCacheClient {
 
-  def apply[C: ContractValidate](streamHandler: StreamHandler)(
+  def apply[C: ContractValidate](streamHandler: Connection)(
     implicit
     codec: Codec[IO, C, BasicContract],
     checkerFn: CheckerFn,

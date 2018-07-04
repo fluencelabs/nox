@@ -25,7 +25,7 @@ import cats.instances.try_._
 import cats.syntax.eq._
 import com.typesafe.config.ConfigFactory
 import fluence.crypto.KeyPair
-import fluence.grpc.{GrpcHandler, ServiceManager}
+import fluence.grpc.{GrpcConnection, ServiceManager}
 import fluence.kad.grpc.server.KademliaServer
 import fluence.kad.grpc.KademliaGrpcUpdate
 import fluence.kad.grpc.client.KademliaClient
@@ -78,8 +78,8 @@ class NetworkSimulationSpec extends WordSpec with Matchers with ScalaFutures wit
     private val services = List(KademliaGrpc.SERVICE)
     private val serviceManager = ServiceManager(services)
 
-    val builder: IO[(ManagedChannel, CallOptions)] => GrpcHandler =
-      GrpcHandler.builder(serviceManager)
+    val builder: IO[(ManagedChannel, CallOptions)] => GrpcConnection =
+      GrpcConnection.builder(serviceManager)
 
     private val client = GrpcClient
       .builder(key, IO.pure(contact.b64seed), clientConf)
