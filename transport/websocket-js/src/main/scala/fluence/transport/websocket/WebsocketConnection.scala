@@ -29,6 +29,7 @@ import scala.language.higherKinds
 import scala.util.Random
 
 class WebsocketConnection(
+  //TODO change WebsocketPipe to something more generalized in order to use different websocket clients
   connection: IO[WebsocketPipe[WebsocketMessage, WebsocketMessage]]
 )(
   implicit s: Scheduler

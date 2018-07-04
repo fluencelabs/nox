@@ -51,6 +51,7 @@ object ClientGrpcServices {
     import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}
     import fluence.kad.KademliaNodeCodec.{pureCodec ⇒ nodeCodec}
 
+    //TODO is it possible to avoid this?
     val services = List(
       KademliaGrpc.SERVICE,
       ContractsCacheGrpc.SERVICE,

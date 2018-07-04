@@ -70,8 +70,6 @@ object GrpcMonix {
         }
     }
 
-  private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
-
   implicit def streamToObserver[T](stream: StreamObserver[T])(implicit sch: Scheduler): Observer.Sync[T] =
     new Observer.Sync[T] {
       override def onError(ex: Throwable): Unit =
@@ -98,6 +96,8 @@ object GrpcMonix {
       override def onCompleted(): Unit = observer.onComplete()
     }
   }
+
+  private val overflow: OverflowStrategy.Synchronous[Nothing] = OverflowStrategy.Unbounded
 
   def streamObservable[T](implicit sch: Scheduler): (Observable[T], StreamObserver[T]) = {
     val (in, out) = Observable.multicast[T](MulticastStrategy.replay, overflow)

@@ -65,6 +65,7 @@ class GrpcConnection(
             ClientCalls.asyncBidiStreamingCall(call, obs)
           }
 
+          //TODO delete double serialization
           val requestsProto = requests.map(r ⇒ methodDescriptor.parseRequest(new ByteArrayInputStream(r)))
 
           GrpcMonix.liftByGrpcOperator(requestsProto, operator).map { r ⇒

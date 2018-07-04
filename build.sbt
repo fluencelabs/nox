@@ -183,6 +183,7 @@ lazy val `kademlia-js` = `kademlia`.js
 lazy val `kademlia-jvm` = `kademlia`.jvm
 
 //TODO utility project, could be replaced to another project
+//TODO add unit tests for this project
 lazy val `grpc-monix-converter` = project
   .in(file("grpc-monix-converter"))
   .settings(
@@ -190,7 +191,6 @@ lazy val `grpc-monix-converter` = project
     grpc,
     libraryDependencies ++= Seq(
       monix3,
-      slogging,
       scalatestKit
     )
   )
