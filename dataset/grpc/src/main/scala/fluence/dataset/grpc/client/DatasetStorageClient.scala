@@ -76,21 +76,16 @@ class DatasetStorageClient[F[_]: Effect](connection: Connection)(
     }
   }
 
-  val putPipe: IO[Pipe[PutCallbackReply, PutCallback]] = {
-    val (obs, observbl) = Observable.multicast[PutCallbackReply](MulticastStrategy.publish)
-    val mapped = observbl.mapEval[IO, Array[Byte]](ab ⇒ generatedMessageCodec.runF[IO](ab))
+  def handlePut(requests: Observable[PutCallbackReply]): IO[Observable[PutCallback]] = {
+
+    val mapped = requests.mapEval[IO, Array[Byte]](ab ⇒ generatedMessageCodec.runF[IO](ab))
     for {
       responseObservable ← connection.handle(service, "put", mapped)
       responseDeserialized = responseObservable.mapEval[IO, PutCallback](
         resp ⇒ protobufDynamicCodec(PutCallback).runF[IO](resp)
       )
     } yield {
-      new Pipe[PutCallbackReply, PutCallback] {
-
-        override def unicast: (Observer[PutCallbackReply], Observable[PutCallback]) = {
-          (obs, responseDeserialized)
-        }
-      }
+      responseDeserialized
     }
   }
 
@@ -137,7 +132,7 @@ class DatasetStorageClient[F[_]: Effect](connection: Connection)(
     version: Long,
     putCallbacks: BTreeRpc.PutCallbacks[F],
     encryptedValue: Array[Byte]
-  ): IO[Option[Array[Byte]]] = putPipe.flatMap(ClientPut(datasetId, version, putCallbacks, encryptedValue).runStream)
+  ): IO[Option[Array[Byte]]] = ClientPut(datasetId, version, putCallbacks, encryptedValue).runStream(handlePut)
 
   /**
    * Initiates ''Remove'' operation in remote MerkleBTree.
