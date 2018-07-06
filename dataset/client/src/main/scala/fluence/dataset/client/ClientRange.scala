@@ -17,76 +17,98 @@
 
 package fluence.dataset.client
 
-import cats.effect.Effect
+import cats.effect.{Effect, IO}
 import cats.syntax.applicativeError._
-import cats.syntax.flatMap._
+import cats.syntax.functor._
 import com.google.protobuf.ByteString
 import fluence.btree.core.{Hash, Key}
 import fluence.btree.protocol.BTreeRpc
-import fluence.dataset.protocol.ServerError
 import fluence.dataset.protobuf._
+import fluence.dataset.protocol.{ClientError, ServerError}
 import monix.execution.Scheduler
-import monix.reactive.{Observable, Pipe}
+import monix.reactive.Observable
+import monix.reactive.subjects.PublishSubject
 
 import scala.collection.Searching
+import scala.concurrent.Future
 import scala.language.higherKinds
 
 class ClientRange[F[_]: Effect](datasetId: Array[Byte], version: Long, rangeCallbacks: BTreeRpc.SearchCallback[F])
     extends slogging.LazyLogging {
 
-  /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
-  private def handleClientErr(err: Throwable): F[RangeCallbackReply] = {
-    Effect[F].pure(RangeCallbackReply(RangeCallbackReply.Reply.ClientError(Error(err.getMessage))))
+  private def handleClientErr(err: Throwable): ErrorFromClient[RangeCallbackReply] = {
+    ErrorFromClient(RangeCallbackReply(RangeCallbackReply.Reply.ClientError(Error(err.getMessage))))
   }
 
-  private def handleAsks(source: Observable[RangeCallback.Callback]): Observable[RangeCallbackReply] =
-    source.collect { case ask if ask.isDefined && !ask.isValue && !ask.isServerError ⇒ ask } // Collect callbacks
-      .mapEval[F, RangeCallbackReply] {
+  private def handleAsks(source: Observable[RangeCallback.Callback])(
+    implicit sch: Scheduler
+  ): Observable[Flow[RangeCallbackReply]] =
+    source
+      .mapEval[F, Flow[RangeCallbackReply]] {
+        handleContinuation orElse handleResult
+      }
 
-        case ask if ask.isNextChildIndex ⇒
-          val Some(nci) = ask.nextChildIndex
+  private def handleContinuation(
+    implicit scheduler: Scheduler
+  ): PartialFunction[RangeCallback.Callback, F[Flow[RangeCallbackReply]]] = {
+    case ask if ask.isNextChildIndex ⇒
+      val Some(nci) = ask.nextChildIndex
 
-          rangeCallbacks
-            .nextChildIndex(
-              nci.keys.map(k ⇒ Key(k.toByteArray)).toArray,
-              nci.childsChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
-            )
-            .attempt
-            .flatMap {
-              case Left(err) ⇒
-                handleClientErr(err)
-              case Right(idx) ⇒
-                Effect[F].pure(RangeCallbackReply(RangeCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx))))
-            }
+      rangeCallbacks
+        .nextChildIndex(
+          nci.keys.map(k ⇒ Key(k.toByteArray)).toArray,
+          nci.childsChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
+        )
+        .attempt
+        .map {
+          case Left(err) ⇒
+            handleClientErr(err)
+          case Right(idx) ⇒
+            Continuation(RangeCallbackReply(RangeCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx))))
+        }
 
-        case ask if ask.isSubmitLeaf ⇒
-          val Some(sl) = ask.submitLeaf
+    case ask if ask.isSubmitLeaf ⇒
+      val Some(sl) = ask.submitLeaf
 
-          rangeCallbacks
-            .submitLeaf(
-              sl.keys.map(k ⇒ Key(k.toByteArray)).toArray,
-              sl.valuesChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
-            )
-            .attempt
-            .flatMap {
-              case Left(err) ⇒
-                handleClientErr(err)
-              case Right(searchResult) ⇒
-                Effect[F].pure(
-                  RangeCallbackReply(
-                    RangeCallbackReply.Reply.SubmitLeaf(
-                      ReplySubmitLeaf(
-                        searchResult match {
-                          case Searching.Found(i) ⇒ ReplySubmitLeaf.SearchResult.Found(i)
-                          case Searching.InsertionPoint(i) ⇒ ReplySubmitLeaf.SearchResult.InsertionPoint(i)
-                        }
-                      )
-                    )
+      rangeCallbacks
+        .submitLeaf(
+          sl.keys.map(k ⇒ Key(k.toByteArray)).toArray,
+          sl.valuesChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
+        )
+        .attempt
+        .map {
+          case Left(err) ⇒
+            handleClientErr(err)
+          case Right(searchResult) ⇒
+            Continuation(
+              RangeCallbackReply(
+                RangeCallbackReply.Reply.SubmitLeaf(
+                  ReplySubmitLeaf(
+                    searchResult match {
+                      case Searching.Found(i) ⇒ ReplySubmitLeaf.SearchResult.Found(i)
+                      case Searching.InsertionPoint(i) ⇒ ReplySubmitLeaf.SearchResult.InsertionPoint(i)
+                    }
                   )
                 )
-            }
+              )
+            )
+        }
 
-      }
+  }
+
+  private def handleResult(
+    implicit scheduler: Scheduler
+  ): PartialFunction[RangeCallback.Callback, F[Flow[RangeCallbackReply]]] = {
+    case ask if ask.isServerError ⇒
+      val Some(err) = ask.serverError
+      val serverError = ServerError(err.msg)
+      // if server send an error we should close stream and lift error up
+      Effect[F].raiseError[Flow[RangeCallbackReply]](serverError)
+    case ask if ask.isValue ⇒
+      val Some(RangeValue(key, value)) = ask._value
+      logger.trace(s"DatasetStorageClient.range() received server value=$value for key=$key")
+      Effect[F].pure(RangeResult(key.toByteArray, value.toByteArray))
+  }
 
   /**
    * Run client bidi stream.
@@ -95,38 +117,58 @@ class ClientRange[F[_]: Effect](datasetId: Array[Byte], version: Long, rangeCall
    * @return
    */
   def runStream(
-    pipe: Pipe[RangeCallbackReply, RangeCallback]
-  )(implicit sch: Scheduler): Observable[(Array[Byte], Array[Byte])] = {
-    // Get observer/observable for request's bidiflow
-    val (pushClientReply, pullServerAsk) = pipe
-      .transform(_.map {
-        case RangeCallback(callback) ⇒
-          logger.trace(s"DatasetStorageClient.range() received server ask=$callback")
-          callback
-      })
-      .multicast
+    handler: Observable[RangeCallbackReply] ⇒ IO[Observable[RangeCallback]]
+  )(implicit sch: Scheduler): IO[Observable[(Array[Byte], Array[Byte])]] = {
 
-    val cancelable = (
+    val subj = PublishSubject[RangeCallbackReply]()
+
+    val requests = (
       Observable(
         RangeCallbackReply(
           RangeCallbackReply.Reply.DatasetInfo(DatasetInfo(ByteString.copyFrom(datasetId), version))
         )
-      ) ++ handleAsks(pullServerAsk)
-    ).subscribe(pushClientReply) // And clientReply response back to server
+      ) ++ subj
+    ).map { el ⇒
+      logger.trace(s"DatasetStorageClient.range() will send message to server $el")
+      el
+    }
 
-    pullServerAsk.collect {
-      case ask if ask.isServerError ⇒
-        val Some(err) = ask.serverError
-        val serverError = ServerError(err.msg)
-        // if server send an error we should close stream and lift error up
-        Observable(pushClientReply.onError(serverError))
-          .flatMap(_ ⇒ Observable.raiseError[(Array[Byte], Array[Byte])](serverError))
-      case ask if ask.isValue ⇒
-        val Some(RangeValue(key, value)) = ask._value
-        logger.trace(s"DatasetStorageClient.range() received server value=$value for key=$key")
-        Observable(key.toByteArray → value.toByteArray)
+    for {
+      responses ← handler(requests)
+      cycle = {
 
-    }.doAfterTerminate(_ ⇒ cancelable.cancel()).flatten
+        val mapped = responses.map {
+          case RangeCallback(callback) ⇒
+            logger.trace(s"DatasetStorageClient.range() received server ask=$callback")
+            callback
+        }
+
+        handleAsks(mapped).mapFuture {
+          case c @ Continuation(reply) ⇒ subj.onNext(reply).map(_ ⇒ c)
+          case res @ RangeResult(_, _) ⇒ Future(res)
+          case er @ ErrorFromClient(err) ⇒ subj.onNext(err).map(_ ⇒ er)
+        }
+      }
+
+      result = {
+        cycle.concatMap {
+          case er @ ErrorFromClient(_) ⇒
+            Observable(er, Stop)
+          case any ⇒
+            Observable(any)
+        }.takeWhile {
+          case Stop ⇒ false
+          case _ ⇒ true
+        }.collect {
+          case ErrorFromClient(er) ⇒
+            Observable.raiseError(ClientError(er.reply.clientError.get.msg))
+          case RangeResult(k, v) ⇒
+            logger.trace(s"DatasetStorageClient.range() received server value=$v for key=$k")
+            Observable(k → v)
+        }
+      }
+
+    } yield result.flatten
   }
 
 }

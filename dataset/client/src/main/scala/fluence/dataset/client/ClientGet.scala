@@ -138,7 +138,6 @@ class ClientGet[F[_]: Effect](datasetId: Array[Byte], version: Long, getCallback
       ) ++ subj
     ).map { el =>
       logger.trace(s"DatasetStorageClient.get() will send message to server $el")
-      println(s"DatasetStorageClient.get() will send message to server $el")
       el
     }
 
@@ -149,7 +148,6 @@ class ClientGet[F[_]: Effect](datasetId: Array[Byte], version: Long, getCallback
         val mapped = responses.map {
           case GetCallback(callback) ⇒
             logger.trace(s"DatasetStorageClient.get() received server ask=$callback")
-            println(s"DatasetStorageClient.get() received server ask=$callback")
             callback
         }
 

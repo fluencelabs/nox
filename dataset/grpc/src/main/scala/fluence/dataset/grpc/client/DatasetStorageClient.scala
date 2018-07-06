@@ -53,21 +53,15 @@ class DatasetStorageClient[F[_]: Effect](connection: Connection)(
     }
   }
 
-  val rangePipe: IO[Pipe[RangeCallbackReply, RangeCallback]] = {
-    val (obs, observbl) = Observable.multicast[RangeCallbackReply](MulticastStrategy.publish)
-    val mapped = observbl.mapEval[IO, Array[Byte]](ab ⇒ generatedMessageCodec.runF[IO](ab))
+  def handleRange(requests: Observable[RangeCallbackReply]): IO[Observable[RangeCallback]] = {
+    val mapped = requests.mapEval[IO, Array[Byte]](ab ⇒ generatedMessageCodec.runF[IO](ab))
     for {
       responseObservable ← connection.handle(service, "range", mapped)
       responseDeserialized = responseObservable.mapEval[IO, RangeCallback](
         resp ⇒ protobufDynamicCodec(RangeCallback).runF[IO](resp)
       )
     } yield {
-      new Pipe[RangeCallbackReply, RangeCallback] {
-
-        override def unicast: (Observer[RangeCallbackReply], Observable[RangeCallback]) = {
-          (obs, responseDeserialized)
-        }
-      }
+      responseDeserialized
     }
   }
 
@@ -111,7 +105,7 @@ class DatasetStorageClient[F[_]: Effect](connection: Connection)(
     version: Long,
     searchCallbacks: BTreeRpc.SearchCallback[F]
   ): Observable[(Array[Byte], Array[Byte])] =
-    Observable.fromIO(rangePipe).flatMap(ClientRange(datasetId, version, searchCallbacks).runStream)
+    Observable.fromIO(ClientRange(datasetId, version, searchCallbacks).runStream(handleRange)).flatten
 
   /**
    * Initiates ''Put'' operation in remote MerkleBTree.
