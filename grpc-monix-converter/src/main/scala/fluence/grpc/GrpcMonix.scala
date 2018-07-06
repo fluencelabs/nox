@@ -25,7 +25,7 @@ import monix.execution.{Ack, Cancelable, Scheduler}
 import monix.reactive.Observable.Operator
 import monix.reactive.Observer.Sync
 import monix.reactive._
-import monix.reactive.observers.Subscriber
+import monix.reactive.observers.{BufferedSubscriber, Subscriber}
 import scalapb.grpc.Grpc
 
 import scala.concurrent.Future
@@ -49,9 +49,14 @@ object GrpcMonix {
 
   def monixSubscriberToGrpcObserver[T](subscriber: Subscriber[T]): StreamObserver[T] =
     new StreamObserver[T] {
-      override def onError(t: Throwable): Unit = subscriber.onError(t)
-      override def onCompleted(): Unit = subscriber.onComplete()
-      override def onNext(value: T): Unit = subscriber.onNext(value)
+      private val rSubscriber =
+        BufferedSubscriber[T](subscriber, OverflowStrategy.Unbounded)
+      override def onError(t: Throwable): Unit = rSubscriber.onError(t)
+      override def onCompleted(): Unit = rSubscriber.onComplete()
+      override def onNext(value: T): Unit = {
+        //The onNext method of the buffered returns an Ack synchronously.
+        rSubscriber.onNext(value)
+      }
     }
 
   def grpcObserverToMonixSubscriber[T](observer: StreamObserver[T], s: Scheduler): Subscriber[T] =
