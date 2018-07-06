@@ -135,40 +135,36 @@ class ClientRange[F[_]: Effect](datasetId: Array[Byte], version: Long, rangeCall
 
     for {
       responses ← handler(requests)
-      cycle = {
+    } yield {
 
-        val mapped = responses.map {
-          case RangeCallback(callback) ⇒
-            logger.trace(s"DatasetStorageClient.range() received server ask=$callback")
-            callback
-        }
-
-        handleAsks(mapped).mapFuture {
-          case c @ Continuation(reply) ⇒ subj.onNext(reply).map(_ ⇒ c)
-          case res @ RangeResult(_, _) ⇒ Future(res)
-          case er @ ErrorFromClient(err) ⇒ subj.onNext(err).map(_ ⇒ er)
-        }
+      val mapped = responses.map {
+        case RangeCallback(callback) ⇒
+          println(s"DatasetStorageClient.range() received server ask=$callback")
+          logger.trace(s"DatasetStorageClient.range() received server ask=$callback")
+          callback
       }
 
-      result = {
-        cycle.concatMap {
-          case er @ ErrorFromClient(_) ⇒
-            Observable(er, Stop)
-          case any ⇒
-            Observable(any)
-        }.takeWhile {
-          case Stop ⇒ false
-          case _ ⇒ true
-        }.collect {
+      val cycle = handleAsks(mapped).mapFuture {
+        case c @ Continuation(reply) ⇒
+          subj.onNext(reply).map(_ ⇒ Observable.empty)
+        case er @ ErrorFromClient(err) ⇒
+          subj.onNext(err).map(_ ⇒ Observable(er))
+        case v => Future(Observable(v))
+      }.flatten
+
+      val result =
+        cycle.flatMap {
           case ErrorFromClient(er) ⇒
             Observable.raiseError(ClientError(er.reply.clientError.get.msg))
           case RangeResult(k, v) ⇒
+            println(s"DatasetStorageClient.range() received server value=$v for key=$k")
             logger.trace(s"DatasetStorageClient.range() received server value=$v for key=$k")
             Observable(k → v)
+          case _ => Observable.empty
         }
-      }
 
-    } yield result.flatten
+      result
+    }
   }
 
 }

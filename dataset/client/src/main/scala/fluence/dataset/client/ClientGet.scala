@@ -37,8 +37,6 @@ import scala.language.higherKinds
 class ClientGet[F[_]: Effect](datasetId: Array[Byte], version: Long, getCallbacks: BTreeRpc.SearchCallback[F])
     extends slogging.LazyLogging {
 
-  import DatasetClientUtils._
-
   private def handleClientErr(err: Throwable)(implicit sch: Scheduler): ErrorFromClient[GetCallbackReply] =
     ErrorFromClient(GetCallbackReply(GetCallbackReply.Reply.ClientError(Error(err.getMessage))))
 
