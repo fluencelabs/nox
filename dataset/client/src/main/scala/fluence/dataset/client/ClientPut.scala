@@ -28,11 +28,18 @@ import fluence.dataset.protobuf._
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.reactive.subjects.PublishSubject
-import monix.reactive.{Observable, Observer}
+import monix.reactive.Observable
 
 import scala.collection.Searching
 import scala.concurrent.Future
 import scala.language.higherKinds
+
+trait FlowResult
+case class Continuation(reply: PutCallbackReply) extends FlowResult
+case class Result(result: Option[Array[Byte]]) extends FlowResult
+case class ErrorFromClient(reply: PutCallbackReply) extends FlowResult
+case object Stop extends FlowResult
+
 
 class ClientPut[F[_]: Effect](
   datasetId: Array[Byte],
@@ -41,13 +48,11 @@ class ClientPut[F[_]: Effect](
   encryptedValue: Array[Byte]
 ) extends slogging.LazyLogging {
 
-  /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
-  private def handleClientErr(err: Throwable): PutCallbackReply =
-    PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
+  private def handleClientErr(err: Throwable): ErrorFromClient = {
+    ErrorFromClient(PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage))))
+  }
 
-  type Results = Either[Option[Array[Byte]], PutCallbackReply]
-
-  def handler(implicit scheduler: Scheduler): PartialFunction[PutCallback.Callback, F[PutCallbackReply]] = {
+  private def handleContinuation(implicit scheduler: Scheduler): PartialFunction[PutCallback.Callback, F[FlowResult]] = {
     case ask if ask.isNextChildIndex ⇒
       val Some(nci) = ask.nextChildIndex
 
@@ -61,7 +66,7 @@ class ClientPut[F[_]: Effect](
           case Left(err) ⇒
             handleClientErr(err)
           case Right(idx) ⇒
-            PutCallbackReply(PutCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx)))
+            Continuation(PutCallbackReply(PutCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx))))
         }
 
     case ask if ask.isPutDetails ⇒
@@ -86,7 +91,7 @@ class ClientPut[F[_]: Effect](
                   ReplyPutDetails.SearchResult.InsertionPoint(insertionPoint)
               }
             )
-            PutCallbackReply(PutCallbackReply.Reply.PutDetails(putDetails))
+            Continuation(PutCallbackReply(PutCallbackReply.Reply.PutDetails(putDetails)))
         }
 
     case ask if ask.isVerifyChanges ⇒
@@ -99,9 +104,9 @@ class ClientPut[F[_]: Effect](
           case Left(err) ⇒
             handleClientErr(err)
           case Right(signature) ⇒
-            PutCallbackReply(
+            Continuation(PutCallbackReply(
               PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges(ByteString.copyFrom(signature.toArray)))
-            )
+            ))
 
         }
 
@@ -113,30 +118,24 @@ class ClientPut[F[_]: Effect](
           case Left(err) ⇒
             handleClientErr(err)
           case Right(idx) ⇒
-            PutCallbackReply(PutCallbackReply.Reply.ChangesStored(ReplyChangesStored()))
+            Continuation(PutCallbackReply(PutCallbackReply.Reply.ChangesStored(ReplyChangesStored())))
         }
   }
 
-  def handleCont(
+  private def handleResult(
     implicit scheduler: Scheduler
-  ): PartialFunction[PutCallback.Callback, F[Results]] = {
-    handler andThen (_.map(Right.apply[Option[Array[Byte]], PutCallbackReply]))
-  }
-
-  def handleResult(
-    implicit scheduler: Scheduler
-  ): PartialFunction[PutCallback.Callback, F[Results]] = {
+  ): PartialFunction[PutCallback.Callback, F[FlowResult]] = {
     case ask if ask.isServerError ⇒
       val Some(err) = ask.serverError
       val serverError = ServerError(err.msg)
       // if server send the error we should close stream and lift error up
-      Effect[F].raiseError[Results](serverError)
+      Effect[F].raiseError[FlowResult](serverError)
     case ask if ask.isValue ⇒
       val Some(getValue) = ask._value
       logger.trace(s"DatasetStorageClient.put() received server value=$getValue")
       // if got success response or server error close stream and return value\error to user of this client
       Effect[F].pure(
-        Left[Option[Array[Byte]], PutCallbackReply](
+        Result(
           Option(getValue.value)
             .filterNot(_.isEmpty)
             .map(_.toByteArray)
@@ -146,10 +145,10 @@ class ClientPut[F[_]: Effect](
 
   private def handleAsks(source: Observable[PutCallback.Callback])(
     implicit sch: Scheduler
-  ): Observable[Results] =
+  ): Observable[FlowResult] =
     source
-      .mapEval[F, Results] {
-        handleCont orElse handleResult
+      .mapEval[F, FlowResult] {
+        handleContinuation orElse handleResult
       }
 
   /**
@@ -165,14 +164,17 @@ class ClientPut[F[_]: Effect](
     val subj = PublishSubject[PutCallbackReply]()
 
     def requests: Observable[PutCallbackReply] =
-      Observable( // Pass the datasetId and value as the first, unasked pushes
+      (Observable( // Pass the datasetId and value as the first, unasked pushes
         PutCallbackReply(
           PutCallbackReply.Reply.DatasetInfo(DatasetInfo(ByteString.copyFrom(datasetId), version))
         ),
         PutCallbackReply(
           PutCallbackReply.Reply.Value(PutValue(ByteString.copyFrom(encryptedValue)))
         )
-      ) ++ subj
+      ) ++ subj).map { el =>
+        logger.trace(s"DatasetStorageClient.put() will send message to server $el")
+        el
+      }
 
     for {
       responses ← handler(requests)
@@ -186,33 +188,32 @@ class ClientPut[F[_]: Effect](
 
         handleAsks(mapped)
           .mapFuture {
-            case r @ Right(v) ⇒ subj.onNext(v).map(_ ⇒ r)
-            case l @ Left(_) ⇒
-              subj.onComplete()
-              Future(l)
+            case c@Continuation(reply) => subj.onNext(reply).map(_ ⇒ c)
+            case res@Result(v) => Future(res)
+            case er@ErrorFromClient(err) => subj.onNext(err).map(_ ⇒ er)
           }
       }
 
       result <- {
         cycle.concatMap {
-          case l @ Left(_) ⇒
-            Observable(Some(l), None)
-          case r @ Right(v) if v.reply.isClientError ⇒
-            Observable(Some(r), None)
-          case v ⇒
-            Observable(Some(v))
+          case r@Result(_) ⇒
+            Observable(r, Stop)
+          case er@ErrorFromClient(_) ⇒
+            Observable(er, Stop)
+          case c@Continuation(_) ⇒
+            Observable(c)
         }.takeWhile {
-          case Some(_) ⇒ true
-          case None ⇒ false
-        }.lastOptionL.map(_.flatten)
+          case Stop ⇒ false
+          case _ ⇒ true
+        }.lastOptionL
           .flatMap {
-            case Some(Right(v)) if v.reply.isClientError ⇒
-              Task.raiseError(ClientError(v.reply.clientError.get.msg))
-            case Some(Left(v)) ⇒
+            case Some(ErrorFromClient(err)) ⇒
+              Task.raiseError(ClientError(err.reply.clientError.get.msg))
+            case Some(Result(v)) ⇒
               Task(v)
             case v ⇒
-              println("LAST VALUE === " + v)
-              Task.raiseError(new Exception("unexpected"))
+              logger.error("Unexpected message: " + v)
+              Task.raiseError(new RuntimeException("Unexpected internal error"))
           }
           .toIO
       }
