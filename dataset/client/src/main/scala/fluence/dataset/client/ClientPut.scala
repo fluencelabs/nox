@@ -34,11 +34,11 @@ import scala.collection.Searching
 import scala.concurrent.Future
 import scala.language.higherKinds
 
-trait FlowResult
-case class Continuation(reply: PutCallbackReply) extends FlowResult
-case class Result(result: Option[Array[Byte]]) extends FlowResult
-case class ErrorFromClient(reply: PutCallbackReply) extends FlowResult
-case object Stop extends FlowResult
+trait Flow[T]
+case class Continuation[T](reply: T) extends Flow[T]
+case class Result[T](result: Option[Array[Byte]]) extends Flow[T]
+case class ErrorFromClient[T](reply: T) extends Flow[T]
+case object Stop extends Flow[Any]
 
 
 class ClientPut[F[_]: Effect](
@@ -48,11 +48,11 @@ class ClientPut[F[_]: Effect](
   encryptedValue: Array[Byte]
 ) extends slogging.LazyLogging {
 
-  private def handleClientErr(err: Throwable): ErrorFromClient = {
+  private def handleClientErr(err: Throwable): ErrorFromClient[PutCallbackReply] = {
     ErrorFromClient(PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage))))
   }
 
-  private def handleContinuation(implicit scheduler: Scheduler): PartialFunction[PutCallback.Callback, F[FlowResult]] = {
+  private def handleContinuation(implicit scheduler: Scheduler): PartialFunction[PutCallback.Callback, F[Flow[PutCallbackReply]]] = {
     case ask if ask.isNextChildIndex ⇒
       val Some(nci) = ask.nextChildIndex
 
@@ -124,12 +124,12 @@ class ClientPut[F[_]: Effect](
 
   private def handleResult(
     implicit scheduler: Scheduler
-  ): PartialFunction[PutCallback.Callback, F[FlowResult]] = {
+  ): PartialFunction[PutCallback.Callback, F[Flow[PutCallbackReply]]] = {
     case ask if ask.isServerError ⇒
       val Some(err) = ask.serverError
       val serverError = ServerError(err.msg)
       // if server send the error we should close stream and lift error up
-      Effect[F].raiseError[FlowResult](serverError)
+      Effect[F].raiseError[Flow[PutCallbackReply]](serverError)
     case ask if ask.isValue ⇒
       val Some(getValue) = ask._value
       logger.trace(s"DatasetStorageClient.put() received server value=$getValue")
@@ -145,9 +145,9 @@ class ClientPut[F[_]: Effect](
 
   private def handleAsks(source: Observable[PutCallback.Callback])(
     implicit sch: Scheduler
-  ): Observable[FlowResult] =
+  ): Observable[Flow[PutCallbackReply]] =
     source
-      .mapEval[F, FlowResult] {
+      .mapEval[F, Flow[PutCallbackReply]] {
         handleContinuation orElse handleResult
       }
 
@@ -163,7 +163,7 @@ class ClientPut[F[_]: Effect](
 
     val subj = PublishSubject[PutCallbackReply]()
 
-    def requests: Observable[PutCallbackReply] =
+    val requests =
       (Observable( // Pass the datasetId and value as the first, unasked pushes
         PutCallbackReply(
           PutCallbackReply.Reply.DatasetInfo(DatasetInfo(ByteString.copyFrom(datasetId), version))

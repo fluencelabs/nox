@@ -40,21 +40,16 @@ class DatasetStorageClient[F[_]: Effect](connection: Connection)(
 
   private val service = "fluence.dataset.protobuf.grpc.DatasetStorageRpc"
 
-  def getPipe: IO[Pipe[GetCallbackReply, GetCallback]] = {
-    val (obs, observbl) = Observable.multicast[GetCallbackReply](MulticastStrategy.publish)
-    val mapped = observbl.mapEval[IO, Array[Byte]](ab ⇒ generatedMessageCodec.runF[IO](ab))
+  def handleGet(requests: Observable[GetCallbackReply]): IO[Observable[GetCallback]] = {
+
+    val mapped = requests.mapEval[IO, Array[Byte]](ab ⇒ generatedMessageCodec.runF[IO](ab))
     for {
       responseObservable ← connection.handle(service, "get", mapped)
       responseDeserialized = responseObservable.mapEval[IO, GetCallback](
         resp ⇒ protobufDynamicCodec(GetCallback).runF[IO](resp)
       )
     } yield {
-      new Pipe[GetCallbackReply, GetCallback] {
-
-        override def unicast: (Observer[GetCallbackReply], Observable[GetCallback]) = {
-          (obs, responseDeserialized)
-        }
-      }
+      responseDeserialized
     }
   }
 
@@ -101,7 +96,7 @@ class DatasetStorageClient[F[_]: Effect](connection: Connection)(
     datasetId: Array[Byte],
     version: Long,
     searchCallbacks: BTreeRpc.SearchCallback[F]
-  ): IO[Option[Array[Byte]]] = getPipe.flatMap(ClientGet(datasetId, version, searchCallbacks).runStream)
+  ): IO[Option[Array[Byte]]] = ClientGet(datasetId, version, searchCallbacks).runStream(handleGet)
 
   /**
    * Initiates ''Range'' operation in remote MerkleBTree.
