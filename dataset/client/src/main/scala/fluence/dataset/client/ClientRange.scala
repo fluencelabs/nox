@@ -139,7 +139,6 @@ class ClientRange[F[_]: Effect](datasetId: Array[Byte], version: Long, rangeCall
 
       val mapped = responses.map {
         case RangeCallback(callback) ⇒
-          println(s"DatasetStorageClient.range() received server ask=$callback")
           logger.trace(s"DatasetStorageClient.range() received server ask=$callback")
           callback
       }
@@ -157,7 +156,6 @@ class ClientRange[F[_]: Effect](datasetId: Array[Byte], version: Long, rangeCall
           case ErrorFromClient(er) ⇒
             Observable.raiseError(ClientError(er.reply.clientError.get.msg))
           case RangeResult(k, v) ⇒
-            println(s"DatasetStorageClient.range() received server value=$v for key=$k")
             logger.trace(s"DatasetStorageClient.range() received server value=$v for key=$k")
             Observable(k → v)
           case _ => Observable.empty
