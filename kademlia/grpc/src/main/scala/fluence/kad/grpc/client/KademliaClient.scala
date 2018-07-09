@@ -29,7 +29,6 @@ import fluence.kad.{protobuf, protocol}
 import fluence.stream.Connection
 import fluence.transport.ProtobufCodec._
 
-import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 
 /**
@@ -38,8 +37,7 @@ import scala.language.higherKinds
  */
 class KademliaClient(connection: Connection)(
   implicit
-  codec: PureCodec[protocol.Node[Contact], protobuf.Node],
-  ec: ExecutionContext
+  codec: PureCodec[protocol.Node[Contact], protobuf.Node]
 ) extends KademliaRpc[Contact] {
 
   private val service = "fluence.kad.protobuf.grpc.Kademlia"
@@ -103,7 +101,6 @@ class KademliaClient(connection: Connection)(
 object KademliaClient {
   def apply(streamHandler: Connection)(
     implicit
-    codec: PureCodec[Node[Contact], protobuf.Node],
-    ec: ExecutionContext
+    codec: PureCodec[Node[Contact], protobuf.Node]
   ): KademliaRpc[Contact] = new KademliaClient(streamHandler)
 }
