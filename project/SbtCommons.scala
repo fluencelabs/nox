@@ -10,15 +10,29 @@ object SbtCommons {
 
   val commons = Seq(
     scalaV,
-    version := "0.1",
-    fork in Test := true,
+    version                   := "0.1",
+    fork in Test              := true,
     parallelExecution in Test := false,
-    organizationName := "Fluence Labs Limited",
-    organizationHomepage := Some(new URL("https://fluence.one")),
-    startYear := Some(2017),
+    organizationName          := "Fluence Labs Limited",
+    organizationHomepage      := Some(new URL("https://fluence.one")),
+    startYear                 := Some(2017),
     licenses += ("AGPL-3.0", new URL("http://www.gnu.org/licenses/agpl-3.0.en.html")),
     headerLicense := Some(License.AGPLv3("2017", organizationName.value)),
     resolvers += Resolver.bintrayRepo("fluencelabs", "releases"),
-    scalafmtOnCompile := true
+    scalafmtOnCompile := true,
+    // see good explanation https://gist.github.com/djspiewak/7a81a395c461fd3a09a6941d4cd040f2
+    scalacOptions += "-Ypartial-unification"
   )
+
+  /* Common deps */
+
+  val cats = "org.typelevel"       %% "cats-core"   % "1.2.0"
+  val catsEffect = "org.typelevel" %% "cats-effect" % "1.0.0-RC2"
+  // functional wrapper around 'lightbend/config'
+  val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.9.1"
+
+  /* Test deps*/
+
+  val scalaTest = "org.scalatest" %% "scalatest" % "3.0.5" % Test
+
 }
