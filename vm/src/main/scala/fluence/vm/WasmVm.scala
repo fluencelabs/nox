@@ -98,7 +98,7 @@ object WasmVm {
      */
     def apply[F[_]: Functor: LiftIO](args: List[AnyRef]): EitherT[F, VmError, AnyRef] =
       EitherT(IO(javaMethod.invoke(moduleInstance, args: _*)).attempt.to[F])
-        .leftMap(e ⇒ VmError(s"Function $this with params: $args was failed", Some(e), Runtime))
+        .leftMap(e ⇒ VmError(s"Function $this with args: $args was failed", Some(e), TrapError))
 
     override def toString: String = functionId.toString
   }
@@ -124,7 +124,7 @@ object WasmVm {
           VmError(
             s"Unable to read a config for the namespace=$configNamespace",
             Some(ConfigError(e)),
-            Initialization
+            InternalVmError
           )
         }
 
@@ -141,10 +141,10 @@ object WasmVm {
           )
         ),
         s"Preparing execution context before execution was failed for $inFiles.",
-        Initialization
+        InitializationError
       )
 
-      // initializing all modules, build index for all wast functions
+      // initializing all modules, build index for all wasm functions
       allFnsIndex ← initializeModules(scriptCxt)
 
     } yield
@@ -168,7 +168,7 @@ object WasmVm {
             // Finds java method(wast fn) in the index by function id
             wasmFn <- EitherT.fromOption[M](
               functionsIdx.get(fnId),
-              VmError.validation(s"Unable to find a function with the name=$fnId")
+              VmError(s"Unable to find a function with the name=$fnId", NoSuchFnError)
             )
 
             // Maps args to params
@@ -176,8 +176,9 @@ object WasmVm {
             _ ← EitherT.cond[M](
               required == fnArgs.size,
               (),
-              VmError.validation(
-                s"Invalid number of arguments, expected=$required, actually=${fnArgs.size} for fn=$wasmFn"
+              VmError(
+                s"Invalid number of arguments, expected=$required, actually=${fnArgs.size} for fn=$wasmFn",
+                InvalidArgError
               )
             )
 
@@ -192,8 +193,10 @@ object WasmVm {
                     case cl if cl == classOf[Double] ⇒ cast[M](arg, _.toDouble, s"Arg $index of '$arg' not a double")
                     case _ =>
                       Left(
-                        VmError
-                          .validation(s"Invalid type for param $index: $paramType, expected [i32|i64|f32|f64]")
+                        VmError(
+                          s"Invalid type for param $index: $paramType, expected [i32|i64|f32|f64]",
+                          InvalidArgError
+                        )
                       )
                   }
               }
@@ -233,8 +236,8 @@ object WasmVm {
         for {
           // initialization module instance
           moduleInstance <- Try(moduleDesc.instance(scriptCxt)).toEither.left
-          // todo 'instance' must throw both an initialization error and runtime errors, but now they can't be separated
-            .map(e ⇒ VmError(s"Unable to initialize module with name=$moduleName", Some(e), Initialization))
+          // todo 'instance' must throw both an initialization error and a Trap error, but now they can't be separated
+            .map(e ⇒ VmError(s"Unable to initialize module with name=$moduleName", Some(e), InitializationError))
 
           // building module index for fast access to functions
           methodsAsWasmFns = moduleDesc.getCls.getDeclaredMethods
@@ -256,7 +259,7 @@ object WasmVm {
                 case Some(fn) ⇒
                   // module and function with the specified name were already registered
                   // this situation is unacceptable, raise the error
-                  Left(VmError(s"The function $fn was already registered", None, Initialization))
+                  Left(VmError(s"The function $fn was already registered", InitializationError))
               }
 
             }
@@ -279,7 +282,7 @@ object WasmVm {
     // it's important to cast to AnyRef type, because args should be used in
     // Method.invoke(...) as Object type
     Try(castFn(arg).asInstanceOf[AnyRef]).toEither.left
-      .map(e ⇒ VmError.validation(errorMsg, Some(e)))
+      .map(e ⇒ VmError(errorMsg, Some(e), InvalidArgError))
 
   /** Helper method. Converts List of Ether to Either of List. */
   private def list2Either[F[_]: Applicative, A, B](list: List[Either[A, B]]): EitherT[F, A, List[B]] = {
