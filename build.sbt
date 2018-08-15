@@ -23,7 +23,7 @@ lazy val vm = (project in file("vm"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "com.github.cretz.asmble" % "asmble-compiler" % "0.3.0",
+      "com.github.cretz.asmble" % "asmble-compiler" % "0.4.0-fl",
       cats,
       catsEffect,
       pureConfig,

@@ -136,7 +136,7 @@ class WasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(mulFile, sumFile))
-        mulResult ← vm.invoke[IO](Some("$multiplier"), "mul", Seq("100", "13"))
+        mulResult ← vm.invoke[IO](Some("multiplier"), "mul", Seq("100", "13"))
         sumResult ← vm.invoke[IO](None, "sum", Seq("100", "13"))
       } yield {
         mulResult shouldBe Some(1300)
