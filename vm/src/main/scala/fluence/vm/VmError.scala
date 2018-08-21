@@ -28,7 +28,7 @@ case class VmError(
   message: String,
   causedBy: Option[Throwable],
   errorKind: VmErrorKind
-) extends NoStackTrace
+)
 
 object VmError {
 
