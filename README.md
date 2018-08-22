@@ -1,4 +1,4 @@
-# Fluence — the encrypted decentralized storage for structured data
+# Fluence — the encrypted decentralized database
 
 [![Build Status](https://travis-ci.org/fluencelabs/fluence.svg?branch=master)](https://travis-ci.org/fluencelabs/fluence) [![Join the chat at https://gitter.im/fluencelabs/fluence](https://badges.gitter.im/fluencelabs/fluence.svg)](https://gitter.im/fluencelabs/fluence?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
