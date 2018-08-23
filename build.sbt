@@ -74,3 +74,14 @@ lazy val statemachine = (project in file("statemachine"))
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(vm)
+
+lazy val ethclient = (project in file("ethclient"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "org.web3j" % "core" % "3.4.0",
+      cats,
+      catsEffect
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
