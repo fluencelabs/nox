@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2017  Fluence Labs Limited
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package fluence.ethclient
 
 import java.util.concurrent.{CancellationException, CompletableFuture, CompletionException}
@@ -6,10 +23,14 @@ import cats.{ApplicativeError, Functor}
 import cats.effect._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
-import org.web3j.protocol.core.{Ethereum, Request, Response}
+import org.web3j.abi.EventEncoder
+import org.web3j.protocol.core.methods.request.EthFilter
+import org.web3j.protocol.core.methods.response.Log
+import org.web3j.protocol.core.{DefaultBlockParameterName, Ethereum, Request, Response}
 import org.web3j.protocol.http.HttpService
 import org.web3j.protocol.{Web3j, Web3jService}
 import org.web3j.protocol.ipc.UnixIpcService
+import rx.Observable
 
 import scala.language.higherKinds
 
@@ -28,6 +49,72 @@ class EthClient private (private val web3: Web3j) {
   import EthClient.FromJavaFuture
 
   /**
+   * Returns the current client version.
+   *
+   * Method: """web3_clientVersion"""
+   */
+  def clientVersion[F[_]: Async](): F[String] =
+    request(_.web3ClientVersion()).map(_.getWeb3ClientVersion)
+
+  /**
+   * Returns the current client version.
+   *
+   * Method: """web3_clientVersion"""
+   */
+  def web3sha3[F[_]: Async](data: String): F[String] =
+    request(_.web3Sha3(data)).map { s ⇒
+      if (s.hasError) println(s.getError.getCode + " - " + s.getError.getMessage)
+      s.getResult
+    }
+
+  /**
+   * Subscribe to logs topic, calling back each time the log message matches.
+   * As Rx API doesn't really offer us backpressure support, streaming is encapsulated.
+   *
+   * @param contractAddress Contract address to watch events on
+   * @param topic Logs topic, use [[EventEncoder]] to prepare it
+   * @param callback Function to be called for each incoming log message
+   * @tparam F Effect
+   * @return Unsubscribe callback
+   */
+  def subscribeToLogsTopic[F[_]: Sync, G[_]: Effect](
+    contractAddress: String,
+    topic: String,
+    callback: Log ⇒ G[Unit]
+  ): F[F[Unit]] =
+    Sync[F]
+      .delay(
+        // Create a subscription. New subscription will be created for each call of F, so it's referentially transparent
+        web3
+          .ethLogObservable(
+            new EthFilter(DefaultBlockParameterName.EARLIEST, DefaultBlockParameterName.LATEST, contractAddress)
+              .addSingleTopic(topic)
+          )
+          .flatMap({ log ⇒
+            println("yet we;re inside")
+            println(log)
+
+            // TODO: must provide all the error callbacks as well
+            // Convert callback to a Java Future, then convert it to Observable
+            val future = new CompletableFuture[Unit]()
+
+            Effect[G].toIO(callback(log)).unsafeRunAsync {
+              case Left(err) ⇒ future.completeExceptionally(err)
+              case _ ⇒ future.complete(())
+            }
+
+            Observable.from(future)
+          })
+          .subscribe()
+      )
+      .map(
+        subscription ⇒
+          Sync[F].delay(
+            subscription.unsubscribe()
+        )
+      )
+
+  /**
    * Make an async request to Ethereum, lifting its response to an async F type.
    *
    * @param req Request on Ethereum API to be called
@@ -38,14 +125,6 @@ class EthClient private (private val web3: Web3j) {
     Sync[F]
       .delay(req(web3).sendAsync()) // sendAsync eagerly launches the call on some thread pool, so we delay it to make it referentially transparent
       .flatMap(_.asAsync[F])
-
-  /**
-   * Returns the current client version.
-   *
-   * Method: """web3_clientVersion"""
-   */
-  def getClientVersion[F[_]: Async](): F[String] =
-    request(_.web3ClientVersion()).map(_.getWeb3ClientVersion)
 
   /**
    * Eagerly shuts down web3, so that no further calls are possible.
