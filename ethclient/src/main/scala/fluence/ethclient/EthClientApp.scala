@@ -42,7 +42,7 @@ object EthClientApp extends IOApp {
           )
           _ ← IO(println(s"Subscribed"))
 
-          _ ← IO.sleep(10.minutes)
+          _ ← IO.sleep(60.seconds)
           _ ← IO(println(s"Going to unsubscribe"))
           _ ← unsubscribe
         } yield ()

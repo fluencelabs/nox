@@ -17,6 +17,7 @@
 
 package fluence.ethclient
 
+import java.util.Collections
 import java.util.concurrent.{CancellationException, CompletableFuture, CompletionException}
 
 import cats.{ApplicativeError, Functor}
@@ -87,8 +88,13 @@ class EthClient private (private val web3: Web3j) {
         // Create a subscription. New subscription will be created for each call of F, so it's referentially transparent
         web3
           .ethLogObservable(
-            new EthFilter(DefaultBlockParameterName.EARLIEST, DefaultBlockParameterName.LATEST, contractAddress)
-              .addSingleTopic(topic)
+            new EthFilter(
+              DefaultBlockParameterName.LATEST,
+              DefaultBlockParameterName.LATEST,
+              Collections.emptyList[String]()
+            )
+//              .addSingleTopic(topic)
+              .addNullTopic()
           )
           .flatMap({ log ⇒
             println("yet we;re inside")
@@ -168,7 +174,7 @@ object EthClient {
         F.catchNonFatal(
           new EthClient(Web3j.build(service))
         )
-      )(_.shutdown())
+      )(_ => /* _.shutdown()*/ F.pure(Unit))
 
   /**
    * Utility converters from Java's CompletableFuture to cats-effect types
