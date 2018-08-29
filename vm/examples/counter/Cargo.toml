@@ -1,0 +1,11 @@
+[package]
+name = "counter"
+version = "0.1.0"
+authors = ["C.Solovev <constantine@fluence.one>"]
+
+[[bin]]
+name = "counter"
+path = "src/main/rust/counter.rs"
+target = "wasm32-unknown-unknown"
+
+[dependencies]

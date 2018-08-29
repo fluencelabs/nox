@@ -22,6 +22,7 @@ import java.lang.reflect.Modifier
 import asmble.cli.Invoke
 import asmble.cli.ScriptCommand.ScriptArgs
 import asmble.run.jvm.ScriptContext
+import asmble.util.Logger
 import cats.data.EitherT
 import cats.effect.LiftIO
 import cats.{Applicative, Id, Monad}
@@ -59,7 +60,7 @@ trait WasmVm {
   def invoke[F[_]: LiftIO: Monad](
     module: Option[String],
     function: String,
-    fnArgs: Seq[String]
+    fnArgs: Seq[String] = Nil
   ): EitherT[F, VmError, Option[Any]]
   // todo consider specifying expected return type as method arg
   // or create an overloaded method for each possible return type
@@ -120,15 +121,7 @@ object WasmVm {
       // Compiling WASM modules to JVM bytecode and registering derived classes
       // in the Asmble engine. Every WASM module compiles to exactly one JVM class
       scriptCxt ← run(
-        new Invoke().prepareContext(
-          new ScriptArgs(
-            inFiles,
-            Nil, // registrations
-            false, // disableAutoRegister
-            config.specTestRegister,
-            config.defaultMaxMemPages
-          )
-        ),
+        prepareContext(inFiles, config),
         s"Preparing execution context before execution was failed for $inFiles.",
         InitializationError
       )
@@ -142,6 +135,30 @@ object WasmVm {
         vmProps.modules,
         cryptoHasher
       )
+  }
+
+  /**
+   * Returns [[ScriptContext]] - context for uploaded wasm modules .
+   * Compiling WASM modules to JVM bytecode and registering derived classes
+   * in the Asmble engine. Every WASM module compiles to exactly one JVM class
+   */
+  private def prepareContext(
+    inFiles: Seq[String],
+    config: VmConfig
+  ): ScriptContext = {
+    val invoke = new Invoke()
+    // todo in future should be used common logger for this project
+    val logger = new Logger.Print(Logger.Level.WARN)
+    invoke.setLogger(logger)
+    invoke.prepareContext(
+      new ScriptArgs(
+        inFiles,
+        Nil, // registrations
+        false, // disableAutoRegister
+        config.specTestRegister,
+        config.defaultMaxMemPages
+      )
+    )
   }
 
   /**

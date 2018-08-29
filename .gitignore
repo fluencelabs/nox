@@ -4,3 +4,10 @@ target/
 *.pyc
 
 .idea
+
+# macOS folder metadata
+.DS_Store
+
+# Rust
+
+Cargo.lock

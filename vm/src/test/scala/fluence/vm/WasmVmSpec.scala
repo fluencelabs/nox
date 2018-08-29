@@ -63,7 +63,7 @@ class WasmVmSpec extends WordSpec with Matchers {
 
         val error = res.failed()
         error.errorKind shouldBe InitializationError
-        error.message should startWith("Preparing execution context before execution was failed for")
+        error.message should startWith("The function '<no-name>.sum' was already registered")
       }
 
       // todo add more error cases with prepareContext and module initialization
