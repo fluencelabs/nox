@@ -36,13 +36,13 @@ object EthClientApp extends IOApp {
           _ ← IO(println(s"Client version: $version"))
 
           unsubscribe ← ethClient.subscribeToLogsTopic[IO, IO](
-            "0xB8c77482e45F1F44dE1745F52C74426C631bDD52",
-            EventEncoder.buildEventSignature("Transfer(address,address,uint)"),
+            "0xf93568cdc75b8849f4999bd3c8c6f931a14b258f",
+            EventEncoder.buildEventSignature("NewSolver(bytes32)"),
             log ⇒ IO(println(s"Log message: $log"))
           )
           _ ← IO(println(s"Subscribed"))
 
-          _ ← IO.sleep(60.seconds)
+          _ ← IO.sleep(600.seconds)
           _ ← IO(println(s"Going to unsubscribe"))
           _ ← unsubscribe
         } yield ()

@@ -92,9 +92,7 @@ class EthClient private (private val web3: Web3j) {
               DefaultBlockParameterName.LATEST,
               DefaultBlockParameterName.LATEST,
               Collections.emptyList[String]()
-            )
-//              .addSingleTopic(topic)
-              .addNullTopic()
+            ).addSingleTopic(topic)
           )
           .flatMap({ log ⇒
             println("yet we;re inside")
