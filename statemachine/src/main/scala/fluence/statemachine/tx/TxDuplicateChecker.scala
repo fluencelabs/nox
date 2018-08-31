@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -16,14 +16,20 @@
  */
 
 package fluence.statemachine.tx
-import fluence.statemachine.tree.TreeNode
+import cats.data.EitherT
+import cats.syntax.functor._
+import cats.{Eval, Monad}
+import fluence.statemachine.tree.{StorageKeys, TreeNode}
+import fluence.statemachine.util.ClientInfoMessages
+
+import scala.language.higherKinds
 
 /**
  * Uniqueness checker for transactions received via `CheckTx` and `DeliverTx` and parsed.
  *
  * @param state state for which deduplication is applied
  */
-class TxDuplicateChecker(state: => TreeNode) {
+class TxDuplicateChecker[F[_]: Monad](state: F[TreeNode]) {
 
   /**
    * Checks whether given `tx` is unique against provided [[state]].
@@ -31,6 +37,10 @@ class TxDuplicateChecker(state: => TreeNode) {
    * @param tx parsed transaction
    * @return either deduplicated transaction or error message
    */
-  def deduplicate(tx: Transaction): Either[String, Transaction] =
-    Either.cond(!state.hasValue(TxStorageKeys.statusKey(tx.header)), tx, "Duplicated transaction")
+  def deduplicate(tx: Transaction): EitherT[F, String, Transaction] =
+    EitherT(
+      state.map(
+        x => Either.cond(!x.hasValue(StorageKeys.statusKey(tx.header)), tx, ClientInfoMessages.DuplicatedTransaction)
+      )
+    )
 }

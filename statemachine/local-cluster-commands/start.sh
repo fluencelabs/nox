@@ -1,9 +1,14 @@
 cd ../..
 
-screen -d -m -S app1 bash -c 'sbt "statemachine/run 46158"'
-screen -d -m -S app2 bash -c 'sbt "statemachine/run 46258"'
-screen -d -m -S app3 bash -c 'sbt "statemachine/run 46358"'
-screen -d -m -S app4 bash -c 'sbt "statemachine/run 46458"'
+export JAVA8_HOME_FOR_SBT_SETTING=""
+
+# uncomment and modify line below if sbt should be run with custom Java 8
+#export JAVA8_HOME_FOR_SBT_SETTING="-java-home /Library/Java/JavaVirtualMachines/jdk1.8.0_131.jdk/Contents/Home"
+
+screen -d -m -S app1 bash -c 'sbt $JAVA8_HOME_FOR_SBT_SETTING "statemachine/run 46158"'
+screen -d -m -S app2 bash -c 'sbt $JAVA8_HOME_FOR_SBT_SETTING "statemachine/run 46258"'
+screen -d -m -S app3 bash -c 'sbt $JAVA8_HOME_FOR_SBT_SETTING "statemachine/run 46358"'
+screen -d -m -S app4 bash -c 'sbt $JAVA8_HOME_FOR_SBT_SETTING "statemachine/run 46458"'
 
 cd statemachine/local-cluster-commands
 

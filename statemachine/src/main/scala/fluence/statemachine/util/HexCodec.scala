@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -16,6 +16,7 @@
  */
 
 package fluence.statemachine.util
+import scodec.bits.{Bases, ByteVector}
 
 object HexCodec {
 
@@ -24,7 +25,14 @@ object HexCodec {
    *
    * @param bytes binary data
    */
-  def binaryToHex(bytes: Array[Byte]): String = bytes.map("%02X".format(_)).mkString
+  def binaryToHex(bytes: ByteVector): String = bytes.toHex(Bases.Alphabets.HexUppercase)
+
+  /**
+   * Converts binary data to uppercase hex representation.
+   *
+   * @param bytes binary data
+   */
+  def binaryToHex(bytes: Array[Byte]): String = binaryToHex(ByteVector(bytes))
 
   /**
    * Encodes text data to uppercase hex representation corresponding to UTF-8 encoding of the data.
@@ -38,5 +46,6 @@ object HexCodec {
    *
    * @param hex hex representation
    */
-  def hexToString(hex: String): String = hex.sliding(2, 2).toArray.map(Integer.parseInt(_, 16).toChar).mkString
+  def hexToString(hex: String): Either[String, String] =
+    ByteVector.fromHex(hex, Bases.Alphabets.HexUppercase).map(x => new String(x.toArray)).toRight("Cannot parse hex")
 }

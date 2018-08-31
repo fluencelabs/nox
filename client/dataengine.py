@@ -77,7 +77,7 @@ class DataEngineSession:
 				"header": {
 					"client": self.client,
 					"session": self.session,
-					"order": self.counter,
+					"order": self.counter
 				},
 				"payload": payload
 			},

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -17,13 +17,13 @@
 
 package fluence.statemachine.tx
 
+import cats.Applicative
+import cats.data.EitherT
 import com.google.protobuf.ByteString
 import fluence.statemachine.contract.ClientRegistry
-import fluence.statemachine.util.{Crypto, HexCodec}
+import fluence.statemachine.util.{ClientInfoMessages, Crypto, HexCodec}
 import io.circe.generic.auto._
-import io.circe.parser._
-
-import scala.util.Try
+import io.circe.parser.{parse => parseJson}
 
 /**
  * Parser of incoming `rawTx` into verified transaction.
@@ -33,7 +33,7 @@ import scala.util.Try
  *
  * @param clientRegistry client registry used to check client's signature
  */
-class TxParser(clientRegistry: ClientRegistry) {
+class TxParser[F[_]: Applicative](clientRegistry: ClientRegistry) {
 
   /**
    * Tries to parse a given serialized transaction.
@@ -41,18 +41,17 @@ class TxParser(clientRegistry: ClientRegistry) {
    * @param rawTx serialized transaction's raw bytes
    * @return either successfully parsed transaction or error message
    */
-  def parseTx(rawTx: ByteString): Either[String, Transaction] = {
-    for {
-      txText <- Try(new String(HexCodec.hexToString(rawTx.toStringUtf8))).toEither.left.map(_.getMessage)
-      parsedJson <- parse(txText).left.map(_.message)
+  def parseTx(rawTx: ByteString): EitherT[F, String, Transaction] =
+    EitherT.fromEither[F](for {
+      txText <- HexCodec.hexToString(rawTx.toStringUtf8)
+      parsedJson <- parseJson(txText).left.map(_.message)
       signedTx <- parsedJson.as[SignedTransaction].left.map(_.message)
       publicKey <- clientRegistry.getPublicKey(signedTx.tx.header.client)
       checkedTx <- Either.cond(
         Crypto.verify(signedTx.signature, signedTx.tx.signString, publicKey),
         signedTx.tx,
-        "Invalid signature"
+        ClientInfoMessages.InvalidSignature
       )
-    } yield checkedTx
-  }
+    } yield checkedTx)
 
 }

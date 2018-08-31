@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -20,7 +20,7 @@ package fluence.statemachine.tree
 import fluence.statemachine.util.Crypto
 import fluence.statemachine.{StoreKey, StoreValue}
 
-import scala.collection.immutable.HashMap
+import scala.collection.immutable.SortedMap
 
 /**
  * Immutable key-value tree node.
@@ -54,11 +54,11 @@ abstract class TreeNode(val children: Map[StoreKey, TreeNode], val value: Option
    * @param newValue new value
    * @return a node obtained from the current after the change
    */
-  def addValue(key: TreePath[StoreKey], newValue: StoreValue): TreeNode = key match {
+  def putValue(key: TreePath[StoreKey], newValue: StoreValue): TreeNode = key match {
     case EmptyTreePath() => SimpleTreeNode(children, Some(newValue))
     case SplittableTreePath(next, rest) =>
       SimpleTreeNode(
-        children + (next -> children.getOrElse(next, TreeNode.emptyNode).addValue(rest, newValue)),
+        children + (next -> children.getOrElse(next, TreeNode.emptyNode).putValue(rest, newValue)),
         this.value
       )
   }
@@ -129,12 +129,12 @@ object TreeNode {
   /**
    * Empty node, has no value, no children, and not merkelized.
    */
-  val emptyNode: TreeNode = SimpleTreeNode(HashMap.empty[StoreKey, TreeNode], None)
+  val emptyNode: TreeNode = SimpleTreeNode(SortedMap.empty[StoreKey, TreeNode], None)
 
   /**
    * Merkelized empty node, has no value, no children.
    */
-  val emptyMerkelizedNode: MerkleTreeNode = SimpleTreeNode(HashMap.empty[StoreKey, TreeNode], None).merkelize()
+  val emptyMerkelizedNode: MerkleTreeNode = SimpleTreeNode(SortedMap.empty[StoreKey, TreeNode], None).merkelize()
 }
 
 /**

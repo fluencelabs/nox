@@ -12,7 +12,7 @@ is used to as Java implementation of ABCI requests/responses.
 [`ServerRunner`](/statemachine/src/main/scala/fluence/statemachine/ServerRunner.scala) is main class which opens
 socket and registers `ABCIHandler` for processing RPC calls.
 
-[`ABCIHandler`](/statemachine/src/main/scala/fluence/statemachine/ABCIHandler.scala) initializes different components
+[`AbciHandler`](/statemachine/src/main/scala/fluence/statemachine/AbciHandler.scala) initializes different components
 of the State machine and routes incoming ABCI requests to them.
 
 Tendermint performs block formation and processes client requests in several threads. It maintains 3 of them to
@@ -36,15 +36,13 @@ rejecting transactions by `CheckTx`.
 This allows to client to perform verification of the returned data if it is combined with merkle proof (because to
 verify some block we need to wait for the next one).
 
-`ABCIHandler` routes incoming ABCI requests to their corresponding entry points:
-* [`TxProcessor`](/statemachine/src/main/scala/fluence/statemachine/tx/TxProcessor.scala) for `CheckTx` and
-`DeliverTx` requests.
+`AbciHandler` routes incoming ABCI requests to their corresponding entry points:
+* [`TxProcessor`](/statemachine/src/main/scala/fluence/statemachine/tx/TxProcessor.scala) for `DeliverTx` requests.
 * [`QueryProcessor`](/statemachine/src/main/scala/fluence/statemachine/state/QueryProcessor.scala) for `Query` requests.
-* [`StateHolder`](/statemachine/src/main/scala/fluence/statemachine/state/StateHolder.scala) for `Commit` requests.
-It also performs state switching described above.
+* [`Committer`](/statemachine/src/main/scala/fluence/statemachine/state/Committer.scala) for `Commit` requests.
 
 A specific *state* is an immutable merkelized tree.
-[`TreeNode`](/statemachine/src/main/scala/fluence/statemachine/state/TreeNode.scala) implements this tree, whereas
+[`TreeNode`](/statemachine/src/main/scala/fluence/statemachine/tree/TreeNode.scala) implements this tree, whereas
 [`MutableStateTree`]((/statemachine/src/main/scala/fluence/statemachine/state/MutableStateTree.scala) implements mutable
 wrapper for the root of Consensus state.
 
@@ -68,13 +66,10 @@ despite rejecting it is already including in the current block by Tendermint and
 with the preceding counter value) applied. A transaction might be in a queued state arbitrarily long time – for example.
 * Transaction passed parsing and applied at the same time. A successful transaction applying might cause to apply its
 dependent transactions subsequently. See
-[`TxLog`](/statemachine/src/main/scala/fluence/statemachine/tx/TxLog.scala) implementation for details.
+[`TxProcessor`](/statemachine/src/main/scala/fluence/statemachine/tx/TxProcessor.scala) implementation for details.
 
 ## Future work
 
-* Interaction with an underlying VM
-  * Now there is a stub:
-    [`TxApplier`](/statemachine/src/main/scala/fluence/statemachine/tx/TxApplier.scala)`.invokeTx()`
 * External chain/cluster/node/client registry (stub for a trusted storage)
   * Providing chain **genesis** for client
   * Providing nodes' addresses for connect

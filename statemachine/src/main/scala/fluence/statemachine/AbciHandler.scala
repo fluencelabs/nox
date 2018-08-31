@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -17,30 +17,31 @@
 
 package fluence.statemachine
 
+import cats.Monad
+import cats.effect.IO
+import cats.syntax.functor._
 import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
-import fluence.statemachine.contract.ClientRegistry
-import fluence.statemachine.state.{MutableStateTree, QueryProcessor, StateHolder}
+import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
+import fluence.statemachine.util.ClientInfoMessages
+
+import scala.language.higherKinds
 
 /**
  * Entry point for incoming Tendermint ABCI requests
  *
  * Delegates processing logic to underlying processors, while unwrapping/wrapping Tendermint requests/results.
  */
-class ABCIHandler extends ICheckTx with IDeliverTx with ICommit with IQuery {
-  private val clientRegistry = new ClientRegistry()
-
-  private val consensusState = new MutableStateTree
-
-  private[statemachine] val stateHolder = new StateHolder(consensusState)
-  private val queryProcessor = new QueryProcessor(stateHolder)
-
-  private val txParser = new TxParser(clientRegistry)
-  private val checkTxDuplicateChecker = new TxDuplicateChecker(stateHolder.mempoolState)
-  private val deliverTxDuplicateChecker = new TxDuplicateChecker(consensusState.getRoot)
-  private val txProcessor = new TxProcessor(consensusState)
+class AbciHandler(
+  private[statemachine] val committer: Committer[IO],
+  private val queryProcessor: QueryProcessor[IO],
+  private val txParser: TxParser[IO],
+  private val checkTxDuplicateChecker: TxDuplicateChecker[IO],
+  private val deliverTxDuplicateChecker: TxDuplicateChecker[IO],
+  private val txProcessor: TxProcessor[IO]
+) extends ICheckTx with IDeliverTx with ICommit with IQuery {
 
   /**
    * Handler for `Commit` ABCI method (processed in Consensus thread).
@@ -50,7 +51,7 @@ class ABCIHandler extends ICheckTx with IDeliverTx with ICommit with IQuery {
    */
   override def requestCommit(req: RequestCommit): ResponseCommit =
     ResponseCommit.newBuilder
-      .setData(stateHolder.processCommit())
+      .setData(committer.processCommit().unsafeRunSync())
       .build
 
   /**
@@ -60,7 +61,7 @@ class ABCIHandler extends ICheckTx with IDeliverTx with ICommit with IQuery {
    * @return `Query` response data
    */
   override def requestQuery(req: RequestQuery): ResponseQuery = {
-    val responseData = queryProcessor.processQuery(req.getPath, req.getHeight, req.getProve)
+    val responseData = queryProcessor.processQuery(req.getPath, req.getHeight, req.getProve).unsafeRunSync()
     ResponseQuery.newBuilder
       .setCode(responseData.code)
       .setInfo(responseData.info)
@@ -81,7 +82,7 @@ class ABCIHandler extends ICheckTx with IDeliverTx with ICommit with IQuery {
    * @return `CheckTx` response data
    */
   override def requestCheckTx(req: RequestCheckTx): ResponseCheckTx = {
-    val responseData = validateTx(req.getTx, checkTxDuplicateChecker)
+    val responseData = validateTx(req.getTx, txParser, checkTxDuplicateChecker).unsafeRunSync()
     ResponseCheckTx.newBuilder
       .setCode(responseData.code)
       .setInfo(responseData.info)
@@ -95,8 +96,13 @@ class ABCIHandler extends ICheckTx with IDeliverTx with ICommit with IQuery {
    * @return `DeliverTx` response data
    */
   override def receivedDeliverTx(req: RequestDeliverTx): ResponseDeliverTx = {
-    val responseData = validateTx(req.getTx, deliverTxDuplicateChecker)
-    responseData.validatedTx.foreach(tx => txProcessor.appendTx(tx))
+    val responseData = (for {
+      validated <- validateTx(req.getTx, txParser, deliverTxDuplicateChecker)
+      _ <- validated.validatedTx match {
+        case None => IO.unit
+        case Some(tx) => txProcessor.processNewTx(tx)
+      }
+    } yield validated).unsafeRunSync()
     ResponseDeliverTx.newBuilder
       .setCode(responseData.code)
       .setInfo(responseData.info)
@@ -113,27 +119,20 @@ class ABCIHandler extends ICheckTx with IDeliverTx with ICommit with IQuery {
    * @param txDuplicateChecker duplicate checker encapsulating some state used to check for duplicates
    * @return validated transaction and data used to build a response
    */
-  private def validateTx(txBytes: ByteString, txDuplicateChecker: TxDuplicateChecker): TxResponseData = {
+  private def validateTx[F[_]: Monad](
+    txBytes: ByteString,
+    txParser: TxParser[F],
+    txDuplicateChecker: TxDuplicateChecker[F]
+  ): F[TxResponseData] = {
     (for {
       parsedTx <- txParser.parseTx(txBytes)
       uniqueTx <- txDuplicateChecker.deduplicate(parsedTx)
-    } yield uniqueTx) match {
+    } yield uniqueTx).value.map {
       case Left(message) => TxResponseData(None, CodeType.BAD, message)
-      case Right(tx) => TxResponseData(Some(tx), CodeType.OK, "")
+      case Right(tx) => TxResponseData(Some(tx), CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
     }
   }
 }
-
-/**
- * A structure for aggregating data specific to building `Query` ABCI method response.
- *
- * @param height height corresponding to state for which result given
- * @param result requested result, if found
- * @param proof proof for the result, if requested and possible to be provided
- * @param code response code
- * @param info response message
- */
-case class QueryResponseData(height: Long, result: Option[String], proof: Option[String], code: Int, info: String)
 
 /**
  * A structure for aggregating data specific to building `CheckTx`/`DeliverTx` ABCI response.

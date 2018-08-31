@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -17,8 +17,12 @@
 
 package fluence.statemachine.state
 
+import cats.Monad
+import cats.data.StateT
 import fluence.statemachine._
-import fluence.statemachine.tree.{MerkleTreeNode, TreeNode, TreePath}
+import fluence.statemachine.tree.{TreeNode, TreePath}
+
+import scala.language.higherKinds
 
 /**
  * Mutable wrapper for [[TreeNode]].
@@ -26,9 +30,10 @@ import fluence.statemachine.tree.{MerkleTreeNode, TreeNode, TreePath}
  * Used as Consensus state only. All changes are made from Consensus thread only: as a synchronous consequence of
  * `DeliverTx` and `Commit` ABCI methods invocation.
  * See [[https://tendermint.readthedocs.io/projects/tools/en/master/abci-spec.html spec]]
+ *
+ * @param stateHolder [[TendermintStateHolder]] instance to provide the current Consensus state for read and write operations
  */
-class MutableStateTree {
-  private var root: TreeNode = TreeNode.emptyNode
+class MutableStateTree[F[_]](private val stateHolder: TendermintStateHolder[F])(implicit F: Monad[F]) {
 
   /**
    * Changes the mutable state by assigned the given new `value` to the target `key`.
@@ -37,11 +42,8 @@ class MutableStateTree {
    * @param newValue new value for the target key
    * @return previous value of the target key, if existed
    */
-  def putValue(key: TreePath[StoreKey], newValue: StoreValue): Option[StoreValue] = {
-    val result = root.getValue(key)
-    root = root.addValue(key, newValue)
-    result
-  }
+  def putValue(key: TreePath[StoreKey], newValue: StoreValue): F[Option[StoreValue]] =
+    stateHolder.modifyConsensusState(StateT(state => F.pure(state.putValue(key, newValue), state.getValue(key))))
 
   /**
    * Changes the mutable state by removing the value of the node corresponding to the target `key`.
@@ -50,27 +52,13 @@ class MutableStateTree {
    * @param key absolute path to the target key
    * @return previous value of the target key, if existed
    */
-  def removeValue(key: TreePath[StoreKey]): Option[StoreValue] = {
-    val result = root.getValue(key)
-    root = root.removeValue(key)
-    result
-  }
-
-  /**
-   * Merkelizes current state and returns it as merkelized tree.
-   *
-   * @return the merkelized tree's root
-   */
-  def merkelize(): MerkleTreeNode = {
-    val result = root.merkelize()
-    root = result
-    result
-  }
+  def removeValue(key: TreePath[StoreKey]): F[Option[StoreValue]] =
+    stateHolder.modifyConsensusState(StateT(state => F.pure(state.removeValue(key), state.getValue(key))))
 
   /**
    * Provides current root for read-only operations.
    *
    * @return the current root
    */
-  def getRoot: TreeNode = root
+  def getRoot: F[TreeNode] = stateHolder.consensusState
 }

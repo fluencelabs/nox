@@ -3,7 +3,7 @@ import sys
 sys.path.append('..')
 
 import ed25519, base64
-from common_parse_utils import read_json, get_max_height
+from tm_utils import read_json, get_max_height
 from verify import get_genesis, sign_bytes, verify_commit
 from dataengine import DataEngine
 
@@ -20,10 +20,10 @@ def get_client():
 def demo_queries(addr, genesis):
     eng = DataEngine(addr, genesis)
     s = eng.new_session(get_client(), get_signing_key())
-    q0 = s.submit("increment", "counter1")
-    q1 = s.submit("increment", "counter1")
-    q2 = s.submit("increment", "counter1")
-    q3 = s.submit("sum", 12, 34)
+    q0 = s.submit("inc")
+    q1 = s.submit("multiplier.mul", 10, 14)
+    q2 = s.submit("inc")
+    q3 = s.submit("get")
     print q1.result()
     print q3.result()
 

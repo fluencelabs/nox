@@ -1,30 +1,21 @@
 import SbtCommons._
 import sbt.Keys._
 import sbt._
+
 import scala.sys.process._
 
 name := "dataengine"
 
 commons
 
+initialize := {
+  val _ = initialize.value // run the previous initialization
+  val required = "1.8" // counter.wast cannot be run under Java 9. Remove this check after fixes.
+  val current = sys.props("java.specification.version")
+  assert(current == required, s"Unsupported JDK: java.specification.version $current != $required")
+}
+
 /* Projects */
-
-lazy val statemachine = (project in file("statemachine"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      "biz.enef"               %% "slogging"      % "0.6.1",
-      "org.scodec"             %% "scodec-bits"   % "1.1.5",
-      "io.circe"               %% "circe-generic" % "0.9.3",
-      "io.circe"               %% "circe-parser"  % "0.9.3",
-      "com.github.jtendermint" % "jabci"          % "0.17.1",
-      "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
-      "net.i2p.crypto"         % "eddsa"          % "0.3.0",
-      scalaTest
-    )
-  )
-  .enablePlugins(AutomateHeaderPlugin)
-
 lazy val vm = (project in file("vm"))
   .settings(
     commons,
@@ -53,7 +44,7 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
       val log = streams.value.log
       log.info("  Compiling counter.rs to counter.wasm and running with Data Engine.")
 
-      val scalaVer =  scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
+      val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
       val projectRoot = file("").getAbsolutePath
       val cmd = s"sh vm/examples/runExample.sh counter $projectRoot $scalaVer"
 
@@ -64,3 +55,22 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
   )
   .dependsOn(vm)
   .enablePlugins(AutomateHeaderPlugin)
+
+lazy val statemachine = (project in file("statemachine"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
+      "biz.enef"               %% "slogging"      % "0.6.1",
+      "org.scodec"             %% "scodec-bits"   % "1.1.5",
+      "io.circe"               %% "circe-generic" % "0.9.3",
+      "io.circe"               %% "circe-parser"  % "0.9.3",
+      "com.github.jtendermint" % "jabci"          % "0.17.1",
+      "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
+      "net.i2p.crypto"         % "eddsa"          % "0.3.0",
+      scalaTest
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(vm)

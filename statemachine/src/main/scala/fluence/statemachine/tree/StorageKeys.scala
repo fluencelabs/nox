@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -15,15 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence.statemachine.tx
+package fluence.statemachine.tree
 import fluence.statemachine.StoreKey
-import fluence.statemachine.tree.TreePath
+import fluence.statemachine.tx.{Transaction, TransactionHeader, TransactionStatus}
 
 /**
- * Helper object for constructing [[fluence.statemachine.tree.TreeNode]] keys used to
- * store [[Transaction]] metadata and results.
+ * Helper object for constructing [[TreeNode]] keys used to
+ * store State machine metadata and [[Transaction]] results.
  */
-object TxStorageKeys {
+object StorageKeys {
+
+  /**
+   * Key used to store hash of the current state of underlying VM.
+   */
+  val vmStateHashKey: TreePath[StoreKey] = TreePath(List("@meta", "@vm_state_hash"))
 
   /**
    * Key used to store a transaction status. If assigned, some of [[TransactionStatus]] values is used.
@@ -40,28 +45,12 @@ object TxStorageKeys {
   def payloadKey(txHeader: TransactionHeader): TreePath[StoreKey] = filledKeyTemplate(txHeader, "payload")
 
   /**
-   * Keys used to store a successful transaction's result.
+   * Keys used to store the result (successful or failed) of transaction invocation.
    *
    * @param txHeader transaction header
    */
   def resultKey(txHeader: TransactionHeader): TreePath[StoreKey] = filledKeyTemplate(txHeader, "result")
 
-  /**
-   * Keys used to store a failed transaction's error message.
-   *
-   * @param txHeader transaction header
-   */
-  def errorMessageKey(txHeader: TransactionHeader): TreePath[StoreKey] = filledKeyTemplate(txHeader, "error")
-
   private def filledKeyTemplate(txHeader: TransactionHeader, postfix: String): TreePath[StoreKey] =
     TreePath(List("@meta", txHeader.client, txHeader.session, txHeader.order.toString, postfix))
-}
-
-/**
- * Contains possible statuses that stored for transaction that is queued, applying or applied.
- */
-object TransactionStatus {
-  val Queued: String = "queued"
-  val Success: String = "success"
-  val Error: String = "error"
 }
