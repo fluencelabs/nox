@@ -25,14 +25,16 @@ object SbtCommons {
   )
 
   /* Common deps */
-
+  
   val cats = "org.typelevel"       %% "cats-core"   % "1.2.0"
   val catsEffect = "org.typelevel" %% "cats-effect" % "1.0.0-RC2"
   // functional wrapper around 'lightbend/config'
-  val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.9.1"
+  val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.9.1"
+  val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.1"
 
   /* Test deps*/
 
-  val scalaTest = "org.scalatest" %% "scalatest" % "3.0.5" % Test
+  val scalaTest = "org.scalatest" %% "scalatest"    % "3.0.5"  % Test
+  val mockito = "org.mockito"     % "mockito-core" % "2.21.0" % Test
 
 }

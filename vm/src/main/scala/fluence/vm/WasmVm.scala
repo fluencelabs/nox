@@ -17,19 +17,22 @@
 
 package fluence.vm
 
-import java.lang.reflect.{Method, Modifier}
+import java.lang.reflect.Modifier
 
 import asmble.cli.Invoke
 import asmble.cli.ScriptCommand.ScriptArgs
-import asmble.compile.jvm.AsmExtKt
 import asmble.run.jvm.ScriptContext
 import cats.data.EitherT
-import cats.effect.{IO, LiftIO}
-import cats.{Applicative, Functor, Id, Monad}
+import cats.effect.LiftIO
+import cats.{Applicative, Id, Monad}
+import fluence.crypto.Crypto
+import fluence.crypto.hash.JdkCryptoHasher
 import fluence.vm.VmError.{apply ⇒ _, _}
+import fluence.vm.WasmVmImpl._
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
 import fluence.vm.config.VmConfig.ConfigError
+import scodec.bits.ByteVector
 
 import scala.collection.convert.ImplicitConversionsToJava.`seq AsJavaList`
 import scala.collection.convert.ImplicitConversionsToScala.`list asScalaBuffer`
@@ -48,10 +51,10 @@ trait WasmVm {
    *
    * Note that, modules and functions should be registered when VM started!
    *
-   * @param module A Module name, if absent will be used last from registered modules
-   * @param function A Function name to invocation
-   * @param fnArgs A Function arguments
-   * @tparam F A monad with an ability to absorb 'IO'
+   * @param module a Module name, if absent will be used last from registered modules
+   * @param function a Function name to invocation
+   * @param fnArgs a Function arguments
+   * @tparam F a monad with an ability to absorb 'IO'
    */
   def invoke[F[_]: LiftIO: Monad](
     module: Option[String],
@@ -61,59 +64,45 @@ trait WasmVm {
   // todo consider specifying expected return type as method arg
   // or create an overloaded method for each possible return type
 
+  /**
+   * Returns hash of significant inner state of this VM. This function first
+   * creates a hash for each module state and then concatenates its together.
+   * It's behaviour will change in future, till it looks like this:
+   * {{{
+   *   vmState = hash(hash(module1 state), hash(module2 state), ...))
+   * }}}
+   * '''Note!''' It's very expensive operation try to avoid frequent use.
+   */
+  def getVmState[F[_]: LiftIO: Monad]: EitherT[F, VmError, ByteVector]
+
 }
 
 object WasmVm {
 
-  private type WasmFnIndex = Map[FunctionId, WasmFunction]
-
-  /** Function id contains two components optional module name and function name. */
-  private case class FunctionId(moduleName: Option[String], functionName: String) {
-
-    override def toString: String =
-      s"'${moduleName.getOrElse("<unknown>")}.$functionName'"
-  }
-
   /**
-   * Representation for each WASM function. Contains inside reference to module
-   * instance and java method [[java.lang.reflect.Method]].
+   * Contains all initialized modules and index for fast function searching.
    *
-   * @param functionId A full name of this function (moduleName + functionName)
-   * @param javaMethod A java method [[java.lang.reflect.Method]] for calling fn.
-   * @param moduleInstance The object the underlying method is invoked from.
-   *                       This is an instance for the current module, it contains
-   *                       all inner state of the module, like memory.
+   * @param modules loaded and initialized modules
+   * @param functions an index for fast searching public wasm functions
    */
-  private case class WasmFunction(
-    functionId: FunctionId,
-    javaMethod: Method,
-    private val moduleInstance: AnyRef
-  ) {
-
-    /**
-     * Invokes this function with arguments.
-     *
-     * @param args Arguments for calling this fn.
-     * @tparam F A monad with an ability to absorb 'IO'
-     */
-    def apply[F[_]: Functor: LiftIO](args: List[AnyRef]): EitherT[F, VmError, AnyRef] =
-      EitherT(IO(javaMethod.invoke(moduleInstance, args: _*)).attempt.to[F])
-        .leftMap(e ⇒ VmError(s"Function $this with args: $args was failed", Some(e), TrapError))
-
-    override def toString: String = functionId.toString
-  }
+  private[vm] case class VmProps(
+    modules: List[ModuleInstance] = Nil,
+    functions: WasmFnIndex = Map()
+  )
 
   /**
    * Main method factory for building VM.
    * Compiles all files immediately and returns VM implementation with eager
    * module instantiation, also builds index for each wast function.
    *
-   * @param inFiles Input files in WASM or wast format
-   * @param configNamespace A path of config in 'lightbend/config terms, see reference.conf
+   * @param inFiles input files in WASM or wast format
+   * @param configNamespace a path of config in 'lightbend/config terms, see reference.conf
+   * @param cryptoHasher a hash function provider
    */
   def apply[F[_]: Monad](
     inFiles: Seq[String],
-    configNamespace: String = "fluence.vm.client"
+    configNamespace: String = "fluence.vm.client",
+    cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
   ): EitherT[F, VmError, WasmVm] = {
 
     for {
@@ -145,72 +134,14 @@ object WasmVm {
       )
 
       // initializing all modules, build index for all wasm functions
-      allFnsIndex ← initializeModules(scriptCxt)
+      vmProps ← initializeModules(scriptCxt)
 
     } yield
-      new WasmVm() {
-
-        /**
-         * The index for fast searching function. Contains all the information
-         * needed to execute any function.
-         */
-        private val functionsIdx: WasmFnIndex = allFnsIndex
-
-        override def invoke[M[_]: LiftIO: Monad](
-          moduleName: Option[String],
-          fnName: String,
-          fnArgs: Seq[String]
-        ): EitherT[M, VmError, Option[Any]] = {
-
-          val fnId = FunctionId(moduleName, AsmExtKt.getJavaIdent(fnName))
-
-          for {
-            // Finds java method(wast fn) in the index by function id
-            wasmFn <- EitherT.fromOption[M](
-              functionsIdx.get(fnId),
-              VmError(s"Unable to find a function with the name=$fnId", NoSuchFnError)
-            )
-
-            // Maps args to params
-            required = wasmFn.javaMethod.getParameterTypes.length
-            _ ← EitherT.cond[M](
-              required == fnArgs.size,
-              (),
-              VmError(
-                s"Invalid number of arguments, expected=$required, actually=${fnArgs.size} for fn=$wasmFn",
-                InvalidArgError
-              )
-            )
-
-            // parse arguments
-            params = {
-              wasmFn.javaMethod.getParameterTypes.zipWithIndex.zip(fnArgs).map {
-                case ((paramType, index), arg) =>
-                  paramType match {
-                    case cl if cl == classOf[Int] ⇒ cast[M](arg, _.toInt, s"Arg $index of '$arg' not an int")
-                    case cl if cl == classOf[Long] ⇒ cast[M](arg, _.toLong, s"Arg $index of '$arg' not a long")
-                    case cl if cl == classOf[Float] ⇒ cast[M](arg, _.toFloat, s"Arg $index of '$arg' not a float")
-                    case cl if cl == classOf[Double] ⇒ cast[M](arg, _.toDouble, s"Arg $index of '$arg' not a double")
-                    case _ =>
-                      Left(
-                        VmError(
-                          s"Invalid type for param $index: $paramType, expected [i32|i64|f32|f64]",
-                          InvalidArgError
-                        )
-                      )
-                  }
-              }
-            }
-            params ← list2Either[M, VmError, AnyRef](params.toList)
-
-            // invoke the function
-            result ← wasmFn[M](params)
-          } yield if (wasmFn.javaMethod.getReturnType == Void.TYPE) None else Option(result)
-
-        }
-
-      }
-
+      new WasmVmImpl(
+        vmProps.functions,
+        vmProps.modules,
+        cryptoHasher
+      )
   }
 
   /**
@@ -221,9 +152,11 @@ object WasmVm {
    * there aren't to be 2 modules without names that contain functions with the
    * same names, otherwise, an error will be thrown.
    */
-  private def initializeModules[F[_]: Applicative](scriptCxt: ScriptContext): EitherT[F, VmError, WasmFnIndex] = {
+  private def initializeModules[F[_]: Applicative](
+    scriptCxt: ScriptContext
+  ): EitherT[F, VmError, VmProps] = {
 
-    val emptyIndex: Either[VmError, WasmFnIndex] = Right(Map())
+    val emptyIndex: Either[VmError, VmProps] = Right(VmProps())
 
     val filledIndex = scriptCxt.getModules.foldLeft(emptyIndex) {
 
@@ -231,21 +164,17 @@ object WasmVm {
         // if error already occurs, skip next module and return the previous error.
         error
 
-      case (Right(totalIdx), moduleDesc) ⇒
-        val moduleName = Option(moduleDesc.getName)
+      case (Right(vmProps), moduleDesc) ⇒
         for {
           // initialization module instance
-          moduleInstance <- Try(moduleDesc.instance(scriptCxt)).toEither.left
-          // todo 'instance' must throw both an initialization error and a Trap error, but now they can't be separated
-            .map(e ⇒ VmError(s"Unable to initialize module with name=$moduleName", Some(e), InitializationError))
-
+          moduleInstance <- ModuleInstance(moduleDesc, scriptCxt)
           // building module index for fast access to functions
           methodsAsWasmFns = moduleDesc.getCls.getDeclaredMethods
             .withFilter(m ⇒ Modifier.isPublic(m.getModifiers))
             .map { method ⇒
-              val fnId = FunctionId(moduleName, method.getName)
+              val fnId = FunctionId(moduleInstance.name, method.getName)
 
-              totalIdx.get(fnId) match {
+              vmProps.functions.get(fnId) match {
 
                 case None ⇒
                   // it's ok, function with the specified name wasn't registered yet
@@ -264,34 +193,17 @@ object WasmVm {
 
             }
 
-          moduleIdx ← list2Either[Id, VmError, (FunctionId, WasmFunction)](methodsAsWasmFns.toList).value
+          moduleFunctions ← list2Either[Id, VmError, (FunctionId, WasmFunction)](methodsAsWasmFns.toList).value
 
-        } yield totalIdx ++ moduleIdx // adds module index to total index
+        } yield
+          VmProps(
+            vmProps.modules :+ moduleInstance,
+            vmProps.functions ++ moduleFunctions
+          )
 
     }
 
     EitherT.fromEither[F](filledIndex)
-  }
-
-  /** Transforms specified ''arg'' with ''castFn'', returns ''errorMsg'' otherwise. */
-  private def cast[F[_]: Monad](
-    arg: String,
-    castFn: String ⇒ Any,
-    errorMsg: String
-  ): Either[VmError, AnyRef] =
-    // it's important to cast to AnyRef type, because args should be used in
-    // Method.invoke(...) as Object type
-    Try(castFn(arg).asInstanceOf[AnyRef]).toEither.left
-      .map(e ⇒ VmError(errorMsg, Some(e), InvalidArgError))
-
-  /** Helper method. Converts List of Ether to Either of List. */
-  private def list2Either[F[_]: Applicative, A, B](list: List[Either[A, B]]): EitherT[F, A, List[B]] = {
-    import cats.instances.list._
-    import cats.syntax.traverse._
-    import cats.instances.either._
-    // unfortunately Idea don't understand this and show error in Editor
-    val either: Either[A, List[B]] = list.sequence
-    EitherT.fromEither[F](either)
   }
 
   /** Helper method. Run ''action'' inside Try block, convert to EitherT with specified effect F */

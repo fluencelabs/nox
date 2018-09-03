@@ -27,7 +27,9 @@ lazy val vm = (project in file("vm"))
       cats,
       catsEffect,
       pureConfig,
-      scalaTest
+      cryptoHashing,
+      scalaTest,
+      mockito
     )
   )
   .enablePlugins(AutomateHeaderPlugin)

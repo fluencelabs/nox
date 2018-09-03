@@ -1,6 +1,8 @@
 language: scala
+
 scala:
    - 2.12.5
+
 jdk:
   - oraclejdk8
 
@@ -12,6 +14,6 @@ cache:
     - $HOME/.sbt/launchers
 
 before_cache:
-  # Tricks to avoid unnecessary cache updates
-  - find $HOME/.sbt -name "*.lock" | xargs rm
-  - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
+  # Cleanup the cached directories to avoid unnecessary cache updates
+  - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
+  - find $HOME/.sbt        -name "*.lock"               -print -delete
