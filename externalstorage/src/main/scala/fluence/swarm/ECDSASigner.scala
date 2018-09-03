@@ -36,7 +36,6 @@ object ECDSASigner {
         Try {
           val signData = Sign.signMessage(bytes.toArray, kp, false)
           ByteVector(signData.toByteArray)
-        }.toEither.left
-          .map(err ⇒ CryptoError(s"Unexpected error when signing by ECDSA alghorithm.", Some(err)))
+        }.toEither.left.map(err ⇒ CryptoError(s"Unexpected error when signing by ECDSA alghorithm.", Some(err)))
     )
 }

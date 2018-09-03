@@ -95,17 +95,17 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
 
       _ <- api.updateMRU(name, frequency, time, ethAddress, data2, false, 1, 2, signer)
 
-      raw <- api.downloadRaw(mruAddress)
-      _ = raw.entries.size should be (1)
+      mruManifest <- api.downloadRaw(mruAddress)
+      _ = mruManifest.entries.size should be (1)
 
-      res1 <- api.downloadMRU(mruAddress, None)
-      _ = res1 shouldBe dataBytes2
+      latest <- api.downloadMRU(mruAddress, None)
+      _ = latest shouldBe dataBytes2
 
-      res2 <- api.downloadMRU(mruAddress, Some(Period(1, Some(2))))
-      _ = res2 shouldBe dataBytes2
+      version2 <- api.downloadMRU(mruAddress, Some(Period(1, Some(2))))
+      _ = version2 shouldBe dataBytes2
 
-      res3 <- api.downloadMRU(mruAddress, Some(Period(1, Some(1))))
-      _ = res3 shouldBe dataBytes1
+      version1 <- api.downloadMRU(mruAddress, Some(Period(1, Some(1))))
+      _ = version1 shouldBe dataBytes1
 
       meta <- api.downloadMRU(mruAddress, Some(Meta))
       _ = new String(meta) should (include(time.toString) and include(frequency.toString) and include(name.get))
