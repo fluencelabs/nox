@@ -39,42 +39,44 @@ object VmError {
    * This type of error indicates some unexpected internal error has occurred in
    * the Virtual Machine.
    */
-  // todo this type is not used yet, because we should support it in ''Asmble''
-  object Internal extends VmErrorKind
+  object InternalVmError extends VmErrorKind
+
+  /** Errors related to external WASM code. */
+  sealed trait WasmError extends VmErrorKind
 
   /**
-   * This type of error indicates that an error occurred while preparing or
-   * executing some WASM code.
-   */
-  sealed trait Execution extends VmErrorKind
-
-  /**
-   * Indicates error when VM starts: compiling WASM to JVM code,
-   * modules instantiation and so on. Module initialization is creation of
+   * Indicates error when VM starts. It might be a problem with translation WASM
+   * code to 'bytecode' or module instantiation. Module initialization is creation of
    * instance class that corresponds to WASM module.
    */
-  object Initialization extends Execution
+  object InitializationError extends WasmError
 
   /**
-   * Indicates that some of the client input values are invalid.
+   * Indicates that some of the client input values are invalid. For example number
+   * of types of argument is not correct or specified fn isn't exists.
    */
-  object Validation extends Execution
+  sealed trait InvocationError extends WasmError
 
   /**
-   * Indicates that some error occurs when Wasm code was executed.
+   * Indicates that arguments for fn invocation is not valid.
    */
-  object Runtime extends Execution
+  object InvalidArgError extends InvocationError
+
+  /**
+   * Indicates that fn with specified name wasn't found in a instance of VM.
+   */
+  object NoSuchFnError extends InvocationError
+
+  /**
+   * Indicates that WASM code execution was failed, some WASM instruction was
+   * felled into the trap.
+   */
+  object TrapError extends WasmError
 
   def apply(exception: Throwable, kind: VmErrorKind): VmError =
     VmError(exception.getMessage, Some(exception), kind)
 
-  def validation(msg: String, cause: Option[Throwable] = None): VmError =
-    VmError(msg, None, Validation)
-
-  def internalErr(exception: Throwable): VmError =
-    VmError(exception.getMessage, Some(exception), Internal)
-
-  def internalErr(msg: String, cause: Option[Throwable] = None): VmError =
-    VmError(msg, cause, Internal)
+  def apply(message: String, kind: VmErrorKind): VmError =
+    VmError(message, None, kind)
 
 }

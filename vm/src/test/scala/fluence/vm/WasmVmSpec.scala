@@ -19,7 +19,7 @@ package fluence.vm
 
 import cats.data.EitherT
 import cats.effect.IO
-import fluence.vm.VmError.{Initialization, Runtime, Validation}
+import fluence.vm.VmError._
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.language.implicitConversions
@@ -39,7 +39,7 @@ class WasmVmSpec extends WordSpec with Matchers {
         } yield result
 
         val error = res.failed()
-        error.errorKind shouldBe Initialization
+        error.errorKind shouldBe InternalVmError
         error.message should startWith("Unable to read a config for the namespace")
       }
 
@@ -50,7 +50,7 @@ class WasmVmSpec extends WordSpec with Matchers {
         } yield result
 
         val error = res.failed()
-        error.errorKind shouldBe Initialization
+        error.errorKind shouldBe InitializationError
         error.message should startWith("Preparing execution context before execution was failed for")
       }
 
@@ -64,7 +64,7 @@ class WasmVmSpec extends WordSpec with Matchers {
         } yield sumResult
 
         val error = res.failed()
-        error.errorKind shouldBe Initialization
+        error.errorKind shouldBe InitializationError
         error.message should startWith("Preparing execution context before execution was failed for")
       }
 
@@ -75,7 +75,7 @@ class WasmVmSpec extends WordSpec with Matchers {
           result ← vm.invoke[IO](None, "wrongFnName", Seq("100", "13", "extraArg"))
         } yield result
         val error = res.failed()
-        error.errorKind shouldBe Validation
+        error.errorKind shouldBe NoSuchFnError
         error.message should startWith("Unable to find a function with the name='<unknown>.wrongFnName'")
       }
 
@@ -86,20 +86,20 @@ class WasmVmSpec extends WordSpec with Matchers {
           result ← vm.invoke[IO](None, "sum", Seq("100", "13", "extraArg"))
         } yield result
         val error = res.failed()
-        error.errorKind shouldBe Validation
+        error.errorKind shouldBe InvalidArgError
         error.message should startWith(
           "Invalid number of arguments, expected=2, actually=3 for fn='<unknown>.sum'"
         )
       }
 
-      "invalid type for param" in {
+      "invalid type for arguments" in {
         val sumFile = getClass.getResource("/wast/sum.wast").getPath
         val res = for {
           vm <- WasmVm[IO](Seq(sumFile))
           result ← vm.invoke[IO](None, "sum", Seq("stringParam", "[1, 2, 3]"))
         } yield result
         val error = res.failed()
-        error.errorKind shouldBe Validation
+        error.errorKind shouldBe InvalidArgError
         error.message should startWith("Arg 0 of 'stringParam' not an int")
       }
 
@@ -110,8 +110,8 @@ class WasmVmSpec extends WordSpec with Matchers {
           result ← vm.invoke[IO](None, "sum", Seq("100", "13")) // Integer overflow
         } yield result
         val error = res.failed()
-        error.errorKind shouldBe Runtime
-        error.message should startWith("Function '<unknown>.sum' with params: List(100, 13) was failed")
+        error.errorKind shouldBe TrapError
+        error.message should startWith("Function '<unknown>.sum' with args: List(100, 13) was failed")
       }
 
       // todo add more error cases with prepareContext and module initialization
@@ -147,10 +147,10 @@ class WasmVmSpec extends WordSpec with Matchers {
     }
 
     "run counter.wast" in {
-      val sumFile = getClass.getResource("/wast/counter.wast").getPath
+      val file = getClass.getResource("/wast/counter.wast").getPath
 
       val res = for {
-        vm <- WasmVm[IO](Seq(sumFile))
+        vm <- WasmVm[IO](Seq(file))
         get0 ← vm.invoke[IO](None, "get", Nil) // read 0
         _ ← vm.invoke[IO](None, "inc", Nil) // 0 -> 1
         get1 ← vm.invoke[IO](None, "get", Nil) // read 1
