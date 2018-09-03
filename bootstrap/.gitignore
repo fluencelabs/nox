@@ -1,0 +1,4 @@
+# truffle ignores
+node_modules/
+build
+dist

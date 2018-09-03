@@ -1,0 +1,21 @@
+{
+  "name": "bootstrap",
+  "version": "0.0.1",
+  "description": "contract to bootstrap Cluster",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "truffle test",
+    "ganache": "ganache-cli &>/dev/null &"
+  },
+  "author": "Fluence Labs",
+  "license": "AGPL-3.0",
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "ganache-cli": "^6.1.8",
+    "openzeppelin-solidity": "1.12.0",
+    "truffle": "4.1.14",
+    "truffle-assertions": "^0.3.1"
+  }
+}
