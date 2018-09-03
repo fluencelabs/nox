@@ -93,11 +93,11 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
   }
 
   /**
-    * Upload a data.
-    * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
-    *
-    * @return hash of resource (address in Swarm)
-    */
+   * Upload a data.
+   * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
+   *
+   * @return hash of resource (address in Swarm)
+   */
   def upload[T](data: ByteVector): EitherT[F, SwarmError, String] = {
     val uploadURI = uri(Bzz)
     logger.info(s"Upload request. Data: $data")

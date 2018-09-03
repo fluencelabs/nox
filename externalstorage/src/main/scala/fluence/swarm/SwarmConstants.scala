@@ -68,5 +68,6 @@ object SwarmConstants {
    * name (variable length, can be empty, up to 255 bytes)
    * ownerAddr: addressLength
    */
-  val minimumMetadataLength: Int = chunkPrefixLength + timestampLength + frequencyLength + nameLengthLength + addressLength
+  val minimumMetadataLength
+    : Int = chunkPrefixLength + timestampLength + frequencyLength + nameLengthLength + addressLength
 }
