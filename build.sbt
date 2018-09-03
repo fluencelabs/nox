@@ -8,9 +8,6 @@ commons
 
 /* Projects */
 
-lazy val dataengine = (project in file("."))
-  .aggregate(statemachine, vm)
-
 lazy val statemachine = (project in file("statemachine"))
   .settings(
     commons,
@@ -24,6 +21,13 @@ lazy val statemachine = (project in file("statemachine"))
 
 lazy val vm = (project in file("vm"))
   .settings(
-    commons
+    commons,
+    libraryDependencies ++= Seq(
+      "com.github.cretz.asmble" % "asmble-compiler" % "0.3.0",
+      cats,
+      catsEffect,
+      pureConfig,
+      scalaTest
+    )
   )
   .enablePlugins(AutomateHeaderPlugin)
