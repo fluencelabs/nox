@@ -17,17 +17,22 @@
 
 package fluence.client.grpc
 
-import cats.effect.Effect
+import cats.effect.{Effect, IO}
 import fluence.client.core.ClientServices
 import fluence.contract.BasicContract
 import fluence.contract.grpc.client.{ContractAllocatorClient, ContractsCacheClient}
+import fluence.contract.protobuf.grpc.{ContractAllocatorGrpc, ContractsCacheGrpc}
 import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.dataset.grpc.client.DatasetStorageClient
+import fluence.dataset.protobuf.grpc.DatasetStorageRpcGrpc
 import fluence.dataset.protocol.DatasetStorageRpc
+import fluence.grpc.{GrpcConnection, ServiceManager}
 import fluence.kad.grpc.client.KademliaClient
+import fluence.kad.protobuf.grpc.KademliaGrpc
 import fluence.kad.protocol.{Contact, KademliaRpc}
 import fluence.transport.grpc.client.GrpcClient
+import io.grpc.{CallOptions, ManagedChannel}
 import monix.execution.Scheduler
 import monix.reactive.Observable
 import shapeless.HNil
@@ -46,11 +51,22 @@ object ClientGrpcServices {
     import fluence.contract.grpc.BasicContractCodec.{codec ⇒ contractCodec}
     import fluence.kad.KademliaNodeCodec.{pureCodec ⇒ nodeCodec}
 
+    //TODO is it possible to avoid this?
+    val services = List(
+      KademliaGrpc.SERVICE,
+      ContractsCacheGrpc.SERVICE,
+      ContractAllocatorGrpc.SERVICE,
+      DatasetStorageRpcGrpc.SERVICE
+    )
+
+    val serviceManager = ServiceManager(services)
+    val handlerBuilder: IO[(ManagedChannel, CallOptions)] => GrpcConnection = GrpcConnection.builder(serviceManager)
+
     val client = builder
-      .add(KademliaClient.register())
-      .add(ContractsCacheClient.register[BasicContract]())
-      .add(ContractAllocatorClient.register[BasicContract]())
-      .add(DatasetStorageClient.register[F]())
+      .add(handlerBuilder andThen KademliaClient.apply)
+      .add(handlerBuilder andThen ContractsCacheClient.apply[BasicContract])
+      .add(handlerBuilder andThen ContractAllocatorClient.apply[BasicContract])
+      .add(handlerBuilder andThen DatasetStorageClient.apply[F])
       .build
 
     contact ⇒

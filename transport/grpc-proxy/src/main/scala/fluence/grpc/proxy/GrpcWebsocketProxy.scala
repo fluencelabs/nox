@@ -23,7 +23,6 @@ import fs2.async.mutable.Topic
 import fs2.{io ⇒ _, _}
 import monix.eval.Task
 import monix.execution.{Scheduler ⇒ TaskScheduler}
-import monix.reactive.Observable
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Server
@@ -47,7 +46,7 @@ object GrpcWebsocketProxy extends Http4sDsl[Task] with slogging.LazyLogging {
 
     case GET -> Root ⇒
       //Creates a proxy for each connection to separate the cache for all clients.
-      val proxyGrpc = new ProxyGrpc(inProcessGrpc)
+      val proxyGrpc = new ProxyWebsocketGrpc(inProcessGrpc)
 
       def replyPipe(topic: Topic[Task, WebSocketFrame]): Sink[Task, WebSocketFrame] = _.flatMap {
         case Binary(data, _) ⇒

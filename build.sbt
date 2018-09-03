@@ -138,6 +138,7 @@ lazy val `kademlia-grpc-js` = `kademlia-grpc`.js
   .dependsOn(`transport-websocket-js`)
 
 lazy val `kademlia-grpc-jvm` = `kademlia-grpc`.jvm
+  .dependsOn(`grpc-monix-converter`)
 
 lazy val `kademlia-monix` =
   crossProject(JVMPlatform, JSPlatform)
@@ -176,13 +177,15 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind in Test := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`kademlia-monix`, `kademlia-grpc`, `kademlia-testkit` % Test)
+  .dependsOn(`kademlia-monix`, `kademlia-grpc`, `scala-multistream-grpc`, `kademlia-testkit` % Test)
 
 lazy val `kademlia-js` = `kademlia`.js
 lazy val `kademlia-jvm` = `kademlia`.jvm
 
-lazy val `transport-grpc-monix` = project
-  .in(file("transport/grpc-monix"))
+//TODO utility project, could be replaced to another project
+//TODO add unit tests for this project
+lazy val `grpc-monix-converter` = project
+  .in(file("grpc-monix-converter"))
   .settings(
     commons,
     grpc,
@@ -191,6 +194,7 @@ lazy val `transport-grpc-monix` = project
       scalatestKit
     )
   )
+  .dependsOn(`scala-multistream-jvm`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
@@ -218,7 +222,7 @@ lazy val `transport-grpc` = crossProject(JVMPlatform, JSPlatform)
     scalaJSModuleKind in Test := ModuleKind.CommonJSModule
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`transport-core`, `kademlia-protocol`)
+  .dependsOn(`transport-core`, `kademlia-protocol`, `scala-multistream`)
 
 lazy val `transport-grpc-js` = `transport-grpc`.js
 lazy val `transport-grpc-jvm` = `transport-grpc`.jvm
@@ -258,7 +262,7 @@ lazy val `transport-grpc-proxy` = project
       scalatest
     )
   )
-  .dependsOn(`transport-core-jvm`, `websocket-protobuf-jvm`, `transport-grpc-monix`)
+  .dependsOn(`transport-core-jvm`, `websocket-protobuf-jvm`, `grpc-monix-converter`, `scala-multistream-grpc-jvm`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `transport-websocket-js` = project
@@ -282,7 +286,7 @@ lazy val `transport-websocket-js` = project
   )
   .enablePlugins(ScalaJSPlugin)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`websocket-protobuf-js`)
+  .dependsOn(`websocket-protobuf-js`, `scala-multistream-js`)
 
 lazy val `transport-core` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -508,7 +512,7 @@ lazy val `dataset-grpc` = crossProject(JVMPlatform, JSPlatform)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`dataset-client`, `transport-grpc`)
 
-lazy val `dataset-grpc-jvm` = `dataset-grpc`.jvm.dependsOn(`dataset-node`, `transport-grpc-monix`)
+lazy val `dataset-grpc-jvm` = `dataset-grpc`.jvm.dependsOn(`dataset-node`, `grpc-monix-converter`)
 lazy val `dataset-grpc-js` = `dataset-grpc`.js
   .enablePlugins(ScalaJSBundlerPlugin)
   .dependsOn(`transport-websocket-js`)
@@ -669,15 +673,16 @@ lazy val `client-grpc` = crossProject(JVMPlatform, JSPlatform)
   .in(file("client/grpc"))
   .settings(commons)
   .jsSettings(
-    scalaJSModuleKind in Test       := ModuleKind.CommonJSModule,
-    fork in Test                    := false
+    scalaJSModuleKind in Test := ModuleKind.CommonJSModule,
+    fork in Test              := false
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`client-core`, `transport-grpc`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`)
+  .dependsOn(`client-core`, `kademlia-grpc`, `dataset-grpc`, `contract-grpc`)
 
 lazy val `client-grpc-js` = `client-grpc`.js
   .enablePlugins(ScalaJSBundlerPlugin)
 lazy val `client-grpc-jvm` = `client-grpc`.jvm
+  .dependsOn(`scala-multistream-grpc-jvm`)
 
 lazy val `client-cli` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -715,14 +720,14 @@ lazy val `client-cli-app` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    fork in Test := false,
+    fork in Test                    := false,
     scalaJSUseMainModuleInitializer := false,
     jsEnv in Compile                := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv(),
     workbenchStartMode              := WorkbenchStartModes.Manual,
     skip in packageJSDependencies   := false,
     scalaJSModuleKind in Test       := ModuleKind.CommonJSModule,
-    webpackBundlingMode := BundlingMode.LibraryAndApplication(),
-    emitSourceMaps := false
+    webpackBundlingMode             := BundlingMode.LibraryAndApplication(),
+    emitSourceMaps                  := false
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`client-cli`, `client-grpc`)
@@ -765,3 +770,68 @@ lazy val `node` = project
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`node-grpc`)
+
+//TODO replace to another project
+lazy val `scala-multistream` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("scala-multistream"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "io.monix" %%% "monix" % MonixV
+    )
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `scala-multistream-js` = `scala-multistream`.js
+lazy val `scala-multistream-jvm` = `scala-multistream`.jvm
+
+lazy val `scala-multistream-grpc` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("scala-multistream/grpc"))
+  .settings(
+    commons,
+    protobuf,
+    grpc,
+    libraryDependencies ++= Seq(
+      "io.monix"    %%% "monix"          % MonixV,
+      "one.fluence" %%% "codec-protobuf" % CodecV,
+      scalatest
+    )
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .dependsOn(`scala-multistream`)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `scala-multistream-grpc-js` = `scala-multistream-grpc`.js
+lazy val `scala-multistream-grpc-jvm` = `scala-multistream-grpc`.jvm
+  .dependsOn(`grpc-monix-converter`)
+
+lazy val `scala-multistream-websocket` = crossProject(JVMPlatform, JSPlatform)
+  .withoutSuffixFor(JVMPlatform)
+  .crossType(FluenceCrossType)
+  .in(file("scala-multistream/websocket"))
+  .settings(
+    commons,
+    protobuf,
+    libraryDependencies ++= Seq(
+      "io.monix"    %%% "monix"          % MonixV,
+      "one.fluence" %%% "codec-protobuf" % CodecV,
+      scalatest
+    )
+  )
+  .jsSettings(
+    fork in Test := false
+  )
+  .dependsOn(`scala-multistream`)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `scala-multistream-websocket-js` = `scala-multistream-websocket`.js
+lazy val `scala-multistream-websocket-jvm` = `scala-multistream-websocket`.jvm

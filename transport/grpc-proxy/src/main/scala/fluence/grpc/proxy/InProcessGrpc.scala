@@ -20,17 +20,18 @@ package fluence.grpc.proxy
 import java.util.concurrent.TimeUnit
 
 import cats.effect.IO
-import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
+import fluence.grpc.ServiceManager
 import io.grpc._
+import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 
-import scala.collection.JavaConverters._
 import scala.language.higherKinds
 
 /**
  * Grpc server and channel, that work in memory without transport.
  */
 final class InProcessGrpc private (private val server: Server, private val channel: ManagedChannel) {
-  val services: List[ServerServiceDefinition] = server.getServices.asScala.toList
+
+  val serviceManager: ServiceManager = ServiceManager(server)
 
   /**
    * Create new call from channel to server.

@@ -19,17 +19,19 @@ package fluence.dataset.client
 
 import cats.effect.{Effect, IO}
 import cats.syntax.applicativeError._
-import cats.syntax.flatMap._
+import cats.syntax.functor._
 import com.google.protobuf.ByteString
 import fluence.btree.core.{Hash, Key}
 import fluence.btree.protocol.BTreeRpc
 import fluence.dataset.protocol.{ClientError, ServerError}
 import fluence.dataset.protobuf._
-import monix.eval.{MVar, Task}
+import monix.eval.Task
 import monix.execution.Scheduler
-import monix.reactive.{Observable, Pipe}
+import monix.reactive.subjects.PublishSubject
+import monix.reactive.Observable
 
 import scala.collection.Searching
+import scala.concurrent.Future
 import scala.language.higherKinds
 
 class ClientPut[F[_]: Effect](
@@ -39,138 +41,178 @@ class ClientPut[F[_]: Effect](
   encryptedValue: Array[Byte]
 ) extends slogging.LazyLogging {
 
-  import DatasetClientUtils._
+  private def handleClientErr(err: Throwable): ErrorFromClient[PutCallbackReply] = {
+    ErrorFromClient(PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage))))
+  }
 
-  private val clientError = MVar.empty[ClientError].memoize
+  private def handleContinuation(implicit scheduler: Scheduler): PartialFunction[PutCallback.Callback, F[Flow[PutCallbackReply]]] = {
+    case ask if ask.isNextChildIndex ⇒
+      val Some(nci) = ask.nextChildIndex
 
-  /** Puts error to client error(for returning error to user of this client), and return reply with error for server.*/
-  private def handleClientErr(err: Throwable)(implicit sch: Scheduler): F[PutCallbackReply] =
-    run(
-      for {
-        ce ← clientError
-        _ ← ce.put(ClientError(err.getMessage))
-      } yield PutCallbackReply(PutCallbackReply.Reply.ClientError(Error(err.getMessage)))
-    )
+      putCallbacks
+        .nextChildIndex(
+          nci.keys.map(k ⇒ Key(k.toByteArray)).toArray,
+          nci.childsChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
+        )
+        .attempt
+        .map {
+          case Left(err) ⇒
+            handleClientErr(err)
+          case Right(idx) ⇒
+            Continuation(PutCallbackReply(PutCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx))))
+        }
 
-  private def handleAsks(source: Observable[PutCallback.Callback])(implicit sch: Scheduler) =
-    source.collect { case ask if ask.isDefined && !ask.isValue ⇒ ask } // Collect callbacks
-      .mapEval[F, PutCallbackReply] {
+    case ask if ask.isPutDetails ⇒
+      val Some(pd) = ask.putDetails
 
-        case ask if ask.isNextChildIndex ⇒
-          val Some(nci) = ask.nextChildIndex
-
-          putCallbacks
-            .nextChildIndex(
-              nci.keys.map(k ⇒ Key(k.toByteArray)).toArray,
-              nci.childsChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
+      putCallbacks
+        .putDetails(
+          pd.keys.map(k ⇒ Key(k.toByteArray)).toArray,
+          pd.valuesChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
+        )
+        .attempt
+        .map {
+          case Left(err) ⇒
+            handleClientErr(err)
+          case Right(cpd) ⇒
+            val putDetails = ReplyPutDetails(
+              key = ByteString.copyFrom(cpd.key.bytes),
+              checksum = ByteString.copyFrom(cpd.valChecksum.bytes),
+              searchResult = cpd.searchResult match {
+                case Searching.Found(foundIndex) ⇒ ReplyPutDetails.SearchResult.Found(foundIndex)
+                case Searching.InsertionPoint(insertionPoint) ⇒
+                  ReplyPutDetails.SearchResult.InsertionPoint(insertionPoint)
+              }
             )
-            .attempt
-            .flatMap {
-              case Left(err) ⇒
-                handleClientErr(err)
-              case Right(idx) ⇒
-                Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.NextChildIndex(ReplyNextChildIndex(idx))))
-            }
+            Continuation(PutCallbackReply(PutCallbackReply.Reply.PutDetails(putDetails)))
+        }
 
-        case ask if ask.isPutDetails ⇒
-          val Some(pd) = ask.putDetails
+    case ask if ask.isVerifyChanges ⇒
+      val Some(vc) = ask.verifyChanges
 
-          putCallbacks
-            .putDetails(
-              pd.keys.map(k ⇒ Key(k.toByteArray)).toArray,
-              pd.valuesChecksums.map(c ⇒ Hash(c.toByteArray)).toArray
-            )
-            .attempt
-            .flatMap {
-              case Left(err) ⇒
-                handleClientErr(err)
-              case Right(cpd) ⇒
-                val putDetails = ReplyPutDetails(
-                  key = ByteString.copyFrom(cpd.key.bytes),
-                  checksum = ByteString.copyFrom(cpd.valChecksum.bytes),
-                  searchResult = cpd.searchResult match {
-                    case Searching.Found(foundIndex) ⇒ ReplyPutDetails.SearchResult.Found(foundIndex)
-                    case Searching.InsertionPoint(insertionPoint) ⇒
-                      ReplyPutDetails.SearchResult.InsertionPoint(insertionPoint)
-                  }
-                )
-                Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.PutDetails(putDetails)))
-            }
+      putCallbacks
+        .verifyChanges(Hash(vc.serverMerkleRoot.toByteArray), vc.splitted)
+        .attempt
+        .map {
+          case Left(err) ⇒
+            handleClientErr(err)
+          case Right(signature) ⇒
+            Continuation(PutCallbackReply(
+              PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges(ByteString.copyFrom(signature.toArray)))
+            ))
 
-        case ask if ask.isVerifyChanges ⇒
-          val Some(vc) = ask.verifyChanges
+        }
 
-          putCallbacks
-            .verifyChanges(Hash(vc.serverMerkleRoot.toByteArray), vc.splitted)
-            .attempt
-            .flatMap {
-              case Left(err) ⇒
-                handleClientErr(err)
-              case Right(signature) ⇒
-                Effect[F].pure(
-                  PutCallbackReply(
-                    PutCallbackReply.Reply.VerifyChanges(ReplyVerifyChanges(ByteString.copyFrom(signature.toArray)))
-                  )
-                )
-            }
+    case ask if ask.isChangesStored ⇒
+      putCallbacks
+        .changesStored()
+        .attempt
+        .map {
+          case Left(err) ⇒
+            handleClientErr(err)
+          case Right(idx) ⇒
+            Continuation(PutCallbackReply(PutCallbackReply.Reply.ChangesStored(ReplyChangesStored())))
+        }
+  }
 
-        case ask if ask.isChangesStored ⇒
-          putCallbacks
-            .changesStored()
-            .attempt
-            .flatMap {
-              case Left(err) ⇒
-                handleClientErr(err)
-              case Right(idx) ⇒
-                Effect[F].pure(PutCallbackReply(PutCallbackReply.Reply.ChangesStored(ReplyChangesStored())))
-            }
+  private def handleResult(
+    implicit scheduler: Scheduler
+  ): PartialFunction[PutCallback.Callback, F[Flow[PutCallbackReply]]] = {
+    case ask if ask.isServerError ⇒
+      val Some(err) = ask.serverError
+      val serverError = ServerError(err.msg)
+      // if server send the error we should close stream and lift error up
+      Effect[F].raiseError[Flow[PutCallbackReply]](serverError)
+    case ask if ask.isValue ⇒
+      val Some(getValue) = ask._value
+      logger.trace(s"DatasetStorageClient.put() received server value=$getValue")
+      // if got success response or server error close stream and return value\error to user of this client
+      Effect[F].pure(
+        Result(
+          Option(getValue.value)
+            .filterNot(_.isEmpty)
+            .map(_.toByteArray)
+        )
+      )
+  }
+
+  private def handleAsks(source: Observable[PutCallback.Callback])(
+    implicit sch: Scheduler
+  ): Observable[Flow[PutCallbackReply]] =
+    source
+      .mapEval[F, Flow[PutCallbackReply]] {
+        handleContinuation orElse handleResult
       }
 
   /**
    *
-   * @param pipe Bidi pipe for transport layer
+   * @param handler
+   * @param sch
    * @return
    */
-  def runStream(pipe: Pipe[PutCallbackReply, PutCallback])(implicit sch: Scheduler): IO[Option[Array[Byte]]] = {
-    val (pushClientReply, pullServerAsk) = pipe
-      .transform(_.map {
-        case PutCallback(callback) ⇒
-          logger.trace(s"DatasetStorageClient.put() received server ask=$callback")
-          callback
-      })
-      .multicast
+  def runStream(
+    handler: Observable[PutCallbackReply] ⇒ IO[Observable[PutCallback]]
+  )(implicit sch: Scheduler): IO[Option[Array[Byte]]] = {
 
-    val cancelable = (
-      Observable( // Pass the datasetId and value as the first, unasked pushes
+    val subj = PublishSubject[PutCallbackReply]()
+
+    val requests =
+      (Observable( // Pass the datasetId and value as the first, unasked pushes
         PutCallbackReply(
           PutCallbackReply.Reply.DatasetInfo(DatasetInfo(ByteString.copyFrom(datasetId), version))
         ),
         PutCallbackReply(
           PutCallbackReply.Reply.Value(PutValue(ByteString.copyFrom(encryptedValue)))
         )
-      ) ++ handleAsks(pullServerAsk)
-    ).subscribe(pushClientReply) // And push response back to server
+      ) ++ subj).map { el =>
+        logger.trace(s"DatasetStorageClient.put() will send message to server $el")
+        el
+      }
 
-    val serverErrOrVal =
-      pullServerAsk.collect { // Collect terminal task with value/error
-        case ask if ask.isServerError ⇒
-          val Some(err) = ask.serverError
-          val serverError = ServerError(err.msg)
-          // if server send the error we should close stream and lift error up
-          Task(cancelable.cancel())
-            .flatMap(_ ⇒ Task.raiseError[Option[Array[Byte]]](serverError))
-        case ask if ask.isValue ⇒
-          val Some(getValue) = ask._value
-          logger.trace(s"DatasetStorageClient.put() received server value=$getValue")
-          // if got success response or server error close stream and return value\error to user of this client
-          Task(cancelable.cancel()).map { _ ⇒
-            Option(getValue.value)
-              .filterNot(_.isEmpty)
-              .map(_.toByteArray)
+    for {
+      responses ← handler(requests)
+      cycle = {
+
+        val mapped = responses.map {
+          case PutCallback(callback) ⇒
+            logger.trace(s"DatasetStorageClient.put() received server ask=$callback")
+            callback
+        }
+
+        handleAsks(mapped)
+          .mapFuture {
+            case c@Continuation(reply) => subj.onNext(reply).map(_ ⇒ c)
+            case res@Result(v) => Future(res)
+            case er@ErrorFromClient(err) => subj.onNext(err).map(_ ⇒ er)
           }
-      }.headOptionL // Take the first option value or server error
+      }
 
-    composeResult[IO](clientError, serverErrOrVal)
+      result <- {
+        cycle.concatMap {
+          case r@Result(_) ⇒
+            Observable(r, Stop)
+          case er@ErrorFromClient(_) ⇒
+            Observable(er, Stop)
+          case c@Continuation(_) ⇒
+            Observable(c)
+        }.takeWhile {
+          case Stop ⇒ false
+          case _ ⇒ true
+        }.lastOptionL
+          .flatMap {
+            case Some(ErrorFromClient(err)) ⇒
+              Task.raiseError(ClientError(err.reply.clientError.get.msg))
+            case Some(Result(v)) ⇒
+              Task(v)
+            case v ⇒
+              logger.error("Unexpected message: " + v)
+              Task.raiseError(new RuntimeException("Unexpected internal error"))
+          }
+          .toIO
+      }
+
+    } yield result
+
   }
 
 }

@@ -95,7 +95,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
         TestServiceGrpc.METHOD_TEST_COUNT
       )
 
-    def sendMessage(proxyGrpc: ProxyGrpc, message: WebsocketMessage): Observable[Array[Byte]] = {
+    def sendMessage(proxyGrpc: ProxyWebsocketGrpc, message: WebsocketMessage): Observable[Array[Byte]] = {
 
       proxyGrpc
         .handleMessage(
@@ -110,7 +110,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
 
     "work with unary calls" in {
       inService() { inProcessGrpc ⇒
-        val proxyGrpc = new ProxyGrpc(inProcessGrpc)
+        val proxyGrpc = new ProxyWebsocketGrpc(inProcessGrpc)
 
         val str = "test"
         val listStr = Seq("test1", "test2")
@@ -139,7 +139,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
     "work with bidi streams" in {
 
       inService() { inProcessGrpc ⇒
-        val proxyGrpc = new ProxyGrpc(inProcessGrpc)
+        val proxyGrpc = new ProxyWebsocketGrpc(inProcessGrpc)
 
         val requestId = Random.nextLong()
 
@@ -166,7 +166,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
 
     "raise error if the proxy was closed" in {
       inService() { inProcessGrpc ⇒
-        val proxyGrpc = new ProxyGrpc(inProcessGrpc)
+        val proxyGrpc = new ProxyWebsocketGrpc(inProcessGrpc)
 
         inProcessGrpc.close().unsafeRunSync()
 
@@ -186,7 +186,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
 
     "close stream on error from client" in {
       inService() { inProcessGrpc ⇒
-        val proxyGrpc = new ProxyGrpc(inProcessGrpc)
+        val proxyGrpc = new ProxyWebsocketGrpc(inProcessGrpc)
 
         val testMessage =
           generateMessage(1111L, TestRequest(Some(TestMessage())), TestServiceGrpc.METHOD_TEST)
@@ -211,7 +211,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
 
     "close stream on close from client" in {
       inService() { inProcessGrpc ⇒
-        val proxyGrpc = new ProxyGrpc(inProcessGrpc)
+        val proxyGrpc = new ProxyWebsocketGrpc(inProcessGrpc)
 
         val testMessage =
           generateMessage(1111L, TestRequest(Some(TestMessage())), TestServiceGrpc.METHOD_TEST_COUNT)
@@ -231,7 +231,7 @@ class ProxyCallSpec extends WordSpec with Matchers with slogging.LazyLogging {
 
     "raise error if no method or service descriptor in proxy" in {
       inService() { inProcessGrpc ⇒
-        val proxyGrpc = new ProxyGrpc(inProcessGrpc)
+        val proxyGrpc = new ProxyWebsocketGrpc(inProcessGrpc)
 
         val testMessage =
           generateMessage(555L, TestRequest(Some(TestMessage())), TestServiceGrpc.METHOD_TEST)

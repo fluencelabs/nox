@@ -25,10 +25,10 @@ import fluence.contract.protocol.{ContractAllocatorRpc, ContractsCacheRpc}
 import fluence.crypto.signature.SignAlgo.CheckerFn
 import fluence.dataset.grpc.client.DatasetStorageClient
 import fluence.dataset.protocol.DatasetStorageRpc
-import fluence.kad.grpc.client.KademliaWebsocketClient
+import fluence.kad.grpc.client.KademliaClient
 import fluence.kad.protocol.{Contact, KademliaRpc}
 import fluence.proxy.grpc.WebsocketMessage
-import fluence.transport.websocket.{ConnectionPool, WebsocketPipe, WebsocketT}
+import fluence.transport.websocket._
 import monix.execution.Scheduler
 import monix.reactive.Observable
 
@@ -54,12 +54,12 @@ class ClientWebsocketServices(connectionPool: ConnectionPool[WebsocketMessage, W
         contact.websocketPort.map { wsPort ⇒
           val url = "ws://" + contact.addr + ":" + wsPort
 
-          def connection: IO[WebsocketPipe[WebsocketMessage, WebsocketMessage]] =
-            IO(connectionPool.getOrCreateConnection(url))
+          def connection: WebsocketConnection =
+            new WebsocketConnection(IO(connectionPool.getOrCreateConnection(url)))
 
           new ClientServices[F, BasicContract, Contact] {
             override def kademlia: KademliaRpc[Contact] =
-              new KademliaWebsocketClient(connection)
+              new KademliaClient(connection)
 
             override def contractsCache: ContractsCacheRpc[BasicContract] =
               new ContractsCacheClient[BasicContract](connection)
