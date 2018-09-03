@@ -30,7 +30,7 @@ object SbtCommons {
   val catsEffect = "org.typelevel" %% "cats-effect" % "1.0.0-RC2"
   // functional wrapper around 'lightbend/config'
   val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.9.1"
-  val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.1"
+  val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.2"
 
   /* Test deps*/
 
