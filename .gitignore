@@ -1,5 +1,5 @@
+*.class
+*.log
+
+
 .idea
-target
-log
-storage/data
-application.conf
