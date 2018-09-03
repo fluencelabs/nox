@@ -5,7 +5,7 @@
 ## What is Fluence?
 Fluence is the efficient decentralized data processing network where anyone can install and run the compute node. Fluence attacks the `real-time execution | decentralized security | cost efficiency – (pick two)` trilemma using a **_hybrid real-time + batch approach_**.  
 
-Real-time component allows to obtain computation results immediately with adequate but not necessarily absolute security guarantees. Batch component, on the contrary, performs a through verification of historical results and penalizes misbehaving nodes if it finds any discrepancy.  
+Real-time component allows to obtain computation results immediately with adequate but not necessarily absolute security guarantees. Batch component, on the contrary, performs a thorough verification of historical results and penalizes misbehaving nodes if it finds any discrepancy.  
 
 Fluence heavily employs the existing decentralized technology stack. It uses [Ethereum](https://www.ethereum.org/) as the secure state storage, [Tendermint](https://tendermint.com/) as the BFT consensus engine for the real-time data processing, [WebAssembly](https://webassembly.org/) as the virtual machine for computations and, finally, [Ethereum Swarm](https://swarm-guide.readthedocs.io/en/latest/introduction.html) as the cold storage for the history of operations. For dispute resolution Fluence relies on the **_verification game_** concept described in the [TrueBit paper](https://people.cs.uchicago.edu/~teutsch/papers/truebit.pdf).  
 
