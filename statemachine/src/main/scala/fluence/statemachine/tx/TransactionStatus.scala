@@ -15,24 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence
-import cats.Applicative
-import cats.data.EitherT
+package fluence.statemachine.tx
 
-import scala.language.higherKinds
-
-package object vm {
-
-  /** Helper method. Converts List of Ether to Either of List. */
-  def list2Either[F[_]: Applicative, A, B](
-    list: List[Either[A, B]]
-  ): EitherT[F, A, List[B]] = {
-    import cats.instances.list._
-    import cats.syntax.traverse._
-    import cats.instances.either._
-    // unfortunately Idea don't understand this and show error in Editor
-    val either: Either[A, List[B]] = list.sequence
-    EitherT.fromEither[F](either)
-  }
-
+/**
+ * Contains possible statuses that stored for transaction that is queued, applying or applied.
+ */
+object TransactionStatus {
+  val Queued: String = "queued"
+  val Success: String = "success"
+  val Error: String = "error"
 }

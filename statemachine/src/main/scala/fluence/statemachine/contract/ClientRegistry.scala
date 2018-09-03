@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -16,7 +16,7 @@
  */
 
 package fluence.statemachine.contract
-
+import fluence.statemachine.util.ClientInfoMessages
 import fluence.statemachine.{ClientId, PublicKey}
 
 /**
@@ -35,5 +35,5 @@ class ClientRegistry {
    * @return either client's [[PublicKey]] or error message
    */
   def getPublicKey(client: ClientId): Either[String, PublicKey] =
-    Either.cond(client == KnownClient, KnownPublicKey, "Unknown client!")
+    Either.cond(client == KnownClient, KnownPublicKey, ClientInfoMessages.UnknownClient)
 }

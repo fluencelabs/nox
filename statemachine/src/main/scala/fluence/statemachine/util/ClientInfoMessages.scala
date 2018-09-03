@@ -15,24 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package fluence
-import cats.Applicative
-import cats.data.EitherT
+package fluence.statemachine.util
 
-import scala.language.higherKinds
+/**
+ * Constants used as `Info` for ABCI requests.
+ */
+object ClientInfoMessages {
+  val UnknownClient: String = "Unknown client"
+  val InvalidSignature: String = "Invalid signature"
+  val DuplicatedTransaction: String = "Duplicated transaction"
+  val SuccessfulTxResponse: String = ""
 
-package object vm {
-
-  /** Helper method. Converts List of Ether to Either of List. */
-  def list2Either[F[_]: Applicative, A, B](
-    list: List[Either[A, B]]
-  ): EitherT[F, A, List[B]] = {
-    import cats.instances.list._
-    import cats.syntax.traverse._
-    import cats.instances.either._
-    // unfortunately Idea don't understand this and show error in Editor
-    val either: Either[A, List[B]] = list.sequence
-    EitherT.fromEither[F](either)
-  }
-
+  val QueryStateIsNotReadyYet: String = "Query state is not ready yet"
+  val RequestingCustomHeightIsForbidden: String = "Requesting custom height is forbidden"
+  val InvalidQueryPath: String = "Invalid query path"
+  val ResultIsNotReadyYet: String = "Result is not ready yet"
+  val SuccessfulQueryResponse: String = ""
 }

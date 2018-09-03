@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -17,19 +17,24 @@
 
 package fluence.statemachine.state
 
-import com.github.jtendermint.jabci.api.CodeType
-import fluence.statemachine.QueryResponseData
+import cats.Monad
+import cats.data.EitherT
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.statemachine.tree.TreePath
+import fluence.statemachine.util.ClientInfoMessages
+
+import scala.language.higherKinds
 
 /**
- * Processes `Query` ABCI request.
+ * Processor for ABCI `Query` requests.
  *
- * @param stateHolder [[StateHolder]] used to obtain Query state
+ * @param stateHolder [[TendermintStateHolder]] used to obtain Query state
  */
-class QueryProcessor(stateHolder: StateHolder) extends slogging.LazyLogging {
+class QueryProcessor[F[_]](stateHolder: TendermintStateHolder[F])(implicit F: Monad[F]) extends slogging.LazyLogging {
 
   /**
-   * ABCI `Query` (Query thread).
+   * Processes ABCI `Query` (Query thread).
    *
    * ABCI docs tells that `height` equal to 0 means the latest available height.
    * Providing arbitrary `height` as request parameter is currently forbidden.
@@ -39,21 +44,50 @@ class QueryProcessor(stateHolder: StateHolder) extends slogging.LazyLogging {
    * @param prove `Query` method parameter describing whether Merkle proof for result requested
    * @return data to construct `Query` response
    */
-  def processQuery(queryString: String, requestedHeight: Long, prove: Boolean): QueryResponseData = {
-    logger.info("Query: {}", queryString)
+  def processQuery(queryString: String, requestedHeight: Long, prove: Boolean): F[QueryResponseData] =
+    for {
+      _ <- F.pure(logger.debug("Query: {}", queryString))
 
-    val parsedAndChecked = for {
-      _ <- if (requestedHeight == 0) Right(()) else Left("Requesting custom height is forbidden")
-      parsedQuery <- TreePath.parse(queryString)
-      state <- stateHolder.queryState
-    } yield (state._1, state._2, parsedQuery)
+      parsedAndChecked <- (for {
+        parsedQuery <- EitherT.fromEither[F](
+          if (requestedHeight == 0) TreePath.parse(queryString)
+          else Left(ClientInfoMessages.RequestingCustomHeightIsForbidden)
+        )
+        state <- stateHolder.queryState
+        (height, queryState) = state
+      } yield (height, queryState, parsedQuery)).value
+    } yield
+      parsedAndChecked match {
+        case Left(message) => QueryResponseData(0, None, None, QueryCodeType.Bad, message)
+        case Right((height, queryState, key)) =>
+          val result = queryState.getValue(key)
+          val (statusCode, info) =
+            if (result.isDefined)
+              (QueryCodeType.OK, ClientInfoMessages.SuccessfulQueryResponse)
+            else
+              (QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet)
 
-    parsedAndChecked match {
-      case Left(message) => QueryResponseData(0, None, None, CodeType.BAD, message)
-      case Right((height, queryState, key)) =>
-        val result = queryState.getValue(key)
-        val proof = result.filter(_ => prove).map(_ => queryState.getProof(key).toHex)
-        QueryResponseData(height, result, proof, CodeType.OK, "")
-    }
-  }
+          val proof = result.filter(_ => prove).map(_ => queryState.getProof(key).toHex)
+          QueryResponseData(height, result, proof, statusCode, info)
+      }
+}
+
+/**
+ * A structure for aggregating data specific to building `Query` ABCI method response.
+ *
+ * @param height height corresponding to state for which result given
+ * @param result requested result, if found
+ * @param proof proof for the result, if requested and possible to be provided
+ * @param code response code
+ * @param info response message
+ */
+case class QueryResponseData(height: Long, result: Option[String], proof: Option[String], code: Int, info: String)
+
+/**
+ * Constants used as response codes for Query requests.
+ */
+object QueryCodeType {
+  val OK: Int = 0 // Requested path exists. Result attached to the response.
+  val NotReady: Int = 10 // Requested path is correct but not associated with value at height attached to the response.
+  val Bad: Int = 1 // Bad path or bad height or something went wrong. Attached info contains details.
 }

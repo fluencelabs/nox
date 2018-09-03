@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -17,7 +17,14 @@
 
 package fluence.statemachine
 
+import cats.effect.concurrent.MVar
+import cats.effect.{ExitCode, IO, IOApp}
 import com.github.jtendermint.jabci.socket.TSocket
+import fluence.statemachine.contract.ClientRegistry
+import fluence.statemachine.state._
+import fluence.statemachine.tree.TreeNode
+import fluence.statemachine.tx.{TxDuplicateChecker, TxParser, TxProcessor, VmOperationInvoker}
+import fluence.vm.WasmVm
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
 
@@ -28,28 +35,85 @@ import slogging._
  * jTendermint implements RPC layer, provides dedicated threads (`Consensus`, `Mempool` and `Query` thread
  * according to Tendermint specification) and sends ABCI requests to `ABCIHandler`.
  */
-object ServerRunner extends LazyLogging {
+object ServerRunner extends IOApp with LazyLogging {
   val DefaultABCIPoint: Int = 46658
 
-  def main(args: Array[String]): Unit = {
+  override def run(args: List[String]): IO[ExitCode] = {
     val port = if (args.length > 0) args(0).toInt else DefaultABCIPoint
-    ServerRunner.start(port)
+    ServerRunner.start(port).map(_ => ExitCode.Success)
   }
 
-  def start(port: Int): Unit = {
+  /**
+   * Starts the State machine.
+   *
+   * @param port port used to listen to Tendermint requests
+   */
+  private def start(port: Int): IO[Unit] =
+    for {
+      abciHandler <- buildAbciHandler()
+
+      _ = configureLogging()
+
+      _ = logger.info("starting State Machine")
+      socket = new TSocket
+      _ = socket.registerListener(abciHandler)
+
+      socketThread = new Thread(() => socket.start(port))
+      _ = socketThread.setName("Socket")
+      _ = socketThread.start()
+      _ = socketThread.join()
+    } yield ()
+
+  /**
+   * Builds [[AbciHandler]], used to serve all Tendermint requests.
+   */
+  private[statemachine] def buildAbciHandler(): IO[AbciHandler] =
+    for {
+      initialState <- MVar[IO].of(TendermintState.initial)
+      stateHolder = new TendermintStateHolder[IO](initialState)
+      mutableConsensusState = new MutableStateTree(stateHolder)
+
+      vm <- buildVm()
+      vmInvoker = new VmOperationInvoker[IO](vm)
+
+      queryProcessor = new QueryProcessor(stateHolder)
+
+      txParser = new TxParser[IO](new ClientRegistry())
+      checkTxDuplicateChecker = new TxDuplicateChecker[IO](stateHolder.mempoolState)
+      deliverTxDuplicateChecker = new TxDuplicateChecker(mutableConsensusState.getRoot)
+      txProcessor = new TxProcessor(mutableConsensusState, vmInvoker)
+
+      committer = new Committer[IO](stateHolder, vmInvoker)
+
+      abciHandler = new AbciHandler(
+        committer,
+        queryProcessor,
+        txParser,
+        checkTxDuplicateChecker,
+        deliverTxDuplicateChecker,
+        txProcessor
+      )
+    } yield abciHandler
+
+  /**
+   * Builds a VM instance used to perform function calls from the clients.
+   */
+  private def buildVm(): IO[WasmVm] = {
+    val moduleFiles = List(
+      "vm/src/test/resources/wast/mul.wast",
+      "vm/src/test/resources/wast/counter.wast"
+    )
+    WasmVm[IO](moduleFiles).value.map(
+      ei => ei.getOrElse { throw new RuntimeException("Error loading VM: " + ei.left.get.toString) }
+    )
+  }
+
+  /**
+   * Configures `slogging` logger.
+   */
+  private def configureLogging(): Unit = {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(true, false, true)
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.INFO
-
-    logger.info("starting State Machine")
-    val socket = new TSocket
-
-    val abciHandler = new ABCIHandler
-    socket.registerListener(abciHandler)
-
-    val socketThread = new Thread(() => socket.start(port))
-    socketThread.setName("Socket")
-    socketThread.start()
-    socketThread.join()
   }
 }

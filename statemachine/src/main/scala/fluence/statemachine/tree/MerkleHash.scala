@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -25,7 +25,7 @@ import scodec.bits.ByteVector
  *
  * @param bytes binary representation of the hash
  */
-case class MerkleHash(bytes: ByteVector) {
+case class MerkleHash(bytes: ByteVector) extends AnyVal {
   def toHex: String = HexCodec.binaryToHex(bytes.toArray)
 }
 

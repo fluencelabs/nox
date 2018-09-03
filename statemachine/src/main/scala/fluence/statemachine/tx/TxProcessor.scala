@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -17,9 +17,17 @@
 
 package fluence.statemachine.tx
 
+import cats.Monad
+import cats.data.EitherT
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import fluence.statemachine.StoreValue
+import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.MutableStateTree
-import fluence.statemachine.tx.TxStorageKeys.{errorMessageKey, payloadKey, resultKey, statusKey}
+import fluence.statemachine.tree.StorageKeys.{payloadKey, resultKey, statusKey}
 import slogging.LazyLogging
+
+import scala.language.higherKinds
 
 /**
  * Performs a series of actions with successfully validated (successfully parsed and unique) transaction received
@@ -33,10 +41,14 @@ import slogging.LazyLogging
  * Note that `DeliverTx` processing is synchronous, `DeliverTxResponse` sending is performed only after
  * transaction appending, invocation and even invocation of dependent, previously queued transactions.
  *
- * @param consensusState Consensus state, affected by every newly appended transaction
+ * @param mutableConsensusState Consensus state, affected by every newly appended transaction
+ * @param vmInvoker object used to perform immediate calls to VM
  */
-class TxProcessor(consensusState: MutableStateTree) extends LazyLogging {
-  private val txInvoker = new TxInvoker
+class TxProcessor[F[_]](
+  private val mutableConsensusState: MutableStateTree[F],
+  private val vmInvoker: VmOperationInvoker[F]
+)(implicit F: Monad[F])
+    extends LazyLogging {
 
   /**
    * Enqueues given `tx` and tries to apply it immediately.
@@ -47,66 +59,106 @@ class TxProcessor(consensusState: MutableStateTree) extends LazyLogging {
    *
    * @param tx transaction ready to be processed
    */
-  def appendTx(tx: Transaction): Unit = {
-    logger.debug("Appended tx: {}", tx)
-    enqueueTx(tx)
-    if (tx.header.requiredTxHeader.forall(header => getStatus(header).contains(TransactionStatus.Success))) {
-      fireTxApplication(tx.header)
-    }
-  }
+  def processNewTx(tx: Transaction): F[Unit] =
+    for {
+      _ <- enqueueTx(tx)
+      _ = logger.debug("Appended tx: {}", tx)
+      _ <- tx.header.requiredTxHeader match {
+        case None => applyTxWithDependencies(tx.header)
+        case Some(required) =>
+          for {
+            requiredSuccess <- getStatus(required).map(x => x.contains(TransactionStatus.Success))
+            _ <- if (requiredSuccess) applyTxWithDependencies(tx.header) else F.unit
+          } yield ()
+      }
+    } yield ()
 
   /**
    * Triggers the application of a transaction stored by given header (if actually stored).
-   * In case of success recursively triggers the application of dependent transactions that might be queued
+   * In case of success triggers the application of dependent transactions that might be queued
    * (if received out of order previously).
    *
    * @param txHeader header of the transaction to be applied
    */
-  private def fireTxApplication(txHeader: TransactionHeader): Unit = {
-    getStoredPayload(txHeader)
-      .foreach(payload => {
-        val tx = Transaction(txHeader, payload)
-        applyTx(tx)
-        dequeueTx(tx)
-        fireTxApplication(txHeader.dependentTxHeader)
-      })
-  }
+  private def applyTxWithDependencies(txHeader: TransactionHeader): F[Unit] =
+    for {
+      // Collecting tx and previously queued dependencies (if any)
+      txs <- txAndQueuedDependencies(txHeader)
+      _ <- txs
+      // Preparing txs for application. It includes invocation and dequeuing
+        .map(tx => {
+          for {
+            invoked <- invokeTx(tx).isRight
+            _ <- dequeueTx(tx)
+          } yield invoked
+        })
+        // Applying prepared txs while this application is successful
+        .foldLeft(F.pure(true))((acc, invoked) => {
+          for {
+            successBefore <- acc
+            successAfter <- if (successBefore) invoked else F.pure(false)
+          } yield successAfter
+        })
+        .map(_ => ())
+    } yield ()
 
   /**
-   * Effectively applies given transaction and appends it's results to Consensus state.
+   * Builds list of transactions including given transaction and its possibly queued dependent transactions.
+   *
+   * @param txHeader header of the transaction to be applied
+   */
+  private def txAndQueuedDependencies(txHeader: TransactionHeader): F[List[Transaction]] =
+    for {
+      payloadOp <- getStoredPayload(txHeader)
+      result <- payloadOp match {
+        case None => F.pure(Nil)
+        case Some(payload) =>
+          txAndQueuedDependencies(txHeader.dependentTxHeader).map(Transaction(txHeader, payload) :: _)
+      }
+    } yield result
+
+  /**
+   * Effectively invokes the given transaction and writes it's results to Consensus state.
    *
    * @param tx transaction ready to be applied (by the invocation in VM)
    */
-  private def applyTx(tx: Transaction): Unit = {
-    txInvoker.invokeTx(tx.payload) match {
-      case Left(errorMessage) => putErrorMessage(tx, errorMessage)
-      case Right(result) => putResult(tx, result)
-    }
+  private def invokeTx(tx: Transaction): EitherT[F, StateMachineError, Option[String]] =
+    EitherT(for {
+      invoked <- vmInvoker.invoke(tx.payload).value
+      _ <- invoked match {
+        case Left(error) => putResult(tx, TransactionStatus.Error, Error(error.code, error.message))
+        case Right(None) => putResult(tx, TransactionStatus.Success, Empty)
+        case Right(Some(value)) => putResult(tx, TransactionStatus.Success, Computed(value))
+      }
+    } yield invoked)
+
+  private def enqueueTx(tx: Transaction): F[Unit] =
+    for {
+      _ <- mutableConsensusState.putValue(payloadKey(tx.header), tx.payload)
+      _ <- mutableConsensusState.putValue(statusKey(tx.header), TransactionStatus.Queued)
+    } yield ()
+
+  private def dequeueTx(tx: Transaction): F[Unit] =
+    for {
+      _ <- mutableConsensusState.removeValue(payloadKey(tx.header))
+    } yield ()
+
+  private def getStatus(txHeader: TransactionHeader): F[Option[String]] =
+    for {
+      root <- mutableConsensusState.getRoot
+      value = root.getValue(statusKey(txHeader))
+    } yield value
+
+  private def getStoredPayload(txHeader: TransactionHeader): F[Option[String]] =
+    for {
+      root <- mutableConsensusState.getRoot
+      value = root.getValue(payloadKey(txHeader))
+    } yield value
+
+  private def putResult(tx: Transaction, status: StoreValue, result: TxInvocationResult): F[Unit] = {
+    for {
+      _ <- mutableConsensusState.putValue(resultKey(tx.header), result.toStoreValue)
+      _ <- mutableConsensusState.putValue(statusKey(tx.header), status)
+    } yield ()
   }
-
-  private def enqueueTx(tx: Transaction): Unit = {
-    consensusState.putValue(payloadKey(tx.header), tx.payload)
-    consensusState.putValue(statusKey(tx.header), TransactionStatus.Queued)
-  }
-
-  private def dequeueTx(tx: Transaction): Unit = {
-    consensusState.removeValue(payloadKey(tx.header))
-  }
-
-  private def getStatus(txHeader: TransactionHeader): Option[String] =
-    consensusState.getRoot.getValue(statusKey(txHeader))
-
-  private def getStoredPayload(txHeader: TransactionHeader): Option[String] =
-    consensusState.getRoot.getValue(payloadKey(txHeader))
-
-  private def putResult(tx: Transaction, result: String): Unit = {
-    consensusState.putValue(resultKey(tx.header), result)
-    consensusState.putValue(statusKey(tx.header), TransactionStatus.Success)
-  }
-
-  private def putErrorMessage(tx: Transaction, errorMessage: String): Unit = {
-    consensusState.putValue(errorMessageKey(tx.header), errorMessage)
-    consensusState.putValue(statusKey(tx.header), TransactionStatus.Error)
-  }
-
 }

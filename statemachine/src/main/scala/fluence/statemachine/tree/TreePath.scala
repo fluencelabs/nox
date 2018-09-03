@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Fluence Labs Limited
+ * Copyright (C) 2018  Fluence Labs Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -17,6 +17,7 @@
 
 package fluence.statemachine.tree
 import fluence.statemachine.StoreKey
+import fluence.statemachine.util.ClientInfoMessages
 
 /**
  * Structure denoting some absolute or relative path in the tree of [[TreeNode]]-s.
@@ -46,7 +47,12 @@ object TreePath {
    */
   def parse(pathString: String): Either[String, TreePath[StoreKey]] = {
     val splitPath = pathString.split('/').toList
-    Either.cond(!pathString.endsWith("/") && !splitPath.contains(""), TreePath(splitPath), "Invalid query path")
+    Either
+      .cond(
+        !pathString.endsWith("/") && !splitPath.contains(""),
+        TreePath(splitPath),
+        ClientInfoMessages.InvalidQueryPath
+      )
   }
 
 }
