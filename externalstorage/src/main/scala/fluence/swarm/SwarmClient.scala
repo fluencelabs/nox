@@ -1,18 +1,17 @@
 /*
- * Copyright (C) 2018  Fluence Labs Limited
+ * Copyright 2018 Fluence Labs Limited
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package fluence.swarm
@@ -50,6 +49,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
 ) extends slogging.LazyLogging {
 
   import fluence.swarm.helpers.ResponseOps._
+  import BzzProtocol._
 
   // unpretty printer for http requests
   private val printer = Printer.noSpaces.copy(dropNullValues = true)
@@ -60,14 +60,15 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
   /**
    * Generate uri for requests.
    *
-   * @param bzzProtocol protocol for requests: `bzz:/`, `bzz-resource:/`, etc
+   * @param bzzProtocol protocol for requests, e.g. `bzz:/`, `bzz-resource:/`, etc
    * @param target Hash of resource (file, metadata, manifest) or address from ENS.
    * @param path additional parameters for request
    * @return generated uri
    */
-  private def uri(bzzProtocol: String, target: String, path: Seq[String] = Nil) =
-    uri"http://$host:$port".path(Seq(bzzProtocol, target) ++ path)
-  private def uri(bzzUri: String) = uri"http://$host:$port".path(bzzUri)
+  private def uri(bzzProtocol: BzzProtocol, target: String, path: Seq[String] = Nil) =
+    uri"http://$host:$port".path(Seq(bzzProtocol.protocol, target) ++ path)
+
+  private def uri(bzzUri: BzzProtocol) = uri"http://$host:$port".path(bzzUri.protocol)
 
   /**
    * Download a file.
@@ -77,7 +78,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    *
    */
   def download[T](target: String): EitherT[F, SwarmError, Array[Byte]] = {
-    val downloadURI = uri("bzz:", target)
+    val downloadURI = uri(Bzz, target)
     logger.info(s"Download request. Target: $target")
     sttp
       .response(asByteArray)
@@ -86,7 +87,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
       .toEitherT(er => SwarmError(s"Error on downloading from $downloadURI. $er"))
       .map { r =>
         logger.info(s"A resource downladed.")
-        logger.debug(s"Resource size: ${r.size} bytes.")
+        logger.debug(s"Resource size: ${r.length} bytes.")
         r
       }
   }
@@ -99,7 +100,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    *
    */
   def downloadRaw[T](target: String): EitherT[F, SwarmError, RawResponse] = {
-    val downloadURI = uri("bzz-raw:", target)
+    val downloadURI = uri(BzzRaw, target)
     logger.info(s"Download manifest request. Target: $target")
     sttp
       .response(asJson[RawResponse])
@@ -131,7 +132,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
     target: String,
     param: Option[DownloadResourceParam]
   ): EitherT[F, SwarmError, Array[Byte]] = {
-    val downloadURI = uri("bzz-resource:", target, param.map(_.toParams).getOrElse(Nil))
+    val downloadURI = uri(BzzResource, target, param.map(_.toParams).getOrElse(Nil))
     logger.info(s"Download a mutable resource request. Target: $target, param: ${param.getOrElse("<null>")}")
     sttp
       .response(asByteArray)
@@ -189,7 +190,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
       _ = logger.debug(s"InitializeMutableResourceRequest: $json")
       resp <- sttp
         .response(asString.map(_.replaceAll("\"", "")))
-        .post(uri("bzz-resource:"))
+        .post(uri(BzzResource))
         .body(genBody(json))
         .send()
         .toEitherT(er => SwarmError(s"Error on initializing a mutable resource. $er"))
@@ -221,7 +222,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
     val json = req.asJson
     logger.debug(s"UpdateMutableResourceRequest: $json")
     sttp
-      .post(uri("bzz-resource:"))
+      .post(uri(BzzResource))
       .response(asString)
       .body(genBody(req.asJson))
       .send()
@@ -280,7 +281,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
       )
       json = req.asJson
       _ = logger.debug(s"UpdateMutableResourceRequest: $json")
-      updateURI = uri("bzz-resource:")
+      updateURI = uri(BzzResource)
       response <- EitherT(
         sttp
           .response(ignore)
@@ -293,5 +294,4 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
     } yield response
 
   }
-
 }

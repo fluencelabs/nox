@@ -35,6 +35,6 @@ class SomeSpec extends FlatSpec with Matchers {
     "0x" + req.data.toHex shouldBe checkedData
     "0x" + req.metaHash.hash.toHex shouldBe checkedMetaHash
     "0x" + req.rootAddr.addr.toHex shouldBe checkedRootAddr
-    "0x" + req.signature.sign.toHex shouldBe checkedSign
+    "0x" + req.signature.signature.toHex shouldBe checkedSign
   }
 }

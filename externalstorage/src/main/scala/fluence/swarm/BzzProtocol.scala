@@ -16,12 +16,10 @@
 
 package fluence.swarm
 
-import scala.language.higherKinds
-import scala.util.control.NoStackTrace
+abstract class BzzProtocol(val protocol: String)
 
-// TODO change this error to errors with hierarchy
-case class SwarmError(message: String, causedBy: Option[Throwable] = None) extends NoStackTrace {
-  override def getMessage: String = message
-
-  override def getCause: Throwable = causedBy getOrElse super.getCause
+object BzzProtocol {
+  case object Bzz extends BzzProtocol("bzz:")
+  case object BzzResource extends BzzProtocol("bzz-resource:")
+  case object BzzRaw extends BzzProtocol("bzz-raw:")
 }

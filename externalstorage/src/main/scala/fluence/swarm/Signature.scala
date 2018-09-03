@@ -1,18 +1,17 @@
 /*
- * Copyright (C) 2018  Fluence Labs Limited
+ * Copyright 2018 Fluence Labs Limited
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package fluence.swarm
@@ -36,26 +35,29 @@ import scala.language.{higherKinds, implicitConversions}
  * It is a sign of `digest`.
  * `digest = H(period|version|rootAddr|metaHash|multihash|data)`
  * Where H() is SHA3.
- * `period` version are encoded as little-endian long
- * `rootAddr` is encoded as a 32 byte array
- * `metaHash` is encoded as a 32 byte array
- * `multihash` is encoded as the least significant bit of a flags byte
- * `data` is the plain data byte array
  * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#mutable-resource-updates
  */
-case class Signature private (sign: ByteVector)
+case class Signature private (signature: ByteVector)
 
 object Signature extends slogging.LazyLogging {
 
   import fluence.swarm.helpers.AttemptOps._
   import SwarmConstants._
 
-  implicit val signatureEncoder: Encoder[Signature] = ByteVectorCodec.encodeByteVector.contramap(_.sign)
+  implicit val signatureEncoder: Encoder[Signature] = ByteVectorCodec.encodeByteVector.contramap(_.signature)
 
   private val codec = short16L :: short16L :: int32L :: int32L :: bytes :: bytes :: bool(8) :: bytes
 
-  private def binaryLength(data: ByteVector): Int = chunkPrefixLength + updateHeaderLength + data.size.toInt
-
+  /**
+   *
+   * @param period is encoded as little-endian long
+   * @param version is encoded as little-endian long
+   * @param rootAddr is encoded as a 32 byte array
+   * @param metaHash is encoded as a 32 byte array
+   * @param multiHash is encoded as the least significant bit of a flags byte
+   * @param data is the plain data byte array
+   * @return Digest signature.
+   */
   def apply[F[_]: Monad](
     period: Int,
     version: Int,
@@ -81,13 +83,18 @@ object Signature extends slogging.LazyLogging {
         )
         .map(_.toByteVector)
         .toEitherT(er => SwarmError(s"Error on encoding signature. ${er.messageWithContext}"))
+
       _ = logger.debug(
         s"Generate signature of period: $period, version: $version, rootAddr: ${rootAddr.addr}," +
           s"metaHash: ${metaHash.hash}, multiHash: $multiHash, data: $data"
       )
+
       digestHash <- hasher(bytes).leftMap(er => SwarmError("Error on hashing signature.", Some(er)))
+
       _ = logger.debug(s"Digest hash on generating signature: $digestHash")
+
       sign <- signer(digestHash).leftMap(er => SwarmError("Error on sign.", Some(er)))
+
       _ = logger.debug(s"Generated sign: $sign")
     } yield Signature(sign)
   }
