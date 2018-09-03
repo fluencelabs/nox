@@ -51,7 +51,7 @@ object MetaHash extends slogging.LazyLogging {
       nameLength <- EitherT.cond(
         name.forall(_.length < 255),
         name.map(_.length).getOrElse(0).toByte,
-        SwarmError("Name too big. Must be < 255")
+        SwarmError("The name is too big. Must be less than 255 symbols.")
       )
       binaryLength = minimumMetadataLength + name.map(_.length).getOrElse(0)
       nameBytes = ByteVector(name.map(_.getBytes).getOrElse(Array.emptyByteArray))

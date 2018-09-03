@@ -25,11 +25,11 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
  * @param contentType type of stored data (tar, multipart, etc)
  * @param mod_time time of modification
  */
-case class Entrie(hash: String, contentType: String, mod_time: String)
+case class Entry(hash: String, contentType: String, mod_time: String)
 
-object Entrie {
-  implicit val fooDecoder: Decoder[Entrie] = deriveDecoder
-  implicit val fooEncoder: Encoder[Entrie] = deriveEncoder
+object Entry {
+  implicit val entryDecoder: Decoder[Entry] = deriveDecoder
+  implicit val entryEncoder: Encoder[Entry] = deriveEncoder
 }
 
 /**
@@ -37,9 +37,9 @@ object Entrie {
  *
  * @param entries list of files under manifest
  */
-case class RawResponse(entries: List[Entrie])
+case class RawResponse(entries: List[Entry])
 
 case object RawResponse {
-  implicit val fooDecoder: Decoder[RawResponse] = deriveDecoder
-  implicit val fooEncoder: Encoder[RawResponse] = deriveEncoder
+  implicit val rawDecoder: Decoder[RawResponse] = deriveDecoder
+  implicit val rawEncoder: Encoder[RawResponse] = deriveEncoder
 }

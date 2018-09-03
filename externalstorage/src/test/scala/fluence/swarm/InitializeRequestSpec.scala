@@ -7,7 +7,7 @@ import org.web3j.crypto.{ECKeyPair, Keys, Sign}
 import scodec.bits.ByteVector
 
 // TODO add more tests
-class SomeSpec extends FlatSpec with Matchers {
+class InitializeRequestSpec extends FlatSpec with Matchers {
 
   implicit val hasher = Keccak256Hasher.hasher
 

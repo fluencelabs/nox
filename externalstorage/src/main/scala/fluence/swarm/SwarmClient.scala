@@ -61,7 +61,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * Generate uri for requests.
    *
    * @param bzzProtocol protocol for requests, e.g. `bzz:/`, `bzz-resource:/`, etc
-   * @param target Hash of resource (file, metadata, manifest) or address from ENS.
+   * @param target hash of resource (file, metadata, manifest) or address from ENS.
    * @param path additional parameters for request
    * @return generated uri
    */
@@ -72,9 +72,9 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
 
   /**
    * Download a file.
-   * @see https://swarm-guide.readthedocs.io/en/latest/usage.html
+   * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
    *
-   * @param target Hash of resource (file, metadata, manifest) or address from ENS.
+   * @param target hash of resource (file, metadata, manifest) or address from ENS.
    *
    */
   def download[T](target: String): EitherT[F, SwarmError, Array[Byte]] = {
@@ -86,7 +86,29 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
       .send()
       .toEitherT(er => SwarmError(s"Error on downloading from $downloadURI. $er"))
       .map { r =>
-        logger.info(s"A resource downladed.")
+        logger.info(s"The resource has been downloaded.")
+        logger.debug(s"Resource size: ${r.length} bytes.")
+        r
+      }
+  }
+
+  /**
+    * Upload a data.
+    * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
+    *
+    * @return hash of resource (address in Swarm)
+    */
+  def upload[T](data: ByteVector): EitherT[F, SwarmError, String] = {
+    val uploadURI = uri(Bzz)
+    logger.info(s"Upload request. Data: $data")
+    sttp
+      .response(asString)
+      .post(uploadURI)
+      .body(data.toArray)
+      .send()
+      .toEitherT(er => SwarmError(s"Error on uploading to $uploadURI. $er"))
+      .map { r =>
+        logger.info(s"The resource has been uploaded.")
         logger.debug(s"Resource size: ${r.length} bytes.")
         r
       }
@@ -113,7 +135,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
           .leftMap(er => SwarmError(s"Deserialization error on request to $downloadURI.", Some(er.error)))
       )
       .map { r =>
-        logger.info(s"A manifest downloaded.")
+        logger.info(s"A manifest has been downloaded.")
         logger.debug(s"A raw manifest response: ${r.asJson}.")
         r
       }
@@ -140,14 +162,14 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
       .send()
       .toEitherT(er => SwarmError(s"Error on downloading raw from $downloadURI. $er"))
       .map { r =>
-        logger.info(s"A mutable resource downladed. Size: ${r.size} bytes.")
+        logger.info(s"A mutable resource has been downladed. Size: ${r.size} bytes.")
         r
       }
   }
 
   /**
-   * Initialize a mutable resource. Upload a metafile with startTime, frequency and name, than upload data.
-   * Period and version sets to 1 for initialization.
+   * Initialize a mutable resource. Upload a metafile with startTime, frequency and name, then upload data.
+   * Period and version are set to 1 for initialization.
    * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#creating-a-mutable-resource
    *
    * @param name optional resource name. You can use any name.
@@ -158,7 +180,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    *                  Setting it in the past allows you to create a history for the resource retroactively.
    * @param ownerAddr Swarm address (Ethereum wallet address)
    * @param data content the Mutable Resource will be initialized with.
-   * @param multiHash is a flag indicating whether the data field should be interpreted as raw data or a multihash.
+   * @param multiHash is a flag indicating whether the data field should be interpreted as a raw data or a multihash.
    *                  TODO There is no implementation of multiHashed data for now.
    * @param signer signature algorithm. Must be ECDSA for real Swarm node.
    * @return hash of metafile. This is the address of mutable resource.
@@ -189,12 +211,12 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
       json = req.asJson
       _ = logger.debug(s"InitializeMutableResourceRequest: $json")
       resp <- sttp
-        .response(asString.map(_.replaceAll("\"", "")))
+        .response(asString.map(_.filter(_ != '"')))
         .post(uri(BzzResource))
         .body(genBody(json))
         .send()
         .toEitherT(er => SwarmError(s"Error on initializing a mutable resource. $er"))
-      _ = logger.info(s"A mutable resource initialized. Hash: $resp")
+      _ = logger.info(s"A mutable resource has been initialized. Hash: $resp")
     } yield resp
   }
 
@@ -228,7 +250,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
       .send()
       .toEitherT(er => SwarmError(s"Error on uploading a mutable resource. $er"))
       .map { r =>
-        logger.info(s"A metafile of a mutable resource uploaded. Hash: $r.")
+        logger.info(s"A metafile of a mutable resource has been uploaded. Hash: $r.")
         r
       }
   }
@@ -290,7 +312,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
           .send()
           .map(_.body)
       ).leftMap(er => SwarmError(s"Error on sending request to $updateURI. $er"))
-      _ = logger.info("A mutable resource updated.")
+      _ = logger.info("A mutable resource has been updated.")
     } yield response
 
   }
