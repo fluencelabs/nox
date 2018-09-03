@@ -81,7 +81,9 @@ lazy val ethclient = (project in file("ethclient"))
     libraryDependencies ++= Seq(
       "org.web3j" % "core" % "3.4.0",
       cats,
-      catsEffect
-    )
+      catsEffect,
+      utest
+    ),
+    setUTestFramework
   )
   .enablePlugins(AutomateHeaderPlugin)
