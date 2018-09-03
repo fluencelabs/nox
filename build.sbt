@@ -4,7 +4,7 @@ import sbt._
 
 import scala.sys.process._
 
-name := "dataengine"
+name := "fluence"
 
 commons
 

@@ -16,8 +16,8 @@ object SbtCommons {
     organizationName          := "Fluence Labs Limited",
     organizationHomepage      := Some(new URL("https://fluence.one")),
     startYear                 := Some(2018),
-    licenses += ("AGPL-3.0", new URL("http://www.gnu.org/licenses/agpl-3.0.en.html")),
-    headerLicense := Some(License.AGPLv3("2018", organizationName.value)),
+    licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
+    headerLicense := Some(License.ALv2("2018", organizationName.value)),
     resolvers += Resolver.bintrayRepo("fluencelabs", "releases"),
     scalafmtOnCompile := true,
     // see good explanation https://gist.github.com/djspiewak/7a81a395c461fd3a09a6941d4cd040f2
