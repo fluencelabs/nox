@@ -16,6 +16,7 @@ initialize := {
 }
 
 /* Projects */
+
 lazy val vm = (project in file("vm"))
   .settings(
     commons,
@@ -74,3 +75,25 @@ lazy val statemachine = (project in file("statemachine"))
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(vm)
+
+lazy val externalstorage = (project in file("externalstorage"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
+      sttp,
+      sttpCirce,
+      sttpCatsBackend,
+      slogging,
+      circeCore,
+      circeGeneric,
+      pureConfig,
+      scodecBits,
+      scodecCore,
+      web3jCrypto,
+      cryptoHashing,
+      scalaTest
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
