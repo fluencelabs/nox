@@ -195,8 +195,13 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
     signer: Signer[ByteVector, ByteVector]
   ): EitherT[F, SwarmError, String] = {
     logger.info(
-      s"Initialize a mutable resource. Name: ${name.getOrElse("<null>")}, fequency: $frequency, startTime: $startTime, " +
-        s"owner: 0x${ownerAddr.toHex}, data: ${data.size} bytes, multiHash: $multiHash"
+      s"Initialize a mutable resource. " +
+        s"Name: ${name.getOrElse("<null>")}, " +
+        s"fequency: $frequency, " +
+        s"startTime: $startTime, " +
+        s"owner: 0x${ownerAddr.toHex}, " +
+        s"data: ${data.size} bytes, " +
+        s"multiHash: $multiHash"
     )
     for {
       req <- InitializeMutableResourceRequest(
@@ -285,9 +290,15 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
     signer: Signer[ByteVector, ByteVector]
   ): EitherT[F, SwarmError, Unit] = {
     logger.info(
-      s"Update a mutable resource. Name: ${name.getOrElse("<null>")}, fequency: $frequency, " +
-        s"startTime: $startTime, owner: 0x${ownerAddr.toHex}, data: ${data.size} bytes, multiHash: $multiHash, " +
-        s"period: $period, version: $version"
+      s"Update a mutable resource. " +
+        s"Name: ${name.getOrElse("<null>")}, " +
+        s"fequency: $frequency, " +
+        s"startTime: $startTime, " +
+        s"owner: 0x${ownerAddr.toHex}, " +
+        s"data: ${data.size} bytes, " +
+        s"multiHash: $multiHash, " +
+        s"period: $period, " +
+        s"version: $version"
     )
     for {
       req <- UpdateMutableResourceRequest(

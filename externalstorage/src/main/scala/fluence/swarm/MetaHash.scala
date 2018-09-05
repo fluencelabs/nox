@@ -39,6 +39,7 @@ object MetaHash extends slogging.LazyLogging {
   import SwarmConstants._
   import fluence.swarm.helpers.AttemptOps._
 
+  // 00 | size | startTime | frequency | nameLength | name
   private val codec = constant(ByteVector(0, 0)) :~>: short16L :: longL(64) :: longL(64) :: byte :: bytes
 
   implicit val metaHashEncoder: Encoder[MetaHash] = ByteVectorCodec.encodeByteVector.contramap(_.hash)
@@ -53,7 +54,7 @@ object MetaHash extends slogging.LazyLogging {
         name.map(_.length).getOrElse(0).toByte,
         SwarmError("The name is too big. Must be less than 255 symbols.")
       )
-      binaryLength = minimumMetadataLength + name.map(_.length).getOrElse(0)
+      binaryLength = minimumMetadataLength + nameLength
       nameBytes = ByteVector(name.map(_.getBytes).getOrElse(Array.emptyByteArray))
       hashSize = (binaryLength - chunkPrefixLength).toShort
       bytes <- codec
@@ -68,9 +69,15 @@ object MetaHash extends slogging.LazyLogging {
         )
         .map(_.toByteVector)
         .toEitherT(er => SwarmError(s"Error on encoding metadata. ${er.messageWithContext}"))
-      hash <- hasher(bytes).leftMap(er => SwarmError("Error on calculating hash for metadata.", Some(er)))
+
+      hash <- hasher(bytes)
+        .leftMap(er => SwarmError("Error on calculating hash for metadata.", Some(er)))
+
       _ = logger.debug(
-        s"Generate metadata hash of name: ${name.getOrElse("<null>")}, startTime: $startTime, frequency: $frequency. " +
+        s"Generate metadata hash of " +
+          s"name: ${name.getOrElse("<null>")}, " +
+          s"startTime: $startTime, " +
+          s"frequency: $frequency. " +
           s"Hash: $hash"
       )
     } yield MetaHash(hash)

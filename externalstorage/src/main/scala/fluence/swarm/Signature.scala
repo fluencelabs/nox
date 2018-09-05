@@ -32,7 +32,7 @@ import scala.language.{higherKinds, implicitConversions}
  * This way, a node that receives an update can check the signature, recover the public address
  * and check the ownership by computing H(ownerAddr, metaHash) and comparing it to the rootAddr
  * the resource is claiming to update without having to lookup the metadata chunk.
- * It is a sign of `digest`.
+ * It is a signature of `digest`.
  * `digest = H(period|version|rootAddr|metaHash|multihash|data)`
  * Where H() is SHA3.
  * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#mutable-resource-updates
@@ -46,6 +46,7 @@ object Signature extends slogging.LazyLogging {
 
   implicit val signatureEncoder: Encoder[Signature] = ByteVectorCodec.encodeByteVector.contramap(_.signature)
 
+  // period | version | rootAddr | metaHash | multihash | data
   private val codec = short16L :: short16L :: int32L :: int32L :: bytes :: bytes :: bool(8) :: bytes
 
   /**
@@ -85,17 +86,20 @@ object Signature extends slogging.LazyLogging {
         .toEitherT(er => SwarmError(s"Error on encoding signature. ${er.messageWithContext}"))
 
       _ = logger.debug(
-        s"Generate signature of period: $period, version: $version, rootAddr: ${rootAddr.addr}," +
-          s"metaHash: ${metaHash.hash}, multiHash: $multiHash, data: $data"
+        s"Generate signature of period: $period, " +
+          s"version: $version, " +
+          s"rootAddr: ${rootAddr.addr}," +
+          s"metaHash: ${metaHash.hash}, " +
+          s"multiHash: $multiHash, data: $data"
       )
 
       digestHash <- hasher(bytes).leftMap(er => SwarmError("Error on hashing signature.", Some(er)))
 
       _ = logger.debug(s"Digest hash on generating signature: $digestHash")
 
-      sign <- signer(digestHash).leftMap(er => SwarmError("Error on sign.", Some(er)))
+      signature <- signer(digestHash).leftMap(er => SwarmError("Error on signing.", Some(er)))
 
-      _ = logger.debug(s"Generated sign: $sign")
-    } yield Signature(sign)
+      _ = logger.debug(s"Generated signature: $signature")
+    } yield Signature(signature)
   }
 }
