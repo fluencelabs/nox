@@ -16,16 +16,43 @@
 
 package fluence.ethclient
 
+import cats.effect.IO
+import cats.effect.concurrent.MVar
 import utest._
 
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
+import cats.instances.future._
+import org.web3j.abi.EventEncoder
+import org.web3j.protocol.core.methods.response.Log
+
 object ContractSpec extends TestSuite {
+
+  override def utestWrap(path: Seq[String], runBody: => Future[Any])(
+    implicit ec: ExecutionContext
+  ): Future[Any] = {
+    runBody
+  }
+
+  private val url = sys.props.get("ethereum.url")
+  private val client = EthClient.makeHttpResource[IO](url).allocate.map(_._1)
+
   val tests = Tests {
     'test1 - {
-      throw new Exception("test1")
+      (for {
+        c <- client
+        event <- MVar.empty[IO, Log]
+        unsubscribe ← c.subscribeToLogsTopic[IO, IO](
+          "0xf93568cdc75b8849f4999bd3c8c6f931a14b258f",
+          EventEncoder.buildEventSignature("NewSolver(bytes32)"),
+          event.put
+        )
+        e <- event.take
+        _ = e ==> e
+        _ = throw new Exception(s"$c test1")
+      } yield ()).unsafeToFuture()
     }
-    'test2 - {
-      1
-    }
+
     'test3 - {
       val a = List[Byte](1, 2)
       a(10)

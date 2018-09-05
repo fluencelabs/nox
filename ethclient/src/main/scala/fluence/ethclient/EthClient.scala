@@ -142,10 +142,12 @@ object EthClient {
 
   /**
    * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.
-   * Uses http://localhost:8545/
+   * @param url optional url, http://localhost:8545/ is used by default
    */
-  def makeHttpResource[F[_]: Functor]()(implicit F: ApplicativeError[F, Throwable]): Resource[F, EthClient] =
-    makeResource(new HttpService())
+  def makeHttpResource[F[_]: Functor](
+    url: Option[String] = None
+  )(implicit F: ApplicativeError[F, Throwable]): Resource[F, EthClient] =
+    makeResource(new HttpService(url.getOrElse(HttpService.DEFAULT_URL)))
 
   /**
    * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.
