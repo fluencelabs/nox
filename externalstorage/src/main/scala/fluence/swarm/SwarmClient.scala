@@ -18,18 +18,17 @@ package fluence.swarm
 
 import cats.Monad
 import cats.data.EitherT
+import cats.syntax.functor._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe._
 import fluence.crypto.Crypto.Hasher
-import scodec.bits.ByteVector
-import io.circe.syntax._
-import cats.syntax.functor._
 import fluence.swarm.crypto.Secp256k1Signer.Signer
 import fluence.swarm.requests._
 import fluence.swarm.responses.Manifest
+import io.circe.syntax._
 import io.circe.{Json, Printer}
+import scodec.bits.ByteVector
 
-import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 // TODO use pureConfig for parameters
@@ -52,8 +51,8 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
   hasher: Hasher[ByteVector, ByteVector]
 ) extends slogging.LazyLogging {
 
-  import fluence.swarm.helpers.ResponseOps._
   import BzzProtocol._
+  import fluence.swarm.helpers.ResponseOps._
 
   // unpretty printer for http requests
   private val printer = Printer.noSpaces.copy(dropNullValues = true)
@@ -133,7 +132,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
       .get(downloadURI)
       .send()
       .toEitherT(er => SwarmError(s"Error on downloading manifest from $downloadURI. $er"))
-      .subflatMap(_.left.map{er =>
+      .subflatMap(_.left.map { er =>
         logger.error(s"Deserialization error: $er")
         SwarmError(s"Deserialization error on request to $downloadURI.", Some(er.error))
       })
@@ -174,13 +173,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * Period and version are set to 1 for initialization.
    * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#creating-a-mutable-resource
    *
-   * @param name optional resource name. You can use any name.
-   * @param frequency expected time interval between updates, in seconds
-   * @param startTime time the resource is valid from, in Unix time (seconds). Set to the current epoch
-   *                  You can also put a startTime in the past or in the future.
-   *                  Setting it in the future will prevent nodes from finding content until the clock hits startTime.
-   *                  Setting it in the past allows you to create a history for the resource retroactively
-   * @param ownerAddr Swarm address (Ethereum wallet address)
+   * @param mutableResourceId parameters that describe the mutable resource and required for searching updates of the mutable resource
    * @param data content the Mutable Resource will be initialized with
    * @param multiHash is a flag indicating whether the data field should be interpreted as a raw data or a multihash
    *                  TODO There is no implementation of multiHashed data for now.
@@ -188,29 +181,20 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * @return hash of metafile. This is the address of mutable resource
    */
   def initializeMutableResource(
-    name: Option[String],
-    frequency: FiniteDuration,
-    startTime: FiniteDuration,
-    ownerAddr: ByteVector,
+    mutableResourceId: MutableResourceIdentifier,
     data: ByteVector,
     multiHash: Boolean,
     signer: Signer[ByteVector, ByteVector]
   ): EitherT[F, SwarmError, String] = {
     logger.info(
       s"Initialize a mutable resource. " +
-        s"Name: ${name.getOrElse("<null>")}, " +
-        s"fequency: $frequency, " +
-        s"startTime: $startTime, " +
-        s"owner: 0x${ownerAddr.toHex}, " +
-        s"data: ${data.size} bytes, " +
+        mutableResourceId.toString +
+        s", data: ${data.size} bytes, " +
         s"multiHash: $multiHash"
     )
     for {
       req <- InitializeMutableResourceRequest(
-        name,
-        frequency,
-        startTime,
-        ownerAddr,
+        mutableResourceId,
         data,
         multiHash,
         signer
@@ -231,23 +215,14 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * Upload a metafile for future use.
    * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#creating-a-mutable-resource
    *
-   * @param name optional resource name. You can use any name.
-   * @param frequency expected time interval between updates, in seconds
-   * @param startTime time the resource is valid from, in Unix time (seconds). Set to the current epoch
-   *                  You can also put a startTime in the past or in the future.
-   *                  Setting it in the future will prevent nodes from finding content until the clock hits startTime.
-   *                  Setting it in the past allows you to create a history for the resource retroactively
-   * @param ownerAddr Swarm address (Ethereum wallet address)
+   * @param mutableResourceId parameters that describe the mutable resource and required for searching updates of the mutable resource
    * @return hash of metafile. This is the address of mutable resource
    */
   def uploadMutableResource(
-    name: Option[String],
-    frequency: FiniteDuration,
-    startTime: FiniteDuration,
-    ownerAddr: ByteVector
+    mutableResourceId: MutableResourceIdentifier
   ): EitherT[F, SwarmError, String] = {
 
-    val req = UploadMutableResourceRequest(name, frequency, startTime, ownerAddr)
+    val req = UploadMutableResourceRequest(mutableResourceId)
     val json = req.asJson
     logger.debug(s"UpdateMutableResourceRequest: $json")
     sttp
@@ -266,13 +241,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * Update a mutable resource.
    * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#updating-a-mutable-resource
    *
-   * @param name optional resource name. You can use any name
-   * @param frequency expected time interval between updates, in seconds
-   * @param startTime time the resource is valid from, in Unix time (seconds). Set to the current epoch
-   *                  You can also put a startTime in the past or in the future.
-   *                  Setting it in the future will prevent nodes from finding content until the clock hits startTime.
-   *                  Setting it in the past allows you to create a history for the resource retroactively
-   * @param ownerAddr Swarm address (Ethereum wallet address)
+   * @param mutableResourceId parameters that describe the mutable resource and required for searching updates of the mutable resource
    * @param data content the Mutable Resource will be initialized with
    * @param multiHash is a flag indicating whether the data field should be interpreted as raw data or a multihash
    *                  TODO There is no implementation of multiHashed data for now.
@@ -281,10 +250,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * @param signer signature algorithm. Must be ECDSA for real Swarm node
    */
   def updateMutableResource(
-    name: Option[String],
-    frequency: FiniteDuration,
-    startTime: FiniteDuration,
-    ownerAddr: ByteVector,
+    mutableResourceId: MutableResourceIdentifier,
     data: ByteVector,
     multiHash: Boolean,
     period: Int,
@@ -293,10 +259,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
   ): EitherT[F, SwarmError, Unit] = {
     logger.info(
       s"Update a mutable resource. " +
-        s"Name: ${name.getOrElse("<null>")}, " +
-        s"fequency: $frequency, " +
-        s"startTime: $startTime, " +
-        s"owner: 0x${ownerAddr.toHex}, " +
+        s"$mutableResourceId, " +
         s"data: ${data.size} bytes, " +
         s"multiHash: $multiHash, " +
         s"period: $period, " +
@@ -304,10 +267,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
     )
     for {
       req <- UpdateMutableResourceRequest(
-        name,
-        frequency,
-        startTime,
-        ownerAddr,
+        mutableResourceId,
         data,
         multiHash,
         period,

@@ -21,7 +21,7 @@ import cats.data.EitherT
 import fluence.crypto.Crypto.Hasher
 import fluence.swarm.crypto.Secp256k1Signer.Signer
 import fluence.swarm._
-import fluence.swarm.meta.{MetaHash, RootAddr, Signature}
+import fluence.swarm.meta.{MetaHash, Metadata, RootAddr, Signature}
 import io.circe.Encoder
 import io.circe.generic.semiauto._
 import scodec.bits.ByteVector
@@ -70,22 +70,19 @@ object InitializeMutableResourceRequest {
   implicit val initializeRequestEncoder: Encoder[InitializeMutableResourceRequest] = deriveEncoder
 
   def apply[F[_]: Monad](
-    name: Option[String],
-    frequency: FiniteDuration,
-    startTime: FiniteDuration,
-    ownerAddr: ByteVector,
+    id: MutableResourceIdentifier,
     data: ByteVector,
     multiHash: Boolean,
     signer: Signer[ByteVector, ByteVector]
   )(implicit hasher: Hasher[ByteVector, ByteVector]): EitherT[F, SwarmError, InitializeMutableResourceRequest] = {
     for {
-      metaData <- Metadata.generateMetadata(name, startTime, frequency, 1, 1, multiHash, data, ownerAddr, signer)
+      metaData <- Metadata.generateMetadata(id, 1, 1, multiHash, data, signer)
       Metadata(metaHash, rootAddr, signature) = metaData
     } yield
       InitializeMutableResourceRequest(
-        name,
-        frequency.toSeconds,
-        startTime.toSeconds,
+        id.name,
+        id.frequency.toSeconds,
+        id.startTime.toSeconds,
         rootAddr,
         data,
         multiHash,
@@ -93,7 +90,7 @@ object InitializeMutableResourceRequest {
         1,
         signature,
         metaHash,
-        ownerAddr
+        id.ownerAddr
       )
   }
 }

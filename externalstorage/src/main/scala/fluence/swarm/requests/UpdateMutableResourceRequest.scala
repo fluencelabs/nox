@@ -21,7 +21,7 @@ import cats.data.EitherT
 import fluence.crypto.Crypto.Hasher
 import fluence.swarm.crypto.Secp256k1Signer.Signer
 import fluence.swarm._
-import fluence.swarm.meta.{MetaHash, RootAddr, Signature}
+import fluence.swarm.meta.{MetaHash, Metadata, RootAddr, Signature}
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 import scodec.bits.ByteVector
@@ -59,10 +59,7 @@ object UpdateMutableResourceRequest {
   implicit val updateRequestEncoder: Encoder[UpdateMutableResourceRequest] = deriveEncoder
 
   def apply[F[_]: Monad](
-    name: Option[String],
-    frequency: FiniteDuration,
-    startTime: FiniteDuration,
-    ownerAddr: ByteVector,
+    id: MutableResourceIdentifier,
     data: ByteVector,
     multiHash: Boolean,
     period: Int,
@@ -71,7 +68,7 @@ object UpdateMutableResourceRequest {
   )(implicit hasher: Hasher[ByteVector, ByteVector]): EitherT[F, SwarmError, UpdateMutableResourceRequest] = {
     for {
       metaData <- Metadata
-        .generateMetadata(name, startTime, frequency, period, version, multiHash, data, ownerAddr, signer)
+        .generateMetadata(id, period, version, multiHash, data, signer)
       Metadata(metaHash, rootAddr, signature) = metaData
     } yield UpdateMutableResourceRequest(rootAddr, metaHash, period, version, data, multiHash, signature)
 

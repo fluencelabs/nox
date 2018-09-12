@@ -20,7 +20,7 @@ import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.Crypto.Hasher
 import fluence.swarm.helpers.ByteVectorJsonCodec
-import fluence.swarm.{SwarmConstants, SwarmError}
+import fluence.swarm.{MutableResourceIdentifier, SwarmConstants, SwarmError}
 import io.circe.Encoder
 import scodec.bits.ByteVector
 import scodec.codecs.{bytes, constant, longL, _}
@@ -49,31 +49,31 @@ object MetaHash extends slogging.LazyLogging {
 
   /**
    *
-   * @param startTime time the resource is valid from, in Unix time (seconds). Set to the current epoch
-   * @param frequency expected time interval between updates, in seconds
-   * @param name resource name. This is a user field. It can be any name
+   * @param id parameters that describe the mutable resource and required for searching updates of the mutable resource
    * @return generated hash from the input
    */
-  def apply[F[_]](startTime: FiniteDuration, frequency: FiniteDuration, name: Option[String])(
+  def apply[F[_]](id: MutableResourceIdentifier)(
     implicit F: Monad[F],
     hasher: Hasher[ByteVector, ByteVector]
   ): EitherT[F, SwarmError, MetaHash] =
     for {
       nameLength <- EitherT.cond(
-        name.forall(_.length < 255),
-        name.map(_.length).getOrElse(0).toByte,
-        SwarmError("Cannot generate meta hash. The name is too big. Must be less than 255 symbols.\n" +
-          s"Input: $startTime, frequency: $frequency, name: $name")
+        id.name.forall(_.length < 255),
+        id.name.map(_.length).getOrElse(0).toByte,
+        SwarmError(
+          "Cannot generate meta hash. The name is too big. Must be less than 255 symbols.\n" +
+            s"Input: $id"
+        )
       )
       binaryLength = MinimumMetadataLength + nameLength
-      nameBytes = ByteVector(name.map(_.getBytes).getOrElse(Array.emptyByteArray))
+      nameBytes = ByteVector(id.name.map(_.getBytes).getOrElse(Array.emptyByteArray))
       hashSize = (binaryLength - ChunkPrefixLength).toShort
       bytes <- codec
         .encode(
           HList(
             hashSize,
-            startTime.toSeconds,
-            frequency.toSeconds,
+            id.startTime.toSeconds,
+            id.frequency.toSeconds,
             nameLength,
             nameBytes
           )
@@ -86,10 +86,8 @@ object MetaHash extends slogging.LazyLogging {
 
       _ = logger.debug(
         s"Generate metadata hash of " +
-          s"name: ${name.getOrElse("<null>")}, " +
-          s"startTime: $startTime, " +
-          s"frequency: $frequency. " +
-          s"Hash: $hash"
+          id.toString +
+          s", Hash: $hash"
       )
     } yield MetaHash(hash)
 }

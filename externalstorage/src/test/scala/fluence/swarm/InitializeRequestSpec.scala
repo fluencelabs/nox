@@ -27,6 +27,8 @@ class InitializeRequestSpec extends FlatSpec with Matchers {
 
     val ethAddress = ByteVector.fromValidHex(Keys.getAddress(someKP))
 
+    val id = MutableResourceIdentifier(Some(name), frequency, time, ethAddress)
+
     val data = ByteVector("This hour's update: Swarm 99.0 has been released!".getBytes)
 
     val checkedRootAddr = "0x6e744a730f7ea0881528576f0354b6268b98e35a6981ef703153ff1b8d32bbef"
@@ -34,7 +36,7 @@ class InitializeRequestSpec extends FlatSpec with Matchers {
     val checkedData = "0x5468697320686f75722773207570646174653a20537761726d2039392e3020686173206265656e2072656c656173656421"
     val checkedSign = "0x8adc0dc4dd464f874da5f524ed0a2ebac02185fed3e862cc130d3514ffb570f470abebbbb4ec3d96397fc46c5f87def63f56db7b4199e51a9caabda4ef6899f100"
 
-    val req = InitializeMutableResourceRequest(Some(name), frequency, time, ethAddress, data, false, signer).value.right.get
+    val req = InitializeMutableResourceRequest(id, data, false, signer).value.right.get
 
     "0x" + req.data.toHex shouldBe checkedData
     "0x" + req.metaHash.hash.toHex shouldBe checkedMetaHash

@@ -47,30 +47,24 @@ object Metadata {
   /**
    * Generate metadata from input. Metadata required to identify and ascertain ownership of the uploadable resource.
    *
-   * @param name resource name. This is a user field. It can be any name
-   * @param startTime time the resource is valid from, in Unix time (seconds). Set to the current epoch
-   * @param frequency expected time interval between updates, in seconds
+   * @param id parameters that describe the mutable resource and required for searching updates of the mutable resource
    * @param period indicates for what period we are signing
    * @param version indicates what resource version of the period we are signing
    * @param multiHash is a flag indicating whether the data field should be interpreted as raw data or a multihash
    * @param data content the Mutable Resource will be initialized with
-   * @param ownerAddr Swarm address (Ethereum wallet address)
    * @return aggregated metadata
    */
   def generateMetadata[F[_]: Monad](
-    name: Option[String],
-    startTime: FiniteDuration,
-    frequency: FiniteDuration,
+    id: MutableResourceIdentifier,
     period: Int,
     version: Int,
     multiHash: Boolean,
     data: ByteVector,
-    ownerAddr: ByteVector,
     signer: Signer[ByteVector, ByteVector]
   )(implicit hasher: Hasher[ByteVector, ByteVector]): EitherT[F, SwarmError, Metadata] =
     for {
-      metaHash <- MetaHash(startTime, frequency, name)
-      rootAddr <- RootAddr(metaHash, ownerAddr)
+      metaHash <- MetaHash(id)
+      rootAddr <- RootAddr(metaHash, id.ownerAddr)
       signature <- Signature(period, version, rootAddr, metaHash, multiHash, data, signer)
     } yield Metadata(metaHash, rootAddr, signature)
 

@@ -16,6 +16,7 @@
 
 package fluence.swarm.requests
 
+import fluence.swarm.MutableResourceIdentifier
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 import scodec.bits.ByteVector
@@ -40,12 +41,10 @@ object UploadMutableResourceRequest {
   import fluence.swarm.helpers.ByteVectorJsonCodec._
 
   implicit val uploadRequestEncoder: Encoder[UploadMutableResourceRequest] = deriveEncoder
-  
+
   def apply(
-    name: Option[String],
-    frequency: FiniteDuration,
-    startTime: FiniteDuration,
-    ownerAddr: ByteVector
-  ): UploadMutableResourceRequest = new UploadMutableResourceRequest(name, frequency.toSeconds, startTime.toSeconds, ownerAddr)
+    id: MutableResourceIdentifier
+  ): UploadMutableResourceRequest =
+    UploadMutableResourceRequest(id.name, id.frequency.toSeconds, id.startTime.toSeconds, id.ownerAddr)
 
 }

@@ -40,10 +40,11 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
 
     val frequency = 300 seconds
     val time = 1528900000 seconds
+    val id = MutableResourceIdentifier(longName, frequency, time, ethAddress)
     val data = ByteVector.apply(1, 2, 3)
 
     val result =
-      api.initializeMutableResource(longName, frequency, time, ethAddress, data, false, signer).value.unsafeRunSync()
+      api.initializeMutableResource(id, data, false, signer).value.unsafeRunSync()
 
     result.left.map(_.message).left.value should include("The name is too big")
   }
@@ -54,10 +55,11 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
 
     val frequency = 300 seconds
     val time = 1528900000L seconds
+    val id = MutableResourceIdentifier(name, frequency, time, ethAddress)
     val data = ByteVector(1, 2, 3)
 
     val result =
-      api.initializeMutableResource(name, frequency, time, ethAddress, data, false, signer).value.unsafeRunSync()
+      api.initializeMutableResource(id, data, false, signer).value.unsafeRunSync()
 
     result should be('right)
   }
@@ -68,10 +70,11 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
 
     val frequency = 300 seconds
     val time = 1528900000L seconds
+    val id = MutableResourceIdentifier(name, frequency, time, ethAddress)
     val data = ByteVector(1, 2, 3)
 
     val result =
-      api.initializeMutableResource(name, frequency, time, ethAddress, data, false, signer).value.unsafeRunSync()
+      api.initializeMutableResource(id, data, false, signer).value.unsafeRunSync()
 
     result should be('right)
   }
@@ -100,10 +103,12 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
     val dataBytes2 = rnd.nextString(12).getBytes
     val data2 = ByteVector(dataBytes2)
 
-    val process = for {
-      mruAddress <- api.initializeMutableResource(name, frequency, time, ethAddress, data1, false, signer)
+    val id = MutableResourceIdentifier(name, frequency, time, ethAddress)
 
-      _ <- api.updateMutableResource(name, frequency, time, ethAddress, data2, false, 1, 2, signer)
+    val process = for {
+      mruAddress <- api.initializeMutableResource(id, data1, false, signer)
+
+      _ <- api.updateMutableResource(id, data2, false, 1, 2, signer)
 
       mruManifest <- api.downloadRaw(mruAddress)
       _ = mruManifest.entries.size should be(1)
