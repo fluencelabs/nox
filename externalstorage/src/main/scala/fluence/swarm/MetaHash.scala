@@ -24,10 +24,11 @@ import scodec.codecs.{bytes, constant, longL}
 import shapeless.HList
 import scodec.codecs._
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 /**
- * MetaHash helps to identify and ascertain ownership of this resource.
+ * MetaHash required to identify and ascertain ownership of the uploadable resource.
  * We compute it as `metaHash = H(00|size|startTime|frequency|nameLength|name)`.
  * Where H() is SHA3.
  * @see [[fluence.swarm.Signature]]
@@ -42,9 +43,16 @@ object MetaHash extends slogging.LazyLogging {
   // 00 | size | startTime | frequency | nameLength | name
   private val codec = constant(ByteVector(0, 0)) :~>: short16L :: longL(64) :: longL(64) :: byte :: bytes
 
-  implicit val metaHashEncoder: Encoder[MetaHash] = ByteVectorCodec.encodeByteVector.contramap(_.hash)
+  implicit val metaHashEncoder: Encoder[MetaHash] = ByteVectorJsonCodec.encodeByteVector.contramap(_.hash)
 
-  def apply[F[_]](startTime: Long, frequency: Long, name: Option[String])(
+  /**
+   *
+   * @param startTime time the resource is valid from, in Unix time (seconds). Set to the current epoch
+   * @param frequency expected time interval between updates, in seconds
+   * @param name resource name. This is a user field. It can be any name
+   * @return generated hash from the input
+   */
+  def apply[F[_]](startTime: FiniteDuration, frequency: FiniteDuration, name: Option[String])(
     implicit F: Monad[F],
     hasher: Hasher[ByteVector, ByteVector]
   ): EitherT[F, SwarmError, MetaHash] =
@@ -52,17 +60,18 @@ object MetaHash extends slogging.LazyLogging {
       nameLength <- EitherT.cond(
         name.forall(_.length < 255),
         name.map(_.length).getOrElse(0).toByte,
-        SwarmError("The name is too big. Must be less than 255 symbols.")
+        SwarmError("Cannot generate meta hash. The name is too big. Must be less than 255 symbols.\n" +
+          s"Input: $startTime, frequency: $frequency, name: $name")
       )
-      binaryLength = minimumMetadataLength + nameLength
+      binaryLength = MinimumMetadataLength + nameLength
       nameBytes = ByteVector(name.map(_.getBytes).getOrElse(Array.emptyByteArray))
-      hashSize = (binaryLength - chunkPrefixLength).toShort
+      hashSize = (binaryLength - ChunkPrefixLength).toShort
       bytes <- codec
         .encode(
           HList(
             hashSize,
-            startTime,
-            frequency,
+            startTime.toSeconds,
+            frequency.toSeconds,
             nameLength,
             nameBytes
           )

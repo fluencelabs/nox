@@ -19,12 +19,13 @@ package fluence.swarm.requests
 import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.Crypto.Hasher
-import fluence.swarm.ECDSASigner.Signer
+import fluence.swarm.Secp256k1Signer.Signer
 import fluence.swarm._
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 import scodec.bits.ByteVector
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 /**
@@ -32,8 +33,8 @@ import scala.language.higherKinds
  *
  * @param rootAddr H(ownerAddr, metaHash), where H is SHA-3 algorithm
  * @param metaHash H(size|startTime|frequency|nameLength|name), where H is SHA-3 algorithm
- * @param period Indicates for what period we are signing.
- * @param version Indicates what resource version of the period we are signing.
+ * @param period indicates for what period we are signing
+ * @param version indicates what resource version of the period we are signing
  * @param data content the Mutable Resource will be initialized with
  * @param multiHash is a flag indicating whether the data field should be interpreted as raw data or a multihash
  * @param signature signature used to prove the owner's identity
@@ -52,14 +53,14 @@ object UpdateMutableResourceRequest {
   import MetaHash._
   import RootAddr._
   import Signature._
-  import ByteVectorCodec._
+  import ByteVectorJsonCodec._
 
   implicit val updateRequestEncoder: Encoder[UpdateMutableResourceRequest] = deriveEncoder
 
   def apply[F[_]: Monad](
     name: Option[String],
-    frequency: Long,
-    startTime: Long,
+    frequency: FiniteDuration,
+    startTime: FiniteDuration,
     ownerAddr: ByteVector,
     data: ByteVector,
     multiHash: Boolean,

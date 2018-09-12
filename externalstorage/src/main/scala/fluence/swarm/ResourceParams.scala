@@ -18,6 +18,8 @@ package fluence.swarm
 
 /**
  * Parameters for the address when requesting the download of mutable resources.
+ * Select between the download concrete period and the version or download only the metafile.
+ * @see [[SwarmClient.downloadMutableResource()]]
  */
 sealed trait DownloadResourceParam {
   def toParams: Seq[String]

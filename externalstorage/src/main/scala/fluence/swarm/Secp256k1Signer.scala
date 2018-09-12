@@ -21,14 +21,20 @@ import scodec.bits.ByteVector
 
 import scala.util.Try
 
-object ECDSASigner {
+/**
+ * Default signing logic adapted from the BitcoinJ ECKey.
+ * @see https://github.com/bitcoinj/bitcoinj/blob/master/core/src/main/java/org/bitcoinj/core/ECKey.java
+ */
+private[swarm] object Secp256k1Signer {
 
   type Signer[A, B] = Crypto.Func[A, B]
 
   import fluence.swarm.helpers.SignatureDataOps._
 
   /**
-   * Default sign algorithm in Swarm.
+   * Arrow from plain bytes to signed bytes.
+   *
+   * @param kp elliptic Curve SECP-256k1 generated key pair
    */
   def signer(kp: ECKeyPair): Signer[ByteVector, ByteVector] =
     Crypto.liftFuncEither(
@@ -36,6 +42,6 @@ object ECDSASigner {
         Try {
           val signData = Sign.signMessage(bytes.toArray, kp, false)
           ByteVector(signData.toByteArray)
-        }.toEither.left.map(err ⇒ CryptoError(s"Unexpected error when signing by ECDSA alghorithm.", Some(err)))
+        }.toEither.left.map(err ⇒ CryptoError(s"Unexpected error when signing by ECDSA algorithm.", Some(err)))
     )
 }

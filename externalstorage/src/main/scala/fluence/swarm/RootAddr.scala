@@ -24,7 +24,7 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 
 /**
- * RootAddr helps to identify and ascertain ownership of this resource.
+ * RootAddr required to identify and ascertain ownership of the uploadable resource.
  * We compute it as `rootAddr = H(ownerAddr, metaHash)`.
  * Where H() is SHA3.
  * @see [[fluence.swarm.Signature]]
@@ -33,8 +33,17 @@ import scala.language.higherKinds
 case class RootAddr private (addr: ByteVector)
 
 object RootAddr extends slogging.LazyLogging {
-  implicit val rootAddrEncoder: Encoder[RootAddr] = ByteVectorCodec.encodeByteVector.contramap(_.addr)
+  implicit val rootAddrEncoder: Encoder[RootAddr] = ByteVectorJsonCodec.encodeByteVector.contramap(_.addr)
 
+  /**
+    * Generate [[RootAddr]] from metaHash and ownerAddr.
+    *
+    * @param metaHash required to identify and ascertain ownership of the uploadable resource
+    *                 metaHash = H(00|size|startTime|frequency|nameLength|name)
+    *                 @see [[MetaHash]]
+    * @param ownerAddr Swarm address (Ethereum wallet address)
+    * @return generated rootAddr
+    */
   def apply[F[_]: Monad](metaHash: MetaHash, ownerAddr: ByteVector)(
     implicit hasher: Hasher[ByteVector, ByteVector]
   ): EitherT[F, SwarmError, RootAddr] =

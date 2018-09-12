@@ -24,11 +24,12 @@ import fluence.crypto.Crypto.Hasher
 import scodec.bits.ByteVector
 import io.circe.syntax._
 import cats.syntax.functor._
-import fluence.swarm.ECDSASigner.Signer
+import fluence.swarm.Secp256k1Signer.Signer
 import fluence.swarm.requests._
-import fluence.swarm.responses.RawResponse
+import fluence.swarm.responses.Manifest
 import io.circe.{Json, Printer}
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 // TODO use pureConfig for parameters
@@ -41,7 +42,10 @@ import scala.language.higherKinds
  *
  * @param host address of trusted swarm node
  * @param port port of trusted swarm node
- * @param hasher hashing algorithm. Must be Keccak SHA-3 algorithm for real Swarm node.
+ * @param hasher hashing algorithm. Must be Keccak SHA-3 algorithm for real Swarm node or another for test purposes
+ *               @see https://en.wikipedia.org/wiki/SHA-3
+ * @param sttpBackend way to represent the backend implementation.
+ *                    Can be sync or async, with effects or not depending on the `F`
  */
 class SwarmClient[F[_]: Monad](host: String, port: Int)(
   implicit sttpBackend: SttpBackend[F, Nothing],
@@ -55,7 +59,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
   private val printer = Printer.noSpaces.copy(dropNullValues = true)
 
   // generate body from json for http requests
-  private def genBody(json: Json) = printer.pretty(json).getBytes
+  private def jsonToBytes(json: Json) = printer.pretty(json).getBytes
 
   /**
    * Generate uri for requests.
@@ -77,7 +81,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * @param target hash of resource (file, metadata, manifest) or address from ENS.
    *
    */
-  def download[T](target: String): EitherT[F, SwarmError, Array[Byte]] = {
+  def download(target: String): EitherT[F, SwarmError, Array[Byte]] = {
     val downloadURI = uri(Bzz, target)
     logger.info(s"Download request. Target: $target")
     sttp
@@ -98,7 +102,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    *
    * @return hash of resource (address in Swarm)
    */
-  def upload[T](data: ByteVector): EitherT[F, SwarmError, String] = {
+  def upload(data: ByteVector): EitherT[F, SwarmError, String] = {
     val uploadURI = uri(Bzz)
     logger.info(s"Upload request. Data: $data")
     sttp
@@ -118,22 +122,21 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * Download a manifest directly.
    * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#manifests
    *
-   * @param target Hash of resource (file, metadata, manifest) or address from ENS.
+   * @param target hash of resource (file, metadata, manifest) or address from ENS
    *
    */
-  def downloadRaw[T](target: String): EitherT[F, SwarmError, RawResponse] = {
+  def downloadRaw[T](target: String): EitherT[F, SwarmError, Manifest] = {
     val downloadURI = uri(BzzRaw, target)
     logger.info(s"Download manifest request. Target: $target")
     sttp
-      .response(asJson[RawResponse])
+      .response(asJson[Manifest])
       .get(downloadURI)
       .send()
       .toEitherT(er => SwarmError(s"Error on downloading manifest from $downloadURI. $er"))
-      .flatMap(
-        EitherT
-          .fromEither(_)
-          .leftMap(er => SwarmError(s"Deserialization error on request to $downloadURI.", Some(er.error)))
-      )
+      .subflatMap(_.left.map{er =>
+        logger.error(s"Deserialization error: $er")
+        SwarmError(s"Deserialization error on request to $downloadURI.", Some(er.error))
+      })
       .map { r =>
         logger.info(s"A manifest has been downloaded.")
         logger.debug(s"A raw manifest response: ${r.asJson}.")
@@ -145,19 +148,18 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * Retrieve a mutable resource.
    * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#retrieving-a-mutable-resource
    *
-   * @param target Hash of resource (file, metadata, manifest) or address from ENS.
-   * @param param Optional parameter (download concrete period or version or download the only metafile) for download.
-   * @return Stored file or error if the file doesn't exist.
-   *
+   * @param target hash of resource (file, metadata, manifest) or address from ENS
+   * @param param optional parameter (download concrete period or version or download the only metafile) for download
+   * @return stored file or error if the file doesn't exist
    */
-  def downloadMRU(
+  def downloadMutableResource(
     target: String,
     param: Option[DownloadResourceParam]
-  ): EitherT[F, SwarmError, Array[Byte]] = {
+  ): EitherT[F, SwarmError, ByteVector] = {
     val downloadURI = uri(BzzResource, target, param.map(_.toParams).getOrElse(Nil))
     logger.info(s"Download a mutable resource request. Target: $target, param: ${param.getOrElse("<null>")}")
     sttp
-      .response(asByteArray)
+      .response(asByteArray.map(ByteVector(_)))
       .get(downloadURI)
       .send()
       .toEitherT(er => SwarmError(s"Error on downloading raw from $downloadURI. $er"))
@@ -177,18 +179,18 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * @param startTime time the resource is valid from, in Unix time (seconds). Set to the current epoch
    *                  You can also put a startTime in the past or in the future.
    *                  Setting it in the future will prevent nodes from finding content until the clock hits startTime.
-   *                  Setting it in the past allows you to create a history for the resource retroactively.
+   *                  Setting it in the past allows you to create a history for the resource retroactively
    * @param ownerAddr Swarm address (Ethereum wallet address)
-   * @param data content the Mutable Resource will be initialized with.
-   * @param multiHash is a flag indicating whether the data field should be interpreted as a raw data or a multihash.
+   * @param data content the Mutable Resource will be initialized with
+   * @param multiHash is a flag indicating whether the data field should be interpreted as a raw data or a multihash
    *                  TODO There is no implementation of multiHashed data for now.
-   * @param signer signature algorithm. Must be ECDSA for real Swarm node.
-   * @return hash of metafile. This is the address of mutable resource.
+   * @param signer signature algorithm. Must be ECDSA for real Swarm node
+   * @return hash of metafile. This is the address of mutable resource
    */
-  def initializeMRU(
+  def initializeMutableResource(
     name: Option[String],
-    frequency: Long,
-    startTime: Long,
+    frequency: FiniteDuration,
+    startTime: FiniteDuration,
     ownerAddr: ByteVector,
     data: ByteVector,
     multiHash: Boolean,
@@ -218,7 +220,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
       resp <- sttp
         .response(asString.map(_.filter(_ != '"')))
         .post(uri(BzzResource))
-        .body(genBody(json))
+        .body(jsonToBytes(json))
         .send()
         .toEitherT(er => SwarmError(s"Error on initializing a mutable resource. $er"))
       _ = logger.info(s"A mutable resource has been initialized. Hash: $resp")
@@ -234,14 +236,14 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * @param startTime time the resource is valid from, in Unix time (seconds). Set to the current epoch
    *                  You can also put a startTime in the past or in the future.
    *                  Setting it in the future will prevent nodes from finding content until the clock hits startTime.
-   *                  Setting it in the past allows you to create a history for the resource retroactively.
+   *                  Setting it in the past allows you to create a history for the resource retroactively
    * @param ownerAddr Swarm address (Ethereum wallet address)
-   * @return hash of metafile. This is the address of mutable resource.
+   * @return hash of metafile. This is the address of mutable resource
    */
-  def uploadMRU(
+  def uploadMutableResource(
     name: Option[String],
-    frequency: Long,
-    startTime: Long,
+    frequency: FiniteDuration,
+    startTime: FiniteDuration,
     ownerAddr: ByteVector
   ): EitherT[F, SwarmError, String] = {
 
@@ -251,7 +253,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
     sttp
       .post(uri(BzzResource))
       .response(asString)
-      .body(genBody(req.asJson))
+      .body(jsonToBytes(req.asJson))
       .send()
       .toEitherT(er => SwarmError(s"Error on uploading a mutable resource. $er"))
       .map { r =>
@@ -264,24 +266,24 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * Update a mutable resource.
    * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#updating-a-mutable-resource
    *
-   * @param name optional resource name. You can use any name.
+   * @param name optional resource name. You can use any name
    * @param frequency expected time interval between updates, in seconds
    * @param startTime time the resource is valid from, in Unix time (seconds). Set to the current epoch
    *                  You can also put a startTime in the past or in the future.
    *                  Setting it in the future will prevent nodes from finding content until the clock hits startTime.
-   *                  Setting it in the past allows you to create a history for the resource retroactively.
+   *                  Setting it in the past allows you to create a history for the resource retroactively
    * @param ownerAddr Swarm address (Ethereum wallet address)
    * @param data content the Mutable Resource will be initialized with
-   * @param multiHash is a flag indicating whether the data field should be interpreted as raw data or a multihash.
+   * @param multiHash is a flag indicating whether the data field should be interpreted as raw data or a multihash
    *                  TODO There is no implementation of multiHashed data for now.
-   * @param period Indicates for what period we are signing. Depending on the current time, startTime and frequency.
-   * @param version Indicates what resource version of the period we are signing.
-   * @param signer signature algorithm. Must be ECDSA for real Swarm node.
+   * @param period indicates for what period we are signing. Depending on the current time, startTime and frequency
+   * @param version indicates what resource version of the period we are signing
+   * @param signer signature algorithm. Must be ECDSA for real Swarm node
    */
-  def updateMRU(
+  def updateMutableResource(
     name: Option[String],
-    frequency: Long,
-    startTime: Long,
+    frequency: FiniteDuration,
+    startTime: FiniteDuration,
     ownerAddr: ByteVector,
     data: ByteVector,
     multiHash: Boolean,
@@ -319,7 +321,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
         sttp
           .response(ignore)
           .post(updateURI)
-          .body(genBody(json))
+          .body(jsonToBytes(json))
           .send()
           .map(_.body)
       ).leftMap(er => SwarmError(s"Error on sending request to $updateURI. $er"))

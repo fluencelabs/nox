@@ -18,7 +18,7 @@ package fluence.swarm
 import cats.{Id, Monad}
 import cats.data.EitherT
 import fluence.crypto.Crypto.Hasher
-import fluence.swarm.ECDSASigner.Signer
+import fluence.swarm.Secp256k1Signer.Signer
 import io.circe.Encoder
 import scodec.bits.ByteVector
 import scodec.codecs._
@@ -27,7 +27,7 @@ import shapeless.HList
 import scala.language.{higherKinds, implicitConversions}
 
 /**
- * Signature helps to identify and ascertain ownership of this resource.
+ * Signature required to identify and ascertain ownership of the uploadable resource.
  * Update chunks must carry a rootAddr reference and metaHash in order to be verified.
  * This way, a node that receives an update can check the signature, recover the public address
  * and check the ownership by computing H(ownerAddr, metaHash) and comparing it to the rootAddr
@@ -44,20 +44,19 @@ object Signature extends slogging.LazyLogging {
   import fluence.swarm.helpers.AttemptOps._
   import SwarmConstants._
 
-  implicit val signatureEncoder: Encoder[Signature] = ByteVectorCodec.encodeByteVector.contramap(_.signature)
+  implicit val signatureEncoder: Encoder[Signature] = ByteVectorJsonCodec.encodeByteVector.contramap(_.signature)
 
   // period | version | rootAddr | metaHash | multihash | data
   private val codec = short16L :: short16L :: int32L :: int32L :: bytes :: bytes :: bool(8) :: bytes
 
   /**
-   *
-   * @param period is encoded as little-endian long
-   * @param version is encoded as little-endian long
-   * @param rootAddr is encoded as a 32 byte array
-   * @param metaHash is encoded as a 32 byte array
+   * @param period indicates for what period we are signing
+   * @param version indicates for what version of the period we are signing
+   * @param rootAddr H(ownerAddr, metaHash), where H is SHA-3 algorithm
+   * @param metaHash H(size|startTime|frequency|nameLength|name), where H is SHA-3 algorithm
    * @param multiHash is encoded as the least significant bit of a flags byte
    * @param data is the plain data byte array
-   * @return Digest signature.
+   * @return digest signature
    */
   def apply[F[_]: Monad](
     period: Int,
@@ -67,12 +66,12 @@ object Signature extends slogging.LazyLogging {
     multiHash: Boolean,
     data: ByteVector,
     signer: Signer[ByteVector, ByteVector]
-  )(implicit hasher: Hasher[ByteVector, ByteVector]): EitherT[F, SwarmError, Signature] = {
+  )(implicit hasher: Hasher[ByteVector, ByteVector]): EitherT[F, SwarmError, Signature] =
     for {
       bytes <- codec
         .encode(
           HList(
-            updateHeaderLength,
+            UpdateHeaderLength,
             data.size.toShort,
             period,
             version,
@@ -101,5 +100,4 @@ object Signature extends slogging.LazyLogging {
 
       _ = logger.debug(s"Generated signature: $signature")
     } yield Signature(signature)
-  }
 }

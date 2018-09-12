@@ -18,7 +18,7 @@ package fluence.swarm
 import io.circe._
 import scodec.bits.ByteVector
 
-object ByteVectorCodec {
+object ByteVectorJsonCodec {
 
   /**
    * Every byte array in JSON is `0x` prefixed in Swarm.

@@ -17,9 +17,9 @@
 package fluence.swarm
 
 object SwarmConstants {
-  val keyLength: Int = 32
-  val updateLookupLength: Int = 4 + 4 + keyLength
-  val metaHashLength: Int = keyLength
+  val KeyLength: Int = 32
+  val UpdateLookupLength: Int = 4 + 4 + KeyLength
+  val MetaHashLength: Int = KeyLength
 
   // 64 bytes ECDSA size + 1 byte of recovery id
   // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
@@ -33,7 +33,7 @@ object SwarmConstants {
    * 1 byte flags (multihash bool for now)
    * 32 bytes metaHash
    */
-  val updateHeaderLength: Short = (updateLookupLength + 1 + metaHashLength).toShort
+  val UpdateHeaderLength: Short = (UpdateLookupLength + 1 + MetaHashLength).toShort
 
   /**
    * Update chunk layout
@@ -41,7 +41,7 @@ object SwarmConstants {
    * 2 bytes updateHeaderLength
    * 2 bytes data length
    */
-  val chunkPrefixLength: Int = 2 + 2
+  val ChunkPrefixLength: Int = 2 + 2
 
   // Minimum size is Header + 1 (minimum data length, enforced)
   // val minimumUpdateDataLength: Int = updateHeaderLength + 1
@@ -50,14 +50,14 @@ object SwarmConstants {
   // val maxUpdateDataLength: Int = chunkSize - signatureLength - updateHeaderLength - chunkPrefixLength
 
   // 8 bytes long Time
-  val timestampLength: Int = 8
-  val frequencyLength: Int = 8
+  val TimestampLength: Int = 8
+  val FrequencyLength: Int = 8
 
   // 1 byte (nameLength < 255)
-  val nameLengthLength: Int = 1
+  val NameLengthLength: Int = 1
 
   // size of Ethereum wallet address
-  val addressLength: Int = 20
+  val AddressLength: Int = 20
 
   /**
    * Resource metadata chunk layout:
@@ -68,6 +68,6 @@ object SwarmConstants {
    * name (variable length, can be empty, up to 255 bytes)
    * ownerAddr: addressLength
    */
-  val minimumMetadataLength
-    : Int = chunkPrefixLength + timestampLength + frequencyLength + nameLengthLength + addressLength
+  val MinimumMetadataLength
+    : Int = ChunkPrefixLength + TimestampLength + FrequencyLength + NameLengthLength + AddressLength
 }

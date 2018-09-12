@@ -20,23 +20,32 @@ import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 import scodec.bits.ByteVector
 
+import scala.concurrent.duration.FiniteDuration
+
 /**
  * Request for uploading a mutable resource's meta information.
  *
- * @param name optional resource name. You can use any name.
+ * @param name optional resource name. You can use any name
  * @param frequency expected time interval between updates, in seconds
  * @param startTime time the resource is valid from, in Unix time (seconds). Set to the current epoch
  *                  You can also put a startTime in the past or in the future.
  *                  Setting it in the future will prevent nodes from finding content until the clock hits startTime.
- *                  Setting it in the past allows you to create a history for the resource retroactively.
+ *                  Setting it in the past allows you to create a history for the resource retroactively
  * @param ownerAddr Swarm address (Ethereum wallet address)
  */
 case class UploadMutableResourceRequest(name: Option[String], frequency: Long, startTime: Long, ownerAddr: ByteVector)
 
 object UploadMutableResourceRequest {
 
-  import fluence.swarm.ByteVectorCodec._
+  import fluence.swarm.ByteVectorJsonCodec._
 
   implicit val uploadRequestEncoder: Encoder[UploadMutableResourceRequest] = deriveEncoder
+  
+  def apply(
+    name: Option[String],
+    frequency: FiniteDuration,
+    startTime: FiniteDuration,
+    ownerAddr: ByteVector
+  ): UploadMutableResourceRequest = new UploadMutableResourceRequest(name, frequency.toSeconds, startTime.toSeconds, ownerAddr)
 
 }

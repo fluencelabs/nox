@@ -26,7 +26,7 @@ object SbtCommons {
 
   /* Common deps */
 
-  val slogging = "biz.enef" %% "slogging" % "0.6.1"
+  val slogging = "biz.enef"        %% "slogging"    % "0.6.1"
   val cats = "org.typelevel"       %% "cats-core"   % "1.2.0"
   val catsEffect = "org.typelevel" %% "cats-effect" % "1.0.0-RC2"
   // functional wrapper around 'lightbend/config'
@@ -41,9 +41,10 @@ object SbtCommons {
   val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % "1.3.0"
 
   val circeVersion = "0.9.3"
-  val circeCore = "io.circe"    %% "circe-core"    % circeVersion
-  val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
-  val circeParser = "io.circe"  %% "circe-parser"  % circeVersion
+  val circeCore = "io.circe"          %% "circe-core"           % circeVersion
+  val circeGeneric = "io.circe"       %% "circe-generic"        % circeVersion
+  val circeGenericExtras = "io.circe" %% "circe-generic-extras" % circeVersion
+  val circeParser = "io.circe"        %% "circe-parser"         % circeVersion
 
   val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.6"
   val scodecCore = "org.scodec" %% "scodec-core" % "1.10.3"

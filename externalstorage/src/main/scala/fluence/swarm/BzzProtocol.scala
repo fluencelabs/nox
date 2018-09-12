@@ -16,10 +16,22 @@
 
 package fluence.swarm
 
-abstract class BzzProtocol(val protocol: String)
+/**
+ * Swarm URL scheme. List and description of schemes:
+ * https://swarm-guide.readthedocs.io/en/latest/usage/bzz.html#bzz-protocol-suite
+ *
+ */
+sealed abstract class BzzProtocol(val protocol: String)
 
 object BzzProtocol {
+
+  // The bzz scheme assumes that the domain part of the url points to a manifest.
   case object Bzz extends BzzProtocol("bzz:")
+
+  //  Allows you to receive hash pointers to content
+  // that the ENS (https://swarm-guide.readthedocs.io/en/latest/usage.html#using-ens-names) entry resolved to at different versions
   case object BzzResource extends BzzProtocol("bzz-resource:")
+
+  // Get resource directly by hash (possible to get raw manifest)/
   case object BzzRaw extends BzzProtocol("bzz-raw:")
 }

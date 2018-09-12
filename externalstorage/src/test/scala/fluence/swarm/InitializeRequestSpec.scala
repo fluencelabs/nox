@@ -6,6 +6,9 @@ import org.scalatest.{FlatSpec, Matchers}
 import org.web3j.crypto.{ECKeyPair, Keys, Sign}
 import scodec.bits.ByteVector
 
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
 // TODO add more tests
 class InitializeRequestSpec extends FlatSpec with Matchers {
 
@@ -13,13 +16,13 @@ class InitializeRequestSpec extends FlatSpec with Matchers {
 
   "Metadata" should "be correct" in {
     val name = "a good resource name"
-    val frequency = 300L
-    val time = 1528900000
+    val frequency = 300 seconds
+    val time = 1528900000 seconds
 
     val secret = new BigInteger(1, ByteVector.fromHex("facadefacadefacadefacadefacadefacadefacadefacadefacadefacadefaca").get.toArray)
     val publicKey = Sign.publicKeyFromPrivate(secret)
     val someKP = new ECKeyPair(secret, publicKey)
-    val signer = ECDSASigner.signer(someKP)
+    val signer = Secp256k1Signer.signer(someKP)
 
     val ethAddress = ByteVector.fromValidHex(Keys.getAddress(someKP))
 

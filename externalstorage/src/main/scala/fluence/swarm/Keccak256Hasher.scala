@@ -24,7 +24,7 @@ import scala.util.Try
 object Keccak256Hasher {
 
   /**
-   * Default hash function in Swarm.
+   * Default hash function in Swarm. Arrow from plain bytes to hash bytes.
    */
   val hasher: Crypto.Hasher[ByteVector, ByteVector] =
     Crypto.liftFuncEither(
