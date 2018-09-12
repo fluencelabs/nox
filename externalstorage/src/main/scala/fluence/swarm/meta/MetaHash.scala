@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-package fluence.swarm
+package fluence.swarm.meta
+
 import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.Crypto.Hasher
+import fluence.swarm.helpers.ByteVectorJsonCodec
+import fluence.swarm.{SwarmConstants, SwarmError}
 import io.circe.Encoder
 import scodec.bits.ByteVector
-import scodec.codecs.{bytes, constant, longL}
+import scodec.codecs.{bytes, constant, longL, _}
 import shapeless.HList
-import scodec.codecs._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -31,7 +33,7 @@ import scala.language.higherKinds
  * MetaHash required to identify and ascertain ownership of the uploadable resource.
  * We compute it as `metaHash = H(00|size|startTime|frequency|nameLength|name)`.
  * Where H() is SHA3.
- * @see [[fluence.swarm.Signature]]
+ * @see [[Signature]]
  * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#mutable-resource-updates
  */
 case class MetaHash private (hash: ByteVector)

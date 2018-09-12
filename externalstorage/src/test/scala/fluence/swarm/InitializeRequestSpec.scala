@@ -1,6 +1,7 @@
 package fluence.swarm
 import java.math.BigInteger
 
+import fluence.swarm.crypto.{Keccak256Hasher, Secp256k1Signer}
 import fluence.swarm.requests.InitializeMutableResourceRequest
 import org.scalatest.{FlatSpec, Matchers}
 import org.web3j.crypto.{ECKeyPair, Keys, Sign}

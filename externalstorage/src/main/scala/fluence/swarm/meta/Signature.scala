@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.swarm
-import cats.{Id, Monad}
+package fluence.swarm.meta
+
+import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.Crypto.Hasher
-import fluence.swarm.Secp256k1Signer.Signer
+import fluence.swarm.crypto.Secp256k1Signer.Signer
+import fluence.swarm.helpers.ByteVectorJsonCodec
+import fluence.swarm.{SwarmConstants, SwarmError}
 import io.circe.Encoder
 import scodec.bits.ByteVector
 import scodec.codecs._
@@ -41,8 +44,8 @@ case class Signature private (signature: ByteVector)
 
 object Signature extends slogging.LazyLogging {
 
-  import fluence.swarm.helpers.AttemptOps._
   import SwarmConstants._
+  import fluence.swarm.helpers.AttemptOps._
 
   implicit val signatureEncoder: Encoder[Signature] = ByteVectorJsonCodec.encodeByteVector.contramap(_.signature)
 

@@ -24,7 +24,7 @@ import fluence.crypto.Crypto.Hasher
 import scodec.bits.ByteVector
 import io.circe.syntax._
 import cats.syntax.functor._
-import fluence.swarm.Secp256k1Signer.Signer
+import fluence.swarm.crypto.Secp256k1Signer.Signer
 import fluence.swarm.requests._
 import fluence.swarm.responses.Manifest
 import io.circe.{Json, Printer}
@@ -125,7 +125,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * @param target hash of resource (file, metadata, manifest) or address from ENS
    *
    */
-  def downloadRaw[T](target: String): EitherT[F, SwarmError, Manifest] = {
+  def downloadRaw(target: String): EitherT[F, SwarmError, Manifest] = {
     val downloadURI = uri(BzzRaw, target)
     logger.info(s"Download manifest request. Target: $target")
     sttp

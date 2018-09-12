@@ -19,8 +19,9 @@ package fluence.swarm.requests
 import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.Crypto.Hasher
-import fluence.swarm.Secp256k1Signer.Signer
+import fluence.swarm.crypto.Secp256k1Signer.Signer
 import fluence.swarm._
+import fluence.swarm.meta.{MetaHash, RootAddr, Signature}
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 import scodec.bits.ByteVector
@@ -53,7 +54,7 @@ object UpdateMutableResourceRequest {
   import MetaHash._
   import RootAddr._
   import Signature._
-  import ByteVectorJsonCodec._
+  import fluence.swarm.helpers.ByteVectorJsonCodec._
 
   implicit val updateRequestEncoder: Encoder[UpdateMutableResourceRequest] = deriveEncoder
 

@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-package fluence.swarm
+package fluence.swarm.meta
 
 import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.Crypto.Hasher
-import fluence.swarm.Secp256k1Signer.Signer
+import fluence.swarm.crypto.Secp256k1Signer.Signer
+import fluence.swarm._
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration.FiniteDuration

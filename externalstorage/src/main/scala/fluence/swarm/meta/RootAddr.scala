@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-package fluence.swarm
+package fluence.swarm.meta
+
 import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.Crypto.Hasher
+import fluence.swarm.SwarmError
+import fluence.swarm.helpers.ByteVectorJsonCodec
 import io.circe.Encoder
 import scodec.bits.ByteVector
 
@@ -27,7 +30,7 @@ import scala.language.higherKinds
  * RootAddr required to identify and ascertain ownership of the uploadable resource.
  * We compute it as `rootAddr = H(ownerAddr, metaHash)`.
  * Where H() is SHA3.
- * @see [[fluence.swarm.Signature]]
+ * @see [[Signature]]
  * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#mutable-resource-updates
  */
 case class RootAddr private (addr: ByteVector)

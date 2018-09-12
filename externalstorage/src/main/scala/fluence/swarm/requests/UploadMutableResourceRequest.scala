@@ -37,7 +37,7 @@ case class UploadMutableResourceRequest(name: Option[String], frequency: Long, s
 
 object UploadMutableResourceRequest {
 
-  import fluence.swarm.ByteVectorJsonCodec._
+  import fluence.swarm.helpers.ByteVectorJsonCodec._
 
   implicit val uploadRequestEncoder: Encoder[UploadMutableResourceRequest] = deriveEncoder
   

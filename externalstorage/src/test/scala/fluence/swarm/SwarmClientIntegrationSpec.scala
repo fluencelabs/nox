@@ -3,7 +3,8 @@ import cats.effect.IO
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.crypto.Crypto.Hasher
-import fluence.swarm.Secp256k1Signer.Signer
+import fluence.swarm.crypto.Secp256k1Signer.Signer
+import fluence.swarm.crypto.{Keccak256Hasher, Secp256k1Signer}
 import org.scalatest.{EitherValues, FlatSpec, Matchers}
 import org.web3j.crypto.{ECKeyPair, Keys}
 import scodec.bits.ByteVector
