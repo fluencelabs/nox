@@ -1,3 +1,19 @@
+/*
+ * Copyright 2018 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package fluence.ethclient;
 
 import java.math.BigInteger;
@@ -16,6 +32,7 @@ import org.web3j.abi.datatypes.Function;
 import org.web3j.abi.datatypes.Type;
 import org.web3j.abi.datatypes.Utf8String;
 import org.web3j.abi.datatypes.generated.Bytes32;
+import org.web3j.abi.datatypes.generated.Uint8;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameter;
@@ -33,7 +50,7 @@ import rx.functions.Func1;
  * <p>Auto generated code.
  * <p><strong>Do not modify!</strong>
  * <p>Please use the <a href="https://docs.web3j.io/command_line.html">web3j command line tools</a>,
- * or the org.web3j.codegen.SolidityFunctionWrapperGenerator in the 
+ * or the org.web3j.codegen.SolidityFunctionWrapperGenerator in the
  * <a href="https://github.com/web3j/web3j/tree/master/codegen">codegen module</a> to update.
  *
  * <p>Generated with web3j version 3.5.0.
@@ -69,31 +86,31 @@ public class Deployer extends Contract {
 
     public static final String FUNC_TRANSFEROWNERSHIP = "transferOwnership";
 
-    public static final Event CLUSTERFORMED_EVENT = new Event("ClusterFormed", 
+    public static final Event CLUSTERFORMED_EVENT = new Event("ClusterFormed",
             Arrays.<TypeReference<?>>asList(new TypeReference<Bytes32>() {}, new TypeReference<DynamicArray<Bytes32>>() {}));
     ;
 
-    public static final Event CODEENQUEUED_EVENT = new Event("CodeEnqueued", 
+    public static final Event CODEENQUEUED_EVENT = new Event("CodeEnqueued",
             Arrays.<TypeReference<?>>asList(new TypeReference<Bytes32>() {}));
     ;
 
-    public static final Event NEWSOLVER_EVENT = new Event("NewSolver", 
+    public static final Event NEWSOLVER_EVENT = new Event("NewSolver",
             Arrays.<TypeReference<?>>asList(new TypeReference<Bytes32>() {}));
     ;
 
-    public static final Event ROLEADDED_EVENT = new Event("RoleAdded", 
+    public static final Event ROLEADDED_EVENT = new Event("RoleAdded",
             Arrays.<TypeReference<?>>asList(new TypeReference<Address>(true) {}, new TypeReference<Utf8String>() {}));
     ;
 
-    public static final Event ROLEREMOVED_EVENT = new Event("RoleRemoved", 
+    public static final Event ROLEREMOVED_EVENT = new Event("RoleRemoved",
             Arrays.<TypeReference<?>>asList(new TypeReference<Address>(true) {}, new TypeReference<Utf8String>() {}));
     ;
 
-    public static final Event OWNERSHIPRENOUNCED_EVENT = new Event("OwnershipRenounced", 
+    public static final Event OWNERSHIPRENOUNCED_EVENT = new Event("OwnershipRenounced",
             Arrays.<TypeReference<?>>asList(new TypeReference<Address>(true) {}));
     ;
 
-    public static final Event OWNERSHIPTRANSFERRED_EVENT = new Event("OwnershipTransferred", 
+    public static final Event OWNERSHIPTRANSFERRED_EVENT = new Event("OwnershipTransferred",
             Arrays.<TypeReference<?>>asList(new TypeReference<Address>(true) {}, new TypeReference<Address>(true) {}));
     ;
 
@@ -105,120 +122,114 @@ public class Deployer extends Contract {
         super(BINARY, contractAddress, web3j, transactionManager, gasPrice, gasLimit);
     }
 
-    public void checkRole(String _operator, String _role) {
+    public void checkRole(Address _operator, Utf8String _role) {
         throw new RuntimeException("cannot call constant function with void return type");
     }
 
-    public RemoteCall<String> ROLE_WHITELISTED() {
-        final Function function = new Function(FUNC_ROLE_WHITELISTED, 
-                Arrays.<Type>asList(), 
+    public RemoteCall<Utf8String> ROLE_WHITELISTED() {
+        final Function function = new Function(FUNC_ROLE_WHITELISTED,
+                Arrays.<Type>asList(),
                 Arrays.<TypeReference<?>>asList(new TypeReference<Utf8String>() {}));
-        return executeRemoteCallSingleValueReturn(function, String.class);
+        return executeRemoteCallSingleValueReturn(function);
     }
 
-    public RemoteCall<Boolean> hasRole(String _operator, String _role) {
-        final Function function = new Function(FUNC_HASROLE, 
-                Arrays.<Type>asList(new org.web3j.abi.datatypes.Address(_operator), 
-                new org.web3j.abi.datatypes.Utf8String(_role)), 
+    public RemoteCall<Bool> hasRole(Address _operator, Utf8String _role) {
+        final Function function = new Function(FUNC_HASROLE,
+                Arrays.<Type>asList(_operator, _role),
                 Arrays.<TypeReference<?>>asList(new TypeReference<Bool>() {}));
-        return executeRemoteCallSingleValueReturn(function, Boolean.class);
+        return executeRemoteCallSingleValueReturn(function);
     }
 
-    public RemoteCall<TransactionReceipt> addCode(byte[] storageHash, byte[] storageReceipt, BigInteger clusterSize) {
+    public RemoteCall<TransactionReceipt> addCode(Bytes32 storageHash, Bytes32 storageReceipt, Uint8 clusterSize) {
         final Function function = new Function(
-                FUNC_ADDCODE, 
-                Arrays.<Type>asList(new org.web3j.abi.datatypes.generated.Bytes32(storageHash), 
-                new org.web3j.abi.datatypes.generated.Bytes32(storageReceipt), 
-                new org.web3j.abi.datatypes.generated.Uint8(clusterSize)), 
+                FUNC_ADDCODE,
+                Arrays.<Type>asList(storageHash, storageReceipt, clusterSize),
                 Collections.<TypeReference<?>>emptyList());
         return executeRemoteCallTransaction(function);
     }
 
-    public RemoteCall<TransactionReceipt> removeAddressesFromWhitelist(List<String> _operators) {
+    public RemoteCall<TransactionReceipt> removeAddressesFromWhitelist(DynamicArray<Address> _operators) {
         final Function function = new Function(
-                FUNC_REMOVEADDRESSESFROMWHITELIST, 
-                Arrays.<Type>asList(new org.web3j.abi.datatypes.DynamicArray<org.web3j.abi.datatypes.Address>(
-                        org.web3j.abi.Utils.typeMap(_operators, org.web3j.abi.datatypes.Address.class))), 
+                FUNC_REMOVEADDRESSESFROMWHITELIST,
+                Arrays.<Type>asList(_operators),
                 Collections.<TypeReference<?>>emptyList());
         return executeRemoteCallTransaction(function);
     }
 
-    public RemoteCall<TransactionReceipt> removeAddressFromWhitelist(String _operator) {
+    public RemoteCall<TransactionReceipt> removeAddressFromWhitelist(Address _operator) {
         final Function function = new Function(
-                FUNC_REMOVEADDRESSFROMWHITELIST, 
-                Arrays.<Type>asList(new org.web3j.abi.datatypes.Address(_operator)), 
+                FUNC_REMOVEADDRESSFROMWHITELIST,
+                Arrays.<Type>asList(_operator),
                 Collections.<TypeReference<?>>emptyList());
         return executeRemoteCallTransaction(function);
     }
 
-    public RemoteCall<TransactionReceipt> addSolver(byte[] solverID, byte[] solverAddress) {
+    public RemoteCall<TransactionReceipt> addSolver(Bytes32 solverID, Bytes32 solverAddress) {
         final Function function = new Function(
-                FUNC_ADDSOLVER, 
-                Arrays.<Type>asList(new org.web3j.abi.datatypes.generated.Bytes32(solverID), 
-                new org.web3j.abi.datatypes.generated.Bytes32(solverAddress)), 
+                FUNC_ADDSOLVER,
+                Arrays.<Type>asList(solverID, solverAddress),
                 Collections.<TypeReference<?>>emptyList());
         return executeRemoteCallTransaction(function);
     }
 
     public RemoteCall<TransactionReceipt> renounceOwnership() {
         final Function function = new Function(
-                FUNC_RENOUNCEOWNERSHIP, 
-                Arrays.<Type>asList(), 
+                FUNC_RENOUNCEOWNERSHIP,
+                Arrays.<Type>asList(),
                 Collections.<TypeReference<?>>emptyList());
         return executeRemoteCallTransaction(function);
     }
 
-    public RemoteCall<TransactionReceipt> addAddressToWhitelist(String _operator) {
+    public RemoteCall<TransactionReceipt> addAddressToWhitelist(Address _operator) {
         final Function function = new Function(
-                FUNC_ADDADDRESSTOWHITELIST, 
-                Arrays.<Type>asList(new org.web3j.abi.datatypes.Address(_operator)), 
+                FUNC_ADDADDRESSTOWHITELIST,
+                Arrays.<Type>asList(_operator),
                 Collections.<TypeReference<?>>emptyList());
         return executeRemoteCallTransaction(function);
     }
 
-    public RemoteCall<String> owner() {
-        final Function function = new Function(FUNC_OWNER, 
-                Arrays.<Type>asList(), 
+    public RemoteCall<Address> owner() {
+        final Function function = new Function(FUNC_OWNER,
+                Arrays.<Type>asList(),
                 Arrays.<TypeReference<?>>asList(new TypeReference<Address>() {}));
-        return executeRemoteCallSingleValueReturn(function, String.class);
+        return executeRemoteCallSingleValueReturn(function);
     }
 
-    public RemoteCall<Boolean> whitelist(String _operator) {
-        final Function function = new Function(FUNC_WHITELIST, 
-                Arrays.<Type>asList(new org.web3j.abi.datatypes.Address(_operator)), 
+    public RemoteCall<Bool> whitelist(Address _operator) {
+        final Function function = new Function(FUNC_WHITELIST,
+                Arrays.<Type>asList(_operator),
                 Arrays.<TypeReference<?>>asList(new TypeReference<Bool>() {}));
-        return executeRemoteCallSingleValueReturn(function, Boolean.class);
+        return executeRemoteCallSingleValueReturn(function);
     }
 
-    public RemoteCall<TransactionReceipt> addAddressesToWhitelist(List<String> _operators) {
+    public RemoteCall<TransactionReceipt> addAddressesToWhitelist(DynamicArray<Address> _operators) {
         final Function function = new Function(
-                FUNC_ADDADDRESSESTOWHITELIST, 
-                Arrays.<Type>asList(new org.web3j.abi.datatypes.DynamicArray<org.web3j.abi.datatypes.Address>(
-                        org.web3j.abi.Utils.typeMap(_operators, org.web3j.abi.datatypes.Address.class))), 
+                FUNC_ADDADDRESSESTOWHITELIST,
+                Arrays.<Type>asList(_operators),
                 Collections.<TypeReference<?>>emptyList());
         return executeRemoteCallTransaction(function);
     }
 
-    public RemoteCall<Tuple2<byte[], byte[]>> getCode(byte[] clusterID) {
-        final Function function = new Function(FUNC_GETCODE, 
-                Arrays.<Type>asList(new org.web3j.abi.datatypes.generated.Bytes32(clusterID)), 
+    public RemoteCall<Tuple2<Bytes32, Bytes32>> getCode(Bytes32 clusterID) {
+        final Function function = new Function(FUNC_GETCODE,
+                Arrays.<Type>asList(clusterID),
                 Arrays.<TypeReference<?>>asList(new TypeReference<Bytes32>() {}, new TypeReference<Bytes32>() {}));
-        return new RemoteCall<Tuple2<byte[], byte[]>>(
-                new Callable<Tuple2<byte[], byte[]>>() {
+        return new RemoteCall<Tuple2<Bytes32, Bytes32>>(
+                new Callable<Tuple2<Bytes32, Bytes32>>() {
                     @Override
-                    public Tuple2<byte[], byte[]> call() throws Exception {
+                    public Tuple2<Bytes32, Bytes32> call() throws Exception {
                         List<Type> results = executeCallMultipleValueReturn(function);
-                        return new Tuple2<byte[], byte[]>(
-                                (byte[]) results.get(0).getValue(), 
-                                (byte[]) results.get(1).getValue());
+                        return new Tuple2<Bytes32, Bytes32>(
+                                (Bytes32) results.get(0),
+                                (Bytes32) results.get(1));
                     }
                 });
     }
 
-    public RemoteCall<TransactionReceipt> transferOwnership(String _newOwner) {
+    public RemoteCall<TransactionReceipt> transferOwnership(Address _newOwner) {
         final Function function = new Function(
-                FUNC_TRANSFEROWNERSHIP, 
-                Arrays.<Type>asList(new org.web3j.abi.datatypes.Address(_newOwner)), 
+                FUNC_TRANSFEROWNERSHIP,
+                Arrays.<Type>asList(_newOwner),
                 Collections.<TypeReference<?>>emptyList());
         return executeRemoteCallTransaction(function);
     }
@@ -229,8 +240,8 @@ public class Deployer extends Contract {
         for (Contract.EventValuesWithLog eventValues : valueList) {
             ClusterFormedEventResponse typedResponse = new ClusterFormedEventResponse();
             typedResponse.log = eventValues.getLog();
-            typedResponse.clusterID = (byte[]) eventValues.getNonIndexedValues().get(0).getValue();
-            typedResponse.solverIDs = (List<byte[]>) eventValues.getNonIndexedValues().get(1).getValue();
+            typedResponse.clusterID = (Bytes32) eventValues.getNonIndexedValues().get(0);
+            typedResponse.solverIDs = (DynamicArray<Bytes32>) eventValues.getNonIndexedValues().get(1);
             responses.add(typedResponse);
         }
         return responses;
@@ -243,8 +254,8 @@ public class Deployer extends Contract {
                 Contract.EventValuesWithLog eventValues = extractEventParametersWithLog(CLUSTERFORMED_EVENT, log);
                 ClusterFormedEventResponse typedResponse = new ClusterFormedEventResponse();
                 typedResponse.log = log;
-                typedResponse.clusterID = (byte[]) eventValues.getNonIndexedValues().get(0).getValue();
-                typedResponse.solverIDs = (List<byte[]>) eventValues.getNonIndexedValues().get(1).getValue();
+                typedResponse.clusterID = (Bytes32) eventValues.getNonIndexedValues().get(0);
+                typedResponse.solverIDs = (DynamicArray<Bytes32>) eventValues.getNonIndexedValues().get(1);
                 return typedResponse;
             }
         });
@@ -262,7 +273,7 @@ public class Deployer extends Contract {
         for (Contract.EventValuesWithLog eventValues : valueList) {
             CodeEnqueuedEventResponse typedResponse = new CodeEnqueuedEventResponse();
             typedResponse.log = eventValues.getLog();
-            typedResponse.storageHash = (byte[]) eventValues.getNonIndexedValues().get(0).getValue();
+            typedResponse.storageHash = (Bytes32) eventValues.getNonIndexedValues().get(0);
             responses.add(typedResponse);
         }
         return responses;
@@ -275,7 +286,7 @@ public class Deployer extends Contract {
                 Contract.EventValuesWithLog eventValues = extractEventParametersWithLog(CODEENQUEUED_EVENT, log);
                 CodeEnqueuedEventResponse typedResponse = new CodeEnqueuedEventResponse();
                 typedResponse.log = log;
-                typedResponse.storageHash = (byte[]) eventValues.getNonIndexedValues().get(0).getValue();
+                typedResponse.storageHash = (Bytes32) eventValues.getNonIndexedValues().get(0);
                 return typedResponse;
             }
         });
@@ -293,7 +304,7 @@ public class Deployer extends Contract {
         for (Contract.EventValuesWithLog eventValues : valueList) {
             NewSolverEventResponse typedResponse = new NewSolverEventResponse();
             typedResponse.log = eventValues.getLog();
-            typedResponse.id = (byte[]) eventValues.getNonIndexedValues().get(0).getValue();
+            typedResponse.id = (Bytes32) eventValues.getNonIndexedValues().get(0);
             responses.add(typedResponse);
         }
         return responses;
@@ -306,7 +317,7 @@ public class Deployer extends Contract {
                 Contract.EventValuesWithLog eventValues = extractEventParametersWithLog(NEWSOLVER_EVENT, log);
                 NewSolverEventResponse typedResponse = new NewSolverEventResponse();
                 typedResponse.log = log;
-                typedResponse.id = (byte[]) eventValues.getNonIndexedValues().get(0).getValue();
+                typedResponse.id = (Bytes32) eventValues.getNonIndexedValues().get(0);
                 return typedResponse;
             }
         });
@@ -324,8 +335,8 @@ public class Deployer extends Contract {
         for (Contract.EventValuesWithLog eventValues : valueList) {
             RoleAddedEventResponse typedResponse = new RoleAddedEventResponse();
             typedResponse.log = eventValues.getLog();
-            typedResponse.operator = (String) eventValues.getIndexedValues().get(0).getValue();
-            typedResponse.role = (String) eventValues.getNonIndexedValues().get(0).getValue();
+            typedResponse.operator = (Address) eventValues.getIndexedValues().get(0);
+            typedResponse.role = (Utf8String) eventValues.getNonIndexedValues().get(0);
             responses.add(typedResponse);
         }
         return responses;
@@ -338,8 +349,8 @@ public class Deployer extends Contract {
                 Contract.EventValuesWithLog eventValues = extractEventParametersWithLog(ROLEADDED_EVENT, log);
                 RoleAddedEventResponse typedResponse = new RoleAddedEventResponse();
                 typedResponse.log = log;
-                typedResponse.operator = (String) eventValues.getIndexedValues().get(0).getValue();
-                typedResponse.role = (String) eventValues.getNonIndexedValues().get(0).getValue();
+                typedResponse.operator = (Address) eventValues.getIndexedValues().get(0);
+                typedResponse.role = (Utf8String) eventValues.getNonIndexedValues().get(0);
                 return typedResponse;
             }
         });
@@ -357,8 +368,8 @@ public class Deployer extends Contract {
         for (Contract.EventValuesWithLog eventValues : valueList) {
             RoleRemovedEventResponse typedResponse = new RoleRemovedEventResponse();
             typedResponse.log = eventValues.getLog();
-            typedResponse.operator = (String) eventValues.getIndexedValues().get(0).getValue();
-            typedResponse.role = (String) eventValues.getNonIndexedValues().get(0).getValue();
+            typedResponse.operator = (Address) eventValues.getIndexedValues().get(0);
+            typedResponse.role = (Utf8String) eventValues.getNonIndexedValues().get(0);
             responses.add(typedResponse);
         }
         return responses;
@@ -371,8 +382,8 @@ public class Deployer extends Contract {
                 Contract.EventValuesWithLog eventValues = extractEventParametersWithLog(ROLEREMOVED_EVENT, log);
                 RoleRemovedEventResponse typedResponse = new RoleRemovedEventResponse();
                 typedResponse.log = log;
-                typedResponse.operator = (String) eventValues.getIndexedValues().get(0).getValue();
-                typedResponse.role = (String) eventValues.getNonIndexedValues().get(0).getValue();
+                typedResponse.operator = (Address) eventValues.getIndexedValues().get(0);
+                typedResponse.role = (Utf8String) eventValues.getNonIndexedValues().get(0);
                 return typedResponse;
             }
         });
@@ -390,7 +401,7 @@ public class Deployer extends Contract {
         for (Contract.EventValuesWithLog eventValues : valueList) {
             OwnershipRenouncedEventResponse typedResponse = new OwnershipRenouncedEventResponse();
             typedResponse.log = eventValues.getLog();
-            typedResponse.previousOwner = (String) eventValues.getIndexedValues().get(0).getValue();
+            typedResponse.previousOwner = (Address) eventValues.getIndexedValues().get(0);
             responses.add(typedResponse);
         }
         return responses;
@@ -403,7 +414,7 @@ public class Deployer extends Contract {
                 Contract.EventValuesWithLog eventValues = extractEventParametersWithLog(OWNERSHIPRENOUNCED_EVENT, log);
                 OwnershipRenouncedEventResponse typedResponse = new OwnershipRenouncedEventResponse();
                 typedResponse.log = log;
-                typedResponse.previousOwner = (String) eventValues.getIndexedValues().get(0).getValue();
+                typedResponse.previousOwner = (Address) eventValues.getIndexedValues().get(0);
                 return typedResponse;
             }
         });
@@ -421,8 +432,8 @@ public class Deployer extends Contract {
         for (Contract.EventValuesWithLog eventValues : valueList) {
             OwnershipTransferredEventResponse typedResponse = new OwnershipTransferredEventResponse();
             typedResponse.log = eventValues.getLog();
-            typedResponse.previousOwner = (String) eventValues.getIndexedValues().get(0).getValue();
-            typedResponse.newOwner = (String) eventValues.getIndexedValues().get(1).getValue();
+            typedResponse.previousOwner = (Address) eventValues.getIndexedValues().get(0);
+            typedResponse.newOwner = (Address) eventValues.getIndexedValues().get(1);
             responses.add(typedResponse);
         }
         return responses;
@@ -435,8 +446,8 @@ public class Deployer extends Contract {
                 Contract.EventValuesWithLog eventValues = extractEventParametersWithLog(OWNERSHIPTRANSFERRED_EVENT, log);
                 OwnershipTransferredEventResponse typedResponse = new OwnershipTransferredEventResponse();
                 typedResponse.log = log;
-                typedResponse.previousOwner = (String) eventValues.getIndexedValues().get(0).getValue();
-                typedResponse.newOwner = (String) eventValues.getIndexedValues().get(1).getValue();
+                typedResponse.previousOwner = (Address) eventValues.getIndexedValues().get(0);
+                typedResponse.newOwner = (Address) eventValues.getIndexedValues().get(1);
                 return typedResponse;
             }
         });
@@ -467,50 +478,50 @@ public class Deployer extends Contract {
     public static class ClusterFormedEventResponse {
         public Log log;
 
-        public byte[] clusterID;
+        public Bytes32 clusterID;
 
-        public List<byte[]> solverIDs;
+        public DynamicArray<Bytes32> solverIDs;
     }
 
     public static class CodeEnqueuedEventResponse {
         public Log log;
 
-        public byte[] storageHash;
+        public Bytes32 storageHash;
     }
 
     public static class NewSolverEventResponse {
         public Log log;
 
-        public byte[] id;
+        public Bytes32 id;
     }
 
     public static class RoleAddedEventResponse {
         public Log log;
 
-        public String operator;
+        public Address operator;
 
-        public String role;
+        public Utf8String role;
     }
 
     public static class RoleRemovedEventResponse {
         public Log log;
 
-        public String operator;
+        public Address operator;
 
-        public String role;
+        public Utf8String role;
     }
 
     public static class OwnershipRenouncedEventResponse {
         public Log log;
 
-        public String previousOwner;
+        public Address previousOwner;
     }
 
     public static class OwnershipTransferredEventResponse {
         public Log log;
 
-        public String previousOwner;
+        public Address previousOwner;
 
-        public String newOwner;
+        public Address newOwner;
     }
 }

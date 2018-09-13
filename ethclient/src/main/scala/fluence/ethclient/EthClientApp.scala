@@ -18,12 +18,15 @@ package fluence.ethclient
 
 import cats.effect.{ExitCode, IO, IOApp}
 import org.web3j.abi.EventEncoder
+import org.web3j.crypto.Credentials
+import org.web3j.protocol.Web3j
+import org.web3j.tx.ClientTransactionManager
+import org.web3j.tx.gas.DefaultGasProvider
 
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object EthClientApp extends IOApp {
-
   override def run(args: List[String]): IO[ExitCode] =
     EthClient
       .makeHttpResource[IO]()
