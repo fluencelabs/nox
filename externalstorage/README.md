@@ -1,26 +1,31 @@
 ## External Storage
 
-External storage is a part of [Fluence project](https://github.com/fluencelabs/fluence) 
+External storage is a part of [the Fluence project](https://github.com/fluencelabs/fluence) 
 that is responsible for storage the history of operations, developer's code and another information 
 that should be highly available in Fluence network and from the World Wide Web.
 
 Current implementation represents API in Scala for interaction with [Swarm](https://swarm-guide.readthedocs.io/en/latest/introduction.html).
-Swarm was selected after some research. We found it more complete, well-documented and with effective incentivization model.
+Swarm was selected after some research. We found it more mature, well-documented and with effective incentivization model.
+
+## Motivation
+
+This part of the project represents a thin client wrapper that will manage connections, prepare and send requests to Swarm HTTP API.
+This is done in a pure and type-safe manner so that the user has the ability to easily handle errors and use any abstractions to work with threads.
 
 ## Documentation
 
 ### Installation
 
-Before API usage you need to install [Swarm](https://swarm-guide.readthedocs.io/en/latest/installation.html) and [Ethereum client](https://ethereum.github.io/go-ethereum/install/)
+Before using API you need to install [Swarm](https://swarm-guide.readthedocs.io/en/latest/installation.html) and [Ethereum client](https://ethereum.github.io/go-ethereum/install/)
 
 ### Before started
 
 
-**create Ethereum account, if you don't have one** 
+**create Ethereum account if you don't have one** 
 
 ```geth account new```
 
-**start Ethereum client (possible in light mode, if you don't want to download full node)**
+**start Ethereum client (possible in light mode if you don't want to download full node)**
 
 ```text
 geth --syncmode "light"
@@ -38,14 +43,14 @@ Let's create an API client with the address of Swarm:
 import SwarmClient._
 val api = SwarmClient("localhost", 8500)
 ```
-It is possible to use Swarm gateway, if you want.
+It is possible to use Swarm gateway if you want.
 
 After that we can upload something:
 
 ```scala
 val hash = api.uploadUnsafe(Array[Byte](1,2,3))
 
-// it can be any hash, because of Swarm returns hash of manifest
+// it can be any hash, because Swarm returns hash of manifest
 println(hash)
 
 ```
@@ -73,7 +78,7 @@ for {
 
 The private key is required to work with the MRU to verify ownership of the content.
 
-As a key you can use generated key for Ethereum:
+You can use existing Ethereum key:
 
 ```scala
 import java.math.BigInteger
@@ -114,8 +119,8 @@ val id = MutableResourceIdentifier(
     ownerAddr = ethAddress)
 ```
 
-and then create the resource in Swarm with some data, update it and get the first and second version. 
-Let's just do it in a type-safe way: 
+and then create the resource in Swarm with some data, update it and get first and second versions. 
+Let's do it in a type-safe way: 
 ```scala
 
 val data = ByteVector("Some random string in Swarm!".getBytes)
