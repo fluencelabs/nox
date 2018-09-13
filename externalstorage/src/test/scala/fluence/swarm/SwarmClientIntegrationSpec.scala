@@ -2,13 +2,11 @@ package fluence.swarm
 import cats.effect.IO
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
-import fluence.crypto.Crypto.Hasher
 import fluence.swarm.crypto.Secp256k1Signer.Signer
-import fluence.swarm.crypto.{Keccak256Hasher, Secp256k1Signer}
+import fluence.swarm.crypto.Secp256k1Signer
 import org.scalatest.{EitherValues, FlatSpec, Ignore, Matchers}
 import org.web3j.crypto.{ECKeyPair, Keys}
 import scodec.bits.ByteVector
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -21,17 +19,12 @@ import scala.util.Random
 @Ignore
 class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValues {
 
-  LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = LogLevel.INFO
-
-  implicit val hasher: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
-
   val randomKeys: ECKeyPair = Keys.createEcKeyPair()
   val signer: Signer[ByteVector, ByteVector] = Secp256k1Signer.signer(randomKeys)
 
   private implicit val sttpBackend: SttpBackend[IO, Nothing] = AsyncHttpClientCatsBackend()
 
-  val api = new SwarmClient[IO]("localhost", 8500)
+  val api = SwarmClient("localhost", 8500)
 
   val ethAddress: ByteVector = ByteVector.fromHex(Keys.getAddress(randomKeys)).get
 
@@ -129,7 +122,7 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
     } yield {}
 
     val res = process.value.unsafeRunSync()
-    println("RES === " + res)
+
     res should be('right)
   }
 }

@@ -16,18 +16,22 @@
 
 package fluence.swarm
 
-import cats.Monad
+import cats.{Monad, ~>}
 import cats.data.EitherT
+import cats.effect.IO
 import cats.syntax.functor._
 import com.softwaremill.sttp._
+import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import com.softwaremill.sttp.circe._
 import fluence.crypto.Crypto.Hasher
+import fluence.swarm.crypto.Keccak256Hasher
 import fluence.swarm.crypto.Secp256k1Signer.Signer
 import fluence.swarm.requests._
 import fluence.swarm.responses.Manifest
 import io.circe.syntax._
 import io.circe.{Json, Printer}
 import scodec.bits.ByteVector
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.language.higherKinds
 
@@ -101,6 +105,16 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    *
    * @return hash of resource (address in Swarm)
    */
+  def upload(data: Array[Byte]): EitherT[F, SwarmError, String] = {
+    upload(ByteVector(data))
+  }
+
+  /**
+   * Upload a data.
+   * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
+   *
+   * @return hash of resource (address in Swarm)
+   */
   def upload(data: ByteVector): EitherT[F, SwarmError, String] = {
     val uploadURI = uri(Bzz)
     logger.info(s"Upload request. Data: $data")
@@ -153,7 +167,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    */
   def downloadMutableResource(
     target: String,
-    param: Option[DownloadResourceParam]
+    param: Option[DownloadResourceParam] = None
   ): EitherT[F, SwarmError, ByteVector] = {
     val downloadURI = uri(BzzResource, target, param.map(_.toParams).getOrElse(Nil))
     logger.info(s"Download a mutable resource request. Target: $target, param: ${param.getOrElse("<null>")}")
@@ -288,5 +302,26 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
       _ = logger.info("A mutable resource has been updated.")
     } yield response
 
+  }
+}
+
+object SwarmClient {
+
+  def apply(host: String, port: Int): SwarmClient[IO] = {
+
+    LoggerConfig.factory = PrintLoggerFactory()
+    LoggerConfig.level = LogLevel.INFO
+
+    implicit val hasher: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
+    implicit val sttpBackend: SttpBackend[IO, Nothing] = AsyncHttpClientCatsBackend[IO]()
+
+    new SwarmClient[IO](host, port)
+  }
+
+  implicit class UnsafeClient(client: SwarmClient[IO]) {
+
+    def uploadUnsafe(data: Array[Byte]): String = client.upload(data).value.unsafeRunSync().right.get
+
+    def downloadUnsafe(target: String): Array[Byte] = client.download(target).value.unsafeRunSync().right.get
   }
 }
