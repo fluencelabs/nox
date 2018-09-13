@@ -5,7 +5,7 @@ import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.crypto.Crypto.Hasher
 import fluence.swarm.crypto.Secp256k1Signer.Signer
 import fluence.swarm.crypto.{Keccak256Hasher, Secp256k1Signer}
-import org.scalatest.{EitherValues, FlatSpec, Matchers}
+import org.scalatest.{EitherValues, FlatSpec, Ignore, Matchers}
 import org.web3j.crypto.{ECKeyPair, Keys}
 import scodec.bits.ByteVector
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
@@ -18,7 +18,7 @@ import scala.util.Random
 /**
  * It works only when Swarm is working on local machine.
  */
-//@Ignore
+@Ignore
 class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValues {
 
   LoggerConfig.factory = PrintLoggerFactory()
