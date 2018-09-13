@@ -10,7 +10,7 @@ Fluence heavily employs the existing decentralized technology stack. It uses [Et
 Because computation results returned in the real-time by Fluence to the (light) client are exhaustively verified only later, it is correct to say that Fluence provides _eventual security_ guarantees. In other words, the client is optimistic that real-time nodes will not turn out to be malicious. If this happens, however, Fluence network will evict such nodes by forfeiting their security deposits.
 
 #### Fluence architecture
-![architecture overview](misc/architecture_overview.png)
+![architecture overview](misc/arch_overview.png)
 
 ## Motivation
 
