@@ -19,17 +19,17 @@ package fluence.ethclient
 import java.util.Collections
 import java.util.concurrent.{CancellationException, CompletableFuture, CompletionException}
 
-import cats.{ApplicativeError, Functor}
 import cats.effect._
-import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{ApplicativeError, Functor}
 import org.web3j.abi.EventEncoder
-import org.web3j.protocol.core.methods.request.EthFilter
-import org.web3j.protocol.core.methods.response.{Log, TransactionReceipt}
 import org.web3j.protocol.core._
+import org.web3j.protocol.core.methods.request.EthFilter
+import org.web3j.protocol.core.methods.response.Log
 import org.web3j.protocol.http.HttpService
-import org.web3j.protocol.{Web3j, Web3jService}
 import org.web3j.protocol.ipc.UnixIpcService
+import org.web3j.protocol.{Web3j, Web3jService}
 import org.web3j.tx.ClientTransactionManager
 import org.web3j.tx.gas.DefaultGasProvider
 import rx.Observable
@@ -120,37 +120,32 @@ class EthClient private (private val web3: Web3j) {
       )
 
   /**
-   * Instantiate ABI for existing contract and call it's method
-   * @param at address of the deployed contract
-   * @param userAddress address of the user sending transaction to the contract
-   * @param call callback for calling method on contract
+   * Instantiate ABI for existing Deployer contract at the address
+   * @param at Address of the deployed contract
+   * @param userAddress Address of the user sending transaction to the contract
    * @tparam F Effect
-   * @return receipt of the transaction with contract call
+   * @return Instance of the Deployer contract
    */
 
-  def callContract[F[_]: Async](
+  def getDeployer[F[_]: Async](
     at: String,
-    userAddress: String,
-    call: Deployer => RemoteCall[TransactionReceipt]
-  ): F[TransactionReceipt] =
-    for {
-      contract <- Sync[F].delay {
-        val txManager = new ClientTransactionManager(web3, userAddress)
-        val contract = Deployer.load(
-          at,
-          web3,
-          txManager,
-          DefaultGasProvider.GAS_PRICE,
-          DefaultGasProvider.GAS_LIMIT
-        )
+    userAddress: String
+  ): F[RichContract[Deployer]] =
+    Async[F].delay {
+      val txManager = new ClientTransactionManager(web3, userAddress)
+      val contract = Deployer.load(
+        at,
+        web3,
+        txManager,
+        DefaultGasProvider.GAS_PRICE,
+        DefaultGasProvider.GAS_LIMIT
+      )
 
-        // TODO: check contract.isValid and throw an exception
-        // currently it doesn't work because contract's binary code is different after deploy for some unknown reason
-        // maybe it's web3j generator's fault
-        contract
-      }
-      receipt <- call(contract).sendAsync().asAsync[F]
-    } yield receipt
+      // TODO: check contract.isValid and throw an exception
+      // currently it doesn't work because contract's binary code is different after deploy for some unknown reason
+      // maybe it's web3j generator's fault
+      RichContract(contract)
+    }
 
   /**
    * Make an async request to Ethereum, lifting its response to an async F type.

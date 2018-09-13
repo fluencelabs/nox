@@ -25,7 +25,9 @@ import utest._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import cats.instances.future._
+import fluence.ethclient.Deployer.{ClusterFormedEventResponse, NewSolverEventResponse}
 import org.web3j.abi.EventEncoder
+import org.web3j.abi.datatypes.Address
 import org.web3j.abi.datatypes.generated.Bytes32
 import org.web3j.crypto.WalletUtils
 import org.web3j.protocol.core.methods.response.Log
@@ -61,29 +63,37 @@ object ContractSpec extends TestSuite {
 
   val tests = Tests {
     "receive event" - {
-      val bytes = stringToBytes32(Random.nextString(10))
-      println(s"bytes are ${bytes}")
+      val str = Random.nextString(10)
+      val bytes = stringToBytes32(str)
+      println(s"bytes are $str")
+      val contractAddress = "0xe79e70e623ffe72860fb0cefed362b8537b7b8a4"
+      val owner = "0x63f9068698f101d7ad41a0197461d94352a17d29"
+
       (for {
         c <- client
         event <- MVar.empty[IO, Log]
         unsubscribe ← c.subscribeToLogsTopic[IO, IO](
-          "0xf93568cdc75b8849f4999bd3c8c6f931a14b258f",
+          contractAddress,
           EventEncoder.buildEventSignature("NewSolver(bytes32)"),
           event.put
         )
-        txReceipt <- c.callContract[IO](
-          "0xf93568cdc75b8849f4999bd3c8c6f931a14b258f",
-          "0x96dce7eb99848e3332e38663a1968836ba3c3b53",
-          _.addSolver(
-            bytes,
-            bytes
-          )
+        contract <- c.getDeployer[IO](
+          contractAddress,
+          owner
         )
+        _ <- contract.call[IO](_.addAddressToWhitelist(new Address(owner)))
+        txReceipt <- contract.call[IO](_.addSolver(bytes, bytes))
         _ = assert(txReceipt.isStatusOK)
+        newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
+          _.getNewSolverEvents(txReceipt)
+        )
         e <- event.take
-        _ = e ==> e
-        _ = assert(txReceipt.getLogs.asScala.contains(e))
-      } yield ()).unsafeToFuture()
+        _ <- unsubscribe
+      } yield {
+        assert(txReceipt.getLogs.asScala.contains(e))
+        newSolverEvents.length ==> 1
+        newSolverEvents.head.id ==> bytes
+      }).unsafeToFuture()
     }
   }
 }
