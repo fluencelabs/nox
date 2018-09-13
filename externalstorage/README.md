@@ -115,7 +115,7 @@ val id = MutableResourceIdentifier(
 ```
 
 and then create the resource in Swarm with some data, update it and get the first and second version. 
-Let's just do it in type-safe way: 
+Let's just do it in a type-safe way: 
 ```scala
 
 val data = ByteVector("Some random string in Swarm!".getBytes)
