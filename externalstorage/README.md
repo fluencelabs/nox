@@ -5,7 +5,6 @@ that is responsible for storage the history of operations, developer's code and 
 that should be highly available in Fluence network and from the World Wide Web.
 
 Current implementation represents API in Scala for interaction with [Swarm](https://swarm-guide.readthedocs.io/en/latest/introduction.html).
-Swarm was selected after some research. We found it more mature, well-documented and with effective incentivization model.
 
 ## Motivation
 

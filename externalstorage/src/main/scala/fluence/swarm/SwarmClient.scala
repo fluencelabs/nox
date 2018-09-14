@@ -16,7 +16,7 @@
 
 package fluence.swarm
 
-import cats.{Monad, ~>}
+import cats.Monad
 import cats.data.EitherT
 import cats.effect.IO
 import cats.syntax.functor._
@@ -259,7 +259,9 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * @param data content the Mutable Resource will be initialized with
    * @param multiHash is a flag indicating whether the data field should be interpreted as raw data or a multihash
    *                  TODO There is no implementation of multiHashed data for now.
-   * @param period indicates for what period we are signing. Depending on the current time, startTime and frequency
+   * @param period indicates for what period we are signing.
+   *               It is a number, where `startTime + frequency * period >= currentTime`
+   *               @see https://swarm-guide.readthedocs.io/en/latest/usage.html#mutable-resource-versioning
    * @param version indicates what resource version of the period we are signing
    * @param signer signature algorithm. Must be ECDSA for real Swarm node
    */
