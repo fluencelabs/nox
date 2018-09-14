@@ -144,13 +144,3 @@ for {
     _ = println("First version: " + new String(result3.toArray))
   } yield ()
 ```
-
-## Project status
-The project is undergoing a heavy development at the moment.  
-Check out the [issue tracker](https://github.com/fluencelabs/fluence/issues) to learn more about the current progress.
-
-## Contributing
-You are welcome to contribute. At the current moment we don't have detailed instructions on how to join development or which code guidelines to follow. However, you can expect more info to appear soon enough. In the meanwhile, check out the [basic contributing rules](./CONTRIBUTING.md).
-
-## License
-[Apache 2.0](./LICENSE.md)
