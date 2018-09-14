@@ -43,7 +43,7 @@ verify some block we need to wait for the next one).
 
 A specific *state* is an immutable merkelized tree.
 [`TreeNode`](/statemachine/src/main/scala/fluence/statemachine/tree/TreeNode.scala) implements this tree, whereas
-[`MutableStateTree`]((/statemachine/src/main/scala/fluence/statemachine/state/MutableStateTree.scala) implements mutable
+[`MutableStateTree`](/statemachine/src/main/scala/fluence/statemachine/state/MutableStateTree.scala) implements mutable
 wrapper for the root of Consensus state.
 
 The State machine expects that any

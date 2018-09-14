@@ -1,11 +1,8 @@
 #!/usr/bin/python
-import sys, urllib, json, datetime, time, struct
+import sys
 import ed25519
 import hashlib, sha3
-from misc_utils import read_json, to_uvarint, parse_utc_unix_ns
-
-def get_genesis(tmaddress):
-	return read_json(tmaddress + "/genesis")["result"]["genesis"]
+from misc_utils import to_uvarint, l_endian_4b, parse_utc_unix_ns
 
 # https://github.com/tendermint/tendermint/blob/master/types/vote.go
 # https://github.com/tendermint/tendermint/blob/master/types/vote_test.go
@@ -58,9 +55,6 @@ def verify_commit(signed_header, validators, height, genesis):
 
 def encode_slice(data):
 	return str(to_uvarint(len(data))) + data
-
-def l_endian_4b(num):
-	return chr(num & 0xFF) + chr((num & 0xFF00) >> 8) + chr((num & 0xFF0000) >> 16) + chr((num & 0xFF000000) >> 24)
 
 # https://github.com/mappum/js-tendermint/blob/master/src/types.js
 def hash_binary(data, format="default"):

@@ -1,6 +1,5 @@
 #!/usr/bin/python
 import string, random, time
-from misc_utils import read_json
 from verify import verify_commit, verify_app_hash, verify_merkle_proof
 
 def id_generator(size = 6, chars = string.ascii_uppercase[:6] + string.digits):
@@ -18,17 +17,17 @@ class DataEngineResultAwait:
 		self.target_key = target_key
 
 	def result(self, timeout = 5):
-		addr = self.session.engine.tmaddress
+		tm = self.session.engine.tm
 		path = self.target_key + "/result"
 		print "querying " + path
-		for i in range(0, timeout):
-			resp = read_json(addr + '/abci_query?path="' + path + '"')["result"]["response"]
+		for _ in range(0, timeout):
+			resp = tm.query(path)
 			if "value" in resp:
 				# to verify value we need to verify each transition here:
 				# value => merkle_proof => app_hash => vote => commit => genesis
 
 				check_height = int(resp["height"])
-				app_hash = read_json("%s/block?height=%d" % (addr, check_height))["result"]["block"]["header"]["app_hash"]
+				app_hash = tm.get_block(check_height)["header"]["app_hash"]
 				result = resp["value"].decode("base64")
 
 				if not "proof" in resp:
@@ -40,15 +39,15 @@ class DataEngineResultAwait:
 					print "Result proof failed"
 					return None
 
-				signed_header = read_json(addr + "/commit?height=" + str(check_height))["result"]["SignedHeader"]
-				validators = read_json(addr + "/validators?height=" + str(check_height))["result"]["validators"]
 
 				# app_hash => vote
+				signed_header = tm.get_commit(check_height)["SignedHeader"]
 				if not verify_app_hash(app_hash, signed_header):
 					print "App hash verification failed"
 					return None
 
 				# vote => commit => genesis
+				validators = tm.get_validators(check_height)
 				commit_ver = verify_commit(signed_header, validators, check_height, self.session.engine.genesis)
 				if commit_ver != "OK":
 					print "Commit verification failed: " + commit_ver
@@ -85,13 +84,13 @@ class DataEngineSession:
 		}).replace("'", '"')
 		target_key = "@meta/%s/%s/%d" % (self.client, self.session, self.counter)
 		print "submitting", tx_json
-		read_json(self.engine.tmaddress + '/broadcast_tx_sync?tx="' + tx_json.encode("hex").upper() + '"')
+		self.engine.tm.broadcast_tx_sync(tx_json)
 		self.counter += 1
 		return DataEngineResultAwait(self, target_key)
 
 class DataEngine:
-	def __init__(self, tmaddress, genesis):
-		self.tmaddress = tmaddress
+	def __init__(self, tm, genesis):
+		self.tm = tm
 		self.genesis = genesis
 
 	def new_session(self, client = None, signing_key = None):

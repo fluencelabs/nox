@@ -3,8 +3,7 @@ import sys
 sys.path.append('..')
 
 import ed25519, base64
-from tm_utils import read_json, get_max_height
-from verify import get_genesis, sign_bytes, verify_commit
+from tmrpc import TendermintRPC
 from dataengine import DataEngine
 
 def get_signing_key():
@@ -27,7 +26,7 @@ def demo_queries(addr, genesis):
     print q1.result()
     print q3.result()
 
-addr = "localhost:46157"
-genesis = get_genesis(addr)
-height = get_max_height(addr)
-demo_queries(addr, genesis)
+tm = TendermintRPC("localhost:46157")
+genesis = tm.get_genesis()
+height = tm.get_max_height()
+demo_queries(tm, genesis)

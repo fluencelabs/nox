@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import sys, urllib, json, datetime, time
+import sys, urllib, json, numpy
 
 def from_uvarint(buf):
 	x = long(0)
@@ -19,17 +19,12 @@ def to_uvarint(x):
 	buf += chr(x)
 	return buf
 
-def parse_utc_unix_ns(utctxt):
-	#tz conversion may be wrong
-	now_timestamp = time.time()
-	offset = datetime.datetime.fromtimestamp(now_timestamp) - datetime.datetime.utcfromtimestamp(now_timestamp)
+def l_endian_4b(num):
+	return chr(num & 0xFF) + chr((num & 0xFF00) >> 8) + chr((num & 0xFF0000) >> 16) + chr((num & 0xFF000000) >> 24)
 
-	dt, _, tail = utctxt.partition(".")
-	if tail == "":
-		dt, _, _ = utctxt.partition("Z")
-		tail = "0Z"
-	t_unix = long((datetime.datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S') + offset).strftime("%s"))
-	t_ns = int(tail.rstrip("Z").ljust(9, "0"))
+def parse_utc_unix_ns(timestamp_txt):
+	dt64 = numpy.datetime64(timestamp_txt).astype('datetime64[ns]').astype('int')
+	(t_unix, t_ns) = (dt64 / 1000000000, dt64 % 1000000000)
 	return (t_unix, t_ns)
 
 def read_json(url):
