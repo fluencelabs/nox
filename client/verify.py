@@ -125,3 +125,35 @@ def verify_merkle_proof(result, proof, app_hash):
 		if not any(low_hash in s for s in high_hashes):
 			return False
 	return True
+
+def get_verified_result(tm, genesis, response):
+	# to verify value we need to verify each transition here:
+	# value => merkle_proof => app_hash => vote => commit => genesis
+
+	check_height = int(response["height"])
+	app_hash = tm.get_block(check_height)["header"]["app_hash"]
+	result = response["value"].decode("base64")
+
+	if not "proof" in response:
+		print "No proof for result"
+		return None
+
+	# value => merkle_proof => app_hash
+	if not verify_merkle_proof(result, response["proof"].decode("base64"), app_hash):
+		print "Result proof failed"
+		return None
+
+	# app_hash => vote
+	signed_header = tm.get_commit(check_height)["SignedHeader"]
+	if not verify_app_hash(app_hash, signed_header):
+		print "App hash verification failed"
+		return None
+
+	# vote => commit => genesis
+	validators = tm.get_validators(check_height)
+	commit_ver = verify_commit(signed_header, validators, check_height, genesis)
+	if commit_ver != "OK":
+		print "Commit verification failed: " + commit_ver
+		return None
+
+	return result

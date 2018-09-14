@@ -24,6 +24,7 @@ def demo_queries(addr, genesis):
     q2 = s.submit("inc")
     q3 = s.submit("get")
     print q1.result()
+    print q2.result()
     print q3.result()
 
 tm = TendermintRPC("localhost:46157")

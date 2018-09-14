@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import string, random, time
-from verify import verify_commit, verify_app_hash, verify_merkle_proof
+from verify import get_verified_result
 
 def id_generator(size = 6, chars = string.ascii_uppercase[:6] + string.digits):
 	return ''.join(random.choice(chars) for _ in range(size))
@@ -21,39 +21,9 @@ class DataEngineResultAwait:
 		path = self.target_key + "/result"
 		print "querying " + path
 		for _ in range(0, timeout):
-			resp = tm.query(path)
-			if "value" in resp:
-				# to verify value we need to verify each transition here:
-				# value => merkle_proof => app_hash => vote => commit => genesis
-
-				check_height = int(resp["height"])
-				app_hash = tm.get_block(check_height)["header"]["app_hash"]
-				result = resp["value"].decode("base64")
-
-				if not "proof" in resp:
-					print "No proof for result"
-					return None
-
-				# value => merkle_proof => app_hash
-				if not verify_merkle_proof(result, resp["proof"].decode("base64"), app_hash):
-					print "Result proof failed"
-					return None
-
-
-				# app_hash => vote
-				signed_header = tm.get_commit(check_height)["SignedHeader"]
-				if not verify_app_hash(app_hash, signed_header):
-					print "App hash verification failed"
-					return None
-
-				# vote => commit => genesis
-				validators = tm.get_validators(check_height)
-				commit_ver = verify_commit(signed_header, validators, check_height, self.session.engine.genesis)
-				if commit_ver != "OK":
-					print "Commit verification failed: " + commit_ver
-					return None
-
-				return result
+			query_response = tm.query(path)
+			if "value" in query_response:
+				return get_verified_result(tm, self.session.engine.genesis, query_response)
 			time.sleep(1)
 		return None
 
