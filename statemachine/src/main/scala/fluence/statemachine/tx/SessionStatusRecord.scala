@@ -16,17 +16,31 @@
 
 package fluence.statemachine.tx
 import fluence.statemachine.StoreValue
+import io.circe.generic.auto._
+import io.circe.syntax._
 
 /**
  * TODO:
  *
- * @param value
+ * @param status
+ * @param invokedTxsCount
  */
-sealed abstract class TransactionStatus(val storeValue: StoreValue)
+case class SessionStatusRecord(status: SessonStatus, invokedTxsCount: Long) {
 
-object TransactionStatus {
-  object Queued extends TransactionStatus("queued")
-  object Success extends TransactionStatus("success")
-  object SessionClosed extends TransactionStatus("session_closed")
-  object Error extends TransactionStatus("error")
+  /**
+   * TODO:
+   */
+  def toStoreValue: StoreValue = this.asJson.noSpaces
 }
+
+sealed abstract class SessonStatus
+
+case object Active extends SessonStatus
+
+sealed abstract class Closed extends SessonStatus
+
+case object NormallyClosed extends Closed
+
+case object Failed extends Closed
+
+case object Expired extends Closed

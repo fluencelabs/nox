@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import sys
+import sys, json
 import ed25519
 import hashlib, sha3
 from misc_utils import to_uvarint, l_endian_4b, parse_utc_unix_ns
@@ -156,4 +156,4 @@ def get_verified_result(tm, genesis, response):
 		print "Commit verification failed: " + commit_ver
 		return None
 
-	return result
+	return json.loads(result)

@@ -30,6 +30,14 @@ object StorageKeys {
   val vmStateHashKey: TreePath[StoreKey] = TreePath(List("@meta", "@vm_state_hash"))
 
   /**
+   * TODO
+   *
+   * @param txHeader
+   */
+  def sessionStatusKey(txHeader: TransactionHeader): TreePath[StoreKey] =
+    TreePath(List("@meta", txHeader.client, txHeader.session, "@session_status"))
+
+  /**
    * Key used to store a transaction status. If assigned, some of [[TransactionStatus]] values is used.
    *
    * @param txHeader transaction header

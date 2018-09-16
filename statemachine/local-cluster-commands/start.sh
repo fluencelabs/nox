@@ -3,7 +3,7 @@ cd ../..
 export JAVA8_HOME_FOR_SBT_SETTING=""
 
 # uncomment and modify line below if sbt should be run with custom Java 8
-#export JAVA8_HOME_FOR_SBT_SETTING="-java-home /Library/Java/JavaVirtualMachines/jdk1.8.0_131.jdk/Contents/Home"
+export JAVA8_HOME_FOR_SBT_SETTING="-java-home /Library/Java/JavaVirtualMachines/jdk1.8.0_131.jdk/Contents/Home"
 
 screen -d -m -S app1 bash -c 'sbt $JAVA8_HOME_FOR_SBT_SETTING "statemachine/run 46158"'
 screen -d -m -S app2 bash -c 'sbt $JAVA8_HOME_FOR_SBT_SETTING "statemachine/run 46258"'

@@ -29,7 +29,6 @@ import scala.util.matching.Regex
 
 /**
  * Invokes operations on provided VM.
- * TODO: Currently all error messages from VM converted to strings. Error hierarchy for the State machine required.
  *
  * @param vm VM instance used to make function calls and to retrieve state
  */

@@ -16,15 +16,24 @@ class DataEngineResultAwait:
 		self.session = session
 		self.target_key = target_key
 
-	def result(self, timeout = 5):
+	def result(self, requests_per_sec = 2, response_timeout_sec = 5, wait_before_request_session_status_sec = 2):
 		tm = self.session.engine.tm
 		path = self.target_key + "/result"
 		print "querying " + path
-		for _ in range(0, timeout):
+		for i in range(0, response_timeout_sec * requests_per_sec):
+			verified_session_status = None
+			if i >= wait_before_request_session_status_sec * requests_per_sec:
+				status_response = tm.query(self.session.status_key)
+				if "value" in status_response:
+					verified_session_status = get_verified_result(tm, self.session.engine.genesis, status_response)
+					
 			query_response = tm.query(path)
 			if "value" in query_response:
 				return get_verified_result(tm, self.session.engine.genesis, query_response)
-			time.sleep(1)
+
+			if verified_session_status != None and not "Active" in verified_session_status["status"]:
+				return verified_session_status
+			time.sleep(1.0 / requests_per_sec)
 		return None
 
 class DataEngineSession:
@@ -35,6 +44,7 @@ class DataEngineSession:
 		self.client = client
 		self.signing_key = signing_key
 		self.session = id_generator()
+		self.status_key = "@meta/%s/%s/@session_status" % (self.client, self.session)
 		self.counter = 0
 
 	def submit(self, command, *params):
@@ -57,6 +67,9 @@ class DataEngineSession:
 		self.engine.tm.broadcast_tx_sync(tx_json)
 		self.counter += 1
 		return DataEngineResultAwait(self, target_key)
+
+	def close(self):
+		return self.submit("@close_session")
 
 class DataEngine:
 	def __init__(self, tm, genesis):

@@ -17,13 +17,10 @@
 package fluence.statemachine.tx
 
 import cats.Monad
-import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.statemachine.StoreValue
-import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.MutableStateTree
-import fluence.statemachine.tree.StorageKeys.{payloadKey, resultKey, statusKey}
+import fluence.statemachine.tree.StorageKeys.{payloadKey, resultKey, sessionStatusKey, statusKey}
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -66,7 +63,7 @@ class TxProcessor[F[_]](
         case None => applyTxWithDependencies(tx.header)
         case Some(required) =>
           for {
-            requiredSuccess <- getStatus(required).map(x => x.contains(TransactionStatus.Success))
+            requiredSuccess <- getStatus(required).map(x => x.contains(TransactionStatus.Success.storeValue))
             _ <- if (requiredSuccess) applyTxWithDependencies(tx.header) else F.unit
           } yield ()
       }
@@ -87,7 +84,7 @@ class TxProcessor[F[_]](
       // Preparing txs for application. It includes invocation and dequeuing
         .map(tx => {
           for {
-            invoked <- invokeTx(tx).isRight
+            invoked <- invokeTx(tx).map(_ == TransactionStatus.Success)
             _ <- dequeueTx(tx)
           } yield invoked
         })
@@ -120,21 +117,25 @@ class TxProcessor[F[_]](
    * Effectively invokes the given transaction and writes it's results to Consensus state.
    *
    * @param tx transaction ready to be applied (by the invocation in VM)
+   * @return TODO:
    */
-  private def invokeTx(tx: Transaction): EitherT[F, StateMachineError, Option[String]] =
-    EitherT(for {
-      invoked <- vmInvoker.invoke(tx.payload).value
-      _ <- invoked match {
-        case Left(error) => putResult(tx, TransactionStatus.Error, Error(error.code, error.message))
-        case Right(None) => putResult(tx, TransactionStatus.Success, Empty)
-        case Right(Some(value)) => putResult(tx, TransactionStatus.Success, Computed(value))
-      }
-    } yield invoked)
+  private def invokeTx(tx: Transaction): F[TransactionStatus] = tx.payload match {
+    case "@close_session()" => putResult(tx, TransactionStatus.SessionClosed, Empty, NormallyClosed)
+    case _ =>
+      for {
+        invoked <- vmInvoker.invoke(tx.payload).value
+        txStatus <- invoked match {
+          case Left(error) => putResult(tx, TransactionStatus.Error, Error(error.code, error.message), Failed)
+          case Right(None) => putResult(tx, TransactionStatus.Success, Empty, Active)
+          case Right(Some(value)) => putResult(tx, TransactionStatus.Success, Computed(value), Active)
+        }
+      } yield txStatus
+  }
 
   private def enqueueTx(tx: Transaction): F[Unit] =
     for {
       _ <- mutableConsensusState.putValue(payloadKey(tx.header), tx.payload)
-      _ <- mutableConsensusState.putValue(statusKey(tx.header), TransactionStatus.Queued)
+      _ <- mutableConsensusState.putValue(statusKey(tx.header), TransactionStatus.Queued.storeValue)
     } yield ()
 
   private def dequeueTx(tx: Transaction): F[Unit] =
@@ -154,10 +155,17 @@ class TxProcessor[F[_]](
       value = root.getValue(payloadKey(txHeader))
     } yield value
 
-  private def putResult(tx: Transaction, status: StoreValue, result: TxInvocationResult): F[Unit] = {
+  private def putResult(
+    tx: Transaction,
+    txStatus: TransactionStatus,
+    result: TxInvocationResult,
+    sessionStatus: SessonStatus
+  ): F[TransactionStatus] = {
     for {
       _ <- mutableConsensusState.putValue(resultKey(tx.header), result.toStoreValue)
-      _ <- mutableConsensusState.putValue(statusKey(tx.header), status)
-    } yield ()
+      _ <- mutableConsensusState.putValue(statusKey(tx.header), txStatus.storeValue)
+      _ <- mutableConsensusState
+        .putValue(sessionStatusKey(tx.header), SessionStatusRecord(sessionStatus, tx.header.order + 1).toStoreValue)
+    } yield txStatus
   }
 }
