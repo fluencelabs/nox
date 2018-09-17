@@ -24,8 +24,9 @@ import io.circe.syntax._
  *
  * @param status
  * @param invokedTxsCount
+ * @param lastTxCounter
  */
-case class SessionStatusRecord(status: SessonStatus, invokedTxsCount: Long) {
+case class SessionStatusRecord(status: SessonStatus, invokedTxsCount: Long, lastTxCounter: Long) {
 
   /**
    * TODO:

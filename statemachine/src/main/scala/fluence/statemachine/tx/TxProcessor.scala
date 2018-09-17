@@ -19,8 +19,11 @@ package fluence.statemachine.tx
 import cats.Monad
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.statemachine.StoreValue
 import fluence.statemachine.state.MutableStateTree
-import fluence.statemachine.tree.StorageKeys.{payloadKey, resultKey, sessionStatusKey, statusKey}
+import fluence.statemachine.tree.StorageKeys._
+import io.circe.generic.auto._
+import io.circe.parser.{parse => parseJson}
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -57,6 +60,8 @@ class TxProcessor[F[_]](
    */
   def processNewTx(tx: Transaction): F[Unit] =
     for {
+      txCounter <- incrementTxCounter()
+      _ <- processExpiredSessions(txCounter)
       _ <- enqueueTx(tx)
       _ = logger.debug("Appended tx: {}", tx)
       _ <- tx.header.requiredTxHeader match {
@@ -68,6 +73,45 @@ class TxProcessor[F[_]](
           } yield ()
       }
     } yield ()
+
+  /**
+   * TODO:
+   *
+   * @param counter
+   * @return
+   */
+  private def processExpiredSessions(txCounter: Long): F[Unit] =
+    for {
+      root <- mutableConsensusState.getRoot
+      statusKeys = root.selectByTemplate(sessionStatusKeyTemplate)
+      expirationList = statusKeys.flatMap(
+        statusKey =>
+          root
+            .getValue(statusKey)
+            .flatMap(extractStatus)
+            .filter(status => status.status == Active && status.lastTxCounter <= txCounter - 8)
+            .map(status => mutableConsensusState.putValue(statusKey, status.copy(status = Expired).toStoreValue))
+      )
+      _ <- expirationList.foldLeft(F.unit)((acc, expiration) => {
+        for {
+          _ <- acc
+          _ <- expiration
+        } yield ()
+      })
+    } yield ()
+
+  /**
+   * TODO:
+   *
+   * @param value
+   * @param txCounter
+   * @return
+   */
+  private def extractStatus(value: StoreValue): Option[SessionStatusRecord] =
+    (for {
+      parsedJson <- parseJson(value)
+      statusRecord <- parsedJson.as[SessionStatusRecord]
+    } yield statusRecord).toOption
 
   /**
    * Triggers the application of a transaction stored by given header (if actually stored).
@@ -132,6 +176,25 @@ class TxProcessor[F[_]](
       } yield txStatus
   }
 
+  /**
+   * TODO:
+   */
+  private def getTxCounter(): F[Long] =
+    for {
+      root <- mutableConsensusState.getRoot
+      value = root.getValue(txCounterKey).map(_.toLong).getOrElse(0L)
+    } yield value
+
+  /**
+   * TODO:
+   */
+  private def incrementTxCounter(): F[Long] =
+    for {
+      oldValue <- getTxCounter()
+      newValue = oldValue + 1
+      _ <- mutableConsensusState.putValue(txCounterKey, newValue.toString)
+    } yield newValue
+
   private def enqueueTx(tx: Transaction): F[Unit] =
     for {
       _ <- mutableConsensusState.putValue(payloadKey(tx.header), tx.payload)
@@ -164,8 +227,9 @@ class TxProcessor[F[_]](
     for {
       _ <- mutableConsensusState.putValue(resultKey(tx.header), result.toStoreValue)
       _ <- mutableConsensusState.putValue(statusKey(tx.header), txStatus.storeValue)
-      _ <- mutableConsensusState
-        .putValue(sessionStatusKey(tx.header), SessionStatusRecord(sessionStatus, tx.header.order + 1).toStoreValue)
+      txCounter <- getTxCounter()
+      sessionStatusRecord = SessionStatusRecord(sessionStatus, tx.header.order + 1, txCounter).toStoreValue
+      _ <- mutableConsensusState.putValue(sessionStatusKey(tx.header), sessionStatusRecord)
     } yield txStatus
   }
 }

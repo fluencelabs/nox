@@ -54,7 +54,7 @@ abstract class TreeNode(val children: Map[StoreKey, TreeNode], val value: Option
    * @return a node obtained from the current after the change
    */
   def putValue(key: TreePath[StoreKey], newValue: StoreValue): TreeNode = key match {
-    case EmptyTreePath() => SimpleTreeNode(children, Some(newValue))
+    case EmptyTreePath => SimpleTreeNode(children, Some(newValue))
     case SplittableTreePath(next, rest) =>
       SimpleTreeNode(
         children + (next -> children.getOrElse(next, TreeNode.emptyNode).putValue(rest, newValue)),
@@ -71,7 +71,7 @@ abstract class TreeNode(val children: Map[StoreKey, TreeNode], val value: Option
    * @return a node obtained from the current after the change
    */
   def removeValue(key: TreePath[StoreKey]): TreeNode = key match {
-    case EmptyTreePath() => SimpleTreeNode(children, None)
+    case EmptyTreePath => SimpleTreeNode(children, None)
     case SplittableTreePath(next, rest) =>
       val nextChild = children.getOrElse(next, TreeNode.emptyNode).removeValue(rest)
       val newChildren = if (nextChild.isEmpty) children - next else children + (next -> nextChild)
@@ -100,6 +100,26 @@ abstract class TreeNode(val children: Map[StoreKey, TreeNode], val value: Option
   def isEmpty: Boolean = value.isEmpty && children.isEmpty
 
   /**
+   * TODO:
+   *
+   * @param keyTemplate
+   * @return
+   */
+  def selectByTemplate(keyTemplate: TreePath[StoreKey]): Seq[TreePath[StoreKey]] = keyTemplate match {
+    case EmptyTreePath => List(EmptyTreePath)
+    case SplittableTreePath(next, rest) =>
+      val matchedChildren: Seq[StoreKey] = next match {
+        case "*" => children.keys.toList
+        case key => List(key)
+      }
+      matchedChildren
+        .flatMap(
+          key => children.get(key).map(node => node.selectByTemplate(rest).map(path => SplittableTreePath(key, path)))
+        )
+        .flatten
+  }
+
+  /**
    * Dumps the node's subtree to a multiline string.
    *
    * @param name value used to describe the current node
@@ -118,7 +138,7 @@ abstract class TreeNode(val children: Map[StoreKey, TreeNode], val value: Option
    * @return requested node, if exists
    */
   protected def getNode(key: TreePath[StoreKey]): Option[TreeNode] = key match {
-    case EmptyTreePath() => Some(this)
+    case EmptyTreePath => Some(this)
     case SplittableTreePath(next, rest) => children.get(next).flatMap(_.getNode(rest))
   }
 }
@@ -155,7 +175,7 @@ case class MerkleTreeNode(
    * @param key target key, described by the path relative from the current node
    */
   def getProof(key: TreePath[StoreKey]): MerkleProof = key match {
-    case EmptyTreePath() => MerkleProof.fromSingleLevel(merkleItems())
+    case EmptyTreePath => MerkleProof.fromSingleLevel(merkleItems())
     case SplittableTreePath(next, rest) => children(next).getProof(rest).prepend(merkleItems())
   }
 

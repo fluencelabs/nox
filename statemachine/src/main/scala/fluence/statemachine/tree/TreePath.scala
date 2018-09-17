@@ -23,7 +23,7 @@ import fluence.statemachine.util.ClientInfoMessages
  *
  * @tparam T type used to store a single component in the path
  */
-sealed trait TreePath[T]
+sealed trait TreePath[+T]
 
 object TreePath {
 
@@ -34,7 +34,7 @@ object TreePath {
    * @tparam T type used to store a single component in the path
    */
   def apply[T](components: List[T]): TreePath[T] = components match {
-    case Nil => EmptyTreePath()
+    case Nil => EmptyTreePath
     case next :: rest => SplittableTreePath(next, TreePath[T](rest))
   }
 
@@ -63,13 +63,11 @@ object TreePath {
  * @param rest the rest of components
  * @tparam T type used to store a single component in the path
  */
-case class SplittableTreePath[T](next: T, rest: TreePath[T]) extends TreePath[T]
+case class SplittableTreePath[T](next: T, rest: TreePath[T]) extends TreePath[T] {}
 
 /**
  * Empty path.
  * Corresponds to the root for absolute paths.
- * Corresponds to the current node for relativa paths.
- *
- * @tparam T type used to store a single component in the path
+ * Corresponds to the current node for relative paths.
  */
-case class EmptyTreePath[T]() extends TreePath[T]
+case object EmptyTreePath extends TreePath[Nothing]

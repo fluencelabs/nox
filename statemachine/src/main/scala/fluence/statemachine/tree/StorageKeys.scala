@@ -30,7 +30,17 @@ object StorageKeys {
   val vmStateHashKey: TreePath[StoreKey] = TreePath(List("@meta", "@vm_state_hash"))
 
   /**
-   * TODO
+   * TODO:
+   */
+  val txCounterKey: TreePath[StoreKey] = TreePath(List("@meta", "@tx_counter"))
+
+  /**
+   * TODO:
+   */
+  val sessionStatusKeyTemplate: TreePath[StoreKey] = TreePath(List("@meta", "*", "*", "@session_status"))
+
+  /**
+   * TODO:
    *
    * @param txHeader
    */

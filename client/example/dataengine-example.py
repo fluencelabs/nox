@@ -24,11 +24,11 @@ def demo_queries(addr, genesis):
     #qw = s.submit("wrong")
     q2 = s.submit("inc")
     q3 = s.submit("get")
-    closed = s.close()
+    #closed = s.close()
     print q1.result()
     print q2.result()
     print q3.result()
-    print closed.result()
+    #print closed.result()
 
 tm = TendermintRPC("localhost:46157")
 genesis = tm.get_genesis()
