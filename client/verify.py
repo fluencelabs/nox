@@ -144,7 +144,7 @@ def get_verified_result(tm, genesis, response):
 		return None
 
 	# app_hash => vote
-	signed_header = tm.get_commit(check_height)["SignedHeader"]
+	signed_header = tm.get_commit(check_height)
 	if not verify_app_hash(app_hash, signed_header):
 		print "App hash verification failed"
 		return None

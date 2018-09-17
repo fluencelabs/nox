@@ -14,7 +14,11 @@ class TendermintRPC:
 		return self.result_from_json('/abci_query?path="%s"', path)["response"]
 
 	def get_commit(self, height):
-		return self.result_from_json("/commit?height=%d", height)
+		result = self.result_from_json("/commit?height=%d", height)
+		if "SignedHeader" in result: # TODO: undo after migration to 0.24.0
+			return result["SignedHeader"]
+		else:
+			return result["signed_header"]
 
 	def get_block(self, height):
 		return self.result_from_json("/block?height=%d", height)["block"]
