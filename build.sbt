@@ -16,6 +16,7 @@ initialize := {
 }
 
 /* Projects */
+
 lazy val vm = (project in file("vm"))
   .settings(
     commons,
@@ -62,10 +63,10 @@ lazy val statemachine = (project in file("statemachine"))
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
-      "biz.enef"               %% "slogging"      % "0.6.1",
-      "org.scodec"             %% "scodec-bits"   % "1.1.5",
-      "io.circe"               %% "circe-generic" % "0.9.3",
-      "io.circe"               %% "circe-parser"  % "0.9.3",
+      circeGeneric,
+      circeParser,
+      slogging,
+      scodecBits,
       "com.github.jtendermint" % "jabci"          % "0.17.1",
       "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
@@ -74,6 +75,29 @@ lazy val statemachine = (project in file("statemachine"))
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(vm)
+
+lazy val externalstorage = (project in file("externalstorage"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
+      sttp,
+      sttpCirce,
+      sttpCatsBackend,
+      slogging,
+      circeCore,
+      circeGeneric,
+      circeGenericExtras,
+      pureConfig,
+      scodecBits,
+      scodecCore,
+      web3jCrypto,
+      cryptoHashing,
+      scalaTest
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val ethclient = (project in file("ethclient"))
   .settings(
