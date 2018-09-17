@@ -13,7 +13,11 @@ please note, comma in the `allow-paths` is crucial.
 ## Running private blockchain with docker
 See [guide on running private ethereum blockchain](private_ethereum.md)
 
-## Running scala tests
+## Deploying contract to blockchain
+`node_modules/.bin/truffle migrate`
+
+Then, copy & paste contract's address and your wallet into `ContractSpec` and run tests:
+
 `sbt ethclient/test`
 
 # Running nodejs tests
