@@ -21,7 +21,7 @@ object SbtCommons {
     resolvers += Resolver.bintrayRepo("fluencelabs", "releases"),
     scalafmtOnCompile := true,
     // see good explanation https://gist.github.com/djspiewak/7a81a395c461fd3a09a6941d4cd040f2
-    scalacOptions ++= Seq("-Ypartial-unification", "-Xfatal-warnings")
+    scalacOptions ++= Seq("-Ypartial-unification")
   )
 
   /* Common deps */
