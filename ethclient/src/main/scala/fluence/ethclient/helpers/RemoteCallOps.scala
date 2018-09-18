@@ -14,32 +14,30 @@
  * limitations under the License.
  */
 
-package fluence.ethclient
+package fluence.ethclient.helpers
 import cats.effect.{Async, Sync}
 import org.web3j.protocol.core.RemoteCall
 import org.web3j.protocol.core.methods.response.TransactionReceipt
+import cats.syntax.flatMap._
+import fluence.ethclient._
 import org.web3j.tx.Contract
 
 import scala.collection.JavaConverters._
+
 import scala.language.higherKinds
 
-/**
- * Wrapper for monadic calls on web3j contract
- *
- * @param contract wrapped contract
- * @tparam T type of the contract
- */
-case class RichContract[T <: Contract](contract: T) {
+object RemoteCallOps {
+  implicit class RichRemoteCall[T](call: RemoteCall[T]) {
 
-  /**
-   * @param call Function for executing contract methods
-   * @tparam F Effect
-   */
-  def call[F[_]: Async](call: T => RemoteCall[TransactionReceipt]): F[TransactionReceipt] = {
-    call(contract).sendAsync().asAsync[F]
+    def call[F[_]: Async]: F[T] = {
+      Async[F].delay(call).flatMap(_.sendAsync().asAsync[F])
+    }
   }
 
-  def getEvent[F[_]: Sync, E](get: T => java.util.List[E]): F[List[E]] = Sync[F].delay {
-    get(contract).asScala.toList
+  implicit class RichContract[T <: Contract](contract: T) {
+
+    def getEvent[F[_]: Sync, E](get: T => java.util.List[E]): F[List[E]] = Sync[F].delay {
+      get(contract).asScala.toList
+    }
   }
 }

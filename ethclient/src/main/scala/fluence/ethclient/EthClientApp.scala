@@ -43,7 +43,6 @@ object EthClientApp extends IOApp {
           _ ← IO(println(s"Going to unsubscribe"))
           _ ← unsubscribe
         } yield ()
-
       }
       .map { _ ⇒
         println("okay that's all")

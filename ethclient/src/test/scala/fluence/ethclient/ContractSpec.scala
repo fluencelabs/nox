@@ -19,6 +19,7 @@ package fluence.ethclient
 import cats.effect.IO
 import cats.effect.concurrent.MVar
 import fluence.ethclient.Deployer.NewSolverEventResponse
+import fluence.ethclient.helpers.RemoteCallOps._
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.Address
 import org.web3j.abi.datatypes.generated.Bytes32
@@ -31,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
 object ContractSpec extends TestSuite {
-  val ignored = true
+  val ignored = false
 
   override def utestWrap(path: Seq[String], runBody: => Future[Any])(
     implicit ec: ExecutionContext
@@ -44,7 +45,7 @@ object ContractSpec extends TestSuite {
   }
 
   private val url = sys.props.get("ethereum.url")
-  private val client = EthClient.makeHttpResource[IO](url).allocate.map(_._1)
+  private val client = EthClient.makeHttpResource[IO](url)
 
   private def stringToBytes32(s: String) = {
     val byteValue = s.getBytes()
@@ -61,31 +62,32 @@ object ContractSpec extends TestSuite {
         val contractAddress = "0x29fae4a10580bc551b1c8c56d9d97f7d9088a252"
         val owner = "0x96dce7eb99848e3332e38663a1968836ba3c3b53"
 
-        (for {
-          c <- client
-          event <- MVar.empty[IO, Log]
-          unsubscribe ← c.subscribeToLogsTopic[IO, IO](
-            contractAddress,
-            EventEncoder.buildEventSignature("NewSolver(bytes32)"),
-            event.put
-          )
-          contract <- c.getDeployer[IO](
-            contractAddress,
-            owner
-          )
-          _ <- contract.call[IO](_.addAddressToWhitelist(new Address(owner)))
-          txReceipt <- contract.call[IO](_.addSolver(bytes, bytes))
-          _ = assert(txReceipt.isStatusOK)
-          newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
-            _.getNewSolverEvents(txReceipt)
-          )
-          e <- event.take
-          _ <- unsubscribe
-        } yield {
-          assert(txReceipt.getLogs.asScala.contains(e))
-          newSolverEvents.length ==> 1
-          newSolverEvents.head.id ==> bytes
-        }).unsafeToFuture()
+        client.use { c =>
+          for {
+            event <- MVar.empty[IO, Log]
+            unsubscribe ← c.subscribeToLogsTopic[IO, IO](
+              contractAddress,
+              EventEncoder.buildEventSignature("NewSolver(bytes32)"),
+              event.put
+            )
+            contract <- c.getDeployer[IO](
+              contractAddress,
+              owner
+            )
+            _ <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
+            txReceipt <- contract.addSolver(bytes, bytes).call[IO]
+            _ = assert(txReceipt.isStatusOK)
+            newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
+              _.getNewSolverEvents(txReceipt)
+            )
+            e <- event.take
+            _ <- unsubscribe
+          } yield {
+            assert(txReceipt.getLogs.asScala.contains(e))
+            newSolverEvents.length ==> 1
+            newSolverEvents.head.id ==> bytes
+          }
+        }.unsafeToFuture()
       }
     }
   }

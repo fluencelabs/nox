@@ -19,6 +19,7 @@ package fluence.ethclient
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
 
+import cats.data.EitherT
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -55,17 +56,6 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
    */
   def clientVersion[F[_]: Async](): F[String] =
     request(_.web3ClientVersion()).map(_.getWeb3ClientVersion)
-
-  /**
-   * Returns the current client version.
-   *
-   * Method: """web3_clientVersion"""
-   */
-  def web3sha3[F[_]: Async](data: String): F[String] =
-    request(_.web3Sha3(data)).map { s ⇒
-      if (s.hasError) logger.error(s.getError.getCode + " - " + s.getError.getMessage)
-      s.getResult
-    }
 
   /**
    * Subscribe to logs topic, calling back each time the log message matches.
@@ -127,7 +117,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
   def getDeployer[F[_]: Async](
     at: String,
     userAddress: String
-  ): F[RichContract[Deployer]] =
+  ): F[Deployer] =
     Async[F].delay {
       val txManager = new ClientTransactionManager(web3, userAddress)
       val contract = Deployer.load(
@@ -141,7 +131,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
       // TODO: check contract.isValid and throw an exception
       // currently it doesn't work because contract's binary code is different after deploy for some unknown reason
       // maybe it's web3j generator's fault
-      RichContract(contract)
+      contract
     }
 
   /**
@@ -171,9 +161,9 @@ object EthClient {
    * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.
    * @param url optional url, http://localhost:8545/ is used by default
    */
-  def makeHttpResource[F[_]: Functor](
+  def makeHttpResource[F[_]](
     url: Option[String] = None
-  )(implicit F: ApplicativeError[F, Throwable]): Resource[F, EthClient] =
+  )(implicit F: Sync[F]): Resource[F, EthClient] =
     makeResource(new HttpService(url.getOrElse(HttpService.DEFAULT_URL)))
 
   /**
@@ -182,13 +172,13 @@ object EthClient {
    *
    * @param service [[Web3j]]'s connection description
    */
-  private def makeResource[F[_]: Functor](
+  private def makeResource[F[_]](
     service: Web3jService
-  )(implicit F: ApplicativeError[F, Throwable]): Resource[F, EthClient] =
+  )(implicit F: Sync[F]): Resource[F, EthClient] =
     Resource
       .make(
         F.catchNonFatal(
           new EthClient(Web3j.build(service))
         )
-      )(_ => /* _.shutdown()*/ F.pure(Unit))
+      )(web3j => F.delay(web3j.shutdown()))
 }
