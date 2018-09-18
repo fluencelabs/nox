@@ -24,6 +24,14 @@ Check out [this slide share](https://www.slideshare.net/AlexanderDemidko/fluence
 The project is undergoing a heavy development at the moment.  
 Check out the [issue tracker](https://github.com/fluencelabs/fluence/issues) to learn more about the current progress.
 
+## [Internal details](internals.md)
+Architecture details and research ideas that are not yet documented in writing can be found [here](internals.md).
+
+## Current research focus
+[Proof of independent execution – application to the batch validation](https://github.com/fluencelabs/fluence/issues/180)
+
+Stay tuned, more details are coming :)
+
 ## Contributing
 You are welcome to contribute. At the current moment we don't have detailed instructions on how to join development or which code guidelines to follow. However, you can expect more info to appear soon enough. In the meanwhile, check out the [basic contributing rules](./CONTRIBUTING.md).
 
