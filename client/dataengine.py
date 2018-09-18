@@ -1,4 +1,5 @@
 #!/usr/bin/python
+from __future__ import print_function
 import string, random, time
 from verify import get_verified_result
 
@@ -9,17 +10,17 @@ def sign(message, sk):
 	if sk is None:
 		return ""
 	else:
-		return sk.sign(message, encoding="base64")
+		return sk.sign(message, encoding="base64").decode()
 
 class DataEngineResultAwait:
 	def __init__(self, session, target_key):
 		self.session = session
 		self.target_key = target_key
 
-	def result(self, requests_per_sec = 2, response_timeout_sec = 5, wait_before_request_session_status_sec = 2):
+	def result(self, requests_per_sec = 2, response_timeout_sec = 10, wait_before_request_session_status_sec = 2):
 		tm = self.session.engine.tm
 		path = self.target_key + "/result"
-		print "querying " + path
+		print("querying " + path)
 		for i in range(0, response_timeout_sec * requests_per_sec):
 			verified_session_status = None
 			if i >= wait_before_request_session_status_sec * requests_per_sec:
@@ -48,8 +49,8 @@ class DataEngineSession:
 		self.counter = 0
 
 	def submit(self, command, *params):
-		payload = "%s(%s)" % (command, ','.join(map(str, params)))
-		tx_sign_bytes = "%s-%s-%d-%s" % (self.client, self.session, self.counter, payload)
+		payload = "%s(%s)" % (command, ",".join(map(str, params)))
+		tx_sign_bytes = ("%s-%s-%d-%s" % (self.client, self.session, self.counter, payload)).encode()
 		signature = sign(tx_sign_bytes, self.signing_key)
 		tx_json = str({
 			"tx": {
@@ -61,9 +62,9 @@ class DataEngineSession:
 				"payload": payload
 			},
 			"signature": signature
-		}).replace("'", '"')
+		}).replace("'", '"').replace('u"', '"')
 		target_key = "@meta/%s/%s/%d" % (self.client, self.session, self.counter)
-		print "submitting", tx_json
+		print("submitting", tx_json)
 		self.engine.tm.broadcast_tx_sync(tx_json)
 		self.counter += 1
 		return DataEngineResultAwait(self, target_key)

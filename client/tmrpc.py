@@ -1,4 +1,4 @@
-from misc_utils import read_json
+from misc_utils import read_json, hex_encode
 
 class TendermintRPC:
 	def __init__(self, addr):
@@ -8,7 +8,7 @@ class TendermintRPC:
 		return read_json(self.addr + template % params)["result"]
 
 	def broadcast_tx_sync(self, tx_json):
-		return self.result_from_json('/broadcast_tx_sync?tx="%s"', tx_json.encode("hex").upper())
+		return self.result_from_json('/broadcast_tx_sync?tx="%s"', hex_encode(tx_json))
 
 	def query(self, path):
 		return self.result_from_json('/abci_query?path="%s"', path)["response"]
