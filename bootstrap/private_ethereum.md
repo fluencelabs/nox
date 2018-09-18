@@ -1,17 +1,17 @@
 # Setting up private Ethereum blockchain with a full and a light nodes
 
 ## Prerequisites
-you will need Docker installed and running
+You will need [Docker](https://www.docker.com/get-started) installed and running.
 
-[here is direct link for macOS](https://download.docker.com/mac/stable/Docker.dmg), so you don't have to log into Docker store
+[Here is direct link for macOS](https://download.docker.com/mac/stable/Docker.dmg), so you don't have to log into Docker store.
 
 ## Create directory for blockchain
 `BLOCKCHAIN=/some/path`
 `mkdir $BLOCKCHAIN`
 
-## Create data dir (not sure if nodekeyhex is needed)
+## Create data dir
 You need to run this for every future node, specifying different datadir since datadir can't be shared.
-`docker run -v "$BLOCKCHAIN:/root" ethereum/client-go --nodekeyhex 091bd6067cb4612df85d9c1ff85cc47f259ced4d4cd99816b14f35650f59c322 --networkid=1234 --datadir="/root/.ethereum/devchain" --mine init "/root/genesis.json"`
+`docker run -v "$BLOCKCHAIN:/root" ethereum/client-go --networkid=1234 --datadir="/root/.ethereum/devchain" --mine init "/root/genesis.json"`
 
 ## Create docker network so nodes could freely talk to each other
 `docker create network geth-net`
@@ -19,11 +19,11 @@ You need to run this for every future node, specifying different datadir since d
 ## Run first node, full one
 `docker run -d -p 8545:8545 -p 30303:30303 --name private-geth1 -v "$BLOCKCHAIN:/root" --network=geth-net ethereum/client-go --nodiscover --rpcapi "db,personal,eth,net,web3" --rpccorsdomain '*' --networkid 1234 --rpc --rpcaddr "0.0.0.0" --datadir "/root/.ethereum/devchain" --lightserv 25`
 
-note, `--lightserv 25` is very important here, since it says how much of CPU % node willing to allocate on light clients. Default is ZERO, so lightclient (second node) wouldn't be able to connect
+Note, `--lightserv 25` is very important here, since it says how much of CPU % node willing to allocate on light clients. Default is ZERO, so lightclient (second node) wouldn't be able to connect
 
 ## Check logs through
 `docker logs private-geth1`
-btw, be aware of `--tail 1000` and `--follow` options, they are useful.
+Also, be aware of `--tail 1000` and `--follow` options, they are useful.
 
 ## Something like that will appear in the logs, that's node address
 ```
@@ -34,9 +34,6 @@ INFO [08-27|14:44:01.218] RLPx listener up                         self=enode://
 ## Run second node, light one
 `docker run -d -p 8546:8545 -p 30304:30304 --name private-geth2 -v "$BLOCKCHAIN:/root" --network=geth-net ethereum/client-go --nodiscover --syncmode "light" --rpcapi "db,personal,eth,net,web3" --rpccorsdomain '*' --networkid 1234 --rpc --rpcaddr "0.0.0.0" --datadir "/root/.ethereum/devchain2" --port 30304 --lightserv 25`
 
-## Run interactive geth console, if you need one
-`docker exec -it private-geth2 geth --datadir "/root/.ethereum/console" --networkid 1234 console`
-
 ## Create account (wallet)
 `docker exec -it private-geth2 geth --datadir "/root/.ethereum/console" --networkid 1234 account new`
 `cp $BLOCKCHAIN/.ethereum/console/keystore/* $BLOCKCHAIN/.ethereum/devchain/keystore/*`
@@ -46,19 +43,19 @@ INFO [08-27|14:44:01.218] RLPx listener up                         self=enode://
 `docker exec -it private-geth2 geth attach --datadir /root/.ethereum/devchain2`
 
 ## Add peer
-inside geth console (attach):
+Inside geth console (attach):
 `admin.addPeer(enode://abcde1234@LOCAL-IP:30303)`
 `LOCAL-IP` should look like `172.18.0.2` or something else, depending or docker network you created. You can check it out via running `ifconfig` inside container.
 
 ## Set ether base account to receive mining bounty
-inside geth console
+Inside geth console
 `miner.setEtherbase(eth.accounts[0])`
 
 ## Start miner
 `miner.start()`
 
 ## Make some transactions to check that light client (second node) sees everything
-commands to play with:
+Commands to play with:
 - `personal.newAccount`
 - `personal.unlockAccount`
 - `eth.getBalance`

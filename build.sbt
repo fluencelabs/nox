@@ -104,7 +104,8 @@ lazy val ethclient = (project in file("ethclient"))
     commons,
     libraryDependencies ++= Seq(
       "org.web3j" % "core" % "3.5.0",
-      "org.scodec"             %% "scodec-bits"   % "1.1.5",
+      slogging,
+      scodecBits,
       cats,
       catsEffect,
       utest

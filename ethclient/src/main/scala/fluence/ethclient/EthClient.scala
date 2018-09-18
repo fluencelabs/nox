@@ -17,7 +17,7 @@
 package fluence.ethclient
 
 import java.util.Collections
-import java.util.concurrent.{CancellationException, CompletableFuture, CompletionException}
+import java.util.concurrent.CompletableFuture
 
 import cats.effect._
 import cats.syntax.flatMap._
@@ -28,11 +28,11 @@ import org.web3j.protocol.core._
 import org.web3j.protocol.core.methods.request.EthFilter
 import org.web3j.protocol.core.methods.response.Log
 import org.web3j.protocol.http.HttpService
-import org.web3j.protocol.ipc.UnixIpcService
 import org.web3j.protocol.{Web3j, Web3jService}
 import org.web3j.tx.ClientTransactionManager
 import org.web3j.tx.gas.DefaultGasProvider
 import rx.Observable
+import slogging._
 
 import scala.language.higherKinds
 
@@ -46,9 +46,7 @@ import scala.language.higherKinds
  *
  * @param web3 Underlying Web3j instance
  */
-class EthClient private (private val web3: Web3j) {
-
-  import EthClient.FromJavaFuture
+class EthClient private (private val web3: Web3j) extends LazyLogging {
 
   /**
    * Returns the current client version.
@@ -65,7 +63,7 @@ class EthClient private (private val web3: Web3j) {
    */
   def web3sha3[F[_]: Async](data: String): F[String] =
     request(_.web3Sha3(data)).map { s ⇒
-      if (s.hasError) println(s.getError.getCode + " - " + s.getError.getMessage)
+      if (s.hasError) logger.error(s.getError.getCode + " - " + s.getError.getMessage)
       s.getResult
     }
 
@@ -96,8 +94,7 @@ class EthClient private (private val web3: Web3j) {
             ).addSingleTopic(topic)
           )
           .flatMap({ log ⇒
-            println("yet we;re inside")
-            println(log)
+            logger.debug(s"topic $topic: $log")
 
             // TODO: must provide all the error callbacks as well
             // Convert callback to a Java Future, then convert it to Observable
@@ -181,16 +178,6 @@ object EthClient {
 
   /**
    * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.
-   *
-   * @param ipcSocketPath Full path to geth.ipc
-   */
-  def makeUnixIpcResource[F[_]: Functor](
-    ipcSocketPath: String
-  )(implicit F: ApplicativeError[F, Throwable]): Resource[F, EthClient] =
-    makeResource(new UnixIpcService(ipcSocketPath))
-
-  /**
-   * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.
    * Initiation and shutting down is done eagerly on the caller thread.
    *
    * @param service [[Web3j]]'s connection description
@@ -204,51 +191,4 @@ object EthClient {
           new EthClient(Web3j.build(service))
         )
       )(_ => /* _.shutdown()*/ F.pure(Unit))
-
-  /**
-   * Utility converters from Java's CompletableFuture to cats-effect types
-   */
-  private[ethclient] implicit class FromJavaFuture[A](cf: CompletableFuture[A]) {
-
-    /**
-     * Convert Java Future to some Cancelable F type.
-     * It requires F to have Concurrent typeclass, which is a more strict requirement then just Async.
-     */
-    def asCancelable[F[_]: Concurrent]: F[A] =
-      Concurrent[F].cancelable { cb =>
-        cf.handle[Unit] { (result: A, err: Throwable) =>
-          err match {
-            case null =>
-              cb(Right(result))
-            case _: CancellationException =>
-              ()
-            case ex: CompletionException if ex.getCause ne null =>
-              cb(Left(ex.getCause))
-            case ex =>
-              cb(Left(ex))
-          }
-        }
-        IO(cf.cancel(true))
-      }
-
-    /**
-     * Convert Java Future to some Async F type.
-     * It requires F to be just Async.
-     */
-    def asAsync[F[_]: Async]: F[A] =
-      Async[F].async { cb ⇒
-        cf.handle[Unit] { (result: A, err: Throwable) ⇒
-          err match {
-            case null =>
-              cb(Right(result))
-            case _: CancellationException =>
-              ()
-            case ex: CompletionException if ex.getCause ne null =>
-              cb(Left(ex.getCause))
-            case ex =>
-              cb(Left(ex))
-          }
-        }
-      }
-  }
 }

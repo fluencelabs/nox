@@ -20,9 +20,8 @@ import org.web3j.protocol.core.RemoteCall
 import org.web3j.protocol.core.methods.response.TransactionReceipt
 import org.web3j.tx.Contract
 
+import scala.collection.JavaConverters._
 import scala.language.higherKinds
-
-import collection.JavaConverters._
 
 /**
  * Wrapper for monadic calls on web3j contract
@@ -31,8 +30,6 @@ import collection.JavaConverters._
  * @tparam T type of the contract
  */
 case class RichContract[T <: Contract](contract: T) {
-
-  import EthClient.FromJavaFuture
 
   /**
    * @param call Function for executing contract methods
