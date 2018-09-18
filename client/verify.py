@@ -73,7 +73,7 @@ def hash_binary(data, format):
 		b = to_uvarint(int(data) * 2)
 	elif format == "time":
 		t_unix, t_ns = parse_utc_unix_ns(data)
-		b = ints_to_bytes([(1 << 3) | 1]) + l_endian_4b(t_unix) + ints_to_bytes([0, 0, 0, 0, (2 << 3) | 5]) + l_endian_4b(t_ns)
+		b = ints_to_bytes((1 << 3) | 1) + l_endian_4b(t_unix) + ints_to_bytes(0, 0, 0, 0, (2 << 3) | 5) + l_endian_4b(t_ns)
 	elif format == "block_id":
 		b = hex_decode_bytes("0A14" + data[0] + "121808021214" + data[1])
 	else:
