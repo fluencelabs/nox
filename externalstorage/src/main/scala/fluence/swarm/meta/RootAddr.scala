@@ -39,14 +39,14 @@ object RootAddr extends slogging.LazyLogging {
   implicit val rootAddrEncoder: Encoder[RootAddr] = ByteVectorJsonCodec.encodeByteVector.contramap(_.addr)
 
   /**
-    * Generate [[RootAddr]] from metaHash and ownerAddr.
-    *
-    * @param metaHash required to identify and ascertain ownership of the uploadable resource
-    *                 metaHash = H(00|size|startTime|frequency|nameLength|name)
-    *                 @see [[MetaHash]]
-    * @param ownerAddr Swarm address (Ethereum wallet address)
-    * @return generated rootAddr
-    */
+   * Generate [[RootAddr]] from metaHash and ownerAddr.
+   *
+   * @param metaHash required to identify and ascertain ownership of the uploadable resource
+   *                 metaHash = H(00|size|startTime|frequency|nameLength|name)
+   *                 @see [[MetaHash]]
+   * @param ownerAddr Swarm address (Ethereum wallet address)
+   * @return generated rootAddr
+   */
   def apply[F[_]: Monad](metaHash: MetaHash, ownerAddr: ByteVector)(
     implicit hasher: Hasher[ByteVector, ByteVector]
   ): EitherT[F, SwarmError, RootAddr] =

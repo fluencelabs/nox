@@ -58,7 +58,8 @@ class TendermintStateHolder[F[_]: Monad](private val tendermintState: MVar[F, Te
   /**
    * Returns state used for `CheckTx` method transaction validation.
    */
-  def mempoolState: F[MerkleTreeNode] = tendermintState.read.map(x => x.mempoolState.getOrElse(TreeNode.emptyMerkelizedNode))
+  def mempoolState: F[MerkleTreeNode] =
+    tendermintState.read.map(x => x.mempoolState.getOrElse(TreeNode.emptyMerkelizedNode))
 
   /**
    * Returns current Consensus state.
