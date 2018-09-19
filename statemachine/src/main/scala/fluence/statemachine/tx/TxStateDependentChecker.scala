@@ -17,7 +17,7 @@
 package fluence.statemachine.tx
 import cats.Monad
 import cats.data.EitherT
-import fluence.statemachine.tree.{StorageKeys, TreeNode}
+import fluence.statemachine.tree.{StoragePaths, TreeNode}
 import fluence.statemachine.util.ClientInfoMessages
 
 import scala.language.higherKinds
@@ -41,13 +41,13 @@ class TxStateDependentChecker[F[_]: Monad](state: F[TreeNode]) {
       currentState <- EitherT.right(state)
       deduplicatedTx <- EitherT.cond(
         !currentState
-          .hasValue(StorageKeys.statusKey(uncheckedTx.header)),
+          .hasValue(StoragePaths.txStatusPath(uncheckedTx.header)),
         uncheckedTx,
         ClientInfoMessages.DuplicatedTransaction
       )
       checkedTx <- EitherT.cond(
         !currentState
-          .getValue(StorageKeys.sessionSummaryKey(uncheckedTx.header))
+          .getValue(StoragePaths.sessionSummaryPath(uncheckedTx.header))
           .flatMap(SessionSummary.fromStoreValue)
           .exists(_.status != Active),
         deduplicatedTx,

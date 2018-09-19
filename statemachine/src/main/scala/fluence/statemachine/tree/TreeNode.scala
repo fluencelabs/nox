@@ -100,16 +100,15 @@ abstract class TreeNode(val children: Map[StoreKey, TreeNode], val value: Option
   def isEmpty: Boolean = value.isEmpty && children.isEmpty
 
   /**
-   * TODO:
+   * Returns a sequence of [[TreePath]]'s matching the provided key template.
    *
-   * @param keyTemplate
-   * @return
+   * @param keyTemplate search template that may contain 'any-key' wildcards (*) or explicitly described key components.
    */
   def selectByTemplate(keyTemplate: TreePath[StoreKey]): Seq[TreePath[StoreKey]] = keyTemplate match {
     case EmptyTreePath => List(EmptyTreePath)
     case SplittableTreePath(next, rest) =>
       val matchedChildren: Seq[StoreKey] = next match {
-        case "*" => children.keys.toList
+        case TreeNode.SelectorWildcardKey => children.keys.toList
         case key => List(key)
       }
       matchedChildren
@@ -154,6 +153,11 @@ object TreeNode {
    * Merkelized empty node, has no value, no children.
    */
   val emptyMerkelizedNode: MerkleTreeNode = SimpleTreeNode(SortedMap.empty[StoreKey, TreeNode], None).merkelize()
+
+  /**
+   * [[StoreKey]] used as component of [[TreePath]] as wildcard selector in [[TreeNode.selectByTemplate()]].
+   */
+  val SelectorWildcardKey: StoreKey = "*"
 }
 
 /**

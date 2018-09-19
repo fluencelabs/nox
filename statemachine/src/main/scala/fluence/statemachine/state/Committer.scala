@@ -20,7 +20,7 @@ import cats.data.StateT
 import cats.syntax.functor._
 import com.google.protobuf.ByteString
 import fluence.statemachine.StoreValue
-import fluence.statemachine.tree.{MerkleTreeNode, StorageKeys, TreeNode}
+import fluence.statemachine.tree.{MerkleTreeNode, StoragePaths, TreeNode}
 import fluence.statemachine.tx.VmOperationInvoker
 import fluence.statemachine.util.HexCodec
 
@@ -64,7 +64,7 @@ class Committer[F[_]](
       oldConsensusState =>
         for {
           vmStateHash <- vmInvoker.vmStateHash().map(HexCodec.binaryToHex).getOrElse(WrongVmHashValue)
-          newConsensusState = oldConsensusState.putValue(StorageKeys.vmStateHashKey, vmStateHash)
+          newConsensusState = oldConsensusState.putValue(StoragePaths.VmStateHashPath, vmStateHash)
         } yield (newConsensusState, ())
     )
 

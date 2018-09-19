@@ -16,22 +16,25 @@
 
 package fluence.statemachine.tx
 import fluence.statemachine.StoreValue
-import io.circe.syntax._
 import io.circe.generic.auto._
 import io.circe.parser.{parse => parseJson}
-
+import io.circe.syntax._
 
 /**
- * TODO:
+ * Summary for the client session, containing the information about the session lifecycle.
+ * This information is used by the State machine ifself (for transaction checking, session expiration, etc.)
+ * and by the client querying it from the state tree.
  *
- * @param status
- * @param invokedTxsCount
- * @param lastTxCounter
+ * @param status [[SessonStatus]] describing this session (a particular phase of the session lifecycle)
+ * @param invokedTxsCount number of transactions of this session invoked (regardless successfully or not)
+ *                        by the State machine
+ * @param lastTxCounter the global invoked tx counter value of the State machine for the latest invoked transaction
+ *                      of this session
  */
 case class SessionSummary(status: SessonStatus, invokedTxsCount: Long, lastTxCounter: Long) {
 
   /**
-   * TODO:
+   * Serializes the summary to [[StoreValue]] in order to store it in the state tree.
    */
   def toStoreValue: StoreValue = this.asJson.noSpaces
 }
@@ -39,10 +42,10 @@ case class SessionSummary(status: SessonStatus, invokedTxsCount: Long, lastTxCou
 object SessionSummary {
 
   /**
-    * TODO:
-    *
-    * @param value
-    */
+   * Deserializes the summary from the given [[StoreValue]].
+   *
+   * @param value serialized summary
+   */
   def fromStoreValue(value: StoreValue): Option[SessionSummary] =
     (for {
       parsedJson <- parseJson(value)
@@ -50,14 +53,33 @@ object SessionSummary {
     } yield summary).toOption
 }
 
+/**
+ * Status describing the current phase of the sesion lifecycle.
+ */
 sealed abstract class SessonStatus
 
+/**
+ * Status corresponding to sessions that active, i. e. could potentially invoke new transactions.
+ */
 case object Active extends SessonStatus
 
+/**
+ * Status corresponding to sessions closed by any reason and unable to invoke any transactions.
+ */
 sealed abstract class Closed extends SessonStatus
 
+/**
+ * Status corresponding to sessions explicitly closed by their clients via sending `@closeSession` transaction.
+ */
 case object ExplicitlyClosed extends Closed
 
+/**
+ * Status corresponding to sessions explicitly closed by their clients via sending `@closeSession` transaction.
+ */
 case object Failed extends Closed
 
+/**
+ * Status corresponding to sessions neither closed by their clients no failed and later considered `expired`
+ * after some inactivity period.
+ */
 case object Expired extends Closed

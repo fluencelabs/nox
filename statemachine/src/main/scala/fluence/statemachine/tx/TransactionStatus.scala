@@ -18,13 +18,18 @@ package fluence.statemachine.tx
 import fluence.statemachine.StoreValue
 
 /**
- * TODO:
+ * Transaction status describing whether some transaction is already invoked (successfully or not)
+ * or still queued for the invocation.
  *
- * @param value
+ * @param storeValue status representation for storing it in the state tree
  */
 sealed abstract class TransactionStatus(val storeValue: StoreValue)
 
 object TransactionStatus {
+
+  /**
+  * Status corresponding to a queued transaction that was checked but not ready
+    */
   object Queued extends TransactionStatus("queued")
   object Success extends TransactionStatus("success")
   object Error extends TransactionStatus("error")

@@ -21,7 +21,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.statemachine.StoreValue
 import fluence.statemachine.state.MutableStateTree
-import fluence.statemachine.tree.StorageKeys._
+import fluence.statemachine.tree.StoragePaths._
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -81,7 +81,7 @@ class TxProcessor[F[_]](
   private def processExpiredSessions(txCounter: Long): F[Unit] =
     for {
       root <- mutableConsensusState.getRoot
-      statusKeys = root.selectByTemplate(sessionSummaryKeyTemplate)
+      statusKeys = root.selectByTemplate(SessionSummarySelector)
       expirationList = statusKeys.flatMap(
         statusKey =>
           root
@@ -167,7 +167,7 @@ class TxProcessor[F[_]](
   private def getTxCounter(): F[Long] =
     for {
       root <- mutableConsensusState.getRoot
-      value = root.getValue(txCounterKey).map(_.toLong).getOrElse(0L)
+      value = root.getValue(TxCounterPath).map(_.toLong).getOrElse(0L)
     } yield value
 
   /**
@@ -177,30 +177,30 @@ class TxProcessor[F[_]](
     for {
       oldValue <- getTxCounter()
       newValue = oldValue + 1
-      _ <- mutableConsensusState.putValue(txCounterKey, newValue.toString)
+      _ <- mutableConsensusState.putValue(TxCounterPath, newValue.toString)
     } yield newValue
 
   private def enqueueTx(tx: Transaction): F[Unit] =
     for {
-      _ <- mutableConsensusState.putValue(payloadKey(tx.header), tx.payload)
-      _ <- mutableConsensusState.putValue(statusKey(tx.header), TransactionStatus.Queued.storeValue)
+      _ <- mutableConsensusState.putValue(txPayloadPath(tx.header), tx.payload)
+      _ <- mutableConsensusState.putValue(txStatusPath(tx.header), TransactionStatus.Queued.storeValue)
     } yield ()
 
   private def dequeueTx(tx: Transaction): F[Unit] =
     for {
-      _ <- mutableConsensusState.removeValue(payloadKey(tx.header))
+      _ <- mutableConsensusState.removeValue(txPayloadPath(tx.header))
     } yield ()
 
   private def getStatus(txHeader: TransactionHeader): F[Option[String]] =
     for {
       root <- mutableConsensusState.getRoot
-      value = root.getValue(statusKey(txHeader))
+      value = root.getValue(txStatusPath(txHeader))
     } yield value
 
   private def getStoredPayload(txHeader: TransactionHeader): F[Option[String]] =
     for {
       root <- mutableConsensusState.getRoot
-      value = root.getValue(payloadKey(txHeader))
+      value = root.getValue(txPayloadPath(txHeader))
     } yield value
 
   private def putResult(
@@ -210,11 +210,11 @@ class TxProcessor[F[_]](
     sessionStatus: SessonStatus
   ): F[TransactionStatus] = {
     for {
-      _ <- mutableConsensusState.putValue(resultKey(tx.header), result.toStoreValue)
-      _ <- mutableConsensusState.putValue(statusKey(tx.header), txStatus.storeValue)
+      _ <- mutableConsensusState.putValue(txResultPath(tx.header), result.toStoreValue)
+      _ <- mutableConsensusState.putValue(txStatusPath(tx.header), txStatus.storeValue)
       txCounter <- getTxCounter()
       sessionSummary = SessionSummary(sessionStatus, tx.header.order + 1, txCounter).toStoreValue
-      _ <- mutableConsensusState.putValue(sessionSummaryKey(tx.header), sessionSummary)
+      _ <- mutableConsensusState.putValue(sessionSummaryPath(tx.header), sessionSummary)
     } yield txStatus
   }
 }
