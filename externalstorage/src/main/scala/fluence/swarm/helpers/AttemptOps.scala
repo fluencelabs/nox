@@ -14,23 +14,16 @@
  * limitations under the License.
  */
 
-package fluence.vm
-
+package fluence.swarm.helpers
+import cats.Applicative
 import cats.data.EitherT
-import cats.effect.IO
+import scodec.{Attempt, Err}
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.duration._
+import scala.language.higherKinds
 
-object TestUtils {
-
-  implicit class EitherTValueReader[E, V](origin: EitherT[IO, E, V]) {
-
-    def success(timeout: Duration = 3.seconds): V =
-      origin.value.unsafeRunTimed(timeout).get.right.get
-
-    def failed(timeout: Duration = 3.seconds): E =
-      origin.value.unsafeRunTimed(timeout).get.left.get
+object AttemptOps {
+  implicit class RichAttempt[T](attempt: Attempt[T]) {
+    def toEitherT[F[_]: Applicative]: EitherT[F, Err, T] = EitherT.fromEither(attempt.toEither)
+    def toEitherT[F[_]: Applicative, E](errFunc: Err => E): EitherT[F, E, T] = toEitherT.leftMap(errFunc)
   }
-
 }

@@ -14,23 +14,16 @@
  * limitations under the License.
  */
 
-package fluence.vm
+package fluence.swarm.helpers
+import org.web3j.crypto.Sign
 
-import cats.data.EitherT
-import cats.effect.IO
+object SignatureDataOps {
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.duration._
+  implicit class RichSignatureData(val signData: Sign.SignatureData) extends AnyVal {
 
-object TestUtils {
-
-  implicit class EitherTValueReader[E, V](origin: EitherT[IO, E, V]) {
-
-    def success(timeout: Duration = 3.seconds): V =
-      origin.value.unsafeRunTimed(timeout).get.right.get
-
-    def failed(timeout: Duration = 3.seconds): E =
-      origin.value.unsafeRunTimed(timeout).get.left.get
+    // web3j adds 27 to V, but Swarm needs a pure value
+    // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
+    def toByteArray: Array[Byte] =
+      signData.getR ++ signData.getS ++ Array((signData.getV - 27).toByte)
   }
-
 }

@@ -14,23 +14,20 @@
  * limitations under the License.
  */
 
-package fluence.vm
+package fluence.swarm.helpers
+import io.circe.{Decoder, Encoder, Json}
+import scodec.bits.ByteVector
 
-import cats.data.EitherT
-import cats.effect.IO
+object ByteVectorJsonCodec {
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.duration._
+  /**
+   * Every byte array in JSON is `0x` prefixed in Swarm.
+   */
+  implicit final val encodeByteVector: Encoder[ByteVector] = (bv: ByteVector) => Json.fromString("0x" + bv.toHex)
 
-object TestUtils {
-
-  implicit class EitherTValueReader[E, V](origin: EitherT[IO, E, V]) {
-
-    def success(timeout: Duration = 3.seconds): V =
-      origin.value.unsafeRunTimed(timeout).get.right.get
-
-    def failed(timeout: Duration = 3.seconds): E =
-      origin.value.unsafeRunTimed(timeout).get.left.get
+  implicit final val decodeByteVector: Decoder[ByteVector] = {
+    Decoder.decodeString.emap { str =>
+      ByteVector.fromHexDescriptive(str).left.map(t => "ByteVector")
+    }
   }
-
 }

@@ -14,23 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.vm
+package fluence.swarm
 
-import cats.data.EitherT
-import cats.effect.IO
+import scala.language.higherKinds
+import scala.util.control.NoStackTrace
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.duration._
+// TODO change this error to errors with hierarchy
+case class SwarmError(message: String, causedBy: Option[Throwable] = None) extends NoStackTrace {
+  override def getMessage: String = message
 
-object TestUtils {
-
-  implicit class EitherTValueReader[E, V](origin: EitherT[IO, E, V]) {
-
-    def success(timeout: Duration = 3.seconds): V =
-      origin.value.unsafeRunTimed(timeout).get.right.get
-
-    def failed(timeout: Duration = 3.seconds): E =
-      origin.value.unsafeRunTimed(timeout).get.left.get
-  }
-
+  override def getCause: Throwable = causedBy getOrElse super.getCause
 }

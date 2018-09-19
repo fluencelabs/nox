@@ -14,23 +14,24 @@
  * limitations under the License.
  */
 
-package fluence.vm
+package fluence.swarm.crypto
+import fluence.crypto.{Crypto, CryptoError}
+import org.web3j.crypto.Hash
+import scodec.bits.ByteVector
 
-import cats.data.EitherT
-import cats.effect.IO
+import scala.util.Try
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.duration._
+object Keccak256Hasher {
 
-object TestUtils {
-
-  implicit class EitherTValueReader[E, V](origin: EitherT[IO, E, V]) {
-
-    def success(timeout: Duration = 3.seconds): V =
-      origin.value.unsafeRunTimed(timeout).get.right.get
-
-    def failed(timeout: Duration = 3.seconds): E =
-      origin.value.unsafeRunTimed(timeout).get.left.get
-  }
-
+  /**
+   * Default hash function in Swarm. Arrow from plain bytes to hash bytes.
+   */
+  val hasher: Crypto.Hasher[ByteVector, ByteVector] =
+    Crypto.liftFuncEither(
+      bytes ⇒
+        Try {
+          ByteVector(Hash.sha3(bytes.toArray))
+        }.toEither.left
+          .map(err ⇒ CryptoError(s"Unexpected error when hashing by SHA-3.", Some(err)))
+    )
 }
