@@ -1,12 +1,12 @@
 #!/bin/bash -e
 
 command -v web3j >/dev/null 2>&1 || { 
-    echo >&2 "web3j should is not installed. See https://web3j.readthedocs.io/en/latest/command_line.html" 
+    echo >&2 "web3j is not installed. See https://web3j.readthedocs.io/en/latest/command_line.html" 
     exit 1 
 }
 
 command -v solc >/dev/null 2>&1 || { 
-    echo >&2 "solc should is not installed. See https://solidity.readthedocs.io/en/latest/installing-solidity.html" 
+    echo >&2 "solc is not installed. See https://solidity.readthedocs.io/en/latest/installing-solidity.html" 
     exit 1 
 }
 
