@@ -1,4 +1,5 @@
-from misc_utils import read_json, hex_encode
+from misc_utils import read_json
+from codec import hex_encode
 
 class TendermintRPC:
 	def __init__(self, addr):

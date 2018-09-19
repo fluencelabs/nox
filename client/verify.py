@@ -4,7 +4,8 @@ import ed25519
 import hashlib
 if sys.version_info[0] == 2:
     import sha3
-from misc_utils import to_uvarint, l_endian_4b, parse_utc_unix_ns, b64_decode, hex_decode, hex_decode_bytes, hex_encode, hex_encode_bytes, ints_to_bytes
+from misc_utils import parse_utc_unix_ns
+from codec import to_uvarint, l_endian_4b, b64_decode, hex_decode, hex_decode_bytes, hex_encode, hex_encode_bytes, ints_to_bytes
 
 # https://github.com/tendermint/tendermint/blob/master/types/vote.go
 # https://github.com/tendermint/tendermint/blob/master/types/vote_test.go
