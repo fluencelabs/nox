@@ -54,4 +54,9 @@ object SbtCommons {
 
   val scalaTest = "org.scalatest" %% "scalatest"   % "3.0.5"  % Test
   val mockito = "org.mockito"     % "mockito-core" % "2.21.0" % Test
+  val utest = "com.lihaoyi" %% "utest" % "0.6.3" % Test
+
+  /* Test settings */
+  val setUTestFramework =
+    testFrameworks += new TestFramework("utest.runner.Framework")
 }
