@@ -27,6 +27,6 @@ sealed abstract class TransactionStatus(val storeValue: StoreValue)
 object TransactionStatus {
   object Queued extends TransactionStatus("queued")
   object Success extends TransactionStatus("success")
-  object SessionClosed extends TransactionStatus("session_closed")
   object Error extends TransactionStatus("error")
+  object SessionClosed extends TransactionStatus("sessionClosed")
 }

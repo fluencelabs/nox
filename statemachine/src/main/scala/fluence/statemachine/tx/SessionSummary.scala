@@ -26,7 +26,7 @@ import io.circe.syntax._
  * @param invokedTxsCount
  * @param lastTxCounter
  */
-case class SessionStatusRecord(status: SessonStatus, invokedTxsCount: Long, lastTxCounter: Long) {
+case class SessionSummary(status: SessonStatus, invokedTxsCount: Long, lastTxCounter: Long) {
 
   /**
    * TODO:
@@ -40,7 +40,7 @@ case object Active extends SessonStatus
 
 sealed abstract class Closed extends SessonStatus
 
-case object NormallyClosed extends Closed
+case object ExplicitlyClosed extends Closed
 
 case object Failed extends Closed
 

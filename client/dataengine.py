@@ -17,23 +17,23 @@ class DataEngineResultAwait:
 		self.session = session
 		self.target_key = target_key
 
-	def result(self, requests_per_sec = 2, response_timeout_sec = 10, wait_before_request_session_status_sec = 2):
+	def result(self, requests_per_sec = 2, response_timeout_sec = 10, wait_before_request_session_summary_sec = 2):
 		tm = self.session.engine.tm
 		path = self.target_key + "/result"
 		print("querying " + path)
 		for i in range(0, response_timeout_sec * requests_per_sec):
-			verified_session_status = None
-			if i >= wait_before_request_session_status_sec * requests_per_sec:
-				status_response = tm.query(self.session.status_key)
-				if "value" in status_response:
-					verified_session_status = get_verified_result(tm, self.session.engine.genesis, status_response)
+			verified_session_summary = None
+			if i >= wait_before_request_session_summary_sec * requests_per_sec:
+				summary_response = tm.query(self.session.summary_key)
+				if "value" in summary_response:
+					verified_session_summary = get_verified_result(tm, self.session.engine.genesis, summary_response)
 					
 			query_response = tm.query(path)
 			if "value" in query_response:
 				return get_verified_result(tm, self.session.engine.genesis, query_response)
 
-			if verified_session_status != None and not "Active" in verified_session_status["status"]:
-				return verified_session_status
+			if verified_session_summary != None and not "Active" in verified_session_summary["status"]:
+				return verified_session_summary
 			time.sleep(1.0 / requests_per_sec)
 		return None
 
@@ -45,7 +45,7 @@ class DataEngineSession:
 		self.client = client
 		self.signing_key = signing_key
 		self.session = id_generator()
-		self.status_key = "@meta/%s/%s/@session_status" % (self.client, self.session)
+		self.summary_key = "@meta/%s/%s/@sessionSummary" % (self.client, self.session)
 		self.counter = 0
 
 	def submit(self, command, *params):
@@ -70,7 +70,7 @@ class DataEngineSession:
 		return DataEngineResultAwait(self, target_key)
 
 	def close(self):
-		return self.submit("@close_session")
+		return self.submit("@closeSession")
 
 class DataEngine:
 	def __init__(self, tm, genesis):

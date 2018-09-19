@@ -61,7 +61,6 @@ class TxProcessor[F[_]](
   def processNewTx(tx: Transaction): F[Unit] =
     for {
       txCounter <- incrementTxCounter()
-      _ <- processExpiredSessions(txCounter)
       _ <- enqueueTx(tx)
       _ = logger.debug("Appended tx: {}", tx)
       _ <- tx.header.requiredTxHeader match {
@@ -72,6 +71,7 @@ class TxProcessor[F[_]](
             _ <- if (requiredSuccess) applyTxWithDependencies(tx.header) else F.unit
           } yield ()
       }
+      _ <- processExpiredSessions(txCounter)
     } yield ()
 
   /**
@@ -83,14 +83,14 @@ class TxProcessor[F[_]](
   private def processExpiredSessions(txCounter: Long): F[Unit] =
     for {
       root <- mutableConsensusState.getRoot
-      statusKeys = root.selectByTemplate(sessionStatusKeyTemplate)
+      statusKeys = root.selectByTemplate(sessionSummaryKeyTemplate)
       expirationList = statusKeys.flatMap(
         statusKey =>
           root
             .getValue(statusKey)
-            .flatMap(extractStatus)
-            .filter(status => status.status == Active && status.lastTxCounter <= txCounter - 8)
-            .map(status => mutableConsensusState.putValue(statusKey, status.copy(status = Expired).toStoreValue))
+            .flatMap(extractSessionSummary)
+            .filter(summary => summary.status == Active && summary.lastTxCounter <= txCounter - 8)
+            .map(summary => mutableConsensusState.putValue(statusKey, summary.copy(status = Expired).toStoreValue))
       )
       _ <- expirationList.foldLeft(F.unit)((acc, expiration) => {
         for {
@@ -107,11 +107,11 @@ class TxProcessor[F[_]](
    * @param txCounter
    * @return
    */
-  private def extractStatus(value: StoreValue): Option[SessionStatusRecord] =
+  private def extractSessionSummary(value: StoreValue): Option[SessionSummary] =
     (for {
       parsedJson <- parseJson(value)
-      statusRecord <- parsedJson.as[SessionStatusRecord]
-    } yield statusRecord).toOption
+      summary <- parsedJson.as[SessionSummary]
+    } yield summary).toOption
 
   /**
    * Triggers the application of a transaction stored by given header (if actually stored).
@@ -164,7 +164,7 @@ class TxProcessor[F[_]](
    * @return TODO:
    */
   private def invokeTx(tx: Transaction): F[TransactionStatus] = tx.payload match {
-    case "@close_session()" => putResult(tx, TransactionStatus.SessionClosed, Empty, NormallyClosed)
+    case "@closeSession()" => putResult(tx, TransactionStatus.SessionClosed, Empty, ExplicitlyClosed)
     case _ =>
       for {
         invoked <- vmInvoker.invoke(tx.payload).value
@@ -228,8 +228,8 @@ class TxProcessor[F[_]](
       _ <- mutableConsensusState.putValue(resultKey(tx.header), result.toStoreValue)
       _ <- mutableConsensusState.putValue(statusKey(tx.header), txStatus.storeValue)
       txCounter <- getTxCounter()
-      sessionStatusRecord = SessionStatusRecord(sessionStatus, tx.header.order + 1, txCounter).toStoreValue
-      _ <- mutableConsensusState.putValue(sessionStatusKey(tx.header), sessionStatusRecord)
+      sessionSummary = SessionSummary(sessionStatus, tx.header.order + 1, txCounter).toStoreValue
+      _ <- mutableConsensusState.putValue(sessionStatusKey(tx.header), sessionSummary)
     } yield txStatus
   }
 }

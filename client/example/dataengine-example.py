@@ -16,21 +16,26 @@ def get_verifying_key():
 def get_client():
     return "client001"
 
-def demo_queries(addr, genesis):
+def demo_queries(addr, genesis, send_wrong=False, send_closed=True):
     eng = DataEngine(addr, genesis)
     s = eng.new_session(get_client(), get_signing_key())
     q0 = s.submit("inc")
     q1 = s.submit("multiplier.mul", 10, 14)
-    #qw = s.submit("wrong")
+    if send_wrong:
+        qw = s.submit("wrong")
     q2 = s.submit("inc")
     q3 = s.submit("get")
-    #closed = s.close()
+    if send_closed:
+        closed = s.close()
     print(q1.result())
     print(q2.result())
     print(q3.result())
-    #print(closed.result())
+    if send_closed:
+        print(closed.result())
 
 tm = TendermintRPC("http://localhost:46157")
 genesis = tm.get_genesis()
 height = tm.get_max_height()
-demo_queries(tm, genesis)
+demo_queries(tm, genesis, False, False)
+demo_queries(tm, genesis, True, False)
+demo_queries(tm, genesis, False, True)

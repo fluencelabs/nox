@@ -27,17 +27,17 @@ object StorageKeys {
   /**
    * Key used to store hash of the current state of underlying VM.
    */
-  val vmStateHashKey: TreePath[StoreKey] = TreePath(List("@meta", "@vm_state_hash"))
+  val vmStateHashKey: TreePath[StoreKey] = TreePath(List("@meta", "@vmStateHash"))
 
   /**
    * TODO:
    */
-  val txCounterKey: TreePath[StoreKey] = TreePath(List("@meta", "@tx_counter"))
+  val txCounterKey: TreePath[StoreKey] = TreePath(List("@meta", "@txCounter"))
 
   /**
    * TODO:
    */
-  val sessionStatusKeyTemplate: TreePath[StoreKey] = TreePath(List("@meta", "*", "*", "@session_status"))
+  val sessionSummaryKeyTemplate: TreePath[StoreKey] = TreePath(List("@meta", "*", "*", "@sessionSummary"))
 
   /**
    * TODO:
@@ -45,7 +45,7 @@ object StorageKeys {
    * @param txHeader
    */
   def sessionStatusKey(txHeader: TransactionHeader): TreePath[StoreKey] =
-    TreePath(List("@meta", txHeader.client, txHeader.session, "@session_status"))
+    TreePath(List("@meta", txHeader.client, txHeader.session, "@sessionSummary"))
 
   /**
    * Key used to store a transaction status. If assigned, some of [[TransactionStatus]] values is used.
