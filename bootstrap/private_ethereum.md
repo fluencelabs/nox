@@ -3,8 +3,6 @@
 ## Prerequisites
 You will need [Docker](https://www.docker.com/get-started) installed and running.
 
-[Here is direct link for macOS](https://download.docker.com/mac/stable/Docker.dmg), so you don't have to log into Docker store.
-
 ## Create directory for blockchain
 `BLOCKCHAIN=/some/path`
 `mkdir $BLOCKCHAIN`
