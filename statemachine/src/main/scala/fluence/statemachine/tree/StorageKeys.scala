@@ -44,7 +44,7 @@ object StorageKeys {
    *
    * @param txHeader
    */
-  def sessionStatusKey(txHeader: TransactionHeader): TreePath[StoreKey] =
+  def sessionSummaryKey(txHeader: TransactionHeader): TreePath[StoreKey] =
     TreePath(List("@meta", txHeader.client, txHeader.session, "@sessionSummary"))
 
   /**

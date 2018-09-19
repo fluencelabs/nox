@@ -37,8 +37,8 @@ class AbciHandler(
   private[statemachine] val committer: Committer[IO],
   private val queryProcessor: QueryProcessor[IO],
   private val txParser: TxParser[IO],
-  private val checkTxDuplicateChecker: TxDuplicateChecker[IO],
-  private val deliverTxDuplicateChecker: TxDuplicateChecker[IO],
+  private val checkTxStateChecker: TxStateDependentChecker[IO],
+  private val deliverTxStateChecker: TxStateDependentChecker[IO],
   private val txProcessor: TxProcessor[IO]
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery {
 
@@ -81,7 +81,7 @@ class AbciHandler(
    * @return `CheckTx` response data
    */
   override def requestCheckTx(req: RequestCheckTx): ResponseCheckTx = {
-    val responseData = validateTx(req.getTx, txParser, checkTxDuplicateChecker).unsafeRunSync()
+    val responseData = validateTx(req.getTx, txParser, checkTxStateChecker).unsafeRunSync()
     ResponseCheckTx.newBuilder
       .setCode(responseData.code)
       .setInfo(responseData.info)
@@ -96,7 +96,7 @@ class AbciHandler(
    */
   override def receivedDeliverTx(req: RequestDeliverTx): ResponseDeliverTx = {
     val responseData = (for {
-      validated <- validateTx(req.getTx, txParser, deliverTxDuplicateChecker)
+      validated <- validateTx(req.getTx, txParser, deliverTxStateChecker)
       _ <- validated.validatedTx match {
         case None => IO.unit
         case Some(tx) => txProcessor.processNewTx(tx)
@@ -115,18 +115,18 @@ class AbciHandler(
    * different states: Mempool state for `CheckTx`, Consensus state for `DeliverTx`.
    *
    * @param txBytes serialized transaction received from ABCI request called by Tendermint
-   * @param txDuplicateChecker duplicate checker encapsulating some state used to check for duplicates
+   * @param txStateChecker checker encapsulating some state used to check for duplicates and txs in closed sessions
    * @return validated transaction and data used to build a response
    */
   private def validateTx[F[_]: Monad](
     txBytes: ByteString,
     txParser: TxParser[F],
-    txDuplicateChecker: TxDuplicateChecker[F]
+    txStateChecker: TxStateDependentChecker[F]
   ): F[TxResponseData] = {
     (for {
       parsedTx <- txParser.parseTx(txBytes)
-      uniqueTx <- txDuplicateChecker.deduplicate(parsedTx)
-    } yield uniqueTx).value.map {
+      checkedTx <- txStateChecker.check(parsedTx)
+    } yield checkedTx).value.map {
       case Left(message) => TxResponseData(None, CodeType.BAD, message)
       case Right(tx) => TxResponseData(Some(tx), CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
     }

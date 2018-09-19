@@ -22,8 +22,6 @@ import cats.syntax.functor._
 import fluence.statemachine.StoreValue
 import fluence.statemachine.state.MutableStateTree
 import fluence.statemachine.tree.StorageKeys._
-import io.circe.generic.auto._
-import io.circe.parser.{parse => parseJson}
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -88,7 +86,7 @@ class TxProcessor[F[_]](
         statusKey =>
           root
             .getValue(statusKey)
-            .flatMap(extractSessionSummary)
+            .flatMap(SessionSummary.fromStoreValue)
             .filter(summary => summary.status == Active && summary.lastTxCounter <= txCounter - 8)
             .map(summary => mutableConsensusState.putValue(statusKey, summary.copy(status = Expired).toStoreValue))
       )
@@ -99,19 +97,6 @@ class TxProcessor[F[_]](
         } yield ()
       })
     } yield ()
-
-  /**
-   * TODO:
-   *
-   * @param value
-   * @param txCounter
-   * @return
-   */
-  private def extractSessionSummary(value: StoreValue): Option[SessionSummary] =
-    (for {
-      parsedJson <- parseJson(value)
-      summary <- parsedJson.as[SessionSummary]
-    } yield summary).toOption
 
   /**
    * Triggers the application of a transaction stored by given header (if actually stored).
@@ -229,7 +214,7 @@ class TxProcessor[F[_]](
       _ <- mutableConsensusState.putValue(statusKey(tx.header), txStatus.storeValue)
       txCounter <- getTxCounter()
       sessionSummary = SessionSummary(sessionStatus, tx.header.order + 1, txCounter).toStoreValue
-      _ <- mutableConsensusState.putValue(sessionStatusKey(tx.header), sessionSummary)
+      _ <- mutableConsensusState.putValue(sessionSummaryKey(tx.header), sessionSummary)
     } yield txStatus
   }
 }

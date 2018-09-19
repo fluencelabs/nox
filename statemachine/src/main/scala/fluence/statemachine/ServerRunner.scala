@@ -22,7 +22,7 @@ import com.github.jtendermint.jabci.socket.TSocket
 import fluence.statemachine.contract.ClientRegistry
 import fluence.statemachine.state._
 import fluence.statemachine.tree.TreeNode
-import fluence.statemachine.tx.{TxDuplicateChecker, TxParser, TxProcessor, VmOperationInvoker}
+import fluence.statemachine.tx.{TxStateDependentChecker, TxParser, TxProcessor, VmOperationInvoker}
 import fluence.vm.WasmVm
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
@@ -78,8 +78,8 @@ object ServerRunner extends IOApp with LazyLogging {
       queryProcessor = new QueryProcessor(stateHolder)
 
       txParser = new TxParser[IO](new ClientRegistry())
-      checkTxDuplicateChecker = new TxDuplicateChecker[IO](stateHolder.mempoolState)
-      deliverTxDuplicateChecker = new TxDuplicateChecker(mutableConsensusState.getRoot)
+      checkTxStateChecker = new TxStateDependentChecker[IO](stateHolder.mempoolState)
+      deliverTxStateChecker = new TxStateDependentChecker(mutableConsensusState.getRoot)
       txProcessor = new TxProcessor(mutableConsensusState, vmInvoker)
 
       committer = new Committer[IO](stateHolder, vmInvoker)
@@ -88,8 +88,8 @@ object ServerRunner extends IOApp with LazyLogging {
         committer,
         queryProcessor,
         txParser,
-        checkTxDuplicateChecker,
-        deliverTxDuplicateChecker,
+        checkTxStateChecker,
+        deliverTxStateChecker,
         txProcessor
       )
     } yield abciHandler

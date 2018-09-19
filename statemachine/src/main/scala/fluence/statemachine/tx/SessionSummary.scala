@@ -16,8 +16,10 @@
 
 package fluence.statemachine.tx
 import fluence.statemachine.StoreValue
-import io.circe.generic.auto._
 import io.circe.syntax._
+import io.circe.generic.auto._
+import io.circe.parser.{parse => parseJson}
+
 
 /**
  * TODO:
@@ -32,6 +34,20 @@ case class SessionSummary(status: SessonStatus, invokedTxsCount: Long, lastTxCou
    * TODO:
    */
   def toStoreValue: StoreValue = this.asJson.noSpaces
+}
+
+object SessionSummary {
+
+  /**
+    * TODO:
+    *
+    * @param value
+    */
+  def fromStoreValue(value: StoreValue): Option[SessionSummary] =
+    (for {
+      parsedJson <- parseJson(value)
+      summary <- parsedJson.as[SessionSummary]
+    } yield summary).toOption
 }
 
 sealed abstract class SessonStatus
