@@ -7,7 +7,9 @@
   },
   "scripts": {
     "test": "truffle test",
-    "ganache": "ganache-cli &>/dev/null &"
+    "migrate": "truffle migrate",
+    "ganache": "ganache-cli &>/dev/null &",
+    "generate-abi": "scripts/generate_abi.sh"
   },
   "author": "Fluence Labs",
   "license": "AGPL-3.0",
