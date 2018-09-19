@@ -19,11 +19,10 @@ package fluence.ethclient
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
 
-import cats.data.EitherT
+import cats.ApplicativeError
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{ApplicativeError, Functor}
 import org.web3j.abi.EventEncoder
 import org.web3j.protocol.core._
 import org.web3j.protocol.core.methods.request.EthFilter
@@ -113,7 +112,6 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
    * @tparam F Effect
    * @return Instance of the Deployer contract
    */
-
   def getDeployer[F[_]: Async](
     at: String,
     userAddress: String

@@ -54,41 +54,39 @@ object ContractSpec extends TestSuite {
     new Bytes32(byteValueLen32)
   }
 
-  val tests: Tests = {
-    Tests {
-      "receive event" - {
-        val str = Random.alphanumeric.take(10).mkString
-        val bytes = stringToBytes32(str)
-        val contractAddress = "0x29fae4a10580bc551b1c8c56d9d97f7d9088a252"
-        val owner = "0x96dce7eb99848e3332e38663a1968836ba3c3b53"
+  val tests: Tests = Tests {
+    "receive event" - {
+      val str = Random.alphanumeric.take(10).mkString
+      val bytes = stringToBytes32(str)
+      val contractAddress = "0x29fae4a10580bc551b1c8c56d9d97f7d9088a252"
+      val owner = "0x96dce7eb99848e3332e38663a1968836ba3c3b53"
 
-        client.use { c =>
-          for {
-            event <- MVar.empty[IO, Log]
-            unsubscribe ← c.subscribeToLogsTopic[IO, IO](
-              contractAddress,
-              EventEncoder.buildEventSignature("NewSolver(bytes32)"),
-              event.put
-            )
-            contract <- c.getDeployer[IO](
-              contractAddress,
-              owner
-            )
-            _ <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
-            txReceipt <- contract.addSolver(bytes, bytes).call[IO]
-            _ = assert(txReceipt.isStatusOK)
-            newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
-              _.getNewSolverEvents(txReceipt)
-            )
-            e <- event.take
-            _ <- unsubscribe
-          } yield {
-            assert(txReceipt.getLogs.asScala.contains(e))
-            newSolverEvents.length ==> 1
-            newSolverEvents.head.id ==> bytes
-          }
-        }.unsafeToFuture()
-      }
+      client.use { c =>
+        for {
+          event <- MVar.empty[IO, Log]
+          unsubscribe ← c.subscribeToLogsTopic[IO, IO](
+            contractAddress,
+            EventEncoder.buildEventSignature("NewSolver(bytes32)"),
+            event.put
+          )
+          contract <- c.getDeployer[IO](
+            contractAddress,
+            owner
+          )
+          _ <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
+          txReceipt <- contract.addSolver(bytes, bytes).call[IO]
+          _ = assert(txReceipt.isStatusOK)
+          newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
+            _.getNewSolverEvents(txReceipt)
+          )
+          e <- event.take
+          _ <- unsubscribe
+        } yield {
+          assert(txReceipt.getLogs.asScala.contains(e))
+          newSolverEvents.length ==> 1
+          newSolverEvents.head.id ==> bytes
+        }
+      }.unsafeToFuture()
     }
   }
 }
