@@ -64,8 +64,8 @@ class TxProcessor[F[_]](
         case None => applyTxWithDependencies(tx.header)
         case Some(required) =>
           for {
-            requiredSuccess <- getStatus(required).map(x => x.contains(TransactionStatus.Success.storeValue))
-            _ <- if (requiredSuccess) applyTxWithDependencies(tx.header) else F.unit
+            requiredStatus <- getStatus(required)
+            _ <- if (requiredStatus.exists(_.allowDependentTxInvocation)) applyTxWithDependencies(tx.header) else F.unit
           } yield ()
       }
       _ <- markExpiredSessions()
@@ -86,7 +86,7 @@ class TxProcessor[F[_]](
       // Preparing txs for application. It includes invocation and dequeuing
         .map(tx => {
           for {
-            invoked <- invokeTx(tx).map(_ == TransactionStatus.Success)
+            invoked <- invokeTx(tx).map(_.allowDependentTxInvocation)
             _ <- dequeueTx(tx)
           } yield invoked
         })
@@ -184,10 +184,10 @@ class TxProcessor[F[_]](
       _ <- mutableConsensusState.removeValue(txPayloadPath(tx.header))
     } yield ()
 
-  private def getStatus(txHeader: TransactionHeader): F[Option[String]] =
+  private def getStatus(txHeader: TransactionHeader): F[Option[TransactionStatus]] =
     for {
       root <- mutableConsensusState.getRoot
-      value = root.getValue(txStatusPath(txHeader))
+      value = root.getValue(txStatusPath(txHeader)).flatMap(TransactionStatus.fromStoreValue)
     } yield value
 
   private def getStoredPayload(txHeader: TransactionHeader): F[Option[String]] =

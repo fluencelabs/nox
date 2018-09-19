@@ -22,28 +22,39 @@ import fluence.statemachine.StoreValue
  * or still queued for the invocation.
  *
  * @param storeValue status representation for storing it in the state tree
+ * @param allowDependentTxInvocation whether the next, dependent, transaction might be scheduled for invocation
  */
-sealed abstract class TransactionStatus(val storeValue: StoreValue)
+sealed abstract class TransactionStatus(val storeValue: StoreValue, val allowDependentTxInvocation: Boolean)
 
 object TransactionStatus {
 
   /**
-  * Status corresponding to a queued transaction that was checked but not ready to be invoked.
-    */
-  object Queued extends TransactionStatus("queued")
+   * Status corresponding to a queued transaction that was checked but not ready to be invoked.
+   */
+  case object Queued extends TransactionStatus("queued", false)
 
   /**
-    * Status corresponding to a transaction that was successfully invoked.
-    */
-  object Success extends TransactionStatus("success")
+   * Status corresponding to a transaction that was successfully invoked.
+   */
+  case object Success extends TransactionStatus("success", true)
 
   /**
-    * Status corresponding to a transaction that was failed during its invocation.
-    */
-  object Error extends TransactionStatus("error")
+   * Status corresponding to a transaction that was failed during its invocation.
+   */
+  case object Error extends TransactionStatus("error", false)
 
   /**
-    * Status corresponding to a successfully invoked session-closing transaction.
-    */
-  object SessionClosed extends TransactionStatus("sessionClosed")
+   * Status corresponding to a successfully invoked session-closing transaction.
+   */
+  case object SessionClosed extends TransactionStatus("sessionClosed", false)
+
+  private val StatusList = List(Queued, Success, Error, SessionClosed)
+
+  /**
+   * Deserializes the transaction status from the given [[StoreValue]].
+   *
+   * @param storeValue serialized transaction status
+   */
+  def fromStoreValue(storeValue: StoreValue): Option[TransactionStatus] = StatusList.find(_.storeValue == storeValue)
+
 }
