@@ -10,7 +10,7 @@
 See [guide on running private ethereum blockchain](private_ethereum.md)
 
 ## Deploying contract to blockchain
-`node_modules/.bin/truffle migrate`
+`npm run migrate`
 
 Then, copy & paste contract's address and your wallet into `ContractSpec` and run tests:
 
