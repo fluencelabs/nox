@@ -28,10 +28,22 @@ sealed abstract class TransactionStatus(val storeValue: StoreValue)
 object TransactionStatus {
 
   /**
-  * Status corresponding to a queued transaction that was checked but not ready
+  * Status corresponding to a queued transaction that was checked but not ready to be invoked.
     */
   object Queued extends TransactionStatus("queued")
+
+  /**
+    * Status corresponding to a transaction that was successfully invoked.
+    */
   object Success extends TransactionStatus("success")
+
+  /**
+    * Status corresponding to a transaction that was failed during its invocation.
+    */
   object Error extends TransactionStatus("error")
+
+  /**
+    * Status corresponding to a successfully invoked session-closing transaction.
+    */
   object SessionClosed extends TransactionStatus("sessionClosed")
 }

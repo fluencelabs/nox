@@ -79,8 +79,6 @@ class Committer[F[_]](
         merkelized = newStates.latestMerkelized
         appHash = merkelized.merkleHash
         _ = logState(merkelized, newStates.latestCommittedHeight)
-        // TODO: remove println
-        _ = println(newStates.latestCommittedHeight + " " + merkelized.merkleHash.toHex + " " + merkelized.dump())
       } yield (newStates, ByteString.copyFrom(appHash.bytes.toArray))
   )
 

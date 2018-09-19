@@ -19,7 +19,6 @@ package fluence.statemachine.tx
 import cats.Monad
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.statemachine.StoreValue
 import fluence.statemachine.state.MutableStateTree
 import fluence.statemachine.tree.StoragePaths._
 import slogging.LazyLogging
@@ -58,7 +57,7 @@ class TxProcessor[F[_]](
    */
   def processNewTx(tx: Transaction): F[Unit] =
     for {
-      txCounter <- incrementTxCounter()
+      _ <- incrementTxCounter()
       _ <- enqueueTx(tx)
       _ = logger.debug("Appended tx: {}", tx)
       _ <- tx.header.requiredTxHeader match {
@@ -69,33 +68,7 @@ class TxProcessor[F[_]](
             _ <- if (requiredSuccess) applyTxWithDependencies(tx.header) else F.unit
           } yield ()
       }
-      _ <- processExpiredSessions(txCounter)
-    } yield ()
-
-  /**
-   * TODO:
-   *
-   * @param counter
-   * @return
-   */
-  private def processExpiredSessions(txCounter: Long): F[Unit] =
-    for {
-      root <- mutableConsensusState.getRoot
-      statusKeys = root.selectByTemplate(SessionSummarySelector)
-      expirationList = statusKeys.flatMap(
-        statusKey =>
-          root
-            .getValue(statusKey)
-            .flatMap(SessionSummary.fromStoreValue)
-            .filter(summary => summary.status == Active && summary.lastTxCounter <= txCounter - 8)
-            .map(summary => mutableConsensusState.putValue(statusKey, summary.copy(status = Expired).toStoreValue))
-      )
-      _ <- expirationList.foldLeft(F.unit)((acc, expiration) => {
-        for {
-          _ <- acc
-          _ <- expiration
-        } yield ()
-      })
+      _ <- markExpiredSessions()
     } yield ()
 
   /**
@@ -146,7 +119,7 @@ class TxProcessor[F[_]](
    * Effectively invokes the given transaction and writes it's results to Consensus state.
    *
    * @param tx transaction ready to be applied (by the invocation in VM)
-   * @return TODO:
+   * @return [[TransactionStatus]] corresponding to the invocation result
    */
   private def invokeTx(tx: Transaction): F[TransactionStatus] = tx.payload match {
     case "@closeSession()" => putResult(tx, TransactionStatus.SessionClosed, Empty, ExplicitlyClosed)
@@ -162,20 +135,40 @@ class TxProcessor[F[_]](
   }
 
   /**
-   * TODO:
+   * Traverses all currently stored sessions and mark those of them which need to be expired,
+   * i. e. still with [[Active]] status, but without any transaction processing during `inactivity` period.
+   *
    */
-  private def getTxCounter(): F[Long] =
+  private def markExpiredSessions(): F[Unit] =
+    for {
+      root <- mutableConsensusState.getRoot
+      txCounter <- getTxCounter
+      statusKeys = root.selectByTemplate(SessionSummarySelector)
+      expirationList = statusKeys.flatMap(
+        statusKey =>
+          root
+            .getValue(statusKey)
+            .flatMap(SessionSummary.fromStoreValue)
+            .filter(summary => summary.status == Active && summary.lastTxCounter <= txCounter - 8)
+            .map(summary => mutableConsensusState.putValue(statusKey, summary.copy(status = Expired).toStoreValue))
+      )
+      _ <- expirationList.foldLeft(F.unit)((acc, expiration) => {
+        for {
+          _ <- acc
+          _ <- expiration
+        } yield ()
+      })
+    } yield ()
+
+  private def getTxCounter: F[Long] =
     for {
       root <- mutableConsensusState.getRoot
       value = root.getValue(TxCounterPath).map(_.toLong).getOrElse(0L)
     } yield value
 
-  /**
-   * TODO:
-   */
   private def incrementTxCounter(): F[Long] =
     for {
-      oldValue <- getTxCounter()
+      oldValue <- getTxCounter
       newValue = oldValue + 1
       _ <- mutableConsensusState.putValue(TxCounterPath, newValue.toString)
     } yield newValue
@@ -212,7 +205,7 @@ class TxProcessor[F[_]](
     for {
       _ <- mutableConsensusState.putValue(txResultPath(tx.header), result.toStoreValue)
       _ <- mutableConsensusState.putValue(txStatusPath(tx.header), txStatus.storeValue)
-      txCounter <- getTxCounter()
+      txCounter <- getTxCounter
       sessionSummary = SessionSummary(sessionStatus, tx.header.order + 1, txCounter).toStoreValue
       _ <- mutableConsensusState.putValue(sessionSummaryPath(tx.header), sessionSummary)
     } yield txStatus

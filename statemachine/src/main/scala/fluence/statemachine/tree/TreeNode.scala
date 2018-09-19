@@ -107,15 +107,13 @@ abstract class TreeNode(val children: Map[StoreKey, TreeNode], val value: Option
   def selectByTemplate(keyTemplate: TreePath[StoreKey]): Seq[TreePath[StoreKey]] = keyTemplate match {
     case EmptyTreePath => List(EmptyTreePath)
     case SplittableTreePath(next, rest) =>
-      val matchedChildren: Seq[StoreKey] = next match {
-        case TreeNode.SelectorWildcardKey => children.keys.toList
-        case key => List(key)
+      val matchedKeyChildPairs = next match {
+        case TreeNode.SelectorWildcardKey => children.toList
+        case key => children.get(key).map(child => (key, child)).toList
       }
-      matchedChildren
-        .flatMap(
-          key => children.get(key).map(node => node.selectByTemplate(rest).map(path => SplittableTreePath(key, path)))
-        )
-        .flatten
+      matchedKeyChildPairs.flatMap {
+        case (key, childNode) => childNode.selectByTemplate(rest).map(path => SplittableTreePath(key, path))
+      }
   }
 
   /**
