@@ -32,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
 object ContractSpec extends TestSuite {
-  val ignored = false
+  val ignored = true
 
   override def utestWrap(path: Seq[String], runBody: => Future[Any])(
     implicit ec: ExecutionContext
