@@ -125,7 +125,9 @@ class TxProcessor[F[_]](
     case "@closeSession()" => putResult(tx, TransactionStatus.SessionClosed, Empty, ExplicitlyClosed)
     case _ =>
       for {
-        invoked <- vmInvoker.invoke(tx.payload).value
+        //callDescription <- FunctionCallDescription.parse[F](tx.payload)
+        //invoked <- vmInvoker.invoke(callDescription).value
+        invoked <- FunctionCallDescription.parse[F](tx.payload).flatMap(x => vmInvoker.invoke(x)).value
         txStatus <- invoked match {
           case Left(error) => putResult(tx, TransactionStatus.Error, Error(error.code, error.message), Failed)
           case Right(None) => putResult(tx, TransactionStatus.Success, Empty, Active)

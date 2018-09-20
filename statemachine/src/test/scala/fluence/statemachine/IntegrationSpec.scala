@@ -221,6 +221,31 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(tx0Result) shouldBe Right(Empty.toStoreValue)
     }
 
+    "change session summary if session explicitly closed" in {
+      sendCommit()
+      sendCommit()
+      latestAppHash shouldBe "74712CAAABC7F02D055461B5A6CE5B573E65ADA57809869EFE589DF07FBAF0CA"
+
+      sendDeliverTx(tx0)
+      sendDeliverTx(tx1)
+      sendDeliverTx(tx2)
+      sendDeliverTx(tx3)
+      sendDeliverTx(tx(
+        client,
+        session,
+        4,
+        "@closeSession()",
+        "fADQUq3sxia+WRo9vUb0W+ZlBISlnwlCT5zhfSNBw3/KbIOUkNCRAJx2q0pSMH8b537jDCCZ1ZkIw8IHr3g/CA"
+      ))
+      sendCommit()
+      sendCommit()
+      latestAppHash shouldBe "9728D3AA909D48ACC56EDB3EC93BDA73A245FB4BE0568D508A08B76EE3344DDA"
+
+      sendQuery(s"@meta/$client/$session/4/status") shouldBe Right("sessionClosed")
+      sendQuery(s"@meta/$client/$session/@sessionSummary") shouldBe
+        Right("{\"status\":{\"ExplicitlyClosed\":{}},\"invokedTxsCount\":5,\"lastTxCounter\":5}")
+    }
+
     "not accept new txs if session failed" in {
       sendCommit()
       sendCommit()
