@@ -22,7 +22,7 @@ import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
 import cats.{Functor, Monad}
 import fluence.crypto.Crypto.Hasher
-import fluence.vm.VmError.MethodsErrors.{GetVmStateError, InvokeError}
+import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.VmError.{InvalidArgError, _}
 import fluence.vm.WasmVmImpl._
 import scodec.bits.ByteVector

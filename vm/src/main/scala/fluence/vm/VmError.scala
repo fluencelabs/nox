@@ -16,7 +16,7 @@
 
 package fluence.vm
 
-import fluence.vm.VmError.MethodsErrors.{ApplyError, GetVmStateError, InvokeError}
+import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 
 import scala.util.control.NoStackTrace
 
@@ -85,13 +85,42 @@ object VmError {
     override val cause: Some[Throwable]
   ) extends VmErrorProxy(message, cause) with WasmError with ApplyError with InvokeError
 
-  // todo docs
-  object MethodsErrors {
+  /**
+   * Contains errors for each [[fluence.vm.WasmVm]] public methods for reaching type-safe
+   * working with produced errors. For example:
+   * {{{
+   *
+   *  val vm: fluence.vm.WasmVm = ???
+   *     vm.invoke[IO](None, "fnName", Seq()).leftMap {
+   *       case InvalidArgError(message, cause) ⇒  ???
+   *       case NoSuchFnError(message, cause) ⇒  ???
+   *       case TrapError(message, cause) ⇒ ???
+   *       // case InternalVmError(message, cause) ⇒ ???
+   *     }
+   *
+   * }}}
+   *
+   *   Compiler checks that all of possible error types will be handled.
+   *   If some of error types will not be handled compiler produce warning like this:
+   *
+   *   {{{
+   *     Warning:(103, 50) match may not be exhaustive.
+   *     It would fail on the following input: InternalVmError(_, _)
+   *     vm.invoke[IO](None, "fnName", Seq()).leftMap {
+   *   }}}
+   *
+   *   This mean that [[InternalVmError]] will not be handled.
+   *
+   */
+  object WasmVmError {
 
+    /** Error for [[fluence.vm.WasmVm:apply()]] method */
     sealed trait ApplyError extends VmError
 
+    /** Error for [[fluence.vm.WasmVm:invoke()]] method */
     sealed trait InvokeError extends VmError
 
+    /** Error for [[fluence.vm.WasmVm:getVmState()]] method */
     sealed trait GetVmStateError extends VmError
 
   }

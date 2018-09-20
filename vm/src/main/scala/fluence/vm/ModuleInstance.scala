@@ -23,7 +23,7 @@ import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.CryptoError
 import fluence.vm.ModuleInstance.nameAsStr
-import fluence.vm.VmError.MethodsErrors.ApplyError
+import fluence.vm.VmError.WasmVmError.ApplyError
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 
 import scala.language.higherKinds
