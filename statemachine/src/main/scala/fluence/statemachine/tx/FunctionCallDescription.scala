@@ -32,8 +32,11 @@ import scala.util.matching.Regex
 case class FunctionCallDescription(module: Option[String], functionName: String, argList: List[String])
 
 object FunctionCallDescription {
+  // Description for reserved non-VM function call that explicitly closes sessions by the client.
+  val CloseSession = FunctionCallDescription(None, "@closeSession", Nil)
+
   private val FunctionWithModuleAndArgListPattern: Regex = "(\\w+)\\.(\\w+)\\(([\\w,]*)\\)".r
-  private val FunctionWithoutModuleAndArgListPattern: Regex = "(\\w+)\\(([\\w,]*)\\)".r
+  private val FunctionWithoutModuleAndArgListPattern: Regex = "([\\w\\@]+)\\(([\\w,]*)\\)".r
   private val NonEmptyArgListPattern: Regex = "\\w+(,\\w+)*".r
 
   /**
@@ -76,5 +79,4 @@ object FunctionCallDescription {
    */
   private def wrongPayloadArgumentListFormatError(unparsedArgList: String): StateMachineError =
     PayloadParseError("WrongPayloadArgumentListFormat", s"Wrong payload arguments: $unparsedArgList")
-
 }

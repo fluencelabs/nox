@@ -17,8 +17,10 @@
 package fluence.statemachine.tx
 
 import cats.Monad
+import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.MutableStateTree
 import fluence.statemachine.tree.StoragePaths._
 import slogging.LazyLogging
@@ -121,20 +123,20 @@ class TxProcessor[F[_]](
    * @param tx transaction ready to be applied (by the invocation in VM)
    * @return [[TransactionStatus]] corresponding to the invocation result
    */
-  private def invokeTx(tx: Transaction): F[TransactionStatus] = tx.payload match {
-    case "@closeSession()" => putResult(tx, TransactionStatus.SessionClosed, Empty, ExplicitlyClosed)
-    case _ =>
-      for {
-        //callDescription <- FunctionCallDescription.parse[F](tx.payload)
-        //invoked <- vmInvoker.invoke(callDescription).value
-        invoked <- FunctionCallDescription.parse[F](tx.payload).flatMap(x => vmInvoker.invoke(x)).value
-        txStatus <- invoked match {
-          case Left(error) => putResult(tx, TransactionStatus.Error, Error(error.code, error.message), Failed)
-          case Right(None) => putResult(tx, TransactionStatus.Success, Empty, Active)
-          case Right(Some(value)) => putResult(tx, TransactionStatus.Success, Computed(value), Active)
-        }
-      } yield txStatus
-  }
+  private def invokeTx(tx: Transaction): F[TransactionStatus] =
+    FunctionCallDescription
+      .parse[F](tx.payload)
+      .flatMap {
+        case FunctionCallDescription.CloseSession =>
+          EitherT.right[StateMachineError](putResult(tx, TransactionStatus.SessionClosed, Empty, ExplicitlyClosed))
+        case callDescription =>
+          vmInvoker.invoke(callDescription).flatMap {
+            case None => EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, Empty, Active))
+            case Some(value) =>
+              EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, Computed(value), Active))
+          }
+      }
+      .valueOrF(error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message), Failed))
 
   /**
    * Traverses all currently stored sessions and mark those of them which need to be expired,
