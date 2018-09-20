@@ -16,66 +16,84 @@
 
 package fluence.vm
 
-import fluence.vm.VmError.VmErrorKind
+import fluence.vm.VmError.MethodsErrors.{ApplyError, GetVmStateError, InvokeError}
 
 import scala.util.control.NoStackTrace
 
 /**
  * This type describes all errors appears in VM.
  */
-case class VmError(
-  message: String,
-  causedBy: Option[Throwable],
-  errorKind: VmErrorKind
-) extends Throwable
+sealed trait VmError extends NoStackTrace
+
+abstract class VmErrorProxy(
+  protected val message: String,
+  protected val cause: Option[Throwable]
+) extends Throwable(message, cause.orNull, true, false) with VmError
 
 object VmError {
-
-  /** Root type for VM error kinds. */
-  sealed trait VmErrorKind
 
   /**
    * This type of error indicates some unexpected internal error has occurred in
    * the Virtual Machine.
    */
-  object InternalVmError extends VmErrorKind
+  case class InternalVmError(
+    override val message: String,
+    override val cause: Option[Throwable] = None
+  ) extends VmErrorProxy(message, cause) with ApplyError with InvokeError with GetVmStateError
 
   /** Errors related to external WASM code. */
-  sealed trait WasmError extends VmErrorKind
+  sealed trait WasmError extends VmError
 
   /**
    * Indicates error when VM starts. It might be a problem with translation WASM
    * code to 'bytecode' or module instantiation. Module initialization is creation of
    * instance class that corresponds to WASM module.
    */
-  object InitializationError extends WasmError
+  case class InitializationError(
+    override val message: String,
+    override val cause: Option[Throwable] = None
+  ) extends VmErrorProxy(message, cause) with WasmError with ApplyError
 
   /**
    * Indicates that some of the client input values are invalid. For example number
    * of types of argument is not correct or specified fn isn't exists.
    */
-  sealed trait InvocationError extends WasmError
+  sealed trait InvocationError extends WasmError with InvokeError
 
   /**
    * Indicates that arguments for fn invocation is not valid.
    */
-  object InvalidArgError extends InvocationError
+  case class InvalidArgError(
+    override val message: String,
+    override val cause: Option[Throwable] = None
+  ) extends VmErrorProxy(message, cause) with InvocationError
 
   /**
    * Indicates that fn with specified name wasn't found in a instance of VM.
    */
-  object NoSuchFnError extends InvocationError
+  case class NoSuchFnError(
+    override val message: String,
+    override val cause: Option[Throwable] = None
+  ) extends VmErrorProxy(message, cause) with InvocationError with ApplyError
 
   /**
    * Indicates that WASM code execution was failed, some WASM instruction was
    * felled into the trap.
    */
-  object TrapError extends WasmError
+  case class TrapError(
+    override val message: String,
+    override val cause: Some[Throwable]
+  ) extends VmErrorProxy(message, cause) with WasmError with ApplyError with InvokeError
 
-  def apply(exception: Throwable, kind: VmErrorKind): VmError =
-    VmError(exception.getMessage, Some(exception), kind)
+  // todo docs
+  object MethodsErrors {
 
-  def apply(message: String, kind: VmErrorKind): VmError =
-    VmError(message, None, kind)
+    sealed trait ApplyError extends VmError
+
+    sealed trait InvokeError extends VmError
+
+    sealed trait GetVmStateError extends VmError
+
+  }
 
 }

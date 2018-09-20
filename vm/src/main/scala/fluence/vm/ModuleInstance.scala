@@ -23,6 +23,7 @@ import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.CryptoError
 import fluence.vm.ModuleInstance.nameAsStr
+import fluence.vm.VmError.MethodsErrors.ApplyError
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 
 import scala.language.higherKinds
@@ -48,7 +49,7 @@ case class ModuleInstance(
    */
   def innerState[F[_]: Monad](
     hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]
-  ): EitherT[F, VmError, Array[Byte]] =
+  ): EitherT[F, InternalVmError, Array[Byte]] =
     memory match {
       case Some(mem) ⇒
         for {
@@ -68,15 +69,17 @@ case class ModuleInstance(
               }.toEither
             )
             .leftMap { e ⇒
-              VmError(
+              InternalVmError(
                 s"Presenting memory as an array for module=${nameAsStr(name)} failed",
-                Some(e),
-                InternalVmError
+                Some(e)
               )
             }
 
           vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
-            VmError(s"Getting internal state for module=${nameAsStr(name)} failed", Some(e), InternalVmError)
+            InternalVmError(
+              s"Getting internal state for module=${nameAsStr(name)} failed",
+              Some(e)
+            )
           }
 
         } yield vmStateAsHash
@@ -99,17 +102,19 @@ object ModuleInstance {
    * @param moduleDescription a description of the module
    * @param scriptContext a context for this module working
    */
-  def apply(moduleDescription: Compiled, scriptContext: ScriptContext): Either[VmError, ModuleInstance] =
+  def apply(
+    moduleDescription: Compiled,
+    scriptContext: ScriptContext
+  ): Either[ApplyError, ModuleInstance] =
     for {
 
       // creating module instance
       moduleInstance <- Try(moduleDescription.instance(scriptContext)).toEither.left.map { e ⇒
         // todo method 'instance' must throw both an initialization error and a
         // Trap error, but now they can't be separated
-        VmError(
+        InitializationError(
           s"Unable to initialize module=${nameAsStr(moduleDescription.getName)}",
-          Some(e),
-          InitializationError
+          Some(e)
         )
       }
 
@@ -119,10 +124,9 @@ object ModuleInstance {
         val memoryMethod = Try(moduleInstance.getClass.getMethod("getMemory")).toOption
         memoryMethod.map(_.invoke(moduleInstance).asInstanceOf[ByteBuffer])
       }.toEither.left.map { e ⇒
-        VmError(
+        InternalVmError(
           s"Unable to getting memory from module=${nameAsStr(moduleDescription.getName)}",
-          Some(e),
-          InternalVmError
+          Some(e)
         )
       }
 

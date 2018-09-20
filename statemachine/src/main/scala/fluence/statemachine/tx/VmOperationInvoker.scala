@@ -82,8 +82,9 @@ object VmOperationInvoker {
    *
    * @param vmError error returned from VM
    */
+  // todo handle different error types separately
   private def convertToStateMachineError(vmError: VmError): StateMachineError =
-    VmRuntimeError(vmError.errorKind.getClass.getSimpleName, vmError.message, vmError)
+    VmRuntimeError(vmError.getClass.getSimpleName, vmError.getMessage, vmError)
 
   /**
    * Produces [[StateMachineError]] corresponding to payload that cannot be parsed to a function call.

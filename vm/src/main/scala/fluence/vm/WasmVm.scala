@@ -27,7 +27,8 @@ import cats.effect.LiftIO
 import cats.{Applicative, Id, Monad}
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
-import fluence.vm.VmError.{apply ⇒ _, _}
+import fluence.vm.VmError.{InitializationError, InternalVmError}
+import fluence.vm.VmError.MethodsErrors.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.WasmVmImpl._
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
@@ -60,7 +61,7 @@ trait WasmVm {
     module: Option[String],
     function: String,
     fnArgs: Seq[String] = Nil
-  ): EitherT[F, VmError, Option[Any]]
+  ): EitherT[F, InvokeError, Option[Any]]
   // todo consider specifying expected return type as method arg
   // or create an overloaded method for each possible return type
 
@@ -73,7 +74,7 @@ trait WasmVm {
    * }}}
    * '''Note!''' It's very expensive operation try to avoid frequent use.
    */
-  def getVmState[F[_]: LiftIO: Monad]: EitherT[F, VmError, ByteVector]
+  def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector]
 
 }
 
@@ -103,17 +104,16 @@ object WasmVm {
     inFiles: Seq[String],
     configNamespace: String = "fluence.vm.client",
     cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
-  ): EitherT[F, VmError, WasmVm] = {
+  ): EitherT[F, ApplyError, WasmVm] = {
 
     for {
       // reading config
       config ← EitherT
         .fromEither(pureconfig.loadConfig[VmConfig](configNamespace))
         .leftMap { e ⇒
-          VmError(
+          InternalVmError(
             s"Unable to read a config for the namespace=$configNamespace",
-            Some(ConfigError(e)),
-            InternalVmError
+            Some(ConfigError(e))
           )
         }
 
@@ -121,8 +121,11 @@ object WasmVm {
       // in the Asmble engine. Every WASM module compiles to exactly one JVM class
       scriptCxt ← run(
         prepareContext(inFiles, config),
-        s"Preparing execution context before execution was failed for $inFiles.",
-        InitializationError
+        err ⇒
+          InitializationError(
+            s"Preparing execution context before execution was failed for $inFiles.",
+            Some(err)
+        )
       )
 
       // initializing all modules, build index for all wasm functions
@@ -170,9 +173,9 @@ object WasmVm {
    */
   private def initializeModules[F[_]: Applicative](
     scriptCxt: ScriptContext
-  ): EitherT[F, VmError, VmProps] = {
+  ): EitherT[F, ApplyError, VmProps] = {
 
-    val emptyIndex: Either[VmError, VmProps] = Right(VmProps())
+    val emptyIndex: Either[ApplyError, VmProps] = Right(VmProps())
 
     val filledIndex = scriptCxt.getModules.foldLeft(emptyIndex) {
 
@@ -204,12 +207,12 @@ object WasmVm {
                 case Some(fn) ⇒
                   // module and function with the specified name were already registered
                   // this situation is unacceptable, raise the error
-                  Left(VmError(s"The function $fn was already registered", InitializationError))
+                  Left(InitializationError(s"The function $fn was already registered"))
               }
 
             }
 
-          moduleFunctions ← list2Either[Id, VmError, (FunctionId, WasmFunction)](methodsAsWasmFns.toList).value
+          moduleFunctions ← list2Either[Id, ApplyError, (FunctionId, WasmFunction)](methodsAsWasmFns.toList).value
 
         } yield
           VmProps(
@@ -223,13 +226,12 @@ object WasmVm {
   }
 
   /** Helper method. Run ''action'' inside Try block, convert to EitherT with specified effect F */
-  private def run[F[_]: Applicative, T](
+  private def run[F[_]: Applicative, T, E <: VmError](
     action: ⇒ T,
-    errorMsg: String,
-    errorKind: VmErrorKind
-  ): EitherT[F, VmError, T] =
+    mapError: Throwable ⇒ E
+  ): EitherT[F, E, T] =
     EitherT
       .fromEither(Try(action).toEither)
-      .leftMap(cause ⇒ VmError(errorMsg, Some(cause), errorKind))
+      .leftMap(mapError)
 
 }
