@@ -16,16 +16,21 @@
 
 package fluence.statemachine
 
+import cats.Monad
+import cats.data.EitherT
 import cats.effect.concurrent.MVar
 import cats.effect.{ExitCode, IO, IOApp}
 import com.github.jtendermint.jabci.socket.TSocket
+import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.contract.ClientRegistry
+import fluence.statemachine.error.{ConfigLoadingError, StateMachineError}
 import fluence.statemachine.state._
-import fluence.statemachine.tree.TreeNode
-import fluence.statemachine.tx.{TxStateDependentChecker, TxParser, TxProcessor, VmOperationInvoker}
+import fluence.statemachine.tx.{TxParser, TxProcessor, TxStateDependentChecker, VmOperationInvoker}
 import fluence.vm.WasmVm
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
+
+import scala.language.higherKinds
 
 /**
  * Main class for the State machine.
@@ -39,7 +44,13 @@ object ServerRunner extends IOApp with LazyLogging {
 
   override def run(args: List[String]): IO[ExitCode] = {
     val port = if (args.length > 0) args(0).toInt else DefaultABCIPoint
-    ServerRunner.start(port).map(_ => ExitCode.Success)
+    ServerRunner
+      .start(port)
+      .map(_ => ExitCode.Success)
+      .valueOr(error => {
+        println("Error during State machine run: " + error)
+        ExitCode.Error
+      })
   }
 
   /**
@@ -47,7 +58,7 @@ object ServerRunner extends IOApp with LazyLogging {
    *
    * @param port port used to listen to Tendermint requests
    */
-  private def start(port: Int): IO[Unit] =
+  private def start(port: Int): EitherT[IO, StateMachineError, Unit] =
     for {
       abciHandler <- buildAbciHandler()
 
@@ -66,21 +77,27 @@ object ServerRunner extends IOApp with LazyLogging {
   /**
    * Builds [[AbciHandler]], used to serve all Tendermint requests.
    */
-  private[statemachine] def buildAbciHandler(): IO[AbciHandler] =
+  private[statemachine] def buildAbciHandler(): EitherT[IO, StateMachineError, AbciHandler] =
     for {
-      initialState <- MVar[IO].of(TendermintState.initial)
+      vm <- buildVm[IO]()
+      vmInvoker = new VmOperationInvoker[IO](vm)
+
+      initialState <- EitherT.right(MVar[IO].of(TendermintState.initial))
       stateHolder = new TendermintStateHolder[IO](initialState)
       mutableConsensusState = new MutableStateTree(stateHolder)
-
-      vm <- buildVm()
-      vmInvoker = new VmOperationInvoker[IO](vm)
 
       queryProcessor = new QueryProcessor(stateHolder)
 
       txParser = new TxParser[IO](new ClientRegistry())
       checkTxStateChecker = new TxStateDependentChecker[IO](stateHolder.mempoolState)
       deliverTxStateChecker = new TxStateDependentChecker(mutableConsensusState.getRoot)
-      txProcessor = new TxProcessor(mutableConsensusState, vmInvoker)
+
+      config <- EitherT
+        .fromEither[IO](pureconfig.loadConfig[StateMachineConfig])
+        .leftMap[StateMachineError](
+          e => ConfigLoadingError("ConfigLoadingError", "Unable to read StateMachineConfig: " + e.toList)
+        )
+      txProcessor = new TxProcessor(mutableConsensusState, vmInvoker, config)
 
       committer = new Committer[IO](stateHolder, vmInvoker)
 
@@ -97,14 +114,12 @@ object ServerRunner extends IOApp with LazyLogging {
   /**
    * Builds a VM instance used to perform function calls from the clients.
    */
-  private def buildVm(): IO[WasmVm] = {
+  private def buildVm[F[_]: Monad](): EitherT[F, StateMachineError, WasmVm] = {
     val moduleFiles = List(
       "vm/src/test/resources/wast/mul.wast",
       "vm/src/test/resources/wast/counter.wast"
     )
-    WasmVm[IO](moduleFiles).value.map(
-      ei => ei.getOrElse { throw new RuntimeException("Error loading VM: " + ei.left.get.toString) }
-    )
+    WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
   }
 
   /**

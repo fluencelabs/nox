@@ -26,7 +26,9 @@ import fluence.statemachine.util.{ClientInfoMessages, HexCodec}
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 
 class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
-  val abciHandler: AbciHandler = ServerRunner.buildAbciHandler().unsafeRunSync()
+
+  val abciHandler: AbciHandler =
+    ServerRunner.buildAbciHandler().valueOr(e => throw new RuntimeException(e.message)).unsafeRunSync()
 
   def sendCheckTx(tx: String): (Int, String) = {
     val request = RequestCheckTx.newBuilder().setTx(ByteString.copyFromUtf8(tx)).build()
@@ -230,13 +232,15 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendDeliverTx(tx1)
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
-      sendDeliverTx(tx(
-        client,
-        session,
-        4,
-        "@closeSession()",
-        "fADQUq3sxia+WRo9vUb0W+ZlBISlnwlCT5zhfSNBw3/KbIOUkNCRAJx2q0pSMH8b537jDCCZ1ZkIw8IHr3g/CA"
-      ))
+      sendDeliverTx(
+        tx(
+          client,
+          session,
+          4,
+          "@closeSession()",
+          "fADQUq3sxia+WRo9vUb0W+ZlBISlnwlCT5zhfSNBw3/KbIOUkNCRAJx2q0pSMH8b537jDCCZ1ZkIw8IHr3g/CA"
+        )
+      )
       sendCommit()
       sendCommit()
       latestAppHash shouldBe "9728D3AA909D48ACC56EDB3EC93BDA73A245FB4BE0568D508A08B76EE3344DDA"

@@ -58,6 +58,6 @@ object VmOperationInvoker {
    *
    * @param vmError error returned from VM
    */
-  private def convertToStateMachineError(vmError: VmError): StateMachineError =
+  def convertToStateMachineError(vmError: VmError): StateMachineError =
     VmRuntimeError(vmError.errorKind.getClass.getSimpleName, vmError.message, vmError)
 }

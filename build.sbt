@@ -65,6 +65,7 @@ lazy val statemachine = (project in file("statemachine"))
       catsEffect,
       circeGeneric,
       circeParser,
+      pureConfig,
       slogging,
       scodecBits,
       "com.github.jtendermint" % "jabci"          % "0.17.1",

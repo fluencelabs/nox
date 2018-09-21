@@ -22,31 +22,36 @@ import fluence.statemachine.StoreValue
  * or still queued for the invocation.
  *
  * @param storeValue status representation for storing it in the state tree
+ * @param sessionStatus new status for session to which the transaction belongs
  * @param allowDependentTxInvocation whether the next, dependent, transaction might be scheduled for invocation
  */
-sealed abstract class TransactionStatus(val storeValue: StoreValue, val allowDependentTxInvocation: Boolean)
+sealed abstract class TransactionStatus(
+  val storeValue: StoreValue,
+  val sessionStatus: SessonStatus,
+  val allowDependentTxInvocation: Boolean
+)
 
 object TransactionStatus {
 
   /**
    * Status corresponding to a queued transaction that was checked but not ready to be invoked.
    */
-  case object Queued extends TransactionStatus("queued", false)
+  case object Queued extends TransactionStatus("queued", Active, false)
 
   /**
    * Status corresponding to a transaction that was successfully invoked.
    */
-  case object Success extends TransactionStatus("success", true)
+  case object Success extends TransactionStatus("success", Active, true)
 
   /**
    * Status corresponding to a transaction that was failed during its invocation.
    */
-  case object Error extends TransactionStatus("error", false)
+  case object Error extends TransactionStatus("error", Failed, false)
 
   /**
    * Status corresponding to a successfully invoked session-closing transaction.
    */
-  case object SessionClosed extends TransactionStatus("sessionClosed", false)
+  case object SessionClosed extends TransactionStatus("sessionClosed", ExplicitlyClosed, false)
 
   private val StatusList = List(Queued, Success, Error, SessionClosed)
 

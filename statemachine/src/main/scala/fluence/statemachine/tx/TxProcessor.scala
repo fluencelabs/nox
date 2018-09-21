@@ -20,6 +20,7 @@ import cats.Monad
 import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.MutableStateTree
 import fluence.statemachine.tree.StoragePaths._
@@ -41,10 +42,12 @@ import scala.language.higherKinds
  *
  * @param mutableConsensusState Consensus state, affected by every newly appended transaction
  * @param vmInvoker object used to perform immediate calls to VM
+ * @param config settings which tx processing logic depends on
  */
 class TxProcessor[F[_]](
   private val mutableConsensusState: MutableStateTree[F],
-  private val vmInvoker: VmOperationInvoker[F]
+  private val vmInvoker: VmOperationInvoker[F],
+  private val config: StateMachineConfig
 )(implicit F: Monad[F])
     extends LazyLogging {
 
@@ -128,15 +131,17 @@ class TxProcessor[F[_]](
       .parse[F](tx.payload)
       .flatMap {
         case FunctionCallDescription.CloseSession =>
-          EitherT.right[StateMachineError](putResult(tx, TransactionStatus.SessionClosed, Empty, ExplicitlyClosed))
+          EitherT.right[StateMachineError](putResult(tx, TransactionStatus.SessionClosed, Empty))
         case callDescription =>
-          vmInvoker.invoke(callDescription).flatMap {
-            case None => EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, Empty, Active))
-            case Some(value) =>
-              EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, Computed(value), Active))
-          }
+          vmInvoker
+            .invoke(callDescription)
+            .map {
+              case None => Empty
+              case Some(value) => Computed(value)
+            }
+            .flatMap(result => EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, result)))
       }
-      .valueOrF(error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message), Failed))
+      .valueOrF(error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message)))
 
   /**
    * Traverses all currently stored sessions and mark those of them which need to be expired,
@@ -153,7 +158,9 @@ class TxProcessor[F[_]](
           root
             .getValue(statusKey)
             .flatMap(SessionSummary.fromStoreValue)
-            .filter(summary => summary.status == Active && summary.lastTxCounter <= txCounter - 8)
+            .filter(
+              summary => summary.status == Active && summary.lastTxCounter <= txCounter - config.sessionExpirationPeriod
+            )
             .map(summary => mutableConsensusState.putValue(statusKey, summary.copy(status = Expired).toStoreValue))
       )
       _ <- expirationList.foldLeft(F.unit)((acc, expiration) => {
@@ -203,14 +210,13 @@ class TxProcessor[F[_]](
   private def putResult(
     tx: Transaction,
     txStatus: TransactionStatus,
-    result: TxInvocationResult,
-    sessionStatus: SessonStatus
+    result: TxInvocationResult
   ): F[TransactionStatus] = {
     for {
       _ <- mutableConsensusState.putValue(txResultPath(tx.header), result.toStoreValue)
       _ <- mutableConsensusState.putValue(txStatusPath(tx.header), txStatus.storeValue)
       txCounter <- getTxCounter
-      sessionSummary = SessionSummary(sessionStatus, tx.header.order + 1, txCounter).toStoreValue
+      sessionSummary = SessionSummary(txStatus.sessionStatus, tx.header.order + 1, txCounter).toStoreValue
       _ <- mutableConsensusState.putValue(sessionSummaryPath(tx.header), sessionSummary)
     } yield txStatus
   }
