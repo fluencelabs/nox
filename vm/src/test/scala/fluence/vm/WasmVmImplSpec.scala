@@ -33,24 +33,25 @@ class WasmVmImplSpec extends WordSpec with Matchers {
 
       "unable to find a function" in {
         val sumFile = getClass.getResource("/wast/sum.wast").getPath
+
         val res = for {
           vm <- WasmVm[IO](Seq(sumFile))
-          result ← vm.invoke[IO](None, "wrongFnName", Seq("100", "13", "extraArg"))
+          result ← vm.invoke[IO](None, "wrongFnName", Seq("100", "13", "extraArg")).toVmError
         } yield result
         val error = res.failed()
-        error.errorKind shouldBe NoSuchFnError
-        error.message should startWith("Unable to find a function with the name='<no-name>.wrongFnName'")
+        error shouldBe a[NoSuchFnError]
+        error.getMessage should startWith("Unable to find a function with the name='<no-name>.wrongFnName'")
       }
 
       "invalid number of arguments" in {
         val sumFile = getClass.getResource("/wast/sum.wast").getPath
         val res = for {
           vm <- WasmVm[IO](Seq(sumFile))
-          result ← vm.invoke[IO](None, "sum", Seq("100", "13", "extraArg"))
+          result ← vm.invoke[IO](None, "sum", Seq("100", "13", "extraArg")).toVmError
         } yield result
         val error = res.failed()
-        error.errorKind shouldBe InvalidArgError
-        error.message should startWith(
+        error shouldBe a[InvalidArgError]
+        error.getMessage should startWith(
           "Invalid number of arguments, expected=2, actually=3 for fn='<no-name>.sum'"
         )
       }
@@ -59,22 +60,22 @@ class WasmVmImplSpec extends WordSpec with Matchers {
         val sumFile = getClass.getResource("/wast/sum.wast").getPath
         val res = for {
           vm <- WasmVm[IO](Seq(sumFile))
-          result ← vm.invoke[IO](None, "sum", Seq("stringParam", "[1, 2, 3]"))
+          result ← vm.invoke[IO](None, "sum", Seq("stringParam", "[1, 2, 3]")).toVmError
         } yield result
         val error = res.failed()
-        error.errorKind shouldBe InvalidArgError
-        error.message should startWith("Arg 0 of 'stringParam' not an int")
+        error shouldBe a[InvalidArgError]
+        error.getMessage should startWith("Arg 0 of 'stringParam' not an int")
       }
 
       "wasm code fell into the trap" in {
         val sumFile = getClass.getResource("/wast/sum-with-trap.wast").getPath
         val res = for {
           vm <- WasmVm[IO](Seq(sumFile))
-          result ← vm.invoke[IO](None, "sum", Seq("100", "13")) // Integer overflow
+          result ← vm.invoke[IO](None, "sum", Seq("100", "13")).toVmError // Integer overflow
         } yield result
         val error = res.failed()
-        error.errorKind shouldBe TrapError
-        error.message should startWith("Function '<no-name>.sum' with args: List(100, 13) was failed")
+        error shouldBe a[TrapError]
+        error.getMessage should startWith("Function '<no-name>.sum' with args: List(100, 13) was failed")
       }
 
     }
@@ -86,7 +87,7 @@ class WasmVmImplSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(sumFile))
-        result ← vm.invoke[IO](None, "sum", Seq("100", "13"))
+        result ← vm.invoke[IO](None, "sum", Seq("100", "13")).toVmError
       } yield result shouldBe Some(113)
 
       res.success()
@@ -99,7 +100,7 @@ class WasmVmImplSpec extends WordSpec with Matchers {
       val res = for {
         vm <- WasmVm[IO](Seq(mulFile, sumFile))
         mulResult ← vm.invoke[IO](Some("multiplier"), "mul", Seq("100", "13"))
-        sumResult ← vm.invoke[IO](None, "sum", Seq("100", "13"))
+        sumResult ← vm.invoke[IO](None, "sum", Seq("100", "13")).toVmError
       } yield {
         mulResult shouldBe Some(1300)
         sumResult shouldBe Some(113)
@@ -118,7 +119,7 @@ class WasmVmImplSpec extends WordSpec with Matchers {
         get1 ← vm.invoke[IO](None, "get", Nil) // read 1
         _ ← vm.invoke[IO](None, "inc", Nil) // 1 -> 2
         _ ← vm.invoke[IO](None, "inc", Nil) // 2 -> 3
-        get3 ← vm.invoke[IO](None, "get", Nil) //read 3
+        get3 ← vm.invoke[IO](None, "get", Nil).toVmError //read 3
       } yield {
         get0 shouldBe Some(0)
         get1 shouldBe Some(1)
@@ -140,13 +141,13 @@ class WasmVmImplSpec extends WordSpec with Matchers {
         }
         val res = for {
           vm <- WasmVm[IO](Seq(counterFile), cryptoHasher = badHasher)
-          state ← vm.getVmState[IO]
+          state ← vm.getVmState[IO].toVmError
         } yield state
 
         val error = res.failed()
-        error.message shouldBe "Getting internal state for module=<no-name> failed"
-        error.causedBy.get shouldBe a[CryptoError]
-        error.errorKind shouldBe InternalVmError
+        error.getMessage shouldBe "Getting internal state for module=<no-name> failed"
+        error.getCause shouldBe a[CryptoError]
+        error shouldBe a[InternalVmError]
       }
 
     }
@@ -160,7 +161,7 @@ class WasmVmImplSpec extends WordSpec with Matchers {
         val res = for {
           vm <- WasmVm[IO](Seq(sumFile), cryptoHasher = testHasher)
           result ← vm.invoke[IO](None, "sum", Seq("100", "13"))
-          state ← vm.getVmState[IO]
+          state ← vm.getVmState[IO].toVmError
         } yield {
           result shouldBe Some(113)
           state.toArray shouldBe testHasher.unsafe(Array.emptyByteArray)
@@ -182,7 +183,7 @@ class WasmVmImplSpec extends WordSpec with Matchers {
 
           _ ← vm.invoke[IO](None, "inc", Nil) // 1 -> 2
           state2 ← vm.getVmState[IO]
-          get2AfterGettingState ← vm.invoke[IO](None, "get", Nil) // read 2
+          get2AfterGettingState ← vm.invoke[IO](None, "get", Nil).toVmError // read 2
         } yield {
           get1 shouldBe Some(1)
           get1AfterGettingState shouldBe Some(1)
@@ -214,7 +215,7 @@ class WasmVmImplSpec extends WordSpec with Matchers {
           _ ← vm.invoke[IO](None, "inc", Nil) // 1 -> 2
           _ ← vm.invoke[IO](Some("counter-copy"), "inc", Nil) // 1 -> 2
 
-          state2 ← vm.getVmState[IO]
+          state2 ← vm.getVmState[IO].toVmError
 
         } yield {
           get1 shouldBe Some(1)

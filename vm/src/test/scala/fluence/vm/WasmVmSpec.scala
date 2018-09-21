@@ -38,8 +38,8 @@ class WasmVmSpec extends WordSpec with Matchers {
         } yield vm
 
         val error = res.failed()
-        error.errorKind shouldBe InternalVmError
-        error.message should startWith("Unable to read a config for the namespace")
+        error shouldBe a[InternalVmError]
+        error.getMessage should startWith("Unable to read a config for the namespace")
       }
 
       "file not found" in {
@@ -48,8 +48,8 @@ class WasmVmSpec extends WordSpec with Matchers {
         } yield vm
 
         val error = res.failed()
-        error.errorKind shouldBe InitializationError
-        error.message should startWith("Preparing execution context before execution was failed for")
+        error shouldBe a[InitializationError]
+        error.getMessage should startWith("Preparing execution context before execution was failed for")
       }
 
       "2 module has function with equal name" in {
@@ -61,8 +61,8 @@ class WasmVmSpec extends WordSpec with Matchers {
         } yield vm
 
         val error = res.failed()
-        error.errorKind shouldBe InitializationError
-        error.message should startWith("The function '<no-name>.sum' was already registered")
+        error shouldBe a[InitializationError]
+        error.getMessage should startWith("The function '<no-name>.sum' was already registered")
       }
 
       // todo add more error cases with prepareContext and module initialization
