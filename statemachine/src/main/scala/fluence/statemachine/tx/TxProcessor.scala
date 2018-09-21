@@ -20,10 +20,12 @@ import cats.Monad
 import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.statemachine.StoreKey
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.MutableStateTree
 import fluence.statemachine.tree.StoragePaths._
+import fluence.statemachine.tree.TreePath
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -148,28 +150,28 @@ class TxProcessor[F[_]](
    * i. e. still with [[Active]] status, but without any transaction processing during `inactivity` period.
    *
    */
-  private def markExpiredSessions(): F[Unit] =
+  private def markExpiredSessions(): F[Unit] = {
+    import cats.implicits._
+
+    def isExpiredSession(summary: SessionSummary, txCounter: Long): Boolean =
+      summary.status == Active && summary.lastTxCounter <= txCounter - config.sessionExpirationPeriod
+
     for {
       root <- mutableConsensusState.getRoot
       txCounter <- getTxCounter
-      statusKeys = root.selectByTemplate(SessionSummarySelector)
-      expirationList = statusKeys.flatMap(
-        statusKey =>
-          root
-            .getValue(statusKey)
-            .flatMap(SessionSummary.fromStoreValue)
-            .filter(
-              summary => summary.status == Active && summary.lastTxCounter <= txCounter - config.sessionExpirationPeriod
-            )
-            .map(summary => mutableConsensusState.putValue(statusKey, summary.copy(status = Expired).toStoreValue))
-      )
-      _ <- expirationList.foldLeft(F.unit)((acc, expiration) => {
-        for {
-          _ <- acc
-          _ <- expiration
-        } yield ()
-      })
-    } yield ()
+      summaryKeys = root.selectByTemplate(SessionSummarySelector)
+      expirationList = summaryKeys
+        .flatMap(
+          summaryKey =>
+            root
+              .getValue(summaryKey)
+              .flatMap(SessionSummary.fromStoreValue)
+              .filter(summary => isExpiredSession(summary, txCounter))
+              .map(summary => putSessionSummary(summaryKey, summary.copy(status = Expired)))
+        )
+      combinedExpiration <- expirationList.sequence_
+    } yield combinedExpiration
+  }
 
   private def getTxCounter: F[Long] =
     for {
@@ -216,8 +218,14 @@ class TxProcessor[F[_]](
       _ <- mutableConsensusState.putValue(txResultPath(tx.header), result.toStoreValue)
       _ <- mutableConsensusState.putValue(txStatusPath(tx.header), txStatus.storeValue)
       txCounter <- getTxCounter
-      sessionSummary = SessionSummary(txStatus.sessionStatus, tx.header.order + 1, txCounter).toStoreValue
-      _ <- mutableConsensusState.putValue(sessionSummaryPath(tx.header), sessionSummary)
+      sessionSummary = SessionSummary(txStatus.sessionStatus, tx.header.order + 1, txCounter)
+      _ <- putSessionSummary(sessionSummaryPath(tx.header), sessionSummary)
     } yield txStatus
   }
+
+  private def putSessionSummary(summaryPath: TreePath[StoreKey], summary: SessionSummary): F[Unit] =
+    for {
+      _ <- mutableConsensusState.putValue(summaryPath, summary.toStoreValue)
+    } yield ()
+
 }

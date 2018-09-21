@@ -104,7 +104,7 @@ abstract class TreeNode(val children: Map[StoreKey, TreeNode], val value: Option
    *
    * @param keyTemplate search template that may contain 'any-key' wildcards (*) or explicitly described key components.
    */
-  def selectByTemplate(keyTemplate: TreePath[StoreKey]): Seq[TreePath[StoreKey]] = keyTemplate match {
+  def selectByTemplate(keyTemplate: TreePath[StoreKey]): List[TreePath[StoreKey]] = keyTemplate match {
     case EmptyTreePath => List(EmptyTreePath)
     case SplittableTreePath(next, rest) =>
       val matchedKeyChildPairs = next match {
