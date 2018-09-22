@@ -1,16 +1,34 @@
 #!/usr/bin/python
+"""
+Copyright 2018 Fluence Labs Limited
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
 import sys, json
 import ed25519
 import hashlib
 if sys.version_info[0] == 2:
     import sha3
+
 from misc_utils import parse_utc_unix_ns
 from codec import to_uvarint, l_endian_4b, b64_decode, hex_decode, hex_decode_bytes, hex_encode, hex_encode_bytes, ints_to_bytes
 
 # https://github.com/tendermint/tendermint/blob/master/types/vote.go
 # https://github.com/tendermint/tendermint/blob/master/types/vote_test.go
 def sign_bytes(vote, chain_id):
-	tmpl = '{"@chain_id":"%s","@type":"vote","block_id":{"hash":"%s","parts":{"hash":"%s","total":"%s"}},"height":"%s","round":"%s","timestamp":"%s","type":2}'
+	tmpl = '{"@chain_id":"%s","@type":"vote","block_id":{"hash":"%s","parts":{"hash":"%s","total":"%s"}}' + \
+		',"height":"%s","round":"%s","timestamp":"%s","type":2}'
 	return (tmpl \
 		% (chain_id, vote["block_id"]["hash"], vote["block_id"]["parts"]["hash"], vote["block_id"]["parts"]["total"], \
 		vote["height"], vote["round"], vote["timestamp"])).encode()
