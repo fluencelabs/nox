@@ -22,7 +22,8 @@ import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
 import cats.{Functor, Monad}
 import fluence.crypto.Crypto.Hasher
-import fluence.vm.VmError.{InternalVmError, InvalidArgError, NoSuchFnError, TrapError}
+import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
+import fluence.vm.VmError.{InvalidArgError, _}
 import fluence.vm.WasmVmImpl._
 import scodec.bits.ByteVector
 
@@ -49,8 +50,7 @@ class WasmVmImpl(
     moduleName: Option[String],
     fnName: String,
     fnArgs: Seq[String]
-  ): EitherT[F, VmError, Option[Any]] = {
-
+  ): EitherT[F, InvokeError, Option[Any]] = {
     val fnId = FunctionId(moduleName, AsmExtKt.getJavaIdent(fnName))
 
     for {
@@ -58,7 +58,7 @@ class WasmVmImpl(
       wasmFn <- EitherT
         .fromOption(
           functionsIndex.get(fnId),
-          VmError(s"Unable to find a function with the name=$fnId", NoSuchFnError)
+          NoSuchFnError(s"Unable to find a function with the name=$fnId")
         )
 
       arguments ← parseArguments(fnArgs, wasmFn)
@@ -77,19 +77,20 @@ class WasmVmImpl(
    * }}}
    * '''Note!''' It's very expensive operation try to avoid frequent use.
    */
-  override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, VmError, ByteVector] =
+  override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] =
     modulesIndex
-      .foldLeft(EitherT.rightT[F, VmError](Array[Byte]())) {
+      .foldLeft(EitherT.rightT[F, GetVmStateError](Array[Byte]())) {
         case (acc, instance) ⇒
           for {
-            moduleStateHash <- instance.innerState(arr ⇒ hasher[F](arr))
+            moduleStateHash ← instance
+              .innerState(arr ⇒ hasher[F](arr))
 
             prevModulesHash ← acc
 
             concatHashes ← safeConcat(moduleStateHash, prevModulesHash)
 
             resultHash ← hasher(concatHashes)
-              .leftMap(e ⇒ VmError(s"Getting VM state for module=$instance failed", Some(e), InternalVmError))
+              .leftMap(e ⇒ InternalVmError(s"Getting VM state for module=$instance failed", Some(e)): GetVmStateError)
 
           } yield resultHash
       }
@@ -130,9 +131,9 @@ object WasmVmImpl {
      * @param args arguments for calling this fn.
      * @tparam F a monad with an ability to absorb 'IO'
      */
-    def apply[F[_]: Functor: LiftIO](args: List[AnyRef]): EitherT[F, VmError, AnyRef] =
+    def apply[F[_]: Functor: LiftIO](args: List[AnyRef]): EitherT[F, InvokeError, AnyRef] =
       EitherT(IO(javaMethod.invoke(module.instance, args: _*)).attempt.to[F])
-        .leftMap(e ⇒ VmError(s"Function $this with args: $args was failed", Some(e), TrapError))
+        .leftMap(e ⇒ TrapError(s"Function $this with args: $args was failed", Some(e)))
 
     override def toString: String = functionId.toString
   }
@@ -142,26 +143,26 @@ object WasmVmImpl {
     arg: String,
     castFn: String ⇒ Any,
     errorMsg: String
-  ): Either[VmError, AnyRef] =
+  ): Either[InvalidArgError, AnyRef] =
     // it's important to cast to AnyRef type, because args should be used in
     // Method.invoke(...) as Object type
     Try(castFn(arg).asInstanceOf[AnyRef]).toEither.left
-      .map(e ⇒ VmError(errorMsg, Some(e), InvalidArgError))
+      .map(e ⇒ InvalidArgError(errorMsg, Some(e)))
 
   /** Safe array concatenation. Prevents  array overflow or OOM. */
   private def safeConcat[F[_]: LiftIO: Monad](
     first: Array[Byte],
     second: Array[Byte]
-  ): EitherT[F, VmError, Array[Byte]] = {
+  ): EitherT[F, InternalVmError, Array[Byte]] = {
     EitherT.fromEither {
       Try(Array.concat(second, first)).toEither
-    }.leftMap(e ⇒ VmError("Arrays concatenation failed", Some(e), InternalVmError))
+    }.leftMap(e ⇒ InternalVmError("Arrays concatenation failed", Some(e)))
   }
 
   private def parseArguments[F[_]: LiftIO: Monad](
     fnArgs: Seq[String],
     wasmFn: WasmFunction
-  ): EitherT[F, VmError, List[AnyRef]] = {
+  ): EitherT[F, InvalidArgError, List[AnyRef]] = {
 
     // Maps args to params
     val required = wasmFn.javaMethod.getParameterTypes.length
@@ -170,9 +171,8 @@ object WasmVmImpl {
       _ ← EitherT.cond(
         required == fnArgs.size,
         (),
-        VmError(
-          s"Invalid number of arguments, expected=$required, actually=${fnArgs.size} for fn=$wasmFn",
-          InvalidArgError
+        InvalidArgError(
+          s"Invalid number of arguments, expected=$required, actually=${fnArgs.size} for fn=$wasmFn"
         )
       )
 
@@ -185,15 +185,14 @@ object WasmVmImpl {
             case cl if cl == classOf[Double] ⇒ cast(arg, _.toDouble, s"Arg $index of '$arg' not a double")
             case _ ⇒
               Left(
-                VmError(
-                  s"Invalid type for param $index: $paramType, expected [i32|i64|f32|f64]",
-                  InvalidArgError
+                InvalidArgError(
+                  s"Invalid type for param $index: $paramType, expected [i32|i64|f32|f64]"
                 )
               )
           }
       }
 
-      result ← list2Either[F, VmError, AnyRef](args.toList)
+      result ← list2Either[F, InvalidArgError, AnyRef](args.toList)
 
     } yield result
 

@@ -256,12 +256,14 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       latestAppHash shouldBe "74712CAAABC7F02D055461B5A6CE5B573E65ADA57809869EFE589DF07FBAF0CA"
 
       sendDeliverTx(tx0Failed)
-      sendCommit()
-      latestAppHash shouldBe "F5E48F5F4F45AF6CEE6EF45623C2FFFD991E4D40B42C871ABC1AB5746F639DAD"
-
       sendDeliverTx(tx1) shouldBe (CodeType.BAD, ClientInfoMessages.SessionAlreadyClosed)
+
       sendCommit()
-      latestAppHash shouldBe "F5E48F5F4F45AF6CEE6EF45623C2FFFD991E4D40B42C871ABC1AB5746F639DAD"
+      sendCommit()
+
+      sendQuery(s"@meta/$client/$session/0/result") shouldBe
+        Right(Error("InvalidArgError", "Arg 1 of 'a' not an int").toStoreValue)
+      latestAppHash shouldBe "A94966F46584E159F63FB6673459B83DBA853F57D683C67F2B0E3CC774A1E6F4"
     }
 
     "not invoke dependent txs if required failed when order in not correct" in {
@@ -273,13 +275,15 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
       sendDeliverTx(tx0Failed)
-      sendCommit()
-      latestAppHash shouldBe "2213B30488CAA0DF787B156DA6345400204960E4033776C9BB08FA9AB055800F"
 
       sendCommit()
+      sendCommit()
+
+      sendQuery(s"@meta/$client/$session/0/result") shouldBe
+        Right(Error("InvalidArgError", "Arg 1 of 'a' not an int").toStoreValue)
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendQuery(tx3Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
-      latestAppHash shouldBe "2213B30488CAA0DF787B156DA6345400204960E4033776C9BB08FA9AB055800F"
+      latestAppHash shouldBe "2B09DBA033E1080C192E59F085366C24B74BBC83EF68DA7BABD75DB8B909C954"
     }
 
     "store error message for incorrect operations" in {
@@ -300,7 +304,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
 
       val expectedNumOfArgsMessage = "Invalid number of arguments, expected=0, actually=1 for fn='<no-name>.inc'"
       sendQuery(s"@meta/$client/$session1/0/result") shouldBe
-        Right(Error("InvalidArgError$", expectedNumOfArgsMessage).toStoreValue)
+        Right(Error("InvalidArgError", expectedNumOfArgsMessage).toStoreValue)
       sendQuery(s"@meta/$client/$session1/0/status") shouldBe Right("error")
 
       val session2 = "000002"
@@ -316,7 +320,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendCommit()
 
       sendQuery(s"@meta/$client/$session2/0/result") shouldBe
-        Right(Error("NoSuchFnError$", "Unable to find a function with the name='<no-name>.unknown'").toStoreValue)
+        Right(Error("NoSuchFnError", "Unable to find a function with the name='<no-name>.unknown'").toStoreValue)
       sendQuery(s"@meta/$client/$session2/0/status") shouldBe Right("error")
     }
   }

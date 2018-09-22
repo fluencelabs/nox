@@ -41,9 +41,9 @@ class ModuleInstanceSpec extends WordSpec with Matchers with MockitoSugar {
           case Right(_) ⇒
             fail("Should be error appeared")
           case Left(e) ⇒
-            e.message shouldBe "Unable to initialize module=test-module-name"
-            e.causedBy.get shouldBe a[RuntimeException]
-            e.errorKind shouldBe InitializationError
+            e.getMessage shouldBe "Unable to initialize module=test-module-name"
+            e.getCause shouldBe a[RuntimeException]
+            e shouldBe a[InitializationError]
         }
       }
 
@@ -58,9 +58,9 @@ class ModuleInstanceSpec extends WordSpec with Matchers with MockitoSugar {
           case Right(_) ⇒
             fail("Should be error appeared")
           case Left(e) ⇒
-            e.message shouldBe "Unable to getting memory from module=test-module-name"
-            e.causedBy.get shouldBe a[InvocationTargetException]
-            e.errorKind shouldBe InternalVmError
+            e.getMessage shouldBe "Unable to getting memory from module=test-module-name"
+            e.getCause shouldBe a[InvocationTargetException]
+            e shouldBe a[InternalVmError]
         }
       }
     }
@@ -106,8 +106,8 @@ class ModuleInstanceSpec extends WordSpec with Matchers with MockitoSugar {
           createInstance(instance).innerState(arr ⇒ EitherT.leftT(CryptoError("error!"))).value.left.get
 
         result.message shouldBe "Getting internal state for module=test-module-name failed"
-        result.causedBy.get shouldBe a[CryptoError]
-        result.errorKind shouldBe InternalVmError
+        result.getCause shouldBe a[CryptoError]
+        result shouldBe a[InternalVmError]
       }
 
       "working with memory is failed" in {
@@ -117,7 +117,7 @@ class ModuleInstanceSpec extends WordSpec with Matchers with MockitoSugar {
         val result = createInstance(instance).innerState(arr ⇒ EitherT.rightT(arr)).value.left.get
 
         result.message shouldBe "Presenting memory as an array for module=test-module-name failed"
-        result.errorKind shouldBe InternalVmError
+        result shouldBe a[InternalVmError]
       }
     }
 

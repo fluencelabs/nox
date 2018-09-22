@@ -20,13 +20,15 @@ import cats.effect.{ExitCode, IO, IOApp}
 import fluence.vm.VmError.InternalVmError
 import fluence.vm.{VmError, WasmVm}
 
+import scala.language.higherKinds
+
 object CounterRunner extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
 
     val program = for {
       inputFile ← EitherT(getInputFile(args).attempt)
-        .leftMap(e ⇒ VmError(e, InternalVmError))
+        .leftMap(e ⇒ InternalVmError(e.getMessage, Some(e)))
       vm ← WasmVm[IO](Seq(inputFile))
       initState ← vm.getVmState[IO]
       _ ← vm.invoke[IO](None, "inc")
@@ -34,7 +36,7 @@ object CounterRunner extends IOApp {
       _ ← vm.invoke[IO](None, "inc")
       _ ← vm.invoke[IO](None, "inc")
       get2 ← vm.invoke[IO](None, "get")
-      finishState ← vm.getVmState[IO]
+      finishState ← vm.getVmState[IO].toVmError
     } yield {
       s"""
           

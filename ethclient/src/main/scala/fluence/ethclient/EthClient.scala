@@ -23,6 +23,7 @@ import cats.ApplicativeError
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.ethclient.helpers.JavaFutureConversion._
 import org.web3j.abi.EventEncoder
 import org.web3j.protocol.core._
 import org.web3j.protocol.core.methods.request.EthFilter

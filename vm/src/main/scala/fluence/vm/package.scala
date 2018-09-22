@@ -15,8 +15,9 @@
  */
 
 package fluence
-import cats.Applicative
+import cats.{Applicative, Functor}
 import cats.data.EitherT
+import cats.effect.IO
 
 import scala.language.higherKinds
 
@@ -32,6 +33,15 @@ package object vm {
     // unfortunately Idea don't understand this and show error in Editor
     val either: Either[A, List[B]] = list.sequence
     EitherT.fromEither[F](either)
+  }
+
+  implicit class VmErrorMapper[F[_]: Functor, E <: VmError, T](eitherT: EitherT[F, E, T]) {
+
+    def toVmError: EitherT[F, VmError, T] = {
+      eitherT.leftMap { e: VmError ⇒
+        e
+      }
+    }
   }
 
 }
