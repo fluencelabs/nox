@@ -28,4 +28,11 @@ def parse_utc_unix_ns(timestamp_txt):
 
 def read_json(url):
 	response = urlopen(url)
-	return json.loads(response.read())
+	r = response.read()
+	#trace = not any(["/" + x + "?" in url for x in ["genesis", "block", "commit", "validators"]])
+	trace = False
+	if trace:
+		print()
+		print("Request: " + url)
+		print("Response: " + str(r))
+	return json.loads(r)

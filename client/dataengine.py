@@ -18,6 +18,7 @@ limitations under the License.
 from __future__ import print_function
 import string, random, time
 from verify import get_verified_result
+from codec import hex_decode
 
 def id_generator(size = 6, chars = string.ascii_uppercase[:6] + string.digits):
 	return ''.join(random.choice(chars) for _ in range(size))
@@ -54,13 +55,11 @@ class DataEngineResultAwait:
 		return None
 
 class DataEngineSession:
-	def __init__(self, engine, client = None, signing_key = None):
-		if client == None:
-			client = "anon"
+	def __init__(self, engine, client, signing_key, session):
 		self.engine = engine
 		self.client = client
 		self.signing_key = signing_key
-		self.session = id_generator()
+		self.session = session
 		self.summary_key = "@meta/%s/%s/@sessionSummary" % (self.client, self.session)
 		self.counter = 0
 
@@ -80,8 +79,15 @@ class DataEngineSession:
 			"signature": signature
 		}).replace("'", '"').replace('u"', '"')
 		target_key = "@meta/%s/%s/%d" % (self.client, self.session, self.counter)
+		
 		print("submitting", tx_json)
-		self.engine.tm.broadcast_tx_sync(tx_json)
+		tx_response = self.engine.tm.broadcast_tx_sync(tx_json)
+		if tx_response["code"] == 0:
+			print("OK")
+		else:
+			print(tx_response["data"])
+			print(hex_decode(tx_response["data"]))
+
 		self.counter += 1
 		return DataEngineResultAwait(self, target_key)
 
@@ -93,5 +99,5 @@ class DataEngine:
 		self.tm = tm
 		self.genesis = genesis
 
-	def new_session(self, client = None, signing_key = None):
-		return DataEngineSession(self, client, signing_key)
+	def new_session(self, client, signing_key, session = None):
+		return DataEngineSession(self, client, signing_key, session if session is not None else id_generator())

@@ -20,7 +20,7 @@ sys.path.append('..')
 
 import ed25519, base64
 from tmrpc import TendermintRPC
-from dataengine import DataEngine
+from dataengine import DataEngine, id_generator
 
 def get_signing_key():
 	return ed25519.SigningKey(b"TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==", encoding="base64")
@@ -32,9 +32,9 @@ def get_verifying_key():
 def get_client():
     return "client001"
 
-def demo_queries(addr, genesis, send_wrong=False, send_closed=True):
+def demo_queries(addr, genesis, send_wrong=False, send_closed=True, session=None):
     eng = DataEngine(addr, genesis)
-    s = eng.new_session(get_client(), get_signing_key())
+    s = eng.new_session(get_client(), get_signing_key(), session)
     q0 = s.submit("inc")
     q1 = s.submit("multiplier.mul", 10, 14)
     if send_wrong:
@@ -52,6 +52,17 @@ def demo_queries(addr, genesis, send_wrong=False, send_closed=True):
 tm = TendermintRPC("http://localhost:46157")
 genesis = tm.get_genesis()
 height = tm.get_max_height()
-demo_queries(tm, genesis, False, False)
+
+# 1st session: correct, but not explicitly closed
+session1_id = id_generator()
+demo_queries(tm, genesis, False, False, session1_id)
+
+# 2nd session: failed during processing
 demo_queries(tm, genesis, True, False)
+
+# 3rd session: correct and explicitly closed
+# 1st session expires during 3rd session processing
 demo_queries(tm, genesis, False, True)
+
+# 4th session: same as 1st – transactions declined as duplicated
+demo_queries(tm, genesis, False, False, session1_id)

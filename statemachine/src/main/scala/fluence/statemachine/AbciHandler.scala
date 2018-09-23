@@ -85,6 +85,7 @@ class AbciHandler(
     ResponseCheckTx.newBuilder
       .setCode(responseData.code)
       .setInfo(responseData.info)
+      .setData(ByteString.copyFromUtf8(responseData.info))
       .build
   }
 
@@ -105,6 +106,7 @@ class AbciHandler(
     ResponseDeliverTx.newBuilder
       .setCode(responseData.code)
       .setInfo(responseData.info)
+      .setData(ByteString.copyFromUtf8(responseData.info))
       .build
   }
 
