@@ -79,7 +79,13 @@ object ServerRunner extends IOApp with LazyLogging {
    */
   private[statemachine] def buildAbciHandler(): EitherT[IO, StateMachineError, AbciHandler] =
     for {
-      vm <- buildVm[IO]()
+      config <- EitherT
+        .fromEither[IO](pureconfig.loadConfig[StateMachineConfig])
+        .leftMap[StateMachineError](
+          e => ConfigLoadingError("ConfigLoadingError", "Unable to read StateMachineConfig: " + e.toList)
+        )
+
+      vm <- buildVm[IO](config)
       vmInvoker = new VmOperationInvoker[IO](vm)
 
       initialState <- EitherT.right(MVar[IO].of(TendermintState.initial))
@@ -92,11 +98,6 @@ object ServerRunner extends IOApp with LazyLogging {
       checkTxStateChecker = new TxStateDependentChecker[IO](stateHolder.mempoolState)
       deliverTxStateChecker = new TxStateDependentChecker(mutableConsensusState.getRoot)
 
-      config <- EitherT
-        .fromEither[IO](pureconfig.loadConfig[StateMachineConfig])
-        .leftMap[StateMachineError](
-          e => ConfigLoadingError("ConfigLoadingError", "Unable to read StateMachineConfig: " + e.toList)
-        )
       txProcessor = new TxProcessor(mutableConsensusState, vmInvoker, config)
 
       committer = new Committer[IO](stateHolder, vmInvoker)
@@ -113,14 +114,11 @@ object ServerRunner extends IOApp with LazyLogging {
 
   /**
    * Builds a VM instance used to perform function calls from the clients.
+   *
+   * @param config config object to load VM setting
    */
-  private def buildVm[F[_]: Monad](): EitherT[F, StateMachineError, WasmVm] = {
-    val moduleFiles = List(
-      "vm/src/test/resources/wast/mul.wast",
-      "vm/src/test/resources/wast/counter.wast"
-    )
-    WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
-  }
+  private def buildVm[F[_]: Monad](config: StateMachineConfig): EitherT[F, StateMachineError, WasmVm] =
+    WasmVm[F](config.moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
 
   /**
    * Configures `slogging` logger.

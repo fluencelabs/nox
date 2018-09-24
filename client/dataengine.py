@@ -85,7 +85,6 @@ class DataEngineSession:
 		if tx_response["code"] == 0:
 			print("OK")
 		else:
-			print(tx_response["data"])
 			print(hex_decode(tx_response["data"]))
 
 		self.counter += 1

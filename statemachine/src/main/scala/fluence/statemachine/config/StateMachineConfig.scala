@@ -19,8 +19,9 @@ package fluence.statemachine.config
 /**
  * State machine settings.
  *
- * @param sessionExpirationPeriod Period after which the session becomes expired.
- *                                Measured as difference between the current `txCounter` value and
+ * @param sessionExpirationPeriod period after which the session becomes expired,
+ *                                measured as difference between the current `txCounter` value and
  *                                its value at the last activity in the session.
+ * @param moduleFiles sequence of files with WASM module code
  */
-case class StateMachineConfig(sessionExpirationPeriod: Long)
+case class StateMachineConfig(sessionExpirationPeriod: Long, moduleFiles: List[String])

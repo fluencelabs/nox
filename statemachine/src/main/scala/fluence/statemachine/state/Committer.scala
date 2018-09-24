@@ -82,7 +82,9 @@ class Committer[F[_]](
       } yield (newStates, ByteString.copyFrom(appHash.bytes.toArray))
   )
 
-  private def logState(state: MerkleTreeNode, height: Long): Unit =
-    logger.info("Commit: height={} hash={}\n{}", height, state.merkleHash.toHex, state.dump())
+  private def logState(state: MerkleTreeNode, height: Long): Unit = {
+    logger.info("Commit: height={} hash={}", height, state.merkleHash.toHex)
+    logger.debug("State: {}", state.dump())
+  }
 
 }
