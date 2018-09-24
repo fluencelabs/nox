@@ -64,5 +64,5 @@ demo_queries(tm, genesis, True, False)
 # 1st session expires during 3rd session processing
 demo_queries(tm, genesis, False, True)
 
-# 4th session: same as 1st – transactions declined as duplicated
+# 4th session: same as 1st - transactions declined as duplicated
 demo_queries(tm, genesis, False, False, session1_id)
