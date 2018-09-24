@@ -1,0 +1,9 @@
+dist/
+
+node_modules/
+
+.idea/
+
+npm-debug.log
+
+src/*.js

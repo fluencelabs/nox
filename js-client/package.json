@@ -1,0 +1,32 @@
+{
+  "name": "js-fluence-client",
+  "version": "0.0.1",
+  "description": "",
+  "main": "./dist/main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "fluencelabs",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "browserify": "^16.2.2",
+    "gulp": "^3.9.1",
+    "gulp-sourcemaps": "^2.6.4",
+    "gulp-typescript": "^5.0.0-alpha.3",
+    "gulp-uglify": "^3.0.1",
+    "gulp-util": "^3.0.8",
+    "tsify": "^4.0.0",
+    "typescript": "^3.0.3",
+    "vinyl-buffer": "^1.0.1",
+    "vinyl-source-stream": "^2.0.0",
+    "watchify": "^3.11.0"
+  },
+  "dependencies": {
+    "@types/base64-js": "^1.2.5",
+    "@types/elliptic": "^6.4.0",
+    "base64-js": "^1.3.0",
+    "elliptic": "^6.4.1",
+    "randomstring": "^1.1.5",
+    "tendermint": "^3.2.0"
+  }
+}
