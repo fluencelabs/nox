@@ -69,4 +69,3 @@ export class ResultAwait {
         return timeout;
     }
 }
-

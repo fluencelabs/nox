@@ -17,4 +17,3 @@
 export function wrapInQuotes(str: string): string {
     return "\"" + str + "\""
 }
-

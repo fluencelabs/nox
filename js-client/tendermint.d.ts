@@ -32,4 +32,3 @@ declare namespace tendermint {
         block(args: any): any;
     }
 }
-
