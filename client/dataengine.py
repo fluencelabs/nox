@@ -82,10 +82,12 @@ class DataEngineSession:
 		
 		print("submitting", tx_json)
 		tx_response = self.engine.tm.broadcast_tx_sync(tx_json)
-		if tx_response["code"] == 0:
-			print("OK")
-		else:
+		if not "result" in tx_response:
+			print(tx_response["error"]["data"])
+		elif tx_response["result"]["code"] != 0:
 			print(hex_decode(tx_response["data"]))
+		else:
+			print("OK")
 
 		self.counter += 1
 		return DataEngineResultAwait(self, target_key)

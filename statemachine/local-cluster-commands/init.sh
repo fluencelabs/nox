@@ -31,9 +31,4 @@ sed -i -e 's#addr_book_strict = true#addr_book_strict = false#g' $HOME/.tendermi
 sed -i -e 's#addr_book_strict = true#addr_book_strict = false#g' $HOME/.tendermint3/config/config.toml
 sed -i -e 's#addr_book_strict = true#addr_book_strict = false#g' $HOME/.tendermint4/config/config.toml
 
-sed -i -e 's#cache_size = 100000#cache_size = 0#g' $HOME/.tendermint1/config/config.toml
-sed -i -e 's#cache_size = 100000#cache_size = 0#g' $HOME/.tendermint2/config/config.toml
-sed -i -e 's#cache_size = 100000#cache_size = 0#g' $HOME/.tendermint3/config/config.toml
-sed -i -e 's#cache_size = 100000#cache_size = 0#g' $HOME/.tendermint4/config/config.toml
-
 export TM_PERSISTENT_PEERS=$(tendermint show_node_id --home $HOME/.tendermint1)"@0.0.0.0:46156,"$(tendermint show_node_id --home $HOME/.tendermint2)"@0.0.0.0:46256,"$(tendermint show_node_id --home $HOME/.tendermint3)"@0.0.0.0:46356,"$(tendermint show_node_id --home $HOME/.tendermint4)"@0.0.0.0:46456"

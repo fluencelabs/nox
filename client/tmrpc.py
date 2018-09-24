@@ -22,11 +22,14 @@ class TendermintRPC:
 	def __init__(self, addr):
 		self.addr = addr
 
+	def from_json(self, template, *params):
+		return read_json(self.addr + template % params)
+
 	def result_from_json(self, template, *params):
 		return read_json(self.addr + template % params)["result"]
 
 	def broadcast_tx_sync(self, tx_json):
-		return self.result_from_json('/broadcast_tx_sync?tx="%s"', hex_encode(tx_json))
+		return self.from_json('/broadcast_tx_sync?tx="%s"', hex_encode(tx_json))
 
 	def query(self, path):
 		return self.result_from_json('/abci_query?path="%s"', path)["response"]
