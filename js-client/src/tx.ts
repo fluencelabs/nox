@@ -20,7 +20,7 @@ import {Signer} from "./Signer";
 import {Client} from "./Client";
 
 /**
- * Generate execution command's transaction in hex representation for tendermint cluster.
+ * Generates execution command's transaction in hex representation for the real-time cluster.
  *
  * @param client identity of clientId and signer
  * @param session identity of session
@@ -33,8 +33,8 @@ export function genTxHex(client: Client, session: string, counter: number, paylo
 }
 
 /**
- * Makes string gtom object that correct to tendermint cluster
- * @param json transaction with command, meta information and signature
+ * Makes hex string from json object that will be correct to the real-time cluster.
+ * @param json transaction with command, metainformation and signature
  */
 function jsonToHex(json: TxJson): string {
     return wrapInQuotes(utils.toHex(Buffer.from(JSON.stringify(json))).toUpperCase())

@@ -17,7 +17,7 @@
 import {Signer} from "./Signer";
 
 /**
- * Representation of a client with an identifier and the ability to make signatures.
+ * Representation of a client with an identifier and an ability to make signatures.
  */
 export class Client {
     id: string;
@@ -25,7 +25,7 @@ export class Client {
 
     /**
      * @param _id client's identifier. Can be any string
-     * @param _signer key with ability to make signatures
+     * @param _signer key with an ability to make signatures
      */
     constructor(_id: string, _signer: Signer) {
         this.id = _id;

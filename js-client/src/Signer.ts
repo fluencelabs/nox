@@ -19,7 +19,7 @@ import {utils} from "elliptic";
 import * as base64js from "base64-js";
 
 /**
- * Key with ability to make signatures from string.
+ * Key with the ability to make signatures from a string.
  */
 export class Signer {
 
@@ -34,7 +34,7 @@ export class Signer {
     }
 
     /**
-     * Sign string and return signature in base64
+     * Signs string and return signature in base64
      * @param str string to sign
      */
     sign(str: string): string {

@@ -19,6 +19,11 @@ import {Engine} from "./Engine";
 import {Signer} from "./Signer";
 import {Client} from "./Client";
 
+/**
+ * Default function to submit several commands to real-time cluster
+ * @param host
+ * @param port
+ */
 export async function defaultTest(host: string, port: number) {
 
     let tm = new TendermintClient(host, port);

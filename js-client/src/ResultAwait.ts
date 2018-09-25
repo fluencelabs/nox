@@ -18,9 +18,12 @@ import {empty, error, Result, timeout, value} from "./Result";
 import {TendermintClient} from "./TendermintClient";
 import {wrapInQuotes} from "./utils";
 
+/**
+ * Class with the ability to make request periodically until an answer is available.
+ */
 export class ResultAwait {
-    tm: TendermintClient;
-    target_key: string;
+    private tm: TendermintClient;
+    private target_key: string;
 
     constructor(_tm: TendermintClient, _target_key: string) {
         this.tm = _tm;
@@ -37,7 +40,7 @@ export class ResultAwait {
     }
 
     /**
-     * Periodically checks the tendermint node for the presence of a result.
+     * Periodically checks the node of the real-time cluster for the presence of a result.
      *
      * @param requestsPerSec check frequency
      * @param responseTimeoutSec what time to check

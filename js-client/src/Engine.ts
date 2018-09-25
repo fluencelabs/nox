@@ -19,29 +19,29 @@ import {Session} from "./Session";
 import {Client} from "./Client";
 
 /**
- * Entrypoint for client.
+ * An entry point for the client.
  */
 export class Engine {
     tm: TendermintClient;
 
     /**
-     * @param _tm transport client for interaction with tendermint
+     * @param _tm transport client for interaction with the cluster
      */
     constructor(_tm: TendermintClient) {
         this.tm = _tm;
     }
 
     /**
-     * Creates new session with random identifier with tendermint cluster.
-     * @param client identifier of client and signer
+     * Creates a new session with a random identifier with the real-time cluster.
+     * @param client identifier of a client and a signer
      */
     genSession(client: Client): Session {
         return new Session(this.tm, client)
     }
 
     /**
-     * Creates new session with tendermint cluster.
-     * @param client identifier of client and signer
+     * Creates new session with the real-time cluster.
+     * @param client identifier of the client and the signer
      * @param sessionId session identifier
      */
     createSession(client: Client, sessionId: string): Session {

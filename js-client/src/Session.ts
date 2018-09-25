@@ -36,9 +36,9 @@ export class Session {
     }
 
     /**
-     * @param _tm transport to interact with tendermint cluster
-     * @param _client identifier and signer
-     * @param _session session id, will be random string with length 12 by default
+     * @param _tm transport to interact with the real-time cluster
+     * @param _client an identifier and a signer
+     * @param _session session id, will be a random string with length 12 by default
      */
     constructor(_tm: TendermintClient, _client: Client, _session: string = Session.genSessionId()) {
         this.tm = _tm;
@@ -51,7 +51,7 @@ export class Session {
     }
 
     /**
-     * Generates a key, that will be an identifier of request.
+     * Generates a key, that will be an identifier of the request.
      */
     private targetKey() {
         return `@meta/${this.client.id}/${this.session}/${this.counter}`;
@@ -80,7 +80,7 @@ export class Session {
     }
 
     /**
-     * Sends request with payload and wait for a response.
+     * Sends request with a payload and wait for a response.
      *
      * @param command a command supported by the program in a virtual machine
      * @param args arguments for command
