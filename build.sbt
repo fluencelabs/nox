@@ -43,15 +43,15 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
     // override `run` task
     run := {
       val log = streams.value.log
-      log.info("  Compiling counter.rs to counter.wasm and running with Data Engine.")
+      log.info("Compiling counter.rs to counter.wasm and running with Data Engine.")
 
       val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
       val projectRoot = file("").getAbsolutePath
-      val cmd = s"sh vm/examples/runExample.sh counter $projectRoot $scalaVer"
+      val cmd = s"sh vm/examples/run_example.sh counter $projectRoot $scalaVer"
 
-      log.info(s"  Running $cmd")
+      log.info(s"Running $cmd")
 
-      assert(cmd ! log == 0, "  Compile Rust to Wasm failed.")
+      assert(cmd ! log == 0, "Compile Rust to Wasm failed.")
     }
   )
   .dependsOn(vm)
