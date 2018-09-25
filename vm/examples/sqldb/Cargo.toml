@@ -5,7 +5,7 @@ authors = ["C.Solovev <constantine@fluence.one>"]
 
 [[bin]]
 name = "sqldb"
-#path = "src/main/rust/main.rs"
+path = "src/main/rust/main.rs"
 target = "wasm32-unknown-unknown"
 
 [dependencies]
