@@ -55,6 +55,7 @@ object VmOperationInvoker {
 
   /**
    * Converts [[VmError]] to [[StateMachineError]]
+   * TODO: handle different error types separately; possibly logging is required here.
    *
    * @param vmError error returned from VM
    */

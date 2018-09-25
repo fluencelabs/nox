@@ -43,6 +43,7 @@ object SessionSummary {
 
   /**
    * Deserializes the summary from the given [[StoreValue]].
+   * TODO: resolve unsafe parsing here, by changing result type.
    *
    * @param value serialized summary
    */

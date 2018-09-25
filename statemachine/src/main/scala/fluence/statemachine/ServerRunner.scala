@@ -48,7 +48,7 @@ object ServerRunner extends IOApp with LazyLogging {
       .start(port)
       .map(_ => ExitCode.Success)
       .valueOr(error => {
-        println("Error during State machine run: " + error)
+        logger.error("Error during State machine run: " + error)
         ExitCode.Error
       })
   }
@@ -60,11 +60,12 @@ object ServerRunner extends IOApp with LazyLogging {
    */
   private def start(port: Int): EitherT[IO, StateMachineError, Unit] =
     for {
+      _ <- EitherT.right(IO { configureLogging() })
+
+      _ = logger.info("Building State Machine ABCI handler")
       abciHandler <- buildAbciHandler()
 
-      _ = configureLogging()
-
-      _ = logger.info("starting State Machine")
+      _ = logger.info("Starting State Machine ABCI handler")
       socket = new TSocket
       _ = socket.registerListener(abciHandler)
 

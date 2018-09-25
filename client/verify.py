@@ -139,9 +139,13 @@ def hash_binary(data, format):
 	elif format == "long":
 		b = to_uvarint(int(data) * 2)
 	elif format == "time":
+		# 'Magic' constant values are taken from here: https://github.com/mappum/js-tendermint/blob/master/src/types.js
+		# They came from a complicated marshalling logic in https://github.com/tendermint/go-amino.
+		# Instead of a full support of go-amino, such hard-coded values are used.
 		t_unix, t_ns = parse_utc_unix_ns(data)
 		b = ints_to_bytes((1 << 3) | 1) + l_endian_4b(t_unix) + ints_to_bytes(0, 0, 0, 0, (2 << 3) | 5) + l_endian_4b(t_ns)
 	elif format == "block_id":
+		# 'Magic' again, its origin is the same as explained for "time" case.
 		b = hex_decode_bytes("0A14" + data[0] + "121808021214" + data[1])
 	else:
 		raise Exception("Unknown format string: " + format)

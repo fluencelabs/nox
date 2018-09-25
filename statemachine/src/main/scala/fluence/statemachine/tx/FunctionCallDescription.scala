@@ -17,6 +17,7 @@
 package fluence.statemachine.tx
 import cats.Monad
 import cats.data.EitherT
+import cats.syntax.either._
 import fluence.statemachine.error.{PayloadParseError, StateMachineError}
 
 import scala.language.higherKinds
@@ -48,23 +49,22 @@ object FunctionCallDescription {
    * @param payload text representation of the function invocation
    */
   def parse[F[_]](payload: String)(implicit F: Monad[F]): EitherT[F, StateMachineError, FunctionCallDescription] =
-    for {
+    EitherT.fromEither(for {
       parsedPayload <- payload match {
         case FunctionWithModuleAndArgListPattern(module, functionName, uncheckedArgList) =>
-          EitherT.rightT((Some(module), functionName, uncheckedArgList))
+          Either.right((Some(module), functionName, uncheckedArgList))
         case FunctionWithoutModuleAndArgListPattern(functionName, uncheckedArgList) =>
-          EitherT.rightT((None, functionName, uncheckedArgList))
-        case _ => EitherT.leftT(wrongPayloadFormatError(payload))
+          Either.right((None, functionName, uncheckedArgList))
+        case _ => Either.left(wrongPayloadFormatError(payload))
       }
-      (module, functionName, unparsedArgList: String) = parsedPayload
+      (module, functionName, unparsedArgList) = parsedPayload
 
-      parsedArgListET: EitherT[F, StateMachineError, List[String]] = unparsedArgList match {
-        case NonEmptyArgListPattern(_) => EitherT.rightT(unparsedArgList.split(",").toList)
-        case "" => EitherT.rightT(Nil)
-        case _ => EitherT.leftT(wrongPayloadArgumentListFormatError(unparsedArgList))
+      parsedArgList <- unparsedArgList match {
+        case NonEmptyArgListPattern(_) => Either.right(unparsedArgList.split(",").toList)
+        case "" => Either.right(Nil)
+        case _ => Either.left(wrongPayloadArgumentListFormatError(unparsedArgList))
       }
-      parsedArgList <- parsedArgListET
-    } yield FunctionCallDescription(module, functionName, parsedArgList)
+    } yield FunctionCallDescription(module, functionName, parsedArgList))
 
   /**
    * Produces [[StateMachineError]] corresponding to payload that cannot be parsed to a function call.
