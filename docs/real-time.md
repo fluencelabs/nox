@@ -31,21 +31,57 @@ A client might interact with a real-time cluster through a predefined protocol. 
 
 #### Tendermint
 
-Internally, real-time clusters use [Tendermint](https://tendermint.com/docs/) as the BFT consensus framework, which is able to tolerate of up to `1/3` failed or Byzantine nodes. Every real-time node runs the Tendermint Core consensus engine and the Fluence state machine which connects the consensus engine with the WebAssembly VM.
+Internally, real-time clusters use [Tendermint](https://tendermint.com/docs/) as the BFT consensus framework, which is able to tolerate of up to `1/3` failed or Byzantine nodes.
 
-Every request made by the client is turned into a transaction which is then sent to the `/broadcast_tx` endpoint in Tendermint. For example, if the deployed WebAssembly code was produced from this Rust snippet: `fn sum(x: i32, y: i32) -> i32 { x + y }`, then the client might send a transaction looking like `{'function': 'sum', 'x': 5, 'y': 3}`.
+Every request made by the client is turned into a transaction which is then sent to one of Tendermint endpoints. For example, if the deployed WebAssembly code was produced from this Rust snippet: `fn sum(x: i32, y: i32) -> i32 { x + y }`, then the client might send a transaction looking like `{'function': 'sum', 'x': 5, 'y': 3}` and await until `8` will be retrieved as a result.
 
-Before we dive deeper into the state machine, let's consider what Tendermint is responsible for in our case. Tendermint takes care of:
+Tendermint takes care of:
 - replicating transactions across the cluster
 - establishing a canonical order of transactions
 - passing transactions to the state machine
 - facilitating consensus on the state changes
 
-However, there happen to be other requirements the Fluence state machine has to handle on it's own. We'll examine them below.
+However, it doesn't invoke the WebAssembly code or verify clients signatures. This is done by the Fluence-specific state machine. 
+
+#### State machine
+
+Every real-time node carries a state which is updated using transactions furnished through the consensus engine. If every transition made since the genesis was correct, we can expect that the state itself is correct too. Results obtained by querying such a state should be correct as well. However, if at any moment in time there was an incorrect transition, all subsequent states can potentially be incorrect even if all later transitions were correct.
+
+Using Tendermint, cluster nodes reach consensus not only over the canonical order of transactions, but also over the Merkle root of the state – `app_hash` in Tendermint terminology. The client can obtain such Merkle root from any node in the cluster, verify cluster nodes signatures and check that more than `2/3` of the nodes have accepted the Merkle root change – i.e. that consensus was reached.
+
+The state machine is not a part of Tendermint and normally has an application-specific logic. In Fluence network it's responsible for requests authentication, establishing the happens-before semantic between client transactions, invoking WebAssembly functions and raising verification game disputes.
+
+#### Blockchain
+
+Tendermint combines transactions into ordered lists – blocks. Besides the transaction list, a block also has some metadata that helps to provide integrity and verifiability guarantees. This metadata consists of two major parts:
+
+- metadata related to the current block
+  - `height` – an index of this block in the blockchain
+  - hash of the transaction list in the block
+  - hash of the previous block
+- metadata related to the previous block
+  - `app_hash` – hash of the state machine state that was achieved at the end of the previous block
+  - previous block _voting process_ information
+
+<p align="center">
+  <img src="images/tendermint_blockchain.png" alt="Tendermint Blockchain" width="721px"/>
+</p>
+
+To create a new block a single node – the _block proposer_ is chosen. The proposer composes the transaction list, prepares the metadata and initiates the voting process. Then other nodes make votes accepting or declining the proposed block. If enough number of votes accepting the block exists (i.e. the _quorum_ was achieved – more than `2/3` of the nodes in the cluster voted positively), the block is considered committed.
+
+Once this happens, every node's state machine applies newly committed block transactions to the state in the same order those transactions are present in the block. Once all block transactions are applied, the new state machine `app_hash` is memorized by the node and will be used in the next block formation.
+
+Note that the information about the voting process and the `app_hash` achieved during the block processing by the state machine are not stored in the current block. The reason is that this part of metadata is not known to the proposer at time of block creation and becomes available only after successful voting. That's why the `app_hash` and voting information for the current block are stored in the next block. That metadata can be received by external clients only upon the next block commit event.
+
+Once the block `k` is committed, only the presence and the order of its transactions is verified, but not the state achieved by their execution. Because the `app_hash` resulted from the block `k` execution is only available when the block `k + 1` is committed, the client has to wait for the next block to trust a result computed by the transaction in the block `k`. To avoid making the client wait if there were no transactions for a while, Tendermint makes the next block (possibly empty) in a short time after the previous block was committed.
+
+
+
+### Data processing engine
 
 #### Happens-before relationship between transactions
 
-First, we need the client to be able to send a transaction that should be executed only after another transaction. In other words, there should be a support for the [_happens-before_](https://en.wikipedia.org/wiki/Happened-before) relationship between transactions. For example, let's imagine a client that checks stock quotes in a tight loop and based on this makes a decision whether to send a transaction into the Fluence network:
+We need the client to be able to send a transaction that should be executed only after another transaction. In other words, there should be a support for the [_happens-before_](https://en.wikipedia.org/wiki/Happened-before) relationship between transactions. For example, let's imagine a client that checks stock quotes in a tight loop and based on this makes a decision whether to send a transaction into the Fluence network:
 
 ```
 max = ...
@@ -66,7 +102,7 @@ Without transactions ordering, the global maximum might get updated incorrectly.
 
 #### RPC support
 
-Second, we want the client to be able to interact with the real-time cluster using a conventional request-response API: 
+We want the client to be able to interact with the real-time cluster using a conventional request-response API: 
 ```
 response = fluence.request("{'function': 'sum', 'x': 3, 'y': 5}")
 print(response)  ## prints "8"
