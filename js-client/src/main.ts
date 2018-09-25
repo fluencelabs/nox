@@ -66,6 +66,7 @@ export async function defaultTest(host: string, port: number) {
 
 }
 
-//add defaultTest method to global scope
+// add defaultTest method to global scope
+// TODO make the right imports
 const _global = (window /* browser */ || global /* node */) as any;
 _global.defaultTest = defaultTest;

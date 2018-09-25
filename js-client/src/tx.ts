@@ -15,7 +15,6 @@
  */
 
 import {utils} from 'elliptic'
-import {wrapInQuotes} from "./utils";
 import {Signer} from "./Signer";
 import {Client} from "./Client";
 
@@ -37,7 +36,7 @@ export function genTxHex(client: Client, session: string, counter: number, paylo
  * @param json transaction with command, metainformation and signature
  */
 function jsonToHex(json: TxJson): string {
-    return wrapInQuotes(utils.toHex(Buffer.from(JSON.stringify(json))).toUpperCase())
+    return JSON.stringify(utils.toHex(Buffer.from(JSON.stringify(json))).toUpperCase());
 }
 
 class TxCl {

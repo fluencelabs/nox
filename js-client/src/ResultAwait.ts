@@ -16,7 +16,6 @@
 
 import {empty, error, Result, timeout, value} from "./Result";
 import {TendermintClient} from "./TendermintClient";
-import {wrapInQuotes} from "./utils";
 
 /**
  * Class with the ability to make request periodically until an answer is available.
@@ -47,8 +46,6 @@ export class ResultAwait {
      */
     async result(requestsPerSec: number = 4, responseTimeoutSec = 5): Promise<Result> {
         const path = JSON.stringify(this.target_key + "/result");
-
-        console.log("PATH === " + path)
 
         for (let _i = 0; _i < responseTimeoutSec * requestsPerSec; _i++) {
             const statusResponse = (await this.tm.client.abciQuery({path: path})).response;
