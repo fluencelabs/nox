@@ -27,7 +27,7 @@ import {Client} from "./Client";
  * @param payload command with arguments
  */
 export function genTxHex(client: Client, session: string, counter: number, payload: string): string {
-    let tx = new TxCl(client.id, session, counter, payload).createJson(client.signer);
+    let tx = new TxEncoder(client.id, session, counter, payload).createJson(client.signer);
     return jsonToHex(tx)
 }
 
@@ -39,7 +39,10 @@ function jsonToHex(json: TxJson): string {
     return JSON.stringify(utils.toHex(Buffer.from(JSON.stringify(json))).toUpperCase());
 }
 
-class TxCl {
+/**
+ * Class to aggregate information and create signed transaction json for the real-time cluster.
+ */
+class TxEncoder {
     tx: Tx;
 
     constructor(client: string, session: string, counter: number, payload: string) {
@@ -53,6 +56,10 @@ class TxCl {
         };
     }
 
+    /**
+     * Creates a correct json representation for the cluster
+     * @param signer
+     */
     createJson(signer: Signer): TxJson {
 
         let header = this.tx.header;
@@ -67,17 +74,26 @@ class TxCl {
     }
 }
 
+/**
+ * The header of the transaction.
+ */
 interface Header {
     client: string;
     session: string;
     order: number;
 }
 
+/**
+ * Json representation of the transaction.
+ */
 interface Tx {
     header: Header;
     payload: string
 }
 
+/**
+ * The transaction with signature.
+ */
 export interface TxJson {
     tx: Tx
     signature: string
