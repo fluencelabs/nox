@@ -16,7 +16,7 @@ Real-time clusters have a _data locality_ property: all the data required to per
 
 Real-time clusters composition is supposed to be stable and not change much over time. Before joining the cluster, each node places a security deposit with the corresponding Ethereum smart contract. The deposit is released to a node only after passing of a cooling-off period during which the correctness of node's operations may be disputed. Relative stability of real-time clusters means rare costly state resynchronizations which happen when nodes join or leave. 
 
-However, this also means nodes in the cluster might eventually form a cartel producing incorrect computational results. Batch validation by independent randomly selected nodes is designated to prevent this. To make it possible, real-time nodes store the history of incoming requests and state changes in a _decentralized deep storage_ – [Swarm](https://swarm-guide.readthedocs.io). This history might be used by batch validators to inspect state transitions, but also – to restore the real-time cluster shall any of the nodes go down.
+However, this also means nodes in the cluster might eventually form a cartel producing incorrect computational results. Batch validation by independent randomly selected nodes outside of the cluster is designated to prevent this. To make it possible, real-time nodes store the history of incoming requests and state changes in a _decentralized deep storage_ – [Swarm](https://swarm-guide.readthedocs.io). This history might be used by batch validators to inspect state transitions, but also – to restore the real-time cluster shall any of the nodes go down.
 
 #### Client interactions
 
@@ -41,7 +41,7 @@ Tendermint takes care of:
 - passing transactions to the state machine
 - facilitating consensus on the state changes
 
-However, it doesn't invoke the WebAssembly code or verify clients signatures. This is done by the Fluence-specific state machine. 
+However, it doesn't invoke the WebAssembly code or verify clients signatures, which is done by the Fluence-specific state machine. 
 
 #### State machine
 
@@ -49,9 +49,11 @@ Every real-time node carries a state which is updated using transactions furnish
 
 Using Tendermint, cluster nodes reach consensus not only over the canonical order of transactions, but also over the Merkle root of the state – `app_hash` in Tendermint terminology. The client can obtain such Merkle root from any node in the cluster, verify cluster nodes signatures and check that more than `2/3` of the nodes have accepted the Merkle root change – i.e. that consensus was reached.
 
-The state machine is not a part of Tendermint and normally has an application-specific logic. In Fluence network it's responsible for requests authentication, establishing the happens-before semantic between client transactions, invoking WebAssembly functions and raising verification game disputes.
+The state machine is not a part of Tendermint and normally has an application-specific logic. In Fluence network it's responsible for requests authentication, establishing the happens-before semantic between the client transactions and invoking deployed WebAssembly functions.
 
-#### Blockchain
+Each node in the cluster runs a Tendermint instance and a Fluence state machine instance with Tendermint connecting the nodes together.
+
+#### Tendermint blockchain reference
 
 Tendermint combines transactions into ordered lists – blocks. Besides the transaction list, a block also has some metadata that helps to provide integrity and verifiability guarantees. This metadata consists of two major parts:
 
@@ -67,9 +69,9 @@ Tendermint combines transactions into ordered lists – blocks. Besides the tran
   <img src="images/tendermint_blockchain.png" alt="Tendermint Blockchain" width="721px"/>
 </p>
 
-To create a new block a single node – the _block proposer_ is chosen. The proposer composes the transaction list, prepares the metadata and initiates the voting process. Then other nodes make votes accepting or declining the proposed block. If enough number of votes accepting the block exists (i.e. the _quorum_ was achieved – more than `2/3` of the nodes in the cluster voted positively), the block is considered committed.
+To create a new block a single node – the _block proposer_ is chosen. The proposer composes the transaction list, prepares the metadata and initiates the voting process. Then other nodes make votes accepting or declining the proposed block. If enough number of votes accepting the block exists (i.e. the _quorum_ was achieved – more than `2/3` of the nodes in the cluster voted positively), the block is considered committed. Otherwise, another round of block creation is initiated.
 
-Once this happens, every node's state machine applies newly committed block transactions to the state in the same order those transactions are present in the block. Once all block transactions are applied, the new state machine `app_hash` is memorized by the node and will be used in the next block formation.
+Once the block is committed, every node's state machine applies newly committed block transactions to the state in the same order those transactions are present in the block. Once all block transactions are applied, the new state machine `app_hash` is memorized by the node and will be used in the next block formation.
 
 Note that the information about the voting process and the `app_hash` achieved during the block processing by the state machine are not stored in the current block. The reason is that this part of metadata is not known to the proposer at time of block creation and becomes available only after successful voting. That's why the `app_hash` and voting information for the current block are stored in the next block. That metadata can be received by external clients only upon the next block commit event.
 
@@ -77,7 +79,7 @@ Once the block `k` is committed, only the presence and the order of its transact
 
 
 
-### Data processing engine
+### Application
 
 #### Happens-before relationship between transactions
 
