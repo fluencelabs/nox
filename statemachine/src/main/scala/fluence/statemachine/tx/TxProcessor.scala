@@ -93,9 +93,9 @@ class TxProcessor[F[_]](
       // Preparing txs for application. It includes invocation and dequeuing
         .map(tx => {
           for {
-            invoked <- invokeTx(tx).map(_.allowDependentTxInvocation)
+            invoked <- invokeTx(tx)
             _ <- dequeueTx(tx)
-          } yield invoked
+          } yield invoked.allowDependentTxInvocation
         })
         // Applying prepared txs while this application is successful
         .foldLeft(F.pure(true))((acc, invoked) => {

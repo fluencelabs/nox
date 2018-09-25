@@ -101,7 +101,7 @@ class DataEngineResultAwait:
 			if "value" in query_response:
 				return get_verified_result(tm, self.session.engine.genesis, query_response)
 
-			if verified_session_summary != None and not "Active" in verified_session_summary["status"]:
+			if verified_session_summary is not None and "Active" not in verified_session_summary["status"]:
 				return verified_session_summary
 			time.sleep(1.0 / requests_per_sec)
 		return "Result is not ready!"
@@ -163,7 +163,7 @@ class DataEngineSession:
 		
 		print("submitting", tx_json)
 		tx_response = self.engine.tm.broadcast_tx_sync(tx_json)
-		if not "result" in tx_response:
+		if "result" not in tx_response:
 			print(tx_response["error"]["data"])
 		elif tx_response["result"]["code"] != 0:
 			print(hex_decode(tx_response["data"]))

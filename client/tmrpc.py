@@ -34,7 +34,7 @@ class TendermintRPC:
 		"""
 		self.addr = addr
 
-	def from_json(self, template, *params):
+	def json_from_request(self, template, *params):
 		"""
 		Base method to make Tendermint RPC calls.
 		Return the JSON object from the location described by the arguments.
@@ -47,7 +47,7 @@ class TendermintRPC:
 		"""
 		return read_json_from_url(self.addr + template % params)
 
-	def result_from_json(self, template, *params):
+	def json_result_from_request(self, template, *params):
 		"""
 		Base method to make Tendermint RPC calls. Return a `result` field value
 		from the JSON object from the location described by the arguments.
@@ -71,7 +71,7 @@ class TendermintRPC:
 			tx_json
 				Tendermint transaction in JSON format.
 		"""
-		return self.from_json('/broadcast_tx_sync?tx="%s"', hex_encode(tx_json))
+		return self.json_from_request('/broadcast_tx_sync?tx="%s"', hex_encode(tx_json))
 
 	def query(self, path):
 		"""
@@ -83,7 +83,7 @@ class TendermintRPC:
 			path
 				Path denoting query's target location in the State tree.
 		"""
-		return self.result_from_json('/abci_query?path="%s"', path)["response"]
+		return self.json_result_from_request('/abci_query?path="%s"', path)["response"]
 
 	def get_commit(self, height):
 		"""
@@ -96,7 +96,7 @@ class TendermintRPC:
 			height
 				Height of the requested block.
 		"""
-		result = self.result_from_json("/commit?height=%d", height)
+		result = self.json_result_from_request("/commit?height=%d", height)
 		if "SignedHeader" in result: # TODO: undo after migration to 0.24.0
 			return result["SignedHeader"]
 		else:
@@ -110,7 +110,7 @@ class TendermintRPC:
 			height
 				Height of the requested block.
 		"""
-		return self.result_from_json("/block?height=%d", height)["block"]
+		return self.json_result_from_request("/block?height=%d", height)["block"]
 
 	def get_validators(self, height):
 		"""
@@ -120,7 +120,7 @@ class TendermintRPC:
 			height
 				Height of the requested block.
 		"""
-		return self.result_from_json("/validators?height=%d", height)["validators"]
+		return self.json_result_from_request("/validators?height=%d", height)["validators"]
 
 	def get_genesis(self):
 		"""
@@ -132,13 +132,13 @@ class TendermintRPC:
 		Note that this method should only be called on the trusted Tendermint node.
 		It's purposelessly to retrieve this information from the node whose responses are verified.
 		"""
-		return self.result_from_json("/genesis")["genesis"]
+		return self.json_result_from_request("/genesis")["genesis"]
 
 	def get_status(self):
 		"""
 		Retrieves the Tendermint status. In particular, it contains the latest height.
 		"""
-		return self.result_from_json("/status")
+		return self.json_result_from_request("/status")
 
 	def get_max_height(self):
 		"""
