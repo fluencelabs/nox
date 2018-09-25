@@ -20,10 +20,12 @@ import cats.Monad
 import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.statemachine.StoreValue
+import fluence.statemachine.StoreKey
+import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.MutableStateTree
-import fluence.statemachine.tree.StorageKeys.{payloadKey, resultKey, statusKey}
+import fluence.statemachine.tree.StoragePaths._
+import fluence.statemachine.tree.TreePath
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -42,10 +44,12 @@ import scala.language.higherKinds
  *
  * @param mutableConsensusState Consensus state, affected by every newly appended transaction
  * @param vmInvoker object used to perform immediate calls to VM
+ * @param config settings which tx processing logic depends on
  */
 class TxProcessor[F[_]](
   private val mutableConsensusState: MutableStateTree[F],
-  private val vmInvoker: VmOperationInvoker[F]
+  private val vmInvoker: VmOperationInvoker[F],
+  private val config: StateMachineConfig
 )(implicit F: Monad[F])
     extends LazyLogging {
 
@@ -60,16 +64,18 @@ class TxProcessor[F[_]](
    */
   def processNewTx(tx: Transaction): F[Unit] =
     for {
+      _ <- incrementTxCounter()
       _ <- enqueueTx(tx)
       _ = logger.debug("Appended tx: {}", tx)
       _ <- tx.header.requiredTxHeader match {
         case None => applyTxWithDependencies(tx.header)
         case Some(required) =>
           for {
-            requiredSuccess <- getStatus(required).map(x => x.contains(TransactionStatus.Success))
-            _ <- if (requiredSuccess) applyTxWithDependencies(tx.header) else F.unit
+            requiredStatus <- getStatus(required)
+            _ <- if (requiredStatus.exists(_.allowDependentTxInvocation)) applyTxWithDependencies(tx.header) else F.unit
           } yield ()
       }
+      _ <- markExpiredSessions()
     } yield ()
 
   /**
@@ -87,9 +93,9 @@ class TxProcessor[F[_]](
       // Preparing txs for application. It includes invocation and dequeuing
         .map(tx => {
           for {
-            invoked <- invokeTx(tx).isRight
+            invoked <- invokeTx(tx)
             _ <- dequeueTx(tx)
-          } yield invoked
+          } yield invoked.allowDependentTxInvocation
         })
         // Applying prepared txs while this application is successful
         .foldLeft(F.pure(true))((acc, invoked) => {
@@ -120,44 +126,106 @@ class TxProcessor[F[_]](
    * Effectively invokes the given transaction and writes it's results to Consensus state.
    *
    * @param tx transaction ready to be applied (by the invocation in VM)
+   * @return [[TransactionStatus]] corresponding to the invocation result
    */
-  private def invokeTx(tx: Transaction): EitherT[F, StateMachineError, Option[String]] =
-    EitherT(for {
-      invoked <- vmInvoker.invoke(tx.payload).value
-      _ <- invoked match {
-        case Left(error) => putResult(tx, TransactionStatus.Error, Error(error.code, error.message))
-        case Right(None) => putResult(tx, TransactionStatus.Success, Empty)
-        case Right(Some(value)) => putResult(tx, TransactionStatus.Success, Computed(value))
+  private def invokeTx(tx: Transaction): F[TransactionStatus] =
+    FunctionCallDescription
+      .parse[F](tx.payload)
+      .flatMap {
+        case FunctionCallDescription.CloseSession =>
+          EitherT.right[StateMachineError](putResult(tx, TransactionStatus.SessionClosed, Empty))
+        case callDescription =>
+          vmInvoker
+            .invoke(callDescription)
+            .map {
+              case None => Empty
+              case Some(value) => Computed(value)
+            }
+            .flatMap(result => EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, result)))
       }
-    } yield invoked)
+      .valueOrF(error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message)))
+
+  /**
+   * Traverses all currently stored sessions and mark those of them which need to be expired,
+   * i. e. still with [[Active]] status, but without any transaction processing during `inactivity` period.
+   *
+   */
+  private def markExpiredSessions(): F[Unit] = {
+    import cats.implicits._
+
+    def isExpiredSession(summary: SessionSummary, txCounter: Long): Boolean =
+      summary.status == Active && summary.lastTxCounter <= txCounter - config.sessionExpirationPeriod
+
+    for {
+      root <- mutableConsensusState.getRoot
+      txCounter <- getTxCounter
+      summaryKeys = root.selectByTemplate(SessionSummarySelector)
+      expirationList = summaryKeys
+        .flatMap(
+          summaryKey =>
+            root
+              .getValue(summaryKey)
+              .flatMap(SessionSummary.fromStoreValue)
+              .filter(summary => isExpiredSession(summary, txCounter))
+              .map(summary => putSessionSummary(summaryKey, summary.copy(status = Expired)))
+        )
+      combinedExpiration <- expirationList.sequence_
+    } yield combinedExpiration
+  }
+
+  private def getTxCounter: F[Long] =
+    for {
+      root <- mutableConsensusState.getRoot
+      value = root.getValue(TxCounterPath).map(_.toLong).getOrElse(0L)
+    } yield value
+
+  private def incrementTxCounter(): F[Long] =
+    for {
+      oldValue <- getTxCounter
+      newValue = oldValue + 1
+      _ <- mutableConsensusState.putValue(TxCounterPath, newValue.toString)
+    } yield newValue
 
   private def enqueueTx(tx: Transaction): F[Unit] =
     for {
-      _ <- mutableConsensusState.putValue(payloadKey(tx.header), tx.payload)
-      _ <- mutableConsensusState.putValue(statusKey(tx.header), TransactionStatus.Queued)
+      _ <- mutableConsensusState.putValue(txPayloadPath(tx.header), tx.payload)
+      _ <- mutableConsensusState.putValue(txStatusPath(tx.header), TransactionStatus.Queued.storeValue)
     } yield ()
 
   private def dequeueTx(tx: Transaction): F[Unit] =
     for {
-      _ <- mutableConsensusState.removeValue(payloadKey(tx.header))
+      _ <- mutableConsensusState.removeValue(txPayloadPath(tx.header))
     } yield ()
 
-  private def getStatus(txHeader: TransactionHeader): F[Option[String]] =
+  private def getStatus(txHeader: TransactionHeader): F[Option[TransactionStatus]] =
     for {
       root <- mutableConsensusState.getRoot
-      value = root.getValue(statusKey(txHeader))
+      value = root.getValue(txStatusPath(txHeader)).flatMap(TransactionStatus.fromStoreValue)
     } yield value
 
   private def getStoredPayload(txHeader: TransactionHeader): F[Option[String]] =
     for {
       root <- mutableConsensusState.getRoot
-      value = root.getValue(payloadKey(txHeader))
+      value = root.getValue(txPayloadPath(txHeader))
     } yield value
 
-  private def putResult(tx: Transaction, status: StoreValue, result: TxInvocationResult): F[Unit] = {
+  private def putResult(
+    tx: Transaction,
+    txStatus: TransactionStatus,
+    result: TxInvocationResult
+  ): F[TransactionStatus] = {
     for {
-      _ <- mutableConsensusState.putValue(resultKey(tx.header), result.toStoreValue)
-      _ <- mutableConsensusState.putValue(statusKey(tx.header), status)
-    } yield ()
+      _ <- mutableConsensusState.putValue(txResultPath(tx.header), result.toStoreValue)
+      _ <- mutableConsensusState.putValue(txStatusPath(tx.header), txStatus.storeValue)
+      txCounter <- getTxCounter
+      sessionSummary = SessionSummary(txStatus.sessionStatus, tx.header.order + 1, txCounter)
+      _ <- putSessionSummary(sessionSummaryPath(tx.header), sessionSummary)
+    } yield txStatus
   }
+
+  private def putSessionSummary(summaryPath: TreePath[StoreKey], summary: SessionSummary): F[Unit] =
+    for {
+      _ <- mutableConsensusState.putValue(summaryPath, summary.toStoreValue)
+    } yield ()
+
 }

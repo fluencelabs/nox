@@ -4,6 +4,7 @@ target/
 *.pyc
 
 .idea
+.vscode
 
 # macOS folder metadata
 .DS_Store

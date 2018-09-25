@@ -44,3 +44,10 @@ case class VmRuntimeError(override val code: String, override val message: Strin
     extends StateMachineError {
   override val causedBy: Option[Throwable] = Some(vmError)
 }
+
+/**
+ * Corresponds to errors occurred during State machine config loading.
+ */
+case class ConfigLoadingError(override val code: String, override val message: String) extends StateMachineError {
+  override val causedBy: Option[Throwable] = None
+}

@@ -24,6 +24,8 @@ import fluence.statemachine.util.{ClientInfoMessages, Crypto, HexCodec}
 import io.circe.generic.auto._
 import io.circe.parser.{parse => parseJson}
 
+import scala.language.higherKinds
+
 /**
  * Parser of incoming `rawTx` into verified transaction.
  * Returns error message if parsing failed (because of wrong format or incorrect signature).

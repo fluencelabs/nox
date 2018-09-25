@@ -23,6 +23,7 @@ object ClientInfoMessages {
   val UnknownClient: String = "Unknown client"
   val InvalidSignature: String = "Invalid signature"
   val DuplicatedTransaction: String = "Duplicated transaction"
+  val SessionAlreadyClosed: String = "Session already closed"
   val SuccessfulTxResponse: String = ""
 
   val QueryStateIsNotReadyYet: String = "Query state is not ready yet"
