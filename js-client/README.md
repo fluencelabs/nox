@@ -1,4 +1,4 @@
-## IMPORTANT: Client and README are under heavy development and can be outdated. Ask questions in gitter or in issues. 
+## IMPORTANT: Client and README are under heavy development and can be outdated. Ask a question in gitter or file an issue. 
 
 ## Fluence Javascript Client
 
@@ -93,7 +93,7 @@ class IncrementAndMultiply {
         let signer = new Signer(signingKey);
 
         // creates client with id and signer
-        let client = new Client("client001", signer);
+        let client = new Client("client002", signer);
 
         // generates the random session. If you want to generate session on your own - use createSession(client, "some-id")
         this.session = engine.newSession(client);

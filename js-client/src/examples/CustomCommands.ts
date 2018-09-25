@@ -33,8 +33,8 @@ class CustomCommands {
         let signingKey = "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==";
         let signer = new Signer(signingKey);
 
-        // `client001` is a default client for now
-        let client = new Client("client001", signer);
+        // `client002` is a default client for now
+        let client = new Client("client002", signer);
 
         this.session = engine.genSession(client);
     }

@@ -14,12 +14,24 @@
  * limitations under the License.
  */
 
+/**
+ * Possible results from the real-time cluster.
+ */
 export interface Result {}
 
+/**
+ * If there are no results after set time, returns timeout.
+ */
 class Timeout implements Result {}
 
+/**
+ * The empty result, if there is no value in response.
+ */
 class Empty implements Result {}
 
+/**
+ * The result with value as a string from the real-time cluster.
+ */
 class Value implements Result {
 
     constructor(v: string) {
@@ -29,6 +41,9 @@ class Value implements Result {
     readonly value: string
 }
 
+/**
+ * Returns if some error occurred on request in the real-time cluster.
+ */
 class Error implements Result {
     constructor(err: string) {
         this.error = err

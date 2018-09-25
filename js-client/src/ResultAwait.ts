@@ -46,7 +46,9 @@ export class ResultAwait {
      * @param responseTimeoutSec what time to check
      */
     async result(requestsPerSec: number = 4, responseTimeoutSec = 5): Promise<Result> {
-        const path = wrapInQuotes(this.target_key + "/result");
+        const path = JSON.stringify(this.target_key + "/result");
+
+        console.log("PATH === " + path)
 
         for (let _i = 0; _i < responseTimeoutSec * requestsPerSec; _i++) {
             const statusResponse = (await this.tm.client.abciQuery({path: path})).response;

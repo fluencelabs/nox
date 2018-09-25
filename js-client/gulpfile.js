@@ -27,6 +27,7 @@ var paths = {
 var watchedBrowserify = watchify(browserify({
     basedir: '.',
     debug: true,
+    // TODO find a way to avoid targeting file explicitly
     entries: ['src/main.ts', "src/examples/IncrementAndMultiply.ts", "src/examples/CustomCommands.ts"],
     cache: {},
     packageCache: {}
