@@ -24,7 +24,7 @@ import {Client} from "./Client";
  * @param host
  * @param port
  */
-export async function defaultTest(host: string, port: number) {
+export async function testIncrementAndMultiplyCluster(host: string, port: number) {
 
     let tm = new TendermintClient(host, port);
 
@@ -66,7 +66,7 @@ export async function defaultTest(host: string, port: number) {
 
 }
 
-// add defaultTest method to global scope
+// add testIncrementAndMultiplyCluster method to global scope
 // TODO make the right imports
 const _global = (window /* browser */ || global /* node */) as any;
-_global.defaultTest = defaultTest;
+_global.testIncrementAndMultiplyCluster = testIncrementAndMultiplyCluster;
