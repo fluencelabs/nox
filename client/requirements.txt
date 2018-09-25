@@ -1,0 +1,3 @@
+numpy
+ed25519
+sha3
