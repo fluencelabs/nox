@@ -17,20 +17,20 @@ limitations under the License.
 
 import sys, base64, binascii
 
-def to_uvarint(x):
+def to_uvarint(num):
 	"""
 	Convert `int` to `bytes` object in unsigned varint (variable-length encoding) format.
 	See: https://developers.google.com/protocol-buffers/docs/encoding
 
 	Arguments:
-		x
+		num
 			`int` to convert to `uvarint`.
 	"""
 	buf = b""
-	while x >= 0x80:
-		buf += ints_to_bytes(x & 0xFF | 0x80)
-		x >>= 7
-	buf += ints_to_bytes(x)
+	while num >= 0x80:
+		buf += ints_to_bytes(num & 0xFF | 0x80)
+		num >>= 7
+	buf += ints_to_bytes(num)
 	return buf
 
 def ints_to_bytes(*ints):
@@ -81,7 +81,7 @@ def hex_encode_bytes(b):
 	Encodes bynary data to hexademimal `string` representation.
 
 	Arguments:
-		text
+		b
 			Source `bytes` to encode to hex.
 	"""
 	return binascii.b2a_hex(b).decode().upper()

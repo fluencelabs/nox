@@ -39,7 +39,7 @@ def sign(message, private_key):
 	Arguments:
 		message
 			`string` to sign.
-		sk
+		private_key
 			Private key (in base-64 `string`) used to sign the given data.
 	"""
 	return private_key.sign(message, encoding="base64").decode()
@@ -59,8 +59,6 @@ class DataEngineResultAwait:
 				Session object containing the required data to retrieve results.
 			target_key
 				A particular key pointing to a location in the server state tree that is expected to store the results.
-		
-		Returns an awaitable `DataEngineResultAwait` that allows to retrieve the results of the function call.
 		"""
 		self.session = session
 		self.target_key = target_key
@@ -79,8 +77,8 @@ class DataEngineResultAwait:
 				retrieve together with the result.				
 		
 		Returns:
-			either a validatated JSON representation of the result invocation call on the server's VM
-			or some error message denoting some problem occurred during result retrieval or validation.
+			Either a validatated JSON representation of the result invocation call on the server's VM
+			or an error message denoting some problem occurred during result retrieval or validation.
 
 		Normally the result is ready in 1-2 seconds since the request submit. However, it may fail to be computed
 		(for example, because the earlier request failed). Therefore, after the result is not ready for
@@ -143,7 +141,8 @@ class DataEngineSession:
 			params
 				The arguments of the called function.
 		
-		Returns an awaitable `DataEngineResultAwait` that allows to retrieve the results of the function call.
+		Returns:
+			An awaitable `DataEngineResultAwait` that allows to retrieve the results of the function call.
 		"""
 		payload = "%s(%s)" % (command, ",".join(map(str, params)))
 		tx_sign_bytes = ("%s-%s-%d-%s" % (self.client, self.session, self.counter, payload)).encode()
@@ -177,7 +176,8 @@ class DataEngineSession:
 		"""
 		Closes the current session and makes it unable to submit new requests.
 
-		Returns awaitable `DataEngineResultAwait`, similar to `submit` method.
+		Returns:
+			An awaitable `DataEngineResultAwait`, similar to `submit` method.
 
 		Implemented by `submit`ting a dedicated parameterless `@closeSession` function request.
 		"""
