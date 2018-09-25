@@ -115,7 +115,7 @@ impl Db<T> {
     /// # Arguments
     ///
     /// * field_idx - The index of field that will be compared
-    /// * field_val - Searched valuer of specified field
+    /// * field_val - Searched value of specified field
     ///
     pub fn set_query_wildcard_where(&mut self, field_idx: usize, field_val: T) {
         // clean db state (next query abort previous not completed query)
@@ -136,7 +136,7 @@ impl Db<T> {
     /// # Arguments
     ///
     /// * field_idx - The index of field that will be compared
-    /// * field_val - Searched valuer of specified field
+    /// * field_val - Searched value of specified field
     ///
     pub fn set_count_query_where(&mut self, field_idx: usize, field_val: T) {
         self.clean_db_state();
@@ -170,7 +170,7 @@ impl Db<T> {
     ///
     /// * avg_field_idx - Average will calculated for field with this index
     /// * field_idx - The index of field that will be compared
-    /// * field_val - Searched valuer of specified field
+    /// * field_val - Searched value of specified field
     ///
     pub fn set_average_query_where(
         &mut self,
@@ -196,14 +196,14 @@ impl Db<T> {
     // Cursor management
     //
 
-    /// Returns an serial number of the current row (Not id of this row!).
+    /// Returns an serial number of the next row or -1 otherwise
     pub fn next_row(&mut self) -> i32 {
         self.cursor.select_next_row();
         // if row exists return its serial number or -1 otherwise
         self.get_current_row().map(|_| self.cursor.row).unwrap_or(-1)
     }
 
-    /// Returns a next field for the current row
+    /// Returns a next field value for the current row
     pub fn next_field(&mut self) -> i32 {
         self.cursor.inc_col();
         *self.get_current_field().unwrap_or(&-1)
