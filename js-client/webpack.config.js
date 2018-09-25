@@ -4,7 +4,9 @@ const webpack = require('webpack');
 const CleanWebpackPlugin = require('clean-webpack-plugin');
 
 module.exports = {
-    entry: './src/main.ts',
+    entry: {
+        app: ['./src/main.ts', './src/examples/CustomCommands.ts', './src/examples/IncrementAndMultiply.ts']
+    },
     devtool: 'inline-source-map',
     devServer: {
         contentBase: './dist',
