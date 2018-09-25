@@ -49,6 +49,13 @@ def demo_queries(addr, genesis, send_wrong=False, send_closed=True, session=None
     if send_closed:
         print(closed.result())
 
+def demo_many_queries(addr, genesis):
+    eng = DataEngine(addr, genesis)
+    s = eng.new_session(get_client(), get_signing_key())
+    for _ in range(0, 300):
+        s.submit("inc")
+    print(s.submit("get").result())
+
 tm = TendermintRPC("http://localhost:46157")
 genesis = tm.get_genesis()
 height = tm.get_max_height()
@@ -66,3 +73,5 @@ demo_queries(tm, genesis, False, True)
 
 # 4th session: same as 1st - transactions declined as duplicated
 demo_queries(tm, genesis, False, False, session1_id)
+
+#demo_many_queries(tm, genesis)

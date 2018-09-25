@@ -22,19 +22,54 @@ if sys.version_info[0] == 2:
     import sha3
 
 from misc_utils import parse_utc_unix_ns
-from codec import to_uvarint, l_endian_4b, b64_decode, hex_decode, hex_decode_bytes, hex_encode, hex_encode_bytes, ints_to_bytes
+from codec import *
 
-# https://github.com/tendermint/tendermint/blob/master/types/vote.go
-# https://github.com/tendermint/tendermint/blob/master/types/vote_test.go
 def sign_bytes(vote, chain_id):
+	"""
+	Produces header `bytes` that are independetly signed by Tendermint validators,
+	following the Tendermint implementation.
+	
+	Arguments:
+		vote
+			The JSON object containing almost all required information to produce sign data.
+		chain_id
+			The ID of Tendermint cluster, that is passed separately from the other data.
+
+	Implementation details. The verification procedure follows the Tendermint code:
+	* https://github.com/tendermint/tendermint/blob/master/types/vote.go
+	* https://github.com/tendermint/tendermint/blob/master/types/vote_test.go
+	"""
 	tmpl = '{"@chain_id":"%s","@type":"vote","block_id":{"hash":"%s","parts":{"hash":"%s","total":"%s"}}' + \
 		',"height":"%s","round":"%s","timestamp":"%s","type":2}'
 	return (tmpl \
 		% (chain_id, vote["block_id"]["hash"], vote["block_id"]["parts"]["hash"], vote["block_id"]["parts"]["total"], \
 		vote["height"], vote["round"], vote["timestamp"])).encode()
 
-# https://github.com/tendermint/tendermint/blob/master/types/validator_set.go
 def verify_commit(signed_header, validators, height, genesis):
+	"""
+	Verifies that the `signed_header` is really signed by `validators`,
+	these `validators` are enlisted in `genesis`,
+	and the height of `signed_header` is `height`.
+	
+	Arguments:
+		signed_header
+			The JSON object containing a Tendermint block header with nodes' signatures.
+			Obtained from Tendermint RPC.
+		validators
+			Supplementary information about validators, obtained from Tendermint RPC.
+			They help to match signatures in `signed_header` with parties in `genesis`.
+		height
+			The height attributed to the response which is the main object of verification procedure.
+		genesis
+			Tendermint genesis data acting as the trusted source of information during verification.
+			Contains initial `validators`' public keys and voting power distribution.
+
+	Implementation details. The verification procedure follows the Tendermint code:
+	* https://github.com/tendermint/tendermint/blob/master/types/validator_set.go
+
+	Note that dynamic validator set is currently not implemented, i. e. this verification procedure do not allow
+	changes in `validators` (unless more 2/3 of voting power still exists and signs the header even after change).
+	"""
 	header = signed_header["header"]
 	commit = signed_header["commit"]
 	precommit1 = [x for x in commit["precommits"] if x is not None][0]
@@ -80,8 +115,21 @@ def encode_slice(data):
 def digest(b):
 	return hashlib.sha256(b).digest()[0:20]
 
-# https://github.com/mappum/js-tendermint/blob/master/src/types.js
 def hash_binary(data, format):
+	"""
+	Hashes the given `data`.
+	
+	Arguments:
+		data
+			The data to be hashed.
+		format
+			The format of `data` that a particular serialization depends on.
+
+	Implementation details. The verification procedure follows the Tendermint code:
+	* https://github.com/tendermint/go-amino/blob/master/encoder.go
+	Some fragments of implementation are also inspired by this code:
+	* https://github.com/mappum/js-tendermint/blob/master/src/types.js
+	"""
 	if data == "":
 		b = data.encode()
 	elif format == "str":
@@ -103,6 +151,16 @@ def hash2(data1, data2):
 	return digest(encode_slice(data1) + encode_slice(data2))
 
 def simple_tree_hash(kvs):
+	"""
+	Computes the hash of the given ordered key-value sequence.
+	
+	Arguments:
+		kvs
+			Key-value sequence to be hashed.
+
+	Implementation details. The verification procedure follows the Tendermint code:
+	* https://github.com/tendermint/tendermint/blob/master/crypto/merkle/simple_tree.go
+	"""
 	size = len(kvs)
 	if size == 0:
 		return None
@@ -114,14 +172,27 @@ def simple_tree_hash(kvs):
 		return hash2(simple_tree_hash(kvs[:mid]), simple_tree_hash(kvs[mid:]))
 
 def verify_app_hash(app_hash, signed_header):
+	"""
+	Verifies that the given `app_hash` is corresponds to metadata in the given `signed_header`.
+	
+	Arguments:
+		app_hash
+			The hash of so called application state, which is the whole server state at some time.
+			Obtained from Tendermint RPC.
+		signed_header
+			The JSON object containing a Tendermint block header with nodes' signatures.
+			Obtained from Tendermint RPC.
+
+	Implementation details. The verification procedure follows the Tendermint code:
+	* https://github.com/tendermint/tendermint/blob/master/types/block.go
+	* https://github.com/tendermint/tendermint/blob/master/types/part_set.go
+	* https://github.com/tendermint/go-amino/blob/master/encoder.go
+	"""
 	header = signed_header["header"]
 	if app_hash != header["app_hash"]:
 		return False
 
 	block_hash = signed_header["commit"]["block_id"]["hash"]
-	# https://github.com/tendermint/tendermint/blob/master/types/block.go
-	# https://github.com/tendermint/tendermint/blob/master/types/part_set.go
-	# https://github.com/tendermint/go-amino/blob/master/encoder.go
 	d = [
 		("App",         hash_binary(header["app_hash"], "hex")),
 		("ChainID",     hash_binary(header["chain_id"], "str")),
@@ -141,6 +212,21 @@ def verify_app_hash(app_hash, signed_header):
 	return tree_hash == block_hash
 
 def verify_merkle_proof(result, proof, app_hash):
+	"""
+	Verifies the given `proof` proves that the given `result` is contained in 
+	a state which hash is the given `app_hash`.
+	See: https://github.com/fluencelabs/fluence/blob/master/statemachine/src/main/scala/fluence/statemachine/tree/MerkleProof.scala
+	
+	Arguments:
+		result
+			The result data to verify.
+		proof
+			The proof data that is expected to prove the result.
+			Represented as comma-separated `string` where each separated part corresponds to a single level of
+			the Merkle path.
+		app_hash
+			The hash of so called application state, which is the whole server state at some time.
+	"""
 	parts = proof.split(", ")
 	parts_len = len(parts)
 	for index in range(parts_len, -1, -1):
@@ -152,9 +238,19 @@ def verify_merkle_proof(result, proof, app_hash):
 	return True
 
 def get_verified_result(tm, genesis, response):
-	# to verify value we need to verify each transition here:
-	# value => merkle_proof => app_hash => vote => commit => genesis
+	"""
+	The entry point to the server result verification.
+	Verifies the given `response` and, in case of success, extracts the result from it.
+	
+	Arguments:
+		genesis
+			Tendermint genesis data acting as the trusted source of information during verification.
+		response
+			JSON object, that normally should contain the result and a proof for it.
 
+	Implementation details. To verify value we need to verify each transition here:
+	.. value_in_response => merkle_proof => app_hash => vote => commit => genesis
+	"""
 	check_height = int(response["height"])
 	app_hash = tm.get_block(check_height)["header"]["app_hash"]
 	result = b64_decode(response["value"])
@@ -163,7 +259,7 @@ def get_verified_result(tm, genesis, response):
 		print("No proof for result")
 		return None
 
-	# value => merkle_proof => app_hash
+	# value_in_response => merkle_proof => app_hash
 	if not verify_merkle_proof(result, b64_decode(response["proof"]), app_hash):
 		print("Result proof failed")
 		return None

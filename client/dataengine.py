@@ -21,20 +21,72 @@ from verify import get_verified_result
 from codec import hex_decode
 
 def id_generator(size = 6, chars = string.ascii_uppercase[:6] + string.digits):
+	"""
+	Generates a non-secure random `string` used as IDs for Data engine objects, e. g. sessions.
+
+	Arguments:
+		size
+			The requested length of ID.
+		chars
+			Character set to use for generation.
+	"""
 	return ''.join(random.choice(chars) for _ in range(size))
 
-def sign(message, sk):
-	if sk is None:
-		return ""
-	else:
-		return sk.sign(message, encoding="base64").decode()
+def sign(message, private_key):
+	"""
+	Signs the given `message` with the given ed25519 private key.
+
+	Arguments:
+		message
+			`string` to sign.
+		sk
+			Private key (in base-64 `string`) used to sign the given data.
+	"""
+	return private_key.sign(message, encoding="base64").decode()
 
 class DataEngineResultAwait:
+	"""
+	The awaitable Data engine submit result - used to asynchronously retrieve the results/errors of the invocation
+	of a particular request.
+	"""
+
 	def __init__(self, session, target_key):
+		"""
+		Initializes the awaitable Data engine submit result.
+
+		Arguments:
+			session
+				Session object containing the required data to retrieve results.
+			target_key
+				A particular key pointing to a location in the server state tree that is expected to store the results.
+		
+		Returns an awaitable `DataEngineResultAwait` that allows to retrieve the results of the function call.
+		"""
 		self.session = session
 		self.target_key = target_key
 
 	def result(self, requests_per_sec = 2, response_timeout_sec = 10, wait_before_request_session_summary_sec = 2):
+		"""
+		Retrieve the invocation results of previously submitted request from the server.
+
+		Arguments:
+			requests_per_sec
+				Result retrieval rate.
+			response_timeout_sec
+				Number denoting how long (in seconds) the result retrieval attempts run.
+			wait_before_request_session_summary_sec
+				Number denoting when (in seconds since the retrieval start) the session summary is started to
+				retrieve together with the result.				
+		
+		Returns:
+			either a validatated JSON representation of the result invocation call on the server's VM
+			or some error message denoting some problem occurred during result retrieval or validation.
+
+		Normally the result is ready in 1-2 seconds since the request submit. However, it may fail to be computed
+		(for example, because the earlier request failed). Therefore, after the result is not ready for
+		`wait_before_request_session_summary_sec` the session summary request is initiated to obtain the information
+		about the whole session summary on the server side - it might contain more information.
+		"""
 		tm = self.session.engine.tm
 		path = self.target_key + "/result"
 		print("querying " + path)
@@ -52,10 +104,28 @@ class DataEngineResultAwait:
 			if verified_session_summary != None and not "Active" in verified_session_summary["status"]:
 				return verified_session_summary
 			time.sleep(1.0 / requests_per_sec)
-		return None
+		return "Result is not ready!"
 
 class DataEngineSession:
+	"""
+	The Data engine session - class allowing a single client identity to submit authenticated ordered requests to
+	the server and retrieve their results.
+	"""
+
 	def __init__(self, engine, client, signing_key, session):
+		"""
+		Initializes the Data engine Session object.
+
+		Arguments:
+			engine
+				Data engine containing information how to connect the server and verify its responses.
+			client
+				Client ID.
+			signing_key
+				Client's private key to sign session's requests.
+			session
+				Session ID.
+		"""
 		self.engine = engine
 		self.client = client
 		self.signing_key = signing_key
@@ -64,6 +134,17 @@ class DataEngineSession:
 		self.counter = 0
 
 	def submit(self, command, *params):
+		"""
+		Submits a given `command` with given `params` to the server node.
+
+		Arguments:
+			command
+				Function name to invoke on the server side.
+			params
+				The arguments of the called function.
+		
+		Returns an awaitable `DataEngineResultAwait` that allows to retrieve the results of the function call.
+		"""
 		payload = "%s(%s)" % (command, ",".join(map(str, params)))
 		tx_sign_bytes = ("%s-%s-%d-%s" % (self.client, self.session, self.counter, payload)).encode()
 		signature = sign(tx_sign_bytes, self.signing_key)
@@ -93,12 +174,43 @@ class DataEngineSession:
 		return DataEngineResultAwait(self, target_key)
 
 	def close(self):
+		"""
+		Closes the current session and makes it unable to submit new requests.
+
+		Returns awaitable `DataEngineResultAwait`, similar to `submit` method.
+
+		Implemented by `submit`ting a dedicated parameterless `@closeSession` function request.
+		"""
 		return self.submit("@closeSession")
 
 class DataEngine:
+	"""
+	The entry point to the Data engine API.
+	"""
+
 	def __init__(self, tm, genesis):
+		"""
+		Initializes the Data engine object.
+
+		Arguments:
+			tm
+				`TendermintRPC` object served as transport layer proxy to access the server.
+			genesis
+				Tendermint genesis data acting as the trusted source of information during server response validation.
+		"""
 		self.tm = tm
 		self.genesis = genesis
 
 	def new_session(self, client, signing_key, session = None):
+		"""
+		Creates a new session on behalf of the given client.
+
+		Arguments:
+			client
+				Client ID.
+			signing_key
+				Client's private key to sign session's requests.
+			session
+				Session ID. `None` would cause auto-generated ID.
+		"""
 		return DataEngineSession(self, client, signing_key, session if session is not None else id_generator())

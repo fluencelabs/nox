@@ -81,7 +81,7 @@ object ServerRunner extends IOApp with LazyLogging {
     for {
       config <- EitherT
         .fromEither[IO](pureconfig.loadConfig[StateMachineConfig])
-        .leftMap[StateMachineError](
+        .leftMap(
           e => ConfigLoadingError("ConfigLoadingError", "Unable to read StateMachineConfig: " + e.toList)
         )
 

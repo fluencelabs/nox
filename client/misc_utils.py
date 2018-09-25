@@ -22,11 +22,28 @@ else:
     from urllib.request import urlopen
 
 def parse_utc_unix_ns(timestamp_txt):
+	"""
+	Parses a given `timestamp_txt` which is in ISO 8601 with nanoseconds, like
+	.. 2018-09-25T04:34:45.123456789Z
+	
+	Arguments:
+		timestamp_txt
+			Time string in ISO 8601 format
+
+	Returns an `int` tuple: `(UTC unix time, nanoseconds)`.
+	"""
 	dt64 = numpy.datetime64(timestamp_txt).astype("datetime64[ns]").astype("int")
 	(t_unix, t_ns) = (dt64 // 1000000000, dt64 % 1000000000)
 	return (t_unix, t_ns)
 
-def read_json(url):
+def read_json_from_url(url):
+	"""
+	Send a HTTP request to a given `url` and reads the JSON from the response.
+	
+	Arguments:
+		url
+			URL `string` denoting the target JSON location.
+	"""
 	response = urlopen(url)
 	r = response.read()
 	#trace = not any(["/" + x + "?" in url for x in ["genesis", "block", "commit", "validators"]])
