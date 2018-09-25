@@ -21,11 +21,14 @@ import fluence.statemachine.{ClientId, PublicKey}
 /**
  * Client registry stub.
  *
- * Currently supports only 1 known hardcoded (client, public key) pair.
+ * Currently supports only 2 known hardcoded (client, public key) pairs for now.
  */
 class ClientRegistry {
-  private val KnownClient: ClientId = "client001"
-  private val KnownPublicKey: PublicKey = "94QLUpF/i65eJTeThLF4w+xhhu4hHsEqHeO9h7na5Kw="
+
+  private val knownClients: Map[ClientId, PublicKey] = Map(
+    "client001" -> "94QLUpF/i65eJTeThLF4w+xhhu4hHsEqHeO9h7na5Kw=",
+    "client002" -> "JSzg1etjAeYNLaN7QwHgnPYF/0IlSdcmZmWplZJkutY="
+  )
 
   /**
    * Returns public key used to verify transaction signed by given `client`.
@@ -34,5 +37,5 @@ class ClientRegistry {
    * @return either client's [[PublicKey]] or error message
    */
   def getPublicKey(client: ClientId): Either[String, PublicKey] =
-    Either.cond(client == KnownClient, KnownPublicKey, ClientInfoMessages.UnknownClient)
+    Either.cond(knownClients.contains(client), knownClients(client), ClientInfoMessages.UnknownClient)
 }
