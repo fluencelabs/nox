@@ -29,13 +29,43 @@ A client might interact with a real-time cluster through a predefined protocol. 
 
 ### Consensus engine
 
+#### Tendermint
+
 Internally, real-time clusters use [Tendermint](https://tendermint.com/docs/) as the BFT consensus framework, which is able to tolerate of up to `1/3` failed or Byzantine nodes. Every real-time node runs the Tendermint Core consensus engine and the Fluence state machine which connects the consensus engine with the WebAssembly VM.
 
-Every request made by the client is turned into a transaction which is then sent to the Tendermint `/broadcast_tx` endpoint. For example, if the deployed WebAssembly code was produced from this Rust snippet:
+Every request made by the client is turned into a transaction which is then sent to the `/broadcast_tx` endpoint in Tendermint. For example, if the deployed WebAssembly code was produced from this Rust snippet:
 ```rust
 fn sum(x: i32, y: i32) -> i32 {
   x + y
 }
 ```
+then the client might send a transaction looking like `{'function': 'sum', 'x': 5, 'y': 3}`.
 
-then the client might send a transaction looking like `{'function': 'sum', 'x': 5, 'y': 3}`. Tendermint takes care of replicating transactions across cluster nodes, invoking (with the help of the glue code) exposed WebAssembly methods potentially modifying the state, and achieving consensus on the state changes.
+Before we dive deeper into the state machine, let's consider what Tendermint is responsible for in our case. Tendermint takes care of:
+- replicating transactions across the cluster
+- establishing a canonical order of transactions
+- passing transactions to the state machine
+- facilitating consensus on the state changes
+
+However, there happen to be other requirements the state machine has to handle on it's own. We'll examine them below.
+
+#### Happens-before relationship between transactions
+
+First, we would like the client to be able to send a transaction that should be executed only after another transaction. In other words, there should be a support for the [_happens-before_](https://en.wikipedia.org/wiki/Happened-before) relationship between transactions. For example, let's imagine a client that checks stock quotes in a tight loop and based on this makes a decision whether to send a transaction into the Fluence network:
+
+```
+var max = ...
+while(true) {
+  sleep(1)
+  
+  val curr = nasdaq.ask("AAPL")
+  if (curr > max) {
+    max = curr
+    fluence.send(tx = "{'function': 'update_high', 'symbol': 'AAPL', 'value': max}")
+  }
+}
+```
+
+In this example we assume a function `fn update_high(symbol: string, value: f64)` which updates a global maximum of the stock value is deployed as an entry point in the Fluence network.
+
+Without transactions ordering, the global maximum might get updated incorrectly. One of the solutions would be to wait for a transaction to propagate into a block before sending another one, but this would limit available performance. Fluence state machine uses a session-based transactions ordering which is described in the corresponding section.
