@@ -39,15 +39,19 @@ object SqlDbRunner extends IOApp {
       _ ← showResult("select * from Quotations;", vm) // grub results with cursor
 
       // select * from Quotations where price = 6700;
-      _ ← vm.invoke[IO](None, "set_query_wildcard_where", Seq("2", "6700"))
+      _ ← vm.invoke[IO](None, "set_query_wildcard_where", Seq("2", "6700", "0"))
       _ ← showResult("select * from Quotations where price = 6700;", vm)
+
+      // select * from Quotations where price < 500;
+      _ ← vm.invoke[IO](None, "set_query_wildcard_where", Seq("2", "500", "-1"))
+      _ ← showResult("select * from Quotations where price < 500;", vm)
 
       // select count(*) from Quotations;
       _ ← vm.invoke[IO](None, "set_count_query")
       _ ← showResult("select count(*) from Quotations;", vm)
 
       // select count(*) from Quotations where symbol = 2;
-      _ ← vm.invoke[IO](None, "set_count_query_where", Seq("1", "2"))
+      _ ← vm.invoke[IO](None, "set_count_query_where", Seq("1", "2", "0"))
       _ ← showResult("select count(*) from Quotations where symbol = 2;", vm)
 
       // select avg(price) from Quotations;
@@ -55,7 +59,7 @@ object SqlDbRunner extends IOApp {
       _ ← showResult("select avg(price) from Quotations;", vm)
 
       // select avg(price) from Quotations where symbol = 2;
-      _ ← vm.invoke[IO](None, "set_average_query_where", Seq("2", "1", "2"))
+      _ ← vm.invoke[IO](None, "set_average_query_where", Seq("2", "1", "2", "0"))
       _ ← showResult("select avg(price) from Quotations where symbol = 2;", vm)
 
       finishState ← vm.getVmState[IO].toVmError

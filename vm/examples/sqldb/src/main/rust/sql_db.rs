@@ -89,10 +89,22 @@ impl Db<T> {
     }
 
     /// Return filtered copy of current Table
-    fn filter_table(&self, field_idx: usize, field_val: T) -> Table<T> {
+    fn filter_table(
+        &self,
+        field_idx: usize,
+        field_val: T,
+        compare_mode: i8
+    ) -> Table<T> {
         Table::build(
             self.table.rows.iter()
-                .filter(|row| row[field_idx] == field_val)
+                .filter(|row| {
+                    match compare_mode {
+                        mode if mode < 0 => row[field_idx] < field_val,
+                        mode if mode == 0 => row[field_idx] == field_val,
+                        mode if mode > 0 => row[field_idx] > field_val,
+                        _ => panic!("impossible invariant"),
+                    }
+                })
                 .cloned()
                 .collect::<Vec<Vec<T>>>()
         )
@@ -116,12 +128,18 @@ impl Db<T> {
     ///
     /// * field_idx - The index of field that will be compared
     /// * field_val - Searched value of specified field
+    /// * compare_mode - negative numbers means '<', 0 - '=', positive - '>'
     ///
-    pub fn set_query_wildcard_where(&mut self, field_idx: usize, field_val: T) {
+    pub fn set_query_wildcard_where(
+        &mut self,
+        field_idx: usize,
+        field_val: T,
+        compare_mode: i8
+    ) {
         // clean db state (next query abort previous not completed query)
         self.clean_db_state();
 
-        self.view = self.filter_table(field_idx, field_val);
+        self.view = self.filter_table(field_idx, field_val, compare_mode);
     }
 
     /// `select count(*) from Table`. Creates cursor in memory.
@@ -137,11 +155,17 @@ impl Db<T> {
     ///
     /// * field_idx - The index of field that will be compared
     /// * field_val - Searched value of specified field
+    /// * compare_mode - Negative numbers means '<', 0 - '=', positive - '>'
     ///
-    pub fn set_count_query_where(&mut self, field_idx: usize, field_val: T) {
+    pub fn set_count_query_where(
+        &mut self,
+        field_idx: usize,
+        field_val: T,
+        compare_mode: i8
+    ) {
         self.clean_db_state();
 
-        let amount = self.filter_table(field_idx, field_val).rows.len();
+        let amount = self.filter_table(field_idx, field_val, compare_mode).rows.len();
         self.view = Table::build(vec![vec![amount as i32]]);
     }
 
@@ -171,16 +195,18 @@ impl Db<T> {
     /// * avg_field_idx - Average will calculated for field with this index
     /// * field_idx - The index of field that will be compared
     /// * field_val - Searched value of specified field
+    /// * compare_mode - Negative numbers means '<', zero - '=', positive - '>'
     ///
     pub fn set_average_query_where(
         &mut self,
         avg_field_idx: usize,
         field_idx: usize,
-        field_val: T
+        field_val: T,
+        compare_mode: i8
     ) {
         self.clean_db_state();
 
-        let filtered_rows = self.filter_table(field_idx, field_val).rows;
+        let filtered_rows = self.filter_table(field_idx, field_val, compare_mode).rows;
         let sum: i32 =
             filtered_rows
                 .iter()

@@ -1,11 +1,8 @@
-#![feature(type_ascription)]
 
 #[macro_use]
 extern crate lazy_static;
 
 mod sql_db;
-
-use sql_db::Db;
 
 /// Public function for export
 
@@ -19,10 +16,9 @@ pub fn set_query_wildcard() {
 
 /// `select * from Table where {FIELD} = {VALUE}`
 #[no_mangle]
-#[feature(type_ascription)]
-pub fn set_query_wildcard_where(field_idx: usize, field_val: i32) {
+pub fn set_query_wildcard_where(field_idx: usize, field_val: i32, compare_mode: i8) {
     let mut db = sql_db::DB.lock().expect("Can't take a Database.");
-    db.set_query_wildcard_where(field_idx: usize, field_val: i32);
+    db.set_query_wildcard_where(field_idx, field_val, compare_mode);
 }
 
 /// `select count(*) from Table`
@@ -34,10 +30,9 @@ pub fn set_count_query() {
 
 /// `select count(*) from Table where {FIELD} = {VALUE}`
 #[no_mangle]
-#[feature(type_ascription)]
-pub fn set_count_query_where(field_idx: usize, field_val: i32) {
+pub fn set_count_query_where(field_idx: usize, field_val: i32, compare_mode: i8) {
     let mut db = sql_db::DB.lock().expect("Can't take a Database.");
-    db.set_count_query_where(field_idx: usize, field_val: i32);
+    db.set_count_query_where(field_idx, field_val, compare_mode);
 }
 
 /// `select avg({FIELD}) from Table`
@@ -49,10 +44,14 @@ pub fn set_average_query(avg_field_idx: usize) {
 
 /// `select avg(*) from Table where {FIELD} = {VALUE}`
 #[no_mangle]
-#[feature(type_ascription)]
-pub fn set_average_query_where(avg_field_idx: usize, field_idx: usize, field_val: i32) {
+pub fn set_average_query_where(
+    avg_field_idx: usize,
+    field_idx: usize,
+    field_val: i32,
+    compare_mode: i8
+) {
     let mut db = sql_db::DB.lock().expect("Can't take a Database.");
-    db.set_average_query_where(avg_field_idx, field_idx: usize, field_val: i32);
+    db.set_average_query_where(avg_field_idx, field_idx, field_val, compare_mode);
 }
 
 /// Returns an serial number of the next row or -1 otherwise
