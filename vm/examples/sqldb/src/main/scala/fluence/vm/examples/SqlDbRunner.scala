@@ -34,21 +34,35 @@ object SqlDbRunner extends IOApp {
       vm ← WasmVm[IO](Seq(inputFile))
       initState ← vm.getVmState[IO]
 
+      // select * from Quotations;
       _ ← vm.invoke[IO](None, "set_query_wildcard") // invoke WASM select
       _ ← showResult("select * from Quotations;", vm) // grub results with cursor
 
+      // select * from Quotations where price = 6700;
       _ ← vm.invoke[IO](None, "set_query_wildcard_where", Seq("2", "6700"))
       _ ← showResult("select * from Quotations where price = 6700;", vm)
 
+      // select count(*) from Quotations;
+      _ ← vm.invoke[IO](None, "set_count_query")
+      _ ← showResult("select count(*) from Quotations;", vm)
+
+      // select count(*) from Quotations where symbol = 2;
+      _ ← vm.invoke[IO](None, "set_count_query_where", Seq("1", "2"))
+      _ ← showResult("select count(*) from Quotations where symbol = 2;", vm)
+
+      // select avg(price) from Quotations;
+      _ ← vm.invoke[IO](None, "set_average_query", Seq("2"))
+      _ ← showResult("select avg(price) from Quotations;", vm)
+
+      // select avg(price) from Quotations where symbol = 2;
+      _ ← vm.invoke[IO](None, "set_average_query_where", Seq("2", "1", "2"))
+      _ ← showResult("select avg(price) from Quotations where symbol = 2;", vm)
+
       finishState ← vm.getVmState[IO].toVmError
     } yield {
-      s"""
-        [SUCCESS] Execution Results.
-
-        initState=$initState
-        finishState=$finishState
-
-      """
+      s"[SUCCESS] Execution Results.\n" +
+        s"initState=$initState \n" +
+        s"finishState=$finishState"
     }
 
     program.value.map {
@@ -71,7 +85,7 @@ object SqlDbRunner extends IOApp {
     }
   }
 
-  // fetch all elements from all rows recursively and stack safe
+  /** fetch all elements from all rows recursively and stack safe */
   private def getResult(vm: WasmVm): EitherT[IO, VmError, Seq[Seq[String]]] = {
 
     type M[A] = EitherT[IO, VmError, A]
@@ -97,7 +111,7 @@ object SqlDbRunner extends IOApp {
 
   }
 
-  // fetch all elements for current row recursively and stack safe
+  /** fetch all elements for current row recursively and stack safe */
   private def getAllRowElems(vm: WasmVm): EitherT[IO, VmError, Seq[String]] = {
 
     type M[A] = EitherT[IO, VmError, A]
@@ -120,12 +134,14 @@ object SqlDbRunner extends IOApp {
     }
   }
 
+  /** Fetches result and prints it to stdout */
   private def showResult(query: String, vm: WasmVm): EitherT[IO, VmError, Unit] = {
     getResult(vm).flatMap { res ⇒
       EitherT.right(IO(println(s"> $query \n${prettyPrint(res)}\n")))
     }
   }
 
+  /** Converts table to pretty string */
   private def prettyPrint(table: Seq[Seq[String]]): String =
     table
       .map(row ⇒ row.map(el ⇒ f"$el%6s").mkString("|", "|", "|"))
