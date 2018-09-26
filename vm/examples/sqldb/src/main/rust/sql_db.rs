@@ -41,7 +41,8 @@ pub type T  = i32;
 
 pub struct Db<T> {
     table: Table<T>,
-    view: Table<T>,
+    // view is always f64, this allows to return all primitive type except i64
+    view: Table<f64>,
     cursor: Cursor
 }
 
@@ -69,22 +70,22 @@ impl Db<T> {
     }
 
     /// Returns row by row id.
-    fn get_row(&self, row_id: usize) -> Option<&Vec<T>> {
+    fn get_row(&self, row_id: usize) -> Option<&Vec<f64>> {
         self.view.rows.get(row_id)
     }
 
     /// Returns record by row id and column id.
-    fn get_rec(&self, row_id: usize, col_id: usize) -> Option<&T> {
+    fn get_rec(&self, row_id: usize, col_id: usize) -> Option<&f64> {
         self.get_row(row_id).and_then(|row| row.get(col_id))
     }
 
     /// Returns current record according to the cursor
-    fn get_current_field(&self) -> Option<&T> {
+    fn get_current_field(&self) -> Option<&f64> {
         self.get_rec(self.cursor.row as usize, self.cursor.col as usize)
     }
 
     /// Returns current row id according to the cursor
-    fn get_current_row(& self) -> Option<&Vec<T>> {
+    fn get_current_row(& self) -> Option<&Vec<f64>> {
         self.get_row(self.cursor.row as usize)
     }
 
@@ -94,9 +95,9 @@ impl Db<T> {
         field_idx: usize,
         field_val: T,
         compare_mode: i8
-    ) -> Table<T> {
+    ) -> Table<f64> {
         Table::build(
-            self.table.rows.iter()
+            self.table.rows.clone().into_iter()
                 .filter(|row| {
                     match compare_mode {
                         mode if mode < 0 => row[field_idx] < field_val,
@@ -105,8 +106,9 @@ impl Db<T> {
                         _ => panic!("impossible invariant"),
                     }
                 })
-                .cloned()
-                .collect::<Vec<Vec<T>>>()
+                // convert i32 to f64
+                .map(|row| row.into_iter().map(|elem| elem as f64).collect())
+                .collect::<Vec<Vec<f64>>>()
         )
     }
 
@@ -118,8 +120,11 @@ impl Db<T> {
     pub fn set_query_wildcard(&mut self) {
         // clean db state (next query abort previous not completed query)
         self.clean_db_state();
-        // copy the table into the view as is
-        self.view = self.table.clone();
+        // copy the table into the view with converting elements into f64
+        self.view.rows = self.table.rows.clone()
+            .into_iter()
+            .map(|row| row.into_iter().map(|elem| elem as f64).collect())
+            .collect();
     }
 
     /// `select * from Table where {FIELD} = {VALUE}`. Creates cursor in memory.
@@ -146,7 +151,7 @@ impl Db<T> {
     pub fn set_count_query(&mut self) {
         self.clean_db_state();
 
-        self.view = Table::build(vec![vec![self.table.rows.len() as i32]]);
+        self.view = Table::build(vec![vec![self.table.rows.len() as f64]]);
     }
 
     /// `select count(*) from Table where {FIELD} = {VALUE}`. Creates cursor in memory.
@@ -166,7 +171,7 @@ impl Db<T> {
         self.clean_db_state();
 
         let amount = self.filter_table(field_idx, field_val, compare_mode).rows.len();
-        self.view = Table::build(vec![vec![amount as i32]]);
+        self.view = Table::build(vec![vec![amount as f64]]);
     }
 
     /// `select avg({FIELD}) from Table`. Creates cursor in memory.
@@ -182,10 +187,10 @@ impl Db<T> {
                 .iter()
                 .map(|row| { row[avg_field_idx] })
                 .sum();
-        let avg: f32 = sum as f32 / self.table.rows.len() as f32;
+        let avg = sum as f64 / self.table.rows.len() as f64;
 
         // put result in a table as int
-        self.view = Table::build(vec![vec![avg as i32]]); // todo return float
+        self.view = Table::build(vec![vec![avg]]);
     }
 
     /// `select count(*) from Table where {FIELD} = {VALUE}`. Creates cursor in memory.
@@ -195,7 +200,7 @@ impl Db<T> {
     /// * avg_field_idx - Average will calculated for field with this index
     /// * field_idx - The index of field that will be compared
     /// * field_val - Searched value of specified field
-    /// * compare_mode - Negative numbers means '<', zero - '=', positive - '>'
+    /// * compare_mode - Negative numbers means '<', 0 - '=', positive - '>'
     ///
     pub fn set_average_query_where(
         &mut self,
@@ -207,15 +212,15 @@ impl Db<T> {
         self.clean_db_state();
 
         let filtered_rows = self.filter_table(field_idx, field_val, compare_mode).rows;
-        let sum: i32 =
+        let sum: f64 =
             filtered_rows
                 .iter()
                 .map(|row| { row[avg_field_idx] })
                 .sum();
-        let avg: f32 = sum as f32 / filtered_rows.len() as f32;
+        let avg: f64 = sum as f64 / filtered_rows.len() as f64;
 
         // put result in a table as int
-        self.view = Table::build(vec![vec![avg as i32]]); // todo return float
+        self.view = Table::build(vec![vec![avg]]);
     }
 
     //
@@ -230,9 +235,9 @@ impl Db<T> {
     }
 
     /// Returns a next field value for the current row
-    pub fn next_field(&mut self) -> i32 {
+    pub fn next_field(&mut self) -> f64 {
         self.cursor.inc_col();
-        *self.get_current_field().unwrap_or(&-1)
+        *self.get_current_field().unwrap_or(&-1_f64)
     }
 
 }

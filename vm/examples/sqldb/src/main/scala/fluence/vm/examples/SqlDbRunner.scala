@@ -124,7 +124,7 @@ object SqlDbRunner extends IOApp {
 
     vm.invoke[IO](None, "next_field").flatMap { elem ⇒
       Monad[M].tailRecM(elem.map(_.toString → Seq[String]())) {
-        case Some(("-1", acc)) ⇒
+        case Some(("-1.0", acc)) ⇒
           // there is no more elements in current row, stop and return result
           Monad[M].pure(Right[LeftType, RightType](acc))
         case Some((elemId, acc)) ⇒

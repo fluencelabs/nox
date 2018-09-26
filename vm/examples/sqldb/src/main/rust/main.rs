@@ -63,7 +63,7 @@ pub fn next_row() -> i32 {
 
 /// Returns a next field value for the current row
 #[no_mangle]
-pub fn next_field() -> i32 {
+pub fn next_field() -> f64 {
     let mut db = sql_db::DB.lock().expect("Can't take a Database.");
     db.next_field()
 }
