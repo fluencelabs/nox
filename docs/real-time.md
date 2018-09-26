@@ -35,6 +35,8 @@ From the client point of view the real-time cluster API is fairly simple. Let's 
 static mut AMOUNT: u32 = 0;
 static mut MAXIMUM: f64 = 0.0;
 
+// #[no_mangle] directive tells the compiler to avoid changing the method name
+
 #[no_mangle]
 pub unsafe fn set_amount(amount: u32) {
   AMOUNT = amount;
@@ -86,9 +88,32 @@ In this example we can observe _effectful_ functions modifying the global state,
 
 Sometimes the client might want to invoke the function only for its _side effects_ – that's what we see when the client invokes the `set_amount` function. In this case, there is no need to use `await` to retrieve results. Moreover, the absence of awaiting for results allows the session to efficiently batch/parallelize sent requests and should be used whenever possible.
 
+It's also possible to await for the entire session itself using `await session`. This will await for all invocations previously made in the session to complete.
+
+#### Sessions cleaning
+
+Once the client is done with the session, it should be closed to release the connection – normally by using a `try/finally` block:
+
+```javascript
+var session = fluence.newSession();
+try {
+  session.invoke("set_amount", [50])
+  ...
+  var s = await session.invoke("sum", [5, 3])
+} finally {
+  session.close()
+}
+```
+
+#### Function invocations ordering
+
 It's important to mention that while function calls might get parallelized, there is a total order between invocations made within a single session. For example, there is a guarantee that calls `set_amount(50)`, `set_amount(10)` and `set_amount(35)` will be run exactly in this order, and `get_amount` will be executed the last and return `35`. 
 
 However, there is no order between function calls made from different sessions. In general, ordering behavior is similar to the [happens-before semantic](https://docs.oracle.com/javase/specs/jls/se7/html/jls-17.html#jls-17.4.5) in Java Memory Model if we replace a notion of session with a JVM thread. In future some synchronization primitives might be provided to allow better concurrent programming with different sessions.
+
+#### Error handling
+
+If any function execution has failed, then the rest of the functions invoked after in the session will not be executed at all. The client will receive an exception on the first `await` after the failed function.
 
 
 ### Consensus engine
