@@ -101,9 +101,8 @@ impl Db<T> {
                 .filter(|row| {
                     match compare_mode {
                         mode if mode < 0 => row[field_idx] < field_val,
-                        mode if mode == 0 => row[field_idx] == field_val,
                         mode if mode > 0 => row[field_idx] > field_val,
-                        _ => panic!("impossible invariant"),
+                        _ => row[field_idx] == field_val
                     }
                 })
                 // convert i32 to f64
@@ -227,7 +226,7 @@ impl Db<T> {
     // Cursor management
     //
 
-    /// Returns an serial number of the next row or -1 otherwise
+    /// Returns a serial number of the next row or -1 otherwise
     pub fn next_row(&mut self) -> i32 {
         self.cursor.select_next_row();
         // if row exists return its serial number or -1 otherwise
