@@ -6,7 +6,6 @@ mod sql_db;
 
 /// Public function for export
 
-
 /// `select * from Table`
 #[no_mangle]
 pub fn set_query_wildcard() {

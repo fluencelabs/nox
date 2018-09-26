@@ -1,5 +1,5 @@
 
-### Examples written in Rust for running with Fluence VM.
+### Examples written in Rust for running into WasmVm.
 
 Check that you've installed `docker` and `docker` is running.
 
