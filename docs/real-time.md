@@ -72,23 +72,31 @@ Once the session is initialized, it can be used to invoke various functions:
 
 ```javascript
 
-session.invoke("set_amount", [50])
-session.invoke("set_amount", [10])
-session.invoke("set_amount", [35])
-var c = await session.invoke("get_amount")              // c == 35
+session.invoke("set_amount", [50]);
+session.invoke("set_amount", [10]);
+session.invoke("set_amount", [35]);
+var c = await session.invoke("get_amount");              // c == 35
 
-session.invoke("update_maximum", [10.2])
-session.invoke("update_maximum", [75.0])
-var m = await session.invoke("update_maximum", [50.5])  // m == 75.0
+session.invoke("update_maximum", [10.2]);
+session.invoke("update_maximum", [75.0]);
+var m = await session.invoke("update_maximum", [50.5]);  // m == 75.0
 
-var s = await session.invoke("sum", [5, 3])             // s == 8
+var s = await session.invoke("sum", [5, 3]);             // s == 8
 ```
 
 In this example we can observe _effectful_ functions modifying the global state, functions returning some value which is a part of the global state, functions modifying the global state and returning some value and finally, _pure_ functions like `sum` that are deterministic and not accessing the global state at all.
 
 Sometimes the client might want to invoke the function only for its _side effects_ – that's what we see when the client invokes the `set_amount` function. In this case, there is no need to use `await` to retrieve results. Moreover, the absence of awaiting for results allows the session to efficiently batch/parallelize sent requests and should be used whenever possible.
 
-It's also possible to await for the entire session itself using `await session`. This will await for all invocations previously made in the session to complete.
+It's also possible to await for the entire session itself using `await session.sync()`. This will await for all invocations previously made in the session to complete:
+
+```javascript
+session.invoke("set_amount", [50]);
+session.invoke("set_amount", [10]);
+session.invoke("set_amount", [35]);
+
+await session.sync();
+```
 
 #### Sessions cleaning
 
@@ -97,11 +105,11 @@ Once the client is done with the session, it should be closed to release the con
 ```javascript
 var session = fluence.newSession();
 try {
-  session.invoke("set_amount", [50])
+  session.invoke("set_amount", [50]);
   ...
-  var s = await session.invoke("sum", [5, 3])
+  var s = await session.invoke("sum", [5, 3]);
 } finally {
-  session.close()
+  session.close();
 }
 ```
 
@@ -113,7 +121,42 @@ However, there is no order between function calls made from different sessions. 
 
 #### Error handling
 
-If any function execution has failed, then the rest of the functions invoked after in the session will not be executed at all. The client will receive an exception on the first `await` after the failed function.
+If any function execution has failed, then the rest of the functions invoked after in the session will not be executed at all. The failed function execution will not be rolled back which means the virtual machine might be left in the inconsistent state. The client will receive an exception on the first `await` after the failed function. After that, the session will not be usable anymore and should be closed.
+
+For example, consider this backend:
+
+```rust
+static mut COUNTER: u32 = 0;
+
+#[no_mangle]
+pub unsafe fn inc() {
+  COUNTER += 1;
+}
+
+#[no_mangle]
+pub unsafe fn fail() {
+  COUNTER -= 1;
+  panic!("Let's fail!");
+  COUNTER += 1;           // unreachable
+}
+```
+
+and this client code:
+
+```javascript
+
+session.invoke("inc", []);    // COUNTER == 1
+session.invoke("inc", []);    // COUNTER == 2
+
+session.invoke("fail", []);   // this call will fail and leave COUNTER == 1
+
+session.invoke("inc", []);    // this call won't execute
+session.invoke("inc", []);    // this call won't execute
+
+await session.sync();         // this will throw the "Let's fail!" exception
+
+session.invoke("inc", []);    // this will throw a failed session state exception
+```
 
 
 ### Consensus engine
@@ -193,6 +236,7 @@ Without transactions ordering, the global maximum might get updated incorrectly.
 #### RPC support
 
 We want the client to be able to interact with the real-time cluster using a conventional request-response API: 
+
 ```
 response = fluence.request("{'function': 'sum', 'x': 3, 'y': 5}")
 print(response)  ## prints "8"
