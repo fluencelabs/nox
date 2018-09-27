@@ -10,7 +10,7 @@ screen -d -m -S app2 bash -c 'sbt $JAVA8_HOME_FOR_SBT_SETTING "statemachine/run 
 screen -d -m -S app3 bash -c 'sbt $JAVA8_HOME_FOR_SBT_SETTING "statemachine/run 46358"'
 screen -d -m -S app4 bash -c 'sbt $JAVA8_HOME_FOR_SBT_SETTING "statemachine/run 46458"'
 
-#cd statemachine/local-cluster-commands
+cd statemachine/local-cluster-commands
 
 screen -d -m -S tm1 bash -c 'tendermint node --home=$HOME/.tendermint1 --consensus.create_empty_blocks=false --proxy_app=tcp://127.0.0.1:46158 --rpc.laddr=tcp://0.0.0.0:46157 --p2p.laddr=tcp://0.0.0.0:46156 --p2p.persistent_peers=$TM_PERSISTENT_PEERS'
 screen -d -m -S tm2 bash -c 'tendermint node --home=$HOME/.tendermint2 --consensus.create_empty_blocks=false --proxy_app=tcp://127.0.0.1:46258 --rpc.laddr=tcp://0.0.0.0:46257 --p2p.laddr=tcp://0.0.0.0:46256 --p2p.persistent_peers=$TM_PERSISTENT_PEERS'

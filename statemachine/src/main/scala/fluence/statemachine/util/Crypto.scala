@@ -40,8 +40,6 @@ object Crypto {
   def verify(signature: String, data: String, publicKey: PublicKey): Boolean = {
     val verificationPassed = for {
       signatureBytes <- Try(Base64.getDecoder.decode(signature)).toEither
-      _ = println("DATA SIGN === " + data)
-      _ = println("SIGN === " + signature)
       dataBytes <- Try(data.getBytes("UTF-8")).toEither
       publicKeyBytes <- Try(Base64.getDecoder.decode(publicKey)).toEither
 
@@ -50,7 +48,6 @@ object Crypto {
 
       key = new EdDSAPublicKey(keySpec)
       engine = new EdDSAEngine()
-      _ = println(Try(engine.initVerify(key)).toEither)
       _ <- Try(engine.initVerify(key)).toEither
     } yield engine.verifyOneShot(dataBytes, signatureBytes)
     verificationPassed.getOrElse(false)

@@ -46,7 +46,6 @@ class QueryProcessor[F[_]](stateHolder: TendermintStateHolder[F])(implicit F: Mo
   def processQuery(queryString: String, requestedHeight: Long, prove: Boolean): F[QueryResponseData] =
     for {
       _ <- F.pure(logger.debug("Query: {}", queryString))
-      _ <- F.pure(logger.error("Query: {}", queryString))
 
       parsedAndChecked <- (for {
         parsedQuery <- EitherT.fromEither[F](
@@ -56,8 +55,7 @@ class QueryProcessor[F[_]](stateHolder: TendermintStateHolder[F])(implicit F: Mo
         state <- stateHolder.queryState
         (height, queryState) = state
       } yield (height, queryState, parsedQuery)).value
-    } yield {
-      println("PARSED AND CHECKED === " + parsedAndChecked)
+    } yield
       parsedAndChecked match {
         case Left(message) => QueryResponseData(0, None, None, QueryCodeType.Bad, message)
         case Right((height, queryState, key)) =>
@@ -71,7 +69,6 @@ class QueryProcessor[F[_]](stateHolder: TendermintStateHolder[F])(implicit F: Mo
           val proof = result.filter(_ => prove).map(_ => queryState.getProof(key).toHex)
           QueryResponseData(height, result, proof, statusCode, info)
       }
-    }
 }
 
 /**
