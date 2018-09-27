@@ -122,6 +122,8 @@ However, there is no order between function calls made from different sessions. 
 
 If any function execution has failed, then the rest of the functions invoked after in the session will not be executed at all. The failed function execution will not be rolled back which means the virtual machine might be left in the inconsistent state. The client will receive an exception on the first `await` after the failed function. After that, the session will not be usable anymore and should be closed.
 
+<img src="images/symbols/twemoji-exclamation.png" width="24px"> **TODO:** _Potentially, we should roll back the failed function and restore the virtual machine state to the point where it was before beginning the execution of such function._
+
 For example, consider this backend:
 
 ```rust
@@ -171,7 +173,7 @@ try {
 
 Internally, real-time clusters use [Tendermint](https://tendermint.com/docs/) as the BFT consensus framework, which is able to tolerate of up to `1/3` failed or Byzantine nodes.
 
-Every request made by the client is turned into a transaction which is then sent to one of Tendermint endpoints. For example, if the deployed WebAssembly code was produced from this Rust snippet: `fn sum(x: i32, y: i32) -> i32 { x + y }`, then the client might send a transaction looking like `{'fn': 'sum', 'args': [5, 3]}` and await until `8` will be retrieved as a result.
+Every request made by the client is turned into a transaction which is then sent to one of Tendermint endpoints. For example, if the deployed WebAssembly code was produced from this Rust snippet: `fn sum(x: i32, y: i32) -> i32 { x + y }`, then the client might send a transaction looking like `{"fn": "sum", "args": [5, 3]}` and await until `8` will be retrieved as a result.
 
 Tendermint takes care of:
 - replicating transactions across the cluster
@@ -223,11 +225,30 @@ Application BlockChain Interface (ABCI) allows Tendermint to interact with the u
 
 When the client sends a transaction to Tendermint, it does not immediately receive a result of it's execution. Instead, the transaction is placed into the Tendermint mempool first and then combined with other transactions into a block which is eventually delivered to the application state machine. Once the state machine applies the block and updates the state, it can be queried using the Tendermint query API.
 
-Queries issued to Tendermint are processed outside of the normal consensus flow. This means a malicious node might return an incorrect result to the unsuspicious client. To avoid this, a client has to always check the Merkle proof supplied with the result against the `app_hash` – the Merkle root of the state.
+Queries issued to Tendermint are processed outside of the normal consensus flow. This means a malicious node might return an incorrect result to the unsuspicious client. To avoid this, a client might query multiple nodes and compare results. The other option is to demand that nodes always furnish a Merkle proof along with the result and check this proof against the `app_hash` – the Merkle root of the state.
 
-Below we will consider in few more details how the Fluence state machine interacts with Tendermint consensus engine.
+Below we will consider in few more details how the Fluence state machine interacts with the Tendermint consensus engine.
 
-## Application
+## Fluence state machine
+
+### Function invocation
+
+The client is able to invoke a WebAssembly function and receive the result using a simple `await session.invoke("sum", [5, 3])` statement. Internally, this expands to multiple steps:
+
+First, the client sends a transaction to the cluster. In addition to the function name and arguments, the transaction also contains the identifier of the client, the client session identifier and the ordering number of this function call within the session.
+```
+  {
+    "fn": "sum", 
+    "args": [5, 3], 
+    "meta": {
+      "client": "0xA425FB82",      
+      "session": 117,
+      "counter": 23
+    }
+  }
+```
+
+<img src="images/symbols/twemoji-exclamation.png" width="24px"> **TODO:** _It's unclear how the session identifier will be generated and who is responsible for that: the client code or the real-time cluster. It's also unclear whether the real-time cluster should resist bogus session identifiers potentially crafted by a malicious client._
 
 ### Happens-before relationship between transactions
 
@@ -260,3 +281,6 @@ print(response)  # prints "8"
 ```
 
 Request-response API is not really native to Tendermint, so Fluence state machine wraps Tendermint to provide it to the client.
+
+----
+\> [Twemoji](https://twemoji.twitter.com/) graphics is made by Twitter, Inc and other contributors and is licensed under [CC-BY 4.0]( https://creativecommons.org/licenses/by/4.0/)
