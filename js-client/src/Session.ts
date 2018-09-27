@@ -15,7 +15,7 @@
  */
 
 import {ResultAwait} from "./ResultAwait";
-import {Result} from "./Result";
+import {Error, error, Result} from "./Result";
 import {genTxHex} from "./tx";
 import {TendermintClient} from "./TendermintClient";
 import {Client} from "./Client";
@@ -27,8 +27,11 @@ export class Session {
     client: Client;
     tm: TendermintClient;
     session: string;
-    statusKey: string;
+    sessionSummaryKey: string;
     counter: number;
+    resultPromises: Set<ResultAwait>;
+    closed: boolean;
+    closedStatus: string;
 
     private static genSessionId() {
         let randomstring = require("randomstring");
@@ -47,7 +50,11 @@ export class Session {
         this.session = _session;
         this.counter = 0;
 
-        this.statusKey = `@meta/${this.client.id}/${this.session}/@session_status`;
+        this.resultPromises = new Set<ResultAwait>();
+
+        this.sessionSummaryKey = `@meta/${this.client.id}/${this.session}/@sessionSummary`;
+
+        this.closed = false;
     }
 
     /**
@@ -57,6 +64,21 @@ export class Session {
         return `@meta/${this.client.id}/${this.session}/${this.counter}`;
     }
 
+    private cancelAndClearPromises(reason: string) {
+        for (let resultAwait of this.resultPromises) {
+            resultAwait.cancel(reason);
+        }
+        this.resultPromises = new Set<ResultAwait>();
+    }
+
+    private closeSession(reason: string) {
+        if (!this.closed) {
+            this.closed = true;
+            this.closedStatus = reason;
+            this.cancelAndClearPromises(reason)
+        }
+    }
+
     /**
      * Sends request with payload and wait for a response.
      *
@@ -64,19 +86,40 @@ export class Session {
      */
     async submitRaw(payload: string): Promise<Result> {
 
+        if (this.closed) {
+            throw error(`Session is closed. Cause: ${this.closedStatus}`)
+        }
+
         let txHex = genTxHex(this.client, this.session, this.counter, payload);
 
-        let params = {tx: txHex};
-
         //todo check if this request is successful
-        await this.tm.client.broadcastTxSync(params);
+        let resp = await this.tm.broadcastTxSync(txHex);
+
+        if (resp.code !== 0) {
+            let cause = `The session was closed after response with an error. Request payload: ${payload}, response: ${JSON.stringify(resp)}`
+            this.closeSession(cause);
+            throw error(cause)
+        }
 
         let targetKey = this.targetKey();
 
         //todo there should be a manager that syncs calls and increments counter only after a successful request
         this.counter = this.counter + 1;
 
-        return new ResultAwait(this.tm, targetKey).result()
+        let resultAwait = new ResultAwait(this.tm, targetKey, this.sessionSummaryKey);
+        let pr: Promise<Result> = resultAwait.result();
+
+        this.resultPromises = this.resultPromises.add(resultAwait);
+
+        pr.then((res: Result) => {
+                this.resultPromises.delete(resultAwait);
+            }
+        ).catch((err: Error) => {
+            //check if session already closed, if not - close it, drop all promises
+            this.closeSession(err.error)
+        });
+
+        return pr;
     }
 
     /**
@@ -85,7 +128,7 @@ export class Session {
      * @param command a command supported by the program in a virtual machine
      * @param args arguments for command
      */
-    async submit(command: string, args: string[] = []): Promise<Result> {
+    async invoke(command: string, args: string[] = []): Promise<Result> {
 
         let payload = command + `(${args.join(',')})`;
 

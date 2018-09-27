@@ -15,12 +15,44 @@
  */
 
 import { RpcClient } from "tendermint"
+import {none, Option, Some} from "ts-option";
+import {fromHex} from "./utils";
+import {BroadcastTxSyncResponse} from "./responses";
+
+function parseResponse(res: any) {
+    let bResponse = <BroadcastTxSyncResponse> res;
+    bResponse.data = fromHex(bResponse.data);
+    return bResponse
+}
 
 export class TendermintClient {
     client: RpcClient;
 
     constructor(host: string, port: number, protocol: protocol = "http") {
         this.client = new RpcClient(`${protocol}://${host}:${port}`);
+    }
+
+    async broadcastTxSync(hex: string) {
+        let params = {tx: JSON.stringify(hex)};
+        let res = await this.client.broadcastTxSync(params);
+        let parsed = parseResponse(res);
+
+        return parsed;
+    }
+
+    async abciQuery(path: string): Promise<Option<any>> {
+        let escaped = JSON.stringify(path);
+        let response = (await this.client.abciQuery({path: escaped})).response;
+
+        if (response.value) {
+            let resultRaw = atob(response.value);
+
+            let result = JSON.parse(resultRaw);
+            return new Some(result);
+        } else {
+            return none;
+        }
+
     }
 }
 

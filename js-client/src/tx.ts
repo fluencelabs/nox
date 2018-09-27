@@ -17,6 +17,7 @@
 import {utils} from 'elliptic'
 import {Signer} from "./Signer";
 import {Client} from "./Client";
+import {toHex} from "./utils";
 
 /**
  * Generates execution command's transaction in hex representation for the real-time cluster.
@@ -36,7 +37,7 @@ export function genTxHex(client: Client, session: string, counter: number, paylo
  * @param json transaction with command, metainformation and signature
  */
 function jsonToHex(json: TxJson): string {
-    return JSON.stringify(utils.toHex(Buffer.from(JSON.stringify(json))).toUpperCase());
+    return toHex(JSON.stringify(json));
 }
 
 /**

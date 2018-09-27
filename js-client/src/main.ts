@@ -20,7 +20,7 @@ import {Signer} from "./Signer";
 import {Client} from "./Client";
 
 /**
- * Default function to submit several commands to real-time cluster
+ * Default function to invoke several commands to real-time cluster
  * @param host
  * @param port
  */
@@ -48,7 +48,7 @@ export async function testIncrementAndMultiplyCluster(host: string, port: number
 
     console.log("then get result");
 
-    let resGet = await s.submit("get");
+    let resGet = await s.invoke("get");
     console.log(`result of incrementation is: ${JSON.stringify(resGet)}\n`);
 
     console.log("lets increment again");
@@ -57,12 +57,28 @@ export async function testIncrementAndMultiplyCluster(host: string, port: number
 
     console.log("then get result again");
 
-    let resGet2 = await s.submit("get");
+    let resGet2 = await s.invoke("get");
     console.log(`result of incrementation is: ${JSON.stringify(resGet2)}\n`);
 
     console.log("lets multiply two numbers, 72 and 114");
-    let multiplyRes = await s.submit("multiplier.mul", ["72", "114"]);
+    let multiplyRes = await s.invoke("multiplier.mul", ["72", "114"]);
     console.log(`and the result is: ${JSON.stringify(multiplyRes)}`);
+
+    // requests will failed after this
+    // await s.invoke("@closeSession");
+
+    console.log("lets multiply two numbers, 123 and 53");
+    s.invoke("multiplier.mul", ["123", "53"]).then((res) => {
+        console.log(`and the result is: ${JSON.stringify(res)}`);
+    });
+
+
+    s.invoke("get").then((res) => {
+        console.log(`and the result is: ${JSON.stringify(res)}`);
+    });
+    s.invoke("get").then((res) => {
+        console.log(`and the result is: ${JSON.stringify(res)}`);
+    });
 
 }
 

@@ -14,19 +14,33 @@
  * limitations under the License.
  */
 
-import {empty, error, Result, timeout, value} from "./Result";
+import {empty, error, Result, value} from "./Result";
 import {TendermintClient} from "./TendermintClient";
+import {none, Option} from "ts-option";
+import {SessionSummary} from "./responses";
 
 /**
  * Class with the ability to make request periodically until an answer is available.
  */
 export class ResultAwait {
     private tm: TendermintClient;
-    private target_key: string;
+    private targetKey: string;
+    private summaryKey: string;
+    private canceled: boolean;
+    private canceledReason: string;
 
-    constructor(_tm: TendermintClient, _target_key: string) {
+    constructor(_tm: TendermintClient, _targetKey: string, _summaryKey: string) {
         this.tm = _tm;
-        this.target_key = _target_key;
+        this.targetKey = _targetKey;
+        this.summaryKey = _summaryKey;
+        this.canceled = false;
+    }
+
+    async checkSessionAvailability(): Promise<Option<SessionSummary>> {
+        const sessionInfo: Option<any> = (await this.tm.abciQuery(this.summaryKey));
+        return sessionInfo.map((info: any) => {
+            return <SessionSummary> info
+        });
     }
 
     /**
@@ -45,29 +59,64 @@ export class ResultAwait {
      * @param responseTimeoutSec what time to check
      */
     async result(requestsPerSec: number = 4, responseTimeoutSec = 5): Promise<Result> {
-        const path = JSON.stringify(this.target_key + "/result");
+        const path = this.targetKey + "/result";
 
-        for (let _i = 0; _i < responseTimeoutSec * requestsPerSec; _i++) {
-            const statusResponse = (await this.tm.client.abciQuery({path: path})).response;
+        return this.checkResultPeriodically(path, requestsPerSec, responseTimeoutSec);
 
-            if (statusResponse.value) {
+    }
 
-                const result = atob(statusResponse.value);
+    private async checkResult(path: string, checkSession: boolean): Promise<Option<Result>> {
 
-                const resultJs = JSON.parse(result);
+        const statusResponse: Option<any> = (await this.tm.abciQuery(path));
 
-                if (resultJs.Error !== undefined) {
-                    return error(resultJs.Error.message)
-                } else if (resultJs.Empty !== undefined) {
-                    return empty;
-                } else {
-                    return value(resultJs.Computed.value);
+        return statusResponse.map((res: any) => {
+            if (res.Error !== undefined) {
+                throw error(res.Error.message)
+            } else if (res.Empty !== undefined) {
+                return empty;
+            } else {
+                return value(res.Computed.value);
+            }
+        });
+    }
+
+    private async checkResultPeriodically(path: string, requestsPerSec: number = 4, responseTimeoutSec = 5): Promise<Result> {
+
+        let _i: number = 0;
+        let sessionInfo: Option<SessionSummary> = none;
+
+        while(true) {
+
+            if (this.canceled) {
+                throw error(`The request was canceled. Cause: ${this.canceledReason}`)
+            }
+
+            let checkSession = _i > responseTimeoutSec * requestsPerSec;
+
+            if (checkSession) {
+                sessionInfo = await this.checkSessionAvailability();
+            }
+
+            let optionResult = await this.checkResult(path, true);
+
+            if (optionResult.nonEmpty) {
+                return optionResult.get
+            }
+
+            _i++;
+
+            if (sessionInfo.nonEmpty) {
+                if (sessionInfo.get.status !== "Active") {
+                    throw error(`Session is ${JSON.stringify(sessionInfo.get.status)}`)
                 }
             }
 
-            await this.sleep(1000 / requestsPerSec)
-
+            await this.sleep(1000 / requestsPerSec);
         }
-        return timeout;
+    }
+
+    cancel(reason: string) {
+        this.canceled = true;
+        this.canceledReason = reason;
     }
 }

@@ -6,6 +6,7 @@
     "strictNullChecks": true,
     "strictFunctionTypes": true,
     "target": "es2015",
+    "moduleResolution": "node",
     "baseUrl": "." // This must be specified if "paths" is.
   }
 }
