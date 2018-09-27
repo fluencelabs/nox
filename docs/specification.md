@@ -122,7 +122,7 @@ However, there is no order between function calls made from different sessions. 
 
 If any function execution has failed, then the rest of the functions invoked after in the session will not be executed at all. The failed function execution will not be rolled back which means the virtual machine might be left in the inconsistent state. The client will receive an exception on the first `await` after the failed function. After that, the session will not be usable anymore and should be closed.
 
-<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO: Potentially, we should roll back the failed function and restore the virtual machine state to the point where it was before beginning the execution of such function.**
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** Potentially, we should roll back the failed function and restore the virtual machine state to the point where it was before beginning the execution of such function.
 
 For example, consider this backend:
 
@@ -248,7 +248,9 @@ First, the client sends a transaction to the cluster. In addition to the functio
   }
 ```
 
-<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO: It's unclear how the session identifier will be generated and who is responsible for that: the client code or the real-time cluster. It's also unclear whether the real-time cluster should resist bogus session identifiers potentially crafted by a malicious client.**
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** It's unclear how the session identifier will be generated and who is responsible for that: the client code or the real-time cluster. It's also unclear whether the real-time cluster should resist bogus session identifiers potentially crafted by a malicious client.
+
+
 
 ### Happens-before relationship between transactions
 
