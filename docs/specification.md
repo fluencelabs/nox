@@ -1,8 +1,8 @@
-## Real-time computations
+# Real-time computations
 
-### Overview
+## Overview
 
-#### Real-time clusters
+### Real-time clusters
 
 The _real-time component_ is the first out of two major data processing components in the network, and is also the only component a client directly interacts with. It consists of a bunch of modestly sized real-time clusters (expected typical size `4-16` nodes). Every node in the cluster runs the same WebAssembly code and stores the same data, while across different clusters the code and stored data generally differ.
 
@@ -12,13 +12,13 @@ Every request that performs an entry point invocation is replicated across the n
 
 Real-time clusters have a _data locality_ property: all the data required to perform the computation is stored locally on each node. This means real-time processing avoids network delays associated with identifying which chunk of data to fetch and then transferring it over the network. It's worth mentioning that replicating requests across the cluster or achieving consensus on the state change is also affected by network delays. However, this can be done in batch mode and doesn't affect latencies that much compared to non-trivial data processing.
 
-#### Surrounding ecosystem
+### Surrounding ecosystem
 
 Real-time clusters composition is supposed to be stable and not change much over time. Before joining the cluster, each node places a security deposit with the corresponding Ethereum smart contract. The deposit is released to a node only after passing of a cooling-off period during which the correctness of node's operations may be disputed. Relative stability of real-time clusters means there will be less expensive state resynchronizations which happen when nodes join or leave. 
 
 However, this also means nodes in the cluster might eventually form a cartel producing incorrect computational results. Batch validation by independent randomly selected nodes outside of the cluster is designated to prevent this. To make it possible, real-time nodes store the history of incoming requests and state changes in a _decentralized deep storage_ – [Swarm](https://swarm-guide.readthedocs.io). This history might be used by batch validators to inspect state transitions, but also – to restore the real-time cluster shall any of the nodes go down.
 
-#### Client interactions
+### Client interactions
 
 A client might interact with a real-time cluster through a predefined protocol. In general, the client is expected to be as light as possible and not store any data or domain logic code. To reason about security guarantees, the client normally performs the following (incomplete) list of checks:
 - nodes participating in consensus and their security deposits in Ethereum smart contract
@@ -26,8 +26,7 @@ A client might interact with a real-time cluster through a predefined protocol. 
 - whether the history of requests was properly updated in Swarm
 - batch validation lag: how many requests the batch validation is behind the real-time
 
-
-### API
+## API
 
 From the client point of view the real-time cluster API is fairly simple. Let's imagine that a WebAssembly backend developer has deployed the WASM code, for example the one compiled from this Rust snippet:
 
@@ -98,7 +97,7 @@ session.invoke("set_amount", [35]);
 await session.sync();
 ```
 
-#### Sessions cleaning
+### Sessions cleaning
 
 Once the client is done with the session, it should be closed to release the connection – normally by using a `try/finally` block:
 
@@ -113,13 +112,13 @@ try {
 }
 ```
 
-#### Function invocations ordering
+### Function invocations ordering
 
 It's important to mention that while function calls might get parallelized, there is a total order between invocations made within a single session. For example, there is a guarantee that calls `set_amount(50)`, `set_amount(10)` and `set_amount(35)` will be run exactly in this order, and `get_amount` will be executed the last and return `35`. 
 
 However, there is no order between function calls made from different sessions. In general, ordering behavior is similar to the [happens-before semantic](https://docs.oracle.com/javase/specs/jls/se7/html/jls-17.html#jls-17.4.5) in Java Memory Model if we replace a notion of session with a JVM thread. In future some synchronization primitives might be provided to allow better concurrent programming with different sessions.
 
-#### Error handling
+### Error handling
 
 If any function execution has failed, then the rest of the functions invoked after in the session will not be executed at all. The failed function execution will not be rolled back which means the virtual machine might be left in the inconsistent state. The client will receive an exception on the first `await` after the failed function. After that, the session will not be usable anymore and should be closed.
 
@@ -166,10 +165,9 @@ try {
 }
 ```
 
+## Consensus engine
 
-### Consensus engine
-
-#### Tendermint
+### Tendermint
 
 Internally, real-time clusters use [Tendermint](https://tendermint.com/docs/) as the BFT consensus framework, which is able to tolerate of up to `1/3` failed or Byzantine nodes.
 
@@ -183,7 +181,7 @@ Tendermint takes care of:
 
 However, it doesn't invoke the WebAssembly code or verify clients signatures, which is done by the Fluence-specific state machine. 
 
-#### State machine
+### State machine
 
 Every real-time node carries a state which is updated using transactions furnished through the consensus engine. If every transition made since the genesis was correct, we can expect that the state itself is correct too. Results obtained by querying such a state should be correct as well. However, if at any moment in time there was an incorrect transition, all subsequent states can potentially be incorrect even if all later transitions were correct.
 
@@ -193,7 +191,9 @@ The state machine is not a part of Tendermint and normally has an application-sp
 
 Each node in the cluster runs a Tendermint instance and a Fluence state machine instance with Tendermint connecting the nodes together.
 
-#### Tendermint blockchain reference
+### Tendermint reference
+
+#### Blockchain
 
 Tendermint combines transactions into ordered lists – blocks. Besides the transaction list, a block also has some metadata that helps to provide integrity and verifiability guarantees. This metadata consists of two major parts:
 
@@ -217,10 +217,19 @@ Note that the information about the voting process and the `app_hash` achieved d
 
 Once the block `k` is committed, only the presence and the order of its transactions is verified, but not the state achieved by their execution. Because the `app_hash` resulted from the block `k` execution is only available when the block `k + 1` is committed, the client has to wait for the next block to trust a result computed by the transaction in the block `k`. To avoid making the client wait if there were no transactions for a while, Tendermint makes the next block (possibly empty) in a short time after the previous block was committed.
 
+#### ABCI
 
-### Application
+Application BlockChain Interface (ABCI) allows Tendermint to interact with the underlying application. There are two major types of interactions: transactions and queries.
 
-#### Happens-before relationship between transactions
+When the client sends a transaction to Tendermint, it does not immediately receive a result of it's execution. Instead, the transaction is placed into the Tendermint mempool first and then combined with other transactions into a block which is eventually delivered to the application state machine. Once the state machine applies the block and updates the state, it can be queried using the Tendermint query API.
+
+Queries issued to Tendermint are processed outside of the normal consensus flow. This means a malicious node might return an incorrect result to the unsuspicious client. To avoid this, a client has to always check the Merkle proof supplied with the result against the `app_hash` – the Merkle root of the state.
+
+Below we will consider in few more details how the Fluence state machine interacts with Tendermint consensus engine.
+
+## Application
+
+### Happens-before relationship between transactions
 
 We need the client to be able to send a transaction that should be executed only after another transaction. In other words, there should be a support for the [_happens-before_](https://en.wikipedia.org/wiki/Happened-before) relationship between transactions. For example, let's imagine a client that checks stock quotes in a tight loop and based on this makes a decision whether to send a transaction into the Fluence network:
 
@@ -241,15 +250,13 @@ In this example we assume a function `fn update_high(symbol: &str, value: f64)` 
 
 Without transactions ordering, the global maximum might get updated incorrectly. One of the solutions would be to wait for a transaction to propagate into the block before sending another one, but this would limit available performance. Fluence state machine uses a session-based transactions ordering which is described in the corresponding section.
 
-#### RPC support
+### RPC support
 
 We want the client to be able to interact with the real-time cluster using a conventional request-response API: 
 
 ```
 response = fluence.request("{'function': 'sum', 'x': 3, 'y': 5}")
-print(response)  ## prints "8"
+print(response)  # prints "8"
 ```
 
-Tendermint has two ways of communicating with the client: transactions and queries. When the client sends a transaction to Tendermint, it does not receive a result of it's execution. Instead, the transaction is placed into the mempool first and then combined with other transactions into a block which is eventually delivered to the state machine. Once the state machine applies the block and updates the state, it can be queried using the Tendermint query API.
-
-This means that request-response API is not really native to Tendermint, so Fluence state machine wraps Tendermint to provide it to the client.
+Request-response API is not really native to Tendermint, so Fluence state machine wraps Tendermint to provide it to the client.
