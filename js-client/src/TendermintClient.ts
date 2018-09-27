@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { RpcClient } from "tendermint"
+import {RpcClient} from "tendermint"
 import {none, Option, Some} from "ts-option";
 import {fromHex} from "./utils";
 import {BroadcastTxSyncResponse} from "./responses";
 
-function parseResponse(res: any) {
+function parseResponse(res: any): BroadcastTxSyncResponse {
     let bResponse = <BroadcastTxSyncResponse> res;
     bResponse.data = fromHex(bResponse.data);
     return bResponse
@@ -32,14 +32,22 @@ export class TendermintClient {
         this.client = new RpcClient(`${protocol}://${host}:${port}`);
     }
 
-    async broadcastTxSync(hex: string) {
+    broadcastTxSync(hex: string): Promise<BroadcastTxSyncResponse> {
         let params = {tx: JSON.stringify(hex)};
-        let res = await this.client.broadcastTxSync(params);
-        let parsed = parseResponse(res);
-
-        return parsed;
+        return this.client.broadcastTxSync(params)
+            .then((res: any) => {
+                return parseResponse(res);
+            }).catch((err: any) => {
+                return parseResponse(err);
+            });
     }
 
+    /**
+     * Sends an ABCI query.
+     * @param path query parameter
+     *
+     * @returns `none` if there is no value, and `some` with parsed from hex value otherwise.
+     */
     async abciQuery(path: string): Promise<Option<any>> {
         let escaped = JSON.stringify(path);
         let response = (await this.client.abciQuery({path: escaped})).response;

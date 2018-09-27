@@ -36,7 +36,7 @@ export class ResultAwait {
         this.canceled = false;
     }
 
-    async checkSessionAvailability(): Promise<Option<SessionSummary>> {
+    async getSessionInfo(): Promise<Option<SessionSummary>> {
         const sessionInfo: Option<any> = (await this.tm.abciQuery(this.summaryKey));
         return sessionInfo.map((info: any) => {
             return <SessionSummary> info
@@ -65,7 +65,12 @@ export class ResultAwait {
 
     }
 
-    private async checkResult(path: string, checkSession: boolean): Promise<Option<Result>> {
+    /**
+     * Sends request for a result and parse it.
+     * @param path
+     * @return
+     */
+    private async checkResult(path: string): Promise<Option<Result>> {
 
         const statusResponse: Option<any> = (await this.tm.abciQuery(path));
 
@@ -80,6 +85,13 @@ export class ResultAwait {
         });
     }
 
+    /**
+     * Checks the result until it appears or until an error occurs or the session is closed.
+     * @param path address to check result
+     * @param requestsPerSec the frequency of requests to check per second
+     * @param responseTimeoutSec the time after which it will check the session for activity too
+     * @returns result or error if some error occurred or session is closed
+     */
     private async checkResultPeriodically(path: string, requestsPerSec: number = 4, responseTimeoutSec = 5): Promise<Result> {
 
         let _i: number = 0;
@@ -87,34 +99,43 @@ export class ResultAwait {
 
         while(true) {
 
+            // checking result was canceled outside
             if (this.canceled) {
                 throw error(`The request was canceled. Cause: ${this.canceledReason}`)
             }
 
+            // checks the session after some tries
             let checkSession = _i > responseTimeoutSec * requestsPerSec;
 
             if (checkSession) {
-                sessionInfo = await this.checkSessionAvailability();
+                sessionInfo = await this.getSessionInfo();
             }
 
-            let optionResult = await this.checkResult(path, true);
+            let optionResult = await this.checkResult(path);
 
+            // if result exists, return it
             if (optionResult.nonEmpty) {
                 return optionResult.get
             }
 
             _i++;
 
+            // here the session is checked after the result is checked, as it may happen that the result is given,
+            // and after that the session was immediately closed
             if (sessionInfo.nonEmpty) {
-                if (sessionInfo.get.status !== "Active") {
+                if (sessionInfo.get.status.Active === undefined) {
                     throw error(`Session is ${JSON.stringify(sessionInfo.get.status)}`)
                 }
             }
 
+            // wait for next check
             await this.sleep(1000 / requestsPerSec);
         }
     }
 
+    /**
+     * Canceles result checking.
+     */
     cancel(reason: string) {
         this.canceled = true;
         this.canceledReason = reason;

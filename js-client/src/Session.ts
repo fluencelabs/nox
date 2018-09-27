@@ -24,14 +24,14 @@ import {Client} from "./Client";
  * It is an identifier around which client can build a queue of requests.
  */
 export class Session {
-    client: Client;
-    tm: TendermintClient;
-    session: string;
-    sessionSummaryKey: string;
-    counter: number;
-    resultPromises: Set<ResultAwait>;
-    closed: boolean;
-    closedStatus: string;
+    private client: Client;
+    private tm: TendermintClient;
+    private session: string;
+    private sessionSummaryKey: string;
+    private counter: number;
+    private resultPromises: Set<ResultAwait>;
+    private closed: boolean;
+    private closedStatus: string;
 
     private static genSessionId() {
         let randomstring = require("randomstring");
@@ -60,23 +60,33 @@ export class Session {
     /**
      * Generates a key, that will be an identifier of the request.
      */
-    private targetKey() {
-        return `@meta/${this.client.id}/${this.session}/${this.counter}`;
+    private targetKey(counter: number) {
+        return `@meta/${this.client.id}/${this.session}/${counter}`;
     }
 
-    private cancelAndClearPromises(reason: string) {
+    /**
+     * Cancel all promises that working now.
+     */
+    private cancelAllPromises(reason: string) {
         for (let resultAwait of this.resultPromises) {
             resultAwait.cancel(reason);
         }
         this.resultPromises = new Set<ResultAwait>();
     }
 
+    /**
+     * Closes session, cancel and delete all promises.
+     */
     private closeSession(reason: string) {
         if (!this.closed) {
             this.closed = true;
             this.closedStatus = reason;
-            this.cancelAndClearPromises(reason)
+            this.cancelAllPromises(reason)
         }
+    }
+
+    private getCounterAndIncrement() {
+        return this.counter++;
     }
 
     /**
@@ -84,38 +94,43 @@ export class Session {
      *
      * @param payload a command supported by the program in a virtual machine with arguments
      */
-    async submitRaw(payload: string): Promise<Result> {
+    async invokeRaw(payload: string): Promise<Result> {
 
+        // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
+        let currentCounter = this.getCounterAndIncrement();
+
+        // throws an error immediately if the session is closed
         if (this.closed) {
             throw error(`Session is closed. Cause: ${this.closedStatus}`)
         }
 
-        let txHex = genTxHex(this.client, this.session, this.counter, payload);
+        let txHex = genTxHex(this.client, this.session, currentCounter, payload);
 
-        //todo check if this request is successful
+        // send transaction
         let resp = await this.tm.broadcastTxSync(txHex);
 
+        // close session if some error on sending transaction occurred
         if (resp.code !== 0) {
-            let cause = `The session was closed after response with an error. Request payload: ${payload}, response: ${JSON.stringify(resp)}`
+            let cause = `The session was closed after response with an error. Request payload: ${payload}, response: ${JSON.stringify(resp)}`;
             this.closeSession(cause);
             throw error(cause)
         }
 
-        let targetKey = this.targetKey();
+        let targetKey = this.targetKey(currentCounter);
 
-        //todo there should be a manager that syncs calls and increments counter only after a successful request
-        this.counter = this.counter + 1;
-
+        // starts checking if a response has appeared
         let resultAwait = new ResultAwait(this.tm, targetKey, this.sessionSummaryKey);
+        this.resultPromises = this.resultPromises.add(resultAwait);
         let pr: Promise<Result> = resultAwait.result();
 
-        this.resultPromises = this.resultPromises.add(resultAwait);
 
-        pr.then((res: Result) => {
+
+        pr.then(() => {
+                // delete promise from set if all ok
                 this.resultPromises.delete(resultAwait);
             }
         ).catch((err: Error) => {
-            //check if session already closed, if not - close it, drop all promises
+            // close session on error
             this.closeSession(err.error)
         });
 
@@ -132,6 +147,6 @@ export class Session {
 
         let payload = command + `(${args.join(',')})`;
 
-        return this.submitRaw(payload);
+        return this.invokeRaw(payload);
     }
 }

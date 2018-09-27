@@ -44,7 +44,10 @@ export async function testIncrementAndMultiplyCluster(host: string, port: number
     console.log("new session created");
     console.log("lets increment");
 
-    await s.submitRaw("inc()");
+    await s.invokeRaw("inc()");
+    s.invokeRaw("inc()");
+    s.invokeRaw("inc()");
+    s.invokeRaw("inc()");
 
     console.log("then get result");
 
@@ -53,7 +56,7 @@ export async function testIncrementAndMultiplyCluster(host: string, port: number
 
     console.log("lets increment again");
 
-    await s.submitRaw("inc()");
+    await s.invokeRaw("inc()");
 
     console.log("then get result again");
 
@@ -68,7 +71,7 @@ export async function testIncrementAndMultiplyCluster(host: string, port: number
     // await s.invoke("@closeSession");
 
     console.log("lets multiply two numbers, 123 and 53");
-    s.invoke("multiplier.mul", ["123", "53"]).then((res) => {
+    await s.invoke("multiplier.mul", ["123", "53"]).then((res) => {
         console.log(`and the result is: ${JSON.stringify(res)}`);
     });
 

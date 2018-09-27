@@ -1,5 +1,5 @@
 export interface SessionSummary {
-    status: string
+    status: any
     invokedTxsCount: number
     lastTxCounter: number
 }
