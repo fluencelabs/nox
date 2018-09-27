@@ -16,8 +16,6 @@
 
 package fluence.statemachine.tx
 
-import java.nio.charset.Charset
-
 import cats.Applicative
 import cats.data.EitherT
 import com.google.protobuf.ByteString
@@ -36,7 +34,7 @@ import scala.language.higherKinds
  *
  * @param clientRegistry client registry used to check client's signature
  */
-class TxParser[F[_]: Applicative](clientRegistry: ClientRegistry) extends slogging.LazyLogging {
+class TxParser[F[_]: Applicative](clientRegistry: ClientRegistry) {
 
   /**
    * Tries to parse a given serialized transaction.
@@ -46,13 +44,8 @@ class TxParser[F[_]: Applicative](clientRegistry: ClientRegistry) extends sloggi
    */
   def parseTx(rawTx: ByteString): EitherT[F, String, Transaction] =
     EitherT.fromEither[F](for {
-      _ <- Right(())
-      _ = logger.info("RAWTX === " + rawTx.toStringUtf8)
-      _ = logger.info("AFTER CODEC === " + HexCodec.hexToString(rawTx.toStringUtf8))
       txText <- HexCodec.hexToString(rawTx.toStringUtf8)
-      _ = logger.info("TX TEXT === " + txText)
       parsedJson <- parseJson(txText).left.map(_.message)
-      _ = logger.info("PARSED JSON === " + parsedJson)
       signedTx <- parsedJson.as[SignedTransaction].left.map(_.message)
       publicKey <- clientRegistry.getPublicKey(signedTx.tx.header.client)
       checkedTx <- Either.cond(
