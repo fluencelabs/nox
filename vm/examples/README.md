@@ -1,5 +1,5 @@
 
-### Examples written in Rust for running with DataEngine VM.
+### Examples written in Rust for running into WasmVm.
 
 Check that you've installed `docker` and `docker` is running.
 
@@ -8,7 +8,7 @@ Check that you've installed `docker` and `docker` is running.
         sbt vm-{EXAMPLE_NAME}/run 
         
 from project root folder. This Task compiles Rust code to Wasm code with `docker` image,
-builds fat jar for this example and runs it. Example:
+builds fat jar for this example and runs it. For example:
     
         sbt vm-counter/run
         

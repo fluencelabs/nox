@@ -52,7 +52,7 @@ object CounterRunner extends IOApp {
 
     program.value.map {
       case Left(err) ⇒
-        println(s"[Error]: $err")
+        println(s"[Error]: $err cause=${err.getCause}")
         ExitCode.Error
       case Right(value) ⇒
         println(value)

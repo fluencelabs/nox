@@ -1,11 +1,13 @@
 [package]
-name = "counter"
+name = "sqldb"
 version = "0.1.0"
 authors = ["C.Solovev <constantine@fluence.one>"]
 
 [[bin]]
-name = "counter"
+name = "sqldb"
 path = "src/main/rust/main.rs"
 target = "wasm32-unknown-unknown"
 
 [dependencies]
+
+lazy_static = "1.1.0"
