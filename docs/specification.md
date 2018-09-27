@@ -248,7 +248,7 @@ First, the client sends a transaction to the cluster. In addition to the functio
   }
 ```
 
-<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _It's unclear how the session identifier will be generated and who is responsible for that: the client code or the real-time cluster. It's also unclear whether the real-time cluster should resist bogus session identifiers potentially crafted by a malicious client._⚠
+⚠ **TODO:** _It's unclear how the session identifier will be generated and who is responsible for that: the client code or the real-time cluster. It's also unclear whether the real-time cluster should resist bogus session identifiers potentially crafted by a malicious client.
 
 
 
