@@ -65,7 +65,7 @@ export class Session {
     }
 
     /**
-     * Cancel all promises that working now.
+     * Cancels all promises that working now.
      */
     private cancelAllPromises(reason: string) {
         for (let resultAwait of this.resultPromises) {

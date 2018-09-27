@@ -29,6 +29,12 @@ export class ResultAwait {
     private canceled: boolean;
     private canceledReason: string;
 
+    /**
+     *
+     * @param _tm transport to the real-time cluster
+     * @param _targetKey key to check restul from cluster
+     * @param _summaryKey key to check session info from cluster
+     */
     constructor(_tm: TendermintClient, _targetKey: string, _summaryKey: string) {
         this.tm = _tm;
         this.targetKey = _targetKey;
@@ -36,7 +42,7 @@ export class ResultAwait {
         this.canceled = false;
     }
 
-    async getSessionInfo(): Promise<Option<SessionSummary>> {
+    private async getSessionInfo(): Promise<Option<SessionSummary>> {
         const sessionInfo: Option<any> = (await this.tm.abciQuery(this.summaryKey));
         return sessionInfo.map((info: any) => {
             return <SessionSummary> info
@@ -48,7 +54,7 @@ export class ResultAwait {
      *
      * @param ms milliseconds to wait
      */
-    async sleep(ms: number) {
+    private async sleep(ms: number) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
@@ -68,7 +74,7 @@ export class ResultAwait {
     /**
      * Sends request for a result and parse it.
      * @param path
-     * @return
+     * @returns `none` if there is no result, `some` if result appeared and throws an error if result is an error
      */
     private async checkResult(path: string): Promise<Option<Result>> {
 
@@ -134,7 +140,7 @@ export class ResultAwait {
     }
 
     /**
-     * Canceles result checking.
+     * Cancels result checking.
      */
     cancel(reason: string) {
         this.canceled = true;
