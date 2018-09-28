@@ -18,74 +18,132 @@ import {TendermintClient} from "./TendermintClient";
 import {Engine} from "./Engine";
 import {Signer} from "./Signer";
 import {Client} from "./Client";
+import {Session} from "./Session";
+import {SessionConfig} from "./SessionConfig";
 
-/**
- * Default function to invoke several commands to real-time cluster
- * @param host
- * @param port
- */
-export async function testIncrementAndMultiplyCluster(host: string, port: number) {
+export class Tester {
 
-    let tm = new TendermintClient(host, port);
+    private readonly engine: Engine;
+    private readonly client: Client;
 
-    let engine = new Engine(tm);
-    console.log("dataengine created");
+    constructor(host: string, port: number) {
+        let tm = new TendermintClient(host, port);
+        this.engine = new Engine(tm);
+        console.log("dataengine created");
 
-    // default signing key for now
-    // TODO signing key in python client and in TS client provide a different key pair. Check this and fix.
-    let signingKey = "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==";
-    let signer = new Signer(signingKey);
+        // default signing key for now
+        // TODO signing key in python client and in TS client provide a different key pair. Check this and fix.
+        let signingKey = "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==";
+        let signer = new Signer(signingKey);
 
-    // `client002` is a default client for now
-    let client = new Client("client002", signer);
+        // `client002` is a default client for now
+        this.client = new Client("client002", signer);
+    }
 
-    let s = engine.genSession(client);
+    genSession(): Session {
+        let config = new SessionConfig(2, 10, 120);
+        return this.engine.genSession(this.client, config);
+    }
 
-    console.log("new session created");
-    console.log("lets increment");
+    /**
+     * Default function to invoke several commands to real-time cluster
+     */
+    async testIncrementAndMultiplyCluster() {
 
-    await s.invokeRaw("inc()");
-    s.invokeRaw("inc()");
-    s.invokeRaw("inc()");
-    s.invokeRaw("inc()");
+        let s = this.genSession();
 
-    console.log("then get result");
+        console.log("new session created");
+        console.log("lets increment");
 
-    let resGet = await s.invoke("get");
-    console.log(`result of incrementation is: ${JSON.stringify(resGet)}\n`);
+        await s.invokeRaw("inc()");
+        s.invokeRaw("inc()");
+        s.invokeRaw("inc()");
+        s.invokeRaw("inc()");
 
-    console.log("lets increment again");
+        console.log("then get result");
 
-    await s.invokeRaw("inc()");
+        let resGet = await s.invoke("get");
+        console.log(`result of incrementation is: ${JSON.stringify(resGet)}\n`);
 
-    console.log("then get result again");
+        console.log("lets increment again");
 
-    let resGet2 = await s.invoke("get");
-    console.log(`result of incrementation is: ${JSON.stringify(resGet2)}\n`);
+        await s.invokeRaw("inc()");
 
-    console.log("lets multiply two numbers, 72 and 114");
-    let multiplyRes = await s.invoke("multiplier.mul", ["72", "114"]);
-    console.log(`and the result is: ${JSON.stringify(multiplyRes)}`);
+        console.log("then get result again");
 
-    // requests will failed after this
-    // await s.invoke("@closeSession");
+        let resGet2 = await s.invoke("get");
+        console.log(`result of incrementation is: ${JSON.stringify(resGet2)}\n`);
 
-    console.log("lets multiply two numbers, 123 and 53");
-    await s.invoke("multiplier.mul", ["123", "53"]).then((res) => {
-        console.log(`and the result is: ${JSON.stringify(res)}`);
-    });
+        console.log("lets multiply two numbers, 72 and 114");
+        let multiplyRes = await s.invoke("multiplier.mul", ["72", "114"]);
+        console.log(`and the result is: ${JSON.stringify(multiplyRes)}`);
+
+        console.log("lets multiply two numbers, 53 and 856");
+        let multiplyRes2 = await s.invoke("multiplier.mul", ["53", "856"]);
+        console.log(`and the result is: ${JSON.stringify(multiplyRes2)}`);
+    }
+
+    async testSync(count: number = 100) {
+
+        let s = this.genSession();
+
+        let init = await s.invoke("get");
+
+        console.log("INIT = " + JSON.stringify(init));
+
+        for(var i = 0; i < count; i++) {
+            s.invoke("inc")
+        }
+
+        console.log("INVOKE RESULT");
+
+        let pr = s.invoke("get");
+
+        await s.sync();
+
+        let result = await pr;
+        console.log("RESULT = " + JSON.stringify(result));
+
+    }
+
+    async testCloseSession(count: number = 100) {
+        let s = this.genSession();
+
+        let init = await s.invoke("get");
+
+        console.log("INIT = " + JSON.stringify(init));
+
+        let threshold = count / 2 + count / 4;
+
+        for(var i = 0; i < count; i++) {
+            if (i === threshold) {
+                s.invoke("random failed function");
+            } else {
+                s.invoke("inc")
+            }
+        }
+
+        try {
+            await s.sync();
+        } catch (e) {
+            console.log("ERROR = " + e)
+        }
 
 
-    s.invoke("get").then((res) => {
-        console.log(`and the result is: ${JSON.stringify(res)}`);
-    });
-    s.invoke("get").then((res) => {
-        console.log(`and the result is: ${JSON.stringify(res)}`);
-    });
+        console.log("INVOKE RESULT");
 
+        let s2 = this.genSession();
+
+        let pr = s2.invoke("get");
+
+
+
+        let result = await pr;
+        console.log("RESULT = " + JSON.stringify(result));
+    }
 }
 
 // add testIncrementAndMultiplyCluster method to global scope
 // TODO make the right imports
 const _global = (window /* browser */ || global /* node */) as any;
-_global.testIncrementAndMultiplyCluster = testIncrementAndMultiplyCluster;
+_global.Tester = Tester;

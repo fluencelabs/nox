@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import {utils} from 'elliptic'
 import {Signer} from "./Signer";
 import {Client} from "./Client";
 import {toHex} from "./utils";
@@ -44,7 +43,7 @@ function jsonToHex(json: TxJson): string {
  * Class to aggregate information and create signed transaction json for the real-time cluster.
  */
 class TxEncoder {
-    tx: Tx;
+    private readonly tx: Tx;
 
     constructor(client: string, session: string, counter: number, payload: string) {
         this.tx = {

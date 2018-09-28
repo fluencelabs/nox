@@ -26,7 +26,7 @@ function parseResponse(res: any): BroadcastTxSyncResponse {
 }
 
 export class TendermintClient {
-    client: RpcClient;
+    readonly client: RpcClient;
 
     constructor(host: string, port: number, protocol: protocol = "http") {
         this.client = new RpcClient(`${protocol}://${host}:${port}`);

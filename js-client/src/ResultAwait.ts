@@ -23,11 +23,12 @@ import {SessionSummary} from "./responses";
  * Class with the ability to make request periodically until an answer is available.
  */
 export class ResultAwait {
-    private tm: TendermintClient;
-    private targetKey: string;
-    private summaryKey: string;
+    private readonly tm: TendermintClient;
+    private readonly targetKey: string;
+    private readonly summaryKey: string;
     private canceled: boolean;
     private canceledReason: string;
+    private invokeResult: Promise<Result>;
 
     /**
      *
@@ -60,14 +61,27 @@ export class ResultAwait {
 
     /**
      * Periodically checks the node of the real-time cluster for the presence of a result.
+     * If the result is already obtained, return it without new calculations.
      *
      * @param requestsPerSec check frequency
      * @param responseTimeoutSec what time to check
+     * @param requestTimeout the time after which the error occurs if the result has not yet been received
      */
-    async result(requestsPerSec: number = 4, responseTimeoutSec = 5): Promise<Result> {
-        const path = this.targetKey + "/result";
+    async result(requestsPerSec: number = 2, responseTimeoutSec: number = 10, requestTimeout: number = 60): Promise<Result> {
 
-        return this.checkResultPeriodically(path, requestsPerSec, responseTimeoutSec);
+        if (this.invokeResult === undefined) {
+            const path = this.targetKey + "/result";
+
+            let pr = this.checkResultPeriodically(path, requestsPerSec, responseTimeoutSec, requestTimeout);
+
+            this.invokeResult = pr;
+
+            return pr;
+        } else {
+            return this.invokeResult
+        }
+
+
 
     }
 
@@ -96,9 +110,11 @@ export class ResultAwait {
      * @param path address to check result
      * @param requestsPerSec the frequency of requests to check per second
      * @param responseTimeoutSec the time after which it will check the session for activity too
+     * @param requestTimeout the time after which the error occurs if the result has not yet been received
      * @returns result or error if some error occurred or session is closed
      */
-    private async checkResultPeriodically(path: string, requestsPerSec: number = 4, responseTimeoutSec = 5): Promise<Result> {
+    private async checkResultPeriodically(path: string, requestsPerSec: number, responseTimeoutSec: number,
+                                          requestTimeout: number): Promise<Result> {
 
         let _i: number = 0;
         let sessionInfo: Option<SessionSummary> = none;
@@ -108,6 +124,10 @@ export class ResultAwait {
             // checking result was canceled outside
             if (this.canceled) {
                 throw error(`The request was canceled. Cause: ${this.canceledReason}`)
+            }
+
+            if (_i > requestsPerSec * requestTimeout) {
+                throw error(`The request was timouted after ${requestTimeout} seconds.`)
             }
 
             // checks the session after some tries

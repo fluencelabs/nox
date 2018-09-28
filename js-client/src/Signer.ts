@@ -23,7 +23,7 @@ import * as base64js from "base64-js";
  */
 export class Signer {
 
-    key: any;
+    private readonly key: any;
 
     constructor(signingKey: string) {
         let ec = new elliptic.eddsa('ed25519');

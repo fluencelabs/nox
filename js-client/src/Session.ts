@@ -19,15 +19,17 @@ import {Error, error, Result} from "./Result";
 import {genTxHex} from "./tx";
 import {TendermintClient} from "./TendermintClient";
 import {Client} from "./Client";
+import {SessionConfig} from "./SessionConfig";
 
 /**
  * It is an identifier around which client can build a queue of requests.
  */
 export class Session {
-    private client: Client;
-    private tm: TendermintClient;
-    private session: string;
-    private sessionSummaryKey: string;
+    private readonly client: Client;
+    private readonly tm: TendermintClient;
+    private readonly session: string;
+    private readonly sessionSummaryKey: string;
+    private readonly config: SessionConfig;
     private counter: number;
     private resultPromises: Set<ResultAwait>;
     private closed: boolean;
@@ -41,20 +43,21 @@ export class Session {
     /**
      * @param _tm transport to interact with the real-time cluster
      * @param _client an identifier and a signer
+     * @param _config parameters that regulate the session
      * @param _session session id, will be a random string with length 12 by default
      */
-    constructor(_tm: TendermintClient, _client: Client, _session: string = Session.genSessionId()) {
+    constructor(_tm: TendermintClient, _client: Client, _config: SessionConfig,
+                _session: string = Session.genSessionId()) {
         this.tm = _tm;
         this.client = _client;
-
         this.session = _session;
-        this.counter = 0;
+        this.config = _config;
 
+        this.counter = 0;
         this.resultPromises = new Set<ResultAwait>();
+        this.closed = false;
 
         this.sessionSummaryKey = `@meta/${this.client.id}/${this.session}/@sessionSummary`;
-
-        this.closed = false;
     }
 
     /**
@@ -121,7 +124,9 @@ export class Session {
         // starts checking if a response has appeared
         let resultAwait = new ResultAwait(this.tm, targetKey, this.sessionSummaryKey);
         this.resultPromises = this.resultPromises.add(resultAwait);
-        let pr: Promise<Result> = resultAwait.result();
+        let pr: Promise<Result> = resultAwait.result(this.config.requestsPerSec,
+            this.config.checkSessionTimeout,
+            this.config.requestTimeout);
 
 
 
@@ -148,5 +153,21 @@ export class Session {
         let payload = command + `(${args.join(',')})`;
 
         return this.invokeRaw(payload);
+    }
+
+    /**
+     * Syncs on all pending invokes.
+     */
+    async sync(): Promise<Result[]> {
+        var promises: Promise<Result>[] = Array.from(this.resultPromises).map(v => v.result());
+        return Promise.all(promises);
+    }
+
+    /**
+     * Closes session locally and send a command to close the session on the cluster.
+     */
+    async close(reason: string = "") {
+        this.closeSession(reason);
+        return this.invoke("@closeSession")
     }
 }
