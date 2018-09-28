@@ -136,8 +136,6 @@ export class Tester {
 
         let pr = s2.invoke("get");
 
-
-
         let result = await pr;
         console.log("RESULT = " + JSON.stringify(result));
     }

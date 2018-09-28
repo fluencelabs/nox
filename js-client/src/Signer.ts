@@ -17,6 +17,7 @@
 import * as elliptic from "elliptic";
 import {utils} from "elliptic";
 import * as base64js from "base64-js";
+import sha256 from "fast-sha256";
 
 /**
  * Key with the ability to make signatures from a string.
@@ -41,7 +42,9 @@ export class Signer {
 
         let signBytes = utils.toArray(str);
 
-        let signature = this.key.sign(signBytes);
+        let hashed = sha256(signBytes);
+
+        let signature = this.key.sign(hashed);
 
         return base64js.fromByteArray(signature.toBytes())
     }

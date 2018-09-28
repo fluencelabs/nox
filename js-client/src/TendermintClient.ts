@@ -32,6 +32,11 @@ export class TendermintClient {
         this.client = new RpcClient(`${protocol}://${host}:${port}`);
     }
 
+    broadcastTxAsync(hex: string): Promise<any> {
+        let params = {tx: JSON.stringify(hex)};
+        return this.client.broadcastTxAsync(params);
+    }
+
     /**
      * Sends broadcast_tx_sync operation.
      * @param hex transaction payload

@@ -18,16 +18,28 @@ package fluence.statemachine.util
 
 import java.util.Base64
 
+import fluence.crypto.CryptoError
 import fluence.statemachine.PublicKey
 import fluence.statemachine.tree.MerkleHash
 import net.i2p.crypto.eddsa.spec.{EdDSANamedCurveTable, EdDSAPublicKeySpec}
 import net.i2p.crypto.eddsa.{EdDSAEngine, EdDSAPublicKey}
 import org.bouncycastle.jcajce.provider.digest.SHA3
 import scodec.bits.ByteVector
+import java.security.MessageDigest
 
 import scala.util.Try
 
 object Crypto {
+
+  private val unsafeHasher: fluence.crypto.Crypto.Hasher[Array[Byte], Array[Byte]] =
+    fluence.crypto.Crypto.liftFuncEither(
+      bytes ⇒
+        Try {
+          val digest = MessageDigest.getInstance("SHA-256")
+          digest.digest(bytes)
+        }.toEither.left
+          .map(err ⇒ CryptoError(s"Unexpected error when hashing by SHA-256.", Some(err)))
+    )
 
   /**
    * Verifies suggested `signature` of given `data` against known EdDSA-25519 `publicKey`.
@@ -41,6 +53,7 @@ object Crypto {
     val verificationPassed = for {
       signatureBytes <- Try(Base64.getDecoder.decode(signature)).toEither
       dataBytes <- Try(data.getBytes("UTF-8")).toEither
+      hashed <- Try(unsafeHasher.unsafe(dataBytes)).toEither
       publicKeyBytes <- Try(Base64.getDecoder.decode(publicKey)).toEither
 
       edParams <- Option(EdDSANamedCurveTable.getByName(EdDSANamedCurveTable.ED_25519)).toRight("Curve spec not found")
@@ -49,7 +62,7 @@ object Crypto {
       key = new EdDSAPublicKey(keySpec)
       engine = new EdDSAEngine()
       _ <- Try(engine.initVerify(key)).toEither
-    } yield engine.verifyOneShot(dataBytes, signatureBytes)
+    } yield engine.verifyOneShot(hashed, signatureBytes)
     verificationPassed.getOrElse(false)
   }
 

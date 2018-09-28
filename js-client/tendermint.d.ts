@@ -26,6 +26,7 @@ declare namespace tendermint {
         abciQuery(args: any): any;
 
         broadcastTxSync(args: any): any;
+        broadcastTxAsync(args: any): any;
 
         genesis(): any;
 

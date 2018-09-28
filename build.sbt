@@ -87,6 +87,7 @@ lazy val statemachine = (project in file("statemachine"))
       circeGeneric,
       circeParser,
       pureConfig,
+      cryptoHashing,
       slogging,
       scodecBits,
       "com.github.jtendermint" % "jabci"          % "0.17.1",
