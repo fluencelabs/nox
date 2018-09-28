@@ -241,7 +241,7 @@ First, the client sends a transaction to the cluster. In addition to the functio
     "fn": "sum", 
     "args": [5, 3], 
     "meta": {
-      "client": "0xA425FB82",      
+      "client": "0xA425",      
       "session": 117,
       "counter": 23
     }
@@ -256,7 +256,11 @@ From the brief [§ Tendermint reference](#abci) we remember that Tendermint does
 
 The data structure where results are stored behaves like a dictionary where the key is a `($client, $session, $counter)` tuple and the value is the computed result. It can also be efficiently merkelized so it could participate in the `app_hash` computation. Right now a Merkle Trie is used but might be changed to a Merkle B-Tree in future for better rebalancing properties.
 
-When a node serves a result to the client through the query API it also serves a Merkle proof to prove that the result indeed corresponds to the `app_hash` the consensus was reached on. However, as it was mentioned in [§ Tendermint reference](#blockchain) the client has to wait for the next block to propagate through.
+When a node serves a result to the client through the query API it also serves a Merkle proof to prove that the result indeed corresponds to the `app_hash` the consensus was reached on. However, as it was also mentioned in the [§ Tendermint reference](#blockchain) the client has to wait for the next block to propagate through.
+
+<p align="center">
+  <img src="images/function_invocation_sequence.png" alt="Function Invocation Sequence" width="741px"/>
+</p>
 
 <img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _It's not clear yet how the results should be purged from the dictionary once they are no longer needed. One of possible solutions could be that results are removed once they are served through the query API. However, this doesn't cover situations when stored results are never queried (for example, if the client is malicious). Another option would be to garbage collect results – for example, using a FIFO policy. In this case the dictionary could actually be implemented as a ring buffer of a specific size._
 
