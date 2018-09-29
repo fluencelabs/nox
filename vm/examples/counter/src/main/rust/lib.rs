@@ -13,7 +13,3 @@ pub unsafe fn inc() {
 pub unsafe fn get() -> i64 {
     COUNTER_.get()
 }
-
-fn main() {
-    // do nothing
-}
