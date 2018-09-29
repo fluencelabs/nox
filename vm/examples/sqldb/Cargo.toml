@@ -7,6 +7,7 @@ authors = ["C.Solovev <constantine@fluence.one>"]
 name = "sqldb"
 path = "src/main/rust/lib.rs"
 target = "wasm32-unknown-unknown"
+crate-type = ["cdylib"]
 
 [dependencies]
 
