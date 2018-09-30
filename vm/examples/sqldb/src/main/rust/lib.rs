@@ -66,7 +66,3 @@ pub fn next_field() -> f64 {
 fn run_query<T, F : FnOnce(MutexGuard<Db<i32>>) -> T>(query: F) -> T {
     query(sql_db::DB.lock().expect("Can't take a Database."))
 }
-
-fn main() {
-    // do nothing
-}
