@@ -93,9 +93,36 @@ lazy val statemachine = (project in file("statemachine"))
       "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
       scalaTest
-    )
+    ),
+    test in assembly := {},
+    dockerfile in docker := {
+      // The assembly task generates a fat JAR file
+      val artifact: File = assembly.value
+      val artifactTargetPath = s"/app/${artifact.name}"
+      val tmVersion = "0.23.0"
+      val tmDataRoot = "/tendermint"
+
+      new Dockerfile {
+        from("xqdocker/ubuntu-openjdk:jre-8")
+        run("apt", "-yqq", "update")
+        run("apt", "-yqq", "install", "wget", "curl", "jq", "unzip", "screen")
+        run("wget", s"https://github.com/tendermint/tendermint/releases/download/v${tmVersion}/tendermint_${tmVersion}_linux_amd64.zip")
+        run("unzip", "-d", "/bin", s"tendermint_${tmVersion}_linux_amd64.zip")
+
+        run("mkdir", tmDataRoot)
+        expose(26656, 26657)
+        //volume(tmDataRoot)
+
+        run("tendermint", "init", s"--home=$tmDataRoot")
+
+        add(artifact, artifactTargetPath)
+
+        entryPoint("bash", "/container_data/run-node.sh", tmDataRoot, artifactTargetPath)
+      }
+    }
   )
   .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(DockerPlugin)
   .dependsOn(vm)
 
 lazy val externalstorage = (project in file("externalstorage"))

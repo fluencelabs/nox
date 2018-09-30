@@ -40,7 +40,7 @@ import scala.language.higherKinds
  * according to Tendermint specification) and sends ABCI requests to `ABCIHandler`.
  */
 object ServerRunner extends IOApp with LazyLogging {
-  val DefaultABCIPoint: Int = 46658
+  val DefaultABCIPoint: Int = 26658
 
   override def run(args: List[String]): IO[ExitCode] = {
     val port = if (args.length > 0) args(0).toInt else DefaultABCIPoint
