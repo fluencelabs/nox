@@ -55,13 +55,13 @@ object VmError {
   ) extends VmErrorProxy(message, cause) with WasmError with ApplyError
 
   /**
-   * Indicates that some of the client input values are invalid. For example number
-   * of types of argument is not correct or specified fn isn't exists.
+   * Indicates that some of the client input values are invalid. For example, count
+   * of argument types isn't correct or specified function isn't exist.
    */
   sealed trait InvocationError extends WasmError with InvokeError
 
   /**
-   * Indicates that arguments for fn invocation is not valid.
+   * Indicates that arguments for function invocation isn't valid.
    */
   case class InvalidArgError(
     override val message: String,
@@ -69,7 +69,7 @@ object VmError {
   ) extends VmErrorProxy(message, cause) with InvocationError
 
   /**
-   * Indicates that fn with specified name wasn't found in a instance of VM.
+   * Indicates that function with specified name wasn't found in the instance of VM.
    */
   case class NoSuchFnError(
     override val message: String,

@@ -30,7 +30,7 @@ import scala.language.higherKinds
 import scala.util.Try
 
 /**
- * Wasm Module instance wrapper.
+ * WASM Module instance wrapper.
  *
  * @param name optional module name
  * @param instance wrapped instance of module
@@ -99,8 +99,8 @@ object ModuleInstance {
   /**
    * Creates instance for specified module.
    *
-   * @param moduleDescription a description of the module
-   * @param scriptContext a context for this module working
+   * @param moduleDescription description of the module
+   * @param scriptContext context for the operation of the module
    */
   def apply(
     moduleDescription: Compiled,

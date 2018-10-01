@@ -24,7 +24,7 @@ import scala.util.control.NoStackTrace
 /**
  * WasmVm settings.
  *
- * @param defaultMaxMemPages The maximum number of memory pages when a module doesn't say
+ * @param defaultMaxMemPages The maximum count of memory pages when a module doesn't say
  * @param specTestRegister If true, registers the spec test harness as 'spectest'.
  */
 case class VmConfig(

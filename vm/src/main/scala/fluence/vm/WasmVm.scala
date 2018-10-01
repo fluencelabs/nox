@@ -46,13 +46,13 @@ import scala.util.Try
 trait WasmVm {
 
   /**
-   * Invokes ''function'' from specified ''module'' with this arguments.
-   * Returns ''None'' if function don't returns result, ''Some(Any)'' if
-   * function returns result, ''VmError'' when something goes wrong.
+   * Invokes ''function'' from specified ''module'' with provided arguments.
+   * Returns ''None'' if the function doesn't return the result, ''Some(Any)''
+   * if the function returns the result, ''VmError'' when something goes wrong.
    *
    * Note that, modules and functions should be registered when VM started!
    *
-   * @param module a Module name, if absent will be used last from registered modules
+   * @param module a Module name, if absent the last from registered modules will be used
    * @param function a Function name to invocation
    * @param fnArgs a Function arguments
    * @tparam F a monad with an ability to absorb 'IO'
@@ -66,8 +66,8 @@ trait WasmVm {
   // or create an overloaded method for each possible return type
 
   /**
-   * Returns hash of significant inner state of this VM. This function first
-   * creates a hash for each module state and then concatenates its together.
+   * Returns hash of significant inner state of this VM. This function calculates
+   * hashes for the state of each module and then concatenates them together.
    * It's behaviour will change in future, till it looks like this:
    * {{{
    *   vmState = hash(hash(module1 state), hash(module2 state), ...))
@@ -88,7 +88,7 @@ object WasmVm {
    */
   private[vm] case class VmProps(
     modules: List[ModuleInstance] = Nil,
-    functions: WasmFnIndex = Map()
+    functions: WasmFunctionsIndex = Map()
   )
 
   /**
@@ -96,7 +96,7 @@ object WasmVm {
    * Compiles all files immediately and returns VM implementation with eager
    * module instantiation, also builds index for each wast function.
    *
-   * @param inFiles input files in WASM or wast format
+   * @param inFiles input files in wasm or wast format
    * @param configNamespace a path of config in 'lightbend/config terms, see reference.conf
    * @param cryptoHasher a hash function provider
    */
@@ -140,8 +140,8 @@ object WasmVm {
   }
 
   /**
-   * Returns [[ScriptContext]] - context for uploaded wasm modules .
-   * Compiling WASM modules to JVM bytecode and registering derived classes
+   * Returns [[ScriptContext]] - context for uploaded WASM modules.
+   * Compiles WASM modules to JVM bytecode and registering derived classes
    * in the Asmble engine. Every WASM module compiles to exactly one JVM class
    */
   private def prepareContext(
@@ -149,7 +149,7 @@ object WasmVm {
     config: VmConfig
   ): ScriptContext = {
     val invoke = new Invoke()
-    // todo in future should be used common logger for this project
+    // todo in future common logger for this project should be used
     val logger = new Logger.Print(Logger.Level.WARN)
     invoke.setLogger(logger)
     invoke.prepareContext(
@@ -167,8 +167,8 @@ object WasmVm {
    * This method initializes every module and builds a total index for each
    * function of every module. The index is actually a map where the key is a
    * string "Some(moduleName), fnName)" and value is a [[WasmFunction]] instance.
-   * Module name can be "None" if the module name wasn't specified, in this case,
-   * there aren't to be 2 modules without names that contain functions with the
+   * Module name can be "None" if the module name wasn't specified. In this case,
+   * there aren't to be two modules without names that contain functions with the
    * same names, otherwise, an error will be thrown.
    */
   private def initializeModules[F[_]: Applicative](
@@ -185,7 +185,7 @@ object WasmVm {
 
       case (Right(vmProps), moduleDesc) ⇒
         for {
-          // initialization module instance
+          // initialization of module instance
           moduleInstance <- ModuleInstance(moduleDesc, scriptCxt)
           // building module index for fast access to functions
           methodsAsWasmFns = moduleDesc.getCls.getDeclaredMethods

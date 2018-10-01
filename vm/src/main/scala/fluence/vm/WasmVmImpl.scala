@@ -36,13 +36,14 @@ import scala.util.Try
  * '''Note!!! This implementation isn't thread-safe. The provision of calls
  * linearization is the task of the caller side.'''
  *
- * @param functionsIndex the index for fast searching function. Contains all the
+ * @param functionsIndex the index for fast function searching. Contains all the
  *                     information needed to execute any function.
+ * @param modules list of WASM modules
  * @param hasher a hash function provider
  */
 class WasmVmImpl(
-  functionsIndex: WasmFnIndex,
-  modulesIndex: WasmModuleIndex,
+  functionsIndex: WasmFunctionsIndex,
+  modules: WasmModules,
   hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
 
@@ -70,15 +71,15 @@ class WasmVmImpl(
   }
 
   /**
-   * Returns hash of significant inner state of this VM. This function
-   * creates a hash for each module state and then in series concatenates its together.
+   * Returns hash of significant inner state of this VM. The function calculates
+   * hashes for the state of each module and then in series concatenates its together.
    * {{{
    *   vmStateHash = hash( hash( hash(module1), hash(module2) ), ...))
    * }}}
    * '''Note!''' It's very expensive operation try to avoid frequent use.
    */
   override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] =
-    modulesIndex
+    modules
       .foldLeft(EitherT.rightT[F, GetVmStateError](Array[Byte]())) {
         case (acc, instance) ⇒
           for {
@@ -100,10 +101,10 @@ class WasmVmImpl(
 
 object WasmVmImpl {
 
-  type WasmModuleIndex = List[ModuleInstance]
-  type WasmFnIndex = Map[FunctionId, WasmFunction]
+  type WasmModules = List[ModuleInstance]
+  type WasmFunctionsIndex = Map[FunctionId, WasmFunction]
 
-  /** Function id contains two components optional module name and function name. */
+  /** Function id contains two components: optional module name and function name. */
   case class FunctionId(moduleName: Option[String], functionName: String) {
     override def toString =
       s"'${ModuleInstance.nameAsStr(moduleName)}.$functionName'"
@@ -149,7 +150,7 @@ object WasmVmImpl {
     Try(castFn(arg).asInstanceOf[AnyRef]).toEither.left
       .map(e ⇒ InvalidArgError(errorMsg, Some(e)))
 
-  /** Safe array concatenation. Prevents  array overflow or OOM. */
+  /** Safe array concatenation. Prevents array overflow or OOM. */
   private def safeConcat[F[_]: LiftIO: Monad](
     first: Array[Byte],
     second: Array[Byte]
