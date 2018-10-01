@@ -67,13 +67,12 @@ export class Session {
     }
 
     /**
-     * Closes session, cancel and delete all promises.
+     * Marks session as closed.
      */
     private closeSession(reason: string) {
         if (!this.closed) {
             this.closed = true;
             this.closedStatus = reason;
-            this.lastResult.cancel(reason)
         }
     }
 
