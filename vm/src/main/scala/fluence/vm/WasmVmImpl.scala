@@ -20,7 +20,7 @@ import java.lang.reflect.Method
 import asmble.compile.jvm.AsmExtKt
 import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
-import cats.{Functor, Monad}
+import cats.{Functor, Monad, Traverse}
 import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.VmError.{InvalidArgError, _}
@@ -44,44 +44,42 @@ import scala.util.Try
 class WasmVmImpl(
   functionsIndex: WasmFunctionsIndex,
   modules: WasmModules,
-  hasher: Hasher[Array[Byte], Array[Byte]]
+  hasher: Hasher[Array[Byte], Array[Byte]],
+  allocateFunctionName: String,
+  deallocateFunctionName: String
 ) extends WasmVm {
 
-  /**
-    * Invokes given wasmFunction with provided arguments.
-    *
-    * @param wasmFunction WASM Function that should be invoked
-    * @param fnArgs arguments for invocation of provided function
-    * @return ''None'' if the function doesn't return the result, ''Some(Any)'' if
-    *         the function returns the result, ''VmError'' when something goes wrong.
-    */
-  def invoke[F[_]: LiftIO: Monad](
-    wasmFunction: WasmFunction,
-    fnArgs: Seq[String]
-  ): EitherT[F, InvokeError, Option[Any]] =
-    for {
-      arguments ← parseArguments(fnArgs, wasmFunction)
+  // TODO: since asmble now supports only one module (see Linker.kt for more info) we assume that allocation/
+  // deallocation functions placed together in it. In future it has to be refactored.
+  // TODO: module absence
+  val allocateFunction: Option[WasmFunction] =
+    functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent(allocateFunctionName)))
 
-      // invoke the function
-      result ← wasmFunction[F](arguments)
-    } yield if (wasmFunction.javaMethod.getReturnType == Void.TYPE) None else Option(result)
+  val deallocateFunction: Option[WasmFunction] =
+    functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent(deallocateFunctionName)))
 
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
     fnName: String,
     fnArgs: Seq[String]
   ): EitherT[F, InvokeError, Option[Any]] = {
-    val fnId = FunctionId(moduleName, AsmExtKt.getJavaIdent(fnName))
+    val functionId = FunctionId(moduleName, AsmExtKt.getJavaIdent(fnName))
 
     for {
       // Finds java method(wast fn) in the index by function id
       wasmFunction <- EitherT
         .fromOption(
-          functionsIndex.get(fnId),
-          NoSuchFnError(s"Unable to find a function with the name=$fnId")
+          functionsIndex.get(functionId),
+          NoSuchFnError(s"Unable to find a function with the name=$functionId")
         )
-      result <- invoke(wasmFunction, fnArgs)
-    } yield result
+
+      preprocessedArguments <- preprocessArguments(fnArgs, wasmFunction.module)
+      arguments ← parseArguments(preprocessedArguments, wasmFunction)
+
+      // invoke the function
+      result ← wasmFunction[F](arguments)
+      // TODO : In the current version it is expected that
+    } yield if (wasmFunction.javaMethod.getReturnType == Void.TYPE) None else Option(result)
 
   }
 
@@ -103,6 +101,54 @@ class WasmVmImpl(
           } yield resultHash
       }
       .map(ByteVector(_))
+
+  // TODO : cats effect resource
+  def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvalidArgError, AnyRef] =
+    EitherT.fromOption(
+      allocateFunction.map(fn => fn(Int.box(size) :: Nil)),
+      InvalidArgError(s"")
+    )
+
+  def deallocate[F[_]: LiftIO: Monad](pointer: Int): EitherT[F, InvalidArgError, AnyRef] =
+    EitherT.fromOption(
+      deallocateFunction.map(fn => fn(Int.box(pointer) :: Nil)),
+      InvalidArgError(s"")
+    )
+
+  /**
+    * This function preprocess each string parameter in tuple of (pointer and size)
+    *
+    * @param functionArguments arguments for calling this fn.
+    * @param moduleInstance module instance used for injecting string arguments to the WASM memory
+    * @tparam F a monad with an ability to absorb 'IO'
+    */
+  private def preprocessArguments[F[_]: LiftIO: Monad](
+     functionArguments: Seq[String],
+     moduleInstance: ModuleInstance
+   ) : EitherT[F, InvokeError, List[String]] = {
+    val ret: Seq[EitherT[F, InvokeError, List[String]]] =
+      functionArguments.map {
+        case stringArgument if stringArgument.startsWith("\"") ⇒
+          for {
+            pointer <- injectStringIntoWasmModule(stringArgument, moduleInstance)
+          } yield List(pointer.toString, stringArgument.length.toString)
+        case arg ⇒ EitherT.rightT[F, InvokeError](List(arg))
+      }
+
+    import cats.instances.list._
+    Traverse[List].flatSequence(ret.toList)
+   }
+
+  private def injectStringIntoWasmModule[F[_]: LiftIO: Monad](
+    str: String,
+    moduleInstance: ModuleInstance
+  ): EitherT[F, InvokeError, AnyRef] = {
+    for {
+      index <- allocate(str.length)
+      _ <- EitherT.rightT(moduleInstance.memory.get.put(
+        str.getBytes("UTF-8"), index.toString.toInt, str.length))
+    } yield index
+  }
 
 }
 

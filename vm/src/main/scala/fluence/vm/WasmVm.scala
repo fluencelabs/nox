@@ -135,7 +135,9 @@ object WasmVm {
       new WasmVmImpl(
         vmProps.functions,
         vmProps.modules,
-        cryptoHasher
+        cryptoHasher,
+        config.allocateFunctionName,
+        config.deallocateFunctionName
       )
   }
 
