@@ -164,10 +164,8 @@ export class ResultAwait {
 
             // here the session is checked after the result is checked, as it may happen that the result is given,
             // and after that the session was immediately closed
-            if (sessionInfo.nonEmpty) {
-                if (sessionInfo.get.status.Active === undefined) {
-                    throw error(`Session is ${JSON.stringify(sessionInfo.get.status)}`)
-                }
+            if (sessionInfo.exists((si) => si.status.Active === undefined)) {
+                throw error(`Session is ${JSON.stringify(sessionInfo.get.status)}`)
             }
 
             // wait for next check
