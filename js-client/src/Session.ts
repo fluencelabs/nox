@@ -14,21 +14,27 @@
  * limitations under the License.
  */
 
-import {ResultAwait} from "./ResultAwait";
-import {Result} from "./Result";
+import {ResultAwait, ResultError} from "./ResultAwait";
+import {Error, error, Result} from "./Result";
 import {genTxHex} from "./tx";
 import {TendermintClient} from "./TendermintClient";
 import {Client} from "./Client";
+import {SessionConfig} from "./SessionConfig";
 
 /**
  * It is an identifier around which client can build a queue of requests.
  */
 export class Session {
-    client: Client;
-    tm: TendermintClient;
-    session: string;
-    statusKey: string;
-    counter: number;
+    private readonly client: Client;
+    private readonly tm: TendermintClient;
+    private readonly session: string;
+    private readonly sessionSummaryKey: string;
+    private readonly config: SessionConfig;
+    private counter: number;
+    private lastResult: ResultAwait;
+    private closing: boolean;
+    private closed: boolean;
+    private closedStatus: string;
 
     private static genSessionId() {
         let randomstring = require("randomstring");
@@ -38,23 +44,42 @@ export class Session {
     /**
      * @param _tm transport to interact with the real-time cluster
      * @param _client an identifier and a signer
+     * @param _config parameters that regulate the session
      * @param _session session id, will be a random string with length 12 by default
      */
-    constructor(_tm: TendermintClient, _client: Client, _session: string = Session.genSessionId()) {
+    constructor(_tm: TendermintClient, _client: Client, _config: SessionConfig,
+                _session: string = Session.genSessionId()) {
         this.tm = _tm;
         this.client = _client;
-
         this.session = _session;
-        this.counter = 0;
+        this.config = _config;
 
-        this.statusKey = `@meta/${this.client.id}/${this.session}/@session_status`;
+        this.counter = 0;
+        this.closed = false;
+        this.closing = false;
+
+        this.sessionSummaryKey = `@meta/${this.client.id}/${this.session}/@sessionSummary`;
     }
 
     /**
      * Generates a key, that will be an identifier of the request.
      */
-    private targetKey() {
-        return `@meta/${this.client.id}/${this.session}/${this.counter}`;
+    private targetKey(counter: number) {
+        return `@meta/${this.client.id}/${this.session}/${counter}`;
+    }
+
+    /**
+     * Marks session as closed.
+     */
+    private markSessionAsClosed(reason: string) {
+        if (!this.closed) {
+            this.closed = true;
+            this.closedStatus = reason;
+        }
+    }
+
+    private getCounterAndIncrement() {
+        return this.counter++;
     }
 
     /**
@@ -62,21 +87,43 @@ export class Session {
      *
      * @param payload a command supported by the program in a virtual machine with arguments
      */
-    async submitRaw(payload: string): Promise<Result> {
+    invokeRaw(payload: string): ResultAwait | ResultError {
+        // throws an error immediately if the session is closed
+        if (this.closed) {
+            return new ResultError(`The session was closed. Cause: ${this.closedStatus}`)
+        }
 
-        let txHex = genTxHex(this.client, this.session, this.counter, payload);
+        if (this.closing) {
+            this.markSessionAsClosed(this.closedStatus)
+        }
 
-        let params = {tx: txHex};
+        // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
+        let currentCounter = this.getCounterAndIncrement();
 
-        //todo check if this request is successful
-        await this.tm.client.broadcastTxSync(params);
+        let txHex = genTxHex(this.client, this.session, currentCounter, payload);
 
-        let targetKey = this.targetKey();
+        // send transaction
+        let broadcastRequestPromise: Promise<void> = this.tm.broadcastTxSync(txHex).then((resp: any) => {
+            // close session if some error on sending transaction occurred
+            if (resp.code !== 0) {
+                let cause = `The session was closed after response with an error. Request payload: ${payload}, response: ${JSON.stringify(resp)}`;
+                this.markSessionAsClosed(cause);
+                throw error(cause)
+            }
+        });
 
-        //todo there should be a manager that syncs calls and increments counter only after a successful request
-        this.counter = this.counter + 1;
+        let targetKey = this.targetKey(currentCounter);
 
-        return new ResultAwait(this.tm, targetKey).result()
+        let callback = (err: Error) => {
+            // close session on error
+            this.markSessionAsClosed(err.error)
+        };
+
+        let resultAwait = new ResultAwait(this.tm, this.config, targetKey, this.sessionSummaryKey,
+            broadcastRequestPromise, callback);
+        this.lastResult = resultAwait;
+
+        return resultAwait;
     }
 
     /**
@@ -85,10 +132,28 @@ export class Session {
      * @param command a command supported by the program in a virtual machine
      * @param args arguments for command
      */
-    async submit(command: string, args: string[] = []): Promise<Result> {
+    invoke(command: string, args: string[] = []): ResultAwait | ResultError {
 
         let payload = command + `(${args.join(',')})`;
 
-        return this.submitRaw(payload);
+        return this.invokeRaw(payload);
+    }
+
+    /**
+     * Syncs on all pending invokes.
+     */
+    async sync(): Promise<Result> {
+        return this.lastResult.result();
+    }
+
+    /**
+     * Closes session locally and send a command to close the session on the cluster.
+     */
+    close(reason: string = ""): ResultAwait | ResultError {
+        this.closing = true;
+        this.closedStatus = reason;
+        let result = this.invoke("@closeSession");
+        result.result();
+        return result;
     }
 }

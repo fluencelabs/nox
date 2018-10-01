@@ -46,5 +46,5 @@ object HexCodec {
    * @param hex hex representation
    */
   def hexToString(hex: String): Either[String, String] =
-    ByteVector.fromHex(hex, Bases.Alphabets.HexUppercase).map(x => new String(x.toArray)).toRight("Cannot parse hex")
+    ByteVector.fromHexDescriptive(hex, Bases.Alphabets.HexUppercase).map(x => new String(x.toArray))
 }
