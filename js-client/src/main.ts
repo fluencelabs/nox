@@ -135,6 +135,38 @@ export class Tester {
         let result = await pr;
         console.log(`result after ${count} increments with error on ${threshold} increment: ` + JSON.stringify(result));
     }
+
+    async testCloseSession(count: number = 100) {
+        let s = this.genSession();
+
+        let init = await s.invoke("get").result();
+
+        console.log("increment initial result " + JSON.stringify(init));
+
+        let threshold = count / 2 + count / 4;
+
+        for(var i = 0; i < count; i++) {
+            if (i === threshold) {
+                //close the session with a call error
+                s.close();
+            } else {
+                s.invoke("inc")
+            }
+        }
+
+        try {
+            await s.sync();
+        } catch (e) {
+            console.log("An error occured: " + JSON.stringify(e));
+        }
+
+        let s2 = this.genSession();
+
+        let pr = s2.invoke("get").result();
+
+        let result = await pr;
+        console.log(`result after ${count} increments with error on ${threshold} increment: ` + JSON.stringify(result));
+    }
 }
 
 // add testIncrementAndMultiplyCluster method to global scope

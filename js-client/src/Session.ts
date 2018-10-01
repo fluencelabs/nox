@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {ResultAwait} from "./ResultAwait";
+import {ResultAwait, ResultError} from "./ResultAwait";
 import {Error, error, Result} from "./Result";
 import {genTxHex} from "./tx";
 import {TendermintClient} from "./TendermintClient";
@@ -32,6 +32,7 @@ export class Session {
     private readonly config: SessionConfig;
     private counter: number;
     private lastResult: ResultAwait;
+    private closing: boolean;
     private closed: boolean;
     private closedStatus: string;
 
@@ -55,6 +56,7 @@ export class Session {
 
         this.counter = 0;
         this.closed = false;
+        this.closing = false;
 
         this.sessionSummaryKey = `@meta/${this.client.id}/${this.session}/@sessionSummary`;
     }
@@ -69,7 +71,7 @@ export class Session {
     /**
      * Marks session as closed.
      */
-    private closeSession(reason: string) {
+    private markSessionAsClosed(reason: string) {
         if (!this.closed) {
             this.closed = true;
             this.closedStatus = reason;
@@ -85,10 +87,14 @@ export class Session {
      *
      * @param payload a command supported by the program in a virtual machine with arguments
      */
-    invokeRaw(payload: string): ResultAwait {
+    invokeRaw(payload: string): ResultAwait | ResultError {
         // throws an error immediately if the session is closed
         if (this.closed) {
-            throw error(`Session is closed. Cause: ${this.closedStatus}`)
+            return new ResultError(`The session was closed. Cause: ${this.closedStatus}`)
+        }
+
+        if (this.closing) {
+            this.markSessionAsClosed(this.closedStatus)
         }
 
         // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
@@ -101,7 +107,7 @@ export class Session {
             // close session if some error on sending transaction occurred
             if (resp.code !== 0) {
                 let cause = `The session was closed after response with an error. Request payload: ${payload}, response: ${JSON.stringify(resp)}`;
-                this.closeSession(cause);
+                this.markSessionAsClosed(cause);
                 throw error(cause)
             }
         });
@@ -110,7 +116,7 @@ export class Session {
 
         let callback = (err: Error) => {
             // close session on error
-            this.closeSession(err.error)
+            this.markSessionAsClosed(err.error)
         };
 
         let resultAwait = new ResultAwait(this.tm, this.config, targetKey, this.sessionSummaryKey,
@@ -126,7 +132,7 @@ export class Session {
      * @param command a command supported by the program in a virtual machine
      * @param args arguments for command
      */
-    invoke(command: string, args: string[] = []): ResultAwait {
+    invoke(command: string, args: string[] = []): ResultAwait | ResultError {
 
         let payload = command + `(${args.join(',')})`;
 
@@ -143,8 +149,11 @@ export class Session {
     /**
      * Closes session locally and send a command to close the session on the cluster.
      */
-    async close(reason: string = "") {
-        this.closeSession(reason);
-        return this.invoke("@closeSession")
+    close(reason: string = ""): ResultAwait | ResultError {
+        this.closing = true;
+        this.closedStatus = reason;
+        let result = this.invoke("@closeSession");
+        result.result();
+        return result;
     }
 }

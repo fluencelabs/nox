@@ -20,6 +20,19 @@ import {none, Option} from "ts-option";
 import {SessionSummary} from "./responses";
 import {SessionConfig} from "./SessionConfig";
 
+export class ResultError {
+
+    private readonly message: string;
+
+    constructor(_message: string) {
+        this.message = _message;
+    }
+
+    async result(): Promise<Result> {
+        throw error(this.message)
+    }
+}
+
 /**
  * Class with the ability to make request periodically until an answer is available.
  */
@@ -94,9 +107,6 @@ export class ResultAwait {
         } else {
             return this.invokeResult
         }
-
-
-
     }
 
     /**
