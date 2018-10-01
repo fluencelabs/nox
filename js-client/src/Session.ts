@@ -31,7 +31,7 @@ export class Session {
     private readonly sessionSummaryKey: string;
     private readonly config: SessionConfig;
     private counter: number;
-    private resultPromises: Set<ResultAwait>;
+    private lastResult: ResultAwait;
     private closed: boolean;
     private closedStatus: string;
 
@@ -54,7 +54,6 @@ export class Session {
         this.config = _config;
 
         this.counter = 0;
-        this.resultPromises = new Set<ResultAwait>();
         this.closed = false;
 
         this.sessionSummaryKey = `@meta/${this.client.id}/${this.session}/@sessionSummary`;
@@ -68,23 +67,13 @@ export class Session {
     }
 
     /**
-     * Cancels all promises that working now.
-     */
-    private cancelAllPromises(reason: string) {
-        for (let resultAwait of this.resultPromises) {
-            resultAwait.cancel(reason);
-        }
-        this.resultPromises = new Set<ResultAwait>();
-    }
-
-    /**
      * Closes session, cancel and delete all promises.
      */
     private closeSession(reason: string) {
         if (!this.closed) {
             this.closed = true;
             this.closedStatus = reason;
-            this.cancelAllPromises(reason)
+            this.lastResult.cancel(reason)
         }
     }
 
@@ -97,49 +86,39 @@ export class Session {
      *
      * @param payload a command supported by the program in a virtual machine with arguments
      */
-    async invokeRaw(payload: string): Promise<Result> {
-
-        // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
-        let currentCounter = this.getCounterAndIncrement();
-
+    invokeRaw(payload: string): ResultAwait {
         // throws an error immediately if the session is closed
         if (this.closed) {
             throw error(`Session is closed. Cause: ${this.closedStatus}`)
         }
 
+        // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
+        let currentCounter = this.getCounterAndIncrement();
+
         let txHex = genTxHex(this.client, this.session, currentCounter, payload);
 
         // send transaction
-        let resp = await this.tm.broadcastTxSync(txHex);
-
-        // close session if some error on sending transaction occurred
-        if (resp.code !== 0) {
-            let cause = `The session was closed after response with an error. Request payload: ${payload}, response: ${JSON.stringify(resp)}`;
-            this.closeSession(cause);
-            throw error(cause)
-        }
+        let broadcastRequestPromise: Promise<void> = this.tm.broadcastTxSync(txHex).then((resp: any) => {
+            // close session if some error on sending transaction occurred
+            if (resp.code !== 0) {
+                let cause = `The session was closed after response with an error. Request payload: ${payload}, response: ${JSON.stringify(resp)}`;
+                this.closeSession(cause);
+                throw error(cause)
+            }
+        });
 
         let targetKey = this.targetKey(currentCounter);
 
-        // starts checking if a response has appeared
-        let resultAwait = new ResultAwait(this.tm, targetKey, this.sessionSummaryKey);
-        this.resultPromises = this.resultPromises.add(resultAwait);
-        let pr: Promise<Result> = resultAwait.result(this.config.requestsPerSec,
-            this.config.checkSessionTimeout,
-            this.config.requestTimeout);
-
-
-
-        pr.then(() => {
-                // delete promise from set if all ok
-                this.resultPromises.delete(resultAwait);
-            }
-        ).catch((err: Error) => {
+        let callback = (err: Error) => {
             // close session on error
             this.closeSession(err.error)
-        });
+        };
 
-        return pr;
+        let resultAwait = new ResultAwait(this.tm, this.config, targetKey, this.sessionSummaryKey,
+            broadcastRequestPromise, callback);
+        this.lastResult = resultAwait;
+
+        return resultAwait;
     }
 
     /**
@@ -148,7 +127,7 @@ export class Session {
      * @param command a command supported by the program in a virtual machine
      * @param args arguments for command
      */
-    async invoke(command: string, args: string[] = []): Promise<Result> {
+    invoke(command: string, args: string[] = []): ResultAwait {
 
         let payload = command + `(${args.join(',')})`;
 
@@ -158,9 +137,8 @@ export class Session {
     /**
      * Syncs on all pending invokes.
      */
-    async sync(): Promise<Result[]> {
-        var promises: Promise<Result>[] = Array.from(this.resultPromises).map(v => v.result());
-        return Promise.all(promises);
+    async sync(): Promise<Result> {
+        return this.lastResult.result();
     }
 
     /**

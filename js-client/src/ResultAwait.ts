@@ -14,32 +14,43 @@
  * limitations under the License.
  */
 
-import {empty, error, Result, value} from "./Result";
+import {empty, error, Result, Error, value} from "./Result";
 import {TendermintClient} from "./TendermintClient";
 import {none, Option} from "ts-option";
 import {SessionSummary} from "./responses";
+import {SessionConfig} from "./SessionConfig";
 
 /**
  * Class with the ability to make request periodically until an answer is available.
  */
 export class ResultAwait {
     private readonly tm: TendermintClient;
+    private readonly config: SessionConfig;
     private readonly targetKey: string;
     private readonly summaryKey: string;
     private canceled: boolean;
     private canceledReason: string;
     private invokeResult: Promise<Result>;
+    private onError: (err: Error) => any;
+    private broadcastRequest: Promise<void>;
 
     /**
      *
      * @param _tm transport to the real-time cluster
+     * @param _config
      * @param _targetKey key to check restul from cluster
      * @param _summaryKey key to check session info from cluster
+     * @param _broadcastRequest will check for result only after this request will happen
+     * @param _onError callback on error
      */
-    constructor(_tm: TendermintClient, _targetKey: string, _summaryKey: string) {
+    constructor(_tm: TendermintClient, _config: SessionConfig, _targetKey: string,
+                _summaryKey: string, _broadcastRequest: Promise<void>, _onError: (err: Error) => void) {
         this.tm = _tm;
+        this.config = _config;
         this.targetKey = _targetKey;
         this.summaryKey = _summaryKey;
+        this.broadcastRequest = _broadcastRequest;
+        this.onError = _onError;
         this.canceled = false;
     }
 
@@ -67,12 +78,15 @@ export class ResultAwait {
      * @param responseTimeoutSec what time to check
      * @param requestTimeout the time after which the error occurs if the result has not yet been received
      */
-    async result(requestsPerSec: number = 2, responseTimeoutSec: number = 10, requestTimeout: number = 60): Promise<Result> {
+    async result(requestsPerSec: number = this.config.requestsPerSec, responseTimeoutSec: number = this.config.checkSessionTimeout, requestTimeout: number = this.config.requestTimeout): Promise<Result> {
 
         if (this.invokeResult === undefined) {
+            await this.broadcastRequest;
+
             const path = this.targetKey + "/result";
 
-            let pr = this.checkResultPeriodically(path, requestsPerSec, responseTimeoutSec, requestTimeout);
+            let pr = this.checkResultPeriodically(path, requestsPerSec, responseTimeoutSec, requestTimeout)
+                .catch(this.onError);
 
             this.invokeResult = pr;
 
@@ -115,19 +129,13 @@ export class ResultAwait {
      */
     private async checkResultPeriodically(path: string, requestsPerSec: number, responseTimeoutSec: number,
                                           requestTimeout: number): Promise<Result> {
-
-        let _i: number = 0;
         let sessionInfo: Option<SessionSummary> = none;
 
-        while(true) {
+        for(var _i = 0; _i < requestsPerSec * requestTimeout; _i++) {
 
             // checking result was canceled outside
             if (this.canceled) {
                 throw error(`The request was canceled. Cause: ${this.canceledReason}`)
-            }
-
-            if (_i > requestsPerSec * requestTimeout) {
-                throw error(`The request was timouted after ${requestTimeout} seconds.`)
             }
 
             // checks the session after some tries
@@ -144,8 +152,6 @@ export class ResultAwait {
                 return optionResult.get
             }
 
-            _i++;
-
             // here the session is checked after the result is checked, as it may happen that the result is given,
             // and after that the session was immediately closed
             if (sessionInfo.nonEmpty) {
@@ -157,6 +163,8 @@ export class ResultAwait {
             // wait for next check
             await this.sleep(1000 / requestsPerSec);
         }
+
+        throw error(`The request was timouted after ${requestTimeout} seconds.`)
     }
 
     /**

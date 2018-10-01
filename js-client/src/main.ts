@@ -55,31 +55,31 @@ export class Tester {
         console.log("new session created");
         console.log("lets increment");
 
-        await s.invokeRaw("inc()");
+        s.invokeRaw("inc()");
         s.invokeRaw("inc()");
         s.invokeRaw("inc()");
         s.invokeRaw("inc()");
 
         console.log("then get result");
 
-        let resGet = await s.invoke("get");
+        let resGet = await s.invoke("get").result();
         console.log(`result of incrementation is: ${JSON.stringify(resGet)}\n`);
 
         console.log("lets increment again");
 
-        await s.invokeRaw("inc()");
+        s.invokeRaw("inc()");
 
         console.log("then get result again");
 
-        let resGet2 = await s.invoke("get");
+        let resGet2 = await s.invoke("get").result();
         console.log(`result of incrementation is: ${JSON.stringify(resGet2)}\n`);
 
         console.log("lets multiply two numbers, 72 and 114");
-        let multiplyRes = await s.invoke("multiplier.mul", ["72", "114"]);
+        let multiplyRes = await s.invoke("multiplier.mul", ["72", "114"]).result();
         console.log(`and the result is: ${JSON.stringify(multiplyRes)}`);
 
         console.log("lets multiply two numbers, 53 and 856");
-        let multiplyRes2 = await s.invoke("multiplier.mul", ["53", "856"]);
+        let multiplyRes2 = await s.invoke("multiplier.mul", ["53", "856"]).result();
         console.log(`and the result is: ${JSON.stringify(multiplyRes2)}`);
     }
 
@@ -87,36 +87,35 @@ export class Tester {
 
         let s = this.genSession();
 
-        let init = await s.invoke("get");
+        let init = await s.invoke("get").result();
 
-        console.log("INIT = " + JSON.stringify(init));
+        console.log("increment initial result " + JSON.stringify(init));
 
         for(var i = 0; i < count; i++) {
             s.invoke("inc")
         }
 
-        console.log("INVOKE RESULT");
-
         let pr = s.invoke("get");
 
         await s.sync();
 
-        let result = await pr;
-        console.log("RESULT = " + JSON.stringify(result));
+        let result = await pr.result();
+        console.log(`result after ${count} increments: ` + JSON.stringify(result));
 
     }
 
-    async testCloseSession(count: number = 100) {
+    async testCloseSessionOnError(count: number = 100) {
         let s = this.genSession();
 
-        let init = await s.invoke("get");
+        let init = await s.invoke("get").result();
 
-        console.log("INIT = " + JSON.stringify(init));
+        console.log("increment initial result " + JSON.stringify(init));
 
         let threshold = count / 2 + count / 4;
 
         for(var i = 0; i < count; i++) {
             if (i === threshold) {
+                //close the session with a call error
                 s.invoke("random failed function");
             } else {
                 s.invoke("inc")
@@ -126,18 +125,15 @@ export class Tester {
         try {
             await s.sync();
         } catch (e) {
-            console.log("ERROR = " + e)
+            console.log("An error occured: " + JSON.stringify(e));
         }
-
-
-        console.log("INVOKE RESULT");
 
         let s2 = this.genSession();
 
-        let pr = s2.invoke("get");
+        let pr = s2.invoke("get").result();
 
         let result = await pr;
-        console.log("RESULT = " + JSON.stringify(result));
+        console.log(`result after ${count} increments with error on ${threshold} increment: ` + JSON.stringify(result));
     }
 }
 
