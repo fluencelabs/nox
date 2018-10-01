@@ -1,1 +1,0 @@
-docker run -p 26657:26657 -v /Users/sergeev/git/fluencelabs/fluence/container_data:/container_data statemachine/statemachine:latest

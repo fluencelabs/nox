@@ -94,30 +94,38 @@ lazy val statemachine = (project in file("statemachine"))
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
       scalaTest
     ),
-    test in assembly := {},
+    test in assembly := {}, // TODO: remove this line after SBT issue fix
     dockerfile in docker := {
+      // Run `sbt docker` to create image
+
       // The assembly task generates a fat JAR file
       val artifact: File = assembly.value
       val artifactTargetPath = s"/app/${artifact.name}"
+
       val tmVersion = "0.23.0"
       val tmDataRoot = "/tendermint"
+      val tmBinaryArchive = s"tendermint_${tmVersion}_linux_amd64.zip"
+      val tmBinaryUrl = s"https://github.com/tendermint/tendermint/releases/download/v$tmVersion/$tmBinaryArchive"
+      val tmP2pPort = 26656
+      val tmRpcPort = 26657
+
+      val smDataRoot = "/statemachine"
+      val smRunScript = s"$smDataRoot/run-node.sh"
 
       new Dockerfile {
         from("xqdocker/ubuntu-openjdk:jre-8")
         run("apt", "-yqq", "update")
         run("apt", "-yqq", "install", "wget", "curl", "jq", "unzip", "screen")
-        run("wget", s"https://github.com/tendermint/tendermint/releases/download/v${tmVersion}/tendermint_${tmVersion}_linux_amd64.zip")
-        run("unzip", "-d", "/bin", s"tendermint_${tmVersion}_linux_amd64.zip")
+        run("wget", tmBinaryUrl)
+        run("unzip", "-d", "/bin", tmBinaryArchive)
 
-        run("mkdir", tmDataRoot)
-        expose(26656, 26657)
-        //volume(tmDataRoot)
-
-        run("tendermint", "init", s"--home=$tmDataRoot")
+        expose(tmP2pPort)
+        expose(tmRpcPort)
+        volume(tmDataRoot)
 
         add(artifact, artifactTargetPath)
 
-        entryPoint("bash", "/container_data/run-node.sh", tmDataRoot, artifactTargetPath)
+        entryPoint("bash", smRunScript, tmDataRoot, smDataRoot, artifactTargetPath)
       }
     }
   )
