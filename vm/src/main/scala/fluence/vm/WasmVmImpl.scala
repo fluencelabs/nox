@@ -47,6 +47,25 @@ class WasmVmImpl(
   hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
 
+  /**
+    * Invokes given wasmFunction with provided arguments.
+    *
+    * @param wasmFunction WASM Function that should be invoked
+    * @param fnArgs arguments for invocation of provided function
+    * @return ''None'' if the function doesn't return the result, ''Some(Any)'' if
+    *         the function returns the result, ''VmError'' when something goes wrong.
+    */
+  def invoke[F[_]: LiftIO: Monad](
+    wasmFunction: WasmFunction,
+    fnArgs: Seq[String]
+  ): EitherT[F, InvokeError, Option[Any]] =
+    for {
+      arguments ← parseArguments(fnArgs, wasmFunction)
+
+      // invoke the function
+      result ← wasmFunction[F](arguments)
+    } yield if (wasmFunction.javaMethod.getReturnType == Void.TYPE) None else Option(result)
+
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
     fnName: String,
@@ -56,28 +75,16 @@ class WasmVmImpl(
 
     for {
       // Finds java method(wast fn) in the index by function id
-      wasmFn <- EitherT
+      wasmFunction <- EitherT
         .fromOption(
           functionsIndex.get(fnId),
           NoSuchFnError(s"Unable to find a function with the name=$fnId")
         )
-
-      arguments ← parseArguments(fnArgs, wasmFn)
-
-      // invoke the function
-      result ← wasmFn[F](arguments)
-    } yield if (wasmFn.javaMethod.getReturnType == Void.TYPE) None else Option(result)
+      result <- invoke(wasmFunction, fnArgs)
+    } yield result
 
   }
 
-  /**
-   * Returns hash of significant inner state of this VM. The function calculates
-   * hashes for the state of each module and then in series concatenates its together.
-   * {{{
-   *   vmStateHash = hash( hash( hash(module1), hash(module2) ), ...))
-   * }}}
-   * '''Note!''' It's very expensive operation try to avoid frequent use.
-   */
   override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] =
     modules
       .foldLeft(EitherT.rightT[F, GetVmStateError](Array[Byte]())) {
@@ -111,8 +118,8 @@ object WasmVmImpl {
   }
 
   /**
-   * Representation for each WASM function. Contains inside reference to module
-   * instance and java method [[java.lang.reflect.Method]].
+   * Representation for each WASM function. Contains reference to module instance
+   * and java method [[java.lang.reflect.Method]].
    *
    * @param functionId a full name of this function (moduleName + functionName)
    * @param javaMethod a java method [[java.lang.reflect.Method]] for calling fn.
