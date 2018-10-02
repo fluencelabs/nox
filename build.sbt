@@ -47,7 +47,7 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
 
       val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
       val projectRoot = file("").getAbsolutePath
-      val cmd = s"sh vm/examples/run_example.sh counter $projectRoot $scalaVer"
+      val cmd = s"sh vm/examples/run_example.sh counter counter $projectRoot $scalaVer"
 
       log.info(s"Running $cmd")
 
@@ -57,7 +57,7 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .dependsOn(vm)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `vm-sqldb` = (project in file("vm/examples/sqldb"))
+lazy val `vm-sqldb-v0` = (project in file("vm/examples/sqldb-v0"))
   .settings(
     commons,
     assemblyJarName in assembly := "sqldb.jar",
@@ -68,7 +68,7 @@ lazy val `vm-sqldb` = (project in file("vm/examples/sqldb"))
 
       val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
       val projectRoot = file("").getAbsolutePath
-      val cmd = s"sh vm/examples/run_example.sh sqldb $projectRoot $scalaVer"
+      val cmd = s"sh vm/examples/run_example.sh sqldb sqldb-v0 $projectRoot $scalaVer"
 
       log.info(s"Running $cmd")
 

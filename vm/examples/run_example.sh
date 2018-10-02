@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 exampleName=$1
-projectDir=$2
-scalaVer=$3
+exampleDirName=$2
+projectDir=$3
+scalaVer=$4
 
-exampleFolder="$projectDir/vm/examples/$exampleName"
+exampleFolder="$projectDir/vm/examples/$exampleDirName"
 prefix="<run_example.sh>"
 
 if [ ! -d "$exampleFolder" ]; then
@@ -24,7 +25,7 @@ fi
 
 printf "$prefix Build from WASM code executable WasmVM jar\n"
 
-sbt "vm-$exampleName"/assembly
+sbt "vm-$exampleDirName"/assembly
 
 printf "$prefix Run example $exampleName.jar\n"
 
