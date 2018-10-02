@@ -247,7 +247,7 @@ lazy_static! {
         Table::build(
             vec![
                 // table with crypto currencies
-                // id, symbol, price, moth
+                // id, symbol, price, month
                 vec![0, 0, 6500, 10],
                 vec![1, 1, 450,  10],
                 vec![2, 2, 100,  10],
