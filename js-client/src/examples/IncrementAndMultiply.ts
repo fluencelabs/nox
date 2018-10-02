@@ -22,23 +22,32 @@ import {Session} from "../Session";
 
 class IncrementAndMultiply {
 
+    // a session is needed for ordered transactions, you can use multiple sessions if needed
     private session: Session;
 
     constructor(host: string, port: number) {
+        // there is initializing RPC to tendermint cluster
         let tm = new TendermintClient(host, port);
 
+        // creates engine that can start new sessions
         let engine = new Engine(tm);
 
         // default signing key for now
+        // signing key can be generated or received after some authorize processes
         let signingKey = "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==";
+
+        // creates signer that can sign messages
         let signer = new Signer(signingKey);
 
         // `client002` is a default client for now
+        // creates client with id and signer
         let client = new Client("client002", signer);
 
+        // generates the random session. If you want to generate session on your own - use createSession(client, "some-id")
         this.session = engine.genSession(client);
     }
 
+    // uses the session to submit commands you want to
     async incrementCounter() {
         console.log("do increment");
         return this.session.invoke("inc");

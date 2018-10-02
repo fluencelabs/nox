@@ -36,7 +36,7 @@ For interaction with the default `increment and multiply` cluster you can use `I
 If we have a local cluster, we can initialize client like this:
 
 ```typescript
-let client = new IncrementAndMultiply("localhost", 46157)
+let client = new IncrementAndMultiply("localhost", 46157);
 ```
 
 Than we can use built-in functions:
@@ -46,23 +46,23 @@ Than we can use built-in functions:
 client.incrementCounter();
 
 // get result after counter
-let counter = client.getCounter()
-console.log(JSON.stringify(counter))
+let counter = await client.getCounter().result();
+console.log(JSON.stringify(counter));
 
 // get result of moltiplying
-let res = client.multiply(107, 124)
+let res = await client.multiply(107, 124).result();
 
 // should be 13268
-console.log(JSON.stringify(res))
+console.log(JSON.stringify(res));
 ```
 
 If you deployed your own code, you can use `CustomCommands`
 
 ```typescript
-let client = new CustomCommands("localhost", 46157)
+let client = new CustomCommands("localhost", 46157);
 
 // will return some result based on logic of deployed code
-client.submit("<some-custom-command>")
+let res = await client.submit("<some-custom-command>").result();
 ```
 
 If you want to write your own library, you can use `IncrementAndMultiply.ts` as a basis:
@@ -86,35 +86,40 @@ class IncrementAndMultiply {
         // creates engine that can start new sessions
         let engine = new Engine(tm);
 
+        // default signing key for now
         // signing key can be generated or received after some authorize processes
-        let signingKey = "<signing-key>";
+        let signingKey = "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==";
 
         // creates signer that can sign messages
         let signer = new Signer(signingKey);
 
+        // `client002` is a default client for now
         // creates client with id and signer
         let client = new Client("client002", signer);
 
         // generates the random session. If you want to generate session on your own - use createSession(client, "some-id")
-        this.session = engine.newSession(client);
+        this.session = engine.genSession(client);
     }
 
     // uses the session to submit commands you want to
     async incrementCounter() {
         console.log("do increment");
-        return this.session.submit("inc");
+        return this.session.invoke("inc");
     }
 
     async getCounter() {
-        let res = await this.session.submit("get");
+        let res = await this.session.invoke("get");
         console.log(`get result is: ${JSON.stringify(res)}`);
         return res
     }
 
     async multiply(first: number, second: number) {
-        let res = await this.session.submit("multiplier.mul", [first.toString(), second.toString()]);
+        let res = await this.session.invoke("multiplier.mul", [first.toString(), second.toString()]).result();
         console.log(`multiply result is: ${JSON.stringify(res)}`);
         return res;
     }
 }
 ```
+
+Other examples you can see in the [examples](https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples) folder.
+
