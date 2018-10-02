@@ -35,10 +35,16 @@ object LlamaDbRunner extends IOApp {
 
       // select * from Quotations;
       res ← vm.invoke[IO](None, "set_query_wildcard") // invoke WASM select
+      ptr ← vm.invoke[IO](None, "alloc", Seq("100"))
+      allocateState ← vm.getVmState[IO]
+      _ ← vm.invoke[IO](None, "dealloc", Seq(ptr.get.toString, "100"))
+      deallocateState ← vm.getVmState[IO]
 
       finishState ← vm.getVmState[IO].toVmError
     } yield {
       s"select * from Table; $res \n" +
+        s"pointer=$ptr \n" +
+        s"stateAfterAlloc=$allocateState,  deallocateState=$deallocateState \n" +
         s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
         s"finishState=$finishState"
