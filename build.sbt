@@ -113,6 +113,8 @@ lazy val statemachine = (project in file("statemachine"))
       val smDataRoot = "/statemachine"
       val smRunScript = s"$smDataRoot/run-node.sh"
 
+      val vmDataRoot = "/vmcode"
+
       new Dockerfile {
         from("xqdocker/ubuntu-openjdk:jre-8")
         run("apt", "-yqq", "update")
@@ -123,7 +125,10 @@ lazy val statemachine = (project in file("statemachine"))
         expose(tmP2pPort)
         expose(tmRpcPort)
         expose(tmPrometheusPort)
+
         volume(tmDataRoot)
+        volume(smDataRoot)
+        volume(vmDataRoot)
 
         add(artifact, artifactTargetPath)
 

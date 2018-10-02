@@ -16,6 +16,8 @@
 
 package fluence.statemachine
 
+import java.io.{File, FileNotFoundException}
+
 import cats.Monad
 import cats.data.EitherT
 import cats.effect.concurrent.MVar
@@ -30,7 +32,9 @@ import fluence.vm.WasmVm
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
 
+import scala.collection.JavaConverters
 import scala.language.higherKinds
+import scala.util.Try
 
 /**
  * Main class for the State machine.
@@ -86,7 +90,9 @@ object ServerRunner extends IOApp with LazyLogging {
           e => ConfigLoadingError("ConfigLoadingError", "Unable to read StateMachineConfig: " + e.toList)
         )
 
-      vm <- buildVm[IO](config)
+      moduleFilenames <- moduleFilesFromConfig[IO](config)
+      _ = logger.info("Loading VM modules from " + moduleFilenames)
+      vm <- buildVm[IO](moduleFilenames)
       vmInvoker = new VmOperationInvoker[IO](vm)
 
       initialState <- EitherT.right(MVar[IO].of(TendermintState.initial))
@@ -116,10 +122,33 @@ object ServerRunner extends IOApp with LazyLogging {
   /**
    * Builds a VM instance used to perform function calls from the clients.
    *
-   * @param config config object to load VM setting
+   * @param moduleFiles TODO:
    */
-  private def buildVm[F[_]: Monad](config: StateMachineConfig): EitherT[F, StateMachineError, WasmVm] =
-    WasmVm[F](config.moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
+  private def buildVm[F[_]: Monad](moduleFiles: Seq[String]): EitherT[F, StateMachineError, WasmVm] =
+    WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
+
+  private def moduleFilesFromConfig[F[_]: Monad](
+    config: StateMachineConfig
+  ): EitherT[F, StateMachineError, Seq[String]] =
+    EitherT.fromEither[F](
+      config.moduleFiles
+        .map(
+          name =>
+            Try({
+              val file = new File(name)
+              if (!file.exists())
+                throw new FileNotFoundException(name)
+              else if (file.isDirectory)
+                file.listFiles().toList
+              else
+                List(file)
+            }).toEither.left.map(x => ConfigLoadingError("", ""))
+        )
+        .partition(_.isLeft) match {
+        case (Nil, files) => Right(for (Right(f) <- files) yield f).map(_.flatten.map(_.getPath))
+        case (errors, _) => Left(for (Left(s) <- errors) yield s).left.map(_.head)
+      }
+    )
 
   /**
    * Configures `slogging` logger.
