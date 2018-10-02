@@ -131,9 +131,10 @@ class WasmVmImpl(
         case stringArgument if stringArgument.startsWith("\"")
             && stringArgument.endsWith("\"")
             && stringArgument.length >= 2 ⇒
+          // it is valid String parameter
           for {
-            pointer <- injectStringIntoWasmModule(stringArgument, moduleInstance)
-          } yield List(pointer.toString, stringArgument.length.toString)
+            pointer <- injectStringIntoWasmModule(stringArgument.substring(1, stringArgument-1), moduleInstance)
+          } yield List(pointer.toString, (stringArgument.length - 2).toString)
         case arg ⇒ EitherT.rightT[F, InvokeError](List(arg))
       }
 
