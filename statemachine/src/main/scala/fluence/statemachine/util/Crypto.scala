@@ -18,16 +18,18 @@ package fluence.statemachine.util
 
 import java.util.Base64
 
+import cats.instances.try_._
+import fluence.crypto.hash.CryptoHashers
 import fluence.statemachine.PublicKey
 import fluence.statemachine.tree.MerkleHash
-import net.i2p.crypto.eddsa.spec.{EdDSANamedCurveTable, EdDSAPublicKeySpec}
+import net.i2p.crypto.eddsa.spec.{EdDSANamedCurveSpec, EdDSANamedCurveTable, EdDSAPublicKeySpec}
 import net.i2p.crypto.eddsa.{EdDSAEngine, EdDSAPublicKey}
 import org.bouncycastle.jcajce.provider.digest.SHA3
 import scodec.bits.ByteVector
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
-object Crypto {
+object Crypto extends slogging.LazyLogging {
 
   /**
    * Verifies suggested `signature` of given `data` against known EdDSA-25519 `publicKey`.
@@ -39,17 +41,22 @@ object Crypto {
    */
   def verify(signature: String, data: String, publicKey: PublicKey): Boolean = {
     val verificationPassed = for {
-      signatureBytes <- Try(Base64.getDecoder.decode(signature)).toEither
-      dataBytes <- Try(data.getBytes("UTF-8")).toEither
-      publicKeyBytes <- Try(Base64.getDecoder.decode(publicKey)).toEither
+      signatureBytes <- Try(Base64.getDecoder.decode(signature))
+      dataBytes <- Try(data.getBytes("UTF-8"))
+      hashed <- CryptoHashers.Sha256.runF[Try](dataBytes)
+      publicKeyBytes <- Try(Base64.getDecoder.decode(publicKey))
 
-      edParams <- Option(EdDSANamedCurveTable.getByName(EdDSANamedCurveTable.ED_25519)).toRight("Curve spec not found")
-      keySpec <- Try(new EdDSAPublicKeySpec(publicKeyBytes, edParams)).toEither
+      edParams <- Option(EdDSANamedCurveTable.getByName(EdDSANamedCurveTable.ED_25519))
+        .fold[Try[EdDSANamedCurveSpec]](Failure(new Exception()))(Success(_))
+      keySpec <- Try(new EdDSAPublicKeySpec(publicKeyBytes, edParams))
 
       key = new EdDSAPublicKey(keySpec)
       engine = new EdDSAEngine()
-      _ <- Try(engine.initVerify(key)).toEither
-    } yield engine.verifyOneShot(dataBytes, signatureBytes)
+      _ <- Try(engine.initVerify(key))
+    } yield engine.verifyOneShot(hashed, signatureBytes)
+    verificationPassed.failed.foreach { e =>
+      logger.error("An error on verifying signature: " + e.getMessage)
+    }
     verificationPassed.getOrElse(false)
   }
 

@@ -17,12 +17,13 @@
 import {TendermintClient} from "./TendermintClient";
 import {Session} from "./Session";
 import {Client} from "./Client";
+import {SessionConfig} from "./SessionConfig";
 
 /**
  * An entry point for the client.
  */
 export class Engine {
-    tm: TendermintClient;
+    readonly tm: TendermintClient;
 
     /**
      * @param _tm transport client for interaction with the cluster
@@ -34,17 +35,19 @@ export class Engine {
     /**
      * Creates a new session with a random identifier with the real-time cluster.
      * @param client identifier of a client and a signer
+     * @param config parameters that regulate the session
      */
-    genSession(client: Client): Session {
-        return new Session(this.tm, client)
+    genSession(client: Client, config: SessionConfig = new SessionConfig()): Session {
+        return new Session(this.tm, client, config)
     }
 
     /**
      * Creates new session with the real-time cluster.
      * @param client identifier of the client and the signer
+     * @param config parameters that regulate the session
      * @param sessionId session identifier
      */
-    createSession(client: Client, sessionId: string): Session {
-        return new Session(this.tm, client, sessionId)
+    createSession(client: Client, config: SessionConfig = new SessionConfig(), sessionId: string): Session {
+        return new Session(this.tm, client, config, sessionId)
     }
 }

@@ -20,8 +20,8 @@ import {Signer} from "./Signer";
  * Representation of a client with an identifier and an ability to make signatures.
  */
 export class Client {
-    id: string;
-    signer: Signer;
+    readonly id: string;
+    readonly signer: Signer;
 
     /**
      * @param _id client's identifier. Can be any string

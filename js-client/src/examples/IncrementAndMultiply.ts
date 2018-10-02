@@ -41,17 +41,17 @@ class IncrementAndMultiply {
 
     async incrementCounter() {
         console.log("do increment");
-        return this.session.submit("inc");
+        return this.session.invoke("inc");
     }
 
     async getCounter() {
-        let res = await this.session.submit("get");
+        let res = await this.session.invoke("get");
         console.log(`get result is: ${JSON.stringify(res)}`);
         return res
     }
 
     async multiply(first: number, second: number) {
-        let res = await this.session.submit("multiplier.mul", [first.toString(), second.toString()]);
+        let res = await this.session.invoke("multiplier.mul", [first.toString(), second.toString()]);
         console.log(`multiply result is: ${JSON.stringify(res)}`);
         return res;
     }
