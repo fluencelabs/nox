@@ -128,7 +128,9 @@ class WasmVmImpl(
    ) : EitherT[F, InvokeError, List[String]] = {
     val ret: Seq[EitherT[F, InvokeError, List[String]]] =
       functionArguments.map {
-        case stringArgument if stringArgument.startsWith("\"") ⇒
+        case stringArgument if stringArgument.startsWith("\"")
+            && stringArgument.endsWith("\"")
+            && stringArgument.length >= 2 ⇒
           for {
             pointer <- injectStringIntoWasmModule(stringArgument, moduleInstance)
           } yield List(pointer.toString, stringArgument.length.toString)
