@@ -39,9 +39,10 @@ object FunctionCallDescription {
    */
   val CloseSession = FunctionCallDescription(None, "@closeSession", Nil)
 
-  private val FunctionWithModuleAndArgListPattern: Regex = "(\\w+)\\.(\\w+)\\(([\\w,]*)\\)".r
-  private val FunctionWithoutModuleAndArgListPattern: Regex = "([\\w\\@]\\w*)\\(([\\w,]*)\\)".r
-  private val NonEmptyArgListPattern: Regex = "\\w+(,\\w+)*".r
+  // todo: it should parse string arguments with an any symbol
+  private val FunctionWithModuleAndArgListPattern: Regex = "(\\w+)\\.(\\w+)\\(([\\w-,]*)\\)".r
+  private val FunctionWithoutModuleAndArgListPattern: Regex = "([\\w\\@]\\w*)\\(([\\w-,]*)\\)".r
+  private val NonEmptyArgListPattern: Regex = "[\\w-]+(,[\\w-]+)*".r
 
   /**
    * Parses text payload in `[moduleName].functionName(arg1, ..., argN)` format to a typed function call description.
