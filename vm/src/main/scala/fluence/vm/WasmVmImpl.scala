@@ -49,7 +49,7 @@ class WasmVmImpl(
   deallocateFunctionName: String
 ) extends WasmVm {
 
-  // TODO: since asmble now supports only one module (see Linker.kt for more info) we assume that allocation/
+  // TODO: since now asmble supports only one module (see Linker.kt for more info) we assume that allocation/
   // deallocation functions placed together in it. In future it has to be refactored.
   // TODO: module absence
   val allocateFunction: Option[WasmFunction] =
@@ -103,16 +103,16 @@ class WasmVmImpl(
       .map(ByteVector(_))
 
   // TODO : cats effect resource
-  def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvalidArgError, AnyRef] =
+  def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] =
     EitherT.fromOption(
       allocateFunction.map(fn => fn(Int.box(size) :: Nil)),
-      InvalidArgError(s"")
+      NoSuchFnError(s"Unable to find the function for memory allocation with the name=$allocateFunctionName")
     )
 
-  def deallocate[F[_]: LiftIO: Monad](pointer: Int): EitherT[F, InvalidArgError, AnyRef] =
+  def deallocate[F[_]: LiftIO: Monad](pointer: Int): EitherT[F, InvokeError, AnyRef] =
     EitherT.fromOption(
       deallocateFunction.map(fn => fn(Int.box(pointer) :: Nil)),
-      InvalidArgError(s"")
+      NoSuchFnError(s"Unable to find the function for memory deallocation with the name=$deallocateFunctionName")
     )
 
   /**
