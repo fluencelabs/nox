@@ -108,6 +108,7 @@ lazy val statemachine = (project in file("statemachine"))
       val tmBinaryUrl = s"https://github.com/tendermint/tendermint/releases/download/v$tmVersion/$tmBinaryArchive"
       val tmP2pPort = 26656
       val tmRpcPort = 26657
+      val tmPrometheusPort = 26660
 
       val smDataRoot = "/statemachine"
       val smRunScript = s"$smDataRoot/run-node.sh"
@@ -121,6 +122,7 @@ lazy val statemachine = (project in file("statemachine"))
 
         expose(tmP2pPort)
         expose(tmRpcPort)
+        expose(tmPrometheusPort)
         volume(tmDataRoot)
 
         add(artifact, artifactTargetPath)
