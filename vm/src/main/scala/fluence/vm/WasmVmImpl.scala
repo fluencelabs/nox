@@ -49,9 +49,9 @@ class WasmVmImpl(
   deallocateFunctionName: String
 ) extends WasmVm {
 
-  // TODO: since now asmble supports only one module (see Linker.kt for more info) we assume that allocation/
-  // deallocation functions placed together in it. In future it has to be refactored.
-  // TODO: module absence
+  // TODO: now it is assumed that allocation/deallocation functions placed together in the first module.
+  // In future it has to be refactored.
+  // TODO: add handling of empty modules list.
   val allocateFunction: Option[WasmFunction] =
     functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent(allocateFunctionName)))
 
@@ -78,7 +78,8 @@ class WasmVmImpl(
 
       // invoke the function
       result ← wasmFunction[F](arguments)
-      // TODO : In the current version it is expected that
+      // TODO : In the current version it is expected that callee clean memory by itself, but
+      // in future it has to be done by caller through deallocate function call
     } yield if (wasmFunction.javaMethod.getReturnType == Void.TYPE) None else Option(result)
 
   }
@@ -103,22 +104,24 @@ class WasmVmImpl(
       .map(ByteVector(_))
 
   // TODO : cats effect resource
-  def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] =
+  def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] = {
     EitherT.fromOption(
-      allocateFunction.map(fn => fn(Int.box(size) :: Nil)),
+      allocateFunction.map(fn => fn(size.asInstanceOf[AnyRef] :: Nil)),
       NoSuchFnError(s"Unable to find the function for memory allocation with the name=$allocateFunctionName")
     )
+  }
 
   def deallocate[F[_]: LiftIO: Monad](pointer: Int): EitherT[F, InvokeError, AnyRef] =
     EitherT.fromOption(
-      deallocateFunction.map(fn => fn(Int.box(pointer) :: Nil)),
+      deallocateFunction.map(fn => fn(pointer.asInstanceOf[AnyRef] :: Nil)),
       NoSuchFnError(s"Unable to find the function for memory deallocation with the name=$deallocateFunctionName")
     )
 
   /**
-    * This function preprocess each string parameter in tuple of (pointer and size)
+    * Preprocesses each string parameter injects it into WASM module memory (through
+    * injectStringIntoWasmModule) and replace with two: pointer to it in WASM module and size.
     *
-    * @param functionArguments arguments for calling this fn.
+    * @param functionArguments arguments for calling this fn
     * @param moduleInstance module instance used for injecting string arguments to the WASM memory
     * @tparam F a monad with an ability to absorb 'IO'
     */
@@ -133,7 +136,7 @@ class WasmVmImpl(
             && stringArgument.length >= 2 ⇒
           // it is valid String parameter
           for {
-            pointer <- injectStringIntoWasmModule(stringArgument.substring(1, stringArgument-1), moduleInstance)
+            pointer <- injectStringIntoWasmModule(stringArgument.substring(1, stringArgument.length - 1), moduleInstance)
           } yield List(pointer.toString, (stringArgument.length - 2).toString)
         case arg ⇒ EitherT.rightT[F, InvokeError](List(arg))
       }
@@ -142,16 +145,22 @@ class WasmVmImpl(
     Traverse[List].flatSequence(ret.toList)
    }
 
+  /**
+    * Injects given string into WASM module memory
+    *
+    * @param injectedString string that should be inserted into WASM module memory
+    * @param moduleInstance module instance used as a provider for WASM module memory access
+    * @tparam F a monad with an ability to absorb 'IO'
+    */
   private def injectStringIntoWasmModule[F[_]: LiftIO: Monad](
-    str: String,
+    injectedString: String,
     moduleInstance: ModuleInstance
-  ): EitherT[F, InvokeError, AnyRef] = {
+  ): EitherT[F, InvokeError, AnyRef] =
     for {
-      index <- allocate(str.length)
-      _ <- EitherT.rightT(moduleInstance.memory.get.put(
-        str.getBytes("UTF-8"), index.toString.toInt, str.length))
-    } yield index
-  }
+      address <- allocate(injectedString.length)
+      _ <- EitherT.rightT(injectedString.getBytes("UTF-8").
+        map(byte => moduleInstance.memory.get.put(address.toString.toInt, byte)))
+    } yield address.asInstanceOf[AnyRef]
 
 }
 
@@ -217,7 +226,7 @@ object WasmVmImpl {
   }
 
   private def parseArguments[F[_]: LiftIO: Monad](
-    fnArgs: Seq[String],
+    fnArgs: List[String],
     wasmFn: WasmFunction
   ): EitherT[F, InvalidArgError, List[AnyRef]] = {
 

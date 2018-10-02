@@ -228,6 +228,22 @@ class WasmVmImplSpec extends WordSpec with Matchers {
         res.success()
       }
 
+      "simple test for string passing" in {
+        val counterFile = getClass.getResource("/wast/simple-memory-allocating.wast").getPath
+        val testResult = 'X'
+
+        val res = for {
+          vm ← WasmVm[IO](Seq(counterFile))
+          value1 ← vm.invoke[IO](None, "test", Seq("\"test_argument\""))
+          value2 ← vm.invoke[IO](None, "test", Seq("\"test_argument_" + testResult + "\""))
+          state ← vm.getVmState[IO].toVmError
+        } yield {
+          value1 shouldBe Some(90)
+        }
+
+        res.success()
+      }
+
     }
   }
 
