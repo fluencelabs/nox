@@ -101,9 +101,14 @@ export function printQuotations(arr: Quotation[]) {
     })
 }
 
-function singleInt(arr: Result[]): number {
-    if (arr.length != 1) throw error("Wrong format. Length of values must be 1 for a single int response.");
-    let v = arr[0];
+/**
+ * Parse array of fields as one integer number.
+ *
+ * @param fields an array of results of fields requests
+ */
+function singleInt(fields: Result[]): number {
+    if (fields.length != 1) throw error("Wrong format. Length of values must be 1 for a single int response.");
+    let v = fields[0];
     if (isValue(v)) {
         return parseInt(v.value)
     } else {
@@ -111,9 +116,14 @@ function singleInt(arr: Result[]): number {
     }
 }
 
-function singleFloat(arr: Result[]): number {
-    if (arr.length != 1) throw error("Wrong format. Length of values must be 1 for a single float response.");
-    let v = arr[0];
+/**
+ * Parse array of fields as one float number.
+ *
+ * @param fields an array of results of fields requests
+ */
+function singleFloat(fields: Result[]): number {
+    if (fields.length != 1) throw error("Wrong format. Length of values must be 1 for a single float response.");
+    let v = fields[0];
     if (isValue(v)) {
         return parseFloat(v.value)
     } else {
@@ -121,10 +131,15 @@ function singleFloat(arr: Result[]): number {
     }
 }
 
-export function toQuotation(arr: Result[]): Quotation {
-    if (arr.length != 4) throw error("Wrong format. Length of values must be 4 for the parsing of quotation.");
+/**
+ * Parse array of fields as a Quotation interfact.
+ *
+ * @param fields an array of results of fields requests
+ */
+export function toQuotation(fields: Result[]): Quotation {
+    if (fields.length != 4) throw error("Wrong format. Length of values must be 4 for the parsing of quotation.");
 
-    let mapped = arr.map((v) => {
+    let mapped = fields.map((v) => {
         if (isValue(v)) {
             return v;
         } else {
