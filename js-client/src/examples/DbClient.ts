@@ -91,13 +91,13 @@ export class DbClient {
 
 
     private async getRows0<T>(fetch: number, fields: number, parser: (arr: Result[]) => T, acc: Promise<Option<T>>[]): Promise<Promise<Option<T>>[]> {
-        var fetched: [boolean, Promise<Option<T>>[]] = await this.fetchRows(fetch, fields, parser);
+        let fetched: [boolean, Promise<Option<T>>[]] = await this.fetchRows(fetch, fields, parser);
 
-        var cont: boolean = fetched[0];
+        let hasMoreRows: boolean = fetched[0];
 
         let allRows: Promise<Option<T>>[] = fetched[1];
 
-        if (cont) {
+        if (hasMoreRows) {
             return this.getRows0(fetch, fields, parser, allRows);
         } else {
             return acc.concat(allRows);
@@ -110,6 +110,7 @@ export class DbClient {
      * @param fetch how many rows requests at once
      * @param fields how many fields in a row
      * @param parser parse row to T
+     * @returns a flag signaling that the database has more rows and list of requested rows
      */
     private async fetchRows<T>(fetch: number, fields: number, parser: (arr: Result[]) => T): Promise<[boolean, Promise<Option<T>>[]]> {
         let listOfRows: Promise<Option<T>>[] = [];
@@ -130,7 +131,7 @@ export class DbClient {
     }
 
     /**
-     * Gets one row.
+     * Requests one row.
      * @param fields how many fields in a row
      * @param parser parse row to T
      */

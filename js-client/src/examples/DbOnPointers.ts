@@ -17,6 +17,9 @@
 import {printQuotations, QuotationClient} from "./QuotationClient";
 import {Condition, Field} from "./DbClient";
 
+/**
+ * Client for the sqldb example https://github.com/fluencelabs/fluence/tree/master/vm/examples/sqldb
+ */
 class DbOnPointers {
 
     client: QuotationClient;
@@ -29,44 +32,44 @@ class DbOnPointers {
      * Tests all requests for DB on pointers.
      */
     async test() {
-        let all = await this.client.setQueryWildcard();
+        let all = await this.client.queryWildcard();
         console.log("\n=================================================\n");
         console.log("select * from Quotations;");
         printQuotations(all);
 
         console.log("\n=================================================\n");
 
-        let lessThen500 = await this.client.setQueryWildCardWhere(Field.Price, Condition.Less, "500");
+        let lessThen500 = await this.client.queryWildCardWhere(Field.Price, Condition.Less, "500");
         console.log("select * from Quotations where price < 500;");
         printQuotations(lessThen500);
 
         console.log("\n=================================================\n");
 
-        let equals6700 = await this.client.setQueryWildCardWhere(Field.Price, Condition.Equal, "6700");
+        let equals6700 = await this.client.queryWildCardWhere(Field.Price, Condition.Equal, "6700");
         console.log("select * from Quotations where price = 6700;");
         printQuotations(equals6700);
 
         console.log("\n=================================================\n");
 
-        let countAll = await this.client.setCount();
+        let countAll = await this.client.count();
         console.log("select count(*) from Quotations;");
         console.log(JSON.stringify(countAll));
 
         console.log("\n=================================================\n");
 
-        let whereSymbol2 = await this.client.setCountWhere(Field.Symbol, Condition.Equal, "2");
+        let whereSymbol2 = await this.client.countWhere(Field.Symbol, Condition.Equal, "2");
         console.log("select count(*) from Quotations where symbol = 2;");
         console.log(JSON.stringify(whereSymbol2));
 
         console.log("\n=================================================\n");
 
-        let averagePrice = await this.client.setAverage(Field.Price);
+        let averagePrice = await this.client.average(Field.Price);
         console.log("select avg(price) from Quotations;");
         console.log(JSON.stringify(averagePrice));
 
         console.log("\n=================================================\n");
 
-        let averagePriceWhere = await this.client.setAverageWhere(Field.Price, Field.Symbol, Condition.Equal, "2");
+        let averagePriceWhere = await this.client.averageWhere(Field.Price, Field.Symbol, Condition.Equal, "2");
         console.log("select avg(price) from Quotations where symbol = 2;");
         console.log(JSON.stringify(averagePriceWhere));
 

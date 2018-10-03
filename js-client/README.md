@@ -121,5 +121,5 @@ class IncrementAndMultiply {
 }
 ```
 
-Other examples you can see in the [examples](https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples) folder.
+You can find other examples in the [examples](https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples) folder.
 

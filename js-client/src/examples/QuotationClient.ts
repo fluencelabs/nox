@@ -29,7 +29,7 @@ export class QuotationClient {
      * select avg(field) from Quotations;
      * ex: select avg(price) from Quotations;
      */
-    async setAverage(field: Field, fetch: number = 2): Promise<number> {
+    async average(field: Field, fetch: number = 2): Promise<number> {
         let q: Query = {query: "set_average_query", args: [field]};
 
         return await this.dbClient.getResult(q, fetch, 1, singleFloat).then((arr) => arr[0]);
@@ -39,7 +39,7 @@ export class QuotationClient {
      * select avg(fieldToCount) from Quotations where field condition quantity;
      * ex: select avg(price) from Quotations where symbol = 2;
      */
-    async setAverageWhere(fieldToCount: Field, field: Field, condition: Condition, quantity: string, fetch: number = 2): Promise<number> {
+    async averageWhere(fieldToCount: Field, field: Field, condition: Condition, quantity: string, fetch: number = 2): Promise<number> {
         let q: Query = {query: "set_average_query_where", args: [fieldToCount, field, quantity, condition]};
 
         return await this.dbClient.getResult(q, fetch, 1, singleFloat).then((arr) => arr[0]);
@@ -48,7 +48,7 @@ export class QuotationClient {
     /**
      * select count(*) from Quotations;
      */
-    async setCount(fetch: number = 2): Promise<number> {
+    async count(fetch: number = 2): Promise<number> {
         let q: Query = {query: "set_count_query", args: []};
 
         return await this.dbClient.getResult(q, fetch, 1, singleInt).then((arr) => arr[0]);
@@ -58,7 +58,7 @@ export class QuotationClient {
      * select count(*) from Quotations where field condition quantity;
      * ex: select count(*) from Quotations where symbol = 2;
      */
-    async setCountWhere(field: Field, condition: Condition, quantity: string, fetch: number = 2): Promise<number> {
+    async countWhere(field: Field, condition: Condition, quantity: string, fetch: number = 2): Promise<number> {
         let q: Query = {query: "set_count_query_where", args: [field, quantity, condition]};
 
         return await this.dbClient.getResult(q, fetch, 1, singleInt).then((arr) => arr[0]);
@@ -68,7 +68,7 @@ export class QuotationClient {
      * select * from Quotations where field condition quantity;
      * ex: select * from Quotations where price = 6700;
      */
-    async setQueryWildCardWhere(field: Field, condition: Condition, quantity: string, fetch: number = 5): Promise<Quotation[]> {
+    async queryWildCardWhere(field: Field, condition: Condition, quantity: string, fetch: number = 5): Promise<Quotation[]> {
         let q: Query = {query: "set_query_wildcard_where", args: [field, quantity, condition]};
 
         return await this.dbClient.getResult(q, fetch, 4, toQuotation);
@@ -78,7 +78,7 @@ export class QuotationClient {
      * select * from Quotations;
      * @param fetch how many rows to request at a time
      */
-    async setQueryWildcard(fetch: number = 10): Promise<Quotation[]> {
+    async queryWildcard(fetch: number = 10): Promise<Quotation[]> {
         let q: Query = {query: "set_query_wildcard", args: []};
 
         return this.dbClient.getResult(q, fetch, 4, toQuotation);
