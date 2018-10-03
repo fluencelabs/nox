@@ -20,7 +20,11 @@ import {none, Option} from "ts-option";
 import {SessionSummary} from "./responses";
 import {SessionConfig} from "./SessionConfig";
 
-export class ResultError {
+export interface ResultPromise {
+    result(): Promise<Result>;
+}
+
+export class ResultError implements ResultPromise {
 
     private readonly message: string;
 
@@ -36,7 +40,7 @@ export class ResultError {
 /**
  * Class with the ability to make request periodically until an answer is available.
  */
-export class ResultAwait {
+export class ResultAwait implements ResultPromise {
     private readonly tm: TendermintClient;
     private readonly config: SessionConfig;
     private readonly targetKey: string;
@@ -87,18 +91,16 @@ export class ResultAwait {
      * Periodically checks the node of the real-time cluster for the presence of a result.
      * If the result is already obtained, return it without new calculations.
      *
-     * @param requestsPerSec check frequency
-     * @param responseTimeoutSec what time to check
-     * @param requestTimeout the time after which the error occurs if the result has not yet been received
      */
-    async result(requestsPerSec: number = this.config.requestsPerSec, responseTimeoutSec: number = this.config.checkSessionTimeout, requestTimeout: number = this.config.requestTimeout): Promise<Result> {
+    async result(): Promise<Result> {
 
         if (this.invokeResult === undefined) {
             await this.broadcastRequest;
 
             const path = this.targetKey + "/result";
 
-            let pr = this.checkResultPeriodically(path, requestsPerSec, responseTimeoutSec, requestTimeout)
+            let pr = this.checkResultPeriodically(path, this.config.requestsPerSec,
+                this.config.checkSessionTimeout, this.config.requestTimeout)
                 .catch(this.onError);
 
             this.invokeResult = pr;
