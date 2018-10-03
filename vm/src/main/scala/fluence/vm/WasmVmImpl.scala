@@ -256,14 +256,14 @@ object WasmVmImpl {
       args = wasmFn.javaMethod.getParameterTypes.zipWithIndex.zip(fnArgs).map {
         case ((paramType, index), arg) =>
           paramType match {
-            case cl if cl == classOf[Int] ⇒ cast(arg, _.toInt,
-              s"Arg $index of '$arg' not an int (or passed string argument isn't match corresponding argument in wasm function)")
-            case cl if cl == classOf[Long] ⇒ cast(arg, _.toLong,
-              s"Arg $index of '$arg' not a long (or passed string argument isn't match corresponding argument in wasm function)")
-            case cl if cl == classOf[Float] ⇒ cast(arg, _.toFloat,
-              s"Arg $index of '$arg' not a float (or passed string argument isn't match corresponding argument in wasm function)")
-            case cl if cl == classOf[Double] ⇒ cast(arg, _.toDouble,
-              s"Arg $index of '$arg' not a double (or passed string argument isn't match corresponding argument in wasm function)")
+            case cl if cl == classOf[Int] ⇒ cast(arg, _.toInt, s"Arg $index of '$arg' not an int " +
+              s"(or passed string argument isn't matched the corresponding argument in wasm function)")
+            case cl if cl == classOf[Long] ⇒ cast(arg, _.toLong, s"Arg $index of '$arg' not a long " +
+              s"(or passed string argument isn't matched the corresponding argument in wasm function)")
+            case cl if cl == classOf[Float] ⇒ cast(arg, _.toFloat, s"Arg $index of '$arg' not a float " +
+              s"(or passed string argument isn't matched the corresponding argument in wasm function)")
+            case cl if cl == classOf[Double] ⇒ cast(arg, _.toDouble, s"Arg $index of '$arg' not a double " +
+              s"(or passed string argument isn't matched the corresponding argument in wasm function")
             case _ ⇒
               Left(
                 InvalidArgError(
