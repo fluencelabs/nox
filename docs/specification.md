@@ -171,7 +171,7 @@ try {
 
 ### Tendermint
 
-Internally, real-time clusters use [Tendermint](https://tendermint.com/docs/) as the BFT consensus framework, which is able to tolerate of up to `1/3` failed or Byzantine nodes.
+Internally, real-time clusters use [Tendermint](https://github.com/tendermint/tendermint) as the BFT consensus framework, which is able to tolerate of up to `1/3` failed or Byzantine nodes. 
 
 Every request made by the client is turned into a transaction which is then sent to one of Tendermint endpoints. For example, if the deployed WebAssembly code was produced from this Rust snippet: `fn sum(x: i32, y: i32) -> i32 { x + y }`, then the client might send a transaction looking like `{"fn": "sum", "args": [5, 3]}` and await until `8` will be retrieved as a result.
 
@@ -229,5 +229,48 @@ Queries issued to Tendermint are processed outside of the normal consensus flow.
 
 Below we will consider in few more details how the Fluence state machine interacts with the Tendermint consensus engine.
 
+## Fluence state machine
+
+### Function invocation
+
+The client is able to invoke a WebAssembly function and receive the result using a simple `await session.invoke("sum", [5, 3])` statement. Internally, this expands to the multiple steps.
+
+First, the client sends a transaction to the cluster. In addition to the function name and arguments, the transaction also contains the identifier of the client, the client session identifier and the order number of this function call within the session.
+```
+  {
+    "fn": "sum", 
+    "args": [5, 3], 
+    "meta": {
+      "client": "0xA425",      
+      "session": 117,
+      "counter": 23
+    }
+  }
+```
+
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _It's unclear how the session identifier will be generated and who is responsible for that: the client code or the real-time cluster. It's also unclear whether the real-time cluster should resist bogus session identifiers potentially crafted by a malicious client._
+
+This transaction goes into the Tendermint mempool, then is selected for the addition to the next block by the Tendermint proposer and, finally, is committed once the cluster reaches a consensus on the block. Now, once this block is delivered to the Fluence state machine, it will invoke a corresponding WebAssembly virtual machine function `fn sum(x: i32, y: i32)` and compute the result.
+
+From the brief [§ Tendermint reference](#abci) we remember that Tendermint doesn't immediately send back results for the functions invoked by a client. Instead, to be able to serve the result of the function computation, this result is memorized as a part of the application state and can later be queried through the ABCI query API.
+
+The data structure where results are stored behaves like a dictionary where the `#key` is a `($client, $session, $counter)` tuple and the value is the computed result. It can also be efficiently merkelized so it could participate in the `app_hash` computation. Right now a very basic unbalancing Merkle Trie is used but might be changed to a Merkle Patricia Tree or Merkle B-Tree in future for better rebalancing properties.
+
+When a node serves a result to the client through the query API it also serves a Merkle proof to prove that the result indeed corresponds to the `app_hash` the consensus was reached on. However, as it was also mentioned in the [§ Tendermint reference](#blockchain) the client has to wait for the next block to propagate through.
+
+<p align="center">
+  <img src="images/function_invocation_sequence.png" alt="Function Invocation Sequence" width="932px"/>
+</p>
+
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _At the current moment results dictionary is stored on the state machine side instead of inside the WebAssembly VM. This doesn't constitute a problem for the real-time component – the results dictionary can still be merkelized and the corresponding Merkle root can be used in the BFT consensus._
+
+_However, for the batch validation to work there should be a cryptographic connection between 1) what the virtual machine has produced and 2) what was stored in the results dictionary. Batch validation is able to check only 1) but not 2) which means a malicious node might substitute correct results with bogus data. A better option could be to store the results dictionary inside the WebAssembly VM, which is what's actually depicted on the diagram._
+
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _It's not clear yet how the results should be purged from the dictionary once they are no longer needed. One of possible solutions could be that results are removed once they are served through the query API._
+
+_However, this doesn't cover situations when stored results are never queried (for example, if the client is malicious). Another option would be to garbage collect results – for example, using a FIFO policy. In this case the dictionary could actually be implemented as a ring buffer of a specific size._
+
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _Stored results are also not limited in size at the moment which might be used for a denial of service attack. One of many possible defenses would be to limit the amount of data stored per single client._
+
 ----
-\> [Twemoji](https://twemoji.twitter.com/) graphics is made by Twitter, Inc and other contributors and is licensed under [CC-BY 4.0]( https://creativecommons.org/licenses/by/4.0/)
+\> [Twemoji](https://twemoji.twitter.com/) graphics: Twitter, Inc & others [\[CC-BY 4.0\]]( https://creativecommons.org/licenses/by/4.0/)
