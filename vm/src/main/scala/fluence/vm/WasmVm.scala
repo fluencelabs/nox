@@ -29,7 +29,7 @@ import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.WasmVmImpl._
+import fluence.vm.AsmleWasmVm._
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
 import fluence.vm.config.VmConfig.ConfigError
@@ -84,7 +84,7 @@ object WasmVm {
    * Contains all initialized modules and index for fast function searching.
    *
    * @param modules loaded and initialized modules
-   * @param functions an index for fast searching public wasm functions
+   * @param functions an index for fast searching public Wasm functions
    */
   private[vm] case class VmProps(
     modules: List[ModuleInstance] = Nil,
@@ -117,8 +117,8 @@ object WasmVm {
           )
         }
 
-      // Compiling WASM modules to JVM bytecode and registering derived classes
-      // in the Asmble engine. Every WASM module compiles to exactly one JVM class
+      // Compiling Wasm modules to JVM bytecode and registering derived classes
+      // in the Asmble engine. Every Wasm module compiles to exactly one JVM class
       scriptCxt ← run(
         prepareContext(inFiles, config),
         err ⇒
@@ -128,11 +128,11 @@ object WasmVm {
         )
       )
 
-      // initializing all modules, build index for all wasm functions
+      // initializing all modules, build index for all Wasm functions
       vmProps ← initializeModules(scriptCxt)
 
     } yield
-      new WasmVmImpl(
+      new AsmleWasmVm(
         vmProps.functions,
         vmProps.modules,
         cryptoHasher,
@@ -142,9 +142,9 @@ object WasmVm {
   }
 
   /**
-   * Returns [[ScriptContext]] - context for uploaded WASM modules.
-   * Compiles WASM modules to JVM bytecode and registering derived classes
-   * in the Asmble engine. Every WASM module compiles to exactly one JVM class
+   * Returns [[ScriptContext]] - context for uploaded Wasm modules.
+   * Compiles Wasm modules to JVM bytecode and registering derived classes
+   * in the Asmble engine. Every Wasm module compiles to exactly one JVM class
    */
   private def prepareContext(
     inFiles: Seq[String],

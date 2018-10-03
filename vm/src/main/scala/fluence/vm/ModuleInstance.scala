@@ -30,7 +30,7 @@ import scala.language.higherKinds
 import scala.util.Try
 
 /**
- * WASM Module instance wrapper.
+ * Wasm Module instance wrapper.
  *
  * @param name optional module name
  * @param instance wrapped instance of module

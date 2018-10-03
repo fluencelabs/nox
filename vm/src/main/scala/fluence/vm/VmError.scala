@@ -41,17 +41,17 @@ object VmError {
     override val cause: Option[Throwable] = None
   ) extends VmErrorProxy(message, cause) with ApplyError with InvokeError with GetVmStateError
 
-  /** Errors related to external WASM code. */
+  /** Errors related to external Wasm code. */
   sealed trait WasmError extends VmError
 
   /**
-   * Indicates error when VM starts. It might be a problem with translation WASM
-   * code to 'bytecode' or module instantiation. Module initialization is creation of
-   * instance class that corresponds to WASM module.
-   */
+    * Indicates error when VM starts. It might be a problem with translation Wasm
+    * code to 'bytecode' or module instantiation. Module initialization is creation of
+    * instance class that corresponds to Wasm module.
+    */
   case class InitializationError(
-    override val message: String,
-    override val cause: Option[Throwable] = None
+   override val message: String,
+   override val cause: Option[Throwable] = None
   ) extends VmErrorProxy(message, cause) with WasmError with ApplyError
 
   /**
@@ -77,7 +77,20 @@ object VmError {
   ) extends VmErrorProxy(message, cause) with InvocationError with ApplyError
 
   /**
-   * Indicates that WASM code execution was failed, some WASM instruction was
+    * Indicates all possible errors with Wasm memory:
+    *  - errors when accessing absent memory;
+    *  - allocation function returns offset that doesn't correspond to the ByteBuffer
+    *    limits;
+    *  - deallocation function fails on the offset that previously has been returned
+    *    by the allocation function.
+    */
+  case class VmMemoryError(
+    override val message: String,
+    override val cause: Option[Throwable] = None
+  ) extends VmErrorProxy(message, cause) with WasmError with ApplyError with InvokeError
+
+  /**
+   * Indicates that Wasm code execution was failed, some Wasm instruction was
    * felled into the trap.
    */
   case class TrapError(

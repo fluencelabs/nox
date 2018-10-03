@@ -24,7 +24,7 @@ import cats.{Functor, Monad, Traverse}
 import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.VmError.{InvalidArgError, _}
-import fluence.vm.WasmVmImpl._
+import fluence.vm.AsmleWasmVm._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -38,10 +38,14 @@ import scala.util.Try
  *
  * @param functionsIndex the index for fast function searching. Contains all the
  *                     information needed to execute any function.
- * @param modules list of WASM modules
+ * @param modules list of Wasm modules
  * @param hasher a hash function provider
+ * @param allocateFunctionName name of function that will be used for allocation
+ *                             memory in Wasm part
+ * @param deallocateFunctionName name of a function that will be used for freeing memory
+ *                               that was previously allocated by allocateFunction
  */
-class WasmVmImpl(
+class AsmleWasmVm(
   functionsIndex: WasmFunctionsIndex,
   modules: WasmModules,
   hasher: Hasher[Array[Byte], Array[Byte]],
@@ -104,18 +108,18 @@ class WasmVmImpl(
       .map(ByteVector(_))
 
   // TODO : In the future, it should be rewritten with cats.effect.resource
-  def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] = {
+  private def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] = {
     allocateFunction match {
       case Some(fn) => fn(size.asInstanceOf[AnyRef] :: Nil)
       case _ =>
         EitherT.leftT(
-          NoSuchFnError(s"Unable to find the function for memory deallocation with the name=$allocateFunctionName")
+          NoSuchFnError(s"Unable to find the function for memory allocation with the name=$allocateFunctionName")
         )
     }
   }: EitherT[F, InvokeError, AnyRef]
 
 
-  def deallocate[F[_]: LiftIO: Monad](address: Int): EitherT[F, InvokeError, AnyRef] = {
+  private def deallocate[F[_]: LiftIO: Monad](address: Int): EitherT[F, InvokeError, AnyRef] = {
     deallocateFunction match {
       case Some(fn) => fn(address.asInstanceOf[AnyRef] :: Nil)
       case _ =>
@@ -123,21 +127,21 @@ class WasmVmImpl(
           NoSuchFnError(s"Unable to find the function for memory deallocation with the name=$deallocateFunctionName")
         )
     }
-  }: EitherT[F, InvokeError, AnyRef]
+  }
 
   /**
-    * Preprocesses each string parameter: injects it into WASM module memory (through
+    * Preprocesses each string parameter: injects it into Wasm module memory (through
     * injectStringIntoWasmModule) and replace with pointer to it in WASM module and size.
     *
     * @param functionArguments arguments for calling this fn
-    * @param moduleInstance module instance used for injecting string arguments to the WASM memory
+    * @param moduleInstance module instance used for injecting string arguments to the Wasm memory
     * @tparam F a monad with an ability to absorb 'IO'
     */
   private def preprocessArguments[F[_]: LiftIO: Monad](
      functionArguments: Seq[String],
      moduleInstance: ModuleInstance
    ) : EitherT[F, InvokeError, List[String]] = {
-    val ret: Seq[EitherT[F, InvokeError, List[String]]] =
+    val result: Seq[EitherT[F, InvokeError, List[String]]] =
       functionArguments.map {
         case stringArgument if stringArgument.startsWith("\"")
             && stringArgument.endsWith("\"")
@@ -151,31 +155,59 @@ class WasmVmImpl(
       }
 
     import cats.instances.list._
-    Traverse[List].flatSequence(ret.toList)
+    Traverse[List].flatSequence(result.toList)
    }
 
   /**
-    * Injects given string into WASM module memory
+    * Injects given string into Wasm module memory.
     *
-    * @param injectedString string that should be inserted into WASM module memory
-    * @param moduleInstance module instance used as a provider for WASM module memory access
+    * @param injectedString string that should be inserted into Wasm module memory
+    * @param moduleInstance module instance used as a provider for Wasm module memory access
     * @tparam F a monad with an ability to absorb 'IO'
     */
   private def injectStringIntoWasmModule[F[_]: LiftIO: Monad](
     injectedString: String,
     moduleInstance: ModuleInstance
-  ): EitherT[F, InvokeError, AnyRef] = {
+  ): EitherT[F, InvokeError, Int] =
     for {
-      address <- allocate(injectedString.length)
-      _ <- EitherT.rightT(
-        injectedString.getBytes("UTF-8").zipWithIndex.map{
-          case(byte, byteId) => moduleInstance.memory.get.put(address.toString.toInt + byteId, byte)}
+      // In the current version, it is possible for Wasm module to have allocation/deallocation
+      // functions but doesn't have memory (ByteBuffer instance). Also since it is used getMemory
+      // Wasm function for getting ByteBuffer instance, it is also possible to don't have memory
+      // due to possible absence of this function in the Wasm module.
+      wasmMemory <- EitherT.fromOption(
+        moduleInstance.memory,
+        VmMemoryError(s"Trying to use absent Wasm memory while injecting string=$injectedString")
       )
-    } yield address.asInstanceOf[AnyRef]
-  }
+
+      offset <- allocate(injectedString.length)
+
+      resultOffset <- EitherT.fromEither(Try(offset.toString.toInt).toEither).leftMap(
+        e ⇒ VmMemoryError(s"The Wasm allocation function returned incorrect offset=$offset", Some(e))
+      )
+
+      // It is possible for "evil" module to return knowingly invalid index (negative or doesn't
+      // correspond to ByteBuffer limit)
+      _ ← EitherT.cond(
+        (resultOffset + injectedString.length) > resultOffset &&
+        // limit is the index of the first element that should not be read or written so
+        // strictly less is needed
+        (resultOffset + injectedString.length) < wasmMemory.limit(),
+        (),
+        VmMemoryError(
+          s"String injecting failed due to invalid offset=$resultOffset"
+        )
+      )
+
+      _ <- EitherT.rightT(
+        injectedString.view.zipWithIndex.foreach {
+          case (char, byteIdx) => wasmMemory.put(resultOffset + byteIdx, char.toByte)
+        }
+      )
+    } yield resultOffset
+
 }
 
-object WasmVmImpl {
+object AsmleWasmVm {
 
   type WasmModules = List[ModuleInstance]
   type WasmFunctionsIndex = Map[FunctionId, WasmFunction]
@@ -187,7 +219,7 @@ object WasmVmImpl {
   }
 
   /**
-   * Representation for each WASM function. Contains reference to module instance
+   * Representation for each Wasm function. Contains reference to module instance
    * and java method [[java.lang.reflect.Method]].
    *
    * @param functionId a full name of this function (moduleName + functionName)
@@ -257,13 +289,13 @@ object WasmVmImpl {
         case ((paramType, index), arg) =>
           paramType match {
             case cl if cl == classOf[Int] ⇒ cast(arg, _.toInt, s"Arg $index of '$arg' not an int " +
-              s"(or passed string argument isn't matched the corresponding argument in wasm function)")
+              s"(or passed string argument isn't matched the corresponding argument in Wasm function)")
             case cl if cl == classOf[Long] ⇒ cast(arg, _.toLong, s"Arg $index of '$arg' not a long " +
-              s"(or passed string argument isn't matched the corresponding argument in wasm function)")
+              s"(or passed string argument isn't matched the corresponding argument in Wasm function)")
             case cl if cl == classOf[Float] ⇒ cast(arg, _.toFloat, s"Arg $index of '$arg' not a float " +
-              s"(or passed string argument isn't matched the corresponding argument in wasm function)")
+              s"(or passed string argument isn't matched the corresponding argument in Wasm function)")
             case cl if cl == classOf[Double] ⇒ cast(arg, _.toDouble, s"Arg $index of '$arg' not a double " +
-              s"(or passed string argument isn't matched the corresponding argument in wasm function")
+              s"(or passed string argument isn't matched the corresponding argument in Wasm function")
             case _ ⇒
               Left(
                 InvalidArgError(

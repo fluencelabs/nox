@@ -26,7 +26,7 @@ import org.scalatest.{Matchers, WordSpec}
 
 import scala.language.{higherKinds, implicitConversions}
 
-class WasmVmImplSpec extends WordSpec with Matchers {
+class AsmleWasmVmSpec extends WordSpec with Matchers {
 
   "invoke" should {
     "raise error" when {
