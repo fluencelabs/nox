@@ -1,4 +1,4 @@
-;; this example calculates xor of supplied buffer
+;; this example calculates circular xor of supplied buffer
 
 (module
     ;; force asmble to use memory
@@ -7,7 +7,7 @@
     (export "memory" (memory $0))
 
     (func (export "allocate") (param $0 i32 ) (result i32)
-        ;; random offset in ByteBuffer
+        ;; just return random offset in ByteBuffer
         (i32.const 10000)
     )
     (func (export "deallocate") (param $0 i32 ) (result i32)
