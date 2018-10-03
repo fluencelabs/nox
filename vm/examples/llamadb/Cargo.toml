@@ -1,10 +1,11 @@
 [package]
-name = "llamadb"
+name = "llama_db"
 version = "0.1.0"
 authors = ["C.Solovev <constantine@fluence.one>"]
 
 [lib]
-name = "llamadb"
+name = "llama_db"
+test = true
 path = "src/main/rust/lib.rs"
 crate-type = ["cdylib"]
 
