@@ -27,7 +27,7 @@ import fluence.statemachine.StoreValue
  */
 sealed abstract class TransactionStatus(
   val storeValue: StoreValue,
-  val sessionStatus: SessonStatus,
+  val sessionStatus: SessionStatus,
   val allowDependentTxInvocation: Boolean
 )
 
