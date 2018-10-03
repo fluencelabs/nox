@@ -131,8 +131,20 @@ lazy val ethclient = (project in file("ethclient"))
       scodecBits,
       cats,
       catsEffect,
+      fs2,
+      fs2rx,
       utest
     ),
     setUTestFramework
   )
   .enablePlugins(AutomateHeaderPlugin)
+
+lazy val node = project
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      catsEffect
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(ethclient)

@@ -32,16 +32,18 @@ object EthClientApp extends IOApp {
           version ← ethClient.clientVersion[IO]()
           _ ← IO(println(s"Client version: $version"))
 
-          unsubscribe ← ethClient.subscribeToLogsTopic[IO, IO](
-            "0xf93568cdc75b8849f4999bd3c8c6f931a14b258f",
-            EventEncoder.buildEventSignature("NewSolver(bytes32)"),
-            log ⇒ IO(println(s"Log message: $log"))
-          )
+          _ ← ethClient
+            .subscribeToLogsTopic[IO](
+              "0xf93568cdc75b8849f4999bd3c8c6f931a14b258f",
+              EventEncoder.buildEventSignature("NewSolver(bytes32)")
+            )
+            .map(log ⇒ println(s"Log message: $log"))
+            .mergeHaltBoth(fs2.Stream.emit[IO, Unit](()).delayBy(600.seconds))
+            .drain
+            .compile
+            .drain
           _ ← IO(println(s"Subscribed"))
 
-          _ ← IO.sleep(600.seconds)
-          _ ← IO(println(s"Going to unsubscribe"))
-          _ ← unsubscribe
         } yield ()
       }
       .map { _ ⇒

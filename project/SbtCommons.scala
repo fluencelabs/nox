@@ -26,9 +26,11 @@ object SbtCommons {
 
   /* Common deps */
 
-  val slogging = "biz.enef"        %% "slogging"    % "0.6.1"
-  val cats = "org.typelevel"       %% "cats-core"   % "1.2.0"
-  val catsEffect = "org.typelevel" %% "cats-effect" % "1.0.0-RC2"
+  val slogging = "biz.enef"        %% "slogging"              % "0.6.1"
+  val cats = "org.typelevel"       %% "cats-core"             % "1.2.0"
+  val catsEffect = "org.typelevel" %% "cats-effect"           % "1.0.0"
+  val fs2 = "co.fs2"               %% "fs2-core"              % "1.0.0-RC2"
+  val fs2rx = "co.fs2"             %% "fs2-reactive-streams" % "1.0.0-RC2"
   // functional wrapper around 'lightbend/config'
   val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.9.1"
   val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.2"
@@ -54,7 +56,7 @@ object SbtCommons {
 
   val scalaTest = "org.scalatest" %% "scalatest"   % "3.0.5"  % Test
   val mockito = "org.mockito"     % "mockito-core" % "2.21.0" % Test
-  val utest = "com.lihaoyi" %% "utest" % "0.6.3" % Test
+  val utest = "com.lihaoyi"       %% "utest"       % "0.6.3"  % Test
 
   /* Test settings */
   val setUTestFramework =

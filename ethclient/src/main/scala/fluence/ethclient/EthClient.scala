@@ -17,7 +17,6 @@
 package fluence.ethclient
 
 import java.util.Collections
-import java.util.concurrent.CompletableFuture
 
 import cats.ApplicativeError
 import cats.effect._
@@ -32,8 +31,8 @@ import org.web3j.protocol.http.HttpService
 import org.web3j.protocol.{Web3j, Web3jService}
 import org.web3j.tx.ClientTransactionManager
 import org.web3j.tx.gas.DefaultGasProvider
-import rx.Observable
 import slogging._
+import fluence.ethclient.helpers.JavaRxToFs2._
 
 import scala.language.higherKinds
 
@@ -63,48 +62,22 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
    *
    * @param contractAddress Contract address to watch events on
    * @param topic Logs topic, use [[EventEncoder]] to prepare it
-   * @param callback Function to be called for each incoming log message
    * @tparam F Effect
    * @return Unsubscribe callback
    */
-  def subscribeToLogsTopic[F[_]: Sync, G[_]: Effect](
+  def subscribeToLogsTopic[F[_]: ConcurrentEffect](
     contractAddress: String,
-    topic: String,
-    callback: Log ⇒ G[Unit]
-  ): F[F[Unit]] =
-    Sync[F]
-      .delay(
-        // Create a subscription. New subscription will be created for each call of F, so it's referentially transparent
-        web3
-          .ethLogObservable(
-            new EthFilter(
-              DefaultBlockParameterName.LATEST,
-              DefaultBlockParameterName.LATEST,
-              Collections.emptyList[String]()
-            ).addSingleTopic(topic)
-          )
-          .flatMap({ log ⇒
-            logger.debug(s"topic $topic: $log")
-
-            // TODO: must provide all the error callbacks as well
-            // Convert callback to a Java Future, then convert it to Observable
-            val future = new CompletableFuture[Unit]()
-
-            Effect[G].toIO(callback(log)).unsafeRunAsync {
-              case Left(err) ⇒ future.completeExceptionally(err)
-              case _ ⇒ future.complete(())
-            }
-
-            Observable.from(future)
-          })
-          .subscribe()
+    topic: String
+  ): fs2.Stream[F, Log] =
+    web3
+      .ethLogObservable(
+        new EthFilter(
+          DefaultBlockParameterName.LATEST,
+          DefaultBlockParameterName.LATEST,
+          Collections.emptyList[String]()
+        ).addSingleTopic(topic)
       )
-      .map(
-        subscription ⇒
-          Sync[F].delay(
-            subscription.unsubscribe()
-        )
-      )
+      .toFS2[F]
 
   /**
    * Instantiate ABI for existing Deployer contract at the address
