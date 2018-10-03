@@ -53,24 +53,24 @@ pub unsafe fn do_query(ptr: *mut u8, len: usize) -> usize {
 /// Allocates memory area of specified size and returns address of the first
 /// byte in the allocated memory area.
 #[no_mangle]
-pub unsafe fn alloc(size: usize) -> NonNull<u8> {
-    allocate(size)
+pub unsafe fn allocate(size: usize) -> NonNull<u8> {
+    alloc(size)
         .expect(format!("[Error] Allocation of {} bytes failed.", size).as_str())
 }
 
-unsafe fn allocate(size: usize) -> GenResult<NonNull<u8>> {
+unsafe fn alloc(size: usize) -> GenResult<NonNull<u8>> {
     let layout: Layout = Layout::from_size_align(size, mem::align_of::<u8>())?;
     Global.alloc(layout).map_err(Into::into)
 }
 
 /// Deallocates memory area with first byte address = `ptr` and size = `size`.
 #[no_mangle]
-pub unsafe fn dealloc(ptr: NonNull<u8>, size: usize) -> () {
-    deallocate(ptr, size)
+pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) -> () {
+    dealloc(ptr, size)
         .expect(format!("[Error] Deallocate failed for prt={:?} size={}.", ptr, size).as_str())
 }
 
-unsafe fn deallocate(ptr: NonNull<u8>, size: usize) -> GenResult<()> {
+unsafe fn dealloc(ptr: NonNull<u8>, size: usize) -> GenResult<()> {
     let layout = Layout::from_size_align(size, mem::align_of::<u8>())?;
     Ok(Global.dealloc(ptr, layout))
 }

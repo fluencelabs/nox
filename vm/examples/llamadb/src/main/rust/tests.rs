@@ -5,8 +5,8 @@
 fn alloc_dealloc_test() {
     unsafe {
         let size = 100;
-        let ptr = super::alloc(size);
-        assert_eq!(super::dealloc(ptr, size), ());
+        let ptr = super::allocate(size);
+        assert_eq!(super::deallocate(ptr, size), ());
     }
 }
 
