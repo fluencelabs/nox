@@ -17,22 +17,20 @@
 /**
  * Possible results from the real-time cluster.
  */
-export interface Result {}
-
-/**
- * If there are no results after set time, returns timeout.
- */
-class Timeout implements Result {}
+export type Result = Empty | Value
 
 /**
  * The empty result, if there is no value in response.
  */
-class Empty implements Result {}
+class Empty {
+    kind: 'empty';
+}
 
 /**
  * The result with value as a string from the real-time cluster.
  */
-class Value implements Result {
+class Value {
+    kind: 'value';
 
     constructor(v: string) {
         this.value = v
@@ -44,15 +42,13 @@ class Value implements Result {
 /**
  * Returns if some error occurred on request in the real-time cluster.
  */
-class Error implements Result {
+export class Error {
     constructor(err: string) {
         this.error = err
     }
 
     readonly error: string
 }
-
-export const timeout = new Timeout();
 
 export const empty = new Empty();
 

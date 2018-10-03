@@ -41,7 +41,7 @@ class CustomCommands {
 
     async submit(command: string) {
         console.log(`submit command: \"${command}\"`);
-        let res = await this.session.submitRaw(command);
+        let res = await this.session.invokeRaw(command).result();
         console.log(`the result is: \"${JSON.stringify(res)}\"`);
         return res;
     }

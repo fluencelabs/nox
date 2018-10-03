@@ -25,13 +25,13 @@ import io.circe.syntax._
  * This information is used by the State machine ifself (for transaction checking, session expiration, etc.)
  * and by the client querying it from the state tree.
  *
- * @param status [[SessonStatus]] describing this session (a particular phase of the session lifecycle)
+ * @param status [[SessionStatus]] describing this session (a particular phase of the session lifecycle)
  * @param invokedTxsCount number of transactions of this session invoked (regardless successfully or not)
  *                        by the State machine
  * @param lastTxCounter the global invoked tx counter value of the State machine for the latest invoked transaction
  *                      of this session
  */
-case class SessionSummary(status: SessonStatus, invokedTxsCount: Long, lastTxCounter: Long) {
+case class SessionSummary(status: SessionStatus, invokedTxsCount: Long, lastTxCounter: Long) {
 
   /**
    * Serializes the summary to [[StoreValue]] in order to store it in the state tree.
@@ -57,17 +57,17 @@ object SessionSummary {
 /**
  * Status describing the current phase of the sesion lifecycle.
  */
-sealed abstract class SessonStatus
+sealed abstract class SessionStatus
 
 /**
  * Status corresponding to sessions that active, i. e. could potentially invoke new transactions.
  */
-case object Active extends SessonStatus
+case object Active extends SessionStatus
 
 /**
  * Status corresponding to sessions closed by any reason and unable to invoke any transactions.
  */
-sealed abstract class Closed extends SessonStatus
+sealed abstract class Closed extends SessionStatus
 
 /**
  * Status corresponding to sessions explicitly closed by their clients via sending `@closeSession` transaction.
