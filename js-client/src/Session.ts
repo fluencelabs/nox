@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import {ResultAwait, ResultError} from "./ResultAwait";
-import {Error, error, Result} from "./Result";
+import {ResultAwait, ResultError, ResultPromise} from "./ResultAwait";
+import {error, Error, Result} from "./Result";
 import {genTxHex} from "./tx";
 import {TendermintClient} from "./TendermintClient";
 import {Client} from "./Client";
@@ -87,7 +87,7 @@ export class Session {
      *
      * @param payload a command supported by the program in a virtual machine with arguments
      */
-    invokeRaw(payload: string): ResultAwait | ResultError {
+    invokeRaw(payload: string): ResultPromise {
         // throws an error immediately if the session is closed
         if (this.closed) {
             return new ResultError(`The session was closed. Cause: ${this.closedStatus}`)
@@ -132,9 +132,9 @@ export class Session {
      * @param command a command supported by the program in a virtual machine
      * @param args arguments for command
      */
-    invoke(command: string, args: string[] = []): ResultAwait | ResultError {
+    invoke(command: string, args: string[] = []): ResultPromise {
 
-        let payload = command + `(${args.join(',')})`;
+        let payload: string = command + `(${args.join(',')})`;
 
         return this.invokeRaw(payload);
     }
@@ -149,7 +149,7 @@ export class Session {
     /**
      * Closes session locally and send a command to close the session on the cluster.
      */
-    close(reason: string = ""): ResultAwait | ResultError {
+    close(reason: string = ""): ResultPromise {
         this.closing = true;
         this.closedStatus = reason;
         let result = this.invoke("@closeSession");
