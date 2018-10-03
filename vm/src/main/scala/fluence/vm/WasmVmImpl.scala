@@ -115,9 +115,9 @@ class WasmVmImpl(
   }: EitherT[F, InvokeError, AnyRef]
 
 
-  def deallocate[F[_]: LiftIO: Monad](pointer: Int): EitherT[F, InvokeError, AnyRef] = {
+  def deallocate[F[_]: LiftIO: Monad](address: Int): EitherT[F, InvokeError, AnyRef] = {
     deallocateFunction match {
-      case Some(fn) => fn(pointer.asInstanceOf[AnyRef] :: Nil)
+      case Some(fn) => fn(address.asInstanceOf[AnyRef] :: Nil)
       case _ =>
         EitherT.leftT(
           NoSuchFnError(s"Unable to find the function for memory deallocation with the name=$deallocateFunctionName")
