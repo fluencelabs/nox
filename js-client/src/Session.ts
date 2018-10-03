@@ -15,7 +15,7 @@
  */
 
 import {ResultAwait, ResultError, ResultPromise} from "./ResultAwait";
-import {error, Error, Result} from "./Result";
+import {error, ErrorResult, Result} from "./Result";
 import {genTxHex} from "./tx";
 import {TendermintClient} from "./TendermintClient";
 import {Client} from "./Client";
@@ -114,7 +114,7 @@ export class Session {
 
         let targetKey = this.targetKey(currentCounter);
 
-        let callback = (err: Error) => {
+        let callback = (err: ErrorResult) => {
             // close session on error
             this.markSessionAsClosed(err.error)
         };

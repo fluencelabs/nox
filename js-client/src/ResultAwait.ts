@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {empty, error, Result, Error, value} from "./Result";
+import {error, Result, ErrorResult, parseObject} from "./Result";
 import {TendermintClient} from "./TendermintClient";
 import {none, Option} from "ts-option";
 import {SessionSummary} from "./responses";
@@ -48,7 +48,7 @@ export class ResultAwait implements ResultPromise {
     private canceled: boolean;
     private canceledReason: string;
     private invokeResult: Promise<Result>;
-    private onError: (err: Error) => any;
+    private onError: (err: ErrorResult) => any;
     private broadcastRequest: Promise<void>;
 
     /**
@@ -61,7 +61,7 @@ export class ResultAwait implements ResultPromise {
      * @param _onError callback on error
      */
     constructor(_tm: TendermintClient, _config: SessionConfig, _targetKey: string,
-                _summaryKey: string, _broadcastRequest: Promise<void>, _onError: (err: Error) => void) {
+                _summaryKey: string, _broadcastRequest: Promise<void>, _onError: (err: ErrorResult) => void) {
         this.tm = _tm;
         this.config = _config;
         this.targetKey = _targetKey;
@@ -120,15 +120,7 @@ export class ResultAwait implements ResultPromise {
 
         const statusResponse: Option<any> = (await this.tm.abciQuery(path));
 
-        return statusResponse.map((res: any) => {
-            if (res.Error !== undefined) {
-                throw error(res.Error.message)
-            } else if (res.Empty !== undefined) {
-                return empty;
-            } else {
-                return value(res.Computed.value);
-            }
-        });
+        return statusResponse.map(parseObject);
     }
 
     /**
