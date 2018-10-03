@@ -272,37 +272,5 @@ _However, this doesn't cover situations when stored results are never queried (f
 
 <img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _Stored results are also not limited in size at the moment which might be used for a denial of service attack. One of many possible defenses would be to limit the amount of data stored per single client._
 
-### Happens-before relationship between transactions
-
-We need the client to be able to send a transaction that should be executed only after another transaction. In other words, there should be a support for the [_happens-before_](https://en.wikipedia.org/wiki/Happened-before) relationship between transactions. For example, let's imagine a client that checks stock quotes in a tight loop and based on this makes a decision whether to send a transaction into the Fluence network:
-
-```
-max = ...
-while(true) {
-  sleep(1)
-  
-  curr = nasdaq.ask("AAPL")
-  if (curr > max) {
-    max = curr
-    fluence.request("{'function': 'update_high', 'symbol': 'AAPL', 'value': max}")
-  }
-}
-```
-
-In this example we assume a function `fn update_high(symbol: &str, value: f64)` which updates a global maximum of the stock value is deployed as an entry point in the Fluence network.
-
-Without transactions ordering, the global maximum might get updated incorrectly. One of the solutions would be to wait for a transaction to propagate into the block before sending another one, but this would limit available performance. Fluence state machine uses a session-based transactions ordering which is described in the corresponding section.
-
-### RPC support
-
-We want the client to be able to interact with the real-time cluster using a conventional request-response API: 
-
-```
-response = fluence.request("{'function': 'sum', 'x': 3, 'y': 5}")
-print(response)  # prints "8"
-```
-
-Request-response API is not really native to Tendermint, so Fluence state machine wraps Tendermint to provide it to the client.
-
 ----
-\> [Twemoji](https://twemoji.twitter.com/) graphics is made by Twitter, Inc and other contributors and is licensed under [CC-BY 4.0]( https://creativecommons.org/licenses/by/4.0/)
+\> [Twemoji](https://twemoji.twitter.com/) graphics: Twitter, Inc & others [\[CC-BY 4.0\]]( https://creativecommons.org/licenses/by/4.0/)
