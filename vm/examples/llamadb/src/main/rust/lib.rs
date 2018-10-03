@@ -4,8 +4,11 @@
 //! `deallocation` memory from a WASM host environment. Also contains functions
 //! for dereference string arguments for passing theirs into WASM functions.
 
+#![feature(extern_prelude)]
 #![feature(allocator_api)]
 #![allow(dead_code)]
+
+mod tests;
 
 #[macro_use]
 extern crate lazy_static;
@@ -16,6 +19,7 @@ use std::alloc::{Alloc, Global, Layout};
 use std::mem;
 use std::error::Error;
 use std::sync::Mutex;
+use std::io::Write;
 use llamadb::tempdb::TempDb;
 use llamadb::tempdb::ExecuteStatementResponse;
 
@@ -33,13 +37,13 @@ type GenResult<T> = Result<T, Box<Error>>;
 /// 2. Processes the query for specified SQL string
 /// 3. Returns a pointer to a result as a string in the memory.
 #[no_mangle]
-pub unsafe fn do_query(ptr: *mut u8, len: usize) -> i32 {
+pub unsafe fn do_query(ptr: *mut u8, len: usize) -> usize {
     let sql_str = deref_str(ptr, len);
     let db_response = match run_query(&sql_str) {
-        Ok(response) => { response },
-        Err(err_msg) => { err_msg.description().to_string() },
+        Ok(response) => { response }
+        Err(err_msg) => { err_msg.description().to_string() }
     };
-    put_to_mem(db_response)
+    put_to_mem(db_response) as usize
 }
 
 //
@@ -96,11 +100,27 @@ fn statement_to_csv<'a>(_statement: ExecuteStatementResponse<'a>) -> String {
     unimplemented!()
 }
 
-/// todo docs
-fn put_to_mem(str: String) -> i32 {
-    // puts string to memory, create wat pointer, return adress of first byte
-    // todo implement
-    str.len() as i32
+/// Writes Rust string into the memory directly as string length and byte array
+/// (big-endian order). Written memory structure is:
+///     | str_length: 8 BYTES | string_payload: str_length BYTES|
+unsafe fn put_to_mem(str: String) -> *mut u8 {
+    // converting string size to bytes in big-endian order
+    let len_as_bytes: &[u8; 8] = mem::transmute(&str.len().to_be());
+
+    let mut result: Vec<u8> = Vec::with_capacity(len_as_bytes.len() + str.len());
+    result.write_all(len_as_bytes).unwrap();
+    result.write_all(str.as_bytes()).unwrap();
+
+    let result_ptr = allocate(result.len())
+        .expect(&format!("[Error] Can't allocated {} bytes", result.len()))
+        .as_ptr();
+
+    // writes bytes into memory byte-by-byte. Address of first byte will be == `ptr`
+    for (idx, byte) in result.iter().enumerate() {
+        std::ptr::write(result_ptr.offset(idx as isize), *byte);
+    }
+
+    result_ptr
 }
 
 /// Creates a public static reference to initialized LlamsDb instance.

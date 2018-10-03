@@ -85,11 +85,11 @@ lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
     // override `run` task
     run := {
       val log = streams.value.log
-      log.info("Compiling llamadb.rs to llamadb.wasm and running with Fluence.")
+      log.info("Compiling llamadb.rs to llama_db.wasm and running with Fluence.")
 
       val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
       val projectRoot = file("").getAbsolutePath
-      val cmd = s"sh vm/examples/run_example.sh llamadb $projectRoot $scalaVer"
+      val cmd = s"sh vm/examples/run_example.sh llama_db $projectRoot $scalaVer"
 
       log.info(s"Running $cmd")
 

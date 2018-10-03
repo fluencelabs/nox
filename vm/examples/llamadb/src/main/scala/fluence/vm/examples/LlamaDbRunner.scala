@@ -34,8 +34,8 @@ object LlamaDbRunner extends IOApp {
       initState ← vm.getVmState[IO]
 
       // select * from Quotations;
-      res ← vm.invoke[IO](None, "set_query_wildcard") // invoke WASM select
       ptr ← vm.invoke[IO](None, "alloc", Seq("100"))
+      res ← vm.invoke[IO](None, "do_query", List(ptr.get.toString, "100")) // invoke WASM select
       allocateState ← vm.getVmState[IO]
       _ ← vm.invoke[IO](None, "dealloc", Seq(ptr.get.toString, "100"))
       deallocateState ← vm.getVmState[IO]
