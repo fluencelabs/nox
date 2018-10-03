@@ -23,6 +23,7 @@ import fluence.vm.WasmVm
 
 import scala.language.higherKinds
 
+// todo will be finished when String will be supported as function params and return type
 object LlamaDbRunner extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
