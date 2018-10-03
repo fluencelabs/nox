@@ -254,7 +254,7 @@ This transaction goes into the Tendermint mempool, then is selected for the addi
 
 From the brief [§ Tendermint reference](#abci) we remember that Tendermint doesn't immediately send back results for the functions invoked by a client. Instead, to be able to serve the result of the function computation, this result is memorized as a part of the application state and can later be queried through the ABCI query API.
 
-The data structure where results are stored behaves like a dictionary where the key is a `($client, $session, $counter)` tuple and the value is the computed result. It can also be efficiently merkelized so it could participate in the `app_hash` computation. Right now a very basic unbalancing Merkle Trie is used but might be changed to a Merkle Patricia Tree or Merkle B-Tree in future for better rebalancing properties.
+The data structure where results are stored behaves like a dictionary where the `#key` is a `($client, $session, $counter)` tuple and the value is the computed result. It can also be efficiently merkelized so it could participate in the `app_hash` computation. Right now a very basic unbalancing Merkle Trie is used but might be changed to a Merkle Patricia Tree or Merkle B-Tree in future for better rebalancing properties.
 
 When a node serves a result to the client through the query API it also serves a Merkle proof to prove that the result indeed corresponds to the `app_hash` the consensus was reached on. However, as it was also mentioned in the [§ Tendermint reference](#blockchain) the client has to wait for the next block to propagate through.
 
@@ -262,7 +262,13 @@ When a node serves a result to the client through the query API it also serves a
   <img src="images/function_invocation_sequence.png" alt="Function Invocation Sequence" width="932px"/>
 </p>
 
-<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _It's not clear yet how the results should be purged from the dictionary once they are no longer needed. One of possible solutions could be that results are removed once they are served through the query API. However, this doesn't cover situations when stored results are never queried (for example, if the client is malicious). Another option would be to garbage collect results – for example, using a FIFO policy. In this case the dictionary could actually be implemented as a ring buffer of a specific size._
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _At the current moment results dictionary is stored on the state machine side instead of inside the WebAssembly VM. This doesn't constitute a problem for the real-time component – the results dictionary can still be merkelized and the corresponding Merkle root can be used in the BFT consensus._
+
+_However, for the batch validation to work there should be a cryptographic connection between 1) what the virtual machine has produced and 2) what was stored in the results dictionary. Batch validation is able to check only 1) but not 2) which means a malicious node might substitute correct results with bogus data. A better option could be to store the results dictionary inside the WebAssembly VM, which is what's actually depicted on the diagram._
+
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _It's not clear yet how the results should be purged from the dictionary once they are no longer needed. One of possible solutions could be that results are removed once they are served through the query API._
+
+_However, this doesn't cover situations when stored results are never queried (for example, if the client is malicious). Another option would be to garbage collect results – for example, using a FIFO policy. In this case the dictionary could actually be implemented as a ring buffer of a specific size._
 
 ### Happens-before relationship between transactions
 
