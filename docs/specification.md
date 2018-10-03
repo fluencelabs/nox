@@ -254,7 +254,7 @@ This transaction goes into the Tendermint mempool, then is selected for the addi
 
 From the brief [§ Tendermint reference](#abci) we remember that Tendermint doesn't immediately send back results for the functions invoked by a client. Instead, to be able to serve the result of the function computation, this result is memorized as a part of the application state and can later be queried through the ABCI query API.
 
-The data structure where results are stored behaves like a dictionary where the key is a `($client, $session, $counter)` tuple and the value is the computed result. It can also be efficiently merkelized so it could participate in the `app_hash` computation. Right now a Merkle Trie is used but might be changed to a Merkle B-Tree in future for better rebalancing properties.
+The data structure where results are stored behaves like a dictionary where the key is a `($client, $session, $counter)` tuple and the value is the computed result. It can also be efficiently merkelized so it could participate in the `app_hash` computation. Right now a very basic unbalancing Merkle Trie is used but might be changed to a Merkle Patricia Tree or Merkle B-Tree in future for better rebalancing properties.
 
 When a node serves a result to the client through the query API it also serves a Merkle proof to prove that the result indeed corresponds to the `app_hash` the consensus was reached on. However, as it was also mentioned in the [§ Tendermint reference](#blockchain) the client has to wait for the next block to propagate through.
 
