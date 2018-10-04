@@ -77,13 +77,13 @@ object VmError {
   ) extends VmErrorProxy(message, cause) with InvocationError with ApplyError
 
   /**
-    * Indicates all possible errors with Wasm memory:
-    *  - errors when accessing absent memory;
-    *  - allocation function returns offset that doesn't correspond to the ByteBuffer
-    *    limits;
-    *  - deallocation function fails on the offset that previously has been returned
-    *    by the allocation function.
-    */
+   * Indicates all possible errors with Wasm memory:
+   *  - errors when accessing absent memory;
+   *  - allocation function returns offset that doesn't correspond to the ByteBuffer
+   *    limits;
+   *  - deallocation function fails on the offset that previously has been returned
+   *    by the allocation function.
+   */
   case class VmMemoryError(
     override val message: String,
     override val cause: Option[Throwable] = None
