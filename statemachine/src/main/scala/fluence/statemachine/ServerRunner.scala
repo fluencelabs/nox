@@ -25,14 +25,13 @@ import cats.effect.{ExitCode, IO, IOApp}
 import com.github.jtendermint.jabci.socket.TSocket
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.contract.ClientRegistry
-import fluence.statemachine.error.{ConfigLoadingError, StateMachineError}
+import fluence.statemachine.error.{ConfigLoadingError, StateMachineError, VmModuleLocationError}
 import fluence.statemachine.state._
 import fluence.statemachine.tx.{TxParser, TxProcessor, TxStateDependentChecker, VmOperationInvoker}
 import fluence.vm.WasmVm
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
 
-import scala.collection.JavaConverters
 import scala.language.higherKinds
 import scala.util.Try
 
@@ -87,7 +86,7 @@ object ServerRunner extends IOApp with LazyLogging {
       config <- EitherT
         .fromEither[IO](pureconfig.loadConfig[StateMachineConfig])
         .leftMap(
-          e => ConfigLoadingError("ConfigLoadingError", "Unable to read StateMachineConfig: " + e.toList)
+          e => ConfigLoadingError("Unable to read StateMachineConfig: " + e.toList)
         )
 
       moduleFilenames <- moduleFilesFromConfig[IO](config)
@@ -122,11 +121,18 @@ object ServerRunner extends IOApp with LazyLogging {
   /**
    * Builds a VM instance used to perform function calls from the clients.
    *
-   * @param moduleFiles TODO:
+   * @param moduleFiles module filenames with VM code
    */
   private def buildVm[F[_]: Monad](moduleFiles: Seq[String]): EitherT[F, StateMachineError, WasmVm] =
     WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
 
+  /**
+   * Extracts module filenames from config with particular files and directories with files mixed.
+   *
+   * @param config config object to load VM setting
+   * @return either a sequence of filenames found in directories and among files provided in config
+   *         or error denoting a specific problem with locating one of directories and files from config
+   */
   private def moduleFilesFromConfig[F[_]: Monad](
     config: StateMachineConfig
   ): EitherT[F, StateMachineError, Seq[String]] =
@@ -142,7 +148,7 @@ object ServerRunner extends IOApp with LazyLogging {
                 file.listFiles().toList
               else
                 List(file)
-            }).toEither.left.map(x => ConfigLoadingError("", ""))
+            }).toEither.left.map(x => VmModuleLocationError("Error during locating VM module files and directories", x))
         )
         .partition(_.isLeft) match {
         case (Nil, files) => Right(for (Right(f) <- files) yield f).map(_.flatten.map(_.getPath))
