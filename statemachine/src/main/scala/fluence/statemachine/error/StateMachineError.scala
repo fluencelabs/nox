@@ -54,8 +54,8 @@ case class ConfigLoadingError(override val message: String) extends StateMachine
 }
 
 /**
-  * Corresponds to errors occurred during looking for VM module files before passing them to VM.
-  */
+ * Corresponds to errors occurred during looking for VM module files before passing them to VM.
+ */
 case class VmModuleLocationError(override val message: String, th: Throwable) extends StateMachineError {
   override val code: String = "VmModuleLocationError"
   override val causedBy: Option[Throwable] = Some(th)

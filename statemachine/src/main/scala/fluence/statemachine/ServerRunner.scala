@@ -65,8 +65,11 @@ object ServerRunner extends IOApp with LazyLogging {
     for {
       _ <- EitherT.right(IO { configureLogging() })
 
+      config <- loadConfig()
+      _ = configureLogLevel(config.logLevel)
+
       _ = logger.info("Building State Machine ABCI handler")
-      abciHandler <- buildAbciHandler()
+      abciHandler <- buildAbciHandler(config)
 
       _ = logger.info("Starting State Machine ABCI handler")
       socket = new TSocket
@@ -79,16 +82,22 @@ object ServerRunner extends IOApp with LazyLogging {
     } yield ()
 
   /**
-   * Builds [[AbciHandler]], used to serve all Tendermint requests.
+   * Loads State machine config using `pureconfig` Scala config loading mechanism.
    */
-  private[statemachine] def buildAbciHandler(): EitherT[IO, StateMachineError, AbciHandler] =
-    for {
-      config <- EitherT
-        .fromEither[IO](pureconfig.loadConfig[StateMachineConfig])
-        .leftMap(
-          e => ConfigLoadingError("Unable to read StateMachineConfig: " + e.toList)
-        )
+  private def loadConfig(): EitherT[IO, StateMachineError, StateMachineConfig] =
+    EitherT
+      .fromEither[IO](pureconfig.loadConfig[StateMachineConfig])
+      .leftMap(
+        e => ConfigLoadingError("Unable to read StateMachineConfig: " + e.toList)
+      )
 
+  /**
+   * Builds [[AbciHandler]], used to serve all Tendermint requests.
+   *
+   * @param config config object to load various settings
+   */
+  private[statemachine] def buildAbciHandler(config: StateMachineConfig): EitherT[IO, StateMachineError, AbciHandler] =
+    for {
       moduleFilenames <- moduleFilesFromConfig[IO](config)
       _ = logger.info("Loading VM modules from " + moduleFilenames)
       vm <- buildVm[IO](moduleFilenames)
@@ -164,4 +173,20 @@ object ServerRunner extends IOApp with LazyLogging {
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.INFO
   }
+
+  /**
+   * Configures `slogging` log level.
+   * @param logLevel level of logging
+   */
+  private def configureLogLevel(logLevel: String): Unit =
+    LoggerConfig.level = logLevel.toUpperCase match {
+      case "OFF" => LogLevel.OFF
+      case "ERROR" => LogLevel.ERROR
+      case "WARN" => LogLevel.WARN
+      case "INFO" => LogLevel.INFO
+      case "DEBUG" => LogLevel.DEBUG
+      case "TRACE" => LogLevel.TRACE
+      case _ => LogLevel.INFO
+    }
+
 }

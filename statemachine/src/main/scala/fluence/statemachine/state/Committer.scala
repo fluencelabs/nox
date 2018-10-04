@@ -85,6 +85,7 @@ class Committer[F[_]](
   private def logState(state: MerkleTreeNode, height: Long): Unit = {
     logger.info("Commit: height={} hash={}", height, state.merkleHash.toHex)
     logger.debug("\n{}", state.dump())
+    logger.info("")
   }
 
 }

@@ -19,6 +19,7 @@ package fluence.statemachine
 import com.github.jtendermint.jabci.api.CodeType
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
+import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.state.QueryCodeType
 import fluence.statemachine.tree.MerkleTreeNode
 import fluence.statemachine.tx.{Computed, Empty, Error}
@@ -27,8 +28,13 @@ import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 
 class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
 
-  val abciHandler: AbciHandler =
-    ServerRunner.buildAbciHandler().valueOr(e => throw new RuntimeException(e.message)).unsafeRunSync()
+  private val config =
+    StateMachineConfig(8, List("vm/src/test/resources/wast/mul.wast", "vm/src/test/resources/wast/counter.wast"), "OFF")
+
+  val abciHandler: AbciHandler = ServerRunner
+    .buildAbciHandler(config)
+    .valueOr(e => throw new RuntimeException(e.message))
+    .unsafeRunSync()
 
   def sendCheckTx(tx: String): (Int, String) = {
     val request = RequestCheckTx.newBuilder().setTx(ByteString.copyFromUtf8(tx)).build()
