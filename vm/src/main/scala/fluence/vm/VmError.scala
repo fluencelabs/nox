@@ -45,10 +45,10 @@ object VmError {
   sealed trait WasmError extends VmError
 
   /**
-    * Indicates error when VM starts. It might be a problem with translation Wasm
-    * code to 'bytecode' or module instantiation. Module initialization is creation of
-    * instance class that corresponds to Wasm module.
-    */
+   * Indicates error when VM starts. It might be a problem with translation Wasm
+   * code to 'bytecode' or module instantiation. Module initialization is creation of
+   * instance class that corresponds to Wasm module.
+   */
   case class InitializationError(
    override val message: String,
    override val cause: Option[Throwable] = None
