@@ -1,1 +1,0 @@
-./run-network.sh counternet $PWD/vmcode-counter 172.25.0.0/16 26057

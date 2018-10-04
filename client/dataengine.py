@@ -165,7 +165,7 @@ class DataEngineSession:
 		if "result" not in tx_response:
 			print(tx_response["error"]["data"])
 		elif tx_response["result"]["code"] != 0:
-			print(hex_decode(tx_response["data"]))
+			print(hex_decode(tx_response["result"]["data"]))
 		else:
 			print("OK")
 
