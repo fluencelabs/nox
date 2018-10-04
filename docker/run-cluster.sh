@@ -18,7 +18,7 @@ docker network create -d bridge --subnet $3 $1
 
 # run 4 containers
 # the only communication point is Tendermint RPC on node0
-docker run -idt -p $4:26657 -v $PWD/statemachine:/statemachine -v $2:/vmcode -v $PWD/$1/node0:/tendermint --name $1_node0 --network $1 statemachine/statemachine:latest
-docker run -idt             -v $PWD/statemachine:/statemachine -v $2:/vmcode -v $PWD/$1/node1:/tendermint --name $1_node1 --network $1 statemachine/statemachine:latest
-docker run -idt             -v $PWD/statemachine:/statemachine -v $2:/vmcode -v $PWD/$1/node2:/tendermint --name $1_node2 --network $1 statemachine/statemachine:latest
-docker run -idt             -v $PWD/statemachine:/statemachine -v $2:/vmcode -v $PWD/$1/node3:/tendermint --name $1_node3 --network $1 statemachine/statemachine:latest
+docker run -idt -p $4:26657 -v $PWD/statemachine:/statemachine -v $2:/vmcode -v $PWD/$1/node0:/tendermint --name $1_node0 --network $1 fluencelabs/statemachine:latest
+docker run -idt             -v $PWD/statemachine:/statemachine -v $2:/vmcode -v $PWD/$1/node1:/tendermint --name $1_node1 --network $1 fluencelabs/statemachine:latest
+docker run -idt             -v $PWD/statemachine:/statemachine -v $2:/vmcode -v $PWD/$1/node2:/tendermint --name $1_node2 --network $1 fluencelabs/statemachine:latest
+docker run -idt             -v $PWD/statemachine:/statemachine -v $2:/vmcode -v $PWD/$1/node3:/tendermint --name $1_node3 --network $1 fluencelabs/statemachine:latest

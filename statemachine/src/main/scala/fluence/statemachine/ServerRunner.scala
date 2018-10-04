@@ -43,7 +43,7 @@ import scala.util.Try
  * according to Tendermint specification) and sends ABCI requests to `ABCIHandler`.
  */
 object ServerRunner extends IOApp with LazyLogging {
-  val DefaultABCIPoint: Int = 26658
+  val DefaultABCIPoint: Int = 26658 // default Tendermint ABCI port
 
   override def run(args: List[String]): IO[ExitCode] = {
     val port = if (args.length > 0) args(0).toInt else DefaultABCIPoint
@@ -152,12 +152,15 @@ object ServerRunner extends IOApp with LazyLogging {
             Try({
               val file = new File(name)
               if (!file.exists())
-                throw new FileNotFoundException(name)
+                Left(new FileNotFoundException(name))
               else if (file.isDirectory)
-                file.listFiles().toList
+                Right(file.listFiles().toList)
               else
-                List(file)
-            }).toEither.left.map(x => VmModuleLocationError("Error during locating VM module files and directories", x))
+                Right(List(file))
+            }).toEither
+              .flatMap(identity)
+              .left
+              .map(x => VmModuleLocationError("Error during locating VM module files and directories", x))
         )
         .partition(_.isLeft) match {
         case (Nil, files) => Right(for (Right(f) <- files) yield f).map(_.flatten.map(_.getPath))
@@ -176,6 +179,7 @@ object ServerRunner extends IOApp with LazyLogging {
 
   /**
    * Configures `slogging` log level.
+   *
    * @param logLevel level of logging
    */
   private def configureLogLevel(logLevel: String): Unit =

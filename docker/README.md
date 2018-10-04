@@ -12,7 +12,7 @@ Locate to the Fluence root directory and run:
 sbt docker
 ```
 
-It would build a `statemachine/statemachine:latest` image.
+It would build a `fluencelabs/statemachine:latest` image.
 
 ### Launching clusters
 
@@ -22,7 +22,7 @@ It would build a `statemachine/statemachine:latest` image.
 ./run-cluster-sqldb.sh
 ```
 
-They would launch the isolated clusters of `statemachine/statemachine:latest` containers.
+They would launch the isolated clusters of `fluencelabs/statemachine:latest` containers.
 These clusters share common settings but use different VM code.  
 
 It's possible to attach to the running containers, for example:

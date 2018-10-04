@@ -96,6 +96,7 @@ lazy val statemachine = (project in file("statemachine"))
       scalaTest
     ),
     test in assembly := {}, // TODO: remove this line after SBT issue fix
+    imageNames in docker := Seq(ImageName("fluencelabs/statemachine")),
     dockerfile in docker := {
       // Run `sbt docker` to create image
 
@@ -103,6 +104,7 @@ lazy val statemachine = (project in file("statemachine"))
       val artifact: File = assembly.value
       val artifactTargetPath = s"/app/${artifact.name}"
 
+      // Tendermint constants
       val tmVersion = "0.23.0"
       val tmDataRoot = "/tendermint"
       val tmBinaryArchive = s"tendermint_${tmVersion}_linux_amd64.zip"
@@ -111,6 +113,7 @@ lazy val statemachine = (project in file("statemachine"))
       val tmRpcPort = 26657
       val tmPrometheusPort = 26660
 
+      // State machine constants
       val smDataRoot = "/statemachine"
       val smRunScript = s"$smDataRoot/run-node.sh"
 
