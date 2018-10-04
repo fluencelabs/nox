@@ -88,7 +88,7 @@ object WasmVm {
    */
   private[vm] case class VmProps(
     modules: List[ModuleInstance] = Nil,
-    functions: WasmFunctionsIndex = Map()
+    functions: WasmFnIndex = Map()
   )
 
   /**

@@ -264,14 +264,9 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
             val error = res.failed()
             error.getMessage shouldBe
               "Invalid number of arguments, expected=2, actually=1 for fn='<no-name>.circular_xor' " +
-              "(or passed string argument is incorrect or isn't matched the corresponding argument in Wasm function)"
+                "(or passed string argument is incorrect or isn't matched the corresponding argument in Wasm function)"
           }
 
-        }
-      }
-
-      "string passing" should {
-        "raise an error" when {
           "trying to use Wasm memory when getMemory function isn't defined" in {
             val noGetMemoryTestFile = getClass.getResource("/wast/no-getMemory.wast").getPath
 
@@ -287,11 +282,6 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
             error shouldBe a[VmMemoryError]
           }
 
-        }
-      }
-
-      "string passing" should {
-        "raise an error" when {
           "Wasm allocate function returns an incorrect value" in {
             val badAllocationFunctionFile = getClass.getResource("/wast/bad-allocation-function.wast").getPath
 
@@ -306,8 +296,8 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
               "The Wasm allocation function returned incorrect offset=9223372036854775807"
             error shouldBe a[VmMemoryError]
           }
-        }
 
+        }
       }
 
     }

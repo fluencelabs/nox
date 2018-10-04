@@ -46,7 +46,7 @@ import scala.util.Try
  *                               that was previously allocated by allocateFunction
  */
 class AsmleWasmVm(
-  functionsIndex: WasmFunctionsIndex,
+  functionsIndex: WasmFnIndex,
   modules: WasmModules,
   hasher: Hasher[Array[Byte], Array[Byte]],
   allocateFunctionName: String,
@@ -225,7 +225,7 @@ class AsmleWasmVm(
 object AsmleWasmVm {
 
   type WasmModules = List[ModuleInstance]
-  type WasmFunctionsIndex = Map[FunctionId, WasmFunction]
+  type WasmFnIndex = Map[FunctionId, WasmFunction]
 
   /** Function id contains two components: optional module name and function name. */
   case class FunctionId(moduleName: Option[String], functionName: String) {
