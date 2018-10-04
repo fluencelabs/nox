@@ -264,7 +264,7 @@ When a node serves a result to the client through the query API it also serves a
 
 <img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _At the current moment results dictionary is stored on the state machine side instead of inside the WebAssembly VM. This doesn't constitute a problem for the real-time component – the results dictionary can still be merkelized and the corresponding Merkle root can be used in the BFT consensus._
 
-_However, for the batch validation to work there should be a cryptographic connection between 1) what the virtual machine has produced and 2) what was stored in the results dictionary. Batch validation is able to check only 1) but not 2) which means a malicious node might substitute correct results with bogus data. A better option could be to store the results dictionary inside the WebAssembly VM, which is what's actually depicted on the diagram._
+_However, for the batch validation to work there should be a cryptographic connection between 1) what the virtual machine has produced and 2) what was stored in the results dictionary. Batch validation is able to check only 1) but not 2) which means a malicious cluster might substitute correct results with bogus data. A better option could be to store the results dictionary inside the WebAssembly VM, which is what's actually depicted on the diagram._
 
 <img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _It's not clear yet how the results should be purged from the dictionary once they are no longer needed. One of possible solutions could be that results are removed once they are served through the query API._
 
@@ -313,12 +313,17 @@ Obviously, if an order of transactions will get changed by a malicious node, the
 
 Internally, this is implemented as following. Every transaction with `meta = (c, s, k)` _delivered_ as a part of the block to the state machine is placed into a temporary buffer first. Here we use `c` as the client identifier, `s` as the session identifier and `k` as the order number in the session. A corresponding function will be invoked if and only if the transaction with `meta = (c, s, k - 1)` was already successfully processed or `k == 0`. To reduce the memory load, processed transactions are immediately purged from the temporary buffer.
 
+Counting already processed transactions also allows to deduplicate and not execute already processed transaction if it is resubmitted (or replayed by a malicious node).
+
 <p align="center">
   <img src="images/transactions_ordering_buffer.png" alt="Transactions Ordering Buffer" width="661px"/>
 </p>
 
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _At the current moment transactions buffer is stored on the state machine side instead of inside the WebAssembly VM. Similar to results dictionary, this doesn't affect real-time component, but might allow a malicious cluster to execute transactions out of order, but hide this from batch validation._
 
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _It's not clear yet when the sessions should be purged from buffer. One of the options could be to garbage collect sessions not used for specific number of blocks, another – to use a ring buffer. The client might also send oversized transactions to cause a denial of service._
 
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _If outdated sessions are purged from the buffer, it might happen that a transaction will be executed out of order. For example, if transactions `0`, `1` and `2` were processed in a session that was purged later on, nothing prevents transaction `4` to get processed. Some other mechanism to sync should be used there._
 
 ----
 \> [Twemoji](https://twemoji.twitter.com/) graphics: Twitter, Inc & others [\[CC-BY 4.0\]]( https://creativecommons.org/licenses/by/4.0/)
