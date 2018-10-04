@@ -89,15 +89,36 @@ fn run_query(sql_query: &str) -> GenResult<String> {
     let statement = llamadb::sqlsyntax::parse_statement(sql_query);
     let mut db = DATABASE.lock()?;
     let result = db.execute_statement(statement)
-        .map(statement_to_csv)
+        .map(statement_to_string)
         .map_err(Into::into);
     result
 }
 
 /// Converts query result to CSV String.
-fn statement_to_csv<'a>(_statement: ExecuteStatementResponse<'a>) -> String {
-    // todo implement
-    unimplemented!()
+fn statement_to_string(statement: ExecuteStatementResponse) -> String {
+    match statement {
+        ExecuteStatementResponse::Created => {
+            "table created".to_string()
+        }
+        ExecuteStatementResponse::Inserted(number) => {
+            format!("rows inserted: {}", number)
+        }
+        ExecuteStatementResponse::Select { column_names, rows } => {
+            let col_names = column_names.to_vec().join(", ") + "\n";
+            let rows_as_str =
+                rows.map(|row| {
+                    row.iter()
+                        .map(|elem| elem.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                }).collect::<Vec<String>>().join("\n");
+
+            col_names + &rows_as_str
+        }
+        ExecuteStatementResponse::Explain(result) => {
+            result.clone()
+        }
+    }
 }
 
 /// Writes Rust string into the memory directly as string length and byte array
@@ -111,9 +132,7 @@ unsafe fn put_to_mem(str: String) -> *mut u8 {
     result.write_all(len_as_bytes).unwrap();
     result.write_all(str.as_bytes()).unwrap();
 
-    let result_ptr = allocate(result.len())
-        .expect(&format!("[Error] Can't allocated {} bytes", result.len()))
-        .as_ptr();
+    let result_ptr = allocate(result.len()).as_ptr();
 
     // writes bytes into memory byte-by-byte. Address of first byte will be == `ptr`
     for (idx, byte) in result.iter().enumerate() {
