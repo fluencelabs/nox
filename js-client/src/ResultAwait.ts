@@ -107,11 +107,12 @@ export class ResultAwait implements ResultPromise {
 
             let pr = this.checkResultPeriodically(path, this.config.requestsPerSec,
                 this.config.checkSessionTimeout, this.config.requestTimeout)
-                .catch(this.onError)
                 .finally(() => {
                     detailedDebug("invocation completed");
                     d("result received");
                 });
+
+            pr.catch(this.onError);
 
             this.invokeResult = pr;
 
