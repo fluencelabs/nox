@@ -242,7 +242,7 @@ First, the client sends a transaction to the cluster. In addition to the functio
     "args": [5, 3], 
     "meta": {
       "client": "0xA425",      
-      "session": 117,
+      "session": 17,
       "counter": 23
     }
   }
@@ -271,6 +271,54 @@ _However, for the batch validation to work there should be a cryptographic conne
 _However, this doesn't cover situations when stored results are never queried (for example, if the client is malicious). Another option would be to garbage collect results – for example, using a FIFO policy. In this case the dictionary could actually be implemented as a ring buffer of a specific size._
 
 <img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _Stored results are also not limited in size at the moment which might be used for a denial of service attack. One of many possible defenses would be to limit the amount of data stored per single client._
+
+
+### Happens-before transactions semantic
+
+We have already mentioned in [§ API](#function-invocations-ordering) that function invocations made by a client might be batched or parallelized but total order between invocations within a session is still present.
+
+One of the reasons is that a significant amount of time might pass between the moment the client submits a transaction and receives results back. Once the client sends a transaction, Tendermint has to form a block, pass it through consensus and deliver it to the state machine. Only once this happens and one more block is processed through consensus the client will be able to query and verify results.
+
+This process might take few seconds during which the client or the real-time cluster are not really doing much: for the most part it's just waiting because of the network latencies. Luckily, the client doesn't have to wait for _each_ function to complete. Instead, multiple function calls might be batched together by the client-side library. The library might also send multiple requests in parallel.
+
+To make it a bit complicated, Tendermint doesn't provide ordering guarantees for transactions included into the same block. This means a (potentially malicious) node might drop certain transactions from the mempool or, acting as a proposer, place them into a block in reverse order.
+
+However, there are certain cases present where the right order is critical. Let's imagine we have the following code deployed to the real-time cluster:
+
+```rust
+static mut VALUE: u32 = 0;
+
+pub unsafe fn update(value: u32) {
+  VALUE = value;
+}
+```
+
+Now, a client checking stock quotes in a tight loop might wish to update the current value every time the stock price changes:
+
+```javascript
+var session = fluence.newSession();
+
+var last_tick = ...;
+while (true) {
+  await sleep(1);
+  
+  curr = nasdaq.ask("AAPL");
+  if (curr.tick > last_tick) {
+    session.invoke("update", [curr.price]);
+  }
+}
+```
+
+Obviously, if an order of transactions will get changed by a malicious node, the current value will be incorrect for a while. To avoid this situation, the client-side library, the state machine and the protocol provide happens-before semantic for transactions sent within a single session.
+
+Internally, this is implemented as following. Every transaction with `meta = (c, s, k)` _delivered_ as a part of the block to the state machine is placed into a temporary buffer first. Here we use `c` as the client identifier, `s` as the session identifier and `k` as the order number in the session. A corresponding function will be invoked if and only if the transaction with `meta = (c, s, k - 1)` was already successfully processed or `k == 0`. To reduce the memory load, processed transactions are immediately purged from the temporary buffer.
+
+<p align="center">
+  <img src="images/transactions_ordering_buffer.png" alt="Transactions Ordering Buffer" width="661px"/>
+</p>
+
+
+
 
 ----
 \> [Twemoji](https://twemoji.twitter.com/) graphics: Twitter, Inc & others [\[CC-BY 4.0\]]( https://creativecommons.org/licenses/by/4.0/)
