@@ -17,7 +17,16 @@
 import {RpcClient} from "tendermint"
 import {none, Option, Some} from "ts-option";
 import {fromHex} from "./utils";
-import {BroadcastTxSyncResponse} from "./responses";
+import  * as debug from "debug";
+
+const d = debug("tendermintClient");
+
+interface BroadcastTxSyncResponse {
+    code: number
+    data: string
+    log: string
+    hash: string
+}
 
 function parseResponse(res: any): BroadcastTxSyncResponse {
     let bResponse = <BroadcastTxSyncResponse> res;
@@ -34,6 +43,7 @@ export class TendermintClient {
 
     broadcastTxAsync(hex: string): Promise<any> {
         let params = {tx: JSON.stringify(hex)};
+        d("broadCastTxAsync request");
         return this.client.broadcastTxAsync(params);
     }
 
@@ -43,6 +53,7 @@ export class TendermintClient {
      */
     broadcastTxSync(hex: string): Promise<BroadcastTxSyncResponse> {
         let params = {tx: JSON.stringify(hex)};
+        d("broadCastTxSync request");
         return this.client.broadcastTxSync(params)
             .then((res: any) => {
                 return parseResponse(res);
@@ -59,6 +70,8 @@ export class TendermintClient {
      */
     async abciQuery(path: string): Promise<Option<any>> {
         let escaped = JSON.stringify(path);
+
+        d("abciQuery request");
         let response = (await this.client.abciQuery({path: escaped})).response;
 
         if (response.value) {

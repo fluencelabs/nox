@@ -17,8 +17,12 @@
 import {error, Result, ErrorResult, parseObject} from "./Result";
 import {TendermintClient} from "./TendermintClient";
 import {none, Option} from "ts-option";
-import {SessionSummary} from "./responses";
+import {isActive, SessionSummary} from "./responses";
 import {SessionConfig} from "./SessionConfig";
+import * as debug from "debug";
+
+const detailedDebug = debug("invoke-detailed");
+const d = debug("result");
 
 export interface ResultPromise {
     result(): Promise<Result>;
@@ -94,6 +98,8 @@ export class ResultAwait implements ResultPromise {
      */
     async result(): Promise<Result> {
 
+        d("start to get result");
+
         if (this.invokeResult === undefined) {
             await this.broadcastRequest;
 
@@ -101,7 +107,11 @@ export class ResultAwait implements ResultPromise {
 
             let pr = this.checkResultPeriodically(path, this.config.requestsPerSec,
                 this.config.checkSessionTimeout, this.config.requestTimeout)
-                .catch(this.onError);
+                .catch(this.onError)
+                .finally(() => {
+                    detailedDebug("invocation completed");
+                    d("result received");
+                });
 
             this.invokeResult = pr;
 
@@ -137,6 +147,8 @@ export class ResultAwait implements ResultPromise {
 
         for(var _i = 0; _i < requestsPerSec * requestTimeout; _i++) {
 
+            detailedDebug("check result. Attempt number: " + _i);
+
             // checking result was canceled outside
             if (this.canceled) {
                 throw error(`The request was canceled. Cause: ${this.canceledReason}`)
@@ -146,19 +158,23 @@ export class ResultAwait implements ResultPromise {
             let checkSession = _i > responseTimeoutSec * requestsPerSec;
 
             if (checkSession) {
+                detailedDebug("get session info");
                 sessionInfo = await this.getSessionInfo();
             }
 
             let optionResult = await this.checkResult(path);
+            detailedDebug("result received");
 
             // if result exists, return it
             if (optionResult.nonEmpty) {
                 return optionResult.get
             }
 
+            detailedDebug("result is empty");
+
             // here the session is checked after the result is checked, as it may happen that the result is given,
             // and after that the session was immediately closed
-            if (sessionInfo.exists((si) => si.status.Active === undefined)) {
+            if (sessionInfo.exists(isActive)) {
                 throw error(`Session is ${JSON.stringify(sessionInfo.get.status)}`)
             }
 

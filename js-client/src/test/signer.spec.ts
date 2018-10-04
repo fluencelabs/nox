@@ -28,7 +28,7 @@ describe('Signer', () => {
             let messageBytes = utils.toArray(message);
             let hashedMessage = sha256(messageBytes);
 
-            // get only public key for verify
+            // get only public key for verifying
             let key = ec.keyFromSecret(base64js.toByteArray(signKey));
             let publicKey = ec.keyFromPublic(key);
 
