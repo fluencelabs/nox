@@ -273,10 +273,10 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       "string passing" should {
         "raise an error" when {
           "trying to use Wasm memory when getMemory function isn't defined" in {
-            val simpleStringPassingTestFile = getClass.getResource("/wast/no-getMemory.wast").getPath
+            val noGetMemoryTestFile = getClass.getResource("/wast/no-getMemory.wast").getPath
 
             val res = for {
-              vm <- WasmVm[IO](Seq(simpleStringPassingTestFile))
+              vm <- WasmVm[IO](Seq(noGetMemoryTestFile))
               result <- vm.invoke[IO](None, "test", Seq("\"test\""))
               state ← vm.getVmState[IO].toVmError
             } yield state
@@ -293,10 +293,10 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       "string passing" should {
         "raise an error" when {
           "Wasm allocate function returns an incorrect value" in {
-            val simpleStringPassingTestFile = getClass.getResource("/wast/bad-allocation-function.wast").getPath
+            val badAllocationFunctionFile = getClass.getResource("/wast/bad-allocation-function.wast").getPath
 
             val res = for {
-              vm <- WasmVm[IO](Seq(simpleStringPassingTestFile))
+              vm <- WasmVm[IO](Seq(badAllocationFunctionFile))
               result <- vm.invoke[IO](None, "test", Seq("\"test\""))
               state ← vm.getVmState[IO].toVmError
             } yield state
@@ -306,8 +306,8 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
               "The Wasm allocation function returned incorrect offset=9223372036854775807"
             error shouldBe a[VmMemoryError]
           }
-
         }
+
       }
 
     }

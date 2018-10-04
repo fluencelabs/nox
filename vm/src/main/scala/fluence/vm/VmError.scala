@@ -50,8 +50,8 @@ object VmError {
    * instance class that corresponds to Wasm module.
    */
   case class InitializationError(
-   override val message: String,
-   override val cause: Option[Throwable] = None
+    override val message: String,
+    override val cause: Option[Throwable] = None
   ) extends VmErrorProxy(message, cause) with WasmError with ApplyError
 
   /**
