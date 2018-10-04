@@ -22,16 +22,12 @@ export type Result = Empty | Value
 /**
  * The empty result, if there is no value in response.
  */
-class Empty {
-    kind: 'empty';
-}
+class Empty {}
 
 /**
  * The result with value as a string from the real-time cluster.
  */
 class Value {
-    kind: 'value';
-
     constructor(v: string) {
         this.value = v
     }
@@ -51,6 +47,10 @@ export class Error {
 }
 
 export const empty = new Empty();
+
+export function isValue(r: Result): r is Value {
+    return r instanceof Value;
+}
 
 export function value(v: string) {
     return new Value(v)

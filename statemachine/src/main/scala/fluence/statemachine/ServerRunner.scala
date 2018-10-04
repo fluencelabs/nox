@@ -51,7 +51,7 @@ object ServerRunner extends IOApp with LazyLogging {
       .start(port)
       .map(_ => ExitCode.Success)
       .valueOr(error => {
-        logger.error("Error during State machine run: " + error)
+        logger.error("Error during State machine run: " + error + " caused by: " + error.causedBy)
         ExitCode.Error
       })
   }
