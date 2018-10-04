@@ -25,25 +25,25 @@ It would build a `statemachine/statemachine:latest` image.
 They would launch the isolated clusters of `statemachine/statemachine:latest` containers.
 These clusters share common settings but use different VM code.  
 
-It's possible to attach the running containers, for example:
+It's possible to attach to the running containers, for example:
 ```
 docker attach sqldbnet_node0
 ```
 
-(Use `Ctrl+P Ctrl+Q` to detach.)
+It would allow to view State machine logs reporting details about blocks, transactions, etc. (Use `Ctrl+P Ctrl+Q` to detach.)
 
 Explore `run-cluster.sh` command to launch clusters with custom VM code. 
 
 ### Connecting JS client
 
-Run:
+Locate to `<fluence root>/js-client` directory and run:
 
 ```
 npm run start:dev
 ```
 
 It would launch `npm` project on `localhost:8080`. By opening this URL in a web browser and opening dev console,
-it's possible to use client API and demo clients, e. g.:
+it's possible to use the client API and demo client implementations, e. g.:
 
 ```
 # counter cluster needs to be launched 
