@@ -23,7 +23,7 @@ import scala.language.higherKinds
 
 package object vm {
 
-  /** Helper method. Converts List of Ether to Either of List. */
+  /** Helper method. Converts List of Either to Either of List. */
   def list2Either[F[_]: Applicative, A, B](
     list: List[Either[A, B]]
   ): EitherT[F, A, List[B]] = {
