@@ -1,7 +1,7 @@
 ;; this example calculates circular xor of supplied buffer
 
 (module
-    ;; force asmble to use memory
+    ;; force Asmble to use memory
     (memory $0 20)
     (table 0 anyfunc)
     (export "memory" (memory $0))
@@ -15,7 +15,7 @@
         (i32.const 10000)
     )
 
-    ;; int test(const char *buffer, int size) {
+    ;; int circular_xor(const char *buffer, int size) {
     ;;   int value = 0;
     ;;
     ;;   for(int byteId = 0; byteId < size; ++byteId) {
@@ -24,7 +24,7 @@
     ;;
     ;;   return value;
     ;; }
-    (func (export "test") (param $0 i32 ) (param $1 i32) (result i32)
+    (func (export "circular_xor") (param $0 i32 ) (param $1 i32) (result i32)
         (local $2 i32)
         (set_local $2 (i32.const 0) )
         (block $label$0

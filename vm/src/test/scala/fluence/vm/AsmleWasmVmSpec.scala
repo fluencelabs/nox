@@ -233,17 +233,81 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm ← WasmVm[IO](Seq(simpleStringPassingTestFile))
-          value1 ← vm.invoke[IO](None, "test", Seq("\"test_argument\""))
-          value2 ← vm.invoke[IO](None, "test", Seq("\"XX\""))
-          value3 ← vm.invoke[IO](None, "test", Seq("\"XXX\""))
+          value1 ← vm.invoke[IO](None, "circular_xor", Seq("\"test_argument\""))
+          value2 ← vm.invoke[IO](None, "circular_xor", Seq("\"XX\""))
+          value3 ← vm.invoke[IO](None, "circular_xor", Seq("\"XXX\""))
+          value4 ← vm.invoke[IO](None, "circular_xor", Seq("\"\""))       // empty string
+          value5 ← vm.invoke[IO](None, "circular_xor", Seq("\"\"\""))     // " string
           state ← vm.getVmState[IO].toVmError
         } yield {
           value1 shouldBe Some(90)
           value2 shouldBe Some(0)
           value3 shouldBe Some('X'.toInt)
+          value4 shouldBe Some(0)           // this Wasm example returns 0 on empty string
+          value5 shouldBe Some('"'.toInt)
         }
 
         res.success()
+      }
+
+      "string passing" should {
+        "raise an error" when {
+          "trying to pass incorrect string" in {
+            val simpleStringPassingTestFile = getClass.getResource("/wast/simple-string-passing.wast").getPath
+
+            val res = for {
+              vm <- WasmVm[IO](Seq(simpleStringPassingTestFile))
+              result <- vm.invoke[IO](None, "circular_xor", Seq("\""))
+              state ← vm.getVmState[IO].toVmError
+            } yield state
+
+            val error = res.failed()
+            error.getMessage shouldBe
+              "Invalid number of arguments, expected=2, actually=1 for fn='<no-name>.circular_xor' " +
+              "(or passed string argument is incorrect or isn't matched the corresponding argument in Wasm function)"
+          }
+
+        }
+      }
+
+      "string passing" should {
+        "raise an error" when {
+          "trying to use Wasm memory when getMemory function isn't defined" in {
+            val simpleStringPassingTestFile = getClass.getResource("/wast/no-getMemory.wast").getPath
+
+            val res = for {
+              vm <- WasmVm[IO](Seq(simpleStringPassingTestFile))
+              result <- vm.invoke[IO](None, "test", Seq("\"test\""))
+              state ← vm.getVmState[IO].toVmError
+            } yield state
+
+            val error = res.failed()
+            error.getMessage shouldBe
+              "Trying to use absent Wasm memory while injecting string=test"
+            error shouldBe a[VmMemoryError]
+          }
+
+        }
+      }
+
+      "string passing" should {
+        "raise an error" when {
+          "Wasm allocate function returns an incorrect value" in {
+            val simpleStringPassingTestFile = getClass.getResource("/wast/bad-allocation-function.wast").getPath
+
+            val res = for {
+              vm <- WasmVm[IO](Seq(simpleStringPassingTestFile))
+              result <- vm.invoke[IO](None, "test", Seq("\"test\""))
+              state ← vm.getVmState[IO].toVmError
+            } yield state
+
+            val error = res.failed()
+            error.getMessage shouldBe
+              "The Wasm allocation function returned incorrect offset=9223372036854775807"
+            error shouldBe a[VmMemoryError]
+          }
+
+        }
       }
 
     }

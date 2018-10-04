@@ -41,7 +41,7 @@ import scala.util.Try
  * @param modules list of Wasm modules
  * @param hasher a hash function provider
  * @param allocateFunctionName name of function that will be used for allocation
- *                             memory in Wasm part
+ *                             memory in the Wasm part
  * @param deallocateFunctionName name of a function that will be used for freeing memory
  *                               that was previously allocated by allocateFunction
  */
@@ -70,21 +70,25 @@ class AsmleWasmVm(
     val functionId = FunctionId(moduleName, AsmExtKt.getJavaIdent(fnName))
 
     for {
-      // Finds java method(wast fn) in the index by function id
-      wasmFunction <- EitherT
+      // Finds java method(Wasm function) in the index by function id
+      wasmFn <- EitherT
         .fromOption(
           functionsIndex.get(functionId),
           NoSuchFnError(s"Unable to find a function with the name=$functionId")
         )
 
-      preprocessedArguments <- preprocessArguments(fnArgs, wasmFunction.module)
-      arguments ← parseArguments(preprocessedArguments, wasmFunction)
+      preprocessedArguments <- preprocessArguments(fnArgs, wasmFn.module)
+      arguments ← parseArguments(preprocessedArguments, wasmFn)
 
       // invoke the function
-      result ← wasmFunction[F](arguments)
-      // TODO : In the current version it is expected that callee clean memory by itself, but
-      // in the future it has to be done by caller through deallocate function call
-    } yield if (wasmFunction.javaMethod.getReturnType == Void.TYPE) None else Option(result)
+      result ← wasmFn[F](arguments)
+      // TODO : In the current version it is expected that callee (Wasm module) clean memory by itself
+      // after construction of the result string. F.e. in Rust String object along with &str are the common
+      // classes for operations on strings, in C++ the same role has std::string and std::stringview classes.
+      // So, now it is expected that Rust/C++ methods at first construct objects of corresponding classes by
+      // using injected string bytes as source and then delete these string bytes. But in the future it has
+      // to be done by caller through deallocate function call.
+    } yield if (wasmFn.javaMethod.getReturnType == Void.TYPE) None else Option(result)
 
   }
 
@@ -108,6 +112,12 @@ class AsmleWasmVm(
       .map(ByteVector(_))
 
   // TODO : In the future, it should be rewritten with cats.effect.resource
+  /**
+    * Allocates memory in Wasm module of supplied size by allocateFunction.
+    *
+    * @param size size of memory that need to be allocated
+    * @tparam F a monad with an ability to absorb 'IO'
+    */
   private def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] = {
     allocateFunction match {
       case Some(fn) => fn(size.asInstanceOf[AnyRef] :: Nil)
@@ -116,12 +126,17 @@ class AsmleWasmVm(
           NoSuchFnError(s"Unable to find the function for memory allocation with the name=$allocateFunctionName")
         )
     }
-  }: EitherT[F, InvokeError, AnyRef]
+  }
 
-
-  private def deallocate[F[_]: LiftIO: Monad](address: Int): EitherT[F, InvokeError, AnyRef] = {
+  /**
+    * Deallocates previously allocated memory in Wasm module by deallocateFunction.
+    *
+    * @param offset address of memory to deallocate
+    * @tparam F a monad with an ability to absorb 'IO'
+    */
+  private def deallocate[F[_]: LiftIO: Monad](offset: Int): EitherT[F, InvokeError, AnyRef] = {
     deallocateFunction match {
-      case Some(fn) => fn(address.asInstanceOf[AnyRef] :: Nil)
+      case Some(fn) => fn(offset.asInstanceOf[AnyRef] :: Nil)
       case _ =>
         EitherT.leftT(
           NoSuchFnError(s"Unable to find the function for memory deallocation with the name=$deallocateFunctionName")
@@ -188,7 +203,7 @@ class AsmleWasmVm(
       // It is possible for "evil" module to return knowingly invalid index (negative or doesn't
       // correspond to ByteBuffer limit)
       _ ← EitherT.cond(
-        (resultOffset + injectedString.length) > resultOffset &&
+        (resultOffset + injectedString.length) >= resultOffset &&
         // limit is the index of the first element that should not be read or written so
         // strictly less is needed
         (resultOffset + injectedString.length) < wasmMemory.limit(),
@@ -281,7 +296,8 @@ object AsmleWasmVm {
         required == fnArgs.size,
         (),
         InvalidArgError(
-          s"Invalid number of arguments, expected=$required, actually=${fnArgs.size} for fn=$wasmFn"
+          s"Invalid number of arguments, expected=$required, actually=${fnArgs.size} for fn=$wasmFn " +
+            s"(or passed string argument is incorrect or isn't matched the corresponding argument in Wasm function)"
         )
       )
 
