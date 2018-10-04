@@ -275,13 +275,13 @@ _However, this doesn't cover situations when stored results are never queried (f
 
 ### Happens-before transactions semantic
 
-We have already mentioned in [§ API](#function-invocations-ordering) that function invocations made by a client might be batched or parallelized but total order between invocations within a session is still present.
+We have already mentioned in [§ API](#function-invocations-ordering) that function invocations made by a client might be batched or parallelized but total order between invocations within a session is still preserved.
 
 One of the reasons is that a significant amount of time might pass between the moment the client submits a transaction and receives results back. Once the client sends a transaction, Tendermint has to form a block, pass it through consensus and deliver it to the state machine. Only once this happens and one more block is processed through consensus the client will be able to query and verify results.
 
 This process might take few seconds during which the client or the real-time cluster are not really doing much: for the most part it's just waiting because of the network latencies. Luckily, the client doesn't have to wait for _each_ function to complete. Instead, multiple function calls might be batched together by the client-side library. The library might also send multiple requests in parallel.
 
-To make it a bit complicated, Tendermint doesn't provide ordering guarantees for transactions included into the same block. This means a (potentially malicious) node might drop certain transactions from the mempool or, acting as a proposer, place them into a block in reverse order.
+To make it a bit complicated, Tendermint doesn't provide ordering guarantees for transactions included into the same block. A (potentially malicious) node might drop certain transactions from the mempool or gossip them in the order different from the order they have arrived. Moreover, a client might send different transactions to different nodes in which case there is no implicit arrival order information.
 
 However, there are certain cases present where the right order is critical. Let's imagine we have the following code deployed to the real-time cluster:
 
@@ -316,14 +316,14 @@ Internally, this is implemented as following. Every transaction with `meta = (c,
 Counting already processed transactions also allows to deduplicate and not execute already processed transaction if it is resubmitted (or replayed by a malicious node).
 
 <p align="center">
-  <img src="images/transactions_ordering_buffer.png" alt="Transactions Ordering Buffer" width="661px"/>
+  <img src="images/transactions_ordering_buffer.png" alt="Transactions Ordering Buffer" width="921px"/>
 </p>
 
 <img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _At the current moment transactions buffer is stored on the state machine side instead of inside the WebAssembly VM. Similar to results dictionary, this doesn't affect real-time component, but might allow a malicious cluster to execute transactions out of order, but hide this from batch validation._
 
 <img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _It's not clear yet when the sessions should be purged from buffer. One of the options could be to garbage collect sessions not used for specific number of blocks, another – to use a ring buffer. The client might also send oversized transactions to cause a denial of service._
 
-<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _If outdated sessions are purged from the buffer, it might happen that a transaction will be executed out of order. For example, if transactions `0`, `1` and `2` were processed in a session that was purged later on, nothing prevents transaction `4` to get processed. Some other mechanism to sync should be used there._
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _If outdated sessions are purged from the buffer, it might happen that a transaction will be executed out of order. For example, if transactions `0`, `1` and `2` were processed in a session that was purged later on, nothing prevents transaction `0` to get processed again. Some other mechanism to sync should be used there._
 
 ----
 \> [Twemoji](https://twemoji.twitter.com/) graphics: Twitter, Inc & others [\[CC-BY 4.0\]]( https://creativecommons.org/licenses/by/4.0/)
