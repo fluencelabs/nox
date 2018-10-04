@@ -242,7 +242,7 @@ First, the client sends a transaction to the cluster. In addition to the functio
     "args": [5, 3], 
     "meta": {
       "client": "0xA425",      
-      "session": 117,
+      "session": 17,
       "counter": 23
     }
   }
@@ -264,13 +264,66 @@ When a node serves a result to the client through the query API it also serves a
 
 <img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _At the current moment results dictionary is stored on the state machine side instead of inside the WebAssembly VM. This doesn't constitute a problem for the real-time component – the results dictionary can still be merkelized and the corresponding Merkle root can be used in the BFT consensus._
 
-_However, for the batch validation to work there should be a cryptographic connection between 1) what the virtual machine has produced and 2) what was stored in the results dictionary. Batch validation is able to check only 1) but not 2) which means a malicious node might substitute correct results with bogus data. A better option could be to store the results dictionary inside the WebAssembly VM, which is what's actually depicted on the diagram._
+_However, for the batch validation to work there should be a cryptographic connection between 1) what the virtual machine has produced and 2) what was stored in the results dictionary. Batch validation is able to check only 1) but not 2) which means a malicious cluster might substitute correct results with bogus data. A better option could be to store the results dictionary inside the WebAssembly VM, which is what's actually depicted on the diagram._
 
 <img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _It's not clear yet how the results should be purged from the dictionary once they are no longer needed. One of possible solutions could be that results are removed once they are served through the query API._
 
 _However, this doesn't cover situations when stored results are never queried (for example, if the client is malicious). Another option would be to garbage collect results – for example, using a FIFO policy. In this case the dictionary could actually be implemented as a ring buffer of a specific size._
 
 <img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _Stored results are also not limited in size at the moment which might be used for a denial of service attack. One of many possible defenses would be to limit the amount of data stored per single client._
+
+
+### Happens-before transactions semantic
+
+We have already mentioned in [§ API](#function-invocations-ordering) that function invocations made by a client might be batched or parallelized but total order between invocations within a session is still present.
+
+One of the reasons is that a significant amount of time might pass between the moment the client submits a transaction and receives results back. Once the client sends a transaction, Tendermint has to form a block, pass it through consensus and deliver it to the state machine. Only once this happens and one more block is processed through consensus the client will be able to query and verify results.
+
+This process might take few seconds during which the client or the real-time cluster are not really doing much: for the most part it's just waiting because of the network latencies. Luckily, the client doesn't have to wait for _each_ function to complete. Instead, multiple function calls might be batched together by the client-side library. The library might also send multiple requests in parallel.
+
+To make it a bit complicated, Tendermint doesn't provide ordering guarantees for transactions included into the same block. This means a (potentially malicious) node might drop certain transactions from the mempool or, acting as a proposer, place them into a block in reverse order.
+
+However, there are certain cases present where the right order is critical. Let's imagine we have the following code deployed to the real-time cluster:
+
+```rust
+static mut VALUE: u32 = 0;
+
+pub unsafe fn update(value: u32) {
+  VALUE = value;
+}
+```
+
+Now, a client checking stock quotes in a tight loop might wish to update the current value every time the stock price changes:
+
+```javascript
+var session = fluence.newSession();
+
+var last_tick = ...;
+while (true) {
+  await sleep(1);
+  
+  curr = nasdaq.ask("AAPL");
+  if (curr.tick > last_tick) {
+    session.invoke("update", [curr.price]);
+  }
+}
+```
+
+Obviously, if an order of transactions will get changed by a malicious node, the current value will be incorrect for a while. To avoid this situation, the client-side library, the state machine and the protocol provide happens-before semantic for transactions sent within a single session.
+
+Internally, this is implemented as following. Every transaction with `meta = (c, s, k)` _delivered_ as a part of the block to the state machine is placed into a temporary buffer first. Here we use `c` as the client identifier, `s` as the session identifier and `k` as the order number in the session. A corresponding function will be invoked if and only if the transaction with `meta = (c, s, k - 1)` was already successfully processed or `k == 0`. To reduce the memory load, processed transactions are immediately purged from the temporary buffer.
+
+Counting already processed transactions also allows to deduplicate and not execute already processed transaction if it is resubmitted (or replayed by a malicious node).
+
+<p align="center">
+  <img src="images/transactions_ordering_buffer.png" alt="Transactions Ordering Buffer" width="661px"/>
+</p>
+
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _At the current moment transactions buffer is stored on the state machine side instead of inside the WebAssembly VM. Similar to results dictionary, this doesn't affect real-time component, but might allow a malicious cluster to execute transactions out of order, but hide this from batch validation._
+
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _It's not clear yet when the sessions should be purged from buffer. One of the options could be to garbage collect sessions not used for specific number of blocks, another – to use a ring buffer. The client might also send oversized transactions to cause a denial of service._
+
+<img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _If outdated sessions are purged from the buffer, it might happen that a transaction will be executed out of order. For example, if transactions `0`, `1` and `2` were processed in a session that was purged later on, nothing prevents transaction `4` to get processed. Some other mechanism to sync should be used there._
 
 ----
 \> [Twemoji](https://twemoji.twitter.com/) graphics: Twitter, Inc & others [\[CC-BY 4.0\]]( https://creativecommons.org/licenses/by/4.0/)
