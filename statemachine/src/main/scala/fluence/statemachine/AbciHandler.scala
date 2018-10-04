@@ -25,6 +25,7 @@ import com.google.protobuf.ByteString
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
 import fluence.statemachine.util.ClientInfoMessages
+import slogging.LazyLogging
 
 import scala.language.higherKinds
 
@@ -40,7 +41,7 @@ class AbciHandler(
   private val checkTxStateChecker: TxStateDependentChecker[IO],
   private val deliverTxStateChecker: TxStateDependentChecker[IO],
   private val txProcessor: TxProcessor[IO]
-) extends ICheckTx with IDeliverTx with ICommit with IQuery {
+) extends LazyLogging with ICheckTx with IDeliverTx with ICommit with IQuery {
 
   /**
    * Handler for `Commit` ABCI method (processed in Consensus thread).
@@ -98,6 +99,7 @@ class AbciHandler(
   override def receivedDeliverTx(req: RequestDeliverTx): ResponseDeliverTx = {
     val responseData = (for {
       validated <- validateTx(req.getTx, txParser, deliverTxStateChecker)
+      _ = logger.info("DeliverTx {}", validated)
       _ <- validated.validatedTx match {
         case None => IO.unit
         case Some(tx) => txProcessor.processNewTx(tx)
@@ -117,6 +119,7 @@ class AbciHandler(
    * different states: Mempool state for `CheckTx`, Consensus state for `DeliverTx`.
    *
    * @param txBytes serialized transaction received from ABCI request called by Tendermint
+   * @param txParser parser to extract transaction from received bytes
    * @param txStateChecker checker encapsulating some state used to check for duplicates and txs in closed sessions
    * @return validated transaction and data used to build a response
    */
@@ -142,4 +145,9 @@ class AbciHandler(
  * @param code response code
  * @param info response message
  */
-private case class TxResponseData(validatedTx: Option[Transaction], code: Int, info: String)
+private case class TxResponseData(validatedTx: Option[Transaction], code: Int, info: String) {
+  override def toString: String = validatedTx match {
+    case Some(tx) => s"Accepted $tx"
+    case _ => s"Rejected $info"
+  }
+}
