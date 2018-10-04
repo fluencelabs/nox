@@ -24,12 +24,18 @@ import scala.util.control.NoStackTrace
 /**
  * WasmVm settings.
  *
- * @param defaultMaxMemPages The maximum number of memory pages when a module doesn't say
- * @param specTestRegister If true, registers the spec test harness as 'spectest'.
+ * @param defaultMaxMemPages the maximum count of memory pages when a module doesn't say
+ * @param specTestRegister if true, registers the spec test harness as 'spectest'.
+ * @param allocateFunctionName name of function that should be called for allocation memory
+ *                             for passing complex data structure
+ * @param deallocateFunctionName name of function that should be called for deallocation
+  *                              of previously allocated memory
  */
 case class VmConfig(
   defaultMaxMemPages: Int,
-  specTestRegister: Boolean
+  specTestRegister: Boolean,
+  allocateFunctionName: String,
+  deallocateFunctionName: String
 )
 
 object VmConfig {

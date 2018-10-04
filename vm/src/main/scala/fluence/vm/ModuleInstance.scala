@@ -100,7 +100,7 @@ object ModuleInstance {
    * Creates instance for specified module.
    *
    * @param moduleDescription a description of the module
-   * @param scriptContext a context for this module working
+   * @param scriptContext a context for the module operation
    */
   def apply(
     moduleDescription: Compiled,
