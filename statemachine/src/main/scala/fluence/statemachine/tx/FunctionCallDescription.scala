@@ -39,10 +39,8 @@ object FunctionCallDescription {
    */
   val CloseSession = FunctionCallDescription(None, "@closeSession", Nil)
 
-  // todo: it should parse string arguments with an any symbol
-  private val FunctionWithModuleAndArgListPattern: Regex = "(\\w+)\\.(\\w+)\\(([\\w-,]*)\\)".r
-  private val FunctionWithoutModuleAndArgListPattern: Regex = "([\\w\\@]\\w*)\\(([\\w-,]*)\\)".r
-  private val NonEmptyArgListPattern: Regex = "[\\w-]+(,[\\w-]+)*".r
+  private val payloadPattern = """^(\w+(?=\.))*(@*\w+)\((.*?)\)$""".r
+  private val argsPattern = """("[^"]*"|[\d.]+)(?:,*)""".r
 
   /**
    * Parses text payload in `[moduleName].functionName(arg1, ..., argN)` format to a typed function call description.
@@ -51,19 +49,22 @@ object FunctionCallDescription {
    */
   def parse[F[_]](payload: String)(implicit F: Monad[F]): EitherT[F, StateMachineError, FunctionCallDescription] =
     EitherT.fromEither(for {
-      parsedPayload <- payload match {
-        case FunctionWithModuleAndArgListPattern(module, functionName, uncheckedArgList) =>
-          Either.right((Some(module), functionName, uncheckedArgList))
-        case FunctionWithoutModuleAndArgListPattern(functionName, uncheckedArgList) =>
-          Either.right((None, functionName, uncheckedArgList))
-        case _ => Either.left(wrongPayloadFormatError(payload))
+      parsedPayload <- {
+        payload match {
+          case payloadPattern(m, f, args) => Either.right((Option(m), f, args))
+          case _ => Either.left(wrongPayloadFormatError(payload))
+        }
       }
       (module, functionName, unparsedArgList) = parsedPayload
+      parsedArgList <- {
+        if (unparsedArgList.isEmpty) Either.right(List.empty)
+        else {
+          argsPattern.findAllMatchIn(unparsedArgList).toList.map(_.group(1)) match {
+            case Nil => Either.left(wrongPayloadArgumentListFormatError(unparsedArgList))
+            case l => Either.right(l)
+          }
+        }
 
-      parsedArgList <- unparsedArgList match {
-        case NonEmptyArgListPattern(_) => Either.right(unparsedArgList.split(",").toList)
-        case "" => Either.right(Nil)
-        case _ => Either.left(wrongPayloadArgumentListFormatError(unparsedArgList))
       }
     } yield FunctionCallDescription(module, functionName, parsedArgList))
 
