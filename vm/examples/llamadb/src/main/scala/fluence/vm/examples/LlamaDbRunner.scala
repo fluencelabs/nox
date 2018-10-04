@@ -23,7 +23,6 @@ import fluence.vm.WasmVm
 
 import scala.language.higherKinds
 
-// todo will be finished when String will be supported as function params and return type
 object LlamaDbRunner extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
@@ -34,18 +33,53 @@ object LlamaDbRunner extends IOApp {
       vm ← WasmVm[IO](Seq(inputFile))
       initState ← vm.getVmState[IO]
 
-      // select * from Quotations;
-      ptr ← vm.invoke[IO](None, "allocate", Seq("100"))
-      res ← vm.invoke[IO](None, "do_query", List(ptr.get.toString, "100")) // invoke WASM select
-      allocateState ← vm.getVmState[IO]
-      _ ← vm.invoke[IO](None, "deallocate", Seq(ptr.get.toString, "100"))
-      deallocateState ← vm.getVmState[IO]
+      createTableSql = "\"create table USERS(id int, name varchar(128), age int)\""
+      res1 ← vm.invoke[IO](None, "do_query", List(createTableSql))
+      state1 ← vm.getVmState[IO]
+
+      insertOne = "\"insert into USERS values(1, 'Sara', 23)\""
+      res2 ← vm.invoke[IO](None, "do_query", List(insertOne))
+      state2 ← vm.getVmState[IO]
+
+      bulkInsert = "\"insert into USERS values(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)\""
+      res3 ← vm.invoke[IO](None, "do_query", List(bulkInsert))
+      state3 ← vm.getVmState[IO]
+
+      emptySelect = "\"select * from USERS where name = 'unknown'\""
+      res4 ← vm.invoke[IO](None, "do_query", List(emptySelect))
+      state4 ← vm.getVmState[IO]
+
+      selectAll = "\"select id, name from USERS\""
+      res5 ← vm.invoke[IO](None, "do_query", List(selectAll))
+      state5 ← vm.getVmState[IO]
+
+      explain = "\"explain select id, name from USERS\""
+      res6 ← vm.invoke[IO](None, "do_query", List(explain))
+      state6 ← vm.getVmState[IO]
+
+      createTable2Sql = "\"create table ROLES(user_id int, role varchar(128))\""
+      res7 ← vm.invoke[IO](None, "do_query", List(createTable2Sql))
+      state7 ← vm.getVmState[IO]
+
+      bulkInsert2 = "\"insert into ROLES values(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')\""
+      res8 ← vm.invoke[IO](None, "do_query", List(bulkInsert2))
+      state8 ← vm.getVmState[IO]
+
+      selectWithJoin = "\"select u.name as Name, r.role as Role from USERS u join ROLES r on u.id = r.user_id where r.role = 'Writer'\""
+      res9 ← vm.invoke[IO](None, "do_query", List(selectWithJoin))
+      state9 ← vm.getVmState[IO]
 
       finishState ← vm.getVmState[IO].toVmError
     } yield {
-      s"select * from Table; $res \n" +
-        s"pointer=$ptr \n" +
-        s"stateAfterAlloc=$allocateState,  deallocateState=$deallocateState \n" +
+      s"$createTableSql >> $res1 \nvmState=$state1\n" +
+        s"$insertOne >> $res2 \nvmState=$state2\n" +
+        s"$bulkInsert >> $res3 \nvmState=$state3\n" +
+        s"$emptySelect >> $res4 \nvmState=$state4\n" +
+        s"$selectAll >> $res5 \nvmState=$state5\n" +
+        s"$explain >> $res6 \nvmState=$state6\n" +
+        s"$createTable2Sql >> $res7 \nvmState=$state7\n" +
+        s"$bulkInsert2 >> $res8 \nvmState=$state8\n" +
+        s"$selectWithJoin >> $res9 \nvmState=$state9\n" +
         s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
         s"finishState=$finishState"

@@ -30,24 +30,37 @@ fn write_str_to_mem_test() { unsafe {
 fn integration_sql_test() {
 
     let create_table = execute_sql("create table USERS(id int, name varchar(128), age int)".to_string());
-    assert_eq!(create_table, "table created");
     println!("{}", create_table);
+    assert_eq!(create_table, "table created");
 
     let insert_one = execute_sql("insert into USERS values(1, 'Sara', 23)".to_string());
-    assert_eq!(insert_one, "rows inserted: 1");
     println!("{}", insert_one);
+    assert_eq!(insert_one, "rows inserted: 1");
 
     let insert_several = execute_sql("insert into USERS values(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)".to_string());
-    assert_eq!(insert_several, "rows inserted: 3");
     println!("{}", insert_several);
+    assert_eq!(insert_several, "rows inserted: 3");
 
     let empty_select = execute_sql("select * from USERS where name = 'unknown'".to_string());
-    assert_eq!(empty_select, "id, name, age\n");
     println!("{}", empty_select);
+    assert_eq!(empty_select, "id, name, age\n");
 
     let select_all = execute_sql("select id, name from USERS".to_string());
-    println!("{}", select_all);
     assert_eq!(select_all, "id, name\n1, Sara\n2, Bob\n3, Caroline\n4, Max");
+    println!("{}", select_all);
+
+    let create_table_role = execute_sql("create table ROLES(user_id int, role varchar(128))".to_string());
+    println!("{}", create_table_role);
+    assert_eq!(create_table_role, "table created");
+
+    let insert_roles = execute_sql("insert into ROLES values(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')".to_string());
+    println!("{}", insert_roles);
+    assert_eq!(insert_roles, "rows inserted: 4");
+
+    let select_with_join = execute_sql("select u.name as Name, r.role as Role from USERS u join ROLES r on u.id = r.user_id where r.role = 'Writer'".to_string());
+    println!("{}", select_with_join);
+    assert_eq!(select_with_join, "name, role\nMax, Writer");
+
 
     let explain = execute_sql("explain select id, name from USERS".to_string());
     println!("{}", explain);
@@ -59,7 +72,7 @@ fn integration_sql_test() {
                         "    (column-field :source-id 0 :column-offset 1)))"
     );
 
-
+    // delete and update is not supported by llamadb
 
 }
 
