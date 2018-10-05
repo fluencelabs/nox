@@ -113,11 +113,11 @@ class AsmleWasmVm(
 
   // TODO : In the future, it should be rewritten with cats.effect.resource
   /**
-    * Allocates memory in Wasm module of supplied size by allocateFunction.
-    *
-    * @param size size of memory that need to be allocated
-    * @tparam F a monad with an ability to absorb 'IO'
-    */
+   * Allocates memory in Wasm module of supplied size by allocateFunction.
+   *
+   * @param size size of memory that need to be allocated
+   * @tparam F a monad with an ability to absorb 'IO'
+   */
   private def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] = {
     allocateFunction match {
       case Some(fn) => fn(size.asInstanceOf[AnyRef] :: Nil)
@@ -129,11 +129,11 @@ class AsmleWasmVm(
   }
 
   /**
-    * Deallocates previously allocated memory in Wasm module by deallocateFunction.
-    *
-    * @param offset address of memory to deallocate
-    * @tparam F a monad with an ability to absorb 'IO'
-    */
+   * Deallocates previously allocated memory in Wasm module by deallocateFunction.
+   *
+   * @param offset address of memory to deallocate
+   * @tparam F a monad with an ability to absorb 'IO'
+   */
   private def deallocate[F[_]: LiftIO: Monad](offset: Int): EitherT[F, InvokeError, AnyRef] = {
     deallocateFunction match {
       case Some(fn) => fn(offset.asInstanceOf[AnyRef] :: Nil)
@@ -145,41 +145,44 @@ class AsmleWasmVm(
   }
 
   /**
-    * Preprocesses each string parameter: injects it into Wasm module memory (through
-    * injectStringIntoWasmModule) and replace with pointer to it in WASM module and size.
-    *
-    * @param functionArguments arguments for calling this fn
-    * @param moduleInstance module instance used for injecting string arguments to the Wasm memory
-    * @tparam F a monad with an ability to absorb 'IO'
-    */
+   * Preprocesses each string parameter: injects it into Wasm module memory (through
+   * injectStringIntoWasmModule) and replace with pointer to it in WASM module and size.
+   *
+   * @param functionArguments arguments for calling this fn
+   * @param moduleInstance module instance used for injecting string arguments to the Wasm memory
+   * @tparam F a monad with an ability to absorb 'IO'
+   */
   private def preprocessArguments[F[_]: LiftIO: Monad](
-     functionArguments: Seq[String],
-     moduleInstance: ModuleInstance
-   ) : EitherT[F, InvokeError, List[String]] = {
+    functionArguments: Seq[String],
+    moduleInstance: ModuleInstance
+  ): EitherT[F, InvokeError, List[String]] = {
     val result: Seq[EitherT[F, InvokeError, List[String]]] =
       functionArguments.map {
-        case stringArgument if stringArgument.startsWith("\"")
-            && stringArgument.endsWith("\"")
-            && stringArgument.length >= 2 ⇒
+        case stringArgument
+            if stringArgument.startsWith("\"")
+              && stringArgument.endsWith("\"")
+              && stringArgument.length >= 2 ⇒
           // it is a valid String parameter
           for {
-            address <-
-              injectStringIntoWasmModule(stringArgument.substring(1, stringArgument.length - 1), moduleInstance)
+            address <- injectStringIntoWasmModule(
+              stringArgument.substring(1, stringArgument.length - 1),
+              moduleInstance
+            )
           } yield List(address.toString, (stringArgument.length - 2).toString)
         case arg ⇒ EitherT.rightT[F, InvokeError](List(arg))
       }
 
     import cats.instances.list._
     Traverse[List].flatSequence(result.toList)
-   }
+  }
 
   /**
-    * Injects given string into Wasm module memory.
-    *
-    * @param injectedString string that should be inserted into Wasm module memory
-    * @param moduleInstance module instance used as a provider for Wasm module memory access
-    * @tparam F a monad with an ability to absorb 'IO'
-    */
+   * Injects given string into Wasm module memory.
+   *
+   * @param injectedString string that should be inserted into Wasm module memory
+   * @param moduleInstance module instance used as a provider for Wasm module memory access
+   * @tparam F a monad with an ability to absorb 'IO'
+   */
   private def injectStringIntoWasmModule[F[_]: LiftIO: Monad](
     injectedString: String,
     moduleInstance: ModuleInstance
@@ -196,17 +199,19 @@ class AsmleWasmVm(
 
       offset <- allocate(injectedString.length)
 
-      resultOffset <- EitherT.fromEither(Try(offset.toString.toInt).toEither).leftMap(
-        e ⇒ VmMemoryError(s"The Wasm allocation function returned incorrect offset=$offset", Some(e))
-      )
+      resultOffset <- EitherT
+        .fromEither(Try(offset.toString.toInt).toEither)
+        .leftMap(
+          e ⇒ VmMemoryError(s"The Wasm allocation function returned incorrect offset=$offset", Some(e))
+        )
 
       // It is possible for "evil" module to return knowingly invalid index (negative or doesn't
       // correspond to ByteBuffer limit)
       _ ← EitherT.cond(
         (resultOffset + injectedString.length) >= resultOffset &&
-        // limit is the index of the first element that should not be read or written so
-        // strictly less is needed
-        (resultOffset + injectedString.length) < wasmMemory.limit(),
+          // limit is the index of the first element that should not be read or written so
+          // strictly less is needed
+          (resultOffset + injectedString.length) < wasmMemory.limit(),
         (),
         VmMemoryError(
           s"String injecting failed due to invalid offset=$resultOffset"
@@ -304,14 +309,34 @@ object AsmleWasmVm {
       args = wasmFn.javaMethod.getParameterTypes.zipWithIndex.zip(fnArgs).map {
         case ((paramType, index), arg) =>
           paramType match {
-            case cl if cl == classOf[Int] ⇒ cast(arg, _.toInt, s"Arg $index of '$arg' not an int " +
-              s"(or passed string argument isn't matched the corresponding argument in Wasm function)")
-            case cl if cl == classOf[Long] ⇒ cast(arg, _.toLong, s"Arg $index of '$arg' not a long " +
-              s"(or passed string argument isn't matched the corresponding argument in Wasm function)")
-            case cl if cl == classOf[Float] ⇒ cast(arg, _.toFloat, s"Arg $index of '$arg' not a float " +
-              s"(or passed string argument isn't matched the corresponding argument in Wasm function)")
-            case cl if cl == classOf[Double] ⇒ cast(arg, _.toDouble, s"Arg $index of '$arg' not a double " +
-              s"(or passed string argument isn't matched the corresponding argument in Wasm function")
+            case cl if cl == classOf[Int] ⇒
+              cast(
+                arg,
+                _.toInt,
+                s"Arg $index of '$arg' not an int " +
+                  s"(or passed string argument isn't matched the corresponding argument in Wasm function)"
+              )
+            case cl if cl == classOf[Long] ⇒
+              cast(
+                arg,
+                _.toLong,
+                s"Arg $index of '$arg' not a long " +
+                  s"(or passed string argument isn't matched the corresponding argument in Wasm function)"
+              )
+            case cl if cl == classOf[Float] ⇒
+              cast(
+                arg,
+                _.toFloat,
+                s"Arg $index of '$arg' not a float " +
+                  s"(or passed string argument isn't matched the corresponding argument in Wasm function)"
+              )
+            case cl if cl == classOf[Double] ⇒
+              cast(
+                arg,
+                _.toDouble,
+                s"Arg $index of '$arg' not a double " +
+                  s"(or passed string argument isn't matched the corresponding argument in Wasm function"
+              )
             case _ ⇒
               Left(
                 InvalidArgError(

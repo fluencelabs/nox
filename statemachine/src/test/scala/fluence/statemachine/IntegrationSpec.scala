@@ -19,6 +19,7 @@ package fluence.statemachine
 import com.github.jtendermint.jabci.api.CodeType
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
+import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.state.QueryCodeType
 import fluence.statemachine.tree.MerkleTreeNode
 import fluence.statemachine.tx.{Computed, Empty, Error}
@@ -27,8 +28,13 @@ import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 
 class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
 
-  val abciHandler: AbciHandler =
-    ServerRunner.buildAbciHandler().valueOr(e => throw new RuntimeException(e.message)).unsafeRunSync()
+  private val config =
+    StateMachineConfig(8, List("vm/src/test/resources/wast/mul.wast", "vm/src/test/resources/wast/counter.wast"), "OFF")
+
+  val abciHandler: AbciHandler = ServerRunner
+    .buildAbciHandler(config)
+    .valueOr(e => throw new RuntimeException(e.message))
+    .unsafeRunSync()
 
   def sendCheckTx(tx: String): (Int, String) = {
     val request = RequestCheckTx.newBuilder().setTx(ByteString.copyFromUtf8(tx)).build()
@@ -262,8 +268,14 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendCommit()
 
       sendQuery(s"@meta/$client/$session/0/result") shouldBe
-        Right(Error("InvalidArgError", "Arg 1 of 'a' not an int").toStoreValue)
-      latestAppHash shouldBe "A94966F46584E159F63FB6673459B83DBA853F57D683C67F2B0E3CC774A1E6F4"
+        Right(
+          Error(
+            "InvalidArgError",
+            "Arg 1 of 'a' not an int " +
+              "(or passed string argument isn't matched the corresponding argument in Wasm function)"
+          ).toStoreValue
+        )
+      latestAppHash shouldBe "5E1124F1D0EB16BF678349F6EC274090C8ED71D85CC9D3ED5D2000189D5856A0"
     }
 
     "not invoke dependent txs if required failed when order in not correct" in {
@@ -280,10 +292,16 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendCommit()
 
       sendQuery(s"@meta/$client/$session/0/result") shouldBe
-        Right(Error("InvalidArgError", "Arg 1 of 'a' not an int").toStoreValue)
+        Right(
+          Error(
+            "InvalidArgError",
+            "Arg 1 of 'a' not an int " +
+              "(or passed string argument isn't matched the corresponding argument in Wasm function)"
+          ).toStoreValue
+        )
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendQuery(tx3Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
-      latestAppHash shouldBe "2B09DBA033E1080C192E59F085366C24B74BBC83EF68DA7BABD75DB8B909C954"
+      latestAppHash shouldBe "AAB3292A4CA80F91CAE4C3E30C73505AE5189E0DDE3D3EF2D012F965628EFD49"
     }
 
     "store error message for incorrect operations" in {
@@ -302,7 +320,9 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendCommit()
       sendCommit()
 
-      val expectedNumOfArgsMessage = "Invalid number of arguments, expected=0, actually=1 for fn='<no-name>.inc'"
+      val expectedNumOfArgsMessage =
+        "Invalid number of arguments, expected=0, actually=1 for fn='<no-name>.inc' " +
+          "(or passed string argument is incorrect or isn't matched the corresponding argument in Wasm function)"
       sendQuery(s"@meta/$client/$session1/0/result") shouldBe
         Right(Error("InvalidArgError", expectedNumOfArgsMessage).toStoreValue)
       sendQuery(s"@meta/$client/$session1/0/status") shouldBe Right("error")
