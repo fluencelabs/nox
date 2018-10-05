@@ -72,6 +72,10 @@ fn integration_sql_test() {
                         "    (column-field :source-id 0 :column-offset 1)))"
     );
 
+    let bad_query = execute_sql("select salary from USERS".to_string());
+    println!("{}", bad_query);
+    assert_eq!(bad_query, "[Error] column does not exist: salary");
+
     // delete and update is not supported by llamadb
 
 }

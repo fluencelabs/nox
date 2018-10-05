@@ -2,7 +2,7 @@
 //!
 //! It provides public methods for work with Llamadb and for `allocation` and
 //! `deallocation` memory from a WASM host environment. Also contains functions
-//! for dereference string arguments for passing theirs into WASM functions.
+//! for reading from and writing strings to the raw memory.
 
 #![feature(extern_prelude)]
 #![feature(allocator_api)]
@@ -36,13 +36,17 @@ type GenResult<T> = Result<T, Box<Error>>;
 ///    Rust string.
 /// 2. Processes the query for specified SQL string
 /// 3. Returns a pointer to a result as a string in the memory.
+/// 4. Deallocate memory from passed parameter
 #[no_mangle]
 pub unsafe fn do_query(ptr: *mut u8, len: usize) -> usize {
+    // deallocation of parameter's memory will automatically appear in the end of the method
     let sql_str = deref_str(ptr, len);
     let db_response = match run_query(&sql_str) {
         Ok(response) => { response }
-        Err(err_msg) => { err_msg.description().to_string() }
+        Err(err_msg) => { "[Error] ".to_string() + err_msg.description() }
     };
+
+    // return pointer to result in memory
     put_to_mem(db_response) as usize
 }
 

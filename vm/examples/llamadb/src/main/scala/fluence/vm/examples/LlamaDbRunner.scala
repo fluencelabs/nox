@@ -69,6 +69,10 @@ object LlamaDbRunner extends IOApp {
       res9 ← vm.invoke[IO](None, "do_query", List(selectWithJoin))
       state9 ← vm.getVmState[IO]
 
+      badQuery = "\"select salary from USERS\""
+      res10 ← vm.invoke[IO](None, "do_query", List(badQuery))
+      state10 ← vm.getVmState[IO]
+
       finishState ← vm.getVmState[IO].toVmError
     } yield {
       s"$createTableSql >> $res1 \nvmState=$state1\n" +
@@ -80,6 +84,7 @@ object LlamaDbRunner extends IOApp {
         s"$createTable2Sql >> $res7 \nvmState=$state7\n" +
         s"$bulkInsert2 >> $res8 \nvmState=$state8\n" +
         s"$selectWithJoin >> $res9 \nvmState=$state9\n" +
+        s"$badQuery >> $res10 \nvmState=$state10\n" +
         s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
         s"finishState=$finishState"
