@@ -29,7 +29,7 @@ import scala.util.control.NoStackTrace
  * @param allocateFunctionName name of function that should be called for allocation memory
  *                             for passing complex data structure
  * @param deallocateFunctionName name of function that should be called for deallocation
-  *                              of previously allocated memory
+ *                              of previously allocated memory
  */
 case class VmConfig(
   defaultMaxMemPages: Int,
