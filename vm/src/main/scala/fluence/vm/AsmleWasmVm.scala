@@ -16,6 +16,7 @@
 
 package fluence.vm
 import java.lang.reflect.Method
+import java.nio.charset.Charset
 
 import asmble.compile.jvm.AsmExtKt
 import cats.data.EitherT
@@ -56,11 +57,15 @@ class AsmleWasmVm(
   // TODO: now it is assumed that allocation/deallocation functions placed together in the first module.
   // In the future it has to be refactored.
   // TODO: add handling of empty modules list.
-  val allocateFunction: Option[WasmFunction] =
+  private val allocateFunction: Option[WasmFunction] =
     functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent(allocateFunctionName)))
 
-  val deallocateFunction: Option[WasmFunction] =
+  private val deallocateFunction: Option[WasmFunction] =
     functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent(deallocateFunctionName)))
+
+  // TODO: it is need to decide how to properly get charset (maybe it is good to add "getCharset" method
+  // in all wasm Modules or simply add an requirenment to use hardcoded charset)
+  private val wasmStringCharset = Charset.forName("UTF-8")
 
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
@@ -77,7 +82,7 @@ class AsmleWasmVm(
           NoSuchFnError(s"Unable to find a function with the name=$functionId")
         )
 
-      preprocessedArguments <- preprocessArguments(fnArgs, wasmFn.module)
+      preprocessedArguments <- preprocessStringArguments(fnArgs, wasmFn.module, wasmStringCharset)
       arguments ← parseArguments(preprocessedArguments, wasmFn)
 
       // invoke the function
@@ -118,7 +123,7 @@ class AsmleWasmVm(
    * @param size size of memory that need to be allocated
    * @tparam F a monad with an ability to absorb 'IO'
    */
-  private def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] = {
+  private def allocate[F[_]: LiftIO: Monad](size: Long): EitherT[F, InvokeError, AnyRef] = {
     allocateFunction match {
       case Some(fn) => fn(size.asInstanceOf[AnyRef] :: Nil)
       case _ =>
@@ -134,7 +139,7 @@ class AsmleWasmVm(
    * @param offset address of memory to deallocate
    * @tparam F a monad with an ability to absorb 'IO'
    */
-  private def deallocate[F[_]: LiftIO: Monad](offset: Int): EitherT[F, InvokeError, AnyRef] = {
+  private def deallocate[F[_]: LiftIO: Monad](offset: Long): EitherT[F, InvokeError, AnyRef] = {
     deallocateFunction match {
       case Some(fn) => fn(offset.asInstanceOf[AnyRef] :: Nil)
       case _ =>
@@ -152,9 +157,10 @@ class AsmleWasmVm(
    * @param moduleInstance module instance used for injecting string arguments to the Wasm memory
    * @tparam F a monad with an ability to absorb 'IO'
    */
-  private def preprocessArguments[F[_]: LiftIO: Monad](
+  private def preprocessStringArguments[F[_]: LiftIO: Monad](
     functionArguments: Seq[String],
-    moduleInstance: ModuleInstance
+    moduleInstance: ModuleInstance,
+    charset: Charset
   ): EitherT[F, InvokeError, List[String]] = {
     val result: Seq[EitherT[F, InvokeError, List[String]]] =
       functionArguments.map {
@@ -166,7 +172,8 @@ class AsmleWasmVm(
           for {
             address <- injectStringIntoWasmModule(
               stringArgument.substring(1, stringArgument.length - 1),
-              moduleInstance
+              moduleInstance,
+              charset
             )
           } yield List(address.toString, (stringArgument.length - 2).toString)
         case arg ⇒ EitherT.rightT[F, InvokeError](List(arg))
@@ -185,7 +192,8 @@ class AsmleWasmVm(
    */
   private def injectStringIntoWasmModule[F[_]: LiftIO: Monad](
     injectedString: String,
-    moduleInstance: ModuleInstance
+    moduleInstance: ModuleInstance,
+    charset: Charset
   ): EitherT[F, InvokeError, Int] =
     for {
       // In the current version, it is possible for Wasm module to have allocation/deallocation
@@ -200,30 +208,88 @@ class AsmleWasmVm(
       offset <- allocate(injectedString.length)
 
       resultOffset <- EitherT
-        .fromEither(Try(offset.toString.toInt).toEither)
-        .leftMap(
-          e ⇒ VmMemoryError(s"The Wasm allocation function returned incorrect offset=$offset", Some(e))
-        )
+        .fromEither(Try {
+          val convertedOffset = offset.toString.toInt
+          val wasmMemoryView = wasmMemory.duplicate()
 
-      // It is possible for "evil" module to return knowingly invalid index (negative or doesn't
-      // correspond to ByteBuffer limit)
-      _ ← EitherT.cond(
-        (resultOffset + injectedString.length) >= resultOffset &&
-          // limit is the index of the first element that should not be read or written so
-          // strictly less is needed
-          (resultOffset + injectedString.length) < wasmMemory.limit(),
-        (),
-        VmMemoryError(
-          s"String injecting failed due to invalid offset=$resultOffset"
-        )
-      )
+          wasmMemoryView.position(convertedOffset)
+          wasmMemoryView.put(injectedString.getBytes(charset.name()))
 
-      _ <- EitherT.rightT(
-        injectedString.view.zipWithIndex.foreach {
-          case (char, byteIdx) => wasmMemory.put(resultOffset + byteIdx, char.toByte)
-        }
-      )
+          convertedOffset
+        }.toEither)
+        .leftMap { e ⇒
+          VmMemoryError(s"The Wasm allocation function returned incorrect offset=$offset", Some(e))
+        }: EitherT[F, InvokeError, Int]
+
     } yield resultOffset
+
+  /**
+   * Extracts (reads and deletes) string from the given offset from Wasm module memory.
+   *
+   * @param offset offset into Wasm module memory where a string is located
+   * @param moduleInstance module instance used as a provider for Wasm module memory access
+   * @tparam F a monad with an ability to absorb 'IO'
+   */
+  private def extractStringFromWasmModule[F[_]: LiftIO: Monad](
+    offset: Int,
+    moduleInstance: ModuleInstance,
+    charset: Charset
+  ): EitherT[F, InvokeError, String] =
+    for {
+      extractedString <- readStringFromWasmModule(offset, moduleInstance, charset)
+      // TODO : string deallocation from scala-part should be additionally investigated - it seems
+      // that this version of deletion doesn't compatible with current idea of verification game
+      _ <- deallocate(offset)
+    } yield extractedString
+
+  /**
+   * Reads string from the given offset from Wasm module memory.
+   *
+   * @param offset offset into Wasm module memory where a string is located
+   * @param moduleInstance module instance used as a provider for Wasm module memory access
+   * @tparam F a monad with an ability to absorb 'IO'
+   */
+  private def readStringFromWasmModule[F[_]: LiftIO: Monad](
+    offset: Int,
+    moduleInstance: ModuleInstance,
+    charset: Charset
+  ): EitherT[F, InvokeError, String] =
+    for {
+      wasmMemory <- EitherT.fromOption(
+        moduleInstance.memory,
+        VmMemoryError(s"Trying to use absent Wasm memory while reading string from the offset=$offset")
+      )
+
+      readedString <- EitherT
+        .fromEither[F](
+          Try {
+            // each string has the next structure in Wasm memory: | size (4 bytes) | string buffer (size bytes) |
+            val stringSize = wasmMemory.getInt(offset)
+            val intBytesSize = 4
+
+            // it is assumed that readStringFromWasmModule can be called frequently
+            if (wasmMemory.hasArray)
+              // one allocation and one copy operation of O(n)
+              new String(wasmMemory.array(), offset + intBytesSize, offset + intBytesSize + stringSize, charset.name())
+            else {
+              // two allocation and two copy operations of O(n)
+              val buffer = new Array[Byte](stringSize)
+
+              val wasmMemoryView = wasmMemory.duplicate()
+              wasmMemoryView.position(offset + intBytesSize)
+              wasmMemoryView.get(buffer)
+              new String(buffer, charset)
+            }
+          }.toEither
+        )
+        .leftMap { e =>
+          VmMemoryError(
+            s"String reading from offset=$offset failed",
+            Some(e)
+          )
+        }: EitherT[F, InvokeError, String]
+
+    } yield readedString
 
 }
 
