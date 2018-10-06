@@ -16,7 +16,7 @@ Real-time clusters have a _data locality_ property: all the data required to per
 
 Real-time clusters composition is supposed to be stable and not change much over time. Before joining the cluster, each node places a security deposit with the corresponding Ethereum smart contract. The deposit is released to a node only after passing of a cooling-off period during which the correctness of node's operations may be disputed. Relative stability of real-time clusters means there will be less expensive state resynchronizations which happen when nodes join or leave. 
 
-However, this also means nodes in the cluster might eventually form a cartel producing incorrect computational results. Batch validation by independent randomly selected nodes outside of the cluster is designated to prevent this. To make it possible, real-time nodes store the history of incoming requests and state changes in a _decentralized deep storage_ – [Swarm](https://swarm-guide.readthedocs.io). This history might be used by batch validators to inspect state transitions, but also – to restore the real-time cluster shall any of the nodes go down.
+However, this also means nodes in the cluster might eventually form a cartel producing incorrect computational results. Batch validation by independent randomly selected nodes outside of the cluster is designated to prevent this. To make it possible, real-time nodes store the history of incoming requests and state changes in the _decentralized deep storage_ – [Swarm](https://swarm-guide.readthedocs.io). This history might be used by batch validators to inspect state transitions, but also – to restore the real-time cluster shall any of the nodes go down.
 
 ### Client interactions
 
@@ -324,6 +324,159 @@ Counting already processed transactions also allows to deduplicate and not execu
 <img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _It's not clear yet when the sessions should be purged from buffer. One of the options could be to garbage collect sessions not used for specific number of blocks, another – to use a ring buffer. The client might also send oversized transactions to cause a denial of service._
 
 <img src="images/symbols/twemoji-exclamation.png" width="24px"/> **TODO:** _If outdated sessions are purged from the buffer, it might happen that a transaction will be executed out of order. For example, if transactions `0`, `1` and `2` were processed in a session that was purged later on, nothing prevents transaction `0` to get processed again. Some other mechanism to sync should be used there._
+
+### Transactions history storage
+
+To allow nodes not belonging to the real-time cluster to verify performed computations the history of incoming requests and state changes is stored in Swarm.
+
+# Protocol
+
+## Data structures
+
+### Ethereum smart contract
+
+Clients and real-time nodes generate public/private key pairs and join the cluster through the Ethereum smart contract. Once the cluster is formed the smart contract contains the corresponding public keys. 
+
+Every real-time node `R_i` generates the public/private key pair `<R_pk_i, R_sk_i>`.  
+Every client `C_j` generates the public/private key pair `<C_pk_j, C_sk_j>`. 
+
+```java
+contract: Contract = {  
+  nodes: ContractNodes = [
+    R_pk_1: byte[],
+    ...,
+    R_pk_n: byte[]
+  ],
+  clients: ContractClients = [
+    C_pk_1: byte[],
+    ...,
+    C_pk_m: byte[]
+  ]
+}
+```
+
+### Transaction
+
+A transaction always has a specific authoring client and normally carries all information required to execute a deployed WebAssembly function.
+
+```java
+tx: Tx = {
+  payload: TxPayload = {
+    C_pk_j: byte[], // client public key
+    invoke: byte[]  // function name + argument + client session + session order
+  },
+  signature: byte[] // client signature of the payload
+}
+```
+
+where
+
+```java
+tx.signature = sign(C_sk_j, hash(tx.payload))
+```
+
+### Tendermint block
+
+Tendermint block carries new transactions to be applied and votes for the previous block.
+
+```java
+block: Block = {
+  header: BlockHeader = {
+    last_block_hash: byte[],  // Merkle root of the previous block header fields
+    app_hash: byte[],         // state hash after the previous block execution
+    last_commit_hash: byte[], // Merkle root of the last commit votes
+    txs_hash: byte[]          // Merkle root of the block transactions
+  },
+  last_commit: BlockLastCommit = [
+    vote_1: byte[],           //
+    ...,                      // real-time nodes signatures of the previous block header
+    vote_n: byte[]            //
+  ],  
+  txs: BlockTxs = [
+    tx_1: byte[],             //
+    ...,                      // transactions
+    tx_p: byte[]              //
+  ]
+}
+```
+
+where
+
+```java
+block.header.last_block_hash = tm_merkle(items(prev_block.header))
+block.header.last_commit_hash = tm_merkle(items(block.last_commit))
+block.header.txs_hash = tm_merkle(items(block.txs))
+
+block.last_commit.vote_i = sign(R_sk_i, block.header.last_block_hash)
+```
+
+### Swarm block storage
+
+Blocks are stored as few separate parts in Swarm: block manifest, block header, votes for the previous block and, finally, block transactions. The block manifest serves as an entry point for other parts.
+
+#### Block manifest
+
+```java
+manifest: BlockManifest = {
+  payload: BlockManifestPayload = {
+    header: BlockHeader,        // block header
+    
+    header_swhash: byte[],      // swarm hash of the block header 
+    last_commit_swhash: byte[], // swarm hash of the block last commit data
+    txs_swhash: byte[]          // swarm hash of the block transactions
+  },
+  signatures: BlockManifestSignatures = [
+    signature_1: byte[],        //
+    ...,                        // real-time nodes signatures of the manifest payload
+    signature_n: byte[]         //
+  ] 
+}
+```
+
+where
+
+```java
+manifest.payload.header = block.header
+
+manifest.payload.header_swhash = swarm_hash(block.header)
+manifest.payload.last_commit_swhash = swarm_hash(block.last_commit)
+manifest.payload.txs_swhash = swarm_hash(block.txs)
+
+manifest.signatures.signature_i = sign(R_sk_i, hash(manifest.payload))
+```
+
+#### Swarm layout
+
+```java
+swarm_hash(manifest) –> manifest
+
+swarm_hash(block.header) –> block.header
+swarm_hash(block.last_commit) –> block.last_commit
+swarm_hash(block.txs) –> block.txs
+```
+
+## Operations
+
+### Transaction submission
+
+When the client `C_j` sends a transaction to one of the real-time nodes `R_i`, the node checks the received transaction:
+
+```java
+assert { length(C_pk_j) == SHA3 }
+assert { length(signature) == SHA3 }
+assert { C_pk_j in contract.clients }
+assert { verify(C_pk_j, hash(tx.payload), tx.signature) == true }
+assert { length(invoke) <= 4096 }
+```
+
+If the transaction passes the check, it's added to the mempool, otherwise it's declined.
+
+**Questions:**
+- should the real-time node sign the acceptance or refusal of transaction with `R_sk`?
+
+### Block delivery
+
+Once the block is passed through Tendermint consensus, it is delivered to the state machine. 
 
 ----
 \> [Twemoji](https://twemoji.twitter.com/) graphics: Twitter, Inc & others [\[CC-BY 4.0\]]( https://creativecommons.org/licenses/by/4.0/)
