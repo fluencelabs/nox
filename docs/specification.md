@@ -331,23 +331,71 @@ To allow nodes not belonging to the real-time cluster to verify performed comput
 
 # Protocol
 
-## Data structures
+## External systems
 
-### Ethereum smart contract
+### Tendermint
 
-Clients and real-time nodes generate public/private key pairs and join the cluster through the Ethereum smart contract. Once the cluster is formed the smart contract contains the corresponding public keys. 
-
-Every real-time node `R_i` generates the public/private key pair `<R_pk_i, R_sk_i>`.  
-Every client `C_j` generates the public/private key pair `<C_pk_j, C_sk_j>`. 
+Tendermint produces new blocks and feeds them to the state machine. It uses Merkle trees to compute the Merkle hash of certain blocks of data and digital signatures to sign produced blocks, however here we assume these functions are not compatible with Fluence:
 
 ```java
-contract: Contract = {  
-  nodes: ContractNodes = [
+def tm_merkle(elements: byte[][]): byte[]
+def tm_sign(secret_key: byte[], data: byte[]): byte[]
+def tm_verify(public_key, signature: byte[], data: byte[]): boolean
+```
+
+### Ethereum
+
+For the purposes of this protocol Ethereum is treated as a key-value dictionary where a contract can be found by it's address:
+
+```java
+Ethereum {
+  contract_address: byte[] –> contract: EthereumContract
+}
+```
+
+### Swarm
+
+Swarm is treated as a hash addressable storage where a content can be found by it's hash. We can assume it exports two functions: `swarm_hash(...)` and `swarm_upload(...)` which calculate the hash of the content and upload the content to Swarm respectively. We assume that Swarm hash function is not compatible neither with Fluence nor with Tendermint. 
+
+We also assume that upload function returns Swarm receipt which indicates that Swarm is fully responsible for the passed content. The receipt contains the Swarm hash of the content and the signature of the Swarm node `S` with the public/private key pair `<S_pk, S_sk>` financially responsible for storing the content. Receipts functionality is not implemented yet in the current Swarm release, however it's described in ["Swap, swear and swindle: incentive system for Swarm"](https://swarm-gateways.net/bzz:/theswarm.eth/ethersphere/orange-papers/1/sw^3.pdf) and can be reasonably expected to show up soon.
+
+```java
+Swarm {
+  swarm_hash(content) –> content: byte[]
+}
+
+def swarm_hash(content: byte[]): byte[]
+def swarm_upload(content: byte[]): SwarmReceipt
+def swarm_sign(secret_key: byte[], data: byte[]): byte[]
+def swarm_verify(public_key: byte[], signature: byte[], data: byte[]): boolean
+
+receipt: SwarmReceipt = {
+  content_hash: byte[],
+  node_signature: byte[],
+  node_pk: byte[]
+}
+
+receipt.content_hash = swarm_hash(content)
+receipt.node_signature = swarm_sign(S_sk, swarm_hash(content))
+receipt.node_pk = S_pk
+```
+
+## Initial setup
+
+Clients and real-time nodes generate public/private key pairs and join the cluster through the Ethereum smart contract. Every real-time node `R_i` generates the public/private key pair `<R_pk_i, R_sk_i>`. Every client `C_j` generates the public/private key pair `<C_pk_j, C_sk_j>`. Once the cluster is formed the smart contract contains the corresponding public keys:
+
+```java
+Ethereum {
+  fluence_contract_address –> fluence_contract 
+}
+
+fluence_contract: EthereumContract = {  
+  nodes: byte[][] = [
     R_pk_1: byte[],
     ...,
     R_pk_n: byte[]
   ],
-  clients: ContractClients = [
+  clients: byte[][] = [
     C_pk_1: byte[],
     ...,
     C_pk_m: byte[]
@@ -355,9 +403,9 @@ contract: Contract = {
 }
 ```
 
-### Transaction
+## Transaction construction
 
-A transaction always has a specific authoring client and normally carries all information required to execute a deployed WebAssembly function.
+A transaction always has a specific authoring client and carries all information required to execute a deployed WebAssembly function:
 
 ```java
 tx: Tx = {
@@ -367,17 +415,31 @@ tx: Tx = {
   },
   signature: byte[] // client signature of the payload
 }
-```
 
-where
-
-```java
 tx.signature = sign(C_sk_j, hash(tx.payload))
 ```
 
-### Tendermint block
+## Transaction submission
 
-Tendermint block carries new transactions to be applied and votes for the previous block.
+Once the client `C_j` has constructed a transaction, it is submitted to one of the real-time nodes `R_i` which checks the received transaction:
+
+```java
+assert C_pk_j is valid
+assert signature is valid
+assert C_pk_j in fluence_contract.clients
+assert verify(C_pk_j, hash(tx.payload), tx.signature)
+assert length(invoke) <= 4096
+```
+
+If the transaction passes the check, it's added to the mempool, otherwise it's declined.
+
+**Questions:**
+- should the real-time node sign the acceptance or refusal of transaction with `R_sk`?
+
+
+## Tendermint block formation
+
+Tendermint consensus engine periodically pulls few transactions from the mempool and forms a new block:
 
 ```java
 block: Block = {
@@ -387,96 +449,152 @@ block: Block = {
     last_commit_hash: byte[], // Merkle root of the last commit votes
     txs_hash: byte[]          // Merkle root of the block transactions
   },
-  last_commit: BlockLastCommit = [
+  last_commit: byte[][] = [
     vote_1: byte[],           //
     ...,                      // real-time nodes signatures of the previous block header
     vote_n: byte[]            //
   ],  
-  txs: BlockTxs = [
+  txs: byte[][] = [
     tx_1: byte[],             //
     ...,                      // transactions
     tx_p: byte[]              //
   ]
 }
-```
 
-where
-
-```java
 block.header.last_block_hash = tm_merkle(items(prev_block.header))
-block.header.last_commit_hash = tm_merkle(items(block.last_commit))
-block.header.txs_hash = tm_merkle(items(block.txs))
+block.header.app_hash = state_machine.apply(prev_block)
+block.header.last_commit_hash = tm_merkle(block.last_commit)
+block.header.txs_hash = tm_merkle(block.txs)
 
 block.last_commit.vote_i = sign(R_sk_i, block.header.last_block_hash)
 ```
 
-### Swarm block storage
+## Block processing
 
-Blocks are stored as few separate parts in Swarm: block manifest, block header, votes for the previous block and, finally, block transactions. The block manifest serves as an entry point for other parts.
-
-#### Block manifest
-
+Once the block is passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state: 
 ```java
-manifest: BlockManifest = {
-  payload: BlockManifestPayload = {
-    header: BlockHeader,        // block header
-    
-    header_swhash: byte[],      // swarm hash of the block header 
-    last_commit_swhash: byte[], // swarm hash of the block last commit data
-    txs_swhash: byte[]          // swarm hash of the block transactions
-  },
-  signatures: BlockManifestSignatures = [
-    signature_1: byte[],        //
-    ...,                        // real-time nodes signatures of the manifest payload
-    signature_n: byte[]         //
-  ] 
+vm_state_k+1 = apply(vm_state_k, block_k.txs)
+```
+
+The virtual machine state is essentially a block of memory split into chunks. These chunks can be used to compute the state hash:
+```java
+vm_state: VMState = {
+  chunks: byte[][] = [
+    chunk_1: byte[], //
+    ...,             // virtual machine memory chunks
+    chunk_q: byte[]  //
+  ]
 }
+
+vm_state_hash = merkle(vm_state.chunks)
 ```
 
-where
+Once the block was processed by the WebAssembly VM, it has to be stored in Swarm for the future batch validation. Blocks are stored as two separate pieces in Swarm: the block manifest and the transactions list. The manifest contains the Swarm hash of the transactions list, which makes it possible to find transactions by having just the manifest:
 
 ```java
-manifest.payload.header = block.header
+Swarm {
+  swarm_hash(manifest) –> manifest
+  swarm_hash(block.txs) –> block.txs
+}
 
-manifest.payload.header_swhash = swarm_hash(block.header)
-manifest.payload.last_commit_swhash = swarm_hash(block.last_commit)
-manifest.payload.txs_swhash = swarm_hash(block.txs)
+manifest: BlockManifest = {
+  header: BlockHeader,   // block header
+  last_commit: byte[][], // block last commit data
+  txs_swarm_hash: byte[] // swarm hash of the block transactions
+}
 
-manifest.signatures.signature_i = sign(R_sk_i, hash(manifest.payload))
+manifest.header = block.header
+manifest.last_commit = block.last_commit
+manifest.txs_swarm_hash = swarm_hash(block.txs)
+
+// creates a new manifest from the Tendermint block
+def manifest(block: Block): BlockManifest
 ```
 
-#### Swarm layout
+Once the block manifest is formed and the virtual machine has advanced to the new state, it becomes possible to compute the new application state hash, which will be used in the next block:
 
 ```java
-swarm_hash(manifest) –> manifest
-
-swarm_hash(block.header) –> block.header
-swarm_hash(block.last_commit) –> block.last_commit
-swarm_hash(block.txs) –> block.txs
+block_k+1.header.app_hash = merkle(manifest_k, vm_state_hash_k+1)
 ```
 
-## Operations
+## Results verification
 
-### Transaction submission
+Once the cluster has reached consensus on the block, advanced the virtual machine state, reached consensus on the next couple of blocks and saved related block manifests and transactions into Swarm, the client can query results of the function invocation through the ABCI query API. 
 
-When the client `C_j` sends a transaction to one of the real-time nodes `R_i`, the node checks the received transaction:
+Let's assume that transaction sent by the client was included into the block `k`, in this case the client has to wait until the block `k+2` is formed and the corresponding block manifest is uploaded to Swarm. Once this is done, results returned to the client will look the following:
 
 ```java
-assert { length(C_pk_j) == SHA3 }
-assert { length(signature) == SHA3 }
-assert { C_pk_j in contract.clients }
-assert { verify(C_pk_j, hash(tx.payload), tx.signature) == true }
-assert { length(invoke) <= 4096 }
+results: QueryResults = {
+  vm_state_chunks_k+1: byte[][] = [
+    chunk_t1: byte[],                    //
+    ...,                                 // few selected chunks from the `k+1` VM state
+    chunk_tL: byte[]                     //
+  ],
+  vm_state_hash_k+1: byte[],             // `k+1` VM state hash
+  
+  vm_state_chunks_proof_k+1: byte[][][], // Merkle proof: chunks => `k+1` VM state hash
+  vm_state_hash_proof_k+1: byte[][][],   // Merkle proof: `k+1` VM state hash => `k+1` app hash
+  
+  manifest_k: BlockManifest,             // block `k` manifest
+  manifest_k+1: BlockManifest,           // block `k + 1` manifest
+  manifest_k+2: BlockManifest,           // block `k + 2` manifest
+  
+  manifest_receipt_k: SwarmReceipt,      // Swarm receipt for the block `k` manifest
+  manifest_receipt_k+1: SwarmReceipt,    // Swarm receipt for the block `k+1` manifest
+  manifest_receipt_k+2: SwarmReceipt,    // Swarm receipt for the block `k+2` manifest
+  
+  block_txs_receipt_k: SwarmReceipt      // Swarm receipt for the block `k` transactions
+}
+
+results.vm_state_chunks_k+1[i] ∈ vm_state_k+1.chunks
+results.vm_state_hash_k+1 = merkle(vm_state_k+1.chunks)
+
+results.vm_state_chunks_proof_k+1 = merkle_proof(results.vm_state_chunks_k+1, results.vm_state_hash_k+1)
+results.vm_state_hash_proof_k+1 = merkle_proof(results.vm_state_hash_k+1, results.manifest_k+1.header.app_hash)
+
+results.manifest_k+i = manifest(block_k+i)
+manifest_receipt_k+i = swarm_upload(results.manifest_k+i)
+
+block_txs_receipt_k = swarm_upload(block_k.txs)
 ```
 
-If the transaction passes the check, it's added to the mempool, otherwise it's declined.
+The client verifies returned results in the few chained steps.
 
-**Questions:**
-- should the real-time node sign the acceptance or refusal of transaction with `R_sk`?
+1) The client checks that every manifest is stored in Swarm properly. This means that receipt is issued for the correct content hash, the Swarm node signature does sign exactly this hash and that the Swarm node has the security deposit big enough.
 
-### Block delivery
+```java
+assert results.manifest_receipt_k+i.content_hash == swarm_hash(results.manifest_k+i)
+assert verify(
+  public_key = results.manifest_receipt_k+i.node_pk,
+  signature = results.manifest_receipt_k+i.node_signature,
+  data = swarm_hash(results.manifest_k+i)
+)
+assert swarm_contract.nodes[results.manifest_receipt_k+i.node_pk].deposit ≥ X ETH
+```
 
-Once the block is passed through Tendermint consensus, it is delivered to the state machine. 
+**TODO: connect manifests to hashes and blocks**  
+
+2) The client checks that VM state hash generated after processing the block `k` belongs to the application hash in the block `k+1`.
+
+```java
+assert merkle_verify(
+  data = results.vm_state_hash_k+1,
+  merkle_proof = results.vm_state_hash_proof_k+1,
+  merkle_root = results.manifest_k+1.header.app_hash
+)
+
+```
+
+3) The client checks that VM state chunks belong to the state hash, which ensures the node hasn't returned bogus chunks data.
+
+```java
+assert merkle_verify(
+  data = results.vm_state_chunks_k+1, 
+  merkle_proof = results.vm_state_chunks_proof_k+1, 
+  merkle_root = results.vm_state_hash_k+1
+)
+```
+
 
 ----
 \> [Twemoji](https://twemoji.twitter.com/) graphics: Twitter, Inc & others [\[CC-BY 4.0\]]( https://creativecommons.org/licenses/by/4.0/)
