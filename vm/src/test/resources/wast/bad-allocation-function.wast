@@ -18,10 +18,10 @@
 
     (func (export "test") (param $0 i32 ) (param $1 i32) (result i32)
         ;; simply returns 10000
-        (call 3 (i32.const 10000))
+        (call $putIntResult (i32.const 10000))
     )
 
-    ;; int putResultInt(int result) {
+    ;; int putIntResult(int result) {
     ;;   const int address = 1024*1024;
     ;;
     ;;   globalBuffer[address] = 0;
@@ -35,7 +35,7 @@
     ;;
     ;;   return address;
     ;; }
-    (func (export "putResultInt") (param $0 i32) (result i32)
+    (func $putIntResult (param $0 i32) (result i32)
         (local $1 i32)
         (local $2 i32)
         (set_local $2 (i32.const 0))

@@ -271,7 +271,7 @@ class AsmleWasmVm(
         VmMemoryError(s"Trying to use absent Wasm memory while reading string from the offset=$offset")
       )
 
-      readString <- EitherT
+      readResult <- EitherT
         .fromEither[F](
           Try {
             // each string has the next structure in Wasm memory: | size (4 bytes) | string buffer (size bytes) |
@@ -279,11 +279,11 @@ class AsmleWasmVm(
             // size of Int in bytes
             val intBytesSize = 4
 
-            val buffer = new Array[Byte](stringSize)
+            val resultBuffer = new Array[Byte](stringSize)
             val wasmMemoryView = wasmMemory.duplicate()
             wasmMemoryView.position(offset + intBytesSize)
-            wasmMemoryView.get(buffer)
-            buffer
+            wasmMemoryView.get(resultBuffer)
+            resultBuffer
           }.toEither
         )
         .leftMap { e =>
@@ -293,7 +293,7 @@ class AsmleWasmVm(
           )
         }: EitherT[F, InvokeError, Array[Byte]]
 
-    } yield readString
+    } yield readResult
 
 }
 
