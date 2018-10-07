@@ -17,8 +17,12 @@ matrix:
         - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
         - find $HOME/.sbt        -name "*.lock"               -print -delete
 
-      before_install: cd bootstrap
-      before_script: npm install && npm run ganache
+      before_script: 
+        - pushd .
+        - cd bootstrap
+        - npm install 
+        - npm run ganache
+        - popd
         
     - language: node_js
       node_js: v10.9.0
