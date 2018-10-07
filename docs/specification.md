@@ -439,37 +439,46 @@ If the transaction passes the check, it's added to the mempool, otherwise it's d
 Tendermint consensus engine periodically pulls few transactions from the mempool and forms a new block:
 
 ```go
+// structures
+type TmNode struct {
+  PubKey    []byte            // Tendermint node public key
+  SecretKey []byte            // Tendermint node secret key
+}
+
 type Block struct {
-  Header     Header         // block header
-  LastCommit []Vote         // Tendermint nodes votes for the previous block
-  Txs        []Transaction  // transactions as sent by clients
+  Header     Header           // block header
+  LastCommit []Vote           // Tendermint nodes votes for the previous block
+  Txs        []Transaction    // transactions as sent by clients
 }
 
 type Header struct {
-  LastBlockHash  []byte     // Merkle root of the previous block header fields 
-  LastCommitHash []byte     // Merkle root of the last commit votes
-  TxsHash        []byte     // Merkle root of the block transactions
-  AppHash        []byte     // application state hash after the previous block
+  LastBlockHash  []byte       // Merkle root of the previous block header fields 
+  LastCommitHash []byte       // Merkle root of the last commit votes
+  TxsHash        []byte       // Merkle root of the block transactions
+  AppHash        []byte       // application state hash after the previous block
 }
 
 type Vote struct {
-  PubKey    []byte          // Tendermint node public key
-  Signature []byte          // Tendermint node signature of the previous block header
+  Address   []byte            // Tendermint node address
+  Signature []byte            // Tendermint node signature of the previous block header
 }
 
-// Tendermint blockchain
-var blocks []Block
 
-blocks[k].Header.LastBlockHash == TendermintMerkleRoot(blocks[k-1].Header)
+// data
+var blocks []Block            // Tendermint blockchain
+var nodes  map[[]byte]TmNode  // Tendermint nodes: address –> public/private key pair
 
-```
 
-```java
-block.header.last_block_hash = tm_merkle(items(prev_block.header))
-block.header.last_commit_hash = tm_merkle(block.last_commit)
-block.header.txs_hash = tm_merkle(block.txs)
+// rules
+blocks[k].Header.LastBlockHash == TmMerkleRoot(blocks[k-1].Header)
+blocks[k].Header.LastCommitHash == TmMerkleRoot(blocks[k].LastCommit)
+blocks[k].Header.TxsHash == TmMerkleRoot(blocks[k].Txs)
 
-block.last_commit.vote_i = sign(R_sk_i, block.header.last_block_hash)
+blocks[k].LastCommit[i].Signature == TmSign(
+  nodes[blocks[k].LastCommit[i].Address].SecretKey,  // secret key 
+  blocks[k].Header.LastBlockHash                     // data
+)
+
 ```
 
 ## Block processing
