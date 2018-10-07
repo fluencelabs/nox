@@ -1,4 +1,4 @@
-;; this example simply returns
+;; this example compute sum of two given integers
 
 (module $SumModule
 

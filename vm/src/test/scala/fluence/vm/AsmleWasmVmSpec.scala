@@ -96,8 +96,6 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       res.success()
     }
 
-    // TODO : in current implementation this test fails because of getMemory functions registers two times
-    // in the both modules
     "run sum.wast and after that mul.wast" in {
       val sumFile = getClass.getResource("/wast/sum.wast").getPath
       val mulFile = getClass.getResource("/wast/mul.wast").getPath

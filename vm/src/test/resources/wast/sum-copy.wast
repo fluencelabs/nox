@@ -1,6 +1,7 @@
-;; this example simply returns
+;; this example compute sum of two given integers
+;; and has the same name module name as sum.wast for test
+(module $SumModule
 
-(module
     ;; force Asmble to use memory
     (memory $0 20)
     (export "memory" (memory $0))
