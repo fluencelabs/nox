@@ -5,25 +5,15 @@
     (memory $0 20)
     (export "memory" (memory $0))
 
-    (func (export "allocate") (param $0 i32) (result i32)
-        ;; just return constant offset in ByteBuffer
-        (i32.const 10000)
-    )
-
-    (func (export "deallocate") (param $0 i32) (result i32)
-        ;; in this simple example deallocation function does nothing
-        (i32.const 10000)
-    )
-
     ;; int sum(int a, int b) {
     ;;  return a + b;
     ;; }
-    (func (export "sum") (param $0 i32) (param $1 i32) (result i32)
+    (func (export "mul") (param $0 i32) (param $1 i32) (result i32)
         (local $2 i32)
         (set_local $2
             (i32.mul (get_local $0) (get_local $1))
         )
-        (call 3 (get_local $2))
+        (call 1 (get_local $2))
     )
 
     ;; int putResultInt(int result) {

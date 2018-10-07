@@ -12,6 +12,7 @@
 
     (func (export "deallocate") (param $0 i32) (result i32)
         ;; in this simple example deallocation function does nothing
+        (i32.const 10000)
     )
 
     ;; int circular_xor(const char *buffer, int size) {
