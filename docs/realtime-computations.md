@@ -328,3 +328,6 @@ Counting already processed transactions also allows to deduplicate and not execu
 ### Transactions history storage
 
 To allow nodes not belonging to the real-time cluster to verify performed computations the history of incoming requests and state changes is stored in Swarm.
+
+----
+\> [Twemoji](https://twemoji.twitter.com/) graphics: Twitter, Inc & others [\[CC-BY 4.0\]]( https://creativecommons.org/licenses/by/4.0/)

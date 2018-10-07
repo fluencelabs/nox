@@ -327,6 +327,5 @@ assert merkle_verify(
 )
 ```
 
-
 ----
 \> [Twemoji](https://twemoji.twitter.com/) graphics: Twitter, Inc & others [\[CC-BY 4.0\]]( https://creativecommons.org/licenses/by/4.0/)
