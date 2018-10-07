@@ -28,7 +28,6 @@ import fluence.vm.VmError.{InvalidArgError, _}
 import fluence.vm.AsmleWasmVm._
 import scodec.bits.ByteVector
 
-import scala.collection.immutable
 import scala.language.higherKinds
 import scala.util.Try
 

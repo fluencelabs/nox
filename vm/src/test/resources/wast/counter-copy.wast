@@ -1,6 +1,7 @@
 ;; simple in-memory counter
 
-(module
+(module $CounterCopyModule
+
     ;; force Asmble to use memory
     (memory $0 20)
     (export "memory" (memory $0))

@@ -119,13 +119,13 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     "return correct initial tree root hash" in {
       sendCommit()
       // the tree containing VM state hash only
-      latestAppHash shouldBe "74712CAAABC7F02D055461B5A6CE5B573E65ADA57809869EFE589DF07FBAF0CA"
+      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
     }
 
     "process correct tx/query sequence" in {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "74712CAAABC7F02D055461B5A6CE5B573E65ADA57809869EFE589DF07FBAF0CA"
+      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendCheckTx(tx0)
       sendCheckTx(tx1)
