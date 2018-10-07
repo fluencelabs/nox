@@ -331,27 +331,38 @@ To allow nodes not belonging to the real-time cluster to verify performed comput
 
 # Protocol
 
+## Core
+
+```go
+type MerkleProof struct {
+  siblings [][][]byte  // Merkle tree layer –> sibling index in the layer –> sibling
+}
+
+func Hash(data []byte) []byte
+func Sign(secretKey []byte, data []byte) []byte
+func Verify(publicKey []byte, signature []byte, data []byte) boolean
+
+func MerkleRoot(allChunks [][]byte) []byte
+func CreateMerkleProofs(selectedChunks [][]byte, allChunks [][]byte) []MerkleProof
+func VerifyMerkleProofs(selectedChunks [][]byte, proofs []MerkleProof, root []byte) boolean
+```
+
 ## External systems
 
 ### Tendermint
 
 Tendermint produces new blocks and feeds them to the state machine. It uses Merkle trees to compute the Merkle hash of certain blocks of data and digital signatures to sign produced blocks, however here we assume these functions are not compatible with Fluence:
 
-```java
-def tm_merkle(elements: byte[][]): byte[]
-def tm_sign(secret_key: byte[], data: byte[]): byte[]
-def tm_verify(public_key, signature: byte[], data: byte[]): boolean
+```go
+func TmHash(data []byte) []byte
+func TmSign(secretKey []byte, data []byte) []byte
+func TmVerify(publicKey []byte, signature []byte, data []byte) boolean
+func TmMerkleRoot(allChunks [][]byte) []byte
 ```
 
 ### Ethereum
 
-For the purposes of this protocol Ethereum is treated as a key-value dictionary where a contract can be found by it's address:
-
-```java
-Ethereum {
-  contract_address: byte[] –> contract: EthereumContract
-}
-```
+For the purposes of this protocol Ethereum is treated as a key-value dictionary where a contract can be found by it's address.
 
 ### Swarm
 
@@ -359,25 +370,42 @@ Swarm is treated as a hash addressable storage where a content can be found by i
 
 We also assume that upload function returns Swarm receipt which indicates that Swarm is fully responsible for the passed content. The receipt contains the Swarm hash of the content and the signature of the Swarm node `S` with the public/private key pair `<S_pk, S_sk>` financially responsible for storing the content. Receipts functionality is not implemented yet in the current Swarm release, however it's described in ["Swap, swear and swindle: incentive system for Swarm"](https://swarm-gateways.net/bzz:/theswarm.eth/ethersphere/orange-papers/1/sw^3.pdf) and can be reasonably expected to show up soon.
 
-```java
-Swarm {
-  swarm_hash(content) –> content: byte[]
+```go
+type SwarmNode struct {
+  PublicKey []byte                    // Swarm node public key
+  SecretKey []byte                    // Swarm node secret key
 }
 
-def swarm_hash(content: byte[]): byte[]
-def swarm_upload(content: byte[]): SwarmReceipt
-def swarm_sign(secret_key: byte[], data: byte[]): byte[]
-def swarm_verify(public_key: byte[], signature: byte[], data: byte[]): boolean
-
-receipt: SwarmReceipt = {
-  content_hash: byte[],
-  node_signature: byte[],
-  node_pk: byte[]
+type SwarmReceipt struct {
+  ContentHash []byte                  // Swarm hash of the stored content
+  Insurance   Insurance               // insurance written for the accepted content
 }
 
-receipt.content_hash = swarm_hash(content)
-receipt.node_signature = swarm_sign(S_sk, swarm_hash(content))
-receipt.node_pk = S_pk
+type Insurance struct {
+  Id        []byte                    // Swarm node identifier
+  Signature []byte                    // Swarm node signature
+}
+
+func SwarmHash(data []byte) []byte
+func SwarmSign(secretKey []byte, data []byte) []byte
+func SwarmVerify(publicKey []byte, signature []byte, data []byte) boolean
+func SwarmUpload(content []byte) SwarmReceipt
+
+// rules
+var swarm      map[[]byte]interface{}  // Swarm storage: hash(x) –> x
+var swarmNodes map[[]byte]SwarmNode    // Swarm nodes: address –> public / private key pair
+var content    []byte                  // stored content
+var receipt    SwarmReceipt            // receipt issued for the stored content
+
+swarm[SwarmHash(content)] == content
+receipt.ContentHash == SwarmHash(content)
+receipt.Insurance.Signature == SwarmSign(
+  swarmNodes[receipt.Insurance.Id].SecretKey,  // secret key
+  Concat(                                      // data
+    receipt.ContentHash,
+    receipt.Insurance.Id
+  )
+)
 ```
 
 ## Initial setup
@@ -407,16 +435,33 @@ fluence_contract: EthereumContract = {
 
 A transaction always has a specific authoring client and carries all information required to execute a deployed WebAssembly function:
 
-```java
-tx: Tx = {
-  payload: TxPayload = {
-    C_pk_j: byte[], // client public key
-    invoke: byte[]  // function name + argument + client session + session order
-  },
-  signature: byte[] // client signature of the payload
+```go
+type Client struct {
+  PublicKey []byte             // client public key
+  SecretKey []byte             // client secret key
 }
 
-tx.signature = sign(C_sk_j, hash(tx.payload))
+type Transaction struct {
+  Invoke []byte                // function name + arguments + client session + session order
+  Stamp  Stamp                 // client stamp of the transaction
+}
+
+type Stamp struct {
+  Id        []byte             // client identifier
+  Signature []byte             // client signature
+}
+
+// rules
+var clients map[[]byte]Client  // clients: address –> public/private key pair
+var tx      Transaction        // transaction formed by the client
+
+tx.Signature == Sign(
+  clients[tx.Stamp.Id], // secret key
+  Concat(               // data
+    tx.Invoke,
+    tx.Stamp.Id
+  )
+)
 ```
 
 ## Transaction submission
@@ -471,9 +516,11 @@ blocks[k].Header.LastCommitHash == TmMerkleRoot(blocks[k].LastCommit)
 blocks[k].Header.TxsHash == TmMerkleRoot(blocks[k].Txs)
 blocks[k].LastCommit[i].Signature == TmSign(
   nodes[blocks[k].LastCommit[i].Address].SecretKey,  // secret key 
-  blocks[k].Header.LastBlockHash                     // data
+  Concat(                                            // data
+    blocks[k].Header.LastBlockHash,
+    blocks[k].LastCommit[i].Address
+  )                     
 )
-
 ```
 
 ## Block processing
@@ -512,7 +559,7 @@ type Manifest struct {
 }
 
 // creates a new manifest from the block and the previous block
-func CreateManifest(block: *Block, prevBlock: *Block) Manifest
+func CreateManifest(block *Block, prevBlock *Block) Manifest
 
 // rules
 var blocks    []Block                 // Tendermint blockchain
@@ -544,11 +591,11 @@ Let's assume that transaction sent by the client was included into the block `k`
 
 ```go
 type QueryResults struct {
-  Chunks:           map[int]VMChunk  // selected virtual machine state chunks
-  ChunksProof:      MerkleProof      // Merkle proof: chunks belong to the virtual machine state
-  Manifests:        [3]Manifest      // block manifests
-  ManifestReceipts: [3]SwarmReceipt  // Swarm receipts for block manifests
-  TxsReceipt:       SwarmReceipt     // Swarm receipt for block transactions
+  Chunks           map[int]VMChunk  // selected virtual machine state chunks
+  ChunksProofs     []MerkleProof    // Merkle proofs: chunks belong to the virtual machine state
+  Manifests        [3]Manifest      // block manifests
+  ManifestReceipts [3]SwarmReceipt  // Swarm receipts for block manifests
+  TxsReceipt       SwarmReceipt     // Swarm receipt for block transactions
 }
 
 // rules
@@ -558,7 +605,7 @@ var manifests []Manifest             // manifests
 var results   QueryResults           // results returned for a transaction in block `k`
 
 results.Chunks[t] == vmStates[k + 1].Chunks[t]
-results.ChunksProof == CreateMerkleProof(results.Chunks, vmStates[k + 1].Chunks)
+results.ChunksProof == CreateMerkleProofs(results.Chunks, vmStates[k + 1].Chunks)
 results.Manifests[p] == manifests[k + p]
 results.ManifestReceipts[p] == SwarmUpload(results.Manifest[p])
 results.TxsReceipt == SwarmUpload(blocks[k].Txs)
