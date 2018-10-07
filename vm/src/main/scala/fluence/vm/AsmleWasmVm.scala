@@ -28,6 +28,7 @@ import fluence.vm.VmError.{InvalidArgError, _}
 import fluence.vm.AsmleWasmVm._
 import scodec.bits.ByteVector
 
+import scala.collection.immutable
 import scala.language.higherKinds
 import scala.util.Try
 
@@ -86,7 +87,7 @@ class AsmleWasmVm(
       arguments ← parseArguments(preprocessedArguments, wasmFn)
 
       // invoke the function
-      result ← wasmFn[F](arguments)
+      invocationResult ← wasmFn[F](arguments)
       // TODO : In the current version it is expected that callee (Wasm module) clean memory by itself
       // after construction of the result string. F.e. in Rust String object along with &str are the common
       // classes for operations on strings, in C++ the same role has std::string and std::stringview classes.
@@ -94,12 +95,17 @@ class AsmleWasmVm(
       // using injected string bytes as source and then delete these string bytes. But in the future it has
       // to be done by caller through deallocate function call.
 
-      offset <- EitherT.fromEither(Try(result.toString.toInt).toEither).leftMap { e ⇒
-        NoSuchFnError(s"The Wasm allocation function returned incorrect offset=", Some(e))
+      extractedResult <- if (wasmFn.javaMethod.getReturnType == Void.TYPE) {
+        EitherT.rightT[F, InvokeError](None)
+      } else {
+        for {
+          offset <- EitherT.fromEither(Try(invocationResult.toString.toInt).toEither).leftMap { e ⇒
+            NoSuchFnError(s"The Wasm allocation function returned incorrect offset=", Some(e))
+          }
+          extractedResult <- extractResultFromWasmModule(offset, wasmFn.module).map(Option(_))
+        } yield extractedResult
       }
-      extractedResult <- extractResultFromWasmModule(offset, wasmFn.module, wasmStringCharset)
-
-    } yield if (wasmFn.javaMethod.getReturnType == Void.TYPE) None else Option(extractedResult)
+    } yield extractedResult
 
   }
 
@@ -161,6 +167,7 @@ class AsmleWasmVm(
    *
    * @param functionArguments arguments for calling this fn
    * @param moduleInstance module instance used for injecting string arguments to the Wasm memory
+   * @param charset charset that is used for convert the string to byte array
    * @tparam F a monad with an ability to absorb 'IO'
    */
   private def preprocessStringArguments[F[_]: LiftIO: Monad](
@@ -194,6 +201,7 @@ class AsmleWasmVm(
    *
    * @param injectedString string that should be inserted into Wasm module memory
    * @param moduleInstance module instance used as a provider for Wasm module memory access
+   * @param charset charset that is used for convert the string to byte array
    * @tparam F a monad with an ability to absorb 'IO'
    */
   private def injectStringIntoWasmModule[F[_]: LiftIO: Monad](
@@ -230,7 +238,7 @@ class AsmleWasmVm(
     } yield resultOffset
 
   /**
-   * Extracts (reads and deletes) string from the given offset from Wasm module memory.
+   * Extracts (reads and deletes) result from the given offset from Wasm module memory.
    *
    * @param offset offset into Wasm module memory where a string is located
    * @param moduleInstance module instance used as a provider for Wasm module memory access
@@ -238,18 +246,17 @@ class AsmleWasmVm(
    */
   private def extractResultFromWasmModule[F[_]: LiftIO: Monad](
     offset: Int,
-    moduleInstance: ModuleInstance,
-    charset: Charset
+    moduleInstance: ModuleInstance
   ): EitherT[F, InvokeError, Array[Byte]] =
     for {
-      extractedString <- readResultFromWasmModule(offset, moduleInstance, charset)
+      extractedString <- readResultFromWasmModule(offset, moduleInstance)
       // TODO : string deallocation from scala-part should be additionally investigated - it seems
       // that this version of deletion doesn't compatible with current idea of verification game
       _ <- deallocate(offset)
     } yield extractedString
 
   /**
-   * Reads string from the given offset from Wasm module memory.
+   * Reads result from the given offset from Wasm module memory.
    *
    * @param offset offset into Wasm module memory where a string is located
    * @param moduleInstance module instance used as a provider for Wasm module memory access
@@ -257,8 +264,7 @@ class AsmleWasmVm(
    */
   private def readResultFromWasmModule[F[_]: LiftIO: Monad](
     offset: Int,
-    moduleInstance: ModuleInstance,
-    charset: Charset
+    moduleInstance: ModuleInstance
   ): EitherT[F, InvokeError, Array[Byte]] =
     for {
       wasmMemory <- EitherT.fromOption(

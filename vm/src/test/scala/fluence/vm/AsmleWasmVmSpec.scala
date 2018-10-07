@@ -135,7 +135,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
         get0.get.deep shouldBe Array[Byte](0, 0, 0, 0).deep
         get1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
-        get2.get.deep shouldBe Array[Byte](2, 0, 0, 0).deep
+        get2.get.deep shouldBe Array[Byte](3, 0, 0, 0).deep
       }
 
       res.success()
@@ -167,17 +167,13 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
     "returns state" when {
       "there is one module without memory present" in {
         val testHasher = DumbCrypto.testHasher
-        // the code in 'sum.wast' don't use 'memory', instance for this module created without 'memory' field
-        val sumFile = getClass.getResource("/wast/sum.wast").getPath
+        // 'no-getMemory.wast' doesn't use memory so Asmble created class file without 'mem' field
+        val sumFile = getClass.getResource("/wast/no-getMemory.wast").getPath
 
         val res = for {
           vm <- WasmVm[IO](Seq(sumFile), cryptoHasher = testHasher)
-          result ← vm.invoke[IO](None, "sum", Seq("100", "13"))
           state ← vm.getVmState[IO].toVmError
         } yield {
-          result should not be None
-
-          result.get.deep shouldBe Array[Byte](113, 0, 0, 0).deep
           state.toArray shouldBe testHasher.unsafe(Array.emptyByteArray)
         }
 
