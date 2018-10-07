@@ -440,37 +440,31 @@ Tendermint consensus engine periodically pulls few transactions from the mempool
 
 ```go
 type Block struct {
-  Header     BlockHeader
-  LastCommit []Vote
-  Txs        []Transaction
-} 
+  Header     Header         // block header
+  LastCommit []Vote         // Tendermint nodes votes for the previous block
+  Txs        []Transaction  // transactions as sent by clients
+}
+
+type Header struct {
+  LastBlockHash  []byte     // Merkle root of the previous block header fields 
+  LastCommitHash []byte     // Merkle root of the last commit votes
+  TxsHash        []byte     // Merkle root of the block transactions
+  AppHash        []byte     // application state hash after the previous block
+}
+
+type Vote struct {
+  PubKey    []byte          // Tendermint node public key
+  Signature []byte          // Tendermint node signature of the previous block header
+}
+
+// Tendermint blockchain
+var blocks []Block
+
+blocks[k].Header.LastBlockHash == TendermintMerkleRoot(blocks[k-1].Header)
+
 ```
 
 ```java
-block: Block = {
-  header: BlockHeader = {
-    last_block_hash: byte[],  // Merkle root of the previous block header fields
-    app_hash: byte[],         // application state hash after the previous block execution
-    last_commit_hash: byte[], // Merkle root of the last commit votes
-    txs_hash: byte[]          // Merkle root of the block transactions
-  },
-  last_commit: Vote[] = [
-    vote_1: Vote,             //
-    ...,                      // real-time nodes signatures of the previous block header
-    vote_n: Vote              //
-  ],  
-  txs: byte[][] = [
-    tx_1: byte[],             //
-    ...,                      // transactions
-    tx_p: byte[]              //
-  ]
-}
-
-Vote {
-  pk: byte[],
-  signature: byte[]
-}
-
 block.header.last_block_hash = tm_merkle(items(prev_block.header))
 block.header.last_commit_hash = tm_merkle(block.last_commit)
 block.header.txs_hash = tm_merkle(block.txs)
