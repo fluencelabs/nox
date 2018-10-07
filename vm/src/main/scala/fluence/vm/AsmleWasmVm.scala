@@ -271,7 +271,7 @@ class AsmleWasmVm(
         VmMemoryError(s"Trying to use absent Wasm memory while reading string from the offset=$offset")
       )
 
-      readedString <- EitherT
+      readString <- EitherT
         .fromEither[F](
           Try {
             // each string has the next structure in Wasm memory: | size (4 bytes) | string buffer (size bytes) |
@@ -293,7 +293,7 @@ class AsmleWasmVm(
           )
         }: EitherT[F, InvokeError, Array[Byte]]
 
-    } yield readedString
+    } yield readString
 
 }
 
