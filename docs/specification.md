@@ -438,6 +438,14 @@ If the transaction passes the check, it's added to the mempool, otherwise it's d
 
 Tendermint consensus engine periodically pulls few transactions from the mempool and forms a new block:
 
+```go
+type Block struct {
+  Header     BlockHeader
+  LastCommit []Vote
+  Txs        []Transaction
+} 
+```
+
 ```java
 block: Block = {
   header: BlockHeader = {
