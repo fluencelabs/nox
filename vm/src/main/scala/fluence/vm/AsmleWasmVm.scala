@@ -65,7 +65,7 @@ class AsmleWasmVm(
 
   // TODO: it is need to decide how to properly get charset (maybe it is good to add "getCharset" method
   // in all wasm Modules or simply add the requirement of using fixed charset everywhere)
-  private val wasmStringCharset = Charset.forName("UTF-8")
+  val wasmStringCharset: Charset = Charset.forName("UTF-8")
 
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
@@ -248,11 +248,11 @@ class AsmleWasmVm(
     moduleInstance: ModuleInstance
   ): EitherT[F, InvokeError, Array[Byte]] =
     for {
-      extractedString <- readResultFromWasmModule(offset, moduleInstance)
+      extractedResult <- readResultFromWasmModule(offset, moduleInstance)
       // TODO : string deallocation from scala-part should be additionally investigated - it seems
       // that this version of deletion doesn't compatible with current idea of verification game
       _ <- deallocate(offset)
-    } yield extractedString
+    } yield extractedResult
 
   /**
    * Reads result from the given offset from Wasm module memory.

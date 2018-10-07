@@ -321,6 +321,23 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         }
       }
 
+      "simple test for string returning" in {
+        val simpleStringPassingTestFile = getClass.getResource("/wast/simple-string-returning.wast").getPath
+
+        val res = for {
+          vm ← WasmVm[IO](Seq(simpleStringPassingTestFile))
+          value1 ← vm.invoke[IO](None, "hello", Nil)
+          state ← vm.getVmState[IO].toVmError
+        } yield {
+          value1 should not be None
+
+          val stringValue = new String(value1.get)
+          stringValue shouldBe "Hello from Fluence Labs!"
+        }
+
+        res.success()
+      }
+
     }
   }
 
