@@ -424,11 +424,8 @@ tx.signature = sign(C_sk_j, hash(tx.payload))
 Once the client `C_j` has constructed a transaction, it is submitted to one of the real-time nodes `R_i` which checks the received transaction:
 
 ```java
-assert C_pk_j is valid
-assert signature is valid
 assert C_pk_j in fluence_contract.clients
 assert verify(C_pk_j, hash(tx.payload), tx.signature)
-assert length(invoke) <= 4096
 ```
 
 If the transaction passes the check, it's added to the mempool, otherwise it's declined.
@@ -445,14 +442,14 @@ Tendermint consensus engine periodically pulls few transactions from the mempool
 block: Block = {
   header: BlockHeader = {
     last_block_hash: byte[],  // Merkle root of the previous block header fields
-    app_hash: byte[],         // state hash after the previous block execution
+    app_hash: byte[],         // application state hash after the previous block execution
     last_commit_hash: byte[], // Merkle root of the last commit votes
     txs_hash: byte[]          // Merkle root of the block transactions
   },
-  last_commit: byte[][] = [
-    vote_1: byte[],           //
+  last_commit: Vote[] = [
+    vote_1: Vote,             //
     ...,                      // real-time nodes signatures of the previous block header
-    vote_n: byte[]            //
+    vote_n: Vote              //
   ],  
   txs: byte[][] = [
     tx_1: byte[],             //
@@ -461,8 +458,12 @@ block: Block = {
   ]
 }
 
+Vote {
+  pk: byte[],
+  signature: byte[]
+}
+
 block.header.last_block_hash = tm_merkle(items(prev_block.header))
-block.header.app_hash = state_machine.apply(prev_block)
 block.header.last_commit_hash = tm_merkle(block.last_commit)
 block.header.txs_hash = tm_merkle(block.txs)
 
@@ -498,23 +499,27 @@ Swarm {
 }
 
 manifest: BlockManifest = {
-  header: BlockHeader,   // block header
-  last_commit: byte[][], // block last commit data
-  txs_swarm_hash: byte[] // swarm hash of the block transactions
+  header: BlockHeader,             // block header
+  last_commit: byte[][],           // block last commit data
+  txs_swarm_hash: byte[],          // swarm hash of the block transactions
+  vm_state_hash: byte[],           // VM state hash after processing the block transactions
+  last_manifest_swarm_hash: byte[] // swarm hash of the previous manifest
 }
 
 manifest.header = block.header
 manifest.last_commit = block.last_commit
 manifest.txs_swarm_hash = swarm_hash(block.txs)
+manifest.vm_state_hash = merkle(vm_state)
+manifest.last_manifest_swarm_hash = swarm_hash(prev_manifest)
 
-// creates a new manifest from the Tendermint block
-def manifest(block: Block): BlockManifest
+// creates a new manifest from the Tendermint block and previous block
+def manifest(block: Block, last_block: Block): BlockManifest
 ```
 
 Once the block manifest is formed and the virtual machine has advanced to the new state, it becomes possible to compute the new application state hash, which will be used in the next block:
 
 ```java
-block_k+1.header.app_hash = merkle(manifest_k, vm_state_hash_k+1)
+block_k+1.header.app_hash = hash(manifest_k)
 ```
 
 ## Results verification
@@ -525,15 +530,12 @@ Let's assume that transaction sent by the client was included into the block `k`
 
 ```java
 results: QueryResults = {
-  vm_state_chunks_k+1: byte[][] = [
+  vm_state_chunks: byte[][] = [
     chunk_t1: byte[],                    //
     ...,                                 // few selected chunks from the `k+1` VM state
     chunk_tL: byte[]                     //
   ],
-  vm_state_hash_k+1: byte[],             // `k+1` VM state hash
-  
-  vm_state_chunks_proof_k+1: byte[][][], // Merkle proof: chunks => `k+1` VM state hash
-  vm_state_hash_proof_k+1: byte[][][],   // Merkle proof: `k+1` VM state hash => `k+1` app hash
+  vm_state_chunks_proof: byte[][][],     // Merkle proof: chunks => `k+1` VM state hash
   
   manifest_k: BlockManifest,             // block `k` manifest
   manifest_k+1: BlockManifest,           // block `k + 1` manifest
@@ -547,18 +549,15 @@ results: QueryResults = {
 }
 
 results.vm_state_chunks_k+1[i] ∈ vm_state_k+1.chunks
-results.vm_state_hash_k+1 = merkle(vm_state_k+1.chunks)
+results.vm_state_chunks_proof_k+1 = merkle_proof(results.vm_state_chunks_k+1, results.manifest_k.vm_state_hash)
 
-results.vm_state_chunks_proof_k+1 = merkle_proof(results.vm_state_chunks_k+1, results.vm_state_hash_k+1)
-results.vm_state_hash_proof_k+1 = merkle_proof(results.vm_state_hash_k+1, results.manifest_k+1.header.app_hash)
-
-results.manifest_k+i = manifest(block_k+i)
+results.manifest_k+i = manifest(block_k+i, block_k+i-1)
 manifest_receipt_k+i = swarm_upload(results.manifest_k+i)
 
 block_txs_receipt_k = swarm_upload(block_k.txs)
 ```
 
-The client verifies returned results in the few chained steps.
+The client verifies returned results in a few steps.
 
 1) The client checks that every manifest is stored in Swarm properly. This means that receipt is issued for the correct content hash, the Swarm node signature does sign exactly this hash and that the Swarm node has the security deposit big enough.
 
@@ -572,26 +571,36 @@ assert verify(
 assert swarm_contract.nodes[results.manifest_receipt_k+i.node_pk].deposit ≥ X ETH
 ```
 
-**TODO: connect manifests to hashes and blocks**  
-
-2) The client checks that VM state hash generated after processing the block `k` belongs to the application hash in the block `k+1`.
+2) The client checks that manifests are linked correctly in Swarm.
 
 ```java
-assert merkle_verify(
-  data = results.vm_state_hash_k+1,
-  merkle_proof = results.vm_state_hash_proof_k+1,
-  merkle_root = results.manifest_k+1.header.app_hash
-)
-
+assert results.manifest_k+i+1.last_manifest_swarm_hash = swarm_hash(results.manifest_k+i)
 ```
 
-3) The client checks that VM state chunks belong to the state hash, which ensures the node hasn't returned bogus chunks data.
+3) The client checks that manifests are linked correctly through the application hash.
+
+```java
+assert results.manifest_k+i+1.header.app_hash = hash(results.manifest_k+i)
+```
+
+4) The client checks that nodes have actually signed the corresponding block headers.
+
+```java
+assert tm_verify(
+  public_key = results.manifest_k+i+1.last_commit[j].pk,
+  signature = results.manifest_k+i+1.last_commit[j].signature,
+  data = tm_merkle(items(results.manifest_k+i.header))
+)
+assert fluence_contract.nodes[results.manifest_receipt_k+i.last_commit[j].pk].deposit ≥ X ETH
+```
+
+5) The client checks that VM state chunks belong to the state hash.
 
 ```java
 assert merkle_verify(
-  data = results.vm_state_chunks_k+1, 
-  merkle_proof = results.vm_state_chunks_proof_k+1, 
-  merkle_root = results.vm_state_hash_k+1
+  data = results.vm_state_chunks, 
+  merkle_proof = results.vm_state_chunks_proof, 
+  merkle_root = results.manifest_k.vm_state_hash
 )
 ```
 
