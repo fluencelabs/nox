@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-/*
 package fluence.statemachine
 
 import com.github.jtendermint.jabci.api.CodeType
@@ -346,4 +345,3 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     }
   }
 }
- */

@@ -25,6 +25,31 @@
         )
     )
 
+    ;; puts 0x00FFFFFF as result size in memory at offset 1048592 and returns pointer to it
+    (func (export "incorrectLengthResult") (result i32)
+        (local $0 i32)
+        (set_local $0 (i32.const 1048592))
+
+        (i32.store8
+            (get_local $0)
+            (i32.const 255)
+        )
+        (i32.store8
+            (i32.add (get_local $0) (i32.const 1))
+            (i32.const 255)
+        )
+        (i32.store8
+            (i32.add (get_local $0) (i32.const 2))
+            (i32.const 255)
+        )
+        (i32.store8
+            (i32.add (get_local $0) (i32.const 3))
+            (i32.const 0)
+        )
+
+        (i32.const 1048592)
+    )
+
     ;; int putStringResult(const char *string, int stringSize, int address) {
     ;;
     ;;   globalBuffer[address] = (stringSize >> 24) & 0xFF;

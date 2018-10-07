@@ -321,11 +321,11 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         }
       }
 
-      "simple test for string returning" in {
-        val simpleStringPassingTestFile = getClass.getResource("/wast/simple-string-returning.wast").getPath
+      "simple test for array returning" in {
+        val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
 
         val res = for {
-          vm ← WasmVm[IO](Seq(simpleStringPassingTestFile))
+          vm ← WasmVm[IO](Seq(simpleArrayPassingTestFile))
           value1 ← vm.invoke[IO](None, "hello", Nil)
           state ← vm.getVmState[IO].toVmError
         } yield {
@@ -336,6 +336,23 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         }
 
         res.success()
+      }
+
+      "string " should {
+        "raise error" when {
+          "trying to extract array with incorrect size from Wasm memory" in {
+            val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
+
+            val res = for {
+              vm <- WasmVm[IO](Seq(simpleArrayPassingTestFile))
+              result ← vm.invoke[IO](None, "incorrectLengthResult", Nil).toVmError
+            } yield result
+
+            val error = res.failed()
+            error shouldBe a[VmMemoryError]
+            error.getMessage shouldBe "String reading from offset=1048592 failed"
+          }
+        }
       }
 
     }
