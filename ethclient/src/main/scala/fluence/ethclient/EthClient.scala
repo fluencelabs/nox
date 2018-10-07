@@ -46,7 +46,7 @@ import scala.language.higherKinds
  *
  * @param web3 Underlying Web3j instance
  */
-class EthClient private (private val web3: Web3j, private val web3Service: Web3jService) extends LazyLogging {
+class EthClient private (private val web3: Web3j) extends LazyLogging {
 
   /**
    * Returns the current client version.
@@ -176,7 +176,7 @@ object EthClient {
     Resource
       .make(
         F.catchNonFatal(
-          new EthClient(Web3j.build(service), service)
+          new EthClient(Web3j.build(service))
         )
       )(web3j => F.delay(web3j.shutdown()))
 }

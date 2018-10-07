@@ -171,7 +171,7 @@ lazy val ethclient = (project in file("ethclient"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "org.web3j" % "core" % "3.5.0",
+      web3jCore,
       slogging,
       scodecBits,
       cats,
