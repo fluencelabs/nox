@@ -22,6 +22,7 @@ matrix:
         - cd bootstrap
         - npm install 
         - npm run ganache
+        - npm run migrate
         - popd
         
     - language: node_js
