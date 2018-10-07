@@ -440,7 +440,7 @@ Tendermint consensus engine periodically pulls few transactions from the mempool
 
 ```go
 type TmNode struct {
-  PubKey    []byte            // Tendermint node public key
+  PublicKey []byte            // Tendermint node public key
   SecretKey []byte            // Tendermint node secret key
 }
 
@@ -462,17 +462,13 @@ type Vote struct {
   Signature []byte            // Tendermint node signature of the previous block header
 }
 
-
-// data
-var blocks []Block            // Tendermint blockchain
-var nodes  map[[]byte]TmNode  // Tendermint nodes: address –> public/private key pair
-
-
 // rules
-blocks[k].Header.LastBlockHash == TmMerkleRoot(blocks[k-1].Header)
+var nodes  map[[]byte]TmNode  // Tendermint nodes: address –> public/private key pair
+var blocks []Block            // Tendermint blockchain
+
+blocks[k].Header.LastBlockHash == TmMerkleRoot(blocks[k - 1].Header)
 blocks[k].Header.LastCommitHash == TmMerkleRoot(blocks[k].LastCommit)
 blocks[k].Header.TxsHash == TmMerkleRoot(blocks[k].Txs)
-
 blocks[k].LastCommit[i].Signature == TmSign(
   nodes[blocks[k].LastCommit[i].Address].SecretKey,  // secret key 
   blocks[k].Header.LastBlockHash                     // data
@@ -483,62 +479,61 @@ blocks[k].LastCommit[i].Signature == TmSign(
 ## Block processing
 
 Once the block is passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. 
-```java
-vm_state_k+1 = apply(vm_state_k, block_k.txs)
-```
 
 The virtual machine state is essentially a block of memory split into chunks. These chunks can be used to compute the state hash:
 ```go
 type VMState struct {
-  chunks: []VMStateChunk  // virtual machine memory chunks
+  Chunks: []VMChunk     // virtual machine memory chunks
 }
 
-type VMStateChunk {
-  data: []byte            // virtual machine memory chunk bytes
+type VMChunk {
+  Data: []byte          // virtual machine memory chunk bytes
 }
 
 // applies block transactions to the virtual machine state to produce the new state
 func AdvanceVMState(vmState *VMState, txs []Transaction) VMState
 
-
-// data
-var vmStates []VMState    // virtual machine states
-
-
 // rules
-vmStates[k+1] == AdvanceVMState(&vmStates[k], blocks[k].Txs)
+var blocks   []Block    // Tendermint blockchain
+var vmStates []VMState  // virtual machine states
+
+vmStates[k + 1] == AdvanceVMState(&vmStates[k], blocks[k].Txs)
 ```
 
 Once the block was processed by the WebAssembly VM, it has to be stored in Swarm for the future batch validation. Blocks are stored as two separate pieces in Swarm: the block manifest and the transactions list. The manifest contains the Swarm hash of the transactions list, which makes it possible to find transactions by having just the manifest:
 
-```java
-Swarm {
-  swarm_hash(manifest) –> manifest
-  swarm_hash(block.txs) –> block.txs
+```go
+type Manifest struct {
+  Header                Header        // block header
+  LastCommit            []Vote        // Tendermint nodes votes for the previous block
+  TxsSwarmHash          []byte        // Swarm hash of the block transactions
+  VMStateHash           []byte        // virtual machine state hash after the previous block
+  LastManifestSwarmHash []byte        // Swarm hash of the previous manifest
 }
 
-manifest: BlockManifest = {
-  header: BlockHeader,             // block header
-  last_commit: byte[][],           // block last commit data
-  txs_swarm_hash: byte[],          // swarm hash of the block transactions
-  vm_state_hash: byte[],           // VM state hash after processing the block transactions
-  last_manifest_swarm_hash: byte[] // swarm hash of the previous manifest
-}
+// creates a new manifest from the block and the previous block
+func CreateManifest(block: *Block, prevBlock: *Block) Manifest
 
-manifest.header = block.header
-manifest.last_commit = block.last_commit
-manifest.txs_swarm_hash = swarm_hash(block.txs)
-manifest.vm_state_hash = merkle(vm_state)
-manifest.last_manifest_swarm_hash = swarm_hash(prev_manifest)
+// rules
+var blocks    []Block                 // Tendermint blockchain
+var vmStates  []VMState               // virtual machine states
+var manifests []Manifest              // manifests
+var swarm     map[[]byte]interface{}  // Swarm storage: hash(x) –> x
 
-// creates a new manifest from the Tendermint block and previous block
-def manifest(block: Block, last_block: Block): BlockManifest
+manifests[k].Header == blocks[k].Header
+manifests[k].LastCommit == blocks[k].LastCommit
+manifests[k].TxsSwarmHash == SwarmHash(blocks[k].Txs)
+manifests[k].VMStateHash == MerkleRoot(vmStates[k].Chunks)
+manifests[k].LastManifestSwarmHash == SwarmHash(manifests[k - 1])
+
+swarm[SwarmHash(manifests[k])] == manifest[k]
+swarm[SwarmHash(blocks[k].Txs)] == blocks[k].Txs
 ```
 
 Once the block manifest is formed and the virtual machine has advanced to the new state, it becomes possible to compute the new application state hash, which will be used in the next block:
 
 ```java
-block_k+1.header.app_hash = hash(manifest_k)
+blocks[k + 1].Header.AppHash == Hash(manifests[k])
 ```
 
 ## Results verification
@@ -547,33 +542,26 @@ Once the cluster has reached consensus on the block, advanced the virtual machin
 
 Let's assume that transaction sent by the client was included into the block `k`, in this case the client has to wait until the block `k+2` is formed and the corresponding block manifest is uploaded to Swarm. Once this is done, results returned to the client will look the following:
 
-```java
-results: QueryResults = {
-  vm_state_chunks: byte[][] = [
-    chunk_t1: byte[],                    //
-    ...,                                 // few selected chunks from the `k+1` VM state
-    chunk_tL: byte[]                     //
-  ],
-  vm_state_chunks_proof: byte[][][],     // Merkle proof: chunks => `k+1` VM state hash
-  
-  manifest_k: BlockManifest,             // block `k` manifest
-  manifest_k+1: BlockManifest,           // block `k + 1` manifest
-  manifest_k+2: BlockManifest,           // block `k + 2` manifest
-  
-  manifest_receipt_k: SwarmReceipt,      // Swarm receipt for the block `k` manifest
-  manifest_receipt_k+1: SwarmReceipt,    // Swarm receipt for the block `k+1` manifest
-  manifest_receipt_k+2: SwarmReceipt,    // Swarm receipt for the block `k+2` manifest
-  
-  block_txs_receipt_k: SwarmReceipt      // Swarm receipt for the block `k` transactions
+```go
+type QueryResults struct {
+  Chunks:           map[int]VMChunk  // selected virtual machine state chunks
+  ChunksProof:      MerkleProof      // Merkle proof: chunks belong to the virtual machine state
+  Manifests:        [3]Manifest      // block manifests
+  ManifestReceipts: [3]SwarmReceipt  // Swarm receipts for block manifests
+  TxsReceipt:       SwarmReceipt     // Swarm receipt for block transactions
 }
 
-results.vm_state_chunks_k+1[i] ∈ vm_state_k+1.chunks
-results.vm_state_chunks_proof_k+1 = merkle_proof(results.vm_state_chunks_k+1, results.manifest_k.vm_state_hash)
+// rules
+var blocks    []Block                // Tendermint blockchain
+var vmStates  []VMState              // virtual machine states
+var manifests []Manifest             // manifests
+var results   QueryResults           // results returned for a transaction in block `k`
 
-results.manifest_k+i = manifest(block_k+i, block_k+i-1)
-manifest_receipt_k+i = swarm_upload(results.manifest_k+i)
-
-block_txs_receipt_k = swarm_upload(block_k.txs)
+results.Chunks[t] == vmStates[k + 1].Chunks[t]
+results.ChunksProof == CreateMerkleProof(results.Chunks, vmStates[k + 1].Chunks)
+results.Manifests[p] == manifests[k + p]
+results.ManifestReceipts[p] == SwarmUpload(results.Manifest[p])
+results.TxsReceipt == SwarmUpload(blocks[k].Txs)
 ```
 
 The client verifies returned results in a few steps.
