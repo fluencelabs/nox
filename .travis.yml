@@ -1,5 +1,13 @@
 matrix:
   include:
+    language: node_js
+        node_js: v10.9.0
+        before_install: cd bootstrap
+        before_script: npm run ganache
+        cache:
+          directories:
+            - bootstrap/node_modules
+            
     language: scala
     scala: 2.12.5
     jdk: oraclejdk8
@@ -15,11 +23,4 @@ matrix:
       # Cleanup the cached directories to avoid unnecessary cache updates
       - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
       - find $HOME/.sbt        -name "*.lock"               -print -delete
-    
-    language: node_js
-    node_js: v10.9.0
-    before_install: cd bootstrap
-    before_script: npm run ganache
-    cache:
-      directories:
-        - bootstrap/node_modules
+

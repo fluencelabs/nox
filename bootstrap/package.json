@@ -8,7 +8,7 @@
   "scripts": {
     "test": "truffle test",
     "migrate": "truffle migrate",
-    "ganache": "ganache-cli &>/dev/null &",
+    "ganache": "ganache-cli -m \"indicate toward book great daring meat tooth bid finger banana witness episode\" &>/dev/null &",
     "generate-abi": "scripts/generate_abi.sh"
   },
   "author": "Fluence Labs",

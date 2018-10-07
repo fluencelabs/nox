@@ -176,8 +176,7 @@ lazy val ethclient = (project in file("ethclient"))
       scodecBits,
       cats,
       catsEffect,
-      utest
+      scalaTest
     ),
-    setUTestFramework
   )
   .enablePlugins(AutomateHeaderPlugin)

@@ -16,7 +16,6 @@
 
 package fluence.ethclient
 
-import java.util.Collections
 import java.util.concurrent.CompletableFuture
 
 import cats.ApplicativeError
@@ -26,7 +25,7 @@ import cats.syntax.functor._
 import fluence.ethclient.helpers.JavaFutureConversion._
 import org.web3j.abi.EventEncoder
 import org.web3j.protocol.core._
-import org.web3j.protocol.core.methods.request.EthFilter
+import org.web3j.protocol.core.methods.request.SingleAddressEthFilter
 import org.web3j.protocol.core.methods.response.Log
 import org.web3j.protocol.http.HttpService
 import org.web3j.protocol.{Web3j, Web3jService}
@@ -47,7 +46,7 @@ import scala.language.higherKinds
  *
  * @param web3 Underlying Web3j instance
  */
-class EthClient private (private val web3: Web3j) extends LazyLogging {
+class EthClient private (private val web3: Web3j, private val web3Service: Web3jService) extends LazyLogging {
 
   /**
    * Returns the current client version.
@@ -77,10 +76,10 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
         // Create a subscription. New subscription will be created for each call of F, so it's referentially transparent
         web3
           .ethLogObservable(
-            new EthFilter(
+            new SingleAddressEthFilter(
               DefaultBlockParameterName.LATEST,
               DefaultBlockParameterName.LATEST,
-              Collections.emptyList[String]()
+              contractAddress
             ).addSingleTopic(topic)
           )
           .flatMap({ log ⇒
@@ -177,7 +176,7 @@ object EthClient {
     Resource
       .make(
         F.catchNonFatal(
-          new EthClient(Web3j.build(service))
+          new EthClient(Web3j.build(service), service)
         )
       )(web3j => F.delay(web3j.shutdown()))
 }
