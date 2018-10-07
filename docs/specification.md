@@ -439,7 +439,6 @@ If the transaction passes the check, it's added to the mempool, otherwise it's d
 Tendermint consensus engine periodically pulls few transactions from the mempool and forms a new block:
 
 ```go
-// structures
 type TmNode struct {
   PubKey    []byte            // Tendermint node public key
   SecretKey []byte            // Tendermint node secret key
@@ -483,22 +482,31 @@ blocks[k].LastCommit[i].Signature == TmSign(
 
 ## Block processing
 
-Once the block is passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state: 
+Once the block is passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. 
 ```java
 vm_state_k+1 = apply(vm_state_k, block_k.txs)
 ```
 
 The virtual machine state is essentially a block of memory split into chunks. These chunks can be used to compute the state hash:
-```java
-vm_state: VMState = {
-  chunks: byte[][] = [
-    chunk_1: byte[], //
-    ...,             // virtual machine memory chunks
-    chunk_q: byte[]  //
-  ]
+```go
+type VMState struct {
+  chunks: []VMStateChunk  // virtual machine memory chunks
 }
 
-vm_state_hash = merkle(vm_state.chunks)
+type VMStateChunk {
+  data: []byte            // virtual machine memory chunk bytes
+}
+
+// applies block transactions to the virtual machine state to produce the new state
+func AdvanceVMState(vmState *VMState, txs []Transaction) VMState
+
+
+// data
+var vmStates []VMState    // virtual machine states
+
+
+// rules
+vmStates[k+1] == AdvanceVMState(&vmStates[k], blocks[k].Txs)
 ```
 
 Once the block was processed by the WebAssembly VM, it has to be stored in Swarm for the future batch validation. Blocks are stored as two separate pieces in Swarm: the block manifest and the transactions list. The manifest contains the Swarm hash of the transactions list, which makes it possible to find transactions by having just the manifest:
