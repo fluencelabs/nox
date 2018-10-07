@@ -65,7 +65,7 @@ class AsmleWasmVm(
 
   // TODO: it is need to decide how to properly get charset (maybe it is good to add "getCharset" method
   // in all wasm Modules or simply add the requirement of using fixed charset everywhere)
-  val wasmStringCharset: Charset = Charset.forName("UTF-8")
+  private val wasmStringCharset: Charset = Charset.forName("UTF-8")
 
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
