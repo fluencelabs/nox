@@ -1,4 +1,4 @@
-;; this example simply returns
+;; this example simply returns product of two integers
 
 (module $MulModule
 
