@@ -338,13 +338,13 @@ type MerkleProof struct {
   siblings [][][]byte  // Merkle tree layer –> sibling index in the layer –> sibling
 }
 
-func Hash(data []byte) []byte
-func Sign(secretKey []byte, data []byte) []byte
-func Verify(publicKey []byte, signature []byte, data []byte) boolean
+func Hash(data []byte) []byte {}
+func Sign(secretKey []byte, data []byte) []byte {}
+func Verify(publicKey []byte, signature []byte, data []byte) boolean {}
 
-func MerkleRoot(allChunks [][]byte) []byte
-func CreateMerkleProofs(selectedChunks [][]byte, allChunks [][]byte) []MerkleProof
-func VerifyMerkleProofs(selectedChunks [][]byte, proofs []MerkleProof, root []byte) boolean
+func MerkleRoot(allChunks [][]byte) []byte { }
+func CreateMerkleProofs(selectedChunks [][]byte, allChunks [][]byte) []MerkleProof {}
+func VerifyMerkleProofs(selectedChunks [][]byte, proofs []MerkleProof, root []byte) boolean {}
 ```
 
 ## External systems
@@ -354,10 +354,10 @@ func VerifyMerkleProofs(selectedChunks [][]byte, proofs []MerkleProof, root []by
 Tendermint produces new blocks and feeds them to the state machine. It uses Merkle trees to compute the Merkle hash of certain blocks of data and digital signatures to sign produced blocks, however here we assume these functions are not compatible with Fluence:
 
 ```go
-func TmHash(data []byte) []byte
-func TmSign(secretKey []byte, data []byte) []byte
-func TmVerify(publicKey []byte, signature []byte, data []byte) boolean
-func TmMerkleRoot(allChunks [][]byte) []byte
+func TmHash(data []byte) []byte {}
+func TmSign(secretKey []byte, data []byte) []byte {}
+func TmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
+func TmMerkleRoot(allChunks [][]byte) []byte {}
 ```
 
 ### Ethereum
@@ -386,10 +386,10 @@ type Insurance struct {
   Signature []byte                    // Swarm node signature
 }
 
-func SwarmHash(data []byte) []byte
-func SwarmSign(secretKey []byte, data []byte) []byte
-func SwarmVerify(publicKey []byte, signature []byte, data []byte) boolean
-func SwarmUpload(content []byte) SwarmReceipt
+func SwarmHash(data []byte) []byte {}
+func SwarmSign(secretKey []byte, data []byte) []byte {}
+func SwarmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
+func SwarmUpload(content []byte) SwarmReceipt {}
 
 // rules
 var swarm      map[[]byte]interface{}  // Swarm storage: hash(x) –> x
@@ -538,7 +538,7 @@ type VMChunk {
 }
 
 // applies block transactions to the virtual machine state to produce the new state
-func AdvanceVMState(vmState *VMState, txs []Transaction) VMState
+func AdvanceVMState(vmState *VMState, txs []Transaction) VMState {}
 
 // rules
 var blocks   []Block    // Tendermint blockchain
@@ -559,7 +559,7 @@ type Manifest struct {
 }
 
 // creates a new manifest from the block and the previous block
-func CreateManifest(block *Block, prevBlock *Block) Manifest
+func CreateManifest(block *Block, prevBlock *Block) Manifest {}
 
 // rules
 var blocks    []Block                 // Tendermint blockchain
