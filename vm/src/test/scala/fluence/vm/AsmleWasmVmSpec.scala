@@ -88,7 +88,9 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       val res = for {
         vm <- WasmVm[IO](Seq(sumFile))
         result ← vm.invoke[IO](None, "sum", Seq("100", "13")).toVmError
-      } yield result shouldBe Some(113)
+      } yield {
+        result shouldBe Some(Array[Byte](113, 0, 0, 0))
+      }
 
       res.success()
     }

@@ -61,7 +61,7 @@ trait WasmVm {
     module: Option[String],
     function: String,
     fnArgs: Seq[String] = Nil
-  ): EitherT[F, InvokeError, Option[Any]]
+  ): EitherT[F, InvokeError, Option[Array[Byte]]]
   // todo consider specifying expected return type as method arg
   // or create an overloaded method for each possible return type
 

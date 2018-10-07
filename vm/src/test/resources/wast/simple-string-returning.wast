@@ -1,4 +1,4 @@
-;; this example simply returns
+;; this example has some functions that recieve and put strings
 
 (module
     ;; force Asmble to use memory
@@ -13,12 +13,5 @@
     (func (export "deallocate") (param $0 i32) (result i32)
         ;; in this simple example deallocation function does nothing
         (i32.const 10000)
-    )
-
-    ;; int sum(int a, int b) {
-    ;;  return a + b;
-    ;; }
-    (func (export "sum") (param $0 i32) (param $1 i32) (result i32)
-        (unreachable) ;; unreachable: An instruction which always traps.
     )
 )
