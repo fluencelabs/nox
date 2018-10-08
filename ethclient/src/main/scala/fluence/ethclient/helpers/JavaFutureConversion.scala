@@ -18,6 +18,7 @@ package fluence.ethclient.helpers
 import java.util.concurrent.{CancellationException, CompletableFuture, CompletionException}
 
 import cats.effect.Async
+import scala.language.higherKinds
 
 object JavaFutureConversion {
 
