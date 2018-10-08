@@ -132,10 +132,9 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
 ///     | str_length: 4 BYTES | string_payload: str_length BYTES|
 unsafe fn put_to_mem(str: String) -> *mut u8 {
     // converting string size to bytes in big-endian order
-    let len_as_bytes: &[u8; STR_LEN_BYTES] = mem::transmute(&(str.len() as u32).to_be());
-
+    let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str.len() as u32).to_le());
     let mut result: Vec<u8> = Vec::with_capacity(STR_LEN_BYTES + str.len());
-    result.write_all(len_as_bytes).unwrap();
+    result.write_all(&len_as_bytes).unwrap();
     result.write_all(str.as_bytes()).unwrap();
 
     let result_ptr = allocate(result.len()).as_ptr();

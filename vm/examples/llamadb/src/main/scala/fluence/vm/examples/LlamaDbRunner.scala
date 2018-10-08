@@ -75,16 +75,16 @@ object LlamaDbRunner extends IOApp {
 
       finishState ← vm.getVmState[IO].toVmError
     } yield {
-      s"$createTableSql >> ${res1.toStr} \nvmState=$state1\n" +
-        s"$insertOne >> ${res2.toStr} \nvmState=$state2\n" +
-        s"$bulkInsert >> ${res3.toStr} \nvmState=$state3\n" +
-        s"$emptySelect >> ${res4.toStr} \nvmState=$state4\n" +
-        s"$selectAll >> ${res5.toStr} \nvmState=$state5\n" +
-        s"$explain >> ${res6.toStr}  \nvmState=$state6\n" +
-        s"$createTable2Sql >> ${res7.toStr}  \nvmState=$state7\n" +
-        s"$bulkInsert2 >> ${res8.toStr} \nvmState=$state8\n" +
-        s"$selectWithJoin >> ${res9.toStr} \nvmState=$state9\n" +
-        s"$badQuery >> ${res10.toStr} \n vmState=$state10\n" +
+      s"$createTableSql >> \n${res1.toStr} \nvmState=$state1\n" +
+        s"$insertOne >> \n${res2.toStr} \nvmState=$state2\n" +
+        s"$bulkInsert >> \n${res3.toStr} \nvmState=$state3\n" +
+        s"$emptySelect >> \n${res4.toStr} \nvmState=$state4\n" +
+        s"$selectAll >> \n${res5.toStr} \nvmState=$state5\n" +
+        s"$explain >> \n${res6.toStr}  \nvmState=$state6\n" +
+        s"$createTable2Sql >> \n${res7.toStr}  \nvmState=$state7\n" +
+        s"$bulkInsert2 >> \n${res8.toStr} \nvmState=$state8\n" +
+        s"$selectWithJoin >> \n${res9.toStr} \nvmState=$state9\n" +
+        s"$badQuery >> \n${res10.toStr} \n vmState=$state10\n" +
         s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
         s"finishState=$finishState"
@@ -111,6 +111,7 @@ object LlamaDbRunner extends IOApp {
   }
 
   implicit class ToStr(bytes: Option[Array[Byte]]) {
+
     def toStr: String = {
       bytes.map(bytes ⇒ new String(bytes)).getOrElse("None")
     }

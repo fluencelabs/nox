@@ -106,7 +106,7 @@ unsafe fn read_size(ptr: *mut u8) -> u32 {
     let mut size_as_bytes: [u8; STR_LEN_BYTES] = [0; STR_LEN_BYTES];
     for idx in 0..(STR_LEN_BYTES as isize) {
         let byte = std::ptr::read(ptr.offset(idx));
-        size_as_bytes[(STR_LEN_BYTES -1) - idx as usize] = byte;
+        size_as_bytes[idx as usize] = byte;
     }
 
     std::mem::transmute(size_as_bytes)
