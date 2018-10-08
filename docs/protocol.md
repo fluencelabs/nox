@@ -69,7 +69,7 @@ We expect that every node serving in the Swarm network has an identifier and a p
 
 ```go
 type SwarmContract struct {
-  Nodes map[[]byte]SwarmNode     // Swarm nodes: address –> node information
+  Nodes map[[]byte]SwarmNode     // Swarm nodes: address –> node
 }
 
 type SwarmNode struct {
@@ -91,7 +91,7 @@ type SwarmReceipt struct {
 }
 
 type Insurance struct {
-  Id        []byte               // Swarm node identifier
+  NodeId        []byte           // Swarm node identifier
   Signature []byte               // Swarm node signature
 }
 
@@ -106,8 +106,8 @@ var receipt    SwarmReceipt      // receipt issued for the uploaded content
 // rules
 receipt.ContentHash == SwarmHash(content)
 receipt.Insurance.Signature == SwarmSign(
-  swarmContract.Nodes[receipt.Insurance.Id].PrivateKey,  // private key
-  concat(receipt.ContentHash, receipt.Insurance.Id)      // data
+  swarmContract.Nodes[receipt.Insurance.NodeId].PrivateKey,  // private key
+  receipt.ContentHash                                        // data
 )
 ```
 
@@ -116,7 +116,7 @@ receipt.Insurance.Signature == SwarmSign(
 There are few different actor types in the Fluence network: clients, real-time nodes forming Tendermint clusters and batch validators. Every node has an identifier, a public/private key pair and a security deposit, and is registered in the Fluence smart contract.
 
 ```go
-type FluenceContract struct {
+type FlContract struct {
   Clients    map[[]byte]Client          // clients: address –> client
   Nodes      map[[]byte]TmNode          // Tendermint nodes: address –> node
   Validators map[[]byte]BatchValidator  // batch validators: address –> validator
@@ -141,7 +141,7 @@ type BatchValidator struct {
 }
 
 // data
-var fluenceContract FluenceContract     // Fluence Ethereum smart contract
+var flContract FlContract               // Fluence Ethereum smart contract
 ```
 
 ## Transaction construction
@@ -150,39 +150,50 @@ A transaction always has a specific authoring client and carries all the informa
 
 ```go
 type Transaction struct {
-  Invoke []byte                      // function name & arguments + required metadata
-  Stamp  Stamp                       // client stamp of the transaction
+  Invoke []byte             // function name & arguments + required metadata
+  Stamp  Stamp              // client stamp of the transaction
 }
 
 type Stamp struct {
-  Id        []byte                   // client identifier
-  Signature []byte                   // client signature
+  ClientId  []byte          // client identifier
+  Signature []byte          // client signature
 }
 
 // data
-var fluenceContract FluenceContract  // Fluence Ethereum smart contract
-var tx              Transaction      // transaction formed by the client
+var flContract FlContract   // Fluence Ethereum smart contract
+var tx         Transaction  // transaction formed by the client
 
 // rules
 tx.Signature == Sign(
-  fluenceContract.Clients[tx.Stamp.Id], // private key
-  concat(tx.Invoke, tx.Stamp.Id)        // data
+  flContract.Clients[tx.Stamp.Id],  // private key
+  Hash(tx.Invoke)                   // data
 )
 ```
 
-## Transaction submission
+## Transaction processing
 
-Once the client `C_j` has constructed a transaction, it is submitted to one of the real-time nodes `R_i` which checks the received transaction:
+Once the client has constructed a transaction, it is submitted to one of the real-time nodes which checks the received transaction:
 
-```java
-assert C_pk_j in fluence_contract.clients
-assert verify(C_pk_j, hash(tx.payload), tx.signature)
+```go
+// data
+var flContract FlContract   // Fluence Ethereum smart contract
+var tx         Transaction  // transaction formed by the client
+
+// verification
+client, ok := flContract.Clients[tx.Stamp.Id]
+ok == true
+Verify(
+  client.PublicKey,    // public key
+  tx.Stamp.Signature,  // signature 
+  Hash(invoke)         // data
+)
 ```
 
-If the transaction passes the check, it's added to the mempool, otherwise it's declined.
+If the transaction passes the check, it's added to the mempool and might be later used in forming a block. Otherwise the transaction is declined.
 
 **Questions:**
-- should the real-time node sign the acceptance or refusal of transaction with `R_sk`?
+- should the real-time node sign an acceptance or refusal of the transaction?
+- how the real-time node should check the client's security deposit?
 
 
 ## Tendermint block formation
