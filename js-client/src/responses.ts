@@ -1,12 +1,13 @@
 export interface SessionSummary {
-    status: any
+    status: Status
     invokedTxsCount: number
     lastTxCounter: number
 }
 
-export interface BroadcastTxSyncResponse {
-    code: number
-    data: string
-    log: string
-    hash: string
+interface Status {
+    Active?: any
+}
+
+export function isActive(summary: SessionSummary): boolean {
+    return summary.status.Active !== undefined
 }

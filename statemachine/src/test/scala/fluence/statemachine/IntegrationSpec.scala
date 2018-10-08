@@ -87,7 +87,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       client,
       session,
       1,
-      "multiplier.mul(10,14)",
+      "MulModule.mul(10,14)",
       "CeXRfIfJ/jf6zFbsO+Fku6l8tpySM4RggyMoIcGGSC84FtiXY/aHXRJbYDwrMdxspWWgDwqbyiwAF5DUk7GxBg"
     )
     val tx2 = tx(
@@ -108,7 +108,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       client,
       session,
       0,
-      "multiplier.mul(12,a)",
+      "MulModule.mul(12,a)",
       "mIha9cksj1brqH86VwXiN/rj+B44DBgqC7Kee2w6MOzWvlAZsJkWOQvhzip2pV6eHNWQqQXCGhIEasTSf4iCDg"
     )
     val tx0Result = s"@meta/$client/$session/0/result"
@@ -119,13 +119,13 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     "return correct initial tree root hash" in {
       sendCommit()
       // the tree containing VM state hash only
-      latestAppHash shouldBe "74712CAAABC7F02D055461B5A6CE5B573E65ADA57809869EFE589DF07FBAF0CA"
+      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
     }
 
     "process correct tx/query sequence" in {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "74712CAAABC7F02D055461B5A6CE5B573E65ADA57809869EFE589DF07FBAF0CA"
+      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendCheckTx(tx0)
       sendCheckTx(tx1)
@@ -134,7 +134,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendDeliverTx(tx0)
       sendCommit()
-      latestAppHash shouldBe "9CF0B1A8ECC2DC463CA5029E72F08EBC5BB3560B592BBD645D7A29699466511E"
+      latestAppHash shouldBe "14072A6C1505952277A0CA2EC4E62D43D032ADEDD9B8969BA9AF16635A7928B8"
 
       sendCheckTx(tx1)
       sendCheckTx(tx2)
@@ -144,7 +144,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
       sendCommit()
-      latestAppHash shouldBe "E7CA2973D0E0CF4ECBED00A3B107D3174FB33E8F3B458A5940E643D268104CB3"
+      latestAppHash shouldBe "AB03E9F9100E6E22073E1013AADB5D5460CFAF56DB216D5B5DE10B4685EAB788"
 
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendCommit()
@@ -184,32 +184,32 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     "ignore incorrectly signed tx" in {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "74712CAAABC7F02D055461B5A6CE5B573E65ADA57809869EFE589DF07FBAF0CA"
+      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       val txWithWrongSignature = tx(client, session, 0, "inc()", "bad_signature")
       sendCheckTx(txWithWrongSignature) shouldBe (CodeType.BAD, ClientInfoMessages.InvalidSignature)
       sendDeliverTx(txWithWrongSignature) shouldBe (CodeType.BAD, ClientInfoMessages.InvalidSignature)
 
       sendCommit()
-      latestAppHash shouldBe "74712CAAABC7F02D055461B5A6CE5B573E65ADA57809869EFE589DF07FBAF0CA"
+      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
     }
 
     "ignore duplicated tx" in {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "74712CAAABC7F02D055461B5A6CE5B573E65ADA57809869EFE589DF07FBAF0CA"
+      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendCheckTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       sendDeliverTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       // Mempool state updated only on commit!
       sendCheckTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       sendCommit()
-      latestAppHash shouldBe "9CF0B1A8ECC2DC463CA5029E72F08EBC5BB3560B592BBD645D7A29699466511E"
+      latestAppHash shouldBe "14072A6C1505952277A0CA2EC4E62D43D032ADEDD9B8969BA9AF16635A7928B8"
 
       sendCheckTx(tx0) shouldBe (CodeType.BAD, ClientInfoMessages.DuplicatedTransaction)
       sendDeliverTx(tx0) shouldBe (CodeType.BAD, ClientInfoMessages.DuplicatedTransaction)
       sendCommit()
-      latestAppHash shouldBe "9CF0B1A8ECC2DC463CA5029E72F08EBC5BB3560B592BBD645D7A29699466511E"
+      latestAppHash shouldBe "14072A6C1505952277A0CA2EC4E62D43D032ADEDD9B8969BA9AF16635A7928B8"
     }
 
     "process Query method correctly" in {
@@ -232,7 +232,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     "change session summary if session explicitly closed" in {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "74712CAAABC7F02D055461B5A6CE5B573E65ADA57809869EFE589DF07FBAF0CA"
+      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendDeliverTx(tx0)
       sendDeliverTx(tx1)
@@ -249,7 +249,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       )
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "9728D3AA909D48ACC56EDB3EC93BDA73A245FB4BE0568D508A08B76EE3344DDA"
+      latestAppHash shouldBe "654AD13844622857F24BC16C75B72EF50FAC1C8BFD94571A27F381DDA5B51787"
 
       sendQuery(s"@meta/$client/$session/4/status") shouldBe Right("sessionClosed")
       sendQuery(s"@meta/$client/$session/@sessionSummary") shouldBe
@@ -259,7 +259,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     "not accept new txs if session failed" in {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "74712CAAABC7F02D055461B5A6CE5B573E65ADA57809869EFE589DF07FBAF0CA"
+      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendDeliverTx(tx0Failed)
       sendDeliverTx(tx1) shouldBe (CodeType.BAD, ClientInfoMessages.SessionAlreadyClosed)
@@ -281,7 +281,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     "not invoke dependent txs if required failed when order in not correct" in {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "74712CAAABC7F02D055461B5A6CE5B573E65ADA57809869EFE589DF07FBAF0CA"
+      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendDeliverTx(tx1)
       sendDeliverTx(tx2)
