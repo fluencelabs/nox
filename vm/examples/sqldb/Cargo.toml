@@ -3,10 +3,11 @@ name = "sqldb"
 version = "0.1.0"
 authors = ["C.Solovev <constantine@fluence.one>"]
 
-[[bin]]
+[lib]
 name = "sqldb"
-path = "src/main/rust/main.rs"
+path = "src/main/rust/lib.rs"
 target = "wasm32-unknown-unknown"
+crate-type = ["cdylib"]
 
 [dependencies]
 

@@ -56,7 +56,8 @@ def demo_many_queries(addr, genesis):
         s.submit("inc")
     print(s.submit("get").result())
 
-tm = TendermintRPC("http://localhost:46157")
+tmport = sys.argv[1] if len(sys.argv) >= 2 else "46157"
+tm = TendermintRPC("http://localhost:" + tmport)
 genesis = tm.get_genesis()
 height = tm.get_max_height()
 

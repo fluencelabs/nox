@@ -46,8 +46,8 @@ def read_json_from_url(url):
 	"""
 	response = urlopen(url)
 	r = response.read()
-	#trace = not any(["/" + x + "?" in url for x in ["genesis", "block", "commit", "validators"]])
 	trace = False
+	#trace = not any(["/" + x in url for x in ["status", "genesis", "block", "commit", "validators"]])
 	if trace:
 		print()
 		print("Request: " + url)
