@@ -16,6 +16,7 @@
 
 package fluence.ethclient
 
+import cats.effect.concurrent.Deferred
 import cats.effect.{ExitCode, IO, IOApp}
 import org.web3j.abi.EventEncoder
 
@@ -29,21 +30,28 @@ object EthClientApp extends IOApp {
         for {
           _ ← IO(println("Launching w3j"))
 
+          unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
+
           version ← ethClient.clientVersion[IO]()
           _ ← IO(println(s"Client version: $version"))
 
-          _ ← ethClient
+          _ = ethClient
             .subscribeToLogsTopic[IO](
               "0xf93568cdc75b8849f4999bd3c8c6f931a14b258f",
               EventEncoder.buildEventSignature("NewSolver(bytes32)")
             )
             .map(log ⇒ println(s"Log message: $log"))
-            .mergeHaltBoth(fs2.Stream.emit[IO, Unit](()).delayBy(600.seconds))
+            .interruptWhen(unsubscribe)
             .drain
             .compile
             .drain
+            .unsafeRunAsyncAndForget()
+
           _ ← IO(println(s"Subscribed"))
 
+          _ ← IO.sleep(600.seconds)
+          _ ← IO(println(s"Going to unsubscribe"))
+          _ ← unsubscribe
         } yield ()
       }
       .map { _ ⇒

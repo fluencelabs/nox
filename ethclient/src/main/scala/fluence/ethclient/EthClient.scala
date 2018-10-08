@@ -16,8 +16,6 @@
 
 package fluence.ethclient
 
-import java.util.Collections
-
 import cats.ApplicativeError
 import cats.effect._
 import cats.syntax.flatMap._
