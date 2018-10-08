@@ -19,6 +19,8 @@ import {TendermintClient} from "../TendermintClient";
 import {Engine} from "../Engine";
 import {Signer} from "../Signer";
 import {Client} from "../Client";
+import {isValue} from "../Result";
+import {fromHex} from "../utils";
 
 class CustomCommands {
 
@@ -40,9 +42,13 @@ class CustomCommands {
     }
 
     async submit(command: string) {
-        console.log(`submit command: \"${command}\"`);
         let res = await this.session.invokeRaw(command).result();
-        console.log(`the result is: \"${JSON.stringify(res)}\"`);
+        if (isValue(res)) {
+            let strResult = fromHex(res.hex());
+            console.log(`the result is:\n ${strResult}`);
+        } else {
+            console.log(`the result is empty`);
+        }
         return res;
     }
 }
