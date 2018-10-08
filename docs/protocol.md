@@ -25,7 +25,7 @@ func MerkleRoot(allChunks [][]byte) []byte {/* ... */}
 func CreateMerkleProof(selectedChunk []byte, allChunks [][]byte) MerkleProof {/* ... */}
 
 // verifies that the Merkle proof of the selected chunk conforms to the Merkle root
-func VerifyMerkleProofs(selectedChunk []byte, proof MerkleProof, root []byte) boolean {/* ... */}
+func VerifyMerkleProofs(selectedChunk []byte, proof *MerkleProof, root []byte) boolean {/* ... */}
 ```
 
 ## External systems
