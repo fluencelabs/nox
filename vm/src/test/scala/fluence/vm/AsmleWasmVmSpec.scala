@@ -47,12 +47,12 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         val sumFile = getClass.getResource("/wast/sum.wast").getPath
         val res = for {
           vm <- WasmVm[IO](Seq(sumFile))
-          result ← vm.invoke[IO](None, "sum", Seq("100", "13", "extraArg")).toVmError
+          result ← vm.invoke[IO](Some("SumModule"), "sum", Seq("100", "13", "extraArg")).toVmError
         } yield result
         val error = res.failed()
         error shouldBe a[InvalidArgError]
         error.getMessage should startWith(
-          "Invalid number of arguments, expected=2, actually=3 for fn='<no-name>.sum'"
+          "Invalid number of arguments, expected=2, actually=3 for fn='SumModule.sum'"
         )
       }
 
@@ -60,7 +60,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         val sumFile = getClass.getResource("/wast/sum.wast").getPath
         val res = for {
           vm <- WasmVm[IO](Seq(sumFile))
-          result ← vm.invoke[IO](None, "sum", Seq("stringParam", "[1, 2, 3]")).toVmError
+          result ← vm.invoke[IO](Some("SumModule"), "sum", Seq("stringParam", "[1, 2, 3]")).toVmError
         } yield result
         val error = res.failed()
         error shouldBe a[InvalidArgError]
@@ -87,8 +87,11 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(sumFile))
-        result ← vm.invoke[IO](None, "sum", Seq("100", "13")).toVmError
-      } yield result shouldBe Some(113)
+        result ← vm.invoke[IO](Some("SumModule"), "sum", Seq("100", "13")).toVmError
+      } yield {
+        result should not be None
+        result.get.deep shouldBe Array[Byte](113, 0, 0, 0).deep
+      }
 
       res.success()
     }
@@ -99,11 +102,14 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(mulFile, sumFile))
-        mulResult ← vm.invoke[IO](Some("multiplier"), "mul", Seq("100", "13"))
-        sumResult ← vm.invoke[IO](None, "sum", Seq("100", "13")).toVmError
+        mulResult ← vm.invoke[IO](Some("MulModule"), "mul", Seq("100", "13"))
+        sumResult ← vm.invoke[IO](Some("SumModule"), "sum", Seq("100", "13")).toVmError
       } yield {
-        mulResult shouldBe Some(1300)
-        sumResult shouldBe Some(113)
+        mulResult should not be None
+        sumResult should not be None
+
+        mulResult.get.deep shouldBe Array[Byte](20, 5, 0, 0).deep
+        sumResult.get.deep shouldBe Array[Byte](113, 0, 0, 0).deep
       }
 
       res.success()
@@ -119,11 +125,15 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         get1 ← vm.invoke[IO](None, "get", Nil) // read 1
         _ ← vm.invoke[IO](None, "inc", Nil) // 1 -> 2
         _ ← vm.invoke[IO](None, "inc", Nil) // 2 -> 3
-        get3 ← vm.invoke[IO](None, "get", Nil).toVmError //read 3
+        get2 ← vm.invoke[IO](None, "get", Nil).toVmError //read 3
       } yield {
-        get0 shouldBe Some(0)
-        get1 shouldBe Some(1)
-        get3 shouldBe Some(3)
+        get0 should not be None
+        get1 should not be None
+        get2 should not be None
+
+        get0.get.deep shouldBe Array[Byte](0, 0, 0, 0).deep
+        get1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
+        get2.get.deep shouldBe Array[Byte](3, 0, 0, 0).deep
       }
 
       res.success()
@@ -155,15 +165,13 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
     "returns state" when {
       "there is one module without memory present" in {
         val testHasher = DumbCrypto.testHasher
-        // the code in 'sum.wast' don't use 'memory', instance for this module created without 'memory' field
-        val sumFile = getClass.getResource("/wast/sum.wast").getPath
+        // 'no-getMemory.wast' doesn't use memory so Asmble creates class file without 'mem' field
+        val sumFile = getClass.getResource("/wast/no-getMemory.wast").getPath
 
         val res = for {
           vm <- WasmVm[IO](Seq(sumFile), cryptoHasher = testHasher)
-          result ← vm.invoke[IO](None, "sum", Seq("100", "13"))
           state ← vm.getVmState[IO].toVmError
         } yield {
-          result shouldBe Some(113)
           state.toArray shouldBe testHasher.unsafe(Array.emptyByteArray)
         }
 
@@ -185,9 +193,13 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
           state2 ← vm.getVmState[IO]
           get2AfterGettingState ← vm.invoke[IO](None, "get", Nil).toVmError // read 2
         } yield {
-          get1 shouldBe Some(1)
-          get1AfterGettingState shouldBe Some(1)
-          get2AfterGettingState shouldBe Some(2)
+          get1 should not be None
+          get1AfterGettingState should not be None
+          get2AfterGettingState should not be None
+
+          get1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
+          get1AfterGettingState.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
+          get2AfterGettingState.get.deep shouldBe Array[Byte](2, 0, 0, 0).deep
           state1.size shouldBe 32
           state2.size shouldBe 32
           state1 should not be state2
@@ -206,20 +218,23 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
           _ ← vm.invoke[IO](None, "inc", Nil) // 0 -> 1
           get1 ← vm.invoke[IO](None, "get", Nil) // read 1
-          _ ← vm.invoke[IO](Some("counter-copy"), "inc", Nil) // 0 -> 1
-          getFromCopy1 ← vm.invoke[IO](Some("counter-copy"), "get", Nil) // read 1
-          sum1 ← vm.invoke[IO](Some("multiplier"), "mul", Seq("100", "13")) // read 1
+          _ ← vm.invoke[IO](Some("CounterCopyModule"), "inc", Nil) // 0 -> 1
+          getFromCopy1 ← vm.invoke[IO](Some("CounterCopyModule"), "get", Nil) // read 1
+          sum1 ← vm.invoke[IO](Some("MulModule"), "mul", Seq("100", "13")) // read 1
 
           state1 ← vm.getVmState[IO]
 
           _ ← vm.invoke[IO](None, "inc", Nil) // 1 -> 2
-          _ ← vm.invoke[IO](Some("counter-copy"), "inc", Nil) // 1 -> 2
+          _ ← vm.invoke[IO](Some("CounterCopyModule"), "inc", Nil) // 1 -> 2
 
           state2 ← vm.getVmState[IO].toVmError
 
         } yield {
-          get1 shouldBe Some(1)
-          getFromCopy1 shouldBe Some(1)
+          get1 should not be None
+          getFromCopy1 should not be None
+
+          get1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
+          getFromCopy1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
           state1.size shouldBe 32
           state2.size shouldBe 32
           state1 should not be state2
@@ -240,11 +255,17 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
           value5 ← vm.invoke[IO](None, "circular_xor", Seq("\"\"\"")) // " string
           state ← vm.getVmState[IO].toVmError
         } yield {
-          value1 shouldBe Some(90)
-          value2 shouldBe Some(0)
-          value3 shouldBe Some('X'.toInt)
-          value4 shouldBe Some(0) // this Wasm example returns 0 on empty string
-          value5 shouldBe Some('"'.toInt)
+          value1 should not be None
+          value2 should not be None
+          value3 should not be None
+          value4 should not be None
+          value5 should not be None
+
+          value1.get.deep shouldBe Array[Int](90, 0, 0, 0).deep
+          value2.get.deep shouldBe Array[Int](0, 0, 0, 0).deep
+          value3.get.deep shouldBe Array[Int]('X'.toInt, 0, 0, 0).deep
+          value4.get.deep shouldBe Array[Int](0, 0, 0, 0).deep // this Wasm example returns 0 on empty string
+          value5.get.deep shouldBe Array[Int]('"'.toInt, 0, 0, 0).deep
         }
 
         res.success()
@@ -297,6 +318,57 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
             error shouldBe a[VmMemoryError]
           }
 
+        }
+      }
+
+      "simple test for array returning" in {
+        val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
+
+        val res = for {
+          vm ← WasmVm[IO](Seq(simpleArrayPassingTestFile))
+          value1 ← vm.invoke[IO](None, "hello", Nil)
+          state ← vm.getVmState[IO].toVmError
+        } yield {
+          value1 should not be None
+
+          val stringValue = new String(value1.get)
+          stringValue shouldBe "Hello from Fluence Labs!"
+        }
+
+        res.success()
+      }
+
+      "simple test for array mutation" in {
+        val simpleArrayMutationTestFile = getClass.getResource("/wast/simple-array-mutation.wast").getPath
+
+        val res = for {
+          vm ← WasmVm[IO](Seq(simpleArrayMutationTestFile))
+          value1 ← vm.invoke[IO](None, "mutateArray", Seq("\"AAAAAAA\""))
+          state ← vm.getVmState[IO].toVmError
+        } yield {
+          value1 should not be None
+
+          val stringValue = new String(value1.get)
+          stringValue shouldBe "BBBBBBB"
+        }
+
+        res.success()
+      }
+
+      "string " should {
+        "raise error" when {
+          "trying to extract array with incorrect size from Wasm memory" in {
+            val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
+
+            val res = for {
+              vm <- WasmVm[IO](Seq(simpleArrayPassingTestFile))
+              result ← vm.invoke[IO](None, "incorrectLengthResult", Nil).toVmError
+            } yield result
+
+            val error = res.failed()
+            error shouldBe a[VmMemoryError]
+            error.getMessage shouldBe "String reading from offset=1048592 failed"
+          }
         }
       }
 

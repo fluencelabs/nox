@@ -16,6 +16,7 @@
 
 import {printQuotations, QuotationClient} from "./QuotationClient";
 import {Condition, Field} from "./DbClient";
+import  * as debug from "debug";
 
 /**
  * Client for the sqldb example https://github.com/fluencelabs/fluence/tree/master/vm/examples/sqldb
@@ -28,10 +29,19 @@ class DbOnPointers {
         this.client = new QuotationClient(host, port)
     }
 
+    static turnOnDebug() {
+        debug.enable('result');
+        debug.enable('broadcast-request');
+    }
+
     /**
      * Tests all requests for DB on pointers.
      */
     async test() {
+
+        // to get debug log with timing about invoke requests
+        // DbOnPointers.turnOnDebug();
+
         let all = await this.client.queryWildcard();
         console.log("\n=================================================\n");
         console.log("select * from Quotations;");
