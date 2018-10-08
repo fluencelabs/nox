@@ -16,8 +16,8 @@
 
 package fluence.ethclient
 
-import cats.effect.IO
-import cats.effect.concurrent.MVar
+import cats.effect.{ContextShift, IO, Timer}
+import cats.effect.concurrent.{Deferred, MVar}
 import fluence.ethclient.Deployer.NewSolverEventResponse
 import fluence.ethclient.helpers.RemoteCallOps._
 import org.scalatest.{FlatSpec, Matchers}
@@ -31,9 +31,13 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Random
 
 class ContractSpec extends FlatSpec with Matchers {
+
+  implicit private val ioTimer: Timer[IO] = IO.timer(global)
+  implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
+
   private val url = sys.props.get("ethereum.url")
   private val client = EthClient.makeHttpResource[IO](url)
-  private val client2 = EthClient.makeHttpResource[IO](url).allocate
+  private val client2 = EthClient.makeHttpResource[IO](url)
 
   private def stringToBytes32(s: String) = {
     val byteValue = s.getBytes()
@@ -59,11 +63,21 @@ class ContractSpec extends FlatSpec with Matchers {
     client.use { c =>
       for {
         event <- MVar.empty[IO, Log]
-        unsubscribe ← c.subscribeToLogsTopic[IO, IO](
-          contractAddress,
-          EventEncoder.encode(Deployer.NEWSOLVER_EVENT),
-          event.put
-        )
+
+        unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
+
+        _ = c
+          .subscribeToLogsTopic[IO](
+            contractAddress,
+            EventEncoder.encode(Deployer.NEWSOLVER_EVENT)
+          )
+          .interruptWhen(unsubscribe)
+          .head
+          .evalMap(event.put)
+          .drain
+          .compile
+          .drain
+          .unsafeRunAsyncAndForget()
 
         contract <- c.getDeployer[IO](contractAddress, owner)
 
@@ -79,7 +93,7 @@ class ContractSpec extends FlatSpec with Matchers {
 
         // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
         e <- event.take
-        _ <- unsubscribe
+        _ <- unsubscribe.complete(Right(()))
       } yield {
         txReceipt.getLogs should contain(e)
         newSolverEvents.length shouldBe 1
