@@ -26,6 +26,8 @@ use llamadb::tempdb::ExecuteStatementResponse;
 /// Result for all possible Error types.
 type GenResult<T> = Result<T, Box<Error>>;
 
+pub const STR_LEN_BYTES: usize = 4;
+
 //
 // Public functions for work with Llamadb.
 //
@@ -127,12 +129,12 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
 
 /// Writes Rust string into the memory directly as string length and byte array
 /// (big-endian order). Written memory structure is:
-///     | str_length: 8 BYTES | string_payload: str_length BYTES|
+///     | str_length: 4 BYTES | string_payload: str_length BYTES|
 unsafe fn put_to_mem(str: String) -> *mut u8 {
     // converting string size to bytes in big-endian order
-    let len_as_bytes: &[u8; 8] = mem::transmute(&str.len().to_be());
+    let len_as_bytes: &[u8; STR_LEN_BYTES] = mem::transmute(&(str.len() as u32).to_be());
 
-    let mut result: Vec<u8> = Vec::with_capacity(len_as_bytes.len() + str.len());
+    let mut result: Vec<u8> = Vec::with_capacity(STR_LEN_BYTES + str.len());
     result.write_all(len_as_bytes).unwrap();
     result.write_all(str.as_bytes()).unwrap();
 

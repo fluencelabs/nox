@@ -1,5 +1,6 @@
 //! Module with tests.
 
+use STR_LEN_BYTES;
 
 #[test]
 fn alloc_dealloc_test() {
@@ -18,10 +19,10 @@ fn write_str_to_mem_test() { unsafe {
     let size = read_size(ptr);
     println!("size={}", size);
 
-    let result_str = super::deref_str(ptr.offset(8), (size) as usize);
+    let result_str = super::deref_str(ptr.offset(STR_LEN_BYTES as isize), (size) as usize);
     println!("result string= '{}'", result_str);
 
-    assert_eq!(size, result_str.len() as u64);
+    assert_eq!(size, result_str.len() as u32);
     assert_eq!(src_str, src_str);
 }}
 
@@ -53,11 +54,13 @@ fn integration_sql_test() {
     println!("{}", create_table_role);
     assert_eq!(create_table_role, "table created");
 
-    let insert_roles = execute_sql("insert into ROLES values(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')".to_string());
+    let insert_roles = execute_sql("insert into ROLES values(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), \
+    (4, 'Writer')".to_string());
     println!("{}", insert_roles);
     assert_eq!(insert_roles, "rows inserted: 4");
 
-    let select_with_join = execute_sql("select u.name as Name, r.role as Role from USERS u join ROLES r on u.id = r.user_id where r.role = 'Writer'".to_string());
+    let select_with_join = execute_sql("select u.name as Name, r.role as Role from USERS u join ROLES \
+    r on u.id = r.user_id where r.role = 'Writer'".to_string());
     println!("{}", select_with_join);
     assert_eq!(select_with_join, "name, role\nMax, Writer");
 
@@ -92,20 +95,20 @@ fn execute_sql(sql: String) -> String { unsafe {
     let sql_str_len = read_size(sql_str_ptr) as usize;
 
     // executes query
-    let result_str_ptr = super::do_query(sql_str_ptr.offset(8), sql_str_len) as *mut u8;
+    let result_str_ptr = super::do_query(sql_str_ptr.offset(STR_LEN_BYTES as isize), sql_str_len) as *mut u8;
     // converts results
     let result_str_len = read_size(result_str_ptr) as usize;
-    let result_str = super::deref_str(result_str_ptr.offset(8), result_str_len);
+    let result_str = super::deref_str(result_str_ptr.offset(STR_LEN_BYTES as isize), result_str_len);
 
     result_str
 }}
 
-/// Reads u64 from current pointer.
-unsafe fn read_size(ptr: *mut u8) -> u64 {
-    let mut size_as_bytes: [u8; 8] = [0; 8];
-    for idx in 0..8 {
+/// Reads u32 from current pointer.
+unsafe fn read_size(ptr: *mut u8) -> u32 {
+    let mut size_as_bytes: [u8; STR_LEN_BYTES] = [0; STR_LEN_BYTES];
+    for idx in 0..(STR_LEN_BYTES as isize) {
         let byte = std::ptr::read(ptr.offset(idx));
-        size_as_bytes[7 - idx as usize] = byte;
+        size_as_bytes[(STR_LEN_BYTES -1) - idx as usize] = byte;
     }
 
     std::mem::transmute(size_as_bytes)
