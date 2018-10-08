@@ -40,6 +40,7 @@ func SwarmHash(data []byte) []byte {}
 func SwarmSign(privateKey []byte, data []byte) []byte {}
 func SwarmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
 
+// data
 var swarm map[[]byte]interface{}  // Swarm storage: hash(x) –> x
 
 // rules
@@ -59,6 +60,7 @@ type SwarmNode struct {
   Collateral int64               // Swarm node security deposit
 }
 
+// data
 var swarmContract SwarmContract  // Swarm Ethereum smart contract
 ```
 
@@ -78,6 +80,7 @@ type Insurance struct {
 // uploads the content to the Swarm network, returns a receipt of responsibility
 func SwarmUpload(content []byte) SwarmReceipt {}
 
+// data
 var swarmContract SwarmContract        // Swarm Ethereum smart contract
 var content    []byte                  // uploaded content
 var receipt    SwarmReceipt            // receipt issued for the uploaded content
