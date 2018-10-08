@@ -99,7 +99,7 @@ class AsmleWasmVm(
       } else {
         for {
           offset <- EitherT.fromEither(Try(invocationResult.toString.toInt).toEither).leftMap { e ⇒
-            NoSuchFnError(s"The Wasm allocation function returned incorrect offset=", Some(e))
+            VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
           }
           extractedResult <- extractResultFromWasmModule(offset, wasmFn.module).map(Option(_))
         } yield extractedResult
@@ -274,12 +274,12 @@ class AsmleWasmVm(
       readResult <- EitherT
         .fromEither[F](
           Try {
-            // each string has the next structure in Wasm memory: | size (4 bytes) | string buffer (size bytes) |
-            val stringSize = wasmMemory.getInt(offset)
+            // each result has the next structure in Wasm memory: | size (4 bytes) | result buffer (size bytes) |
+            val resultSize = wasmMemory.getInt(offset)
             // size of Int in bytes
             val intBytesSize = 4
 
-            val resultBuffer = new Array[Byte](stringSize)
+            val resultBuffer = new Array[Byte](resultSize)
             val wasmMemoryView = wasmMemory.duplicate()
             wasmMemoryView.position(offset + intBytesSize)
             wasmMemoryView.get(resultBuffer)

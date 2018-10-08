@@ -7,9 +7,9 @@
         (i32.const 10000)
     )
 
-    (func (export "deallocate") (param $0 i32) (result i32)
+    (func (export "deallocate") (param $0 i32) (return)
         ;; in this simple example deallocation function does nothing
-        (i32.const 10000)
+        (drop)
     )
 
     (func (export "test") (param $0 i32) (param $1 i32) (result i32)

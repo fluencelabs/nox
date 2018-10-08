@@ -10,9 +10,9 @@
         (i32.const 10000)
     )
 
-    (func (export "deallocate") (param $0 i32) (result i32)
+    (func (export "deallocate") (param $0 i32) (return)
         ;; in this simple example deallocation function does nothing
-        (i32.const 10000)
+        (drop)
     )
 
     ;;
@@ -56,7 +56,7 @@
     ;;
     ;;   return address;
     ;; }
-    (func $putIntResult (param $0 i32) (result i32)
+    (func $putIntResult (param $result i32) (result i32)
         (local $1 i32)
         (local $2 i32)
         (set_local $2 (i32.const 0))
@@ -65,7 +65,7 @@
         (loop $label$0
             (i32.store8
                 (get_local $1)
-                (i32.shr_u (get_local $0) (get_local $2))
+                (i32.shr_u (get_local $result) (get_local $2))
             )
             (set_local $1
                 (i32.add (get_local $1) (i32.const 1))

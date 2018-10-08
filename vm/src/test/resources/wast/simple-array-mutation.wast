@@ -5,8 +5,6 @@
     (memory $0 20)
     (export "memory" (memory $0))
 
-    (data 0 (offset (i32.const 128)) "Hello from Fluence Labs!\00")
-
     (func (export "allocate") (param $0 i32) (result i32)
         ;; just return constant offset in ByteBuffer
         (i32.const 10000)
@@ -17,37 +15,41 @@
         (drop)
     )
 
-    (func (export "hello") (result i32)
+    ;; char* mutateArray(const char *array, int arraySize) {
+    ;;   for(int i = 0; i < stringSize; ++i) {
+    ;;     ++array[i];
+    ;;   }
+    ;;
+    ;;   return array;
+    ;; }
+    (func (export "mutateArray") (param $array i32) (param $arraySize i32) (result i32)
+        (local $arrayIdx i32)
+        (loop $label$0
+            (i32.store8
+                (i32.add (get_local $array) (get_local $arrayIdx))
+                (i32.add
+                    (i32.load8_s
+                        (i32.add (get_local $array) (get_local $arrayIdx))
+                        )
+                    (i32.const 1)
+                )
+            )
+            (br_if $label$0
+                (i32.ne
+                    (tee_local $arrayIdx
+                        (i32.add (get_local $arrayIdx) (i32.const 1))
+                    )
+                    (get_local $arraySize)
+                )
+            )
+
+        )
+
         (call $putStringResult
-            (i32.const 128)
-            (i32.const 24)
+            (get_local $array)
+            (get_local $arraySize)
             (i32.const 1048592)
         )
-    )
-
-    ;; puts 0x00FFFFFF as result size in memory at offset 1048592 and returns pointer to it
-    (func (export "incorrectLengthResult") (result i32)
-        (local $0 i32)
-        (set_local $0 (i32.const 1048592))
-
-        (i32.store8
-            (get_local $0)
-            (i32.const 255)
-        )
-        (i32.store8
-            (i32.add (get_local $0) (i32.const 1))
-            (i32.const 255)
-        )
-        (i32.store8
-            (i32.add (get_local $0) (i32.const 2))
-            (i32.const 255)
-        )
-        (i32.store8
-            (i32.add (get_local $0) (i32.const 3))
-            (i32.const 0)
-        )
-
-        (i32.const 1048592)
     )
 
     ;; int putStringResult(const char *string, int stringSize, int address) {

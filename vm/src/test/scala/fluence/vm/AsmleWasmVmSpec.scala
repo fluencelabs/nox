@@ -338,6 +338,23 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         res.success()
       }
 
+      "simple test for array mutation" in {
+        val simpleArrayMutationTestFile = getClass.getResource("/wast/simple-array-mutation.wast").getPath
+
+        val res = for {
+          vm ← WasmVm[IO](Seq(simpleArrayMutationTestFile))
+          value1 ← vm.invoke[IO](None, "mutateArray", Seq("\"AAAAAAA\""))
+          state ← vm.getVmState[IO].toVmError
+        } yield {
+          value1 should not be None
+
+          val stringValue = new String(value1.get)
+          stringValue shouldBe "BBBBBBB"
+        }
+
+        res.success()
+      }
+
       "string " should {
         "raise error" when {
           "trying to extract array with incorrect size from Wasm memory" in {

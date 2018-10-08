@@ -10,9 +10,9 @@
         (i32.const 10000)
     )
 
-    (func (export "deallocate") (param $0 i32) (result i32)
+    (func (export "deallocate") (param $0 i32) (return)
         ;; in this simple example deallocation function does nothing
-        (i32.const 10000)
+        (drop)
     )
 
     ;; int sum(int a, int b) {
