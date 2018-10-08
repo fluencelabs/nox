@@ -53,8 +53,10 @@ class WasmVmSpec extends WordSpec with Matchers {
       }
 
       "2 module has function with equal name" ignore {
-        val sum1File = getClass.getResource("/wast/no-getMemory.wast").getPath // module without name with function "test"
-        val sum2File = getClass.getResource("/wast/bad-allocation-function.wast").getPath // module without name with function "test"
+        // module without name and with some functions with the same name ("allocate", "deallocate", "test", ...)
+        val sum1File = getClass.getResource("/wast/no-getMemory.wast").getPath
+        // module without name and with some functions with the same name ("allocate", "deallocate", "test", ...)
+        val sum2File = getClass.getResource("/wast/bad-allocation-function.wast").getPath
 
         val res = for {
           vm <- WasmVm[IO](Seq(sum1File, sum2File))
@@ -62,7 +64,7 @@ class WasmVmSpec extends WordSpec with Matchers {
 
         val error = res.failed()
         error shouldBe a[InitializationError]
-        error.getMessage should startWith("The function '<no-name>.test' was already registered")
+        error.getMessage should endWith("was already registered")
       }
 
       // todo add more error cases with prepareContext and module initialization
