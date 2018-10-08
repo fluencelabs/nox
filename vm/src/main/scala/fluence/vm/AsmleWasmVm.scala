@@ -16,6 +16,7 @@
 
 package fluence.vm
 import java.lang.reflect.Method
+import java.nio.ByteOrder
 import java.nio.charset.Charset
 
 import asmble.compile.jvm.AsmExtKt
@@ -275,13 +276,15 @@ class AsmleWasmVm(
       readResult <- EitherT
         .fromEither[F](
           Try {
+            val wasmMemoryView = wasmMemory.duplicate()
+            wasmMemoryView.order(ByteOrder.LITTLE_ENDIAN)
+
             // each result has the next structure in Wasm memory: | size (4 bytes) | result buffer (size bytes) |
-            val resultSize = wasmMemory.getInt(offset)
+            val resultSize = wasmMemoryView.getInt(offset)
             // size of Int in bytes
             val intBytesSize = 4
 
             val resultBuffer = new Array[Byte](resultSize)
-            val wasmMemoryView = wasmMemory.duplicate()
             wasmMemoryView.position(offset + intBytesSize)
             wasmMemoryView.get(resultBuffer)
             resultBuffer
