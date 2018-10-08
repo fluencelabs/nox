@@ -342,6 +342,10 @@ The client verifies returned results in a few steps.
 
 1) The client checks that every manifest is stored in Swarm properly. This means that receipt is issued for the correct content hash, the Swarm node signature does sign exactly this hash and that the Swarm node has the security deposit big enough.
 
+    ```
+    test
+    ```
+
 ```go
 var swarmNodeId = results.ManifestReceipts[p].Insurance.NodeId
 
