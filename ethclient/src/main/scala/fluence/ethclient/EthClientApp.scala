@@ -51,7 +51,7 @@ object EthClientApp extends IOApp {
 
           _ ← IO.sleep(600.seconds)
           _ ← IO(println(s"Going to unsubscribe"))
-          _ ← unsubscribe
+          _ ← unsubscribe.complete(Right(()))
         } yield ()
       }
       .map { _ ⇒
