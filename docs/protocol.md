@@ -30,6 +30,24 @@ func VerifyMerkleProofs(selectedChunk []byte, proof *MerkleProof, root []byte) b
 
 ## External systems
 
+### Ethereum
+
+Ethereum is viewed as a secure state storage keeping few related smart contracts. Those smart contracts can be checked by any network participants to, for example make sure that some node still has a security deposit placed. Below we provide an example of such contract.
+
+```go
+type ExampleContract struct {
+  Deposits map[[]byte]int64          // deposits: node identifier –> deposit size
+}
+
+// data
+var exampleContract ExampleContract  // example contract instance
+var nodeId          []byte           // node identifier
+var minDeposit      int64            // minimal deposit
+
+// verification
+exampleContract.Deposits[nodeId] >= minDeposit
+```
+
 ### Swarm
 
 Swarm is treated as a hash addressable storage where a content can be found by it's hash. Swarm has it's own set of cryptographic primitives which we don't expect to be compatible with Fluence core primitives.
@@ -51,7 +69,7 @@ We expect that every node serving in the Swarm network has an identifier and a p
 
 ```go
 type SwarmContract struct {
-  Nodes map[[byte]]SwarmNode     // Swarm nodes: address –> node information
+  Nodes map[[]byte]SwarmNode     // Swarm nodes: address –> node information
 }
 
 type SwarmNode struct {
