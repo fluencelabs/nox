@@ -12,8 +12,8 @@ type MerkleProof struct {
 // computes a cryptographic hash of the input data
 func Hash(data []byte) []byte {}
 
-// produces a digital signature from the input data using the secret key
-func Sign(secretKey []byte, data []byte) []byte {}
+// produces a digital signature from the input data using the private key
+func Sign(privateKey []byte, data []byte) []byte {}
 
 // verifies that the digital signature of the input data conforms to the public key
 func Verify(publicKey []byte, signature []byte, data []byte) boolean {}
@@ -30,33 +30,41 @@ func VerifyMerkleProofs(selectedChunk []byte, proof *MerkleProof, root []byte) b
 
 ## External systems
 
-### Tendermint
-
-Tendermint produces new blocks and feeds them to the state machine. It uses Merkle trees to compute the Merkle hash of certain blocks of data and digital signatures to sign produced blocks, however here we assume these functions are not compatible with Fluence:
-
-```go
-func TmHash(data []byte) []byte {}
-func TmSign(secretKey []byte, data []byte) []byte {}
-func TmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
-func TmMerkleRoot(allChunks [][]byte) []byte {}
-```
-
-### Ethereum
-
-For the purposes of this protocol Ethereum is treated as a key-value dictionary where a contract can be found by it's address.
-
 ### Swarm
 
-Swarm is treated as a hash addressable storage where a content can be found by it's hash. We can assume it exports two functions: `swarm_hash(...)` and `swarm_upload(...)` which calculate the hash of the content and upload the content to Swarm respectively. We assume that Swarm hash function is not compatible neither with Fluence nor with Tendermint. 
-
-We also assume that upload function returns Swarm receipt which indicates that Swarm is fully responsible for the passed content. The receipt contains the Swarm hash of the content and the signature of the Swarm node `S` with the public/private key pair `<S_pk, S_sk>` financially responsible for storing the content. Receipts functionality is not implemented yet in the current Swarm release, however it's described in ["Swap, swear and swindle: incentive system for Swarm"](https://swarm-gateways.net/bzz:/theswarm.eth/ethersphere/orange-papers/1/sw^3.pdf) and can be reasonably expected to show up soon.
+Swarm is treated as a hash addressable storage where a content can be found by it's hash. Swarm has it's own set of cryptographic primitives which we don't expect to be compatible with Fluence core primitives.
 
 ```go
-type SwarmNode struct {
-  PublicKey []byte                    // Swarm node public key
-  SecretKey []byte                    // Swarm node secret key
+// listed Tendermint functions carry the same meaning and arguments as core functions 
+func SwarmHash(data []byte) []byte {}
+func SwarmSign(privateKey []byte, data []byte) []byte {}
+func SwarmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
+
+var swarm map[[]byte]interface{}  // Swarm storage: hash(x) –> x
+
+// rules
+swarm[SwarmHash(content)] == content
+```
+
+We expect that every node serving in the Swarm network has an identifier and a public/private key pair and is registered in the publicly accessible Ethereum smart contract.
+
+```go
+type SwarmContract struct {
+  Nodes map[[byte]]SwarmNode     // Swarm nodes: address –> node information
 }
 
+type SwarmNode struct {
+  PublicKey  []byte              // Swarm node public key
+  PrivateKey []byte              // Swarm node private key
+  Collateral int64               // Swarm node security deposit
+}
+
+var swarmContract SwarmContract  // Swarm Ethereum smart contract
+```
+
+Swarm provides an upload function which returns a Swarm receipt indicating Swarm network accountability for the passed content. The receipt contains the Swarm hash of the content and the signature of the Swarm node which is financially responsible for storing the content. Receipts functionality is not implemented yet in the current Swarm release, however it's described in details in ["Swap, swear and swindle: incentive system for Swarm"](https://swarm-gateways.net/bzz:/theswarm.eth/ethersphere/orange-papers/1/sw^3.pdf) paper and can be reasonably expected to be rolled out soon.
+
+```go
 type SwarmReceipt struct {
   ContentHash []byte                  // Swarm hash of the stored content
   Insurance   Insurance               // insurance written for the accepted content
@@ -67,22 +75,18 @@ type Insurance struct {
   Signature []byte                    // Swarm node signature
 }
 
-func SwarmHash(data []byte) []byte {}
-func SwarmSign(secretKey []byte, data []byte) []byte {}
-func SwarmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
+// uploads the content to the Swarm network, returns a receipt of responsibility
 func SwarmUpload(content []byte) SwarmReceipt {}
 
-// rules
-var swarm      map[[]byte]interface{}  // Swarm storage: hash(x) –> x
-var swarmNodes map[[]byte]SwarmNode    // Swarm nodes: address –> public / private key pair
-var content    []byte                  // stored content
-var receipt    SwarmReceipt            // receipt issued for the stored content
+var swarmContract SwarmContract        // Swarm Ethereum smart contract
+var content    []byte                  // uploaded content
+var receipt    SwarmReceipt            // receipt issued for the uploaded content
 
-swarm[SwarmHash(content)] == content
+// rules
 receipt.ContentHash == SwarmHash(content)
 receipt.Insurance.Signature == SwarmSign(
-  swarmNodes[receipt.Insurance.Id].SecretKey,  // secret key
-  Concat(                                      // data
+  swarmContract.Nodes[receipt.Insurance.Id].PrivateKey,  // private key
+  concat(                                                // data
     receipt.ContentHash,
     receipt.Insurance.Id
   )
@@ -119,7 +123,7 @@ A transaction always has a specific authoring client and carries all information
 ```go
 type Client struct {
   PublicKey []byte             // client public key
-  SecretKey []byte             // client secret key
+  PrivateKey []byte             // client private key
 }
 
 type Transaction struct {
@@ -137,7 +141,7 @@ var clients map[[]byte]Client  // clients: address –> public/private key pair
 var tx      Transaction        // transaction formed by the client
 
 tx.Signature == Sign(
-  clients[tx.Stamp.Id], // secret key
+  clients[tx.Stamp.Id], // private key
   Concat(               // data
     tx.Invoke,
     tx.Stamp.Id
@@ -162,12 +166,22 @@ If the transaction passes the check, it's added to the mempool, otherwise it's d
 
 ## Tendermint block formation
 
+Tendermint produces new blocks filled with client supplied transactions and feeds them to the Fluence state machine. Tendermint uses Merkle trees to compute the Merkle root of certain pieces of data and digital signatures to sign produced blocks, however here we assume these functions are not necessary compatible with Fluence and denote them separately.
+
+```go
+// listed Tendermint functions carry the same meaning and arguments as core functions 
+func TmHash(data []byte) []byte {}
+func TmSign(privateKey []byte, data []byte) []byte {}
+func TmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
+func TmMerkleRoot(allChunks [][]byte) []byte {}
+```
+
 Tendermint consensus engine periodically pulls few transactions from the mempool and forms a new block:
 
 ```go
 type TmNode struct {
   PublicKey []byte            // Tendermint node public key
-  SecretKey []byte            // Tendermint node secret key
+  PrivateKey []byte            // Tendermint node private key
 }
 
 type Block struct {
@@ -196,7 +210,7 @@ blocks[k].Header.LastBlockHash == TmMerkleRoot(blocks[k - 1].Header)
 blocks[k].Header.LastCommitHash == TmMerkleRoot(blocks[k].LastCommit)
 blocks[k].Header.TxsHash == TmMerkleRoot(blocks[k].Txs)
 blocks[k].LastCommit[i].Signature == TmSign(
-  nodes[blocks[k].LastCommit[i].Address].SecretKey,  // secret key 
+  nodes[blocks[k].LastCommit[i].Address].PrivateKey,  // private key 
   Concat(                                            // data
     blocks[k].Header.LastBlockHash,
     blocks[k].LastCommit[i].Address
