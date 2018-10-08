@@ -16,22 +16,26 @@
 
 package fluence.ethclient
 
+import java.io.File
+
 import cats.Parallel
-import cats.effect.{ContextShift, IO, Timer}
 import cats.effect.concurrent.{Deferred, MVar}
+import cats.effect.{ContextShift, IO, Timer}
 import fluence.ethclient.Deployer.NewSolverEventResponse
 import fluence.ethclient.helpers.RemoteCallOps._
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.Address
 import org.web3j.abi.datatypes.generated.Bytes32
 import org.web3j.protocol.core.methods.response.Log
 import scodec.bits.ByteVector
+import slogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.sys.process.{Process, ProcessLogger}
 import scala.util.Random
 
-class ContractSpec extends FlatSpec with Matchers {
+class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -53,6 +57,26 @@ class ContractSpec extends FlatSpec with Matchers {
 
   def binaryToHex(b: Array[Byte]) = {
     ByteVector(b).toHex
+  }
+
+  val dir = new File("../bootstrap")
+  def run(cmd: String): Unit = Process(cmd, dir).!(ProcessLogger(_ => ()))
+  def runBackground(cmd: String): Unit = Process(cmd, dir).run(ProcessLogger(_ => ()))
+
+  override protected def beforeAll(): Unit = {
+    logger.info("bootstrapping npm")
+    run("npm install")
+
+    logger.info("starting Ganache")
+    runBackground("npm run ganache")
+
+    logger.info("deploying Deployer.sol Ganache")
+    run("npm run migrate")
+  }
+
+  override protected def afterAll(): Unit = {
+    logger.info("killing ganache")
+    run("pkill -f ganache")
   }
 
   "Ethereum client" should "receive an event" in {
