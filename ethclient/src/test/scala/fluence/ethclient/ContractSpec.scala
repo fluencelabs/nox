@@ -32,7 +32,7 @@ import scodec.bits.ByteVector
 import slogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.sys.process.Process
+import scala.sys.process.{Process, ProcessLogger}
 import scala.util.Random
 
 class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll {
@@ -60,22 +60,22 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
   }
 
   val dir = new File("../bootstrap")
-  def run(cmd: String): Unit = Process(cmd, dir).! //(ProcessLogger(_ => ()))
-  def runBackground(cmd: String): Unit = Process(cmd, dir).run() //(ProcessLogger(_ => ()))
+  def run(cmd: String): Unit = Process(cmd, dir).!(ProcessLogger(_ => ()))
+  def runBackground(cmd: String): Unit = Process(cmd, dir).run(ProcessLogger(_ => ()))
 
   override protected def beforeAll(): Unit = {
-    println("bootstrapping npm")
+    logger.info("bootstrapping npm")
     run("npm install")
 
-    println("starting Ganache")
+    logger.info("starting Ganache")
     runBackground("npm run ganache")
 
-    println("deploying Deployer.sol Ganache")
+    logger.info("deploying Deployer.sol Ganache")
     run("npm run migrate")
   }
 
   override protected def afterAll(): Unit = {
-    println("killing ganache")
+    logger.info("killing ganache")
     run("pkill -f ganache")
   }
 
