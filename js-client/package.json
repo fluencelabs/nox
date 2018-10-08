@@ -1,14 +1,35 @@
 {
   "name": "js-fluence-client",
+  "namespace": "fluence",
   "version": "0.0.1",
-  "description": "",
+  "description": "Fluence Javascript Client allows you to interact with a Fluence real-time cluster for decentralized computations.",
   "main": "./dist/main.js",
   "scripts": {
     "test": "mocha -r ts-node/register src/**/*.spec.ts",
     "build": "webpack",
     "start:dev": "webpack-dev-server"
   },
-  "author": "fluencelabs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fluencelabs/fluence.git"
+  },
+  "homepage": "https://github.com/fluencelabs/fluence",
+  "bugs": {
+    "url": "https://github.com/fluencelabs/fluence/issues"
+  },
+  "keywords": [
+    "fluence",
+    "javascript",
+    "API"
+  ],
+  "author": "Fluence Labs",
+  "authors": [
+    {
+      "name": "Dmitry Shakhtarin",
+      "email": "dmitry.shakhtarin@fluence.one",
+      "url": "https://github.com/DieMyst"
+    }
+  ],
   "license": "Apache-2.0",
   "devDependencies": {
     "@types/chai": "^4.1.6",
