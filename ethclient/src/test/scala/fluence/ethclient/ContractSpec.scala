@@ -77,6 +77,7 @@ class ContractSpec extends FlatSpec with Matchers {
           _.getNewSolverEvents(txReceipt)
         )
 
+        // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
         e <- event.take
         _ <- unsubscribe
       } yield {

@@ -236,14 +236,14 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
           value1 ← vm.invoke[IO](None, "circular_xor", Seq("\"test_argument\""))
           value2 ← vm.invoke[IO](None, "circular_xor", Seq("\"XX\""))
           value3 ← vm.invoke[IO](None, "circular_xor", Seq("\"XXX\""))
-          value4 ← vm.invoke[IO](None, "circular_xor", Seq("\"\""))       // empty string
-          value5 ← vm.invoke[IO](None, "circular_xor", Seq("\"\"\""))     // " string
+          value4 ← vm.invoke[IO](None, "circular_xor", Seq("\"\"")) // empty string
+          value5 ← vm.invoke[IO](None, "circular_xor", Seq("\"\"\"")) // " string
           state ← vm.getVmState[IO].toVmError
         } yield {
           value1 shouldBe Some(90)
           value2 shouldBe Some(0)
           value3 shouldBe Some('X'.toInt)
-          value4 shouldBe Some(0)           // this Wasm example returns 0 on empty string
+          value4 shouldBe Some(0) // this Wasm example returns 0 on empty string
           value5 shouldBe Some('"'.toInt)
         }
 

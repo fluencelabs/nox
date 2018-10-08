@@ -22,22 +22,16 @@ import org.web3j.protocol.core.DefaultBlockParameter;
 
 import java.util.List;
 
+// Representation of a JSON filter passed to Ethereum node in `eth_newFilter` RPC request
+// Overrides "address" field in JSON to be a string instead of an array of strings
+// to be compatible with Ganache
+// see https://github.com/web3j/web3j/issues/543
 public class SingleAddressEthFilter extends EthFilter {
     public SingleAddressEthFilter(
             DefaultBlockParameter fromBlock,
             DefaultBlockParameter toBlock,
                      String address) {
         super(fromBlock, toBlock, address);
-    }
-
-    @Override
-    public DefaultBlockParameter getFromBlock() {
-        return super.getFromBlock();
-    }
-
-    @Override
-    public DefaultBlockParameter getToBlock() {
-        return super.getToBlock();
     }
 
     @JsonIgnore
@@ -49,10 +43,5 @@ public class SingleAddressEthFilter extends EthFilter {
     @JsonProperty("address")
     public String getSingleAddress() {
         return super.getAddress().get(0);
-    }
-
-    @Override
-    EthFilter getThis() {
-        return super.getThis();
     }
 }
