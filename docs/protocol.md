@@ -36,16 +36,16 @@ Ethereum is viewed as a secure state storage keeping few related smart contracts
 
 ```go
 type ExampleContract struct {
-  Deposits map[[]byte]int64          // deposits: node identifier –> deposit size
+  Collaterals map[[]byte]int64       // security deposits: node identifier –> deposit size
 }
 
 // data
 var exampleContract ExampleContract  // example contract instance
 var nodeId          []byte           // node identifier
-var minDeposit      int64            // minimal deposit
+var minCollateral   int64            // minimal deposit size
 
 // verification
-exampleContract.Deposits[nodeId] >= minDeposit
+exampleContract.Collaterals[nodeId] >= minCollateral
 ```
 
 ### Swarm
@@ -86,22 +86,22 @@ Swarm provides an upload function which returns a Swarm receipt indicating Swarm
 
 ```go
 type SwarmReceipt struct {
-  ContentHash []byte                  // Swarm hash of the stored content
-  Insurance   Insurance               // insurance written for the accepted content
+  ContentHash []byte             // Swarm hash of the stored content
+  Insurance   Insurance          // insurance written for the accepted content
 }
 
 type Insurance struct {
-  Id        []byte                    // Swarm node identifier
-  Signature []byte                    // Swarm node signature
+  Id        []byte               // Swarm node identifier
+  Signature []byte               // Swarm node signature
 }
 
 // uploads the content to the Swarm network, returns a receipt of responsibility
 func SwarmUpload(content []byte) SwarmReceipt {}
 
 // data
-var swarmContract SwarmContract        // Swarm Ethereum smart contract
-var content    []byte                  // uploaded content
-var receipt    SwarmReceipt            // receipt issued for the uploaded content
+var swarmContract SwarmContract  // Swarm Ethereum smart contract
+var content    []byte            // uploaded content
+var receipt    SwarmReceipt      // receipt issued for the uploaded content
 
 // rules
 receipt.ContentHash == SwarmHash(content)
@@ -116,37 +116,42 @@ receipt.Insurance.Signature == SwarmSign(
 
 ## Initial setup
 
-Clients and real-time nodes generate public/private key pairs and join the cluster through the Ethereum smart contract. Every real-time node `R_i` generates the public/private key pair `<R_pk_i, R_sk_i>`. Every client `C_j` generates the public/private key pair `<C_pk_j, C_sk_j>`. Once the cluster is formed the smart contract contains the corresponding public keys:
+There are few different actor types in the Fluence network: clients, real-time nodes forming Tendermint clusters and batch validators. Every node has an identifier, a public/private key pair and a security deposit, and is registered in the Fluence smart contract.
 
-```java
-Ethereum {
-  fluence_contract_address –> fluence_contract 
+```go
+type FluenceContract struct {
+  Clients    map[[]byte]Client          // clients: address –> client
+  Nodes      map[[]byte]TmNode          // Tendermint nodes: address –> node
+  Validators map[[]byte]BatchValidator  // batch validators: address –> validator
 }
 
-fluence_contract: EthereumContract = {  
-  nodes: byte[][] = [
-    R_pk_1: byte[],
-    ...,
-    R_pk_n: byte[]
-  ],
-  clients: byte[][] = [
-    C_pk_1: byte[],
-    ...,
-    C_pk_m: byte[]
-  ]
+type Client struct {
+  PublicKey  []byte                     // client public key
+  PrivateKey []byte                     // client private key
+  Collateral int64                      // client security deposit
 }
+
+type TmNode struct {
+  PublicKey  []byte                     // Tendermint node public key
+  PrivateKey []byte                     // Tendermint node private key
+  Collateral int64                      // Tendermint node security deposit
+}
+
+type BatchValidator struct {
+  PublicKey  []byte                     // batch validator public key
+  PrivateKey []byte                     // batch validator private key
+  Collateral int64                      // batch validator security deposit
+}
+
+// data
+var fluenceContract FluenceContract     // Fluence Ethereum smart contract
 ```
 
 ## Transaction construction
 
-A transaction always has a specific authoring client and carries all information required to execute a deployed WebAssembly function:
+A transaction always has a specific authoring client and carries all the information required to execute a deployed WebAssembly function:
 
 ```go
-type Client struct {
-  PublicKey []byte             // client public key
-  PrivateKey []byte             // client private key
-}
-
 type Transaction struct {
   Invoke []byte                // function name + arguments + client session + session order
   Stamp  Stamp                 // client stamp of the transaction
@@ -200,11 +205,6 @@ func TmMerkleRoot(allChunks [][]byte) []byte {}
 Tendermint consensus engine periodically pulls few transactions from the mempool and forms a new block:
 
 ```go
-type TmNode struct {
-  PublicKey []byte            // Tendermint node public key
-  PrivateKey []byte            // Tendermint node private key
-}
-
 type Block struct {
   Header     Header           // block header
   LastCommit []Vote           // Tendermint nodes votes for the previous block
