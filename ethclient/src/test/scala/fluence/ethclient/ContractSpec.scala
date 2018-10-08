@@ -16,6 +16,7 @@
 
 package fluence.ethclient
 
+import cats.Parallel
 import cats.effect.{ContextShift, IO, Timer}
 import cats.effect.concurrent.{Deferred, MVar}
 import fluence.ethclient.Deployer.NewSolverEventResponse
@@ -60,40 +61,50 @@ class ContractSpec extends FlatSpec with Matchers {
     val contractAddress = "0x9995882876ae612bfd829498ccd73dd962ec950a"
     val owner = "0x4180FC65D613bA7E1a385181a219F1DBfE7Bf11d"
 
-    client.use { c =>
+    client.use { ethClient =>
+      val par = Parallel[IO, IO.Par]
+
       for {
         event <- MVar.empty[IO, Log]
 
         unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
 
-        _ = c
-          .subscribeToLogsTopic[IO](
-            contractAddress,
-            EventEncoder.encode(Deployer.NEWSOLVER_EVENT)
-          )
-          .interruptWhen(unsubscribe)
-          .head
-          .evalMap(event.put)
-          .drain
-          .compile
-          .drain
-          .unsafeRunAsyncAndForget()
+        data ← par sequential par.apply.product(
+          // Subscription stream
+          par parallel ethClient
+            .subscribeToLogsTopic[IO](
+              contractAddress,
+              EventEncoder.encode(Deployer.NEWSOLVER_EVENT)
+            )
+            .interruptWhen(unsubscribe)
+            .head
+            .evalMap[IO, Unit](event.put)
+            .compile // Compile to a runnable, in terms of effect IO
+            .drain, // Switch to IO[Unit]
 
-        contract <- c.getDeployer[IO](contractAddress, owner)
+          // Delayed unsubscribe
+          par.parallel(for {
 
-        txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
-        _ = assert(txReceipt.isStatusOK)
+            contract <- ethClient.getDeployer[IO](contractAddress, owner)
 
-        txReceipt <- contract.addSolver(bytes, bytes).call[IO]
-        _ = assert(txReceipt.isStatusOK)
+            txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
+            _ = assert(txReceipt.isStatusOK)
 
-        newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
-          _.getNewSolverEvents(txReceipt)
+            txReceipt <- contract.addSolver(bytes, bytes).call[IO]
+            _ = assert(txReceipt.isStatusOK)
+
+            newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
+              _.getNewSolverEvents(txReceipt)
+            )
+
+            // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
+            e <- event.take
+            _ <- unsubscribe.complete(Right(()))
+          } yield (txReceipt, newSolverEvents, e))
         )
 
-        // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
-        e <- event.take
-        _ <- unsubscribe.complete(Right(()))
+        (txReceipt, newSolverEvents, e) = data._2
+
       } yield {
         txReceipt.getLogs should contain(e)
         newSolverEvents.length shouldBe 1

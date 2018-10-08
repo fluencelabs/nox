@@ -16,6 +16,7 @@
 
 package fluence.ethclient
 
+import cats.Parallel
 import cats.effect.concurrent.Deferred
 import cats.effect.{ExitCode, IO, IOApp}
 import org.web3j.abi.EventEncoder
@@ -27,31 +28,36 @@ object EthClientApp extends IOApp {
     EthClient
       .makeHttpResource[IO]()
       .use { ethClient ⇒
+        val par = Parallel[IO, IO.Par]
+
         for {
           _ ← IO(println("Launching w3j"))
 
           unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
 
           version ← ethClient.clientVersion[IO]()
-          _ ← IO(println(s"Client version: $version"))
+          _ = println(s"Client version: $version")
 
-          _ = ethClient
-            .subscribeToLogsTopic[IO](
-              "0xf93568cdc75b8849f4999bd3c8c6f931a14b258f",
-              EventEncoder.encode(Deployer.NEWSOLVER_EVENT)
-            )
-            .map(log ⇒ println(s"Log message: $log"))
-            .interruptWhen(unsubscribe)
-            .drain // drop the results, so that demand on events is always provided
-            .compile // compile fs2 stream into a runnable (in terms of effect IO) representation
-            .drain // get IO[Unit] from the compiled stream, dropping all the output
-            .unsafeRunAsyncAndForget() // Run concurrently -- don't do it on production
-
-          _ ← IO(println(s"Subscribed"))
-
-          _ ← IO.sleep(600.seconds)
-          _ ← IO(println(s"Going to unsubscribe"))
-          _ ← unsubscribe.complete(Right(()))
+          _ ← par sequential par.apply.product(
+            // Subscription stream
+            par parallel ethClient
+              .subscribeToLogsTopic[IO](
+                "0x9995882876ae612bfd829498ccd73dd962ec950a",
+                EventEncoder.encode(Deployer.NEWSOLVER_EVENT)
+              )
+              .map(log ⇒ println(s"Log message: $log"))
+              .interruptWhen(unsubscribe)
+              .drain // drop the results, so that demand on events is always provided
+              .onFinalize(IO(println("Subscription finalized")))
+              .compile // Compile to a runnable, in terms of effect IO
+              .drain, // Switch to IO[Unit]
+            // Delayed unsubscribe
+            par.parallel(for {
+              _ ← IO.sleep(60.seconds)
+              _ = println("Going to unsubscribe")
+              _ ← unsubscribe.complete(Right(()))
+            } yield ())
+          )
         } yield ()
       }
       .map { _ ⇒
