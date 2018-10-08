@@ -1,14 +1,21 @@
+# Scala compiled
 target/
 
 # Python compiled
 *.pyc
 
+# IntelliJ
 .idea
 .vscode
 
-# macOS folder metadata
+# MacOS folder metadata
 .DS_Store
 
 # Rust
-
 Cargo.lock
+
+# Text writing
+*.scriv
+
+# Temp
+docs/checklist.md
