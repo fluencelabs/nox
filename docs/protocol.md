@@ -60,6 +60,7 @@ func SwarmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
 
 // data
 var swarm map[[]byte]interface{}  // Swarm storage: hash(x) –> x
+var content []byte                // some content
 
 // rules
 swarm[SwarmHash(content)] == content
@@ -91,7 +92,7 @@ type SwarmReceipt struct {
 }
 
 type Insurance struct {
-  NodeId        []byte           // Swarm node identifier
+  NodeId    []byte               // Swarm node identifier
   Signature []byte               // Swarm node signature
 }
 
@@ -198,7 +199,7 @@ If the transaction passes the check, it's added to the mempool and might be late
 
 ## Tendermint block formation
 
-Tendermint produces new blocks filled with client supplied transactions and feeds them to the Fluence state machine. Tendermint uses Merkle trees to compute the Merkle root of certain pieces of data and digital signatures to sign produced blocks, however here we assume these functions are not necessary compatible with Fluence and denote them separately.
+Tendermint consensus engine produces new blocks filled with client supplied transactions and feeds them to the Fluence state machine. Tendermint uses Merkle trees to compute the Merkle root of certain pieces of data and digital signatures to sign produced blocks, however here we assume these functions are not necessary compatible with Fluence and denote them separately.
 
 ```go
 // listed Tendermint functions carry the same meaning and arguments as core functions 
@@ -208,7 +209,7 @@ func TmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
 func TmMerkleRoot(allChunks [][]byte) []byte {}
 ```
 
-Tendermint consensus engine periodically pulls few transactions from the mempool and forms a new block. Nodes participating in consensus sign produced blocks, however their signatures for a specific block are available only as a part of the next block.
+Tendermint periodically pulls few transactions from the mempool and forms a new block. Nodes participating in consensus sign produced blocks, however their signatures for a specific block are available only as a part of the next block.
 
 ```go
 type Block struct {
@@ -243,11 +244,12 @@ blocks[k].LastCommit[i].Signature == TmSign(
 )
 ```
 
+Note we haven't specified here how the application state hash (`Header.AppHash`) is getting calculated – this will be described in the next section.
+
 ## Block processing
 
-Once the block is passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. 
+Once the block has passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. The virtual machine state is essentially a block of memory split into chunks which can be used to compute the state hash. VM state `k + 1` arises after processing transactions of the block `k`.
 
-The virtual machine state is essentially a block of memory split into chunks. These chunks can be used to compute the state hash:
 ```go
 type VMState struct {
   Chunks: []VMChunk     // virtual machine memory chunks
@@ -260,14 +262,15 @@ type VMChunk {
 // applies block transactions to the virtual machine state to produce the new state
 func AdvanceVMState(vmState *VMState, txs []Transaction) VMState {}
 
-// rules
+// data
 var blocks   []Block    // Tendermint blockchain
 var vmStates []VMState  // virtual machine states
 
+// rules
 vmStates[k + 1] == AdvanceVMState(&vmStates[k], blocks[k].Txs)
 ```
 
-Once the block was processed by the WebAssembly VM, it has to be stored in Swarm for the future batch validation. Blocks are stored as two separate pieces in Swarm: the block manifest and the transactions list. The manifest contains the Swarm hash of the transactions list, which makes it possible to find transactions by having just the manifest:
+Once the block is processed by the WebAssembly VM, it has to be stored in Swarm for the future batch validation. Blocks are stored in two separate pieces in Swarm: the block manifest and the transactions list. The manifest contains the Swarm hash of the transactions list, which makes it possible to find transactions by having just the manifest.
 
 ```go
 type Manifest struct {
@@ -281,12 +284,13 @@ type Manifest struct {
 // creates a new manifest from the block and the previous block
 func CreateManifest(block *Block, prevBlock *Block) Manifest {}
 
-// rules
+// data
 var blocks    []Block                 // Tendermint blockchain
 var vmStates  []VMState               // virtual machine states
 var manifests []Manifest              // manifests
 var swarm     map[[]byte]interface{}  // Swarm storage: hash(x) –> x
 
+// rules
 manifests[k].Header == blocks[k].Header
 manifests[k].LastCommit == blocks[k].LastCommit
 manifests[k].TxsSwarmHash == SwarmHash(blocks[k].Txs)
@@ -297,9 +301,9 @@ swarm[SwarmHash(manifests[k])] == manifest[k]
 swarm[SwarmHash(blocks[k].Txs)] == blocks[k].Txs
 ```
 
-Once the block manifest is formed and the virtual machine has advanced to the new state, it becomes possible to compute the new application state hash, which will be used in the next block:
+Now, once the block manifest is formed and the virtual machine has advanced to the new state, it becomes possible to compute the new application state hash, which will be used in the next block.
 
-```java
+```go
 blocks[k + 1].Header.AppHash == Hash(manifests[k])
 ```
 
