@@ -2,18 +2,30 @@
 
 ## Core
 
+Before we start describing the protocol, few words need to be said about the core blocks. Basic cryptographic primitives such as digital signature generation and verification, cryptographic hash computation and Merkle tree composition are listed below and used throughout the rest of the protocol specification. We do not specify exact algorithms such as SHA3, RIPEMD or EdDSA for those primitives but still assume them to behave according to the common expectations.
+
 ```go
 type MerkleProof struct {
-  siblings [][][]byte  // Merkle tree layer –> sibling index in the layer –> sibling
+  siblings [][][]byte  // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
 }
 
+// computes a cryptographic hash of the input data
 func Hash(data []byte) []byte {}
+
+// produces a digital signature from the input data using the secret key
 func Sign(secretKey []byte, data []byte) []byte {}
+
+// verifies that the digital signature of the input data conforms to the public key
 func Verify(publicKey []byte, signature []byte, data []byte) boolean {}
 
+// computes a Merkle root using supplied chunks as leaf data blocks in the Merkle tree
 func MerkleRoot(allChunks [][]byte) []byte { }
-func CreateMerkleProofs(selectedChunks [][]byte, allChunks [][]byte) []MerkleProof {}
-func VerifyMerkleProofs(selectedChunks [][]byte, proofs []MerkleProof, root []byte) boolean {}
+
+// generates a Merkle proof for the chunk selected from the chunks list
+func CreateMerkleProof(selectedChunk []byte, allChunks [][]byte) MerkleProof {}
+
+// verifies that the Merkle proof of the selected chunk conforms to the Merkle root
+func VerifyMerkleProofs(selectedChunk []byte, proof MerkleProof, root []byte) boolean {}
 ```
 
 ## External systems
