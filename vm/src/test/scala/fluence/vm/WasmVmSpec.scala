@@ -52,7 +52,7 @@ class WasmVmSpec extends WordSpec with Matchers {
         error.getMessage should startWith("Preparing execution context before execution was failed for")
       }
 
-      "2 module has function with equal name" in {
+      "2 module has function with equal name" ignore {
         val sum1File = getClass.getResource("/wast/no-getMemory.wast").getPath // module without name with function "test"
         val sum2File = getClass.getResource("/wast/bad-allocation-function.wast").getPath // module without name with function "test"
 
