@@ -20,7 +20,7 @@ import java.io.File
 
 import cats.Parallel
 import cats.effect.concurrent.{Deferred, MVar}
-import cats.effect.{IO, Timer}
+import cats.effect.{ContextShift, IO, Timer}
 import fluence.ethclient.Deployer.NewSolverEventResponse
 import fluence.ethclient.helpers.RemoteCallOps._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
@@ -39,6 +39,7 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
+
   private val url = sys.props.get("ethereum.url")
   private val client = EthClient.makeHttpResource[IO](url)
   private val client2 = EthClient.makeHttpResource[IO](url)
