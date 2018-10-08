@@ -50,15 +50,13 @@ object SbtCommons {
 
   val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.6"
   val scodecCore = "org.scodec" %% "scodec-core" % "1.10.3"
-  val web3jCrypto = "org.web3j" % "crypto"       % "3.5.0"
+
+  val web3jVersion = "3.5.0"
+  val web3jCrypto = "org.web3j" % "crypto" % web3jVersion
+  val web3jCore = "org.web3j"   % "core"   % web3jVersion
 
   /* Test deps*/
 
   val scalaTest = "org.scalatest" %% "scalatest"   % "3.0.5"  % Test
   val mockito = "org.mockito"     % "mockito-core" % "2.21.0" % Test
-  val utest = "com.lihaoyi"       %% "utest"       % "0.6.3"  % Test
-
-  /* Test settings */
-  val setUTestFramework =
-    testFrameworks += new TestFramework("utest.runner.Framework")
 }

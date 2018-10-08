@@ -25,7 +25,7 @@ import cats.syntax.functor._
 import fluence.ethclient.helpers.JavaFutureConversion._
 import org.web3j.abi.EventEncoder
 import org.web3j.protocol.core._
-import org.web3j.protocol.core.methods.request.EthFilter
+import org.web3j.protocol.core.methods.request.SingleAddressEthFilter
 import org.web3j.protocol.core.methods.response.Log
 import org.web3j.protocol.http.HttpService
 import org.web3j.protocol.{Web3j, Web3jService}
@@ -71,10 +71,10 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
   ): fs2.Stream[F, Log] =
     web3
       .ethLogObservable(
-        new EthFilter(
+        new SingleAddressEthFilter(
           DefaultBlockParameterName.LATEST,
           DefaultBlockParameterName.LATEST,
-          Collections.emptyList[String]()
+          contractAddress
         ).addSingleTopic(topic)
       )
       .toFS2[F]

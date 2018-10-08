@@ -17,36 +17,23 @@
 package fluence.ethclient
 
 import cats.effect.IO
-import cats.effect.concurrent.{Deferred, MVar}
+import cats.effect.concurrent.MVar
 import fluence.ethclient.Deployer.NewSolverEventResponse
 import fluence.ethclient.helpers.RemoteCallOps._
+import org.scalatest.{FlatSpec, Matchers}
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.Address
 import org.web3j.abi.datatypes.generated.Bytes32
 import org.web3j.protocol.core.methods.response.Log
-import utest._
+import scodec.bits.ByteVector
 
-import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration._
 import scala.util.Random
 
-object ContractSpec extends TestSuite {
-  val ignored = true
-
-  override def utestWrap(path: Seq[String], runBody: => Future[Any])(
-    implicit ec: ExecutionContext
-  ): Future[Any] = {
-    if (!ignored) {
-      super.utestWrap(path, runBody)(ec)
-    } else {
-      Future.successful(println("test is ignored"))
-    }
-  }
-
+class ContractSpec extends FlatSpec with Matchers {
   private val url = sys.props.get("ethereum.url")
   private val client = EthClient.makeHttpResource[IO](url)
+  private val client2 = EthClient.makeHttpResource[IO](url).allocate
 
   private def stringToBytes32(s: String) = {
     val byteValue = s.getBytes()
@@ -55,42 +42,49 @@ object ContractSpec extends TestSuite {
     new Bytes32(byteValueLen32)
   }
 
-  private implicit val t = IO.timer(global)
-  private implicit val ce = IO.ioConcurrentEffect(IO.contextShift(global))
+  def stringToHex(s: String) = {
+    binaryToHex(s.getBytes())
+  }
 
-  val tests: Tests = Tests {
-    "receive event" - {
-      val str = Random.alphanumeric.take(10).mkString
-      val bytes = stringToBytes32(str)
-      val contractAddress = "0x29fae4a10580bc551b1c8c56d9d97f7d9088a252"
-      val owner = "0x96dce7eb99848e3332e38663a1968836ba3c3b53"
+  def binaryToHex(b: Array[Byte]) = {
+    ByteVector(b).toHex
+  }
 
-      client.use { c =>
-        for {
-          event <- MVar.empty[IO, Log]
-          unsubscribe ← c.subscribeToLogsTopic[IO, IO](
-            contractAddress,
-            EventEncoder.buildEventSignature("NewSolver(bytes32)"),
-            event.put
-          )
-          contract <- c.getDeployer[IO](
-            contractAddress,
-            owner
-          )
-          _ <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
-          txReceipt <- contract.addSolver(bytes, bytes).call[IO]
-          _ = assert(txReceipt.isStatusOK)
-          newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
-            _.getNewSolverEvents(txReceipt)
-          )
-          e <- event.take
-          _ <- unsubscribe
-        } yield {
-          assert(txReceipt.getLogs.asScala.contains(e))
-          newSolverEvents.length ==> 1
-          newSolverEvents.head.id ==> bytes
-        }
-      }.unsafeToFuture()
-    }
+  "Ethereum client" should "receive an event" in {
+    val str = Random.alphanumeric.take(10).mkString
+    val bytes = stringToBytes32(str)
+    val contractAddress = "0x9995882876ae612bfd829498ccd73dd962ec950a"
+    val owner = "0x4180FC65D613bA7E1a385181a219F1DBfE7Bf11d"
+
+    client.use { c =>
+      for {
+        event <- MVar.empty[IO, Log]
+        unsubscribe ← c.subscribeToLogsTopic[IO, IO](
+          contractAddress,
+          EventEncoder.encode(Deployer.NEWSOLVER_EVENT),
+          event.put
+        )
+
+        contract <- c.getDeployer[IO](contractAddress, owner)
+
+        txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
+        _ = assert(txReceipt.isStatusOK)
+
+        txReceipt <- contract.addSolver(bytes, bytes).call[IO]
+        _ = assert(txReceipt.isStatusOK)
+
+        newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
+          _.getNewSolverEvents(txReceipt)
+        )
+
+        // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
+        e <- event.take
+        _ <- unsubscribe
+      } yield {
+        txReceipt.getLogs should contain(e)
+        newSolverEvents.length shouldBe 1
+        newSolverEvents.head.id shouldBe bytes
+      }
+    }.unsafeRunSync()
   }
 }
