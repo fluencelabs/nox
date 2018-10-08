@@ -42,28 +42,26 @@ fn integration_sql_test() {
     println!("{}", insert_several);
     assert_eq!(insert_several, "rows inserted: 3");
 
-    let empty_select = execute_sql("select * from USERS where name = 'unknown'".to_string());
-    println!("{}", empty_select);
-    assert_eq!(empty_select, "id, name, age\n");
-
-    let select_all = execute_sql("select id, name from USERS".to_string());
-    assert_eq!(select_all, "id, name\n1, Sara\n2, Bob\n3, Caroline\n4, Max");
-    println!("{}", select_all);
-
     let create_table_role = execute_sql("create table ROLES(user_id int, role varchar(128))".to_string());
     println!("{}", create_table_role);
     assert_eq!(create_table_role, "table created");
 
-    let insert_roles = execute_sql("insert into ROLES values(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), \
-    (4, 'Writer')".to_string());
+    let insert_roles = execute_sql("insert into ROLES values(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')".to_string());
     println!("{}", insert_roles);
     assert_eq!(insert_roles, "rows inserted: 4");
+
+    let empty_select = execute_sql("select * from USERS where name = 'unknown'".to_string());
+    println!("{}", empty_select);
+    assert_eq!(empty_select, "id, name, age\n");
+
+    let select_all = execute_sql("select * from ROLES".to_string());
+    assert_eq!(select_all, "user_id, role\n1, Teacher\n2, Student\n3, Scientist\n4, Writer");
+    println!("{}", select_all);
 
     let select_with_join = execute_sql("select u.name as Name, r.role as Role from USERS u join ROLES \
     r on u.id = r.user_id where r.role = 'Writer'".to_string());
     println!("{}", select_with_join);
     assert_eq!(select_with_join, "name, role\nMax, Writer");
-
 
     let explain = execute_sql("explain select id, name from USERS".to_string());
     println!("{}", explain);
