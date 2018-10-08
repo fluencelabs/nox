@@ -311,7 +311,7 @@ blocks[k + 1].Header.AppHash == Hash(manifests[k])
 
 Once the cluster has reached consensus on the block, advanced the virtual machine state, reached consensus on the next couple of blocks and saved related block manifests and transactions into Swarm, the client can query results of the function invocation through the ABCI query API. 
 
-Let's assume that transaction sent by the client was included into the block `k`, in this case the client has to wait until the block `k+2` is formed and the corresponding block manifest is uploaded to Swarm. Once this is done, results returned to the client will look the following:
+Let's assume that transaction sent by the client was included into the block `k`. In this case the client has to wait until the block `k + 2` is formed and the corresponding block manifest is uploaded to Swarm. Once this is done, results returned to the client will look the following.
 
 ```go
 type QueryResults struct {
@@ -322,12 +322,15 @@ type QueryResults struct {
   TxsReceipt       SwarmReceipt     // Swarm receipt for block transactions
 }
 
-// rules
-var blocks    []Block                // Tendermint blockchain
-var vmStates  []VMState              // virtual machine states
-var manifests []Manifest             // manifests
-var results   QueryResults           // results returned for a transaction in block `k`
+// data
+var swarmContract   SwarmContract    // Swarm Ethereum smart contract
+var blocks          []Block          // Tendermint blockchain
+var vmStates        []VMState        // virtual machine states
+var manifests       []Manifest       // manifests
+var results         QueryResults     // results returned for a transaction in block `k`
+var minSwarmDeposit int64            // minimal Swarm node security deposit
 
+// rules
 results.Chunks[t] == vmStates[k + 1].Chunks[t]
 results.ChunksProof == CreateMerkleProofs(results.Chunks, vmStates[k + 1].Chunks)
 results.Manifests[p] == manifests[k + p]
@@ -339,14 +342,17 @@ The client verifies returned results in a few steps.
 
 1) The client checks that every manifest is stored in Swarm properly. This means that receipt is issued for the correct content hash, the Swarm node signature does sign exactly this hash and that the Swarm node has the security deposit big enough.
 
-```java
-assert results.manifest_receipt_k+i.content_hash == swarm_hash(results.manifest_k+i)
-assert verify(
-  public_key = results.manifest_receipt_k+i.node_pk,
-  signature = results.manifest_receipt_k+i.node_signature,
-  data = swarm_hash(results.manifest_k+i)
+```go
+var swarmNodeId = results.ManifestReceipts[p].Insurance.NodeId
+
+// verification
+results.ManifestReceipts[p].ContentHash == SwarmHash(results.Manifest[p])
+SwarmVerify(
+  swarmContract[swarmNodeId].PublicKey,             // public key
+  results.ManifestReceipts[p].Insurance.Signature,  // signature
+  results.ManifestReceipts[p].ContentHash           // data
 )
-assert swarm_contract.nodes[results.manifest_receipt_k+i.node_pk].deposit ≥ X ETH
+swarmContract[swarmNodeId].Collateral >= minSwarmDeposit
 ```
 
 2) The client checks that manifests are linked correctly in Swarm.
