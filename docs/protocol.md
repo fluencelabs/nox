@@ -100,8 +100,8 @@ func SwarmUpload(content []byte) SwarmReceipt {}
 
 // data
 var swarmContract SwarmContract  // Swarm Ethereum smart contract
-var content    []byte            // uploaded content
-var receipt    SwarmReceipt      // receipt issued for the uploaded content
+var content       []byte         // uploaded content
+var receipt       SwarmReceipt   // receipt issued for the uploaded content
 
 // rules
 receipt.ContentHash == SwarmHash(content)
@@ -208,7 +208,7 @@ func TmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
 func TmMerkleRoot(allChunks [][]byte) []byte {}
 ```
 
-Tendermint consensus engine periodically pulls few transactions from the mempool and forms a new block:
+Tendermint consensus engine periodically pulls few transactions from the mempool and forms a new block. Nodes participating in consensus sign produced blocks, however their signatures for a specific block are available only as a part of the next block.
 
 ```go
 type Block struct {
@@ -229,19 +229,17 @@ type Vote struct {
   Signature []byte            // Tendermint node signature of the previous block header
 }
 
-// rules
-var nodes  map[[]byte]TmNode  // Tendermint nodes: address –> public/private key pair
-var blocks []Block            // Tendermint blockchain
+// data
+var flContract FlContract     // Fluence Ethereum smart contract
+var blocks     []Block        // Tendermint blockchain
 
+// rules
 blocks[k].Header.LastBlockHash == TmMerkleRoot(blocks[k - 1].Header)
 blocks[k].Header.LastCommitHash == TmMerkleRoot(blocks[k].LastCommit)
 blocks[k].Header.TxsHash == TmMerkleRoot(blocks[k].Txs)
 blocks[k].LastCommit[i].Signature == TmSign(
-  nodes[blocks[k].LastCommit[i].Address].PrivateKey,  // private key 
-  Concat(                                            // data
-    blocks[k].Header.LastBlockHash,
-    blocks[k].LastCommit[i].Address
-  )                     
+  flContract.Nodes[blocks[k].LastCommit[i].Address].PrivateKey,  // private key 
+  blocks[k].Header.LastBlockHash                                 // data
 )
 ```
 
