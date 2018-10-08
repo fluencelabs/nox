@@ -17,7 +17,7 @@
 /**
  * Possible results from the real-time cluster.
  */
-import {fromHex} from "./utils";
+import {fromHexToView} from "./utils";
 
 export type Result = Empty | Value
 
@@ -42,6 +42,12 @@ export class Value {
 
     hex(): string {
         return this.value;
+    }
+
+    asInt(): number {
+        // todo: validate value
+        // todo: why do we need to specify endian explicitly?
+        return fromHexToView(this.value).getInt32(0, true);
     }
 
 }

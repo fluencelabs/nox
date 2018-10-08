@@ -40,11 +40,11 @@ object FunctionCallDescription {
   val CloseSession = FunctionCallDescription(None, "@closeSession", Nil)
 
   // ^ start of the line, needed to capture whole string, not just substring
-  // (\w+(?=\.))* optional module name, must be followed by dot. dot isn't captured. ?= is called lookahead.
+  // (\w+(?:\.))* optional module name, must be followed by dot. dot isn't captured. ?= is called lookahead.
   // (@?\w+) function name, optionally prefixed by @
   // \((.*?)\) anything inside parentheses, will be parsed later by argRx
   // $ end of the line, needed to capture whole string, not just substring
-  private val payloadPattern = """^(\w+(?=\.))*(@?\w+)\((.*?)\)$""".r
+  private val payloadPattern = """^(\w+(?:\.))*(@?\w+)\((.*?)\)$""".r
 
   // anything but the quotes inside quotes OR any number with dots
   private val argsPattern = """("[^"]*"|[\d.]+)""".r
@@ -57,7 +57,7 @@ object FunctionCallDescription {
   def parse[F[_]](payload: String)(implicit F: Monad[F]): EitherT[F, StateMachineError, FunctionCallDescription] =
     EitherT.fromEither(for {
       parsedPayload <- payload match {
-        case payloadPattern(m, f, args) => Either.right((Option(m), f, args))
+        case payloadPattern(m, f, args) => Either.right((Option(m).map(_.filter(_ != '.')), f, args))
         case _ => Either.left(wrongPayloadFormatError(payload))
       }
       (module, functionName, unparsedArgList) = parsedPayload

@@ -19,6 +19,7 @@ import {Engine} from "../Engine";
 import {Signer} from "../Signer";
 import {Client} from "../Client";
 import {Session} from "../Session";
+import {isValue} from "../Result";
 
 class IncrementAndMultiply {
 
@@ -54,8 +55,10 @@ class IncrementAndMultiply {
     }
 
     async getCounter() {
-        let res = await this.session.invoke("get");
-        console.log(`get result is: ${JSON.stringify(res)}`);
+        let res = await this.session.invoke("get").result();
+        if (isValue(res)) {
+            console.log(`get result is: ${JSON.stringify(res.asInt())}`);
+        }
         return res
     }
 
