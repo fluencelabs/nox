@@ -24,12 +24,17 @@ object SbtCommons {
     scalacOptions ++= Seq("-Ypartial-unification")
   )
 
+  val kindProjector = Seq(
+    resolvers += Resolver.sonatypeRepo("releases"),
+    addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8")
+  )
+
   /* Common deps */
 
-  val slogging = "biz.enef"        %% "slogging"              % "0.6.1"
-  val cats = "org.typelevel"       %% "cats-core"             % "1.4.0"
-  val catsEffect = "org.typelevel" %% "cats-effect"           % "1.0.0"
-  val fs2 = "co.fs2"               %% "fs2-core"              % "1.0.0"
+  val slogging = "biz.enef"        %% "slogging"             % "0.6.1"
+  val cats = "org.typelevel"       %% "cats-core"            % "1.4.0"
+  val catsEffect = "org.typelevel" %% "cats-effect"          % "1.0.0"
+  val fs2 = "co.fs2"               %% "fs2-core"             % "1.0.0"
   val fs2rx = "co.fs2"             %% "fs2-reactive-streams" % "1.0.0"
   // functional wrapper around 'lightbend/config'
   val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.9.1"

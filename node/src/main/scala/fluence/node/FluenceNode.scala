@@ -19,5 +19,12 @@ import cats.effect.{ExitCode, IO, IOApp}
 
 object FluenceNode extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
-    ExecIO("ECHO", "Hello Fluence Node").run[IO]
+    ExecIO
+      .docker[IO]("fluencelabs/statemachine")
+      .use { dockerId ⇒
+        IO(println(s"Docker container is running, id = $dockerId"))
+      }
+      .attempt
+      .map(println)
+      .map(_ ⇒ ExitCode.Success)
 }

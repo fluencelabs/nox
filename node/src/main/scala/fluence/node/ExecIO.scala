@@ -15,12 +15,14 @@
  */
 
 package fluence.node
+import cats.{Applicative, ApplicativeError}
 import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.functor._
 
 import scala.sys.process._
 import scala.language.higherKinds
+import scala.util.{Failure, Success, Try}
 
 /**
  * Functional wrapper for a console command
@@ -29,12 +31,33 @@ import scala.language.higherKinds
 case class ExecIO(cmd: String*) {
 
   /**
-   * Run the command with F effect
+   * Run the command with F effect, capture its output.
+   *
    * @tparam F The effect
    */
-  def run[F[_]: Sync: ContextShift]: F[ExitCode] =
-    (
-      implicitly[ContextShift[F]].shift *> Sync[F].delay(cmd.!)
-    ).map(ExitCode.apply)
+  def run[F[_]: Sync: ContextShift]: F[Try[String]] =
+    implicitly[ContextShift[F]].shift *> Sync[F].delay(Try(cmd.!!))
+
+}
+
+object ExecIO {
+  // run a process, capture its output (docker container id)
+  // for health, ask docker if container is alive, then ping inside for a healthcheck
+  // to stop, run a command with container id
+
+  def shiftDelay[F[_]: Sync: ContextShift, A](fn: ⇒ A): F[A] =
+    implicitly[ContextShift[F]].shift *> Sync[F].delay(fn)
+
+  def docker[F[_]: Sync: ContextShift](whatInside: String): Resource[F, String] =
+    Resource
+      .make(
+        shiftDelay(Try(s"docker run $whatInside".!!))
+      ) {
+        case Success(dockerId) ⇒ shiftDelay(s"docker rm -f $dockerId".!).map(_ ⇒ ())
+        case Failure(_) ⇒ Applicative[F].unit
+      }
+      .flatMap[String] { dockerTry ⇒
+        ApplicativeError[Resource[F, ?], Throwable].fromTry(dockerTry)
+      }
 
 }
