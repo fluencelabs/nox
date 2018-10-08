@@ -16,6 +16,7 @@
 
 package fluence.vm
 import java.lang.reflect.Method
+import java.nio.ByteOrder
 import java.nio.charset.Charset
 
 import asmble.compile.jvm.AsmExtKt
@@ -150,9 +151,9 @@ class AsmleWasmVm(
    * @param offset address of memory to deallocate
    * @tparam F a monad with an ability to absorb 'IO'
    */
-  private def deallocate[F[_]: LiftIO: Monad](offset: Int): EitherT[F, InvokeError, AnyRef] = {
+  private def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, AnyRef] = {
     deallocateFunction match {
-      case Some(fn) => fn(offset.asInstanceOf[AnyRef] :: Nil)
+      case Some(fn) => fn(offset.asInstanceOf[AnyRef] :: size.asInstanceOf[AnyRef] :: Nil)
       case _ =>
         EitherT.leftT(
           NoSuchFnError(s"Unable to find the function for memory deallocation with the name=$deallocateFunctionName")
@@ -251,7 +252,8 @@ class AsmleWasmVm(
       extractedResult <- readResultFromWasmModule(offset, moduleInstance)
       // TODO : string deallocation from scala-part should be additionally investigated - it seems
       // that this version of deletion doesn't compatible with current idea of verification game
-      _ <- deallocate(offset)
+      intBytesSize = 4
+      _ <- deallocate(offset, extractedResult.length + intBytesSize)
     } yield extractedResult
 
   /**
@@ -274,13 +276,15 @@ class AsmleWasmVm(
       readResult <- EitherT
         .fromEither[F](
           Try {
+            val wasmMemoryView = wasmMemory.duplicate()
+            wasmMemoryView.order(ByteOrder.LITTLE_ENDIAN)
+
             // each result has the next structure in Wasm memory: | size (4 bytes) | result buffer (size bytes) |
-            val resultSize = wasmMemory.getInt(offset)
+            val resultSize = wasmMemoryView.getInt(offset)
             // size of Int in bytes
             val intBytesSize = 4
 
             val resultBuffer = new Array[Byte](resultSize)
-            val wasmMemoryView = wasmMemory.duplicate()
             wasmMemoryView.position(offset + intBytesSize)
             wasmMemoryView.get(resultBuffer)
             resultBuffer
