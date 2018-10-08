@@ -18,11 +18,9 @@ package fluence.ethclient
 
 import java.io.File
 
-import cats.effect.IO
-import cats.effect.concurrent.MVar
 import cats.Parallel
-import cats.effect.{ContextShift, IO, Timer}
 import cats.effect.concurrent.{Deferred, MVar}
+import cats.effect.{IO, Timer}
 import fluence.ethclient.Deployer.NewSolverEventResponse
 import fluence.ethclient.helpers.RemoteCallOps._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
@@ -34,7 +32,7 @@ import scodec.bits.ByteVector
 import slogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.sys.process.{Process, ProcessLogger}
+import scala.sys.process.Process
 import scala.util.Random
 
 class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll {
@@ -62,13 +60,14 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
 
   val dir = new File("../bootstrap")
   def run(cmd: String): Unit = Process(cmd, dir).! //(ProcessLogger(_ => ()))
+  def runBackground(cmd: String): Unit = Process(cmd, dir).run() //(ProcessLogger(_ => ()))
 
   override protected def beforeAll(): Unit = {
     println("bootstrapping npm")
     run("npm install")
 
     println("starting Ganache")
-    run("npm run ganache")
+    runBackground("npm run ganache")
 
     println("deploying Deployer.sol Ganache")
     run("npm run migrate")
