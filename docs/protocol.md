@@ -107,10 +107,7 @@ var receipt    SwarmReceipt      // receipt issued for the uploaded content
 receipt.ContentHash == SwarmHash(content)
 receipt.Insurance.Signature == SwarmSign(
   swarmContract.Nodes[receipt.Insurance.Id].PrivateKey,  // private key
-  concat(                                                // data
-    receipt.ContentHash,
-    receipt.Insurance.Id
-  )
+  concat(receipt.ContentHash, receipt.Insurance.Id)      // data
 )
 ```
 
@@ -153,25 +150,23 @@ A transaction always has a specific authoring client and carries all the informa
 
 ```go
 type Transaction struct {
-  Invoke []byte                // function name + arguments + client session + session order
-  Stamp  Stamp                 // client stamp of the transaction
+  Invoke []byte                      // function name & arguments + required metadata
+  Stamp  Stamp                       // client stamp of the transaction
 }
 
 type Stamp struct {
-  Id        []byte             // client identifier
-  Signature []byte             // client signature
+  Id        []byte                   // client identifier
+  Signature []byte                   // client signature
 }
 
-// rules
-var clients map[[]byte]Client  // clients: address –> public/private key pair
-var tx      Transaction        // transaction formed by the client
+// data
+var fluenceContract FluenceContract  // Fluence Ethereum smart contract
+var tx              Transaction      // transaction formed by the client
 
+// rules
 tx.Signature == Sign(
-  clients[tx.Stamp.Id], // private key
-  Concat(               // data
-    tx.Invoke,
-    tx.Stamp.Id
-  )
+  fluenceContract.Clients[tx.Stamp.Id], // private key
+  concat(tx.Invoke, tx.Stamp.Id)        // data
 )
 ```
 
