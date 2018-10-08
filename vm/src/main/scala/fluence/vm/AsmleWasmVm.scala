@@ -16,6 +16,7 @@
 
 package fluence.vm
 import java.lang.reflect.Method
+import java.nio.charset.Charset
 
 import asmble.compile.jvm.AsmExtKt
 import cats.data.EitherT
@@ -56,17 +57,21 @@ class AsmleWasmVm(
   // TODO: now it is assumed that allocation/deallocation functions placed together in the first module.
   // In the future it has to be refactored.
   // TODO: add handling of empty modules list.
-  val allocateFunction: Option[WasmFunction] =
+  private val allocateFunction: Option[WasmFunction] =
     functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent(allocateFunctionName)))
 
-  val deallocateFunction: Option[WasmFunction] =
+  private val deallocateFunction: Option[WasmFunction] =
     functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent(deallocateFunctionName)))
+
+  // TODO: it is need to decide how to properly get charset (maybe it is good to add "getCharset" method
+  // in all wasm Modules or simply add the requirement of using fixed charset everywhere)
+  private val wasmStringCharset: Charset = Charset.forName("UTF-8")
 
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
     fnName: String,
     fnArgs: Seq[String]
-  ): EitherT[F, InvokeError, Option[Any]] = {
+  ): EitherT[F, InvokeError, Option[Array[Byte]]] = {
     val functionId = FunctionId(moduleName, AsmExtKt.getJavaIdent(fnName))
 
     for {
@@ -77,18 +82,29 @@ class AsmleWasmVm(
           NoSuchFnError(s"Unable to find a function with the name=$functionId")
         )
 
-      preprocessedArguments <- preprocessArguments(fnArgs, wasmFn.module)
+      preprocessedArguments <- preprocessStringArguments(fnArgs, wasmFn.module, wasmStringCharset)
       arguments ← parseArguments(preprocessedArguments, wasmFn)
 
       // invoke the function
-      result ← wasmFn[F](arguments)
+      invocationResult ← wasmFn[F](arguments)
       // TODO : In the current version it is expected that callee (Wasm module) clean memory by itself
       // after construction of the result string. F.e. in Rust String object along with &str are the common
       // classes for operations on strings, in C++ the same role has std::string and std::stringview classes.
       // So, now it is expected that Rust/C++ methods at first construct objects of corresponding classes by
       // using injected string bytes as source and then delete these string bytes. But in the future it has
       // to be done by caller through deallocate function call.
-    } yield if (wasmFn.javaMethod.getReturnType == Void.TYPE) None else Option(result)
+
+      extractedResult <- if (wasmFn.javaMethod.getReturnType == Void.TYPE) {
+        EitherT.rightT[F, InvokeError](None)
+      } else {
+        for {
+          offset <- EitherT.fromEither(Try(invocationResult.toString.toInt).toEither).leftMap { e ⇒
+            VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
+          }
+          extractedResult <- extractResultFromWasmModule(offset, wasmFn.module).map(Option(_))
+        } yield extractedResult
+      }
+    } yield extractedResult
 
   }
 
@@ -150,11 +166,13 @@ class AsmleWasmVm(
    *
    * @param functionArguments arguments for calling this fn
    * @param moduleInstance module instance used for injecting string arguments to the Wasm memory
+   * @param charset charset that is used for convert the string to byte array
    * @tparam F a monad with an ability to absorb 'IO'
    */
-  private def preprocessArguments[F[_]: LiftIO: Monad](
+  private def preprocessStringArguments[F[_]: LiftIO: Monad](
     functionArguments: Seq[String],
-    moduleInstance: ModuleInstance
+    moduleInstance: ModuleInstance,
+    charset: Charset
   ): EitherT[F, InvokeError, List[String]] = {
     val result: Seq[EitherT[F, InvokeError, List[String]]] =
       functionArguments.map {
@@ -166,7 +184,8 @@ class AsmleWasmVm(
           for {
             address <- injectStringIntoWasmModule(
               stringArgument.substring(1, stringArgument.length - 1),
-              moduleInstance
+              moduleInstance,
+              charset
             )
           } yield List(address.toString, (stringArgument.length - 2).toString)
         case arg ⇒ EitherT.rightT[F, InvokeError](List(arg))
@@ -181,11 +200,13 @@ class AsmleWasmVm(
    *
    * @param injectedString string that should be inserted into Wasm module memory
    * @param moduleInstance module instance used as a provider for Wasm module memory access
+   * @param charset charset that is used for convert the string to byte array
    * @tparam F a monad with an ability to absorb 'IO'
    */
   private def injectStringIntoWasmModule[F[_]: LiftIO: Monad](
     injectedString: String,
-    moduleInstance: ModuleInstance
+    moduleInstance: ModuleInstance,
+    charset: Charset
   ): EitherT[F, InvokeError, Int] =
     for {
       // In the current version, it is possible for Wasm module to have allocation/deallocation
@@ -200,30 +221,79 @@ class AsmleWasmVm(
       offset <- allocate(injectedString.length)
 
       resultOffset <- EitherT
-        .fromEither(Try(offset.toString.toInt).toEither)
-        .leftMap(
-          e ⇒ VmMemoryError(s"The Wasm allocation function returned incorrect offset=$offset", Some(e))
-        )
+        .fromEither(Try {
+          val convertedOffset = offset.toString.toInt
+          val wasmMemoryView = wasmMemory.duplicate()
 
-      // It is possible for "evil" module to return knowingly invalid index (negative or doesn't
-      // correspond to ByteBuffer limit)
-      _ ← EitherT.cond(
-        (resultOffset + injectedString.length) >= resultOffset &&
-          // limit is the index of the first element that should not be read or written so
-          // strictly less is needed
-          (resultOffset + injectedString.length) < wasmMemory.limit(),
-        (),
-        VmMemoryError(
-          s"String injecting failed due to invalid offset=$resultOffset"
-        )
-      )
+          wasmMemoryView.position(convertedOffset)
+          wasmMemoryView.put(injectedString.getBytes(charset.name()))
 
-      _ <- EitherT.rightT(
-        injectedString.view.zipWithIndex.foreach {
-          case (char, byteIdx) => wasmMemory.put(resultOffset + byteIdx, char.toByte)
-        }
-      )
+          convertedOffset
+        }.toEither)
+        .leftMap { e ⇒
+          VmMemoryError(s"The Wasm allocation function returned incorrect offset=$offset", Some(e))
+        }: EitherT[F, InvokeError, Int]
+
     } yield resultOffset
+
+  /**
+   * Extracts (reads and deletes) result from the given offset from Wasm module memory.
+   *
+   * @param offset offset into Wasm module memory where a string is located
+   * @param moduleInstance module instance used as a provider for Wasm module memory access
+   * @tparam F a monad with an ability to absorb 'IO'
+   */
+  private def extractResultFromWasmModule[F[_]: LiftIO: Monad](
+    offset: Int,
+    moduleInstance: ModuleInstance
+  ): EitherT[F, InvokeError, Array[Byte]] =
+    for {
+      extractedResult <- readResultFromWasmModule(offset, moduleInstance)
+      // TODO : string deallocation from scala-part should be additionally investigated - it seems
+      // that this version of deletion doesn't compatible with current idea of verification game
+      _ <- deallocate(offset)
+    } yield extractedResult
+
+  /**
+   * Reads result from the given offset from Wasm module memory.
+   *
+   * @param offset offset into Wasm module memory where a string is located
+   * @param moduleInstance module instance used as a provider for Wasm module memory access
+   * @tparam F a monad with an ability to absorb 'IO'
+   */
+  private def readResultFromWasmModule[F[_]: LiftIO: Monad](
+    offset: Int,
+    moduleInstance: ModuleInstance
+  ): EitherT[F, InvokeError, Array[Byte]] =
+    for {
+      wasmMemory <- EitherT.fromOption(
+        moduleInstance.memory,
+        VmMemoryError(s"Trying to use absent Wasm memory while reading string from the offset=$offset")
+      )
+
+      readResult <- EitherT
+        .fromEither[F](
+          Try {
+            // each result has the next structure in Wasm memory: | size (4 bytes) | result buffer (size bytes) |
+            val resultSize = wasmMemory.getInt(offset)
+            // size of Int in bytes
+            val intBytesSize = 4
+
+            val resultBuffer = new Array[Byte](resultSize)
+            val wasmMemoryView = wasmMemory.duplicate()
+            wasmMemoryView.position(offset + intBytesSize)
+            wasmMemoryView.get(resultBuffer)
+            resultBuffer
+          }.toEither
+        )
+        .leftMap { e =>
+          VmMemoryError(
+            s"String reading from offset=$offset failed",
+            Some(e)
+          )
+        }: EitherT[F, InvokeError, Array[Byte]]
+
+    } yield readResult
 
 }
 
