@@ -15,11 +15,16 @@
  */
 
 import {ResultAwait, ResultError, ResultPromise} from "./ResultAwait";
-import {error, Error, Result} from "./Result";
+import {error, ErrorResult, Result} from "./Result";
 import {genTxHex} from "./tx";
 import {TendermintClient} from "./TendermintClient";
 import {Client} from "./Client";
 import {SessionConfig} from "./SessionConfig";
+
+import  * as debug from "debug";
+
+const detailedDebug = debug("invoke-detailed");
+const txDebug = debug("broadcast-request");
 
 /**
  * It is an identifier around which client can build a queue of requests.
@@ -97,13 +102,18 @@ export class Session {
             this.markSessionAsClosed(this.closedStatus)
         }
 
+        detailedDebug("start invoke");
+
         // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
         let currentCounter = this.getCounterAndIncrement();
 
         let txHex = genTxHex(this.client, this.session, currentCounter, payload);
 
         // send transaction
+        txDebug("send broadcastTxSync");
         let broadcastRequestPromise: Promise<void> = this.tm.broadcastTxSync(txHex).then((resp: any) => {
+            detailedDebug("broadCastTxSync response received");
+            txDebug("broadCastTxSync response received");
             // close session if some error on sending transaction occurred
             if (resp.code !== 0) {
                 let cause = `The session was closed after response with an error. Request payload: ${payload}, response: ${JSON.stringify(resp)}`;
@@ -114,7 +124,7 @@ export class Session {
 
         let targetKey = this.targetKey(currentCounter);
 
-        let callback = (err: Error) => {
+        let callback = (err: ErrorResult) => {
             // close session on error
             this.markSessionAsClosed(err.error)
         };

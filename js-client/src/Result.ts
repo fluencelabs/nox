@@ -22,12 +22,12 @@ export type Result = Empty | Value
 /**
  * The empty result, if there is no value in response.
  */
-class Empty {}
+export class Empty {}
 
 /**
  * The result with value as a string from the real-time cluster.
  */
-class Value {
+export class Value {
     constructor(v: string) {
         this.value = v
     }
@@ -38,24 +38,37 @@ class Value {
 /**
  * Returns if some error occurred on request in the real-time cluster.
  */
-export class Error {
+export class ErrorResult extends Error {
     constructor(err: string) {
-        this.error = err
+        super(err);
+        this.error = err;
     }
 
     readonly error: string
 }
 
-export const empty = new Empty();
+export const empty: Result = new Empty();
 
 export function isValue(r: Result): r is Value {
     return r instanceof Value;
 }
 
-export function value(v: string) {
+export function value(v: string): Value {
     return new Value(v)
 }
 
 export function error(err: string) {
-    return new Error(err)
+    return new ErrorResult(err)
+}
+
+export function parseObject(obj: any): Result {
+    if (obj.Error !== undefined) {
+        throw error(obj.Error.message)
+    } else if (obj.Empty !== undefined) {
+        return empty;
+    } else if (obj.Computed) {
+        return value(obj.Computed.value);
+    } else {
+        throw error("Could not parse the response: " + JSON.stringify(obj))
+    }
 }
