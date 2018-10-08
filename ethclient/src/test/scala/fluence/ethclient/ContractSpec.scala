@@ -20,6 +20,9 @@ import java.io.File
 
 import cats.effect.IO
 import cats.effect.concurrent.MVar
+import cats.Parallel
+import cats.effect.{ContextShift, IO, Timer}
+import cats.effect.concurrent.{Deferred, MVar}
 import fluence.ethclient.Deployer.NewSolverEventResponse
 import fluence.ethclient.helpers.RemoteCallOps._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
@@ -35,9 +38,12 @@ import scala.sys.process.{Process, ProcessLogger}
 import scala.util.Random
 
 class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll {
+
+  implicit private val ioTimer: Timer[IO] = IO.timer(global)
+  implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
   private val url = sys.props.get("ethereum.url")
   private val client = EthClient.makeHttpResource[IO](url)
-  private val client2 = EthClient.makeHttpResource[IO](url).allocate
+  private val client2 = EthClient.makeHttpResource[IO](url)
 
   private def stringToBytes32(s: String) = {
     val byteValue = s.getBytes()
@@ -79,30 +85,50 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
     val contractAddress = "0x9995882876ae612bfd829498ccd73dd962ec950a"
     val owner = "0x4180FC65D613bA7E1a385181a219F1DBfE7Bf11d"
 
-    client.use { c =>
+    client.use { ethClient =>
+      val par = Parallel[IO, IO.Par]
+
       for {
         event <- MVar.empty[IO, Log]
-        unsubscribe ← c.subscribeToLogsTopic[IO, IO](
-          contractAddress,
-          EventEncoder.encode(Deployer.NEWSOLVER_EVENT),
-          event.put
+
+        unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
+
+        data ← par sequential par.apply.product(
+          // Subscription stream
+          par parallel ethClient
+            .subscribeToLogsTopic[IO](
+              contractAddress,
+              EventEncoder.encode(Deployer.NEWSOLVER_EVENT)
+            )
+            .interruptWhen(unsubscribe)
+            .head
+            .evalMap[IO, Unit](event.put)
+            .compile // Compile to a runnable, in terms of effect IO
+            .drain, // Switch to IO[Unit]
+
+          // Delayed unsubscribe
+          par.parallel(for {
+
+            contract <- ethClient.getDeployer[IO](contractAddress, owner)
+
+            txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
+            _ = assert(txReceipt.isStatusOK)
+
+            txReceipt <- contract.addSolver(bytes, bytes).call[IO]
+            _ = assert(txReceipt.isStatusOK)
+
+            newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
+              _.getNewSolverEvents(txReceipt)
+            )
+
+            // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
+            e <- event.take
+            _ <- unsubscribe.complete(Right(()))
+          } yield (txReceipt, newSolverEvents, e))
         )
 
-        contract <- c.getDeployer[IO](contractAddress, owner)
+        (txReceipt, newSolverEvents, e) = data._2
 
-        txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
-        _ = assert(txReceipt.isStatusOK)
-
-        txReceipt <- contract.addSolver(bytes, bytes).call[IO]
-        _ = assert(txReceipt.isStatusOK)
-
-        newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
-          _.getNewSolverEvents(txReceipt)
-        )
-
-        // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
-        e <- event.take
-        _ <- unsubscribe
       } yield {
         txReceipt.getLogs should contain(e)
         newSolverEvents.length shouldBe 1
