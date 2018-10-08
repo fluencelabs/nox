@@ -24,7 +24,6 @@ import fs2.concurrent.Queue
 import rx.Observer
 
 import scala.language.higherKinds
-import scala.util.{Failure, Success, Try}
 
 object JavaRxToFs2 {
 
@@ -41,16 +40,16 @@ object JavaRxToFs2 {
       fs2.Stream
         .bracket(
           // Acquire: make an unbounded queue, subscribe with that queue to the observable
-          Queue.noneTerminated[F, Try[T]].map { queue ⇒
+          Queue.noneTerminated[F, Either[Throwable, T]].map { queue ⇒
             (queue, observable.subscribe(new Observer[T] {
               override def onCompleted(): Unit =
                 queue.enqueue1(None).toIO.unsafeRunAsyncAndForget()
 
               override def onError(e: Throwable): Unit =
-                queue.enqueue1(Some(Failure(e))).toIO.unsafeRunAsyncAndForget()
+                queue.enqueue1(Some(Left(e))).toIO.unsafeRunAsyncAndForget()
 
               override def onNext(t: T): Unit =
-                queue.enqueue1(Some(Success(t))).toIO.unsafeRunAsyncAndForget()
+                queue.enqueue1(Some(Right(t))).toIO.unsafeRunAsyncAndForget()
             }))
           }
         ) {
@@ -59,10 +58,6 @@ object JavaRxToFs2 {
             queue.enqueue1(None) *>
               Sync[F].catchNonFatal(subscription.unsubscribe())
         }
-        .flatMap(_._1.dequeue)
-        .flatMap {
-          case Success(elem) ⇒ fs2.Stream.emit(elem)
-          case Failure(err) ⇒ fs2.Stream.raiseError[F](err)
-        }
+        .flatMap(_._1.dequeue.rethrow)
   }
 }

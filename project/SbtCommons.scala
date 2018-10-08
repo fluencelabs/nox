@@ -6,7 +6,7 @@ import sbt._
 
 object SbtCommons {
 
-  val scalaV = scalaVersion := "2.12.6"
+  val scalaV = scalaVersion := "2.12.7"
 
   val commons = Seq(
     scalaV,
@@ -27,22 +27,22 @@ object SbtCommons {
   /* Common deps */
 
   val slogging = "biz.enef"        %% "slogging"              % "0.6.1"
-  val cats = "org.typelevel"       %% "cats-core"             % "1.2.0"
+  val cats = "org.typelevel"       %% "cats-core"             % "1.4.0"
   val catsEffect = "org.typelevel" %% "cats-effect"           % "1.0.0"
-  val fs2 = "co.fs2"               %% "fs2-core"              % "1.0.0-RC2"
-  val fs2rx = "co.fs2"             %% "fs2-reactive-streams" % "1.0.0-RC2"
+  val fs2 = "co.fs2"               %% "fs2-core"              % "1.0.0"
+  val fs2rx = "co.fs2"             %% "fs2-reactive-streams" % "1.0.0"
   // functional wrapper around 'lightbend/config'
   val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.9.1"
   val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.2"
   val cryptoCipher = "one.fluence"         %% "crypto-cipher"   % "0.0.2"
   val cryptoKeyStore = "one.fluence"       %% "crypto-keystore" % "0.0.2"
 
-  val sttpVersion = "1.3.0"
+  val sttpVersion = "1.3.5"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
-  val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % "1.3.0"
-  val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % "1.3.0"
+  val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % sttpVersion
+  val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
 
-  val circeVersion = "0.9.3"
+  val circeVersion = "0.10.0"
   val circeCore = "io.circe"          %% "circe-core"           % circeVersion
   val circeGeneric = "io.circe"       %% "circe-generic"        % circeVersion
   val circeGenericExtras = "io.circe" %% "circe-generic-extras" % circeVersion

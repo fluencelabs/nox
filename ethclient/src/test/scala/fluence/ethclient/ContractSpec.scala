@@ -17,7 +17,7 @@
 package fluence.ethclient
 
 import cats.effect.IO
-import cats.effect.concurrent.MVar
+import cats.effect.concurrent.{Deferred, MVar}
 import fluence.ethclient.Deployer.NewSolverEventResponse
 import fluence.ethclient.helpers.RemoteCallOps._
 import org.web3j.abi.EventEncoder
@@ -29,6 +29,7 @@ import utest._
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 import scala.util.Random
 
 object ContractSpec extends TestSuite {
@@ -53,6 +54,9 @@ object ContractSpec extends TestSuite {
     System.arraycopy(byteValue, 0, byteValueLen32, 0, byteValue.length)
     new Bytes32(byteValueLen32)
   }
+
+  private implicit val t = IO.timer(global)
+  private implicit val ce = IO.ioConcurrentEffect(IO.contextShift(global))
 
   val tests: Tests = Tests {
     "receive event" - {
