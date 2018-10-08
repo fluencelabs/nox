@@ -176,7 +176,18 @@ lazy val ethclient = (project in file("ethclient"))
       scodecBits,
       cats,
       catsEffect,
+      fs2,
       scalaTest
     ),
   )
   .enablePlugins(AutomateHeaderPlugin)
+
+lazy val node = project
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      catsEffect
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(ethclient)

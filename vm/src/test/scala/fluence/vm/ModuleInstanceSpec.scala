@@ -155,7 +155,7 @@ class ModuleInstanceSpec extends WordSpec with Matchers with MockitoSugar {
       val instance = new { def getMemory: ByteBuffer = memoryBuffer }
       val result = createInstance(instance).innerState(arr ⇒ EitherT.rightT(arr)).value.right.get
       // checks that result is correct
-      result should contain allOf (2, 3)
+      result should contain allOf (1, 2, 3)
       // checks that 'memoryBuffer' wasn't change
       memoryBuffer shouldBe expected
 
