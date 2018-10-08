@@ -25,7 +25,7 @@ func MerkleRoot(allChunks [][]byte) []byte {}
 func CreateMerkleProof(selectedChunk []byte, allChunks [][]byte) MerkleProof {}
 
 // verifies that the Merkle proof of the selected chunk conforms to the Merkle root
-func VerifyMerkleProofs(selectedChunk []byte, proof *MerkleProof, root []byte) boolean {}
+func VerifyMerkleProof(selectedChunk []byte, proof *MerkleProof, root []byte) boolean {}
 ```
 
 ## External systems
@@ -324,11 +324,14 @@ type QueryResults struct {
 
 // data
 var swarmContract   SwarmContract    // Swarm Ethereum smart contract
+
 var blocks          []Block          // Tendermint blockchain
 var vmStates        []VMState        // virtual machine states
 var manifests       []Manifest       // manifests
 var results         QueryResults     // results returned for a transaction in block `k`
+
 var minSwarmDeposit int64            // minimal Swarm node security deposit
+var minTmDeposit    int64            // minimal Tendermint node security deposit
 
 // rules
 results.Chunks[t] == vmStates[k + 1].Chunks[t]
@@ -340,51 +343,61 @@ results.TxsReceipt == SwarmUpload(blocks[k].Txs)
 
 The client verifies returned results in a few steps.
 
-1) The client checks that every manifest is stored in Swarm properly. This means that receipt is issued for the correct content hash, the Swarm node signature does sign exactly this hash and that the Swarm node has the security deposit big enough.
+#### 1) Verification of manifests Swarm storage
 
-    ```go
-    var swarmNodeId = results.ManifestReceipts[p].Insurance.NodeId
+The client checks that every manifest is stored in Swarm properly. This means that receipt is issued for the correct content hash, the Swarm node signature does sign exactly this hash and that the Swarm node has the security deposit big enough.
 
-    // verification
-    results.ManifestReceipts[p].ContentHash == SwarmHash(results.Manifest[p])
-    SwarmVerify(
-      swarmContract[swarmNodeId].PublicKey,             // public key
-      results.ManifestReceipts[p].Insurance.Signature,  // signature
-      results.ManifestReceipts[p].ContentHash           // data
-    )
-    swarmContract[swarmNodeId].Collateral >= minSwarmDeposit
-    ```
+```go
+var swarmNodeId = results.ManifestReceipts[p].Insurance.NodeId
 
-2) The client checks that manifests are linked correctly in Swarm.
-
-```java
-assert results.manifest_k+i+1.last_manifest_swarm_hash = swarm_hash(results.manifest_k+i)
-```
-
-3) The client checks that manifests are linked correctly through the application hash.
-
-```java
-assert results.manifest_k+i+1.header.app_hash = hash(results.manifest_k+i)
-```
-
-4) The client checks that nodes have actually signed the corresponding block headers.
-
-```java
-assert tm_verify(
-  public_key = results.manifest_k+i+1.last_commit[j].pk,
-  signature = results.manifest_k+i+1.last_commit[j].signature,
-  data = tm_merkle(items(results.manifest_k+i.header))
+results.ManifestReceipts[p].ContentHash == SwarmHash(results.Manifest[p])
+SwarmVerify(
+  swarmContract[swarmNodeId].PublicKey,             // public key
+  results.ManifestReceipts[p].Insurance.Signature,  // signature
+  results.ManifestReceipts[p].ContentHash           // data
 )
-assert fluence_contract.nodes[results.manifest_receipt_k+i.last_commit[j].pk].deposit ≥ X ETH
+swarmContract[swarmNodeId].Collateral >= minSwarmDeposit
 ```
 
-5) The client checks that VM state chunks belong to the state hash.
+#### 2) Verification of manifests Swarm connectivity
 
-```java
-assert merkle_verify(
-  data = results.vm_state_chunks, 
-  merkle_proof = results.vm_state_chunks_proof, 
-  merkle_root = results.manifest_k.vm_state_hash
+The client checks that manifests are linked correctly in Swarm.
+
+```go
+results.Manifest[p + 1].LastManifestSwarmHash == SwarmHash(results.Manifest[p])
+```
+
+#### 3) Verification of manifests connectivity through the application state
+The client checks that manifests are linked correctly through the application hash.
+
+```go
+results.Manifest[p + 1].Header.AppHash == Hash(results.Manifest[p])
+```
+
+#### 4) Verification of nodes signatures 
+
+The client checks that nodes have actually signed the corresponding block headers and that each node has at least the minimal collateral posted in the Fluence smart contract.
+
+```go
+var tmNodeId = results.Manifest[p + 1].LastCommit[i].Address
+
+TmVerify(
+  flContract.Nodes[tmNodeId].PublicKey,             // public key
+  results.Manifest[p + 1].LastCommit[i].Signature,  // signature
+  TmMerkle(results.Manifest[p].Header)              // data
+)
+flContract.nodes[tmNodeId].Collateral >= minTmDeposit
+```
+
+#### 5) Verification of Merkle proofs for selected VM state chunks
+
+The client checks that returned virtual machine state chunks belong to the virtual machine state hash.
+
+```go
+VerifyMerkleProof(
+  results.Chunks[i],                // selected chunk
+  results.ChunksProofs[i],          // Merkle proof
+  results.Manifests[1].VMStateHash  // Merkle root
 )
 ```
 
