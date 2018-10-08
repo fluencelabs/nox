@@ -66,7 +66,7 @@ case class ModuleInstance(
                 val view = mem.duplicate()
                 view.clear()
                 val arr = new Array[Byte](view.capacity())
-                view.get(arr, 0, arr.length)
+                view.get(arr)
                 arr
               }.toEither
             )
