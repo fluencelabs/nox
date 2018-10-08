@@ -14,12 +14,17 @@
  * limitations under the License.
  */
 
-import {ResultAwait, ResultError} from "./ResultAwait";
-import {Error, error, Result} from "./Result";
+import {ResultAwait, ResultError, ResultPromise} from "./ResultAwait";
+import {error, ErrorResult, Result} from "./Result";
 import {genTxHex} from "./tx";
 import {TendermintClient} from "./TendermintClient";
 import {Client} from "./Client";
 import {SessionConfig} from "./SessionConfig";
+
+import  * as debug from "debug";
+
+const detailedDebug = debug("invoke-detailed");
+const txDebug = debug("broadcast-request");
 
 /**
  * It is an identifier around which client can build a queue of requests.
@@ -87,7 +92,7 @@ export class Session {
      *
      * @param payload a command supported by the program in a virtual machine with arguments
      */
-    invokeRaw(payload: string): ResultAwait | ResultError {
+    invokeRaw(payload: string): ResultPromise {
         // throws an error immediately if the session is closed
         if (this.closed) {
             return new ResultError(`The session was closed. Cause: ${this.closedStatus}`)
@@ -97,13 +102,18 @@ export class Session {
             this.markSessionAsClosed(this.closedStatus)
         }
 
+        detailedDebug("start invoke");
+
         // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
         let currentCounter = this.getCounterAndIncrement();
 
         let txHex = genTxHex(this.client, this.session, currentCounter, payload);
 
         // send transaction
+        txDebug("send broadcastTxSync");
         let broadcastRequestPromise: Promise<void> = this.tm.broadcastTxSync(txHex).then((resp: any) => {
+            detailedDebug("broadCastTxSync response received");
+            txDebug("broadCastTxSync response received");
             // close session if some error on sending transaction occurred
             if (resp.code !== 0) {
                 let cause = `The session was closed after response with an error. Request payload: ${payload}, response: ${JSON.stringify(resp)}`;
@@ -114,7 +124,7 @@ export class Session {
 
         let targetKey = this.targetKey(currentCounter);
 
-        let callback = (err: Error) => {
+        let callback = (err: ErrorResult) => {
             // close session on error
             this.markSessionAsClosed(err.error)
         };
@@ -132,9 +142,9 @@ export class Session {
      * @param command a command supported by the program in a virtual machine
      * @param args arguments for command
      */
-    invoke(command: string, args: string[] = []): ResultAwait | ResultError {
+    invoke(command: string, args: string[] = []): ResultPromise {
 
-        let payload = command + `(${args.join(',')})`;
+        let payload: string = command + `(${args.join(',')})`;
 
         return this.invokeRaw(payload);
     }
@@ -149,7 +159,7 @@ export class Session {
     /**
      * Closes session locally and send a command to close the session on the cluster.
      */
-    close(reason: string = ""): ResultAwait | ResultError {
+    close(reason: string = ""): ResultPromise {
         this.closing = true;
         this.closedStatus = reason;
         let result = this.invoke("@closeSession");

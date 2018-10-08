@@ -23,5 +23,6 @@ package fluence.statemachine.config
  *                                measured as difference between the current `txCounter` value and
  *                                its value at the last activity in the session.
  * @param moduleFiles sequence of files with WASM module code
+ * @param logLevel level of logging ( OFF / ERROR / WARN / INFO / DEBUG / TRACE )
  */
-case class StateMachineConfig(sessionExpirationPeriod: Long, moduleFiles: List[String])
+case class StateMachineConfig(sessionExpirationPeriod: Long, moduleFiles: List[String], logLevel: String)

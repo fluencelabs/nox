@@ -14,13 +14,21 @@
  * limitations under the License.
  */
 
-import {empty, error, Result, Error, value} from "./Result";
+import {error, Result, ErrorResult, parseObject} from "./Result";
 import {TendermintClient} from "./TendermintClient";
 import {none, Option} from "ts-option";
-import {SessionSummary} from "./responses";
+import {isActive, SessionSummary} from "./responses";
 import {SessionConfig} from "./SessionConfig";
+import * as debug from "debug";
 
-export class ResultError {
+const detailedDebug = debug("invoke-detailed");
+const d = debug("result");
+
+export interface ResultPromise {
+    result(): Promise<Result>;
+}
+
+export class ResultError implements ResultPromise {
 
     private readonly message: string;
 
@@ -36,7 +44,7 @@ export class ResultError {
 /**
  * Class with the ability to make request periodically until an answer is available.
  */
-export class ResultAwait {
+export class ResultAwait implements ResultPromise {
     private readonly tm: TendermintClient;
     private readonly config: SessionConfig;
     private readonly targetKey: string;
@@ -44,7 +52,7 @@ export class ResultAwait {
     private canceled: boolean;
     private canceledReason: string;
     private invokeResult: Promise<Result>;
-    private onError: (err: Error) => any;
+    private onError: (err: ErrorResult) => any;
     private broadcastRequest: Promise<void>;
 
     /**
@@ -57,7 +65,7 @@ export class ResultAwait {
      * @param _onError callback on error
      */
     constructor(_tm: TendermintClient, _config: SessionConfig, _targetKey: string,
-                _summaryKey: string, _broadcastRequest: Promise<void>, _onError: (err: Error) => void) {
+                _summaryKey: string, _broadcastRequest: Promise<void>, _onError: (err: ErrorResult) => void) {
         this.tm = _tm;
         this.config = _config;
         this.targetKey = _targetKey;
@@ -87,19 +95,24 @@ export class ResultAwait {
      * Periodically checks the node of the real-time cluster for the presence of a result.
      * If the result is already obtained, return it without new calculations.
      *
-     * @param requestsPerSec check frequency
-     * @param responseTimeoutSec what time to check
-     * @param requestTimeout the time after which the error occurs if the result has not yet been received
      */
-    async result(requestsPerSec: number = this.config.requestsPerSec, responseTimeoutSec: number = this.config.checkSessionTimeout, requestTimeout: number = this.config.requestTimeout): Promise<Result> {
+    async result(): Promise<Result> {
+
+        d("start to get result");
 
         if (this.invokeResult === undefined) {
             await this.broadcastRequest;
 
             const path = this.targetKey + "/result";
 
-            let pr = this.checkResultPeriodically(path, requestsPerSec, responseTimeoutSec, requestTimeout)
-                .catch(this.onError);
+            let pr = this.checkResultPeriodically(path, this.config.requestsPerSec,
+                this.config.checkSessionTimeout, this.config.requestTimeout)
+                .finally(() => {
+                    detailedDebug("invocation completed");
+                    d("result received");
+                });
+
+            pr.catch(this.onError);
 
             this.invokeResult = pr;
 
@@ -118,15 +131,7 @@ export class ResultAwait {
 
         const statusResponse: Option<any> = (await this.tm.abciQuery(path));
 
-        return statusResponse.map((res: any) => {
-            if (res.Error !== undefined) {
-                throw error(res.Error.message)
-            } else if (res.Empty !== undefined) {
-                return empty;
-            } else {
-                return value(res.Computed.value);
-            }
-        });
+        return statusResponse.map(parseObject);
     }
 
     /**
@@ -143,6 +148,8 @@ export class ResultAwait {
 
         for(var _i = 0; _i < requestsPerSec * requestTimeout; _i++) {
 
+            detailedDebug("check result. Attempt number: " + _i);
+
             // checking result was canceled outside
             if (this.canceled) {
                 throw error(`The request was canceled. Cause: ${this.canceledReason}`)
@@ -152,19 +159,23 @@ export class ResultAwait {
             let checkSession = _i > responseTimeoutSec * requestsPerSec;
 
             if (checkSession) {
+                detailedDebug("get session info");
                 sessionInfo = await this.getSessionInfo();
             }
 
             let optionResult = await this.checkResult(path);
+            detailedDebug("result received");
 
             // if result exists, return it
             if (optionResult.nonEmpty) {
                 return optionResult.get
             }
 
+            detailedDebug("result is empty");
+
             // here the session is checked after the result is checked, as it may happen that the result is given,
             // and after that the session was immediately closed
-            if (sessionInfo.exists((si) => si.status.Active === undefined)) {
+            if (sessionInfo.exists(isActive)) {
                 throw error(`Session is ${JSON.stringify(sessionInfo.get.status)}`)
             }
 

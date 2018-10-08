@@ -41,13 +41,13 @@ object VmError {
     override val cause: Option[Throwable] = None
   ) extends VmErrorProxy(message, cause) with ApplyError with InvokeError with GetVmStateError
 
-  /** Errors related to external WASM code. */
+  /** Errors related to external Wasm code. */
   sealed trait WasmError extends VmError
 
   /**
-   * Indicates error when VM starts. It might be a problem with translation WASM
+   * Indicates error when VM starts. It might be a problem with translation Wasm
    * code to 'bytecode' or module instantiation. Module initialization is creation of
-   * instance class that corresponds to WASM module.
+   * instance class that corresponds to Wasm module.
    */
   case class InitializationError(
     override val message: String,
@@ -55,13 +55,13 @@ object VmError {
   ) extends VmErrorProxy(message, cause) with WasmError with ApplyError
 
   /**
-   * Indicates that some of the client input values are invalid. For example number
-   * of types of argument is not correct or specified fn isn't exists.
+   * Indicates that some of the client input values are invalid. For example, count
+   * of argument types isn't correct or specified function isn't exist.
    */
   sealed trait InvocationError extends WasmError with InvokeError
 
   /**
-   * Indicates that arguments for fn invocation is not valid.
+   * Indicates that arguments for function invocation isn't valid.
    */
   case class InvalidArgError(
     override val message: String,
@@ -69,7 +69,7 @@ object VmError {
   ) extends VmErrorProxy(message, cause) with InvocationError
 
   /**
-   * Indicates that fn with specified name wasn't found in a instance of VM.
+   * Indicates that function with specified name wasn't found in the instance of VM.
    */
   case class NoSuchFnError(
     override val message: String,
@@ -77,7 +77,20 @@ object VmError {
   ) extends VmErrorProxy(message, cause) with InvocationError with ApplyError
 
   /**
-   * Indicates that WASM code execution was failed, some WASM instruction was
+   * Indicates all possible errors with Wasm memory:
+   *  - errors when accessing absent memory;
+   *  - allocation function returns offset that doesn't correspond to the ByteBuffer
+   *    limits;
+   *  - deallocation function fails on the offset that previously has been returned
+   *    by the allocation function.
+   */
+  case class VmMemoryError(
+    override val message: String,
+    override val cause: Option[Throwable] = None
+  ) extends VmErrorProxy(message, cause) with WasmError with ApplyError with InvokeError
+
+  /**
+   * Indicates that Wasm code execution was failed, some Wasm instruction was
    * felled into the trap.
    */
   case class TrapError(

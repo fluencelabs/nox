@@ -51,9 +51,13 @@ object Crypto extends slogging.LazyLogging {
       keySpec <- Try(new EdDSAPublicKeySpec(publicKeyBytes, edParams))
 
       key = new EdDSAPublicKey(keySpec)
+      // TODO: both `dataBytes` and `sha256(dataBytes)` currently supported as valid input to signature
+      // remove engine2 check after fix statemachine tests and Python client
       engine = new EdDSAEngine()
+      engine2 = new EdDSAEngine()
       _ <- Try(engine.initVerify(key))
-    } yield engine.verifyOneShot(hashed, signatureBytes)
+      _ <- Try(engine2.initVerify(key))
+    } yield engine.verifyOneShot(hashed, signatureBytes) || engine2.verifyOneShot(dataBytes, signatureBytes)
     verificationPassed.failed.foreach { e =>
       logger.error("An error on verifying signature: " + e.getMessage)
     }

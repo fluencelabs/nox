@@ -39,9 +39,15 @@ object FunctionCallDescription {
    */
   val CloseSession = FunctionCallDescription(None, "@closeSession", Nil)
 
-  private val FunctionWithModuleAndArgListPattern: Regex = "(\\w+)\\.(\\w+)\\(([\\w,]*)\\)".r
-  private val FunctionWithoutModuleAndArgListPattern: Regex = "([\\w\\@]\\w*)\\(([\\w,]*)\\)".r
-  private val NonEmptyArgListPattern: Regex = "\\w+(,\\w+)*".r
+  // ^ start of the line, needed to capture whole string, not just substring
+  // (\w+(?=\.))* optional module name, must be followed by dot. dot isn't captured. ?= is called lookahead.
+  // (@?\w+) function name, optionally prefixed by @
+  // \((.*?)\) anything inside parentheses, will be parsed later by argRx
+  // $ end of the line, needed to capture whole string, not just substring
+  private val payloadPattern = """^(\w+(?=\.))*(@?\w+)\((.*?)\)$""".r
+
+  // anything but the quotes inside quotes OR any number with dots
+  private val argsPattern = """("[^"]*"|[\d.]+)""".r
 
   /**
    * Parses text payload in `[moduleName].functionName(arg1, ..., argN)` format to a typed function call description.
@@ -51,18 +57,19 @@ object FunctionCallDescription {
   def parse[F[_]](payload: String)(implicit F: Monad[F]): EitherT[F, StateMachineError, FunctionCallDescription] =
     EitherT.fromEither(for {
       parsedPayload <- payload match {
-        case FunctionWithModuleAndArgListPattern(module, functionName, uncheckedArgList) =>
-          Either.right((Some(module), functionName, uncheckedArgList))
-        case FunctionWithoutModuleAndArgListPattern(functionName, uncheckedArgList) =>
-          Either.right((None, functionName, uncheckedArgList))
+        case payloadPattern(m, f, args) => Either.right((Option(m), f, args))
         case _ => Either.left(wrongPayloadFormatError(payload))
       }
       (module, functionName, unparsedArgList) = parsedPayload
+      parsedArgList <- {
+        if (unparsedArgList.isEmpty) Either.right(List.empty)
+        else {
+          argsPattern.findAllMatchIn(unparsedArgList).toList.map(_.group(1)) match {
+            case Nil => Either.left(wrongPayloadArgumentListFormatError(unparsedArgList))
+            case l => Either.right(l)
+          }
+        }
 
-      parsedArgList <- unparsedArgList match {
-        case NonEmptyArgListPattern(_) => Either.right(unparsedArgList.split(",").toList)
-        case "" => Either.right(Nil)
-        case _ => Either.left(wrongPayloadArgumentListFormatError(unparsedArgList))
       }
     } yield FunctionCallDescription(module, functionName, parsedArgList))
 
