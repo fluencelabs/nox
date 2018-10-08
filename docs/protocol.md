@@ -342,18 +342,18 @@ The client verifies returned results in a few steps.
 
 1) The client checks that every manifest is stored in Swarm properly. This means that receipt is issued for the correct content hash, the Swarm node signature does sign exactly this hash and that the Swarm node has the security deposit big enough.
 
-  ```go
-  var swarmNodeId = results.ManifestReceipts[p].Insurance.NodeId
+    ```go
+    var swarmNodeId = results.ManifestReceipts[p].Insurance.NodeId
 
-  // verification
-  results.ManifestReceipts[p].ContentHash == SwarmHash(results.Manifest[p])
-  SwarmVerify(
-    swarmContract[swarmNodeId].PublicKey,             // public key
-    results.ManifestReceipts[p].Insurance.Signature,  // signature
-    results.ManifestReceipts[p].ContentHash           // data
-  )
-  swarmContract[swarmNodeId].Collateral >= minSwarmDeposit
-  ```
+    // verification
+    results.ManifestReceipts[p].ContentHash == SwarmHash(results.Manifest[p])
+    SwarmVerify(
+      swarmContract[swarmNodeId].PublicKey,             // public key
+      results.ManifestReceipts[p].Insurance.Signature,  // signature
+      results.ManifestReceipts[p].ContentHash           // data
+    )
+    swarmContract[swarmNodeId].Collateral >= minSwarmDeposit
+    ```
 
 2) The client checks that manifests are linked correctly in Swarm.
 
