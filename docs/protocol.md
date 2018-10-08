@@ -10,22 +10,22 @@ type MerkleProof struct {
 }
 
 // computes a cryptographic hash of the input data
-func Hash(data []byte) []byte {}
+func Hash(data []byte) []byte {/* ... */}
 
 // produces a digital signature from the input data using the secret key
-func Sign(secretKey []byte, data []byte) []byte {}
+func Sign(secretKey []byte, data []byte) []byte {/* ... */}
 
 // verifies that the digital signature of the input data conforms to the public key
-func Verify(publicKey []byte, signature []byte, data []byte) boolean {}
+func Verify(publicKey []byte, signature []byte, data []byte) boolean {/* ... */}
 
 // computes a Merkle root using supplied chunks as leaf data blocks in the Merkle tree
-func MerkleRoot(allChunks [][]byte) []byte { }
+func MerkleRoot(allChunks [][]byte) []byte {/* ... */}
 
 // generates a Merkle proof for the chunk selected from the chunks list
-func CreateMerkleProof(selectedChunk []byte, allChunks [][]byte) MerkleProof {}
+func CreateMerkleProof(selectedChunk []byte, allChunks [][]byte) MerkleProof {/* ... */}
 
 // verifies that the Merkle proof of the selected chunk conforms to the Merkle root
-func VerifyMerkleProofs(selectedChunk []byte, proof MerkleProof, root []byte) boolean {}
+func VerifyMerkleProofs(selectedChunk []byte, proof MerkleProof, root []byte) boolean {/* ... */}
 ```
 
 ## External systems
