@@ -55,21 +55,21 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
   }
 
   val dir = new File("../bootstrap")
-  def run(cmd: String): Unit = Process(cmd, dir).!(ProcessLogger(_ => ()))
+  def run(cmd: String): Unit = Process(cmd, dir).! //(ProcessLogger(_ => ()))
 
   override protected def beforeAll(): Unit = {
-    logger.info("bootstrapping npm")
+    println("bootstrapping npm")
     run("npm install")
 
-    logger.info("starting Ganache")
+    println("starting Ganache")
     run("npm run ganache")
 
-    logger.info("deploying Deployer.sol Ganache")
+    println("deploying Deployer.sol Ganache")
     run("npm run migrate")
   }
 
   override protected def afterAll(): Unit = {
-    logger.info("killing ganache")
+    println("killing ganache")
     run("pkill -f ganache")
   }
 
