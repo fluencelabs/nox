@@ -38,14 +38,14 @@ object EthClientApp extends IOApp {
           _ = ethClient
             .subscribeToLogsTopic[IO](
               "0xf93568cdc75b8849f4999bd3c8c6f931a14b258f",
-              EventEncoder.buildEventSignature("NewSolver(bytes32)")
+              EventEncoder.encode(Deployer.NEWSOLVER_EVENT)
             )
             .map(log ⇒ println(s"Log message: $log"))
             .interruptWhen(unsubscribe)
-            .drain
-            .compile
-            .drain
-            .unsafeRunAsyncAndForget()
+            .drain // drop the results, so that demand on events is always provided
+            .compile // compile fs2 stream into a runnable (in terms of effect IO) representation
+            .drain // get IO[Unit] from the compiled stream, dropping all the output
+            .unsafeRunAsyncAndForget() // Run concurrently -- don't do it on production
 
           _ ← IO(println(s"Subscribed"))
 
