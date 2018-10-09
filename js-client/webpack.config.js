@@ -5,12 +5,12 @@ const CleanWebpackPlugin = require('clean-webpack-plugin');
 
 module.exports = {
     entry: {
-        app: ['./src/main.ts', './src/examples/CustomCommands.ts',
+        app: ['./src/fluence.ts', './src/examples/CustomCommands.ts',
             './src/examples/IncrementAndMultiply.ts', './src/examples/DbOnPointers.ts']
     },
     devtool: 'inline-source-map',
     devServer: {
-        contentBase: './dist',
+        contentBase: './bundle',
         hot: true
     },
     mode: 'development',
@@ -27,13 +27,13 @@ module.exports = {
     },
     output: {
         filename: 'bundle.js',
-        path: path.resolve(__dirname, 'dist')
+        path: path.resolve(__dirname, 'bundle')
     },
     node: {
         fs: 'empty'
     },
     plugins: [
-        new CleanWebpackPlugin(['dist']),
+        new CleanWebpackPlugin(['bundle']),
         new HtmlWebpackPlugin(),
         new webpack.HotModuleReplacementPlugin()
     ]

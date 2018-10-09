@@ -1,12 +1,14 @@
 {
   "name": "js-fluence-client",
   "namespace": "fluence",
-  "version": "0.0.1",
+  "version": "0.0.10",
   "description": "Fluence Javascript Client allows you to interact with a Fluence real-time cluster for decentralized computations.",
-  "main": "./dist/main.js",
+  "main": "./dist/fluence.js",
+  "typings": "./dist/fluence.d.ts",
   "scripts": {
     "test": "mocha -r ts-node/register src/**/*.spec.ts",
     "build": "webpack",
+    "package:build": "tsc",
     "start:dev": "webpack-dev-server"
   },
   "repository": {

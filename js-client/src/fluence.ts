@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-/**
- * Declaration file for tendermint module.
- */
-declare namespace tendermint {
-    class RpcClient {
-        constructor(...args: any[]);
+import {TendermintClient} from "./TendermintClient";
+import {Engine} from "./Engine";
+import {Signer} from "./Signer";
+import {Client} from "./Client";
+import {Session} from "./Session";
+import {SessionConfig} from "./SessionConfig";
+import * as utils from "./utils";
+import * as results from "./Result"
 
-        abciQuery(args: any): any;
-
-        broadcastTxSync(args: any): any;
-        broadcastTxAsync(args: any): any;
-
-        genesis(): any;
-
-        block(args: any): any;
-    }
+export default {
+    utils,
+    SessionConfig,
+    Session,
+    Client,
+    Signer,
+    Engine,
+    TendermintClient,
+    results
 }
-
-export = tendermint;
