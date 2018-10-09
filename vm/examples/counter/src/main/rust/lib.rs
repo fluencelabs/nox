@@ -27,12 +27,15 @@ pub unsafe fn get() -> usize {
 }
 
 
+/// Used from the host environment for memory allocation for passed parameters.
 #[no_mangle]
 pub unsafe fn allocate(size: usize) -> NonNull<u8> {
     alloc(size)
         .expect(format!("[Error] Allocation of {} bytes failed.", size).as_str())
 }
 
+/// Used from the host environment for memory deallocation after reading results
+/// of function from Wasm memory.
 #[no_mangle]
 pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) -> () {
     dealloc(ptr, size)

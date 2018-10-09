@@ -11,14 +11,13 @@ pub const STR_LEN_BYTES: usize = 4;
 /// Result for all possible Error types.
 pub type GenResult<T> = Result<T, Box<Error>>;
 
-/// Allocates memory area of specified size and returns address of the first
-/// byte in the allocated memory area.
+/// Allocates memory area of specified size and returns its address.
 pub unsafe fn alloc(size: usize) -> GenResult<NonNull<u8>> {
     let layout: Layout = Layout::from_size_align(size, mem::align_of::<u8>())?;
     Global.alloc(layout).map_err(Into::into)
 }
 
-/// Deallocates memory area with first byte address = `ptr` and size = `size`.
+/// Deallocates memory area for current memory pointer and size.
 pub unsafe fn dealloc(ptr: NonNull<u8>, size: usize) -> GenResult<()> {
     let layout = Layout::from_size_align(size, mem::align_of::<u8>())?;
     Ok(Global.dealloc(ptr, layout))
