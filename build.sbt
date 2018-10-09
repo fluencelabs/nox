@@ -187,7 +187,9 @@ lazy val node = project
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      catsEffect
+      catsEffect,
+      sttp,
+      sttpCatsBackend
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
