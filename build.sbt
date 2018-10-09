@@ -57,27 +57,6 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .dependsOn(vm)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `vm-sqldb` = (project in file("vm/examples/sqldb"))
-  .settings(
-    commons,
-    assemblyJarName in assembly := "sqldb.jar",
-    // override `run` task
-    run := {
-      val log = streams.value.log
-      log.info("Compiling sqldb.rs to sqldb.wasm and running with Fluence.")
-
-      val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
-      val projectRoot = file("").getAbsolutePath
-      val cmd = s"sh vm/examples/run_example.sh sqldb $projectRoot $scalaVer"
-
-      log.info(s"Running $cmd")
-
-      assert(cmd ! log == 0, "Compile Rust to Wasm failed.")
-    }
-  )
-  .dependsOn(vm)
-  .enablePlugins(AutomateHeaderPlugin)
-
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
     commons,
