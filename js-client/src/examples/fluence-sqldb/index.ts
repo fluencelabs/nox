@@ -42,11 +42,26 @@ class DbClient {
 
 let client = new DbClient("localhost", 46157);
 
-let resultField = window.document.getElementById("result");
-let inputField = window.document.getElementById("query");
+let resultField: HTMLTextAreaElement = window.document.getElementById("result") as HTMLTextAreaElement;
+let inputField: HTMLInputElement = window.document.getElementById("query") as HTMLInputElement;
+
+let btn = document.getElementById("submitQuery");
+
+if (btn !== null) {
+    btn.addEventListener("click", () => {
+        if (inputField !== null && inputField.value !== null) {
+            submitQuery(inputField.value)
+        }
+    });
+}
 
 export function submitQuery(query: string) {
     client.submitQuery(query).then((res) => {
-        return res;
+
+        if (isValue(res) && resultField !== null) {
+            let newLine = String.fromCharCode(13, 10);
+            let str = fromHex(res.hex());
+            resultField.value = str.replace('\\n', newLine);
+        }
     })
 }
