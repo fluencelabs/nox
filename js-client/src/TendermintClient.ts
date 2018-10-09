@@ -29,9 +29,13 @@ interface BroadcastTxSyncResponse {
 }
 
 function parseResponse(res: any): BroadcastTxSyncResponse {
-    let bResponse = <BroadcastTxSyncResponse> res;
-    bResponse.data = fromHex(bResponse.data);
-    return bResponse
+     try {
+         let bResponse = <BroadcastTxSyncResponse> res;
+         bResponse.data = fromHex(bResponse.data);
+         return bResponse;
+     } catch (e) {
+         throw new Error(`Cannot parse the response because of an error: ${JSON.stringify(e)}\n Response: ${JSON.stringify(res)}`);
+     }
 }
 
 export class TendermintClient {
