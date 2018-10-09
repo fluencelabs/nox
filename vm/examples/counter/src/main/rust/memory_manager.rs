@@ -1,4 +1,4 @@
-//! Module for for memory management functions
+//! Module for memory management functions
 
 use std::alloc::{Alloc, Global, Layout};
 use std::error::Error;
