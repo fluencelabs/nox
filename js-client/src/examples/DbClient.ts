@@ -123,7 +123,7 @@ export class DbClient {
         }
 
         let lastRowResult: Result = await lastRow;
-        if (isValue(lastRowResult) && parseInt(lastRowResult.hex(), 16) === -1) {
+        if (isValue(lastRowResult) && lastRowResult.asInt() === -1) {
             return [false, listOfRows];
         }
 
@@ -145,7 +145,7 @@ export class DbClient {
         }
         return Promise.all(listOfFields).then((arr) => {
             if (!arr.every((v) => {
-                return isValue(v) && parseInt(v.hex(), 16) !== -1
+                return isValue(v) && v.asInt() !== -1
             })) {
                 return none
             }

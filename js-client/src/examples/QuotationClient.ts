@@ -140,7 +140,7 @@ function singleInt(fields: Result[]): number {
     if (fields.length != 1) throw error("Wrong format. Length of values must be 1 for a single int response.");
     let v = fields[0];
     if (isValue(v)) {
-        return parseInt(v.hex(), 16)
+        return v.asInt()
     } else {
         throw error("Should be non-empty result.")
     }
@@ -177,9 +177,9 @@ export function toQuotation(fields: Result[]): Quotation {
         }
     });
     return {
-        id: parseInt(mapped[0].hex(), 16),
-        symbol: parseInt(mapped[1].hex(), 16),
+        id: mapped[0].asInt(),
+        symbol: mapped[1].asInt(),
         price: parseFloat(mapped[2].hex()),
-        month: parseInt(mapped[3].hex(), 16)
+        month: mapped[3].asInt()
     }
 }
