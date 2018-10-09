@@ -32,13 +32,13 @@ pub const STR_LEN_BYTES: usize = 4;
 // Public functions for work with Llamadb.
 //
 
-/// Execute sql and returns result as string in the memory.
+/// Executes sql and returns the result as string in the memory.
 ///
-/// 1. Takes a pointer and length for a SQL string in memory, makes from them
+/// 1. Takes a pointer and length for a the SQL string in memory, makes from them
 ///    Rust string.
 /// 2. Processes the query for specified SQL string
-/// 3. Returns a pointer to a result as a string in the memory.
-/// 4. Deallocate memory from passed parameter
+/// 3. Returns a pointer to the result as a string in the memory.
+/// 4. Deallocates memory from passed parameter
 #[no_mangle]
 pub unsafe fn do_query(ptr: *mut u8, len: usize) -> usize {
     // deallocation of parameter's memory will automatically appear in the end of the method
@@ -128,10 +128,10 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
 }
 
 /// Writes Rust string into the memory directly as string length and byte array
-/// (big-endian order). Written memory structure is:
+/// (little-endian? order). Written memory structure is:
 ///     | str_length: 4 BYTES | string_payload: str_length BYTES|
 unsafe fn put_to_mem(str: String) -> *mut u8 {
-    // converting string size to bytes in big-endian order
+    // converting string size to bytes in little-endian order
     let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str.len() as u32).to_le());
     let mut result: Vec<u8> = Vec::with_capacity(STR_LEN_BYTES + str.len());
     result.write_all(&len_as_bytes).unwrap();
@@ -147,7 +147,7 @@ unsafe fn put_to_mem(str: String) -> *mut u8 {
     result_ptr
 }
 
-/// Creates a public static reference to initialized LlamsDb instance.
+/// Creates a public static reference to initialized LlamaDb instance.
 lazy_static! {
 
     static ref DATABASE: Mutex<TempDb> = Mutex::new(TempDb::new());

@@ -85,7 +85,7 @@ fn integration_sql_test() {
 // Private helper functions.
 //
 
-/// Execute sql and returns result as String.
+/// Executes sql and returns result as a String.
 fn execute_sql(sql: String) -> String { unsafe {
 
     // converts params
