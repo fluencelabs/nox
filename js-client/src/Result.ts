@@ -17,6 +17,8 @@
 /**
  * Possible results from the real-time cluster.
  */
+import {fromHexToView} from "./utils";
+
 export type Result = Empty | Value
 
 /**
@@ -28,11 +30,26 @@ export class Empty {}
  * The result with value as a string from the real-time cluster.
  */
 export class Value {
+
+    private readonly value: string;
+
+    /**
+     * @param v hex string
+     */
     constructor(v: string) {
         this.value = v
     }
 
-    readonly value: string
+    hex(): string {
+        return this.value;
+    }
+
+    asInt(): number {
+        // todo: validate value
+        // todo: why do we need to specify endian explicitly?
+        return fromHexToView(this.value).getInt32(0, true);
+    }
+
 }
 
 /**

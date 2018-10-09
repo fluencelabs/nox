@@ -15,7 +15,7 @@
  */
 
 package fluence.vm
-import java.nio.ByteBuffer
+import java.nio.{ByteBuffer, ByteOrder}
 
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext

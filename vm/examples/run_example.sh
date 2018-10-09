@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-exampleName=$1
+exampleName=${1/_/} # replace underscores "_" from example name
 projectDir=$2
 scalaVer=$3
 
@@ -28,4 +28,4 @@ sbt "vm-$exampleName"/assembly
 
 printf "$prefix Run example $exampleName.jar\n"
 
-java -jar "$exampleFolder/target/scala-$scalaVer/$exampleName.jar" "$exampleFolder/target/wasm32-unknown-unknown/release/$exampleName.wasm"
+java -jar "$exampleFolder/target/scala-$scalaVer/$exampleName.jar" "$exampleFolder/target/wasm32-unknown-unknown/release/$1.wasm"
