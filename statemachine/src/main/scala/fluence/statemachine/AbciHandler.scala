@@ -147,7 +147,7 @@ class AbciHandler(
  */
 private case class TxResponseData(validatedTx: Option[Transaction], code: Int, info: String) {
   override def toString: String = validatedTx match {
-    case Some(tx) => s"Accepted $tx"
-    case _ => s"Rejected $info"
+    case Some(tx) => s"accepted: $tx"
+    case _ => s"rejected: $info"
   }
 }

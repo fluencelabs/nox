@@ -2,8 +2,8 @@
 # param
 # $1 docker_network_name used also as a directory for test cluster
 
-# remove previous cluster directory
-rm -rf $1
+# remove previous cluster node directories
+rm -rf $1/node*
 
 # generate testnet
 tendermint testnet --o $1 --hostname-prefix $1_node
