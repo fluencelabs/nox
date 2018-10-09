@@ -48,11 +48,11 @@ import scala.util.Try
  *                               that was previously allocated by allocateFunction
  */
 class AsmleWasmVm(
-  functionsIndex: WasmFnIndex,
-  modules: WasmModules,
-  hasher: Hasher[Array[Byte], Array[Byte]],
-  allocateFunctionName: String,
-  deallocateFunctionName: String
+  private val functionsIndex: WasmFnIndex,
+  private val modules: WasmModules,
+  private val hasher: Hasher[Array[Byte], Array[Byte]],
+  private val allocateFunctionName: String,
+  private val deallocateFunctionName: String
 ) extends WasmVm {
 
   // TODO: now it is assumed that allocation/deallocation functions placed together in the first module.
