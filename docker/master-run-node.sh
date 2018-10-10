@@ -13,8 +13,9 @@ mkdir -p $tm_home
 cp -R $5/* $tm_home
 
 # configure genesis and peer discovery
-cat $6 | jq -r .persistent_peers > $tm_home/config/persistent_peers.txt
 cat $6 | jq .genesis > $tm_home/config/genesis.json
+cat $6 | jq -r .persistent_peers > $tm_home/config/persistent_peers.txt
+cat $6 | jq -r ".external_addrs|.[$3]" > $tm_home/config/external_addr.txt
 
 # run Fluence node image with Tendermint and State machine
 docker run -idt -p $4:26657 -v $PWD/statemachine:/statemachine -v $2:/vmcode -v $tm_home:/tendermint --name $1_node$3 --network $1 fluencelabs/statemachine:latest
