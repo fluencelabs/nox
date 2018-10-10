@@ -2,7 +2,6 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import * as fluence from "js-fluence-client";
 import {Result} from "js-fluence-client";
 
-
 class DbClient {
 
     session: fluence.Session;
@@ -20,8 +19,6 @@ class DbClient {
                 if (fluence.isValue(r)) {
                     let strResult = fluence.fromHex(r.hex());
                     console.log(`the result is:\n ${strResult}`);
-                } else {
-                    console.log(`the result is empty`);
                 }
             });
             return res;

@@ -12,8 +12,6 @@
   "exclude": [
     "./node_modules",
     "dist",
-    "src/test",
-    "src/examples/fluence-sqldb/",
     "bundle"
   ]
 }
