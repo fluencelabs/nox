@@ -7,7 +7,6 @@
     "strictFunctionTypes": true,
     "target": "es2015",
     "moduleResolution": "node",
-    "module": "commonjs",
     "declaration": true,
     "baseUrl": "." // This must be specified if "paths" is.
   },

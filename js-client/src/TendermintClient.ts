@@ -17,7 +17,7 @@
 import {none, Option, Some} from "ts-option";
 import {fromHex} from "./utils";
 import  * as debug from "debug";
-import {RpcClient} from "tendermint";
+import {RpcClient} from "../tendermint";
 
 const d = debug("tendermintClient");
 
