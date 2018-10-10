@@ -56,8 +56,8 @@ pub unsafe fn do_query(ptr: *mut u8, len: usize) -> usize {
 // Public functions for memory management
 //
 
-/// Allocates memory area of specified size and returns address of the first
-/// byte in the allocated memory area.
+/// Allocates memory area of specified size and returns its address.
+/// Used from the host environment for memory allocation for passed parameters.
 #[no_mangle]
 pub unsafe fn allocate(size: usize) -> NonNull<u8> {
     alloc(size)
@@ -69,7 +69,9 @@ unsafe fn alloc(size: usize) -> GenResult<NonNull<u8>> {
     Global.alloc(layout).map_err(Into::into)
 }
 
-/// Deallocates memory area with first byte address = `ptr` and size = `size`.
+/// Deallocates memory area for current memory pointer and size.
+/// Used from the host environment for memory deallocation after reading results
+/// of function from Wasm memory.
 #[no_mangle]
 pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) -> () {
     dealloc(ptr, size)
