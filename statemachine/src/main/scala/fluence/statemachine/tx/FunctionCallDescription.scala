@@ -44,7 +44,7 @@ object FunctionCallDescription {
   // (@?\w+) function name, optionally prefixed by @
   // \((.*?)\) anything inside parentheses, will be parsed later by argRx
   // $ end of the line, needed to capture whole string, not just substring
-  private val payloadPattern = """^((\w+)\.)?(@?\w+)\((.*?)\)$""".r
+  private val payloadPattern = """^(\w+(?=\.))*(@?\w+)\((.*?)\)$""".r
 
   // anything but the quotes inside quotes OR any number with dots
   private val argsPattern = """("[^"]*"|[\d.]+)""".r
@@ -57,7 +57,7 @@ object FunctionCallDescription {
   def parse[F[_]](payload: String)(implicit F: Monad[F]): EitherT[F, StateMachineError, FunctionCallDescription] =
     EitherT.fromEither(for {
       parsedPayload <- payload match {
-        case payloadPattern(_, m, f, args) => Either.right((Option(m), f, args))
+        case payloadPattern(m, f, args) => Either.right((Option(m), f, args))
         case _ => Either.left(wrongPayloadFormatError(payload))
       }
       (module, functionName, unparsedArgList) = parsedPayload
