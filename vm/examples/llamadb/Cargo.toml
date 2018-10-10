@@ -1,14 +1,15 @@
 [package]
-name = "sqldb"
+name = "llama_db"
 version = "0.1.0"
 authors = ["C.Solovev <constantine@fluence.one>"]
 
 [lib]
-name = "sqldb"
+name = "llama_db"
+test = true
 path = "src/main/rust/lib.rs"
-target = "wasm32-unknown-unknown"
 crate-type = ["cdylib"]
 
 [dependencies]
 
 lazy_static = "1.1.0"
+llamadb = { git="https://github.com/fluencelabs/llamadb.git", branch = "master" }

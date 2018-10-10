@@ -24,3 +24,14 @@ matrix:
       cache:
         directories:
             - bootstrap/node_modules
+
+    -  language: node_js
+       node_js:
+         - "5"
+         - "6"
+         - "7"
+         - "8"
+       before_install: cd js-client
+       before_script: npm install
+       script: npm test
+

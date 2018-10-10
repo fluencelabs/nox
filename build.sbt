@@ -57,18 +57,18 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .dependsOn(vm)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `vm-sqldb` = (project in file("vm/examples/sqldb"))
+lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
     commons,
-    assemblyJarName in assembly := "sqldb.jar",
+    assemblyJarName in assembly := "llamadb.jar",
     // override `run` task
     run := {
       val log = streams.value.log
-      log.info("Compiling sqldb.rs to sqldb.wasm and running with Fluence.")
+      log.info("Compiling llamadb.rs to llama_db.wasm and running with Fluence.")
 
       val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
       val projectRoot = file("").getAbsolutePath
-      val cmd = s"sh vm/examples/run_example.sh sqldb $projectRoot $scalaVer"
+      val cmd = s"sh vm/examples/run_example.sh llama_db $projectRoot $scalaVer"
 
       log.info(s"Running $cmd")
 
@@ -185,8 +185,11 @@ lazy val ethclient = (project in file("ethclient"))
 lazy val node = project
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
-      catsEffect
+      catsEffect,
+      sttp,
+      sttpCatsBackend
     )
   )
   .enablePlugins(AutomateHeaderPlugin)

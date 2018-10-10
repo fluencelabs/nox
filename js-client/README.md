@@ -17,10 +17,8 @@ It is written on TypeScript to reach more clean, understandable and typesafe cod
 
 ### Installation
 
-`npm` module is not available yet. You can download sources from github and install module from source like:
-
 ```
-npm install <folder>
+npm install js-fluence-client
 ``` 
 
 ### Before started 
