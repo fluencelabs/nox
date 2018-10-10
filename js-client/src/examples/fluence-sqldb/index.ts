@@ -1,5 +1,6 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import * as fluence from "js-fluence-client";
+import {Result} from "js-fluence-client";
 
 
 class DbClient {
@@ -10,16 +11,21 @@ class DbClient {
         this.session = fluence.createDefaultSession(host, port)
     }
 
-    async submitQuery(query: string): Promise<fluence.Empty | fluence.Value> {
-        let command = `do_query("${query}")`;
-        let res = await this.session.invokeRaw(command).result();
-        if (fluence.isValue(res)) {
-            let strResult = fluence.fromHex(res.hex());
-            console.log(`the result is:\n ${strResult}`);
-        } else {
-            console.log(`the result is empty`);
-        }
-        return res;
+    async submitQuery(queries: string[]): Promise<Promise<Result>[]> {
+        return queries.map((q) => {
+            console.log("query: " + q);
+            let command = `do_query("${q}")`;
+            let res = this.session.invokeRaw(command).result();
+            res.then((r: Result) => {
+                if (fluence.isValue(r)) {
+                    let strResult = fluence.fromHex(r.hex());
+                    console.log(`the result is:\n ${strResult}`);
+                } else {
+                    console.log(`the result is empty`);
+                }
+            });
+            return res;
+        });
     }
 }
 
@@ -32,19 +38,28 @@ let btn = document.getElementById("submitQuery");
 
 if (btn !== null) {
     btn.addEventListener("click", () => {
-        if (inputField !== null && inputField.value !== null) {
-            submitQuery(inputField.value)
+        if (inputField.value !== null) {
+            submitQueries(inputField.value)
         }
     });
 }
 
-export function submitQuery(query: string) {
-    client.submitQuery(query).then((res) => {
+let newLine = String.fromCharCode(13, 10);
+let sep = "**************************";
 
-        if (fluence.isValue(res) && resultField !== null) {
-            let newLine = String.fromCharCode(13, 10);
-            let str = fluence.fromHex(res.hex());
-            resultField.value = str.replace('\\n', newLine);
-        }
+export function submitQueries(queries: string) {
+    resultField.value = "";
+    client.submitQuery(queries.split('\n')).then((results) => {
+
+        results.forEach((pr) => {
+            pr.then((r) => {
+                if (fluence.isValue(r)) {
+                    let strRes = r.asString().replace('\\n', newLine);
+                    resultField.value += sep + newLine + strRes + newLine + sep;
+                }
+            });
+
+        });
+
     })
 }
