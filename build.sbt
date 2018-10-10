@@ -185,8 +185,11 @@ lazy val ethclient = (project in file("ethclient"))
 lazy val node = project
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
-      catsEffect
+      catsEffect,
+      sttp,
+      sttpCatsBackend
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
