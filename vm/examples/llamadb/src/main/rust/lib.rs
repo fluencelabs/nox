@@ -45,7 +45,7 @@ pub unsafe fn do_query(ptr: *mut u8, len: usize) -> usize {
     let sql_str = deref_str(ptr, len);
     let db_response = match run_query(&sql_str) {
         Ok(response) => { response }
-        Err(err_msg) => { "[Error] ".to_string() + err_msg.description() }
+        Err(err_msg) => { format!("[Error] {}", err_msg) }
     };
 
     // return pointer to result in memory
@@ -94,7 +94,7 @@ unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
 
 /// Acquires lock, does query, releases lock, returns query result
 fn run_query(sql_query: &str) -> GenResult<String> {
-    let statement = llamadb::sqlsyntax::parse_statement(sql_query);
+    let statement = llamadb::sqlsyntax::parse_statement(sql_query)?;
     let mut db = DATABASE.lock()?;
     let result = db.execute_statement(statement)
         .map(statement_to_string)
