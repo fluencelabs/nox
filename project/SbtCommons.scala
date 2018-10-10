@@ -24,12 +24,17 @@ object SbtCommons {
     scalacOptions ++= Seq("-Ypartial-unification")
   )
 
+  val kindProjector = Seq(
+    resolvers += Resolver.sonatypeRepo("releases"),
+    addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8")
+  )
+
   /* Common deps */
 
-  val slogging = "biz.enef"        %% "slogging"              % "0.6.1"
-  val cats = "org.typelevel"       %% "cats-core"             % "1.4.0"
-  val catsEffect = "org.typelevel" %% "cats-effect"           % "1.0.0"
-  val fs2 = "co.fs2"               %% "fs2-core"              % "1.0.0"
+  val slogging = "biz.enef"        %% "slogging"             % "0.6.1"
+  val cats = "org.typelevel"       %% "cats-core"            % "1.4.0"
+  val catsEffect = "org.typelevel" %% "cats-effect"          % "1.0.0"
+  val fs2 = "co.fs2"               %% "fs2-core"             % "1.0.0"
   val fs2rx = "co.fs2"             %% "fs2-reactive-streams" % "1.0.0"
   // functional wrapper around 'lightbend/config'
   val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.9.1"
@@ -37,7 +42,7 @@ object SbtCommons {
   val cryptoCipher = "one.fluence"         %% "crypto-cipher"   % "0.0.2"
   val cryptoKeyStore = "one.fluence"       %% "crypto-keystore" % "0.0.2"
 
-  val sttpVersion = "1.3.5"
+  val sttpVersion = "1.3.6"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
   val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % sttpVersion
   val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
