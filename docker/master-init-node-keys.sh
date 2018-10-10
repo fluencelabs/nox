@@ -1,6 +1,6 @@
 #!/bin/bash
 # param
-# $1 keys_location
+# $1 long_term_key_location
 
 # remove previous cluster directory
 rm -rf $1/config
