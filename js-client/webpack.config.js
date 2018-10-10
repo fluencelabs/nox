@@ -2,6 +2,7 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
 const CleanWebpackPlugin = require('clean-webpack-plugin');
+const { CheckerPlugin } = require('awesome-typescript-loader');
 
 module.exports = {
     entry: {
@@ -17,7 +18,8 @@ module.exports = {
     module: {
         rules: [
             {
-                use: 'ts-loader',
+                test: /\.tsx?$/,
+                loader: 'awesome-typescript-loader',
                 exclude: /node_modules/
             }
         ]
@@ -34,6 +36,7 @@ module.exports = {
     },
     plugins: [
         new CleanWebpackPlugin(['bundle']),
+        new CheckerPlugin(),
         new HtmlWebpackPlugin(),
         new webpack.HotModuleReplacementPlugin()
     ]

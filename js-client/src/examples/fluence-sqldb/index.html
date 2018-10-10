@@ -7,31 +7,43 @@
 </head>
 <body>
 <div class="container">
-    <div>
-        <br>
-        <label for="query">Type queries:</label>
-        <textarea class="form-control" style="height: 100%" rows="10" id="query"></textarea>
-        <input type="button" value="Submit query" id="submitQuery"/>
-    </div>
-    <div>
-        <br>
-        <label for="result">Result:</label>
-        <textarea id="result" class="form-control" style="height: 100%" rows="14" readonly></textarea>
-    </div>
-    <div class="mt-4">
-        <label for="tips">Tips:</label>
-        <ul class="list-group-item-info" id="tips">
-            <li>create table USERS(id int, name varchar(128), age int)</li>
-            <li>insert into USERS values(1, 'Sara', 23)</li>
-            <li>insert into USERS values(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)</li>
-            <li>select * from USERS where name = 'unknown'</li>
-            <li>select id, name from USERS</li>
-            <li>explain select id, name from USERS</li>
-            <li>create table ROLES(user_id int, role varchar(128))</li>
-            <li>insert into ROLES values(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')</li>
-            <li>select u.name as Name, r.role as Role from USERS u join ROLES r on u.id = r.user_id where r.role = 'Writer'</li>
-            <li>select salary from USERS</li>
-        </ul>
+    <div class="row">
+        <div class="col-sm-4">
+            <div>
+                <br>
+                <label for="status">Status:</label>
+                <textarea class="form-control" style="height: 100%; font-size: 14px;" rows="14" id="status" readonly></textarea>
+                <input type="button" class="btn btn-primary m-2" value="Get status" id="getStatus"/>
+            </div>
+        </div>
+        <div class="col-sm-8">
+            <div class="row">
+                <br>
+                <label for="query">Type queries:</label>
+                <textarea class="form-control" style="height: 100%" rows="10" id="query"></textarea>
+                <input type="button" value="Submit query" class="btn btn-primary m-2" id="submitQuery"/>
+            </div>
+            <div class="row">
+                <br>
+                <label for="result">Result:</label>
+                <textarea id="result" class="form-control" style="height: 100%" rows="14" readonly></textarea>
+            </div>
+            <div class="mt-4">
+                <label for="tips">Tips:</label>
+                <ul class="list-group-item-info" id="tips">
+                    <li>create table USERS(id int, name varchar(128), age int)</li>
+                    <li>insert into USERS values(1, 'Sara', 23)</li>
+                    <li>insert into USERS values(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)</li>
+                    <li>select * from USERS where name = 'unknown'</li>
+                    <li>select id, name from USERS</li>
+                    <li>explain select id, name from USERS</li>
+                    <li>create table ROLES(user_id int, role varchar(128))</li>
+                    <li>insert into ROLES values(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')</li>
+                    <li>select u.name as Name, r.role as Role from USERS u join ROLES r on u.id = r.user_id where r.role = 'Writer'</li>
+                    <li>select salary from USERS</li>
+                </ul>
+            </div>
+        </div>
     </div>
 </div>
 </body>

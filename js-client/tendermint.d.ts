@@ -22,6 +22,12 @@ declare namespace tendermint {
         constructor(...args: any[]);
 
         abciQuery(args: any): any;
+        status(): any;
+        netInfo(): any;
+        validators(): any;
+        dumpConsensusState(): any
+
+        blockchain(args: any): any
 
         broadcastTxSync(args: any): any;
         broadcastTxAsync(args: any): any;
