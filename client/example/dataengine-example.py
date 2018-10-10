@@ -62,7 +62,7 @@ genesis = tm.get_genesis()
 height = tm.get_max_height()
 
 # 1st session: correct, but not explicitly closed
-session1_id = "157A0E"#id_generator()
+session1_id = id_generator()
 demo_queries(tm, genesis, False, False, session1_id)
 
 # 2nd session: failed during processing
