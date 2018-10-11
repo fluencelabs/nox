@@ -21,6 +21,7 @@ cat $5 | jq -r ".external_addrs|.[$3]" > $tm_home/config/external_addr.txt
 node_name=$1_node$3
 
 # run Fluence node image with Tendermint and State machine
+# default docker network (which is 'bridge') is used
 docker run -idt \
     -p $6:26656 -p $7:26657 \
     -v $PWD/statemachine:/statemachine -v $2:/vmcode -v $tm_home:/tendermint \
