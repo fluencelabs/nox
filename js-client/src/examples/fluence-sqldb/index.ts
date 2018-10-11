@@ -18,21 +18,34 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import * as fluence from "js-fluence-client";
 import {Result} from "js-fluence-client";
 
+/**
+ * The address of one node of a real-time cluster.
+ */
 interface Addr {
     host: string,
     port: number
 }
 
+/**
+ * A status info of one node of a real-time cluster.
+ */
+interface Status {
+    addr: string,
+    block_hash: string,
+    app_hash: string,
+    block_height: number
+}
+
 class DbClient {
 
-    sessions: fluence.Session[];
-    clients: fluence.TendermintClient[];
-    size: number;
-    counter: number;
+    private readonly sessions: fluence.Session[];
+    private readonly clients: fluence.TendermintClient[];
+    private readonly size: number;
+    private counter: number;
 
-    nodeNumber(): number {
-        this.counter += 1;
-        return this.counter % this.size;
+    private nodeNumber(): number {
+        this.counter = (this.counter + 1) % this.size;
+        return this.counter;
     }
 
     constructor(addrs: Addr[]) {
@@ -48,11 +61,16 @@ class DbClient {
         });
     }
 
+    /**
+     * Submits queries to the real-time cluster and waits for a result.
+     * @param queries list of queries to invoke
+     */
     async submitQuery(queries: string[]): Promise<Promise<Result>[]> {
+        let session = this.sessions[this.nodeNumber()];
         return queries.map((q) => {
             console.log("query: " + q);
             let command = `do_query("${q}")`;
-            let res = this.sessions[this.nodeNumber()].invokeRaw(command).result();
+            let res = session.invokeRaw(command).result();
             res.then((r: Result) => {
                 if (fluence.isValue(r)) {
                     let strResult = fluence.fromHex(r.hex());
@@ -63,12 +81,20 @@ class DbClient {
         });
     }
 
-    async status(): Promise<any> {
-        return this.clients[this.nodeNumber()].client.status();
+    /**
+     * Gets status of all nodes.
+     */
+    async status(): Promise<any[]> {
+        return Promise.all(this.clients.map((cl) => {
+            return cl.client.status();
+        }));
     }
 }
 
 let btn = document.getElementById("submitQuery") as HTMLButtonElement;
+let resultField: HTMLTextAreaElement = window.document.getElementById("result") as HTMLTextAreaElement;
+let inputField: HTMLInputElement = window.document.getElementById("query") as HTMLInputElement;
+let statusField: HTMLTextAreaElement = window.document.getElementById("status") as HTMLTextAreaElement;
 
 btn.addEventListener("click", () => {
     if (inputField.value.length !== 0) {
@@ -78,17 +104,47 @@ btn.addEventListener("click", () => {
 
 });
 
-let statusBtn = document.getElementById("getStatus") as HTMLButtonElement;
+function genStatus(status: Status) {
+    return `<div class="m-2 rounded border list-group-item-info p-2">
+                <label class="text-dark ml-2 mb-0">${status.addr}</label>
+                <ul class="list-unstyled mb-0 ml-4" style="font-size: 0.8rem">
+                    <li>height: ${status.block_height}</li>
+                    <li>block_hash: ${status.block_hash}</li>
+                    <li>app_hash: ${status.app_hash}</li>
+                </ul>
+            </div>`
+}
 
-statusBtn.addEventListener("click", () => {
+/**
+ * Shortens string by getting only left and right part with given size.
+ */
+function shorten(str: string, size: number): string {
+    return str.substring(0, size) + "..." + str.substring(str.length - size, str.length);
+}
+
+function updateStatus() {
     client.status().then((r) => {
-        let info: any = r.sync_info;
-        delete info.catching_up;
-        info.addr = r.node_info.listen_addr;
-        statusField.value = JSON.stringify(info, null, 2);
-    })
-});
+        statusField.innerHTML = r.map((st) => {
+            let info: any = st.sync_info;
+            info.addr = st.node_info.listen_addr;
 
+            let status: Status = {
+                addr: st.node_info.listen_addr,
+                block_hash: shorten(info.latest_block_hash, 10),
+                app_hash: shorten(info.latest_app_hash, 10),
+                block_height: info.latest_block_height
+            };
+            return genStatus(status)
+        }).join("\n");
+    })
+}
+
+//updates status of nodes every one second
+setInterval(updateStatus, 1000);
+
+/**
+ * List of addresses of a real-time cluster. Change it if needed.
+ */
 let addrs = [
     {host: "localhost", port: 46157},
     {host: "localhost", port: 46257},
@@ -96,10 +152,6 @@ let addrs = [
     {host: "localhost", port: 46457}
 ];
 let client = new DbClient(addrs);
-
-let resultField: HTMLTextAreaElement = window.document.getElementById("result") as HTMLTextAreaElement;
-let inputField: HTMLInputElement = window.document.getElementById("query") as HTMLInputElement;
-let statusField: HTMLTextAreaElement = window.document.getElementById("status") as HTMLTextAreaElement;
 
 let newLine = String.fromCharCode(13, 10);
 let sep = "**************************";

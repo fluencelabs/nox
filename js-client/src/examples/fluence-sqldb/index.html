@@ -6,19 +6,18 @@
     <title>Fluence DB client</title>
 </head>
 <body>
-<div class="container">
+<div class="container mt-4">
     <div class="row">
         <div class="col-sm-4">
-            <div>
-                <br>
-                <label for="status">Status:</label>
-                <textarea class="form-control" style="height: 100%; font-size: 14px;" rows="14" id="status" readonly></textarea>
-                <input type="button" class="btn btn-primary m-2" value="Get status" id="getStatus"/>
+            <div class="rounded border p-2">
+                <label>Status:</label>
+                <div id="status">
+
+                </div>
             </div>
         </div>
         <div class="col-sm-8">
             <div class="row">
-                <br>
                 <label for="query">Type queries:</label>
                 <textarea class="form-control" style="height: 100%" rows="10" id="query"></textarea>
                 <input type="button" value="Submit query" class="btn btn-primary m-2" id="submitQuery"/>
