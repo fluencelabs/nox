@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 # param
 # $1 cluster_name
 # $2, $3, $4, $5 nodes' keys
@@ -15,8 +15,8 @@ fi
 # iterate through given node public key JSONs, combine genesis info and persistent peers
 for ((i = 2; i <= $#; i++)); do
     node_index=$(($i-2))
-    node_name="node"$node_index
-    node_addr=$host_docker_internal":"$(($node_index * 100 + 25056))
+    node_name=node$node_index
+    node_addr=$host_docker_internal:$(($node_index * 100 + 25056))
 
     validator_key=$(echo ${!i} | jq .validator)
     node_id=$(echo ${!i} | jq -r .node_id)
@@ -29,8 +29,8 @@ for ((i = 2; i <= $#; i++)); do
         }
 EOF)
 
-    validators="$validators$current_validator,"
-    persistent_peers=$persistent_peers$node_id@$node_addr","
+    validators=$validators$current_validator,
+    persistent_peers=$persistent_peers$node_id@$node_addr,
     external_addrs=$external_addrs"\""$node_addr"\","
 done
 
