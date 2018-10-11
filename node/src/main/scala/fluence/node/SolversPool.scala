@@ -28,6 +28,12 @@ import cats.instances.list._
 
 import scala.language.higherKinds
 
+/**
+ * Wraps several Solvers in a pool, providing running and monitoring functionality.
+ *
+ * @param solvers a storage for running solvers
+ * @param healthcheckConfig see [[HealthcheckConfig]]
+ */
 class SolversPool[F[_]: Concurrent: ContextShift: Timer](
   solvers: Ref[F, Set[Solver[F]]],
   healthcheckConfig: HealthcheckConfig
@@ -35,6 +41,12 @@ class SolversPool[F[_]: Concurrent: ContextShift: Timer](
   implicit sttpBackend: SttpBackend[F, Nothing]
 ) extends LazyLogging {
 
+  /**
+   * Runs a new solver in the pool.
+   *
+   * @param params see [[Solver.Params]]
+   * @return F that resolves when solver is registered; it might be not running yet
+   */
   def run(params: Solver.Params): F[Unit] =
     for {
       solver <- Solver.run(params, healthcheckConfig)
@@ -45,17 +57,37 @@ class SolversPool[F[_]: Concurrent: ContextShift: Timer](
       })
     } yield ()
 
+  /**
+   * Stops all the registered solvers. They should unregister themselves.
+   *
+   * @param P Parallel instance is required as all solvers are stopped concurrently
+   * @return F that resolves when all solvers are stopped
+   */
   def stopAll[G[_]](implicit P: Parallel[F, G]): F[Unit] =
     for {
       ss ← solvers.get
       _ ← Parallel.parTraverse(ss.toList)(_.stop)
-      _ ← solvers.set(Set.empty)
+      _ ← Parallel.parTraverse(ss.toList)(_.fiber.join)
     } yield ()
+
+  /**
+   * Returns a map of all currently registered solvers, along with theirs health
+   *
+   * @param P Parallel instance is required as all solvers are stopped concurrently
+   */
+  def healths[G[_]](implicit P: Parallel[F, G]): F[Map[Solver.Params, Solver.Health]] =
+    for {
+      ss ← solvers.get
+      sh ← Parallel.parTraverse(ss.toList)(s ⇒ s.lastHealthCheck.map(s.params → _))
+    } yield sh.toMap
 
 }
 
 object SolversPool {
 
+  /**
+   * Build a new SolversPool
+   */
   def apply[F[_]: Concurrent: ContextShift: Timer](
     implicit sttpBackend: SttpBackend[F, Nothing]
   ): F[SolversPool[F]] =

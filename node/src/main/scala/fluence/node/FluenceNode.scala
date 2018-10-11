@@ -15,16 +15,14 @@
  */
 
 package fluence.node
-import java.util.concurrent.ExecutorService
 
 import cats.effect.{ExitCode, IO, IOApp}
+import cats.syntax.apply._
 
-import scala.concurrent.duration._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 
 import scala.concurrent.ExecutionContext
-import scala.util.Try
 
 object FluenceNode extends IOApp {
   private implicit val sttpBackend: SttpBackend[IO, Nothing] = AsyncHttpClientCatsBackend[IO]()
@@ -32,25 +30,49 @@ object FluenceNode extends IOApp {
   slogging.LoggerConfig.level = slogging.LogLevel.DEBUG
   slogging.LoggerConfig.factory = slogging.PrintLoggerFactory
 
-  val fs2ReadPort: fs2.Stream[IO, Int] =
+  val lines: fs2.Stream[IO, String] =
     fs2.io
       .stdin[IO](5, ExecutionContext.global)
       .through(fs2.text.utf8Decode)
       .through(fs2.text.lines[IO])
-      .map(s ⇒ Try(s.toInt).toOption)
-      .collect {
-        case Some(port) ⇒ port
+      .map(_.trim)
+
+  private val RunR = "^run ([0-9]{4,4})$".r
+
+  def handleCli(pool: SolversPool[IO]): IO[ExitCode] =
+    lines
+      .evalMap[IO, Option[ExitCode]] {
+        case "stop" ⇒
+          IO(println(s"Going to stop...")) *> pool.stopAll[IO.Par].map(_ ⇒ Some(ExitCode.Success))
+
+        case "health" ⇒
+          for {
+            hs ← pool.healths[IO.Par]
+            _ = println(hs.mkString("\n"))
+          } yield None
+
+        case RunR(port) ⇒
+          for {
+            _ <- IO(println(s"Going to run on $port"))
+            _ ← pool.run(Solver.Params(port.toInt))
+          } yield None
+
+        case unknown ⇒
+          IO(println(s"Unknown command: $unknown")) *> IO.pure(None)
       }
+      .unNone
+      .head
+      .compile
+      .lastOrError
 
   override def run(args: List[String]): IO[ExitCode] =
     for {
       pool ← SolversPool[IO]
-      _ = println("port?")
-      port ← fs2ReadPort.head.compile.lastOrError
-      _ ← pool.run(Solver.Params(port))
-      _ = println("anything numeric?")
-      _ ← fs2ReadPort.head.compile.last
-      _ ← pool.stopAll
-    } yield ExitCode.Success
+      _ = println("Pool Received")
+      code ← handleCli(pool)
+    } yield {
+      println(Console.GREEN + s"Exit with $code" + Console.RESET)
+      code
+    }
 
 }
