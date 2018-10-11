@@ -30,6 +30,10 @@ fn write_str_to_mem_test() { unsafe {
 #[test]
 fn integration_sql_test() {
 
+    //
+    // Success cases.
+    //
+
     let create_table = execute_sql("create table USERS(id int, name varchar(128), age int)".to_string());
     println!("{}", create_table);
     assert_eq!(create_table, "table created");
@@ -73,9 +77,25 @@ fn integration_sql_test() {
                         "    (column-field :source-id 0 :column-offset 1)))"
     );
 
+    //
+    // Error cases.
+    //
+
+    let empty_str = execute_sql("".to_string());
+    println!("{}", empty_str);
+    assert_eq!(empty_str, "[Error] Expected SELECT, INSERT, CREATE, or EXPLAIN statement; got no more tokens");
+
+    let invalid_sql = execute_sql("123".to_string());
+    println!("{}", invalid_sql);
+    assert_eq!(invalid_sql, "[Error] Expected SELECT, INSERT, CREATE, or EXPLAIN statement; got Number(\"123\")");
+
     let bad_query = execute_sql("select salary from USERS".to_string());
     println!("{}", bad_query);
     assert_eq!(bad_query, "[Error] column does not exist: salary");
+
+    let not_supported_sql = execute_sql("delete * from USERS".to_string());
+    println!("{}", not_supported_sql);
+    assert_eq!(not_supported_sql, "[Error] Expected SELECT, INSERT, CREATE, or EXPLAIN statement; got Delete");
 
     // delete and update is not supported by llamadb
 
