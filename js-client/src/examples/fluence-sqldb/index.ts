@@ -92,6 +92,7 @@ class DbClient {
 }
 
 let btn = document.getElementById("submitQuery") as HTMLButtonElement;
+let updateStatusBtn = document.getElementById("updateStatus") as HTMLButtonElement;
 let resultField: HTMLTextAreaElement = window.document.getElementById("result") as HTMLTextAreaElement;
 let inputField: HTMLInputElement = window.document.getElementById("query") as HTMLInputElement;
 let statusField: HTMLTextAreaElement = window.document.getElementById("status") as HTMLTextAreaElement;
@@ -100,6 +101,22 @@ btn.addEventListener("click", () => {
     if (inputField.value.length !== 0) {
         submitQueries(inputField.value);
         inputField.value = "";
+    }
+});
+
+//updates status of nodes every one second
+let timer = setInterval(updateStatus, 1000);
+
+//stops or starts the timer for status updates
+updateStatusBtn.addEventListener("click", () => {
+    let stop = "Stop update status";
+    let start = "Start update status";
+    if (updateStatusBtn.value === stop) {
+        clearInterval(timer);
+        updateStatusBtn.value = start;
+    } else {
+        timer = setInterval(updateStatus, 1000);
+        updateStatusBtn.value = stop;
     }
 
 });
@@ -138,9 +155,6 @@ function updateStatus() {
         }).join("\n");
     })
 }
-
-//updates status of nodes every one second
-setInterval(updateStatus, 1000);
 
 /**
  * List of addresses of a real-time cluster. Change it if needed.
