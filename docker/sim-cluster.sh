@@ -22,7 +22,7 @@ mkdir -p nodes/$1
 ./sim-combine-cluster.sh $1 $5 > nodes/$1/cluster_info.json
 
 # run 4 nodes
-./master-run-node.sh $1 $2 0 $(($4+  0)) $5/node0 nodes/$1/cluster_info.json
-./master-run-node.sh $1 $2 1 $(($4+100)) $5/node1 nodes/$1/cluster_info.json
-./master-run-node.sh $1 $2 2 $(($4+200)) $5/node2 nodes/$1/cluster_info.json
-./master-run-node.sh $1 $2 3 $(($4+300)) $5/node3 nodes/$1/cluster_info.json
+./master-run-node.sh $1 $2 0 $5/node0 nodes/$1/cluster_info.json $(($4+  0-1)) $(($4+  0))
+./master-run-node.sh $1 $2 1 $5/node1 nodes/$1/cluster_info.json $(($4+100-1)) $(($4+100))
+./master-run-node.sh $1 $2 2 $5/node2 nodes/$1/cluster_info.json $(($4+200-1)) $(($4+200))
+./master-run-node.sh $1 $2 3 $5/node3 nodes/$1/cluster_info.json $(($4+300-1)) $(($4+300))
