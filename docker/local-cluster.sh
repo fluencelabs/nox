@@ -5,6 +5,11 @@
 # $3 docker_network_subnet
 # $4 host_rpc_port
 
+if [ "$#" -ne 4 ]; then
+    echo "Illegal number of parameters: 4 required"
+    exit 1
+fi
+
 # remove/kill the previous containers and network
 docker kill $(docker ps -a -q -f name="$1_node")
 docker rm $(docker ps -a -q -f name="$1_node")

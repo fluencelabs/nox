@@ -2,6 +2,11 @@
 # param
 # $1 docker_network_name used also as a directory for test cluster
 
+if [ "$#" -ne 1 ]; then
+    echo "Illegal number of parameters: 1 required"
+    exit 1
+fi
+
 # remove previous cluster node directories
 rm -rf "nodes/$1/node*"
 

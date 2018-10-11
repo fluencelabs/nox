@@ -3,6 +3,11 @@
 # $1 cluster_name
 # $2, $3, $4, $5 nodes' keys
 
+if [ "$#" -lt 2 ]; then
+    echo "Illegal number of parameters: at least 2 required"
+    exit 1
+fi
+
 # detecting how host seen from container
 # docker for Mac/Win maps 'host.docker.internal' to the host
 #

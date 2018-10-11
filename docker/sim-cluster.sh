@@ -6,6 +6,11 @@
 # $4 host_rpc_port
 # $5 long_term_key_all_locations
 
+if [ "$#" -ne 5 ]; then
+    echo "Illegal number of parameters: 5 required"
+    exit 1
+fi
+
 # remove/kill the previous containers and network
 docker kill $(docker ps -a -q -f name="$1_node")
 docker rm $(docker ps -a -q -f name="$1_node")

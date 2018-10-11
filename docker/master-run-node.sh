@@ -8,6 +8,11 @@
 # $6 host_p2p_port
 # $7 host_rpc_port
 
+if [ "$#" -ne 7 ]; then
+    echo "Illegal number of parameters: 7 required"
+    exit 1
+fi
+
 # initialize Tendermint home dir, put public/private keys there
 tm_home=$PWD/nodes/$1/node$3
 mkdir -p "$tm_home"
