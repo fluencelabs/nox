@@ -9,7 +9,7 @@
 if [ "$(uname)" == "Darwin" ]; then
     host_docker_internal="host.docker.internal"
 else
-    host_docker_internal=$(/sbin/ip route|awk '/default/ { print $3 }')
+    host_docker_internal=$(/sbin/ip route | awk '/default/ { print $3 }')
 fi
 
 # iterate through given node public key JSONs, combine genesis info and persistent peers
@@ -33,7 +33,24 @@ external_addrs=${external_addrs%,}
 
 # create genesis JSON according to Tendermint format
 genesis_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-genesis="{\"genesis_time\":\"$genesis_time\",\"chain_id\":\"$1\",\"app_hash\":\"\",\"validators\":[$validators]}"
+genesis=$(cat <<EOF
+    {
+        "genesis_time": "$genesis_time",
+        "chain_id": "$1",
+        "app_hash": "",
+        "validators": [$validators]
+    }
+EOF
+)
+
+result_doc=$(cat <<EOF
+{
+    "genesis": $genesis,
+    "persistent_peers": "$persistent_peers",
+    "external_addrs": [$external_addrs]
+}
+EOF
+)
 
 # combine JSON with cluster genesis, persistent peers, and external addresses
-echo "{\"genesis\":$genesis,\"persistent_peers\":\"$persistent_peers\",\"external_addrs\":[$external_addrs]}"
+echo $result_doc
