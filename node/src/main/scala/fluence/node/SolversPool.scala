@@ -22,7 +22,6 @@ import cats.effect.concurrent.Ref
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
-import fluence.node.Solver.HealthcheckConfig
 import slogging.LazyLogging
 import cats.instances.list._
 
@@ -32,11 +31,11 @@ import scala.language.higherKinds
  * Wraps several Solvers in a pool, providing running and monitoring functionality.
  *
  * @param solvers a storage for running solvers
- * @param healthcheckConfig see [[HealthcheckConfig]]
+ * @param healthCheckConfig see [[HealthCheckConfig]]
  */
 class SolversPool[F[_]: Concurrent: ContextShift: Timer](
   solvers: Ref[F, Set[Solver[F]]],
-  healthcheckConfig: HealthcheckConfig
+  healthCheckConfig: HealthCheckConfig
 )(
   implicit sttpBackend: SttpBackend[F, Nothing]
 ) extends LazyLogging {
@@ -44,12 +43,12 @@ class SolversPool[F[_]: Concurrent: ContextShift: Timer](
   /**
    * Runs a new solver in the pool.
    *
-   * @param params see [[Solver.Params]]
+   * @param params see [[SolverParams]]
    * @return F that resolves when solver is registered; it might be not running yet
    */
-  def run(params: Solver.Params): F[Unit] =
+  def run(params: SolverParams): F[Unit] =
     for {
-      solver <- Solver.run(params, healthcheckConfig)
+      solver <- Solver.run(params, healthCheckConfig)
       _ ← solvers.update(_ + solver)
       _ ← Concurrent[F].start(solver.fiber.join.flatMap { _ ⇒
         logger.debug(s"Removing solver from a pool: $solver")
@@ -75,10 +74,10 @@ class SolversPool[F[_]: Concurrent: ContextShift: Timer](
    *
    * @param P Parallel instance is required as all solvers are stopped concurrently
    */
-  def healths[G[_]](implicit P: Parallel[F, G]): F[Map[Solver.Params, Solver.Health]] =
+  def healths[G[_]](implicit P: Parallel[F, G]): F[Map[SolverParams, SolverHealth]] =
     for {
       ss ← solvers.get
-      sh ← Parallel.parTraverse(ss.toList)(s ⇒ s.lastHealthCheck.map(s.params → _))
+      sh ← Parallel.parTraverse(ss.toList)(s ⇒ s.healthReport.map(s.params → _))
     } yield sh.toMap
 
 }
@@ -93,5 +92,5 @@ object SolversPool {
   ): F[SolversPool[F]] =
     for {
       solvers ← Ref.of[F, Set[Solver[F]]](Set.empty)
-    } yield new SolversPool[F](solvers, HealthcheckConfig())
+    } yield new SolversPool[F](solvers, HealthCheckConfig())
 }

@@ -27,7 +27,7 @@ import scala.concurrent.ExecutionContext
 object FluenceNode extends IOApp {
   private implicit val sttpBackend: SttpBackend[IO, Nothing] = AsyncHttpClientCatsBackend[IO]()
 
-  slogging.LoggerConfig.level = slogging.LogLevel.DEBUG
+  slogging.LoggerConfig.level = slogging.LogLevel.INFO
   slogging.LoggerConfig.factory = slogging.PrintLoggerFactory
 
   val lines: fs2.Stream[IO, String] =
@@ -48,17 +48,21 @@ object FluenceNode extends IOApp {
         case "health" ⇒
           for {
             hs ← pool.healths[IO.Par]
-            _ = println(hs.mkString("\n"))
+            _ ← IO(println("Last health reports of solvers:\n" + hs.mkString("\n")))
           } yield None
 
         case RunR(port) ⇒
           for {
             _ <- IO(println(s"Going to run on $port"))
-            _ ← pool.run(Solver.Params(port.toInt))
+            _ ← pool.run(SolverParams(port.toInt))
           } yield None
 
         case unknown ⇒
           IO(println(s"Unknown command: $unknown")) *> IO.pure(None)
+      }
+      .evalTap[IO] {
+        case None ⇒ IO(println("Please input the command"))
+        case Some(_) ⇒ IO.unit
       }
       .unNone
       .head
@@ -68,7 +72,7 @@ object FluenceNode extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
     for {
       pool ← SolversPool[IO]
-      _ = println("Pool Received")
+      _ = println("Pool Received, ready to run solvers. Please input the command")
       code ← handleCli(pool)
     } yield {
       println(Console.GREEN + s"Exit with $code" + Console.RESET)
