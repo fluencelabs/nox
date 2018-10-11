@@ -8,7 +8,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 # remove previous cluster node directories
-rm -rf "nodes/$1/node*"
+rm -rf "nodes/$1/node"*
 
 # generate testnet
 tendermint testnet --o "nodes/$1" --hostname-prefix "$1_node"

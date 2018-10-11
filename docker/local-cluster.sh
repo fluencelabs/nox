@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 # param
 # $1 docker_network_name
 # $2 vm_code_directory
@@ -11,9 +11,9 @@ if [ "$#" -ne 4 ]; then
 fi
 
 # remove/kill the previous containers and network
-docker kill $(docker ps -a -q -f name="$1_node")
-docker rm $(docker ps -a -q -f name="$1_node")
-docker network rm "$1"
+docker kill $(docker ps -a -q -f name="$1_node") || true
+docker rm $(docker ps -a -q -f name="$1_node") || true
+docker network rm "$1" || true
 
 # init Tendermint cluster
 ./local-init-cluster.sh "$1"
