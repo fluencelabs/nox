@@ -18,10 +18,11 @@ cat $5 | jq .genesis > $tm_home/config/genesis.json
 cat $5 | jq -r .persistent_peers > $tm_home/config/persistent_peers.txt
 cat $5 | jq -r ".external_addrs|.[$3]" > $tm_home/config/external_addr.txt
 
+node_name=$1_node$3
+
 # run Fluence node image with Tendermint and State machine
 docker run -idt \
     -p $6:26656 -p $7:26657 \
     -v $PWD/statemachine:/statemachine -v $2:/vmcode -v $tm_home:/tendermint \
-    --name $1_node$3 \
-    --network $1 \
+    --name $node_name \
     fluencelabs/statemachine:latest

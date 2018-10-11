@@ -9,10 +9,6 @@
 # remove/kill the previous containers and network
 docker kill $(docker ps -a -q -f name=$1_node)
 docker rm $(docker ps -a -q -f name=$1_node)
-docker network rm $1
-
-# create Docker network
-docker network create -d bridge --subnet $3 $1
 
 # prepare node directories
 rm -rf nodes/$1/node*
@@ -22,7 +18,8 @@ mkdir -p nodes/$1
 ./sim-combine-cluster.sh $1 $5 > nodes/$1/cluster_info.json
 
 # run 4 nodes
-./master-run-node.sh $1 $2 0 $5/node0 nodes/$1/cluster_info.json $(($4+  0-1)) $(($4+  0))
-./master-run-node.sh $1 $2 1 $5/node1 nodes/$1/cluster_info.json $(($4+100-1)) $(($4+100))
-./master-run-node.sh $1 $2 2 $5/node2 nodes/$1/cluster_info.json $(($4+200-1)) $(($4+200))
-./master-run-node.sh $1 $2 3 $5/node3 nodes/$1/cluster_info.json $(($4+300-1)) $(($4+300))
+for ((i = 0; i <= 3; i++)); do
+    p2p_port=$(($4 + $i * 100 - 1))
+    rpc_port=$(($4 + $i * 100))
+    ./master-run-node.sh $1 $2 $i $5/node$i nodes/$1/cluster_info.json $p2p_port $rpc_port
+done
