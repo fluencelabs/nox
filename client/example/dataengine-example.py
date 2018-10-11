@@ -36,7 +36,7 @@ def demo_queries(addr, genesis, send_wrong=False, send_closed=True, session=None
     eng = DataEngine(addr, genesis)
     s = eng.new_session(get_client(), get_signing_key(), session)
     q0 = s.submit("inc")
-    q1 = s.submit("multiplier.mul", 10, 14)
+    q1 = s.submit("MulModule.mul", 10, 14)
     if send_wrong:
         qw = s.submit("wrong")
     q2 = s.submit("inc")
@@ -56,7 +56,7 @@ def demo_many_queries(addr, genesis):
         s.submit("inc")
     print(s.submit("get").result())
 
-tmport = sys.argv[1] if len(sys.argv) >= 2 else "46157"
+tmport = sys.argv[1] if len(sys.argv) >= 2 else "25057"
 tm = TendermintRPC("http://localhost:" + tmport)
 genesis = tm.get_genesis()
 height = tm.get_max_height()
@@ -66,13 +66,13 @@ session1_id = id_generator()
 demo_queries(tm, genesis, False, False, session1_id)
 
 # 2nd session: failed during processing
-demo_queries(tm, genesis, True, False)
+#demo_queries(tm, genesis, True, False)
 
 # 3rd session: correct and explicitly closed
 # 1st session expires during 3rd session processing
-demo_queries(tm, genesis, False, True)
+#demo_queries(tm, genesis, False, True)
 
 # 4th session: same as 1st - transactions declined as duplicated
-demo_queries(tm, genesis, False, False, session1_id)
+#demo_queries(tm, genesis, False, False, session1_id)
 
 #demo_many_queries(tm, genesis)
