@@ -28,7 +28,7 @@ node_name=$1_node$3
 # run Fluence node image with Tendermint and State machine
 # default docker network (which is 'bridge') is used
 docker run -idt \
-    -p $6:26656 -p $7:26657 \
-    -v "$PWD/statemachine":/statemachine -v "$2":/vmcode -v "$tm_home":/tendermint \
+    -p "$6:26656" -p "$7:26657" \
+    -v "$PWD/statemachine:/statemachine" -v "$2:/vmcode" -v "$tm_home:/tendermint" \
     --name "$node_name" \
     fluencelabs/statemachine:latest

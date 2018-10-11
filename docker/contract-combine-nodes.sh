@@ -10,7 +10,6 @@ fi
 
 # detecting how host seen from container
 # docker for Mac/Win maps 'host.docker.internal' to the host
-#
 if [ "$(uname)" == "Darwin" ]; then
     host_docker_internal="host.docker.internal"
 else
