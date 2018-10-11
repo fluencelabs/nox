@@ -15,11 +15,16 @@
  */
 
 package fluence.node
+import java.util.concurrent.ExecutorService
+
 import cats.effect.{ExitCode, IO, IOApp}
 
 import scala.concurrent.duration._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+
+import scala.concurrent.ExecutionContext
+import scala.util.Try
 
 object FluenceNode extends IOApp {
   private implicit val sttpBackend: SttpBackend[IO, Nothing] = AsyncHttpClientCatsBackend[IO]()
@@ -27,21 +32,25 @@ object FluenceNode extends IOApp {
   slogging.LoggerConfig.level = slogging.LogLevel.DEBUG
   slogging.LoggerConfig.factory = slogging.PrintLoggerFactory
 
+  val fs2ReadPort: fs2.Stream[IO, Int] =
+    fs2.io
+      .stdin[IO](5, ExecutionContext.global)
+      .through(fs2.text.utf8Decode)
+      .through(fs2.text.lines[IO])
+      .map(s ⇒ Try(s.toInt).toOption)
+      .collect {
+        case Some(port) ⇒ port
+      }
+
   override def run(args: List[String]): IO[ExitCode] =
-    (
-      for {
-        solver ← fs2.Stream.eval(Solver.run[IO](9393))
-        _ = println(solver)
-        fiber ← fs2.Stream.supervise(solver.fiber.join)
-        _ = println("Supervising")
-        _ ← fs2.Stream.sleep(40.seconds)
-        _ = println("Woke up")
-        _ ← fs2.Stream.eval_(solver.stop)
-        health ← fs2.Stream.eval(solver.lastHealthCheck)
-        _ ← fs2.Stream.eval_(fiber.join)
-      } yield health
-    ).compile.last.map { last ⇒
-      println(s"Finally: $last")
-      ExitCode.Success
-    }
+    for {
+      pool ← SolversPool[IO]
+      _ = println("port?")
+      port ← fs2ReadPort.head.compile.lastOrError
+      _ ← pool.run(Solver.Params(port))
+      _ = println("anything numeric?")
+      _ ← fs2ReadPort.head.compile.last
+      _ ← pool.stopAll
+    } yield ExitCode.Success
+
 }
