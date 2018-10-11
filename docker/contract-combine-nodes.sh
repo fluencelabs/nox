@@ -21,7 +21,15 @@ for ((i = 2; i <= $#; i++)); do
     validator_key=$(echo ${!i} | jq .validator)
     node_id=$(echo ${!i} | jq -r .node_id)
 
-    validators=$validators"{\"pub_key\":$validator_key,\"power\":\"1\",\"name\":\"$node_name\"},"
+    current_validator=$(cat <<EOF
+        {
+            "pub_key": $validator_key,
+            "power": "1",
+            "name": "$node_name"
+        }
+EOF)
+
+    validators="$validators$current_validator,"
     persistent_peers=$persistent_peers$node_id@$node_addr","
     external_addrs=$external_addrs"\""$node_addr"\","
 done
@@ -40,17 +48,15 @@ genesis=$(cat <<EOF
         "app_hash": "",
         "validators": [$validators]
     }
-EOF
-)
+EOF)
 
 result_doc=$(cat <<EOF
-{
-    "genesis": $genesis,
-    "persistent_peers": "$persistent_peers",
-    "external_addrs": [$external_addrs]
-}
-EOF
-)
+    {
+        "genesis": $genesis,
+        "persistent_peers": "$persistent_peers",
+        "external_addrs": [$external_addrs]
+    }
+EOF)
 
 # combine JSON with cluster genesis, persistent peers, and external addresses
 echo $result_doc
