@@ -21,6 +21,8 @@ import cats.effect.{Concurrent, ContextShift, Timer}
 import cats.effect.concurrent.Ref
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.applicative._
+import cats.syntax.applicativeError._
 import com.softwaremill.sttp.SttpBackend
 import slogging.LazyLogging
 import cats.instances.list._
@@ -44,17 +46,23 @@ class SolversPool[F[_]: Concurrent: ContextShift: Timer](
    * Runs a new solver in the pool.
    *
    * @param params see [[SolverParams]]
-   * @return F that resolves when solver is registered; it might be not running yet
+   * @return F that resolves with true when solver is registered; it might be not running yet. If it was registered before, F resolves with false
    */
-  def run(params: SolverParams): F[Unit] =
-    for {
-      solver <- Solver.run(params, healthCheckConfig)
-      _ ← solvers.update(_ + solver)
-      _ ← Concurrent[F].start(solver.fiber.join.flatMap { _ ⇒
-        logger.debug(s"Removing solver from a pool: $solver")
-        solvers.update(_ - solver)
-      })
-    } yield ()
+  def run(params: SolverParams): F[Boolean] =
+    solvers.get.map(_.exists(_.params == params)).flatMap {
+      case false ⇒
+        for {
+          solver <- Solver.run(params, healthCheckConfig)
+          _ ← solvers.update(_ + solver)
+          _ ← Concurrent[F].start(solver.fiber.join.attempt.flatMap { r ⇒
+            logger.info(s"Removing solver from a pool: $solver due to $r")
+            solvers.update(_ - solver)
+          })
+        } yield true
+      case true ⇒
+        logger.info(s"Solver $params was already ran")
+        false.pure[F]
+    }
 
   /**
    * Stops all the registered solvers. They should unregister themselves.
@@ -66,8 +74,8 @@ class SolversPool[F[_]: Concurrent: ContextShift: Timer](
     for {
       ss ← solvers.get
       _ ← Parallel.parTraverse(ss.toList)(_.stop)
-      _ ← Parallel.parTraverse(ss.toList)(_.fiber.join)
-    } yield ()
+      fiberJoins ← Parallel.parTraverse(ss.toList)(_.fiber.join.attempt)
+    } yield logger.info(s"Stopped: $fiberJoins")
 
   /**
    * Returns a map of all currently registered solvers, along with theirs health

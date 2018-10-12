@@ -28,5 +28,5 @@ case class SolverParams(rpcPort: Int) {
    * [[DockerIO.run]]'s command for launching a configured solver
    * TODO: replace with a real solver process
    */
-  val dockerCommand = s"-p $rpcPort:80 nginx"
+  val dockerCommand = s"-p $rpcPort:80 --name nginx-$rpcPort nginx"
 }
