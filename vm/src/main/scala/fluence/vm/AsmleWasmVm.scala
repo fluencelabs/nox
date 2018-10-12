@@ -78,13 +78,13 @@ class AsmleWasmVm(
           NoSuchFnError(s"Unable to find a function with the name=$functionId")
         )
 
-      preprocessedArguments = fnArgument match {
-        case Some(arg) => injectArrayIntoWasmModule(arg, wasmFn.module).asInstanceOf[AnyRef] :: arg.length.asInstanceOf[AnyRef] :: Nil
-        case _ => Nil
-      }
-
       // invoke the function
-      invocationResult ← wasmFn[F](preprocessedArguments)
+      invocationResult <- fnArgument match {
+        case Some(arg) => for {
+          offset <- injectArrayIntoWasmModule(arg, wasmFn.module)
+        } yield wasmFn[F](offset.asInstanceOf[AnyRef] :: arg.length.asInstanceOf[AnyRef] :: Nil)
+        case _ => wasmFn[F](Nil)
+      }
 
       extractedResult <- if (wasmFn.javaMethod.getReturnType == Void.TYPE) {
         EitherT.rightT[F, InvokeError](None)
