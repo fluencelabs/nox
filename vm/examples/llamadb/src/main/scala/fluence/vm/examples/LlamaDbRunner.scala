@@ -77,6 +77,10 @@ object LlamaDbRunner extends IOApp {
       res11 ← vm.invoke[IO](None, "do_query", parserError.getBytes())
       state11 ← vm.getVmState[IO]
 
+      incompatibleType = "\"select * from USERS where age = 'Bob'\""
+      res12 ← vm.invoke[IO](None, "do_query", List(incompatibleType))
+      state12 ← vm.getVmState[IO]
+
       finishState ← vm.getVmState[IO].toVmError
     } yield {
       s"$createTableSql >> \n${res1.toStr} \nvmState=$state1\n" +
@@ -90,6 +94,7 @@ object LlamaDbRunner extends IOApp {
         s"$selectWithJoin >> \n${res9.toStr} \nvmState=$state9\n" +
         s"$badQuery >> \n${res10.toStr} \n vmState=$state10\n" +
         s"$parserError >> \n${res11.toStr} \n vmState=$state11\n" +
+        s"$incompatibleType >> \n${res12.toStr} \n vmState=$state12\n" +
         s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
         s"finishState=$finishState"

@@ -93,11 +93,27 @@ fn integration_sql_test() {
     println!("{}", bad_query);
     assert_eq!(bad_query, "[Error] column does not exist: salary");
 
-    let not_supported_sql = execute_sql("delete * from USERS".to_string());
-    println!("{}", not_supported_sql);
-    assert_eq!(not_supported_sql, "[Error] Expected SELECT, INSERT, CREATE, or EXPLAIN statement; got Delete");
+    let lexer_error = execute_sql("π".to_string());
+    println!("{}", lexer_error);
+    assert_eq!(lexer_error, "[Error] Lexer error: Unknown character π");
 
-    // delete and update is not supported by llamadb
+    let incompatible_types = execute_sql("select * from USERS where age = 'Bob'".to_string());
+    println!("{}", incompatible_types);
+    assert_eq!(incompatible_types, "[Error] 'Bob' cannot be cast to Integer { signed: true, bytes: 8 }");
+
+    // Not supported operations
+
+    let not_supported_delete = execute_sql("delete * from USERS".to_string());
+    println!("{}", not_supported_delete);
+    assert_eq!(not_supported_delete, "[Error] Expected SELECT, INSERT, CREATE, or EXPLAIN statement; got Delete");
+
+    let not_supported_update= execute_sql("update USERS set name = 'Rob' where name = 'Bob'".to_string());
+    println!("{}", not_supported_update);
+    assert_eq!(not_supported_update, "[Error] Expected SELECT, INSERT, CREATE, or EXPLAIN statement; got Update");
+
+    let not_supported_order_by = execute_sql("select * from USERS order by name".to_string());
+    println!("{}", not_supported_order_by);
+    assert_eq!(not_supported_order_by, "[Error] order by in not implemented");
 
 }
 
