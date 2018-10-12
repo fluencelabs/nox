@@ -29,7 +29,8 @@ import scala.util.{Failure, Success, Try}
 object DockerIO extends LazyLogging {
 
   /**
-   * Shifts ''fn'' execution on another thread, and runs it lazily
+   * Shifts ''fn'' execution on another thread, and runs it lazily.
+   *
    * @param fn the function to run
    */
   private def shiftDelay[F[_]: Sync: ContextShift, A](fn: ⇒ A): F[A] =
@@ -43,14 +44,17 @@ object DockerIO extends LazyLogging {
    * @return a stream that produces a docker container ID
    */
   def run[F[_]: Sync: ContextShift](whatToRun: String): fs2.Stream[F, String] =
-    fs2.Stream.bracket {
+    fs2.Stream.bracketCase {
       logger.info(s"Running docker: $whatToRun")
-      shiftDelay(Try(s"docker run -d $whatToRun".!!))
+      shiftDelay(Try(s"docker run -d $whatToRun".!!).map(_.trim()))
     } {
-      case Success(dockerId) ⇒
-        logger.info(s"Going to cleanup $dockerId")
-        shiftDelay(s"docker rm -f $dockerId".!).map(_ ⇒ ())
-      case Failure(err) ⇒
+      case (Success(dockerId), exitCase) ⇒
+        logger.info(s"Going to cleanup $dockerId, exit case: $exitCase")
+        shiftDelay(s"docker rm -f $dockerId".!).map {
+          case 0 ⇒ logger.info(s"Container $dockerId successfully removed")
+          case x ⇒ logger.warn(s"Stopping docker container $dockerId failed, exit code = $x")
+        }
+      case (Failure(err), _) ⇒
         logger.warn(s"Can't cleanup the docker container as it's failed to launch: $err", err)
         Applicative[F].unit
     }.flatMap {

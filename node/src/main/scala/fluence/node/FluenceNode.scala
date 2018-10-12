@@ -15,46 +15,72 @@
  */
 
 package fluence.node
-import cats.effect.{ExitCode, IO, IOApp}
 
-import scala.concurrent.duration._
+import cats.effect.{ExitCode, IO, IOApp}
+import cats.syntax.apply._
+
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+
+import scala.concurrent.ExecutionContext
 
 object FluenceNode extends IOApp {
   private implicit val sttpBackend: SttpBackend[IO, Nothing] = AsyncHttpClientCatsBackend[IO]()
 
-  override def run(args: List[String]): IO[ExitCode] =
-    DockerIO
-      .run[IO]("-p 9393:80 nginx")
-      .through(
-        // Check that container is running every 3 seconds
-        DockerIO.check[IO](3.seconds)
-      )
-      .evalMap[IO, (FiniteDuration, Either[String, Unit])] {
-        case (d, true) ⇒
-          // As container is running, perform a custom healthcheck: request a HTTP endpoint inside the container
-          sttp
-            .get(uri"http://localhost:9393")
-            .send()
-            .attempt
-            .map(_.left.map(_.getMessage).map(_ ⇒ ()))
-            .map(d → _)
+  slogging.LoggerConfig.level = slogging.LogLevel.INFO
+  slogging.LoggerConfig.factory = slogging.PrintLoggerFactory
 
-        case (d, false) ⇒ IO.pure(d → Left("Container is not running"))
+  val lines: fs2.Stream[IO, String] =
+    fs2.io
+      .stdin[IO](5, ExecutionContext.global)
+      .through(fs2.text.utf8Decode)
+      .through(fs2.text.lines[IO])
+      .map(_.trim)
+
+  private val RunR = "^run ([0-9]{3,5})$".r
+
+  def handleCli(pool: SolversPool[IO]): IO[ExitCode] =
+    lines
+      .evalMap[IO, Option[ExitCode]] {
+        case "stop" ⇒
+          (IO(println(s"Going to stop...")) *> pool.stopAll[IO.Par]).map(_ ⇒ None)
+
+        case "health" ⇒
+          for {
+            hs ← pool.healths[IO.Par]
+            _ ← IO(println("Last health reports of solvers:\n" + hs.mkString("\n")))
+          } yield None
+
+        case "exit" ⇒
+          (IO(println(s"Going to stop and exit...")) *> pool.stopAll[IO.Par]).map(_ ⇒ Some(ExitCode.Success))
+
+        case RunR(port) ⇒
+          for {
+            _ <- IO(println(s"Going to run on $port"))
+            _ ← pool.run(SolverParams(port.toInt))
+          } yield None
+
+        case unknown ⇒
+          IO(println(s"Unknown command: $unknown")) *> IO.pure(None)
       }
-      .sliding(5)
       .evalTap[IO] {
-        case q if q.count(_._2.isLeft) > 3 ⇒
-          // Stop the stream, as there's too many failing healthchecks
-          IO.raiseError(new RuntimeException("Too many failures"))
-        case _ ⇒ IO.unit
+        case None ⇒ IO(println("Please input the command"))
+        case Some(_) ⇒ IO.unit
       }
+      .unNone
+      .head
       .compile
-      .last
-      .map { last ⇒
-        // Actually, this code will never run, as `.last` above could ever return only if the stream is interrupted with error
-        println(s"Finally: $last")
-        ExitCode.Success
-      }
+      .lastOrError
+
+  override def run(args: List[String]): IO[ExitCode] =
+    for {
+      pool ← SolversPool[IO]
+      _ = println("Pool Received, ready to run solvers. Please input the command")
+      code ← handleCli(pool)
+    } yield {
+      sttpBackend.close()
+      println(Console.GREEN + s"Exit with $code" + Console.RESET)
+      code
+    }
+
 }
