@@ -173,7 +173,7 @@ class AsmleWasmVm(
         VmMemoryError(s"Trying to use absent Wasm memory while injecting array=$injectedArray")
       )
 
-      offset <- allocate[F](injectedArray.length)
+      offset <- allocate(injectedArray.length)
 
       resultOffset <- EitherT
         .fromEither(Try {
@@ -207,7 +207,7 @@ class AsmleWasmVm(
       // TODO : string deallocation from scala-part should be additionally investigated - it seems
       // that this version of deletion doesn't compatible with current idea of verification game
       intBytesSize = 4
-      _ <- deallocate[F](offset, extractedResult.length + intBytesSize)
+      _ <- deallocate(offset, extractedResult.length + intBytesSize)
     } yield extractedResult
 
   /**
@@ -228,7 +228,7 @@ class AsmleWasmVm(
       )
 
       readResult <- EitherT
-        .fromEither[F](
+        .fromEither(
           Try {
             val wasmMemoryView = wasmMemory.duplicate()
             wasmMemoryView.order(ByteOrder.LITTLE_ENDIAN)
@@ -270,7 +270,6 @@ object AsmleWasmVm {
    * Representation for each Wasm function. Contains reference to module instance
    * and java method [[java.lang.reflect.Method]].
    *
-   * @param functionId a full name of this function (moduleName + functionName)
    * @param javaMethod a java method [[java.lang.reflect.Method]] for calling function.
    * @param module the object the underlying method is invoked from.
    *               This is an instance for the current module, it contains
@@ -291,7 +290,7 @@ object AsmleWasmVm {
       EitherT(IO(javaMethod.invoke(module.instance, args: _*)).attempt.to[F])
         .leftMap(e ⇒ TrapError(s"Function $this with args: $args was failed", Some(e)))
 
-    //override def toString: String = functionId.toString
+    override def toString: String = {throw TrapError(s"adad")}
   }
 
 }
