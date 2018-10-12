@@ -78,6 +78,7 @@ object FluenceNode extends IOApp {
       _ = println("Pool Received, ready to run solvers. Please input the command")
       code ← handleCli(pool)
     } yield {
+      sttpBackend.close()
       println(Console.GREEN + s"Exit with $code" + Console.RESET)
       code
     }
