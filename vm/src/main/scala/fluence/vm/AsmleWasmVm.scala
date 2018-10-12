@@ -290,7 +290,7 @@ object AsmleWasmVm {
       EitherT(IO(javaMethod.invoke(module.instance, args: _*)).attempt.to[F])
         .leftMap(e ⇒ TrapError(s"Function $this with args: $args was failed", Some(e)))
 
-    override def toString: String = {throw TrapError(s"adad")}
+    override def toString: String = "test"
   }
 
 }
