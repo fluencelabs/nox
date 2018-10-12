@@ -23,6 +23,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
+import cats.syntax.apply._
 import com.softwaremill.sttp.SttpBackend
 import slogging.LazyLogging
 import cats.instances.list._
@@ -33,10 +34,12 @@ import scala.language.higherKinds
  * Wraps several Solvers in a pool, providing running and monitoring functionality.
  *
  * @param solvers a storage for running solvers
+ * @param cleanups a storage for cleanup fibers to be able to "block" until solvers are stopped and removed
  * @param healthCheckConfig see [[HealthCheckConfig]]
  */
 class SolversPool[F[_]: Concurrent: ContextShift: Timer](
   solvers: Ref[F, Set[Solver[F]]],
+  cleanups: Ref[F, Map[SolverParams, F[Unit]]],
   healthCheckConfig: HealthCheckConfig
 )(
   implicit sttpBackend: SttpBackend[F, Nothing]
@@ -54,10 +57,11 @@ class SolversPool[F[_]: Concurrent: ContextShift: Timer](
         for {
           solver <- Solver.run(params, healthCheckConfig)
           _ ← solvers.update(_ + solver)
-          _ ← Concurrent[F].start(solver.fiber.join.attempt.flatMap { r ⇒
+          cleanupFiber ← Concurrent[F].start(solver.fiber.join.attempt.flatMap { r ⇒
             logger.info(s"Removing solver from a pool: $solver due to $r")
-            solvers.update(_ - solver)
+            solvers.update(_ - solver) *> cleanups.update(_ - params)
           })
+          _ ← cleanups.update(_ + (params → cleanupFiber.join))
         } yield true
       case true ⇒
         logger.info(s"Solver $params was already ran")
@@ -73,9 +77,13 @@ class SolversPool[F[_]: Concurrent: ContextShift: Timer](
   def stopAll[G[_]](implicit P: Parallel[F, G]): F[Unit] =
     for {
       ss ← solvers.get
+      cs ← cleanups.get
+
       _ ← Parallel.parTraverse(ss.toList)(_.stop)
-      fiberJoins ← Parallel.parTraverse(ss.toList)(_.fiber.join.attempt)
-    } yield logger.info(s"Stopped: $fiberJoins")
+      fiberJoins ← Parallel.parTraverse(ss.toList)(s ⇒ s.fiber.join.attempt.map(s.params → _))
+
+      cleanupsJoins ← Parallel.parTraverse(cs.toList)(_._2.attempt)
+    } yield logger.info(s"Stopped: $fiberJoins $cleanupsJoins")
 
   /**
    * Returns a map of all currently registered solvers, along with theirs health
@@ -100,5 +108,6 @@ object SolversPool {
   ): F[SolversPool[F]] =
     for {
       solvers ← Ref.of[F, Set[Solver[F]]](Set.empty)
-    } yield new SolversPool[F](solvers, HealthCheckConfig())
+      cleanups ← Ref.of[F, Map[SolverParams, F[Unit]]](Map.empty)
+    } yield new SolversPool[F](solvers, cleanups, HealthCheckConfig())
 }

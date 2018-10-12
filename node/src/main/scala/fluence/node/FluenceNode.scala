@@ -43,13 +43,16 @@ object FluenceNode extends IOApp {
     lines
       .evalMap[IO, Option[ExitCode]] {
         case "stop" ⇒
-          IO(println(s"Going to stop...")) *> pool.stopAll[IO.Par].map(_ ⇒ Some(ExitCode.Success))
+          (IO(println(s"Going to stop...")) *> pool.stopAll[IO.Par]).map(_ ⇒ None)
 
         case "health" ⇒
           for {
             hs ← pool.healths[IO.Par]
             _ ← IO(println("Last health reports of solvers:\n" + hs.mkString("\n")))
           } yield None
+
+        case "exit" ⇒
+          (IO(println(s"Going to stop and exit...")) *> pool.stopAll[IO.Par]).map(_ ⇒ Some(ExitCode.Success))
 
         case RunR(port) ⇒
           for {
