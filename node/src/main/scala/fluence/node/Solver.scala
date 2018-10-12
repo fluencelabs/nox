@@ -68,7 +68,7 @@ object Solver extends LazyLogging {
         DockerIO
           .run[F](params.dockerCommand)
           .through(
-            // Check that container is running every 3 seconds
+            // Check that container is running every healthcheck.period
             DockerIO.check[F](healthcheck.period)
           )
           .evalMap[F, SolverHealth] {

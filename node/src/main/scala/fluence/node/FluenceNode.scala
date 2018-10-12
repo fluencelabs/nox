@@ -37,7 +37,7 @@ object FluenceNode extends IOApp {
       .through(fs2.text.lines[IO])
       .map(_.trim)
 
-  private val RunR = "^run ([0-9]{4,4})$".r
+  private val RunR = "^run ([0-9]{3,5})$".r
 
   def handleCli(pool: SolversPool[IO]): IO[ExitCode] =
     lines

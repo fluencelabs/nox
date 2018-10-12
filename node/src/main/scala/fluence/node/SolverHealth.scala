@@ -31,7 +31,9 @@ sealed trait SolverIll extends SolverHealth {
   override def isHealthy: Boolean = false
 }
 
-case class SolverRunning(sinceStartCommand: FiniteDuration) extends SolverHealthy
+case class SolverRunning(sinceStartCommand: FiniteDuration) extends SolverHealthy {
+  override def toString: String = s"SolverRunning(${sinceStartCommand.toMinutes} minutes)"
+}
 
 case object SolverNotYetLaunched extends SolverIll {
   override def sinceStartCommand: FiniteDuration = 0.seconds
