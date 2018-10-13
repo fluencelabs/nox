@@ -31,11 +31,11 @@ import scala.language.{higherKinds, implicitConversions}
 class AsmleWasmVmSpec extends WordSpec with Matchers {
 
   /**
-    * Converts ints to byte array by supplied byte order.
-    *
-    * @param ints array of int
-    * @param byteOrder a monad with an ability to absorb 'IO'
-    */
+   * Converts ints to byte array by supplied byte order.
+   *
+   * @param ints array of int
+   * @param byteOrder a monad with an ability to absorb 'IO'
+   */
   private def intsToBytes(
     ints: List[Int],
     byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN

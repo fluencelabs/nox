@@ -73,8 +73,8 @@ object LlamaDbRunner extends IOApp {
       res10 ← vm.invoke[IO](None, "do_query", Some(badQuery.getBytes()))
       state10 ← vm.getVmState[IO]
 
-      parserError = "\"123\""
-      res11 ← vm.invoke[IO](None, "do_query", List(parserError))
+      parserError = "123"
+      res11 ← vm.invoke[IO](None, "do_query", Some(parserError.getBytes()))
       state11 ← vm.getVmState[IO]
 
       finishState ← vm.getVmState[IO].toVmError
