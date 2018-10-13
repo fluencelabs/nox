@@ -83,7 +83,7 @@ class AsmleWasmVm(
         case Some(arg) => for {
           offset <- injectArrayIntoWasmModule(arg, wasmFn.module)
         } yield wasmFn[F](offset.asInstanceOf[AnyRef] :: arg.length.asInstanceOf[AnyRef] :: Nil)
-        case _ => wasmFn[F](Nil)
+        case None => wasmFn[F](Nil)
       }
 
       extractedResult <- if (wasmFn.javaMethod.getReturnType == Void.TYPE) {

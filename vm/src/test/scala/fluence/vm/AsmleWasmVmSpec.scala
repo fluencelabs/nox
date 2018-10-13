@@ -41,9 +41,9 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
     byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN): ByteBuffer = {
     val intBytesSize = 4
     val converter = ByteBuffer.allocate(intBytesSize * ints.length)
-    converter.order(byteOrder)
 
-    ints.foreach(converter.putInt(_))
+    converter.order(byteOrder)
+    ints.foreach(converter.putInt)
     converter.flip()
     converter
   }
@@ -89,6 +89,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         result.get.deep shouldBe Array[Byte](113, 0, 0, 0).deep
       }
 
+      val tt = res.failed()
       res.success()
     }
 

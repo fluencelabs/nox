@@ -27,7 +27,7 @@
     ;;
     ;;   return value;
     ;; }
-    (func extractInt (param $buffer i32) (param $begin i32) (param $end i32) (result i32)
+    (func $extractInt (param $buffer i32) (param $begin i32) (param $end i32) (result i32)
         (local $3 i32)
         (block $label$0
             (br_if $label$0
@@ -76,7 +76,7 @@
     )
 
     ;; int sum(const char *buffer, int size) {
-    ;;   if(size != 4) {
+    ;;   if(size != 8) {
     ;;     return 0;
     ;;   }
     ;;
@@ -91,17 +91,17 @@
 
         (block $label$0
             (br_if $label$0
-                (i32.ne (get_local $1) (i32.const 4))
+                (i32.ne (get_local $size) (i32.const 8))
             )
             (set_local $2
                 (i32.add
                     (call $extractInt
-                        (get_local $0)
+                        (get_local $buffer)
                         (i32.const 0)
                         (i32.const 4)
                     )
                     (call $extractInt
-                        (get_local $0)
+                        (get_local $buffer)
                         (i32.const 4)
                         (i32.const 8)
                     )
