@@ -78,13 +78,10 @@ class AsmleWasmVm(
           NoSuchFnError(s"Unable to find a function with the name=$functionId")
         )
 
+      preprocessedArgument <- preprocessFnArgument(fnArgument, wasmFn.module)
+
       // invoke the function
-      invocationResult <- fnArgument match {
-        case Some(arg) => for {
-          offset <- injectArrayIntoWasmModule(arg, wasmFn.module)
-        } yield wasmFn[F](offset.asInstanceOf[AnyRef] :: arg.length.asInstanceOf[AnyRef] :: Nil)
-        case None => wasmFn[F](Nil)
-      }
+      invocationResult <- wasmFn[F](preprocessedArgument)
 
       extractedResult <- if (wasmFn.javaMethod.getReturnType == Void.TYPE) {
         EitherT.rightT[F, InvokeError](None)
@@ -146,9 +143,30 @@ class AsmleWasmVm(
     deallocateFunction match {
       case Some(fn) => fn(offset.asInstanceOf[AnyRef] :: size.asInstanceOf[AnyRef] :: Nil)
       case _ =>
-       EitherT.leftT(
+        EitherT.leftT(
           NoSuchFnError(s"Unable to find the function for memory deallocation with the name=$deallocateFunctionName")
         )
+    }
+  }
+
+  /**
+   * Preprocesses each string parameter: injects it into Wasm module memory (through
+   * injectStringIntoWasmModule) and replace with pointer to it in WASM module and size.
+   *
+   * @param fnArgument arguments for calling this fn
+   * @param moduleInstance module instance used for injecting string arguments to the Wasm memory
+   * @tparam F a monad with an ability to absorb 'IO'
+   */
+  private def preprocessFnArgument[F[_]: LiftIO: Monad](
+    fnArgument: Option[Array[Byte]],
+    moduleInstance: ModuleInstance,
+  ): EitherT[F, InvokeError, List[AnyRef]] = {
+    fnArgument match {
+      case Some(arg) =>
+        for {
+          offset <- injectArrayIntoWasmModule(arg, moduleInstance)
+        } yield offset.asInstanceOf[AnyRef] :: arg.length.asInstanceOf[AnyRef] :: Nil
+      case None => EitherT.rightT[F, InvokeError](Nil)
     }
   }
 
@@ -276,6 +294,7 @@ object AsmleWasmVm {
    *               all inner state of the module, like memory.
    */
   case class WasmFunction(
+    functionId: FunctionId,
     javaMethod: Method,
     module: ModuleInstance
   ) {
@@ -290,7 +309,7 @@ object AsmleWasmVm {
       EitherT(IO(javaMethod.invoke(module.instance, args: _*)).attempt.to[F])
         .leftMap(e ⇒ TrapError(s"Function $this with args: $args was failed", Some(e)))
 
-    override def toString: String = "test"
+    override def toString: String = functionId.toString
   }
 
 }

@@ -198,6 +198,7 @@ object WasmVm {
                 case None ⇒
                   // it's ok, function with the specified name wasn't registered yet
                   val fn = WasmFunction(
+                    fnId,
                     method,
                     moduleInstance
                   )

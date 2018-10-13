@@ -36,9 +36,10 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
     * @param ints array of int
     * @param byteOrder a monad with an ability to absorb 'IO'
     */
-  private def intsToBytes
-  (ints: List[Int],
-    byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN): ByteBuffer = {
+  private def intsToBytes(
+    ints: List[Int],
+    byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN
+  ): ByteBuffer = {
     val intBytesSize = 4
     val converter = ByteBuffer.allocate(intBytesSize * ints.length)
 
@@ -67,11 +68,12 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         val sumFile = getClass.getResource("/wast/sum-with-trap.wast").getPath
         val res = for {
           vm <- WasmVm[IO](Seq(sumFile))
-          result ← vm.invoke[IO](None, "sum").toVmError // Integer overflow
+          result ← vm.invoke[IO](None, "sum", Some(intsToBytes(100 :: 13 :: Nil).array())).toVmError // Integer overflow
         } yield result
         val error = res.failed()
         error shouldBe a[TrapError]
-        error.getMessage should startWith("Function '<no-name>.sum' with args: List(100, 13) was failed")
+        error.getMessage should startWith("Function '<no-name>.sum' with args:")
+        error.getMessage should endWith("was failed")
       }
 
     }
@@ -89,7 +91,6 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         result.get.deep shouldBe Array[Byte](113, 0, 0, 0).deep
       }
 
-      val tt = res.failed()
       res.success()
     }
 
@@ -233,7 +234,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
           get1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
           getFromCopy1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
-          mul.get.deep shouldBe Array[Byte](113, 0, 0, 0).deep
+          mul.get.deep shouldBe Array[Byte](20, 5, 0, 0).deep
           state1.size shouldBe 32
           state2.size shouldBe 32
           state1 should not be state2
@@ -283,8 +284,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
             } yield state
 
             val error = res.failed()
-            error.getMessage shouldBe
-              "Trying to use absent Wasm memory while injecting string=test"
+            error.getMessage should startWith("Trying to use absent Wasm memory while injecting")
             error shouldBe a[VmMemoryError]
           }
 
