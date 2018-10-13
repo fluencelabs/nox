@@ -83,6 +83,8 @@ class AsmleWasmVm(
       // invoke the function
       invocationResult <- wasmFn[F](preprocessedArgument)
 
+      // It is expected that callee (Wasm module) clean memory by itself because of otherwise
+      // there can be nondeterminism (deterministic execution is very important for verification game)
       extractedResult <- if (wasmFn.javaMethod.getReturnType == Void.TYPE) {
         EitherT.rightT[F, InvokeError](None)
       } else {
