@@ -80,11 +80,26 @@ class AsmleWasmVm(
 
       preprocessedArgument <- preprocessFnArgument(fnArgument, wasmFn.module)
 
+      _ ← EitherT.cond(
+        wasmFn.javaMethod.getParameterTypes.length == preprocessedArgument.size,
+        (),
+        if (wasmFn.javaMethod.getParameterTypes.isEmpty) {
+          InvalidArgError(
+            s"The function $wasmFn expects no parameters"
+          )
+        } else {
+          InvalidArgError(
+            s"The function $wasmFn expects two parameters: byte array and its length"
+          )
+        }
+      )
+
       // invoke the function
       invocationResult <- wasmFn[F](preprocessedArgument)
 
-      // It is expected that callee (Wasm module) clean memory by itself because of otherwise
-      // there can be nondeterminism (deterministic execution is very important for verification game)
+      // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
+      // there can be some nondeterminism (deterministic execution is very important for verification game
+      // and this kind of nondeterminism can break all verification game).
       extractedResult <- if (wasmFn.javaMethod.getReturnType == Void.TYPE) {
         EitherT.rightT[F, InvokeError](None)
       } else {
@@ -155,14 +170,14 @@ class AsmleWasmVm(
    * Preprocesses each string parameter: injects it into Wasm module memory (through
    * injectStringIntoWasmModule) and replace with pointer to it in WASM module and size.
    *
-   * @param fnArgument arguments for calling this fn
-   * @param moduleInstance module instance used for injecting string arguments to the Wasm memory
+   * @param fnArgument argument for calling this fn
+   * @param moduleInstance module instance used for injecting array to the Wasm memory
    * @tparam F a monad with an ability to absorb 'IO'
    */
   private def preprocessFnArgument[F[_]: LiftIO: Monad](
     fnArgument: Option[Array[Byte]],
     moduleInstance: ModuleInstance,
-  ): EitherT[F, InvokeError, List[AnyRef]] = {
+  ): EitherT[F, InvokeError, List[AnyRef]] =
     fnArgument match {
       case Some(arg) =>
         for {
@@ -170,7 +185,6 @@ class AsmleWasmVm(
         } yield offset.asInstanceOf[AnyRef] :: arg.length.asInstanceOf[AnyRef] :: Nil
       case None => EitherT.rightT[F, InvokeError](Nil)
     }
-  }
 
   /**
    * Injects given string into Wasm module memory.

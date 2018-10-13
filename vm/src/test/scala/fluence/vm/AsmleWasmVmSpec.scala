@@ -53,10 +53,10 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
     "raise error" when {
 
       "unable to find a function" in {
-        val sumFile = getClass.getResource("/wast/sum.wast").getPath
+        val sumTestFile = getClass.getResource("/wast/sum.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](Seq(sumFile))
+          vm <- WasmVm[IO](Seq(sumTestFile))
           result ← vm.invoke[IO](None, "wrongFnName", None).toVmError
         } yield result
         val error = res.failed()
@@ -65,9 +65,9 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       }
 
       "wasm code fell into the trap" in {
-        val sumFile = getClass.getResource("/wast/sum-with-trap.wast").getPath
+        val sumTestFile = getClass.getResource("/wast/sum-with-trap.wast").getPath
         val res = for {
-          vm <- WasmVm[IO](Seq(sumFile))
+          vm <- WasmVm[IO](Seq(sumTestFile))
           result ← vm.invoke[IO](None, "sum", Some(intsToBytes(100 :: 13 :: Nil).array())).toVmError // Integer overflow
         } yield result
         val error = res.failed()
@@ -76,15 +76,83 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         error.getMessage should endWith("was failed")
       }
 
+      "trying to use Wasm memory when getMemory function isn't defined" in {
+        val noGetMemoryTestFile = getClass.getResource("/wast/no-getMemory.wast").getPath
+
+        val res = for {
+          vm <- WasmVm[IO](Seq(noGetMemoryTestFile))
+          result <- vm.invoke[IO](None, "test", Some("test".getBytes()))
+          state ← vm.getVmState[IO].toVmError
+        } yield state
+
+        val error = res.failed()
+        error.getMessage should startWith("Trying to use absent Wasm memory while injecting")
+        error shouldBe a[VmMemoryError]
+      }
+
+      "Wasm allocate function returns an incorrect value" in {
+        val badAllocationFunctionFile = getClass.getResource("/wast/bad-allocation-function.wast").getPath
+
+        val res = for {
+          vm <- WasmVm[IO](Seq(badAllocationFunctionFile))
+          result <- vm.invoke[IO](None, "test", Some("test".getBytes()))
+          state ← vm.getVmState[IO].toVmError
+        } yield state
+
+        val error = res.failed()
+        error.getMessage shouldBe
+          "The Wasm allocation function returned incorrect offset=9223372036854775807"
+        error shouldBe a[VmMemoryError]
+      }
+
+      "trying to extract array with incorrect size from Wasm memory" in {
+        val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
+
+        val res = for {
+          vm <- WasmVm[IO](Seq(simpleArrayPassingTestFile))
+          result ← vm.invoke[IO](None, "incorrectLengthResult").toVmError
+        } yield result
+
+        val error = res.failed()
+        error shouldBe a[VmMemoryError]
+        error.getMessage shouldBe "String reading from offset=1048592 failed"
+      }
+
+      "trying to call function that receives array without any arguments" in {
+        val sumTestFile = getClass.getResource("/wast/sum.wast").getPath
+
+        val res = for {
+          vm <- WasmVm[IO](Seq(sumTestFile))
+          result <- vm.invoke[IO](Some("SumModule"), "sum", None).toVmError
+        } yield result
+
+        val error = res.failed()
+        error shouldBe a[InvalidArgError]
+        error.getMessage shouldBe "The function 'SumModule.sum' expects two parameters: byte array and its length"
+      }
+
+      "trying to call function that receives no arguments with array" in {
+        val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
+
+        val res = for {
+          vm <- WasmVm[IO](Seq(counterTestFile))
+          result <- vm.invoke[IO](None, "get", Some("test".getBytes())).toVmError
+        } yield result
+
+        val error = res.failed()
+        error shouldBe a[InvalidArgError]
+        error.getMessage shouldBe "The function '<no-name>.get' expects no parameters"
+      }
+
     }
   }
 
   "invokes function success" when {
     "run sum.wast" in {
-      val sumFile = getClass.getResource("/wast/sum.wast").getPath
+      val sumTestFile = getClass.getResource("/wast/sum.wast").getPath
 
       val res = for {
-        vm <- WasmVm[IO](Seq(sumFile))
+        vm <- WasmVm[IO](Seq(sumTestFile))
         result ← vm.invoke[IO](Some("SumModule"), "sum", Some(intsToBytes(100 :: 13 :: Nil).array())).toVmError
       } yield {
         result should not be None
@@ -95,11 +163,11 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
     }
 
     "run sum.wast and after that mul.wast" in {
-      val sumFile = getClass.getResource("/wast/sum.wast").getPath
-      val mulFile = getClass.getResource("/wast/mul.wast").getPath
+      val sumTestFile = getClass.getResource("/wast/sum.wast").getPath
+      val mulTestFile = getClass.getResource("/wast/mul.wast").getPath
 
       val res = for {
-        vm <- WasmVm[IO](Seq(mulFile, sumFile))
+        vm <- WasmVm[IO](Seq(mulTestFile, sumTestFile))
         mulResult ← vm.invoke[IO](Some("MulModule"), "mul", Some(intsToBytes(100 :: 13 :: Nil).array()))
         sumResult ← vm.invoke[IO](Some("SumModule"), "sum", Some(intsToBytes(100 :: 13 :: Nil).array())).toVmError
       } yield {
@@ -114,10 +182,10 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
     }
 
     "run counter.wast" in {
-      val file = getClass.getResource("/wast/counter.wast").getPath
+      val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
 
       val res = for {
-        vm <- WasmVm[IO](Seq(file))
+        vm <- WasmVm[IO](Seq(counterTestFile))
         get0 ← vm.invoke[IO](None, "get") // read 0
         _ ← vm.invoke[IO](None, "inc") // 0 -> 1
         get1 ← vm.invoke[IO](None, "get") // read 1
@@ -137,18 +205,79 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       res.success()
     }
 
+    "run simple test with array passsing" in {
+      val simpleStringPassingTestFile = getClass.getResource("/wast/simple-string-passing.wast").getPath
+
+      val res = for {
+        vm ← WasmVm[IO](Seq(simpleStringPassingTestFile))
+        value1 ← vm.invoke[IO](None, "circular_xor", Some("test_argument".getBytes()))
+        value2 ← vm.invoke[IO](None, "circular_xor", Some("XX".getBytes()))
+        value3 ← vm.invoke[IO](None, "circular_xor", Some("XXX".getBytes()))
+        value4 ← vm.invoke[IO](None, "circular_xor", Some("".getBytes())) // empty string
+        value5 ← vm.invoke[IO](None, "circular_xor", Some("\"".getBytes())).toVmError // " string
+      } yield {
+        value1 should not be None
+        value2 should not be None
+        value3 should not be None
+        value4 should not be None
+        value5 should not be None
+
+        value1.get.deep shouldBe Array[Int](90, 0, 0, 0).deep
+        value2.get.deep shouldBe Array[Int](0, 0, 0, 0).deep
+        value3.get.deep shouldBe Array[Int]('X'.toInt, 0, 0, 0).deep
+        value4.get.deep shouldBe Array[Int](0, 0, 0, 0).deep // this Wasm example returns 0 on empty string
+        value5.get.deep shouldBe Array[Int]('"'.toInt, 0, 0, 0).deep
+      }
+
+      res.success()
+    }
+
+    "run simple test with array returning" in {
+      val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
+
+      val res = for {
+        vm ← WasmVm[IO](Seq(simpleArrayPassingTestFile))
+        value1 ← vm.invoke[IO](None, "hello")
+        state ← vm.getVmState[IO].toVmError
+      } yield {
+        value1 should not be None
+
+        val stringValue = new String(value1.get)
+        stringValue shouldBe "Hello from Fluence Labs!"
+      }
+
+      res.success()
+    }
+
+    "run simple test with array mutation" in {
+      val simpleArrayMutationTestFile = getClass.getResource("/wast/simple-array-mutation.wast").getPath
+
+      val res = for {
+        vm ← WasmVm[IO](Seq(simpleArrayMutationTestFile))
+        value1 ← vm.invoke[IO](None, "mutateArray", Some("AAAAAAA".getBytes()))
+        state ← vm.getVmState[IO].toVmError
+      } yield {
+        value1 should not be None
+
+        val stringValue = new String(value1.get)
+        stringValue shouldBe "BBBBBBB"
+      }
+
+      res.success()
+    }
+
   }
 
   "getVmState" should {
     "raise an error" when {
       "getting inner state for module failed" in {
-        val counterFile = getClass.getResource("/wast/counter.wast").getPath
+        val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
         val badHasher = new Crypto.Hasher[Array[Byte], Array[Byte]] {
           override def apply[F[_]: Monad](input: Array[Byte]): EitherT[F, CryptoError, Array[Byte]] =
             EitherT.leftT(CryptoError("error!"))
         }
         val res = for {
-          vm <- WasmVm[IO](Seq(counterFile), cryptoHasher = badHasher)
+          vm <- WasmVm[IO](Seq(counterTestFile), cryptoHasher = badHasher)
           state ← vm.getVmState[IO].toVmError
         } yield state
 
@@ -164,10 +293,10 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       "there is one module without memory present" in {
         val testHasher = DumbCrypto.testHasher
         // 'no-getMemory.wast' doesn't use memory so Asmble creates class file without 'mem' field
-        val sumFile = getClass.getResource("/wast/no-getMemory.wast").getPath
+        val sumTestFile = getClass.getResource("/wast/no-getMemory.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](Seq(sumFile), cryptoHasher = testHasher)
+          vm <- WasmVm[IO](Seq(sumTestFile), cryptoHasher = testHasher)
           state ← vm.getVmState[IO].toVmError
         } yield {
           state.toArray shouldBe testHasher.unsafe(Array.emptyByteArray)
@@ -178,10 +307,10 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       "there is one module with memory present" in {
         // the code in 'counter.wast' uses 'memory', instance for this module created with 'memory' field
-        val counterFile = getClass.getResource("/wast/counter.wast").getPath
+        val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](Seq(counterFile))
+          vm <- WasmVm[IO](Seq(counterTestFile))
           _ ← vm.invoke[IO](None, "inc") // 0 -> 1
           get1 ← vm.invoke[IO](None, "get") // read 1
           state1 ← vm.getVmState[IO]
@@ -207,12 +336,12 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       }
 
       "there are several modules present" in {
-        val counterFile = getClass.getResource("/wast/counter.wast").getPath
-        val counterCopyFile = getClass.getResource("/wast/counter-copy.wast").getPath
-        val mulFile = getClass.getResource("/wast/mul.wast").getPath
+        val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
+        val counterCopyTestFile = getClass.getResource("/wast/counter-copy.wast").getPath
+        val mulTestFile = getClass.getResource("/wast/mul.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](Seq(counterCopyFile, mulFile, counterFile))
+          vm <- WasmVm[IO](Seq(counterTestFile, counterCopyTestFile, mulTestFile))
 
           _ ← vm.invoke[IO](None, "inc") // 0 -> 1
           get1 ← vm.invoke[IO](None, "get") // read 1
@@ -241,120 +370,6 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         }
 
         res.success()
-      }
-
-      "simple test for string passing" in {
-        val simpleStringPassingTestFile = getClass.getResource("/wast/simple-string-passing.wast").getPath
-
-        val res = for {
-          vm ← WasmVm[IO](Seq(simpleStringPassingTestFile))
-          value1 ← vm.invoke[IO](None, "circular_xor", Some("test_argument".getBytes()))
-          value2 ← vm.invoke[IO](None, "circular_xor", Some("XX".getBytes()))
-          value3 ← vm.invoke[IO](None, "circular_xor", Some("XXX".getBytes()))
-          value4 ← vm.invoke[IO](None, "circular_xor", Some("".getBytes())) // empty string
-          value5 ← vm.invoke[IO](None, "circular_xor", Some("\"".getBytes())) // " string
-          state ← vm.getVmState[IO].toVmError
-        } yield {
-          value1 should not be None
-          value2 should not be None
-          value3 should not be None
-          value4 should not be None
-          value5 should not be None
-
-          value1.get.deep shouldBe Array[Int](90, 0, 0, 0).deep
-          value2.get.deep shouldBe Array[Int](0, 0, 0, 0).deep
-          value3.get.deep shouldBe Array[Int]('X'.toInt, 0, 0, 0).deep
-          value4.get.deep shouldBe Array[Int](0, 0, 0, 0).deep // this Wasm example returns 0 on empty string
-          value5.get.deep shouldBe Array[Int]('"'.toInt, 0, 0, 0).deep
-        }
-
-        res.success()
-      }
-
-      "string passing" should {
-        "raise an error" when {
-
-          "trying to use Wasm memory when getMemory function isn't defined" in {
-            val noGetMemoryTestFile = getClass.getResource("/wast/no-getMemory.wast").getPath
-
-            val res = for {
-              vm <- WasmVm[IO](Seq(noGetMemoryTestFile))
-              result <- vm.invoke[IO](None, "test", Some("test".getBytes()))
-              state ← vm.getVmState[IO].toVmError
-            } yield state
-
-            val error = res.failed()
-            error.getMessage should startWith("Trying to use absent Wasm memory while injecting")
-            error shouldBe a[VmMemoryError]
-          }
-
-          "Wasm allocate function returns an incorrect value" in {
-            val badAllocationFunctionFile = getClass.getResource("/wast/bad-allocation-function.wast").getPath
-
-            val res = for {
-              vm <- WasmVm[IO](Seq(badAllocationFunctionFile))
-              result <- vm.invoke[IO](None, "test", Some("test".getBytes()))
-              state ← vm.getVmState[IO].toVmError
-            } yield state
-
-            val error = res.failed()
-            error.getMessage shouldBe
-              "The Wasm allocation function returned incorrect offset=9223372036854775807"
-            error shouldBe a[VmMemoryError]
-          }
-
-        }
-      }
-
-      "simple test for array returning" in {
-        val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
-
-        val res = for {
-          vm ← WasmVm[IO](Seq(simpleArrayPassingTestFile))
-          value1 ← vm.invoke[IO](None, "hello")
-          state ← vm.getVmState[IO].toVmError
-        } yield {
-          value1 should not be None
-
-          val stringValue = new String(value1.get)
-          stringValue shouldBe "Hello from Fluence Labs!"
-        }
-
-        res.success()
-      }
-
-      "simple test for array mutation" in {
-        val simpleArrayMutationTestFile = getClass.getResource("/wast/simple-array-mutation.wast").getPath
-
-        val res = for {
-          vm ← WasmVm[IO](Seq(simpleArrayMutationTestFile))
-          value1 ← vm.invoke[IO](None, "mutateArray", Some("AAAAAAA".getBytes()))
-          state ← vm.getVmState[IO].toVmError
-        } yield {
-          value1 should not be None
-
-          val stringValue = new String(value1.get)
-          stringValue shouldBe "BBBBBBB"
-        }
-
-        res.success()
-      }
-
-      "string " should {
-        "raise error" when {
-          "trying to extract array with incorrect size from Wasm memory" in {
-            val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
-
-            val res = for {
-              vm <- WasmVm[IO](Seq(simpleArrayPassingTestFile))
-              result ← vm.invoke[IO](None, "incorrectLengthResult").toVmError
-            } yield result
-
-            val error = res.failed()
-            error shouldBe a[VmMemoryError]
-            error.getMessage shouldBe "String reading from offset=1048592 failed"
-          }
-        }
       }
 
     }
