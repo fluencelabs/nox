@@ -30,14 +30,14 @@ import scala.util.matching.Regex
  * @param functionName name of the invoked function
  * @param argList ordered sequence of function arguments
  */
-case class FunctionCallDescription(module: Option[String], functionName: String, argList: List[String])
+case class FunctionCallDescription(module: Option[String], functionName: String, argList: Option[Array[Byte]])
 
 object FunctionCallDescription {
 
   /**
    * Description for reserved non-VM function call that explicitly closes sessions by the client.
    */
-  val CloseSession = FunctionCallDescription(None, "@closeSession", Nil)
+  val CloseSession = FunctionCallDescription(None, "@closeSession", None)
 
   // ^ start of the line, needed to capture whole string, not just substring
   // (\w+(?:\.))* optional module name, must be followed by dot. dot isn't captured. ?= is called lookahead.
