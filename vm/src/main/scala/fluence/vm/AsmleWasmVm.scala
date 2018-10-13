@@ -168,7 +168,7 @@ class AsmleWasmVm(
 
   /**
    * Preprocesses parameter: injects it into Wasm module memory (through injectArrayIntoWasmModule)
-   * and replace with pointer to it in WASM module and size.
+   * and replace with pointer to it in the Wasm module and size.
    *
    * @param fnArgument argument for calling this function
    * @param moduleInstance module instance used for injecting array to the Wasm memory

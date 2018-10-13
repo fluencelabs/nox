@@ -80,5 +80,5 @@ object FunctionCallDescription {
    * @param unparsedArg wrong payload argument
    */
   private def wrongPayloadArgument(unparsedArg: String): StateMachineError =
-    PayloadParseError("WrongPayloadArgument", s"Wrong payload arguments: $unparsedArg")
+    PayloadParseError("WrongPayloadArgument", s"Wrong payload argument: $unparsedArg")
 }
