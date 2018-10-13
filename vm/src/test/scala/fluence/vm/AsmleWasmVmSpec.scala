@@ -34,7 +34,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
    * Converts ints to byte array by supplied byte order.
    *
    * @param ints array of int
-   * @param byteOrder a monad with an ability to absorb 'IO'
+   * @param byteOrder byte order that used for int converting
    */
   private def intsToBytes(
     ints: List[Int],
