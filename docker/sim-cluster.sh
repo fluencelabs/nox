@@ -15,15 +15,16 @@ docker kill $(docker ps -a -q -f name="$1_node") || true
 docker rm $(docker ps -a -q -f name="$1_node") || true
 
 # prepare node directories
-rm -rf "nodes/$1/node"*
-mkdir -p "nodes/$1"
+network_dir=$HOME/.fluence/nodes/$1
+rm -rf "$network_dir/node"*
+mkdir -p "$network_dir"
 
 # combine genesis and persistent peers and put them to a file
-./sim-combine-cluster.sh "$1" "$4" > "nodes/$1/cluster_info.json"
+./sim-combine-cluster.sh "$1" "$4" > "$network_dir/cluster_info.json"
 
 # run 4 nodes
 for ((i = 0; i <= 3; i++)); do
     p2p_port=$(($3 + $i * 100 - 1))
     rpc_port=$(($3 + $i * 100))
-    ./master-run-node.sh "$1" "$2" $i "$4/node$i" "nodes/$1/cluster_info.json" $p2p_port $rpc_port
+    ./master-run-node.sh "$1" "$2" $i "$4/node$i" "$network_dir/cluster_info.json" $p2p_port $rpc_port
 done
