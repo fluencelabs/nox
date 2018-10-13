@@ -167,10 +167,10 @@ class AsmleWasmVm(
   }
 
   /**
-   * Preprocesses each string parameter: injects it into Wasm module memory (through
-   * injectStringIntoWasmModule) and replace with pointer to it in WASM module and size.
+   * Preprocesses parameter: injects it into Wasm module memory (through injectArrayIntoWasmModule)
+   * and replace with pointer to it in WASM module and size.
    *
-   * @param fnArgument argument for calling this fn
+   * @param fnArgument argument for calling this function
    * @param moduleInstance module instance used for injecting array to the Wasm memory
    * @tparam F a monad with an ability to absorb 'IO'
    */
@@ -310,7 +310,7 @@ object AsmleWasmVm {
    *               all inner state of the module, like memory.
    */
   case class WasmFunction(
-    functionId: FunctionId,
+    fnId: FunctionId,
     javaMethod: Method,
     module: ModuleInstance
   ) {
@@ -325,7 +325,7 @@ object AsmleWasmVm {
       EitherT(IO(javaMethod.invoke(module.instance, args: _*)).attempt.to[F])
         .leftMap(e ⇒ TrapError(s"Function $this with args: $args was failed", Some(e)))
 
-    override def toString: String = functionId.toString
+    override def toString: String = fnId.toString
   }
 
 }

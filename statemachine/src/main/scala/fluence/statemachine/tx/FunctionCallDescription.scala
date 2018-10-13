@@ -19,9 +19,10 @@ import cats.Monad
 import cats.data.EitherT
 import cats.syntax.either._
 import fluence.statemachine.error.{PayloadParseError, StateMachineError}
+import fluence.statemachine.util.HexCodec.hexToArray
 
 import scala.language.higherKinds
-import scala.util.matching.Regex
+import scala.util.Try
 
 /**
  * Description of a function invocation with concrete arguments.
@@ -46,9 +47,6 @@ object FunctionCallDescription {
   // $ end of the line, needed to capture whole string, not just substring
   private val payloadPattern = """^(\w+(?:\.))*(@?\w+)\((.*?)\)$""".r
 
-  // anything but the quotes inside quotes OR any number with dots
-  private val argsPattern = """("[^"]*"|[\d.]+)""".r
-
   /**
    * Parses text payload in `[moduleName].functionName(arg1, ..., argN)` format to a typed function call description.
    *
@@ -60,18 +58,12 @@ object FunctionCallDescription {
         case payloadPattern(m, f, args) => Either.right((Option(m).map(_.filter(_ != '.')), f, args))
         case _ => Either.left(wrongPayloadFormatError(payload))
       }
-      (module, functionName, unparsedArgList) = parsedPayload
-      parsedArgList <- {
-        if (unparsedArgList.isEmpty) Either.right(List.empty)
-        else {
-          argsPattern.findAllMatchIn(unparsedArgList).toList.map(_.group(1)) match {
-            case Nil => Either.left(wrongPayloadArgumentListFormatError(unparsedArgList))
-            case l => Either.right(l)
-          }
-        }
+      (module, functionName, unparsedArg) = parsedPayload
 
-      }
-    } yield FunctionCallDescription(module, functionName, parsedArgList))
+      parsedArg <- if (unparsedArg.isEmpty) Either.right(None)
+      else Try { Some(hexToArray(unparsedArg)) }.toEither.left.map(_ => wrongPayloadArgument(unparsedArg))
+
+    } yield FunctionCallDescription(module, functionName, parsedArg))
 
   /**
    * Produces [[StateMachineError]] corresponding to payload that cannot be parsed to a function call.
@@ -85,8 +77,8 @@ object FunctionCallDescription {
    * Produces [[StateMachineError]] corresponding to payload's argument list that cannot be parsed to
    * correct function arguments.
    *
-   * @param unparsedArgList wrong payload argument list
+   * @param unparsedArg wrong payload argument
    */
-  private def wrongPayloadArgumentListFormatError(unparsedArgList: String): StateMachineError =
-    PayloadParseError("WrongPayloadArgumentListFormat", s"Wrong payload arguments: $unparsedArgList")
+  private def wrongPayloadArgument(unparsedArg: String): StateMachineError =
+    PayloadParseError("WrongPayloadArgument", s"Wrong payload arguments: $unparsedArg")
 }

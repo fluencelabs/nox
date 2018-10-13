@@ -17,6 +17,8 @@
 package fluence.statemachine.util
 import scodec.bits.{Bases, ByteVector}
 
+import java.math.BigInteger
+
 object HexCodec {
 
   /**
@@ -47,4 +49,13 @@ object HexCodec {
    */
   def hexToString(hex: String): Either[String, String] =
     ByteVector.fromHexDescriptive(hex, Bases.Alphabets.HexUppercase).map(x => new String(x.toArray))
+
+  /**
+   * Decodes a string from hex representation to array of bytes.
+   *
+   * @param hex string in hex representation
+   * @throws NumberFormatException if incorrect hex string supplied.
+   */
+  def hexToArray(hex: String): Array[Byte] = new BigInteger(hex, 16).toByteArray
+
 }
