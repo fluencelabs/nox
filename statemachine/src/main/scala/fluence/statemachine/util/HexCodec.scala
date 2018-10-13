@@ -57,5 +57,4 @@ object HexCodec {
    * @throws NumberFormatException if incorrect hex string supplied.
    */
   def hexToArray(hex: String): Array[Byte] = new BigInteger(hex, 16).toByteArray
-
 }
