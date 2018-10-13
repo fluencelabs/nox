@@ -15,26 +15,18 @@
  */
 
 package fluence.node
-import cats.effect._
-import cats.syntax.apply._
-import cats.syntax.functor._
-
-import scala.sys.process._
-import scala.language.higherKinds
 
 /**
- * Functional wrapper for a console command
- * @param cmd Command with its arguments
+ * Solver container's params
+ *
+ * @param rpcPort RPC port to bind to
  */
-case class ExecIO(cmd: String*) {
+case class SolverParams(rpcPort: Int) {
+  override def toString = s"(solver of rpcPort $rpcPort)"
 
   /**
-   * Run the command with F effect
-   * @tparam F The effect
+   * [[DockerIO.run]]'s command for launching a configured solver
+   * TODO: replace with a real solver process
    */
-  def run[F[_]: Sync: ContextShift]: F[ExitCode] =
-    (
-      implicitly[ContextShift[F]].shift *> Sync[F].delay(cmd.!)
-    ).map(ExitCode.apply)
-
+  val dockerCommand = s"-p $rpcPort:80 --name nginx-$rpcPort nginx"
 }

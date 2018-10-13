@@ -16,10 +16,10 @@ It would build a `fluencelabs/statemachine:latest` image.
 
 ### Launching clusters
 
-2 example clusters can be found in this directory. Try running the following commands:
+2 example clusters can be found in `example` directory. Try running the following commands:
 ```
-./run-cluster-counter.sh
-./run-cluster-sqldb.sh
+./sim-cluster-counter.sh
+./sim-cluster-sqldb.sh
 ```
 
 They would launch the isolated clusters of `fluencelabs/statemachine:latest` containers.
@@ -32,7 +32,7 @@ docker attach sqldbnet_node0
 
 It would allow to view State machine logs reporting details about blocks, transactions, etc. (Use `Ctrl+P Ctrl+Q` to detach.)
 
-Explore `run-cluster.sh` command to launch clusters with custom VM code. 
+Explore `sim-cluster.sh` command to launch clusters with custom VM code. 
 
 ### Connecting JS client
 
