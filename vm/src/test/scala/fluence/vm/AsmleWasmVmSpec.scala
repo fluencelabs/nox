@@ -57,7 +57,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm <- WasmVm[IO](Seq(sumTestFile))
-          result ← vm.invoke[IO](None, "wrongFnName", None).toVmError
+          result ← vm.invoke[IO](None, "wrongFnName").toVmError
         } yield result
         val error = res.failed()
         error shouldBe a[NoSuchFnError]
@@ -68,7 +68,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         val sumTestFile = getClass.getResource("/wast/sum-with-trap.wast").getPath
         val res = for {
           vm <- WasmVm[IO](Seq(sumTestFile))
-          result ← vm.invoke[IO](None, "sum", Some(intsToBytes(100 :: 13 :: Nil).array())).toVmError // Integer overflow
+          result ← vm.invoke[IO](None, "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError // Integer overflow
         } yield result
         val error = res.failed()
         error shouldBe a[TrapError]
@@ -81,7 +81,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm <- WasmVm[IO](Seq(noGetMemoryTestFile))
-          result <- vm.invoke[IO](None, "test", Some("test".getBytes()))
+          result <- vm.invoke[IO](None, "test", "test".getBytes())
           state ← vm.getVmState[IO].toVmError
         } yield state
 
@@ -95,7 +95,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm <- WasmVm[IO](Seq(badAllocationFunctionFile))
-          result <- vm.invoke[IO](None, "test", Some("test".getBytes()))
+          result <- vm.invoke[IO](None, "test", "test".getBytes())
           state ← vm.getVmState[IO].toVmError
         } yield state
 
@@ -118,32 +118,6 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         error.getMessage shouldBe "String reading from offset=1048592 failed"
       }
 
-      "trying to call function that receives array without any arguments" in {
-        val sumTestFile = getClass.getResource("/wast/sum.wast").getPath
-
-        val res = for {
-          vm <- WasmVm[IO](Seq(sumTestFile))
-          result <- vm.invoke[IO](Some("SumModule"), "sum", None).toVmError
-        } yield result
-
-        val error = res.failed()
-        error shouldBe a[InvalidArgError]
-        error.getMessage shouldBe "The function 'SumModule.sum' expects two parameters: byte array and its length"
-      }
-
-      "trying to call function that receives no arguments with array" in {
-        val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
-
-        val res = for {
-          vm <- WasmVm[IO](Seq(counterTestFile))
-          result <- vm.invoke[IO](None, "get", Some("test".getBytes())).toVmError
-        } yield result
-
-        val error = res.failed()
-        error shouldBe a[InvalidArgError]
-        error.getMessage shouldBe "The function '<no-name>.get' expects no parameters"
-      }
-
     }
   }
 
@@ -153,7 +127,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(sumTestFile))
-        result ← vm.invoke[IO](Some("SumModule"), "sum", Some(intsToBytes(100 :: 13 :: Nil).array())).toVmError
+        result ← vm.invoke[IO](Some("SumModule"), "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError
       } yield {
         result should not be None
         result.get.deep shouldBe Array[Byte](113, 0, 0, 0).deep
@@ -168,8 +142,8 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(mulTestFile, sumTestFile))
-        mulResult ← vm.invoke[IO](Some("MulModule"), "mul", Some(intsToBytes(100 :: 13 :: Nil).array()))
-        sumResult ← vm.invoke[IO](Some("SumModule"), "sum", Some(intsToBytes(100 :: 13 :: Nil).array())).toVmError
+        mulResult ← vm.invoke[IO](Some("MulModule"), "mul", intsToBytes(100 :: 13 :: Nil).array())
+        sumResult ← vm.invoke[IO](Some("SumModule"), "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError
       } yield {
         mulResult should not be None
         sumResult should not be None
@@ -210,11 +184,11 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm ← WasmVm[IO](Seq(simpleStringPassingTestFile))
-        value1 ← vm.invoke[IO](None, "circular_xor", Some("test_argument".getBytes()))
-        value2 ← vm.invoke[IO](None, "circular_xor", Some("XX".getBytes()))
-        value3 ← vm.invoke[IO](None, "circular_xor", Some("XXX".getBytes()))
-        value4 ← vm.invoke[IO](None, "circular_xor", Some("".getBytes())) // empty string
-        value5 ← vm.invoke[IO](None, "circular_xor", Some("\"".getBytes())).toVmError // " string
+        value1 ← vm.invoke[IO](None, "circular_xor", "test_argument".getBytes())
+        value2 ← vm.invoke[IO](None, "circular_xor", "XX".getBytes())
+        value3 ← vm.invoke[IO](None, "circular_xor", "XXX".getBytes())
+        value4 ← vm.invoke[IO](None, "circular_xor", "".getBytes()) // empty string
+        value5 ← vm.invoke[IO](None, "circular_xor", "\"".getBytes()).toVmError // " string
       } yield {
         value1 should not be None
         value2 should not be None
@@ -254,7 +228,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm ← WasmVm[IO](Seq(simpleArrayMutationTestFile))
-        value1 ← vm.invoke[IO](None, "mutateArray", Some("AAAAAAA".getBytes()))
+        value1 ← vm.invoke[IO](None, "mutateArray", "AAAAAAA".getBytes())
         state ← vm.getVmState[IO].toVmError
       } yield {
         value1 should not be None
@@ -347,7 +321,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
           get1 ← vm.invoke[IO](None, "get") // read 1
           _ ← vm.invoke[IO](Some("CounterCopyModule"), "inc") // 0 -> 1
           getFromCopy1 ← vm.invoke[IO](Some("CounterCopyModule"), "get") // read 1
-          mul ← vm.invoke[IO](Some("MulModule"), "mul", Some(intsToBytes(100 :: 13 :: Nil).array()))
+          mul ← vm.invoke[IO](Some("MulModule"), "mul", intsToBytes(100 :: 13 :: Nil).array())
 
           state1 ← vm.getVmState[IO]
 

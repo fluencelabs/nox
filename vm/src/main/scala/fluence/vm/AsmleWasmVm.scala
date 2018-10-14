@@ -66,7 +66,7 @@ class AsmleWasmVm(
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
     fnName: String,
-    fnArgument: Option[Array[Byte]]
+    fnArgument: Array[Byte]
   ): EitherT[F, InvokeError, Option[Array[Byte]]] = {
     val functionId = FunctionId(moduleName, AsmExtKt.getJavaIdent(fnName))
 
@@ -79,20 +79,6 @@ class AsmleWasmVm(
         )
 
       preprocessedArgument <- preprocessFnArgument(fnArgument, wasmFn.module)
-
-      _ ← EitherT.cond(
-        wasmFn.javaMethod.getParameterTypes.length == preprocessedArgument.size,
-        (),
-        if (wasmFn.javaMethod.getParameterTypes.isEmpty) {
-          InvalidArgError(
-            s"The function $wasmFn expects no parameters"
-          )
-        } else {
-          InvalidArgError(
-            s"The function $wasmFn expects two parameters: byte array and its length"
-          )
-        }
-      )
 
       // invoke the function
       invocationResult <- wasmFn[F](preprocessedArgument)
@@ -175,16 +161,12 @@ class AsmleWasmVm(
    * @tparam F a monad with an ability to absorb 'IO'
    */
   private def preprocessFnArgument[F[_]: LiftIO: Monad](
-    fnArgument: Option[Array[Byte]],
+    fnArgument: Array[Byte],
     moduleInstance: ModuleInstance,
   ): EitherT[F, InvokeError, List[AnyRef]] =
-    fnArgument match {
-      case Some(arg) =>
-        for {
-          offset <- injectArrayIntoWasmModule(arg, moduleInstance)
-        } yield offset.asInstanceOf[AnyRef] :: arg.length.asInstanceOf[AnyRef] :: Nil
-      case None => EitherT.rightT[F, InvokeError](Nil)
-    }
+    for {
+      offset <- injectArrayIntoWasmModule(fnArgument, moduleInstance)
+    } yield offset.asInstanceOf[AnyRef] :: fnArgument.length.asInstanceOf[AnyRef] :: Nil
 
   /**
    * Injects given string into Wasm module memory.

@@ -34,47 +34,47 @@ object LlamaDbRunner extends IOApp {
       initState ← vm.getVmState[IO]
 
       createTableSql = "create table USERS(id int, name varchar(128), age int)"
-      res1 ← vm.invoke[IO](None, "do_query", Some(createTableSql.getBytes()))
+      res1 ← vm.invoke[IO](None, "do_query", createTableSql.getBytes())
       state1 ← vm.getVmState[IO]
 
       insertOne = "insert into USERS values(1, 'Sara', 23)"
-      res2 ← vm.invoke[IO](None, "do_query", Some(insertOne.getBytes()))
+      res2 ← vm.invoke[IO](None, "do_query", insertOne.getBytes())
       state2 ← vm.getVmState[IO]
 
       bulkInsert = "insert into USERS values(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)"
-      res3 ← vm.invoke[IO](None, "do_query", Some(bulkInsert.getBytes()))
+      res3 ← vm.invoke[IO](None, "do_query", bulkInsert.getBytes())
       state3 ← vm.getVmState[IO]
 
       emptySelect = "select * from USERS where name = 'unknown'"
-      res4 ← vm.invoke[IO](None, "do_query", Some(emptySelect.getBytes()))
+      res4 ← vm.invoke[IO](None, "do_query", emptySelect.getBytes())
       state4 ← vm.getVmState[IO]
 
       selectAll = "select id, name from USERS"
-      res5 ← vm.invoke[IO](None, "do_query", Some(selectAll.getBytes()))
+      res5 ← vm.invoke[IO](None, "do_query", selectAll.getBytes())
       state5 ← vm.getVmState[IO]
 
       explain = "explain select id, name from USERS"
-      res6 ← vm.invoke[IO](None, "do_query", Some(explain.getBytes()))
+      res6 ← vm.invoke[IO](None, "do_query", explain.getBytes())
       state6 ← vm.getVmState[IO]
 
       createTable2Sql = "create table ROLES(user_id int, role varchar(128))"
-      res7 ← vm.invoke[IO](None, "do_query", Some(createTable2Sql.getBytes()))
+      res7 ← vm.invoke[IO](None, "do_query", createTable2Sql.getBytes())
       state7 ← vm.getVmState[IO]
 
       bulkInsert2 = "insert into ROLES values(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')"
-      res8 ← vm.invoke[IO](None, "do_query", Some(bulkInsert2.getBytes()))
+      res8 ← vm.invoke[IO](None, "do_query", bulkInsert2.getBytes())
       state8 ← vm.getVmState[IO]
 
       selectWithJoin = "select u.name as Name, r.role as Role from USERS u join ROLES r on u.id = r.user_id where r.role = 'Writer'"
-      res9 ← vm.invoke[IO](None, "do_query", Some(selectWithJoin.getBytes()))
+      res9 ← vm.invoke[IO](None, "do_query", selectWithJoin.getBytes())
       state9 ← vm.getVmState[IO]
 
       badQuery = "select salary from USERS"
-      res10 ← vm.invoke[IO](None, "do_query", Some(badQuery.getBytes()))
+      res10 ← vm.invoke[IO](None, "do_query", badQuery.getBytes())
       state10 ← vm.getVmState[IO]
 
       parserError = "123"
-      res11 ← vm.invoke[IO](None, "do_query", Some(parserError.getBytes()))
+      res11 ← vm.invoke[IO](None, "do_query", parserError.getBytes())
       state11 ← vm.getVmState[IO]
 
       finishState ← vm.getVmState[IO].toVmError

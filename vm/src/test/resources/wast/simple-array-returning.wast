@@ -18,7 +18,7 @@
         (drop)
     )
 
-    (func (export "hello") (result i32)
+    (func (export "hello") (param $buffer i32) (param $bufferSize i32) (result i32)
         (call $putStringResult
             (i32.const 128)
             (i32.const 24)
@@ -27,7 +27,7 @@
     )
 
     ;; puts 0x00FFFFFF as result size in memory at offset 1048592 and returns pointer to it
-    (func (export "incorrectLengthResult") (result i32)
+    (func (export "incorrectLengthResult") (param $buffer i32) (param $size i32) (result i32)
         (local $0 i32)
         (set_local $0 (i32.const 1048592))
 

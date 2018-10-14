@@ -30,14 +30,14 @@ import scala.language.higherKinds
  * @param functionName name of the invoked function
  * @param arg argument for the invoked function
  */
-case class FunctionCallDescription(module: Option[String], functionName: String, arg: Option[Array[Byte]])
+case class FunctionCallDescription(module: Option[String], functionName: String, arg: Array[Byte])
 
 object FunctionCallDescription {
 
   /**
    * Description for reserved non-VM function call that explicitly closes sessions by the client.
    */
-  val CloseSession = FunctionCallDescription(None, "@closeSession", None)
+  val CloseSession = FunctionCallDescription(None, "@closeSession", Array[Byte]())
 
   // ^ start of the line, needed to capture whole string, not just substring
   // (\w+(?:\.))* optional module name, must be followed by dot. dot isn't captured. ?= is called lookahead.
@@ -59,11 +59,9 @@ object FunctionCallDescription {
       }
       (module, functionName, unparsedArg) = parsedPayload
 
-      parsedArg <- if (unparsedArg.isEmpty) Either.right(None)
-      else
-        for {
-          byteArray <- hexToArray(unparsedArg).left.map(_ => wrongPayloadArgument(unparsedArg))
-        } yield Some(byteArray)
+      // each public Wasm function receives byte array - so returns an empty array in case of empty argument
+      parsedArg <- if (unparsedArg.isEmpty) Either.right(Array[Byte]())
+      else hexToArray(unparsedArg).left.map(_ => wrongPayloadArgument(unparsedArg))
 
     } yield FunctionCallDescription(module, functionName, parsedArg))
 
