@@ -22,16 +22,15 @@ import fluence.statemachine.error.{PayloadParseError, StateMachineError}
 import fluence.statemachine.util.HexCodec.hexToArray
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Description of a function invocation with concrete arguments.
  *
  * @param module VM module containing the invoked function
  * @param functionName name of the invoked function
- * @param argList ordered sequence of function arguments
+ * @param arg argument for the invoked function
  */
-case class FunctionCallDescription(module: Option[String], functionName: String, argList: Option[Array[Byte]])
+case class FunctionCallDescription(module: Option[String], functionName: String, arg: Option[Array[Byte]])
 
 object FunctionCallDescription {
 
@@ -61,7 +60,10 @@ object FunctionCallDescription {
       (module, functionName, unparsedArg) = parsedPayload
 
       parsedArg <- if (unparsedArg.isEmpty) Either.right(None)
-      else Try { Some(hexToArray(unparsedArg)) }.toEither.left.map(_ => wrongPayloadArgument(unparsedArg))
+      else
+        for {
+          byteArray <- hexToArray(unparsedArg).left.map(_ => wrongPayloadArgument(unparsedArg))
+        } yield Some(byteArray)
 
     } yield FunctionCallDescription(module, functionName, parsedArg))
 

@@ -24,7 +24,7 @@ import cats.effect.{IO, LiftIO}
 import cats.{Functor, Monad}
 import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
-import fluence.vm.VmError.{NoSuchFnError, _}
+import fluence.vm.VmError.{InvalidArgError, _}
 import fluence.vm.AsmleWasmVm._
 import scodec.bits.ByteVector
 
