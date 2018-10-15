@@ -31,7 +31,8 @@ for ((i = 2; i <= $#; i++)); do
             "power": "1",
             "name": "$node_name"
         }
-EOF)
+EOF
+)
 
     validators=$validators$current_validator,
     persistent_peers=$persistent_peers$node_id@$node_addr,
@@ -52,7 +53,8 @@ genesis=$(cat <<EOF
         "app_hash": "",
         "validators": [$validators]
     }
-EOF)
+EOF
+)
 
 result_doc=$(cat <<EOF
     {
@@ -60,7 +62,8 @@ result_doc=$(cat <<EOF
         "persistent_peers": "$persistent_peers",
         "external_addrs": [$external_addrs]
     }
-EOF)
+EOF
+)
 
 # combine JSON with cluster genesis, persistent peers, and external addresses
 echo $result_doc
