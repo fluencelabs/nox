@@ -22,6 +22,7 @@ import {Client} from "./Client";
 import {SessionConfig} from "./SessionConfig";
 
 import  * as debug from "debug";
+import {toHex} from "./fluence";
 
 const detailedDebug = debug("invoke-detailed");
 const txDebug = debug("broadcast-request");
@@ -140,11 +141,13 @@ export class Session {
      * Sends request with a payload and wait for a response.
      *
      * @param command a command supported by the program in a virtual machine
-     * @param args arguments for command
+     * @param arg arguments for command
      */
-    invoke(command: string, args: string[] = []): ResultPromise {
+    invoke(command: string, arg: string = ""): ResultPromise {
 
-        let payload: string = command + `(${args.join(',')})`;
+        console.log("(" + toHex("") + ")");
+
+        let payload: string = command + `(${toHex(arg)})`;
 
         return this.invokeRaw(payload);
     }
@@ -162,7 +165,7 @@ export class Session {
     close(reason: string = ""): ResultPromise {
         this.closing = true;
         this.closedStatus = reason;
-        let result = this.invoke("@closeSession");
+        let result = this.invoke("@closeSession", "");
         result.result();
         return result;
     }

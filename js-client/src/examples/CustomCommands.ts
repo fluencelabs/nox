@@ -41,8 +41,8 @@ class CustomCommands {
         this.session = engine.genSession(client);
     }
 
-    async submit(command: string) {
-        let res = await this.session.invokeRaw(command).result();
+    async submit(command: string, arg: string) {
+        let res = await this.session.invoke(command, arg).result();
         if (isValue(res)) {
             let strResult = fromHex(res.hex());
             console.log(`the result is:\n ${strResult}`);

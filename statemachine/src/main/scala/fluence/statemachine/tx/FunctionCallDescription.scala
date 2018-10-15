@@ -37,7 +37,7 @@ object FunctionCallDescription {
   /**
    * Description for reserved non-VM function call that explicitly closes sessions by the client.
    */
-  val CloseSession = FunctionCallDescription(None, "@closeSession", Array.emptyByteArray)
+  val CloseSession = "@closeSession"
 
   // ^ start of the line, needed to capture whole string, not just substring
   // (\w+(?:\.))* optional module name, must be followed by dot. dot isn't captured. ?= is called lookahead.

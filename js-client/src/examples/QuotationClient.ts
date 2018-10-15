@@ -33,7 +33,7 @@ export class QuotationClient {
      * ex: select avg(price) from Quotations;
      */
     async average(field: Field, fetch: number = 2): Promise<number> {
-        let q: Query = {query: "set_average_query", args: [field]};
+        let q: Query = {query: "set_average_query", args: `[${field}]`};
 
         d("`average` request");
 
@@ -48,7 +48,7 @@ export class QuotationClient {
      * ex: select avg(price) from Quotations where symbol = 2;
      */
     async averageWhere(fieldToCount: Field, field: Field, condition: Condition, quantity: string, fetch: number = 2): Promise<number> {
-        let q: Query = {query: "set_average_query_where", args: [fieldToCount, field, quantity, condition]};
+        let q: Query = {query: "set_average_query_where", args: `[${fieldToCount}, ${field}, ${quantity}, ${condition}]`};
 
         d("`average where` request");
 
@@ -62,7 +62,7 @@ export class QuotationClient {
      * select count(*) from Quotations;
      */
     async count(fetch: number = 2): Promise<number> {
-        let q: Query = {query: "set_count_query", args: []};
+        let q: Query = {query: "set_count_query", args: ""};
 
         d("`count` request");
 
@@ -77,7 +77,7 @@ export class QuotationClient {
      * ex: select count(*) from Quotations where symbol = 2;
      */
     async countWhere(field: Field, condition: Condition, quantity: string, fetch: number = 2): Promise<number> {
-        let q: Query = {query: "set_count_query_where", args: [field, quantity, condition]};
+        let q: Query = {query: "set_count_query_where", args: `[${field}, ${quantity}, ${condition}]`};
 
         d("count where request");
 
@@ -89,7 +89,7 @@ export class QuotationClient {
      * ex: select * from Quotations where price = 6700;
      */
     async queryWildCardWhere(field: Field, condition: Condition, quantity: string, fetch: number = 5): Promise<Quotation[]> {
-        let q: Query = {query: "set_query_wildcard_where", args: [field, quantity, condition]};
+        let q: Query = {query: "set_query_wildcard_where", args: `[${field}, ${quantity}, ${condition}]`};
 
         d("`wildcard where` request");
 
@@ -104,7 +104,7 @@ export class QuotationClient {
      * @param fetch how many rows to request at a time
      */
     async queryWildcard(fetch: number = 10): Promise<Quotation[]> {
-        let q: Query = {query: "set_query_wildcard", args: []};
+        let q: Query = {query: "set_query_wildcard", args: ""};
 
         d("`wildcard` request");
 

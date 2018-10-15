@@ -37,7 +37,7 @@ export enum Field {
 
 export interface Query {
     query: string,
-    args: string[]
+    args: string
 }
 
 export class DbClient {

@@ -8,7 +8,7 @@ window.onload = function () {
     const session = fluence.createDefaultSession("localhost", 25057);
 
     // creates the table in llamadb in fluence cluster
-    session.invoke("do_query", ["\"CREATE TABLE TODO_LIST(id int, task varchar(128), deleted int)\""])
+    session.invoke("do_query", "CREATE TABLE TODO_LIST(id int, task varchar(128), deleted int)")
         .result().then((r) => {
         console.log("table creation result: " + r.asString())
     }).catch((e) => {
@@ -16,7 +16,7 @@ window.onload = function () {
     });
 
     // gets tasks from fluence
-    session.invoke("do_query", ["\"SELECT * FROM TODO_LIST\""]).result().then((res) => {
+    session.invoke("do_query", "SELECT * FROM TODO_LIST").result().then((res) => {
         console.log("all tasks selection: " + JSON.stringify(res.asString()));
         let tasks = res.asString().split('\n');
         // removes column names
@@ -33,8 +33,8 @@ window.onload = function () {
     const addTaskToFluence = function(task) {
         const taskId = size++;
         const insertion = "(" + taskId + ", '" + task + "', 0)";
-        const query = "\"insert into TODO_LIST values " + insertion + "\"";
-        session.invoke("do_query", [query]).result().then((r) => {
+        const query = "insert into TODO_LIST values " + insertion + "";
+        session.invoke("do_query", query).result().then((r) => {
             console.log("insertion result: " + r.asString())
         })
     };
