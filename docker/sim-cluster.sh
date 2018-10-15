@@ -19,7 +19,8 @@ docker rm $(docker ps -a -q -f name="$1_node") 2> /dev/null || true
 echo "Preparing node directories"
 network_dir=$HOME/.fluence/nodes/$1
 for ((i = 0; i <= 3; i++)); do
-    tendermint unsafe_reset_all "--home=$network_dir/node$i"
+    ./master-run-tm-utility.sh tm-reset "$network_dir/node$i"
+    ###tendermint unsafe_reset_all "--home=$network_dir/node$i"
     rm -rf "$network_dir/node$i/config"
 done
 mkdir -p "$network_dir"
@@ -31,6 +32,7 @@ for ((i = 0; i <= 3; i++)); do
 done
 
 # combine genesis and persistent peers and put them to a file
+echo "Combining cluster genesis and discovery"
 ./sim-combine-cluster.sh "$1" "$4" > "$network_dir/cluster_info.json"
 
 # run 4 nodes
