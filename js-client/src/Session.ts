@@ -22,7 +22,7 @@ import {Client} from "./Client";
 import {SessionConfig} from "./SessionConfig";
 
 import  * as debug from "debug";
-import {toHex} from "./fluence";
+import {toHex} from "./utils";
 
 const detailedDebug = debug("invoke-detailed");
 const txDebug = debug("broadcast-request");
@@ -144,8 +144,6 @@ export class Session {
      * @param arg arguments for command
      */
     invoke(command: string, arg: string = ""): ResultPromise {
-
-        console.log("(" + toHex("") + ")");
 
         let payload: string = command + `(${toHex(arg)})`;
 

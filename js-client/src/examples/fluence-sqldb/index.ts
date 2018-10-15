@@ -53,6 +53,9 @@ class DbClient {
         this.counter = 0;
 
         this.sessions = addrs.map((v) => {
+            // we can't use the same session with different nodes for now,
+            // because we need to handle counter between different nodes in one session
+            // it will be implemented in the client soon
             return fluence.createDefaultSession(v.host, v.port);
         });
 
