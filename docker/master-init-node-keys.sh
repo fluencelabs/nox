@@ -12,6 +12,6 @@ fi
 ###tendermint init --home="$1"
 
 # remove unused data: we only need public/private key files
-rm -rf "$1/config/config.toml"
-rm -rf "$1/config/genesis.json"
-rm -rf "$1/data"
+###rm -rf "$1/config/config.toml"
+###rm -rf "$1/config/genesis.json"
+###rm -rf "$1/data"
