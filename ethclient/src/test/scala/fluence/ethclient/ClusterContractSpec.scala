@@ -21,12 +21,12 @@ import java.io.File
 import cats.Parallel
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.ethclient.Deployer.NewSolverEventResponse
+import fluence.ethclient.Deployer.{ClusterFormedEventResponse, NewSolverEventResponse}
 import fluence.ethclient.helpers.RemoteCallOps._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.web3j.abi.EventEncoder
-import org.web3j.abi.datatypes.Address
-import org.web3j.abi.datatypes.generated.Bytes32
+import org.web3j.abi.datatypes.{Address, DynamicArray}
+import org.web3j.abi.datatypes.generated.{Bytes32, Uint8}
 import org.web3j.protocol.core.methods.response.Log
 import scodec.bits.ByteVector
 import slogging.LazyLogging
@@ -63,8 +63,16 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
     ???
   }
 
+  private def bytes32toGenesis(clusterId: Bytes32, ids: DynamicArray[Bytes32]): String = {
+    ""
+  }
+
   private def addressToBytes32(ip: String, nodeIdHex: String): Bytes32 = {
     ???
+  }
+
+  private def bytes32toPersistentPeers(bytes: DynamicArray[Bytes32]): String = {
+    ""
   }
 
   val dir = new File("../bootstrap")
@@ -122,11 +130,13 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
             txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
             _ = assert(txReceipt.isStatusOK)
 
+            _ <- contract.addCode(bytes, bytes, new Uint8(1)).call[IO]
+
             txReceipt <- contract.addSolver(bytes, bytes).call[IO]
             _ = assert(txReceipt.isStatusOK)
 
-            clusterFormedEvents <- contract.getEvent[IO, NewSolverEventResponse](
-              _.getNewSolverEvents(txReceipt)
+            clusterFormedEvents <- contract.getEvent[IO, ClusterFormedEventResponse](
+              _.getClusterFormedEvents(txReceipt)
             )
 
             // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
@@ -140,9 +150,8 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
       } yield {
         txReceipt.getLogs should contain(e)
         clusterFormedEvents.length shouldBe 1
-        println(clusterFormedEvents.head.id)
-        println(clusterFormedEvents.head.id)
-        println(clusterFormedEvents.head.id)
+        println(bytes32toGenesis(clusterFormedEvents.head.solverIDs))
+        println(bytes32toPersistentPeers(clusterFormedEvents.head.clusterID, clusterFormedEvents.head.solverAddrs))
       }
     }.unsafeRunSync()
   }
