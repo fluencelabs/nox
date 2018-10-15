@@ -24,7 +24,7 @@ import cats.effect.{IO, LiftIO}
 import cats.{Functor, Monad}
 import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
-import fluence.vm.VmError.{InvalidArgError, _}
+import fluence.vm.VmError.{NoSuchFnError, _}
 import fluence.vm.AsmleWasmVm._
 import scodec.bits.ByteVector
 
@@ -78,14 +78,14 @@ class AsmleWasmVm(
           NoSuchFnError(s"Unable to find a function with the name=$functionId")
         )
 
-      preprocessedArgument <- preprocessFnArgument(fnArgument, wasmFn.module)
+      offset <- injectArrayIntoWasmModule(fnArgument, wasmFn.module)
 
       // invoke the function
-      invocationResult <- wasmFn[F](preprocessedArgument)
+      invocationResult <- wasmFn[F](offset.asInstanceOf[AnyRef] :: fnArgument.length.asInstanceOf[AnyRef] :: Nil)
 
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
-      // there can be some nondeterminism (deterministic execution is very important for verification game
-      // and this kind of nondeterminism can break all verification game).
+      // there can be some non-determinism (deterministic execution is very important for verification game
+      // and this kind of non-determinism can break all verification game).
       extractedResult <- if (wasmFn.javaMethod.getReturnType == Void.TYPE) {
         EitherT.rightT[F, InvokeError](None)
       } else {
@@ -151,22 +151,6 @@ class AsmleWasmVm(
         )
     }
   }
-
-  /**
-   * Preprocesses parameter: injects it into Wasm module memory (through injectArrayIntoWasmModule)
-   * and replace with pointer to it in the Wasm module and size.
-   *
-   * @param fnArgument argument for calling this function
-   * @param moduleInstance module instance used for injecting array to the Wasm memory
-   * @tparam F a monad with an ability to absorb 'IO'
-   */
-  private def preprocessFnArgument[F[_]: LiftIO: Monad](
-    fnArgument: Array[Byte],
-    moduleInstance: ModuleInstance,
-  ): EitherT[F, InvokeError, List[AnyRef]] =
-    for {
-      offset <- injectArrayIntoWasmModule(fnArgument, moduleInstance)
-    } yield offset.asInstanceOf[AnyRef] :: fnArgument.length.asInstanceOf[AnyRef] :: Nil
 
   /**
    * Injects given string into Wasm module memory.

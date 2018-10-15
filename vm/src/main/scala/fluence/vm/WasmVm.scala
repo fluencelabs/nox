@@ -60,7 +60,7 @@ trait WasmVm {
   def invoke[F[_]: LiftIO: Monad](
     module: Option[String],
     fnName: String,
-    fnArgument: Array[Byte] = Array[Byte]()
+    fnArgument: Array[Byte] = Array.emptyByteArray
   ): EitherT[F, InvokeError, Option[Array[Byte]]]
 
   /**

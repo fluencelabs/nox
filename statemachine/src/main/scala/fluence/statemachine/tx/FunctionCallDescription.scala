@@ -37,7 +37,7 @@ object FunctionCallDescription {
   /**
    * Description for reserved non-VM function call that explicitly closes sessions by the client.
    */
-  val CloseSession = FunctionCallDescription(None, "@closeSession", Array[Byte]())
+  val CloseSession = FunctionCallDescription(None, "@closeSession", Array.emptyByteArray)
 
   // ^ start of the line, needed to capture whole string, not just substring
   // (\w+(?:\.))* optional module name, must be followed by dot. dot isn't captured. ?= is called lookahead.
@@ -61,7 +61,8 @@ object FunctionCallDescription {
 
       // each public Wasm function receives byte array - so returns an empty array in case of empty argument
       parsedArg <- if (unparsedArg.isEmpty) Either.right(Array[Byte]())
-      else hexToArray(unparsedArg).left.map(_ => wrongPayloadArgument(unparsedArg))
+      else
+        hexToArray(unparsedArg).left.map(parseErrorMsg => wrongPayloadArgumentFormatError(unparsedArg, parseErrorMsg))
 
     } yield FunctionCallDescription(module, functionName, parsedArg))
 
@@ -79,6 +80,6 @@ object FunctionCallDescription {
    *
    * @param unparsedArg wrong payload argument
    */
-  private def wrongPayloadArgument(unparsedArg: String): StateMachineError =
-    PayloadParseError("WrongPayloadArgument", s"Wrong payload argument: $unparsedArg")
+  private def wrongPayloadArgumentFormatError(unparsedArg: String, parseErrorMsg: String = ""): StateMachineError =
+    PayloadParseError("WrongPayloadArgument", s"Wrong payload argument = $unparsedArg, parser error = $parseErrorMsg")
 }

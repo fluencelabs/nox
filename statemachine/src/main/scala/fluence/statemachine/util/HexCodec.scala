@@ -54,5 +54,5 @@ object HexCodec {
    * @param hex string in hex representation
    */
   def hexToArray(hex: String): Either[String, Array[Byte]] =
-    ByteVector.fromHexDescriptive(hex, Bases.Alphabets.HexUppercase).map(x => x.toArray)
+    ByteVector.fromHexDescriptive(hex, Bases.Alphabets.HexUppercase).map(_.toArray)
 }
