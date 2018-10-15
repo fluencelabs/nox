@@ -13,7 +13,7 @@ fi
 if [ "$(uname)" == "Darwin" ]; then
     host_docker_internal="host.docker.internal"
 else
-    host_docker_internal=$(/sbin/ip route | awk '/default/ { print $3 }')
+    host_docker_internal=$(ifconfig docker0 | grep 'inet ' | awk '{print $2}')
 fi
 
 # iterate through given node public key JSONs, combine genesis info and persistent peers
@@ -31,7 +31,8 @@ for ((i = 2; i <= $#; i++)); do
             "power": "1",
             "name": "$node_name"
         }
-EOF)
+EOF
+)
 
     validators=$validators$current_validator,
     persistent_peers=$persistent_peers$node_id@$node_addr,
@@ -52,7 +53,8 @@ genesis=$(cat <<EOF
         "app_hash": "",
         "validators": [$validators]
     }
-EOF)
+EOF
+)
 
 result_doc=$(cat <<EOF
     {
@@ -60,7 +62,8 @@ result_doc=$(cat <<EOF
         "persistent_peers": "$persistent_peers",
         "external_addrs": [$external_addrs]
     }
-EOF)
+EOF
+)
 
 # combine JSON with cluster genesis, persistent peers, and external addresses
 echo $result_doc
