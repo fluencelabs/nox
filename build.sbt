@@ -189,7 +189,8 @@ lazy val node = project
     libraryDependencies ++= Seq(
       catsEffect,
       sttp,
-      sttpCatsBackend
+      sttpCatsBackend,
+      fs2io
     )
   )
   .enablePlugins(AutomateHeaderPlugin)

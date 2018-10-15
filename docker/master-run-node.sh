@@ -14,7 +14,7 @@ if [ "$#" -ne 7 ]; then
 fi
 
 # initialize Tendermint home dir, put public/private keys there
-tm_home=$PWD/nodes/$1/node$3
+tm_home=$HOME/.fluence/nodes/$1/node$3
 mkdir -p "$tm_home"
 cp -R "$4/"* "$tm_home"
 

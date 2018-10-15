@@ -31,11 +31,14 @@ object SbtCommons {
 
   /* Common deps */
 
-  val slogging = "biz.enef"        %% "slogging"             % "0.6.1"
-  val cats = "org.typelevel"       %% "cats-core"            % "1.4.0"
-  val catsEffect = "org.typelevel" %% "cats-effect"          % "1.0.0"
-  val fs2 = "co.fs2"               %% "fs2-core"             % "1.0.0"
-  val fs2rx = "co.fs2"             %% "fs2-reactive-streams" % "1.0.0"
+  val slogging = "biz.enef"        %% "slogging"    % "0.6.1"
+  val cats = "org.typelevel"       %% "cats-core"   % "1.4.0"
+  val catsEffect = "org.typelevel" %% "cats-effect" % "1.0.0"
+
+  val fs2Version = "1.0.0"
+  val fs2 = "co.fs2"   %% "fs2-core"             % fs2Version
+  val fs2rx = "co.fs2" %% "fs2-reactive-streams" % fs2Version
+  val fs2io = "co.fs2" %% "fs2-io"               % fs2Version
   // functional wrapper around 'lightbend/config'
   val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.9.1"
   val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.2"
