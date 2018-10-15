@@ -40,7 +40,7 @@ class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) {
    * @return either successful invocation's result or failed invocation's error
    */
   def invoke(callDescription: FunctionCallDescription): EitherT[F, StateMachineError, Option[String]] =
-    vm.invoke(callDescription.module, callDescription.functionName, callDescription.argList)
+    vm.invoke(callDescription.module, callDescription.functionName, callDescription.arg)
       .map(_.map(ByteVector(_).toHex(HexUppercase)))
       .leftMap(VmOperationInvoker.convertToStateMachineError)
 
