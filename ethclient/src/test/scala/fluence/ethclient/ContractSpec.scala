@@ -21,12 +21,12 @@ import java.io.File
 import cats.Parallel
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.ethclient.Deployer.NewSolverEventResponse
+import fluence.ethclient.Deployer.{ClusterFormedEventResponse, NewSolverEventResponse}
 import fluence.ethclient.helpers.RemoteCallOps._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.Address
-import org.web3j.abi.datatypes.generated.Bytes32
+import org.web3j.abi.datatypes.generated.{Bytes32, Uint8}
 import org.web3j.protocol.core.methods.response.Log
 import scodec.bits.ByteVector
 import slogging.LazyLogging
@@ -44,18 +44,18 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
   private val client = EthClient.makeHttpResource[IO](url)
   private val client2 = EthClient.makeHttpResource[IO](url)
 
-  private def stringToBytes32(s: String) = {
+  private def stringToBytes32(s: String): Bytes32 = {
     val byteValue = s.getBytes()
     val byteValueLen32 = new Array[Byte](32)
     System.arraycopy(byteValue, 0, byteValueLen32, 0, byteValue.length)
     new Bytes32(byteValueLen32)
   }
 
-  def stringToHex(s: String) = {
+  private def stringToHex(s: String): String = {
     binaryToHex(s.getBytes())
   }
 
-  def binaryToHex(b: Array[Byte]) = {
+  private def binaryToHex(b: Array[Byte]): String = {
     ByteVector(b).toHex
   }
 
@@ -98,7 +98,7 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
           par parallel ethClient
             .subscribeToLogsTopic[IO](
               contractAddress,
-              EventEncoder.encode(Deployer.NEWSOLVER_EVENT)
+              EventEncoder.encode(Deployer.CLUSTERFORMED_EVENT)
             )
             .interruptWhen(unsubscribe)
             .head
@@ -114,25 +114,33 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
             txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
             _ = assert(txReceipt.isStatusOK)
 
+            _ <- contract.addCode(bytes, bytes, new Uint8(1)).call[IO]
+
             txReceipt <- contract.addSolver(bytes, bytes).call[IO]
             _ = assert(txReceipt.isStatusOK)
 
-            newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
+            /*newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
               _.getNewSolverEvents(txReceipt)
+            )*/
+
+            clusterFormedEvents <- contract.getEvent[IO, ClusterFormedEventResponse](
+              _.getClusterFormedEvents(txReceipt)
             )
 
             // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
             e <- event.take
             _ <- unsubscribe.complete(Right(()))
-          } yield (txReceipt, newSolverEvents, e))
+          } yield (txReceipt, /*newSolverEvents, */ clusterFormedEvents, e))
         )
 
-        (txReceipt, newSolverEvents, e) = data._2
+        (txReceipt, /*newSolverEvents, */ clusterFormedEvents, e) = data._2
 
       } yield {
         txReceipt.getLogs should contain(e)
-        newSolverEvents.length shouldBe 1
-        newSolverEvents.head.id shouldBe bytes
+        //newSolverEvents.length shouldBe 1
+        //newSolverEvents.head.id shouldBe bytes
+        clusterFormedEvents.length shouldBe 1
+        println("ClusterFormedEvent: " + clusterFormedEvents.head.solverIDs.getValue)
       }
     }.unsafeRunSync()
   }
