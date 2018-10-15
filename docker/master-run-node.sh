@@ -15,8 +15,8 @@ fi
 
 # initialize Tendermint home dir, put public/private keys there
 tm_home=$HOME/.fluence/nodes/$1/node$3
-mkdir -p "$tm_home"
-cp -R "$4/"* "$tm_home"
+mkdir -p "$tm_home/config"
+cp -R "$4/config/"* "$tm_home/config"
 
 # configure genesis and peer discovery
 cat "$5" | jq .genesis > "$tm_home/config/genesis.json"

@@ -8,6 +8,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 # generate keys
+mkdir -p "$1/config"
 ./master-run-tm-utility.sh tm-init "$1"
 ###tendermint init --home="$1"
 
