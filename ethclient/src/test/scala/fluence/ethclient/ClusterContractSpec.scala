@@ -35,7 +35,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.sys.process.{Process, ProcessLogger}
 import scala.util.Random
 
-class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll {
+class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -59,6 +59,14 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
     ByteVector(b).toHex
   }
 
+  private def base64ToBytes32(b64: String): Bytes32 = {
+    ???
+  }
+
+  private def addressToBytes32(ip: String, nodeIdHex: String): Bytes32 = {
+    ???
+  }
+
   val dir = new File("../bootstrap")
   def run(cmd: String): Unit = Process(cmd, dir).!(ProcessLogger(_ => ()))
   def runBackground(cmd: String): Unit = Process(cmd, dir).run(ProcessLogger(_ => ()))
@@ -79,7 +87,7 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
     run("pkill -f ganache")
   }
 
-  "Ethereum client" should "receive an event" ignore {
+  "Ethereum client" should "receive an event" in {
     val str = Random.alphanumeric.take(10).mkString
     val bytes = stringToBytes32(str)
     val contractAddress = "0x9995882876ae612bfd829498ccd73dd962ec950a"
@@ -98,7 +106,7 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
           par parallel ethClient
             .subscribeToLogsTopic[IO](
               contractAddress,
-              EventEncoder.encode(Deployer.NEWSOLVER_EVENT)
+              EventEncoder.encode(Deployer.CLUSTERFORMED_EVENT)
             )
             .interruptWhen(unsubscribe)
             .head
@@ -117,22 +125,24 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
             txReceipt <- contract.addSolver(bytes, bytes).call[IO]
             _ = assert(txReceipt.isStatusOK)
 
-            newSolverEvents <- contract.getEvent[IO, NewSolverEventResponse](
+            clusterFormedEvents <- contract.getEvent[IO, NewSolverEventResponse](
               _.getNewSolverEvents(txReceipt)
             )
 
             // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
             e <- event.take
             _ <- unsubscribe.complete(Right(()))
-          } yield (txReceipt, newSolverEvents, e))
+          } yield (txReceipt, clusterFormedEvents, e))
         )
 
-        (txReceipt, newSolverEvents, e) = data._2
+        (txReceipt, clusterFormedEvents, e) = data._2
 
       } yield {
         txReceipt.getLogs should contain(e)
-        newSolverEvents.length shouldBe 1
-        newSolverEvents.head.id shouldBe bytes
+        clusterFormedEvents.length shouldBe 1
+        println(clusterFormedEvents.head.id)
+        println(clusterFormedEvents.head.id)
+        println(clusterFormedEvents.head.id)
       }
     }.unsafeRunSync()
   }

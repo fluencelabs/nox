@@ -62,7 +62,7 @@ contract Deployer is Whitelist {
 
     // Emitted when there is enough free Solvers for some Code
     // Solvers should form a cluster in reaction to this event
-    event ClusterFormed(bytes32 clusterID, bytes32[] solverIDs);
+    event ClusterFormed(bytes32 clusterID, bytes32[] solverIDs, bytes32[] solverAddrs);
 
     // Emitted when Code is enqueued, telling that there is not enough Solvers yet
     event CodeEnqueued(bytes32 storageHash);
@@ -147,16 +147,18 @@ contract Deployer is Whitelist {
         
         Code memory code = codes[idx];
         bytes32[] memory cluster = new bytes32[](code.clusterSize);
+        bytes32[] memory clusterAddrs = new bytes32[](code.clusterSize);
         for (uint j = 0; j < code.clusterSize; j++) {
             // moving & deleting from the end, so we don't have gaps
             // yep, that makes the solvers[] a LIFO, but is it a problem really?
             bytes32 solverID = freeSolvers[freeSolvers.length - j - 1];
             cluster[j] = solverID;
+            clusterAddrs[j] = solvers[solverID].nodeAddress;
         }
         freeSolvers.length -= code.clusterSize; // TODO: that's awful, but Solidity doesn't change array length on delete
         bytes32 clusterID = bytes32(clustersCount++);
         busyClusters[clusterID] = BusyCluster(clusterID, code);
-        emit ClusterFormed(clusterID, cluster);
+        emit ClusterFormed(clusterID, cluster, clusterAddrs);
         return true;
     }
 }
