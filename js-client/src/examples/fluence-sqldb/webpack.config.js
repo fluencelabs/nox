@@ -6,8 +6,7 @@ const { CheckerPlugin } = require('awesome-typescript-loader');
 
 module.exports = {
     entry: {
-        app: ['./src/fluence.ts', './src/examples/CustomCommands.ts',
-            './src/examples/IncrementAndMultiply.ts', './src/examples/DbOnPointers.ts']
+        app: ['./index.ts']
     },
     devtool: 'inline-source-map',
     devServer: {
@@ -19,8 +18,11 @@ module.exports = {
         rules: [
             {
                 test: /\.tsx?$/,
-                loader: 'awesome-typescript-loader',
-                exclude: /node_modules/
+                loader: 'awesome-typescript-loader'
+            },
+            {
+                test: /\.css$/,
+                use: ['style-loader', 'css-loader']
             }
         ]
     },
@@ -37,7 +39,10 @@ module.exports = {
     plugins: [
         new CleanWebpackPlugin(['bundle']),
         new CheckerPlugin(),
-        new HtmlWebpackPlugin(),
-        new webpack.HotModuleReplacementPlugin()
+        new webpack.HotModuleReplacementPlugin(),
+        new HtmlWebpackPlugin({
+            title: 'Fluence DB client',
+            template: 'index.html'
+        }),
     ]
 };

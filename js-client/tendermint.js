@@ -15,27 +15,6 @@
  */
 
 /**
- * Declaration file for tendermint module.
+ * for the types from tendermint.d.ts to work in the package
  */
-declare namespace tendermint {
-    class RpcClient {
-        constructor(...args: any[]);
-
-        abciQuery(args: any): any;
-        status(): any;
-        netInfo(): any;
-        validators(): any;
-        dumpConsensusState(): any
-
-        blockchain(args: any): any
-
-        broadcastTxSync(args: any): any;
-        broadcastTxAsync(args: any): any;
-
-        genesis(): any;
-
-        block(args: any): any;
-    }
-}
-
-export = tendermint;
+module.exports.RpcClient = require('tendermint/lib/rpc.js');

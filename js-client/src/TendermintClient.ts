@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import {RpcClient} from "tendermint"
 import {none, Option, Some} from "ts-option";
 import {fromHex} from "./utils";
 import  * as debug from "debug";
+import {RpcClient} from "../tendermint";
 
 const d = debug("tendermintClient");
 
