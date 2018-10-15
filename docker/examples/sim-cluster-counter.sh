@@ -1,5 +1,5 @@
 #!/bin/bash -e
 pushd .
 cd ..
-./sim-cluster.sh counternet "$PWD/examples/vmcode-counter" 25057 long-term-keys
+./sim-cluster.sh counternet "$PWD/examples/vmcode-counter" 25057 $HOME/.fluence/long-term-keys
 popd
