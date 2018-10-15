@@ -160,10 +160,10 @@ function updateStatus() {
  * List of addresses of a real-time cluster. Change it if needed.
  */
 let addrs = [
-    {host: "localhost", port: 46157},
-    {host: "localhost", port: 46257},
-    {host: "localhost", port: 46357},
-    {host: "localhost", port: 46457}
+    {host: "localhost", port: 25057},
+    {host: "localhost", port: 25157},
+    {host: "localhost", port: 25257},
+    {host: "localhost", port: 25357}
 ];
 let client = new DbClient(addrs);
 
