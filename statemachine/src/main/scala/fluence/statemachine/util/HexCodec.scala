@@ -47,4 +47,12 @@ object HexCodec {
    */
   def hexToString(hex: String): Either[String, String] =
     ByteVector.fromHexDescriptive(hex, Bases.Alphabets.HexUppercase).map(x => new String(x.toArray))
+
+  /**
+   * Decodes a string from hex representation to array of bytes.
+   *
+   * @param hex string in hex representation
+   */
+  def hexToArray(hex: String): Either[String, Array[Byte]] =
+    ByteVector.fromHexDescriptive(hex, Bases.Alphabets.HexUppercase).map(_.toArray)
 }
