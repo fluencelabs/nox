@@ -43,7 +43,6 @@
                     (get_local $arraySize)
                 )
             )
-
         )
 
         (call $putStringResult

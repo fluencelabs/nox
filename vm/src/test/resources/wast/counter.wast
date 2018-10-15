@@ -24,7 +24,7 @@
     ;;
     ;; Increments variable in memory by one.
     ;;
-    (func (export "inc")
+    (func (export "inc") (param $buffer i32) (param $size i32)
         (i32.store offset=12
             (i32.const 0)
             (i32.add
@@ -37,7 +37,7 @@
     ;;
     ;; Public fn for getting value of counter.
     ;;
-    (func (export "get") (result i32)
+    (func (export "get") (param $buffer i32) (param $size i32) (result i32)
         (call $putIntResult
             (i32.load offset=12 (i32.const 0))
         )
