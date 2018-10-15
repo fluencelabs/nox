@@ -57,27 +57,6 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .dependsOn(vm)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `vm-sqldb` = (project in file("vm/examples/sqldb"))
-  .settings(
-    commons,
-    assemblyJarName in assembly := "sqldb.jar",
-    // override `run` task
-    run := {
-      val log = streams.value.log
-      log.info("Compiling sqldb.rs to sqldb.wasm and running with Fluence.")
-
-      val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
-      val projectRoot = file("").getAbsolutePath
-      val cmd = s"sh vm/examples/run_example.sh sqldb $projectRoot $scalaVer"
-
-      log.info(s"Running $cmd")
-
-      assert(cmd ! log == 0, "Compile Rust to Wasm failed.")
-    }
-  )
-  .dependsOn(vm)
-  .enablePlugins(AutomateHeaderPlugin)
-
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
     commons,
@@ -117,7 +96,7 @@ lazy val statemachine = (project in file("statemachine"))
       scalaTest
     ),
     test in assembly := {}, // TODO: remove this line after SBT issue fix
-    imageNames in docker := Seq(ImageName("fluencelabs/statemachine")),
+    imageNames in docker := Seq(ImageName("fluencelabs/solver")),
     dockerfile in docker := {
       // Run `sbt docker` to create image
 
@@ -136,7 +115,7 @@ lazy val statemachine = (project in file("statemachine"))
 
       // State machine constants
       val smDataRoot = "/statemachine"
-      val smRunScript = s"$smDataRoot/run-node.sh"
+      val smRunScript = s"$smDataRoot/run.sh"
 
       val vmDataRoot = "/vmcode"
 
@@ -206,8 +185,12 @@ lazy val ethclient = (project in file("ethclient"))
 lazy val node = project
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
-      catsEffect
+      catsEffect,
+      sttp,
+      sttpCatsBackend,
+      fs2io
     )
   )
   .enablePlugins(AutomateHeaderPlugin)

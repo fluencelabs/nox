@@ -17,7 +17,7 @@
 /**
  * Possible results from the real-time cluster.
  */
-import {fromHexToView} from "./utils";
+import {fromHex, fromHexToView} from "./utils";
 
 export type Result = Empty | Value
 
@@ -42,6 +42,10 @@ export class Value {
 
     hex(): string {
         return this.value;
+    }
+
+    asString(): string {
+        return fromHex(this.value)
     }
 
     asInt(): number {

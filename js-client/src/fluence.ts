@@ -14,22 +14,44 @@
  * limitations under the License.
  */
 
-import {TendermintClient} from "./TendermintClient";
-import {Engine} from "./Engine";
-import {Signer} from "./Signer";
-import {Client} from "./Client";
-import {Session} from "./Session";
-import {SessionConfig} from "./SessionConfig";
-import * as utils from "./utils";
-import * as results from "./Result"
+import { TendermintClient } from "./TendermintClient";
+import { Engine } from "./Engine";
+import { Signer } from "./Signer";
+import { Client } from "./Client";
+import { Session } from "./Session";
+import { SessionConfig } from "./SessionConfig";
+import {fromHex, toHex} from "./utils";
+import {Empty, Result, Value, isValue} from "./Result";
 
-export default {
-    utils,
-    SessionConfig,
-    Session,
-    Client,
-    Signer,
-    Engine,
-    TendermintClient,
-    results
+export {
+    TendermintClient as TendermintClient,
+    Engine as Engine,
+    Signer as Signer,
+    Client as Client,
+    Session as Session,
+    Empty as Empty,
+    Result as Result,
+    Value as Value,
+    fromHex as fromHex,
+    toHex as toHex,
+    isValue as isValue,
+    SessionConfig as SessionConfig
+}
+
+/**
+ * Creates default session with default credentials.
+ */
+export function createDefaultSession(host: string, port: number) {
+    let tm = new TendermintClient(host, port);
+
+    let engine = new Engine(tm);
+
+    // default signing key for now
+    let signingKey = "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==";
+    let signer = new Signer(signingKey);
+
+    // `client002` is a default client for now
+    let client = new Client("client002", signer);
+
+    return engine.genSession(client);
 }

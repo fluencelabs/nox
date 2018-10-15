@@ -53,17 +53,15 @@ trait WasmVm {
    * Note that, modules and functions should be registered when VM started!
    *
    * @param module a Module name, if absent the last from registered modules will be used
-   * @param function a Function name to invocation
-   * @param fnArgs a Function arguments
+   * @param fnName a Function name to invocation
+   * @param fnArgument a Function arguments
    * @tparam F a monad with an ability to absorb 'IO'
    */
   def invoke[F[_]: LiftIO: Monad](
     module: Option[String],
-    function: String,
-    fnArgs: Seq[String] = Nil
+    fnName: String,
+    fnArgument: Array[Byte] = Array.emptyByteArray
   ): EitherT[F, InvokeError, Option[Array[Byte]]]
-  // todo consider specifying expected return type as method arg
-  // or create an overloaded method for each possible return type
 
   /**
    * Returns hash of significant inner state of this VM. This function calculates
@@ -200,7 +198,7 @@ object WasmVm {
                 case None ⇒
                   // it's ok, function with the specified name wasn't registered yet
                   val fn = WasmFunction(
-                    functionId = fnId,
+                    fnId,
                     method,
                     moduleInstance
                   )

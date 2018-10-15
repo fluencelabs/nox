@@ -19,25 +19,25 @@ import cats.Monad
 import cats.data.EitherT
 import cats.syntax.either._
 import fluence.statemachine.error.{PayloadParseError, StateMachineError}
+import fluence.statemachine.util.HexCodec.hexToArray
 
 import scala.language.higherKinds
-import scala.util.matching.Regex
 
 /**
  * Description of a function invocation with concrete arguments.
  *
  * @param module VM module containing the invoked function
  * @param functionName name of the invoked function
- * @param argList ordered sequence of function arguments
+ * @param arg argument for the invoked function
  */
-case class FunctionCallDescription(module: Option[String], functionName: String, argList: List[String])
+case class FunctionCallDescription(module: Option[String], functionName: String, arg: Array[Byte])
 
 object FunctionCallDescription {
 
   /**
    * Description for reserved non-VM function call that explicitly closes sessions by the client.
    */
-  val CloseSession = FunctionCallDescription(None, "@closeSession", Nil)
+  val CloseSession = "@closeSession"
 
   // ^ start of the line, needed to capture whole string, not just substring
   // (\w+(?:\.))* optional module name, must be followed by dot. dot isn't captured. ?= is called lookahead.
@@ -45,9 +45,6 @@ object FunctionCallDescription {
   // \((.*?)\) anything inside parentheses, will be parsed later by argRx
   // $ end of the line, needed to capture whole string, not just substring
   private val payloadPattern = """^(\w+(?:\.))*(@?\w+)\((.*?)\)$""".r
-
-  // anything but the quotes inside quotes OR any number with dots
-  private val argsPattern = """("[^"]*"|[\d.]+)""".r
 
   /**
    * Parses text payload in `[moduleName].functionName(arg1, ..., argN)` format to a typed function call description.
@@ -60,18 +57,14 @@ object FunctionCallDescription {
         case payloadPattern(m, f, args) => Either.right((Option(m).map(_.filter(_ != '.')), f, args))
         case _ => Either.left(wrongPayloadFormatError(payload))
       }
-      (module, functionName, unparsedArgList) = parsedPayload
-      parsedArgList <- {
-        if (unparsedArgList.isEmpty) Either.right(List.empty)
-        else {
-          argsPattern.findAllMatchIn(unparsedArgList).toList.map(_.group(1)) match {
-            case Nil => Either.left(wrongPayloadArgumentListFormatError(unparsedArgList))
-            case l => Either.right(l)
-          }
-        }
+      (module, functionName, unparsedArg) = parsedPayload
 
-      }
-    } yield FunctionCallDescription(module, functionName, parsedArgList))
+      // each public Wasm function receives byte array - so returns an empty array in case of empty argument
+      parsedArg <- if (unparsedArg.isEmpty) Either.right(Array[Byte]())
+      else
+        hexToArray(unparsedArg).left.map(parseErrorMsg => wrongPayloadArgumentFormatError(unparsedArg, parseErrorMsg))
+
+    } yield FunctionCallDescription(module, functionName, parsedArg))
 
   /**
    * Produces [[StateMachineError]] corresponding to payload that cannot be parsed to a function call.
@@ -85,8 +78,8 @@ object FunctionCallDescription {
    * Produces [[StateMachineError]] corresponding to payload's argument list that cannot be parsed to
    * correct function arguments.
    *
-   * @param unparsedArgList wrong payload argument list
+   * @param unparsedArg wrong payload argument
    */
-  private def wrongPayloadArgumentListFormatError(unparsedArgList: String): StateMachineError =
-    PayloadParseError("WrongPayloadArgumentListFormat", s"Wrong payload arguments: $unparsedArgList")
+  private def wrongPayloadArgumentFormatError(unparsedArg: String, parseErrorMsg: String = ""): StateMachineError =
+    PayloadParseError("WrongPayloadArgument", s"Wrong payload argument = $unparsedArg, parser error = $parseErrorMsg")
 }
