@@ -115,7 +115,7 @@ lazy val statemachine = (project in file("statemachine"))
 
       // State machine constants
       val smDataRoot = "/statemachine"
-      val smRunScript = s"$smDataRoot/run-node.sh"
+      val smRunScript = s"$smDataRoot/run.sh"
 
       val vmDataRoot = "/vmcode"
 
