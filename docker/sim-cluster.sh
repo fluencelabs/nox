@@ -21,7 +21,7 @@ network_dir=$HOME/.fluence/nodes/$1
 for ((i = 0; i <= 3; i++)); do
     ./master-run-tm-utility.sh tm-reset "$network_dir/node$i"
     ###tendermint unsafe_reset_all "--home=$network_dir/node$i"
-    rm -rf "$network_dir/node$i/config"
+    ###rm -rf "$network_dir/node$i/config"
 done
 mkdir -p "$network_dir"
 
