@@ -163,7 +163,7 @@ export class Session {
     close(reason: string = ""): ResultPromise {
         this.closing = true;
         this.closedStatus = reason;
-        let result = this.invoke("@closeSession", "");
+        let result = this.invoke("@closeSession");
         result.result();
         return result;
     }
