@@ -32,4 +32,4 @@ docker run -idt \
     -p "$6:26656" -p "$7:26657" \
     -v "$PWD/statemachine:/statemachine" -v "$2:/vmcode" -v "$tm_home:/tendermint" \
     --name "$node_name" \
-    fluencelabs/statemachine:latest
+    fluencelabs/solver:latest
