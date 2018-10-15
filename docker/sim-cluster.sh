@@ -16,12 +16,16 @@ docker kill $(docker ps -a -q -f name="$1_node") 2> /dev/null || true
 docker rm $(docker ps -a -q -f name="$1_node") 2> /dev/null || true
 
 # prepare node directories
+echo "Preparing node directories"
 network_dir=$HOME/.fluence/nodes/$1
-rm -rf "$network_dir/node"*
+for ((i = 0; i <= 3; i++)); do
+    tendermint unsafe_reset_all "--home=$network_dir/node$i"
+    rm -rf "$network_dir/node$i/config"
+done
 mkdir -p "$network_dir"
 
 # initializing nodes' keys, if not initialized yet
-echo "Initializing nodes' keys"
+echo "Initializing node keys"
 for ((i = 0; i <= 3; i++)); do
     ./master-init-node-keys.sh "$4/node$i"
 done
