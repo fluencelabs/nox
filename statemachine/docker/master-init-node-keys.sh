@@ -8,7 +8,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 # generate keys
-tendermint init --home="$1"
+./master-run-tm-utility.sh tm-init "$1"
 
 # remove unused data: we only need public/private key files
 rm -rf "$1/config/config.toml"

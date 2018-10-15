@@ -15,8 +15,8 @@ fi
 
 # initialize Tendermint home dir, put public/private keys there
 tm_home=$HOME/.fluence/nodes/$1/node$3
-mkdir -p "$tm_home"
-cp -R "$4/"* "$tm_home"
+mkdir -p "$tm_home/config"
+cp -R "$4/config/"* "$tm_home/config"
 
 # configure genesis and peer discovery
 cat "$5" | jq .genesis > "$tm_home/config/genesis.json"
@@ -28,7 +28,8 @@ node_name=$1_node$3
 # run Fluence node image with Tendermint and State machine
 # default docker network (which is 'bridge') is used
 docker run -idt \
+    --user $(id -u):$(id -g) \
     -p "$6:26656" -p "$7:26657" \
     -v "$PWD/statemachine:/statemachine" -v "$2:/vmcode" -v "$tm_home:/tendermint" \
     --name "$node_name" \
-    fluencelabs/statemachine:latest
+    fluencelabs/solver:latest
