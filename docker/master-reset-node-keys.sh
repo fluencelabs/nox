@@ -8,8 +8,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 # remove previous configuration files
-./master-run-tm-utility.sh tm-reset "$1"
-###rm -rf "$1/config"
+rm -rf "$1/config"
 
 # generate keys
 ./master-init-node-keys.sh "$1"

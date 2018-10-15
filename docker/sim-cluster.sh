@@ -18,13 +18,9 @@ docker rm $(docker ps -a -q -f name="$1_node") 2> /dev/null || true
 # prepare node directories
 echo "Preparing node directories"
 network_dir=$HOME/.fluence/nodes/$1
-mkdir -p "$network_dir"
 for ((i = 0; i <= 3; i++)); do
-    mkdir -p "$network_dir/node$i"
     ./master-run-tm-utility.sh tm-reset "$network_dir/node$i"
-    mkdir -p "$network_dir/node$i/config"
-    ###tendermint unsafe_reset_all "--home=$network_dir/node$i"
-    ###rm -rf "$network_dir/node$i/config"
+    rm -rf "$network_dir/node$i/config"
 done
 
 # initializing nodes' keys, if not initialized yet
