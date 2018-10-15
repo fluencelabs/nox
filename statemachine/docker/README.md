@@ -1,7 +1,7 @@
 ## Running local Fluence clusters
 
 ### Prerequisites
-* `docker` for running clusters
+* `docker` and `jq` for running clusters
 * `npm` or `python` for connecting clients to them
 
 ### Building docker image
@@ -12,11 +12,11 @@ Locate to the Fluence root directory and run:
 sbt docker
 ```
 
-It would build a `fluencelabs/statemachine:latest` image.
+It would build a `fluencelabs/solver:latest` image.
 
 ### Launching clusters
 
-2 example clusters can be found in `example` directory. Try running the following commands:
+2 example clusters can be found in `examples` directory. Try running the following commands:
 ```
 ./sim-cluster-counter.sh
 ./sim-cluster-sqldb.sh
