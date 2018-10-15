@@ -13,7 +13,7 @@ fi
 if [ "$(uname)" == "Darwin" ]; then
     host_docker_internal="host.docker.internal"
 else
-    host_docker_internal=$(/sbin/ip route | awk '/default/ { print $3 }')
+    host_docker_internal=$(ifconfig docker0 | grep 'inet ' | awk '{print $2}')
 fi
 
 # iterate through given node public key JSONs, combine genesis info and persistent peers
