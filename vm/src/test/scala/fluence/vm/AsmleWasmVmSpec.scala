@@ -240,6 +240,25 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       res.success()
     }
 
+    "run integration test that allocates 1 Mb memory" in {
+      val llamadbFilePath = getClass.getResource("/wasm/llama_db_version_0_1.wasm").getPath
+
+      val res = for {
+        vm ← WasmVm[IO](Seq(llamadbFilePath))
+        // allocate 1 МБ memory
+        result1 <- vm.invoke[IO](None, "do_query", "create table USERS(id int, name varchar(128), age int)".getBytes())
+        result2 <- vm.invoke[IO](None, "do_query", ("insert into USERS values(2, 'Bob', 19)" + ", (3, '1', 31)"*1024*5).getBytes())
+        state <- vm.getVmState[IO].toVmError
+      } yield {
+        result2 should not be None
+
+        val result2AsString = new String(result2.get)
+        result2AsString startsWith "rows inserted"
+      }
+
+      res.success()
+    }
+
   }
 
   "getVmState" should {
