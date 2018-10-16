@@ -10,5 +10,5 @@ fi
 node_id=$(./master-run-tm-utility.sh tm-show-node-id "$1")
 validator=$(./master-run-tm-utility.sh tm-show-validator "$1")
 
-# create a JSON document with public keys
+# create a semicolon-separated string with public keys
 echo "$validator;$node_id"
