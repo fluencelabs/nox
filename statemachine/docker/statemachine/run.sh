@@ -17,7 +17,7 @@ cp -f "$2/config.toml" "$1/config/config.toml"
 
 # extract cluster and info
 node_info_file="$1/config/node_info.json"
-node_index=$(cat "$node_info_file" | jq .node_index)
+node_index=$(cat "$node_info_file" | jq -r .node_index)
 
 persistent_peers=$(cat "$node_info_file" | jq -r ".cluster|.persistent_peers")
 external_address=$(cat "$node_info_file" | jq -r ".cluster|.external_addrs|.[$node_index]")
