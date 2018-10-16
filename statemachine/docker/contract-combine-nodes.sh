@@ -22,8 +22,9 @@ for ((i = 2; i <= $#; i++)); do
     node_name=node$node_index
     node_addr=$host_docker_internal:$(($node_index * 100 + 25056))
 
-    validator_key=$(echo ${!i} | jq .validator)
-    node_id=$(echo ${!i} | jq -r .node_id)
+    ith_arg=${!i}
+    validator_key=$(cut -d'_' -f1 <<<"$ith_arg")
+    node_id=$(cut -d'_' -f2 <<<"$ith_arg")
 
     current_validator=$(cat <<EOF
         {
