@@ -1,0 +1,8 @@
+{
+  "addrs": [
+    {"host": "localhost", "port": 25057},
+    {"host": "localhost", "port": 25157},
+    {"host": "localhost", "port": 25257},
+    {"host": "localhost", "port": 25357}
+  ]
+}

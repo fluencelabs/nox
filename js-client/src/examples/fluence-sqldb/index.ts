@@ -162,36 +162,14 @@ interface Config {
     addrs: Addr[]
 }
 
-let config: Config = {
-    addrs: [
-        {host: "localhost", port: 25057},
-        {host: "localhost", port: 25157},
-        {host: "localhost", port: 25257},
-        {host: "localhost", port: 25357}
-    ]
-};
-
-try {
-    let configFromFile = require("./config.json");
-    if (configFromFile.addrs) {
-        config = configFromFile as Config
-    }
-} catch (e) {
-
-} finally {
-    console.log("Config: \n" + JSON.stringify(config));
-}
-
 /**
- * List of addresses of a real-time cluster. Change it if needed.
+ * List of addresses of a real-time cluster. Change it in `config.json` if needed.
  */
-let addrs = [
-    {host: "localhost", port: 25057},
-    {host: "localhost", port: 25157},
-    {host: "localhost", port: 25257},
-    {host: "localhost", port: 25357}
-];
-let client = new DbClient(addrs);
+let config = require("./config.json") as Config;
+
+console.log("Config: " + JSON.stringify(config));
+
+let client = new DbClient(config.addrs);
 
 let newLine = String.fromCharCode(13, 10);
 let sep = "**************************";
