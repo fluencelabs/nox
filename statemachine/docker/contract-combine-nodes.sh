@@ -1,10 +1,11 @@
 #!/bin/bash -e
 # param
 # $1 cluster_name
-# $2, $3, $4, $5 nodes' keys
+# $2 host_base_rpc_port
+# $3, $4, $5, $6 nodes' keys
 
-if [ "$#" -lt 2 ]; then
-    echo "Illegal number of parameters: at least 2 required"
+if [ "$#" -lt 3 ]; then
+    echo "Illegal number of parameters: at least 3 required"
     exit 1
 fi
 
@@ -17,10 +18,10 @@ else
 fi
 
 # iterate through given node public key JSONs, combine genesis info and persistent peers
-for ((i = 2; i <= $#; i++)); do
-    node_index=$(($i-2))
+for ((i = 3; i <= $#; i++)); do
+    node_index=$(($i-3))
     node_name=node$node_index
-    node_addr=$host_docker_internal:$(($node_index * 100 + 25056))
+    node_addr=$host_docker_internal:$(($node_index * 100 + $2 - 1))
 
     validator_key=$(echo ${!i} | jq .validator)
     node_id=$(echo ${!i} | jq -r .node_id)
