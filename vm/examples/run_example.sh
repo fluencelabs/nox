@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 exampleName=${1/_/} # replace underscores "_" from example name
 projectDir=$2
