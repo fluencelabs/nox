@@ -1,3 +1,20 @@
+- [Core](#core)
+- [External systems](#external-systems)
+  - [Ethereum](#ethereum)
+  - [Swarm](#swarm)
+- [Initial setup](#initial-setup)
+- [Transaction construction](#transaction-construction)
+- [Transaction processing](#transaction-processing)
+- [Tendermint block formation](#tendermint-block-formation)
+- [Block processing](#block-processing)
+- [Query results](#query-results)
+- [Block progress verification](#block-progress-verification)
+    - [Verification of manifests Swarm storage](#verification-of-manifests-swarm-storage)
+    - [Verification of manifests Swarm connectivity](#verification-of-manifests-swarm-connectivity)
+    - [Verification of manifests application state connectivity](#verification-of-manifests-application-state-connectivity)
+    - [Verification of blocks correctness](#verification-of-blocks-correctness)
+    - [Verification of Merkle proofs for returned VM state chunks](#verification-of-merkle-proofs-for-returned-vm-state-chunks)
+
 # Protocol
 
 ## Core
