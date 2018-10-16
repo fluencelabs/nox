@@ -24,8 +24,8 @@ for ((i = 3; i <= $#; i++)); do
     node_addr=$host_docker_internal:$(($node_index * 100 + $2 - 1))
 
     ith_arg=${!i}
-    validator_key=$(cut -d'_' -f1 <<<"$ith_arg")
-    node_id=$(cut -d'_' -f2 <<<"$ith_arg")
+    validator_key=$(cut -d';' -f1 <<<"$ith_arg")
+    node_id=$(cut -d';' -f2 <<<"$ith_arg")
 
     current_validator=$(cat <<EOF
         {

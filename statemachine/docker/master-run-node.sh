@@ -19,13 +19,8 @@ mkdir -p "$tm_home/config"
 cp -R "$4/config/"* "$tm_home/config"
 
 # copy cluster info with attached node index to config volume
-node_info = "{\"cluster\":$(cat $5),\"node_index\":\"$3\"}"
+node_info="{\"cluster\":$(cat $5),\"node_index\":\"$3\"}"
 echo "$node_info" > "$tm_home/config/node_info.json"
-
-# configure genesis and peer discovery
-###cat "$5" | jq .genesis > "$tm_home/config/genesis.json"
-###cat "$5" | jq -r .persistent_peers > "$tm_home/config/persistent_peers.txt"
-###cat "$5" | jq -r ".external_addrs|.[$3]" > "$tm_home/config/external_addr.txt"
 
 node_name=$1_node$3
 

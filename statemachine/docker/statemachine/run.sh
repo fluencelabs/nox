@@ -16,13 +16,13 @@ fi
 cp -f "$2/config.toml" "$1/config/config.toml"
 
 # extract cluster and info
-node_info_file="$2/node_info.json"
-node_index=cat "$node_info_file" | jq .node_index
+node_info_file="$1/config/node_info.json"
+node_index=$(cat "$node_info_file" | jq .node_index)
 
-persistent_peers=cat "$node_info_file" | jq -r ".cluster|.persistent_peers"
-external_address=cat "$node_info_file" | jq -r ".cluster|.external_addrs|.[$node_index]"
+persistent_peers=$(cat "$node_info_file" | jq -r ".cluster|.persistent_peers")
+external_address=$(cat "$node_info_file" | jq -r ".cluster|.external_addrs|.[$node_index]")
 
-cat "$node_info_file" | jq ".cluster|.genesis" > "$tm_home/config/genesis.json"
+cat "$node_info_file" | jq ".cluster|.genesis" > "$1/config/genesis.json"
 
 # set advertised address
 sed -i -e "s#^external_address = \"\"\$#external_address = \"$external_address\"#" "$1/config/config.toml"
