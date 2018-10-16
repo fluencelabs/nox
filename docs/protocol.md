@@ -1,21 +1,18 @@
+# Protocol
+
 - [Core](#core)
 - [External systems](#external-systems)
   - [Ethereum](#ethereum)
   - [Swarm](#swarm)
 - [Initial setup](#initial-setup)
-- [Transaction construction](#transaction-construction)
-- [Transaction processing](#transaction-processing)
-- [Tendermint block formation](#tendermint-block-formation)
-- [Block processing](#block-processing)
-- [Query results](#query-results)
-- [Block progress verification](#block-progress-verification)
-    - [Verification of manifests Swarm storage](#verification-of-manifests-swarm-storage)
-    - [Verification of manifests Swarm connectivity](#verification-of-manifests-swarm-connectivity)
-    - [Verification of manifests application state connectivity](#verification-of-manifests-application-state-connectivity)
-    - [Verification of blocks correctness](#verification-of-blocks-correctness)
-    - [Verification of Merkle proofs for returned VM state chunks](#verification-of-merkle-proofs-for-returned-vm-state-chunks)
-
-# Protocol
+- [Transactions](#transactions)
+- [Real-time processing](#real-time-processing)
+  - [Transaction validation](#transaction-validation)
+  - [Tendermint block formation](#tendermint-block-formation)
+  - [Block processing](#block-processing)
+- [Client](#client)
+  - [Query results](#query-results)
+  - [Block progress verification](#block-progress-verification)
 
 ## Core
 
@@ -166,7 +163,7 @@ type BatchValidator struct {
 var flnContract FlnContract             // Fluence Ethereum smart contract
 ```
 
-## Transaction construction
+## Transactions
 
 A transaction always has a specific authoring client and carries all the information required to execute a deployed WebAssembly function:
 
@@ -194,7 +191,9 @@ var tx Transaction            // correct transaction formed by the client
   )
 ```
 
-## Transaction processing
+## Real-time processing
+
+### Transaction validation
 
 Once the client has constructed a transaction, it is submitted to one of the real-time nodes which checks the received transaction:
 
@@ -229,7 +228,7 @@ If the transaction passes the check, it's added to the mempool and might be late
 - how the real-time node should check the client's security deposit?
 
 
-## Tendermint block formation
+### Tendermint block formation
 
 Tendermint consensus engine produces new blocks filled with client supplied transactions and feeds them to the Fluence state machine. Tendermint uses Merkle trees to compute the Merkle root of certain pieces of data and digital signatures to sign produced blocks, however here we assume these functions are not necessary compatible with Fluence and denote them separately.
 
@@ -281,7 +280,7 @@ var k int                     // block number
 
 Note we haven't specified here how the application state hash (`Header.AppHash`) is getting calculated – this will be described in the next section.
 
-## Block processing
+### Block processing
 
 Once the block has passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. The virtual machine state is essentially a block of memory split into chunks which can be used to compute the virtual machine state hash. VM state `k + 1` arises after processing transactions of the block `k`.
 
@@ -349,7 +348,9 @@ Now, once the block manifest is formed and the virtual machine has advanced to t
   blocks[k + 1].Header.AppHash == Hash(manifests[k])
 ```
 
-## Query results
+## Client
+
+### Query results
 
 Once the cluster has reached consensus on the block, advanced the virtual machine state, reached consensus on the next couple of blocks and saved related block manifests and transactions into Swarm, the client can query results of the function invocation through the ABCI query API. 
 
@@ -387,7 +388,7 @@ var p       int              // manifest index
   results.TxsReceipt == SwarmUpload(blocks[k].Txs)
 ```
 
-## Block progress verification
+### Block progress verification
 
 The client verifies that returned results represent correct block progress in a few steps. Below we will list those steps, but first we need to mention that they are not verifying that the transaction sent by the client was actually processed.
 
