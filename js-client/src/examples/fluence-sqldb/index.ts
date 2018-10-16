@@ -172,7 +172,7 @@ let config: Config = {
 };
 
 try {
-    let configFromFile = require("../../../../../workshop-2018-oct/sql-client/config.json");
+    let configFromFile = require("./config.json");
     if (configFromFile.addrs) {
         config = configFromFile as Config
     }
