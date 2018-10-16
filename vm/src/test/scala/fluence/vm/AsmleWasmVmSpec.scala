@@ -240,14 +240,54 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       res.success()
     }
 
-    "run integration test that allocates 1 Mb memory" in {
-      val llamadbFilePath = getClass.getResource("/wasm/llama_db_version_0_1.wasm").getPath
+    "run integration test that runs with 4 Mb memory and inserts a lot of data" in {
+      val llamadbFilePath = getClass.getResource("/wasm/llamadb/llama_db_version_0_1.wasm").getPath
 
       val res = for {
         vm ← WasmVm[IO](Seq(llamadbFilePath))
         // allocate 1 МБ memory
-        result1 <- vm.invoke[IO](None, "do_query", "create table USERS(id int, name varchar(128), age int)".getBytes())
-        result2 <- vm.invoke[IO](None, "do_query", ("insert into USERS values(2, 'Bob', 19)" + ", (3, '1', 31)"*1024*5).getBytes())
+        result1 <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
+        result2 <- vm.invoke[IO](None, "do_query", ("insert into USERS values('A')" + ",('1')"*1024*10).getBytes())
+        state <- vm.getVmState[IO].toVmError
+      } yield {
+        result2 should not be None
+
+        val result2AsString = new String(result2.get)
+        result2AsString startsWith "rows inserted"
+      }
+
+      res.success()
+    }
+
+    "run integration test that runs with 100 Mb memory and inserts a lot of data" in {
+      val llamadbFilePath = getClass.getResource("/wasm/llamadb/llama_db_version_0_1.wasm").getPath
+
+      val res = for {
+        vm ← WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.100Mb")
+        result1 <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
+
+        // this config provides at 25 times more memory
+        result2 <- vm.invoke[IO](None, "do_query", ("insert into USERS values('A')" + ",('1')"*1024*10*25).getBytes())
+        state <- vm.getVmState[IO].toVmError
+      } yield {
+        result2 should not be None
+
+        val result2AsString = new String(result2.get)
+        result2AsString startsWith "rows inserted"
+      }
+
+      res.success()
+    }
+
+    "run integration test that runs with 2 Gb memory and inserts a lot of data" in {
+      val llamadbFilePath = getClass.getResource("/wasm/llamadb/llama_db_version_0_1.wasm").getPath
+
+      val res = for {
+        vm ← WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
+        result1 <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
+
+        // this config provides at 25 times more memory
+        result2 <- vm.invoke[IO](None, "do_query", ("insert into USERS values('A')" + ",('1')"*1024*10*25*19).getBytes())
         state <- vm.getVmState[IO].toVmError
       } yield {
         result2 should not be None
