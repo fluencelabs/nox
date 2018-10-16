@@ -1,7 +1,7 @@
 ## Running local Fluence clusters
 
 ### Prerequisites
-* `docker` and `jq` for running clusters
+* `docker` for running clusters
 * `npm` or `python` for connecting clients to them
 
 ### Building docker image

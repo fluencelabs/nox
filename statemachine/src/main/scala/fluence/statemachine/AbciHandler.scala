@@ -82,7 +82,12 @@ class AbciHandler(
    * @return `CheckTx` response data
    */
   override def requestCheckTx(req: RequestCheckTx): ResponseCheckTx = {
-    val responseData = validateTx(req.getTx, txParser, checkTxStateChecker).unsafeRunSync()
+    val responseData = (for {
+      validated <- validateTx(req.getTx, txParser, checkTxStateChecker)
+      _ = if (validated.validatedTx.isEmpty) {
+        logger.info("CheckTx {}", validated)
+      }
+    } yield validated).unsafeRunSync()
     ResponseCheckTx.newBuilder
       .setCode(responseData.code)
       .setInfo(responseData.info)
