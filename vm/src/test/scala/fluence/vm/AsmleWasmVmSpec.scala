@@ -299,15 +299,15 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       res.success()
     }
 
-    "run integration test that runs with 2 Gb memory " in {
+    "run integration test that runs with 2 Gb memory with huge inserted value" in {
       val llamadbFilePath = getClass.getResource("/wasm/llamadb/llama_db_version_0_1.wasm").getPath
 
       val res = for {
         vm ← WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
         result1 <- vm.invoke[IO](None, "do_query", ("create table USERS(name varchar(" + 1024*1024*1024 + "))").getBytes())
 
-        // this config provides at 19 times more memory as the fluence.vm.client.100Mb
-        result2 <- vm.invoke[IO](None, "do_query", "insert into USERS values('A')".getBytes())
+        // trying to insert 256 Mb memory
+        result2 <- vm.invoke[IO](None, "do_query", ("insert into USERS values(" + "A"*(1024*1024*256) + ")").getBytes())
         state <- vm.getVmState[IO].toVmError
       } yield {
         result2 should not be None
