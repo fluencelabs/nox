@@ -158,6 +158,30 @@ function updateStatus() {
     })
 }
 
+interface Config {
+    addrs: Addr[]
+}
+
+let config: Config = {
+    addrs: [
+        {host: "localhost", port: 25057},
+        {host: "localhost", port: 25157},
+        {host: "localhost", port: 25257},
+        {host: "localhost", port: 25357}
+    ]
+};
+
+try {
+    let configFromFile = require("../../../../../workshop-2018-oct/sql-client/config.json");
+    if (configFromFile.addrs) {
+        config = configFromFile as Config
+    }
+} catch (e) {
+
+} finally {
+    console.log("Config: \n" + JSON.stringify(config));
+}
+
 /**
  * List of addresses of a real-time cluster. Change it if needed.
  */
