@@ -36,10 +36,15 @@ interface Status {
     block_height: number
 }
 
+interface PortWithclient {
+    addr: string,
+    client: fluence.TendermintClient
+}
+
 class DbClient {
 
     private readonly sessions: fluence.Session[];
-    private readonly clients: fluence.TendermintClient[];
+    private readonly clients: PortWithclient[];
     private readonly size: number;
     private counter: number;
 
@@ -60,7 +65,10 @@ class DbClient {
         });
 
         this.clients = addrs.map((v) => {
-            return new fluence.TendermintClient(v.host, v.port);
+            return {
+                addr: v.host + ":" + v.port,
+                client: new fluence.TendermintClient(v.host, v.port)
+            };
         });
     }
 
@@ -88,7 +96,11 @@ class DbClient {
      */
     async status(): Promise<any[]> {
         return Promise.all(this.clients.map((cl) => {
-            return cl.client.status();
+            let status = cl.client.client.status() as Promise<any>;
+            return status.then((st) => {
+                st.node_info.listen_addr = cl.addr;
+                return st;
+            });
         }));
     }
 }
