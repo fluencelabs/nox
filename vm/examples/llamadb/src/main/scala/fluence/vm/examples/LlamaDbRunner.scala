@@ -81,6 +81,14 @@ object LlamaDbRunner extends IOApp {
       res12 ← vm.invoke[IO](None, "do_query", incompatibleType.getBytes())
       state12 ← vm.getVmState[IO]
 
+      deleteQuery = "delete from Users where id = (select user_id from Roles where role = 'Student')"
+      res13 ← vm.invoke[IO](None, "do_query", deleteQuery.getBytes())
+      state13 ← vm.getVmState[IO]
+
+      truncateQuery = "truncate table Users"
+      res14 ← vm.invoke[IO](None, "do_query", truncateQuery.getBytes())
+      state14 ← vm.getVmState[IO]
+
       finishState ← vm.getVmState[IO].toVmError
     } yield {
       s"$createTableSql >> \n${res1.toStr} \nvmState=$state1\n" +
@@ -95,6 +103,8 @@ object LlamaDbRunner extends IOApp {
         s"$badQuery >> \n${res10.toStr} \n vmState=$state10\n" +
         s"$parserError >> \n${res11.toStr} \n vmState=$state11\n" +
         s"$incompatibleType >> \n${res12.toStr} \n vmState=$state12\n" +
+        s"$deleteQuery >> \n${res13.toStr} \n vmState=$state13\n" +
+        s"$truncateQuery >> \n${res14.toStr} \n vmState=$state14\n" +
         s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
         s"finishState=$finishState"

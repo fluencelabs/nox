@@ -81,17 +81,21 @@ fn integration_sql_test() {
     println!("{}", delete);
     assert_eq!(delete, "rows deleted: 1");
 
+    let truncate = execute_sql("truncate table Users".to_string());
+    println!("{}", truncate);
+    assert_eq!(truncate, "rows deleted: 3");
+
     //
     // Error cases.
     //
 
     let empty_str = execute_sql("".to_string());
     println!("{}", empty_str);
-    assert_eq!(empty_str, "[Error] Expected SELECT, INSERT, CREATE, or EXPLAIN statement; got no more tokens");
+    assert_eq!(empty_str, "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got no more tokens");
 
     let invalid_sql = execute_sql("123".to_string());
     println!("{}", invalid_sql);
-    assert_eq!(invalid_sql, "[Error] Expected SELECT, INSERT, CREATE, or EXPLAIN statement; got Number(\"123\")");
+    assert_eq!(invalid_sql, "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got Number(\"123\")");
 
     let bad_query = execute_sql("select salary from Users".to_string());
     println!("{}", bad_query);
@@ -107,17 +111,13 @@ fn integration_sql_test() {
 
     // Not supported operations
 
-    let not_supported_truncate = execute_sql("truncate table Users".to_string());
-    println!("{}", not_supported_truncate);
-    assert_eq!(not_supported_truncate, "[Error] Expected SELECT, INSERT, CREATE, or EXPLAIN statement; got Ident(\"truncate\")");
-
     let not_supported_drop = execute_sql("drop table Users".to_string());
     println!("{}", not_supported_drop);
-    assert_eq!(not_supported_drop, "[Error] Expected SELECT, INSERT, CREATE, or EXPLAIN statement; got Ident(\"drop\")");
+    assert_eq!(not_supported_drop, "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got Ident(\"drop\")");
 
     let not_supported_update= execute_sql("update Users set name = 'Rob' where name = 'Bob'".to_string());
     println!("{}", not_supported_update);
-    assert_eq!(not_supported_update, "[Error] Expected SELECT, INSERT, CREATE, or EXPLAIN statement; got Update");
+    assert_eq!(not_supported_update, "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got Update");
 
     let not_supported_order_by = execute_sql("select * from Users order by name".to_string());
     println!("{}", not_supported_order_by);
