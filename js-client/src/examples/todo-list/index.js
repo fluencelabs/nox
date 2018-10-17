@@ -2,11 +2,11 @@ import * as fluence from "js-fluence-client"
 
 window.onload = function () {
 
-    let todo_table = "TODO_LIST";
-    let done_table = "DONE_LIST";
-
     // creates deafult session with credentials
     const session = fluence.createDefaultSession("localhost", 29057);
+
+    let todo_table = "TODO_LIST";
+    let done_table = "DONE_LIST";
 
     const getTableName = function(done) {
         if (done) {
@@ -26,7 +26,7 @@ window.onload = function () {
 
         Promise.all([createTodo, createDone])
             .then((r) => {
-                console.log("table creation result: " + r.map((v) => v.asString()).join("\n"))
+                console.log("table creation result:\n" + r.map((v) => v.asString()).join("\n"))
             }).catch((e) => {
             console.log("table creation error: " + e)
         });
