@@ -2,41 +2,75 @@ import * as fluence from "js-fluence-client"
 
 window.onload = function () {
 
-    let size = 0;
+    let todo_table = "TODO_LIST";
+    let done_table = "DONE_LIST";
 
     // creates deafult session with credentials
-    const session = fluence.createDefaultSession("localhost", 25057);
+    const session = fluence.createDefaultSession("localhost", 29057);
+
+    const getTableName = function(done) {
+        if (done) {
+            return done_table;
+        } else {
+            return todo_table;
+        }
+    };
 
     // creates the table in llamadb in fluence cluster
-    session.invoke("do_query", "CREATE TABLE TODO_LIST(id int, task varchar(128), deleted int)")
-        .result().then((r) => {
-        console.log("table creation result: " + r.asString())
-    }).catch((e) => {
-        console.log("table creation error: " + JSON.stringify(e))
-    });
+    const createTables = function () {
+        const createTodoQuery = "CREATE TABLE " + todo_table + "(task varchar(128))";
+        const createDoneQuery = "CREATE TABLE " + done_table + "(task varchar(128))";
+
+        const createTodo = session.invoke("do_query", createTodoQuery).result();
+        const createDone = session.invoke("do_query", createDoneQuery).result();
+
+        Promise.all([createTodo, createDone])
+            .then((r) => {
+                console.log("table creation result: " + r.map((v) => v.asString()).join("\n"))
+            }).catch((e) => {
+            console.log("table creation error: " + e)
+        });
+    };
 
     // gets tasks from fluence
-    session.invoke("do_query", "SELECT * FROM TODO_LIST").result().then((res) => {
-        console.log("all tasks selection: " + JSON.stringify(res.asString()));
-        let tasks = res.asString().split('\n');
-        // removes column names
-        tasks.shift();
-        tasks.forEach((taskStr) => {
-            updateTaskList(taskStr.trim().split(",")[1]);
+    const loadTasks = function(table, func) {
+        const query = "SELECT * FROM " + table;
+        session.invoke("do_query", query).result().then((res) => {
+            let tasks = res.asString().split('\n');
+            // removes column names
+            tasks.shift();
+            console.log("all tasks selection from " + table + ": " + tasks.join(","));
+            tasks.forEach((taskStr) => {
+                let task = taskStr.trim();
+                if (task) {
+                    func(task);
+                }
+            });
+        }).catch((e) => {
+            console.log("list selection from " + table + " error: " + e)
         });
-        size = tasks.length
-    }).catch((e) => {
-        console.log("todo list selection error: " + JSON.stringify(e))
-    });
+    };
+
 
     // insert a task into fluence
-    const addTaskToFluence = function(task) {
-        const taskId = size++;
-        const insertion = "(" + taskId + ", '" + task + "', 0)";
-        const query = "insert into TODO_LIST values " + insertion + "";
+    const addTaskToFluence = function (task, done) {
+        const insertion = "('" + task + "')";
+        let table = getTableName(done);
+
+        const query = "insert into " + table + " values " + insertion;
         session.invoke("do_query", query).result().then((r) => {
             console.log("insertion result: " + r.asString())
         })
+    };
+
+    const deleteFromFluence = function (task, done) {
+        let table = getTableName(done);
+        const query = "DELETE FROM " + table + " WHERE TASK = '" + task +"'";
+        session.invoke("do_query", query).result().then((res) => {
+            console.log("task deleted: " + res.asString());
+        }).catch((e) => {
+            console.log("error on task deletion: " + JSON.stringify(e))
+        });
     };
 
 
@@ -71,7 +105,29 @@ window.onload = function () {
         listItem.appendChild(label);
         //EVERYTHING PUT TOGETHER
         return listItem;
+    };
 
+    const createDoneTask = function (task) {
+        console.log("Creating task...");
+
+        //SET UP THE NEW LIST ITEM
+        const listItem = document.createElement("li");
+        const label = document.createElement("label");
+
+
+        //PULL THE INPUTED TEXT INTO LABEL
+        label.innerText = task;
+
+        //ADD PROPERTIES
+        const deleteBtn = document.createElement("button"); // <button>
+        deleteBtn.innerText = "Delete";
+        deleteBtn.className = "delete";
+        listItem.appendChild(deleteBtn);
+
+        //ADD ITEMS TO THE LI
+        listItem.appendChild(label);
+        //EVERYTHING PUT TOGETHER
+        return listItem;
     };
 
     const updateTaskList = function (task) {
@@ -87,9 +143,20 @@ window.onload = function () {
 
     //ADD THE NEW TASK INTO ACTUAL INCOMPLETE LIST
     const addTask = function () {
-        console.log("Adding task...");
-        addTaskToFluence(newTask.value);
-        updateTaskList(newTask.value)
+        const task = newTask.value.trim();
+        console.log("Adding task: " + task);
+        addTaskToFluence(task, false);
+        updateTaskList(task)
+    };
+
+    const updateDoneList = function (task) {
+        const listItem = createDoneTask(task);
+
+        //PLACE IT INSIDE THE COMPLETED LIST
+        completeUl.appendChild(listItem);
+
+        //BIND THE NEW COMPLETED LIST
+        bindCompleteItems(listItem, deleteTask);
     };
 
     const completeTask = function () {
@@ -97,11 +164,17 @@ window.onload = function () {
         //GRAB THE CHECKBOX'S PARENT ELEMENT, THE LI IT'S IN
         const listItem = this.parentNode;
 
+        const task = listItem.getElementsByTagName('label')[0].innerText;
+
+        deleteFromFluence(task, false);
+        addTaskToFluence(task, true);
+
         //CREATE AND INSERT THE DELETE BUTTON
         const deleteBtn = document.createElement("button"); // <button>
         deleteBtn.innerText = "Delete";
         deleteBtn.className = "delete";
         listItem.appendChild(deleteBtn);
+
 
         //SELECT THE CHECKBOX FROM THE COMPLETED CHECKBOX AND REMOVE IT
         const checkBox = listItem.querySelector("input[type=checkbox]");
@@ -121,6 +194,9 @@ window.onload = function () {
 
         const listItem = this.parentNode;
         const ul = listItem.parentNode;
+
+        const task = listItem.getElementsByTagName('label')[0].innerText;
+        deleteFromFluence(task, true);
 
         ul.removeChild(listItem);
 
@@ -151,6 +227,9 @@ window.onload = function () {
 
     };
 
+    createTables();
+    loadTasks(todo_table, updateTaskList);
+    loadTasks(done_table, updateDoneList);
 
     for (let i = 0; i < toDoUl.children.length; i++) {
         bindIncompleteItems(toDoUl.children[i], completeTask);
