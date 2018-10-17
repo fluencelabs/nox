@@ -94,9 +94,8 @@ unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
 
 /// Acquires lock, does query, releases lock, returns query result
 fn run_query(sql_query: &str) -> GenResult<String> {
-    let statement = llamadb::sqlsyntax::parse_statement(sql_query)?;
     let mut db = DATABASE.lock()?;
-    let result = db.execute_statement(statement)
+    let result = db.do_query(sql_query)
         .map(statement_to_string)
         .map_err(Into::into);
     result
@@ -122,6 +121,9 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
                 }).collect::<Vec<String>>().join("\n");
 
             col_names + &rows_as_str
+        }
+        ExecuteStatementResponse::Deleted(number) => {
+            format!("rows deleted: {}", number)
         }
         ExecuteStatementResponse::Explain(result) => {
             result.clone()
