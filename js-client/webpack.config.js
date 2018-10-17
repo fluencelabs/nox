@@ -7,7 +7,7 @@ const { CheckerPlugin } = require('awesome-typescript-loader');
 module.exports = {
     entry: {
         app: ['./src/fluence.ts', './src/examples/CustomCommands.ts',
-            './src/examples/IncrementAndMultiply.ts', './src/examples/DbOnPointers.ts']
+            './src/examples/IncrementAndMultiply.ts']
     },
     devtool: 'inline-source-map',
     devServer: {

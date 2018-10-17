@@ -18,7 +18,7 @@ limitations under the License.
 from __future__ import print_function
 import string, random, time
 from verify import get_verified_result
-from codec import hex_decode
+from codec import hex_decode, hex_decode_bytes, hex_encode_bytes, le4b_decode
 
 def id_generator(size = 6, chars = string.ascii_uppercase[:6] + string.digits):
 	"""
@@ -65,7 +65,47 @@ class DataEngineResultAwait:
 
 	def result(self, requests_per_sec = 2, response_timeout_sec = 10, wait_before_request_session_summary_sec = 2):
 		"""
-		Retrieve the invocation results of previously submitted request from the server.
+		Retrieves the invocation results of previously submitted request from the server.
+		In case of success, interprets the result as string.
+
+		Arguments:
+			requests_per_sec
+				Result retrieval rate.
+			response_timeout_sec
+				Number denoting how long (in seconds) the result retrieval attempts run.
+			wait_before_request_session_summary_sec
+				Number denoting when (in seconds since the retrieval start) the session summary is started to
+				retrieve together with the result.				
+		"""
+		raw = self.raw_result(requests_per_sec, response_timeout_sec, wait_before_request_session_summary_sec)
+		if (type(raw) is dict) and ("Computed" in raw):
+			return hex_decode(raw["Computed"]["value"])
+		else:
+			return raw
+
+	def result_num(self, requests_per_sec = 2, response_timeout_sec = 10, wait_before_request_session_summary_sec = 2):
+		"""
+		Retrieves the invocation results of previously submitted request from the server.
+		In case of success, interprets the result as number.
+
+		Arguments:
+			requests_per_sec
+				Result retrieval rate.
+			response_timeout_sec
+				Number denoting how long (in seconds) the result retrieval attempts run.
+			wait_before_request_session_summary_sec
+				Number denoting when (in seconds since the retrieval start) the session summary is started to
+				retrieve together with the result.				
+		"""
+		raw = self.raw_result(requests_per_sec, response_timeout_sec, wait_before_request_session_summary_sec)
+		if (type(raw) is dict) and ("Computed" in raw):
+			return le4b_decode(hex_decode_bytes(raw["Computed"]["value"]))
+		else:
+			return raw
+
+	def raw_result(self, requests_per_sec = 2, response_timeout_sec = 10, wait_before_request_session_summary_sec = 2):
+		"""
+		Retrieves the invocation results of previously submitted request from the server.
 
 		Arguments:
 			requests_per_sec
@@ -131,20 +171,20 @@ class DataEngineSession:
 		self.summary_key = "@meta/%s/%s/@sessionSummary" % (self.client, self.session)
 		self.counter = 0
 
-	def submit(self, command, *params):
+	def submit(self, command, arg):
 		"""
 		Submits a given `command` with given `params` to the server node.
 
 		Arguments:
 			command
 				Function name to invoke on the server side.
-			params
-				The arguments of the called function.
+			arg
+				The arguments of the called function as bytes.
 		
 		Returns:
 			An awaitable `DataEngineResultAwait` that allows to retrieve the results of the function call.
 		"""
-		payload = "%s(%s)" % (command, ",".join(map(str, params)))
+		payload = "%s(%s)" % (command, hex_encode_bytes(arg))
 		tx_sign_bytes = ("%s-%s-%d-%s" % (self.client, self.session, self.counter, payload)).encode()
 		signature = sign(tx_sign_bytes, self.signing_key)
 		tx_json = str({
@@ -154,7 +194,8 @@ class DataEngineSession:
 					"session": self.session,
 					"order": self.counter
 				},
-				"payload": payload
+				"payload": payload,
+				"timestamp": str(int(round(time.time() * 1000)))
 			},
 			"signature": signature
 		}).replace("'", '"').replace('u"', '"')
@@ -181,7 +222,7 @@ class DataEngineSession:
 
 		Implemented by `submit`ting a dedicated parameterless `@closeSession` function request.
 		"""
-		return self.submit("@closeSession")
+		return self.submit("@closeSession", bytes(""))
 
 class DataEngine:
 	"""

@@ -21,6 +21,7 @@ sys.path.append('..')
 import ed25519, base64
 from tmrpc import TendermintRPC
 from dataengine import DataEngine, id_generator
+from codec import le4b_encode
 
 def get_signing_key():
 	return ed25519.SigningKey(b"TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==", encoding="base64")
@@ -32,20 +33,32 @@ def get_verifying_key():
 def get_client():
     return "client001"
 
+def submit_inc(session):
+    return session.submit("inc", bytes(""))
+
+def submit_get(session):
+    return session.submit("get", bytes(""))
+
+def submit_mul(session, f1, f2):
+    return session.submit("MulModule.mul", le4b_encode(f1) + le4b_encode(f2))
+
+def submit_wrong_command(session):
+    return session.submit("wrong", bytes(""))
+
 def demo_queries(addr, genesis, send_wrong=False, send_closed=True, session=None):
     eng = DataEngine(addr, genesis)
     s = eng.new_session(get_client(), get_signing_key(), session)
-    q0 = s.submit("inc")
-    q1 = s.submit("MulModule.mul", 10, 14)
+    q0 = submit_inc(s)
+    q1 = submit_mul(s, 10, 14)
     if send_wrong:
-        qw = s.submit("wrong")
-    q2 = s.submit("inc")
-    q3 = s.submit("get")
+        qw = submit_wrong_command(s)
+    q2 = submit_inc(s)
+    q3 = submit_get(s)
     if send_closed:
         closed = s.close()
-    print(q1.result())
+    print(q1.result_num())
     print(q2.result())
-    print(q3.result())
+    print(q3.result_num())
     if send_closed:
         print(closed.result())
 
@@ -53,8 +66,8 @@ def demo_many_queries(addr, genesis):
     eng = DataEngine(addr, genesis)
     s = eng.new_session(get_client(), get_signing_key())
     for _ in range(0, 300):
-        s.submit("inc")
-    print(s.submit("get").result())
+        submit_inc(s)
+    print(submit_get(s).result_num())
 
 tmport = sys.argv[1] if len(sys.argv) >= 2 else "25057"
 tm = TendermintRPC("http://localhost:" + tmport)
@@ -66,7 +79,7 @@ session1_id = id_generator()
 demo_queries(tm, genesis, False, False, session1_id)
 
 # 2nd session: failed during processing
-#demo_queries(tm, genesis, True, False)
+demo_queries(tm, genesis, True, False)
 
 # 3rd session: correct and explicitly closed
 # 1st session expires during 3rd session processing

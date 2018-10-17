@@ -143,7 +143,7 @@ def hash_binary(data, format):
 		# They came from a complicated marshalling logic in https://github.com/tendermint/go-amino.
 		# Instead of a full support of go-amino, such hard-coded values are used.
 		t_unix, t_ns = parse_utc_unix_ns(data)
-		b = ints_to_bytes((1 << 3) | 1) + l_endian_4b(t_unix) + ints_to_bytes(0, 0, 0, 0, (2 << 3) | 5) + l_endian_4b(t_ns)
+		b = ints_to_bytes((1 << 3) | 1) + le4b_encode(t_unix) + ints_to_bytes(0, 0, 0, 0, (2 << 3) | 5) + le4b_encode(t_ns)
 	elif format == "block_id":
 		# 'Magic' again, its origin is the same as explained for "time" case.
 		b = hex_decode_bytes("0A14" + data[0] + "121808021214" + data[1])

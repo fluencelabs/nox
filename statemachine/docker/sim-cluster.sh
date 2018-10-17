@@ -45,5 +45,6 @@ echo "Running nodes in docker containers"
 for ((i = 0; i <= 3; i++)); do
     p2p_port=$(($3 + $i * 100 - 1))
     rpc_port=$(($3 + $i * 100))
-    ./master-run-node.sh "$1" "$2" $i "$4/node$i" "$network_dir/cluster_info.json" $p2p_port $rpc_port
+    pmt_port=$(($3 + $i * 100 + 3))
+    ./master-run-node.sh "$1" "$2" $i "$4/node$i" "$network_dir/cluster_info.json" $p2p_port $rpc_port $pmt_port
 done

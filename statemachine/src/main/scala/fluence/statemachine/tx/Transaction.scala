@@ -54,7 +54,7 @@ case class TransactionHeader(client: ClientId, session: SessionId, order: Long) 
  * @param header transaction header
  * @param payload transaction payload describing operation that should be invoked by VM
  */
-case class Transaction(header: TransactionHeader, payload: String) {
+case class Transaction(header: TransactionHeader, payload: String, timestamp: String) {
   def signString: String = s"${header.client}-${header.session}-${header.order}-$payload"
 }
 
