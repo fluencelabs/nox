@@ -137,7 +137,9 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
 unsafe fn put_to_mem(str: String) -> *mut u8 {
     // converting string size to bytes in little-endian order
     let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str.len() as u32).to_le());
-    let total_len = STR_LEN_BYTES + str.len();
+    let total_len = STR_LEN_BYTES
+        .checked_add(str.len())
+        .expect("usize overflow occurred");;
 
     let mut result: Vec<u8> = Vec::with_capacity(total_len);
     result.write_all(&len_as_bytes).unwrap();
