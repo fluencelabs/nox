@@ -46,7 +46,7 @@ func VerifyMerkleProof(selectedChunk []byte, proof *MerkleProof, root []byte) bo
 
 ### Ethereum
 
-Ethereum is viewed as a secure state storage keeping few related smart contracts. Those smart contracts can be checked by any network participants to, for example, make sure that some node still has a security deposit placed. Below we provide an example of such contract.
+For the purposes of this protocol specification, Ethereum is viewed as a secure state storage keeping few related smart contracts. Those smart contracts can be checked by any network participants to, for example, make sure that some node still has a security deposit placed. Below we provide an example of such contract.
 
 ```go
 type ExampleContract struct {
@@ -99,7 +99,9 @@ type SwarmNode struct {
 var swarmContract SwarmContract  // Swarm Ethereum smart contract
 ```
 
-Swarm provides an upload function which returns a Swarm receipt indicating Swarm network accountability for the passed content. The receipt contains the Swarm hash of the content and the signature of the Swarm node which is financially responsible for storing the content. Receipts functionality is not implemented yet in the current Swarm release, however it's described in details in ["Swap, swear and swindle: incentive system for Swarm"](https://swarm-gateways.net/bzz:/theswarm.eth/ethersphere/orange-papers/1/sw^3.pdf) paper and can be reasonably expected to be rolled out soon.
+#### Stored content receipts
+
+We assume that Swarm provides an upload function which returns a Swarm receipt indicating Swarm network accountability for the passed content. The receipt contains the Swarm hash of the content and the signature of the Swarm node which is financially responsible for storing the content. Receipts functionality is not implemented yet in the current Swarm release, however it's described in details in ["Swap, swear and swindle: incentive system for Swarm"](https://swarm-gateways.net/bzz:/theswarm.eth/ethersphere/orange-papers/1/sw^3.pdf) paper and can be reasonably expected to be rolled out soon.
 
 ```go
 type SwarmReceipt struct {
@@ -119,15 +121,90 @@ func SwarmUpload(content []byte) SwarmReceipt {}
 var swarmContract SwarmContract  // Swarm Ethereum smart contract
 
 // rules
-var content []byte               // uploaded content
-var receipt SwarmReceipt         // receipt issued for the uploaded content
+var content []byte               // some content
 
 ∀ content:
+  var receipt = SwarmUpload(content)
+
   receipt.ContentHash == SwarmHash(content)
   receipt.Insurance.Signature == SwarmSign(
     swarmContract.Nodes[receipt.Insurance.NodeId].PrivateKey,  // private key
     receipt.ContentHash                                        // data
   )
+```
+
+#### Mutable resource updates
+
+We also rely on the [mutable resource updates (MRU)](https://swarm-guide.readthedocs.io/en/latest/usage.html#mutable-resource-updates) feature in Swarm. While core Swarm allows to access the stored content by its hash, MRU lets its user to associate the content with a specific key and update it from time to time. If core Swarm can be represented as a hash-addressable storage, MRU is more complex and for our purposes can be treated as a nested dictionary.
+
+```go
+type SwarmMeta struct {
+  Key       string                         // resource key
+  Version   int                            // resource version
+  Content   []byte                         // uploaded content
+  Signature []byte                         // owner signature which authorizes the update
+}
+
+// data
+var swarmMRU map[string]map[int]SwarmMeta  // MRU storage: key –> version –> content
+```
+
+Every key created in the MRU storage has an associated owner and needs to be initialized first. Once the key is initialized, it can be updated only by the owner.
+
+```go
+type SwarmOwners struct {
+  data map[string][]byte    // owners: resource key –> public key
+}
+
+// initializes and returns a new resource key associated with the passed owner's public key
+func (owners *SwarmOwners) Init(publicKey []byte, signature []byte) string {}
+
+// returns an owner's public key for the specified resource key
+func (owners *SwarmOwners) Owner(resourceKey string) []byte {}
+
+// data
+var swarmOwners SwarmOwners  // list of resource owners
+```
+
+Now, having the MRU storage and the set of owners, we can more formally define the rules these entities are expected to follow.
+
+
+```go
+// data
+var swarmOwners SwarmOwners                // list of resource owners
+var swarmMRU map[string]map[int]SwarmMeta  // MRU storage: key –> version –> content
+
+// rules
+var key     string                         // some key
+var version int                            // some version
+
+∀ key, ∀ version:
+  // the content stored for specific key and version should be authorized by its owner
+  var meta = swarmMRU[key][version]
+  
+  meta.Key == key
+  meta.Version == version
+  
+  SwarmVerify(
+    swarmOwners.Owner(meta.Key),                       // public key
+    meta.Signature,                                    // signature
+    SwarmHash([meta.Key, meta.Version, meta.Content])  // data
+  ) == true
+```
+
+We can also expect that Swarm will provide stored receipts functionality for the MRU resources. Here we assume the following behavior: every time the resource changes, Swarm issues a receipt for the updated resource key and version along with the new content and owner's signature.
+
+```go
+// updates the resource associated with the specific resource key
+func SwarmMRUUpdate(meta *SwarmMeta) SwarmReceipt {}
+
+// rules
+var meta SwarmMeta  // some mutable content
+
+∀ meta:
+  var receipt = SwarmMRUUpdate(&meta)
+  
+  receipt.ContentHash == SwarmHash(meta)
 ```
 
 ## Initial setup
