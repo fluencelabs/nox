@@ -2,8 +2,13 @@
 # param
 # $1 docker_network_name / cluster_name
 # $2 vm_code_directory
-# $3 host_rpc_port
+# $3 host_base_rpc_port
 # $4 long_term_key_all_locations
+
+# Currently 'host_base_rpc_port' is Tendermint RPC port for 0-th node.
+# RPC ports of other nodes are obtained by adding 100, 200, ... to 'host_base_rpc_port'.
+# P2P ports of all nodes are obtained as RPC ports minus 1.
+# TODO: Fix this logic to choosing ports from predefined ranges during implementing cluster formation via contracts.
 
 if [ "$#" -ne 4 ]; then
     echo "Illegal number of parameters: 4 required"
@@ -33,7 +38,7 @@ done
 
 # combine genesis and persistent peers and put them to a file
 echo "Combining cluster genesis and discovery"
-./sim-combine-cluster.sh "$1" "$4" > "$network_dir/cluster_info.json"
+./sim-combine-cluster.sh "$1" "$3" "$4" > "$network_dir/cluster_info.json"
 
 # run 4 nodes
 echo "Running nodes in docker containers"

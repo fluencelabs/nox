@@ -18,15 +18,13 @@ tm_home=$HOME/.fluence/nodes/$1/node$3
 mkdir -p "$tm_home/config"
 cp -R "$4/config/"* "$tm_home/config"
 
-# configure genesis and peer discovery
-cat "$5" | jq .genesis > "$tm_home/config/genesis.json"
-cat "$5" | jq -r .persistent_peers > "$tm_home/config/persistent_peers.txt"
-cat "$5" | jq -r ".external_addrs|.[$3]" > "$tm_home/config/external_addr.txt"
+# copy cluster info with attached node index to config volume
+node_info="{\"cluster\":$(cat $5),\"node_index\":\"$3\"}"
+echo "$node_info" > "$tm_home/config/node_info.json"
 
 node_name=$1_node$3
 
-# run Fluence node image with Tendermint and State machine
-# default docker network (which is 'bridge') is used
+# run Fluence solver node image with Tendermint and State machine
 docker run -idt \
     --user $(id -u):$(id -g) \
     -p "$6:26656" -p "$7:26657" \
