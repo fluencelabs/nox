@@ -158,16 +158,18 @@ function updateStatus() {
     })
 }
 
+interface Config {
+    addrs: Addr[]
+}
+
 /**
- * List of addresses of a real-time cluster. Change it if needed.
+ * List of addresses of a real-time cluster. Change it in `config.json` if needed.
  */
-let addrs = [
-    {host: "localhost", port: 25057},
-    {host: "localhost", port: 25157},
-    {host: "localhost", port: 25257},
-    {host: "localhost", port: 25357}
-];
-let client = new DbClient(addrs);
+let config = require("./config.json") as Config;
+
+console.log("Config: " + JSON.stringify(config));
+
+let client = new DbClient(config.addrs);
 
 let newLine = String.fromCharCode(13, 10);
 let sep = "**************************";
