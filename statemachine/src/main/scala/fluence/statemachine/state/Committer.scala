@@ -15,6 +15,9 @@
  */
 
 package fluence.statemachine.state
+import java.text.SimpleDateFormat
+import java.util.Calendar
+
 import cats.Monad
 import cats.data.StateT
 import cats.syntax.functor._
@@ -40,19 +43,23 @@ class Committer[F[_]](
     extends slogging.LazyLogging {
   private val WrongVmHashValue: StoreValue = "wrong_vm_hash"
 
+  val commitDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
+
   /**
    * Handles `Commit` ABCI method (in Consensus thread).
    *
    * @return app hash for Tendermint
    */
-  def processCommit(): F[ByteString] =
+  def processCommit(): F[ByteString] = {
+    val commitStartTime = System.currentTimeMillis()
     stateHolder.modifyStates(
       for {
         // 2 State monads composed because an atomic update required for Commit
         _ <- TendermintState.modifyConsensusState(preCommitConsensusStateUpdate())
-        result <- commitStatesUpdate()
+        result <- commitStatesUpdate(commitStartTime)
       } yield result
     )
+  }
 
   /**
    * Modifies Consensus state to prepare it for commit.
@@ -72,18 +79,25 @@ class Committer[F[_]](
    * Switches states and returns the resulting app hash.
    *
    */
-  private def commitStatesUpdate(): StateT[F, TendermintState, ByteString] = StateT(
+  private def commitStatesUpdate(commitStartTime: Long): StateT[F, TendermintState, ByteString] = StateT(
     oldStates =>
       for {
         newStates <- F.pure(oldStates.switch())
         merkelized = newStates.latestMerkelized
         appHash = merkelized.merkleHash
-        _ = logState(merkelized, newStates.latestCommittedHeight)
+        _ = logState(merkelized, newStates.latestCommittedHeight, commitStartTime)
       } yield (newStates, ByteString.copyFrom(appHash.bytes.toArray))
   )
 
-  private def logState(state: MerkleTreeNode, height: Long): Unit = {
-    logger.info("Commit: height={} hash={}", height, state.merkleHash.toHex)
+  private def logState(state: MerkleTreeNode, height: Long, commitStartTime: Long): Unit = {
+    val commitDuration = System.currentTimeMillis() - commitStartTime
+    logger.info(
+      "{} Commit: processTime={} height={} hash={}",
+      commitDateFormat.format(Calendar.getInstance().getTime),
+      commitDuration,
+      height,
+      state.merkleHash.toHex
+    )
     logger.debug("\n{}", state.dump())
     logger.info("") // separating messages related to different blocks from each other
   }

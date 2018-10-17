@@ -16,6 +16,9 @@
 
 package fluence.statemachine
 
+import java.text.SimpleDateFormat
+import java.util.Calendar
+
 import cats.Monad
 import cats.effect.IO
 import cats.syntax.functor._
@@ -42,6 +45,9 @@ class AbciHandler(
   private val deliverTxStateChecker: TxStateDependentChecker[IO],
   private val txProcessor: TxProcessor[IO]
 ) extends LazyLogging with ICheckTx with IDeliverTx with ICommit with IQuery {
+
+  val checkTxDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
+  val deliverTxDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
 
   /**
    * Handler for `Commit` ABCI method (processed in Consensus thread).
@@ -82,11 +88,23 @@ class AbciHandler(
    * @return `CheckTx` response data
    */
   override def requestCheckTx(req: RequestCheckTx): ResponseCheckTx = {
+    val validationStartTime = System.currentTimeMillis()
     val responseData = (for {
       validated <- validateTx(req.getTx, txParser, checkTxStateChecker)
-      _ = if (validated.validatedTx.isEmpty) {
-        logger.info("CheckTx {}", validated)
-      }
+      validationEndTime = System.currentTimeMillis()
+      receiveDuration = validationStartTime - validated.validatedTx
+        .map(_.timestamp.toLong)
+        .getOrElse(validationStartTime)
+      validationDuration = validationEndTime - validationStartTime
+      _ = //if (validated.validatedTx.isEmpty) {
+      logger.info(
+        "{} CheckTx latency={} validationTime={} {}",
+        checkTxDateFormat.format(Calendar.getInstance().getTime),
+        receiveDuration,
+        validationDuration,
+        validated
+      )
+      //}
     } yield validated).unsafeRunSync()
     ResponseCheckTx.newBuilder
       .setCode(responseData.code)
@@ -102,13 +120,27 @@ class AbciHandler(
    * @return `DeliverTx` response data
    */
   override def receivedDeliverTx(req: RequestDeliverTx): ResponseDeliverTx = {
+    val validationStartTime = System.currentTimeMillis()
     val responseData = (for {
       validated <- validateTx(req.getTx, txParser, deliverTxStateChecker)
-      _ = logger.info("DeliverTx {}", validated)
+      validationEndTime = System.currentTimeMillis()
+      receiveDuration = validationStartTime - validated.validatedTx
+        .map(_.timestamp.toLong)
+        .getOrElse(validationStartTime)
+      validationDuration = validationEndTime - validationStartTime
+      _ = logger.info(
+        "{} DeliverTx latency={} validationTime={} {}",
+        deliverTxDateFormat.format(Calendar.getInstance().getTime),
+        receiveDuration,
+        validationDuration,
+        validated
+      )
       _ <- validated.validatedTx match {
         case None => IO.unit
         case Some(tx) => txProcessor.processNewTx(tx)
       }
+      processingDuration = System.currentTimeMillis() - validationEndTime
+      _ = logger.info("DeliverTx processTime={}", processingDuration)
     } yield validated).unsafeRunSync()
     ResponseDeliverTx.newBuilder
       .setCode(responseData.code)
@@ -152,7 +184,7 @@ class AbciHandler(
  */
 private case class TxResponseData(validatedTx: Option[Transaction], code: Int, info: String) {
   override def toString: String = validatedTx match {
-    case Some(tx) => s"Accepted $tx"
+    case Some(tx) => s"Accepted ${tx.header}"
     case _ => s"Rejected $info"
   }
 }
