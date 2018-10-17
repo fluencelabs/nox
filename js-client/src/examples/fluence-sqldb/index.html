@@ -40,7 +40,7 @@
                     <li>EXPLAIN SELECT id, name FROM users</li>
                     <li>CREATE TABLE roles(user_id int, role varchar(128))</li>
                     <li>INSERT INTO roles VALUES(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')</li>
-                    <li>SELECT u.name as Name, r.role as Role FROM users u join roles r on u.id = r.user_id WHERE r.role = 'Writer'</li>
+                    <li>SELECT u.name AS Name, r.role AS Role FROM users u JOIN roles r ON u.id = r.user_id WHERE r.role = 'Writer'</li>
                     <li>SELECT salary FROM USERS</li>
                 </ul>
             </div>
