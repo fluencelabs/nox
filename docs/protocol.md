@@ -4,6 +4,7 @@
 - [External systems](#external-systems)
   - [Ethereum](#ethereum)
   - [Swarm](#swarm)
+  - [Kademlia sidechain](#kademlia-sidechain)
 - [Initial setup](#initial-setup)
 - [Transactions](#transactions)
 - [Real-time processing](#real-time-processing)
@@ -20,14 +21,19 @@ Before we start describing the protocol, few words need to be said about the cor
 
 ```go
 type MerkleProof struct {
-  siblings [][][]byte  // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
+  Siblings  [][][]byte  // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
+}
+
+type Seal struct {
+  PublicKey []byte  // signer public key
+  Signature []byte  // signer signature
 }
 
 // computes a cryptographic hash of the input data
 func Hash(data []byte) []byte {}
 
 // produces a digital signature from the input data using the private key
-func Sign(privateKey []byte, data []byte) []byte {}
+func Sign(publicKey []byte, privateKey []byte, data []byte) Seal {}
 
 // verifies that the digital signature of the input data conforms to the public key
 func Verify(publicKey []byte, signature []byte, data []byte) boolean {}
@@ -36,7 +42,7 @@ func Verify(publicKey []byte, signature []byte, data []byte) boolean {}
 func MerkleRoot(allChunks [][]byte) []byte {}
 
 // generates a Merkle proof for the chunk selected from the chunks list
-func CreateMerkleProof(selectedChunk []byte, allChunks [][]byte) MerkleProof {}
+func CreateMerkleProof(index int, selectedChunk []byte, allChunks [][]byte) MerkleProof {}
 
 // verifies that the Merkle proof of the selected chunk conforms to the Merkle root
 func VerifyMerkleProof(selectedChunk []byte, proof *MerkleProof, root []byte) boolean {}
@@ -69,7 +75,7 @@ Swarm is treated as a hash addressable storage where a content can be found by i
 ```go
 // listed Swarm functions carry the same meaning and arguments as core functions 
 func SwarmHash(data []byte) []byte {}
-func SwarmSign(privateKey []byte, data []byte) []byte {}
+func SwarmSign(publicKey []byte, privateKey []byte, data []byte) Seal {}
 func SwarmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
 
 // data
@@ -106,12 +112,7 @@ We assume that Swarm provides an upload function which returns a Swarm receipt i
 ```go
 type SwarmReceipt struct {
   ContentHash []byte             // Swarm hash of the stored content
-  Insurance   Insurance          // insurance written for the accepted content
-}
-
-type Insurance struct {
-  NodeId    []byte               // Swarm node identifier
-  Signature []byte               // Swarm node signature
+  Insurance   Seal               // insurance written for the accepted content
 }
 
 // uploads the content to the Swarm network, returns a receipt of responsibility
@@ -129,6 +130,7 @@ var content []byte               // some content
   assert(receipt.ContentHash == SwarmHash(content))
   assert(
     receipt.Insurance.Signature == SwarmSign(
+      swarmContract.Nodes[receipt.Insurance.NodeId].PublicKey,   // public key
       swarmContract.Nodes[receipt.Insurance.NodeId].PrivateKey,  // private key
       receipt.ContentHash                                        // data
     )
@@ -211,6 +213,78 @@ var meta SwarmMeta  // some mutable content
   assert(receipt.ContentHash == SwarmHash(meta))
 ```
 
+### Kademlia sidechain
+
+In fact, Kademlia is not quite an external system but is an essential foundation of the Fluence network. However, for our protocol we use it as a some kind of a sidechain which periodically checkpoints selected blocks to the root chain – Ethereum. Blocks stored in Kademlia sidechain are really tiny compared to the overall data volumes flowing through the network – it's expected they will contain only Swarm receipts and producers signatures most of the time.
+
+```go
+type SideBlock struct {
+  Height        int64                     // block height
+  PrevBlockHash []byte                    // hash of the previous block
+  Data          []byte                    // block data
+  Signatures    []Seal                    // signatures of the block producers  
+}
+
+type SideContract struct {
+  CheckpointInterval int                  // how often the blocks should be checkpointed
+  Checkpoints        map[int64]SideBlock  // checkpoints: block height –> block
+}
+```
+
+It is expected that every Kademlia sidechain node stores the tail of the chain starting from the last block checkpointed into the contract. Every node verifies there are no forks or incorrect references in the chain tail – otherwise, a dispute is submitted to the contract and offending block producers lose their deposits. 
+
+Every sidechain node also verifies that a checkpointing is performed correctly – i.e. there is a correct block being uploaded to the contract every period of time. Otherwise, another dispute is submitted to the contract, but this time a sidechain node that has uploaded an incorrect checkpoint block will lose a deposit.
+
+```go
+// punishes block producers if blocks are not linked correctly
+func (contract *SideContract) DisputeSideReference(block SideBlock, nextBlock SideBlock) {
+  if nextBlock.PrevBlockHash != Hash(block) && nextBlock.Height == block.Height + 1 {
+    // violation! let's punish offending producers!
+    ...
+  }
+}
+
+// punishes block producers if a fork is present
+func (contract *SideContract) DisputeSideFork(block1 SideBlock, block2 SideBlock) {
+  if block1.PrevBlockHash == block2.PrevBlockHash {
+    // violation! let's punish offending producers!
+    ...
+  }
+}
+
+// punishes sidechain nodes if the block is checkpointed incorrectly
+func (contract *SideContract) DisputeSideCheckpoint(startHeight int, blocks []SideBlock) {
+  var startBlock = contract.Checkpoints[startHeight]
+  var endBlock = contract.Checkpoints[startHeight + 1]
+    
+  // checking that the chain is linked correctly
+  for i, block := range blocks {
+    var prevBlock SideBlock
+    if (i == 0) { prevBlock = startBlock } else { prevBlock = blocks[i - 1]}      
+    if block.PrevBlockHash != Hash(prevBlock) || block.Height != prevBlock.Height + 1) {
+      // incorrect chain segment, nothing to do here
+      return
+    }
+  }
+  
+  if Hash(blocks[len(blocks) - 1]) != Hash(endBlock) {
+    // violation! let's punish offending sidechain nodes!
+    ...
+  }
+}
+```
+
+Now, every sidechain node allows producers to upload a new block to it and returns a signature if the block was accepted.
+
+```go
+type SideNode struct {
+  Tail []SideBlock  
+}
+
+// appends the block the chain tail and checks it doesn't violate correctness properties
+func (node *SideNode) UploadBlock(block *SideBlock) Seal {}
+```
+
 ## Initial setup
 
 There are few different actor types in the Fluence network: clients, real-time nodes forming Tendermint clusters and batch validators. Every node has an identifier, a public/private key pair and a security deposit, and is registered in the Fluence smart contract.
@@ -251,12 +325,7 @@ A transaction always has a specific authoring client and carries all the informa
 ```go
 type Transaction struct {
   Invoke []byte               // function name & arguments + required metadata
-  Stamp  Stamp                // client stamp of the transaction
-}
-
-type Stamp struct {
-  ClientId  []byte            // client identifier
-  Signature []byte            // client signature
+  Seal   Seal                 // client signature of the transaction
 }
 
 // data
@@ -267,7 +336,8 @@ var tx Transaction            // some transaction formed by the client
 
 ∀ tx:
   assert(
-    tx.Signature == Sign(
+    tx.Seal == Sign(
+      flnContract.Clients[tx.Stamp.Id].PublicKey,   // public key
       flnContract.Clients[tx.Stamp.Id].PrivateKey,  // private key
       Hash(tx.Invoke)                               // data
     )
@@ -318,7 +388,7 @@ Tendermint consensus engine produces new blocks filled with client supplied tran
 ```go
 // listed Tendermint functions carry the same meaning and arguments as core functions 
 func TmHash(data []byte) []byte {}
-func TmSign(privateKey []byte, data []byte) []byte {}
+func TmSign(publicKey []byte, privateKey []byte, data []byte) Seal {}
 func TmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
 func TmMerkleRoot(allChunks [][]byte) []byte {}
 ```
@@ -328,7 +398,7 @@ Tendermint periodically pulls few transactions from the mempool and forms a new 
 ```go
 type Block struct {
   Header     Header           // block header
-  LastCommit []Vote           // Tendermint nodes votes for the previous block
+  LastCommit []Seal           // Tendermint nodes votes for the previous block
   Txs        []Transaction    // transactions as sent by clients
 }
 
@@ -337,11 +407,6 @@ type Header struct {
   LastCommitHash []byte       // Merkle root of the last commit votes
   TxsHash        []byte       // Merkle root of the block transactions
   AppHash        []byte       // application state hash after the previous block
-}
-
-type Vote struct {
-  Address   []byte            // Tendermint node address
-  Signature []byte            // Tendermint node signature of the previous block header
 }
 
 // data
@@ -357,6 +422,7 @@ var k int                     // some block number
   assert(blocks[k].Header.TxsHash == TmMerkleRoot(blocks[k].Txs))
   assert(
     blocks[k].LastCommit[i].Signature == TmSign(
+      flnContract.Nodes[blocks[k].LastCommit[i].Address].PublicKey,   // public key
       flnContract.Nodes[blocks[k].LastCommit[i].Address].PrivateKey,  // private key 
       blocks[k].Header.LastBlockHash                                  // data
     )
@@ -469,7 +535,11 @@ var results QueryResults             // results returned for the block `k`
     assert(results.Chunks[t] == vmStates[k + 1].Chunks[t])
     assert(
       results.ChunksProofs[t] == 
-      CreateMerkleProof(results.Chunks[t], vmStates[k + 1].Chunks)
+      CreateMerkleProof(
+        t,                      // index
+        results.Chunks[t],      // selected chunk
+        vmStates[k + 1].Chunks  // all chunks
+      )
     )
     
   ∀ p ∈ [0, 3):
