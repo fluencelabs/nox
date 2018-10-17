@@ -1,21 +1,18 @@
+# Protocol
+
 - [Core](#core)
 - [External systems](#external-systems)
   - [Ethereum](#ethereum)
   - [Swarm](#swarm)
 - [Initial setup](#initial-setup)
-- [Transaction construction](#transaction-construction)
-- [Transaction processing](#transaction-processing)
-- [Tendermint block formation](#tendermint-block-formation)
-- [Block processing](#block-processing)
-- [Query results](#query-results)
-- [Block progress verification](#block-progress-verification)
-    - [Verification of manifests Swarm storage](#verification-of-manifests-swarm-storage)
-    - [Verification of manifests Swarm connectivity](#verification-of-manifests-swarm-connectivity)
-    - [Verification of manifests application state connectivity](#verification-of-manifests-application-state-connectivity)
-    - [Verification of blocks correctness](#verification-of-blocks-correctness)
-    - [Verification of Merkle proofs for returned VM state chunks](#verification-of-merkle-proofs-for-returned-vm-state-chunks)
-
-# Protocol
+- [Transactions](#transactions)
+- [Real-time processing](#real-time-processing)
+  - [Transaction validation](#transaction-validation)
+  - [Tendermint block formation](#tendermint-block-formation)
+  - [Block processing](#block-processing)
+- [Client](#client)
+  - [Query results](#query-results)
+  - [Block progress verification](#block-progress-verification)
 
 ## Core
 
@@ -49,7 +46,7 @@ func VerifyMerkleProof(selectedChunk []byte, proof *MerkleProof, root []byte) bo
 
 ### Ethereum
 
-Ethereum is viewed as a secure state storage keeping few related smart contracts. Those smart contracts can be checked by any network participants to, for example, make sure that some node still has a security deposit placed. Below we provide an example of such contract.
+For the purposes of this protocol specification, Ethereum is viewed as a secure state storage keeping few related smart contracts. Those smart contracts can be checked by any network participants to, for example, make sure that some node still has a security deposit placed. Below we provide an example of such contract.
 
 ```go
 type ExampleContract struct {
@@ -82,7 +79,7 @@ var swarm map[[]byte]interface{}  // Swarm storage: hash(x) –> x
 var content []byte                // some content
 
 ∀ content:
-  swarm[SwarmHash(content)] == content
+  assert(swarm[SwarmHash(content)] == content)
 ```
 
 We expect that every node serving in the Swarm network has an identifier and a public/private key pair and is registered in the publicly accessible Ethereum smart contract.
@@ -102,7 +99,9 @@ type SwarmNode struct {
 var swarmContract SwarmContract  // Swarm Ethereum smart contract
 ```
 
-Swarm provides an upload function which returns a Swarm receipt indicating Swarm network accountability for the passed content. The receipt contains the Swarm hash of the content and the signature of the Swarm node which is financially responsible for storing the content. Receipts functionality is not implemented yet in the current Swarm release, however it's described in details in ["Swap, swear and swindle: incentive system for Swarm"](https://swarm-gateways.net/bzz:/theswarm.eth/ethersphere/orange-papers/1/sw^3.pdf) paper and can be reasonably expected to be rolled out soon.
+#### Stored content receipts
+
+We assume that Swarm provides an upload function which returns a Swarm receipt indicating Swarm network accountability for the passed content. The receipt contains the Swarm hash of the content and the signature of the Swarm node which is financially responsible for storing the content. Receipts functionality is not implemented yet in the current Swarm release, however it's described in details in ["Swap, swear and swindle: incentive system for Swarm"](https://swarm-gateways.net/bzz:/theswarm.eth/ethersphere/orange-papers/1/sw^3.pdf) paper and can be reasonably expected to be rolled out soon.
 
 ```go
 type SwarmReceipt struct {
@@ -122,15 +121,94 @@ func SwarmUpload(content []byte) SwarmReceipt {}
 var swarmContract SwarmContract  // Swarm Ethereum smart contract
 
 // rules
-var content []byte               // uploaded content
-var receipt SwarmReceipt         // receipt issued for the uploaded content
+var content []byte               // some content
 
 ∀ content:
-  receipt.ContentHash == SwarmHash(content)
-  receipt.Insurance.Signature == SwarmSign(
-    swarmContract.Nodes[receipt.Insurance.NodeId].PrivateKey,  // private key
-    receipt.ContentHash                                        // data
+  var receipt = SwarmUpload(content)
+
+  assert(receipt.ContentHash == SwarmHash(content))
+  assert(
+    receipt.Insurance.Signature == SwarmSign(
+      swarmContract.Nodes[receipt.Insurance.NodeId].PrivateKey,  // private key
+      receipt.ContentHash                                        // data
+    )
   )
+```
+
+#### Mutable resource updates
+
+We also rely on the [mutable resource updates (MRU)](https://swarm-guide.readthedocs.io/en/latest/usage.html#mutable-resource-updates) feature in Swarm. While core Swarm allows to access the stored content by its hash, MRU lets its user to associate the content with a specific key and update it from time to time. If core Swarm can be represented as a hash-addressable storage, MRU is more complex and for our purposes can be treated as a nested dictionary.
+
+```go
+type SwarmMeta struct {
+  Key       string                         // resource key
+  Version   int                            // resource version
+  Content   []byte                         // uploaded content
+  Signature []byte                         // owner signature which authorizes the update
+}
+
+// data
+var swarmMRU map[string]map[int]SwarmMeta  // MRU storage: key –> version –> content
+```
+
+Every key created in the MRU storage has an associated owner and needs to be initialized first. Once the key is initialized, it can be updated only by the owner.
+
+```go
+type SwarmOwners struct {
+  data map[string][]byte    // owners: resource key –> public key
+}
+
+// initializes and returns a new resource key associated with the passed owner's public key
+func (owners *SwarmOwners) Init(publicKey []byte, signature []byte) string {}
+
+// returns an owner's public key for the specified resource key
+func (owners *SwarmOwners) Owner(resourceKey string) []byte {}
+
+// data
+var swarmOwners SwarmOwners  // list of resource owners
+```
+
+Now, having the MRU storage and the set of owners, we can more formally define the rules these entities are expected to follow.
+
+
+```go
+// data
+var swarmOwners SwarmOwners                // list of resource owners
+var swarmMRU map[string]map[int]SwarmMeta  // MRU storage: key –> version –> content
+
+// rules
+var key     string                         // some key
+var version int                            // some version
+
+∀ key, ∀ version:
+  // the content stored for specific key and version should be authorized by its owner
+  var meta = swarmMRU[key][version]
+  
+  assert(meta.Key == key)
+  assert(meta.Version == version)
+  
+  assert(
+    SwarmVerify(
+      swarmOwners.Owner(meta.Key),                       // public key
+      meta.Signature,                                    // signature
+      SwarmHash([meta.Key, meta.Version, meta.Content])  // data
+    )
+  )
+```
+
+We can also expect that Swarm will provide stored receipts functionality for the MRU resources. Here we assume the following behavior: every time the resource changes, Swarm issues a receipt for the updated resource key and version along with the new content and owner's signature.
+
+```go
+// updates the resource associated with the specific resource key
+func SwarmMRUUpdate(meta *SwarmMeta) SwarmReceipt {}
+
+// rules
+var meta SwarmMeta  // some mutable content
+
+∀ meta:
+  var receipt = SwarmMRUUpdate(&meta)
+  
+  assert(receipt.ContentHash == SwarmHash(meta))
 ```
 
 ## Initial setup
@@ -166,7 +244,7 @@ type BatchValidator struct {
 var flnContract FlnContract             // Fluence Ethereum smart contract
 ```
 
-## Transaction construction
+## Transactions
 
 A transaction always has a specific authoring client and carries all the information required to execute a deployed WebAssembly function:
 
@@ -185,16 +263,20 @@ type Stamp struct {
 var flnContract FlnContract   // Fluence Ethereum smart contract
 
 // rules
-var tx Transaction            // correct transaction formed by the client
+var tx Transaction            // some transaction formed by the client
 
 ∀ tx:
-  tx.Signature == Sign(
-    flnContract.Clients[tx.Stamp.Id].PrivateKey,  // private key
-    Hash(tx.Invoke)                               // data
+  assert(
+    tx.Signature == Sign(
+      flnContract.Clients[tx.Stamp.Id].PrivateKey,  // private key
+      Hash(tx.Invoke)                               // data
+    )
   )
 ```
 
-## Transaction processing
+## Real-time processing
+
+### Transaction validation
 
 Once the client has constructed a transaction, it is submitted to one of the real-time nodes which checks the received transaction:
 
@@ -229,7 +311,7 @@ If the transaction passes the check, it's added to the mempool and might be late
 - how the real-time node should check the client's security deposit?
 
 
-## Tendermint block formation
+### Tendermint block formation
 
 Tendermint consensus engine produces new blocks filled with client supplied transactions and feeds them to the Fluence state machine. Tendermint uses Merkle trees to compute the Merkle root of certain pieces of data and digital signatures to sign produced blocks, however here we assume these functions are not necessary compatible with Fluence and denote them separately.
 
@@ -267,21 +349,23 @@ var flnContract FlnContract   // Fluence Ethereum smart contract
 var blocks      []Block       // Tendermint blockchain
 
 // rules
-var k int                     // block number
+var k int                     // some block number
 
 ∀ k:
-  blocks[k].Header.LastBlockHash == TmMerkleRoot(blocks[k - 1].Header)
-  blocks[k].Header.LastCommitHash == TmMerkleRoot(blocks[k].LastCommit)
-  blocks[k].Header.TxsHash == TmMerkleRoot(blocks[k].Txs)
-  blocks[k].LastCommit[i].Signature == TmSign(
-    flnContract.Nodes[blocks[k].LastCommit[i].Address].PrivateKey,  // private key 
-    blocks[k].Header.LastBlockHash                                  // data
+  assert(blocks[k].Header.LastBlockHash == TmMerkleRoot(blocks[k - 1].Header))
+  assert(blocks[k].Header.LastCommitHash == TmMerkleRoot(blocks[k].LastCommit))
+  assert(blocks[k].Header.TxsHash == TmMerkleRoot(blocks[k].Txs))
+  assert(
+    blocks[k].LastCommit[i].Signature == TmSign(
+      flnContract.Nodes[blocks[k].LastCommit[i].Address].PrivateKey,  // private key 
+      blocks[k].Header.LastBlockHash                                  // data
+    )
   )
 ```
 
 Note we haven't specified here how the application state hash (`Header.AppHash`) is getting calculated – this will be described in the next section.
 
-## Block processing
+### Block processing
 
 Once the block has passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. The virtual machine state is essentially a block of memory split into chunks which can be used to compute the virtual machine state hash. VM state `k + 1` arises after processing transactions of the block `k`.
 
@@ -302,10 +386,10 @@ var blocks   []Block    // Tendermint blockchain
 var vmStates []VMState  // virtual machine states
 
 // rules
-var k int               // block number
+var k int               // some block number
 
 ∀ k:
-  vmStates[k + 1] == NextVMState(&vmStates[k], blocks[k].Txs)
+  assert(vmStates[k + 1] == NextVMState(&vmStates[k], blocks[k].Txs))
 ```
 
 Once the block is processed by the WebAssembly VM, it has to be stored in Swarm for the future batch validation. Blocks are stored in two separate pieces in Swarm: the block manifest and the transactions list. The manifest contains the Swarm hash of the transactions list, which makes it possible to find transactions by having just the manifest.
@@ -329,27 +413,29 @@ var manifests []Manifest              // manifests
 var swarm     map[[]byte]interface{}  // Swarm storage: hash(x) –> x
 
 // rules
-var k int                             // block number
+var k int                             // some block number
 
 ∀ k:
-  manifests[k].Header == blocks[k].Header
-  manifests[k].LastCommit == blocks[k].LastCommit
-  manifests[k].TxsSwarmHash == SwarmHash(blocks[k].Txs)
-  manifests[k].VMStateHash == MerkleRoot(vmStates[k].Chunks)
-  manifests[k].LastManifestSwarmHash == SwarmHash(manifests[k - 1])
+  assert(manifests[k].Header == blocks[k].Header)
+  assert(manifests[k].LastCommit == blocks[k].LastCommit)
+  assert(manifests[k].TxsSwarmHash == SwarmHash(blocks[k].Txs))
+  assert(manifests[k].VMStateHash == MerkleRoot(vmStates[k].Chunks))
+  assert(manifests[k].LastManifestSwarmHash == SwarmHash(manifests[k - 1]))
 
-  swarm[SwarmHash(manifests[k])] == manifest[k]
-  swarm[SwarmHash(blocks[k].Txs)] == blocks[k].Txs
+  assert(swarm[SwarmHash(manifests[k])] == manifest[k])
+  assert(swarm[SwarmHash(blocks[k].Txs)] == blocks[k].Txs)
 ```
 
 Now, once the block manifest is formed and the virtual machine has advanced to the new state, it becomes possible to compute the new application state hash, which will be used in the next block.
 
 ```go
 ∀ k:
-  blocks[k + 1].Header.AppHash == Hash(manifests[k])
+  assert(blocks[k + 1].Header.AppHash == Hash(manifests[k]))
 ```
 
-## Query results
+## Client
+
+### Query results
 
 Once the cluster has reached consensus on the block, advanced the virtual machine state, reached consensus on the next couple of blocks and saved related block manifests and transactions into Swarm, the client can query results of the function invocation through the ABCI query API. 
 
@@ -372,22 +458,28 @@ var vmStates        []VMState        // virtual machine states
 var manifests       []Manifest       // manifests for blocks stored in Swarm
 
 // rules
-var results QueryResults     // results returned for a transaction in block `k`
-var k       int              // block number
-var t       int              // virtual machine state chunk number
-var p       int              // manifest index
+var k       int                      // some block number
+var t       int                      // some virtual machine state chunk number
+var p       int                      // some manifest index
+
+var results QueryResults             // results returned for the block `k`
 
 ∀ k:
   ∀ t ∈ range results.Chunks: 
-    results.Chunks[t] == vmStates[k + 1].Chunks[t]
-    results.ChunksProofs[t] == CreateMerkleProof(results.Chunks[t], vmStates[k + 1].Chunks)
+    assert(results.Chunks[t] == vmStates[k + 1].Chunks[t])
+    assert(
+      results.ChunksProofs[t] == 
+      CreateMerkleProof(results.Chunks[t], vmStates[k + 1].Chunks)
+    )
+    
   ∀ p ∈ [0, 3):
-    results.Manifests[p] == manifests[k + p]
-    results.ManifestReceipts[p] == SwarmUpload(results.Manifest[p])
-  results.TxsReceipt == SwarmUpload(blocks[k].Txs)
+    assert(results.Manifests[p] == manifests[k + p])
+    assert(results.ManifestReceipts[p] == SwarmUpload(results.Manifest[p]))
+    
+  assert(results.TxsReceipt == SwarmUpload(blocks[k].Txs))
 ```
 
-## Block progress verification
+### Block progress verification
 
 The client verifies that returned results represent correct block progress in a few steps. Below we will list those steps, but first we need to mention that they are not verifying that the transaction sent by the client was actually processed.
 
@@ -483,10 +575,12 @@ The client checks that returned virtual machine state chunks belong to the virtu
 ```go
 func VerifyResultsChunks(results QueryResults) {
   for t := range results.Chunks {
-    VerifyMerkleProof(
-      results.Chunks[t],                // selected chunk
-      results.ChunksProofs[t],          // Merkle proof
-      results.Manifests[1].VMStateHash  // Merkle root
+    assert(
+      VerifyMerkleProof(
+        results.Chunks[t],                // selected chunk
+        results.ChunksProofs[t],          // Merkle proof
+        results.Manifests[1].VMStateHash  // Merkle root
+      )
     )
   }    
 }
