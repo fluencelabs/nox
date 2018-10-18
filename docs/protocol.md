@@ -68,11 +68,8 @@ type ExampleContract struct {
   Collaterals map[PublicKey]int64  // security deposits: node identifier –> deposit size
 }
 
-// data
-var exampleContract ExampleContract  // example contract instance
-
-// verification
-func VerifyNodeCollateral(nodeId PublicKey, minCollateral int64) {
+// verifies that a node has enough deposited funds
+func VerifyNodeCollateral(exampleContract *ExampleContract, nodeId PublicKey, minCollateral int64) {
   assert(exampleContract.Collaterals[nodeId] >= minCollateral)
 }
 ```
@@ -269,31 +266,13 @@ There are few different actor types in the Fluence network: clients, real-time n
 
 ```go
 type FlnContract struct {
-  Clients    map[[]byte]Client          // clients: address –> client
-  Nodes      map[[]byte]TmNode          // Tendermint nodes: address –> node
-  Validators map[[]byte]BatchValidator  // batch validators: address –> validator
-}
-
-type Client struct {
-  PublicKey  []byte                     // client public key
-  PrivateKey []byte                     // client private key
-  Collateral int64                      // client security deposit
-}
-
-type TmNode struct {
-  PublicKey  []byte                     // Tendermint node public key
-  PrivateKey []byte                     // Tendermint node private key
-  Collateral int64                      // Tendermint node security deposit
-}
-
-type BatchValidator struct {
-  PublicKey  []byte                     // batch validator public key
-  PrivateKey []byte                     // batch validator private key
-  Collateral int64                      // batch validator security deposit
+  ClientCollaterals     map[PublicKey]int64  // clients: identifier –> deposit size
+  NodesCollaterals      map[PublicKey]int64  // real-time nodes: identifier –> deposit size
+  ValidatorsCollaterals map[PublicKey]int64  // batch validators: identifier –> deposit size
 }
 
 // data
-var flnContract FlnContract             // Fluence Ethereum smart contract
+var flnContract FlnContract  // Fluence Ethereum smart contract
 ```
 
 ## Transactions
@@ -302,24 +281,9 @@ A transaction always has a specific authoring client and carries all the informa
 
 ```go
 type Transaction struct {
-  Invoke []byte               // function name & arguments + required metadata
-  Seal   Seal                 // client signature of the transaction
+  Invoke []byte  // function name & arguments + required metadata
+  Seal   Seal    // client signature of the transaction
 }
-
-// data
-var flnContract FlnContract   // Fluence Ethereum smart contract
-
-// rules
-var tx Transaction            // some transaction formed by the client
-
-∀ tx:
-  assert(
-    tx.Seal == Sign(
-      flnContract.Clients[tx.Stamp.Id].PublicKey,   // public key
-      flnContract.Clients[tx.Stamp.Id].PrivateKey,  // private key
-      Hash(tx.Invoke)                               // data
-    )
-  )
 ```
 
 ## Real-time processing
@@ -329,32 +293,23 @@ var tx Transaction            // some transaction formed by the client
 Once the client has constructed a transaction, it is submitted to one of the real-time nodes which checks the received transaction:
 
 ```go
-// data
-var flnContract FlnContract  // Fluence Ethereum smart contract
-
-// verification
-def VerifyTransaction(var tx Transaction, minCollateral int){
+// verifies that transaction was originated by the client with enough funds deposited
+func VerifyTransaction(flnContract *FlnContract, tx *Transaction, minCollateral int64){
   // checking that the client actually exists in the contract
-  client, ok := flnContract.Clients[tx.Stamp.Id]
+  collateral, ok := flnContract.ClientCollaterals[tx.Seal.PublicKey]
   assert(ok)
-  
+
   // checking that the client has enough funds
-  assert(client.Collateral >= minCollateral)
-  
+  assert(collateral >= minCollateral)
+
   // checking that the transaction is signed by this client
-  assert(
-    Verify(
-      client.PublicKey,    // public key
-      tx.Stamp.Signature,  // signature 
-      Hash(invoke)         // data
-    )
-  )
+  assert(Verify(tx.Seal, Hash(tx.Invoke)))
 }
 ```
 
 If the transaction passes the check, it's added to the mempool and might be later used in forming a block. Otherwise the transaction is declined.
 
-**Questions:**
+**Open questions:**
 - should the real-time node sign an acceptance or refusal of the transaction?
 - how the real-time node should check the client's security deposit?
 
@@ -365,46 +320,42 @@ Tendermint consensus engine produces new blocks filled with client supplied tran
 
 ```go
 // listed Tendermint functions carry the same meaning and arguments as core functions 
-func TmHash(data []byte) []byte {}
-func TmSign(publicKey []byte, privateKey []byte, data []byte) Seal {}
-func TmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
-func TmMerkleRoot(allChunks [][]byte) []byte {}
+func TmHash(data []byte) Digest { panic("") }
+func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
+func TmVerify(seal Seal, digest Digest) bool { panic("") }
+func TmMerkleRoot(allChunks []Chunk) Digest { panic("") }
 ```
 
 Tendermint periodically pulls few transactions from the mempool and forms a new block. Nodes participating in consensus sign produced blocks, however their signatures for a specific block are available only as a part of the next block.
 
 ```go
 type Block struct {
-  Header     Header           // block header
-  LastCommit []Seal           // Tendermint nodes votes for the previous block
-  Txs        []Transaction    // transactions as sent by clients
+  Header     Header         // block header
+  LastCommit []Seal         // Tendermint nodes votes for the previous block
+  Txs        []Transaction  // transactions as sent by clients
 }
 
 type Header struct {
-  LastBlockHash  []byte       // Merkle root of the previous block header fields 
-  LastCommitHash []byte       // Merkle root of the last commit votes
-  TxsHash        []byte       // Merkle root of the block transactions
-  AppHash        []byte       // application state hash after the previous block
+  LastBlockHash  Digest  // Merkle root of the previous block header fields
+  LastCommitHash Digest  // Merkle root of the last commit votes
+  TxsHash        Digest  // Merkle root of the block transactions
+  AppHash        Digest  // application state hash after the previous block
 }
 
 // data
-var flnContract FlnContract   // Fluence Ethereum smart contract
-var blocks      []Block       // Tendermint blockchain
+var blocks      []Block  // Tendermint blockchain
 
 // rules
-var k int                     // some block number
+var k int64              // some block number
+var i int                // some Tendermint node index
 
 ∀ k:
-  assert(blocks[k].Header.LastBlockHash == TmMerkleRoot(blocks[k - 1].Header))
-  assert(blocks[k].Header.LastCommitHash == TmMerkleRoot(blocks[k].LastCommit))
-  assert(blocks[k].Header.TxsHash == TmMerkleRoot(blocks[k].Txs))
-  assert(
-    blocks[k].LastCommit[i].Signature == TmSign(
-      flnContract.Nodes[blocks[k].LastCommit[i].Address].PublicKey,   // public key
-      flnContract.Nodes[blocks[k].LastCommit[i].Address].PrivateKey,  // private key 
-      blocks[k].Header.LastBlockHash                                  // data
-    )
-  )
+  assert(blocks[k].Header.LastBlockHash == TmMerkleRoot(packMulti(blocks[k - 1].Header)))
+  assert(blocks[k].Header.LastCommitHash == TmMerkleRoot(packMulti(blocks[k].LastCommit)))
+  assert(blocks[k].Header.TxsHash == TmMerkleRoot(packMulti(blocks[k].Txs)))
+  
+  ∀ i:
+    assert(TmVerify(blocks[k].LastCommit[i], blocks[k].Header.LastBlockHash))
 ```
 
 Note we haven't specified here how the application state hash (`Header.AppHash`) is getting calculated – this will be described in the next section.
@@ -415,16 +366,12 @@ Once the block has passed through Tendermint consensus, it is delivered to the s
 
 ```go
 type VMState struct {
-  Chunks: []VMChunk     // virtual machine memory chunks
-}
-
-type VMChunk {
-  Data: []byte          // virtual machine memory chunk bytes
+  Chunks []Chunk     // virtual machine memory chunks
 }
 
 // applies block transactions to the virtual machine state to produce the new state
-func NextVMState(vmState *VMState, txs []Transaction) VMState {}
-
+func NextVMState(vmState *VMState, txs []Transaction) VMState { panic("") }
+  
 // data
 var blocks   []Block    // Tendermint blockchain
 var vmStates []VMState  // virtual machine states
@@ -433,7 +380,7 @@ var vmStates []VMState  // virtual machine states
 var k int               // some block number
 
 ∀ k:
-  assert(vmStates[k + 1] == NextVMState(&vmStates[k], blocks[k].Txs))
+  assert(reflect.DeepEqual(vmStates[k + 1], NextVMState(&vmStates[k], blocks[k].Txs)))
 ```
 
 Once the block is processed by the WebAssembly VM, it has to be stored in Swarm for the future batch validation. Blocks are stored in two separate pieces in Swarm: the block manifest and the transactions list. The manifest contains the Swarm hash of the transactions list, which makes it possible to find transactions by having just the manifest.
@@ -441,40 +388,47 @@ Once the block is processed by the WebAssembly VM, it has to be stored in Swarm 
 ```go
 type Manifest struct {
   Header                Header        // block header
-  LastCommit            []Vote        // Tendermint nodes votes for the previous block
-  TxsSwarmHash          []byte        // Swarm hash of the block transactions
-  VMStateHash           []byte        // virtual machine state hash after the previous block
-  LastManifestSwarmHash []byte        // Swarm hash of the previous manifest
+  LastCommit            []Seal        // Tendermint nodes signatures for the previous block
+  TxsSwarmHash          Digest        // Swarm hash of the block transactions
+  VMStateHash           Digest        // virtual machine state hash after the previous block
+  LastManifestSwarmHash Digest        // Swarm hash of the previous manifest
 }
 
 // creates a new manifest from the block and the previous block
-func CreateManifest(block *Block, prevBlock *Block) Manifest {}
+func CreateManifest(block *Block, prevBlock *Block) Manifest { panic("") }
 
 // data
-var blocks    []Block                 // Tendermint blockchain
-var vmStates  []VMState               // virtual machine states
-var manifests []Manifest              // manifests
-var swarm     map[[]byte]interface{}  // Swarm storage: hash(x) –> x
+var blocks    []Block            // Tendermint blockchain
+var vmStates  []VMState          // virtual machine states
+var manifests []Manifest         // manifests
+var swarm     map[Digest][]byte  // Swarm storage: hash(x) –> x
 
 // rules
-var k int                             // some block number
+var k int                        // some block number
 
 ∀ k:
   assert(manifests[k].Header == blocks[k].Header)
-  assert(manifests[k].LastCommit == blocks[k].LastCommit)
-  assert(manifests[k].TxsSwarmHash == SwarmHash(blocks[k].Txs))
+  assert(reflect.DeepEqual(manifests[k].LastCommit, blocks[k].LastCommit))
+  assert(manifests[k].TxsSwarmHash == SwarmHash(pack(blocks[k].Txs)))
   assert(manifests[k].VMStateHash == MerkleRoot(vmStates[k].Chunks))
-  assert(manifests[k].LastManifestSwarmHash == SwarmHash(manifests[k - 1]))
+  assert(manifests[k].LastManifestSwarmHash == SwarmHash(pack(manifests[k - 1])))
 
-  assert(swarm[SwarmHash(manifests[k])] == manifest[k])
-  assert(swarm[SwarmHash(blocks[k].Txs)] == blocks[k].Txs)
+  assert(bytes.Equal(swarm[SwarmHash(pack(manifests[k]))], pack(manifests[k])))
+  assert(bytes.Equal(swarm[SwarmHash(pack(blocks[k].Txs))], pack(blocks[k].Txs)))
 ```
 
 Now, once the block manifest is formed and the virtual machine has advanced to the new state, it becomes possible to compute the new application state hash, which will be used in the next block.
 
 ```go
+// data
+var blocks    []Block            // Tendermint blockchain
+var manifests []Manifest         // manifests
+
+// rules
+var k int                        // some block number
+
 ∀ k:
-  assert(blocks[k + 1].Header.AppHash == Hash(manifests[k]))
+  assert(blocks[k + 1].Header.AppHash == Hash(pack(manifests[k])))
 ```
 
 ## Client
@@ -487,44 +441,35 @@ Let's assume that transaction sent by the client was included into the block `k`
 
 ```go
 type QueryResults struct {
-  Chunks           map[int]VMChunk  // selected virtual machine state chunks
+  Chunks           map[int]Chunk    // selected virtual machine state chunks
   ChunksProofs     []MerkleProof    // Merkle proofs: chunks belong to the virtual machine state
   Manifests        [3]Manifest      // block manifests
   ManifestReceipts [3]SwarmReceipt  // Swarm receipts for block manifests
   TxsReceipt       SwarmReceipt     // Swarm receipt for block transactions
 }
 
-// data
-var swarmContract   SwarmContract    // Swarm Ethereum smart contract
+  // data
+  var blocks         []Block        // Tendermint blockchain
+  var vmStates       []VMState      // virtual machine states
+  var manifests      []Manifest     // manifests for blocks stored in Swarm
 
-var blocks          []Block          // Tendermint blockchain
-var vmStates        []VMState        // virtual machine states
-var manifests       []Manifest       // manifests for blocks stored in Swarm
+  // rules
+  var k       int                   // some block number
+  var t       int                   // some virtual machine state chunk number
+  var p       int                   // some manifest index
 
-// rules
-var k       int                      // some block number
-var t       int                      // some virtual machine state chunk number
-var p       int                      // some manifest index
+  var results QueryResults          // results returned for the block `k`
 
-var results QueryResults             // results returned for the block `k`
+  ∀ k:
+    ∀ t ∈ range results.Chunks:
+      assert(bytes.Equal(results.Chunks[t], vmStates[k + 1].Chunks[t]))
+      assert(reflect.DeepEqual(results.ChunksProofs[t], CreateMerkleProof(t, results.Chunks[t], vmStates[k + 1].Chunks)))
 
-∀ k:
-  ∀ t ∈ range results.Chunks: 
-    assert(results.Chunks[t] == vmStates[k + 1].Chunks[t])
-    assert(
-      results.ChunksProofs[t] == 
-      CreateMerkleProof(
-        t,                      // index
-        results.Chunks[t],      // selected chunk
-        vmStates[k + 1].Chunks  // all chunks
-      )
-    )
-    
-  ∀ p ∈ [0, 3):
-    assert(results.Manifests[p] == manifests[k + p])
-    assert(results.ManifestReceipts[p] == SwarmUpload(results.Manifest[p]))
-    
-  assert(results.TxsReceipt == SwarmUpload(blocks[k].Txs))
+    ∀ p ∈ [0, 3):
+      assert(reflect.DeepEqual(results.Manifests[p], manifests[k + p]))
+      assert(results.ManifestReceipts[p] == SwarmUpload(pack(results.Manifests[p])))
+
+      assert(results.TxsReceipt == SwarmUpload(pack(blocks[k].Txs)))
 ```
 
 ### Block progress verification
