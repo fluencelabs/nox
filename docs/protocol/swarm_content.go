@@ -1,7 +1,5 @@
 package protocol
 
-import "bytes"
-
 // listed Swarm functions carry the same meaning and arguments as core functions
 func SwarmHash(data []byte) Digest { panic("") }
 func SwarmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
@@ -15,5 +13,5 @@ func SwarmContentExample() {
   var content []byte           // some content
 
   // ∀ content:
-    assert(bytes.Equal(swarm[SwarmHash(content)], content))
+    assertEq(swarm[SwarmHash(content)], content)
 }

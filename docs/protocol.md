@@ -70,7 +70,7 @@ type ExampleContract struct {
 
 // verifies that a node has enough deposited funds
 func VerifyNodeCollateral(exampleContract *ExampleContract, nodeId PublicKey, minCollateral int64) {
-  assert(exampleContract.Collaterals[nodeId] >= minCollateral)
+  assertTrue(exampleContract.Collaterals[nodeId] >= minCollateral)
 }
 ```
 
@@ -91,7 +91,7 @@ var swarm map[Digest][]byte  // Swarm storage: hash(x) –> x
 var content []byte           // some content
 
 ∀ content:
-  assert(bytes.Equal(swarm[SwarmHash(content)], content))
+  assertEq(swarm[SwarmHash(content)], content)
 ```
 
 We expect that every node serving in the Swarm network has an identifier and a public/private key pair and is registered in the publicly accessible Ethereum smart contract.
@@ -125,8 +125,8 @@ var content []byte // some content
 ∀ content:
   var receipt = SwarmUpload(content)
 
-  assert(receipt.ContentHash == SwarmHash(content))
-  assert(SwarmVerify(receipt.Insurance, receipt.ContentHash))
+  assertEq(receipt.ContentHash, SwarmHash(content))
+  assertTrue(SwarmVerify(receipt.Insurance, receipt.ContentHash))
 ```
 
 #### Mutable resource updates
@@ -170,10 +170,10 @@ var version int                            // some version
   // the content stored for specific key and version should be properly authorized by its owner
   var meta = swarmMRU[key][version]
 
-  assert(meta.Key == key)
-  assert(meta.Version == version)
-  assert(meta.Permission.PublicKey == swarmOwners.Owner(meta.Key))
-  assert(SwarmVerify(meta.Permission, SwarmHash(pack(meta.Key, meta.Version, meta.Content))))
+  assertEq(meta.Key, key)
+  assertEq(meta.Version, version)
+  assertEq(meta.Permission.PublicKey, swarmOwners.Owner(meta.Key))
+  assertTrue(SwarmVerify(meta.Permission, SwarmHash(pack(meta.Key, meta.Version, meta.Content))))
 ```
 
 We can also expect that Swarm will provide stored receipts functionality for the MRU resources. Here we assume the following behavior: every time the resource changes, Swarm issues a receipt for the updated resource key and version along with the new content and owner's signature.
@@ -188,7 +188,7 @@ var meta SwarmMeta  // some mutable content
 // rules
 ∀ meta:
   var receipt = SwarmMRUUpdate(&meta)
-  assert(receipt.ContentHash == SwarmHash(pack(meta)))
+  assertEq(receipt.ContentHash, SwarmHash(pack(meta)))
 ```
 
 ### Kademlia sidechain
@@ -297,13 +297,13 @@ Once the client has constructed a transaction, it is submitted to one of the rea
 func VerifyTransaction(flnContract *FlnContract, tx *Transaction, minCollateral int64){
   // checking that the client actually exists in the contract
   collateral, ok := flnContract.ClientCollaterals[tx.Seal.PublicKey]
-  assert(ok)
+  assertTrue(ok)
 
   // checking that the client has enough funds
-  assert(collateral >= minCollateral)
+  assertTrue(collateral >= minCollateral)
 
   // checking that the transaction is signed by this client
-  assert(Verify(tx.Seal, Hash(tx.Invoke)))
+  assertTrue(Verify(tx.Seal, Hash(tx.Invoke)))
 }
 ```
 
@@ -350,12 +350,12 @@ var k int64              // some block number
 var i int                // some Tendermint node index
 
 ∀ k:
-  assert(blocks[k].Header.LastBlockHash == TmMerkleRoot(packMulti(blocks[k - 1].Header)))
-  assert(blocks[k].Header.LastCommitHash == TmMerkleRoot(packMulti(blocks[k].LastCommit)))
-  assert(blocks[k].Header.TxsHash == TmMerkleRoot(packMulti(blocks[k].Txs)))
+  assertEq(blocks[k].Header.LastBlockHash, TmMerkleRoot(packMulti(blocks[k - 1].Header)))
+  assertEq(blocks[k].Header.LastCommitHash, TmMerkleRoot(packMulti(blocks[k].LastCommit)))
+  assertEq(blocks[k].Header.TxsHash, TmMerkleRoot(packMulti(blocks[k].Txs)))
   
   ∀ i:
-    assert(TmVerify(blocks[k].LastCommit[i], blocks[k].Header.LastBlockHash))
+    assertTrue(TmVerify(blocks[k].LastCommit[i], blocks[k].Header.LastBlockHash))
 ```
 
 Note we haven't specified here how the application state hash (`Header.AppHash`) is getting calculated – this will be described in the next section.
@@ -380,7 +380,7 @@ var vmStates []VMState  // virtual machine states
 var k int               // some block number
 
 ∀ k:
-  assert(reflect.DeepEqual(vmStates[k + 1], NextVMState(&vmStates[k], blocks[k].Txs)))
+  assertEq(vmStates[k + 1], NextVMState(&vmStates[k], blocks[k].Txs))
 ```
 
 Once the block is processed by the WebAssembly VM, it has to be stored in Swarm for the future batch validation. Blocks are stored in two separate pieces in Swarm: the block manifest and the transactions list. The manifest contains the Swarm hash of the transactions list, which makes it possible to find transactions by having just the manifest.
@@ -407,14 +407,14 @@ var swarm     map[Digest][]byte  // Swarm storage: hash(x) –> x
 var k int                        // some block number
 
 ∀ k:
-  assert(manifests[k].Header == blocks[k].Header)
-  assert(reflect.DeepEqual(manifests[k].LastCommit, blocks[k].LastCommit))
-  assert(manifests[k].TxsSwarmHash == SwarmHash(pack(blocks[k].Txs)))
-  assert(manifests[k].VMStateHash == MerkleRoot(vmStates[k].Chunks))
-  assert(manifests[k].LastManifestSwarmHash == SwarmHash(pack(manifests[k - 1])))
+  assertEq(manifests[k].Header, blocks[k].Header)
+  assertEq(manifests[k].LastCommit, blocks[k].LastCommit)
+  assertEq(manifests[k].TxsSwarmHash, SwarmHash(pack(blocks[k].Txs)))
+  assertEq(manifests[k].VMStateHash, MerkleRoot(vmStates[k].Chunks))
+  assertEq(manifests[k].LastManifestSwarmHash, SwarmHash(pack(manifests[k - 1])))
 
-  assert(bytes.Equal(swarm[SwarmHash(pack(manifests[k]))], pack(manifests[k])))
-  assert(bytes.Equal(swarm[SwarmHash(pack(blocks[k].Txs))], pack(blocks[k].Txs)))
+  assertEq(swarm[SwarmHash(pack(manifests[k]))], pack(manifests[k]))
+  assertEq(swarm[SwarmHash(pack(blocks[k].Txs))], pack(blocks[k].Txs))
 ```
 
 Now, once the block manifest is formed and the virtual machine has advanced to the new state, it becomes possible to compute the new application state hash, which will be used in the next block.
@@ -428,7 +428,7 @@ var manifests []Manifest         // manifests
 var k int                        // some block number
 
 ∀ k:
-  assert(blocks[k + 1].Header.AppHash == Hash(pack(manifests[k])))
+  assertEq(blocks[k + 1].Header.AppHash, Hash(pack(manifests[k])))
 ```
 
 ## Client
@@ -462,14 +462,14 @@ type QueryResults struct {
 
   ∀ k:
     ∀ t ∈ range results.Chunks:
-      assert(bytes.Equal(results.Chunks[t], vmStates[k + 1].Chunks[t]))
-      assert(reflect.DeepEqual(results.ChunksProofs[t], CreateMerkleProof(t, results.Chunks[t], vmStates[k + 1].Chunks)))
+      assertEq(results.Chunks[t], vmStates[k + 1].Chunks[t])
+      assertEq(results.ChunksProofs[t], CreateMerkleProof(t, results.Chunks[t], vmStates[k + 1].Chunks))
 
     ∀ p ∈ [0, 3):
-      assert(reflect.DeepEqual(results.Manifests[p], manifests[k + p]))
-      assert(results.ManifestReceipts[p] == SwarmUpload(pack(results.Manifests[p])))
+      assertEq(results.Manifests[p], manifests[k + p])
+      assertEq(results.ManifestReceipts[p], SwarmUpload(pack(results.Manifests[p])))
 
-      assert(results.TxsReceipt == SwarmUpload(pack(blocks[k].Txs)))
+      assertEq(results.TxsReceipt, SwarmUpload(pack(blocks[k].Txs)))
 ```
 
 ### Block progress verification
@@ -492,10 +492,10 @@ func VerifyResultsManifestsStorage(results QueryResults, minCollateral int) {
     var swarmNodeId = results.ManifestReceipts[p].Insurance.NodeId
     
     // checking that the receipt is issued for the correct manifest
-    assert(results.ManifestReceipts[p].ContentHash == SwarmHash(results.Manifest[p]))
+    assertEq(results.ManifestReceipts[p].ContentHash, SwarmHash(results.Manifest[p]))
     
     // checking that the swarm node has enough funds
-    assert(swarmContract[swarmNodeId].Collateral >= minCollateral)
+    assertTrue(swarmContract[swarmNodeId].Collateral >= minCollateral)
     
     // checking that the receipt is signed by this swarm node
     assert(
@@ -516,7 +516,7 @@ The client checks that manifests are linked correctly in Swarm.
 ```go
 func VerifyResultsSwarmConnectivity(results QueryResults) {
   for p := 0; p < 2; p++ {
-    assert(results.Manifest[p + 1].LastManifestSwarmHash == SwarmHash(results.Manifest[p]))
+    assertEq(results.Manifest[p + 1].LastManifestSwarmHash, SwarmHash(results.Manifest[p]))
   }
 }
 ```
@@ -527,7 +527,7 @@ The client checks that manifests are linked correctly through the application st
 ```go
 func VerifyResultsAppStateConnectivity(results QueryResults) {
   for p := 0; p < 2; p++ {
-    assert(results.Manifest[p + 1].Header.AppHash == Hash(results.Manifest[p]))
+    assertEq(results.Manifest[p + 1].Header.AppHash, Hash(results.Manifest[p]))
   }
 }
 ```
@@ -540,13 +540,13 @@ The client checks that BFT consensus was reached on the blocks propagation, real
 func VerifyResultsBlocks(results QueryResults) {
   for p := 0; p < 2; p++ {
     // checking that BFT consensus was actually reached
-    assert(len(results.Manifest[p + 1].LastCommit) > float64(2/3) * len(flnContract.nodes))
+    assertTrue(len(results.Manifest[p + 1].LastCommit) > float64(2/3) * len(flnContract.nodes))
     
     for _, vote := range results.Manifest[p + 1].LastCommit {
       var tmNodeId = vote.Address
       
       // checking that the real-time node has enough funds
-      assert(flnContract.nodes[tmNodeId].Collateral >= minTmDeposit)
+      assertTrue(flnContract.nodes[tmNodeId].Collateral >= minTmDeposit)
 
       // checking that the block commit is signed by this node
       assert(

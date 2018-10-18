@@ -3,7 +3,7 @@ package protocol
 import "reflect"
 
 // panics if the condition is false
-func assert(condition bool) {
+func assertTrue(condition bool) {
   if !condition {
     panic("failed assertion!")
   }

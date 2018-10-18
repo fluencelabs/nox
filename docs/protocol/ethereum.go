@@ -6,5 +6,5 @@ type ExampleContract struct {
 
 // verifies that a node has enough deposited funds
 func VerifyNodeCollateral(exampleContract *ExampleContract, nodeId PublicKey, minCollateral int64) {
-  assert(exampleContract.Collaterals[nodeId] >= minCollateral)
+  assertTrue(exampleContract.Collaterals[nodeId] >= minCollateral)
 }

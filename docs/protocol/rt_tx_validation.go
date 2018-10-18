@@ -4,11 +4,11 @@ package protocol
 func VerifyTransaction(flnContract *FlnContract, tx *Transaction, minCollateral int64){
   // checking that the client actually exists in the contract
   collateral, ok := flnContract.ClientCollaterals[tx.Seal.PublicKey]
-  assert(ok)
+  assertTrue(ok)
 
   // checking that the client has enough funds
-  assert(collateral >= minCollateral)
+  assertTrue(collateral >= minCollateral)
 
   // checking that the transaction is signed by this client
-  assert(Verify(tx.Seal, Hash(tx.Invoke)))
+  assertTrue(Verify(tx.Seal, Hash(tx.Invoke)))
 }

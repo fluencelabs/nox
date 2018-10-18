@@ -9,5 +9,5 @@ func TendermintBlockAppHashExample() {
   var k int                        // some block number
 
   // ∀ k:
-    assert(blocks[k + 1].Header.AppHash == Hash(pack(manifests[k])))
+    assertEq(blocks[k + 1].Header.AppHash, Hash(pack(manifests[k])))
 }

@@ -1,8 +1,5 @@
 package protocol
 
-import "reflect"
-import "bytes"
-
 type Manifest struct {
   Header                Header        // block header
   LastCommit            []Seal        // Tendermint nodes signatures for the previous block
@@ -25,12 +22,12 @@ func TendermintBlockSwarmUploadExample() {
   var k int                        // some block number
 
   // ∀ k:
-    assert(manifests[k].Header == blocks[k].Header)
-    assert(reflect.DeepEqual(manifests[k].LastCommit, blocks[k].LastCommit))
-    assert(manifests[k].TxsSwarmHash == SwarmHash(pack(blocks[k].Txs)))
-    assert(manifests[k].VMStateHash == MerkleRoot(vmStates[k].Chunks))
-    assert(manifests[k].LastManifestSwarmHash == SwarmHash(pack(manifests[k - 1])))
+    assertEq(manifests[k].Header, blocks[k].Header)
+    assertEq(manifests[k].LastCommit, blocks[k].LastCommit)
+    assertEq(manifests[k].TxsSwarmHash, SwarmHash(pack(blocks[k].Txs)))
+    assertEq(manifests[k].VMStateHash, MerkleRoot(vmStates[k].Chunks))
+    assertEq(manifests[k].LastManifestSwarmHash, SwarmHash(pack(manifests[k - 1])))
 
-    assert(bytes.Equal(swarm[SwarmHash(pack(manifests[k]))], pack(manifests[k])))
-    assert(bytes.Equal(swarm[SwarmHash(pack(blocks[k].Txs))], pack(blocks[k].Txs)))
+    assertEq(swarm[SwarmHash(pack(manifests[k]))], pack(manifests[k]))
+    assertEq(swarm[SwarmHash(pack(blocks[k].Txs))], pack(blocks[k].Txs))
 }

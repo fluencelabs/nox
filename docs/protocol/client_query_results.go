@@ -1,8 +1,5 @@
 package protocol
 
-import "bytes"
-import "reflect"
-
 type QueryResults struct {
   Chunks           map[int]Chunk    // selected virtual machine state chunks
   ChunksProofs     []MerkleProof    // Merkle proofs: chunks belong to the virtual machine state
@@ -26,12 +23,12 @@ func ClientQueryResultsExample() {
 
   // ∀ k:
     // ∀ t ∈ range results.Chunks:
-      assert(bytes.Equal(results.Chunks[t], vmStates[k + 1].Chunks[t]))
-      assert(reflect.DeepEqual(results.ChunksProofs[t], CreateMerkleProof(t, results.Chunks[t], vmStates[k + 1].Chunks)))
+      assertEq(results.Chunks[t], vmStates[k + 1].Chunks[t])
+      assertEq(results.ChunksProofs[t], CreateMerkleProof(t, results.Chunks[t], vmStates[k + 1].Chunks))
 
     // ∀ p ∈ [0, 3):
-      assert(reflect.DeepEqual(results.Manifests[p], manifests[k + p]))
-      assert(results.ManifestReceipts[p] == SwarmUpload(pack(results.Manifests[p])))
+      assertEq(results.Manifests[p], manifests[k + p])
+      assertEq(results.ManifestReceipts[p], SwarmUpload(pack(results.Manifests[p])))
 
-      assert(results.TxsReceipt == SwarmUpload(pack(blocks[k].Txs)))
+      assertEq(results.TxsReceipt, SwarmUpload(pack(blocks[k].Txs)))
 }

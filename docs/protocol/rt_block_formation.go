@@ -22,10 +22,10 @@ func TendermintBlockFormationExample() {
   var i int                // some Tendermint node index
 
   // ∀ k:
-    assert(blocks[k].Header.LastBlockHash == TmMerkleRoot(packMulti(blocks[k - 1].Header)))
-    assert(blocks[k].Header.LastCommitHash == TmMerkleRoot(packMulti(blocks[k].LastCommit)))
-    assert(blocks[k].Header.TxsHash == TmMerkleRoot(packMulti(blocks[k].Txs)))
+    assertEq(blocks[k].Header.LastBlockHash, TmMerkleRoot(packMulti(blocks[k - 1].Header)))
+    assertEq(blocks[k].Header.LastCommitHash, TmMerkleRoot(packMulti(blocks[k].LastCommit)))
+    assertEq(blocks[k].Header.TxsHash, TmMerkleRoot(packMulti(blocks[k].Txs)))
 
     // ∀ i:
-      assert(TmVerify(blocks[k].LastCommit[i], blocks[k].Header.LastBlockHash))
+      assertTrue(TmVerify(blocks[k].LastCommit[i], blocks[k].Header.LastBlockHash))
 }

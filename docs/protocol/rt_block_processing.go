@@ -1,7 +1,5 @@
 package protocol
 
-import "reflect"
-
 type VMState struct {
   Chunks []Chunk     // virtual machine memory chunks
 }
@@ -18,5 +16,5 @@ func TendermintBlockProcessingExample() {
   var k int               // some block number
 
   // ∀ k:
-    assert(reflect.DeepEqual(vmStates[k + 1], NextVMState(&vmStates[k], blocks[k].Txs)))
+    assertEq(vmStates[k + 1], NextVMState(&vmStates[k], blocks[k].Txs))
 }
