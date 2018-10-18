@@ -487,26 +487,20 @@ These aspects will be considered in another section, and for now we will focus o
 The client checks that every manifest is stored in Swarm properly. This means that receipt is issued for the correct content hash, the Swarm node signature does sign exactly this hash and that the Swarm node has the security deposit big enough.
 
 ```go
-func VerifyResultsManifestsStorage(results QueryResults, minCollateral int) {
+func VerifyResultsManifestsStorage(swarmContract *SwarmContract, results *QueryResults, minCollateral int64) {
   for p := 0; p < 3; p++ {
-    var swarmNodeId = results.ManifestReceipts[p].Insurance.NodeId
-    
     // checking that the receipt is issued for the correct manifest
-    assertEq(results.ManifestReceipts[p].ContentHash, SwarmHash(results.Manifest[p]))
-    
+    assertEq(results.ManifestReceipts[p].ContentHash, SwarmHash(pack(results.Manifests[p])))
+
     // checking that the swarm node has enough funds
-    assertTrue(swarmContract[swarmNodeId].Collateral >= minCollateral)
-    
+    var swarmNodeId = results.ManifestReceipts[p].Insurance.PublicKey
+    assertTrue(swarmContract.Collaterals[swarmNodeId] >= minCollateral)
+
     // checking that the receipt is signed by this swarm node
-    assert(
-      SwarmVerify(
-        swarmContract[swarmNodeId].PublicKey,             // public key
-        results.ManifestReceipts[p].Insurance.Signature,  // signature
-        results.ManifestReceipts[p].ContentHash           // data
-      )
-    )      
+    assertTrue(SwarmVerify(results.ManifestReceipts[p].Insurance, results.ManifestReceipts[p].ContentHash))
   }
 }
+
 ```
 
 #### Verification of manifests Swarm connectivity
@@ -514,9 +508,9 @@ func VerifyResultsManifestsStorage(results QueryResults, minCollateral int) {
 The client checks that manifests are linked correctly in Swarm.
 
 ```go
-func VerifyResultsSwarmConnectivity(results QueryResults) {
+func VerifyResultsSwarmConnectivity(results *QueryResults) {
   for p := 0; p < 2; p++ {
-    assertEq(results.Manifest[p + 1].LastManifestSwarmHash, SwarmHash(results.Manifest[p]))
+    assertEq(results.Manifests[p + 1].LastManifestSwarmHash, SwarmHash(pack(results.Manifests[p])))
   }
 }
 ```
@@ -525,9 +519,9 @@ func VerifyResultsSwarmConnectivity(results QueryResults) {
 The client checks that manifests are linked correctly through the application state hash.
 
 ```go
-func VerifyResultsAppStateConnectivity(results QueryResults) {
+func VerifyResultsAppStateConnectivity(results *QueryResults) {
   for p := 0; p < 2; p++ {
-    assertEq(results.Manifest[p + 1].Header.AppHash, Hash(results.Manifest[p]))
+    assertEq(results.Manifests[p + 1].Header.AppHash, Hash(pack(results.Manifests[p])))
   }
 }
 ```
@@ -537,25 +531,20 @@ func VerifyResultsAppStateConnectivity(results QueryResults) {
 The client checks that BFT consensus was reached on the blocks propagation, real-time nodes have actually signed the corresponding block headers and that each node has at least the minimal collateral posted in the Fluence smart contract.
 
 ```go
-func VerifyResultsBlocks(results QueryResults) {
+func VerifyResultsBlocks(flnContract *FlnContract, results *QueryResults, minCollateral int64) {
   for p := 0; p < 2; p++ {
     // checking that BFT consensus was actually reached
-    assertTrue(len(results.Manifest[p + 1].LastCommit) > float64(2/3) * len(flnContract.nodes))
-    
-    for _, vote := range results.Manifest[p + 1].LastCommit {
-      var tmNodeId = vote.Address
-      
+    var signedNodes = float64(len(results.Manifests[p + 1].LastCommit))
+    var requiredNodes = float64(2/3) * float64(len(flnContract.NodesCollaterals))
+    assertTrue(signedNodes > requiredNodes)
+
+    for _, signature := range results.Manifests[p + 1].LastCommit {
       // checking that the real-time node has enough funds
-      assertTrue(flnContract.nodes[tmNodeId].Collateral >= minTmDeposit)
+      var tmNodeId = signature.PublicKey
+      assertTrue(flnContract.NodesCollaterals[tmNodeId] >= minCollateral)
 
       // checking that the block commit is signed by this node
-      assert(
-        TmVerify(
-          flnContract.Nodes[tmNodeId].PublicKey,            // public key
-          results.Manifest[p + 1].LastCommit[i].Signature,  // signature
-          TmMerkle(results.Manifest[p].Header)              // data
-        )    
-      )      
+      assertTrue(TmVerify(signature, TmMerkleRoot(packMulti(results.Manifests[p].Header))))
     }
   }
 }
@@ -568,13 +557,7 @@ The client checks that returned virtual machine state chunks belong to the virtu
 ```go
 func VerifyResultsChunks(results QueryResults) {
   for t := range results.Chunks {
-    assert(
-      VerifyMerkleProof(
-        results.Chunks[t],                // selected chunk
-        results.ChunksProofs[t],          // Merkle proof
-        results.Manifests[1].VMStateHash  // Merkle root
-      )
-    )
-  }    
+    assertTrue(VerifyMerkleProof(results.Chunks[t], &results.ChunksProofs[t], results.Manifests[1].VMStateHash))
+  }
 }
 ```
