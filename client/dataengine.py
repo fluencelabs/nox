@@ -185,7 +185,8 @@ class DataEngineSession:
 			An awaitable `DataEngineResultAwait` that allows to retrieve the results of the function call.
 		"""
 		payload = "%s(%s)" % (command, hex_encode_bytes(arg))
-		tx_sign_bytes = ("%s-%s-%d-%s" % (self.client, self.session, self.counter, payload)).encode()
+		tx_sign_text = "%s-%s-%d-%s" % (self.client, self.session, self.counter, payload)
+		tx_sign_bytes = tx_sign_text.encode()
 		signature = sign(tx_sign_bytes, self.signing_key)
 		tx_json = str({
 			"tx": {
@@ -201,7 +202,7 @@ class DataEngineSession:
 		}).replace("'", '"').replace('u"', '"')
 		target_key = "@meta/%s/%s/%d" % (self.client, self.session, self.counter)
 		
-		print("submitting", tx_json)
+		print("submitting", tx_sign_text)
 		tx_response = self.engine.tm.broadcast_tx_sync(tx_json)
 		if "result" not in tx_response:
 			print(tx_response["error"]["data"])

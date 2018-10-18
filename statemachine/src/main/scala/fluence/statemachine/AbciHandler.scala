@@ -28,6 +28,7 @@ import com.google.protobuf.ByteString
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
 import fluence.statemachine.util.ClientInfoMessages
+import io.prometheus.client.Counter
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -46,8 +47,15 @@ class AbciHandler(
   private val txProcessor: TxProcessor[IO]
 ) extends LazyLogging with ICheckTx with IDeliverTx with ICommit with IQuery {
 
-  val checkTxDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
-  val deliverTxDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
+  private val checkTxDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
+  private val deliverTxDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
+
+  private val txCounter =
+    Counter.build("solver_tx_count", "solver_tx_count").register()
+  private val txDeliverLatencyCounter =
+    Counter.build("solver_tx_deliver_latency_sum", "solver_tx_deliver_latency_sum").register()
+  private val txDeliverValidationTimeCounter =
+    Counter.build("solver_tx_deliver_validation_time_sum", "solver_tx_deliver_validation_time_sum").register()
 
   /**
    * Handler for `Commit` ABCI method (processed in Consensus thread).
@@ -92,7 +100,7 @@ class AbciHandler(
     val responseData = (for {
       validated <- validateTx(req.getTx, txParser, checkTxStateChecker)
       validationEndTime = System.currentTimeMillis()
-      receiveDuration = validationStartTime - validated.validatedTx
+      latency = validationStartTime - validated.validatedTx
         .map(_.timestamp.toLong)
         .getOrElse(validationStartTime)
       validationDuration = validationEndTime - validationStartTime
@@ -100,7 +108,7 @@ class AbciHandler(
       logger.info(
         "{} CheckTx latency={} validationTime={} {}",
         checkTxDateFormat.format(Calendar.getInstance().getTime),
-        receiveDuration,
+        latency,
         validationDuration,
         validated
       )
@@ -124,17 +132,20 @@ class AbciHandler(
     val responseData = (for {
       validated <- validateTx(req.getTx, txParser, deliverTxStateChecker)
       validationEndTime = System.currentTimeMillis()
-      receiveDuration = validationStartTime - validated.validatedTx
+      latency = validationStartTime - validated.validatedTx
         .map(_.timestamp.toLong)
         .getOrElse(validationStartTime)
       validationDuration = validationEndTime - validationStartTime
       _ = logger.info(
         "{} DeliverTx latency={} validationTime={} {}",
         deliverTxDateFormat.format(Calendar.getInstance().getTime),
-        receiveDuration,
+        latency,
         validationDuration,
         validated
       )
+      _ = txCounter.inc()
+      _ = txDeliverLatencyCounter.inc(latency)
+      _ = txDeliverValidationTimeCounter.inc(validationDuration)
       _ <- validated.validatedTx match {
         case None => IO.unit
         case Some(tx) => txProcessor.processNewTx(tx)

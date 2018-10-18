@@ -90,6 +90,9 @@ lazy val statemachine = (project in file("statemachine"))
       cryptoHashing,
       slogging,
       scodecBits,
+      prometheusClient,
+      prometheusClientJetty,
+      prometheusClientServlet,
       "com.github.jtendermint" % "jabci"          % "0.17.1",
       "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
@@ -116,6 +119,7 @@ lazy val statemachine = (project in file("statemachine"))
       // State machine constants
       val smDataRoot = "/statemachine"
       val smRunScript = s"$smDataRoot/run.sh"
+      val smPrometheusPort = 26661
 
       val vmDataRoot = "/vmcode"
 
@@ -129,6 +133,7 @@ lazy val statemachine = (project in file("statemachine"))
         expose(tmP2pPort)
         expose(tmRpcPort)
         expose(tmPrometheusPort)
+        expose(smPrometheusPort)
 
         volume(tmDataRoot)
         volume(smDataRoot)

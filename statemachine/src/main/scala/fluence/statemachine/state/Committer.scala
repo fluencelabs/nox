@@ -43,7 +43,7 @@ class Committer[F[_]](
     extends slogging.LazyLogging {
   private val WrongVmHashValue: StoreValue = "wrong_vm_hash"
 
-  val commitDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
+  private val commitDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
 
   /**
    * Handles `Commit` ABCI method (in Consensus thread).
