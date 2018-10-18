@@ -68,6 +68,7 @@ def demo_many_queries(addr, genesis):
     for _ in range(0, 500):
         submit_inc(s)
     print(submit_get(s).result_num())
+    s.close()
 
 tmport = sys.argv[1] if len(sys.argv) >= 2 else "25057"
 tm = TendermintRPC("http://localhost:" + tmport)
@@ -76,7 +77,7 @@ height = tm.get_max_height()
 
 # 1st session: correct, but not explicitly closed
 session1_id = id_generator()
-demo_queries(tm, genesis, False, False, session1_id)
+#demo_queries(tm, genesis, False, False, session1_id)
 
 # 2nd session: failed during processing
 #demo_queries(tm, genesis, True, False)
@@ -88,4 +89,4 @@ demo_queries(tm, genesis, False, False, session1_id)
 # 4th session: same as 1st - transactions declined as duplicated
 #demo_queries(tm, genesis, False, False, session1_id)
 
-#demo_many_queries(tm, genesis)
+demo_many_queries(tm, genesis)

@@ -28,6 +28,7 @@ import com.google.protobuf.ByteString
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
 import fluence.statemachine.util.ClientInfoMessages
+import io.prometheus.client.Counter
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -48,6 +49,17 @@ class AbciHandler(
 
   private val logDateFormat = ThreadLocal.withInitial[SimpleDateFormat](() => new SimpleDateFormat("hh:mm:ss.SSS"))
 
+  private val queryCounter: Counter = Counter
+    .build()
+    .name("query_count")
+    .help("query_count")
+    .register()
+  private val queryProcessTimeCounter: Counter = Counter
+    .build()
+    .name("query_process_time_sum")
+    .help("query_process_time_sum")
+    .register()
+
   /**
    * Handler for `Commit` ABCI method (processed in Consensus thread).
    *
@@ -66,7 +78,14 @@ class AbciHandler(
    * @return `Query` response data
    */
   override def requestQuery(req: RequestQuery): ResponseQuery = {
+    val queryStartTime = System.currentTimeMillis()
     val responseData = queryProcessor.processQuery(req.getPath, req.getHeight, req.getProve).unsafeRunSync()
+
+    val queryDuration = System.currentTimeMillis() - queryStartTime
+    logger.info("Query duration={} path={} info={}", queryDuration, req.getPath, responseData.info)
+    queryCounter.inc()
+    queryProcessTimeCounter.inc(queryDuration)
+
     ResponseQuery.newBuilder
       .setCode(responseData.code)
       .setInfo(responseData.info)
