@@ -133,8 +133,8 @@ object ServerRunner extends IOApp with LazyLogging {
       queryProcessor = new QueryProcessor(stateHolder)
 
       txParser = new TxParser[IO](new ClientRegistry())
-      checkTxStateChecker = new TxStateDependentChecker[IO](stateHolder.mempoolState)
-      deliverTxStateChecker = new TxStateDependentChecker(mutableConsensusState.getRoot)
+      checkTxStateChecker = new TxStateDependentChecker[IO]("CheckTx", stateHolder.mempoolState)
+      deliverTxStateChecker = new TxStateDependentChecker("DeliverTx", mutableConsensusState.getRoot)
 
       txProcessor = new TxProcessor(mutableConsensusState, vmInvoker, config)
 

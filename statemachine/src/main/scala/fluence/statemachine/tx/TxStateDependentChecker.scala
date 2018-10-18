@@ -19,6 +19,7 @@ import cats.Monad
 import cats.data.EitherT
 import fluence.statemachine.tree.{StoragePaths, TreeNode}
 import fluence.statemachine.util.ClientInfoMessages
+import io.prometheus.client.Counter
 
 import scala.language.higherKinds
 
@@ -26,9 +27,25 @@ import scala.language.higherKinds
  * Checker for transactions received via `CheckTx` and `DeliverTx` and parsed.
  * Includes deduplication and checking whether tx' session is still active.
  *
+ * @param name name of checker, used to configure metric collection
  * @param state state against which checking is applied
  */
-class TxStateDependentChecker[F[_]: Monad](state: F[TreeNode]) {
+class TxStateDependentChecker[F[_]: Monad](val name: String, state: F[TreeNode]) {
+  private val txCounter: Counter = Counter
+    .build()
+    .name(s"solver_${name.toLowerCase}_count")
+    .help(s"solver_${name.toLowerCase}_count")
+    .register()
+  private val txLatencyCounter: Counter = Counter
+    .build()
+    .name(s"solver_${name.toLowerCase}_latency_sum")
+    .help(s"solver_${name.toLowerCase}_latency_sum")
+    .register()
+  private val txValidationTimeCounter: Counter = Counter
+    .build()
+    .name(s"solver_${name.toLowerCase}_validation_time_sum")
+    .help(s"solver_${name.toLowerCase}_validation_time_sum")
+    .register()
 
   /**
    * Checks whether given `tx` is unique and its state is active against provided [[state]].
@@ -54,4 +71,17 @@ class TxStateDependentChecker[F[_]: Monad](state: F[TreeNode]) {
         ClientInfoMessages.SessionAlreadyClosed
       )
     } yield checkedTx
+
+  /**
+   * Collects transaction validation metrics.
+   *
+   * @param latency current tx latency
+   * @param validationDuration tx validation duration
+   */
+  def collect(latency: Long, validationDuration: Long): Unit = {
+    txCounter.inc()
+    txLatencyCounter.inc(latency)
+    txValidationTimeCounter.inc(validationDuration)
+  }
+
 }

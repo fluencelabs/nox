@@ -131,7 +131,7 @@ private_peer_ids = ""
 ##### mempool configuration options #####
 [mempool]
 
-recheck = true
+recheck = false
 recheck_empty = true
 broadcast = true
 wal_dir = "data/mempool.wal"

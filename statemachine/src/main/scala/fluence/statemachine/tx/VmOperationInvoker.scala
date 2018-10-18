@@ -21,6 +21,7 @@ import cats.data.EitherT
 import cats.effect.LiftIO
 import fluence.statemachine.error.{StateMachineError, VmRuntimeError}
 import fluence.vm.{VmError, WasmVm}
+import io.prometheus.client.Counter
 import scodec.bits.Bases.Alphabets.HexUppercase
 import scodec.bits.ByteVector
 
@@ -33,16 +34,39 @@ import scala.language.higherKinds
  */
 class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) {
 
+  private val vmInvokeCounter: Counter = Counter
+    .build()
+    .name("solver_vm_invoke_counter")
+    .help("solver_vm_invoke_counter")
+    .labelNames("method")
+    .register()
+  private val vmInvokeTimeCounter: Counter = Counter
+    .build()
+    .name("solver_vm_invoke_time_sum")
+    .help("solver_vm_invoke_time_sum")
+    .labelNames("method")
+    .register()
+
   /**
    * Invokes the provided invocation description using the underlying VM.
    *
    * @param callDescription description of function call invocation including function name and arguments
    * @return either successful invocation's result or failed invocation's error
    */
-  def invoke(callDescription: FunctionCallDescription): EitherT[F, StateMachineError, Option[String]] =
-    vm.invoke(callDescription.module, callDescription.functionName, callDescription.arg)
+  def invoke(callDescription: FunctionCallDescription): EitherT[F, StateMachineError, Option[String]] = {
+    val invokeStartTime = System.currentTimeMillis()
+
+    val result = vm
+      .invoke(callDescription.module, callDescription.functionName, callDescription.arg)
       .map(_.map(ByteVector(_).toHex(HexUppercase)))
       .leftMap(VmOperationInvoker.convertToStateMachineError)
+
+    val invokeDuration = System.currentTimeMillis() - invokeStartTime
+    vmInvokeCounter.labels(callDescription.functionName).inc()
+    vmInvokeTimeCounter.labels(callDescription.functionName).inc(invokeDuration)
+
+    result
+  }
 
   /**
    * Obtains the current state hash of VM.

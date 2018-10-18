@@ -28,7 +28,6 @@ import com.google.protobuf.ByteString
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
 import fluence.statemachine.util.ClientInfoMessages
-import io.prometheus.client.Counter
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -47,15 +46,7 @@ class AbciHandler(
   private val txProcessor: TxProcessor[IO]
 ) extends LazyLogging with ICheckTx with IDeliverTx with ICommit with IQuery {
 
-  private val checkTxDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
-  private val deliverTxDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
-
-  private val txCounter =
-    Counter.build("solver_tx_count", "solver_tx_count").register()
-  private val txDeliverLatencyCounter =
-    Counter.build("solver_tx_deliver_latency_sum", "solver_tx_deliver_latency_sum").register()
-  private val txDeliverValidationTimeCounter =
-    Counter.build("solver_tx_deliver_validation_time_sum", "solver_tx_deliver_validation_time_sum").register()
+  private val logDateFormat = ThreadLocal.withInitial[SimpleDateFormat](() => new SimpleDateFormat("hh:mm:ss.SSS"))
 
   /**
    * Handler for `Commit` ABCI method (processed in Consensus thread).
@@ -96,24 +87,7 @@ class AbciHandler(
    * @return `CheckTx` response data
    */
   override def requestCheckTx(req: RequestCheckTx): ResponseCheckTx = {
-    val validationStartTime = System.currentTimeMillis()
-    val responseData = (for {
-      validated <- validateTx(req.getTx, txParser, checkTxStateChecker)
-      validationEndTime = System.currentTimeMillis()
-      latency = validationStartTime - validated.validatedTx
-        .map(_.timestamp.toLong)
-        .getOrElse(validationStartTime)
-      validationDuration = validationEndTime - validationStartTime
-      _ = //if (validated.validatedTx.isEmpty) {
-      logger.info(
-        "{} CheckTx latency={} validationTime={} {}",
-        checkTxDateFormat.format(Calendar.getInstance().getTime),
-        latency,
-        validationDuration,
-        validated
-      )
-      //}
-    } yield validated).unsafeRunSync()
+    val responseData = validateTx(req.getTx, txParser, checkTxStateChecker).unsafeRunSync()
     ResponseCheckTx.newBuilder
       .setCode(responseData.code)
       .setInfo(responseData.info)
@@ -128,24 +102,10 @@ class AbciHandler(
    * @return `DeliverTx` response data
    */
   override def receivedDeliverTx(req: RequestDeliverTx): ResponseDeliverTx = {
-    val validationStartTime = System.currentTimeMillis()
     val responseData = (for {
       validated <- validateTx(req.getTx, txParser, deliverTxStateChecker)
+
       validationEndTime = System.currentTimeMillis()
-      latency = validationStartTime - validated.validatedTx
-        .map(_.timestamp.toLong)
-        .getOrElse(validationStartTime)
-      validationDuration = validationEndTime - validationStartTime
-      _ = logger.info(
-        "{} DeliverTx latency={} validationTime={} {}",
-        deliverTxDateFormat.format(Calendar.getInstance().getTime),
-        latency,
-        validationDuration,
-        validated
-      )
-      _ = txCounter.inc()
-      _ = txDeliverLatencyCounter.inc(latency)
-      _ = txDeliverValidationTimeCounter.inc(validationDuration)
       _ <- validated.validatedTx match {
         case None => IO.unit
         case Some(tx) => txProcessor.processNewTx(tx)
@@ -171,18 +131,35 @@ class AbciHandler(
    * @param txStateChecker checker encapsulating some state used to check for duplicates and txs in closed sessions
    * @return validated transaction and data used to build a response
    */
-  private def validateTx[F[_]: Monad](
+  private def validateTx[F[_]](
     txBytes: ByteString,
     txParser: TxParser[F],
     txStateChecker: TxStateDependentChecker[F]
-  ): F[TxResponseData] = {
-    (for {
-      parsedTx <- txParser.parseTx(txBytes)
-      checkedTx <- txStateChecker.check(parsedTx)
-    } yield checkedTx).value.map {
-      case Left(message) => TxResponseData(None, CodeType.BAD, message)
-      case Right(tx) => TxResponseData(Some(tx), CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
-    }
+  )(implicit F: Monad[F]): F[TxResponseData] = {
+    val validationStartTime = System.currentTimeMillis()
+    for {
+      validated <- (for {
+        parsedTx <- txParser.parseTx(txBytes)
+        checkedTx <- txStateChecker.check(parsedTx)
+      } yield checkedTx).value.map {
+        case Left(message) => TxResponseData(None, CodeType.BAD, message)
+        case Right(tx) => TxResponseData(Some(tx), CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
+      }
+      validationEndTime = System.currentTimeMillis()
+      latency = validationStartTime - validated.validatedTx
+        .map(_.timestamp.toLong)
+        .getOrElse(validationStartTime)
+      validationDuration = validationEndTime - validationStartTime
+      _ = logger.info(
+        "{} {} latency={} validationTime={} {}",
+        logDateFormat.get().format(Calendar.getInstance().getTime), // TODO: change the way to print current time
+        txStateChecker.name,
+        latency,
+        validationDuration,
+        validated
+      )
+      _ = txStateChecker.collect(latency, validationDuration)
+    } yield validated
   }
 }
 

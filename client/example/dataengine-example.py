@@ -65,7 +65,7 @@ def demo_queries(addr, genesis, send_wrong=False, send_closed=True, session=None
 def demo_many_queries(addr, genesis):
     eng = DataEngine(addr, genesis)
     s = eng.new_session(get_client(), get_signing_key())
-    for _ in range(0, 30):
+    for _ in range(0, 500):
         submit_inc(s)
     print(submit_get(s).result_num())
 
@@ -76,7 +76,7 @@ height = tm.get_max_height()
 
 # 1st session: correct, but not explicitly closed
 session1_id = id_generator()
-#demo_queries(tm, genesis, False, False, session1_id)
+demo_queries(tm, genesis, False, False, session1_id)
 
 # 2nd session: failed during processing
 #demo_queries(tm, genesis, True, False)
@@ -88,4 +88,4 @@ session1_id = id_generator()
 # 4th session: same as 1st - transactions declined as duplicated
 #demo_queries(tm, genesis, False, False, session1_id)
 
-demo_many_queries(tm, genesis)
+#demo_many_queries(tm, genesis)

@@ -26,6 +26,7 @@ import fluence.statemachine.StoreValue
 import fluence.statemachine.tree.{MerkleTreeNode, StoragePaths, TreeNode}
 import fluence.statemachine.tx.VmOperationInvoker
 import fluence.statemachine.util.HexCodec
+import io.prometheus.client.Counter
 
 import scala.language.higherKinds
 
@@ -44,6 +45,16 @@ class Committer[F[_]](
   private val WrongVmHashValue: StoreValue = "wrong_vm_hash"
 
   private val commitDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
+  private val commitCounter: Counter = Counter
+    .build()
+    .name("solver_commit_count")
+    .help("solver_commit_count")
+    .register()
+  private val commitTimeCounter: Counter = Counter
+    .build()
+    .name("solver_commit_time_sum")
+    .help("solver_commit_time_sum")
+    .register()
 
   /**
    * Handles `Commit` ABCI method (in Consensus thread).
@@ -52,12 +63,17 @@ class Committer[F[_]](
    */
   def processCommit(): F[ByteString] = {
     val commitStartTime = System.currentTimeMillis()
+
     stateHolder.modifyStates(
       for {
         // 2 State monads composed because an atomic update required for Commit
         _ <- TendermintState.modifyConsensusState(preCommitConsensusStateUpdate())
-        result <- commitStatesUpdate(commitStartTime)
-      } yield result
+        stateAndHeight <- commitStatesUpdate()
+
+        (state, height) = stateAndHeight
+        appHash = ByteString.copyFrom(state.merkleHash.bytes.toArray)
+        _ = logState(state, height, commitStartTime)
+      } yield appHash
     )
   }
 
@@ -79,14 +95,13 @@ class Committer[F[_]](
    * Switches states and returns the resulting app hash.
    *
    */
-  private def commitStatesUpdate(commitStartTime: Long): StateT[F, TendermintState, ByteString] = StateT(
+  private def commitStatesUpdate(): StateT[F, TendermintState, (MerkleTreeNode, Long)] = StateT(
     oldStates =>
       for {
         newStates <- F.pure(oldStates.switch())
         merkelized = newStates.latestMerkelized
-        appHash = merkelized.merkleHash
-        _ = logState(merkelized, newStates.latestCommittedHeight, commitStartTime)
-      } yield (newStates, ByteString.copyFrom(appHash.bytes.toArray))
+        height = newStates.latestCommittedHeight
+      } yield (newStates, (merkelized, height))
   )
 
   private def logState(state: MerkleTreeNode, height: Long, commitStartTime: Long): Unit = {
@@ -100,6 +115,8 @@ class Committer[F[_]](
     )
     logger.debug("\n{}", state.dump())
     logger.info("") // separating messages related to different blocks from each other
+    commitCounter.inc()
+    commitTimeCounter.inc(commitDuration)
   }
 
 }
