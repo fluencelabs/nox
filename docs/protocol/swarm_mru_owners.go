@@ -23,8 +23,8 @@ func SwarmMRUOwnersExample() {
   // the content stored for specific key and version should be properly authorized by its owner
   var meta = swarmMRU[key][version]
 
-  assert(meta.Key == key)
-  assert(meta.Version == version)
-  assert(meta.Permission.PublicKey == swarmOwners.Owner(meta.Key))
-  assert(SwarmVerify(meta.Permission, SwarmHash(pack(meta.Key, meta.Version, meta.Content))))
+  assertEq(meta.Key, key)
+  assertEq(meta.Version, version)
+  assertEq(meta.Permission.PublicKey, swarmOwners.Owner(meta.Key))
+  assertTrue(SwarmVerify(meta.Permission, SwarmHash(pack(meta.Key, meta.Version, meta.Content))))
 }

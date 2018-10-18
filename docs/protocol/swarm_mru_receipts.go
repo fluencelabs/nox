@@ -10,5 +10,5 @@ func SwarmMRUReceiptsExample() {
   // rules
   // ∀ meta:
     var receipt = SwarmMRUUpdate(&meta)
-    assert(receipt.ContentHash == SwarmHash(pack(meta)))
+    assertEq(receipt.ContentHash, SwarmHash(pack(meta)))
 }

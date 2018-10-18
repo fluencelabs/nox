@@ -17,6 +17,6 @@ func SwarmReceiptsExample() {
   // ∀ content:
     var receipt = SwarmUpload(content)
 
-    assert(receipt.ContentHash == SwarmHash(content))
-    assert(SwarmVerify(receipt.Insurance, receipt.ContentHash))
+    assertEq(receipt.ContentHash, SwarmHash(content))
+    assertTrue(SwarmVerify(receipt.Insurance, receipt.ContentHash))
 }
