@@ -20,32 +20,41 @@
 Before we start describing the protocol, few words need to be said about the core blocks. Basic cryptographic primitives such as digital signature generation and verification, cryptographic hash computation and Merkle tree composition are listed below and used throughout the rest of the protocol specification. We do not specify exact algorithms such as SHA3, RIPEMD or EdDSA for those primitives but still assume them to behave according to the common expectations.
 
 ```go
+type Digest     = [32]byte
+type PublicKey  = [32]byte
+type PrivateKey = [64]byte
+type Signature  = [64]byte
+
+type Chunk = []byte
+
 type MerkleProof struct {
-  Siblings  [][][]byte  // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
+  Path     []int       // path from the Merkle tree root to the selected chunk
+  Siblings [][]Digest  // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
 }
 
 type Seal struct {
-  PublicKey []byte  // signer public key
-  Signature []byte  // signer signature
+  PublicKey PublicKey
+  Signature Signature
 }
 
 // computes a cryptographic hash of the input data
-func Hash(data []byte) []byte {}
+func Hash(data []byte) Digest {}
 
-// produces a digital signature from the input data using the private key
-func Sign(publicKey []byte, privateKey []byte, data []byte) Seal {}
+// produces a digital signature for the input data digest
+func Sign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 
-// verifies that the digital signature of the input data conforms to the public key
-func Verify(publicKey []byte, signature []byte, data []byte) boolean {}
+// verifies that the input data digest is signed correctly
+func Verify(seal Seal, digest Digest) bool {}
 
 // computes a Merkle root using supplied chunks as leaf data blocks in the Merkle tree
-func MerkleRoot(allChunks [][]byte) []byte {}
+func MerkleRoot(allChunks []Chunk) Digest {}
 
 // generates a Merkle proof for the chunk selected from the chunks list
-func CreateMerkleProof(index int, selectedChunk []byte, allChunks [][]byte) MerkleProof {}
+func CreateMerkleProof(index int, selectedChunk Chunk, allChunks []Chunk) MerkleProof {}
 
 // verifies that the Merkle proof of the selected chunk conforms to the Merkle root
-func VerifyMerkleProof(selectedChunk []byte, proof *MerkleProof, root []byte) boolean {}
+func VerifyMerkleProof(selectedChunk Chunk, proof *MerkleProof, root Digest) bool {}
+
 ```
 
 ## External systems
@@ -56,14 +65,14 @@ For the purposes of this protocol specification, Ethereum is viewed as a secure 
 
 ```go
 type ExampleContract struct {
-  Collaterals map[[]byte]int64       // security deposits: node identifier –> deposit size
+  Collaterals map[PublicKey]int64  // security deposits: node identifier –> deposit size
 }
 
 // data
 var exampleContract ExampleContract  // example contract instance
 
 // verification
-func VerifyNodeCollateral(nodeId []byte, minCollateral int64) {
+func VerifyNodeCollateral(nodeId PublicKey, minCollateral int64) {
   assert(exampleContract.Collaterals[nodeId] >= minCollateral)
 }
 ```
@@ -73,32 +82,26 @@ func VerifyNodeCollateral(nodeId []byte, minCollateral int64) {
 Swarm is treated as a hash addressable storage where a content can be found by it's hash. Swarm has it's own set of cryptographic primitives which we don't expect to be compatible with Fluence core primitives.
 
 ```go
-// listed Swarm functions carry the same meaning and arguments as core functions 
-func SwarmHash(data []byte) []byte {}
-func SwarmSign(publicKey []byte, privateKey []byte, data []byte) Seal {}
-func SwarmVerify(publicKey []byte, signature []byte, data []byte) boolean {}
+// listed Swarm functions carry the same meaning and arguments as core functions
+func SwarmHash(data []byte) Digest {}
+func SwarmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
+func SwarmVerify(seal Seal, digest Digest) bool {}
 
 // data
-var swarm map[[]byte]interface{}  // Swarm storage: hash(x) –> x
+var swarm map[Digest][]byte  // Swarm storage: hash(x) –> x
 
 // rules
-var content []byte                // some content
+var content []byte           // some content
 
 ∀ content:
-  assert(swarm[SwarmHash(content)] == content)
+  assert(bytes.Equal(swarm[SwarmHash(content)], content))
 ```
 
 We expect that every node serving in the Swarm network has an identifier and a public/private key pair and is registered in the publicly accessible Ethereum smart contract.
 
 ```go
 type SwarmContract struct {
-  Nodes map[[]byte]SwarmNode     // Swarm nodes: address –> node
-}
-
-type SwarmNode struct {
-  PublicKey  []byte              // Swarm node public key
-  PrivateKey []byte              // Swarm node private key
-  Collateral int64               // Swarm node security deposit
+  Collaterals map[PublicKey]int64  // security deposits: node identifier –> deposit size
 }
 
 // data
@@ -111,30 +114,22 @@ We assume that Swarm provides an upload function which returns a Swarm receipt i
 
 ```go
 type SwarmReceipt struct {
-  ContentHash []byte             // Swarm hash of the stored content
-  Insurance   Seal               // insurance written for the accepted content
+  ContentHash Digest  // Swarm hash of the stored content
+  Insurance   Seal    // insurance written by the Swarm node for the accepted content
 }
 
 // uploads the content to the Swarm network, returns a receipt of responsibility
 func SwarmUpload(content []byte) SwarmReceipt {}
 
 // data
-var swarmContract SwarmContract  // Swarm Ethereum smart contract
+var content []byte // some content
 
 // rules
-var content []byte               // some content
-
 ∀ content:
   var receipt = SwarmUpload(content)
 
   assert(receipt.ContentHash == SwarmHash(content))
-  assert(
-    receipt.Insurance.Signature == SwarmSign(
-      swarmContract.Nodes[receipt.Insurance.NodeId].PublicKey,   // public key
-      swarmContract.Nodes[receipt.Insurance.NodeId].PrivateKey,  // private key
-      receipt.ContentHash                                        // data
-    )
-  )
+  assert(SwarmVerify(receipt.Insurance, receipt.ContentHash))
 ```
 
 #### Mutable resource updates
@@ -143,39 +138,31 @@ We also rely on the [mutable resource updates (MRU)](https://swarm-guide.readthe
 
 ```go
 type SwarmMeta struct {
-  Key       string                         // resource key
-  Version   int                            // resource version
-  Content   []byte                         // uploaded content
-  Signature []byte                         // owner signature which authorizes the update
+  Key        string  // resource key
+  Version    int     // resource version
+  Content    []byte  // uploaded content
+  Permission Seal    // owner signature which authorizes the update
 }
 
 // data
 var swarmMRU map[string]map[int]SwarmMeta  // MRU storage: key –> version –> content
 ```
 
-Every key created in the MRU storage has an associated owner and needs to be initialized first. Once the key is initialized, it can be updated only by the owner.
+Every key created in the MRU storage has an associated owner and needs to be initialized first. Once the key is initialized, it can be updated only by the owner. Having the MRU storage and the set of owners, we can more formally define the rules these entities are expected to follow.
 
 ```go
-type SwarmOwners struct {
-  data map[string][]byte    // owners: resource key –> public key
+type SwarmOwners struct  {
+  data map[string]PublicKey  // owners: resource key –> owner's public key
 }
 
-// initializes and returns a new resource key associated with the passed owner's public key
-func (owners *SwarmOwners) Init(publicKey []byte, signature []byte) string {}
+// initializes and returns a new resource key
+func (owners *SwarmOwners) Init(permission Seal) string {}
 
 // returns an owner's public key for the specified resource key
-func (owners *SwarmOwners) Owner(resourceKey string) []byte {}
+func (owners *SwarmOwners) Owner(resourceKey string) PublicKey {}
 
 // data
-var swarmOwners SwarmOwners  // list of resource owners
-```
-
-Now, having the MRU storage and the set of owners, we can more formally define the rules these entities are expected to follow.
-
-
-```go
-// data
-var swarmOwners SwarmOwners                // list of resource owners
+var swarmOwners SwarmOwners                // list of resource owners for each key
 var swarmMRU map[string]map[int]SwarmMeta  // MRU storage: key –> version –> content
 
 // rules
@@ -183,19 +170,13 @@ var key     string                         // some key
 var version int                            // some version
 
 ∀ key, ∀ version:
-  // the content stored for specific key and version should be authorized by its owner
+  // the content stored for specific key and version should be properly authorized by its owner
   var meta = swarmMRU[key][version]
-  
+
   assert(meta.Key == key)
   assert(meta.Version == version)
-  
-  assert(
-    SwarmVerify(
-      swarmOwners.Owner(meta.Key),                       // public key
-      meta.Signature,                                    // signature
-      SwarmHash([meta.Key, meta.Version, meta.Content])  // data
-    )
-  )
+  assert(meta.Permission.PublicKey == swarmOwners.Owner(meta.Key))
+  assert(SwarmVerify(meta.Permission, SwarmHash(pack(meta.Key, meta.Version, meta.Content))))
 ```
 
 We can also expect that Swarm will provide stored receipts functionality for the MRU resources. Here we assume the following behavior: every time the resource changes, Swarm issues a receipt for the updated resource key and version along with the new content and owner's signature.
@@ -204,13 +185,13 @@ We can also expect that Swarm will provide stored receipts functionality for the
 // updates the resource associated with the specific resource key
 func SwarmMRUUpdate(meta *SwarmMeta) SwarmReceipt {}
 
-// rules
+// data
 var meta SwarmMeta  // some mutable content
 
+// rules
 ∀ meta:
   var receipt = SwarmMRUUpdate(&meta)
-  
-  assert(receipt.ContentHash == SwarmHash(meta))
+  assert(receipt.ContentHash == SwarmHash(pack(meta)))
 ```
 
 ### Kademlia sidechain
@@ -219,10 +200,10 @@ In fact, Kademlia is not quite an external system but is an essential foundation
 
 ```go
 type SideBlock struct {
-  Height        int64                     // block height
-  PrevBlockHash []byte                    // hash of the previous block
-  Data          []byte                    // block data
-  Signatures    []Seal                    // signatures of the block producers  
+  Height        int64   // block height
+  PrevBlockHash Digest  // hash of the previous block
+  Data          []byte  // block data
+  Signatures    []Seal  // signatures of the block producers
 }
 
 type SideContract struct {
@@ -238,9 +219,8 @@ Every sidechain node also verifies that a checkpointing is performed correctly �
 ```go
 // punishes block producers if blocks are not linked correctly
 func (contract *SideContract) DisputeSideReference(block SideBlock, nextBlock SideBlock) {
-  if nextBlock.PrevBlockHash != Hash(block) && nextBlock.Height == block.Height + 1 {
+  if nextBlock.PrevBlockHash != Hash(pack(block)) && nextBlock.Height == block.Height + 1 {
     // violation! let's punish offending producers!
-    ...
   }
 }
 
@@ -248,28 +228,26 @@ func (contract *SideContract) DisputeSideReference(block SideBlock, nextBlock Si
 func (contract *SideContract) DisputeSideFork(block1 SideBlock, block2 SideBlock) {
   if block1.PrevBlockHash == block2.PrevBlockHash {
     // violation! let's punish offending producers!
-    ...
   }
 }
 
 // punishes sidechain nodes if the block is checkpointed incorrectly
-func (contract *SideContract) DisputeSideCheckpoint(startHeight int, blocks []SideBlock) {
+func (contract *SideContract) DisputeSideCheckpoint(startHeight int64, blocks []SideBlock) {
   var startBlock = contract.Checkpoints[startHeight]
   var endBlock = contract.Checkpoints[startHeight + 1]
-    
+
   // checking that the chain is linked correctly
   for i, block := range blocks {
     var prevBlock SideBlock
-    if (i == 0) { prevBlock = startBlock } else { prevBlock = blocks[i - 1]}      
-    if block.PrevBlockHash != Hash(prevBlock) || block.Height != prevBlock.Height + 1) {
+    if i == 0 { prevBlock = startBlock } else { prevBlock = blocks[i - 1]}
+    if block.PrevBlockHash != Hash(pack(prevBlock)) || (block.Height != prevBlock.Height + 1) {
       // incorrect chain segment, nothing to do here
       return
     }
   }
-  
-  if Hash(blocks[len(blocks) - 1]) != Hash(endBlock) {
+
+  if Hash(pack(blocks[len(blocks) - 1])) != Hash(pack(endBlock)) {
     // violation! let's punish offending sidechain nodes!
-    ...
   }
 }
 ```
@@ -278,7 +256,7 @@ Now, every sidechain node allows producers to upload a new block to it and retur
 
 ```go
 type SideNode struct {
-  Tail []SideBlock  
+  Tail []SideBlock
 }
 
 // appends the block the chain tail and checks it doesn't violate correctness properties
