@@ -82,7 +82,7 @@ class AbciHandler(
     val responseData = queryProcessor.processQuery(req.getPath, req.getHeight, req.getProve).unsafeRunSync()
 
     val queryDuration = queryTimeMeter.millisElapsed
-    logger.info("Query duration={} path={} info={}", queryDuration, req.getPath, responseData.info)
+    logger.debug("Query duration={} info={}", queryDuration, responseData.info)
     queryCounter.inc()
     queryProcessTimeCounter.inc(queryDuration)
 
@@ -164,10 +164,11 @@ class AbciHandler(
         case Left(message) => TxResponseData(None, CodeType.BAD, message)
         case Right(tx) => TxResponseData(Some(tx), CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       }
-      latency = validated.validatedTx
-        .map(tx => validationTimeMeter.millisFromPastToStart(tx.timestamp.toLong))
-        .getOrElse(0)
       validationDuration = validationTimeMeter.millisElapsed
+      latency = validated.validatedTx
+        .map(tx => TimeMeter.millisFromPastToNow(tx.timestamp.toLong) - validationDuration)
+        .map(Math.max(0, _))
+        .getOrElse(0L)
       _ = logger.info(
         "{} {} latency={} validationTime={} {}",
         logDateFormat.get().format(Calendar.getInstance().getTime), // TODO: change the way to print current time

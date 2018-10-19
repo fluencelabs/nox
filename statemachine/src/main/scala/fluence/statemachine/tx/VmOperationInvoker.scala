@@ -33,7 +33,7 @@ import scala.language.higherKinds
  *
  * @param vm VM instance used to make function calls and to retrieve state
  */
-class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) {
+class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends slogging.LazyLogging {
 
   private val vmInvokeCounter: Counter = Counter
     .build()
@@ -63,7 +63,7 @@ class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) {
       .leftMap(VmOperationInvoker.convertToStateMachineError)
 
     val invokeDuration = invokeTimeMeter.millisElapsed
-    println("VmOperationInvoker " + invokeDuration) // TODO: remove
+    logger.debug("VmOperationInvoker duration={}", invokeDuration)
 
     vmInvokeCounter.labels(callDescription.functionName).inc()
     vmInvokeTimeCounter.labels(callDescription.functionName).inc(invokeDuration)
