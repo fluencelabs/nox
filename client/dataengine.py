@@ -16,7 +16,7 @@ limitations under the License.
 """
 
 from __future__ import print_function
-import string, random, time
+import string, random, time, hashlib
 from verify import get_verified_result
 from codec import hex_decode, hex_decode_bytes, hex_encode_bytes, le4b_decode
 
@@ -186,7 +186,8 @@ class DataEngineSession:
 		"""
 		payload = "%s(%s)" % (command, hex_encode_bytes(arg))
 		tx_sign_text = "%s-%s-%d-%s" % (self.client, self.session, self.counter, payload)
-		tx_sign_bytes = tx_sign_text.encode()
+		tx_unhashed_sign_bytes = tx_sign_text.encode()
+		tx_sign_bytes = hashlib.sha256(tx_unhashed_sign_bytes).digest()
 		signature = sign(tx_sign_bytes, self.signing_key)
 		tx_json = str({
 			"tx": {
