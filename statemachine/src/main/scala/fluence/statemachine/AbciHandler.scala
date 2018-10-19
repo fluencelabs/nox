@@ -51,13 +51,13 @@ class AbciHandler(
 
   private val queryCounter: Counter = Counter
     .build()
-    .name("query_count")
-    .help("query_count")
+    .name("solver_query_count")
+    .help("solver_query_count")
     .register()
   private val queryProcessTimeCounter: Counter = Counter
     .build()
-    .name("query_process_time_sum")
-    .help("query_process_time_sum")
+    .name("solver_query_process_time_sum")
+    .help("solver_query_process_time_sum")
     .register()
 
   /**

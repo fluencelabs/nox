@@ -65,6 +65,7 @@ object ServerRunner extends IOApp with LazyLogging {
    * Starts the State machine.
    *
    * @param abciPort port used to listen to Tendermint requests
+   * @param metricsPort port used to provide Prometheus metrics
    */
   private def start(abciPort: Int, metricsPort: Int): EitherT[IO, StateMachineError, Unit] =
     for {

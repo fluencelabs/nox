@@ -157,7 +157,7 @@ timeout_precommit_delta = 500
 timeout_commit = 200
 
 # Make progress as soon as we have all the precommits (as if TimeoutCommit = 0)
-skip_timeout_commit = false
+skip_timeout_commit = true
 
 # EmptyBlocks mode and possible interval between empty blocks in seconds
 create_empty_blocks = false
