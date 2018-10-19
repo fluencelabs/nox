@@ -20,6 +20,7 @@ import cats.Monad
 import cats.data.EitherT
 import cats.effect.LiftIO
 import fluence.statemachine.error.{StateMachineError, VmRuntimeError}
+import fluence.statemachine.util.TimeMeter
 import fluence.vm.{VmError, WasmVm}
 import io.prometheus.client.Counter
 import scodec.bits.Bases.Alphabets.HexUppercase
@@ -54,14 +55,16 @@ class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) {
    * @return either successful invocation's result or failed invocation's error
    */
   def invoke(callDescription: FunctionCallDescription): EitherT[F, StateMachineError, Option[String]] = {
-    val invokeStartTime = System.currentTimeMillis()
+    val invokeTimeMeter = TimeMeter()
 
     val result = vm
       .invoke(callDescription.module, callDescription.functionName, callDescription.arg)
       .map(_.map(ByteVector(_).toHex(HexUppercase)))
       .leftMap(VmOperationInvoker.convertToStateMachineError)
 
-    val invokeDuration = System.currentTimeMillis() - invokeStartTime
+    val invokeDuration = invokeTimeMeter.millisElapsed
+    println("VmOperationInvoker " + invokeDuration) // TODO: remove
+
     vmInvokeCounter.labels(callDescription.functionName).inc()
     vmInvokeTimeCounter.labels(callDescription.functionName).inc(invokeDuration)
 

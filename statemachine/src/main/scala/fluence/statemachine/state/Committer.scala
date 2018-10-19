@@ -25,7 +25,7 @@ import com.google.protobuf.ByteString
 import fluence.statemachine.StoreValue
 import fluence.statemachine.tree.{MerkleTreeNode, StoragePaths, TreeNode}
 import fluence.statemachine.tx.VmOperationInvoker
-import fluence.statemachine.util.HexCodec
+import fluence.statemachine.util.{HexCodec, TimeMeter}
 import io.prometheus.client.Counter
 
 import scala.language.higherKinds
@@ -62,7 +62,7 @@ class Committer[F[_]](
    * @return app hash for Tendermint
    */
   def processCommit(): F[ByteString] = {
-    val commitStartTime = System.currentTimeMillis()
+    val commitTimeMeter = TimeMeter()
 
     stateHolder.modifyStates(
       for {
@@ -72,7 +72,7 @@ class Committer[F[_]](
 
         (state, height) = stateAndHeight
         appHash = ByteString.copyFrom(state.merkleHash.bytes.toArray)
-        _ = logState(state, height, commitStartTime)
+        _ = logState(state, height, commitTimeMeter)
       } yield appHash
     )
   }
@@ -104,8 +104,8 @@ class Committer[F[_]](
       } yield (newStates, (merkelized, height))
   )
 
-  private def logState(state: MerkleTreeNode, height: Long, commitStartTime: Long): Unit = {
-    val commitDuration = System.currentTimeMillis() - commitStartTime
+  private def logState(state: MerkleTreeNode, height: Long, commitTimeMeter: TimeMeter): Unit = {
+    val commitDuration = commitTimeMeter.millisElapsed
     logger.info(
       "{} Commit: processTime={} height={} hash={}",
       commitDateFormat.format(Calendar.getInstance().getTime),

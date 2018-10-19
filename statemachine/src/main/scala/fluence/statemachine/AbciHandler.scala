@@ -27,7 +27,7 @@ import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
-import fluence.statemachine.util.ClientInfoMessages
+import fluence.statemachine.util.{ClientInfoMessages, TimeMeter}
 import io.prometheus.client.Counter
 import slogging.LazyLogging
 
@@ -78,10 +78,10 @@ class AbciHandler(
    * @return `Query` response data
    */
   override def requestQuery(req: RequestQuery): ResponseQuery = {
-    val queryStartTime = System.currentTimeMillis()
+    val queryTimeMeter = TimeMeter()
     val responseData = queryProcessor.processQuery(req.getPath, req.getHeight, req.getProve).unsafeRunSync()
 
-    val queryDuration = System.currentTimeMillis() - queryStartTime
+    val queryDuration = queryTimeMeter.millisElapsed
     logger.info("Query duration={} path={} info={}", queryDuration, req.getPath, responseData.info)
     queryCounter.inc()
     queryProcessTimeCounter.inc(queryDuration)
@@ -124,12 +124,12 @@ class AbciHandler(
     val responseData = (for {
       validated <- validateTx(req.getTx, txParser, deliverTxStateChecker)
 
-      validationEndTime = System.currentTimeMillis()
+      validationTimeMeter = TimeMeter()
       _ <- validated.validatedTx match {
         case None => IO.unit
         case Some(tx) => txProcessor.processNewTx(tx)
       }
-      processingDuration = System.currentTimeMillis() - validationEndTime
+      processingDuration = validationTimeMeter.millisElapsed
       _ = logger.info("DeliverTx processTime={}", processingDuration)
     } yield validated).unsafeRunSync()
     ResponseDeliverTx.newBuilder
@@ -155,7 +155,7 @@ class AbciHandler(
     txParser: TxParser[F],
     txStateChecker: TxStateDependentChecker[F]
   )(implicit F: Monad[F]): F[TxResponseData] = {
-    val validationStartTime = System.currentTimeMillis()
+    val validationTimeMeter = TimeMeter()
     for {
       validated <- (for {
         parsedTx <- txParser.parseTx(txBytes)
@@ -164,11 +164,10 @@ class AbciHandler(
         case Left(message) => TxResponseData(None, CodeType.BAD, message)
         case Right(tx) => TxResponseData(Some(tx), CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       }
-      validationEndTime = System.currentTimeMillis()
-      latency = validationStartTime - validated.validatedTx
-        .map(_.timestamp.toLong)
-        .getOrElse(validationStartTime)
-      validationDuration = validationEndTime - validationStartTime
+      latency = validated.validatedTx
+        .map(tx => validationTimeMeter.millisFromPastToStart(tx.timestamp.toLong))
+        .getOrElse(0)
+      validationDuration = validationTimeMeter.millisElapsed
       _ = logger.info(
         "{} {} latency={} validationTime={} {}",
         logDateFormat.get().format(Calendar.getInstance().getTime), // TODO: change the way to print current time

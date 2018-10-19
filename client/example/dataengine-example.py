@@ -65,7 +65,7 @@ def demo_queries(addr, genesis, send_wrong=False, send_closed=True, session=None
 def demo_many_queries(addr, genesis):
     eng = DataEngine(addr, genesis)
     s = eng.new_session(get_client(), get_signing_key())
-    for _ in range(0, 500):
+    for _ in range(0, 15):
         submit_inc(s)
     print(submit_get(s).result_num())
     s.close()
