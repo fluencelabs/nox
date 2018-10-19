@@ -94,9 +94,8 @@ unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
 
 /// Acquires lock, does query, releases lock, returns query result
 fn run_query(sql_query: &str) -> GenResult<String> {
-    let statement = llamadb::sqlsyntax::parse_statement(sql_query)?;
     let mut db = DATABASE.lock()?;
-    let result = db.execute_statement(statement)
+    let result = db.do_query(sql_query)
         .map(statement_to_string)
         .map_err(Into::into);
     result
@@ -123,6 +122,9 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
 
             col_names + &rows_as_str
         }
+        ExecuteStatementResponse::Deleted(number) => {
+            format!("rows deleted: {}", number)
+        }
         ExecuteStatementResponse::Explain(result) => {
             result.clone()
         }
@@ -135,16 +137,16 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
 unsafe fn put_to_mem(str: String) -> *mut u8 {
     // converting string size to bytes in little-endian order
     let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str.len() as u32).to_le());
-    let mut result: Vec<u8> = Vec::with_capacity(STR_LEN_BYTES + str.len());
+    let total_len = STR_LEN_BYTES
+        .checked_add(str.len())
+        .expect("usize overflow occurred");;
+
+    let mut result: Vec<u8> = Vec::with_capacity(total_len);
     result.write_all(&len_as_bytes).unwrap();
     result.write_all(str.as_bytes()).unwrap();
 
-    let result_ptr = allocate(result.len()).as_ptr();
-
-    // writes bytes into memory byte-by-byte. Address of first byte will be == `ptr`
-    for (idx, byte) in result.iter().enumerate() {
-        std::ptr::write(result_ptr.offset(idx as isize), *byte);
-    }
+    let result_ptr = allocate(total_len).as_ptr();
+    std::ptr::copy(result.as_ptr(), result_ptr, total_len);
 
     result_ptr
 }
