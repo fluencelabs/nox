@@ -1,11 +1,11 @@
 package protocol
 
 type Manifest struct {
-  Header                Header        // block header
-  LastCommit            []Seal        // Tendermint nodes signatures for the previous block
-  TxsSwarmHash          Digest        // Swarm hash of the block transactions
-  VMStateHash           Digest        // virtual machine state hash after the previous block
-  LastManifestSwarmHash Digest        // Swarm hash of the previous manifest
+  Header              Header        // block header
+  VMStateHash         Digest        // virtual machine state hash after the previous block
+  LastCommit          []Seal        // Tendermint nodes signatures for the previous block
+  TxsReceipt          SwarmReceipt  // Swarm hash of the block transactions
+  LastManifestReceipt SwarmReceipt  // Swarm hash of the previous manifest
 }
 
 // creates a new manifest from the block and the previous block
@@ -23,10 +23,11 @@ func TendermintBlockSwarmUploadExample() {
 
   // ∀ k:
     assertEq(manifests[k].Header, blocks[k].Header)
-    assertEq(manifests[k].LastCommit, blocks[k].LastCommit)
-    assertEq(manifests[k].TxsSwarmHash, SwarmHash(pack(blocks[k].Txs)))
     assertEq(manifests[k].VMStateHash, MerkleRoot(vmStates[k].Chunks))
-    assertEq(manifests[k].LastManifestSwarmHash, SwarmHash(pack(manifests[k - 1])))
+    assertEq(manifests[k].LastCommit, blocks[k].LastCommit)
+
+    assertEq(manifests[k].TxsReceipt.ContentHash, SwarmHash(pack(blocks[k].Txs)))
+    assertEq(manifests[k].LastManifestReceipt.ContentHash, SwarmHash(pack(manifests[k - 1])))
 
     assertEq(swarm[SwarmHash(pack(manifests[k]))], pack(manifests[k]))
     assertEq(swarm[SwarmHash(pack(blocks[k].Txs))], pack(blocks[k].Txs))

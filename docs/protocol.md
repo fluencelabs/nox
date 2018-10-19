@@ -320,10 +320,10 @@ Tendermint consensus engine produces new blocks filled with client supplied tran
 
 ```go
 // listed Tendermint functions carry the same meaning and arguments as core functions 
-func TmHash(data []byte) Digest { panic("") }
-func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
-func TmVerify(seal Seal, digest Digest) bool { panic("") }
-func TmMerkleRoot(allChunks []Chunk) Digest { panic("") }
+func TmHash(data []byte) Digest {}
+func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
+func TmVerify(seal Seal, digest Digest) bool {}
+func TmMerkleRoot(allChunks []Chunk) Digest {}
 ```
 
 Tendermint periodically pulls few transactions from the mempool and forms a new block. Nodes participating in consensus sign produced blocks, however their signatures for a specific block are available only as a part of the next block.
@@ -343,11 +343,11 @@ type Header struct {
 }
 
 // data
-var blocks      []Block  // Tendermint blockchain
+var blocks []Block // Tendermint blockchain
 
 // rules
-var k int64              // some block number
-var i int                // some Tendermint node index
+var k int64        // some block number
+var i int          // some Tendermint node index
 
 ∀ k:
   assertEq(blocks[k].Header.LastBlockHash, TmMerkleRoot(packMulti(blocks[k - 1].Header)))
@@ -370,7 +370,7 @@ type VMState struct {
 }
 
 // applies block transactions to the virtual machine state to produce the new state
-func NextVMState(vmState *VMState, txs []Transaction) VMState { panic("") }
+func NextVMState(vmState *VMState, txs []Transaction) VMState {}
   
 // data
 var blocks   []Block    // Tendermint blockchain
@@ -387,11 +387,11 @@ Once the block is processed by the WebAssembly VM, it has to be stored in Swarm 
 
 ```go
 type Manifest struct {
-  Header                Header        // block header
-  LastCommit            []Seal        // Tendermint nodes signatures for the previous block
-  TxsSwarmHash          Digest        // Swarm hash of the block transactions
-  VMStateHash           Digest        // virtual machine state hash after the previous block
-  LastManifestSwarmHash Digest        // Swarm hash of the previous manifest
+  Header              Header        // block header
+  VMStateHash         Digest        // virtual machine state hash after the previous block
+  LastCommit          []Seal        // Tendermint nodes signatures for the previous block
+  TxsReceipt          SwarmReceipt  // Swarm hash of the block transactions
+  LastManifestReceipt SwarmReceipt  // Swarm hash of the previous manifest
 }
 
 // creates a new manifest from the block and the previous block
@@ -408,10 +408,11 @@ var k int                        // some block number
 
 ∀ k:
   assertEq(manifests[k].Header, blocks[k].Header)
-  assertEq(manifests[k].LastCommit, blocks[k].LastCommit)
-  assertEq(manifests[k].TxsSwarmHash, SwarmHash(pack(blocks[k].Txs)))
   assertEq(manifests[k].VMStateHash, MerkleRoot(vmStates[k].Chunks))
-  assertEq(manifests[k].LastManifestSwarmHash, SwarmHash(pack(manifests[k - 1])))
+  assertEq(manifests[k].LastCommit, blocks[k].LastCommit)
+
+  assertEq(manifests[k].TxsReceipt.ContentHash, SwarmHash(pack(blocks[k].Txs)))
+  assertEq(manifests[k].LastManifestReceipt.ContentHash, SwarmHash(pack(manifests[k - 1])))
 
   assertEq(swarm[SwarmHash(pack(manifests[k]))], pack(manifests[k]))
   assertEq(swarm[SwarmHash(pack(blocks[k].Txs))], pack(blocks[k].Txs))
@@ -444,33 +445,41 @@ type QueryResults struct {
   Chunks           map[int]Chunk    // selected virtual machine state chunks
   ChunksProofs     []MerkleProof    // Merkle proofs: chunks belong to the virtual machine state
   Manifests        [3]Manifest      // block manifests
-  ManifestReceipts [3]SwarmReceipt  // Swarm receipts for block manifests
-  TxsReceipt       SwarmReceipt     // Swarm receipt for block transactions
 }
 
-  // data
-  var blocks         []Block        // Tendermint blockchain
-  var vmStates       []VMState      // virtual machine states
-  var manifests      []Manifest     // manifests for blocks stored in Swarm
+// data
+var vmStates       []VMState      // virtual machine states
+var manifests      []Manifest     // manifests for blocks stored in Swarm
 
-  // rules
-  var k       int                   // some block number
-  var t       int                   // some virtual machine state chunk number
-  var p       int                   // some manifest index
+// rules
+var k       int                   // some block number
+var t       int                   // some virtual machine state chunk number
+var p       int                   // some manifest index
 
-  var results QueryResults          // results returned for the block `k`
+var results QueryResults          // results returned for the block `k`
 
-  ∀ k:
-    ∀ t ∈ range results.Chunks:
-      assertEq(results.Chunks[t], vmStates[k + 1].Chunks[t])
-      assertEq(results.ChunksProofs[t], CreateMerkleProof(t, results.Chunks[t], vmStates[k + 1].Chunks))
+// ∀ k:
+  // ∀ t ∈ range results.Chunks:
+    assertEq(results.Chunks[t], vmStates[k + 1].Chunks[t])
+    assertEq(results.ChunksProofs[t], CreateMerkleProof(t, results.Chunks[t], vmStates[k + 1].Chunks))
 
-    ∀ p ∈ [0, 3):
-      assertEq(results.Manifests[p], manifests[k + p])
-      assertEq(results.ManifestReceipts[p], SwarmUpload(pack(results.Manifests[p])))
-
-      assertEq(results.TxsReceipt, SwarmUpload(pack(blocks[k].Txs)))
+  // ∀ p ∈ [0, 3):
+    assertEq(results.Manifests[p], manifests[k + p])
 ```
+
+Manifests connectivity through Tendermint:
+
+<p align="center">
+  <img src="images/manifests_signatures.png" alt="Manifests Signatures" width="787px"/>
+</p>
+
+Manifests connectivity through Swarm:
+
+<p align="center">
+  <img src="images/manifests_receipts.png" alt="Manifests Receipts" width="550px"/>
+</p>
+
+
 
 ### Block progress verification
 
