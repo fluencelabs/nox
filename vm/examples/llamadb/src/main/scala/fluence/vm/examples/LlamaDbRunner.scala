@@ -33,49 +33,61 @@ object LlamaDbRunner extends IOApp {
       vm ← WasmVm[IO](Seq(inputFile))
       initState ← vm.getVmState[IO]
 
-      createTableSql = "create table USERS(id int, name varchar(128), age int)"
+      createTableSql = "CREATE TABLE Users(id INT, name VARCHAR(128), age INT)"
       res1 ← vm.invoke[IO](None, "do_query", createTableSql.getBytes())
       state1 ← vm.getVmState[IO]
 
-      insertOne = "insert into USERS values(1, 'Sara', 23)"
+      insertOne = "INSERT INTO Users VALUES(1, 'Sara', 23)"
       res2 ← vm.invoke[IO](None, "do_query", insertOne.getBytes())
       state2 ← vm.getVmState[IO]
 
-      bulkInsert = "insert into USERS values(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)"
+      bulkInsert = "INSERT INTO Users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)"
       res3 ← vm.invoke[IO](None, "do_query", bulkInsert.getBytes())
       state3 ← vm.getVmState[IO]
 
-      emptySelect = "select * from USERS where name = 'unknown'"
+      emptySelect = "SELECT * FROM Users WHERE name = 'unknown'"
       res4 ← vm.invoke[IO](None, "do_query", emptySelect.getBytes())
       state4 ← vm.getVmState[IO]
 
-      selectAll = "select id, name from USERS"
+      selectAll = "SELECT id, name FROM Users"
       res5 ← vm.invoke[IO](None, "do_query", selectAll.getBytes())
       state5 ← vm.getVmState[IO]
 
-      explain = "explain select id, name from USERS"
+      explain = "EXPLAIN SELECT id, name FROM Users"
       res6 ← vm.invoke[IO](None, "do_query", explain.getBytes())
       state6 ← vm.getVmState[IO]
 
-      createTable2Sql = "create table ROLES(user_id int, role varchar(128))"
+      createTable2Sql = "CREATE TABLE Roles(user_id INT, role VARCHAR(128))"
       res7 ← vm.invoke[IO](None, "do_query", createTable2Sql.getBytes())
       state7 ← vm.getVmState[IO]
 
-      bulkInsert2 = "insert into ROLES values(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')"
+      bulkInsert2 = "INSERT INTO Roles VALUES(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')"
       res8 ← vm.invoke[IO](None, "do_query", bulkInsert2.getBytes())
       state8 ← vm.getVmState[IO]
 
-      selectWithJoin = "select u.name as Name, r.role as Role from USERS u join ROLES r on u.id = r.user_id where r.role = 'Writer'"
+      selectWithJoin = "SELECT u.name AS Name, r.role AS Role FROM Users u JOIN Roles r ON u.id = r.user_id WHERE r.role = 'Writer'"
       res9 ← vm.invoke[IO](None, "do_query", selectWithJoin.getBytes())
       state9 ← vm.getVmState[IO]
 
-      badQuery = "select salary from USERS"
+      badQuery = "SELECT salary FROM Users"
       res10 ← vm.invoke[IO](None, "do_query", badQuery.getBytes())
       state10 ← vm.getVmState[IO]
 
       parserError = "123"
       res11 ← vm.invoke[IO](None, "do_query", parserError.getBytes())
       state11 ← vm.getVmState[IO]
+
+      incompatibleType = "SELECT * FROM Users WHERE age = 'Bob'"
+      res12 ← vm.invoke[IO](None, "do_query", incompatibleType.getBytes())
+      state12 ← vm.getVmState[IO]
+
+      deleteQuery = "DELETE FROM Users WHERE id = (SELECT user_id FROM Roles WHERE role = 'Student')"
+      res13 ← vm.invoke[IO](None, "do_query", deleteQuery.getBytes())
+      state13 ← vm.getVmState[IO]
+
+      truncateQuery = "TRUNCATE TABLE Users"
+      res14 ← vm.invoke[IO](None, "do_query", truncateQuery.getBytes())
+      state14 ← vm.getVmState[IO]
 
       finishState ← vm.getVmState[IO].toVmError
     } yield {
@@ -90,6 +102,9 @@ object LlamaDbRunner extends IOApp {
         s"$selectWithJoin >> \n${res9.toStr} \nvmState=$state9\n" +
         s"$badQuery >> \n${res10.toStr} \n vmState=$state10\n" +
         s"$parserError >> \n${res11.toStr} \n vmState=$state11\n" +
+        s"$incompatibleType >> \n${res12.toStr} \n vmState=$state12\n" +
+        s"$deleteQuery >> \n${res13.toStr} \n vmState=$state13\n" +
+        s"$truncateQuery >> \n${res14.toStr} \n vmState=$state14\n" +
         s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
         s"finishState=$finishState"
