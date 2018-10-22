@@ -118,6 +118,9 @@ type SwarmReceipt struct {
 // uploads the content to the Swarm network, returns a receipt of responsibility
 func SwarmUpload(content []byte) SwarmReceipt {}
 
+// downloads the content from the Swarm network using the supplied receipt
+func SwarmDownload(receipt SwarmReceipt) []byte {}
+
 // data
 var content []byte // some content
 
@@ -193,19 +196,19 @@ var meta SwarmMeta  // some mutable content
 
 ### Kademlia sidechain
 
-In fact, Kademlia is not quite an external system but is an essential foundation of the Fluence network. However, for our protocol we use it as a some kind of a sidechain which periodically checkpoints selected blocks to the root chain – Ethereum. Blocks stored in Kademlia sidechain are really tiny compared to the overall data volumes flowing through the network – it's expected they will contain only Swarm receipts and producers signatures most of the time.
+In fact, Kademlia is not quite an external system but is an essential foundation of the Fluence network. However, for our protocol we use it as a some kind of a sidechain which periodically checkpoints selected blocks to the root chain – Ethereum. Blocks stored in Kademlia sidechain are really tiny compared to the overall data volumes flowing through the network – they contain only Swarm receipts and producers signatures.
 
 ```go
 type SideBlock struct {
-  Height        int64   // block height
-  PrevBlockHash Digest  // hash of the previous block
-  Data          []byte  // block data
-  Signatures    []Seal  // signatures of the block producers
+  Height        int64         // side block height
+  PrevBlockHash Digest        // hash of the previous side block
+  Receipt       SwarmReceipt  // Swarm receipt for the content associated with the side block
+  Signatures    []Seal        // signatures of the side block producers
 }
 
 type SideContract struct {
-  CheckpointInterval int                  // how often the blocks should be checkpointed
-  Checkpoints        map[int64]SideBlock  // checkpoints: block height –> block
+  CheckpointInterval int          // how often blocks should be checkpointed
+  Checkpoints        []SideBlock  // block checkpoints
 }
 ```
 
@@ -229,21 +232,21 @@ func (contract *SideContract) DisputeSideFork(block1 SideBlock, block2 SideBlock
 }
 
 // punishes sidechain nodes if the block is checkpointed incorrectly
-func (contract *SideContract) DisputeSideCheckpoint(startHeight int64, blocks []SideBlock) {
-  var startBlock = contract.Checkpoints[startHeight]
-  var endBlock = contract.Checkpoints[startHeight + 1]
+func (contract *SideContract) DisputeSideCheckpoint(index int, blocks []SideBlock) {
+  var prevCheckpoint = contract.Checkpoints[index - 1]
+  var checkpoint = contract.Checkpoints[index]
 
   // checking that the chain is linked correctly
   for i, block := range blocks {
     var prevBlock SideBlock
-    if i == 0 { prevBlock = startBlock } else { prevBlock = blocks[i - 1]}
+    if i == 0 { prevBlock = prevCheckpoint } else { prevBlock = blocks[i - 1]}
     if block.PrevBlockHash != Hash(pack(prevBlock)) || (block.Height != prevBlock.Height + 1) {
       // incorrect chain segment, nothing to do here
       return
     }
   }
 
-  if Hash(pack(blocks[len(blocks) - 1])) != Hash(pack(endBlock)) {
+  if Hash(pack(blocks[len(blocks) - 1])) != Hash(pack(checkpoint)) {
     // violation! let's punish offending sidechain nodes!
   }
 }
@@ -257,7 +260,7 @@ type SideNode struct {
 }
 
 // appends the block the chain tail and checks it doesn't violate correctness properties
-func (node *SideNode) UploadBlock(block *SideBlock) Seal {}
+func (node *SideNode) UploadBlock(block SideBlock) Seal {}
 ```
 
 ## Initial setup
@@ -284,6 +287,8 @@ type Transaction struct {
   Invoke []byte  // function name & arguments + required metadata
   Seal   Seal    // client signature of the transaction
 }
+
+type Transactions = []Transaction
 ```
 
 ## Real-time processing
@@ -332,7 +337,7 @@ Tendermint periodically pulls few transactions from the mempool and forms a new 
 type Block struct {
   Header     Header         // block header
   LastCommit []Seal         // Tendermint nodes votes for the previous block
-  Txs        []Transaction  // transactions as sent by clients
+  Txs        Transactions   // transactions as sent by clients
 }
 
 type Header struct {
@@ -370,7 +375,7 @@ type VMState struct {
 }
 
 // produces the new state by applying block transactions to the old VM state
-func NextVMState(vmState VMState, txs []Transaction) VMState {}
+func NextVMState(vmState VMState, txs Transactions) VMState {}
 ```
 
 Once the block is processed by the WebAssembly VM, it has to be stored in Swarm for the future batch validation. Two separate pieces are actually stored in Swarm for each Tendermint block: the block manifest and the transactions list.
@@ -554,5 +559,30 @@ func VerifyResponseChunks(results QueryResponse) {
   for k := range results.Chunks {
     assertTrue(VerifyMerkleProof(results.Chunks[k], results.Proofs[k], results.Manifests[0].VMStateHash))
   }
+}
+```
+
+## Batch validation
+
+Batch validators are able to locate blocks that should be checked using the checkpoints stored in Ethereum contract. The validator chooses one of the checkpoints and downloads the manifest complementary to it using available Swarm receipt. Now, the validator can unwind the chain until the next checkpoint by following receipts stored in each manifest and also download corresponding transactions.
+
+```go
+func FetchSubchain(sideContract SideContract, index int) ([]Manifest, []Transactions) {
+  var prevCheckpoint = sideContract.Checkpoints[index - 1]
+  var checkpoint = sideContract.Checkpoints[index]
+
+  var count = checkpoint.Height - prevCheckpoint.Height
+  var manifests = make([]Manifest, count)
+  var txss = make([][]Transaction, count)
+  
+  var receipt = checkpoint.Receipt
+  for i := count - 1; i >= 0; i-- {
+    manifests[i] = ManifestUnpack(SwarmDownload(receipt))
+    txss[i] = TransactionsUnpack(SwarmDownload(manifests[i].TxsReceipt))
+
+    receipt = manifests[i].LastManifestReceipt
+  }
+
+  return manifests, txss
 }
 ```
