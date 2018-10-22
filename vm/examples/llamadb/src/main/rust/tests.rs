@@ -81,6 +81,10 @@ fn integration_sql_test() {
     println!("{}", delete);
     assert_eq!(delete, "rows deleted: 1");
 
+    let update_query = execute_sql("UPDATE Users SET name = 'Min' WHERE name = 'Max'".to_string());
+    println!("{}", update_query);
+    assert_eq!(update_query, "rows updated: 1");
+
     //
     // Error cases.
     //
@@ -110,10 +114,6 @@ fn integration_sql_test() {
     let not_supported_drop = execute_sql("DROP TABLE Users".to_string());
     println!("{}", not_supported_drop);
     assert_eq!(not_supported_drop, "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got Ident(\"DROP\")");
-
-    let not_supported_update= execute_sql("UPDATE Users SET name = 'Rob' WHERE name = 'Bob'".to_string());
-    println!("{}", not_supported_update);
-    assert_eq!(not_supported_update, "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got Update");
 
     let not_supported_order_by = execute_sql("SELECT * FROM Users ORDER BY name".to_string());
     println!("{}", not_supported_order_by);

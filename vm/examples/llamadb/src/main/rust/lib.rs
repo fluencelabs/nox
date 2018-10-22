@@ -128,6 +128,9 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
         ExecuteStatementResponse::Explain(result) => {
             result.clone()
         }
+        ExecuteStatementResponse::Updated(number) => {
+            format!("rows updated: {}", number)
+        }
     }
 }
 

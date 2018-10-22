@@ -85,9 +85,14 @@ object LlamaDbRunner extends IOApp {
       res13 ← vm.invoke[IO](None, "do_query", deleteQuery.getBytes())
       state13 ← vm.getVmState[IO]
 
-      truncateQuery = "TRUNCATE TABLE Users"
-      res14 ← vm.invoke[IO](None, "do_query", truncateQuery.getBytes())
+      updateQuery = "UPDATE Roles r SET r.role = 'Professor' WHERE r.user_id = " +
+        "(SELECT id FROM Users WHERE name = 'Sara')"
+      res14 ← vm.invoke[IO](None, "do_query", updateQuery.getBytes())
       state14 ← vm.getVmState[IO]
+
+      truncateQuery = "TRUNCATE TABLE Users"
+      res15 ← vm.invoke[IO](None, "do_query", truncateQuery.getBytes())
+      state15 ← vm.getVmState[IO]
 
       finishState ← vm.getVmState[IO].toVmError
     } yield {
@@ -104,7 +109,8 @@ object LlamaDbRunner extends IOApp {
         s"$parserError >> \n${res11.toStr} \n vmState=$state11\n" +
         s"$incompatibleType >> \n${res12.toStr} \n vmState=$state12\n" +
         s"$deleteQuery >> \n${res13.toStr} \n vmState=$state13\n" +
-        s"$truncateQuery >> \n${res14.toStr} \n vmState=$state14\n" +
+        s"$updateQuery >> \n${res14.toStr} \n vmState=$state14\n" +
+        s"$truncateQuery >> \n${res15.toStr} \n vmState=$state15\n" +
         s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
         s"finishState=$finishState"
