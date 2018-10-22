@@ -27,7 +27,7 @@ import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
-import fluence.statemachine.util.{ClientInfoMessages, TimeMeter}
+import fluence.statemachine.util.{ClientInfoMessages, Metrics, TimeMeter}
 import io.prometheus.client.Counter
 import slogging.LazyLogging
 
@@ -49,16 +49,8 @@ class AbciHandler(
 
   private val logDateFormat = ThreadLocal.withInitial[SimpleDateFormat](() => new SimpleDateFormat("hh:mm:ss.SSS"))
 
-  private val queryCounter: Counter = Counter
-    .build()
-    .name("solver_query_count")
-    .help("solver_query_count")
-    .register()
-  private val queryProcessTimeCounter: Counter = Counter
-    .build()
-    .name("solver_query_process_time_sum")
-    .help("solver_query_process_time_sum")
-    .register()
+  private val queryCounter: Counter = Metrics.registerCounter("solver_query_count")
+  private val queryProcessTimeCounter: Counter = Metrics.registerCounter("solver_query_process_time_sum")
 
   /**
    * Handler for `Commit` ABCI method (processed in Consensus thread).

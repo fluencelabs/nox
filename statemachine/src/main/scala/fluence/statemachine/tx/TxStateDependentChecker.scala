@@ -18,7 +18,7 @@ package fluence.statemachine.tx
 import cats.Monad
 import cats.data.EitherT
 import fluence.statemachine.tree.{StoragePaths, TreeNode}
-import fluence.statemachine.util.ClientInfoMessages
+import fluence.statemachine.util.{ClientInfoMessages, Metrics}
 import io.prometheus.client.Counter
 
 import scala.language.higherKinds
@@ -31,21 +31,12 @@ import scala.language.higherKinds
  * @param state state against which checking is applied
  */
 class TxStateDependentChecker[F[_]: Monad](val name: String, state: F[TreeNode]) {
-  private val txCounter: Counter = Counter
-    .build()
-    .name(s"solver_${name.toLowerCase}_count")
-    .help(s"solver_${name.toLowerCase}_count")
-    .register()
-  private val txLatencyCounter: Counter = Counter
-    .build()
-    .name(s"solver_${name.toLowerCase}_latency_sum")
-    .help(s"solver_${name.toLowerCase}_latency_sum")
-    .register()
-  private val txValidationTimeCounter: Counter = Counter
-    .build()
-    .name(s"solver_${name.toLowerCase}_validation_time_sum")
-    .help(s"solver_${name.toLowerCase}_validation_time_sum")
-    .register()
+  private val txCounter: Counter =
+    Metrics.registerCounter(s"solver_${name.toLowerCase}_count")
+  private val txLatencyCounter: Counter =
+    Metrics.registerCounter(s"solver_${name.toLowerCase}_latency_sum")
+  private val txValidationTimeCounter: Counter =
+    Metrics.registerCounter(s"solver_${name.toLowerCase}_validation_time_sum")
 
   /**
    * Checks whether given `tx` is unique and its state is active against provided [[state]].

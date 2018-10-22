@@ -203,7 +203,7 @@ class DataEngineSession:
 		}).replace("'", '"').replace('u"', '"')
 		target_key = "@meta/%s/%s/%d" % (self.client, self.session, self.counter)
 		
-		print("submitting", tx_sign_text)
+		print("submitting", tx_sign_text, signature)
 		tx_response = self.engine.tm.broadcast_tx_sync(tx_json)
 		if "result" not in tx_response:
 			print(tx_response["error"]["data"])

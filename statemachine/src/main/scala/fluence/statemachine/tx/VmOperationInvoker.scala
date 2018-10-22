@@ -20,7 +20,7 @@ import cats.Monad
 import cats.data.EitherT
 import cats.effect.LiftIO
 import fluence.statemachine.error.{StateMachineError, VmRuntimeError}
-import fluence.statemachine.util.TimeMeter
+import fluence.statemachine.util.{Metrics, TimeMeter}
 import fluence.vm.{VmError, WasmVm}
 import io.prometheus.client.Counter
 import scodec.bits.Bases.Alphabets.HexUppercase
@@ -35,18 +35,8 @@ import scala.language.higherKinds
  */
 class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends slogging.LazyLogging {
 
-  private val vmInvokeCounter: Counter = Counter
-    .build()
-    .name("solver_vm_invoke_counter")
-    .help("solver_vm_invoke_counter")
-    .labelNames("method")
-    .register()
-  private val vmInvokeTimeCounter: Counter = Counter
-    .build()
-    .name("solver_vm_invoke_time_sum")
-    .help("solver_vm_invoke_time_sum")
-    .labelNames("method")
-    .register()
+  private val vmInvokeCounter: Counter = Metrics.registerCounter("solver_vm_invoke_counter", "method")
+  private val vmInvokeTimeCounter: Counter = Metrics.registerCounter("solver_vm_invoke_time_sum", "method")
 
   /**
    * Invokes the provided invocation description using the underlying VM.

@@ -25,7 +25,7 @@ import com.google.protobuf.ByteString
 import fluence.statemachine.StoreValue
 import fluence.statemachine.tree.{MerkleTreeNode, StoragePaths, TreeNode}
 import fluence.statemachine.tx.VmOperationInvoker
-import fluence.statemachine.util.{HexCodec, TimeMeter}
+import fluence.statemachine.util.{HexCodec, Metrics, TimeMeter}
 import io.prometheus.client.Counter
 
 import scala.language.higherKinds
@@ -45,16 +45,9 @@ class Committer[F[_]](
   private val WrongVmHashValue: StoreValue = "wrong_vm_hash"
 
   private val commitDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
-  private val commitCounter: Counter = Counter
-    .build()
-    .name("solver_commit_count")
-    .help("solver_commit_count")
-    .register()
-  private val commitTimeCounter: Counter = Counter
-    .build()
-    .name("solver_commit_time_sum")
-    .help("solver_commit_time_sum")
-    .register()
+
+  private val commitCounter: Counter = Metrics.registerCounter("solver_commit_count")
+  private val commitTimeCounter: Counter = Metrics.registerCounter("solver_commit_time_sum")
 
   /**
    * Handles `Commit` ABCI method (in Consensus thread).

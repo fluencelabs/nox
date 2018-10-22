@@ -28,6 +28,7 @@ import fluence.statemachine.contract.ClientRegistry
 import fluence.statemachine.error.{ConfigLoadingError, StateMachineError, VmModuleLocationError}
 import fluence.statemachine.state._
 import fluence.statemachine.tx.{TxParser, TxProcessor, TxStateDependentChecker, VmOperationInvoker}
+import fluence.statemachine.util.Metrics
 import fluence.vm.WasmVm
 import io.prometheus.client.exporter.MetricsServlet
 import org.eclipse.jetty.server.Server
@@ -125,6 +126,9 @@ object ServerRunner extends IOApp with LazyLogging {
       moduleFilenames <- moduleFilesFromConfig[IO](config)
       _ = logger.info("Loading VM modules from " + moduleFilenames)
       vm <- buildVm[IO](moduleFilenames)
+
+      _ = Metrics.resetCollectors()
+
       vmInvoker = new VmOperationInvoker[IO](vm)
 
       initialState <- EitherT.right(MVar[IO].of(TendermintState.initial))
