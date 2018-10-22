@@ -58,8 +58,9 @@ fn integration_sql_test() {
     println!("{}", empty_select);
     assert_eq!(empty_select, "id, name, age\n");
 
-    let select_all = execute_sql("SELECT * FROM Roles".to_string());
-    assert_eq!(select_all, "user_id, role\n1, Teacher\n2, Student\n3, Scientist\n4, Writer");
+    let select_all = execute_sql("SELECT min(user_id) as min, max(user_id) as max, \
+        count(user_id) as count, sum(user_id) as sum, avg(user_id) as avg FROM Roles".to_string());
+    assert_eq!(select_all, "min, max, count, sum, avg\n1, 4, 4, 10, 2.5");
     println!("{}", select_all);
 
     let select_with_join = execute_sql("SELECT u.name AS Name, r.role AS Role FROM Users u JOIN Roles \
@@ -131,26 +132,26 @@ fn integration_sql_test() {
 /// Executes sql and returns result as a String.
 fn execute_sql(sql: String) -> String { unsafe {
 
+    let sql_str_real_len = sql.len();
     // converts params
     let sql_str_ptr = super::put_to_mem(sql);
     let sql_str_len = read_size(sql_str_ptr) as usize;
+    assert_eq!(&sql_str_real_len, &sql_str_len);
 
     // executes query
     let result_str_ptr = super::do_query(sql_str_ptr.offset(STR_LEN_BYTES as isize), sql_str_len) as *mut u8;
+
     // converts results
     let result_str_len = read_size(result_str_ptr) as usize;
     let result_str = super::deref_str(result_str_ptr.offset(STR_LEN_BYTES as isize), result_str_len);
 
+    assert_eq!(result_str_len, result_str.len());
     result_str
 }}
 
 /// Reads u32 from current pointer.
 unsafe fn read_size(ptr: *mut u8) -> u32 {
     let mut size_as_bytes: [u8; STR_LEN_BYTES] = [0; STR_LEN_BYTES];
-    for idx in 0..(STR_LEN_BYTES as isize) {
-        let byte = std::ptr::read(ptr.offset(idx));
-        size_as_bytes[idx as usize] = byte;
-    }
-
+    std::ptr::copy_nonoverlapping(ptr, size_as_bytes.as_mut_ptr(), STR_LEN_BYTES);
     std::mem::transmute(size_as_bytes)
 }
