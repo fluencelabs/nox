@@ -29,7 +29,7 @@ import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
 
   private val config =
-    StateMachineConfig(8, List("vm/src/test/resources/wast/mul.wast", "vm/src/test/resources/wast/counter.wast"), "OFF")
+    StateMachineConfig(8, List("statemachine/docker/examples/vmcode-counter"), "OFF")
 
   val abciHandler: AbciHandler = ServerRunner
     .buildAbciHandler(config)
@@ -122,13 +122,12 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     "return correct initial tree root hash" in {
       sendCommit()
       // the tree containing VM state hash only
-      //latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
+      latestAppHash shouldBe "CED687708BB077AFFF670943B503E30035E1FA4B56535B77A204BF80F5E51C3B"
     }
 
     "process correct tx/query sequence" in {
       sendCommit()
       sendCommit()
-      //latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendCheckTx(tx0)
       sendCheckTx(tx1)
@@ -137,7 +136,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendDeliverTx(tx0)
       sendCommit()
-      //latestAppHash shouldBe "14072A6C1505952277A0CA2EC4E62D43D032ADEDD9B8969BA9AF16635A7928B8"
+      latestAppHash shouldBe "7D9A461A4E9DFE9EDC27987A312742D2A1ABE9AEB599735584FDB3EE2D1E8AB9"
 
       sendCheckTx(tx1)
       sendCheckTx(tx2)
@@ -147,7 +146,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
       sendCommit()
-      //latestAppHash shouldBe "AB03E9F9100E6E22073E1013AADB5D5460CFAF56DB216D5B5DE10B4685EAB788"
+      latestAppHash shouldBe "1C454D7C6481F54CBFC184EF5300222EBB63935566FBDACAC5C868EE3F4E9969"
 
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendCommit()
@@ -156,7 +155,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(2)).toStoreValue)
 
       latestCommittedHeight shouldBe 5
-      //latestAppHash shouldBe "E7CA2973D0E0CF4ECBED00A3B107D3174FB33E8F3B458A5940E643D268104CB3"
+      latestAppHash shouldBe "1C454D7C6481F54CBFC184EF5300222EBB63935566FBDACAC5C868EE3F4E9969"
     }
 
     "invoke session txs in session counter order" in {
@@ -187,32 +186,30 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     "ignore incorrectly signed tx" in {
       sendCommit()
       sendCommit()
-      //latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       val txWithWrongSignature = tx(client, session, 0, "inc()", "bad_signature")
       sendCheckTx(txWithWrongSignature) shouldBe (CodeType.BAD, ClientInfoMessages.InvalidSignature)
       sendDeliverTx(txWithWrongSignature) shouldBe (CodeType.BAD, ClientInfoMessages.InvalidSignature)
 
       sendCommit()
-      //latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
+      latestAppHash shouldBe "CED687708BB077AFFF670943B503E30035E1FA4B56535B77A204BF80F5E51C3B"
     }
 
     "ignore duplicated tx" in {
       sendCommit()
       sendCommit()
-      //latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendCheckTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       sendDeliverTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       // Mempool state updated only on commit!
       sendCheckTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       sendCommit()
-      //latestAppHash shouldBe "14072A6C1505952277A0CA2EC4E62D43D032ADEDD9B8969BA9AF16635A7928B8"
+      latestAppHash shouldBe "7D9A461A4E9DFE9EDC27987A312742D2A1ABE9AEB599735584FDB3EE2D1E8AB9"
 
       sendCheckTx(tx0) shouldBe (CodeType.BAD, ClientInfoMessages.DuplicatedTransaction)
       sendDeliverTx(tx0) shouldBe (CodeType.BAD, ClientInfoMessages.DuplicatedTransaction)
       sendCommit()
-      //latestAppHash shouldBe "14072A6C1505952277A0CA2EC4E62D43D032ADEDD9B8969BA9AF16635A7928B8"
+      latestAppHash shouldBe "7D9A461A4E9DFE9EDC27987A312742D2A1ABE9AEB599735584FDB3EE2D1E8AB9"
     }
 
     "process Query method correctly" in {
@@ -235,7 +232,6 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     "change session summary if session explicitly closed" in {
       sendCommit()
       sendCommit()
-      //latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendDeliverTx(tx0)
       sendDeliverTx(tx1)
@@ -252,7 +248,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       )
       sendCommit()
       sendCommit()
-      //latestAppHash shouldBe "654AD13844622857F24BC16C75B72EF50FAC1C8BFD94571A27F381DDA5B51787"
+      latestAppHash shouldBe "33AFEDDE30BBFD2ED0398BC3A9E8B08D3C3F67486B9C4B48F4FDA227CD0BBC57"
 
       sendQuery(s"@meta/$client/$session/4/status") shouldBe Right("sessionClosed")
       sendQuery(s"@meta/$client/$session/@sessionSummary") shouldBe
@@ -262,7 +258,6 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     "not accept new txs if session failed" in {
       sendCommit()
       sendCommit()
-      //latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendDeliverTx(tx0Failed)
       sendDeliverTx(tx1) shouldBe (CodeType.BAD, ClientInfoMessages.SessionAlreadyClosed)
@@ -277,13 +272,12 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
             "Unable to find a function with the name='<no-name>.wrong'"
           ).toStoreValue
         )
-      //latestAppHash shouldBe "5E1124F1D0EB16BF678349F6EC274090C8ED71D85CC9D3ED5D2000189D5856A0"
+      latestAppHash shouldBe "CA1ED2F5802AB417F77E19A0C2FC4018330733A19C2BEB6CF0EFC6238A4E55EF"
     }
 
     "not invoke dependent txs if required failed when order in not correct" in {
       sendCommit()
       sendCommit()
-      //latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendDeliverTx(tx1)
       sendDeliverTx(tx2)
@@ -303,7 +297,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(s"@meta/$client/$session/0/status") shouldBe Right("error")
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendQuery(tx3Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
-      //latestAppHash shouldBe "AAB3292A4CA80F91CAE4C3E30C73505AE5189E0DDE3D3EF2D012F965628EFD49"
+      latestAppHash shouldBe "0EA9CAFF254762FF49D6AD53EE3061E0C685259E623080C8D6F36CE589170045"
     }
   }
 }
