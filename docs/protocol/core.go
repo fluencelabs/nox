@@ -33,4 +33,4 @@ func MerkleRoot(allChunks []Chunk) Digest { panic("") }
 func CreateMerkleProof(index int, selectedChunk Chunk, allChunks []Chunk) MerkleProof { panic("") }
 
 // verifies that the Merkle proof of the selected chunk conforms to the Merkle root
-func VerifyMerkleProof(selectedChunk Chunk, proof *MerkleProof, root Digest) bool { panic("") }
+func VerifyMerkleProof(selectedChunk Chunk, proof MerkleProof, root Digest) bool { panic("") }
