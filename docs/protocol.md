@@ -11,9 +11,9 @@
   - [Transaction validation](#transaction-validation)
   - [Tendermint block formation](#tendermint-block-formation)
   - [Block processing](#block-processing)
-- [Client](#client)
-  - [Query results](#query-results)
-  - [Block progress verification](#block-progress-verification)
+  - [Query response](#query-response)
+- [Client](#client)  
+  - [Query response verification](#query-response-verification)
 
 ## Core
 
@@ -414,8 +414,6 @@ func ProcessBlock(block Block, prevVMState VMState, prevManifestReceipt SwarmRec
 }
 ```
 
-## Client
-
 ### Query response
 
 Once the cluster has reached consensus on the block, advanced the virtual machine state, reached consensus on the next couple of blocks and saved related block manifests and transactions into Swarm, the client can query results of the function invocation through the ABCI query API. 
@@ -454,6 +452,8 @@ The reason why do we need multiple manifests in response is that nodes are requi
 <p align="center">
   <img src="images/manifests_signatures.png" alt="Manifests Signatures" width="787px"/>
 </p>
+
+## Client
 
 ### Query response verification
 
