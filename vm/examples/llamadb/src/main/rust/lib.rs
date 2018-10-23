@@ -110,6 +110,9 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
         ExecuteStatementResponse::Created => {
             "table created".to_string()
         }
+        ExecuteStatementResponse::Dropped => {
+            "table was dropped".to_string()
+        }
         ExecuteStatementResponse::Inserted(number) => {
             format!("rows inserted: {}", number)
         }

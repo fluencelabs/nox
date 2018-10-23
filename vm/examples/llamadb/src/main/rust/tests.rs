@@ -110,12 +110,6 @@ fn integration_sql_test() {
     println!("{}", incompatible_types);
     assert_eq!(incompatible_types, "[Error] 'Bob' cannot be cast to Integer { signed: true, bytes: 8 }");
 
-    // Not supported operations
-
-    let not_supported_drop = execute_sql("DROP TABLE Users".to_string());
-    println!("{}", not_supported_drop);
-    assert_eq!(not_supported_drop, "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got Ident(\"DROP\")");
-
     let not_supported_order_by = execute_sql("SELECT * FROM Users ORDER BY name".to_string());
     println!("{}", not_supported_order_by);
     assert_eq!(not_supported_order_by, "[Error] order by in not implemented");
@@ -123,6 +117,14 @@ fn integration_sql_test() {
     let truncate = execute_sql("TRUNCATE TABLE Users".to_string());
     println!("{}", truncate);
     assert_eq!(truncate, "rows deleted: 3");
+
+    let drop_table = execute_sql("DROP TABLE Users".to_string());
+    println!("{}", drop_table);
+    assert_eq!(drop_table, "table was dropped");
+
+    let select_by_dropped_table = execute_sql("SELECT * FROM Users".to_string());
+    println!("{}", select_by_dropped_table);
+    assert_eq!(select_by_dropped_table, "[Error] table does not exist: users");
 }
 
 //
