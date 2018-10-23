@@ -18,24 +18,11 @@ limitations under the License.
 import sys
 sys.path.append('..')
 
-import ed25519, base64
+import base64
 from tmrpc import TendermintRPC
 from dataengine import DataEngine, id_generator
-from codec import le4b_encode, b64_encode_bytes
-
-def get_signing_key():
-	return ed25519.SigningKey(b"TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==", encoding="base64")
-
-def get_seed():
-	# TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxQ=
-	return b64_encode_bytes(get_signing_key().to_seed())
-
-def get_verifying_key():
-	# 94QLUpF/i65eJTeThLF4w+xhhu4hHsEqHeO9h7na5Kw=
-	return b64_encode_bytes(get_signing_key().get_verifying_key().to_bytes())
-
-def get_client():
-    return "client001"
+from codec import le4b_encode
+from client_identity import get_client, get_signing_key
 
 def submit_inc(session):
     return session.submit("inc", "".encode())
@@ -48,9 +35,6 @@ def submit_mul(session, f1, f2):
 
 def submit_wrong_command(session):
     return session.submit("wrong", "".encode())
-
-def submit_query(session, query):
-    return session.submit("do_query", query.encode())
 
 def demo_queries(addr, genesis, send_wrong=False, send_closed=True, session=None):
     eng = DataEngine(addr, genesis)
@@ -77,12 +61,7 @@ def demo_many_queries(addr, genesis):
     print(submit_get(s).result_num())
     s.close()
 
-def demo_llamadb(addr, genesis):
-    eng = DataEngine(addr, genesis)
-    s = eng.new_session(get_client(), get_signing_key())
-    submit_query("CREATE TABLE users(id int, name varchar(128), age int)")
-
-tmport = sys.argv[1] if len(sys.argv) >= 2 else "25057"
+tmport = sys.argv[1] if len(sys.argv) >= 2 else "24057"
 tm = TendermintRPC("http://localhost:" + tmport)
 genesis = tm.get_genesis()
 height = tm.get_max_height()

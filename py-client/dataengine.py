@@ -127,7 +127,7 @@ class DataEngineResultAwait:
 		"""
 		tm = self.session.engine.tm
 		path = self.target_key + "/result"
-		print("querying " + path)
+		#print("querying " + path)
 		for i in range(0, response_timeout_sec * requests_per_sec):
 			verified_session_summary = None
 			if i >= wait_before_request_session_summary_sec * requests_per_sec:
@@ -203,14 +203,12 @@ class DataEngineSession:
 		}).replace("'", '"').replace('u"', '"')
 		target_key = "@meta/%s/%s/%d" % (self.client, self.session, self.counter)
 		
-		print("submitting", tx_sign_text, signature)
+		#print("submitting", tx_sign_text)
 		tx_response = self.engine.tm.broadcast_tx_sync(tx_json)
 		if "result" not in tx_response:
 			print(tx_response["error"]["data"])
 		elif tx_response["result"]["code"] != 0:
 			print(hex_decode(tx_response["result"]["data"]))
-		else:
-			print("OK")
 
 		self.counter += 1
 		return DataEngineResultAwait(self, target_key)
