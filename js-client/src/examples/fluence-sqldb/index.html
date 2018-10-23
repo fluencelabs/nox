@@ -30,11 +30,15 @@
                 <textarea id="result" class="form-control" style="height: 100%" rows="14" readonly></textarea>
             </div>
             <div class="mt-4">
-                <label for="tips">Tips:</label>
+                <label for="tips">Example Queries:</label>
                 <ul class="list-group-item-info" id="tips">
                     <li>CREATE TABLE users(id int, name varchar(128), age int)</li>
                     <li>INSERT INTO users VALUES(1, 'Sara', 23)</li>
                     <li>INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)</li>
+                    <li>SELECT MAX(age) FROM users</li>
+                    <li>SELECT AVG(age) FROM users</li>
+                    <li>SELECT COUNT(*) FROM users</li>
+                    <li>UPDATE users SET age = 20 WHERE id = 2</li>
                     <li>SELECT * FROM users WHERE name = 'unknown'</li>
                     <li>SELECT id, name FROM users</li>
                     <li>EXPLAIN SELECT id, name FROM users</li>

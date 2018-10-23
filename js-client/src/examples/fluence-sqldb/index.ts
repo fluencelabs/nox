@@ -137,8 +137,8 @@ updateStatusBtn.addEventListener("click", () => {
 
 function genStatus(status: Status) {
     return `<div class="m-2 rounded border list-group-item-info p-2">
-                <label class="text-dark ml-2 mb-0">${status.addr}</label>
-                <ul class="list-unstyled mb-0 ml-4" style="font-size: 0.8rem">
+                <label class="text-dark ml-2 mb-0" style="font-size: 0.8rem">${status.addr}</label>
+                <ul class="list-unstyled mb-0 ml-4" style="font-size: 0.7rem">
                     <li>height: ${status.block_height}</li>
                     <li>block_hash: ${status.block_hash}</li>
                     <li>app_hash: ${status.app_hash}</li>
