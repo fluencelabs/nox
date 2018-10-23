@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/fluencelabs/fluence#readme",
   "dependencies": {
-    "js-fluence-client": "0.0.20"
+    "js-fluence-client": "0.0.21"
   },
   "devDependencies": {
     "webpack": "^4.20.2"
