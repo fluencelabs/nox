@@ -11,7 +11,11 @@ const createTableQuery = "CREATE TABLE polution_uusimaa(id varchar(128), locatio
 const deleteQuery = "DELETE from polution_uusimaa";
 
 fluenceSession.invoke("do_query", deleteQuery).result().then((r) => console.log(r.asString()));
-fluenceSession.invoke("do_query", createTableQuery).result().then((r) => console.log(r.asString()));
+
+// `do_query`is a predefined function to call queries in LlamaDb
+fluenceSession.invoke("do_query", createTableQuery)
+    .result() // to return promise and wait for result we need to call `result()` function
+    .then((r) => console.log(r.asString())); // `asString()` decodes bytes format to string
 
 function insertQuery(data) {
     const query = `INSERT INTO polution_uusimaa VALUES ('${data.id}', '${data.location}', '${data.parameter}', ${data.value}, ` +
@@ -20,26 +24,24 @@ function insertQuery(data) {
     return query;
 }
 
+function getData() {
+    streamrClient.subscribe(
+        {
+            stream: 'dVoD8tzLR6KLJ-z_Pz8pMQ', // it is an id of stream of pollution data in Uusimaa, Finland
+            resend_last: 100 // will send last 100 rows
+        },
+        (message, metadata) => {
+            const query = insertQuery(message); // generates query
+            fluenceSession.invoke("do_query", query); // and inserts it in into LlamaDB
+        }
+    )
+}
+
 function getCount() {
     const query = "select count(*) from polution_uusimaa";
     fluenceSession.invoke("do_query", query).result().then((r) => {
         console.log("Data count: " + r.asString().split("\n")[1])
     })
-}
-
-function getData(resendLast) {
-    const sub = streamrClient.subscribe(
-        {
-            stream: 'dVoD8tzLR6KLJ-z_Pz8pMQ',
-            resend_last: resendLast
-        },
-        (message, metadata) => {
-            console.log(JSON.stringify(message));
-            console.log(JSON.stringify(metadata));
-            const query = insertQuery(message);
-            fluenceSession.invoke("do_query", query);
-        }
-    )
 }
 
 /**
