@@ -28,26 +28,26 @@ object LlamaDbRunner extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
 
     val program: EitherT[IO, VmError, String] = for {
-      inputFile ← EitherT(getInputFile(args).attempt)
-        .leftMap(e ⇒ InternalVmError(e.getMessage, Some(e)))
-      vm ← WasmVm[IO](Seq(inputFile))
-      initState ← vm.getVmState[IO]
+      inputFile <- EitherT(getInputFile(args).attempt)
+        .leftMap(e => InternalVmError(e.getMessage, Some(e)))
+      vm <- WasmVm[IO](Seq(inputFile))
+      initState <- vm.getVmState[IO]
 
-      createTableSql ← executeSql(vm, "CREATE TABLE Users(id INT, name TEXT, age INT)")
+      createTable <- executeSql(vm, "CREATE TABLE Users(id INT, name TEXT, age INT)")
 
-      insertOne ← executeSql(vm, "INSERT INTO Users VALUES(1, 'Sara', 23)")
+      insertOne <- executeSql(vm, "INSERT INTO Users VALUES(1, 'Sara', 23)")
 
-      bulkInsert ← executeSql(vm, "INSERT INTO Users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)")
+      bulkInsert <- executeSql(vm, "INSERT INTO Users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)")
 
-      emptySelect ← executeSql(vm, "SELECT * FROM Users WHERE name = 'unknown'")
+      emptySelect <-  executeSql(vm, "SELECT * FROM Users WHERE name = 'unknown'")
 
-      selectAll ← executeSql(vm, "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users")
+      selectAll <- executeSql(vm, "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users")
 
-      explain ← executeSql(vm, "EXPLAIN SELECT id, name FROM Users")
+      explain <- executeSql(vm, "EXPLAIN SELECT id, name FROM Users")
 
-      createTableRoleSql ← executeSql(vm, "CREATE TABLE Roles(user_id INT, role VARCHAR(128))")
+      createTableRole <- executeSql(vm, "CREATE TABLE Roles(user_id INT, role VARCHAR(128))")
 
-      roleTableBulkInsert ← executeSql(
+      roleTableBulkInsert <- executeSql(
         vm,
         "INSERT INTO Roles VALUES(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')"
       )
@@ -57,43 +57,43 @@ object LlamaDbRunner extends IOApp {
         "SELECT u.name AS Name, r.role AS Role FROM Users u JOIN Roles r ON u.id = r.user_id WHERE r.role = 'Writer'"
       )
 
-      badQuery ← executeSql(vm, "SELECT salary FROM Users")
+      invalidQuery <- executeSql(vm, "SELECT salary FROM Users")
 
-      parserError ← executeSql(vm, "123")
+      parserError <- executeSql(vm, "123")
 
-      incompatibleType ← executeSql(vm, "SELECT * FROM Users WHERE age = 'Bob'")
+      incompatibleType <- executeSql(vm, "SELECT * FROM Users WHERE age = 'Bob'")
 
-      deleteQuery ← executeSql(vm, "DELETE FROM Users WHERE id = (SELECT user_id FROM Roles WHERE role = 'Student')")
+      delete <- executeSql(vm, "DELETE FROM Users WHERE id = (SELECT user_id FROM Roles WHERE role = 'Student')")
 
-      updateQuery ← executeSql(
+      update <- executeSql(
         vm,
         "UPDATE Roles r SET r.role = 'Professor' WHERE r.user_id = " +
           "(SELECT id FROM Users WHERE name = 'Sara')"
       )
 
-      truncateQuery ← executeSql(vm, "TRUNCATE TABLE Users")
+      truncate <- executeSql(vm, "TRUNCATE TABLE Users")
 
-      dropTable ← executeSql(vm, "DROP TABLE Users")
+      dropTable <- executeSql(vm, "DROP TABLE Users")
 
-      selectByDroppedTable ← executeSql(vm, "SELECT * FROM Users")
+      selectByDroppedTable <- executeSql(vm, "SELECT * FROM Users")
 
-      finishState ← vm.getVmState[IO].toVmError
+      finishState <- vm.getVmState[IO].toVmError
     } yield {
-      s"$createTableSql\n" +
+      s"$createTable\n" +
         s"$insertOne\n" +
         s"$bulkInsert\n" +
         s"$emptySelect\n" +
         s"$selectAll\n" +
         s"$explain\n" +
-        s"$createTableRoleSql\n" +
+        s"$createTableRole\n" +
         s"$roleTableBulkInsert\n" +
         s"$selectWithJoin\n" +
-        s"$badQuery\n" +
+        s"$invalidQuery\n" +
         s"$parserError\n" +
         s"$incompatibleType\n" +
-        s"$deleteQuery\n" +
-        s"$updateQuery\n" +
-        s"$truncateQuery\n" +
+        s"$delete\n" +
+        s"$update\n" +
+        s"$truncate\n" +
         s"$dropTable\n" +
         s"$selectByDroppedTable\n" +
         s"[SUCCESS] Execution Results.\n" +
@@ -102,10 +102,10 @@ object LlamaDbRunner extends IOApp {
     }
 
     program.value.map {
-      case Left(err) ⇒
+      case Left(err) =>
         println(s"[Error]: $err cause=${err.getCause}")
         ExitCode.Error
-      case Right(value) ⇒
+      case Right(value) =>
         println(value)
         ExitCode.Success
     }
@@ -113,18 +113,18 @@ object LlamaDbRunner extends IOApp {
 
   private def executeSql(vm: WasmVm, sql: String): EitherT[IO, VmError, String] =
     for {
-      result ← vm.invoke[IO](None, "do_query", sql.getBytes())
-      state ← vm.getVmState[IO].toVmError
+      result <- vm.invoke[IO](None, "do_query", sql.getBytes())
+      state <- vm.getVmState[IO].toVmError
     } yield {
       s"$sql >> \n${result.toStr} \nvmState=$state\n"
     }
 
   private def getInputFile(args: List[String]): IO[String] = IO {
     args.headOption match {
-      case Some(value) ⇒
+      case Some(value) =>
         println(s"Starts for input file $value")
         value
-      case None ⇒
+      case None =>
         throw new IllegalArgumentException("Full path for counter.wasm is required!")
     }
   }
@@ -132,7 +132,7 @@ object LlamaDbRunner extends IOApp {
   implicit class ToStr(bytes: Option[Array[Byte]]) {
 
     def toStr: String = {
-      bytes.map(bytes ⇒ new String(bytes)).getOrElse("None")
+      bytes.map(bytes => new String(bytes)).getOrElse("None")
     }
   }
 
