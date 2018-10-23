@@ -8,6 +8,8 @@ type SwarmReceipt struct {
 // uploads the content to the Swarm network, returns a receipt of responsibility
 func SwarmUpload(content []byte) SwarmReceipt { panic("") }
 
+// downloads the content from the Swarm network using the supplied receipt
+func SwarmDownload(receipt SwarmReceipt) []byte { panic("") }
 
 func SwarmReceiptsExample() {
   // data
