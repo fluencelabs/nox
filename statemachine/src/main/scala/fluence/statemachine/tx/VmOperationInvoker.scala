@@ -18,6 +18,7 @@ package fluence.statemachine.tx
 
 import cats.Monad
 import cats.data.EitherT
+import cats.syntax.functor._
 import cats.effect.LiftIO
 import fluence.statemachine.error.{StateMachineError, VmRuntimeError}
 import fluence.statemachine.util.{Metrics, TimeMeter}
@@ -47,18 +48,20 @@ class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends
   def invoke(callDescription: FunctionCallDescription): EitherT[F, StateMachineError, Option[String]] = {
     val invokeTimeMeter = TimeMeter()
 
-    val result = vm
-      .invoke(callDescription.module, callDescription.functionName, callDescription.arg)
-      .map(_.map(ByteVector(_).toHex(HexUppercase)))
-      .leftMap(VmOperationInvoker.convertToStateMachineError)
+    val result = for {
+      invocationValue <- vm
+        .invoke(callDescription.module, callDescription.functionName, callDescription.arg)
+        .bimap(VmOperationInvoker.convertToStateMachineError, _.map(ByteVector(_).toHex(HexUppercase)))
+        .value
 
-    val invokeDuration = invokeTimeMeter.millisElapsed
-    logger.debug("VmOperationInvoker duration={}", invokeDuration)
+      invokeDuration = invokeTimeMeter.millisElapsed
+      _ = logger.info("VmOperationInvoker duration={}", invokeDuration)
 
-    vmInvokeCounter.labels(callDescription.functionName).inc()
-    vmInvokeTimeCounter.labels(callDescription.functionName).inc(invokeDuration)
+      _ = vmInvokeCounter.labels(callDescription.functionName).inc()
+      _ = vmInvokeTimeCounter.labels(callDescription.functionName).inc(invokeDuration)
+    } yield invocationValue
 
-    result
+    EitherT(result)
   }
 
   /**
