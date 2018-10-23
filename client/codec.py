@@ -64,7 +64,10 @@ def le4b_decode(le4b):
 		le4b
 			Little endian bytes representation of encoded 4-byte `int`.
 	"""
-	return ord(le4b[0]) + (ord(le4b[1]) << 8) + (ord(le4b[2]) << 16) + (ord(le4b[3]) << 24)
+	if sys.version_info[0] == 2:
+		return ord(le4b[0]) + (ord(le4b[1]) << 8) + (ord(le4b[2]) << 16) + (ord(le4b[3]) << 24)
+	else:
+		return le4b[0] + (le4b[1] << 8) + (le4b[2] << 16) + (le4b[3] << 24)
 
 def b64_encode(text):
 	"""

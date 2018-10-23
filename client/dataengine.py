@@ -224,7 +224,7 @@ class DataEngineSession:
 
 		Implemented by `submit`ting a dedicated parameterless `@closeSession` function request.
 		"""
-		return self.submit("@closeSession", bytes(""))
+		return self.submit("@closeSession", "".encode())
 
 class DataEngine:
 	"""

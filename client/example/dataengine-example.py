@@ -38,16 +38,19 @@ def get_client():
     return "client001"
 
 def submit_inc(session):
-    return session.submit("inc", bytes(""))
+    return session.submit("inc", "".encode())
 
 def submit_get(session):
-    return session.submit("get", bytes(""))
+    return session.submit("get", "".encode())
 
 def submit_mul(session, f1, f2):
     return session.submit("MulModule.mul", le4b_encode(f1) + le4b_encode(f2))
 
 def submit_wrong_command(session):
-    return session.submit("wrong", bytes(""))
+    return session.submit("wrong", "".encode())
+
+def submit_query(session, query):
+    return session.submit("do_query", query.encode())
 
 def demo_queries(addr, genesis, send_wrong=False, send_closed=True, session=None):
     eng = DataEngine(addr, genesis)
@@ -73,6 +76,11 @@ def demo_many_queries(addr, genesis):
         submit_inc(s)
     print(submit_get(s).result_num())
     s.close()
+
+def demo_llamadb(addr, genesis):
+    eng = DataEngine(addr, genesis)
+    s = eng.new_session(get_client(), get_signing_key())
+    submit_query("CREATE TABLE users(id int, name varchar(128), age int)")
 
 tmport = sys.argv[1] if len(sys.argv) >= 2 else "25057"
 tm = TendermintRPC("http://localhost:" + tmport)
