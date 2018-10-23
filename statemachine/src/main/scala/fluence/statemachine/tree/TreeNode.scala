@@ -92,7 +92,7 @@ abstract class TreeNode(val children: Map[StoreKey, TreeNode], val value: Option
    * @param key target key, described by the path relative from the current node
    * @return requested value, if exists and defined
    */
-  def getValue(key: TreePath[StoreKey]): Option[StoreValue] = getNode(key).flatMap((x: TreeNode) => x.value)
+  def getValue(key: TreePath[StoreKey]): Option[StoreValue] = getNode(key).flatMap(_.value)
 
   /**
    * Returns whether this node is empty which means that it has no children and no associated value.

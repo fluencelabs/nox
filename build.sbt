@@ -93,7 +93,8 @@ lazy val statemachine = (project in file("statemachine"))
       prometheusClient,
       prometheusClientJetty,
       prometheusClientServlet,
-      "com.github.jtendermint" % "jabci"          % "0.17.1",
+      // Despite tmVersion is updated to 0.25.0, jtendermint:0.24.0 is the latest available and compatible with it.
+      "com.github.jtendermint" % "jabci"          % "0.24.0",
       "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
       scalaTest
@@ -107,7 +108,7 @@ lazy val statemachine = (project in file("statemachine"))
       val artifactTargetPath = s"/app/${artifact.name}"
 
       // Tendermint constants
-      val tmVersion = "0.23.0"
+      val tmVersion = "0.25.0"
       val tmDataRoot = "/tendermint"
       val tmBinaryArchive = s"tendermint_${tmVersion}_linux_amd64.zip"
       val tmBinaryUrl = s"https://github.com/tendermint/tendermint/releases/download/v$tmVersion/$tmBinaryArchive"

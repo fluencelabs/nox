@@ -198,19 +198,21 @@ def verify_app_hash(app_hash, signed_header):
 
 	block_hash = signed_header["commit"]["block_id"]["hash"]
 	d = [
-		("App",         hash_binary(header["app_hash"], "hex")),
-		("ChainID",     hash_binary(header["chain_id"], "str")),
-		("Consensus",   hash_binary(header["consensus_hash"], "hex")),
-		("Data",        hash_binary(header["data_hash"], "hex")),
-		("Evidence",    hash_binary(header["evidence_hash"], "hex")),
-		("Height",      hash_binary(header["height"], "long")),
-		("LastBlockID", hash_binary((header["last_block_id"]["hash"], header["last_block_id"]["parts"]["hash"]), "block_id")),
-		("LastCommit",  hash_binary(header["last_commit_hash"], "hex")),
-		("NumTxs",      hash_binary(header["num_txs"], "long")),
-		("Results",     hash_binary(header["last_results_hash"], "hex")),
-		("Time",        hash_binary(header["time"], "time")),
-		("TotalTxs",    hash_binary(header["total_txs"], "long")),
-		("Validators",  hash_binary(header["validators_hash"], "hex"))
+		("App",            hash_binary(header["app_hash"], "hex")),
+		("ChainID",        hash_binary(header["chain_id"], "str")),
+		("Consensus",      hash_binary(header["consensus_hash"], "hex")),
+		("Data",           hash_binary(header["data_hash"], "hex")),
+		("Evidence",       hash_binary(header["evidence_hash"], "hex")),
+		("Height",         hash_binary(header["height"], "long")),
+		("LastBlockID",    hash_binary((header["last_block_id"]["hash"], header["last_block_id"]["parts"]["hash"]), "block_id")),
+		("LastCommit",     hash_binary(header["last_commit_hash"], "hex")),
+		("NextValidators", hash_binary(header["next_validators_hash"], "hex")),
+		("NumTxs",         hash_binary(header["num_txs"], "long")),
+		("Proposer",       hash_binary(header["proposer_address"], "hex")),
+		("Results",        hash_binary(header["last_results_hash"], "hex")),
+		("Time",           hash_binary(header["time"], "time")),
+		("TotalTxs",       hash_binary(header["total_txs"], "long")),
+		("Validators",     hash_binary(header["validators_hash"], "hex"))
 	]
 	tree_hash = hex_encode_bytes(simple_tree_hash(d))
 	return tree_hash == block_hash
