@@ -40,16 +40,19 @@ pub const STR_LEN_BYTES: usize = 4;
 /// 3. Returns a pointer to the result as a string in the memory.
 /// 4. Deallocates memory from passed parameter
 #[no_mangle]
-pub unsafe fn do_query(ptr: *mut u8, len: usize) -> usize {
-    // deallocation of parameter's memory will automatically appear in the end of the method
-    let sql_str = deref_str(ptr, len);
+pub fn do_query(ptr: *mut u8, len: usize) -> usize {
+
+    let sql_str: String = unsafe { deref_str(ptr, len) };
+
     let db_response = match run_query(&sql_str) {
         Ok(response) => { response }
         Err(err_msg) => { format!("[Error] {}", err_msg) }
     };
 
-    // return pointer to result in memory
-    put_to_mem(db_response) as usize
+    unsafe {
+        // return pointer to result in memory
+        put_to_mem(db_response) as usize
+    }
 }
 
 //
@@ -126,7 +129,10 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
             format!("rows deleted: {}", number)
         }
         ExecuteStatementResponse::Explain(result) => {
-            result.clone()
+            result
+        }
+        ExecuteStatementResponse::Updated(number) => {
+            format!("rows updated: {}", number)
         }
     }
 }
@@ -146,7 +152,7 @@ unsafe fn put_to_mem(str: String) -> *mut u8 {
     result.write_all(str.as_bytes()).unwrap();
 
     let result_ptr = allocate(total_len).as_ptr();
-    std::ptr::copy(result.as_ptr(), result_ptr, total_len);
+    std::ptr::copy_nonoverlapping(result.as_ptr(), result_ptr, total_len);
 
     result_ptr
 }

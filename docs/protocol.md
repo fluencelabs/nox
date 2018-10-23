@@ -11,9 +11,10 @@
   - [Transaction validation](#transaction-validation)
   - [Tendermint block formation](#tendermint-block-formation)
   - [Block processing](#block-processing)
-- [Client](#client)
-  - [Query results](#query-results)
-  - [Block progress verification](#block-progress-verification)
+  - [Query response](#query-response)
+- [Client](#client)  
+  - [Query response verification](#query-response-verification)
+- [Batch validation](#batch-validation)
 
 ## Core
 
@@ -118,6 +119,9 @@ type SwarmReceipt struct {
 // uploads the content to the Swarm network, returns a receipt of responsibility
 func SwarmUpload(content []byte) SwarmReceipt {}
 
+// downloads the content from the Swarm network using the supplied receipt
+func SwarmDownload(receipt SwarmReceipt) []byte {}
+
 // data
 var content []byte // some content
 
@@ -193,23 +197,27 @@ var meta SwarmMeta  // some mutable content
 
 ### Kademlia sidechain
 
-In fact, Kademlia is not quite an external system but is an essential foundation of the Fluence network. However, for our protocol we use it as a some kind of a sidechain which periodically checkpoints selected blocks to the root chain – Ethereum. Blocks stored in Kademlia sidechain are really tiny compared to the overall data volumes flowing through the network – it's expected they will contain only Swarm receipts and producers signatures most of the time.
+In fact, Kademlia is not quite an external system but is an essential foundation of the Fluence network. However, for our protocol we use it as a some kind of a sidechain which periodically checkpoints selected blocks to the root chain – Ethereum. Blocks stored in Kademlia sidechain are really tiny compared to the overall data volumes flowing through the network – they contain only Swarm receipts and producers signatures.
 
 ```go
 type SideBlock struct {
-  Height        int64   // block height
-  PrevBlockHash Digest  // hash of the previous block
-  Data          []byte  // block data
-  Signatures    []Seal  // signatures of the block producers
+  Height        int64         // side block height
+  PrevBlockHash Digest        // hash of the previous side block
+  Receipt       SwarmReceipt  // Swarm receipt for the content associated with the side block
+  Signatures    []Seal        // signatures of the side block producers
 }
 
 type SideContract struct {
-  CheckpointInterval int                  // how often the blocks should be checkpointed
-  Checkpoints        map[int64]SideBlock  // checkpoints: block height –> block
+  CheckpointInterval int          // how often blocks should be checkpointed
+  Checkpoints        []SideBlock  // block checkpoints
 }
 ```
 
-It is expected that every Kademlia sidechain node stores the tail of the chain starting from the last block checkpointed into the contract. Every node verifies there are no forks or incorrect references in the chain tail – otherwise, a dispute is submitted to the contract and offending block producers lose their deposits. 
+It is expected that every Kademlia sidechain node stores the tail of the chain starting from the last block checkpointed into the contract. Every node verifies there are no forks or incorrect references in the chain tail – otherwise, a dispute is submitted to the contract and offending block producers lose their deposits.
+
+<p align="center">
+  <img src="images/sidechain.png" alt="Sidechain" width="794px"/>
+</p>
 
 Every sidechain node also verifies that a checkpointing is performed correctly – i.e. there is a correct block being uploaded to the contract every period of time. Otherwise, another dispute is submitted to the contract, but this time a sidechain node that has uploaded an incorrect checkpoint block will lose a deposit.
 
@@ -229,21 +237,21 @@ func (contract *SideContract) DisputeSideFork(block1 SideBlock, block2 SideBlock
 }
 
 // punishes sidechain nodes if the block is checkpointed incorrectly
-func (contract *SideContract) DisputeSideCheckpoint(startHeight int64, blocks []SideBlock) {
-  var startBlock = contract.Checkpoints[startHeight]
-  var endBlock = contract.Checkpoints[startHeight + 1]
+func (contract *SideContract) DisputeSideCheckpoint(index int, blocks []SideBlock) {
+  var prevCheckpoint = contract.Checkpoints[index - 1]
+  var checkpoint = contract.Checkpoints[index]
 
   // checking that the chain is linked correctly
   for i, block := range blocks {
     var prevBlock SideBlock
-    if i == 0 { prevBlock = startBlock } else { prevBlock = blocks[i - 1]}
+    if i == 0 { prevBlock = prevCheckpoint } else { prevBlock = blocks[i - 1]}
     if block.PrevBlockHash != Hash(pack(prevBlock)) || (block.Height != prevBlock.Height + 1) {
       // incorrect chain segment, nothing to do here
       return
     }
   }
 
-  if Hash(pack(blocks[len(blocks) - 1])) != Hash(pack(endBlock)) {
+  if Hash(pack(blocks[len(blocks) - 1])) != Hash(pack(checkpoint)) {
     // violation! let's punish offending sidechain nodes!
   }
 }
@@ -257,7 +265,7 @@ type SideNode struct {
 }
 
 // appends the block the chain tail and checks it doesn't violate correctness properties
-func (node *SideNode) UploadBlock(block *SideBlock) Seal {}
+func (node *SideNode) UploadBlock(block SideBlock) Seal {}
 ```
 
 ## Initial setup
@@ -284,6 +292,8 @@ type Transaction struct {
   Invoke []byte  // function name & arguments + required metadata
   Seal   Seal    // client signature of the transaction
 }
+
+type Transactions = []Transaction
 ```
 
 ## Real-time processing
@@ -320,10 +330,10 @@ Tendermint consensus engine produces new blocks filled with client supplied tran
 
 ```go
 // listed Tendermint functions carry the same meaning and arguments as core functions 
-func TmHash(data []byte) Digest { panic("") }
-func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
-func TmVerify(seal Seal, digest Digest) bool { panic("") }
-func TmMerkleRoot(allChunks []Chunk) Digest { panic("") }
+func TmHash(data []byte) Digest {}
+func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
+func TmVerify(seal Seal, digest Digest) bool {}
+func TmMerkleRoot(allChunks []Chunk) Digest {}
 ```
 
 Tendermint periodically pulls few transactions from the mempool and forms a new block. Nodes participating in consensus sign produced blocks, however their signatures for a specific block are available only as a part of the next block.
@@ -332,7 +342,7 @@ Tendermint periodically pulls few transactions from the mempool and forms a new 
 type Block struct {
   Header     Header         // block header
   LastCommit []Seal         // Tendermint nodes votes for the previous block
-  Txs        []Transaction  // transactions as sent by clients
+  Txs        Transactions   // transactions as sent by clients
 }
 
 type Header struct {
@@ -343,11 +353,11 @@ type Header struct {
 }
 
 // data
-var blocks      []Block  // Tendermint blockchain
+var blocks []Block // Tendermint blockchain
 
 // rules
-var k int64              // some block number
-var i int                // some Tendermint node index
+var k int64        // some block number
+var i int          // some Tendermint node index
 
 ∀ k:
   assertEq(blocks[k].Header.LastBlockHash, TmMerkleRoot(packMulti(blocks[k - 1].Header)))
@@ -362,119 +372,102 @@ Note we haven't specified here how the application state hash (`Header.AppHash`)
 
 ### Block processing
 
-Once the block has passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. The virtual machine state is essentially a block of memory split into chunks which can be used to compute the virtual machine state hash. VM state `k + 1` arises after processing transactions of the block `k`.
+Once the block has passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. The virtual machine state is essentially a block of memory split into chunks which can be used to compute the virtual machine state hash. We can say that the virtual machine state `k + 1` is derived by applying transactions in the block `k` to the virtual machine state `k`.
 
 ```go
 type VMState struct {
   Chunks []Chunk     // virtual machine memory chunks
 }
 
-// applies block transactions to the virtual machine state to produce the new state
-func NextVMState(vmState *VMState, txs []Transaction) VMState { panic("") }
-  
-// data
-var blocks   []Block    // Tendermint blockchain
-var vmStates []VMState  // virtual machine states
-
-// rules
-var k int               // some block number
-
-∀ k:
-  assertEq(vmStates[k + 1], NextVMState(&vmStates[k], blocks[k].Txs))
+// produces the new state by applying block transactions to the old VM state
+func NextVMState(vmState VMState, txs Transactions) VMState {}
 ```
 
-Once the block is processed by the WebAssembly VM, it has to be stored in Swarm for the future batch validation. Blocks are stored in two separate pieces in Swarm: the block manifest and the transactions list. The manifest contains the Swarm hash of the transactions list, which makes it possible to find transactions by having just the manifest.
+Once the block is processed by the WebAssembly VM, it has to be stored in Swarm for the future batch validation. Two separate pieces are actually stored in Swarm for each Tendermint block: the block manifest and the transactions list.
 
 ```go
 type Manifest struct {
-  Header                Header        // block header
-  LastCommit            []Seal        // Tendermint nodes signatures for the previous block
-  TxsSwarmHash          Digest        // Swarm hash of the block transactions
-  VMStateHash           Digest        // virtual machine state hash after the previous block
-  LastManifestSwarmHash Digest        // Swarm hash of the previous manifest
+  Header              Header        // block header
+  VMStateHash         Digest        // hash of the VM state derived by applying the block
+  LastCommit          []Seal        // Tendermint nodes signatures for the previous block header
+  TxsReceipt          SwarmReceipt  // Swarm hash of the block transactions
+  LastManifestReceipt SwarmReceipt  // Swarm hash of the previous manifest
 }
-
-// creates a new manifest from the block and the previous block
-func CreateManifest(block *Block, prevBlock *Block) Manifest { panic("") }
-
-// data
-var blocks    []Block            // Tendermint blockchain
-var vmStates  []VMState          // virtual machine states
-var manifests []Manifest         // manifests
-var swarm     map[Digest][]byte  // Swarm storage: hash(x) –> x
-
-// rules
-var k int                        // some block number
-
-∀ k:
-  assertEq(manifests[k].Header, blocks[k].Header)
-  assertEq(manifests[k].LastCommit, blocks[k].LastCommit)
-  assertEq(manifests[k].TxsSwarmHash, SwarmHash(pack(blocks[k].Txs)))
-  assertEq(manifests[k].VMStateHash, MerkleRoot(vmStates[k].Chunks))
-  assertEq(manifests[k].LastManifestSwarmHash, SwarmHash(pack(manifests[k - 1])))
-
-  assertEq(swarm[SwarmHash(pack(manifests[k]))], pack(manifests[k]))
-  assertEq(swarm[SwarmHash(pack(blocks[k].Txs))], pack(blocks[k].Txs))
 ```
 
-Now, once the block manifest is formed and the virtual machine has advanced to the new state, it becomes possible to compute the new application state hash, which will be used in the next block.
+ Every manifest contains the Swarm hash of the transactions list, which makes it possible to find transactions by having just the manifest. Every manifest also contains the Swarm hash of the previous manifest which allows to retrieve the entire history by having just a single Swarm receipt for the latest manifest.
+
+<p align="center">
+  <img src="images/manifests_receipts.png" alt="Manifests Receipts" width="550px"/>
+</p>
+
+To create a manifest, the node splits the block into pieces, computes the hash of the new virtual machine state, uploads transactions to Swarm and adds links to the necessary Swarm content. Also, once the block manifest is crafted, it's hash is used as the new application state hash stored in the next block header. This way, because Tendermint nodes that have reached consensus sign the block header, they also confirm that the new manifest and the new virtual machine state were accepted.
 
 ```go
-// data
-var blocks    []Block            // Tendermint blockchain
-var manifests []Manifest         // manifests
+// returns the new virtual machine state, the manifest for the stored block and the next app hash
+func ProcessBlock(block Block, prevVMState VMState, prevManifestReceipt SwarmReceipt,
+) (VMState, Manifest, SwarmReceipt, Digest) {
+  var vmState = NextVMState(prevVMState, block.Txs)
+  var txsReceipt = SwarmUpload(pack(block.Txs))
 
-// rules
-var k int                        // some block number
+  var manifest = Manifest{
+    Header:              block.Header,
+    VMStateHash:         MerkleRoot(vmState.Chunks),
+    LastCommit:          block.LastCommit,
+    TxsReceipt:          txsReceipt,
+    LastManifestReceipt: prevManifestReceipt,
+  }
+  var receipt = SwarmUpload(pack(manifest))
+  var nextAppHash = Hash(pack(manifest))
 
-∀ k:
-  assertEq(blocks[k + 1].Header.AppHash, Hash(pack(manifests[k])))
+  return vmState, manifest, receipt, nextAppHash
+}
 ```
 
-## Client
-
-### Query results
+### Query response
 
 Once the cluster has reached consensus on the block, advanced the virtual machine state, reached consensus on the next couple of blocks and saved related block manifests and transactions into Swarm, the client can query results of the function invocation through the ABCI query API. 
 
-Let's assume that transaction sent by the client was included into the block `k`. In this case the client has to wait until the block `k + 2` is formed and the corresponding block manifest is uploaded to Swarm. Once this is done, results returned to the client will look the following.
+Let's assume the transaction sent by the client was included into the block `k`. In this case the client has to wait until the block `k + 2` is formed and block manifests for the corresponding three blocks are uploaded to Swarm. Once this is done, the response returned to the client will look the following:
 
 ```go
-type QueryResults struct {
-  Chunks           map[int]Chunk    // selected virtual machine state chunks
-  ChunksProofs     []MerkleProof    // Merkle proofs: chunks belong to the virtual machine state
-  Manifests        [3]Manifest      // block manifests
-  ManifestReceipts [3]SwarmReceipt  // Swarm receipts for block manifests
-  TxsReceipt       SwarmReceipt     // Swarm receipt for block transactions
+type QueryResponse struct {
+  Chunks    map[int]Chunk        // selected virtual machine state chunks
+  Proofs    map[int]MerkleProof  // Merkle proofs: chunks belong to the virtual machine state
+  Manifests [3]Manifest          // block manifests
 }
-
-  // data
-  var blocks         []Block        // Tendermint blockchain
-  var vmStates       []VMState      // virtual machine states
-  var manifests      []Manifest     // manifests for blocks stored in Swarm
-
-  // rules
-  var k       int                   // some block number
-  var t       int                   // some virtual machine state chunk number
-  var p       int                   // some manifest index
-
-  var results QueryResults          // results returned for the block `k`
-
-  ∀ k:
-    ∀ t ∈ range results.Chunks:
-      assertEq(results.Chunks[t], vmStates[k + 1].Chunks[t])
-      assertEq(results.ChunksProofs[t], CreateMerkleProof(t, results.Chunks[t], vmStates[k + 1].Chunks))
-
-    ∀ p ∈ [0, 3):
-      assertEq(results.Manifests[p], manifests[k + p])
-      assertEq(results.ManifestReceipts[p], SwarmUpload(pack(results.Manifests[p])))
-
-      assertEq(results.TxsReceipt, SwarmUpload(pack(blocks[k].Txs)))
 ```
 
-### Block progress verification
+Results obtained by invoking the function are stored as a part of the virtual machine state. This way, the node can return selected chunks of the virtual machine memory and supply Merkle proofs confirming these chunks indeed correspond to the correct virtual machine state Merkle root.
 
-The client verifies that returned results represent correct block progress in a few steps. Below we will list those steps, but first we need to mention that they are not verifying that the transaction sent by the client was actually processed.
+```go
+// prepares the query response
+func MakeQueryResponse(manifests [3]Manifest, vmState VMState, chunksIndices []int) QueryResponse {
+  var chunks = make(map[int]Chunk)
+  var proofs = make(map[int]MerkleProof)
+
+  for _, index := range chunksIndices {
+    var chunk = vmState.Chunks[index]
+
+    chunks[index] = chunk
+    proofs[index] = CreateMerkleProof(index, chunk, vmState.Chunks)
+  }
+
+  return QueryResponse{Chunks: chunks, Proofs: proofs, Manifests: manifests}
+}
+```
+
+The reason why do we need multiple manifests in response is that nodes are required to prove that a consensus was reached on the manifest `k`. `AppHash` in the manifest `k + 1` header points to the manifest `k` content, and `LastBlockHash` in the manifest `k + 2` header points to the manifest `k + 1` header. Also, `LastCommit` field in the manifest `k + 2` provides nodes signatures for the `LastBlockHash`. A client can follow those links and verify the consistency of obtained results.
+
+<p align="center">
+  <img src="images/manifests_signatures.png" alt="Manifests Signatures" width="787px"/>
+</p>
+
+## Client
+
+### Query response verification
+
+The client verifies that returned response represents a correct block progress in a few steps. Below we will list those steps, but first we need to mention that they are not verifying that the transaction sent by the client was actually processed.
 
 Instead, all the client does verify here is that the virtual machine state progress made by executing the block `k` was saved properly in Swarm for the future batch validation. In this case, if the state transition was performed incorrectly, real-time nodes deposits will be slashed.
 
@@ -482,82 +475,119 @@ However, an all-malicious cluster might never include the transaction sent by th
 
 These aspects will be considered in another section, and for now we will focus on how the block progress is being verified.
 
-#### Verification of manifests Swarm storage
+#### Prerequisites
 
-The client checks that every manifest is stored in Swarm properly. This means that receipt is issued for the correct content hash, the Swarm node signature does sign exactly this hash and that the Swarm node has the security deposit big enough.
+Below we assume that functions allowing to verify that Swarm receipts and Tendermint signatures were created by valid nodes already exist.
 
 ```go
-func VerifyResultsManifestsStorage(swarmContract *SwarmContract, results *QueryResults, minCollateral int64) {
-  for p := 0; p < 3; p++ {
-    // checking that the receipt is issued for the correct manifest
-    assertEq(results.ManifestReceipts[p].ContentHash, SwarmHash(pack(results.Manifests[p])))
+func VerifySwarmReceipt(swarmContract SwarmContract, receipt SwarmReceipt) {
+  var minCollateral int64 = 1000000
 
-    // checking that the swarm node has enough funds
-    var swarmNodeId = results.ManifestReceipts[p].Insurance.PublicKey
-    assertTrue(swarmContract.Collaterals[swarmNodeId] >= minCollateral)
+  // checking that the Swarm node has enough funds
+  var swarmNodeId = receipt.Insurance.PublicKey
+  assertTrue(swarmContract.Collaterals[swarmNodeId] >= minCollateral)
 
-    // checking that the receipt is signed by this swarm node
-    assertTrue(SwarmVerify(results.ManifestReceipts[p].Insurance, results.ManifestReceipts[p].ContentHash))
-  }
+  // checking that the receipt is signed by this Swarm node
+  assertTrue(SwarmVerify(receipt.Insurance, receipt.ContentHash))
 }
 
-```
+func VerifyTendermintSignature(flnContract FlnContract, seal Seal, blockHash Digest) {
+  var minCollateral int64 = 1000000
 
-#### Verification of manifests Swarm connectivity
+  // checking that the Tendermint node has enough funds
+  var tmNodeId = seal.PublicKey
+  assertTrue(flnContract.NodesCollaterals[tmNodeId] >= minCollateral)
 
-The client checks that manifests are linked correctly in Swarm.
-
-```go
-func VerifyResultsSwarmConnectivity(results *QueryResults) {
-  for p := 0; p < 2; p++ {
-    assertEq(results.Manifests[p + 1].LastManifestSwarmHash, SwarmHash(pack(results.Manifests[p])))
-  }
+  // checking that the receipt is signed by this Tendermint node
+  assertTrue(TmVerify(seal, blockHash))
 }
 ```
 
-#### Verification of manifests application state connectivity 
-The client checks that manifests are linked correctly through the application state hash.
+#### Verification of Swarm receipts
+
+The client checks that every manifest is stored in Swarm properly. This means that each Swarm receipt – for the previous manifest or for the transactions block is signed by the Swarm node in good standing. It also means that manifests are connected together properly by Swarm receipts.
 
 ```go
-func VerifyResultsAppStateConnectivity(results *QueryResults) {
-  for p := 0; p < 2; p++ {
-    assertEq(results.Manifests[p + 1].Header.AppHash, Hash(pack(results.Manifests[p])))
+func VerifyManifestsReceipts(swarmContract SwarmContract, response QueryResponse) {
+  // checking that manifests and transactions receipts are properly signed by Swarm nodes
+  for _, manifest := range response.Manifests {
+    VerifySwarmReceipt(swarmContract, manifest.LastManifestReceipt)
+    VerifySwarmReceipt(swarmContract, manifest.TxsReceipt)
+  }
+
+  // checking that each manifest points correctly to the previous manifest via the Swarm receipt
+  for i := 0; i < 2; i++ {
+    var manifest = response.Manifests[i + 1]
+    var prevManifest = response.Manifests[i]
+
+    assertEq(manifest.LastManifestReceipt.ContentHash, SwarmHash(pack(prevManifest)))
   }
 }
 ```
 
-#### Verification of blocks correctness
+#### Verification of consensus on the virtual machine state
 
-The client checks that BFT consensus was reached on the blocks propagation, real-time nodes have actually signed the corresponding block headers and that each node has at least the minimal collateral posted in the Fluence smart contract.
+The client checks that the chain linking Tendermint nodes signatures in the manifest `k + 2` with the virtual machine state hash in the manifest `k` is formed correctly. It also checks that the BFT consensus was reached by Tendermint nodes in good standing.
 
 ```go
-func VerifyResultsBlocks(flnContract *FlnContract, results *QueryResults, minCollateral int64) {
-  for p := 0; p < 2; p++ {
-    // checking that BFT consensus was actually reached
-    var signedNodes = float64(len(results.Manifests[p + 1].LastCommit))
-    var requiredNodes = float64(2/3) * float64(len(flnContract.NodesCollaterals))
-    assertTrue(signedNodes > requiredNodes)
+func VerifyVMStateConsensus(flnContract FlnContract, response QueryResponse) {
+  var manifests = response.Manifests
 
-    for _, signature := range results.Manifests[p + 1].LastCommit {
-      // checking that the real-time node has enough funds
-      var tmNodeId = signature.PublicKey
-      assertTrue(flnContract.NodesCollaterals[tmNodeId] >= minCollateral)
+  // checking connection between the VM state in the manifest 0 and Tendermint signatures in the manifest 2
+  assertEq(manifests[1].Header.AppHash, Hash(pack(manifests[0])))
+  assertEq(manifests[2].Header.LastBlockHash, TmMerkleRoot(packMulti(manifests[1].Header)))
 
-      // checking that the block commit is signed by this node
-      assertTrue(TmVerify(signature, TmMerkleRoot(packMulti(results.Manifests[p].Header))))
-    }
+  // counting the number of unique Tendermint nodes public keys
+  var lastCommitPublicKeys = make(map[PublicKey]bool)
+  for _, seal := range manifests[2].LastCommit {
+    lastCommitPublicKeys[seal.PublicKey] = true
+  }
+
+  // checking that BFT consensus was actually reached
+  var signedNodes = float64(len(lastCommitPublicKeys))
+  var requiredNodes = float64(2/3) * float64(len(flnContract.NodesCollaterals))
+  assertTrue(signedNodes > requiredNodes)
+
+  // checking each Tendermint node signature validity
+  for _, seal := range manifests[2].LastCommit {
+    VerifyTendermintSignature(flnContract, seal, manifests[2].Header.LastBlockHash)
   }
 }
 ```
 
 #### Verification of Merkle proofs for returned VM state chunks
 
-The client checks that returned virtual machine state chunks belong to the virtual machine state hash.
+Finally, the client checks that returned virtual machine state chunks indeed belong to the virtual machine state hash.
 
 ```go
-func VerifyResultsChunks(results QueryResults) {
-  for t := range results.Chunks {
-    assertTrue(VerifyMerkleProof(results.Chunks[t], &results.ChunksProofs[t], results.Manifests[1].VMStateHash))
+func VerifyResponseChunks(results QueryResponse) {
+  for k := range results.Chunks {
+    assertTrue(VerifyMerkleProof(results.Chunks[k], results.Proofs[k], results.Manifests[0].VMStateHash))
   }
+}
+```
+
+## Batch validation
+
+Batch validators are able to locate blocks that should be checked using the checkpoints stored in Ethereum contract. The validator chooses one of the checkpoints and downloads the manifest complementary to it using the suitable Swarm receipt. Now, the validator can unwind the chain until the next checkpoint by following receipts stored in each manifest and also download corresponding transactions.
+
+```go
+func FetchSubchain(sideContract SideContract, index int) ([]Manifest, []Transactions) {
+  var prevCheckpoint = sideContract.Checkpoints[index - 1]
+  var checkpoint = sideContract.Checkpoints[index]
+
+  var count = checkpoint.Height - prevCheckpoint.Height
+  var manifests = make([]Manifest, count)
+  var txss = make([][]Transaction, count)
+  
+  var receipt = checkpoint.Receipt
+  for i := count - 1; i >= 0; i-- {
+    manifests[i] = ManifestUnpack(SwarmDownload(receipt))
+    txss[i] = TransactionsUnpack(SwarmDownload(manifests[i].TxsReceipt))
+
+    receipt = manifests[i].LastManifestReceipt
+  }
+
+  return manifests, txss
 }
 ```
