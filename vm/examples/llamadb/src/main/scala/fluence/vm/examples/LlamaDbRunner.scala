@@ -34,77 +34,83 @@ object LlamaDbRunner extends IOApp {
       initState ← vm.getVmState[IO]
 
       createTableSql = "CREATE TABLE Users(id INT, name VARCHAR(128), age INT)"
-      res1 ← vm.invoke[IO](None, "do_query", createTableSql.getBytes())
-      state1 ← vm.getVmState[IO]
+      createTableRes ← vm.invoke[IO](None, "do_query", createTableSql.getBytes())
+      createTableState ← vm.getVmState[IO]
 
       insertOne = "INSERT INTO Users VALUES(1, 'Sara', 23)"
-      res2 ← vm.invoke[IO](None, "do_query", insertOne.getBytes())
-      state2 ← vm.getVmState[IO]
+      insOneRes ← vm.invoke[IO](None, "do_query", insertOne.getBytes())
+      insOneState ← vm.getVmState[IO]
 
       bulkInsert = "INSERT INTO Users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)"
-      res3 ← vm.invoke[IO](None, "do_query", bulkInsert.getBytes())
-      state3 ← vm.getVmState[IO]
+      bulkInsRes ← vm.invoke[IO](None, "do_query", bulkInsert.getBytes())
+      bulkInsState ← vm.getVmState[IO]
 
       emptySelect = "SELECT * FROM Users WHERE name = 'unknown'"
-      res4 ← vm.invoke[IO](None, "do_query", emptySelect.getBytes())
-      state4 ← vm.getVmState[IO]
+      emptySelectRes ← vm.invoke[IO](None, "do_query", emptySelect.getBytes())
+      emptySelectState ← vm.getVmState[IO]
 
-      selectAll = "SELECT id, name FROM Users"
-      res5 ← vm.invoke[IO](None, "do_query", selectAll.getBytes())
-      state5 ← vm.getVmState[IO]
+      selectAll = "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users"
+      selectAllRes ← vm.invoke[IO](None, "do_query", selectAll.getBytes())
+      selectAllState ← vm.getVmState[IO]
 
       explain = "EXPLAIN SELECT id, name FROM Users"
-      res6 ← vm.invoke[IO](None, "do_query", explain.getBytes())
-      state6 ← vm.getVmState[IO]
+      explainRes ← vm.invoke[IO](None, "do_query", explain.getBytes())
+      explainState ← vm.getVmState[IO]
 
-      createTable2Sql = "CREATE TABLE Roles(user_id INT, role VARCHAR(128))"
-      res7 ← vm.invoke[IO](None, "do_query", createTable2Sql.getBytes())
-      state7 ← vm.getVmState[IO]
+      createTableRoleSql = "CREATE TABLE Roles(user_id INT, role VARCHAR(128))"
+      createTableRoleRes ← vm.invoke[IO](None, "do_query", createTableRoleSql.getBytes())
+      createTableRolesState ← vm.getVmState[IO]
 
-      bulkInsert2 = "INSERT INTO Roles VALUES(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')"
-      res8 ← vm.invoke[IO](None, "do_query", bulkInsert2.getBytes())
-      state8 ← vm.getVmState[IO]
+      roleTableBulkInsert = "INSERT INTO Roles VALUES(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')"
+      roleTableBulkInsertRes ← vm.invoke[IO](None, "do_query", roleTableBulkInsert.getBytes())
+      roleTableBulkInsertState ← vm.getVmState[IO]
 
       selectWithJoin = "SELECT u.name AS Name, r.role AS Role FROM Users u JOIN Roles r ON u.id = r.user_id WHERE r.role = 'Writer'"
-      res9 ← vm.invoke[IO](None, "do_query", selectWithJoin.getBytes())
-      state9 ← vm.getVmState[IO]
+      selectWithJoinRes ← vm.invoke[IO](None, "do_query", selectWithJoin.getBytes())
+      selectWithJoinState ← vm.getVmState[IO]
 
       badQuery = "SELECT salary FROM Users"
-      res10 ← vm.invoke[IO](None, "do_query", badQuery.getBytes())
-      state10 ← vm.getVmState[IO]
+      badQueryRes ← vm.invoke[IO](None, "do_query", badQuery.getBytes())
+      badQueryState ← vm.getVmState[IO]
 
       parserError = "123"
-      res11 ← vm.invoke[IO](None, "do_query", parserError.getBytes())
-      state11 ← vm.getVmState[IO]
+      parserErrorRes ← vm.invoke[IO](None, "do_query", parserError.getBytes())
+      parserErrorState ← vm.getVmState[IO]
 
       incompatibleType = "SELECT * FROM Users WHERE age = 'Bob'"
-      res12 ← vm.invoke[IO](None, "do_query", incompatibleType.getBytes())
-      state12 ← vm.getVmState[IO]
+      incompatibleTypeRes ← vm.invoke[IO](None, "do_query", incompatibleType.getBytes())
+      incompatibleTypeState ← vm.getVmState[IO]
 
       deleteQuery = "DELETE FROM Users WHERE id = (SELECT user_id FROM Roles WHERE role = 'Student')"
-      res13 ← vm.invoke[IO](None, "do_query", deleteQuery.getBytes())
-      state13 ← vm.getVmState[IO]
+      deleteQueryRes ← vm.invoke[IO](None, "do_query", deleteQuery.getBytes())
+      deleteQueryState ← vm.getVmState[IO]
+
+      updateQuery = "UPDATE Roles r SET r.role = 'Professor' WHERE r.user_id = " +
+        "(SELECT id FROM Users WHERE name = 'Sara')"
+      updateQueryRes ← vm.invoke[IO](None, "do_query", updateQuery.getBytes())
+      updateQueryState ← vm.getVmState[IO]
 
       truncateQuery = "TRUNCATE TABLE Users"
-      res14 ← vm.invoke[IO](None, "do_query", truncateQuery.getBytes())
-      state14 ← vm.getVmState[IO]
+      truncateQueryRes ← vm.invoke[IO](None, "do_query", truncateQuery.getBytes())
+      truncateQueryState ← vm.getVmState[IO]
 
       finishState ← vm.getVmState[IO].toVmError
     } yield {
-      s"$createTableSql >> \n${res1.toStr} \nvmState=$state1\n" +
-        s"$insertOne >> \n${res2.toStr} \nvmState=$state2\n" +
-        s"$bulkInsert >> \n${res3.toStr} \nvmState=$state3\n" +
-        s"$emptySelect >> \n${res4.toStr} \nvmState=$state4\n" +
-        s"$selectAll >> \n${res5.toStr} \nvmState=$state5\n" +
-        s"$explain >> \n${res6.toStr}  \nvmState=$state6\n" +
-        s"$createTable2Sql >> \n${res7.toStr}  \nvmState=$state7\n" +
-        s"$bulkInsert2 >> \n${res8.toStr} \nvmState=$state8\n" +
-        s"$selectWithJoin >> \n${res9.toStr} \nvmState=$state9\n" +
-        s"$badQuery >> \n${res10.toStr} \n vmState=$state10\n" +
-        s"$parserError >> \n${res11.toStr} \n vmState=$state11\n" +
-        s"$incompatibleType >> \n${res12.toStr} \n vmState=$state12\n" +
-        s"$deleteQuery >> \n${res13.toStr} \n vmState=$state13\n" +
-        s"$truncateQuery >> \n${res14.toStr} \n vmState=$state14\n" +
+      s"$createTableSql >> \n${createTableRes.toStr} \nvmState=$createTableState\n" +
+        s"$insertOne >> \n${insOneRes.toStr} \nvmState=$insOneState\n" +
+        s"$bulkInsert >> \n${bulkInsRes.toStr} \nvmState=$bulkInsState\n" +
+        s"$emptySelect >> \n${emptySelectRes.toStr} \nvmState=$emptySelectState\n" +
+        s"$selectAll >> \n${selectAllRes.toStr} \nvmState=$selectAllState\n" +
+        s"$explain >> \n${explainRes.toStr}  \nvmState=$explainState\n" +
+        s"$createTableRoleSql >> \n${createTableRoleRes.toStr}  \nvmState=$createTableRolesState\n" +
+        s"$roleTableBulkInsert >> \n${roleTableBulkInsertRes.toStr} \nvmState=$roleTableBulkInsertState\n" +
+        s"$selectWithJoin >> \n${selectWithJoinRes.toStr} \nvmState=$selectWithJoinState\n" +
+        s"$badQuery >> \n${badQueryRes.toStr} \n vmState=$badQueryState\n" +
+        s"$parserError >> \n${parserErrorRes.toStr} \n vmState=$parserErrorState\n" +
+        s"$incompatibleType >> \n${incompatibleTypeRes.toStr} \n vmState=$incompatibleTypeState\n" +
+        s"$deleteQuery >> \n${deleteQueryRes.toStr} \n vmState=$deleteQueryState\n" +
+        s"$updateQuery >> \n${updateQueryRes.toStr} \n vmState=$updateQueryState\n" +
+        s"$truncateQuery >> \n${truncateQueryRes.toStr} \n vmState=$truncateQueryState\n" +
         s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
         s"finishState=$finishState"
