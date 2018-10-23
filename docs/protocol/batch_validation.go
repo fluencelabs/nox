@@ -1,10 +1,9 @@
 package protocol
 
 func FetchSubchain(sideContract SideContract, index int) ([]Manifest, []Transactions) {
-  var prevCheckpoint = sideContract.Checkpoints[index - 1]
   var checkpoint = sideContract.Checkpoints[index]
 
-  var count = checkpoint.Height - prevCheckpoint.Height
+  var count = sideContract.CheckpointInterval + 2
   var manifests = make([]Manifest, count)
   var txss = make([][]Transaction, count)
 
@@ -17,4 +16,8 @@ func FetchSubchain(sideContract SideContract, index int) ([]Manifest, []Transact
   }
 
   return manifests, txss
+}
+
+type ValidationContract struct {
+  Snapshots map[int64]SwarmReceipt
 }
