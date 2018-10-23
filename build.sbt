@@ -98,7 +98,6 @@ lazy val statemachine = (project in file("statemachine"))
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
       scalaTest
     ),
-    test in assembly := {}, // TODO: remove this line after SBT issue fix
     imageNames in docker := Seq(ImageName("fluencelabs/solver")),
     dockerfile in docker := {
       // Run `sbt docker` to create image

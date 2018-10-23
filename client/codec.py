@@ -66,6 +66,26 @@ def le4b_decode(le4b):
 	"""
 	return ord(le4b[0]) + (ord(le4b[1]) << 8) + (ord(le4b[2]) << 16) + (ord(le4b[3]) << 24)
 
+def b64_encode(text):
+	"""
+	Encodes a given `string` to base-64 `string` representation.
+
+	Arguments:
+		text
+			Source text to encode to base-64.
+	"""
+	return base64.b64encode(text.encode()).decode()
+
+def b64_encode_bytes(b):
+	"""
+	Encodes given `bytes` to base-64 `string` representation.
+
+	Arguments:
+		b
+			Source bytes to encode to base-64.
+	"""
+	return base64.b64encode(b).decode()
+
 def b64_decode(b64):
 	"""
 	Decodes `string` from base-64 `string` representation.
