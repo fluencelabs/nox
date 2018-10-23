@@ -14,6 +14,7 @@
   - [Query response](#query-response)
 - [Client](#client)  
   - [Query response verification](#query-response-verification)
+- [Batch validation](#batch-validation)
 
 ## Core
 
@@ -212,7 +213,11 @@ type SideContract struct {
 }
 ```
 
-It is expected that every Kademlia sidechain node stores the tail of the chain starting from the last block checkpointed into the contract. Every node verifies there are no forks or incorrect references in the chain tail – otherwise, a dispute is submitted to the contract and offending block producers lose their deposits. 
+It is expected that every Kademlia sidechain node stores the tail of the chain starting from the last block checkpointed into the contract. Every node verifies there are no forks or incorrect references in the chain tail – otherwise, a dispute is submitted to the contract and offending block producers lose their deposits.
+
+<p align="center">
+  <img src="images/sidechain.png" alt="Sidechain" width="794px"/>
+</p>
 
 Every sidechain node also verifies that a checkpointing is performed correctly – i.e. there is a correct block being uploaded to the contract every period of time. Otherwise, another dispute is submitted to the contract, but this time a sidechain node that has uploaded an incorrect checkpoint block will lose a deposit.
 
@@ -564,7 +569,7 @@ func VerifyResponseChunks(results QueryResponse) {
 
 ## Batch validation
 
-Batch validators are able to locate blocks that should be checked using the checkpoints stored in Ethereum contract. The validator chooses one of the checkpoints and downloads the manifest complementary to it using available Swarm receipt. Now, the validator can unwind the chain until the next checkpoint by following receipts stored in each manifest and also download corresponding transactions.
+Batch validators are able to locate blocks that should be checked using the checkpoints stored in Ethereum contract. The validator chooses one of the checkpoints and downloads the manifest complementary to it using the suitable Swarm receipt. Now, the validator can unwind the chain until the next checkpoint by following receipts stored in each manifest and also download corresponding transactions.
 
 ```go
 func FetchSubchain(sideContract SideContract, index int) ([]Manifest, []Transactions) {
