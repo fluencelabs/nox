@@ -4,7 +4,6 @@
 //! `deallocation` memory from a WASM host environment. Also contains functions
 //! for reading from and writing strings to the raw memory.
 
-#![feature(extern_prelude)]
 #![feature(allocator_api)]
 #![allow(dead_code)]
 

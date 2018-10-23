@@ -33,7 +33,7 @@ object LlamaDbRunner extends IOApp {
       vm ← WasmVm[IO](Seq(inputFile))
       initState ← vm.getVmState[IO]
 
-      createTableSql ← executeSql(vm, "CREATE TABLE Users(id INT, name VARCHAR(128), age INT)")
+      createTableSql ← executeSql(vm, "CREATE TABLE Users(id INT, name TEXT, age INT)")
 
       insertOne ← executeSql(vm, "INSERT INTO Users VALUES(1, 'Sara', 23)")
 

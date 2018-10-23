@@ -34,7 +34,7 @@ fn integration_sql_test() {
     // Success cases.
     //
 
-    let create_table = execute_sql("CREATE TABLE Users(id INT, name VARCHAR(128), age INT)".to_string());
+    let create_table = execute_sql("CREATE TABLE Users(id INT, name TEXT, age INT)".to_string());
     println!("{}", create_table);
     assert_eq!(create_table, "table created");
 
