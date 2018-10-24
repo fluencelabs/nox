@@ -63,6 +63,11 @@ object SbtCommons {
   val web3jCrypto = "org.web3j" % "crypto" % web3jVersion
   val web3jCore = "org.web3j"   % "core"   % web3jVersion
 
+  val prometheusClientVersion = "0.5.0"
+  val prometheusClient = "io.prometheus" % "simpleclient" % prometheusClientVersion
+  val prometheusClientJetty = "io.prometheus" % "simpleclient_jetty" % prometheusClientVersion
+  val prometheusClientServlet = "io.prometheus" % "simpleclient_servlet" % prometheusClientVersion
+
   /* Test deps*/
 
   val scalaTest = "org.scalatest" %% "scalatest"   % "3.0.5"  % Test
