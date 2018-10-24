@@ -34,7 +34,7 @@ fn integration_sql_test() {
     // Success cases.
     //
 
-    let create_table = execute_sql("CREATE TABLE Users(id INT, name VARCHAR(128), age INT)".to_string());
+    let create_table = execute_sql("CREATE TABLE Users(id INT, name TEXT, age INT)".to_string());
     println!("{}", create_table);
     assert_eq!(create_table, "table created");
 
@@ -58,8 +58,9 @@ fn integration_sql_test() {
     println!("{}", empty_select);
     assert_eq!(empty_select, "id, name, age\n");
 
-    let select_all = execute_sql("SELECT * FROM Roles".to_string());
-    assert_eq!(select_all, "user_id, role\n1, Teacher\n2, Student\n3, Scientist\n4, Writer");
+    let select_all = execute_sql("SELECT min(user_id) as min, max(user_id) as max, \
+        count(user_id) as count, sum(user_id) as sum, avg(user_id) as avg FROM Roles".to_string());
+    assert_eq!(select_all, "min, max, count, sum, avg\n1, 4, 4, 10, 2.5");
     println!("{}", select_all);
 
     let select_with_join = execute_sql("SELECT u.name AS Name, r.role AS Role FROM Users u JOIN Roles \
@@ -80,6 +81,10 @@ fn integration_sql_test() {
     let delete = execute_sql("DELETE FROM Users WHERE id = (SELECT user_id FROM Roles WHERE role = 'Student');".to_string());
     println!("{}", delete);
     assert_eq!(delete, "rows deleted: 1");
+
+    let update_query = execute_sql("UPDATE Users SET name = 'Min' WHERE name = 'Max'".to_string());
+    println!("{}", update_query);
+    assert_eq!(update_query, "rows updated: 1");
 
     //
     // Error cases.
@@ -105,16 +110,6 @@ fn integration_sql_test() {
     println!("{}", incompatible_types);
     assert_eq!(incompatible_types, "[Error] 'Bob' cannot be cast to Integer { signed: true, bytes: 8 }");
 
-    // Not supported operations
-
-    let not_supported_drop = execute_sql("DROP TABLE Users".to_string());
-    println!("{}", not_supported_drop);
-    assert_eq!(not_supported_drop, "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got Ident(\"DROP\")");
-
-    let not_supported_update= execute_sql("UPDATE Users SET name = 'Rob' WHERE name = 'Bob'".to_string());
-    println!("{}", not_supported_update);
-    assert_eq!(not_supported_update, "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got Update");
-
     let not_supported_order_by = execute_sql("SELECT * FROM Users ORDER BY name".to_string());
     println!("{}", not_supported_order_by);
     assert_eq!(not_supported_order_by, "[Error] order by in not implemented");
@@ -122,6 +117,14 @@ fn integration_sql_test() {
     let truncate = execute_sql("TRUNCATE TABLE Users".to_string());
     println!("{}", truncate);
     assert_eq!(truncate, "rows deleted: 3");
+
+    let drop_table = execute_sql("DROP TABLE Users".to_string());
+    println!("{}", drop_table);
+    assert_eq!(drop_table, "table was dropped");
+
+    let select_by_dropped_table = execute_sql("SELECT * FROM Users".to_string());
+    println!("{}", select_by_dropped_table);
+    assert_eq!(select_by_dropped_table, "[Error] table does not exist: users");
 }
 
 //
@@ -131,26 +134,26 @@ fn integration_sql_test() {
 /// Executes sql and returns result as a String.
 fn execute_sql(sql: String) -> String { unsafe {
 
+    let sql_str_real_len = sql.len();
     // converts params
     let sql_str_ptr = super::put_to_mem(sql);
     let sql_str_len = read_size(sql_str_ptr) as usize;
+    assert_eq!(&sql_str_real_len, &sql_str_len);
 
     // executes query
     let result_str_ptr = super::do_query(sql_str_ptr.offset(STR_LEN_BYTES as isize), sql_str_len) as *mut u8;
+
     // converts results
     let result_str_len = read_size(result_str_ptr) as usize;
     let result_str = super::deref_str(result_str_ptr.offset(STR_LEN_BYTES as isize), result_str_len);
 
+    assert_eq!(result_str_len, result_str.len());
     result_str
 }}
 
 /// Reads u32 from current pointer.
 unsafe fn read_size(ptr: *mut u8) -> u32 {
     let mut size_as_bytes: [u8; STR_LEN_BYTES] = [0; STR_LEN_BYTES];
-    for idx in 0..(STR_LEN_BYTES as isize) {
-        let byte = std::ptr::read(ptr.offset(idx));
-        size_as_bytes[idx as usize] = byte;
-    }
-
+    std::ptr::copy_nonoverlapping(ptr, size_as_bytes.as_mut_ptr(), STR_LEN_BYTES);
     std::mem::transmute(size_as_bytes)
 }
