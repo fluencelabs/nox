@@ -127,7 +127,6 @@ class DataEngineResultAwait:
 		"""
 		tm = self.session.engine.tm
 		path = self.target_key + "/result"
-		#print("querying " + path)
 		for i in range(0, response_timeout_sec * requests_per_sec):
 			verified_session_summary = None
 			if i >= wait_before_request_session_summary_sec * requests_per_sec:

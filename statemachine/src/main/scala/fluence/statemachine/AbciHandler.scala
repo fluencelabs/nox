@@ -163,10 +163,11 @@ class AbciHandler(
       _ = txStateChecker.collect(latency, duration)
 
       method = txStateChecker.method
-      logMessage = s"${TimeLogger.currentTime()} ${method.name()} latency=$latency validationTime=$duration $validated"
+      logMessage = () =>
+        s"${TimeLogger.currentTime()} ${method.name()} latency=$latency validationTime=$duration $validated"
 
       verboseInfoLogNeeded = method == DELIVER_TX || validated.code != CodeType.OK
-      _ = if (verboseInfoLogNeeded) logger.info(logMessage) else logger.debug(logMessage)
+      _ = if (verboseInfoLogNeeded) logger.info(logMessage()) else logger.debug(logMessage())
     } yield validated
   }
 }
