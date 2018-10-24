@@ -19,7 +19,7 @@ After a successful login, the main Grafana page might look like this:
 
 ![grafana main page](resources/grafana_main.png)
 
-Clich `Fluence local cluster monitoring` dashboard. It would look similar to this:
+Click `Fluence local cluster monitoring` dashboard. It would look similar to this:
 
 ![Fluence grafana dashboard](resources/grafana_dashboard.png)
 
