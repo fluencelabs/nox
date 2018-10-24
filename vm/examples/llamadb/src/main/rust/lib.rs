@@ -4,7 +4,6 @@
 //! `deallocation` memory from a WASM host environment. Also contains functions
 //! for reading from and writing strings to the raw memory.
 
-#![feature(extern_prelude)]
 #![feature(allocator_api)]
 #![allow(dead_code)]
 
@@ -109,6 +108,9 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
     match statement {
         ExecuteStatementResponse::Created => {
             "table created".to_string()
+        }
+        ExecuteStatementResponse::Dropped => {
+            "table was dropped".to_string()
         }
         ExecuteStatementResponse::Inserted(number) => {
             format!("rows inserted: {}", number)

@@ -15,6 +15,9 @@ type Manifest struct {
   LastManifestReceipt SwarmReceipt  // Swarm hash of the previous manifest
 }
 
+// deserializes a byte array into the manifest
+func ManifestUnpack([]byte) Manifest { panic("") }
+
 // returns the new virtual machine state, the manifest for the stored block and the next app hash
 func ProcessBlock(block Block, prevVMState VMState, prevManifestReceipt SwarmReceipt,
 ) (VMState, Manifest, SwarmReceipt, Digest) {

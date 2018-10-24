@@ -1,9 +1,9 @@
 package protocol
 
 type Block struct {
-  Header     Header         // block header
-  LastCommit []Seal         // Tendermint nodes votes for the previous block
-  Txs        []Transaction  // transactions as sent by clients
+  Header     Header        // block header
+  LastCommit []Seal        // Tendermint nodes votes for the previous block
+  Txs        Transactions  // transactions as sent by clients
 }
 
 type Header struct {
