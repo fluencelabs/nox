@@ -30,6 +30,6 @@ node_name=$1_node$3
 docker run -idt \
     --user $(id -u):$(id -g) \
     -p "$6:26656" -p "$7:26657" -p "$8:26660" -p "$9:26661" \
-    -v "$PWD/statemachine:/statemachine" -v "$2:/vmcode" -v "$tm_home:/tendermint" \
+    -v "$PWD/solver:/solver" -v "$2:/vmcode" -v "$tm_home:/tendermint" \
     --name "$node_name" \
     fluencelabs/solver:latest

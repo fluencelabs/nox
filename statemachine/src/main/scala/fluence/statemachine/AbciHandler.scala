@@ -116,12 +116,12 @@ class AbciHandler(
     val responseData = (for {
       validated <- validateTx(req.getTx, txParser, deliverTxStateChecker)
 
-      validationTimeMeter = TimeMeter()
+      processingTimeMeter = TimeMeter()
       _ <- validated.validatedTx match {
         case None => IO.unit
         case Some(tx) => txProcessor.processNewTx(tx)
       }
-      processingDuration = validationTimeMeter.millisElapsed
+      processingDuration = processingTimeMeter.millisElapsed
       _ = logger.info("DeliverTx processTime={}", processingDuration)
     } yield validated).unsafeRunSync()
     ResponseDeliverTx.newBuilder
@@ -158,7 +158,8 @@ class AbciHandler(
       }
       validationDuration = validationTimeMeter.millisElapsed
       latency = validated.validatedTx
-        .map(tx => TimeMeter.millisFromPastToNow(tx.timestamp.toLong) - validationDuration)
+        .flatMap(tx => tx.timestamp)
+        .map(TimeMeter.millisFromPastToNow(_) - validationDuration)
         .map(Math.max(0, _))
         .getOrElse(0L)
       _ = logger.info(

@@ -18,7 +18,7 @@ limitations under the License.
 import sys
 sys.path.append('..')
 
-import base64
+import base64, time
 from tmrpc import TendermintRPC
 from dataengine import DataEngine, id_generator
 from codec import le4b_encode
@@ -31,7 +31,7 @@ def demo_llamadb(addr, genesis):
     eng = DataEngine(addr, genesis)
     s = eng.new_session(get_client(), get_signing_key())
     print(submit_query(s, "CREATE TABLE users(id int, name varchar(128), age int)").result())
-    for i in range(0, 5):
+    for i in range(0, 20):
         submit_query(s, "INSERT INTO users VALUES(%d, 'User%d', %d)" % (i, i, i + 20))
         print(submit_query(s, "SELECT AVG(age) FROM users").result())
     s.close()

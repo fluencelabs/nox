@@ -68,7 +68,7 @@ height = tm.get_max_height()
 
 # 1st session: correct, but not explicitly closed
 session1_id = id_generator()
-#demo_queries(tm, genesis, False, False, session1_id)
+demo_queries(tm, genesis, False, False, session1_id)
 
 # 2nd session: failed during processing
 #demo_queries(tm, genesis, True, False)
@@ -80,4 +80,4 @@ session1_id = id_generator()
 # 4th session: same as 1st - transactions declined as duplicated
 #demo_queries(tm, genesis, False, False, session1_id)
 
-demo_many_queries(tm, genesis)
+#demo_many_queries(tm, genesis)

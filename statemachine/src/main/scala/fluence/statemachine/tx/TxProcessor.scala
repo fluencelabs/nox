@@ -117,7 +117,7 @@ class TxProcessor[F[_]](
       result <- payloadOp match {
         case None => F.pure(Nil)
         case Some(payload) =>
-          txAndQueuedDependencies(txHeader.dependentTxHeader).map(Transaction(txHeader, payload, "") :: _)
+          txAndQueuedDependencies(txHeader.dependentTxHeader).map(Transaction(txHeader, payload, None) :: _)
       }
     } yield result
 

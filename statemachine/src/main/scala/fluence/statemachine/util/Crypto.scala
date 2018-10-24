@@ -84,9 +84,8 @@ object Crypto extends slogging.LazyLogging {
       signatureBytes <- Try(engine.signOneShot(hashed))
       signatureString <- Try(Base64.getEncoder.encodeToString(signatureBytes))
     } yield signatureString
-    signatureTry.failed.foreach { //
-      e =>
-        logger.error("An error on obtaining signature: {}", e.getMessage)
+    signatureTry.failed.foreach { e =>
+      logger.error("An error on obtaining signature: {}", e.getMessage)
     }
     signatureTry.getOrElse("cannot_sign_data")
   }

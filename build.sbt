@@ -117,9 +117,9 @@ lazy val statemachine = (project in file("statemachine"))
       val tmPrometheusPort = 26660
 
       // State machine constants
-      val smDataRoot = "/statemachine"
-      val smRunScript = s"$smDataRoot/run.sh"
-      val smPrometheusPort = 26661
+      val solverDataRoot = "/solver"
+      val solverRunScript = s"$solverDataRoot/run.sh"
+      val stateMachinePrometheusPort = 26661
 
       val vmDataRoot = "/vmcode"
 
@@ -133,15 +133,15 @@ lazy val statemachine = (project in file("statemachine"))
         expose(tmP2pPort)
         expose(tmRpcPort)
         expose(tmPrometheusPort)
-        expose(smPrometheusPort)
+        expose(stateMachinePrometheusPort)
 
         volume(tmDataRoot)
-        volume(smDataRoot)
+        volume(solverDataRoot)
         volume(vmDataRoot)
 
         add(artifact, artifactTargetPath)
 
-        entryPoint("bash", smRunScript, tmDataRoot, smDataRoot, artifactTargetPath)
+        entryPoint("bash", solverRunScript, tmDataRoot, solverDataRoot, artifactTargetPath)
       }
     }
   )

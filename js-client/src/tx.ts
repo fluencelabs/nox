@@ -53,7 +53,7 @@ class TxEncoder {
                 order: counter
             },
             payload: payload,
-            timestamp: +new Date + ""
+            timestamp: +new Date
         };
     }
 
@@ -90,7 +90,7 @@ interface Header {
 interface Tx {
     header: Header;
     payload: string;
-    timestamp: string;
+    timestamp: number;
 }
 
 /**

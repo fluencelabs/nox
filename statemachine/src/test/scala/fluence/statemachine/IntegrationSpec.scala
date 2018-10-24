@@ -31,7 +31,6 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
   // sbt defaults user directory to submodule directory
   // while Idea defaults to project root
   private val moduleDirPrefix = if (System.getProperty("user.dir").endsWith("/statemachine")) "../" else "./"
-  println(System.getProperty("user.dir"))
   private val moduleFiles = List("mul.wast", "counter.wast").map(moduleDirPrefix + "vm/src/test/resources/wast/" + _)
   private val config = StateMachineConfig(8, moduleFiles, "OFF")
 
@@ -79,7 +78,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
 
   def tx(client: SigningClient, session: String, order: Long, payload: String): String = {
     val txHeaderJson = s"""{"client":"${client.id}","session":"$session","order":$order}"""
-    val txJson = s"""{"header":$txHeaderJson,"payload":"$payload","timestamp":"0"}"""
+    val txJson = s"""{"header":$txHeaderJson,"payload":"$payload"}"""
     val signingData = s"${client.id}-$session-$order-$payload"
     val signedTxJson = s"""{"tx":$txJson,"signature":"${client.sign(signingData)}"}"""
     HexCodec.stringToHex(signedTxJson).toUpperCase
@@ -116,19 +115,16 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     val tx2Result = s"@meta/${client.id}/$session/2/result"
     val tx3Result = s"@meta/${client.id}/$session/3/result"
 
-    // TODO: rewrite tests. 2 kinds of tests required:
-    // 1. Many VM-agnostic tests for State machine logic would not depend on currently used VM impl (with VM stubbed)
-    // 2. Few VM-SM tests (similar to currently available) integration tests that fix actual app_hash'es for integration
-
-    "return correct initial tree root hash" in {
-      sendCommit()
-      // the tree containing VM state hash only
-      latestAppHash shouldBe "CED687708BB077AFFF670943B503E30035E1FA4B56535B77A204BF80F5E51C3B"
-    }
-
     "process correct tx/query sequence" in {
+      // TODO: rewrite tests. 2 kinds of tests required:
+      // 1. Many VM-agnostic tests for State machine logic would not depend on currently used VM impl (with VM stubbed).
+      // 2. Few VM-SM tests (similar to the current one) integration tests that fix actual app_hash'es for integration.
+      //
+      // Currently only this test looks like integrational, other tests should be more decoupled from VM logic.
+
       sendCommit()
       sendCommit()
+      latestAppHash shouldBe "CED687708BB077AFFF670943B503E30035E1FA4B56535B77A204BF80F5E51C3B"
 
       sendCheckTx(tx0)
       sendCheckTx(tx1)
@@ -191,9 +187,6 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       val txWithWrongSignature = tx(client, session, 0, "inc()", "bad_signature")
       sendCheckTx(txWithWrongSignature) shouldBe (CodeType.BAD, ClientInfoMessages.InvalidSignature)
       sendDeliverTx(txWithWrongSignature) shouldBe (CodeType.BAD, ClientInfoMessages.InvalidSignature)
-
-      sendCommit()
-      latestAppHash shouldBe "CED687708BB077AFFF670943B503E30035E1FA4B56535B77A204BF80F5E51C3B"
     }
 
     "ignore duplicated tx" in {
@@ -205,12 +198,9 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       // Mempool state updated only on commit!
       sendCheckTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       sendCommit()
-      latestAppHash shouldBe "6AD28BC5E181FFC0DA0E81929DBF6C075F2D953B117464CEBCAC6CB9CCE28748"
 
       sendCheckTx(tx0) shouldBe (CodeType.BAD, ClientInfoMessages.DuplicatedTransaction)
       sendDeliverTx(tx0) shouldBe (CodeType.BAD, ClientInfoMessages.DuplicatedTransaction)
-      sendCommit()
-      latestAppHash shouldBe "6AD28BC5E181FFC0DA0E81929DBF6C075F2D953B117464CEBCAC6CB9CCE28748"
     }
 
     "process Query method correctly" in {
@@ -241,7 +231,6 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendDeliverTx(tx(client, session, 4, "@closeSession()"))
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "FE93FEDD6D5987C9CCF4FE568D1210C400799DC78977AFE5831D4E590C09EAC6"
 
       sendQuery(s"@meta/${client.id}/$session/4/status") shouldBe Right("sessionClosed")
       sendQuery(s"@meta/${client.id}/$session/@sessionSummary") shouldBe
@@ -260,7 +249,6 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
 
       sendQuery(s"@meta/${client.id}/$session/0/result") shouldBe
         Right(Error("NoSuchFnError", "Unable to find a function with the name='<no-name>.wrong'").toStoreValue)
-      latestAppHash shouldBe "CA1ED2F5802AB417F77E19A0C2FC4018330733A19C2BEB6CF0EFC6238A4E55EF"
     }
 
     "not invoke dependent txs if required failed when order in not correct" in {
@@ -280,7 +268,6 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(s"@meta/${client.id}/$session/0/status") shouldBe Right("error")
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendQuery(tx3Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
-      latestAppHash shouldBe "0EA9CAFF254762FF49D6AD53EE3061E0C685259E623080C8D6F36CE589170045"
     }
 
     "expire session after expiration period elapsed" in {

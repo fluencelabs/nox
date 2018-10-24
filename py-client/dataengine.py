@@ -171,20 +171,20 @@ class DataEngineSession:
 		self.summary_key = "@meta/%s/%s/@sessionSummary" % (self.client, self.session)
 		self.counter = 0
 
-	def submit(self, command, arg):
+	def submit(self, command, args):
 		"""
 		Submits a given `command` with given `params` to the server node.
 
 		Arguments:
 			command
 				Function name to invoke on the server side.
-			arg
+			args
 				The arguments of the called function as bytes.
 		
 		Returns:
 			An awaitable `DataEngineResultAwait` that allows to retrieve the results of the function call.
 		"""
-		payload = "%s(%s)" % (command, hex_encode_bytes(arg))
+		payload = "%s(%s)" % (command, hex_encode_bytes(args))
 		tx_sign_text = "%s-%s-%d-%s" % (self.client, self.session, self.counter, payload)
 		tx_unhashed_sign_bytes = tx_sign_text.encode()
 		tx_sign_bytes = hashlib.sha256(tx_unhashed_sign_bytes).digest()
@@ -197,13 +197,12 @@ class DataEngineSession:
 					"order": self.counter
 				},
 				"payload": payload,
-				"timestamp": str(int(round(time.time() * 1000)))
+				"timestamp": int(round(time.time() * 1000))
 			},
 			"signature": signature
 		}).replace("'", '"').replace('u"', '"')
 		target_key = "@meta/%s/%s/%d" % (self.client, self.session, self.counter)
 		
-		#print("submitting", tx_sign_text)
 		tx_response = self.engine.tm.broadcast_tx_sync(tx_json)
 		if "result" not in tx_response:
 			print(tx_response["error"]["data"])
