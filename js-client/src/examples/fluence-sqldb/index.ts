@@ -36,7 +36,7 @@ interface Status {
     block_height: number
 }
 
-interface PortWithclient {
+interface PortWithClient {
     addr: string,
     client: fluence.TendermintClient
 }
@@ -44,7 +44,7 @@ interface PortWithclient {
 class DbClient {
 
     private readonly sessions: fluence.Session[];
-    private readonly clients: PortWithclient[];
+    private readonly clients: PortWithClient[];
     private readonly size: number;
     private counter: number;
 
