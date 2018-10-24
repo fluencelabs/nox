@@ -22,8 +22,8 @@ import cats.instances.try_._
 import fluence.crypto.hash.CryptoHashers
 import fluence.statemachine.PublicKey
 import fluence.statemachine.tree.MerkleHash
-import net.i2p.crypto.eddsa.spec.{EdDSANamedCurveSpec, EdDSANamedCurveTable, EdDSAPublicKeySpec}
-import net.i2p.crypto.eddsa.{EdDSAEngine, EdDSAPublicKey}
+import net.i2p.crypto.eddsa.spec.{EdDSANamedCurveSpec, EdDSANamedCurveTable, EdDSAPrivateKeySpec, EdDSAPublicKeySpec}
+import net.i2p.crypto.eddsa.{EdDSAEngine, EdDSAPrivateKey, EdDSAPublicKey}
 import org.bouncycastle.jcajce.provider.digest.SHA3
 import scodec.bits.ByteVector
 
@@ -50,18 +50,44 @@ object Crypto extends slogging.LazyLogging {
         .fold[Try[EdDSANamedCurveSpec]](Failure(new Exception()))(Success(_))
       keySpec <- Try(new EdDSAPublicKeySpec(publicKeyBytes, edParams))
 
-      key = new EdDSAPublicKey(keySpec)
-      // TODO: both `dataBytes` and `sha256(dataBytes)` currently supported as valid input to signature
-      // remove engine2 check after fix statemachine tests and Python client
+      publicKey = new EdDSAPublicKey(keySpec)
       engine = new EdDSAEngine()
-      engine2 = new EdDSAEngine()
-      _ <- Try(engine.initVerify(key))
-      _ <- Try(engine2.initVerify(key))
-    } yield engine.verifyOneShot(hashed, signatureBytes) || engine2.verifyOneShot(dataBytes, signatureBytes)
+      _ <- Try(engine.initVerify(publicKey))
+      verified <- Try(engine.verifyOneShot(hashed, signatureBytes))
+    } yield verified
     verificationPassed.failed.foreach { e =>
-      logger.error("An error on verifying signature: " + e.getMessage)
+      logger.error("An error on verifying signature: {}", e.getMessage)
     }
     verificationPassed.getOrElse(false)
+  }
+
+  /**
+   * Signs `data` using a given EdDSA-25519 `privateKeyBase64`.
+   *
+   * @param data text input
+   * @return text Base-64 signature
+   */
+  def sign(data: String, privateKeyBase64: String): String = {
+    val signatureTry = for {
+      dataBytes <- Try(data.getBytes("UTF-8"))
+      hashed <- CryptoHashers.Sha256.runF[Try](dataBytes)
+      privateKeyBytes <- Try(Base64.getDecoder.decode(privateKeyBase64))
+
+      edParams <- Option(EdDSANamedCurveTable.getByName(EdDSANamedCurveTable.ED_25519))
+        .fold[Try[EdDSANamedCurveSpec]](Failure(new Exception()))(Success(_))
+      keySpec <- Try(new EdDSAPrivateKeySpec(privateKeyBytes, edParams))
+
+      privateKey = new EdDSAPrivateKey(keySpec)
+      engine = new EdDSAEngine()
+      _ <- Try(engine.initSign(privateKey))
+
+      signatureBytes <- Try(engine.signOneShot(hashed))
+      signatureString <- Try(Base64.getEncoder.encodeToString(signatureBytes))
+    } yield signatureString
+    signatureTry.failed.foreach { e =>
+      logger.error("An error on obtaining signature: {}", e.getMessage)
+    }
+    signatureTry.getOrElse("cannot_sign_data")
   }
 
   /**

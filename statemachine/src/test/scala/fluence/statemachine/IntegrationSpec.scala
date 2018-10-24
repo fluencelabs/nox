@@ -28,11 +28,13 @@ import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 
 class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
 
-  private val config =
-    StateMachineConfig(8, List("vm/src/test/resources/wast/mul.wast", "vm/src/test/resources/wast/counter.wast"), "OFF")
+  // sbt defaults user directory to submodule directory
+  // while Idea defaults to project root
+  private val moduleDirPrefix = if (System.getProperty("user.dir").endsWith("/statemachine")) "../" else "./"
+  private val moduleFiles = List("mul.wast", "counter.wast").map(moduleDirPrefix + "vm/src/test/resources/wast/" + _)
+  private val config = StateMachineConfig(8, moduleFiles, "OFF")
 
-  // TODO: remove lazy, it is used temporary to prevent exception "error locating VM module files"
-  lazy val abciHandler: AbciHandler = ServerRunner
+  val abciHandler: AbciHandler = ServerRunner
     .buildAbciHandler(config)
     .valueOr(e => throw new RuntimeException(e.message))
     .unsafeRunSync()
@@ -67,66 +69,62 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
 
   def latestAppHash: String = latestCommittedState.merkleHash.toHex
 
-  def tx(client: String, session: String, order: Long, payload: String, signature: String): String = {
-    val txHeaderJson = s"""{"client":"$client","session":"$session","order":$order}"""
-    val txJson = s"""{"header":$txHeaderJson,"payload":"$payload"}"""
+  def tx(client: SigningClient, session: String, order: Long, payload: String, signature: String): String = {
+    val txHeaderJson = s"""{"client":"${client.id}","session":"$session","order":$order}"""
+    val txJson = s"""{"header":$txHeaderJson,"payload":"$payload","timestamp":"0"}"""
     val signedTxJson = s"""{"tx":$txJson,"signature":"$signature"}"""
     HexCodec.stringToHex(signedTxJson).toUpperCase
   }
 
+  def tx(client: SigningClient, session: String, order: Long, payload: String): String = {
+    val txHeaderJson = s"""{"client":"${client.id}","session":"$session","order":$order}"""
+    val txJson = s"""{"header":$txHeaderJson,"payload":"$payload"}"""
+    val signingData = s"${client.id}-$session-$order-$payload"
+    val signedTxJson = s"""{"tx":$txJson,"signature":"${client.sign(signingData)}"}"""
+    HexCodec.stringToHex(signedTxJson).toUpperCase
+  }
+
+  def littleEndian4ByteHex(number: Int): String =
+    Integer.toString(number, 16).reverse.padTo(8, '0').grouped(2).map(_.reverse).mkString.toUpperCase
+
   "State machine" should {
-    val client = "client001"
+    val client = SigningClient(
+      "client001",
+      "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxQ"
+    )
     val session = "157A0E"
     val tx0 = tx(
       client,
       session,
       0,
       "inc()",
-      "j8jWIEomQme35ozNzzk6PZVsArYSYWsVvmhbPKFirJv44uDTXapZuAk2vu5hSQ6O1zup7RzmOdKZiGFPOVlSDQ"
+      "UY7z792BxI9os9ZjuErFyHZXONWZD1Uu1QRx9+6W40exjL+6USXFEt+3ayEEZCcu2Tv0ObJULxDhc9GQ4muuAQ"
     )
     val tx1 = tx(
       client,
       session,
       1,
-      "MulModule.mul(10,14)",
-      "CeXRfIfJ/jf6zFbsO+Fku6l8tpySM4RggyMoIcGGSC84FtiXY/aHXRJbYDwrMdxspWWgDwqbyiwAF5DUk7GxBg"
+      "MulModule.mul(0A0000000E000000)",
+      "YsykPCUaOpHjZ45CMOUBfaQjKLvMwaeac1OZxY9BqKE658qYuMx+Loe/iZMVc6IrXFSUffEIuLWXV6weOhHwAA"
     )
-    val tx2 = tx(
-      client,
-      session,
-      2,
-      "inc()",
-      "BfZXvxjC4YsDEMzneumKZwZWX84Xd1MOl7qhlFyhkMmKlxqs8U9IUpz3mr6aIzsW6u+PdeGmxsOJ18uDyKVlAA"
-    )
-    val tx3 = tx(
-      client,
-      session,
-      3,
-      "get()",
-      "19y3VBoB3ccmiuvO1d8ZoR4Du12Oz5pZ9L2tNxUkCCmWAL+/1sX+1Iy3OyH6kT2E6PSJw6j5f0Fpfyu91fj5Aw"
-    )
-    val tx0Failed = tx(
-      client,
-      session,
-      0,
-      "MulModule.mul(12,a)",
-      "mIha9cksj1brqH86VwXiN/rj+B44DBgqC7Kee2w6MOzWvlAZsJkWOQvhzip2pV6eHNWQqQXCGhIEasTSf4iCDg"
-    )
-    val tx0Result = s"@meta/$client/$session/0/result"
-    val tx1Result = s"@meta/$client/$session/1/result"
-    val tx2Result = s"@meta/$client/$session/2/result"
-    val tx3Result = s"@meta/$client/$session/3/result"
+    val tx2 = tx(client, session, 2, "inc()")
+    val tx3 = tx(client, session, 3, "get()")
+    val tx0Failed = tx(client, session, 0, "wrong()")
+    val tx0Result = s"@meta/${client.id}/$session/0/result"
+    val tx1Result = s"@meta/${client.id}/$session/1/result"
+    val tx2Result = s"@meta/${client.id}/$session/2/result"
+    val tx3Result = s"@meta/${client.id}/$session/3/result"
 
-    "return correct initial tree root hash" ignore {
-      sendCommit()
-      // the tree containing VM state hash only
-      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
-    }
+    "process correct tx/query sequence" in {
+      // TODO: rewrite tests. 2 kinds of tests required:
+      // 1. Many VM-agnostic tests for State machine logic would not depend on currently used VM impl (with VM stubbed).
+      // 2. Few VM-SM tests (similar to the current one) integration tests that fix actual app_hash'es for integration.
+      //
+      // Currently only this test looks like integrational, other tests should be more decoupled from VM logic.
 
-    "process correct tx/query sequence" ignore {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
+      latestAppHash shouldBe "CED687708BB077AFFF670943B503E30035E1FA4B56535B77A204BF80F5E51C3B"
 
       sendCheckTx(tx0)
       sendCheckTx(tx1)
@@ -135,7 +133,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendDeliverTx(tx0)
       sendCommit()
-      latestAppHash shouldBe "14072A6C1505952277A0CA2EC4E62D43D032ADEDD9B8969BA9AF16635A7928B8"
+      latestAppHash shouldBe "6AD28BC5E181FFC0DA0E81929DBF6C075F2D953B117464CEBCAC6CB9CCE28748"
 
       sendCheckTx(tx1)
       sendCheckTx(tx2)
@@ -145,19 +143,19 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
       sendCommit()
-      latestAppHash shouldBe "AB03E9F9100E6E22073E1013AADB5D5460CFAF56DB216D5B5DE10B4685EAB788"
+      latestAppHash shouldBe "ED30D5F1CC61198C36C05147BA965A905BD229F2B4E63DF44EFA875224942C60"
 
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendCommit()
 
-      sendQuery(tx1Result) shouldBe Right(Computed("140").toStoreValue)
-      sendQuery(tx3Result) shouldBe Right(Computed("2").toStoreValue)
+      sendQuery(tx1Result) shouldBe Right(Computed(littleEndian4ByteHex(140)).toStoreValue)
+      sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(2)).toStoreValue)
 
       latestCommittedHeight shouldBe 5
-      latestAppHash shouldBe "E7CA2973D0E0CF4ECBED00A3B107D3174FB33E8F3B458A5940E643D268104CB3"
+      latestAppHash shouldBe "ED30D5F1CC61198C36C05147BA965A905BD229F2B4E63DF44EFA875224942C60"
     }
 
-    "invoke session txs in session counter order" ignore {
+    "invoke session txs in session counter order" in {
       sendCommit()
       sendCommit()
 
@@ -177,43 +175,35 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendCommit()
 
       sendQuery(tx0Result) shouldBe Right(Empty.toStoreValue)
-      sendQuery(tx1Result) shouldBe Right(Computed("140").toStoreValue)
+      sendQuery(tx1Result) shouldBe Right(Computed(littleEndian4ByteHex(140)).toStoreValue)
       sendQuery(tx2Result) shouldBe Right(Empty.toStoreValue)
-      sendQuery(tx3Result) shouldBe Right(Computed("2").toStoreValue)
+      sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(2)).toStoreValue)
     }
 
-    "ignore incorrectly signed tx" ignore {
+    "ignore incorrectly signed tx" in {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       val txWithWrongSignature = tx(client, session, 0, "inc()", "bad_signature")
       sendCheckTx(txWithWrongSignature) shouldBe (CodeType.BAD, ClientInfoMessages.InvalidSignature)
       sendDeliverTx(txWithWrongSignature) shouldBe (CodeType.BAD, ClientInfoMessages.InvalidSignature)
-
-      sendCommit()
-      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
     }
 
-    "ignore duplicated tx" ignore {
+    "ignore duplicated tx" in {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendCheckTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       sendDeliverTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       // Mempool state updated only on commit!
       sendCheckTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       sendCommit()
-      latestAppHash shouldBe "14072A6C1505952277A0CA2EC4E62D43D032ADEDD9B8969BA9AF16635A7928B8"
 
       sendCheckTx(tx0) shouldBe (CodeType.BAD, ClientInfoMessages.DuplicatedTransaction)
       sendDeliverTx(tx0) shouldBe (CodeType.BAD, ClientInfoMessages.DuplicatedTransaction)
-      sendCommit()
-      latestAppHash shouldBe "14072A6C1505952277A0CA2EC4E62D43D032ADEDD9B8969BA9AF16635A7928B8"
     }
 
-    "process Query method correctly" ignore {
+    "process Query method correctly" in {
       sendDeliverTx(tx0)
       sendQuery(tx0Result) shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.QueryStateIsNotReadyYet))
 
@@ -230,37 +220,26 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(tx0Result) shouldBe Right(Empty.toStoreValue)
     }
 
-    "change session summary if session explicitly closed" ignore {
+    "change session summary if session explicitly closed" in {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendDeliverTx(tx0)
       sendDeliverTx(tx1)
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
-      sendDeliverTx(
-        tx(
-          client,
-          session,
-          4,
-          "@closeSession()",
-          "fADQUq3sxia+WRo9vUb0W+ZlBISlnwlCT5zhfSNBw3/KbIOUkNCRAJx2q0pSMH8b537jDCCZ1ZkIw8IHr3g/CA"
-        )
-      )
+      sendDeliverTx(tx(client, session, 4, "@closeSession()"))
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "654AD13844622857F24BC16C75B72EF50FAC1C8BFD94571A27F381DDA5B51787"
 
-      sendQuery(s"@meta/$client/$session/4/status") shouldBe Right("sessionClosed")
-      sendQuery(s"@meta/$client/$session/@sessionSummary") shouldBe
+      sendQuery(s"@meta/${client.id}/$session/4/status") shouldBe Right("sessionClosed")
+      sendQuery(s"@meta/${client.id}/$session/@sessionSummary") shouldBe
         Right("{\"status\":{\"ExplicitlyClosed\":{}},\"invokedTxsCount\":5,\"lastTxCounter\":5}")
     }
 
-    "not accept new txs if session failed" ignore {
+    "not accept new txs if session failed" in {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendDeliverTx(tx0Failed)
       sendDeliverTx(tx1) shouldBe (CodeType.BAD, ClientInfoMessages.SessionAlreadyClosed)
@@ -268,21 +247,13 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendCommit()
       sendCommit()
 
-      sendQuery(s"@meta/$client/$session/0/result") shouldBe
-        Right(
-          Error(
-            "InvalidArgError",
-            "Arg 1 of 'a' not an int " +
-              "(or passed string argument isn't matched the corresponding argument in Wasm function)"
-          ).toStoreValue
-        )
-      latestAppHash shouldBe "5E1124F1D0EB16BF678349F6EC274090C8ED71D85CC9D3ED5D2000189D5856A0"
+      sendQuery(s"@meta/${client.id}/$session/0/result") shouldBe
+        Right(Error("NoSuchFnError", "Unable to find a function with the name='<no-name>.wrong'").toStoreValue)
     }
 
-    "not invoke dependent txs if required failed when order in not correct" ignore {
+    "not invoke dependent txs if required failed when order in not correct" in {
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "E6FC72DA9F8296F9549105711EF10F15C598BD8162976577BA00B3E1FB3AA758"
 
       sendDeliverTx(tx1)
       sendDeliverTx(tx2)
@@ -292,57 +263,34 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendCommit()
       sendCommit()
 
-      sendQuery(s"@meta/$client/$session/0/result") shouldBe
-        Right(
-          Error(
-            "InvalidArgError",
-            "Arg 1 of 'a' not an int " +
-              "(or passed string argument isn't matched the corresponding argument in Wasm function)"
-          ).toStoreValue
-        )
+      sendQuery(s"@meta/${client.id}/$session/0/result") shouldBe
+        Right(Error("NoSuchFnError", "Unable to find a function with the name='<no-name>.wrong'").toStoreValue)
+      sendQuery(s"@meta/${client.id}/$session/0/status") shouldBe Right("error")
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendQuery(tx3Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
-      latestAppHash shouldBe "AAB3292A4CA80F91CAE4C3E30C73505AE5189E0DDE3D3EF2D012F965628EFD49"
     }
 
-    "store error message for incorrect operations" ignore {
+    "expire session after expiration period elapsed" in {
       sendCommit()
       sendCommit()
 
-      val session1 = "000001"
-      val wrongArgTx1 = tx(
-        client,
-        session1,
-        0,
-        "inc(5)",
-        "FJzdcaHohmrz1ZMxMnrJbmiLzxclWoaMx9j87VYSR7BruAhfRHV0Q1MPJIv5wcbxeaeYgpLyGvzfdecQcWWnDw"
-      )
-      sendDeliverTx(wrongArgTx1)
+      val firstSession = "000001"
+      val secondSession = "000002"
+      val thirdSession = "000003"
+      sendDeliverTx(tx(client, firstSession, 0, "get()"))
+      sendDeliverTx(tx(client, secondSession, 0, "get()"))
+      for (i <- 0 to 5)
+        sendDeliverTx(tx(client, thirdSession, i, "get()"))
+      sendDeliverTx(tx(client, thirdSession, 6, "@closeSession()"))
       sendCommit()
       sendCommit()
 
-      val expectedNumOfArgsMessage =
-        "Invalid number of arguments, expected=0, actually=1 for fn='<no-name>.inc' " +
-          "(or passed string argument is incorrect or isn't matched the corresponding argument in Wasm function)"
-      sendQuery(s"@meta/$client/$session1/0/result") shouldBe
-        Right(Error("InvalidArgError", expectedNumOfArgsMessage).toStoreValue)
-      sendQuery(s"@meta/$client/$session1/0/status") shouldBe Right("error")
-
-      val session2 = "000002"
-      val wrongArgTx2 = tx(
-        client,
-        session2,
-        0,
-        "unknown()",
-        "jtXG+Iq0jxqrHAJzLQHrQoBdkoZj3QdfUdsCd29flYT9V9vfCh6T+LmN+2rtsH6ERbfoXVVq6Tw4amXPYaSJDw"
-      )
-      sendDeliverTx(wrongArgTx2)
-      sendCommit()
-      sendCommit()
-
-      sendQuery(s"@meta/$client/$session2/0/result") shouldBe
-        Right(Error("NoSuchFnError", "Unable to find a function with the name='<no-name>.unknown'").toStoreValue)
-      sendQuery(s"@meta/$client/$session2/0/status") shouldBe Right("error")
+      sendQuery(s"@meta/${client.id}/$firstSession/@sessionSummary") shouldBe
+        Right("{\"status\":{\"Expired\":{}},\"invokedTxsCount\":1,\"lastTxCounter\":1}")
+      sendQuery(s"@meta/${client.id}/$secondSession/@sessionSummary") shouldBe
+        Right("{\"status\":{\"Active\":{}},\"invokedTxsCount\":1,\"lastTxCounter\":2}")
+      sendQuery(s"@meta/${client.id}/$thirdSession/@sessionSummary") shouldBe
+        Right("{\"status\":{\"ExplicitlyClosed\":{}},\"invokedTxsCount\":7,\"lastTxCounter\":9}")
     }
   }
 }

@@ -73,6 +73,17 @@ class TendermintRPC:
 		"""
 		return self.json_from_request('/broadcast_tx_sync?tx="%s"', hex_encode(tx_json))
 
+	def broadcast_tx_async(self, tx_json):
+		"""
+		Submits the given `tx_json` data using Tendermint `broadcast_tx_async`.
+		This method doesn't wait for any Tendermint checkings.
+
+		Arguments:
+			tx_json
+				Tendermint transaction in JSON format.
+		"""
+		return self.json_from_request('/broadcast_tx_async?tx="%s"', hex_encode(tx_json))
+
 	def query(self, path):
 		"""
 		Makes the `abci_query` RPC call.

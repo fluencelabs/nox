@@ -18,9 +18,12 @@ package fluence.statemachine.tx
 
 import cats.Monad
 import cats.data.EitherT
+import cats.syntax.functor._
 import cats.effect.LiftIO
 import fluence.statemachine.error.{StateMachineError, VmRuntimeError}
+import fluence.statemachine.util.{Metrics, TimeMeter}
 import fluence.vm.{VmError, WasmVm}
+import io.prometheus.client.Counter
 import scodec.bits.Bases.Alphabets.HexUppercase
 import scodec.bits.ByteVector
 
@@ -31,7 +34,10 @@ import scala.language.higherKinds
  *
  * @param vm VM instance used to make function calls and to retrieve state
  */
-class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) {
+class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends slogging.LazyLogging {
+
+  private val vmInvokeCounter: Counter = Metrics.registerCounter("solver_vm_invoke_counter", "method")
+  private val vmInvokeTimeCounter: Counter = Metrics.registerCounter("solver_vm_invoke_time_sum", "method")
 
   /**
    * Invokes the provided invocation description using the underlying VM.
@@ -39,10 +45,24 @@ class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) {
    * @param callDescription description of function call invocation including function name and arguments
    * @return either successful invocation's result or failed invocation's error
    */
-  def invoke(callDescription: FunctionCallDescription): EitherT[F, StateMachineError, Option[String]] =
-    vm.invoke(callDescription.module, callDescription.functionName, callDescription.arg)
-      .map(_.map(ByteVector(_).toHex(HexUppercase)))
-      .leftMap(VmOperationInvoker.convertToStateMachineError)
+  def invoke(callDescription: FunctionCallDescription): EitherT[F, StateMachineError, Option[String]] = {
+    val invokeTimeMeter = TimeMeter()
+
+    val result = for {
+      invocationValue <- vm
+        .invoke(callDescription.module, callDescription.functionName, callDescription.arg)
+        .bimap(VmOperationInvoker.convertToStateMachineError, _.map(ByteVector(_).toHex(HexUppercase)))
+        .value
+
+      invokeDuration = invokeTimeMeter.millisElapsed
+      _ = logger.info("VmOperationInvoker duration={}", invokeDuration)
+
+      _ = vmInvokeCounter.labels(callDescription.functionName).inc()
+      _ = vmInvokeTimeCounter.labels(callDescription.functionName).inc(invokeDuration)
+    } yield invocationValue
+
+    EitherT(result)
+  }
 
   /**
    * Obtains the current state hash of VM.
