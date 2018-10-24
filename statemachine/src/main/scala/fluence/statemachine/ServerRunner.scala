@@ -23,6 +23,7 @@ import cats.data.EitherT
 import cats.effect.concurrent.MVar
 import cats.effect.{ExitCode, IO, IOApp}
 import com.github.jtendermint.jabci.socket.TSocket
+import com.github.jtendermint.jabci.types.Request.ValueCase.{CHECK_TX, DELIVER_TX}
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.contract.ClientRegistry
 import fluence.statemachine.error.{ConfigLoadingError, StateMachineError, VmModuleLocationError}
@@ -138,8 +139,8 @@ object ServerRunner extends IOApp with LazyLogging {
       queryProcessor = new QueryProcessor(stateHolder)
 
       txParser = new TxParser[IO](new ClientRegistry())
-      checkTxStateChecker = new TxStateDependentChecker[IO]("CheckTx", stateHolder.mempoolState)
-      deliverTxStateChecker = new TxStateDependentChecker("DeliverTx", mutableConsensusState.getRoot)
+      checkTxStateChecker = new TxStateDependentChecker[IO](CHECK_TX, stateHolder.mempoolState)
+      deliverTxStateChecker = new TxStateDependentChecker(DELIVER_TX, mutableConsensusState.getRoot)
 
       txProcessor = new TxProcessor(mutableConsensusState, vmInvoker, config)
 

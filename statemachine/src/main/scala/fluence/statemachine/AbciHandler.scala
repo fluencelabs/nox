@@ -16,18 +16,16 @@
 
 package fluence.statemachine
 
-import java.text.SimpleDateFormat
-import java.util.Calendar
-
 import cats.Monad
 import cats.effect.IO
 import cats.syntax.functor._
 import com.github.jtendermint.jabci.api._
+import com.github.jtendermint.jabci.types.Request.ValueCase.DELIVER_TX
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
-import fluence.statemachine.util.{ClientInfoMessages, Metrics, TimeMeter}
+import fluence.statemachine.util.{ClientInfoMessages, Metrics, TimeLogger, TimeMeter}
 import io.prometheus.client.Counter
 import slogging.LazyLogging
 
@@ -46,8 +44,6 @@ class AbciHandler(
   private val deliverTxStateChecker: TxStateDependentChecker[IO],
   private val txProcessor: TxProcessor[IO]
 ) extends LazyLogging with ICheckTx with IDeliverTx with ICommit with IQuery {
-
-  private val logDateFormat = ThreadLocal.withInitial[SimpleDateFormat](() => new SimpleDateFormat("hh:mm:ss.SSS"))
 
   private val queryCounter: Counter = Metrics.registerCounter("solver_query_count")
   private val queryProcessTimeCounter: Counter = Metrics.registerCounter("solver_query_process_time_sum")
@@ -156,21 +152,21 @@ class AbciHandler(
         case Left(message) => TxResponseData(None, CodeType.BAD, message)
         case Right(tx) => TxResponseData(Some(tx), CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       }
-      validationDuration = validationTimeMeter.millisElapsed
+
+      duration = validationTimeMeter.millisElapsed
       latency = validated.validatedTx
         .flatMap(tx => tx.timestamp)
-        .map(TimeMeter.millisFromPastToNow(_) - validationDuration)
+        .map(TimeMeter.millisFromPastToNow(_) - duration)
         .map(Math.max(0, _))
         .getOrElse(0L)
-      _ = logger.info(
-        "{} {} latency={} validationTime={} {}",
-        logDateFormat.get().format(Calendar.getInstance().getTime), // TODO: change the way to print current time
-        txStateChecker.name,
-        latency,
-        validationDuration,
-        validated
-      )
-      _ = txStateChecker.collect(latency, validationDuration)
+
+      _ = txStateChecker.collect(latency, duration)
+
+      method = txStateChecker.method
+      logMessage = s"${TimeLogger.currentTime()} ${method.name()} latency=$latency validationTime=$duration $validated"
+
+      verboseInfoLogNeeded = method == DELIVER_TX || validated.code != CodeType.OK
+      _ = if (verboseInfoLogNeeded) logger.info(logMessage) else logger.debug(logMessage)
     } yield validated
   }
 }

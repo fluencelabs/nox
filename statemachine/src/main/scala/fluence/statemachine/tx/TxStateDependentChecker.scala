@@ -17,6 +17,7 @@
 package fluence.statemachine.tx
 import cats.Monad
 import cats.data.EitherT
+import com.github.jtendermint.jabci.types.Request.ValueCase
 import fluence.statemachine.tree.{StoragePaths, TreeNode}
 import fluence.statemachine.util.{ClientInfoMessages, Metrics}
 import io.prometheus.client.Counter
@@ -27,16 +28,18 @@ import scala.language.higherKinds
  * Checker for transactions received via `CheckTx` and `DeliverTx` and parsed.
  * Includes deduplication and checking whether tx' session is still active.
  *
- * @param name name of checker, used to configure metric collection
+ * @param method ABCI method that triggers this checker, used to configure logging and metric collection
  * @param state state against which checking is applied
  */
-class TxStateDependentChecker[F[_]: Monad](val name: String, state: F[TreeNode]) {
+class TxStateDependentChecker[F[_]: Monad](val method: ValueCase, state: F[TreeNode]) {
+  private val methodName = method.name().toLowerCase.replace("_", "")
+
   private val txCounter: Counter =
-    Metrics.registerCounter(s"solver_${name.toLowerCase}_count")
+    Metrics.registerCounter(s"solver_${methodName}_count")
   private val txLatencyCounter: Counter =
-    Metrics.registerCounter(s"solver_${name.toLowerCase}_latency_sum")
+    Metrics.registerCounter(s"solver_${methodName}_latency_sum")
   private val txValidationTimeCounter: Counter =
-    Metrics.registerCounter(s"solver_${name.toLowerCase}_validation_time_sum")
+    Metrics.registerCounter(s"solver_${methodName}_validation_time_sum")
 
   /**
    * Checks whether given `tx` is unique and its state is active against provided [[state]].

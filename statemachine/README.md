@@ -1,8 +1,15 @@
+#### IMPORTANT: State machine and README are under heavy development and can be outdated. Ask a question in gitter or file an issue.
+
 # State machine
 
 Server **State machine** for decentralized computation service.
 State machine gets incoming transactions and queries from Tendermint running locally via **Tendermint ABCI** RPC calls.
 So this State machine is **ABCI application** from Tendermint's point of view.
+
+## Links
+[Running local clusters in docker](/statemachine/docker/README.md)
+
+[Launching Prometheus/Grafana monitoring](/tools/monitoring/README.md)
 
 ## Implementation details
 State machine is a Scala application. It starts with a single optional parameter that describes a local TCP port

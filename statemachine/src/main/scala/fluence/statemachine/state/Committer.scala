@@ -15,9 +15,6 @@
  */
 
 package fluence.statemachine.state
-import java.text.SimpleDateFormat
-import java.util.Calendar
-
 import cats.Monad
 import cats.data.StateT
 import cats.syntax.functor._
@@ -25,7 +22,7 @@ import com.google.protobuf.ByteString
 import fluence.statemachine.StoreValue
 import fluence.statemachine.tree.{MerkleTreeNode, StoragePaths, TreeNode}
 import fluence.statemachine.tx.VmOperationInvoker
-import fluence.statemachine.util.{HexCodec, Metrics, TimeMeter}
+import fluence.statemachine.util.{HexCodec, Metrics, TimeLogger, TimeMeter}
 import io.prometheus.client.Counter
 
 import scala.language.higherKinds
@@ -43,8 +40,6 @@ class Committer[F[_]](
 )(implicit F: Monad[F])
     extends slogging.LazyLogging {
   private val WrongVmHashValue: StoreValue = "wrong_vm_hash"
-
-  private val commitDateFormat = new SimpleDateFormat("hh:mm:ss.SSS")
 
   private val commitCounter: Counter = Metrics.registerCounter("solver_commit_count")
   private val commitTimeCounter: Counter = Metrics.registerCounter("solver_commit_time_sum")
@@ -101,7 +96,7 @@ class Committer[F[_]](
     val commitDuration = commitTimeMeter.millisElapsed
     logger.info(
       "{} Commit: processTime={} height={} hash={}",
-      commitDateFormat.format(Calendar.getInstance().getTime),
+      TimeLogger.currentTime(),
       commitDuration,
       height,
       state.merkleHash.toHex
