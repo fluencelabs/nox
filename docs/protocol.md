@@ -573,13 +573,12 @@ Batch validators are able to locate blocks that should be checked using the chec
 
 ```go
 func FetchSubchain(sideContract SideContract, index int) ([]Manifest, []Transactions) {
-  var prevCheckpoint = sideContract.Checkpoints[index - 1]
   var checkpoint = sideContract.Checkpoints[index]
 
-  var count = checkpoint.Height - prevCheckpoint.Height
+  var count = sideContract.CheckpointInterval + 2
   var manifests = make([]Manifest, count)
   var txss = make([][]Transaction, count)
-  
+
   var receipt = checkpoint.Receipt
   for i := count - 1; i >= 0; i-- {
     manifests[i] = ManifestUnpack(SwarmDownload(receipt))
@@ -591,3 +590,13 @@ func FetchSubchain(sideContract SideContract, index int) ([]Manifest, []Transact
   return manifests, txss
 }
 ```
+
+Here you can note that the number of manifests fetched exceeds the checkpoint interval by two. The reason is that, as we have mentioned in [§ Query response](#query-response) the block `k + 2` certifies the consensus on the block `k` virtual machine state. This means that checkpoint intervals and batch validation intervals are actually offset by two blocks.
+
+<p align="center">
+  <img src="images/batch_validation_interval.png" alt="Batch validation interval" width="771px"/>
+</p>
+
+
+
+
