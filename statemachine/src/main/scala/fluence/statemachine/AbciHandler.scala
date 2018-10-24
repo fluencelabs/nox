@@ -20,11 +20,13 @@ import cats.Monad
 import cats.effect.IO
 import cats.syntax.functor._
 import com.github.jtendermint.jabci.api._
+import com.github.jtendermint.jabci.types.Request.ValueCase.DELIVER_TX
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
-import fluence.statemachine.util.ClientInfoMessages
+import fluence.statemachine.util.{ClientInfoMessages, Metrics, TimeLogger, TimeMeter}
+import io.prometheus.client.Counter
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -42,6 +44,9 @@ class AbciHandler(
   private val deliverTxStateChecker: TxStateDependentChecker[IO],
   private val txProcessor: TxProcessor[IO]
 ) extends LazyLogging with ICheckTx with IDeliverTx with ICommit with IQuery {
+
+  private val queryCounter: Counter = Metrics.registerCounter("solver_query_count")
+  private val queryProcessTimeCounter: Counter = Metrics.registerCounter("solver_query_process_time_sum")
 
   /**
    * Handler for `Commit` ABCI method (processed in Consensus thread).
@@ -61,7 +66,14 @@ class AbciHandler(
    * @return `Query` response data
    */
   override def requestQuery(req: RequestQuery): ResponseQuery = {
+    val queryTimeMeter = TimeMeter()
     val responseData = queryProcessor.processQuery(req.getPath, req.getHeight, req.getProve).unsafeRunSync()
+
+    val queryDuration = queryTimeMeter.millisElapsed
+    logger.debug("Query duration={} info={}", queryDuration, responseData.info)
+    queryCounter.inc()
+    queryProcessTimeCounter.inc(queryDuration)
+
     ResponseQuery.newBuilder
       .setCode(responseData.code)
       .setInfo(responseData.info)
@@ -82,12 +94,7 @@ class AbciHandler(
    * @return `CheckTx` response data
    */
   override def requestCheckTx(req: RequestCheckTx): ResponseCheckTx = {
-    val responseData = (for {
-      validated <- validateTx(req.getTx, txParser, checkTxStateChecker)
-      _ = if (validated.validatedTx.isEmpty) {
-        logger.info("CheckTx {}", validated)
-      }
-    } yield validated).unsafeRunSync()
+    val responseData = validateTx(req.getTx, txParser, checkTxStateChecker).unsafeRunSync()
     ResponseCheckTx.newBuilder
       .setCode(responseData.code)
       .setInfo(responseData.info)
@@ -104,11 +111,14 @@ class AbciHandler(
   override def receivedDeliverTx(req: RequestDeliverTx): ResponseDeliverTx = {
     val responseData = (for {
       validated <- validateTx(req.getTx, txParser, deliverTxStateChecker)
-      _ = logger.info("DeliverTx {}", validated)
+
+      processingTimeMeter = TimeMeter()
       _ <- validated.validatedTx match {
         case None => IO.unit
         case Some(tx) => txProcessor.processNewTx(tx)
       }
+      processingDuration = processingTimeMeter.millisElapsed
+      _ = logger.info("DeliverTx processTime={}", processingDuration)
     } yield validated).unsafeRunSync()
     ResponseDeliverTx.newBuilder
       .setCode(responseData.code)
@@ -128,18 +138,37 @@ class AbciHandler(
    * @param txStateChecker checker encapsulating some state used to check for duplicates and txs in closed sessions
    * @return validated transaction and data used to build a response
    */
-  private def validateTx[F[_]: Monad](
+  private def validateTx[F[_]](
     txBytes: ByteString,
     txParser: TxParser[F],
     txStateChecker: TxStateDependentChecker[F]
-  ): F[TxResponseData] = {
-    (for {
-      parsedTx <- txParser.parseTx(txBytes)
-      checkedTx <- txStateChecker.check(parsedTx)
-    } yield checkedTx).value.map {
-      case Left(message) => TxResponseData(None, CodeType.BAD, message)
-      case Right(tx) => TxResponseData(Some(tx), CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
-    }
+  )(implicit F: Monad[F]): F[TxResponseData] = {
+    val validationTimeMeter = TimeMeter()
+    for {
+      validated <- (for {
+        parsedTx <- txParser.parseTx(txBytes)
+        checkedTx <- txStateChecker.check(parsedTx)
+      } yield checkedTx).value.map {
+        case Left(message) => TxResponseData(None, CodeType.BAD, message)
+        case Right(tx) => TxResponseData(Some(tx), CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
+      }
+
+      duration = validationTimeMeter.millisElapsed
+      latency = validated.validatedTx
+        .flatMap(tx => tx.timestamp)
+        .map(TimeMeter.millisFromPastToNow(_) - duration)
+        .map(Math.max(0, _))
+        .getOrElse(0L)
+
+      _ = txStateChecker.collect(latency, duration)
+
+      method = txStateChecker.method
+      logMessage = () =>
+        s"${TimeLogger.currentTime()} ${method.name()} latency=$latency validationTime=$duration $validated"
+
+      verboseInfoLogNeeded = method == DELIVER_TX || validated.code != CodeType.OK
+      _ = if (verboseInfoLogNeeded) logger.info(logMessage()) else logger.debug(logMessage())
+    } yield validated
   }
 }
 
@@ -152,7 +181,7 @@ class AbciHandler(
  */
 private case class TxResponseData(validatedTx: Option[Transaction], code: Int, info: String) {
   override def toString: String = validatedTx match {
-    case Some(tx) => s"Accepted $tx"
+    case Some(tx) => s"Accepted ${tx.header}"
     case _ => s"Rejected $info"
   }
 }

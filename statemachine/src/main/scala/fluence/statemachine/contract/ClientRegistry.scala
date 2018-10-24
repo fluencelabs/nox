@@ -25,6 +25,7 @@ import fluence.statemachine.{ClientId, PublicKey}
  */
 class ClientRegistry {
 
+  // TODO: load clients from config
   private val knownClients: Map[ClientId, PublicKey] = Map(
     "client001" -> "94QLUpF/i65eJTeThLF4w+xhhu4hHsEqHeO9h7na5Kw=",
     "client002" -> "JSzg1etjAeYNLaN7QwHgnPYF/0IlSdcmZmWplZJkutY="

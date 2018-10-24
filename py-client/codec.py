@@ -46,15 +46,48 @@ def ints_to_bytes(*ints):
 	else:
 		return bytes(ints)
 
-def l_endian_4b(num):
+def le4b_encode(num):
 	"""
-	Converts `int` to a little endian 4 byte `bytes` object.
+	Encodes `int` to a little endian 4 byte `bytes` object.
 
 	Arguments:
 		num
 			Integer to represent in the little endian format.
 	"""
 	return ints_to_bytes(num & 0xFF, (num & 0xFF00) >> 8, (num & 0xFF0000) >> 16, (num & 0xFF000000) >> 24)
+
+def le4b_decode(le4b):
+	"""
+	Decodes `int` from a little endian 4 byte `bytes` object.
+
+	Arguments:
+		le4b
+			Little endian bytes representation of encoded 4-byte `int`.
+	"""
+	if sys.version_info[0] == 2:
+		return ord(le4b[0]) + (ord(le4b[1]) << 8) + (ord(le4b[2]) << 16) + (ord(le4b[3]) << 24)
+	else:
+		return le4b[0] + (le4b[1] << 8) + (le4b[2] << 16) + (le4b[3] << 24)
+
+def b64_encode(text):
+	"""
+	Encodes a given `string` to base-64 `string` representation.
+
+	Arguments:
+		text
+			Source text to encode to base-64.
+	"""
+	return base64.b64encode(text.encode()).decode()
+
+def b64_encode_bytes(b):
+	"""
+	Encodes given `bytes` to base-64 `string` representation.
+
+	Arguments:
+		b
+			Source bytes to encode to base-64.
+	"""
+	return base64.b64encode(b).decode()
 
 def b64_decode(b64):
 	"""
