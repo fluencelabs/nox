@@ -5,16 +5,34 @@ type VMState struct {
 }
 
 // applies block transactions to the virtual machine state to produce the new state
-func NextVMState(vmState *VMState, txs []Transaction) VMState { panic("") }
+func NextVMState(vmState VMState, txs []Transaction) VMState { panic("") }
 
-func TendermintBlockProcessingExample() {
-  // data
-  var blocks   []Block    // Tendermint blockchain
-  var vmStates []VMState  // virtual machine states
+type Manifest struct {
+  Header              Header        // block header
+  VMStateHash         Digest        // virtual machine state hash after the previous block
+  LastCommit          []Seal        // Tendermint nodes signatures for the previous block
+  TxsReceipt          SwarmReceipt  // Swarm hash of the block transactions
+  LastManifestReceipt SwarmReceipt  // Swarm hash of the previous manifest
+}
 
-  // rules
-  var k int               // some block number
+// deserializes a byte array into the manifest
+func ManifestUnpack([]byte) Manifest { panic("") }
 
-  // ∀ k:
-    assertEq(vmStates[k + 1], NextVMState(&vmStates[k], blocks[k].Txs))
+// returns the new virtual machine state, the manifest for the stored block and the next app hash
+func ProcessBlock(block Block, prevVMState VMState, prevManifestReceipt SwarmReceipt,
+) (VMState, Manifest, SwarmReceipt, Digest) {
+  var vmState = NextVMState(prevVMState, block.Txs)
+  var txsReceipt = SwarmUpload(pack(block.Txs))
+
+  var manifest = Manifest{
+    Header:              block.Header,
+    VMStateHash:         MerkleRoot(vmState.Chunks),
+    LastCommit:          block.LastCommit,
+    TxsReceipt:          txsReceipt,
+    LastManifestReceipt: prevManifestReceipt,
+  }
+  var receipt = SwarmUpload(pack(manifest))
+  var nextAppHash = Hash(pack(manifest))
+
+  return vmState, manifest, receipt, nextAppHash
 }
