@@ -96,7 +96,7 @@ lazy val statemachine = (project in file("statemachine"))
       scalaTest
     ),
     test in assembly := {}, // TODO: remove this line after SBT issue fix
-    imageNames in docker := Seq(ImageName("fluencelabs/statemachine")),
+    imageNames in docker := Seq(ImageName("fluencelabs/solver")),
     dockerfile in docker := {
       // Run `sbt docker` to create image
 
@@ -115,7 +115,7 @@ lazy val statemachine = (project in file("statemachine"))
 
       // State machine constants
       val smDataRoot = "/statemachine"
-      val smRunScript = s"$smDataRoot/run-node.sh"
+      val smRunScript = s"$smDataRoot/run.sh"
 
       val vmDataRoot = "/vmcode"
 

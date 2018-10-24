@@ -131,7 +131,7 @@ class TxProcessor[F[_]](
     FunctionCallDescription
       .parse[F](tx.payload)
       .flatMap {
-        case FunctionCallDescription.CloseSession =>
+        case FunctionCallDescription(None, FunctionCallDescription.CloseSession, arr) if arr.isEmpty =>
           EitherT.right[StateMachineError](putResult(tx, TransactionStatus.SessionClosed, Empty))
         case callDescription =>
           vmInvoker

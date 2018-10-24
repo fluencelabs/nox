@@ -2,22 +2,24 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
 const CleanWebpackPlugin = require('clean-webpack-plugin');
+const { CheckerPlugin } = require('awesome-typescript-loader');
 
 module.exports = {
     entry: {
-        app: ['./src/main.ts', './src/examples/CustomCommands.ts',
-            './src/examples/IncrementAndMultiply.ts', './src/examples/DbOnPointers.ts']
+        app: ['./src/fluence.ts', './src/examples/CustomCommands.ts',
+            './src/examples/IncrementAndMultiply.ts']
     },
     devtool: 'inline-source-map',
     devServer: {
-        contentBase: './dist',
+        contentBase: './bundle',
         hot: true
     },
     mode: 'development',
     module: {
         rules: [
             {
-                use: 'ts-loader',
+                test: /\.tsx?$/,
+                loader: 'awesome-typescript-loader',
                 exclude: /node_modules/
             }
         ]
@@ -27,13 +29,14 @@ module.exports = {
     },
     output: {
         filename: 'bundle.js',
-        path: path.resolve(__dirname, 'dist')
+        path: path.resolve(__dirname, 'bundle')
     },
     node: {
         fs: 'empty'
     },
     plugins: [
-        new CleanWebpackPlugin(['dist']),
+        new CleanWebpackPlugin(['bundle']),
+        new CheckerPlugin(),
         new HtmlWebpackPlugin(),
         new webpack.HotModuleReplacementPlugin()
     ]
