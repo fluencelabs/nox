@@ -72,7 +72,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
   }
 
   private def bytes32toPersistentPeers(bytes: DynamicArray[Bytes32]): String = {
-    ""
+    bytes.getValue().
   }
 
   val dir = new File("../bootstrap")
@@ -150,8 +150,8 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
       } yield {
         txReceipt.getLogs should contain(e)
         clusterFormedEvents.length shouldBe 1
-        println(bytes32toGenesis(clusterFormedEvents.head.solverIDs))
-        println(bytes32toPersistentPeers(clusterFormedEvents.head.clusterID, clusterFormedEvents.head.solverAddrs))
+        println(bytes32toGenesis(clusterFormedEvents.head.clusterID, clusterFormedEvents.head.solverIDs))
+        println(bytes32toPersistentPeers(clusterFormedEvents.head.solverAddrs))
       }
     }.unsafeRunSync()
   }
