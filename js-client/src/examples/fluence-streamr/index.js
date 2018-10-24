@@ -8,7 +8,7 @@ const createTableQuery = "CREATE TABLE polution_uusimaa(id varchar(128), locatio
     "value double, unit varchar(128), country varchar(128), city varchar(128), latitude double, " +
     "longitude double, local varchar(128), utc varchar(128))";
 
-const deleteQuery = "DELETE from polution_uusimaa";
+const deleteQuery = "DELETE FROM polution_uusimaa";
 
 fluenceSession.invoke("do_query", deleteQuery).result().then((r) => console.log(r.asString()));
 
@@ -38,7 +38,7 @@ function getData() {
 }
 
 function getCount() {
-    const query = "select count(*) from polution_uusimaa";
+    const query = "SELECT COUNT(*) FROM polution_uusimaa";
     fluenceSession.invoke("do_query", query).result().then((r) => {
         console.log("Data count: " + r.asString().split("\n")[1])
     })
@@ -50,7 +50,7 @@ function getCount() {
  * @param parameter [pm25, pm10, no2, o3]
  */
 function getMax(parameter) {
-    const query = `select max(value) from polution_uusimaa where parameter = '${parameter}'`;
+    const query = `SELECT MAX(value) FROM polution_uusimaa WHERE parameter = '${parameter}'`;
     fluenceSession.invoke("do_query", query).result().then((r) => {
         console.log(`Maximum of ${parameter}: ${r.asString().split("\n")[1]}`);
     })
