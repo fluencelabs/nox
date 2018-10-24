@@ -74,10 +74,3 @@ with the preceding counter value) applied. A transaction might be in a queued st
 * Transaction passed parsing and applied at the same time. A successful transaction applying might cause to apply its
 dependent transactions subsequently. See
 [`TxProcessor`](/statemachine/src/main/scala/fluence/statemachine/tx/TxProcessor.scala) implementation for details.
-
-## Future work
-
-* External chain/cluster/node/client registry (stub for a trusted storage)
-  * Providing chain **genesis** for client
-  * Providing nodes' addresses for connect
-  * Providing clients' public keys for nodes to authorize transactions
