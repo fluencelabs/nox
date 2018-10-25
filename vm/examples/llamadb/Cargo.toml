@@ -1,9 +1,17 @@
 [package]
+
 name = "llama_db"
 version = "0.1.0"
 authors = ["C.Solovev <constantine@fluence.one>"]
+publish = false
+
+[profile.release]
+
+opt-level = 3
+lto = true
 
 [lib]
+
 name = "llama_db"
 test = true
 path = "src/main/rust/lib.rs"

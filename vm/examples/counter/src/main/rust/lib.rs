@@ -17,12 +17,12 @@ use memory_manager::{alloc, dealloc, put_to_mem};
 static mut COUNTER_: counter::Counter = counter::Counter { counter: 0 };
 
 #[no_mangle]
-pub unsafe fn inc() {
+pub unsafe fn inc(_ptr: *mut u8, _len: usize) {
     COUNTER_.inc()
 }
 
 #[no_mangle]
-pub unsafe fn get() -> usize {
+pub unsafe fn get(_ptr: *mut u8, _len: usize) -> usize {
     put_to_mem(COUNTER_.get().to_string()) as usize
 }
 
