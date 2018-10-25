@@ -23,12 +23,17 @@ import cats.data.EitherT
 import cats.effect.concurrent.MVar
 import cats.effect.{ExitCode, IO, IOApp}
 import com.github.jtendermint.jabci.socket.TSocket
+import com.github.jtendermint.jabci.types.Request.ValueCase.{CHECK_TX, DELIVER_TX}
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.contract.ClientRegistry
 import fluence.statemachine.error.{ConfigLoadingError, StateMachineError, VmModuleLocationError}
 import fluence.statemachine.state._
 import fluence.statemachine.tx.{TxParser, TxProcessor, TxStateDependentChecker, VmOperationInvoker}
+import fluence.statemachine.util.Metrics
 import fluence.vm.WasmVm
+import io.prometheus.client.exporter.MetricsServlet
+import org.eclipse.jetty.server.Server
+import org.eclipse.jetty.servlet.{ServletContextHandler, ServletHolder}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
 
@@ -43,12 +48,14 @@ import scala.util.Try
  * according to Tendermint specification) and sends ABCI requests to `ABCIHandler`.
  */
 object ServerRunner extends IOApp with LazyLogging {
-  val DefaultABCIPoint: Int = 26658 // default Tendermint ABCI port
+  val DefaultABCIPort: Int = 26658 // default Tendermint ABCI port
+  val DefaultMetricsPort: Int = 26661 // default Prometheus metrics port
 
   override def run(args: List[String]): IO[ExitCode] = {
-    val port = if (args.length > 0) args(0).toInt else DefaultABCIPoint
+    val abciPort = if (args.nonEmpty) args.head.toInt else DefaultABCIPort
+    val metricsPort = if (args.length > 1) args(1).toInt else DefaultMetricsPort
     ServerRunner
-      .start(port)
+      .start(abciPort, metricsPort)
       .map(_ => ExitCode.Success)
       .valueOr(error => {
         logger.error("Error during State machine run: " + error + " caused by: " + error.causedBy)
@@ -59,14 +66,18 @@ object ServerRunner extends IOApp with LazyLogging {
   /**
    * Starts the State machine.
    *
-   * @param port port used to listen to Tendermint requests
+   * @param abciPort port used to listen to Tendermint requests
+   * @param metricsPort port used to provide Prometheus metrics
    */
-  private def start(port: Int): EitherT[IO, StateMachineError, Unit] =
+  private def start(abciPort: Int, metricsPort: Int): EitherT[IO, StateMachineError, Unit] =
     for {
       _ <- EitherT.right(IO { configureLogging() })
 
       config <- loadConfig()
       _ = configureLogLevel(config.logLevel)
+
+      _ = logger.info("Starting Metrics servlet")
+      _ = startMetricsServer(metricsPort)
 
       _ = logger.info("Building State Machine ABCI handler")
       abciHandler <- buildAbciHandler(config)
@@ -75,11 +86,26 @@ object ServerRunner extends IOApp with LazyLogging {
       socket = new TSocket
       _ = socket.registerListener(abciHandler)
 
-      socketThread = new Thread(() => socket.start(port))
+      socketThread = new Thread(() => socket.start(abciPort))
       _ = socketThread.setName("Socket")
       _ = socketThread.start()
       _ = socketThread.join()
     } yield ()
+
+  /**
+   * Starts metrics servlet on provided port
+   *
+   * @param metricsPort port to expose Prometheus metrics
+   */
+  private def startMetricsServer(metricsPort: Int): Unit = {
+    val server = new Server(metricsPort)
+    val context = new ServletContextHandler
+    context.setContextPath("/")
+    server.setHandler(context)
+
+    context.addServlet(new ServletHolder(new MetricsServlet()), "/")
+    server.start()
+  }
 
   /**
    * Loads State machine config using `pureconfig` Scala config loading mechanism.
@@ -101,6 +127,9 @@ object ServerRunner extends IOApp with LazyLogging {
       moduleFilenames <- moduleFilesFromConfig[IO](config)
       _ = logger.info("Loading VM modules from " + moduleFilenames)
       vm <- buildVm[IO](moduleFilenames)
+
+      _ = Metrics.resetCollectors()
+
       vmInvoker = new VmOperationInvoker[IO](vm)
 
       initialState <- EitherT.right(MVar[IO].of(TendermintState.initial))
@@ -110,8 +139,8 @@ object ServerRunner extends IOApp with LazyLogging {
       queryProcessor = new QueryProcessor(stateHolder)
 
       txParser = new TxParser[IO](new ClientRegistry())
-      checkTxStateChecker = new TxStateDependentChecker[IO](stateHolder.mempoolState)
-      deliverTxStateChecker = new TxStateDependentChecker(mutableConsensusState.getRoot)
+      checkTxStateChecker = new TxStateDependentChecker[IO](CHECK_TX, stateHolder.mempoolState)
+      deliverTxStateChecker = new TxStateDependentChecker(DELIVER_TX, mutableConsensusState.getRoot)
 
       txProcessor = new TxProcessor(mutableConsensusState, vmInvoker, config)
 
@@ -172,7 +201,7 @@ object ServerRunner extends IOApp with LazyLogging {
    * Configures `slogging` logger.
    */
   private def configureLogging(): Unit = {
-    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(true, false, true)
+    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, false)
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.INFO
   }

@@ -52,7 +52,8 @@ class TxEncoder {
                 session: session,
                 order: counter
             },
-            payload: payload
+            payload: payload,
+            timestamp: +new Date
         };
     }
 
@@ -88,7 +89,8 @@ interface Header {
  */
 interface Tx {
     header: Header;
-    payload: string
+    payload: string;
+    timestamp: number;
 }
 
 /**

@@ -19,7 +19,7 @@ package fluence.vm.examples
 import cats.data.EitherT
 import cats.effect.{ExitCode, IO, IOApp}
 import fluence.vm.VmError.InternalVmError
-import fluence.vm.WasmVm
+import fluence.vm.{VmError, WasmVm}
 
 import scala.language.higherKinds
 
@@ -27,111 +27,104 @@ object LlamaDbRunner extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
 
-    val program = for {
-      inputFile ← EitherT(getInputFile(args).attempt)
-        .leftMap(e ⇒ InternalVmError(e.getMessage, Some(e)))
-      vm ← WasmVm[IO](Seq(inputFile))
-      initState ← vm.getVmState[IO]
+    val program: EitherT[IO, VmError, String] = for {
+      inputFile <- EitherT(getInputFile(args).attempt)
+        .leftMap(e => InternalVmError(e.getMessage, Some(e)))
+      vm <- WasmVm[IO](Seq(inputFile))
+      initState <- vm.getVmState[IO]
 
-      createTableSql = "CREATE TABLE Users(id INT, name VARCHAR(128), age INT)"
-      createTableRes ← vm.invoke[IO](None, "do_query", createTableSql.getBytes())
-      createTableState ← vm.getVmState[IO]
+      createTable <- executeSql(vm, "CREATE TABLE Users(id INT, name TEXT, age INT)")
 
-      insertOne = "INSERT INTO Users VALUES(1, 'Sara', 23)"
-      insOneRes ← vm.invoke[IO](None, "do_query", insertOne.getBytes())
-      insOneState ← vm.getVmState[IO]
+      insertOne <- executeSql(vm, "INSERT INTO Users VALUES(1, 'Sara', 23)")
 
-      bulkInsert = "INSERT INTO Users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)"
-      bulkInsRes ← vm.invoke[IO](None, "do_query", bulkInsert.getBytes())
-      bulkInsState ← vm.getVmState[IO]
+      bulkInsert <- executeSql(vm, "INSERT INTO Users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)")
 
-      emptySelect = "SELECT * FROM Users WHERE name = 'unknown'"
-      emptySelectRes ← vm.invoke[IO](None, "do_query", emptySelect.getBytes())
-      emptySelectState ← vm.getVmState[IO]
+      emptySelect <- executeSql(vm, "SELECT * FROM Users WHERE name = 'unknown'")
 
-      selectAll = "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users"
-      selectAllRes ← vm.invoke[IO](None, "do_query", selectAll.getBytes())
-      selectAllState ← vm.getVmState[IO]
+      selectAll <- executeSql(vm, "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users")
 
-      explain = "EXPLAIN SELECT id, name FROM Users"
-      explainRes ← vm.invoke[IO](None, "do_query", explain.getBytes())
-      explainState ← vm.getVmState[IO]
+      explain <- executeSql(vm, "EXPLAIN SELECT id, name FROM Users")
 
-      createTableRoleSql = "CREATE TABLE Roles(user_id INT, role VARCHAR(128))"
-      createTableRoleRes ← vm.invoke[IO](None, "do_query", createTableRoleSql.getBytes())
-      createTableRolesState ← vm.getVmState[IO]
+      createTableRole <- executeSql(vm, "CREATE TABLE Roles(user_id INT, role VARCHAR(128))")
 
-      roleTableBulkInsert = "INSERT INTO Roles VALUES(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')"
-      roleTableBulkInsertRes ← vm.invoke[IO](None, "do_query", roleTableBulkInsert.getBytes())
-      roleTableBulkInsertState ← vm.getVmState[IO]
+      roleTableBulkInsert <- executeSql(
+        vm,
+        "INSERT INTO Roles VALUES(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')"
+      )
 
-      selectWithJoin = "SELECT u.name AS Name, r.role AS Role FROM Users u JOIN Roles r ON u.id = r.user_id WHERE r.role = 'Writer'"
-      selectWithJoinRes ← vm.invoke[IO](None, "do_query", selectWithJoin.getBytes())
-      selectWithJoinState ← vm.getVmState[IO]
+      selectWithJoin = executeSql(
+        vm,
+        "SELECT u.name AS Name, r.role AS Role FROM Users u JOIN Roles r ON u.id = r.user_id WHERE r.role = 'Writer'"
+      )
 
-      badQuery = "SELECT salary FROM Users"
-      badQueryRes ← vm.invoke[IO](None, "do_query", badQuery.getBytes())
-      badQueryState ← vm.getVmState[IO]
+      invalidQuery <- executeSql(vm, "SELECT salary FROM Users")
 
-      parserError = "123"
-      parserErrorRes ← vm.invoke[IO](None, "do_query", parserError.getBytes())
-      parserErrorState ← vm.getVmState[IO]
+      parserError <- executeSql(vm, "123")
 
-      incompatibleType = "SELECT * FROM Users WHERE age = 'Bob'"
-      incompatibleTypeRes ← vm.invoke[IO](None, "do_query", incompatibleType.getBytes())
-      incompatibleTypeState ← vm.getVmState[IO]
+      incompatibleType <- executeSql(vm, "SELECT * FROM Users WHERE age = 'Bob'")
 
-      deleteQuery = "DELETE FROM Users WHERE id = (SELECT user_id FROM Roles WHERE role = 'Student')"
-      deleteQueryRes ← vm.invoke[IO](None, "do_query", deleteQuery.getBytes())
-      deleteQueryState ← vm.getVmState[IO]
+      delete <- executeSql(vm, "DELETE FROM Users WHERE id = (SELECT user_id FROM Roles WHERE role = 'Student')")
 
-      updateQuery = "UPDATE Roles r SET r.role = 'Professor' WHERE r.user_id = " +
-        "(SELECT id FROM Users WHERE name = 'Sara')"
-      updateQueryRes ← vm.invoke[IO](None, "do_query", updateQuery.getBytes())
-      updateQueryState ← vm.getVmState[IO]
+      update <- executeSql(
+        vm,
+        "UPDATE Roles r SET r.role = 'Professor' WHERE r.user_id = " +
+          "(SELECT id FROM Users WHERE name = 'Sara')"
+      )
 
-      truncateQuery = "TRUNCATE TABLE Users"
-      truncateQueryRes ← vm.invoke[IO](None, "do_query", truncateQuery.getBytes())
-      truncateQueryState ← vm.getVmState[IO]
+      truncate <- executeSql(vm, "TRUNCATE TABLE Users")
 
-      finishState ← vm.getVmState[IO].toVmError
+      dropTable <- executeSql(vm, "DROP TABLE Users")
+
+      selectByDroppedTable <- executeSql(vm, "SELECT * FROM Users")
+
+      finishState <- vm.getVmState[IO].toVmError
     } yield {
-      s"$createTableSql >> \n${createTableRes.toStr} \nvmState=$createTableState\n" +
-        s"$insertOne >> \n${insOneRes.toStr} \nvmState=$insOneState\n" +
-        s"$bulkInsert >> \n${bulkInsRes.toStr} \nvmState=$bulkInsState\n" +
-        s"$emptySelect >> \n${emptySelectRes.toStr} \nvmState=$emptySelectState\n" +
-        s"$selectAll >> \n${selectAllRes.toStr} \nvmState=$selectAllState\n" +
-        s"$explain >> \n${explainRes.toStr}  \nvmState=$explainState\n" +
-        s"$createTableRoleSql >> \n${createTableRoleRes.toStr}  \nvmState=$createTableRolesState\n" +
-        s"$roleTableBulkInsert >> \n${roleTableBulkInsertRes.toStr} \nvmState=$roleTableBulkInsertState\n" +
-        s"$selectWithJoin >> \n${selectWithJoinRes.toStr} \nvmState=$selectWithJoinState\n" +
-        s"$badQuery >> \n${badQueryRes.toStr} \n vmState=$badQueryState\n" +
-        s"$parserError >> \n${parserErrorRes.toStr} \n vmState=$parserErrorState\n" +
-        s"$incompatibleType >> \n${incompatibleTypeRes.toStr} \n vmState=$incompatibleTypeState\n" +
-        s"$deleteQuery >> \n${deleteQueryRes.toStr} \n vmState=$deleteQueryState\n" +
-        s"$updateQuery >> \n${updateQueryRes.toStr} \n vmState=$updateQueryState\n" +
-        s"$truncateQuery >> \n${truncateQueryRes.toStr} \n vmState=$truncateQueryState\n" +
+      s"$createTable\n" +
+        s"$insertOne\n" +
+        s"$bulkInsert\n" +
+        s"$emptySelect\n" +
+        s"$selectAll\n" +
+        s"$explain\n" +
+        s"$createTableRole\n" +
+        s"$roleTableBulkInsert\n" +
+        s"$selectWithJoin\n" +
+        s"$invalidQuery\n" +
+        s"$parserError\n" +
+        s"$incompatibleType\n" +
+        s"$delete\n" +
+        s"$update\n" +
+        s"$truncate\n" +
+        s"$dropTable\n" +
+        s"$selectByDroppedTable\n" +
         s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
         s"finishState=$finishState"
     }
 
     program.value.map {
-      case Left(err) ⇒
+      case Left(err) =>
         println(s"[Error]: $err cause=${err.getCause}")
         ExitCode.Error
-      case Right(value) ⇒
+      case Right(value) =>
         println(value)
         ExitCode.Success
     }
   }
 
+  private def executeSql(vm: WasmVm, sql: String): EitherT[IO, VmError, String] =
+    for {
+      result <- vm.invoke[IO](None, "do_query", sql.getBytes())
+      state <- vm.getVmState[IO].toVmError
+    } yield {
+      s"$sql >> \n${result.toStr} \nvmState=$state\n"
+    }
+
   private def getInputFile(args: List[String]): IO[String] = IO {
     args.headOption match {
-      case Some(value) ⇒
+      case Some(value) =>
         println(s"Starts for input file $value")
         value
-      case None ⇒
+      case None =>
         throw new IllegalArgumentException("Full path for counter.wasm is required!")
     }
   }
@@ -139,7 +132,7 @@ object LlamaDbRunner extends IOApp {
   implicit class ToStr(bytes: Option[Array[Byte]]) {
 
     def toStr: String = {
-      bytes.map(bytes ⇒ new String(bytes)).getOrElse("None")
+      bytes.map(bytes => new String(bytes)).getOrElse("None")
     }
   }
 
