@@ -8,4 +8,4 @@ if [ "$#" -ne 2 ]; then
     exit 1
 fi
 
-docker run --user $(id -u):$(id -g) -v "$PWD/$1:/statemachine" -v "$2:/tendermint" fluencelabs/solver:latest
+docker run --user $(id -u):$(id -g) -v "$PWD/$1:/solver" -v "$2:/tendermint" fluencelabs/solver:latest

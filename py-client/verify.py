@@ -143,7 +143,7 @@ def hash_binary(data, format):
 		# They came from a complicated marshalling logic in https://github.com/tendermint/go-amino.
 		# Instead of a full support of go-amino, such hard-coded values are used.
 		t_unix, t_ns = parse_utc_unix_ns(data)
-		b = ints_to_bytes((1 << 3) | 1) + l_endian_4b(t_unix) + ints_to_bytes(0, 0, 0, 0, (2 << 3) | 5) + l_endian_4b(t_ns)
+		b = ints_to_bytes((1 << 3) | 1) + le4b_encode(t_unix) + ints_to_bytes(0, 0, 0, 0, (2 << 3) | 5) + le4b_encode(t_ns)
 	elif format == "block_id":
 		# 'Magic' again, its origin is the same as explained for "time" case.
 		b = hex_decode_bytes("0A14" + data[0] + "121808021214" + data[1])
@@ -198,19 +198,21 @@ def verify_app_hash(app_hash, signed_header):
 
 	block_hash = signed_header["commit"]["block_id"]["hash"]
 	d = [
-		("App",         hash_binary(header["app_hash"], "hex")),
-		("ChainID",     hash_binary(header["chain_id"], "str")),
-		("Consensus",   hash_binary(header["consensus_hash"], "hex")),
-		("Data",        hash_binary(header["data_hash"], "hex")),
-		("Evidence",    hash_binary(header["evidence_hash"], "hex")),
-		("Height",      hash_binary(header["height"], "long")),
-		("LastBlockID", hash_binary((header["last_block_id"]["hash"], header["last_block_id"]["parts"]["hash"]), "block_id")),
-		("LastCommit",  hash_binary(header["last_commit_hash"], "hex")),
-		("NumTxs",      hash_binary(header["num_txs"], "long")),
-		("Results",     hash_binary(header["last_results_hash"], "hex")),
-		("Time",        hash_binary(header["time"], "time")),
-		("TotalTxs",    hash_binary(header["total_txs"], "long")),
-		("Validators",  hash_binary(header["validators_hash"], "hex"))
+		("App",            hash_binary(header["app_hash"], "hex")),
+		("ChainID",        hash_binary(header["chain_id"], "str")),
+		("Consensus",      hash_binary(header["consensus_hash"], "hex")),
+		("Data",           hash_binary(header["data_hash"], "hex")),
+		("Evidence",       hash_binary(header["evidence_hash"], "hex")),
+		("Height",         hash_binary(header["height"], "long")),
+		("LastBlockID",    hash_binary((header["last_block_id"]["hash"], header["last_block_id"]["parts"]["hash"]), "block_id")),
+		("LastCommit",     hash_binary(header["last_commit_hash"], "hex")),
+		("NextValidators", hash_binary(header["next_validators_hash"], "hex")),
+		("NumTxs",         hash_binary(header["num_txs"], "long")),
+		("Proposer",       hash_binary(header["proposer_address"], "hex")),
+		("Results",        hash_binary(header["last_results_hash"], "hex")),
+		("Time",           hash_binary(header["time"], "time")),
+		("TotalTxs",       hash_binary(header["total_txs"], "long")),
+		("Validators",     hash_binary(header["validators_hash"], "hex"))
 	]
 	tree_hash = hex_encode_bytes(simple_tree_hash(d))
 	return tree_hash == block_hash
