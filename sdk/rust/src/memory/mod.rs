@@ -4,14 +4,13 @@
 
 pub mod errors;
 
-use std::ptr::NonNull;
-use std::alloc::{Alloc, Global, Layout};
-use std::mem;
-use std::io::Write;
 use self::errors::MemError;
+use std::alloc::{Alloc, Global, Layout};
+use std::io::Write;
+use std::mem;
+use std::ptr::NonNull;
 
-
-/// Result for all possible Error types.
+/// Result for this module.
 pub type MemResult<T> = Result<T, MemError>;
 
 /// Allocates memory area of specified size and returns its address.
@@ -30,11 +29,10 @@ pub const STR_LEN_BYTES: usize = 4;
 
 /// Writes Rust string into the memory directly as string length and byte array.
 /// Written memory structure is:
-/// ```
+/// `
 ///     | str_length: 4 BYTES (little-endian) | string_payload: str_length BYTES |
-/// ```
+/// `
 pub unsafe fn put_to_mem(str: String) -> MemResult<*mut u8> {
-
     // converting string size to bytes in little-endian order
     let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str.len() as u32).to_le()); // todo to fn
     let total_len = STR_LEN_BYTES

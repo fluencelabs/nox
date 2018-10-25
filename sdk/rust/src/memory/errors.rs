@@ -1,6 +1,8 @@
-use std::error::Error;
+//! Contains defenition for memory errors.
+
 use core::alloc::LayoutErr;
 use std::alloc::AllocErr;
+use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
 
@@ -13,10 +15,9 @@ impl Display for MemError {
     }
 }
 
-impl Error for MemError { }
+impl Error for MemError {}
 
 impl MemError {
-
     fn from_str(message: &str) -> Self {
         MemError(format!("{}", message.to_string()))
     }
@@ -24,24 +25,37 @@ impl MemError {
     fn from_err<E: Error + Display>(err: E) -> Self {
         MemError::from_str(&err.to_string())
     }
-    
 }
 
-// todo write macros for that
-impl From<LayoutErr> for MemError {
-    fn from(err: LayoutErr) -> Self {
-        MemError::from_err(err)
+/// Creates From instance for MemError for each specified error types.
+///
+/// Example:
+///
+/// ```
+/// // usage of macro:
+///
+/// mem_error_from![std::io::Error]
+///
+/// // code will be generated:
+///
+/// impl From<std::io::Error> for MemError {
+///    fn from(err: std::io::Error) -> Self {
+///        MemError::from_err(err)
+///    }
+/// }
+///
+/// ```
+// todo move this macro to utils or use 'quick-error' or 'error-chain' crates
+macro_rules! mem_error_from {
+    ( $( $x:ty );* ) => {
+        $(
+            impl From<$x> for MemError {
+                fn from(err: $x) -> Self {
+                    MemError::from_err(err)
+                }
+            }
+        )*
     }
 }
 
-impl From<AllocErr> for MemError {
-    fn from(err: AllocErr) -> Self {
-        MemError::from_err(err)
-    }
-}
-
-impl From<std::io::Error> for MemError {
-    fn from(err: std::io::Error) -> Self {
-        MemError::from_err(err)
-    }
-}
+mem_error_from! [LayoutErr; AllocErr; std::io::Error];
