@@ -1,0 +1,20 @@
+[package]
+
+name = "fluence_sdk"
+version = "0.0.1"
+description="Rust SDK for writing applications for Fluence"
+authors = ["Fluence Labs"]
+readme = "readme.md"
+keywords = ["fluence", "sdk"]
+categories = ["api-bindings", "wasm"]
+license = "Apache-2.0"
+maintenance = { status = "actively-developed" }
+
+
+[lib]
+name = "fluence_sdk"
+path = "src/lib.rs"
+crate-type = ["rlib"]
+
+[dependencies]
+
