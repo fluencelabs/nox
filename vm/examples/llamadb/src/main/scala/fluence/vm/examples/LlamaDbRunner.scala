@@ -39,7 +39,7 @@ object LlamaDbRunner extends IOApp {
 
       bulkInsert <- executeSql(vm, "INSERT INTO Users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)")
 
-      emptySelect <-  executeSql(vm, "SELECT * FROM Users WHERE name = 'unknown'")
+      emptySelect <- executeSql(vm, "SELECT * FROM Users WHERE name = 'unknown'")
 
       selectAll <- executeSql(vm, "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users")
 
