@@ -11,8 +11,9 @@ type SideBlock struct {
 }
 
 type SideContract struct {
-  CheckpointInterval int64        // how often blocks should be checkpointed
-  Checkpoints        []SideBlock  // block checkpoints
+  CheckpointInterval  int64               // how often blocks should be checkpointed
+  Checkpoints         []SideBlock         // block checkpoints
+  CheckpointsByHeight map[int64]SideBlock // block height –> block
 }
 
 // punishes block producers if blocks are not linked correctly

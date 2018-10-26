@@ -1,23 +1,5 @@
 package protocol
 
-func FetchSubchain(sideContract SideContract, index int) ([]Manifest, []Transactions) {
-  var checkpoint = sideContract.Checkpoints[index]
-
-  var count = sideContract.CheckpointInterval + 2
-  var manifests = make([]Manifest, count)
-  var txss = make([]Transactions, count)
-
-  var receipt = checkpoint.Receipt
-  for i := count - 1; i >= 0; i-- {
-    manifests[i] = ManifestUnpack(SwarmDownload(receipt))
-    txss[i] = TransactionsUnpack(SwarmDownload(manifests[i].TxsReceipt))
-
-    receipt = manifests[i].LastManifestReceipt
-  }
-
-  return manifests, txss
-}
-
 type ValidationContract struct {
   Confirmations map[int64]Confirmation // confirmations: block height –> confirmation
 }
@@ -40,6 +22,24 @@ type BatchValidator struct {
   PrivateKey PrivateKey
 }
 
+func (validator BatchValidator) FetchSubchain(sideContract SideContract, height int64) ([]Manifest, []Transactions) {
+  var checkpoint = sideContract.CheckpointsByHeight[height]
+
+  var count = sideContract.CheckpointInterval + 2
+  var manifests = make([]Manifest, count)
+  var txss = make([]Transactions, count)
+
+  var receipt = checkpoint.Receipt
+  for i := count - 1; i >= 0; i-- {
+    manifests[i] = ManifestUnpack(SwarmDownload(receipt))
+    txss[i] = TransactionsUnpack(SwarmDownload(manifests[i].TxsReceipt))
+
+    receipt = manifests[i].LastManifestReceipt
+  }
+
+  return manifests, txss
+}
+
 func (validator BatchValidator) Endorse(contract ValidationContract, height int64, state VMState) {
   var swarmHash = SwarmHash(pack(state.Chunks))
   var vmStateHash = MerkleRoot(state.Chunks)
@@ -55,7 +55,7 @@ func (validator BatchValidator) Endorse(contract ValidationContract, height int6
   }
 }
 
-func LoadSnapshot(contract ValidationContract, height int64) (VMState, bool) {
+func (validator BatchValidator) LoadSnapshot(contract ValidationContract, height int64) (VMState, bool) {
   var confirmation = contract.Confirmations[height]
   var meta = confirmation.SnapshotMeta
 
@@ -64,6 +64,39 @@ func LoadSnapshot(contract ValidationContract, height int64) (VMState, bool) {
     return VMState{}, false
   } else {
     return state, true
+  }
+}
+
+func (validator BatchValidator) Validate(
+    flnContract FlnContract,
+    sideContract SideContract,
+    validationContract ValidationContract,
+    height int64,
+) {
+  // fetching transactions and the previous snapshot
+  var manifests, txss = validator.FetchSubchain(sideContract, height)
+  var snapshot, ok = validator.LoadSnapshot(validationContract, height - sideContract.CheckpointInterval)
+
+  if ok {
+    for i := 0; i < len(manifests) - 2; i++ {
+      // verifying BFT consensus
+      var window = [3]Manifest{}
+      copy(manifests[i:i+2], window[0:3])
+      var publicKeys = VerifyVMStateConsensus(flnContract, window)
+
+      // verifying the real-time cluster state progress correctness
+      snapshot = NextVMState(snapshot, txss[i])
+      var vmStateHash = MerkleRoot(snapshot.Chunks)
+      if vmStateHash != manifests[i].VMStateHash {
+        // TODO: dispute state advance using publicKeys, stop processing
+        _ = publicKeys
+      }
+    }
+
+    // uploading the snapshot and sending a signature to the smart contract
+    validator.Endorse(validationContract, height, snapshot)
+  } else {
+    // TODO: dispute snapshot incorrectness
   }
 }
 
