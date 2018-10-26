@@ -18,11 +18,11 @@ impl Display for MemError {
 impl Error for MemError {}
 
 impl MemError {
-    fn from_str(message: &str) -> Self {
+    pub fn from_str(message: &str) -> Self {
         MemError(format!("{}", message.to_string()))
     }
 
-    fn from_err<E: Error + Display>(err: E) -> Self {
+    pub fn from_err<E: Error + Display>(err: E) -> Self {
         MemError::from_str(&err.to_string())
     }
 }
