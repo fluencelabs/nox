@@ -26,6 +26,7 @@
     - [Validators selection](#validators-selection)
     - [State snapshots](#state-snapshots)
     - [State hash mismatch resolution](#state-hash-mismatch-resolution)
+
 ## Core
 
 Before we start describing the protocol, few words need to be said about the core blocks. Basic cryptographic primitives such as digital signature generation and verification, cryptographic hash computation and Merkle tree composition are listed below and used throughout the rest of the protocol specification. We do not specify exact algorithms such as SHA3, RIPEMD or EdDSA for those primitives but still assume them to behave according to the common expectations.
@@ -639,6 +640,10 @@ func (contract ValidationContract) Endorse(height int64, seal Seal, meta *Snapsh
 ```
 
 Because, as we have already mentioned, it takes two blocks to certify the consensus, snapshots are also shifted relative to checkpoints: for the checkpoint manifest `k`, the snapshot would represent the virtual machine state after processing blocks from `0` to `k – 2` included.
+
+<p align="center">
+  <img src="images/snapshots.png" alt="Batch validation interval" width="841px"/>
+</p>
 
 The validation contract carries endorsements of the snapshot by batch validators. Once the batch validator has produced a new virtual machine state, it uploads the snapshot to Swarm (unless there is already a snapshot uploaded) and submits an endorsement to the smart contract. Of course, this happens only if there were no disputes during the processing of blocks.
 
