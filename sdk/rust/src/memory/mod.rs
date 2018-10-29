@@ -14,11 +14,13 @@ use std::ptr::NonNull;
 pub type MemResult<T> = Result<T, MemError>;
 
 /// Allocates memory area of specified size and returns its address. Actually is
-/// just a wrapper for [`Global::alloc`].
+/// just a wrapper for [`GlobalAlloc::alloc`].
 ///
 /// # Safety
 ///
 /// See [`GlobalAlloc::alloc`].
+///
+/// [`GlobalAlloc::alloc`]: https://doc.rust-lang.org/core/alloc/trait.GlobalAlloc.html#tymethod.alloc
 ///
 pub unsafe fn alloc(size: NonZeroUsize) -> MemResult<NonNull<u8>> {
     let layout: Layout = Layout::from_size_align(size.get(), mem::align_of::<u8>())?;
@@ -26,11 +28,13 @@ pub unsafe fn alloc(size: NonZeroUsize) -> MemResult<NonNull<u8>> {
 }
 
 /// Deallocates memory area for current memory pointer and size. Actually is
-/// just a wrapper for [`Global::dealloc`].
+/// just a wrapper for [`GlobalAlloc::dealloc`].
 ///
 /// # Safety
 ///
-/// See [`GlobalAlloc::alloc`].
+/// See [`GlobalAlloc::dealloc`].
+///
+/// [`GlobalAlloc::dealloc`]: https://doc.rust-lang.org/core/alloc/trait.GlobalAlloc.html#tymethod.dealloc
 ///
 pub unsafe fn dealloc(ptr: NonNull<u8>, size: NonZeroUsize) -> MemResult<()> {
     let layout = Layout::from_size_align(size.get(), mem::align_of::<u8>())?;
@@ -39,7 +43,7 @@ pub unsafe fn dealloc(ptr: NonNull<u8>, size: NonZeroUsize) -> MemResult<()> {
 }
 
 /// A number of bytes that code a string length when the string is putting into
-/// memory. See [put_to_mem] method.
+/// memory. See [write_str_to_mem] method.
 pub const STR_LEN_BYTES: usize = 4;
 
 /// Writes Rust string to the memory directly as string length and byte array.
@@ -61,7 +65,6 @@ pub unsafe fn write_str_to_mem(str: String) -> MemResult<NonNull<u8>> {
 
     let result_ptr = alloc(total_len)?;
     std::ptr::copy_nonoverlapping(result_vec.as_ptr(), result_ptr.as_ptr(), total_len.get());
-    mem::drop(str); // do free a memory
     Ok(result_ptr)
 }
 
@@ -81,7 +84,18 @@ pub unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
 }
 
 /// Read Rust String from the raw memory. This operation is opposite of
-/// [write_str_to_mem].
+/// [write_str_to_mem]. Reads from the raw memory a string length as first 4
+/// bytes and then reads string for this length. Deallocates first 4 bytes that
+/// corresponded string length and wraps the rest bytes into a Rust string.
+///
+/// # Safety
+///
+/// The ownership of `ptr` is effectively transferred to the
+/// `String` which may then deallocate, reallocate or change the
+/// contents of memory pointed to by the pointer at will. **Ensure
+/// that nothing else uses the pointer after calling this
+/// function.**
+///
 pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
     // read string length from current pointer
     let str_len = read_len(ptr.as_ptr()) as usize;
@@ -98,7 +112,7 @@ pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
     Ok(str)
 }
 
-/// Reads u32 from current pointer. Don't affect the specified pointer.
+/// Reads `u32` from current pointer. Don't affect the specified pointer.
 /// You can use the pointer after calling this method as you wish. Don't forget
 /// to deallocate memory for this pointer when it's don't need anymore.
 unsafe fn read_len(ptr: *mut u8) -> u32 {
