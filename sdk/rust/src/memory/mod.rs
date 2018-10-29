@@ -34,7 +34,8 @@ pub unsafe fn alloc(size: NonZeroUsize) -> MemResult<NonNull<u8>> {
 ///
 pub unsafe fn dealloc(ptr: NonNull<u8>, size: NonZeroUsize) -> MemResult<()> {
     let layout = Layout::from_size_align(size.get(), mem::align_of::<u8>())?;
-    Ok(Global.dealloc(ptr, layout))
+    Global.dealloc(ptr, layout);
+    Ok(())
 }
 
 /// A number of bytes that code a string length when the string is putting into
@@ -60,6 +61,7 @@ pub unsafe fn write_str_to_mem(str: String) -> MemResult<NonNull<u8>> {
 
     let result_ptr = alloc(total_len)?;
     std::ptr::copy_nonoverlapping(result_vec.as_ptr(), result_ptr.as_ptr(), total_len.get());
+    mem::drop(str); // do free a memory
     Ok(result_ptr)
 }
 
@@ -90,7 +92,7 @@ pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
     // remove size from the begginning of created string, it allow to free
     // only memory used for keeping string length
     {
-        &mut str.drain(0..STR_LEN_BYTES);
+        str.drain(0..STR_LEN_BYTES);
     }
 
     Ok(str)
