@@ -458,7 +458,8 @@ However, an all-malicious cluster might never include the transaction sent by th
 
 These aspects will be considered in another section, and for now we will focus on how the block progress is being verified.
 
-**TBD:** do we need to supply a SwarmReceipt for the last manifest?
+**[???]** Do we need to supply the SwarmReceipt for the last manifest?
+**[TBD]** We should describe how these manifests are stored/verified using the sidechain.
 
 #### Prerequisites
 
@@ -466,22 +467,22 @@ Below we assume that functions allowing to verify that Swarm receipts and Tender
 
 ```go
 func VerifySwarmReceipt(swarmContract SwarmContract, receipt SwarmReceipt) {
-  var minCollateral int64 = 1000000
+  var minDeposit int64 = 1000000
 
   // checking that the Swarm node has enough funds
   var swarmNodeId = receipt.Insurance.PublicKey
-  assertTrue(swarmContract.Collaterals[swarmNodeId] >= minCollateral)
+  assertTrue(swarmContract.Deposits[swarmNodeId] >= minDeposit)
 
   // checking that the receipt is signed by this Swarm node
   assertTrue(SwarmVerify(receipt.Insurance, receipt.ContentHash))
 }
 
-func VerifyTendermintSignature(flnContract FlnContract, seal Seal, blockHash Digest) {
-  var minCollateral int64 = 1000000
+func VerifyTendermintSignature(flnContract BasicFluenceContract, seal Seal, blockHash Digest) {
+  var minDeposit int64 = 1000000
 
   // checking that the Tendermint node has enough funds
   var tmNodeId = seal.PublicKey
-  assertTrue(flnContract.NodesCollaterals[tmNodeId] >= minCollateral)
+  assertTrue(flnContract.NodesDeposits[tmNodeId] >= minDeposit)
 
   // checking that the receipt is signed by this Tendermint node
   assertTrue(TmVerify(seal, blockHash))
@@ -490,14 +491,14 @@ func VerifyTendermintSignature(flnContract FlnContract, seal Seal, blockHash Dig
 
 #### Verification of Swarm receipts
 
-The client checks that every manifest is stored in Swarm properly. This means that each Swarm receipt – for the previous manifest or for the transactions block is signed by the Swarm node in good standing. It also means that manifests are connected together properly by Swarm receipts.
+The client checks that every manifest is stored in Swarm properly. This means that each Swarm receipt – issued for the previous manifest or for the transactions block is signed by the Swarm node in good standing. It also means that manifests are connected together properly by Swarm receipts.
 
 ```go
-func VerifyManifestsReceipts(swarmContract SwarmContract, response QueryResponse) {
+func VerifyManifestsReceipts(contract SwarmContract, response QueryResponse) {
   // checking that manifests and transactions receipts are properly signed by Swarm nodes
   for _, manifest := range response.Manifests {
-    VerifySwarmReceipt(swarmContract, manifest.LastManifestReceipt)
-    VerifySwarmReceipt(swarmContract, manifest.TxsReceipt)
+    VerifySwarmReceipt(contract, manifest.LastManifestReceipt)
+    VerifySwarmReceipt(contract, manifest.TxsReceipt)
   }
 
   // checking that each manifest points correctly to the previous manifest via the Swarm receipt
@@ -516,7 +517,7 @@ The client checks that the chain linking Tendermint nodes signatures in the mani
 
 ```go
 // verifies a BFT consensus was reached on the manifest, returns nodes signed it
-func VerifyVMStateConsensus(flnContract FlnContract, manifests [3]Manifest) []PublicKey {
+func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest) []PublicKey {
   // checking connection between the VM state in the manifest 0 and Tendermint signatures in the manifest 2
   assertEq(manifests[1].Header.AppHash, Hash(pack(manifests[0])))
   assertEq(manifests[2].Header.LastBlockHash, TmMerkleRoot(packMulti(manifests[1].Header)))
@@ -529,12 +530,12 @@ func VerifyVMStateConsensus(flnContract FlnContract, manifests [3]Manifest) []Pu
 
   // checking that BFT consensus was actually reached
   var signedNodes = float64(len(lastCommitPublicKeys))
-  var requiredNodes = float64(2/3) * float64(len(flnContract.NodesCollaterals))
+  var requiredNodes = float64(2/3) * float64(len(contract.NodesDeposits))
   assertTrue(signedNodes > requiredNodes)
 
   // checking each Tendermint node signature validity
   for _, seal := range manifests[2].LastCommit {
-    VerifyTendermintSignature(flnContract, seal, manifests[2].Header.LastBlockHash)
+    VerifyTendermintSignature(contract, seal, manifests[2].Header.LastBlockHash)
   }
 
   var signedNodesKeys = make([]PublicKey, 0, len(lastCommitPublicKeys))
