@@ -11,12 +11,12 @@ func VerifySwarmReceipt(swarmContract SwarmContract, receipt SwarmReceipt) {
   assertTrue(SwarmVerify(receipt.Insurance, receipt.ContentHash))
 }
 
-func VerifyTendermintSignature(flnContract FlnContract, seal Seal, blockHash Digest) {
+func VerifyTendermintSignature(flnContract BasicFluenceContract, seal Seal, blockHash Digest) {
   var minCollateral int64 = 1000000
 
   // checking that the Tendermint node has enough funds
   var tmNodeId = seal.PublicKey
-  assertTrue(flnContract.NodesCollaterals[tmNodeId] >= minCollateral)
+  assertTrue(flnContract.NodesDeposits[tmNodeId] >= minCollateral)
 
   // checking that the receipt is signed by this Tendermint node
   assertTrue(TmVerify(seal, blockHash))

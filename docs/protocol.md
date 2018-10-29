@@ -4,12 +4,10 @@
   - [Core](#core)
   - [External systems](#external-systems)
     - [Ethereum](#ethereum)
-    - [Swarm](#swarm)
-      - [Stored content receipts](#stored-content-receipts)
-      - [Mutable resource updates](#mutable-resource-updates)
-    - [Kademlia sidechain](#kademlia-sidechain)
+    - [Swarm](#swarm)    
   - [Initial setup](#initial-setup)
   - [Transactions](#transactions)
+  - [Sidechain](#sidechain)
   - [Real-time processing](#real-time-processing)
     - [Transaction validation](#transaction-validation)
     - [Tendermint block formation](#tendermint-block-formation)
@@ -136,93 +134,16 @@ func SwarmUpload(content []byte) SwarmReceipt {}
 func SwarmDownload(receipt SwarmReceipt) []byte {}
 ```
 
-### Kademlia sidechain
-
-In fact, Kademlia is not quite an external system but is an essential foundation of the Fluence network. However, for our protocol we use it as a some kind of a sidechain which periodically checkpoints selected blocks to the root chain – Ethereum. Blocks stored in Kademlia sidechain are really tiny compared to the overall data volumes flowing through the network – they contain only Swarm receipts and producers signatures.
-
-```go
-type SideBlock struct {
-  Height        int64         // side block height
-  PrevBlockHash Digest        // hash of the previous side block
-  Receipt       SwarmReceipt  // Swarm receipt for the content associated with the side block
-  Signatures    []Seal        // signatures of the side block producers
-}
-
-type SideContract struct {
-  CheckpointInterval  int64               // how often blocks should be checkpointed
-  Checkpoints         []SideBlock         // block checkpoints
-  CheckpointsByHeight map[int64]SideBlock // block height –> block
-}
-```
-
-It is expected that every Kademlia sidechain node stores the tail of the chain starting from the last block checkpointed into the contract. Every node verifies there are no forks or incorrect references in the chain tail – otherwise, a dispute is submitted to the contract and offending block producers lose their deposits.
-
-<p align="center">
-  <img src="images/sidechain.png" alt="Sidechain" width="794px"/>
-</p>
-
-Every sidechain node also verifies that a checkpointing is performed correctly – i.e. there is a correct block being uploaded to the contract every period of time. Otherwise, another dispute is submitted to the contract, but this time a sidechain node that has uploaded an incorrect checkpoint block will lose a deposit.
-
-```go
-// punishes block producers if blocks are not linked correctly
-func (contract *SideContract) DisputeSideReference(block SideBlock, nextBlock SideBlock) {
-  if nextBlock.PrevBlockHash != Hash(pack(block)) && nextBlock.Height == block.Height + 1 {
-    // violation! let's punish offending producers!
-  }
-}
-
-// punishes block producers if a fork is present
-func (contract *SideContract) DisputeSideFork(block1 SideBlock, block2 SideBlock) {
-  if block1.PrevBlockHash == block2.PrevBlockHash {
-    // violation! let's punish offending producers!
-  }
-}
-
-// punishes sidechain nodes if the block is checkpointed incorrectly
-func (contract *SideContract) DisputeSideCheckpoint(index int, blocks []SideBlock) {
-  var prevCheckpoint = contract.Checkpoints[index - 1]
-  var checkpoint = contract.Checkpoints[index]
-
-  // checking that the chain is linked correctly
-  for i, block := range blocks {
-    var prevBlock SideBlock
-    if i == 0 { prevBlock = prevCheckpoint } else { prevBlock = blocks[i - 1]}
-    if block.PrevBlockHash != Hash(pack(prevBlock)) || (block.Height != prevBlock.Height + 1) {
-      // incorrect chain segment, nothing to do here
-      return
-    }
-  }
-
-  if Hash(pack(blocks[len(blocks) - 1])) != Hash(pack(checkpoint)) {
-    // violation! let's punish offending sidechain nodes!
-  }
-}
-```
-
-Now, every sidechain node allows producers to upload a new block to it and returns a signature if the block was accepted.
-
-```go
-type SideNode struct {
-  Tail []SideBlock
-}
-
-// appends the block the chain tail and checks it doesn't violate correctness properties
-func (node *SideNode) UploadBlock(block SideBlock) Seal {}
-```
-
 ## Initial setup
 
 There are few different actor types in the Fluence network: clients, real-time nodes forming Tendermint clusters and batch validators. Every node has an identifier, a public/private key pair and a security deposit, and is registered in the Fluence smart contract.
 
 ```go
-type FlnContract struct {
-  ClientCollaterals     map[PublicKey]int64  // clients: identifier –> deposit size
-  NodesCollaterals      map[PublicKey]int64  // real-time nodes: identifier –> deposit size
-  ValidatorsCollaterals map[PublicKey]int64  // batch validators: identifier –> deposit size
+type BasicFluenceContract struct {
+  ClientDeposits     map[PublicKey]int64 // clients: identifier –> deposit size
+  NodesDeposits      map[PublicKey]int64 // real-time nodes: identifier –> deposit size
+  ValidatorsDeposits map[PublicKey]int64 // batch validators: identifier –> deposit size
 }
-
-// data
-var flnContract FlnContract  // Fluence Ethereum smart contract
 ```
 
 ## Transactions
@@ -231,12 +152,118 @@ A transaction always has a specific authoring client and carries all the informa
 
 ```go
 type Transaction struct {
-  Invoke []byte  // function name & arguments + required metadata
-  Seal   Seal    // client signature of the transaction
+  Invoke []byte // function name & arguments + required metadata
+  Seal   Seal   // client signature
 }
 
 type Transactions = []Transaction
 ```
+
+## Sidechain
+
+For this protocol we need some kind of a sidechain that would periodically checkpoint selected blocks to the root chain – Ethereum. Blocks stored in this sidechain are really tiny compared to the overall data volumes flowing through the network. Normally they contain only receipts of the data stored in Swarm and producers signatures.
+
+<p align="center">
+  <img src="images/sidechain.png" alt="Sidechain" width="721px"/>
+</p>
+
+Fluence smart contract stores checkpoints and allows to locate specific ones by history or by the block height.
+
+```go
+type SideBlock struct {
+  Height        int64        // side block height
+  PrevBlockHash Digest       // hash of the previous side block
+  Receipt       SwarmReceipt // Swarm receipt for the content associated with the side block
+  Signatures    []Seal       // signatures of the side block producers
+}
+
+type SideFluenceContract struct {
+  base                  BasicFluenceContract // parent contract
+  SideNodesDeposits     map[PublicKey]int64  // sidechain nodes: identifier –> deposit size
+  
+  CheckpointInterval    int64                // how often blocks should be checkpointed
+  Checkpoints           []SideBlock          // block checkpoints
+  CheckpointsByHeight   map[int64]SideBlock  // block height –> block
+  CheckpointsSignatures map[int64][]Seal     // block height –> sidechain nodes signatures
+}
+```
+
+It is expected that every sidechain node stores the tail of the chain starting from the last block checkpointed into the contract. Every node verifies there are no forks or incorrect references in the stored chain tail – otherwise, a dispute is submitted to the contract and offending block producers lose their deposits.
+
+```go
+// punishes block producers if blocks are not linked correctly
+func (contract SideFluenceContract) DisputeReference(block SideBlock, nextBlock SideBlock) {
+  if nextBlock.PrevBlockHash != Hash(pack(block)) && nextBlock.Height == block.Height+1 {
+    
+    // violation! let's punish producers signed the next block!
+    for _, seal := range nextBlock.Signatures {
+      contract.base.NodesDeposits[seal.PublicKey] = 0
+    }
+  }
+}
+
+// punishes block producers if a fork is present
+func (contract SideFluenceContract) DisputeFork(block1 SideBlock, block2 SideBlock) {
+  if block1.PrevBlockHash == block2.PrevBlockHash {
+    
+    // violation! let's punish producers signed both blocks!
+    var m = make(map[PublicKey]bool)
+    for _, seal := range block1.Signatures {
+      m[seal.PublicKey] = true
+    }
+    
+    for _, seal := range block2.Signatures {
+      if m[seal.PublicKey] {
+        contract.base.NodesDeposits[seal.PublicKey] = 0
+      }
+    }
+  }
+}
+```
+
+Every sidechain node also verifies that a checkpointing was performed correctly – i.e. there is a correct block being uploaded to the contract every period of time. Otherwise, another dispute is submitted to the contract, but this time a sidechain node that has uploaded an incorrect checkpoint block will lose a deposit.
+
+```go
+// punishes sidechain nodes if the block is checkpointed incorrectly
+func (contract SideFluenceContract) DisputeCheckpoint(index int, blocks []SideBlock) {
+  var prevCheckpoint = contract.Checkpoints[index-1]
+  var checkpoint = contract.Checkpoints[index]
+
+  // checking that the chain is linked correctly
+  for i, block := range blocks {
+    var prevBlock SideBlock
+    if i == 0 {
+      prevBlock = prevCheckpoint
+    } else {
+      prevBlock = blocks[i-1]
+    }
+    if block.PrevBlockHash != Hash(pack(prevBlock)) || (block.Height != prevBlock.Height+1) {
+      // incorrect subchain, nothing to do here
+      return
+    }
+  }
+
+  if Hash(pack(blocks[len(blocks)-1])) != Hash(pack(checkpoint)) {
+    // violation! let's punish sidechain nodes uploaded the checkpoint!
+    for _, seal := range contract.CheckpointsSignatures[checkpoint.Height] {
+      contract.SideNodesDeposits[seal.PublicKey] = 0
+    }
+  }
+}
+```
+
+Every sidechain node allows producers to upload a new block to it and returns a signature if the block was accepted. Honest sidechain nodes would accept the block if and only if it doesn't violate an integrity of the sidechain tail.
+
+```go
+type SideNode struct {
+  Tail []SideBlock
+}
+
+// appends the block to the chain tail and checks it doesn't violate correctness properties
+func (node SideNode) UploadBlock(block SideBlock) Seal {}
+```
+
+Honest sidechain nodes will eventually checkpoint stored blocks to the smart contract and submit a dispute to Ethereum shall they notice any violation. This means a client needs only few signatures of the relevant sidechain nodes to have a confidence that the block that was uploaded to the sidechain is the correct one and won't be lost.
 
 ## Real-time processing
 

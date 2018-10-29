@@ -22,7 +22,7 @@ type BatchValidator struct {
   PrivateKey PrivateKey
 }
 
-func (validator BatchValidator) FetchSubchain(sideContract SideContract, height int64) ([]Manifest, []Transactions) {
+func (validator BatchValidator) FetchSubchain(sideContract SideFluenceContract, height int64) ([]Manifest, []Transactions) {
   var checkpoint = sideContract.CheckpointsByHeight[height]
 
   var count = sideContract.CheckpointInterval + 2
@@ -68,8 +68,8 @@ func (validator BatchValidator) LoadSnapshot(contract ValidationContract, height
 }
 
 func (validator BatchValidator) Validate(
-    flnContract FlnContract,
-    sideContract SideContract,
+    flnContract BasicFluenceContract,
+    sideContract SideFluenceContract,
     validationContract ValidationContract,
     height int64,
 ) {

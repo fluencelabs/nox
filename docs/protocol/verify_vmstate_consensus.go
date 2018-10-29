@@ -1,7 +1,7 @@
 package protocol
 
 // verifies a BFT consensus was reached on the manifest, returns nodes signed it
-func VerifyVMStateConsensus(flnContract FlnContract, manifests [3]Manifest) []PublicKey {
+func VerifyVMStateConsensus(flnContract BasicFluenceContract, manifests [3]Manifest) []PublicKey {
   // checking connection between the VM state in the manifest 0 and Tendermint signatures in the manifest 2
   assertEq(manifests[1].Header.AppHash, Hash(pack(manifests[0])))
   assertEq(manifests[2].Header.LastBlockHash, TmMerkleRoot(packMulti(manifests[1].Header)))
@@ -14,7 +14,7 @@ func VerifyVMStateConsensus(flnContract FlnContract, manifests [3]Manifest) []Pu
 
   // checking that BFT consensus was actually reached
   var signedNodes = float64(len(lastCommitPublicKeys))
-  var requiredNodes = float64(2/3) * float64(len(flnContract.NodesCollaterals))
+  var requiredNodes = float64(2/3) * float64(len(flnContract.NodesDeposits))
   assertTrue(signedNodes > requiredNodes)
 
   // checking each Tendermint node signature validity
