@@ -4,13 +4,16 @@ type VMState struct {
   Chunks []Chunk     // virtual machine memory chunks
 }
 
+// deserializes a byte array into the virtual machine state
+func VMStateUnpack([]byte) VMState { panic("") }
+
 // applies block transactions to the virtual machine state to produce the new state
 func NextVMState(vmState VMState, txs []Transaction) VMState { panic("") }
 
 type Manifest struct {
   Header              Header        // block header
-  VMStateHash         Digest        // virtual machine state hash after the previous block
-  LastCommit          []Seal        // Tendermint nodes signatures for the previous block
+  VMStateHash         Digest        // hash of the VM state derived by applying the block
+  LastCommit          []Seal        // Tendermint nodes signatures for the previous block header
   TxsReceipt          SwarmReceipt  // Swarm hash of the block transactions
   LastManifestReceipt SwarmReceipt  // Swarm hash of the previous manifest
 }
