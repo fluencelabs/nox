@@ -14,12 +14,12 @@ extern crate lazy_static;
 extern crate fluence_sdk as fluence;
 extern crate llamadb;
 
-use std::ptr::NonNull;
-use std::error::Error;
-use std::sync::Mutex;
-use llamadb::tempdb::TempDb;
 use llamadb::tempdb::ExecuteStatementResponse;
+use llamadb::tempdb::TempDb;
+use std::error::Error;
 use std::num::NonZeroUsize;
+use std::ptr::NonNull;
+use std::sync::Mutex;
 
 /// Result for all possible Error types.
 type GenResult<T> = Result<T, Box<Error>>;
@@ -37,18 +37,17 @@ type GenResult<T> = Result<T, Box<Error>>;
 /// 4. Deallocates memory from passed parameter
 #[no_mangle]
 pub fn do_query(ptr: *mut u8, len: usize) -> NonNull<u8> {
-
     // memory for the parameter will be deallocated when sql_str was dropped
     let sql_str: String = unsafe { fluence::memory::deref_str(ptr, len) };
 
     let db_response = match run_query(&sql_str) {
-        Ok(response) => { response }
-        Err(err_msg) => { format!("[Error] {}", err_msg) }
+        Ok(response) => response,
+        Err(err_msg) => format!("[Error] {}", err_msg),
     };
 
     unsafe {
         // return pointer to result in memory
-        fluence::memory::write_str_to_mem(&db_response)
+        fluence::memory::write_str_to_mem(db_response)
             .expect("Putting result string to the memory was failed.")
     }
 }
@@ -61,8 +60,8 @@ pub fn do_query(ptr: *mut u8, len: usize) -> NonNull<u8> {
 /// Used from the host environment for memory allocation for passed parameters.
 #[no_mangle]
 pub unsafe fn allocate(size: usize) -> NonNull<u8> {
-    let non_zero_size = NonZeroUsize::new(size)
-        .expect("[Error] Allocation of zero bytes is not allowed.");
+    let non_zero_size =
+        NonZeroUsize::new(size).expect("[Error] Allocation of zero bytes is not allowed.");
     fluence::memory::alloc(non_zero_size)
         .expect(format!("[Error] Allocation of {} bytes failed.", size).as_str())
 }
@@ -70,7 +69,8 @@ pub unsafe fn allocate(size: usize) -> NonNull<u8> {
 /// Acquires lock, does query, releases lock, returns query result
 fn run_query(sql_query: &str) -> GenResult<String> {
     let mut db = DATABASE.lock()?;
-    let result = db.do_query(sql_query)
+    let result = db
+        .do_query(sql_query)
         .map(statement_to_string)
         .map_err(Into::into);
     result
@@ -79,42 +79,30 @@ fn run_query(sql_query: &str) -> GenResult<String> {
 /// Converts query result to CSV String.
 fn statement_to_string(statement: ExecuteStatementResponse) -> String {
     match statement {
-        ExecuteStatementResponse::Created => {
-            "table created".to_string()
-        }
-        ExecuteStatementResponse::Dropped => {
-            "table was dropped".to_string()
-        }
-        ExecuteStatementResponse::Inserted(number) => {
-            format!("rows inserted: {}", number)
-        }
+        ExecuteStatementResponse::Created => "table created".to_string(),
+        ExecuteStatementResponse::Dropped => "table was dropped".to_string(),
+        ExecuteStatementResponse::Inserted(number) => format!("rows inserted: {}", number),
         ExecuteStatementResponse::Select { column_names, rows } => {
             let col_names = column_names.to_vec().join(", ") + "\n";
-            let rows_as_str =
-                rows.map(|row| {
+            let rows_as_str = rows
+                .map(|row| {
                     row.iter()
                         .map(|elem| elem.to_string())
                         .collect::<Vec<String>>()
                         .join(", ")
-                }).collect::<Vec<String>>().join("\n");
+                })
+                .collect::<Vec<String>>()
+                .join("\n");
 
             col_names + &rows_as_str
         }
-        ExecuteStatementResponse::Deleted(number) => {
-            format!("rows deleted: {}", number)
-        }
-        ExecuteStatementResponse::Explain(result) => {
-            result
-        }
-        ExecuteStatementResponse::Updated(number) => {
-            format!("rows updated: {}", number)
-        }
+        ExecuteStatementResponse::Deleted(number) => format!("rows deleted: {}", number),
+        ExecuteStatementResponse::Explain(result) => result,
+        ExecuteStatementResponse::Updated(number) => format!("rows updated: {}", number),
     }
 }
 
 /// Creates a public static reference to initialized LlamaDb instance.
 lazy_static! {
-
     static ref DATABASE: Mutex<TempDb> = Mutex::new(TempDb::new());
-
 }

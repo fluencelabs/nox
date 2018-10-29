@@ -7,8 +7,8 @@ pub mod errors;
 use self::errors::MemError;
 use std::alloc::{Alloc, Global, Layout};
 use std::mem;
-use std::ptr::NonNull;
 use std::num::NonZeroUsize;
+use std::ptr::NonNull;
 
 /// Result for this module.
 pub type MemResult<T> = Result<T, MemError>;
@@ -51,14 +51,16 @@ pub const STR_LEN_BYTES: usize = 4;
 /// `
 ///     | str_length: $STR_LEN_BYTES BYTES (little-endian) | string_payload: $str_length BYTES |
 /// `
-pub unsafe fn write_str_to_mem(str: &str) -> MemResult<NonNull<u8>> {
+pub unsafe fn write_str_to_mem(str: String) -> MemResult<NonNull<u8>> {
     // converting string size to bytes in little-endian order
     let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str.len() as u32).to_le());
     let mut result_vec = len_as_bytes.to_vec();
     result_vec.extend_from_slice(str.as_bytes());
-    let result = Ok(NonNull::new_unchecked(result_vec.as_mut_ptr()));
-    mem::forget(result_vec);
-    result
+    let total_len = NonZeroUsize::new_unchecked(result_vec.len());
+
+    let result_ptr = alloc(total_len)?;
+    std::ptr::copy_nonoverlapping(result_vec.as_ptr(), result_ptr.as_ptr(), total_len.get());
+    Ok(result_ptr)
 }
 
 /// Builds Rust string from the pointer and the length. Bytes copying doesn't
@@ -69,30 +71,30 @@ pub unsafe fn write_str_to_mem(str: &str) -> MemResult<NonNull<u8>> {
 ///
 /// The ownership of `ptr` is effectively transferred to the
 /// `String` which may then deallocate, reallocate or change the
-/// contents of memory pointed to by the pointer at will. Ensure
+/// contents of memory pointed to by the pointer at will. **Ensure
 /// that nothing else uses the pointer after calling this
-/// function.
+/// function.**
 pub unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
     String::from_raw_parts(ptr, len, len)
 }
 
-
 /// Read Rust String from the raw memory. This operation is opposite of
 /// [write_str_to_mem].
-unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
+pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
     // read string length from current pointer
     let str_len = read_len(ptr.as_ptr()) as usize;
 
-    // create String for readed string length
-    let string_ptr = ptr.as_ptr().add(STR_LEN_BYTES);
-    let str = deref_str(string_ptr, str_len);
+    // create string for size and string
+    let mut str = deref_str(ptr.as_ptr(), str_len + STR_LEN_BYTES);
 
-//    ptr.as_ptr().drop_in_place();
-//    dealloc(ptr, NonZeroUsize::new_unchecked(str_len + STR_LEN_BYTES));
+    // remove size from the begginning of created string, it allow to free
+    // only memory used for keeping string length
+    {
+        &mut str.drain(0..STR_LEN_BYTES);
+    }
+
     Ok(str)
 }
-
-
 
 /// Reads u32 from current pointer. Don't affect the specified pointer.
 /// You can use the pointer after calling this method as you wish. Don't forget
@@ -102,7 +104,6 @@ unsafe fn read_len(ptr: *mut u8) -> u32 {
     std::ptr::copy_nonoverlapping(ptr, str_len_as_bytes.as_mut_ptr(), STR_LEN_BYTES);
     std::mem::transmute(str_len_as_bytes)
 }
-
 
 #[cfg(test)]
 mod test {
@@ -119,14 +120,15 @@ mod test {
     }
 
     #[test]
-    fn write_and_read_str_test() { unsafe {
-        let src_str = "some string Ω";
+    fn write_and_read_str_test() {
+        unsafe {
+            let src_str = "some string Ω";
 
-        let ptr = write_str_to_mem(src_str.clone()).unwrap();
-        let result_str = read_str_from_fat_ptr(ptr).unwrap();
-        assert_eq!(src_str, result_str);
-    }}
-
+            let ptr = write_str_to_mem(src_str.to_string().clone()).unwrap();
+            let result_str = read_str_from_fat_ptr(ptr).unwrap();
+            assert_eq!(src_str, result_str);
+        }
+    }
 
     /// Creates a big string like: "Q..Q" with specified length.
     fn create_big_str(len: usize) -> String {
@@ -134,15 +136,17 @@ mod test {
     }
 
     #[test]
-    fn lot_of_write_and_read_str_test() { unsafe {
-        let mb_str = create_big_str(1024*1024);
+    fn lot_of_write_and_read_str_test() {
+        unsafe {
+            let mb_str = create_big_str(1024 * 1024);
 
-        // writes and read 1mb string (takes several secounds)
-        for _ in 1..10_000 {
-            let ptr = write_str_to_mem(&mb_str.clone()).unwrap();
-            let result_str = read_str_from_fat_ptr(ptr).unwrap();
-            assert_eq!(mb_str, result_str);
+            // writes and read 1mb string (takes several secounds)
+            for _ in 1..5_000 {
+                let ptr = write_str_to_mem(mb_str.to_string().clone()).unwrap();
+                let result_str = read_str_from_fat_ptr(ptr).unwrap();
+                assert_eq!(mb_str, result_str);
+            }
         }
-    }}
+    }
 
 }
