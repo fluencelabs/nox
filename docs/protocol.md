@@ -51,22 +51,22 @@ type Seal struct {
 }
 
 // computes a cryptographic hash of the input data
-func Hash(data []byte) Digest { panic("") }
+func Hash(data []byte) Digest {}
 
 // produces a digital signature for the input data digest
-func Sign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
+func Sign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 
 // verifies that the input data digest is signed correctly
-func Verify(seal Seal, digest Digest) bool { panic("") }
+func Verify(seal Seal, digest Digest) bool {}
 
 // computes a Merkle root using supplied chunks as leaf data blocks in the Merkle tree
-func MerkleRoot(allChunks []Chunk) Digest { panic("") }
+func MerkleRoot(allChunks []Chunk) Digest {}
 
 // generates a Merkle proof for the chunk selected from the chunks list
-func CreateMerkleProof(index int, selectedChunk Chunk, allChunks []Chunk) MerkleProof { panic("") }
+func CreateMerkleProof(index int, selectedChunk Chunk, allChunks []Chunk) MerkleProof {}
 
 // verifies that the Merkle proof of the selected chunk conforms to the Merkle root
-func VerifyMerkleProof(selectedChunk Chunk, proof MerkleProof, root Digest) bool { panic("") }
+func VerifyMerkleProof(selectedChunk Chunk, proof MerkleProof, root Digest) bool {}
 ```
 
 ## External systems
