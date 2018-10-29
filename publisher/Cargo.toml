@@ -1,0 +1,11 @@
+[package]
+name = "publisher"
+version = "0.1.0"
+authors = ["DieMyst <dmitry.shakhtarin@fluence.ai>"]
+
+[dependencies]
+clap = "2.32.0"
+indicatif = "0.9.0"
+console = "0.6.2"
+reqwest = "0.9.3"
+web3 = { git = "https://github.com/tomusdrw/rust-web3" }
