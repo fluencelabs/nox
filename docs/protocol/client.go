@@ -1,22 +1,22 @@
 package protocol
 
-func VerifySwarmReceipt(swarmContract SwarmContract, receipt SwarmReceipt) {
+func VerifySwarmReceipt(contract SwarmContract, receipt SwarmReceipt) {
   var minDeposit int64 = 1000000
 
   // checking that the Swarm node has enough funds
   var swarmNodeId = receipt.Insurance.PublicKey
-  assertTrue(swarmContract.Deposits[swarmNodeId] >= minDeposit)
+  assertTrue(contract.Deposits[swarmNodeId] >= minDeposit)
 
   // checking that the receipt is signed by this Swarm node
   assertTrue(SwarmVerify(receipt.Insurance, receipt.ContentHash))
 }
 
-func VerifyTendermintSignature(flnContract BasicFluenceContract, seal Seal, blockHash Digest) {
+func VerifyTendermintSignature(contract BasicFluenceContract, seal Seal, blockHash Digest) {
   var minDeposit int64 = 1000000
 
   // checking that the Tendermint node has enough funds
   var tmNodeId = seal.PublicKey
-  assertTrue(flnContract.NodesDeposits[tmNodeId] >= minDeposit)
+  assertTrue(contract.NodesDeposits[tmNodeId] >= minDeposit)
 
   // checking that the receipt is signed by this Tendermint node
   assertTrue(TmVerify(seal, blockHash))
