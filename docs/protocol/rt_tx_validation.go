@@ -1,9 +1,9 @@
 package protocol
 
 // verifies that transaction was originated by the client with enough funds deposited
-func VerifyTransaction(flnContract *FlnContract, tx *Transaction, minCollateral int64){
+func VerifyTransaction(flnContract *BasicFluenceContract, tx *Transaction, minCollateral int64){
   // checking that the client actually exists in the contract
-  collateral, ok := flnContract.ClientCollaterals[tx.Seal.PublicKey]
+  collateral, ok := flnContract.ClientDeposits[tx.Seal.PublicKey]
   assertTrue(ok)
 
   // checking that the client has enough funds
