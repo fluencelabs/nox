@@ -20,4 +20,5 @@ crate-type = ["cdylib"]
 [dependencies]
 
 lazy_static = "1.1.0"
-llamadb = { git="https://github.com/fluencelabs/llamadb.git", branch = "master" }
+fluence_sdk = { path = "../../../sdk/rust" }
+llamadb = { path = "../../../../../opensource/llamadb" }

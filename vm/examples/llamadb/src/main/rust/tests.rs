@@ -2,29 +2,7 @@
 
 use STR_LEN_BYTES;
 
-#[test]
-fn alloc_dealloc_test() {
-    unsafe {
-        let size = 100;
-        let ptr = super::allocate(size);
-        assert_eq!(super::deallocate(ptr, size), ());
-    }
-}
-
-#[test]
-fn write_str_to_mem_test() { unsafe {
-    let src_str = "some string Ω".to_string();
-    let ptr = super::put_to_mem(src_str.clone());
-
-    let size = read_size(ptr);
-    println!("size={}", size);
-
-    let result_str = super::deref_str(ptr.offset(STR_LEN_BYTES as isize), (size) as usize);
-    println!("result string= '{}'", result_str);
-
-    assert_eq!(size, result_str.len() as u32);
-    assert_eq!(src_str, src_str);
-}}
+extern crate fluence_sdk as fluence;
 
 
 #[test]
@@ -134,26 +112,14 @@ fn integration_sql_test() {
 /// Executes sql and returns result as a String.
 fn execute_sql(sql: String) -> String { unsafe {
 
-    let sql_str_real_len = sql.len();
     // converts params
-    let sql_str_ptr = super::put_to_mem(sql);
-    let sql_str_len = read_size(sql_str_ptr) as usize;
-    assert_eq!(&sql_str_real_len, &sql_str_len);
+    let sql_str_ptr = fluence::memory::write_str_to_mem(&sql).unwrap();
 
     // executes query
-    let result_str_ptr = super::do_query(sql_str_ptr.offset(STR_LEN_BYTES as isize), sql_str_len) as *mut u8;
+    let result_str_ptr = super::do_query(sql_str_ptr.as_ptr().add(STR_LEN_BYTES), sql.len());
 
     // converts results
-    let result_str_len = read_size(result_str_ptr) as usize;
-    let result_str = super::deref_str(result_str_ptr.offset(STR_LEN_BYTES as isize), result_str_len);
+    let result = fluence::memory::read_str_from_fat_ptr(result_str_ptr).unwrap();
 
-    assert_eq!(result_str_len, result_str.len());
-    result_str
+    result
 }}
-
-/// Reads u32 from current pointer.
-unsafe fn read_size(ptr: *mut u8) -> u32 {
-    let mut size_as_bytes: [u8; STR_LEN_BYTES] = [0; STR_LEN_BYTES];
-    std::ptr::copy_nonoverlapping(ptr, size_as_bytes.as_mut_ptr(), STR_LEN_BYTES);
-    std::mem::transmute(size_as_bytes)
-}

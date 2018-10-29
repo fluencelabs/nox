@@ -11,21 +11,18 @@ mod tests;
 
 #[macro_use]
 extern crate lazy_static;
+extern crate fluence_sdk as fluence;
 extern crate llamadb;
 
 use std::ptr::NonNull;
-use std::alloc::{Alloc, Global, Layout};
-use std::mem;
 use std::error::Error;
 use std::sync::Mutex;
-use std::io::Write;
 use llamadb::tempdb::TempDb;
 use llamadb::tempdb::ExecuteStatementResponse;
+use std::num::NonZeroUsize;
 
 /// Result for all possible Error types.
 type GenResult<T> = Result<T, Box<Error>>;
-
-pub const STR_LEN_BYTES: usize = 4;
 
 //
 // Public functions for work with Llamadb.
@@ -39,9 +36,10 @@ pub const STR_LEN_BYTES: usize = 4;
 /// 3. Returns a pointer to the result as a string in the memory.
 /// 4. Deallocates memory from passed parameter
 #[no_mangle]
-pub fn do_query(ptr: *mut u8, len: usize) -> usize {
+pub fn do_query(ptr: *mut u8, len: usize) -> NonNull<u8> {
 
-    let sql_str: String = unsafe { deref_str(ptr, len) };
+    // memory for the parameter will be deallocated when sql_str was dropped
+    let sql_str: String = unsafe { fluence::memory::deref_str(ptr, len) };
 
     let db_response = match run_query(&sql_str) {
         Ok(response) => { response }
@@ -50,7 +48,8 @@ pub fn do_query(ptr: *mut u8, len: usize) -> usize {
 
     unsafe {
         // return pointer to result in memory
-        put_to_mem(db_response) as usize
+        fluence::memory::write_str_to_mem(&db_response)
+            .expect("Putting result string to the memory was failed.")
     }
 }
 
@@ -62,36 +61,10 @@ pub fn do_query(ptr: *mut u8, len: usize) -> usize {
 /// Used from the host environment for memory allocation for passed parameters.
 #[no_mangle]
 pub unsafe fn allocate(size: usize) -> NonNull<u8> {
-    alloc(size)
+    let non_zero_size = NonZeroUsize::new(size)
+        .expect("[Error] Allocation of zero bytes is not allowed.");
+    fluence::memory::alloc(non_zero_size)
         .expect(format!("[Error] Allocation of {} bytes failed.", size).as_str())
-}
-
-unsafe fn alloc(size: usize) -> GenResult<NonNull<u8>> {
-    let layout: Layout = Layout::from_size_align(size, mem::align_of::<u8>())?;
-    Global.alloc(layout).map_err(Into::into)
-}
-
-/// Deallocates memory area for current memory pointer and size.
-/// Used from the host environment for memory deallocation after reading results
-/// of function from Wasm memory.
-#[no_mangle]
-pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) -> () {
-    dealloc(ptr, size)
-        .expect(format!("[Error] Deallocate failed for prt={:?} size={}.", ptr, size).as_str())
-}
-
-unsafe fn dealloc(ptr: NonNull<u8>, size: usize) -> GenResult<()> {
-    let layout = Layout::from_size_align(size, mem::align_of::<u8>())?;
-    Ok(Global.dealloc(ptr, layout))
-}
-
-//
-// Private functions with working with Strings and Memory.
-//
-
-/// Builds Rust string from the pointer and length.
-unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
-    String::from_raw_parts(ptr, len, len)
 }
 
 /// Acquires lock, does query, releases lock, returns query result
@@ -137,26 +110,6 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
             format!("rows updated: {}", number)
         }
     }
-}
-
-/// Writes Rust string into the memory directly as string length and byte array
-/// (little-endian? order). Written memory structure is:
-///     | str_length: 4 BYTES | string_payload: str_length BYTES|
-unsafe fn put_to_mem(str: String) -> *mut u8 {
-    // converting string size to bytes in little-endian order
-    let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str.len() as u32).to_le());
-    let total_len = STR_LEN_BYTES
-        .checked_add(str.len())
-        .expect("usize overflow occurred");;
-
-    let mut result: Vec<u8> = Vec::with_capacity(total_len);
-    result.write_all(&len_as_bytes).unwrap();
-    result.write_all(str.as_bytes()).unwrap();
-
-    let result_ptr = allocate(total_len).as_ptr();
-    std::ptr::copy_nonoverlapping(result.as_ptr(), result_ptr, total_len);
-
-    result_ptr
 }
 
 /// Creates a public static reference to initialized LlamaDb instance.
