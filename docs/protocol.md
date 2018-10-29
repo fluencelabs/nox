@@ -1,34 +1,47 @@
 # Protocol
 
-- [Protocol](#protocol)
-  - [Core](#core)
-  - [External systems](#external-systems)
-    - [Ethereum](#ethereum)
-    - [Swarm](#swarm)    
-  - [Initial setup](#initial-setup)
-  - [Transactions](#transactions)
-  - [Sidechain](#sidechain)
-  - [Real-time processing](#real-time-processing)
-    - [Transaction validation](#transaction-validation)
-    - [Tendermint block formation](#tendermint-block-formation)
-    - [Block processing](#block-processing)
-    - [Query response](#query-response)
-  - [Client](#client)
-    - [Query response verification](#query-response-verification)
-      - [Prerequisites](#prerequisites)
-      - [Verification of Swarm receipts](#verification-of-swarm-receipts)
-      - [Verification of consensus on the virtual machine state](#verification-of-consensus-on-the-virtual-machine-state)
-      - [Verification of Merkle proofs for returned VM state chunks](#verification-of-merkle-proofs-for-returned-vm-state-chunks)
-  - [Batch validation](#batch-validation)
-    - [Transactions history downloading](#transactions-history-downloading)
-    - [State snapshots](#state-snapshots)
-    - [History replaying](#history-replaying)
-    - [State hash mismatch resolution](#state-hash-mismatch-resolution)
-    - [Validators selection](#validators-selection)
+- [Preface](#preface)
+- [Core](#core)
+- [External systems](#external-systems)
+  - [Ethereum](#ethereum)
+  - [Swarm](#swarm)    
+- [Initial setup](#initial-setup)
+- [Transactions](#transactions)
+- [Sidechain](#sidechain)
+- [Real-time processing](#real-time-processing)
+  - [Transaction validation](#transaction-validation)
+  - [Tendermint block formation](#tendermint-block-formation)
+  - [Block processing](#block-processing)
+  - [Query response](#query-response)
+- [Client](#client)
+  - [Query response verification](#query-response-verification)
+    - [Prerequisites](#prerequisites)
+    - [Verification of Swarm receipts](#verification-of-swarm-receipts)
+    - [Verification of consensus on the virtual machine state](#verification-of-consensus-on-the-virtual-machine-state)
+    - [Verification of Merkle proofs for returned VM state chunks](#verification-of-merkle-proofs-for-returned-vm-state-chunks)
+- [Batch validation](#batch-validation)
+  - [Transactions history downloading](#transactions-history-downloading)
+  - [State snapshots](#state-snapshots)
+  - [History replaying](#history-replaying)
+  - [State hash mismatch resolution](#state-hash-mismatch-resolution)
+  - [Validators selection](#validators-selection)
+
+## Preface
+
+This protocol specification describes one simple thing: how a (light) client interacting with the Fluence network will become convinced that whatever results the network has supplied to it in the real-time will be validated later on in the batch mode, and if any discrepancy found during the validation – that offending nodes will be penalized.
+
+This document is not a replacement for a white paper or a design proposal; it doesn't discuss **why** certain things should work the way they are described, neither it specifies **how** things would work on the technical level. Most likely parts of it will get absorbed by the future white paper describing the Fluence network architecture or a more detailed specification allowing to independently implement a network node. 
+
+However, at least for now this specification aims to accurately express **what** _conceptually_ happens in the network, and let developers have a single point of synchronization. We also hope it will give some intuition that the construction is secure – an intuition that is expected to be proven more formally in the future yellow paper.
 
 ## Core
 
-Before we start describing the protocol, few words need to be said about the core blocks. Basic cryptographic primitives such as digital signature generation and verification, cryptographic hash computation and Merkle tree composition are listed below and used throughout the rest of the protocol specification. We do not specify exact algorithms such as SHA3, RIPEMD or EdDSA for those primitives but still assume them to behave according to the common expectations.
+Before we start describing the protocol, few words need to be said about the core blocks. 
+
+First of all, we use a simplified version of Go as a pseudocode to illustrate chosen algorithms. It should be noted that the reference Fluence network implementation doesn't use Go: in fact, it's mostly Scala, TypeScript and Rust. However, Go simplicity allows to use it to describe complex algorithms without too much boilerplate. Source codes used in this specification can be found 
+[here](./protocol).
+
+Basic cryptographic primitives such as digital signature generation and verification, cryptographic hash computation and Merkle tree composition are listed below and used throughout the rest of the protocol specification. We do not specify exact algorithms such as SHA3, RIPEMD or EdDSA for those primitives but still assume them to behave according to the common expectations.
 
 ```go
 type Digest     = [32]byte
@@ -466,23 +479,23 @@ These aspects will be considered in another section, and for now we will focus o
 Below we assume that functions allowing to verify that Swarm receipts and Tendermint signatures were created by valid nodes already exist.
 
 ```go
-func VerifySwarmReceipt(swarmContract SwarmContract, receipt SwarmReceipt) {
+func VerifySwarmReceipt(contract SwarmContract, receipt SwarmReceipt) {
   var minDeposit int64 = 1000000
 
   // checking that the Swarm node has enough funds
   var swarmNodeId = receipt.Insurance.PublicKey
-  assertTrue(swarmContract.Deposits[swarmNodeId] >= minDeposit)
+  assertTrue(contract.Deposits[swarmNodeId] >= minDeposit)
 
   // checking that the receipt is signed by this Swarm node
   assertTrue(SwarmVerify(receipt.Insurance, receipt.ContentHash))
 }
 
-func VerifyTendermintSignature(flnContract BasicFluenceContract, seal Seal, blockHash Digest) {
+func VerifyTendermintSignature(contract BasicFluenceContract, seal Seal, blockHash Digest) {
   var minDeposit int64 = 1000000
 
   // checking that the Tendermint node has enough funds
   var tmNodeId = seal.PublicKey
-  assertTrue(flnContract.NodesDeposits[tmNodeId] >= minDeposit)
+  assertTrue(contract.NodesDeposits[tmNodeId] >= minDeposit)
 
   // checking that the receipt is signed by this Tendermint node
   assertTrue(TmVerify(seal, blockHash))
@@ -697,7 +710,7 @@ func (validator BatchValidator) Validate(
 }
 ```
 
-**TBD: ** the state snapshot hash should match the checkpoint hash which is impossible now because they are actually off by 2.
+**TBD:** the state snapshot hash should match the checkpoint hash which is impossible now because they are actually off by 2.
 
 
 ### State hash mismatch resolution
