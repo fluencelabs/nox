@@ -272,72 +272,86 @@ Honest sidechain nodes will eventually checkpoint stored blocks to the smart con
 Once the client has constructed a transaction, it is submitted to one of the real-time nodes which checks the received transaction:
 
 ```go
-// verifies that transaction was originated by the client with enough funds deposited
-func VerifyTransaction(flnContract *FlnContract, tx *Transaction, minCollateral int64){
+// verifies that a transaction was originated by the client with enough funds deposited
+func VerifyTransaction(contract BasicFluenceContract, tx Transaction, minDeposit int64){
   // checking that the client actually exists in the contract
-  collateral, ok := flnContract.ClientCollaterals[tx.Seal.PublicKey]
+  var deposit, ok = contract.ClientDeposits[tx.Seal.PublicKey]
   assertTrue(ok)
 
   // checking that the client has enough funds
-  assertTrue(collateral >= minCollateral)
+  assertTrue(deposit >= minDeposit)
 
-  // checking that the transaction is signed by this client
+  // checking that the transaction was signed by this client
   assertTrue(Verify(tx.Seal, Hash(tx.Invoke)))
 }
 ```
 
-If the transaction passes the check, it's added to the mempool and might be later used in forming a block. Otherwise the transaction is declined.
-
-**Open questions:**
-- should the real-time node sign an acceptance or refusal of the transaction?
-- how the real-time node should check the client's security deposit?
+If the transaction passes the check, it's added to the mempool and might be later used in forming a block, otherwise the transaction is declined. While the transaction _might_ be used in a block, the node doesn't (and in fact, is unable to if the rest of the cluster is malicious) provide any guarantees it will be included into the block or processed by the cluster.
 
 
 ### Tendermint block formation
 
-Tendermint consensus engine produces new blocks filled with client supplied transactions and feeds them to the Fluence state machine. Tendermint uses Merkle trees to compute the Merkle root of certain pieces of data and digital signatures to sign produced blocks, however here we assume these functions are not necessary compatible with Fluence and denote them separately.
+Tendermint consensus engine produces new blocks filled with the client supplied transactions and feeds them to the Fluence state machine.
 
 ```go
-// listed Tendermint functions carry the same meaning and arguments as core functions 
-func TmHash(data []byte) Digest {}
+type Block struct {
+  Header     Header       // block header
+  LastCommit []Seal       // Tendermint nodes votes for the previous block
+  Txs        Transactions // transactions as sent by clients
+}
+
+type Header struct {
+  LastBlockHash  Digest // Merkle root of the previous block header fields
+  LastCommitHash Digest // Merkle root of the last commit votes
+  TxsHash        Digest // Merkle root of the block transactions
+  AppHash        Digest // application state hash after the previous block
+}
+```
+
+Tendermint uses Merkle trees to compute the Merkle root of certain pieces of data and digital signatures to sign produced blocks, however here we assume these functions are not necessary compatible with Fluence and denote them separately.
+
+```go
+// listed Tendermint functions carry the same meaning and arguments as core functions
 func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 func TmVerify(seal Seal, digest Digest) bool {}
-func TmMerkleRoot(allChunks []Chunk) Digest {}
+func TmMerkleRoot(chunks []Chunk) Digest {}
 ```
 
 Tendermint periodically pulls few transactions from the mempool and forms a new block. Nodes participating in consensus sign produced blocks, however their signatures for a specific block are available only as a part of the next block.
 
 ```go
-type Block struct {
-  Header     Header         // block header
-  LastCommit []Seal         // Tendermint nodes votes for the previous block
-  Txs        Transactions   // transactions as sent by clients
+type TmNode struct {
+  PublicKey  PublicKey  // real-time node public key
+  privateKey PrivateKey // real-time node private key
 }
 
-type Header struct {
-  LastBlockHash  Digest  // Merkle root of the previous block header fields
-  LastCommitHash Digest  // Merkle root of the last commit votes
-  TxsHash        Digest  // Merkle root of the block transactions
-  AppHash        Digest  // application state hash after the previous block
+// signs the block assuming the node has voted for it during consensus settlement
+func (node TmNode) SignBlockHash(blockHash Digest) Seal {
+  return TmSign(node.PublicKey, node.privateKey, blockHash)
 }
 
-// data
-var blocks []Block // Tendermint blockchain
+// prepares the block (assuming the nodes have reached a consensus)
+func PrepareBlock(nodes []TmNode, prevBlock Block, txs Transactions, appHash Digest) Block {
+  var lastBlockHash = TmMerkleRoot(packMulti(prevBlock.Header))
+  var lastCommit = make([]Seal, 0, len(nodes))
+  for i, node := range nodes {
+    lastCommit[i] = node.SignBlockHash(lastBlockHash)
+  }
 
-// rules
-var k int64        // some block number
-var i int          // some Tendermint node index
-
-∀ k:
-  assertEq(blocks[k].Header.LastBlockHash, TmMerkleRoot(packMulti(blocks[k - 1].Header)))
-  assertEq(blocks[k].Header.LastCommitHash, TmMerkleRoot(packMulti(blocks[k].LastCommit)))
-  assertEq(blocks[k].Header.TxsHash, TmMerkleRoot(packMulti(blocks[k].Txs)))
-  
-  ∀ i:
-    assertTrue(TmVerify(blocks[k].LastCommit[i], blocks[k].Header.LastBlockHash))
+  return Block{
+    Header: Header{
+      LastBlockHash:  lastBlockHash,
+      LastCommitHash: TmMerkleRoot(packMulti(lastCommit)),
+      TxsHash:        TmMerkleRoot(packMulti(txs)),
+      AppHash:        appHash,
+    },
+    LastCommit: lastCommit,
+    Txs:        txs,
+  }
+}
 ```
 
-Note we haven't specified here how the application state hash (`Header.AppHash`) is getting calculated – this will be described in the next section.
+Note we haven't specified here how the application state hash (`Block.Header.AppHash`) is getting calculated – this will be described in the next section.
 
 ### Block processing
 
