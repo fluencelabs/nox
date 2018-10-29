@@ -18,12 +18,12 @@ impl Display for MemError {
 impl Error for MemError {}
 
 impl MemError {
-    pub fn from_str(message: &str) -> Self {
-        MemError(format!("{}", message.to_string()))
+    pub fn new(message: &str) -> Self {
+        MemError(message.to_string())
     }
 
-    pub fn from_err<E: Error + Display>(err: E) -> Self {
-        MemError::from_str(&err.to_string())
+    pub fn from_err<E: Error + Display>(err: &E) -> Self {
+        MemError::new(&err.to_string())
     }
 }
 
@@ -51,7 +51,7 @@ macro_rules! mem_error_from {
         $(
             impl From<$x> for MemError {
                 fn from(err: $x) -> Self {
-                    MemError::from_err(err)
+                    MemError::from_err(&err)
                 }
             }
         )*
