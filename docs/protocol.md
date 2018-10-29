@@ -102,43 +102,31 @@ func VerifyDeposit(contract ExampleContract, nodeId PublicKey, minDeposit int64)
 
 ### Swarm
 
-Swarm is treated as a hash addressable storage where a content can be found by it's hash. Swarm has it's own set of cryptographic primitives which we don't expect to be compatible with Fluence core primitives.
+In this specification we treat Swarm as a decentralized storage where a content can be accessed by its hash. Swarm has it's own set of cryptographic primitives which we don't expect to be compatible with Fluence core primitives.
 
 ```go
 // listed Swarm functions carry the same meaning and arguments as core functions
 func SwarmHash(data []byte) Digest {}
 func SwarmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 func SwarmVerify(seal Seal, digest Digest) bool {}
-
-// data
-var swarm map[Digest][]byte  // Swarm storage: hash(x) –> x
-
-// rules
-var content []byte           // some content
-
-∀ content:
-  assertEq(swarm[SwarmHash(content)], content)
 ```
 
-We expect that every node serving in the Swarm network has an identifier and a public/private key pair and is registered in the publicly accessible Ethereum smart contract.
+We assume that every node serving in the Swarm network has an identifier and a public/private key pair and is registered in the Ethereum smart contract.
 
 ```go
 type SwarmContract struct {
-  Collaterals map[PublicKey]int64  // security deposits: node identifier –> deposit size
+  Deposits map[PublicKey]int64 // security deposits: node identifier –> deposit size
 }
-
-// data
-var swarmContract SwarmContract  // Swarm Ethereum smart contract
 ```
 
-#### Stored content receipts
+We assume that Swarm provides an upload function which returns a Swarm receipt indicating Swarm network accountability for the passed content. The receipt contains the Swarm hash of the content and the signature of the Swarm node which is financially responsible for storing the content. Using the provided receipt, any Swarm client can download the content from the Swarm network.
 
-We assume that Swarm provides an upload function which returns a Swarm receipt indicating Swarm network accountability for the passed content. The receipt contains the Swarm hash of the content and the signature of the Swarm node which is financially responsible for storing the content. Receipts functionality is not implemented yet in the current Swarm release, however it's described in details in ["Swap, swear and swindle: incentive system for Swarm"](https://swarm-gateways.net/bzz:/theswarm.eth/ethersphere/orange-papers/1/sw^3.pdf) paper and can be reasonably expected to be rolled out soon.
+Receipts functionality is not implemented yet in the current Swarm release, however it's described in details in the ["Swap, swear and swindle: incentive system for Swarm"](https://swarm-gateways.net/bzz:/theswarm.eth/ethersphere/orange-papers/1/sw^3.pdf) paper and can be reasonably expected to be rolled out some time soon.
 
 ```go
 type SwarmReceipt struct {
-  ContentHash Digest  // Swarm hash of the stored content
-  Insurance   Seal    // insurance written by the Swarm node for the accepted content
+  ContentHash Digest // Swarm hash of the stored content
+  Insurance   Seal   // insurance written by the Swarm node for the accepted content
 }
 
 // uploads the content to the Swarm network, returns a receipt of responsibility
@@ -146,78 +134,6 @@ func SwarmUpload(content []byte) SwarmReceipt {}
 
 // downloads the content from the Swarm network using the supplied receipt
 func SwarmDownload(receipt SwarmReceipt) []byte {}
-
-// data
-var content []byte // some content
-
-// rules
-∀ content:
-  var receipt = SwarmUpload(content)
-
-  assertEq(receipt.ContentHash, SwarmHash(content))
-  assertTrue(SwarmVerify(receipt.Insurance, receipt.ContentHash))
-```
-
-#### Mutable resource updates
-
-We also rely on the [mutable resource updates (MRU)](https://swarm-guide.readthedocs.io/en/latest/usage.html#mutable-resource-updates) feature in Swarm. While core Swarm allows to access the stored content by its hash, MRU lets its user to associate the content with a specific key and update it from time to time. If core Swarm can be represented as a hash-addressable storage, MRU is more complex and for our purposes can be treated as a nested dictionary.
-
-```go
-type SwarmMeta struct {
-  Key        string  // resource key
-  Version    int     // resource version
-  Content    []byte  // uploaded content
-  Permission Seal    // owner signature which authorizes the update
-}
-
-// data
-var swarmMRU map[string]map[int]SwarmMeta  // MRU storage: key –> version –> content
-```
-
-Every key created in the MRU storage has an associated owner and needs to be initialized first. Once the key is initialized, it can be updated only by the owner. Having the MRU storage and the set of owners, we can more formally define the rules these entities are expected to follow.
-
-```go
-type SwarmOwners struct  {
-  data map[string]PublicKey  // owners: resource key –> owner's public key
-}
-
-// initializes and returns a new resource key
-func (owners *SwarmOwners) Init(permission Seal) string {}
-
-// returns an owner's public key for the specified resource key
-func (owners *SwarmOwners) Owner(resourceKey string) PublicKey {}
-
-// data
-var swarmOwners SwarmOwners                // list of resource owners for each key
-var swarmMRU map[string]map[int]SwarmMeta  // MRU storage: key –> version –> content
-
-// rules
-var key     string                         // some key
-var version int                            // some version
-
-∀ key, ∀ version:
-  // the content stored for specific key and version should be properly authorized by its owner
-  var meta = swarmMRU[key][version]
-
-  assertEq(meta.Key, key)
-  assertEq(meta.Version, version)
-  assertEq(meta.Permission.PublicKey, swarmOwners.Owner(meta.Key))
-  assertTrue(SwarmVerify(meta.Permission, SwarmHash(pack(meta.Key, meta.Version, meta.Content))))
-```
-
-We can also expect that Swarm will provide stored receipts functionality for the MRU resources. Here we assume the following behavior: every time the resource changes, Swarm issues a receipt for the updated resource key and version along with the new content and owner's signature.
-
-```go
-// updates the resource associated with the specific resource key
-func SwarmMRUUpdate(meta *SwarmMeta) SwarmReceipt {}
-
-// data
-var meta SwarmMeta  // some mutable content
-
-// rules
-∀ meta:
-  var receipt = SwarmMRUUpdate(&meta)
-  assertEq(receipt.ContentHash, SwarmHash(pack(meta)))
 ```
 
 ### Kademlia sidechain

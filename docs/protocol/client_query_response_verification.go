@@ -5,7 +5,7 @@ func VerifySwarmReceipt(swarmContract SwarmContract, receipt SwarmReceipt) {
 
   // checking that the Swarm node has enough funds
   var swarmNodeId = receipt.Insurance.PublicKey
-  assertTrue(swarmContract.Collaterals[swarmNodeId] >= minCollateral)
+  assertTrue(swarmContract.Deposits[swarmNodeId] >= minCollateral)
 
   // checking that the receipt is signed by this Swarm node
   assertTrue(SwarmVerify(receipt.Insurance, receipt.ContentHash))
