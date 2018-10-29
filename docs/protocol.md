@@ -359,7 +359,7 @@ Once the block has passed through Tendermint consensus, it is delivered to the s
 
 ```go
 type VMState struct {
-  Chunks []Chunk     // virtual machine memory chunks
+  Chunks []Chunk // virtual machine memory chunks
 }
 
 // produces the new state by applying block transactions to the old VM state
@@ -370,11 +370,11 @@ Once the block is processed by the WebAssembly VM, it has to be stored in Swarm 
 
 ```go
 type Manifest struct {
-  Header              Header        // block header
-  VMStateHash         Digest        // hash of the VM state derived by applying the block
-  LastCommit          []Seal        // Tendermint nodes signatures for the previous block header
-  TxsReceipt          SwarmReceipt  // Swarm hash of the block transactions
-  LastManifestReceipt SwarmReceipt  // Swarm hash of the previous manifest
+  Header              Header       // block header
+  VMStateHash         Digest       // hash of the VM state derived by applying the block
+  LastCommit          []Seal       // Tendermint nodes signatures for the previous block header
+  TxsReceipt          SwarmReceipt // Swarm hash of the block transactions
+  LastManifestReceipt SwarmReceipt // Swarm hash of the previous manifest
 }
 ```
 
@@ -415,9 +415,9 @@ Let's assume the transaction sent by the client was included into the block `k`.
 
 ```go
 type QueryResponse struct {
-  Chunks    map[int]Chunk        // selected virtual machine state chunks
-  Proofs    map[int]MerkleProof  // Merkle proofs: chunks belong to the virtual machine state
-  Manifests [3]Manifest          // block manifests
+  Chunks    map[int]Chunk       // selected virtual machine state chunks
+  Proofs    map[int]MerkleProof // Merkle proofs: chunks belong to the virtual machine state
+  Manifests [3]Manifest         // block manifests
 }
 ```
 
