@@ -41,8 +41,8 @@ type Signature  = [64]byte
 type Chunk = []byte
 
 type MerkleProof struct {
-  Path     []int       // path from the Merkle tree root to the selected chunk
-  Siblings [][]Digest  // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
+  Path     []int      // path from the Merkle tree root to the selected chunk
+  Siblings [][]Digest // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
 }
 
 type Seal struct {
@@ -51,39 +51,52 @@ type Seal struct {
 }
 
 // computes a cryptographic hash of the input data
-func Hash(data []byte) Digest {}
+func Hash(data []byte) Digest { panic("") }
 
 // produces a digital signature for the input data digest
-func Sign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
+func Sign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
 
 // verifies that the input data digest is signed correctly
-func Verify(seal Seal, digest Digest) bool {}
+func Verify(seal Seal, digest Digest) bool { panic("") }
 
 // computes a Merkle root using supplied chunks as leaf data blocks in the Merkle tree
-func MerkleRoot(allChunks []Chunk) Digest {}
+func MerkleRoot(allChunks []Chunk) Digest { panic("") }
 
 // generates a Merkle proof for the chunk selected from the chunks list
-func CreateMerkleProof(index int, selectedChunk Chunk, allChunks []Chunk) MerkleProof {}
+func CreateMerkleProof(index int, selectedChunk Chunk, allChunks []Chunk) MerkleProof { panic("") }
 
 // verifies that the Merkle proof of the selected chunk conforms to the Merkle root
-func VerifyMerkleProof(selectedChunk Chunk, proof *MerkleProof, root Digest) bool {}
-
+func VerifyMerkleProof(selectedChunk Chunk, proof MerkleProof, root Digest) bool { panic("") }
 ```
 
 ## External systems
 
 ### Ethereum
 
-For the purposes of this protocol specification, Ethereum is viewed as a secure state storage keeping few related smart contracts. Those smart contracts can be checked by any network participants to, for example, make sure that some node still has a security deposit placed. Below we provide an example of such contract.
+For the purposes of this protocol specification, Ethereum is viewed as a secure state storage keeping few related smart contracts. For example, we can define a smart contract storing security deposits of the network participants.
 
 ```go
 type ExampleContract struct {
-  Collaterals map[PublicKey]int64  // security deposits: node identifier –> deposit size
+  Deposits map[PublicKey]int64 // security deposits: node identifier –> deposit size
 }
+```
 
-// verifies that a node has enough deposited funds
-func VerifyNodeCollateral(exampleContract *ExampleContract, nodeId PublicKey, minCollateral int64) {
-  assertTrue(exampleContract.Collaterals[nodeId] >= minCollateral)
+Such contract might have a method defined on it to be called by Ethereum clients. The difference between the method and an ordinary function is that a method would carry the contract as a receiver: `func (contract ExampleContract) foobar()`. In this protocol specification we pretend that the function defined as **a contract method is executed by the entire Ethereum network**. As a consequence, we can trust the changes it makes to the contract data.
+
+```go
+func (contract ExampleContract) MakeDeposit(size int64, seal Seal) {
+  if Verify(seal, Hash(pack(size))) {
+    // the deposit size is really signed with the node private key, updating the contract data
+    contract.Deposits[seal.PublicKey] += size
+  }
+}
+```
+
+Any network participant can read the contract data to, for example, make sure that a certain node still has a security deposit placed. Note that while the function below also accepts a contract as an argument, _it is not a contract method_ and is executed by a single potentially malicious agent. We can't trust its results unless additional measures (such as BFT consensus) are used.
+
+```go
+func VerifyDeposit(contract ExampleContract, nodeId PublicKey, minDeposit int64) bool {
+  return contract.Deposits[nodeId] >= minDeposit
 }
 ```
 

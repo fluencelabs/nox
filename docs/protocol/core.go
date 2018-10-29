@@ -8,8 +8,8 @@ type Signature  = [64]byte
 type Chunk = []byte
 
 type MerkleProof struct {
-  Path     []int       // path from the Merkle tree root to the selected chunk
-  Siblings [][]Digest  // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
+  Path     []int      // path from the Merkle tree root to the selected chunk
+  Siblings [][]Digest // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
 }
 
 type Seal struct {
