@@ -35,12 +35,12 @@ matrix:
 #      before_script: npm install
 #      script: npm test
 
-    - name: Rust SDK tests
-      language: rust
+#    - name: Rust SDK tests
+    - language: rust
       rust:
         - stable
-        - beta
-        - nightly
+#        - beta
+#        - nightly
       # todo enable stable when `allocator_api` will become stable
 
 
