@@ -5,14 +5,12 @@ extern crate web3;
 extern crate ethabi;
 
 use std::fs::File;
-use std::thread;
-use std::error::Error;
-use clap::{Arg, App, ArgSettings};
+use clap::{Arg, App};
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError, Client};
 use web3::futures::Future;
 use web3::contract::{Contract, Options};
-use web3::types::{Address, H160, H256};
+use web3::types::{Address, H256};
 
 fn main() {
     let matches = App::new("Fluence")
@@ -24,15 +22,25 @@ fn main() {
             .takes_value(true)
             .index(1)
             .help("path to compiled `wasm` code"))
-        .arg(Arg::with_name("contract_address").alias("contract_address").long("contract_address").short("c")
-            .required(false)
+        .arg(Arg::with_name("account").alias("account")
+            .required(true).alias("account").long("account").short("a")
             .takes_value(true)
-            .help("deployer contract address"))
-        .arg(Arg::with_name("swarm_node").alias("swarm_node").long("swarm_node").short("s")
+            .help("ethereum account without `0x`"))
+        .arg(Arg::with_name("contract_address").alias("contract_address")
+            .required(true)
+            .takes_value(true)
+            .index(2)
+            .help("deployer contract address without `0x`"))
+        .arg(Arg::with_name("swarm_url").alias("swarm_url").long("swarm_url").short("s")
             .required(false)
             .takes_value(true)
             .help("http address to swarm node")
             .default_value("http://localhost:8500/"))
+        .arg(Arg::with_name("eth_url").alias("eth_url").long("eth_url").short("e")
+            .required(false)
+            .takes_value(true)
+            .help("http address to ethereum node")
+            .default_value("http://localhost:8545/"))
         .arg(Arg::with_name("password").alias("password").long("password").short("p")
             .required(false)
             .takes_value(true)
@@ -40,55 +48,47 @@ fn main() {
         .get_matches();
 
     let path = matches.value_of("path").expect("Path must be specified.");
-    println!("{}", path);
 
-    let config = matches.value_of("config");
-    println!("{}", config.unwrap_or("none"));
+    let contract_address = matches.value_of("contract_address").expect("Path must be specified.");
+    let contract_address: Address = contract_address.parse().unwrap();
 
-    let contract_address = matches.value_of("contract_address");
-    println!("{}", contract_address.unwrap_or("none"));
+    let account = matches.value_of("account").expect("Account must be specified.");
+    let account: Address = account.parse().unwrap();
 
-    let swarm_node = matches.value_of("swarm_node").unwrap();
-    println!("{}", swarm_node);
-
-    let mut bar = create_progress_bar(false, "Сode loading...", None);
-
-    let file = File::open(path).expect("file not found");
-    let hash = upload(swarm_node, file).unwrap();
-    bar.finish_with_message("Code has been uploaded\n");
-
-    println!("{}", hash);
-
-
-    let (_eloop, transport) = web3::transports::Http::new("http://localhost:8545").unwrap();
-    let web3 = web3::Web3::new(transport);
-    let accounts = web3.eth().accounts().wait().unwrap();
-
-    println!("Accounts: {:?}", accounts);
-
-    let acc: Address = "7aD615F735528C8c975777e83befFe8042Ad8Ffb".parse().unwrap();
+    let swarm_url = matches.value_of("swarm_url").unwrap();
 
     let password = matches.value_of("password");
 
+    let bar = create_progress_bar(false, "Сode loading...", None);
+
+    let file = File::open(path).expect("file not found");
+    let hash = upload(swarm_url, file).unwrap();
+    bar.finish_with_message("Code has been uploaded.");
+
+    let bar = create_progress_bar(false, "Submitting code to the smart contract...", None);
+
+    let (_eloop, transport) = web3::transports::Http::new("http://localhost:8545").unwrap();
+    let web3 = web3::Web3::new(transport);
+
     match password {
         Some(p) => {
-            web3.personal().unlock_account(acc, p, None).wait().unwrap();
+            web3.personal().unlock_account(account, p, None).wait().unwrap();
         }
         _ => {}
     }
 
-    let addr: Address = "Dc596f73cDDd26d138fc179Eb4525AEdAF078D79".parse().unwrap();
-
     let json = include_bytes!("../Deployer.abi");
 
-    let contract = Contract::from_json(web3.eth(), addr, json).unwrap();
+    let contract = Contract::from_json(web3.eth(), contract_address, json).unwrap();
 
     let hash: H256 = hash.parse().unwrap();
     let receipt: H256 = "0000000000000000000000000000000000000000000000000000000000000000".parse().unwrap();
-    let result_code_publish = contract.call("addCode", (hash, receipt, 3), acc, Options::default());
+    let result_code_publish = contract.call("addCode", (hash, receipt, 3), account, Options::default());
     let code_published = result_code_publish.wait().unwrap();
 
-    println!("Result: {:?}", code_published);
+    bar.finish_with_message("Code submitted.");
+
+    println!("Code published. Submitted transaction: {:?}", code_published);
 }
 
 fn parse_url(url: &str) -> Result<Url, UrlError> {
@@ -107,7 +107,7 @@ fn upload(url: &str, file: File) -> Result<String, Box<std::error::Error>> {
     url.set_path("/bzz:/");
 
     let client = Client::new();
-    let mut res = client.post(url)
+    let res = client.post(url)
         .body(file)
         .header("Content-Type", "application/octet-stream")
         .send().and_then(|mut r| {
@@ -140,7 +140,7 @@ fn create_progress_bar(quiet_mode: bool, msg: &str, length: Option<u64>) -> Prog
                 .progress_chars("=> ")),
         false => {
             bar.enable_steady_tick(100);
-            bar.set_style(ProgressStyle::default_spinner().template("{msg}{spinner}"));
+            bar.set_style(ProgressStyle::default_spinner().template("{spinner:.green} {spinner:.green} {spinner:.green} {msg} -----> [{elapsed_precise}]"));
 
         }
 
