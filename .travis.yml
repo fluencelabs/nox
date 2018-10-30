@@ -35,9 +35,11 @@ matrix:
 #      before_script: npm install
 #      script: npm test
 
-    - language: rust
+    - name: Rust SDK tests
+      language: rust
       rust:
         - nightly
+
       # todo enable stable when `allocator_api` will become stable
       # - stable
       # - beta
@@ -47,7 +49,7 @@ matrix:
         - rust: nightly
 
       cache: cargo
-      before_install: cd js-client
+      before_install: cd sdk/rust/sdk
       script:
         - cargo build -v
         - cargo test -v
