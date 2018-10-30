@@ -38,16 +38,13 @@ matrix:
 #    - name: Rust SDK tests
     - language: rust
       rust: nightly
-#        - stable
-#        - beta
-#        - nightly
-      # todo enable stable when `allocator_api` will become stable
+      # todo enable 'stable' and 'beta' when `allocator_api` will become stable
 
 
 #      allow_failures:
 #        - rust: nightly
 
-#      cache: cargo
+      cache: cargo
       before_install: cd sdk/rust
       script:
         - cargo build -v
