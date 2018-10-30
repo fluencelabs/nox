@@ -10,7 +10,7 @@ use std::mem;
 use std::num::NonZeroUsize;
 use std::ptr::NonNull;
 
-/// Result for this module.
+/// Result type for this module.
 pub type MemResult<T> = Result<T, MemError>;
 
 /// Allocates memory area of specified size and returns its address. Actually is
@@ -108,7 +108,7 @@ pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
     {
         str.drain(0..STR_LEN_BYTES);
     }
-
+    // return string without length at the beginning
     Ok(str)
 }
 
