@@ -38,11 +38,10 @@ matrix:
     - name: Rust SDK tests
       language: rust
       rust:
+        - stable
         - nightly
-
+        - beta
       # todo enable stable when `allocator_api` will become stable
-      # - stable
-      # - beta
 
 
       allow_failures:
