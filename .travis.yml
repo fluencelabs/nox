@@ -48,8 +48,8 @@ matrix:
 #        - rust: nightly
 
 #      cache: cargo
-#      before_install: cd sdk/rust/sdk
-#      script:
-#        - cargo build -v
-#        - cargo test -v
+      before_install: cd sdk/rust
+      script:
+        - cargo build -v
+        - cargo test -v
 
