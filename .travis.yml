@@ -40,13 +40,13 @@ matrix:
       rust: nightly
       # todo enable 'stable' and 'beta' when `allocator_api` will become stable
 
+#      cache: cargo
+      before_install:
+        - rustup component add rustfmt-preview --toolchain nightly
+        - cd sdk/rust
 
-#      allow_failures:
-#        - rust: nightly
-
-      cache: cargo
-      before_install: cd sdk/rust
       script:
+        - cargo fmt --all -- --check -v
         - cargo build -v
         - cargo test -v
 
