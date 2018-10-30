@@ -39,13 +39,13 @@ matrix:
       language: rust
       rust:
         - stable
-        - nightly
         - beta
+        - nightly
       # todo enable stable when `allocator_api` will become stable
 
 
-      allow_failures:
-        - rust: nightly
+#      allow_failures:
+#        - rust: nightly
 
       cache: cargo
       before_install: cd sdk/rust/sdk
