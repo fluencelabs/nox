@@ -1,46 +1,47 @@
 matrix:
   include:
-    - language: scala
-      scala: 2.12.7
-      jdk: oraclejdk8
-
-      # These directories are cached to S3 at the end of the build
-      cache:
-        directories:
-          - $HOME/.ivy2/cache
-          - $HOME/.sbt/boot
-          - $HOME/.sbt/launchers
-          - bootstrap/node_modules
-
-      before_cache:
-        # Cleanup the cached directories to avoid unnecessary cache updates
-        - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
-        - find $HOME/.sbt        -name "*.lock"               -print -delete
-
-    - language: node_js
-      node_js: v10.9.0
-      before_install: cd bootstrap
-      before_script: npm run ganache
-      cache:
-        directories:
-            - bootstrap/node_modules
-
-    - language: node_js
-      node_js:
-        - "5"
-        - "6"
-        - "7"
-        - "8"
-      before_install: cd js-client
-      before_script: npm install
-      script: npm test
+#    - language: scala
+#      scala: 2.12.7
+#      jdk: oraclejdk8
+#
+#      # These directories are cached to S3 at the end of the build
+#      cache:
+#        directories:
+#          - $HOME/.ivy2/cache
+#          - $HOME/.sbt/boot
+#          - $HOME/.sbt/launchers
+#          - bootstrap/node_modules
+#
+#      before_cache:
+#        # Cleanup the cached directories to avoid unnecessary cache updates
+#        - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
+#        - find $HOME/.sbt        -name "*.lock"               -print -delete
+#
+#    - language: node_js
+#      node_js: v10.9.0
+#      before_install: cd bootstrap
+#      before_script: npm run ganache
+#      cache:
+#        directories:
+#            - bootstrap/node_modules
+#
+#    - language: node_js
+#      node_js:
+#        - "5"
+#        - "6"
+#        - "7"
+#        - "8"
+#      before_install: cd js-client
+#      before_script: npm install
+#      script: npm test
 
     - language: rust
       rust:
+        - nightly
       # todo enable stable when `allocator_api` will become stable
       # - stable
-#      - beta
-      - nightly
+      # - beta
+
 
       allow_failures:
         - rust: nightly
