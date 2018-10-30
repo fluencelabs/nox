@@ -102,10 +102,12 @@ pub unsafe fn write_str_to_mem(str: String) -> MemResult<NonNull<u8>> {
 /// function.**
 pub unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
     String::from_raw_parts(ptr, len, len)
+
+
 }
 
 /// Read Rust String from the raw memory. This operation is opposite of
-/// [write_str_to_mems]. Reads from the raw memory a string length as first 4
+/// [write_str_to_mem]. Reads from the raw memory a string length as first 4
 /// bytes and then reads string for this length. Deallocates first 4 bytes that
 /// corresponded string length and wraps the rest bytes into a Rust string.
 ///
