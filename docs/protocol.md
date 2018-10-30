@@ -147,7 +147,7 @@ Proof for bytes `[0xA400, 0xE400]` on a 64 kilobyte sequence would look like thi
   <img src="images/range_merkle_proof_2.png" alt="Merkle Tree" width="721px"/>
 </p>
 
-Here, `Chunks` are chunks `[9, 14` and `Hashes` are `H_8`, `H_15` and `H_[0-7]`.
+Here, `Chunks` are chunks `[9, 14]` and `Hashes` are `H_8`, `H_15` and `H_[0-7]`.
 
 Both `SwRangeMerkleProof` and `FlRangeMerkleProof` use more general function
 ```go
