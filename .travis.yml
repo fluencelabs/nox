@@ -25,13 +25,29 @@ matrix:
         directories:
             - bootstrap/node_modules
 
-    -  language: node_js
-       node_js:
-         - "5"
-         - "6"
-         - "7"
-         - "8"
-       before_install: cd js-client
-       before_script: npm install
-       script: npm test
+    - language: node_js
+      node_js:
+        - "5"
+        - "6"
+        - "7"
+        - "8"
+      before_install: cd js-client
+      before_script: npm install
+      script: npm test
+
+    - name: Rust SDK
+
+      language: rust
+      # todo enable 'stable' and 'beta' when `allocator_api` will become stable
+      rust: nightly
+      cache: cargo
+      before_install:
+        - rustup component add rustfmt-preview --toolchain nightly
+        - cd sdk/rust
+
+      script:
+        - cargo fmt --all -- --check -v
+        - cargo build -v
+        - cargo doc -v
+        - cargo test -v
 
