@@ -36,9 +36,10 @@ matrix:
       script: npm test
 
     - name: Rust SDK
-      language: rust
-      rust: nightly # todo enable 'stable' and 'beta' when `allocator_api` will become stable
 
+      language: rust
+      # todo enable 'stable' and 'beta' when `allocator_api` will become stable
+      rust: nightly
       cache: cargo
       before_install:
         - rustup component add rustfmt-preview --toolchain nightly
