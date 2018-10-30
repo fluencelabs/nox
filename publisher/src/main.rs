@@ -2,19 +2,17 @@ extern crate clap;
 extern crate indicatif;
 extern crate reqwest;
 extern crate web3;
-extern crate futures;
+extern crate ethabi;
 
 use std::fs::File;
 use std::thread;
-use futures::prelude::*;
-use futures::future;
-use futures::Poll;
-use futures::sync::oneshot;
 use std::error::Error;
-use clap::{Arg, App};
+use clap::{Arg, App, ArgSettings};
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError, Client};
 use web3::futures::Future;
+use web3::contract::{Contract, Options};
+use web3::types::{Address, H160, H256};
 
 fn main() {
     let matches = App::new("Fluence")
@@ -26,19 +24,19 @@ fn main() {
             .takes_value(true)
             .index(1)
             .help("path to compiled `wasm` code"))
-        .arg(Arg::with_name("config")
-            .required(false)
-            .takes_value(true)
-            .help("config file with requirements for the cluster"))
-        .arg(Arg::with_name("contract_address")
+        .arg(Arg::with_name("contract_address").alias("contract_address").long("contract_address").short("c")
             .required(false)
             .takes_value(true)
             .help("deployer contract address"))
-        .arg(Arg::with_name("swarm_node")
+        .arg(Arg::with_name("swarm_node").alias("swarm_node").long("swarm_node").short("s")
             .required(false)
             .takes_value(true)
             .help("http address to swarm node")
             .default_value("http://localhost:8500/"))
+        .arg(Arg::with_name("password").alias("password").long("password").short("p")
+            .required(false)
+            .takes_value(true)
+            .help("password to unlock account in ethereum client"))
         .get_matches();
 
     let path = matches.value_of("path").expect("Path must be specified.");
@@ -68,10 +66,29 @@ fn main() {
 
     println!("Accounts: {:?}", accounts);
 
-    //Get current balance
-    let balance = web3.eth().balance(accounts[2], None).wait().unwrap();
+    let acc: Address = "7aD615F735528C8c975777e83befFe8042Ad8Ffb".parse().unwrap();
 
-    println!("Balance: {:?}", balance);
+    let password = matches.value_of("password");
+
+    match password {
+        Some(p) => {
+            web3.personal().unlock_account(acc, p, None).wait().unwrap();
+        }
+        _ => {}
+    }
+
+    let addr: Address = "Dc596f73cDDd26d138fc179Eb4525AEdAF078D79".parse().unwrap();
+
+    let json = include_bytes!("../Deployer.abi");
+
+    let contract = Contract::from_json(web3.eth(), addr, json).unwrap();
+
+    let hash: H256 = hash.parse().unwrap();
+    let receipt: H256 = "0000000000000000000000000000000000000000000000000000000000000000".parse().unwrap();
+    let result_code_publish = contract.call("addCode", (hash, receipt, 3), acc, Options::default());
+    let code_published = result_code_publish.wait().unwrap();
+
+    println!("Result: {:?}", code_published);
 }
 
 fn parse_url(url: &str) -> Result<Url, UrlError> {
@@ -97,7 +114,7 @@ fn upload(url: &str, file: File) -> Result<String, Box<std::error::Error>> {
         r.text()
     })?;
 
-    let sleep_time = std::time::Duration::from_millis(5000);
+    let sleep_time = std::time::Duration::from_millis(1000);
 
     std::thread::sleep(sleep_time);
 
