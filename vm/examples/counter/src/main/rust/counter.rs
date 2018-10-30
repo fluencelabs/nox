@@ -1,12 +1,10 @@
-
 /// Counter implementation.
 
 pub struct Counter {
-    pub counter: i64
+    pub counter: i64,
 }
 
 impl Counter {
-
     pub fn inc(&mut self) {
         self.counter += 1
     }
@@ -15,4 +13,3 @@ impl Counter {
         self.counter
     }
 }
-
