@@ -66,6 +66,17 @@ pub unsafe fn allocate(size: usize) -> NonNull<u8> {
         .expect(format!("[Error] Allocation of {} bytes failed.", size).as_str())
 }
 
+/// Deallocates memory area for current memory pointer and size.
+/// Used from the host environment for memory deallocation after reading results
+/// of function from Wasm memory.
+#[no_mangle]
+pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) -> () {
+    let non_zero_size =
+        NonZeroUsize::new(size).expect("[Error] Deallocation of zero bytes is not allowed.");
+    fluence::memory::dealloc(ptr, non_zero_size)
+        .expect(format!("[Error] Deallocate failed for prt={:?} size={}.", ptr, size).as_str())
+}
+
 /// Acquires lock, does query, releases lock, returns query result
 fn run_query(sql_query: &str) -> GenResult<String> {
     let mut db = DATABASE.lock()?;

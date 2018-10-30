@@ -21,7 +21,7 @@ pub unsafe fn inc(_ptr: *mut u8, _len: usize) {
 
 #[no_mangle]
 pub unsafe fn get(_ptr: *mut u8, _len: usize) -> usize {
-    fluence::memory::put_to_mem(COUNTER.get().to_string())
+    fluence::memory::write_str_to_mem(COUNTER.get().to_string())
         .expect(&format!("[Error] Putting the result string into a raw memory was failed")) as usize
 }
 
