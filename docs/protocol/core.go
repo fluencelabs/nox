@@ -7,7 +7,7 @@ type Signature = [64]byte
 
 type Chunk = []byte
 
-type HashFunc func([]byte) Digest
+type HashFunc = func([]byte) Digest
 
 type MerkleProof struct {
 	Path     []int      // path from the Merkle tree root to the selected chunk
