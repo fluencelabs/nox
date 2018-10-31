@@ -8,6 +8,7 @@ use self::errors::MemError;
 use std::alloc::{Alloc, Global, Layout};
 use std::mem;
 use std::num::NonZeroUsize;
+use std::ptr;
 use std::ptr::NonNull;
 
 /// Result type for this module.
@@ -81,11 +82,11 @@ pub unsafe fn write_str_to_mem(str: String) -> MemResult<NonNull<u8>> {
     // converting string size to bytes in little-endian order
     let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str.len() as u32).to_le());
     let mut result_vec = len_as_bytes.to_vec();
-    result_vec.extend_from_slice(str.as_bytes());
+    result_vec.extend_from_slice(&str.into_bytes());
     let total_len = NonZeroUsize::new_unchecked(result_vec.len());
 
     let result_ptr = alloc(total_len)?;
-    std::ptr::copy_nonoverlapping(result_vec.as_ptr(), result_ptr.as_ptr(), total_len.get());
+    ptr::copy_nonoverlapping(result_vec.as_ptr(), result_ptr.as_ptr(), total_len.get());
     Ok(result_ptr)
 }
 
@@ -138,8 +139,8 @@ pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
 /// to deallocate memory for this pointer when it's don't need anymore.
 unsafe fn read_len(ptr: *mut u8) -> u32 {
     let mut str_len_as_bytes: [u8; STR_LEN_BYTES] = [0; STR_LEN_BYTES];
-    std::ptr::copy_nonoverlapping(ptr, str_len_as_bytes.as_mut_ptr(), STR_LEN_BYTES);
-    std::mem::transmute(str_len_as_bytes)
+    ptr::copy_nonoverlapping(ptr, str_len_as_bytes.as_mut_ptr(), STR_LEN_BYTES);
+    mem::transmute(str_len_as_bytes)
 }
 
 #[cfg(test)]
@@ -161,7 +162,7 @@ mod test {
         unsafe {
             let src_str = "some string Ω";
 
-            let ptr = write_str_to_mem(src_str.to_string().clone()).unwrap();
+            let ptr = write_str_to_mem(src_str.to_string()).unwrap();
             let result_str = read_str_from_fat_ptr(ptr).unwrap();
             assert_eq!(src_str, result_str);
         }
@@ -179,7 +180,7 @@ mod test {
 
             // writes and read 1mb string (takes several secounds)
             for _ in 1..5_000 {
-                let ptr = write_str_to_mem(mb_str.to_string().clone()).unwrap();
+                let ptr = write_str_to_mem(mb_str.to_string()).unwrap();
                 let result_str = read_str_from_fat_ptr(ptr).unwrap();
                 assert_eq!(mb_str, result_str);
             }
