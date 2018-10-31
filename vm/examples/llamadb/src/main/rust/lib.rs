@@ -4,7 +4,6 @@
 //! `deallocation` memory from a WASM host environment. Also contains functions
 //! for reading from and writing strings to the raw memory.
 
-#![feature(extern_prelude)]
 #![feature(allocator_api)]
 #![allow(dead_code)]
 
@@ -40,16 +39,19 @@ pub const STR_LEN_BYTES: usize = 4;
 /// 3. Returns a pointer to the result as a string in the memory.
 /// 4. Deallocates memory from passed parameter
 #[no_mangle]
-pub unsafe fn do_query(ptr: *mut u8, len: usize) -> usize {
-    // deallocation of parameter's memory will automatically appear in the end of the method
-    let sql_str = deref_str(ptr, len);
+pub fn do_query(ptr: *mut u8, len: usize) -> usize {
+
+    let sql_str: String = unsafe { deref_str(ptr, len) };
+
     let db_response = match run_query(&sql_str) {
         Ok(response) => { response }
         Err(err_msg) => { format!("[Error] {}", err_msg) }
     };
 
-    // return pointer to result in memory
-    put_to_mem(db_response) as usize
+    unsafe {
+        // return pointer to result in memory
+        put_to_mem(db_response) as usize
+    }
 }
 
 //
@@ -94,9 +96,8 @@ unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
 
 /// Acquires lock, does query, releases lock, returns query result
 fn run_query(sql_query: &str) -> GenResult<String> {
-    let statement = llamadb::sqlsyntax::parse_statement(sql_query)?;
     let mut db = DATABASE.lock()?;
-    let result = db.execute_statement(statement)
+    let result = db.do_query(sql_query)
         .map(statement_to_string)
         .map_err(Into::into);
     result
@@ -107,6 +108,9 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
     match statement {
         ExecuteStatementResponse::Created => {
             "table created".to_string()
+        }
+        ExecuteStatementResponse::Dropped => {
+            "table was dropped".to_string()
         }
         ExecuteStatementResponse::Inserted(number) => {
             format!("rows inserted: {}", number)
@@ -123,8 +127,14 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
 
             col_names + &rows_as_str
         }
+        ExecuteStatementResponse::Deleted(number) => {
+            format!("rows deleted: {}", number)
+        }
         ExecuteStatementResponse::Explain(result) => {
-            result.clone()
+            result
+        }
+        ExecuteStatementResponse::Updated(number) => {
+            format!("rows updated: {}", number)
         }
     }
 }
@@ -135,16 +145,16 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
 unsafe fn put_to_mem(str: String) -> *mut u8 {
     // converting string size to bytes in little-endian order
     let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str.len() as u32).to_le());
-    let mut result: Vec<u8> = Vec::with_capacity(STR_LEN_BYTES + str.len());
+    let total_len = STR_LEN_BYTES
+        .checked_add(str.len())
+        .expect("usize overflow occurred");;
+
+    let mut result: Vec<u8> = Vec::with_capacity(total_len);
     result.write_all(&len_as_bytes).unwrap();
     result.write_all(str.as_bytes()).unwrap();
 
-    let result_ptr = allocate(result.len()).as_ptr();
-
-    // writes bytes into memory byte-by-byte. Address of first byte will be == `ptr`
-    for (idx, byte) in result.iter().enumerate() {
-        std::ptr::write(result_ptr.offset(idx as isize), *byte);
-    }
+    let result_ptr = allocate(total_len).as_ptr();
+    std::ptr::copy_nonoverlapping(result.as_ptr(), result_ptr, total_len);
 
     result_ptr
 }

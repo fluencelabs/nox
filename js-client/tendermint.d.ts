@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-export = tendermint;
-
 /**
  * Declaration file for tendermint module.
  */
@@ -24,6 +22,12 @@ declare namespace tendermint {
         constructor(...args: any[]);
 
         abciQuery(args: any): any;
+        status(): any;
+        netInfo(): any;
+        validators(): any;
+        dumpConsensusState(): any
+
+        blockchain(args: any): any
 
         broadcastTxSync(args: any): any;
         broadcastTxAsync(args: any): any;
@@ -33,3 +37,5 @@ declare namespace tendermint {
         block(args: any): any;
     }
 }
+
+export = tendermint;

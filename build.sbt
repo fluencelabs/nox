@@ -90,13 +90,16 @@ lazy val statemachine = (project in file("statemachine"))
       cryptoHashing,
       slogging,
       scodecBits,
-      "com.github.jtendermint" % "jabci"          % "0.17.1",
+      prometheusClient,
+      prometheusClientJetty,
+      prometheusClientServlet,
+      // Despite tmVersion is updated to 0.25.0, jtendermint:0.24.0 is the latest available and compatible with it.
+      "com.github.jtendermint" % "jabci"          % "0.24.0",
       "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
       scalaTest
     ),
-    test in assembly := {}, // TODO: remove this line after SBT issue fix
-    imageNames in docker := Seq(ImageName("fluencelabs/statemachine")),
+    imageNames in docker := Seq(ImageName("fluencelabs/solver")),
     dockerfile in docker := {
       // Run `sbt docker` to create image
 
@@ -105,7 +108,7 @@ lazy val statemachine = (project in file("statemachine"))
       val artifactTargetPath = s"/app/${artifact.name}"
 
       // Tendermint constants
-      val tmVersion = "0.23.0"
+      val tmVersion = "0.25.0"
       val tmDataRoot = "/tendermint"
       val tmBinaryArchive = s"tendermint_${tmVersion}_linux_amd64.zip"
       val tmBinaryUrl = s"https://github.com/tendermint/tendermint/releases/download/v$tmVersion/$tmBinaryArchive"
@@ -114,8 +117,9 @@ lazy val statemachine = (project in file("statemachine"))
       val tmPrometheusPort = 26660
 
       // State machine constants
-      val smDataRoot = "/statemachine"
-      val smRunScript = s"$smDataRoot/run-node.sh"
+      val solverDataRoot = "/solver"
+      val solverRunScript = s"$solverDataRoot/run.sh"
+      val stateMachinePrometheusPort = 26661
 
       val vmDataRoot = "/vmcode"
 
@@ -129,14 +133,15 @@ lazy val statemachine = (project in file("statemachine"))
         expose(tmP2pPort)
         expose(tmRpcPort)
         expose(tmPrometheusPort)
+        expose(stateMachinePrometheusPort)
 
         volume(tmDataRoot)
-        volume(smDataRoot)
+        volume(solverDataRoot)
         volume(vmDataRoot)
 
         add(artifact, artifactTargetPath)
 
-        entryPoint("bash", smRunScript, tmDataRoot, smDataRoot, artifactTargetPath)
+        entryPoint("bash", solverRunScript, tmDataRoot, solverDataRoot, artifactTargetPath)
       }
     }
   )

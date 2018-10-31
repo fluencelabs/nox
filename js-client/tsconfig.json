@@ -7,6 +7,14 @@
     "strictFunctionTypes": true,
     "target": "es2015",
     "moduleResolution": "node",
+    "declaration": true,
     "baseUrl": "." // This must be specified if "paths" is.
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/test",
+    "src/examples/fluence-sqldb/",
+    "bundle"
+  ]
 }

@@ -53,8 +53,9 @@ case class TransactionHeader(client: ClientId, session: SessionId, order: Long) 
  *
  * @param header transaction header
  * @param payload transaction payload describing operation that should be invoked by VM
+ * @param timestamp optional timestamp set by client. For tracing only, it doesn't affect tx processing
  */
-case class Transaction(header: TransactionHeader, payload: String) {
+case class Transaction(header: TransactionHeader, payload: String, timestamp: Option[Long]) {
   def signString: String = s"${header.client}-${header.session}-${header.order}-$payload"
 }
 

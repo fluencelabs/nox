@@ -1,0 +1,30 @@
+{
+  "name": "todo-list",
+  "version": "0.0.1",
+  "description": "TODO list on pure JS with a Fluence cluster as a backend",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fluencelabs/fluence.git"
+  },
+  "keywords": [
+    "fluence",
+    "todo"
+  ],
+  "author": "Fluence Labs",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/fluencelabs/fluence/issues"
+  },
+  "homepage": "https://github.com/fluencelabs/fluence#readme",
+  "dependencies": {
+    "js-fluence-client": "0.0.21"
+  },
+  "devDependencies": {
+    "webpack": "^4.20.2"
+  }
+}

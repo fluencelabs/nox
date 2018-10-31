@@ -1,0 +1,9 @@
+dist/
+
+node_modules/
+bundle/
+bundle.js
+
+.idea/
+
+npm-debug.log
