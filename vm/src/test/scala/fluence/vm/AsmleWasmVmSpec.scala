@@ -248,15 +248,15 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(llamadbFilePath))
-        result1 <- vm.invoke[IO](None, "do_query", "".getBytes())
-        result2 <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
-        result3 <- vm.invoke[IO](None, "do_query", "".getBytes())
+        _ <- vm.invoke[IO](None, "do_query", "".getBytes())
+        result <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
+        _ <- vm.invoke[IO](None, "do_query", "".getBytes())
         state <- vm.getVmState[IO].toVmError
       } yield {
-        result2 should not be None
+        result should not be None
 
-        val result2AsString = new String(result2.get)
-        result2AsString startsWith "rows inserted"
+        val resultAsString = new String(result.get)
+        resultAsString startsWith "rows inserted"
       }
 
       res.success()
@@ -268,14 +268,14 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       val res = for {
         vm <- WasmVm[IO](Seq(llamadbFilePath))
         // allocate 1 МБ memory
-        result1 <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
-        result2 <- vm.invoke[IO](None, "do_query", ("insert into USERS values('A')" + ",('1')"*1024*10).getBytes())
+        _ <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
+        result <- vm.invoke[IO](None, "do_query", ("insert into USERS values('A')" + ",('1')"*1024*10).getBytes())
         state <- vm.getVmState[IO].toVmError
       } yield {
-        result2 should not be None
+        result should not be None
 
-        val result2AsString = new String(result2.get)
-        result2AsString startsWith "rows inserted"
+        val resultAsString = new String(result.get)
+        resultAsString startsWith "rows inserted"
       }
 
       res.success()
@@ -286,16 +286,16 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.100Mb")
-        result1 <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
+        _ <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
 
         // this config provides at 25 times more memory as the fluence.vm.client
-        result2 <- vm.invoke[IO](None, "do_query", ("insert into USERS values('A')" + ",('1')"*1024*10*25).getBytes())
+        result <- vm.invoke[IO](None, "do_query", ("insert into USERS values('A')" + ",('1')"*1024*10*25).getBytes())
         state <- vm.getVmState[IO].toVmError
       } yield {
-        result2 should not be None
+        result should not be None
 
-        val result2AsString = new String(result2.get)
-        result2AsString startsWith "rows inserted"
+        val resultAsString = new String(result.get)
+        resultAsString startsWith "rows inserted"
       }
 
       res.success()
@@ -306,41 +306,58 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
-        result1 <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
+        _ <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
 
         // this config provides at 19 times more memory as the fluence.vm.client.100Mb
-        result2 <- vm.invoke[IO](None, "do_query", ("insert into USERS values('A')" + ",('1')"*1024*10*25*19).getBytes())
+        result <- vm.invoke[IO](None, "do_query", ("insert into USERS values('A')" + ",('1')"*1024*10*25*19).getBytes())
         state <- vm.getVmState[IO].toVmError
       } yield {
-        result2 should not be None
+        result should not be None
 
-        val result2AsString = new String(result2.get)
-        result2AsString startsWith "rows inserted"
+        val resultAsString = new String(result.get)
+        resultAsString startsWith "rows inserted"
       }
+
+      "be able to launch VM with 2 Gb memory and do a lot of inserts" in {
+        val llamadbFilePath = getClass.getResource("/wasm/llamadb/llama_db_version_0_1.wasm").getPath
+
+        val res = for {
+          vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
+          _ <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
+
+          // this config provides at 19 times more memory as the fluence.vm.client.100Mb
+          result <- vm.invoke[IO](None, "do_query", ("insert into USERS values('A')" + ",('1')"*1024*10*25*19).getBytes())
+          state <- vm.getVmState[IO].toVmError
+        } yield {
+          result should not be None
+
+          val resultAsString = new String(result.get)
+          resultAsString startsWith "rows inserted"
+        }
 
       res.success()
     }
 
-    "be able to launch VM with 2 Gb memory with huge inserted value" in {
+    "be able to launch VM with 2 Gb memory and inserts the huge values" in {
       val llamadbFilePath = getClass.getResource("/wasm/llamadb/llama_db_version_0_1.wasm").getPath
 
       val res = for {
         vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
-        result1 <- vm.invoke[IO](None, "do_query", ("create table USERS(name varchar(" + 1024*1024*1024 + "))").getBytes())
+        _ <- vm.invoke[IO](None, "do_query", ("create table USERS(name varchar(" + 1024*1024*1024 + "))").getBytes())
 
+        // trying to insert 256 Mb memory
+        result1 <- vm.invoke[IO](None, "do_query", ("insert into USERS values(" + "A"*(1024*1024*256) + ")").getBytes())
         // trying to insert 256 Mb memory
         result2 <- vm.invoke[IO](None, "do_query", ("insert into USERS values(" + "A"*(1024*1024*256) + ")").getBytes())
-        // trying to insert 256 Mb memory
-        result3 <- vm.invoke[IO](None, "do_query", ("insert into USERS values(" + "A"*(1024*1024*256) + ")").getBytes())
         state <- vm.getVmState[IO].toVmError
       } yield {
+        result1 should not be None
         result2 should not be None
-        result3 should not be None
 
+        val result1AsString = new String(result1.get)
         val result2AsString = new String(result2.get)
-        val result3AsString = new String(result3.get)
+        result1AsString startsWith "rows inserted"
         result2AsString startsWith "rows inserted"
-        result3AsString startsWith "rows inserted"
       }
 
       res.success()
