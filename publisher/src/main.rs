@@ -47,6 +47,11 @@ fn main() {
             .required(false)
             .takes_value(true)
             .help("password to unlock account in ethereum client"))
+        .arg(Arg::with_name("cluster_size").alias("cluster_size").long("cluster_size").short("cs")
+            .required(false)
+            .takes_value(true)
+            .default_value("3")
+            .help("cluster's size that needed to deploy this code"))
         .get_matches();
 
     let path = matches.value_of("path").expect("Path must be specified.");
@@ -62,6 +67,11 @@ fn main() {
 
     let password = matches.value_of("password");
 
+    let cluster_size: u64 = matches.value_of("cluster_size").unwrap().parse().unwrap();
+    if cluster_size < 1 || cluster_size > 255 {
+        panic!("Invalid number: {}. Must be from 1 to 255.");
+    }
+
     // uploading code to swarm
     let bar = create_progress_bar("1/2","Сode loading...");
     let hash = upload(swarm_url, path).unwrap();
@@ -69,7 +79,7 @@ fn main() {
 
     // sending transaction with the hash of file with code to ethereum
     let bar = create_progress_bar("2/2", "Submitting code to the smart contract...");
-    let transaction = publish_to_contract(account, contract_address, hash, password, eth_url);
+    let transaction = publish_to_contract(account, contract_address, hash, password, eth_url, cluster_size);
     bar.finish_with_message("Code submitted.");
 
     let formatted_finish_msg = style("Code published. Submitted transaction").blue();
@@ -80,7 +90,7 @@ fn main() {
 
 /// Publishes hash of the code (address in swarm) to the `Deployer` smart contract
 fn publish_to_contract(account: Address, contract_address: Address, hash: String,
-                       password: Option<&str>, eth_url: &str) -> Result<H256, Box<Error>> {
+                       password: Option<&str>, eth_url: &str, cluster_size: u64) -> Result<H256, Box<Error>> {
 
     let hash: H256 = hash.parse().unwrap();
 
@@ -100,7 +110,7 @@ fn publish_to_contract(account: Address, contract_address: Address, hash: String
 
     //todo: add correct receipts
     let receipt: H256 = "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
-    let result_code_publish = contract.call("addCode", (hash, receipt, 3), account, Options::default());
+    let result_code_publish = contract.call("addCode", (hash, receipt, cluster_size), account, Options::default());
     Ok(result_code_publish.wait()?)
 }
 
