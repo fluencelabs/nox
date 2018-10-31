@@ -5,6 +5,7 @@ use std::alloc::AllocErr;
 use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
+use std::io;
 
 #[derive(Debug, Clone)]
 pub struct MemError(String);
@@ -34,12 +35,12 @@ impl MemError {
 /// ```
 /// // usage of macro:
 ///
-/// mem_error_from![std::io::Error]
+/// mem_error_from![io::Error]
 ///
 /// // code will be generated:
 ///
-/// impl From<std::io::Error> for MemError {
-///    fn from(err: std::io::Error) -> Self {
+/// impl From<io::Error> for MemError {
+///    fn from(err: io::Error) -> Self {
 ///        MemError::from_err(err)
 ///    }
 /// }
@@ -58,4 +59,4 @@ macro_rules! mem_error_from {
     }
 }
 
-mem_error_from! [LayoutErr; AllocErr; std::io::Error];
+mem_error_from! [LayoutErr; AllocErr; io::Error];
