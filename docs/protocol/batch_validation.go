@@ -1,6 +1,6 @@
 package protocol
 
-type ValidationContract struct {
+type ValidationFluenceContract struct {
   Confirmations map[int64]Confirmation // confirmations: block height –> confirmation
 }
 
@@ -14,18 +14,27 @@ type SnapshotMeta struct {
   VMStateHash     Digest       // virtual machine state hash
 }
 
+// initializes snapshot metadata and links the associated batch validation endorsement
+func (contract ValidationFluenceContract) EndorseInit(height int64, seal Seal, meta SnapshotMeta) { panic("") }
+
 // adds batch validator's endorsement to the confirmations list
-func (contract ValidationContract) Endorse(height int64, seal Seal, meta *SnapshotMeta) { panic("") }
+func (contract ValidationFluenceContract) Endorse(height int64, seal Seal) { panic("") }
 
 type BatchValidator struct {
   PublicKey  PublicKey
-  PrivateKey PrivateKey
+  privateKey PrivateKey
 }
 
-func (validator BatchValidator) FetchSubchain(sideContract SideFluenceContract, height int64) ([]Manifest, []Transactions) {
-  var checkpoint = sideContract.CheckpointsByHeight[height]
+type Subchain struct {
+  Manifests    []Manifest
+  Transactions []Transactions
+}
 
-  var count = sideContract.CheckpointInterval + 2
+// fetches the subchain by tracing back starting from the checkpoint with the specified block height
+func (validator BatchValidator) FetchSubchain(contract SideFluenceContract, height int64) Subchain {
+  var checkpoint = contract.CheckpointsByHeight[height]
+
+  var count = contract.CheckpointInterval + 2
   var manifests = make([]Manifest, count)
   var txss = make([]Transactions, count)
 
@@ -37,25 +46,30 @@ func (validator BatchValidator) FetchSubchain(sideContract SideFluenceContract, 
     receipt = manifests[i].LastManifestReceipt
   }
 
-  return manifests, txss
+  return Subchain{Manifests: manifests, Transactions: txss}
 }
 
-func (validator BatchValidator) Endorse(contract ValidationContract, height int64, state VMState) {
+// uploads the VM state to Swarm if needed and endorses it in the validation smart contract
+func (validator BatchValidator) Endorse(contract ValidationFluenceContract, height int64, state VMState) {
   var swarmHash = SwarmHash(pack(state.Chunks))
   var vmStateHash = MerkleRoot(state.Chunks)
 
-  var seal = Sign(validator.PublicKey, validator.PrivateKey, Hash(pack(swarmHash, vmStateHash)))
+  var seal = Sign(validator.PublicKey, validator.privateKey, Hash(pack(swarmHash, vmStateHash)))
 
   _, exists := contract.Confirmations[height]
   if exists {
-    contract.Endorse(height, seal, nil)
+    // no need to upload the virtual machine snapshot to Swarm
+    contract.Endorse(height, seal)
   } else {
-    var meta = SnapshotMeta{SnapshotReceipt: SwarmUpload(pack(state.Chunks)), VMStateHash: vmStateHash}
-    contract.Endorse(height, seal, &meta)
+    // uploading the state to Swarm
+    var receipt = SwarmUpload(pack(state.Chunks))
+
+    var meta = SnapshotMeta{SnapshotReceipt: receipt, VMStateHash: vmStateHash}
+    contract.EndorseInit(height, seal, meta)
   }
 }
 
-func (validator BatchValidator) LoadSnapshot(contract ValidationContract, height int64) (VMState, bool) {
+func (validator BatchValidator) LoadSnapshot(contract ValidationFluenceContract, height int64) (VMState, bool) {
   var confirmation = contract.Confirmations[height]
   var meta = confirmation.SnapshotMeta
 
@@ -70,24 +84,24 @@ func (validator BatchValidator) LoadSnapshot(contract ValidationContract, height
 func (validator BatchValidator) Validate(
     flnContract BasicFluenceContract,
     sideContract SideFluenceContract,
-    validationContract ValidationContract,
+    validationContract ValidationFluenceContract,
     height int64,
 ) {
   // fetching transactions and the previous snapshot
-  var manifests, txss = validator.FetchSubchain(sideContract, height)
+  var subchain = validator.FetchSubchain(sideContract, height)
   var snapshot, ok = validator.LoadSnapshot(validationContract, height - sideContract.CheckpointInterval)
 
   if ok {
-    for i := 0; i < len(manifests) - 2; i++ {
+    for i := 0; i < len(subchain.Manifests) - 2; i++ {
       // verifying BFT consensus
       var window = [3]Manifest{}
-      copy(manifests[i:i+2], window[0:3])
+      copy(subchain.Manifests[i:i+2], window[0:3])
       var publicKeys = VerifyVMStateConsensus(flnContract, window)
 
       // verifying the real-time cluster state progress correctness
-      snapshot = NextVMState(snapshot, txss[i])
+      snapshot = NextVMState(snapshot, subchain.Transactions[i])
       var vmStateHash = MerkleRoot(snapshot.Chunks)
-      if vmStateHash != manifests[i].VMStateHash {
+      if vmStateHash != subchain.Manifests[i].VMStateHash {
         // TODO: dispute state advance using publicKeys, stop processing
         _ = publicKeys
       }
@@ -101,7 +115,7 @@ func (validator BatchValidator) Validate(
 }
 
 // opens a new hash mismatch dispute
-func (contract ValidationContract) OpenHashMismatchDispute(height int64, chunkIndex int) HashMismatchDispute {
+func (contract ValidationFluenceContract) OpenHashMismatchDispute(height int64, chunkIndex int) HashMismatchDispute {
   return HashMismatchDispute{
     SnapshotMeta: contract.Confirmations[height].SnapshotMeta,
     ChunkIndex:   chunkIndex,
