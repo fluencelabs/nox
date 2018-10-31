@@ -8,6 +8,7 @@ readme = "readme.md"
 keywords = ["fluence", "sdk"]
 categories = ["api-bindings", "wasm"]
 license = "Apache-2.0"
+edition = "2018"
 maintenance = { status = "actively-developed" }
 
 
