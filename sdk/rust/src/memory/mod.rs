@@ -64,8 +64,8 @@ pub unsafe fn dealloc_unsafe(ptr: NonNull<u8>, size: usize) -> MemResult<()> {
     Ok(())
 }
 
-/// A number of bytes that code a string length when the string is putting into
-/// memory. See [write_str_to_mem] method.
+/// Count of bytes that a string length representation in memory occupy.
+/// See [write_str_to_mem] method.
 pub const STR_LEN_BYTES: usize = 4;
 
 /// Writes Rust string to the memory directly as string length and byte array.
@@ -105,7 +105,7 @@ pub unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
     String::from_raw_parts(ptr, len, len)
 }
 
-/// Read Rust String from the raw memory. This operation is opposite of
+/// Reads Rust String from the raw memory. This operation is opposite of
 /// [write_str_to_mem]. Reads from the raw memory a string length as first 4
 /// bytes and then reads string for this length. Deallocates first 4 bytes that
 /// corresponded string length and wraps the rest bytes into a Rust string.
@@ -134,7 +134,7 @@ pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
     Ok(str)
 }
 
-/// Reads `u32` from current pointer. Don't affect the specified pointer.
+/// Reads `u32` from current pointer. Doesn't affect the specified pointer.
 /// You can use the pointer after calling this method as you wish. Don't forget
 /// to deallocate memory for this pointer when it's don't need anymore.
 unsafe fn read_len(ptr: *mut u8) -> u32 {
@@ -178,7 +178,7 @@ mod test {
         unsafe {
             let mb_str = create_big_str(1024 * 1024);
 
-            // writes and read 1mb string (takes several secounds)
+            // writes and read 1mb string (takes several seconds)
             for _ in 1..5_000 {
                 let ptr = write_str_to_mem(mb_str.to_string()).unwrap();
                 let result_str = read_str_from_fat_ptr(ptr).unwrap();

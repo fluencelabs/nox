@@ -1,4 +1,4 @@
-//! Contains defenition for memory errors.
+//! Contains definitions for memory errors.
 
 use core::alloc::LayoutErr;
 use std::alloc::AllocErr;
