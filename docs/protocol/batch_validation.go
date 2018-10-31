@@ -69,20 +69,19 @@ func (validator BatchValidator) Endorse(contract ValidationFluenceContract, heig
   }
 }
 
+// returns the downloaded state and it's correctness status
 func (validator BatchValidator) LoadSnapshot(contract ValidationFluenceContract, height int64) (VMState, bool) {
   var confirmation = contract.Confirmations[height]
   var meta = confirmation.SnapshotMeta
 
   var state = VMStateUnpack(SwarmDownload(meta.SnapshotReceipt))
-  if meta.VMStateHash != MerkleRoot(state.Chunks) {
-    return VMState{}, false
-  } else {
-    return state, true
-  }
+  var correct = meta.VMStateHash == MerkleRoot(state.Chunks)
+
+  return state, correct
 }
 
 func (validator BatchValidator) Validate(
-    flnContract BasicFluenceContract,
+    basicContract BasicFluenceContract,
     sideContract SideFluenceContract,
     validationContract ValidationFluenceContract,
     height int64,
@@ -96,7 +95,7 @@ func (validator BatchValidator) Validate(
       // verifying BFT consensus
       var window = [3]Manifest{}
       copy(subchain.Manifests[i:i+2], window[0:3])
-      var publicKeys = VerifyVMStateConsensus(flnContract, window)
+      var publicKeys = VerifyVMStateConsensus(basicContract, window)
 
       // verifying the real-time cluster state progress correctness
       snapshot = NextVMState(snapshot, subchain.Transactions[i])
@@ -114,21 +113,21 @@ func (validator BatchValidator) Validate(
   }
 }
 
-// opens a new hash mismatch dispute
-func (contract ValidationFluenceContract) OpenHashMismatchDispute(height int64, chunkIndex int) HashMismatchDispute {
-  return HashMismatchDispute{
+// opens a new snapshot hash mismatch dispute
+func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, chunkIndex int) SnapshotDispute {
+  return SnapshotDispute{
     SnapshotMeta: contract.Confirmations[height].SnapshotMeta,
     ChunkIndex:   chunkIndex,
   }
 }
 
-type HashMismatchDispute struct {
+type SnapshotDispute struct {
   SnapshotMeta SnapshotMeta
   ChunkIndex int
 }
 
 // returns whether the supplied Merkle proofs have passed an audite
-func (dispute HashMismatchDispute) Audit(chunk Chunk, vmProof MerkleProof, swarmProof MerkleProof) bool {
+func (dispute SnapshotDispute) Audit(chunk Chunk, vmProof MerkleProof, swarmProof MerkleProof) bool {
   // TODO: check chunk index in the proof
   // TODO: use Swarm-based Merkle proof verification
 
