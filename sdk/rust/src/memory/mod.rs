@@ -72,21 +72,29 @@ pub const STR_LEN_BYTES: usize = 4;
 /// This method allocates new 'STR_LEN_BYTES + str.len()' bytes and writes the
 /// length of the string as first [STR_LEN_BYTES] bytes and then writes copy of
 /// 'str' after 'length' as a rest of the bytes.
-/// Original 'str' will be destroyed at the end of this method.
 ///
 /// Written memory structure is:
 /// `
 ///     | str_length: $STR_LEN_BYTES BYTES (little-endian) | string_payload: $str_length BYTES |
 /// `
-pub unsafe fn write_str_to_mem(str: String) -> MemResult<NonNull<u8>> {
-    // converting string size to bytes in little-endian order
-    let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str.len() as u32).to_le());
-    let mut result_vec = len_as_bytes.to_vec();
-    result_vec.extend_from_slice(&str.into_bytes());
-    let total_len = NonZeroUsize::new_unchecked(result_vec.len());
+pub unsafe fn write_str_to_mem(str: &str) -> MemResult<NonNull<u8>> {
+    let str_len = str.len();
+    let total_len = STR_LEN_BYTES
+        .checked_add(str_len)
+        .ok_or_else(|| MemError::new("usize overflow occurred"))?;
 
-    let result_ptr = alloc(total_len)?;
-    ptr::copy_nonoverlapping(result_vec.as_ptr(), result_ptr.as_ptr(), total_len.get());
+    // converting string size to bytes in little-endian order
+    let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str_len as u32).to_le());
+    // allocate new memory for result
+    let result_ptr = alloc(NonZeroUsize::new_unchecked(total_len))?;
+    // copy length of string to result memory
+    ptr::copy_nonoverlapping(len_as_bytes.as_ptr(), result_ptr.as_ptr(), STR_LEN_BYTES);
+    // copy string to memory
+    ptr::copy_nonoverlapping(
+        str.as_ptr(),
+        result_ptr.as_ptr().add(STR_LEN_BYTES),
+        str_len,
+    );
     Ok(result_ptr)
 }
 
@@ -162,7 +170,7 @@ mod test {
         unsafe {
             let src_str = "some string Ω";
 
-            let ptr = write_str_to_mem(src_str.to_string()).unwrap();
+            let ptr = write_str_to_mem(src_str).unwrap();
             let result_str = read_str_from_fat_ptr(ptr).unwrap();
             assert_eq!(src_str, result_str);
         }
@@ -179,8 +187,8 @@ mod test {
             let mb_str = create_big_str(1024 * 1024);
 
             // writes and read 1mb string (takes several seconds)
-            for _ in 1..5_000 {
-                let ptr = write_str_to_mem(mb_str.to_string()).unwrap();
+            for _ in 1..10_000 {
+                let ptr = write_str_to_mem(&mb_str).unwrap();
                 let result_str = read_str_from_fat_ptr(ptr).unwrap();
                 assert_eq!(mb_str, result_str);
             }
