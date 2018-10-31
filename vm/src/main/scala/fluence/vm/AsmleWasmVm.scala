@@ -153,18 +153,19 @@ class AsmleWasmVm(
   }
 
   /**
-    * Preprocesses a Wasm function argument: injects it into Wasm module memory (through injectArrayIntoWasmModule)
-    * and replace with pointer to it in the Wasm module and size. This functions returns 0 :: 0 :: Nil
-    * if supplied fnArgument was empty.
-    *
-    * @param fnArgument argument for calling this function
-    * @param moduleInstance module instance used for injecting array to the Wasm memory
-    * @tparam F a monad with an ability to absorb 'IO'
-    */
+   * Preprocesses a Wasm function argument: injects it into Wasm module memory (through injectArrayIntoWasmModule)
+   * and replace with pointer to it in the Wasm module and size. This functions returns 0 :: 0 :: Nil
+   * if supplied fnArgument was empty.
+   *
+   * @param fnArgument argument for calling this function
+   * @param moduleInstance module instance used for injecting array to the Wasm memory
+   * @tparam F a monad with an ability to absorb 'IO'
+   */
   private def preprocessFnArgument[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte],
     moduleInstance: ModuleInstance
-  ): EitherT[F, InvokeError, List[AnyRef]] = if(fnArgument.isEmpty)
+  ): EitherT[F, InvokeError, List[AnyRef]] =
+    if (fnArgument.isEmpty)
       EitherT.rightT[F, InvokeError](0.asInstanceOf[AnyRef] :: 0.asInstanceOf[AnyRef] :: Nil)
     else
       for {
