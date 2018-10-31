@@ -130,8 +130,12 @@ pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
     // read string length from current pointer
     let str_len = read_len(ptr.as_ptr()) as usize;
 
+    let total_len = STR_LEN_BYTES
+        .checked_add(str_len)
+        .ok_or_else(|| MemError::new("usize overflow occurred"))?;
+
     // create string for size and string
-    let mut str = deref_str(ptr.as_ptr(), str_len + STR_LEN_BYTES);
+    let mut str = deref_str(ptr.as_ptr(), total_len);
 
     // remove size from the begginning of created string, it allow to free
     // only memory used for keeping string length
