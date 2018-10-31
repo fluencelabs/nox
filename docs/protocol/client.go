@@ -60,11 +60,7 @@ func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest
     VerifyTendermintSignature(contract, seal, manifests[2].Header.LastBlockHash)
   }
 
-  var signedNodesKeys = make([]PublicKey, 0, len(lastCommitPublicKeys))
-  for k := range lastCommitPublicKeys {
-    signedNodesKeys = append(signedNodesKeys, k)
-  }
-  return signedNodesKeys
+  return keys(lastCommitPublicKeys).([]PublicKey)
 }
 
 func VerifyResponseChunks(results QueryResponse) {

@@ -36,10 +36,28 @@ However, at least for now this specification aims to accurately express **what**
 
 ## Core
 
-Before we start describing the protocol, few words need to be said about the core blocks. 
+Before we start describing the protocol, few words need to be said about the core building blocks. 
 
-First of all, we use a simplified version of Go as a pseudocode to illustrate chosen algorithms. It should be noted that the reference Fluence network implementation doesn't use Go: in fact, it's mostly Scala, TypeScript and Rust. However, Go simplicity allows to use it to describe complex algorithms without too much boilerplate. Source codes used in this specification can be found 
+First of all, we use a simplified version of Go as a pseudocode to illustrate chosen algorithms. It should be noted that the reference Fluence network implementation doesn't use Go: in fact, it's mostly Scala, TypeScript and Rust. However, Go simplicity allows to use it to describe complex algorithms without too much boilerplate. Go is also statically typed, which allows to use a compiler to catch at least some mistakes. Source codes used in this specification can be found 
 [here](./protocol).
+
+We assume that few pretty simple library functions are available in this specification. `assertTrue` and `assertEq` will panic if the boolean or equality condition doesn't hold. `pack` and `packMulti` will serialize an input into the byte array or few byte array chunks.
+
+```go
+type Chunk = []byte
+
+// panics if the condition is false
+func assertTrue(condition bool) {}
+
+// panics if the condition is false
+func assertEq(x, y interface{}) {}
+
+// serializes arguments to a byte array
+func pack(args... interface{}) []byte {}
+
+// serializes elements of a compound object (array or structure) into byte arrays
+func packMulti(object interface{}) []Chunk {} 
+```
 
 Basic cryptographic primitives such as digital signature generation and verification, cryptographic hash computation and Merkle tree composition are listed below and used throughout the rest of the protocol specification. We do not specify exact algorithms such as SHA3, RIPEMD or EdDSA for those primitives but still assume them to behave according to the common expectations.
 
@@ -48,8 +66,6 @@ type Digest     = [32]byte
 type PublicKey  = [32]byte
 type PrivateKey = [64]byte
 type Signature  = [64]byte
-
-type Chunk = []byte
 
 type MerkleProof struct {
   Path     []int      // path from the Merkle tree root to the selected chunk
@@ -333,18 +349,19 @@ func TmMerkleRoot(chunks []Chunk) Digest {}
 Tendermint periodically pulls few transactions from the mempool and forms a new block. Nodes participating in consensus sign produced blocks, however their signatures for a specific block are available only as a part of the next block.
 
 ```go
-type TmNode struct {
-  PublicKey  PublicKey  // real-time node public key
-  privateKey PrivateKey // real-time node private key
+// Tendermint real-time node
+type RealtimeNode struct {
+  PublicKey  PublicKey
+  privateKey PrivateKey
 }
 
 // signs the block assuming the node has voted for it during consensus settlement
-func (node TmNode) SignBlockHash(blockHash Digest) Seal {
+func (node RealtimeNode) SignBlockHash(blockHash Digest) Seal {
   return TmSign(node.PublicKey, node.privateKey, blockHash)
 }
 
 // prepares the block (assuming the nodes have reached a consensus)
-func PrepareBlock(nodes []TmNode, prevBlock Block, txs Transactions, appHash Digest) Block {
+func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHash Digest) Block {
   var lastBlockHash = TmMerkleRoot(packMulti(prevBlock.Header))
   var lastCommit = make([]Seal, 0, len(nodes))
   for i, node := range nodes {
@@ -471,8 +488,8 @@ However, an all-malicious cluster might never include the transaction sent by th
 
 These aspects will be considered in another section, and for now we will focus on how the block progress is being verified.
 
-**[???]** Do we need to supply the SwarmReceipt for the last manifest?
-**[TBD]** We should describe how these manifests are stored/verified using the sidechain.
+**[???]** Do we need to supply the SwarmReceipt for the last manifest?  
+**[TODO]** We should describe how these manifests are stored/verified using the sidechain.
 
 #### Prerequisites
 
@@ -494,8 +511,8 @@ func VerifyTendermintSignature(contract BasicFluenceContract, seal Seal, blockHa
   var minDeposit int64 = 1000000
 
   // checking that the Tendermint node has enough funds
-  var tmNodeId = seal.PublicKey
-  assertTrue(contract.NodesDeposits[tmNodeId] >= minDeposit)
+  var RealtimeNodeId = seal.PublicKey
+  assertTrue(contract.NodesDeposits[RealtimeNodeId] >= minDeposit)
 
   // checking that the receipt is signed by this Tendermint node
   assertTrue(TmVerify(seal, blockHash))
@@ -551,11 +568,7 @@ func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest
     VerifyTendermintSignature(contract, seal, manifests[2].Header.LastBlockHash)
   }
 
-  var signedNodesKeys = make([]PublicKey, 0, len(lastCommitPublicKeys))
-  for k := range lastCommitPublicKeys {
-    signedNodesKeys = append(signedNodesKeys, k)
-  }
-  return signedNodesKeys
+  return keys(lastCommitPublicKeys).([]PublicKey)
 }
 ```
 
@@ -575,18 +588,24 @@ func VerifyResponseChunks(results QueryResponse) {
 
 ### Transactions history downloading
 
-Batch validators are able to locate blocks that should be checked using the checkpoints stored in Ethereum contract. The validator chooses one of the checkpoints and downloads the manifest complementary to it using the suitable Swarm receipt. Now, the validator can unwind the chain until the next checkpoint by following receipts stored in each manifest and also download corresponding transactions.
+Batch validators are able to locate the blocks that should be checked using the checkpoints stored in the Ethereum contract. The validator chooses one of the checkpoints and downloads the manifest complementary to it using the suitable Swarm receipt. Now, the validator can unwind the chain until the next checkpoint by following receipts stored in each manifest and also download corresponding transactions.
 
 ```go
 type BatchValidator struct {
   PublicKey  PublicKey
-  PrivateKey PrivateKey
+  privateKey PrivateKey
 }
 
-func (validator BatchValidator) FetchSubchain(sideContract SideContract, height int64) ([]Manifest, []Transactions) {
-  var checkpoint = sideContract.CheckpointsByHeight[height]
+type Subchain struct {
+  Manifests    []Manifest
+  Transactions []Transactions
+}
 
-  var count = sideContract.CheckpointInterval + 2
+// fetches the subchain by tracing back starting from the checkpoint with the specified block height
+func (validator BatchValidator) FetchSubchain(contract SideFluenceContract, height int64) Subchain {
+  var checkpoint = contract.CheckpointsByHeight[height]
+
+  var count = contract.CheckpointInterval + 2
   var manifests = make([]Manifest, count)
   var txss = make([]Transactions, count)
 
@@ -598,22 +617,22 @@ func (validator BatchValidator) FetchSubchain(sideContract SideContract, height 
     receipt = manifests[i].LastManifestReceipt
   }
 
-  return manifests, txss
+  return Subchain{Manifests: manifests, Transactions: txss}
 }
 ```
 
 Here you can note that the number of manifests fetched exceeds the checkpoint interval by two. The reason is that, as we have mentioned in [§ Query response](#query-response) the block `k + 2` certifies the consensus on the block `k` virtual machine state. This means that checkpoint intervals and batch validation intervals are actually offset by two blocks.
 
 <p align="center">
-  <img src="images/batch_validation_interval.png" alt="Batch validation interval" width="771px"/>
+  <img src="images/batch_validation_interval.png" alt="Batch validation interval" width="821px"/>
 </p>
 
 ### State snapshots
 
-Once the validator has downloaded required manifests and transactions, it applies them to the previous virtual machine state snapshot. Snapshots are also stored in Swarm – one snapshot per each checkpoint interval, and their Swarm receipts are stored in the Ethereum contract.
+Once the validator has downloaded required manifests and transactions, it applies them to the previous virtual machine state snapshot. Snapshots are also stored in Swarm – one snapshot per each checkpoint interval, and their Swarm receipts are stored in the smart contract.
 
 ```go
-type ValidationContract struct {
+type ValidationFluenceContract struct {
   Confirmations map[int64]Confirmation // confirmations: block height –> confirmation
 }
 
@@ -627,31 +646,39 @@ type SnapshotMeta struct {
   VMStateHash     Digest       // virtual machine state hash
 }
 
+// initializes snapshot metadata and links the associated batch validation endorsement
+func (contract ValidationFluenceContract) EndorseInit(height int64, seal Seal, meta SnapshotMeta) {}
+
 // adds batch validator's endorsement to the confirmations list
-func (contract ValidationContract) Endorse(height int64, seal Seal, meta *SnapshotMeta) {}
+func (contract ValidationFluenceContract) Endorse(height int64, seal Seal) {}
 ```
 
 Because, as we have already mentioned, it takes two blocks to certify the consensus, snapshots are also shifted relative to checkpoints: for the checkpoint manifest `k`, the snapshot would represent the virtual machine state after processing blocks from `0` to `k – 2` included.
 
 <p align="center">
-  <img src="images/snapshots.png" alt="Batch validation interval" width="841px"/>
+  <img src="images/snapshots.png" alt="Snapshots" width="671px"/>
 </p>
 
 The validation contract carries endorsements of the snapshot by batch validators. Once the batch validator has produced a new virtual machine state, it uploads the snapshot to Swarm (unless there is already a snapshot uploaded) and submits an endorsement to the smart contract. Of course, this happens only if there were no disputes during the processing of blocks.
 
 ```go
-func (validator BatchValidator) Endorse(contract ValidationContract, height int64, state VMState) {
+// uploads the VM state to Swarm if needed and endorses it in the validation smart contract
+func (validator BatchValidator) Endorse(contract ValidationFluenceContract, height int64, state VMState) {
   var swarmHash = SwarmHash(pack(state.Chunks))
   var vmStateHash = MerkleRoot(state.Chunks)
 
-  var seal = Sign(validator.PublicKey, validator.PrivateKey, Hash(pack(swarmHash, vmStateHash)))
+  var seal = Sign(validator.PublicKey, validator.privateKey, Hash(pack(swarmHash, vmStateHash)))
 
   _, exists := contract.Confirmations[height]
   if exists {
-    contract.Endorse(height, seal, nil)
+    // no need to upload the virtual machine snapshot to Swarm
+    contract.Endorse(height, seal)
   } else {
-    var meta = SnapshotMeta{SnapshotReceipt: SwarmUpload(pack(state.Chunks)), VMStateHash: vmStateHash}
-    contract.Endorse(height, seal, &meta)
+    // uploading the state to Swarm
+    var receipt = SwarmUpload(pack(state.Chunks))
+
+    var meta = SnapshotMeta{SnapshotReceipt: receipt, VMStateHash: vmStateHash}
+    contract.EndorseInit(height, seal, meta)
   }
 }
 ```
@@ -661,14 +688,14 @@ func (validator BatchValidator) Endorse(contract ValidationContract, height int6
 To produce a new virtual machine state snapshot, a batch validator downloads the previous snapshot and applies transactions happened since it was created. To produce the state for the checkpoint `k + t` where `t` is the checkpoint interval, the batch validator has to download from Swarm the state snapshot for the checkpoint `k` (this snapshot will have an index `k – 2`) and apply to it blocks `[k – 1, ..., k + t – 2]`.
 
 <p align="center">
-  <img src="images/batch_processing.png" alt="Batch processing" width="591px"/>
+  <img src="images/batch_processing.png" alt="Batch processing" width="651px"/>
 </p>
 
 For each block the batch validator verifies that BFT consensus was reached by the real-time Tendermint cluster. This is done the same way as the [client-side verification](#verification-of-consensus-on-the-virtual-machine-state) and allows to identify the nodes responsible for the state progress made.
 
 ```go
 // verifies a BFT consensus was reached on the manifest, returns nodes signed it
-func VerifyVMStateConsensus(flnContract FlnContract, manifests [3]Manifest) []PublicKey {}
+func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest) []PublicKey
 ```
 
 The batch validator applies blocks one by one to the snapshot and computes the virtual machine state hash after each block application. If the calculated hash doesn't match the hash stored in the manifest, either the batch validator or the real-time cluster has performed an incorrect state advance. This condition should be resolved via the verification game which is described later in this document.
@@ -710,12 +737,12 @@ func (validator BatchValidator) Validate(
 }
 ```
 
-**TBD:** the state snapshot hash should match the checkpoint hash which is impossible now because they are actually off by 2.
+**TODO:** the state snapshot hash should match the checkpoint hash which is impossible now because they are actually off by 2.
 
 
 ### State hash mismatch resolution
 
-Note that the state snapshot endorsement is actually written for two different virtual machine state hashes: the Swarm-specific one and the one belonging to the Fluence core. Both hashes are computed in a similar fashion – as a Merkle root of the supplied content, however they might use different cryptographic hash functions. Chunk sizes might also be different, however that makes the narrative below a bit more involved and will be expanded in future versions of this document (**TBD**).
+Note that the state snapshot endorsement is actually written for two different virtual machine state hashes: the Swarm-specific one and the one belonging to the Fluence core. Both hashes are computed in a similar fashion – as a Merkle root of the supplied content, however they might use different cryptographic hash functions. Chunk sizes might also be different, however that makes the narrative below a bit more involved and will be expanded in future versions of this document (**TODO**).
 
 It's expected, however, that both hashes match the content actually stored in Swarm. While for Swarm hash (`swarmHash`) that's guaranteed by Swarm insurance, it might not be the case for the virtual machine state hash (`vmStateHash`). 
 
@@ -781,7 +808,7 @@ func (dispute HashMismatchDispute) Audit(chunk Chunk, vmProof MerkleProof, swarm
 
 Only a fraction of the network is allowed to serve as batch validators for a particular checkpoint interval. This is done to avoid a situation when a subset of malicious batch validators produces invalid results for the entire history of a certain cluster.
 
-**TBD**
+**TODO**
 
 
 

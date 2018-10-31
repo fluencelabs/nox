@@ -31,18 +31,19 @@ type Header struct {
   AppHash        Digest // application state hash after the previous block
 }
 
-type TmNode struct {
-  PublicKey  PublicKey  // real-time node public key
-  privateKey PrivateKey // real-time node private key
+// Tendermint real-time node
+type RealtimeNode struct {
+  PublicKey  PublicKey
+  privateKey PrivateKey
 }
 
 // signs the block assuming the node has voted for it during consensus settlement
-func (node TmNode) SignBlockHash(blockHash Digest) Seal {
+func (node RealtimeNode) SignBlockHash(blockHash Digest) Seal {
   return TmSign(node.PublicKey, node.privateKey, blockHash)
 }
 
 // prepares the block (assuming the nodes have reached a consensus)
-func PrepareBlock(nodes []TmNode, prevBlock Block, txs Transactions, appHash Digest) Block {
+func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHash Digest) Block {
   var lastBlockHash = TmMerkleRoot(packMulti(prevBlock.Header))
   var lastCommit = make([]Seal, 0, len(nodes))
   for i, node := range nodes {
