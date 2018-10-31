@@ -1,7 +1,7 @@
 //! Module wrapper for Llamadb.
 //!
 //! It provides public methods for work with Llamadb and for `allocation` and
-//! `deallocation` memory from a WASM host environment. Also contains functions
+//! `deallocation` memory from a Wasm host environment. Also contains functions
 //! for reading from and writing strings to the raw memory.
 
 #![feature(allocator_api)]

@@ -1,4 +1,4 @@
-//! Basic functions for dealing with WASM memory.
+//! Basic functions for dealing with Wasm memory.
 //!
 //! This module contains functions for initializing and manipulating memory.
 
@@ -28,7 +28,7 @@ pub unsafe fn alloc(size: NonZeroUsize) -> MemResult<NonNull<u8>> {
     Global.alloc(layout).map_err(Into::into)
 }
 
-/// When size == 0 works fine for WASM target, but failed for x86. Has to be removed.
+/// When size == 0 works fine for Wasm target, but failed for x86. Has to be removed.
 #[deprecated(
     since = "0.0.1",
     note = "please use `alloc` instead, will be removed in next version"
@@ -53,7 +53,7 @@ pub unsafe fn dealloc(ptr: NonNull<u8>, size: NonZeroUsize) -> MemResult<()> {
     Ok(())
 }
 
-/// When size == 0 works fine for WASM target, but failed for x86. Has to be removed.
+/// When size == 0 works fine for Wasm target, but failed for x86. Has to be removed.
 #[deprecated(
     since = "0.0.1",
     note = "please use `dealloc` instead, will be removed in next version"
@@ -138,7 +138,7 @@ pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
     // create string for size and string
     let mut str = deref_str(ptr.as_ptr(), total_len);
 
-    // remove size from the begginning of created string, it allow to free
+    // remove size from the beginning of created string, it allows freeing
     // only memory used for keeping string length
     {
         str.drain(0..STR_LEN_BYTES);
