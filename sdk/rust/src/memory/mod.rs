@@ -82,12 +82,11 @@ pub unsafe fn write_str_to_mem(str: String) -> MemResult<NonNull<u8>> {
     // converting string size to bytes in little-endian order
     let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str.len() as u32).to_le());
     let mut result_vec = len_as_bytes.to_vec();
-    result_vec.extend_from_slice(str.as_bytes());
+    result_vec.extend_from_slice(&str.into_bytes());
     let total_len = NonZeroUsize::new_unchecked(result_vec.len());
 
     let result_ptr = alloc(total_len)?;
     ptr::copy_nonoverlapping(result_vec.as_ptr(), result_ptr.as_ptr(), total_len.get());
-    mem::drop(str);
     Ok(result_ptr)
 }
 
