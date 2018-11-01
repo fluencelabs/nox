@@ -1,7 +1,7 @@
 package protocol
 
 // verifies that a transaction was originated by the client with enough funds deposited
-func VerifyTransaction(contract BasicFluenceContract, tx Transaction, minDeposit int64) {
+func VerifyTransaction(contract BasicFluenceContract, tx Transaction, minDeposit int64){
   // checking that the client actually exists in the contract
   var deposit, ok = contract.ClientDeposits[tx.Seal.PublicKey]
   assertTrue(ok)
@@ -15,8 +15,8 @@ func VerifyTransaction(contract BasicFluenceContract, tx Transaction, minDeposit
 
 // listed Tendermint functions carry the same meaning and arguments as core functions
 func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
-func TmVerify(seal Seal, digest Digest) bool                                { panic("") }
-func TmMerkleRoot(chunks []Chunk) Digest                                    { panic("") }
+func TmVerify(seal Seal, digest Digest) bool { panic("") }
+func TmMerkleRoot(chunks []Chunk) Digest { panic("") }
 
 type Block struct {
   Header     Header       // block header
@@ -114,9 +114,9 @@ func MakeQueryResponse(manifests [3]Manifest, vmState VMState, chunksIndices []i
 
   for _, index := range chunksIndices {
     var chunk = vmState.Chunks[index]
-    chunks[index] = chunk
 
-    proofs[index] = CreateMerkleProof(vmState.Chunks, int32(index))
+    chunks[index] = chunk
+		proofs[index] = CreateMerkleProof(vmState.Chunks, int32(index))
   }
 
   return QueryResponse{Chunks: chunks, Proofs: proofs, Manifests: manifests}

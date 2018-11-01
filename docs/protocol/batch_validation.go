@@ -68,17 +68,17 @@ func (validator BatchValidator) LoadSnapshot(contract ValidationContract, height
 }
 
 func (validator BatchValidator) Validate(
-  flnContract BasicFluenceContract,
-  sideContract SideFluenceContract,
-  validationContract ValidationContract,
-  height int64,
+    flnContract BasicFluenceContract,
+    sideContract SideFluenceContract,
+    validationContract ValidationContract,
+    height int64,
 ) {
   // fetching transactions and the previous snapshot
   var manifests, txss = validator.FetchSubchain(sideContract, height)
-  var snapshot, ok = validator.LoadSnapshot(validationContract, height-sideContract.CheckpointInterval)
+  var snapshot, ok = validator.LoadSnapshot(validationContract, height - sideContract.CheckpointInterval)
 
   if ok {
-    for i := 0; i < len(manifests)-2; i++ {
+    for i := 0; i < len(manifests) - 2; i++ {
       // verifying BFT consensus
       var window = [3]Manifest{}
       copy(manifests[i:i+2], window[0:3])
@@ -110,7 +110,7 @@ func (contract ValidationContract) OpenHashMismatchDispute(height int64, chunkIn
 
 type HashMismatchDispute struct {
   SnapshotMeta SnapshotMeta
-  ChunkIndex   int
+  ChunkIndex int
 }
 
 // returns whether the supplied Merkle proofs have passed an audite
@@ -119,5 +119,5 @@ func (dispute HashMismatchDispute) Audit(chunk Chunk, vmProof MerkleProof, swarm
   // TODO: use Swarm-based Merkle proof verification
 
   return VerifyMerkleProof(chunk, vmProof, dispute.SnapshotMeta.VMStateHash) &&
-    VerifyMerkleProof(chunk, swarmProof, dispute.SnapshotMeta.SnapshotReceipt.ContentHash)
+      VerifyMerkleProof(chunk, swarmProof, dispute.SnapshotMeta.SnapshotReceipt.ContentHash)
 }

@@ -8,13 +8,13 @@ type SideBlock struct {
 }
 
 type SideFluenceContract struct {
-  base              BasicFluenceContract // parent contract
-  SideNodesDeposits map[PublicKey]int64  // sidechain nodes: identifier –> deposit size
+  base                  BasicFluenceContract // parent contract
+  SideNodesDeposits     map[PublicKey]int64  // sidechain nodes: identifier –> deposit size
 
-  CheckpointInterval    int64               // how often blocks should be checkpointed
-  Checkpoints           []SideBlock         // block checkpoints
-  CheckpointsByHeight   map[int64]SideBlock // block height –> block
-  CheckpointsSignatures map[int64][]Seal    // block height –> sidechain nodes signatures
+  CheckpointInterval    int64                // how often blocks should be checkpointed
+  Checkpoints           []SideBlock          // block checkpoints
+  CheckpointsByHeight   map[int64]SideBlock  // block height –> block
+  CheckpointsSignatures map[int64][]Seal     // block height –> sidechain nodes signatures
 }
 
 // punishes block producers if blocks are not linked correctly

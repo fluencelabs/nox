@@ -17,7 +17,7 @@ func assertEq(x, y interface{}) {
 }
 
 // serializes arguments to a byte array
-func pack(args ...interface{}) []byte {
+func pack(args... interface{}) []byte {
   panic("not implemented!")
 }
 

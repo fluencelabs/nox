@@ -1,9 +1,9 @@
 package protocol
 
-type Digest = [32]byte
-type PublicKey = [32]byte
+type Digest     = [32]byte
+type PublicKey  = [32]byte
 type PrivateKey = [64]byte
-type Signature = [64]byte
+type Signature  = [64]byte
 
 type Chunk = []byte
 
