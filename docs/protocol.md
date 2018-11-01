@@ -87,13 +87,10 @@ Merkle Trees and Merkle Proofs are used extensively in the protocol, so their de
 func Split(data []byte, chunk int32) []Chunk
 ```
 
-Currently, there are two different chunk sizes.
+For example, chunk size in Fluence Merkle Tree is
 ```go
 // Fluence Merkle Tree chunk size
-const FlChunkSize int32 = 6000
-
-// Swarm Merkle Tree chunk size
-const SwChunkSize int32 = 4000
+const FlChunkSize int32 = 4000
 ```
 
 Then, each chunk is hashed, hashes grouped in pairs and hashed too and so on until Merkle Root is generated. Resulting Merkle Tree could be depicted like this.
@@ -102,7 +99,7 @@ Then, each chunk is hashed, hashes grouped in pairs and hashed too and so on unt
   <img src="images/range_merkle_tree_small.png" alt="Merkle Tree" width="721px"/>
 </p>
 
-Here we have a byte sequence splitted into 8 chunks. For `SwChunkSize` that would mean a 32 kilobyte sequence. Now, let's imagine we need a proof for bytes from `0x2800` to `0x7800`. It would span 5 chunks of `SwChunkSize` size, from 3rd (c) to 7th (g). So a Merkle Proof for chunks in `[2, 6]` (zero indexed) would look like this.
+Here we have a byte sequence splitted into 8 chunks. For `FlChunkSize` that would mean a 32 kilobyte sequence. Now, let's imagine we need a proof for bytes from `0x2800` to `0x7800`. It would span 5 chunks of `FlChunkSize` size, from 3rd (c) to 7th (g). So a Merkle Proof for chunks in `[2, 6]` (zero indexed) would look like this.
 
 <p align="center">
   <img src="images/range_merkle_proof_small_1.png" alt="Merkle Tree" width="721px"/>
@@ -110,7 +107,7 @@ Here we have a byte sequence splitted into 8 chunks. For `SwChunkSize` that woul
 
 Here, `Chunks` are the chunks `[2, 6]` themselves, and `Hashes` are `H_ab` and `H_h`. Every other hash required for checking the proof could be calculated either from `Chunks` or from `Hashes`.
 
-In code that Merkle Proof is represented by
+In code, Merkle Proof is represented by
 ```go
 type RangeMerkleProof struct {
 	Chunks []Chunk
@@ -130,19 +127,7 @@ func FlRangeMerkleProof(data []byte, offset int32, length int32) RangeMerkleProo
 }
 ```
 
-There is also a function for generating a Swarm Merkle Proof
-```go
-func SwRangeMerkleProof(data []byte, offset int32, length int32) RangeMerkleProof {
-	var byteRange = ByteRange{
-		Offset:    offset,
-		Length:    length,
-		ChunkSize: SwChunkSize,
-	}
-	return BuildRangeMerkleProof(data, byteRange, SwarmHash)
-}
-```
-
-Both `SwRangeMerkleProof` and `FlRangeMerkleProof` use more general function
+`FlRangeMerkleProof` uses more general function
 ```go
 func BuildRangeMerkleProof(data []byte, byteRange ByteRange, hashFn HashFunc) RangeMerkleProof {
 	var chunks = Split(data, byteRange.ChunkSize)
