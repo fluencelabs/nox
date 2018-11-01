@@ -154,8 +154,8 @@ class AsmleWasmVm(
 
   /**
    * Preprocesses a Wasm function argument: injects it into Wasm module memory (through injectArrayIntoWasmModule)
-   * and replace with pointer to it in the Wasm module and size. This functions returns 0 :: 0 :: Nil
-   * if supplied fnArgument was empty.
+   * and replaces with pointer to it in the Wasm module and size. This functions simply returns 0 :: 0 :: Nil
+   * if supplied fnArgument was empty without any allocations in the Wasm side.
    *
    * @param fnArgument argument for calling this function
    * @param moduleInstance module instance used for injecting array to the Wasm memory
