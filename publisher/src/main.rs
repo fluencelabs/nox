@@ -21,13 +21,14 @@ fn main() {
 
     // uploading code to swarm
     let bar = create_progress_bar("1/2","Сode loading...");
-    let hash = upload(publisher.swarm_url, publisher.path).unwrap();
+    let hash = upload(&publisher.swarm_url, &publisher.path).unwrap();
     bar.finish_with_message("Code uploaded.");
 
     // sending transaction with the hash of file with code to ethereum
     let bar = create_progress_bar("2/2", "Submitting code to the smart contract...");
+    let pass = publisher.password.as_ref().map(|s| s.as_str());
     let transaction = publish_to_contract(publisher.account, publisher.contract_address,
-                                          hash, publisher.password, publisher.eth_url, publisher.cluster_size);
+                                          &hash, pass, &publisher.eth_url, publisher.cluster_size);
     bar.finish_with_message("Code submitted.");
 
     let formatted_finish_msg = style("Code published. Submitted transaction").blue();
@@ -37,12 +38,12 @@ fn main() {
 }
 
 /// Publishes hash of the code (address in swarm) to the `Deployer` smart contract
-fn publish_to_contract(account: Address, contract_address: Address, hash: String,
+fn publish_to_contract(account: Address, contract_address: Address, hash: &str,
                        password: Option<&str>, eth_url: &str, cluster_size: u64) -> Result<H256, Box<Error>> {
 
     let hash: H256 = hash.parse().unwrap();
 
-    let (_eloop, transport) = web3::transports::Http::new(eth_url)?;
+    let (_eloop, transport) = web3::transports::Http::new(&eth_url)?;
     let web3 = web3::Web3::new(transport);
 
     match password {

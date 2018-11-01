@@ -3,30 +3,31 @@ extern crate clap;
 
 pub mod app {
 
-    use clap::{Arg, App, ArgMatches};
+    use clap::{Arg, App};
     use web3::types::Address;
     use console::style;
+    use std::boxed::Box;
 
-    pub struct Publisher<'a> {
-        pub path: &'a str,
+    pub struct Publisher {
+        pub path: String,
         pub contract_address: Address,
         pub account: Address,
-        pub swarm_url: &'a str,
-        pub eth_url: &'a str,
-        pub password: Option<&'a str>,
+        pub swarm_url: String,
+        pub eth_url: String,
+        pub password: Option<String>,
         pub cluster_size: u64
     }
 
-    impl<'a> Publisher<'a> {
-        fn new(path: &'a str, contract_address: Address, account: Address, swarm_url: &'a str,
-               eth_url: &'a str, password: Option<&'a str>, cluster_size: u64) -> Self {
+    impl Publisher {
+        fn new(path: String, contract_address: Address, account: Address, swarm_url: String,
+               eth_url: String, password: Option<String>, cluster_size: u64) -> Self {
             Publisher {
                 path, contract_address, account, swarm_url, eth_url, password, cluster_size
             }
         }
     }
 
-    pub fn init() -> Result<Publisher<'static>, Box<std::error::Error>> {
+    pub fn init() -> Result<Publisher, Box<std::error::Error>> {
         let matches = App::new(format!("{}", style("Fluence Code Publisher").blue().bold()))
             .version("0.1.0")
             .author(format!("{}", style("Fluence Labs").blue().bold()).as_str())
@@ -66,8 +67,7 @@ pub mod app {
                 .help("cluster's size that needed to deploy this code"))
             .get_matches();
 
-        let path = matches.value_of("path");
-        let path = path.unwrap();
+        let path = matches.value_of("path").unwrap();
 
         let contract_address = matches.value_of("contract_address").unwrap();
         let contract_address: Address = contract_address.parse()?;
@@ -78,13 +78,14 @@ pub mod app {
         let swarm_url = matches.value_of("swarm_url").unwrap();
         let eth_url = matches.value_of("eth_url").unwrap();
 
-        let password = matches.value_of("password");
+        let password = matches.value_of("password").map(|s| s.to_string());
 
         let cluster_size: u64 = matches.value_of("cluster_size").unwrap().parse()?;
         if cluster_size < 1 || cluster_size > 255 {
             panic!("Invalid number: {}. Must be from 1 to 255.");
         }
 
-        Ok(Publisher::new(path, contract_address, account, swarm_url, eth_url, password, cluster_size))
+        Ok(Publisher::new(path.to_string(), contract_address, account,
+                          swarm_url.to_string(), eth_url.to_string(), password, cluster_size))
     }
 }
