@@ -51,3 +51,18 @@ matrix:
         - cargo doc -v
         - cargo test -v
 
+    - name: LlamaDb VM example
+
+          language: rust
+          rust: nightly
+          cache: cargo
+          before_install:
+          - rustup component add rustfmt-preview --toolchain nightly
+          - cd vm/examples/lamadb
+
+          script:
+          - cargo fmt --all -- --check -v
+          - cargo build -v
+          - cargo doc -v
+          - cargo test -v
+
