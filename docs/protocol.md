@@ -2,9 +2,10 @@
 
 - [Preface](#preface)
 - [Core](#core)
+  - [Merkle Trees](#merkle-trees)
 - [External systems](#external-systems)
   - [Ethereum](#ethereum)
-  - [Swarm](#swarm)    
+  - [Swarm](#swarm)
 - [Initial setup](#initial-setup)
 - [Transactions](#transactions)
 - [Sidechain](#sidechain)
