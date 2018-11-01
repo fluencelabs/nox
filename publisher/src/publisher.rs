@@ -18,15 +18,6 @@ pub mod app {
         pub cluster_size: u64
     }
 
-    impl Publisher {
-        fn new(path: String, contract_address: Address, account: Address, swarm_url: String,
-               eth_url: String, password: Option<String>, cluster_size: u64) -> Self {
-            Publisher {
-                path, contract_address, account, swarm_url, eth_url, password, cluster_size
-            }
-        }
-    }
-
     pub fn init() -> Result<Publisher, Box<std::error::Error>> {
         let matches = App::new(format!("{}", style("Fluence Code Publisher").blue().bold()))
             .version("0.1.0")
@@ -67,16 +58,16 @@ pub mod app {
                 .help("cluster's size that needed to deploy this code"))
             .get_matches();
 
-        let path = matches.value_of("path").unwrap();
+        let path = matches.value_of("path").unwrap().to_string();
 
-        let contract_address = matches.value_of("contract_address").unwrap();
+        let contract_address = matches.value_of("contract_address").unwrap().to_string();
         let contract_address: Address = contract_address.parse()?;
 
         let account = matches.value_of("account").unwrap();
         let account: Address = account.parse()?;
 
-        let swarm_url = matches.value_of("swarm_url").unwrap();
-        let eth_url = matches.value_of("eth_url").unwrap();
+        let swarm_url = matches.value_of("swarm_url").unwrap().to_string();
+        let eth_url = matches.value_of("eth_url").unwrap().to_string();
 
         let password = matches.value_of("password").map(|s| s.to_string());
 
@@ -85,7 +76,7 @@ pub mod app {
             panic!("Invalid number: {}. Must be from 1 to 255.");
         }
 
-        Ok(Publisher::new(path.to_string(), contract_address, account,
-                          swarm_url.to_string(), eth_url.to_string(), password, cluster_size))
+        Ok(Publisher { path, contract_address, account,
+                          swarm_url, eth_url, password, cluster_size })
     }
 }
