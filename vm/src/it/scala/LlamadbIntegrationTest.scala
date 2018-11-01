@@ -137,19 +137,27 @@ class LlamadbIntegrationTest extends WordSpec with Matchers {
         vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
         _ <- vm.invoke[IO](None, "do_query", ("create table USERS(name varchar(" + 1024*1024*1024 + "))").getBytes())
 
-        // trying to insert 256 Mb memory
+        // trying to insert 256 Mb memory four times
         result1 <- vm.invoke[IO](None, "do_query", ("insert into USERS values(" + "A"*(1024*1024*256) + ")").getBytes())
-        // trying to insert 256 Mb memory
         result2 <- vm.invoke[IO](None, "do_query", ("insert into USERS values(" + "A"*(1024*1024*256) + ")").getBytes())
+        result3 <- vm.invoke[IO](None, "do_query", ("insert into USERS values(" + "A"*(1024*1024*256) + ")").getBytes())
+        result4 <- vm.invoke[IO](None, "do_query", ("insert into USERS values(" + "A"*(1024*1024*256) + ")").getBytes())
         state <- vm.getVmState[IO].toVmError
       } yield {
         result1 should not be None
         result2 should not be None
+        result3 should not be None
+        result4 should not be None
 
         val result1AsString = new String(result1.get)
         val result2AsString = new String(result2.get)
+        val result3AsString = new String(result3.get)
+        val result4AsString = new String(result4.get)
+
         result1AsString startsWith "rows inserted"
         result2AsString startsWith "rows inserted"
+        result3AsString startsWith "rows inserted"
+        result4AsString startsWith "rows inserted"
       }
 
       res.success()
