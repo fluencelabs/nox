@@ -4,82 +4,30 @@ extern crate reqwest;
 extern crate web3;
 extern crate console;
 
+mod publisher;
+
 use std::fs::File;
 use std::error::Error;
-use clap::{Arg, App};
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError, Client};
 use web3::futures::Future;
 use web3::contract::{Contract, Options};
 use web3::types::{Address, H256};
 use console::style;
+use publisher::app;
 
 fn main() {
-    let matches = App::new(format!("{}", style("Fluence Code Publisher").blue().bold()))
-        .version("0.1.0")
-        .author(format!("{}", style("Fluence Labs").blue().bold()).as_str())
-        .about(format!("{}", style("Console utility for deploying code to fluence cluster").blue().bold()).as_str())
-        .arg(Arg::with_name("path")
-            .required(true)
-            .takes_value(true)
-            .index(1)
-            .help("path to compiled `wasm` code"))
-        .arg(Arg::with_name("account").alias("account")
-            .required(true).alias("account").long("account").short("a")
-            .takes_value(true)
-            .help("ethereum account without `0x`"))
-        .arg(Arg::with_name("contract_address").alias("contract_address")
-            .required(true)
-            .takes_value(true)
-            .index(2)
-            .help("deployer contract address without `0x`"))
-        .arg(Arg::with_name("swarm_url").alias("swarm_url").long("swarm_url").short("s")
-            .required(false)
-            .takes_value(true)
-            .help("http address to swarm node")
-            .default_value("http://localhost:8500/")) //todo: use public gateway
-        .arg(Arg::with_name("eth_url").alias("eth_url").long("eth_url").short("e")
-            .required(false)
-            .takes_value(true)
-            .help("http address to ethereum node")
-            .default_value("http://localhost:8545/")) //todo: use public node or add light client
-        .arg(Arg::with_name("password").alias("password").long("password").short("p")
-            .required(false)
-            .takes_value(true)
-            .help("password to unlock account in ethereum client"))
-        .arg(Arg::with_name("cluster_size").alias("cluster_size").long("cluster_size").short("cs")
-            .required(false)
-            .takes_value(true)
-            .default_value("3")
-            .help("cluster's size that needed to deploy this code"))
-        .get_matches();
-
-    let path = matches.value_of("path").expect("Path must be specified.");
-
-    let contract_address = matches.value_of("contract_address").expect("Path must be specified.");
-    let contract_address: Address = contract_address.parse().unwrap();
-
-    let account = matches.value_of("account").expect("Account must be specified.");
-    let account: Address = account.parse().unwrap();
-
-    let swarm_url = matches.value_of("swarm_url").unwrap();
-    let eth_url = matches.value_of("eth_url").unwrap();
-
-    let password = matches.value_of("password");
-
-    let cluster_size: u64 = matches.value_of("cluster_size").unwrap().parse().unwrap();
-    if cluster_size < 1 || cluster_size > 255 {
-        panic!("Invalid number: {}. Must be from 1 to 255.");
-    }
+    let publisher = app::init().unwrap();
 
     // uploading code to swarm
     let bar = create_progress_bar("1/2","Сode loading...");
-    let hash = upload(swarm_url, path).unwrap();
+    let hash = upload(publisher.swarm_url, publisher.path).unwrap();
     bar.finish_with_message("Code uploaded.");
 
     // sending transaction with the hash of file with code to ethereum
     let bar = create_progress_bar("2/2", "Submitting code to the smart contract...");
-    let transaction = publish_to_contract(account, contract_address, hash, password, eth_url, cluster_size);
+    let transaction = publish_to_contract(publisher.account, publisher.contract_address,
+                                          hash, publisher.password, publisher.eth_url, publisher.cluster_size);
     bar.finish_with_message("Code submitted.");
 
     let formatted_finish_msg = style("Code published. Submitted transaction").blue();
