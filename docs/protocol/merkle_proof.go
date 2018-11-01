@@ -1,7 +1,9 @@
 package protocol
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math"
 )
@@ -10,6 +12,34 @@ import (
 type MerkleTree struct {
 	Root   Node
 	Height uint32
+}
+
+func (t MerkleTree) String() string {
+	var description bytes.Buffer
+
+	description.WriteString("Tree:\n")
+	var children = []Node{t.Root}
+	var nextChildren []Node
+	var level = 1
+	for {
+		for _, c := range children {
+			description.WriteString(hex.EncodeToString(c.Hash[:4]))
+			description.WriteString("  ")
+
+			nextChildren = append(nextChildren[:], c.Children...)
+		}
+		description.WriteString("\n")
+
+		if len(nextChildren) == 0 {
+			break
+		}
+
+		level++
+		children = nextChildren
+		nextChildren = nil
+	}
+
+	return description.String()
 }
 
 // node of the Merkle Tree
@@ -25,6 +55,28 @@ type RangeMerkleProof struct {
 	Hashes     [][2]Digest
 	StartChunk int32
 	StopChunk  int32
+}
+
+func (p RangeMerkleProof) String() string {
+	var description bytes.Buffer
+
+	description.WriteString("Proof:\n  Chunks:")
+	for _, c := range p.Chunks {
+		description.WriteString(" ")
+		description.WriteString(hex.EncodeToString(c))
+	}
+	description.WriteString("\n")
+	description.WriteString("  Hashes:")
+
+	for _, h := range p.Hashes {
+		description.WriteString("\n    ")
+		description.WriteString(hex.EncodeToString(h[0][:4]))
+		description.WriteString(" | ")
+		description.WriteString(hex.EncodeToString(h[1][:4]))
+	}
+	description.WriteString("\n")
+
+	return description.String()
 }
 
 type ByteRange struct {
@@ -81,10 +133,8 @@ func (byteRange ByteRange) StartChunk() int32 {
 // calculates the index of the last chunk covering byte range
 func (byteRange ByteRange) StopChunk() int32 {
 	var stop = byteRange.StartChunk() + byteRange.Length/byteRange.ChunkSize
-	fmt.Println("StopChunk", stop, byteRange)
 	if (byteRange.Length % byteRange.ChunkSize) == int32(0) {
 		stop--
-		fmt.Println("StopChunk dec", stop)
 	}
 
 	return stop
@@ -121,14 +171,14 @@ func nextPower2(n int32) (int32, uint32) {
 }
 
 func hash(data []byte) Digest {
-	return sha256.Sum256(data)
+	var result = sha256.Sum256(data)
+	return result
 }
 
 // builds a Merkle Tree out of chunks applying hashFn as a hash function
 func BuildMerkleTree(chunks []Chunk, hashFn HashFunc) MerkleTree {
 	var chunksLen = int32(len(chunks))
 	var nodesCount, power = nextPower2(chunksLen)
-	fmt.Println("chunksLen", chunksLen, "nodesCount", nodesCount, "power", power)
 	var bottom = make([]Node, nodesCount)
 
 	var i int32
@@ -169,8 +219,6 @@ func BuildMerkleTree(chunks []Chunk, hashFn HashFunc) MerkleTree {
 
 // returns Merkle Tree nodes that form a Range Merkle Proof for chunks in the interval [start, stop]
 func RangeProof(tree MerkleTree, start int32, stop int32) [][2]Digest {
-	fmt.Println("start", start, "stop", stop, "height", tree.Height)
-
 	// -2 comes from: -1 since we already have 0x01, and -1 since we're starting at the level 1
 	var mask int32 = 0x1 << (tree.Height - 2)
 
@@ -193,9 +241,6 @@ func RangeProof(tree MerkleTree, start int32, stop int32) [][2]Digest {
 			proof[level][1] = nextRight.Children[1].Hash
 		}
 
-		level++
-		mask = mask >> 1
-
 		if mask&start == 0 {
 			nextLeft = nextLeft.Children[0]
 		} else {
@@ -207,6 +252,9 @@ func RangeProof(tree MerkleTree, start int32, stop int32) [][2]Digest {
 		} else {
 			nextRight = nextRight.Children[1]
 		}
+
+		level++
+		mask = mask >> 1
 	}
 
 	return proof
@@ -218,9 +266,11 @@ func BuildRangeMerkleProof(data []byte, byteRange ByteRange, hashFn HashFunc) Ra
 	var startChunk = byteRange.StartChunk()
 	var stopChunk = byteRange.StopChunk()
 
-	var bottomChunks = chunks[startChunk:stopChunk]
+	var bottomChunks = chunks[startChunk : stopChunk+1]
 
 	var tree = BuildMerkleTree(chunks, hashFn)
+	fmt.Printf("%v\n", tree)
+
 	var proof = RangeProof(tree, startChunk, stopChunk)
 
 	return RangeMerkleProof{
@@ -229,6 +279,47 @@ func BuildRangeMerkleProof(data []byte, byteRange ByteRange, hashFn HashFunc) Ra
 		StartChunk: startChunk,
 		StopChunk:  stopChunk,
 	}
+}
+
+func CheckProof(root Digest, proof RangeMerkleProof) bool {
+	var bottom = make([]Digest, len(proof.Chunks))
+	for i := 0; i < len(bottom); i++ {
+		bottom[i] = hash(proof.Chunks[i])
+	}
+	var height = len(proof.Hashes)
+	var mask int32 = 0x1
+
+	var tree []Digest
+	for level := height - 1; level >= 0; level-- {
+		if (proof.StartChunk & mask) != 0 {
+			bottom = append([]Digest{proof.Hashes[level][0]}, bottom...)
+		}
+
+		if (proof.StopChunk & mask) == 0 {
+			bottom = append(bottom, proof.Hashes[level][1])
+		}
+
+		tree = make([]Digest, len(bottom)/2)
+
+		for i := 0; i < len(bottom)-1; i += 2 {
+			tree[i/2] = hash(append(bottom[i][:], bottom[i+1][:]...))
+		}
+
+		bottom = tree
+		mask = mask << 1
+	}
+
+	fmt.Println("tree[0]\t", len(tree[0]), tree[0])
+	fmt.Println("root\t", len(root), root)
+	return tree[0] == root
+}
+
+func printArray(label string, arr [][32]byte) {
+	fmt.Printf("%s: ", label)
+	for _, c := range arr {
+		fmt.Printf("%v ", hex.EncodeToString(c[:4]))
+	}
+	fmt.Println()
 }
 
 func (contract ValidationContract) SubmitProofs(flProof RangeMerkleProof, swProof RangeMerkleProof) bool {
