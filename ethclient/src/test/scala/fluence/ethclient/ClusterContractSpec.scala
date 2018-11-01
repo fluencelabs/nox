@@ -21,14 +21,13 @@ import java.io.File
 import cats.Parallel
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.ethclient.Deployer.{ClusterFormedEventResponse, NewSolverEventResponse}
+import fluence.ethclient.Deployer.ClusterFormedEventResponse
 import fluence.ethclient.helpers.RemoteCallOps._
+import fluence.ethclient.helpers.Web3jConverters._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.web3j.abi.EventEncoder
-import org.web3j.abi.datatypes.{Address, DynamicArray}
-import org.web3j.abi.datatypes.generated.{Bytes32, Uint8}
+import org.web3j.abi.datatypes.generated.Uint8
 import org.web3j.protocol.core.methods.response.Log
-import scodec.bits.ByteVector
 import slogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -42,38 +41,6 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
 
   private val url = sys.props.get("ethereum.url")
   private val client = EthClient.makeHttpResource[IO](url)
-  private val client2 = EthClient.makeHttpResource[IO](url)
-
-  private def stringToBytes32(s: String) = {
-    val byteValue = s.getBytes()
-    val byteValueLen32 = new Array[Byte](32)
-    System.arraycopy(byteValue, 0, byteValueLen32, 0, byteValue.length)
-    new Bytes32(byteValueLen32)
-  }
-
-  private def stringToHex(s: String) = {
-    binaryToHex(s.getBytes())
-  }
-
-  private def binaryToHex(b: Array[Byte]) = {
-    ByteVector(b).toHex
-  }
-
-  private def base64ToBytes32(b64: String): Bytes32 = {
-    ???
-  }
-
-  private def bytes32toGenesis(clusterId: Bytes32, ids: DynamicArray[Bytes32]): String = {
-    ""
-  }
-
-  private def addressToBytes32(ip: String, nodeIdHex: String): Bytes32 = {
-    ???
-  }
-
-  private def bytes32toPersistentPeers(bytes: DynamicArray[Bytes32]): String = {
-    bytes.getValue().
-  }
 
   val dir = new File("../bootstrap")
   def run(cmd: String): Unit = Process(cmd, dir).!(ProcessLogger(_ => ()))
@@ -109,7 +76,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
 
         unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
 
-        data ← par sequential par.apply.product(
+        data ← par sequential par.apply.productR(
           // Subscription stream
           par parallel ethClient
             .subscribeToLogsTopic[IO](
@@ -120,19 +87,30 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
             .head
             .evalMap[IO, Unit](event.put)
             .compile // Compile to a runnable, in terms of effect IO
-            .drain, // Switch to IO[Unit]
-
+            .drain // Switch to IO[Unit]
+        )(
           // Delayed unsubscribe
           par.parallel(for {
 
             contract <- ethClient.getDeployer[IO](contractAddress, owner)
 
-            txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
-            _ = assert(txReceipt.isStatusOK)
+            //txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
+            //_ = assert(txReceipt.isStatusOK)
 
-            _ <- contract.addCode(bytes, bytes, new Uint8(1)).call[IO]
+            _ <- contract.addCode(bytes, bytes, new Uint8(2)).call[IO]
 
-            txReceipt <- contract.addSolver(bytes, bytes).call[IO]
+            txReceipt <- contract
+              .addSolver(
+                base64ToBytes32("RK34j5RkudeS0GuTaeJSoZzg/U5z/Pd73zvTLfZKU2w="),
+                solverAddressToBytes32("192.168.0.1", 26056, "99d76509fe9cb6e8cd5fc6497819eeabb2498106")
+              )
+              .call[IO]
+            txReceipt <- contract
+              .addSolver(
+                base64ToBytes32("LUMshgzPigL9jDYTCrMADlMyrJs1LIqfIlHCOlf7lOc="),
+                solverAddressToBytes32("192.168.0.1", 26156, "1ef149b8ca80086350397bb6a02f2a172d013309")
+              )
+              .call[IO]
             _ = assert(txReceipt.isStatusOK)
 
             clusterFormedEvents <- contract.getEvent[IO, ClusterFormedEventResponse](
@@ -145,13 +123,13 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
           } yield (txReceipt, clusterFormedEvents, e))
         )
 
-        (txReceipt, clusterFormedEvents, e) = data._2
+        (txReceipt, clusterFormedEvents, e) = data
 
       } yield {
         txReceipt.getLogs should contain(e)
         clusterFormedEvents.length shouldBe 1
-        println(bytes32toGenesis(clusterFormedEvents.head.clusterID, clusterFormedEvents.head.solverIDs))
-        println(bytes32toPersistentPeers(clusterFormedEvents.head.solverAddrs))
+        println(b32DAtoGenesis(clusterFormedEvents.head.clusterID, clusterFormedEvents.head.solverIDs))
+        println(b32DAtoPersistentPeers(clusterFormedEvents.head.solverAddrs))
       }
     }.unsafeRunSync()
   }

@@ -111,8 +111,8 @@ class ContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAn
 
             contract <- ethClient.getDeployer[IO](contractAddress, owner)
 
-            txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
-            _ = assert(txReceipt.isStatusOK)
+            /*txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
+            _ = assert(txReceipt.isStatusOK)*/
 
             txReceipt <- contract.addSolver(bytes, bytes).call[IO]
             _ = assert(txReceipt.isStatusOK)

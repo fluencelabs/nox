@@ -33,9 +33,9 @@ pragma solidity ^0.4.24;
 
 // implementation is at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/access/Whitelist.sol
 // example tests are at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/test/ownership/Whitelist.test.js
-import "openzeppelin-solidity/contracts/access/Whitelist.sol";
+//import "openzeppelin-solidity/contracts/access/Whitelist.sol";
 
-contract Deployer is Whitelist {
+contract Deployer {
     struct Solver {
         bytes32 id;
         bytes32 nodeAddress;
@@ -93,9 +93,8 @@ contract Deployer is Whitelist {
       * emits NewSolver event containing number of free solvers, subject to change
       * emits ClusterFormed event when there is enough solvers for some Code
       */
-    function addSolver(bytes32 solverID, bytes32 solverAddress) external onlyIfWhitelisted(msg.sender) {
+    function addSolver(bytes32 solverID, bytes32 solverAddress) external {
         require(solvers[solverID].id == 0, "This solver is already registered");
-        
         solvers[solverID] = Solver(solverID, solverAddress);
         freeSolvers.push(solverID);
         emit NewSolver(solverID);
@@ -108,7 +107,7 @@ contract Deployer is Whitelist {
       * @param clusterSize specifies number of Solvers that must serve Code
       * emits ClusterFormed event when there is enough solvers for the Code and emits CodeEnqueued otherwise, subject to change
       */
-    function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize) external onlyIfWhitelisted(msg.sender) {
+    function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize) external {
         codes.push(Code(storageHash, storageReceipt, clusterSize));
         if (!matchWork()) {
             // TODO: should it be hash of the `storageHash`? so no one could download it
@@ -124,6 +123,10 @@ contract Deployer is Whitelist {
         BusyCluster memory cluster = busyClusters[clusterID];
         require(cluster.clusterID > 0, "there is no such cluster");
         return (cluster.code.storageHash, cluster.code.storageReceipt);
+    }
+
+    function getStatus() external view returns (uint256, uint256) {
+        return (codes.length, freeSolvers.length);
     }
 
     /** @dev Checks if there is enough free Solvers for undeployed Code
