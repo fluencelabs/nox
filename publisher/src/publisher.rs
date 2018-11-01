@@ -34,6 +34,7 @@ pub mod app {
         pub cluster_size: u64,
     }
 
+    /// Parses arguments from console and initialize parameters for Publisher
     pub fn init() -> Result<Publisher, Box<std::error::Error>> {
         let matches = App::new(format!("{}", style("Fluence Code Publisher").blue().bold()))
             .version("0.1.0")
