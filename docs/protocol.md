@@ -96,7 +96,7 @@ const FlChunkSize int32 = 4000
 Then, each chunk is hashed, hashes grouped in pairs and hashed too and so on until Merkle Root is generated. Resulting Merkle Tree could be depicted like this.
 
 <p align="center">
-  <img src="images/range_merkle_tree_small.png" alt="Merkle Tree" width="520px"/>
+  <img src="images/range_merkle_tree_small.png" alt="Merkle Tree" width="699px"/>
 </p>
 
 Here we have a byte sequence splitted into 8 chunks. For `FlChunkSize` that would mean a 32 kilobyte sequence. Now, let's imagine we need a proof for bytes from `0x2800` to `0x7800`. It would span 5 chunks of `FlChunkSize` size, from 3rd (c) to 7th (g). So a Merkle Proof for chunks in `[2, 6]` (zero indexed) would look like this.
