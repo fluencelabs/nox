@@ -1,31 +1,31 @@
 package protocol
 
 import (
-	"math"
+  "math"
 )
 
 // Merkle Tree representation
 type MerkleTree struct {
-	Root Node
+  Root Node
 }
 
 // node of the Merkle Tree
 type Node struct {
-	Hash     Digest
-	Children []Node
-	Parent   *Node
+  Hash     Digest
+  Children []Node
+  Parent   *Node
 }
 
 // Merkle Proof for a range of chunks
 type RangeMerkleProof struct {
-	Chunks []Chunk
-	Hashes [][]Digest
+  Chunks []Chunk
+  Hashes [][]Digest
 }
 
 type ByteRange struct {
-	Offset    int32
-	Length    int32
-	ChunkSize int32
+  Offset    int32
+  Length    int32
+  ChunkSize int32
 }
 
 // Fluence Merkle Tree chunk size
@@ -39,32 +39,32 @@ func Split(data []byte, chunk int32) []Chunk { panic("") }
 
 // calculates the index of the first chunk covering byte range
 func (byteRange ByteRange) StartChunk() int32 {
-	return int32(math.Floor(float64(byteRange.Offset / byteRange.ChunkSize)))
+  return int32(math.Floor(float64(byteRange.Offset / byteRange.ChunkSize)))
 }
 
 // calculates the index of the last chunk covering byte range
 func (byteRange ByteRange) StopChunk() int32 {
-	return 1 + byteRange.StartChunk() + int32(math.Floor(float64(byteRange.Length/byteRange.ChunkSize)))
+  return 1 + byteRange.StartChunk() + int32(math.Floor(float64(byteRange.Length/byteRange.ChunkSize)))
 }
 
 // Merkle Proof for an inclusion of a range of chunks in Fluence Merkle Tree
 func FlRangeMerkleProof(data []byte, offset int32, length int32) RangeMerkleProof {
-	var byteRange = ByteRange{
-		Offset:    offset,
-		Length:    length,
-		ChunkSize: FlChunkSize,
-	}
-	return BuildRangeMerkleProof(data, byteRange, Hash)
+  var byteRange = ByteRange{
+    Offset:    offset,
+    Length:    length,
+    ChunkSize: FlChunkSize,
+  }
+  return BuildRangeMerkleProof(data, byteRange, Hash)
 }
 
 // Merkle Proof for an inclusion of a range of chunks in Swarm Merkle Tree
 func SwRangeMerkleProof(data []byte, offset int32, length int32) RangeMerkleProof {
-	var byteRange = ByteRange{
-		Offset:    offset,
-		Length:    length,
-		ChunkSize: SwChunkSize,
-	}
-	return BuildRangeMerkleProof(data, byteRange, SwarmHash)
+  var byteRange = ByteRange{
+    Offset:    offset,
+    Length:    length,
+    ChunkSize: SwChunkSize,
+  }
+  return BuildRangeMerkleProof(data, byteRange, SwarmHash)
 }
 
 // builds a Merkle Tree out of chunks applying hashFn as a hash function
@@ -75,21 +75,21 @@ func RangeProof(tree MerkleTree, start int32, stop int32) [][]Digest { panic("")
 
 // builds Merkle Proof for a range of `length` bytes starting at `offset` by splitting them in chunks of size `chunk`
 func BuildRangeMerkleProof(data []byte, byteRange ByteRange, hashFn HashFunc) RangeMerkleProof {
-	var chunks = Split(data, byteRange.ChunkSize)
-	var startChunk = byteRange.StartChunk()
-	var stopChunk = byteRange.StopChunk()
+  var chunks = Split(data, byteRange.ChunkSize)
+  var startChunk = byteRange.StartChunk()
+  var stopChunk = byteRange.StopChunk()
 
-	var bottomChunks = chunks[startChunk:stopChunk]
+  var bottomChunks = chunks[startChunk:stopChunk]
 
-	var tree = BuildMerkleTree(chunks, hashFn)
-	var proof = RangeProof(tree, startChunk, stopChunk)
+  var tree = BuildMerkleTree(chunks, hashFn)
+  var proof = RangeProof(tree, startChunk, stopChunk)
 
-	return RangeMerkleProof{
-		Chunks: bottomChunks,
-		Hashes: proof,
-	}
+  return RangeMerkleProof{
+    Chunks: bottomChunks,
+    Hashes: proof,
+  }
 }
 
 func (contract ValidationContract) SubmitProofs(flProof RangeMerkleProof, swProof RangeMerkleProof) bool {
-	panic("")
+  panic("")
 }
