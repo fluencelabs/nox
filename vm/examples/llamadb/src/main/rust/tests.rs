@@ -132,14 +132,12 @@ fn execute_sql(sql: &str) -> String {
     unsafe {
         // converts params
         let str_len = sql.len();
-        let sql_str_ptr = fluence::memory::write_str_to_mem(sql.to_string()).unwrap();
+        let sql_str_ptr = fluence::memory::write_str_to_mem(sql).unwrap();
 
         // executes query
         let result_str_ptr = super::do_query(sql_str_ptr.as_ptr().add(STR_LEN_BYTES), str_len);
 
         // converts results
-        let result = fluence::memory::read_str_from_fat_ptr(result_str_ptr).unwrap();
-
-        result
+        fluence::memory::read_str_from_fat_ptr(result_str_ptr).unwrap()
     }
 }

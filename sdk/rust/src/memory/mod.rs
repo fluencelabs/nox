@@ -28,16 +28,6 @@ pub unsafe fn alloc(size: NonZeroUsize) -> MemResult<NonNull<u8>> {
     Global.alloc(layout).map_err(Into::into)
 }
 
-/// When size == 0 works fine for Wasm target, but failed for x86. Has to be removed.
-#[deprecated(
-    since = "0.0.1",
-    note = "please use `alloc` instead, will be removed in next version"
-)]
-pub unsafe fn alloc_unsafe(size: usize) -> MemResult<NonNull<u8>> {
-    let layout: Layout = Layout::from_size_align(size, mem::align_of::<u8>())?;
-    Global.alloc(layout).map_err(Into::into)
-}
-
 /// Deallocates memory area for current memory pointer and size. Actually is
 /// just a wrapper for [`GlobalAlloc::dealloc`].
 ///
@@ -49,17 +39,6 @@ pub unsafe fn alloc_unsafe(size: usize) -> MemResult<NonNull<u8>> {
 ///
 pub unsafe fn dealloc(ptr: NonNull<u8>, size: NonZeroUsize) -> MemResult<()> {
     let layout = Layout::from_size_align(size.get(), mem::align_of::<u8>())?;
-    Global.dealloc(ptr, layout);
-    Ok(())
-}
-
-/// When size == 0 works fine for Wasm target, but failed for x86. Has to be removed.
-#[deprecated(
-    since = "0.0.1",
-    note = "please use `dealloc` instead, will be removed in next version"
-)]
-pub unsafe fn dealloc_unsafe(ptr: NonNull<u8>, size: usize) -> MemResult<()> {
-    let layout = Layout::from_size_align(size, mem::align_of::<u8>())?;
     Global.dealloc(ptr, layout);
     Ok(())
 }

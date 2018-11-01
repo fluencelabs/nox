@@ -36,20 +36,18 @@ type GenResult<T> = Result<T, Box<Error>>;
 /// 3. Returns a pointer to the result as a string in the memory.
 /// 4. Deallocates memory from passed parameter
 #[no_mangle]
-pub fn do_query(ptr: *mut u8, len: usize) -> NonNull<u8> {
+pub unsafe fn do_query(ptr: *mut u8, len: usize) -> NonNull<u8> {
     // memory for the parameter will be deallocated when sql_str was dropped
-    let sql_str: String = unsafe { fluence::memory::deref_str(ptr, len) };
+    let sql_str: String = fluence::memory::deref_str(ptr, len);
 
     let db_response = match run_query(&sql_str) {
         Ok(response) => response,
         Err(err_msg) => format!("[Error] {}", err_msg),
     };
 
-    unsafe {
-        // return pointer to result in memory
-        fluence::memory::write_str_to_mem(db_response)
-            .expect("Putting result string to the memory was failed.")
-    }
+    // return pointer to result in memory
+    fluence::memory::write_str_to_mem(&db_response)
+        .expect("Putting result string to the memory was failed.")
 }
 
 //
@@ -60,24 +58,25 @@ pub fn do_query(ptr: *mut u8, len: usize) -> NonNull<u8> {
 /// Used from the host environment for memory allocation for passed parameters.
 #[no_mangle]
 pub unsafe fn allocate(size: usize) -> NonNull<u8> {
-    let non_zero_size =
-        NonZeroUsize::new(size).expect("[Error] Allocation of zero bytes is not allowed.");
+    let non_zero_size = NonZeroUsize::new(size)
+        .unwrap_or_else(|| panic!("[Error] Allocation of zero bytes is not allowed."));
     fluence::memory::alloc(non_zero_size)
-        .expect(format!("[Error] Allocation of {} bytes failed.", size).as_str())
+        .unwrap_or_else(|_| panic!("[Error] Allocation of {} bytes failed.", size))
 }
 
 /// Deallocates memory area for current memory pointer and size.
 /// Used from the host environment for memory deallocation after reading results
 /// of function from Wasm memory.
 #[no_mangle]
-pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) -> () {
-    let non_zero_size =
-        NonZeroUsize::new(size).expect("[Error] Deallocation of zero bytes is not allowed.");
+pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
+    let non_zero_size = NonZeroUsize::new(size)
+        .unwrap_or_else(|| panic!("[Error] Deallocation of zero bytes is not allowed."));
     fluence::memory::dealloc(ptr, non_zero_size)
-        .expect(format!("[Error] Deallocate failed for prt={:?} size={}.", ptr, size).as_str())
+        .unwrap_or_else(|_| panic!("[Error] Deallocate failed for prt={:?} size={}.", ptr, size));
 }
 
 /// Acquires lock, does query, releases lock, returns query result
+#[allow(clippy::let_and_return)]
 fn run_query(sql_query: &str) -> GenResult<String> {
     let mut db = DATABASE.lock()?;
     let result = db
