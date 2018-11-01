@@ -19,7 +19,7 @@ import java.text.SimpleDateFormat
 import java.util.{Base64, Calendar}
 
 import fluence.ethclient.Deployer.ClusterFormedEventResponse
-import fluence.ethclient.data.ClusterInfo
+import fluence.ethclient.data._
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.Bytes32
 import scodec.bits.{Bases, ByteVector}
@@ -43,25 +43,14 @@ object Web3jConverters {
 
   def b32ToChainId(clusterId: Bytes32): String = clusterId.getValue()(31).toString // TODO:
 
-  def b32DAtoGenesis(clusterId: Bytes32, ids: DynamicArray[Bytes32]): String = {
+  def b32DAtoGenesis(clusterId: Bytes32, ids: DynamicArray[Bytes32]): Genesis = {
     val validators = ids.getValue.asScala.zipWithIndex.map {
-      case (x, i) => s"""
-                        |  {
-                        |   "pub_key": "${Base64.getEncoder.encodeToString(x.getValue)}",
-                        |   "power": "1",
-                        |   "name": "node$i"
-                        |  }""".stripMargin
-    }.mkString(",")
+      case (x, i) => Validator(Base64.getEncoder.encodeToString(x.getValue), "1", "node" + i)
+    }.toArray
 
     val chainId = b32ToChainId(clusterId)
     val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(Calendar.getInstance().getTime)
-    s"""
-       |{
-       | "genesis_time": "$genesisTime",
-       | "chain_id": "$chainId",
-       | "app_hash": "",
-       | "validators": [$validators]
-       |}""".stripMargin
+    Genesis(genesisTime, chainId, "", validators)
   }
 
   def hexToArrayUnsafe(hex: String): Array[Byte] =
@@ -78,17 +67,28 @@ object Web3jConverters {
     new Bytes32(buffer)
   }
 
-  def b32DAtoPersistentPeers(peers: DynamicArray[Bytes32]): String =
-    peers.getValue.asScala
-      .map(_.getValue)
-      .map(
-        x =>
-          ByteVector(x, 0, 20).toHex + "@" + ByteVector(x, 20, 4).toArray
-            .map(x => (x & 0xFF).toString)
-            .mkString(".") + ":" + (((x(24) & 0xFF) << 8) + (x(25) & 0xFF))
-      )
-      .mkString(",")
+  def b32DAtoPersistentPeers(peers: DynamicArray[Bytes32]): PersistentPeers =
+    PersistentPeers(
+      peers.getValue.asScala
+        .map(_.getValue)
+        .map(
+          x =>
+            PersistentPeer(
+              ByteVector(x, 0, 20).toHex,
+              ByteVector(x, 20, 4).toArray.map(x => (x & 0xFF).toString).mkString("."),
+              (((x(24) & 0xFF) << 8) + (x(25) & 0xFF)).toShort
+          )
+        )
+        .toArray
+    )
 
-  def clusterFormedEventToClusterInfo(event: ClusterFormedEventResponse): ClusterInfo = ???
+  def clusterFormedEventToClusterData(event: ClusterFormedEventResponse, nodeKey: String): ClusterData = {
+    val genesis = b32DAtoGenesis(event.clusterID, event.solverIDs)
+    val persistentPeers = b32DAtoPersistentPeers(event.solverAddrs)
+    val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
+    val nodeIndex = genesis.validators.indexWhere(_.pub_key == nodeKey).toString
+    val nodeInfo = NodeInfo(cluster, nodeIndex)
+    ClusterData(nodeInfo, persistentPeers, "llamadb")
+  }
 
 }

@@ -24,6 +24,8 @@ import cats.effect.{ExitCode, IO, IOApp}
 import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters._
+import io.circe.generic.auto._
+import io.circe.syntax._
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.Bytes32
@@ -39,8 +41,9 @@ object MasterNodeApp extends IOApp {
 
   private val bytes = stringToBytes32(Random.alphanumeric.take(10).mkString)
 
-  private val filter = new EthFilter(DefaultBlockParameterName.EARLIEST, DefaultBlockParameterName.LATEST, contractAddress)
-    .addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
+  private val filter =
+    new EthFilter(DefaultBlockParameterName.EARLIEST, DefaultBlockParameterName.LATEST, contractAddress)
+      .addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
 
   private val solvers = List(
     ("RK34j5RkudeS0GuTaeJSoZzg/U5z/Pd73zvTLfZKU2w=", "192.168.0.1", 26056, "99d76509fe9cb6e8cd5fc6497819eeabb2498106"),
@@ -51,22 +54,20 @@ object MasterNodeApp extends IOApp {
 
   private def findSolverIndex(event: DynamicArray[Bytes32]): Int = ???
 
-  private def processClusterFormed(event: ClusterFormedEventResponse): Unit = {
-    val genesisText = b32DAtoGenesis(event.clusterID, event.solverIDs)
-    val persistentPeers = b32DAtoPersistentPeers(event.solverAddrs)
+  private def processClusterFormed(event: ClusterFormedEventResponse, solverPubKey: String): Unit = {
+    val clusterData = clusterFormedEventToClusterData(event, solverPubKey)
 
-    println(genesisText)
-    println(persistentPeers)
+    println(clusterData.nodeInfo.asJson.spaces2)
 
-//    val clusterName = b32ToChainId(event.clusterID)
-//    val vm_code_directory
-//    val nodeIndex = findSolverIndex(event.solverIDs)
-//    val long_term_key_location
-//    val cluster_info_json_file
-//    val host_p2p_port
-//    val host_rpc_port
-//    val tm_prometheus_port
-//    val sm_prometheus_port
+    val clusterName = clusterData.nodeInfo.cluster.genesis.chain_id
+    val vm_code_directory = clusterData.code
+    val nodeIndex = clusterData.nodeInfo.node_index.toInt
+    val long_term_key_location = "long_term_keys"
+    val cluster_info_json_file = ""
+    val host_p2p_port = clusterData.hostP2pPort
+    val host_rpc_port = clusterData.hostRpcPort
+    val tm_prometheus_port = clusterData.tmPrometheusPort
+    val sm_prometheus_port = clusterData.smPrometheusPort
   }
 
   override def run(args: List[String]): IO[ExitCode] =
@@ -74,7 +75,7 @@ object MasterNodeApp extends IOApp {
       .makeHttpResource[IO]()
       .use { ethClient ⇒
         val par = Parallel[IO, IO.Par]
-        val solverInitParams = solvers(args.headOption.map(_.toInt).getOrElse(2))
+        val solverInitParams = solvers(args.headOption.map(_.toInt).getOrElse(3))
 
         for {
           _ ← IO(println("Launching w3j"))
@@ -97,14 +98,22 @@ object MasterNodeApp extends IOApp {
             // Delayed unsubscribe
             par.parallel(for {
               contract <- ethClient.getDeployer[IO](contractAddress, owner)
-              subscription = contract.clusterFormedEventObservable(filter).take(30, TimeUnit.SECONDS).last().subscribe(x => {
-                println(b32DAtoGenesis(x.clusterID, x.solverIDs))
-                println(b32DAtoPersistentPeers(x.solverAddrs))
-                processClusterFormed(x)
-              })
+              subscription = contract
+                .clusterFormedEventObservable(filter)
+                .take(30, TimeUnit.SECONDS)
+                .last()
+                .subscribe(x => {
+                  println(b32DAtoGenesis(x.clusterID, x.solverIDs).asJson.noSpaces)
+                  println(b32DAtoPersistentPeers(x.solverAddrs))
+                  processClusterFormed(x, solverInitParams._1)
+                })
 
-              txReceipt <- contract.addSolver(base64ToBytes32(solverInitParams._1),
-                solverAddressToBytes32(solverInitParams._2, solverInitParams._3.toShort, solverInitParams._4)).call[IO]
+              txReceipt <- contract
+                .addSolver(
+                  base64ToBytes32(solverInitParams._1),
+                  solverAddressToBytes32(solverInitParams._2, solverInitParams._3.toShort, solverInitParams._4)
+                )
+                .call[IO]
 
               clusterFormedEvents <- contract
                 .getEvent[IO, ClusterFormedEventResponse](_.getClusterFormedEvents(txReceipt))
