@@ -37,10 +37,28 @@ However, at least for now this specification aims to accurately express **what**
 
 ## Core
 
-Before we start describing the protocol, few words need to be said about the core blocks. 
+Before we start describing the protocol, few words need to be said about the core building blocks. 
 
-First of all, we use a simplified version of Go as a pseudocode to illustrate chosen algorithms. It should be noted that the reference Fluence network implementation doesn't use Go: in fact, it's mostly Scala, TypeScript and Rust. However, Go simplicity allows to use it to describe complex algorithms without too much boilerplate. Source codes used in this specification can be found 
+First of all, we use a simplified version of Go as a pseudocode to illustrate chosen algorithms. It should be noted that the reference Fluence network implementation doesn't use Go: in fact, it's mostly Scala, TypeScript and Rust. However, Go simplicity allows to use it to describe complex algorithms without too much boilerplate. Go is also statically typed, which allows to use a compiler to catch at least some mistakes. Source codes used in this specification can be found 
 [here](./protocol).
+
+We assume that few pretty simple library functions are available in this specification. `assertTrue` and `assertEq` will panic if the boolean or equality condition doesn't hold. `pack` and `packMulti` will serialize an input into the byte array or few byte array chunks.
+
+```go
+type Chunk = []byte
+
+// panics if the condition is false
+func assertTrue(condition bool) {}
+
+// panics if the condition is false
+func assertEq(x, y interface{}) {}
+
+// serializes arguments to a byte array
+func pack(args... interface{}) []byte {}
+
+// serializes elements of a compound object (array or structure) into byte arrays
+func packMulti(object interface{}) []Chunk {} 
+```
 
 Basic cryptographic primitives such as digital signature generation and verification, cryptographic hash computation and Merkle tree composition are listed below and used throughout the rest of the protocol specification. We do not specify exact algorithms such as SHA3, RIPEMD or EdDSA for those primitives but still assume them to behave according to the common expectations.
 
@@ -49,8 +67,6 @@ type Digest     = [32]byte
 type PublicKey  = [32]byte
 type PrivateKey = [64]byte
 type Signature  = [64]byte
-
-type Chunk = []byte
 
 type MerkleProof struct {
   Path     []int      // path from the Merkle tree root to the selected chunk
@@ -105,7 +121,7 @@ Here we have a byte sequence splitted into 8 chunks. For `FlChunkSize` that woul
   <img src="images/range_merkle_proof_small_1.png" alt="Merkle Tree" width="703px"/>
 </p>
 
-Here, `Chunks` are the chunks `[2, 6]` themselves, and `Hashes` are `H_ab` and `H_h`. Every other hash required for checking the proof could be calculated either from `Chunks` or from `Hashes`.
+Here, `Chunks` are the chunks `[2, 6]` themselves, and `Hashes` are <code>H<sub>ab</sub></code> and <code>H<sub>h</sub></code>. Every other hash required for checking the proof could be calculated either from `Chunks` or from `Hashes`.
 
 In code, Merkle Proof is represented by
 ```go
@@ -411,18 +427,19 @@ func TmMerkleRoot(chunks []Chunk) Digest {}
 Tendermint periodically pulls few transactions from the mempool and forms a new block. Nodes participating in consensus sign produced blocks, however their signatures for a specific block are available only as a part of the next block.
 
 ```go
-type TmNode struct {
-  PublicKey  PublicKey  // real-time node public key
-  privateKey PrivateKey // real-time node private key
+// Tendermint real-time node
+type RealtimeNode struct {
+  PublicKey  PublicKey
+  privateKey PrivateKey
 }
 
 // signs the block assuming the node has voted for it during consensus settlement
-func (node TmNode) SignBlockHash(blockHash Digest) Seal {
+func (node RealtimeNode) SignBlockHash(blockHash Digest) Seal {
   return TmSign(node.PublicKey, node.privateKey, blockHash)
 }
 
 // prepares the block (assuming the nodes have reached a consensus)
-func PrepareBlock(nodes []TmNode, prevBlock Block, txs Transactions, appHash Digest) Block {
+func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHash Digest) Block {
   var lastBlockHash = TmMerkleRoot(packMulti(prevBlock.Header))
   var lastCommit = make([]Seal, 0, len(nodes))
   for i, node := range nodes {
@@ -549,8 +566,8 @@ However, an all-malicious cluster might never include the transaction sent by th
 
 These aspects will be considered in another section, and for now we will focus on how the block progress is being verified.
 
-**[???]** Do we need to supply the SwarmReceipt for the last manifest?
-**[TBD]** We should describe how these manifests are stored/verified using the sidechain.
+**[???]** Do we need to supply the SwarmReceipt for the last manifest?  
+**[TODO]** We should describe how these manifests are stored/verified using the sidechain.
 
 #### Prerequisites
 
@@ -572,8 +589,8 @@ func VerifyTendermintSignature(contract BasicFluenceContract, seal Seal, blockHa
   var minDeposit int64 = 1000000
 
   // checking that the Tendermint node has enough funds
-  var tmNodeId = seal.PublicKey
-  assertTrue(contract.NodesDeposits[tmNodeId] >= minDeposit)
+  var RealtimeNodeId = seal.PublicKey
+  assertTrue(contract.NodesDeposits[RealtimeNodeId] >= minDeposit)
 
   // checking that the receipt is signed by this Tendermint node
   assertTrue(TmVerify(seal, blockHash))
@@ -629,11 +646,7 @@ func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest
     VerifyTendermintSignature(contract, seal, manifests[2].Header.LastBlockHash)
   }
 
-  var signedNodesKeys = make([]PublicKey, 0, len(lastCommitPublicKeys))
-  for k := range lastCommitPublicKeys {
-    signedNodesKeys = append(signedNodesKeys, k)
-  }
-  return signedNodesKeys
+  return keys(lastCommitPublicKeys).([]PublicKey)
 }
 ```
 
@@ -653,18 +666,24 @@ func VerifyResponseChunks(results QueryResponse) {
 
 ### Transactions history downloading
 
-Batch validators are able to locate blocks that should be checked using the checkpoints stored in Ethereum contract. The validator chooses one of the checkpoints and downloads the manifest complementary to it using the suitable Swarm receipt. Now, the validator can unwind the chain until the next checkpoint by following receipts stored in each manifest and also download corresponding transactions.
+Batch validators are able to locate the blocks that should be checked using the checkpoints stored in the Ethereum contract. The validator chooses one of the checkpoints and downloads the manifest complementary to it using the suitable Swarm receipt. Now, the validator can unwind the chain until the next checkpoint by following receipts stored in each manifest and also download corresponding transactions.
 
 ```go
 type BatchValidator struct {
   PublicKey  PublicKey
-  PrivateKey PrivateKey
+  privateKey PrivateKey
 }
 
-func (validator BatchValidator) FetchSubchain(sideContract SideContract, height int64) ([]Manifest, []Transactions) {
-  var checkpoint = sideContract.CheckpointsByHeight[height]
+type Subchain struct {
+  Manifests    []Manifest
+  Transactions []Transactions
+}
 
-  var count = sideContract.CheckpointInterval + 2
+// fetches the subchain by tracing back starting from the checkpoint with the specified block height
+func (validator BatchValidator) FetchSubchain(contract SideFluenceContract, height int64) Subchain {
+  var checkpoint = contract.CheckpointsByHeight[height]
+
+  var count = contract.CheckpointInterval + 2
   var manifests = make([]Manifest, count)
   var txss = make([]Transactions, count)
 
@@ -676,22 +695,22 @@ func (validator BatchValidator) FetchSubchain(sideContract SideContract, height 
     receipt = manifests[i].LastManifestReceipt
   }
 
-  return manifests, txss
+  return Subchain{Manifests: manifests, Transactions: txss}
 }
 ```
 
 Here you can note that the number of manifests fetched exceeds the checkpoint interval by two. The reason is that, as we have mentioned in [§ Query response](#query-response) the block `k + 2` certifies the consensus on the block `k` virtual machine state. This means that checkpoint intervals and batch validation intervals are actually offset by two blocks.
 
 <p align="center">
-  <img src="images/batch_validation_interval.png" alt="Batch validation interval" width="771px"/>
+  <img src="images/batch_validation_interval.png" alt="Batch validation interval" width="821px"/>
 </p>
 
 ### State snapshots
 
-Once the validator has downloaded required manifests and transactions, it applies them to the previous virtual machine state snapshot. Snapshots are also stored in Swarm – one snapshot per each checkpoint interval, and their Swarm receipts are stored in the Ethereum contract.
+Once the validator has downloaded required manifests and transactions, it applies them to the previous virtual machine state snapshot. Snapshots are also stored in Swarm – one snapshot per each checkpoint interval, and their Swarm receipts are stored in the smart contract.
 
 ```go
-type ValidationContract struct {
+type ValidationFluenceContract struct {
   Confirmations map[int64]Confirmation // confirmations: block height –> confirmation
 }
 
@@ -705,48 +724,75 @@ type SnapshotMeta struct {
   VMStateHash     Digest       // virtual machine state hash
 }
 
+// initializes snapshot metadata and links the associated batch validation endorsement
+func (contract ValidationFluenceContract) EndorseInit(height int64, seal Seal, meta SnapshotMeta) {}
+
 // adds batch validator's endorsement to the confirmations list
-func (contract ValidationContract) Endorse(height int64, seal Seal, meta *SnapshotMeta) {}
+func (contract ValidationFluenceContract) Endorse(height int64, seal Seal) {}
 ```
 
 Because, as we have already mentioned, it takes two blocks to certify the consensus, snapshots are also shifted relative to checkpoints: for the checkpoint manifest `k`, the snapshot would represent the virtual machine state after processing blocks from `0` to `k – 2` included.
 
 <p align="center">
-  <img src="images/snapshots.png" alt="Batch validation interval" width="841px"/>
+  <img src="images/snapshots.png" alt="Snapshots" width="671px"/>
 </p>
 
 The validation contract carries endorsements of the snapshot by batch validators. Once the batch validator has produced a new virtual machine state, it uploads the snapshot to Swarm (unless there is already a snapshot uploaded) and submits an endorsement to the smart contract. Of course, this happens only if there were no disputes during the processing of blocks.
 
 ```go
-func (validator BatchValidator) Endorse(contract ValidationContract, height int64, state VMState) {
+// uploads the VM state to Swarm if needed and endorses it in the validation smart contract
+func (validator BatchValidator) Endorse(contract ValidationFluenceContract, height int64, state VMState) {
   var swarmHash = SwarmHash(pack(state.Chunks))
   var vmStateHash = MerkleRoot(state.Chunks)
 
-  var seal = Sign(validator.PublicKey, validator.PrivateKey, Hash(pack(swarmHash, vmStateHash)))
+  var seal = Sign(validator.PublicKey, validator.privateKey, Hash(pack(swarmHash, vmStateHash)))
 
   _, exists := contract.Confirmations[height]
   if exists {
-    contract.Endorse(height, seal, nil)
+    // no need to upload the virtual machine snapshot to Swarm
+    contract.Endorse(height, seal)
   } else {
-    var meta = SnapshotMeta{SnapshotReceipt: SwarmUpload(pack(state.Chunks)), VMStateHash: vmStateHash}
-    contract.Endorse(height, seal, &meta)
+    // uploading the state to Swarm
+    var receipt = SwarmUpload(pack(state.Chunks))
+
+    var meta = SnapshotMeta{SnapshotReceipt: receipt, VMStateHash: vmStateHash}
+    contract.EndorseInit(height, seal, meta)
   }
 }
 ```
 
 ### History replaying
 
-To produce a new virtual machine state snapshot, a batch validator downloads the previous snapshot and applies transactions happened since it was created. To produce the state for the checkpoint `k + t` where `t` is the checkpoint interval, the batch validator has to download from Swarm the state snapshot for the checkpoint `k` (this snapshot will have an index `k – 2`) and apply to it blocks `[k – 1, ..., k + t – 2]`.
+To produce a new virtual machine state snapshot, a batch validator downloads the previous snapshot and applies transactions happened since it was created. This is done with the help of the snapshot loading routine which also verifies snapshot correctness. Note that the state snapshot endorsement is actually written for two different state hashes: the Swarm-specific one (`SnapshotMeta.SnapshotReceipt.ContentHash`) and the one belonging to the Fluence core (`SnapshotMeta.VMStateHash`).
+
+Both hashes are computed in a similar fashion – as a Merkle root of the supplied content, however they might use different cryptographic hash functions. Chunk sizes might also be different, however that makes the narrative below a bit more involved and will be expanded in future versions of this document.
+
+It's expected, however, that both hashes match the content actually stored in Swarm. While for Swarm hash that's guaranteed by Swarm insurance, it might not be the case for the virtual machine state hash. For now we assume that the snapshot loading routine verifies the snapshot correctness and will discuss later on how a batch validator can protest if a discrepancy is found.
+
+```go
+// returns the downloaded state and it's correctness status
+func (validator BatchValidator) LoadSnapshot(contract ValidationFluenceContract, height int64) (VMState, bool) {
+  var confirmation = contract.Confirmations[height]
+  var meta = confirmation.SnapshotMeta
+
+  var state = VMStateUnpack(SwarmDownload(meta.SnapshotReceipt))
+  var correct = meta.VMStateHash == MerkleRoot(state.Chunks)
+  
+  return state, correct
+}
+```
+
+To produce the state for the checkpoint `k + t` where `t` is the checkpoint interval, the batch validator has to download from Swarm the state snapshot for the checkpoint `k` (this snapshot will have an index `k – 2`) and apply to it blocks `[k – 1, ..., k + t – 2]`.
 
 <p align="center">
-  <img src="images/batch_processing.png" alt="Batch processing" width="591px"/>
+  <img src="images/batch_processing.png" alt="Batch processing" width="651px"/>
 </p>
 
 For each block the batch validator verifies that BFT consensus was reached by the real-time Tendermint cluster. This is done the same way as the [client-side verification](#verification-of-consensus-on-the-virtual-machine-state) and allows to identify the nodes responsible for the state progress made.
 
 ```go
 // verifies a BFT consensus was reached on the manifest, returns nodes signed it
-func VerifyVMStateConsensus(flnContract FlnContract, manifests [3]Manifest) []PublicKey {}
+func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest) []PublicKey {}
 ```
 
 The batch validator applies blocks one by one to the snapshot and computes the virtual machine state hash after each block application. If the calculated hash doesn't match the hash stored in the manifest, either the batch validator or the real-time cluster has performed an incorrect state advance. This condition should be resolved via the verification game which is described later in this document.
@@ -755,26 +801,26 @@ Otherwise, if there were no disagreements while processing the history the batch
 
 ```go
 func (validator BatchValidator) Validate(
-    flnContract FlnContract,
-    sideContract SideContract,
-    validationContract ValidationContract,
+    basicContract BasicFluenceContract,
+    sideContract SideFluenceContract,
+    validationContract ValidationFluenceContract,
     height int64,
 ) {
   // fetching transactions and the previous snapshot
-  var manifests, txss = validator.FetchSubchain(sideContract, height)
+  var subchain = validator.FetchSubchain(sideContract, height)
   var snapshot, ok = validator.LoadSnapshot(validationContract, height - sideContract.CheckpointInterval)
 
   if ok {
-    for i := 0; i < len(manifests) - 2; i++ {
+    for i := 0; i < len(subchain.Manifests) - 2; i++ {
       // verifying BFT consensus
       var window = [3]Manifest{}
-      copy(manifests[i:i+2], window[0:3])
-      var publicKeys = VerifyVMStateConsensus(flnContract, window)
+      copy(subchain.Manifests[i:i+2], window[0:3])
+      var publicKeys = VerifyVMStateConsensus(basicContract, window)
 
       // verifying the real-time cluster state progress correctness
-      snapshot = NextVMState(snapshot, txss[i])
+      snapshot = NextVMState(snapshot, subchain.Transactions[i])
       var vmStateHash = MerkleRoot(snapshot.Chunks)
-      if vmStateHash != manifests[i].VMStateHash {
+      if vmStateHash != subchain.Manifests[i].VMStateHash {
         // TODO: dispute state advance using publicKeys, stop processing
         _ = publicKeys
       }
@@ -788,65 +834,52 @@ func (validator BatchValidator) Validate(
 }
 ```
 
-**TBD:** the state snapshot hash should match the checkpoint hash which is impossible now because they are actually off by 2.
-
+**FIXME:** the state snapshot hash should match the checkpoint hash which is impossible now because they are actually off by 2.
 
 ### State hash mismatch resolution
 
-Note that the state snapshot endorsement is actually written for two different virtual machine state hashes: the Swarm-specific one and the one belonging to the Fluence core. Both hashes are computed in a similar fashion – as a Merkle root of the supplied content, however they might use different cryptographic hash functions. Chunk sizes might also be different, however that makes the narrative below a bit more involved and will be expanded in future versions of this document (**TBD**).
+It might happen that a malicious batch validator **M** has generated the snapshot **state<sub>k</sub><sup>M</sup>** and uploaded it to Swarm. Now the snapshot should be accessible by the Swarm hash **swHash<sub>k</sub><sup>M</sup>**. We also assume that **M** has also submitted to the smart contract an incorrect virtual machine hash **vmHash<sub>k</sub><sup>M</sup>**. In this case, we have the following situation: **swHash<sub>k</sub><sup>M</sup>** == _SwarmHash_(**state<sub>k</sub><sup>M</sup>**), but **vmHash<sub>k</sub><sup>M</sup>** != _MerkleRoot_(**state<sub>k</sub><sup>M</sup>**).
 
-It's expected, however, that both hashes match the content actually stored in Swarm. While for Swarm hash (`swarmHash`) that's guaranteed by Swarm insurance, it might not be the case for the virtual machine state hash (`vmStateHash`). 
+Honest batch validator **A** is able to discover this after downloading the state snapshot `k` from Swarm using **swHash<sub>k</sub><sup>M</sup>** stored in the smart contract.
 
-It might happen that a malicious batch validator `M` has previously generated the snapshot `state-M[k]` and uploaded it to Swarm. We also assume that `M` has also submitted to the smart contract an incorrect `vmStateHash-M[k]`. In this case, we have the following situation: `swarmHash-M[k] == SwarmHash(state-M[k])`, but `vmStateHash-M[k] != MerkleRoot(state-M[k])`.
+That's an exceptional situation which warrants a dispute resolution through Ethereum. Let's assume as an induction hypothesis that the snapshot **state<sub>k – t</sub>** and corresponding hashes were produced correctly, i.e. **swHash<sub>k – t</sub>** == _SwarmHash_(**state<sub>k – t</sub>**) and **vmHash<sub>k – t</sub>** == _MerkleRoot_(**state<sub>k – t</sub>**). Otherwise, the batch validator **A** can make another step back and attempt to submit a dispute for the snapshot **state<sub>k – t</sub>**. 
 
-Honest batch validator `A` can discover this after downloading the state snapshot `k` from Swarm by using `swarmHash-M[k]` stored in the smart contract.
+Given that the snapshot **state<sub>k – t</sub>** is valid, **A** applies a segment of transactions history to it and derives the snapshot **state<sub>k</sub><sup>A</sup>**. From this snapshot **A** derives hashes **swHash<sub>k</sub><sup>A</sup>** and **vmHash<sub>k</sub><sup>A</sup>**.
 
-```go
-func (validator BatchValidator) LoadSnapshot(contract ValidationContract, height int64) (VMState, bool) {
-  var confirmation = contract.Confirmations[height]
-  var meta = confirmation.SnapshotMeta
+Now, two options are possible:
 
-  var state = VMStateUnpack(SwarmDownload(meta.SnapshotReceipt))
-  if meta.VMStateHash != MerkleRoot(state.Chunks) {
-    return VMState{}, false
-  } else {
-    return state, true
-  }
-}
-```
+1) **vmHash<sub>k</sub><sup>A</sup>** != **vmHash<sub>k</sub><sup>M</sup>**
 
-That's an exceptional situation which warrants a dispute submission to Ethereum. Let's assume as an induction hypothesis that the snapshot `state[k – t]` and corresponding hashes were produced correctly, i.e. `swarmHash[k – t] == SwarmHash(state[k - t])` and `vmStateHash[k – t] == MerkleRoot(state[k – t])`. Otherwise, the batch validator `A` can make another step back and attempt to submit a dispute for the snapshot `state[k – t]`. 
+   This means **M** has performed an incorrect state advance which grounds for a verification game between **A** and **M**. This will be described later, but what's important is that we don't care about the original **vmHash<sub>k</sub><sup>M</sup>** != _MerkleRoot_(**state<sub>k</sub><sup>M</sup>**) hash mismatch anymore.
 
-If the snapshot `state[k – t]` is valid `A` applies blocks `[k – t – 1, ..., k – 2]` to it and derives the snapshot `state-A[k]`. Also `A` derives hashes `swarmHash-A[k]` and `vmStateHash-A[k]`.
+2) **vmHash<sub>k</sub><sup>A</sup>** == **vmHash<sub>k</sub><sup>M</sup>**
+   
+   Because **vmHash<sub>k</sub><sup>A</sup>** == _MerkleRoot_(**state<sub>k</sub><sup>A</sup>**) and **vmHash<sub>k</sub><sup>M</sup>** != _MerkleRoot_(**state<sub>k</sub><sup>M</sup>**), we can conclude that snapshots generated by **A** and **M** do not match: **state<sub>k</sub><sup>A</sup>** != **state<sub>k</sub><sup>M</sup>**.
 
-Now, two options are possible.
+   It's obvious that for any chunk index **i** in the state snapshot, **A** can generate a Merkle proof proving this chunk data **state[i]<sub>k</sub><sup>A</sup>** corresponds to the Merkle root **vmHash<sub>k</sub><sup>A</sup>** == _MerkleRoot_(**state<sub>k</sub><sup>A</sup>**) and at the same time another Merkle proof that it corresponds to the Merkle root **swHash<sub>k</sub><sup>A</sup>** == _SwarmHash_(**state<sub>k</sub><sup>A</sup>**). 
 
-**1)** `vmStateHash-A[k] != vmStateHash-M[k]`. This means `M` has performed an incorrect state advance and grounds for a verification game between `A` and `M`. This will be described later, but what's important is that we don't care about the `vmStateHash-M[k] != MerkleRoot(state-M[k])` hash mismatch anymore.
+   However, by our assumption the Merkle root **vmHash<sub>k</sub><sup>M</sup>** == **vmHash<sub>k</sub><sup>A</sup>** == _MerkleRoot_(**state<sub>k</sub><sup>A</sup>**), but the Merkle root **swHash<sub>k</sub><sup>M</sup>** == _SwarmHash_(**state<sub>k</sub><sup>M</sup>**) where **state<sub>k</sub><sup>A</sup>** != **state<sub>k</sub><sup>M</sup>**. Basically, this means that **M** has generated **vmHash** and **swHash** using two different state snapshots.
 
-**2)** `vmStateHash-A[k] == vmStateHash-M[k]`. Because `vmStateHash-A[k] == MerkleRoot(state-A[k])` and `vmStateHash-M[k] != MerkleRoot(state-M[k])` we can conclude that `state-A[k] != state-M[k]`.
+   Now, all **A** needs to do is to find a chunk index **p** which points to the mismatched content in computed states: **state[p]<sub>k</sub><sup>A</sup>** != **state[p]<sub>k</sub><sup>M</sup>**, and submit a dispute to Ethereum smart contract requesting **M** to provide chunk **p** data and Merkle proofs proving its belonging to **vmHash<sub>k</sub><sup>M</sup>** and **swHash<sub>k</sub><sup>M</sup>**.
 
-This means `A` can find a chunk index which points to mismatched content in computed states: `∃ i: state-A.Chunks[i] != state-M.Chunks[i]`. It's obvious that `A` can generate a Merkle proof proving that chunk data `state-A.Chunks[i]` corresponds to the Merkle root `vmStateHash-A[k] == MerkleRoot(state-A[k])` and at the same time another Merkle proof that it corresponds to the Merkle root `swarmHash-A[k] == SwarmHash(state-A[k])`.
-
-However, the Merkle root `vmStateHash-M[k] == MerkleRoot(state-A[k])`, but the Merkle root `swarmHash-M[k] == SwarmHash(state-M[k])` where `state-A[k] != state-M[k]`. This means there is no such sequence of bytes that could be used as a chunk `i` that would have one Merkle proof proving it's correspondence to `vmStateHash-M[k]`, and another Merkle proof – to `swarmHash-M[k]`.
-
-Consequently, `A` submits a dispute to the smart contract demanding `M` to produce the chunk `i` and two Merkle proofs. If the contract finds one of two proofs invalid or `M` times out, `M` is considered as the side which lost the dispute and has it's deposit slashed.
+   Because those hashes were produced from different snapshots in the first place, **M** will not be able to do that. If the contract finds one of two proofs invalid or **M** times out, **M** is considered as the side which has lost the dispute and will have it's deposit slashed.
 
 ```go
-// opens a new hash mismatch dispute
-func (contract ValidationContract) OpenHashMismatchDispute(height int64, chunkIndex int) HashMismatchDispute {
-  return HashMismatchDispute{
+// opens a new snapshot hash mismatch dispute
+func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, chunkIndex int) SnapshotDispute {
+  return SnapshotDispute{
     SnapshotMeta: contract.Confirmations[height].SnapshotMeta,
     ChunkIndex:   chunkIndex,
   }
 }
 
-type HashMismatchDispute struct {
+type SnapshotDispute struct {
   SnapshotMeta SnapshotMeta
   ChunkIndex int
 }
 
 // returns whether the supplied Merkle proofs have passed an audite
-func (dispute HashMismatchDispute) Audit(chunk Chunk, vmProof MerkleProof, swarmProof MerkleProof) bool {
+func (dispute SnapshotDispute) Audit(chunk Chunk, vmProof MerkleProof, swarmProof MerkleProof) bool {
   // TODO: check chunk index in the proof
   // TODO: use Swarm-based Merkle proof verification
 
@@ -859,7 +892,7 @@ func (dispute HashMismatchDispute) Audit(chunk Chunk, vmProof MerkleProof, swarm
 
 Only a fraction of the network is allowed to serve as batch validators for a particular checkpoint interval. This is done to avoid a situation when a subset of malicious batch validators produces invalid results for the entire history of a certain cluster.
 
-**TBD**
+**TODO**
 
 
 

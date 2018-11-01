@@ -5,8 +5,6 @@ type PublicKey  = [32]byte
 type PrivateKey = [64]byte
 type Signature  = [64]byte
 
-type Chunk = []byte
-
 type HashFunc = func([]byte) Digest
 
 type MerkleProof struct {

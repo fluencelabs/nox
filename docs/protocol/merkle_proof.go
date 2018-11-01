@@ -90,6 +90,6 @@ func BuildRangeMerkleProof(data []byte, byteRange ByteRange, hashFn HashFunc) Ra
   }
 }
 
-func (contract ValidationContract) SubmitProofs(flProof RangeMerkleProof, swProof RangeMerkleProof) bool {
+func (contract ValidationFluenceContract) SubmitProofs(flProof RangeMerkleProof, swProof RangeMerkleProof) bool {
   panic("")
 }
