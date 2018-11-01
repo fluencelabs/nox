@@ -1,22 +1,20 @@
 package protocol
 
-type Digest = [32]byte
-type PublicKey = [32]byte
+type Digest     = [32]byte
+type PublicKey  = [32]byte
 type PrivateKey = [64]byte
-type Signature = [64]byte
-
-type Chunk = []byte
+type Signature  = [64]byte
 
 type HashFunc = func([]byte) Digest
 
 type MerkleProof struct {
-	Path     []int      // path from the Merkle tree root to the selected chunk
-	Siblings [][]Digest // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
+  Path     []int      // path from the Merkle tree root to the selected chunk
+  Siblings [][]Digest // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
 }
 
 type Seal struct {
-	PublicKey PublicKey
-	Signature Signature
+  PublicKey PublicKey
+  Signature Signature
 }
 
 // computes a cryptographic hash of the input data
