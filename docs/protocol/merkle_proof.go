@@ -1,9 +1,5 @@
 package protocol
 
-import (
-  "math"
-)
-
 // Merkle Tree representation
 type MerkleTree struct {
   Root Node
