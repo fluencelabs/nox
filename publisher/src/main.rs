@@ -73,12 +73,7 @@ fn publish_to_contract(
     let (_eloop, transport) = web3::transports::Http::new(&eth_url)?;
     let web3 = web3::Web3::new(transport);
 
-    match password {
-        Some(p) => {
-            web3.personal().unlock_account(account, p, None).wait()?;
-        }
-        _ => {}
-    }
+    if let Some(p) = password { personal().unlock_account(account, p, None).wait()?; }
 
     let json = include_bytes!("../Deployer.abi");
 
@@ -101,7 +96,7 @@ fn parse_url(url: &str) -> Result<Url, UrlError> {
     match Url::parse(url) {
         Ok(url) => Ok(url),
         Err(error) if error == UrlError::RelativeUrlWithoutBase => {
-            let url_with_base = format!("{}{}", "http://", url);
+            let url_with_base = format!("http://{}", url);
             Url::parse(url_with_base.as_str())
         }
         Err(error) => Err(error),
@@ -110,7 +105,7 @@ fn parse_url(url: &str) -> Result<Url, UrlError> {
 
 /// Uploads file from path to the swarm
 fn upload(url: &str, path: &str) -> Result<String, Box<Error>> {
-    let file = File::open(path).expect("file not found");
+    let file = File::open(path)?;
     let mut url = parse_url(url)?;
     url.set_path("/bzz:/");
 

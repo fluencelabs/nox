@@ -129,7 +129,7 @@ pub mod app {
 
         let cluster_size: u64 = matches.value_of("cluster_size").unwrap().parse()?;
         if cluster_size < 1 || cluster_size > 255 {
-            panic!("Invalid number: {}. Must be from 1 to 255.");
+            panic!("Invalid number: {}. Must be from 1 to 255.", cluster_size);
         }
 
         Ok(Publisher {
