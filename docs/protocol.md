@@ -112,16 +112,22 @@ const FlChunkSize int32 = 4000
 Then, each chunk is hashed, hashes grouped in pairs and hashed too and so on until Merkle Root is generated. Resulting Merkle Tree could be depicted like this.
 
 <p align="center">
-  <img src="images/range_merkle_tree_small.png" alt="Merkle Tree" width="699px"/>
+  <img src="images/range_merkle_tree.png" alt="Merkle Tree" width="722px"/>
 </p>
 
-Here we have a byte sequence splitted into 8 chunks. For `FlChunkSize` that would mean a 32 kilobyte sequence. Now, let's imagine we need a proof for bytes from `0x2800` to `0x7800`. It would span 5 chunks of `FlChunkSize` size, from 3rd (c) to 7th (g). So a Merkle Proof for chunks in `[2, 6]` (zero indexed) would look like this.
+Here we have a byte sequence splitted into 8 chunks. For `FlChunkSize` that would mean a 32 kilobyte sequence. Now, let's imagine we need a proof for bytes from `0x3555` to `0x4D55`. 
 
 <p align="center">
-  <img src="images/range_merkle_proof_small_1.png" alt="Merkle Tree" width="703px"/>
+  <img src="images/byte_range.png" alt="Merkle Tree" width="481px"/>
 </p>
 
-Here, `Chunks` are the chunks `[2, 6]` themselves, and `Hashes` are <code>H<sub>ab</sub></code> and <code>H<sub>h</sub></code>. Every other hash required for checking the proof could be calculated either from `Chunks` or from `Hashes`.
+It would span 3 chunks of `FlChunkSize` size, from 4th to 6th. So a Merkle Proof for chunks in `[3, 5]` (zero indexed) would look like this.
+
+<p align="center">
+  <img src="images/range_merkle_proof.png" alt="Merkle Tree" width="722px"/>
+</p>
+
+Here, `Chunks` are the chunks `[3, 5]` themselves, and `Hashes` are <code>H<sub>2</sub></code>, <code>H<sub>0-1</sub></code>, and <code>H<sub>6-7</sub></code>. Every other hash required for checking the proof could be calculated either from `Chunks` or from `Hashes`.
 
 In code, Merkle Proof is represented by
 ```go
@@ -172,11 +178,7 @@ Proof generation logic is implemented by `RangeProof` function that first locate
 func RangeProof(tree MerkleTree, start int32, stop int32) [][]Digest
 ```
 
-For a single byte range, algorithm effectively generates an ordinary Merkle Proof. For example, on 64 kilobyte sequence, a proof for a byte at `0x4800` would look like.
-
-<p align="center">
-  <img src="images/range_merkle_proof_small_2.png" alt="Merkle Tree" width="703px"/>
-</p>
+For a single chunk, algorithm effectively generates an ordinary Merkle Proof.
 
 ## External systems
 
