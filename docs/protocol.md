@@ -3,6 +3,7 @@
 - [Preface](#preface)
 - [Core](#core)
   - [Merkle Trees](#merkle-trees)
+    - [Merkle Proof verification](#merkle-proof-verification)
 - [External systems](#external-systems)
   - [Ethereum](#ethereum)
   - [Swarm](#swarm)
@@ -197,8 +198,7 @@ As sequence inclusion proof is just a comparison the Merkle Roots and can be der
   <img src="images/encoded_merkle_tree.png" alt="Merkle Tree" width="722px"/>
 </p>
 
-
-Starting from the bottom of the tree, each hash's position is strictly forced by the `Hashes` array in the following way. If there is a non-empty `Hashes[level][0]` or `[0]` for short, then that's a leftmost of the two siblings and all other proof's elements lay to the right. The same true for `[1]`: if it's non-empty, then all proof elements lay to the left of `[1]`. If either `[0]` or `[1]` are empty, then proof elements on this level are bound by the left and right already calculated elements, correspondingly. Each time `[0]` is non-empty let's write down `1` and `0` otherwise. And let's do the same for `[1]`, but vice-versa: `0` if it's not empty and `1` if it is. 
+Starting from the bottom of the tree, each hash's position is strictly forced by the `Hashes` array in the following way. If there is a non-empty `Hashes[level][0]` or `[0]` for short, then that's a leftmost of the two siblings and all other proof's elements lay to the right. The same true for `[1]`: if it's non-empty, then all proof elements lay to the left of `[1]`. If either `[0]` or `[1]` are empty, then proof elements on this level are bound by the left and right already calculated elements, correspondingly. Each time `[0]` is non-empty let's write down `1` and `0` otherwise. And let's do the same for `[1]`, but vice-versa: `0` if it's not empty and `1` if it is.
 
 <p align="center">
 <img src="images/position_encoding.png" alt="Merkle Tree" width="524px"/>
