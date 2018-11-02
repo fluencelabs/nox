@@ -9,9 +9,9 @@ Current code deployment process to the Fluence network looks like this:
 
  ## Requirements
  
-- address of Ethereum node that can do transactions
+- address of the Ethereum node that can do transactions
 - Ethereum account with enough gas for the transaction
-- address of public remote or local Swarm node
+- address of the Swarm node
 
 ## Installation
 
@@ -20,7 +20,7 @@ Requirements: [`rust`](https://www.rust-lang.org/install.html) and [`cargo`](htt
 - clone repo and `cd` to `publisher` folder
 - run `cargo build`
 - go to `target/debug`
-- there is executable file `publisher` to work with
+- there is an executable file `publisher` to work with
 
 ## Usage
 
