@@ -206,7 +206,7 @@ Starting from the bottom of the tree, each hash's position is strictly forced by
 
 On each level, left number yields a position of the leftmost calculated hash, and the right – of the rightmost. 
 
-Now we see that on each level, the positions of the proof elements are bound by the existence or absence of the `Hashes`'s elements.  The hashes are calculated as <code>H<sup>n+1</sup> = H(H<sub>0</sub><sup>n</sup> | H<sub>1</sub><sup>n</sup>)</code>, and since hash operation is not commutative, the order of the each pair at any level `n` is captured by their parents' hash on the level `n+1`. `n+2` captures order of 2 pairs on level `n`, and so on, until root hash has captured order of all elements in the tree.
+Now we see that the positions of the proof elements are bound by the existence or absence of the `Hashes`'s elements. The hashes are calculated as <code>H<sup>n+1</sup> = H(H<sub>0</sub><sup>n</sup> | H<sub>1</sub><sup>n</sup>)</code>, and since hash operation is not commutative, the order of the each pair at any level `n` is captured by their parents' hash on the level `n+1`. `n+2` captures order of 2 pairs on level `n`, and so on, until root hash has captured order of all elements in the tree.
 
 Positions of the chunk within the chunk sequence correspond to the hashes' positions as hashes are derived directly from these chunks. As the size of each chunk is captured by the hashing, we can conclude that <code>chunk<sub>3</sub></code> is starting at the index `0b011 = 0x3` and offset `0x3 * FlChunkSize = 0x3000` and <code>chunk<sub>5</sub></code> ends at `0x5000`.
 
