@@ -73,7 +73,7 @@ fn publish_to_contract(
     let (_eloop, transport) = web3::transports::Http::new(&eth_url)?;
     let web3 = web3::Web3::new(transport);
 
-    if let Some(p) = password { personal().unlock_account(account, p, None).wait()?; }
+    if let Some(p) = password { web3.personal().unlock_account(account, p, None).wait()?; }
 
     let json = include_bytes!("../Deployer.abi");
 
