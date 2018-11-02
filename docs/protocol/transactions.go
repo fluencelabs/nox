@@ -1,8 +1,8 @@
 package protocol
 
 type Transaction struct {
-  Invoke []byte  // function name & arguments + required metadata
-  Seal   Seal    // client signature of the transaction
+  Invoke []byte // function name & arguments + required metadata
+  Seal   Seal   // client signature
 }
 
 type Transactions = []Transaction
@@ -11,4 +11,4 @@ type Transactions = []Transaction
 func TransactionUnpack([]byte) Transaction { panic("") }
 
 // deserializes a byte array into the transactions list
-func TransactionsUnpack([]byte) Transactions{ panic("") }
+func TransactionsUnpack([]byte) Transactions { panic("") }

@@ -43,8 +43,8 @@ object CounterRunner extends IOApp {
         [SUCCESS] Execution Results.
 
         initState=$initState
-        get1=$get1
-        get2=$get2
+        get1=${get1.map(_.mkString)}
+        get2=${get2.map(_.mkString)}
         finishState=$finishState
 
       """

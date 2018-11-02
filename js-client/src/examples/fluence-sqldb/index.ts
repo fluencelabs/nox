@@ -36,10 +36,15 @@ interface Status {
     block_height: number
 }
 
+interface PortWithClient {
+    addr: string,
+    client: fluence.TendermintClient
+}
+
 class DbClient {
 
     private readonly sessions: fluence.Session[];
-    private readonly clients: fluence.TendermintClient[];
+    private readonly clients: PortWithClient[];
     private readonly size: number;
     private counter: number;
 
@@ -60,7 +65,10 @@ class DbClient {
         });
 
         this.clients = addrs.map((v) => {
-            return new fluence.TendermintClient(v.host, v.port);
+            return {
+                addr: v.host + ":" + v.port,
+                client: new fluence.TendermintClient(v.host, v.port)
+            };
         });
     }
 
@@ -88,7 +96,11 @@ class DbClient {
      */
     async status(): Promise<any[]> {
         return Promise.all(this.clients.map((cl) => {
-            return cl.client.status();
+            let status = cl.client.client.status() as Promise<any>;
+            return status.then((st) => {
+                st.node_info.listen_addr = cl.addr;
+                return st;
+            });
         }));
     }
 }
@@ -125,8 +137,8 @@ updateStatusBtn.addEventListener("click", () => {
 
 function genStatus(status: Status) {
     return `<div class="m-2 rounded border list-group-item-info p-2">
-                <label class="text-dark ml-2 mb-0">${status.addr}</label>
-                <ul class="list-unstyled mb-0 ml-4" style="font-size: 0.8rem">
+                <label class="text-dark ml-2 mb-0" style="font-size: 0.8rem">${status.addr}</label>
+                <ul class="list-unstyled mb-0 ml-4" style="font-size: 0.7rem">
                     <li>height: ${status.block_height}</li>
                     <li>block_hash: ${status.block_hash}</li>
                     <li>app_hash: ${status.app_hash}</li>
