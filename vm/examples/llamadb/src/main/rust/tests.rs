@@ -1,7 +1,5 @@
 //! Module with tests.
 
-use fluence::memory::STR_LEN_BYTES;
-
 extern crate fluence_sdk as fluence;
 
 #[test]
@@ -130,13 +128,14 @@ fn integration_sql_test() {
 /// Executes sql and returns result as a String.
 fn execute_sql(sql: &str) -> String {
     unsafe {
-        // converts params
-        let str_len = sql.len();
-        let sql_str_ptr = fluence::memory::write_str_to_mem(sql).unwrap();
+        use std::mem;
 
+        let mut sql_str = sql.to_string();
         // executes query
-        let result_str_ptr = super::do_query(sql_str_ptr.as_ptr().add(STR_LEN_BYTES), str_len);
-
+        let result_str_ptr = super::do_query(sql_str.as_bytes_mut().as_mut_ptr(), sql_str.len());
+        // ownership of memory of 'sql_str' will be taken through 'ptr' inside
+        // 'do_query' method, have to forget 'sql_str'  for prevent deallocation
+        mem::forget(sql_str);
         // converts results
         fluence::memory::read_str_from_fat_ptr(result_str_ptr).unwrap()
     }
