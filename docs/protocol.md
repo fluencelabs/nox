@@ -106,7 +106,7 @@ func Split(data []byte, chunk int32) []Chunk
 
 For example, chunk size in Fluence Merkle Tree is
 ```go
-const FlChunkSize int32 = 4000
+const FlChunkSize int32 = 4096
 ```
 
 Then, each chunk is hashed, hashes grouped in pairs and hashed too and so on until Merkle Root is generated. Resulting Merkle Tree could be depicted like this.
@@ -177,6 +177,36 @@ func RangeProof(tree MerkleTree, start int32, stop int32) [][]Digest
 ```
 
 For a single chunk, algorithm effectively generates an ordinary Merkle Proof.
+
+#### Merkle Proof verification
+Range Merkle Proof proves two things:
+1. Byte sequence includes specified continuous subsequence
+2. Position of the subsequence within the byte sequence is correct
+
+Note that it's not an original position that is proved, but a position extended to the whole chunk size. So for our previous example of subsequence `[0x3555, 0x4D55]` the proof is given for chunks corresponding to `[0x3000, 0x6000]`.
+
+Let's take a look at the `RangeMerkleProof` contents.
+
+<p align="center">
+  <img src="images/proof_contents.png" alt="Merkle Tree" width="401px"/>
+</p>
+
+As sequence inclusion proof is just a comparison the Merkle Roots and can be derived from `RangeProof` description, we'll focus on proving correctness of the sequence position. In order to do that, let's assign a binary number to each node of the Merkle Tree in a following manner.
+
+<p align="center">
+  <img src="images/encoded_merkle_tree.png" alt="Merkle Tree" width="722px"/>
+</p>
+
+
+Starting from the bottom of the tree, each hash's position is strictly forced by the `Hashes` array in the following way. If there is a non-empty `Hashes[level][0]` or `[0]` for short, then that's a leftmost of the two siblings and all other proof's elements lay to the right. The same true for `[1]`: if it's non-empty, then all proof elements lay to the left of `[1]`. If either `[0]` or `[1]` are empty, then proof elements on this level are bound by the left and right already calculated elements, correspondingly. Each time `[0]` is non-empty let's write down `1` and `0` otherwise. And let's do the same for `[1]`, but vice-versa: `0` if it's not empty and `1` if it is. 
+
+<p align="center">
+<img src="images/position_encoding.png" alt="Merkle Tree" width="524px"/>
+</p>
+
+Now we see that on each level, the positions of the proof elements are bound by the existence or absence of the `Hashes`'s elements.  The hashes are calculated as <code>H<sup>n+1</sup> = H(H<sub>0</sub><sup>n</sup> | H<sub>1</sub><sup>n</sup>)</code>, and since hash operation is not commutative, the order of the each pair at any level `n` is captured by their parents' hash on the level `n+1`. `n+2` captures order of 2 pairs on level `n`, and so on, until root hash has captured order of all elements in the tree.
+
+Positions of the chunk within the chunk sequence correspond to the hashes' positions as hashes are derived directly from these chunks. As the size of each chunk is captured by the hashing, we can conclude that <code>chunk<sub>3</sub></code> is starting at the index `0b011 = 0x3` and offset `0x3 * FlChunkSize = 0x3000` and <code>chunk<sub>5</sub></code> ends at `0x5000`.
 
 ## External systems
 
