@@ -96,13 +96,18 @@ object Web3jConverters {
   def clusterFormedEventToClusterData(
     event: ClusterFormedEventResponse,
     nodeKey: TendermintValidatorKey
-  ): ClusterData = {
+  ): Option[ClusterData] = {
     val genesis = b32DAtoGenesis(event.clusterID, event.solverIDs)
-    val persistentPeers = b32DAtoPersistentPeers(event.solverAddrs)
-    val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
-    val nodeIndex = genesis.validators.indexWhere(_.pub_key == nodeKey).toString
-    val nodeInfo = NodeInfo(cluster, nodeIndex)
-    ClusterData(nodeInfo, persistentPeers, "llamadb")
+    val nodeIndex = genesis.validators.indexWhere(_.pub_key == nodeKey)
+    println("found " + nodeIndex + " for " + nodeKey.asJson.noSpaces + " in " + genesis.asJson.noSpaces)
+    if (nodeIndex == -1)
+      None
+    else {
+      val persistentPeers = b32DAtoPersistentPeers(event.solverAddrs)
+      val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
+      val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
+      Some(ClusterData(nodeInfo, persistentPeers, "llamadb"))
+    }
   }
 
 }
