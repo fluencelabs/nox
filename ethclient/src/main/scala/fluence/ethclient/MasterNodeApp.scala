@@ -18,7 +18,6 @@ package fluence.ethclient
 
 import java.io.File
 import java.nio.file.{Files, Paths}
-import java.util.concurrent.TimeUnit
 
 import cats.Parallel
 import cats.effect.concurrent.Deferred
@@ -53,25 +52,17 @@ object MasterNodeApp extends IOApp {
       case None => false
       case Some(clusterData) =>
         val clusterName = clusterData.nodeInfo.cluster.genesis.chain_id
-        val vmCodeDirectory = "/Users/sergeev/git/fluencelabs/fluence/statemachine/docker/examples/vmcode-" + clusterData.code
+        val vmCodeDirectory = System.getProperty("user.dir") + "/statemachine/docker/examples/vmcode-" + clusterData.code
         val nodeIndex = clusterData.nodeInfo.node_index.toInt
         val longTermKeyLocation = solverInfo.longTermLocation
 
-        new File("/Users/sergeev/.fluence/nodes/" + clusterName + "/node" + clusterData.nodeInfo.node_index).mkdirs()
-        Files.write(
-          Paths.get(
-            "/",
-            "Users",
-            "sergeev",
-            ".fluence",
-            "nodes",
-            clusterName,
-            "node" + clusterData.nodeInfo.node_index,
-            "cluster_info.json"
-          ),
-          clusterData.nodeInfo.cluster.asJson.spaces2.getBytes
-        )
-        val clusterInfoJsonFile = "/Users/sergeev/.fluence/nodes/" + clusterName + "/node" + clusterData.nodeInfo.node_index + "/cluster_info.json"
+        val homeDir = System.getProperty("user.home")
+        val clusterInfoFileName = homeDir + "/.fluence/nodes/" + clusterName + "/node" + clusterData.nodeInfo.node_index + "/cluster_info.json"
+
+        val clusterInfoPath = Paths.get(clusterInfoFileName)
+
+        new File(clusterInfoPath.getParent.toString).mkdirs()
+        Files.write(clusterInfoPath, clusterData.nodeInfo.cluster.asJson.spaces2.getBytes)
 
         val hostP2pPort = clusterData.hostP2pPort
         val hostRpcPort = clusterData.hostRpcPort
@@ -84,7 +75,7 @@ object MasterNodeApp extends IOApp {
             vmCodeDirectory,
             nodeIndex,
             longTermKeyLocation,
-            clusterInfoJsonFile,
+            clusterInfoFileName,
             hostP2pPort,
             hostRpcPort,
             tmPrometheusPort,
