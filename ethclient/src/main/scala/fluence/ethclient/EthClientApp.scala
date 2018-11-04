@@ -30,7 +30,7 @@ import org.web3j.protocol.core.methods.request.EthFilter
 import scala.concurrent.duration._
 import scala.util.Random
 
-object EthClientApp extends IOApp {
+object EthClientApp /*extends IOApp {
   val owner = "0x24b2285cfc8a68d1beec4f4282ee6016aebb8fc4"
   val contractAddress = "0xe6d687c9d444714ced7cece2c028c660fa34c709"
 
@@ -88,3 +88,4 @@ object EthClientApp extends IOApp {
         ExitCode.Success
       }
 }
+ */

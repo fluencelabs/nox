@@ -16,13 +16,15 @@
 
 package fluence.ethclient.helpers
 import java.text.SimpleDateFormat
-import java.util.{Base64, Calendar}
+import java.util.{Base64, Calendar, Date}
 
 import fluence.ethclient.Deployer.ClusterFormedEventResponse
 import fluence.ethclient.data._
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.Bytes32
 import scodec.bits.{Bases, ByteVector}
+import io.circe.generic.auto._
+import io.circe.syntax._
 
 import scala.collection.JavaConverters._
 
@@ -41,16 +43,25 @@ object Web3jConverters {
 
   def base64ToBytes32(b64: String): Bytes32 = new Bytes32(Base64.getDecoder.decode(b64))
 
-  def b32ToChainId(clusterId: Bytes32): String = clusterId.getValue()(31).toString // TODO:
+  def b32ToChainId(clusterId: Bytes32): String = binaryToHex(clusterId.getValue.reverse.take(1)) // TODO:
 
-  def b32DAtoGenesis(clusterId: Bytes32, ids: DynamicArray[Bytes32]): Genesis = {
+  def b32DAtoGenesis(clusterId: Bytes32, ids: DynamicArray[Bytes32]): TendermintGenesis = {
     val validators = ids.getValue.asScala.zipWithIndex.map {
-      case (x, i) => Validator(Base64.getEncoder.encodeToString(x.getValue), "1", "node" + i)
+      case (x, i) =>
+        TendermintValidator(
+          TendermintValidatorKey(
+            "tendermint/PubKeyEd25519",
+            Base64.getEncoder.encodeToString(x.getValue)
+          ),
+          "1",
+          "node" + i
+        )
     }.toArray
 
     val chainId = b32ToChainId(clusterId)
-    val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(Calendar.getInstance().getTime)
-    Genesis(genesisTime, chainId, "", validators)
+    //val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(Calendar.getInstance().getTime)
+    val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(new Date(2018 - 1900, 11 - 1, 3))
+    TendermintGenesis(genesisTime, chainId, "", validators)
   }
 
   def hexToArrayUnsafe(hex: String): Array[Byte] =
@@ -82,7 +93,10 @@ object Web3jConverters {
         .toArray
     )
 
-  def clusterFormedEventToClusterData(event: ClusterFormedEventResponse, nodeKey: String): ClusterData = {
+  def clusterFormedEventToClusterData(
+    event: ClusterFormedEventResponse,
+    nodeKey: TendermintValidatorKey
+  ): ClusterData = {
     val genesis = b32DAtoGenesis(event.clusterID, event.solverIDs)
     val persistentPeers = b32DAtoPersistentPeers(event.solverAddrs)
     val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)

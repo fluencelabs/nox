@@ -17,7 +17,7 @@
 
 pragma solidity ^0.4.24;
 
-// TODO: comply to security suggestions from: https://github.com/OpenZeppelin/openzeppelin-solidity
+// TODO: comply with security suggestions from: https://github.com/OpenZeppelin/openzeppelin-solidity
 
 // TODO: add pausing, circuit-breaking logic 
 
@@ -46,7 +46,9 @@ contract Deployer {
         bytes32 storageHash;
         bytes32 storageReceipt;
         uint8 clusterSize;
-        
+
+        bool deployed;
+
         // TODO: should there be more statuses to just "deployed or not"?
         // e.g 'deploying', 'deployed'
         // maybe how many times it gets deployed, if that's the case
@@ -108,7 +110,7 @@ contract Deployer {
       * emits ClusterFormed event when there is enough solvers for the Code and emits CodeEnqueued otherwise, subject to change
       */
     function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize) external {
-        codes.push(Code(storageHash, storageReceipt, clusterSize));
+        codes.push(Code(storageHash, storageReceipt, clusterSize, false));
         if (!matchWork()) {
             // TODO: should it be hash of the `storageHash`? so no one could download it
             // in other words, is code private?
@@ -125,8 +127,11 @@ contract Deployer {
         return (cluster.code.storageHash, cluster.code.storageReceipt);
     }
 
-    function getStatus() external view returns (uint256, uint256) {
-        return (codes.length, freeSolvers.length);
+    function getStatus() external view returns (uint256, uint256, uint256[]) {
+        uint256[] memory cs = new uint256[](codes.length);
+        for (uint j = 0; j < codes.length; j++)
+            cs[j] = codes[j].deployed ? codes[j].clusterSize : 0;
+        return (freeSolvers.length, codes.length, cs);
     }
 
     /** @dev Checks if there is enough free Solvers for undeployed Code
@@ -136,8 +141,8 @@ contract Deployer {
         uint idx = 0;
         // TODO: better control codes.length so we don't exceed gasLimit
         // maybe separate deployed and undeployed code in two arrays
-        for (;idx < codes.length; ++idx) {
-            if (freeSolvers.length >= codes[idx].clusterSize) {
+        for (; idx < codes.length; ++idx) {
+            if (freeSolvers.length >= codes[idx].clusterSize && !codes[idx].deployed) {
                 break;
             }
         }
@@ -148,7 +153,7 @@ contract Deployer {
             return false;
         }
         
-        Code memory code = codes[idx];
+        Code storage code = codes[idx];
         bytes32[] memory cluster = new bytes32[](code.clusterSize);
         bytes32[] memory clusterAddrs = new bytes32[](code.clusterSize);
         for (uint j = 0; j < code.clusterSize; j++) {
@@ -161,6 +166,8 @@ contract Deployer {
         freeSolvers.length -= code.clusterSize; // TODO: that's awful, but Solidity doesn't change array length on delete
         bytes32 clusterID = bytes32(clustersCount++);
         busyClusters[clusterID] = BusyCluster(clusterID, code);
+
+        code.deployed = true;
         emit ClusterFormed(clusterID, cluster, clusterAddrs);
         return true;
     }
