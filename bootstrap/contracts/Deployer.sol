@@ -48,6 +48,7 @@ contract Deployer {
         bytes32 storageHash;
         bytes32 storageReceipt;
         uint8 clusterSize;
+        int64 genesisTime;
     }
 
     struct BusyCluster {
@@ -58,7 +59,8 @@ contract Deployer {
 
     // Emitted when there is enough free Solvers for some Code
     // Solvers should form a cluster in reaction to this event
-    event ClusterFormed(bytes32 clusterID, bytes32[] solverIDs, bytes32[] solverAddrs);
+    event ClusterFormed(bytes32 storageHash, int64 genesisTime, bytes32 clusterID,
+        bytes32[] solverIDs, bytes32[] solverAddrs);
 
     // Emitted when Code is enqueued, telling that there is not enough Solvers yet
     event CodeEnqueued(bytes32 storageHash);
@@ -111,10 +113,12 @@ contract Deployer {
       * @param storageHash Swarm storage hash; allows code distributed and downloaded through it
       * @param storageReceipt Swarm receipt, serves as a proof that code is stored
       * @param clusterSize specifies number of Solvers that must serve Code
-      * emits ClusterFormed event when there is enough solvers for the Code and emits CodeEnqueued otherwise, subject to change
+      * @param genesisTime unix timestamp used to initialize cluster genesis
+      * emits ClusterFormed event when there is enough solvers for the Code
+      * emits CodeEnqueued when there is not enough solvers for the Code, subject to change
       */
-    function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize) external {
-        enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize));
+    function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize, int64 genesisTime) external {
+        enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize, genesisTime));
         if (!matchWork()) {
             emit CodeEnqueued(storageHash);
         }
@@ -208,7 +212,7 @@ contract Deployer {
 
         busyClusters[clusterID] = BusyCluster(clusterID, code, clusterSolverIDs);
 
-        emit ClusterFormed(clusterID, clusterSolverIDs, clusterSolverAddrs);
+        emit ClusterFormed(code.storageHash, code.genesisTime, clusterID, clusterSolverIDs, clusterSolverAddrs);
         return true;
     }
 }

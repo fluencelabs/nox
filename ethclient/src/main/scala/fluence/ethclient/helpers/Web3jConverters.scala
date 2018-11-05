@@ -16,14 +16,14 @@
 
 package fluence.ethclient.helpers
 import java.text.SimpleDateFormat
-import java.util.{Base64, Date}
+import java.util.{Base64, Calendar, Date}
 
 import fluence.ethclient.Deployer.ClusterFormedEventResponse
 import fluence.ethclient.data._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.web3j.abi.datatypes.DynamicArray
-import org.web3j.abi.datatypes.generated.Bytes32
+import org.web3j.abi.datatypes.generated.{Bytes32, Int64}
 import scodec.bits.{Bases, ByteVector}
 
 import scala.collection.JavaConverters._
@@ -41,11 +41,14 @@ object Web3jConverters {
 
   def binaryToHex(b: Array[Byte]): String = ByteVector(b).toHex
 
-  def base64ToBytes32(b64: String): Bytes32 = new Bytes32(Base64.getDecoder.decode(b64))
+  def base64ToBytes32(base64: String): Bytes32 = new Bytes32(Base64.getDecoder.decode(base64))
 
-  def b32ToChainId(clusterId: Bytes32): String = binaryToHex(clusterId.getValue.reverse.take(1)) // TODO:
+  // TODO: currently only the lowermost byte used
+  def base64ClusterIdToChainId(clusterId: Bytes32): String = binaryToHex(clusterId.getValue.reverse.take(1))
 
-  def b32DAtoGenesis(clusterId: Bytes32, ids: DynamicArray[Bytes32]): TendermintGenesis = {
+  def base64ToString(bytes32: Bytes32): String = new String(bytes32.getValue.filter(_ != 0))
+
+  def clusterDataToGenesis(clusterId: Bytes32, ids: DynamicArray[Bytes32], genesisTimeI64: Int64): TendermintGenesis = {
     val validators = ids.getValue.asScala.zipWithIndex.map {
       case (x, i) =>
         TendermintValidator(
@@ -58,11 +61,11 @@ object Web3jConverters {
         )
     }.toArray
 
-    val chainId = b32ToChainId(clusterId)
-    //val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(Calendar.getInstance().getTime)
-    // TODO: provide time in addCode
-    val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-      .format(new Date(2018 - 1900, 11 - 1, 3))
+    val chainId = base64ClusterIdToChainId(clusterId)
+
+    val calendar: Calendar = Calendar.getInstance
+    calendar.setTimeInMillis(genesisTimeI64.getValue.longValue())
+    val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(calendar.getTime)
     TendermintGenesis(genesisTime, chainId, "", validators)
   }
 
@@ -99,16 +102,17 @@ object Web3jConverters {
     event: ClusterFormedEventResponse,
     nodeKey: TendermintValidatorKey
   ): Option[ClusterData] = {
-    val genesis = b32DAtoGenesis(event.clusterID, event.solverIDs)
+    val genesis = clusterDataToGenesis(event.clusterID, event.solverIDs, event.genesisTime)
     val nodeIndex = genesis.validators.indexWhere(_.pub_key == nodeKey)
     println("found " + nodeIndex + " for " + nodeKey.asJson.noSpaces + " in " + genesis.asJson.noSpaces)
     if (nodeIndex == -1)
       None
     else {
+      val storageHash = base64ToString(event.storageHash) // TODO: temporarily used as name of pre-existing local code
       val persistentPeers = b32DAtoPersistentPeers(event.solverAddrs)
       val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
       val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
-      Some(ClusterData(nodeInfo, persistentPeers, "llamadb"))
+      Some(ClusterData(nodeInfo, persistentPeers, storageHash))
     }
   }
 

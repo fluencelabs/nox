@@ -38,7 +38,7 @@ import scala.util.Random
 
 object MasterNodeApp extends IOApp {
   private val owner = "0x24b2285cfc8a68d1beec4f4282ee6016aebb8fc4"
-  private val contractAddress = "0x6bd05e55f22c0c39c22b0aaa2dc391314189a494" // replace this with your contract address
+  private val contractAddress = "0x48419a38ed3cfed8e7106921d67470791a5aa268" // replace this with your contract address
 
   private val bytes = stringToBytes32(Random.alphanumeric.take(10).mkString)
 

@@ -26,7 +26,7 @@ import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.web3j.abi.EventEncoder
-import org.web3j.abi.datatypes.generated.Uint8
+import org.web3j.abi.datatypes.generated.{Int64, Uint8}
 import org.web3j.protocol.core.methods.response.Log
 import slogging.LazyLogging
 
@@ -97,7 +97,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
             //txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
             //_ = assert(txReceipt.isStatusOK)
 
-            _ <- contract.addCode(bytes, bytes, new Uint8(2)).call[IO]
+            _ <- contract.addCode(bytes, bytes, new Uint8(2), new Int64(0)).call[IO]
 
             txReceipt <- contract
               .addSolver(
@@ -128,8 +128,9 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
       } yield {
         txReceipt.getLogs should contain(e)
         clusterFormedEvents.length shouldBe 1
-        println(b32DAtoGenesis(clusterFormedEvents.head.clusterID, clusterFormedEvents.head.solverIDs))
-        println(b32DAtoPersistentPeers(clusterFormedEvents.head.solverAddrs))
+        val event = clusterFormedEvents.head
+        println(clusterDataToGenesis(event.clusterID, event.solverIDs, event.genesisTime))
+        println(b32DAtoPersistentPeers(event.solverAddrs))
       }
     }.unsafeRunSync()
   }
