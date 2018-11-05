@@ -30,34 +30,31 @@ import fluence.ethclient.helpers.Web3jConverters._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.web3j.abi.EventEncoder
-import org.web3j.protocol.core.DefaultBlockParameterName
 import org.web3j.protocol.core.methods.request.EthFilter
+import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 
 import scala.sys.process._
 import scala.util.Random
 
 object MasterNodeApp extends IOApp {
   private val owner = "0x24b2285cfc8a68d1beec4f4282ee6016aebb8fc4"
-  private val contractAddress = "0x2f99f35e068918daa5b559798290f57070ffdaec"
+  private val contractAddress = "0x6bd05e55f22c0c39c22b0aaa2dc391314189a494" // replace this with your contract address
 
   private val bytes = stringToBytes32(Random.alphanumeric.take(10).mkString)
-
-  // TODO: filter not from the EARLIEST but from the some recent
-  private val filter =
-    new EthFilter(DefaultBlockParameterName.EARLIEST, DefaultBlockParameterName.LATEST, contractAddress)
-      .addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
 
   private def processClusterFormed(event: ClusterFormedEventResponse, solverInfo: SolverInfo): Boolean =
     clusterFormedEventToClusterData(event, solverInfo.validatorKey) match {
       case None => false
       case Some(clusterData) =>
         val clusterName = clusterData.nodeInfo.cluster.genesis.chain_id
-        val vmCodeDirectory = System.getProperty("user.dir") + "/statemachine/docker/examples/vmcode-" + clusterData.code
+        val vmCodeDirectory = System.getProperty("user.dir") +
+          "/statemachine/docker/examples/vmcode-" + clusterData.code
         val nodeIndex = clusterData.nodeInfo.node_index.toInt
         val longTermKeyLocation = solverInfo.longTermLocation
 
         val homeDir = System.getProperty("user.home")
-        val clusterInfoFileName = homeDir + "/.fluence/nodes/" + clusterName + "/node" + clusterData.nodeInfo.node_index + "/cluster_info.json"
+        val clusterInfoFileName = homeDir + "/.fluence/nodes/" + clusterName +
+          "/node" + clusterData.nodeInfo.node_index + "/cluster_info.json"
 
         val clusterInfoPath = Paths.get(clusterInfoFileName)
 
@@ -100,6 +97,13 @@ object MasterNodeApp extends IOApp {
           _ = println(s"Client version: $version")
 
           contract <- ethClient.getDeployer[IO](contractAddress, owner)
+
+          currentBlock = ethClient.web3.ethBlockNumber().send().getBlockNumber
+          filter = new EthFilter(
+            DefaultBlockParameter.valueOf(currentBlock),
+            DefaultBlockParameterName.LATEST,
+            contractAddress
+          ).addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
 
           _ ← par sequential par.apply.product(
             // Subscription stream

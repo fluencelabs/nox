@@ -30,6 +30,9 @@ pragma solidity ^0.4.24;
 
 // TODO: what are gas usage goals/targets? is there any limit?
 // TODO: calculate current gas usage
+// TODO: better control codes.length so we don't exceed gasLimit
+// TODO: should code hash be hash of the `storageHash`? so no one could download it. in other words, is code private?
+
 
 // implementation is at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/access/Whitelist.sol
 // example tests are at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/test/ownership/Whitelist.test.js
@@ -42,24 +45,15 @@ contract Deployer {
     }
 
     struct Code {
-        // TODO: should storageHash be of type hash?
         bytes32 storageHash;
         bytes32 storageReceipt;
         uint8 clusterSize;
-
-        bool deployed;
-
-        // TODO: should there be more statuses to just "deployed or not"?
-        // e.g 'deploying', 'deployed'
-        // maybe how many times it gets deployed, if that's the case
-        
-        // TODO: there should be timeout on deployment status, and it should be confirmed periodically
-        // cuz it is possible for Solvers to ignore `CodeDeploying` while code is marked as deployed=true
     }
 
     struct BusyCluster {
         bytes32 clusterID;
         Code code;
+        bytes32[] solvers;
     }
 
     // Emitted when there is enough free Solvers for some Code
@@ -72,33 +66,43 @@ contract Deployer {
     // Emitted on every new Solver
     event NewSolver(bytes32 id);
 
-    // Solvers enqueued for work
-    bytes32[] private freeSolvers;
+    // Solvers ready to work
+    Solver[] private freeSolvers;
 
-    // All solvers
-    mapping(bytes32 => Solver) private solvers;
+    // Last cluster used this solver. Used to deduplicate cluster participants
+    mapping(bytes32 => bytes32) private lastClusterForSolverID;
+
+    // Number of added freeSolvers for each solver ID
+    mapping(bytes32 => uint) private solverCountsByID;
+
+    // Number of free solvers with pairwise distinct IDs (number of non-zero values in solverCountsById)
+    uint distinctSolverCount = 0;
 
     // Cluster with assigned Code
     mapping(bytes32 => BusyCluster) private busyClusters;
-    
+
     // Number of existing clusters, used for clusterID generation
     // starting with 1, so we could check existince of cluster in the mapping, e.g:
     // if (busyCluster[someId].clusterID > 0)
-    uint256 clustersCount = 1;
+    uint256 clusterCount = 1;
 
-    // Deployed and undeployed Codes
-    Code[] private codes;
+    // Codes waiting for solvers
+    Code[] private enqueuedCodes;
 
     /** @dev Adds solver to the work-waiting queue
       * @param solverID some kind of unique ID
-      * @param solverAddress currently IP address, subject to change
+      * @param solverAddress currently packed (TendermintP2PKey, IP, port) tuple, subject to change
       * emits NewSolver event containing number of free solvers, subject to change
       * emits ClusterFormed event when there is enough solvers for some Code
       */
     function addSolver(bytes32 solverID, bytes32 solverAddress) external {
-        require(solvers[solverID].id == 0, "This solver is already registered");
-        solvers[solverID] = Solver(solverID, solverAddress);
-        freeSolvers.push(solverID);
+        freeSolvers.push(Solver(solverID, solverAddress));
+
+        if (solverCountsByID[solverID] == 0) {
+            distinctSolverCount++;
+        }
+        solverCountsByID[solverID]++;
+
         emit NewSolver(solverID);
         matchWork();
     }
@@ -110,10 +114,8 @@ contract Deployer {
       * emits ClusterFormed event when there is enough solvers for the Code and emits CodeEnqueued otherwise, subject to change
       */
     function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize) external {
-        codes.push(Code(storageHash, storageReceipt, clusterSize, false));
+        enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize));
         if (!matchWork()) {
-            // TODO: should it be hash of the `storageHash`? so no one could download it
-            // in other words, is code private?
             emit CodeEnqueued(storageHash);
         }
     }
@@ -121,54 +123,92 @@ contract Deployer {
     /** @dev Allows anyone with clusterID to retrieve assigned Code
      * @param clusterID unique id of cluster (keccak256 of abi.encodePacked(clusterIDs))
      */
-    function getCode(bytes32 clusterID) external view returns (bytes32, bytes32) {
+    function getCluster(bytes32 clusterID) external view returns (bytes32, bytes32, bytes32[]) {
         BusyCluster memory cluster = busyClusters[clusterID];
         require(cluster.clusterID > 0, "there is no such cluster");
-        return (cluster.code.storageHash, cluster.code.storageReceipt);
+        return (cluster.code.storageHash, cluster.code.storageReceipt, cluster.solvers);
     }
 
-    function getStatus() external view returns (uint256, uint256, uint256[]) {
-        uint256[] memory cs = new uint256[](codes.length);
-        for (uint j = 0; j < codes.length; j++)
-            cs[j] = codes[j].deployed ? codes[j].clusterSize : 0;
-        return (freeSolvers.length, codes.length, cs);
+    /** @dev Allows to track contract status
+     */
+    function getStatus() external view returns (uint8, uint256, uint256[]) {
+        uint256[] memory cs = new uint256[](enqueuedCodes.length);
+        for (uint j = 0; j < enqueuedCodes.length; ++j) {
+            cs[j] = enqueuedCodes[j].clusterSize;
+        }
+        // fast way to check that contract deployed incorrectly: in this case getStatus() returns (0, 0, [])
+        uint8 version = 101;
+        return (version, freeSolvers.length, cs);
     }
 
     /** @dev Checks if there is enough free Solvers for undeployed Code
      * emits ClusterFormed event if so
      */
     function matchWork() internal returns (bool) {
-        uint idx = 0;
-        // TODO: better control codes.length so we don't exceed gasLimit
-        // maybe separate deployed and undeployed code in two arrays
-        for (; idx < codes.length; ++idx) {
-            if (freeSolvers.length >= codes[idx].clusterSize && !codes[idx].deployed) {
+        // TODO: To avoid initially wrong p2p configuration we also need to ensure that the information packed in solver
+        // address (Tendermint p2p keys addresses and host/port pairs) is also pairwise distinct in a formed cluster.
+
+        // looking for a enqueued code for which we have enough solvers
+        for (uint idx = 0; idx < enqueuedCodes.length; ++idx) {
+            if (distinctSolverCount >= enqueuedCodes[idx].clusterSize) {
                 break;
             }
         }
 
-        // check if we hit the condition `freeSolvers.length >= codes[idx].clusterSize` above
-        // idx >= codes.length means that we skipped through codes array without hitting condition
-        if (idx >= codes.length) {
+        if (idx >= enqueuedCodes.length) {
+            // means that we passed through codes array without hitting condition
             return false;
         }
-        
-        Code storage code = codes[idx];
-        bytes32[] memory cluster = new bytes32[](code.clusterSize);
-        bytes32[] memory clusterAddrs = new bytes32[](code.clusterSize);
-        for (uint j = 0; j < code.clusterSize; j++) {
-            // moving & deleting from the end, so we don't have gaps
-            // yep, that makes the solvers[] a LIFO, but is it a problem really?
-            bytes32 solverID = freeSolvers[freeSolvers.length - j - 1];
-            cluster[j] = solverID;
-            clusterAddrs[j] = solvers[solverID].nodeAddress;
-        }
-        freeSolvers.length -= code.clusterSize; // TODO: that's awful, but Solidity doesn't change array length on delete
-        bytes32 clusterID = bytes32(clustersCount++);
-        busyClusters[clusterID] = BusyCluster(clusterID, code);
 
-        code.deployed = true;
-        emit ClusterFormed(clusterID, cluster, clusterAddrs);
+        // match found
+        Code memory code = enqueuedCodes[idx];
+
+        // replace this code in enqueuedCodes with the last one
+        if (idx + 1 != enqueuedCodes.length) {
+            enqueuedCodes[idx] = enqueuedCodes[enqueuedCodes.length - 1];
+        }
+        --enqueuedCodes.length;
+
+        // preparing response data
+        bytes32[] memory clusterSolverIDs = new bytes32[](code.clusterSize);
+        bytes32[] memory clusterSolverAddrs = new bytes32[](code.clusterSize);
+        bytes32 clusterID = bytes32(clusterCount++);
+
+        uint solversToCollect = code.clusterSize;
+        // traversing freeSolvers and collecting cluster participants from them
+
+        for (uint j = 0; j < freeSolvers.length; ) {
+            if (solversToCollect == 0) {
+                break;
+            }
+            // lastClusterForSolverID keeps the last clusterID for solver thus avoiding duplicate solver IDs in cluster
+            if (lastClusterForSolverID[freeSolvers[j].id] != clusterID) {
+                --solversToCollect;
+                clusterSolverIDs[solversToCollect] = freeSolvers[j].id;
+                clusterSolverAddrs[solversToCollect] = freeSolvers[j].nodeAddress;
+
+                // update lastClusterForSolverID, solverCountsByID and distinctSolverCount
+                lastClusterForSolverID[freeSolvers[j].id] = clusterID;
+                assert(solverCountsByID[freeSolvers[j].id] > 0);
+                if (--solverCountsByID[freeSolvers[j].id] == 0) {
+                    --distinctSolverCount;
+                }
+
+                // replace this solver with the last one
+                if (j + 1 != freeSolvers.length) {
+                    freeSolvers[j] = freeSolvers[freeSolvers.length - 1];
+                }
+                --freeSolvers.length;
+            }
+            else {
+                ++j;
+            }
+        }
+        assert(solversToCollect == 0);
+
+        busyClusters[clusterID] = BusyCluster(clusterID, code, clusterSolverIDs);
+
+        emit ClusterFormed(clusterID, clusterSolverIDs, clusterSolverAddrs);
         return true;
     }
 }

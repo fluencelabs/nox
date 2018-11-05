@@ -16,15 +16,15 @@
 
 package fluence.ethclient.helpers
 import java.text.SimpleDateFormat
-import java.util.{Base64, Calendar, Date}
+import java.util.{Base64, Date}
 
 import fluence.ethclient.Deployer.ClusterFormedEventResponse
 import fluence.ethclient.data._
+import io.circe.generic.auto._
+import io.circe.syntax._
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.Bytes32
 import scodec.bits.{Bases, ByteVector}
-import io.circe.generic.auto._
-import io.circe.syntax._
 
 import scala.collection.JavaConverters._
 
@@ -60,7 +60,9 @@ object Web3jConverters {
 
     val chainId = b32ToChainId(clusterId)
     //val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(Calendar.getInstance().getTime)
-    val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(new Date(2018 - 1900, 11 - 1, 3))
+    // TODO: provide time in addCode
+    val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+      .format(new Date(2018 - 1900, 11 - 1, 3))
     TendermintGenesis(genesisTime, chainId, "", validators)
   }
 

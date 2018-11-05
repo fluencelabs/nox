@@ -44,7 +44,7 @@ import scala.language.higherKinds
  *
  * @param web3 Underlying Web3j instance
  */
-class EthClient private (private val web3: Web3j) extends LazyLogging {
+class EthClient private (val web3: Web3j) extends LazyLogging {
 
   /**
    * Returns the current client version.
