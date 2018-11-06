@@ -4,6 +4,8 @@
 - [Core](#core)
   - [Merkle Trees](#merkle-trees)
     - [Merkle Proof verification](#merkle-proof-verification)
+      - [Hash guarantees](#hash-guarantees)
+      - [Position proof](#position-proof)
 - [External systems](#external-systems)
   - [Ethereum](#ethereum)
   - [Swarm](#swarm)
@@ -192,23 +194,43 @@ Let's take a look at the `RangeMerkleProof` contents.
   <img src="images/proof_contents.png" alt="Merkle Tree" width="401px"/>
 </p>
 
-As sequence inclusion proof is just a comparison the Merkle Roots and can be derived from `RangeProof` description, we'll focus on proving correctness of the sequence position. In order to do that, let's assign a binary number to each node of the Merkle Tree in a following manner.
+To describe how a Range Merkle Proof is checked, let's first assign each node a binary number corresponding to its position on the level of the tree where that node is placed. Levels start from the level <code>S<sub>0</sub></code> containing children of the tree root. Then, children of all nodes on <code>S<sub>0</sub></code> make <code>S<sub>1</sub></code>. Now, since nodes are zero-indexed, third node on the <code>S<sub>1</sub></code> is assigned the binary number `10` and 4th node on level <code>S<sub>2</sub></code> is `011`.
 
 <p align="center">
   <img src="images/encoded_merkle_tree.png" alt="Merkle Tree" width="722px"/>
 </p>
 
-Starting from the bottom of the tree, each hash's position is strictly forced by the `Hashes` array in the following way. If there is a non-empty `Hashes[level][0]` or `[0]` for short, then that's a leftmost of the two siblings and all other proof's elements lay to the right. The same true for `[1]`: if it's non-empty, then all proof elements lay to the left of `[1]`. If either `[0]` or `[1]` are empty, then proof elements on this level are bound by the left and right already calculated elements, correspondingly. Each time `[0]` is non-empty let's write down `1` and `0` otherwise. And let's do the same for `[1]`, but vice-versa: `0` if it's not empty and `1` if it is.
+Each level, starting from 0, consists of an even number of nodes. Nodes are grouped in pairs and hashes are computed over these pairs give either a parent level if level > 0, or Merkle Root otherwise. In the Range Merkle Proof, however, there could be an odd number of chunks and in order to compute its parent level, it needs to be extended to an even number of nodes. For that, let's define an *extension* operation.
+
+On any level `l`, a set of computed hashes <code>S<sub>l</sub></code> contains some number of tree nodes each having an assigned binary number <code>a<sub>0</sub>a<sub>1</sub>...a<sub>k</sub></code>. `Hashes` array contains 0 to 2 complementary hashes for each `l`. Let's denote the leftmost element in <code>S<sub>l</sub></code> as `L` and rightmost as `R`. Now, *extension* is defined as two operations:
+1. if `L`'s <code>a<sub>k</sub></code> is 1, add left complementary hash to <code>S<sub>l</sub></code>, i.e., prepend `Hashes[l][0]`
+2. if `R`'s <code>a<sub>k</sub></code> is 0, add right complementary hash to <code>S<sub>l</sub></code>, i.e., append `Hashes[l][1]`
+
+*Proof is deemed incorrect if at any level extension yields an odd number of nodes.*
 
 <p align="center">
-<img src="images/position_encoding.png" alt="Merkle Tree" width="524px"/>
+<img src="images/extension.png" alt="Extension" width="483px"/>
 </p>
 
-On each level, left number yields a position of the leftmost calculated hash, and the right – of the rightmost. 
+In a Merkle Tree, each node is computed as a hash of the concatenation of its children. E.g., `root = hash(0 | 1)` where `0` and `1` are nodes on the level `0`. Now, starting from `Chunks`, let's compute the bottom level hashes <code>S<sub>h-1</sub> = [hash(chunk<sub>0</sub>), ..., hash(chunk<sub>k</sub>)]</code>, where `h` is the height of the tree. Then, apply *extension* to <code>S<sub>h-1</sub></code> and check that <code>|S<sub>h-1</sub>|</code> is even. Next, group elements in <code>S<sub>h-1</sub></code> pairwise and compute <code>S<sub>h-2</sub></code>. Repeat process with <code>S<sub>h-2</sub></code> until <code>S<sub>0</sub></code> . Then, calculate `root = hash(0 | 1)` and compare it to the provided Merkle Root.
 
-Now we see that the positions of the proof elements are bound by the existence or absence of the `Hashes`'s elements. The hashes are calculated as <code>H<sup>n+1</sup> = H(H<sub>0</sub><sup>n</sup> | H<sub>1</sub><sup>n</sup>)</code>, and since hash operation is not commutative, the order of the each pair at any level `n` is captured by their parents' hash on the level `n+1`. `n+2` captures order of 2 pairs on level `n`, and so on, until root hash has captured order of all elements in the tree.
+##### Hash guarantees
+`hash` is considered to be resistant to preimage attack, for two different Merkle Trees <code>T<sub>0</sub></code> and <code>T<sub>1</sub></code>, if some node <code>q</code> from <code>T<sub>0</sub></code> equals to other node <code>p</code> from <code>T<sub>1</sub></code>, that means that their children are equal too (1). 
 
-Positions of the chunk within the chunk sequence correspond to the hashes' positions as hashes are derived directly from these chunks. As the size of each chunk is captured by the hashing, we can conclude that <code>chunk<sub>3</sub></code> is starting at the index `0b011 = 0x3` and offset `0x3 * FlChunkSize = 0x3000` and <code>chunk<sub>5</sub></code> ends at `0x5000`.
+##### Position proof
+Since the range is continuous, if left and right boundaries' positions are correct, then the whole range is placed correctly. Let's iterate through the whole Merkle Tree, and show that transitions on each level are unambiguous and correct. Let's start with root. Since there is a single root, selecting it is unambigious and correct.
+
+Now, we have to check that transitions from level `n` to level `n + 1` are correct. Since range of chunks is continuous, it is enough to check left and right position boundaries to be sure whole range is placed correctly in the sequence of chunks. Let's start by defining transition operations. There are two of them: the *left transition* operation that is very similar to *extension 1.*, and the *right transition* similar to *extension 2.*.
+
+*Left transition* for current pair of sibling nodes chooses one of them such that if left complementary hash is defined, choose right sibling, and left sibling otherwise. 
+
+*Right transition* is defined as: left sibling if right complementary hash is defined, and right sibling otherwise.
+
+Since there is always only a single and well-defined left or right sibling, both left and right *transitions* are unambigious and given the same complementary hashes and same sibling pair, always yield same nodes (2). Hash of concatenated siblings is correct in a Merkle Tree sense (3). If (3) holds, then from (1) and (2) it follows that the node given by *transition* has the same position and value in any Merkle Tree with the same Merkle Root.
+
+Now, iterating through the tree by using only *left* or *right* *transitions*, on the last level of the tree we will get left-most and right-most bottom hashes. Their positions are umabigiously and correctly defined by sequential transitions. This is due to that on each iteration step, there was only one possible outcome for each boundary, so the whole path from root to bottom is univocal and correct.
+
+Positions of the chunk within the chunk sequence correspond to the bottom hashes' positions as hashes are derived directly from these chunks. As the size of each chunk is captured by the hashing, we can conclude that <code>chunk<sub>3</sub></code> is starting at the index `0b011 = 0x3` and offset `0x3 * FlChunkSize = 0x3000` and <code>chunk<sub>5</sub></code> ends at `0x5000`.
 
 ## External systems
 
