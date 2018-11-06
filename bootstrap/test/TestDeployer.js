@@ -39,7 +39,7 @@ async function addSolvers(instance, count, addr, adder) {
 contract('Deployer', function ([_, owner, whitelisted, anyone]) {
     beforeEach(async function() {
       this.deployer = await Deployer.new({ from: owner });
-      await this.deployer.addAddressToWhitelist(whitelisted, { from: owner })
+      //await this.deployer.addAddressToWhitelist(whitelisted, { from: owner })
     })
 
     it("Should send event about new Solvers", async function() {
@@ -53,7 +53,7 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
 
     it("Should send event about enqueued Code", async function() {
         let storageHash  = string2Bytes32("abc")
-        let receipt = await this.deployer.addCode(storageHash, "bca", 5, { from: whitelisted })
+        let receipt = await this.deployer.addCode(storageHash, "bca", 5, 0, { from: whitelisted })
 
         truffleAssert.eventEmitted(receipt, 'CodeEnqueued', (ev) => {
             assert.equal(ev.storageHash, storageHash)
@@ -63,7 +63,7 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
 
     it("Should throw an error if asking about non-existent cluster", async function() {
         await expectThrow(
-            this.deployer.getCode("abc")
+            this.deployer.getCluster("abc")
         )
     })
 
@@ -71,7 +71,7 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
         let count = 5
         let storageHash = string2Bytes32("abc")
         let storageReceipt = string2Bytes32("bca")
-        await this.deployer.addCode(storageHash, storageReceipt, count, { from: whitelisted })
+        await this.deployer.addCode(storageHash, storageReceipt, count, 0, { from: whitelisted })
 
         let receipts = await addSolvers(this.deployer, count, "127.0.0.1", whitelisted)
 
@@ -81,7 +81,7 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
             return true;
         })
 
-        let code = await this.deployer.getCode(clusterID)
+        let code = await this.deployer.getCluster(clusterID)
         assert.equal(code[0], storageHash)
         assert.equal(code[1], storageReceipt)
     })
@@ -90,7 +90,8 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
         let count = 5
         let storageHash = string2Bytes32("abc")
         let storageReceipt = string2Bytes32("bca")
-        await this.deployer.addCode(storageHash, storageReceipt, count, { from: whitelisted })
+        await this.deployer.addCode(storageHash, storageReceipt, count, 0, { from: whitelisted })
+        await this.deployer.addCode(storageHash, storageReceipt, count, 0, { from: whitelisted })
         
         let firstCluster = (await addSolvers(this.deployer, count, "127.0.0.1", whitelisted)).pop()
         let secondCluster = (await addSolvers(this.deployer, count, "127.0.0.1", whitelisted)).pop()
@@ -99,7 +100,8 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
         truffleAssert.eventEmitted(secondCluster, 'ClusterFormed', _ => true)
     })
 
-    it("Should revert if anyone tries to add code", async function() {
+    // TODO: uncomment this after whitelisting recovering
+    /*it("Should revert if anyone tries to add code", async function() {
         await expectThrow(
             this.deployer.addCode("storageHash", "storageReceipt", 100)
         )
@@ -117,13 +119,5 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
         await expectThrow(
             this.deployer.addSolver("id", "address", { from: anyone })
         )
-    })
-
-    it("Should revert if add already registered solver", async function() {
-        await this.deployer.addSolver("uniqueId", "address", { from: whitelisted })
-
-        await expectThrow(
-            this.deployer.addSolver("uniqueId", "address", { from: whitelisted })
-        )
-    })
+    })*/
 })

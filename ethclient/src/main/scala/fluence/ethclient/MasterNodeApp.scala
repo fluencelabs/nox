@@ -36,8 +36,8 @@ import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName
 import scala.sys.process._
 
 object MasterNodeApp extends IOApp {
-  private val owner = "0x24b2285cfc8a68d1beec4f4282ee6016aebb8fc4"
-  private val contractAddress = "0x48419a38ed3cfed8e7106921d67470791a5aa268" // replace this with your contract address
+  private val owner = "0x24b2285cfc8a68d1beec4f4282ee6016aebb8fc4" // replace this with your eth account
+  private val contractAddress = "0x7928e83e9da272589cc4a51d3d8436fe8075465c" // replace this with your contract address
 
   private def processClusterFormed(event: ClusterFormedEventResponse, solverInfo: SolverInfo): Boolean =
     clusterFormedEventToClusterData(event, solverInfo.validatorKey) match {
@@ -80,6 +80,11 @@ object MasterNodeApp extends IOApp {
         true
     }
 
+  /**
+   * Launches a single solver connecting to ethereum blockchain with Deployer contract.
+   *
+   * @param args 1st: Tendermint key location. 2nd: Tendermint p2p port
+   */
   override def run(args: List[String]): IO[ExitCode] =
     EthClient
       .makeHttpResource[IO]()

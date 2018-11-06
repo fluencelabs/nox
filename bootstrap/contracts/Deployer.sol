@@ -33,12 +33,13 @@ pragma solidity ^0.4.24;
 // TODO: better control codes.length so we don't exceed gasLimit
 // TODO: should code hash be hash of the `storageHash`? so no one could download it. in other words, is code private?
 
+// TODO: recover whitelisting
 
 // implementation is at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/access/Whitelist.sol
 // example tests are at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/test/ownership/Whitelist.test.js
-//import "openzeppelin-solidity/contracts/access/Whitelist.sol";
+import "openzeppelin-solidity/contracts/access/Whitelist.sol";
 
-contract Deployer {
+contract Deployer /*is Whitelist*/ {
     struct Solver {
         bytes32 id;
         bytes32 nodeAddress;
@@ -97,7 +98,7 @@ contract Deployer {
       * emits NewSolver event containing number of free solvers, subject to change
       * emits ClusterFormed event when there is enough solvers for some Code
       */
-    function addSolver(bytes32 solverID, bytes32 solverAddress) external {
+    function addSolver(bytes32 solverID, bytes32 solverAddress) external /*onlyIfWhitelisted(msg.sender)*/ {
         freeSolvers.push(Solver(solverID, solverAddress));
 
         if (solverCountsByID[solverID] == 0) {
@@ -117,7 +118,7 @@ contract Deployer {
       * emits ClusterFormed event when there is enough solvers for the Code
       * emits CodeEnqueued when there is not enough solvers for the Code, subject to change
       */
-    function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize, int64 genesisTime) external {
+    function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize, int64 genesisTime) external /*onlyIfWhitelisted(msg.sender)*/ {
         enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize, genesisTime));
         if (!matchWork()) {
             emit CodeEnqueued(storageHash);
