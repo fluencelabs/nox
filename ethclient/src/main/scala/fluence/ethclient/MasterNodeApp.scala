@@ -39,6 +39,13 @@ object MasterNodeApp extends IOApp {
   private val owner = "0x24b2285cfc8a68d1beec4f4282ee6016aebb8fc4" // replace this with your eth account
   private val contractAddress = "0x7928e83e9da272589cc4a51d3d8436fe8075465c" // replace this with your contract address
 
+  /**
+   * Tries to convert event information to cluster configuration and, in case of success, launches a single solver.
+   *
+   * @param event event from Ethereum Deployer contract
+   * @param solverInfo information used to identify the current solver
+   * @return whether this event is relevant to the passed SolverInfo
+   */
   private def processClusterFormed(event: ClusterFormedEventResponse, solverInfo: SolverInfo): Boolean =
     clusterFormedEventToClusterData(event, solverInfo.validatorKey) match {
       case None => false
@@ -58,7 +65,7 @@ object MasterNodeApp extends IOApp {
         new File(clusterInfoPath.getParent.toString).mkdirs()
         Files.write(clusterInfoPath, clusterData.nodeInfo.cluster.asJson.spaces2.getBytes)
 
-        val hostP2pPort = clusterData.hostP2pPort
+        val hostP2PPort = clusterData.hostP2PPort
         val hostRpcPort = clusterData.hostRpcPort
         val tmPrometheusPort = clusterData.tmPrometheusPort
         val smPrometheusPort = clusterData.smPrometheusPort
@@ -70,7 +77,7 @@ object MasterNodeApp extends IOApp {
             nodeIndex,
             longTermKeyLocation,
             clusterInfoFileName,
-            hostP2pPort,
+            hostP2PPort,
             hostRpcPort,
             tmPrometheusPort,
             smPrometheusPort
@@ -83,14 +90,14 @@ object MasterNodeApp extends IOApp {
   /**
    * Launches a single solver connecting to ethereum blockchain with Deployer contract.
    *
-   * @param args 1st: Tendermint key location. 2nd: Tendermint p2p port
+   * @param args 1st: Tendermint key location. 2nd: Tendermint p2p host IP. 3rd: Tendermint p2p port.
    */
   override def run(args: List[String]): IO[ExitCode] =
     EthClient
       .makeHttpResource[IO]()
       .use { ethClient ⇒
         val par = Parallel[IO, IO.Par]
-        val solverInfo = new SolverInfo(args.head, args(1).toShort)
+        val solverInfo = new SolverInfo(args.head, args(1), args(2).toShort)
 
         for {
           unsubscribe ← Deferred[IO, Either[Throwable, Unit]]

@@ -23,21 +23,30 @@ import org.web3j.abi.datatypes.generated.Bytes32
 
 import scala.sys.process._
 
-class SolverInfo(val longTermLocation: String, val port: Short) {
+/**
+ * Information about a single solver willing to join Fluence clusters.
+ *
+ * @param longTermLocation local directory with pre-initialized Tendermint public/private keys
+ * @param ip p2p host IP
+ * @param port p2p port
+ */
+class SolverInfo(val longTermLocation: String, val ip: String, val port: Short) {
 
   private val validatorKeyStr: String =
     s"statemachine/docker/master-run-tm-utility.sh statemachine/docker/tm-show-validator $longTermLocation" !!
 
-  val validatorKey: TendermintValidatorKey =
-    parse(validatorKeyStr)
-      .flatMap(_.as[TendermintValidatorKey])
-      .getOrElse(???)
+  val validatorKey: TendermintValidatorKey = parse(validatorKeyStr).flatMap(_.as[TendermintValidatorKey]).getOrElse(???)
 
   val nodeAddress: String =
     s"statemachine/docker/master-run-tm-utility.sh statemachine/docker/tm-show-node-id $longTermLocation" !!
-  val host: String = "192.168.0.5"
 
+  /**
+   * Returns node's public key in format ready to pass to the contract.
+   */
   def validatorKeyBytes32: Bytes32 = base64ToBytes32(validatorKey.value)
 
-  def addressBytes32: Bytes32 = solverAddressToBytes32(host, port, nodeAddress)
+  /**
+   * Returns node's address information (host, port, Tendermint p2p key) in format ready to pass to the contract.
+   */
+  def addressBytes32: Bytes32 = solverAddressToBytes32(ip, port, nodeAddress)
 }

@@ -2,7 +2,7 @@
 
 ### Launching new private blockchain 
 
-Run these commands from `tools/etc` directory
+Run these commands from `ethclient/etc` directory
 
 ```
 // initialize node1
