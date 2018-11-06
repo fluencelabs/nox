@@ -212,19 +212,19 @@ On any level `l`, a set of computed hashes <code>S<sub>l</sub></code> contains s
 <img src="images/extension.png" alt="Extension" width="483px"/>
 </p>
 
-In a Merkle Tree, each node is computed as a hash of the concatenation of its children. E.g., `root = hash(0 | 1)` where `0` and `1` are nodes on the level `0`. Now, starting from `Chunks`, let's compute the bottom level hashes <code>S<sub>h-1</sub> = [hash(chunk<sub>0</sub>), ..., hash(chunk<sub>k</sub>)]</code>, where `h` is the height of the tree. Then, apply *extension* to <code>S<sub>h-1</sub></code> and check that <code>|S<sub>h-1</sub>|</code> is even. Next, group elements in <code>S<sub>h-1</sub></code> pairwise and compute <code>S<sub>h-2</sub></code>. Repeat process with <code>S<sub>h-2</sub></code> until <code>S<sub>0</sub></code> . Then, calculate `root = hash(0 | 1)` and compare it to the provided Merkle Root.
+In a Merkle Tree, each node is computed as a hash of the concatenation of its children. E.g., `root = hash(0 | 1)` where `0` and `1` are nodes on the level `0`. Now, starting from `Chunks`, let's compute the bottom level hashes <code>S<sub>h-1</sub> = [hash(chunk<sub>0</sub>), ..., hash(chunk<sub>k</sub>)]</code>, where `h` is the height of the tree. Then, apply *extension* to <code>S<sub>h-1</sub></code> and check that <code>|S<sub>h-1</sub>|</code> is even. Next, group elements in <code>S<sub>h-1</sub></code> pairwise and compute <code>S<sub>h-2</sub></code>. Repeat process until <code>S<sub>0</sub></code> is reached. Then, calculate `root = hash(0 | 1)` and compare it to the provided Merkle Root.
 
 ##### Hash guarantees
-`hash` is considered to be resistant to preimage attack, for two different Merkle Trees <code>T<sub>0</sub></code> and <code>T<sub>1</sub></code>, if some node <code>q</code> from <code>T<sub>0</sub></code> equals to other node <code>p</code> from <code>T<sub>1</sub></code>, that means that their children are equal too (1). 
+`hash` is considered to be resistant to preimage attack, so for two different Merkle Trees <code>T<sub>0</sub></code> and <code>T<sub>1</sub></code>, if some node <code>q</code> from <code>T<sub>0</sub></code> equals to other node <code>p</code> from <code>T<sub>1</sub></code>, that means that their children are equal too (1). 
 
 ##### Position proof
 Since the range is continuous, if left and right boundaries' positions are correct, then the whole range is placed correctly. Let's iterate through the whole Merkle Tree, and show that transitions on each level are unambiguous and correct. Let's start with root. Since there is a single root, selecting it is unambigious and correct.
 
 Now, we have to check that transitions from level `n` to level `n + 1` are correct. Since range of chunks is continuous, it is enough to check left and right position boundaries to be sure whole range is placed correctly in the sequence of chunks. Let's start by defining transition operations. There are two of them: the *left transition* operation that is very similar to *extension 1.*, and the *right transition* similar to *extension 2.*.
 
-*Left transition* for current pair of sibling nodes chooses one of them such that if left complementary hash is defined, choose right sibling, and left sibling otherwise. 
+***Left transition*** for current pair of sibling nodes chooses one of them such that if left complementary hash is defined, choose right sibling, and left sibling otherwise. 
 
-*Right transition* is defined as: left sibling if right complementary hash is defined, and right sibling otherwise.
+***Right transition*** is defined as: left sibling if right complementary hash is defined, and right sibling otherwise.
 
 Since there is always only a single and well-defined left or right sibling, both left and right *transitions* are unambigious and given the same complementary hashes and same sibling pair, always yield same nodes (2). Hash of concatenated siblings is correct in a Merkle Tree sense (3). If (3) holds, then from (1) and (2) it follows that the node given by *transition* has the same position and value in any Merkle Tree with the same Merkle Root.
 
