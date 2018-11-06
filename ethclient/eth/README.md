@@ -20,7 +20,7 @@ geth --datadir "$(pwd)/node1" --networkid 1234 --port 11111 --nodiscover console
 
 From `bootstrap` run `play.sh` and copy `deployerAbi` and `deployerHex` definitions (all output starting from `deployerAbi = `).
 
-Paste this output to `geth` console (see previous paragraph).
+Paste this output to `geth` console.
 
 ### Deploying Deployer contract
 

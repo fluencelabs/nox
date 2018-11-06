@@ -28,6 +28,11 @@ import scala.collection.JavaConverters._
 
 object Web3jConverters {
 
+  /**
+   * Converts string to web3j's Bytes32.
+   *
+   * @param s string
+   */
   def stringToBytes32(s: String): Bytes32 = {
     val byteValue = s.getBytes()
     val byteValueLen32 = new Array[Byte](32)
@@ -35,17 +40,49 @@ object Web3jConverters {
     new Bytes32(byteValueLen32)
   }
 
+  /**
+   * Converts string to hex.
+   *
+   * @param s string
+   */
   def stringToHex(s: String): String = binaryToHex(s.getBytes())
 
+  /**
+   * Converts byte array to hex.
+   *
+   * @param b byte array
+   */
   def binaryToHex(b: Array[Byte]): String = ByteVector(b).toHex
 
+  /**
+   * Converts base64 string to web3j's Bytes32.
+   *
+   * @param base64 base64 string
+   */
   def base64ToBytes32(base64: String): Bytes32 = new Bytes32(Base64.getDecoder.decode(base64))
 
-  // TODO: currently only the lowermost byte used
-  def base64ClusterIdToChainId(clusterId: Bytes32): String = binaryToHex(clusterId.getValue.reverse.take(1))
+  /**
+   * Interprets web3j's Bytes32 as Tendermint chain ID.
+   * TODO: currently only the lowermost byte used
+   *
+   * @param clusterId Bytes32 encoding
+   */
+  def bytes32ClusterIdToChainId(clusterId: Bytes32): String = binaryToHex(clusterId.getValue.reverse.take(1))
 
-  def base64ToString(bytes32: Bytes32): String = new String(bytes32.getValue.filter(_ != 0))
+  /**
+   * Converts non-zero bytes of web3j's Bytes32 to string.
+   *
+   * @param bytes32 text in Bytes32 encoding
+   */
+  def bytes32ToString(bytes32: Bytes32): String = new String(bytes32.getValue.filter(_ != 0))
 
+  /**
+   * Constructs Tendermint genesis from data obtained from contract event.
+   *
+   * @param clusterId encoded cluster ID
+   * @param ids encoded Tendermint public key
+   * @param genesisTimeI64 encoded genesis time
+   */
   def clusterDataToGenesis(clusterId: Bytes32, ids: DynamicArray[Bytes32], genesisTimeI64: Int64): TendermintGenesis = {
     val validators = ids.getValue.asScala.zipWithIndex.map {
       case (x, i) =>
@@ -59,7 +96,7 @@ object Web3jConverters {
         )
     }.toArray
 
-    val chainId = base64ClusterIdToChainId(clusterId)
+    val chainId = bytes32ClusterIdToChainId(clusterId)
 
     val calendar: Calendar = Calendar.getInstance
     calendar.setTimeInMillis(genesisTimeI64.getValue.longValue())
@@ -67,9 +104,22 @@ object Web3jConverters {
     TendermintGenesis(genesisTime, chainId, "", validators)
   }
 
+  /**
+   * Converts hex string to byte array.
+   * TODO: add checks, now it's unsafe.
+   *
+   * @param hex hex string
+   */
   def hexToBinary(hex: String): Array[Byte] =
     ByteVector.fromHex(hex, Bases.Alphabets.HexUppercase).map(_.toArray).getOrElse(new Array[Byte](hex.length / 2))
 
+  /**
+   * Encodes solver address information to web3j's Bytes32.
+   *
+   * @param ip solver host IP
+   * @param port solver p2p port
+   * @param nodeIdHex Tendermint p2p public key
+   */
   def solverAddressToBytes32(ip: String, port: Short, nodeIdHex: String): Bytes32 = {
     val buffer = new Array[Byte](32)
 
@@ -81,6 +131,11 @@ object Web3jConverters {
     new Bytes32(buffer)
   }
 
+  /**
+   * Obtains persistent peers from their encoded web3j's representation.
+   *
+   * @param peers web3j's array of encoded addresses
+   */
   def bytes32DynamicArrayToPersistentPeers(peers: DynamicArray[Bytes32]): PersistentPeers =
     PersistentPeers(
       peers.getValue.asScala
@@ -96,6 +151,13 @@ object Web3jConverters {
         .toArray
     )
 
+  /**
+   * Tries to convert `ClusterFormedEvent` response to [[ClusterData]] with all information to launch cluster.
+   *
+   * @param event event response
+   * @param nodeKey node key from launching data used to obtain solver's index
+   * @return true if provided node key belongs to the cluster from the event
+   */
   def clusterFormedEventToClusterData(
     event: ClusterFormedEventResponse,
     nodeKey: TendermintValidatorKey
@@ -105,7 +167,7 @@ object Web3jConverters {
     if (nodeIndex == -1)
       None
     else {
-      val storageHash = base64ToString(event.storageHash) // TODO: temporarily used as name of pre-existing local code
+      val storageHash = bytes32ToString(event.storageHash) // TODO: temporarily used as name of pre-existing local code
       val persistentPeers = bytes32DynamicArrayToPersistentPeers(event.solverAddrs)
       val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
       val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
