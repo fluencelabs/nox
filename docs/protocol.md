@@ -206,13 +206,13 @@ On any level `l`, a set of computed hashes <code>S<sub>l</sub></code> contains s
 1. if `L`'s <code>a<sub>k</sub></code> is 1, add left complementary hash to <code>S<sub>l</sub></code>, i.e., prepend `Hashes[l][0]`
 2. if `R`'s <code>a<sub>k</sub></code> is 0, add right complementary hash to <code>S<sub>l</sub></code>, i.e., append `Hashes[l][1]`
 
-*Proof is deemed incorrect if at any level extension yields an odd number of nodes.*
-
 <p align="center">
 <img src="images/extension.png" alt="Extension" width="483px"/>
 </p>
 
-In a Merkle Tree, each node is computed as a hash of the concatenation of its children. E.g., `root = hash(0 | 1)` where `0` and `1` are nodes on the level `0`. Now, starting from `Chunks`, let's compute the bottom level hashes <code>S<sub>h-1</sub> = [hash(chunk<sub>0</sub>), ..., hash(chunk<sub>k</sub>)]</code>, where `h` is the height of the tree. Then, apply *extension* to <code>S<sub>h-1</sub></code> and check that <code>|S<sub>h-1</sub>|</code> is even. Next, group elements in <code>S<sub>h-1</sub></code> pairwise and compute <code>S<sub>h-2</sub></code>. Repeat process until <code>S<sub>0</sub></code> is reached. Then, calculate `root = hash(0 | 1)` and compare it to the provided Merkle Root.
+*Note: proof is deemed incorrect if at any level extension yields an odd number of nodes.*
+
+In a Merkle Tree, each node is computed as a hash of the concatenation of its children. E.g., `root = hash(0 | 1)` where `0` and `1` are nodes on the level <code>S<sub>0</sub>. Let's compute bottom level hashes as <code>S<sub>h-1</sub> = [hash(chunk<sub>0</sub>), ..., hash(chunk<sub>k</sub>)]</code>, where `h` is the height of the tree. Then, apply *extension* to <code>S<sub>h-1</sub></code> and check that <code>|S<sub>h-1</sub>|</code> is even. Next, group elements in <code>S<sub>h-1</sub></code> pairwise and compute <code>S<sub>h-2</sub></code>. Repeat process until <code>S<sub>0</sub></code> is reached. Then, calculate `root = hash(0 | 1)` and compare it to the provided Merkle Root.
 
 ##### Hash guarantees
 `hash` is considered to be resistant to preimage attack, so for two different Merkle Trees <code>T<sub>0</sub></code> and <code>T<sub>1</sub></code>, if some node <code>q</code> from <code>T<sub>0</sub></code> equals to other node <code>p</code> from <code>T<sub>1</sub></code>, that means that their children are equal too (1). 
@@ -230,7 +230,7 @@ Since there is always only a single and well-defined left or right sibling, both
 
 Now, iterating through the tree by using only *left* or *right* *transitions*, on the last level of the tree we will get left-most and right-most bottom hashes. Their positions are umabigiously and correctly defined by sequential transitions. This is due to that on each iteration step, there was only one possible outcome for each boundary, so the whole path from root to bottom is univocal and correct.
 
-Positions of the chunk within the chunk sequence correspond to the bottom hashes' positions as hashes are derived directly from these chunks. As the size of each chunk is captured by the hashing, we can conclude that <code>chunk<sub>3</sub></code> is starting at the index `0b011 = 0x3` and offset `0x3 * FlChunkSize = 0x3000` and <code>chunk<sub>5</sub></code> ends at `0x5000`.
+Positions of chunks within the chunk sequence correspond to the bottom hashes' positions as hashes are derived directly from these chunks. As the size of each chunk is captured by the hashing, we can conclude that <code>chunk<sub>3</sub></code> is starting at the index `0b011 = 0x3` and offset `0x3 * FlChunkSize = 0x3000` and <code>chunk<sub>5</sub></code> ends at `0x5000`.
 
 ## External systems
 
