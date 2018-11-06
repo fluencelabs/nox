@@ -84,3 +84,25 @@ Stop mining as soon as needed:
 ```
 miner.stop()
 ```
+
+### Running `MasterNodeApp`
+
+First, initialize long term keys somewhere.
+The simplest way is via `sim-reset-example-long-term-keys.sh` command in `statemachine/docker/examples`.
+They would be stored in `~/.fluence/long-term-keys` subdirectories.
+
+If the local node is launched, contract deployed and `addCode` invoked with required number of solvers, 
+then everything is ready to run `MasterNodeApp` which would join solvers to the registerted codes.
+
+A bunch of 4 single solvers could be run locally in this way:
+
+```
+sbt "runMain fluence.ethclient.MasterNodeApp ~/.fluence/long-term-keys/node0 192.168.0.5 25056"
+sbt "runMain fluence.ethclient.MasterNodeApp ~/.fluence/long-term-keys/node1 192.168.0.5 25156"
+sbt "runMain fluence.ethclient.MasterNodeApp ~/.fluence/long-term-keys/node2 192.168.0.5 25256"
+sbt "runMain fluence.ethclient.MasterNodeApp ~/.fluence/long-term-keys/node3 192.168.0.5 25356"
+```
+
+Note that host IP might vary for this local scenario, depending on host docker IP.   
+
+Of course, solvers might be run from different machines, in this case their appropriate IPs should be specified.
