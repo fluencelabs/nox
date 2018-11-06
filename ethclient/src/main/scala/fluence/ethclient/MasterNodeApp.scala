@@ -34,13 +34,10 @@ import org.web3j.protocol.core.methods.request.EthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 
 import scala.sys.process._
-import scala.util.Random
 
 object MasterNodeApp extends IOApp {
   private val owner = "0x24b2285cfc8a68d1beec4f4282ee6016aebb8fc4"
   private val contractAddress = "0x48419a38ed3cfed8e7106921d67470791a5aa268" // replace this with your contract address
-
-  private val bytes = stringToBytes32(Random.alphanumeric.take(10).mkString)
 
   private def processClusterFormed(event: ClusterFormedEventResponse, solverInfo: SolverInfo): Boolean =
     clusterFormedEventToClusterData(event, solverInfo.validatorKey) match {

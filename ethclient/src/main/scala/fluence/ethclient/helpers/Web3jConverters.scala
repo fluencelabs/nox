@@ -16,12 +16,10 @@
 
 package fluence.ethclient.helpers
 import java.text.SimpleDateFormat
-import java.util.{Base64, Calendar, Date}
+import java.util.{Base64, Calendar}
 
 import fluence.ethclient.Deployer.ClusterFormedEventResponse
 import fluence.ethclient.data._
-import io.circe.generic.auto._
-import io.circe.syntax._
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.{Bytes32, Int64}
 import scodec.bits.{Bases, ByteVector}
@@ -69,13 +67,13 @@ object Web3jConverters {
     TendermintGenesis(genesisTime, chainId, "", validators)
   }
 
-  def hexToArrayUnsafe(hex: String): Array[Byte] =
+  def hexToBinary(hex: String): Array[Byte] =
     ByteVector.fromHex(hex, Bases.Alphabets.HexUppercase).map(_.toArray).getOrElse(new Array[Byte](hex.length / 2))
 
   def solverAddressToBytes32(ip: String, port: Short, nodeIdHex: String): Bytes32 = {
     val buffer = new Array[Byte](32)
 
-    Array.copy(hexToArrayUnsafe(nodeIdHex), 0, buffer, 0, 20)
+    Array.copy(hexToBinary(nodeIdHex), 0, buffer, 0, 20)
     Array.copy(ip.split('.').map(_.toInt.toByte), 0, buffer, 20, 4)
     buffer(24) = ((port >> 8) & 0xFF).toByte
     buffer(25) = (port & 0xFF).toByte
@@ -83,7 +81,7 @@ object Web3jConverters {
     new Bytes32(buffer)
   }
 
-  def b32DAtoPersistentPeers(peers: DynamicArray[Bytes32]): PersistentPeers =
+  def bytes32DynamicArrayToPersistentPeers(peers: DynamicArray[Bytes32]): PersistentPeers =
     PersistentPeers(
       peers.getValue.asScala
         .map(_.getValue)
@@ -104,12 +102,11 @@ object Web3jConverters {
   ): Option[ClusterData] = {
     val genesis = clusterDataToGenesis(event.clusterID, event.solverIDs, event.genesisTime)
     val nodeIndex = genesis.validators.indexWhere(_.pub_key == nodeKey)
-    println("found " + nodeIndex + " for " + nodeKey.asJson.noSpaces + " in " + genesis.asJson.noSpaces)
     if (nodeIndex == -1)
       None
     else {
       val storageHash = base64ToString(event.storageHash) // TODO: temporarily used as name of pre-existing local code
-      val persistentPeers = b32DAtoPersistentPeers(event.solverAddrs)
+      val persistentPeers = bytes32DynamicArrayToPersistentPeers(event.solverAddrs)
       val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
       val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
       Some(ClusterData(nodeInfo, persistentPeers, storageHash))

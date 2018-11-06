@@ -130,7 +130,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
         clusterFormedEvents.length shouldBe 1
         val event = clusterFormedEvents.head
         println(clusterDataToGenesis(event.clusterID, event.solverIDs, event.genesisTime))
-        println(b32DAtoPersistentPeers(event.solverAddrs))
+        println(bytes32DynamicArrayToPersistentPeers(event.solverAddrs))
       }
     }.unsafeRunSync()
   }

@@ -19,27 +19,11 @@ package fluence.ethclient
 import cats.Parallel
 import cats.effect.concurrent.Deferred
 import cats.effect.{ExitCode, IO, IOApp}
-import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
-import fluence.ethclient.helpers.RemoteCallOps._
-import fluence.ethclient.helpers.Web3jConverters._
 import org.web3j.abi.EventEncoder
-import org.web3j.abi.datatypes.Event
-import org.web3j.protocol.core.DefaultBlockParameterName
-import org.web3j.protocol.core.methods.request.EthFilter
 
 import scala.concurrent.duration._
-import scala.util.Random
 
-object EthClientApp /*extends IOApp {
-  val owner = "0x24b2285cfc8a68d1beec4f4282ee6016aebb8fc4"
-  val contractAddress = "0xe6d687c9d444714ced7cece2c028c660fa34c709"
-
-  val str = Random.alphanumeric.take(10).mkString
-  val bytes = stringToBytes32(str)
-
-  val filter = new EthFilter(DefaultBlockParameterName.EARLIEST, DefaultBlockParameterName.LATEST, contractAddress)
-    .addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
-
+object EthClientApp extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
     EthClient
       .makeHttpResource[IO]()
@@ -57,7 +41,10 @@ object EthClientApp /*extends IOApp {
           _ ← par sequential par.apply.product(
             // Subscription stream
             par parallel ethClient
-              .subscribeToLogsTopic[IO](contractAddress, EventEncoder.encode(CLUSTERFORMED_EVENT))
+              .subscribeToLogsTopic[IO](
+              "0x9995882876ae612bfd829498ccd73dd962ec950a",
+              EventEncoder.encode(Deployer.NEWSOLVER_EVENT)
+            )
               .map(log ⇒ println(s"Log message: $log"))
               .interruptWhen(unsubscribe)
               .drain // drop the results, so that demand on events is always provided
@@ -66,19 +53,9 @@ object EthClientApp /*extends IOApp {
               .drain, // Switch to IO[Unit]
             // Delayed unsubscribe
             par.parallel(for {
-              contract <- ethClient.getDeployer[IO](contractAddress, owner)
-              _ = contract.clusterFormedEventObservable(filter).subscribe(x => println("!!!" + x.log))
-
-              txReceipt <- contract.addSolver(stringToBytes32("solver36"), stringToBytes32("addr36")).call[IO]
-
-              clusterFormedEvents <- contract
-                .getEvent[IO, ClusterFormedEventResponse](_.getClusterFormedEvents(txReceipt))
-
-              _ ← IO.sleep(10.seconds)
-
+              _ ← IO.sleep(60.seconds)
               _ = println("Going to unsubscribe")
               _ ← unsubscribe.complete(Right(()))
-              _ = println(s"${clusterFormedEvents.length}")
             } yield ())
           )
         } yield ()
@@ -87,5 +64,5 @@ object EthClientApp /*extends IOApp {
         println("okay that's all")
         ExitCode.Success
       }
+
 }
- */
