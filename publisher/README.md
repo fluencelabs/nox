@@ -9,8 +9,8 @@ Current code deployment process to the Fluence network looks like this:
 
  ## Requirements
  
-- address of the Ethereum node that can do transactions
-- Ethereum account with enough gas for the transaction
+- a connection to the Ethereum node (including light client) that is able to broadcast a transaction
+- Ethereum account with a balance sufficient to pay for gas
 - address of the Swarm node
 
 ## Installation
@@ -20,22 +20,22 @@ Requirements: [`rust`](https://www.rust-lang.org/install.html) and [`cargo`](htt
 - clone repo and `cd` to `publisher` folder
 - run `cargo build`
 - go to `target/debug`
-- there is an executable file `publisher` to work with
+- there is an executable file `fluence` to work with
 
 ## Usage
 
-To look at all possible arguments and options use `./publisher --help`:
+To look at all possible arguments and options use `./fluence --help`:
 
 ```
 USAGE:
-    publisher [OPTIONS] <path> <contract_address> --account <account>
+    fluence [OPTIONS] <path> <contract_address> --account <account>
 
 FLAGS:
     -h, --help       Prints help information
     -V, --version    Prints version information
 
 OPTIONS:
-    -a, --account <account>              ethereum account without `0x`
+    -a, --account <account>              ethereum account
     -c, --cluster_size <cluster_size>    cluster's size that needed to deploy this code [default: 3]
     -e, --eth_url <eth_url>              http address to ethereum node [default: http://localhost:8545/]
     -p, --password <password>            password to unlock account in ethereum client
@@ -43,5 +43,5 @@ OPTIONS:
 
 ARGS:
     <path>                path to compiled `wasm` code
-    <contract_address>    deployer contract address without `0x`
+    <contract_address>    deployer contract address
 ```

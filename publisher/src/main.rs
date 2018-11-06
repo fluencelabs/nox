@@ -36,12 +36,12 @@ fn main() {
     let publisher = app::init().unwrap();
 
     // uploading code to swarm
-    let bar = create_progress_bar("1/2", "Сode loading...");
+    let bar = create_progress_bar("1/2", "Code uploading...");
     let hash = upload(&publisher.swarm_url, &publisher.path).unwrap();
     bar.finish_with_message("Code uploaded.");
 
     // sending transaction with the hash of file with code to ethereum
-    let bar = create_progress_bar("2/2", "Submitting code to the smart contract...");
+    let bar = create_progress_bar("2/2", "Submitting the code to the smart contract...");
     let pass = publisher.password.as_ref().map(|s| s.as_str());
     let transaction = publish_to_contract(
         publisher.account,
