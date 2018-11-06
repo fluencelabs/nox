@@ -81,6 +81,7 @@ func (validator BatchValidator) LoadSnapshot(contract ValidationFluenceContract,
 }
 
 func (validator BatchValidator) Validate(
+    code WasmCode,
     basicContract BasicFluenceContract,
     sideContract SideFluenceContract,
     validationContract ValidationFluenceContract,
@@ -98,7 +99,7 @@ func (validator BatchValidator) Validate(
       var publicKeys = VerifyVMStateConsensus(basicContract, window)
 
       // verifying the real-time cluster state progress correctness
-      snapshot = NextVMState(snapshot, subchain.Transactions[i])
+      snapshot = NextVMState(code, snapshot, subchain.Transactions[i])
       var vmStateHash = MerkleRoot(snapshot.Chunks)
       if vmStateHash != subchain.Manifests[i].VMStateHash {
         // TODO: dispute state advance using publicKeys, stop processing
