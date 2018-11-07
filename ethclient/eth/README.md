@@ -13,7 +13,7 @@ cp UTC--2018-10-26T04-39-22.430742000Z--24b2285cfc8a68d1beec4f4282ee6016aebb8fc4
 // it would initialize 0x24b2285cfc8a68d1beec4f4282ee6016aebb8fc4 account with enough eth
 
 // run node1
-geth --datadir "$(pwd)/node1" --networkid 1234 --port 11111 --nodiscover console
+geth --datadir "$(pwd)/node1" --networkid 5678 --port 11111 --nodiscover console
 ```
 
 ### Obtaining Deployer.abi and Deployer.bin

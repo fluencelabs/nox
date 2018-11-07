@@ -75,11 +75,12 @@ contract Deployer /*is Whitelist*/ {
     // Last cluster used this solver. Used to deduplicate cluster participants
     mapping(bytes32 => bytes32) private lastClusterForSolverID;
 
-    // Number of added freeSolvers for each solver ID
-    mapping(bytes32 => uint) private solverCountsByID;
-
-    // Number of free solvers with pairwise distinct IDs (number of non-zero values in solverCountsById)
+    // Number of free solvers with pairwise distinct IDs (number of non-zero values in solverCountsById).
+    // This value is kept in order to determine quickly if the current work might be matched to available solvers
     uint distinctSolverCount = 0;
+
+    // Number of added freeSolvers for each solver ID. Used to update 'distinctSolverCount'
+    mapping(bytes32 => uint) private solverCountsByID;
 
     // Cluster with assigned Code
     mapping(bytes32 => BusyCluster) private busyClusters;
@@ -99,12 +100,7 @@ contract Deployer /*is Whitelist*/ {
       * emits ClusterFormed event when there is enough solvers for some Code
       */
     function addSolver(bytes32 solverID, bytes32 solverAddress) external /*onlyIfWhitelisted(msg.sender)*/ {
-        freeSolvers.push(Solver(solverID, solverAddress));
-
-        if (solverCountsByID[solverID] == 0) {
-            distinctSolverCount++;
-        }
-        solverCountsByID[solverID]++;
+        pushSolver(Solver(solverID, solverAddress));
 
         emit NewSolver(solverID);
         matchWork();
@@ -186,24 +182,18 @@ contract Deployer /*is Whitelist*/ {
             if (solversToCollect == 0) {
                 break;
             }
+
+            bytes32 solverID = freeSolvers[j].id;
+
             // lastClusterForSolverID keeps the last clusterID for solver thus avoiding duplicate solver IDs in cluster
-            if (lastClusterForSolverID[freeSolvers[j].id] != clusterID) {
+            if (lastClusterForSolverID[solverID] != clusterID) {
+                lastClusterForSolverID[solverID] = clusterID;
+
                 --solversToCollect;
-                clusterSolverIDs[solversToCollect] = freeSolvers[j].id;
+                clusterSolverIDs[solversToCollect] = solverID;
                 clusterSolverAddrs[solversToCollect] = freeSolvers[j].nodeAddress;
 
-                // update lastClusterForSolverID, solverCountsByID and distinctSolverCount
-                lastClusterForSolverID[freeSolvers[j].id] = clusterID;
-                assert(solverCountsByID[freeSolvers[j].id] > 0);
-                if (--solverCountsByID[freeSolvers[j].id] == 0) {
-                    --distinctSolverCount;
-                }
-
-                // replace this solver with the last one
-                if (j + 1 != freeSolvers.length) {
-                    freeSolvers[j] = freeSolvers[freeSolvers.length - 1];
-                }
-                --freeSolvers.length;
+                removeSolver(j);
             }
             else {
                 ++j;
@@ -215,5 +205,33 @@ contract Deployer /*is Whitelist*/ {
 
         emit ClusterFormed(code.storageHash, code.genesisTime, clusterID, clusterSolverIDs, clusterSolverAddrs);
         return true;
+    }
+
+    /** @dev Adds solver to freeSolvers and updates related structures.
+     */
+    function pushSolver(Solver solver) internal {
+        freeSolvers.push(solver);
+
+        if (solverCountsByID[solver.id] == 0) {
+            distinctSolverCount++;
+        }
+        solverCountsByID[solver.id]++;
+    }
+
+    /** @dev Removes solver from freeSolvers, updates related structures, and replaces removed solver with the last one.
+     */
+    function removeSolver(uint solverIndex) internal {
+        bytes32 solverID = freeSolvers[solverIndex].id;
+
+        assert(solverCountsByID[solverID] > 0);
+        if (--solverCountsByID[solverID] == 0) {
+            --distinctSolverCount;
+        }
+
+        // replace this solver with the last one
+        if (solverIndex + 1 != freeSolvers.length) {
+            freeSolvers[solverIndex] = freeSolvers[freeSolvers.length - 1];
+        }
+        --freeSolvers.length;
     }
 }

@@ -99,7 +99,8 @@ object Web3jConverters {
     val chainId = bytes32ClusterIdToChainId(clusterId)
 
     val calendar: Calendar = Calendar.getInstance
-    calendar.setTimeInMillis(genesisTimeI64.getValue.longValue())
+    // TODO: figure out why Tendermint sometimes treat genesis time as 'future' and remove time decrement
+    calendar.setTimeInMillis(genesisTimeI64.getValue.longValue() - 1000000)
     val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(calendar.getTime)
     TendermintGenesis(genesisTime, chainId, "", validators)
   }

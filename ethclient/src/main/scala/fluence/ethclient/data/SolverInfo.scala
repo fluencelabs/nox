@@ -21,7 +21,9 @@ import io.circe.generic.auto._
 import io.circe.parser.parse
 import org.web3j.abi.datatypes.generated.Bytes32
 
+import scala.language.postfixOps
 import scala.sys.process._
+import scala.util.Try
 
 /**
  * Information about a single solver willing to join Fluence clusters.
@@ -29,16 +31,16 @@ import scala.sys.process._
  * @param longTermLocation local directory with pre-initialized Tendermint public/private keys
  * @param ip p2p host IP
  * @param port p2p port
+ * @param validatorKey p2p port
+ * @param nodeAddress p2p port
  */
-class SolverInfo(val longTermLocation: String, val ip: String, val port: Short) {
-
-  private val validatorKeyStr: String =
-    s"statemachine/docker/master-run-tm-utility.sh statemachine/docker/tm-show-validator $longTermLocation" !!
-
-  val validatorKey: TendermintValidatorKey = parse(validatorKeyStr).flatMap(_.as[TendermintValidatorKey]).getOrElse(???)
-
-  val nodeAddress: String =
-    s"statemachine/docker/master-run-tm-utility.sh statemachine/docker/tm-show-node-id $longTermLocation" !!
+case class SolverInfo(
+  longTermLocation: String,
+  ip: String,
+  port: Short,
+  validatorKey: TendermintValidatorKey,
+  nodeAddress: String
+) {
 
   /**
    * Returns node's public key in format ready to pass to the contract.
@@ -49,4 +51,34 @@ class SolverInfo(val longTermLocation: String, val ip: String, val port: Short) 
    * Returns node's address information (host, port, Tendermint p2p key) in format ready to pass to the contract.
    */
   def addressBytes32: Bytes32 = solverAddressToBytes32(ip, port, nodeAddress)
+}
+
+object SolverInfo {
+
+  def apply(args: List[String]): Either[Throwable, SolverInfo] =
+    for {
+      argsTuple <- args match {
+        case List(a1, a2, a3) => Right(a1, a2, a3)
+        case _ => Left(new IllegalArgumentException("3 program argument expected"))
+      }
+      (longTermLocation, ip, portString) = argsTuple
+
+      validatorKeyStr <- Try(
+        s"statemachine/docker/master-run-tm-utility.sh statemachine/docker/tm-show-validator $longTermLocation" !!
+      ).toEither
+      validatorKey <- parse(validatorKeyStr).flatMap(_.as[TendermintValidatorKey])
+
+      nodeAddress <- Try(
+        s"statemachine/docker/master-run-tm-utility.sh statemachine/docker/tm-show-node-id $longTermLocation" !!
+      ).toEither
+
+      port <- Try(portString.toShort).toEither
+      _ <- Either.cond(isValidIP(ip), (), new IllegalArgumentException(s"Incorrect IP: $ip"))
+    } yield SolverInfo(longTermLocation, ip, port, validatorKey, nodeAddress)
+
+  private def isValidIP(ip: String): Boolean = {
+    val parts = ip.split('.')
+    parts.length == 4 && parts.forall(x => Try(x.toShort).filter(Range(0, 256).contains(_)).isSuccess)
+  }
+
 }

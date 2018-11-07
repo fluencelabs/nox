@@ -23,7 +23,7 @@ import cats.Parallel
 import cats.effect.concurrent.Deferred
 import cats.effect.{ExitCode, IO, IOApp}
 import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
-import fluence.ethclient.data.SolverInfo
+import fluence.ethclient.data.{DeployerContractConfig, SolverInfo}
 import fluence.ethclient.helpers.JavaRxToFs2._
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters._
@@ -33,11 +33,68 @@ import org.web3j.abi.EventEncoder
 import org.web3j.protocol.core.methods.request.EthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 
+import scala.language.postfixOps
 import scala.sys.process._
 
 object MasterNodeApp extends IOApp {
-  private val owner = "0x24b2285cfc8a68d1beec4f4282ee6016aebb8fc4" // replace this with your eth account
-  private val contractAddress = "0x7928e83e9da272589cc4a51d3d8436fe8075465c" // replace this with your contract address
+  /**
+   * Launches a single solver connecting to ethereum blockchain with Deployer contract.
+   *
+   * @param args 1st: Tendermint key location. 2nd: Tendermint p2p host IP. 3rd: Tendermint p2p port.
+   */
+  override def run(args: List[String]): IO[ExitCode] =
+    EthClient
+      .makeHttpResource[IO]()
+      .use { ethClient ⇒
+        val par = Parallel[IO, IO.Par]
+        (for {
+          solverInfo <- SolverInfo(args)
+          config <- pureconfig.loadConfig[DeployerContractConfig]
+        } yield (solverInfo, config)) match {
+          case Right((solverInfo, config)) =>
+            for {
+              unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
+
+              version ← ethClient.clientVersion[IO]()
+              _ = println(s"Client version: $version")
+
+              contract <- ethClient.getDeployer[IO](config.deployerContractAddress, config.deployerContractOwnerAccount)
+
+              currentBlock = ethClient.web3.ethBlockNumber().send().getBlockNumber
+              filter = new EthFilter(
+                DefaultBlockParameter.valueOf(currentBlock),
+                DefaultBlockParameterName.LATEST,
+                config.deployerContractAddress
+              ).addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
+
+              _ ← par sequential par.apply.product(
+                // Subscription stream
+                par parallel
+                  contract
+                    .clusterFormedEventObservable(filter)
+                    .toFS2[IO]
+                    .map(x ⇒ {
+                      if (processClusterFormed(x, solverInfo))
+                        unsubscribe.complete(Right(())).unsafeRunSync()
+                    })
+                    .interruptWhen(unsubscribe)
+                    .drain // drop the results, so that demand on events is always provided
+                    .onFinalize(IO(println("Subscription finalized")))
+                    .compile // Compile to a runnable, in terms of effect IO
+                    .drain, // Switch to IO[Unit]
+                // Delayed unsubscribe
+                par.parallel(for {
+                  _ <- contract.addSolver(solverInfo.validatorKeyBytes32, solverInfo.addressBytes32).call[IO]
+                  _ <- unsubscribe.get
+                } yield ())
+              )
+            } yield ExitCode.Success
+          case Left(value) =>
+            println("Error: " + value)
+            IO.pure(ExitCode.Error)
+        }
+
+      }
 
   /**
    * Tries to convert event information to cluster configuration and, in case of success, launches a single solver.
@@ -86,59 +143,4 @@ object MasterNodeApp extends IOApp {
 
         true
     }
-
-  /**
-   * Launches a single solver connecting to ethereum blockchain with Deployer contract.
-   *
-   * @param args 1st: Tendermint key location. 2nd: Tendermint p2p host IP. 3rd: Tendermint p2p port.
-   */
-  override def run(args: List[String]): IO[ExitCode] =
-    EthClient
-      .makeHttpResource[IO]()
-      .use { ethClient ⇒
-        val par = Parallel[IO, IO.Par]
-        val solverInfo = new SolverInfo(args.head, args(1), args(2).toShort)
-
-        for {
-          unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
-
-          version ← ethClient.clientVersion[IO]()
-          _ = println(s"Client version: $version")
-
-          contract <- ethClient.getDeployer[IO](contractAddress, owner)
-
-          currentBlock = ethClient.web3.ethBlockNumber().send().getBlockNumber
-          filter = new EthFilter(
-            DefaultBlockParameter.valueOf(currentBlock),
-            DefaultBlockParameterName.LATEST,
-            contractAddress
-          ).addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
-
-          _ ← par sequential par.apply.product(
-            // Subscription stream
-            par parallel
-              contract
-                .clusterFormedEventObservable(filter)
-                .toFS2[IO]
-                .map(x ⇒ {
-                  if (processClusterFormed(x, solverInfo))
-                    unsubscribe.complete(Right(())).unsafeRunSync()
-                })
-                .interruptWhen(unsubscribe)
-                .drain // drop the results, so that demand on events is always provided
-                .onFinalize(IO(println("Subscription finalized")))
-                .compile // Compile to a runnable, in terms of effect IO
-                .drain, // Switch to IO[Unit]
-            // Delayed unsubscribe
-            par.parallel(for {
-              _ <- contract.addSolver(solverInfo.validatorKeyBytes32, solverInfo.addressBytes32).call[IO]
-              _ <- unsubscribe.get
-            } yield ())
-          )
-        } yield ()
-      }
-      .map { _ ⇒
-        println("okay that's all")
-        ExitCode.Success
-      }
 }
