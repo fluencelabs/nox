@@ -116,8 +116,10 @@ pub mod app {
 
         let path = matches.value_of("path").unwrap().to_string();
 
-        let contract_address = matches.value_of("contract_address")
-            .unwrap().trim_left_matches("0x");
+        let contract_address = matches
+            .value_of("contract_address")
+            .unwrap()
+            .trim_left_matches("0x");
         let contract_address: Address = contract_address.parse()?;
 
         let account = matches.value_of("account").unwrap().trim_left_matches("0x");

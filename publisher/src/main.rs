@@ -31,7 +31,7 @@ use std::fs::File;
 use web3::contract::{Contract, Options};
 use web3::futures::Future;
 use web3::types::{Address, H256, U256};
-use web3::{Web3, Transport};
+use web3::{Transport, Web3};
 
 fn main() {
     let publisher = app::init().unwrap();
@@ -61,7 +61,10 @@ fn main() {
     println!("{}: {:?}", formatted_finish_msg, formatted_tx);
 }
 
-fn get_contract<T: Transport>(web3: Web3<T>, contract_address: Address) -> Result<Contract<T>, Box<Error>> {
+fn get_contract<T: Transport>(
+    web3: Web3<T>,
+    contract_address: Address,
+) -> Result<Contract<T>, Box<Error>> {
     let json = include_bytes!("../../bootstrap/contracts/compiled/Deployer.abi");
 
     Contract::from_json(web3.eth(), contract_address, json).map_err(|e| e.into())
@@ -76,11 +79,12 @@ fn publish_to_contract(
     eth_url: &str,
     cluster_size: u64,
 ) -> Result<H256, Box<Error>> {
-
     let (_eloop, transport) = web3::transports::Http::new(&eth_url)?;
     let web3 = web3::Web3::new(transport);
 
-    if let Some(p) = password { web3.personal().unlock_account(account, p, None).wait()?; }
+    if let Some(p) = password {
+        web3.personal().unlock_account(account, p, None).wait()?;
+    }
 
     let contract = get_contract(web3, contract_address)?;
 
@@ -147,13 +151,13 @@ fn create_progress_bar(prefix: &str, msg: &str) -> ProgressBar {
 }
 
 mod tests {
-    use super::{publish_to_contract, get_contract};
-    use std::process::Command;
+    use super::{get_contract, publish_to_contract};
     use std::error::Error;
-    use web3::types::{Address, H256};
-    use web3::contract::Options;
+    use std::process::Command;
     use web3;
+    use web3::contract::Options;
     use web3::futures::Future;
+    use web3::types::{Address, H256};
 
     fn run_ganache() -> Result<(), Box<Error>> {
         let mut install_cmd = Command::new("npm");
@@ -174,10 +178,8 @@ mod tests {
         Ok(())
     }
 
-
     #[test]
     fn publish_to_contract_success() -> Result<(), Box<Error>> {
-
         fn test() -> Result<H256, Box<Error>> {
             run_ganache()?;
 
@@ -195,11 +197,14 @@ mod tests {
 
             let contract = get_contract(web3, contract_address)?;
 
-            contract.call("addAddressToWhitelist",
-                          account,
-                          account.to_owned(),
-                          Options::default()
-            ).wait()?;
+            contract
+                .call(
+                    "addAddressToWhitelist",
+                    account,
+                    account.to_owned(),
+                    Options::default(),
+                )
+                .wait()?;
 
             publish_to_contract(account, contract_address, hash, None, url, 5)
         }
@@ -209,7 +214,10 @@ mod tests {
         stop_ganache();
 
         assert_eq!(result.is_ok(), true);
-        assert_eq!(result.unwrap(), "cc73807a63a8064a17b0fec48ffb828bc1ac330c2970d00dfbf88aebe263d876".parse()?);
+        assert_eq!(
+            result.unwrap(),
+            "cc73807a63a8064a17b0fec48ffb828bc1ac330c2970d00dfbf88aebe263d876".parse()?
+        );
 
         Ok(())
     }
