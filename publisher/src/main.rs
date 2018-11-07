@@ -30,7 +30,8 @@ use std::error::Error;
 use std::fs::File;
 use web3::contract::{Contract, Options};
 use web3::futures::Future;
-use web3::types::{Address, H256};
+use web3::types::{Address, H256, U256};
+use web3::{Web3, Transport};
 
 fn main() {
     let publisher = app::init().unwrap();
@@ -38,6 +39,7 @@ fn main() {
     // uploading code to swarm
     let bar = create_progress_bar("1/2", "Code uploading...");
     let hash = upload(&publisher.swarm_url, &publisher.path).unwrap();
+    let hash: H256 = hash.parse().unwrap();
     bar.finish_with_message("Code uploaded.");
 
     // sending transaction with the hash of file with code to ethereum
@@ -46,7 +48,7 @@ fn main() {
     let transaction = publish_to_contract(
         publisher.account,
         publisher.contract_address,
-        &hash,
+        hash,
         pass,
         &publisher.eth_url,
         publisher.cluster_size,
@@ -59,25 +61,28 @@ fn main() {
     println!("{}: {:?}", formatted_finish_msg, formatted_tx);
 }
 
+fn get_contract<T: Transport>(web3: Web3<T>, contract_address: Address) -> Result<Contract<T>, Box<Error>> {
+    let json = include_bytes!("../../bootstrap/contracts/compiled/Deployer.abi");
+
+    Contract::from_json(web3.eth(), contract_address, json).map_err(|e| e.into())
+}
+
 /// Publishes hash of the code (address in swarm) to the `Deployer` smart contract
 fn publish_to_contract(
     account: Address,
     contract_address: Address,
-    hash: &str,
+    hash: H256,
     password: Option<&str>,
     eth_url: &str,
     cluster_size: u64,
 ) -> Result<H256, Box<Error>> {
-    let hash: H256 = hash.parse().unwrap();
 
     let (_eloop, transport) = web3::transports::Http::new(&eth_url)?;
     let web3 = web3::Web3::new(transport);
 
     if let Some(p) = password { web3.personal().unlock_account(account, p, None).wait()?; }
 
-    let json = include_bytes!("../Deployer.abi");
-
-    let contract = Contract::from_json(web3.eth(), contract_address, json)?;
+    let contract = get_contract(web3, contract_address)?;
 
     //todo: add correct receipts
     let receipt: H256 =
@@ -86,7 +91,14 @@ fn publish_to_contract(
         "addCode",
         (hash, receipt, cluster_size),
         account,
-        Options::default(),
+        Options::with(|o| {
+            //todo specify
+            let gp: U256 = 22_000_000_000i64.into();
+            o.gas_price = Some(gp);
+
+            let gl: U256 = 4_300_000.into();
+            o.gas = Some(gl);
+        }),
     );
     Ok(result_code_publish.wait()?)
 }
@@ -132,4 +144,80 @@ fn create_progress_bar(prefix: &str, msg: &str) -> ProgressBar {
     bar.set_style(ProgressStyle::default_spinner().template(TEMPLATE));
 
     bar
+}
+
+mod tests {
+    use super::{publish_to_contract, get_contract};
+    use std::process::Command;
+    use std::error::Error;
+    use web3::types::{Address, H256};
+    use web3::contract::Options;
+    use web3;
+    use web3::futures::Future;
+
+    fn run_ganache() -> Result<(), Box<Error>> {
+        let mut install_cmd = Command::new("npm");
+        install_cmd.current_dir("../bootstrap/");
+        install_cmd.args(&["install"]);
+        install_cmd.status().unwrap();
+
+        let mut run_cmd = Command::new("npm");
+        run_cmd.current_dir("../bootstrap/");
+        run_cmd.args(&["run", "ganache"]);
+        run_cmd.status().unwrap();
+
+        let mut deploy_cmd = Command::new("npm");
+        deploy_cmd.current_dir("../bootstrap/");
+        deploy_cmd.args(&["run", "migrate"]);
+        deploy_cmd.status().unwrap();
+
+        Ok(())
+    }
+
+
+    #[test]
+    fn publish_to_contract_success() -> Result<(), Box<Error>> {
+
+        fn test() -> Result<H256, Box<Error>> {
+            run_ganache()?;
+
+            let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse()?;
+
+            let account: Address = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d".parse()?;
+
+            let hash = "d1f25a870a7bb7e5d526a7623338e4e9b8399e76df8b634020d11d969594f24a";
+            let hash: H256 = hash.parse()?;
+
+            let url = "http://127.0.0.1:8545";
+
+            let (_eloop, transport) = web3::transports::Http::new(&url)?;
+            let web3 = web3::Web3::new(transport);
+
+            let contract = get_contract(web3, contract_address)?;
+
+            contract.call("addAddressToWhitelist",
+                          account,
+                          account.to_owned(),
+                          Options::default()
+            ).wait()?;
+
+            publish_to_contract(account, contract_address, hash, None, url, 5)
+        }
+
+        let result = test();
+
+        stop_ganache();
+
+        assert_eq!(result.is_ok(), true);
+        assert_eq!(result.unwrap(), "cc73807a63a8064a17b0fec48ffb828bc1ac330c2970d00dfbf88aebe263d876".parse()?);
+
+        Ok(())
+    }
+
+    fn stop_ganache() {
+        let mut stop_cmd = Command::new("pkill");
+        stop_cmd.current_dir("../bootstrap/");
+        stop_cmd.args(&["-f", "ganache"]);
+        stop_cmd.status().unwrap();
+    }
 }

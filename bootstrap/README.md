@@ -3,8 +3,8 @@
 
 # Running Scala tests
 
-## How to generate abi & Java wrapper
-`npm run generate-abi`
+## How to generate abi, binary file & Java wrapper
+`npm run generate-all`
 
 ## Running private blockchain with docker
 See [guide on running private ethereum blockchain](private_ethereum.md)
