@@ -70,7 +70,7 @@ type VMState struct {
 func VMStateUnpack([]byte) VMState { panic("") }
 
 // applies block transactions to the virtual machine state to produce the new state
-func NextVMState(vmState VMState, txs []Transaction) VMState { panic("") }
+func NextVMState(code WasmCode, vmState VMState, txs []Transaction) VMState { panic("") }
 
 type Manifest struct {
   Header              Header       // block header
@@ -84,9 +84,9 @@ type Manifest struct {
 func ManifestUnpack([]byte) Manifest { panic("") }
 
 // returns the new virtual machine state, the manifest for the stored block and the next app hash
-func ProcessBlock(block Block, prevVMState VMState, prevManifestReceipt SwarmReceipt,
+func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestReceipt SwarmReceipt,
 ) (VMState, Manifest, SwarmReceipt, Digest) {
-  var vmState = NextVMState(prevVMState, block.Txs)
+  var vmState = NextVMState(code, prevVMState, block.Txs)
   var txsReceipt = SwarmUpload(pack(block.Txs))
 
   var manifest = Manifest{

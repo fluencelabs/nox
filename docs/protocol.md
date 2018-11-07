@@ -28,6 +28,9 @@
   - [History replaying](#history-replaying)
   - [State hash mismatch resolution](#state-hash-mismatch-resolution)
   - [Validators selection](#validators-selection)
+- [Computation machine](#computation-machine)
+  - [Client interactions](#client-interactions)
+  - [Verification game](#verification-game)
 
 ## Preface
 
@@ -445,12 +448,14 @@ Note we haven't specified here how the application state hash (`Block.Header.App
 Once the block has passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. The virtual machine state is essentially a block of memory split into chunks which can be used to compute the virtual machine state hash. We can say that the virtual machine state `k + 1` is derived by applying transactions in the block `k` to the virtual machine state `k`.
 
 ```go
+type WasmCode = []Chunk
+
 type VMState struct {
   Chunks []Chunk // virtual machine memory chunks
 }
 
 // produces the new state by applying block transactions to the old VM state
-func NextVMState(vmState VMState, txs Transactions) VMState {}
+func NextVMState(code WasmCode, vmState VMState, txs Transactions) VMState {}
 ```
 
 Once the block is processed by the WebAssembly VM, it has to be stored in Swarm for the future batch validation. Two separate pieces are actually stored in Swarm for each Tendermint block: the block manifest and the transactions list.
@@ -475,9 +480,9 @@ To create a manifest, the node splits the block into pieces, computes the hash o
 
 ```go
 // returns the new virtual machine state, the manifest for the stored block and the next app hash
-func ProcessBlock(block Block, prevVMState VMState, prevManifestReceipt SwarmReceipt,
+func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestReceipt SwarmReceipt,
 ) (VMState, Manifest, SwarmReceipt, Digest) {
-  var vmState = NextVMState(prevVMState, block.Txs)
+  var vmState = NextVMState(code, prevVMState, block.Txs)
   var txsReceipt = SwarmUpload(pack(block.Txs))
 
   var manifest = Manifest{
@@ -780,6 +785,7 @@ Otherwise, if there were no disagreements while processing the history the batch
 
 ```go
 func (validator BatchValidator) Validate(
+    code WasmCode,
     basicContract BasicFluenceContract,
     sideContract SideFluenceContract,
     validationContract ValidationFluenceContract,
@@ -797,7 +803,7 @@ func (validator BatchValidator) Validate(
       var publicKeys = VerifyVMStateConsensus(basicContract, window)
 
       // verifying the real-time cluster state progress correctness
-      snapshot = NextVMState(snapshot, subchain.Transactions[i])
+      snapshot = NextVMState(code, snapshot, subchain.Transactions[i])
       var vmStateHash = MerkleRoot(snapshot.Chunks)
       if vmStateHash != subchain.Manifests[i].VMStateHash {
         // TODO: dispute state advance using publicKeys, stop processing
@@ -817,31 +823,31 @@ func (validator BatchValidator) Validate(
 
 ### State hash mismatch resolution
 
-It might happen that a malicious batch validator **M** has generated the snapshot **state<sub>k</sub><sup>M</sup>** and uploaded it to Swarm. Now the snapshot should be accessible by the Swarm hash **swHash<sub>k</sub><sup>M</sup>**. We also assume that **M** has also submitted to the smart contract an incorrect virtual machine hash **vmHash<sub>k</sub><sup>M</sup>**. In this case, we have the following situation: **swHash<sub>k</sub><sup>M</sup>** == _SwarmHash_(**state<sub>k</sub><sup>M</sup>**), but **vmHash<sub>k</sub><sup>M</sup>** != _MerkleRoot_(**state<sub>k</sub><sup>M</sup>**).
+It might happen that a malicious batch validator **M** has generated the snapshot <code>state<sub>k</sub><sup>M</sup></code> and uploaded it to Swarm. Now the snapshot should be accessible by the Swarm hash <code>swHash<sub>k</sub><sup>M</sup></code>. We also assume that **M** has also submitted to the smart contract an incorrect virtual machine hash <code>vmHash<sub>k</sub><sup>M</sup></code>. In this case, we have the following situation: <code>swHash<sub>k</sub><sup>M</sup> == SwarmHash(state<sub>k</sub><sup>M</sup>)</code>, but <code>vmHash<sub>k</sub><sup>M</sup> != MerkleRoot(state<sub>k</sub><sup>M</sup>)</code>.
 
-Honest batch validator **A** is able to discover this after downloading the state snapshot `k` from Swarm using **swHash<sub>k</sub><sup>M</sup>** stored in the smart contract.
+Honest batch validator **A** is able to discover this after downloading the state snapshot `k` from Swarm using <code>swHash<sub>k</sub><sup>M</sup></code> stored in the smart contract.
 
-That's an exceptional situation which warrants a dispute resolution through Ethereum. Let's assume as an induction hypothesis that the snapshot **state<sub>k – t</sub>** and corresponding hashes were produced correctly, i.e. **swHash<sub>k – t</sub>** == _SwarmHash_(**state<sub>k – t</sub>**) and **vmHash<sub>k – t</sub>** == _MerkleRoot_(**state<sub>k – t</sub>**). Otherwise, the batch validator **A** can make another step back and attempt to submit a dispute for the snapshot **state<sub>k – t</sub>**. 
+That's an exceptional situation which warrants a dispute resolution through Ethereum. Let's assume as an induction hypothesis that the snapshot <code>state<sub>k–t</sub></code> and corresponding hashes were produced correctly, i.e. <code>swHash<sub>k–t</sub> == SwarmHash(state<sub>k–t</sub>)</code> and <code>vmHash<sub>k–t</sub> == MerkleRoot(state<sub>k–t</sub>)</code>. Otherwise, the batch validator **A** can make another step back and attempt to submit a dispute for the snapshot <code>state<sub>k–t</sub></code>.
 
-Given that the snapshot **state<sub>k – t</sub>** is valid, **A** applies a segment of transactions history to it and derives the snapshot **state<sub>k</sub><sup>A</sup>**. From this snapshot **A** derives hashes **swHash<sub>k</sub><sup>A</sup>** and **vmHash<sub>k</sub><sup>A</sup>**.
+Given that the snapshot <code>state<sub>k–t</sub></code> is valid, **A** applies a segment of transactions history to it and derives the snapshot <code>state<sub>k</sub><sup>A</sup></code>. From this snapshot **A** derives hashes <code>swHash<sub>k</sub><sup>A</sup></code> and <code>vmHash<sub>k</sub><sup>A</sup></code>.
 
 Now, two options are possible:
 
-1) **vmHash<sub>k</sub><sup>A</sup>** != **vmHash<sub>k</sub><sup>M</sup>**
+**1)** <code>vmHash<sub>k</sub><sup>A</sup> != vmHash<sub>k</sub><sup>M</sup></code>
 
-   This means **M** has performed an incorrect state advance which grounds for a verification game between **A** and **M**. This will be described later, but what's important is that we don't care about the original **vmHash<sub>k</sub><sup>M</sup>** != _MerkleRoot_(**state<sub>k</sub><sup>M</sup>**) hash mismatch anymore.
+ This means **M** has performed an incorrect state advance which grounds for a verification game between **A** and **M**. This will be described later, but what's important is that we don't care about the original <code>vmHash<sub>k</sub><sup>M</sup> != MerkleRoot(state<sub>k</sub><sup>M</sup>)</code> hash mismatch anymore.
 
-2) **vmHash<sub>k</sub><sup>A</sup>** == **vmHash<sub>k</sub><sup>M</sup>**
+**2)** <code>vmHash<sub>k</sub><sup>A</sup> == vmHash<sub>k</sub><sup>M</sup></code>
    
-   Because **vmHash<sub>k</sub><sup>A</sup>** == _MerkleRoot_(**state<sub>k</sub><sup>A</sup>**) and **vmHash<sub>k</sub><sup>M</sup>** != _MerkleRoot_(**state<sub>k</sub><sup>M</sup>**), we can conclude that snapshots generated by **A** and **M** do not match: **state<sub>k</sub><sup>A</sup>** != **state<sub>k</sub><sup>M</sup>**.
+ Because <code>vmHash<sub>k</sub><sup>A</sup> == MerkleRoot(state<sub>k</sub><sup>A</sup>)</code> and <code>vmHash<sub>k</sub><sup>M</sup> != MerkleRoot(state<sub>k</sub><sup>M</sup>)</code>, we can conclude that snapshots generated by **A** and **M** do not match: <code>state<sub>k</sub><sup>A</sup> != state<sub>k</sub><sup>M</sup></code>.
 
-   It's obvious that for any chunk index **i** in the state snapshot, **A** can generate a Merkle proof proving this chunk data **state[i]<sub>k</sub><sup>A</sup>** corresponds to the Merkle root **vmHash<sub>k</sub><sup>A</sup>** == _MerkleRoot_(**state<sub>k</sub><sup>A</sup>**) and at the same time another Merkle proof that it corresponds to the Merkle root **swHash<sub>k</sub><sup>A</sup>** == _SwarmHash_(**state<sub>k</sub><sup>A</sup>**). 
+ It's obvious that for any chunk index **i** in the state snapshot, **A** can generate a Merkle proof proving this chunk data <code>state[i]<sub>k</sub><sup>A</sup></code> corresponds to the Merkle root <code>vmHash<sub>k</sub><sup>A</sup> == MerkleRoot(state<sub>k</sub><sup>A</sup>)</code> and at the same time another Merkle proof that it corresponds to the Merkle root <code>swHash<sub>k</sub><sup>A</sup> == SwarmHash(state<sub>k</sub><sup>A</sup>)</code>. 
 
-   However, by our assumption the Merkle root **vmHash<sub>k</sub><sup>M</sup>** == **vmHash<sub>k</sub><sup>A</sup>** == _MerkleRoot_(**state<sub>k</sub><sup>A</sup>**), but the Merkle root **swHash<sub>k</sub><sup>M</sup>** == _SwarmHash_(**state<sub>k</sub><sup>M</sup>**) where **state<sub>k</sub><sup>A</sup>** != **state<sub>k</sub><sup>M</sup>**. Basically, this means that **M** has generated **vmHash** and **swHash** using two different state snapshots.
+ However, by our assumption the Merkle root <code>vmHash<sub>k</sub><sup>M</sup> == vmHash<sub>k</sub><sup>A</sup> == MerkleRoot(state<sub>k</sub><sup>A</sup>)</code>, but the Merkle root <code>swHash<sub>k</sub><sup>M</sup> == SwarmHash(state<sub>k</sub><sup>M</sup>)</code> where <code>state<sub>k</sub><sup>A</sup> != state<sub>k</sub><sup>M</sup></code>. Basically, this means that **M** has generated <code>vmHash<sub>k</sub><sup>M</sup></code> and <code>swHash<sub>k</sub><sup>M</sup></code> using two different state snapshots.
 
-   Now, all **A** needs to do is to find a chunk index **p** which points to the mismatched content in computed states: **state[p]<sub>k</sub><sup>A</sup>** != **state[p]<sub>k</sub><sup>M</sup>**, and submit a dispute to Ethereum smart contract requesting **M** to provide chunk **p** data and Merkle proofs proving its belonging to **vmHash<sub>k</sub><sup>M</sup>** and **swHash<sub>k</sub><sup>M</sup>**.
+ Now, all **A** needs to do is to find a chunk index **p** which points to the mismatched content in computed states: <code>state[p]<sub>k</sub><sup>A</sup> != state[p]<sub>k</sub><sup>M</sup></code>, and submit a dispute to Ethereum smart contract requesting **M** to provide chunk **p** data and Merkle proofs proving its belonging to <code>vmHash<sub>k</sub><sup>M</sup></code> and <code>swHash<sub>k</sub><sup>M</sup></code>.
 
-   Because those hashes were produced from different snapshots in the first place, **M** will not be able to do that. If the contract finds one of two proofs invalid or **M** times out, **M** is considered as the side which has lost the dispute and will have it's deposit slashed.
+ Because those hashes were produced from different snapshots in the first place, **M** will not be able to do that. If the contract finds one of two proofs invalid or **M** times out, **M** is considered as the side which has lost the dispute and will have it's deposit slashed.
 
 ```go
 // opens a new snapshot hash mismatch dispute
@@ -873,8 +879,105 @@ Only a fraction of the network is allowed to serve as batch validators for a par
 
 **TODO**
 
+## Computation machine
 
+### Client interactions
 
+As a reminder, for now we have been treating the virtual machine as a black box: transactions are being sent to this box input which changes state as a response:
+
+```go
+// produces the new state by applying block transactions to the old VM state
+func NextVMState(code WasmCode, vmState VMState, txs Transactions) VMState {}
+```
+
+The client receives a segment of the virtual machine state along with the proof that the virtual machine state hash was stored in Swarm for future verification. The client also receives a proof that returned segment indeed corresponds to the state hash.
+
+```go
+type QueryResponse struct {
+  Chunks    map[int]Chunk       // selected virtual machine state chunks
+  Proofs    map[int]MerkleProof // Merkle proofs: chunks belong to the virtual machine state
+  Manifests [3]Manifest         // block manifests
+}
+```
+
+There are few potential vectors of attack on this design by malicious real-time cluster nodes. 
+
+First, the cluster might silently drop a transaction sent by the client. This is more of a liveness issue (the cluster might keep dropping transactions forever) and in this protocol we focus more on safety. However, the client should be able to tell whether the transaction was executed or not.
+
+Malicious cluster might also attempt to execute transactions sent by the client in the wrong order which might have critical consequences. For example, if some account balance is `0`, executing transactions `deposit(100), withdraw(50)` will have quite different results compared to `withdraw(50), deposit(100)` assuming we don't allow negative balances and the withdrawal operation will fail in the latter case.
+
+Another potential case is malicious cluster adding a counterfeit transaction to the block – a transaction which wasn't sent by the valid client. This transaction might modify the virtual machine state in the way affecting results returned to honest clients.
+
+Finally, a cluster might execute a transaction incorrectly: for a transaction `sum(5, 3)` it might return `4`. There is no way for the client to learn this in the real-time, but batch validation should recognize incorrect computations and discipline a misbehaving cluster.
+
+To deal with the last attack, a verification game concept is used, which we will consider it in the next section.
+
+### Verification game
+
+Batch validators, as well as real-time nodes advance the virtual machine state by applying a block of transactions to it. As we remember from [§ Block processing](#block-processing), every manifest saved by the real-time cluster to Swarm carries the hash of the virtual machine state as well as the hash of the transactions block also uploaded to Swarm.
+  
+```go
+func ProcessBlock(code WasmCode, block Block, prevVMState VMState, ...) {
+  var vmState = NextVMState(code, prevVMState, block.Txs)
+  var txsReceipt = SwarmUpload(pack(block.Txs))
+   
+  var manifest = Manifest{
+    VMStateHash: MerkleRoot(vmState.Chunks),
+    TxsReceipt:  txsReceipt,
+    ...
+  }  
+  SwarmUpload(pack(manifest))
+}
+```
+
+The WebAssembly code actually performing the state advance operation is uploaded to Swarm and registered in the Ethereum smart contract.
+
+```go
+type WasmFluenceContract struct {
+  CodeReceipt SwarmReceipt // Swarm receipt for the stored WebAssembly code
+  Initialized bool         // flag indicating whether the code is initialized
+}
+
+func (contract WasmFluenceContract) Init(receipt SwarmReceipt) {
+  if !contract.Initialized {
+    contract.CodeReceipt = receipt
+  }
+}
+
+func DeployCode(code WasmCode, contract WasmFluenceContract) {
+  var receipt = SwarmUpload(pack(code))
+  contract.Init(receipt)
+}
+```
+
+Internally, `WasmCode` might consist of multiple different WebAssembly modules, but it exposes a single function to the outside – a function accepting a block of transactions as an argument. This function doesn't return any results: it merely modifies the virtual machine state which can be queried later on.
+
+```go
+func WasmEntryPoint(txs Transactions) {}
+```
+
+Let's assume we've got two manifests: one carrying the previous virtual machine state hash, another – referencing the transactions block and having the new virtual machine state hash. Each manifest, as we have described [earlier](#query-response-verification), is certified by the signatures of the real-time cluster nodes.
+
+<p align="center">
+  <img src="images/state_advance.png" alt="State Advance" width="606px"/>
+</p>
+
+Real-time nodes that have properly signed the chain of manifests assert it's expected that passing <code>Txs<sub>k+1</sub></code> to the entry point method of the virtual machine having the state <code>VMState<sub>k</sub></code> will change the state to <code>VMState<sub>k+1</sub></code>. If a batch validator or another real-time node doesn't agree with the state advance, a verification game is initiated.
+
+Let's assume that node **A** performed <code>WasmCode, VMState<sub>k</sub>, Txs<sub>k+1</sub>  —> VMState<sub>k</sub><sup>A</sup></code> state change, and node **B** – <code>WasmCode, VMState<sub>k</sub>, Txs<sub>k+1</sub>  —> VMState<sub>k</sub><sup>B</sup></code>. Any node can initiate a dispute by calling an Ethereum smart contract and passing to it hashes of the virtual machine states and transactions block.
+
+```go
+type ComputationDispute struct {
+  wasmCodeHash Digest // Swarm hash of the WebAssembly code
+  prevVMHash   Digest // hash of the previous virtual machine state
+  txsHash      Digest // Swarm hash of the transactions block
+  vmHashA      Digest // hash of the next virtual machine state as computed by the node `A`
+  vmHashB      Digest // hash of the next virtual machine state as computed by the node `B`
+}
+
+func (contract WasmFluenceContract) OpenDispute(
+  prevVMHash Digest, txsHash Digest, vmHashA Digest, vmHashB Digest) ComputationDispute {}
+```
 
 
 
