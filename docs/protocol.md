@@ -91,19 +91,14 @@ func Verify(seal Seal, digest Digest) bool {}
 
 ### Range Merkle proofs
 
-This protocol uses a variation of the Merkle proof algorithm allowing to verify not only an inclusion of the data block into the original byte sequence, but also its index in the original sequence. Furthermore, it allows to construct a single proof for a contiguous range of data blocks.
+This protocol uses a variation of the Merkle proof algorithm allowing to verify not only an inclusion of a chunk into the original byte sequence, but also its index in the original sequence. Furthermore, it allows to construct a single proof for a contiguous range of chunks.
 
-To construct the Merkle proof, a sequence of bytes first has to be split into multiple data blocks – chunks. Chunk size might vary, but by default `4KB` chunk size is used.
+To construct the Merkle proof, a sequence of bytes first has to be split into multiple chunks. Chunk size might vary, but by default `4KB` chunk size is used.
 
 ```go
 // splits the byte sequence into chunks of specific size
 func Split(data []byte, chunkSize int32) []Chunk {}
 ```
-
-In case data block is not aligned with chunks, it's boundaries are extended to be equal to the chunk boundaries.
-<p align="center">
-  <img src="images/byte_range.png" alt="Byte Range" width="481px"/>
-</p>
 
 Once the list of chunks is produced, a typical Merkle tree can be build on top of it. On the diagram below we can use a binary encoding of the tree nodes: on each layer <code>L<sub>k</sub></code> the node would have an index <code>a<sub>1</sub>...a<sub>k</sub></code> where <code>a<sub>k</sub></code> equals `0` if it's the left sibling and `1` if it's the right one.
 
@@ -138,22 +133,11 @@ For our example tree, the proof is presented below.
   <img src="images/range_merkle_proof.png" alt="Range Merkle Proof" width="382px"/>
 </p>
 
-Proof can be generated using the following method
-```go
-// build Range Merkle Proof for a range of chunks [startChunk, stopChunk]
-func BuildMerkleRangeProof(chunks []Chunk, from int32, to int32) RangeMerkleProof { }
-```
+Proof can be generated using the following method:
 
-To work with byte blocks, there is a `ByteRange` helper, so you can combine `RangeProof` with `Split` like this
 ```go
-// byte block of length 6kB; from 0x3555 to 0x4D55
-var byteRange = ByteRange { Offset: 0x3555, Length: 0x1800, ChunkSize: 4096 }
-var chunks = Split(data, byteRange.ChunkSize)
-var proof = BuildMerkleRangeProof(
-  chunks, 
-  byteRange.StartChunk(), 
-  byteRange.StopChunk(),
-)
+// build Range Merkle Proof for the range of chunks
+func BuildMerkleRangeProof(chunks []Chunk, from int32, to int32) RangeMerkleProof {}
 ```
 
 Proof verification happens in the way similar to how it was constructed. The verifier starts with the lowest level <code>L<sub>n</sub></code> and goes upward by combining already known hashes with hashes supplied in the Merkle proof. If eventually the already known Merkle root is produced, the proof is deemed correct. 
@@ -161,6 +145,13 @@ Proof verification happens in the way similar to how it was constructed. The ver
 Note that if for the layer <code>L<sub>k</sub></code> we use `0` as <code>p<sub>k</sub></code> if the left extension hash is not present and `1` if it is, resulting <code>p<sub>1</sub>...p<sub>k</sub></code> index will be equal to the start chunk index in the chunks range. That happens because in our construction we were expanding the sequence of hashes to the left if and only if the left most hash in the sequence had the index of form <code>a<sub>1</sub>...a<sub>k–1</sub>1</code>. 
 
 This means the verifier is able to compute the start and stop chunk indices positions based on the supplied proof.
+
+Sometimes we might need to construct a proof for a subsequence of bytes which is not aligned with chunks boundaries. Dealing with this situation is fairly trivial: bounds of such subsequence can be extended to match chunks. Now, the prover can send the extended data range to the verifier along with chunk-based Merkle proof.
+
+<p align="center">
+  <img src="images/byte_range.png" alt="Byte Range" width="481px"/>
+</p>
+
 
 ## External systems
 
