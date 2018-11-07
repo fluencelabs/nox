@@ -2,10 +2,9 @@
 
 - [Preface](#preface)
 - [Core](#core)
-  - [Merkle Trees](#merkle-trees)
-    - [Merkle Proof verification](#merkle-proof-verification)
-      - [Hash guarantees](#hash-guarantees)
-      - [Position proof](#position-proof)
+  - [Basics](#basics)
+  - [Cryptographic primitives](#cryptographic-primitives)
+  - [Range Merkle proofs](#range-merkle-proofs)
 - [External systems](#external-systems)
   - [Ethereum](#ethereum)
   - [Swarm](#swarm)
@@ -40,6 +39,8 @@ However, at least for now this specification aims to accurately express **what**
 
 ## Core
 
+### Basics
+
 Before we start describing the protocol, few words need to be said about the core building blocks. 
 
 First of all, we use a simplified version of Go as a pseudocode to illustrate chosen algorithms. It should be noted that the reference Fluence network implementation doesn't use Go: in fact, it's mostly Scala, TypeScript and Rust. However, Go simplicity allows to use it to describe complex algorithms without too much boilerplate. Go is also statically typed, which allows to use a compiler to catch at least some mistakes. Source codes used in this specification can be found 
@@ -63,18 +64,15 @@ func pack(args... interface{}) []byte {}
 func packMulti(object interface{}) []Chunk {} 
 ```
 
-Basic cryptographic primitives such as digital signature generation and verification, cryptographic hash computation and Merkle tree composition are listed below and used throughout the rest of the protocol specification. We do not specify exact algorithms such as SHA3, RIPEMD or EdDSA for those primitives but still assume them to behave according to the common expectations.
+### Cryptographic primitives
+
+Basic cryptographic primitives such as digital signature generation and verification, as well as cryptographic hash computation are listed below and used throughout the rest of the protocol specification. We do not specify exact algorithms such as SHA3, RIPEMD or EdDSA for those primitives but still assume them to behave according to the common expectations.
 
 ```go
 type Digest     = [32]byte
 type PublicKey  = [32]byte
 type PrivateKey = [64]byte
 type Signature  = [64]byte
-
-type MerkleProof struct {
-  Path     []int      // path from the Merkle tree root to the selected chunk
-  Siblings [][]Digest // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
-}
 
 type Seal struct {
   PublicKey PublicKey
@@ -89,148 +87,57 @@ func Sign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 
 // verifies that the input data digest is signed correctly
 func Verify(seal Seal, digest Digest) bool {}
-
-// computes a Merkle root using supplied chunks as leaf data blocks in the Merkle tree
-func MerkleRoot(allChunks []Chunk) Digest {}
-
-// generates a Merkle proof for the chunk selected from the chunks list
-func CreateMerkleProof(chunks []Chunk, index int32) MerkleProof {}
-
-// verifies that the Merkle proof of the selected chunk conforms to the Merkle root
-func VerifyMerkleProof(selectedChunk Chunk, proof MerkleProof, root Digest) bool {}
 ```
 
-### Merkle Trees
-Merkle Trees and Merkle Proofs are used extensively in the protocol, so their description is mandatory. For a Merkle Tree to be built over a sequence of bytes, that sequence first splitted into chunks of the specified size.
+### Range Merkle proofs
+
+This protocol uses a variation of the Merkle proof algorithm allowing to verify not only an inclusion of the data block into the original byte sequence, but also its index in the original sequence. Furthermore, it allows to construct a single proof for a contiguous range of data blocks.
+
+To construct the Merkle proof, a sequence of bytes first has to be split into multiple data blocks – chunks. Chunk size might vary, but by default `4KB` chunk size is used.
 
 ```go
-func Split(data []byte, chunk int32) []Chunk
+// splits the byte sequence into chunks of specific size
+func Split(data []byte, chunkSize int32) []Chunk {}
 ```
 
-For example, chunk size in Fluence Merkle Tree is
+Once the list of chunks is produced, a typical Merkle tree can be build on top of it. On the diagram below we can use a binary encoding of the tree nodes: on each layer <code>L<sub>k</sub></code> the node would have an index <code>a<sub>1</sub>...a<sub>k</sub></code> where <code>a<sub>k</sub></code> equals `0` if it's the left sibling and `1` if it's the right one.
+
+<p align="center">
+  <img src="images/range_merkle_tree.png" alt="Range Merkle Tree" width="871px"/>
+</p>
+
+The Merkle proof itself is constructed recursively by layers. First, a hash function is applied to every chunk on the layer `C` generating the layer <code>L<sub>n</sub></code> where `n` is the tree depth. Now, starting from the layer <code>L<sub>n</sub></code> we iterate to the layer <code>L<sub>0</sub></code> in the following way. 
+
+_Expand._ On the layer <code>L<sub>n</sub></code> we have a contiguous sequence of hashes having indices ranging from <code>a<sub>1</sub>...a<sub>n–1</sub>a<sub>n</sub></code> to <code>b<sub>1</sub>...b<sub>n–1</sub>b<sub>n</sub></code>. We expand this sequence to contain hashes from <code>a<sub>1</sub>...a<sub>n–1</sub>0</code> to <code>b<sub>1</sub>...b<sub>n–1</sub>1</code>. It's obvious to see that at most two hashes are added on the left and on the right side – these hashes will be sent as a part of the Merkle proof. 
+
+_Lift._ Combining hashes pairwise and applying the hash function we can compute hashes for the next level: a pair <code>(x<sub>1</sub>...x<sub>n–1</sub>0, x<sub>1</sub>...x<sub>n–1</sub>1)</code> on the level <code>L<sub>n</sub></code> produces the hash <code>x<sub>1</sub>...x<sub>n–1</sub></code> on the level <code>L<sub>n–1</sub></code>. It should be clear that for every index <code>x<sub>1</sub>...x<sub>n–1</sub></code> such that <code>a<sub>1</sub>...a<sub>n–1</sub> ≤  x<sub>1</sub>...x<sub>n–1</sub> ≤ b<sub>1</sub>...b<sub>n–1</sub></code> the aforementioned pair would belong to the extended sequence of hashes <code>[a<sub>1</sub>...a<sub>n–1</sub>0;  b<sub>1</sub>...b<sub>n–1</sub>1]</code>.
+
+This construction means we have collected a sequence of hashes <code>[a<sub>1</sub>...a<sub>n–1</sub>;  b<sub>1</sub>...b<sub>n–1</sub>]</code> for the layer <code>L<sub>n–1</sub></code>. Now we can repeat expansion and lift procedures for the next layer until the Merkle root is reached. Note that if the selected chunks range contains just a single chunk, this algorithm virtually generates an ordinary Merkle Proof.
+
+On each layer we have added at most two hashes, so the final Merkle proof looks the following:
+
 ```go
-const FlChunkSize int32 = 4096
-```
+type MerkleProofLayer struct {
+  left  *Digest
+  right *Digest
+}
 
-Then, each chunk is hashed, hashes grouped in pairs and hashed too and so on until Merkle Root is generated. Resulting Merkle Tree could be depicted like this.
-
-<p align="center">
-  <img src="images/range_merkle_tree.png" alt="Merkle Tree" width="722px"/>
-</p>
-
-Here we have a byte sequence splitted into 8 chunks. For `FlChunkSize` that would mean a 32 kilobyte sequence. Now, let's imagine we need a proof for bytes from `0x3555` to `0x4D55`. 
-
-<p align="center">
-  <img src="images/byte_range.png" alt="Merkle Tree" width="481px"/>
-</p>
-
-It would span 3 chunks of `FlChunkSize` size, from 4th to 6th. So a Merkle Proof for chunks in `[3, 5]` (zero indexed) would look like this.
-
-<p align="center">
-  <img src="images/range_merkle_proof.png" alt="Merkle Tree" width="871px"/>
-</p>
-
-In code, Merkle Proof is represented by
-```go
 type RangeMerkleProof struct {
-  Chunks     []Chunk
-  Hashes     [][2]Digest
+  Layers []MerkleProofLayer
 }
 ```
 
-Here, `Chunks` are the chunks `[3, 5]` themselves, and `Hashes` are <code>H<sub>2</sub></code>, <code>H<sub>0-1</sub></code>, and <code>H<sub>6-7</sub></code>. Every other hash required for checking the proof could be calculated either from `Chunks` or from `Hashes`.
-
-Range Merkle proof can be generated by calling
-```go
-func FlRangeMerkleProof(data []byte, offset int32, length int32) RangeMerkleProof {
-  var byteRange = ByteRange{
-    Offset:    offset,
-    Length:    length,
-    ChunkSize: FlChunkSize,
-  }
-  return BuildRangeMerkleProof(data, byteRange, Hash)
-}
-```
-
-`FlRangeMerkleProof` uses more general function
-```go
-func BuildRangeMerkleProof(data []byte, byteRange ByteRange, hashFn HashFunc) RangeMerkleProof {
-  var chunks = Split(data, byteRange.ChunkSize)
-  var startChunk = byteRange.StartChunk()
-  var stopChunk = byteRange.StopChunk()
-
-  var bottomChunks = chunks[startChunk : stopChunk+1]
-
-  var tree = BuildMerkleTree(chunks, hashFn)
-  var proof = RangeProof(tree, startChunk, stopChunk)
-
-  return RangeMerkleProof{
-    Chunks:     bottomChunks,
-    Hashes:     proof,
-    StartChunk: startChunk,
-    StopChunk:  stopChunk,
-  }
-}
-```
-
-Proof generation logic is implemented by `RangeProof` function that first locates hashes of the left and right chunks in the Merkle Tree. Then it checks if left hash is the leftmost sibling, and if not, adds the sibling to the Merkle Proof. It does the same with the right hash: checks if it's the rightmost sibling and if it's not, adds rightmost sibling to the Merkle Proof. Then it goes to the parents of the hashes and does the same for them. The process repeats for all parents until root is reached.
-
-```go
-func RangeProof(tree MerkleTree, start int32, stop int32) [][]Digest
-```
-
-For a single chunk, algorithm effectively generates an ordinary Merkle Proof.
-
-#### Merkle Proof verification
-Range Merkle Proof proves two things:
-1. Byte sequence includes specified continuous subsequence
-2. Position of the subsequence within the byte sequence is correct
-
-Note that it's not an original position that is proved, but a position extended to the whole chunk size. So for our previous example of subsequence `[0x3555, 0x4D55]` the proof is given for chunks corresponding to `[0x3000, 0x6000]`.
-
-Let's take a look at the `RangeMerkleProof` contents.
+For our example tree, the proof is presented below.
 
 <p align="center">
-  <img src="images/proof_contents.png" alt="Merkle Tree" width="401px"/>
+  <img src="images/range_merkle_proof.png" alt="Range Merkle Proof" width="382px"/>
 </p>
 
-To describe how a Range Merkle Proof is checked, let's first assign each node a binary number corresponding to its position on the level of the tree where that node is placed. Levels start from the level <code>S<sub>0</sub></code> containing children of the tree root. Then, children of all nodes on <code>S<sub>0</sub></code> make <code>S<sub>1</sub></code>. Now, since nodes are zero-indexed, third node on the <code>S<sub>1</sub></code> is assigned the binary number `10` and 4th node on level <code>S<sub>2</sub></code> is `011`.
+Proof verification happens in the way similar to how it was constructed. The verifier starts with the lowest level <code>L<sub>n</sub></code> and goes upward by combining already known hashes with hashes supplied in the Merkle proof. If eventually the already known Merkle root is produced, the proof is deemed correct. 
 
-<p align="center">
-  <img src="images/encoded_merkle_tree.png" alt="Merkle Tree" width="722px"/>
-</p>
+Note that if for the layer <code>L<sub>k</sub></code> we use `0` as <code>p<sub>k</sub></code> if the left extension hash is not present and `1` if it is, resulting <code>p<sub>1</sub>...p<sub>k</sub></code> index will be equal to the start chunk index in the chunks range. That happens because in our construction we were expanding the sequence of hashes to the left if and only if the left most hash in the sequence had the index of form <code>a<sub>1</sub>...a<sub>k–1</sub>1</code>. 
 
-Each level, starting from 0, consists of an even number of nodes. Nodes are grouped in pairs and hashes are computed over these pairs give either a parent level if level > 0, or Merkle Root otherwise. In the Range Merkle Proof, however, there could be an odd number of chunks and in order to compute its parent level, it needs to be extended to an even number of nodes. For that, let's define an *extension* operation.
-
-On any level `l`, a set of computed hashes <code>S<sub>l</sub></code> contains some number of tree nodes each having an assigned binary number <code>a<sub>0</sub>a<sub>1</sub>...a<sub>k</sub></code>. `Hashes` array contains 0 to 2 complementary hashes for each `l`. Let's denote the leftmost element in <code>S<sub>l</sub></code> as `L` and rightmost as `R`. Now, *extension* is defined as two operations:
-1. if `L`'s <code>a<sub>k</sub></code> is 1, add left complementary hash to <code>S<sub>l</sub></code>, i.e., prepend `Hashes[l][0]`
-2. if `R`'s <code>a<sub>k</sub></code> is 0, add right complementary hash to <code>S<sub>l</sub></code>, i.e., append `Hashes[l][1]`
-
-<p align="center">
-<img src="images/extension.png" alt="Extension" width="483px"/>
-</p>
-
-*Note: proof is deemed incorrect if at any level extension yields an odd number of nodes.*
-
-In a Merkle Tree, each node is computed as a hash of the concatenation of its children. E.g., `root = hash(0 | 1)` where `0` and `1` are nodes on the level <code>S<sub>0</sub></code>. Let's compute bottom level hashes as <code>S<sub>h-1</sub> = [hash(chunk<sub>0</sub>), ..., hash(chunk<sub>k</sub>)]</code>, where `h` is the height of the tree. Then, apply *extension* to <code>S<sub>h-1</sub></code> and check that <code>|S<sub>h-1</sub>|</code> is even. Next, group elements in <code>S<sub>h-1</sub></code> pairwise and compute <code>S<sub>h-2</sub></code>. Repeat process until <code>S<sub>0</sub></code> is reached. Then, calculate `root = hash(0 | 1)` and compare it to the provided Merkle Root.
-
-##### Hash guarantees
-`hash` is considered to be resistant to preimage attack, so for two different Merkle Trees <code>T<sub>0</sub></code> and <code>T<sub>1</sub></code>, if some node <code>q</code> from <code>T<sub>0</sub></code> equals to other node <code>p</code> from <code>T<sub>1</sub></code>, that means that their children are equal too (1). 
-
-##### Position proof
-Since the range is continuous, if left and right boundaries' positions are correct, then the whole range is placed correctly. Let's iterate through the whole Merkle Tree, and show that transitions on each level are unambiguous and correct. Let's start with root. Since there is a single root, selecting it is unambigious and correct.
-
-Now, we have to check that transitions from level `n` to level `n + 1` are correct. Since range of chunks is continuous, it is enough to check left and right position boundaries to be sure whole range is placed correctly in the sequence of chunks. Let's start by defining transition operations. There are two of them: the *left transition* operation that is very similar to *extension 1.*, and the *right transition* similar to *extension 2.*.
-
-***Left transition*** for current pair of sibling nodes chooses one of them such that if left complementary hash is defined, choose right sibling, and left sibling otherwise. 
-
-***Right transition*** is defined as: left sibling if right complementary hash is defined, and right sibling otherwise.
-
-Since there is always only a single and well-defined left or right sibling, both left and right *transitions* are unambigious and given the same complementary hashes and same sibling pair, always yield same nodes (2). Hash of concatenated siblings is correct in a Merkle Tree sense (3). If (3) holds, then from (1) and (2) it follows that the node given by *transition* has the same position and value in any Merkle Tree with the same Merkle Root.
-
-Now, iterating through the tree by using only *left* or *right* *transitions*, on the last level of the tree we will get left-most and right-most bottom hashes. Their positions are umabigiously and correctly defined by sequential transitions. This is due to that on each iteration step, there was only one possible outcome for each boundary, so the whole path from root to bottom is univocal and correct.
-
-Positions of chunks within the chunk sequence correspond to the bottom hashes' positions as hashes are derived directly from these chunks. As the size of each chunk is captured by the hashing, we can conclude that <code>chunk<sub>3</sub></code> is starting at the index `0b011 = 0x3` and offset `0x3 * FlChunkSize = 0x3000` and <code>chunk<sub>5</sub></code> ends at `0x5000`.
+This means the verifier is able to compute the start and stop chunk indices positions based on the supplied proof.
 
 ## External systems
 

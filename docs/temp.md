@@ -1,112 +1,49 @@
-## Computation machine
+### Range Merkle proofs
 
-### Client interactions
+This protocol uses a variation of the Merkle proof algorithm allowing to verify not only an inclusion of the data block into the original byte sequence, but also its index in the original sequence. Furthermore, it allows to construct a single proof for a contiguous range of data blocks.
 
-As a reminder, for now we have been treating the virtual machine as a black box: transactions are being sent to this box input which changes state as a response:
-
-```go
-// produces the new state by applying block transactions to the old VM state
-func NextVMState(code WasmCode, vmState VMState, txs Transactions) VMState {}
-```
-
-The client receives a segment of the virtual machine state along with the proof that the virtual machine state hash was stored in Swarm for future verification. The client also receives a proof that returned segment indeed corresponds to the state hash.
+To construct the Merkle proof, a sequence of bytes first has to be split into multiple data blocks – chunks. Chunk size might vary, but by default `4KB` chunk size is used.
 
 ```go
-type QueryResponse struct {
-  Chunks    map[int]Chunk       // selected virtual machine state chunks
-  Proofs    map[int]MerkleProof // Merkle proofs: chunks belong to the virtual machine state
-  Manifests [3]Manifest         // block manifests
-}
+// splits the byte sequence into chunks of specific size
+func Split(data []byte, chunkSize int32) []Chunk {}
 ```
 
-There are few potential vectors of attack on this design by malicious real-time cluster nodes. 
-
-First, the cluster might silently drop a transaction sent by the client. This is more of a liveness issue (the cluster might keep dropping transactions forever) and in this protocol we focus more on safety. However, the client should be able to tell whether the transaction was executed or not.
-
-Malicious cluster might also attempt to execute transactions sent by the client in the wrong order which might have critical consequences. For example, if some account balance is `0`, executing transactions `deposit(100), withdraw(50)` will have quite different results compared to `withdraw(50), deposit(100)` assuming we don't allow negative balances and the withdrawal operation will fail in the latter case.
-
-Another potential case is malicious cluster adding a counterfeit transaction to the block – a transaction which wasn't sent by the valid client. This transaction might modify the virtual machine state in the way affecting results returned to honest clients.
-
-Finally, a cluster might execute a transaction incorrectly: for a transaction `sum(5, 3)` it might return `4`. There is no way for the client to learn this in the real-time, but batch validation should recognize incorrect computations and discipline a misbehaving cluster.
-
-To deal with the last attack, a verification game concept is used, which we will consider it in the next section.
-
-### Verification game
-
-Batch validators, as well as real-time nodes advance the virtual machine state by applying a block of transactions to it. As we remember from [§ Block processing](#block-processing), every manifest saved by the real-time cluster to Swarm carries the hash of the virtual machine state as well as the hash of the transactions block also uploaded to Swarm.
-  
-```go
-func ProcessBlock(code WasmCode, block Block, prevVMState VMState, ...) {
-  var vmState = NextVMState(code, prevVMState, block.Txs)
-  var txsReceipt = SwarmUpload(pack(block.Txs))
-   
-  var manifest = Manifest{
-    VMStateHash: MerkleRoot(vmState.Chunks),
-    TxsReceipt:  txsReceipt,
-    ...
-  }  
-  SwarmUpload(pack(manifest))
-}
-```
-
-The WebAssembly code actually performing the state advance operation is uploaded to Swarm and registered in the Ethereum smart contract.
-
-```go
-type WasmFluenceContract struct {
-  CodeReceipt SwarmReceipt // Swarm receipt for the stored WebAssembly code
-  Initialized bool         // flag indicating whether the code is initialized
-}
-
-func (contract WasmFluenceContract) Init(receipt SwarmReceipt) {
-  if !contract.Initialized {
-    contract.CodeReceipt = receipt
-  }
-}
-
-func DeployCode(code WasmCode, contract WasmFluenceContract) {
-  var receipt = SwarmUpload(pack(code))
-  contract.Init(receipt)
-}
-```
-
-Internally, `WasmCode` might consist of multiple different WebAssembly modules, but it exposes a single function to the outside – a function accepting a block of transactions as an argument. This function doesn't return any results: it merely modifies the virtual machine state which can be queried later on.
-
-```go
-func WasmEntryPoint(txs Transactions) {}
-```
-
-Let's assume we've got two manifests: one carrying the previous virtual machine state hash, another – referencing the transactions block and having the new virtual machine state hash. Each manifest, as we have described [earlier](#query-response-verification), is certified by the signatures of the real-time cluster nodes.
+Once the list of chunks is produced, a typical Merkle tree can be build on top of it. On the diagram below we can use a binary encoding of the tree nodes: on each layer <code>L<sub>k</sub></code> the node would have an index <code>a<sub>1</sub>...a<sub>k</sub></code> where <code>a<sub>k</sub></code> equals `0` if it's the left sibling and `1` if it's the right one.
 
 <p align="center">
-  <img src="images/state_advance.png" alt="State Advance" width="606px"/>
+  <img src="images/range_merkle_tree.png" alt="Range Merkle Tree" width="871px"/>
 </p>
 
-Real-time nodes that have properly signed the chain of manifests assert it's expected that passing _Txs<sub>k+1</sub>_ to the entry point method of the virtual machine having the state _VMState<sub>k</sub>_ will change the state to _VMState<sub>k+1</sub>_. If a batch validator or another real-time node doesn't agree with the state advance, a verification game is initiated.
+The Merkle proof itself is constructed recursively by layers. First, a hash function is applied to every chunk on the layer `C` generating the layer <code>L<sub>n</sub></code> where `n` is the tree depth. Now, starting from the layer <code>L<sub>n</sub></code> we iterate to the layer <code>L<sub>0</sub></code> in the following way. 
 
-Let's assume that node **A** performed _WasmCode_, _VMState<sub>k</sub>_, _Txs<sub>k+1</sub>_  —> _VMState<sub>k</sub><sup>A</sup>_ state change, and node **B** – _WasmCode_, _VMState<sub>k</sub>_, _Txs<sub>k+1</sub>_  —> _VMState<sub>k</sub><sup>B</sup>_. Any node can initiate a dispute by calling an Ethereum smart contract and passing to it hashes of the virtual machine states and transactions block.
+_Expand._ On the layer <code>L<sub>n</sub></code> we have a contiguous sequence of hashes having indices ranging from <code>a<sub>1</sub>...a<sub>n–1</sub>a<sub>n</sub></code> to <code>b<sub>1</sub>...b<sub>n–1</sub>b<sub>n</sub></code>. We expand this sequence to contain hashes from <code>a<sub>1</sub>...a<sub>n–1</sub>0</code> to <code>b<sub>1</sub>...b<sub>n–1</sub>1</code>. It's obvious to see that at most two hashes are added on the left and on the right side – these hashes will be sent as a part of the Merkle proof. 
+
+_Lift._ Combining hashes pairwise and applying the hash function we can compute hashes for the next level: a pair <code>(x<sub>1</sub>...x<sub>n–1</sub>0, x<sub>1</sub>...x<sub>n–1</sub>1)</code> on the level <code>L<sub>n</sub></code> produces the hash <code>x<sub>1</sub>...x<sub>n–1</sub></code> on the level <code>L<sub>n–1</sub></code>. It should be clear that for every index <code>x<sub>1</sub>...x<sub>n–1</sub></code> such that <code>a<sub>1</sub>...a<sub>n–1</sub> ≤  x<sub>1</sub>...x<sub>n–1</sub> ≤ b<sub>1</sub>...b<sub>n–1</sub></code> the aforementioned pair would belong to the extended sequence of hashes <code>[a<sub>1</sub>...a<sub>n–1</sub>0;  b<sub>1</sub>...b<sub>n–1</sub>1]</code>.
+
+This construction means we have collected a sequence of hashes <code>[a<sub>1</sub>...a<sub>n–1</sub>;  b<sub>1</sub>...b<sub>n–1</sub>]</code> for the layer <code>L<sub>n–1</sub></code>. Now we can repeat expansion and lift procedures for the next layer until the Merkle root is reached. Note that if the selected chunks range contains just a single chunk, this algorithm virtually generates an ordinary Merkle Proof.
+
+On each layer we have added at most two hashes, so the final Merkle proof looks the following:
 
 ```go
-type ComputationDispute struct {
-  wasmCodeHash Digest // Swarm hash of the WebAssembly code
-  prevVMHash   Digest // hash of the previous virtual machine state
-  txsHash      Digest // Swarm hash of the transactions block
-  vmHashA      Digest // hash of the next virtual machine state as computed by the node `A`
-  vmHashB      Digest // hash of the next virtual machine state as computed by the node `B`
+type MerkleProofLayer struct {
+  left  *Digest
+  right *Digest
 }
 
-func (contract WasmFluenceContract) OpenDispute(
-  prevVMHash Digest, txsHash Digest, vmHashA Digest, vmHashB Digest) ComputationDispute {}
+type RangeMerkleProof struct {
+  Layers []MerkleProofLayer
+}
 ```
 
+For our example tree, the proof is presented below.
 
+<p align="center">
+  <img src="images/range_merkle_proof.png" alt="Range Merkle Proof" width="382px"/>
+</p>
 
+Proof verification happens in the way similar to how it was constructed. The verifier starts with the lowest level <code>L<sub>n</sub></code> and goes upward by combining already known hashes with hashes supplied in the Merkle proof. If eventually the already known Merkle root is produced, the proof is deemed correct. 
 
+Note that if for the layer <code>L<sub>k</sub></code> we use `0` as <code>p<sub>k</sub></code> if the left extension hash is not present and `1` if it is, resulting <code>p<sub>1</sub>...p<sub>k</sub></code> index will be equal to the start chunk index in the chunks range. That happens because in our construction we were expanding the sequence of hashes to the left if and only if the left most hash in the sequence had the index of form <code>a<sub>1</sub>...a<sub>k–1</sub>1</code>. 
 
-
-
-
-
-
-
-
- 
+This means the verifier is able to compute the start and stop chunk indices positions based on the supplied proof.
