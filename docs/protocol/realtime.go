@@ -117,7 +117,7 @@ func MakeQueryResponse(manifests [3]Manifest, vmState VMState, chunksIndices []i
     var chunk = vmState.Chunks[index]
 
     chunks[index] = chunk
-    proofs[index] = CreateMerkleProof(index, chunk, vmState.Chunks)
+    proofs[index] = CreateMerkleProof(vmState.Chunks, int32(index))
   }
 
   return QueryResponse{Chunks: chunks, Proofs: proofs, Manifests: manifests}
