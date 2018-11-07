@@ -15,3 +15,7 @@ lto = true
 name = "counter"
 path = "src/main/rust/lib.rs"
 crate-type = ["cdylib"]
+
+[dependencies]
+
+fluence_sdk = "0.0.4"
