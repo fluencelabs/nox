@@ -127,7 +127,7 @@ Here we have a byte sequence splitted into 8 chunks. For `FlChunkSize` that woul
 It would span 3 chunks of `FlChunkSize` size, from 4th to 6th. So a Merkle Proof for chunks in `[3, 5]` (zero indexed) would look like this.
 
 <p align="center">
-  <img src="images/range_merkle_proof.png" alt="Merkle Tree" width="887px"/>
+  <img src="images/range_merkle_proof.png" alt="Merkle Tree" width="871px"/>
 </p>
 
 In code, Merkle Proof is represented by
