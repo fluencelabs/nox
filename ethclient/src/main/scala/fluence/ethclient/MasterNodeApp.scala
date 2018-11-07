@@ -32,11 +32,14 @@ import io.circe.syntax._
 import org.web3j.abi.EventEncoder
 import org.web3j.protocol.core.methods.request.EthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
+import slogging.MessageFormatter.DefaultPrefixFormatter
+import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.language.postfixOps
 import scala.sys.process._
 
-object MasterNodeApp extends IOApp {
+object MasterNodeApp extends IOApp with LazyLogging {
+
   /**
    * Launches a single solver connecting to ethereum blockchain with Deployer contract.
    *
@@ -50,13 +53,14 @@ object MasterNodeApp extends IOApp {
         (for {
           solverInfo <- SolverInfo(args)
           config <- pureconfig.loadConfig[DeployerContractConfig]
+          _ = configureLogging()
         } yield (solverInfo, config)) match {
           case Right((solverInfo, config)) =>
             for {
               unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
 
               version ← ethClient.clientVersion[IO]()
-              _ = println(s"Client version: $version")
+              _ = logger.info("eth client version {}", version)
 
               contract <- ethClient.getDeployer[IO](config.deployerContractAddress, config.deployerContractOwnerAccount)
 
@@ -73,27 +77,31 @@ object MasterNodeApp extends IOApp {
                   contract
                     .clusterFormedEventObservable(filter)
                     .toFS2[IO]
-                    .map(x ⇒ {
-                      if (processClusterFormed(x, solverInfo))
-                        unsubscribe.complete(Right(())).unsafeRunSync()
-                    })
+                    .map(
+                      x ⇒
+                        if (processClusterFormed(x, solverInfo))
+                          unsubscribe.complete(Right(()))
+                        else
+                          IO.unit
+                    )
+                    .map(_.unsafeRunSync())
                     .interruptWhen(unsubscribe)
                     .drain // drop the results, so that demand on events is always provided
-                    .onFinalize(IO(println("Subscription finalized")))
+                    .onFinalize(IO(logger.info("subscription finalized")))
                     .compile // Compile to a runnable, in terms of effect IO
                     .drain, // Switch to IO[Unit]
                 // Delayed unsubscribe
                 par.parallel(for {
                   _ <- contract.addSolver(solverInfo.validatorKeyBytes32, solverInfo.addressBytes32).call[IO]
                   _ <- unsubscribe.get
+                  _ = logger.info("got unsubscribe")
                 } yield ())
               )
             } yield ExitCode.Success
           case Left(value) =>
-            println("Error: " + value)
+            logger.error("Error: {}", value)
             IO.pure(ExitCode.Error)
         }
-
       }
 
   /**
@@ -108,19 +116,19 @@ object MasterNodeApp extends IOApp {
       case None => false
       case Some(clusterData) =>
         val clusterName = clusterData.nodeInfo.cluster.genesis.chain_id
-        val vmCodeDirectory = System.getProperty("user.dir") +
-          "/statemachine/docker/examples/vmcode-" + clusterData.code
+        val vmCodeDir = System.getProperty("user.dir") + "/statemachine/docker/examples/vmcode-" + clusterData.code
         val nodeIndex = clusterData.nodeInfo.node_index.toInt
         val longTermKeyLocation = solverInfo.longTermLocation
+        logger.info("preparing to join cluster '{}' as node {}", clusterName, nodeIndex)
 
         val homeDir = System.getProperty("user.home")
-        val clusterInfoFileName = homeDir + "/.fluence/nodes/" + clusterName +
-          "/node" + clusterData.nodeInfo.node_index + "/cluster_info.json"
-
-        val clusterInfoPath = Paths.get(clusterInfoFileName)
+        val clusterInfoName = homeDir + "/.fluence/nodes/" + clusterName + "/node" + nodeIndex + "/cluster_info.json"
+        val clusterInfoPath = Paths.get(clusterInfoName)
 
         new File(clusterInfoPath.getParent.toString).mkdirs()
+
         Files.write(clusterInfoPath, clusterData.nodeInfo.cluster.asJson.spaces2.getBytes)
+        logger.info("cluster info written to {}", clusterInfoPath)
 
         val hostP2PPort = clusterData.hostP2PPort
         val hostRpcPort = clusterData.hostRpcPort
@@ -130,17 +138,27 @@ object MasterNodeApp extends IOApp {
         val runString = s"""bash ./master-run-node.sh %s %s %d %s %s %d %d %d %d"""
           .format(
             clusterName,
-            vmCodeDirectory,
+            vmCodeDir,
             nodeIndex,
             longTermKeyLocation,
-            clusterInfoFileName,
+            clusterInfoName,
             hostP2PPort,
             hostRpcPort,
             tmPrometheusPort,
             smPrometheusPort
           )
-        println(Process(runString, new File("statemachine/docker")) !!)
+
+        logger.info("running {}", runString)
+
+        val containerId = Process(runString, new File("statemachine/docker")).!!
+        logger.info("launched container {}", containerId)
 
         true
     }
+
+  private def configureLogging(): Unit = {
+    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, false)
+    LoggerConfig.factory = PrintLoggerFactory()
+    LoggerConfig.level = LogLevel.INFO
+  }
 }
