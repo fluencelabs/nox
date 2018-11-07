@@ -2,9 +2,12 @@
 
 - [Preface](#preface)
 - [Core](#core)
+  - [Basics](#basics)
+  - [Cryptographic primitives](#cryptographic-primitives)
+  - [Range Merkle proofs](#range-merkle-proofs)
 - [External systems](#external-systems)
   - [Ethereum](#ethereum)
-  - [Swarm](#swarm)    
+  - [Swarm](#swarm)
 - [Initial setup](#initial-setup)
 - [Transactions](#transactions)
 - [Sidechain](#sidechain)
@@ -39,6 +42,8 @@ However, at least for now this specification aims to accurately express **what**
 
 ## Core
 
+### Basics
+
 Before we start describing the protocol, few words need to be said about the core building blocks. 
 
 First of all, we use a simplified version of Go as a pseudocode to illustrate chosen algorithms. It should be noted that the reference Fluence network implementation doesn't use Go: in fact, it's mostly Scala, TypeScript and Rust. However, Go simplicity allows to use it to describe complex algorithms without too much boilerplate. Go is also statically typed, which allows to use a compiler to catch at least some mistakes. Source codes used in this specification can be found 
@@ -62,18 +67,15 @@ func pack(args... interface{}) []byte {}
 func packMulti(object interface{}) []Chunk {} 
 ```
 
-Basic cryptographic primitives such as digital signature generation and verification, cryptographic hash computation and Merkle tree composition are listed below and used throughout the rest of the protocol specification. We do not specify exact algorithms such as SHA3, RIPEMD or EdDSA for those primitives but still assume them to behave according to the common expectations.
+### Cryptographic primitives
+
+Basic cryptographic primitives such as digital signature generation and verification, as well as cryptographic hash computation are listed below and used throughout the rest of the protocol specification. We do not specify exact algorithms such as SHA3, RIPEMD or EdDSA for those primitives but still assume them to behave according to the common expectations.
 
 ```go
 type Digest     = [32]byte
 type PublicKey  = [32]byte
 type PrivateKey = [64]byte
 type Signature  = [64]byte
-
-type MerkleProof struct {
-  Path     []int      // path from the Merkle tree root to the selected chunk
-  Siblings [][]Digest // Merkle tree layer –> sibling index in the layer –> sibling (chunk hash)
-}
 
 type Seal struct {
   PublicKey PublicKey
@@ -88,16 +90,71 @@ func Sign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 
 // verifies that the input data digest is signed correctly
 func Verify(seal Seal, digest Digest) bool {}
-
-// computes a Merkle root using supplied chunks as leaf data blocks in the Merkle tree
-func MerkleRoot(allChunks []Chunk) Digest {}
-
-// generates a Merkle proof for the chunk selected from the chunks list
-func CreateMerkleProof(index int, selectedChunk Chunk, allChunks []Chunk) MerkleProof {}
-
-// verifies that the Merkle proof of the selected chunk conforms to the Merkle root
-func VerifyMerkleProof(selectedChunk Chunk, proof MerkleProof, root Digest) bool {}
 ```
+
+### Range Merkle proofs
+
+This protocol uses a variation of the Merkle proof algorithm allowing to verify not only an inclusion of a chunk into the original byte sequence, but also its index in the original sequence. Furthermore, it allows to construct a single proof for a contiguous range of chunks.
+
+To construct the Merkle proof, a sequence of bytes first has to be split into multiple chunks. Chunk size might vary, but by default `4KB` chunk size is used.
+
+```go
+// splits the byte sequence into chunks of specific size
+func Split(data []byte, chunkSize int32) []Chunk {}
+```
+
+Once the list of chunks is produced, a typical Merkle tree can be build on top of it. On the diagram below we can use a binary encoding of the tree nodes: on each layer <code>L<sub>k</sub></code> the node would have an index <code>a<sub>1</sub>...a<sub>k</sub></code> where <code>a<sub>k</sub></code> equals `0` if it's the left sibling and `1` if it's the right one.
+
+<p align="center">
+  <img src="images/range_merkle_tree.png" alt="Range Merkle Tree" width="871px"/>
+</p>
+
+The Merkle proof itself is constructed recursively by layers. First, a hash function is applied to every chunk on the layer `C` generating the layer <code>L<sub>n</sub></code> where `n` is the tree depth. Now, starting from the layer <code>L<sub>n</sub></code> we iterate to the layer <code>L<sub>0</sub></code> in the following way. 
+
+_Expand._ On the layer <code>L<sub>n</sub></code> we have a contiguous sequence of hashes having indices ranging from <code>a<sub>1</sub>...a<sub>n–1</sub>a<sub>n</sub></code> to <code>b<sub>1</sub>...b<sub>n–1</sub>b<sub>n</sub></code>. We expand this sequence to contain hashes from <code>a<sub>1</sub>...a<sub>n–1</sub>0</code> to <code>b<sub>1</sub>...b<sub>n–1</sub>1</code>. It's obvious to see that at most two hashes are added on the left and on the right side – these hashes will be sent as a part of the Merkle proof. 
+
+_Lift._ Combining hashes pairwise and applying the hash function we can compute hashes for the next level: a pair <code>(x<sub>1</sub>...x<sub>n–1</sub>0, x<sub>1</sub>...x<sub>n–1</sub>1)</code> on the level <code>L<sub>n</sub></code> produces the hash <code>x<sub>1</sub>...x<sub>n–1</sub></code> on the level <code>L<sub>n–1</sub></code>. It should be clear that for every index <code>x<sub>1</sub>...x<sub>n–1</sub></code> such that <code>a<sub>1</sub>...a<sub>n–1</sub> ≤  x<sub>1</sub>...x<sub>n–1</sub> ≤ b<sub>1</sub>...b<sub>n–1</sub></code> the aforementioned pair would belong to the extended sequence of hashes <code>[a<sub>1</sub>...a<sub>n–1</sub>0;  b<sub>1</sub>...b<sub>n–1</sub>1]</code>.
+
+This construction means we have collected a sequence of hashes <code>[a<sub>1</sub>...a<sub>n–1</sub>;  b<sub>1</sub>...b<sub>n–1</sub>]</code> for the layer <code>L<sub>n–1</sub></code>. Now we can repeat expansion and lift procedures for the next layer until the Merkle root is reached. Note that if the selected chunks range contains just a single chunk, this algorithm virtually generates an ordinary Merkle Proof.
+
+On each layer we have added at most two hashes, so the final Merkle proof looks the following:
+
+```go
+type MerkleProofLayer struct {
+  left  *Digest
+  right *Digest
+}
+
+type RangeMerkleProof struct {
+  Layers []MerkleProofLayer
+}
+```
+
+For our example tree, the proof is presented below.
+
+<p align="center">
+  <img src="images/range_merkle_proof.png" alt="Range Merkle Proof" width="382px"/>
+</p>
+
+Proof can be generated using the following method:
+
+```go
+// build Range Merkle Proof for the range of chunks
+func BuildMerkleRangeProof(chunks []Chunk, from int32, to int32) RangeMerkleProof {}
+```
+
+Proof verification happens in the way similar to how it was constructed. The verifier starts with the lowest level <code>L<sub>n</sub></code> and goes upward by combining already known hashes with hashes supplied in the Merkle proof. If eventually the already known Merkle root is produced, the proof is deemed correct. 
+
+Note that if for the layer <code>L<sub>k</sub></code> we use `0` as <code>p<sub>k</sub></code> if the left extension hash is not present and `1` if it is, resulting <code>p<sub>1</sub>...p<sub>k</sub></code> index will be equal to the start chunk index in the chunks range. That happens because in our construction we were expanding the sequence of hashes to the left if and only if the left most hash in the sequence had the index of form <code>a<sub>1</sub>...a<sub>k–1</sub>1</code>. 
+
+This means the verifier is able to compute the start and stop chunk indices positions based on the supplied proof.
+
+Sometimes we might need to construct a proof for a subsequence of bytes which is not aligned with chunks boundaries. Dealing with this situation is fairly trivial: bounds of such subsequence can be extended to match chunks. Now, the prover can send the extended data range to the verifier along with chunk-based Merkle proof.
+
+<p align="center">
+  <img src="images/byte_range.png" alt="Byte Range" width="481px"/>
+</p>
+
 
 ## External systems
 
@@ -468,7 +525,7 @@ func MakeQueryResponse(manifests [3]Manifest, vmState VMState, chunksIndices []i
     var chunk = vmState.Chunks[index]
 
     chunks[index] = chunk
-    proofs[index] = CreateMerkleProof(index, chunk, vmState.Chunks)
+    proofs[index] = CreateMerkleProof(vmState.Chunks, int32(index))
   }
 
   return QueryResponse{Chunks: chunks, Proofs: proofs, Manifests: manifests}
@@ -766,31 +823,31 @@ func (validator BatchValidator) Validate(
 
 ### State hash mismatch resolution
 
-It might happen that a malicious batch validator **M** has generated the snapshot _state<sub>k</sub><sup>M</sup>_ and uploaded it to Swarm. Now the snapshot should be accessible by the Swarm hash _swHash<sub>k</sub><sup>M</sup>_. We also assume that **M** has also submitted to the smart contract an incorrect virtual machine hash _vmHash<sub>k</sub><sup>M</sup>_. In this case, we have the following situation: _swHash<sub>k</sub><sup>M</sup>_ == SwarmHash(_state<sub>k</sub><sup>M</sup>_), but _vmHash<sub>k</sub><sup>M</sup>_ != MerkleRoot(_state<sub>k</sub><sup>M</sup>_).
+It might happen that a malicious batch validator **M** has generated the snapshot <code>state<sub>k</sub><sup>M</sup></code> and uploaded it to Swarm. Now the snapshot should be accessible by the Swarm hash <code>swHash<sub>k</sub><sup>M</sup></code>. We also assume that **M** has also submitted to the smart contract an incorrect virtual machine hash <code>vmHash<sub>k</sub><sup>M</sup></code>. In this case, we have the following situation: <code>swHash<sub>k</sub><sup>M</sup> == SwarmHash(state<sub>k</sub><sup>M</sup>)</code>, but <code>vmHash<sub>k</sub><sup>M</sup> != MerkleRoot(state<sub>k</sub><sup>M</sup>)</code>.
 
-Honest batch validator **A** is able to discover this after downloading the state snapshot `k` from Swarm using _swHash<sub>k</sub><sup>M</sup>_ stored in the smart contract.
+Honest batch validator **A** is able to discover this after downloading the state snapshot `k` from Swarm using <code>swHash<sub>k</sub><sup>M</sup></code> stored in the smart contract.
 
-That's an exceptional situation which warrants a dispute resolution through Ethereum. Let's assume as an induction hypothesis that the snapshot _state<sub>k – t</sub>_ and corresponding hashes were produced correctly, i.e. _swHash<sub>k – t</sub>_ == SwarmHash(_state<sub>k – t</sub>_) and _vmHash<sub>k – t</sub>_ == MerkleRoot(_state<sub>k – t</sub>_). Otherwise, the batch validator **A** can make another step back and attempt to submit a dispute for the snapshot _state<sub>k – t</sub>_.
+That's an exceptional situation which warrants a dispute resolution through Ethereum. Let's assume as an induction hypothesis that the snapshot <code>state<sub>k–t</sub></code> and corresponding hashes were produced correctly, i.e. <code>swHash<sub>k–t</sub> == SwarmHash(state<sub>k–t</sub>)</code> and <code>vmHash<sub>k–t</sub> == MerkleRoot(state<sub>k–t</sub>)</code>. Otherwise, the batch validator **A** can make another step back and attempt to submit a dispute for the snapshot <code>state<sub>k–t</sub></code>.
 
-Given that the snapshot _state<sub>k – t</sub>_ is valid, **A** applies a segment of transactions history to it and derives the snapshot _state<sub>k</sub><sup>A</sup>_. From this snapshot **A** derives hashes _swHash<sub>k</sub><sup>A</sup>_ and _vmHash<sub>k</sub><sup>A</sup>_.
+Given that the snapshot <code>state<sub>k–t</sub></code> is valid, **A** applies a segment of transactions history to it and derives the snapshot <code>state<sub>k</sub><sup>A</sup></code>. From this snapshot **A** derives hashes <code>swHash<sub>k</sub><sup>A</sup></code> and <code>vmHash<sub>k</sub><sup>A</sup></code>.
 
 Now, two options are possible:
 
-1) **_vmHash<sub>k</sub><sup>A</sup>_ != _vmHash<sub>k</sub><sup>M</sup>_**
+**1)** <code>vmHash<sub>k</sub><sup>A</sup> != vmHash<sub>k</sub><sup>M</sup></code>
 
-   This means **M** has performed an incorrect state advance which grounds for a verification game between **A** and **M**. This will be described later, but what's important is that we don't care about the original _vmHash<sub>k</sub><sup>M</sup>_ != MerkleRoot(_state<sub>k</sub><sup>M</sup>_) hash mismatch anymore.
+ This means **M** has performed an incorrect state advance which grounds for a verification game between **A** and **M**. This will be described later, but what's important is that we don't care about the original <code>vmHash<sub>k</sub><sup>M</sup> != MerkleRoot(state<sub>k</sub><sup>M</sup>)</code> hash mismatch anymore.
 
-2) **_vmHash<sub>k</sub><sup>A</sup>_ == _vmHash<sub>k</sub><sup>M</sup>_**
+**2)** <code>vmHash<sub>k</sub><sup>A</sup> == vmHash<sub>k</sub><sup>M</sup></code>
    
-   Because _vmHash<sub>k</sub><sup>A</sup>_ == MerkleRoot(_state<sub>k</sub><sup>A</sup>_) and _vmHash<sub>k</sub><sup>M</sup>_ != MerkleRoot(_state<sub>k</sub><sup>M</sup>_), we can conclude that snapshots generated by **A** and **M** do not match: _state<sub>k</sub><sup>A</sup>_ != _state<sub>k</sub><sup>M</sup>_.
+ Because <code>vmHash<sub>k</sub><sup>A</sup> == MerkleRoot(state<sub>k</sub><sup>A</sup>)</code> and <code>vmHash<sub>k</sub><sup>M</sup> != MerkleRoot(state<sub>k</sub><sup>M</sup>)</code>, we can conclude that snapshots generated by **A** and **M** do not match: <code>state<sub>k</sub><sup>A</sup> != state<sub>k</sub><sup>M</sup></code>.
 
-   It's obvious that for any chunk index **i** in the state snapshot, **A** can generate a Merkle proof proving this chunk data _state[i]<sub>k</sub><sup>A</sup>_ corresponds to the Merkle root _vmHash<sub>k</sub><sup>A</sup>_ == MerkleRoot(_state<sub>k</sub><sup>A</sup>_) and at the same time another Merkle proof that it corresponds to the Merkle root _swHash<sub>k</sub><sup>A</sup>_ == SwarmHash(_state<sub>k</sub><sup>A</sup>_). 
+ It's obvious that for any chunk index **i** in the state snapshot, **A** can generate a Merkle proof proving this chunk data <code>state[i]<sub>k</sub><sup>A</sup></code> corresponds to the Merkle root <code>vmHash<sub>k</sub><sup>A</sup> == MerkleRoot(state<sub>k</sub><sup>A</sup>)</code> and at the same time another Merkle proof that it corresponds to the Merkle root <code>swHash<sub>k</sub><sup>A</sup> == SwarmHash(state<sub>k</sub><sup>A</sup>)</code>. 
 
-   However, by our assumption the Merkle root _vmHash<sub>k</sub><sup>M</sup>_ == _vmHash<sub>k</sub><sup>A</sup>_ == MerkleRoot(_state<sub>k</sub><sup>A</sup>_), but the Merkle root _swHash<sub>k</sub><sup>M</sup>_ == SwarmHash(_state<sub>k</sub><sup>M</sup>_) where _state<sub>k</sub><sup>A</sup>_ != _state<sub>k</sub><sup>M</sup>_. Basically, this means that **M** has generated _vmHash<sub>k</sub><sup>M</sup>_ and _swHash<sub>k</sub><sup>M</sup>_ using two different state snapshots.
+ However, by our assumption the Merkle root <code>vmHash<sub>k</sub><sup>M</sup> == vmHash<sub>k</sub><sup>A</sup> == MerkleRoot(state<sub>k</sub><sup>A</sup>)</code>, but the Merkle root <code>swHash<sub>k</sub><sup>M</sup> == SwarmHash(state<sub>k</sub><sup>M</sup>)</code> where <code>state<sub>k</sub><sup>A</sup> != state<sub>k</sub><sup>M</sup></code>. Basically, this means that **M** has generated <code>vmHash<sub>k</sub><sup>M</sup></code> and <code>swHash<sub>k</sub><sup>M</sup></code> using two different state snapshots.
 
-   Now, all **A** needs to do is to find a chunk index **p** which points to the mismatched content in computed states: _state[p]<sub>k</sub><sup>A</sup>_ != _state[p]<sub>k</sub><sup>M</sup>_, and submit a dispute to Ethereum smart contract requesting **M** to provide chunk **p** data and Merkle proofs proving its belonging to _vmHash<sub>k</sub><sup>M</sup>_ and _swHash<sub>k</sub><sup>M</sup>_.
+ Now, all **A** needs to do is to find a chunk index **p** which points to the mismatched content in computed states: <code>state[p]<sub>k</sub><sup>A</sup> != state[p]<sub>k</sub><sup>M</sup></code>, and submit a dispute to Ethereum smart contract requesting **M** to provide chunk **p** data and Merkle proofs proving its belonging to <code>vmHash<sub>k</sub><sup>M</sup></code> and <code>swHash<sub>k</sub><sup>M</sup></code>.
 
-   Because those hashes were produced from different snapshots in the first place, **M** will not be able to do that. If the contract finds one of two proofs invalid or **M** times out, **M** is considered as the side which has lost the dispute and will have it's deposit slashed.
+ Because those hashes were produced from different snapshots in the first place, **M** will not be able to do that. If the contract finds one of two proofs invalid or **M** times out, **M** is considered as the side which has lost the dispute and will have it's deposit slashed.
 
 ```go
 // opens a new snapshot hash mismatch dispute
@@ -905,9 +962,9 @@ Let's assume we've got two manifests: one carrying the previous virtual machine 
   <img src="images/state_advance.png" alt="State Advance" width="606px"/>
 </p>
 
-Real-time nodes that have properly signed the chain of manifests assert it's expected that passing _Txs<sub>k+1</sub>_ to the entry point method of the virtual machine having the state _VMState<sub>k</sub>_ will change the state to _VMState<sub>k+1</sub>_. If a batch validator or another real-time node doesn't agree with the state advance, a verification game is initiated.
+Real-time nodes that have properly signed the chain of manifests assert it's expected that passing <code>Txs<sub>k+1</sub></code> to the entry point method of the virtual machine having the state <code>VMState<sub>k</sub></code> will change the state to <code>VMState<sub>k+1</sub></code>. If a batch validator or another real-time node doesn't agree with the state advance, a verification game is initiated.
 
-Let's assume that node **A** performed _WasmCode_, _VMState<sub>k</sub>_, _Txs<sub>k+1</sub>_  —> _VMState<sub>k</sub><sup>A</sup>_ state change, and node **B** – _WasmCode_, _VMState<sub>k</sub>_, _Txs<sub>k+1</sub>_  —> _VMState<sub>k</sub><sup>B</sup>_. Any node can initiate a dispute by calling an Ethereum smart contract and passing to it hashes of the virtual machine states and transactions block.
+Let's assume that node **A** performed <code>WasmCode, VMState<sub>k</sub>, Txs<sub>k+1</sub>  —> VMState<sub>k</sub><sup>A</sup></code> state change, and node **B** – <code>WasmCode, VMState<sub>k</sub>, Txs<sub>k+1</sub>  —> VMState<sub>k</sub><sup>B</sup></code>. Any node can initiate a dispute by calling an Ethereum smart contract and passing to it hashes of the virtual machine states and transactions block.
 
 ```go
 type ComputationDispute struct {
