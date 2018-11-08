@@ -722,8 +722,8 @@ The validation contract carries endorsements of the snapshot by batch validators
 ```go
 // uploads the VM state to Swarm if needed and endorses it in the validation smart contract
 func (validator BatchValidator) Endorse(contract ValidationFluenceContract, height int64, state VMState) {
-  var swarmHash = SwarmHash(pack(state.Chunks))
-  var vmStateHash = MerkleRoot(state.Chunks)
+  var swarmHash = SwarmHash(state.Memory)
+  var vmStateHash = MerkleRoot(state.Memory)
 
   var seal = Sign(validator.PublicKey, validator.privateKey, Hash(pack(swarmHash, vmStateHash)))
 
@@ -733,7 +733,7 @@ func (validator BatchValidator) Endorse(contract ValidationFluenceContract, heig
     contract.Endorse(height, seal)
   } else {
     // uploading the state to Swarm
-    var receipt = SwarmUpload(pack(state.Chunks))
+    var receipt = SwarmUpload(state.Memory)
 
     var meta = SnapshotMeta{SnapshotReceipt: receipt, VMStateHash: vmStateHash}
     contract.EndorseInit(height, seal, meta)
@@ -756,8 +756,8 @@ func (validator BatchValidator) LoadSnapshot(contract ValidationFluenceContract,
   var meta = confirmation.SnapshotMeta
 
   var state = VMStateUnpack(SwarmDownload(meta.SnapshotReceipt))
-  var correct = meta.VMStateHash == MerkleRoot(state.Chunks)
-  
+  var correct = meta.VMStateHash == MerkleRoot(state.Memory)
+
   return state, correct
 }
 ```
@@ -775,7 +775,7 @@ For each block the batch validator verifies that BFT consensus was reached by th
 func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest) []PublicKey {}
 ```
 
-The batch validator applies blocks one by one to the snapshot and computes the virtual machine state hash after each block application. If the calculated hash doesn't match the hash stored in the manifest, either the batch validator or the real-time cluster has performed an incorrect state advance. This condition should be resolved via the verification game which is described later in this document.
+The batch validator applies blocks one by one to the snapshot and computes a Merkle Root of the virtual machine state after each block application. If the calculated Merkle Root doesn't match the `VmStateHash` stored in the manifest, either the batch validator or the real-time cluster has performed an incorrect state advance. This condition should be resolved via the verification game which is described later in this document.
 
 Otherwise, if there were no disagreements while processing the history the batch validator has obtained a new state snapshot which will have an index `k + t – 2`. The batch validator uploads this snapshot to Swarm and updates the validation smart contract with an endorsement record.
 
@@ -792,6 +792,8 @@ func (validator BatchValidator) Validate(
   var snapshot, ok = validator.LoadSnapshot(validationContract, height - sideContract.CheckpointInterval)
 
   if ok {
+    var nextSnapshot VMState
+
     for i := 0; i < len(subchain.Manifests) - 2; i++ {
       // verifying BFT consensus
       var window = [3]Manifest{}
@@ -799,8 +801,8 @@ func (validator BatchValidator) Validate(
       var publicKeys = VerifyVMStateConsensus(basicContract, window)
 
       // verifying the real-time cluster state progress correctness
-      snapshot = NextVMState(code, snapshot, subchain.Transactions[i])
-      var vmStateHash = MerkleRoot(snapshot.Chunks)
+      nextSnapshot = NextVMState(code, snapshot, subchain.Transactions[i])
+      var vmStateHash = MerkleRoot(nextSnapshot.Memory)
       if vmStateHash != subchain.Manifests[i].VMStateHash {
         // TODO: dispute state advance using publicKeys, stop processing
         _ = publicKeys
@@ -808,7 +810,7 @@ func (validator BatchValidator) Validate(
     }
 
     // uploading the snapshot and sending a signature to the smart contract
-    validator.Endorse(validationContract, height, snapshot)
+    validator.Endorse(validationContract, height, nextSnapshot)
   } else {
     // TODO: dispute snapshot incorrectness
   }
@@ -860,12 +862,9 @@ type SnapshotDispute struct {
 }
 
 // returns whether the supplied Merkle proofs have passed an audite
-func (dispute SnapshotDispute) Audit(chunk Chunk, vmProof MerkleProof, swarmProof MerkleProof) bool {
-  // TODO: check chunk index in the proof
-  // TODO: use Swarm-based Merkle proof verification
-
-  return VerifyMerkleProof(chunk, vmProof, dispute.SnapshotMeta.VMStateHash) &&
-      VerifyMerkleProof(chunk, swarmProof, dispute.SnapshotMeta.SnapshotReceipt.ContentHash)
+func (dispute SnapshotDispute) Audit(memoryRegion []byte, vmProof MerkleProof, swarmProof MerkleProof) bool {
+  return VerifyMerkleProof(memoryRegion, vmProof, dispute.SnapshotMeta.VMStateHash) &&
+      VerifySwarmProof(memoryRegion, swarmProof, dispute.SnapshotMeta.SnapshotReceipt.ContentHash)
 }
 ```
 
@@ -886,13 +885,13 @@ As a reminder, for now we have been treating the virtual machine as a black box:
 func NextVMState(code WasmCode, vmState VMState, txs Transactions) VMState {}
 ```
 
-The client receives a segment of the virtual machine state along with the proof that the virtual machine state hash was stored in Swarm for future verification. The client also receives a proof that returned segment indeed corresponds to the state hash.
+The client receives a region of the virtual machine memory along with the proof that the Merkle Root of the virtual machine state was stored in Swarm for future verification. The client also receives a proof that returned segment indeed corresponds to the state Merkle Root.
 
 ```go
 type QueryResponse struct {
-  Chunks    map[int]Chunk       // selected virtual machine state chunks
-  Proofs    map[int]MerkleProof // Merkle proofs: chunks belong to the virtual machine state
-  Manifests [3]Manifest         // block manifests
+  MemoryRegion []byte      // region of the virtual machine memory containing query result
+  Proof        MerkleProof // Merkle Proof for `Memory` belonging to the whole VM memory
+  Manifests    [3]Manifest // block manifests
 }
 ```
 
@@ -923,6 +922,19 @@ func ProcessBlock(code WasmCode, block Block, prevVMState VMState, ...) {
     ...
   }  
   SwarmUpload(pack(manifest))
+}
+
+func ProcessBlock(code WasmCode, block Block, prevVMState VMState, ...) {
+  var vmState = NextVMState(code, prevVMState, block.Txs)
+  var txsReceipt = SwarmUpload(pack(block.Txs))
+
+  var manifest = Manifest{
+    VMStateHash: MerkleRoot(vmState.Memory),
+    TxsReceipt:  txsReceipt,
+    ...
+  }
+  SwarmUpload(pack(manifest))
+  ...
 }
 ```
 

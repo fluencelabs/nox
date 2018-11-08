@@ -51,8 +51,8 @@ func (validator BatchValidator) FetchSubchain(contract SideFluenceContract, heig
 
 // uploads the VM state to Swarm if needed and endorses it in the validation smart contract
 func (validator BatchValidator) Endorse(contract ValidationFluenceContract, height int64, state VMState) {
-  var swarmHash = SwarmHash(pack(state.Chunks))
-  var vmStateHash = MerkleRoot(state.Chunks)
+  var swarmHash = SwarmHash(state.Memory)
+  var vmStateHash = MerkleRoot(state.Memory)
 
   var seal = Sign(validator.PublicKey, validator.privateKey, Hash(pack(swarmHash, vmStateHash)))
 
@@ -62,7 +62,7 @@ func (validator BatchValidator) Endorse(contract ValidationFluenceContract, heig
     contract.Endorse(height, seal)
   } else {
     // uploading the state to Swarm
-    var receipt = SwarmUpload(pack(state.Chunks))
+    var receipt = SwarmUpload(state.Memory)
 
     var meta = SnapshotMeta{SnapshotReceipt: receipt, VMStateHash: vmStateHash}
     contract.EndorseInit(height, seal, meta)
@@ -75,7 +75,7 @@ func (validator BatchValidator) LoadSnapshot(contract ValidationFluenceContract,
   var meta = confirmation.SnapshotMeta
 
   var state = VMStateUnpack(SwarmDownload(meta.SnapshotReceipt))
-  var correct = meta.VMStateHash == MerkleRoot(state.Chunks)
+  var correct = meta.VMStateHash == MerkleRoot(state.Memory)
 
   return state, correct
 }
@@ -92,6 +92,8 @@ func (validator BatchValidator) Validate(
   var snapshot, ok = validator.LoadSnapshot(validationContract, height - sideContract.CheckpointInterval)
 
   if ok {
+    var nextSnapshot VMState
+
     for i := 0; i < len(subchain.Manifests) - 2; i++ {
       // verifying BFT consensus
       var window = [3]Manifest{}
@@ -99,8 +101,8 @@ func (validator BatchValidator) Validate(
       var publicKeys = VerifyVMStateConsensus(basicContract, window)
 
       // verifying the real-time cluster state progress correctness
-      snapshot = NextVMState(code, snapshot, subchain.Transactions[i])
-      var vmStateHash = MerkleRoot(snapshot.Chunks)
+      nextSnapshot = NextVMState(code, snapshot, subchain.Transactions[i])
+      var vmStateHash = MerkleRoot(nextSnapshot.Memory)
       if vmStateHash != subchain.Manifests[i].VMStateHash {
         // TODO: dispute state advance using publicKeys, stop processing
         _ = publicKeys
@@ -108,7 +110,7 @@ func (validator BatchValidator) Validate(
     }
 
     // uploading the snapshot and sending a signature to the smart contract
-    validator.Endorse(validationContract, height, snapshot)
+    validator.Endorse(validationContract, height, nextSnapshot)
   } else {
     // TODO: dispute snapshot incorrectness
   }
@@ -128,10 +130,7 @@ type SnapshotDispute struct {
 }
 
 // returns whether the supplied Merkle proofs have passed an audite
-func (dispute SnapshotDispute) Audit(chunk Chunk, vmProof MerkleProof, swarmProof MerkleProof) bool {
-  // TODO: check chunk index in the proof
-  // TODO: use Swarm-based Merkle proof verification
-
-  return VerifyMerkleProof(chunk, vmProof, dispute.SnapshotMeta.VMStateHash) &&
-      VerifyMerkleProof(chunk, swarmProof, dispute.SnapshotMeta.SnapshotReceipt.ContentHash)
+func (dispute SnapshotDispute) Audit(memoryRegion []byte, vmProof MerkleProof, swarmProof MerkleProof) bool {
+  return VerifyMerkleProof(memoryRegion, vmProof, dispute.SnapshotMeta.VMStateHash) &&
+      VerifySwarmProof(memoryRegion, swarmProof, dispute.SnapshotMeta.SnapshotReceipt.ContentHash)
 }
