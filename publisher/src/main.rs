@@ -118,7 +118,7 @@ fn publish_to_contract(
         (hash, receipt, cluster_size),
         account,
         Options::with(|o| {
-            let gl: U256 = 90_000.into();
+            let gl: U256 = 100_000.into();
             o.gas = Some(gl);
         }),
     );
