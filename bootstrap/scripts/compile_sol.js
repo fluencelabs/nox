@@ -24,7 +24,7 @@ if (!output) {
         var message = output.errors[error]
         console.error(message)
     }
-    abort('Errors occur.');
+    abort('Errors occured.');
 }
 
 function writeFile(file, content) {
