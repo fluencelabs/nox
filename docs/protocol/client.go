@@ -63,8 +63,7 @@ func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest
   return keys(lastCommitPublicKeys).([]PublicKey)
 }
 
-func VerifyResponseChunks(results QueryResponse) {
-  for k := range results.Chunks {
-    assertTrue(VerifyMerkleProof(results.Chunks[k], results.Proofs[k], results.Manifests[0].VMStateHash))
-  }
+// checks that memory region containing results actually belongs to VM State
+func VerifyResponse(results QueryResponse) {
+  assertTrue(VerifyMerkleProof(results.MemoryRegion, results.Proof, results.Manifests[0].VMStateHash))
 }

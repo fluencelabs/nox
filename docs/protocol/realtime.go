@@ -63,7 +63,7 @@ func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHa
 }
 
 type VMState struct {
-  Chunks []Chunk // virtual machine memory chunks
+  Memory []byte // virtual machine contiguous memory
 }
 
 // deserializes a byte array into the virtual machine state
@@ -74,7 +74,7 @@ func NextVMState(code WasmCode, vmState VMState, txs []Transaction) VMState { pa
 
 type Manifest struct {
   Header              Header       // block header
-  VMStateHash         Digest       // hash of the VM state derived by applying the block
+  VMStateHash         Digest       // Merkle Root of the VM state derived by applying the block
   LastCommit          []Seal       // Tendermint nodes signatures for the previous block header
   TxsReceipt          SwarmReceipt // Swarm hash of the block transactions
   LastManifestReceipt SwarmReceipt // Swarm hash of the previous manifest
@@ -91,7 +91,7 @@ func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestR
 
   var manifest = Manifest{
     Header:              block.Header,
-    VMStateHash:         MerkleRoot(vmState.Chunks),
+    VMStateHash:         MerkleRoot(vmState.Memory),
     LastCommit:          block.LastCommit,
     TxsReceipt:          txsReceipt,
     LastManifestReceipt: prevManifestReceipt,
@@ -103,22 +103,19 @@ func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestR
 }
 
 type QueryResponse struct {
-  Chunks    map[int]Chunk       // selected virtual machine state chunks
-  Proofs    map[int]MerkleProof // Merkle proofs: chunks belong to the virtual machine state
-  Manifests [3]Manifest         // block manifests
+  MemoryRegion []byte      // region of the virtual machine memory containing query result
+  Proof        MerkleProof // Merkle Proof for `Memory` belonging to the whole VM memory
+  Manifests    [3]Manifest // block manifests
 }
 
 // prepares the query response
-func MakeQueryResponse(manifests [3]Manifest, vmState VMState, chunksIndices []int) QueryResponse {
-  var chunks = make(map[int]Chunk)
-  var proofs = make(map[int]MerkleProof)
+func MakeQueryResponse(manifests [3]Manifest, vmState VMState, offset int32, length int32) QueryResponse {
+  var proof = CreateMerkleProof(vmState.Memory, offset, length)
+  var memoryRegion = vmState.Memory[offset : offset + length]
 
-  for _, index := range chunksIndices {
-    var chunk = vmState.Chunks[index]
-
-    chunks[index] = chunk
-    proofs[index] = CreateMerkleProof(vmState.Chunks, int32(index))
+  return QueryResponse {
+    MemoryRegion: memoryRegion, 
+    Proof: proof, 
+    Manifests: manifests,
   }
-
-  return QueryResponse{Chunks: chunks, Proofs: proofs, Manifests: manifests}
 }

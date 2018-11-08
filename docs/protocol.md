@@ -445,13 +445,13 @@ Note we haven't specified here how the application state hash (`Block.Header.App
 
 ### Block processing
 
-Once the block has passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. The virtual machine state is essentially a block of memory split into chunks which can be used to compute the virtual machine state hash. We can say that the virtual machine state `k + 1` is derived by applying transactions in the block `k` to the virtual machine state `k`.
+Once the block has passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. The virtual machine state is essentially a block of memory that can be split into chunks to compute the virtual machine Merkle Root. We can say that the virtual machine state `k + 1` is derived by applying transactions in the block `k` to the virtual machine state `k`.
 
 ```go
 type WasmCode = []Chunk
 
 type VMState struct {
-  Chunks []Chunk // virtual machine memory chunks
+  Memory []byte // virtual machine contiguous memory
 }
 
 // produces the new state by applying block transactions to the old VM state
@@ -463,7 +463,7 @@ Once the block is processed by the WebAssembly VM, it has to be stored in Swarm 
 ```go
 type Manifest struct {
   Header              Header       // block header
-  VMStateHash         Digest       // hash of the VM state derived by applying the block
+  VMStateHash         Digest       // Merkle Root of the VM state derived by applying the block
   LastCommit          []Seal       // Tendermint nodes signatures for the previous block header
   TxsReceipt          SwarmReceipt // Swarm hash of the block transactions
   LastManifestReceipt SwarmReceipt // Swarm hash of the previous manifest
@@ -487,7 +487,7 @@ func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestR
 
   var manifest = Manifest{
     Header:              block.Header,
-    VMStateHash:         MerkleRoot(vmState.Chunks),
+    VMStateHash:         MerkleRoot(vmState.Memory),
     LastCommit:          block.LastCommit,
     TxsReceipt:          txsReceipt,
     LastManifestReceipt: prevManifestReceipt,
@@ -507,28 +507,25 @@ Let's assume the transaction sent by the client was included into the block `k`.
 
 ```go
 type QueryResponse struct {
-  Chunks    map[int]Chunk       // selected virtual machine state chunks
-  Proofs    map[int]MerkleProof // Merkle proofs: chunks belong to the virtual machine state
-  Manifests [3]Manifest         // block manifests
+  MemoryRegion []byte      // region of the virtual machine memory containing query result
+  Proof        MerkleProof // Merkle Proof for `Memory` belonging to the whole VM memory
+  Manifests    [3]Manifest // block manifests
 }
 ```
 
-Results obtained by invoking the function are stored as a part of the virtual machine state. This way, the node can return selected chunks of the virtual machine memory and supply Merkle proofs confirming these chunks indeed correspond to the correct virtual machine state Merkle root.
+Results obtained by invoking the function are stored as a part of the virtual machine state. This way, the node can return selected region of the virtual machine memory and supply a Merkle proof confirming the region indeed correspond to the correct virtual machine state's Merkle root.
 
 ```go
 // prepares the query response
-func MakeQueryResponse(manifests [3]Manifest, vmState VMState, chunksIndices []int) QueryResponse {
-  var chunks = make(map[int]Chunk)
-  var proofs = make(map[int]MerkleProof)
+func MakeQueryResponse(manifests [3]Manifest, vmState VMState, offset int32, length int32) QueryResponse {
+  var proof = CreateMerkleProof(vmState.Memory, offset, length)
+  var memoryRegion = vmState.Memory[offset : offset + length]
 
-  for _, index := range chunksIndices {
-    var chunk = vmState.Chunks[index]
-
-    chunks[index] = chunk
-    proofs[index] = CreateMerkleProof(vmState.Chunks, int32(index))
+  return QueryResponse {
+    MemoryRegion: memoryRegion, 
+    Proof: proof, 
+    Manifests: manifests,
   }
-
-  return QueryResponse{Chunks: chunks, Proofs: proofs, Manifests: manifests}
 }
 ```
 
@@ -639,10 +636,9 @@ func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest
 Finally, the client checks that returned virtual machine state chunks indeed belong to the virtual machine state hash.
 
 ```go
-func VerifyResponseChunks(results QueryResponse) {
-  for k := range results.Chunks {
-    assertTrue(VerifyMerkleProof(results.Chunks[k], results.Proofs[k], results.Manifests[0].VMStateHash))
-  }
+// checks that memory region containing results actually belongs to VM State
+func VerifyResponse(results QueryResponse) {
+  assertTrue(VerifyMerkleProof(results.MemoryRegion, results.Proof, results.Manifests[0].VMStateHash))
 }
 ```
 
