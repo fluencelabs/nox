@@ -25,9 +25,9 @@ mod publisher;
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use publisher::app;
+use publisher::app::Publisher;
 use reqwest::{Client, Url, UrlError};
 use std::error::Error;
-use std::fs::File;
 use web3::contract::{Contract, Options};
 use web3::futures::Future;
 use web3::types::{Address, H256, U256};
@@ -36,9 +36,18 @@ use web3::{Transport, Web3};
 fn main() {
     let publisher = app::init().unwrap();
 
+    let transaction = publish(publisher);
+
+    let formatted_finish_msg = style("Code published. Submitted transaction").blue();
+    let formatted_tx = style(transaction.unwrap()).red().bold();
+
+    println!("{}: {:?}", formatted_finish_msg, formatted_tx);
+}
+
+fn publish(publisher: Publisher) -> Result<H256, Box<Error>> {
     // uploading code to swarm
     let bar = create_progress_bar("1/2", "Code uploading...");
-    let hash = upload(&publisher.swarm_url, &publisher.path).unwrap();
+    let hash = upload(&publisher.swarm_url, publisher.bytes).unwrap();
     let hash: H256 = hash.parse().unwrap();
     bar.finish_with_message("Code uploaded.");
 
@@ -55,10 +64,7 @@ fn main() {
     );
     bar.finish_with_message("Code submitted.");
 
-    let formatted_finish_msg = style("Code published. Submitted transaction").blue();
-    let formatted_tx = style(transaction.unwrap()).red().bold();
-
-    println!("{}: {:?}", formatted_finish_msg, formatted_tx);
+    transaction
 }
 
 fn get_contract<T: Transport>(
@@ -67,7 +73,7 @@ fn get_contract<T: Transport>(
 ) -> Result<Contract<T>, Box<Error>> {
     let json = include_bytes!("../../bootstrap/contracts/compiled/Deployer.abi");
 
-    Contract::from_json(web3.eth(), contract_address, json).map_err(|e| e.into())
+    Ok(Contract::from_json(web3.eth(), contract_address, json)?)
 }
 
 /// Publishes hash of the code (address in swarm) to the `Deployer` smart contract
@@ -120,15 +126,14 @@ fn parse_url(url: &str) -> Result<Url, UrlError> {
 }
 
 /// Uploads file from path to the swarm
-fn upload(url: &str, path: &str) -> Result<String, Box<Error>> {
-    let file = File::open(path)?;
+fn upload(url: &str, bytes: Vec<u8>) -> Result<String, Box<Error>> {
     let mut url = parse_url(url)?;
     url.set_path("/bzz:/");
 
     let client = Client::new();
     let res = client
         .post(url)
-        .body(file)
+        .body(bytes)
         .header("Content-Type", "application/octet-stream")
         .send()
         .and_then(|mut r| r.text())?;
@@ -150,8 +155,10 @@ fn create_progress_bar(prefix: &str, msg: &str) -> ProgressBar {
     bar
 }
 
+#[cfg(test)]
 mod tests {
-    use super::{get_contract, publish_to_contract};
+    use super::{get_contract, publish};
+    use publisher::app::Publisher;
     use std::error::Error;
     use std::process::Command;
     use web3;
@@ -159,6 +166,7 @@ mod tests {
     use web3::futures::Future;
     use web3::types::{Address, H256};
 
+    #[cfg(test)]
     fn run_ganache() -> Result<(), Box<Error>> {
         let mut install_cmd = Command::new("npm");
         install_cmd.current_dir("../bootstrap/");
@@ -178,40 +186,80 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(test)]
+    fn run_swarm_simulation() -> Result<(), Box<Error>> {
+        let mut deploy_cmd = Command::new("node");
+        deploy_cmd.current_dir("scripts");
+        deploy_cmd.args(&["swarm-simulation.js", "&"]);
+        deploy_cmd.spawn();
+
+        Ok(())
+    }
+
+    #[cfg(test)]
+    fn generate_publisher() -> Publisher {
+        let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
+
+        let account: Address = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d".parse().unwrap();
+
+        let bytes = vec![1, 2, 3];
+
+        Publisher::new(
+            bytes,
+            contract_address,
+            account,
+            String::from("http://localhost:8500"),
+            String::from("http://localhost:8545/"),
+            None,
+            5,
+        )
+    }
+
+    #[cfg(test)]
+    pub fn with<F>(func: F) -> Publisher
+        where
+            F: FnOnce(&mut Publisher),
+    {
+        let mut publisher = generate_publisher();
+        func(&mut publisher);
+        publisher
+    }
+
+    #[cfg(test)]
+    pub fn add_to_white_list(eth_url: &str, account: Address, contract_address: Address) -> Result<H256, Box<Error>> {
+        let (_eloop, transport) = web3::transports::Http::new(eth_url)?;
+        let web3 = web3::Web3::new(transport);
+
+        let contract = get_contract(web3, contract_address)?;
+
+        Ok(contract
+            .call(
+                "addAddressToWhitelist",
+                account,
+                account.to_owned(),
+                Options::default(),
+            )
+            .wait()?)
+    }
+
     #[test]
     fn publish_to_contract_success() -> Result<(), Box<Error>> {
         fn test() -> Result<H256, Box<Error>> {
             run_ganache()?;
 
-            let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse()?;
+            run_swarm_simulation()?;
 
-            let account: Address = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d".parse()?;
+            let publisher = generate_publisher();
 
-            let hash = "d1f25a870a7bb7e5d526a7623338e4e9b8399e76df8b634020d11d969594f24a";
-            let hash: H256 = hash.parse()?;
+            add_to_white_list(&publisher.eth_url, publisher.account, publisher.contract_address)?;
 
-            let url = "http://127.0.0.1:8545";
-
-            let (_eloop, transport) = web3::transports::Http::new(&url)?;
-            let web3 = web3::Web3::new(transport);
-
-            let contract = get_contract(web3, contract_address)?;
-
-            contract
-                .call(
-                    "addAddressToWhitelist",
-                    account,
-                    account.to_owned(),
-                    Options::default(),
-                )
-                .wait()?;
-
-            publish_to_contract(account, contract_address, hash, None, url, 5)
+            publish(publisher)
         }
 
         let result = test();
 
         stop_ganache();
+        stop_swarm();
 
         assert_eq!(result.is_ok(), true);
         assert_eq!(
@@ -226,6 +274,13 @@ mod tests {
         let mut stop_cmd = Command::new("pkill");
         stop_cmd.current_dir("../bootstrap/");
         stop_cmd.args(&["-f", "ganache"]);
+        stop_cmd.status().unwrap();
+    }
+
+    fn stop_swarm() {
+        let mut stop_cmd = Command::new("pkill");
+        stop_cmd.current_dir("../bootstrap/");
+        stop_cmd.args(&["-f", "swarm-simulation"]);
         stop_cmd.status().unwrap();
     }
 }

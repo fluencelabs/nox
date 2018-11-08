@@ -22,16 +22,44 @@ pub mod app {
     use clap::{App, Arg};
     use console::style;
     use std::boxed::Box;
+    use std::fs::File;
+    use std::io::prelude::*;
     use web3::types::Address;
 
     pub struct Publisher {
-        pub path: String,
+        pub bytes: Vec<u8>,
         pub contract_address: Address,
         pub account: Address,
         pub swarm_url: String,
         pub eth_url: String,
         pub password: Option<String>,
         pub cluster_size: u64,
+    }
+
+    impl Publisher {
+        pub fn new(
+            bytes: Vec<u8>,
+            contract_address: Address,
+            account: Address,
+            swarm_url: String,
+            eth_url: String,
+            password: Option<String>,
+            cluster_size: u64,
+        ) -> Publisher {
+            if cluster_size < 1 || cluster_size > 255 {
+                panic!("Invalid number: {}. Must be from 1 to 255.", cluster_size);
+            }
+
+            Publisher {
+                bytes,
+                contract_address,
+                account,
+                swarm_url,
+                eth_url,
+                password,
+                cluster_size,
+            }
+        }
     }
 
     /// Parses arguments from console and initialize parameters for Publisher
@@ -63,7 +91,7 @@ pub mod app {
                     .long("account")
                     .short("a")
                     .takes_value(true)
-                    .help("ethereum account without `0x`"),
+                    .help("ethereum account"),
             )
             .arg(
                 Arg::with_name("contract_address")
@@ -71,7 +99,7 @@ pub mod app {
                     .required(true)
                     .takes_value(true)
                     .index(2)
-                    .help("deployer contract address without `0x`"),
+                    .help("deployer contract address"),
             )
             .arg(
                 Arg::with_name("swarm_url")
@@ -131,18 +159,20 @@ pub mod app {
         let password = matches.value_of("password").map(|s| s.to_string());
 
         let cluster_size: u64 = matches.value_of("cluster_size").unwrap().parse()?;
-        if cluster_size < 1 || cluster_size > 255 {
-            panic!("Invalid number: {}. Must be from 1 to 255.", cluster_size);
-        }
 
-        Ok(Publisher {
-            path,
+        let mut file = File::open(path)?;
+
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf)?;
+
+        Ok(Publisher::new(
+            buf.to_owned(),
             contract_address,
             account,
             swarm_url,
             eth_url,
             password,
             cluster_size,
-        })
+        ))
     }
 }
