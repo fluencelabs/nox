@@ -36,7 +36,7 @@ use web3::{Transport, Web3};
 fn main() {
     let publisher = app::init().unwrap();
 
-    let transaction = publish(publisher);
+    let transaction = publish(publisher, true);
 
     let formatted_finish_msg = style("Code published. Submitted transaction").blue();
     let formatted_tx = style(transaction.unwrap()).red().bold();
@@ -44,26 +44,42 @@ fn main() {
     println!("{}: {:?}", formatted_finish_msg, formatted_tx);
 }
 
-fn publish(publisher: Publisher) -> Result<H256, Box<Error>> {
+pub fn with_progress<U, F: FnOnce() -> U>(msg: &str, prefix: &str, finish: &str, f: F) -> U {
+    let bar = create_progress_bar(prefix, msg);
+    let result = f();
+    bar.finish_with_message(finish);
+    result
+}
+
+fn publish(publisher: Publisher, show_progress: bool) -> Result<H256, Box<Error>> {
     // uploading code to swarm
-    let bar = create_progress_bar("1/2", "Code uploading...");
-    let hash = upload(&publisher.swarm_url, publisher.bytes).unwrap();
-    let hash: H256 = hash.parse().unwrap();
-    bar.finish_with_message("Code uploaded.");
+
+    let upload_fn = || -> Result<H256, Box<Error>> {
+        let hash = upload(&publisher.swarm_url, &publisher.bytes)?;
+        let hash = hash.parse()?;
+        Ok(hash)
+    };
+
+    let hash: H256 = if show_progress {
+        with_progress("Code uploading...", "1/2", "Code uploaded.", upload_fn)
+    } else { upload_fn() }?;
+
+    let publish_fn = || -> Result<H256, Box<Error>> {
+        let pass = publisher.password.as_ref().map(|s| s.as_str());
+        publish_to_contract(
+            publisher.account,
+            publisher.contract_address,
+            hash,
+            pass,
+            &publisher.eth_url,
+            publisher.cluster_size,
+        )
+    };
 
     // sending transaction with the hash of file with code to ethereum
-    let bar = create_progress_bar("2/2", "Submitting the code to the smart contract...");
-    let pass = publisher.password.as_ref().map(|s| s.as_str());
-    let transaction = publish_to_contract(
-        publisher.account,
-        publisher.contract_address,
-        hash,
-        pass,
-        &publisher.eth_url,
-        publisher.cluster_size,
-    );
-    bar.finish_with_message("Code submitted.");
-
+    let transaction = if show_progress {
+        with_progress("Submitting the code to the smart contract...", "2/2", "Code submitted.", publish_fn)
+    } else { publish_fn() };
     transaction
 }
 
@@ -102,11 +118,7 @@ fn publish_to_contract(
         (hash, receipt, cluster_size),
         account,
         Options::with(|o| {
-            //todo specify
-            let gp: U256 = 22_000_000_000i64.into();
-            o.gas_price = Some(gp);
-
-            let gl: U256 = 4_300_000.into();
+            let gl: U256 = 90_000.into();
             o.gas = Some(gl);
         }),
     );
@@ -126,14 +138,14 @@ fn parse_url(url: &str) -> Result<Url, UrlError> {
 }
 
 /// Uploads file from path to the swarm
-fn upload(url: &str, bytes: Vec<u8>) -> Result<String, Box<Error>> {
+fn upload(url: &str, bytes: &Vec<u8>) -> Result<String, Box<Error>> {
     let mut url = parse_url(url)?;
     url.set_path("/bzz:/");
 
     let client = Client::new();
     let res = client
         .post(url)
-        .body(bytes)
+        .body(bytes.to_vec())
         .header("Content-Type", "application/octet-stream")
         .send()
         .and_then(|mut r| r.text())?;
@@ -160,54 +172,24 @@ mod tests {
     use super::{get_contract, publish};
     use publisher::app::Publisher;
     use std::error::Error;
-    use std::process::Command;
     use web3;
     use web3::contract::Options;
     use web3::futures::Future;
-    use web3::types::{Address, H256};
+    use web3::types::*;
 
     #[cfg(test)]
-    fn run_ganache() -> Result<(), Box<Error>> {
-        let mut install_cmd = Command::new("npm");
-        install_cmd.current_dir("../bootstrap/");
-        install_cmd.args(&["install"]);
-        install_cmd.status().unwrap();
-
-        let mut run_cmd = Command::new("npm");
-        run_cmd.current_dir("../bootstrap/");
-        run_cmd.args(&["run", "ganache"]);
-        run_cmd.status().unwrap();
-
-        let mut deploy_cmd = Command::new("npm");
-        deploy_cmd.current_dir("../bootstrap/");
-        deploy_cmd.args(&["run", "migrate"]);
-        deploy_cmd.status().unwrap();
-
-        Ok(())
-    }
-
-    #[cfg(test)]
-    fn run_swarm_simulation() -> Result<(), Box<Error>> {
-        let mut deploy_cmd = Command::new("node");
-        deploy_cmd.current_dir("scripts");
-        deploy_cmd.args(&["swarm-simulation.js", "&"]);
-        deploy_cmd.spawn();
-
-        Ok(())
-    }
+    const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
     #[cfg(test)]
     fn generate_publisher() -> Publisher {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
-
-        let account: Address = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d".parse().unwrap();
 
         let bytes = vec![1, 2, 3];
 
         Publisher::new(
             bytes,
             contract_address,
-            account,
+            OWNER.parse().unwrap(),
             String::from("http://localhost:8500"),
             String::from("http://localhost:8545/"),
             None,
@@ -216,13 +198,33 @@ mod tests {
     }
 
     #[cfg(test)]
-    pub fn with<F>(func: F) -> Publisher
+    pub fn generate_with<F>(func: F) -> Publisher
         where
             F: FnOnce(&mut Publisher),
     {
         let mut publisher = generate_publisher();
         func(&mut publisher);
         publisher
+    }
+
+    #[cfg(test)]
+    pub fn generate_with_account(account: Address) -> Publisher {
+        generate_with(|p| {
+            p.account = account;
+        })
+    }
+
+    #[cfg(test)]
+    pub fn generate_new_account(with_pass: bool) -> Publisher {
+        generate_with(|p| {
+            let (_eloop, transport) = web3::transports::Http::new(&p.eth_url).unwrap();
+            let web3 = web3::Web3::new(transport);
+            let acc = web3.personal().new_account("123").wait().unwrap();
+            p.account = acc;
+            if with_pass {
+                p.password = Some(String::from("123"));
+            }
+        })
     }
 
     #[cfg(test)]
@@ -236,51 +238,85 @@ mod tests {
             .call(
                 "addAddressToWhitelist",
                 account,
-                account.to_owned(),
+                OWNER.parse()?,
                 Options::default(),
             )
             .wait()?)
     }
 
     #[test]
-    fn publish_to_contract_success() -> Result<(), Box<Error>> {
-        fn test() -> Result<H256, Box<Error>> {
-            run_ganache()?;
+    fn publish_wrong_password() -> Result<(), Box<Error>> {
 
-            run_swarm_simulation()?;
+        let publisher = generate_new_account(false);
 
-            let publisher = generate_publisher();
+        let result = publish(publisher, false);
 
-            add_to_white_list(&publisher.eth_url, publisher.account, publisher.contract_address)?;
-
-            publish(publisher)
-        }
-
-        let result = test();
-
-        stop_ganache();
-        stop_swarm();
-
-        assert_eq!(result.is_ok(), true);
-        assert_eq!(
-            result.unwrap(),
-            "cc73807a63a8064a17b0fec48ffb828bc1ac330c2970d00dfbf88aebe263d876".parse()?
-        );
+        assert_eq!(result.is_err(), true);
 
         Ok(())
     }
 
-    fn stop_ganache() {
-        let mut stop_cmd = Command::new("pkill");
-        stop_cmd.current_dir("../bootstrap/");
-        stop_cmd.args(&["-f", "ganache"]);
-        stop_cmd.status().unwrap();
+    #[test]
+    fn publish_no_eth() -> Result<(), Box<Error>> {
+
+        let publisher = generate_new_account(true);
+
+        let result = publish(publisher, false);
+
+        assert_eq!(result.is_err(), true);
+
+        Ok(())
     }
 
-    fn stop_swarm() {
-        let mut stop_cmd = Command::new("pkill");
-        stop_cmd.current_dir("../bootstrap/");
-        stop_cmd.args(&["-f", "swarm-simulation"]);
-        stop_cmd.status().unwrap();
+    #[test]
+    fn publish_wrong_swarm_url() -> Result<(), Box<Error>> {
+
+        let publisher = generate_with(|p| {
+            p.swarm_url = String::from("http://127.0.6.7:8545");
+        });
+
+        let result = publish(publisher, false);
+
+        assert_eq!(result.is_err(), true);
+
+        Ok(())
+    }
+
+    #[test]
+    fn publish_wrong_eth_url() -> Result<(), Box<Error>> {
+
+        let publisher = generate_with(|p| {
+            p.eth_url = String::from("http://127.0.6.7:8545");
+        });
+
+        let result = publish(publisher, false);
+
+        assert_eq!(result.is_err(), true);
+
+        Ok(())
+    }
+
+    #[test]
+    fn publish_to_contract_without_whitelist() -> Result<(), Box<Error>> {
+
+        let publisher = generate_with_account("fa0de43c68bea2167181cd8a83f990d02a049336".parse()?);
+
+        let result = publish(publisher, false);
+
+        assert_eq!(result.is_err(), true);
+
+        Ok(())
+    }
+
+    #[test]
+    fn publish_to_contract_success() -> Result<(), Box<Error>> {
+
+        let publisher = generate_with_account("02f906f8b3b932fd282109a5b8dc732ba2329888".parse()?);
+
+        add_to_white_list(&publisher.eth_url, publisher.account, publisher.contract_address)?;
+
+        publish(publisher, false)?;
+
+        Ok(())
     }
 }
