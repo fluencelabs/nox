@@ -16,7 +16,9 @@ func VerifyTransaction(contract BasicFluenceContract, tx Transaction, minDeposit
 // listed Tendermint functions carry the same meaning and arguments as core functions
 func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
 func TmVerify(seal Seal, digest Digest) bool { panic("") }
-func TmMerkleRoot(chunks []Chunk) Digest { panic("") }
+
+// splits data in tendermint-sized chunks and computes a Merkle Root from them
+func TmMerkleHash(chunks []Chunk) Digest { panic("") }
 
 type Block struct {
   Header     Header       // block header
@@ -44,7 +46,7 @@ func (node RealtimeNode) SignBlockHash(blockHash Digest) Seal {
 
 // prepares the block (assuming the nodes have reached a consensus)
 func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHash Digest) Block {
-  var lastBlockHash = TmMerkleRoot(packMulti(prevBlock.Header))
+  var lastBlockHash = TmMerkleHash(packMulti(prevBlock.Header))
   var lastCommit = make([]Seal, 0, len(nodes))
   for i, node := range nodes {
     lastCommit[i] = node.SignBlockHash(lastBlockHash)
@@ -53,8 +55,8 @@ func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHa
   return Block{
     Header: Header{
       LastBlockHash:  lastBlockHash,
-      LastCommitHash: TmMerkleRoot(packMulti(lastCommit)),
-      TxsHash:        TmMerkleRoot(packMulti(txs)),
+      LastCommitHash: TmMerkleHash(packMulti(lastCommit)),
+      TxsHash:        TmMerkleHash(packMulti(txs)),
       AppHash:        appHash,
     },
     LastCommit: lastCommit,

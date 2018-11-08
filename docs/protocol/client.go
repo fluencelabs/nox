@@ -42,7 +42,7 @@ func VerifyManifestsReceipts(contract SwarmContract, response QueryResponse) {
 func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest) []PublicKey {
   // checking connection between the VM state in the manifest 0 and Tendermint signatures in the manifest 2
   assertEq(manifests[1].Header.AppHash, Hash(pack(manifests[0])))
-  assertEq(manifests[2].Header.LastBlockHash, TmMerkleRoot(packMulti(manifests[1].Header)))
+  assertEq(manifests[2].Header.LastBlockHash, TmMerkleHash(packMulti(manifests[1].Header)))
 
   // counting the number of unique Tendermint nodes public keys
   var lastCommitPublicKeys = make(map[PublicKey]bool)

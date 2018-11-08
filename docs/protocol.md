@@ -403,7 +403,7 @@ Tendermint uses Merkle trees to compute the Merkle root of certain pieces of dat
 // listed Tendermint functions carry the same meaning and arguments as core functions
 func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 func TmVerify(seal Seal, digest Digest) bool {}
-func TmMerkleRoot(chunks []Chunk) Digest {}
+func TmMerkleHash(chunks []Chunk) Digest {}
 ```
 
 Tendermint periodically pulls few transactions from the mempool and forms a new block. Nodes participating in consensus sign produced blocks, however their signatures for a specific block are available only as a part of the next block.
@@ -422,7 +422,7 @@ func (node RealtimeNode) SignBlockHash(blockHash Digest) Seal {
 
 // prepares the block (assuming the nodes have reached a consensus)
 func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHash Digest) Block {
-  var lastBlockHash = TmMerkleRoot(packMulti(prevBlock.Header))
+  var lastBlockHash = TmMerkleHash(packMulti(prevBlock.Header))
   var lastCommit = make([]Seal, 0, len(nodes))
   for i, node := range nodes {
     lastCommit[i] = node.SignBlockHash(lastBlockHash)
@@ -431,8 +431,8 @@ func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHa
   return Block{
     Header: Header{
       LastBlockHash:  lastBlockHash,
-      LastCommitHash: TmMerkleRoot(packMulti(lastCommit)),
-      TxsHash:        TmMerkleRoot(packMulti(txs)),
+      LastCommitHash: TmMerkleHash(packMulti(lastCommit)),
+      TxsHash:        TmMerkleHash(packMulti(txs)),
       AppHash:        appHash,
     },
     LastCommit: lastCommit,
@@ -609,7 +609,7 @@ The client checks that the chain linking Tendermint nodes signatures in the mani
 func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest) []PublicKey {
   // checking connection between the VM state in the manifest 0 and Tendermint signatures in the manifest 2
   assertEq(manifests[1].Header.AppHash, Hash(pack(manifests[0])))
-  assertEq(manifests[2].Header.LastBlockHash, TmMerkleRoot(packMulti(manifests[1].Header)))
+  assertEq(manifests[2].Header.LastBlockHash, TmMerkleHash(packMulti(manifests[1].Header)))
 
   // counting the number of unique Tendermint nodes public keys
   var lastCommitPublicKeys = make(map[PublicKey]bool)
