@@ -91,7 +91,7 @@ func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestR
 
   var manifest = Manifest{
     Header:              block.Header,
-    VMStateHash:         MerkleRoot(vmState.Memory),
+    VMStateHash:         MerkleHash(vmState.Memory),
     LastCommit:          block.LastCommit,
     TxsReceipt:          txsReceipt,
     LastManifestReceipt: prevManifestReceipt,

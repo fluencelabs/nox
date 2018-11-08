@@ -34,7 +34,7 @@ func VerifyManifestsReceipts(contract SwarmContract, response QueryResponse) {
     var manifest = response.Manifests[i+1]
     var prevManifest = response.Manifests[i]
 
-    assertEq(manifest.LastManifestReceipt.ContentHash, SwarmHash(pack(prevManifest)))
+    assertEq(manifest.LastManifestReceipt.ContentHash, SwarmMerkleHash(pack(prevManifest)))
   }
 }
 

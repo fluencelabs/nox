@@ -51,8 +51,8 @@ func (validator BatchValidator) FetchSubchain(contract SideFluenceContract, heig
 
 // uploads the VM state to Swarm if needed and endorses it in the validation smart contract
 func (validator BatchValidator) Endorse(contract ValidationFluenceContract, height int64, state VMState) {
-  var swarmHash = SwarmHash(state.Memory)
-  var vmStateHash = MerkleRoot(state.Memory)
+  var swarmHash = SwarmMerkleHash(state.Memory)
+  var vmStateHash = MerkleHash(state.Memory)
 
   var seal = Sign(validator.PublicKey, validator.privateKey, Hash(pack(swarmHash, vmStateHash)))
 
@@ -75,7 +75,7 @@ func (validator BatchValidator) LoadSnapshot(contract ValidationFluenceContract,
   var meta = confirmation.SnapshotMeta
 
   var state = VMStateUnpack(SwarmDownload(meta.SnapshotReceipt))
-  var correct = meta.VMStateHash == MerkleRoot(state.Memory)
+  var correct = meta.VMStateHash == MerkleHash(state.Memory)
 
   return state, correct
 }
@@ -102,7 +102,7 @@ func (validator BatchValidator) Validate(
 
       // verifying the real-time cluster state progress correctness
       nextSnapshot = NextVMState(code, snapshot, subchain.Transactions[i])
-      var vmStateHash = MerkleRoot(nextSnapshot.Memory)
+      var vmStateHash = MerkleHash(nextSnapshot.Memory)
       if vmStateHash != subchain.Manifests[i].VMStateHash {
         // TODO: dispute state advance using publicKeys, stop processing
         _ = publicKeys
