@@ -21,17 +21,18 @@ if (!output) {
     abort('No output from compiler');
 } else if (output.errors) {
     for (var error in output.errors) {
-            var message = output.errors[error]
-            console.error(message)
+        var message = output.errors[error]
+        console.error(message)
     }
+    abort('Errors occur.');
 }
 
 function writeFile(file, content) {
-  fs.writeFile(file, content, function (err) {
-    if (err) {
-      console.error('Failed to write ' + file + ': ' + err);
-    }
-  });
+    fs.writeFile(file, content, function (err) {
+        if (err) {
+          console.error('Failed to write ' + file + ': ' + err);
+        }
+    });
 }
 
 if (!fs.existsSync(compiledPath)){
