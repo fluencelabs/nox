@@ -75,7 +75,12 @@ matrix:
       before_install:
         - rustup component add rustfmt-preview --toolchain nightly
         - cd publisher
-      before_script: npm install --prefix ../bootstrap && node scripts/swarm-simulation.js && npm run ganache --prefix ../bootstrap/ &
+      before_script:
+        - npm install --prefix ../bootstrap
+        - node scripts/swarm-simulation.js
+        - npm run ganache --prefix ../bootstrap/ &
+        - sleep 5
+        - npm run ganache --prefix ../bootstrap/ &
 
       script:
         - cargo fmt --all -- --check -v
