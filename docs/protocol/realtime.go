@@ -64,9 +64,7 @@ func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHa
   }
 }
 
-type VMState struct {
-  Memory []byte // virtual machine contiguous memory
-}
+type VMState = []byte // virtual machine contiguous memory
 
 // deserializes a byte array into the virtual machine state
 func VMStateUnpack([]byte) VMState { panic("") }
@@ -93,7 +91,7 @@ func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestR
 
   var manifest = Manifest{
     Header:              block.Header,
-    VMStateHash:         MerkleHash(vmState.Memory),
+    VMStateHash:         MerkleHash(vmState),
     LastCommit:          block.LastCommit,
     TxsReceipt:          txsReceipt,
     LastManifestReceipt: prevManifestReceipt,
@@ -112,8 +110,8 @@ type QueryResponse struct {
 
 // prepares the query response containing memory region with results
 func MakeQueryResponse(manifests [3]Manifest, vmState VMState, offset int32, length int32) QueryResponse {
-  var proof = CreateMerkleProof(vmState.Memory, offset, length)
-  var memoryRegion = MakeMemoryRegion(vmState.Memory, offset, length)
+  var proof = CreateMerkleProof(vmState, offset, length)
+  var memoryRegion = MakeMemoryRegion(vmState, offset, length)
 
   return QueryResponse {
     MemoryRegion: memoryRegion, 
