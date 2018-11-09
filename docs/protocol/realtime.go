@@ -104,7 +104,7 @@ func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestR
 
 type QueryResponse struct {
   MemoryRegion ByteRegion   // region of the virtual machine memory containing the query result
-  Proof        MerkleProof  // Merkle proof for `Memory` belonging to the whole VM memory
+  Proof        MerkleProof  // Merkle proof that the memory region belongs to the whole VM memory
   Manifests    [3]Manifest  // block manifests
 }
 

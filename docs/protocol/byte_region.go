@@ -4,18 +4,19 @@ package protocol
 const FlChunkSize uint64 = 4096
 
 // represents a byte range selected from memory to construct a Merkle proof over it
-// if selected range is not aligned to chunk size, then it's extended to be aligned
+// if selected range boundaries aren't aligned to chunk boundaries, then it's extended to be aligned
 type ByteRegion struct {
-  ExtendedRegion []byte // selected region of the memory; extended to be aligned to chunks
-  offset uint64          // start of the byte range in `Region`
-  length uint64          // length of the byte range
+  AlignedRegion []byte // selected region of the memory; extended to be aligned to chunks
+  offset        uint64 // start of the byte range in `Region`
+  length        uint64 // length of the byte range
 }
 
 // returns the original unextended byte range
 func (region ByteRegion) Data() []byte {
-  return region.ExtendedRegion[region.offset : region.offset + region.length]
+  return region.AlignedRegion[region.offset : region.offset+region.length]
 }
 
+// creates a ByteRegion instance containing an extended byte range
 func MakeByteRegion(data []byte, offset uint64, length uint64) ByteRegion {
   var from = offset - offset % FlChunkSize
   var rangeEnd = offset + length
@@ -24,9 +25,9 @@ func MakeByteRegion(data []byte, offset uint64, length uint64) ByteRegion {
     to += FlChunkSize
   }
 
-  return ByteRegion {
-    ExtendedRegion: data[from:to],
-    offset: offset,
-    length: length,
+  return ByteRegion{
+    AlignedRegion: data[from:to],
+    offset:        offset,
+    length:        length,
   }
 }

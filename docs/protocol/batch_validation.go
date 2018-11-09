@@ -15,7 +15,9 @@ type SnapshotMeta struct {
 }
 
 // initializes snapshot metadata and links the associated batch validation endorsement
-func (contract ValidationFluenceContract) EndorseInit(height int64, seal Seal, meta SnapshotMeta) { panic("") }
+func (contract ValidationFluenceContract) EndorseInit(height int64, seal Seal, meta SnapshotMeta) {
+  panic("")
+}
 
 // adds batch validator's endorsement to the confirmations list
 func (contract ValidationFluenceContract) Endorse(height int64, seal Seal) { panic("") }
@@ -81,36 +83,34 @@ func (validator BatchValidator) LoadSnapshot(contract ValidationFluenceContract,
 }
 
 func (validator BatchValidator) Validate(
-    code WasmCode,
-    basicContract BasicFluenceContract,
-    sideContract SideFluenceContract,
-    validationContract ValidationFluenceContract,
-    height int64,
+  code WasmCode,
+  basicContract BasicFluenceContract,
+  sideContract SideFluenceContract,
+  validationContract ValidationFluenceContract,
+  height int64,
 ) {
   // fetching transactions and the previous snapshot
   var subchain = validator.FetchSubchain(sideContract, height)
-  var snapshot, ok = validator.LoadSnapshot(validationContract, height - sideContract.CheckpointInterval)
+  var snapshot, ok = validator.LoadSnapshot(validationContract, height-sideContract.CheckpointInterval)
 
   if ok {
-    var nextSnapshot VMState
-
-    for i := 0; i < len(subchain.Manifests) - 2; i++ {
+    for i := 0; i < len(subchain.Manifests)-2; i++ {
       // verifying BFT consensus
       var window = [3]Manifest{}
       copy(subchain.Manifests[i:i+2], window[0:3])
       var publicKeys = VerifyVMStateConsensus(basicContract, window)
 
       // verifying the real-time cluster state progress correctness
-      nextSnapshot = NextVMState(code, snapshot, subchain.Transactions[i])
-      var vmStateHash = MerkleHash(nextSnapshot)
-      if vmStateHash != subchain.Manifests[i].VMStateHash {
+      snapshot = NextVMState(code, snapshot, subchain.Transactions[i])
+      var nextStateHash = MerkleHash(snapshot)
+      if nextStateHash != subchain.Manifests[i].VMStateHash {
         // TODO: dispute state advance using publicKeys, stop processing
         _ = publicKeys
       }
     }
 
     // uploading the snapshot and sending a signature to the smart contract
-    validator.Endorse(validationContract, height, nextSnapshot)
+    validator.Endorse(validationContract, height, snapshot)
   } else {
     // TODO: dispute snapshot incorrectness
   }
@@ -119,11 +119,11 @@ func (validator BatchValidator) Validate(
 // confirms that the transition from the previous virtual machine state to the next state is correct
 func (validator BatchValidator) ConfirmTransition(
   prevVMHash Digest, vmHash Digest, txsHash Digest) Seal {
-    return Sign(
-      validator.PublicKey,
-      validator.privateKey,
-      Hash(pack(prevVMHash, vmHash, txsHash)),
-    )
+  return Sign(
+    validator.PublicKey,
+    validator.privateKey,
+    Hash(pack(prevVMHash, vmHash, txsHash)),
+  )
 }
 
 // opens a new snapshot hash mismatch dispute
@@ -135,15 +135,15 @@ func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, offs
   }
 }
 
-// requests to submit specified byte range along with the Merkle proof for it
+// requests the other party to submit specified byte range along with the Merkle proof for it
 type SnapshotDispute struct {
   SnapshotMeta SnapshotMeta
-  Offset uint64  // start of the byte range 
-  Length uint64  // length of the byte range
+  Offset       uint64 // start of the byte range
+  Length       uint64 // length of the byte range
 }
 
 // returns whether the supplied Merkle proofs have passed an audite
 func (dispute SnapshotDispute) Audit(memoryRegion ByteRegion, vmProof MerkleProof, swarmProof MerkleProof) bool {
-  return VerifyMerkleProof(memoryRegion.ExtendedRegion, vmProof, dispute.SnapshotMeta.VMStateHash) &&
-      VerifySwarmProof(memoryRegion.ExtendedRegion, swarmProof, dispute.SnapshotMeta.SnapshotReceipt.ContentHash)
+  return VerifyMerkleProof(memoryRegion.AlignedRegion, vmProof, dispute.SnapshotMeta.VMStateHash) &&
+    VerifySwarmProof(memoryRegion.AlignedRegion, swarmProof, dispute.SnapshotMeta.SnapshotReceipt.ContentHash)
 }

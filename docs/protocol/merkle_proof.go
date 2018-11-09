@@ -12,10 +12,10 @@ type MerkleProof struct {
 // splits the byte sequence into chunks of specific size
 func Split(data []byte, chunkSize uint64) []Chunk { panic("") }
 
-// splits `data` in default-sized chunks and calculates Merkle root out of them
+// calculates Merkle root from `data` split in default-sized chunks
 func MerkleHash(data []byte) Digest { panic("") }
 
-// splits `data` in default-sized chunks and calculates proof for the specified range
+// calculates proof for the specified range, first splitting `data` in default-sized chunks
 func CreateMerkleProof(data []byte, offset uint64, length uint64) MerkleProof { panic("") }
 
 // checks merkle proof for the range of default-sized chunks
