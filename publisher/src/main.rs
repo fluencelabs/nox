@@ -62,7 +62,9 @@ fn publish(publisher: Publisher, show_progress: bool) -> Result<H256, Box<Error>
 
     let hash: H256 = if show_progress {
         with_progress("Code uploading...", "1/2", "Code uploaded.", upload_fn)
-    } else { upload_fn() }?;
+    } else {
+        upload_fn()
+    }?;
 
     let publish_fn = || -> Result<H256, Box<Error>> {
         let pass = publisher.password.as_ref().map(|s| s.as_str());
@@ -78,8 +80,15 @@ fn publish(publisher: Publisher, show_progress: bool) -> Result<H256, Box<Error>
 
     // sending transaction with the hash of file with code to ethereum
     let transaction = if show_progress {
-        with_progress("Submitting the code to the smart contract...", "2/2", "Code submitted.", publish_fn)
-    } else { publish_fn() };
+        with_progress(
+            "Submitting the code to the smart contract...",
+            "2/2",
+            "Code submitted.",
+            publish_fn,
+        )
+    } else {
+        publish_fn()
+    };
     transaction
 }
 
@@ -199,8 +208,8 @@ mod tests {
 
     #[cfg(test)]
     pub fn generate_with<F>(func: F) -> Publisher
-        where
-            F: FnOnce(&mut Publisher),
+    where
+        F: FnOnce(&mut Publisher),
     {
         let mut publisher = generate_publisher();
         func(&mut publisher);
@@ -228,7 +237,11 @@ mod tests {
     }
 
     #[cfg(test)]
-    pub fn add_to_white_list(eth_url: &str, account: Address, contract_address: Address) -> Result<H256, Box<Error>> {
+    pub fn add_to_white_list(
+        eth_url: &str,
+        account: Address,
+        contract_address: Address,
+    ) -> Result<H256, Box<Error>> {
         let (_eloop, transport) = web3::transports::Http::new(eth_url)?;
         let web3 = web3::Web3::new(transport);
 
@@ -246,7 +259,6 @@ mod tests {
 
     #[test]
     fn publish_wrong_password() -> Result<(), Box<Error>> {
-
         let publisher = generate_new_account(false);
 
         let result = publish(publisher, false);
@@ -258,7 +270,6 @@ mod tests {
 
     #[test]
     fn publish_no_eth() -> Result<(), Box<Error>> {
-
         let publisher = generate_new_account(true);
 
         let result = publish(publisher, false);
@@ -270,7 +281,6 @@ mod tests {
 
     #[test]
     fn publish_wrong_swarm_url() -> Result<(), Box<Error>> {
-
         let publisher = generate_with(|p| {
             p.swarm_url = String::from("http://127.0.6.7:8545");
         });
@@ -284,7 +294,6 @@ mod tests {
 
     #[test]
     fn publish_wrong_eth_url() -> Result<(), Box<Error>> {
-
         let publisher = generate_with(|p| {
             p.eth_url = String::from("http://127.0.6.7:8545");
         });
@@ -298,7 +307,6 @@ mod tests {
 
     #[test]
     fn publish_to_contract_without_whitelist() -> Result<(), Box<Error>> {
-
         let publisher = generate_with_account("fa0de43c68bea2167181cd8a83f990d02a049336".parse()?);
 
         let result = publish(publisher, false);
@@ -310,10 +318,13 @@ mod tests {
 
     #[test]
     fn publish_to_contract_success() -> Result<(), Box<Error>> {
-
         let publisher = generate_with_account("02f906f8b3b932fd282109a5b8dc732ba2329888".parse()?);
 
-        add_to_white_list(&publisher.eth_url, publisher.account, publisher.contract_address)?;
+        add_to_white_list(
+            &publisher.eth_url,
+            publisher.account,
+            publisher.contract_address,
+        )?;
 
         publish(publisher, false)?;
 
