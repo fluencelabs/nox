@@ -65,5 +65,5 @@ func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest
 
 // checks that memory region containing results actually belongs to VM State
 func VerifyResponse(results QueryResponse) {
-  assertTrue(VerifyMerkleProof(results.MemoryRegion, results.Proof, results.Manifests[0].VMStateHash))
+  assertTrue(VerifyMerkleProof(results.MemoryRegion.ExtendedRegion, results.Proof, results.Manifests[0].VMStateHash))
 }

@@ -513,19 +513,19 @@ Let's assume the transaction sent by the client was included into the block `k`.
 
 ```go
 type QueryResponse struct {
-  MemoryRegion []byte      // region of the virtual machine memory containing query result
-  Proof        MerkleProof // Merkle Proof for `Memory` belonging to the whole VM memory
-  Manifests    [3]Manifest // block manifests
+  MemoryRegion MemoryRegion // region of the virtual machine memory containing query result
+  Proof        MerkleProof  // Merkle Proof for `Memory` belonging to the whole VM memory
+  Manifests    [3]Manifest  // block manifests
 }
 ```
 
 Results obtained by invoking the function are stored as a part of the virtual machine state. This way, the node can return selected region of the virtual machine memory and supply a Merkle proof confirming the region indeed correspond to the correct virtual machine state's Merkle root.
 
 ```go
-// prepares the query response
+// prepares the query response containing memory region with results
 func MakeQueryResponse(manifests [3]Manifest, vmState VMState, offset int32, length int32) QueryResponse {
   var proof = CreateMerkleProof(vmState.Memory, offset, length)
-  var memoryRegion = vmState.Memory[offset : offset + length]
+  var memoryRegion = MakeMemoryRegion(vmState.Memory, offset, length)
 
   return QueryResponse {
     MemoryRegion: memoryRegion, 
@@ -644,7 +644,7 @@ Finally, the client checks that returned virtual machine state chunks indeed bel
 ```go
 // checks that memory region containing results actually belongs to VM State
 func VerifyResponse(results QueryResponse) {
-  assertTrue(VerifyMerkleProof(results.MemoryRegion, results.Proof, results.Manifests[0].VMStateHash))
+  assertTrue(VerifyMerkleProof(results.MemoryRegion.ExtendedRegion, results.Proof, results.Manifests[0].VMStateHash))
 }
 ```
 
@@ -898,9 +898,9 @@ The client receives a region of the virtual machine memory along with the proof 
 
 ```go
 type QueryResponse struct {
-  MemoryRegion []byte      // region of the virtual machine memory containing query result
-  Proof        MerkleProof // Merkle Proof for `Memory` belonging to the whole VM memory
-  Manifests    [3]Manifest // block manifests
+  MemoryRegion MemoryRegion // region of the virtual machine memory containing query result
+  Proof        MerkleProof  // Merkle Proof for `Memory` belonging to the whole VM memory
+  Manifests    [3]Manifest  // block manifests
 }
 ```
 
