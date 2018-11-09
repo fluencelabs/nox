@@ -66,3 +66,20 @@ matrix:
       - cargo doc -v
       - cargo test -v
 
+    - name: Publisher CLI
+
+      language: rust
+      rust: nightly
+      cache: cargo
+
+      before_install:
+        - rustup component add rustfmt-preview --toolchain nightly
+        - cd publisher
+      before_script: npm run ganache --prefix ../bootstrap/ && node scripts/swarm-simulation.js
+
+      script:
+        - cargo fmt --all -- --check -v
+        - cargo build -v
+        - cargo doc -v
+        - cargo test -v
+
