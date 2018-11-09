@@ -73,17 +73,14 @@ pub mod app {
                     style("Console utility for deploying code to fluence cluster")
                         .blue()
                         .bold()
-                )
-                .as_str(),
-            )
-            .arg(
+                ).as_str(),
+            ).arg(
                 Arg::with_name("path")
                     .required(true)
                     .takes_value(true)
                     .index(1)
                     .help("path to compiled `wasm` code"),
-            )
-            .arg(
+            ).arg(
                 Arg::with_name("account")
                     .alias("account")
                     .required(true)
@@ -92,16 +89,14 @@ pub mod app {
                     .short("a")
                     .takes_value(true)
                     .help("ethereum account"),
-            )
-            .arg(
+            ).arg(
                 Arg::with_name("contract_address")
                     .alias("contract_address")
                     .required(true)
                     .takes_value(true)
                     .index(2)
                     .help("deployer contract address"),
-            )
-            .arg(
+            ).arg(
                 Arg::with_name("swarm_url")
                     .alias("swarm_url")
                     .long("swarm_url")
@@ -129,8 +124,7 @@ pub mod app {
                     .required(false)
                     .takes_value(true)
                     .help("password to unlock account in ethereum client"),
-            )
-            .arg(
+            ).arg(
                 Arg::with_name("cluster_size")
                     .alias("cluster_size")
                     .long("cluster_size")
@@ -139,8 +133,7 @@ pub mod app {
                     .takes_value(true)
                     .default_value("3")
                     .help("cluster's size that needed to deploy this code"),
-            )
-            .get_matches();
+            ).get_matches();
 
         let path = matches.value_of("path").unwrap().to_string();
 

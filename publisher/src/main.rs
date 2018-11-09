@@ -270,8 +270,7 @@ mod tests {
                 account,
                 OWNER.parse()?,
                 Options::default(),
-            )
-            .wait()?)
+            ).wait()?)
     }
 
     #[test]
