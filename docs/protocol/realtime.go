@@ -17,7 +17,7 @@ func VerifyTransaction(contract BasicFluenceContract, tx Transaction, minDeposit
 func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
 func TmVerify(seal Seal, digest Digest) bool { panic("") }
 
-// splits data in tendermint-sized chunks and computes a Merkle Root from them
+// splits data in tendermint-sized chunks and computes a Merkle root from them
 func TmMerkleHash(chunks []Chunk) Digest { panic("") }
 
 type Block struct {
@@ -76,7 +76,7 @@ func NextVMState(code WasmCode, vmState VMState, txs []Transaction) VMState { pa
 
 type Manifest struct {
   Header              Header       // block header
-  VMStateHash         Digest       // Merkle Root of the VM state derived by applying the block
+  VMStateHash         Digest       // Merkle root of the VM state derived by applying the block
   LastCommit          []Seal       // Tendermint nodes signatures for the previous block header
   TxsReceipt          SwarmReceipt // Swarm hash of the block transactions
   LastManifestReceipt SwarmReceipt // Swarm hash of the previous manifest

@@ -2,7 +2,7 @@ package protocol
 
 // listed Swarm functions carry the same meaning and arguments as core functions
 
-// splits `data` in chunks of Swarm chunk size and calculates Merkle Root out of them
+// splits `data` in chunks of Swarm chunk size and calculates Merkle root out of them
 func SwarmMerkleHash(data []byte) Digest { panic("") }
 
 func SwarmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }

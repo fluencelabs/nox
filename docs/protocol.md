@@ -451,7 +451,7 @@ Note we haven't specified here how the application state hash (`Block.Header.App
 
 ### Block processing
 
-Once the block has passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. The virtual machine state is essentially a block of memory that can be split into chunks to compute the virtual machine Merkle Root. We can say that the virtual machine state `k + 1` is derived by applying transactions in the block `k` to the virtual machine state `k`.
+Once the block has passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. The virtual machine state is essentially a block of memory that can be split into chunks to compute the virtual machine Merkle root. We can say that the virtual machine state `k + 1` is derived by applying transactions in the block `k` to the virtual machine state `k`.
 
 ```go
 type WasmCode = []Chunk
@@ -469,7 +469,7 @@ Once the block is processed by the WebAssembly VM, it has to be stored in Swarm 
 ```go
 type Manifest struct {
   Header              Header       // block header
-  VMStateHash         Digest       // Merkle Root of the VM state derived by applying the block
+  VMStateHash         Digest       // Merkle root of the VM state derived by applying the block
   LastCommit          []Seal       // Tendermint nodes signatures for the previous block header
   TxsReceipt          SwarmReceipt // Swarm hash of the block transactions
   LastManifestReceipt SwarmReceipt // Swarm hash of the previous manifest
@@ -781,7 +781,7 @@ For each block the batch validator verifies that BFT consensus was reached by th
 func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest) []PublicKey {}
 ```
 
-The batch validator applies blocks one by one to the snapshot and computes a Merkle Root of the virtual machine state after each block application. If the calculated Merkle Root doesn't match the `VmStateHash` stored in the manifest, either the batch validator or the real-time cluster has performed an incorrect state advance. This condition should be resolved via the verification game which is described later in this document.
+The batch validator applies blocks one by one to the snapshot and computes a Merkle root of the virtual machine state after each block application. If the calculated Merkle root doesn't match the `VmStateHash` stored in the manifest, either the batch validator or the real-time cluster has performed an incorrect state advance. This condition should be resolved via the verification game which is described later in this document.
 
 Otherwise, if there were no disagreements while processing the history the batch validator has obtained a new state snapshot which will have an index `k + t – 2`. The batch validator uploads this snapshot to Swarm and updates the validation smart contract with an endorsement record.
 
@@ -894,7 +894,7 @@ As a reminder, for now we have been treating the virtual machine as a black box:
 func NextVMState(code WasmCode, vmState VMState, txs Transactions) VMState {}
 ```
 
-The client receives a region of the virtual machine memory along with the proof that the Merkle Root of the virtual machine state was stored in Swarm for future verification. The client also receives a proof that returned segment indeed corresponds to the state Merkle Root.
+The client receives a region of the virtual machine memory along with the proof that the Merkle root of the virtual machine state was stored in Swarm for future verification. The client also receives a proof that returned segment indeed corresponds to the state Merkle root.
 
 ```go
 type QueryResponse struct {
