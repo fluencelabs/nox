@@ -526,9 +526,9 @@ Let's assume the transaction sent by the client was included into the block `k`.
 
 ```go
 type QueryResponse struct {
-  MemoryRegion ByteRegion   // region of the virtual machine memory containing the query result
-  Proof        MerkleProof  // Merkle proof that the memory region belongs to the whole VM memory
-  Manifests    [3]Manifest  // block manifests
+  MemoryRegion ByteRegion  // region of the virtual machine memory containing the query result
+  Proof        MerkleProof // Merkle proof that the memory region belongs to the whole VM memory
+  Manifests    [3]Manifest // block manifests
 }
 ```
 
@@ -548,10 +548,10 @@ func MakeQueryResponse(manifests [3]Manifest, vmState VMState, offset uint64, le
   var proof = CreateMerkleProof(vmState, offset, length)
   var memoryRegion = MakeByteRegion(vmState, offset, length)
 
-  return QueryResponse {
-    MemoryRegion: memoryRegion, 
-    Proof: proof, 
-    Manifests: manifests,
+  return QueryResponse{
+    MemoryRegion: memoryRegion,
+    Proof:        proof,
+    Manifests:    manifests,
   }
 }
 
@@ -921,9 +921,9 @@ The client receives a region of the virtual machine memory along with the proof 
 
 ```go
 type QueryResponse struct {
-  MemoryRegion ByteRegion   // region of the virtual machine memory containing the query result
-  Proof        MerkleProof  // Merkle proof that the memory region belongs to the whole VM memory
-  Manifests    [3]Manifest  // block manifests
+  MemoryRegion ByteRegion  // region of the virtual machine memory containing the query result
+  Proof        MerkleProof // Merkle proof that the memory region belongs to the whole VM memory
+  Manifests    [3]Manifest // block manifests
 }
 ```
 

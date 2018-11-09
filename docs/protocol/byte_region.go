@@ -7,7 +7,7 @@ const FlChunkSize uint64 = 4096
 // if selected range boundaries aren't aligned to chunk boundaries, then it's extended to be aligned
 type ByteRegion struct {
   AlignedRegion []byte // selected region of the memory; extended to be aligned to chunks
-  offset        uint64 // start of the byte range in `Region`
+  offset        uint64 // start of the byte range in `AlignedRegion`
   length        uint64 // length of the byte range
 }
 
@@ -18,7 +18,8 @@ func (region ByteRegion) Data() []byte {
 
 // creates a ByteRegion instance containing an extended byte range
 func MakeByteRegion(data []byte, offset uint64, length uint64) ByteRegion {
-  var from = offset - offset % FlChunkSize
+  var relativeOffset = offset % FlChunkSize 
+  var from = offset - relativeOffset
   var rangeEnd = offset + length
   var to = rangeEnd - rangeEnd % FlChunkSize
   if (rangeEnd % FlChunkSize) != uint64(0) {
@@ -27,7 +28,7 @@ func MakeByteRegion(data []byte, offset uint64, length uint64) ByteRegion {
 
   return ByteRegion{
     AlignedRegion: data[from:to],
-    offset:        offset,
+    offset:        relativeOffset,
     length:        length,
   }
 }

@@ -1,7 +1,7 @@
 package protocol
 
 // verifies that a transaction was originated by the client with enough funds deposited
-func VerifyTransaction(contract BasicFluenceContract, tx Transaction, minDeposit int64){
+func VerifyTransaction(contract BasicFluenceContract, tx Transaction, minDeposit int64) {
   // checking that the client actually exists in the contract
   var deposit, ok = contract.ClientDeposits[tx.Seal.PublicKey]
   assertTrue(ok)
@@ -15,7 +15,7 @@ func VerifyTransaction(contract BasicFluenceContract, tx Transaction, minDeposit
 
 // listed Tendermint functions carry the same meaning and arguments as core functions
 func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
-func TmVerify(seal Seal, digest Digest) bool { panic("") }
+func TmVerify(seal Seal, digest Digest) bool                                { panic("") }
 
 // splits data in tendermint-sized chunks and computes a Merkle root from them
 func TmMerkleHash(chunks []Chunk) Digest { panic("") }
@@ -103,9 +103,9 @@ func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestR
 }
 
 type QueryResponse struct {
-  MemoryRegion ByteRegion   // region of the virtual machine memory containing the query result
-  Proof        MerkleProof  // Merkle proof that the memory region belongs to the whole VM memory
-  Manifests    [3]Manifest  // block manifests
+  MemoryRegion ByteRegion  // region of the virtual machine memory containing the query result
+  Proof        MerkleProof // Merkle proof that the memory region belongs to the whole VM memory
+  Manifests    [3]Manifest // block manifests
 }
 
 // prepares the query response containing memory region with results
@@ -113,9 +113,9 @@ func MakeQueryResponse(manifests [3]Manifest, vmState VMState, offset uint64, le
   var proof = CreateMerkleProof(vmState, offset, length)
   var memoryRegion = MakeByteRegion(vmState, offset, length)
 
-  return QueryResponse {
-    MemoryRegion: memoryRegion, 
-    Proof: proof, 
-    Manifests: manifests,
+  return QueryResponse{
+    MemoryRegion: memoryRegion,
+    Proof:        proof,
+    Manifests:    manifests,
   }
 }
