@@ -69,7 +69,6 @@ matrix:
     - name: Publisher CLI
 
       language: rust
-      rust: nightly
       cache: cargo
 
       before_install:
