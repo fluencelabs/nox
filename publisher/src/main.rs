@@ -74,21 +74,20 @@ pub fn with_progress<U, F: FnOnce() -> U>(msg: &str, prefix: &str, finish: &str,
 }
 
 fn publish(publisher: Publisher, show_progress: bool) -> Result<H256, Box<Error>> {
-    // uploading code to swarm
 
-    let upload_fn = || -> Result<H256, Box<Error>> {
+    let upload_to_swarm_fn = || -> Result<H256, Box<Error>> {
         let hash = upload_code_to_swarm(&publisher.swarm_url, &publisher.bytes)?;
         let hash = hash.parse()?;
         Ok(hash)
     };
 
     let hash: H256 = if show_progress {
-        with_progress("Code uploading...", "1/2", "Code uploaded.", upload_fn)
+        with_progress("Code uploading...", "1/2", "Code uploaded.", upload_to_swarm_fn)
     } else {
-        upload_fn()
+        upload_to_swarm_fn()
     }?;
 
-    let publish_fn = || -> Result<H256, Box<Error>> {
+    let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
         let pass = publisher.password.as_ref().map(|s| s.as_str());
         publish_to_contract(
             publisher.account,
@@ -106,10 +105,10 @@ fn publish(publisher: Publisher, show_progress: bool) -> Result<H256, Box<Error>
             "Submitting the code to the smart contract...",
             "2/2",
             "Code submitted.",
-            publish_fn,
+            publish_to_contract_fn,
         )
     } else {
-        publish_fn()
+        publish_to_contract_fn()
     };
     transaction
 }
