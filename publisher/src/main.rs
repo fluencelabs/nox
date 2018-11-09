@@ -74,7 +74,6 @@ pub fn with_progress<U, F: FnOnce() -> U>(msg: &str, prefix: &str, finish: &str,
 }
 
 fn publish(publisher: Publisher, show_progress: bool) -> Result<H256, Box<Error>> {
-
     let upload_to_swarm_fn = || -> Result<H256, Box<Error>> {
         let hash = upload_code_to_swarm(&publisher.swarm_url, &publisher.bytes)?;
         let hash = hash.parse()?;
@@ -82,7 +81,12 @@ fn publish(publisher: Publisher, show_progress: bool) -> Result<H256, Box<Error>
     };
 
     let hash: H256 = if show_progress {
-        with_progress("Code uploading...", "1/2", "Code uploaded.", upload_to_swarm_fn)
+        with_progress(
+            "Code uploading...",
+            "1/2",
+            "Code uploaded.",
+            upload_to_swarm_fn,
+        )
     } else {
         upload_to_swarm_fn()
     }?;
