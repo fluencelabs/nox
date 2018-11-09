@@ -97,8 +97,11 @@ func Sign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 // verifies that the input data digest is signed correctly
 func Verify(seal Seal, digest Digest) bool {}
 
+// splits `data` in default-sized chunks and calculates Merkle root out of them
+func MerkleHash(data []byte) Digest {}
+
 // splits `data` in default-sized chunks and calculates proof for the specified range
-func CreateMerkleProof(data []byte, offset int32, length int32) MerkleProof {}
+func CreateMerkleProof(data []byte, offset uint64, length uint64) MerkleProof {}
 
 // checks merkle proof for the range of default-sized chunks
 func VerifyMerkleProof(data []byte, proof MerkleProof, merkleRoot Digest) bool {}
@@ -112,7 +115,7 @@ To construct the Merkle proof, a sequence of bytes first has to be split into mu
 
 ```go
 // splits the byte sequence into chunks of specific size
-func Split(data []byte, chunkSize int32) []Chunk {}
+func Split(data []byte, chunkSize uint64) []Chunk {}
 ```
 
 Once the list of chunks is produced, a typical Merkle tree can be build on top of it. On the diagram below we can use a binary encoding of the tree nodes: on each layer <code>L<sub>k</sub></code> the node would have an index <code>a<sub>1</sub>...a<sub>k</sub></code> where <code>a<sub>k</sub></code> equals `0` if it's the left sibling and `1` if it's the right one.
@@ -152,7 +155,7 @@ Proof can be generated using the following method:
 
 ```go
 // splits `data` in default-sized chunks and calculates proof for the specified range
-func CreateMerkleProof(data []byte, offset int32, length int32) MerkleProof {}
+func CreateMerkleProof(data []byte, offset uint64, length uint64) MerkleProof {}
 ```
 
 Proof verification happens in the way similar to how it was constructed. The verifier starts with the lowest level <code>L<sub>n</sub></code> and goes upward by combining already known hashes with hashes supplied in the Merkle proof. If eventually the already known Merkle root is produced, the proof is deemed correct. 
@@ -525,7 +528,7 @@ Let's assume the transaction sent by the client was included into the block `k`.
 
 ```go
 type QueryResponse struct {
-  MemoryRegion MemoryRegion // region of the virtual machine memory containing query result
+  MemoryRegion ByteRegion   // region of the virtual machine memory containing the query result
   Proof        MerkleProof  // Merkle Proof for `Memory` belonging to the whole VM memory
   Manifests    [3]Manifest  // block manifests
 }
@@ -535,9 +538,9 @@ Results obtained by invoking the function are stored as a part of the virtual ma
 
 ```go
 // prepares the query response containing memory region with results
-func MakeQueryResponse(manifests [3]Manifest, vmState VMState, offset int32, length int32) QueryResponse {
-  var proof = CreateMerkleProof(vmState.Memory, offset, length)
-  var memoryRegion = MakeMemoryRegion(vmState.Memory, offset, length)
+func MakeQueryResponse(manifests [3]Manifest, vmState VMState, offset uint64, length uint64) QueryResponse {
+  var proof = CreateMerkleProof(vmState, offset, length)
+  var memoryRegion = MakeByteRegion(vmState, offset, length)
 
   return QueryResponse {
     MemoryRegion: memoryRegion, 
@@ -867,7 +870,7 @@ Now, two options are possible:
 
 ```go
 // opens a new snapshot hash mismatch dispute
-func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, offset int32, length int32) SnapshotDispute {
+func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, offset uint64, length uint64) SnapshotDispute {
   return SnapshotDispute{
     SnapshotMeta: contract.Confirmations[height].SnapshotMeta,
     Offset:       offset,
@@ -878,12 +881,12 @@ func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, offs
 // requests to submit specified byte range along with the Merkle Proof for it
 type SnapshotDispute struct {
   SnapshotMeta SnapshotMeta
-  Offset int32  // start of the byte range 
-  Length int32  // length of the byte range
+  Offset uint64  // start of the byte range 
+  Length uint64  // length of the byte range
 }
 
 // returns whether the supplied Merkle proofs have passed an audite
-func (dispute SnapshotDispute) Audit(memoryRegion MemoryRegion, vmProof MerkleProof, swarmProof MerkleProof) bool {
+func (dispute SnapshotDispute) Audit(memoryRegion ByteRegion, vmProof MerkleProof, swarmProof MerkleProof) bool {
   return VerifyMerkleProof(memoryRegion.ExtendedRegion, vmProof, dispute.SnapshotMeta.VMStateHash) &&
       VerifySwarmProof(memoryRegion.ExtendedRegion, swarmProof, dispute.SnapshotMeta.SnapshotReceipt.ContentHash)
 }
@@ -910,7 +913,7 @@ The client receives a region of the virtual machine memory along with the proof 
 
 ```go
 type QueryResponse struct {
-  MemoryRegion MemoryRegion // region of the virtual machine memory containing the query result
+  MemoryRegion ByteRegion // region of the virtual machine memory containing the query result
   Proof        MerkleProof  // Merkle Proof for `Memory` belonging to the whole VM memory
   Manifests    [3]Manifest  // block manifests
 }

@@ -127,7 +127,7 @@ func (validator BatchValidator) ConfirmTransition(
 }
 
 // opens a new snapshot hash mismatch dispute
-func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, offset int32, length int32) SnapshotDispute {
+func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, offset uint64, length uint64) SnapshotDispute {
   return SnapshotDispute{
     SnapshotMeta: contract.Confirmations[height].SnapshotMeta,
     Offset:       offset,
@@ -138,12 +138,12 @@ func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, offs
 // requests to submit specified byte range along with the Merkle Proof for it
 type SnapshotDispute struct {
   SnapshotMeta SnapshotMeta
-  Offset int32  // start of the byte range 
-  Length int32  // length of the byte range
+  Offset uint64  // start of the byte range 
+  Length uint64  // length of the byte range
 }
 
 // returns whether the supplied Merkle proofs have passed an audite
-func (dispute SnapshotDispute) Audit(memoryRegion MemoryRegion, vmProof MerkleProof, swarmProof MerkleProof) bool {
+func (dispute SnapshotDispute) Audit(memoryRegion ByteRegion, vmProof MerkleProof, swarmProof MerkleProof) bool {
   return VerifyMerkleProof(memoryRegion.ExtendedRegion, vmProof, dispute.SnapshotMeta.VMStateHash) &&
       VerifySwarmProof(memoryRegion.ExtendedRegion, swarmProof, dispute.SnapshotMeta.SnapshotReceipt.ContentHash)
 }
