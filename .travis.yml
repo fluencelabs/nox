@@ -79,7 +79,5 @@ matrix:
 
       script:
         - cargo fmt --all -- --check -v
-        - cargo build -v
-        - cargo doc -v
-        - cargo test -v
+        - cargo test
 
