@@ -66,6 +66,24 @@ func (dispute ComputationDispute) PresentPrefixState(prefixVMHash Digest, signat
 
 // presents an instruction pointer corresponding to the VM state after executing the common prefix
 // [called by each party independently]
-func (dispute ComputationDispute) PresentInstructionPointer(pointer int64, proof MerkleProof) {
-  panic("")
-}
+func (dispute ComputationDispute) PresentInstructionPointer(pointer int64, proof MerkleProof) { panic("") }
+
+// presents a hash of the VM state after executing halfway from the current state parties agree on
+// to the state parties do not agree on
+// [called by each party independently]
+func (dispute ComputationDispute) PresentHalfwayState(halfwayVMHash Digest, signature Seal) { panic("") }
+
+// presents an instruction where the computation has diverged
+// presents a pointer to this instruction showing where it should be located in the Wasm code
+// presents a Merkle proof that the instruction is present in the Wasm code at the specified location
+// presents a Merkle proof that the pointer indeed belongs to the halfway virtual machine state
+// [can be called by any party]
+func (dispute ComputationDispute) PresentDisputedInstruction(
+  instruction []byte, instructionProof MerkleProof,
+  pointer int64, pointerProof MerkleProof,
+) { panic("") }
+
+// presents memory regions required by the disputed instruction
+// presents Merkle proofs that these regions belong to the halfway virtual machine state
+// [can be called by any party]
+func (dispute ComputationDispute) PresentMemoryRegions(regions []Chunk, proofs []MerkleProof) { panic("") }

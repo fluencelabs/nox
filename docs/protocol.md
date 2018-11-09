@@ -1,42 +1,43 @@
 # Protocol
 
-- [Protocol](#protocol)
-  - [Preface](#preface)
-  - [Core](#core)
-    - [Basics](#basics)
-    - [Cryptographic primitives](#cryptographic-primitives)
-    - [Range Merkle proofs](#range-merkle-proofs)
-  - [External systems](#external-systems)
-    - [Ethereum](#ethereum)
-    - [Swarm](#swarm)
-  - [Initial setup](#initial-setup)
-  - [Transactions](#transactions)
-  - [Sidechain](#sidechain)
-  - [Real-time processing](#real-time-processing)
-    - [Transaction validation](#transaction-validation)
-    - [Tendermint block formation](#tendermint-block-formation)
-    - [Block processing](#block-processing)
-    - [Query response](#query-response)
-  - [Client](#client)
-    - [Query response verification](#query-response-verification)
-      - [Prerequisites](#prerequisites)
-      - [Verification of Swarm receipts](#verification-of-swarm-receipts)
-      - [Verification of consensus on the virtual machine state](#verification-of-consensus-on-the-virtual-machine-state)
-      - [Verification of Merkle proofs for returned VM state chunks](#verification-of-merkle-proofs-for-returned-vm-state-chunks)
-  - [Batch validation](#batch-validation)
-    - [Transactions history downloading](#transactions-history-downloading)
-    - [State snapshots](#state-snapshots)
-    - [History replaying](#history-replaying)
-    - [State hash mismatch resolution](#state-hash-mismatch-resolution)
-    - [Validators selection](#validators-selection)
-  - [Computation machine](#computation-machine)
-    - [Client interactions](#client-interactions)
-    - [Virtual machine](#virtual-machine)
+**[draft version]**
+
+- [Preface](#preface)
+- [Core](#core)
+  - [Basics](#basics)
+  - [Cryptographic primitives](#cryptographic-primitives)
+  - [Range Merkle proofs](#range-merkle-proofs)
+- [External systems](#external-systems)
+  - [Ethereum](#ethereum)
+  - [Swarm](#swarm)
+- [Initial setup](#initial-setup)
+- [Transactions](#transactions)
+- [Sidechain](#sidechain)
+- [Real-time processing](#real-time-processing)
+  - [Transaction validation](#transaction-validation)
+  - [Tendermint block formation](#tendermint-block-formation)
+  - [Block processing](#block-processing)
+  - [Query response](#query-response)
+- [Client](#client)
+  - [Query response verification](#query-response-verification)
+    - [Prerequisites](#prerequisites)
+    - [Verification of Swarm receipts](#verification-of-swarm-receipts)
+    - [Verification of consensus on the virtual machine state](#verification-of-consensus-on-the-virtual-machine-state)
+    - [Verification of Merkle proofs for returned VM state chunks](#verification-of-merkle-proofs-for-returned-vm-state-chunks)
+- [Batch validation](#batch-validation)
+  - [Transactions history downloading](#transactions-history-downloading)
+  - [State snapshots](#state-snapshots)
+  - [History replaying](#history-replaying)
+  - [State hash mismatch resolution](#state-hash-mismatch-resolution)
+  - [Validators selection](#validators-selection)
+- [Computation machine](#computation-machine)
+  - [Client interactions](#client-interactions)
+  - [Virtual machine](#virtual-machine)
+  - [Verification game](#verification-game)
+    - [WebAssembly package](#webassembly-package)
+    - [Dispute initiation](#dispute-initiation)
+    - [Trace length mismatch resolution](#trace-length-mismatch-resolution)
     - [Verification game](#verification-game)
-      - [WebAssembly package](#webassembly-package)
-      - [Dispute initiation](#dispute-initiation)
-      - [Trace length mismatch resolution](#trace-length-mismatch-resolution)
-      - [Verification game](#verification-game)
 
 ## Preface
 
@@ -1071,10 +1072,10 @@ func (dispute ComputationDispute) PresentTraceLength(
   
 It might happen that <code>VM<sub>k+1</sub><sup>A</sup>.ExecutedCounter</code> is not equal to <code>VM<sub>k+1</sub><sup>B</sup>.ExecutedCounter</code>, which means one of the nodes had the longer execution trace than another. This situation requires additional processing, which we consider below.
 
-Let's denote the state of the virtual machine after processing `p` WebAssembly instructions while executing the transactions block <code>Txs<sub>k</sub></code> as <code>VM[p]<sub>k</sub></code>. Let's also denote the total number of instructions executed by **A** while processing <code>Txs<sub>k</sub></code> as `n`, **B** – as `m`, where `n < m`.
+Let's denote the state of the virtual machine after processing `p – 1` WebAssembly instructions while executing the transactions block <code>Txs<sub>k</sub></code> as <code>VM[p]<sub>k</sub></code>. Let's also denote the total number of instructions executed by **A** while processing <code>Txs<sub>k</sub></code> as `n`, **B** – as `m`, where `n < m`.
 
 <p align="center">
-  <img src="images/trace_mismatch.png" alt="Trace Mismatch" width="745px"/>
+  <img src="images/trace_mismatch.png" alt="Trace Mismatch" width="825px"/>
 </p>
 
 Now we are interested whether the state <code>VM[n]<sub>k+1</sub><sup>A</sup></code> is equal to the state <code>VM[n]<sub>k+1</sub><sup>B</sup></code>. Smart contract requires both sides to present the hash of the state <code>VM[n]<sub>k+1</sub></code>:
@@ -1085,9 +1086,9 @@ Now we are interested whether the state <code>VM[n]<sub>k+1</sub><sup>A</sup></c
 func (dispute ComputationDispute) PresentPrefixState(prefixVMHash Digest, signature Seal) {}
 ```
 
-If <code>VM[n]<sub>k+1</sub><sup>A</sup> != VM[n]<sub>k+1</sub><sup>B</sup></code>, we have a mismatch between the virtual machine states computed using the same number of instructions. This means we can initiate a prefix dispute between those states and use a standard verification game to resolve it. Note that instructions in the execution trace prefixes might be completely different between **A** and **B** – everything that matters is the same length of those prefixes.
+**1)** If <code>VM[n]<sub>k+1</sub><sup>A</sup> != VM[n]<sub>k+1</sub><sup>B</sup></code>, we have a mismatch between the virtual machine states computed using the same number of instructions. This means we can initiate a prefix dispute between those states and use a standard verification game to resolve it. Note that instructions in the execution trace prefixes might be completely different between **A** and **B** – everything that matters is the same length of those prefixes.
 
-If <code>VM[n]<sub>k+1</sub><sup>A</sup> == VM[n]<sub>k+1</sub><sup>B</sup></code>, then we need to figure out whether the decision of **A** to halt the program after `n` instructions, as well as the decision of **B** to run another `n+1` instruction were correct. To do so, we require both nodes to present the instruction pointer (along with the Merkle proof) corresponding to the state <code>VM[n]<sub>k+1</sub></code> to the smart contract. If it's negative, it means the execution should have stopped which means **B** misbehaved, otherwise the execution should have continued and **A** should be penalized.
+**2)** If <code>VM[n]<sub>k+1</sub><sup>A</sup> == VM[n]<sub>k+1</sub><sup>B</sup></code>, then we need to figure out whether the decision of **A** to halt the program after `n` instructions, as well as the decision of **B** to run another `n+1` instruction were correct. To do so, we require both nodes to present the instruction pointer (along with the Merkle proof) corresponding to the state <code>VM[n]<sub>k+1</sub></code> to the smart contract. If it's negative, it means the execution should have stopped which means **B** misbehaved, otherwise the execution should have continued and **A** should be penalized.
 
 ```go
 // presents an instruction pointer corresponding to the VM state after executing the common prefix
@@ -1097,10 +1098,51 @@ func (dispute ComputationDispute) PresentInstructionPointer(pointer int64, proof
 
 #### Verification game
 
+Once we have established the same number `n` of instructions in the execution traces of **A** and **B**, it's possible to execute a verification game. Both nodes start with the same virtual machine state <code>VM<sub>k</sub></code>, but end with different states <code>VM<sub>k+1</sub><sup>A</sup></code> and <code>VM<sub>k+1</sub><sup>B</sup></code>. This means that somewhere during the execution virtual machine states have diverged, and this was done by a single WebAssembly instruction. 
 
+This instruction can be found using a binary search. On each step of the search we are narrowing down the range `[i; j]` where <code>VM[i]<sub>k+1</sub><sup>A</sup> == VM[i]<sub>k+1</sub><sup>B</sup></code>, but <code>VM[j]<sub>k+1</sub><sup>A</sup> != VM[j]<sub>k+1</sub><sup>B</sup></code>. To do so, we compute the virtual machine state at `l = (i+j)/2` and if <code>VM[l]<sub>k+1</sub><sup>A</sup> == VM[l]<sub>k+1</sub><sup>B</sup></code>, set `i = l` indicating that computation divergence happened in the right half of the range. Otherwise we set `j = l` to investigate the left half of the range.
 
+<p align="center">
+  <img src="images/verification_game_search.png" alt="Verification Game Search" width="851px"/>
+</p>
 
+To perform the binary search, the contract requires both nodes to send the hash of the virtual machine state after executing `l` instructions.
 
+```go
+// presents a hash of the VM state after executing halfway from the current state parties agree on
+// to the state parties do not agree on
+// [called by each party independently]
+func (dispute ComputationDispute) PresentHalfwayState(halfwayVMHash Digest, signature Seal) {}
+```
+
+Eventually, we get into situation when `j == i+1` – which means that **A** and **B** disagree how a single instruction <code>ins<sub>i</sub></code> should change the state. To find which instruction it is, we can use an instruction pointer <code>VM[i]<sub>k+1</sub>.InstructionPointer</code> marking the location of the instruction to execute in the WebAssembly code. Because the dispute stores the Merkle hash of the WebAssembly code, any node can supply this instruction along with the Merkle proof. 
+
+```go
+// presents an instruction where the computation has diverged
+// presents a pointer to this instruction showing where it should be located in the Wasm code
+// presents a Merkle proof that the instruction is present in the Wasm code at the specified location
+// presents a Merkle proof that the pointer indeed belongs to the halfway virtual machine state
+// [can be called by any party]
+func (dispute ComputationDispute) PresentDisputedInstruction(
+  instruction []byte, instructionProof MerkleProof,
+  pointer int64, pointerProof MerkleProof,
+) {}
+```
+
+To execute an instruction, the smart contract requires regions of memory where this instruction is reading from and regions of memory where it is writing to. Any node can submit these regions with Merkle proofs that they belong to the <code>VM[i]<sub>k+1</sub></code> virtual machine state.
+
+```go
+// presents memory regions required by the disputed instruction
+// presents Merkle proofs that these regions belong to the halfway virtual machine state
+// [can be called by any party]
+func (dispute ComputationDispute) PresentMemoryRegions(regions []Chunk, proofs []MerkleProof) {}
+```
+
+Now, the smart contract implementation of the WebAssembly virtual machine can execute the instruction and obtain memory regions with an updated virtual machine state. The smart contract can substitute updated memory regions into the old Merkle proofs and compute the Merkle hash of the expected new virtual machine state. If this hash matches <code>VM[n]<sub>k+1</sub><sup>A</sup></code>, node **A** wins. If this hash matches <code>VM[n]<sub>k+1</sub><sup>B</sup></code>, node **B** wins. Otherwise, both nodes lose.
+
+<p align="center">
+  <img src="images/vm_update.png" alt="VM Update" width="384px"/>
+</p>
 
 
 
