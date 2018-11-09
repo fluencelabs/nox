@@ -205,10 +205,8 @@ mod tests {
     use web3::futures::Future;
     use web3::types::*;
 
-    #[cfg(test)]
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
-    #[cfg(test)]
     fn generate_publisher() -> Publisher {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
 
@@ -225,7 +223,6 @@ mod tests {
         )
     }
 
-    #[cfg(test)]
     pub fn generate_with<F>(func: F) -> Publisher
     where
         F: FnOnce(&mut Publisher),
@@ -235,14 +232,12 @@ mod tests {
         publisher
     }
 
-    #[cfg(test)]
     pub fn generate_with_account(account: Address) -> Publisher {
         generate_with(|p| {
             p.account = account;
         })
     }
 
-    #[cfg(test)]
     pub fn generate_new_account(with_pass: bool) -> Publisher {
         generate_with(|p| {
             let (_eloop, transport) = web3::transports::Http::new(&p.eth_url).unwrap();
@@ -255,7 +250,6 @@ mod tests {
         })
     }
 
-    #[cfg(test)]
     pub fn add_to_white_list(
         eth_url: &str,
         account: Address,
