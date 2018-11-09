@@ -44,9 +44,31 @@ fn main() {
     println!("{}: {:?}", formatted_finish_msg, formatted_tx);
 }
 
-pub fn with_progress<U, F: FnOnce() -> U>(msg: &str, prefix: &str, finish: &str, f: F) -> U {
+/// Creates progress bar in the console until the work is over
+///
+/// # Arguments
+///
+/// * `msg` - message on progress bar while working in progress
+/// * `prefix`
+/// * `finish` - message after work is done
+/// * `work` - some function to be done
+///
+/// # Examples
+/// ```
+/// with_progress("Code uploading...", "1/2", "Code uploaded.", upload_fn)
+/// ```
+/// The output while processing:
+/// ```
+/// [1/2] ⠙ Code uploading... ---> [00:00:05]
+/// ```
+/// The output on the finish:
+/// ```
+/// [1/2]   Code uploaded. ---> [00:00:10]
+/// ```
+///
+pub fn with_progress<U, F: FnOnce() -> U>(msg: &str, prefix: &str, finish: &str, work: F) -> U {
     let bar = create_progress_bar(prefix, msg);
-    let result = f();
+    let result = work();
     bar.finish_with_message(finish);
     result
 }
@@ -55,7 +77,7 @@ fn publish(publisher: Publisher, show_progress: bool) -> Result<H256, Box<Error>
     // uploading code to swarm
 
     let upload_fn = || -> Result<H256, Box<Error>> {
-        let hash = upload(&publisher.swarm_url, &publisher.bytes)?;
+        let hash = upload_code_to_swarm(&publisher.swarm_url, &publisher.bytes)?;
         let hash = hash.parse()?;
         Ok(hash)
     };
@@ -134,7 +156,6 @@ fn publish_to_contract(
     Ok(result_code_publish.wait()?)
 }
 
-/// Parses URL from string
 fn parse_url(url: &str) -> Result<Url, UrlError> {
     match Url::parse(url) {
         Ok(url) => Ok(url),
@@ -146,8 +167,7 @@ fn parse_url(url: &str) -> Result<Url, UrlError> {
     }
 }
 
-/// Uploads file from path to the swarm
-fn upload(url: &str, bytes: &Vec<u8>) -> Result<String, Box<Error>> {
+fn upload_code_to_swarm(url: &str, bytes: &Vec<u8>) -> Result<String, Box<Error>> {
     let mut url = parse_url(url)?;
     url.set_path("/bzz:/");
 

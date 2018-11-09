@@ -3,7 +3,7 @@
 
 # Running Scala tests
 
-## How to generate abi, binary file & Java wrapper
+## How to generate ABI, binary file & Java wrapper
 `npm run generate-all`
 
 ## Running private blockchain with docker
