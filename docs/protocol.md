@@ -898,7 +898,7 @@ The client receives a region of the virtual machine memory along with the proof 
 
 ```go
 type QueryResponse struct {
-  MemoryRegion MemoryRegion // region of the virtual machine memory containing query result
+  MemoryRegion MemoryRegion // region of the virtual machine memory containing the query result
   Proof        MerkleProof  // Merkle Proof for `Memory` belonging to the whole VM memory
   Manifests    [3]Manifest  // block manifests
 }
