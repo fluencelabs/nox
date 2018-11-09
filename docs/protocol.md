@@ -97,6 +97,15 @@ func Sign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 
 // verifies that the input data digest is signed correctly
 func Verify(seal Seal, digest Digest) bool {}
+
+// calculates Merkle root from `data` split in default-sized chunks
+func MerkleHash(data []byte) Digest {}
+
+// calculates proof for the specified range, first splitting `data` in default-sized chunks
+func CreateMerkleProof(data []byte, offset uint64, length uint64) MerkleProof {}
+
+// checks merkle proof for the range of default-sized chunks
+func VerifyMerkleProof(data []byte, proof MerkleProof, merkleRoot Digest) bool {}
 ```
 
 ### Range Merkle proofs
@@ -107,7 +116,7 @@ To construct the Merkle proof, a sequence of bytes first has to be split into mu
 
 ```go
 // splits the byte sequence into chunks of specific size
-func Split(data []byte, chunkSize int32) []Chunk {}
+func Split(data []byte, chunkSize uint64) []Chunk {}
 ```
 
 Once the list of chunks is produced, a typical Merkle tree can be build on top of it. On the diagram below we can use a binary encoding of the tree nodes: on each layer <code>L<sub>k</sub></code> the node would have an index <code>a<sub>1</sub>...a<sub>k</sub></code> where <code>a<sub>k</sub></code> equals `0` if it's the left sibling and `1` if it's the right one.
@@ -122,7 +131,7 @@ _Expand._ On the layer <code>L<sub>n</sub></code> we have a contiguous sequence 
 
 _Lift._ Combining hashes pairwise and applying the hash function we can compute hashes for the next level: a pair <code>(x<sub>1</sub>...x<sub>n–1</sub>0, x<sub>1</sub>...x<sub>n–1</sub>1)</code> on the level <code>L<sub>n</sub></code> produces the hash <code>x<sub>1</sub>...x<sub>n–1</sub></code> on the level <code>L<sub>n–1</sub></code>. It should be clear that for every index <code>x<sub>1</sub>...x<sub>n–1</sub></code> such that <code>a<sub>1</sub>...a<sub>n–1</sub> ≤  x<sub>1</sub>...x<sub>n–1</sub> ≤ b<sub>1</sub>...b<sub>n–1</sub></code> the aforementioned pair would belong to the extended sequence of hashes <code>[a<sub>1</sub>...a<sub>n–1</sub>0;  b<sub>1</sub>...b<sub>n–1</sub>1]</code>.
 
-This construction means we have collected a sequence of hashes <code>[a<sub>1</sub>...a<sub>n–1</sub>;  b<sub>1</sub>...b<sub>n–1</sub>]</code> for the layer <code>L<sub>n–1</sub></code>. Now we can repeat expansion and lift procedures for the next layer until the Merkle root is reached. Note that if the selected chunks range contains just a single chunk, this algorithm virtually generates an ordinary Merkle Proof.
+This construction means we have collected a sequence of hashes <code>[a<sub>1</sub>...a<sub>n–1</sub>;  b<sub>1</sub>...b<sub>n–1</sub>]</code> for the layer <code>L<sub>n–1</sub></code>. Now we can repeat expansion and lift procedures for the next layer until the Merkle root is reached. Note that if the selected chunks range contains just a single chunk, this algorithm virtually generates an ordinary Merkle proof.
 
 On each layer we have added at most two hashes, so the final Merkle proof looks the following:
 
@@ -140,14 +149,14 @@ type RangeMerkleProof struct {
 For our example tree, the proof is presented below.
 
 <p align="center">
-  <img src="images/range_merkle_proof.png" alt="Range Merkle Proof" width="382px"/>
+  <img src="images/range_merkle_proof.png" alt="Range Merkle proof" width="382px"/>
 </p>
 
 Proof can be generated using the following method:
 
 ```go
-// build Range Merkle Proof for the range of chunks
-func BuildMerkleRangeProof(chunks []Chunk, from int32, to int32) RangeMerkleProof {}
+// splits `data` in default-sized chunks and calculates proof for the specified range
+func CreateMerkleProof(data []byte, offset uint64, length uint64) MerkleProof {}
 ```
 
 Proof verification happens in the way similar to how it was constructed. The verifier starts with the lowest level <code>L<sub>n</sub></code> and goes upward by combining already known hashes with hashes supplied in the Merkle proof. If eventually the already known Merkle root is produced, the proof is deemed correct. 
@@ -155,6 +164,12 @@ Proof verification happens in the way similar to how it was constructed. The ver
 Note that if for the layer <code>L<sub>k</sub></code> we use `0` as <code>p<sub>k</sub></code> if the left extension hash is not present and `1` if it is, resulting <code>p<sub>1</sub>...p<sub>k</sub></code> index will be equal to the start chunk index in the chunks range. That happens because in our construction we were expanding the sequence of hashes to the left if and only if the left most hash in the sequence had the index of form <code>a<sub>1</sub>...a<sub>k–1</sub>1</code>. 
 
 This means the verifier is able to compute the start and stop chunk indices positions based on the supplied proof.
+
+Proof verification is implemented by:
+```go
+// checks merkle proof for the range of default-sized chunks
+func VerifyMerkleProof(data []byte, proof MerkleProof, merkleRoot Digest) bool {}
+```
 
 Sometimes we might need to construct a proof for a subsequence of bytes which is not aligned with chunks boundaries. Dealing with this situation is fairly trivial: bounds of such subsequence can be extended to match chunks. Now, the prover can send the extended data range to the verifier along with chunk-based Merkle proof.
 
@@ -200,7 +215,7 @@ In this specification we treat Swarm as a decentralized storage where a content 
 
 ```go
 // listed Swarm functions carry the same meaning and arguments as core functions
-func SwarmHash(data []byte) Digest {}
+func SwarmMerkleHash(data []byte) Digest {}
 func SwarmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 func SwarmVerify(seal Seal, digest Digest) bool {}
 ```
@@ -410,7 +425,7 @@ Tendermint uses Merkle trees to compute the Merkle root of certain pieces of dat
 // listed Tendermint functions carry the same meaning and arguments as core functions
 func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 func TmVerify(seal Seal, digest Digest) bool {}
-func TmMerkleRoot(chunks []Chunk) Digest {}
+func TmMerkleHash(chunks []Chunk) Digest {}
 ```
 
 Tendermint periodically pulls few transactions from the mempool and forms a new block. Nodes participating in consensus sign produced blocks, however their signatures for a specific block are available only as a part of the next block.
@@ -429,7 +444,7 @@ func (node RealtimeNode) SignBlockHash(blockHash Digest) Seal {
 
 // prepares the block (assuming the nodes have reached a consensus)
 func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHash Digest) Block {
-  var lastBlockHash = TmMerkleRoot(packMulti(prevBlock.Header))
+  var lastBlockHash = TmMerkleHash(packMulti(prevBlock.Header))
   var lastCommit = make([]Seal, 0, len(nodes))
   for i, node := range nodes {
     lastCommit[i] = node.SignBlockHash(lastBlockHash)
@@ -438,8 +453,8 @@ func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHa
   return Block{
     Header: Header{
       LastBlockHash:  lastBlockHash,
-      LastCommitHash: TmMerkleRoot(packMulti(lastCommit)),
-      TxsHash:        TmMerkleRoot(packMulti(txs)),
+      LastCommitHash: TmMerkleHash(packMulti(lastCommit)),
+      TxsHash:        TmMerkleHash(packMulti(txs)),
       AppHash:        appHash,
     },
     LastCommit: lastCommit,
@@ -452,14 +467,12 @@ Note we haven't specified here how the application state hash (`Block.Header.App
 
 ### Block processing
 
-Once the block has passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. The virtual machine state is essentially a block of memory split into chunks which can be used to compute the virtual machine state hash. We can say that the virtual machine state `k + 1` is derived by applying transactions in the block `k` to the virtual machine state `k`.
+Once the block has passed through Tendermint consensus, it is delivered to the state machine. State machine passes block transactions to the WebAssembly VM causing the latter to change state. The virtual machine state is essentially a block of memory that can be split into chunks to compute the virtual machine Merkle root. We can say that the virtual machine state `k + 1` is derived by applying transactions in the block `k` to the virtual machine state `k`.
 
 ```go
 type WasmCode = []Chunk
 
-type VMState struct {
-  Chunks []Chunk // virtual machine memory chunks
-}
+type VMState = []byte // virtual machine contiguous memory
 
 // produces the new state by applying block transactions to the old VM state
 func NextVMState(code WasmCode, vmState VMState, txs Transactions) VMState {}
@@ -470,7 +483,7 @@ Once the block is processed by the WebAssembly VM, it has to be stored in Swarm 
 ```go
 type Manifest struct {
   Header              Header       // block header
-  VMStateHash         Digest       // hash of the VM state derived by applying the block
+  VMStateHash         Digest       // Merkle root of the VM state derived by applying the block
   LastCommit          []Seal       // Tendermint nodes signatures for the previous block header
   TxsReceipt          SwarmReceipt // Swarm hash of the block transactions
   LastManifestReceipt SwarmReceipt // Swarm hash of the previous manifest
@@ -494,7 +507,7 @@ func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestR
 
   var manifest = Manifest{
     Header:              block.Header,
-    VMStateHash:         MerkleRoot(vmState.Chunks),
+    VMStateHash:         MerkleHash(vmState),
     LastCommit:          block.LastCommit,
     TxsReceipt:          txsReceipt,
     LastManifestReceipt: prevManifestReceipt,
@@ -514,29 +527,37 @@ Let's assume the transaction sent by the client was included into the block `k`.
 
 ```go
 type QueryResponse struct {
-  Chunks    map[int]Chunk       // selected virtual machine state chunks
-  Proofs    map[int]MerkleProof // Merkle proofs: chunks belong to the virtual machine state
-  Manifests [3]Manifest         // block manifests
+  MemoryRegion ByteRegion  // region of the virtual machine memory containing the query result
+  Proof        MerkleProof // Merkle proof that the memory region belongs to the whole VM memory
+  Manifests    [3]Manifest // block manifests
 }
 ```
 
-Results obtained by invoking the function are stored as a part of the virtual machine state. This way, the node can return selected chunks of the virtual machine memory and supply Merkle proofs confirming these chunks indeed correspond to the correct virtual machine state Merkle root.
+Results obtained by invoking the function are stored as a part of the virtual machine state. This way, the node can return selected region of the virtual machine memory and supply a Merkle proof confirming the region indeed corresponds to the correct virtual machine state's Merkle root.
 
 ```go
-// prepares the query response
-func MakeQueryResponse(manifests [3]Manifest, vmState VMState, chunksIndices []int) QueryResponse {
-  var chunks = make(map[int]Chunk)
-  var proofs = make(map[int]MerkleProof)
-
-  for _, index := range chunksIndices {
-    var chunk = vmState.Chunks[index]
-
-    chunks[index] = chunk
-    proofs[index] = CreateMerkleProof(vmState.Chunks, int32(index))
-  }
-
-  return QueryResponse{Chunks: chunks, Proofs: proofs, Manifests: manifests}
+// represents a byte range selected from memory to construct a Merkle proof over it
+// if selected range boundaries aren't aligned to chunk boundaries, then it's extended to be aligned
+type ByteRegion struct {
+  AlignedRegion []byte // selected region of the memory; extended to be aligned to chunks
+  offset        uint64 // start of the byte range in `Region`
+  length        uint64 // length of the byte range
 }
+
+// prepares the query response containing memory region with results
+func MakeQueryResponse(manifests [3]Manifest, vmState VMState, offset uint64, length uint64) QueryResponse {
+  var proof = CreateMerkleProof(vmState, offset, length)
+  var memoryRegion = MakeByteRegion(vmState, offset, length)
+
+  return QueryResponse{
+    MemoryRegion: memoryRegion,
+    Proof:        proof,
+    Manifests:    manifests,
+  }
+}
+
+// creates a ByteRegion instance containing an extended byte range
+func MakeByteRegion(data []byte, offset uint64, length uint64) ByteRegion {}
 ```
 
 The reason why do we need multiple manifests in response is that nodes are required to prove that a consensus was reached on the manifest `k`. `AppHash` in the manifest `k + 1` header points to the manifest `k` content, and `LastBlockHash` in the manifest `k + 2` header points to the manifest `k + 1` header. Also, `LastCommit` field in the manifest `k + 2` provides nodes signatures for the `LastBlockHash`. A client can follow those links and verify the consistency of obtained results.
@@ -605,7 +626,7 @@ func VerifyManifestsReceipts(contract SwarmContract, response QueryResponse) {
     var manifest = response.Manifests[i + 1]
     var prevManifest = response.Manifests[i]
 
-    assertEq(manifest.LastManifestReceipt.ContentHash, SwarmHash(pack(prevManifest)))
+    assertEq(manifest.LastManifestReceipt.ContentHash, SwarmMerkleHash(pack(prevManifest)))
   }
 }
 ```
@@ -619,7 +640,7 @@ The client checks that the chain linking Tendermint nodes signatures in the mani
 func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest) []PublicKey {
   // checking connection between the VM state in the manifest 0 and Tendermint signatures in the manifest 2
   assertEq(manifests[1].Header.AppHash, Hash(pack(manifests[0])))
-  assertEq(manifests[2].Header.LastBlockHash, TmMerkleRoot(packMulti(manifests[1].Header)))
+  assertEq(manifests[2].Header.LastBlockHash, TmMerkleHash(packMulti(manifests[1].Header)))
 
   // counting the number of unique Tendermint nodes public keys
   var lastCommitPublicKeys = make(map[PublicKey]bool)
@@ -646,10 +667,9 @@ func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest
 Finally, the client checks that returned virtual machine state chunks indeed belong to the virtual machine state hash.
 
 ```go
-func VerifyResponseChunks(results QueryResponse) {
-  for k := range results.Chunks {
-    assertTrue(VerifyMerkleProof(results.Chunks[k], results.Proofs[k], results.Manifests[0].VMStateHash))
-  }
+// checks that memory region containing results actually belongs to VM State
+func VerifyResponse(results QueryResponse) {
+  assertTrue(VerifyMerkleProof(results.MemoryRegion.AlignedRegion, results.Proof, results.Manifests[0].VMStateHash))
 }
 ```
 
@@ -733,8 +753,8 @@ The validation contract carries endorsements of the snapshot by batch validators
 ```go
 // uploads the VM state to Swarm if needed and endorses it in the validation smart contract
 func (validator BatchValidator) Endorse(contract ValidationFluenceContract, height int64, state VMState) {
-  var swarmHash = SwarmHash(pack(state.Chunks))
-  var vmStateHash = MerkleRoot(state.Chunks)
+  var swarmHash = SwarmMerkleHash(state)
+  var vmStateHash = MerkleHash(state)
 
   var seal = Sign(validator.PublicKey, validator.privateKey, Hash(pack(swarmHash, vmStateHash)))
 
@@ -744,7 +764,7 @@ func (validator BatchValidator) Endorse(contract ValidationFluenceContract, heig
     contract.Endorse(height, seal)
   } else {
     // uploading the state to Swarm
-    var receipt = SwarmUpload(pack(state.Chunks))
+    var receipt = SwarmUpload(state)
 
     var meta = SnapshotMeta{SnapshotReceipt: receipt, VMStateHash: vmStateHash}
     contract.EndorseInit(height, seal, meta)
@@ -767,8 +787,8 @@ func (validator BatchValidator) LoadSnapshot(contract ValidationFluenceContract,
   var meta = confirmation.SnapshotMeta
 
   var state = VMStateUnpack(SwarmDownload(meta.SnapshotReceipt))
-  var correct = meta.VMStateHash == MerkleRoot(state.Chunks)
-  
+  var correct = meta.VMStateHash == MerkleHash(state)
+
   return state, correct
 }
 ```
@@ -786,24 +806,24 @@ For each block the batch validator verifies that BFT consensus was reached by th
 func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest) []PublicKey {}
 ```
 
-The batch validator applies blocks one by one to the snapshot and computes the virtual machine state hash after each block application. If the calculated hash doesn't match the hash stored in the manifest, either the batch validator or the real-time cluster has performed an incorrect state advance. This condition should be resolved via the verification game which is described later in this document.
+The batch validator applies blocks one by one to the snapshot and computes a Merkle root of the virtual machine state after each block application. If the calculated Merkle root doesn't match the `VmStateHash` stored in the manifest, either the batch validator or the real-time cluster has performed an incorrect state advance. This condition should be resolved via the verification game which is described later in this document.
 
 Otherwise, if there were no disagreements while processing the history the batch validator has obtained a new state snapshot which will have an index `k + t – 2`. The batch validator uploads this snapshot to Swarm and updates the validation smart contract with an endorsement record.
 
 ```go
 func (validator BatchValidator) Validate(
-    code WasmCode,
-    basicContract BasicFluenceContract,
-    sideContract SideFluenceContract,
-    validationContract ValidationFluenceContract,
-    height int64,
+  code WasmCode,
+  basicContract BasicFluenceContract,
+  sideContract SideFluenceContract,
+  validationContract ValidationFluenceContract,
+  height int64,
 ) {
   // fetching transactions and the previous snapshot
   var subchain = validator.FetchSubchain(sideContract, height)
-  var snapshot, ok = validator.LoadSnapshot(validationContract, height - sideContract.CheckpointInterval)
+  var snapshot, ok = validator.LoadSnapshot(validationContract, height-sideContract.CheckpointInterval)
 
   if ok {
-    for i := 0; i < len(subchain.Manifests) - 2; i++ {
+    for i := 0; i < len(subchain.Manifests)-2; i++ {
       // verifying BFT consensus
       var window = [3]Manifest{}
       copy(subchain.Manifests[i:i+2], window[0:3])
@@ -811,8 +831,8 @@ func (validator BatchValidator) Validate(
 
       // verifying the real-time cluster state progress correctness
       snapshot = NextVMState(code, snapshot, subchain.Transactions[i])
-      var vmStateHash = MerkleRoot(snapshot.Chunks)
-      if vmStateHash != subchain.Manifests[i].VMStateHash {
+      var nextStateHash = MerkleHash(snapshot)
+      if nextStateHash != subchain.Manifests[i].VMStateHash {
         // TODO: dispute state advance using publicKeys, stop processing
         _ = publicKeys
       }
@@ -824,17 +844,18 @@ func (validator BatchValidator) Validate(
     // TODO: dispute snapshot incorrectness
   }
 }
+
 ```
 
 **FIXME:** the state snapshot hash should match the checkpoint hash which is impossible now because they are actually off by 2.
 
 ### State hash mismatch resolution
 
-It might happen that a malicious batch validator **M** has generated the snapshot <code>state<sub>k</sub><sup>M</sup></code> and uploaded it to Swarm. Now the snapshot should be accessible by the Swarm hash <code>swHash<sub>k</sub><sup>M</sup></code>. We also assume that **M** has also submitted to the smart contract an incorrect virtual machine hash <code>vmHash<sub>k</sub><sup>M</sup></code>. In this case, we have the following situation: <code>swHash<sub>k</sub><sup>M</sup> == SwarmHash(state<sub>k</sub><sup>M</sup>)</code>, but <code>vmHash<sub>k</sub><sup>M</sup> != MerkleRoot(state<sub>k</sub><sup>M</sup>)</code>.
+It might happen that a malicious batch validator **M** has generated the snapshot <code>state<sub>k</sub><sup>M</sup></code> and uploaded it to Swarm. Now the snapshot should be accessible by the Swarm hash <code>swHash<sub>k</sub><sup>M</sup></code>. We also assume that **M** has also submitted to the smart contract an incorrect virtual machine hash <code>vmHash<sub>k</sub><sup>M</sup></code>. In this case, we have the following situation: <code>swHash<sub>k</sub><sup>M</sup> == SwarmMerkleHash(state<sub>k</sub><sup>M</sup>)</code>, but <code>vmHash<sub>k</sub><sup>M</sup> != MerkleHash(state<sub>k</sub><sup>M</sup>)</code>.
 
 Honest batch validator **A** is able to discover this after downloading the state snapshot `k` from Swarm using <code>swHash<sub>k</sub><sup>M</sup></code> stored in the smart contract.
 
-That's an exceptional situation which warrants a dispute resolution through Ethereum. Let's assume as an induction hypothesis that the snapshot <code>state<sub>k–t</sub></code> and corresponding hashes were produced correctly, i.e. <code>swHash<sub>k–t</sub> == SwarmHash(state<sub>k–t</sub>)</code> and <code>vmHash<sub>k–t</sub> == MerkleRoot(state<sub>k–t</sub>)</code>. Otherwise, the batch validator **A** can make another step back and attempt to submit a dispute for the snapshot <code>state<sub>k–t</sub></code>.
+That's an exceptional situation which warrants a dispute resolution through Ethereum. Let's assume as an induction hypothesis that the snapshot <code>state<sub>k–t</sub></code> and corresponding hashes were produced correctly, i.e. <code>swHash<sub>k–t</sub> == SwarmMerkleHash(state<sub>k–t</sub>)</code> and <code>vmHash<sub>k–t</sub> == MerkleHash(state<sub>k–t</sub>)</code>. Otherwise, the batch validator **A** can make another step back and attempt to submit a dispute for the snapshot <code>state<sub>k–t</sub></code>.
 
 Given that the snapshot <code>state<sub>k–t</sub></code> is valid, **A** applies a segment of transactions history to it and derives the snapshot <code>state<sub>k</sub><sup>A</sup></code>. From this snapshot **A** derives hashes <code>swHash<sub>k</sub><sup>A</sup></code> and <code>vmHash<sub>k</sub><sup>A</sup></code>.
 
@@ -842,41 +863,41 @@ Now, two options are possible:
 
 **1)** <code>vmHash<sub>k</sub><sup>A</sup> != vmHash<sub>k</sub><sup>M</sup></code>
 
- This means **M** has performed an incorrect state advance which grounds for a verification game between **A** and **M**. This will be described later, but what's important is that we don't care about the original <code>vmHash<sub>k</sub><sup>M</sup> != MerkleRoot(state<sub>k</sub><sup>M</sup>)</code> hash mismatch anymore.
+ This means **M** has performed an incorrect state advance which grounds for a verification game between **A** and **M**. This will be described later, but what's important is that we don't care about the original <code>vmHash<sub>k</sub><sup>M</sup> != MerkleHash(state<sub>k</sub><sup>M</sup>)</code> hash mismatch anymore.
 
 **2)** <code>vmHash<sub>k</sub><sup>A</sup> == vmHash<sub>k</sub><sup>M</sup></code>
    
- Because <code>vmHash<sub>k</sub><sup>A</sup> == MerkleRoot(state<sub>k</sub><sup>A</sup>)</code> and <code>vmHash<sub>k</sub><sup>M</sup> != MerkleRoot(state<sub>k</sub><sup>M</sup>)</code>, we can conclude that snapshots generated by **A** and **M** do not match: <code>state<sub>k</sub><sup>A</sup> != state<sub>k</sub><sup>M</sup></code>.
+ Because <code>vmHash<sub>k</sub><sup>A</sup> == MerkleHash(state<sub>k</sub><sup>A</sup>)</code> and <code>vmHash<sub>k</sub><sup>M</sup> != MerkleHash(state<sub>k</sub><sup>M</sup>)</code>, we can conclude that snapshots generated by **A** and **M** do not match: <code>state<sub>k</sub><sup>A</sup> != state<sub>k</sub><sup>M</sup></code>.
 
- It's obvious that for any chunk index **i** in the state snapshot, **A** can generate a Merkle proof proving this chunk data <code>state[i]<sub>k</sub><sup>A</sup></code> corresponds to the Merkle root <code>vmHash<sub>k</sub><sup>A</sup> == MerkleRoot(state<sub>k</sub><sup>A</sup>)</code> and at the same time another Merkle proof that it corresponds to the Merkle root <code>swHash<sub>k</sub><sup>A</sup> == SwarmHash(state<sub>k</sub><sup>A</sup>)</code>. 
+ It's obvious that for any byte range `[i, j]` in the state snapshot, **A** can generate a Merkle proof proving this data <code>state[i:j]<sub>k</sub><sup>A</sup></code> corresponds to the Merkle root <code>vmHash<sub>k</sub><sup>A</sup> == MerkleHash(state<sub>k</sub><sup>A</sup>)</code> and at the same time another Merkle proof that it corresponds to the Merkle root <code>swHash<sub>k</sub><sup>A</sup> == SwarmMerkleHash(state<sub>k</sub><sup>A</sup>)</code>. 
 
- However, by our assumption the Merkle root <code>vmHash<sub>k</sub><sup>M</sup> == vmHash<sub>k</sub><sup>A</sup> == MerkleRoot(state<sub>k</sub><sup>A</sup>)</code>, but the Merkle root <code>swHash<sub>k</sub><sup>M</sup> == SwarmHash(state<sub>k</sub><sup>M</sup>)</code> where <code>state<sub>k</sub><sup>A</sup> != state<sub>k</sub><sup>M</sup></code>. Basically, this means that **M** has generated <code>vmHash<sub>k</sub><sup>M</sup></code> and <code>swHash<sub>k</sub><sup>M</sup></code> using two different state snapshots.
+ However, by our assumption the Merkle root <code>vmHash<sub>k</sub><sup>M</sup> == vmHash<sub>k</sub><sup>A</sup> == MerkleHas(state<sub>k</sub><sup>A</sup>)</code>, but the Merkle root <code>swHash<sub>k</sub><sup>M</sup> == SwarmMerkleHash(state<sub>k</sub><sup>M</sup>)</code> where <code>state<sub>k</sub><sup>A</sup> != state<sub>k</sub><sup>M</sup></code>. Basically, this means that **M** has generated <code>vmHash<sub>k</sub><sup>M</sup></code> and <code>swHash<sub>k</sub><sup>M</sup></code> using two different state snapshots.
 
- Now, all **A** needs to do is to find a chunk index **p** which points to the mismatched content in computed states: <code>state[p]<sub>k</sub><sup>A</sup> != state[p]<sub>k</sub><sup>M</sup></code>, and submit a dispute to Ethereum smart contract requesting **M** to provide chunk **p** data and Merkle proofs proving its belonging to <code>vmHash<sub>k</sub><sup>M</sup></code> and <code>swHash<sub>k</sub><sup>M</sup></code>.
+ Now, all **A** needs to do is to find a byte range `[i, j]` which differs in computed states: <code>state[i:j]<sub>k</sub><sup>A</sup> != state[i:j]<sub>k</sub><sup>M</sup></code>, and submit a dispute to Ethereum smart contract requesting **M** to submit the byte range `[i, j]` and Merkle proofs proving its belonging to <code>vmHash<sub>k</sub><sup>M</sup></code> and <code>swHash<sub>k</sub><sup>M</sup></code>.
 
  Because those hashes were produced from different snapshots in the first place, **M** will not be able to do that. If the contract finds one of two proofs invalid or **M** times out, **M** is considered as the side which has lost the dispute and will have it's deposit slashed.
 
 ```go
 // opens a new snapshot hash mismatch dispute
-func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, chunkIndex int) SnapshotDispute {
+func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, offset uint64, length uint64) SnapshotDispute {
   return SnapshotDispute{
     SnapshotMeta: contract.Confirmations[height].SnapshotMeta,
-    ChunkIndex:   chunkIndex,
+    Offset:       offset,
+    Length:       length,
   }
 }
 
+// requests the other party to submit specified byte range along with the Merkle proof for it
 type SnapshotDispute struct {
   SnapshotMeta SnapshotMeta
-  ChunkIndex int
+  Offset       uint64 // start of the byte range
+  Length       uint64 // length of the byte range
 }
 
 // returns whether the supplied Merkle proofs have passed an audite
-func (dispute SnapshotDispute) Audit(chunk Chunk, vmProof MerkleProof, swarmProof MerkleProof) bool {
-  // TODO: check chunk index in the proof
-  // TODO: use Swarm-based Merkle proof verification
-
-  return VerifyMerkleProof(chunk, vmProof, dispute.SnapshotMeta.VMStateHash) &&
-      VerifyMerkleProof(chunk, swarmProof, dispute.SnapshotMeta.SnapshotReceipt.ContentHash)
+func (dispute SnapshotDispute) Audit(memoryRegion ByteRegion, vmProof MerkleProof, swarmProof MerkleProof) bool {
+  return VerifyMerkleProof(memoryRegion.AlignedRegion, vmProof, dispute.SnapshotMeta.VMStateHash) &&
+    VerifySwarmProof(memoryRegion.AlignedRegion, swarmProof, dispute.SnapshotMeta.SnapshotReceipt.ContentHash)
 }
 ```
 
@@ -897,13 +918,13 @@ As a reminder, for now we have been treating the virtual machine as a black box:
 func NextVMState(code WasmCode, vmState VMState, txs Transactions) VMState {}
 ```
 
-The client receives a segment of the virtual machine state along with the proof that the virtual machine state hash was stored in Swarm for future verification. The client also receives a proof that returned segment indeed corresponds to the state hash.
+The client receives a region of the virtual machine memory along with the proof that the Merkle root of the virtual machine state was stored in Swarm for future verification. The client also receives a proof that returned segment indeed corresponds to the state Merkle root.
 
 ```go
 type QueryResponse struct {
-  Chunks    map[int]Chunk       // selected virtual machine state chunks
-  Proofs    map[int]MerkleProof // Merkle proofs: chunks belong to the virtual machine state
-  Manifests [3]Manifest         // block manifests
+  MemoryRegion ByteRegion  // region of the virtual machine memory containing the query result
+  Proof        MerkleProof // Merkle proof that the memory region belongs to the whole VM memory
+  Manifests    [3]Manifest // block manifests
 }
 ```
 
@@ -930,7 +951,7 @@ type VM struct {
 }
 ```
 
-Every part of the virtual machine can be serialized into a byte array so the entire `VM` will get serialized into a sequence of bytes. Because we can build the Merkle tree from this sequence using the `MerkleRoot` function, we can have Merkle proofs generated for any part of the virtual machine – for example, for the executed instructions counter.
+Every part of the virtual machine can be serialized into a byte array so the entire `VM` will get serialized into a sequence of bytes. Because we can build the Merkle tree from this sequence using the `MerkleHash` function, we can have Merkle proofs generated for any part of the virtual machine – for example, for the executed instructions counter.
 
 ### Verification game
 
@@ -942,13 +963,14 @@ Batch validators, as well as real-time nodes advance the virtual machine state b
 func ProcessBlock(code WasmCode, block Block, prevVMState VMState, ...) {
   var vmState = NextVMState(code, prevVMState, block.Txs)
   var txsReceipt = SwarmUpload(pack(block.Txs))
-   
+
   var manifest = Manifest{
-    VMStateHash: MerkleRoot(vmState.Chunks),
+    VMStateHash: MerkleHash(vmState),
     TxsReceipt:  txsReceipt,
     ...
-  }  
+  }
   SwarmUpload(pack(manifest))
+  ...
 }
 ```
 
@@ -1017,11 +1039,11 @@ Note that the contract requires an evidence that the node has really performed t
 // confirms that the transition from the previous virtual machine state to the next state is correct  
 func (validator BatchValidator) ConfirmTransition(
   prevVMHash Digest, vmHash Digest, txsHash Digest) Seal {
-    return Sign(
-      validator.PublicKey, 
-      validator.privateKey,
-      Hash(pack(prevVMHash, vmHash, txsHash)),
-    ) 
+  return Sign(
+    validator.PublicKey,
+    validator.privateKey,
+    Hash(pack(prevVMHash, vmHash, txsHash)),
+  )
 }
 ```
 

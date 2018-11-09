@@ -34,7 +34,7 @@ func VerifyManifestsReceipts(contract SwarmContract, response QueryResponse) {
     var manifest = response.Manifests[i+1]
     var prevManifest = response.Manifests[i]
 
-    assertEq(manifest.LastManifestReceipt.ContentHash, SwarmHash(pack(prevManifest)))
+    assertEq(manifest.LastManifestReceipt.ContentHash, SwarmMerkleHash(pack(prevManifest)))
   }
 }
 
@@ -42,7 +42,7 @@ func VerifyManifestsReceipts(contract SwarmContract, response QueryResponse) {
 func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest) []PublicKey {
   // checking connection between the VM state in the manifest 0 and Tendermint signatures in the manifest 2
   assertEq(manifests[1].Header.AppHash, Hash(pack(manifests[0])))
-  assertEq(manifests[2].Header.LastBlockHash, TmMerkleRoot(packMulti(manifests[1].Header)))
+  assertEq(manifests[2].Header.LastBlockHash, TmMerkleHash(packMulti(manifests[1].Header)))
 
   // counting the number of unique Tendermint nodes public keys
   var lastCommitPublicKeys = make(map[PublicKey]bool)
@@ -63,8 +63,7 @@ func VerifyVMStateConsensus(contract BasicFluenceContract, manifests [3]Manifest
   return keys(lastCommitPublicKeys).([]PublicKey)
 }
 
-func VerifyResponseChunks(results QueryResponse) {
-  for k := range results.Chunks {
-    assertTrue(VerifyMerkleProof(results.Chunks[k], results.Proofs[k], results.Manifests[0].VMStateHash))
-  }
+// checks that memory region containing results actually belongs to VM State
+func VerifyResponse(results QueryResponse) {
+  assertTrue(VerifyMerkleProof(results.MemoryRegion.AlignedRegion, results.Proof, results.Manifests[0].VMStateHash))
 }
