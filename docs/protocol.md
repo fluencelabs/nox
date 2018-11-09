@@ -96,6 +96,12 @@ func Sign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 
 // verifies that the input data digest is signed correctly
 func Verify(seal Seal, digest Digest) bool {}
+
+// splits `data` in default-sized chunks and calculates proof for the specified range
+func CreateMerkleProof(data []byte, offset int32, length int32) MerkleProof {}
+
+// checks merkle proof for the range of default-sized chunks
+func VerifyMerkleProof(data []byte, proof MerkleProof, merkleRoot Digest) bool {}
 ```
 
 ### Range Merkle proofs
@@ -145,8 +151,8 @@ For our example tree, the proof is presented below.
 Proof can be generated using the following method:
 
 ```go
-// build Range Merkle Proof for the range of chunks
-func BuildMerkleRangeProof(chunks []Chunk, from int32, to int32) RangeMerkleProof {}
+// splits `data` in default-sized chunks and calculates proof for the specified range
+func CreateMerkleProof(data []byte, offset int32, length int32) MerkleProof {}
 ```
 
 Proof verification happens in the way similar to how it was constructed. The verifier starts with the lowest level <code>L<sub>n</sub></code> and goes upward by combining already known hashes with hashes supplied in the Merkle proof. If eventually the already known Merkle root is produced, the proof is deemed correct. 
@@ -154,6 +160,12 @@ Proof verification happens in the way similar to how it was constructed. The ver
 Note that if for the layer <code>L<sub>k</sub></code> we use `0` as <code>p<sub>k</sub></code> if the left extension hash is not present and `1` if it is, resulting <code>p<sub>1</sub>...p<sub>k</sub></code> index will be equal to the start chunk index in the chunks range. That happens because in our construction we were expanding the sequence of hashes to the left if and only if the left most hash in the sequence had the index of form <code>a<sub>1</sub>...a<sub>k–1</sub>1</code>. 
 
 This means the verifier is able to compute the start and stop chunk indices positions based on the supplied proof.
+
+Proof verification is implemented by:
+```go
+// checks merkle proof for the range of default-sized chunks
+func VerifyMerkleProof(data []byte, proof MerkleProof, merkleRoot Digest) bool {}
+```
 
 Sometimes we might need to construct a proof for a subsequence of bytes which is not aligned with chunks boundaries. Dealing with this situation is fairly trivial: bounds of such subsequence can be extended to match chunks. Now, the prover can send the extended data range to the verifier along with chunk-based Merkle proof.
 
@@ -199,7 +211,7 @@ In this specification we treat Swarm as a decentralized storage where a content 
 
 ```go
 // listed Swarm functions carry the same meaning and arguments as core functions
-func SwarmHash(data []byte) Digest {}
+func SwarmMerkleHash(data []byte) Digest {}
 func SwarmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal {}
 func SwarmVerify(seal Seal, digest Digest) bool {}
 ```

@@ -4,7 +4,6 @@ package protocol
 
 // splits `data` in chunks of Swarm chunk size and calculates Merkle root out of them
 func SwarmMerkleHash(data []byte) Digest { panic("") }
-
 func SwarmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
 func SwarmVerify(seal Seal, digest Digest) bool { panic("") }
 
@@ -22,3 +21,5 @@ func SwarmUpload(content []byte) SwarmReceipt { panic("") }
 
 // downloads the content from the Swarm network using the supplied receipt
 func SwarmDownload(receipt SwarmReceipt) []byte { panic("") }
+
+func VerifySwarmProof(data []byte, proof MerkleProof, merkleRoot Digest) bool { panic("") }

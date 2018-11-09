@@ -7,12 +7,12 @@ const FlChunkSize int32 = 4096
 // if selected range is not aligned to chunk size, then it's extended to be aligned
 type MemoryRegion struct {
   ExtendedRegion []byte // selected region of the memory; extended to be aligned to chunks
-  offset int32          // start of the byte range in `Region`
-  length int32          // length of the byte range
+  offset uint64          // start of the byte range in `Region`
+  length uint64          // length of the byte range
 }
 
-// returns original unextended byte range
-func (region MemoryRegion) ByteRange() []byte {
+// returns the original unextended byte range
+func (region MemoryRegion) Data() []byte {
   return region.ExtendedRegion[region.offset : region.offset + region.length]
 }
 
