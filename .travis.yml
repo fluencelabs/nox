@@ -78,10 +78,10 @@ matrix:
 
       script:
         - npm install --prefix ../bootstrap
-        - node scripts/swarm-simulation.js
+        - node scripts/swarm-simulation.js &
         - npm run ganache --prefix ../bootstrap/ &
         - sleep 5
-        - npm run migrate --prefix ../bootstrap/ &
+        - npm run migrate --prefix ../bootstrap/
         - cargo fmt --all -- --check -v
         - cargo test
 
