@@ -130,7 +130,7 @@ _Expand._ On the layer <code>L<sub>n</sub></code> we have a contiguous sequence 
 
 _Lift._ Combining hashes pairwise and applying the hash function we can compute hashes for the next level: a pair <code>(x<sub>1</sub>...x<sub>n–1</sub>0, x<sub>1</sub>...x<sub>n–1</sub>1)</code> on the level <code>L<sub>n</sub></code> produces the hash <code>x<sub>1</sub>...x<sub>n–1</sub></code> on the level <code>L<sub>n–1</sub></code>. It should be clear that for every index <code>x<sub>1</sub>...x<sub>n–1</sub></code> such that <code>a<sub>1</sub>...a<sub>n–1</sub> ≤  x<sub>1</sub>...x<sub>n–1</sub> ≤ b<sub>1</sub>...b<sub>n–1</sub></code> the aforementioned pair would belong to the extended sequence of hashes <code>[a<sub>1</sub>...a<sub>n–1</sub>0;  b<sub>1</sub>...b<sub>n–1</sub>1]</code>.
 
-This construction means we have collected a sequence of hashes <code>[a<sub>1</sub>...a<sub>n–1</sub>;  b<sub>1</sub>...b<sub>n–1</sub>]</code> for the layer <code>L<sub>n–1</sub></code>. Now we can repeat expansion and lift procedures for the next layer until the Merkle root is reached. Note that if the selected chunks range contains just a single chunk, this algorithm virtually generates an ordinary Merkle Proof.
+This construction means we have collected a sequence of hashes <code>[a<sub>1</sub>...a<sub>n–1</sub>;  b<sub>1</sub>...b<sub>n–1</sub>]</code> for the layer <code>L<sub>n–1</sub></code>. Now we can repeat expansion and lift procedures for the next layer until the Merkle root is reached. Note that if the selected chunks range contains just a single chunk, this algorithm virtually generates an ordinary Merkle proof.
 
 On each layer we have added at most two hashes, so the final Merkle proof looks the following:
 
@@ -148,7 +148,7 @@ type RangeMerkleProof struct {
 For our example tree, the proof is presented below.
 
 <p align="center">
-  <img src="images/range_merkle_proof.png" alt="Range Merkle Proof" width="382px"/>
+  <img src="images/range_merkle_proof.png" alt="Range Merkle proof" width="382px"/>
 </p>
 
 Proof can be generated using the following method:
@@ -529,7 +529,7 @@ Let's assume the transaction sent by the client was included into the block `k`.
 ```go
 type QueryResponse struct {
   MemoryRegion ByteRegion   // region of the virtual machine memory containing the query result
-  Proof        MerkleProof  // Merkle Proof for `Memory` belonging to the whole VM memory
+  Proof        MerkleProof  // Merkle proof for `Memory` belonging to the whole VM memory
   Manifests    [3]Manifest  // block manifests
 }
 ```
@@ -878,7 +878,7 @@ func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, offs
   }
 }
 
-// requests to submit specified byte range along with the Merkle Proof for it
+// requests to submit specified byte range along with the Merkle proof for it
 type SnapshotDispute struct {
   SnapshotMeta SnapshotMeta
   Offset uint64  // start of the byte range 
@@ -914,7 +914,7 @@ The client receives a region of the virtual machine memory along with the proof 
 ```go
 type QueryResponse struct {
   MemoryRegion ByteRegion // region of the virtual machine memory containing the query result
-  Proof        MerkleProof  // Merkle Proof for `Memory` belonging to the whole VM memory
+  Proof        MerkleProof  // Merkle proof for `Memory` belonging to the whole VM memory
   Manifests    [3]Manifest  // block manifests
 }
 ```

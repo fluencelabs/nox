@@ -135,7 +135,7 @@ func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, offs
   }
 }
 
-// requests to submit specified byte range along with the Merkle Proof for it
+// requests to submit specified byte range along with the Merkle proof for it
 type SnapshotDispute struct {
   SnapshotMeta SnapshotMeta
   Offset uint64  // start of the byte range 

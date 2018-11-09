@@ -1,9 +1,9 @@
 package protocol
 
-// default chunk size for Merkle Proofs over bytes
+// default chunk size for Merkle proofs over bytes
 const FlChunkSize uint64 = 4096
 
-// represents a byte range selected from memory to construct a Merkle Proof over it
+// represents a byte range selected from memory to construct a Merkle proof over it
 // if selected range is not aligned to chunk size, then it's extended to be aligned
 type ByteRegion struct {
   ExtendedRegion []byte // selected region of the memory; extended to be aligned to chunks
