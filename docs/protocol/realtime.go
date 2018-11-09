@@ -105,15 +105,15 @@ func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestR
 }
 
 type QueryResponse struct {
-  MemoryRegion []byte      // region of the virtual machine memory containing query result
-  Proof        MerkleProof // Merkle Proof for `Memory` belonging to the whole VM memory
-  Manifests    [3]Manifest // block manifests
+  MemoryRegion MemoryRegion // region of the virtual machine memory containing query result
+  Proof        MerkleProof  // Merkle Proof for `Memory` belonging to the whole VM memory
+  Manifests    [3]Manifest  // block manifests
 }
 
-// prepares the query response
+// prepares the query response containing memory region with results
 func MakeQueryResponse(manifests [3]Manifest, vmState VMState, offset int32, length int32) QueryResponse {
   var proof = CreateMerkleProof(vmState.Memory, offset, length)
-  var memoryRegion = vmState.Memory[offset : offset + length]
+  var memoryRegion = MakeMemoryRegion(vmState.Memory, offset, length)
 
   return QueryResponse {
     MemoryRegion: memoryRegion, 
