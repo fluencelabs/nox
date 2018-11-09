@@ -116,6 +116,16 @@ func (validator BatchValidator) Validate(
   }
 }
 
+// confirms that the transition from the previous virtual machine state to the next state is correct
+func (validator BatchValidator) ConfirmTransition(
+  prevVMHash Digest, vmHash Digest, txsHash Digest) Seal {
+    return Sign(
+      validator.PublicKey,
+      validator.privateKey,
+      Hash(pack(prevVMHash, vmHash, txsHash)),
+    )
+}
+
 // opens a new snapshot hash mismatch dispute
 func (contract ValidationFluenceContract) OpenSnapshotDispute(height int64, chunkIndex int) SnapshotDispute {
   return SnapshotDispute{
