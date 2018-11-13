@@ -74,6 +74,7 @@ contract Deployer is Whitelist {
     struct BusyCluster {
         bytes32 clusterID;
         Code code;
+        uint genesisTime;
         uint busySolversOffset;
     }
 
@@ -132,7 +133,10 @@ contract Deployer is Whitelist {
         readyNodes.push(nodeID);
         solverClusters.length += endPort - startPort;
         emit NewNode(nodeID);
-        matchWork();
+
+        while (matchWork()) {
+            // try match work until it matched
+        }
     }
 
     /** @dev Adds new Code to be deployed on Solvers when there are enough of them
@@ -159,7 +163,7 @@ contract Deployer is Whitelist {
     function getCluster(bytes32 clusterID)
         external
         view
-        returns (bytes32, bytes32, bytes32[], bytes24[], uint16[])
+        returns (bytes32, bytes32, uint, bytes32[], bytes24[], uint16[])
     {
         BusyCluster memory cluster = busyClusters[clusterID];
         require(cluster.clusterID > 0, "there is no such cluster");
@@ -174,7 +178,8 @@ contract Deployer is Whitelist {
             solverAddrs[i] = nodes[solverInstance.id].nodeAddress;
             solverPorts[i] = solverInstance.port;
         }
-        return (cluster.code.storageHash, cluster.code.storageReceipt, solverIDs, solverAddrs, solverPorts);
+        return (cluster.code.storageHash, cluster.code.storageReceipt, cluster.genesisTime,
+            solverIDs, solverAddrs, solverPorts);
     }
 
     /** @dev Allows to tract currently clusters for specified node's solvers
@@ -205,7 +210,7 @@ contract Deployer is Whitelist {
         for (uint j = 0; j < enqueuedCodes.length; ++j) {
             cs[j] = enqueuedCodes[j].clusterSize;
         }
-        // fast way to check that contract deployed incorrectly: in this case getStatus() returns (0, 0, [])
+        // fast way to check if contract was deployed incorrectly: in this case getStatus() returns (0, 0, [])
         uint8 version = 101;
         return (version, readyNodes.length, cs);
     }
@@ -236,14 +241,16 @@ contract Deployer is Whitelist {
         removeCode(idx);
 
         bytes32 clusterID = bytes32(clusterCount++);
-        busyClusters[clusterID] = BusyCluster(clusterID, code, busySolvers.length);
+        uint time = now;
+        busyClusters[clusterID] = BusyCluster(clusterID, code, time, busySolvers.length);
 
         bytes32[] memory solverIDs = new bytes32[](code.clusterSize);
         bytes24[] memory solverAddrs = new bytes24[](code.clusterSize);
         uint16[] memory solverPorts = new uint16[](code.clusterSize);
 
+        uint nodeIndex = 0;
         for (uint j = 0; j < code.clusterSize; j++) {
-            bytes32 nodeID = readyNodes[0];
+            bytes32 nodeID = readyNodes[nodeIndex];
             Node memory node = nodes[nodeID];
 
             Solver memory solverInstance = Solver(nodeID, node.currentPort);
@@ -253,11 +260,13 @@ contract Deployer is Whitelist {
             solverIDs[j] = nodeID;
             solverAddrs[j] = node.nodeAddress;
             solverPorts[j] = solverInstance.port;
-            if (!nextPort(nodeID)) {
-                removeNode(0);
+
+            if (nextPort(nodeID)) {
+                ++nodeIndex;
+            } else {
+                removeNode(nodeIndex);
             }
         }
-        uint time = now;
         emit ClusterFormed(clusterID, code.storageHash, time, solverIDs, solverAddrs, solverPorts);
         return true;
     }
