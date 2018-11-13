@@ -27,7 +27,7 @@ func DeployCode(code WasmCode, contract WasmFluenceContract) {
 
 func WasmEntryPoint(txs Transactions) { panic("") }
 
-type Evidence = interface {}
+type Evidence = interface{}
 
 type ComputationDispute struct {
   wasmCodeHash Digest   // Swarm hash of the WebAssembly code
@@ -46,7 +46,9 @@ func (contract WasmFluenceContract) OpenDispute(
   txsHash Digest,
   vmHashA Digest, evidenceA Evidence,
   vmHashB Digest, evidenceB Evidence,
-) ComputationDispute { panic("") }
+) ComputationDispute {
+  panic("")
+}
 
 // presents a proof of the trace length
 // [called by each party independently]
@@ -54,7 +56,9 @@ func (dispute ComputationDispute) PresentTraceLength(
   prevExecutedCounter uint64, prevProof MerkleProof,
   executedCounter uint64, proof MerkleProof,
   signature Seal,
-) { panic("") }
+) {
+  panic("")
+}
 
 // presents a hash of the VM state after executing the max common prefix of instructions
 // [called by each party independently]

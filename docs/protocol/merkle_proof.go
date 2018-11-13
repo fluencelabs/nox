@@ -10,7 +10,13 @@ type MerkleProof struct {
 }
 
 // splits the byte sequence into chunks of specific size
-func Split(data []byte, chunkSize int32) []Chunk { panic("") }
+func Split(data []byte, chunkSize uint64) []Chunk { panic("") }
 
-// build Range Merkle Proof for the range of chunks
-func BuildMerkleProof(chunks []Chunk, from int32, to int32) MerkleProof { panic("") }
+// calculates Merkle root from `data` split in default-sized chunks
+func MerkleHash(data []byte) Digest { panic("") }
+
+// calculates proof for the specified range, first splitting `data` in default-sized chunks
+func CreateMerkleProof(data []byte, offset uint64, length uint64) MerkleProof { panic("") }
+
+// checks merkle proof for the range of default-sized chunks
+func VerifyMerkleProof(data []byte, proof MerkleProof, merkleRoot Digest) bool { panic("") }

@@ -1,7 +1,7 @@
 package protocol
 
 // verifies that a transaction was originated by the client with enough funds deposited
-func VerifyTransaction(contract BasicFluenceContract, tx Transaction, minDeposit int64){
+func VerifyTransaction(contract BasicFluenceContract, tx Transaction, minDeposit int64) {
   // checking that the client actually exists in the contract
   var deposit, ok = contract.ClientDeposits[tx.Seal.PublicKey]
   assertTrue(ok)
@@ -15,8 +15,10 @@ func VerifyTransaction(contract BasicFluenceContract, tx Transaction, minDeposit
 
 // listed Tendermint functions carry the same meaning and arguments as core functions
 func TmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
-func TmVerify(seal Seal, digest Digest) bool { panic("") }
-func TmMerkleRoot(chunks []Chunk) Digest { panic("") }
+func TmVerify(seal Seal, digest Digest) bool                                { panic("") }
+
+// splits data in tendermint-sized chunks and computes a Merkle root from them
+func TmMerkleHash(chunks []Chunk) Digest { panic("") }
 
 type Block struct {
   Header     Header       // block header
@@ -44,7 +46,7 @@ func (node RealtimeNode) SignBlockHash(blockHash Digest) Seal {
 
 // prepares the block (assuming the nodes have reached a consensus)
 func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHash Digest) Block {
-  var lastBlockHash = TmMerkleRoot(packMulti(prevBlock.Header))
+  var lastBlockHash = TmMerkleHash(packMulti(prevBlock.Header))
   var lastCommit = make([]Seal, 0, len(nodes))
   for i, node := range nodes {
     lastCommit[i] = node.SignBlockHash(lastBlockHash)
@@ -53,8 +55,8 @@ func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHa
   return Block{
     Header: Header{
       LastBlockHash:  lastBlockHash,
-      LastCommitHash: TmMerkleRoot(packMulti(lastCommit)),
-      TxsHash:        TmMerkleRoot(packMulti(txs)),
+      LastCommitHash: TmMerkleHash(packMulti(lastCommit)),
+      TxsHash:        TmMerkleHash(packMulti(txs)),
       AppHash:        appHash,
     },
     LastCommit: lastCommit,
@@ -62,9 +64,7 @@ func PrepareBlock(nodes []RealtimeNode, prevBlock Block, txs Transactions, appHa
   }
 }
 
-type VMState struct {
-  Chunks []Chunk // virtual machine memory chunks
-}
+type VMState = []byte // virtual machine contiguous memory
 
 // deserializes a byte array into the virtual machine state
 func VMStateUnpack([]byte) VMState { panic("") }
@@ -74,7 +74,7 @@ func NextVMState(code WasmCode, vmState VMState, txs []Transaction) VMState { pa
 
 type Manifest struct {
   Header              Header       // block header
-  VMStateHash         Digest       // hash of the VM state derived by applying the block
+  VMStateHash         Digest       // Merkle root of the VM state derived by applying the block
   LastCommit          []Seal       // Tendermint nodes signatures for the previous block header
   TxsReceipt          SwarmReceipt // Swarm hash of the block transactions
   LastManifestReceipt SwarmReceipt // Swarm hash of the previous manifest
@@ -91,7 +91,7 @@ func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestR
 
   var manifest = Manifest{
     Header:              block.Header,
-    VMStateHash:         MerkleRoot(vmState.Chunks),
+    VMStateHash:         MerkleHash(vmState),
     LastCommit:          block.LastCommit,
     TxsReceipt:          txsReceipt,
     LastManifestReceipt: prevManifestReceipt,
@@ -103,22 +103,19 @@ func ProcessBlock(code WasmCode, block Block, prevVMState VMState, prevManifestR
 }
 
 type QueryResponse struct {
-  Chunks    map[int]Chunk       // selected virtual machine state chunks
-  Proofs    map[int]MerkleProof // Merkle proofs: chunks belong to the virtual machine state
-  Manifests [3]Manifest         // block manifests
+  MemoryRegion ByteRegion  // region of the virtual machine memory containing the query result
+  Proof        MerkleProof // Merkle proof that the memory region belongs to the whole VM memory
+  Manifests    [3]Manifest // block manifests
 }
 
-// prepares the query response
-func MakeQueryResponse(manifests [3]Manifest, vmState VMState, chunksIndices []int) QueryResponse {
-  var chunks = make(map[int]Chunk)
-  var proofs = make(map[int]MerkleProof)
+// prepares the query response containing memory region with results
+func MakeQueryResponse(manifests [3]Manifest, vmState VMState, offset uint64, length uint64) QueryResponse {
+  var proof = CreateMerkleProof(vmState, offset, length)
+  var memoryRegion = MakeByteRegion(vmState, offset, length)
 
-  for _, index := range chunksIndices {
-    var chunk = vmState.Chunks[index]
-
-    chunks[index] = chunk
-    proofs[index] = CreateMerkleProof(vmState.Chunks, int32(index))
+  return QueryResponse{
+    MemoryRegion: memoryRegion,
+    Proof:        proof,
+    Manifests:    manifests,
   }
-
-  return QueryResponse{Chunks: chunks, Proofs: proofs, Manifests: manifests}
 }
