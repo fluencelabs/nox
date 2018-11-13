@@ -21,7 +21,7 @@ lazy val vm = (project in file("vm"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "com.github.cretz.asmble" % "asmble-compiler" % "0.4.0-fl-fix",
+      "com.github.cretz.asmble" % "asmble-compiler" % "0.4.2-fl",
       cats,
       catsEffect,
       pureConfig,
@@ -40,6 +40,12 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
     // 'Asmble' code required for loading some classes (like RuntimeHelpers)
     // only with system ClassLoader.
     assemblyJarName in assembly := "counter.jar",
+    assemblyMergeStrategy in assembly := {
+      case PathList("module-info.class", xs @ _*) => MergeStrategy.first
+      case x =>
+        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        oldStrategy(x)
+    },
     // override `run` task
     run := {
       val log = streams.value.log
@@ -61,6 +67,12 @@ lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
     commons,
     assemblyJarName in assembly := "llamadb.jar",
+    assemblyMergeStrategy in assembly := {
+      case PathList("module-info.class", xs @ _*) => MergeStrategy.first
+      case x =>
+        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        oldStrategy(x)
+    },
     // override `run` task
     run := {
       val log = streams.value.log

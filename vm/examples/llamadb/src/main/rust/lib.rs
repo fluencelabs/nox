@@ -5,6 +5,7 @@
 //! for reading from and writing strings to the raw memory.
 
 #![feature(allocator_api)]
+#![feature(tool_lints)]
 #![allow(dead_code)]
 
 mod tests;
