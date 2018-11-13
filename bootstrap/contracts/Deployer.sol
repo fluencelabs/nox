@@ -79,7 +79,7 @@ contract Deployer is Whitelist {
 
     // Emitted when there is enough ready Nodes for some Code
     // Nodes' solvers should form a cluster in reaction to this event
-    event ClusterFormed(bytes32 clusterID, bytes32 storageHash, int64 genesisTime,
+    event ClusterFormed(bytes32 clusterID, bytes32 storageHash, uint genesisTime,
         bytes32[] solverIDs, bytes24[] solverAddrs, uint16[] solverPorts);
 
     // Emitted when Code is enqueued, telling that there is not enough Solvers yet
@@ -177,6 +177,22 @@ contract Deployer is Whitelist {
         return (cluster.code.storageHash, cluster.code.storageReceipt, solverIDs, solverAddrs, solverPorts);
     }
 
+    /** @dev Allows to tract currently clusters for specified node's solvers
+     * @param nodeID ID of node (Tendermint consensus key)
+     */
+    function getNodeClusters(bytes32 nodeID)
+        external
+        view
+        returns (bytes32[])
+    {
+        Node memory node = nodes[nodeID];
+        bytes32[] memory clusters = new bytes32[](node.currentPort - node.startPort);
+        for (uint i = 0; i < clusters.length; i++) {
+            clusters[i] = solverClusters[node.solverClustersOffset + i];
+        }
+        return clusters;
+    }
+
     /** @dev Allows to track contract status
      * return (contract version const, number of ready nodes, enqueued codes' lengths)
      */
@@ -241,7 +257,8 @@ contract Deployer is Whitelist {
                 removeNode(0);
             }
         }
-        emit ClusterFormed(clusterID, code.storageHash, 0, solverIDs, solverAddrs, solverPorts);
+        uint time = now;
+        emit ClusterFormed(clusterID, code.storageHash, time, solverIDs, solverAddrs, solverPorts);
         return true;
     }
 
