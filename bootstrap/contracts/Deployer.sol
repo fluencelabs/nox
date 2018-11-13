@@ -124,8 +124,7 @@ contract Deployer is Whitelist {
         external
         //onlyIfWhitelisted(msg.sender)
     {
-        if (!whitelist(msg.sender))
-            return;
+        require(whitelist(msg.sender));
         require(nodes[nodeID].id == 0, "This node is already registered");
         require(startPort < endPort, "Port range is empty or incorrect");
 
@@ -149,8 +148,7 @@ contract Deployer is Whitelist {
         external
         //onlyIfWhitelisted(msg.sender)
     {
-        if (!whitelist(msg.sender))
-            return;
+        require(whitelist(msg.sender));
         enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize));
         if (!matchWork()) {
             emit CodeEnqueued(storageHash);

@@ -16,10 +16,10 @@
 
 package fluence.ethclient.data
 
-import fluence.ethclient.helpers.Web3jConverters.{base64ToBytes32, solverAddressToBytes32}
+import fluence.ethclient.helpers.Web3jConverters.{base64ToBytes32, solverAddressToBytes24}
 import io.circe.generic.auto._
 import io.circe.parser.parse
-import org.web3j.abi.datatypes.generated.Bytes32
+import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16}
 
 import scala.language.postfixOps
 import scala.sys.process._
@@ -48,9 +48,19 @@ case class SolverInfo(
   def validatorKeyBytes32: Bytes32 = base64ToBytes32(validatorKey.value)
 
   /**
-   * Returns node's address information (host, port, Tendermint p2p key) in format ready to pass to the contract.
+   * Returns node's address information (host, Tendermint p2p key) in format ready to pass to the contract.
    */
-  def addressBytes32: Bytes32 = solverAddressToBytes32(ip, port, nodeAddress)
+  def addressBytes24: Bytes24 = solverAddressToBytes24(ip, nodeAddress)
+
+  /**
+   * Returns starting port as uint16.
+   */
+  def startPortUint16: Uint16 = new Uint16(port)
+
+  /**
+    * Returns ending port as uint16.
+    */
+  def endPortUint16: Uint16 = new Uint16(port + 1)
 }
 
 object SolverInfo {

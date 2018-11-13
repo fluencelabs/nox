@@ -21,7 +21,7 @@ import java.util.{Base64, Calendar}
 import fluence.ethclient.Deployer.ClusterFormedEventResponse
 import fluence.ethclient.data._
 import org.web3j.abi.datatypes.DynamicArray
-import org.web3j.abi.datatypes.generated.{Bytes32, Int64}
+import org.web3j.abi.datatypes.generated._
 import scodec.bits.{Bases, ByteVector}
 
 import scala.collection.JavaConverters._
@@ -81,9 +81,13 @@ object Web3jConverters {
    *
    * @param clusterId encoded cluster ID
    * @param ids encoded Tendermint public key
-   * @param genesisTimeI64 encoded genesis time
+   * @param genesisTimeUint256 encoded genesis time
    */
-  def clusterDataToGenesis(clusterId: Bytes32, ids: DynamicArray[Bytes32], genesisTimeI64: Int64): TendermintGenesis = {
+  def clusterDataToGenesis(
+    clusterId: Bytes32,
+    ids: DynamicArray[Bytes32],
+    genesisTimeUint256: Uint256
+  ): TendermintGenesis = {
     val validators = ids.getValue.asScala.zipWithIndex.map {
       case (x, i) =>
         TendermintValidator(
@@ -99,7 +103,7 @@ object Web3jConverters {
     val chainId = bytes32ClusterIdToChainId(clusterId)
 
     val calendar: Calendar = Calendar.getInstance
-    calendar.setTimeInMillis(genesisTimeI64.getValue.longValue())
+    calendar.setTimeInMillis(genesisTimeUint256.getValue.longValue())
     val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(calendar.getTime)
     TendermintGenesis(genesisTime, chainId, "", validators)
   }
@@ -117,35 +121,34 @@ object Web3jConverters {
    * Encodes solver address information to web3j's Bytes32.
    *
    * @param ip solver host IP
-   * @param port solver p2p port
-   * @param nodeIdHex Tendermint p2p public key
+   * @param nodeAddressHex Tendermint p2p public key
    */
-  def solverAddressToBytes32(ip: String, port: Short, nodeIdHex: String): Bytes32 = {
-    val buffer = new Array[Byte](32)
+  def solverAddressToBytes24(ip: String, nodeAddressHex: String): Bytes24 = {
+    val buffer = new Array[Byte](24)
 
-    Array.copy(hexToBinary(nodeIdHex), 0, buffer, 0, 20)
+    Array.copy(hexToBinary(nodeAddressHex), 0, buffer, 0, 20)
     Array.copy(ip.split('.').map(_.toInt.toByte), 0, buffer, 20, 4)
-    buffer(24) = ((port >> 8) & 0xFF).toByte
-    buffer(25) = (port & 0xFF).toByte
 
-    new Bytes32(buffer)
+    new Bytes24(buffer)
   }
 
   /**
    * Obtains persistent peers from their encoded web3j's representation.
    *
-   * @param peers web3j's array of encoded addresses
+   * @param addrs web3j's array of encoded addresses
+   * @param ports web3j's array of ports
    */
-  def bytes32DynamicArrayToPersistentPeers(peers: DynamicArray[Bytes32]): PersistentPeers =
+  def addrsAndPortsToPersistentPeers(addrs: DynamicArray[Bytes24], ports: DynamicArray[Uint16]): PersistentPeers =
     PersistentPeers(
-      peers.getValue.asScala
+      addrs.getValue.asScala
         .map(_.getValue)
+        .zip(ports.getValue.asScala.map(_.getValue))
         .map(
           x =>
             PersistentPeer(
-              ByteVector(x, 0, 20).toHex,
-              ByteVector(x, 20, 4).toArray.map(x => (x & 0xFF).toString).mkString("."),
-              (((x(24) & 0xFF) << 8) + (x(25) & 0xFF)).toShort
+              ByteVector(x._1, 0, 20).toHex,
+              ByteVector(x._1, 20, 4).toArray.map(x => (x & 0xFF).toString).mkString("."),
+              x._2.shortValue()
           )
         )
         .toArray
@@ -168,7 +171,7 @@ object Web3jConverters {
       None
     else {
       val storageHash = bytes32ToString(event.storageHash) // TODO: temporarily used as name of pre-existing local code
-      val persistentPeers = bytes32DynamicArrayToPersistentPeers(event.solverAddrs)
+      val persistentPeers = addrsAndPortsToPersistentPeers(event.solverAddrs, event.solverPorts)
       val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
       val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
       Some(ClusterData(nodeInfo, persistentPeers, storageHash))

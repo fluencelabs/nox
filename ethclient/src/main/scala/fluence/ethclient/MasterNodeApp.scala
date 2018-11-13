@@ -92,7 +92,14 @@ object MasterNodeApp extends IOApp with LazyLogging {
                     .drain, // Switch to IO[Unit]
                 // Delayed unsubscribe
                 par.parallel(for {
-                  _ <- contract.addSolver(solverInfo.validatorKeyBytes32, solverInfo.addressBytes32).call[IO]
+                  _ <- contract
+                    .addNode(
+                      solverInfo.validatorKeyBytes32,
+                      solverInfo.addressBytes24,
+                      solverInfo.startPortUint16,
+                      solverInfo.endPortUint16
+                    )
+                    .call[IO]
                   _ <- unsubscribe.get
                   _ = logger.info("got unsubscribe")
                 } yield ())
