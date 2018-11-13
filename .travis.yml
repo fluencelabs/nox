@@ -57,12 +57,31 @@ matrix:
       rust: nightly
       cache: cargo
       before_install:
-      - rustup component add rustfmt-preview --toolchain nightly
-      - cd vm/examples/llamadb
+        - rustup component add rustfmt-preview --toolchain nightly
+        - cd vm/examples/llamadb
 
       script:
-      - cargo fmt --all -- --check -v
-      - cargo build -v
-      - cargo doc -v
-      - cargo test -v
+        - cargo fmt --all -- --check -v
+        - cargo build -v
+        - cargo doc -v
+        - cargo test -v
+
+    - name: Publisher CLI
+
+      language: rust
+      rust: stable
+      cache: cargo
+
+      before_install:
+        - rustup component add rustfmt-preview
+        - cd publisher
+
+      script:
+        - npm install --prefix ../bootstrap
+        - node scripts/swarm-simulation.js &
+        - npm run ganache --prefix ../bootstrap/ &
+        - sleep 5
+        - npm run migrate --prefix ../bootstrap/
+        - cargo fmt --all -- --check -v
+        - cargo test
 

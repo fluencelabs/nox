@@ -9,7 +9,9 @@
     "test": "truffle test",
     "migrate": "truffle migrate",
     "ganache": "ganache-cli -m \"indicate toward book great daring meat tooth bid finger banana witness episode\" &",
-    "generate-abi": "scripts/generate_abi.sh"
+    "generate-java-wrapper": "scripts/generate_java_wrapper.sh",
+    "compile-sol": "node scripts/compile_sol.js",
+    "generate-all": "npm run compile-sol && npm run generate-java-wrapper"
   },
   "author": "Fluence Labs",
   "license": "AGPL-3.0",
