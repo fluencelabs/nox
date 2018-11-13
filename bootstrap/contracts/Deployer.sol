@@ -31,74 +31,107 @@ pragma solidity ^0.4.24;
 // TODO: what are gas usage goals/targets? is there any limit?
 // TODO: calculate current gas usage
 
+// TODO: should it be hash of the `storageHash`? so no one could download it
+// in other words, is code private?
+
+// Code:
+// TODO: should storageHash be of type hash?
+// TODO: should there be more statuses to just "deployed or not"?
+// e.g 'deploying', 'deployed'
+// maybe how many times it gets deployed, if that's the case
+
+// TODO: there should be timeout on deployment status, and it should be confirmed periodically
+// cuz it is possible for Solvers to ignore `CodeDeploying` while code is marked as deployed=true
+
 // implementation is at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/access/Whitelist.sol
 // example tests are at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/test/ownership/Whitelist.test.js
 import "openzeppelin-solidity/contracts/access/Whitelist.sol";
 
 contract Deployer is Whitelist {
+    // Represents a Fluence Node which already is running or ready to run Solvers within the port range
+    // Node's Solvers share the same Tendermint ID (consensus key) and nodeAddress
+    struct Node {
+        bytes32 id;
+        bytes24 nodeAddress;
+        uint16 startPort;
+        uint16 endPort;
+        uint16 currentPort;
+        uint solverClustersOffset;
+    }
+
+    // A single launched Solver described by its Node's Tendermint ID and assigned TCP port
     struct Solver {
         bytes32 id;
-        bytes32 nodeAddress;
+        uint16 port;
     }
 
     struct Code {
-        // TODO: should storageHash be of type hash?
         bytes32 storageHash;
         bytes32 storageReceipt;
         uint8 clusterSize;
-
-        // TODO: should there be more statuses to just "deployed or not"?
-        // e.g 'deploying', 'deployed'
-        // maybe how many times it gets deployed, if that's the case
-
-        // TODO: there should be timeout on deployment status, and it should be confirmed periodically
-        // cuz it is possible for Solvers to ignore `CodeDeploying` while code is marked as deployed=true
     }
 
     struct BusyCluster {
         bytes32 clusterID;
         Code code;
+        uint busySolversOffset;
     }
 
-    // Emitted when there is enough free Solvers for some Code
-    // Solvers should form a cluster in reaction to this event
-    event ClusterFormed(bytes32 clusterID, bytes32[] solverIDs);
+    // Emitted when there is enough ready Nodes for some Code
+    // Nodes' solvers should form a cluster in reaction to this event
+    event ClusterFormed(bytes32 clusterID, bytes32 storageHash, int64 genesisTime,
+        bytes32[] solverIDs, bytes24[] solverAddrs, uint16[] solverPorts);
 
     // Emitted when Code is enqueued, telling that there is not enough Solvers yet
     event CodeEnqueued(bytes32 storageHash);
 
-    // Emitted on every new Solver
-    event NewSolver(bytes32 id);
+    // Emitted on every new Node
+    event NewNode(bytes32 id);
 
-    // Solvers enqueued for work
-    bytes32[] private freeSolvers;
+    // Nodes ready to join new clusters
+    bytes32[] private readyNodes;
 
-    // All solvers
-    mapping(bytes32 => Solver) private solvers;
+    // All nodes
+    mapping(bytes32 => Node) private nodes;
+
+    // Array with actual cluster participants
+    Solver[] private busySolvers;
 
     // Cluster with assigned Code
     mapping(bytes32 => BusyCluster) private busyClusters;
 
+    // Array with formed solvers' clusters
+    bytes32[] private solverClusters;
+
     // Number of existing clusters, used for clusterID generation
     // starting with 1, so we could check existince of cluster in the mapping, e.g:
     // if (busyCluster[someId].clusterID > 0)
-    uint256 clustersCount = 1;
+    uint256 clusterCount = 1;
 
-    // Deployed and undeployed Codes
-    Code[] private codes;
+    // Codes waiting for nodes
+    Code[] private enqueuedCodes;
 
-    /** @dev Adds solver to the work-waiting queue
-      * @param solverID some kind of unique ID
-      * @param solverAddress currently IP address, subject to change
-      * emits NewSolver event containing number of free solvers, subject to change
-      * emits ClusterFormed event when there is enough solvers for some Code
+    /** @dev Adds node with specified port range to the work-waiting queue
+      * @param nodeID some kind of unique ID
+      * @param nodeAddress currently Tendermint p2p key + IP address, subject to change
+      * @param startPort starting port for node's port range
+      * @param endPort ending port for node's port range
+      * emits NewNode event about new node
+      * emits ClusterFormed event when there is enough nodes for some Code
       */
-    function addSolver(bytes32 solverID, bytes32 solverAddress) external onlyIfWhitelisted(msg.sender) {
-        require(solvers[solverID].id == 0, "This solver is already registered");
+    function addNode(bytes32 nodeID, bytes24 nodeAddress, uint16 startPort, uint16 endPort)
+        external
+        //onlyIfWhitelisted(msg.sender)
+    {
+        if (!whitelist(msg.sender))
+            return;
+        require(nodes[nodeID].id == 0, "This node is already registered");
+        require(startPort < endPort, "Port range is empty or incorrect");
 
-        solvers[solverID] = Solver(solverID, solverAddress);
-        freeSolvers.push(solverID);
-        emit NewSolver(solverID);
+        nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, startPort, solverClusters.length);
+        readyNodes.push(nodeID);
+        solverClusters.length += endPort - startPort;
+        emit NewNode(nodeID);
         matchWork();
     }
 
@@ -106,57 +139,137 @@ contract Deployer is Whitelist {
       * @param storageHash Swarm storage hash; allows code distributed and downloaded through it
       * @param storageReceipt Swarm receipt, serves as a proof that code is stored
       * @param clusterSize specifies number of Solvers that must serve Code
-      * emits ClusterFormed event when there is enough solvers for the Code and emits CodeEnqueued otherwise, subject to change
+      * emits ClusterFormed event when there is enough nodes for the Code and emits CodeEnqueued otherwise, subject to change
       */
-    function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize) external onlyIfWhitelisted(msg.sender) {
-        codes.push(Code(storageHash, storageReceipt, clusterSize));
+    function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize)
+        external
+        //onlyIfWhitelisted(msg.sender)
+    {
+        if (!whitelist(msg.sender))
+            return;
+        enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize));
         if (!matchWork()) {
-            // TODO: should it be hash of the `storageHash`? so no one could download it
-            // in other words, is code private?
             emit CodeEnqueued(storageHash);
         }
     }
 
     /** @dev Allows anyone with clusterID to retrieve assigned Code
-     * @param clusterID unique id of cluster (keccak256 of abi.encodePacked(clusterIDs))
+     * @param clusterID unique id of cluster
      */
-    function getCode(bytes32 clusterID) external view returns (bytes32, bytes32) {
+    function getCluster(bytes32 clusterID)
+        external
+        view
+        returns (bytes32, bytes32, bytes32[], bytes24[], uint16[])
+    {
         BusyCluster memory cluster = busyClusters[clusterID];
         require(cluster.clusterID > 0, "there is no such cluster");
-        return (cluster.code.storageHash, cluster.code.storageReceipt);
+
+        bytes32[] memory solverIDs = new bytes32[](cluster.code.clusterSize);
+        bytes24[] memory solverAddrs = new bytes24[](cluster.code.clusterSize);
+        uint16[] memory solverPorts = new uint16[](cluster.code.clusterSize);
+
+        for (uint i = 0; i < cluster.code.clusterSize; i++) {
+            Solver memory solverInstance = busySolvers[cluster.busySolversOffset + i];
+            solverIDs[i] = solverInstance.id;
+            solverAddrs[i] = nodes[solverInstance.id].nodeAddress;
+            solverPorts[i] = solverInstance.port;
+        }
+        return (cluster.code.storageHash, cluster.code.storageReceipt, solverIDs, solverAddrs, solverPorts);
+    }
+
+    /** @dev Allows to track contract status
+     * return (contract version const, number of ready nodes, enqueued codes' lengths)
+     */
+    function getStatus()
+        external
+        view
+        returns (uint8, uint256, uint256[])
+    {
+        uint256[] memory cs = new uint256[](enqueuedCodes.length);
+        for (uint j = 0; j < enqueuedCodes.length; ++j) {
+            cs[j] = enqueuedCodes[j].clusterSize;
+        }
+        // fast way to check that contract deployed incorrectly: in this case getStatus() returns (0, 0, [])
+        uint8 version = 101;
+        return (version, readyNodes.length, cs);
     }
 
     /** @dev Checks if there is enough free Solvers for undeployed Code
      * emits ClusterFormed event if so
      */
-    function matchWork() internal returns (bool) {
+    function matchWork()
+        internal
+        returns (bool)
+    {
         uint idx = 0;
-        // TODO: better control codes.length so we don't exceed gasLimit
+        // TODO: better control enqueuedCodes.length so we don't exceed gasLimit
         // maybe separate deployed and undeployed code in two arrays
-        for (;idx < codes.length; ++idx) {
-            if (freeSolvers.length >= codes[idx].clusterSize) {
+        for (; idx < enqueuedCodes.length; ++idx) {
+            if (readyNodes.length >= enqueuedCodes[idx].clusterSize) {
                 break;
             }
         }
 
-        // check if we hit the condition `freeSolvers.length >= codes[idx].clusterSize` above
-        // idx >= codes.length means that we skipped through codes array without hitting condition
-        if (idx >= codes.length) {
+        // check if we hit the condition `readyNodes.length >= enqueuedCodes[idx].clusterSize` above
+        // idx >= enqueuedCodes.length means that we skipped through enqueuedCodes array without hitting condition
+        if (idx >= enqueuedCodes.length) {
             return false;
         }
 
-        Code memory code = codes[idx];
-        bytes32[] memory cluster = new bytes32[](code.clusterSize);
+        Code memory code = enqueuedCodes[idx];
+        removeCode(idx);
+
+        bytes32 clusterID = bytes32(clusterCount++);
+        busyClusters[clusterID] = BusyCluster(clusterID, code, busySolvers.length);
+
+        bytes32[] memory solverIDs = new bytes32[](code.clusterSize);
+        bytes24[] memory solverAddrs = new bytes24[](code.clusterSize);
+        uint16[] memory solverPorts = new uint16[](code.clusterSize);
+
         for (uint j = 0; j < code.clusterSize; j++) {
-            // moving & deleting from the end, so we don't have gaps
-            // yep, that makes the solvers[] a LIFO, but is it a problem really?
-            bytes32 solverID = freeSolvers[freeSolvers.length - j - 1];
-            cluster[j] = solverID;
+            bytes32 nodeID = readyNodes[0];
+            Node memory node = nodes[nodeID];
+
+            Solver memory solverInstance = Solver(nodeID, node.currentPort);
+            busySolvers.push(solverInstance);
+            solverClusters[node.solverClustersOffset + node.currentPort - node.startPort] = clusterID;
+
+            solverIDs[j] = nodeID;
+            solverAddrs[j] = node.nodeAddress;
+            solverPorts[j] = solverInstance.port;
+            if (!nextPort(nodeID)) {
+                removeNode(0);
+            }
         }
-        freeSolvers.length -= code.clusterSize; // TODO: that's awful, but Solidity doesn't change array length on delete
-        bytes32 clusterID = bytes32(clustersCount++);
-        busyClusters[clusterID] = BusyCluster(clusterID, code);
-        emit ClusterFormed(clusterID, cluster);
+        emit ClusterFormed(clusterID, code.storageHash, 0, solverIDs, solverAddrs, solverPorts);
         return true;
+    }
+
+    function removeCode(uint index)
+        internal
+    {
+        if (index != enqueuedCodes.length - 1) {
+            // remove index-th code from enqueuedCodes replacing it by the last code in the array
+            enqueuedCodes[index] = enqueuedCodes[enqueuedCodes.length - 1];
+        }
+        --enqueuedCodes.length;
+    }
+
+    function removeNode(uint index)
+        internal
+    {
+        if (index != readyNodes.length - 1) {
+            // remove index-th node from readyNodes replacing it by the last node in the array
+            readyNodes[index] = readyNodes[readyNodes.length - 1];
+        }
+        --readyNodes.length;
+    }
+
+    function nextPort(bytes32 nodeID)
+        internal
+        returns (bool)
+    {
+        nodes[nodeID].currentPort++;
+        return nodes[nodeID].currentPort != nodes[nodeID].endPort;
     }
 }
