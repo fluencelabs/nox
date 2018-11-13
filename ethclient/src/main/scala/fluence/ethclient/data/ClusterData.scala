@@ -26,8 +26,14 @@ package fluence.ethclient.data
  * @param nodeInfo information about node in a format compatible with `master-run-node.sh` script
  * @param persistentPeers cluster peers information
  * @param code code ID
+ * @param longTermLocation local directory with pre-initialized Tendermint public/private keys
  */
-sealed case class ClusterData(nodeInfo: NodeInfo, persistentPeers: PersistentPeers, code: String) {
+sealed case class ClusterData(
+  nodeInfo: NodeInfo,
+  persistentPeers: PersistentPeers,
+  code: String,
+  longTermLocation: String
+) {
   val hostP2PPort: Short = persistentPeers.peers(nodeInfo.node_index.toInt).port
   val hostRpcPort: Short = (hostP2PPort + 1).toShort
   val tmPrometheusPort: Short = (hostP2PPort + 4).toShort

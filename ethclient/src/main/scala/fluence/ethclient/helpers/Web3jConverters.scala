@@ -158,15 +158,15 @@ object Web3jConverters {
    * Tries to convert `ClusterFormedEvent` response to [[ClusterData]] with all information to launch cluster.
    *
    * @param event event response
-   * @param nodeKey node key from launching data used to obtain solver's index
+   * @param solverInfo information about current solver
    * @return true if provided node key belongs to the cluster from the event
    */
   def clusterFormedEventToClusterData(
     event: ClusterFormedEventResponse,
-    nodeKey: TendermintValidatorKey
+    solverInfo: SolverInfo
   ): Option[ClusterData] = {
     val genesis = clusterDataToGenesis(event.clusterID, event.solverIDs, event.genesisTime)
-    val nodeIndex = genesis.validators.indexWhere(_.pub_key == nodeKey)
+    val nodeIndex = genesis.validators.indexWhere(_.pub_key == solverInfo.validatorKey)
     if (nodeIndex == -1)
       None
     else {
@@ -174,7 +174,7 @@ object Web3jConverters {
       val persistentPeers = addrsAndPortsToPersistentPeers(event.solverAddrs, event.solverPorts)
       val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
       val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
-      Some(ClusterData(nodeInfo, persistentPeers, storageHash))
+      Some(ClusterData(nodeInfo, persistentPeers, storageHash, solverInfo.longTermLocation))
     }
   }
 

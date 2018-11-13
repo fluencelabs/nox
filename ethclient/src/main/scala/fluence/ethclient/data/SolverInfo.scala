@@ -30,14 +30,16 @@ import scala.util.Try
  *
  * @param longTermLocation local directory with pre-initialized Tendermint public/private keys
  * @param ip p2p host IP
- * @param port p2p port
+ * @param startPort starting port for p2p port range
+ * @param endPort ending port for p2p port range
  * @param validatorKey p2p port
  * @param nodeAddress p2p port
  */
 case class SolverInfo(
   longTermLocation: String,
   ip: String,
-  port: Short,
+  startPort: Short,
+  endPort: Short,
   validatorKey: TendermintValidatorKey,
   nodeAddress: String
 ) {
@@ -55,12 +57,12 @@ case class SolverInfo(
   /**
    * Returns starting port as uint16.
    */
-  def startPortUint16: Uint16 = new Uint16(port)
+  def startPortUint16: Uint16 = new Uint16(startPort)
 
   /**
-    * Returns ending port as uint16.
-    */
-  def endPortUint16: Uint16 = new Uint16(port + 1)
+   * Returns ending port as uint16.
+   */
+  def endPortUint16: Uint16 = new Uint16(endPort)
 }
 
 object SolverInfo {
@@ -68,10 +70,10 @@ object SolverInfo {
   def apply(args: List[String]): Either[Throwable, SolverInfo] =
     for {
       argsTuple <- args match {
-        case List(a1, a2, a3) => Right(a1, a2, a3)
+        case List(a1, a2, a3, a4) => Right(a1, a2, a3, a4)
         case _ => Left(new IllegalArgumentException("3 program argument expected"))
       }
-      (longTermLocation, ip, portString) = argsTuple
+      (longTermLocation, ip, startPortString, endPortString) = argsTuple
 
       validatorKeyStr <- Try(
         s"statemachine/docker/master-run-tm-utility.sh statemachine/docker/tm-show-validator $longTermLocation" !!
@@ -82,9 +84,10 @@ object SolverInfo {
         s"statemachine/docker/master-run-tm-utility.sh statemachine/docker/tm-show-node-id $longTermLocation" !!
       ).toEither
 
-      port <- Try(portString.toShort).toEither
+      startPort <- Try(startPortString.toShort).toEither
+      endPort <- Try(endPortString.toShort).toEither
       _ <- Either.cond(isValidIP(ip), (), new IllegalArgumentException(s"Incorrect IP: $ip"))
-    } yield SolverInfo(longTermLocation, ip, port, validatorKey, nodeAddress)
+    } yield SolverInfo(longTermLocation, ip, startPort, endPort, validatorKey, nodeAddress)
 
   private def isValidIP(ip: String): Boolean = {
     val parts = ip.split('.')

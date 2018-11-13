@@ -22,19 +22,24 @@ import java.nio.file.{Files, Paths}
 import cats.Parallel
 import cats.effect.concurrent.Deferred
 import cats.effect.{ExitCode, IO, IOApp}
+import cats.implicits._
 import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
-import fluence.ethclient.data.{DeployerContractConfig, SolverInfo}
+import fluence.ethclient.data.{ClusterData, DeployerContractConfig, SolverInfo}
 import fluence.ethclient.helpers.JavaRxToFs2._
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.web3j.abi.EventEncoder
+import org.web3j.abi.datatypes.DynamicArray
+import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
 import org.web3j.protocol.core.methods.request.EthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
+import org.web3j.tuples.generated
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
+import scala.collection.JavaConverters._
 import scala.language.postfixOps
 import scala.sys.process._
 
@@ -80,7 +85,8 @@ object MasterNodeApp extends IOApp with LazyLogging {
                     .map(
                       x ⇒
                         if (processClusterFormed(x, solverInfo))
-                          unsubscribe.complete(Right(()))
+                          //unsubscribe.complete(Right(()))
+                          IO.unit
                         else
                           IO.unit
                     )
@@ -92,6 +98,23 @@ object MasterNodeApp extends IOApp with LazyLogging {
                     .drain, // Switch to IO[Unit]
                 // Delayed unsubscribe
                 par.parallel(for {
+                  clusters <- contract.getNodeClusters(solverInfo.validatorKeyBytes32).call[IO]
+
+                  _ <- clusters.getValue.asScala.toList
+                    .map(
+                      x =>
+                        contract
+                          .getCluster(x)
+                          .call[IO]
+                          .flatMap(
+                            y =>
+                              IO.pure(
+                                processClusterFormed(clusterTupleToClusterFormedResponse(x, y), solverInfo)
+                            )
+                        )
+                    )
+                    .sequence_
+
                   _ <- contract
                     .addNode(
                       solverInfo.validatorKeyBytes32,
@@ -111,6 +134,27 @@ object MasterNodeApp extends IOApp with LazyLogging {
         }
       }
 
+  private def clusterTupleToClusterFormedResponse(
+    clusterId: Bytes32,
+    clusterTuple: generated.Tuple6[
+      Bytes32,
+      Bytes32,
+      Uint256,
+      DynamicArray[Bytes32],
+      DynamicArray[Bytes24],
+      DynamicArray[Uint16]
+    ]
+  ): ClusterFormedEventResponse = {
+    val artificialEvent = new ClusterFormedEventResponse()
+    artificialEvent.clusterID = clusterId
+    artificialEvent.storageHash = clusterTuple.getValue1
+    artificialEvent.genesisTime = clusterTuple.getValue3
+    artificialEvent.solverIDs = clusterTuple.getValue4
+    artificialEvent.solverAddrs = clusterTuple.getValue5
+    artificialEvent.solverPorts = clusterTuple.getValue6
+    artificialEvent
+  }
+
   /**
    * Tries to convert event information to cluster configuration and, in case of success, launches a single solver.
    *
@@ -119,49 +163,47 @@ object MasterNodeApp extends IOApp with LazyLogging {
    * @return whether this event is relevant to the passed SolverInfo
    */
   private def processClusterFormed(event: ClusterFormedEventResponse, solverInfo: SolverInfo): Boolean =
-    clusterFormedEventToClusterData(event, solverInfo.validatorKey) match {
-      case None => false
-      case Some(clusterData) =>
-        val clusterName = clusterData.nodeInfo.cluster.genesis.chain_id
-        val vmCodeDir = System.getProperty("user.dir") + "/statemachine/docker/examples/vmcode-" + clusterData.code
-        val nodeIndex = clusterData.nodeInfo.node_index.toInt
-        val longTermKeyLocation = solverInfo.longTermLocation
-        logger.info("preparing to join cluster '{}' as node {}", clusterName, nodeIndex)
+    clusterFormedEventToClusterData(event, solverInfo).map(runSolverWithClusterData).isDefined
 
-        val homeDir = System.getProperty("user.home")
-        val clusterInfoName = homeDir + "/.fluence/nodes/" + clusterName + "/node" + nodeIndex + "/cluster_info.json"
-        val clusterInfoPath = Paths.get(clusterInfoName)
+  private def runSolverWithClusterData(clusterData: ClusterData): Unit = {
+    val clusterName = clusterData.nodeInfo.cluster.genesis.chain_id
+    val vmCodeDir = System.getProperty("user.dir") + "/statemachine/docker/examples/vmcode-" + clusterData.code
+    val nodeIndex = clusterData.nodeInfo.node_index.toInt
+    val longTermKeyLocation = clusterData.longTermLocation
+    logger.info("preparing to join cluster '{}' as node {}", clusterName, nodeIndex)
 
-        new File(clusterInfoPath.getParent.toString).mkdirs()
+    val homeDir = System.getProperty("user.home")
+    val clusterInfoName = homeDir + "/.fluence/nodes/" + clusterName + "/node" + nodeIndex + "/cluster_info.json"
+    val clusterInfoPath = Paths.get(clusterInfoName)
 
-        Files.write(clusterInfoPath, clusterData.nodeInfo.cluster.asJson.spaces2.getBytes)
-        logger.info("cluster info written to {}", clusterInfoPath)
+    new File(clusterInfoPath.getParent.toString).mkdirs()
 
-        val hostP2PPort = clusterData.hostP2PPort
-        val hostRpcPort = clusterData.hostRpcPort
-        val tmPrometheusPort = clusterData.tmPrometheusPort
-        val smPrometheusPort = clusterData.smPrometheusPort
+    Files.write(clusterInfoPath, clusterData.nodeInfo.cluster.asJson.spaces2.getBytes)
+    logger.info("cluster info written to {}", clusterInfoPath)
 
-        val runString = s"""bash ./master-run-node.sh %s %s %d %s %s %d %d %d %d"""
-          .format(
-            clusterName,
-            vmCodeDir,
-            nodeIndex,
-            longTermKeyLocation,
-            clusterInfoName,
-            hostP2PPort,
-            hostRpcPort,
-            tmPrometheusPort,
-            smPrometheusPort
-          )
+    val hostP2PPort = clusterData.hostP2PPort
+    val hostRpcPort = clusterData.hostRpcPort
+    val tmPrometheusPort = clusterData.tmPrometheusPort
+    val smPrometheusPort = clusterData.smPrometheusPort
 
-        logger.info("running {}", runString)
+    val runString = s"""bash ./master-run-node.sh %s %s %d %s %s %d %d %d %d"""
+      .format(
+        clusterName,
+        vmCodeDir,
+        nodeIndex,
+        longTermKeyLocation,
+        clusterInfoName,
+        hostP2PPort,
+        hostRpcPort,
+        tmPrometheusPort,
+        smPrometheusPort
+      )
 
-        val containerId = Process(runString, new File("statemachine/docker")).!!
-        logger.info("launched container {}", containerId)
+    logger.info("running {}", runString)
 
-        true
-    }
+    val containerId = Process(runString, new File("statemachine/docker"))//.!!
+    logger.info("launched container {}", containerId)
+  }
 
   private def configureLogging(): Unit = {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, false)
