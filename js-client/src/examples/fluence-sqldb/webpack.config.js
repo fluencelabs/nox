@@ -31,7 +31,7 @@ module.exports = {
     },
     output: {
         filename: 'bundle.js',
-        path: path.resolve(__dirname, 'bundle')
+        path: __dirname
     },
     node: {
         fs: 'empty'
@@ -39,10 +39,6 @@ module.exports = {
     plugins: [
         new CleanWebpackPlugin(['bundle']),
         new CheckerPlugin(),
-        new webpack.HotModuleReplacementPlugin(),
-        new HtmlWebpackPlugin({
-            title: 'Fluence DB client',
-            template: 'index.html'
-        }),
+        new webpack.HotModuleReplacementPlugin()
     ]
 };

@@ -2,6 +2,8 @@ package protocol
 
 import "reflect"
 
+type Chunk = []byte
+
 // panics if the condition is false
 func assertTrue(condition bool) {
   if !condition {
@@ -22,6 +24,16 @@ func pack(args... interface{}) []byte {
 }
 
 // serializes elements of a compound object (array or structure) into byte arrays
-func packMulti(object interface{}) [][]byte {
+func packMulti(object interface{}) []Chunk {
   panic("not implemented!")
+}
+
+// extracts keys from the dictionary: accepts map[K]V, returns []K
+func keys(dict interface{}) interface{} {
+  var m = dict.(map[interface{}]interface{})
+  var keys = make([]interface{}, 0, len(m))
+  for k := range m {
+    keys = append(keys, k)
+  }
+  return keys
 }

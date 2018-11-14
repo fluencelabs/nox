@@ -44,12 +44,15 @@ function getCount() {
     })
 }
 
+const parameters = ["pm25", "pm10", "no2", "o3"];
+
 /**
  * Get maximum value of parameter
  *
  * @param parameter [pm25, pm10, no2, o3]
  */
 function getMax(parameter) {
+    if (!parameters.includes(parameter)) throw new Error(`No such parameter ${parameter}. Use only one of: ${parameters}`);
     const query = `SELECT MAX(value) FROM polution_uusimaa WHERE parameter = '${parameter}'`;
     fluenceSession.invoke("do_query", query).result().then((r) => {
         console.log(`Maximum of ${parameter}: ${r.asString().split("\n")[1]}`);
