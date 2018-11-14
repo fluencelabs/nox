@@ -49,7 +49,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
   /**
    * Launches a single solver connecting to ethereum blockchain with Deployer contract.
    *
-   * @param args 1st: Tendermint key location. 2nd: Tendermint p2p host IP. 3rd: Tendermint p2p port.
+   * @param args 1st: Tendermint key location. 2nd: Tendermint p2p host IP. 3rd and 4th: Tendermint p2p port range.
    */
   override def run(args: List[String]): IO[ExitCode] =
     EthClient
@@ -152,8 +152,11 @@ object MasterNodeApp extends IOApp with LazyLogging {
    * @param solverInfo information used to identify the current solver
    * @return whether this event is relevant to the passed SolverInfo
    */
-  private def processClusterFormed(event: ClusterFormedEventResponse, solverInfo: SolverInfo): Boolean =
-    clusterFormedEventToClusterData(event, solverInfo).map(runSolverWithClusterData).isDefined
+  private def processClusterFormed(event: ClusterFormedEventResponse, solverInfo: SolverInfo): Boolean = {
+    val clusterDataOpt = clusterFormedEventToClusterData(event, solverInfo)
+    clusterDataOpt.foreach(runSolverWithClusterData)
+    clusterDataOpt.isDefined
+  }
 
   private def runSolverWithClusterData(clusterData: ClusterData): Unit = {
     val dockerWorkDir = System.getProperty("user.dir") + "/statemachine/docker"
@@ -163,23 +166,20 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
     initializeTendermintConfigDirectory(clusterData.nodeInfo, clusterData.longTermLocation)
 
-    // TODO: escape spaces in paths
-    val runString = ("docker run -idt -p %d:26656 -p %d:26657 -p %d:26660 -p %d:26661 " +
-      "-v %s/solver:/solver -v %s:/vmcode -v %s:/tendermint --name %s fluencelabs/solver:latest")
-        .format(
-          clusterData.hostP2PPort,
-          clusterData.hostRpcPort,
-          clusterData.tmPrometheusPort,
-          clusterData.smPrometheusPort,
-          dockerWorkDir,
-          vmCodeDir,
-          tendermintHomeDirectory(clusterData.nodeInfo),
-          clusterData.nodeName
-        )
+    val dockerRunCommand = List("docker", "run", "-idt") ++
+      List("-p", s"${clusterData.hostP2PPort}:26656") ++
+      List("-p", s"${clusterData.hostRpcPort}:26657") ++
+      List("-p", s"${clusterData.tmPrometheusPort}:26660") ++
+      List("-p", s"${clusterData.smPrometheusPort}:26661") ++
+      List("-v", s"$dockerWorkDir/solver:/solver") ++
+      List("-v", s"$vmCodeDir:/vmcode") ++
+      List("-v", s"${tendermintHomeDirectory(clusterData.nodeInfo)}:/tendermint") ++
+      List("--name", clusterData.nodeName) ++
+      List("fluencelabs/solver:latest")
 
-    logger.info("running {}", runString)
+    logger.info("running {}", dockerRunCommand)
 
-    val containerId = Process(runString, new File("statemachine/docker")).!!
+    val containerId = Process(dockerRunCommand, new File(dockerWorkDir)).!!
     logger.info("launched container {}", containerId)
   }
 
