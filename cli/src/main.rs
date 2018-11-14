@@ -21,11 +21,11 @@ extern crate reqwest;
 extern crate web3;
 
 mod publisher;
+mod app;
 
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
-use publisher::app;
-use publisher::app::Publisher;
+use publisher::Publisher;
 use reqwest::{Client, Url, UrlError};
 use std::error::Error;
 use web3::contract::{Contract, Options};
@@ -34,7 +34,8 @@ use web3::types::{Address, H256, U256};
 use web3::{Transport, Web3};
 
 fn main() {
-    let publisher = app::init().unwrap();
+    let app = app::init();
+    let publisher = publisher::parse(app.get_matches()).unwrap();
 
     let transaction = publish(publisher, true);
 
@@ -202,7 +203,7 @@ fn create_progress_bar(prefix: &str, msg: &str) -> ProgressBar {
 #[cfg(test)]
 mod tests {
     use super::{get_contract, publish};
-    use publisher::app::Publisher;
+    use publisher::Publisher;
     use std::error::Error;
     use web3;
     use web3::contract::Options;
