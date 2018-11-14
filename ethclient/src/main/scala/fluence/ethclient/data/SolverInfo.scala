@@ -16,6 +16,8 @@
 
 package fluence.ethclient.data
 
+import java.io.File
+
 import fluence.ethclient.helpers.Web3jConverters.{base64ToBytes32, solverAddressToBytes24}
 import io.circe.generic.auto._
 import io.circe.parser.parse
@@ -47,22 +49,22 @@ case class SolverInfo(
   /**
    * Returns node's public key in format ready to pass to the contract.
    */
-  def validatorKeyBytes32: Bytes32 = base64ToBytes32(validatorKey.value)
+  lazy val validatorKeyBytes32: Bytes32 = base64ToBytes32(validatorKey.value)
 
   /**
    * Returns node's address information (host, Tendermint p2p key) in format ready to pass to the contract.
    */
-  def addressBytes24: Bytes24 = solverAddressToBytes24(ip, nodeAddress)
+  lazy val addressBytes24: Bytes24 = solverAddressToBytes24(ip, nodeAddress)
 
   /**
    * Returns starting port as uint16.
    */
-  def startPortUint16: Uint16 = new Uint16(startPort)
+  lazy val startPortUint16: Uint16 = new Uint16(startPort)
 
   /**
    * Returns ending port as uint16.
    */
-  def endPortUint16: Uint16 = new Uint16(endPort)
+  lazy val endPortUint16: Uint16 = new Uint16(endPort)
 }
 
 object SolverInfo {
@@ -74,17 +76,41 @@ object SolverInfo {
     for {
       argsTuple <- args match {
         case List(a1, a2, a3, a4) => Right(a1, a2, a3, a4)
-        case _ => Left(new IllegalArgumentException("3 program argument expected"))
+        case _ => Left(new IllegalArgumentException("4 program arguments expected"))
       }
       (longTermLocation, ip, startPortString, endPortString) = argsTuple
 
+      dockerWorkDir = System.getProperty("user.dir") + "/statemachine/docker"
+
       validatorKeyStr <- Try(
-        s"statemachine/docker/master-run-tm-utility.sh statemachine/docker/tm-show-validator $longTermLocation" !!
+        Process(
+          List(
+            "docker",
+            "run",
+            "-v",
+            s"$dockerWorkDir/tm-show-validator:/solver",
+            "-v",
+            s"$longTermLocation:/tendermint",
+            "fluencelabs/solver:latest"
+          ),
+          new File(dockerWorkDir)
+        ).!!
       ).toEither
       validatorKey <- parse(validatorKeyStr).flatMap(_.as[TendermintValidatorKey])
 
       nodeAddress <- Try(
-        s"statemachine/docker/master-run-tm-utility.sh statemachine/docker/tm-show-node-id $longTermLocation" !!
+        Process(
+          List(
+            "docker",
+            "run",
+            "-v",
+            s"$dockerWorkDir/tm-show-node-id:/solver",
+            "-v",
+            s"$longTermLocation:/tendermint",
+            "fluencelabs/solver:latest"
+          ),
+          new File(dockerWorkDir)
+        ).!!
       ).toEither
 
       _ <- Either.cond(isValidIP(ip), (), new IllegalArgumentException(s"Incorrect IP: $ip"))
