@@ -16,7 +16,7 @@
 
 package fluence.ethclient.helpers
 import java.text.SimpleDateFormat
-import java.util.{Base64, Calendar}
+import java.util.{Base64, Calendar, TimeZone}
 
 import fluence.ethclient.Deployer.ClusterFormedEventResponse
 import fluence.ethclient.data._
@@ -104,7 +104,11 @@ object Web3jConverters {
 
     val calendar: Calendar = Calendar.getInstance
     calendar.setTimeInMillis(genesisTimeUint256.getValue.longValue() * 1000)
-    val genesisTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(calendar.getTime)
+
+    val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+    dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"))
+    val genesisTime = dateFormat.format(calendar.getTime)
+
     TendermintGenesis(genesisTime, chainId, "", validators)
   }
 

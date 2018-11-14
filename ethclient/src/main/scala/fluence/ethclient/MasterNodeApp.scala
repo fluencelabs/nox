@@ -163,6 +163,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
     initializeTendermintConfigDirectory(clusterData.nodeInfo, clusterData.longTermLocation)
 
+    // TODO: escape spaces in paths
     val runString = ("docker run -idt -p %d:26656 -p %d:26657 -p %d:26660 -p %d:26661 " +
       "-v %s/solver:/solver -v %s:/vmcode -v %s:/tendermint --name %s fluencelabs/solver:latest")
         .format(
