@@ -91,17 +91,21 @@ First, initialize long term keys somewhere.
 The simplest way is via `sim-reset-example-long-term-keys.sh` command in `statemachine/docker/examples`.
 They would be stored in `~/.fluence/long-term-keys` subdirectories.
 
+The `reference.conf` file in `ethclient` project should be updated with actual contract address and eth account.
+
 If the local node is launched, contract deployed and `addCode` invoked with required number of solvers, 
 then everything is ready to run `MasterNodeApp` which would join solvers to the registerted codes.
 
-A bunch of 4 single solvers could be run locally in this way:
+A bunch of 4 single nodes could be run locally in this way:
 
 ```
-sbt "runMain fluence.ethclient.MasterNodeApp ~/.fluence/long-term-keys/node0 192.168.0.5 25056"
-sbt "runMain fluence.ethclient.MasterNodeApp ~/.fluence/long-term-keys/node1 192.168.0.5 25156"
-sbt "runMain fluence.ethclient.MasterNodeApp ~/.fluence/long-term-keys/node2 192.168.0.5 25256"
-sbt "runMain fluence.ethclient.MasterNodeApp ~/.fluence/long-term-keys/node3 192.168.0.5 25356"
+sbt "runMain fluence.ethclient.MasterNodeApp ~/.fluence/long-term-keys/node0 192.168.0.5 25000 25003"
+sbt "runMain fluence.ethclient.MasterNodeApp ~/.fluence/long-term-keys/node1 192.168.0.5 25500 25501"
+sbt "runMain fluence.ethclient.MasterNodeApp ~/.fluence/long-term-keys/node2 192.168.0.5 26000 26001"
+sbt "runMain fluence.ethclient.MasterNodeApp ~/.fluence/long-term-keys/node3 192.168.0.5 26500 26501"
 ```
+
+Here node0's range is for 3 solvers, other ranges are for 1 solver.
 
 Note that host IP might vary for this local scenario, depending on host docker IP.   
 

@@ -269,6 +269,9 @@ contract Deployer is Whitelist {
         return true;
     }
 
+    /** @dev Removes an element on specified position from 'enqueuedCodes'
+     * @param index position in 'enqueuedCodes' to remove
+     */
     function removeCode(uint index)
         internal
     {
@@ -279,6 +282,9 @@ contract Deployer is Whitelist {
         --enqueuedCodes.length;
     }
 
+    /** @dev Removes an element on specified position from 'readyNodes'
+     * @param index position in 'readyNodes' to remove
+     */
     function removeNode(uint index)
         internal
     {
@@ -289,6 +295,10 @@ contract Deployer is Whitelist {
         --readyNodes.length;
     }
 
+    /** @dev Switches 'currentPort' for specified node
+     * @param nodeID of target node
+     * returns whether there are more available ports
+     */
     function nextPort(bytes32 nodeID)
         internal
         returns (bool)
