@@ -35,9 +35,9 @@ sealed case class ClusterData(
   longTermLocation: String
 ) {
   val hostP2PPort: Short = persistentPeers.peers(nodeInfo.node_index.toInt).port
-  val hostRpcPort: Short = (hostP2PPort + 1).toShort
-  val tmPrometheusPort: Short = (hostP2PPort + 4).toShort
-  val smPrometheusPort: Short = (hostP2PPort + 5).toShort
+  val hostRpcPort: Short = (hostP2PPort + 100).toShort
+  val tmPrometheusPort: Short = (hostP2PPort + 200).toShort
+  val smPrometheusPort: Short = (hostP2PPort + 300).toShort
 }
 
 /**

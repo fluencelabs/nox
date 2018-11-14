@@ -24,18 +24,16 @@ import cats.effect.concurrent.Deferred
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.implicits._
 import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
-import fluence.ethclient.data.{ClusterData, DeployerContractConfig, SolverInfo}
+import fluence.ethclient.data.{ClusterData, ContractClusterTuple, DeployerContractConfig, SolverInfo}
 import fluence.ethclient.helpers.JavaRxToFs2._
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.web3j.abi.EventEncoder
-import org.web3j.abi.datatypes.DynamicArray
-import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
+import org.web3j.abi.datatypes.generated.Bytes32
 import org.web3j.protocol.core.methods.request.EthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
-import org.web3j.tuples.generated
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
@@ -54,11 +52,11 @@ object MasterNodeApp extends IOApp with LazyLogging {
     EthClient
       .makeHttpResource[IO]()
       .use { ethClient ⇒
+        configureLogging()
         val par = Parallel[IO, IO.Par]
         (for {
           solverInfo <- SolverInfo(args)
           config <- pureconfig.loadConfig[DeployerContractConfig]
-          _ = configureLogging()
         } yield (solverInfo, config)) match {
           case Right((solverInfo, config)) =>
             for {
@@ -85,8 +83,8 @@ object MasterNodeApp extends IOApp with LazyLogging {
                     .map(
                       x ⇒
                         if (processClusterFormed(x, solverInfo))
-                          //unsubscribe.complete(Right(()))
-                          IO.unit
+                          //unsubscribe.complete(Right(()))     // this line breaks processing after first solver launch
+                          IO.unit                             // this line processes new solvers forever
                         else
                           IO.unit
                     )
@@ -134,17 +132,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
         }
       }
 
-  private def clusterTupleToClusterFormedResponse(
-    clusterId: Bytes32,
-    clusterTuple: generated.Tuple6[
-      Bytes32,
-      Bytes32,
-      Uint256,
-      DynamicArray[Bytes32],
-      DynamicArray[Bytes24],
-      DynamicArray[Uint16]
-    ]
-  ): ClusterFormedEventResponse = {
+  private def clusterTupleToClusterFormedResponse(clusterId: Bytes32, clusterTuple: ContractClusterTuple) = {
     val artificialEvent = new ClusterFormedEventResponse()
     artificialEvent.clusterID = clusterId
     artificialEvent.storageHash = clusterTuple.getValue1
@@ -201,7 +189,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
     logger.info("running {}", runString)
 
-    val containerId = Process(runString, new File("statemachine/docker"))//.!!
+    val containerId = Process(runString, new File("statemachine/docker")).!!
     logger.info("launched container {}", containerId)
   }
 

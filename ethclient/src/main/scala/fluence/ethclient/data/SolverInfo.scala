@@ -67,6 +67,9 @@ case class SolverInfo(
 
 object SolverInfo {
 
+  private val portRangeLengthLimits = 1 to 100
+  private val startPortLimits = 20000 to (30000 - portRangeLengthLimits.max)
+
   def apply(args: List[String]): Either[Throwable, SolverInfo] =
     for {
       argsTuple <- args match {
@@ -84,9 +87,18 @@ object SolverInfo {
         s"statemachine/docker/master-run-tm-utility.sh statemachine/docker/tm-show-node-id $longTermLocation" !!
       ).toEither
 
+      _ <- Either.cond(isValidIP(ip), (), new IllegalArgumentException(s"Incorrect IP: $ip"))
+
       startPort <- Try(startPortString.toShort).toEither
       endPort <- Try(endPortString.toShort).toEither
-      _ <- Either.cond(isValidIP(ip), (), new IllegalArgumentException(s"Incorrect IP: $ip"))
+
+      _ <- Either.cond(
+        portRangeLengthLimits.contains(endPort - startPort) && startPortLimits.contains(startPort),
+        (),
+        new IllegalArgumentException(
+          s"Port range should contain $portRangeLengthLimits ports starting from $startPortLimits"
+        )
+      )
     } yield SolverInfo(longTermLocation, ip, startPort, endPort, validatorKey, nodeAddress)
 
   private def isValidIP(ip: String): Boolean = {
