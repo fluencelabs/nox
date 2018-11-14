@@ -43,6 +43,8 @@ import scala.sys.process._
 
 object MasterNodeApp extends IOApp with LazyLogging {
 
+  private val stopAfterFirstLaunchedSolver = false
+
   /**
    * Launches a single solver connecting to ethereum blockchain with Deployer contract.
    *
@@ -82,9 +84,8 @@ object MasterNodeApp extends IOApp with LazyLogging {
                     .toFS2[IO]
                     .map(
                       x ⇒
-                        if (processClusterFormed(x, solverInfo))
-                          //unsubscribe.complete(Right(()))     // this line breaks processing after first solver launch
-                          IO.unit                             // this line processes new solvers forever
+                        if (processClusterFormed(x, solverInfo) && stopAfterFirstLaunchedSolver)
+                          unsubscribe.complete(Right(()))
                         else
                           IO.unit
                     )
@@ -169,11 +170,6 @@ object MasterNodeApp extends IOApp with LazyLogging {
     Files.write(clusterInfoPath, clusterData.nodeInfo.cluster.asJson.spaces2.getBytes)
     logger.info("cluster info written to {}", clusterInfoPath)
 
-    val hostP2PPort = clusterData.hostP2PPort
-    val hostRpcPort = clusterData.hostRpcPort
-    val tmPrometheusPort = clusterData.tmPrometheusPort
-    val smPrometheusPort = clusterData.smPrometheusPort
-
     val runString = s"""bash ./master-run-node.sh %s %s %d %s %s %d %d %d %d"""
       .format(
         clusterName,
@@ -181,15 +177,15 @@ object MasterNodeApp extends IOApp with LazyLogging {
         nodeIndex,
         longTermKeyLocation,
         clusterInfoName,
-        hostP2PPort,
-        hostRpcPort,
-        tmPrometheusPort,
-        smPrometheusPort
+        clusterData.hostP2PPort,
+        clusterData.hostRpcPort,
+        clusterData.tmPrometheusPort,
+        clusterData.smPrometheusPort
       )
 
     logger.info("running {}", runString)
 
-    val containerId = Process(runString, new File("statemachine/docker")).!!
+    val containerId = Process(runString, new File("statemachine/docker"))//.!!
     logger.info("launched container {}", containerId)
   }
 
