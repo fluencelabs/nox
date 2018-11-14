@@ -17,14 +17,15 @@
 package fluence.ethclient
 
 import java.io.File
-import java.nio.file.{Files, Paths}
+import java.nio.file.StandardCopyOption._
+import java.nio.file._
 
 import cats.Parallel
 import cats.effect.concurrent.Deferred
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.implicits._
 import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
-import fluence.ethclient.data.{ClusterData, ContractClusterTuple, DeployerContractConfig, SolverInfo}
+import fluence.ethclient.data._
 import fluence.ethclient.helpers.JavaRxToFs2._
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters._
@@ -155,38 +156,66 @@ object MasterNodeApp extends IOApp with LazyLogging {
     clusterFormedEventToClusterData(event, solverInfo).map(runSolverWithClusterData).isDefined
 
   private def runSolverWithClusterData(clusterData: ClusterData): Unit = {
-    val clusterName = clusterData.nodeInfo.cluster.genesis.chain_id
-    val vmCodeDir = System.getProperty("user.dir") + "/statemachine/docker/examples/vmcode-" + clusterData.code
-    val nodeIndex = clusterData.nodeInfo.node_index.toInt
-    val longTermKeyLocation = clusterData.longTermLocation
-    logger.info("preparing to join cluster '{}' as node {}", clusterName, nodeIndex)
+    val dockerWorkDir = System.getProperty("user.dir") + "/statemachine/docker"
+    val vmCodeDir = dockerWorkDir + "/examples/vmcode-" + clusterData.code
 
-    val homeDir = System.getProperty("user.home")
-    val clusterInfoName = homeDir + "/.fluence/nodes/" + clusterName + "/node" + nodeIndex + "/cluster_info.json"
-    val clusterInfoPath = Paths.get(clusterInfoName)
+    logger.info("preparing to join cluster '{}' as node {}", clusterData.clusterName, clusterData.nodeIndex)
 
-    new File(clusterInfoPath.getParent.toString).mkdirs()
+    initializeTendermintConfigDirectory(clusterData.nodeInfo, clusterData.longTermLocation)
 
-    Files.write(clusterInfoPath, clusterData.nodeInfo.cluster.asJson.spaces2.getBytes)
-    logger.info("cluster info written to {}", clusterInfoPath)
-
-    val runString = s"""bash ./master-run-node.sh %s %s %d %s %s %d %d %d %d"""
-      .format(
-        clusterName,
-        vmCodeDir,
-        nodeIndex,
-        longTermKeyLocation,
-        clusterInfoName,
-        clusterData.hostP2PPort,
-        clusterData.hostRpcPort,
-        clusterData.tmPrometheusPort,
-        clusterData.smPrometheusPort
-      )
+    val runString = ("docker run -idt -p %d:26656 -p %d:26657 -p %d:26660 -p %d:26661 " +
+      "-v %s/solver:/solver -v %s:/vmcode -v %s:/tendermint --name %s fluencelabs/solver:latest")
+        .format(
+          clusterData.hostP2PPort,
+          clusterData.hostRpcPort,
+          clusterData.tmPrometheusPort,
+          clusterData.smPrometheusPort,
+          dockerWorkDir,
+          vmCodeDir,
+          tendermintHomeDirectory(clusterData.nodeInfo),
+          clusterData.nodeName
+        )
 
     logger.info("running {}", runString)
 
-    val containerId = Process(runString, new File("statemachine/docker"))//.!!
+    val containerId = Process(runString, new File("statemachine/docker")).!!
     logger.info("launched container {}", containerId)
+  }
+
+  /**
+   * Initialized Tendermint config files:
+   * - node_info.json initialized from ''nodeInfo''
+   * - node_key.json and priv_validator.json initialized from directory located by ''longTermLocation''
+   *
+   * @param nodeInfo node & cluster information
+   * @param longTermLocation local directory with pre-initialized Tendermint public/private keys
+   */
+  private def initializeTendermintConfigDirectory(nodeInfo: NodeInfo, longTermLocation: String): Unit = {
+    val longTermConfigPath = Paths.get(longTermLocation, "config")
+
+    val tendermintConfigDirectoryPath = Paths.get(tendermintHomeDirectory(nodeInfo), "config")
+    val nodeInfoPath = tendermintConfigDirectoryPath.resolve("node_info.json")
+
+    new File(tendermintConfigDirectoryPath.toString).mkdirs()
+
+    Files.write(nodeInfoPath, nodeInfo.asJson.spaces2.getBytes)
+    Files.copy(
+      longTermConfigPath.resolve("node_key.json"),
+      tendermintConfigDirectoryPath.resolve("node_key.json"),
+      REPLACE_EXISTING
+    )
+    Files.copy(
+      longTermConfigPath.resolve("priv_validator.json"),
+      tendermintConfigDirectoryPath.resolve("priv_validator.json"),
+      REPLACE_EXISTING
+    )
+
+    logger.info("node info written to {}", nodeInfoPath)
+  }
+
+  private def tendermintHomeDirectory(nodeInfo: NodeInfo): String = {
+    val homeDir = System.getProperty("user.home")
+    s"$homeDir/.fluence/nodes/${nodeInfo.clusterName}/node${nodeInfo.node_index}"
   }
 
   private def configureLogging(): Unit = {

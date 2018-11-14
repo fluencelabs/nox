@@ -38,6 +38,12 @@ sealed case class ClusterData(
   val hostRpcPort: Short = (hostP2PPort + 100).toShort
   val tmPrometheusPort: Short = (hostP2PPort + 200).toShort
   val smPrometheusPort: Short = (hostP2PPort + 300).toShort
+
+  def clusterName: String = nodeInfo.clusterName
+
+  def nodeIndex: Int = nodeInfo.node_index.toInt
+
+  def nodeName: String = s"${clusterName}_node$nodeIndex"
 }
 
 /**
@@ -46,7 +52,9 @@ sealed case class ClusterData(
  * @param cluster cluster information
  * @param node_index node index
  */
-sealed case class NodeInfo(cluster: Cluster, node_index: String)
+sealed case class NodeInfo(cluster: Cluster, node_index: String) {
+  def clusterName: String = cluster.genesis.chain_id
+}
 
 /**
  * Information about the cluster without node-specific data.
