@@ -20,12 +20,12 @@ import java.io.File
 import java.nio.file.StandardCopyOption._
 import java.nio.file._
 
-import cats.Parallel
-import cats.effect.concurrent.Deferred
+import cats.data.EitherT
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.implicits._
 import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
 import fluence.ethclient.data._
+import fluence.ethclient.helpers.DockerRunBuilder
 import fluence.ethclient.helpers.JavaRxToFs2._
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters._
@@ -39,8 +39,9 @@ import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.collection.JavaConverters._
-import scala.language.postfixOps
+import scala.language.{higherKinds, postfixOps}
 import scala.sys.process._
+import scala.util.Try
 
 object MasterNodeApp extends IOApp with LazyLogging {
 
@@ -56,15 +57,12 @@ object MasterNodeApp extends IOApp with LazyLogging {
       .makeHttpResource[IO]()
       .use { ethClient ⇒
         configureLogging()
-        val par = Parallel[IO, IO.Par]
         (for {
           solverInfo <- SolverInfo(args)
           config <- pureconfig.loadConfig[DeployerContractConfig]
         } yield (solverInfo, config)) match {
           case Right((solverInfo, config)) =>
             for {
-              unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
-
               version ← ethClient.clientVersion[IO]()
               _ = logger.info("eth client version {}", version)
 
@@ -77,73 +75,41 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 config.deployerContractAddress
               ).addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
 
-              _ ← par sequential par.apply.product(
-                // Subscription stream
-                par parallel
-                  contract
-                    .clusterFormedEventObservable(filter)
-                    .toFS2[IO]
-                    .map(
-                      x ⇒
-                        if (processClusterFormed(x, solverInfo) && stopAfterFirstLaunchedSolver)
-                          unsubscribe.complete(Right(()))
-                        else
-                          IO.unit
-                    )
-                    .map(_.unsafeRunSync())
-                    .interruptWhen(unsubscribe)
-                    .drain // drop the results, so that demand on events is always provided
-                    .onFinalize(IO(logger.info("subscription finalized")))
-                    .compile // Compile to a runnable, in terms of effect IO
-                    .drain, // Switch to IO[Unit]
-                // Delayed unsubscribe
-                par.parallel(for {
-                  clusters <- contract.getNodeClusters(solverInfo.validatorKeyBytes32).call[IO]
+              clusters <- contract.getNodeClusters(solverInfo.validatorKeyBytes32).call[IO]
 
-                  _ <- clusters.getValue.asScala.toList
-                    .map(
-                      x =>
-                        contract
-                          .getCluster(x)
-                          .call[IO]
-                          .flatMap(
-                            y =>
-                              IO.pure(
-                                processClusterFormed(clusterTupleToClusterFormedResponse(x, y), solverInfo)
-                            )
-                        )
-                    )
-                    .sequence_
+              _ <- clusters.getValue.asScala.toList
+                .map(
+                  x =>
+                    contract
+                      .getCluster(x)
+                      .call[IO]
+                      .flatMap(y => processClusterFormed(clusterTupleToClusterFormedResponse(x, y), solverInfo).value)
+                )
+                .sequence_
 
-                  _ <- contract
-                    .addNode(
-                      solverInfo.validatorKeyBytes32,
-                      solverInfo.addressBytes24,
-                      solverInfo.startPortUint16,
-                      solverInfo.endPortUint16
-                    )
-                    .call[IO]
-                  _ <- unsubscribe.get
-                  _ = logger.info("got unsubscribe")
-                } yield ())
-              )
+              _ <- contract
+                .addNode(
+                  solverInfo.validatorKeyBytes32,
+                  solverInfo.addressBytes24,
+                  solverInfo.startPortUint16,
+                  solverInfo.endPortUint16
+                )
+                .call[IO]
+
+              _ <- contract
+                .clusterFormedEventObservable(filter)
+                .toFS2[IO]
+                .map(x ⇒ processClusterFormed(x, solverInfo).value.unsafeRunSync()) // TODO: remove unsync
+                .drain // drop the results, so that demand on events is always provided
+                .onFinalize(IO(logger.info("subscription finalized")))
+                .compile // Compile to a runnable, in terms of effect IO
+                .drain // Switch to IO[Unit]
             } yield ExitCode.Success
           case Left(value) =>
             logger.error("Error: {}", value)
             IO.pure(ExitCode.Error)
         }
       }
-
-  private def clusterTupleToClusterFormedResponse(clusterId: Bytes32, clusterTuple: ContractClusterTuple) = {
-    val artificialEvent = new ClusterFormedEventResponse()
-    artificialEvent.clusterID = clusterId
-    artificialEvent.storageHash = clusterTuple.getValue1
-    artificialEvent.genesisTime = clusterTuple.getValue3
-    artificialEvent.solverIDs = clusterTuple.getValue4
-    artificialEvent.solverAddrs = clusterTuple.getValue5
-    artificialEvent.solverPorts = clusterTuple.getValue6
-    artificialEvent
-  }
 
   /**
    * Tries to convert event information to cluster configuration and, in case of success, launches a single solver.
@@ -152,35 +118,42 @@ object MasterNodeApp extends IOApp with LazyLogging {
    * @param solverInfo information used to identify the current solver
    * @return whether this event is relevant to the passed SolverInfo
    */
-  private def processClusterFormed(event: ClusterFormedEventResponse, solverInfo: SolverInfo): Boolean = {
-    val clusterDataOpt = clusterFormedEventToClusterData(event, solverInfo)
-    clusterDataOpt.foreach(runSolverWithClusterData)
-    clusterDataOpt.isDefined
-  }
+  private def processClusterFormed(
+    event: ClusterFormedEventResponse,
+    solverInfo: SolverInfo
+  ): EitherT[IO, Throwable, Boolean] =
+    clusterFormedEventToClusterData(event, solverInfo) match {
+      case Some(clusterData) => runSolverWithClusterData(clusterData).map(_ => true)
+      case None => EitherT.right(IO.pure(false))
+    }
 
-  private def runSolverWithClusterData(clusterData: ClusterData): Unit = {
+  private def runSolverWithClusterData(clusterData: ClusterData): EitherT[IO, Throwable, Unit] = {
     val dockerWorkDir = System.getProperty("user.dir") + "/statemachine/docker"
     val vmCodeDir = dockerWorkDir + "/examples/vmcode-" + clusterData.code
 
-    logger.info("preparing to join cluster '{}' as node {}", clusterData.clusterName, clusterData.nodeIndex)
+    for {
+      _ <- {
+        logger.info("preparing to join cluster '{}' as node {}", clusterData.clusterName, clusterData.nodeIndex)
+        initializeTendermintConfigDirectory(clusterData.nodeInfo, clusterData.longTermLocation)
+      }
 
-    initializeTendermintConfigDirectory(clusterData.nodeInfo, clusterData.longTermLocation)
+      dockerRunCommand = DockerRunBuilder()
+        .add("-idt")
+        .addPort(clusterData.hostP2PPort, 26656)
+        .addPort(clusterData.hostRpcPort, 26657)
+        .addPort(clusterData.tmPrometheusPort, 26660)
+        .addPort(clusterData.smPrometheusPort, 26661)
+        .addVolume(dockerWorkDir + "/solver", "/solver")
+        .addVolume(vmCodeDir, "/vmcode")
+        .addVolume(tendermintHomeDirectory(clusterData.nodeInfo), "/tendermint")
+        .add("--name", clusterData.nodeName)
+        .build("fluencelabs/solver:latest")
 
-    val dockerRunCommand = List("docker", "run", "-idt") ++
-      List("-p", s"${clusterData.hostP2PPort}:26656") ++
-      List("-p", s"${clusterData.hostRpcPort}:26657") ++
-      List("-p", s"${clusterData.tmPrometheusPort}:26660") ++
-      List("-p", s"${clusterData.smPrometheusPort}:26661") ++
-      List("-v", s"$dockerWorkDir/solver:/solver") ++
-      List("-v", s"$vmCodeDir:/vmcode") ++
-      List("-v", s"${tendermintHomeDirectory(clusterData.nodeInfo)}:/tendermint") ++
-      List("--name", clusterData.nodeName) ++
-      List("fluencelabs/solver:latest")
+      _ = logger.info("running {}", dockerRunCommand)
 
-    logger.info("running {}", dockerRunCommand)
-
-    val containerId = Process(dockerRunCommand, new File(dockerWorkDir)).!!
-    logger.info("launched container {}", containerId)
+      containerId <- fsOperation(Process(dockerRunCommand, new File(dockerWorkDir)).!!)
+      _ = logger.info("launched container {}", containerId)
+    } yield ()
   }
 
   /**
@@ -191,32 +164,54 @@ object MasterNodeApp extends IOApp with LazyLogging {
    * @param nodeInfo node & cluster information
    * @param longTermLocation local directory with pre-initialized Tendermint public/private keys
    */
-  private def initializeTendermintConfigDirectory(nodeInfo: NodeInfo, longTermLocation: String): Unit = {
+  private def initializeTendermintConfigDirectory(
+    nodeInfo: NodeInfo,
+    longTermLocation: String
+  ): EitherT[IO, Throwable, Unit] = {
     val longTermConfigPath = Paths.get(longTermLocation, "config")
 
     val tendermintConfigDirectoryPath = Paths.get(tendermintHomeDirectory(nodeInfo), "config")
     val nodeInfoPath = tendermintConfigDirectoryPath.resolve("node_info.json")
 
-    new File(tendermintConfigDirectoryPath.toString).mkdirs()
+    for {
+      _ <- fsOperation(new File(tendermintConfigDirectoryPath.toString).mkdirs())
+      _ <- fsOperation(Files.write(nodeInfoPath, nodeInfo.asJson.spaces2.getBytes))
+      _ <- fsOperation(
+        Files.copy(
+          longTermConfigPath.resolve("node_key.json"),
+          tendermintConfigDirectoryPath.resolve("node_key.json"),
+          REPLACE_EXISTING
+        )
+      )
+      _ <- fsOperation(
+        Files.copy(
+          longTermConfigPath.resolve("priv_validator.json"),
+          tendermintConfigDirectoryPath.resolve("priv_validator.json"),
+          REPLACE_EXISTING
+        )
+      )
 
-    Files.write(nodeInfoPath, nodeInfo.asJson.spaces2.getBytes)
-    Files.copy(
-      longTermConfigPath.resolve("node_key.json"),
-      tendermintConfigDirectoryPath.resolve("node_key.json"),
-      REPLACE_EXISTING
-    )
-    Files.copy(
-      longTermConfigPath.resolve("priv_validator.json"),
-      tendermintConfigDirectoryPath.resolve("priv_validator.json"),
-      REPLACE_EXISTING
-    )
-
-    logger.info("node info written to {}", nodeInfoPath)
+      _ = logger.info("node info written to {}", nodeInfoPath)
+    } yield ()
   }
+
+  private def fsOperation[T](op: => T): EitherT[IO, Throwable, T] =
+    EitherT.fromEither[IO](Try(op).toEither)
 
   private def tendermintHomeDirectory(nodeInfo: NodeInfo): String = {
     val homeDir = System.getProperty("user.home")
     s"$homeDir/.fluence/nodes/${nodeInfo.clusterName}/node${nodeInfo.node_index}"
+  }
+
+  private def clusterTupleToClusterFormedResponse(clusterId: Bytes32, clusterTuple: ContractClusterTuple) = {
+    val artificialEvent = new ClusterFormedEventResponse()
+    artificialEvent.clusterID = clusterId
+    artificialEvent.storageHash = clusterTuple.getValue1
+    artificialEvent.genesisTime = clusterTuple.getValue3
+    artificialEvent.solverIDs = clusterTuple.getValue4
+    artificialEvent.solverAddrs = clusterTuple.getValue5
+    artificialEvent.solverPorts = clusterTuple.getValue6
+    artificialEvent
   }
 
   private def configureLogging(): Unit = {

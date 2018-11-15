@@ -18,6 +18,7 @@ package fluence.ethclient.data
 
 import java.io.File
 
+import fluence.ethclient.helpers.DockerRunBuilder
 import fluence.ethclient.helpers.Web3jConverters.{base64ToBytes32, solverAddressToBytes24}
 import io.circe.generic.auto._
 import io.circe.parser.parse
@@ -72,6 +73,15 @@ object SolverInfo {
   private val portRangeLengthLimits = 1 to 100
   private val startPortLimits = 20000 to (30000 - portRangeLengthLimits.max)
 
+  /**
+   * Builds [[SolverInfo]] from command-line arguments.
+   *
+   * @param args arguments list
+   * - Tendermint key location
+   * - Tendermint p2p host IP
+   * - Tendermint p2p port range starting port
+   * - Tendermint p2p port range ending port
+   */
   def apply(args: List[String]): Either[Throwable, SolverInfo] =
     for {
       argsTuple <- args match {
@@ -84,15 +94,10 @@ object SolverInfo {
 
       validatorKeyStr <- Try(
         Process(
-          List(
-            "docker",
-            "run",
-            "-v",
-            s"$dockerWorkDir/tm-show-validator:/solver",
-            "-v",
-            s"$longTermLocation:/tendermint",
-            "fluencelabs/solver:latest"
-          ),
+          DockerRunBuilder()
+            .addVolume(dockerWorkDir + "/tm-show-validator", "/solver")
+            .addVolume(longTermLocation, "/tendermint")
+            .build("fluencelabs/solver:latest"),
           new File(dockerWorkDir)
         ).!!
       ).toEither
@@ -100,15 +105,10 @@ object SolverInfo {
 
       nodeAddress <- Try(
         Process(
-          List(
-            "docker",
-            "run",
-            "-v",
-            s"$dockerWorkDir/tm-show-node-id:/solver",
-            "-v",
-            s"$longTermLocation:/tendermint",
-            "fluencelabs/solver:latest"
-          ),
+          DockerRunBuilder()
+            .addVolume(dockerWorkDir + "/tm-show-node-id", "/solver")
+            .addVolume(longTermLocation, "/tendermint")
+            .build("fluencelabs/solver:latest"),
           new File(dockerWorkDir)
         ).!!
       ).toEither
