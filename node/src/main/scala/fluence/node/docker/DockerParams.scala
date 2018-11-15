@@ -14,23 +14,23 @@
  * limitations under the License.
  */
 
-package fluence.ethclient.helpers
+package fluence.node.docker
+import scala.collection.immutable.Queue
 
 /**
  * Builder for basic `docker run` command parameters.
  *
- * @param command current command
+ * @param params current command' params
  */
-@deprecated("Use fluence.node.docker.DockerParams instead", "15.11.2018")
-case class DockerRunBuilder(private val command: Vector[String]) {
+case class DockerParams(params: Queue[String] = Queue.empty) {
 
   /**
-   * Adds a single option to command.
+   * Adds a single param to command.
    *
-   * @param option option
+   * @param param option
    */
-  def add(option: String): DockerRunBuilder =
-    new DockerRunBuilder(command :+ option)
+  def add(param: String): DockerParams =
+    copy(params.enqueue(param))
 
   /**
    * Adds a named option to command.
@@ -38,8 +38,8 @@ case class DockerRunBuilder(private val command: Vector[String]) {
    * @param optionName option name
    * @param optionValue option value
    */
-  def add(optionName: String, optionValue: String): DockerRunBuilder =
-    new DockerRunBuilder(command :+ optionName :+ optionValue)
+  def option(optionName: String, optionValue: String): DockerParams =
+    add(optionName).add(optionValue)
 
   /**
    * Adds a port mapping.
@@ -47,8 +47,8 @@ case class DockerRunBuilder(private val command: Vector[String]) {
    * @param hostPort port number on host
    * @param containerPort mapped port number in container
    */
-  def addPort(hostPort: Short, containerPort: Short): DockerRunBuilder =
-    add("-p", s"$hostPort:$containerPort")
+  def port(hostPort: Short, containerPort: Short): DockerParams =
+    option("-p", s"$hostPort:$containerPort")
 
   /**
    * Adds a volume mapping.
@@ -56,17 +56,17 @@ case class DockerRunBuilder(private val command: Vector[String]) {
    * @param hostVolume volume directory on host
    * @param containerVolume mounted volume location in container
    */
-  def addVolume(hostVolume: String, containerVolume: String): DockerRunBuilder =
-    add("-v", s"$hostVolume:$containerVolume")
+  def volume(hostVolume: String, containerVolume: String): DockerParams =
+    option("-v", s"$hostVolume:$containerVolume")
 
   /**
    * Builds the current command to a representation ready to pass in [[scala.sys.process.Process]].
    *
    * @param imageName name of image to run
    */
-  def build(imageName: String): Vector[String] = add(imageName).command
+  def image(imageName: String): DockerParams.Sealed = DockerParams.Sealed(add(imageName).params.mkString(" "))
 }
 
-object DockerRunBuilder {
-  def apply(): DockerRunBuilder = new DockerRunBuilder(Vector("docker", "run"))
+object DockerParams {
+  case class Sealed(command: String) extends AnyVal
 }

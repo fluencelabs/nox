@@ -40,13 +40,13 @@ object DockerIO extends LazyLogging {
    * Runs a docker container, providing a single String with the container ID.
    * Calls `rm -f` on that ID when stream is over.
    *
-   * @param whatToRun will be concatenated to `docker run -d`
+   * @param params will be concatenated to `docker run -d`
    * @return a stream that produces a docker container ID
    */
-  def run[F[_]: Sync: ContextShift](whatToRun: String): fs2.Stream[F, String] =
+  def run[F[_]: Sync: ContextShift](params: DockerParams.Sealed): fs2.Stream[F, String] =
     fs2.Stream.bracketCase {
-      logger.info(s"Running docker: $whatToRun")
-      shiftDelay(Try(s"docker run -d $whatToRun".!!).map(_.trim()))
+      logger.info(s"Running docker: ${params.command}")
+      shiftDelay(Try(s"docker run -d ${params.command}".!!).map(_.trim()))
     } {
       case (Success(dockerId), exitCase) ⇒
         logger.info(s"Going to cleanup $dockerId, exit case: $exitCase")

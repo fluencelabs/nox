@@ -57,7 +57,7 @@ object FluenceNode extends IOApp {
         case RunR(port) ⇒
           for {
             _ <- IO(println(s"Going to run on $port"))
-            _ ← pool.run(SolverParams(port.toInt))
+            _ ← pool.run(SolverParams(port.toShort))
           } yield None
 
         case unknown ⇒
