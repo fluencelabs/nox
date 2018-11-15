@@ -15,18 +15,23 @@
  */
 
 package fluence.node.solvers
+import fluence.node.docker.DockerParams
 
 /**
  * Solver container's params
  *
  * @param rpcPort RPC port to bind to
  */
-case class SolverParams(rpcPort: Int) {
+case class SolverParams(rpcPort: Short) {
   override def toString = s"(solver of rpcPort $rpcPort)"
 
   /**
    * [[fluence.node.docker.DockerIO.run]]'s command for launching a configured solver
    * TODO: replace with a real solver process
    */
-  val dockerCommand = s"-p $rpcPort:80 --name nginx-$rpcPort nginx"
+  val dockerCommand: DockerParams.Sealed =
+    DockerParams()
+      .port(rpcPort, 80)
+      .option("name", s"nginx-$rpcPort")
+      .image("nginx")
 }
