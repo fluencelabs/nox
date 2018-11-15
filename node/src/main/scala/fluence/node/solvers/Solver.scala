@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node
+package fluence.node.solvers
 
 import cats.Applicative
 import cats.effect._
@@ -23,6 +23,7 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicativeError._
 import com.softwaremill.sttp._
+import fluence.node.docker.DockerIO
 import slogging.LazyLogging
 
 import scala.language.higherKinds

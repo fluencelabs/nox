@@ -42,9 +42,9 @@ object EthClientApp extends IOApp {
             // Subscription stream
             par parallel ethClient
               .subscribeToLogsTopic[IO](
-              "0x9995882876ae612bfd829498ccd73dd962ec950a",
-              EventEncoder.encode(Deployer.NEWNODE_EVENT)
-            )
+                "0x9995882876ae612bfd829498ccd73dd962ec950a",
+                EventEncoder.encode(Deployer.NEWNODE_EVENT)
+              )
               .map(log ⇒ println(s"Log message: $log"))
               .interruptWhen(unsubscribe)
               .drain // drop the results, so that demand on events is always provided

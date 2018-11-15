@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.node
+package fluence.node.solvers
+
 import scala.concurrent.duration._
 
 sealed trait SolverHealth {

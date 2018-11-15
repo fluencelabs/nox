@@ -18,9 +18,9 @@ package fluence.node
 
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.apply._
-
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import fluence.node.solvers.{SolverParams, SolversPool}
 
 import scala.concurrent.ExecutionContext
 

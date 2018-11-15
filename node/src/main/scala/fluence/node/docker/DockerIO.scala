@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-package fluence.node
+package fluence.node.docker
 import cats.Applicative
-import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.functor._
+import cats.effect.{ContextShift, Sync, Timer}
 import slogging.LazyLogging
 
 import scala.concurrent.duration.FiniteDuration
-import scala.sys.process._
-import scala.language.higherKinds
 import scala.util.{Failure, Success, Try}
+import scala.language.higherKinds
+import scala.sys.process._
 
 object DockerIO extends LazyLogging {
 

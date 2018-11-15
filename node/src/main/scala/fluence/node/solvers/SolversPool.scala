@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-package fluence.node
+package fluence.node.solvers
 
 import cats.Parallel
-import cats.effect.{Concurrent, ContextShift, Timer}
 import cats.effect.concurrent.Ref
-import cats.syntax.flatMap._
-import cats.syntax.functor._
+import cats.effect.{Concurrent, ContextShift, Timer}
+import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.apply._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import slogging.LazyLogging
-import cats.instances.list._
 
 import scala.language.higherKinds
 

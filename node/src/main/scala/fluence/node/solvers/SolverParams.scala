@@ -14,20 +14,19 @@
  * limitations under the License.
  */
 
-package fluence.node
-import scala.concurrent.duration._
+package fluence.node.solvers
 
 /**
- * Configures the healthcheck process
+ * Solver container's params
  *
- * @param period How often to check solver's health
- * @param slide How many checks to slide over
- * @param failOn Solver will be considered dead if ''failOn'' checks within the last ''slide'' ones are failures
- * @param httpPath What to call to check for health, should not contain leading slash /
+ * @param rpcPort RPC port to bind to
  */
-case class HealthCheckConfig(
-  period: FiniteDuration = 3.seconds,
-  slide: Int = 5,
-  failOn: Int = 3,
-  httpPath: String = ""
-)
+case class SolverParams(rpcPort: Int) {
+  override def toString = s"(solver of rpcPort $rpcPort)"
+
+  /**
+   * [[fluence.node.docker.DockerIO.run]]'s command for launching a configured solver
+   * TODO: replace with a real solver process
+   */
+  val dockerCommand = s"-p $rpcPort:80 --name nginx-$rpcPort nginx"
+}
