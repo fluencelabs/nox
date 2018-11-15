@@ -28,7 +28,7 @@ package fluence.ethclient.data
  * @param code code ID
  * @param longTermLocation local directory with pre-initialized Tendermint public/private keys
  */
-sealed case class ClusterData(
+case class ClusterData(
   nodeInfo: NodeInfo,
   persistentPeers: PersistentPeers,
   code: String,
@@ -52,7 +52,7 @@ sealed case class ClusterData(
  * @param cluster cluster information
  * @param node_index node index
  */
-sealed case class NodeInfo(cluster: Cluster, node_index: String) {
+case class NodeInfo(cluster: Cluster, node_index: String) {
   def clusterName: String = cluster.genesis.chain_id
 }
 
@@ -63,7 +63,7 @@ sealed case class NodeInfo(cluster: Cluster, node_index: String) {
  * @param persistent_peers p2p peers in Tendermint format
  * @param external_addrs external address used to initialize advertised address in launching scripts
  */
-sealed case class Cluster(genesis: TendermintGenesis, persistent_peers: String, external_addrs: Array[String])
+case class Cluster(genesis: TendermintGenesis, persistent_peers: String, external_addrs: Array[String])
 
 /**
  * Cluster's genesis information in Tendermint-compatible format.
@@ -73,7 +73,7 @@ sealed case class Cluster(genesis: TendermintGenesis, persistent_peers: String, 
  * @param app_hash initial app hash
  * @param validators validator information
  */
-sealed case class TendermintGenesis(
+case class TendermintGenesis(
   genesis_time: String,
   chain_id: String,
   app_hash: String,
@@ -87,7 +87,7 @@ sealed case class TendermintGenesis(
  * @param power initial voting power
  * @param name validator name
  */
-sealed case class TendermintValidator(pub_key: TendermintValidatorKey, power: String, name: String)
+case class TendermintValidator(pub_key: TendermintValidatorKey, power: String, name: String)
 
 /**
  * Validator's public key in Tendermint-compatible format.
@@ -95,14 +95,14 @@ sealed case class TendermintValidator(pub_key: TendermintValidatorKey, power: St
  * @param `type` key type
  * @param value 32-byte public key in base64 representation
  */
-sealed case class TendermintValidatorKey(`type`: String, value: String)
+case class TendermintValidatorKey(`type`: String, value: String)
 
 /**
  * Information about Tendermint peers.
  *
  * @param peers peer list
  */
-sealed case class PersistentPeers(peers: Array[PersistentPeer]) {
+case class PersistentPeers(peers: Array[PersistentPeer]) {
 
   /**
    * Obtains Tendermint-compatible comma-separater peer list.
@@ -122,6 +122,6 @@ sealed case class PersistentPeers(peers: Array[PersistentPeer]) {
  * @param host host
  * @param port port
  */
-sealed case class PersistentPeer(address: String, host: String, port: Short) {
+case class PersistentPeer(address: String, host: String, port: Short) {
   override def toString: String = s"$address@$host:$port"
 }
