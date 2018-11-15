@@ -16,13 +16,14 @@
 
 package fluence.node.docker
 import scala.collection.immutable.Queue
+import scala.sys.process._
 
 /**
  * Builder for basic `docker run` command parameters.
  *
  * @param params current command' params
  */
-case class DockerParams(params: Queue[String] = Queue.empty) {
+case class DockerParams private (params: Queue[String]) {
 
   /**
    * Adds a single param to command.
@@ -64,9 +65,14 @@ case class DockerParams(params: Queue[String] = Queue.empty) {
    *
    * @param imageName name of image to run
    */
-  def image(imageName: String): DockerParams.Sealed = DockerParams.Sealed(add(imageName).params.mkString(" "))
+  def image(imageName: String): DockerParams.Sealed = DockerParams.Sealed(add(imageName).params)
 }
 
 object DockerParams {
-  case class Sealed(command: String) extends AnyVal
+  case class Sealed(command: Seq[String]) extends AnyVal {
+    def process: ProcessBuilder = Process(command)
+  }
+
+  def daemonRun(): DockerParams =
+    DockerParams(Queue("docker", "run", "-d"))
 }

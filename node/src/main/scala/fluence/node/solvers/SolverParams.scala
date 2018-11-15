@@ -30,7 +30,8 @@ case class SolverParams(rpcPort: Short) {
    * TODO: replace with a real solver process
    */
   val dockerCommand: DockerParams.Sealed =
-    DockerParams()
+    DockerParams
+      .daemonRun()
       .port(rpcPort, 80)
       .option("name", s"nginx-$rpcPort")
       .image("nginx")
