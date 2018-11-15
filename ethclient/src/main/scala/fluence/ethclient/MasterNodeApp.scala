@@ -99,7 +99,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
               _ <- contract
                 .clusterFormedEventObservable(filter)
                 .toFS2[IO]
-                .map(x ⇒ processClusterFormed(x, solverInfo).value.unsafeRunSync()) // TODO: remove unsync
+                .evalTap[IO](x ⇒ processClusterFormed(x, solverInfo).value.map(_ => ()))
                 .drain // drop the results, so that demand on events is always provided
                 .onFinalize(IO(logger.info("subscription finalized")))
                 .compile // Compile to a runnable, in terms of effect IO
