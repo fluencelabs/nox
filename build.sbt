@@ -180,8 +180,6 @@ lazy val ethclient = (project in file("ethclient"))
       slogging,
       scodecBits,
       pureConfig,
-      circeGeneric,
-      circeParser,
       cats,
       catsEffect,
       fs2,
@@ -198,7 +196,9 @@ lazy val node = project
       catsEffect,
       sttp,
       sttpCatsBackend,
-      fs2io
+      fs2io,
+      circeGeneric,
+      circeParser
     )
   )
   .enablePlugins(AutomateHeaderPlugin)

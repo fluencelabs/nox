@@ -69,10 +69,20 @@ case class DockerParams private (params: Queue[String]) {
 }
 
 object DockerParams {
-  case class Sealed(command: Seq[String]) extends AnyVal {
+  case class Sealed(command: Queue[String]) extends AnyVal {
     def process: ProcessBuilder = Process(command)
+
+    def exec(cmd: String): ProcessBuilder =
+      Process(command enqueue cmd)
   }
 
   def daemonRun(): DockerParams =
-    DockerParams(Queue("docker", "run", "-d"))
+    run().add("-d")
+
+  def run(): DockerParams =
+    DockerParams(Queue("docker", "run"))
+
+  def exec(): DockerParams =
+    DockerParams(Queue("docker", "exec"))
+
 }

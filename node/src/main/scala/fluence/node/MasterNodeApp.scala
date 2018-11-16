@@ -14,33 +14,32 @@
  * limitations under the License.
  */
 
-package fluence.ethclient
-
+package fluence.node
 import java.io.File
-import java.nio.file.StandardCopyOption._
-import java.nio.file._
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+import java.nio.file.{Files, Paths}
 
-import cats.data.EitherT
+import cats.Traverse
 import cats.effect.{ExitCode, IO, IOApp}
-import cats.implicits._
+import cats.instances.list._
 import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
-import fluence.ethclient.data._
-import fluence.ethclient.helpers.DockerRunBuilder
-import fluence.ethclient.helpers.JavaRxToFs2._
-import fluence.ethclient.helpers.RemoteCallOps._
-import fluence.ethclient.helpers.Web3jConverters._
-import io.circe.generic.auto._
-import io.circe.syntax._
+import fluence.ethclient.{Deployer, EthClient}
+import fluence.node.docker.DockerParams
+import fluence.node.eth.DeployerContractConfig
+import fluence.node.tendermint.{ClusterData, NodeInfo}
 import org.web3j.abi.EventEncoder
-import org.web3j.abi.datatypes.generated.Bytes32
+import org.web3j.abi.datatypes.DynamicArray
+import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
 import org.web3j.protocol.core.methods.request.EthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
+import org.web3j.tuples.generated
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
+import fluence.ethclient.helpers.RemoteCallOps._
+import fluence.ethclient.helpers.JavaRxToFs2._
+import io.circe.syntax._
 
 import scala.collection.JavaConverters._
-import scala.language.higherKinds
-import scala.sys.process._
 
 object MasterNodeApp extends IOApp with LazyLogging {
 
@@ -52,13 +51,16 @@ object MasterNodeApp extends IOApp with LazyLogging {
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
     val solverInfoWithConfig = for {
-      solverInfo <- SolverInfo(args)
-      config <- EitherT
-        .fromEither[IO](pureconfig.loadConfig[DeployerContractConfig])
-        .leftMap[Throwable](x => new IllegalArgumentException(x.toString))
+      solverInfo <- NodeConfig.fromArgs(args)
+      config <- IO.fromEither(
+        pureconfig
+          .loadConfig[DeployerContractConfig]
+          .left
+          .map(fs ⇒ new IllegalArgumentException(fs.toString))
+      )
     } yield (solverInfo, config)
 
-    solverInfoWithConfig.value.flatMap {
+    solverInfoWithConfig.attempt.flatMap {
       case Right((solverInfo, config)) =>
         runMasterNode(solverInfo, config)
       case Left(value) =>
@@ -70,10 +72,10 @@ object MasterNodeApp extends IOApp with LazyLogging {
   /**
    * Run master node with specified solver information and config.
    *
-   * @param solverInfo information about a node willing to run solvers to join Fluence clusters
+   * @param nodeConfig information about a node willing to run solvers to join Fluence clusters
    * @param config deployer contract settings
    */
-  def runMasterNode(solverInfo: SolverInfo, config: DeployerContractConfig): IO[ExitCode] =
+  def runMasterNode(nodeConfig: NodeConfig, config: DeployerContractConfig): IO[ExitCode] =
     EthClient
       .makeHttpResource[IO]()
       .use { ethClient ⇒
@@ -81,40 +83,42 @@ object MasterNodeApp extends IOApp with LazyLogging {
           version ← ethClient.clientVersion[IO]()
           _ = logger.info("eth client version {}", version)
 
-          contract <- ethClient.getDeployer[IO](config.deployerContractAddress, config.deployerContractOwnerAccount)
+          contract = ethClient
+            .getContract(config.deployerContractAddress, config.deployerContractOwnerAccount, Deployer.load)
 
-          currentBlock = ethClient.web3.ethBlockNumber().send().getBlockNumber
+          currentBlock ← ethClient.getBlockNumber[IO]
           filter = new EthFilter(
-            DefaultBlockParameter.valueOf(currentBlock),
+            DefaultBlockParameter.valueOf(currentBlock.bigInteger),
             DefaultBlockParameterName.LATEST,
             config.deployerContractAddress
           ).addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
 
-          clusters <- contract.getNodeClusters(solverInfo.validatorKeyBytes32).call[IO]
+          clusters <- contract.getNodeClusters(nodeConfig.validatorKeyBytes32).call[IO]
 
-          _ <- clusters.getValue.asScala.toList
-            .map(
-              x =>
-                contract
-                  .getCluster(x)
-                  .call[IO]
-                  .flatMap(y => processClusterFormed(clusterTupleToClusterFormed(x, y), solverInfo))
-            )
-            .sequence_
+          _ <- Traverse[List].sequence_(
+            clusters.getValue.asScala.toList
+              .map(
+                x =>
+                  contract
+                    .getCluster(x)
+                    .call[IO]
+                    .flatMap(y => processClusterFormed(clusterTupleToClusterFormed(x, y), nodeConfig))
+              )
+          )
 
           _ <- contract
             .addNode(
-              solverInfo.validatorKeyBytes32,
-              solverInfo.addressBytes24,
-              solverInfo.startPortUint16,
-              solverInfo.endPortUint16
+              nodeConfig.validatorKeyBytes32,
+              nodeConfig.addressBytes24,
+              nodeConfig.startPortUint16,
+              nodeConfig.endPortUint16
             )
             .call[IO]
 
           _ <- contract
             .clusterFormedEventObservable(filter)
             .toFS2[IO]
-            .evalTap[IO](x ⇒ processClusterFormed(x, solverInfo).map(_ => ()))
+            .evalTap[IO](x ⇒ processClusterFormed(x, nodeConfig).map(_ => ()))
             .drain // drop the results, so that demand on events is always provided
             .onFinalize(IO(logger.info("subscription finalized")))
             .compile // Compile to a runnable, in terms of effect IO
@@ -131,9 +135,9 @@ object MasterNodeApp extends IOApp with LazyLogging {
    */
   private def processClusterFormed(
     event: ClusterFormedEventResponse,
-    solverInfo: SolverInfo
+    solverInfo: NodeConfig
   ): IO[Boolean] =
-    clusterFormedEventToClusterData(event, solverInfo) match {
+    ClusterData.fromClusterFormedEvent(event, solverInfo) match {
       case Some(clusterData) => runSolverWithClusterData(clusterData).map(_ => true)
       case None => IO.pure(false)
     }
@@ -146,21 +150,22 @@ object MasterNodeApp extends IOApp with LazyLogging {
       dockerWorkDir = System.getProperty("user.dir") + "/statemachine/docker"
       vmCodeDir = dockerWorkDir + "/examples/vmcode-" + clusterData.code
 
-      dockerRunCommand = DockerRunBuilder()
-        .add("-idt")
-        .addPort(clusterData.hostP2PPort, 26656)
-        .addPort(clusterData.hostRpcPort, 26657)
-        .addPort(clusterData.tmPrometheusPort, 26660)
-        .addPort(clusterData.smPrometheusPort, 26661)
-        .addVolume(dockerWorkDir + "/solver", "/solver")
-        .addVolume(vmCodeDir, "/vmcode")
-        .addVolume(tendermintHomeDirectory(clusterData.nodeInfo), "/tendermint")
-        .add("--name", clusterData.nodeName)
-        .build("fluencelabs/solver:latest")
+      dockerRunCommand = DockerParams
+        .daemonRun()
+        .port(clusterData.hostP2PPort, 26656)
+        .port(clusterData.hostRpcPort, 26657)
+        .port(clusterData.tmPrometheusPort, 26660)
+        .port(clusterData.smPrometheusPort, 26661)
+        .volume(dockerWorkDir + "/solver", "/solver")
+        .volume(vmCodeDir, "/vmcode")
+        .volume(tendermintHomeDirectory(clusterData.nodeInfo), "/tendermint")
+        .option("--name", clusterData.nodeName)
+        .image("fluencelabs/solver:latest")
 
       _ = logger.info("running {}", dockerRunCommand)
 
-      containerId <- IO { Process(dockerRunCommand, new File(dockerWorkDir)).!! }
+      // TODO remove id
+      containerId <- IO { scala.sys.process.Process(dockerRunCommand.command, new File(dockerWorkDir)).!! }
       _ = logger.info("launched container {}", containerId)
     } yield ()
 
@@ -208,6 +213,17 @@ object MasterNodeApp extends IOApp with LazyLogging {
     s"$homeDir/.fluence/nodes/${nodeInfo.clusterName}/node${nodeInfo.node_index}"
   }
 
+  /**
+   * Corresponds to return type for Deployer.getCluster method.
+   */
+  type ContractClusterTuple = generated.Tuple6[
+    Bytes32,
+    Bytes32,
+    Uint256,
+    DynamicArray[Bytes32],
+    DynamicArray[Bytes24],
+    DynamicArray[Uint16]
+  ]
   private def clusterTupleToClusterFormed(
     clusterId: Bytes32,
     clusterTuple: ContractClusterTuple

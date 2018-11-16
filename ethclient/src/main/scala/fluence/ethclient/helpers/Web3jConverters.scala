@@ -15,16 +15,10 @@
  */
 
 package fluence.ethclient.helpers
-import java.text.SimpleDateFormat
-import java.util.{Base64, Calendar, TimeZone}
+import java.util.Base64
 
-import fluence.ethclient.Deployer.ClusterFormedEventResponse
-import fluence.ethclient.data._
-import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated._
 import scodec.bits.{Bases, ByteVector}
-
-import scala.collection.JavaConverters._
 
 object Web3jConverters {
 
@@ -77,42 +71,6 @@ object Web3jConverters {
   def bytes32ToString(bytes32: Bytes32): String = new String(bytes32.getValue.filter(_ != 0))
 
   /**
-   * Constructs Tendermint genesis from data obtained from contract event.
-   *
-   * @param clusterId encoded cluster ID
-   * @param ids encoded Tendermint public key
-   * @param genesisTimeUint256 encoded genesis time
-   */
-  def clusterDataToGenesis(
-    clusterId: Bytes32,
-    ids: DynamicArray[Bytes32],
-    genesisTimeUint256: Uint256
-  ): TendermintGenesis = {
-    val validators = ids.getValue.asScala.zipWithIndex.map {
-      case (x, i) =>
-        TendermintValidator(
-          TendermintValidatorKey(
-            "tendermint/PubKeyEd25519",
-            Base64.getEncoder.encodeToString(x.getValue)
-          ),
-          "1",
-          "node" + i
-        )
-    }.toArray
-
-    val chainId = bytes32ClusterIdToChainId(clusterId)
-
-    val calendar: Calendar = Calendar.getInstance
-    calendar.setTimeInMillis(genesisTimeUint256.getValue.longValue() * 1000)
-
-    val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-    dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"))
-    val genesisTime = dateFormat.format(calendar.getTime)
-
-    TendermintGenesis(genesisTime, chainId, "", validators)
-  }
-
-  /**
    * Converts hex string to byte array.
    * TODO: add checks, now it's unsafe.
    *
@@ -134,52 +92,6 @@ object Web3jConverters {
     Array.copy(ip.split('.').map(_.toInt.toByte), 0, buffer, 20, 4)
 
     new Bytes24(buffer)
-  }
-
-  /**
-   * Obtains persistent peers from their encoded web3j's representation.
-   *
-   * @param addrs web3j's array of encoded addresses
-   * @param ports web3j's array of ports
-   */
-  def addrsAndPortsToPersistentPeers(addrs: DynamicArray[Bytes24], ports: DynamicArray[Uint16]): PersistentPeers =
-    PersistentPeers(
-      addrs.getValue.asScala
-        .map(_.getValue)
-        .zip(ports.getValue.asScala.map(_.getValue))
-        .map(
-          x =>
-            PersistentPeer(
-              ByteVector(x._1, 0, 20).toHex,
-              ByteVector(x._1, 20, 4).toArray.map(x => (x & 0xFF).toString).mkString("."),
-              x._2.shortValue()
-          )
-        )
-        .toArray
-    )
-
-  /**
-   * Tries to convert `ClusterFormedEvent` response to [[ClusterData]] with all information to launch cluster.
-   *
-   * @param event event response
-   * @param solverInfo information about current solver
-   * @return true if provided node key belongs to the cluster from the event
-   */
-  def clusterFormedEventToClusterData(
-    event: ClusterFormedEventResponse,
-    solverInfo: SolverInfo
-  ): Option[ClusterData] = {
-    val genesis = clusterDataToGenesis(event.clusterID, event.solverIDs, event.genesisTime)
-    val nodeIndex = genesis.validators.indexWhere(_.pub_key == solverInfo.validatorKey)
-    if (nodeIndex == -1)
-      None
-    else {
-      val storageHash = bytes32ToString(event.storageHash) // TODO: temporarily used as name of pre-existing local code
-      val persistentPeers = addrsAndPortsToPersistentPeers(event.solverAddrs, event.solverPorts)
-      val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
-      val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
-      Some(ClusterData(nodeInfo, persistentPeers, storageHash, solverInfo.longTermLocation))
-    }
   }
 
 }

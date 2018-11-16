@@ -91,39 +91,42 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
             .drain // Switch to IO[Unit]
         )(
           // Delayed unsubscribe
-          par.parallel(for {
+          par.parallel {
+            val contract = ethClient.getContract(contractAddress, owner, Deployer.load)
+            for {
 
-            contract <- ethClient.getDeployer[IO](contractAddress, owner)
+              txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
+              _ = assert(txReceipt.isStatusOK)
 
-            txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
-            _ = assert(txReceipt.isStatusOK)
+              _ <- contract.addCode(bytes, bytes, new Uint8(2)).call[IO]
 
-            _ <- contract.addCode(bytes, bytes, new Uint8(2)).call[IO]
+              txReceipt <- contract
+                .addNode(
+                  base64ToBytes32("RK34j5RkudeS0GuTaeJSoZzg/U5z/Pd73zvTLfZKU2w="),
+                  solverAddressToBytes24("192.168.0.1", "99d76509fe9cb6e8cd5fc6497819eeabb2498106"),
+                  new Uint16(26056),
+                  new Uint16(26057)
+                )
+                .call[IO]
+              txReceipt <- contract
+                .addNode(
+                  base64ToBytes32("LUMshgzPigL9jDYTCrMADlMyrJs1LIqfIlHCOlf7lOc="),
+                  solverAddressToBytes24("192.168.0.1", "1ef149b8ca80086350397bb6a02f2a172d013309"),
+                  new Uint16(26156),
+                  new Uint16(26157)
+                )
+                .call[IO]
+              _ = assert(txReceipt.isStatusOK)
 
-            txReceipt <- contract
-              .addNode(
-                base64ToBytes32("RK34j5RkudeS0GuTaeJSoZzg/U5z/Pd73zvTLfZKU2w="),
-                solverAddressToBytes24("192.168.0.1", "99d76509fe9cb6e8cd5fc6497819eeabb2498106"),
-                new Uint16(26056), new Uint16(26057)
+              clusterFormedEvents <- contract.getEvent[IO, ClusterFormedEventResponse](
+                _.getClusterFormedEvents(txReceipt)
               )
-              .call[IO]
-            txReceipt <- contract
-              .addNode(
-                base64ToBytes32("LUMshgzPigL9jDYTCrMADlMyrJs1LIqfIlHCOlf7lOc="),
-                solverAddressToBytes24("192.168.0.1", "1ef149b8ca80086350397bb6a02f2a172d013309"),
-                new Uint16(26156), new Uint16(26157)
-              )
-              .call[IO]
-            _ = assert(txReceipt.isStatusOK)
 
-            clusterFormedEvents <- contract.getEvent[IO, ClusterFormedEventResponse](
-              _.getClusterFormedEvents(txReceipt)
-            )
-
-            // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
-            e <- event.take
-            _ <- unsubscribe.complete(Right(()))
-          } yield (txReceipt, clusterFormedEvents, e))
+              // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
+              e <- event.take
+              _ <- unsubscribe.complete(Right(()))
+            } yield (txReceipt, clusterFormedEvents, e)
+          }
         )
 
         (txReceipt, clusterFormedEvents, e) = data

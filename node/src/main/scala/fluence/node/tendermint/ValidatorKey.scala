@@ -14,12 +14,22 @@
  * limitations under the License.
  */
 
-package fluence.ethclient.data
+package fluence.node.tendermint
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 /**
- * Deployer contract settings.
+ * Validator's public key in Tendermint-compatible format.
  *
- * @param deployerContractOwnerAccount contract owner eth account
- * @param deployerContractAddress address, where contract is deployed
+ * @param `type` key type
+ * @param value 32-byte public key in base64 representation
  */
-case class DeployerContractConfig(deployerContractOwnerAccount: String, deployerContractAddress: String)
+case class ValidatorKey(`type`: String, value: String)
+
+object ValidatorKey {
+  implicit val validatorKeyDecoder: Decoder[ValidatorKey] =
+    deriveDecoder[ValidatorKey]
+
+  implicit val validatorKeyEncoder: Encoder[ValidatorKey] = deriveEncoder[ValidatorKey]
+
+}
