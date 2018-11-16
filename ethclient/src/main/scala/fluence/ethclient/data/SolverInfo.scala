@@ -18,6 +18,8 @@ package fluence.ethclient.data
 
 import java.io.File
 
+import cats.data.EitherT
+import cats.effect.IO
 import fluence.ethclient.helpers.DockerRunBuilder
 import fluence.ethclient.helpers.Web3jConverters.{base64ToBytes32, solverAddressToBytes24}
 import io.circe.generic.auto._
@@ -82,43 +84,47 @@ object SolverInfo {
    * - Tendermint p2p port range starting port
    * - Tendermint p2p port range ending port
    */
-  def apply(args: List[String]): Either[Throwable, SolverInfo] =
+  def apply(args: List[String]): EitherT[IO, Throwable, SolverInfo] =
     for {
       argsTuple <- args match {
-        case List(a1, a2, a3, a4) => Right(a1, a2, a3, a4)
-        case _ => Left(new IllegalArgumentException("4 program arguments expected"))
+        case List(a1, a2, a3, a4) => EitherT.right(IO.pure(a1, a2, a3, a4))
+        case _ => EitherT.left(IO.pure(new IllegalArgumentException("4 program arguments expected")))
       }
       (longTermLocation, ip, startPortString, endPortString) = argsTuple
 
       dockerWorkDir = System.getProperty("user.dir") + "/statemachine/docker"
 
-      validatorKeyStr <- Try(
-        Process(
-          DockerRunBuilder()
-            .addVolume(dockerWorkDir + "/tm-show-validator", "/solver")
-            .addVolume(longTermLocation, "/tendermint")
-            .build("fluencelabs/solver:latest"),
-          new File(dockerWorkDir)
-        ).!!
-      ).toEither
-      validatorKey <- parse(validatorKeyStr).flatMap(_.as[TendermintValidatorKey])
+      validatorKeyStr <- EitherT.fromEither[IO](
+        Try(
+          Process(
+            DockerRunBuilder()
+              .addVolume(dockerWorkDir + "/tm-show-validator", "/solver")
+              .addVolume(longTermLocation, "/tendermint")
+              .build("fluencelabs/solver:latest"),
+            new File(dockerWorkDir)
+          ).!!
+        ).toEither
+      )
+      validatorKey <- EitherT.fromEither[IO](parse(validatorKeyStr).flatMap(_.as[TendermintValidatorKey]))
 
-      nodeAddress <- Try(
-        Process(
-          DockerRunBuilder()
-            .addVolume(dockerWorkDir + "/tm-show-node-id", "/solver")
-            .addVolume(longTermLocation, "/tendermint")
-            .build("fluencelabs/solver:latest"),
-          new File(dockerWorkDir)
-        ).!!
-      ).toEither
+      nodeAddress <- EitherT.fromEither[IO](
+        Try(
+          Process(
+            DockerRunBuilder()
+              .addVolume(dockerWorkDir + "/tm-show-node-id", "/solver")
+              .addVolume(longTermLocation, "/tendermint")
+              .build("fluencelabs/solver:latest"),
+            new File(dockerWorkDir)
+          ).!!
+        ).toEither
+      )
 
-      _ <- Either.cond(isValidIP(ip), (), new IllegalArgumentException(s"Incorrect IP: $ip"))
+      _ <- EitherT.cond[IO][Throwable, Unit](isValidIP(ip), (), new IllegalArgumentException(s"Incorrect IP: $ip"))
 
-      startPort <- Try(startPortString.toShort).toEither
-      endPort <- Try(endPortString.toShort).toEither
+      startPort <- EitherT.fromEither[IO](Try(startPortString.toShort).toEither)
+      endPort <- EitherT.fromEither[IO](Try(endPortString.toShort).toEither)
 
-      _ <- Either.cond(
+      _ <- EitherT.cond[IO][Throwable, Unit](
         portRangeLengthLimits.contains(endPort - startPort) && startPortLimits.contains(startPort),
         (),
         new IllegalArgumentException(

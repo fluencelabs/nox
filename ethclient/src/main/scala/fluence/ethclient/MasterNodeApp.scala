@@ -20,6 +20,7 @@ import java.io.File
 import java.nio.file.StandardCopyOption._
 import java.nio.file._
 
+import cats.data.EitherT
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.implicits._
 import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
@@ -52,10 +53,12 @@ object MasterNodeApp extends IOApp with LazyLogging {
     configureLogging()
     val solverInfoWithConfig = for {
       solverInfo <- SolverInfo(args)
-      config <- pureconfig.loadConfig[DeployerContractConfig]
+      config <- EitherT
+        .fromEither[IO](pureconfig.loadConfig[DeployerContractConfig])
+        .leftMap[Throwable](x => new IllegalArgumentException(x.toString))
     } yield (solverInfo, config)
 
-    solverInfoWithConfig match {
+    solverInfoWithConfig.value.flatMap {
       case Right((solverInfo, config)) =>
         EthClient
           .makeHttpResource[IO]()
