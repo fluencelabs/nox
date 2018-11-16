@@ -124,8 +124,7 @@ contract Deployer is Whitelist {
         external
         //onlyIfWhitelisted(msg.sender)
     {
-        if (!whitelist(msg.sender))
-            return;
+        require(whitelist(msg.sender));
         require(nodes[nodeID].id == 0, "This node is already registered");
         require(startPort < endPort, "Port range is empty or incorrect");
 
@@ -149,8 +148,7 @@ contract Deployer is Whitelist {
         external
         //onlyIfWhitelisted(msg.sender)
     {
-        if (!whitelist(msg.sender))
-            return;
+        require(whitelist(msg.sender));
         enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize));
         if (!matchWork()) {
             emit CodeEnqueued(storageHash);
@@ -215,6 +213,15 @@ contract Deployer is Whitelist {
         return (version, readyNodes.length, cs);
     }
 
+    function getNode(bytes32 nodeID)
+                external
+                view
+                returns (bytes24)
+            {
+                Node memory node = nodes[nodeID];
+                return node.nodeAddress;
+            }
+
     /** @dev Checks if there is enough free Solvers for undeployed Code
      * emits ClusterFormed event if so
      */
@@ -271,6 +278,9 @@ contract Deployer is Whitelist {
         return true;
     }
 
+    /** @dev Removes an element on specified position from 'enqueuedCodes'
+     * @param index position in 'enqueuedCodes' to remove
+     */
     function removeCode(uint index)
         internal
     {
@@ -281,6 +291,9 @@ contract Deployer is Whitelist {
         --enqueuedCodes.length;
     }
 
+    /** @dev Removes an element on specified position from 'readyNodes'
+     * @param index position in 'readyNodes' to remove
+     */
     function removeNode(uint index)
         internal
     {
@@ -291,6 +304,10 @@ contract Deployer is Whitelist {
         --readyNodes.length;
     }
 
+    /** @dev Switches 'currentPort' for specified node
+     * @param nodeID of target node
+     * returns whether there are more available ports
+     */
     function nextPort(bytes32 nodeID)
         internal
         returns (bool)

@@ -13,28 +13,52 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 extern crate clap;
 extern crate console;
 extern crate indicatif;
+extern crate ethabi;
 extern crate reqwest;
 extern crate web3;
+extern crate hex;
+#[macro_use] extern crate fixed_hash;
+#[macro_use] extern crate error_chain;
+
+#[cfg(test)]
+extern crate rand;
 
 mod app;
 mod publisher;
 mod register;
 mod utils;
+mod status;
 
 use console::style;
 
 fn main() {
     let app = app::init();
-    let publisher = publisher::parse(app.get_matches()).unwrap();
 
-    let transaction = publisher.publish(true);
+    match app.get_matches().subcommand() {
+        ("publish", Some(args)) => {
+            let publisher = publisher::parse(args).unwrap();
 
-    let formatted_finish_msg = style("Code published. Submitted transaction").blue();
-    let formatted_tx = style(transaction.unwrap()).red().bold();
+            let transaction = publisher.publish(true);
 
-    println!("{}: {:?}", formatted_finish_msg, formatted_tx);
+            let formatted_finish_msg = style("Code published. Submitted transaction").blue();
+            let formatted_tx = style(transaction.unwrap()).red().bold();
+
+            println!("{}: {:?}", formatted_finish_msg, formatted_tx);
+        },
+
+        ("register", Some(args)) => {
+            let register = register::parse(args).unwrap();
+
+            let transaction = register.register(true);
+
+            let formatted_finish_msg = style("Code published. Submitted transaction").blue();
+            let formatted_tx = style(transaction.unwrap()).red().bold();
+
+            println!("{}: {:?}", formatted_finish_msg, formatted_tx);
+        },
+        c => panic!(format!("Unexpected command: {}", c.0)),
+    }
 }

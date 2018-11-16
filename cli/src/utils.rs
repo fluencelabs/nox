@@ -16,11 +16,12 @@
 
 use indicatif::{ProgressBar, ProgressStyle};
 use std::error::Error;
-use web3::contract::tokens::Tokenize;
+use web3::contract::tokens::{Tokenize, Detokenize};
 use web3::contract::{Contract, Options};
 use web3::futures::Future;
 use web3::types::{Address, H256};
 use web3::{Transport, Web3};
+use reqwest::{Url, UrlError};
 
 /// Creates progress bar in the console until the work is over
 ///
@@ -75,7 +76,7 @@ fn get_contract<T: Transport>(
 }
 
 /// Publishes hash of the code (address in swarm) to the `Deployer` smart contract
-pub fn publish_to_contract<P>(
+pub fn call_contract<P>(
     account: Address,
     contract_address: Address,
     password: Option<&str>,
@@ -100,6 +101,26 @@ where
     Ok(result_code_publish.wait()?)
 }
 
+pub fn query_contract<P, R>(
+    contract_address: Address,
+    eth_url: &str,
+    func: &str,
+    params: P,
+    options: Options,
+) -> Result<R, Box<Error>>
+    where
+        P: Tokenize, R: Detokenize
+{
+    let (_eloop, transport) = web3::transports::Http::new(&eth_url)?;
+    let web3 = web3::Web3::new(transport);
+
+    let contract = get_contract(web3, contract_address)?;
+
+    let result_code_publish = contract.query(func, params, None, options, None);
+    let res = result_code_publish.wait()?;
+    Ok(res)
+}
+
 pub fn add_to_white_list(
     eth_url: &str,
     account_to_add: Address,
@@ -118,4 +139,15 @@ pub fn add_to_white_list(
             owner,
             Options::default(),
         ).wait()?)
+}
+
+pub fn parse_url(url: &str) -> Result<Url, UrlError> {
+    match Url::parse(url) {
+        Ok(url) => Ok(url),
+        Err(error) if error == UrlError::RelativeUrlWithoutBase => {
+            let url_with_base = format!("http://{}", url);
+            Url::parse(url_with_base.as_str())
+        }
+        Err(error) => Err(error),
+    }
 }

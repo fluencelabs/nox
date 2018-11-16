@@ -19,12 +19,12 @@ extern crate web3;
 
 use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
-use reqwest::{Client, Url, UrlError};
 use std::boxed::Box;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use utils;
+use reqwest::Client;
 use web3::contract::Options;
 use web3::types::{Address, H256, U256};
 
@@ -89,7 +89,7 @@ impl Publisher {
                 o.gas = Some(gl);
             });
 
-            utils::publish_to_contract(
+            utils::call_contract(
                 self.account,
                 self.contract_address,
                 pass,
@@ -115,7 +115,7 @@ impl Publisher {
     }
 }
 
-pub fn parse(matches: ArgMatches) -> Result<Publisher, Box<std::error::Error>> {
+pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<std::error::Error>> {
     let path = matches.value_of("path").unwrap().to_string();
 
     let contract_address = matches
@@ -210,19 +210,8 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         ])
 }
 
-fn parse_url(url: &str) -> Result<Url, UrlError> {
-    match Url::parse(url) {
-        Ok(url) => Ok(url),
-        Err(error) if error == UrlError::RelativeUrlWithoutBase => {
-            let url_with_base = format!("http://{}", url);
-            Url::parse(url_with_base.as_str())
-        }
-        Err(error) => Err(error),
-    }
-}
-
 fn upload_code_to_swarm(url: &str, bytes: &Vec<u8>) -> Result<String, Box<Error>> {
-    let mut url = parse_url(url)?;
+    let mut url = utils::parse_url(url)?;
     url.set_path("/bzz:/");
 
     let client = Client::new();
