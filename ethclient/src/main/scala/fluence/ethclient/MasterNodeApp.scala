@@ -60,58 +60,67 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
     solverInfoWithConfig.value.flatMap {
       case Right((solverInfo, config)) =>
-        EthClient
-          .makeHttpResource[IO]()
-          .use { ethClient ⇒
-            for {
-              version ← ethClient.clientVersion[IO]()
-              _ = logger.info("eth client version {}", version)
-
-              contract <- ethClient.getDeployer[IO](config.deployerContractAddress, config.deployerContractOwnerAccount)
-
-              currentBlock = ethClient.web3.ethBlockNumber().send().getBlockNumber
-              filter = new EthFilter(
-                DefaultBlockParameter.valueOf(currentBlock),
-                DefaultBlockParameterName.LATEST,
-                config.deployerContractAddress
-              ).addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
-
-              clusters <- contract.getNodeClusters(solverInfo.validatorKeyBytes32).call[IO]
-
-              _ <- clusters.getValue.asScala.toList
-                .map(
-                  x =>
-                    contract
-                      .getCluster(x)
-                      .call[IO]
-                      .flatMap(y => processClusterFormed(clusterTupleToClusterFormed(x, y), solverInfo))
-                )
-                .sequence_
-
-              _ <- contract
-                .addNode(
-                  solverInfo.validatorKeyBytes32,
-                  solverInfo.addressBytes24,
-                  solverInfo.startPortUint16,
-                  solverInfo.endPortUint16
-                )
-                .call[IO]
-
-              _ <- contract
-                .clusterFormedEventObservable(filter)
-                .toFS2[IO]
-                .evalTap[IO](x ⇒ processClusterFormed(x, solverInfo).map(_ => ()))
-                .drain // drop the results, so that demand on events is always provided
-                .onFinalize(IO(logger.info("subscription finalized")))
-                .compile // Compile to a runnable, in terms of effect IO
-                .drain // Switch to IO[Unit]
-            } yield ExitCode.Success
-          }
+        runMasterNode(solverInfo, config)
       case Left(value) =>
         logger.error("Error: {}", value)
         IO.pure(ExitCode.Error)
     }
   }
+
+  /**
+   * Run master node with specified solver information and config.
+   *
+   * @param solverInfo information about a node willing to run solvers to join Fluence clusters
+   * @param config deployer contract settings
+   */
+  def runMasterNode(solverInfo: SolverInfo, config: DeployerContractConfig): IO[ExitCode] =
+    EthClient
+      .makeHttpResource[IO]()
+      .use { ethClient ⇒
+        for {
+          version ← ethClient.clientVersion[IO]()
+          _ = logger.info("eth client version {}", version)
+
+          contract <- ethClient.getDeployer[IO](config.deployerContractAddress, config.deployerContractOwnerAccount)
+
+          currentBlock = ethClient.web3.ethBlockNumber().send().getBlockNumber
+          filter = new EthFilter(
+            DefaultBlockParameter.valueOf(currentBlock),
+            DefaultBlockParameterName.LATEST,
+            config.deployerContractAddress
+          ).addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
+
+          clusters <- contract.getNodeClusters(solverInfo.validatorKeyBytes32).call[IO]
+
+          _ <- clusters.getValue.asScala.toList
+            .map(
+              x =>
+                contract
+                  .getCluster(x)
+                  .call[IO]
+                  .flatMap(y => processClusterFormed(clusterTupleToClusterFormed(x, y), solverInfo))
+            )
+            .sequence_
+
+          _ <- contract
+            .addNode(
+              solverInfo.validatorKeyBytes32,
+              solverInfo.addressBytes24,
+              solverInfo.startPortUint16,
+              solverInfo.endPortUint16
+            )
+            .call[IO]
+
+          _ <- contract
+            .clusterFormedEventObservable(filter)
+            .toFS2[IO]
+            .evalTap[IO](x ⇒ processClusterFormed(x, solverInfo).map(_ => ()))
+            .drain // drop the results, so that demand on events is always provided
+            .onFinalize(IO(logger.info("subscription finalized")))
+            .compile // Compile to a runnable, in terms of effect IO
+            .drain // Switch to IO[Unit]
+        } yield ExitCode.Success
+      }
 
   /**
    * Tries to convert event information to cluster configuration and, in case of success, launches a single solver.

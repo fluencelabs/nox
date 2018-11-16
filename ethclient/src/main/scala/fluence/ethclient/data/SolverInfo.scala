@@ -31,7 +31,7 @@ import scala.sys.process._
 import scala.util.Try
 
 /**
- * Information about a single solver willing to join Fluence clusters.
+ * Information about a node willing to run solvers to join Fluence clusters.
  *
  * @param longTermLocation local directory with pre-initialized Tendermint public/private keys
  * @param ip p2p host IP
