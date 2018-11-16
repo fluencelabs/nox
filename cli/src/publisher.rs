@@ -28,6 +28,15 @@ use reqwest::Client;
 use web3::contract::Options;
 use web3::types::{Address, H256, U256};
 
+const ADDRESS: &str = "address";
+const PATH: &str = "path";
+const ACCOUNT: &str = "account";
+const CONTRACT_ADDRESS: &str = "contract_address";
+const ETH_URL: &str = "eth_url";
+const PASSWORD: &str = "password";
+const CLUSTER_SIZE: &str = "cluster_size";
+const SWARM_URL: &str = "swarm_url";
+
 pub struct Publisher {
     pub bytes: Vec<u8>,
     pub contract_address: Address,
@@ -85,7 +94,7 @@ impl Publisher {
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
 
             let options = Options::with(|o| {
-                let gl: U256 = 100_000.into();
+                let gl: U256 = 300_000.into();
                 o.gas = Some(gl);
             });
 
@@ -116,23 +125,23 @@ impl Publisher {
 }
 
 pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<std::error::Error>> {
-    let path = matches.value_of("path").unwrap().to_string();
+    let path = matches.value_of(PATH).unwrap().to_string();
 
     let contract_address = matches
-        .value_of("contract_address")
+        .value_of(CONTRACT_ADDRESS)
         .unwrap()
         .trim_left_matches("0x");
     let contract_address: Address = contract_address.parse()?;
 
-    let account = matches.value_of("account").unwrap().trim_left_matches("0x");
+    let account = matches.value_of(ACCOUNT).unwrap().trim_left_matches("0x");
     let account: Address = account.parse()?;
 
-    let swarm_url = matches.value_of("swarm_url").unwrap().to_string();
-    let eth_url = matches.value_of("eth_url").unwrap().to_string();
+    let swarm_url = matches.value_of(SWARM_URL).unwrap().to_string();
+    let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
-    let password = matches.value_of("password").map(|s| s.to_string());
+    let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
-    let cluster_size: u8 = matches.value_of("cluster_size").unwrap().parse()?;
+    let cluster_size: u8 = matches.value_of(CLUSTER_SIZE).unwrap().parse()?;
 
     let mut file = File::open(path)?;
 
@@ -155,53 +164,51 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("publish")
         .about("Publish code to ethereum blockchain.")
         .args(&[
-            Arg::with_name("path")
+            Arg::with_name(PATH)
                 .required(true)
                 .takes_value(true)
                 .index(1)
                 .help("path to compiled `wasm` code"),
-            Arg::with_name("account")
-                .alias("account")
-                .required(true)
-                .alias("account")
-                .long("account")
-                .short("a")
-                .takes_value(true)
-                .help("ethereum account"),
-            Arg::with_name("contract_address")
-                .alias("contract_address")
+            Arg::with_name(CONTRACT_ADDRESS)
+                .alias(CONTRACT_ADDRESS)
                 .required(true)
                 .takes_value(true)
                 .index(2)
                 .help("deployer contract address"),
-            Arg::with_name("swarm_url")
-                .alias("swarm_url")
-                .long("swarm_url")
+            Arg::with_name(ACCOUNT)
+                .alias(ACCOUNT)
+                .required(true)
+                .index(3)
+                .takes_value(true)
+                .help("ethereum account"),
+            Arg::with_name(SWARM_URL)
+                .alias(SWARM_URL)
+                .long(SWARM_URL)
                 .short("s")
                 .required(false)
                 .takes_value(true)
                 .help("http address to swarm node")
                 .default_value("http://localhost:8500/"),
             //todo: use public gateway
-            Arg::with_name("eth_url")
-                .alias("eth_url")
-                .long("eth_url")
+            Arg::with_name(ETH_URL)
+                .alias(ETH_URL)
+                .long(ETH_URL)
                 .short("e")
                 .required(false)
                 .takes_value(true)
                 .help("http address to ethereum node")
                 .default_value("http://localhost:8545/"),
             //todo: use public node or add light client
-            Arg::with_name("password")
-                .alias("password")
-                .long("password")
+            Arg::with_name(PASSWORD)
+                .alias(PASSWORD)
+                .long(PASSWORD)
                 .short("p")
                 .required(false)
                 .takes_value(true)
                 .help("password to unlock account in ethereum client"),
-            Arg::with_name("cluster_size")
-                .alias("cluster_size")
-                .long("cluster_size")
+            Arg::with_name(CLUSTER_SIZE)
+                .alias(CLUSTER_SIZE)
+                .long(CLUSTER_SIZE)
                 .short("cs")
                 .required(false)
                 .takes_value(true)

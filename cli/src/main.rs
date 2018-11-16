@@ -54,7 +54,7 @@ fn main() {
 
             let transaction = register.register(true);
 
-            let formatted_finish_msg = style("Code published. Submitted transaction").blue();
+            let formatted_finish_msg = style("Solver added. Submitted transaction").blue();
             let formatted_tx = style(transaction.unwrap()).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);

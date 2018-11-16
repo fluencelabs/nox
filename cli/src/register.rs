@@ -26,7 +26,6 @@ use web3::types::{Address, H256, U256};
 use std::net::IpAddr;
 use hex;
 
-const NODE_ID: &str = "node_id";
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
 const MIN_PORT: &str = "min_port";
@@ -64,9 +63,8 @@ impl Tokenizable for H192 {
 }
 
 pub struct Register {
-    pub node_id: H256,
     pub node_address: IpAddr,
-    pub tendermint_key: Address,
+    pub tendermint_key: H256,
     pub min_port: u16,
     pub max_port: u16,
     pub contract_address: Address,
@@ -77,9 +75,8 @@ pub struct Register {
 
 impl Register {
     pub fn new(
-        node_id: H256,
         node_address: IpAddr,
-        tendermint_key: Address,
+        tendermint_key: H256,
         min_port: u16,
         max_port: u16,
         contract_address: Address,
@@ -92,7 +89,6 @@ impl Register {
         }
 
         Register {
-            node_id,
             node_address,
             tendermint_key,
             min_port,
@@ -111,7 +107,7 @@ impl Register {
         let mut addr_bytes: [u8; 4] = [0; 4];
 
         for (i, s) in split.enumerate() {
-            addr_bytes[i] = s.parse().unwrap();
+            addr_bytes[i] = s.parse()?;
         };
 
         let mut addr_vec = addr_bytes.to_vec();
@@ -119,8 +115,9 @@ impl Register {
         let key_str = format!("{:?}", &self.tendermint_key);
         let key_str = key_str.as_str().trim_left_matches("0x");
 
-        let mut key_bytes = hex::decode(key_str.to_owned())?;
-        key_bytes.append(&mut addr_vec);
+        let key_bytes = hex::decode(key_str.to_owned())?;
+        let mut key_bytes = key_bytes.as_slice()[0..20].to_vec();
+        &mut key_bytes.append(&mut addr_vec);
 
         let serialized = hex::encode(key_bytes);
 
@@ -133,15 +130,8 @@ impl Register {
         let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
             let pass = self.password.as_ref().map(|s| s.as_str());
 
-            utils::add_to_white_list(
-                &self.eth_url,
-                self.account,
-                self.contract_address,
-                "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d".parse()?,
-            )?;
-
             let options = Options::with(|o| {
-                let gl: U256 = 200_000.into();
+                let gl: U256 = 150_000.into();
                 o.gas = Some(gl);
             });
 
@@ -154,21 +144,21 @@ impl Register {
                 &self.eth_url,
                 "addNode",
                 (
-                    self.node_id,
+                    self.tendermint_key,
                     hash_addr,
                     self.min_port as u64,
                     self.max_port as u64,
                 ),
-                options,
+                options
             )
         };
 
         // sending transaction with the hash of file with code to ethereum
         let transaction = if show_progress {
             utils::with_progress(
-                "Submitting the code to the smart contract...",
-                "2/2",
-                "Code submitted.",
+                "Add solver to the smart contract...",
+                "1/1",
+                "Solver added.",
                 publish_to_contract_fn,
             )
         } else {
@@ -180,12 +170,6 @@ impl Register {
 }
 
 pub fn parse(matches: &ArgMatches) -> Result<Register, Box<std::error::Error>> {
-    let node_id: H256 = matches
-        .value_of(NODE_ID)
-        .unwrap()
-        .trim_left_matches("0x")
-        .parse()?;
-
     let node_address: IpAddr = matches
         .value_of(ADDRESS)
         .unwrap().parse()?;
@@ -194,7 +178,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<std::error::Error>> {
         .value_of(TENDERMINT_KEY)
         .unwrap().trim_left_matches("0x");
 
-    let tendermint_key: Address = tendermint_key.parse()?;
+    let tendermint_key: H256 = tendermint_key.parse()?;
 
     let min_port: u16 = matches.value_of(MIN_PORT).unwrap().parse()?;
     let max_port: u16 = matches.value_of(MAX_PORT).unwrap().parse()?;
@@ -213,7 +197,6 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<std::error::Error>> {
     let password = matches.value_of("password").map(|s| s.to_string());
 
     Ok(Register::new(
-        node_id,
         node_address,
         tendermint_key,
         min_port,
@@ -230,35 +213,29 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("register")
         .about("Register solver in smart contract.")
         .args(&[
-            Arg::with_name(NODE_ID)
-                .alias(NODE_ID)
-                .required(true)
-                .index(1)
-                .takes_value(true)
-                .help("node's IP address"),
             Arg::with_name(ADDRESS)
                 .alias(ADDRESS)
                 .required(true)
-                .index(2)
+                .index(1)
                 .takes_value(true)
                 .help("node's IP address"),
             Arg::with_name(TENDERMINT_KEY)
                 .alias(TENDERMINT_KEY)
                 .required(true)
-                .index(3)
+                .index(2)
                 .takes_value(true)
                 .help("public key of tendermint node"),
             Arg::with_name(ACCOUNT)
                 .alias(ACCOUNT)
                 .required(true)
                 .takes_value(true)
-                .index(4)
+                .index(3)
                 .help("ethereum account"),
             Arg::with_name(CONTRACT_ADDRESS)
                 .alias(CONTRACT_ADDRESS)
                 .required(true)
                 .takes_value(true)
-                .index(5)
+                .index(4)
                 .help("deployer contract address"),
             Arg::with_name(MIN_PORT)
                 .alias(MIN_PORT)
@@ -312,7 +289,6 @@ mod tests {
         let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
 
         Register::new(
-            node_id,
             "127.0.0.1".parse().unwrap(),
             OWNER.parse().unwrap(),
             25006,
