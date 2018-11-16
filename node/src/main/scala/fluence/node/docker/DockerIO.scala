@@ -45,8 +45,8 @@ object DockerIO extends LazyLogging {
    */
   def run[F[_]: Sync: ContextShift](params: DockerParams.Sealed): fs2.Stream[F, String] =
     fs2.Stream.bracketCase {
-      logger.info(s"Running docker: ${params.command}")
-      shiftDelay(Try(s"docker run -d ${params.command}".!!).map(_.trim()))
+      logger.info(s"Running docker: ${params.command.mkString(" ")}")
+      shiftDelay(Try(params.process.!!).map(_.trim()))
     } {
       case (Success(dockerId), exitCase) ⇒
         logger.info(s"Going to cleanup $dockerId, exit case: $exitCase")
