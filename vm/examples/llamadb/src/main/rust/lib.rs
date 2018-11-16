@@ -5,16 +5,18 @@
 //! for reading from and writing strings to the raw memory.
 
 #![feature(allocator_api)]
-#![feature(tool_lints)]
 #![allow(dead_code)]
 
 mod tests;
 
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate log;
 extern crate fluence_sdk as fluence;
 extern crate llamadb;
 
+use fluence::logger::WasmLogger;
 use llamadb::tempdb::ExecuteStatementResponse;
 use llamadb::tempdb::TempDb;
 use std::error::Error;
@@ -28,6 +30,20 @@ type GenResult<T> = Result<T, Box<Error>>;
 //
 // Public functions for work with Llamadb.
 //
+
+/// Initializes `WasmLogger` instance and returns result as string.
+#[no_mangle]
+pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
+    let result = WasmLogger::init_with_level(log::Level::Info)
+        .map(|_| "WasmLogger was successfully initialized".to_string())
+        .unwrap_or_else(|err| format!("WasmLogger initialization was failed, cause: {:?}", err));
+
+    let res_ptr = fluence::memory::write_str_to_mem(&result)
+        .expect("Putting result string to the memory was failed.");
+
+    warn!("{}\n", result);
+    res_ptr
+}
 
 /// Executes sql and returns the result as string in the memory.
 ///

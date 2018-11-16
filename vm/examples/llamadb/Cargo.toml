@@ -4,22 +4,26 @@ name = "llama_db"
 version = "0.1.0"
 authors = ["C.Solovev <constantine@fluence.one>"]
 publish = false
+description = "LlamaDb wrapper for running into Fluence WasmVm"
 
 [profile.release]
 
-opt-level = "z"
+debug = false
 lto = true
+opt-level = "z"
 
 [lib]
 
 name = "llama_db"
-test = true
 path = "src/main/rust/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
 
 lazy_static = "1.1.0"
-fluence_sdk = "0.0.4"
+log = "0.4"
+fluence_sdk = { path = "../../../sdk/rust", features = ["wasm_logger"] }
+#fluence_sdk = "0.0.4"
+
 llamadb = { git="https://github.com/fluencelabs/llamadb.git", branch = "master" }
 
