@@ -179,7 +179,6 @@ lazy val ethclient = (project in file("ethclient"))
       web3jCore,
       slogging,
       scodecBits,
-      pureConfig,
       cats,
       catsEffect,
       fs2,
@@ -197,6 +196,7 @@ lazy val node = project
       sttp,
       sttpCatsBackend,
       fs2io,
+      pureConfig,
       circeGeneric,
       circeParser
     )

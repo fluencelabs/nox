@@ -27,7 +27,7 @@ import fluence.ethclient.helpers.Web3jConverters._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.Address
-import org.web3j.abi.datatypes.generated.{Int64, Uint16, Uint8}
+import org.web3j.abi.datatypes.generated.{Uint16, Uint8}
 import org.web3j.protocol.core.methods.response.Log
 import slogging.LazyLogging
 
@@ -134,9 +134,6 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
       } yield {
         txReceipt.getLogs should contain(e)
         clusterFormedEvents.length shouldBe 1
-        val event = clusterFormedEvents.head
-        println(clusterDataToGenesis(event.clusterID, event.solverIDs, event.genesisTime))
-        println(addrsAndPortsToPersistentPeers(event.solverAddrs, event.solverPorts))
       }
     }.unsafeRunSync()
   }
