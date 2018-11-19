@@ -128,10 +128,15 @@ pub fn add_to_white_list(
     eth_url: &str,
     account_to_add: Address,
     contract_address: Address,
-    owner: Address,
+    account: Address,
+    password: Option<&str>
 ) -> Result<H256, Box<Error>> {
     let (_eloop, transport) = web3::transports::Http::new(eth_url)?;
     let web3 = web3::Web3::new(transport);
+
+    if let Some(p) = password {
+        web3.personal().unlock_account(account, p, None).wait()?;
+    }
 
     let contract = get_contract(web3, contract_address)?;
 
@@ -139,7 +144,7 @@ pub fn add_to_white_list(
         .call(
             "addAddressToWhitelist",
             account_to_add,
-            owner,
+            account,
             Options::default(),
         ).wait()?)
 }

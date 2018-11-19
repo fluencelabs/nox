@@ -32,6 +32,7 @@ mod publisher;
 mod register;
 mod status;
 mod utils;
+mod whitelist;
 
 use clap::App;
 use console::style;
@@ -42,7 +43,8 @@ fn main() {
         .author("Fluence Labs")
         .about("Console utility for deploying code to fluence cluster")
         .subcommand(publisher::subcommand())
-        .subcommand(register::subcommand());
+        .subcommand(register::subcommand())
+        .subcommand(whitelist::subcommand());
 
     match app.get_matches().subcommand() {
         ("publish", Some(args)) => {
@@ -66,6 +68,18 @@ fn main() {
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);
         }
+
+        ("add-to-whitelist", Some(args)) => {
+            let add_to_whitelist = whitelist::parse(args).unwrap();
+
+            let transaction = add_to_whitelist.add_to_whitelist(true);
+
+            let formatted_finish_msg = style("Address added to whitelist. Submitted transaction").blue();
+            let formatted_tx = style(transaction.unwrap()).red().bold();
+
+            println!("{}: {:?}", formatted_finish_msg, formatted_tx);
+        }
+
         c => panic!(format!("Unexpected command: {}", c.0)),
     }
 }

@@ -134,7 +134,7 @@ impl Register {
             let pass = self.password.as_ref().map(|s| s.as_str());
 
             let options = Options::with(|o| {
-                let gl: U256 = 150_000.into();
+                let gl: U256 = 200_000.into();
                 o.gas = Some(gl);
             });
 
@@ -159,9 +159,9 @@ impl Register {
         // sending transaction with the hash of file with code to ethereum
         let transaction = if show_progress {
             utils::with_progress(
-                "Add solver to the smart contract...",
+                "Adding a solver to the smart contract...",
                 "1/1",
-                "Solver added.",
+                "The solver added.",
                 publish_to_contract_fn,
             )
         } else {
@@ -186,17 +186,17 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<std::error::Error>> {
     let max_port: u16 = matches.value_of(MAX_PORT).unwrap().parse()?;
 
     let contract_address = matches
-        .value_of("contract_address")
+        .value_of(CONTRACT_ADDRESS)
         .unwrap()
         .trim_left_matches("0x");
     let contract_address: Address = contract_address.parse()?;
 
-    let account = matches.value_of("account").unwrap().trim_left_matches("0x");
+    let account = matches.value_of(ACCOUNT).unwrap().trim_left_matches("0x");
     let account: Address = account.parse()?;
 
-    let eth_url = matches.value_of("eth_url").unwrap().to_string();
+    let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
-    let password = matches.value_of("password").map(|s| s.to_string());
+    let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
     Ok(Register::new(
         node_address,
@@ -331,11 +331,14 @@ mod tests {
     fn register_success() -> Result<(), Box<Error>> {
         let register = generate_with_account("02f906f8b3b932fd282109a5b8dc732ba2329888".parse()?);
 
+        let pass = register.password.as_ref().map(|s| s.as_str());
+
         utils::add_to_white_list(
             &register.eth_url,
             register.account,
             register.contract_address,
             OWNER.parse()?,
+            pass
         )?;
 
         register.register(false)?;
