@@ -101,6 +101,7 @@ where
     Ok(result_code_publish.wait()?)
 }
 
+#[allow(dead_code)]
 pub fn query_contract<P, R>(
     contract_address: Address,
     eth_url: &str,
@@ -122,6 +123,7 @@ where
     Ok(res)
 }
 
+#[allow(dead_code)]
 pub fn add_to_white_list(
     eth_url: &str,
     account_to_add: Address,

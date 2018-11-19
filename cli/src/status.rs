@@ -21,6 +21,8 @@ use utils;
 use web3::contract::Options;
 use web3::types::{Address, U256};
 
+/// todo: structure for `getStatus` method
+#[allow(dead_code)]
 pub struct Status {
     pub version: u8,
     pub ready_nodes: u32,
@@ -28,6 +30,7 @@ pub struct Status {
 }
 
 impl Status {
+    #[allow(dead_code)]
     pub fn new(version: u8, ready_nodes: u32, enqueued_codes: Vec<u32>) -> Status {
         Status {
             version,
@@ -47,6 +50,7 @@ impl fmt::Display for Status {
     }
 }
 
+#[allow(dead_code)]
 pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Box<Error>> {
     let options = Options::with(|o| {
         let gl: U256 = 100_000.into();

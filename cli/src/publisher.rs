@@ -28,7 +28,6 @@ use utils;
 use web3::contract::Options;
 use web3::types::{Address, H256, U256};
 
-const ADDRESS: &str = "address";
 const PATH: &str = "path";
 const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
