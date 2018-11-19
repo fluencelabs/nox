@@ -25,13 +25,11 @@ import fluence.node.NodeConfig
  * @param nodeInfo information about node in a format compatible with `master-run-node.sh` script
  * @param persistentPeers cluster peers information
  * @param code code ID
- * @param longTermLocation local directory with pre-initialized Tendermint public/private keys
  */
 case class ClusterData(
   nodeInfo: NodeInfo,
   persistentPeers: PersistentPeers,
-  code: String,
-  longTermLocation: String
+  code: String
 ) {
   val hostP2PPort: Short = persistentPeers.peers(nodeInfo.node_index.toInt).port
   val hostRpcPort: Short = (hostP2PPort + 100).toShort
@@ -68,7 +66,7 @@ object ClusterData {
       val persistentPeers = PersistentPeers.fromAddrsAndPorts(event.solverAddrs, event.solverPorts)
       val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
       val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
-      Some(ClusterData(nodeInfo, persistentPeers, storageHash, nodeConfig.longTermLocation))
+      Some(ClusterData(nodeInfo, persistentPeers, storageHash))
     }
   }
 }

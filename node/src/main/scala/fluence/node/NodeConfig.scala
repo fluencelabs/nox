@@ -17,16 +17,13 @@
 package fluence.node
 
 import cats.effect.IO
-import fluence.node.docker.DockerParams
-import fluence.node.tendermint.ValidatorKey
-import io.circe.parser._
+import fluence.node.tendermint.{KeysPath, ValidatorKey}
 
 import scala.util.Try
 
 /**
  * Information about a node willing to run solvers to join Fluence clusters.
  *
- * @param longTermLocation local directory with pre-initialized Tendermint public/private keys
  * @param ip p2p host IP
  * @param startPort starting port for p2p port range
  * @param endPort ending port for p2p port range
@@ -34,7 +31,6 @@ import scala.util.Try
  * @param nodeAddress p2p port
  */
 case class NodeConfig(
-  longTermLocation: String,
   ip: String,
   startPort: Short,
   endPort: Short,
@@ -50,22 +46,21 @@ object NodeConfig {
    * Builds [[NodeConfig]] from command-line arguments.
    *
    * @param args arguments list
-   * - Tendermint key location
    * - Tendermint p2p host IP
    * - Tendermint p2p port range starting port
    * - Tendermint p2p port range ending port
    */
-  def fromArgs(args: List[String]): IO[NodeConfig] =
+  def fromArgs(keysPath: KeysPath, args: List[String]): IO[NodeConfig] =
     for {
       argsTuple ← args match {
-        case a1 :: a2 :: a3 :: a4 :: Nil ⇒ IO.pure(a1, a2, a3, a4)
+        case a1 :: a2 :: a3 :: Nil ⇒ IO.pure(a1, a2, a3)
         case _ ⇒ IO.raiseError(new IllegalArgumentException("4 program arguments expected"))
       }
 
-      (longTermLocation, ip, startPortString, endPortString) = argsTuple
+      (ip, startPortString, endPortString) = argsTuple
 
-      validatorKey ← showValidatorKey(longTermLocation)
-      nodeAddress ← showNodeId(longTermLocation)
+      validatorKey ← keysPath.showValidatorKey
+      nodeAddress ← keysPath.showNodeId
 
       _ <- {
         // TODO: is it the best way to check IP? Why not to make RemoteAddr?
@@ -87,45 +82,6 @@ object NodeConfig {
             s"Port range should contain $PortRangeLengthLimits ports starting from $StartPortLimits"
           )
         )
-    } yield NodeConfig(longTermLocation, ip, startPort, endPort, validatorKey, nodeAddress)
-
-  /**
-   * Runs `tendermint show_validator` inside the solver's container, and returns its output as [[ValidatorKey]].
-   *
-   * @param longTermLocation Tendermint's home directory
-   */
-  private def showValidatorKey(longTermLocation: String): IO[ValidatorKey] =
-    for {
-      validatorKeyStr ← solverExec(longTermLocation, "tendermint show_validator --home=\"/tendermint\"")
-
-      validatorKey ← IO.fromEither(
-        parse(validatorKeyStr).flatMap(_.as[ValidatorKey])
-      )
-    } yield validatorKey
-
-  /**
-   * Runs `tendermint show_node_id` inside the solver's container, and returns its output.
-   *
-   * @param longTermLocation Tendermint's home directory
-   */
-  private def showNodeId(longTermLocation: String): IO[String] =
-    solverExec(longTermLocation, "tendermint show_node_id --home=\"/tendermint\"")
-
-  /**
-   * Executes a command inside solver's container, binding tendermint's home directory into `/tendermint` volume.
-   *
-   * @param longTermLocation Tendermint's home directory
-   * @param command The command to execute
-   */
-  private def solverExec(longTermLocation: String, command: String): IO[String] =
-    IO(
-      DockerParams
-        .exec()
-        .volume(longTermLocation, "/tendermint")
-        // TODO: image name should be configurable
-        .image("fluencelabs/solver:latest")
-        .exec(command)
-        .!!
-    )
+    } yield NodeConfig(ip, startPort, endPort, validatorKey, nodeAddress)
 
 }

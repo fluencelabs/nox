@@ -103,7 +103,7 @@ object SolversPool {
   /**
    * Build a new SolversPool
    */
-  def apply[F[_]: Concurrent: ContextShift: Timer](
+  def apply[F[_]: Concurrent: ContextShift: Timer](healthCheckConfig: HealthCheckConfig = HealthCheckConfig())(
     implicit sttpBackend: SttpBackend[F, Nothing]
   ): F[SolversPool[F]] =
     for {

@@ -20,7 +20,7 @@ import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.apply._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
-import fluence.node.solvers.{SolverParams, SolversPool}
+import fluence.node.solvers.SolversPool
 
 import scala.concurrent.ExecutionContext
 
@@ -57,7 +57,7 @@ object FluenceNode extends IOApp {
         case RunR(port) ⇒
           for {
             _ <- IO(println(s"Going to run on $port"))
-            _ ← pool.run(SolverParams(port.toShort))
+            //_ ← pool.run(SolverParams(port.toShort))
           } yield None
 
         case unknown ⇒
@@ -74,7 +74,7 @@ object FluenceNode extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] =
     for {
-      pool ← SolversPool[IO]
+      pool ← SolversPool[IO]()
       _ = println("Pool Received, ready to run solvers. Please input the command")
       code ← handleCli(pool)
     } yield {

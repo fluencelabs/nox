@@ -16,23 +16,37 @@
 
 package fluence.node.solvers
 import fluence.node.docker.DockerParams
+import fluence.node.tendermint.ClusterData
 
 /**
  * Solver container's params
  *
- * @param rpcPort RPC port to bind to
+ * TODO: what solverDir is used for?
  */
-case class SolverParams(rpcPort: Short) {
-  override def toString = s"(solver of rpcPort $rpcPort)"
+case class SolverParams(
+  clusterData: ClusterData,
+  tendermintDir: String,
+  vmCodeDir: String,
+  solverDir: String
+) {
+
+  override def toString = s"(solver for ${clusterData.nodeInfo.clusterName})"
+
+  def rpcPort: Short = clusterData.hostRpcPort
 
   /**
    * [[fluence.node.docker.DockerIO.run]]'s command for launching a configured solver
-   * TODO: replace with a real solver process
    */
   val dockerCommand: DockerParams.Sealed =
     DockerParams
       .daemonRun()
-      .port(rpcPort, 80)
-      .option("name", s"nginx-$rpcPort")
-      .image("nginx")
+      .port(clusterData.hostP2PPort, 26656)
+      .port(rpcPort, 26657)
+      .port(clusterData.tmPrometheusPort, 26660)
+      .port(clusterData.smPrometheusPort, 26661)
+      .volume(solverDir, "/solver")
+      .volume(vmCodeDir, "/vmcode")
+      .volume(tendermintDir, "/tendermint")
+      .option("--name", clusterData.nodeName)
+      .image("fluencelabs/solver:latest")
 }

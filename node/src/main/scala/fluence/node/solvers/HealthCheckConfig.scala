@@ -29,5 +29,5 @@ case class HealthCheckConfig(
   period: FiniteDuration = 3.seconds,
   slide: Int = 5,
   failOn: Int = 3,
-  httpPath: String = ""
+  httpPath: String = "status"
 )
