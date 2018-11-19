@@ -40,8 +40,9 @@ pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
         .map(|_| "WasmLogger was successfully initialized".to_string())
         .unwrap_or_else(|err| format!("WasmLogger initialization was failed, cause: {:?}", err));
 
-    let res_ptr = fluence::memory::write_str_to_mem(&result)
-        .unwrap_or_else(|_| log_and_panic("Putting result string to the memory was failed.".into()));
+    let res_ptr = fluence::memory::write_str_to_mem(&result).unwrap_or_else(|_| {
+        log_and_panic("Putting result string to the memory was failed.".into())
+    });
 
     warn!("{}\n", result);
     res_ptr
