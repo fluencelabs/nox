@@ -67,6 +67,7 @@ impl Publisher {
         }
     }
 
+    /// Sends code to Swarm and publishes the hash of file from Swarm to Fluence smart contract
     pub fn publish(&self, show_progress: bool) -> Result<H256, Box<Error>> {
         let upload_to_swarm_fn = || -> Result<H256, Box<Error>> {
             let hash = upload_code_to_swarm(&self.swarm_url, &self.bytes)?;

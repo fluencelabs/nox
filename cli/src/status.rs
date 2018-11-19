@@ -21,7 +21,7 @@ use utils;
 use web3::contract::Options;
 use web3::types::{Address, U256};
 
-/// todo: structure for `getStatus` method
+/// todo: command for `getStatus` method
 #[allow(dead_code)]
 pub struct Status {
     pub version: u8,

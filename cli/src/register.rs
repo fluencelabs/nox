@@ -128,6 +128,7 @@ impl Register {
         Ok(hash_addr)
     }
 
+    /// registers a node in Fluence smart contract
     pub fn register(&self, show_progress: bool) -> Result<H256, Box<Error>> {
         let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
             let pass = self.password.as_ref().map(|s| s.as_str());
