@@ -15,16 +15,16 @@
  */
 
 use clap::{App, Arg, ArgMatches, SubCommand};
+use ethabi::Token;
+use hex;
 use std::boxed::Box;
 use std::error::Error;
+use std::net::IpAddr;
 use utils;
-use ethabi::Token;
+use web3::contract::tokens::Tokenizable;
 use web3::contract::Options;
 use web3::contract::{Error as ContractError, ErrorKind};
-use web3::contract::tokens::Tokenizable;
 use web3::types::{Address, H256, U256};
-use std::net::IpAddr;
-use hex;
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
@@ -53,7 +53,9 @@ impl Tokenizable for H192 {
                 }
                 Ok(data.into())
             }
-            other => Err(ErrorKind::InvalidOutputType(format!("Expected `H192`, got {:?}", other)).into()),
+            other => Err(
+                ErrorKind::InvalidOutputType(format!("Expected `H192`, got {:?}", other)).into(),
+            ),
         }
     }
 
@@ -108,7 +110,7 @@ impl Register {
 
         for (i, s) in split.enumerate() {
             addr_bytes[i] = s.parse()?;
-        };
+        }
 
         let mut addr_vec = addr_bytes.to_vec();
 
@@ -149,7 +151,7 @@ impl Register {
                     self.min_port as u64,
                     self.max_port as u64,
                 ),
-                options
+                options,
             )
         };
 
@@ -170,13 +172,12 @@ impl Register {
 }
 
 pub fn parse(matches: &ArgMatches) -> Result<Register, Box<std::error::Error>> {
-    let node_address: IpAddr = matches
-        .value_of(ADDRESS)
-        .unwrap().parse()?;
+    let node_address: IpAddr = matches.value_of(ADDRESS).unwrap().parse()?;
 
     let tendermint_key = matches
         .value_of(TENDERMINT_KEY)
-        .unwrap().trim_left_matches("0x");
+        .unwrap()
+        .trim_left_matches("0x");
 
     let tendermint_key: H256 = tendermint_key.parse()?;
 
@@ -268,12 +269,12 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 #[cfg(test)]
 mod tests {
     use super::Register;
+    use rand::prelude::*;
     use std::error::Error;
     use utils;
     use web3;
     use web3::futures::Future;
     use web3::types::*;
-    use rand::prelude::*;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
@@ -282,7 +283,6 @@ mod tests {
 
         let mut rng = rand::thread_rng();
         let rnd_num: u64 = rng.gen();
-
 
         let node_id: H256 = H256::from(rnd_num);
         let tendermint_key: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
@@ -296,13 +296,13 @@ mod tests {
             contract_address,
             account,
             String::from("http://localhost:8545/"),
-            None
+            None,
         )
     }
 
     pub fn generate_with<F>(func: F) -> Register
-        where
-            F: FnOnce(&mut Register),
+    where
+        F: FnOnce(&mut Register),
     {
         let mut register = generate_register();
         func(&mut register);

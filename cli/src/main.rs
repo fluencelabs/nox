@@ -15,13 +15,15 @@
  */
 extern crate clap;
 extern crate console;
-extern crate indicatif;
 extern crate ethabi;
+extern crate hex;
+extern crate indicatif;
 extern crate reqwest;
 extern crate web3;
-extern crate hex;
-#[macro_use] extern crate fixed_hash;
-#[macro_use] extern crate error_chain;
+#[macro_use]
+extern crate fixed_hash;
+#[macro_use]
+extern crate error_chain;
 
 #[cfg(test)]
 extern crate rand;
@@ -29,8 +31,8 @@ extern crate rand;
 mod app;
 mod publisher;
 mod register;
-mod utils;
 mod status;
+mod utils;
 
 use console::style;
 
@@ -47,7 +49,7 @@ fn main() {
             let formatted_tx = style(transaction.unwrap()).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);
-        },
+        }
 
         ("register", Some(args)) => {
             let register = register::parse(args).unwrap();
@@ -58,7 +60,7 @@ fn main() {
             let formatted_tx = style(transaction.unwrap()).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);
-        },
+        }
         c => panic!(format!("Unexpected command: {}", c.0)),
     }
 }

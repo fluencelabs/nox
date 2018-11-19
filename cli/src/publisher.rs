@@ -19,12 +19,12 @@ extern crate web3;
 
 use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
+use reqwest::Client;
 use std::boxed::Box;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use utils;
-use reqwest::Client;
 use web3::contract::Options;
 use web3::types::{Address, H256, U256};
 

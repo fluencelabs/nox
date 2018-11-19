@@ -15,13 +15,13 @@
  */
 
 use indicatif::{ProgressBar, ProgressStyle};
+use reqwest::{Url, UrlError};
 use std::error::Error;
-use web3::contract::tokens::{Tokenize, Detokenize};
+use web3::contract::tokens::{Detokenize, Tokenize};
 use web3::contract::{Contract, Options};
 use web3::futures::Future;
 use web3::types::{Address, H256};
 use web3::{Transport, Web3};
-use reqwest::{Url, UrlError};
 
 /// Creates progress bar in the console until the work is over
 ///
@@ -108,8 +108,9 @@ pub fn query_contract<P, R>(
     params: P,
     options: Options,
 ) -> Result<R, Box<Error>>
-    where
-        P: Tokenize, R: Detokenize
+where
+    P: Tokenize,
+    R: Detokenize,
 {
     let (_eloop, transport) = web3::transports::Http::new(&eth_url)?;
     let web3 = web3::Web3::new(transport);

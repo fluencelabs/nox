@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-use web3::contract::Options;
 use std::boxed::Box;
 use std::error::Error;
-use utils;
-use web3::types::{Address, U256};
 use std::fmt;
+use utils;
+use web3::contract::Options;
+use web3::types::{Address, U256};
 
 pub struct Status {
     pub version: u8,
     pub ready_nodes: u32,
-    pub enqueued_codes: Vec<u32>
+    pub enqueued_codes: Vec<u32>,
 }
 
 impl Status {
@@ -32,14 +32,18 @@ impl Status {
         Status {
             version,
             ready_nodes,
-            enqueued_codes
+            enqueued_codes,
         }
     }
 }
 
 impl fmt::Display for Status {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Status: (\n\tversion: {},\n\tready nodes:{},\n\tenqueued codes lengths: {:?}\n)", self.version, self.ready_nodes, self.enqueued_codes)
+        write!(
+            f,
+            "Status: (\n\tversion: {},\n\tready nodes:{},\n\tenqueued codes lengths: {:?}\n)",
+            self.version, self.ready_nodes, self.enqueued_codes
+        )
     }
 }
 
@@ -49,9 +53,12 @@ pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Bo
         o.gas = Some(gl);
     });
 
-    let (version, ready_nodes, enqueued_codes): (u64, u64, Vec<u64>) = utils::query_contract(contract_address,
-                                      eth_url,
-                                      "getStatus", (), options)?;
+    let (version, ready_nodes, enqueued_codes): (u64, u64, Vec<u64>) =
+        utils::query_contract(contract_address, eth_url, "getStatus", (), options)?;
 
-    Ok(Status::new(version as u8, ready_nodes as u32, enqueued_codes.into_iter().map(|x| x as u32).rev().collect()))
+    Ok(Status::new(
+        version as u8,
+        ready_nodes as u32,
+        enqueued_codes.into_iter().map(|x| x as u32).rev().collect(),
+    ))
 }
