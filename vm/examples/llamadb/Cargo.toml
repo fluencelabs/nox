@@ -23,7 +23,8 @@ crate-type = ["cdylib"]
 lazy_static = "1.1.0"
 log = "0.4"
 fluence_sdk = { path = "../../../sdk/rust", features = ["wasm_logger"] }
-#fluence_sdk = "0.0.4"
-
 llamadb = { git="https://github.com/fluencelabs/llamadb.git", branch = "master" }
 
+[dev-dependencies]
+
+simple_logger = "1.0.1"

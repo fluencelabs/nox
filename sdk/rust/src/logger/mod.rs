@@ -74,7 +74,7 @@ impl log::Log for WasmLogger {
         }
 
         let log_msg = format!(
-            "{:<5} [{}] {}",
+            "{:<5} [{}] {}\n",
             record.level().to_string(),
             record.module_path().unwrap_or_default(),
             record.args()
@@ -95,10 +95,7 @@ impl log::Log for WasmLogger {
     }
 }
 
-// todo use cfg_if!
-
-/// Wasm module provided by WasmVm for writing log from Wasm code.
-#[cfg(target_arch = "wasm32")]
+/// Wasm module for writing logs from Wasm code, provided by WasmVm.
 #[link(wasm_import_module = "logger")]
 extern "C" {
 
@@ -107,14 +104,4 @@ extern "C" {
 
     /// Flush all logger inner state to log.
     fn flush();
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-unsafe fn write(_byte: i32) {
-    // noop
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-unsafe fn flush() {
-    // noop
 }
