@@ -28,16 +28,21 @@ extern crate error_chain;
 #[cfg(test)]
 extern crate rand;
 
-mod app;
 mod publisher;
 mod register;
 mod status;
 mod utils;
 
+use clap::App;
 use console::style;
 
 fn main() {
-    let app = app::init();
+    let app = App::new("Fluence CLI")
+        .version("0.1.0")
+        .author("Fluence Labs")
+        .about("Console utility for deploying code to fluence cluster")
+        .subcommand(publisher::subcommand())
+        .subcommand(register::subcommand());
 
     match app.get_matches().subcommand() {
         ("publish", Some(args)) => {

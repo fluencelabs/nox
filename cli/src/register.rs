@@ -284,13 +284,12 @@ mod tests {
         let mut rng = rand::thread_rng();
         let rnd_num: u64 = rng.gen();
 
-        let node_id: H256 = H256::from(rnd_num);
-        let tendermint_key: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
+        let tendermint_key: H256 = H256::from(rnd_num);
         let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
 
         Register::new(
             "127.0.0.1".parse().unwrap(),
-            OWNER.parse().unwrap(),
+            tendermint_key,
             25006,
             25100,
             contract_address,
