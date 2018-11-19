@@ -34,7 +34,7 @@ case class KeysPath(masterTendermintPath: String) {
    */
   val showValidatorKey: IO[ValidatorKey] =
     for {
-      validatorKeyStr ← solverExec("tendermint show_validator --home=\"/tendermint\"")
+      validatorKeyStr ← solverExec("tendermint", "show_validator", "--home=\"/tendermint\"")
 
       validatorKey ← IO.fromEither(
         parse(validatorKeyStr).flatMap(_.as[ValidatorKey])
@@ -45,21 +45,21 @@ case class KeysPath(masterTendermintPath: String) {
    * Runs `tendermint show_node_id` inside the solver's container, and returns its output.
    */
   val showNodeId: IO[String] =
-    solverExec("tendermint show_node_id --home=\"/tendermint\"")
+    solverExec("tendermint", "show_node_id", "--home=\"/tendermint\"")
 
   /**
    * Executes a command inside solver's container, binding tendermint's home directory into `/tendermint` volume.
    *
-   * @param command The command to execute
+   * @param executable The command to execute
    */
-  private def solverExec(command: String): IO[String] =
+  private def solverExec(executable: String, params: String*): IO[String] =
     IO(
       DockerParams
-        .exec()
+        .run(executable, params: _*)
         .volume(masterTendermintPath, "/tendermint")
         // TODO: it could be another image, specific to tendermint process only, no need to take solver
         .image("fluencelabs/solver:latest")
-        .exec(command)
+        .process
         .!!
     )
 

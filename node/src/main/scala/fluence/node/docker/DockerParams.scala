@@ -21,9 +21,10 @@ import scala.sys.process._
 /**
  * Builder for basic `docker run` command parameters.
  *
- * @param params current command' params
+ * @param params Current command' params
+ * @param tailParams Params to be added after the image name
  */
-case class DockerParams private (params: Queue[String]) {
+case class DockerParams private (params: Queue[String], tailParams: List[String] = Nil) {
 
   /**
    * Adds a single param to command.
@@ -65,24 +66,19 @@ case class DockerParams private (params: Queue[String]) {
    *
    * @param imageName name of image to run
    */
-  def image(imageName: String): DockerParams.Sealed = DockerParams.Sealed(add(imageName).params)
+  def image(imageName: String): DockerParams.Sealed =
+    DockerParams.Sealed(add(imageName).params.enqueue(tailParams))
 }
 
 object DockerParams {
-  case class Sealed(command: Queue[String]) extends AnyVal {
+  case class Sealed(command: Seq[String]) extends AnyVal {
     def process: ProcessBuilder = Process(command)
-
-    def exec(cmd: String): ProcessBuilder =
-      Process(command enqueue cmd)
   }
 
   def daemonRun(): DockerParams =
-    run().add("-d")
+    DockerParams(Queue("docker", "run", "-d"))
 
-  def run(): DockerParams =
-    DockerParams(Queue("docker", "run"))
-
-  def exec(): DockerParams =
-    DockerParams(Queue("docker", "exec"))
+  def run(executable: String, params: String*): DockerParams =
+    DockerParams(Queue("docker", "run", "--rm", "-ti", "--entrypoint", executable), params.toList)
 
 }
