@@ -49,6 +49,7 @@ object ClusterData {
 
   /**
    * Tries to convert `ClusterFormedEvent` response to [[ClusterData]] with all information to launch cluster.
+   * TODO this method couples ClusterData with Ethereum's Deployer structure, consider moving it to DeployerContract instead
    *
    * @param event event response
    * @param nodeConfig information about current node

@@ -24,6 +24,7 @@ import org.web3j.abi.EventEncoder
 import scala.concurrent.duration._
 
 object EthClientApp extends IOApp {
+  // EthClientApp is to play during development only
   override def run(args: List[String]): IO[ExitCode] =
     EthClient
       .makeHttpResource[IO]()

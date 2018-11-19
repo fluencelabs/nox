@@ -20,7 +20,6 @@ import cats.effect.IO
 import fluence.node.docker.DockerParams
 import fluence.node.tendermint.ValidatorKey
 import io.circe.parser._
-import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16}
 
 import scala.util.Try
 
@@ -90,6 +89,11 @@ object NodeConfig {
         )
     } yield NodeConfig(longTermLocation, ip, startPort, endPort, validatorKey, nodeAddress)
 
+  /**
+   * Runs `tendermint show_validator` inside the solver's container, and returns its output as [[ValidatorKey]].
+   *
+   * @param longTermLocation Tendermint's home directory
+   */
   private def showValidatorKey(longTermLocation: String): IO[ValidatorKey] =
     for {
       validatorKeyStr ← solverExec(longTermLocation, "tendermint show_validator --home=\"/tendermint\"")
@@ -97,44 +101,31 @@ object NodeConfig {
       validatorKey ← IO.fromEither(
         parse(validatorKeyStr).flatMap(_.as[ValidatorKey])
       )
-
     } yield validatorKey
 
+  /**
+   * Runs `tendermint show_node_id` inside the solver's container, and returns its output.
+   *
+   * @param longTermLocation Tendermint's home directory
+   */
   private def showNodeId(longTermLocation: String): IO[String] =
     solverExec(longTermLocation, "tendermint show_node_id --home=\"/tendermint\"")
 
+  /**
+   * Executes a command inside solver's container, binding tendermint's home directory into `/tendermint` volume.
+   *
+   * @param longTermLocation Tendermint's home directory
+   * @param command The command to execute
+   */
   private def solverExec(longTermLocation: String, command: String): IO[String] =
     IO(
       DockerParams
         .exec()
         .volume(longTermLocation, "/tendermint")
+        // TODO: image name should be configurable
         .image("fluencelabs/solver:latest")
         .exec(command)
         .!!
     )
 
-  implicit class NodeConfigEthOps(nodeConfig: NodeConfig) {
-    import fluence.ethclient.helpers.Web3jConverters.{base64ToBytes32, solverAddressToBytes24}
-    import nodeConfig._
-
-    /**
-     * Returns node's public key in format ready to pass to the contract.
-     */
-    def validatorKeyBytes32: Bytes32 = base64ToBytes32(validatorKey.value)
-
-    /**
-     * Returns node's address information (host, Tendermint p2p key) in format ready to pass to the contract.
-     */
-    def addressBytes24: Bytes24 = solverAddressToBytes24(ip, nodeAddress)
-
-    /**
-     * Returns starting port as uint16.
-     */
-    def startPortUint16: Uint16 = new Uint16(startPort)
-
-    /**
-     * Returns ending port as uint16.
-     */
-    def endPortUint16: Uint16 = new Uint16(endPort)
-  }
 }
