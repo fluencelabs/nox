@@ -15,7 +15,7 @@
  */
 
 package fluence.node
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 
 import cats.effect.{ConcurrentEffect, ExitCode, IO}
 import fluence.node.eth.DeployerContract
@@ -61,7 +61,7 @@ case class MasterNode(
             clusterData,
             solverTendermintPath.toString,
             // TODO fetch (from swarm) & cache
-            System.getProperty("user.dir") + "/statemachine/docker/examples/vmcode-" + clusterData.code
+            Paths.get("./statemachine/docker/examples/vmcode-" + clusterData.code).toAbsolutePath.toString
           )
       }
     )
