@@ -69,7 +69,15 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 contract = DeployerContract(ethClient, config)
 
-                _ <- contract.addNode[IO](nodeConfig)
+                // TODO: should check that node is registered, but should not send transactions
+                _ <- contract
+                  .addAddressToWhitelist[IO](config.deployerContractOwnerAccount)
+                  .attempt
+                  .map(r ⇒ logger.debug(s"Whitelisting address: $r"))
+                _ <- contract
+                  .addNode[IO](nodeConfig)
+                  .attempt
+                  .map(r ⇒ logger.debug(s"Adding node: $r"))
 
                 pool ← SolversPool[IO]()
 
@@ -89,6 +97,6 @@ object MasterNodeApp extends IOApp with LazyLogging {
   private def configureLogging(): Unit = {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, false)
     LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.INFO
+    LoggerConfig.level = LogLevel.DEBUG
   }
 }

@@ -26,7 +26,7 @@ import fluence.ethclient.{Deployer, EthClient}
 import fluence.node.NodeConfig
 import fluence.node.tendermint.ClusterData
 import org.web3j.abi.EventEncoder
-import org.web3j.abi.datatypes.DynamicArray
+import org.web3j.abi.datatypes.{Address, DynamicArray}
 import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
 import org.web3j.protocol.core.methods.request.EthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
@@ -141,6 +141,21 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
         nodeConfig.startPortUint16,
         nodeConfig.endPortUint16
       )
+      .call[F]
+      .map(_.getBlockNumber)
+      .map(BigInt(_))
+
+  /**
+   * Add this address to whitelist
+   *
+   * TODO should not be called from scala
+   * @param address Address to add
+   * @tparam F Effect
+   * @return The block number where transaction has been mined
+   */
+  def addAddressToWhitelist[F[_]: Async](address: String): F[BigInt] =
+    deployer
+      .addAddressToWhitelist(new Address(address))
       .call[F]
       .map(_.getBlockNumber)
       .map(BigInt(_))
