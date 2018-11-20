@@ -27,11 +27,10 @@ import fluence.ethclient.{Deployer, EthClient}
 import fluence.node.NodeConfig
 import fluence.node.tendermint.ClusterData
 import org.web3j.abi.EventEncoder
+import org.web3j.abi.datatypes.generated.{Uint8, _}
 import org.web3j.abi.datatypes.{Address, DynamicArray}
-import org.web3j.abi.datatypes.generated._
-import org.web3j.protocol.core.methods.request.EthFilter
+import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
-import org.web3j.abi.datatypes.generated.Uint8
 import org.web3j.tuples.generated
 
 import scala.collection.JavaConverters._
@@ -56,7 +55,7 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
       .getBlockNumber[F]
       .map(
         currentBlock ⇒
-          new EthFilter(
+          new SingleAddressEthFilter(
             DefaultBlockParameter.valueOf(currentBlock.bigInteger),
             DefaultBlockParameterName.LATEST,
             deployer.getContractAddress
