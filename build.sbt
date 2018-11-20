@@ -111,6 +111,12 @@ lazy val statemachine = (project in file("statemachine"))
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
       scalaTest
     ),
+    assemblyMergeStrategy in assembly := {
+      case PathList("module-info.class", xs @ _*) => MergeStrategy.first
+      case x =>
+        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        oldStrategy(x)
+    },
     imageNames in docker := Seq(ImageName("fluencelabs/solver")),
     dockerfile in docker := {
       // Run `sbt docker` to create image
