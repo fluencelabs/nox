@@ -94,7 +94,7 @@ impl Publisher {
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
 
             let options = Options::with(|o| {
-                let gl: U256 = 300_000.into();
+                let gl: U256 = 500_000.into();
                 o.gas = Some(gl);
             });
 
