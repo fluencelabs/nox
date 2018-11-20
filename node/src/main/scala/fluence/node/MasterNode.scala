@@ -28,7 +28,8 @@ import fluence.node.tendermint.{ClusterData, KeysPath}
  * @param masterKeys Tendermint keys
  * @param nodeConfig Tendermint/Fluence master node config
  * @param contract DeployerContract to interact with
- * @param pool Solvers pool to launch solvers in* @param path Path to store all the MasterNode's data in
+ * @param pool Solvers pool to launch solvers in
+ * @param path Path to store all the MasterNode's data in
  * @param ce Concurrent effect, used to subscribe to Ethereum events
  */
 case class MasterNode(
