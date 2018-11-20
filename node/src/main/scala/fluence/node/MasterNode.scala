@@ -15,7 +15,7 @@
  */
 
 package fluence.node
-import java.nio.file.Paths
+import java.nio.file.Path
 
 import cats.effect.{ConcurrentEffect, ExitCode, IO}
 import fluence.node.eth.DeployerContract
@@ -28,14 +28,15 @@ import fluence.node.tendermint.{ClusterData, KeysPath}
  * @param masterKeys Tendermint keys
  * @param nodeConfig Tendermint/Fluence master node config
  * @param contract DeployerContract to interact with
- * @param pool Solvers pool to launch solvers in
+ * @param pool Solvers pool to launch solvers in* @param path Path to store all the MasterNode's data in
  * @param ce Concurrent effect, used to subscribe to Ethereum events
  */
 case class MasterNode(
   masterKeys: KeysPath,
   nodeConfig: NodeConfig,
   contract: DeployerContract,
-  pool: SolversPool[IO]
+  pool: SolversPool[IO],
+  path: Path
 )(
   implicit ce: ConcurrentEffect[IO]
 ) extends slogging.LazyLogging {
@@ -45,27 +46,21 @@ case class MasterNode(
     _.evalMap(
       clusterData ⇒
         for {
-          _ <- IO { logger.info("joining cluster '{}' as node {}", clusterData.clusterName, clusterData.nodeIndex) }
-          solverTendermintHome = {
-            // TODO remove this
-            val homeDir = System.getProperty("user.home")
-            s"$homeDir/.fluence/nodes/${clusterData.nodeInfo.clusterName}/node${clusterData.nodeInfo.node_index}"
-          }
-          solverTendermintPath <- IO(Paths.get(solverTendermintHome))
+          _ ← IO { logger.info("joining cluster '{}' as node {}", clusterData.clusterName, clusterData.nodeIndex) }
 
-          _ <- clusterData.nodeInfo.writeTo(solverTendermintPath)
+          solverTendermintPath ← IO(
+            path.resolve(s"${clusterData.nodeInfo.clusterName}-${clusterData.nodeInfo.node_index}")
+          )
+
+          _ ← clusterData.nodeInfo.writeTo(solverTendermintPath)
           _ ← masterKeys.copyKeysToSolver(solverTendermintPath)
         } yield {
           logger.info("node info written to {}", solverTendermintPath)
-
-          // TODO move this machinery somewhere
-          val dockerWorkDir = System.getProperty("user.dir") + "/statemachine/docker"
-          val vmCodeDir = dockerWorkDir + "/examples/vmcode-" + clusterData.code
-
           SolverParams(
             clusterData,
-            solverTendermintHome,
-            vmCodeDir
+            solverTendermintPath.toString,
+            // TODO fetch (from swarm) & cache
+            System.getProperty("user.dir") + "/statemachine/docker/examples/vmcode-" + clusterData.code
           )
       }
     )

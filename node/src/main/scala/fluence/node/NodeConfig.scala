@@ -40,7 +40,7 @@ case class NodeConfig(
 
 object NodeConfig extends slogging.LazyLogging {
   private val PortRangeLengthLimits = 1 to 100
-  private val StartPortLimits = 20000 to (30000 - PortRangeLengthLimits.max)
+  private val StartPortLimits = 20000 to (40000 - PortRangeLengthLimits.max)
 
   /**
    * Builds [[NodeConfig]] from command-line arguments.

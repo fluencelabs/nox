@@ -16,7 +16,9 @@
 
 package fluence.node
 
-import cats.effect.{ExitCode, IO, IOApp}
+import java.nio.file.Paths
+
+import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
@@ -28,25 +30,30 @@ import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
 object MasterNodeApp extends IOApp with LazyLogging {
 
+  private val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
+    Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+
   /**
    * Launches a single solver connecting to ethereum blockchain with Deployer contract.
    *
-   * @param args 1st: Tendermint key location. 2nd: Tendermint p2p host IP. 3rd and 4th: Tendermint p2p port range.
+   * @param args 1st: Path to store master node's data (may be relative). 2nd: Tendermint p2p host IP. 3rd and 4th: Tendermint p2p port range.
    */
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
-    val tendermintMasterKeys :: restArgs = args
-    val masterKeys = KeysPath(tendermintMasterKeys)
+    val rootPathStr :: restArgs = args
 
-    implicit val sttpBackend: SttpBackend[IO, Nothing] = AsyncHttpClientCatsBackend[IO]()
+    val rootPath = Paths.get(rootPathStr).toAbsolutePath
+
+    val masterKeys = KeysPath(rootPath.resolve("tendermint").toString)
 
     (for {
+      _ ← masterKeys.init
       solverInfo <- NodeConfig.fromArgs(masterKeys, restArgs)
       config <- IO.fromEither(
         pureconfig
           .loadConfig[DeployerContractConfig]
           .left
-          .map(fs ⇒ new IllegalArgumentException(fs.toString))
+          .map(fs ⇒ new IllegalArgumentException("Can't load or parse configs:" + fs.toString))
       )
     } yield (solverInfo, config)).attempt.flatMap {
       case Right((nodeConfig, config)) =>
@@ -54,22 +61,24 @@ object MasterNodeApp extends IOApp with LazyLogging {
         EthClient
           .makeHttpResource[IO]()
           .use { ethClient ⇒
-            for {
-              version ← ethClient.clientVersion[IO]()
-              _ = logger.info("eth client version {}", version)
-              _ = logger.debug("eth config {}", config)
+            sttpResource.use { implicit sttpBackend ⇒
+              for {
+                version ← ethClient.clientVersion[IO]()
+                _ = logger.info("eth client version {}", version)
+                _ = logger.debug("eth config {}", config)
 
-              contract = DeployerContract(ethClient, config)
+                contract = DeployerContract(ethClient, config)
 
-              _ <- contract.addNode[IO](nodeConfig)
+                _ <- contract.addNode[IO](nodeConfig)
 
-              pool ← SolversPool[IO]()
+                pool ← SolversPool[IO]()
 
-              node = MasterNode(masterKeys, nodeConfig, contract, pool)
+                node = MasterNode(masterKeys, nodeConfig, contract, pool, rootPath)
 
-              result ← node.run
+                result ← node.run
 
-            } yield result
+              } yield result
+            }
           }
       case Left(value) =>
         logger.error("Error: {}", value)

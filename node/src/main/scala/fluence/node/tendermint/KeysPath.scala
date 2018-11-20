@@ -27,7 +27,13 @@ import io.circe.parser.parse
  *
  * @param masterTendermintPath Tendermint's home directory
  */
-case class KeysPath(masterTendermintPath: String) {
+case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
+
+  // TODO: is it safe?
+  lazy val path: Path = Paths.get(masterTendermintPath)
+
+  lazy val nodeKeyPath: Path = path.resolve("config").resolve("node_key.json")
+  lazy val privValidatorPath: Path = path.resolve("config").resolve("priv_validator.json")
 
   /**
    * Runs `tendermint show_validator` inside the solver's container, and returns its output as [[ValidatorKey]].
@@ -48,6 +54,29 @@ case class KeysPath(masterTendermintPath: String) {
     solverExec("tendermint", "show_node_id", "--home=/tendermint")
 
   /**
+   * Initialize tendermint keys
+   * Returns true if new keys are generated, false otherwise
+   */
+  val init: IO[Boolean] =
+    IO(nodeKeyPath.toFile.exists() && privValidatorPath.toFile.exists()).flatMap {
+      case true ⇒
+        logger.info(s"Tendermint master keys found in $path")
+        IO.pure(false)
+      case false ⇒
+        logger.info(s"Tendermint master keys not found in $path, going to initialize")
+        solverExec("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
+          logger.info(s"Tendermint initialized $str in $path, goint to remove unused data")
+          IO {
+            // Remove unused data, as we need only keys
+            path.resolve("config").resolve("config.toml").toFile.delete()
+            path.resolve("config").resolve("genesis.json").toFile.delete()
+            path.resolve("data").toFile.delete()
+            true
+          }
+        }
+    }
+
+  /**
    * Executes a command inside solver's container, binding tendermint's home directory into `/tendermint` volume.
    *
    * @param executable The command to execute
@@ -62,8 +91,6 @@ case class KeysPath(masterTendermintPath: String) {
         .process
         .!!
     )
-
-  lazy val path: Path = Paths.get(masterTendermintPath)
 
   /**
    * Copies master tendermint keys to solver path
