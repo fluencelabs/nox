@@ -20,6 +20,11 @@ crate-type = ["rlib"]
 
 log = { version = "0.4", features = ["std"] }
 
+[dev-dependencies]
+
+simple_logger = "1.0" # used in doc test
+lazy_static = "1.2.0" # used in doc test
+
 [features]
 
 # Turn on a compilation for module 'logger' from Fluence SDK.
