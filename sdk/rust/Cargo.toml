@@ -14,7 +14,6 @@ maintenance = { status = "actively-developed" }
 
 [package.metadata.docs.rs] # https://docs.rs/about
 all-features = true
-default-target = "wasm32-unknown-unknown"
 
 [lib]
 name = "fluence_sdk"
