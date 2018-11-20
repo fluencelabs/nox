@@ -43,7 +43,7 @@ import scala.language.higherKinds
  * @param ethClient Ethereum client
  * @param deployer Deployer contract ABI, received from Ethereum
  */
-class DeployerContract(private val ethClient: EthClient, private val deployer: Deployer) {
+class DeployerContract(private val ethClient: EthClient, private val deployer: Deployer) extends slogging.LazyLogging {
   import DeployerContract.NodeConfigEthOps
 
   /**
@@ -112,7 +112,7 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
   def getNodeClustersFormed[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
     fs2.Stream
       .eval(clusterFormedFilter[F])
-      .flatMap(filter ⇒ deployer.clusterFormedEventObservable(filter).toFS2[F]) // TODO: we should filter by verifier id
+      .flatMap(filter ⇒ deployer.clusterFormedEventObservable(filter).toFS2[F]) // TODO: we should filter by verifier id! Now node will join all the clusters
       .map(ClusterData.fromClusterFormedEvent(_, nodeConfig))
       .unNone
 
@@ -125,7 +125,10 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
    * @return Possibly infinite stream of ClusterData
    */
   def getAllNodeClusters[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
-    getNodeClusters[F](nodeConfig) ++ getNodeClustersFormed(nodeConfig)
+    getNodeClusters[F](nodeConfig)
+      .onFinalize(
+        Async[F].delay(logger.debug("Got all the previously prepared clusters. Now switching to the new clusters"))
+      ) ++ getNodeClustersFormed(nodeConfig)
 
   /**
    * Register the node with the Deployer contract.
@@ -173,7 +176,7 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
    */
   def addCode[F[_]: Async](code: String = "llamadb", clusterSize: Short = 1): F[BigInt] =
     deployer
-      .addCode(stringToBytes32("llamadb"), stringToBytes32("receipt_stub"), new Uint8(clusterSize))
+      .addCode(stringToBytes32(code), stringToBytes32("receipt_stub"), new Uint8(clusterSize))
       .call[F]
       .map(_.getBlockNumber)
       .map(BigInt(_))

@@ -100,6 +100,7 @@ object Solver extends LazyLogging {
           .sliding(healthcheck.slide)
           .evalTap[F] {
             case q if q.count(!_.isHealthy) > healthcheck.failOn ⇒
+              // TODO: if we had container launched previously, but then http checks became failing, we should try to restart the container
               // Stop the stream, as there's too many failing healthchecks
               logger.debug("Too many healthcheck failures, raising an error")
               (new RuntimeException("Too many healthcheck failures"): Throwable).raiseError[F, Unit]

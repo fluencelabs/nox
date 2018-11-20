@@ -46,6 +46,7 @@ object DockerIO extends LazyLogging {
   def run[F[_]: Sync: ContextShift](params: DockerParams.Sealed): fs2.Stream[F, String] =
     fs2.Stream.bracketCase {
       logger.info(s"Running docker: ${params.command.mkString(" ")}")
+      // TODO: if we have another docker container with the same name, we should rm -f it
       shiftDelay(Try(params.process.!!).map(_.trim()))
     } {
       case (Success(dockerId), exitCase) ⇒
