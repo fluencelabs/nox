@@ -3,6 +3,8 @@
 name = "fluence_sdk"
 version = "0.0.5"  # remember to update html_root_url
 description="Rust SDK for writing applications for Fluence"
+documentation="https://docs.rs/fluence_sdk/"
+repository="https://github.com/fluencelabs/fluence/tree/master/sdk/rust"
 authors = ["Fluence Labs"]
 readme = "readme.md"
 keywords = ["fluence", "sdk"]
@@ -10,6 +12,9 @@ categories = ["api-bindings", "wasm"]
 license = "Apache-2.0"
 maintenance = { status = "actively-developed" }
 
+[package.metadata.docs.rs] # https://docs.rs/about
+all-features = true
+default-target = "wasm32-unknown-unknown"
 
 [lib]
 name = "fluence_sdk"
