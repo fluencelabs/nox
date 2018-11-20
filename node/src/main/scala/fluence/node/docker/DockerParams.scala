@@ -79,6 +79,6 @@ object DockerParams {
     DockerParams(Queue("docker", "run", "-d"))
 
   def run(executable: String, params: String*): DockerParams =
-    DockerParams(Queue("docker", "run", "--rm", "-ti", "--entrypoint", executable), params.toList)
+    DockerParams(Queue("docker", "run", "--rm", "-i", "--entrypoint", executable), params.toList)
 
 }

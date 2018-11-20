@@ -57,6 +57,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
             for {
               version ← ethClient.clientVersion[IO]()
               _ = logger.info("eth client version {}", version)
+              _ = logger.debug("eth config {}", config)
 
               contract = DeployerContract(ethClient, config)
 

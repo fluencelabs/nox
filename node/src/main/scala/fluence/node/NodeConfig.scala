@@ -38,7 +38,7 @@ case class NodeConfig(
   nodeAddress: String
 )
 
-object NodeConfig {
+object NodeConfig extends slogging.LazyLogging {
   private val PortRangeLengthLimits = 1 to 100
   private val StartPortLimits = 20000 to (30000 - PortRangeLengthLimits.max)
 
@@ -61,6 +61,8 @@ object NodeConfig {
 
       validatorKey ← keysPath.showValidatorKey
       nodeAddress ← keysPath.showNodeId
+
+      _ = logger.info("Tendermint node id: {}", nodeAddress)
 
       _ <- {
         // TODO: is it the best way to check IP? Why not to make RemoteAddr?

@@ -18,6 +18,7 @@ package fluence.node.eth
 
 import cats.effect.{Async, ConcurrentEffect}
 import cats.syntax.functor._
+import cats.syntax.flatMap._
 import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
 import fluence.ethclient.{Deployer, EthClient}
 import fluence.node.NodeConfig
@@ -66,11 +67,14 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
    * @param nodeConfig Node to pick validatorKey from to lookup the clusters for
    * @tparam F Effect
    */
-  def getNodeClusterIds[F[_]: Async](nodeConfig: NodeConfig): F[List[Bytes32]] =
+  def getNodeClusterIds[F[_]](nodeConfig: NodeConfig)(implicit F: Async[F]): F[List[Bytes32]] =
     deployer
       .getNodeClusters(nodeConfig.validatorKeyBytes32)
       .call[F]
-      .map(_.getValue.asScala.toList)
+      .flatMap {
+        case arr if arr != null && arr.getValue != null => F.point(arr.getValue.asScala.toList)
+        case _ => F.raiseError[List[Bytes32]](new RuntimeException("Cannot get node clusters from the smart contract."))
+      }
 
   /**
    * Returns a finite stream of ClusterData for the given node.
