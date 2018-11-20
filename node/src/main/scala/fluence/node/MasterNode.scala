@@ -65,8 +65,7 @@ case class MasterNode(
           SolverParams(
             clusterData,
             solverTendermintHome,
-            vmCodeDir,
-            dockerWorkDir + "/solver"
+            vmCodeDir
           )
       }
     )

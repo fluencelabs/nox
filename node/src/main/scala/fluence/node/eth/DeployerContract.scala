@@ -17,19 +17,19 @@
 package fluence.node.eth
 
 import cats.effect.{Async, ConcurrentEffect}
-import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
+import fluence.ethclient.helpers.JavaRxToFs2._
+import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.{Deployer, EthClient}
 import fluence.node.NodeConfig
 import fluence.node.tendermint.ClusterData
 import org.web3j.abi.EventEncoder
-import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
-import org.web3j.protocol.core.methods.request.EthFilter
-import fluence.ethclient.helpers.RemoteCallOps._
-import fluence.ethclient.helpers.JavaRxToFs2._
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
+import org.web3j.protocol.core.methods.request.EthFilter
+import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 import org.web3j.tuples.generated
 
 import scala.collection.JavaConverters._
@@ -73,7 +73,12 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
       .call[F]
       .flatMap {
         case arr if arr != null && arr.getValue != null => F.point(arr.getValue.asScala.toList)
-        case _ => F.raiseError[List[Bytes32]](new RuntimeException("Cannot get node clusters from the smart contract."))
+        case _ =>
+          F.raiseError[List[Bytes32]](
+            new RuntimeException(
+              "Cannot get node clusters from the smart contract. Are you sure Deployer contract address is correct?"
+            )
+          )
       }
 
   /**
@@ -157,6 +162,7 @@ object DeployerContract {
 
   /**
    * Provides DeployerContract
+   *
    * @param ethClient To query Ethereum
    * @param config To lookup addresses
    * @return DeployerContract

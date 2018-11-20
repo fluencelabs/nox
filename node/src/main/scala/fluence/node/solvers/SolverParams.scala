@@ -20,14 +20,11 @@ import fluence.node.tendermint.ClusterData
 
 /**
  * Solver container's params
- *
- * TODO: what solverDir is used for?
  */
 case class SolverParams(
   clusterData: ClusterData,
   tendermintDir: String,
   vmCodeDir: String,
-  solverDir: String
 ) {
 
   override def toString = s"(solver for ${clusterData.nodeInfo.clusterName})"
@@ -44,7 +41,6 @@ case class SolverParams(
       .port(rpcPort, 26657)
       .port(clusterData.tmPrometheusPort, 26660)
       .port(clusterData.smPrometheusPort, 26661)
-      .volume(solverDir, "/solver")
       .volume(vmCodeDir, "/vmcode")
       .volume(tendermintDir, "/tendermint")
       .option("--name", clusterData.nodeName)

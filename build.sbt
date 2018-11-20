@@ -139,6 +139,8 @@ lazy val statemachine = (project in file("statemachine"))
         volume(solverDataRoot)
         volume(vmDataRoot)
 
+        copy(baseDirectory.value / "docker" / "solver", solverDataRoot)
+
         add(artifact, artifactTargetPath)
 
         entryPoint("bash", solverRunScript, tmDataRoot, solverDataRoot, artifactTargetPath)
