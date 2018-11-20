@@ -22,14 +22,16 @@ import cats.syntax.functor._
 import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
 import fluence.ethclient.helpers.JavaRxToFs2._
 import fluence.ethclient.helpers.RemoteCallOps._
+import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
 import fluence.ethclient.{Deployer, EthClient}
 import fluence.node.NodeConfig
 import fluence.node.tendermint.ClusterData
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.{Address, DynamicArray}
-import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
+import org.web3j.abi.datatypes.generated._
 import org.web3j.protocol.core.methods.request.EthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
+import org.web3j.abi.datatypes.generated.Uint8
 import org.web3j.tuples.generated
 
 import scala.collection.JavaConverters._
@@ -156,6 +158,22 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
   def addAddressToWhitelist[F[_]: Async](address: String): F[BigInt] =
     deployer
       .addAddressToWhitelist(new Address(address))
+      .call[F]
+      .map(_.getBlockNumber)
+      .map(BigInt(_))
+
+  /**
+   * Adds a new code to be launched with a new cluster
+   *
+   * TODO should not be called from scala
+   * @param code Code app name
+   * @param clusterSize Cluster size
+   * @tparam F Effect
+   * @return The block number where transaction has been mined
+   */
+  def addCode[F[_]: Async](code: String = "llamadb", clusterSize: Short = 1): F[BigInt] =
+    deployer
+      .addCode(stringToBytes32("llamadb"), stringToBytes32("receipt_stub"), new Uint8(clusterSize))
       .call[F]
       .map(_.getBlockNumber)
       .map(BigInt(_))

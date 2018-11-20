@@ -24,7 +24,7 @@ import fluence.node.solvers.SolversPool
 
 import scala.concurrent.ExecutionContext
 
-object FluenceNode extends IOApp {
+object FluenceNodeApp extends IOApp {
   private implicit val sttpBackend: SttpBackend[IO, Nothing] = AsyncHttpClientCatsBackend[IO]()
 
   slogging.LoggerConfig.level = slogging.LogLevel.INFO

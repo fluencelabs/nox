@@ -34,7 +34,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
     Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   /**
-   * Launches a single solver connecting to ethereum blockchain with Deployer contract.
+   * Launches a Master node connecting to ethereum blockchain with Deployer contract.
    *
    * @param args 1st: Path to store master node's data (may be relative). 2nd: Tendermint p2p host IP. 3rd and 4th: Tendermint p2p port range.
    */
