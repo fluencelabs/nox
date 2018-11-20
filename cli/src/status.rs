@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use clap::{App, Arg, ArgMatches, SubCommand};
 use std::boxed::Box;
 use std::error::Error;
 use std::fmt;
@@ -21,8 +22,9 @@ use utils;
 use web3::contract::Options;
 use web3::types::{Address, U256};
 
-/// todo: command for `getStatus` method
-#[allow(dead_code)]
+const CONTRACT_ADDRESS: &str = "contract_address";
+const ETH_URL: &str = "eth_url";
+
 pub struct Status {
     pub version: u8,
     pub ready_nodes: u32,
@@ -30,7 +32,6 @@ pub struct Status {
 }
 
 impl Status {
-    #[allow(dead_code)]
     pub fn new(version: u8, ready_nodes: u32, enqueued_codes: Vec<u32>) -> Status {
         Status {
             version,
@@ -50,7 +51,13 @@ impl fmt::Display for Status {
     }
 }
 
-#[allow(dead_code)]
+pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
+    let contract_address: Address = args.value_of(CONTRACT_ADDRESS).unwrap().trim_left_matches("0x").parse()?;
+    let eth_url: &str = args.value_of(ETH_URL).unwrap();
+
+    get_status(contract_address, eth_url)
+}
+
 pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Box<Error>> {
     let options = Options::with(|o| {
         let gl: U256 = 100_000.into();
@@ -65,4 +72,24 @@ pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Bo
         ready_nodes as u32,
         enqueued_codes.into_iter().map(|x| x as u32).rev().collect(),
     ))
+}
+
+pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
+    SubCommand::with_name("status")
+        .about("Get status of smart contract.")
+        .args(&[
+            Arg::with_name(CONTRACT_ADDRESS)
+                .alias(CONTRACT_ADDRESS)
+                .required(true)
+                .takes_value(true)
+                .help("deployer contract address"),
+            Arg::with_name(ETH_URL)
+                .alias(ETH_URL)
+                .long("eth_url")
+                .short("e")
+                .required(false)
+                .takes_value(true)
+                .help("http address to ethereum node")
+                .default_value("http://localhost:8545/")
+        ])
 }

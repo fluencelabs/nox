@@ -44,6 +44,7 @@ fn main() {
         .about("Console utility for deploying code to fluence cluster")
         .subcommand(publisher::subcommand())
         .subcommand(register::subcommand())
+        .subcommand(status::subcommand())
         .subcommand(whitelist::subcommand());
 
     match app.get_matches().subcommand() {
@@ -78,6 +79,12 @@ fn main() {
             let formatted_tx = style(transaction.unwrap()).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);
+        }
+
+        ("status", Some(args)) => {
+            let status = status::get_status_by_args(args).unwrap();
+
+            println!("Status of Fluence smart contract:\n{}", status);
         }
 
         c => panic!(format!("Unexpected command: {}", c.0)),
