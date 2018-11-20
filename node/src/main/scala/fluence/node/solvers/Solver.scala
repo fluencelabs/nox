@@ -75,7 +75,9 @@ object Solver extends LazyLogging {
           .evalMap[F, SolverHealth] {
             case (d, true) ⇒
               // As container is running, perform a custom healthcheck: request a HTTP endpoint inside the container
-              logger.debug(s"Running HTTP healthcheck $params")
+              logger.debug(
+                s"Running HTTP healthcheck $params: http://localhost:${params.rpcPort}/${healthcheck.httpPath}"
+              )
               sttp
                 .get(uri"http://localhost:${params.rpcPort}/${healthcheck.httpPath}")
                 .send()
@@ -100,7 +102,7 @@ object Solver extends LazyLogging {
             case q if q.count(!_.isHealthy) > healthcheck.failOn ⇒
               // Stop the stream, as there's too many failing healthchecks
               logger.debug("Too many healthcheck failures, raising an error")
-              (new RuntimeException("Too many failures"): Throwable).raiseError[F, Unit]
+              (new RuntimeException("Too many healthcheck failures"): Throwable).raiseError[F, Unit]
             case _ ⇒ Applicative[F].unit
           }
           .compile

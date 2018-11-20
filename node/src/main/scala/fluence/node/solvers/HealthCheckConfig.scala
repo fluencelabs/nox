@@ -26,8 +26,8 @@ import scala.concurrent.duration._
  * @param httpPath What to call to check for health, should not contain leading slash /
  */
 case class HealthCheckConfig(
-  period: FiniteDuration = 3.seconds,
-  slide: Int = 5,
-  failOn: Int = 3,
+  period: FiniteDuration = 10.seconds,
+  slide: Int = 10,
+  failOn: Int = 8,
   httpPath: String = "status"
 )
