@@ -130,7 +130,7 @@ pub fn add_to_white_list(
     account_to_add: Address,
     contract_address: Address,
     account: Address,
-    password: Option<&str>
+    password: Option<&str>,
 ) -> Result<H256, Box<Error>> {
     let (_eloop, transport) = web3::transports::Http::new(eth_url)?;
     let web3 = web3::Web3::new(transport);

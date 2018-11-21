@@ -52,7 +52,11 @@ impl fmt::Display for Status {
 }
 
 pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
-    let contract_address: Address = args.value_of(CONTRACT_ADDRESS).unwrap().trim_left_matches("0x").parse()?;
+    let contract_address: Address = args
+        .value_of(CONTRACT_ADDRESS)
+        .unwrap()
+        .trim_left_matches("0x")
+        .parse()?;
     let eth_url: &str = args.value_of(ETH_URL).unwrap();
 
     get_status(contract_address, eth_url)
@@ -87,6 +91,6 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(false)
                 .takes_value(true)
                 .help("http address to ethereum node")
-                .default_value("http://localhost:8545/")
+                .default_value("http://localhost:8545/"),
         ])
 }

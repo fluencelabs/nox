@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-use web3::types::{Address, H256};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::error::Error;
 use utils;
+use web3::types::{Address, H256};
 
 const ADDRESS_TO_ADD: &str = "address";
 const ACCOUNT: &str = "account";
@@ -31,7 +31,7 @@ pub struct AddToWhitelist {
     address_to_add: Address,
     contract_address: Address,
     eth_url: String,
-    password: Option<String>
+    password: Option<String>,
 }
 
 impl AddToWhitelist {
@@ -47,7 +47,7 @@ impl AddToWhitelist {
             address_to_add,
             contract_address,
             eth_url,
-            password
+            password,
         }
     }
 
@@ -55,7 +55,13 @@ impl AddToWhitelist {
         let pass = self.password.as_ref().map(|s| s.as_str());
 
         let add_to_whitelist_fn = || -> Result<H256, Box<Error>> {
-            utils::add_to_white_list(&self.eth_url, self.address_to_add, self.contract_address, self.account, pass)
+            utils::add_to_white_list(
+                &self.eth_url,
+                self.address_to_add,
+                self.contract_address,
+                self.account,
+                pass,
+            )
         };
 
         let transaction = if show_progress {
@@ -74,7 +80,6 @@ impl AddToWhitelist {
 }
 
 pub fn parse(matches: &ArgMatches) -> Result<AddToWhitelist, Box<std::error::Error>> {
-
     let address_to_add = matches
         .value_of(ADDRESS_TO_ADD)
         .unwrap()
@@ -99,7 +104,7 @@ pub fn parse(matches: &ArgMatches) -> Result<AddToWhitelist, Box<std::error::Err
         address_to_add,
         contract_address,
         eth_url,
-        password
+        password,
     ))
 }
 
@@ -139,6 +144,6 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(false)
                 .takes_value(true)
                 .help("http address to ethereum node")
-                .default_value("http://localhost:8545/")
+                .default_value("http://localhost:8545/"),
         ])
 }

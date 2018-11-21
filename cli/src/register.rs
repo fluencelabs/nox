@@ -118,7 +118,6 @@ impl Register {
         let ip_str = self.node_ip.to_string();
         let split = ip_str.split(".");
 
-
         let mut addr_bytes: [u8; 4] = [0; IP_LEN];
 
         for (i, part) in split.enumerate() {
@@ -348,7 +347,7 @@ mod tests {
             register.account,
             register.contract_address,
             OWNER.parse()?,
-            pass
+            pass,
         )?;
 
         register.register(false)?;

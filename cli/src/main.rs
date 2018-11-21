@@ -75,7 +75,8 @@ fn main() {
 
             let transaction = add_to_whitelist.add_to_whitelist(true);
 
-            let formatted_finish_msg = style("Address added to whitelist. Submitted transaction").blue();
+            let formatted_finish_msg =
+                style("Address added to whitelist. Submitted transaction").blue();
             let formatted_tx = style(transaction.unwrap()).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);

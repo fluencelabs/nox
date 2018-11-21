@@ -354,7 +354,7 @@ mod tests {
             publisher.account,
             publisher.contract_address,
             OWNER.parse()?,
-            None
+            None,
         )?;
 
         publisher.publish(false)?;
