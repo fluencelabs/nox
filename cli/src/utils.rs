@@ -123,7 +123,6 @@ where
     Ok(res)
 }
 
-#[allow(dead_code)]
 pub fn add_to_white_list(
     eth_url: &str,
     account_to_add: Address,
@@ -158,4 +157,10 @@ pub fn parse_url(url: &str) -> Result<Url, UrlError> {
         }
         Err(error) => Err(error),
     }
+}
+
+pub fn options_with_gas(gas_limit: u32) -> Options {
+    Options::with(|default| {
+        default.gas = Some(gas_limit.into());
+    })
 }

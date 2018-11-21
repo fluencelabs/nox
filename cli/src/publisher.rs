@@ -25,8 +25,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use utils;
-use web3::contract::Options;
-use web3::types::{Address, H256, U256};
+use web3::types::{Address, H256};
 
 const PATH: &str = "path";
 const ACCOUNT: &str = "account";
@@ -36,14 +35,15 @@ const PASSWORD: &str = "password";
 const CLUSTER_SIZE: &str = "cluster_size";
 const SWARM_URL: &str = "swarm_url";
 
+#[derive(Debug)]
 pub struct Publisher {
-    pub bytes: Vec<u8>,
-    pub contract_address: Address,
-    pub account: Address,
-    pub swarm_url: String,
-    pub eth_url: String,
-    pub password: Option<String>,
-    pub cluster_size: u8,
+    bytes: Vec<u8>,
+    contract_address: Address,
+    account: Address,
+    swarm_url: String,
+    eth_url: String,
+    password: Option<String>,
+    cluster_size: u8,
 }
 
 impl Publisher {
@@ -93,10 +93,7 @@ impl Publisher {
             let receipt: H256 =
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
 
-            let options = Options::with(|o| {
-                let gl: U256 = 500_000.into();
-                o.gas = Some(gl);
-            });
+            let options = utils::options_with_gas(500_000);
 
             utils::call_contract(
                 self.account,
@@ -124,7 +121,7 @@ impl Publisher {
     }
 }
 
-pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<std::error::Error>> {
+pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
     let path = matches.value_of(PATH).unwrap().to_string();
 
     let contract_address = matches

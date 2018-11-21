@@ -87,6 +87,6 @@ fn main() {
             println!("Status of Fluence smart contract:\n{}", status);
         }
 
-        c => panic!(format!("Unexpected command: {}", c.0)),
+        c => panic!("Unexpected command: {}", c.0),
     }
 }

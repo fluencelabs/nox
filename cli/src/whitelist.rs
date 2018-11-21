@@ -25,12 +25,13 @@ const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
 
+#[derive(Debug)]
 pub struct AddToWhitelist {
-    pub account: Address,
-    pub address_to_add: Address,
-    pub contract_address: Address,
-    pub eth_url: String,
-    pub password: Option<String>
+    account: Address,
+    address_to_add: Address,
+    contract_address: Address,
+    eth_url: String,
+    password: Option<String>
 }
 
 impl AddToWhitelist {

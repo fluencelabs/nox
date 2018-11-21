@@ -19,16 +19,16 @@ use std::boxed::Box;
 use std::error::Error;
 use std::fmt;
 use utils;
-use web3::contract::Options;
-use web3::types::{Address, U256};
+use web3::types::Address;
 
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 
+#[derive(Debug)]
 pub struct Status {
-    pub version: u8,
-    pub ready_nodes: u32,
-    pub enqueued_codes: Vec<u32>,
+    version: u8,
+    ready_nodes: u32,
+    enqueued_codes: Vec<u32>,
 }
 
 impl Status {
@@ -59,10 +59,7 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
 }
 
 pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Box<Error>> {
-    let options = Options::with(|o| {
-        let gl: U256 = 100_000.into();
-        o.gas = Some(gl);
-    });
+    let options = utils::options_with_gas(300_000);
 
     let (version, ready_nodes, enqueued_codes): (u64, u64, Vec<u64>) =
         utils::query_contract(contract_address, eth_url, "getStatus", (), options)?;

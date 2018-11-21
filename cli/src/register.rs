@@ -22,9 +22,8 @@ use std::error::Error;
 use std::net::IpAddr;
 use utils;
 use web3::contract::tokens::Tokenizable;
-use web3::contract::Options;
 use web3::contract::{Error as ContractError, ErrorKind};
-use web3::types::{Address, H256, U256};
+use web3::types::{Address, H256};
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
@@ -35,19 +34,21 @@ const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
 
-construct_fixed_hash!{ pub struct H192(24); }
+const IP_LEN: usize = 4;
+const NODE_ADDR_LEN: usize = 24;
+construct_fixed_hash!{ pub struct H192(NODE_ADDR_LEN); }
 
 impl Tokenizable for H192 {
     fn from_token(token: Token) -> Result<Self, ContractError> {
         match token {
             Token::FixedBytes(mut s) => {
-                if s.len() != 24 {
+                if s.len() != NODE_ADDR_LEN {
                     bail!(ErrorKind::InvalidOutputType(format!(
                         "Expected `H192`, got {:?}",
                         s
                     )));
                 }
-                let mut data = [0; 24];
+                let mut data = [0; NODE_ADDR_LEN];
                 for (idx, val) in s.drain(..).enumerate() {
                     data[idx] = val;
                 }
@@ -64,15 +65,16 @@ impl Tokenizable for H192 {
     }
 }
 
+#[derive(Debug)]
 pub struct Register {
-    pub node_address: IpAddr,
-    pub tendermint_key: H256,
-    pub min_port: u16,
-    pub max_port: u16,
-    pub contract_address: Address,
-    pub account: Address,
-    pub eth_url: String,
-    pub password: Option<String>,
+    node_ip: IpAddr,
+    tendermint_key: H256,
+    min_port: u16,
+    max_port: u16,
+    contract_address: Address,
+    account: Address,
+    eth_url: String,
+    password: Option<String>,
 }
 
 impl Register {
@@ -85,13 +87,14 @@ impl Register {
         account: Address,
         eth_url: String,
         password: Option<String>,
-    ) -> Register {
+    ) -> Result<Register, Box<Error>> {
         if max_port < min_port {
-            panic!("max_port should be bigger than min_port");
+            let err: Box<Error> = From::from("max_port should be bigger than min_port".to_string());
+            return Err(err);
         }
 
-        Register {
-            node_address,
+        Ok(Register {
+            node_ip: node_address,
             tendermint_key,
             min_port,
             max_port,
@@ -99,17 +102,18 @@ impl Register {
             account,
             eth_url,
             password,
-        }
+        })
     }
 
     fn serialize_node_address(&self) -> Result<H192, Box<Error>> {
-        let addr_str = self.node_address.to_string();
-        let split = addr_str.split(".");
+        let ip_str = self.node_ip.to_string();
+        let split = ip_str.split(".");
 
-        let mut addr_bytes: [u8; 4] = [0; 4];
 
-        for (i, s) in split.enumerate() {
-            addr_bytes[i] = s.parse()?;
+        let mut addr_bytes: [u8; 4] = [0; IP_LEN];
+
+        for (i, part) in split.enumerate() {
+            addr_bytes[i] = part.parse()?;
         }
 
         let mut addr_vec = addr_bytes.to_vec();
@@ -133,10 +137,7 @@ impl Register {
         let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
             let pass = self.password.as_ref().map(|s| s.as_str());
 
-            let options = Options::with(|o| {
-                let gl: U256 = 200_000.into();
-                o.gas = Some(gl);
-            });
+            let options = utils::options_with_gas(300_000);
 
             let hash_addr = self.serialize_node_address()?;
 
@@ -172,7 +173,7 @@ impl Register {
     }
 }
 
-pub fn parse(matches: &ArgMatches) -> Result<Register, Box<std::error::Error>> {
+pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let node_address: IpAddr = matches.value_of(ADDRESS).unwrap().parse()?;
 
     let tendermint_key = matches
@@ -198,7 +199,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<std::error::Error>> {
 
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
-    Ok(Register::new(
+    Register::new(
         node_address,
         tendermint_key,
         min_port,
@@ -207,7 +208,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<std::error::Error>> {
         account,
         eth_url,
         password,
-    ))
+    )
 }
 
 /// Parses arguments from console and initialize parameters for Publisher
@@ -297,7 +298,7 @@ mod tests {
             account,
             String::from("http://localhost:8545/"),
             None,
-        )
+        ).unwrap()
     }
 
     pub fn generate_with<F>(func: F) -> Register
