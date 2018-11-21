@@ -27,21 +27,24 @@ Requirements: [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installa
 To look at all possible arguments and options use `./fluence --help`:
 
 ```
+Fluence CLI 0.1.0
+Fluence Labs
+Console utility for deploying code to fluence cluster
+
 USAGE:
-    fluence [OPTIONS] <path> <contract_address> --account <account>
+    fluence [SUBCOMMAND]
 
 FLAGS:
     -h, --help       Prints help information
     -V, --version    Prints version information
 
-OPTIONS:
-    -a, --account <account>              ethereum account
-    -c, --cluster_size <cluster_size>    cluster's size that needed to deploy this code [default: 3]
-    -e, --eth_url <eth_url>              http address to ethereum node [default: http://localhost:8545/]
-    -p, --password <password>            password to unlock account in ethereum client
-    -s, --swarm_url <swarm_url>          http address to swarm node [default: http://localhost:8500/]
-
-ARGS:
-    <path>                path to compiled `wasm` code
-    <contract_address>    deployer contract address
+SUBCOMMANDS:
+    add-to-whitelist    Adds an address to the whitelist of Fluence smart contract
+    help                Prints this message or the help of the given subcommand(s)
+    publish             Publish code to ethereum blockchain
+    register            Register solver in smart contract
+    status              Get status of smart contract
 ```
+
+You can use `./fluence [SUBCOMMAND] --help` to learn how to use commands.
+

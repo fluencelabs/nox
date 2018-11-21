@@ -105,7 +105,7 @@ pub fn parse(matches: &ArgMatches) -> Result<AddToWhitelist, Box<std::error::Err
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("add-to-whitelist")
-        .about("Adds an address to the whitelist of Fluence smart contract.")
+        .about("Adds an address to the whitelist of Fluence smart contract")
         .args(&[
             Arg::with_name(ADDRESS_TO_ADD)
                 .alias(ADDRESS_TO_ADD)

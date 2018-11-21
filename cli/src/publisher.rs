@@ -47,6 +47,7 @@ pub struct Publisher {
 }
 
 impl Publisher {
+    /// Creates `Publisher` structure
     pub fn new(
         bytes: Vec<u8>,
         contract_address: Address,
@@ -121,6 +122,7 @@ impl Publisher {
     }
 }
 
+/// Creates `Publisher` from arguments
 pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
     let path = matches.value_of(PATH).unwrap().to_string();
 
@@ -159,7 +161,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("publish")
-        .about("Publish code to ethereum blockchain.")
+        .about("Publish code to ethereum blockchain")
         .args(&[
             Arg::with_name(PATH)
                 .required(true)
@@ -214,6 +216,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         ])
 }
 
+/// Uploads bytes of code to the Swarm
 fn upload_code_to_swarm(url: &str, bytes: &Vec<u8>) -> Result<String, Box<Error>> {
     let mut url = utils::parse_url(url)?;
     url.set_path("/bzz:/");

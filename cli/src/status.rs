@@ -73,7 +73,7 @@ pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Bo
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("status")
-        .about("Get status of smart contract.")
+        .about("Get status of smart contract")
         .args(&[
             Arg::with_name(CONTRACT_ADDRESS)
                 .alias(CONTRACT_ADDRESS)

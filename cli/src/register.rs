@@ -34,10 +34,17 @@ const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
 
+/// number of bytes for encoding an IP address
 const IP_LEN: usize = 4;
-const NODE_ADDR_LEN: usize = 24;
+
+/// number of bytes for encoding tendermint key
+const TENDERMINT_KEY_LEN: usize = 20;
+
+/// number of bytes for encoding IP address and tendermint key
+const NODE_ADDR_LEN: usize = IP_LEN + TENDERMINT_KEY_LEN;
 construct_fixed_hash!{ pub struct H192(NODE_ADDR_LEN); }
 
+/// Helper for converting the hash structure to web3 format
 impl Tokenizable for H192 {
     fn from_token(token: Token) -> Result<Self, ContractError> {
         match token {
@@ -78,6 +85,7 @@ pub struct Register {
 }
 
 impl Register {
+    /// Creates `Register` structure
     pub fn new(
         node_address: IpAddr,
         tendermint_key: H256,
@@ -105,6 +113,7 @@ impl Register {
         })
     }
 
+    /// Serializes a node IP address and a tendermint key into the hash of node's key address
     fn serialize_node_address(&self) -> Result<H192, Box<Error>> {
         let ip_str = self.node_ip.to_string();
         let split = ip_str.split(".");
@@ -214,7 +223,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("register")
-        .about("Register solver in smart contract.")
+        .about("Register solver in smart contract")
         .args(&[
             Arg::with_name(ADDRESS)
                 .alias(ADDRESS)
