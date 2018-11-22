@@ -50,7 +50,7 @@ case class MasterNode(
           clusterData,
           solverTendermintPath.toString,
           // TODO fetch (from swarm) & cache
-          Paths.get("./statemachine/docker/examples/vmcode-" + clusterData.code).toAbsolutePath.toString
+          Paths.get("../statemachine/docker/examples/vmcode-" + clusterData.code).toAbsolutePath.toString
         )
     }
 

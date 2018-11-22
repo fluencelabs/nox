@@ -28,7 +28,7 @@ cat "$node_info_file" | jq ".cluster|.genesis" > "$1/config/genesis.json"
 sed -i -e "s#^external_address = \"\"\$#external_address = \"$external_address\"#" "$1/config/config.toml"
 
 # run Tendermint with disabled output
-tendermint node "--home=$1" "--moniker=$HOSTNAME" "--p2p.persistent_peers=$persistent_peers" > /dev/null 2> /dev/null &
+tendermint node "--home=$1" "--moniker=$HOSTNAME" "--p2p.persistent_peers=$persistent_peers" > /dev/null &
 
 # run State machine
 java -Dconfig.file="$2/sm.config" -jar "$3"
