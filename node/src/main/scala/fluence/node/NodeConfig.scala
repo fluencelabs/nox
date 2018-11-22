@@ -43,7 +43,7 @@ object NodeConfig extends slogging.LazyLogging {
   private val MinPortCount = 0
   private val MinPort = 20000
   private val MaxPort = 40000
-  private def MaxPort(range: Int = 0) = MaxPort - range
+  private def MaxPort(range: Int = 0): Int = MaxPort - range
 
   /**
    * Builds [[NodeConfig]] from command-line arguments.
