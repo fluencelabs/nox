@@ -78,6 +78,7 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
 
   /**
    * Executes a command inside solver's container, binding tendermint's home directory into `/tendermint` volume.
+   * Container start anew on every call, with existing tendermint config attached
    *
    * @param executable The command to execute
    */

@@ -43,9 +43,21 @@ case class MasterNode(
 ) extends slogging.LazyLogging {
 
   // Converts ClusterData into SolverParams which is ready to run
-  private val clusterDataToParams: fs2.Pipe[IO, ClusterData, SolverParams] =
+  private val clusterDataToParams: fs2.Pipe[IO, (ClusterData, Path), SolverParams] =
+    _.map {
+      case (clusterData, solverTendermintPath) ⇒
+        SolverParams(
+          clusterData,
+          solverTendermintPath.toString,
+          // TODO fetch (from swarm) & cache
+          Paths.get("./statemachine/docker/examples/vmcode-" + clusterData.code).toAbsolutePath.toString
+        )
+    }
+
+  // Writes node info & master keys to tendermint directory
+  private val dumpConfigAndKeys: fs2.Pipe[IO, ClusterData, (ClusterData, Path)] =
     _.evalMap(
-      clusterData ⇒
+      clusterData =>
         for {
           _ ← IO { logger.info("joining cluster '{}' as node {}", clusterData.clusterName, clusterData.nodeIndex) }
 
@@ -57,12 +69,7 @@ case class MasterNode(
           _ ← masterKeys.copyKeysToSolver(solverTendermintPath)
         } yield {
           logger.info("node info written to {}", solverTendermintPath)
-          SolverParams(
-            clusterData,
-            solverTendermintPath.toString,
-            // TODO fetch (from swarm) & cache
-            Paths.get("./statemachine/docker/examples/vmcode-" + clusterData.code).toAbsolutePath.toString
-          )
+          clusterData -> solverTendermintPath
       }
     )
 
@@ -73,6 +80,7 @@ case class MasterNode(
   val run: IO[ExitCode] =
     contract
       .getAllNodeClusters[IO](nodeConfig)
+      .through(dumpConfigAndKeys)
       .through(clusterDataToParams)
       .evalTap[IO] { params ⇒
         logger.info("Running solver `{}`", params)
