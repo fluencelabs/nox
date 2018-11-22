@@ -160,6 +160,9 @@ lazy val statemachine = (project in file("statemachine"))
         volume(solverDataRoot)
         volume(vmDataRoot)
 
+        // includes solver run script and default configs in the image
+        copy(baseDirectory.value / "docker" / "solver", solverDataRoot)
+
         add(artifact, artifactTargetPath)
 
         entryPoint("bash", solverRunScript, tmDataRoot, solverDataRoot, artifactTargetPath)
@@ -216,7 +219,11 @@ lazy val node = project
       catsEffect,
       sttp,
       sttpCatsBackend,
-      fs2io
+      fs2io,
+      pureConfig,
+      circeGeneric,
+      circeParser,
+      scalaTest
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
