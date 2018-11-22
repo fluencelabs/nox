@@ -66,7 +66,7 @@ object ClusterData {
       val persistentPeers = PersistentPeers.fromAddrsAndPorts(event.solverAddrs, event.solverPorts)
       val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
       val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
-      Some(ClusterData(nodeInfo, persistentPeers, storageHash))
+      Some(ClusterData(nodeInfo, persistentPeers, storage))
     }
   }
 }

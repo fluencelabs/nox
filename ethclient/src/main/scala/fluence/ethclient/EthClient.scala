@@ -45,6 +45,7 @@ import scala.language.higherKinds
  * @param web3 Underlying Web3j instance
  */
 class EthClient private (private val web3: Web3j) extends LazyLogging {
+  type ContractLoader[T] = (String, Web3j, TransactionManager, ContractGasProvider) => T
 
   /**
    * Returns the current client version.
@@ -96,7 +97,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
   def getContract[T](
     contractAddress: String,
     userAddress: String,
-    load: (String, Web3j, TransactionManager, ContractGasProvider) ⇒ T
+    load: ContractLoader[T]
   ): T = {
     val txManager = new ClientTransactionManager(web3, userAddress)
 

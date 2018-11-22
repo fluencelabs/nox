@@ -96,9 +96,8 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
           deployer
             .getCluster(clusterId)
             .call[F]
-            .map(DeployerContract.clusterTupleToClusterFormed(clusterId, _))
+            .map(ClusterData.fromTuple(clusterId, _, nodeConfig))
       )
-      .map(ClusterData.fromClusterFormedEvent(_, nodeConfig))
       .unNone
 
   /**
