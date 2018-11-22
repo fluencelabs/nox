@@ -41,6 +41,7 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
     // only with system ClassLoader.
     assemblyJarName in assembly := "counter.jar",
     assemblyMergeStrategy in assembly := {
+      // a module definition fails compilation for java 8, just skip it
       case PathList("module-info.class", xs @ _*) => MergeStrategy.first
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
@@ -68,6 +69,7 @@ lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
     commons,
     assemblyJarName in assembly := "llamadb.jar",
     assemblyMergeStrategy in assembly := {
+      // a module definition fails compilation for java 8, just skip it
       case PathList("module-info.class", xs @ _*) => MergeStrategy.first
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
@@ -112,6 +114,7 @@ lazy val statemachine = (project in file("statemachine"))
       scalaTest
     ),
     assemblyMergeStrategy in assembly := {
+      // a module definition fails compilation for java 8, just skip it
       case PathList("module-info.class", xs @ _*) => MergeStrategy.first
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
