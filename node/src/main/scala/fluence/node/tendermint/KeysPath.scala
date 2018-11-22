@@ -69,7 +69,7 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
       path.flatMap { p =>
         logger.info(s"Tendermint master keys not found in $p, going to initialize")
         solverExec("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
-          logger.info(s"Tendermint initialized $str in $p, goint to remove unused data")
+          logger.info(s"Tendermint initialized $str in $p, going to remove unused data")
           IO {
             p.resolve("config").resolve("config.toml").toFile.delete()
             p.resolve("config").resolve("genesis.json").toFile.delete()
