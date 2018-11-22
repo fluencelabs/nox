@@ -69,16 +69,18 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
         logger.info(s"Tendermint initialized $str in $path, goint to remove unused data")
         for {
           p <- path
-          _ = p.resolve("config").resolve("config.toml").toFile.delete()
-          _ = p.resolve("config").resolve("genesis.json").toFile.delete()
-          _ = p.resolve("data").toFile.delete()
+          _ <- IO {
+            p.resolve("config").resolve("config.toml").toFile.delete()
+            p.resolve("config").resolve("genesis.json").toFile.delete()
+            p.resolve("data").toFile.delete()
+          }
         } yield true
       }
   }
 
   /**
    * Executes a command inside solver's container, binding tendermint's home directory into `/tendermint` volume.
-   * Container start anew on every call, with existing tendermint config attached
+   * Container starts anew on every call, with existing tendermint config attached
    *
    * @param executable The command to execute
    */

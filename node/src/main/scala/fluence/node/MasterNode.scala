@@ -55,7 +55,7 @@ case class MasterNode(
     }
 
   // Writes node info & master keys to tendermint directory
-  private val dumpConfigAndKeys: fs2.Pipe[IO, ClusterData, (ClusterData, Path)] =
+  private val writeConfigAndKeys: fs2.Pipe[IO, ClusterData, (ClusterData, Path)] =
     _.evalMap(
       clusterData =>
         for {
@@ -80,7 +80,7 @@ case class MasterNode(
   val run: IO[ExitCode] =
     contract
       .getAllNodeClusters[IO](nodeConfig)
-      .through(dumpConfigAndKeys)
+      .through(writeConfigAndKeys)
       .through(clusterDataToParams)
       .evalTap[IO] { params ⇒
         logger.info("Running solver `{}`", params)
