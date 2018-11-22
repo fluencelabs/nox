@@ -61,20 +61,22 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
     privValidator <- privValidatorPath.map(_.toFile)
   } yield nodeKey.exists() && privValidator.exists()).flatMap {
     case true ⇒
-      logger.info(s"Tendermint master keys found in $path")
-      IO.pure(false)
+      path.map { p =>
+        logger.info(s"Tendermint master keys found in $p")
+        false
+      }
     case false ⇒
-      logger.info(s"Tendermint master keys not found in $path, going to initialize")
-      solverExec("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
-        logger.info(s"Tendermint initialized $str in $path, goint to remove unused data")
-        for {
-          p <- path
-          _ <- IO {
+      path.flatMap { p =>
+        logger.info(s"Tendermint master keys not found in $p, going to initialize")
+        solverExec("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
+          logger.info(s"Tendermint initialized $str in $p, goint to remove unused data")
+          IO {
             p.resolve("config").resolve("config.toml").toFile.delete()
             p.resolve("config").resolve("genesis.json").toFile.delete()
             p.resolve("data").toFile.delete()
+            true
           }
-        } yield true
+        }
       }
   }
 
