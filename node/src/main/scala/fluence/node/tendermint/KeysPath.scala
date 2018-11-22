@@ -29,11 +29,10 @@ import io.circe.parser.parse
  */
 case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
 
-  // TODO: is it safe?
-  lazy val path: Path = Paths.get(masterTendermintPath)
+  val path: IO[Path] = IO { Paths.get(masterTendermintPath) } //TODO: convert InvalidPathException to Fluence error
 
-  lazy val nodeKeyPath: Path = path.resolve("config").resolve("node_key.json")
-  lazy val privValidatorPath: Path = path.resolve("config").resolve("priv_validator.json")
+  val nodeKeyPath: IO[Path] = path.map(_.resolve("config").resolve("node_key.json"))
+  val privValidatorPath: IO[Path] = path.map(_.resolve("config").resolve("priv_validator.json"))
 
   /**
    * Runs `tendermint show_validator` inside the solver's container, and returns its output as [[ValidatorKey]].
@@ -57,24 +56,25 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
    * Initialize tendermint keys
    * Returns true if new keys are generated, false otherwise
    */
-  val init: IO[Boolean] =
-    IO(nodeKeyPath.toFile.exists() && privValidatorPath.toFile.exists()).flatMap {
-      case true ⇒
-        logger.info(s"Tendermint master keys found in $path")
-        IO.pure(false)
-      case false ⇒
-        logger.info(s"Tendermint master keys not found in $path, going to initialize")
-        solverExec("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
-          logger.info(s"Tendermint initialized $str in $path, goint to remove unused data")
-          IO {
-            // Remove unused data, as we need only keys
-            path.resolve("config").resolve("config.toml").toFile.delete()
-            path.resolve("config").resolve("genesis.json").toFile.delete()
-            path.resolve("data").toFile.delete()
-            true
-          }
-        }
-    }
+  val init: IO[Boolean] = (for {
+    nodeKey <- nodeKeyPath.map(_.toFile)
+    privValidator <- privValidatorPath.map(_.toFile)
+  } yield nodeKey.exists() && privValidator.exists()).flatMap {
+    case true ⇒
+      logger.info(s"Tendermint master keys found in $path")
+      IO.pure(false)
+    case false ⇒
+      logger.info(s"Tendermint master keys not found in $path, going to initialize")
+      solverExec("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
+        logger.info(s"Tendermint initialized $str in $path, goint to remove unused data")
+        for {
+          p <- path
+          _ = p.resolve("config").resolve("config.toml").toFile.delete()
+          _ = p.resolve("config").resolve("genesis.json").toFile.delete()
+          _ = p.resolve("data").toFile.delete()
+        } yield true
+      }
+  }
 
   /**
    * Executes a command inside solver's container, binding tendermint's home directory into `/tendermint` volume.
@@ -97,15 +97,15 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
    *
    * @param solverTendermintPath Solver's tendermint path
    */
-  def copyKeysToSolver(solverTendermintPath: Path): IO[Unit] = IO {
+  def copyKeysToSolver(solverTendermintPath: Path): IO[Unit] = path.map { p =>
     Files.copy(
-      path.resolve("config").resolve("node_key.json"),
+      p.resolve("config").resolve("node_key.json"),
       solverTendermintPath.resolve("config").resolve("node_key.json"),
       REPLACE_EXISTING
     )
 
     Files.copy(
-      path.resolve("config").resolve("priv_validator.json"),
+      p.resolve("config").resolve("priv_validator.json"),
       solverTendermintPath.resolve("config").resolve("priv_validator.json"),
       REPLACE_EXISTING
     )
