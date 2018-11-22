@@ -37,9 +37,11 @@ mod whitelist;
 use clap::App;
 use console::style;
 
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
 fn main() {
     let app = App::new("Fluence CLI")
-        .version("0.1.0")
+        .version(VERSION)
         .author("Fluence Labs")
         .about("Console utility for deploying code to fluence cluster")
         .subcommand(publisher::subcommand())
