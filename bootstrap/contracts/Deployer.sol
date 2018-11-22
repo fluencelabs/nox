@@ -134,7 +134,7 @@ contract Deployer is Whitelist {
         emit NewNode(nodeID);
 
         while (matchWork()) {
-            // try match work until it matched
+            // try match work while it matched
         }
     }
 
@@ -180,7 +180,7 @@ contract Deployer is Whitelist {
             solverIDs, solverAddrs, solverPorts);
     }
 
-    /** @dev Allows to tract currently clusters for specified node's solvers
+    /** @dev Allows to track currently running clusters for specified node's solvers
      * @param nodeID ID of node (Tendermint consensus key)
      */
     function getNodeClusters(bytes32 nodeID)

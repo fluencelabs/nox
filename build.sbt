@@ -139,6 +139,7 @@ lazy val statemachine = (project in file("statemachine"))
         volume(solverDataRoot)
         volume(vmDataRoot)
 
+        // includes solver run script and default configs in the image
         copy(baseDirectory.value / "docker" / "solver", solverDataRoot)
 
         add(artifact, artifactTargetPath)
@@ -200,7 +201,8 @@ lazy val node = project
       fs2io,
       pureConfig,
       circeGeneric,
-      circeParser
+      circeParser,
+      scalaTest
     )
   )
   .enablePlugins(AutomateHeaderPlugin)

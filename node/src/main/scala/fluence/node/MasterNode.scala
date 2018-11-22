@@ -75,9 +75,9 @@ case class MasterNode(
       .getAllNodeClusters[IO](nodeConfig)
       .through(clusterDataToParams)
       .evalTap[IO] { params ⇒
-        logger.info("running solver `{}`", params.dockerCommand.command.mkString(" "))
+        logger.info("Running solver `{}`", params)
 
-        pool.run(params).map(newlyAdded ⇒ logger.info(s"solver runned(newly=$newlyAdded) {}", params))
+        pool.run(params).map(newlyAdded ⇒ logger.info(s"solver run (newly=$newlyAdded) {}", params))
       }
       .drain // drop the results, so that demand on events is always provided
       .onFinalize(IO(logger.info("subscription finalized")))
