@@ -122,7 +122,6 @@ contract Deployer is Whitelist {
       */
     function addNode(bytes32 nodeID, bytes24 nodeAddress, uint16 startPort, uint16 endPort)
         external
-        //onlyIfWhitelisted(msg.sender)
     {
         require(whitelist(msg.sender), "The sender is not in whitelist");
         require(nodes[nodeID].id == 0, "This node is already registered");
@@ -133,9 +132,8 @@ contract Deployer is Whitelist {
         solverClusters.length += endPort - startPort;
         emit NewNode(nodeID);
 
-        while (matchWork()) {
-            // try match work while it matched
-        }
+        // match code to clusters until no matches left
+        while (matchWork()) {}
     }
 
     /** @dev Adds new Code to be deployed on Solvers when there are enough of them
@@ -146,7 +144,6 @@ contract Deployer is Whitelist {
       */
     function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize)
         external
-        //onlyIfWhitelisted(msg.sender)
     {
         require(whitelist(msg.sender), "The sender is not in whitelist");
         enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize));
