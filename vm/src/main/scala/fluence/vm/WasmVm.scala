@@ -158,7 +158,8 @@ object WasmVm {
         Nil, // registrations
         false, // disableAutoRegister
         config.specTestRegister,
-        config.defaultMaxMemPages
+        config.defaultMaxMemPages,
+        config.loggerRegister,
       )
     )
   }
