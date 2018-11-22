@@ -79,7 +79,7 @@ object DockerIO extends LazyLogging {
           .evalMap(
             d ⇒
               shiftDelay(s"docker inspect -f '{{.State.Running}}' $dockerId".!!).map { status ⇒
-                logger.debug(s"Docker container $dockerId  status = [$status]")
+                logger.debug(s"Docker container $dockerId  status = [${status.trim}]")
                 d → status.contains("true")
             }
         )

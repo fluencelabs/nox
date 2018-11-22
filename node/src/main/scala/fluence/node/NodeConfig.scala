@@ -39,8 +39,11 @@ case class NodeConfig(
 )
 
 object NodeConfig extends slogging.LazyLogging {
-  private val PortRangeLengthLimits = 1 to 100
-  private val StartPortLimits = 20000 to (40000 - PortRangeLengthLimits.max)
+  private val MaxPortCount = 100
+  private val MinPortCount = 0
+  private val MinPort = 20000
+  private val MaxPort = 40000
+  private def MaxPort(range: Int = 0) = MaxPort - range
 
   /**
    * Builds [[NodeConfig]] from command-line arguments.
@@ -75,15 +78,27 @@ object NodeConfig extends slogging.LazyLogging {
 
       startPort <- IO(startPortString.toShort)
       endPort <- IO(endPortString.toShort)
-
-      _ ← if (PortRangeLengthLimits.contains(endPort - startPort) && StartPortLimits.contains(startPort))
-        IO.unit
-      else
-        IO.raiseError(
-          new IllegalArgumentException(
-            s"Port range should contain $PortRangeLengthLimits ports starting from $StartPortLimits"
-          )
-        )
+      _ ← checkPorts(startPort, endPort)
     } yield NodeConfig(ip, startPort, endPort, validatorKey, nodeAddress)
+
+  private def checkPorts(startPort: Int, endPort: Int): IO[Unit] = {
+    val ports = endPort - startPort
+
+    if (ports <= MinPortCount || ports > MaxPortCount) {
+      IO.raiseError(
+        new IllegalArgumentException(
+          s"Port range size should be between $MinPortCount and $MaxPortCount"
+        )
+      )
+    } else if (startPort < MinPort || startPort > MaxPort(ports) && endPort > MaxPort) {
+      IO.raiseError(
+        new IllegalArgumentException(
+          s"Allowed ports should be between $MinPort and $MaxPort"
+        )
+      )
+    } else {
+      IO.unit
+    }
+  }
 
 }
