@@ -324,18 +324,6 @@ mod tests {
         })
     }
 
-    pub fn generate_new_account(with_pass: bool) -> Register {
-        generate_with(|p| {
-            let (_eloop, transport) = web3::transports::Http::new(&p.eth_url).unwrap();
-            let web3 = web3::Web3::new(transport);
-            let acc = web3.personal().new_account("123").wait().unwrap();
-            p.account = acc;
-            if with_pass {
-                p.password = Some(String::from("123"));
-            }
-        })
-    }
-
     #[test]
     fn register_success() -> Result<(), Box<Error>> {
         let register = generate_with_account("02f906f8b3b932fd282109a5b8dc732ba2329888".parse()?);
