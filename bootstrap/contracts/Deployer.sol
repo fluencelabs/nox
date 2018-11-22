@@ -122,9 +122,8 @@ contract Deployer is Whitelist {
       */
     function addNode(bytes32 nodeID, bytes24 nodeAddress, uint16 startPort, uint16 endPort)
         external
-        //onlyIfWhitelisted(msg.sender)
     {
-        require(whitelist(msg.sender));
+        require(whitelist(msg.sender), "The sender is not in whitelist");
         require(nodes[nodeID].id == 0, "This node is already registered");
         require(startPort < endPort, "Port range is empty or incorrect");
 
@@ -133,9 +132,8 @@ contract Deployer is Whitelist {
         solverClusters.length += endPort - startPort;
         emit NewNode(nodeID);
 
-        while (matchWork()) {
-            // try match work until it matched
-        }
+        // match code to clusters until no matches left
+        while (matchWork()) {}
     }
 
     /** @dev Adds new Code to be deployed on Solvers when there are enough of them
@@ -146,9 +144,8 @@ contract Deployer is Whitelist {
       */
     function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize)
         external
-        //onlyIfWhitelisted(msg.sender)
     {
-        require(whitelist(msg.sender));
+        require(whitelist(msg.sender), "The sender is not in whitelist");
         enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize));
         if (!matchWork()) {
             emit CodeEnqueued(storageHash);
@@ -180,7 +177,7 @@ contract Deployer is Whitelist {
             solverIDs, solverAddrs, solverPorts);
     }
 
-    /** @dev Allows to tract currently clusters for specified node's solvers
+    /** @dev Allows to track currently running clusters for specified node's solvers
      * @param nodeID ID of node (Tendermint consensus key)
      */
     function getNodeClusters(bytes32 nodeID)
@@ -212,15 +209,6 @@ contract Deployer is Whitelist {
         uint8 version = 101;
         return (version, readyNodes.length, cs);
     }
-
-    function getNode(bytes32 nodeID)
-                external
-                view
-                returns (bytes24)
-            {
-                Node memory node = nodes[nodeID];
-                return node.nodeAddress;
-            }
 
     /** @dev Checks if there is enough free Solvers for undeployed Code
      * emits ClusterFormed event if so
