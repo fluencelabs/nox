@@ -7,10 +7,13 @@
 #![feature(allocator_api)]
 #![allow(dead_code)]
 
+#[cfg(test)]
 mod tests;
 
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate log;
 extern crate fluence_sdk as fluence;
 extern crate llamadb;
 
@@ -28,6 +31,23 @@ type GenResult<T> = Result<T, Box<Error>>;
 // Public functions for work with Llamadb.
 //
 
+/// Initializes `WasmLogger` instance and returns result as string.
+/// Enabled only for Wasm target.
+#[no_mangle]
+#[cfg(target_arch = "wasm32")]
+pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
+    let result = fluence::logger::WasmLogger::init_with_level(log::Level::Info)
+        .map(|_| "WasmLogger was successfully initialized".to_string())
+        .unwrap_or_else(|err| format!("WasmLogger initialization was failed, cause: {:?}", err));
+
+    let res_ptr = fluence::memory::write_str_to_mem(&result).unwrap_or_else(|_| {
+        log_and_panic("Putting result string to the memory was failed.".into())
+    });
+
+    warn!("{}\n", result);
+    res_ptr
+}
+
 /// Executes sql and returns the result as string in the memory.
 ///
 /// 1. Takes a pointer and length for a the SQL string in memory, makes from them
@@ -37,6 +57,7 @@ type GenResult<T> = Result<T, Box<Error>>;
 /// 4. Deallocates memory from passed parameter
 #[no_mangle]
 pub unsafe fn do_query(ptr: *mut u8, len: usize) -> NonNull<u8> {
+    info!("do_query starts with ptr={:?}, len={}", ptr, len);
     // memory for the parameter will be deallocated when sql_str was dropped
     let sql_str: String = fluence::memory::deref_str(ptr, len);
 
@@ -45,9 +66,10 @@ pub unsafe fn do_query(ptr: *mut u8, len: usize) -> NonNull<u8> {
         Err(err_msg) => format!("[Error] {}", err_msg),
     };
 
+    info!("do_query ends with result={:?}", db_response);
     // return pointer to result in memory
     fluence::memory::write_str_to_mem(&db_response)
-        .expect("Putting result string to the memory was failed.")
+        .unwrap_or_else(|_| log_and_panic("Putting result string to the memory was failed.".into()))
 }
 
 //
@@ -58,10 +80,12 @@ pub unsafe fn do_query(ptr: *mut u8, len: usize) -> NonNull<u8> {
 /// Used from the host environment for memory allocation for passed parameters.
 #[no_mangle]
 pub unsafe fn allocate(size: usize) -> NonNull<u8> {
-    let non_zero_size = NonZeroUsize::new(size)
-        .unwrap_or_else(|| panic!("[Error] Allocation of zero bytes is not allowed."));
+    info!("allocate starts with size={}", size);
+    let non_zero_size = NonZeroUsize::new(size).unwrap_or_else(|| {
+        log_and_panic("[Error] Allocation of zero bytes is not allowed.".into())
+    });
     fluence::memory::alloc(non_zero_size)
-        .unwrap_or_else(|_| panic!("[Error] Allocation of {} bytes failed.", size))
+        .unwrap_or_else(|_| log_and_panic(format!("[Error] Allocation of {} bytes failed.", size)))
 }
 
 /// Deallocates memory area for current memory pointer and size.
@@ -69,10 +93,21 @@ pub unsafe fn allocate(size: usize) -> NonNull<u8> {
 /// of function from Wasm memory.
 #[no_mangle]
 pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
-    let non_zero_size = NonZeroUsize::new(size)
-        .unwrap_or_else(|| panic!("[Error] Deallocation of zero bytes is not allowed."));
-    fluence::memory::dealloc(ptr, non_zero_size)
-        .unwrap_or_else(|_| panic!("[Error] Deallocate failed for prt={:?} size={}.", ptr, size));
+    info!("deallocate starts with ptr={:?}, size={}", ptr, size);
+    let non_zero_size = NonZeroUsize::new(size).unwrap_or_else(|| {
+        log_and_panic("[Error] Deallocation of zero bytes is not allowed.".into())
+    });
+    fluence::memory::dealloc(ptr, non_zero_size).unwrap_or_else(|_| {
+        log_and_panic(format!(
+            "[Error] Deallocate failed for prt={:?} size={}.",
+            ptr, size
+        ))
+    });
+}
+
+fn log_and_panic(msg: String) -> ! {
+    error!("{}", msg);
+    panic!(msg);
 }
 
 /// Acquires lock, does query, releases lock, returns query result
