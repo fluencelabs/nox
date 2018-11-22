@@ -47,9 +47,9 @@ matrix:
 
       script:
         - cargo fmt --all -- --check -v
-        - cargo build -v
-        - cargo doc -v
-        - cargo test -v
+        - cargo build -v --all-features
+        - cargo doc -v --all-features
+        - cargo test -v --all-features
 
     - name: LlamaDb VM example
 
