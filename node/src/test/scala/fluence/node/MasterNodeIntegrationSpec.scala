@@ -150,7 +150,8 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
       .unsafeRunSync()
   }
 
-  private def nodeDirectory(index: Int): String = System.getProperty("user.home") + s"/.fluence/node$index"
+  //private def nodeDirectory(index: Int): String = System.getProperty("user.home") + s"/.fluence/node$index"
+  private def nodeDirectory(index: Int): String = Paths.get(s".fluence/node$index").toAbsolutePath.toString
 
   private def heightFromTendermintStatus(nodeConfig: NodeConfig, solverOrder: Int): IO[Option[Long]] = {
     import io.circe._
