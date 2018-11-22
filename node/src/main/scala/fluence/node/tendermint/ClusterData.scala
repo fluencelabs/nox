@@ -18,6 +18,9 @@ package fluence.node.tendermint
 import fluence.ethclient.Deployer.ClusterFormedEventResponse
 import fluence.ethclient.helpers.Web3jConverters.bytes32ToString
 import fluence.node.NodeConfig
+import fluence.node.eth.DeployerContract.ContractClusterTuple
+import org.web3j.abi.datatypes.DynamicArray
+import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
 
 /**
  * All the information required to launch solver.
@@ -57,13 +60,45 @@ object ClusterData {
     event: ClusterFormedEventResponse,
     nodeConfig: NodeConfig
   ): Option[ClusterData] = {
-    val genesis = Genesis.fromClusterData(event.clusterID, event.solverIDs, event.genesisTime)
+    build(
+      event.clusterID,
+      event.solverIDs,
+      event.genesisTime,
+      event.storageHash,
+      event.solverAddrs,
+      event.solverPorts,
+      nodeConfig
+    )
+  }
+
+  def fromTuple(clusterID: Bytes32, tuple: ContractClusterTuple, nodeConfig: NodeConfig): Option[ClusterData] = {
+    build(
+      clusterID,
+      solverIDs = tuple.getValue4,
+      genesisTime = tuple.getValue3,
+      storageHash = tuple.getValue1,
+      solverAddrs = tuple.getValue5,
+      solverPorts = tuple.getValue6,
+      nodeConfig = nodeConfig
+    )
+  }
+
+  def build(
+    clusterID: Bytes32,
+    solverIDs: DynamicArray[Bytes32],
+    genesisTime: Uint256,
+    storageHash: Bytes32,
+    solverAddrs: DynamicArray[Bytes24],
+    solverPorts: DynamicArray[Uint16],
+    nodeConfig: NodeConfig
+  ): Option[ClusterData] = {
+    val genesis = Genesis.fromClusterData(clusterID, solverIDs, genesisTime)
     val nodeIndex = genesis.validators.indexWhere(_.pub_key == nodeConfig.validatorKey)
     if (nodeIndex == -1)
       None
     else {
-      val storageHash = bytes32ToString(event.storageHash) // TODO: temporarily used as name of pre-existing local code
-      val persistentPeers = PersistentPeers.fromAddrsAndPorts(event.solverAddrs, event.solverPorts)
+      val storage = bytes32ToString(storageHash) // TODO: temporarily used as name of pre-existing local code
+      val persistentPeers = PersistentPeers.fromAddrsAndPorts(solverAddrs, solverPorts)
       val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
       val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
       Some(ClusterData(nodeInfo, persistentPeers, storage))

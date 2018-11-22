@@ -211,21 +211,6 @@ object DeployerContract {
       )
     )
 
-  // Tuple corresponds to the data structure of Deployer contract array
-  private def clusterTupleToClusterFormed(
-    clusterId: Bytes32,
-    clusterTuple: ContractClusterTuple
-  ): ClusterFormedEventResponse = {
-    val artificialEvent = new ClusterFormedEventResponse()
-    artificialEvent.clusterID = clusterId
-    artificialEvent.storageHash = clusterTuple.getValue1
-    artificialEvent.genesisTime = clusterTuple.getValue3
-    artificialEvent.solverIDs = clusterTuple.getValue4
-    artificialEvent.solverAddrs = clusterTuple.getValue5
-    artificialEvent.solverPorts = clusterTuple.getValue6
-    artificialEvent
-  }
-
   implicit class NodeConfigEthOps(nodeConfig: NodeConfig) {
     import fluence.ethclient.helpers.Web3jConverters.{base64ToBytes32, solverAddressToBytes24}
     import nodeConfig._
