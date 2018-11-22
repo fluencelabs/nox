@@ -16,7 +16,7 @@
 
 package fluence.node
 import java.io.File
-import java.nio.file.Paths
+import java.nio.file.{Files, Path, Paths}
 
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import com.softwaremill.sttp.SttpBackend
@@ -62,8 +62,8 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
     run("pkill -f ganache")
 
     logger.info("removing node directories")
-    run(s"rm -rf ${nodeDirectory(0)}")
-    run(s"rm -rf ${nodeDirectory(1)}")
+    run(s"rm -rf ${solversPath(0)}")
+    run(s"rm -rf ${solversPath(1)}")
 
     logger.info("stopping containers")
     run("docker rm -f 01_node0 01_node1 02_node0")
@@ -98,18 +98,18 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
             pool ← SolversPool[IO]()
 
             // initializing 0th node: for 2 solvers
-            rootPath0 = Paths.get(nodeDirectory(0)).toAbsolutePath
-            masterKeys0 = KeysPath(rootPath0.resolve("tendermint").toString)
+            _ = Files.createDirectories(solversPath(0))
+            masterKeys0 = KeysPath(keysPath(0).toString)
             _ <- masterKeys0.init
             nodeConfig0 <- NodeConfig.fromArgs(masterKeys0, List("192.168.0.5", "25000", "25002"))
-            node0 = MasterNode(masterKeys0, nodeConfig0, contract, pool, rootPath0)
+            node0 = MasterNode(masterKeys0, nodeConfig0, contract, pool, solversPath(0))
 
             // initializing 1st node: for 1 solver
-            rootPath1 = Paths.get(nodeDirectory(1)).toAbsolutePath
-            masterKeys1 = KeysPath(rootPath1.resolve("tendermint").toString)
+            _ = Files.createDirectories(solversPath(1))
+            masterKeys1 = KeysPath(keysPath(1).toString)
             _ <- masterKeys1.init
             nodeConfig1 <- NodeConfig.fromArgs(masterKeys1, List("192.168.0.5", "25500", "25501"))
-            node1 = MasterNode(masterKeys1, nodeConfig1, contract, pool, rootPath1)
+            node1 = MasterNode(masterKeys1, nodeConfig1, contract, pool, solversPath(1))
 
             // registering nodes in contract – nothing should happen here, because no matching work exists
             _ <- contract.addNode[IO](nodeConfig0)
@@ -150,8 +150,11 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
       .unsafeRunSync()
   }
 
-  //private def nodeDirectory(index: Int): String = System.getProperty("user.home") + s"/.fluence/node$index"
-  private def nodeDirectory(index: Int): String = Paths.get(s".fluence/node$index").toAbsolutePath.toString
+  private def solversPath(index: Int): Path =
+    Paths.get(System.getProperty("user.home") + s"/.fluence/node$index/solvers")
+
+  private def keysPath(index: Int): Path =
+    Paths.get(System.getProperty("user.home") + s"/.fluence/node$index/keys")
 
   private def heightFromTendermintStatus(nodeConfig: NodeConfig, solverOrder: Int): IO[Option[Long]] = {
     import io.circe._
