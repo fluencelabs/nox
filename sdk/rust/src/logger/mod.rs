@@ -1,15 +1,15 @@
-//! Module for writes log mesages from Wasm code.
+//! This module enables log messages writes from the WASM code.
 //!
-//! This module is client for Logger Wasm Module in Fluence WasmVm. In couple
-//! they allow to write messages from Wasm code to log. Destination of logging
-//! is depends on Vm implementation and basically it is 'stdout'. By default this
-//! module is disabled in WasmVm.
+//! This is a client for the Logger Wasm Module in Fluence WasmVm. Together they
+//! allow to write messages from Wasm code to log. The logging is basically a
+//! 'stdout' and depends on Vm implementation. By default this module is disabled
+//! in WasmVm.
 //!
-//! Note that this module is work only for Wasm environment and Fluence WasmVm.
-//! Don't try use it for others targets and VMs.
+//! Note that this module works only for the Wasm environment and Fluence WasmVm.
+//! Don't use it for other targets and Vms.
 //!
-//! This module provides implementation for logging facade in crate
-//! [`log`]. See examples below for usege:
+//! This module provides implementation for logging facade in crate [`log`].
+//! See examples below:
 //!
 //! # Examples
 //!

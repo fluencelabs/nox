@@ -13,9 +13,11 @@ license = "Apache-2.0"
 maintenance = { status = "actively-developed" }
 
 [package.metadata.docs.rs] # https://docs.rs/about
+
 all-features = true
 
 [lib]
+
 name = "fluence_sdk"
 path = "src/lib.rs"
 crate-type = ["rlib"]
