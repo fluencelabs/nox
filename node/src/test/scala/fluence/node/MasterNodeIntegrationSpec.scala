@@ -62,8 +62,8 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
     run("pkill -f ganache")
 
     logger.info("removing node directories")
-    run("rm -rf ~/.fluence/node0")
-    run("rm -rf ~/.fluence/node1")
+    run(s"rm -rf ${nodeDirectory(0)}")
+    run(s"rm -rf ${nodeDirectory(1)}")
 
     logger.info("stopping containers")
     run("docker rm -f 01_node0 01_node1 02_node0")
@@ -98,14 +98,14 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
             pool ← SolversPool[IO]()
 
             // initializing 0th node: for 2 solvers
-            rootPath0 = Paths.get(System.getProperty("user.home"), ".fluence", "node0").toAbsolutePath
+            rootPath0 = Paths.get(nodeDirectory(0)).toAbsolutePath
             masterKeys0 = KeysPath(rootPath0.resolve("tendermint").toString)
             _ <- masterKeys0.init
             nodeConfig0 <- NodeConfig.fromArgs(masterKeys0, List("192.168.0.5", "25000", "25002"))
             node0 = MasterNode(masterKeys0, nodeConfig0, contract, pool, rootPath0)
 
             // initializing 1st node: for 1 solver
-            rootPath1 = Paths.get(System.getProperty("user.home"), ".fluence", "node1").toAbsolutePath
+            rootPath1 = Paths.get(nodeDirectory(1)).toAbsolutePath
             masterKeys1 = KeysPath(rootPath1.resolve("tendermint").toString)
             _ <- masterKeys1.init
             nodeConfig1 <- NodeConfig.fromArgs(masterKeys1, List("192.168.0.5", "25500", "25501"))
@@ -149,6 +149,8 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
       }
       .unsafeRunSync()
   }
+
+  private def nodeDirectory(index: Int): String = System.getProperty("user.home") + s"/.fluence/node$index"
 
   private def heightFromTendermintStatus(nodeConfig: NodeConfig, solverOrder: Int): IO[Option[Long]] = {
     import io.circe._
