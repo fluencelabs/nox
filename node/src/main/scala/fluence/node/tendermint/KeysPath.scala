@@ -15,14 +15,11 @@
  */
 
 package fluence.node.tendermint
-import java.nio.file.StandardCopyOption.REPLACE_EXISTING
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Path, Paths}
 
 import cats.effect.IO
 import fluence.node.docker.DockerParams
 import io.circe.parser.parse
-
-import scala.sys.process.Process
 
 /**
  * Wraps tendermint directory for the Master process (contains shared tendermint keys).
@@ -105,13 +102,6 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
    * @param solverTendermintPath Solver's tendermint path
    */
   def copyKeysToSolver(solverTendermintPath: Path): IO[Unit] = path.map { p =>
-    /*Process(
-      s"docker run --rm -i -v $p:/keys -v $solverTendermintPath:/solver --entrypoint cp fluencelabs/solver:latest -f /keys/config/node_key.json /solver/config/node_key.json"
-    ).!!
-    Process(
-      s"docker run --rm -i -v $p:/keys -v $solverTendermintPath:/solver --entrypoint cp fluencelabs/solver:latest -f /keys/config/priv_validator.json /solver/config/priv_validator.json"
-    ).!!*/
-
     DockerParams
       .run("cp", "-f", "/keys/config/node_key.json", "/solver/config/node_key.json")
       .volume(p.toString, "/keys")
