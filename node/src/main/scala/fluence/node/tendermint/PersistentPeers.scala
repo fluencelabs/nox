@@ -55,7 +55,7 @@ object PersistentPeers {
           x =>
             PersistentPeer(
               ByteVector(x._1, 0, 20).toHex,
-              /*ByteVector(x._1, 20, 4).toArray.map(x => (x & 0xFF).toString).mkString(".")*/ "localhost", // TODO:!!!
+              ByteVector(x._1, 20, 4).toArray.map(x => (x & 0xFF).toString).mkString("."),
               x._2.shortValue()
           )
         )
