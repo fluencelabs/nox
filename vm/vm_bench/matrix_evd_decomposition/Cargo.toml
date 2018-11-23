@@ -1,0 +1,13 @@
+[package]
+name = "matrix_evd_decomposition"
+version = "0.1.0"
+authors = ["M. Voronov <michail@fluence.one>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+nalgebra = "0.6.0"
+num-bigint = {version = "*", default_features = false}
+num-traits = {version = "*", default_features = false}
+num-integer = {version = "*", default_features = false}
