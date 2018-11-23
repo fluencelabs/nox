@@ -100,7 +100,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
       case "mac" => detectIPStringByNetworkInterface("en0")
       case _ => throw new RuntimeException("The test doesn't support this OS")
     }
-    println(s"Docker host: '$dockerHostIP'")
+    logger.info(s"Docker host: '$dockerHostIP'")
 
     val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
       Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
@@ -125,20 +125,20 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
             // initializing 0th node: for 2 solvers
             masterKeys0 = KeysPath(keysPath(0).toString)
             _ <- masterKeys0.init
-            nodeConfig0 <- NodeConfig.fromArgs(masterKeys0, List(dockerHostIP, "25067", "25069"))
+            nodeConfig0 <- NodeConfig.fromArgs(masterKeys0, List(dockerHostIP, "25000", "25002"))
             node0 = MasterNode(masterKeys0, nodeConfig0, contract, pool, solversPath(0))
 
             // initializing 1st node: for 1 solver
             masterKeys1 = KeysPath(keysPath(1).toString)
             _ <- masterKeys1.init
-            nodeConfig1 <- NodeConfig.fromArgs(masterKeys1, List(dockerHostIP, "25567", "25568"))
+            nodeConfig1 <- NodeConfig.fromArgs(masterKeys1, List(dockerHostIP, "25500", "25501"))
             node1 = MasterNode(masterKeys1, nodeConfig1, contract, pool, solversPath(1))
 
             // registering nodes in contract – nothing should happen here, because no matching work exists
             _ <- contract.addNode[IO](nodeConfig0)
             _ <- contract.addNode[IO](nodeConfig1)
 
-            // adding code – this should cause event, but MasterNode not launched yet, so it wouldn't catch it as event
+            // adding code – this should cause event, but MasterNodes not launched yet, so they wouldn't catch it
             _ <- contract.addCode[IO](clusterSize = 2)
 
             // sending useless tx - just to switch to a new block
@@ -156,8 +156,8 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
 
             // letting MasterNodes to process event and launch solvers
             // then letting solver clusters to make first blocks
-            _ = logger.info("waiting 60 seconds")
-            _ = Thread.sleep(60000)
+            _ = logger.info("waiting 30 seconds")
+            _ = Thread.sleep(30000)
 
             // gathering solvers' heights from statuses
             cluster1Solver0Status <- heightFromTendermintStatus(nodeConfig0, 0)
@@ -208,7 +208,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
   }
 
   private def getOS: String = {
-    // TODO:
+    // TODO: should use more comprehensive and reliable OS detection
     val osName = System.getProperty("os.name").toLowerCase()
     if (osName.contains("windows"))
       "windows"
