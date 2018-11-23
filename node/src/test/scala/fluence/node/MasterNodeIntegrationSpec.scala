@@ -55,15 +55,27 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
 
     logger.info("deploying Deployer.sol Ganache")
     run("npm run migrate")
+
+    Files.createDirectories(solversPath(0))
+    Files.createDirectories(solversPath(1))
+    Files.createDirectories(keysPath(0))
+    Files.createDirectories(keysPath(1))
   }
 
   override protected def afterAll(): Unit = {
     logger.info("killing ganache")
     run("pkill -f ganache")
 
+    logger.info("clearing node directories from containers")
+    for (subpath <- List("keys", "solvers"))
+      for (i <- 0 to 1)
+        run(
+          s"docker run --rm -i -v ${nodePath(i)}:/node --entrypoint rm fluencelabs/solver:latest -rf /node/$subpath"
+        )
+
     logger.info("removing node directories")
-    run(s"rm -rf ${solversPath(0)}")
-    run(s"rm -rf ${solversPath(1)}")
+    run(s"rm -rf ${nodePath(0)}")
+    run(s"rm -rf ${nodePath(1)}")
 
     logger.info("stopping containers")
     run("docker rm -f 01_node0 01_node1 02_node0")
@@ -98,14 +110,12 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
             pool ← SolversPool[IO]()
 
             // initializing 0th node: for 2 solvers
-            _ = Files.createDirectories(solversPath(0))
             masterKeys0 = KeysPath(keysPath(0).toString)
             _ <- masterKeys0.init
             nodeConfig0 <- NodeConfig.fromArgs(masterKeys0, List("192.168.0.5", "25000", "25002"))
             node0 = MasterNode(masterKeys0, nodeConfig0, contract, pool, solversPath(0))
 
             // initializing 1st node: for 1 solver
-            _ = Files.createDirectories(solversPath(1))
             masterKeys1 = KeysPath(keysPath(1).toString)
             _ <- masterKeys1.init
             nodeConfig1 <- NodeConfig.fromArgs(masterKeys1, List("192.168.0.5", "25500", "25501"))
@@ -126,14 +136,14 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
             _ = new Thread(() => node1.run.unsafeRunSync()).start()
 
             // waiting until MasterNodes launched
-            _ = Thread.sleep(5000)
+            _ = Thread.sleep(10000)
 
             // adding code when MasterNodes launched – both must catch event, but it's for 1st node only
             _ <- contract.addCode[IO](clusterSize = 1)
 
             // letting MasterNodes to process event and launch solvers
             // then letting solver clusters to make first blocks
-            _ = Thread.sleep(20000)
+            _ = Thread.sleep(30000)
 
             // gathering solvers' heights from statuses
             cluster1Solver0Status <- heightFromTendermintStatus(nodeConfig0, 0)
@@ -150,11 +160,11 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
       .unsafeRunSync()
   }
 
-  private def solversPath(index: Int): Path =
-    Paths.get(System.getProperty("user.home") + s"/.fluence/node$index/solvers")
+  private def nodePath(index: Int): Path = Paths.get(System.getProperty("user.home") + s"/.fluence/node$index")
 
-  private def keysPath(index: Int): Path =
-    Paths.get(System.getProperty("user.home") + s"/.fluence/node$index/keys")
+  private def solversPath(index: Int): Path = nodePath(index).resolve("solvers")
+
+  private def keysPath(index: Int): Path = nodePath(index).resolve("keys")
 
   private def heightFromTendermintStatus(nodeConfig: NodeConfig, solverOrder: Int): IO[Option[Long]] = {
     import io.circe._

@@ -22,6 +22,8 @@ import cats.effect.IO
 import fluence.node.docker.DockerParams
 import io.circe.parser.parse
 
+import scala.sys.process.Process
+
 /**
  * Wraps tendermint directory for the Master process (contains shared tendermint keys).
  *
@@ -103,7 +105,13 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
    * @param solverTendermintPath Solver's tendermint path
    */
   def copyKeysToSolver(solverTendermintPath: Path): IO[Unit] = path.map { p =>
-    Files.copy(
+    Process(
+      s"docker run --rm -i -v $p:/keys -v $solverTendermintPath:/solver --entrypoint cp fluencelabs/solver:latest -f /keys/config/node_key.json /solver/config/node_key.json"
+    ).!!
+    Process(
+      s"docker run --rm -i -v $p:/keys -v $solverTendermintPath:/solver --entrypoint cp fluencelabs/solver:latest -f /keys/config/priv_validator.json /solver/config/priv_validator.json"
+    ).!!
+  /*Files.copy(
       p.resolve("config").resolve("node_key.json"),
       solverTendermintPath.resolve("config").resolve("node_key.json"),
       REPLACE_EXISTING
@@ -113,6 +121,6 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
       p.resolve("config").resolve("priv_validator.json"),
       solverTendermintPath.resolve("config").resolve("priv_validator.json"),
       REPLACE_EXISTING
-    )
+    )*/
   }
 }
