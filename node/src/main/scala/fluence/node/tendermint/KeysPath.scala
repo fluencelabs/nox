@@ -105,14 +105,14 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
    * @param solverTendermintPath Solver's tendermint path
    */
   def copyKeysToSolver(solverTendermintPath: Path): IO[Unit] = path.map { p =>
-    Process(
+    /*Process(
       s"docker run --rm -i -v $p:/keys -v $solverTendermintPath:/solver --entrypoint cp fluencelabs/solver:latest -f /keys/config/node_key.json /solver/config/node_key.json"
     ).!!
     Process(
       s"docker run --rm -i -v $p:/keys -v $solverTendermintPath:/solver --entrypoint cp fluencelabs/solver:latest -f /keys/config/priv_validator.json /solver/config/priv_validator.json"
-    ).!!
+    ).!!*/
 
-    /*DockerParams
+    DockerParams
       .run("cp", "-f", "/keys/config/node_key.json", "/solver/config/node_key.json")
       .volume(p.toString, "/keys")
       .volume(solverTendermintPath.toString, "/solver")
@@ -125,6 +125,6 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
       .volume(solverTendermintPath.toString, "/solver")
       .image("fluencelabs/solver:latest")
       .process
-      .!!*/
+      .!!
   }
 }
