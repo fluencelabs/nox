@@ -174,7 +174,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
     import io.circe.parser._
     val port = nodeConfig.startPort + solverOrder + 100 // +100 corresponds to port mapping scheme from `ClusterData`
     val source = Source.fromURL(s"http://localhost:$port/status").mkString
-    println(Source.fromURL(s"http://localhost:$port/validators").mkString)
+    println(Source.fromURL(s"http://localhost:$port/net_info").mkString)
     val height = parse(source)
       .getOrElse(Json.Null)
       .asObject
