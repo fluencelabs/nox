@@ -112,13 +112,13 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
             // initializing 0th node: for 2 solvers
             masterKeys0 = KeysPath(keysPath(0).toString)
             _ <- masterKeys0.init
-            nodeConfig0 <- NodeConfig.fromArgs(masterKeys0, List("192.168.0.5", "25000", "25002"))
+            nodeConfig0 <- NodeConfig.fromArgs(masterKeys0, List("192.168.0.1", "25000", "25002"))
             node0 = MasterNode(masterKeys0, nodeConfig0, contract, pool, solversPath(0))
 
             // initializing 1st node: for 1 solver
             masterKeys1 = KeysPath(keysPath(1).toString)
             _ <- masterKeys1.init
-            nodeConfig1 <- NodeConfig.fromArgs(masterKeys1, List("192.168.0.5", "25500", "25501"))
+            nodeConfig1 <- NodeConfig.fromArgs(masterKeys1, List("192.168.0.1", "25500", "25501"))
             node1 = MasterNode(masterKeys1, nodeConfig1, contract, pool, solversPath(1))
 
             // registering nodes in contract – nothing should happen here, because no matching work exists
