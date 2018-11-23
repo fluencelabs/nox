@@ -89,7 +89,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
     val contractAddress = "0x9995882876ae612bfd829498ccd73dd962ec950a"
     val owner = "0x4180FC65D613bA7E1a385181a219F1DBfE7Bf11d"
 
-    val dockerHostIP = "192.168.0.1"
+    val dockerHostIP = if (isLinux()) "127.0.0.1" else "192.168.0.5"
 
     val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
       Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
@@ -145,6 +145,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
 
             // letting MasterNodes to process event and launch solvers
             // then letting solver clusters to make first blocks
+            _ = logger.info("waiting 60 seconds")
             _ = Thread.sleep(60000)
 
             // gathering solvers' heights from statuses
@@ -184,5 +185,10 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
       .flatMap(_.asString)
       .flatMap(x => Try(x.toLong).toOption)
     IO.pure(height)
+  }
+
+  private def isLinux(): Boolean = {
+    val osName = System.getProperty("os.name").toLowerCase()
+    !osName.contains("win") && !osName.contains("mac")
   }
 }
