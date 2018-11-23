@@ -37,7 +37,8 @@ import scala.util.Try
 /**
  * This test contains a single test method that checks:
  * - MasterNode connectivity with ganache-hosted Deployer smart contract
-  * -
+ * - MasterNode ability to load previous node clusters and subscribe to new clusters
+ * - Successful cluster formation and starting blocks creation
  */
 class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll {
 
@@ -94,7 +95,12 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
     val contractAddress = "0x9995882876ae612bfd829498ccd73dd962ec950a"
     val owner = "0x4180FC65D613bA7E1a385181a219F1DBfE7Bf11d"
 
-    val dockerHostIP = if (isLinux()) "127.0.0.1" else "192.168.0.5"
+    val dockerHostIP = getOS match {
+      case "linux" => detectIPStringByNetworkInterface("docker0")
+      case "mac" => detectIPStringByNetworkInterface("en0")
+      case _ => throw new RuntimeException("The test doesn't support this OS")
+    }
+    println(s"Docker host: '$dockerHostIP'")
 
     val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
       Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
@@ -193,9 +199,22 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
     IO.pure(height)
   }
 
-  private def isLinux(): Boolean = {
+  private def detectIPStringByNetworkInterface(interface: String): String = {
+    import sys.process._
+    val ifconfigCmd = Seq("ifconfig", interface)
+    val grepCmd = Seq("grep", "inet ")
+    val awkCmd = Seq("awk", "{print $2}")
+    (ifconfigCmd #| grepCmd #| awkCmd).!!.replaceAll("[ \n\r\t]", "")
+  }
+
+  private def getOS: String = {
+    // TODO:
     val osName = System.getProperty("os.name").toLowerCase()
-    println("OS NAME: " + osName)
-    !osName.contains("win") && !osName.contains("mac")
+    if (osName.contains("windows"))
+      "windows"
+    else if (osName.contains("mac") || osName.contains("darwin"))
+      "mac"
+    else
+      "linux"
   }
 }
