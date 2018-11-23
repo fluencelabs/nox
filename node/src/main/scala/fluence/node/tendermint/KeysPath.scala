@@ -111,16 +111,20 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
     Process(
       s"docker run --rm -i -v $p:/keys -v $solverTendermintPath:/solver --entrypoint cp fluencelabs/solver:latest -f /keys/config/priv_validator.json /solver/config/priv_validator.json"
     ).!!
-  /*Files.copy(
-      p.resolve("config").resolve("node_key.json"),
-      solverTendermintPath.resolve("config").resolve("node_key.json"),
-      REPLACE_EXISTING
-    )
 
-    Files.copy(
-      p.resolve("config").resolve("priv_validator.json"),
-      solverTendermintPath.resolve("config").resolve("priv_validator.json"),
-      REPLACE_EXISTING
-    )*/
+    /*DockerParams
+      .run("cp", "-f", "/keys/config/node_key.json", "/solver/config/node_key.json")
+      .volume(p.toString, "/keys")
+      .volume(solverTendermintPath.toString, "/solver")
+      .image("fluencelabs/solver:latest")
+      .process
+      .!!
+    DockerParams
+      .run("cp", "-f", "/keys/config/priv_validator.json", "/solver/config/priv_validator.json")
+      .volume(p.toString, "/keys")
+      .volume(solverTendermintPath.toString, "/solver")
+      .image("fluencelabs/solver:latest")
+      .process
+      .!!*/
   }
 }
