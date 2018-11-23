@@ -145,8 +145,8 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
 
             // letting MasterNodes to process event and launch solvers
             // then letting solver clusters to make first blocks
-            _ = logger.info("waiting 30 seconds")
-            _ = Thread.sleep(30000)
+            _ = logger.info("waiting 60 seconds")
+            _ = Thread.sleep(60000)
 
             // gathering solvers' heights from statuses
             cluster1Solver0Status <- heightFromTendermintStatus(nodeConfig0, 0)
@@ -190,6 +190,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
 
   private def isLinux(): Boolean = {
     val osName = System.getProperty("os.name").toLowerCase()
+    println("OS NAME: " + osName)
     !osName.contains("win") && !osName.contains("mac")
   }
 }
