@@ -1,0 +1,7 @@
+[package]
+name = "recursive_hash"
+version = "0.1.0"
+authors = ["vms <michail.vms@yandex.ru>"]
+edition = "2018"
+
+[dependencies]

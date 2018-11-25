@@ -1,5 +1,5 @@
-const FIB_NUMBER : i64 = 40;
-const ITERATION_COUNT : i32 = 100;
+mod settings;
+use settings::{ITERATION_COUNT, FIB_NUMBER};
 
 #[no_mangle]
 pub extern "C" fn fib(num: i64) -> i64 {
