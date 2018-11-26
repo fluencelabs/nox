@@ -165,7 +165,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
                 alive0 shouldBe true
                 alive1 shouldBe true
               },
-              maxWait = 60.seconds
+              maxWait = 30.seconds
             )
 
             // adding code when MasterNodes launched – both must catch event, but it's for 1st node only
@@ -183,7 +183,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
                 c1s1 shouldBe Some(2)
                 c2s0 shouldBe Some(2)
               },
-              maxWait = 60.seconds
+              maxWait = 30.seconds
             )
           } yield ()
         }
