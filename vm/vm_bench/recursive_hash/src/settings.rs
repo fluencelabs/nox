@@ -1,5 +1,5 @@
-// count of iterations that
-pub const ITERATIONS_COUNT: i64 = 100;//env!("ITERATIONS_COUNT");
+// count of recursive sha3 that would be computed
+pub const ITERATIONS_COUNT: &'static str = env!("ITERATIONS_COUNT");
 
 // an initial value for computed hash chain
-pub const INITIAL_VALUE: i64 = 0;//env!("INITIAL_VALUE");
+pub const INITIAL_VALUE: &'static str = env!("INITIAL_VALUE");
