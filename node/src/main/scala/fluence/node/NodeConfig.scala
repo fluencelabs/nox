@@ -16,7 +16,7 @@
 
 package fluence.node
 
-import java.net.{Inet4Address, InetAddress}
+import java.net.InetAddress
 
 import cats.effect.IO
 import fluence.node.tendermint.{KeysPath, ValidatorKey}
@@ -77,9 +77,8 @@ object NodeConfig extends slogging.LazyLogging {
     } yield NodeConfig(ip, startPort, endPort, validatorKey, nodeAddress)
 
   private def checkIp(ip: String): IO[Unit] =
-    //TODO: should ipv6 be supported?
     Try(InetAddress.getByName(ip)) match {
-      case Success(a: Inet4Address) => IO.unit
+      case Success(_: InetAddress) => IO.unit
       case Failure(e) => IO.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip.").initCause(e))
     }
 
