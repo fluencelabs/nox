@@ -71,7 +71,7 @@ matrix:
         - cargo doc -v
         - cargo test -v
 
-    - name: Publisher CLI
+    - name: Fluence CLI
 
       language: rust
       rust: stable
@@ -79,7 +79,7 @@ matrix:
 
       before_install:
         - rustup component add rustfmt-preview
-        - cd publisher
+        - cd cli
 
       script:
         - npm install --prefix ../bootstrap
