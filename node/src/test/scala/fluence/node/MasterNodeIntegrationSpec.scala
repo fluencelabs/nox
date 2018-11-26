@@ -18,18 +18,25 @@ package fluence.node
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
 
-import cats.effect.{ContextShift, IO, Resource, Timer}
+import cats.effect._
+import cats.syntax.applicativeError._
+import cats.syntax.functor._
+import cats.syntax.monadError._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.eth.{DeployerContract, DeployerContractConfig}
 import fluence.node.solvers.SolversPool
 import fluence.node.tendermint.KeysPath
+import org.scalactic.source.Position
+import org.scalatest.exceptions.TestFailedDueToTimeoutException
+import org.scalatest.time.Span
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 import scala.io.Source
 import scala.sys.process.{Process, ProcessLogger}
 import scala.util.Try
@@ -57,7 +64,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
     run("npm install")
 
     logger.info("starting Ganache")
-    runBackground("npm run ganache")
+    runBackground("npm run ganache > /dev/null")
 
     logger.info("deploying Deployer.sol Ganache")
     run("npm run migrate")
@@ -149,15 +156,28 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
             _ = new Thread(() => node1.run.unsafeRunSync()).start()
 
             // waiting until MasterNodes launched
-            _ = Thread.sleep(10000)
+            _ <- eventually[IO](
+              for {
+                alive0 <- node0.pool.healths.map(_.exists { case (_, h) => h.isHealthy })
+                alive1 <- node1.pool.healths.map(_.exists { case (_, h) => h.isHealthy })
+              } yield alive0 && alive1,
+              maxWait = 20.seconds
+            )
 
             // adding code when MasterNodes launched – both must catch event, but it's for 1st node only
             _ <- contract.addCode[IO](clusterSize = 1)
 
             // letting MasterNodes to process event and launch solvers
             // then letting solver clusters to make first blocks
-            _ = logger.info("waiting 60 seconds")
-            _ = Thread.sleep(60000)
+
+            _ <- eventually[IO](
+              for {
+                c1s0 <- heightFromTendermintStatus(nodeConfig0, 0)
+                c1s1 <- heightFromTendermintStatus(nodeConfig1, 0)
+                c2s0 <- heightFromTendermintStatus(nodeConfig0, 1)
+              } yield (c1s0 ++ c1s1 ++ c2s0).forall(_ == 2),
+              maxWait = 20.seconds
+            )
 
             // gathering solvers' heights from statuses
             cluster1Solver0Status <- heightFromTendermintStatus(nodeConfig0, 0)
@@ -174,13 +194,43 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
       .unsafeRunSync()
   }
 
+  private def eventually[F[_]: Sync: Timer](
+    p: => F[Boolean],
+    period: FiniteDuration = 500.millis,
+    maxWait: FiniteDuration = 10.seconds
+  )(implicit pos: Position): F[_] = {
+    fs2.Stream
+      .awakeEvery[F](period)
+      .take((maxWait / period).toLong)
+      .evalMap(_ => p.attempt)
+      .takeThrough(!_.exists(identity)) // until p returns Right(true)
+      .compile
+      .last
+      .map {
+        case Some(Right(true)) =>
+        case Some(Left(e)) => throw e
+        case _ => throw new RuntimeException(s"eventually timed out after $maxWait")
+      }
+      .adaptError {
+        case e =>
+          e.printStackTrace()
+          new TestFailedDueToTimeoutException(
+            _ => Option(e.getMessage),
+            Some(e),
+            pos,
+            None,
+            Span.convertDurationToSpan(maxWait)
+          )
+      }
+  }
+
   private def nodePath(index: Int): Path = Paths.get(System.getProperty("user.home") + s"/.fluence/node$index")
 
   private def solversPath(index: Int): Path = nodePath(index).resolve("solvers")
 
   private def keysPath(index: Int): Path = nodePath(index).resolve("keys")
 
-  private def heightFromTendermintStatus(nodeConfig: NodeConfig, solverOrder: Int): IO[Option[Long]] = {
+  private def heightFromTendermintStatus(nodeConfig: NodeConfig, solverOrder: Int): IO[Option[Long]] = IO.delay {
     import io.circe._
     import io.circe.parser._
     val port = nodeConfig.startPort + solverOrder + 100 // +100 corresponds to port mapping scheme from `ClusterData`
@@ -195,7 +245,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
       .flatMap(_("latest_block_height"))
       .flatMap(_.asString)
       .flatMap(x => Try(x.toLong).toOption)
-    IO.pure(height)
+    height
   }
 
   private def detectIPStringByNetworkInterface(interface: String): String = {

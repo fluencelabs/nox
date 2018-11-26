@@ -65,7 +65,7 @@ object NodeConfig extends slogging.LazyLogging {
       validatorKey ← keysPath.showValidatorKey
       nodeAddress ← keysPath.showNodeId
 
-      _ = logger.info("Tendermint node id: {}", nodeAddress)
+      _ = logger.info("Tendermint node id: {}", nodeAddress.trim)
 
       _ <- {
         // TODO: is it the best way to check IP? Why not to make RemoteAddr?
