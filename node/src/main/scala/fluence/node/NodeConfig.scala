@@ -16,6 +16,8 @@
 
 package fluence.node
 
+import java.net.URL
+
 import cats.effect.IO
 import fluence.node.tendermint.{KeysPath, ValidatorKey}
 
@@ -35,7 +37,8 @@ case class NodeConfig(
   startPort: Short,
   endPort: Short,
   validatorKey: ValidatorKey,
-  nodeAddress: String
+  nodeAddress: String,
+  swarmAddress: Option[URL]
 )
 
 object NodeConfig extends slogging.LazyLogging {
@@ -56,11 +59,16 @@ object NodeConfig extends slogging.LazyLogging {
   def fromArgs(keysPath: KeysPath, args: List[String]): IO[NodeConfig] =
     for {
       argsTuple ← args match {
-        case a1 :: a2 :: a3 :: Nil ⇒ IO.pure(a1, a2, a3)
+        case a1 :: a2 :: a3 :: tail ⇒ IO.pure(a1, a2, a3, tail)
         case _ ⇒ IO.raiseError(new IllegalArgumentException("4 program arguments expected"))
       }
 
-      (ip, startPortString, endPortString) = argsTuple
+      (ip, startPortString, endPortString, tail) = argsTuple
+
+      swarmAddress <- tail.headOption.map(s => if (!s.startsWith("http")) "http://" + s else s) match {
+        case None => IO.pure(None)
+        case Some(addr) => IO(Some(new URL(addr)))
+      }
 
       validatorKey ← keysPath.showValidatorKey
       nodeAddress ← keysPath.showNodeId
@@ -79,7 +87,7 @@ object NodeConfig extends slogging.LazyLogging {
       startPort <- IO(startPortString.toShort)
       endPort <- IO(endPortString.toShort)
       _ ← checkPorts(startPort, endPort)
-    } yield NodeConfig(ip, startPort, endPort, validatorKey, nodeAddress)
+    } yield NodeConfig(ip, startPort, endPort, validatorKey, nodeAddress, swarmAddress)
 
   private def checkPorts(startPort: Int, endPort: Int): IO[Unit] = {
     val ports = endPort - startPort

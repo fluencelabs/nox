@@ -16,7 +16,7 @@
 
 package fluence.node.tendermint
 import fluence.ethclient.Deployer.ClusterFormedEventResponse
-import fluence.ethclient.helpers.Web3jConverters.bytes32ToString
+import fluence.ethclient.helpers.Web3jConverters.{binaryToHex, bytes32ToString}
 import fluence.node.NodeConfig
 import fluence.node.eth.DeployerContract.ContractClusterTuple
 import org.web3j.abi.datatypes.DynamicArray
@@ -32,7 +32,7 @@ import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
 case class ClusterData(
   nodeInfo: NodeInfo,
   persistentPeers: PersistentPeers,
-  code: String
+  code: CodePath
 ) {
   val hostP2PPort: Short = persistentPeers.peers(nodeInfo.node_index.toInt).port
   val hostRpcPort: Short = (hostP2PPort + 100).toShort
@@ -97,7 +97,10 @@ object ClusterData {
     if (nodeIndex == -1)
       None
     else {
-      val storage = bytes32ToString(storageHash) // TODO: temporarily used as name of pre-existing local code
+      val storage = nodeConfig.swarmAddress.fold[CodePath](LocalPath(bytes32ToString(storageHash))) { addr =>
+        SwarmPath(binaryToHex(storageHash.getValue), addr)
+      }
+
       val persistentPeers = PersistentPeers.fromAddrsAndPorts(solverAddrs, solverPorts)
       val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
       val nodeInfo = NodeInfo(cluster, nodeIndex.toString)

@@ -15,12 +15,13 @@
  */
 
 package fluence.node
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 import cats.effect.{ConcurrentEffect, ExitCode, IO}
 import fluence.node.eth.DeployerContract
 import fluence.node.solvers.{SolverParams, SolversPool}
-import fluence.node.tendermint.{ClusterData, KeysPath}
+import fluence.node.tendermint.{ClusterData, KeysPath, LocalPath, SwarmPath}
+import fluence.swarm.SwarmClient
 
 /**
  * Represents a MasterNode process. Takes cluster forming events from Ethereum, and spawns new solvers to serve them.
@@ -42,16 +43,42 @@ case class MasterNode(
   implicit ce: ConcurrentEffect[IO]
 ) extends slogging.LazyLogging {
 
+  private def downloadFromSwarmToFile(swarmPath: SwarmPath, filePath: Path): IO[Unit] = {
+    SwarmClient(swarmPath.url.getHost, swarmPath.url.getPort).download(swarmPath.path).value.flatMap {
+      case Left(err) => IO.raiseError(err)
+      case Right(codeBytes) => IO(Files.write(filePath, codeBytes))
+    }
+  }
+
+  private def downloadAndWriteCodeToFile(solverTendermintPath: Path, swarmPath: SwarmPath): IO[String] =
+    for {
+      dirPath <- IO(solverTendermintPath.resolve("vmcode-" + swarmPath.path))
+      _ <- if (dirPath.toFile.exists()) IO.unit else IO(Files.createDirectory(dirPath))
+      filePath <- IO(dirPath.resolve(swarmPath.path + ".wasm"))
+      _ <- if (filePath.toFile.exists()) IO.unit
+      else
+        IO(Files.createFile(filePath))
+          .flatMap(_ => downloadFromSwarmToFile(swarmPath, filePath))
+    } yield dirPath.toAbsolutePath.toString
+
   // Converts ClusterData into SolverParams which is ready to run
   private val clusterDataToParams: fs2.Pipe[IO, (ClusterData, Path), SolverParams] =
-    _.map {
+    _.evalMap {
       case (clusterData, solverTendermintPath) ⇒
-        SolverParams(
-          clusterData,
-          solverTendermintPath.toString,
-          // TODO fetch (from swarm) & cache
-          Paths.get("./statemachine/docker/examples/vmcode-" + clusterData.code).toAbsolutePath.toString
-        )
+        for {
+          path <- clusterData.code match {
+            case LocalPath(localPath) =>
+              IO.pure(Paths.get("./statemachine/docker/examples/vmcode-" + localPath).toAbsolutePath.toString)
+            case sp @ SwarmPath(swarmPath, url) =>
+              downloadAndWriteCodeToFile(solverTendermintPath, sp)
+          }
+        } yield {
+          SolverParams(
+            clusterData,
+            solverTendermintPath.toString,
+            path
+          )
+        }
     }
 
   // Writes node info & master keys to tendermint directory

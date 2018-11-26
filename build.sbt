@@ -227,4 +227,4 @@ lazy val node = project
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(ethclient)
+  .dependsOn(ethclient, externalstorage)
