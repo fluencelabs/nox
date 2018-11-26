@@ -29,7 +29,7 @@ import fluence.node.eth.{DeployerContract, DeployerContractConfig}
 import fluence.node.solvers.SolversPool
 import fluence.node.tendermint.KeysPath
 import org.scalactic.source.Position
-import org.scalatest.exceptions.TestFailedDueToTimeoutException
+import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
 import org.scalatest.time.Span
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import slogging.MessageFormatter.DefaultPrefixFormatter
@@ -38,6 +38,7 @@ import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.io.Source
+import scala.language.higherKinds
 import scala.sys.process.{Process, ProcessLogger}
 import scala.util.Try
 
@@ -160,7 +161,10 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
               for {
                 alive0 <- node0.pool.healths.map(_.exists { case (_, h) => h.isHealthy })
                 alive1 <- node1.pool.healths.map(_.exists { case (_, h) => h.isHealthy })
-              } yield alive0 && alive1,
+              } yield {
+                alive0 shouldBe true
+                alive1 shouldBe true
+              },
               maxWait = 20.seconds
             )
 
@@ -169,25 +173,18 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
 
             // letting MasterNodes to process event and launch solvers
             // then letting solver clusters to make first blocks
-
             _ <- eventually[IO](
               for {
                 c1s0 <- heightFromTendermintStatus(nodeConfig0, 0)
                 c1s1 <- heightFromTendermintStatus(nodeConfig1, 0)
                 c2s0 <- heightFromTendermintStatus(nodeConfig0, 1)
-              } yield (c1s0 ++ c1s1 ++ c2s0).forall(_ == 2),
+              } yield {
+                c1s0 shouldBe Some(2)
+                c1s1 shouldBe Some(2)
+                c2s0 shouldBe Some(2)
+              },
               maxWait = 20.seconds
             )
-
-            // gathering solvers' heights from statuses
-            cluster1Solver0Status <- heightFromTendermintStatus(nodeConfig0, 0)
-            cluster1Solver1Status <- heightFromTendermintStatus(nodeConfig1, 0)
-            cluster2Solver0Status <- heightFromTendermintStatus(nodeConfig0, 1)
-
-            // height=2 (consensus for at least 1 block reached) likely means that cluster is configured properly
-            _ = cluster1Solver0Status shouldBe Some(2)
-            _ = cluster1Solver1Status shouldBe Some(2)
-            _ = cluster2Solver0Status shouldBe Some(2)
           } yield ()
         }
       }
@@ -195,7 +192,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
   }
 
   private def eventually[F[_]: Sync: Timer](
-    p: => F[Boolean],
+    p: => F[Unit],
     period: FiniteDuration = 500.millis,
     maxWait: FiniteDuration = 10.seconds
   )(implicit pos: Position): F[_] = {
@@ -203,17 +200,17 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
       .awakeEvery[F](period)
       .take((maxWait / period).toLong)
       .evalMap(_ => p.attempt)
-      .takeThrough(!_.exists(identity)) // until p returns Right(true)
+      .takeThrough(_.isLeft) // until p returns Right(Unit)
       .compile
       .last
       .map {
-        case Some(Right(true)) =>
+        case Some(Right(_)) =>
         case Some(Left(e)) => throw e
         case _ => throw new RuntimeException(s"eventually timed out after $maxWait")
       }
       .adaptError {
+        case e: TestFailedException => e
         case e =>
-          e.printStackTrace()
           new TestFailedDueToTimeoutException(
             _ => Option(e.getMessage),
             Some(e),
