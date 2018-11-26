@@ -227,7 +227,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
 
   private def keysPath(index: Int): Path = nodePath(index).resolve("keys")
 
-  private def heightFromTendermintStatus(nodeConfig: NodeConfig, solverOrder: Int): IO[Option[Long]] = IO.delay {
+  private def heightFromTendermintStatus(nodeConfig: NodeConfig, solverOrder: Int): IO[Option[Long]] = IO {
     import io.circe._
     import io.circe.parser._
     val port = nodeConfig.startPort + solverOrder + 100 // +100 corresponds to port mapping scheme from `ClusterData`

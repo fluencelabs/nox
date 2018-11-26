@@ -16,10 +16,12 @@
 
 package fluence.node
 
+import java.net.{Inet4Address, InetAddress}
+
 import cats.effect.IO
 import fluence.node.tendermint.{KeysPath, ValidatorKey}
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /**
  * Information about a node willing to run solvers to join Fluence clusters.
@@ -67,19 +69,19 @@ object NodeConfig extends slogging.LazyLogging {
 
       _ = logger.info("Tendermint node id: {}", nodeAddress.trim)
 
-      _ <- {
-        // TODO: is it the best way to check IP? Why not to make RemoteAddr?
-        val parts = ip.split('.')
-        if (parts.length == 4 && parts.forall(x => Try(x.toShort).filter(Range(0, 256).contains(_)).isSuccess))
-          IO.unit
-        else
-          IO.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip"))
-      }
+      _ <- checkIp(ip)
 
       startPort <- IO(startPortString.toShort)
       endPort <- IO(endPortString.toShort)
       _ ← checkPorts(startPort, endPort)
     } yield NodeConfig(ip, startPort, endPort, validatorKey, nodeAddress)
+
+  private def checkIp(ip: String): IO[Unit] =
+    //TODO: should ipv6 be supported?
+    Try(InetAddress.getByName(ip)) match {
+      case Success(a: Inet4Address) => IO.unit
+      case Failure(e) => IO.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip.").initCause(e))
+    }
 
   private def checkPorts(startPort: Int, endPort: Int): IO[Unit] = {
     val ports = endPort - startPort
