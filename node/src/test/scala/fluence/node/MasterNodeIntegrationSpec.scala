@@ -213,7 +213,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
           e.modifyMessage(m => Some(s"eventually timed out after $maxWait" + m.map(": " + _).getOrElse("")))
         case e =>
           new TestFailedDueToTimeoutException(
-            _ => Option(e.getMessage),
+            _ => Some(s"eventually timed out after $maxWait" + Option(e.getMessage).map(": " + _).getOrElse("")),
             Some(e),
             pos,
             None,
