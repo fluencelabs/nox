@@ -2,7 +2,7 @@
 name = "recursive_hash"
 version = "0.1.0"
 authors = ["M. Voronov <michail@fluence.one>"]
-edition = "2018"
 
 [dependencies]
-sha = "0.3.2"
+sha3 = "0.8.1"
+reduce = "0.1.1"
