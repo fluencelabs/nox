@@ -1,7 +1,8 @@
 [package]
 name = "recursive_hash"
 version = "0.1.0"
-authors = ["vms <michail.vms@yandex.ru>"]
+authors = ["M. Voronov <michail@fluence.one>"]
 edition = "2018"
 
 [dependencies]
+sha = "0.3.2"
