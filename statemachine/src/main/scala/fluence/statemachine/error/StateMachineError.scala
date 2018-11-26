@@ -15,6 +15,7 @@
  */
 
 package fluence.statemachine.error
+import fluence.statemachine.InvokerError
 import fluence.vm.VmError
 
 /**
@@ -36,16 +37,6 @@ case class PayloadParseError(override val code: String, override val message: St
     extends StateMachineError(code, message, None)
 
 /**
- * Corresponds to errors occurred during VM function invocation inside VM.
- *
- * @param code short text code describing error, might be shown to the client
- * @param message detailed error message
- * @param vmError caught [[VmError]]
- */
-case class VmRuntimeError(override val code: String, override val message: String, vmError: VmError)
-    extends StateMachineError(code, message, Some(vmError))
-
-/**
  * Corresponds to errors occurred during State machine config loading.
  *
  * @param message detailed error message
@@ -53,11 +44,5 @@ case class VmRuntimeError(override val code: String, override val message: Strin
 case class ConfigLoadingError(override val message: String)
     extends StateMachineError("ConfigLoadingError", message, None)
 
-/**
- * Corresponds to errors occurred during looking for VM module files before passing them to VM.
- *
- * @param message detailed error message
- * @param throwable caught [[Throwable]]
- */
-case class VmModuleLocationError(override val message: String, throwable: Throwable)
-    extends StateMachineError("VmModuleLocationError", message, Some(throwable))
+case class ErrorOnInvoke(err: InvokerError)
+    extends StateMachineError(code = "ErrorOnInvoke", message = err.message, None)

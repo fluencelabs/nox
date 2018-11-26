@@ -16,14 +16,14 @@
 
 package fluence.statemachine.state
 import cats.Monad
-import cats.data.StateT
+import cats.data.{EitherT, StateT}
 import cats.syntax.functor._
 import com.google.protobuf.ByteString
-import fluence.statemachine.StoreValue
 import fluence.statemachine.tree.{MerkleTreeNode, StoragePaths, TreeNode}
-import fluence.statemachine.tx.VmOperationInvoker
 import fluence.statemachine.util.{HexCodec, Metrics, TimeLogger, TimeMeter}
+import fluence.statemachine.{InvokerStateError, StoreValue}
 import io.prometheus.client.Counter
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -36,7 +36,8 @@ import scala.language.higherKinds
  */
 class Committer[F[_]](
   private[statemachine] val stateHolder: TendermintStateHolder[F],
-  private val vmInvoker: VmOperationInvoker[F]
+  //TODO: wrap `getHash` in IO and avoid lambda
+  private val getHash: () => EitherT[F, InvokerStateError, ByteVector],
 )(implicit F: Monad[F])
     extends slogging.LazyLogging {
   private val WrongVmHashValue: StoreValue = "wrong_vm_hash"
@@ -74,7 +75,7 @@ class Committer[F[_]](
     StateT(
       oldConsensusState =>
         for {
-          vmStateHash <- vmInvoker.vmStateHash().map(HexCodec.binaryToHex).getOrElse(WrongVmHashValue)
+          vmStateHash <- getHash().map(HexCodec.binaryToHex).getOrElse(WrongVmHashValue)
           newConsensusState = oldConsensusState.putValue(StoragePaths.VmStateHashPath, vmStateHash)
         } yield (newConsensusState, ())
     )

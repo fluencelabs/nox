@@ -15,6 +15,7 @@
  */
 
 package fluence.statemachine.tx
+
 import cats.Monad
 import cats.data.EitherT
 import cats.syntax.either._

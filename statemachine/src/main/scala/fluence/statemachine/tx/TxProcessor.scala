@@ -20,9 +20,9 @@ import cats.Monad
 import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.statemachine.StoreKey
+import fluence.statemachine.{Invoker, StoreKey}
 import fluence.statemachine.config.StateMachineConfig
-import fluence.statemachine.error.StateMachineError
+import fluence.statemachine.error.{ErrorOnInvoke, StateMachineError}
 import fluence.statemachine.state.MutableStateTree
 import fluence.statemachine.tree.StoragePaths._
 import fluence.statemachine.tree.TreePath
@@ -43,12 +43,12 @@ import scala.language.higherKinds
  * transaction appending, invocation and even invocation of dependent, previously queued transactions.
  *
  * @param mutableConsensusState Consensus state, affected by every newly appended transaction
- * @param vmInvoker object used to perform immediate calls to VM
+ * @param invoker object used to perform immediate calls to VM
  * @param config settings which tx processing logic depends on
  */
 class TxProcessor[F[_]](
   private val mutableConsensusState: MutableStateTree[F],
-  private val vmInvoker: VmOperationInvoker[F],
+  private val invoker: Invoker[F],
   private val config: StateMachineConfig
 )(implicit F: Monad[F])
     extends LazyLogging {
@@ -127,15 +127,16 @@ class TxProcessor[F[_]](
    * @param tx transaction ready to be applied (by the invocation in VM)
    * @return [[TransactionStatus]] corresponding to the invocation result
    */
-  private def invokeTx(tx: Transaction): F[TransactionStatus] =
+  private def invokeTx(tx: Transaction): F[TransactionStatus] = {
     FunctionCallDescription
       .parse[F](tx.payload)
       .flatMap {
         case FunctionCallDescription(None, FunctionCallDescription.CloseSession, arr) if arr.isEmpty =>
           EitherT.right[StateMachineError](putResult(tx, TransactionStatus.SessionClosed, Empty))
         case callDescription =>
-          vmInvoker
+          invoker
             .invoke(callDescription)
+            .leftMap(ErrorOnInvoke)
             .map {
               case None => Empty
               case Some(value) => Computed(value)
@@ -143,6 +144,7 @@ class TxProcessor[F[_]](
             .flatMap(result => EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, result)))
       }
       .valueOrF(error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message)))
+  }
 
   /**
    * Traverses all currently stored sessions and mark those of them which need to be expired,

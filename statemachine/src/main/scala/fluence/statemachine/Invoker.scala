@@ -14,14 +14,19 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.config
+package fluence.statemachine
+import cats.data.EitherT
+import fluence.statemachine.error.StateMachineError
+import fluence.statemachine.tx.FunctionCallDescription
+import scodec.bits.ByteVector
 
-/**
- * State machine settings.
- *
- * @param sessionExpirationPeriod period after which the session becomes expired,
- *                                measured as difference between the current `txCounter` value and
- *                                its value at the last activity in the session.
- * @param logLevel level of logging ( OFF / ERROR / WARN / INFO / DEBUG / TRACE )
- */
-case class StateMachineConfig(sessionExpirationPeriod: Long, logLevel: String)
+import scala.language.higherKinds
+
+case class InvokerError(message: String)
+
+sealed abstract class InvokerStateError
+
+trait Invoker[F[_]] {
+  def invoke(call: FunctionCallDescription): EitherT[F, InvokerError, Option[String]]
+  def stateHash(): EitherT[F, InvokerStateError, ByteVector]
+}

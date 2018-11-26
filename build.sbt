@@ -228,3 +228,13 @@ lazy val node = project
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(ethclient)
+
+lazy val solver = project
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      catsEffect,
+      slogging
+    )
+  ).enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(statemachine, vm)
