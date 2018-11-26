@@ -183,7 +183,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
                 c1s1 shouldBe Some(2)
                 c2s0 shouldBe Some(2)
               },
-              maxWait = 20.seconds
+              maxWait = 30.seconds
             )
           } yield ()
         }
@@ -209,7 +209,8 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
         case _ => throw new RuntimeException(s"eventually timed out after $maxWait")
       }
       .adaptError {
-        case e: TestFailedException => e
+        case e: TestFailedException =>
+          e.modifyMessage(m => Some(s"eventually timed out after $maxWait" + m.map(": " + _).getOrElse("")))
         case e =>
           new TestFailedDueToTimeoutException(
             _ => Option(e.getMessage),
