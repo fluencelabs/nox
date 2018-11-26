@@ -42,6 +42,19 @@ case class MasterNode(
   implicit ce: ConcurrentEffect[IO]
 ) extends slogging.LazyLogging {
 
+  private def getCodePath(codeName: String): String = {
+    val examplesPath = getClass.getClassLoader.getResource("examples").getPath
+    if (examplesPath.contains(".jar")) {
+      // TODO: REMOVE. It's an ad-hoc fix to avoid copying resources from jar in case of `sbt runMain`
+      Paths.get("./statemachine/docker/examples/vmcode-" + codeName).toAbsolutePath.toString
+    } else {
+      Paths
+        .get(getClass.getClassLoader.getResource("examples").getPath + "/vmcode-" + codeName)
+        .toAbsolutePath
+        .toString
+    }
+  }
+
   // Converts ClusterData into SolverParams which is ready to run
   private val clusterDataToParams: fs2.Pipe[IO, (ClusterData, Path), SolverParams] =
     _.map {
@@ -50,10 +63,7 @@ case class MasterNode(
           clusterData,
           solverTendermintPath.toString,
           // TODO fetch (from swarm) & cache
-          Paths
-            .get(getClass.getClassLoader.getResource("examples").getPath + "/vmcode-" + clusterData.code)
-            .toAbsolutePath
-            .toString
+          getCodePath(clusterData.code)
         )
     }
 
