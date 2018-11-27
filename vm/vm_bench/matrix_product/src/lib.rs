@@ -22,7 +22,7 @@ fn compute_matrix_hash(matrix: &Matrix) -> u64 {
 }
 
 #[no_mangle]
-pub extern "C" fn bench_test() -> u64 {
+pub extern "C" fn main() -> u64 {
     let matrix_size : u32 = MATRIX_SIZE.parse::<u32>().unwrap();
     let seed : u64 = SEED.parse::<u64>().unwrap();
     let iterations_count : u64 = ITERATIONS_COUNT.parse::<u64>().unwrap();

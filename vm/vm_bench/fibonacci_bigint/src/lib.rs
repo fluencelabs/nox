@@ -16,7 +16,7 @@ fn fib(num: &BigUint) -> BigUint {
 }
 
 #[no_mangle]
-pub extern "C" fn bench_test() -> u8 {
+pub extern "C" fn main() -> u8 {
     let fib_number : BigUint = BigUint::from(FIB_NUMBER.parse::<u64>().unwrap());
 
     fib(&fib_number).to_bytes_le().iter().fold(0u8, |x1, x2| x1 ^ x2)
