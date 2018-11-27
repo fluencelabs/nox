@@ -6,6 +6,7 @@ use reikna::prime;
 
 #[no_mangle]
 pub extern "C" fn bench_test() -> u64 {
-    let factors = prime::factorize(NUMBER);
+    let number : u32 = NUMBER.parse::<u64>().unwrap();
+    let factors = prime::factorize(number);
     factors[0]
 }

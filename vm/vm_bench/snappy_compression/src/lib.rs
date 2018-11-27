@@ -21,7 +21,7 @@ fn generate_sequence(seed : u64, size : u64) -> Sequence {
 }
 
 #[no_mangle]
-pub extern "C" fn bench_test() -> u64 {
+pub extern "C" fn main() -> u64 {
     let seed : u64 = SEED.parse::<u64>().unwrap();
     let iterations_count : u64 = ITERATIONS_COUNT.parse::<u64>().unwrap();
     let sequence_size : u64 = SEQUENCE_SIZE.parse::<u64>().unwrap();
