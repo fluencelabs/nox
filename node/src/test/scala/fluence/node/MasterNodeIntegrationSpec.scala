@@ -56,9 +56,9 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
   private val url = sys.props.get("ethereum.url")
   private val client = EthClient.makeHttpResource[IO](url)
 
-  val dir = new File("../bootstrap")
-  def run(cmd: String): Unit = Process(cmd, dir).!(ProcessLogger(_ => ()))
-  def runBackground(cmd: String): Unit = Process(cmd, dir).run(ProcessLogger(_ => ()))
+  val bootstrapDir = new File("../bootstrap")
+  def run(cmd: String): Unit = Process(cmd, bootstrapDir).!(ProcessLogger(_ => ()))
+  def runBackground(cmd: String): Unit = Process(cmd, bootstrapDir).run(ProcessLogger(_ => ()))
 
   override protected def beforeAll(): Unit = {
     logger.info("bootstrapping npm")
