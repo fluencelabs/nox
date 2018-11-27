@@ -1,0 +1,12 @@
+[package]
+name = "matrix_svd_decomposition_bench"
+version = "0.1.0"
+authors = ["M. Voronov <michail@fluence.one>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+nalgebra = { version = "0.16", features = [ "alloc" ] }
+rand = "0.6.1"
+rand_isaac = "0.1.0"

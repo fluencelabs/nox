@@ -9,16 +9,7 @@ use settings::*;
 
 fn create_matrix(rows_number: u32, columns_count: u32, seed: u64) -> Matrix {
     let mut rng: IsaacRng = SeedableRng::seed_from_u64(seed);
-    Matrix::from_fn(rows_number as usize, columns_count as usize, |_, _| rng.gen_range(0u64, GENERATION_INTERVAL))
-}
-
-fn compute_matrix_hash(matrix: &Matrix) -> u64 {
-    let mut trace : u64 = 0;
-    for i in 0..matrix.ncols() {
-        trace += matrix[(i,i)]
-    }
-
-    trace
+    Matrix::from_fn(rows_number as usize, columns_count as usize, |_, _| rng.gen_range(0f64, GENERATION_INTERVAL))
 }
 
 #[no_mangle]
@@ -29,12 +20,9 @@ pub extern "C" fn bench_test() -> u64 {
 
     let mut matrix_hash : u64 = seed;
     for _ in 1..iterations_count {
-        let matrix_a = create_matrix(matrix_size, matrix_size, matrix_hash);
-        matrix_hash = compute_matrix_hash(&matrix_a);
-        let matrix_b = create_matrix(matrix_size, matrix_size, matrix_hash);
-
-        let matrix_c = matrix_a * matrix_b;
-        matrix_hash = compute_matrix_hash(&matrix_c);
+        let matrix = create_matrix(matrix_size, matrix_size, matrix_hash);
+        let svd = matrix.svd(true, true);
+        matrix_hash = svd.singular_values.iter().fold(0u64, |x1, x2| x1 ^ x2.to_bits());
     }
 
     matrix_hash

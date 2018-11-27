@@ -1,0 +1,10 @@
+[package]
+name = "factorization_reikna_bench"
+version = "0.1.0"
+authors = ["M. Voronov <michail@fluence.one>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+reikna = "0.6.0"
