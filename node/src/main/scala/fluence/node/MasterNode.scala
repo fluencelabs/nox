@@ -70,6 +70,7 @@ case class MasterNode(
             case LocalPath(localPath) =>
               IO.pure(Paths.get("./statemachine/docker/examples/vmcode-" + localPath).toAbsolutePath.toString)
             case sp @ SwarmPath(swarmPath, url) =>
+              // TODO: test it in integration spec with CLI
               downloadAndWriteCodeToFile(solverTendermintPath, sp)
           }
         } yield {
