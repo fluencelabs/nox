@@ -1,5 +1,5 @@
 [package]
-name = "matrix_evd_decomposition"
+name = "matrix_evd_decomposition_bench"
 version = "0.1.0"
 authors = ["M. Voronov <michail@fluence.one>"]
 

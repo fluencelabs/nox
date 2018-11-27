@@ -1,5 +1,5 @@
 [package]
-name = "fibonacci_bench"
+name = "fibonacci_bigint_bench"
 version = "0.1.0"
 authors = ["M. Voronov <michail@fluence.one>"]
 

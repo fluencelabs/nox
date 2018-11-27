@@ -2,27 +2,22 @@ mod settings;
 extern crate num_bigint;
 extern crate num_traits;
 
-use settings::{FIB_NUMBER};
-use num_bigint::{BigInt};
-use num_traits::{One, Zero};
+use settings::FIB_NUMBER;
+use num_bigint::BigUint;
+use num_traits::One;
+use std::ops::Sub;
 
-#[no_mangle]
-pub extern "C" fn fib(num: u64) -> BigInt {
-    let mut f_0: BigInt = Zero::zero();
-    let mut f_1: BigInt = One::one();
-
-    for _ in 0..num {
-        let f_2 = f_0 + &f_1;
-        f_0 = f_1;
-        f_1 = f_2;
+fn fib(num: &BigUint) -> BigUint {
+    if num.le(&BigUint::from(2u32)) {
+        return One::one();
     }
 
-    f_0
+    fib(&num.sub(1u32)) + fib(&num.sub(2u32))
 }
 
 #[no_mangle]
 pub extern "C" fn bench_test() -> u8 {
-    let fib_number : u64 = FIB_NUMBER.parse::<u64>().unwrap();
+    let fib_number : BigUint = BigUint::from(FIB_NUMBER.parse::<u64>().unwrap());
 
-    fib(fib_number).to_bytes_le().1.iter().fold(0, |x1, x2| x1 ^ x2)
+    fib(&fib_number).to_bytes_le().iter().fold(0u8, |x1, x2| x1 ^ x2)
 }

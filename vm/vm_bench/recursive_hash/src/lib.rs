@@ -13,7 +13,7 @@ pub extern "C" fn bench_test() -> u8 {
     let seed_as_byte_array: [u8; mem::size_of::<i64>()] = unsafe { mem::transmute(initial_value.to_le()) };
     let mut hash_result = Sha3_256::digest(&seed_as_byte_array);
 
-    for _ in 1..iterations_count {
+    for _ in 0..iterations_count {
         hash_result = Sha3_256::digest(&hash_result);
     }
 
