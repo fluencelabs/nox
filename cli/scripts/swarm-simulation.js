@@ -18,7 +18,35 @@ var http = require('http');
 
 process.title = process.title = "swarm-simulation";
 
+var crypto = require('crypto')
+
+let codes = new Map();
+
+function randomValueHex(len) {
+  return crypto
+    .randomBytes(Math.ceil(len / 2))
+    .toString('hex') // convert to hexadecimal format
+    .slice(0, len) // return required number of characters
+}
+
 http.createServer(function (request, response) {
-    response.writeHead(200);
-    response.end("d1f25a870a7bb7e5d526a7623338e4e9b8399e76df8b634020d11d969594f24a", 'utf-8');
+    let body;
+    if(request.method === "POST") {
+        request.on('data', chunk => {
+                body += chunk;
+            });
+        request.on('end', function() {
+            let hex = randomValueHex(64);
+            codes.set(hex, body);
+            response.writeHead(200);
+            response.end(hex, 'utf-8');
+        });
+    } else if (request.method === "GET") {
+        let pieces = request.url.split("/");
+        response.writeHead(200);
+        response.setHeader('Content-Type', 'application/octet-stream');
+        response.setHeader('Content-Length', Buffer.byteLength(body));
+        response.end(codes.get(pieces[pieces.length-1]))
+    };
+
 }).listen(8500);
