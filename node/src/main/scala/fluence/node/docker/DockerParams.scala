@@ -61,9 +61,6 @@ case class DockerParams private (params: Queue[String], tailParams: List[String]
   def volume(hostVolume: String, containerVolume: String): DockerParams =
     option("-v", s"$hostVolume:$containerVolume")
 
-  def uid(uid: String): DockerParams =
-    option("--user", uid)
-
   /**
    * Builds the current command to a representation ready to pass in [[scala.sys.process.Process]].
    *

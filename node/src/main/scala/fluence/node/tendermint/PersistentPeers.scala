@@ -18,6 +18,7 @@ package fluence.node.tendermint
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.{Bytes24, Uint16}
 import scodec.bits.ByteVector
+
 import scala.collection.JavaConverters._
 
 /**
