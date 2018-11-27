@@ -88,16 +88,20 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
    * @param executable The command to execute
    */
   private def solverExec(executable: String, params: String*): IO[String] =
-    IO(
-      DockerParams
-        .run(executable, params: _*)
-        .volume(masterTendermintPath, "/tendermint")
-        // TODO: it could be another image, specific to tendermint process only, no need to take solver
-        .image("fluencelabs/solver:latest")
-        .process
-        .!!
-        .trim
-    )
+    for {
+      uid <- IO(scala.sys.process.Process("id -u").!!.trim)
+      result <- IO(
+        DockerParams
+          .run(executable, params: _*)
+          .volume(masterTendermintPath, "/tendermint")
+          .uid(uid)
+          // TODO: it could be another image, specific to tendermint process only, no need to take solver
+          .image("fluencelabs/solver:latest")
+          .process
+          .!!
+          .trim
+      )
+    } yield result
 
   /**
    * Copies master tendermint keys to solver path
