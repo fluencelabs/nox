@@ -22,6 +22,9 @@ var crypto = require('crypto')
 
 let codes = new Map();
 
+/**
+  Generates random hex string with `len` length
+**/
 function randomValueHex(len) {
   return crypto
     .randomBytes(Math.ceil(len / 2))
@@ -29,6 +32,8 @@ function randomValueHex(len) {
     .slice(0, len) // return required number of characters
 }
 
+// The server that simulates the Swarm API. Store some files in memory, generates random hex address for it.
+// Can return this files by hex address as a key.
 http.createServer(function (request, response) {
     let body;
     if(request.method === "POST") {

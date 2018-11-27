@@ -19,5 +19,14 @@ import java.net.URL
 
 sealed trait CodePath
 
-case class SwarmPath(path: String, url: URL) extends CodePath
+/**
+  * Path to a Swarm file.
+  * @param hexAddress an identifier of a file in the Swarm network
+  * @param url an address of a Swarm node
+  */
+case class SwarmPath(hexAddress: String, url: URL) extends CodePath
+
+/**
+  * Path to file on local disk.
+  */
 case class LocalPath(path: String) extends CodePath

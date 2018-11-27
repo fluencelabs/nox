@@ -43,18 +43,29 @@ case class MasterNode(
   implicit ce: ConcurrentEffect[IO]
 ) extends slogging.LazyLogging {
 
+  /**
+    * Downloads file from the Swarm and store it on a disk.
+    * @param swarmPath a code address and a Swarm URL address
+    * @param filePath a path to code to store
+    */
   private def downloadFromSwarmToFile(swarmPath: SwarmPath, filePath: Path): IO[Unit] = {
-    SwarmClient(swarmPath.url.getHost, swarmPath.url.getPort).download(swarmPath.path).value.flatMap {
+    SwarmClient(swarmPath.url.getHost, swarmPath.url.getPort).download(swarmPath.hexAddress).value.flatMap {
       case Left(err) => IO.raiseError(err)
       case Right(codeBytes) => IO(Files.write(filePath, codeBytes))
     }
   }
 
+  /**
+    * Checks if there is no code already then download a file from the Swarm and store it to a disk.
+    * @param solverTendermintPath a path to solver's directory
+    * @param swarmPath a code address and a Swarm URL address
+    * @return a path to a code
+    */
   private def downloadAndWriteCodeToFile(solverTendermintPath: Path, swarmPath: SwarmPath): IO[String] =
     for {
-      dirPath <- IO(solverTendermintPath.resolve("vmcode-" + swarmPath.path))
+      dirPath <- IO(solverTendermintPath.resolve("vmcode-" + swarmPath.hexAddress))
       _ <- if (dirPath.toFile.exists()) IO.unit else IO(Files.createDirectory(dirPath))
-      filePath <- IO(dirPath.resolve(swarmPath.path + ".wasm"))
+      filePath <- IO(dirPath.resolve(swarmPath.hexAddress + ".wasm"))
       _ <- if (filePath.toFile.exists()) IO.unit
       else
         IO(Files.createFile(filePath))
