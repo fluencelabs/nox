@@ -1,1 +1,1 @@
-pub const NUMBER : u64 = 9223372036854775807/1000000000;
+pub const NUMBER : &'static str = env!("NUMBER");
