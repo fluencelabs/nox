@@ -18,6 +18,7 @@ package fluence.node.tendermint
 import java.nio.file.{Files, Path, Paths}
 
 import cats.effect.{ContextShift, Effect, IO, Sync}
+import cats.syntax.flatMap._
 import fluence.node.docker.{DockerIO, DockerParams}
 import io.circe.parser.parse
 
@@ -38,7 +39,7 @@ case class KeysPath(masterTendermintPath: String)(implicit ec: ContextShift[IO])
    */
   val showValidatorKey: IO[ValidatorKey] =
     for {
-      validatorKeyStr ← solverExec[IO]("tendermint", "show_validator", "--home=/tendermint")
+      validatorKeyStr ← solverExec("tendermint", "show_validator", "--home=/tendermint")
 
       validatorKey ← IO.fromEither(
         parse(validatorKeyStr).flatMap(_.as[ValidatorKey])
@@ -49,7 +50,7 @@ case class KeysPath(masterTendermintPath: String)(implicit ec: ContextShift[IO])
    * Runs `tendermint show_node_id` inside the solver's container, and returns its output.
    */
   val showNodeId: IO[String] =
-    solverExec[IO]("tendermint", "show_node_id", "--home=/tendermint")
+    solverExec("tendermint", "show_node_id", "--home=/tendermint")
 
   /**
    * Initialize tendermint keys
@@ -67,7 +68,7 @@ case class KeysPath(masterTendermintPath: String)(implicit ec: ContextShift[IO])
     case false ⇒
       path.flatMap { p =>
         logger.info(s"Tendermint master keys not found in $p, going to initialize")
-        solverExec[IO]("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
+        solverExec("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
           logger.info(
             s"Tendermint initialized in $p, going to remove unused data. Tendermint logs:\n$str"
           )
@@ -87,13 +88,11 @@ case class KeysPath(masterTendermintPath: String)(implicit ec: ContextShift[IO])
    *
    * @param executable The command to execute
    */
-  private def solverExec[F[_]: Effect: ContextShift](executable: String, params: String*)(
-    implicit F: Sync[F]
-  ): F[String] =
+  private def solverExec(executable: String, params: String*): IO[String] =
     for {
-      uid <- F.delay(scala.sys.process.Process("id -u").!!.trim)
+      uid <- IO(scala.sys.process.Process("id -u").!!.trim)
       result <- DockerIO
-        .run(
+        .run[IO](
           DockerParams
             .run(executable, params: _*)
             .user(uid)
