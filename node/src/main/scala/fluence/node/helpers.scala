@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint
-import fluence.ethclient.helpers.Web3jConverters.{binaryToHex, bytes32ToString}
+package fluence.node
+import pureconfig.error.ConfigReaderFailures
 
-import org.web3j.abi.datatypes.generated.Bytes32
+object helpers {
+  implicit class ConfigReaderFailuresOps(failures: ConfigReaderFailures) {
 
-case class CodePath(storageHash: Bytes32) {
-  lazy val asString: String = bytes32ToString(storageHash)
-  lazy val asHex: String = binaryToHex(storageHash.getValue)
+    def asException =
+      new IllegalArgumentException(
+        "Can't load or parse configs:\n" + failures.toList.map(f => f.location + " - " + f.description).mkString("\n")
+      )
+  }
 }

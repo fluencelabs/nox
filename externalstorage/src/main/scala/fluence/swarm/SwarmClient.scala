@@ -43,14 +43,13 @@ import scala.language.higherKinds
  * Client for working with Swarm.
  * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#
  *
- * @param host address of trusted swarm node
- * @param port port of trusted swarm node
+ * @param address HTTP address of trusted swarm node
  * @param hasher hashing algorithm. Must be Keccak SHA-3 algorithm for real Swarm node or another for test purposes
  *               @see https://en.wikipedia.org/wiki/SHA-3
  * @param sttpBackend way to represent the backend implementation.
  *                    Can be sync or async, with effects or not depending on the `F`
  */
-class SwarmClient[F[_]: Monad](host: String, port: Int)(
+class SwarmClient[F[_]: Monad](address: String)(
   implicit sttpBackend: SttpBackend[F, Nothing],
   hasher: Hasher[ByteVector, ByteVector]
 ) extends slogging.LazyLogging {
@@ -64,6 +63,8 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
   // generate body from json for http requests
   private def jsonToBytes(json: Json) = printer.pretty(json).getBytes
 
+  private val swarmUri = uri"$address"
+
   /**
    * Generate uri for requests.
    *
@@ -73,9 +74,9 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    * @return generated uri
    */
   private def uri(bzzProtocol: BzzProtocol, target: String, path: Seq[String] = Nil) =
-    uri"http://$host:$port".path(Seq(bzzProtocol.protocol, target) ++ path)
+    swarmUri.path(Seq(bzzProtocol.protocol, target) ++ path)
 
-  private def uri(bzzUri: BzzProtocol) = uri"http://$host:$port".path(bzzUri.protocol)
+  private def uri(bzzUri: BzzProtocol) = swarmUri.path(bzzUri.protocol)
 
   /**
    * Download a file.
@@ -85,6 +86,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
    *
    */
   def download(target: String): EitherT[F, SwarmError, Array[Byte]] = {
+    // TODO add a method that will return some sort of stream
     val downloadURI = uri(Bzz, target)
     logger.info(s"Download request. Target: $target")
     sttp
@@ -309,7 +311,7 @@ class SwarmClient[F[_]: Monad](host: String, port: Int)(
 
 object SwarmClient {
 
-  def apply(host: String, port: Int): SwarmClient[IO] = {
+  def apply(address: String): SwarmClient[IO] = {
 
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.INFO
@@ -317,7 +319,7 @@ object SwarmClient {
     implicit val hasher: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
     implicit val sttpBackend: SttpBackend[IO, Nothing] = AsyncHttpClientCatsBackend[IO]()
 
-    new SwarmClient[IO](host, port)
+    new SwarmClient[IO](address)
   }
 
   implicit class UnsafeClient(client: SwarmClient[IO]) {

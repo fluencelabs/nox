@@ -16,29 +16,35 @@
 
 package fluence.node
 
-import java.net.URL
-
 import cats.effect.IO
 import fluence.node.tendermint.{KeysPath, ValidatorKey}
 
 import scala.util.Try
 
 /**
- * Information about a node willing to run solvers to join Fluence clusters.
+ * Information about a node possible endpoints.
  *
  * @param ip p2p host IP
- * @param startPort starting port for p2p port range
- * @param endPort ending port for p2p port range
+ * @param minPort starting port for p2p port range
+ * @param maxPort ending port for p2p port range
+**/
+case class EndpointsConfig(
+  ip: String,
+  minPort: Short,
+  maxPort: Short
+)
+
+/**
+ * Information about a node willing to run solvers to join Fluence clusters.
+ *
+ * @param endpoints information about a node possible endpoints
  * @param validatorKey p2p port
  * @param nodeAddress p2p port
  */
 case class NodeConfig(
-  ip: String,
-  startPort: Short,
-  endPort: Short,
+  endpoints: EndpointsConfig,
   validatorKey: ValidatorKey,
-  nodeAddress: String,
-  swarmAddress: Option[URL]
+  nodeAddress: String
 )
 
 object NodeConfig extends slogging.LazyLogging {
@@ -49,45 +55,17 @@ object NodeConfig extends slogging.LazyLogging {
   private def MaxPort(range: Int = 0): Int = MaxPort - range
 
   /**
-   * Builds [[NodeConfig]] from command-line arguments.
+   * Builds [[NodeConfig]].
    *
-   * @param args arguments list
-   * - Tendermint p2p host IP
-   * - Tendermint p2p port range starting port
-   * - Tendermint p2p port range ending port
    */
-  def fromArgs(keysPath: KeysPath, args: List[String]): IO[NodeConfig] =
+  def apply(keysPath: KeysPath, endpointsConfig: EndpointsConfig): IO[NodeConfig] =
     for {
-      argsTuple ← args match {
-        case a1 :: a2 :: a3 :: tail ⇒ IO.pure(a1, a2, a3, tail)
-        case _ ⇒ IO.raiseError(new IllegalArgumentException("4 program arguments expected"))
-      }
-
-      (ip, startPortString, endPortString, tail) = argsTuple
-
-      swarmAddress <- tail.headOption.map(s => if (!s.startsWith("http")) "http://" + s else s) match {
-        case None => IO.pure(None)
-        case Some(addr) => IO(Some(new URL(addr)))
-      }
-
       validatorKey ← keysPath.showValidatorKey
       nodeAddress ← keysPath.showNodeId
 
       _ = logger.info("Tendermint node id: {}", nodeAddress)
 
-      _ <- {
-        // TODO: is it the best way to check IP? Why not to make RemoteAddr?
-        val parts = ip.split('.')
-        if (parts.length == 4 && parts.forall(x => Try(x.toShort).filter(Range(0, 256).contains(_)).isSuccess))
-          IO.unit
-        else
-          IO.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip"))
-      }
-
-      startPort <- IO(startPortString.toShort)
-      endPort <- IO(endPortString.toShort)
-      _ ← checkPorts(startPort, endPort)
-    } yield NodeConfig(ip, startPort, endPort, validatorKey, nodeAddress, swarmAddress)
+    } yield NodeConfig(endpointsConfig, validatorKey, nodeAddress)
 
   private def checkPorts(startPort: Int, endPort: Int): IO[Unit] = {
     val ports = endPort - startPort

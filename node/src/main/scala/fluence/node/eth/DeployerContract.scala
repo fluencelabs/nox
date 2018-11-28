@@ -223,16 +223,16 @@ object DeployerContract {
     /**
      * Returns node's address information (host, Tendermint p2p key) in format ready to pass to the contract.
      */
-    def addressBytes24: Bytes24 = solverAddressToBytes24(ip, nodeAddress)
+    def addressBytes24: Bytes24 = solverAddressToBytes24(endpoints.ip, nodeAddress)
 
     /**
      * Returns starting port as uint16.
      */
-    def startPortUint16: Uint16 = new Uint16(startPort)
+    def startPortUint16: Uint16 = new Uint16(endpoints.minPort)
 
     /**
      * Returns ending port as uint16.
      */
-    def endPortUint16: Uint16 = new Uint16(endPort)
+    def endPortUint16: Uint16 = new Uint16(endpoints.maxPort)
   }
 }

@@ -20,7 +20,7 @@ import java.nio.file.{Files, Path, Paths}
 import cats.effect.{ConcurrentEffect, ExitCode, IO}
 import fluence.node.eth.DeployerContract
 import fluence.node.solvers.{SolverParams, SolversPool}
-import fluence.node.tendermint.{ClusterData, KeysPath, LocalPath, SwarmPath}
+import fluence.node.tendermint.{ClusterData, KeysPath}
 import fluence.swarm.SwarmClient
 
 /**
@@ -38,38 +38,46 @@ case class MasterNode(
   nodeConfig: NodeConfig,
   contract: DeployerContract,
   pool: SolversPool[IO],
+  swarmClient: Option[SwarmClient[IO]],
   path: Path
 )(
   implicit ce: ConcurrentEffect[IO]
 ) extends slogging.LazyLogging {
 
   /**
-    * Downloads file from the Swarm and store it on a disk.
-    * @param swarmPath a code address and a Swarm URL address
-    * @param filePath a path to code to store
-    */
-  private def downloadFromSwarmToFile(swarmPath: SwarmPath, filePath: Path): IO[Unit] = {
-    SwarmClient(swarmPath.url.getHost, swarmPath.url.getPort).download(swarmPath.hexAddress).value.flatMap {
+   * Downloads file from the Swarm and store it on a disk.
+   * @param swarmPath a code address and a Swarm URL address
+   * @param filePath a path to code to store
+   */
+  private def downloadFromSwarmToFile(swarmPath: String, swarmClient: SwarmClient[IO], filePath: Path): IO[Unit] = {
+    //TODO change this to return stream from `download` method
+    swarmClient.download(swarmPath).value.flatMap {
       case Left(err) => IO.raiseError(err)
       case Right(codeBytes) => IO(Files.write(filePath, codeBytes))
     }
   }
 
   /**
-    * Checks if there is no code already then download a file from the Swarm and store it to a disk.
-    * @param solverTendermintPath a path to solver's directory
-    * @param swarmPath a code address and a Swarm URL address
-    * @return a path to a code
-    */
-  private def downloadAndWriteCodeToFile(solverTendermintPath: Path, swarmPath: SwarmPath): IO[String] =
+   * Checks if there is no code already then download a file from the Swarm and store it to a disk.
+   * @param solverPath a path to solver's directory
+   * @param swarmPath a code address and a Swarm URL address
+   * @return a path to a code
+   */
+  private def downloadAndWriteCodeToFile(
+    solverPath: Path,
+    swarmPath: String,
+    swarmClient: SwarmClient[IO]
+  ): IO[String] =
     for {
-      dirPath <- IO(solverTendermintPath.resolve("vmcode-" + swarmPath.hexAddress))
+      dirPath <- IO(solverPath.resolve("vmcode"))
       _ <- if (dirPath.toFile.exists()) IO.unit else IO(Files.createDirectory(dirPath))
-      filePath <- IO(dirPath.resolve(swarmPath.hexAddress + ".wasm"))
-      _ <- if (filePath.toFile.exists()) IO.unit
+      //TODO check if file's Swarm hash corresponds to the address
+      filePath <- IO(dirPath.resolve(swarmPath + ".wasm"))
+      exists <- IO(filePath.toFile.exists())
+      _ <- if (exists) IO.unit
       else
         IO(Files.createFile(filePath))
-          .flatMap(_ => downloadFromSwarmToFile(swarmPath, filePath))
+          .flatMap(_ => downloadFromSwarmToFile(swarmPath, swarmClient, filePath))
     } yield dirPath.toAbsolutePath.toString
 
   // Converts ClusterData into SolverParams which is ready to run
@@ -77,12 +85,14 @@ case class MasterNode(
     _.evalMap {
       case (clusterData, solverTendermintPath) ⇒
         for {
-          path <- clusterData.code match {
-            case LocalPath(localPath) =>
-              IO.pure(Paths.get("./statemachine/docker/examples/vmcode-" + localPath).toAbsolutePath.toString)
-            case sp @ SwarmPath(swarmPath, url) =>
+          path <- swarmClient match {
+            case None =>
+              IO(
+                Paths.get("./statemachine/docker/examples/vmcode-" + clusterData.code.asString).toAbsolutePath.toString
+              )
+            case Some(client) =>
               // TODO: test it in integration spec with CLI
-              downloadAndWriteCodeToFile(solverTendermintPath, sp)
+              downloadAndWriteCodeToFile(solverTendermintPath, clusterData.code.asHex, client)
           }
         } yield {
           SolverParams(

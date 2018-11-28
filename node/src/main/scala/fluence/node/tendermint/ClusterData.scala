@@ -97,10 +97,7 @@ object ClusterData {
     if (nodeIndex == -1)
       None
     else {
-      val storage = nodeConfig.swarmAddress.fold[CodePath](LocalPath(bytes32ToString(storageHash))) { addr =>
-        SwarmPath(binaryToHex(storageHash.getValue), addr)
-      }
-
+      val storage = CodePath(storageHash)
       val persistentPeers = PersistentPeers.fromAddrsAndPorts(solverAddrs, solverPorts)
       val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
       val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
