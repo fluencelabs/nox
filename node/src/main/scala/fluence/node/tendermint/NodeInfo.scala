@@ -17,7 +17,7 @@
 package fluence.node.tendermint
 import java.nio.file.{Files, Path}
 
-import cats.effect.IO
+import cats.effect.Sync
 import io.circe.Encoder
 import io.circe.generic.semiauto._
 
@@ -32,7 +32,7 @@ import io.circe.generic.semiauto._
 case class NodeInfo(cluster: Cluster, node_index: String) {
   def clusterName: String = cluster.genesis.chain_id
 
-  def writeTo(tendermintPath: Path): IO[Unit] = IO {
+  def writeTo[F[_]](tendermintPath: Path)(implicit F: Sync[F]): F[Unit] = F.delay {
     val configPath = tendermintPath.resolve("config")
     Files.createDirectories(configPath)
     Files.write(configPath.resolve("node_info.json"), NodeInfo.nodeInfoEncoder(this).spaces2.getBytes)
@@ -40,5 +40,5 @@ case class NodeInfo(cluster: Cluster, node_index: String) {
 }
 
 object NodeInfo {
-  implicit val nodeInfoEncoder: Encoder[NodeInfo] = deriveEncoder[NodeInfo]
+  implicit def nodeInfoEncoder: Encoder[NodeInfo] = deriveEncoder[NodeInfo]
 }

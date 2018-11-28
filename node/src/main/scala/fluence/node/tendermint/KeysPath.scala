@@ -17,7 +17,7 @@
 package fluence.node.tendermint
 import java.nio.file.{Files, Path, Paths}
 
-import cats.effect.{ContextShift, Effect, IO, Sync}
+import cats.effect.{ContextShift, Effect, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.node.docker.{DockerIO, DockerParams}
@@ -43,7 +43,7 @@ case class KeysPath[F[_]: Effect: ContextShift](masterTendermintPath: String)(im
     for {
       validatorKeyStr ← solverExec("tendermint", "show_validator", "--home=/tendermint")
 
-      validatorKey ← IO.fromEither(
+      validatorKey ← F.fromEither(
         parse(validatorKeyStr).flatMap(_.as[ValidatorKey])
       )
     } yield validatorKey
@@ -108,8 +108,10 @@ case class KeysPath[F[_]: Effect: ContextShift](masterTendermintPath: String)(im
    *
    * @param solverTendermintPath Solver's tendermint path
    */
-  def copyKeysToSolver(solverTendermintPath: Path): F[Unit] = path.map { p =>
-    Files.copy(p.resolve("config/node_key.json"), solverTendermintPath.resolve("config/node_key.json"))
-    Files.copy(p.resolve("config/priv_validator.json"), solverTendermintPath.resolve("config/priv_validator.json"))
+  def copyKeysToSolver(solverTendermintPath: Path): F[Unit] = path.flatMap { p =>
+    F.delay {
+      Files.copy(p.resolve("config/node_key.json"), solverTendermintPath.resolve("config/node_key.json"))
+      Files.copy(p.resolve("config/priv_validator.json"), solverTendermintPath.resolve("config/priv_validator.json"))
+    }
   }
 }

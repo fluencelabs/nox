@@ -47,7 +47,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
     (for {
       _ <- IO(Files.createDirectories(keysPath))
-      masterKeys = KeysPath(keysPath.toString)
+      masterKeys = KeysPath[IO](keysPath.toString)
       _ ← masterKeys.init
       solverInfo <- NodeConfig.fromArgs(masterKeys, restArgs)
       config <- IO.fromEither(

@@ -18,10 +18,13 @@ package fluence.node
 
 import java.net.InetAddress
 
-import cats.effect.IO
+import cats.effect.{ContextShift, Effect, Sync}
+import cats.syntax.applicativeError._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.node.tendermint.{KeysPath, ValidatorKey}
 
-import scala.util.{Failure, Success, Try}
+import scala.language.higherKinds
 
 /**
  * Information about a node willing to run solvers to join Fluence clusters.
@@ -55,11 +58,13 @@ object NodeConfig extends slogging.LazyLogging {
    * - Tendermint p2p port range starting port
    * - Tendermint p2p port range ending port
    */
-  def fromArgs(keysPath: KeysPath, args: List[String]): IO[NodeConfig] =
+  def fromArgs[F[_]: Effect: ContextShift](keysPath: KeysPath[F], args: List[String])(
+    implicit F: Sync[F]
+  ): F[NodeConfig] = {
     for {
       argsTuple ← args match {
-        case a1 :: a2 :: a3 :: Nil ⇒ IO.pure(a1, a2, a3)
-        case _ ⇒ IO.raiseError(new IllegalArgumentException("4 program arguments expected"))
+        case a1 :: a2 :: a3 :: Nil ⇒ F.pure((a1, a2, a3))
+        case _ ⇒ F.raiseError(new IllegalArgumentException("4 program arguments expected"))
       }
 
       (ip, startPortString, endPortString) = argsTuple
@@ -71,34 +76,35 @@ object NodeConfig extends slogging.LazyLogging {
 
       _ <- checkIp(ip)
 
-      startPort <- IO(startPortString.toShort)
-      endPort <- IO(endPortString.toShort)
+      startPort <- F.delay(startPortString.toShort)
+      endPort <- F.delay(endPortString.toShort)
       _ ← checkPorts(startPort, endPort)
     } yield NodeConfig(ip, startPort, endPort, validatorKey, nodeAddress)
+  }
 
-  private def checkIp(ip: String): IO[Unit] =
-    IO(InetAddress.getByName(ip)).attempt.map {
-      case Right(_) => IO.unit
-      case Left(e) => IO.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip.").initCause(e))
+  private def checkIp[F[_]](ip: String)(implicit F: Sync[F]): F[Unit] =
+    F.delay(InetAddress.getByName(ip)).attempt.map {
+      case Right(_) => F.unit
+      case Left(e) => F.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip.").initCause(e))
     }
 
-  private def checkPorts(startPort: Int, endPort: Int): IO[Unit] = {
+  private def checkPorts[F[_]](startPort: Int, endPort: Int)(implicit F: Sync[F]): F[Unit] = {
     val ports = endPort - startPort
 
     if (ports <= MinPortCount || ports > MaxPortCount) {
-      IO.raiseError(
+      F.raiseError(
         new IllegalArgumentException(
           s"Port range size should be between $MinPortCount and $MaxPortCount"
         )
       )
     } else if (startPort < MinPort || startPort > MaxPort(ports) && endPort > MaxPort) {
-      IO.raiseError(
+      F.raiseError(
         new IllegalArgumentException(
           s"Allowed ports should be between $MinPort and $MaxPort"
         )
       )
     } else {
-      IO.unit
+      F.unit
     }
   }
 
