@@ -23,7 +23,7 @@ import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.eth.{DeployerContract, DeployerContractConfig}
-import fluence.node.solvers.SolversPool
+import fluence.node.solvers.{CodeManager, SolversPool, SwarmCodeManager, TestCodeManager}
 import fluence.node.tendermint.KeysPath
 import fluence.swarm.SwarmClient
 import slogging.MessageFormatter.DefaultPrefixFormatter
@@ -35,7 +35,7 @@ case class Configuration(
   masterKeys: KeysPath,
   nodeConfig: NodeConfig,
   contractConfig: DeployerContractConfig,
-  swarmClient: Option[SwarmClient[IO]]
+  codeManager: CodeManager[IO]
 )
 
 object MasterNodeApp extends IOApp with LazyLogging {
@@ -65,12 +65,12 @@ object MasterNodeApp extends IOApp with LazyLogging {
       swarmEnabled <- IO.fromEither(
         pureconfig.loadConfig[Boolean]("use-swarm").left.map(_.asException)
       )
-      swarmClient <- if (!swarmEnabled) IO.pure(None)
+      codeManager <- if (!swarmEnabled) IO(new TestCodeManager[IO]())
       else {
         IO.fromEither(pureconfig.loadConfig[String]("swarm.host").left.map(_.asException))
-          .map(addr => Some(SwarmClient(addr)))
+          .map(addr => new SwarmCodeManager[IO](SwarmClient(addr)))
       }
-    } yield Configuration(rootPath, masterKeys, solverInfo, config, swarmClient)
+    } yield Configuration(rootPath, masterKeys, solverInfo, config, codeManager)
 
   /**
    * Launches a Master node connecting to ethereum blockchain with Deployer contract.

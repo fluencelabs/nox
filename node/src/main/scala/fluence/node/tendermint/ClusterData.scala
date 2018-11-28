@@ -16,9 +16,9 @@
 
 package fluence.node.tendermint
 import fluence.ethclient.Deployer.ClusterFormedEventResponse
-import fluence.ethclient.helpers.Web3jConverters.{binaryToHex, bytes32ToString}
 import fluence.node.NodeConfig
 import fluence.node.eth.DeployerContract.ContractClusterTuple
+import fluence.node.solvers.CodePath
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
 
