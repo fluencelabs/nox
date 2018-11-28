@@ -153,17 +153,20 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
             _ <- contract.addAddressToWhitelist[IO](owner)
 
             // launching MasterNodes - they should take existing cluster info via getNodeClusters
-            _ = new Thread(() => node0.run.unsafeRunSync()).start()
-            _ = new Thread(() => node1.run.unsafeRunSync()).start()
+            _ <- Concurrent[IO].start(node0.run) // TODO: stop cluster & join fiber
+            _ <- Concurrent[IO].start(node1.run) // TODO: stop cluster & join fiber
 
             // waiting until MasterNodes launched
             _ <- eventually[IO](
-              for {
-                alive0 <- node0.pool.healths.map(_.exists { case (_, h) => h.isHealthy })
-                alive1 <- node1.pool.healths.map(_.exists { case (_, h) => h.isHealthy })
-              } yield {
-                alive0 shouldBe true
-                alive1 shouldBe true
+              {
+                val alive: MasterNode => IO[Boolean] = _.pool.healths.map(_.exists { case (_, h) => h.isHealthy })
+                for {
+                  alive0 <- alive(node0)
+                  alive1 <- alive(node1)
+                } yield {
+                  alive0 shouldBe true
+                  alive1 shouldBe true
+                }
               },
               maxWait = 120.seconds // TODO: fix startup time
             )

@@ -57,7 +57,7 @@ case class MasterNode(
   }
 
   // Converts ClusterData into SolverParams which is ready to run
-  private val clusterDataToParams: fs2.Pipe[IO, (ClusterData, Path), SolverParams] =
+  private val clusterDataToParams: fs2.Pipe[fs2.Pure, (ClusterData, Path), SolverParams] =
     _.map {
       case (clusterData, solverTendermintPath) ⇒
         SolverParams(
