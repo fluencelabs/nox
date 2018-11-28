@@ -77,9 +77,9 @@ object NodeConfig extends slogging.LazyLogging {
     } yield NodeConfig(ip, startPort, endPort, validatorKey, nodeAddress)
 
   private def checkIp(ip: String): IO[Unit] =
-    Try(InetAddress.getByName(ip)) match {
-      case Success(_) => IO.unit
-      case Failure(e) => IO.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip.").initCause(e))
+    IO(InetAddress.getByName(ip)).attempt.map {
+      case Right(_) => IO.unit
+      case Left(e) => IO.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip.").initCause(e))
     }
 
   private def checkPorts(startPort: Int, endPort: Int): IO[Unit] = {
