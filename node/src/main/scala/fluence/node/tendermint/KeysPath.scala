@@ -17,9 +17,7 @@
 package fluence.node.tendermint
 import java.nio.file.{Files, Path, Paths}
 
-import cats.effect.{ContextShift, Effect, Sync}
-import cats.syntax.flatMap._
-import cats.syntax.functor._
+import cats.effect.{ContextShift, Effect, IO}
 import fluence.node.docker.{DockerIO, DockerParams}
 import io.circe.parser.parse
 
@@ -28,22 +26,21 @@ import io.circe.parser.parse
  *
  * @param masterTendermintPath Tendermint's home directory
  */
-case class KeysPath[F[_]: Effect: ContextShift](masterTendermintPath: String)(implicit F: Sync[F])
-    extends slogging.LazyLogging {
+case class KeysPath(masterTendermintPath: String)(implicit ec: ContextShift[IO]) extends slogging.LazyLogging {
 
-  val path: F[Path] = F.delay { Paths.get(masterTendermintPath) } //TODO: convert InvalidPathException to Fluence error
+  val path: IO[Path] = IO { Paths.get(masterTendermintPath) } //TODO: convert InvalidPathException to Fluence error
 
-  val nodeKeyPath: F[Path] = path.map(_.resolve("config").resolve("node_key.json"))
-  val privValidatorPath: F[Path] = path.map(_.resolve("config").resolve("priv_validator.json"))
+  val nodeKeyPath: IO[Path] = path.map(_.resolve("config").resolve("node_key.json"))
+  val privValidatorPath: IO[Path] = path.map(_.resolve("config").resolve("priv_validator.json"))
 
   /**
    * Runs `tendermint show_validator` inside the solver's container, and returns its output as [[ValidatorKey]].
    */
-  val showValidatorKey: F[ValidatorKey] =
+  val showValidatorKey: IO[ValidatorKey] =
     for {
-      validatorKeyStr ← solverExec("tendermint", "show_validator", "--home=/tendermint")
+      validatorKeyStr ← solverExec[IO]("tendermint", "show_validator", "--home=/tendermint")
 
-      validatorKey ← F.fromEither(
+      validatorKey ← IO.fromEither(
         parse(validatorKeyStr).flatMap(_.as[ValidatorKey])
       )
     } yield validatorKey
@@ -51,14 +48,14 @@ case class KeysPath[F[_]: Effect: ContextShift](masterTendermintPath: String)(im
   /**
    * Runs `tendermint show_node_id` inside the solver's container, and returns its output.
    */
-  val showNodeId: F[String] =
-    solverExec("tendermint", "show_node_id", "--home=/tendermint")
+  val showNodeId: IO[String] =
+    solverExec[IO]("tendermint", "show_node_id", "--home=/tendermint")
 
   /**
    * Initialize tendermint keys
    * Returns true if new keys are generated, false otherwise
    */
-  val init: F[Boolean] = (for {
+  val init: IO[Boolean] = (for {
     nodeKey <- nodeKeyPath.map(_.toFile)
     privValidator <- privValidatorPath.map(_.toFile)
   } yield nodeKey.exists() && privValidator.exists()).flatMap {
@@ -70,11 +67,11 @@ case class KeysPath[F[_]: Effect: ContextShift](masterTendermintPath: String)(im
     case false ⇒
       path.flatMap { p =>
         logger.info(s"Tendermint master keys not found in $p, going to initialize")
-        solverExec("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
+        solverExec[IO]("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
           logger.info(
             s"Tendermint initialized in $p, going to remove unused data. Tendermint logs:\n$str"
           )
-          F.delay {
+          IO {
             p.resolve("config").resolve("config.toml").toFile.delete()
             p.resolve("config").resolve("genesis.json").toFile.delete()
             p.resolve("data").toFile.delete()
@@ -90,7 +87,7 @@ case class KeysPath[F[_]: Effect: ContextShift](masterTendermintPath: String)(im
    *
    * @param executable The command to execute
    */
-  private def solverExec(executable: String, params: String*): F[String] = {
+  private def solverExec[F[_]: Effect: ContextShift](executable: String, params: String*): F[String] = {
     DockerIO
       .run(
         DockerParams
@@ -108,8 +105,8 @@ case class KeysPath[F[_]: Effect: ContextShift](masterTendermintPath: String)(im
    *
    * @param solverTendermintPath Solver's tendermint path
    */
-  def copyKeysToSolver(solverTendermintPath: Path): F[Unit] = path.flatMap { p =>
-    F.delay {
+  def copyKeysToSolver(solverTendermintPath: Path): IO[Unit] = path.flatMap { p =>
+    IO {
       Files.copy(p.resolve("config/node_key.json"), solverTendermintPath.resolve("config/node_key.json"))
       Files.copy(p.resolve("config/priv_validator.json"), solverTendermintPath.resolve("config/priv_validator.json"))
     }

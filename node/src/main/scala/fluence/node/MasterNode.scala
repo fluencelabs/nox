@@ -17,7 +17,7 @@
 package fluence.node
 import java.nio.file.{Path, Paths}
 
-import cats.effect.{ConcurrentEffect, ExitCode, Sync}
+import cats.effect.{ConcurrentEffect, ExitCode, IO, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.node.eth.DeployerContract
@@ -34,13 +34,13 @@ import fluence.node.tendermint.{ClusterData, KeysPath}
  * @param path Path to store all the MasterNode's data in
  * @param ce Concurrent effect, used to subscribe to Ethereum events
  */
-case class MasterNode[F[_]: ConcurrentEffect](
-  masterKeys: KeysPath[F],
+case class MasterNode(
+  masterKeys: KeysPath,
   nodeConfig: NodeConfig,
   contract: DeployerContract,
-  pool: SolversPool[F],
+  pool: SolversPool[IO],
   path: Path
-)(implicit F: Sync[F])
+)(implicit ec: ConcurrentEffect[IO])
     extends slogging.LazyLogging {
 
   private def getCodePath(codeName: String): String = {
@@ -57,7 +57,7 @@ case class MasterNode[F[_]: ConcurrentEffect](
   }
 
   // Converts ClusterData into SolverParams which is ready to run
-  private val clusterDataToParams: fs2.Pipe[F, (ClusterData, Path), SolverParams] =
+  private val clusterDataToParams: fs2.Pipe[IO, (ClusterData, Path), SolverParams] =
     _.map {
       case (clusterData, solverTendermintPath) ⇒
         SolverParams(
@@ -69,13 +69,13 @@ case class MasterNode[F[_]: ConcurrentEffect](
     }
 
   // Writes node info & master keys to tendermint directory
-  private val writeConfigAndKeys: fs2.Pipe[F, ClusterData, (ClusterData, Path)] =
+  private val writeConfigAndKeys: fs2.Pipe[IO, ClusterData, (ClusterData, Path)] =
     _.evalMap(
       clusterData =>
         for {
-          _ ← F.delay { logger.info("joining cluster '{}' as node {}", clusterData.clusterName, clusterData.nodeIndex) }
+          _ ← IO { logger.info("joining cluster '{}' as node {}", clusterData.clusterName, clusterData.nodeIndex) }
 
-          solverTendermintPath ← F.delay(
+          solverTendermintPath ← IO(
             path.resolve(s"${clusterData.nodeInfo.clusterName}-${clusterData.nodeInfo.node_index}")
           )
 
@@ -91,7 +91,7 @@ case class MasterNode[F[_]: ConcurrentEffect](
    * Runs MasterNode. Returns when contract.getAllNodeClusters is exhausted
    * TODO: add a way to cleanup, e.g. unsubscribe and stop
    */
-  val run: F[ExitCode] =
+  val run: IO[ExitCode] =
     contract
       .getAllNodeClusters(nodeConfig)
       .through(writeConfigAndKeys)
@@ -102,7 +102,7 @@ case class MasterNode[F[_]: ConcurrentEffect](
         pool.run(params).map(newlyAdded ⇒ logger.info(s"solver run (newly=$newlyAdded) {}", params))
       }
       .drain // drop the results, so that demand on events is always provided
-      .onFinalize(F.delay(logger.info("subscription finalized")))
+      .onFinalize(IO(logger.info("subscription finalized")))
       .compile // Compile to a runnable, in terms of effect IO
       .drain // Switch to IO[Unit]
       .map(_ ⇒ ExitCode.Success)
