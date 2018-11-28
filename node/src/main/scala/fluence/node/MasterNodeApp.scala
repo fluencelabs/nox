@@ -49,14 +49,14 @@ object MasterNodeApp extends IOApp with LazyLogging {
       _ <- IO(Files.createDirectories(keysPath))
       masterKeys = KeysPath(keysPath.toString)
       _ ← masterKeys.init
-      solverInfo <- NodeConfig.fromArgs(masterKeys, restArgs)
+      nodeConfig <- NodeConfig.fromArgs(masterKeys, restArgs)
       config <- IO.fromEither(
         pureconfig
           .loadConfig[DeployerContractConfig]
           .left
           .map(fs ⇒ new IllegalArgumentException("Can't load or parse configs:" + fs.toString))
       )
-    } yield (masterKeys, solverInfo, config)).attempt.flatMap {
+    } yield (masterKeys, nodeConfig, config)).attempt.flatMap {
       case Right((masterKeys, nodeConfig, config)) =>
         // Run master node
         EthClient

@@ -146,6 +146,7 @@ lazy val statemachine = (project in file("statemachine"))
 
       new Dockerfile {
         from("xqdocker/ubuntu-openjdk:jre-8")
+        // TODO: merge all these `run`s into a single run
         run("apt", "-yqq", "update")
         run("apt", "-yqq", "install", "wget", "curl", "jq", "unzip", "screen")
         run("wget", tmBinaryUrl)
@@ -156,6 +157,7 @@ lazy val statemachine = (project in file("statemachine"))
         expose(tmPrometheusPort)
         expose(stateMachinePrometheusPort)
 
+        // TODO: why specify these volumes here?
         volume(tmDataRoot)
         volume(solverDataRoot)
         volume(vmDataRoot)
@@ -224,7 +226,39 @@ lazy val node = project
       circeGeneric,
       circeParser,
       scalaTest
-    )
+    ),
+    assemblyMergeStrategy in assembly := {
+      // a module definition fails compilation for java 8, just skip it
+      case PathList("module-info.class", xs @ _*) => MergeStrategy.first
+      case "META-INF/io.netty.versions.properties" =>
+        MergeStrategy.first
+      case x =>
+        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        oldStrategy(x)
+    },
+    mainClass in assembly := Some("fluence.node.MasterNodeApp"),
+    test in assembly := {},
+    // node/runMain fluence.node.MasterNodeApp $HOME/.tendermint/t4 192.168.0.11 30135 30147
+    dockerfile in docker := {
+      // The assembly task generates a fat JAR file
+      val artifact: File = assembly.value
+      val artifactTargetPath = s"/${artifact.name}"
+
+      /**
+      * Running a master node container would be something like
+      * docker run -e "IP=192.168.1.100" -e "PORTS=30135:30147" -v /var/run/docker.sock:/var/run/docker.sock fluencelabs/master
+      * TODO: IP and PORTS looks awful, need to migrate them to config and specify config as a volume
+      */
+      new Dockerfile {
+        from("xqdocker/ubuntu-openjdk:jre-8")
+        run("bash", "-c", "apt -yqq update && apt -yqq install docker")
+
+        volume("/master") // anonymous volume to store all data
+
+        add(artifact, artifactTargetPath)
+        entryPoint("java", "-jar", artifactTargetPath, "/master")
+      }
+    }
   )
-  .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(ethclient)
