@@ -17,7 +17,7 @@
 package fluence.node.tendermint
 import java.nio.file.{Files, Path, Paths}
 
-import cats.effect.{ContextShift, Effect, IO}
+import cats.effect.{ContextShift, Effect, IO, Sync}
 import fluence.node.docker.{DockerIO, DockerParams}
 import io.circe.parser.parse
 
@@ -87,18 +87,23 @@ case class KeysPath(masterTendermintPath: String)(implicit ec: ContextShift[IO])
    *
    * @param executable The command to execute
    */
-  private def solverExec[F[_]: Effect: ContextShift](executable: String, params: String*): F[String] = {
-    DockerIO
-      .run(
-        DockerParams
-          .run(executable, params: _*)
-          .volume(masterTendermintPath, "/tendermint")
-          // TODO: it could be another image, specific to tendermint process only, no need to take solver
-          .image("fluencelabs/solver:latest")
-      )
-      .compile
-      .lastOrError
-  }
+  private def solverExec[F[_]: Effect: ContextShift](executable: String, params: String*)(
+    implicit F: Sync[F]
+  ): F[String] =
+    for {
+      uid <- F.delay(scala.sys.process.Process("id -u").!!.trim)
+      result <- DockerIO
+        .run(
+          DockerParams
+            .run(executable, params: _*)
+            .user(uid)
+            .volume(masterTendermintPath, "/tendermint")
+            // TODO: it could be another image, specific to tendermint process only, no need to take solver
+            .image("fluencelabs/solver:latest")
+        )
+        .compile
+        .lastOrError
+    } yield result
 
   /**
    * Copies master tendermint keys to solver path

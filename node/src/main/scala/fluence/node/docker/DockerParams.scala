@@ -62,6 +62,13 @@ case class DockerParams private (params: Queue[String], tailParams: List[String]
     option("-v", s"$hostVolume:$containerVolume")
 
   /**
+   * Specifies a user on whose behalf commands will be run
+   * @param user user login or uid
+   */
+  def user(user: String): DockerParams =
+    option("--user", user)
+
+  /**
    * Builds the current command to a representation ready to pass in [[scala.sys.process.Process]].
    *
    * @param imageName name of image to run
