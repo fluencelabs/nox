@@ -10,7 +10,7 @@ fi
 if [ ! -S /var/run/docker.sock ]; then
     cat >&2 <<EOF
 error: '/var/run/docker.sock' not found in container or is not a socket.
-Please, pass it as a volume when running a container: \`-v /var/run/docker.sock:/var/run/docker.sock\`
+Please, pass it as a volume when running the container: \`-v /var/run/docker.sock:/var/run/docker.sock\`
 EOF
 exit 1
 fi
