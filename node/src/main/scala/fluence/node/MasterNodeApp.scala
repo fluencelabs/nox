@@ -16,7 +16,7 @@
 
 package fluence.node
 
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.softwaremill.sttp.SttpBackend
@@ -43,10 +43,11 @@ object MasterNodeApp extends IOApp with LazyLogging {
     val rootPathStr :: restArgs = args
 
     val rootPath = Paths.get(rootPathStr).toAbsolutePath
-
-    val masterKeys = KeysPath(rootPath.resolve("tendermint").toString)
+    val keysPath = rootPath.resolve("tendermint")
 
     (for {
+      _ <- IO(Files.createDirectories(keysPath))
+      masterKeys = KeysPath(keysPath.toString)
       _ ← masterKeys.init
       solverInfo <- NodeConfig.fromArgs(masterKeys, restArgs)
       config <- IO.fromEither(
@@ -55,8 +56,8 @@ object MasterNodeApp extends IOApp with LazyLogging {
           .left
           .map(fs ⇒ new IllegalArgumentException("Can't load or parse configs:" + fs.toString))
       )
-    } yield (solverInfo, config)).attempt.flatMap {
-      case Right((nodeConfig, config)) =>
+    } yield (masterKeys, solverInfo, config)).attempt.flatMap {
+      case Right((masterKeys, nodeConfig, config)) =>
         // Run master node
         EthClient
           .makeHttpResource[IO]()

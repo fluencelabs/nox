@@ -33,12 +33,12 @@ case class NodeInfo(cluster: Cluster, node_index: String) {
   def clusterName: String = cluster.genesis.chain_id
 
   def writeTo(tendermintPath: Path): IO[Unit] = IO {
-    val config = tendermintPath.resolve("config")
-    config.toFile.mkdirs()
-    Files.write(config.resolve("node_info.json"), NodeInfo.nodeInfoEncoder(this).spaces2.getBytes)
+    val configPath = tendermintPath.resolve("config")
+    Files.createDirectories(configPath)
+    Files.write(configPath.resolve("node_info.json"), NodeInfo.nodeInfoEncoder(this).spaces2.getBytes)
   }
 }
 
 object NodeInfo {
-  implicit val nodeInfoEncoder: Encoder[NodeInfo] = deriveEncoder[NodeInfo]
+  implicit def nodeInfoEncoder: Encoder[NodeInfo] = deriveEncoder[NodeInfo]
 }

@@ -15,8 +15,8 @@
  */
 
 package fluence.node.tendermint
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
 
 /**
  * Validator's public key in Tendermint-compatible format.

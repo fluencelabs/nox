@@ -16,10 +16,14 @@
 
 package fluence.node
 
-import cats.effect.IO
+import java.net.InetAddress
+
+import cats.effect.{ContextShift, IO, Sync}
+import cats.syntax.applicativeError._
+import cats.syntax.flatMap._
 import fluence.node.tendermint.{KeysPath, ValidatorKey}
 
-import scala.util.Try
+import scala.language.higherKinds
 
 /**
  * Information about a node willing to run solvers to join Fluence clusters.
@@ -53,10 +57,10 @@ object NodeConfig extends slogging.LazyLogging {
    * - Tendermint p2p port range starting port
    * - Tendermint p2p port range ending port
    */
-  def fromArgs(keysPath: KeysPath, args: List[String]): IO[NodeConfig] =
+  def fromArgs(keysPath: KeysPath, args: List[String])(implicit ec: ContextShift[IO]): IO[NodeConfig] = {
     for {
       argsTuple ← args match {
-        case a1 :: a2 :: a3 :: Nil ⇒ IO.pure(a1, a2, a3)
+        case a1 :: a2 :: a3 :: Nil ⇒ IO.pure((a1, a2, a3))
         case _ ⇒ IO.raiseError(new IllegalArgumentException("4 program arguments expected"))
       }
 
@@ -65,21 +69,21 @@ object NodeConfig extends slogging.LazyLogging {
       validatorKey ← keysPath.showValidatorKey
       nodeAddress ← keysPath.showNodeId
 
-      _ = logger.info("Tendermint node id: {}", nodeAddress)
+      _ = logger.info("Tendermint node id: {}", nodeAddress.trim)
 
-      _ <- {
-        // TODO: is it the best way to check IP? Why not to make RemoteAddr?
-        val parts = ip.split('.')
-        if (parts.length == 4 && parts.forall(x => Try(x.toShort).filter(Range(0, 256).contains(_)).isSuccess))
-          IO.unit
-        else
-          IO.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip"))
-      }
+      _ <- checkIp[IO](ip)
 
       startPort <- IO(startPortString.toShort)
       endPort <- IO(endPortString.toShort)
       _ ← checkPorts(startPort, endPort)
     } yield NodeConfig(ip, startPort, endPort, validatorKey, nodeAddress)
+  }
+
+  private def checkIp[F[_]](ip: String)(implicit F: Sync[F]): F[Unit] =
+    F.delay(InetAddress.getByName(ip)).attempt.flatMap {
+      case Right(_) => F.unit
+      case Left(e) => F.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip.").initCause(e))
+    }
 
   private def checkPorts(startPort: Int, endPort: Int): IO[Unit] = {
     val ports = endPort - startPort

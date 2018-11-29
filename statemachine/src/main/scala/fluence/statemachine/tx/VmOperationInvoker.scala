@@ -18,8 +18,8 @@ package fluence.statemachine.tx
 
 import cats.Monad
 import cats.data.EitherT
-import cats.syntax.functor._
 import cats.effect.LiftIO
+import cats.syntax.functor._
 import fluence.statemachine.error.{StateMachineError, VmRuntimeError}
 import fluence.statemachine.util.{Metrics, TimeMeter}
 import fluence.vm.{VmError, WasmVm}
