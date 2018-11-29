@@ -2,6 +2,12 @@
 name = "fluence"
 version = "0.1.0" # don't forget to change in README.md too
 authors = ["Fluence Labs"]
+publish=false
+
+[profile.release]
+debug = false
+lto = true
+opt-level = 3
 
 [dependencies]
 clap = "2.32.0"

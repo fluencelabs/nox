@@ -86,6 +86,7 @@ pub struct Register {
 
 impl Register {
     /// Creates `Register` structure
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         node_address: IpAddr,
         tendermint_key: H256,
@@ -116,7 +117,7 @@ impl Register {
     /// Serializes a node IP address and a tendermint key into the hash of node's key address
     fn serialize_node_address(&self) -> Result<H192, Box<Error>> {
         let ip_str = self.node_ip.to_string();
-        let split = ip_str.split(".");
+        let split = ip_str.split('.');
 
         let mut addr_bytes: [u8; 4] = [0; IP_LEN];
 
@@ -131,7 +132,7 @@ impl Register {
 
         let key_bytes = hex::decode(key_str.to_owned())?;
         let mut key_bytes = key_bytes.as_slice()[0..20].to_vec();
-        &mut key_bytes.append(&mut addr_vec);
+        key_bytes.append(&mut addr_vec);
 
         let serialized = hex::encode(key_bytes);
 
@@ -158,15 +159,15 @@ impl Register {
                 (
                     self.tendermint_key,
                     hash_addr,
-                    self.min_port as u64,
-                    self.max_port as u64,
+                    u64::from(self.min_port),
+                    u64::from(self.max_port),
                 ),
                 options,
             )
         };
 
         // sending transaction with the hash of file with code to ethereum
-        let transaction = if show_progress {
+        if show_progress {
             utils::with_progress(
                 "Adding a solver to the smart contract...",
                 "1/1",
@@ -175,9 +176,7 @@ impl Register {
             )
         } else {
             publish_to_contract_fn()
-        };
-
-        transaction
+        }
     }
 }
 

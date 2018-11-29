@@ -38,7 +38,7 @@ use clap::App;
 use clap::AppSettings;
 use console::style;
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
     let app = App::new("Fluence CLI")
