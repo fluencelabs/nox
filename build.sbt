@@ -279,7 +279,7 @@ lazy val node = project
         copy(artifact, artifactTargetPath)
 
         // node/runMain fluence.node.MasterNodeApp $HOME/.tendermint/t4 192.168.0.11 30135 30147
-        cmd("java", "-jar", artifactTargetPath, "/master", "192.168.0.11", "30135", "30147")
+        cmd("java", "-jar", artifactTargetPath, "/master", "$TENDERMINT_IP", "30135", "30147")
         entryPoint("sh", "/master/entrypoint.sh")
       }
     }

@@ -21,22 +21,25 @@ import java.nio.file.{Files, Path, Paths}
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import com.typesafe.config.Config
 import fluence.ethclient.EthClient
-import fluence.node.eth.{DeployerContract, DeployerContractConfig}
+import fluence.node.ConfigOps._
+import fluence.node.eth.{DeployerContract, DeployerContractConfig, EthereumRPCConfig}
 import fluence.node.solvers.{CodeManager, SolversPool, SwarmCodeManager, TestCodeManager}
 import fluence.node.tendermint.KeysPath
 import fluence.swarm.SwarmClient
+import pureconfig.backend.ConfigFactoryWrapper
+import pureconfig.error.ConfigReaderFailures
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
-import pureconfig.generic.auto._
-import ConfigOps._
 
 case class Configuration(
   rootPath: Path,
   masterKeys: KeysPath,
   nodeConfig: NodeConfig,
   contractConfig: DeployerContractConfig,
-  swarmEnabled: Boolean
+  swarmEnabled: Boolean,
+  ethereumRPC: EthereumRPCConfig
 )
 
 object MasterNodeApp extends IOApp with LazyLogging {
@@ -44,19 +47,43 @@ object MasterNodeApp extends IOApp with LazyLogging {
   private val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
     Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
-  private def configure() =
+  def loadConfig(): Either[ConfigReaderFailures, Config] = {
+    import ConfigFactoryWrapper._
+    val containerConfig = "/master/application.conf"
+
+    loadFile(Paths.get(containerConfig)) match {
+      case Left(e) =>
+        logger.info(s"unable to load $containerConfig: $e") // how to interpret ConfigReaderFailures?
+        load()
+      case Right(config) =>
+        load.map(config.withFallback)
+    }
+  }
+
+  def initKeys(rootPath: Path): IO[KeysPath] = {
+    val keysPath = rootPath.resolve("tendermint")
+    val masterKeys = KeysPath(keysPath.toString)
+    IO(Files.createDirectories(keysPath)).flatMap(_ => masterKeys.init.map(_ => masterKeys))
+  }
+
+  private def configure(): IO[Configuration] =
     for {
-      rootPathStr <- pureconfig.loadConfig[String]("tendermint-path").toIO
+      config <- loadConfig().toIO
+
+      rootPathStr <- pureconfig.loadConfig[String](config, "tendermint-path").toIO
       rootPath = Paths.get(rootPathStr).toAbsolutePath
-      keysPath = rootPath.resolve("tendermint")
-      masterKeys = KeysPath(keysPath.toString)
-      _ <- IO(Files.createDirectories(keysPath))
-      _ ← masterKeys.init
-      endpoints <- pureconfig.loadConfig[EndpointsConfig]("endpoints").toIO
+
+      masterKeys <- initKeys(rootPath)
+
+      endpoints <- pureconfig.loadConfig[EndpointsConfig](config, "endpoints").toIO
       solverInfo <- NodeConfig(masterKeys, endpoints)
-      config <- pureconfig.loadConfig[DeployerContractConfig].toIO
-      swarmEnabled <- pureconfig.loadConfig[Boolean]("use-swarm").toIO
-    } yield Configuration(rootPath, masterKeys, solverInfo, config, swarmEnabled)
+
+      contractConfig <- pureconfig.loadConfig[DeployerContractConfig](config).toIO
+      swarmEnabled <- pureconfig.loadConfig[Boolean](config, "use-swarm").toIO
+
+      ethereumRPC <- pureconfig.loadConfig[EthereumRPCConfig](config, "ethereum").toIO
+
+    } yield Configuration(rootPath, masterKeys, solverInfo, contractConfig, swarmEnabled, ethereumRPC)
 
   private def getCodeManager(
     swarmEnabled: Boolean
@@ -78,10 +105,10 @@ object MasterNodeApp extends IOApp with LazyLogging {
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
     configure().attempt.flatMap {
-      case Right(Configuration(rootPath, masterKeys, nodeConfig, config, swarmEnabled)) =>
+      case Right(Configuration(rootPath, masterKeys, nodeConfig, config, swarmEnabled, ethereumRPC)) =>
         // Run master node
         EthClient
-          .makeHttpResource[IO]()
+          .makeHttpResource[IO](Some(ethereumRPC.uri))
           .use { ethClient ⇒
             sttpResource.use { implicit sttpBackend ⇒
               for {

@@ -111,10 +111,19 @@ case class KeysPath(masterTendermintPath: String)(implicit ec: ContextShift[IO])
    */
   def copyKeysToSolver(solverTendermintPath: Path): IO[Unit] = path.flatMap { p =>
     IO {
+      logger.info(
+        s"Copying keys to solver: ${p.resolve("config/node_key.json")} -> " +
+          s"${solverTendermintPath.resolve("config/node_key.json")}"
+      )
       Files.copy(
         p.resolve("config/node_key.json"),
         solverTendermintPath.resolve("config/node_key.json"),
         StandardCopyOption.REPLACE_EXISTING
+      )
+
+      logger.info(
+        s"Copying priv_validator to solver: ${p.resolve("config/priv_validator.json")} -> " +
+          s"${solverTendermintPath.resolve("config/priv_validator.json")}"
       )
       Files.copy(
         p.resolve("config/priv_validator.json"),
