@@ -282,8 +282,6 @@ mod tests {
     use rand::prelude::*;
     use std::error::Error;
     use utils;
-    use web3;
-    use web3::futures::Future;
     use web3::types::*;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
