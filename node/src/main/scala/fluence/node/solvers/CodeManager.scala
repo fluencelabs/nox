@@ -32,27 +32,28 @@ case class CodePath(storageHash: Bytes32) {
 }
 
 sealed trait CodeManager[F[_]] {
+
   /**
-    * Downloads code from Swarm and manages paths to the code.
-    * @param path a path to a code from the deployer smart contract
-    * @param solverPath a path to a solver working directory
-    * @return
-    */
+   * Downloads code from Swarm and manages paths to the code.
+   * @param path a path to a code from the deployer smart contract
+   * @param solverPath a path to a solver working directory
+   * @return
+   */
   def prepareCode(path: CodePath, solverPath: Path): F[String]
 }
 
 /**
-  * Manager only for test purposes, uses precompiled code from Fluence repository.
-  *
-  */
+ * Manager only for test purposes, uses precompiled code from Fluence repository.
+ *
+ */
 class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
 
   /**
-    * Downloads code from Swarm and manages paths to the code.
-    * @param path a path to a code from the deployer smart contract
-    * @param solverPath a path to a solver working directory
-    * @return
-    */
+   * Downloads code from Swarm and manages paths to the code.
+   * @param path a path to a code from the deployer smart contract
+   * @param solverPath a path to a solver working directory
+   * @return
+   */
   override def prepareCode(
     path: CodePath,
     solverPath: Path
@@ -60,9 +61,9 @@ class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
 }
 
 /**
-  * Uses the Swarm network to download a code.
-  *
-  */
+ * Uses the Swarm network to download a code.
+ *
+ */
 class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) extends CodeManager[F] {
 
   /**
@@ -101,11 +102,11 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
     } yield dirPath.toAbsolutePath.toString
 
   /**
-    * Downloads code from Swarm and manages paths to the code.
-    * @param path a path to a code from the deployer smart contract
-    * @param solverPath a path to a solver working directory
-    * @return
-    */
+   * Downloads code from Swarm and manages paths to the code.
+   * @param path a path to a code from the deployer smart contract
+   * @param solverPath a path to a solver working directory
+   * @return
+   */
   override def prepareCode(path: CodePath, solverPath: Path): F[String] = {
     downloadAndWriteCodeToFile(solverPath, path.asHex)
   }

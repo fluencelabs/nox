@@ -28,7 +28,7 @@ import fluence.node.tendermint.KeysPath
 import fluence.swarm.SwarmClient
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
-import helpers.ConfigReaderFailuresOps
+import helpers._
 
 case class Configuration(
   rootPath: Path,
@@ -45,30 +45,21 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
   private def configure() =
     for {
-      rootPathStr <- IO.fromEither(pureconfig.loadConfig[String]("tendermint-path").left.map(_.asException))
+      rootPathStr <- pureconfig.loadConfig[String]("tendermint-path").toIO
       rootPath = Paths.get(rootPathStr).toAbsolutePath
       masterKeys = KeysPath(rootPath.resolve("tendermint").toString)
       _ ← masterKeys.init
-      endpoints <- IO.fromEither(
-        pureconfig
-          .loadConfig[EndpointsConfig]("endpoints")
-          .left
-          .map(_.asException)
-      )
+      endpoints <- pureconfig.loadConfig[EndpointsConfig]("endpoints").toIO
       solverInfo <- NodeConfig(masterKeys, endpoints)
-      config <- IO.fromEither(
-        pureconfig
-          .loadConfig[DeployerContractConfig]
-          .left
-          .map(_.asException)
-      )
-      swarmEnabled <- IO.fromEither(
-        pureconfig.loadConfig[Boolean]("use-swarm").left.map(_.asException)
-      )
+      config <- pureconfig.loadConfig[DeployerContractConfig].toIO
+      swarmEnabled <- pureconfig.loadConfig[Boolean]("use-swarm").toIO
       codeManager <- if (!swarmEnabled) IO(new TestCodeManager[IO]())
       else {
-        IO.fromEither(pureconfig.loadConfig[String]("swarm.host").left.map(_.asException))
-          .map(addr => new SwarmCodeManager[IO](SwarmClient(addr)))
+        pureconfig
+          .loadConfig[String]("swarm.host")
+          .toIO
+          .flatMap(addr => SwarmClient(addr))
+          .map(client => new SwarmCodeManager[IO](client))
       }
     } yield Configuration(rootPath, masterKeys, solverInfo, config, codeManager)
 

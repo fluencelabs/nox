@@ -15,14 +15,23 @@
  */
 
 package fluence.node
+import cats.effect.IO
 import pureconfig.error.ConfigReaderFailures
 
 object helpers {
-  implicit class ConfigReaderFailuresOps(failures: ConfigReaderFailures) {
+  implicit class ConfigOps[T](loadedConfig: Either[ConfigReaderFailures, T]) {
 
-    def asException =
-      new IllegalArgumentException(
-        "Can't load or parse configs:\n" + failures.toList.map(f => f.location + " - " + f.description).mkString("\n")
+    def toIO: IO[T] = {
+      IO.fromEither(
+        loadedConfig.left.map(
+          fs =>
+            new IllegalArgumentException(
+              "Can't load or parse configs:\n" + fs.toList.map(f => f.location + " - " + f.description).mkString("\n")
+          )
+        )
       )
+
+    }
+
   }
 }

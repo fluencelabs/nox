@@ -43,13 +43,13 @@ import scala.language.higherKinds
  * Client for working with Swarm.
  * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#
  *
- * @param address HTTP address of trusted swarm node
+ * @param swarmUri HTTP address of trusted swarm node
  * @param hasher hashing algorithm. Must be Keccak SHA-3 algorithm for real Swarm node or another for test purposes
  *               @see https://en.wikipedia.org/wiki/SHA-3
  * @param sttpBackend way to represent the backend implementation.
  *                    Can be sync or async, with effects or not depending on the `F`
  */
-class SwarmClient[F[_]: Monad](address: String)(
+class SwarmClient[F[_]: Monad](swarmUri: Uri)(
   implicit sttpBackend: SttpBackend[F, Nothing],
   hasher: Hasher[ByteVector, ByteVector]
 ) extends slogging.LazyLogging {
@@ -62,8 +62,6 @@ class SwarmClient[F[_]: Monad](address: String)(
 
   // generate body from json for http requests
   private def jsonToBytes(json: Json) = printer.pretty(json).getBytes
-
-  private val swarmUri = uri"$address"
 
   /**
    * Generate uri for requests.
@@ -311,7 +309,7 @@ class SwarmClient[F[_]: Monad](address: String)(
 
 object SwarmClient {
 
-  def apply(address: String): SwarmClient[IO] = {
+  def apply(address: String): IO[SwarmClient[IO]] = {
 
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.INFO
@@ -319,7 +317,7 @@ object SwarmClient {
     implicit val hasher: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
     implicit val sttpBackend: SttpBackend[IO, Nothing] = AsyncHttpClientCatsBackend[IO]()
 
-    new SwarmClient[IO](address)
+    IO(uri"$address").map(uri => new SwarmClient[IO](uri))
   }
 
   implicit class UnsafeClient(client: SwarmClient[IO]) {
