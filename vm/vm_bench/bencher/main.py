@@ -14,8 +14,9 @@ def save_test_results(results):
             writer = csv.DictWriter(vm_file, fieldnames=fieldnames)
             writer.writeheader()
 
-            for test_path, result_descriptor in results[vm].items():
-                writer.writerow({"test_path" : test_path, "elapsed_time" : result_descriptor.time})
+            for test_name, result_records in results[vm].items():
+                for record in result_records:
+                    writer.writerow({"test_path" : test_name, "elapsed_time" : record.time})
 
 
 @click.command()

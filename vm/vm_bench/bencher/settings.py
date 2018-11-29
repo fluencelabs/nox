@@ -19,7 +19,7 @@ vm_descriptors = {
 interpretator_launch_count = 0
 
 # launch count of compiler-based VMs
-compiler_launch_count = 1
+compiler_launch_count = 11
 
 # export function name that should be called from Wasm module
 test_function_name = "main"
@@ -52,17 +52,17 @@ test_descriptors = {
                        "--target wasm32-unknown-unknown",
                        {"SEED": 1, "ITERATIONS_COUNT": 10, "SEQUENCE_SIZE": 10 * 1024 * 1024}),
 
-    "fibonacci_35" :
-        TestDescriptor("fibonacci_bigint",
-                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
-                       "--target wasm32-unknown-unknown",
-                       {"FIB_NUMBER": 35}),
-
     "fibonacci_42" :
         TestDescriptor("fibonacci_bigint",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
                        "--target wasm32-unknown-unknown",
                        {"FIB_NUMBER": 42}),
+
+    "fibonacci_50" :
+        TestDescriptor("fibonacci_bigint",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"FIB_NUMBER": 50}),
 
     "factorization_2147483647":
         TestDescriptor("factorization_reikna",
@@ -70,11 +70,11 @@ test_descriptors = {
                        "--target wasm32-unknown-unknown",
                        {"FACTORIZED_NUMBER": 2147483647}),
 
-    "recursive_hash_1000000_0":
+    "recursive_hash_10000000_0":
         TestDescriptor("recursive_hash",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
                        "--target wasm32-unknown-unknown",
-                       {"ITERATIONS_COUNT": 1000000, "INITIAL_VALUE" : 0}),
+                       {"ITERATIONS_COUNT": 10000000, "INITIAL_VALUE" : 0}),
 
     # matrix tests are generated both for a small matrix with a lot of iterations
     # and for a huge matrix with a few iterations

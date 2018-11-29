@@ -37,10 +37,9 @@ class WasmVMBencher:
                 launch_count = compiler_launch_count if vm_descriptors[vm].is_compiler_type \
                     else interpretator_launch_count
                 for _ in range(launch_count):
-                    print("<wasm_bencher>: launch cmd", cmd)
                     result_record = self.__do_one_test(cmd)
                     results[vm][test_name].append(result_record)
-                    print("<wasm_bencher>: result collected: time={}".format(result_record.time))
+                    print("<wasm_bencher>: {} result collected: time={}".format(vm, result_record.time))
 
         return results
 
