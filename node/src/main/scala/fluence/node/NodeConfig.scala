@@ -18,7 +18,9 @@ package fluence.node
 
 import java.net.InetAddress
 
-import cats.effect.IO
+import cats.effect.{ContextShift, IO, Sync}
+import cats.syntax.applicativeError._
+import cats.syntax.flatMap._
 import fluence.node.tendermint.{KeysPath, ValidatorKey}
 
 import scala.language.higherKinds
@@ -55,7 +57,7 @@ object NodeConfig extends slogging.LazyLogging {
    * - Tendermint p2p port range starting port
    * - Tendermint p2p port range ending port
    */
-  def fromArgs(keysPath: KeysPath, args: List[String]): IO[NodeConfig] = {
+  def fromArgs(keysPath: KeysPath, args: List[String])(implicit ec: ContextShift[IO]): IO[NodeConfig] = {
     for {
       argsTuple ← args match {
         case a1 :: a2 :: a3 :: Nil ⇒ IO.pure((a1, a2, a3))
@@ -69,7 +71,7 @@ object NodeConfig extends slogging.LazyLogging {
 
       _ = logger.info("Tendermint node id: {}", nodeAddress.trim)
 
-      _ <- checkIp(ip)
+      _ <- checkIp[IO](ip)
 
       startPort <- IO(startPortString.toShort)
       endPort <- IO(endPortString.toShort)
@@ -77,10 +79,10 @@ object NodeConfig extends slogging.LazyLogging {
     } yield NodeConfig(ip, startPort, endPort, validatorKey, nodeAddress)
   }
 
-  private def checkIp(ip: String): IO[Unit] =
-    IO(InetAddress.getByName(ip)).attempt.flatMap {
-      case Right(_) => IO.unit
-      case Left(e) => IO.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip.").initCause(e))
+  private def checkIp[F[_]](ip: String)(implicit F: Sync[F]): F[Unit] =
+    F.delay(InetAddress.getByName(ip)).attempt.flatMap {
+      case Right(_) => F.unit
+      case Left(e) => F.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip.").initCause(e))
     }
 
   private def checkPorts(startPort: Int, endPort: Int): IO[Unit] = {

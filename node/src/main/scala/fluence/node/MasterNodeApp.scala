@@ -56,7 +56,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
           .left
           .map(fs ⇒ new IllegalArgumentException("Can't load or parse configs:" + fs.toString))
       )
-    } yield (masterKeys, nodeConfig, config)).attempt.flatMap {
+    } yield (masterKeys, solverInfo, config)).attempt.flatMap {
       case Right((masterKeys, nodeConfig, config)) =>
         // Run master node
         EthClient
