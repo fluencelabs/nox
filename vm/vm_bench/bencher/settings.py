@@ -1,16 +1,17 @@
 from VMDescriptor import VMDescriptor
+from TestDescriptor import TestDescriptor
 from os.path import join
 
 # paths of Wasm VMs root directories
 vm_descriptors = {
-    "wavm"   : VMDescriptor("wavm", join("build_", "bin", "wavm-run"),
+    "wavm"   : VMDescriptor(join("build_", "bin", "wavm-run"),
                             "{wasm_file_path} -f {function_name}", True),
-    "life"   : VMDescriptor("life", join("life"), "entry '{function_name}' {wasm_file_path}", False),
-    "wasmi"  : VMDescriptor("wasmi", join("target", "release", "examples", "invoke"),
+    "life"   : VMDescriptor(join("life"), "entry '{function_name}' {wasm_file_path}", False),
+    "wasmi"  : VMDescriptor(join("target", "release", "examples", "invoke"),
                             "{function_name} {wasm_file_path}", False),
-    "wasmer" : VMDescriptor("wasmer", join("target", "release", "wasmer"), "run {wasm_file_path}", True),
-    "wagon"  : VMDescriptor("wagon", "", "", False),
-    "asmble" : VMDescriptor("asmble", join("asmble", "bin", "asmble"),
+    "wasmer" : VMDescriptor(join("target", "release", "wasmer"), "run {wasm_file_path}", True),
+    "wagon"  : VMDescriptor("", "", False),
+    "asmble" : VMDescriptor(join("asmble", "bin", "asmble"),
                             "invoke -in {wasm_file_path} {function_name} -defmaxmempages 20000", True)
 }
 
@@ -24,11 +25,92 @@ compiler_launch_count = 1
 test_function_name = "main"
 
 # paths of benchmark tests
-snappy_compression_test_name    = "snappy_compression"
-deflate_compression_test_name   = "deflate_compression"
-fibonacci_bigint_test_name      = "fibonacci_bigint"
-factorization_test_name         = "factorization_reikna"
-recursive_hash_test_name        = "recursive_hash"
-matrix_product_test_name        = "matrix_product"
-qr_decompostion_test_name       = "matrix_qr_decomposition"
-svd_decompostion_test_name      = "matrix_svd_decomposition"
+test_descriptors = {
+    # compressions tests are generated both for a small sequence with a lot of iterations
+    # and for a huge sequence with a few iterations
+    "snappy_compression_5_1000000_1Kb" :
+        TestDescriptor("snappy_compression",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"SEED" : 1, "ITERATIONS_COUNT" : 1000000, "SEQUENCE_SIZE" : 1024}),
+
+    "snappy_compression_5_1000_10Mb" :
+        TestDescriptor("snappy_compression",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"SEED" : 1, "ITERATIONS_COUNT" : 1000, "SEQUENCE_SIZE" : 10*1024*1024}),
+
+    "deflate_compression_5_100000_1Kb" :
+        TestDescriptor("deflate_compression",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"SEED": 1, "ITERATIONS_COUNT": 100000, "SEQUENCE_SIZE": 1024}),
+
+    "deflate_compression_5_10_10Mb" :
+        TestDescriptor("deflate_compression",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"SEED": 1, "ITERATIONS_COUNT": 10, "SEQUENCE_SIZE": 10 * 1024 * 1024}),
+
+    "fibonacci_35" :
+        TestDescriptor("fibonacci_bigint",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"FIB_NUMBER": 35}),
+
+    "fibonacci_42" :
+        TestDescriptor("fibonacci_bigint",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"FIB_NUMBER": 42}),
+
+    "factorization_2147483647":
+        TestDescriptor("factorization_reikna",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"FACTORIZED_NUMBER": 2147483647}),
+
+    "recursive_hash_1000000_0":
+        TestDescriptor("recursive_hash",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"ITERATIONS_COUNT": 1000000, "INITIAL_VALUE" : 0}),
+
+    # matrix tests are generated both for a small matrix with a lot of iterations
+    # and for a huge matrix with a few iterations
+    "matrix_product_1_10_1000000":
+        TestDescriptor("matrix_product",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"SEED": 1, "MATRIX_SIZE": 10, "ITERATIONS_COUNT" : 1000000}),
+
+    "matrix_product_1_200_100":
+        TestDescriptor("matrix_product",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"SEED": 1, "MATRIX_SIZE": 200, "ITERATIONS_COUNT": 100}),
+
+    "svd_decomposition_1_10_1000000":
+        TestDescriptor("matrix_svd_decomposition",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"SEED": 1, "MATRIX_SIZE": 10, "ITERATIONS_COUNT" : 1000000}),
+
+    "svd_decomposition_1_200_100":
+        TestDescriptor("matrix_svd_decomposition",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"SEED": 1, "MATRIX_SIZE": 200, "ITERATIONS_COUNT": 100}),
+
+    "qr_decomposition_1_10_1000000":
+        TestDescriptor("matrix_qr_decomposition",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"SEED": 1, "MATRIX_SIZE": 10, "ITERATIONS_COUNT": 1000000}),
+
+    "qr_decomposition_1_200_100":
+        TestDescriptor("matrix_qr_decomposition",
+                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
+                       "--target wasm32-unknown-unknown",
+                       {"SEED": 1, "MATRIX_SIZE": 200, "ITERATIONS_COUNT": 100})
+}

@@ -2,7 +2,7 @@
 
 from BenchTestGenerator import BenchTestGenerator
 from WasmVMBencher import WasmVMBencher
-from settings import vm_descriptors
+from settings import vm_descriptors, test_descriptors
 import click
 import csv
 
@@ -14,7 +14,7 @@ def save_test_results(results):
             writer = csv.DictWriter(vm_file, fieldnames=fieldnames)
             writer.writeheader()
 
-            for test_path, result_descriptor in results[vm].iteritems():
+            for test_path, result_descriptor in results[vm].items():
                 writer.writerow({"test_path" : test_path, "elapsed_time" : result_descriptor.time})
 
 
@@ -23,15 +23,15 @@ def save_test_results(results):
 @click.option("--tests_dir", help="directory with benchmark tests")
 @click.option("--out_dir", help="directory where results will be saved")
 def main(vm_dir, tests_dir, out_dir):
-    print("<wasm_bencher>: starting tests generation")
+    print("<wasm_bencher>: starting generation tests")
     test_generator = BenchTestGenerator(tests_dir)
-    tests_path = test_generator.generate_tests(out_dir)
+    filled_tests_descriptors = test_generator.generate_tests(out_dir, test_descriptors)
 
-    print("<wasm_bencher>: starting vm launching")
+    print("<wasm_bencher>: starting vm tests")
     vm_bencher = WasmVMBencher(vm_dir)
-    test_results = vm_bencher.run_tests(tests_path, vm_descriptors)
+    test_results = vm_bencher.run_tests(filled_tests_descriptors, vm_descriptors)
 
-    print("<wasm_bencher>: starting tests result collection")
+    print("<wasm_bencher>: starting collection of test results")
     save_test_results(test_results)
 
 

@@ -1,1 +1,1 @@
-pub const NUMBER : &'static str = env!("NUMBER");
+pub const FACTORIZED_NUMBER : &'static str = env!("FACTORIZED_NUMBER");

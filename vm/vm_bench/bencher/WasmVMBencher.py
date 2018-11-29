@@ -19,26 +19,27 @@ class WasmVMBencher:
         self.vm_dir = vm_dir
         self.enabled_vm = listdir(vm_dir)
 
-    def run_tests(self, tests_path, vm_descriptors):
+    def run_tests(self, test_descriptors, vm_descriptors):
         # {{[]}}
         results = defaultdict(lambda: defaultdict(list))
 
-        for test_path in tests_path:
-            print("<wasm_bencher>: launch test", test_path)
+        for test_name, test_descriptor in test_descriptors.items():
+            print("<wasm_bencher>: launch test", test_name)
             for vm in self.enabled_vm:
                 if vm not in vm_descriptors:
                     pass
 
                 vm_binary_full_path = join(self.vm_dir, vm, vm_descriptors[vm].relative_vm_binary_path)
-                cmd = vm_binary_full_path + " " + vm_descriptors[vm].arg_str.format(wasm_file_path=test_path,
-                                                                              function_name=test_function_name)
+                cmd = vm_binary_full_path + " " \
+                      + vm_descriptors[vm].arg_str.format(wasm_file_path=test_descriptor.test_full_path,
+                                                          function_name=test_function_name)
 
                 launch_count = compiler_launch_count if vm_descriptors[vm].is_compiler_type \
                     else interpretator_launch_count
                 for _ in range(launch_count):
                     print("<wasm_bencher>: launch cmd", cmd)
                     result_record = self.__do_one_test(cmd)
-                    results[vm][test_path].append(result_record)
+                    results[vm][test_name].append(result_record)
                     print("<wasm_bencher>: result collected: time={}".format(result_record.time))
 
         return results
