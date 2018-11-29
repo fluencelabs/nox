@@ -318,7 +318,10 @@ object SwarmClient {
 
     implicit val hasher: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
 
-    F.fromTry(Try(uri"$address")).map(addr => new SwarmClient[F](addr))
+    F.catchNonFatal {
+      val swarmUri = uri"$address"
+      new SwarmClient[F](swarmUri)
+    }
   }
 
   implicit class UnsafeClient(client: SwarmClient[IO]) {
