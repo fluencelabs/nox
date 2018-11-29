@@ -17,9 +17,7 @@
 package fluence.node
 import java.nio.file.{Path, Paths}
 
-import cats.effect.{ConcurrentEffect, ExitCode, IO, Sync}
-import cats.syntax.flatMap._
-import cats.syntax.functor._
+import cats.effect.{ConcurrentEffect, ExitCode, IO}
 import fluence.node.eth.DeployerContract
 import fluence.node.solvers.{SolverParams, SolversPool}
 import fluence.node.tendermint.{ClusterData, KeysPath}
