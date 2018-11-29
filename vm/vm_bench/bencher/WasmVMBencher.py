@@ -27,7 +27,7 @@ class WasmVMBencher:
             print("<wasm_bencher>: launch test", test_name)
             for vm in self.enabled_vm:
                 if vm not in vm_descriptors:
-                    pass
+                    continue
 
                 vm_binary_full_path = join(self.vm_dir, vm, vm_descriptors[vm].relative_vm_binary_path)
                 cmd = vm_binary_full_path + " " \
@@ -37,6 +37,7 @@ class WasmVMBencher:
                 launch_count = compiler_launch_count if vm_descriptors[vm].is_compiler_type \
                     else interpretator_launch_count
                 for _ in range(launch_count):
+                    print(cmd)
                     result_record = self.__do_one_test(cmd)
                     results[vm][test_name].append(result_record)
                     print("<wasm_bencher>: {} result collected: time={}".format(vm, result_record.time))

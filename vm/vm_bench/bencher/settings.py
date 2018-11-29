@@ -5,18 +5,18 @@ from os.path import join
 # paths of Wasm VMs root directories
 vm_descriptors = {
     "wavm"   : VMDescriptor(join("build_", "bin", "wavm-run"),
-                            "{wasm_file_path} -f {function_name}", True),
-    "life"   : VMDescriptor(join("life"), "entry '{function_name}' {wasm_file_path}", False),
+                        "{wasm_file_path} -f {function_name}", True),
+    "life"   : VMDescriptor(join("life"), "-entry {function_name} {wasm_file_path}", False),
     "wasmi"  : VMDescriptor(join("target", "release", "examples", "invoke"),
-                            "{function_name} {wasm_file_path}", False),
+                        "{wasm_file_path} {function_name}", False),
     "wasmer" : VMDescriptor(join("target", "release", "wasmer"), "run {wasm_file_path}", True),
-    "wagon"  : VMDescriptor("", "", False),
+#    "wagon"  : VMDescriptor("", "", False),
     "asmble" : VMDescriptor(join("asmble", "bin", "asmble"),
-                            "invoke -in {wasm_file_path} {function_name} -defmaxmempages 20000", True)
+                        "invoke -in {wasm_file_path} {function_name} -defmaxmempages 20000", True)
 }
 
 # launch count of interpretator-based VMs
-interpretator_launch_count = 0
+interpretator_launch_count = 3
 
 # launch count of compiler-based VMs
 compiler_launch_count = 11
