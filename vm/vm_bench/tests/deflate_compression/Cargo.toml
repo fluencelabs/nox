@@ -1,5 +1,5 @@
 [package]
-name = "snappy_compression_bench"
+name = "snappy_compression"
 version = "0.1.0"
 authors = ["M. Voronov <michail@fluence.one>"]
 
@@ -7,6 +7,6 @@ authors = ["M. Voronov <michail@fluence.one>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-snap = "0.2"
+deflate = "0.7.19"
 rand = "0.6.1"
 rand_isaac = "0.1.0"

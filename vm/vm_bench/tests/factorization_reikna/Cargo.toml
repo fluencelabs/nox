@@ -1,5 +1,5 @@
 [package]
-name = "recursive_hash_bench"
+name = "factorization_reikna"
 version = "0.1.0"
 authors = ["M. Voronov <michail@fluence.one>"]
 
@@ -7,4 +7,4 @@ authors = ["M. Voronov <michail@fluence.one>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-sha3 = "0.8.1"
+reikna = "0.6.0"

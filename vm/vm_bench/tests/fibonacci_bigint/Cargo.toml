@@ -1,5 +1,5 @@
 [package]
-name = "factorization_reikna_bench"
+name = "fibonacci_bigint"
 version = "0.1.0"
 authors = ["M. Voronov <michail@fluence.one>"]
 
@@ -7,4 +7,5 @@ authors = ["M. Voronov <michail@fluence.one>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-reikna = "0.6.0"
+num-bigint = "0.2"
+num-traits = "0.2"

@@ -1,5 +1,5 @@
 [package]
-name = "fibonacci_bigint_bench"
+name = "recursive_hash"
 version = "0.1.0"
 authors = ["M. Voronov <michail@fluence.one>"]
 
@@ -7,5 +7,4 @@ authors = ["M. Voronov <michail@fluence.one>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-num-bigint = "0.2"
-num-traits = "0.2"
+sha3 = "0.8.1"
