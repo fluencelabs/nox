@@ -26,18 +26,29 @@ import fluence.node.tendermint.{KeysPath, ValidatorKey}
 import scala.language.higherKinds
 
 /**
- * Information about a node willing to run solvers to join Fluence clusters.
+ * Information about a node possible endpoints (IP and ports) that will be used as addresses
+ * for requests after a cluster will be formed
  *
  * @param ip p2p host IP
- * @param startPort starting port for p2p port range
- * @param endPort ending port for p2p port range
+ * @param minPort starting port for p2p port range
+ * @param maxPort ending port for p2p port range
+**/
+case class EndpointsConfig(
+  ip: InetAddress,
+  minPort: Short,
+  maxPort: Short
+)
+
+/**
+ * Information about a node willing to run solvers to join Fluence clusters.
+ *
+ * @param endpoints information about a node possible endpoints (IP and ports) that will be used as addresses
+ *                 for requests after a cluster will be formed
  * @param validatorKey p2p port
  * @param nodeAddress p2p port
  */
 case class NodeConfig(
-  ip: String,
-  startPort: Short,
-  endPort: Short,
+  endpoints: EndpointsConfig,
   validatorKey: ValidatorKey,
   nodeAddress: String
 )
@@ -50,40 +61,17 @@ object NodeConfig extends slogging.LazyLogging {
   private def MaxPort(range: Int = 0): Int = MaxPort - range
 
   /**
-   * Builds [[NodeConfig]] from command-line arguments.
+   * Builds [[NodeConfig]].
    *
-   * @param args arguments list
-   * - Tendermint p2p host IP
-   * - Tendermint p2p port range starting port
-   * - Tendermint p2p port range ending port
    */
-  def fromArgs(keysPath: KeysPath, args: List[String])(implicit ec: ContextShift[IO]): IO[NodeConfig] = {
+  def apply(keysPath: KeysPath, endpointsConfig: EndpointsConfig)(implicit ec: ContextShift[IO]): IO[NodeConfig] =
     for {
-      argsTuple ← args match {
-        case a1 :: a2 :: a3 :: Nil ⇒ IO.pure((a1, a2, a3))
-        case _ ⇒ IO.raiseError(new IllegalArgumentException("4 program arguments expected"))
-      }
-
-      (ip, startPortString, endPortString) = argsTuple
-
       validatorKey ← keysPath.showValidatorKey
       nodeAddress ← keysPath.showNodeId
 
       _ = logger.info("Tendermint node id: {}", nodeAddress.trim)
 
-      _ <- checkIp[IO](ip)
-
-      startPort <- IO(startPortString.toShort)
-      endPort <- IO(endPortString.toShort)
-      _ ← checkPorts(startPort, endPort)
-    } yield NodeConfig(ip, startPort, endPort, validatorKey, nodeAddress)
-  }
-
-  private def checkIp[F[_]](ip: String)(implicit F: Sync[F]): F[Unit] =
-    F.delay(InetAddress.getByName(ip)).attempt.flatMap {
-      case Right(_) => F.unit
-      case Left(e) => F.raiseError(new IllegalArgumentException(s"Incorrect IP: $ip.").initCause(e))
-    }
+    } yield NodeConfig(endpointsConfig, validatorKey, nodeAddress)
 
   private def checkPorts(startPort: Int, endPort: Int): IO[Unit] = {
     val ports = endPort - startPort

@@ -21,6 +21,7 @@ import fluence.ethclient.EthClient
 import fluence.node.eth.{DeployerContract, DeployerContractConfig}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
+import pureconfig.generic.auto._
 
 object AddCodeApp extends IOApp with LazyLogging {
 

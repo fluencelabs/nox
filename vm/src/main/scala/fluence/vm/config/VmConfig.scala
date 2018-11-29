@@ -16,8 +16,9 @@
 
 package fluence.vm.config
 
-import pureconfig.{CamelCase, ConfigFieldMapping, ProductHint}
+import pureconfig.{CamelCase, ConfigFieldMapping}
 import pureconfig.error.ConfigReaderFailures
+import pureconfig.generic.ProductHint
 
 import scala.util.control.NoStackTrace
 

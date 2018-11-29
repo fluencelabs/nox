@@ -15,7 +15,7 @@
  */
 
 package fluence.node.tendermint
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
 import cats.effect.{ContextShift, IO}
 import fluence.node.docker.{DockerIO, DockerParams}
@@ -111,8 +111,16 @@ case class KeysPath(masterTendermintPath: String)(implicit ec: ContextShift[IO])
    */
   def copyKeysToSolver(solverTendermintPath: Path): IO[Unit] = path.flatMap { p =>
     IO {
-      Files.copy(p.resolve("config/node_key.json"), solverTendermintPath.resolve("config/node_key.json"))
-      Files.copy(p.resolve("config/priv_validator.json"), solverTendermintPath.resolve("config/priv_validator.json"))
+      Files.copy(
+        p.resolve("config/node_key.json"),
+        solverTendermintPath.resolve("config/node_key.json"),
+        StandardCopyOption.REPLACE_EXISTING
+      )
+      Files.copy(
+        p.resolve("config/priv_validator.json"),
+        solverTendermintPath.resolve("config/priv_validator.json"),
+        StandardCopyOption.REPLACE_EXISTING
+      )
     }
   }
 }

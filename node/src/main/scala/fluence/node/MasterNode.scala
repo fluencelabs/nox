@@ -15,14 +15,15 @@
  */
 
 package fluence.node
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 import cats.effect.{ConcurrentEffect, ExitCode, IO, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.node.eth.DeployerContract
-import fluence.node.solvers.{SolverParams, SolversPool}
+import fluence.node.solvers.{CodeManager, SolverParams, SolversPool}
 import fluence.node.tendermint.{ClusterData, KeysPath}
+import fluence.swarm.SwarmClient
 
 /**
  * Represents a MasterNode process. Takes cluster forming events from Ethereum, and spawns new solvers to serve them.
@@ -39,22 +40,25 @@ case class MasterNode(
   nodeConfig: NodeConfig,
   contract: DeployerContract,
   pool: SolversPool[IO],
+  codeManager: CodeManager[IO],
   path: Path
 )(implicit ec: ConcurrentEffect[IO])
     extends slogging.LazyLogging {
 
-  private def getCodePath(codeName: String): IO[String] = IO {
-    val examplesPath = getClass.getClassLoader.getResource("examples").getPath
-    if (examplesPath.contains(".jar")) {
-      // TODO: REMOVE. It's an ad-hoc fix to avoid copying resources from jar in case of `sbt runMain`
-      Paths.get("./statemachine/docker/examples/vmcode-" + codeName).toAbsolutePath.toString
-    } else {
-      Paths
-        .get(getClass.getClassLoader.getResource("examples").getPath + "/vmcode-" + codeName)
-        .toAbsolutePath
-        .toString
+  // Converts ClusterData into SolverParams which is ready to run
+  private val clusterDataToParams: fs2.Pipe[IO, (ClusterData, Path), SolverParams] =
+    _.evalMap {
+      case (clusterData, solverTendermintPath) ⇒
+        for {
+          path <- codeManager.prepareCode(clusterData.code, path)
+        } yield {
+          SolverParams(
+            clusterData,
+            solverTendermintPath.toString,
+            path
+          )
+        }
     }
-  }
 
   // Writes node info & master keys to tendermint directory
   private val configureSolver: fs2.Pipe[IO, ClusterData, SolverParams] =
@@ -71,7 +75,7 @@ case class MasterNode(
           _ ← masterKeys.copyKeysToSolver(solverTendermintPath)
           _ <- IO { logger.info("node info written to {}", solverTendermintPath) }
 
-          codePath <- getCodePath(clusterData.code) // TODO fetch (from swarm) & cache
+          codePath <- codeManager.prepareCode(clusterData.code, path)
         } yield SolverParams(clusterData, solverTendermintPath.toString, codePath)
     )
 
