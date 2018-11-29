@@ -26,7 +26,8 @@ import fluence.node.tendermint.{KeysPath, ValidatorKey}
 import scala.language.higherKinds
 
 /**
- * Information about a node possible endpoints.
+ * Information about a node possible endpoints (IP and ports) that will be used as addresses
+ * for requests after a cluster will be formed
  *
  * @param ip p2p host IP
  * @param minPort starting port for p2p port range
