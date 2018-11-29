@@ -16,6 +16,7 @@
 
 package fluence.node
 import java.io.File
+import java.net.InetAddress
 import java.nio.file.{Files, Path, Paths}
 
 import cats.effect._
@@ -26,7 +27,7 @@ import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.eth.{DeployerContract, DeployerContractConfig}
-import fluence.node.solvers.SolversPool
+import fluence.node.solvers.{SolversPool, TestCodeManager}
 import fluence.node.tendermint.KeysPath
 import org.scalactic.source.Position
 import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
@@ -110,6 +111,8 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
     }
     logger.info(s"Docker host: '$dockerHostIP'")
 
+    val codeManager = new TestCodeManager[IO]
+
     val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
       Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
@@ -133,14 +136,14 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
             // initializing 0th node: for 2 solvers
             masterKeys0 = KeysPath(keysPath(0).toString)
             _ <- masterKeys0.init
-            nodeConfig0 <- NodeConfig.fromArgs(masterKeys0, List(dockerHostIP, "25000", "25002"))
-            node0 = MasterNode(masterKeys0, nodeConfig0, contract, pool, solversPath(0))
+            nodeConfig0 <- NodeConfig(masterKeys0, EndpointsConfig(dockerHostIP, 25000, 25002))
+            node0 = MasterNode(masterKeys0, nodeConfig0, contract, pool, codeManager, solversPath(0))
 
             // initializing 1st node: for 1 solver
             masterKeys1 = KeysPath(keysPath(1).toString)
             _ <- masterKeys1.init
-            nodeConfig1 <- NodeConfig.fromArgs(masterKeys1, List(dockerHostIP, "25500", "25501"))
-            node1 = MasterNode(masterKeys1, nodeConfig1, contract, pool, solversPath(1))
+            nodeConfig1 <- NodeConfig(masterKeys1, EndpointsConfig(dockerHostIP, 25500, 25501))
+            node1 = MasterNode(masterKeys1, nodeConfig1, contract, pool, codeManager, solversPath(1))
 
             // registering nodes in contract – nothing should happen here, because no matching work exists
             _ <- contract.addNode[IO](nodeConfig0)
@@ -234,7 +237,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
   private def heightFromTendermintStatus(nodeConfig: NodeConfig, solverOrder: Int): IO[Option[Long]] = IO {
     import io.circe._
     import io.circe.parser._
-    val port = nodeConfig.startPort + solverOrder + 100 // +100 corresponds to port mapping scheme from `ClusterData`
+    val port = nodeConfig.endpoints.minPort + solverOrder + 100 // +100 corresponds to port mapping scheme from `ClusterData`
     val source = Source.fromURL(s"http://localhost:$port/status").mkString
     val height = parse(source)
       .getOrElse(Json.Null)
@@ -249,12 +252,12 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
     height
   }
 
-  private def detectIPStringByNetworkInterface(interface: String): String = {
+  private def detectIPStringByNetworkInterface(interface: String): InetAddress = {
     import sys.process._
     val ifconfigCmd = Seq("ifconfig", interface)
     val grepCmd = Seq("grep", "inet ")
     val awkCmd = Seq("awk", "{print $2}")
-    (ifconfigCmd #| grepCmd #| awkCmd).!!.replaceAll("[^0-9\\.]", "")
+    InetAddress.getByName((ifconfigCmd #| grepCmd #| awkCmd).!!.replaceAll("[^0-9\\.]", ""))
   }
 
   private def getOS: String = {

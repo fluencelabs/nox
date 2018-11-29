@@ -58,7 +58,9 @@ object MasterNodeApp extends IOApp with LazyLogging {
       swarmEnabled <- pureconfig.loadConfig[Boolean]("use-swarm").toIO
     } yield Configuration(rootPath, masterKeys, solverInfo, config, swarmEnabled)
 
-  private def getCodeManager(swarmEnabled: Boolean)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[CodeManager[IO]] = {
+  private def getCodeManager(
+    swarmEnabled: Boolean
+  )(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[CodeManager[IO]] = {
     if (!swarmEnabled) IO(new TestCodeManager[IO]())
     else {
       pureconfig
