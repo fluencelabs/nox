@@ -15,9 +15,18 @@ fn fib(num: &BigUint) -> BigUint {
     fib(&num.sub(1u32)) + fib(&num.sub(2u32))
 }
 
-#[no_mangle]
-pub extern "C" fn main() -> u8 {
+fn bench_test() -> u8 {
     let fib_number : BigUint = BigUint::from(FIB_NUMBER.parse::<u64>().unwrap());
 
     fib(&fib_number).to_bytes_le().iter().fold(0u8, |x1, x2| x1 ^ x2)
+}
+
+#[no_mangle]
+pub extern "C" fn app_main() -> u8 {
+    bench_test()
+}
+
+#[no_mangle]
+pub extern "C" fn main() -> u8 {
+    bench_test()
 }

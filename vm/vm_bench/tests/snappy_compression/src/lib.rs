@@ -20,8 +20,7 @@ fn generate_sequence(seed : u64, size : u64) -> Sequence {
     result_sequence
 }
 
-#[no_mangle]
-pub extern "C" fn main() -> u64 {
+fn bench_test() -> u64 {
     let seed : u64 = SEED.parse::<u64>().unwrap();
     let iterations_count : u64 = ITERATIONS_COUNT.parse::<u64>().unwrap();
     let sequence_size : u64 = SEQUENCE_SIZE.parse::<u64>().unwrap();
@@ -37,4 +36,14 @@ pub extern "C" fn main() -> u64 {
     }
 
     compressed_sequence.iter().fold(0u8, |x1, x2| x1 ^ x2) as u64
+}
+
+#[no_mangle]
+pub extern "C" fn app_main() -> u64 {
+    bench_test()
+}
+
+#[no_mangle]
+pub extern "C" fn main() -> u64 {
+    bench_test()
 }
