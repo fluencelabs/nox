@@ -15,11 +15,18 @@
  */
 
 package fluence.node
-import cats.effect.IO
-import pureconfig.error.ConfigReaderFailures
 
-object helpers {
-  implicit class ConfigOps[T](loadedConfig: Either[ConfigReaderFailures, T]) {
+import java.net.InetAddress
+
+import cats.effect.IO
+import pureconfig.ConfigConvert
+import pureconfig.error.ConfigReaderFailures
+import pureconfig.ConfigConvert.viaStringTry
+
+import scala.util.Try
+
+object ConfigOps {
+  implicit class ConfigLoaderToIO[T](loadedConfig: Either[ConfigReaderFailures, T]) {
 
     def toIO: IO[T] = {
       IO.fromEither(
@@ -34,4 +41,7 @@ object helpers {
     }
 
   }
+
+  implicit val inetAddressConvert: ConfigConvert[InetAddress] =
+    viaStringTry[InetAddress](str => Try(InetAddress.getByName(str)), _.toString)
 }

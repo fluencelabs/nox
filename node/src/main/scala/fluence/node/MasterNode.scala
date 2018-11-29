@@ -49,7 +49,7 @@ case class MasterNode(
     _.evalMap {
       case (clusterData, solverTendermintPath) ⇒
         for {
-          path <- codeManager.prepareCode(clusterData.code, solverTendermintPath)
+          path <- codeManager.prepareCode(clusterData.code, path)
         } yield {
           SolverParams(
             clusterData,

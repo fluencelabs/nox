@@ -16,10 +16,10 @@
 
 package fluence.node
 
+import java.net.InetAddress
+
 import cats.effect.IO
 import fluence.node.tendermint.{KeysPath, ValidatorKey}
-
-import scala.util.Try
 
 /**
  * Information about a node possible endpoints.
@@ -29,7 +29,7 @@ import scala.util.Try
  * @param maxPort ending port for p2p port range
 **/
 case class EndpointsConfig(
-  ip: String,
+  ip: InetAddress,
   minPort: Short,
   maxPort: Short
 )
@@ -37,7 +37,8 @@ case class EndpointsConfig(
 /**
  * Information about a node willing to run solvers to join Fluence clusters.
  *
- * @param endpoints information about a node possible endpoints
+ * @param endpoints information about a node possible endpoints (IP and ports) that will be used as addresses
+ *                 for requests after a cluster will be formed
  * @param validatorKey p2p port
  * @param nodeAddress p2p port
  */

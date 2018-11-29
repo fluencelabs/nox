@@ -36,10 +36,10 @@ sealed trait CodeManager[F[_]] {
   /**
    * Downloads code from Swarm and manages paths to the code.
    * @param path a path to a code from the deployer smart contract
-   * @param solverPath a path to a solver working directory
+   * @param storagePath a path to a solver working directory
    * @return
    */
-  def prepareCode(path: CodePath, solverPath: Path): F[String]
+  def prepareCode(path: CodePath, storagePath: Path): F[String]
 }
 
 /**

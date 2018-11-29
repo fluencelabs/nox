@@ -23,19 +23,20 @@ import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.eth.{DeployerContract, DeployerContractConfig}
-import fluence.node.solvers.{CodeManager, SolversPool, SwarmCodeManager, TestCodeManager}
+import fluence.node.solvers.{SolversPool, SwarmCodeManager, TestCodeManager}
 import fluence.node.tendermint.KeysPath
 import fluence.swarm.SwarmClient
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
-import helpers._
+import pureconfig.generic.auto._
+import ConfigOps._
 
 case class Configuration(
   rootPath: Path,
   masterKeys: KeysPath,
   nodeConfig: NodeConfig,
   contractConfig: DeployerContractConfig,
-  codeManager: CodeManager[IO]
+  swarmEnabled: Boolean
 )
 
 object MasterNodeApp extends IOApp with LazyLogging {
@@ -53,15 +54,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
       solverInfo <- NodeConfig(masterKeys, endpoints)
       config <- pureconfig.loadConfig[DeployerContractConfig].toIO
       swarmEnabled <- pureconfig.loadConfig[Boolean]("use-swarm").toIO
-      codeManager <- if (!swarmEnabled) IO(new TestCodeManager[IO]())
-      else {
-        pureconfig
-          .loadConfig[String]("swarm.host")
-          .toIO
-          .flatMap(addr => SwarmClient(addr))
-          .map(client => new SwarmCodeManager[IO](client))
-      }
-    } yield Configuration(rootPath, masterKeys, solverInfo, config, codeManager)
+    } yield Configuration(rootPath, masterKeys, solverInfo, config, swarmEnabled)
 
   /**
    * Launches a Master node connecting to ethereum blockchain with Deployer contract.
@@ -70,7 +63,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
     configure().attempt.flatMap {
-      case Right(Configuration(rootPath, masterKeys, nodeConfig, config, swarmClient)) =>
+      case Right(Configuration(rootPath, masterKeys, nodeConfig, config, swarmEnabled)) =>
         // Run master node
         EthClient
           .makeHttpResource[IO]()
@@ -95,7 +88,16 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 pool ← SolversPool[IO]()
 
-                node = MasterNode(masterKeys, nodeConfig, contract, pool, swarmClient, rootPath)
+                codeManager <- if (!swarmEnabled) IO(new TestCodeManager[IO]())
+                else {
+                  pureconfig
+                    .loadConfig[String]("swarm.host")
+                    .toIO
+                    .flatMap(addr => SwarmClient(addr))
+                    .map(client => new SwarmCodeManager[IO](client))
+                }
+
+                node = MasterNode(masterKeys, nodeConfig, contract, pool, codeManager, rootPath)
 
                 result ← node.run
 
