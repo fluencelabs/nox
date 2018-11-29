@@ -120,6 +120,7 @@ lazy val statemachine = (project in file("statemachine"))
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
+    test in assembly := {},
     imageNames in docker := Seq(ImageName("fluencelabs/solver")),
     dockerfile in docker := {
       // Run `sbt docker` to create image
@@ -147,10 +148,8 @@ lazy val statemachine = (project in file("statemachine"))
       new Dockerfile {
         from("xqdocker/ubuntu-openjdk:jre-8")
         // TODO: merge all these `run`s into a single run
-        run("apt", "-yqq", "update")
-        run("apt", "-yqq", "install", "wget", "curl", "jq", "unzip", "screen")
-        run("wget", tmBinaryUrl)
-        run("unzip", "-d", "/bin", tmBinaryArchive)
+        runRaw("apt -yqq update && apt -yqq install wget curl jq unzip screen")
+        runRaw(s"wget $tmBinaryUrl && unzip -d /bin $tmBinaryArchive")
 
         expose(tmP2pPort)
         expose(tmRpcPort)
@@ -237,8 +236,9 @@ lazy val node = project
         oldStrategy(x)
     },
     mainClass in assembly := Some("fluence.node.MasterNodeApp"),
+    assemblyJarName in assembly := "master-node.jar",
     test in assembly := {},
-    // node/runMain fluence.node.MasterNodeApp $HOME/.tendermint/t4 192.168.0.11 30135 30147
+    imageNames in docker := Seq(ImageName("fluencelabs/master")),
     dockerfile in docker := {
       // The assembly task generates a fat JAR file
       val artifact: File = assembly.value
@@ -247,16 +247,40 @@ lazy val node = project
       /**
       * Running a master node container would be something like
       * docker run -e "IP=192.168.1.100" -e "PORTS=30135:30147" -v /var/run/docker.sock:/var/run/docker.sock fluencelabs/master
-      * TODO: IP and PORTS looks awful, need to migrate them to config and specify config as a volume
+      * TODO: IP and PORTS look awful, need to migrate them to config and specify config as a volume
       */
       new Dockerfile {
+        val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
         from("xqdocker/ubuntu-openjdk:jre-8")
-        run("bash", "-c", "apt -yqq update && apt -yqq install docker")
+        runRaw("apt-get -yqq update &&" +
+               "apt-get -yqq install wget &&" +
+               s"wget -q $dockerBinary -O- |" +
+               s"tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
+
+//        runRaw("apt-get -yqq update && " +
+//               "apt-get -yqq install " +
+//               "apt-transport-https" +
+//               "ca-certificates" +
+//               "curl" +
+//               "software-properties-common &&" +
+//               "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - &&" +
+//               "add-apt-repository " +
+//               "\"deb [arch=amd64] https://download.docker.com/linux/ubuntu $(grep -Po \"(?<=CODENAME=).*\" /etc/lsb-release) stable &&" +
+//               "apt-get update -yqq &&" +
+//               ""
+//        )
 
         volume("/master") // anonymous volume to store all data
 
-        add(artifact, artifactTargetPath)
-        entryPoint("java", "-jar", artifactTargetPath, "/master")
+        println("baseDir is " + baseDirectory.value)
+        copy(baseDirectory.value / "docker" / "entrypoint.sh", "/master/")
+//        copy(baseDirectory.value / "src" / "main" / "resources" / "reference.conf", "/master/")
+
+        copy(artifact, artifactTargetPath)
+
+        // node/runMain fluence.node.MasterNodeApp $HOME/.tendermint/t4 192.168.0.11 30135 30147
+        cmd("java", "-jar", artifactTargetPath, "/master", "192.168.0.11", "30135", "30147")
+        entryPoint("sh", "/master/entrypoint.sh")
       }
     }
   )
