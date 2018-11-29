@@ -18,8 +18,12 @@ package fluence.node
 
 import java.net.InetAddress
 
-import cats.effect.IO
+import cats.effect.{ContextShift, IO, Sync}
+import cats.syntax.applicativeError._
+import cats.syntax.flatMap._
 import fluence.node.tendermint.{KeysPath, ValidatorKey}
+
+import scala.language.higherKinds
 
 /**
  * Information about a node possible endpoints.
@@ -64,7 +68,7 @@ object NodeConfig extends slogging.LazyLogging {
       validatorKey ← keysPath.showValidatorKey
       nodeAddress ← keysPath.showNodeId
 
-      _ = logger.info("Tendermint node id: {}", nodeAddress)
+      _ = logger.info("Tendermint node id: {}", nodeAddress.trim)
 
     } yield NodeConfig(endpointsConfig, validatorKey, nodeAddress)
 

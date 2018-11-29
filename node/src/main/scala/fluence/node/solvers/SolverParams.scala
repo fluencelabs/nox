@@ -27,7 +27,7 @@ case class SolverParams(
   vmCodeDir: String,
 ) {
 
-  override def toString = s"(solver for ${clusterData.nodeInfo.clusterName})"
+  override def toString = s"(solver ${clusterData.nodeInfo.node_index} for ${clusterData.nodeInfo.clusterName})"
 
   def rpcPort: Short = clusterData.hostRpcPort
 

@@ -16,7 +16,7 @@
 
 package fluence.node
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Path, Paths, Files}
 
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.softwaremill.sttp.SttpBackend

@@ -4,6 +4,11 @@ matrix:
       scala: 2.12.7
       jdk: oraclejdk8
 
+      services:
+        - docker
+      install:
+        - docker pull fluencelabs/solver:latest
+
       # These directories are cached to S3 at the end of the build
       cache:
         directories:

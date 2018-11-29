@@ -15,11 +15,10 @@
  */
 
 package fluence.node.tendermint
-import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.nio.file.{Files, Path, Paths}
 
-import cats.effect.IO
-import fluence.node.docker.DockerParams
+import cats.effect.{ContextShift, IO}
+import fluence.node.docker.{DockerIO, DockerParams}
 import io.circe.parser.parse
 
 /**
@@ -37,7 +36,7 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
   /**
    * Runs `tendermint show_validator` inside the solver's container, and returns its output as [[ValidatorKey]].
    */
-  val showValidatorKey: IO[ValidatorKey] =
+  def showValidatorKey(implicit ec: ContextShift[IO]): IO[ValidatorKey] =
     for {
       validatorKeyStr ← solverExec("tendermint", "show_validator", "--home=/tendermint")
 
@@ -49,36 +48,39 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
   /**
    * Runs `tendermint show_node_id` inside the solver's container, and returns its output.
    */
-  val showNodeId: IO[String] =
+  def showNodeId(implicit ec: ContextShift[IO]): IO[String] =
     solverExec("tendermint", "show_node_id", "--home=/tendermint")
 
   /**
    * Initialize tendermint keys
    * Returns true if new keys are generated, false otherwise
    */
-  val init: IO[Boolean] = (for {
-    nodeKey <- nodeKeyPath.map(_.toFile)
-    privValidator <- privValidatorPath.map(_.toFile)
-  } yield nodeKey.exists() && privValidator.exists()).flatMap {
-    case true ⇒
-      path.map { p =>
-        logger.info(s"Tendermint master keys found in $p")
-        false
-      }
-    case false ⇒
-      path.flatMap { p =>
-        logger.info(s"Tendermint master keys not found in $p, going to initialize")
-        solverExec("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
-          logger.info(s"Tendermint initialized $str in $p, goint to remove unused data")
-          IO {
-            p.resolve("config").resolve("config.toml").toFile.delete()
-            p.resolve("config").resolve("genesis.json").toFile.delete()
-            p.resolve("data").toFile.delete()
-            true
+  def init(implicit ec: ContextShift[IO]): IO[Boolean] =
+    (for {
+      nodeKey <- nodeKeyPath.map(_.toFile)
+      privValidator <- privValidatorPath.map(_.toFile)
+    } yield nodeKey.exists() && privValidator.exists()).flatMap {
+      case true ⇒
+        path.map { p =>
+          logger.info(s"Tendermint master keys found in $p")
+          false
+        }
+      case false ⇒
+        path.flatMap { p =>
+          logger.info(s"Tendermint master keys not found in $p, going to initialize")
+          solverExec("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
+            logger.info(
+              s"Tendermint initialized in $p, going to remove unused data. Tendermint logs:\n$str"
+            )
+            IO {
+              p.resolve("config").resolve("config.toml").toFile.delete()
+              p.resolve("config").resolve("genesis.json").toFile.delete()
+              p.resolve("data").toFile.delete()
+              true
+            }
           }
         }
-      }
-  }
+    }
 
   /**
    * Executes a command inside solver's container, binding tendermint's home directory into `/tendermint` volume.
@@ -86,33 +88,31 @@ case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
    *
    * @param executable The command to execute
    */
-  private def solverExec(executable: String, params: String*): IO[String] =
-    IO(
-      DockerParams
-        .run(executable, params: _*)
-        .volume(masterTendermintPath, "/tendermint")
-        // TODO: it could be another image, specific to tendermint process only, no need to take solver
-        .image("fluencelabs/solver:latest")
-        .process
-        .!!
-    )
+  private def solverExec(executable: String, params: String*)(implicit ec: ContextShift[IO]): IO[String] =
+    for {
+      uid <- IO(scala.sys.process.Process("id -u").!!.trim)
+      result <- DockerIO
+        .run[IO](
+          DockerParams
+            .run(executable, params: _*)
+            .user(uid)
+            .volume(masterTendermintPath, "/tendermint")
+            // TODO: it could be another image, specific to tendermint process only, no need to take solver
+            .image("fluencelabs/solver:latest")
+        )
+        .compile
+        .lastOrError
+    } yield result
 
   /**
    * Copies master tendermint keys to solver path
    *
    * @param solverTendermintPath Solver's tendermint path
    */
-  def copyKeysToSolver(solverTendermintPath: Path): IO[Unit] = path.map { p =>
-    Files.copy(
-      p.resolve("config").resolve("node_key.json"),
-      solverTendermintPath.resolve("config").resolve("node_key.json"),
-      REPLACE_EXISTING
-    )
-
-    Files.copy(
-      p.resolve("config").resolve("priv_validator.json"),
-      solverTendermintPath.resolve("config").resolve("priv_validator.json"),
-      REPLACE_EXISTING
-    )
+  def copyKeysToSolver(solverTendermintPath: Path): IO[Unit] = path.flatMap { p =>
+    IO {
+      Files.copy(p.resolve("config/node_key.json"), solverTendermintPath.resolve("config/node_key.json"))
+      Files.copy(p.resolve("config/priv_validator.json"), solverTendermintPath.resolve("config/priv_validator.json"))
+    }
   }
 }

@@ -40,9 +40,8 @@ case class MasterNode(
   pool: SolversPool[IO],
   codeManager: CodeManager[IO],
   path: Path
-)(
-  implicit ce: ConcurrentEffect[IO]
-) extends slogging.LazyLogging {
+)(implicit ec: ConcurrentEffect[IO])
+    extends slogging.LazyLogging {
 
   // Converts ClusterData into SolverParams which is ready to run
   private val clusterDataToParams: fs2.Pipe[IO, (ClusterData, Path), SolverParams] =
@@ -58,9 +57,10 @@ case class MasterNode(
           )
         }
     }
+  }
 
   // Writes node info & master keys to tendermint directory
-  private val writeConfigAndKeys: fs2.Pipe[IO, ClusterData, (ClusterData, Path)] =
+  private val configureSolver: fs2.Pipe[IO, ClusterData, SolverParams] =
     _.evalMap(
       clusterData =>
         for {
@@ -72,10 +72,10 @@ case class MasterNode(
 
           _ ← clusterData.nodeInfo.writeTo(solverTendermintPath)
           _ ← masterKeys.copyKeysToSolver(solverTendermintPath)
-        } yield {
-          logger.info("node info written to {}", solverTendermintPath)
-          clusterData -> solverTendermintPath
-      }
+          _ <- IO { logger.info("node info written to {}", solverTendermintPath) }
+
+          codePath <- getCodePath(clusterData.code) // TODO fetch (from swarm) & cache
+        } yield SolverParams(clusterData, solverTendermintPath.toString, codePath)
     )
 
   /**
@@ -84,9 +84,8 @@ case class MasterNode(
    */
   val run: IO[ExitCode] =
     contract
-      .getAllNodeClusters[IO](nodeConfig)
-      .through(writeConfigAndKeys)
-      .through(clusterDataToParams)
+      .getAllNodeClusters(nodeConfig)
+      .through(configureSolver)
       .evalTap[IO] { params ⇒
         logger.info("Running solver `{}`", params)
 
@@ -97,5 +96,4 @@ case class MasterNode(
       .compile // Compile to a runnable, in terms of effect IO
       .drain // Switch to IO[Unit]
       .map(_ ⇒ ExitCode.Success)
-
 }
