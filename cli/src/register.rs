@@ -86,7 +86,6 @@ pub struct Register {
 
 impl Register {
     /// Creates `Register` structure
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         node_address: IpAddr,
         tendermint_key: H256,
