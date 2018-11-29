@@ -12,8 +12,7 @@ fn generate_random_matrix(rows_number: u32, columns_count: u32, seed: u64) -> Ma
     Matrix::from_fn(rows_number as usize, columns_count as usize, |_, _| rng.gen_range(0f64, GENERATION_INTERVAL))
 }
 
-#[no_mangle]
-pub extern "C" fn main() -> u64 {
+fn bench_test() -> u64 {
     let matrix_size : u32 = MATRIX_SIZE.parse::<u32>().unwrap();
     let seed : u64 = SEED.parse::<u64>().unwrap();
     let iterations_count : u64 = ITERATIONS_COUNT.parse::<u64>().unwrap();
@@ -26,4 +25,14 @@ pub extern "C" fn main() -> u64 {
     }
 
     matrix_hash
+}
+
+#[no_mangle]
+pub extern "C" fn app_main() -> u64 {
+    bench_test()
+}
+
+#[no_mangle]
+pub extern "C" fn main() -> u64 {
+    bench_test()
 }
