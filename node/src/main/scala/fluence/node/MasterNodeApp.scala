@@ -16,7 +16,7 @@
 
 package fluence.node
 
-import java.nio.file.{Path, Paths, Files}
+import java.nio.file.{Files, Path, Paths}
 
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.softwaremill.sttp.SttpBackend
@@ -48,7 +48,9 @@ object MasterNodeApp extends IOApp with LazyLogging {
     for {
       rootPathStr <- pureconfig.loadConfig[String]("tendermint-path").toIO
       rootPath = Paths.get(rootPathStr).toAbsolutePath
-      masterKeys = KeysPath(rootPath.resolve("tendermint").toString)
+      keysPath = rootPath.resolve("tendermint")
+      masterKeys = KeysPath(keysPath.toString)
+      _ <- IO(Files.createDirectories(keysPath))
       _ ← masterKeys.init
       endpoints <- pureconfig.loadConfig[EndpointsConfig]("endpoints").toIO
       solverInfo <- NodeConfig(masterKeys, endpoints)

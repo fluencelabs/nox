@@ -63,7 +63,7 @@ object NodeConfig extends slogging.LazyLogging {
    * Builds [[NodeConfig]].
    *
    */
-  def apply(keysPath: KeysPath, endpointsConfig: EndpointsConfig): IO[NodeConfig] =
+  def apply(keysPath: KeysPath, endpointsConfig: EndpointsConfig)(implicit ec: ContextShift[IO]): IO[NodeConfig] =
     for {
       validatorKey ← keysPath.showValidatorKey
       nodeAddress ← keysPath.showNodeId

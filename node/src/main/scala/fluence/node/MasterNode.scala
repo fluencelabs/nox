@@ -57,7 +57,6 @@ case class MasterNode(
           )
         }
     }
-  }
 
   // Writes node info & master keys to tendermint directory
   private val configureSolver: fs2.Pipe[IO, ClusterData, SolverParams] =
@@ -74,7 +73,7 @@ case class MasterNode(
           _ ← masterKeys.copyKeysToSolver(solverTendermintPath)
           _ <- IO { logger.info("node info written to {}", solverTendermintPath) }
 
-          codePath <- getCodePath(clusterData.code) // TODO fetch (from swarm) & cache
+          codePath <- codeManager.prepareCode(clusterData.code, path)
         } yield SolverParams(clusterData, solverTendermintPath.toString, codePath)
     )
 
