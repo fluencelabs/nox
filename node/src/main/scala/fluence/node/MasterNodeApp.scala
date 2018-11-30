@@ -32,6 +32,7 @@ import fluence.swarm.SwarmClient
 import io.circe.parser.parse
 import pureconfig.backend.ConfigFactoryWrapper
 import pureconfig.error.ConfigReaderFailures
+import pureconfig.generic.auto._
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 

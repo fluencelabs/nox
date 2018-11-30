@@ -9,6 +9,14 @@ EOF
   exit 1
 fi
 
+if [ -z "$PORTS" ]; then
+  cat >&2 <<EOF
+error: \`-e "PORTS=start:stop"\` was not specified.
+TODO: add more helpful explanation
+EOF
+  exit 1
+fi
+
 if [ ! -S /var/run/docker.sock ]; then
     cat >&2 <<EOF
 error: '/var/run/docker.sock' not found in container or is not a socket.
@@ -22,6 +30,8 @@ if [ "$3" = "/master-node.jar" ]; then
     cat > "/master/application.conf" <<EOF
 endpoints {
   ip = $TENDERMINT_IP
+  min-port = ${PORTS%:*}
+  max-port = ${PORTS#*:}
 }
 ethereum {
   protocol = http
