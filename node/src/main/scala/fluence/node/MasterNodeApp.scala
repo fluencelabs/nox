@@ -16,115 +16,19 @@
 
 package fluence.node
 
-import java.nio.file.{Path, Paths}
-
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
-import com.typesafe.config.Config
 import fluence.ethclient.EthClient
-import fluence.node.ConfigOps._
-import fluence.node.docker.{DockerIO, DockerParams}
-import fluence.node.eth.{DeployerContract, DeployerContractConfig, EthereumRPCConfig}
-import fluence.node.solvers.{CodeManager, SolversPool, SwarmCodeManager, TestCodeManager}
-import fluence.node.tendermint.ValidatorKey
-import fluence.swarm.SwarmClient
-import io.circe.parser.parse
-import pureconfig.backend.ConfigFactoryWrapper
-import pureconfig.error.ConfigReaderFailures
-import pureconfig.generic.auto._
+import fluence.node.eth.DeployerContract
+import fluence.node.solvers.SolversPool
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
-
-case class Configuration(
-  rootPath: Path,
-  nodeConfig: NodeConfig,
-  contractConfig: DeployerContractConfig,
-  swarmEnabled: Boolean,
-  ethereumRPC: EthereumRPCConfig,
-  masterContainerId: String
-)
 
 object MasterNodeApp extends IOApp with LazyLogging {
 
   private val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
     Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
-
-  def loadConfig(): Either[ConfigReaderFailures, Config] = {
-    import ConfigFactoryWrapper._
-    val containerConfig = "/master/application.conf"
-
-    loadFile(Paths.get(containerConfig)) match {
-      case Left(e) =>
-        logger.info(s"unable to load $containerConfig: $e") // how to interpret ConfigReaderFailures?
-        load()
-      case Right(config) =>
-        load.map(config.withFallback)
-    }
-  }
-
-  def tendermintInit(masterContainer: String): IO[(String, ValidatorKey)] = {
-    val tendermintDir = "/master/tendermint"
-    def tendermint(cmd: String, uid: String) = {
-      DockerParams
-        .run("tendermint", cmd, s"--home=$tendermintDir")
-        .user(uid)
-        .option("--volumes-from", masterContainer)
-        .image("fluencelabs/solver:latest")
-    }
-
-    for {
-      uid <- IO(scala.sys.process.Process("id -u").!!.trim)
-      //TODO: don't do tendermint init if keys already exist
-      _ <- DockerIO.run[IO](tendermint("init", uid)).compile.drain
-
-      _ <- IO {
-        Paths.get(tendermintDir).resolve("config").resolve("config.toml").toFile.delete()
-        Paths.get(tendermintDir).resolve("config").resolve("genesis.json").toFile.delete()
-        Paths.get(tendermintDir).resolve("data").toFile.delete()
-      }
-
-      nodeId <- DockerIO.run[IO](tendermint("show_node_id", uid)).compile.lastOrError
-
-      validatorRaw <- DockerIO.run[IO](tendermint("show_validator", uid)).compile.lastOrError
-      validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorKey]))
-    } yield (nodeId, validator)
-  }
-
-  private def configure(): IO[Configuration] =
-    for {
-      config <- loadConfig().toIO
-
-      rootPathStr <- pureconfig.loadConfig[String](config, "tendermint-path").toIO
-      rootPath = Paths.get(rootPathStr).toAbsolutePath
-
-      masterNodeContainerId <- pureconfig.loadConfig[String](config, "master-container-id").toIO
-
-      t <- tendermintInit(masterNodeContainerId)
-      (nodeId, validatorKey) = t
-
-      endpoints <- pureconfig.loadConfig[EndpointsConfig](config, "endpoints").toIO
-      solverInfo = NodeConfig(endpoints, validatorKey, nodeId)
-
-      contractConfig <- pureconfig.loadConfig[DeployerContractConfig](config).toIO
-      swarmEnabled <- pureconfig.loadConfig[Boolean](config, "use-swarm").toIO
-
-      ethereumRPC <- pureconfig.loadConfig[EthereumRPCConfig](config, "ethereum").toIO
-
-    } yield Configuration(rootPath, solverInfo, contractConfig, swarmEnabled, ethereumRPC, masterNodeContainerId)
-
-  private def getCodeManager(
-    swarmEnabled: Boolean
-  )(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[CodeManager[IO]] = {
-    if (!swarmEnabled) IO(new TestCodeManager[IO]())
-    else {
-      pureconfig
-        .loadConfig[String]("swarm.host")
-        .toIO
-        .flatMap(addr => SwarmClient(addr))
-        .map(client => new SwarmCodeManager[IO](client))
-    }
-  }
 
   /**
    * Launches a Master node connecting to ethereum blockchain with Deployer contract.
@@ -132,7 +36,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
    */
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
-    configure().attempt.flatMap {
+    Configuration.configure().attempt.flatMap {
       case Right(Configuration(rootPath, nodeConfig, config, swarmEnabled, ethereumRPC, masterNodeContainerId)) =>
         // Run master node
         EthClient
