@@ -223,6 +223,9 @@ lazy val node = project
       pureConfig,
       circeGeneric,
       circeParser,
+      http4sDsl,
+      http4sServer,
+      http4sClient,
       scalaTest
     )
   )

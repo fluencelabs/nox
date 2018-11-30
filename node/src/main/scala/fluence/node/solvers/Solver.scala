@@ -83,7 +83,10 @@ object Solver extends LazyLogging {
                 .send()
                 .attempt
                 .map {
-                  case Right(_) ⇒ SolverRunning(d)
+                  case Right(status) ⇒
+                    // parse properly
+                    logger.error("STATUS: " + status.body)
+                    SolverRunning(d)
                   case Left(err) ⇒ SolverHttpCheckFailed(d, err)
                 }
                 .map { health ⇒

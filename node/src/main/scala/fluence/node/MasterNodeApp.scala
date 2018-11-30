@@ -18,7 +18,8 @@ package fluence.node
 
 import java.nio.file.{Files, Path, Paths}
 
-import cats.effect.{ExitCode, IO, IOApp, Resource}
+import cats.effect._
+import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
@@ -36,7 +37,45 @@ case class Configuration(
   masterKeys: KeysPath,
   nodeConfig: NodeConfig,
   contractConfig: DeployerContractConfig,
-  swarmEnabled: Boolean
+  swarm: Option[SwarmConfig],
+  statistics: Option[StatServerConfig]
+)
+
+object Configuration {
+
+  def apply(
+    masterConfig: MasterConfig
+  )(implicit ec: ContextShift[IO]): IO[Configuration] = {
+    for {
+      _ <- IO.unit
+      rootPath = Paths.get(masterConfig.tendermintPath).toAbsolutePath
+      keysPath = rootPath.resolve("tendermint")
+      masterKeys = KeysPath(keysPath.toString)
+      _ <- IO(Files.createDirectories(keysPath))
+      _ ← masterKeys.init
+      solverInfo <- NodeConfig(masterKeys, masterConfig.endpoints)
+    } yield
+      Configuration(
+        rootPath,
+        masterKeys,
+        solverInfo,
+        masterConfig.deployer,
+        masterConfig.swarm,
+        masterConfig.statServer
+      )
+  }
+}
+
+case class SwarmConfig(host: String)
+
+case class StatServerConfig(port: Int)
+
+case class MasterConfig(
+  tendermintPath: String,
+  endpoints: EndpointsConfig,
+  deployer: DeployerContractConfig,
+  swarm: Option[SwarmConfig],
+  statServer: Option[StatServerConfig]
 )
 
 object MasterNodeApp extends IOApp with LazyLogging {
@@ -44,31 +83,13 @@ object MasterNodeApp extends IOApp with LazyLogging {
   private val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
     Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
-  private def configure() =
-    for {
-      rootPathStr <- pureconfig.loadConfig[String]("tendermint-path").toIO
-      rootPath = Paths.get(rootPathStr).toAbsolutePath
-      keysPath = rootPath.resolve("tendermint")
-      masterKeys = KeysPath(keysPath.toString)
-      _ <- IO(Files.createDirectories(keysPath))
-      _ ← masterKeys.init
-      endpoints <- pureconfig.loadConfig[EndpointsConfig]("endpoints").toIO
-      solverInfo <- NodeConfig(masterKeys, endpoints)
-      config <- pureconfig.loadConfig[DeployerContractConfig].toIO
-      swarmEnabled <- pureconfig.loadConfig[Boolean]("use-swarm").toIO
-    } yield Configuration(rootPath, masterKeys, solverInfo, config, swarmEnabled)
-
   private def getCodeManager(
-    swarmEnabled: Boolean
+    config: Option[SwarmConfig]
   )(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[CodeManager[IO]] = {
-    if (!swarmEnabled) IO(new TestCodeManager[IO]())
-    else {
-      pureconfig
-        .loadConfig[String]("swarm.host")
-        .toIO
-        .flatMap(addr => SwarmClient(addr))
+    config.map { c =>
+      SwarmClient(c.host)
         .map(client => new SwarmCodeManager[IO](client))
-    }
+    }.getOrElse(IO(new TestCodeManager[IO]()))
   }
 
   /**
@@ -77,41 +98,45 @@ object MasterNodeApp extends IOApp with LazyLogging {
    */
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
-    configure().attempt.flatMap {
-      case Right(Configuration(rootPath, masterKeys, nodeConfig, config, swarmEnabled)) =>
-        // Run master node
-        EthClient
-          .makeHttpResource[IO]()
-          .use { ethClient ⇒
-            sttpResource.use { implicit sttpBackend ⇒
-              for {
-                version ← ethClient.clientVersion[IO]()
-                _ = logger.info("eth client version {}", version)
-                _ = logger.debug("eth config {}", config)
+    pureconfig.loadConfig[MasterConfig].toIO.flatMap(c => Configuration(c)).attempt.flatMap {
+      case Right(Configuration(rootPath, masterKeys, nodeConfig, config, maybeSwarmConfig, statServerEnabled)) =>
+        // Run master node and status server
+        val resources = for {
+          ethClientResource <- EthClient.makeHttpResource[IO]()
 
-                contract = DeployerContract(ethClient, config)
+          sttpBackend <- sttpResource
+        } yield (ethClientResource, sttpBackend)
+        resources.use {
+          case (ethClient, sttpBackend) ⇒
+            implicit val backend: SttpBackend[IO, Nothing] = sttpBackend
+            for {
+              version ← ethClient.clientVersion[IO]()
+              _ = logger.info("eth client version {}", version)
+              _ = logger.debug("eth config {}", config)
 
-                // TODO: should check that node is registered, but should not send transactions
-                _ <- contract
-                  .addAddressToWhitelist[IO](config.deployerContractOwnerAccount)
-                  .attempt
-                  .map(r ⇒ logger.debug(s"Whitelisting address: $r"))
-                _ <- contract
-                  .addNode[IO](nodeConfig)
-                  .attempt
-                  .map(r ⇒ logger.debug(s"Adding node: $r"))
+              contract = DeployerContract(ethClient, config)
 
-                pool ← SolversPool[IO]()
+              // TODO: should check that node is registered, but should not send transactions
+              _ <- contract
+                .addAddressToWhitelist[IO](config.deployerContractOwnerAccount)
+                .attempt
+                .map(r ⇒ logger.debug(s"Whitelisting address: $r"))
+              _ <- contract
+                .addNode[IO](nodeConfig)
+                .attempt
+                .map(r ⇒ logger.debug(s"Adding node: $r"))
 
-                codeManager <- getCodeManager(swarmEnabled)
+              pool ← SolversPool[IO]()
 
-                node = MasterNode(masterKeys, nodeConfig, contract, pool, codeManager, rootPath)
+              codeManager <- getCodeManager(maybeSwarmConfig)
 
-                result ← node.run
+              node = MasterNode(masterKeys, nodeConfig, contract, pool, codeManager, rootPath)
 
-              } yield result
-            }
-          }
+              result <- StatusServerResource.makeResource(pool).use { status =>
+                node.run
+              }
+            } yield result
+        }
       case Left(value) =>
         logger.error("Error: {}", value)
         IO.pure(ExitCode.Error)

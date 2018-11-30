@@ -31,7 +31,7 @@ import fluence.swarm.SwarmClient
  * @param contract DeployerContract to interact with
  * @param pool Solvers pool to launch solvers in
  * @param path Path to store all the MasterNode's data in
- * @param ce Concurrent effect, used to subscribe to Ethereum events
+ * @param ec Concurrent effect, used to subscribe to Ethereum events
  */
 case class MasterNode(
   masterKeys: KeysPath,
