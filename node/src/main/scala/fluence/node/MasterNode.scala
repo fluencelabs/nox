@@ -15,15 +15,17 @@
  */
 
 package fluence.node
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.nio.file._
 
 import cats.effect.{ConcurrentEffect, ExitCode, IO, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.node.eth.DeployerContract
 import fluence.node.solvers.{CodeManager, SolverParams, SolversPool}
-import fluence.node.tendermint.{ClusterData, KeysPath}
+import fluence.node.tendermint.{ClusterData, Genesis, KeysPath, NodeInfo}
 import fluence.swarm.SwarmClient
+
+import scala.io.Source
 
 /**
  * Represents a MasterNode process. Takes cluster forming events from Ethereum, and spawns new solvers to serve them.
@@ -45,31 +47,68 @@ case class MasterNode(
     extends slogging.LazyLogging {
 
   // Writes node info & master keys to tendermint directory
-  private val configureSolver: fs2.Pipe[IO, ClusterData, SolverParams] =
-    _.evalMap(
-      clusterData =>
+  private val prepareSolverConfigs: fs2.Pipe[IO, ClusterData, SolverParams] =
+    _.evalMap {
+      case cd @ ClusterData(nodeInfo, _, code) =>
         for {
-          _ ← IO { logger.info("joining cluster '{}' as node {}", clusterData.clusterName, clusterData.nodeIndex) }
+          _ ← IO { logger.info("joining cluster '{}' as node {}", cd.clusterName, cd.nodeIndex) }
 
-          solverPath ← IO(
-            rootPath
-              .resolve("tendermint")
-              .resolve(s"${clusterData.nodeInfo.clusterName}-${clusterData.nodeInfo.node_index}")
+          tmDir ← IO(rootPath.resolve("tendermint"))
+          templateConfigDir ← IO(tmDir.resolve("config"))
+          solverPath ← IO(tmDir.resolve(nodeInfo.nodeName))
+          solverConfigDir ← IO(solverPath.resolve("config"))
+
+          _ ← IO { Files.createDirectories(solverConfigDir) }
+
+          _ ← copyMasterKeys(from = templateConfigDir, to = solverConfigDir)
+          _ ← writeNodeInfo(nodeInfo, solverConfigDir)
+          _ ← writeGenesis(nodeInfo.cluster.genesis, solverConfigDir)
+          _ ← updateConfigTOML(
+            nodeInfo,
+            configSrc = templateConfigDir.resolve("default_config.toml"),
+            configDest = solverConfigDir.resolve("config.toml")
           )
 
-          _ ← clusterData.nodeInfo.writeTo(solverPath)
-          _ ← copyMasterKeys(from = rootPath.resolve("tendermint"), to = solverPath)
-          _ <- IO { logger.info("node info written to {}", solverPath) }
+          codePath ← codeManager.prepareCode(code, solverPath)
+        } yield SolverParams(cd, solverPath.toString, codePath, masterNodeContainerId)
+    }
 
-          codePath <- codeManager.prepareCode(clusterData.code, solverPath)
-        } yield SolverParams(clusterData, solverPath.toString, codePath, masterNodeContainerId)
-    )
+  private def writeNodeInfo(nodeInfo: NodeInfo, dest: Path) = IO {
+    import io.circe.syntax._
+
+    logger.info("Writing {}/node_info.json", dest)
+    Files.write(dest.resolve("node_info.json"), nodeInfo.asJson.spaces2.getBytes)
+  }
+
+  private def writeGenesis(genesis: Genesis, dest: Path) = IO {
+    import io.circe.syntax._
+
+    logger.info("Writing {}/genesis.json", dest)
+    Files.write(dest.resolve("genesis.json"), genesis.asJson.spaces2.getBytes)
+  }
+
+  private def updateConfigTOML(nodeInfo: NodeInfo, configSrc: Path, configDest: Path) = IO {
+    import scala.collection.JavaConverters._
+    logger.info("Updating {} -> {}", configSrc, configDest)
+
+    val persistentPeers = nodeInfo.cluster.persistent_peers
+    val externalAddress = nodeInfo.cluster.external_addrs(nodeInfo.node_index.toInt)
+
+    val lines = Source.fromFile(configSrc.toUri).getLines().map {
+      case s if s.contains("external_address") => s"""external_address = "$externalAddress""""
+      case s if s.contains("persistent_peers") => s"""persistent_peers = "$persistentPeers""""
+      case s if s.contains("moniker") => s"""moniker = "${nodeInfo.nodeName}""""
+      case s => s
+    }
+
+    Files.write(configDest, lines.toIterable.asJava)
+  }
 
   private def copyMasterKeys(from: Path, to: Path): IO[Path] = {
     import StandardCopyOption.REPLACE_EXISTING
 
-    val nodeKey = "config/node_key.json"
-    val validator = "config/priv_validator.json"
+    val nodeKey = "node_key.json"
+    val validator = "priv_validator.json"
 
     IO {
       logger.info(s"Copying keys to solver: ${from.resolve(nodeKey)} -> ${to.resolve(nodeKey)}")
@@ -87,7 +126,7 @@ case class MasterNode(
   val run: IO[ExitCode] =
     contract
       .getAllNodeClusters(nodeConfig)
-      .through(configureSolver)
+      .through(prepareSolverConfigs)
       .evalTap[IO] { params ⇒
         logger.info("Running solver `{}`", params)
 

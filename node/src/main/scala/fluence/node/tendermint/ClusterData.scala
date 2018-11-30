@@ -42,8 +42,6 @@ case class ClusterData(
   def clusterName: String = nodeInfo.clusterName
 
   def nodeIndex: Int = nodeInfo.node_index.toInt
-
-  def nodeName: String = s"${clusterName}_node$nodeIndex"
 }
 
 object ClusterData {

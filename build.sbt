@@ -113,6 +113,7 @@ lazy val statemachine = (project in file("statemachine"))
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
       scalaTest
     ),
+    assemblyJarName in assembly := "statemachine.jar",
     assemblyMergeStrategy in assembly := {
       // a module definition fails compilation for java 8, just skip it
       case PathList("module-info.class", xs @ _*) => MergeStrategy.first
@@ -126,8 +127,8 @@ lazy val statemachine = (project in file("statemachine"))
       // Run `sbt docker` to create image
 
       // The assembly task generates a fat JAR file
-      val artifact: File = assembly.value
-      val artifactTargetPath = s"/app/${artifact.name}"
+      val artifact = assembly.value
+      val artifactTargetPath = s"/${artifact.name}"
 
       // Tendermint constants
       val tmVersion = "0.25.0"
@@ -163,9 +164,9 @@ lazy val statemachine = (project in file("statemachine"))
         // includes solver run script and default configs in the image
         copy(baseDirectory.value / "docker" / "solver", solverDataRoot)
 
-        add(artifact, artifactTargetPath)
+        copy(artifact, artifactTargetPath)
 
-        entryPoint("sh", solverRunScript, tmDataRoot, solverDataRoot, artifactTargetPath)
+        entryPoint("sh", solverRunScript, artifactTargetPath)
       }
     }
   )
@@ -260,13 +261,14 @@ lazy val node = project
 
         println("(resourceDirectory in Compile).value = " + (resourceDirectory in Compile).value)
         copy((resourceDirectory in Compile).value / "examples", "/master/vmcode/")
+        copy((resourceDirectory in Compile).value / "default_config.toml", "/master/tendermint/config/")
         copy(baseDirectory.value / "docker" / "entrypoint.sh", "/master/")
 //        copy(baseDirectory.value / "src" / "main" / "resources" / "reference.conf", "/master/")
 
         copy(artifact, artifactTargetPath)
 
         // node/runMain fluence.node.MasterNodeApp $HOME/.tendermint/t4 192.168.0.11 30135 30147
-        cmd("java", "-jar", artifactTargetPath, "/master", "$TENDERMINT_IP", "30135", "30147")
+        cmd("java", "-jar", artifactTargetPath, "/master", "$TENDERMINT_IP")
         entryPoint("sh", "/master/entrypoint.sh")
       }
     }
