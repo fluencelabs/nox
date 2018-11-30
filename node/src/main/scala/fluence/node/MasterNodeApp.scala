@@ -16,7 +16,7 @@
 
 package fluence.node
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Path, Paths}
 
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.softwaremill.sttp.SttpBackend
@@ -27,12 +27,11 @@ import fluence.node.ConfigOps._
 import fluence.node.docker.{DockerIO, DockerParams}
 import fluence.node.eth.{DeployerContract, DeployerContractConfig, EthereumRPCConfig}
 import fluence.node.solvers.{CodeManager, SolversPool, SwarmCodeManager, TestCodeManager}
-import fluence.node.tendermint.{KeysPath, ValidatorKey}
+import fluence.node.tendermint.ValidatorKey
 import fluence.swarm.SwarmClient
 import io.circe.parser.parse
 import pureconfig.backend.ConfigFactoryWrapper
 import pureconfig.error.ConfigReaderFailures
-import pureconfig.generic.auto._
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 

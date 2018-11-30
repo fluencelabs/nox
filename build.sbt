@@ -260,15 +260,20 @@ lazy val node = project
         volume("/master") // anonymous volume to store all data
 
         println("(resourceDirectory in Compile).value = " + (resourceDirectory in Compile).value)
-        copy((resourceDirectory in Compile).value / "examples", "/master/vmcode/")
-        copy((resourceDirectory in Compile).value / "default_config.toml", "/master/tendermint/config/")
-        copy(baseDirectory.value / "docker" / "entrypoint.sh", "/master/")
-//        copy(baseDirectory.value / "src" / "main" / "resources" / "reference.conf", "/master/")
+
+        /*
+        * The following directory structure is assumed in node/src/main/resources:
+        *    docker/
+        *      tendermint/config/default_config.toml
+        *      vmcode/vmcode-llamadb/llama_db.wasm
+        *    entrypoint.sh
+        */
+        copy((resourceDirectory in Compile).value / "docker", "/master/")
 
         copy(artifact, artifactTargetPath)
 
         // node/runMain fluence.node.MasterNodeApp $HOME/.tendermint/t4 192.168.0.11 30135 30147
-        cmd("java", "-jar", artifactTargetPath, "/master", "$TENDERMINT_IP")
+        cmd("java", "-jar", artifactTargetPath, "/master", "$TENDERMINT_IP", "$PORTS")
         entryPoint("sh", "/master/entrypoint.sh")
       }
     }
