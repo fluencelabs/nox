@@ -1,4 +1,6 @@
 #!/usr/bin/env bash -e
+set -e
+
 if [ -z "$TENDERMINT_IP" ]; then
   cat >&2 <<EOF
 error: \`-e "TENDERMINT_IP=your_external_ip"\` was not specified.
@@ -16,6 +18,7 @@ exit 1
 fi
 
 if [ "$3" = "/master-node.jar" ]; then
+    CONTAINER_ID=$(cat /proc/1/cpuset)
     cat > "/master/application.conf" <<EOF
 endpoints {
   ip = $TENDERMINT_IP
@@ -26,7 +29,10 @@ ethereum {
   port = 8545
 }
 tendermint-path=/master
+
+master-container-id = ${CONTAINER_ID#"/docker/"}
 EOF
 fi
+#/docker/68c8283d3b1396fb2dd7f9412fe0e474a19fe7506a197721071c644bf130c804
 
 exec "$@"

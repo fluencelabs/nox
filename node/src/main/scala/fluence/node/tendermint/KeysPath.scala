@@ -52,37 +52,6 @@ case class KeysPath(masterTendermintPath: String)(implicit ec: ContextShift[IO])
     solverExec("tendermint", "show_node_id", "--home=/tendermint")
 
   /**
-   * Initialize tendermint keys
-   * Returns true if new keys are generated, false otherwise
-   */
-  def init(implicit ec: ContextShift[IO]): IO[Boolean] =
-    (for {
-      nodeKey <- nodeKeyPath.map(_.toFile)
-      privValidator <- privValidatorPath.map(_.toFile)
-    } yield nodeKey.exists() && privValidator.exists()).flatMap {
-      case true ⇒
-        path.map { p =>
-          logger.info(s"Tendermint master keys found in $p")
-          false
-        }
-      case false ⇒
-        path.flatMap { p =>
-          logger.info(s"Tendermint master keys not found in $p, going to initialize")
-          solverExec("tendermint", "init", "--home=/tendermint").flatMap { str ⇒
-            logger.info(
-              s"Tendermint initialized in $p, going to remove unused data. Tendermint logs:\n$str"
-            )
-            IO {
-              p.resolve("config").resolve("config.toml").toFile.delete()
-              p.resolve("config").resolve("genesis.json").toFile.delete()
-              p.resolve("data").toFile.delete()
-              true
-            }
-          }
-        }
-    }
-
-  /**
    * Executes a command inside solver's container, binding tendermint's home directory into `/tendermint` volume.
    * Container starts anew on every call, with existing tendermint config attached
    *

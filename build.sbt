@@ -156,7 +156,6 @@ lazy val statemachine = (project in file("statemachine"))
         expose(tmPrometheusPort)
         expose(stateMachinePrometheusPort)
 
-        // TODO: why specify these volumes here?
         volume(tmDataRoot)
         volume(solverDataRoot)
         volume(vmDataRoot)
@@ -166,7 +165,7 @@ lazy val statemachine = (project in file("statemachine"))
 
         add(artifact, artifactTargetPath)
 
-        entryPoint("bash", solverRunScript, tmDataRoot, solverDataRoot, artifactTargetPath)
+        entryPoint("sh", solverRunScript, tmDataRoot, solverDataRoot, artifactTargetPath)
       }
     }
   )
@@ -257,22 +256,10 @@ lazy val node = project
                s"wget -q $dockerBinary -O- |" +
                s"tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
 
-//        runRaw("apt-get -yqq update && " +
-//               "apt-get -yqq install " +
-//               "apt-transport-https" +
-//               "ca-certificates" +
-//               "curl" +
-//               "software-properties-common &&" +
-//               "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - &&" +
-//               "add-apt-repository " +
-//               "\"deb [arch=amd64] https://download.docker.com/linux/ubuntu $(grep -Po \"(?<=CODENAME=).*\" /etc/lsb-release) stable &&" +
-//               "apt-get update -yqq &&" +
-//               ""
-//        )
-
         volume("/master") // anonymous volume to store all data
 
-        println("baseDir is " + baseDirectory.value)
+        println("(resourceDirectory in Compile).value = " + (resourceDirectory in Compile).value)
+        copy((resourceDirectory in Compile).value / "examples", "/master/vmcode/")
         copy(baseDirectory.value / "docker" / "entrypoint.sh", "/master/")
 //        copy(baseDirectory.value / "src" / "main" / "resources" / "reference.conf", "/master/")
 

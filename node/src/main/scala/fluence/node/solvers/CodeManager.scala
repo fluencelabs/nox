@@ -58,16 +58,17 @@ class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
     path: CodePath,
     solverPath: Path
   ): F[String] = F.delay {
-    val examplesPath = getClass.getClassLoader.getResource("examples").getPath
-    if (examplesPath.contains(".jar")) {
-      // TODO: REMOVE. It's an ad-hoc fix to avoid copying resources from jar in case of `sbt runMain`
-      Paths.get("./statemachine/docker/examples/vmcode-" + path.asString).toAbsolutePath.toString
-    } else {
-      Paths
-        .get(getClass.getClassLoader.getResource("examples").getPath + "/vmcode-" + path.asString)
-        .toAbsolutePath
-        .toString
-    }
+    "/master/vmcode/vmcode-llamadb"
+//    val examplesPath = getClass.getClassLoader.getResource("examples").getPath
+//    if (examplesPath.contains(".jar")) {
+//      // TODO: REMOVE. It's an ad-hoc fix to avoid copying resources from jar in case of `sbt runMain`
+//      Paths.get("./statemachine/docker/examples/vmcode-" + path.asString).toAbsolutePath.toString
+//    } else {
+//      Paths
+//        .get(getClass.getClassLoader.getResource("examples").getPath + "/vmcode-" + path.asString)
+//        .toAbsolutePath
+//        .toString
+//    }
   }
 }
 

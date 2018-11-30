@@ -15,7 +15,7 @@
  */
 
 package fluence.node
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
 import cats.effect.{ConcurrentEffect, ExitCode, IO, Sync}
 import cats.syntax.flatMap._
@@ -28,37 +28,21 @@ import fluence.swarm.SwarmClient
 /**
  * Represents a MasterNode process. Takes cluster forming events from Ethereum, and spawns new solvers to serve them.
  *
- * @param masterKeys Tendermint keys
  * @param nodeConfig Tendermint/Fluence master node config
  * @param contract DeployerContract to interact with
  * @param pool Solvers pool to launch solvers in
- * @param path Path to store all the MasterNode's data in
+ * @param rootPath MasterNode's working directory, usually /master
  * @param ce Concurrent effect, used to subscribe to Ethereum events
  */
 case class MasterNode(
-  masterKeys: KeysPath,
   nodeConfig: NodeConfig,
   contract: DeployerContract,
   pool: SolversPool[IO],
   codeManager: CodeManager[IO],
-  path: Path
-)(implicit ec: ConcurrentEffect[IO])
+  rootPath: Path,
+  masterNodeContainerId: String
+)(implicit ce: ConcurrentEffect[IO])
     extends slogging.LazyLogging {
-
-  // Converts ClusterData into SolverParams which is ready to run
-  private val clusterDataToParams: fs2.Pipe[IO, (ClusterData, Path), SolverParams] =
-    _.evalMap {
-      case (clusterData, solverTendermintPath) ⇒
-        for {
-          path <- codeManager.prepareCode(clusterData.code, path)
-        } yield {
-          SolverParams(
-            clusterData,
-            solverTendermintPath.toString,
-            path
-          )
-        }
-    }
 
   // Writes node info & master keys to tendermint directory
   private val configureSolver: fs2.Pipe[IO, ClusterData, SolverParams] =
@@ -67,17 +51,34 @@ case class MasterNode(
         for {
           _ ← IO { logger.info("joining cluster '{}' as node {}", clusterData.clusterName, clusterData.nodeIndex) }
 
-          solverTendermintPath ← IO(
-            path.resolve(s"${clusterData.nodeInfo.clusterName}-${clusterData.nodeInfo.node_index}")
+          solverPath ← IO(
+            rootPath
+              .resolve("tendermint")
+              .resolve(s"${clusterData.nodeInfo.clusterName}-${clusterData.nodeInfo.node_index}")
           )
 
-          _ ← clusterData.nodeInfo.writeTo(solverTendermintPath)
-          _ ← masterKeys.copyKeysToSolver(solverTendermintPath)
-          _ <- IO { logger.info("node info written to {}", solverTendermintPath) }
+          _ ← clusterData.nodeInfo.writeTo(solverPath)
+          _ ← copyMasterKeys(from = rootPath.resolve("tendermint"), to = solverPath)
+          _ <- IO { logger.info("node info written to {}", solverPath) }
 
-          codePath <- codeManager.prepareCode(clusterData.code, path)
-        } yield SolverParams(clusterData, solverTendermintPath.toString, codePath)
+          codePath <- codeManager.prepareCode(clusterData.code, solverPath)
+        } yield SolverParams(clusterData, solverPath.toString, codePath, masterNodeContainerId)
     )
+
+  private def copyMasterKeys(from: Path, to: Path): IO[Path] = {
+    import StandardCopyOption.REPLACE_EXISTING
+
+    val nodeKey = "config/node_key.json"
+    val validator = "config/priv_validator.json"
+
+    IO {
+      logger.info(s"Copying keys to solver: ${from.resolve(nodeKey)} -> ${to.resolve(nodeKey)}")
+      Files.copy(from.resolve(nodeKey), to.resolve(nodeKey), REPLACE_EXISTING)
+
+      logger.info(s"Copying priv_validator to solver: ${from.resolve(validator)} -> ${to.resolve(validator)}")
+      Files.copy(from.resolve(validator), to.resolve(validator), REPLACE_EXISTING)
+    }
+  }
 
   /**
    * Runs MasterNode. Returns when contract.getAllNodeClusters is exhausted
