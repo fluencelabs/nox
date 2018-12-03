@@ -214,7 +214,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
     val ifconfigCmd = Seq("ifconfig", interface)
     val grepCmd = Seq("grep", "inet ")
     val awkCmd = Seq("awk", "{print $2}")
-    InetAddress.getByName((ifconfigCmd #| grepCmd #| awkCmd).!!.trim).getHostAddress
+    InetAddress.getByName((ifconfigCmd #| grepCmd #| awkCmd).!!.replace("[^0-9\\.]", "")).getHostAddress
   }
 
   private def getOS: String = {
