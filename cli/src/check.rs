@@ -46,7 +46,7 @@ pub fn process(args: &ArgMatches) -> Result<()> {
             .for_each(|(idx, name)| println!("  idx: {:?} name: {:?}", idx, name));
     } else {
         let msg = format!(
-            "\nAll right! There is no function from banned modules list={:?}\n",
+            "\nAll right! There are no functions from banned modules {:?}\n",
             banned_modules
         );
         println!("{}", style(msg).bold())
