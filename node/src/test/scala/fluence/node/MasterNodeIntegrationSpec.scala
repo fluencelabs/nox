@@ -55,12 +55,12 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
   private val url = sys.props.get("ethereum.url")
 
   val bootstrapDir = new File("../bootstrap")
-  def run(cmd: String): Unit = Process(cmd, bootstrapDir).!(ProcessLogger(_ => ()))
-  def runBackground(cmd: String): Unit = Process(cmd, bootstrapDir).run(ProcessLogger(_ => ()))
+  def run(cmd: String): Unit = Process(cmd, bootstrapDir).! //(ProcessLogger(_ => ()))
+  def runBackground(cmd: String): Unit = Process(cmd, bootstrapDir).run //(ProcessLogger(_ => ()))
 
   private val dockerHost = getOS match {
     case "linux" => ifaceIP("docker0")
-    case "mac" => "host.docker.internal" //ifaceIP("en0")
+    case "mac" => "host.docker.internal"
     case _ => throw new RuntimeException("The test doesn't support this OS")
   }
 
