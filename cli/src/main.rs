@@ -35,8 +35,8 @@ mod utils;
 mod whitelist;
 
 use clap::App;
-use console::style;
 use clap::AppSettings;
+use console::style;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
