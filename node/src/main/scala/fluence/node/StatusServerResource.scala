@@ -16,16 +16,18 @@
 
 package fluence.node
 
-import cats.{Functor, Parallel}
-import cats.data.{Kleisli, OptionT}
-import cats.effect.{ContextShift, IO, Timer}
+import cats.Parallel
+import cats.data.Kleisli
+import cats.effect.{ContextShift, IO, Resource, Timer}
 import fluence.node.config.{MasterConfig, StatServerConfig}
-import fluence.node.solvers.{SolverHealth, SolverInfo}
+import fluence.node.solvers.SolverHealth
 import org.http4s._
+import org.http4s.implicits._
 import org.http4s.dsl.io._
 import io.circe.syntax._
 import io.circe.generic.semiauto._
 import io.circe.Encoder
+import org.http4s.server.Server
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import org.http4s.server.blaze._
@@ -47,7 +49,7 @@ object MasterState {
 
 case class StateManager(config: MasterConfig, masterNode: MasterNode) {
 
-  val startTime = System.currentTimeMillis()
+  private val startTime = System.currentTimeMillis()
 
   def getState[G[_]](implicit P: Parallel[IO, G]): IO[MasterState] = {
     val endpoints = config.endpoints
@@ -65,18 +67,16 @@ object StatusServerResource {
   implicit val cs: ContextShift[IO] = IO.contextShift(global)
   implicit val timer: Timer[IO] = IO.timer(global)
 
-  def orNotFound[F[_]: Functor, A](self: Kleisli[OptionT[F, ?], A, Response[F]]): Kleisli[F, A, Response[F]] =
-    Kleisli(a => self.run(a).getOrElse(Response.notFound))
-
-  def statusService(sm: StateManager) = orNotFound(
+  def statusService(sm: StateManager): Kleisli[IO, Request[IO], Response[IO]] =
     HttpRoutes
       .of[IO] {
         case GET -> Root / "status" =>
           sm.getState.flatMap(state => Ok(state.asJson.spaces2))
       }
-  )
+      .orNotFound
 
-  def makeResource(statServerConfig: StatServerConfig, config: MasterConfig, masterNode: MasterNode) =
+  def makeResource(statServerConfig: StatServerConfig, config: MasterConfig, masterNode: MasterNode
+  ): Resource[IO, Server[IO]] =
     BlazeServerBuilder[IO]
       .bindHttp(statServerConfig.port, config.endpoints.ip.getHostAddress)
       .withHttpApp(statusService(StateManager(config, masterNode)))
