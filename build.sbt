@@ -250,8 +250,6 @@ lazy val node = project
 
         volume("/master") // anonymous volume to store all data
 
-        println("(resourceDirectory in Compile).value = " + (resourceDirectory in Compile).value)
-
         /*
         * The following directory structure is assumed in node/src/main/resources:
         *    docker/
