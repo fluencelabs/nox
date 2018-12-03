@@ -48,10 +48,9 @@ object Configuration {
     masterConfig: MasterConfig
   )(implicit ec: ContextShift[IO]): IO[Configuration] = {
     for {
-      _ <- IO.unit
-      rootPath = Paths.get(masterConfig.tendermintPath).toAbsolutePath
-      keysPath = rootPath.resolve("tendermint")
-      masterKeys = KeysPath(keysPath.toString)
+      rootPath <- IO(Paths.get(masterConfig.tendermintPath).toAbsolutePath)
+      keysPath <- IO(rootPath.resolve("tendermint"))
+      masterKeys <- IO(KeysPath(keysPath.toString))
       _ <- IO(Files.createDirectories(keysPath))
       _ ← masterKeys.init
       solverInfo <- NodeConfig(masterKeys, masterConfig.endpoints)

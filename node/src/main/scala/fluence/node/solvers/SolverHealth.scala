@@ -19,6 +19,9 @@ package fluence.node.solvers
 import io.circe.{Encoder, Json}
 import io.circe.generic.semiauto._
 
+/**
+  * Collected information about a solver.
+  */
 case class SolverInfo(
   rpcPort: Short,
   p2pPort: Short,

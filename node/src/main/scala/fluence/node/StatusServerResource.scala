@@ -29,11 +29,20 @@ import io.circe.generic.semiauto._
 import io.circe.Encoder
 import org.http4s.server.Server
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import org.http4s.server.blaze._
 
 import scala.language.higherKinds
 
+/**
+  * Master node state.
+  *
+  * @param ip master node ip address
+  * @param listOfPorts all available ports to use by code developers
+  * @param uptime working time of master node
+  * @param numberOfSolvers number of registered solvers
+  * @param solvers info about solvers
+  * @param config config file
+  */
 case class MasterState(
   ip: String,
   listOfPorts: String,
@@ -47,10 +56,20 @@ object MasterState {
   implicit val encodeMasterState: Encoder[MasterState] = deriveEncoder
 }
 
+/**
+  * The manager that able to get information about master node and all solvers.
+  *
+  * @param config config file about a master node
+  * @param masterNode initialized master node
+  */
 case class StateManager(config: MasterConfig, masterNode: MasterNode) {
 
   private val startTime = System.currentTimeMillis()
 
+  /**
+    * Gets all state information about master node and solvers.
+    * @return gathered information
+    */
   def getState[G[_]](implicit P: Parallel[IO, G]): IO[MasterState] = {
     val endpoints = config.endpoints
     val ports = s"${endpoints.minPort}:${endpoints.maxPort}"
@@ -62,12 +81,9 @@ case class StateManager(config: MasterConfig, masterNode: MasterNode) {
   }
 }
 
-object StatusServerResource {
+object StateManager {
 
-  implicit val cs: ContextShift[IO] = IO.contextShift(global)
-  implicit val timer: Timer[IO] = IO.timer(global)
-
-  def statusService(sm: StateManager): Kleisli[IO, Request[IO], Response[IO]] =
+  private def statusService(sm: StateManager)(implicit cs: ContextShift[IO]): Kleisli[IO, Request[IO], Response[IO]] =
     HttpRoutes
       .of[IO] {
         case GET -> Root / "status" =>
@@ -75,11 +91,19 @@ object StatusServerResource {
       }
       .orNotFound
 
-  def makeResource(statServerConfig: StatServerConfig, config: MasterConfig, masterNode: MasterNode
-  ): Resource[IO, Server[IO]] =
+  /**
+    * Makes the server that gives gathered information about a master node and solvers.
+    *
+    * @param statServerConfig server's parameters
+    * @param masterConfig parameters about a master node
+    * @param masterNode initialized master node
+    * @return
+    */
+  def makeResource(statServerConfig: StatServerConfig, masterConfig: MasterConfig, masterNode: MasterNode
+  )(implicit cs: ContextShift[IO], timer: Timer[IO]): Resource[IO, Server[IO]] =
     BlazeServerBuilder[IO]
-      .bindHttp(statServerConfig.port, config.endpoints.ip.getHostAddress)
-      .withHttpApp(statusService(StateManager(config, masterNode)))
+      .bindHttp(statServerConfig.port, masterConfig.endpoints.ip.getHostAddress)
+      .withHttpApp(statusService(StateManager(masterConfig, masterNode)))
       .resource
 
 }
