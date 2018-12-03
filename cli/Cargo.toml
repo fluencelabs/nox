@@ -7,7 +7,6 @@ publish=false
 [profile.release]
 debug = false
 lto = true
-opt-level = 3
 
 [dependencies]
 clap = "2.32.0"
@@ -20,6 +19,8 @@ web3 = { git = "https://github.com/tomusdrw/rust-web3" }
 fixed-hash = "0.3.0"
 ethabi = "6.1.0"
 error-chain = "0.12.0"
+
+parity-wasm = "0.35"
 
 [dev-dependencies]
 rand = "0.6.0"

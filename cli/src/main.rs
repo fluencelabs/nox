@@ -25,9 +25,12 @@ extern crate fixed_hash;
 #[macro_use]
 extern crate error_chain;
 
+extern crate core;
+extern crate parity_wasm;
 #[cfg(test)]
 extern crate rand;
 
+mod check;
 mod publisher;
 mod register;
 mod status;
@@ -49,7 +52,8 @@ fn main() {
         .subcommand(publisher::subcommand())
         .subcommand(register::subcommand())
         .subcommand(status::subcommand())
-        .subcommand(whitelist::subcommand());
+        .subcommand(whitelist::subcommand())
+        .subcommand(check::subcommand());
 
     match app.get_matches().subcommand() {
         ("publish", Some(args)) => {
@@ -92,6 +96,23 @@ fn main() {
             println!("Status of Fluence smart contract:\n{}", status);
         }
 
+        ("check", Some(args)) => {
+            handle_error(check::process(args));
+        }
+
         c => panic!("Unexpected command: {}", c.0),
+    }
+}
+
+fn handle_error<T, E>(result: Result<T, E>)
+where
+    E: std::error::Error + error_chain::ChainedError,
+{
+    if let Err(err) = result {
+        use std::io::Write;
+
+        let stderr = &mut ::std::io::stderr();
+        writeln!(stderr, "{}", err.display_chain()).expect("Error writing to stderr");
+        ::std::process::exit(1);
     }
 }

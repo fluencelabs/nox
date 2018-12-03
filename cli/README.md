@@ -40,6 +40,7 @@ FLAGS:
 
 SUBCOMMANDS:
     add-to-whitelist    Adds an address to the whitelist of Fluence smart contract
+    check               Verifies wasm file, issue warning for 'dangerous code'
     help                Prints this message or the help of the given subcommand(s)
     publish             Publish code to ethereum blockchain
     register            Register solver in smart contract
