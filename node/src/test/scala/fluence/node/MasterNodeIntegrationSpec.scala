@@ -120,7 +120,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
         var line = ""
         scala.sys.process
           .Process(s"docker logs $containerId")
-          .!!(ProcessLogger(_ => {}, o => line = o))
+          .!!(ProcessLogger(_ => {}, o => line += o))
         line
       }.map(line => line should include("switching to the new clusters"))
     }
