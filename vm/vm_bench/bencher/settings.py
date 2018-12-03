@@ -43,13 +43,13 @@ test_descriptors = {
     "deflate_compression_5_100000_1Kb" :
         TestDescriptor("deflate_compression",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
-                       "--target wasm32-unknown-unknown",
+                       "--target wasm32-unknown-unknown --features deflate_compression",
                        {"SEED": 1, "ITERATIONS_COUNT": 100000, "SEQUENCE_SIZE": 1024}),
 
     "deflate_compression_5_10_10Mb" :
         TestDescriptor("deflate_compression",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
-                       "--target wasm32-unknown-unknown",
+                       "--target wasm32-unknown-unknown --features deflate_compression",
                        {"SEED": 1, "ITERATIONS_COUNT": 10, "SEQUENCE_SIZE": 10 * 1024 * 1024}),
 
     "fibonacci_42" :
