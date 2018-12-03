@@ -18,6 +18,7 @@ package fluence.node.tendermint
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
 import cats.effect.{ContextShift, IO}
+import fluence.node.Configuration
 import fluence.node.docker.{DockerIO, DockerParams}
 import io.circe.parser.parse
 
@@ -67,7 +68,7 @@ case class KeysPath(masterTendermintPath: String)(implicit ec: ContextShift[IO])
             .user(uid)
             .volume(masterTendermintPath, "/tendermint")
             // TODO: it could be another image, specific to tendermint process only, no need to take solver
-            .image("fluencelabs/solver:latest")
+            .image(Configuration.SOLVER_IMAGE)
         )
         .compile
         .lastOrError

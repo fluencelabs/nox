@@ -15,6 +15,7 @@
  */
 
 package fluence.node.solvers
+import fluence.node.Configuration
 import fluence.node.docker.DockerParams
 import fluence.node.tendermint.ClusterData
 
@@ -46,5 +47,5 @@ case class SolverParams(
       .port(clusterData.smPrometheusPort, 26661)
       .option("--volumes-from", masterNodeContainerId + ":ro")
       .option("--name", clusterData.nodeInfo.nodeName)
-      .image("fluencelabs/solver:2018-dec-demo")
+      .image(Configuration.SOLVER_IMAGE)
 }

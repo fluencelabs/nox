@@ -42,6 +42,8 @@ case class Configuration(
 )
 
 object Configuration extends LazyLogging {
+  val SOLVER_IMAGE = "fluencelabs/solver:2018-dec-demo"
+  val NODE_IMAGE = "fluencelabs/node:2018-dec-demo"
 
   /**
    * Load config at /master/application.conf with fallback on config from class loader
@@ -112,7 +114,7 @@ object Configuration extends LazyLogging {
         .run("tendermint", cmd, s"--home=$tendermintDir")
         .user(uid)
         .option("--volumes-from", masterContainer)
-        .image("fluencelabs/solver:latest")
+        .image(Configuration.SOLVER_IMAGE)
     }
 
     for {
