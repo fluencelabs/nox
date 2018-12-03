@@ -238,17 +238,12 @@ lazy val node = project
     mainClass in assembly := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly := "master-node.jar",
     test in assembly := {},
-    imageNames in docker := Seq(ImageName("fluencelabs/master")),
+    imageNames in docker := Seq(ImageName("fluencelabs/node")),
     dockerfile in docker := {
       // The assembly task generates a fat JAR file
       val artifact: File = assembly.value
       val artifactTargetPath = s"/${artifact.name}"
 
-      /**
-      * Running a master node container would be something like
-      * docker run -e "IP=192.168.1.100" -e "PORTS=30135:30147" -v /var/run/docker.sock:/var/run/docker.sock fluencelabs/master
-      * TODO: IP and PORTS look awful, need to migrate them to config and specify config as a volume
-      */
       new Dockerfile {
         val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
         from("xqdocker/ubuntu-openjdk:jre-8")
@@ -272,7 +267,6 @@ lazy val node = project
 
         copy(artifact, artifactTargetPath)
 
-        // node/runMain fluence.node.MasterNodeApp $HOME/.tendermint/t4 192.168.0.11 30135 30147
         cmd("java", "-jar", artifactTargetPath, "/master", "$TENDERMINT_IP", "$PORTS")
         entryPoint("sh", "/master/entrypoint.sh")
       }

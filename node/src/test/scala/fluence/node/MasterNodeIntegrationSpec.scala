@@ -108,7 +108,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
             .option("-e", s"PORTS=$portFrom:$portTo")
             .option("--name", name)
             .volume("/var/run/docker.sock", "/var/run/docker.sock")
-            .image("fluencelabs/master")
+            .image("fluencelabs/node")
         )
         .compile
         .lastOrError
