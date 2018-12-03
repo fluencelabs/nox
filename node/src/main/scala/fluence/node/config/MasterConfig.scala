@@ -39,7 +39,7 @@ case class MasterConfig(
   endpoints: EndpointsConfig,
   deployer: DeployerContractConfig,
   swarm: Option[SwarmConfig],
-  statServer: Option[StatServerConfig]
+  statServer: StatServerConfig
 )
 
 /**

@@ -19,7 +19,7 @@ package fluence.node
 import cats.{Functor, Parallel}
 import cats.data.{Kleisli, OptionT}
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.node.config.MasterConfig
+import fluence.node.config.{MasterConfig, StatServerConfig}
 import fluence.node.solvers.{SolverHealth, SolverInfo}
 import org.http4s._
 import org.http4s.dsl.io._
@@ -76,9 +76,9 @@ object StatusServerResource {
       }
   )
 
-  def makeResource(config: MasterConfig, masterNode: MasterNode) =
+  def makeResource(statServerConfig: StatServerConfig, config: MasterConfig, masterNode: MasterNode) =
     BlazeServerBuilder[IO]
-      .bindHttp(5678, "localhost")
+      .bindHttp(statServerConfig.port, config.endpoints.ip.getHostAddress)
       .withHttpApp(statusService(StateManager(config, masterNode)))
       .resource
 

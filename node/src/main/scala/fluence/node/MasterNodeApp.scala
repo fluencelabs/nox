@@ -39,7 +39,7 @@ case class Configuration(
   nodeConfig: NodeConfig,
   contractConfig: DeployerContractConfig,
   swarm: Option[SwarmConfig],
-  statistics: Option[StatServerConfig]
+  statistics: StatServerConfig
 )
 
 object Configuration {
@@ -96,7 +96,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
         case Right(
             (
               rawConfig,
-              Configuration(rootPath, masterKeys, nodeConfig, deployerConfig, maybeSwarmConfig, statServerEnabled)
+              Configuration(rootPath, masterKeys, nodeConfig, deployerConfig, maybeSwarmConfig, statServer)
             )
             ) =>
           // Run master node and status server
@@ -131,7 +131,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 node = MasterNode(masterKeys, nodeConfig, contract, pool, codeManager, rootPath)
 
-                result <- StatusServerResource.makeResource(rawConfig, node).use { status =>
+                result <- StatusServerResource.makeResource(statServer, rawConfig, node).use { status =>
                   node.run
                 }
               } yield result
