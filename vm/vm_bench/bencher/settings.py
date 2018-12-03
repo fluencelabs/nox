@@ -29,40 +29,34 @@ test_descriptors = {
     # compressions tests are generated both for a small sequence with a lot of iterations
     # and for a huge sequence with a few iterations
     "snappy_compression_5_1000000_1Kb" :
-        TestDescriptor("snappy_compression",
+        TestDescriptor("compression",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
                        "--target wasm32-unknown-unknown",
                        {"SEED" : 1, "ITERATIONS_COUNT" : 1000000, "SEQUENCE_SIZE" : 1024}),
 
-    "snappy_compression_5_1000_10Mb" :
-        TestDescriptor("snappy_compression",
+    "snappy_compression_5_10_100Mb" :
+        TestDescriptor("compression",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
                        "--target wasm32-unknown-unknown",
-                       {"SEED" : 1, "ITERATIONS_COUNT" : 1000, "SEQUENCE_SIZE" : 10*1024*1024}),
+                       {"SEED" : 1, "ITERATIONS_COUNT" : 10, "SEQUENCE_SIZE" : 100*1024*1024}),
 
     "deflate_compression_5_100000_1Kb" :
-        TestDescriptor("deflate_compression",
+        TestDescriptor("compression",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
                        "--target wasm32-unknown-unknown --features deflate_compression",
                        {"SEED": 1, "ITERATIONS_COUNT": 100000, "SEQUENCE_SIZE": 1024}),
 
-    "deflate_compression_5_10_10Mb" :
-        TestDescriptor("deflate_compression",
+    "deflate_compression_5_5_100Mb" :
+        TestDescriptor("compression",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
                        "--target wasm32-unknown-unknown --features deflate_compression",
-                       {"SEED": 1, "ITERATIONS_COUNT": 10, "SEQUENCE_SIZE": 10 * 1024 * 1024}),
+                       {"SEED": 1, "ITERATIONS_COUNT": 5, "SEQUENCE_SIZE": 100 * 1024 * 1024}),
 
-    "fibonacci_42" :
+    "fibonacci_38" :
         TestDescriptor("fibonacci_bigint",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
                        "--target wasm32-unknown-unknown",
-                       {"FIB_NUMBER": 42}),
-
-    "fibonacci_50" :
-        TestDescriptor("fibonacci_bigint",
-                       "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
-                       "--target wasm32-unknown-unknown",
-                       {"FIB_NUMBER": 50}),
+                       {"FIB_NUMBER": 38}),
 
     "factorization_2147483647":
         TestDescriptor("factorization_reikna",
@@ -84,11 +78,11 @@ test_descriptors = {
                        "--target wasm32-unknown-unknown",
                        {"SEED": 1, "MATRIX_SIZE": 10, "ITERATIONS_COUNT" : 1000000}),
 
-    "matrix_product_1_200_100":
+    "matrix_product_1_500_100":
         TestDescriptor("matrix_product",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
                        "--target wasm32-unknown-unknown",
-                       {"SEED": 1, "MATRIX_SIZE": 200, "ITERATIONS_COUNT": 100}),
+                       {"SEED": 1, "MATRIX_SIZE": 500, "ITERATIONS_COUNT": 100}),
 
     "svd_decomposition_1_10_1000000":
         TestDescriptor("matrix_svd_decomposition",
@@ -96,11 +90,11 @@ test_descriptors = {
                        "--target wasm32-unknown-unknown",
                        {"SEED": 1, "MATRIX_SIZE": 10, "ITERATIONS_COUNT" : 1000000}),
 
-    "svd_decomposition_1_200_100":
+    "svd_decomposition_1_300_100":
         TestDescriptor("matrix_svd_decomposition",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
                        "--target wasm32-unknown-unknown",
-                       {"SEED": 1, "MATRIX_SIZE": 200, "ITERATIONS_COUNT": 100}),
+                       {"SEED": 1, "MATRIX_SIZE": 300, "ITERATIONS_COUNT": 100}),
 
     "qr_decomposition_1_10_1000000":
         TestDescriptor("matrix_qr_decomposition",
@@ -108,9 +102,9 @@ test_descriptors = {
                        "--target wasm32-unknown-unknown",
                        {"SEED": 1, "MATRIX_SIZE": 10, "ITERATIONS_COUNT": 1000000}),
 
-    "qr_decomposition_1_200_100":
+    "qr_decomposition_1_500_100":
         TestDescriptor("matrix_qr_decomposition",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
                        "--target wasm32-unknown-unknown",
-                       {"SEED": 1, "MATRIX_SIZE": 200, "ITERATIONS_COUNT": 100})
+                       {"SEED": 1, "MATRIX_SIZE": 500, "ITERATIONS_COUNT": 100})
 }
