@@ -63,20 +63,19 @@ if [ "$3" = "/master-node.jar" ]; then
     CONTAINER_ID=$(cat /proc/1/cpuset)
     cat > "/master/application.conf" <<EOF
 endpoints {
-  ip = $TENDERMINT_IP
+  ip = "$TENDERMINT_IP"
   min-port = ${PORTS%:*}
   max-port = ${PORTS#*:}
 }
 ethereum {
-  host = $ETHEREUM_IP
+  host = "$ETHEREUM_IP"
 }
 swarm {
-  host = $SWARM_IP
-  enabled = $SWARM_ENABLED
+  host = "$SWARM_IP"
+  enabled = "$SWARM_ENABLED"
 }
-tendermint-path=/master
-
-master-container-id = ${CONTAINER_ID#"/docker/"}
+tendermint-path = "/master"
+master-container-id = "${CONTAINER_ID#"/docker/"}"
 EOF
 fi
 

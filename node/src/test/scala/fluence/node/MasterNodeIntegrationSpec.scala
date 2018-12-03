@@ -56,8 +56,8 @@ class MasterNodeIntegrationSpec
   private val url = sys.props.get("ethereum.url")
 
   val bootstrapDir = new File("../bootstrap")
-  def run(cmd: String): Unit = Process(cmd, bootstrapDir).! //(ProcessLogger(_ => ()))
-  def runBackground(cmd: String): Unit = Process(cmd, bootstrapDir).run //(ProcessLogger(_ => ()))
+  def run(cmd: String): Unit = Process(cmd, bootstrapDir).!(ProcessLogger(_ => ()))
+  def runBackground(cmd: String): Unit = Process(cmd, bootstrapDir).run(ProcessLogger(_ => ()))
 
   private val dockerHost = getOS match {
     case "linux" => ifaceIP("docker0")
@@ -76,7 +76,7 @@ class MasterNodeIntegrationSpec
     run("npm install")
 
     logger.info("starting Ganache")
-    runBackground("npm run ganache > /dev/null")
+    runBackground("npm run ganache")
 
     logger.info("deploying Deployer.sol Ganache")
     run("npm run migrate")
@@ -88,7 +88,7 @@ class MasterNodeIntegrationSpec
 
     logger.info("stopping containers")
     // TODO: kill containers through Master's HTTP API
-    run("docker rm -f 01_node0 01_node1 02_node0 master1 master2")
+    run("docker rm -f 01_node0 01_node1 master1 master2")
   }
 
   "MasterNodes" should "sync their solvers with contract clusters" in {
