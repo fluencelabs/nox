@@ -7,8 +7,8 @@ matrix:
       services:
         - docker
       install:
-        - docker pull fluencelabs/solver:latest
-        - docker pull fluencelabs/node:latest
+        - docker pull fluencelabs/solver:2018-dec-demo
+        - docker pull fluencelabs/node:2018-dec-demo
 
       # These directories are cached to S3 at the end of the build
       cache:
