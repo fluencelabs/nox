@@ -145,8 +145,8 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
 
             _ <- eventually[IO](
               for {
-                c1s0 <- heightFromTendermintStatus(25000, 0)
-                c1s1 <- heightFromTendermintStatus(25003, 0)
+                c1s0 <- heightFromTendermintStatus(25000)
+                c1s1 <- heightFromTendermintStatus(25003)
               } yield {
                 c1s0 shouldBe Some(2)
                 c1s1 shouldBe Some(2)
