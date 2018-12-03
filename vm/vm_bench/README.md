@@ -1,6 +1,6 @@
 ## VM benchmark tests
 
-This benchmark consists of seven tests that we used for perfomance tests of various Webassembly compiler and interpreter type virtual machines. Each test exports one function with name `main` (`main` because of `wasmer` doesn't support any other export function names) that should be called to bench. Also there are a few compile-time parameters in each test that can be adjusted on compilation by corresponding env variables (on the following part of readme upper-case naming will be used to mar them).
+This benchmark consists of seven tests that we used for measure performance of various Webassembly virtual machines both of compiler and interpreter types. Each test exports one function named `main` (`main` because of `wasmer` doesn't support any other export function names) that should be called for bench. Also there is a few compile-time parameters in each test that can be adjusted on compilation by corresponding environment variables (on the following part of readme upper-case naming will be used to mark them).
 
 ### Compression
 
