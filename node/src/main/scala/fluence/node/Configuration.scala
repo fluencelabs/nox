@@ -51,11 +51,8 @@ object Configuration extends LazyLogging {
     val containerConfig = "/master/application.conf"
 
     loadFile(Paths.get(containerConfig)) match {
-      case Left(e) =>
-        logger.info(s"unable to load $containerConfig: $e") // how to interpret ConfigReaderFailures?
-        load()
-      case Right(config) =>
-        load.map(config.withFallback)
+      case Left(_) => load() // exception will be printed out later, see ConfigOps
+      case Right(config) => load.map(config.withFallback)
     }
   }
 
