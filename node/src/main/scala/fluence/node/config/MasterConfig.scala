@@ -14,16 +14,54 @@
  * limitations under the License.
  */
 
-package fluence.node
+package fluence.node.config
 
 import java.net.InetAddress
 
-import cats.effect.{ContextShift, IO, Sync}
-import cats.syntax.applicativeError._
-import cats.syntax.flatMap._
+import cats.effect.{ContextShift, IO}
+import fluence.node.eth.DeployerContractConfig
 import fluence.node.tendermint.{KeysPath, ValidatorKey}
+import io.circe.{Encoder, Json}
+import io.circe.generic.semiauto.deriveEncoder
 
-import scala.language.higherKinds
+/**
+ * Main config class for master node.
+ *
+ * @param tendermintPath a path to all system files
+ * @param endpoints information about a node possible endpoints (IP and ports) that will be used as addresses
+ *                  for requests after a cluster will be formed
+ * @param deployer information about deployer smart contract
+ * @param swarm information about Swarm node
+ * @param statServer information about master node status server
+ */
+case class MasterConfig(
+  tendermintPath: String,
+  endpoints: EndpointsConfig,
+  deployer: DeployerContractConfig,
+  swarm: Option[SwarmConfig],
+  statServer: Option[StatServerConfig]
+)
+
+/**
+ * @param host address to Swarm node
+ */
+case class SwarmConfig(host: String)
+
+/**
+ * @param port endpoint to master node status server
+ */
+case class StatServerConfig(port: Int)
+
+object MasterConfig {
+  implicit val encodeThrowable: Encoder[InetAddress] = new Encoder[InetAddress] {
+    final def apply(a: InetAddress): Json = Json.fromString(a.getHostAddress)
+  }
+  implicit val encodeEndpointConfig: Encoder[EndpointsConfig] = deriveEncoder
+  implicit val encodeDeployerConfig: Encoder[DeployerContractConfig] = deriveEncoder
+  implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
+  implicit val encodeStatConfig: Encoder[StatServerConfig] = deriveEncoder
+  implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
+}
 
 /**
  * Information about a node possible endpoints (IP and ports) that will be used as addresses
@@ -32,7 +70,7 @@ import scala.language.higherKinds
  * @param ip p2p host IP
  * @param minPort starting port for p2p port range
  * @param maxPort ending port for p2p port range
-**/
+  **/
 case class EndpointsConfig(
   ip: InetAddress,
   minPort: Short,

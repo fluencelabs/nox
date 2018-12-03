@@ -23,6 +23,7 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicativeError._
 import com.softwaremill.sttp._
+import com.softwaremill.sttp.circe._
 import fluence.node.docker.DockerIO
 import slogging.LazyLogging
 
@@ -49,6 +50,8 @@ case class Solver[F[_]](
 }
 
 object Solver extends LazyLogging {
+
+  import SolverResponse._
 
   /**
    * Runs a single solver
@@ -80,14 +83,36 @@ object Solver extends LazyLogging {
               )
               sttp
                 .get(uri"http://localhost:${params.rpcPort}/${healthcheck.httpPath}")
+                .response(asJson[SolverResponse])
                 .send()
                 .attempt
+                // converting Either[Throwable, Response[Either[DeserializationError[circe.Error], SolverResponse]]]
+                // to Either[Throwable, SolverResponse]
+                .map(
+                  _.flatMap(
+                    _.body.left
+                      .map(err => new Exception(err))
+                      .right
+                      .map(_.left.map(_.error))
+                      .flatMap(identity)
+                  )
+                )
                 .map {
                   case Right(status) ⇒
-                    // parse properly
-                    logger.error("STATUS: " + status.body)
-                    SolverRunning(d)
-                  case Left(err) ⇒ SolverHttpCheckFailed(d, err)
+                    val result = status.result
+                    val info = SolverInfo(
+                      params.clusterData.hostRpcPort,
+                      params.clusterData.hostP2PPort,
+                      params.clusterData.smPrometheusPort,
+                      params.clusterData.tmPrometheusPort,
+                      result.node_info.id,
+                      params.clusterData.code.asHex,
+                      result.sync_info.latest_block_hash,
+                      result.sync_info.latest_app_hash,
+                      result.sync_info.latest_block_height
+                    )
+                    SolverRunning(d.toMillis, info)
+                  case Left(err) ⇒ SolverHttpCheckFailed(d.toMillis, err)
                 }
                 .map { health ⇒
                   logger.debug(s"HTTP health is: $health")
@@ -96,7 +121,7 @@ object Solver extends LazyLogging {
 
             case (d, false) ⇒
               logger.debug(s"HTTP healthcheck $params, as container is not running")
-              Applicative[F].pure(SolverContainerNotRunning(d))
+              Applicative[F].pure(SolverContainerNotRunning(d.toMillis))
           }
           .evalTap(ref.set)
           .interruptWhen(stop)

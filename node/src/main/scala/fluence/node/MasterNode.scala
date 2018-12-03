@@ -18,10 +18,10 @@ package fluence.node
 import java.nio.file.{Files, Path, Paths}
 
 import cats.effect.{ConcurrentEffect, ExitCode, IO}
+import fluence.node.config.NodeConfig
 import fluence.node.eth.DeployerContract
 import fluence.node.solvers.{CodeManager, SolverParams, SolversPool}
 import fluence.node.tendermint.{ClusterData, KeysPath}
-import fluence.swarm.SwarmClient
 
 /**
  * Represents a MasterNode process. Takes cluster forming events from Ethereum, and spawns new solvers to serve them.

@@ -19,12 +19,12 @@ package fluence.node.eth
 import cats.effect.{Async, ConcurrentEffect}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.ethclient.Deployer.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
+import fluence.ethclient.Deployer.CLUSTERFORMED_EVENT
 import fluence.ethclient.helpers.JavaRxToFs2._
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
 import fluence.ethclient.{Deployer, EthClient}
-import fluence.node.NodeConfig
+import fluence.node.config.NodeConfig
 import fluence.node.tendermint.ClusterData
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated.{Uint8, _}

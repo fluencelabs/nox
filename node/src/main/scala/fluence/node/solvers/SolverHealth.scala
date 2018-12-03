@@ -16,12 +16,38 @@
 
 package fluence.node.solvers
 
-import scala.concurrent.duration._
+import io.circe.{Encoder, Json}
+import io.circe.generic.semiauto._
+
+case class SolverInfo(
+  rpcPort: Short,
+  p2pPort: Short,
+  stateMachinePrometheusPort: Short,
+  tendermintPrometheusPort: Short,
+  clusterId: String,
+  codeId: String,
+  lastBlock: String,
+  lastAppHash: String,
+  lastBlockHeight: Int
+)
+
+object SolverInfo {
+  implicit val encodeSolverInfo: Encoder[SolverInfo] = deriveEncoder
+}
 
 sealed trait SolverHealth {
-  def sinceStartCommand: FiniteDuration
+  def uptime: Long
 
   def isHealthy: Boolean
+}
+
+object SolverHealth {
+  implicit val encodeThrowable: Encoder[Throwable] = new Encoder[Throwable] {
+    final def apply(a: Throwable): Json = Json.fromString(a.getLocalizedMessage)
+  }
+
+  import SolverInfo._
+  implicit val encoderSolverHealth: Encoder[SolverHealth] = deriveEncoder
 }
 
 sealed trait SolverHealthy extends SolverHealth {
@@ -32,14 +58,12 @@ sealed trait SolverIll extends SolverHealth {
   override def isHealthy: Boolean = false
 }
 
-case class SolverRunning(sinceStartCommand: FiniteDuration) extends SolverHealthy {
-  override def toString: String = s"SolverRunning(${sinceStartCommand.toMinutes} minutes)"
-}
+case class SolverRunning(uptime: Long, solverInfo: SolverInfo) extends SolverHealthy
 
 case object SolverNotYetLaunched extends SolverIll {
-  override def sinceStartCommand: FiniteDuration = 0.seconds
+  override def uptime: Long = 0
 }
 
-case class SolverContainerNotRunning(sinceStartCommand: FiniteDuration) extends SolverIll
+case class SolverContainerNotRunning(uptime: Long) extends SolverIll
 
-case class SolverHttpCheckFailed(sinceStartCommand: FiniteDuration, causedBy: Throwable) extends SolverIll
+case class SolverHttpCheckFailed(uptime: Long, causedBy: Throwable) extends SolverIll

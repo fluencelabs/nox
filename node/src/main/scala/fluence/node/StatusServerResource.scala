@@ -19,54 +19,46 @@ package fluence.node
 import cats.{Functor, Parallel}
 import cats.data.{Kleisli, OptionT}
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.node.solvers.SolversPool
+import fluence.node.config.MasterConfig
+import fluence.node.solvers.{SolverHealth, SolverInfo}
 import org.http4s._
 import org.http4s.dsl.io._
+import io.circe.syntax._
+import io.circe.generic.semiauto._
+import io.circe.Encoder
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import org.http4s.server.blaze._
 
 import scala.language.higherKinds
 
-case class SolverInfo(
-  clusterId: String,
-  codeId: String,
-  uptime: Long,
-  lastBlock: String,
-  lastAppHash: String,
-  lastBlockHeight: Int,
-  state: String
-)
-
 case class MasterState(
   ip: String,
   listOfPorts: String,
   uptime: Long,
-  numberOfSolvers: Integer,
-  solvers: List[SolverInfo],
-  config: Option[String]
+  numberOfSolvers: Int,
+  solvers: List[SolverHealth],
+  config: MasterConfig
 )
 
-/*class StateManager(config: MasterConfig, masterNode: MasterNode) {
+object MasterState {
+  implicit val encodeMasterState: Encoder[MasterState] = deriveEncoder
+}
+
+case class StateManager(config: MasterConfig, masterNode: MasterNode) {
 
   val startTime = System.currentTimeMillis()
 
-  def getState[G[_]](implicit P: Parallel[IO, G]): MasterState = {
+  def getState[G[_]](implicit P: Parallel[IO, G]): IO[MasterState] = {
     val endpoints = config.endpoints
-    val ports = s"${endpoints.minPort}-${endpoints.maxPort}"
+    val ports = s"${endpoints.minPort}:${endpoints.maxPort}"
     val uptime = System.currentTimeMillis() - startTime
-    val solversStatus = masterNode.pool.healths.unsafeRunSync()
-    val solverInfo = solversStatus.map { case (params, health) =>
-      SolverInfo(
-        params.clusterData.nodeInfo.node_index,
-        params.clusterData.code.asString,
-        health.sinceStartCommand.toMillis,
-        params.clusterData.
-      )
-    }
-    MasterState(config.endpoints.ip, ports, uptime, solversStatus.size)
+    for {
+      solversStatus <- masterNode.pool.healths
+      solverInfos = solversStatus.values.toList
+    } yield MasterState(config.endpoints.ip.getHostName, ports, uptime, solversStatus.size, solverInfos, config)
   }
-}*/
+}
 
 object StatusServerResource {
 
@@ -76,23 +68,18 @@ object StatusServerResource {
   def orNotFound[F[_]: Functor, A](self: Kleisli[OptionT[F, ?], A, Response[F]]): Kleisli[F, A, Response[F]] =
     Kleisli(a => self.run(a).getOrElse(Response.notFound))
 
-  def statusService(pool: SolversPool[IO]) = orNotFound(
+  def statusService(sm: StateManager) = orNotFound(
     HttpRoutes
       .of[IO] {
         case GET -> Root / "status" =>
-          for {
-            health <- pool.healths
-            response <- Ok(health.mkString("\n"))
-          } yield {
-            response
-          }
+          sm.getState.flatMap(state => Ok(state.asJson.spaces2))
       }
   )
 
-  def makeResource(pool: SolversPool[IO]) =
+  def makeResource(config: MasterConfig, masterNode: MasterNode) =
     BlazeServerBuilder[IO]
       .bindHttp(5678, "localhost")
-      .withHttpApp(statusService(pool))
+      .withHttpApp(statusService(StateManager(config, masterNode)))
       .resource
 
 }

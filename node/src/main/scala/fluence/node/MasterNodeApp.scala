@@ -31,6 +31,7 @@ import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 import pureconfig.generic.auto._
 import ConfigOps._
+import fluence.node.config.{MasterConfig, NodeConfig, StatServerConfig, SwarmConfig}
 
 case class Configuration(
   rootPath: Path,
@@ -66,18 +67,6 @@ object Configuration {
   }
 }
 
-case class SwarmConfig(host: String)
-
-case class StatServerConfig(port: Int)
-
-case class MasterConfig(
-  tendermintPath: String,
-  endpoints: EndpointsConfig,
-  deployer: DeployerContractConfig,
-  swarm: Option[SwarmConfig],
-  statServer: Option[StatServerConfig]
-)
-
 object MasterNodeApp extends IOApp with LazyLogging {
 
   private val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
@@ -98,49 +87,59 @@ object MasterNodeApp extends IOApp with LazyLogging {
    */
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
-    pureconfig.loadConfig[MasterConfig].toIO.flatMap(c => Configuration(c)).attempt.flatMap {
-      case Right(Configuration(rootPath, masterKeys, nodeConfig, config, maybeSwarmConfig, statServerEnabled)) =>
-        // Run master node and status server
-        val resources = for {
-          ethClientResource <- EthClient.makeHttpResource[IO]()
+    pureconfig
+      .loadConfig[MasterConfig]
+      .toIO
+      .flatMap(rawConfig => Configuration(rawConfig).map(config => (rawConfig, config)))
+      .attempt
+      .flatMap {
+        case Right(
+            (
+              rawConfig,
+              Configuration(rootPath, masterKeys, nodeConfig, deployerConfig, maybeSwarmConfig, statServerEnabled)
+            )
+            ) =>
+          // Run master node and status server
+          val resources = for {
+            ethClientResource <- EthClient.makeHttpResource[IO]()
+            sttpBackend <- sttpResource
+          } yield (ethClientResource, sttpBackend)
 
-          sttpBackend <- sttpResource
-        } yield (ethClientResource, sttpBackend)
-        resources.use {
-          case (ethClient, sttpBackend) ⇒
-            implicit val backend: SttpBackend[IO, Nothing] = sttpBackend
-            for {
-              version ← ethClient.clientVersion[IO]()
-              _ = logger.info("eth client version {}", version)
-              _ = logger.debug("eth config {}", config)
+          resources.use {
+            case (ethClient, sttpBackend) ⇒
+              implicit val backend: SttpBackend[IO, Nothing] = sttpBackend
+              for {
+                version ← ethClient.clientVersion[IO]()
+                _ = logger.info("eth client version {}", version)
+                _ = logger.debug("eth config {}", deployerConfig)
 
-              contract = DeployerContract(ethClient, config)
+                contract = DeployerContract(ethClient, deployerConfig)
 
-              // TODO: should check that node is registered, but should not send transactions
-              _ <- contract
-                .addAddressToWhitelist[IO](config.deployerContractOwnerAccount)
-                .attempt
-                .map(r ⇒ logger.debug(s"Whitelisting address: $r"))
-              _ <- contract
-                .addNode[IO](nodeConfig)
-                .attempt
-                .map(r ⇒ logger.debug(s"Adding node: $r"))
+                // TODO: should check that node is registered, but should not send transactions
+                _ <- contract
+                  .addAddressToWhitelist[IO](deployerConfig.deployerContractOwnerAccount)
+                  .attempt
+                  .map(r ⇒ logger.debug(s"Whitelisting address: $r"))
+                _ <- contract
+                  .addNode[IO](nodeConfig)
+                  .attempt
+                  .map(r ⇒ logger.debug(s"Adding node: $r"))
 
-              pool ← SolversPool[IO]()
+                pool ← SolversPool[IO]()
 
-              codeManager <- getCodeManager(maybeSwarmConfig)
+                codeManager <- getCodeManager(maybeSwarmConfig)
 
-              node = MasterNode(masterKeys, nodeConfig, contract, pool, codeManager, rootPath)
+                node = MasterNode(masterKeys, nodeConfig, contract, pool, codeManager, rootPath)
 
-              result <- StatusServerResource.makeResource(pool).use { status =>
-                node.run
-              }
-            } yield result
-        }
-      case Left(value) =>
-        logger.error("Error: {}", value)
-        IO.pure(ExitCode.Error)
-    }
+                result <- StatusServerResource.makeResource(rawConfig, node).use { status =>
+                  node.run
+                }
+              } yield result
+          }
+        case Left(value) =>
+          logger.error("Error: {}", value)
+          IO.pure(ExitCode.Error)
+      }
   }
 
   private def configureLogging(): Unit = {

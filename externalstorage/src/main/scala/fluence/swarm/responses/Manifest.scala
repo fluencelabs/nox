@@ -30,14 +30,14 @@ case class Entry(hash: String, contentType: String, modTime: String)
 
 object Entry {
 
-  implicit val entryDecoder: Encoder[Entry] = new Encoder[Entry] {
+  implicit val entryEncoder: Encoder[Entry] = new Encoder[Entry] {
     final def apply(e: Entry): Json = Json.obj(
       ("hash", Json.fromString(e.hash)),
       ("contentType", Json.fromString(e.contentType)),
       ("mod_time", Json.fromString(e.modTime))
     )
   }
-  implicit val entryEncoder: Decoder[Entry] = new Decoder[Entry] {
+  implicit val entryDecoder: Decoder[Entry] = new Decoder[Entry] {
     final def apply(c: HCursor): Decoder.Result[Entry] =
       for {
         hash <- c.downField("hash").as[String]
