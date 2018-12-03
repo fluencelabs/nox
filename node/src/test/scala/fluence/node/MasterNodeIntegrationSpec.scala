@@ -43,6 +43,7 @@ import scala.language.higherKinds
 import scala.sys.process.{Process, ProcessLogger}
 import scala.util.Try
 
+/*
 /**
  * This test contains a single test method that checks:
  * - MasterNode connectivity with ganache-hosted Deployer smart contract
@@ -271,3 +272,4 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
       "linux"
   }
 }
+ */
