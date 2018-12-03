@@ -147,10 +147,9 @@ lazy val statemachine = (project in file("statemachine"))
       val vmDataRoot = "/vmcode"
 
       new Dockerfile {
-        from("xqdocker/ubuntu-openjdk:jre-8")
+        from("openjdk:8-jre-alpine")
         // TODO: merge all these `run`s into a single run
-        runRaw("apt -yqq update && apt -yqq install wget curl jq unzip screen")
-        runRaw(s"wget $tmBinaryUrl && unzip -d /bin $tmBinaryArchive")
+        runRaw(s"wget $tmBinaryUrl && unzip -d /bin $tmBinaryArchive && rm $tmBinaryArchive")
 
         expose(tmP2pPort)
         expose(tmRpcPort)
@@ -246,11 +245,8 @@ lazy val node = project
 
       new Dockerfile {
         val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
-        from("xqdocker/ubuntu-openjdk:jre-8")
-        runRaw("apt-get -yqq update &&" +
-               "apt-get -yqq install wget &&" +
-               s"wget -q $dockerBinary -O- |" +
-               s"tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
+        from("openjdk:8-jre-alpine")
+        runRaw(s"wget -q $dockerBinary -O- | tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
 
         volume("/master") // anonymous volume to store all data
 

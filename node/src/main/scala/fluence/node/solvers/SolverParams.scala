@@ -46,5 +46,5 @@ case class SolverParams(
       .port(clusterData.smPrometheusPort, 26661)
       .option("--volumes-from", masterNodeContainerId + ":ro")
       .option("--name", clusterData.nodeInfo.nodeName)
-      .image("fluencelabs/solver:latest")
+      .image("fluencelabs/solver:2018-dec-demo")
 }
