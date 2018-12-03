@@ -17,10 +17,8 @@
 package fluence.node
 import java.io.File
 import java.net.InetAddress
-import java.nio.file.{Files, Path, Paths}
 
 import cats.effect._
-import cats.effect.concurrent.MVar
 import cats.syntax.applicativeError._
 import cats.syntax.functor._
 import cats.syntax.monadError._
@@ -29,12 +27,10 @@ import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.docker.{DockerIO, DockerParams}
 import fluence.node.eth.{DeployerContract, DeployerContractConfig}
-import fluence.node.solvers.{SolversPool, TestCodeManager}
-import fluence.node.tendermint.KeysPath
 import org.scalactic.source.Position
 import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
 import org.scalatest.time.Span
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers, OptionValues}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
@@ -214,7 +210,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
     val ifconfigCmd = Seq("ifconfig", interface)
     val grepCmd = Seq("grep", "inet ")
     val awkCmd = Seq("awk", "{print $2}")
-    InetAddress.getByName((ifconfigCmd #| grepCmd #| awkCmd).!!.replace("[^0-9\\.]", "")).getHostAddress
+    InetAddress.getByName((ifconfigCmd #| grepCmd #| awkCmd).!!.replaceAll("[^0-9\\.]", "")).getHostAddress
   }
 
   private def getOS: String = {
