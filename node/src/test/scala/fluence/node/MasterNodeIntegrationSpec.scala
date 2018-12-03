@@ -155,7 +155,7 @@ class MasterNodeIntegrationSpec
                 c1s0 shouldBe Some(2)
                 c1s1 shouldBe Some(2)
               },
-              maxWait = 30.seconds
+              maxWait = 90.seconds
             )
           } yield {}
         }
