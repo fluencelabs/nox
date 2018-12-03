@@ -19,7 +19,7 @@ extern crate reikna;
 use settings::FACTORIZED_NUMBER;
 use reikna::prime;
 
-/// This test simply factorizes given FACTORIZED_NUMBER by seievs from reikna library.
+/// This test simply factorizes given FACTORIZED_NUMBER by sieves from reikna library.
 ///
 /// Returns a prime delimiter of FACTORIZED_NUMBER to prevent possible aggressive optimizations.
 #[no_mangle]
