@@ -36,7 +36,7 @@ case class Configuration(
   rootPath: Path,
   nodeConfig: NodeConfig,
   contractConfig: DeployerContractConfig,
-  swarmEnabled: Boolean,
+  swarmConfig: SwarmConfig,
   ethereumRPC: EthereumRPCConfig,
   masterContainerId: String
 )
@@ -77,27 +77,24 @@ object Configuration extends LazyLogging {
       solverInfo = NodeConfig(endpoints, validatorKey, nodeId)
 
       contractConfig <- pureconfig.loadConfig[DeployerContractConfig](config).toIO
-      swarmEnabled <- pureconfig.loadConfig[Boolean](config, "use-swarm").toIO
 
       ethereumRPC <- pureconfig.loadConfig[EthereumRPCConfig](config, "ethereum").toIO
 
-    } yield Configuration(rootPath, solverInfo, contractConfig, swarmEnabled, ethereumRPC, masterNodeContainerId)
+      swarmConfig <- pureconfig.loadConfig[SwarmConfig](config, "swarm").toIO
+
+    } yield Configuration(rootPath, solverInfo, contractConfig, swarmConfig, ethereumRPC, masterNodeContainerId)
 
   /**
    *
-   * @param swarmEnabled if swarm is used or not, set in config
+   * @param swarmConfig configuration for Swarm: endpoint, enabled, etc
    * @return either [[CodeManager]] with hardcoded wasm files or [[SwarmCodeManager]]
    */
   def getCodeManager(
-    swarmEnabled: Boolean
+    swarmConfig: SwarmConfig
   )(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[CodeManager[IO]] = {
-    if (!swarmEnabled) IO(new TestCodeManager[IO]())
+    if (!swarmConfig.enabled) IO(new TestCodeManager[IO]())
     else {
-      pureconfig
-        .loadConfig[String]("swarm.host")
-        .toIO
-        .flatMap(addr => SwarmClient(addr))
-        .map(client => new SwarmCodeManager[IO](client))
+      SwarmClient[IO](swarmConfig.addr).map(new SwarmCodeManager[IO](_))
     }
   }
 

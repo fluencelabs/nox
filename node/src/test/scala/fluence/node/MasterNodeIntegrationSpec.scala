@@ -30,7 +30,7 @@ import fluence.node.eth.{DeployerContract, DeployerContractConfig}
 import org.scalactic.source.Position
 import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
 import org.scalatest.time.Span
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers, OptionValues}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
@@ -47,7 +47,8 @@ import scala.util.Try
  * - MasterNode ability to load previous node clusters and subscribe to new clusters
  * - Successful cluster formation and starting blocks creation
  */
-class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll {
+class MasterNodeIntegrationSpec
+    extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -222,7 +223,8 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
 
   private def linuxHostIP = {
     import sys.process._
-    ("ip route get 8.8.8.8" #| "grep -oP \"(?<=src ).*\"").!!.trim
+    val ipR = "(?<=src )[0-9\\.]+".r
+    ipR.findFirstIn("ip route get 8.8.8.8".!!.trim).value
   }
 
   private def getOS: String = {

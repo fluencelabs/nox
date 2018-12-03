@@ -37,7 +37,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
     Configuration.configure().attempt.flatMap {
-      case Right(Configuration(rootPath, nodeConfig, config, swarmEnabled, ethereumRPC, masterNodeContainerId)) =>
+      case Right(Configuration(rootPath, nodeConfig, config, swarmConfig, ethereumRPC, masterNodeContainerId)) =>
         // Run master node
         EthClient
           .makeHttpResource[IO](Some(ethereumRPC.uri))
@@ -62,7 +62,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 pool ← SolversPool[IO]()
 
-                codeManager <- Configuration.getCodeManager(swarmEnabled)
+                codeManager <- Configuration.getCodeManager(swarmConfig)
 
                 node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterNodeContainerId)
 

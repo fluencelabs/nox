@@ -16,7 +16,7 @@
 
 ###
 # This script is an entrypoint of the Master docker container.
-# It first checks that $$TENDERMINT_IP and $PORTS are defined,
+# It first checks that $TENDERMINT_IP and $PORTS are defined,
 # if /var/run/docker.sock is passed as a volume, and
 # then if running master-node.jar, generate application.conf,
 # and run whatever command is passed as arguments (usually it's CMD from Dockerfile).
@@ -53,6 +53,11 @@ if [ -z "$ETHEREUM_IP" ]; then
     ETHEREUM_IP=$TENDERMINT_IP
 fi
 
+SWARM_ENABLED="true"
+if [ -z "$SWARM_IP" ]; then
+    SWARM_ENABLED="false"
+fi
+
 # Running master-node.jar, that means running default CMD
 if [ "$3" = "/master-node.jar" ]; then
     CONTAINER_ID=$(cat /proc/1/cpuset)
@@ -63,9 +68,11 @@ endpoints {
   max-port = ${PORTS#*:}
 }
 ethereum {
-  protocol = http
   host = $ETHEREUM_IP
-  port = 8545
+}
+swarm {
+  host = $SWARM_IP
+  enabled = $SWARM_ENABLED
 }
 tendermint-path=/master
 
