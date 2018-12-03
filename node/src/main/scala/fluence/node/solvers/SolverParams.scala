@@ -30,7 +30,7 @@ case class SolverParams(
 
   override def toString = s"(solver ${clusterData.nodeInfo.node_index} for ${clusterData.nodeInfo.clusterName})"
 
-  def rpcPort: Short = clusterData.hostRpcPort
+  def rpcPort: Short = clusterData.RpcPort
 
   /**
    * [[fluence.node.docker.DockerIO.run]]'s command for launching a configured solver
@@ -40,7 +40,7 @@ case class SolverParams(
       .daemonRun()
       .option("-e", s"""CODE_DIR=$vmCodePath""")
       .option("-e", s"""SOLVER_DIR=$solverPath""")
-      .port(clusterData.hostP2PPort, 26656)
+      .port(clusterData.P2PPort, 26656)
       .port(rpcPort, 26657)
       .port(clusterData.tmPrometheusPort, 26660)
       .port(clusterData.smPrometheusPort, 26661)

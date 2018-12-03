@@ -62,7 +62,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 pool ← SolversPool[IO]()
 
-                codeManager <- getCodeManager(swarmEnabled)
+                codeManager <- Configuration.getCodeManager(swarmEnabled)
 
                 node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterNodeContainerId)
 
