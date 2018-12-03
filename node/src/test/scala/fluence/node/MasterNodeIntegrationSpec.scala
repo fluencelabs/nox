@@ -61,7 +61,13 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
   private val dockerHost = getOS match {
     case "linux" => ifaceIP("docker0")
     case "mac" => "host.docker.internal"
-    case _ => throw new RuntimeException("The test doesn't support this OS")
+    case os => throw new RuntimeException(s"$os isn't supported")
+  }
+
+  private val ethereumHost = getOS match {
+    case "linux" => linuxHostIP
+    case "mac" => "host.docker.internal"
+    case os => throw new RuntimeException(s"$os isn't supported")
   }
 
   override protected def beforeAll(): Unit = {
@@ -105,6 +111,7 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
           DockerParams
             .daemonRun()
             .option("-e", s"TENDERMINT_IP=$dockerHost")
+            .option("-e", s"ETHEREUM_IP=$ethereumHost")
             .option("-e", s"PORTS=$portFrom:$portTo")
             .option("--name", name)
             .volume("/var/run/docker.sock", "/var/run/docker.sock")
@@ -211,6 +218,11 @@ class MasterNodeIntegrationSpec extends FlatSpec with LazyLogging with Matchers 
     val grepCmd = Seq("grep", "inet ")
     val awkCmd = Seq("awk", "{print $2}")
     InetAddress.getByName((ifconfigCmd #| grepCmd #| awkCmd).!!.replaceAll("[^0-9\\.]", "")).getHostAddress
+  }
+
+  private def linuxHostIP = {
+    import sys.process._
+    ("ip route get 8.8.8.8" #| "grep -oP \"(?<=src ).*\"").!!.trim
   }
 
   private def getOS: String = {

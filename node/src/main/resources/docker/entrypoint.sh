@@ -49,6 +49,10 @@ EOF
 exit 1
 fi
 
+if [ -z "$ETHEREUM_IP" ]; then
+    ETHEREUM_IP=$TENDERMINT_IP
+fi
+
 # Running master-node.jar, that means running default CMD
 if [ "$3" = "/master-node.jar" ]; then
     CONTAINER_ID=$(cat /proc/1/cpuset)
@@ -60,7 +64,7 @@ endpoints {
 }
 ethereum {
   protocol = http
-  host = $TENDERMINT_IP
+  host = $ETHEREUM_IP
   port = 8545
 }
 tendermint-path=/master
