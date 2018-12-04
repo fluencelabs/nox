@@ -27,7 +27,7 @@ import io.circe.parser.parse
  *
  * @param masterTendermintPath Tendermint's home directory
  */
-case class KeysPath(masterTendermintPath: String)(implicit ec: ContextShift[IO]) extends slogging.LazyLogging {
+case class KeysPath(masterTendermintPath: String) extends slogging.LazyLogging {
 
   val path: IO[Path] = IO { Paths.get(masterTendermintPath) } //TODO: convert InvalidPathException to Fluence error
 
