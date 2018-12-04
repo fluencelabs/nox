@@ -23,12 +23,11 @@ import com.typesafe.config.Config
 import fluence.node.ConfigOps._
 import fluence.node.docker.{DockerIO, DockerParams}
 import fluence.node.eth.{DeployerContractConfig, EthereumRPCConfig}
-import fluence.node.solvers.{CodeManager, SwarmCodeManager, TestCodeManager}
+import fluence.node.solvers.{CodeManager, SolverImage, SwarmCodeManager, TestCodeManager}
 import fluence.node.tendermint.ValidatorKey
 import fluence.swarm.SwarmClient
 import io.circe.parser.parse
 import pureconfig.backend.ConfigFactoryWrapper
-import pureconfig.error.ConfigReaderFailures
 import pureconfig.generic.auto._
 import slogging.LazyLogging
 
@@ -42,8 +41,6 @@ case class Configuration(
 )
 
 object Configuration extends LazyLogging {
-  val SOLVER_IMAGE = "fluencelabs/solver:2018-dec-demo"
-  val NODE_IMAGE = "fluencelabs/node:2018-dec-demo"
 
   /**
    * Load config at /master/application.conf with fallback on config from class loader
@@ -69,12 +66,13 @@ object Configuration extends LazyLogging {
       rootPath = Paths.get(rootPathStr).toAbsolutePath
 
       masterNodeContainerId <- pureconfig.loadConfig[String](config, "master-container-id").toIO
+      solverImage <- pureconfig.loadConfig[SolverImage](config, "solver").toIO
 
-      t <- tendermintInit(masterNodeContainerId)
+      t <- tendermintInit(masterNodeContainerId, rootPath, solverImage)
       (nodeId, validatorKey) = t
 
       endpoints <- pureconfig.loadConfig[EndpointsConfig](config, "endpoints").toIO
-      solverInfo = NodeConfig(endpoints, validatorKey, nodeId)
+      solverInfo = NodeConfig(endpoints, validatorKey, nodeId, solverImage)
 
       contractConfig <- pureconfig.loadConfig[DeployerContractConfig](config).toIO
 
@@ -104,14 +102,17 @@ object Configuration extends LazyLogging {
    * @param masterContainer id of master docker container (container running this code)
    * @return nodeId and validator key
    */
-  def tendermintInit(masterContainer: String)(implicit c: ContextShift[IO]): IO[(String, ValidatorKey)] = {
-    val tendermintDir = "/master/tendermint"
+  def tendermintInit(masterContainer: String, rootPath: Path, solverImage: SolverImage)(
+    implicit c: ContextShift[IO]
+  ): IO[(String, ValidatorKey)] = {
+
+    val tendermintDir = rootPath.resolve("tendermint") // /master/tendermint
     def tendermint(cmd: String, uid: String) = {
       DockerParams
         .run("tendermint", cmd, s"--home=$tendermintDir")
         .user(uid)
         .option("--volumes-from", masterContainer)
-        .image(Configuration.SOLVER_IMAGE)
+        .image(solverImage.imageName)
     }
 
     for {
@@ -120,9 +121,9 @@ object Configuration extends LazyLogging {
       _ <- DockerIO.run[IO](tendermint("init", uid)).compile.drain
 
       _ <- IO {
-        Paths.get(tendermintDir).resolve("config").resolve("config.toml").toFile.delete()
-        Paths.get(tendermintDir).resolve("config").resolve("genesis.json").toFile.delete()
-        Paths.get(tendermintDir).resolve("data").toFile.delete()
+        tendermintDir.resolve("config").resolve("config.toml").toFile.delete()
+        tendermintDir.resolve("config").resolve("genesis.json").toFile.delete()
+        tendermintDir.resolve("data").toFile.delete()
       }
 
       nodeId <- DockerIO.run[IO](tendermint("show_node_id", uid)).compile.lastOrError

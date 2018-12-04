@@ -26,7 +26,8 @@ case class SolverParams(
   clusterData: ClusterData,
   solverPath: String,
   vmCodePath: String,
-  masterNodeContainerId: String
+  masterNodeContainerId: String,
+  solverImage: SolverImage
 ) {
 
   override def toString = s"(solver ${clusterData.nodeInfo.node_index} for ${clusterData.nodeInfo.clusterName})"
@@ -47,5 +48,5 @@ case class SolverParams(
       .port(clusterData.smPrometheusPort, 26661)
       .option("--volumes-from", masterNodeContainerId + ":ro")
       .option("--name", clusterData.nodeInfo.nodeName)
-      .image(Configuration.SOLVER_IMAGE)
+      .image(solverImage.imageName)
 }

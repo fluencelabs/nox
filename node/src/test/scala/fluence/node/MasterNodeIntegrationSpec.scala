@@ -116,7 +116,7 @@ class MasterNodeIntegrationSpec
             .option("-e", s"PORTS=$portFrom:$portTo")
             .option("--name", name)
             .volume("/var/run/docker.sock", "/var/run/docker.sock")
-            .image(Configuration.NODE_IMAGE)
+            .image("fluencelabs/node:2018-dec-demo")
         )
         .compile
         .lastOrError

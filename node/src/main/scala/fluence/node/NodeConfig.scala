@@ -21,7 +21,8 @@ import java.net.InetAddress
 import cats.effect.{ContextShift, IO, Sync}
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
-import fluence.node.tendermint.{KeysPath, ValidatorKey}
+import fluence.node.solvers.SolverImage
+import fluence.node.tendermint.ValidatorKey
 
 import scala.language.higherKinds
 
@@ -50,5 +51,6 @@ case class EndpointsConfig(
 case class NodeConfig(
   endpoints: EndpointsConfig,
   validatorKey: ValidatorKey,
-  nodeAddress: String
+  nodeAddress: String,
+  solverImage: SolverImage
 )
