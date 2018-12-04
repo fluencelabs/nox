@@ -64,10 +64,10 @@ object Solver extends LazyLogging {
   )(implicit sttpBackend: SttpBackend[F, Nothing]): F[SolverHealth] = {
     // As container is running, perform a custom healthcheck: request a HTTP endpoint inside the container
     logger.debug(
-      s"Running HTTP healthcheck $params: http://localhost:${params.rpcPort}/$httpPath"
+      s"Running HTTP healthcheck $params: http://${params.clusterData.rpcHost}:${params.rpcPort}/$httpPath"
     )
     sttp
-      .get(uri"http://localhost:${params.rpcPort}/$httpPath")
+      .get(uri"http://${params.clusterData.rpcHost}:${params.rpcPort}/$httpPath")
       .response(asJson[SolverResponse])
       .send()
       .attempt
