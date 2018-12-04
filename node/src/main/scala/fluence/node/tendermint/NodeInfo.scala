@@ -15,9 +15,6 @@
  */
 
 package fluence.node.tendermint
-import java.nio.file.{Files, Path}
-
-import cats.effect.Sync
 import io.circe.Encoder
 import io.circe.generic.semiauto._
 

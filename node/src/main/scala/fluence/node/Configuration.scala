@@ -48,14 +48,14 @@ object Configuration extends LazyLogging {
   /**
    * Load config at /master/application.conf with fallback on config from class loader
    */
-  def loadConfig(): Either[ConfigReaderFailures, Config] = {
+  def loadConfig(): IO[Config] = {
     import ConfigFactoryWrapper._
     val containerConfig = "/master/application.conf"
 
-    loadFile(Paths.get(containerConfig)) match {
+    (loadFile(Paths.get(containerConfig)) match {
       case Left(_) => load() // exception will be printed out later, see ConfigOps
       case Right(config) => load.map(config.withFallback)
-    }
+    }).toIO
   }
 
   /**
@@ -63,7 +63,7 @@ object Configuration extends LazyLogging {
    */
   def configure()(implicit c: ContextShift[IO]): IO[Configuration] =
     for {
-      config <- loadConfig().toIO
+      config <- loadConfig()
 
       rootPathStr <- pureconfig.loadConfig[String](config, "tendermint-path").toIO
       rootPath = Paths.get(rootPathStr).toAbsolutePath

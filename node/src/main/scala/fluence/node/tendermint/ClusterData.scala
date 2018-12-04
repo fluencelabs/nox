@@ -35,11 +35,11 @@ case class ClusterData(
   code: CodePath
 ) {
   private val nodePeer = persistentPeers.peers(nodeInfo.node_index.toInt) //TODO: catch OutOfBounds exception
-  val P2PPort: Short = nodePeer.port
-  val RpcPort: Short = (P2PPort + 100).toShort //TODO: reserve service ports sequentially, right after p2p port
-  val RpcHost: String = nodePeer.host
-  val tmPrometheusPort: Short = (P2PPort + 200).toShort //TODO: reserve service ports sequentially, right after p2p port
-  val smPrometheusPort: Short = (P2PPort + 300).toShort //TODO: reserve service ports sequentially, right after p2p port
+  val p2pPort: Short = nodePeer.port
+  val rpcPort: Short = (p2pPort + 100).toShort //TODO: reserve service ports sequentially, right after p2p port
+  val rpcHost: String = nodePeer.host
+  val tmPrometheusPort: Short = (p2pPort + 200).toShort //TODO: reserve service ports sequentially, right after p2p port
+  val smPrometheusPort: Short = (p2pPort + 300).toShort //TODO: reserve service ports sequentially, right after p2p port
 
   def clusterName: String = nodeInfo.clusterName
 
