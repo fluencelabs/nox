@@ -1,8 +1,12 @@
 ## VM benchmark tests
 
-This benchmark consists of a few tests which can be used to measure performance of various WebAssembly virtual machines. Each test exports the `main` function which is called by the benchmark runner. There are also few compile-time parameters in each test that can be adjusted using the corresponding environment variables. Benchmark has been successfully tested on Mac and should also run smoothly on Linux.
+This microbenchmark consists of a few tests which can be used to measure performance of various WebAssembly virtual machines. It should be noted this benchmark is by definition is not comprehensive and might not reflect performance on real life workloads. 
 
-Below we assume that Fluence GitHub repo has been already cloned and we are in the `vm_bench/tests` directory:
+However, each test was crafted in a way that would prevent the virtual machine from optimizing them using the dead code elimination. Most tests also prevent intermediate results memoization (with `fibonacci_bigint` and `factorization_reikna` being exceptions) and allow to specify an RNG seed to obtain repeatable benchmark results.
+
+Each test exports the `main` function which is called by the benchmark runner. There are also few compile-time parameters in each test that can be adjusted using the corresponding environment variables. The benchmark has been successfully tested on Mac and should run smoothly on Linux as well.
+
+To run tests Rust Cargo package manager should be installed – the easiest way would be to follow [Rust instructions](https://doc.rust-lang.org/cargo/getting-started/installation.html). Below we also assume that Fluence GitHub repo has been already cloned and we are in the `vm_bench/tests` directory:
 
 ```shell
 git clone --recursive https://github.com/fluencelabs/fluence
@@ -17,7 +21,7 @@ To run:
 
 ```shell
 cd recursive_hash
-SEED=<seed> ITERATIONS_COUNT=<iterations_count> SEQUENCE_SIZE=<sequence_size> cargo +nightly build --release --target wasm32-unknown-unknown [--feature "deflate_compression"]
+ITERATIONS_COUNT=<iterations_count> SEED=<seed> SEQUENCE_SIZE=<sequence_size> cargo +nightly build --release --target wasm32-unknown-unknown [--feature "deflate_compression"]
 ```
 
 ### Factorization
@@ -77,7 +81,7 @@ ITERATIONS_COUNT=<iterations_count> SEED=<seed> MATRIX_SIZE=<matrix_size> cargo 
 
 ### Recursive hash computing
 
-This test iteratively computes a hash chain of length `ITERATIONS_COUNT`: `hash(hash( ... hash(x)))` where `x` is the initial value specified by `INITIAL_VALUE`.
+This test iteratively computes a hash chain `hash(hash( ... hash(x)))` of length `ITERATIONS_COUNT`, where `x` is the initial value specified by `INITIAL_VALUE`.
 
 To run:
 
