@@ -244,6 +244,7 @@ lazy val node = project
       val artifactTargetPath = s"/${artifact.name}"
 
       new Dockerfile {
+        // docker is needed in image so it can connect to host's docker.sock and run solvers on host
         val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
         from("openjdk:8-jre-alpine")
         runRaw(s"wget -q $dockerBinary -O- | tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
