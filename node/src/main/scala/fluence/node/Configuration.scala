@@ -58,9 +58,9 @@ object Configuration {
       config <- loadConfig()
       masterConfig <- pureconfig.loadConfig[MasterConfig](config).toIO
       rootPath <- IO(Paths.get(masterConfig.tendermintPath).toAbsolutePath)
-      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.solverImage)
+      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.solver)
       (nodeId, validatorKey) = t
-      nodeConfig = NodeConfig(masterConfig.endpoints, validatorKey, nodeId, masterConfig.solverImage)
+      nodeConfig = NodeConfig(masterConfig.endpoints, validatorKey, nodeId, masterConfig.solver)
     } yield
       (
         masterConfig,

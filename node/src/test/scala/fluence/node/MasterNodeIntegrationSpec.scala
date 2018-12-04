@@ -25,7 +25,6 @@ import cats.syntax.monadError._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
-import fluence.node.config.{EndpointsConfig, NodeConfig}
 import fluence.node.docker.{DockerIO, DockerParams}
 import fluence.node.eth.{DeployerContract, DeployerContractConfig}
 import org.scalactic.source.Position
@@ -117,7 +116,7 @@ class MasterNodeIntegrationSpec
             .option("-e", s"PORTS=$portFrom:$portTo")
             .option("--name", name)
             .volume("/var/run/docker.sock", "/var/run/docker.sock")
-            .image("fluencelabs/node:2018-dec-demo")
+            .image("fluencelabs/node")
         )
         .compile
         .lastOrError

@@ -41,7 +41,7 @@ case class MasterConfig(
   swarm: Option[SwarmConfig],
   statServer: StatServerConfig,
   masterContainerId: String,
-  solverImage: SolverImage,
+  solver: SolverImage,
   ethereum: EthereumRPCConfig
 )
 

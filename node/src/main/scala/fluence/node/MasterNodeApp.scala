@@ -96,14 +96,18 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterNodeContainerId)
 
                 result <- StateManager.makeResource(statServer, rawConfig, node).use { status =>
+                  logger.info("Status server has started on: " + status.address)
                   node.run
                 }
               } yield result
           }
       }
-      .handleErrorWith { err =>
-        logger.error("Error: {}", err)
-        IO.pure(ExitCode.Error)
+      .attempt
+      .flatMap {
+        case Left(err) =>
+          logger.error("Error: {}", err)
+          IO.pure(ExitCode.Error)
+        case Right(ec) => IO.pure(ec)
       }
   }
 

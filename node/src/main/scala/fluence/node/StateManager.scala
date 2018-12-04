@@ -97,14 +97,13 @@ object StateManager {
    * @param statServerConfig server's parameters
    * @param masterConfig parameters about a master node
    * @param masterNode initialized master node
-   * @return
    */
   def makeResource(statServerConfig: StatServerConfig, masterConfig: MasterConfig, masterNode: MasterNode)(
     implicit cs: ContextShift[IO],
     timer: Timer[IO]
   ): Resource[IO, Server[IO]] =
     BlazeServerBuilder[IO]
-      .bindHttp(statServerConfig.port, masterConfig.endpoints.ip.getHostAddress)
+      .bindHttp(statServerConfig.port, "0.0.0.0")
       .withHttpApp(statusService(StateManager(masterConfig, masterNode)))
       .resource
 
