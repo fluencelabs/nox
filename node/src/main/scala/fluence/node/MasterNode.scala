@@ -48,7 +48,7 @@ case class MasterNode(
     _.evalMap {
       case (clusterData, solverTendermintPath) ⇒
         for {
-          path <- codeManager.prepareCode(clusterData.code, path)
+          path <- codeManager.prepareCode(clusterData.code, solverTendermintPath)
         } yield {
           SolverParams(
             clusterData,
@@ -73,7 +73,7 @@ case class MasterNode(
           _ ← masterKeys.copyKeysToSolver(solverTendermintPath)
           _ <- IO { logger.info("node info written to {}", solverTendermintPath) }
 
-          codePath <- codeManager.prepareCode(clusterData.code, path)
+          codePath <- codeManager.prepareCode(clusterData.code, solverTendermintPath)
         } yield SolverParams(clusterData, solverTendermintPath.toString, codePath)
     )
 

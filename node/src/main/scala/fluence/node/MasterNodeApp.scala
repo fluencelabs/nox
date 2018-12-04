@@ -16,55 +16,17 @@
 
 package fluence.node
 
-import java.nio.file.{Files, Path, Paths}
-
 import cats.effect._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
-import fluence.node.eth.{DeployerContract, DeployerContractConfig}
+import fluence.node.eth.DeployerContract
 import fluence.node.solvers.{CodeManager, SolversPool, SwarmCodeManager, TestCodeManager}
-import fluence.node.tendermint.KeysPath
 import fluence.swarm.SwarmClient
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
-import pureconfig.generic.auto._
-import ConfigOps._
-import fluence.node.config.{MasterConfig, NodeConfig, StatServerConfig, SwarmConfig}
-
-case class Configuration(
-  rootPath: Path,
-  masterKeys: KeysPath,
-  nodeConfig: NodeConfig,
-  contractConfig: DeployerContractConfig,
-  swarm: Option[SwarmConfig],
-  statistics: StatServerConfig
-)
-
-object Configuration {
-
-  def apply(
-    masterConfig: MasterConfig
-  )(implicit ec: ContextShift[IO]): IO[Configuration] = {
-    for {
-      rootPath <- IO(Paths.get(masterConfig.tendermintPath).toAbsolutePath)
-      keysPath <- IO(rootPath.resolve("tendermint"))
-      masterKeys <- IO(KeysPath(keysPath.toString))
-      _ <- IO(Files.createDirectories(keysPath))
-      _ ← masterKeys.init
-      solverInfo <- NodeConfig(masterKeys, masterConfig.endpoints)
-    } yield
-      Configuration(
-        rootPath,
-        masterKeys,
-        solverInfo,
-        masterConfig.deployer,
-        masterConfig.swarm,
-        masterConfig.statServer
-      )
-  }
-}
+import fluence.node.config.{MasterConfig, SwarmConfig}
 
 object MasterNodeApp extends IOApp with LazyLogging {
 
@@ -86,17 +48,12 @@ object MasterNodeApp extends IOApp with LazyLogging {
    */
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
-    pureconfig
-      .loadConfig[MasterConfig]
-      .toIO
-      .flatMap(rawConfig => Configuration(rawConfig).map(config => (rawConfig, config)))
-      .attempt
+    Configuration
+      .create()
       .flatMap {
-        case Right(
-            (
-              rawConfig,
-              Configuration(rootPath, masterKeys, nodeConfig, deployerConfig, maybeSwarmConfig, statServer)
-            )
+        case (
+            rawConfig,
+            Configuration(rootPath, masterKeys, nodeConfig, deployerConfig, maybeSwarmConfig, statServer)
             ) =>
           // Run master node and status server
           val resources = for {
@@ -135,9 +92,10 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 }
               } yield result
           }
-        case Left(value) =>
-          logger.error("Error: {}", value)
-          IO.pure(ExitCode.Error)
+      }
+      .handleErrorWith { err =>
+        logger.error("Error: {}", err)
+        IO.pure(ExitCode.Error)
       }
   }
 
