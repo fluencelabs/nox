@@ -57,7 +57,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
             ) =>
           // Run master node and status server
           val resources = for {
-            ethClientResource <- EthClient.makeHttpResource[IO]()
+            ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRPC.uri))
             sttpBackend <- sttpResource
           } yield (ethClientResource, sttpBackend)
 
@@ -85,7 +85,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 codeManager <- getCodeManager(maybeSwarmConfig)
 
-                node = MasterNode(masterKeys, nodeConfig, contract, pool, codeManager, rootPath)
+                node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterNodeContainerId)
 
                 result <- StateManager.makeResource(statServer, rawConfig, node).use { status =>
                   node.run

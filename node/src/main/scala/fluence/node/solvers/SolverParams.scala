@@ -15,6 +15,7 @@
  */
 
 package fluence.node.solvers
+import fluence.node.Configuration
 import fluence.node.docker.DockerParams
 import fluence.node.tendermint.ClusterData
 
@@ -23,13 +24,15 @@ import fluence.node.tendermint.ClusterData
  */
 case class SolverParams(
   clusterData: ClusterData,
-  tendermintDir: String,
-  vmCodeDir: String,
+  solverPath: String,
+  vmCodePath: String,
+  masterNodeContainerId: String,
+  solverImage: SolverImage
 ) {
 
   override def toString = s"(solver ${clusterData.nodeInfo.node_index} for ${clusterData.nodeInfo.clusterName})"
 
-  def rpcPort: Short = clusterData.hostRpcPort
+  def rpcPort: Short = clusterData.rpcPort
 
   /**
    * [[fluence.node.docker.DockerIO.run]]'s command for launching a configured solver
@@ -37,12 +40,13 @@ case class SolverParams(
   val dockerCommand: DockerParams.Sealed =
     DockerParams
       .daemonRun()
-      .port(clusterData.hostP2PPort, 26656)
+      .option("-e", s"""CODE_DIR=$vmCodePath""")
+      .option("-e", s"""SOLVER_DIR=$solverPath""")
+      .port(clusterData.p2pPort, 26656)
       .port(rpcPort, 26657)
       .port(clusterData.tmPrometheusPort, 26660)
       .port(clusterData.smPrometheusPort, 26661)
-      .volume(vmCodeDir, "/vmcode")
-      .volume(tendermintDir, "/tendermint")
-      .option("--name", clusterData.nodeName)
-      .image("fluencelabs/solver:latest")
+      .option("--volumes-from", masterNodeContainerId + ":ro")
+      .option("--name", clusterData.nodeInfo.nodeName)
+      .image(solverImage.imageName)
 }

@@ -37,9 +37,7 @@ object ConfigOps {
           )
         )
       )
-
     }
-
   }
 
   implicit val inetAddressConvert: ConfigConvert[InetAddress] =

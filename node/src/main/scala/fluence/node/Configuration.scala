@@ -26,23 +26,35 @@ import pureconfig.generic.auto._
 
 case class Configuration(
   rootPath: Path,
-  masterKeys: KeysPath,
   nodeConfig: NodeConfig,
   contractConfig: DeployerContractConfig,
   swarm: Option[SwarmConfig],
-  statistics: StatServerConfig
+  statistics: StatServerConfig,
+  ethereumRPC: EthereumRPCConfig,
+  masterContainerId: String
 )
 
 object Configuration {
+
+  /**
+    * Load config at /master/application.conf with fallback on config from class loader
+    */
+  def loadConfig(): IO[Config] = {
+    import ConfigFactoryWrapper._
+    val containerConfig = "/master/application.conf"
+
+    (loadFile(Paths.get(containerConfig)) match {
+      case Left(_) => load() // exception will be printed out later, see ConfigOps
+      case Right(config) => load.map(config.withFallback)
+    }).toIO
+  }
 
   def create()(implicit ec: ContextShift[IO]): IO[(MasterConfig, Configuration)] = {
     for {
       masterConfig <- pureconfig.loadConfig[MasterConfig].toIO
       rootPath <- IO(Paths.get(masterConfig.tendermintPath).toAbsolutePath)
-      keysPath <- IO(rootPath.resolve("tendermint"))
-      masterKeys <- IO(KeysPath(keysPath.toString))
-      _ <- IO(Files.createDirectories(keysPath))
-      _ ← masterKeys.init
+      t <- tendermintInit(masterNodeContainerId, rootPath, solverImage)
+      (nodeId, validatorKey) = t
       solverInfo <- NodeConfig(masterKeys, masterConfig.endpoints)
     } yield
       (
@@ -56,5 +68,42 @@ object Configuration {
           masterConfig.statServer
         )
       )
+  }
+
+  /**
+    * Run `tendermint --init` in container to initialize /master/tendermint/config with configuration files.
+    * Later, files /master/tendermint/config are used to run and configure solvers
+    * @param masterContainer id of master docker container (container running this code)
+    * @return nodeId and validator key
+    */
+  def tendermintInit(masterContainer: String, rootPath: Path, solverImage: SolverImage)(
+    implicit c: ContextShift[IO]
+  ): IO[(String, ValidatorKey)] = {
+
+    val tendermintDir = rootPath.resolve("tendermint") // /master/tendermint
+    def tendermint(cmd: String, uid: String) = {
+      DockerParams
+        .run("tendermint", cmd, s"--home=$tendermintDir")
+        .user(uid)
+        .option("--volumes-from", masterContainer)
+        .image(solverImage.imageName)
+    }
+
+    for {
+      uid <- IO(scala.sys.process.Process("id -u").!!.trim)
+      //TODO: don't do tendermint init if keys already exist
+      _ <- DockerIO.run[IO](tendermint("init", uid)).compile.drain
+
+      _ <- IO {
+        tendermintDir.resolve("config").resolve("config.toml").toFile.delete()
+        tendermintDir.resolve("config").resolve("genesis.json").toFile.delete()
+        tendermintDir.resolve("data").toFile.delete()
+      }
+
+      nodeId <- DockerIO.run[IO](tendermint("show_node_id", uid)).compile.lastOrError
+
+      validatorRaw <- DockerIO.run[IO](tendermint("show_validator", uid)).compile.lastOrError
+      validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorKey]))
+    } yield (nodeId, validator)
   }
 }

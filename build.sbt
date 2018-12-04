@@ -113,6 +113,7 @@ lazy val statemachine = (project in file("statemachine"))
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
       scalaTest
     ),
+    assemblyJarName in assembly := "statemachine.jar",
     assemblyMergeStrategy in assembly := {
       // a module definition fails compilation for java 8, just skip it
       case PathList("module-info.class", xs @ _*) => MergeStrategy.first
@@ -120,13 +121,14 @@ lazy val statemachine = (project in file("statemachine"))
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
+    test in assembly := {},
     imageNames in docker := Seq(ImageName("fluencelabs/solver")),
     dockerfile in docker := {
       // Run `sbt docker` to create image
 
       // The assembly task generates a fat JAR file
-      val artifact: File = assembly.value
-      val artifactTargetPath = s"/app/${artifact.name}"
+      val artifact = assembly.value
+      val artifactTargetPath = s"/${artifact.name}"
 
       // Tendermint constants
       val tmVersion = "0.25.0"
@@ -145,11 +147,9 @@ lazy val statemachine = (project in file("statemachine"))
       val vmDataRoot = "/vmcode"
 
       new Dockerfile {
-        from("xqdocker/ubuntu-openjdk:jre-8")
-        run("apt", "-yqq", "update")
-        run("apt", "-yqq", "install", "wget", "curl", "jq", "unzip", "screen")
-        run("wget", tmBinaryUrl)
-        run("unzip", "-d", "/bin", tmBinaryArchive)
+        from("openjdk:8-jre-alpine")
+        // TODO: merge all these `run`s into a single run
+        runRaw(s"wget $tmBinaryUrl && unzip -d /bin $tmBinaryArchive && rm $tmBinaryArchive")
 
         expose(tmP2pPort)
         expose(tmRpcPort)
@@ -163,9 +163,9 @@ lazy val statemachine = (project in file("statemachine"))
         // includes solver run script and default configs in the image
         copy(baseDirectory.value / "docker" / "solver", solverDataRoot)
 
-        add(artifact, artifactTargetPath)
+        copy(artifact, artifactTargetPath)
 
-        entryPoint("bash", solverRunScript, tmDataRoot, solverDataRoot, artifactTargetPath)
+        entryPoint("sh", solverRunScript, artifactTargetPath)
       }
     }
   )
@@ -227,7 +227,48 @@ lazy val node = project
       http4sServer,
       http4sClient,
       scalaTest
-    )
+    ),
+    assemblyMergeStrategy in assembly := {
+      // a module definition fails compilation for java 8, just skip it
+      case PathList("module-info.class", xs @ _*) => MergeStrategy.first
+      case "META-INF/io.netty.versions.properties" =>
+        MergeStrategy.first
+      case x =>
+        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        oldStrategy(x)
+    },
+    mainClass in assembly := Some("fluence.node.MasterNodeApp"),
+    assemblyJarName in assembly := "master-node.jar",
+    test in assembly := {},
+    imageNames in docker := Seq(ImageName("fluencelabs/node")),
+    dockerfile in docker := {
+      // The assembly task generates a fat JAR file
+      val artifact: File = assembly.value
+      val artifactTargetPath = s"/${artifact.name}"
+
+      new Dockerfile {
+        // docker is needed in image so it can connect to host's docker.sock and run solvers on host
+        val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
+        from("openjdk:8-jre-alpine")
+        runRaw(s"wget -q $dockerBinary -O- | tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
+
+        volume("/master") // anonymous volume to store all data
+
+        /*
+        * The following directory structure is assumed in node/src/main/resources:
+        *    docker/
+        *      tendermint/config/default_config.toml
+        *      vmcode/vmcode-llamadb/llama_db.wasm
+        *    entrypoint.sh
+        */
+        copy((resourceDirectory in Compile).value / "docker", "/master/")
+
+        copy(artifact, artifactTargetPath)
+
+        cmd("java", "-jar", artifactTargetPath)
+        entryPoint("sh", "/master/entrypoint.sh")
+      }
+    }
   )
-  .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(ethclient, externalstorage)

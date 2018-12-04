@@ -7,6 +7,7 @@ target/
 # IntelliJ
 .idea
 .vscode
+*.iml
 
 # MacOS folder metadata
 .DS_Store
