@@ -31,10 +31,6 @@ fn fib(num: &BigUint) -> BigUint {
     fib(&num.sub(1u32)) + fib(&num.sub(2u32))
 }
 
-/// This test simply computes a given fibonacci number recursively (bigint is used to prevent
-/// interger overflows).
-///
-/// Returns a xor value of bytes in computed fibonacci number to prevent possible aggressive optimization.
 #[no_mangle]
 pub extern "C" fn main() -> u8 {
     let fib_number : BigUint = BigUint::from(FIB_NUMBER.parse::<u64>().unwrap());

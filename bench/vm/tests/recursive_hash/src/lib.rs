@@ -20,10 +20,6 @@ use settings::{INITIAL_VALUE, ITERATIONS_COUNT};
 use sha3::{Digest, Sha3_256};
 use std::mem;
 
-/// This test compresses sequence of hashes (f(f(...f(initial_value)) ITERATIONS_COUNT times. As an
-/// initial value INITIAL_VALUE is used.
-///
-/// Returns a recursive xor of bytes of final hash result.
 #[no_mangle]
 pub extern "C" fn main() -> u8 {
     let iterations_count : i64 = ITERATIONS_COUNT.parse::<i64>().unwrap();
