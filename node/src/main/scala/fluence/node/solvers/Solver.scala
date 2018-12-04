@@ -54,6 +54,98 @@ object Solver extends LazyLogging {
   import SolverResponse._
 
   /**
+   * Gets health state from a solver via HTTP.
+   *
+   */
+  private def getHealthState[F[_]: Concurrent: ContextShift: Timer](
+    params: SolverParams,
+    httpPath: String,
+    uptime: Long
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[SolverHealth] = {
+    // As container is running, perform a custom healthcheck: request a HTTP endpoint inside the container
+    logger.debug(
+      s"Running HTTP healthcheck $params: http://localhost:${params.rpcPort}/$httpPath"
+    )
+    sttp
+      .get(uri"http://localhost:${params.rpcPort}/$httpPath")
+      .response(asJson[SolverResponse])
+      .send()
+      .attempt
+      // converting Either[Throwable, Response[Either[DeserializationError[circe.Error], SolverResponse]]]
+      // to Either[Throwable, SolverResponse]
+      .map(
+        _.flatMap(
+          _.body.left
+            .map(err => new Exception(err))
+            .right
+            .map(_.left.map(_.error))
+            .flatMap(identity)
+        )
+      )
+      .map {
+        case Right(status) ⇒
+          val result = status.result
+          val info = RunningSolverInfo(
+            params.clusterData.hostRpcPort,
+            params.clusterData.hostP2PPort,
+            params.clusterData.smPrometheusPort,
+            params.clusterData.tmPrometheusPort,
+            result.node_info.id,
+            params.clusterData.code.asHex,
+            result.sync_info.latest_block_hash,
+            result.sync_info.latest_app_hash,
+            result.sync_info.latest_block_height
+          )
+          SolverRunning(uptime, info)
+        case Left(err) ⇒
+          logger.error("Solver HTTP check failed: " + err.getLocalizedMessage, err)
+          SolverHttpCheckFailed(StoppedSolverInfo(params), err)
+      }
+      .map { health ⇒
+        logger.debug(s"HTTP health is: $health")
+        health
+      }
+  }
+
+  /**
+   * Runs health checker.
+   */
+  private def runHealthCheck[F[_]: Concurrent: ContextShift: Timer](
+    params: SolverParams,
+    healthReportRef: Ref[F, SolverHealth],
+    stop: Deferred[F, Either[Throwable, Unit]],
+    healthcheck: HealthCheckConfig
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[Unit] = {
+    DockerIO
+      .run[F](params.dockerCommand)
+      .through(
+        // Check that container is running every healthcheck.period
+        DockerIO.check[F](healthcheck.period)
+      )
+      .evalMap[F, SolverHealth] {
+        case (uptime, true) ⇒
+          getHealthState(params, healthcheck.httpPath, uptime)
+        case (uptime, false) ⇒
+          logger.error(s"HTTP healthcheck $params, as container is not running")
+          Applicative[F].pure(SolverContainerNotRunning(StoppedSolverInfo(params)))
+      }
+      .evalTap(healthReportRef.set)
+      .interruptWhen(stop)
+      .sliding(healthcheck.slide)
+      .evalTap[F] {
+        case q if q.count(!_.isHealthy) > healthcheck.failOn ⇒
+          // TODO: if we had container launched previously, but then http checks became failing, we should try to restart the container
+          // Stop the stream, as there's too many failing healthchecks
+          logger.error("Too many healthcheck failures.")
+          Applicative[F].unit
+        case _ ⇒ Applicative[F].unit
+      }
+      .compile
+      .drain
+      .map(_ ⇒ logger.debug(s"Finished $params"))
+  }
+
+  /**
    * Runs a single solver
    *
    * @param params Solver's running params
@@ -65,79 +157,10 @@ object Solver extends LazyLogging {
     implicit sttpBackend: SttpBackend[F, Nothing]
   ): F[Solver[F]] =
     for {
-      ref ← Ref.of[F, SolverHealth](SolverNotYetLaunched)
+      healthReportRef ← Ref.of[F, SolverHealth](SolverNotYetLaunched(StoppedSolverInfo(params)))
       stop ← Deferred[F, Either[Throwable, Unit]]
 
-      fiber ← Concurrent[F].start(
-        DockerIO
-          .run[F](params.dockerCommand)
-          .through(
-            // Check that container is running every healthcheck.period
-            DockerIO.check[F](healthcheck.period)
-          )
-          .evalMap[F, SolverHealth] {
-            case (d, true) ⇒
-              // As container is running, perform a custom healthcheck: request a HTTP endpoint inside the container
-              logger.debug(
-                s"Running HTTP healthcheck $params: http://localhost:${params.rpcPort}/${healthcheck.httpPath}"
-              )
-              sttp
-                .get(uri"http://localhost:${params.rpcPort}/${healthcheck.httpPath}")
-                .response(asJson[SolverResponse])
-                .send()
-                .attempt
-                // converting Either[Throwable, Response[Either[DeserializationError[circe.Error], SolverResponse]]]
-                // to Either[Throwable, SolverResponse]
-                .map(
-                  _.flatMap(
-                    _.body.left
-                      .map(err => new Exception(err))
-                      .right
-                      .map(_.left.map(_.error))
-                      .flatMap(identity)
-                  )
-                )
-                .map {
-                  case Right(status) ⇒
-                    val result = status.result
-                    val info = SolverInfo(
-                      params.clusterData.hostRpcPort,
-                      params.clusterData.hostP2PPort,
-                      params.clusterData.smPrometheusPort,
-                      params.clusterData.tmPrometheusPort,
-                      result.node_info.id,
-                      params.clusterData.code.asHex,
-                      result.sync_info.latest_block_hash,
-                      result.sync_info.latest_app_hash,
-                      result.sync_info.latest_block_height
-                    )
-                    SolverRunning(d.toMillis, info)
-                  case Left(err) ⇒ SolverHttpCheckFailed(d.toMillis, err)
-                }
-                .map { health ⇒
-                  logger.debug(s"HTTP health is: $health")
-                  health
-                }
-
-            case (d, false) ⇒
-              logger.debug(s"HTTP healthcheck $params, as container is not running")
-              Applicative[F].pure(SolverContainerNotRunning(d.toMillis))
-          }
-          .evalTap(ref.set)
-          .interruptWhen(stop)
-          .sliding(healthcheck.slide)
-          .evalTap[F] {
-            case q if q.count(!_.isHealthy) > healthcheck.failOn ⇒
-              // TODO: if we had container launched previously, but then http checks became failing, we should try to restart the container
-              // Stop the stream, as there's too many failing healthchecks
-              logger.debug("Too many healthcheck failures, raising an error")
-              (new RuntimeException("Too many healthcheck failures"): Throwable).raiseError[F, Unit]
-            case _ ⇒ Applicative[F].unit
-          }
-          .compile
-          .drain
-          .map(_ ⇒ logger.debug(s"Finished $params"))
-      )
-    } yield Solver[F](params, ref, stop.complete(Right(())), fiber)
+      fiber ← Concurrent[F].start(runHealthCheck(params, healthReportRef, stop, healthcheck))
+    } yield Solver[F](params, healthReportRef, stop.complete(Right(())), fiber)
 
 }

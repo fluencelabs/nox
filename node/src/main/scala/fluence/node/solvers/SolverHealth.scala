@@ -20,9 +20,9 @@ import io.circe.{Encoder, Json}
 import io.circe.generic.semiauto._
 
 /**
-  * Collected information about a solver.
-  */
-case class SolverInfo(
+ * Collected information about running solver.
+ */
+case class RunningSolverInfo(
   rpcPort: Short,
   p2pPort: Short,
   stateMachinePrometheusPort: Short,
@@ -34,13 +34,38 @@ case class SolverInfo(
   lastBlockHeight: Int
 )
 
-object SolverInfo {
-  implicit val encodeSolverInfo: Encoder[SolverInfo] = deriveEncoder
+object RunningSolverInfo {
+  implicit val encodeSolverInfo: Encoder[RunningSolverInfo] = deriveEncoder
+}
+
+/**
+ * Collected information about stopped solver.
+ */
+case class StoppedSolverInfo(
+  rpcPort: Short,
+  p2pPort: Short,
+  stateMachinePrometheusPort: Short,
+  tendermintPrometheusPort: Short,
+  codeId: String
+)
+
+object StoppedSolverInfo {
+
+  def apply(
+    params: SolverParams
+  ): StoppedSolverInfo =
+    new StoppedSolverInfo(
+      params.clusterData.hostRpcPort,
+      params.clusterData.hostP2PPort,
+      params.clusterData.smPrometheusPort,
+      params.clusterData.tmPrometheusPort,
+      params.clusterData.code.asHex
+    )
+
+  implicit val encodeSolverInfo: Encoder[StoppedSolverInfo] = deriveEncoder
 }
 
 sealed trait SolverHealth {
-  def uptime: Long
-
   def isHealthy: Boolean
 }
 
@@ -49,7 +74,7 @@ object SolverHealth {
     final def apply(a: Throwable): Json = Json.fromString(a.getLocalizedMessage)
   }
 
-  import SolverInfo._
+  import RunningSolverInfo._
   implicit val encoderSolverHealth: Encoder[SolverHealth] = deriveEncoder
 }
 
@@ -61,12 +86,10 @@ sealed trait SolverIll extends SolverHealth {
   override def isHealthy: Boolean = false
 }
 
-case class SolverRunning(uptime: Long, solverInfo: SolverInfo) extends SolverHealthy
+case class SolverRunning(uptime: Long, info: RunningSolverInfo) extends SolverHealthy
 
-case object SolverNotYetLaunched extends SolverIll {
-  override def uptime: Long = 0
-}
+case class SolverNotYetLaunched(info: StoppedSolverInfo) extends SolverIll
 
-case class SolverContainerNotRunning(uptime: Long) extends SolverIll
+case class SolverContainerNotRunning(info: StoppedSolverInfo) extends SolverIll
 
-case class SolverHttpCheckFailed(uptime: Long, causedBy: Throwable) extends SolverIll
+case class SolverHttpCheckFailed(info: StoppedSolverInfo, causedBy: Throwable) extends SolverIll

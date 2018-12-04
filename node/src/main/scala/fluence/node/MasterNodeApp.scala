@@ -130,7 +130,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 node = MasterNode(masterKeys, nodeConfig, contract, pool, codeManager, rootPath)
 
-                result <- StatusServerResource.makeResource(statServer, rawConfig, node).use { status =>
+                result <- StateManager.makeResource(statServer, rawConfig, node).use { status =>
                   node.run
                 }
               } yield result
