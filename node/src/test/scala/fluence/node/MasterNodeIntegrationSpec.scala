@@ -26,6 +26,7 @@ import cats.syntax.monadError._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
+import fluence.node.config.{EndpointsConfig, NodeConfig}
 import fluence.node.eth.{DeployerContract, DeployerContractConfig}
 import fluence.node.solvers.{SolversPool, TestCodeManager}
 import fluence.node.tendermint.KeysPath
