@@ -94,7 +94,7 @@ impl Publisher {
             let receipt: H256 =
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
 
-            let options = utils::options_with_gas(500_000);
+            let options = utils::options_with_gas(2_000_000);
 
             utils::call_contract(
                 self.account,
