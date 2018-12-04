@@ -55,8 +55,8 @@ object StoppedSolverInfo {
     params: SolverParams
   ): StoppedSolverInfo =
     new StoppedSolverInfo(
-      params.clusterData.hostRpcPort,
-      params.clusterData.hostP2PPort,
+      params.clusterData.rpcPort,
+      params.clusterData.p2pPort,
       params.clusterData.smPrometheusPort,
       params.clusterData.tmPrometheusPort,
       params.clusterData.code.asHex

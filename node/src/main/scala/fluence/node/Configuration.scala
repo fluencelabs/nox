@@ -15,13 +15,17 @@
  */
 
 package fluence.node
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Path, Paths}
 
 import cats.effect.{ContextShift, IO}
 import fluence.node.config.{MasterConfig, NodeConfig, StatServerConfig, SwarmConfig}
-import fluence.node.eth.DeployerContractConfig
-import fluence.node.tendermint.KeysPath
+import fluence.node.eth.{DeployerContractConfig, EthereumRPCConfig}
 import ConfigOps._
+import com.typesafe.config.Config
+import fluence.node.docker.{DockerIO, DockerParams}
+import fluence.node.solvers.SolverImage
+import fluence.node.tendermint.ValidatorKey
+import io.circe.parser._
 import pureconfig.generic.auto._
 
 case class Configuration(
@@ -37,10 +41,10 @@ case class Configuration(
 object Configuration {
 
   /**
-    * Load config at /master/application.conf with fallback on config from class loader
-    */
+   * Load config at /master/application.conf with fallback on config from class loader
+   */
   def loadConfig(): IO[Config] = {
-    import ConfigFactoryWrapper._
+    import pureconfig.backend.ConfigFactoryWrapper._
     val containerConfig = "/master/application.conf"
 
     (loadFile(Paths.get(containerConfig)) match {
@@ -51,31 +55,33 @@ object Configuration {
 
   def create()(implicit ec: ContextShift[IO]): IO[(MasterConfig, Configuration)] = {
     for {
-      masterConfig <- pureconfig.loadConfig[MasterConfig].toIO
+      config <- loadConfig()
+      masterConfig <- pureconfig.loadConfig[MasterConfig](config).toIO
       rootPath <- IO(Paths.get(masterConfig.tendermintPath).toAbsolutePath)
-      t <- tendermintInit(masterNodeContainerId, rootPath, solverImage)
+      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.solverImage)
       (nodeId, validatorKey) = t
-      solverInfo <- NodeConfig(masterKeys, masterConfig.endpoints)
+      nodeConfig = NodeConfig(masterConfig.endpoints, validatorKey, nodeId, masterConfig.solverImage)
     } yield
       (
         masterConfig,
         Configuration(
           rootPath,
-          masterKeys,
-          solverInfo,
+          nodeConfig,
           masterConfig.deployer,
           masterConfig.swarm,
-          masterConfig.statServer
+          masterConfig.statServer,
+          masterConfig.ethereum,
+          masterConfig.masterContainerId
         )
       )
   }
 
   /**
-    * Run `tendermint --init` in container to initialize /master/tendermint/config with configuration files.
-    * Later, files /master/tendermint/config are used to run and configure solvers
-    * @param masterContainer id of master docker container (container running this code)
-    * @return nodeId and validator key
-    */
+   * Run `tendermint --init` in container to initialize /master/tendermint/config with configuration files.
+   * Later, files /master/tendermint/config are used to run and configure solvers
+   * @param masterContainer id of master docker container (container running this code)
+   * @return nodeId and validator key
+   */
   def tendermintInit(masterContainer: String, rootPath: Path, solverImage: SolverImage)(
     implicit c: ContextShift[IO]
   ): IO[(String, ValidatorKey)] = {

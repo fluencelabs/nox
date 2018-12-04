@@ -53,7 +53,15 @@ object MasterNodeApp extends IOApp with LazyLogging {
       .flatMap {
         case (
             rawConfig,
-            Configuration(rootPath, masterKeys, nodeConfig, deployerConfig, maybeSwarmConfig, statServer)
+            Configuration(
+              rootPath,
+              nodeConfig,
+              deployerConfig,
+              swarmConfigOpt,
+              statServer,
+              ethereumRPC,
+              masterNodeContainerId
+            )
             ) =>
           // Run master node and status server
           val resources = for {
@@ -83,7 +91,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 pool ← SolversPool[IO]()
 
-                codeManager <- getCodeManager(maybeSwarmConfig)
+                codeManager <- getCodeManager(swarmConfigOpt)
 
                 node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterNodeContainerId)
 

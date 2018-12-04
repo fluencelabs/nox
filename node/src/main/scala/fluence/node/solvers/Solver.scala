@@ -86,8 +86,8 @@ object Solver extends LazyLogging {
         case Right(status) ⇒
           val result = status.result
           val info = RunningSolverInfo(
-            params.clusterData.hostRpcPort,
-            params.clusterData.hostP2PPort,
+            params.clusterData.rpcPort,
+            params.clusterData.p2pPort,
             params.clusterData.smPrometheusPort,
             params.clusterData.tmPrometheusPort,
             result.node_info.id,

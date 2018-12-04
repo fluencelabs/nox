@@ -18,9 +18,9 @@ package fluence.node.config
 
 import java.net.InetAddress
 
-import cats.effect.{ContextShift, IO}
-import fluence.node.eth.DeployerContractConfig
-import fluence.node.tendermint.{KeysPath, ValidatorKey}
+import fluence.node.eth.{DeployerContractConfig, EthereumRPCConfig}
+import fluence.node.solvers.SolverImage
+import fluence.node.tendermint.ValidatorKey
 import io.circe.{Encoder, Json}
 import io.circe.generic.semiauto.deriveEncoder
 
@@ -39,7 +39,10 @@ case class MasterConfig(
   endpoints: EndpointsConfig,
   deployer: DeployerContractConfig,
   swarm: Option[SwarmConfig],
-  statServer: StatServerConfig
+  statServer: StatServerConfig,
+  masterContainerId: String,
+  solverImage: SolverImage,
+  ethereum: EthereumRPCConfig
 )
 
 /**
@@ -56,6 +59,8 @@ object MasterConfig {
   implicit val encodeThrowable: Encoder[InetAddress] = new Encoder[InetAddress] {
     final def apply(a: InetAddress): Json = Json.fromString(a.getHostAddress)
   }
+  implicit val encodeSolverImage: Encoder[SolverImage] = deriveEncoder
+  implicit val encodeEthereumConfig: Encoder[EthereumRPCConfig] = deriveEncoder
   implicit val encodeEndpointConfig: Encoder[EndpointsConfig] = deriveEncoder
   implicit val encodeDeployerConfig: Encoder[DeployerContractConfig] = deriveEncoder
   implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
@@ -88,47 +93,6 @@ case class EndpointsConfig(
 case class NodeConfig(
   endpoints: EndpointsConfig,
   validatorKey: ValidatorKey,
-  nodeAddress: String
+  nodeAddress: String,
+  solverImage: SolverImage
 )
-
-object NodeConfig extends slogging.LazyLogging {
-  private val MaxPortCount = 100
-  private val MinPortCount = 0
-  private val MinPort = 20000
-  private val MaxPort = 40000
-  private def MaxPort(range: Int = 0): Int = MaxPort - range
-
-  /**
-   * Builds [[NodeConfig]].
-   *
-   */
-  def apply(keysPath: KeysPath, endpointsConfig: EndpointsConfig)(implicit ec: ContextShift[IO]): IO[NodeConfig] =
-    for {
-      validatorKey ← keysPath.showValidatorKey
-      nodeAddress ← keysPath.showNodeId
-
-      _ = logger.info("Tendermint node id: {}", nodeAddress.trim)
-
-    } yield NodeConfig(endpointsConfig, validatorKey, nodeAddress)
-
-  private def checkPorts(startPort: Int, endPort: Int): IO[Unit] = {
-    val ports = endPort - startPort
-
-    if (ports <= MinPortCount || ports > MaxPortCount) {
-      IO.raiseError(
-        new IllegalArgumentException(
-          s"Port range size should be between $MinPortCount and $MaxPortCount"
-        )
-      )
-    } else if (startPort < MinPort || startPort > MaxPort(ports) && endPort > MaxPort) {
-      IO.raiseError(
-        new IllegalArgumentException(
-          s"Allowed ports should be between $MinPort and $MaxPort"
-        )
-      )
-    } else {
-      IO.unit
-    }
-  }
-
-}
