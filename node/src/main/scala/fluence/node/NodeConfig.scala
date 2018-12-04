@@ -21,7 +21,8 @@ import java.net.InetAddress
 import cats.effect.{ContextShift, IO, Sync}
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
-import fluence.node.tendermint.{KeysPath, ValidatorKey}
+import fluence.node.solvers.SolverImage
+import fluence.node.tendermint.ValidatorKey
 
 import scala.language.higherKinds
 
@@ -50,47 +51,6 @@ case class EndpointsConfig(
 case class NodeConfig(
   endpoints: EndpointsConfig,
   validatorKey: ValidatorKey,
-  nodeAddress: String
+  nodeAddress: String,
+  solverImage: SolverImage
 )
-
-object NodeConfig extends slogging.LazyLogging {
-  private val MaxPortCount = 100
-  private val MinPortCount = 0
-  private val MinPort = 20000
-  private val MaxPort = 40000
-  private def MaxPort(range: Int = 0): Int = MaxPort - range
-
-  /**
-   * Builds [[NodeConfig]].
-   *
-   */
-  def apply(keysPath: KeysPath, endpointsConfig: EndpointsConfig)(implicit ec: ContextShift[IO]): IO[NodeConfig] =
-    for {
-      validatorKey ← keysPath.showValidatorKey
-      nodeAddress ← keysPath.showNodeId
-
-      _ = logger.info("Tendermint node id: {}", nodeAddress.trim)
-
-    } yield NodeConfig(endpointsConfig, validatorKey, nodeAddress)
-
-  private def checkPorts(startPort: Int, endPort: Int): IO[Unit] = {
-    val ports = endPort - startPort
-
-    if (ports <= MinPortCount || ports > MaxPortCount) {
-      IO.raiseError(
-        new IllegalArgumentException(
-          s"Port range size should be between $MinPortCount and $MaxPortCount"
-        )
-      )
-    } else if (startPort < MinPort || startPort > MaxPort(ports) && endPort > MaxPort) {
-      IO.raiseError(
-        new IllegalArgumentException(
-          s"Allowed ports should be between $MinPort and $MaxPort"
-        )
-      )
-    } else {
-      IO.unit
-    }
-  }
-
-}

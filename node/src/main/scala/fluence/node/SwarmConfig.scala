@@ -14,23 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint
-import io.circe.Encoder
-import io.circe.generic.semiauto._
+package fluence.node
 
-/**
- * Information about the cluster and current node. Compatible with `master-run-node.sh` script.
- *
- * TODO: there should be no `master-run-node.sh` script
- *
- * @param cluster cluster information
- * @param node_index node index
- */
-case class NodeInfo(cluster: Cluster, node_index: String) {
-  def clusterName: String = cluster.genesis.chain_id
-  def nodeName = s"${clusterName}_node$node_index"
-}
-
-object NodeInfo {
-  implicit def nodeInfoEncoder: Encoder[NodeInfo] = deriveEncoder[NodeInfo]
+case class SwarmConfig(protocol: String, host: String, port: Int, enabled: Boolean) {
+  val addr: String = s"$protocol://$host:$port"
 }
