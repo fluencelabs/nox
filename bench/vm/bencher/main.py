@@ -36,7 +36,7 @@ def save_test_results(out_dir, results):
     """
     for vm in results:
         with open(join(out_dir, vm + ".csv"), 'w', newline='') as bench_result_file:
-            fieldnames = ['test_path', 'elapsed_time']
+            fieldnames = ['test_name', 'elapsed_time']
             writer = csv.DictWriter(bench_result_file, fieldnames=fieldnames)
             writer.writeheader()
 
@@ -63,7 +63,7 @@ def main(vm_dir, tests_dir, out_dir):
     test_results = vm_bencher.run_tests(filled_tests_descriptors, vm_descriptors)
 
     logger.info("<wasm_bencher>: starting collection of test results")
-    save_test_results(test_results)
+    save_test_results(out_dir, test_results)
 
 
 if __name__ == '__main__':
