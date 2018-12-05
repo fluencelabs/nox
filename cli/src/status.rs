@@ -51,7 +51,7 @@ impl fmt::Display for Status {
     }
 }
 
-pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
+pub fn get_status_by_args(args: &ArgMatches) -> Result<(), Box<Error>> {
     let contract_address: Address = args
         .value_of(CONTRACT_ADDRESS)
         .unwrap()
@@ -59,7 +59,8 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
         .parse()?;
     let eth_url: &str = args.value_of(ETH_URL).unwrap();
 
-    get_status(contract_address, eth_url)
+//    get_status(contract_address, eth_url)
+    get_new_status(contract_address, eth_url)
 }
 
 pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Box<Error>> {
@@ -74,6 +75,24 @@ pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Bo
         enqueued_codes.into_iter().map(|x| x as u32).rev().collect(),
     ))
 }
+
+pub fn get_new_status(contract_address: Address, eth_url: &str) -> Result<(), Box<Error>> {
+    let options = utils::options_with_gas(2300_000);
+
+    println!("send status");
+
+    let (nodes_indices, clusters_indices, ready_nodes, solver_clusters): (Vec<Vec<u8>>, Vec<Vec<u8>>, Vec<Vec<u8>>, Vec<Vec<u8>>) =
+        utils::query_contract(contract_address, eth_url, "getStatus", (), options)?;
+
+    println!("nodes indices: {:?}: ", nodes_indices);
+    println!("clusters indices: {:?}: ", clusters_indices);
+    println!("ready_nodes: {:?}: ", ready_nodes);
+    println!("solver_clusters: {:?}: ", solver_clusters);
+
+    Ok(())
+}
+
+//Vec<[u8]>, Vec<[u8]>, Vec<[u8]>, Vec<[u8]>, Vec<[u8]>
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("status")

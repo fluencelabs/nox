@@ -94,6 +94,7 @@ contract Deployer is Whitelist {
 
     // All nodes
     mapping(bytes32 => Node) private nodes;
+    bytes32[] private nodesIndices;
 
     // Array with actual cluster participants
     Solver[] private busySolvers;
@@ -129,6 +130,7 @@ contract Deployer is Whitelist {
 
         nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, startPort, solverClusters.length);
         readyNodes.push(nodeID);
+        nodesIndices.push(nodeID);
         solverClusters.length += endPort - startPort;
         emit NewNode(nodeID);
 
@@ -193,21 +195,31 @@ contract Deployer is Whitelist {
         return clusters;
     }
 
+    function getNode(bytes32 nodeId)
+        external
+        view
+        returns (bytes32, bytes24, uint16, uint16, uint16, uint)
+    {
+        Node memory node = nodes[nodeId];
+        return (node.id, node.nodeAddress, node.startPort, node.endPort, node.currentPort, node.solverClustersOffset);
+    }
+
     /** @dev Allows to track contract status
      * return (contract version const, number of ready nodes, enqueued codes' lengths)
      */
     function getStatus()
         external
         view
-        returns (uint8, uint256, uint256[])
+        returns (bytes32[], bytes32[], bytes32[], bytes32[])
     {
-        uint256[] memory cs = new uint256[](enqueuedCodes.length);
-        for (uint j = 0; j < enqueuedCodes.length; ++j) {
-            cs[j] = enqueuedCodes[j].clusterSize;
+
+        bytes32[] memory clustersIndices = new bytes32[](clusterCount);
+        for (uint i = 0; i < (clusterCount - 1); ++i) {
+            clustersIndices[i] = bytes32(i + 1);
         }
+
         // fast way to check if contract was deployed incorrectly: in this case getStatus() returns (0, 0, [])
-        uint8 version = 101;
-        return (version, readyNodes.length, cs);
+        return (nodesIndices, clustersIndices, readyNodes, solverClusters);
     }
 
     /** @dev Checks if there is enough free Solvers for undeployed Code

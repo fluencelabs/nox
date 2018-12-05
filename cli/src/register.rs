@@ -145,7 +145,7 @@ impl Register {
         let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
             let pass = self.password.as_ref().map(|s| s.as_str());
 
-            let options = utils::options_with_gas(300_000);
+            let options = utils::options_with_gas(1_300_000);
 
             let hash_addr = self.serialize_node_address()?;
 

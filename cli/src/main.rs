@@ -89,7 +89,7 @@ fn main() {
         ("status", Some(args)) => {
             let status = status::get_status_by_args(args).unwrap();
 
-            println!("Status of Fluence smart contract:\n{}", status);
+//          println!("Status of Fluence smart contract:\n{}", status);
         }
 
         c => panic!("Unexpected command: {}", c.0),
