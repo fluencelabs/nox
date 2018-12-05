@@ -28,7 +28,7 @@ class Record:
 
     Attributes
     ----------
-    time : time
+    time : time_type
         The execution time of one test.
     cpuLoad : int
         The cpu load (in percents) of one test (currently not supported).
@@ -97,7 +97,7 @@ class WasmVMBencher:
 
         Returns
         -------
-        int
+        time_type
             An elapsed time of provided cmd execution.
         """
         start_time = time()
