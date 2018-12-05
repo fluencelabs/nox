@@ -1,10 +1,13 @@
 """
 Copyright 2018 Fluence Labs Limited
- Licensed under the Apache License, Version 2.0 (the "License");
+
+Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-     http://www.apache.org/licenses/LICENSE-2.0
- Unless required by applicable law or agreed to in writing, software
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -21,27 +24,44 @@ import logging
 
 
 class Record:
+    """Contains result of one test launch.
+
+    Attributes
+    ----------
+    time : time
+        The execution time of one test.
+    cpuLoad : int
+        The cpu load (in percents) of one test (currently not supported).
+
+    """
     def __init__(self, time=0, cpuLoad=0):
         self.time = time
         self.cpuLoad = cpuLoad  # TODO
 
 
 class WasmVMBencher:
+    """Launches each VM on given directory on each provided test."""
 
     def __init__(self, vm_dir):
         self.vm_dir = vm_dir
         self.enabled_vm = listdir(vm_dir)
 
     def run_tests(self, test_descriptors, vm_descriptors):
-        """
-            Launches provided tests and returns their execution time.
+        """Launches provided tests and returns their execution time.
 
-            Arguments:
-                test_descriptors
-                    Descriptors of test that should be used for benchmark Wasm VM.
-                vm_descriptors
-                    Descriptors of Wasm VM that should be tested on provided tests.
-        """
+        Parameters
+        ----------
+        test_descriptors
+            Descriptors of test that should be used for benchmark Wasm VM.
+        vm_descriptors
+            Descriptors of Wasm VM that should be tested on provided tests.
+
+        Returns
+        -------
+        {vm : {test_name : [Records]}}
+            Collected test results.
+
+       """
         # {vm : {test_name : [Records]}}
         results = defaultdict(lambda: defaultdict(list))
         logger = logging.getLogger("wasm_bencher_logger")
@@ -68,12 +88,17 @@ class WasmVMBencher:
         return results
 
     def __do_one_test(self, vm_cmd):
-        """
-            Launch one test via subprocess.Popen and measure its execution time.
+        """Launches prvided shell command string via subprocess.Popen and measure its execution time.
 
-            Arguments:
-                vm_cmd
-                    An exactly command that should be executed.
+        Parameters
+        ----------
+        vm_cmd : str
+            An exactly command that should be executed.
+
+        Returns
+        -------
+        int
+            An elapsed time of provided cmd execution.
         """
         start_time = time()
         Popen(vm_cmd, shell=True).wait(None)

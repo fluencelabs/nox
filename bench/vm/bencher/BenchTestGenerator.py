@@ -1,10 +1,13 @@
 """
 Copyright 2018 Fluence Labs Limited
- Licensed under the Apache License, Version 2.0 (the "License");
+
+Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-     http://www.apache.org/licenses/LICENSE-2.0
- Unless required by applicable law or agreed to in writing, software
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -16,22 +19,31 @@ from subprocess import call
 
 
 class BenchTestGenerator:
+    """Generates tests in provided directory."""
 
     def __init__(self, test_dir):
         self.tests_dir = test_dir
         self.generated_tests_dir = "bench_tests"
-        self.rename_cmd = ""
 
     # compiles test with chosen parameters
     def generate_tests(self, out_dir, test_descriptors):
-        """
-            Compiles tests by their descriptors.
+        """Generates tests by their descriptors.
 
-            Arguments:
-                out_dir
-                    A directory where the resulted test will be saved.
-                test_descriptors
-                    Descriptors of tests that specifies how excatly test should be compiled.
+        Compiles each test by test_generator_cmd in given test descriptor, moves it to out_dir/generated_tests_dir
+        and finally sets test_full_path in each test descriptor.
+
+        Parameters
+        ----------
+        out_dir : str
+            A directory where the resulted test will be saved.
+        test_descriptors : [TestDescriptor]
+            Descriptors of tests that specifies how exactly test should be compiled.
+
+        Returns
+        -------
+        [TestDescriptor]
+            Test descriptors with test_full_path filled.
+
         """
         call("mkdir {}".format(join(out_dir,self.generated_tests_dir)), shell=True)
 
@@ -60,5 +72,13 @@ class BenchTestGenerator:
         return test_descriptors
 
     def __collect_garbage(self, out_dir):
+        """Removes rust cargo build directories.
+
+        Attributes
+        ----------
+        out_dir : str
+            A directory where build results are placed.
+
+        """
         call(("rm -rf " + join("{}", "wasm32-unknown-unknown")).format(out_dir), shell=True)
         call(("rm -rf " + join("{}", "release")).format(out_dir), shell=True)
