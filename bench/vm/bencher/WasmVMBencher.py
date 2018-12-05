@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from settings import interpretator_launch_count, compiler_launch_count, test_function_name
+from settings import interpreter_launch_count, compiler_launch_count, test_function_name
 
 from os import listdir
 from os.path import join
@@ -24,19 +24,19 @@ import logging
 
 
 class Record:
-    """Contains result of one test launch.
+    """Contains measures of one test launch.
 
     Attributes
     ----------
     time : time_type
         The execution time of one test.
-    cpuLoad : int
+    cpu_load : int
         The cpu load (in percents) of one test (currently not supported).
 
     """
-    def __init__(self, time=0, cpuLoad=0):
+    def __init__(self, time=0, cpu_load=0):
         self.time = time
-        self.cpuLoad = cpuLoad  # TODO
+        self.cpu_load = cpu_load  # TODO
 
 
 class WasmVMBencher:
@@ -78,7 +78,7 @@ class WasmVMBencher:
                                                           function_name=test_function_name)
 
                 launch_count = compiler_launch_count if vm_descriptors[vm].is_compiler_type \
-                    else interpretator_launch_count
+                    else interpreter_launch_count
                 for _ in range(launch_count):
                     logger.info("<wasm_bencher>: {}".format(cmd))
                     result_record = self.__do_one_test(cmd)
@@ -88,7 +88,7 @@ class WasmVMBencher:
         return results
 
     def __do_one_test(self, vm_cmd):
-        """Launches prvided shell command string via subprocess.Popen and measure its execution time.
+        """Launches provided shell command string via subprocess.Popen and measure its execution time.
 
         Parameters
         ----------
@@ -99,6 +99,7 @@ class WasmVMBencher:
         -------
         time_type
             An elapsed time of provided cmd execution.
+
         """
         start_time = time()
         Popen(vm_cmd, shell=True).wait(None)

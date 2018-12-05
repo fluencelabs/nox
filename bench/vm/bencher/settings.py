@@ -17,26 +17,30 @@ from VMDescriptor import VMDescriptor
 from TestDescriptor import TestDescriptor
 from os.path import join
 
-vm_descriptors = {
-    "wavm"   : VMDescriptor(join("build_", "bin", "wavm-run"),
-                            "{wasm_file_path} -f {function_name}", True),
-    "life"   : VMDescriptor(join("life"), "-entry {function_name} {wasm_file_path}", False),
-    "wasmi"  : VMDescriptor(join("target", "release", "examples", "invoke"),
-                            "{wasm_file_path} {function_name}", False),
-    "wasmer" : VMDescriptor(join("target", "release", "wasmer"), "run {wasm_file_path}", True),
-    "wagon"  : VMDescriptor(join("cmd", "wasm-run"), "wasm_run {wasm_module_path}", False),
-    "asmble" : VMDescriptor(join("asmble", "bin", "asmble"),
-                            "invoke -in {wasm_file_path} {function_name} -defmaxmempages 20000", True)
-}
-
 # launch count of interpreter-based VMs
-interpretator_launch_count = 3
+interpreter_launch_count = 3
 
 # launch count of compiler-based VMs
 compiler_launch_count = 11
 
-# export function name that should be called from Wasm module
+# export function name that should be called from each Wasm module
 test_function_name = "main"
+
+vm_descriptors = {
+    "wavm"   : VMDescriptor(join("build_", "bin", "wavm-run"),
+                            "{wasm_file_path} -f {function_name}", True),
+    "life"   : VMDescriptor(join("life"), "-entry {function_name} {wasm_file_path}", False),
+
+    "wasmi"  : VMDescriptor(join("target", "release", "examples", "invoke"),
+                            "{wasm_file_path} {function_name}", False),
+
+    "wasmer" : VMDescriptor(join("target", "release", "wasmer"), "run {wasm_file_path}", True),
+
+    "wagon"  : VMDescriptor(join("cmd", "wasm-run"), "wasm_run {wasm_module_path}", False),
+
+    "asmble" : VMDescriptor(join("asmble", "bin", "asmble"),
+                            "invoke -in {wasm_file_path} {function_name} -defmaxmempages 20000", True)
+}
 
 test_descriptors = {
     # compressions tests are generated both for a small sequence with a lot of iterations
