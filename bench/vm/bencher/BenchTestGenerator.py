@@ -72,7 +72,7 @@ class BenchTestGenerator:
         return test_descriptors
 
     def __collect_garbage(self, out_dir):
-        """Removes rust cargo build directories.
+        """Removes rust cargo target directories.
 
         Attributes
         ----------
