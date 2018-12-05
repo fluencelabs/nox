@@ -5,6 +5,7 @@ from WasmVMBencher import WasmVMBencher
 from settings import vm_descriptors, test_descriptors
 import click
 import csv
+import logging
 
 
 def save_test_results(results):
@@ -24,15 +25,19 @@ def save_test_results(results):
 @click.option("--tests_dir", help="directory with benchmark tests")
 @click.option("--out_dir", help="directory where results will be saved")
 def main(vm_dir, tests_dir, out_dir):
-    print("<wasm_bencher>: starting generation tests")
+    logging.basicConfig(filename="wasm_bencher_log", level=logging.INFO, format='%(asctime)s %(message)s',
+                        datefmt='%m/%d/%Y %I:%M:%S %p')
+
+    logger = logging.getLogger("wasm_bench_logger")
+    logger.info("<wasm_bencher>: starting tests generation")
     test_generator = BenchTestGenerator(tests_dir)
     filled_tests_descriptors = test_generator.generate_tests(out_dir, test_descriptors)
 
-    print("<wasm_bencher>: starting vm tests")
+    logger.info("<wasm_bencher>: starting vm tests")
     vm_bencher = WasmVMBencher(vm_dir)
     test_results = vm_bencher.run_tests(filled_tests_descriptors, vm_descriptors)
 
-    print("<wasm_bencher>: starting collection of test results")
+    logger.info("<wasm_bencher>: starting collection of test results")
     save_test_results(test_results)
 
 

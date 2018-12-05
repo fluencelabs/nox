@@ -5,6 +5,7 @@ from os.path import join
 from time import time
 from subprocess import Popen
 from collections import defaultdict
+import logging
 
 
 class Record:
@@ -22,9 +23,10 @@ class WasmVMBencher:
     def run_tests(self, test_descriptors, vm_descriptors):
         # {{[]}}
         results = defaultdict(lambda: defaultdict(list))
+        logger = logging.getLogger("wasm_bencher_logger")
 
         for test_name, test_descriptor in test_descriptors.items():
-            print("<wasm_bencher>: launch test", test_name)
+            logger.info("<wasm_bencher>: launch test", test_name)
             for vm in self.enabled_vm:
                 if vm not in vm_descriptors:
                     continue
@@ -37,10 +39,10 @@ class WasmVMBencher:
                 launch_count = compiler_launch_count if vm_descriptors[vm].is_compiler_type \
                     else interpretator_launch_count
                 for _ in range(launch_count):
-                    print(cmd)
+                    logger.info(cmd)
                     result_record = self.__do_one_test(cmd)
                     results[vm][test_name].append(result_record)
-                    print("<wasm_bencher>: {} result collected: time={}".format(vm, result_record.time))
+                    logger.info("<wasm_bencher>: {} result collected: time={}".format(vm, result_record.time))
 
         return results
 
