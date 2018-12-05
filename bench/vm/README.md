@@ -20,7 +20,6 @@ rustup update
 
 # install the Webassembly target for Rust
 rustup target add wasm32-unknown-unknown --toolchain nightly
-
 ```
 Below we also assume that Fluence GitHub repo has been already cloned and we are in the `vm_bench/tests` directory:
 
