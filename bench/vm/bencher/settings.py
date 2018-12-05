@@ -1,8 +1,19 @@
+"""
+Copyright 2018 Fluence Labs Limited
+ Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+     http://www.apache.org/licenses/LICENSE-2.0
+ Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
 from VMDescriptor import VMDescriptor
 from TestDescriptor import TestDescriptor
 from os.path import join
 
-# paths of Wasm VMs root directories
 vm_descriptors = {
     "wavm"   : VMDescriptor(join("build_", "bin", "wavm-run"),
                             "{wasm_file_path} -f {function_name}", True),
@@ -10,7 +21,7 @@ vm_descriptors = {
     "wasmi"  : VMDescriptor(join("target", "release", "examples", "invoke"),
                             "{wasm_file_path} {function_name}", False),
     "wasmer" : VMDescriptor(join("target", "release", "wasmer"), "run {wasm_file_path}", True),
-#    "wagon"  : VMDescriptor("", "", False),
+    "wagon"  : VMDescriptor(join("cmd", "wasm-run"), "wasm_run {wasm_module_path}", False),
     "asmble" : VMDescriptor(join("asmble", "bin", "asmble"),
                             "invoke -in {wasm_file_path} {function_name} -defmaxmempages 20000", True)
 }
@@ -24,10 +35,9 @@ compiler_launch_count = 11
 # export function name that should be called from Wasm module
 test_function_name = "main"
 
-# paths of benchmark tests
 test_descriptors = {
     # compressions tests are generated both for a small sequence with a lot of iterations
-    # and for a huge sequence with a few iterations
+    # and for a huge sequence with few iterations
     "snappy_compression_5_1000000_1Kb" :
         TestDescriptor("compression",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "
@@ -71,7 +81,7 @@ test_descriptors = {
                        {"ITERATIONS_COUNT": 10000000, "INITIAL_VALUE" : 0}),
 
     # matrix tests are generated both for a small matrix with a lot of iterations
-    # and for a huge matrix with a few iterations
+    # and for a huge matrix with few iterations
     "matrix_product_1_10_1000000":
         TestDescriptor("matrix_product",
                        "cargo build --manifest-path {}/Cargo.toml --target-dir {} --release "

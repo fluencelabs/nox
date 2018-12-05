@@ -1,23 +1,45 @@
 #!/usr/bin/python
 
+"""
+Copyright 2018 Fluence Labs Limited
+ Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+     http://www.apache.org/licenses/LICENSE-2.0
+ Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
 from BenchTestGenerator import BenchTestGenerator
 from WasmVMBencher import WasmVMBencher
 from settings import vm_descriptors, test_descriptors
 import click
 import csv
 import logging
+from os.path import join
 
 
-def save_test_results(results):
+def save_test_results(out_dir, results):
+    """
+        Saves provided results to <vm_name>.csv files in given out_dir.
+
+        Arguments:
+            out_dir
+                A directory where the result will be saved.
+            results
+                Results that should be saved.
+    """
     for vm in results:
-        with open(vm + ".csv", 'w', newline='') as vm_file:
+        with open(join(out_dir, vm + ".csv"), 'w', newline='') as bench_result_file:
             fieldnames = ['test_path', 'elapsed_time']
-            writer = csv.DictWriter(vm_file, fieldnames=fieldnames)
+            writer = csv.DictWriter(bench_result_file, fieldnames=fieldnames)
             writer.writeheader()
 
             for test_name, result_records in results[vm].items():
                 for record in result_records:
-                    writer.writerow({"test_path" : test_name, "elapsed_time" : record.time})
+                    writer.writerow({"test_name" : test_name, "elapsed_time" : record.time})
 
 
 @click.command()

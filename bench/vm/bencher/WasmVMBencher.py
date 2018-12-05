@@ -1,3 +1,15 @@
+"""
+Copyright 2018 Fluence Labs Limited
+ Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+     http://www.apache.org/licenses/LICENSE-2.0
+ Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
 from settings import interpretator_launch_count, compiler_launch_count, test_function_name
 
 from os import listdir
@@ -21,6 +33,15 @@ class WasmVMBencher:
         self.enabled_vm = listdir(vm_dir)
 
     def run_tests(self, test_descriptors, vm_descriptors):
+        """
+            Launches provided tests and returns their execution time.
+
+            Arguments:
+                test_descriptors
+                    Descriptors of test that should be used for benchmark Wasm VM.
+                vm_descriptors
+                    Descriptors of Wasm VM that should be tested on provided tests.
+        """
         # {{[]}}
         results = defaultdict(lambda: defaultdict(list))
         logger = logging.getLogger("wasm_bencher_logger")
@@ -47,6 +68,13 @@ class WasmVMBencher:
         return results
 
     def __do_one_test(self, vm_cmd):
+        """
+            Launch one test via subprocess.Popen and measure its execution time.
+
+            Arguments:
+                vm_cmd
+                    An exactly command that should be executed.
+        """
         start_time = time()
         Popen(vm_cmd, shell=True).wait(None)
         end_time = time()
