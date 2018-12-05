@@ -28,7 +28,7 @@ class VMDescriptor:
         True, if vm is compiler-type (JIT, AOT, ...).
 
     """
-    def __init__(self, relative_vm_binary_path="", vm_launch_cmd="", is_compiler_type=True):
-        self.relative_vm_binary_path = relative_vm_binary_path
+    def __init__(self, vm_relative_binary_path="", vm_launch_cmd="", is_compiler_type=True):
+        self.vm_relative_binary_path = vm_relative_binary_path
         self.vm_launch_cmd = vm_launch_cmd
         self.is_compiler_type = is_compiler_type

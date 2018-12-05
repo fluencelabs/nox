@@ -36,7 +36,7 @@ vm_descriptors = {
 
     "wasmer" : VMDescriptor(join("target", "release", "wasmer"), "run {wasm_file_path}", True),
 
-    "wagon"  : VMDescriptor(join("cmd", "wasm-run"), "wasm_run {wasm_module_path}", False),
+    "wagon"  : VMDescriptor(join("cmd", "wasm-run"), "wasm_run {wasm_file_path}", False),
 
     "asmble" : VMDescriptor(join("asmble", "bin", "asmble"),
                             "invoke -in {wasm_file_path} {function_name} -defmaxmempages 20000", True)

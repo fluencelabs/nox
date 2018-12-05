@@ -67,15 +67,15 @@ class WasmVMBencher:
         logger = logging.getLogger("wasm_bencher_logger")
 
         for test_name, test_descriptor in test_descriptors.items():
-            logger.info("<wasm_bencher>: launch test {}".format(test_name))
+            logger.info("<wasm_bencher>: launch {} test".format(test_name))
             for vm in self.enabled_vm:
                 if vm not in vm_descriptors:
                     continue
 
-                vm_binary_full_path = join(self.vm_dir, vm, vm_descriptors[vm].relative_vm_binary_path)
+                vm_binary_full_path = join(self.vm_dir, vm, vm_descriptors[vm].vm_relative_binary_path)
                 cmd = vm_binary_full_path + " " \
-                      + vm_descriptors[vm].arg_str.format(wasm_file_path=test_descriptor.test_full_path,
-                                                          function_name=test_function_name)
+                      + vm_descriptors[vm].vm_launch_cmd.format(wasm_file_path=test_descriptor.generated_test_full_path,
+                                                                function_name=test_function_name)
 
                 launch_count = compiler_launch_count if vm_descriptors[vm].is_compiler_type \
                     else interpreter_launch_count

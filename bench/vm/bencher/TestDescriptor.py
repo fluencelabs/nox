@@ -30,8 +30,8 @@ class TestDescriptor:
         A full path of finally compiled test.
 
     """
-    def __init__(self, test_folder_name="", test_generator_cmd="", test_generator_params={}):
-        self.folder_name = test_folder_name
-        self.compilation_cmd = test_generator_cmd
-        self.compilation_parameters = test_generator_params
+    def __init__(self, test_folder_name="", test_generator_cmd="", test_generator_parameters={}):
+        self.test_folder_name = test_folder_name
+        self.test_compilation_cmd = test_generator_cmd
+        self.test_compilation_parameters = test_generator_parameters
         self.generated_test_full_path = ""

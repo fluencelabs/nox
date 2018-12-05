@@ -52,22 +52,23 @@ class BenchTestGenerator:
 
         generated_tests_dir_full_path = join(out_dir, self.generated_tests_dir)
         test_mv_cmd = "mv " + join(out_dir, "wasm32-unknown-unknown", "release", "{}.wasm") + " " \
-                          + join(generated_tests_dir_full_path, "{}.wasm")
+                            + join(generated_tests_dir_full_path, "{}.wasm")
 
         for test_name, test_descriptor in test_descriptors.items():
             test_full_path = join(self.tests_dir, test_descriptor.test_folder_name)
-            test_compile_cmd = test_descriptor.test_generator_cmd.format(test_full_path, out_dir)
+            test_compilation_cmd = test_descriptor.test_compilation_cmd.format(test_full_path, out_dir)
 
-            for key, value in test_descriptor.test_generator_params.items():
-                test_cmd = "{}={} {}".format(key, value, test_compile_cmd)
+            for key, value in test_descriptor.test_compilation_parameters.items():
+                test_compilation_cmd = "{}={} {}".format(key, value, test_compilation_cmd)
 
-            call(test_compile_cmd, shell=True)
+            call(test_compilation_cmd, shell=True)
             call(test_mv_cmd.format(test_descriptor.test_folder_name, test_name), shell=True)
 
             # collect garbage to force cargo build the same test with different env params again
             self.__collect_garbage(out_dir)
 
-            test_descriptors[test_name].test_full_path = join(generated_tests_dir_full_path, "{}.wasm").format(test_name)
+            test_descriptors[test_name].generated_test_full_path = \
+                join(generated_tests_dir_full_path, "{}.wasm").format(test_name)
 
         return test_descriptors
 
