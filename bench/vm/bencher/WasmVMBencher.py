@@ -42,12 +42,12 @@ class WasmVMBencher:
                 vm_descriptors
                     Descriptors of Wasm VM that should be tested on provided tests.
         """
-        # {{[]}}
+        # {vm : {test_name : [Records]}}
         results = defaultdict(lambda: defaultdict(list))
         logger = logging.getLogger("wasm_bencher_logger")
 
         for test_name, test_descriptor in test_descriptors.items():
-            logger.info("<wasm_bencher>: launch test", test_name)
+            logger.info("<wasm_bencher>: launch test {}".format(test_name))
             for vm in self.enabled_vm:
                 if vm not in vm_descriptors:
                     continue
@@ -60,7 +60,7 @@ class WasmVMBencher:
                 launch_count = compiler_launch_count if vm_descriptors[vm].is_compiler_type \
                     else interpretator_launch_count
                 for _ in range(launch_count):
-                    logger.info(cmd)
+                    logger.info("<wasm_bencher>: {}".format(cmd))
                     result_record = self.__do_one_test(cmd)
                     results[vm][test_name].append(result_record)
                     logger.info("<wasm_bencher>: {} result collected: time={}".format(vm, result_record.time))
