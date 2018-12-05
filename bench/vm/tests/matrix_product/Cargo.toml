@@ -1,7 +1,7 @@
 [package]
 name = "matrix_product"
 version = "0.1.0"
-authors = ["M. Voronov <michail@fluence.one>"]
+authors = ["M. Voronov <mikhail@fluence.one>"]
 
 [lib]
 crate-type = ["cdylib"]
