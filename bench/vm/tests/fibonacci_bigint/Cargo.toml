@@ -1,7 +1,7 @@
 [package]
 name = "fibonacci_bigint"
 version = "0.1.0"
-authors = ["M. Voronov <mikhail@fluence.one>"]
+authors = ["Fluence Labs"]
 
 [lib]
 crate-type = ["cdylib"]
