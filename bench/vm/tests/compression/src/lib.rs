@@ -28,9 +28,9 @@ use settings::{ITERATIONS_COUNT, SEED, SEQUENCE_SIZE};
 type Sequence = Vec<u8>;
 
 /// Generates pseudo-random byte sequence by given seed and given size.
-fn generate_sequence(seed: u64, size: u64) -> Sequence {
+fn generate_sequence(seed: u64, size: usize) -> Sequence {
     let mut rng: IsaacRng = SeedableRng::seed_from_u64(seed);
-    let mut result_sequence = Sequence::with_capacity(size as usize);
+    let mut result_sequence = Sequence::with_capacity(size);
 
     for _ in 0..size {
         result_sequence.push(rng.gen::<u8>());
@@ -48,19 +48,19 @@ fn compress_sequence(sequence: &Sequence) -> Sequence {
 }
 
 #[no_mangle]
-pub extern "C" fn main() -> u64 {
+pub extern "C" fn main() -> u8 {
     let seed: u64 = SEED.parse::<u64>().unwrap();
     let iterations_count: u64 = ITERATIONS_COUNT.parse::<u64>().unwrap();
-    let sequence_size: u64 = SEQUENCE_SIZE.parse::<u64>().unwrap();
+    let sequence_size: usize = SEQUENCE_SIZE.parse::<usize>().unwrap();
 
     let mut compressed_sequence = generate_sequence(seed, sequence_size);
 
     for _ in 1..iterations_count {
-        let new_seed = compressed_sequence.len()
+        let new_seed: usize = compressed_sequence.len()
             + compressed_sequence.iter().fold(0u8, |x1, x2| x1 ^ x2) as usize;
         compressed_sequence = generate_sequence(new_seed as u64, sequence_size);
         compressed_sequence = compress_sequence(&compressed_sequence);
     }
 
-    compressed_sequence.iter().fold(0u8, |x1, x2| x1 ^ x2) as u64
+    compressed_sequence.iter().fold(0u8, |x1, x2| x1 ^ x2)
 }

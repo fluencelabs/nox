@@ -23,10 +23,10 @@ use rand_isaac::IsaacRng;
 use settings::*;
 
 /// Generates random matrix with given size by IsaacRng.
-fn generate_random_matrix(rows_number: u32, columns_count: u32, seed: u64) -> Matrix {
+fn generate_random_matrix(rows_number: usize, columns_count: usize, seed: u64) -> Matrix {
     let mut rng: IsaacRng = SeedableRng::seed_from_u64(seed);
-    Matrix::from_fn(rows_number as usize, columns_count as usize, |_, _| {
-        rng.gen_range(0f64, GENERATION_INTERVAL)
+    Matrix::from_fn(rows_number, columns_count, |_, _| {
+        rng.gen_range(0u64, GENERATION_INTERVAL)
     })
 }
 
@@ -44,7 +44,7 @@ fn compute_matrix_hash(matrix: &Matrix) -> f64 {
 
 #[no_mangle]
 pub extern "C" fn main() -> u64 {
-    let matrix_size: u32 = MATRIX_SIZE.parse::<u32>().unwrap();
+    let matrix_size: usize = MATRIX_SIZE.parse::<usize>().unwrap();
     let seed: u64 = SEED.parse::<u64>().unwrap();
     let iterations_count: u64 = ITERATIONS_COUNT.parse::<u64>().unwrap();
 
