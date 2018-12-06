@@ -106,7 +106,7 @@ fn main() {
 
 fn handle_error<T, E>(result: Result<T, E>)
 where
-    E: std::error::Error + error_chain::ChainedError,
+    E: error_chain::ChainedError,
 {
     if let Err(err) = result {
         use std::io::Write;
