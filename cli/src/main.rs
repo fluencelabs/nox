@@ -31,9 +31,9 @@ extern crate rand;
 mod publisher;
 mod register;
 mod status;
+mod types;
 mod utils;
 mod whitelist;
-mod types;
 
 use clap::App;
 use clap::AppSettings;
@@ -90,7 +90,7 @@ fn main() {
         ("status", Some(args)) => {
             let status = status::get_status_by_args(args).unwrap();
 
-//          println!("Status of Fluence smart contract:\n{}", status);
+            //          println!("Status of Fluence smart contract:\n{}", status);
         }
 
         c => panic!("Unexpected command: {}", c.0),

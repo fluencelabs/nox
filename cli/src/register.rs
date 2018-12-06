@@ -20,11 +20,11 @@ use hex;
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
+use types::{H192, IP_LEN};
 use utils;
 use web3::contract::tokens::Tokenizable;
 use web3::contract::{Error as ContractError, ErrorKind};
 use web3::types::{Address, H256};
-use types::{H192, IP_LEN};
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";

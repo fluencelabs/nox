@@ -34,7 +34,6 @@ pub const TENDERMINT_KEY_LEN: usize = 20;
 /// number of bytes for encoding IP address and tendermint key
 pub const NODE_ADDR_LEN: usize = IP_LEN + TENDERMINT_KEY_LEN;
 construct_fixed_hash!{ pub struct H192(NODE_ADDR_LEN); }
-impl_fixed_types!(NODE_ADDR_LEN);
 
 /// Helper for converting the hash structure to web3 format
 impl Tokenizable for H192 {
@@ -43,9 +42,9 @@ impl Tokenizable for H192 {
             Token::FixedBytes(mut s) => {
                 if s.len() != NODE_ADDR_LEN {
                     bail!(ErrorKind::InvalidOutputType(format!(
-                    "Expected `H192`, got {:?}",
-                    s
-                )));
+                        "Expected `H192`, got {:?}",
+                        s
+                    )));
                 }
                 let mut data = [0; NODE_ADDR_LEN];
                 for (idx, val) in s.drain(..).enumerate() {
