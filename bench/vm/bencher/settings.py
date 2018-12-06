@@ -29,6 +29,7 @@ test_function_name = "main"
 vm_descriptors = {
     "wavm"   : VMDescriptor(join("build_", "bin", "wavm-run"),
                             "{wasm_file_path} -f {function_name}", True),
+
     "life"   : VMDescriptor(join("life"), "-entry {function_name} {wasm_file_path}", False),
 
     "wasmi"  : VMDescriptor(join("target", "release", "examples", "invoke"),

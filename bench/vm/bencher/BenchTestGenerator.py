@@ -25,7 +25,6 @@ class BenchTestGenerator:
         self.tests_dir = test_dir
         self.generated_tests_dir = "bench_tests"
 
-    # compiles test with chosen parameters
     def generate_tests(self, out_dir, test_descriptors):
         """Generates tests by their descriptors.
 
@@ -45,7 +44,7 @@ class BenchTestGenerator:
             Test descriptors with test_full_path filled.
 
         """
-        call("mkdir {}".format(join(out_dir,self.generated_tests_dir)), shell=True)
+        call("mkdir -p {}".format(join(out_dir,self.generated_tests_dir)), shell=True)
 
         # collect garbage to clean possible previous unsuccessfully build results that prevent cargo to build new tests
         self.__collect_garbage(out_dir)
