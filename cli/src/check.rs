@@ -17,6 +17,7 @@
 use self::errors::*;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use console::style;
+use parity_wasm::elements::Error as ParityError;
 use parity_wasm::elements::Module;
 use std::collections::HashMap;
 
@@ -24,6 +25,8 @@ const INPUT_ARG: &str = "input";
 
 /// Performs validations according to the specified arguments. Writes results
 /// to 'stdout' until some error occurred.
+///
+/// For now, is only implemented searching for using functions from banned modules.
 pub fn process(args: &ArgMatches) -> Result<()> {
     // defines banned modules (todo add more)
     let banned_modules = vec![
@@ -32,24 +35,27 @@ pub fn process(args: &ArgMatches) -> Result<()> {
         "std::sys::wasm::time::",
     ];
 
-    let file = args.value_of(INPUT_ARG).unwrap(); // always define
+    let file = args.value_of(INPUT_ARG).unwrap(); // always defined
     let module = read_wasm_file(file)?;
 
     //
     // Step 1. Find all functions from specified banned modules
     //
 
-    if let Some(banned_functions) = find_banned_fns_idxs(&module, &banned_modules) {
-        println!("There was found next banned functions ->");
-        banned_functions
-            .iter()
-            .for_each(|(idx, name)| println!("  idx: {:?} name: {:?}", idx, name));
-    } else {
+    let banned_functions = find_banned_fns_idxs(&module, &banned_modules)?;
+
+    if banned_functions.is_empty() {
         let msg = format!(
             "\nAll right! There are no functions from banned modules {:?}\n",
             banned_modules
         );
-        println!("{}", style(msg).bold())
+        println!("{}", style(msg).bold());
+    } else {
+        println!("There was found next banned functions ->");
+        banned_functions
+            .iter()
+            .for_each(|(idx, name)| println!("  idx: {:?} name: {:?}", idx, name));
+        println!("For the next banned modules {:?}", banned_modules);
     }
 
     //
@@ -63,7 +69,7 @@ pub fn process(args: &ArgMatches) -> Result<()> {
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("check")
-        .about("Verifies wasm file, issue warning for 'dangerous code'")
+        .about("Verifies wasm file, issue warning for using functions from banned modules.")
         .args(&[Arg::with_name(INPUT_ARG)
             .required(true)
             .takes_value(true)
@@ -77,8 +83,13 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 /// Reads specified file, parses and returns module representation.
 fn read_wasm_file(file: &str) -> Result<Module> {
     parity_wasm::deserialize_file(file)
-        .and_then(|module| module.parse_names().map_err(|err| err.0[0].1.clone()))
+        .and_then(|module| module.parse_names().map_err(|errors| get_first(&errors)))
         .map_err(Into::into)
+}
+
+/// Takes first error from Error list.
+fn get_first(errors: &(Vec<(usize, ParityError)>, Module)) -> ParityError {
+    errors.0[0].1.clone()
 }
 
 /// Finds in the name section all functions from specified banned modules and
@@ -86,39 +97,35 @@ fn read_wasm_file(file: &str) -> Result<Module> {
 fn find_banned_fns_idxs<'a>(
     module: &'a Module,
     banned_modules: &[&str],
-) -> Option<HashMap<u32, &'a str>> {
+) -> Result<HashMap<u32, &'a str>> {
     use parity_wasm::elements::NameSection;
 
-    module.names_section().and_then(|name_sec| {
-        if let NameSection::Function(fn_name_sec) = name_sec {
-            let banned_fns: HashMap<u32, &'a str> = fn_name_sec
-                .names()
-                .iter()
-                .filter_map(|(idx, name)| {
-                    banned_modules
-                        .iter()
-                        .find(|m| name.starts_with(*m))
-                        .map(|_| (idx, name.as_str()))
-                }).collect();
-
-            if banned_fns.is_empty() {
-                None
+    // name section is actually Map<fn_idx, fn_name> for each function in a module
+    module
+        .names_section()
+        .ok_or_else(|| Error::from("Name section is absent, verification is aborted."))
+        .and_then(|name_sec| {
+            if let NameSection::Function(fn_name_sec) = name_sec {
+                let banned_fns: HashMap<u32, &'a str> = fn_name_sec
+                    .names()
+                    .iter()
+                    .filter_map(|(idx, name)| {
+                        banned_modules
+                            .iter()
+                            .find(|m| name.starts_with(*m))
+                            .map(|_| (idx, name.as_str()))
+                    }).collect();
+                Ok(banned_fns)
             } else {
-                Some(banned_fns)
+                Err("Name section for functions is absent, verification is aborted.".into())
             }
-        } else {
-            None
-        }
-    })
+        })
 }
 
 mod errors {
     error_chain! {
-
          foreign_links {
             ParityErr(parity_wasm::elements::Error);
         }
-
     }
-
 }
