@@ -15,20 +15,20 @@
  */
 mod settings;
 
-extern crate snap;
 extern crate deflate;
 extern crate rand;
 extern crate rand_isaac;
+extern crate snap;
 
-use settings::{SEED, ITERATIONS_COUNT, SEQUENCE_SIZE};
+use deflate::deflate_bytes;
 use rand::{Rng, SeedableRng};
 use rand_isaac::IsaacRng;
-use deflate::deflate_bytes;
+use settings::{ITERATIONS_COUNT, SEED, SEQUENCE_SIZE};
 
 type Sequence = Vec<u8>;
 
 /// Generates pseudo-random byte sequence by given seed and given size.
-fn generate_sequence(seed : u64, size : u64) -> Sequence {
+fn generate_sequence(seed: u64, size: u64) -> Sequence {
     let mut rng: IsaacRng = SeedableRng::seed_from_u64(seed);
     let mut result_sequence = Sequence::with_capacity(size as usize);
 
@@ -48,16 +48,16 @@ fn compress_sequence(sequence: &Sequence) -> Sequence {
 }
 
 #[no_mangle]
-pub extern fn main() -> u64 {
-    let seed : u64 = SEED.parse::<u64>().unwrap();
-    let iterations_count : u64 = ITERATIONS_COUNT.parse::<u64>().unwrap();
-    let sequence_size : u64 = SEQUENCE_SIZE.parse::<u64>().unwrap();
+pub extern "C" fn main() -> u64 {
+    let seed: u64 = SEED.parse::<u64>().unwrap();
+    let iterations_count: u64 = ITERATIONS_COUNT.parse::<u64>().unwrap();
+    let sequence_size: u64 = SEQUENCE_SIZE.parse::<u64>().unwrap();
 
     let mut compressed_sequence = generate_sequence(seed, sequence_size);
 
     for _ in 1..iterations_count {
-        let new_seed = compressed_sequence.len() +
-            compressed_sequence.iter().fold(0u8, |x1, x2| x1 ^ x2) as usize;
+        let new_seed = compressed_sequence.len()
+            + compressed_sequence.iter().fold(0u8, |x1, x2| x1 ^ x2) as usize;
         compressed_sequence = generate_sequence(new_seed as u64, sequence_size);
         compressed_sequence = compress_sequence(&compressed_sequence);
     }

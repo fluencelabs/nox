@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /// This value is used as the first seed of pseudo-random generator for sequence generation.
-pub const SEED : &str = env!("SEED");
+pub const SEED: &str = env!("SEED");
 
 /// Count of compression iterations.
 pub const ITERATIONS_COUNT: &str = env!("ITERATIONS_COUNT");

@@ -14,4 +14,4 @@
  * limitations under the License.
  */
 /// A requested number that should be factorized by this test.
-pub const FACTORIZED_NUMBER : &str = env!("FACTORIZED_NUMBER");
+pub const FACTORIZED_NUMBER: &str = env!("FACTORIZED_NUMBER");

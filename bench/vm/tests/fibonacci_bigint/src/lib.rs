@@ -17,9 +17,9 @@ mod settings;
 extern crate num_bigint;
 extern crate num_traits;
 
-use settings::FIB_NUMBER;
 use num_bigint::BigUint;
 use num_traits::One;
+use settings::FIB_NUMBER;
 use std::ops::Sub;
 
 /// Recursively computes a fibonacci number F_num for the given num.
@@ -32,9 +32,11 @@ fn fib(num: &BigUint) -> BigUint {
 }
 
 #[no_mangle]
-pub extern fn main() -> u8 {
-    let fib_number : BigUint = BigUint::from(FIB_NUMBER.parse::<u64>().unwrap());
+pub extern "C" fn main() -> u8 {
+    let fib_number: BigUint = BigUint::from(FIB_NUMBER.parse::<u64>().unwrap());
 
-    fib(&fib_number).to_bytes_le().iter().fold(0u8, |x1, x2| x1 ^ x2)
+    fib(&fib_number)
+        .to_bytes_le()
+        .iter()
+        .fold(0u8, |x1, x2| x1 ^ x2)
 }
-
