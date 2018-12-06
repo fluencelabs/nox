@@ -1,0 +1,19 @@
+[package]
+name = "fluence"
+version = "0.1.0" # don't forget to change in README.md too
+authors = ["Fluence Labs"]
+
+[dependencies]
+clap = "2.32.0"
+indicatif = "0.9.0"
+console = "0.6.2"
+reqwest = "0.9.3"
+hex = "0.3.2"
+web3 = { git = "https://github.com/tomusdrw/rust-web3" }
+
+fixed-hash = "0.3.0"
+ethabi = "6.1.0"
+error-chain = "0.12.0"
+
+[dev-dependencies]
+rand = "0.6.0"

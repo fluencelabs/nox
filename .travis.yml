@@ -4,6 +4,12 @@ matrix:
       scala: 2.12.7
       jdk: oraclejdk8
 
+      services:
+        - docker
+      install:
+        - docker pull fluencelabs/solver:2018-dec-demo
+        - docker pull fluencelabs/node:2018-dec-demo
+
       # These directories are cached to S3 at the end of the build
       cache:
         directories:
@@ -47,15 +53,16 @@ matrix:
 
       script:
         - cargo fmt --all -- --check -v
-        - cargo build -v
-        - cargo doc -v
-        - cargo test -v
+        - cargo build -v --all-features
+        - cargo doc -v --all-features
+        - cargo test -v --all-features
 
     - name: LlamaDb VM example
 
       language: rust
       rust: nightly
       cache: cargo
+      sudo: false
       before_install:
         - rustup component add rustfmt-preview --toolchain nightly
         - cd vm/examples/llamadb
@@ -66,7 +73,7 @@ matrix:
         - cargo doc -v
         - cargo test -v
 
-    - name: Publisher CLI
+    - name: Fluence CLI
 
       language: rust
       rust: stable
@@ -74,7 +81,7 @@ matrix:
 
       before_install:
         - rustup component add rustfmt-preview
-        - cd publisher
+        - cd cli
 
       script:
         - npm install --prefix ../bootstrap

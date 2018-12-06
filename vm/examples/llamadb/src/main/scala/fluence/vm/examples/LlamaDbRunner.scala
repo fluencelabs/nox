@@ -33,6 +33,8 @@ object LlamaDbRunner extends IOApp {
       vm <- WasmVm[IO](Seq(inputFile))
       initState <- vm.getVmState[IO]
 
+      initLogRes <- vm.invoke[IO](None, "init_logger")
+
       createTable <- executeSql(vm, "CREATE TABLE Users(id INT, name TEXT, age INT)")
 
       insertOne <- executeSql(vm, "INSERT INTO Users VALUES(1, 'Sara', 23)")
@@ -79,7 +81,8 @@ object LlamaDbRunner extends IOApp {
 
       finishState <- vm.getVmState[IO].toVmError
     } yield {
-      s"$createTable\n" +
+      s"${initLogRes.toStr}\n" +
+        s"$createTable\n" +
         s"$insertOne\n" +
         s"$bulkInsert\n" +
         s"$emptySelect\n" +

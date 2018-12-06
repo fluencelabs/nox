@@ -40,7 +40,7 @@ object SbtCommons {
   val fs2rx = "co.fs2" %% "fs2-reactive-streams" % fs2Version
   val fs2io = "co.fs2" %% "fs2-io"               % fs2Version
   // functional wrapper around 'lightbend/config'
-  val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.9.1"
+  val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.10.0"
   val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.2"
   val cryptoCipher = "one.fluence"         %% "crypto-cipher"   % "0.0.2"
   val cryptoKeyStore = "one.fluence"       %% "crypto-keystore" % "0.0.2"
@@ -59,13 +59,13 @@ object SbtCommons {
   val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.6"
   val scodecCore = "org.scodec" %% "scodec-core" % "1.10.3"
 
-  val web3jVersion = "3.5.0"
+  val web3jVersion = "3.6.0"
   val web3jCrypto = "org.web3j" % "crypto" % web3jVersion
   val web3jCore = "org.web3j"   % "core"   % web3jVersion
 
   val prometheusClientVersion = "0.5.0"
-  val prometheusClient = "io.prometheus" % "simpleclient" % prometheusClientVersion
-  val prometheusClientJetty = "io.prometheus" % "simpleclient_jetty" % prometheusClientVersion
+  val prometheusClient = "io.prometheus"        % "simpleclient"         % prometheusClientVersion
+  val prometheusClientJetty = "io.prometheus"   % "simpleclient_jetty"   % prometheusClientVersion
   val prometheusClientServlet = "io.prometheus" % "simpleclient_servlet" % prometheusClientVersion
 
   /* Test deps*/
