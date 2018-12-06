@@ -22,3 +22,6 @@ Then, copy & paste contract's address and your wallet into `ContractSpec` and ru
 
 ## Run tests
 `npm test`
+
+## Get current eth account through truffle
+`npm run getEthAccount`

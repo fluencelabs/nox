@@ -50,7 +50,12 @@ case class TendermintState(
    */
   def switch(): TendermintState = {
     val merkelized = consensusState.merkelize()
-    TendermintState(latestCommittedHeight + 1, consensusState, Some(merkelized), mempoolState)
+    TendermintState(
+      latestCommittedHeight = latestCommittedHeight + 1,
+      consensusState = consensusState,
+      mempoolState = Some(merkelized),
+      queryState = mempoolState
+    )
   }
 
   /**
