@@ -13,5 +13,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// a requested fibonacci number that would be computed
-pub const FIB_NUMBER: &'static str = env!("FIB_NUMBER");
+/// A requested fibonacci number that would be computed.
+pub const FIB_NUMBER: &str = env!("FIB_NUMBER");

@@ -13,5 +13,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// a number that should be factorized by this test
-pub const FACTORIZED_NUMBER : &'static str = env!("FACTORIZED_NUMBER");
+/// A requested number that should be factorized by this test.
+pub const FACTORIZED_NUMBER : &str = env!("FACTORIZED_NUMBER");

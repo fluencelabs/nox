@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// this value is used as the first seed of pseudo-random generator for sequence generation
-pub const SEED : &'static str = env!("SEED");
+/// This value is used as the first seed of pseudo-random generator for sequence generation.
+pub const SEED : &str = env!("SEED");
 
-/// count of compression iterations
-pub const ITERATIONS_COUNT: &'static str = env!("ITERATIONS_COUNT");
+/// Count of compression iterations.
+pub const ITERATIONS_COUNT: &str = env!("ITERATIONS_COUNT");
 
-/// size of sequence that should be compressed on each iteration
-pub const SEQUENCE_SIZE: &'static str = env!("SEQUENCE_SIZE");
+/// Size of sequence that should be compressed on each iteration.
+pub const SEQUENCE_SIZE: &str = env!("SEQUENCE_SIZE");

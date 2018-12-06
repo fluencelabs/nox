@@ -27,7 +27,7 @@ use deflate::deflate_bytes;
 
 type Sequence = Vec<u8>;
 
-/// generates pseudo-random byte sequence by given seed and given size
+/// Generates pseudo-random byte sequence by given seed and given size.
 fn generate_sequence(seed : u64, size : u64) -> Sequence {
     let mut rng: IsaacRng = SeedableRng::seed_from_u64(seed);
     let mut result_sequence = Sequence::with_capacity(size as usize);
@@ -38,7 +38,7 @@ fn generate_sequence(seed : u64, size : u64) -> Sequence {
     result_sequence
 }
 
-/// compresses provided sequence by deflate or snappy algorithm
+/// Compresses provided sequence by deflate or snappy algorithm.
 fn compress_sequence(sequence: &Sequence) -> Sequence {
     if cfg!(feature = "deflate_compression") {
         return deflate_bytes(&sequence);
@@ -48,7 +48,7 @@ fn compress_sequence(sequence: &Sequence) -> Sequence {
 }
 
 #[no_mangle]
-pub extern "C" fn main() -> u64 {
+pub extern fn main() -> u64 {
     let seed : u64 = SEED.parse::<u64>().unwrap();
     let iterations_count : u64 = ITERATIONS_COUNT.parse::<u64>().unwrap();
     let sequence_size : u64 = SEQUENCE_SIZE.parse::<u64>().unwrap();

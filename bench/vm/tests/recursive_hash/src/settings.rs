@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /// count of recursive sha3 that would be computed
-pub const ITERATIONS_COUNT: &'static str = env!("ITERATIONS_COUNT");
+pub const ITERATIONS_COUNT: &str = env!("ITERATIONS_COUNT");
 
 /// an initial value for computed hash chain
-pub const INITIAL_VALUE: &'static str = env!("INITIAL_VALUE");
+pub const INITIAL_VALUE: &str = env!("INITIAL_VALUE");
