@@ -68,7 +68,7 @@ fn create_progress_bar(prefix: &str, msg: &str) -> ProgressBar {
 
 /// Initializes contract from `ABI` file
 fn init_contract<T: Transport>(
-    web3: Web3<T>,
+    web3: &Web3<T>,
     contract_address: Address,
 ) -> Result<Contract<T>, Box<Error>> {
     let json = include_bytes!("../../bootstrap/contracts/compiled/Deployer.abi");
@@ -96,7 +96,7 @@ where
         web3.personal().unlock_account(account, p, None).wait()?;
     }
 
-    let contract = init_contract(web3, contract_address)?;
+    let contract = init_contract(&web3, contract_address)?;
 
     let result_code_publish = contract.call(func, params, account, options);
     Ok(result_code_publish.wait()?)
@@ -117,7 +117,7 @@ where
     let (_eloop, transport) = web3::transports::Http::new(&eth_url)?;
     let web3 = web3::Web3::new(transport);
 
-    let contract = init_contract(web3, contract_address)?;
+    let contract = init_contract(&web3, contract_address)?;
 
     let result_code_publish = contract.query(func, params, None, options, None);
     let res = result_code_publish.wait()?;
@@ -139,7 +139,7 @@ pub fn add_to_white_list(
         web3.personal().unlock_account(account, p, None).wait()?;
     }
 
-    let contract = init_contract(web3, contract_address)?;
+    let contract = init_contract(&web3, contract_address)?;
 
     Ok(contract
         .call(

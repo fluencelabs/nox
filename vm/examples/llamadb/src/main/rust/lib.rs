@@ -111,7 +111,6 @@ fn log_and_panic(msg: String) -> ! {
 }
 
 /// Acquires lock, does query, releases lock, returns query result
-#[allow(clippy::let_and_return)]
 fn run_query(sql_query: &str) -> GenResult<String> {
     let mut db = DATABASE.lock()?;
     let result = db
