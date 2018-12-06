@@ -80,5 +80,6 @@ class BenchTestGenerator:
             A directory where build results are placed.
 
         """
+        # TODO : clean by cargo clean
         call(("rm -rf " + join("{}", "wasm32-unknown-unknown")).format(out_dir), shell=True)
         call(("rm -rf " + join("{}", "release")).format(out_dir), shell=True)
