@@ -102,13 +102,13 @@ impl Publisher {
                 pass,
                 &self.eth_url,
                 "addCode",
-                (hash, receipt, self.cluster_size as u64),
+                (hash, receipt, u64::from(self.cluster_size)),
                 options,
             )
         };
 
         // sending transaction with the hash of file with code to ethereum
-        let transaction = if show_progress {
+        if show_progress {
             utils::with_progress(
                 "Submitting the code to the smart contract...",
                 "2/2",
@@ -117,8 +117,7 @@ impl Publisher {
             )
         } else {
             publish_to_contract_fn()
-        };
-        transaction
+        }
     }
 }
 
@@ -217,7 +216,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 }
 
 /// Uploads bytes of code to the Swarm
-fn upload_code_to_swarm(url: &str, bytes: &Vec<u8>) -> Result<String, Box<Error>> {
+fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Box<Error>> {
     let mut url = utils::parse_url(url)?;
     url.set_path("/bzz:/");
 
