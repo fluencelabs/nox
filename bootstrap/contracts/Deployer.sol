@@ -195,13 +195,28 @@ contract Deployer is Whitelist {
         return clusters;
     }
 
-    function getNode(bytes32 nodeId)
+    function getNodes()
         external
         view
-        returns (bytes32, bytes24, uint16, uint16, uint16, uint)
+        returns (bytes32[], bytes24[], uint16[], uint16[], uint16[], uint[])
     {
-        Node memory node = nodes[nodeId];
-        return (node.id, node.nodeAddress, node.startPort, node.endPort, node.currentPort, node.solverClustersOffset);
+        bytes32[] memory ids = new bytes32[](nodesIndices.length);
+        bytes24[] memory nodeAddresses = new bytes24[](nodesIndices.length);
+        uint16[] memory startPorts = new uint16[](nodesIndices.length);
+        uint16[] memory endPorts = new uint16[](nodesIndices.length);
+        uint16[] memory currentPorts = new uint16[](nodesIndices.length);
+        uint[] memory solverClustersOffsets = new uint[](nodesIndices.length);
+        for (uint i = 0; i < nodesIndices.length; ++i) {
+            Node memory node = nodes[nodesIndices[i]];
+            ids[i] = node.id;
+            nodeAddresses[i] = node.nodeAddress;
+            startPorts[i] = node.startPort;
+            endPorts[i] = node.endPort;
+            currentPorts[i] = node.currentPort;
+            solverClustersOffsets[i] = node.solverClustersOffset;
+        }
+
+        return (ids, nodeAddresses, startPorts, endPorts, currentPorts, solverClustersOffsets);
     }
 
     /** @dev Allows to track contract status

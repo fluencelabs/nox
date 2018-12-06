@@ -24,6 +24,7 @@ use utils;
 use web3::contract::tokens::Tokenizable;
 use web3::contract::{Error as ContractError, ErrorKind};
 use web3::types::{Address, H256};
+use types::{H192, IP_LEN};
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
@@ -33,44 +34,6 @@ const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
-
-/// number of bytes for encoding an IP address
-const IP_LEN: usize = 4;
-
-/// number of bytes for encoding tendermint key
-const TENDERMINT_KEY_LEN: usize = 20;
-
-/// number of bytes for encoding IP address and tendermint key
-const NODE_ADDR_LEN: usize = IP_LEN + TENDERMINT_KEY_LEN;
-construct_fixed_hash!{ pub struct H192(NODE_ADDR_LEN); }
-
-/// Helper for converting the hash structure to web3 format
-impl Tokenizable for H192 {
-    fn from_token(token: Token) -> Result<Self, ContractError> {
-        match token {
-            Token::FixedBytes(mut s) => {
-                if s.len() != NODE_ADDR_LEN {
-                    bail!(ErrorKind::InvalidOutputType(format!(
-                        "Expected `H192`, got {:?}",
-                        s
-                    )));
-                }
-                let mut data = [0; NODE_ADDR_LEN];
-                for (idx, val) in s.drain(..).enumerate() {
-                    data[idx] = val;
-                }
-                Ok(data.into())
-            }
-            other => Err(
-                ErrorKind::InvalidOutputType(format!("Expected `H192`, got {:?}", other)).into(),
-            ),
-        }
-    }
-
-    fn into_token(self) -> Token {
-        Token::FixedBytes(self.0.to_vec())
-    }
-}
 
 #[derive(Debug)]
 pub struct Register {

@@ -33,6 +33,7 @@ mod register;
 mod status;
 mod utils;
 mod whitelist;
+mod types;
 
 use clap::App;
 use clap::AppSettings;

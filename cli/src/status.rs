@@ -19,7 +19,11 @@ use std::boxed::Box;
 use std::error::Error;
 use std::fmt;
 use utils;
-use web3::types::Address;
+use web3::types::{Address, H256};
+use web3::types;
+use web3::contract::tokens::Tokenizable;
+use ethabi::Token;
+use types::{H192};
 
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
@@ -81,10 +85,14 @@ pub fn get_new_status(contract_address: Address, eth_url: &str) -> Result<(), Bo
 
     println!("send status");
 
-    let (nodes_indices, clusters_indices, ready_nodes, solver_clusters): (Vec<Vec<u8>>, Vec<Vec<u8>>, Vec<Vec<u8>>, Vec<Vec<u8>>) =
+    let (clusters_indices, ready_nodes, solver_clusters): (Vec<Vec<u8>>, Vec<Vec<u8>>, Vec<Vec<u8>>) =
         utils::query_contract(contract_address, eth_url, "getStatus", (), options)?;
 
-    println!("nodes indices: {:?}: ", nodes_indices);
+    let options2 = utils::options_with_gas(2300_000);
+
+    let (nodes_indices, node_addresses, start_ports, end_ports, current_ports, solver_clusters_offsets): (Vec<H256>, Vec<H192>, Vec<u64>, Vec<u64>, Vec<u64>, Vec<u64>) =
+        utils::query_contract(contract_address, eth_url, "getNodes", (), options2)?;
+
     println!("clusters indices: {:?}: ", clusters_indices);
     println!("ready_nodes: {:?}: ", ready_nodes);
     println!("solver_clusters: {:?}: ", solver_clusters);
