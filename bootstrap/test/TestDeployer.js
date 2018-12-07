@@ -111,55 +111,29 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
 
         await this.deployer.addNode(nodeID, "127.0.0.1", 1000, 1002, { from: whitelisted })
 
-        console.log("11111111")
-
         let receipt1 = await this.deployer.addCode(storageHash, storageReceipt, count, { from: whitelisted })
         truffleAssert.eventNotEmitted(receipt1, codeEnqueuedEvent)
         truffleAssert.eventEmitted(receipt1, clusterFormedEvent, (ev) => {
-            console.log("qqqqqqqqqqqqq")
             assert.equal(ev.solverAddrs.length, count)
-            console.log("wwwwwwwwwwwwww")
             assert.equal(ev.solverPorts[0], 1000)
-            console.log("eeeeeeeeeeeeeeeee")
             clusterID1 = ev.clusterID
-            console.log("rrrrrrrrrrrrr")
             return true;
         })
 
-        console.log("22222222222")
-
         let receipt2 = await this.deployer.addCode(storageHash, storageReceipt, count, { from: whitelisted })
-        console.log("33333333333")
         truffleAssert.eventNotEmitted(receipt2, codeEnqueuedEvent)
-        console.log("4444444444444")
         truffleAssert.eventEmitted(receipt2, clusterFormedEvent, (ev) => {
-            console.log("55555555555")
             assert.equal(ev.solverAddrs.length, count)
-            console.log("6666666666666")
             assert.equal(ev.solverPorts[0], 1001)
-            console.log("7777777777777")
             clusterID2 = ev.clusterID
             return true;
         })
 
-        console.log("88888888888888888")
-
         let receipt3 = await this.deployer.addCode(storageHash, storageReceipt, count, { from: whitelisted })
-        console.log("9999999999999999")
         truffleAssert.eventEmitted(receipt3, codeEnqueuedEvent)
-        console.log("zzzzzzzzzzzzzzzzz")
         truffleAssert.eventNotEmitted(receipt3, clusterFormedEvent)
 
-        console.log("ddddddddddddddddddddddddddddddd")
-
-        var voteCast = this.deployer.LogSmth();
-        voteCast.watch(function(err, result) {
-          log.console("err" + err);
-          log.console("result" + result);
-        });
-
         let nodeClusters = await this.deployer.getNodeClusters(nodeID)
-        console.log("xxxxxxxxxxxxxxxx")
         console.log(nodeClusters)
         assert.equal(nodeClusters[0], clusterID1)
         assert.equal(nodeClusters[1], clusterID2)

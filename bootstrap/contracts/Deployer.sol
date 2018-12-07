@@ -161,31 +161,22 @@ contract Deployer is Whitelist {
             cluster.nodeAddresses, cluster.ports);
     }
 
-    /*/** @dev Allows to track currently running clusters for specified node's solvers
-     * nodeID ID of node (Tendermint consensus key)
+    /** @dev Allows to track currently running clusters for specified node's solvers
+     *  @param nodeID ID of node (Tendermint consensus key)
      */
     function getNodeClusters(bytes32 nodeID)
         external
-
+        view
         returns (bytes32[])
     {
-
-
-        emit LogSmth(0);
         Node memory node = nodes[nodeID];
         bytes32[] memory clusterIDs = new bytes32[](node.currentPort - node.startPort);
         uint count = 0;
 
-        emit LogSmth(1);
-
         for (uint i = 1; i < clusterCount; i++) {
-            emit LogSmth(2);
             BusyCluster memory cluster = busyClusters[bytes32(i)];
-            emit LogSmth(3);
             for (uint j = 0; j < cluster.nodeAddresses.length; j++) {
-              emit LogSmth(4);
-              if (cluster.nodeAddresses[i] == nodeID) {
-                emit LogSmth(5);
+              if (cluster.nodeAddresses[j] == node.nodeAddress) {
                 clusterIDs[count++] = cluster.clusterID;
               }
             }
