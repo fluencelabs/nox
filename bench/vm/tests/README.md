@@ -38,7 +38,7 @@ To run:
 
 ```shell
 cd recursive_hash
-ITERATIONS_COUNT=1 SEED=1000000 SEQUENCE_SIZE=1024 cargo +nightly build --release --target wasm32-unknown-unknown [--feature "deflate_compression"]
+ITERATIONS_COUNT=1 SEED=1000000 SEQUENCE_SIZE=1024 cargo build --release --target wasm32-unknown-unknown [--feature "deflate_compression"]
 ```
 
 ### Factorization
@@ -49,7 +49,7 @@ To run:
 
 ```shell
 cd factorization_reikna
-FACTORIZED_NUMBER=2147483647 cargo +nightly build --release --target wasm32-unknown-unknown
+FACTORIZED_NUMBER=2147483647 cargo build --release --target wasm32-unknown-unknown
 ```
 
 ### Recursive fibonacci computing
@@ -60,7 +60,7 @@ To run:
 
 ```shell
 cd fibonacci_bigint
-FIB_NUMBER=38 cargo +nightly build --release --target wasm32-unknown-unknown
+FIB_NUMBER=38 cargo build --release --target wasm32-unknown-unknown
 ```
 
 ### Matrix product
@@ -71,7 +71,7 @@ To run:
 
 ```shell
 cd matrix_product
-ITERATIONS_COUNT=1000000 SEED=1 MATRIX_SIZE=10 cargo +nightly build --release --target wasm32-unknown-unknown
+ITERATIONS_COUNT=1000000 SEED=1 MATRIX_SIZE=10 cargo build --release --target wasm32-unknown-unknown
 ```
 
 ### Matrix QR decomposition
@@ -82,7 +82,7 @@ To run:
 
 ```shell
 cd matrix_qr_decomposition
-ITERATIONS_COUNT=1000000 SEED=1 MATRIX_SIZE=10 cargo +nightly build --release --target wasm32-unknown-unknown
+ITERATIONS_COUNT=1000000 SEED=1 MATRIX_SIZE=10 cargo build --release --target wasm32-unknown-unknown
 ```
 
 ### Matrix SVD decomposition
@@ -93,7 +93,7 @@ To run:
 
 ```shell
 cd matrix_svd_decomposition
-ITERATIONS_COUNT=1000000 SEED=1 MATRIX_SIZE=10 cargo +nightly build --release --target wasm32-unknown-unknown
+ITERATIONS_COUNT=1000000 SEED=1 MATRIX_SIZE=10 cargo build --release --target wasm32-unknown-unknown
 ```
 
 ### Recursive hash computing
@@ -104,5 +104,5 @@ To run:
 
 ```shell
 cd recursive_hash
-ITERATIONS_COUNT=10000000 INITIAL_VALUE=0 cargo +nightly build --release --target wasm32-unknown-unknown
+ITERATIONS_COUNT=10000000 INITIAL_VALUE=0 cargo build --release --target wasm32-unknown-unknown
 ```
