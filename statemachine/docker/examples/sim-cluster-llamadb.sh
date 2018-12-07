@@ -1,6 +1,4 @@
 #!/bin/bash -e
-mkdir -p vmcode-llamadb
-cp ../../../vm/src/test/resources/wasm/llamadb.wasm vmcode-llamadb
 pushd . > /dev/null
 cd ..
 ./sim-cluster.sh llamadbnet "$PWD/examples/vmcode-llamadb" 25057 $HOME/.fluence/long-term-keys
