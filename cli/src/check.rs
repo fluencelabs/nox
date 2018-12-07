@@ -114,7 +114,8 @@ fn find_banned_fns_idxs<'a>(
                             .iter()
                             .find(|m| name.starts_with(*m))
                             .map(|_| (idx, name.as_str()))
-                    }).collect();
+                    })
+                    .collect();
                 Ok(banned_fns)
             } else {
                 Err("Name section for functions is absent, verification is aborted.".into())

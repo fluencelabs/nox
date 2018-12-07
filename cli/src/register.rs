@@ -42,7 +42,7 @@ const TENDERMINT_KEY_LEN: usize = 20;
 
 /// number of bytes for encoding IP address and tendermint key
 const NODE_ADDR_LEN: usize = IP_LEN + TENDERMINT_KEY_LEN;
-construct_fixed_hash!{ pub struct H192(NODE_ADDR_LEN); }
+construct_fixed_hash! { pub struct H192(NODE_ADDR_LEN); }
 
 /// Helper for converting the hash structure to web3 format
 impl Tokenizable for H192 {
@@ -302,7 +302,8 @@ mod tests {
             account,
             String::from("http://localhost:8545/"),
             None,
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     pub fn generate_with<F>(func: F) -> Register
