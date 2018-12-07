@@ -19,7 +19,7 @@ package fluence.node
 import cats.Parallel
 import cats.data.Kleisli
 import cats.effect.{ContextShift, IO, Resource, Timer}
-import fluence.node.config.{MasterConfig, StatServerConfig}
+import fluence.node.config.{MasterConfig, HealthServerConfig}
 import fluence.node.solvers.SolverHealth
 import org.http4s._
 import org.http4s.implicits._
@@ -62,7 +62,7 @@ object MasterState {
  * @param config config file about a master node
  * @param masterNode initialized master node
  */
-case class StateManager(config: MasterConfig, masterNode: MasterNode) {
+case class HealthManager(config: MasterConfig, masterNode: MasterNode) {
 
   private val startTime = System.currentTimeMillis()
 
@@ -81,9 +81,9 @@ case class StateManager(config: MasterConfig, masterNode: MasterNode) {
   }
 }
 
-object StateManager {
+object HealthManager {
 
-  private def statusService(sm: StateManager)(implicit cs: ContextShift[IO]): Kleisli[IO, Request[IO], Response[IO]] =
+  private def statusService(sm: HealthManager)(implicit cs: ContextShift[IO]): Kleisli[IO, Request[IO], Response[IO]] =
     HttpRoutes
       .of[IO] {
         case GET -> Root / "status" =>
@@ -98,13 +98,13 @@ object StateManager {
    * @param masterConfig parameters about a master node
    * @param masterNode initialized master node
    */
-  def makeResource(statServerConfig: StatServerConfig, masterConfig: MasterConfig, masterNode: MasterNode)(
+  def makeResource(statServerConfig: HealthServerConfig, masterConfig: MasterConfig, masterNode: MasterNode)(
     implicit cs: ContextShift[IO],
     timer: Timer[IO]
   ): Resource[IO, Server[IO]] =
     BlazeServerBuilder[IO]
       .bindHttp(statServerConfig.port, "0.0.0.0")
-      .withHttpApp(statusService(StateManager(masterConfig, masterNode)))
+      .withHttpApp(statusService(HealthManager(masterConfig, masterNode)))
       .resource
 
 }

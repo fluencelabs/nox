@@ -35,12 +35,14 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
   private def getCodeManager(
     config: Option[SwarmConfig]
-  )(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[CodeManager[IO]] = {
-    config.map { c =>
-      SwarmClient(c.host)
-        .map(client => new SwarmCodeManager[IO](client))
-    }.getOrElse(IO(new TestCodeManager[IO]()))
-  }
+  )(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[CodeManager[IO]] =
+    config match {
+      case Some(c) =>
+        SwarmClient(c.host)
+          .map(client => new SwarmCodeManager[IO](client))
+      case None =>
+        IO(new TestCodeManager[IO]())
+    }
 
   /**
    * Launches a Master node connecting to ethereum blockchain with Deployer contract.
@@ -81,7 +83,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 // TODO: should check that node is registered, but should not send transactions
                 _ <- contract
-                  .addAddressToWhitelist[IO](deployerConfig.deployerContractOwnerAccount)
+                  .addAddressToWhitelist[IO](deployerConfig.contractOwnerAccount)
                   .attempt
                   .map(r ⇒ logger.debug(s"Whitelisting address: $r"))
                 _ <- contract
@@ -95,7 +97,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterNodeContainerId)
 
-                result <- StateManager.makeResource(statServer, rawConfig, node).use { status =>
+                result <- HealthManager.makeResource(statServer, rawConfig, node).use { status =>
                   logger.info("Status server has started on: " + status.address)
                   node.run
                 }

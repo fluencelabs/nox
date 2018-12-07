@@ -21,6 +21,7 @@ import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.either._
 import cats.syntax.applicativeError._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe._
@@ -62,12 +63,15 @@ object Solver extends LazyLogging {
     httpPath: String,
     uptime: Long
   )(implicit sttpBackend: SttpBackend[F, Nothing]): F[SolverHealth] = {
+
+    val url = uri"http://${params.clusterData.rpcHost}:${params.rpcPort}/$httpPath"
+
     // As container is running, perform a custom healthcheck: request a HTTP endpoint inside the container
     logger.debug(
-      s"Running HTTP healthcheck $params: http://${params.clusterData.rpcHost}:${params.rpcPort}/$httpPath"
+      s"Running HTTP healthcheck $params: $url"
     )
     sttp
-      .get(uri"http://${params.clusterData.rpcHost}:${params.rpcPort}/$httpPath")
+      .get(url)
       .response(asJson[SolverResponse])
       .send()
       .attempt
@@ -75,27 +79,15 @@ object Solver extends LazyLogging {
       // to Either[Throwable, SolverResponse]
       .map(
         _.flatMap(
-          _.body.left
-            .map(err => new Exception(err))
-            .right
-            .map(_.left.map(_.error))
-            .flatMap(identity)
+          _.body
+            .leftMap(new Exception(_))
+            .flatMap(_.leftMap(_.error))
         )
       )
       .map {
         case Right(status) ⇒
-          val result = status.result
-          val info = RunningSolverInfo(
-            params.clusterData.rpcPort,
-            params.clusterData.p2pPort,
-            params.clusterData.smPrometheusPort,
-            params.clusterData.tmPrometheusPort,
-            result.node_info.id,
-            params.clusterData.code.asHex,
-            result.sync_info.latest_block_hash,
-            result.sync_info.latest_app_hash,
-            result.sync_info.latest_block_height
-          )
+          val tendermintInfo = status.result
+          val info = RunningSolverInfo.fromParams(params, tendermintInfo)
           SolverRunning(uptime, info)
         case Left(err) ⇒
           logger.error("Solver HTTP check failed: " + err.getLocalizedMessage, err)
@@ -115,7 +107,7 @@ object Solver extends LazyLogging {
     healthReportRef: Ref[F, SolverHealth],
     stop: Deferred[F, Either[Throwable, Unit]],
     healthcheck: HealthCheckConfig
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[Unit] = {
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[Unit] =
     DockerIO
       .run[F](params.dockerCommand)
       .through(
@@ -125,7 +117,7 @@ object Solver extends LazyLogging {
       .evalMap[F, SolverHealth] {
         case (uptime, true) ⇒
           getHealthState(params, healthcheck.httpPath, uptime)
-        case (uptime, false) ⇒
+        case (_, false) ⇒
           logger.error(s"HTTP healthcheck $params, as container is not running")
           Applicative[F].pure(SolverContainerNotRunning(StoppedSolverInfo(params)))
       }
@@ -135,15 +127,12 @@ object Solver extends LazyLogging {
       .evalTap[F] {
         case q if q.count(!_.isHealthy) > healthcheck.failOn ⇒
           // TODO: if we had container launched previously, but then http checks became failing, we should try to restart the container
-          // Stop the stream, as there's too many failing healthchecks
           logger.error("Too many healthcheck failures.")
           Applicative[F].unit
         case _ ⇒ Applicative[F].unit
       }
       .compile
       .drain
-      .map(_ ⇒ logger.debug(s"Finished $params"))
-  }
 
   /**
    * Runs a single solver

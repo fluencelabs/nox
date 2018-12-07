@@ -39,7 +39,7 @@ case class MasterConfig(
   endpoints: EndpointsConfig,
   deployer: DeployerContractConfig,
   swarm: Option[SwarmConfig],
-  statServer: StatServerConfig,
+  statServer: HealthServerConfig,
   masterContainerId: String,
   solver: SolverImage,
   ethereum: EthereumRPCConfig
@@ -53,7 +53,7 @@ case class SwarmConfig(host: String)
 /**
  * @param port endpoint to master node status server
  */
-case class StatServerConfig(port: Int)
+case class HealthServerConfig(port: Int)
 
 object MasterConfig {
   implicit val encodeThrowable: Encoder[InetAddress] = new Encoder[InetAddress] {
@@ -64,7 +64,7 @@ object MasterConfig {
   implicit val encodeEndpointConfig: Encoder[EndpointsConfig] = deriveEncoder
   implicit val encodeDeployerConfig: Encoder[DeployerContractConfig] = deriveEncoder
   implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
-  implicit val encodeStatConfig: Encoder[StatServerConfig] = deriveEncoder
+  implicit val encodeStatConfig: Encoder[HealthServerConfig] = deriveEncoder
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
 }
 

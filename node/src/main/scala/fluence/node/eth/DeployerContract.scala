@@ -205,8 +205,8 @@ object DeployerContract {
     new DeployerContract(
       ethClient,
       ethClient.getContract(
-        config.deployerContractAddress,
-        config.deployerContractOwnerAccount,
+        config.contractAddress,
+        config.contractOwnerAccount,
         Deployer.load
       )
     )

@@ -16,6 +16,7 @@
 
 package fluence.node.solvers
 
+import fluence.node.solvers.SolverResponse.SolverTendermintInfo
 import io.circe.{Encoder, Json}
 import io.circe.generic.semiauto._
 
@@ -35,6 +36,20 @@ case class RunningSolverInfo(
 )
 
 object RunningSolverInfo {
+
+  def fromParams(params: SolverParams, tendermintInfo: SolverTendermintInfo) =
+    RunningSolverInfo(
+      params.clusterData.rpcPort,
+      params.clusterData.p2pPort,
+      params.clusterData.smPrometheusPort,
+      params.clusterData.tmPrometheusPort,
+      tendermintInfo.node_info.id,
+      params.clusterData.code.asHex,
+      tendermintInfo.sync_info.latest_block_hash,
+      tendermintInfo.sync_info.latest_app_hash,
+      tendermintInfo.sync_info.latest_block_height
+    )
+
   implicit val encodeSolverInfo: Encoder[RunningSolverInfo] = deriveEncoder
 }
 

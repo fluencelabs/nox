@@ -89,7 +89,7 @@ object DockerIO extends LazyLogging {
                 logger.debug(s"Docker container $dockerId  status = [$running], startedAt = [$started]")
                 val now = System.currentTimeMillis()
                 val time = format.parse(started).getTime
-                (now - time) → status.contains("true")
+                (now - time) → running.contains("true")
             }
         )
     )

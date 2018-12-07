@@ -47,17 +47,17 @@ class SolversPool[F[_]: ContextShift: Timer](
 ) extends LazyLogging {
 
   /**
-   * Checks if the solver is existed or is in the list but are down.
+   * Returns true if the solver is in the pool and healthy, and false otherwise. Also returns solver instance.
    */
-  private def checkSolverExists(params: SolverParams): F[(Boolean, Option[Solver[F]])] = {
+  private def checkSolverHealthy(params: SolverParams): F[(Boolean, Option[Solver[F]])] = {
     for {
       map <- solvers.get
       oldSolver = map.get(params)
-      exists <- oldSolver match {
+      healthy <- oldSolver match {
         case None => F.delay(false)
         case Some(solver) => solver.healthReport.map(_.isHealthy)
       }
-    } yield (exists, oldSolver)
+    } yield (healthy, oldSolver)
   }
 
   /**
@@ -67,7 +67,7 @@ class SolversPool[F[_]: ContextShift: Timer](
    * @return F that resolves with true when solver is registered; it might be not running yet. If it was registered before, F resolves with false
    */
   def run(params: SolverParams): F[Boolean] =
-    checkSolverExists(params).flatMap {
+    checkSolverHealthy(params).flatMap {
       case (false, oldSolver) ⇒
         for {
           // stop an old solver
@@ -87,11 +87,10 @@ class SolversPool[F[_]: ContextShift: Timer](
 
   def stop(solver: Solver[F]): F[Unit] =
     for {
-      ss <- solvers.get
-      cs ← cleanups.get
+      cleanupsMap ← cleanups.get
       _ <- solver.stop
       fiberJoin <- solver.fiber.join.attempt
-      cleanupJoin <- cs.getOrElse(solver.params, F.unit).attempt
+      cleanupJoin <- cleanupsMap.getOrElse(solver.params, F.unit).attempt
     } yield logger.info(s"Stopped: $fiberJoin $cleanupJoin")
 
   /**
@@ -102,14 +101,14 @@ class SolversPool[F[_]: ContextShift: Timer](
    */
   def stopAll[G[_]](implicit P: Parallel[F, G]): F[Unit] =
     for {
-      ss ← solvers.get
-      cs ← cleanups.get
-      solvers = ss.values.toList
+      solversMap ← solvers.get
+      cleanupsMap ← cleanups.get
+      solvers = solversMap.values.toList
 
       _ ← Parallel.parTraverse(solvers)(_.stop)
       fiberJoins ← Parallel.parTraverse(solvers)(s ⇒ s.fiber.join.attempt.map(s.params → _))
 
-      cleanupsJoins ← Parallel.parTraverse(cs.toList)(_._2.attempt)
+      cleanupsJoins ← Parallel.parTraverse(cleanupsMap.toList)(_._2.attempt)
     } yield logger.info(s"Stopped: $fiberJoins $cleanupsJoins")
 
   /**
@@ -119,9 +118,9 @@ class SolversPool[F[_]: ContextShift: Timer](
    */
   def healths[G[_]](implicit P: Parallel[F, G]): F[Map[SolverParams, SolverHealth]] =
     for {
-      ss ← solvers.get
-      sh ← Parallel.parTraverse(ss.values.toList)(s ⇒ s.healthReport.map(s.params → _))
-    } yield sh.toMap
+      solversMap ← solvers.get
+      solversHealths ← Parallel.parTraverse(solversMap.values.toList)(s ⇒ s.healthReport.map(s.params → _))
+    } yield solversHealths.toMap
 }
 
 object SolversPool {

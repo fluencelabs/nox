@@ -18,7 +18,7 @@ package fluence.node
 import java.nio.file.{Path, Paths}
 
 import cats.effect.{ContextShift, IO}
-import fluence.node.config.{MasterConfig, NodeConfig, StatServerConfig, SwarmConfig}
+import fluence.node.config.{MasterConfig, NodeConfig, HealthServerConfig, SwarmConfig}
 import fluence.node.eth.{DeployerContractConfig, EthereumRPCConfig}
 import ConfigOps._
 import com.typesafe.config.Config
@@ -32,9 +32,9 @@ case class Configuration(
   rootPath: Path,
   nodeConfig: NodeConfig,
   contractConfig: DeployerContractConfig,
-  swarm: Option[SwarmConfig],
-  statistics: StatServerConfig,
-  ethereumRPC: EthereumRPCConfig,
+  swarmConfig: Option[SwarmConfig],
+  healthServerConfig: HealthServerConfig,
+  ethereumRPCConfig: EthereumRPCConfig,
   masterContainerId: String
 )
 
