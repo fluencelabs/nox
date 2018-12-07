@@ -77,15 +77,13 @@ contract Deployer is Whitelist {
     // Emitted when there is enough ready Nodes for some Code
     // Nodes' solvers should form a cluster in reaction to this event
     event ClusterFormed(bytes32 clusterID, bytes32 storageHash, uint genesisTime,
-        bytes24[] solverAddrs, uint16[] solverPorts);
+        bytes32[] solverIDs, bytes24[] solverAddrs, uint16[] solverPorts);
 
     // Emitted when Code is enqueued, telling that there is not enough Solvers yet
     event CodeEnqueued(bytes32 storageHash);
 
     // Emitted on every new Node
     event NewNode(bytes32 id);
-
-    event LogSmth(uint amount);
 
     // Nodes ready to join new clusters
     bytes32[] private readyNodes;
@@ -275,7 +273,7 @@ contract Deployer is Whitelist {
 
         busyClusters[clusterID] = BusyCluster(clusterID, code, time, solverAddrs, solverPorts);
 
-        emit ClusterFormed(clusterID, code.storageHash, time, solverAddrs, solverPorts);
+        emit ClusterFormed(clusterID, code.storageHash, time, solverIDs, solverAddrs, solverPorts);
         return true;
     }
 

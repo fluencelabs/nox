@@ -14,16 +14,9 @@
  * limitations under the License.
  */
 
-use clap::{App, Arg, ArgMatches, SubCommand};
 use ethabi::Token;
-use hex;
-use std::boxed::Box;
-use std::error::Error;
-use std::net::IpAddr;
-use utils;
 use web3::contract::tokens::Tokenizable;
 use web3::contract::{Error as ContractError, ErrorKind};
-use web3::types::{Address, H256};
 
 /// number of bytes for encoding an IP address
 pub const IP_LEN: usize = 4;

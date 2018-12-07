@@ -20,8 +20,6 @@ use std::error::Error;
 use std::fmt;
 use types::H192;
 use utils;
-use web3::contract::tokens::Tokenizable;
-use web3::types;
 use web3::types::{Address, H256};
 
 const CONTRACT_ADDRESS: &str = "contract_address";
@@ -50,8 +48,7 @@ pub struct Node {
     address: H192,
     start_port: u16,
     end_port: u16,
-    current_port: u16,
-    offset: u32,
+    current_port: u16
 }
 
 impl Node {
@@ -60,16 +57,14 @@ impl Node {
         address: H192,
         start_port: u16,
         end_port: u16,
-        current_port: u16,
-        offset: u32,
+        current_port: u16
     ) -> Node {
         Node {
             id,
             address,
             start_port,
             end_port,
-            current_port,
-            offset,
+            current_port
         }
     }
 }
@@ -114,7 +109,7 @@ pub fn get_new_status(contract_address: Address, eth_url: &str) -> Result<(), Bo
 
     println!("send status");
 
-    let (clusters_indices, ready_nodes, solver_clusters): (Vec<H256>, Vec<H256>, Vec<H256>) =
+    let (clusters_indices, ready_nodes): (Vec<H256>, Vec<H256>) =
         utils::query_contract(contract_address, eth_url, "getStatus", (), options)?;
 
     let options2 = utils::options_with_gas(2300_000);
@@ -124,9 +119,8 @@ pub fn get_new_status(contract_address: Address, eth_url: &str) -> Result<(), Bo
         node_addresses,
         start_ports,
         end_ports,
-        current_ports,
-        solver_clusters_offsets,
-    ): (Vec<H256>, Vec<H192>, Vec<u64>, Vec<u64>, Vec<u64>, Vec<u64>) =
+        current_ports
+    ): (Vec<H256>, Vec<H192>, Vec<u64>, Vec<u64>, Vec<u64>) =
         utils::query_contract(contract_address, eth_url, "getNodes", (), options2)?;
 
     let mut nodes: Vec<Node> = Vec::new();
@@ -136,8 +130,7 @@ pub fn get_new_status(contract_address: Address, eth_url: &str) -> Result<(), Bo
             node_addresses[i],
             start_ports[i] as u16,
             end_ports[i] as u16,
-            current_ports[i] as u16,
-            solver_clusters_offsets[i] as u32
+            current_ports[i] as u16
         );
         nodes.push(node);
     }
@@ -151,7 +144,6 @@ pub fn get_new_status(contract_address: Address, eth_url: &str) -> Result<(), Bo
     println!("GET STATUS");
     println!("clusters indices: {:?}: ", clusters_indices);
     println!("ready_nodes: {:?}: ", ready_nodes);
-    println!("solver_clusters: {:?}: ", solver_clusters);
 
     Ok(())
 }
