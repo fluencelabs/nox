@@ -26,7 +26,7 @@ use settings::*;
 fn generate_random_matrix(rows_number: usize, columns_count: usize, seed: u64) -> Matrix {
     let mut rng: IsaacRng = SeedableRng::seed_from_u64(seed);
     Matrix::from_fn(rows_number, columns_count, |_, _| {
-        rng.gen_range(0u64, GENERATION_INTERVAL)
+        rng.gen_range(0f64, GENERATION_INTERVAL)
     })
 }
 
