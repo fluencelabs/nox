@@ -1,0 +1,10 @@
+[package]
+name = "recursive_hash"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+sha3 = "0.8.1"

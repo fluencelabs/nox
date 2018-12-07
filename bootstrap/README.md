@@ -3,8 +3,8 @@
 
 # Running Scala tests
 
-## How to generate abi & Java wrapper
-`npm run generate-abi`
+## How to generate ABI, binary file & Java wrapper
+`npm run generate-all`
 
 ## Running private blockchain with docker
 See [guide on running private ethereum blockchain](private_ethereum.md)
@@ -22,3 +22,6 @@ Then, copy & paste contract's address and your wallet into `ContractSpec` and ru
 
 ## Run tests
 `npm test`
+
+## Get current eth account through truffle
+`npm run getEthAccount`

@@ -78,10 +78,10 @@ class AsmleWasmVm(
           NoSuchFnError(s"Unable to find a function with the name=$functionId")
         )
 
-      offset <- injectArrayIntoWasmModule(fnArgument, wasmFn.module)
+      preprocessedArguments <- preprocessFnArgument(fnArgument, wasmFn.module)
 
       // invoke the function
-      invocationResult <- wasmFn[F](offset.asInstanceOf[AnyRef] :: fnArgument.length.asInstanceOf[AnyRef] :: Nil)
+      invocationResult <- wasmFn[F](preprocessedArguments)
 
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
       // there can be some non-determinism (deterministic execution is very important for verification game
@@ -151,6 +151,26 @@ class AsmleWasmVm(
         )
     }
   }
+
+  /**
+   * Preprocesses a Wasm function argument: injects it into Wasm module memory (through injectArrayIntoWasmModule)
+   * and replaces with pointer to it in the Wasm module and size. This functions simply returns 0 :: 0 :: Nil
+   * if supplied fnArgument was empty without any allocations in the Wasm side.
+   *
+   * @param fnArgument argument for calling this function
+   * @param moduleInstance module instance used for injecting array to the Wasm memory
+   * @tparam F a monad with an ability to absorb 'IO'
+   */
+  private def preprocessFnArgument[F[_]: LiftIO: Monad](
+    fnArgument: Array[Byte],
+    moduleInstance: ModuleInstance
+  ): EitherT[F, InvokeError, List[AnyRef]] =
+    if (fnArgument.isEmpty)
+      EitherT.rightT[F, InvokeError](0.asInstanceOf[AnyRef] :: 0.asInstanceOf[AnyRef] :: Nil)
+    else
+      for {
+        offset <- injectArrayIntoWasmModule(fnArgument, moduleInstance)
+      } yield offset.asInstanceOf[AnyRef] :: fnArgument.length.asInstanceOf[AnyRef] :: Nil
 
   /**
    * Injects given string into Wasm module memory.

@@ -27,8 +27,8 @@ import org.web3j.protocol.core.methods.request.SingleAddressEthFilter
 import org.web3j.protocol.core.methods.response.Log
 import org.web3j.protocol.http.HttpService
 import org.web3j.protocol.{Web3j, Web3jService}
-import org.web3j.tx.ClientTransactionManager
-import org.web3j.tx.gas.DefaultGasProvider
+import org.web3j.tx.{ClientTransactionManager, TransactionManager}
+import org.web3j.tx.gas.{ContractGasProvider, DefaultGasProvider}
 import slogging._
 import fluence.ethclient.helpers.JavaRxToFs2._
 
@@ -45,6 +45,7 @@ import scala.language.higherKinds
  * @param web3 Underlying Web3j instance
  */
 class EthClient private (private val web3: Web3j) extends LazyLogging {
+  type ContractLoader[T] = (String, Web3j, TransactionManager, ContractGasProvider) => T
 
   /**
    * Returns the current client version.
@@ -53,6 +54,13 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
    */
   def clientVersion[F[_]: Async](): F[String] =
     request(_.web3ClientVersion()).map(_.getWeb3ClientVersion)
+
+  /**
+   * Returns the last block number
+   * @tparam F Effect
+   */
+  def getBlockNumber[F[_]: Async]: F[BigInt] =
+    request(_.ethBlockNumber()).map(_.getBlockNumber).map(BigInt(_))
 
   /**
    * Subscribe to logs topic, calling back each time the log message matches.
@@ -78,31 +86,26 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
       .toFS2[F]
 
   /**
-   * Instantiate ABI for existing Deployer contract at the address
-   * @param at Address of the deployed contract
+   * Helper for retrieving a web3j-prepared contract
+   *
+   * @param contractAddress Address of the deployed contract
    * @param userAddress Address of the user sending transaction to the contract
-   * @tparam F Effect
-   * @return Instance of the Deployer contract
+   * @param load Contract.load
+   * @tparam T Contract type
+   * @return Contract ABI instance
    */
-  def getDeployer[F[_]: Async](
-    at: String,
-    userAddress: String
-  ): F[Deployer] =
-    Async[F].delay {
-      val txManager = new ClientTransactionManager(web3, userAddress)
-      val contract = Deployer.load(
-        at,
-        web3,
-        txManager,
-        DefaultGasProvider.GAS_PRICE,
-        DefaultGasProvider.GAS_LIMIT
-      )
+  def getContract[T](
+    contractAddress: String,
+    userAddress: String,
+    load: ContractLoader[T]
+  ): T = {
+    val txManager = new ClientTransactionManager(web3, userAddress)
 
-      // TODO: check contract.isValid and throw an exception
-      // currently it doesn't work because contract's binary code is different after deploy for some unknown reason
-      // maybe it's web3j generator's fault
-      contract
-    }
+    // TODO: check contract.isValid and throw an exception
+    // currently it doesn't work because contract's binary code is different after deploy for some unknown reason
+    // maybe it's web3j generator's fault
+    load(contractAddress, web3, txManager, new DefaultGasProvider)
+  }
 
   /**
    * Make an async request to Ethereum, lifting its response to an async F type.

@@ -1,9 +1,11 @@
 package protocol
 
 // listed Swarm functions carry the same meaning and arguments as core functions
-func SwarmHash(data []byte) Digest { panic("") }
+
+// calculates Merkle root from `data` split in Swarm sized chunks
+func SwarmMerkleHash(data []byte) Digest                                       { panic("") }
 func SwarmSign(publicKey PublicKey, privateKey PrivateKey, digest Digest) Seal { panic("") }
-func SwarmVerify(seal Seal, digest Digest) bool { panic("") }
+func SwarmVerify(seal Seal, digest Digest) bool                                { panic("") }
 
 type SwarmContract struct {
   Deposits map[PublicKey]int64 // security deposits: node identifier –> deposit size
@@ -19,3 +21,5 @@ func SwarmUpload(content []byte) SwarmReceipt { panic("") }
 
 // downloads the content from the Swarm network using the supplied receipt
 func SwarmDownload(receipt SwarmReceipt) []byte { panic("") }
+
+func VerifySwarmProof(data []byte, proof MerkleProof, merkleRoot Digest) bool { panic("") }

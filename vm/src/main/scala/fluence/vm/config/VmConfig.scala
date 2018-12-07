@@ -16,8 +16,9 @@
 
 package fluence.vm.config
 
-import pureconfig.{CamelCase, ConfigFieldMapping, ProductHint}
+import pureconfig.{CamelCase, ConfigFieldMapping}
 import pureconfig.error.ConfigReaderFailures
+import pureconfig.generic.ProductHint
 
 import scala.util.control.NoStackTrace
 
@@ -26,6 +27,8 @@ import scala.util.control.NoStackTrace
  *
  * @param defaultMaxMemPages the maximum count of memory pages when a module doesn't say
  * @param specTestRegister if true, registers the spec test harness as 'spectest'.
+ * @param loggerRegister if > 0, registers the logger Wasm module as 'logger'
+ *                        with specified number of memory pages.
  * @param allocateFunctionName name of function that should be called for allocation memory
  *                             for passing complex data structure
  * @param deallocateFunctionName name of function that should be called for deallocation
@@ -34,6 +37,7 @@ import scala.util.control.NoStackTrace
 case class VmConfig(
   defaultMaxMemPages: Int,
   specTestRegister: Boolean,
+  loggerRegister: Int,
   allocateFunctionName: String,
   deallocateFunctionName: String
 )

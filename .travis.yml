@@ -4,6 +4,12 @@ matrix:
       scala: 2.12.7
       jdk: oraclejdk8
 
+      services:
+        - docker
+      install:
+        - docker pull fluencelabs/solver:2018-dec-demo
+        - docker pull fluencelabs/node:2018-dec-demo
+
       # These directories are cached to S3 at the end of the build
       cache:
         directories:
@@ -25,13 +31,64 @@ matrix:
         directories:
             - bootstrap/node_modules
 
-    -  language: node_js
-       node_js:
-         - "5"
-         - "6"
-         - "7"
-         - "8"
-       before_install: cd js-client
-       before_script: npm install
-       script: npm test
+    - language: node_js
+      node_js:
+        - "5"
+        - "6"
+        - "7"
+        - "8"
+      before_install: cd js-client
+      before_script: npm install
+      script: npm test
+
+    - name: Rust SDK
+
+      language: rust
+      # todo enable 'stable' and 'beta' when `allocator_api` will become stable
+      rust: nightly
+      cache: cargo
+      before_install:
+        - rustup component add rustfmt-preview --toolchain nightly
+        - cd sdk/rust
+
+      script:
+        - cargo fmt --all -- --check -v
+        - cargo build -v --all-features
+        - cargo doc -v --all-features
+        - cargo test -v --all-features
+
+    - name: LlamaDb VM example
+
+      language: rust
+      rust: nightly
+      cache: cargo
+      sudo: false
+      before_install:
+        - rustup component add rustfmt-preview --toolchain nightly
+        - cd vm/examples/llamadb
+
+      script:
+        - cargo fmt --all -- --check -v
+        - cargo build -v
+        - cargo doc -v
+        - cargo test -v
+
+    - name: Fluence CLI
+
+      language: rust
+      rust: stable
+      cache: cargo
+
+      before_install:
+        - rustup component add rustfmt-preview
+        - cd cli
+
+      script:
+        - npm install --prefix ../bootstrap
+        - node scripts/swarm-simulation.js &
+        - npm run ganache --prefix ../bootstrap/ &
+        - sleep 5
+        - npm run migrate --prefix ../bootstrap/
+        - cargo fmt --all -- --check -v
+        - cargo test
 

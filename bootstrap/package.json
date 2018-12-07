@@ -8,14 +8,17 @@
   "scripts": {
     "test": "truffle test",
     "migrate": "truffle migrate",
-    "ganache": "ganache-cli -m \"indicate toward book great daring meat tooth bid finger banana witness episode\" &",
-    "generate-abi": "scripts/generate_abi.sh"
+    "ganache": "ganache-cli -m \"indicate toward book great daring meat tooth bid finger banana witness episode\" -h 0.0.0.0 &",
+    "getEthAccount": "echo 'web3.eth.accounts[0]' | truffle console | grep -o \"0x.*\" | tr -d \\'",
+    "generate-java-wrapper": "scripts/generate_java_wrapper.sh",
+    "compile-sol": "node scripts/compile_sol.js",
+    "generate-all": "npm run compile-sol && npm run generate-java-wrapper"
   },
   "author": "Fluence Labs",
   "license": "AGPL-3.0",
   "devDependencies": {
     "chai": "^4.1.2",
-    "ganache-cli": "^6.1.8",
+    "ganache-cli": "6.1.8",
     "openzeppelin-solidity": "1.12.0",
     "truffle": "4.1.14",
     "truffle-assertions": "^0.3.1"

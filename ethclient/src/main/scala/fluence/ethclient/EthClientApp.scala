@@ -24,6 +24,7 @@ import org.web3j.abi.EventEncoder
 import scala.concurrent.duration._
 
 object EthClientApp extends IOApp {
+  // EthClientApp is to play during development only
   override def run(args: List[String]): IO[ExitCode] =
     EthClient
       .makeHttpResource[IO]()
@@ -43,7 +44,7 @@ object EthClientApp extends IOApp {
             par parallel ethClient
               .subscribeToLogsTopic[IO](
                 "0x9995882876ae612bfd829498ccd73dd962ec950a",
-                EventEncoder.encode(Deployer.NEWSOLVER_EVENT)
+                EventEncoder.encode(Deployer.NEWNODE_EVENT)
               )
               .map(log ⇒ println(s"Log message: $log"))
               .interruptWhen(unsubscribe)
