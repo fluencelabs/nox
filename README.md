@@ -24,11 +24,8 @@ Check out [this slide share](https://www.slideshare.net/AlexanderDemidko/fluence
 The project is undergoing a heavy development at the moment.  
 Check out the [issue tracker](https://github.com/fluencelabs/fluence/issues) to learn more about the current progress.
 
-## [Internal details](internals.md)
-Architecture details and research ideas that are not yet documented in writing can be found [here](internals.md).
-
-## Current research focus
-[Proof of independent execution – application to the batch validation](https://github.com/fluencelabs/fluence/issues/180)
+## Internal details
+The protocol draft can be found [here](docs/protocol.md), and the future whitepaper outline – [here](internals.md).
 
 Stay tuned, more details are coming :)
 
