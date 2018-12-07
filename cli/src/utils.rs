@@ -147,7 +147,8 @@ pub fn add_to_white_list(
             account_to_add,
             account,
             Options::default(),
-        ).wait()?)
+        )
+        .wait()?)
 }
 
 /// Parses URL from the string
