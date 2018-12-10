@@ -225,7 +225,6 @@ lazy val node = project
       circeParser,
       http4sDsl,
       http4sServer,
-      http4sClient,
       scalaTest
     ),
     assemblyMergeStrategy in assembly := {

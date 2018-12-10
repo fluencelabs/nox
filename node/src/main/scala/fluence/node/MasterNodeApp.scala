@@ -26,7 +26,8 @@ import fluence.node.solvers.{CodeManager, SolversPool, SwarmCodeManager, TestCod
 import fluence.swarm.SwarmClient
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
-import fluence.node.config.{MasterConfig, SwarmConfig}
+import fluence.node.config.SwarmConfig
+import scala.concurrent.duration.MILLISECONDS
 
 object MasterNodeApp extends IOApp with LazyLogging {
 
@@ -53,21 +54,11 @@ object MasterNodeApp extends IOApp with LazyLogging {
     Configuration
       .create()
       .flatMap {
-        case (
-            rawConfig,
-            Configuration(
-              rootPath,
-              nodeConfig,
-              deployerConfig,
-              swarmConfigOpt,
-              statServer,
-              ethereumRPC,
-              masterNodeContainerId
-            )
-            ) =>
+        case (rawConfig, configuration) =>
+          import configuration._
           // Run master node and status server
           val resources = for {
-            ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRPC.uri))
+            ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRPCConfig.uri))
             sttpBackend <- sttpResource
           } yield (ethClientResource, sttpBackend)
 
@@ -77,13 +68,13 @@ object MasterNodeApp extends IOApp with LazyLogging {
               for {
                 version ← ethClient.clientVersion[IO]()
                 _ = logger.info("eth client version {}", version)
-                _ = logger.debug("eth config {}", deployerConfig)
+                _ = logger.debug("eth config {}", contractConfig)
 
-                contract = DeployerContract(ethClient, deployerConfig)
+                contract = DeployerContract(ethClient, contractConfig)
 
                 // TODO: should check that node is registered, but should not send transactions
                 _ <- contract
-                  .addAddressToWhitelist[IO](deployerConfig.contractOwnerAccount)
+                  .addAddressToWhitelist[IO](contractConfig.contractOwnerAccount)
                   .attempt
                   .map(r ⇒ logger.debug(s"Whitelisting address: $r"))
                 _ <- contract
@@ -93,11 +84,12 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 pool ← SolversPool[IO]()
 
-                codeManager <- getCodeManager(swarmConfigOpt)
+                codeManager <- getCodeManager(swarmConfig)
 
-                node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterNodeContainerId)
+                node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterContainerId)
 
-                result <- HealthManager.makeResource(statServer, rawConfig, node).use { status =>
+                currentTime <- timer.clock.monotonic(MILLISECONDS)
+                result <- StatsManager.makeResource(statsServerConfig, rawConfig, node, currentTime).use { status =>
                   logger.info("Status server has started on: " + status.address)
                   node.run
                 }
