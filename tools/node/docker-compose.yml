@@ -12,7 +12,7 @@ services:
 
   node1:
     container_name: node1
-    image: fluencelabs/node:2018-dec-demo
+    image: fluencelabs/node:pr-300
     environment:
       - TENDERMINT_IP=host.docker.internal
       - ETHEREUM_IP=host.docker.internal
@@ -23,7 +23,7 @@ services:
   
   node2:
     container_name: node2
-    image: fluencelabs/node:2018-dec-demo
+    image: fluencelabs/node:pr-300
     environment:
       - TENDERMINT_IP=host.docker.internal
       - ETHEREUM_IP=host.docker.internal
@@ -34,7 +34,7 @@ services:
   
   node3:
     container_name: node3
-    image: fluencelabs/node:2018-dec-demo
+    image: fluencelabs/node:pr-300
     environment:
       - TENDERMINT_IP=host.docker.internal
       - ETHEREUM_IP=host.docker.internal
@@ -45,7 +45,7 @@ services:
   
   node4:
     container_name: node4
-    image: fluencelabs/node:2018-dec-demo
+    image: fluencelabs/node:pr-300
     environment:
       - TENDERMINT_IP=host.docker.internal
       - ETHEREUM_IP=host.docker.internal

@@ -12,7 +12,7 @@ services:
 
   node1:
     container_name: node1
-    image: fluencelabs/node:2018-dec-demo
+    image: fluencelabs/node:pr-300
     environment:
     - TENDERMINT_IP=host.docker.internal
     - ETHEREUM_IP=host.docker.internal
