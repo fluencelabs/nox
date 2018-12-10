@@ -182,21 +182,15 @@ contract Deployer is Whitelist {
         return clusterIDs;
     }
 
-    function getClusters()
+    function getClustersInfo()
         external
         view
-        returns (bytes32[], uint[], bytes32[], bytes32[], uint8[], bytes24[], uint16[])
+        returns (bytes32[], uint[], bytes32[], bytes32[], uint8[])
     {
         BusyCluster[] memory clusters = new BusyCluster[](clusterCount - 1);
-        for (uint i = 1; i <= clusterCount; i++) {
-            uint key = i-1;
-            clusters[key] = busyClusters[bytes32(i)];
-        }
 
-        uint solversCount = 0;
-
-        for (uint j = 0; j < clusters.length; j++) {
-            solversCount = solversCount + clusters[j].code.clusterSize;
+        for (uint i = 1; i < clusterCount; i++) {
+            clusters[i-1] = busyClusters[bytes32(i)];
         }
 
         bytes32[] memory clusterIDs = new bytes32[](clusters.length);
@@ -205,11 +199,6 @@ contract Deployer is Whitelist {
         bytes32[] memory storageReceipts = new bytes32[](clusters.length);
         uint8[] memory clusterSizes = new uint8[](clusters.length);
 
-        bytes24[] memory nodeAddresses = new bytes24[](solversCount);
-        uint16[] memory ports = new uint16[](solversCount);
-
-        uint solverCounter = 0;
-
         for (uint k = 0; k < clusters.length; k++) {
             BusyCluster memory cluster = clusters[k];
             clusterIDs[k] = cluster.clusterID;
@@ -217,16 +206,42 @@ contract Deployer is Whitelist {
             storageHashes[k] = cluster.code.storageHash;
             storageReceipts[k] = cluster.code.storageReceipt;
             clusterSizes[k] = cluster.code.clusterSize;
-
-            for (uint n = 0; n < cluster.nodeAddresses.length; n++) {
-                nodeAddresses[solverCounter] = cluster.nodeAddresses[n];
-                ports[solverCounter] = cluster.ports[n];
-                solverCounter++;
-            }
         }
 
-        return (clusterIDs, genesisTimes, storageHashes, storageReceipts, clusterSizes, nodeAddresses, ports);
+        return (clusterIDs, genesisTimes, storageHashes, storageReceipts, clusterSizes);
     }
+
+    function getClustersNodes()
+            external
+            view
+            returns (bytes24[], uint16[])
+        {
+            BusyCluster[] memory clusters = new BusyCluster[](clusterCount - 1);
+            uint solversCount = 0;
+            for (uint i = 1; i < clusterCount; i++) {
+                uint key = i-1;
+                BusyCluster memory cl = busyClusters[bytes32(i)];
+                clusters[key] = cl;
+                solversCount = solversCount + cl.code.clusterSize;
+            }
+
+            bytes24[] memory nodeAddresses = new bytes24[](solversCount);
+            uint16[] memory ports = new uint16[](solversCount);
+
+            uint solverCounter = 0;
+
+            for (uint k = 0; k < clusters.length; k++) {
+                BusyCluster memory cluster = clusters[k];
+
+                for (uint n = 0; n < cluster.nodeAddresses.length; n++) {
+                    nodeAddresses[solverCounter] = cluster.nodeAddresses[n];
+                    ports[solverCounter] = cluster.ports[n];
+                    solverCounter++;
+                }
+            }
+
+            return (nodeAddresses, ports);
+        }
 
     function getEnqueuedCodes()
         external

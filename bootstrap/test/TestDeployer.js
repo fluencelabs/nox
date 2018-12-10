@@ -134,10 +134,51 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
         truffleAssert.eventNotEmitted(receipt3, clusterFormedEvent)
 
         let nodeClusters = await this.deployer.getNodeClusters(nodeID)
-        console.log(nodeClusters)
+
         assert.equal(nodeClusters[0], clusterID1)
         assert.equal(nodeClusters[1], clusterID2)
+
+        let info = await this.deployer.getClustersInfo()
+        let clusterNodes = await this.deployer.getClustersNodes()
+        let nodes = await this.deployer.getNodes()
+        let enqueuedCodes = await this.deployer.getEnqueuedCodes()
+        console.log("nodes")
+        console.log(JSON.stringify(nodes))
+        console.log("info")
+        console.log(JSON.stringify(info))
+        console.log("clusterNodes")
+        console.log(JSON.stringify(clusterNodes))
+        console.log("clusterEnqueuedCodes")
+        console.log(JSON.stringify(enqueuedCodes))
     })
+
+    it("Should get correct list of enqueued codes", async function() {
+      let count1 = 1
+      let count2 = 2
+      let count3 = 3
+      let storageHash1 = string2Bytes32("abc")
+      let storageHash2 = string2Bytes32("abcd")
+      let storageHash3 = string2Bytes32("abcde")
+      let storageReceipt1 = string2Bytes32("bca")
+      let storageReceipt2 = string2Bytes32("dbca")
+      let storageReceipt3 = string2Bytes32("edbca")
+      await this.deployer.addCode(storageHash1, storageReceipt1, count1, { from: whitelisted })
+      await this.deployer.addCode(storageHash2, storageReceipt2, count2, { from: whitelisted })
+      await this.deployer.addCode(storageHash3, storageReceipt3, count3, { from: whitelisted })
+
+      await addNodes(this.deployer, 1, "127.0.0.1", whitelisted)
+
+      let enqueuedCodes = await this.deployer.getEnqueuedCodes()
+
+      assert.equal(enqueuedCodes[0][0], storageHash3)
+      assert.equal(enqueuedCodes[0][1], storageHash2)
+
+      assert.equal(enqueuedCodes[1][0], storageReceipt3)
+      assert.equal(enqueuedCodes[1][1], storageReceipt2)
+
+      assert.equal(enqueuedCodes[2][0], count3)
+      assert.equal(enqueuedCodes[2][1], count2)
+  })
 
     it("Should deploy same code twice", async function() {
         let count = 5
@@ -171,5 +212,15 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
         await expectThrow(
             this.deployer.addNode("id", "address", 1000, 1001, { from: anyone })
         )
+    })
+
+    it("Should get good info", async function() {
+
+        let info = await this.deployer.getClustersInfo()
+        let clusterNodes = await this.deployer.getClustersNodes()
+        let nodes = await this.deployer.getNodes()
+        console.log(info)
+        console.log(clusterNodes)
+        console.log(nodes)
     })
 })
