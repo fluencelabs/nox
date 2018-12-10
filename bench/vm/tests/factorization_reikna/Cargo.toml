@@ -1,0 +1,10 @@
+[package]
+name = "factorization_reikna"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+reikna = "0.6.0"
