@@ -45,7 +45,7 @@ matrix:
       rust: nightly
       cache: cargo
       before_install:
-        - rustup component add rustfmt --toolchain nightly
+        - rustup component add rustfmt-preview
         - cd sdk/rust
 
       script:
@@ -61,7 +61,7 @@ matrix:
       cache: cargo
       sudo: false
       before_install:
-        - rustup component add rustfmt-preview --toolchain nightly
+        - rustup component add rustfmt-preview
         - cd vm/examples/llamadb
 
       script:
