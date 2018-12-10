@@ -237,6 +237,11 @@ lazy val node = project
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
+    test in Test := {
+      docker.value
+      (docker in statemachine).value
+      (test in Test).value
+    },
     mainClass in assembly := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly := "master-node.jar",
     test in assembly := {},

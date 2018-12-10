@@ -19,7 +19,7 @@ package fluence.node
 import cats.Parallel
 import cats.data.Kleisli
 import cats.effect.{ContextShift, IO, Resource, Timer}
-import fluence.node.config.{MasterConfig, HealthServerConfig}
+import fluence.node.config.{HealthServerConfig, MasterConfig}
 import fluence.node.solvers.SolverHealth
 import org.http4s._
 import org.http4s.implicits._
