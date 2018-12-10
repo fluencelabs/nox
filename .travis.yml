@@ -6,9 +6,6 @@ matrix:
 
       services:
         - docker
-      install:
-        - docker pull fluencelabs/solver:2018-dec-demo
-        - docker pull fluencelabs/node:2018-dec-demo
 
       # These directories are cached to S3 at the end of the build
       cache:
@@ -48,7 +45,7 @@ matrix:
       rust: nightly
       cache: cargo
       before_install:
-        - rustup component add rustfmt-preview --toolchain nightly
+        - rustup component add rustfmt --toolchain nightly
         - cd sdk/rust
 
       script:

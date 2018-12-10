@@ -18,35 +18,33 @@ package fluence.node
 import java.nio.file.{Path, Paths}
 
 import cats.effect.{ContextShift, IO}
-import com.softwaremill.sttp.SttpBackend
-import com.typesafe.config.Config
-import fluence.node.ConfigOps._
-import fluence.node.docker.{DockerIO, DockerParams}
+import fluence.node.config.{HealthServerConfig, MasterConfig, NodeConfig, SwarmConfig}
 import fluence.node.eth.{DeployerContractConfig, EthereumRPCConfig}
-import fluence.node.solvers.{CodeManager, SolverImage, SwarmCodeManager, TestCodeManager}
+import ConfigOps._
+import com.typesafe.config.Config
+import fluence.node.docker.{DockerIO, DockerParams}
+import fluence.node.solvers.SolverImage
 import fluence.node.tendermint.ValidatorKey
-import fluence.swarm.SwarmClient
-import io.circe.parser.parse
-import pureconfig.backend.ConfigFactoryWrapper
+import io.circe.parser._
 import pureconfig.generic.auto._
-import slogging.LazyLogging
 
 case class Configuration(
   rootPath: Path,
   nodeConfig: NodeConfig,
   contractConfig: DeployerContractConfig,
-  swarmConfig: SwarmConfig,
-  ethereumRPC: EthereumRPCConfig,
+  swarmConfig: Option[SwarmConfig],
+  healthServerConfig: HealthServerConfig,
+  ethereumRPCConfig: EthereumRPCConfig,
   masterContainerId: String
 )
 
-object Configuration extends LazyLogging {
+object Configuration {
 
   /**
    * Load config at /master/application.conf with fallback on config from class loader
    */
   def loadConfig(): IO[Config] = {
-    import ConfigFactoryWrapper._
+    import pureconfig.backend.ConfigFactoryWrapper._
     val containerConfig = "/master/application.conf"
 
     (loadFile(Paths.get(containerConfig)) match {
@@ -55,45 +53,27 @@ object Configuration extends LazyLogging {
     }).toIO
   }
 
-  /**
-   * Load values from config file into different configuration DTOs
-   */
-  def configure()(implicit c: ContextShift[IO]): IO[Configuration] =
+  def create()(implicit ec: ContextShift[IO]): IO[(MasterConfig, Configuration)] = {
     for {
       config <- loadConfig()
-
-      rootPathStr <- pureconfig.loadConfig[String](config, "tendermint-path").toIO
-      rootPath = Paths.get(rootPathStr).toAbsolutePath
-
-      masterNodeContainerId <- pureconfig.loadConfig[String](config, "master-container-id").toIO
-      solverImage <- pureconfig.loadConfig[SolverImage](config, "solver").toIO
-
-      t <- tendermintInit(masterNodeContainerId, rootPath, solverImage)
+      masterConfig <- pureconfig.loadConfig[MasterConfig](config).toIO
+      rootPath <- IO(Paths.get(masterConfig.tendermintPath).toAbsolutePath)
+      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.solver)
       (nodeId, validatorKey) = t
-
-      endpoints <- pureconfig.loadConfig[EndpointsConfig](config, "endpoints").toIO
-      solverInfo = NodeConfig(endpoints, validatorKey, nodeId, solverImage)
-
-      contractConfig <- pureconfig.loadConfig[DeployerContractConfig](config).toIO
-
-      ethereumRPC <- pureconfig.loadConfig[EthereumRPCConfig](config, "ethereum").toIO
-
-      swarmConfig <- pureconfig.loadConfig[SwarmConfig](config, "swarm").toIO
-
-    } yield Configuration(rootPath, solverInfo, contractConfig, swarmConfig, ethereumRPC, masterNodeContainerId)
-
-  /**
-   *
-   * @param swarmConfig configuration for Swarm: endpoint, enabled, etc
-   * @return either [[CodeManager]] with hardcoded wasm files or [[SwarmCodeManager]]
-   */
-  def getCodeManager(
-    swarmConfig: SwarmConfig
-  )(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[CodeManager[IO]] = {
-    if (!swarmConfig.enabled) IO(new TestCodeManager[IO]())
-    else {
-      SwarmClient[IO](swarmConfig.addr).map(new SwarmCodeManager[IO](_))
-    }
+      nodeConfig = NodeConfig(masterConfig.endpoints, validatorKey, nodeId, masterConfig.solver)
+    } yield
+      (
+        masterConfig,
+        Configuration(
+          rootPath,
+          nodeConfig,
+          masterConfig.deployer,
+          masterConfig.swarm,
+          masterConfig.statServer,
+          masterConfig.ethereum,
+          masterConfig.masterContainerId
+        )
+      )
   }
 
   /**
@@ -132,5 +112,4 @@ object Configuration extends LazyLogging {
       validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorKey]))
     } yield (nodeId, validator)
   }
-
 }

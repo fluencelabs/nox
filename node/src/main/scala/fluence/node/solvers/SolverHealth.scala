@@ -16,12 +16,81 @@
 
 package fluence.node.solvers
 
-import scala.concurrent.duration._
+import fluence.node.solvers.SolverResponse.SolverTendermintInfo
+import io.circe.{Encoder, Json}
+import io.circe.generic.semiauto._
+
+/**
+ * Collected information about running solver.
+ */
+case class RunningSolverInfo(
+  rpcPort: Short,
+  p2pPort: Short,
+  stateMachinePrometheusPort: Short,
+  tendermintPrometheusPort: Short,
+  clusterId: String,
+  codeId: String,
+  lastBlock: String,
+  lastAppHash: String,
+  lastBlockHeight: Int
+)
+
+object RunningSolverInfo {
+
+  def fromParams(params: SolverParams, tendermintInfo: SolverTendermintInfo) =
+    RunningSolverInfo(
+      params.clusterData.rpcPort,
+      params.clusterData.p2pPort,
+      params.clusterData.smPrometheusPort,
+      params.clusterData.tmPrometheusPort,
+      tendermintInfo.node_info.id,
+      params.clusterData.code.asHex,
+      tendermintInfo.sync_info.latest_block_hash,
+      tendermintInfo.sync_info.latest_app_hash,
+      tendermintInfo.sync_info.latest_block_height
+    )
+
+  implicit val encodeSolverInfo: Encoder[RunningSolverInfo] = deriveEncoder
+}
+
+/**
+ * Collected information about stopped solver.
+ */
+case class StoppedSolverInfo(
+  rpcPort: Short,
+  p2pPort: Short,
+  stateMachinePrometheusPort: Short,
+  tendermintPrometheusPort: Short,
+  codeId: String
+)
+
+object StoppedSolverInfo {
+
+  def apply(
+    params: SolverParams
+  ): StoppedSolverInfo =
+    new StoppedSolverInfo(
+      params.clusterData.rpcPort,
+      params.clusterData.p2pPort,
+      params.clusterData.smPrometheusPort,
+      params.clusterData.tmPrometheusPort,
+      params.clusterData.code.asHex
+    )
+
+  implicit val encodeSolverInfo: Encoder[StoppedSolverInfo] = deriveEncoder
+}
 
 sealed trait SolverHealth {
-  def sinceStartCommand: FiniteDuration
-
   def isHealthy: Boolean
+}
+
+object SolverHealth {
+  implicit val encodeThrowable: Encoder[Throwable] = new Encoder[Throwable] {
+    final def apply(a: Throwable): Json = Json.fromString(a.getLocalizedMessage)
+  }
+
+  import RunningSolverInfo._
+  implicit val encoderSolverHealth: Encoder[SolverHealth] = deriveEncoder
 }
 
 sealed trait SolverHealthy extends SolverHealth {
@@ -32,14 +101,10 @@ sealed trait SolverIll extends SolverHealth {
   override def isHealthy: Boolean = false
 }
 
-case class SolverRunning(sinceStartCommand: FiniteDuration) extends SolverHealthy {
-  override def toString: String = s"SolverRunning(${sinceStartCommand.toMinutes} minutes)"
-}
+case class SolverRunning(uptime: Long, info: RunningSolverInfo) extends SolverHealthy
 
-case object SolverNotYetLaunched extends SolverIll {
-  override def sinceStartCommand: FiniteDuration = 0.seconds
-}
+case class SolverNotYetLaunched(info: StoppedSolverInfo) extends SolverIll
 
-case class SolverContainerNotRunning(sinceStartCommand: FiniteDuration) extends SolverIll
+case class SolverContainerNotRunning(info: StoppedSolverInfo) extends SolverIll
 
-case class SolverHttpCheckFailed(sinceStartCommand: FiniteDuration, causedBy: Throwable) extends SolverIll
+case class SolverHttpCheckFailed(info: StoppedSolverInfo, causedBy: Throwable) extends SolverIll

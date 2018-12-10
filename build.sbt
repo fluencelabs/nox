@@ -223,6 +223,9 @@ lazy val node = project
       pureConfig,
       circeGeneric,
       circeParser,
+      http4sDsl,
+      http4sServer,
+      http4sClient,
       scalaTest
     ),
     assemblyMergeStrategy in assembly := {
@@ -233,6 +236,11 @@ lazy val node = project
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
+    },
+    test in Test := {
+      docker.value
+      (docker in statemachine).value
+      (test in Test).value
     },
     mainClass in assembly := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly := "master-node.jar",
