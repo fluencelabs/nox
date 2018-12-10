@@ -118,19 +118,12 @@ object Solver extends LazyLogging {
         case (uptime, true) ⇒
           getHealthState(params, healthcheck.httpPath, uptime)
         case (_, false) ⇒
-          logger.error(s"HTTP healthcheck $params, as container is not running")
+          logger.error(s"Healthcheck is failing for solver: $params")
           Applicative[F].pure(SolverContainerNotRunning(StoppedSolverInfo(params)))
       }
       .evalTap(healthReportRef.set)
       .interruptWhen(stop)
       .sliding(healthcheck.slide)
-      .evalTap[F] {
-        case q if q.count(!_.isHealthy) > healthcheck.failOn ⇒
-          // TODO: if we had container launched previously, but then http checks became failing, we should try to restart the container
-          logger.error("Too many healthcheck failures.")
-          Applicative[F].unit
-        case _ ⇒ Applicative[F].unit
-      }
       .compile
       .drain
 
