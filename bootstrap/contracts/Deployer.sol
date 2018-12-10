@@ -182,6 +182,72 @@ contract Deployer is Whitelist {
         return clusterIDs;
     }
 
+    function getClusters()
+        external
+        view
+        returns (bytes32[], uint[], bytes32[], bytes32[], uint8[], bytes24[], uint16[])
+    {
+        BusyCluster[] memory clusters = new BusyCluster[](clusterCount - 1);
+        for (uint i = 1; i <= clusterCount; i++) {
+            uint key = i-1;
+            clusters[key] = busyClusters[bytes32(i)];
+        }
+
+        uint solversCount = 0;
+
+        for (uint j = 0; j < clusters.length; j++) {
+            solversCount = solversCount + clusters[j].code.clusterSize;
+        }
+
+        bytes32[] memory clusterIDs = new bytes32[](clusters.length);
+        uint[] memory genesisTimes = new uint[](clusters.length);
+        bytes32[] memory storageHashes = new bytes32[](clusters.length);
+        bytes32[] memory storageReceipts = new bytes32[](clusters.length);
+        uint8[] memory clusterSizes = new uint8[](clusters.length);
+
+        bytes24[] memory nodeAddresses = new bytes24[](solversCount);
+        uint16[] memory ports = new uint16[](solversCount);
+
+        uint solverCounter = 0;
+
+        for (uint k = 0; k < clusters.length; k++) {
+            BusyCluster memory cluster = clusters[k];
+            clusterIDs[k] = cluster.clusterID;
+            genesisTimes[k] = cluster.genesisTime;
+            storageHashes[k] = cluster.code.storageHash;
+            storageReceipts[k] = cluster.code.storageReceipt;
+            clusterSizes[k] = cluster.code.clusterSize;
+
+            for (uint n = 0; n < cluster.nodeAddresses.length; n++) {
+                nodeAddresses[solverCounter] = cluster.nodeAddresses[n];
+                ports[solverCounter] = cluster.ports[n];
+                solverCounter++;
+            }
+        }
+
+        return (clusterIDs, genesisTimes, storageHashes, storageReceipts, clusterSizes, nodeAddresses, ports);
+    }
+
+    function getEnqueuedCodes()
+        external
+        view
+        returns(bytes32[], bytes32[], uint8[])
+    {
+        bytes32[] memory storageHashes = new bytes32[](enqueuedCodes.length);
+        bytes32[] memory storageReceipts = new bytes32[](enqueuedCodes.length);
+        uint8[] memory clusterSizes = new uint8[](enqueuedCodes.length);
+
+        for (uint i = 0; i < enqueuedCodes.length; i++) {
+            Code memory code = enqueuedCodes[i];
+
+            storageHashes[i] = code.storageHash;
+            storageReceipts[i] = code.storageReceipt;
+            clusterSizes[i] = code.clusterSize;
+        }
+
+        return (storageHashes, storageReceipts, clusterSizes);
+    }
+
     function getNodes()
         external
         view
@@ -206,7 +272,7 @@ contract Deployer is Whitelist {
     }
 
     /** @dev Allows to track contract status
-     * return (contract version const, number of ready nodes, enqueued codes' lengths)
+     * return (cluster IDs. IDs of ready nodes)
      */
     function getStatus()
         external
