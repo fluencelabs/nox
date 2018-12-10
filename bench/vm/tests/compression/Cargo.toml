@@ -1,0 +1,17 @@
+[package]
+name = "compression"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+snap = "0.2"
+deflate = "0.7.19"
+rand = "0.6.1"
+rand_isaac = "0.1.0"
+
+[features]
+default = []
+deflate_compression = []

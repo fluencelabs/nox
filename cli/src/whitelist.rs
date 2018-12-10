@@ -64,7 +64,7 @@ impl AddToWhitelist {
             )
         };
 
-        let transaction = if show_progress {
+        if show_progress {
             utils::with_progress(
                 "Adding the address to the smart contract...",
                 "1/1",
@@ -73,9 +73,7 @@ impl AddToWhitelist {
             )
         } else {
             add_to_whitelist_fn()
-        };
-
-        transaction
+        }
     }
 }
 

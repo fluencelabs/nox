@@ -42,7 +42,7 @@ const TENDERMINT_KEY_LEN: usize = 20;
 
 /// number of bytes for encoding IP address and tendermint key
 const NODE_ADDR_LEN: usize = IP_LEN + TENDERMINT_KEY_LEN;
-construct_fixed_hash!{ pub struct H192(NODE_ADDR_LEN); }
+construct_fixed_hash! { pub struct H192(NODE_ADDR_LEN); }
 
 /// Helper for converting the hash structure to web3 format
 impl Tokenizable for H192 {
@@ -116,7 +116,7 @@ impl Register {
     /// Serializes a node IP address and a tendermint key into the hash of node's key address
     fn serialize_node_address(&self) -> Result<H192, Box<Error>> {
         let ip_str = self.node_ip.to_string();
-        let split = ip_str.split(".");
+        let split = ip_str.split('.');
 
         let mut addr_bytes: [u8; 4] = [0; IP_LEN];
 
@@ -131,7 +131,7 @@ impl Register {
 
         let key_bytes = hex::decode(key_str.to_owned())?;
         let mut key_bytes = key_bytes.as_slice()[0..20].to_vec();
-        &mut key_bytes.append(&mut addr_vec);
+        key_bytes.append(&mut addr_vec);
 
         let serialized = hex::encode(key_bytes);
 
@@ -158,15 +158,15 @@ impl Register {
                 (
                     self.tendermint_key,
                     hash_addr,
-                    self.min_port as u64,
-                    self.max_port as u64,
+                    u64::from(self.min_port),
+                    u64::from(self.max_port),
                 ),
                 options,
             )
         };
 
         // sending transaction with the hash of file with code to ethereum
-        let transaction = if show_progress {
+        if show_progress {
             utils::with_progress(
                 "Adding a solver to the smart contract...",
                 "1/1",
@@ -175,9 +175,7 @@ impl Register {
             )
         } else {
             publish_to_contract_fn()
-        };
-
-        transaction
+        }
     }
 }
 
@@ -304,7 +302,8 @@ mod tests {
             account,
             String::from("http://localhost:8545/"),
             None,
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     pub fn generate_with<F>(func: F) -> Register
