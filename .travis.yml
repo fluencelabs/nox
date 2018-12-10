@@ -42,7 +42,7 @@ matrix:
 
       language: rust
       # todo enable 'stable' and 'beta' when `allocator_api` will become stable
-      rust: nightly
+      rust: stable
       cache: cargo
       before_install:
         - rustup component add rustfmt-preview
@@ -57,7 +57,7 @@ matrix:
     - name: LlamaDb VM example
 
       language: rust
-      rust: nightly
+      rust: stable
       cache: cargo
       sudo: false
       before_install:
