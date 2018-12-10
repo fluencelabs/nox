@@ -58,8 +58,6 @@ contract Deployer is Whitelist {
         uint16 currentPort;
     }
 
-
-
     struct Code {
         bytes32 storageHash;
         bytes32 storageReceipt;
@@ -70,6 +68,7 @@ contract Deployer is Whitelist {
         bytes32 clusterID;
         Code code;
         uint genesisTime;
+        bytes32[] nodeIDs;
         bytes24[] nodeAddresses;
         uint16[] ports;
     }
@@ -150,13 +149,13 @@ contract Deployer is Whitelist {
     function getCluster(bytes32 clusterID)
         external
         view
-        returns (bytes32, bytes32, uint, bytes24[], uint16[])
+        returns (bytes32, bytes32, uint, bytes32[], bytes24[], uint16[])
     {
         BusyCluster memory cluster = busyClusters[clusterID];
         require(cluster.clusterID > 0, "there is no such cluster");
 
         return (cluster.code.storageHash, cluster.code.storageReceipt, cluster.genesisTime,
-            cluster.nodeAddresses, cluster.ports);
+            cluster.nodeIDs, cluster.nodeAddresses, cluster.ports);
     }
 
     /** @dev Allows to track currently running clusters for specified node's solvers
@@ -182,6 +181,9 @@ contract Deployer is Whitelist {
         return clusterIDs;
     }
 
+    /** @dev Gets info about registered clusters
+     * return (cluster IDs, genesis times, storage hashes (Swarm address), receipts, cluster sized for this codes)
+     */
     function getClustersInfo()
         external
         view
@@ -211,10 +213,13 @@ contract Deployer is Whitelist {
         return (clusterIDs, genesisTimes, storageHashes, storageReceipts, clusterSizes);
     }
 
+    /** @dev Gets nodes that already members in all registered clusters
+     * return (node addresses, ports)
+     */
     function getClustersNodes()
             external
             view
-            returns (bytes24[], uint16[])
+            returns (bytes32[], bytes24[], uint16[])
         {
             BusyCluster[] memory clusters = new BusyCluster[](clusterCount - 1);
             uint solversCount = 0;
@@ -225,6 +230,7 @@ contract Deployer is Whitelist {
                 solversCount = solversCount + cl.code.clusterSize;
             }
 
+            bytes32[] memory nodeIDs = new bytes32[](solversCount);
             bytes24[] memory nodeAddresses = new bytes24[](solversCount);
             uint16[] memory ports = new uint16[](solversCount);
 
@@ -234,15 +240,19 @@ contract Deployer is Whitelist {
                 BusyCluster memory cluster = clusters[k];
 
                 for (uint n = 0; n < cluster.nodeAddresses.length; n++) {
+                    nodeIDs[solverCounter] = cluster.nodeIDs[n];
                     nodeAddresses[solverCounter] = cluster.nodeAddresses[n];
                     ports[solverCounter] = cluster.ports[n];
                     solverCounter++;
                 }
             }
 
-            return (nodeAddresses, ports);
+            return (nodeIDs, nodeAddresses, ports);
         }
 
+    /** @dev Gets codes that waiting for new nodes
+     * return (storage hashes (Swarm address), receipts, cluster sized for this codes)
+     */
     function getEnqueuedCodes()
         external
         view
@@ -263,7 +273,10 @@ contract Deployer is Whitelist {
         return (storageHashes, storageReceipts, clusterSizes);
     }
 
-    function getNodes()
+    /** @dev Gets nodes that ready to create a new cluster with an added code
+     * return (node IDs, node addresses, starting ports, ending ports, current ports)
+     */
+    function getReadyNodes()
         external
         view
         returns (bytes32[], bytes24[], uint16[], uint16[], uint16[])
@@ -352,7 +365,7 @@ contract Deployer is Whitelist {
             }
         }
 
-        busyClusters[clusterID] = BusyCluster(clusterID, code, time, solverAddrs, solverPorts);
+        busyClusters[clusterID] = BusyCluster(clusterID, code, time, solverIDs, solverAddrs, solverPorts);
 
         emit ClusterFormed(clusterID, code.storageHash, time, solverIDs, solverAddrs, solverPorts);
         return true;
