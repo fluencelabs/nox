@@ -19,7 +19,7 @@ use hex;
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
-use types::{H192, IP_LEN};
+use types::{NodeAddress, IP_LEN};
 use utils;
 use web3::types::{Address, H256};
 
@@ -74,7 +74,7 @@ impl Register {
     }
 
     /// Serializes a node IP address and a tendermint key into the hash of node's key address
-    fn serialize_node_address(&self) -> Result<H192, Box<Error>> {
+    fn serialize_node_address(&self) -> Result<NodeAddress, Box<Error>> {
         let ip_str = self.node_ip.to_string();
         let split = ip_str.split('.');
 
@@ -95,7 +95,7 @@ impl Register {
 
         let serialized = hex::encode(key_bytes);
 
-        let hash_addr: H192 = serialized.parse()?;
+        let hash_addr: NodeAddress = serialized.parse()?;
 
         Ok(hash_addr)
     }

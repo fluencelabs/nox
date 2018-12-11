@@ -25,6 +25,14 @@ extern crate fixed_hash;
 #[macro_use]
 extern crate error_chain;
 
+extern crate ethereum_types_serialize;
+
+extern crate serde;
+extern crate serde_json;
+
+#[macro_use]
+extern crate serde_derive;
+
 extern crate core;
 extern crate parity_wasm;
 #[cfg(test)]
@@ -94,7 +102,9 @@ fn main() {
         ("status", Some(args)) => {
             let status = contract_status::get_status_by_args(args).unwrap();
 
-            //          println!("Status of Fluence smart contract:\n{}", status);
+            let json = serde_json::to_string_pretty(&status).unwrap();
+
+            println!("{}", json);
         }
 
         ("check", Some(args)) => {

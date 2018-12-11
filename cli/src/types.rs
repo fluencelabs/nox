@@ -15,8 +15,10 @@
  */
 
 use ethabi::Token;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use web3::contract::tokens::Tokenizable;
 use web3::contract::{Error as ContractError, ErrorKind};
+use ethereum_types_serialize::{serialize, deserialize_check_len};
 
 /// number of bytes for encoding an IP address
 pub const IP_LEN: usize = 4;
@@ -26,10 +28,10 @@ pub const TENDERMINT_KEY_LEN: usize = 20;
 
 /// number of bytes for encoding IP address and tendermint key
 pub const NODE_ADDR_LEN: usize = IP_LEN + TENDERMINT_KEY_LEN;
-construct_fixed_hash! { pub struct H192(NODE_ADDR_LEN); }
+construct_fixed_hash! { pub struct NodeAddress(NODE_ADDR_LEN); }
 
 /// Helper for converting the hash structure to web3 format
-impl Tokenizable for H192 {
+impl Tokenizable for NodeAddress {
     fn from_token(token: Token) -> Result<Self, ContractError> {
         match token {
             Token::FixedBytes(mut s) => {
@@ -53,5 +55,26 @@ impl Tokenizable for H192 {
 
     fn into_token(self) -> Token {
         Token::FixedBytes(self.0.to_vec())
+    }
+}
+
+impl Serialize for NodeAddress {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut slice = [0u8; 2 + 2 * NODE_ADDR_LEN];
+        serialize(&mut slice, &self.0, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for NodeAddress {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let mut bytes = [0u8; NODE_ADDR_LEN];
+        deserialize_check_len(deserializer, ethereum_types_serialize::ExpectedLen::Exact(&mut bytes))?;
+        Ok(NodeAddress(bytes))
     }
 }
