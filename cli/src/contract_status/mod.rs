@@ -14,69 +14,43 @@
  * limitations under the License.
  */
 
+mod cluster;
+mod code;
+mod node;
+mod status;
+
+use self::cluster::{Cluster, ClusterMember};
+use self::code::Code;
+use self::node::Node;
+use self::status::{get_clusters, get_enqueued_codes, Status};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::boxed::Box;
 use std::error::Error;
-use std::fmt;
 use types::H192;
 use utils;
-use web3::types::{Address, H256};
+use web3::types::{Address, H256, U256};
 
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 
-#[derive(Debug)]
-pub struct Status {
-    version: u8,
-    ready_nodes: u32,
-    enqueued_codes: Vec<u32>,
-}
-
-impl Status {
-    pub fn new(version: u8, ready_nodes: u32, enqueued_codes: Vec<u32>) -> Status {
-        Status {
-            version,
-            ready_nodes,
-            enqueued_codes,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Node {
-    id: H256,
-    address: H192,
-    start_port: u16,
-    end_port: u16,
-    current_port: u16
-}
-
-impl Node {
-    pub fn new(
-        id: H256,
-        address: H192,
-        start_port: u16,
-        end_port: u16,
-        current_port: u16
-    ) -> Node {
-        Node {
-            id,
-            address,
-            start_port,
-            end_port,
-            current_port
-        }
-    }
-}
-
-impl fmt::Display for Status {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Status: (\n\tversion: {},\n\tready nodes:{},\n\tenqueued codes lengths: {:?}\n)",
-            self.version, self.ready_nodes, self.enqueued_codes
-        )
-    }
+pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
+    SubCommand::with_name("status")
+        .about("Get status of smart contract")
+        .args(&[
+            Arg::with_name(CONTRACT_ADDRESS)
+                .alias(CONTRACT_ADDRESS)
+                .required(true)
+                .takes_value(true)
+                .help("deployer contract address"),
+            Arg::with_name(ETH_URL)
+                .alias(ETH_URL)
+                .long("eth_url")
+                .short("e")
+                .required(false)
+                .takes_value(true)
+                .help("http address to ethereum node")
+                .default_value("http://localhost:8545/"),
+        ])
 }
 
 pub fn get_status_by_args(args: &ArgMatches) -> Result<(), Box<Error>> {
@@ -114,14 +88,13 @@ pub fn get_new_status(contract_address: Address, eth_url: &str) -> Result<(), Bo
 
     let options2 = utils::options_with_gas(2300_000);
 
-    let (
-        nodes_indices,
-        node_addresses,
-        start_ports,
-        end_ports,
-        current_ports
-    ): (Vec<H256>, Vec<H192>, Vec<u64>, Vec<u64>, Vec<u64>) =
-        utils::query_contract(contract_address, eth_url, "getReadyNodes", (), options2)?;
+    let (nodes_indices, node_addresses, start_ports, end_ports, current_ports): (
+        Vec<H256>,
+        Vec<H192>,
+        Vec<u64>,
+        Vec<u64>,
+        Vec<u64>,
+    ) = utils::query_contract(contract_address, eth_url, "getReadyNodes", (), options2)?;
 
     let mut nodes: Vec<Node> = Vec::new();
     for i in 0..nodes_indices.len() {
@@ -130,7 +103,7 @@ pub fn get_new_status(contract_address: Address, eth_url: &str) -> Result<(), Bo
             node_addresses[i],
             start_ports[i] as u16,
             end_ports[i] as u16,
-            current_ports[i] as u16
+            current_ports[i] as u16,
         );
         nodes.push(node);
     }
@@ -139,33 +112,18 @@ pub fn get_new_status(contract_address: Address, eth_url: &str) -> Result<(), Bo
     println!("nodes: {:?}: ", nodes);
 
     /*let node_addresses: Vec<H192> =
-        utils::query_contract(contract_address, eth_url, "getReadyNodes", (), options2)?;*/
+    utils::query_contract(contract_address, eth_url, "getReadyNodes", (), options2)?;*/
 
     println!("GET STATUS");
     println!("clusters indices: {:?}: ", clusters_indices);
     println!("ready_nodes: {:?}: ", ready_nodes);
 
+    println!("GET CLUSTERS");
+    let clusters = get_clusters(contract_address, eth_url)?;
+    println!("{:?}", clusters);
+    println!("GET ENQUEUED CODES");
+    let codes = get_enqueued_codes(contract_address, eth_url)?;
+    println!("{:?}", codes);
+
     Ok(())
-}
-
-//Vec<[u8]>, Vec<[u8]>, Vec<[u8]>, Vec<[u8]>, Vec<[u8]>
-
-pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
-    SubCommand::with_name("status")
-        .about("Get status of smart contract")
-        .args(&[
-            Arg::with_name(CONTRACT_ADDRESS)
-                .alias(CONTRACT_ADDRESS)
-                .required(true)
-                .takes_value(true)
-                .help("deployer contract address"),
-            Arg::with_name(ETH_URL)
-                .alias(ETH_URL)
-                .long("eth_url")
-                .short("e")
-                .required(false)
-                .takes_value(true)
-                .help("http address to ethereum node")
-                .default_value("http://localhost:8545/"),
-        ])
 }

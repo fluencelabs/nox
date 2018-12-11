@@ -31,9 +31,9 @@ extern crate parity_wasm;
 extern crate rand;
 
 mod check;
+mod contract_status;
 mod publisher;
 mod register;
-mod status;
 mod types;
 mod utils;
 mod whitelist;
@@ -52,7 +52,7 @@ fn main() {
         .about("Console utility for deploying code to fluence cluster")
         .subcommand(publisher::subcommand())
         .subcommand(register::subcommand())
-        .subcommand(status::subcommand())
+        .subcommand(contract_status::subcommand())
         .subcommand(whitelist::subcommand())
         .subcommand(check::subcommand());
 
@@ -92,7 +92,7 @@ fn main() {
         }
 
         ("status", Some(args)) => {
-            let status = status::get_status_by_args(args).unwrap();
+            let status = contract_status::get_status_by_args(args).unwrap();
 
             //          println!("Status of Fluence smart contract:\n{}", status);
         }
