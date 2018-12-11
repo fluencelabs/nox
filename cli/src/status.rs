@@ -121,7 +121,7 @@ pub fn get_new_status(contract_address: Address, eth_url: &str) -> Result<(), Bo
         end_ports,
         current_ports
     ): (Vec<H256>, Vec<H192>, Vec<u64>, Vec<u64>, Vec<u64>) =
-        utils::query_contract(contract_address, eth_url, "getNodes", (), options2)?;
+        utils::query_contract(contract_address, eth_url, "getReadyNodes", (), options2)?;
 
     let mut nodes: Vec<Node> = Vec::new();
     for i in 0..nodes_indices.len() {
@@ -139,7 +139,7 @@ pub fn get_new_status(contract_address: Address, eth_url: &str) -> Result<(), Bo
     println!("nodes: {:?}: ", nodes);
 
     /*let node_addresses: Vec<H192> =
-        utils::query_contract(contract_address, eth_url, "getNodes", (), options2)?;*/
+        utils::query_contract(contract_address, eth_url, "getReadyNodes", (), options2)?;*/
 
     println!("GET STATUS");
     println!("clusters indices: {:?}: ", clusters_indices);
