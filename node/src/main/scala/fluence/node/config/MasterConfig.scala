@@ -32,14 +32,14 @@ import io.circe.generic.semiauto.deriveEncoder
  *                  for requests after a cluster will be formed
  * @param deployer information about deployer smart contract
  * @param swarm information about Swarm node
- * @param statServer information about master node status server
+ * @param statsServer information about master node status server
  */
 case class MasterConfig(
   tendermintPath: String,
   endpoints: EndpointsConfig,
   deployer: DeployerContractConfig,
   swarm: Option[SwarmConfig],
-  statServer: HealthServerConfig,
+  statsServer: StatsServerConfig,
   masterContainerId: String,
   solver: SolverImage,
   ethereum: EthereumRPCConfig
@@ -53,7 +53,7 @@ case class SwarmConfig(host: String)
 /**
  * @param port endpoint to master node status server
  */
-case class HealthServerConfig(port: Int)
+case class StatsServerConfig(port: Int)
 
 object MasterConfig {
   implicit val encodeThrowable: Encoder[InetAddress] = new Encoder[InetAddress] {
@@ -64,7 +64,7 @@ object MasterConfig {
   implicit val encodeEndpointConfig: Encoder[EndpointsConfig] = deriveEncoder
   implicit val encodeDeployerConfig: Encoder[DeployerContractConfig] = deriveEncoder
   implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
-  implicit val encodeStatConfig: Encoder[HealthServerConfig] = deriveEncoder
+  implicit val encodeStatConfig: Encoder[StatsServerConfig] = deriveEncoder
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
 }
 
