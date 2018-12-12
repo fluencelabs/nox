@@ -18,7 +18,7 @@ package fluence.node
 import java.nio.file.{Path, Paths}
 
 import cats.effect.{ContextShift, IO}
-import fluence.node.config.{StatusServerConfig, MasterConfig, NodeConfig, SwarmConfig}
+import fluence.node.config.{MasterConfig, NodeConfig, StatusServerConfig, SwarmConfig}
 import fluence.node.eth.{DeployerContractConfig, EthereumRPCConfig}
 import ConfigOps._
 import com.typesafe.config.Config
