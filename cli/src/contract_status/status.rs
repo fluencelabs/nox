@@ -32,6 +32,18 @@ pub struct Status {
 }
 
 impl Status {
+    pub fn clusters(&self) -> &Vec<Cluster> {
+        &self.clusters
+    }
+
+    pub fn enqueued_codes(&self) -> &Vec<Code> {
+        &self.enqueued_codes
+    }
+
+    pub fn ready_nodes(&self) -> &Vec<Node> {
+        &self.ready_nodes
+    }
+
     pub fn new(
         clusters: Vec<Cluster>,
         enqueued_codes: Vec<Code>,
@@ -96,7 +108,7 @@ pub fn get_ready_nodes(contract_address: Address, eth_url: &str) -> Result<Vec<N
             start_ports[i] as u16,
             end_ports[i] as u16,
             current_ports[i] as u16,
-        );
+        )?;
         nodes.push(node);
     }
 
@@ -132,7 +144,9 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
             let address = nodes_addresses[nodes_counter];
             let port = ports[nodes_counter] as u16;
 
-            cluster_members.push(ClusterMember::new(id, address, port));
+            let cluster_member = ClusterMember::new(id, address, port)?;
+
+            cluster_members.push(cluster_member);
 
             nodes_counter = nodes_counter + 1;
         }

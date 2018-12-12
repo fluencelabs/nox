@@ -19,7 +19,7 @@ use hex;
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
-use types::{NodeAddress, IP_LEN};
+use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use utils;
 use web3::types::{Address, H256};
 
@@ -90,7 +90,7 @@ impl Register {
         let key_str = key_str.as_str().trim_left_matches("0x");
 
         let key_bytes = hex::decode(key_str.to_owned())?;
-        let mut key_bytes = key_bytes.as_slice()[0..20].to_vec();
+        let mut key_bytes = key_bytes.as_slice()[0..TENDERMINT_KEY_LEN].to_vec();
         key_bytes.append(&mut addr_vec);
 
         let serialized = hex::encode(key_bytes);

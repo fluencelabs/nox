@@ -31,4 +31,19 @@ impl Code {
             cluster_size,
         }
     }
+
+    #[allow(dead_code)]
+    pub fn storage_hash(&self) -> &H256 {
+        &self.storage_hash
+    }
+
+    #[allow(dead_code)]
+    pub fn storage_receipt(&self) -> &H256 {
+        &self.storage_receipt
+    }
+
+    #[allow(dead_code)]
+    pub fn cluster_size(&self) -> u8 {
+        self.cluster_size
+    }
 }

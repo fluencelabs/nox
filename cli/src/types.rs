@@ -19,6 +19,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use web3::contract::tokens::Tokenizable;
 use web3::contract::{Error as ContractError, ErrorKind};
 use ethereum_types_serialize::{serialize, deserialize_check_len};
+use std::error::Error;
 
 /// number of bytes for encoding an IP address
 pub const IP_LEN: usize = 4;
@@ -29,6 +30,18 @@ pub const TENDERMINT_KEY_LEN: usize = 20;
 /// number of bytes for encoding IP address and tendermint key
 pub const NODE_ADDR_LEN: usize = IP_LEN + TENDERMINT_KEY_LEN;
 construct_fixed_hash! { pub struct NodeAddress(NODE_ADDR_LEN); }
+
+impl NodeAddress {
+    pub fn decode(&self) -> Result<(String, String), Box<Error>> {
+        let tendermint_key = &self.0[0..TENDERMINT_KEY_LEN];
+        let tendermint_key = format!("{}{}", "0x", hex::encode(tendermint_key));
+
+        let ip_addr = &self.0[TENDERMINT_KEY_LEN..TENDERMINT_KEY_LEN + IP_LEN];
+        let ip_addr = format!("{}.{}.{}.{}", ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+
+        Ok((tendermint_key, ip_addr))
+    }
+}
 
 /// Helper for converting the hash structure to web3 format
 impl Tokenizable for NodeAddress {
