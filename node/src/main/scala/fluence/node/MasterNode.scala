@@ -18,6 +18,7 @@ package fluence.node
 import java.nio.file._
 
 import cats.effect.{ConcurrentEffect, ExitCode, IO}
+import fluence.node.config.NodeConfig
 import fluence.node.eth.DeployerContract
 import fluence.node.solvers.{CodeManager, SolverImage, SolverParams, SolversPool}
 import fluence.node.tendermint.{ClusterData, Genesis, NodeInfo}
