@@ -40,13 +40,13 @@ import scala.language.higherKinds
  */
 case class Solver[F[_]](
   params: SolverParams,
-  private val healthReportRef: Ref[F, SolverHealth],
+  private val healthReportRef: Ref[F, SolverInfo],
   stop: F[Unit],
   fiber: Fiber[F, Unit]
 ) {
 
   // Getter for the last healthcheck
-  val healthReport: F[SolverHealth] = healthReportRef.get
+  val healthReport: F[SolverInfo] = healthReportRef.get
 
 }
 
@@ -62,7 +62,7 @@ object Solver extends LazyLogging {
     params: SolverParams,
     httpPath: String,
     uptime: Long
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[SolverHealth] = {
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[SolverInfo] = {
 
     val url = uri"http://${params.clusterData.rpcHost}:${params.rpcPort}/$httpPath"
 
@@ -104,7 +104,7 @@ object Solver extends LazyLogging {
    */
   private def runHealthCheck[F[_]: Concurrent: ContextShift: Timer](
     params: SolverParams,
-    healthReportRef: Ref[F, SolverHealth],
+    healthReportRef: Ref[F, SolverInfo],
     stop: Deferred[F, Either[Throwable, Unit]],
     healthcheck: HealthCheckConfig
   )(implicit sttpBackend: SttpBackend[F, Nothing]): F[Unit] =
@@ -114,7 +114,7 @@ object Solver extends LazyLogging {
         // Check that container is running every healthcheck.period
         DockerIO.check[F](healthcheck.period)
       )
-      .evalMap[F, SolverHealth] {
+      .evalMap[F, SolverInfo] {
         case (uptime, true) ⇒
           getHealthState(params, healthcheck.httpPath, uptime)
         case (_, false) ⇒
@@ -139,7 +139,7 @@ object Solver extends LazyLogging {
     implicit sttpBackend: SttpBackend[F, Nothing]
   ): F[Solver[F]] =
     for {
-      healthReportRef ← Ref.of[F, SolverHealth](SolverNotYetLaunched(StoppedSolverInfo(params)))
+      healthReportRef ← Ref.of[F, SolverInfo](SolverNotYetLaunched(StoppedSolverInfo(params)))
       stop ← Deferred[F, Either[Throwable, Unit]]
 
       fiber ← Concurrent[F].start(runHealthCheck(params, healthReportRef, stop, healthcheck))

@@ -45,11 +45,12 @@ matrix:
       rust: nightly
       cache: cargo
       before_install:
-        - rustup component add rustfmt --toolchain nightly
+      # todo uncomment when `rustfmt` will be added in the nightly toolchain
+      #  - rustup component add rustfmt --toolchain nightly
         - cd sdk/rust
 
       script:
-        - cargo fmt --all -- --check -v
+      #  - cargo fmt --all -- --check -v
         - cargo build -v --all-features
         - cargo doc -v --all-features
         - cargo test -v --all-features
@@ -61,11 +62,11 @@ matrix:
       cache: cargo
       sudo: false
       before_install:
-        - rustup component add rustfmt-preview --toolchain nightly
+      #  - rustup component add rustfmt-preview --toolchain nightly
         - cd vm/examples/llamadb
 
       script:
-        - cargo fmt --all -- --check -v
+      #  - cargo fmt --all -- --check -v
         - cargo build -v
         - cargo doc -v
         - cargo test -v

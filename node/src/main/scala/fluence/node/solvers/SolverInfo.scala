@@ -80,24 +80,24 @@ object StoppedSolverInfo {
   implicit val encodeSolverInfo: Encoder[StoppedSolverInfo] = deriveEncoder
 }
 
-sealed trait SolverHealth {
+sealed trait SolverInfo {
   def isHealthy: Boolean
 }
 
-object SolverHealth {
+object SolverInfo {
   implicit val encodeThrowable: Encoder[Throwable] = new Encoder[Throwable] {
     final def apply(a: Throwable): Json = Json.fromString(a.getLocalizedMessage)
   }
 
   import RunningSolverInfo._
-  implicit val encoderSolverHealth: Encoder[SolverHealth] = deriveEncoder
+  implicit val encoderSolverHealth: Encoder[SolverInfo] = deriveEncoder
 }
 
-sealed trait SolverHealthy extends SolverHealth {
+sealed trait SolverHealthy extends SolverInfo {
   override def isHealthy: Boolean = true
 }
 
-sealed trait SolverIll extends SolverHealth {
+sealed trait SolverIll extends SolverInfo {
   override def isHealthy: Boolean = false
 }
 
