@@ -19,7 +19,7 @@ package fluence.node
 import cats.Parallel
 import cats.data.Kleisli
 import cats.effect.{ContextShift, IO, Resource, Timer}
-import fluence.node.config.{StatsServerConfig, MasterConfig}
+import fluence.node.config.{MasterConfig, StatsServerConfig}
 import fluence.node.solvers.SolverHealth
 import org.http4s._
 import org.http4s.implicits._
@@ -63,7 +63,9 @@ object MasterState {
  * @param config config file about a master node
  * @param masterNode initialized master node
  */
-case class StatsManager(config: MasterConfig, masterNode: MasterNode, startTimeMillis: Long)(implicit timer: Timer[IO]) {
+case class StatsManager(config: MasterConfig, masterNode: MasterNode, startTimeMillis: Long)(
+  implicit timer: Timer[IO]
+) {
 
   /**
    * Gets all state information about master node and solvers.
@@ -76,7 +78,15 @@ case class StatsManager(config: MasterConfig, masterNode: MasterNode, startTimeM
       currentTime <- timer.clock.monotonic(MILLISECONDS)
       solversStatus <- masterNode.pool.healths
       solverInfos = solversStatus.values.toList
-    } yield MasterState(config.endpoints.ip.getHostName, ports, currentTime - startTimeMillis, solversStatus.size, solverInfos, config)
+    } yield
+      MasterState(
+        config.endpoints.ip.getHostName,
+        ports,
+        currentTime - startTimeMillis,
+        solversStatus.size,
+        solverInfos,
+        config
+      )
   }
 }
 
@@ -97,7 +107,12 @@ object StatsManager {
    * @param masterConfig parameters about a master node
    * @param masterNode initialized master node
    */
-  def makeResource(statServerConfig: StatsServerConfig, masterConfig: MasterConfig, masterNode: MasterNode, startTimeMillis: Long)(
+  def makeResource(
+    statServerConfig: StatsServerConfig,
+    masterConfig: MasterConfig,
+    masterNode: MasterNode,
+    startTimeMillis: Long
+  )(
     implicit cs: ContextShift[IO],
     timer: Timer[IO]
   ): Resource[IO, Server[IO]] =

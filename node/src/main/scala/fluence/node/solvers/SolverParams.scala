@@ -30,7 +30,8 @@ case class SolverParams(
   solverImage: SolverImage
 ) {
 
-  override def toString = s"(solver ${clusterData.nodeInfo.node_index} with port $rpcPort for ${clusterData.nodeInfo.clusterName})"
+  override def toString =
+    s"(solver ${clusterData.nodeInfo.node_index} with port $rpcPort for ${clusterData.nodeInfo.clusterName})"
 
   val rpcPort: Short = clusterData.rpcPort
 
