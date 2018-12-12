@@ -53,8 +53,8 @@ if [ -z "$ETHEREUM_IP" ]; then
     ETHEREUM_IP=$TENDERMINT_IP
 fi
 
-if [ ! -z "$SWARM_IP" ]; then
-    SWARM_IP="swarm.host = \"$SWARM_IP\""
+if [ ! -z "$SWARM_HOST" ]; then
+    SWARM_HOST="swarm.host = \"$SWARM_HOST\""
 fi
 
 # Running master-node.jar, that means running default CMD
@@ -69,7 +69,7 @@ endpoints {
 ethereum {
   ip = "$ETHEREUM_IP"
 }
-$SWARM_IP
+$SWARM_HOST
 tendermint-path = "/master"
 master-container-id = "${CONTAINER_ID#"/docker/"}"
 EOF

@@ -45,6 +45,7 @@ matrix:
       rust: nightly
       cache: cargo
       before_install:
+      # todo uncomment when `rustfmt` will be added in the nightly toolchain
       #  - rustup component add rustfmt --toolchain nightly
         - cd sdk/rust
 
