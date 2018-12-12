@@ -19,8 +19,8 @@ package fluence.node
 import cats.Parallel
 import cats.data.Kleisli
 import cats.effect.{ContextShift, IO, Resource, Timer}
-import fluence.node.config.{MasterConfig, StatsServerConfig}
-import fluence.node.solvers.SolverHealth
+import fluence.node.config.{MasterConfig, StatusServerConfig}
+import fluence.node.solvers.SolverInfo
 import org.http4s._
 import org.http4s.implicits._
 import org.http4s.dsl.io._
@@ -44,17 +44,17 @@ import scala.language.higherKinds
  * @param solvers info about solvers
  * @param config config file
  */
-case class MasterState(
+case class MasterStatus(
   ip: String,
   listOfPorts: String,
   uptime: Long,
   numberOfSolvers: Int,
-  solvers: List[SolverHealth],
+  solvers: List[SolverInfo],
   config: MasterConfig
 )
 
-object MasterState {
-  implicit val encodeMasterState: Encoder[MasterState] = deriveEncoder
+object MasterStatus {
+  implicit val encodeMasterState: Encoder[MasterStatus] = deriveEncoder
 }
 
 /**
@@ -63,7 +63,7 @@ object MasterState {
  * @param config config file about a master node
  * @param masterNode initialized master node
  */
-case class StatsManager(config: MasterConfig, masterNode: MasterNode, startTimeMillis: Long)(
+case class StatusAggregator(config: MasterConfig, masterNode: MasterNode, startTimeMillis: Long)(
   implicit timer: Timer[IO]
 ) {
 
@@ -71,7 +71,7 @@ case class StatsManager(config: MasterConfig, masterNode: MasterNode, startTimeM
    * Gets all state information about master node and solvers.
    * @return gathered information
    */
-  def getState[G[_]](implicit P: Parallel[IO, G]): IO[MasterState] = {
+  def getStatus[G[_]](implicit P: Parallel[IO, G]): IO[MasterStatus] = {
     val endpoints = config.endpoints
     val ports = s"${endpoints.minPort}:${endpoints.maxPort}"
     for {
@@ -79,7 +79,7 @@ case class StatsManager(config: MasterConfig, masterNode: MasterNode, startTimeM
       solversStatus <- masterNode.pool.healths
       solverInfos = solversStatus.values.toList
     } yield
-      MasterState(
+      MasterStatus(
         config.endpoints.ip.getHostName,
         ports,
         currentTime - startTimeMillis,
@@ -90,13 +90,13 @@ case class StatsManager(config: MasterConfig, masterNode: MasterNode, startTimeM
   }
 }
 
-object StatsManager {
+object StatusAggregator {
 
-  private def statusService(sm: StatsManager)(implicit cs: ContextShift[IO]): Kleisli[IO, Request[IO], Response[IO]] =
+  private def statusService(sm: StatusAggregator)(implicit cs: ContextShift[IO]): Kleisli[IO, Request[IO], Response[IO]] =
     HttpRoutes
       .of[IO] {
         case GET -> Root / "status" =>
-          sm.getState.flatMap(state => Ok(state.asJson.spaces2))
+          sm.getStatus.flatMap(state => Ok(state.asJson.spaces2))
       }
       .orNotFound
 
@@ -107,8 +107,8 @@ object StatsManager {
    * @param masterConfig parameters about a master node
    * @param masterNode initialized master node
    */
-  def makeResource(
-    statServerConfig: StatsServerConfig,
+  def makeHttpResource(
+    statServerConfig: StatusServerConfig,
     masterConfig: MasterConfig,
     masterNode: MasterNode,
     startTimeMillis: Long
@@ -118,7 +118,7 @@ object StatsManager {
   ): Resource[IO, Server[IO]] =
     BlazeServerBuilder[IO]
       .bindHttp(statServerConfig.port, "0.0.0.0")
-      .withHttpApp(statusService(StatsManager(masterConfig, masterNode, startTimeMillis)))
+      .withHttpApp(statusService(StatusAggregator(masterConfig, masterNode, startTimeMillis)))
       .resource
 
 }

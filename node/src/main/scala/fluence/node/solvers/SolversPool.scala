@@ -116,7 +116,7 @@ class SolversPool[F[_]: ContextShift: Timer](
    *
    * @param P Parallel instance is required as all solvers are stopped concurrently
    */
-  def healths[G[_]](implicit P: Parallel[F, G]): F[Map[SolverParams, SolverHealth]] =
+  def healths[G[_]](implicit P: Parallel[F, G]): F[Map[SolverParams, SolverInfo]] =
     for {
       solversMap ← solvers.get
       solversHealths ← Parallel.parTraverse(solversMap.values.toList)(s ⇒ s.healthReport.map(s.params → _))

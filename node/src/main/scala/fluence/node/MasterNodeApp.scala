@@ -89,7 +89,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterContainerId)
 
                 currentTime <- timer.clock.monotonic(MILLISECONDS)
-                result <- StatsManager.makeResource(statsServerConfig, rawConfig, node, currentTime).use { status =>
+                result <- StatusAggregator.makeHttpResource(statsServerConfig, rawConfig, node, currentTime).use { status =>
                   logger.info("Status server has started on: " + status.address)
                   node.run
                 }
