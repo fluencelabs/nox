@@ -55,7 +55,7 @@ Factorization is one of the tests where Asmble goes almost even with WAVM. That 
   <img src="images/matrices.png" alt="Matrix tests" width="1015px"/>
 </p>
 
-Matrix tests are the ones where the floating-point arithmetic is used. It's unclear why Asmble performs so poorly in the SVD decomposition test but performs fine in the QR decomposition test – that's a subject for further investigation.
+Matrix tests are the ones where the floating-point arithmetic is used (except the `matrix_product` test). It's unclear why Asmble performs so poorly in the SVD decomposition test but performs fine in the QR decomposition test – that's a subject for further investigation.
 
 ### Conclusion
 
