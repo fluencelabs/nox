@@ -16,7 +16,7 @@
 
 package fluence.node.tendermint
 import fluence.ethclient.Deployer.ClusterFormedEventResponse
-import fluence.node.NodeConfig
+import fluence.node.config.NodeConfig
 import fluence.node.eth.DeployerContract.ContractClusterTuple
 import fluence.node.solvers.CodePath
 import org.web3j.abi.datatypes.DynamicArray

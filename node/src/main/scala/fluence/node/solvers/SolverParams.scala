@@ -30,9 +30,10 @@ case class SolverParams(
   solverImage: SolverImage
 ) {
 
-  override def toString = s"(solver ${clusterData.nodeInfo.node_index} for ${clusterData.nodeInfo.clusterName})"
+  override def toString =
+    s"(solver ${clusterData.nodeInfo.node_index} with port $rpcPort for ${clusterData.nodeInfo.clusterName})"
 
-  def rpcPort: Short = clusterData.rpcPort
+  val rpcPort: Short = clusterData.rpcPort
 
   /**
    * [[fluence.node.docker.DockerIO.run]]'s command for launching a configured solver

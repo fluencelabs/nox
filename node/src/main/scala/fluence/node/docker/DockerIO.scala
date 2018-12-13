@@ -15,10 +15,12 @@
  */
 
 package fluence.node.docker
+
 import cats.Applicative
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.effect.{ContextShift, Sync, Timer}
+import com.fasterxml.jackson.databind.util.ISO8601DateFormat
 import slogging.LazyLogging
 
 import scala.concurrent.duration.FiniteDuration
@@ -64,6 +66,8 @@ object DockerIO extends LazyLogging {
       case Failure(err) ⇒ fs2.Stream.raiseError(err)
     }
 
+  private val format = new ISO8601DateFormat()
+
   /**
    * Checks that container is alive every tick.
    *
@@ -72,16 +76,20 @@ object DockerIO extends LazyLogging {
    */
   def check[F[_]: Timer: Sync: ContextShift](
     period: FiniteDuration
-  ): fs2.Pipe[F, String, (FiniteDuration, Boolean)] =
+  ): fs2.Pipe[F, String, (Long, Boolean)] =
     _.flatMap(
       dockerId ⇒
         fs2.Stream
           .awakeEvery[F](period)
           .evalMap(
             d ⇒
-              shiftDelay(s"docker inspect -f '{{.State.Running}}' $dockerId".!!).map { status ⇒
-                logger.debug(s"Docker container $dockerId  status = [${status.trim}]")
-                d → status.contains("true")
+              shiftDelay(s"docker inspect -f {{.State.Running}},{{.State.StartedAt}} $dockerId".!!).map { status ⇒
+                val running :: started :: Nil = status.trim.split(',').toList
+
+                logger.debug(s"Docker container $dockerId  status = [$running], startedAt = [$started]")
+                val now = System.currentTimeMillis()
+                val time = format.parse(started).getTime
+                (now - time) → running.contains("true")
             }
         )
     )

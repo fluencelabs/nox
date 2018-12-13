@@ -313,9 +313,6 @@ object SwarmClient {
     address: String
   )(implicit sttpBackend: SttpBackend[F, Nothing], F: cats.MonadError[F, Throwable]): F[SwarmClient[F]] = {
 
-    LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.INFO
-
     implicit val hasher: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
 
     F.catchNonFatal {

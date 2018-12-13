@@ -16,19 +16,34 @@
 
 package fluence.node
 
-import cats.effect.{ExitCode, IO, IOApp, Resource}
+import cats.effect._
+import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.eth.DeployerContract
-import fluence.node.solvers.SolversPool
+import fluence.node.solvers.{CodeManager, SolversPool, SwarmCodeManager, TestCodeManager}
+import fluence.swarm.SwarmClient
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
+import fluence.node.config.SwarmConfig
+import scala.concurrent.duration.MILLISECONDS
 
 object MasterNodeApp extends IOApp with LazyLogging {
 
   private val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
     Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+
+  private def getCodeManager(
+    config: Option[SwarmConfig]
+  )(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[CodeManager[IO]] =
+    config match {
+      case Some(c) =>
+        SwarmClient(c.host)
+          .map(client => new SwarmCodeManager[IO](client))
+      case None =>
+        IO(new TestCodeManager[IO]())
+    }
 
   /**
    * Launches a Master node connecting to ethereum blockchain with Deployer contract.
@@ -36,23 +51,30 @@ object MasterNodeApp extends IOApp with LazyLogging {
    */
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
-    Configuration.configure().attempt.flatMap {
-      case Right(Configuration(rootPath, nodeConfig, config, swarmConfig, ethereumRPC, masterNodeContainerId)) =>
-        // Run master node
-        EthClient
-          .makeHttpResource[IO](Some(ethereumRPC.uri))
-          .use { ethClient ⇒
-            sttpResource.use { implicit sttpBackend ⇒
+    Configuration
+      .create()
+      .flatMap {
+        case (rawConfig, configuration) =>
+          import configuration._
+          // Run master node and status server
+          val resources = for {
+            ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRPCConfig.uri))
+            sttpBackend <- sttpResource
+          } yield (ethClientResource, sttpBackend)
+
+          resources.use {
+            case (ethClient, sttpBackend) ⇒
+              implicit val backend: SttpBackend[IO, Nothing] = sttpBackend
               for {
                 version ← ethClient.clientVersion[IO]()
                 _ = logger.info("eth client version {}", version)
-                _ = logger.debug("eth config {}", config)
+                _ = logger.debug("eth config {}", contractConfig)
 
-                contract = DeployerContract(ethClient, config)
+                contract = DeployerContract(ethClient, contractConfig)
 
                 // TODO: should check that node is registered, but should not send transactions
                 _ <- contract
-                  .addAddressToWhitelist[IO](config.deployerContractOwnerAccount)
+                  .addAddressToWhitelist[IO](contractConfig.contractOwnerAccount)
                   .attempt
                   .map(r ⇒ logger.debug(s"Whitelisting address: $r"))
                 _ <- contract
@@ -62,19 +84,25 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 pool ← SolversPool[IO]()
 
-                codeManager <- Configuration.getCodeManager(swarmConfig)
+                codeManager <- getCodeManager(swarmConfig)
 
-                node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterNodeContainerId)
+                node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterContainerId)
 
-                result ← node.run
-
+                currentTime <- timer.clock.monotonic(MILLISECONDS)
+                result <- StatusAggregator.makeHttpResource(statsServerConfig, rawConfig, node, currentTime).use { status =>
+                  logger.info("Status server has started on: " + status.address)
+                  node.run
+                }
               } yield result
-            }
           }
-      case Left(value) =>
-        logger.error("Error: {}", value)
-        IO.pure(ExitCode.Error)
-    }
+      }
+      .attempt
+      .flatMap {
+        case Left(err) =>
+          logger.error("Error: {}", err)
+          IO.pure(ExitCode.Error)
+        case Right(ec) => IO.pure(ec)
+      }
   }
 
   private def configureLogging(): Unit = {
