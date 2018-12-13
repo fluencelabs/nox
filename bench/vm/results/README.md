@@ -59,8 +59,8 @@ Matrix tests are the ones where the floating-point arithmetic is used (except th
 
 ### Conclusion
 
-WAVM was a definite winner in every test we have performed, and "compilers" were up to 50x-200x times faster compared to "interpreters". Asmble can be considered the runner up – on most tests, except one anomalous and another with deflate compression it was only couple times slower than WAVM and 1.2x-2x faster than wasmer. Unfortunately, because we tried to run the same test on "compilers" and "interpreters", we couldn't make it run long enough for "compilers" without making "interpreters" to run forever.
+WAVM was a definite winner in every test we have performed, and "compilers" were up to 50x-200x times faster compared to "interpreters". Asmble can be considered the runner up – on most tests, except one anomalous and another with deflate compression it was only couple times slower than WAVM and 1.2x-2x faster than wasmer. 
 
-This means that "compilers" results are potentially ballpark at best. Ideally, there should be another test focused on "compilers" only, and we would be grateful if someone from community helped with that :)
+Unfortunately, because we tried to run the same test on "compilers" and "interpreters", we couldn't make it run long enough for "compilers" without making "interpreters" to run forever. This means that "compilers" results are potentially ballpark at best. Ideally, there should be another test focused on "compilers" only, and we would be grateful if someone from community helped with that :)
 
 Raw results can be found [here](https://github.com/fluencelabs/fluence/tree/master/bench/vm/results), and the Jupyter notebook used to generate the plots (with some additional analysis) – [here](https://github.com/fluencelabs/fluence/blob/master/bench/vm/results/result_analysis.ipynb). [Source codes](https://github.com/fluencelabs/fluence/tree/master/bench/vm/tests) and [benchmark scripts](https://github.com/fluencelabs/fluence/tree/master/bench/vm/bencher) are published as well, so feel free to try this at home!
