@@ -16,12 +16,12 @@ limitations under the License.
 
 
 class VMDescriptor:
-    """Wasm VM descriptor that specifies how vm has to be launched.
+    """Wasm VM descriptor that specifies how VM has to be launched.
 
     Attributes
     ----------
     relative_vm_binary_path : str
-        A relative path to vm binary in its main folder.
+        A relative path to VM binary in its main folder.
     vm_launch_cmd : str
         An format string with command for launch this vm with provided test.
     is_compiler_type : bool
