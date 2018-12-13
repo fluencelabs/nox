@@ -43,7 +43,7 @@ It should also be noted that interpreter VMs in general took much longer time th
   <img src="results/images/compressions.png" alt="Compression tests" width="1015px"/>
 </p>
 
-It should be somewhat expected that "compilers" (WAVM, Asmble, wasmer) will beat "interpreters" (life, wasmi, wagon) without JIT by large margin, and WAVM is a clear winner here. However, it's surprising to see that using `snappy` compression instead of `deflate` increases performance of compiler VMs almost twice, whereas it doesn't have too much effect on interpreter VMs. Also, `deflate` is one of two tests where Asmble loses to wasmer.
+It should be somewhat expected that "compilers" (WAVM, Asmble, wasmer) will beat "interpreters" (life, wasmi, wagon) without JIT by large margin, and WAVM is a clear winner here. You might also note that `deflate` is one of two tests where Asmble loses to wasmer.
 
 <p align="center">
   <img src="results/images/computations.png" alt="Computation tests" width="1001px"/>
