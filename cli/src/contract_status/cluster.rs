@@ -15,8 +15,8 @@
  */
 
 use contract_status::code::Code;
-use types::NodeAddress;
 use std::error::Error;
+use types::NodeAddress;
 use web3::types::{H256, U256};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -30,7 +30,12 @@ pub struct ClusterMember {
 impl ClusterMember {
     pub fn new(id: H256, address: NodeAddress, port: u16) -> Result<ClusterMember, Box<Error>> {
         let (tendermint_key, ip_addr) = address.decode()?;
-        Ok(ClusterMember { id, tendermint_key, ip_addr, port })
+        Ok(ClusterMember {
+            id,
+            tendermint_key,
+            ip_addr,
+            port,
+        })
     }
 
     #[allow(dead_code)]
@@ -63,7 +68,6 @@ pub struct Cluster {
 }
 
 impl Cluster {
-
     #[allow(dead_code)]
     pub fn id(&self) -> &H256 {
         &self.id

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+use std::error::Error;
 use types::NodeAddress;
 use web3::types::H256;
-use std::error::Error;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Node {
@@ -29,7 +29,13 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(id: H256, address: NodeAddress, start_port: u16, end_port: u16, current_port: u16) -> Result<Node, Box<Error>> {
+    pub fn new(
+        id: H256,
+        address: NodeAddress,
+        start_port: u16,
+        end_port: u16,
+        current_port: u16,
+    ) -> Result<Node, Box<Error>> {
         let (tendermint_key, ip_addr) = address.decode()?;
         Ok(Node {
             id,

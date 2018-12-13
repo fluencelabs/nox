@@ -71,13 +71,13 @@ pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Bo
 #[cfg(test)]
 mod tests {
 
-    use register::Register;
+    use super::get_status;
     use publisher::Publisher;
     use rand::prelude::*;
+    use register::Register;
     use std::error::Error;
     use utils;
     use web3::types::*;
-    use super::get_status;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
     const CONTRACT_ADDR: &str = "9995882876ae612bfd829498ccd73dd962ec950a";
@@ -116,12 +116,12 @@ mod tests {
             account,
             String::from(ETH_URL),
             None,
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     #[test]
     fn status_correct() -> Result<(), Box<Error>> {
-
         let reg1_ip = "156.56.34.67";
         let reg1_start_port = 2004;
         let reg1_end_port = 2016;
@@ -160,37 +160,30 @@ mod tests {
         let codes = status.enqueued_codes();
         let nodes = status.ready_nodes();
 
-        let cluster = clusters.iter().find( |&cl|
-            cl.code().cluster_size() == cluster_size1
-        );
+        let cluster = clusters
+            .iter()
+            .find(|&cl| cl.code().cluster_size() == cluster_size1);
 
         println!("{:?}", clusters);
 
         assert_eq!(cluster.is_some(), true);
 
-        let node1 = nodes.iter().find( |&n|
-            n.ip_addr() == reg1_ip
-        );
+        let node1 = nodes.iter().find(|&n| n.ip_addr() == reg1_ip);
 
         assert_eq!(node1.is_some(), true);
         let node1 = node1.unwrap();
         assert_eq!(node1.start_port(), reg1_start_port);
         assert_eq!(node1.end_port(), reg1_end_port);
 
-        let node2 = nodes.iter().find( |&n|
-            n.ip_addr() == reg2_ip
-        );
+        let node2 = nodes.iter().find(|&n| n.ip_addr() == reg2_ip);
 
         assert_eq!(node2.is_some(), true);
         let node2 = node2.unwrap();
         assert_eq!(node2.start_port(), reg2_start_port);
         assert_eq!(node2.end_port(), reg2_end_port);
 
-        let code = codes.iter().find( |&c|
-            c.cluster_size() == cluster_size2
-        );
+        let code = codes.iter().find(|&c| c.cluster_size() == cluster_size2);
         assert_eq!(code.is_some(), true);
-
 
         Ok(())
     }

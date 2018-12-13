@@ -15,11 +15,11 @@
  */
 
 use ethabi::Token;
+use ethereum_types_serialize::{deserialize_check_len, serialize};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::error::Error;
 use web3::contract::tokens::Tokenizable;
 use web3::contract::{Error as ContractError, ErrorKind};
-use ethereum_types_serialize::{serialize, deserialize_check_len};
-use std::error::Error;
 
 /// number of bytes for encoding an IP address
 pub const IP_LEN: usize = 4;
@@ -37,7 +37,10 @@ impl NodeAddress {
         let tendermint_key = format!("{}{}", "0x", hex::encode(tendermint_key));
 
         let ip_addr = &self.0[TENDERMINT_KEY_LEN..TENDERMINT_KEY_LEN + IP_LEN];
-        let ip_addr = format!("{}.{}.{}.{}", ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+        let ip_addr = format!(
+            "{}.{}.{}.{}",
+            ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]
+        );
 
         Ok((tendermint_key, ip_addr))
     }
@@ -87,7 +90,10 @@ impl<'de> Deserialize<'de> for NodeAddress {
         D: Deserializer<'de>,
     {
         let mut bytes = [0u8; NODE_ADDR_LEN];
-        deserialize_check_len(deserializer, ethereum_types_serialize::ExpectedLen::Exact(&mut bytes))?;
+        deserialize_check_len(
+            deserializer,
+            ethereum_types_serialize::ExpectedLen::Exact(&mut bytes),
+        )?;
         Ok(NodeAddress(bytes))
     }
 }
