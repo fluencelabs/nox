@@ -323,7 +323,7 @@ mod tests {
     #[test]
     fn publish_wrong_eth_url() -> Result<(), Box<Error>> {
         let publisher = generate_with(|p| {
-            p.eth_url = String::from("http://127.0.6.7:8545");
+            p.eth_url = String::from("http://117.2.6.7:4476");
         });
 
         let result = publisher.publish(false);
