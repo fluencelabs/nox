@@ -18,7 +18,7 @@ We have performed 8 tests, which source codes can be found [here](https://github
 - `recursive_hash` computes a hash chain `hash(hash( ... hash(x)))` of the provided value `x`
 - `matrix_product` performs multiple iterations of computing a product of random matrices
 - `matrix_qr_decomposition` performs multiple iterations of a QR decomposition of a random matrix
-- `matrix_svid_decomposition` performs multiple iterations of an SVD decomposition of a random matrix
+- `matrix_svd_decomposition` performs multiple iterations of an SVD decomposition of a random matrix
 
 ### Setup
 
@@ -63,4 +63,4 @@ WAVM was a definite winner in every test we have performed, and "compilers" were
 
 This means that "compilers" results are potentially ballpark at best. Ideally, there should be another test focused on "compilers" only, and we would be grateful if someone from community helped with that :)
 
-Raw results can be found [here](https://github.com/fluencelabs/fluence/tree/master/bench/vm/results), and the Jupyter notebook used to generate plots – [here](https://github.com/fluencelabs/fluence/blob/master/bench/vm/results/result_analysis.ipynb).
+Raw results can be found [here](https://github.com/fluencelabs/fluence/tree/master/bench/vm/results), and the Jupyter notebook used to generate plots (with some additional analysis) – [here](https://github.com/fluencelabs/fluence/blob/master/bench/vm/results/result_analysis.ipynb).
