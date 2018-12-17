@@ -18,7 +18,7 @@ use std::error::Error;
 use types::NodeAddress;
 use web3::types::H256;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Node {
     id: H256,
     tendermint_key: String,
@@ -45,35 +45,5 @@ impl Node {
             end_port,
             current_port,
         })
-    }
-
-    #[allow(dead_code)]
-    pub fn id(&self) -> &H256 {
-        &self.id
-    }
-
-    #[allow(dead_code)]
-    pub fn tendermint_key(&self) -> &str {
-        &self.tendermint_key
-    }
-
-    #[allow(dead_code)]
-    pub fn ip_addr(&self) -> &str {
-        &self.ip_addr
-    }
-
-    #[allow(dead_code)]
-    pub fn start_port(&self) -> u16 {
-        self.start_port
-    }
-
-    #[allow(dead_code)]
-    pub fn end_port(&self) -> u16 {
-        self.end_port
-    }
-
-    #[allow(dead_code)]
-    pub fn current_port(&self) -> u16 {
-        self.current_port
     }
 }

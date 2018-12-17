@@ -95,7 +95,7 @@ contract Deployer is Whitelist {
     mapping(bytes32 => BusyCluster) private busyClusters;
 
     // Number of existing clusters, used for clusterID generation
-    // starting with 1, so we could check existince of cluster in the mapping, e.g:
+    // starting with 1, so we could check existence of cluster in the mapping, e.g:
     // if (busyCluster[someId].clusterID > 0)
     uint256 clusterCount = 1;
 

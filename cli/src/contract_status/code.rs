@@ -16,7 +16,7 @@
 
 use web3::types::H256;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Code {
     storage_hash: H256,
     storage_receipt: H256,
@@ -30,20 +30,5 @@ impl Code {
             storage_receipt,
             cluster_size,
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn storage_hash(&self) -> &H256 {
-        &self.storage_hash
-    }
-
-    #[allow(dead_code)]
-    pub fn storage_receipt(&self) -> &H256 {
-        &self.storage_receipt
-    }
-
-    #[allow(dead_code)]
-    pub fn cluster_size(&self) -> u8 {
-        self.cluster_size
     }
 }

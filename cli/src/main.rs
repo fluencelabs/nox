@@ -24,6 +24,8 @@ extern crate web3;
 extern crate fixed_hash;
 #[macro_use]
 extern crate error_chain;
+#[macro_use]
+extern crate derive_getters;
 
 extern crate ethereum_types_serialize;
 

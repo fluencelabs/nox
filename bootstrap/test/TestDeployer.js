@@ -178,7 +178,7 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
         assert.equal(clustersNodes[0].length, 3);
 
         let nodes = await this.deployer.getReadyNodes();
-      assert.equal(nodes[0].length, 3)
+        assert.equal(nodes[0].length, 3)
     });
 
     it("Should deploy same code twice", async function() {

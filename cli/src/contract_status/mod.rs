@@ -70,7 +70,6 @@ pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Bo
 
 #[cfg(test)]
 mod tests {
-
     use super::get_status;
     use publisher::Publisher;
     use rand::prelude::*;
@@ -84,7 +83,7 @@ mod tests {
     const ETH_URL: &str = "http://localhost:8545/";
     const SWARM_URL: &str = "http://localhost:8500";
 
-    fn generate_publisher(bytes: Vec<u8>, cluster_size: u8) -> Publisher {
+    fn generate_publisher(bytes: Vec<u8>, cluster_size: &u8) -> Publisher {
         let contract_address: Address = CONTRACT_ADDR.parse().unwrap();
 
         Publisher::new(
@@ -94,7 +93,7 @@ mod tests {
             String::from(SWARM_URL),
             String::from(ETH_URL),
             None,
-            cluster_size,
+            cluster_size.to_owned(),
         )
     }
 
@@ -144,11 +143,11 @@ mod tests {
         register2.register(false)?;
 
         let bytes1 = vec![1, 2, 3];
-        let cluster_size1 = 2;
+        let cluster_size1 = &2;
         let publisher1 = generate_publisher(bytes1, cluster_size1);
 
         let bytes2 = vec![1, 2, 3, 4, 5];
-        let cluster_size2 = 180;
+        let cluster_size2 = &180;
         let publisher2 = generate_publisher(bytes2, cluster_size2);
 
         publisher1.publish(false)?;
@@ -172,15 +171,15 @@ mod tests {
 
         assert_eq!(node1.is_some(), true);
         let node1 = node1.unwrap();
-        assert_eq!(node1.start_port(), reg1_start_port);
-        assert_eq!(node1.end_port(), reg1_end_port);
+        assert_eq!(node1.start_port(), &reg1_start_port);
+        assert_eq!(node1.end_port(), &reg1_end_port);
 
         let node2 = nodes.iter().find(|&n| n.ip_addr() == reg2_ip);
 
         assert_eq!(node2.is_some(), true);
         let node2 = node2.unwrap();
-        assert_eq!(node2.start_port(), reg2_start_port);
-        assert_eq!(node2.end_port(), reg2_end_port);
+        assert_eq!(node2.start_port(), &reg2_start_port);
+        assert_eq!(node2.end_port(), &reg2_end_port);
 
         let code = codes.iter().find(|&c| c.cluster_size() == cluster_size2);
         assert_eq!(code.is_some(), true);

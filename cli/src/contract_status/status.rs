@@ -124,12 +124,10 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
         Vec<H256>,
         Vec<H256>,
         Vec<u64>,
-    ) = utils::query_contract(contract_address, eth_url, "getClustersInfo", (), options)?;
-
-    let options2 = utils::options();
+    ) = utils::query_contract(contract_address, eth_url, "getClustersInfo", (), options.to_owned())?;
 
     let (nodes_ids, nodes_addresses, ports): (Vec<H256>, Vec<NodeAddress>, Vec<u64>) =
-        utils::query_contract(contract_address, eth_url, "getClustersNodes", (), options2)?;
+        utils::query_contract(contract_address, eth_url, "getClustersNodes", (), options.to_owned())?;
 
     let mut clusters: Vec<Cluster> = Vec::new();
     let mut nodes_counter = 0;

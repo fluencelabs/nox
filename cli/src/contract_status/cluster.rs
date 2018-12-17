@@ -19,7 +19,7 @@ use std::error::Error;
 use types::NodeAddress;
 use web3::types::{H256, U256};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct ClusterMember {
     id: H256,
     tendermint_key: String,
@@ -37,29 +37,9 @@ impl ClusterMember {
             port,
         })
     }
-
-    #[allow(dead_code)]
-    pub fn id(&self) -> &H256 {
-        &self.id
-    }
-
-    #[allow(dead_code)]
-    pub fn tendermint_key(&self) -> &str {
-        &self.tendermint_key
-    }
-
-    #[allow(dead_code)]
-    pub fn ip_addr(&self) -> &str {
-        &self.ip_addr
-    }
-
-    #[allow(dead_code)]
-    pub fn port(&self) -> u16 {
-        self.port
-    }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Cluster {
     id: H256,
     genesis_time: U256,
@@ -68,26 +48,6 @@ pub struct Cluster {
 }
 
 impl Cluster {
-    #[allow(dead_code)]
-    pub fn id(&self) -> &H256 {
-        &self.id
-    }
-
-    #[allow(dead_code)]
-    pub fn genesis_time(&self) -> &U256 {
-        &self.genesis_time
-    }
-
-    #[allow(dead_code)]
-    pub fn code(&self) -> &Code {
-        &self.code
-    }
-
-    #[allow(dead_code)]
-    pub fn cluser_members(&self) -> &Vec<ClusterMember> {
-        &self.cluster_members
-    }
-
     pub fn new(
         id: H256,
         genesis_time: U256,
