@@ -36,7 +36,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .alias(CONTRACT_ADDRESS)
                 .required(true)
                 .takes_value(true)
-                .help("deployer contract address"),
+                .help("fluence contract address"),
             Arg::with_name(ETH_URL)
                 .alias(ETH_URL)
                 .long("eth_url")

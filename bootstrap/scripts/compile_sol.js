@@ -8,7 +8,6 @@ var zeppelinPath = __dirname + '/../node_modules/openzeppelin-solidity/contracts
 var compiledPath = __dirname + '/../contracts/compiled'
 
 var input = {
-    'Deployer.sol': fs.readFileSync(__dirname + '/../contracts/Deployer.sol', 'utf8'),
     'Network.sol': fs.readFileSync(__dirname + '/../contracts/Network.sol', 'utf8'),
     'openzeppelin-solidity/contracts/access/rbac/Roles.sol': fs.readFileSync(zeppelinPath + '/access/rbac/Roles.sol', 'utf8'),
     'openzeppelin-solidity/contracts/ownership/Ownable.sol': fs.readFileSync(zeppelinPath + '/ownership/Ownable.sol', 'utf8'),
@@ -39,10 +38,6 @@ function writeFile(file, content) {
 if (!fs.existsSync(compiledPath)){
     fs.mkdirSync(compiledPath);
 }
-
-//let deployerContract = output.contracts["Deployer.sol:Deployer"];
-//writeFile(compiledPath + '/Deployer.bin', deployerContract.bytecode);
-//writeFile(compiledPath + '/Deployer.abi', deployerContract.interface);
 
 let networkContract = output.contracts["Network.sol:Network"];
 writeFile(compiledPath + '/Network.bin', networkContract.bytecode);
