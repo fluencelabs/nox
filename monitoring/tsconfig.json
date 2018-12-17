@@ -9,18 +9,16 @@
     "moduleResolution": "node",
     "declaration": true,
     "types": ["node"],
+    "module": "commonjs",
     "baseUrl": "." // This must be specified if "paths" is.
   },
   "typeRoots": [
     "./node_modules/@types"
-  ]
+  ],
   "exclude": [
     "node_modules",
     "dist",
     "src/test",
     "bundle"
-  ],
-  "include": [
-    "./node_modules/web3-typescript-typings/index.d.ts"
   ]
 }
