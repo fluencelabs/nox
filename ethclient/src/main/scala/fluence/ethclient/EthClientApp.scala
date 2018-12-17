@@ -53,7 +53,7 @@ object EthClientApp extends IOApp {
               .drain, // Switch to IO[Unit]
             // Delayed unsubscribe
             par.parallel(for {
-              _ ← IO.sleep(6000.seconds)
+              _ ← IO.sleep(60.seconds)
               _ = println("Going to unsubscribe")
               _ ← unsubscribe.complete(Right(()))
             } yield ())
