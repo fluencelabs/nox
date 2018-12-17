@@ -46,8 +46,13 @@ object MasterNodeApp extends IOApp with LazyLogging {
     }
 
   /**
-   * Launches a Master node connecting to ethereum blockchain with Deployer contract.
+   * Launches a Master Node instance
+   * Assuming to be launched inside Docker image
    *
+   * - Adds contractOwnerAccount to whitelist
+   * - Starts to listen Ethereum for ClusterFormed event
+   * - On ClusterFormed event, launches Solver Docker container
+   * - Starts HTTP API serving status information
    */
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
@@ -57,13 +62,15 @@ object MasterNodeApp extends IOApp with LazyLogging {
         case (rawConfig, configuration) =>
           import configuration._
           // Run master node and status server
-          val resources = for {
-            ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRPCConfig.uri))
-            sttpBackend <- sttpResource
-          } yield (ethClientResource, sttpBackend)
+          val resources =
+            for {
+              ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRPCConfig.uri))
+              sttpBackend <- sttpResource
+            } yield (ethClientResource, sttpBackend)
 
           resources.use {
-            case (ethClient, sttpBackend) ⇒
+            // Type annotations are here to make IDEA's type inference happy
+            case (ethClient: EthClient, sttpBackend: SttpBackend[IO, Nothing]) ⇒
               implicit val backend: SttpBackend[IO, Nothing] = sttpBackend
               for {
                 version ← ethClient.clientVersion[IO]()
