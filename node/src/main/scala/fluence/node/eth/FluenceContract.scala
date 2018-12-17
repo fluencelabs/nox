@@ -19,7 +19,7 @@ package fluence.node.eth
 import cats.effect.{Async, ConcurrentEffect}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.ethclient.Network.CLUSTERFORMED_EVENT
+import fluence.ethclient.Network.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
 import fluence.ethclient.helpers.JavaRxToFs2._
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
@@ -32,8 +32,6 @@ import org.web3j.abi.datatypes.{Address, DynamicArray}
 import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 import org.web3j.tuples.generated
-import io.circe.syntax._
-import NodeConfig._
 
 import scala.collection.JavaConverters._
 import scala.language.higherKinds
@@ -114,7 +112,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
     fs2.Stream
       .eval(clusterFormedFilter[F])
       .flatMap(filter ⇒ contract.clusterFormedEventFlowable(filter).toFS2[F]) // TODO: we should filter by verifier id! Now node will join all the clusters
-      .map(ClusterData.fromClusterFormedEvent(_, nodeConfig))
+      .map(FluenceContract.eventToClusterData(_, nodeConfig))
       .unNone
 
   /**
@@ -196,6 +194,28 @@ object FluenceContract {
     DynamicArray[Bytes24],
     DynamicArray[Uint16]
   ]
+
+  /**
+   * Tries to convert `ClusterFormedEvent` response to [[ClusterData]] with all information to launch cluster.
+   *
+   * @param event event response
+   * @param nodeConfig information about current node
+   * @return true if provided node key belongs to the cluster from the event
+   */
+  def eventToClusterData(
+    event: ClusterFormedEventResponse,
+    nodeConfig: NodeConfig
+  ): Option[ClusterData] = {
+    ClusterData.build(
+      event.clusterID,
+      event.solverIDs,
+      event.genesisTime,
+      event.storageHash,
+      event.solverAddrs,
+      event.solverPorts,
+      nodeConfig
+    )
+  }
 
   /**
    * Loads contract

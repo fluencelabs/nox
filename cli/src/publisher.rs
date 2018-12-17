@@ -172,7 +172,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(true)
                 .takes_value(true)
                 .index(2)
-                .help("deployer contract address"),
+                .help("fluence contract address"),
             Arg::with_name(ACCOUNT)
                 .alias(ACCOUNT)
                 .required(true)
