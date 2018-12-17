@@ -19,7 +19,7 @@ import java.nio.file.{Path, Paths}
 
 import cats.effect.{ContextShift, IO}
 import fluence.node.config.{MasterConfig, NodeConfig, StatusServerConfig, SwarmConfig}
-import fluence.node.eth.{DeployerContractConfig, EthereumRPCConfig}
+import fluence.node.eth.{EthereumRPCConfig, FluenceContractConfig}
 import ConfigOps._
 import com.typesafe.config.Config
 import fluence.node.docker.{DockerIO, DockerParams}
@@ -31,7 +31,7 @@ import pureconfig.generic.auto._
 case class Configuration(
   rootPath: Path,
   nodeConfig: NodeConfig,
-  contractConfig: DeployerContractConfig,
+  contractConfig: FluenceContractConfig,
   swarmConfig: Option[SwarmConfig],
   statsServerConfig: StatusServerConfig,
   ethereumRPCConfig: EthereumRPCConfig,

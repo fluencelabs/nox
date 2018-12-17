@@ -21,7 +21,7 @@ import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
-import fluence.node.eth.DeployerContract
+import fluence.node.eth.FluenceContract
 import fluence.node.solvers.{CodeManager, SolversPool, SwarmCodeManager, TestCodeManager}
 import fluence.swarm.SwarmClient
 import slogging.MessageFormatter.DefaultPrefixFormatter
@@ -70,7 +70,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 _ = logger.info("eth client version {}", version)
                 _ = logger.debug("eth config {}", contractConfig)
 
-                contract = DeployerContract(ethClient, contractConfig)
+                contract = FluenceContract(ethClient, contractConfig)
 
                 // TODO: should check that node is registered, but should not send transactions
                 _ <- contract

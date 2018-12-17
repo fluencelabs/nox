@@ -85,14 +85,14 @@ contract Deployer is Whitelist {
     event NewNode(bytes32 id);
 
     // Nodes ready to join new clusters
-    bytes32[] private readyNodes;
+    bytes32[] internal readyNodes;
 
     // All nodes
-    mapping(bytes32 => Node) private nodes;
-    bytes32[] private nodesIndices;
+    mapping(bytes32 => Node) internal nodes;
+    bytes32[] internal nodesIndices;
 
     // Cluster with assigned Code
-    mapping(bytes32 => BusyCluster) private busyClusters;
+    mapping(bytes32 => BusyCluster) internal busyClusters;
 
     // Number of existing clusters, used for clusterID generation
     // starting with 1, so we could check existence of cluster in the mapping, e.g:
@@ -100,7 +100,7 @@ contract Deployer is Whitelist {
     uint256 clusterCount = 1;
 
     // Codes waiting for nodes
-    Code[] private enqueuedCodes;
+    Code[] internal enqueuedCodes;
 
     /** @dev Adds node with specified port range to the work-waiting queue
       * @param nodeID some kind of unique ID
@@ -141,180 +141,6 @@ contract Deployer is Whitelist {
         if (!matchWork()) {
             emit CodeEnqueued(storageHash);
         }
-    }
-
-    /** @dev Allows anyone with clusterID to retrieve assigned Code
-     * @param clusterID unique id of cluster
-     */
-    function getCluster(bytes32 clusterID)
-        external
-        view
-        returns (bytes32, bytes32, uint, bytes32[], bytes24[], uint16[])
-    {
-        BusyCluster memory cluster = busyClusters[clusterID];
-        require(cluster.clusterID > 0, "there is no such cluster");
-
-        return (cluster.code.storageHash, cluster.code.storageReceipt, cluster.genesisTime,
-            cluster.nodeIDs, cluster.nodeAddresses, cluster.ports);
-    }
-
-    /** @dev Allows to track currently running clusters for specified node's solvers
-     *  @param nodeID ID of node (Tendermint consensus key)
-     */
-    function getNodeClusters(bytes32 nodeID)
-        external
-        view
-        returns (bytes32[])
-    {
-        Node memory node = nodes[nodeID];
-        bytes32[] memory clusterIDs = new bytes32[](node.currentPort - node.startPort);
-        uint count = 0;
-
-        for (uint i = 1; i < clusterCount; i++) {
-            BusyCluster memory cluster = busyClusters[bytes32(i)];
-            for (uint j = 0; j < cluster.nodeAddresses.length; j++) {
-              if (cluster.nodeAddresses[j] == node.nodeAddress) {
-                clusterIDs[count++] = cluster.clusterID;
-              }
-            }
-        }
-        return clusterIDs;
-    }
-
-    /** @dev Gets info about registered clusters
-     * return (cluster IDs, genesis times, storage hashes (Swarm address), receipts, cluster sized for this codes)
-     */
-    function getClustersInfo()
-        external
-        view
-        returns (bytes32[], uint[], bytes32[], bytes32[], uint8[])
-    {
-        BusyCluster[] memory clusters = new BusyCluster[](clusterCount - 1);
-
-        for (uint i = 1; i < clusterCount; i++) {
-            clusters[i-1] = busyClusters[bytes32(i)];
-        }
-
-        bytes32[] memory clusterIDs = new bytes32[](clusters.length);
-        uint[] memory genesisTimes = new uint[](clusters.length);
-        bytes32[] memory storageHashes = new bytes32[](clusters.length);
-        bytes32[] memory storageReceipts = new bytes32[](clusters.length);
-        uint8[] memory clusterSizes = new uint8[](clusters.length);
-
-        for (uint k = 0; k < clusters.length; k++) {
-            BusyCluster memory cluster = clusters[k];
-            clusterIDs[k] = cluster.clusterID;
-            genesisTimes[k] = cluster.genesisTime;
-            storageHashes[k] = cluster.code.storageHash;
-            storageReceipts[k] = cluster.code.storageReceipt;
-            clusterSizes[k] = cluster.code.clusterSize;
-        }
-
-        return (clusterIDs, genesisTimes, storageHashes, storageReceipts, clusterSizes);
-    }
-
-    /** @dev Gets nodes that already members in all registered clusters
-     * return (node addresses, ports)
-     */
-    function getClustersNodes()
-            external
-            view
-            returns (bytes32[], bytes24[], uint16[])
-        {
-            BusyCluster[] memory clusters = new BusyCluster[](clusterCount - 1);
-            uint solversCount = 0;
-            for (uint i = 1; i < clusterCount; i++) {
-                uint key = i-1;
-                BusyCluster memory cl = busyClusters[bytes32(i)];
-                clusters[key] = cl;
-                solversCount = solversCount + cl.code.clusterSize;
-            }
-
-            bytes32[] memory nodeIDs = new bytes32[](solversCount);
-            bytes24[] memory nodeAddresses = new bytes24[](solversCount);
-            uint16[] memory ports = new uint16[](solversCount);
-
-            uint solverCounter = 0;
-
-            for (uint k = 0; k < clusters.length; k++) {
-                BusyCluster memory cluster = clusters[k];
-
-                for (uint n = 0; n < cluster.nodeAddresses.length; n++) {
-                    nodeIDs[solverCounter] = cluster.nodeIDs[n];
-                    nodeAddresses[solverCounter] = cluster.nodeAddresses[n];
-                    ports[solverCounter] = cluster.ports[n];
-                    solverCounter++;
-                }
-            }
-
-            return (nodeIDs, nodeAddresses, ports);
-        }
-
-    /** @dev Gets codes that waiting for new nodes
-     * return (storage hashes (Swarm address), receipts, cluster sized for this codes)
-     */
-    function getEnqueuedCodes()
-        external
-        view
-        returns(bytes32[], bytes32[], uint8[])
-    {
-        bytes32[] memory storageHashes = new bytes32[](enqueuedCodes.length);
-        bytes32[] memory storageReceipts = new bytes32[](enqueuedCodes.length);
-        uint8[] memory clusterSizes = new uint8[](enqueuedCodes.length);
-
-        for (uint i = 0; i < enqueuedCodes.length; i++) {
-            Code memory code = enqueuedCodes[i];
-
-            storageHashes[i] = code.storageHash;
-            storageReceipts[i] = code.storageReceipt;
-            clusterSizes[i] = code.clusterSize;
-        }
-
-        return (storageHashes, storageReceipts, clusterSizes);
-    }
-
-    /** @dev Gets nodes that ready to create a new cluster with an added code
-     * return (node IDs, node addresses, starting ports, ending ports, current ports)
-     */
-    function getReadyNodes()
-        external
-        view
-        returns (bytes32[], bytes24[], uint16[], uint16[], uint16[])
-    {
-        bytes32[] memory ids = new bytes32[](nodesIndices.length);
-        bytes24[] memory nodeAddresses = new bytes24[](nodesIndices.length);
-        uint16[] memory startPorts = new uint16[](nodesIndices.length);
-        uint16[] memory endPorts = new uint16[](nodesIndices.length);
-        uint16[] memory currentPorts = new uint16[](nodesIndices.length);
-
-        for (uint i = 0; i < nodesIndices.length; ++i) {
-            Node memory node = nodes[nodesIndices[i]];
-            ids[i] = node.id;
-            nodeAddresses[i] = node.nodeAddress;
-            startPorts[i] = node.startPort;
-            endPorts[i] = node.endPort;
-            currentPorts[i] = node.currentPort;
-        }
-
-        return (ids, nodeAddresses, startPorts, endPorts, currentPorts);
-    }
-
-    /** @dev Allows to track contract status
-     * return (cluster IDs. IDs of ready nodes)
-     */
-    function getStatus()
-        external
-        view
-        returns (bytes32[], bytes32[])
-    {
-
-        bytes32[] memory clustersIndices = new bytes32[](clusterCount);
-        for (uint i = 0; i < (clusterCount - 1); ++i) {
-            clustersIndices[i] = bytes32(i + 1);
-        }
-
-        // fast way to check if contract was deployed incorrectly: in this case getStatus() returns (0, 0, [])
-        return (clustersIndices, readyNodes);
     }
 
     /** @dev Checks if there is enough free Solvers for undeployed Code

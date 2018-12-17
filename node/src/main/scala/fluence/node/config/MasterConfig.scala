@@ -18,7 +18,7 @@ package fluence.node.config
 
 import java.net.InetAddress
 
-import fluence.node.eth.{DeployerContractConfig, EthereumRPCConfig}
+import fluence.node.eth.{EthereumRPCConfig, FluenceContractConfig}
 import fluence.node.solvers.SolverImage
 import fluence.node.tendermint.ValidatorKey
 import io.circe.{Encoder, Json}
@@ -37,7 +37,7 @@ import io.circe.generic.semiauto.deriveEncoder
 case class MasterConfig(
   tendermintPath: String,
   endpoints: EndpointsConfig,
-  deployer: DeployerContractConfig,
+  deployer: FluenceContractConfig,
   swarm: Option[SwarmConfig],
   statusServer: StatusServerConfig,
   masterContainerId: String,
@@ -62,7 +62,7 @@ object MasterConfig {
   implicit val encodeSolverImage: Encoder[SolverImage] = deriveEncoder
   implicit val encodeEthereumConfig: Encoder[EthereumRPCConfig] = deriveEncoder
   implicit val encodeEndpointConfig: Encoder[EndpointsConfig] = deriveEncoder
-  implicit val encodeDeployerConfig: Encoder[DeployerContractConfig] = deriveEncoder
+  implicit val encodeDeployerConfig: Encoder[FluenceContractConfig] = deriveEncoder
   implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
   implicit val encodeStatConfig: Encoder[StatusServerConfig] = deriveEncoder
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
@@ -96,3 +96,8 @@ case class NodeConfig(
   nodeAddress: String,
   solverImage: SolverImage
 )
+
+object NodeConfig {
+  import MasterConfig._
+  implicit val encodeNodeConfig: Encoder[NodeConfig] = deriveEncoder
+}

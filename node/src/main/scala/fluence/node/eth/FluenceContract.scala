@@ -19,11 +19,11 @@ package fluence.node.eth
 import cats.effect.{Async, ConcurrentEffect}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.ethclient.Deployer.CLUSTERFORMED_EVENT
+import fluence.ethclient.Network.CLUSTERFORMED_EVENT
 import fluence.ethclient.helpers.JavaRxToFs2._
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
-import fluence.ethclient.{Deployer, EthClient}
+import fluence.ethclient.{EthClient, Network}
 import fluence.node.config.NodeConfig
 import fluence.node.tendermint.ClusterData
 import org.web3j.abi.EventEncoder
@@ -32,18 +32,20 @@ import org.web3j.abi.datatypes.{Address, DynamicArray}
 import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 import org.web3j.tuples.generated
+import io.circe.syntax._
+import NodeConfig._
 
 import scala.collection.JavaConverters._
 import scala.language.higherKinds
 
 /**
- * DeployerContract wraps all the functionality necessary for working with Deployer contract over Ethereum.
+ * FluenceContract wraps all the functionality necessary for working with Fluence contract over Ethereum.
  *
  * @param ethClient Ethereum client
- * @param deployer Deployer contract ABI, received from Ethereum
+ * @param contract Contract ABI, received from Ethereum
  */
-class DeployerContract(private val ethClient: EthClient, private val deployer: Deployer) extends slogging.LazyLogging {
-  import DeployerContract.NodeConfigEthOps
+class FluenceContract(private val ethClient: EthClient, private val contract: Network) extends slogging.LazyLogging {
+  import FluenceContract.NodeConfigEthOps
 
   /**
    * Builds an actual filter for CLUSTERFORMED event.
@@ -58,7 +60,7 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
           new SingleAddressEthFilter(
             DefaultBlockParameter.valueOf(currentBlock.bigInteger),
             DefaultBlockParameterName.LATEST,
-            deployer.getContractAddress
+            contract.getContractAddress
           ).addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
       )
 
@@ -69,15 +71,16 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
    * @tparam F Effect
    */
   def getNodeClusterIds[F[_]](nodeConfig: NodeConfig)(implicit F: Async[F]): F[List[Bytes32]] =
-    deployer
+    contract
       .getNodeClusters(nodeConfig.validatorKeyBytes32)
       .call[F]
       .flatMap {
         case arr if arr != null && arr.getValue != null => F.point(arr.getValue.asScala.toList)
-        case _ =>
+        case r =>
           F.raiseError[List[Bytes32]](
             new RuntimeException(
-              "Cannot get node clusters from the smart contract. Are you sure Deployer contract address is correct?"
+              s"Cannot get node clusters from the smart contract. Got result '$r'. " +
+                s"Are you sure the contract address is correct?"
             )
           )
       }
@@ -93,7 +96,7 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
       .evalUnChunk(getNodeClusterIds[F](nodeConfig).map(cs ⇒ fs2.Chunk(cs: _*)))
       .evalMap(
         clusterId ⇒
-          deployer
+          contract
             .getCluster(clusterId)
             .call[F]
             .map(ClusterData.fromTuple(clusterId, _, nodeConfig))
@@ -110,7 +113,7 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
   def getNodeClustersFormed[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
     fs2.Stream
       .eval(clusterFormedFilter[F])
-      .flatMap(filter ⇒ deployer.clusterFormedEventObservable(filter).toFS2[F]) // TODO: we should filter by verifier id! Now node will join all the clusters
+      .flatMap(filter ⇒ contract.clusterFormedEventFlowable(filter).toFS2[F]) // TODO: we should filter by verifier id! Now node will join all the clusters
       .map(ClusterData.fromClusterFormedEvent(_, nodeConfig))
       .unNone
 
@@ -129,7 +132,7 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
       ) ++ getNodeClustersFormed(nodeConfig)
 
   /**
-   * Register the node with the Deployer contract.
+   * Register the node in the contract.
    * TODO check permissions, Ethereum public key should match
    *
    * @param nodeConfig Node to add
@@ -137,7 +140,7 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
    * @return The block number where transaction has been mined
    */
   def addNode[F[_]: Async](nodeConfig: NodeConfig): F[BigInt] =
-    deployer
+    contract
       .addNode(
         nodeConfig.validatorKeyBytes32,
         nodeConfig.addressBytes24,
@@ -157,7 +160,7 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
    * @return The block number where transaction has been mined
    */
   def addAddressToWhitelist[F[_]: Async](address: String): F[BigInt] =
-    deployer
+    contract
       .addAddressToWhitelist(new Address(address))
       .call[F]
       .map(_.getBlockNumber)
@@ -173,17 +176,17 @@ class DeployerContract(private val ethClient: EthClient, private val deployer: D
    * @return The block number where transaction has been mined
    */
   def addCode[F[_]: Async](code: String = "llamadb", clusterSize: Short = 1): F[BigInt] =
-    deployer
+    contract
       .addCode(stringToBytes32(code), stringToBytes32("receipt_stub"), new Uint8(clusterSize))
       .call[F]
       .map(_.getBlockNumber)
       .map(BigInt(_))
 }
 
-object DeployerContract {
+object FluenceContract {
 
   /**
-   * Corresponds to return type for Deployer.getCluster method.
+   * Corresponds to return type for the getCluster method.
    */
   type ContractClusterTuple = generated.Tuple6[
     Bytes32,
@@ -195,19 +198,19 @@ object DeployerContract {
   ]
 
   /**
-   * Provides DeployerContract
+   * Loads contract
    *
    * @param ethClient To query Ethereum
    * @param config To lookup addresses
-   * @return DeployerContract
+   * @return FluenceContract instance with web3j contract inside
    */
-  def apply(ethClient: EthClient, config: DeployerContractConfig): DeployerContract =
-    new DeployerContract(
+  def apply(ethClient: EthClient, config: FluenceContractConfig): FluenceContract =
+    new FluenceContract(
       ethClient,
-      ethClient.getContract(
+      ethClient.getContract[Network](
         config.contractAddress,
         config.contractOwnerAccount,
-        Deployer.load
+        Network.load
       )
     )
 

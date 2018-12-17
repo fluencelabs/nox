@@ -15,9 +15,9 @@
  */
 
 package fluence.node.tendermint
-import fluence.ethclient.Deployer.ClusterFormedEventResponse
+import fluence.ethclient.Network.ClusterFormedEventResponse
 import fluence.node.config.NodeConfig
-import fluence.node.eth.DeployerContract.ContractClusterTuple
+import fluence.node.eth.FluenceContract.ContractClusterTuple
 import fluence.node.solvers.CodePath
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}

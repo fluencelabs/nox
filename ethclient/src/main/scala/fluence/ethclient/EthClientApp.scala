@@ -38,13 +38,12 @@ object EthClientApp extends IOApp {
 
           version ← ethClient.clientVersion[IO]()
           _ = println(s"Client version: $version")
-
           _ ← par sequential par.apply.product(
             // Subscription stream
             par parallel ethClient
               .subscribeToLogsTopic[IO](
                 "0x9995882876ae612bfd829498ccd73dd962ec950a",
-                EventEncoder.encode(Deployer.NEWNODE_EVENT)
+                EventEncoder.encode(Network.NEWNODE_EVENT)
               )
               .map(log ⇒ println(s"Log message: $log"))
               .interruptWhen(unsubscribe)
@@ -54,7 +53,7 @@ object EthClientApp extends IOApp {
               .drain, // Switch to IO[Unit]
             // Delayed unsubscribe
             par.parallel(for {
-              _ ← IO.sleep(60.seconds)
+              _ ← IO.sleep(6000.seconds)
               _ = println("Going to unsubscribe")
               _ ← unsubscribe.complete(Right(()))
             } yield ())

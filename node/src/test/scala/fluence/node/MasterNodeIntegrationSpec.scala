@@ -26,7 +26,7 @@ import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.docker.{DockerIO, DockerParams}
-import fluence.node.eth.{DeployerContract, DeployerContractConfig}
+import fluence.node.eth.{FluenceContract, FluenceContractConfig}
 import org.scalactic.source.Position
 import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
 import org.scalatest.time.Span
@@ -52,8 +52,6 @@ class MasterNodeIntegrationSpec
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
-
-  private val url = sys.props.get("ethereum.url")
 
   val bootstrapDir = new File("../bootstrap")
   def run(cmd: String): Unit = Process(cmd, bootstrapDir).!(ProcessLogger(_ => ()))
@@ -104,7 +102,7 @@ class MasterNodeIntegrationSpec
     val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
       Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
-    val contractConfig = DeployerContractConfig(owner, contractAddress)
+    val contractConfig = FluenceContractConfig(owner, contractAddress)
 
     def runMaster(portFrom: Int, portTo: Int, name: String): IO[String] = {
       DockerIO
@@ -144,7 +142,7 @@ class MasterNodeIntegrationSpec
             _ <- eventually[IO](checkMasterRunning(master1))
             _ <- eventually[IO](checkMasterRunning(master2))
 
-            contract = DeployerContract(ethClient, contractConfig)
+            contract = FluenceContract(ethClient, contractConfig)
             _ <- contract.addCode[IO](clusterSize = 2)
 
             _ <- eventually[IO](
