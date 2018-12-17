@@ -47,6 +47,17 @@ pragma solidity ^0.4.24;
 // example tests are at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/test/ownership/Whitelist.test.js
 import "openzeppelin-solidity/contracts/access/Whitelist.sol";
 
+/*
+ * This contract allows to:
+ *  - register a node in Fluence network by submitting IP address and port range
+ *  - deploy a code to Fluence network by submitting Swarm hash of the code and desired cluster size
+ *
+ * This contract also stores information about registered nodes, codes and their respective states.
+ * Work horse of this contract is the `matchWork()` function that's called on new node and/or code registration.
+ * When a code is matched with available nodes of desired quantity, `ClusterFormed` event is emitted and
+ * is expected to trigger real-time cluster creation when received by matched Fluence nodes
+ *
+ */
 contract Deployer is Whitelist {
     // Represents a Fluence Node which already is running or ready to run Solvers within the port range
     // Node's Solvers share the same Tendermint ID (consensus key) and nodeAddress

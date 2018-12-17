@@ -1,7 +1,32 @@
+/*
+ * Copyright (C) 2017  Fluence Labs Limited
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 pragma solidity ^0.4.0;
 
 import "./Deployer.sol";
 
+/*
+ * This contract allows to inspect Fluence network state by providing different getter methods.
+ *
+ * All information is stored in the Deployer and this contract just transforms it into tool-readable form.
+ * Main consumers of this contract are Fluence command line utilities and web interfaces.
+ * So while it can be used by humans directly, it's not designed for that purpose.
+ *
+ */
 contract Network is Deployer {
 
     /** @dev Allows to track contract status
@@ -62,8 +87,8 @@ contract Network is Deployer {
     }
 
     /** @dev Gets info about registered clusters
- * return (cluster IDs, genesis times, storage hashes (Swarm address), receipts, cluster sized for this codes)
- */
+     * return (cluster IDs, genesis times, storage hashes (Swarm address), receipts, cluster sized for this codes)
+     */
     function getClustersInfo()
     external
     view
