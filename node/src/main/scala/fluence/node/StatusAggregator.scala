@@ -92,7 +92,9 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode, startT
 
 object StatusAggregator {
 
-  private def statusService(sm: StatusAggregator)(implicit cs: ContextShift[IO]): Kleisli[IO, Request[IO], Response[IO]] =
+  private def statusService(
+    sm: StatusAggregator
+  )(implicit cs: ContextShift[IO]): Kleisli[IO, Request[IO], Response[IO]] =
     HttpRoutes
       .of[IO] {
         case GET -> Root / "status" =>

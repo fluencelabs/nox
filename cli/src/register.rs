@@ -15,14 +15,12 @@
  */
 
 use clap::{App, Arg, ArgMatches, SubCommand};
-use ethabi::Token;
 use hex;
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
+use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use utils;
-use web3::contract::tokens::Tokenizable;
-use web3::contract::{Error as ContractError, ErrorKind};
 use web3::types::{Address, H256};
 
 const ADDRESS: &str = "address";
@@ -33,44 +31,6 @@ const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
-
-/// number of bytes for encoding an IP address
-const IP_LEN: usize = 4;
-
-/// number of bytes for encoding tendermint key
-const TENDERMINT_KEY_LEN: usize = 20;
-
-/// number of bytes for encoding IP address and tendermint key
-const NODE_ADDR_LEN: usize = IP_LEN + TENDERMINT_KEY_LEN;
-construct_fixed_hash! { pub struct H192(NODE_ADDR_LEN); }
-
-/// Helper for converting the hash structure to web3 format
-impl Tokenizable for H192 {
-    fn from_token(token: Token) -> Result<Self, ContractError> {
-        match token {
-            Token::FixedBytes(mut s) => {
-                if s.len() != NODE_ADDR_LEN {
-                    bail!(ErrorKind::InvalidOutputType(format!(
-                        "Expected `H192`, got {:?}",
-                        s
-                    )));
-                }
-                let mut data = [0; NODE_ADDR_LEN];
-                for (idx, val) in s.drain(..).enumerate() {
-                    data[idx] = val;
-                }
-                Ok(data.into())
-            }
-            other => Err(
-                ErrorKind::InvalidOutputType(format!("Expected `H192`, got {:?}", other)).into(),
-            ),
-        }
-    }
-
-    fn into_token(self) -> Token {
-        Token::FixedBytes(self.0.to_vec())
-    }
-}
 
 #[derive(Debug)]
 pub struct Register {
@@ -114,7 +74,7 @@ impl Register {
     }
 
     /// Serializes a node IP address and a tendermint key into the hash of node's key address
-    fn serialize_node_address(&self) -> Result<H192, Box<Error>> {
+    fn serialize_node_address(&self) -> Result<NodeAddress, Box<Error>> {
         let ip_str = self.node_ip.to_string();
         let split = ip_str.split('.');
 
@@ -130,12 +90,12 @@ impl Register {
         let key_str = key_str.as_str().trim_left_matches("0x");
 
         let key_bytes = hex::decode(key_str.to_owned())?;
-        let mut key_bytes = key_bytes.as_slice()[0..20].to_vec();
+        let mut key_bytes = key_bytes.as_slice()[0..TENDERMINT_KEY_LEN].to_vec();
         key_bytes.append(&mut addr_vec);
 
         let serialized = hex::encode(key_bytes);
 
-        let hash_addr: H192 = serialized.parse()?;
+        let hash_addr: NodeAddress = serialized.parse()?;
 
         Ok(hash_addr)
     }
@@ -145,7 +105,7 @@ impl Register {
         let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
             let pass = self.password.as_ref().map(|s| s.as_str());
 
-            let options = utils::options_with_gas(300_000);
+            let options = utils::options_with_gas(1_300_000);
 
             let hash_addr = self.serialize_node_address()?;
 

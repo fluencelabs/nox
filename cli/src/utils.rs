@@ -169,3 +169,7 @@ pub fn options_with_gas(gas_limit: u32) -> Options {
         default.gas = Some(gas_limit.into());
     })
 }
+
+pub fn options() -> Options {
+    Options::default()
+}
