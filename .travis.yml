@@ -79,11 +79,13 @@ matrix:
         - cd cli
 
       script:
-        - npm install --prefix ../bootstrap
-        - node scripts/swarm-simulation.js &
-        - npm run ganache --prefix ../bootstrap/ &
-        - sleep 5
-        - npm run migrate --prefix ../bootstrap/
+        - pushd ../bootstrap
+        - npm install
+        - npm run swarm-simulation &
+        - npm run ganache > /dev/null
+        - sleep 1
+        - npm run migrate
+        - popd
         - cargo fmt --all -- --check -v
         - cargo test
 
