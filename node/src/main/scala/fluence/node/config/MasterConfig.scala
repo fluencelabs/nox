@@ -96,8 +96,3 @@ case class NodeConfig(
   nodeAddress: String,
   solverImage: SolverImage
 )
-
-object NodeConfig {
-  import MasterConfig._
-  implicit val encodeNodeConfig: Encoder[NodeConfig] = deriveEncoder
-}
