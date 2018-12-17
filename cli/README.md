@@ -3,7 +3,7 @@
 Current code deployment process to the Fluence network looks like this:
 
 - Upload code to Swarm. Swarm will return the code hash.
-- Publish the received hash to a default “deployer” contract in a blockchain (ethereum as a default).
+- Publish the received hash to a default Fluence contract in a blockchain (ethereum as a default).
 
 **Fluence Publisher** is a console automation utility that will take the code as an input, go through the publishing process and return a hash of transaction of publishing to the developer, if successful.
 
