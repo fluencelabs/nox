@@ -23,8 +23,8 @@ import "./Deployer.sol";
  * This contract allows to inspect Fluence network state by providing different getter methods.
  *
  * All information is stored in the Deployer and this contract just transforms it into tool-readable form.
- * Main consumers of this contract are Fluence command line utilities and web interfaces.
- * So while it can be used by humans directly, it's not designed for that purpose.
+ * Main consumers of this contract are Fluence command line utilities and web interfaces. So while it can be used by
+ * humans directly, it's not designed for that purpose.
  *
  */
 contract Network is Deployer {
