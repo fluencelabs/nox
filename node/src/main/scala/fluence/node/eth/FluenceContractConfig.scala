@@ -19,7 +19,7 @@ package fluence.node.eth
 /**
  * Fluence contract settings.
  *
- * @param contractOwnerAccount contract owner eth account
- * @param contractAddress address, where contract is deployed
+ * @param ownerAccount contract owner eth account
+ * @param address address of the deployed contract
  */
-case class FluenceContractConfig(contractOwnerAccount: String, contractAddress: String)
+case class FluenceContractConfig(ownerAccount: String, address: String)

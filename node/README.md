@@ -8,9 +8,9 @@ npm run ganache
 npm run migrate
 ```
 
-You will see address of the Deployer contract in your private Ganache blockchain:
+You will see address of the Fluence smart contract in your private Ganache blockchain:
 ```
-Deployer: 0x9995882876ae612bfd829498ccd73dd962ec950a
+0x9995882876ae612bfd829498ccd73dd962ec950a
 ```
 
 Ganache is run in deterministic mode with predefined mnemonic, so this address will always be the same and there is no need to save it.
@@ -41,7 +41,7 @@ You can take a look at `target/release/fluence publish --help` to get the idea o
 - `target/release/fluence` is a `cli` binary we compiled by running `cargo build --release`
 - `publish` is a command that uploads code to Swarm and sends it to Ethereum contract (running on Ganache)
 - `../node/src/main/resources/docker/vmcode/vmcode-llamadb/llama_db.wasm` is a path to llamadb compiled to WASM
-- `0x9995882876ae612bfd829498ccd73dd962ec950a` is a Deployer contract address that was deployed by `npm run migrate`
+- `0x9995882876ae612bfd829498ccd73dd962ec950a` is a Fluence contract address that was deployed by `npm run migrate`
 - `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` is an Ethereum account address that's used for publishing code
 - `--cluster_size 1` specifies number of nodes required to run this code. We ran single master node, so we specify 1 here.
 

@@ -81,7 +81,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 // TODO: should check that node is registered, but should not send transactions
                 _ <- contract
-                  .addAddressToWhitelist[IO](contractConfig.contractOwnerAccount)
+                  .addAddressToWhitelist[IO](contractConfig.ownerAccount)
                   .attempt
                   .map(r ⇒ logger.debug(s"Whitelisting address: $r"))
                 _ <- contract

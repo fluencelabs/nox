@@ -30,14 +30,14 @@ import io.circe.generic.semiauto.deriveEncoder
  * @param tendermintPath a path to all system files
  * @param endpoints information about a node possible endpoints (IP and ports) that will be used as addresses
  *                  for requests after a cluster will be formed
- * @param deployer information about deployer smart contract
+ * @param contract information about Fluence smart contract
  * @param swarm information about Swarm node
  * @param statusServer information about master node status server
  */
 case class MasterConfig(
   tendermintPath: String,
   endpoints: EndpointsConfig,
-  deployer: FluenceContractConfig,
+  contract: FluenceContractConfig,
   swarm: Option[SwarmConfig],
   statusServer: StatusServerConfig,
   masterContainerId: String,
@@ -62,7 +62,7 @@ object MasterConfig {
   implicit val encodeSolverImage: Encoder[SolverImage] = deriveEncoder
   implicit val encodeEthereumConfig: Encoder[EthereumRPCConfig] = deriveEncoder
   implicit val encodeEndpointConfig: Encoder[EndpointsConfig] = deriveEncoder
-  implicit val encodeDeployerConfig: Encoder[FluenceContractConfig] = deriveEncoder
+  implicit val encodeContractConfig: Encoder[FluenceContractConfig] = deriveEncoder
   implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
   implicit val encodeStatConfig: Encoder[StatusServerConfig] = deriveEncoder
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder

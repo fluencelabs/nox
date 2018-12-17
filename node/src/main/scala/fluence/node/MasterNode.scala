@@ -29,7 +29,7 @@ import scala.io.Source
  * Represents a MasterNode process. Takes cluster forming events from Ethereum, and spawns new solvers to serve them.
  *
  * @param nodeConfig Tendermint/Fluence master node config
- * @param contract DeployerContract to interact with
+ * @param contract Contract to interact with
  * @param pool Solvers pool to launch solvers in
  * @param rootPath MasterNode's working directory, usually /master
  * @param ce Concurrent effect, used to subscribe to Ethereum events

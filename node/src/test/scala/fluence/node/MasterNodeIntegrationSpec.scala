@@ -43,7 +43,7 @@ import scala.util.Try
 
 /**
  * This test contains a single test method that checks:
- * - MasterNode connectivity with ganache-hosted Deployer smart contract
+ * - MasterNode connectivity with ganache-hosted Fluence smart contract
  * - MasterNode ability to load previous node clusters and subscribe to new clusters
  * - Successful cluster formation and starting blocks creation
  */
@@ -76,7 +76,7 @@ class MasterNodeIntegrationSpec
     logger.info("starting Ganache")
     runBackground("npm run ganache")
 
-    logger.info("deploying Deployer.sol Ganache")
+    logger.info("deploying contract to Ganache")
     run("npm run migrate")
   }
 

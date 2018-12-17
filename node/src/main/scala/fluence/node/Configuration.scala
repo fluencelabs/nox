@@ -67,7 +67,7 @@ object Configuration {
         Configuration(
           rootPath,
           nodeConfig,
-          masterConfig.deployer,
+          masterConfig.contract,
           masterConfig.swarm,
           masterConfig.statusServer,
           masterConfig.ethereum,

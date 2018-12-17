@@ -228,8 +228,8 @@ object FluenceContract {
     new FluenceContract(
       ethClient,
       ethClient.getContract[Network](
-        config.contractAddress,
-        config.contractOwnerAccount,
+        config.address,
+        config.ownerAccount,
         Network.load
       )
     )
