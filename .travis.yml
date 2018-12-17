@@ -39,7 +39,6 @@ matrix:
       script: npm test
 
     - name: Rust SDK
-
       language: rust
       # todo enable 'stable' and 'beta' when `allocator_api` will become stable
       rust: nightly
@@ -56,7 +55,6 @@ matrix:
         - cargo test -v --all-features
 
     - name: LlamaDb VM example
-
       language: rust
       rust: nightly
       cache: cargo
@@ -72,7 +70,6 @@ matrix:
         - cargo test -v
 
     - name: Fluence CLI
-
       language: rust
       rust: stable
       cache: cargo
