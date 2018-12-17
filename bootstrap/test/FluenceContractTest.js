@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-var Deployer = artifacts.require("./Deployer.sol");
+var FluenceContract = artifacts.require("./Network.sol");
 const truffleAssert = require('truffle-assertions');
 const assert = require("chai").assert;
 const crypto = require("crypto");
@@ -40,15 +40,15 @@ async function addNodes(instance, count, addr, adder) {
     ))
 }
 
-contract('Deployer', function ([_, owner, whitelisted, anyone]) {
+contract('Fluence', function ([_, owner, whitelisted, anyone]) {
     beforeEach(async function() {
-      this.deployer = await Deployer.new({ from: owner });
-      await this.deployer.addAddressToWhitelist(whitelisted, { from: owner })
+      this.contract = await FluenceContract.new({ from: owner });
+      await this.contract.addAddressToWhitelist(whitelisted, { from: owner })
     });
 
     it("Should send event about new Node", async function() {
         let id = string2Bytes32("1");
-        let receipt = await this.deployer.addNode(id, "127.0.0.1", 1000, 1001, {from: whitelisted});
+        let receipt = await this.contract.addNode(id, "127.0.0.1", 1000, 1001, {from: whitelisted});
         truffleAssert.eventEmitted(receipt, newNodeEvent, (ev) => {
             assert.equal(ev.id, id);
             return true
@@ -57,7 +57,7 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
 
     it("Should send event about enqueued Code", async function() {
         let storageHash = string2Bytes32("abc");
-        let receipt = await this.deployer.addCode(storageHash, "bca", 5, {from: whitelisted});
+        let receipt = await this.contract.addCode(storageHash, "bca", 5, {from: whitelisted});
 
         truffleAssert.eventEmitted(receipt, codeEnqueuedEvent, (ev) => {
             assert.equal(ev.storageHash, storageHash);
@@ -67,7 +67,7 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
 
     it("Should throw an error if asking about non-existent cluster", async function() {
         await expectThrow(
-            this.deployer.getCluster("abc")
+            this.contract.getCluster("abc")
         )
     });
 
@@ -75,9 +75,9 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
         let count = 5;
         let storageHash = string2Bytes32("abc");
         let storageReceipt = string2Bytes32("bca");
-        await this.deployer.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
 
-        let receipts = await addNodes(this.deployer, count, "127.0.0.1", whitelisted);
+        let receipts = await addNodes(this.contract, count, "127.0.0.1", whitelisted);
 
         truffleAssert.eventEmitted(receipts.pop(), clusterFormedEvent, (ev) => {
             assert.equal(ev.solverAddrs.length, count);
@@ -85,18 +85,18 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
             return true;
         });
 
-        let code = await this.deployer.getCluster(clusterID);
+        let code = await this.contract.getCluster(clusterID);
         assert.equal(code[0], storageHash);
         assert.equal(code[1], storageReceipt)
     });
 
     it("Should not form cluster from solvers of same node", async function() {
-        await this.deployer.addNode(crypto.randomBytes(16).hexSlice(), "127.0.0.1", 1000, 1002, {from: whitelisted});
+        await this.contract.addNode(crypto.randomBytes(16).hexSlice(), "127.0.0.1", 1000, 1002, {from: whitelisted});
 
         let count = 2;
         let storageHash = string2Bytes32("abc");
         let storageReceipt = string2Bytes32("bca");
-        let receipt = await this.deployer.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        let receipt = await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
 
         truffleAssert.eventEmitted(receipt, codeEnqueuedEvent);
         truffleAssert.eventNotEmitted(receipt, clusterFormedEvent)
@@ -109,9 +109,9 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
 
         let nodeID = crypto.randomBytes(16).hexSlice();
 
-        await this.deployer.addNode(nodeID, "127.0.0.1", 1000, 1002, {from: whitelisted});
+        await this.contract.addNode(nodeID, "127.0.0.1", 1000, 1002, {from: whitelisted});
 
-        let receipt1 = await this.deployer.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        let receipt1 = await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
         truffleAssert.eventNotEmitted(receipt1, codeEnqueuedEvent);
         truffleAssert.eventEmitted(receipt1, clusterFormedEvent, (ev) => {
             assert.equal(ev.solverAddrs.length, count);
@@ -120,7 +120,7 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
             return true;
         });
 
-        let receipt2 = await this.deployer.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        let receipt2 = await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
         truffleAssert.eventNotEmitted(receipt2, codeEnqueuedEvent);
         truffleAssert.eventEmitted(receipt2, clusterFormedEvent, (ev) => {
             assert.equal(ev.solverAddrs.length, count);
@@ -129,11 +129,11 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
             return true;
         });
 
-        let receipt3 = await this.deployer.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        let receipt3 = await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
         truffleAssert.eventEmitted(receipt3, codeEnqueuedEvent);
         truffleAssert.eventNotEmitted(receipt3, clusterFormedEvent);
 
-        let nodeClusters = await this.deployer.getNodeClusters(nodeID);
+        let nodeClusters = await this.contract.getNodeClusters(nodeID);
 
         assert.equal(nodeClusters[0], clusterID1);
         assert.equal(nodeClusters[1], clusterID2)
@@ -152,14 +152,14 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
         let storageReceipt2 = string2Bytes32("dbca");
         let storageReceipt3 = string2Bytes32("edbca");
         let storageReceipt4 = string2Bytes32("fedbca");
-        await this.deployer.addCode(storageHash1, storageReceipt1, count1, {from: whitelisted});
-        await this.deployer.addCode(storageHash2, storageReceipt2, count2, {from: whitelisted});
-        await this.deployer.addCode(storageHash3, storageReceipt3, count3, {from: whitelisted});
-        await this.deployer.addCode(storageHash4, storageReceipt4, count4, {from: whitelisted});
+        await this.contract.addCode(storageHash1, storageReceipt1, count1, {from: whitelisted});
+        await this.contract.addCode(storageHash2, storageReceipt2, count2, {from: whitelisted});
+        await this.contract.addCode(storageHash3, storageReceipt3, count3, {from: whitelisted});
+        await this.contract.addCode(storageHash4, storageReceipt4, count4, {from: whitelisted});
 
-        await addNodes(this.deployer, 3, "127.0.0.1", whitelisted);
+        await addNodes(this.contract, 3, "127.0.0.1", whitelisted);
 
-        let enqueuedCodes = await this.deployer.getEnqueuedCodes();
+        let enqueuedCodes = await this.contract.getEnqueuedCodes();
 
         assert.equal(enqueuedCodes[0].length, 2);
         assert.equal(enqueuedCodes[0][0], storageHash4);
@@ -171,13 +171,13 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
         assert.equal(enqueuedCodes[2][0], count4);
         assert.equal(enqueuedCodes[2][1], count3);
 
-        let clustersInfos = await this.deployer.getClustersInfo();
-        let clustersNodes = await this.deployer.getClustersNodes();
+        let clustersInfos = await this.contract.getClustersInfo();
+        let clustersNodes = await this.contract.getClustersNodes();
 
         assert.equal(clustersInfos[0].length, 2);
         assert.equal(clustersNodes[0].length, 3);
 
-        let nodes = await this.deployer.getReadyNodes();
+        let nodes = await this.contract.getReadyNodes();
         assert.equal(nodes[0].length, 3)
     });
 
@@ -185,11 +185,11 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
         let count = 5;
         let storageHash = string2Bytes32("abc");
         let storageReceipt = string2Bytes32("bca");
-        await this.deployer.addCode(storageHash, storageReceipt, count, {from: whitelisted});
-        await this.deployer.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
 
-        let firstCluster = (await addNodes(this.deployer, count, "127.0.0.1", whitelisted)).pop();
-        let secondCluster = (await addNodes(this.deployer, count, "127.0.0.1", whitelisted)).pop();
+        let firstCluster = (await addNodes(this.contract, count, "127.0.0.1", whitelisted)).pop();
+        let secondCluster = (await addNodes(this.contract, count, "127.0.0.1", whitelisted)).pop();
 
         truffleAssert.eventEmitted(firstCluster, clusterFormedEvent, _ => true);
         truffleAssert.eventEmitted(secondCluster, clusterFormedEvent, _ => true)
@@ -197,21 +197,21 @@ contract('Deployer', function ([_, owner, whitelisted, anyone]) {
 
     it("Should revert if anyone tries to add code", async function() {
         await expectThrow(
-            this.deployer.addCode("storageHash", "storageReceipt", 100)
+            this.contract.addCode("storageHash", "storageReceipt", 100)
         );
 
         await expectThrow(
-            this.deployer.addCode("storageHash", "storageReceipt", 100, { from: anyone })
+            this.contract.addCode("storageHash", "storageReceipt", 100, { from: anyone })
         )
     });
 
     it("Should revert if anyone tries to add node", async function() {
         await expectThrow(
-            this.deployer.addNode("id", "address", 1000, 1001)
+            this.contract.addNode("id", "address", 1000, 1001)
         );
 
         await expectThrow(
-            this.deployer.addNode("id", "address", 1000, 1001, { from: anyone })
+            this.contract.addNode("id", "address", 1000, 1001, { from: anyone })
         )
     })
 });

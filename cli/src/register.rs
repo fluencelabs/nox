@@ -205,7 +205,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(true)
                 .takes_value(true)
                 .index(4)
-                .help("deployer contract address"),
+                .help("fluence contract address"),
             Arg::with_name(MIN_PORT)
                 .alias(MIN_PORT)
                 .default_value("20096")
