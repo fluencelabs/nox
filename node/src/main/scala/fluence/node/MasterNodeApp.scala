@@ -62,11 +62,10 @@ object MasterNodeApp extends IOApp with LazyLogging {
         case (rawConfig, configuration) =>
           import configuration._
           // Run master node and status server
-          val resources =
-            for {
-              ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRPCConfig.uri))
-              sttpBackend <- sttpResource
-            } yield (ethClientResource, sttpBackend)
+          val resources = for {
+            ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRPCConfig.uri))
+            sttpBackend <- sttpResource
+          } yield (ethClientResource, sttpBackend)
 
           resources.use {
             // Type annotations are here to make IDEA's type inference happy
