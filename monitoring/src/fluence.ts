@@ -16,12 +16,18 @@
  */
 
 import {getStatus} from "./status";
+import axios from 'axios';
+import {Network} from "../types/web3-contracts/Network";
+import {abi} from "./abi";
 
 (window as any).web3 = (window as any).web3 || {};
 
 import Web3 = require('web3');
-import {Network} from "../types/web3-contracts/Network";
-import {abi} from "./abi";
+
+interface StatusAddress {
+    ipAddr: string,
+    port: number
+}
 
 /**
  * Shows status of Fluence contract on the page.
@@ -37,6 +43,22 @@ export async function show_status(contract_address: string = "0x9995882876ae612b
 
     let status = await getStatus(contract);
     document.body.innerHTML += `<div><pre>${JSON.stringify(status, undefined, 2)}</pre></div>`;
+
+    let statusEndpoints: StatusAddress[] = status.ready_nodes.map((node) => {
+        let statusPort = node.start_port + 400;
+        let ipAddr = node.ip_addr;
+        let statusAddress = {ipAddr: ipAddr, port: statusPort};
+        console.log(statusAddress);
+        return statusAddress;
+    });
+
+    let responses = statusEndpoints.map((enpd) => {
+        let url = `http://${enpd.ipAddr}:${enpd.port}/status`;
+        console.log(url);
+        axios.get(url).then((res) => {
+            console.log(res);
+        });
+    });
 
     // TODO add statuses from nodes
 }
