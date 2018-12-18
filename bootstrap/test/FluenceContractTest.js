@@ -32,10 +32,22 @@ function string2Bytes32(str) {
     return web3.padRight(web3.toHex(str), 64 + 2)
 }
 
-async function addNodes(instance, count, addr, adder) {
+// Adds new node
+// count - number of nodes to add
+// nodeIP - node IP address
+// ownerAddress - node owner Ethereum account
+// portCount - number of open ports, starting from 1000. i.e. [1000, 1000 + portCount - 1]
+async function addNodes(contract, count, nodeIP, ownerAddress, portCount = 2) {
+    assert(portCount > 0, "node should have at least single open port")
     return Promise.all(Array(count).fill(0).map(
         (_, index) => {
-            return instance.addNode(crypto.randomBytes(16).hexSlice(), addr, 1000, 1001, { from: adder })
+            return contract.addNode(
+                crypto.randomBytes(16).hexSlice(),
+                nodeIP,
+                1000,
+                1000 + portCount - 1,
+                { from: ownerAddress }
+            )
         }
     ))
 }
@@ -85,9 +97,13 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
             return true;
         });
 
-        let code = await this.contract.getCluster(clusterID);
-        assert.equal(code[0], storageHash);
-        assert.equal(code[1], storageReceipt)
+        let cluster = await this.contract.getCluster(clusterID);
+        assert.equal(cluster[0], storageHash);
+        assert.equal(cluster[1], storageReceipt);
+
+        let owners = cluster[6]; // eth addresses of node's owners
+        assert.equal(owners.length, 5);
+        owners.forEach(o => assert.equal(o, whitelisted)) // all nodes were registered from the same address
     });
 
     it("Should not form cluster from solvers of same node", async function() {
@@ -140,36 +156,45 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
     });
 
     it("Should get correct list of clusters and enqueued codes", async function() {
-        let count1 = 1;
-        let count2 = 2;
-        let count3 = 3;
-        let count4 = 4;
-        let storageHash1 = string2Bytes32("abc");
-        let storageHash2 = string2Bytes32("abcd");
-        let storageHash3 = string2Bytes32("abcde");
-        let storageHash4 = string2Bytes32("abcdef");
-        let storageReceipt1 = string2Bytes32("bca");
-        let storageReceipt2 = string2Bytes32("dbca");
-        let storageReceipt3 = string2Bytes32("edbca");
-        let storageReceipt4 = string2Bytes32("fedbca");
+        let [count1, count2, count3, count4] = [1, 2, 3, 4];
+
+        let [storageHash1, storageHash2, storageHash3, storageHash4] =
+            ["abc","abcd","abcde","abcdef"].map(s => string2Bytes32(s));
+
+        let [storageReceipt1, storageReceipt2, storageReceipt3, storageReceipt4] =
+            ["xyz","xyzd","xyzde","xyzdef"].map(s => string2Bytes32(s));
+
         await this.contract.addCode(storageHash1, storageReceipt1, count1, {from: whitelisted});
         await this.contract.addCode(storageHash2, storageReceipt2, count2, {from: whitelisted});
         await this.contract.addCode(storageHash3, storageReceipt3, count3, {from: whitelisted});
         await this.contract.addCode(storageHash4, storageReceipt4, count4, {from: whitelisted});
 
-        await addNodes(this.contract, 3, "127.0.0.1", whitelisted);
+        await addNodes(this.contract, 3, "127.0.0.1", whitelisted, portCount = 2);
 
         let enqueuedCodes = await this.contract.getEnqueuedCodes();
 
-        assert.equal(enqueuedCodes[0].length, 2);
-        assert.equal(enqueuedCodes[0][0], storageHash4);
-        assert.equal(enqueuedCodes[0][1], storageHash3);
+        assert.equal(enqueuedCodes.length, 4); // storageHashes, storageReceipts, clusterSizes, developerAddresses
 
-        assert.equal(enqueuedCodes[1][0], storageReceipt4);
-        assert.equal(enqueuedCodes[1][1], storageReceipt3);
+        let storageHashes = enqueuedCodes[0];
+        let storageReceipts = enqueuedCodes[1];
+        let clusterSizes = enqueuedCodes[2];
+        let developerAddresses = enqueuedCodes[3];
 
-        assert.equal(enqueuedCodes[2][0], count4);
-        assert.equal(enqueuedCodes[2][1], count3);
+        assert.equal(storageHashes.length, 2);
+        assert.equal(storageHashes[0], storageHash4);
+        assert.equal(storageHashes[1], storageHash3);
+
+        assert.equal(storageReceipts.length, 2);
+        assert.equal(storageReceipts[0], storageReceipt4);
+        assert.equal(storageReceipts[1], storageReceipt3);
+
+        assert.equal(clusterSizes.length, 2);
+        assert.equal(clusterSizes[0], count4);
+        assert.equal(clusterSizes[1], count3);
+
+        assert.equal(developerAddresses.length, 2);
+        assert.equal(developerAddresses[0], whitelisted);
+        assert.equal(developerAddresses[1], whitelisted);
 
         let clustersInfos = await this.contract.getClustersInfo();
         let clustersNodes = await this.contract.getClustersNodes();
