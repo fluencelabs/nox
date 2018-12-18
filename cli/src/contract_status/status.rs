@@ -73,8 +73,12 @@ pub fn get_enqueued_codes(
 ) -> Result<Vec<Code>, Box<Error>> {
     let options = utils::options();
 
-    let (storage_hashes, storage_receipts, cluster_sizes): (Vec<H256>, Vec<H256>, Vec<u64>) =
-        utils::query_contract(contract_address, eth_url, "getEnqueuedCodes", (), options)?;
+    let (storage_hashes, storage_receipts, cluster_sizes, _): (
+        Vec<H256>,
+        Vec<H256>,
+        Vec<u64>,
+        Vec<Address>,
+    ) = utils::query_contract(contract_address, eth_url, "getEnqueuedCodes", (), options)?;
 
     let mut codes: Vec<Code> = Vec::new();
     for i in 0..storage_hashes.len() {
@@ -92,12 +96,13 @@ pub fn get_enqueued_codes(
 pub fn get_ready_nodes(contract_address: Address, eth_url: &str) -> Result<Vec<Node>, Box<Error>> {
     let options = utils::options();
 
-    let (nodes_indices, node_addresses, start_ports, end_ports, current_ports): (
+    let (nodes_indices, node_addresses, start_ports, end_ports, current_ports, _): (
         Vec<H256>,
         Vec<NodeAddress>,
         Vec<u64>,
         Vec<u64>,
         Vec<u64>,
+        Vec<Address>,
     ) = utils::query_contract(contract_address, eth_url, "getReadyNodes", (), options)?;
 
     let mut nodes: Vec<Node> = Vec::new();
@@ -118,12 +123,13 @@ pub fn get_ready_nodes(contract_address: Address, eth_url: &str) -> Result<Vec<N
 pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Cluster>, Box<Error>> {
     let options = utils::options();
 
-    let (cluster_ids, genesis_times, storage_hashes, storage_receipts, cluster_sizes): (
+    let (cluster_ids, genesis_times, storage_hashes, storage_receipts, cluster_sizes, _): (
         Vec<H256>,
         Vec<U256>,
         Vec<H256>,
         Vec<H256>,
         Vec<u64>,
+        Vec<Address>,
     ) = utils::query_contract(
         contract_address,
         eth_url,
@@ -132,14 +138,18 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
         options.to_owned(),
     )?;
 
-    let (nodes_ids, nodes_addresses, ports): (Vec<H256>, Vec<NodeAddress>, Vec<u64>) =
-        utils::query_contract(
-            contract_address,
-            eth_url,
-            "getClustersNodes",
-            (),
-            options.to_owned(),
-        )?;
+    let (nodes_ids, nodes_addresses, ports, _): (
+        Vec<H256>,
+        Vec<NodeAddress>,
+        Vec<u64>,
+        Vec<Address>,
+    ) = utils::query_contract(
+        contract_address,
+        eth_url,
+        "getClustersNodes",
+        (),
+        options.to_owned(),
+    )?;
 
     let mut clusters: Vec<Cluster> = Vec::new();
     let mut nodes_counter = 0;

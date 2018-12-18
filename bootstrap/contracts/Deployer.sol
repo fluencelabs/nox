@@ -67,12 +67,14 @@ contract Deployer is Whitelist {
         uint16 startPort;
         uint16 endPort;
         uint16 currentPort;
+        address owner;
     }
 
     struct Code {
         bytes32 storageHash;
         bytes32 storageReceipt;
         uint8 clusterSize;
+        address developer;
     }
 
     struct BusyCluster {
@@ -82,6 +84,7 @@ contract Deployer is Whitelist {
         bytes32[] nodeIDs;
         bytes24[] nodeAddresses;
         uint16[] ports;
+        address[] owners;
     }
 
     // Emitted when there is enough ready Nodes for some Code
@@ -128,7 +131,7 @@ contract Deployer is Whitelist {
         require(nodes[nodeID].id == 0, "This node is already registered");
         require(startPort < endPort, "Port range is empty or incorrect");
 
-        nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, startPort);
+        nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, startPort, msg.sender);
         readyNodes.push(nodeID);
         nodesIndices.push(nodeID);
 
@@ -148,7 +151,7 @@ contract Deployer is Whitelist {
         external
     {
         require(whitelist(msg.sender), "The sender is not in whitelist");
-        enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize));
+        enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize, msg.sender));
         if (!matchWork()) {
             emit CodeEnqueued(storageHash);
         }
@@ -185,6 +188,7 @@ contract Deployer is Whitelist {
         bytes32[] memory solverIDs = new bytes32[](code.clusterSize);
         bytes24[] memory solverAddrs = new bytes24[](code.clusterSize);
         uint16[] memory solverPorts = new uint16[](code.clusterSize);
+        address[] memory solverOwners = new address[](code.clusterSize);
 
         uint nodeIndex = 0;
         for (uint j = 0; j < code.clusterSize; j++) {
@@ -194,6 +198,7 @@ contract Deployer is Whitelist {
             solverIDs[j] = nodeID;
             solverAddrs[j] = node.nodeAddress;
             solverPorts[j] = node.currentPort;
+            solverOwners[j] = node.owner;
 
             if (nextPort(nodeID)) {
                 ++nodeIndex;
@@ -202,7 +207,7 @@ contract Deployer is Whitelist {
             }
         }
 
-        busyClusters[clusterID] = BusyCluster(clusterID, code, time, solverIDs, solverAddrs, solverPorts);
+        busyClusters[clusterID] = BusyCluster(clusterID, code, time, solverIDs, solverAddrs, solverPorts, solverOwners);
 
         emit ClusterFormed(clusterID, code.storageHash, time, solverIDs, solverAddrs, solverPorts);
         return true;
