@@ -16,7 +16,6 @@
  */
 
 import {Network} from "../types/web3-contracts/Network";
-import {ClustersInfos} from "./cluster";
 
 type UnparsedCodes = { "0": string[]; "1": string[]; "2": string[]; "3": string[] };
 
@@ -32,31 +31,29 @@ export interface Code {
  */
 export async function getEnqueuedCodes(contract: Network): Promise<Code[]> {
     let unparsedCodes = await contract.methods.getEnqueuedCodes().call();
-    return parseCodes(unparsedCodes);
+
+    let codeAddresses = unparsedCodes["0"];
+    let storageReceipts = unparsedCodes["1"];
+    let clusterSizes = unparsedCodes["2"];
+    let developers = unparsedCodes["3"];
+
+    return parseCodes(codeAddresses, storageReceipts, clusterSizes, developers);
 }
 
-function parseCodes(unparsed: UnparsedCodes): Code[] {
+export function parseCodes(codeAddresses: string[],
+                    storageReceipts: string[],
+                    clusterSizes: string[],
+                    developers: string[]): Code[] {
     let codes: Code[] = [];
-    let hashes = unparsed["0"];
-    let receipts = unparsed["1"];
-    let clusterSizes = unparsed["2"];
-    let developers = unparsed["3"];
-    hashes.forEach((hash, index) => {
+
+    codeAddresses.forEach((address, index) => {
         let code: Code = {
-            code_address: hash,
-            storage_receipt: receipts[index],
+            code_address: address,
+            storage_receipt: storageReceipts[index],
             cluster_size: parseInt(clusterSizes[index]),
             developer: developers[index]
         };
         codes.push(code);
     });
     return codes;
-}
-
-export function parseCodesFromClustersInfos(infos: ClustersInfos): Code[] {
-    return parseCodes({"0": infos["2"],
-        "1": infos["3"],
-        "2": infos["4"],
-        "3": infos["5"]
-    });
 }
