@@ -31,6 +31,7 @@ contract Network is Deployer {
 
     /** @dev Allows to track currently running clusters for specified node's solvers
      *  @param nodeID ID of node (Tendermint consensus key)
+     *  returns IDs of clusters where the node is a member.
      */
     function getNodeClusters(bytes32 nodeID)
     external
@@ -54,6 +55,7 @@ contract Network is Deployer {
 
     /** @dev Allows anyone with clusterID to retrieve assigned Code
      * @param clusterID unique id of cluster
+     * returns tuple representation of a BusyCluster
      */
     function getCluster(bytes32 clusterID)
     external
@@ -75,7 +77,9 @@ contract Network is Deployer {
     }
 
     /** @dev Gets info about registered clusters
-     * return (cluster IDs, genesis times, storage hashes (Swarm address), receipts, cluster sized for this codes)
+     * For full network state, use this method in conjunction with `getClustersNodes`
+     * returns tuple representation of an array of cluster-related data from BusyClusters
+     * (cluster IDs, genesis times, codes' Swarm hashes, receipts, clusters' sizes, developers of codes deployed on clusters)
      */
     function getClustersInfo()
     external
@@ -109,8 +113,9 @@ contract Network is Deployer {
     }
 
     /** @dev Gets nodes that already members in all registered clusters
-     * Should be used in conjunction with `getClustersInfo`
-     * return (ids, node addresses, ports, node owners ethereum addresses)
+     * For full network state, use this method in conjunction with `getClustersInfo`
+     * returns tuple representation of an array of nodes-related data from BusyClusters
+     * (ids, node addresses, ports, node owners ethereum addresses)
      */
     function getClustersNodes()
     external
@@ -149,8 +154,8 @@ contract Network is Deployer {
         return (ids, addresses, ports, owners);
     }
 
-    /** @dev Gets codes that waiting for new nodes
-     * return (storage hashes (Swarm address), receipts, cluster sized for this codes)
+    /** @dev Gets codes which not yet deployed anywhere
+     * return (codes' Swarm hashes, receipts, clusters' sizes, developers' addresses)
      */
     function getEnqueuedCodes()
     external
@@ -174,8 +179,9 @@ contract Network is Deployer {
         return (storageHashes, storageReceipts, clusterSizes, developers);
     }
 
-    /** @dev Gets nodes that ready to create a new cluster with an added code
-     * return (node IDs, node addresses, starting ports, ending ports, current ports)
+    /** @dev Gets nodes that have free ports to host code
+     * returns tuple representation of a list of Node structs
+     * (node IDs, nodes' addresses, starting ports, ending ports, current ports, nodes' owners)
      */
     function getReadyNodes()
     external
@@ -187,7 +193,7 @@ contract Network is Deployer {
         uint16[] memory startPorts = new uint16[](nodesIndices.length);
         uint16[] memory endPorts = new uint16[](nodesIndices.length);
         uint16[] memory currentPorts = new uint16[](nodesIndices.length);
-        address[] memory developers = new address[](nodesIndices.length);
+        address[] memory owners = new address[](nodesIndices.length);
 
         for (uint i = 0; i < nodesIndices.length; ++i) {
             Node memory node = nodes[nodesIndices[i]];
@@ -196,9 +202,9 @@ contract Network is Deployer {
             startPorts[i] = node.startPort;
             endPorts[i] = node.endPort;
             currentPorts[i] = node.currentPort;
-            developers[i] = node.owner;
+            owners[i] = node.owner;
         }
 
-        return (ids, nodeAddresses, startPorts, endPorts, currentPorts, developers);
+        return (ids, nodeAddresses, startPorts, endPorts, currentPorts, owners);
     }
 }
