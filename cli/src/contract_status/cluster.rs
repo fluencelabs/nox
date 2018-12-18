@@ -68,7 +68,7 @@ impl Cluster {
 pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Cluster>, Box<Error>> {
     let options = utils::options();
 
-    let (cluster_ids, genesis_times, storage_hashes, storage_receipts, cluster_sizes): (
+    let (cluster_ids, genesis_times, code_addresses, storage_receipts, cluster_sizes): (
         Vec<H256>,
         Vec<U256>,
         Vec<H256>,
@@ -94,7 +94,7 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
     let mut clusters: Vec<Cluster> = Vec::new();
     let mut nodes_counter = 0;
 
-    for i in 0..storage_hashes.len() {
+    for i in 0..code_addresses.len() {
         let cluster_size = cluster_sizes[i];
 
         let mut cluster_members: Vec<ClusterMember> = Vec::new();
@@ -112,7 +112,7 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
         }
 
         let code = Code::new(
-            storage_hashes[i],
+            code_addresses[i],
             storage_receipts[i],
             cluster_sizes[i] as u8,
         );
