@@ -29,7 +29,8 @@ export interface Node {
     ip_addr: string,
     start_port: number,
     end_port: number,
-    current_port: number
+    current_port: number,
+    owner: string
 }
 
 /**
@@ -44,6 +45,7 @@ export async function getReadyNodes(contract: Network): Promise<Node[]> {
     let startPorts = unparsedNodes["2"];
     let endPorts = unparsedNodes["3"];
     let currentPorts = unparsedNodes["4"];
+    let owners = unparsedNodes["5"];
 
     ids.forEach((id, index) => {
         let addr = decodeNodeAddress(addresses[index]);
@@ -53,7 +55,8 @@ export async function getReadyNodes(contract: Network): Promise<Node[]> {
             ip_addr: addr.ip_addr,
             start_port: parseInt(startPorts[index]),
             end_port: parseInt(endPorts[index]),
-            current_port: parseInt(currentPorts[index])
+            current_port: parseInt(currentPorts[index]),
+            owner: owners[index]
         };
         nodes.push(node);
     });

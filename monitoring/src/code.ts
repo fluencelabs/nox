@@ -18,12 +18,13 @@
 import {Network} from "../types/web3-contracts/Network";
 import {ClustersInfos} from "./cluster";
 
-type UnparsedCodes = { "0": string[]; "1": string[]; "2": string[] };
+type UnparsedCodes = { "0": string[]; "1": string[]; "2": string[]; "3": string[] };
 
 export interface Code {
-    storage_hash: string,
+    code_address: string,
     storage_receipt: string,
-    cluster_size: number
+    cluster_size: number,
+    developer: string
 }
 
 /**
@@ -39,11 +40,13 @@ function parseCodes(unparsed: UnparsedCodes): Code[] {
     let hashes = unparsed["0"];
     let receipts = unparsed["1"];
     let clusterSizes = unparsed["2"];
+    let developers = unparsed["3"];
     hashes.forEach((hash, index) => {
         let code: Code = {
-            storage_hash: hash,
+            code_address: hash,
             storage_receipt: receipts[index],
-            cluster_size: parseInt(clusterSizes[index])
+            cluster_size: parseInt(clusterSizes[index]),
+            developer: developers[index]
         };
         codes.push(code);
     });
@@ -53,6 +56,7 @@ function parseCodes(unparsed: UnparsedCodes): Code[] {
 export function parseCodesFromClustersInfos(infos: ClustersInfos): Code[] {
     return parseCodes({"0": infos["2"],
         "1": infos["3"],
-        "2": infos["4"]
+        "2": infos["4"],
+        "3": infos["5"]
     });
 }

@@ -19,7 +19,7 @@ import {Network} from "../types/web3-contracts/Network";
 import {decodeNodeAddress} from "./nodeAddress";
 import {Code, parseCodesFromClustersInfos} from "./code";
 
-export type ClustersInfos = { "0": string[]; "1": string[]; "2": string[]; "3": string[]; "4": string[] };
+export type ClustersInfos = { "0": string[]; "1": string[]; "2": string[]; "3": string[]; "4": string[]; "5": string[] };
 
 export interface ClusterMember {
     id: string,
