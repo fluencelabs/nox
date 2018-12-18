@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-use web3::types::H256;
+use std::error::Error;
+use web3::types::{Address, H256};
+use utils;
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Code {
@@ -31,4 +33,26 @@ impl Code {
             cluster_size,
         }
     }
+}
+
+pub fn get_enqueued_codes(
+    contract_address: Address,
+    eth_url: &str,
+) -> Result<Vec<Code>, Box<Error>> {
+    let options = utils::options();
+
+    let (storage_hashes, storage_receipts, cluster_sizes): (Vec<H256>, Vec<H256>, Vec<u64>) =
+        utils::query_contract(contract_address, eth_url, "getEnqueuedCodes", (), options)?;
+
+    let mut codes: Vec<Code> = Vec::new();
+    for i in 0..storage_hashes.len() {
+        let code = Code::new(
+            storage_hashes[i],
+            storage_receipts[i],
+            cluster_sizes[i] as u8,
+        );
+        codes.push(code);
+    }
+
+    Ok(codes)
 }

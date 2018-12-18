@@ -19,7 +19,7 @@ mod code;
 mod node;
 mod status;
 
-use self::status::{get_clusters, get_enqueued_codes, get_ready_nodes, Status};
+use self::status::{get_status, Status};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::boxed::Box;
 use std::error::Error;
@@ -48,6 +48,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         ])
 }
 
+/// Gets status about Fluence contract from ethereum blockchain.
 pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
     let contract_address: Address = args
         .value_of(CONTRACT_ADDRESS)
@@ -57,15 +58,6 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
     let eth_url: &str = args.value_of(ETH_URL).unwrap();
 
     get_status(contract_address, eth_url)
-}
-
-pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Box<Error>> {
-    let nodes = get_ready_nodes(contract_address, eth_url)?;
-
-    let clusters = get_clusters(contract_address, eth_url)?;
-    let codes = get_enqueued_codes(contract_address, eth_url)?;
-
-    Ok(Status::new(clusters, codes, nodes))
 }
 
 #[cfg(test)]

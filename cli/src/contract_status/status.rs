@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use contract_status::cluster::{Cluster, ClusterMember};
-use contract_status::code::Code;
-use contract_status::node::Node;
+use contract_status::cluster::{Cluster, ClusterMember, get_clusters};
+use contract_status::code::{Code, get_enqueued_codes};
+use contract_status::node::{Node, get_ready_nodes};
 use std::boxed::Box;
 use std::error::Error;
 use std::fmt;
@@ -67,110 +67,12 @@ impl fmt::Display for Status {
     }
 }
 
-pub fn get_enqueued_codes(
-    contract_address: Address,
-    eth_url: &str,
-) -> Result<Vec<Code>, Box<Error>> {
-    let options = utils::options();
+/// Gets status about Fluence contract from ethereum blockchain.
+pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Box<Error>> {
+    let nodes = get_ready_nodes(contract_address, eth_url)?;
 
-    let (storage_hashes, storage_receipts, cluster_sizes): (Vec<H256>, Vec<H256>, Vec<u64>) =
-        utils::query_contract(contract_address, eth_url, "getEnqueuedCodes", (), options)?;
+    let clusters = get_clusters(contract_address, eth_url)?;
+    let codes = get_enqueued_codes(contract_address, eth_url)?;
 
-    let mut codes: Vec<Code> = Vec::new();
-    for i in 0..storage_hashes.len() {
-        let code = Code::new(
-            storage_hashes[i],
-            storage_receipts[i],
-            cluster_sizes[i] as u8,
-        );
-        codes.push(code);
-    }
-
-    Ok(codes)
-}
-
-pub fn get_ready_nodes(contract_address: Address, eth_url: &str) -> Result<Vec<Node>, Box<Error>> {
-    let options = utils::options();
-
-    let (nodes_indices, node_addresses, start_ports, end_ports, current_ports): (
-        Vec<H256>,
-        Vec<NodeAddress>,
-        Vec<u64>,
-        Vec<u64>,
-        Vec<u64>,
-    ) = utils::query_contract(contract_address, eth_url, "getReadyNodes", (), options)?;
-
-    let mut nodes: Vec<Node> = Vec::new();
-    for i in 0..nodes_indices.len() {
-        let node = Node::new(
-            nodes_indices[i],
-            node_addresses[i],
-            start_ports[i] as u16,
-            end_ports[i] as u16,
-            current_ports[i] as u16,
-        )?;
-        nodes.push(node);
-    }
-
-    Ok(nodes)
-}
-
-pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Cluster>, Box<Error>> {
-    let options = utils::options();
-
-    let (cluster_ids, genesis_times, storage_hashes, storage_receipts, cluster_sizes): (
-        Vec<H256>,
-        Vec<U256>,
-        Vec<H256>,
-        Vec<H256>,
-        Vec<u64>,
-    ) = utils::query_contract(
-        contract_address,
-        eth_url,
-        "getClustersInfo",
-        (),
-        options.to_owned(),
-    )?;
-
-    let (nodes_ids, nodes_addresses, ports): (Vec<H256>, Vec<NodeAddress>, Vec<u64>) =
-        utils::query_contract(
-            contract_address,
-            eth_url,
-            "getClustersNodes",
-            (),
-            options.to_owned(),
-        )?;
-
-    let mut clusters: Vec<Cluster> = Vec::new();
-    let mut nodes_counter = 0;
-
-    for i in 0..storage_hashes.len() {
-        let cluster_size = cluster_sizes[i];
-
-        let mut cluster_members: Vec<ClusterMember> = Vec::new();
-
-        for _j in 0..cluster_size {
-            let id = nodes_ids[nodes_counter];
-            let address = nodes_addresses[nodes_counter];
-            let port = ports[nodes_counter] as u16;
-
-            let cluster_member = ClusterMember::new(id, address, port)?;
-
-            cluster_members.push(cluster_member);
-
-            nodes_counter = nodes_counter + 1;
-        }
-
-        let code = Code::new(
-            storage_hashes[i],
-            storage_receipts[i],
-            cluster_sizes[i] as u8,
-        );
-
-        let cluster = Cluster::new(cluster_ids[i], genesis_times[i], code, cluster_members);
-
-        clusters.push(cluster);
-    }
-
-    Ok(clusters)
+    Ok(Status::new(clusters, codes, nodes))
 }
