@@ -26,18 +26,23 @@ pub struct ClusterMember {
     tendermint_key: String,
     ip_addr: String,
     port: u16,
-    owner: Address
+    owner: Address,
 }
 
 impl ClusterMember {
-    pub fn new(id: H256, address: NodeAddress, port: u16, owner: Address) -> Result<ClusterMember, Box<Error>> {
+    pub fn new(
+        id: H256,
+        address: NodeAddress,
+        port: u16,
+        owner: Address,
+    ) -> Result<ClusterMember, Box<Error>> {
         let (tendermint_key, ip_addr) = address.decode()?;
         Ok(ClusterMember {
             id,
             tendermint_key,
             ip_addr,
             port,
-            owner
+            owner,
         })
     }
 }
@@ -123,7 +128,7 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
             code_addresses[i],
             storage_receipts[i],
             cluster_sizes[i] as u8,
-            developers[i]
+            developers[i],
         );
 
         let cluster = Cluster::new(cluster_ids[i], genesis_times[i], code, cluster_members);

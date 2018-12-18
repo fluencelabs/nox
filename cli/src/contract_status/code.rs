@@ -27,12 +27,17 @@ pub struct Code {
 }
 
 impl Code {
-    pub fn new(storage_hash: H256, storage_receipt: H256, cluster_size: u8, developer: Address) -> Code {
+    pub fn new(
+        storage_hash: H256,
+        storage_receipt: H256,
+        cluster_size: u8,
+        developer: Address,
+    ) -> Code {
         Code {
             storage_hash,
             storage_receipt,
             cluster_size,
-            developer
+            developer,
         }
     }
 }
@@ -56,7 +61,7 @@ pub fn get_enqueued_codes(
             storage_hashes[i],
             storage_receipts[i],
             cluster_sizes[i] as u8,
-            developers[i]
+            developers[i],
         );
         codes.push(code);
     }

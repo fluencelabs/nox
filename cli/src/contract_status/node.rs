@@ -30,7 +30,7 @@ pub struct Node {
     start_port: u16,
     end_port: u16,
     current_port: u16,
-    owner: Address
+    owner: Address,
 }
 
 impl Node {
@@ -40,7 +40,7 @@ impl Node {
         start_port: u16,
         end_port: u16,
         current_port: u16,
-        owner: Address
+        owner: Address,
     ) -> Result<Node, Box<Error>> {
         let (tendermint_key, ip_addr) = address.decode()?;
         Ok(Node {
@@ -50,7 +50,7 @@ impl Node {
             start_port,
             end_port,
             current_port,
-            owner
+            owner,
         })
     }
 }
@@ -76,7 +76,7 @@ pub fn get_ready_nodes(contract_address: Address, eth_url: &str) -> Result<Vec<N
             start_ports[i] as u16,
             end_ports[i] as u16,
             current_ports[i] as u16,
-            owners[i]
+            owners[i],
         )?;
         nodes.push(node);
     }
