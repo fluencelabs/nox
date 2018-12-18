@@ -100,7 +100,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
 
               _ <- contract.addCode(bytes, bytes, new Uint8(2)).call[IO]
 
-              txReceipt <- contract
+              _ <- contract
                 .addNode(
                   base64ToBytes32("RK34j5RkudeS0GuTaeJSoZzg/U5z/Pd73zvTLfZKU2w="),
                   solverAddressToBytes24("192.168.0.1", "99d76509fe9cb6e8cd5fc6497819eeabb2498106"),
