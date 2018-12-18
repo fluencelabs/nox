@@ -23,14 +23,16 @@ pub struct Code {
     storage_hash: H256,
     storage_receipt: H256,
     cluster_size: u8,
+    developer: Address,
 }
 
 impl Code {
-    pub fn new(storage_hash: H256, storage_receipt: H256, cluster_size: u8) -> Code {
+    pub fn new(storage_hash: H256, storage_receipt: H256, cluster_size: u8, developer: Address) -> Code {
         Code {
             storage_hash,
             storage_receipt,
             cluster_size,
+            developer
         }
     }
 }
@@ -41,7 +43,7 @@ pub fn get_enqueued_codes(
 ) -> Result<Vec<Code>, Box<Error>> {
     let options = utils::options();
 
-    let (storage_hashes, storage_receipts, cluster_sizes, _): (
+    let (storage_hashes, storage_receipts, cluster_sizes, developers): (
         Vec<H256>,
         Vec<H256>,
         Vec<u64>,
@@ -54,6 +56,7 @@ pub fn get_enqueued_codes(
             storage_hashes[i],
             storage_receipts[i],
             cluster_sizes[i] as u8,
+            developers[i]
         );
         codes.push(code);
     }

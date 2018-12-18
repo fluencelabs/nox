@@ -26,16 +26,18 @@ pub struct ClusterMember {
     tendermint_key: String,
     ip_addr: String,
     port: u16,
+    owner: Address
 }
 
 impl ClusterMember {
-    pub fn new(id: H256, address: NodeAddress, port: u16) -> Result<ClusterMember, Box<Error>> {
+    pub fn new(id: H256, address: NodeAddress, port: u16, owner: Address) -> Result<ClusterMember, Box<Error>> {
         let (tendermint_key, ip_addr) = address.decode()?;
         Ok(ClusterMember {
             id,
             tendermint_key,
             ip_addr,
             port,
+            owner
         })
     }
 }
@@ -68,7 +70,7 @@ impl Cluster {
 pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Cluster>, Box<Error>> {
     let options = utils::options();
 
-    let (cluster_ids, genesis_times, code_addresses, storage_receipts, cluster_sizes, _): (
+    let (cluster_ids, genesis_times, code_addresses, storage_receipts, cluster_sizes, developers): (
         Vec<H256>,
         Vec<U256>,
         Vec<H256>,
@@ -83,7 +85,7 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
         options.to_owned(),
     )?;
 
-    let (nodes_ids, nodes_addresses, ports, _): (
+    let (nodes_ids, nodes_addresses, ports, owners): (
         Vec<H256>,
         Vec<NodeAddress>,
         Vec<u64>,
@@ -108,8 +110,9 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
             let id = nodes_ids[nodes_counter];
             let address = nodes_addresses[nodes_counter];
             let port = ports[nodes_counter] as u16;
+            let owner = owners[nodes_counter];
 
-            let cluster_member = ClusterMember::new(id, address, port)?;
+            let cluster_member = ClusterMember::new(id, address, port, owner)?;
 
             cluster_members.push(cluster_member);
 
@@ -120,6 +123,7 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
             code_addresses[i],
             storage_receipts[i],
             cluster_sizes[i] as u8,
+            developers[i]
         );
 
         let cluster = Cluster::new(cluster_ids[i], genesis_times[i], code, cluster_members);

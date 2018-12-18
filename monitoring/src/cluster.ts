@@ -42,15 +42,18 @@ export async function getClusters(contract: Network): Promise<Cluster[]> {
     let unparsedClustersNodes = await contract.methods.getClustersNodes().call();
     let clusters: Cluster[] = [];
 
+    // clusters info
     let cluster_ids = unparsedClustersInfo["0"];
     let genesis_times = unparsedClustersInfo["1"];
 
+    // codes info
     let codeAddresses = unparsedClustersInfo["2"];
     let storageReceipts = unparsedClustersInfo["3"];
     let clusterSizes = unparsedClustersInfo["4"];
     let developers = unparsedClustersInfo["5"];
     let codes: Code[] = parseCodes(codeAddresses, storageReceipts, clusterSizes, developers);
 
+    // nodes info
     let node_ids = unparsedClustersNodes["0"];
     let node_addresses = unparsedClustersNodes["1"];
     let node_ports = unparsedClustersNodes["2"];
