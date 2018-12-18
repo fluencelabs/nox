@@ -16,3 +16,16 @@ Now you're ready to publish your code to Fluence network.
 
 ## Publishing your code to the Fluence network
 Please refer to [Fluence CLI](https://github.com/fluencelabs/fluence/tree/master/cli) README.
+
+## Developing your own applications
+### Rust SDK
+Please refer to [Fluence Rust SDK](https://github.com/fluencelabs/fluence/tree/master/sdk/rust)
+
+### JavaScript and TypeScript examples
+Check out [example web apps](https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples)
+
+## Workshops
+Workshops will guide you through deployment and connecting web applications to Fluence:
+
+- [October 2018 workshop](https://github.com/fluencelabs/workshop-2018-oct)
+- [December 2018 workshop](https://github.com/fluencelabs/workshop-2018-oct)
