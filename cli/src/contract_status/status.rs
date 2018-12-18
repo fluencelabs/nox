@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use contract_status::cluster::{Cluster, get_clusters};
-use contract_status::code::{Code, get_enqueued_codes};
-use contract_status::node::{Node, get_ready_nodes};
+use contract_status::cluster::{get_clusters, Cluster};
+use contract_status::code::{get_enqueued_codes, Code};
+use contract_status::node::{get_ready_nodes, Node};
 use std::boxed::Box;
 use std::error::Error;
 use web3::types::Address;

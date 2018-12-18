@@ -17,8 +17,8 @@
 use contract_status::code::Code;
 use std::error::Error;
 use types::NodeAddress;
-use web3::types::{H256, U256, Address};
 use utils;
+use web3::types::{Address, H256, U256};
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct ClusterMember {
@@ -74,7 +74,7 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
         Vec<H256>,
         Vec<H256>,
         Vec<u64>,
-        Vec<Address>
+        Vec<Address>,
     ) = utils::query_contract(
         contract_address,
         eth_url,
@@ -83,14 +83,18 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
         options.to_owned(),
     )?;
 
-    let (nodes_ids, nodes_addresses, ports, _): (Vec<H256>, Vec<NodeAddress>, Vec<u64>, Vec<Address>) =
-        utils::query_contract(
-            contract_address,
-            eth_url,
-            "getClustersNodes",
-            (),
-            options.to_owned(),
-        )?;
+    let (nodes_ids, nodes_addresses, ports, _): (
+        Vec<H256>,
+        Vec<NodeAddress>,
+        Vec<u64>,
+        Vec<Address>,
+    ) = utils::query_contract(
+        contract_address,
+        eth_url,
+        "getClustersNodes",
+        (),
+        options.to_owned(),
+    )?;
 
     let mut clusters: Vec<Cluster> = Vec::new();
     let mut nodes_counter = 0;

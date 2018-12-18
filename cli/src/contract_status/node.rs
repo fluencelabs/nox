@@ -16,8 +16,8 @@
 
 use std::error::Error;
 use types::NodeAddress;
-use web3::types::{H256, Address};
 use utils;
+use web3::types::{Address, H256};
 
 /// Represents Fluence node registered in ethereum contract.
 /// The node listens to contract events and runs real-time nodes.
@@ -62,7 +62,7 @@ pub fn get_ready_nodes(contract_address: Address, eth_url: &str) -> Result<Vec<N
         Vec<u64>,
         Vec<u64>,
         Vec<u64>,
-        Vec<Address>
+        Vec<Address>,
     ) = utils::query_contract(contract_address, eth_url, "getReadyNodes", (), options)?;
 
     let mut nodes: Vec<Node> = Vec::new();
@@ -79,4 +79,3 @@ pub fn get_ready_nodes(contract_address: Address, eth_url: &str) -> Result<Vec<N
 
     Ok(nodes)
 }
-
