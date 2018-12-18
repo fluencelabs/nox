@@ -11,6 +11,7 @@ import {abi} from "./abi";
  */
 export async function show_status(contract_address: string = "0x9995882876ae612bfd829498ccd73dd962ec950a"): Promise<void> {
 
+    // TODO add metamask support
     let web3js = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
 
     let accounts = await web3js.eth.getAccounts();
@@ -19,6 +20,8 @@ export async function show_status(contract_address: string = "0x9995882876ae612b
 
     let status = await getStatus(contract);
     document.body.innerHTML += `<div><pre>${JSON.stringify(status, undefined, 2)}</pre></div>`;
+
+    // TODO add statuses from nodes
 }
 
 const _global = (window /* browser */ || global /* node */) as any;
