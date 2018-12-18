@@ -56,12 +56,13 @@ impl Node {
 pub fn get_ready_nodes(contract_address: Address, eth_url: &str) -> Result<Vec<Node>, Box<Error>> {
     let options = utils::options();
 
-    let (nodes_indices, node_addresses, start_ports, end_ports, current_ports): (
+    let (nodes_indices, node_addresses, start_ports, end_ports, current_ports, _): (
         Vec<H256>,
         Vec<NodeAddress>,
         Vec<u64>,
         Vec<u64>,
         Vec<u64>,
+        Vec<Address>
     ) = utils::query_contract(contract_address, eth_url, "getReadyNodes", (), options)?;
 
     let mut nodes: Vec<Node> = Vec::new();

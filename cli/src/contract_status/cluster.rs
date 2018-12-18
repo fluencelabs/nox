@@ -68,12 +68,13 @@ impl Cluster {
 pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Cluster>, Box<Error>> {
     let options = utils::options();
 
-    let (cluster_ids, genesis_times, code_addresses, storage_receipts, cluster_sizes): (
+    let (cluster_ids, genesis_times, code_addresses, storage_receipts, cluster_sizes, _): (
         Vec<H256>,
         Vec<U256>,
         Vec<H256>,
         Vec<H256>,
         Vec<u64>,
+        Vec<Address>
     ) = utils::query_contract(
         contract_address,
         eth_url,
@@ -82,7 +83,7 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
         options.to_owned(),
     )?;
 
-    let (nodes_ids, nodes_addresses, ports): (Vec<H256>, Vec<NodeAddress>, Vec<u64>) =
+    let (nodes_ids, nodes_addresses, ports, _): (Vec<H256>, Vec<NodeAddress>, Vec<u64>, Vec<Address>) =
         utils::query_contract(
             contract_address,
             eth_url,

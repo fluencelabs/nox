@@ -14,17 +14,14 @@
  * limitations under the License.
  */
 
-use contract_status::cluster::{Cluster, ClusterMember, get_clusters};
+use contract_status::cluster::{Cluster, get_clusters};
 use contract_status::code::{Code, get_enqueued_codes};
 use contract_status::node::{Node, get_ready_nodes};
 use std::boxed::Box;
 use std::error::Error;
-use std::fmt;
-use types::NodeAddress;
-use utils;
-use web3::types::{Address, H256, U256};
+use web3::types::Address;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Status {
     clusters: Vec<Cluster>,
     enqueued_codes: Vec<Code>,
@@ -32,18 +29,6 @@ pub struct Status {
 }
 
 impl Status {
-    pub fn clusters(&self) -> &Vec<Cluster> {
-        &self.clusters
-    }
-
-    pub fn enqueued_codes(&self) -> &Vec<Code> {
-        &self.enqueued_codes
-    }
-
-    pub fn ready_nodes(&self) -> &Vec<Node> {
-        &self.ready_nodes
-    }
-
     pub fn new(
         clusters: Vec<Cluster>,
         enqueued_codes: Vec<Code>,
@@ -54,16 +39,6 @@ impl Status {
             enqueued_codes,
             ready_nodes,
         }
-    }
-}
-
-impl fmt::Display for Status {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Status: (\n\tclusters: {:?},\n\tready nodes:{:?},\n\tenqueued codes lengths: {:?}\n)",
-            self.clusters, self.ready_nodes, self.enqueued_codes
-        )
     }
 }
 
