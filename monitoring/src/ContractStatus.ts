@@ -7,7 +7,7 @@ const arrayBufferToHex = require('array-buffer-to-hex');
  * @param contract Fluence contract API
  */
 export async function getStatus(contract: Network): Promise<Status> {
-    let codes = await getCodes(contract);
+    let codes = await getEnqueuedCodes(contract);
     let ready_nodes = await getReadyNodes(contract);
     let clusters = await getClusters(contract);
 
@@ -49,6 +49,12 @@ export interface Status {
     ready_nodes: Node[]
 }
 
+
+/**
+ * Represents Fluence node registered in ethereum contract.
+ * The node listens to contract events and runs real-time nodes.
+ * The purpose of real-time nodes is to host developer's [`Code`], e.g., backend code.
+ */
 export interface Node {
     id: string,
     tendermint_key: string,
@@ -78,7 +84,10 @@ export interface Cluster {
     cluster_members: ClusterMember[]
 }
 
-async function getCodes(contract: Network): Promise<Code[]> {
+/**
+ * Gets list of enqueued codes from Fluence contract
+ */
+async function getEnqueuedCodes(contract: Network): Promise<Code[]> {
     let unparsedCodes: { "0": string[]; "1": string[]; "2": string[] } = await contract.methods.getEnqueuedCodes().call();
     return parseCodes(unparsedCodes);
 }
@@ -96,6 +105,9 @@ function parseCodes(unparsed: { "0": string[]; "1": string[]; "2": string[] }): 
     return codes;
 }
 
+/**
+ * Gets list of ready-to-work nodes from Fluence contract
+ */
 async function getReadyNodes(contract: Network): Promise<Node[]> {
     let unparsedNodes = await contract.methods.getReadyNodes().call();
     let nodes: Node[] = [];
@@ -114,6 +126,9 @@ async function getReadyNodes(contract: Network): Promise<Node[]> {
     return nodes;
 }
 
+/**
+ * Gets list of formed clusters from Fluence contract
+ */
 async function getClusters(contract: Network): Promise<Cluster[]> {
     let unparsedClustersInfo = await contract.methods.getClustersInfo().call();
     let unparsedClustersNodes = await contract.methods.getClustersNodes().call();

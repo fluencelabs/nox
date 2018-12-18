@@ -10,7 +10,7 @@
     "package:build": "tsc",
     "start:dev": "webpack-dev-server",
     "typechain:generate": "typechain --target=web3-1.0.0 '../bootstrap/contracts/compiled/*.abi'",
-    "postinstall": "npm run typechain:generate && rm -f node_modules/web3/index.d.ts"
+    "postinstall": "npm run compile-sol --prefix ../bootstrap/ && npm run typechain:generate && rm -f node_modules/web3/index.d.ts"
   },
   "repository": {
     "type": "git",

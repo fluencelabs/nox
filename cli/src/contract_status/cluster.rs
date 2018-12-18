@@ -64,6 +64,7 @@ impl Cluster {
     }
 }
 
+/// Gets list of formed clusters from Fluence contract
 pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Cluster>, Box<Error>> {
     let options = utils::options();
 
