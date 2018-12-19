@@ -129,7 +129,10 @@ contract Deployer is Whitelist {
     {
         require(whitelist(msg.sender), "The sender is not in whitelist");
         require(nodes[nodeID].id == 0, "This node is already registered");
-        require(startPort < endPort, "Port range is empty or incorrect");
+
+        // port range is inclusive
+        // if startPort == endPort, then node can host just a single code
+        require(startPort <= endPort, "Port range is empty or incorrect");
 
         nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, startPort, msg.sender);
         readyNodes.push(nodeID);
@@ -151,7 +154,9 @@ contract Deployer is Whitelist {
         external
     {
         require(whitelist(msg.sender), "The sender is not in whitelist");
+
         enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize, msg.sender));
+
         if (!matchWork()) {
             emit CodeEnqueued(storageHash);
         }
@@ -165,51 +170,74 @@ contract Deployer is Whitelist {
         returns (bool)
     {
         uint idx = 0;
+        Code memory code;
+        uint readyNodesCount = readyNodes.length;
+
         // TODO: better control enqueuedCodes.length so we don't exceed gasLimit
-        // maybe separate deployed and undeployed code in two arrays
-        for (; idx < enqueuedCodes.length; ++idx) {
-            if (readyNodes.length >= enqueuedCodes[idx].clusterSize) {
+
+        // looking for a code that can be deployed given current number of readyNodes
+        for (; idx < enqueuedCodes.length; idx++) {
+            code = enqueuedCodes[idx];
+            // ignoring personal codes
+            if (readyNodesCount >= code.clusterSize) {
+                // suitable code found, stop on current idx
                 break;
             }
         }
 
-        // check if we hit the condition `readyNodes.length >= enqueuedCodes[idx].clusterSize` above
+        // check if we hit the condition `readyNodes.length >= code.clusterSize` above
         // idx >= enqueuedCodes.length means that we skipped through enqueuedCodes array without hitting condition
         if (idx >= enqueuedCodes.length) {
             return false;
         }
 
-        Code memory code = enqueuedCodes[idx];
+        // as code is found, remove it from enqueuedCodes
         removeCode(idx);
 
-        bytes32 clusterID = bytes32(clusterCount++);
-        uint time = now;
-
-        bytes32[] memory solverIDs = new bytes32[](code.clusterSize);
+        // arrays containing nodes' data to be sent in a `ClusterFormed` event
+        bytes32[] memory nodeIDs = new bytes32[](code.clusterSize);
         bytes24[] memory solverAddrs = new bytes24[](code.clusterSize);
         uint16[] memory solverPorts = new uint16[](code.clusterSize);
         address[] memory solverOwners = new address[](code.clusterSize);
 
-        uint nodeIndex = 0;
-        for (uint j = 0; j < code.clusterSize; j++) {
-            bytes32 nodeID = readyNodes[nodeIndex];
+        // i holds a position readyNodes array
+        uint i = 0;
+
+        for (uint8 c = 0; c < code.clusterSize; c++) {
+            bytes32 nodeID = readyNodes[i];
             Node memory node = nodes[nodeID];
 
-            solverIDs[j] = nodeID;
-            solverAddrs[j] = node.nodeAddress;
-            solverPorts[j] = node.currentPort;
-            solverOwners[j] = node.owner;
+            // copy node's data to arrays so it can be sent in event
+            nodeIDs[c] = nodeID;
+            solverAddrs[c] = node.nodeAddress;
+            solverPorts[c] = node.currentPort;
+            solverOwners[c] = node.owner;
 
-            if (nextPort(nodeID)) {
-                ++nodeIndex;
+            // increment port, it will be used for the next code
+            // using nodes[nodeID] instead of local variable is intended
+            nodes[nodeID].currentPort++;
+
+            // check if node will be able to host a code next time; if no, remove it
+            if (nodes[nodeID].currentPort > node.endPort) {
+                // removeReadyNode puts last node in the array to i-th position
+                // so after removal readyNodes[i] contains 'new' node and no need to increment i
+                removeReadyNode(i);
             } else {
-                removeNode(nodeIndex);
+                // go to next position in readyNodes array
+                i++;
             }
         }
 
-        busyClusters[clusterID] = BusyCluster(clusterID, code, time, solverIDs, solverAddrs, solverPorts, solverOwners);
+        // clusterID generation could be arbitrary, it doesn't depend on actual cluster count
+        bytes32 clusterID = bytes32(clusterCount++);
+        uint genesisTime = now;
 
-        emit ClusterFormed(clusterID, code.storageHash, time, solverIDs, solverAddrs, solverPorts);
+        // saving selected nodes as a cluster with assigned code
+        busyClusters[clusterID] = BusyCluster(clusterID, code, genesisTime, nodeIDs, solverAddrs, solverPorts, solverOwners);
+
+        // notify Fluence node it's time to run real-time nodes and
+        // create a Tendermint cluster hosting selected code
+        emit ClusterFormed(clusterID, code.storageHash, genesisTime, nodeIDs, solverAddrs, solverPorts);
         return true;
     }
 
@@ -229,7 +257,7 @@ contract Deployer is Whitelist {
     /** @dev Removes an element on specified position from 'readyNodes'
      * @param index position in 'readyNodes' to remove
      */
-    function removeNode(uint index)
+    function removeReadyNode(uint index)
         internal
     {
         if (index != readyNodes.length - 1) {
@@ -237,17 +265,5 @@ contract Deployer is Whitelist {
             readyNodes[index] = readyNodes[readyNodes.length - 1];
         }
         --readyNodes.length;
-    }
-
-    /** @dev Switches 'currentPort' for specified node
-     * @param nodeID of target node
-     * returns whether there are more available ports
-     */
-    function nextPort(bytes32 nodeID)
-        internal
-        returns (bool)
-    {
-        nodes[nodeID].currentPort++;
-        return nodes[nodeID].currentPort != nodes[nodeID].endPort;
     }
 }
