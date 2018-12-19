@@ -1,12 +1,12 @@
 ## A standalone WebAssembly VM benchmark
 
-A significant number of decentralized projects begins to use WebAssembly as the computation machine of choice. While WebAssembly has already been supported for a while by the major browsers, standalone virtual machines are somewhat less common with [WAVM](https://github.com/WAVM/WAVM) probably being the oldest and the most mature. Other virtual machines are catching up though. 
+WebAssembly has become the computation machine of choice for a significant number of decentralized projects. While WebAssembly has already been supported for a while by the major browsers, standalone virtual machines are somewhat less common with [WAVM](https://github.com/WAVM/WAVM) probably being the oldest and most mature. Other virtual machines are catching up though.
 
-For example, [Asmble](https://github.com/cretz/asmble) translates WebAssembly instructions into JVM bytecode which allows it to enjoy Java JIT compiler perks almost for free. [Wasmer](https://github.com/wasmerio/wasmer) compiles WebAssembly code into [Cranelift IR](https://cranelift.readthedocs.io/en/latest/ir.html), which is later on translated into executable machine code by [Cranelift](https://github.com/CraneStation/cranelift). Aforementioned WAVM compiles WebAssembly into LLVM which is then translated into machine code as well. Not only compilers exist in the stack: Parity develops [wasmi](https://github.com/paritytech/wasmi) – a WebAssembly interpreter in Rust. Perlin works on another interpreter named [life](https://github.com/perlin-network/life) in Go. There is also another WebAssembly interpreter written in Go: [wagon](https://github.com/go-interpreter/wagon).
+For example, [Asmble](https://github.com/cretz/asmble)translates WebAssembly instructions into JVM bytecode which allows it to enjoy Java JIT compiler perks almost for free. [Wasmer](https://github.com/wasmerio/wasmer) compiles WebAssembly code into [Cranelift IR](https://cranelift.readthedocs.io/en/latest/ir.html) which is later translated into executable machine code by [Cranelift](https://github.com/CraneStation/cranelift). Aforementioned WAVM compiles WebAssembly into LLVM which is then translated into machine code as well. Not only compilers exist in the stack though: Parity develops [wasmi](https://github.com/paritytech/wasmi) – a WebAssembly interpreter in Rust. Perlin works on another interpreter named [life](https://github.com/perlin-network/life) in Go. There is also another WebAssembly interpreter written in Go: [wagon](https://github.com/go-interpreter/wagon).
 
-We think it would be nice to (micro)benchmark existing WebAssembly VM implementations to help engineers make a better choice when selecting a VM for their needs. It's not the first time when standalone Wasm virtual machines are being benchmarked  – for example, [here](https://github.com/perlin-network/life#benchmarks) you can find benchmark results published by folks from Perlin. However, we have decided to focus on a somewhat different benchmark methodology. We think that lots of applications will load the WebAssembly code once and then keep running it for a long time, which should let JIT compilation to come into effect. In this case the benchmark should run long enough so we could see those effects, and that's exactly what we have tried to accomplish.
+We think it would be nice to (micro)benchmark existing WebAssembly VM implementations to help engineers make a better choice when selecting a VM for their needs. It’s not the first time standalone Wasm virtual machines are being benchmarked — for example, [here](https://github.com/perlin-network/life#benchmarks) you can find benchmark results published by the folks from Perlin. However, we have decided to focus on a somewhat different benchmark methodology. We think that lots of applications will load the WebAssembly code once and then keep running it for a long time which should let JIT compilation come into effect. In this case, the benchmark should run long enough so we could see those effects, and that’s exactly what we have tried to accomplish.
 
-Each test in the benchmark was crafted in a way that would prevent the virtual machine from optimizing it using the dead code elimination. Most tests also prevent intermediate results memoization and allow to specify an RNG seed to obtain repeatable benchmark results. As a semi-mandatory disclaimer, however, we should note that this benchmark is by definition is not comprehensive and might not reflect performance on real life workloads. 
+Each test in the benchmark was crafted in a way that would prevent the virtual machine from optimizing it using the dead code elimination. Most tests also prevent intermediate results memoization and allow the specification of an RNG seed to obtain repeatable benchmark results. As a semi-mandatory disclaimer, however, we should note that this benchmark is not, by definition, comprehensive and might not reflect performance on real life workloads.
 
 ### Tests
 
@@ -33,9 +33,9 @@ We have used the following virtual machines versions (tied to GitHub commits):
 
 All tests were performed on the `m4.large` AWS instance, and the script running benchmarks can be found [here](https://github.com/fluencelabs/fluence/tree/master/bench/vm/bencher).
 
-It should be noted that a total execution time was measured, which skews results a little bit. For example, the compilation time by WAVM is counted, but ideally shouldn't because the compilation should happen only once. The time for JVM to load the class file produced by Asmble is counted as well. We attempted to counteract this by having tests to run long enough, but of course that's far from perfect.
+It should be noted that a total execution time was measured which skews results a little bit. For example, the compilation time by WAVM is counted, but ideally shouldn’t be because the compilation should happen only once. The time for JVM to load the class file produced by Asmble is counted as well. We attempted to counteract this by having tests run long enough, but of course that’s far from perfect.
 
-It should also be noted that interpreter VMs in general took much longer time than compiler VMs, so we had to repeat the same tests only 3 times for interpreters and 11 times for compilers.
+It should also be noted that in general, interpreter VMs took much longer time than compiler VMs, so we had to repeat the same tests only 3 times for interpreters and 11 times for compilers.
 
 ### Results
 
@@ -43,24 +43,26 @@ It should also be noted that interpreter VMs in general took much longer time th
   <img src="results/images/compressions.png" alt="Compression tests" width="1015px"/>
 </p>
 
-It should be somewhat expected that "compilers" (WAVM, Asmble, wasmer) will beat "interpreters" (life, wasmi, wagon) without JIT by large margin, and WAVM is a clear winner here. You might also note that `deflate` is one of two tests where Asmble loses to wasmer.
+It should be somewhat expected that “compilers” (WAVM, Asmble, wasmer) will beat “interpreters” (life, wasmi, wagon) without JIT by a large margin, and WAVM is a clear winner here. You might also note that `deflate` is one of two tests where Asmble loses to wasmer.
 
 <p align="center">
   <img src="results/images/computations.png" alt="Computation tests" width="1001px"/>
 </p>
 
-Factorization is one of the tests where Asmble goes almost even with WAVM. That might be happening because of Java JIT compiler optimizing hot spots.
+`Factorization` is one of the tests where Asmble is almost on par with WAVM. That might be due to Java JIT compiler optimizing hot spots.
 
 <p align="center">
   <img src="results/images/matrices.png" alt="Matrix tests" width="1015px"/>
 </p>
 
-Matrix tests are the ones where the floating-point arithmetic is used (except the `matrix_product` test). It's unclear why Asmble performs so poorly in the SVD decomposition test but performs fine in the QR decomposition test – that's a subject for further investigation.
+Matrix tests are the ones where the floating-point arithmetic is used (except the `matrix_product` test). It’s unclear why Asmble performs so poorly in the SVD decomposition test but performs fine in the QR decomposition test — that’s a subject for further investigation.
 
 ### Conclusion
 
-WAVM was a definite winner in every test we have performed, and "compilers" were up to 50x-200x times faster compared to "interpreters". Asmble can be considered the runner up – on most tests, except one anomalous and another with deflate compression it was only couple times slower than WAVM and 1.2x-2x faster than wasmer. 
+WAVM was a definite winner in every test we have performed and “compilers” were up to 50x-200x faster when compared to “interpreters”. Asmble can be considered the runner up — on most tests, except one anomalous and another with deflate compression, it was only a couple times slower than WAVM and 1.2x-2x faster than wasmer.
 
-Unfortunately, because we tried to run the same test on "compilers" and "interpreters", we couldn't make it run long enough for "compilers" without making "interpreters" to run forever. This means that "compilers" results are potentially ballpark at best. Ideally, there should be another test focused on "compilers" only, and we would be grateful if someone from community helped with that :)
+Unfortunately, because we tried to run the same test on “compilers” and “interpreters”, we couldn’t make it run long enough for “compilers” without making “interpreters” run forever. This means that “compilers” results are potentially ballpark at best. Ideally, there should be another test focused on “compilers” only, and we would be grateful if someone from the community helped with that :)
 
 Raw results can be found [here](https://github.com/fluencelabs/fluence/tree/master/bench/vm/results), and the Jupyter notebook used to generate the plots (with some additional analysis) – [here](https://github.com/fluencelabs/fluence/blob/master/bench/vm/results/result_analysis.ipynb). [Source codes](https://github.com/fluencelabs/fluence/tree/master/bench/vm/tests) and [benchmark scripts](https://github.com/fluencelabs/fluence/tree/master/bench/vm/bencher) are published as well, so feel free to try this at home!
+
+Also, welcome to our [Gitter](https://gitter.im/fluencelabs/) if you have any additional thoughts about the benchmark!
