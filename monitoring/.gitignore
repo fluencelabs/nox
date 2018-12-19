@@ -1,0 +1,11 @@
+dist/
+
+node_modules/
+bundle/
+
+.idea/
+
+npm-debug.log
+
+src/*.js
+src/examples/*.js

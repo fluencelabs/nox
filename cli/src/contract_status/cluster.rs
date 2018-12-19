@@ -17,7 +17,8 @@
 use contract_status::code::Code;
 use std::error::Error;
 use types::NodeAddress;
-use web3::types::{H256, U256};
+use utils;
+use web3::types::{Address, H256, U256};
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct ClusterMember {
@@ -25,16 +26,23 @@ pub struct ClusterMember {
     tendermint_key: String,
     ip_addr: String,
     port: u16,
+    owner: Address,
 }
 
 impl ClusterMember {
-    pub fn new(id: H256, address: NodeAddress, port: u16) -> Result<ClusterMember, Box<Error>> {
+    pub fn new(
+        id: H256,
+        address: NodeAddress,
+        port: u16,
+        owner: Address,
+    ) -> Result<ClusterMember, Box<Error>> {
         let (tendermint_key, ip_addr) = address.decode()?;
         Ok(ClusterMember {
             id,
             tendermint_key,
             ip_addr,
             port,
+            owner,
         })
     }
 }
@@ -61,4 +69,72 @@ impl Cluster {
             cluster_members,
         }
     }
+}
+
+/// Gets list of formed clusters from Fluence contract
+pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Cluster>, Box<Error>> {
+    let options = utils::options();
+
+    let (cluster_ids, genesis_times, code_addresses, storage_receipts, cluster_sizes, developers): (
+        Vec<H256>,
+        Vec<U256>,
+        Vec<H256>,
+        Vec<H256>,
+        Vec<u64>,
+        Vec<Address>,
+    ) = utils::query_contract(
+        contract_address,
+        eth_url,
+        "getClustersInfo",
+        (),
+        options.to_owned(),
+    )?;
+
+    let (nodes_ids, nodes_addresses, ports, owners): (
+        Vec<H256>,
+        Vec<NodeAddress>,
+        Vec<u64>,
+        Vec<Address>,
+    ) = utils::query_contract(
+        contract_address,
+        eth_url,
+        "getClustersNodes",
+        (),
+        options.to_owned(),
+    )?;
+
+    let mut clusters: Vec<Cluster> = Vec::new();
+    let mut nodes_counter = 0;
+
+    for i in 0..code_addresses.len() {
+        let cluster_size = cluster_sizes[i];
+
+        let mut cluster_members: Vec<ClusterMember> = Vec::new();
+
+        for _j in 0..cluster_size {
+            let id = nodes_ids[nodes_counter];
+            let address = nodes_addresses[nodes_counter];
+            let port = ports[nodes_counter] as u16;
+            let owner = owners[nodes_counter];
+
+            let cluster_member = ClusterMember::new(id, address, port, owner)?;
+
+            cluster_members.push(cluster_member);
+
+            nodes_counter = nodes_counter + 1;
+        }
+
+        let code = Code::new(
+            code_addresses[i],
+            storage_receipts[i],
+            cluster_sizes[i] as u8,
+            developers[i],
+        );
+
+        let cluster = Cluster::new(cluster_ids[i], genesis_times[i], code, cluster_members);
+
+        clusters.push(cluster);
+    }
+
+    Ok(clusters)
 }
