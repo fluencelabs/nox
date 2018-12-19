@@ -18,22 +18,20 @@
 import {ContractStatus, getContractStatus} from "./contractStatus";
 import axios from 'axios';
 import {Network} from "../types/web3-contracts/Network";
-import {abi} from "./abi";
-import {NodeStatus} from "./nodeStatus";
+import {NodeStatus, UnavailableNode} from "./nodeStatus";
 import JSONFormatter from 'json-formatter-js';
+import abi = require("../Network.json");
 import Web3 = require('web3');
 
 (window as any).web3 = (window as any).web3 || {};
 let web3 = (window as any).web3;
 
+/**
+ * Contract status and status of all nodes in the Fluence network.
+ */
 interface Status {
     contract_status: ContractStatus,
-    node_statuses: NodeStatus[]
-}
-
-interface StatusAddress {
-    ipAddr: string,
-    port: number
+    node_statuses: (NodeStatus|UnavailableNode)[]
 }
 
 /**
@@ -52,22 +50,17 @@ export async function getStatus(contractAddress: string): Promise<Status> {
         web3js = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
     }
 
-    let accounts = await web3js.eth.getAccounts();
-
     let contract: Network = new web3js.eth.Contract(abi, contractAddress) as Network;
 
     let contractStatus = await getContractStatus(contract);
 
-    let statusEndpoints: StatusAddress[] = contractStatus.ready_nodes.map((node) => {
-        let statusPort = node.start_port + 400;
-        let ipAddr = node.ip_addr;
-        return {ipAddr: ipAddr, port: statusPort};
-    });
-
-    let responses = statusEndpoints.map((enpd) => {
-        let url = `http://${enpd.ipAddr}:${enpd.port}/status`;
+    let responses = contractStatus.nodes.map((node) => {
+        let url = `http://${node.ip_addr}:${node.start_port + 400}/status`;
         return axios.get(url).then((res) => {
+            res.data.status = "ok";
             return <NodeStatus>res.data;
+        }).catch(() => {
+            return {nodeInfo: node, status: "unavailable"}
         });
     });
 
@@ -80,13 +73,15 @@ export async function getStatus(contractAddress: string): Promise<Status> {
 
 }
 
+/**
+ * Show rendered status of Fluence network.
+ */
 export function showStatus(contractAddress: string = "0x9995882876ae612bfd829498ccd73dd962ec950a") {
     let status = getStatus(contractAddress);
     status.then((st) => {
         const formatter = new JSONFormatter(st);
         document.body.appendChild(formatter.render());
     });
-
 }
 
 const _global = (window /* browser */ || global /* node */) as any;

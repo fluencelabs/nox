@@ -17,6 +17,11 @@
 
 import {Network} from "../types/web3-contracts/Network";
 
+/**
+ * A code is a WASM file. It can be deployed on a real-time cluster and run.
+ * In Fluence contract it represents as a Swarm address to the WASM file
+ * and a requirement of how many nodes will be in the cluster.
+ */
 export interface Code {
     code_address: string,
     storage_receipt: string,
@@ -38,6 +43,9 @@ export async function getEnqueuedCodes(contract: Network): Promise<Code[]> {
     return parseCodes(codeAddresses, storageReceipts, clusterSizes, developers);
 }
 
+/**
+ * Collects codes from response format of Fluence contract.
+ */
 export function parseCodes(codeAddresses: string[],
                     storageReceipts: string[],
                     clusterSizes: string[],

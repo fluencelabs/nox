@@ -15,6 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import {Node} from './node';
+
+/**
+ * Status of a Fluence node with all its solvers.
+ */
 export interface NodeStatus {
     ip: string,
     listOfPorts: string,
@@ -23,6 +28,16 @@ export interface NodeStatus {
     solvers: SolverStatus[]
 }
 
+/**
+ * If node is not available.
+ */
+export interface UnavailableNode {
+    nodeInfo: Node
+}
+
+/**
+ * Status of a solver. It can exists but not available or turned off.
+ */
 export interface SolverStatus {
     SolverRunning?: SolverRunning,
     SolverContainerNotRunning?: SolverContainerNotRunning
