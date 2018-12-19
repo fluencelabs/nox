@@ -20,7 +20,7 @@ import axios from 'axios';
 import {Network} from "../types/web3-contracts/Network";
 import {NodeStatus, UnavailableNode} from "./nodeStatus";
 import JSONFormatter from 'json-formatter-js';
-import abi = require("../Network.json");
+import abi = require("./Network.json");
 import Web3 = require('web3');
 
 (window as any).web3 = (window as any).web3 || {};
@@ -29,7 +29,7 @@ let web3 = (window as any).web3;
 /**
  * Contract status and status of all nodes in the Fluence network.
  */
-interface Status {
+export interface Status {
     contract_status: ContractStatus,
     node_statuses: (NodeStatus|UnavailableNode)[]
 }
