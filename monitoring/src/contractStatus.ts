@@ -20,7 +20,7 @@ import {getReadyNodes, Node} from "./node";
 import {Code, getEnqueuedCodes} from "./code";
 import {Cluster, getClusters} from "./cluster";
 
-export interface Status {
+export interface ContractStatus {
     clusters: Cluster[],
     enqueued_codes: Code[],
     ready_nodes: Node[]
@@ -30,7 +30,7 @@ export interface Status {
  * Get the full status of Fluence contract from ethereum blockchain.
  * @param contract Fluence contract API
  */
-export async function getStatus(contract: Network): Promise<Status> {
+export async function getContractStatus(contract: Network): Promise<ContractStatus> {
     let codes = await getEnqueuedCodes(contract);
     let readyNodes = await getReadyNodes(contract);
     let clusters = await getClusters(contract);

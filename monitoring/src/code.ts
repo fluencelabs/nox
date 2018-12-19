@@ -17,8 +17,6 @@
 
 import {Network} from "../types/web3-contracts/Network";
 
-type UnparsedCodes = { "0": string[]; "1": string[]; "2": string[]; "3": string[] };
-
 export interface Code {
     code_address: string,
     storage_receipt: string,

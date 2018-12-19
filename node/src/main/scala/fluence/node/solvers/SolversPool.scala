@@ -49,15 +49,17 @@ class SolversPool[F[_]: ContextShift: Timer](
   /**
    * Returns true if the solver is in the pool and healthy, and false otherwise. Also returns solver instance.
    */
-  private def checkSolverHealthy(params: SolverParams): F[(Boolean, Option[Solver[F]])] = {
+  private def checkSolverHealthy(params: SolverParams, isNewF: Ref[F, Boolean]): F[(Boolean, Option[Solver[F]])] = {
     for {
       map <- solvers.get
       oldSolver = map.get(params)
+      isNew <- isNewF.get
       healthy <- oldSolver match {
         case None => F.delay(false)
         case Some(solver) => solver.healthReport.map(_.isHealthy)
       }
-    } yield (healthy, oldSolver)
+      _ <- isNewF.set(false)
+    } yield (healthy, if (isNew) oldSolver else None)
   }
 
   /**
@@ -67,7 +69,7 @@ class SolversPool[F[_]: ContextShift: Timer](
    * @return F that resolves with true when solver is registered; it might be not running yet. If it was registered before, F resolves with false
    */
   def run(params: SolverParams): F[Boolean] =
-    checkSolverHealthy(params).flatMap {
+    Ref.of[F, Boolean](true).flatMap(isNew => checkSolverHealthy(params, isNew)).flatMap {
       case (false, oldSolver) ⇒
         for {
           // stop an old solver

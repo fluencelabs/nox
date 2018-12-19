@@ -15,14 +15,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {getStatus} from "./status";
+import {ContractStatus, getContractStatus} from "./contractStatus";
 import axios from 'axios';
 import {Network} from "../types/web3-contracts/Network";
 import {abi} from "./abi";
+import {NodeStatus} from "./nodeStatus";
+import JSONFormatter from 'json-formatter-js';
+import Web3 = require('web3');
 
 (window as any).web3 = (window as any).web3 || {};
+let web3 = (window as any).web3;
 
-import Web3 = require('web3');
+interface Status {
+    contract_status: ContractStatus,
+    node_statuses: NodeStatus[]
+}
 
 interface StatusAddress {
     ipAddr: string,
@@ -31,37 +38,56 @@ interface StatusAddress {
 
 /**
  * Shows status of Fluence contract on the page.
+ * @param contractAddress address from ganache by default. todo: use address from mainnet as default
  */
-export async function show_status(contract_address: string = "0x9995882876ae612bfd829498ccd73dd962ec950a"): Promise<void> {
+export async function getStatus(contractAddress: string): Promise<Status> {
 
-    // TODO add metamask support
-    let web3js = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
+    let web3js;
+    if (typeof web3 !== 'undefined') {
+        // Use Mist/MetaMask's provider
+        console.log('MetaMask will be used!');
+        web3js = new Web3(web3.currentProvider);
+    } else {
+        console.log('No web3? Trying to connect to the local node!');
+        web3js = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
+    }
 
     let accounts = await web3js.eth.getAccounts();
 
-    let contract: Network = new web3js.eth.Contract(abi, contract_address) as Network;
+    let contract: Network = new web3js.eth.Contract(abi, contractAddress) as Network;
 
-    let status = await getStatus(contract);
-    document.body.innerHTML += `<div><pre>${JSON.stringify(status, undefined, 2)}</pre></div>`;
+    let contractStatus = await getContractStatus(contract);
 
-    let statusEndpoints: StatusAddress[] = status.ready_nodes.map((node) => {
+    let statusEndpoints: StatusAddress[] = contractStatus.ready_nodes.map((node) => {
         let statusPort = node.start_port + 400;
         let ipAddr = node.ip_addr;
-        let statusAddress = {ipAddr: ipAddr, port: statusPort};
-        console.log(statusAddress);
-        return statusAddress;
+        return {ipAddr: ipAddr, port: statusPort};
     });
 
     let responses = statusEndpoints.map((enpd) => {
         let url = `http://${enpd.ipAddr}:${enpd.port}/status`;
-        console.log(url);
-        axios.get(url).then((res) => {
-            console.log(res);
+        return axios.get(url).then((res) => {
+            return <NodeStatus>res.data;
         });
     });
 
-    // TODO add statuses from nodes
+    let nodeStatuses = await Promise.all(responses);
+
+    return {
+        contract_status: contractStatus,
+        node_statuses: nodeStatuses
+    };
+
+}
+
+export function showStatus(contractAddress: string = "0x9995882876ae612bfd829498ccd73dd962ec950a") {
+    let status = getStatus(contractAddress);
+    status.then((st) => {
+        const formatter = new JSONFormatter(st);
+        document.body.appendChild(formatter.render());
+    });
+
 }
 
 const _global = (window /* browser */ || global /* node */) as any;
-_global.show_status = show_status;
+_global.showStatus = showStatus;

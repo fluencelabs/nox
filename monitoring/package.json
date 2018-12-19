@@ -53,6 +53,7 @@
     "typechain": "^0.3.9",
     "array-buffer-to-hex": "^1.0.0",
     "hex-to-array-buffer": "^1.1.0",
-    "axios": "^0.18.0"
+    "axios": "^0.18.0",
+    "json-formatter-js": "2.2.0"
   }
 }
