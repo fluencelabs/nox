@@ -43,7 +43,6 @@ export async function getStatus(contractAddress: string): Promise<Status> {
     let web3js;
     if (typeof web3 !== 'undefined') {
         // Use Mist/MetaMask's provider
-        console.log('MetaMask will be used!');
         web3js = new Web3(web3.currentProvider);
     } else {
         console.log('No web3? Trying to connect to the local node!');
@@ -55,6 +54,7 @@ export async function getStatus(contractAddress: string): Promise<Status> {
     let contractStatus = await getContractStatus(contract);
 
     let responses = contractStatus.nodes.map((node) => {
+        // todo: `+400` is a temporary solution, fix it after implementing correct port management
         let url = `http://${node.ip_addr}:${node.start_port + 400}/status`;
         return axios.get(url).then((res) => {
             res.data.status = "ok";

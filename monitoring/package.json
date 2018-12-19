@@ -46,8 +46,7 @@
     "webpack-dev-server": "^3.1.9",
     "@types/node": "^10.12.15",
     "@types/web3": "^1.0.14",
-    "web3-typescript-typings": "^0.10.2",
-    "file-loader": "^2.0.0"
+    "web3-typescript-typings": "^0.10.2"
   },
   "dependencies": {
     "web3": "^1.0.0-beta.37",
