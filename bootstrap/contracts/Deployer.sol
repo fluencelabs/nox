@@ -171,15 +171,13 @@ contract Deployer is Whitelist {
     {
         uint idx = 0;
         Code memory code;
-        uint readyNodesCount = readyNodes.length;
 
         // TODO: better control enqueuedCodes.length so we don't exceed gasLimit
 
         // looking for a code that can be deployed given current number of readyNodes
         for (; idx < enqueuedCodes.length; idx++) {
             code = enqueuedCodes[idx];
-            // ignoring personal codes
-            if (readyNodesCount >= code.clusterSize) {
+            if (readyNodes.length >= code.clusterSize) {
                 // suitable code found, stop on current idx
                 break;
             }
@@ -221,7 +219,7 @@ contract Deployer is Whitelist {
             // check if node will be able to host a code next time; if no, remove it
             if (nodes[nodeID].currentPort > node.endPort) {
                 // removeReadyNode puts last node in the array to i-th position
-                // so after removal readyNodes[i] contains 'new' node and no need to increment i
+                // so after removal, readyNodes[i] contains 'new' node, so no need to increment i
                 removeReadyNode(i);
             } else {
                 // go to next position in readyNodes array
