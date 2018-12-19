@@ -202,15 +202,15 @@ contract Deployer is Whitelist {
         uint i = 0;
 
         // c holds the number of currently collected nodes and a position in event data arrays
-        for (uint8 c = 0; c < code.clusterSize; c++) {
+        for (uint8 j = 0; j < code.clusterSize; j++) {
             bytes32 nodeID = readyNodes[i];
             Node memory node = nodes[nodeID];
 
             // copy node's data to arrays so it can be sent in event
-            nodeIDs[c] = nodeID;
-            solverAddrs[c] = node.nodeAddress;
-            solverPorts[c] = node.currentPort;
-            solverOwners[c] = node.owner;
+            nodeIDs[j] = nodeID;
+            solverAddrs[j] = node.nodeAddress;
+            solverPorts[j] = node.currentPort;
+            solverOwners[j] = node.owner;
 
             // increment port, it will be used for the next code
             // using nodes[nodeID] instead of local variable is intended

@@ -165,16 +165,13 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         let [storageReceipt1, storageReceipt2, storageReceipt3, storageReceipt4] =
             ["xyz","xyzd","xyzde","xyzdef"].map(s => string2Bytes32(s));
 
-        console.log("adding 4 codes")
         await this.contract.addCode(storageHash1, storageReceipt1, count1, {from: whitelisted});
         await this.contract.addCode(storageHash2, storageReceipt2, count2, {from: whitelisted});
         await this.contract.addCode(storageHash3, storageReceipt3, count3, {from: whitelisted});
         await this.contract.addCode(storageHash4, storageReceipt4, count4, {from: whitelisted});
 
-        console.log("addNodes")
         await addNodes(this.contract, 3, "127.0.0.1", whitelisted, portCount = 2);
 
-        console.log("getEnqueuedCodes")
         let enqueuedCodes = await this.contract.getEnqueuedCodes();
 
         assert.equal(enqueuedCodes.length, 4); // storageHashes, storageReceipts, clusterSizes, developerAddresses
