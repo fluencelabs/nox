@@ -200,9 +200,10 @@ contract Deployer is Whitelist {
         uint16[] memory solverPorts = new uint16[](code.clusterSize);
         address[] memory solverOwners = new address[](code.clusterSize);
 
-        // i holds a position readyNodes array
+        // i holds a position in readyNodes array
         uint i = 0;
 
+        // c holds the number of currently collected nodes and a position in event data arrays
         for (uint8 c = 0; c < code.clusterSize; c++) {
             bytes32 nodeID = readyNodes[i];
             Node memory node = nodes[nodeID];
