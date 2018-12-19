@@ -18,7 +18,8 @@ package fluence.node
 import java.nio.file._
 
 import cats.effect.{ConcurrentEffect, ExitCode, IO}
-import fluence.node.eth.DeployerContract
+import fluence.node.config.NodeConfig
+import fluence.node.eth.FluenceContract
 import fluence.node.solvers.{CodeManager, SolverImage, SolverParams, SolversPool}
 import fluence.node.tendermint.{ClusterData, Genesis, NodeInfo}
 
@@ -28,14 +29,14 @@ import scala.io.Source
  * Represents a MasterNode process. Takes cluster forming events from Ethereum, and spawns new solvers to serve them.
  *
  * @param nodeConfig Tendermint/Fluence master node config
- * @param contract DeployerContract to interact with
+ * @param contract Contract to interact with
  * @param pool Solvers pool to launch solvers in
  * @param rootPath MasterNode's working directory, usually /master
  * @param ce Concurrent effect, used to subscribe to Ethereum events
  */
 case class MasterNode(
   nodeConfig: NodeConfig,
-  contract: DeployerContract,
+  contract: FluenceContract,
   pool: SolversPool[IO],
   codeManager: CodeManager[IO],
   rootPath: Path,

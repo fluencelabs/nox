@@ -47,6 +47,17 @@ pragma solidity ^0.4.24;
 // example tests are at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/test/ownership/Whitelist.test.js
 import "openzeppelin-solidity/contracts/access/Whitelist.sol";
 
+/*
+ * This contract allows to:
+ *  - register a node in Fluence network by submitting IP address and port range
+ *  - deploy a code to Fluence network by submitting Swarm hash of the code and desired cluster size
+ *
+ * This contract also stores information about registered nodes, codes and their respective states.
+ * Work horse of this contract is the `matchWork()` function that's called on new node and/or code registration.
+ * When a code is matched with available nodes of desired quantity, `ClusterFormed` event is emitted and
+ * is expected to trigger real-time cluster creation when received by matched Fluence nodes
+ *
+ */
 contract Deployer is Whitelist {
     // Represents a Fluence Node which already is running or ready to run Solvers within the port range
     // Node's Solvers share the same Tendermint ID (consensus key) and nodeAddress
@@ -56,26 +67,24 @@ contract Deployer is Whitelist {
         uint16 startPort;
         uint16 endPort;
         uint16 currentPort;
-        uint solverClustersOffset;
-    }
-
-    // A single launched Solver described by its Node's Tendermint ID and assigned TCP port
-    struct Solver {
-        bytes32 id;
-        uint16 port;
+        address owner;
     }
 
     struct Code {
         bytes32 storageHash;
         bytes32 storageReceipt;
         uint8 clusterSize;
+        address developer;
     }
 
     struct BusyCluster {
         bytes32 clusterID;
         Code code;
         uint genesisTime;
-        uint busySolversOffset;
+        bytes32[] nodeIDs;
+        bytes24[] nodeAddresses;
+        uint16[] ports;
+        address[] owners;
     }
 
     // Emitted when there is enough ready Nodes for some Code
@@ -90,27 +99,22 @@ contract Deployer is Whitelist {
     event NewNode(bytes32 id);
 
     // Nodes ready to join new clusters
-    bytes32[] private readyNodes;
+    bytes32[] internal readyNodes;
 
     // All nodes
-    mapping(bytes32 => Node) private nodes;
-
-    // Array with actual cluster participants
-    Solver[] private busySolvers;
+    mapping(bytes32 => Node) internal nodes;
+    bytes32[] internal nodesIndices;
 
     // Cluster with assigned Code
-    mapping(bytes32 => BusyCluster) private busyClusters;
-
-    // Array with formed solvers' clusters
-    bytes32[] private solverClusters;
+    mapping(bytes32 => BusyCluster) internal busyClusters;
 
     // Number of existing clusters, used for clusterID generation
-    // starting with 1, so we could check existince of cluster in the mapping, e.g:
+    // starting with 1, so we could check existence of cluster in the mapping, e.g:
     // if (busyCluster[someId].clusterID > 0)
     uint256 clusterCount = 1;
 
     // Codes waiting for nodes
-    Code[] private enqueuedCodes;
+    Code[] internal enqueuedCodes;
 
     /** @dev Adds node with specified port range to the work-waiting queue
       * @param nodeID some kind of unique ID
@@ -127,9 +131,10 @@ contract Deployer is Whitelist {
         require(nodes[nodeID].id == 0, "This node is already registered");
         require(startPort < endPort, "Port range is empty or incorrect");
 
-        nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, startPort, solverClusters.length);
+        nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, startPort, msg.sender);
         readyNodes.push(nodeID);
-        solverClusters.length += endPort - startPort;
+        nodesIndices.push(nodeID);
+
         emit NewNode(nodeID);
 
         // match code to clusters until no matches left
@@ -146,68 +151,10 @@ contract Deployer is Whitelist {
         external
     {
         require(whitelist(msg.sender), "The sender is not in whitelist");
-        enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize));
+        enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize, msg.sender));
         if (!matchWork()) {
             emit CodeEnqueued(storageHash);
         }
-    }
-
-    /** @dev Allows anyone with clusterID to retrieve assigned Code
-     * @param clusterID unique id of cluster
-     */
-    function getCluster(bytes32 clusterID)
-        external
-        view
-        returns (bytes32, bytes32, uint, bytes32[], bytes24[], uint16[])
-    {
-        BusyCluster memory cluster = busyClusters[clusterID];
-        require(cluster.clusterID > 0, "there is no such cluster");
-
-        bytes32[] memory solverIDs = new bytes32[](cluster.code.clusterSize);
-        bytes24[] memory solverAddrs = new bytes24[](cluster.code.clusterSize);
-        uint16[] memory solverPorts = new uint16[](cluster.code.clusterSize);
-
-        for (uint i = 0; i < cluster.code.clusterSize; i++) {
-            Solver memory solverInstance = busySolvers[cluster.busySolversOffset + i];
-            solverIDs[i] = solverInstance.id;
-            solverAddrs[i] = nodes[solverInstance.id].nodeAddress;
-            solverPorts[i] = solverInstance.port;
-        }
-        return (cluster.code.storageHash, cluster.code.storageReceipt, cluster.genesisTime,
-            solverIDs, solverAddrs, solverPorts);
-    }
-
-    /** @dev Allows to track currently running clusters for specified node's solvers
-     * @param nodeID ID of node (Tendermint consensus key)
-     */
-    function getNodeClusters(bytes32 nodeID)
-        external
-        view
-        returns (bytes32[])
-    {
-        Node memory node = nodes[nodeID];
-        bytes32[] memory clusters = new bytes32[](node.currentPort - node.startPort);
-        for (uint i = 0; i < clusters.length; i++) {
-            clusters[i] = solverClusters[node.solverClustersOffset + i];
-        }
-        return clusters;
-    }
-
-    /** @dev Allows to track contract status
-     * return (contract version const, number of ready nodes, enqueued codes' lengths)
-     */
-    function getStatus()
-        external
-        view
-        returns (uint8, uint256, uint256[])
-    {
-        uint256[] memory cs = new uint256[](enqueuedCodes.length);
-        for (uint j = 0; j < enqueuedCodes.length; ++j) {
-            cs[j] = enqueuedCodes[j].clusterSize;
-        }
-        // fast way to check if contract was deployed incorrectly: in this case getStatus() returns (0, 0, [])
-        uint8 version = 101;
-        return (version, readyNodes.length, cs);
     }
 
     /** @dev Checks if there is enough free Solvers for undeployed Code
@@ -237,24 +184,21 @@ contract Deployer is Whitelist {
 
         bytes32 clusterID = bytes32(clusterCount++);
         uint time = now;
-        busyClusters[clusterID] = BusyCluster(clusterID, code, time, busySolvers.length);
 
         bytes32[] memory solverIDs = new bytes32[](code.clusterSize);
         bytes24[] memory solverAddrs = new bytes24[](code.clusterSize);
         uint16[] memory solverPorts = new uint16[](code.clusterSize);
+        address[] memory solverOwners = new address[](code.clusterSize);
 
         uint nodeIndex = 0;
         for (uint j = 0; j < code.clusterSize; j++) {
             bytes32 nodeID = readyNodes[nodeIndex];
             Node memory node = nodes[nodeID];
 
-            Solver memory solverInstance = Solver(nodeID, node.currentPort);
-            busySolvers.push(solverInstance);
-            solverClusters[node.solverClustersOffset + node.currentPort - node.startPort] = clusterID;
-
             solverIDs[j] = nodeID;
             solverAddrs[j] = node.nodeAddress;
-            solverPorts[j] = solverInstance.port;
+            solverPorts[j] = node.currentPort;
+            solverOwners[j] = node.owner;
 
             if (nextPort(nodeID)) {
                 ++nodeIndex;
@@ -262,6 +206,9 @@ contract Deployer is Whitelist {
                 removeNode(nodeIndex);
             }
         }
+
+        busyClusters[clusterID] = BusyCluster(clusterID, code, time, solverIDs, solverAddrs, solverPorts, solverOwners);
+
         emit ClusterFormed(clusterID, code.storageHash, time, solverIDs, solverAddrs, solverPorts);
         return true;
     }

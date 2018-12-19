@@ -16,7 +16,7 @@ limitations under the License.
 
 
 class TestDescriptor:
-    """Descriptor of test written in Rust that contains parameters controls test compilation process.
+    """Descriptor of test that contains parameters for adjusting test compilation process.
 
     Attributes
     ----------

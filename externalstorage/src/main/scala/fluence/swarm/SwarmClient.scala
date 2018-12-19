@@ -91,7 +91,11 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
       .response(asByteArray)
       .get(downloadURI)
       .send()
-      .toEitherT(er => SwarmError(s"Error on downloading from $downloadURI. $er"))
+      .toEitherT { er =>
+        val errorMessage = s"Error on downloading from $downloadURI. $er"
+        logger.error(errorMessage)
+        SwarmError(errorMessage)
+      }
       .map { r =>
         logger.info(s"The resource has been downloaded.")
         logger.debug(s"Resource size: ${r.length} bytes.")
@@ -312,9 +316,6 @@ object SwarmClient {
   def apply[F[_]](
     address: String
   )(implicit sttpBackend: SttpBackend[F, Nothing], F: cats.MonadError[F, Throwable]): F[SwarmClient[F]] = {
-
-    LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.INFO
 
     implicit val hasher: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
 

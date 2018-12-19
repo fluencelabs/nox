@@ -12,7 +12,8 @@
     "getEthAccount": "echo 'web3.eth.accounts[0]' | truffle console | grep -o \"0x.*\" | tr -d \\'",
     "generate-java-wrapper": "scripts/generate_java_wrapper.sh",
     "compile-sol": "node scripts/compile_sol.js",
-    "generate-all": "npm run compile-sol && npm run generate-java-wrapper"
+    "generate-all": "npm run compile-sol && npm run generate-java-wrapper",
+    "swarm-simulation": "node scripts/swarm-simulation.js &"
   },
   "author": "Fluence Labs",
   "license": "AGPL-3.0",

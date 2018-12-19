@@ -1,5 +1,5 @@
-var Deployer = artifacts.require("./Deployer.sol");
+var FluenceContract = artifacts.require("./Network.sol");
 
 module.exports = function(deployer) {
-    deployer.deploy(Deployer);
+    deployer.deploy(FluenceContract);
 };

@@ -18,7 +18,7 @@ package fluence.node
 
 import cats.effect.{ExitCode, IO, IOApp}
 import fluence.ethclient.EthClient
-import fluence.node.eth.{DeployerContract, DeployerContractConfig}
+import fluence.node.eth.{FluenceContract, FluenceContractConfig}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 import pureconfig.generic.auto._
@@ -33,7 +33,7 @@ object AddCodeApp extends IOApp with LazyLogging {
     (for {
       config <- IO.fromEither(
         pureconfig
-          .loadConfig[DeployerContractConfig]
+          .loadConfig[FluenceContractConfig]
           .left
           .map(fs ⇒ new IllegalArgumentException("Can't load or parse configs:" + fs.toString))
       )
@@ -48,7 +48,7 @@ object AddCodeApp extends IOApp with LazyLogging {
               _ = logger.info("eth client version {}", version)
               _ = logger.debug("eth config {}", config)
 
-              contract = DeployerContract(ethClient, config)
+              contract = FluenceContract(ethClient, config)
 
               blockNumber ← contract.addCode[IO]()
 
