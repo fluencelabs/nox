@@ -201,7 +201,7 @@ contract Deployer is Whitelist {
         // i holds a position in readyNodes array
         uint i = 0;
 
-        // c holds the number of currently collected nodes and a position in event data arrays
+        // j holds the number of currently collected nodes and a position in event data arrays
         for (uint8 j = 0; j < code.clusterSize; j++) {
             bytes32 nodeID = readyNodes[i];
             Node memory node = nodes[nodeID];
