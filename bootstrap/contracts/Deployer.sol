@@ -137,6 +137,7 @@ contract Deployer is Whitelist {
     // Codes waiting for nodes
     Code[] internal enqueuedCodes;
 
+    // stores number of ready nodes per developer address
     mapping(address => uint32) privateNodesCounter;
 
     /** @dev Adds node with specified port range to the work-waiting queue
