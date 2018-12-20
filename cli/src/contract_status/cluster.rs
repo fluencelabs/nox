@@ -76,14 +76,22 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
     let options = utils::options();
 
     // TODO: handle isPrivate
-    let (cluster_ids, genesis_times, code_addresses, storage_receipts, cluster_sizes, developers, _ /* isPrivate */): (
+    let (
+        cluster_ids,
+        genesis_times,
+        code_addresses,
+        storage_receipts,
+        cluster_sizes,
+        developers,
+        _, /* isPrivate */
+    ): (
         Vec<H256>,
         Vec<U256>,
         Vec<H256>,
         Vec<H256>,
         Vec<u64>,
         Vec<Address>,
-        Vec<bool>
+        Vec<bool>,
     ) = utils::query_contract(
         contract_address,
         eth_url,
