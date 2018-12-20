@@ -77,12 +77,6 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 _ = logger.debug("eth config {}", contractConfig)
 
                 contract = FluenceContract(ethClient, contractConfig)
-
-                // TODO: should check that node is registered, but should not send transactions
-                _ <- contract
-                  .addAddressToWhitelist[IO](contractConfig.ownerAccount)
-                  .attempt
-                  .map(r ⇒ logger.debug(s"Whitelisting address: $r"))
                 _ <- contract
                   .addNode[IO](nodeConfig)
                   .attempt
