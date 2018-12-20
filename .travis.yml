@@ -6,9 +6,6 @@ matrix:
 
       services:
         - docker
-      install:
-        - docker pull fluencelabs/solver:2018-dec-demo
-        - docker pull fluencelabs/node:2018-dec-demo
 
       # These directories are cached to S3 at the end of the build
       cache:
@@ -42,13 +39,12 @@ matrix:
       script: npm test
 
     - name: Rust SDK
-
       language: rust
       # todo enable 'stable' and 'beta' when `allocator_api` will become stable
       rust: nightly
       cache: cargo
       before_install:
-        - rustup component add rustfmt-preview --toolchain nightly
+        - rustup component add rustfmt --toolchain nightly
         - cd sdk/rust
 
       script:
@@ -58,7 +54,6 @@ matrix:
         - cargo test -v --all-features
 
     - name: LlamaDb VM example
-
       language: rust
       rust: nightly
       cache: cargo
@@ -74,7 +69,6 @@ matrix:
         - cargo test -v
 
     - name: Fluence CLI
-
       language: rust
       rust: stable
       cache: cargo
@@ -84,11 +78,13 @@ matrix:
         - cd cli
 
       script:
-        - npm install --prefix ../bootstrap
-        - node scripts/swarm-simulation.js &
-        - npm run ganache --prefix ../bootstrap/ &
-        - sleep 5
-        - npm run migrate --prefix ../bootstrap/
+        - pushd ../bootstrap
+        - npm install
+        - npm run swarm-simulation &
+        - npm run ganache > /dev/null
+        - sleep 1
+        - npm run migrate
+        - popd
         - cargo fmt --all -- --check -v
         - cargo test
 

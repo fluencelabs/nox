@@ -71,7 +71,7 @@ fn init_contract<T: Transport>(
     web3: &Web3<T>,
     contract_address: Address,
 ) -> Result<Contract<T>, Box<Error>> {
-    let json = include_bytes!("../../bootstrap/contracts/compiled/Deployer.abi");
+    let json = include_bytes!("../../bootstrap/contracts/compiled/Network.abi");
 
     Ok(Contract::from_json(web3.eth(), contract_address, json)?)
 }
@@ -168,4 +168,8 @@ pub fn options_with_gas(gas_limit: u32) -> Options {
     Options::with(|default| {
         default.gas = Some(gas_limit.into());
     })
+}
+
+pub fn options() -> Options {
+    Options::default()
 }

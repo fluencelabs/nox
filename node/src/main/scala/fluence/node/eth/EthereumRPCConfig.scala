@@ -16,6 +16,6 @@
 
 package fluence.node.eth
 
-case class EthereumRPCConfig(protocol: String, host: String, port: Int) {
-  val uri = s"$protocol://$host:$port"
+case class EthereumRPCConfig(protocol: String, ip: String, port: Int) {
+  val uri = s"$protocol://$ip:$port"
 }

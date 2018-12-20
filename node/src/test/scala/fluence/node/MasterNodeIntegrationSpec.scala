@@ -26,7 +26,7 @@ import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.docker.{DockerIO, DockerParams}
-import fluence.node.eth.{DeployerContract, DeployerContractConfig}
+import fluence.node.eth.{FluenceContract, FluenceContractConfig}
 import org.scalactic.source.Position
 import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
 import org.scalatest.time.Span
@@ -43,7 +43,7 @@ import scala.util.Try
 
 /**
  * This test contains a single test method that checks:
- * - MasterNode connectivity with ganache-hosted Deployer smart contract
+ * - MasterNode connectivity with ganache-hosted Fluence smart contract
  * - MasterNode ability to load previous node clusters and subscribe to new clusters
  * - Successful cluster formation and starting blocks creation
  */
@@ -52,8 +52,6 @@ class MasterNodeIntegrationSpec
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
-
-  private val url = sys.props.get("ethereum.url")
 
   val bootstrapDir = new File("../bootstrap")
   def run(cmd: String): Unit = Process(cmd, bootstrapDir).!(ProcessLogger(_ => ()))
@@ -78,7 +76,7 @@ class MasterNodeIntegrationSpec
     logger.info("starting Ganache")
     runBackground("npm run ganache")
 
-    logger.info("deploying Deployer.sol Ganache")
+    logger.info("deploying contract to Ganache")
     run("npm run migrate")
   }
 
@@ -104,7 +102,7 @@ class MasterNodeIntegrationSpec
     val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
       Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
-    val contractConfig = DeployerContractConfig(owner, contractAddress)
+    val contractConfig = FluenceContractConfig(owner, contractAddress)
 
     def runMaster(portFrom: Int, portTo: Int, name: String): IO[String] = {
       DockerIO
@@ -116,7 +114,7 @@ class MasterNodeIntegrationSpec
             .option("-e", s"PORTS=$portFrom:$portTo")
             .option("--name", name)
             .volume("/var/run/docker.sock", "/var/run/docker.sock")
-            .image("fluencelabs/node:2018-dec-demo")
+            .image("fluencelabs/node:latest")
         )
         .compile
         .lastOrError
@@ -144,7 +142,7 @@ class MasterNodeIntegrationSpec
             _ <- eventually[IO](checkMasterRunning(master1))
             _ <- eventually[IO](checkMasterRunning(master2))
 
-            contract = DeployerContract(ethClient, contractConfig)
+            contract = FluenceContract(ethClient, contractConfig)
             _ <- contract.addCode[IO](clusterSize = 2)
 
             _ <- eventually[IO](

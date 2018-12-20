@@ -1,4 +1,5 @@
 import SbtCommons._
+import sbt.complete.DefaultParsers._
 import sbt.Keys._
 import sbt._
 
@@ -31,6 +32,19 @@ lazy val vm = (project in file("vm"))
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
+
+lazy val compile_example_to_wasm = inputKey[Unit]("Compiles ")
+
+compile_example_to_wasm := {
+  val args: Seq[String] = spaceDelimited("<arg>").parsed
+
+}
+
+lazy val compile_example = (project in file("vm/examples"))
+  .settings(
+    commons,
+
+  )
 
 lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .settings(
@@ -223,6 +237,8 @@ lazy val node = project
       pureConfig,
       circeGeneric,
       circeParser,
+      http4sDsl,
+      http4sServer,
       scalaTest
     ),
     assemblyMergeStrategy in assembly := {
@@ -233,6 +249,11 @@ lazy val node = project
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
+    },
+    test in Test := {
+      docker.value
+      (docker in statemachine).value
+      (test in Test).value
     },
     mainClass in assembly := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly := "master-node.jar",

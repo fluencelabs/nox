@@ -24,6 +24,16 @@ extern crate web3;
 extern crate fixed_hash;
 #[macro_use]
 extern crate error_chain;
+#[macro_use]
+extern crate derive_getters;
+
+extern crate ethereum_types_serialize;
+
+extern crate serde;
+extern crate serde_json;
+
+#[macro_use]
+extern crate serde_derive;
 
 extern crate core;
 extern crate parity_wasm;
@@ -31,9 +41,10 @@ extern crate parity_wasm;
 extern crate rand;
 
 mod check;
+mod contract_status;
 mod publisher;
 mod register;
-mod status;
+mod types;
 mod utils;
 mod whitelist;
 
@@ -51,7 +62,7 @@ fn main() {
         .about("Console utility for deploying code to fluence cluster")
         .subcommand(publisher::subcommand())
         .subcommand(register::subcommand())
-        .subcommand(status::subcommand())
+        .subcommand(contract_status::subcommand())
         .subcommand(whitelist::subcommand())
         .subcommand(check::subcommand());
 
@@ -91,9 +102,11 @@ fn main() {
         }
 
         ("status", Some(args)) => {
-            let status = status::get_status_by_args(args).unwrap();
+            let status = contract_status::get_status_by_args(args).unwrap();
 
-            println!("Status of Fluence smart contract:\n{}", status);
+            let json = serde_json::to_string_pretty(&status).unwrap();
+
+            println!("{}", json);
         }
 
         ("check", Some(args)) => {

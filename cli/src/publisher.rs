@@ -172,7 +172,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(true)
                 .takes_value(true)
                 .index(2)
-                .help("deployer contract address"),
+                .help("fluence contract address"),
             Arg::with_name(ACCOUNT)
                 .alias(ACCOUNT)
                 .required(true)
@@ -310,7 +310,7 @@ mod tests {
     #[test]
     fn publish_wrong_swarm_url() -> Result<(), Box<Error>> {
         let publisher = generate_with(|p| {
-            p.swarm_url = String::from("http://127.0.6.7:8545");
+            p.swarm_url = String::from("http://123.5.6.7:8385");
         });
 
         let result = publisher.publish(false);
@@ -323,7 +323,7 @@ mod tests {
     #[test]
     fn publish_wrong_eth_url() -> Result<(), Box<Error>> {
         let publisher = generate_with(|p| {
-            p.eth_url = String::from("http://127.0.6.7:8545");
+            p.eth_url = String::from("http://117.2.6.7:4476");
         });
 
         let result = publisher.publish(false);

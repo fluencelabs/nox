@@ -21,7 +21,7 @@ import java.io.File
 import cats.Parallel
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.ethclient.Deployer.ClusterFormedEventResponse
+import fluence.ethclient.Network.ClusterFormedEventResponse
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
@@ -54,7 +54,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
     logger.info("starting Ganache")
     runBackground("npm run ganache")
 
-    logger.info("deploying Deployer.sol Ganache")
+    logger.info("deploying contracts to Ganache")
     run("npm run migrate")
   }
 
@@ -82,7 +82,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
           par parallel ethClient
             .subscribeToLogsTopic[IO](
               contractAddress,
-              EventEncoder.encode(Deployer.CLUSTERFORMED_EVENT)
+              EventEncoder.encode(Network.CLUSTERFORMED_EVENT)
             )
             .interruptWhen(unsubscribe)
             .head
@@ -92,7 +92,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
         )(
           // Delayed unsubscribe
           par.parallel {
-            val contract = ethClient.getContract(contractAddress, owner, Deployer.load)
+            val contract = ethClient.getContract(contractAddress, owner, Network.load)
             for {
 
               txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
@@ -100,7 +100,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
 
               _ <- contract.addCode(bytes, bytes, new Uint8(2)).call[IO]
 
-              txReceipt <- contract
+              _ <- contract
                 .addNode(
                   base64ToBytes32("RK34j5RkudeS0GuTaeJSoZzg/U5z/Pd73zvTLfZKU2w="),
                   solverAddressToBytes24("192.168.0.1", "99d76509fe9cb6e8cd5fc6497819eeabb2498106"),

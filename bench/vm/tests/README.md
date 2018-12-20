@@ -37,7 +37,7 @@ This test compresses a sequence of `SEQUENCE_SIZE` bytes and has `ITERATIONS_COU
 To run:
 
 ```shell
-cd recursive_hash
+cd compression
 ITERATIONS_COUNT=1 SEED=1000000 SEQUENCE_SIZE=1024 cargo build --release --target wasm32-unknown-unknown [--feature "deflate_compression"]
 ```
 
