@@ -175,7 +175,8 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
 
         let enqueuedCodes = await this.contract.getEnqueuedCodes();
 
-        assert.equal(enqueuedCodes.length, 4); // storageHashes, storageReceipts, clusterSizes, developerAddresses
+        // storageHashes, storageReceipts, clusterSizes, developerAddresses, pinned, pinnedNodes
+        assert.equal(enqueuedCodes.length, 6);
 
         let storageHashes = enqueuedCodes[0];
         let storageReceipts = enqueuedCodes[1];
