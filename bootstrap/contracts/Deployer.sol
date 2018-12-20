@@ -210,7 +210,7 @@ contract Deployer is Whitelist {
         }
 
         Code memory code;
-        if (idx > 0) {
+        if (idx >= 0) {
             code = enqueuedCodes[uint(idx)];
             removeCode(uint(idx));
         } else {
