@@ -87,13 +87,13 @@ contract Network is Deployer {
     view
     returns (bytes32[], uint[], bytes32[], bytes32[], uint8[], address[], bool[])
     {
-        bytes32[] memory clusterIDs = new bytes32[](clusterCount);
-        uint[] memory genesisTimes = new uint[](clusterCount);
-        bytes32[] memory storageHashes = new bytes32[](clusterCount);
-        bytes32[] memory storageReceipts = new bytes32[](clusterCount);
-        uint8[] memory clusterSizes = new uint8[](clusterCount);
-        address[] memory developers = new address[](clusterCount);
-        bool[] memory isPrivate = new bool[](clusterCount);
+        bytes32[] memory clusterIDs = new bytes32[](clusterCount - 1);
+        uint[] memory genesisTimes = new uint[](clusterCount - 1);
+        bytes32[] memory storageHashes = new bytes32[](clusterCount - 1);
+        bytes32[] memory storageReceipts = new bytes32[](clusterCount - 1);
+        uint8[] memory clusterSizes = new uint8[](clusterCount - 1);
+        address[] memory developers = new address[](clusterCount - 1);
+        bool[] memory isPrivate = new bool[](clusterCount - 1);
 
         for (uint k = 1; k < clusterCount; k++) {
             BusyCluster memory cluster = busyClusters[bytes32(k)];
