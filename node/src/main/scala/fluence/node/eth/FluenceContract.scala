@@ -196,14 +196,15 @@ object FluenceContract {
   /**
    * Corresponds to return type for the getCluster method.
    */
-  type ContractClusterTuple = generated.Tuple7[
+  type ContractClusterTuple = generated.Tuple8[
     Bytes32,
     Bytes32,
     Uint256,
     DynamicArray[Bytes32],
     DynamicArray[Bytes24],
     DynamicArray[Uint16],
-    DynamicArray[Address]
+    DynamicArray[Address],
+    Bool
   ]
 
   /**
