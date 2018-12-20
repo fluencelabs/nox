@@ -18,6 +18,7 @@ package fluence.ethclient.helpers
 import java.util.Base64
 
 import org.web3j.abi.datatypes.generated._
+import org.web3j.abi.datatypes.{DynamicArray, Type}
 import scodec.bits.{Bases, ByteVector}
 
 object Web3jConverters {
@@ -94,4 +95,11 @@ object Web3jConverters {
     new Bytes24(buffer)
   }
 
+  def listToDynamicArray[T <: Type[_]](list: List[T]): DynamicArray[T] = {
+    if (list.isEmpty) {
+      DynamicArray.empty("bytes32[]").asInstanceOf[DynamicArray[T]]
+    } else {
+      new DynamicArray[T](list: _*)
+    }
+  }
 }

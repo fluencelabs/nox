@@ -94,5 +94,6 @@ case class NodeConfig(
   endpoints: EndpointsConfig,
   validatorKey: ValidatorKey,
   nodeAddress: String,
-  solverImage: SolverImage
+  solverImage: SolverImage,
+  pinned: Boolean = false // TODO: implement pinning
 )

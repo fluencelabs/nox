@@ -23,11 +23,12 @@ import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{ContextShift, IO, Timer}
 import fluence.ethclient.Network.ClusterFormedEventResponse
 import fluence.ethclient.helpers.RemoteCallOps._
-import fluence.ethclient.helpers.Web3jConverters._
+import fluence.ethclient.helpers.Web3jConverters.{listToDynamicArray, stringToBytes32, _}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.Address
 import org.web3j.abi.datatypes.generated.{Uint16, Uint8}
+import org.web3j.abi.datatypes.{Address, Bool}
 import org.web3j.protocol.core.methods.response.Log
 import slogging.LazyLogging
 
@@ -97,15 +98,15 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
 
               txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
               _ = assert(txReceipt.isStatusOK)
-
-              _ <- contract.addCode(bytes, bytes, new Uint8(2)).call[IO]
+              _ <- contract.addCode(bytes, bytes, new Uint8(2), listToDynamicArray(List.empty)).call[IO]
 
               _ <- contract
                 .addNode(
                   base64ToBytes32("RK34j5RkudeS0GuTaeJSoZzg/U5z/Pd73zvTLfZKU2w="),
                   solverAddressToBytes24("192.168.0.1", "99d76509fe9cb6e8cd5fc6497819eeabb2498106"),
                   new Uint16(26056),
-                  new Uint16(26057)
+                  new Uint16(26057),
+                  new Bool(false)
                 )
                 .call[IO]
               txReceipt <- contract
@@ -113,7 +114,8 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
                   base64ToBytes32("LUMshgzPigL9jDYTCrMADlMyrJs1LIqfIlHCOlf7lOc="),
                   solverAddressToBytes24("192.168.0.1", "1ef149b8ca80086350397bb6a02f2a172d013309"),
                   new Uint16(26156),
-                  new Uint16(26157)
+                  new Uint16(26157),
+                  new Bool(false)
                 )
                 .call[IO]
               _ = assert(txReceipt.isStatusOK)

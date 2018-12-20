@@ -22,13 +22,13 @@ import cats.syntax.functor._
 import fluence.ethclient.Network.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
 import fluence.ethclient.helpers.JavaRxToFs2._
 import fluence.ethclient.helpers.RemoteCallOps._
-import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
+import fluence.ethclient.helpers.Web3jConverters.{listToDynamicArray, stringToBytes32}
 import fluence.ethclient.{EthClient, Network}
 import fluence.node.config.NodeConfig
 import fluence.node.tendermint.ClusterData
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated.{Uint8, _}
-import org.web3j.abi.datatypes.{Address, DynamicArray}
+import org.web3j.abi.datatypes.{Address, Bool, DynamicArray}
 import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 import org.web3j.tuples.generated
@@ -143,7 +143,8 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
         nodeConfig.validatorKeyBytes32,
         nodeConfig.addressBytes24,
         nodeConfig.startPortUint16,
-        nodeConfig.endPortUint16
+        nodeConfig.endPortUint16,
+        nodeConfig.pinnedBool
       )
       .call[F]
       .map(_.getBlockNumber)
@@ -173,9 +174,18 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * @tparam F Effect
    * @return The block number where transaction has been mined
    */
-  def addCode[F[_]: Async](code: String = "llamadb", clusterSize: Short = 1): F[BigInt] =
+  def addCode[F[_]: Async](
+    code: String = "llamadb",
+    clusterSize: Short = 1,
+    pinnedNodes: List[Bytes32] = List.empty // TODO: implement pinning
+  ): F[BigInt] =
     contract
-      .addCode(stringToBytes32(code), stringToBytes32("receipt_stub"), new Uint8(clusterSize))
+      .addCode(
+        stringToBytes32(code),
+        stringToBytes32("receipt_stub"),
+        new Uint8(clusterSize),
+        listToDynamicArray(pinnedNodes)
+      )
       .call[F]
       .map(_.getBlockNumber)
       .map(BigInt(_))
@@ -258,5 +268,10 @@ object FluenceContract {
      * Returns ending port as uint16.
      */
     def endPortUint16: Uint16 = new Uint16(endpoints.maxPort)
+
+    /**
+     * Returns pinned as Bool
+     */
+    def pinnedBool: Bool = new Bool(pinned)
   }
 }
