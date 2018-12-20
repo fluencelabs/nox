@@ -87,23 +87,23 @@ contract Network is Deployer {
     view
     returns (bytes32[], uint[], bytes32[], bytes32[], uint8[], address[], bool[])
     {
-        bytes32[] memory clusterIDs = new bytes32[](clusterCount - 1);
-        uint[] memory genesisTimes = new uint[](clusterCount - 1);
-        bytes32[] memory storageHashes = new bytes32[](clusterCount - 1);
-        bytes32[] memory storageReceipts = new bytes32[](clusterCount - 1);
-        uint8[] memory clusterSizes = new uint8[](clusterCount - 1);
-        address[] memory developers = new address[](clusterCount - 1);
-        bool[] memory isPrivate = new bool[](clusterCount - 1);
+        bytes32[] memory clusterIDs = new bytes32[](clusterCount);
+        uint[] memory genesisTimes = new uint[](clusterCount);
+        bytes32[] memory storageHashes = new bytes32[](clusterCount);
+        bytes32[] memory storageReceipts = new bytes32[](clusterCount);
+        uint8[] memory clusterSizes = new uint8[](clusterCount);
+        address[] memory developers = new address[](clusterCount);
+        bool[] memory isPrivate = new bool[](clusterCount);
 
-        for (uint k = 1; k < clusterCount - 1; k++) {
+        for (uint k = 1; k < clusterCount; k++) {
             BusyCluster memory cluster = busyClusters[bytes32(k)];
-            clusterIDs[k] = cluster.clusterID;
-            genesisTimes[k] = cluster.genesisTime;
-            storageHashes[k] = cluster.code.storageHash;
-            storageReceipts[k] = cluster.code.storageReceipt;
-            clusterSizes[k] = cluster.code.clusterSize;
-            developers[k] = cluster.code.developer;
-            isPrivate[k] = cluster.code.pinnedNodes.length > 0;
+            clusterIDs[k - 1] = cluster.clusterID;
+            genesisTimes[k - 1] = cluster.genesisTime;
+            storageHashes[k - 1] = cluster.code.storageHash;
+            storageReceipts[k - 1] = cluster.code.storageReceipt;
+            clusterSizes[k - 1] = cluster.code.clusterSize;
+            developers[k - 1] = cluster.code.developer;
+            isPrivate[k - 1] = cluster.code.pinnedNodes.length > 0;
         }
 
         return (clusterIDs, genesisTimes, storageHashes, storageReceipts, clusterSizes, developers, isPrivate);
