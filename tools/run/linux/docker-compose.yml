@@ -1,0 +1,22 @@
+version: '3.4'
+
+services:
+  swarm:
+    container_name: swarm
+    image: ethdevops/swarm:latest
+    environment:
+      - PASSWORD=password123
+    ports:
+      - 8500:8500
+    command: --httpaddr 0.0.0.0 --bzzport 8500
+
+  node1:
+    container_name: node1
+    image: fluencelabs/node:2018-dec-demo
+    environment:
+      - TENDERMINT_IP=$DOCKER_IP
+      - ETHEREUM_IP=$HOST_IP
+      - SWARM_IP=$HOST_IP
+      - PORTS=25000:25003
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
