@@ -129,7 +129,6 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         await this.contract.addNode(nodeID, "127.0.0.1", 1000, 1001, false, {from: whitelisted});
 
         let receipt1 = await this.contract.addCode(storageHash, storageReceipt, count, [], {from: whitelisted});
-
         truffleAssert.eventNotEmitted(receipt1, codeEnqueuedEvent);
         truffleAssert.eventEmitted(receipt1, clusterFormedEvent, (ev) => {
             assert.equal(ev.solverAddrs.length, count);
