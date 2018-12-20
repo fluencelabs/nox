@@ -89,7 +89,7 @@ contract Deployer is Whitelist {
         address developer;
 
         // true if this code should be deployed only to nodes where node.owner == code.developer
-        bool isPrivate;
+        bytes32[] pinnedNodes;
     }
 
     struct BusyCluster {
@@ -179,14 +179,16 @@ contract Deployer is Whitelist {
       * @param clusterSize specifies number of Solvers that must serve Code
       * emits ClusterFormed event when there is enough nodes for the Code and emits CodeEnqueued otherwise, subject to change
       */
-    function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize, bool isPrivate)
+    function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize, bytes32[] pinnedNodes)
         external
     {
         require(whitelist(msg.sender), "The sender is not in whitelist");
+        require(pinnedNodes.length == 0 || clusterSize == pinnedNodes.length,
+            "number of pinned nodes should be the same as desired clusterSize");
 
-        enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize, msg.sender, isPrivate));
+        enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize, msg.sender, pinnedNodes));
 
-        if (!matchWork(isPrivate)) {
+        if (!matchWork(pinnedNodes.length > 0)) {
             emit CodeEnqueued(storageHash);
         }
     }
@@ -208,7 +210,7 @@ contract Deployer is Whitelist {
 
         Code memory code;
         if (idx > 0) {
-            code = enqueuedCodes[idx];
+            code = enqueuedCodes[uint(idx)];
             removeCode(uint(idx));
         } else {
             return false;
@@ -228,7 +230,8 @@ contract Deployer is Whitelist {
             bytes32 nodeID = readyNodes[i];
             Node memory node = nodes[nodeID];
 
-            if (nodeFitsCode(node, code)) {
+            // skip node if it doesn't fit the code
+            if (!nodeFitsCode(node, code)) {
                 i++;
                 continue;
             }
@@ -285,36 +288,83 @@ contract Deployer is Whitelist {
         readyNodesCount--;
     }
 
-    function nodeFitsCode(Node node, Code code) internal returns (bool) {
-        if (code.isPrivate) {
+    function nodeFitsCode(Node node, Code code)
+    internal
+    pure
+    returns (bool) {
+        bool pinned = code.pinnedNodes.length > 0;
+        if (pinned) {
             return node.isPrivate && node.owner == code.developer;
         }
 
         return !node.isPrivate;
     }
 
-    function findPinnedCode() internal returns (int) {
+    /** @dev returns index of the first matched code
+     * code should be from current msg.sender, i.e. code.developer == msg.sender
+     * and there should be enough private nodes to host it
+     */
+    function findPinnedCode()
+    internal
+    view
+    returns (int) {
+        address developer = msg.sender;
+
         uint idx = 0;
         Code memory code;
-        address developer = msg.sender;
 
         for (; idx < enqueuedCodes.length; idx++) {
             code = enqueuedCodes[idx];
+            bool pinned = code.pinnedNodes.length > 0;
+
+            // looking for pinned code from this developer
+            // and enough private nodes to host the code
             if (
-                code.isPrivate &&
+                pinned &&
                 code.developer == developer &&
-                code.clusterSize >= privateNodesCounter[developer]
+                code.clusterSize >= privateNodesCounter[developer] &&
+                enoughPinnedNodes(code)
             ) { break; }
         }
 
+        // check if we hit the condition above
+        // idx >= enqueuedCodes.length means that we skipped through enqueuedCodes array without hitting condition
         if (idx >= enqueuedCodes.length) {
             return -1;
         }
 
-        return idx;
+        return int(idx);
     }
 
-    function findCode() internal returns (int) {
+    /// @dev returns true if all pinned nodes are registered and have at least one open port
+    function enoughPinnedNodes(Code code)
+    internal
+    view
+    returns (bool)
+    {
+        require(code.pinnedNodes.length > 0, "code should have some pinned nodes");
+
+        bool found = true;
+
+        for (uint i = 0; i < code.pinnedNodes.length; i++) {
+            bytes32 nodeID = code.pinnedNodes[i];
+            Node memory node = nodes[nodeID];
+
+            // node exists and has open ports
+            bool free = node.nodeAddress > 0 && node.currentPort <= node.endPort;
+            found = found && free;
+        }
+
+        return found;
+    }
+
+    /** @dev returns index of the first matched code
+     * code shouldn't be pinned and there should be enough nodes to host it
+     */
+    function findCode()
+    internal
+    view
+    returns (int) {
         uint idx = 0;
         Code memory code;
 
@@ -322,7 +372,9 @@ contract Deployer is Whitelist {
         // looking for a code that can be deployed given current number of readyNodes
         for (; idx < enqueuedCodes.length; idx++) {
             code = enqueuedCodes[idx];
-            if (!code.isPrivate && readyNodesCount >= code.clusterSize) {
+            bool pinned = code.pinnedNodes.length > 0;
+            // ignoring pinned codes
+            if (!pinned && readyNodesCount >= code.clusterSize) {
                 // suitable code found, stop on current idx
                 break;
             }
@@ -334,10 +386,17 @@ contract Deployer is Whitelist {
             return -1;
         }
 
-        return idx;
+        return int(idx);
     }
 
-    function useNodePort(bytes32 nodeID, uint readyNodeIdx) {
+    /** @dev increments node's currentPort
+     * and removes it from readyNodes if there are no more ports left
+     * returns true if node was deleted from readyNodes
+     */
+    function useNodePort(bytes32 nodeID, uint readyNodeIdx)
+    internal
+    returns (bool)
+    {
         // increment port, it will be used for the next code
         nodes[nodeID].currentPort++;
 
@@ -355,7 +414,6 @@ contract Deployer is Whitelist {
 
             return true;
         } else {
-            // go to next position in readyNodes array
             return false;
         }
     }
