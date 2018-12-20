@@ -96,13 +96,15 @@ impl Publisher {
 
             let options = utils::options_with_gas(2_000_000);
 
+            let pinned_nodes: Vec<H256> = Vec::new(); //TODO: implement node pinning
+
             utils::call_contract(
                 self.account,
                 self.contract_address,
                 pass,
                 &self.eth_url,
                 "addCode",
-                (hash, receipt, u64::from(self.cluster_size)),
+                (hash, receipt, u64::from(self.cluster_size), pinned_nodes),
                 options,
             )
         };

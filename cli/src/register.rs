@@ -109,6 +109,8 @@ impl Register {
 
             let hash_addr = self.serialize_node_address()?;
 
+            let pinned = false; // TODO: implement node pinning
+
             utils::call_contract(
                 self.account,
                 self.contract_address,
@@ -120,6 +122,7 @@ impl Register {
                     hash_addr,
                     u64::from(self.min_port),
                     u64::from(self.max_port),
+                    pinned
                 ),
                 options,
             )
