@@ -48,11 +48,14 @@ pub fn get_enqueued_codes(
 ) -> Result<Vec<Code>, Box<Error>> {
     let options = utils::options();
 
-    let (storage_hashes, storage_receipts, cluster_sizes, developers): (
+    // TODO: handle pinned & pinnedNodes
+    let (storage_hashes, storage_receipts, cluster_sizes, developers, _ /* pinned */, _ /* pinnedNodes */): (
         Vec<H256>,
         Vec<H256>,
         Vec<u64>,
         Vec<Address>,
+        Vec<bool>,
+        Vec<H256>
     ) = utils::query_contract(contract_address, eth_url, "getEnqueuedCodes", (), options)?;
 
     let mut codes: Vec<Code> = Vec::new();

@@ -159,15 +159,22 @@ contract Network is Deployer {
     view
     returns(bytes32[], bytes32[], uint8[], address[], bool[], bytes32[])
     {
+        uint pinnedCount;
+
+        for (uint i = 0; i < enqueuedCodes.length; i++) {
+            pinnedCount += code.pinnedNodes.length;
+        }
+
         bytes32[] memory storageHashes = new bytes32[](enqueuedCodes.length);
         bytes32[] memory storageReceipts = new bytes32[](enqueuedCodes.length);
         uint8[] memory clusterSizes = new uint8[](enqueuedCodes.length);
         address[] memory developers = new address[](enqueuedCodes.length);
         bool[] memory pinned = new bool[](enqueuedCodes.length);
-        bytes32[] memory pinnedNodes = new bytes32[](enqueuedCodes.length);
-        uint pinnedCount;
+        bytes32[] memory pinnedNodes = new bytes32[](pinnedCount);
 
-        for (uint i = 0; i < enqueuedCodes.length; i++) {
+        pinnedCount = 0;
+
+        for (i = 0; i < enqueuedCodes.length; i++) {
             Code memory code = enqueuedCodes[i];
 
             storageHashes[i] = code.storageHash;
@@ -177,7 +184,7 @@ contract Network is Deployer {
             pinned[i] = code.pinnedNodes.length > 0;
 
             for (uint j = 0; j < code.pinnedNodes.length; j++) {
-                pinnedNodes[pinnedCount] = code.pinnedNodes[pinnedCount];
+                pinnedNodes[pinnedCount] = code.pinnedNodes[j];
                 pinnedCount++;
             }
         }
