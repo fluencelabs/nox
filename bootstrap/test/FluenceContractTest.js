@@ -210,10 +210,9 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
 
     it("Should deploy same code twice", async function() {
         let count = 5;
-        let storageHash = string2Bytes32("abc");
         let storageReceipt = string2Bytes32("bca");
-        await this.contract.addCode(storageHash, storageReceipt, count, [], {from: whitelisted});
-        await this.contract.addCode(storageHash, storageReceipt, count, [], {from: whitelisted});
+        await this.contract.addCode(string2Bytes32("cccccccc"), string2Bytes32("aaaaaaa"), count, [], {from: whitelisted});
+        await this.contract.addCode(string2Bytes32("dddddddd"), string2Bytes32("bbbbbbb"), count, [], {from: whitelisted});
 
         let firstCluster = (await addNodes(this.contract, count, "127.0.0.1", whitelisted, portCount = 1)).pop();
         let secondCluster = (await addNodes(this.contract, count, "127.0.0.1", whitelisted, portCount = 1)).pop();

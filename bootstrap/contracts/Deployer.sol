@@ -286,7 +286,6 @@ contract Deployer is Whitelist {
             readyNodes[index] = readyNodes[readyNodes.length - 1];
         }
         readyNodes.length--;
-        readyNodesCount--;
     }
 
     function nodeFitsCode(Node node, Code code)
