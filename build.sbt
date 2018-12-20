@@ -1,4 +1,5 @@
 import SbtCommons._
+import sbt.complete.DefaultParsers._
 import sbt.Keys._
 import sbt._
 
@@ -31,6 +32,19 @@ lazy val vm = (project in file("vm"))
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
+
+lazy val compile_example_to_wasm = inputKey[Unit]("Compiles ")
+
+compile_example_to_wasm := {
+  val args: Seq[String] = spaceDelimited("<arg>").parsed
+
+}
+
+lazy val compile_example = (project in file("vm/examples"))
+  .settings(
+    commons,
+
+  )
 
 lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .settings(
