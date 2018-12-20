@@ -46,6 +46,7 @@ async function addNodes(contract, count, nodeIP, ownerAddress, portCount = 2) {
                 nodeIP,
                 1000,
                 1000 + portCount - 1,
+                false,
                 { from: ownerAddress }
             )
         }
@@ -60,7 +61,7 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
 
     it("Should send event about new Node", async function() {
         let id = string2Bytes32("1");
-        let receipt = await this.contract.addNode(id, "127.0.0.1", 1000, 1001, {from: whitelisted});
+        let receipt = await this.contract.addNode(id, "127.0.0.1", 1000, 1001, false, {from: whitelisted});
         truffleAssert.eventEmitted(receipt, newNodeEvent, (ev) => {
             assert.equal(ev.id, id);
             return true
@@ -69,7 +70,7 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
 
     it("Should send event about enqueued Code", async function() {
         let storageHash = string2Bytes32("abc");
-        let receipt = await this.contract.addCode(storageHash, "bca", 5, {from: whitelisted});
+        let receipt = await this.contract.addCode(storageHash, "bca", 5, [], {from: whitelisted});
 
         truffleAssert.eventEmitted(receipt, codeEnqueuedEvent, (ev) => {
             assert.equal(ev.storageHash, storageHash);
@@ -87,7 +88,7 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         let count = 5;
         let storageHash = string2Bytes32("abc");
         let storageReceipt = string2Bytes32("bca");
-        await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        await this.contract.addCode(storageHash, storageReceipt, count, [], {from: whitelisted});
 
         let receipts = await addNodes(this.contract, count, "127.0.0.1", whitelisted);
 
@@ -107,12 +108,12 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
     });
 
     it("Should not form cluster from solvers of same node", async function() {
-        await this.contract.addNode(crypto.randomBytes(16).hexSlice(), "127.0.0.1", 1000, 1002, {from: whitelisted});
+        await this.contract.addNode(crypto.randomBytes(16).hexSlice(), "127.0.0.1", 1000, 1002, false, {from: whitelisted});
 
         let count = 2;
         let storageHash = string2Bytes32("abc");
         let storageReceipt = string2Bytes32("bca");
-        let receipt = await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        let receipt = await this.contract.addCode(storageHash, storageReceipt, count, [], {from: whitelisted});
 
         truffleAssert.eventEmitted(receipt, codeEnqueuedEvent);
         truffleAssert.eventNotEmitted(receipt, clusterFormedEvent)
@@ -125,9 +126,9 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
 
         let nodeID = crypto.randomBytes(16).hexSlice();
 
-        await this.contract.addNode(nodeID, "127.0.0.1", 1000, 1001, {from: whitelisted});
+        await this.contract.addNode(nodeID, "127.0.0.1", 1000, 1001, false, {from: whitelisted});
 
-        let receipt1 = await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        let receipt1 = await this.contract.addCode(storageHash, storageReceipt, count, [], {from: whitelisted});
 
         truffleAssert.eventNotEmitted(receipt1, codeEnqueuedEvent);
         truffleAssert.eventEmitted(receipt1, clusterFormedEvent, (ev) => {
@@ -137,7 +138,7 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
             return true;
         });
 
-        let receipt2 = await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        let receipt2 = await this.contract.addCode(storageHash, storageReceipt, count, [], {from: whitelisted});
         truffleAssert.eventNotEmitted(receipt2, codeEnqueuedEvent);
         truffleAssert.eventEmitted(receipt2, clusterFormedEvent, (ev) => {
             assert.equal(ev.solverAddrs.length, count);
@@ -146,7 +147,7 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
             return true;
         });
 
-        let receipt3 = await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        let receipt3 = await this.contract.addCode(storageHash, storageReceipt, count, [], {from: whitelisted});
         truffleAssert.eventEmitted(receipt3, codeEnqueuedEvent);
         truffleAssert.eventNotEmitted(receipt3, clusterFormedEvent);
 
@@ -165,10 +166,10 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         let [storageReceipt1, storageReceipt2, storageReceipt3, storageReceipt4] =
             ["xyz","xyzd","xyzde","xyzdef"].map(s => string2Bytes32(s));
 
-        await this.contract.addCode(storageHash1, storageReceipt1, count1, {from: whitelisted});
-        await this.contract.addCode(storageHash2, storageReceipt2, count2, {from: whitelisted});
-        await this.contract.addCode(storageHash3, storageReceipt3, count3, {from: whitelisted});
-        await this.contract.addCode(storageHash4, storageReceipt4, count4, {from: whitelisted});
+        await this.contract.addCode(storageHash1, storageReceipt1, count1, [], {from: whitelisted});
+        await this.contract.addCode(storageHash2, storageReceipt2, count2, [], {from: whitelisted});
+        await this.contract.addCode(storageHash3, storageReceipt3, count3, [], {from: whitelisted});
+        await this.contract.addCode(storageHash4, storageReceipt4, count4, [], {from: whitelisted});
 
         await addNodes(this.contract, 3, "127.0.0.1", whitelisted, portCount = 2);
 
@@ -211,8 +212,8 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         let count = 5;
         let storageHash = string2Bytes32("abc");
         let storageReceipt = string2Bytes32("bca");
-        await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
-        await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+        await this.contract.addCode(storageHash, storageReceipt, count, [], {from: whitelisted});
+        await this.contract.addCode(storageHash, storageReceipt, count, [], {from: whitelisted});
 
         let firstCluster = (await addNodes(this.contract, count, "127.0.0.1", whitelisted, portCount = 1)).pop();
         let secondCluster = (await addNodes(this.contract, count, "127.0.0.1", whitelisted, portCount = 1)).pop();
@@ -223,21 +224,21 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
 
     it("Should revert if anyone tries to add code", async function() {
         await expectThrow(
-            this.contract.addCode("storageHash", "storageReceipt", 100)
+            this.contract.addCode("storageHash", "storageReceipt", 100, [])
         );
 
         await expectThrow(
-            this.contract.addCode("storageHash", "storageReceipt", 100, { from: anyone })
+            this.contract.addCode("storageHash", "storageReceipt", 100, [], { from: anyone })
         )
     });
 
     it("Should revert if anyone tries to add node", async function() {
         await expectThrow(
-            this.contract.addNode("id", "address", 1000, 1001)
+            this.contract.addNode("id", "address", 1000, 1001, false)
         );
 
         await expectThrow(
-            this.contract.addNode("id", "address", 1000, 1001, { from: anyone })
+            this.contract.addNode("id", "address", 1000, 1001, false, { from: anyone })
         )
     })
 });
