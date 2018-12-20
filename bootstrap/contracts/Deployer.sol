@@ -68,6 +68,7 @@ contract Deployer is Whitelist {
         uint16 endPort;
         uint16 currentPort;
         address owner;
+        bool isPrivate;
     }
 
     struct Code {
@@ -75,6 +76,7 @@ contract Deployer is Whitelist {
         bytes32 storageReceipt;
         uint8 clusterSize;
         address developer;
+        bool isPrivate;
     }
 
     struct BusyCluster {
@@ -100,6 +102,7 @@ contract Deployer is Whitelist {
 
     // Nodes ready to join new clusters
     bytes32[] internal readyNodes;
+    uint32 readyNodesCount;
 
     // All nodes
     mapping(bytes32 => Node) internal nodes;
@@ -116,6 +119,8 @@ contract Deployer is Whitelist {
     // Codes waiting for nodes
     Code[] internal enqueuedCodes;
 
+    mapping(address => uint32) privateNodesCounter;
+
     /** @dev Adds node with specified port range to the work-waiting queue
       * @param nodeID some kind of unique ID
       * @param nodeAddress currently Tendermint p2p key + IP address, subject to change
@@ -124,7 +129,7 @@ contract Deployer is Whitelist {
       * emits NewNode event about new node
       * emits ClusterFormed event when there is enough nodes for some Code
       */
-    function addNode(bytes32 nodeID, bytes24 nodeAddress, uint16 startPort, uint16 endPort)
+    function addNode(bytes32 nodeID, bytes24 nodeAddress, uint16 startPort, uint16 endPort, bool isPrivate)
         external
     {
         require(whitelist(msg.sender), "The sender is not in whitelist");
@@ -134,14 +139,20 @@ contract Deployer is Whitelist {
         // if startPort == endPort, then node can host just a single code
         require(startPort <= endPort, "Port range is empty or incorrect");
 
-        nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, startPort, msg.sender);
+        nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, startPort, msg.sender, isPrivate);
         readyNodes.push(nodeID);
         nodesIndices.push(nodeID);
 
-        emit NewNode(nodeID);
+        if (isPrivate) {
+            privateNodesCounter[msg.sender]++;
+            while (matchPinnedWork(msg.sender)) {}
+        } else {
+            readyNodesCount++;
+            // match code to clusters until no matches left
+            while (matchWork()) {}
+        }
 
-        // match code to clusters until no matches left
-        while (matchWork()) {}
+        emit NewNode(nodeID);
     }
 
     /** @dev Adds new Code to be deployed on Solvers when there are enough of them
@@ -150,15 +161,88 @@ contract Deployer is Whitelist {
       * @param clusterSize specifies number of Solvers that must serve Code
       * emits ClusterFormed event when there is enough nodes for the Code and emits CodeEnqueued otherwise, subject to change
       */
-    function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize)
+    function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize, bool isPrivate)
         external
     {
         require(whitelist(msg.sender), "The sender is not in whitelist");
 
-        enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize, msg.sender));
+        enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize, msg.sender, isPrivate));
 
-        if (!matchWork()) {
-            emit CodeEnqueued(storageHash);
+        if (!matchAnyWork(isPrivate)) emit CodeEnqueued(storageHash);
+    }
+
+    function matchAnyWork(bool isPrivate)
+    internal
+    returns (bool) {
+        if (isPrivate) {
+            return matchPinnedWork(msg.sender);
+        } else {
+            return matchWork();
+        }
+    }
+
+    function matchPinnedWork(address developer)
+    internal
+    returns (bool)
+    {
+        uint idx = 0;
+        Code memory code;
+
+        for (; idx < enqueuedCodes.length; idx++) {
+            code = enqueuedCodes[idx];
+            if (
+                code.isPrivate &&
+                code.developer == developer &&
+                code.clusterSize >= privateNodesCounter[developer]
+            ) { break; }
+        }
+
+        if (idx >= enqueuedCodes.length) {
+            return false;
+        }
+
+        removeCode(idx);
+
+        // arrays containing nodes' data to be sent in a `ClusterFormed` event
+        bytes32[] memory nodeIDs = new bytes32[](code.clusterSize);
+        bytes24[] memory solverAddrs = new bytes24[](code.clusterSize);
+        uint16[] memory solverPorts = new uint16[](code.clusterSize);
+        address[] memory solverOwners = new address[](code.clusterSize);
+
+        // i holds a position in readyNodes array
+        uint i = 0;
+
+        // j holds the number of currently collected nodes and a position in event data arrays
+        for (uint8 j = 0; j < code.clusterSize; j++) {
+            bytes32 nodeID = readyNodes[i];
+            Node memory node = nodes[nodeID];
+
+            if (!node.isPrivate || node.owner != developer) {
+                i++;
+                continue;
+            }
+
+            // copy node's data to arrays so it can be sent in event
+            nodeIDs[j] = nodeID;
+            solverAddrs[j] = node.nodeAddress;
+            solverPorts[j] = node.currentPort;
+            solverOwners[j] = node.owner;
+
+            // increment port, it will be used for the next code
+            // using nodes[nodeID] instead of local variable is intended
+            nodes[nodeID].currentPort++;
+
+            privateNodesCounter[developer]--;
+
+            // check if node will be able to host a code next time; if no, remove it
+            if (nodes[nodeID].currentPort > node.endPort) {
+                // removeReadyNode puts last node in the array to i-th position
+                // so after removal, readyNodes[i] contains 'new' node, so no need to increment i
+                removeReadyNode(i);
+            } else {
+                // go to next position in readyNodes array
+                i++;
+            }
         }
     }
 
@@ -177,7 +261,7 @@ contract Deployer is Whitelist {
         // looking for a code that can be deployed given current number of readyNodes
         for (; idx < enqueuedCodes.length; idx++) {
             code = enqueuedCodes[idx];
-            if (readyNodes.length >= code.clusterSize) {
+            if (!code.isPrivate && readyNodesCount >= code.clusterSize) {
                 // suitable code found, stop on current idx
                 break;
             }
@@ -205,6 +289,11 @@ contract Deployer is Whitelist {
         for (uint8 j = 0; j < code.clusterSize; j++) {
             bytes32 nodeID = readyNodes[i];
             Node memory node = nodes[nodeID];
+
+            if (node.isPrivate) {
+                i++;
+                continue;
+            }
 
             // copy node's data to arrays so it can be sent in event
             nodeIDs[j] = nodeID;
