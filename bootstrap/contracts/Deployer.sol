@@ -158,10 +158,6 @@ contract Deployer is Whitelist {
         // if startPort == endPort, then node can host just a single code
         require(startPort <= endPort, "Port range is empty or incorrect");
 
-        // port range is inclusive
-        // if startPort == endPort, then node can host just a single code
-        require(startPort <= endPort, "Port range is empty or incorrect");
-
         nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, startPort, msg.sender, isPrivate);
         readyNodes.push(nodeID);
         nodesIndices.push(nodeID);
