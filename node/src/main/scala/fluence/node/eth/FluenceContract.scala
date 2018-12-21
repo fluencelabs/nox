@@ -173,7 +173,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * @tparam F Effect
    * @return The block number where transaction has been mined
    */
-  def addCode[F[_]: Async](code: String = "llamadb", clusterSize: Short = 1): F[BigInt] =
+  def addCode[F[_]: Async](code: String, clusterSize: Short = 1): F[BigInt] =
     contract
       .addCode(stringToBytes32(code), stringToBytes32("receipt_stub"), new Uint8(clusterSize))
       .call[F]
