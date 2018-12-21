@@ -77,10 +77,6 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 _ = logger.debug("eth config {}", contractConfig)
 
                 contract = FluenceContract(ethClient, contractConfig)
-                _ <- contract
-                  .addNode[IO](nodeConfig)
-                  .attempt
-                  .map(r ⇒ logger.debug(s"Adding node: $r"))
 
                 pool ← SolversPool[IO]()
 
