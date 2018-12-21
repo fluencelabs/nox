@@ -33,18 +33,13 @@ lazy val vm = (project in file("vm"))
   )
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val compile_example_to_wasm = inputKey[Unit]("Compiles ")
+lazy val compile_to_wasm = inputKey[Unit]("Compiles provided example to Webassembly")
 
-compile_example_to_wasm := {
+compile_to_wasm := {
   val args: Seq[String] = spaceDelimited("<arg>").parsed
 
+
 }
-
-lazy val compile_example = (project in file("vm/examples"))
-  .settings(
-    commons,
-
-  )
 
 lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .settings(
@@ -75,7 +70,7 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
       assert(cmd ! log == 0, "Compile Rust to Wasm failed.")
     }
   )
-  .dependsOn(vm)
+  .dependsOn(compile_to_wasm)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
