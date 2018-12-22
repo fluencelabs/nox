@@ -28,6 +28,8 @@ use std::io::prelude::*;
 use utils;
 use web3::types::{Address, H256};
 use credentials::Credentials;
+use ethkey::Secret;
+use std::str::FromStr;
 
 const PATH: &str = "path";
 const ACCOUNT: &str = "account";
@@ -36,6 +38,7 @@ const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
 const CLUSTER_SIZE: &str = "cluster_size";
 const SWARM_URL: &str = "swarm_url";
+const SECRET_KEY: &str = "secret_key";
 
 #[derive(Debug)]
 pub struct Publisher {
@@ -135,7 +138,11 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
     let swarm_url = matches.value_of(SWARM_URL).unwrap().to_string();
     let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
+    let secret_key = matches.value_of(SECRET_KEY)
+        .map(|s| Secret::from_str(s.trim_left_matches("0x")).unwrap());
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
+
+    let credentials = Credentials::get(secret_key, password);
 
     let cluster_size: u8 = matches.value_of(CLUSTER_SIZE).unwrap().parse()?;
 
@@ -150,7 +157,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
         account,
         swarm_url,
         eth_url,
-        Credentials::from_password(password),
+        credentials,
         cluster_size,
     ))
 }
@@ -180,7 +187,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             Arg::with_name(SWARM_URL)
                 .alias(SWARM_URL)
                 .long(SWARM_URL)
-                .short("s")
+                .short("w")
                 .required(false)
                 .takes_value(true)
                 .help("http address to swarm node")
@@ -202,6 +209,13 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(false)
                 .takes_value(true)
                 .help("password to unlock account in ethereum client"),
+            Arg::with_name(SECRET_KEY)
+                .alias(SECRET_KEY)
+                .long(SECRET_KEY)
+                .short("s")
+                .required(false)
+                .takes_value(true)
+                .help("the secret key to sign transactions"),
             Arg::with_name(CLUSTER_SIZE)
                 .alias(CLUSTER_SIZE)
                 .long(CLUSTER_SIZE)

@@ -24,6 +24,8 @@ use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use utils;
 use web3::types::{Address, H256};
 use credentials::Credentials;
+use ethkey::Secret;
+use std::str::FromStr;
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
@@ -33,6 +35,7 @@ const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
+const SECRET_KEY: &str = "secret_key";
 
 #[derive(Debug)]
 pub struct Register {
@@ -161,7 +164,12 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
 
     let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
+    let secret_key = matches.value_of(SECRET_KEY).map(|s| {
+        Secret::from_str(s.trim_left_matches("0x")).unwrap()
+    });
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
+
+    let credentials = Credentials::get(secret_key, password);
 
     Register::new(
         node_address,
@@ -171,7 +179,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         contract_address,
         account,
         eth_url,
-        Credentials::from_password(password),
+        credentials,
     )
 }
 
@@ -229,6 +237,13 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(false)
                 .takes_value(true)
                 .help("password to unlock account in ethereum client"),
+            Arg::with_name(SECRET_KEY)
+                .alias(SECRET_KEY)
+                .long(SECRET_KEY)
+                .short("s")
+                .required(false)
+                .takes_value(true)
+                .help("the secret key to sign transactions"),
         ])
 }
 
