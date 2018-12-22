@@ -16,6 +16,7 @@
 extern crate clap;
 extern crate console;
 extern crate ethabi;
+extern crate ethkey;
 extern crate hex;
 extern crate indicatif;
 extern crate reqwest;
@@ -26,6 +27,9 @@ extern crate fixed_hash;
 extern crate error_chain;
 #[macro_use]
 extern crate derive_getters;
+
+extern crate ethcore_transaction;
+extern crate rlp;
 
 extern crate ethereum_types_serialize;
 
@@ -41,12 +45,13 @@ extern crate parity_wasm;
 extern crate rand;
 
 mod check;
+mod contract_func;
 mod contract_status;
 mod publisher;
 mod register;
 mod types;
 mod utils;
-mod whitelist;
+mod credentials;
 
 use clap::App;
 use clap::AppSettings;
@@ -63,7 +68,6 @@ fn main() {
         .subcommand(publisher::subcommand())
         .subcommand(register::subcommand())
         .subcommand(contract_status::subcommand())
-        .subcommand(whitelist::subcommand())
         .subcommand(check::subcommand());
 
     match app.get_matches().subcommand() {
@@ -84,18 +88,6 @@ fn main() {
             let transaction = register.register(true);
 
             let formatted_finish_msg = style("Solver added. Submitted transaction").blue();
-            let formatted_tx = style(transaction.unwrap()).red().bold();
-
-            println!("{}: {:?}", formatted_finish_msg, formatted_tx);
-        }
-
-        ("add-to-whitelist", Some(args)) => {
-            let add_to_whitelist = whitelist::parse(args).unwrap();
-
-            let transaction = add_to_whitelist.add_to_whitelist(true);
-
-            let formatted_finish_msg =
-                style("Address added to whitelist. Submitted transaction").blue();
             let formatted_tx = style(transaction.unwrap()).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);

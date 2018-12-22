@@ -15,6 +15,7 @@
  */
 
 use clap::{App, Arg, ArgMatches, SubCommand};
+use contract_func::ContractFunc;
 use hex;
 use std::boxed::Box;
 use std::error::Error;
@@ -22,6 +23,7 @@ use std::net::IpAddr;
 use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use utils;
 use web3::types::{Address, H256};
+use credentials::Credentials;
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
@@ -41,7 +43,7 @@ pub struct Register {
     contract_address: Address,
     account: Address,
     eth_url: String,
-    password: Option<String>,
+    credentials: Credentials,
 }
 
 impl Register {
@@ -54,7 +56,7 @@ impl Register {
         contract_address: Address,
         account: Address,
         eth_url: String,
-        password: Option<String>,
+        credentials: Credentials,
     ) -> Result<Register, Box<Error>> {
         if max_port < min_port {
             let err: Box<Error> = From::from("max_port should be bigger than min_port".to_string());
@@ -69,7 +71,7 @@ impl Register {
             contract_address,
             account,
             eth_url,
-            password,
+            credentials,
         })
     }
 
@@ -103,17 +105,13 @@ impl Register {
     /// Registers a node in Fluence smart contract
     pub fn register(&self, show_progress: bool) -> Result<H256, Box<Error>> {
         let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
-            let pass = self.password.as_ref().map(|s| s.as_str());
-
-            let options = utils::options_with_gas(1_300_000);
-
             let hash_addr = self.serialize_node_address()?;
 
-            utils::call_contract(
+            let contract = ContractFunc::new(self.contract_address, &self.eth_url)?;
+
+            contract.call_contract_new(
                 self.account,
-                self.contract_address,
-                pass,
-                &self.eth_url,
+                &self.credentials,
                 "addNode",
                 (
                     self.tendermint_key,
@@ -121,7 +119,7 @@ impl Register {
                     u64::from(self.min_port),
                     u64::from(self.max_port),
                 ),
-                options,
+                2_000_000
             )
         };
 
@@ -173,7 +171,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         contract_address,
         account,
         eth_url,
-        password,
+        Credentials::from_password(password),
     )
 }
 
@@ -239,12 +237,11 @@ mod tests {
     use super::Register;
     use rand::prelude::*;
     use std::error::Error;
-    use utils;
     use web3::types::*;
+    use credentials::Credentials;
+    use ethkey::Secret;
 
-    const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
-
-    fn generate_register() -> Register {
+    fn generate_register(credentials: Credentials) -> Register {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
 
         let mut rng = rand::thread_rng();
@@ -261,39 +258,40 @@ mod tests {
             contract_address,
             account,
             String::from("http://localhost:8545/"),
-            None,
+            credentials,
         )
         .unwrap()
     }
 
-    pub fn generate_with<F>(func: F) -> Register
+    pub fn generate_with<F>(func: F, credentials: Credentials) -> Register
     where
         F: FnOnce(&mut Register),
     {
-        let mut register = generate_register();
+        let mut register = generate_register(credentials);
         func(&mut register);
         register
     }
 
-    pub fn generate_with_account(account: Address) -> Register {
+    pub fn generate_with_account(account: Address, credentials: Credentials) -> Register {
         generate_with(|r| {
             r.account = account;
-        })
+        }, credentials)
     }
 
     #[test]
     fn register_success() -> Result<(), Box<Error>> {
-        let register = generate_with_account("02f906f8b3b932fd282109a5b8dc732ba2329888".parse()?);
+        let register = generate_with_account("fa0de43c68bea2167181cd8a83f990d02a049336".parse()?, Credentials::No());
 
-        let pass = register.password.as_ref().map(|s| s.as_str());
+        register.register(false)?;
 
-        utils::add_to_white_list(
-            &register.eth_url,
-            register.account,
-            register.contract_address,
-            OWNER.parse()?,
-            pass,
-        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn register_success_with_secret() -> Result<(), Box<Error>> {
+        let secret_arr: H256 = "a349fe22d5c6f8ad3a1ad91ddb65e8946435b52254ce8c330f7ed796e83bfd92".parse()?;
+        let secret = Secret::from(secret_arr);
+        let register = generate_with_account("dce48d51717ad5eb87fb56ff55ec609cf37b9aad".parse()?, Credentials::Secret(secret));
 
         register.register(false)?;
 

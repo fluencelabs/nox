@@ -19,6 +19,7 @@ extern crate web3;
 
 use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
+use contract_func::ContractFunc;
 use reqwest::Client;
 use std::boxed::Box;
 use std::error::Error;
@@ -26,6 +27,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use utils;
 use web3::types::{Address, H256};
+use credentials::Credentials;
 
 const PATH: &str = "path";
 const ACCOUNT: &str = "account";
@@ -42,7 +44,7 @@ pub struct Publisher {
     account: Address,
     swarm_url: String,
     eth_url: String,
-    password: Option<String>,
+    credentials: Credentials,
     cluster_size: u8,
 }
 
@@ -54,7 +56,7 @@ impl Publisher {
         account: Address,
         swarm_url: String,
         eth_url: String,
-        password: Option<String>,
+        credentials: Credentials,
         cluster_size: u8,
     ) -> Publisher {
         Publisher {
@@ -63,7 +65,7 @@ impl Publisher {
             account,
             swarm_url,
             eth_url,
-            password,
+            credentials,
             cluster_size,
         }
     }
@@ -88,22 +90,18 @@ impl Publisher {
         }?;
 
         let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
-            let pass = self.password.as_ref().map(|s| s.as_str());
-
             //todo: add correct receipts
             let receipt: H256 =
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
 
-            let options = utils::options_with_gas(2_000_000);
+            let contract = ContractFunc::new(self.contract_address, &self.eth_url)?;
 
-            utils::call_contract(
+            contract.call_contract_new(
                 self.account,
-                self.contract_address,
-                pass,
-                &self.eth_url,
+                &self.credentials,
                 "addCode",
                 (hash, receipt, u64::from(self.cluster_size)),
-                options,
+                2_000_000
             )
         };
 
@@ -152,7 +150,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
         account,
         swarm_url,
         eth_url,
-        password,
+        Credentials::from_password(password),
         cluster_size,
     ))
 }
@@ -235,14 +233,15 @@ fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Box<Error>> {
 mod tests {
     use publisher::Publisher;
     use std::error::Error;
-    use utils;
     use web3;
     use web3::futures::Future;
     use web3::types::*;
+    use credentials::Credentials;
+    use ethkey::Secret;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
-    fn generate_publisher() -> Publisher {
+    fn generate_publisher(account: &str, creds: Credentials) -> Publisher {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
 
         let bytes = vec![1, 2, 3];
@@ -250,37 +249,32 @@ mod tests {
         Publisher::new(
             bytes,
             contract_address,
-            OWNER.parse().unwrap(),
+            account.parse().unwrap(),
             String::from("http://localhost:8500"),
             String::from("http://localhost:8545/"),
-            None,
+            creds,
             5,
         )
     }
 
-    pub fn generate_with<F>(func: F) -> Publisher
+    pub fn generate_with<F>(account: &str, func: F) -> Publisher
     where
         F: FnOnce(&mut Publisher),
     {
-        let mut publisher = generate_publisher();
+        let mut publisher = generate_publisher(account, Credentials::No());
         func(&mut publisher);
         publisher
     }
 
-    pub fn generate_with_account(account: Address) -> Publisher {
-        generate_with(|p| {
-            p.account = account;
-        })
-    }
-
     pub fn generate_new_account(with_pass: bool) -> Publisher {
-        generate_with(|p| {
+        generate_with(OWNER, |p| {
             let (_eloop, transport) = web3::transports::Http::new(&p.eth_url).unwrap();
             let web3 = web3::Web3::new(transport);
             let acc = web3.personal().new_account("123").wait().unwrap();
             p.account = acc;
+
             if with_pass {
-                p.password = Some(String::from("123"));
+                p.credentials = Credentials::Password(String::from("123"));
             }
         })
     }
@@ -309,7 +303,7 @@ mod tests {
 
     #[test]
     fn publish_wrong_swarm_url() -> Result<(), Box<Error>> {
-        let publisher = generate_with(|p| {
+        let publisher = generate_with("02f906f8b3b932fd282109a5b8dc732ba2329888", |p| {
             p.swarm_url = String::from("http://123.5.6.7:8385");
         });
 
@@ -322,7 +316,7 @@ mod tests {
 
     #[test]
     fn publish_wrong_eth_url() -> Result<(), Box<Error>> {
-        let publisher = generate_with(|p| {
+        let publisher = generate_with("fa0de43c68bea2167181cd8a83f990d02a049336", |p| {
             p.eth_url = String::from("http://117.2.6.7:4476");
         });
 
@@ -334,27 +328,19 @@ mod tests {
     }
 
     #[test]
-    fn publish_to_contract_without_whitelist() -> Result<(), Box<Error>> {
-        let publisher = generate_with_account("fa0de43c68bea2167181cd8a83f990d02a049336".parse()?);
+    fn publish_to_contract_success() -> Result<(), Box<Error>> {
+        let publisher = generate_publisher("64b8f12d14925394ae0119466dff6ff2b021a3e9", Credentials::No());
 
-        let result = publisher.publish(false);
-
-        assert_eq!(result.is_err(), true);
+        publisher.publish(false)?;
 
         Ok(())
     }
 
     #[test]
-    fn publish_to_contract_success() -> Result<(), Box<Error>> {
-        let publisher = generate_with_account("02f906f8b3b932fd282109a5b8dc732ba2329888".parse()?);
-
-        utils::add_to_white_list(
-            &publisher.eth_url,
-            publisher.account,
-            publisher.contract_address,
-            OWNER.parse()?,
-            None,
-        )?;
+    fn publish_to_contract_with_secret_success() -> Result<(), Box<Error>> {
+        let secret_arr: H256 = "647334ad14cda7f79fecdf2b9e0bb2a0904856c36f175f97c83db181c1060414".parse()?;
+        let secret = Secret::from(secret_arr);
+        let publisher = generate_publisher("ee75d7d2f7286dfa893f7ff58323917902889afe", Credentials::Secret(secret));
 
         publisher.publish(false)?;
 
