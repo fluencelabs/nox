@@ -1,0 +1,45 @@
+# Copyright 2018 Fluence Labs Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#!/bin/bash
+#
+# Compiles provided Rust project to jar by Asmble.
+
+readonly PROJECT_PATH="$1"
+readonly OUTPUT_DIR="$2"
+
+prefix='<compile_rust_to_wasm>'
+
+err() {
+  echo "${prefix}: $@" >&2
+}
+
+if [ ! -d "${PROJECT_PATH}" ]; then
+  err "${PROJECT_PATH} folder doesn't exist"
+  exit 1;
+fi
+
+printf "${prefix}: Compiling Rust to Wasm\n"
+
+docker run --rm -w /work -v "${PROJECT_PATH}:/work" tomaka/rustc-emscripten \
+    cargo +nightly build --target wasm32-unknown-unknown --release
+
+if [ $? -ne 0 ]; then
+   err "compiling from rust to wasm failed"
+   exit 1;
+fi
+
+printf "${prefix}: Build from WASM code executable WasmVM jar\n"
+
+sbt "vm-llamadb"/assembly
