@@ -1,8 +1,24 @@
+/*
+ * Copyright 2018 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 //! Wrapper for Llamadb (a test for Fluence network).
 //!
-//! Provides public methods for work with Llamadb and for `allocation` and
-//! `deallocation` memory from a Wasm host environment. Also contains functions
-//! for reading from and writing strings to the raw memory.
+//! Provides public methods for work with Llamadb, `allocation` and `deallocation`
+//! memory from a Wasm host environment. Also contains functions for reading from
+//! and writing strings to the raw memory.
 
 #![feature(allocator_api)]
 #![allow(dead_code)]
@@ -31,8 +47,8 @@ type GenResult<T> = Result<T, Box<Error>>;
 // FFI for interact with Llamadb module.
 //
 
-/// Initializes `WasmLogger` instance and returns pointer to error message as string in the memory.
-/// Enabled only for a Wasm target.
+/// Initializes `WasmLogger` instance and returns a pointer to error message as a string
+/// in the memory. Enabled only for a Wasm target.
 #[no_mangle]
 #[cfg(target_arch = "wasm32")]
 pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
@@ -48,7 +64,7 @@ pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
     res_ptr
 }
 
-/// Executes sql and returns a pointer to result as a string in the memory.
+/// Executes SQL and returns a pointer to result as a string in the memory.
 ///
 /// 1. Makes rust String from given pointer and length
 /// 2. Processes the resulted string as a SQL query
@@ -109,7 +125,7 @@ fn log_and_panic(msg: String) -> ! {
     panic!(msg);
 }
 
-/// Acquires lock, does query, releases lock, returns query result
+/// Acquires lock, does query, releases lock, returns query result.
 fn run_query(sql_query: &str) -> GenResult<String> {
     let mut db = DATABASE.lock()?;
     let result = db
@@ -145,7 +161,6 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
     }
 }
 
-/// Creates a public static reference to a initialized LlamaDb instance.
 lazy_static! {
     static ref DATABASE: Mutex<TempDb> = Mutex::new(TempDb::new());
 }

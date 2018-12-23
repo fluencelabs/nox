@@ -33,9 +33,9 @@ lazy val vm = (project in file("vm"))
   )
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val exampleName = inputKey[String]("Name of the example that has to be compiled or run")
+lazy val exampleName = inputKey[String]("Name of the example that has to be compiled or ran")
 
-lazy val `vm-counter` = (project in file("vm/examples/counter"))
+lazy val `run-vm-example` = (project in file("vm/examples"))
   .settings(
     commons,
     // It has to build a fat jar because is not possible to simply run [[CounterRunner]] with sbt
@@ -54,7 +54,6 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
       val args = spaceDelimited("<args>").parsed
       args.head
     },
-    // override `run` task
     run := {
       val log = streams.value.log
       val compiledExampleName = exampleName.evaluated
