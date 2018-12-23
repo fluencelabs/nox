@@ -11,9 +11,9 @@ commons
 
 initialize := {
   val _ = initialize.value // run the previous initialization
-  val required = "1.8" // counter.wast cannot be run under Java 9. Remove this check after fixes.
-  val current = sys.props("java.specification.version")
-  assert(current == required, s"Unsupported JDK: java.specification.version $current != $required")
+  //val required = "1.8" // counter.wast cannot be run under Java 9. Remove this check after fixes.
+  //val current = sys.props("java.specification.version")
+  //assert(current == required, s"Unsupported JDK: java.specification.version $current != $required")
 }
 
 /* Projects */
@@ -33,22 +33,15 @@ lazy val vm = (project in file("vm"))
   )
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val compile_to_wasm = inputKey[Unit]("Compiles provided example to Webassembly")
+lazy val exampleName = inputKey[String]("Name of the example that has to be compiled or ran")
 
-compile_to_wasm := {
-  val args: Seq[String] = spaceDelimited("<arg>").parsed
-
-
-}
-
-lazy val `vm-counter` = (project in file("vm/examples/counter"))
+lazy val `run-vm-example` = (project in file("vm/examples"))
   .settings(
     commons,
-    // we have to build fat jar because is not possible to simply run [[CounterRunner]]
-    // with sbt (like sbt vm-counter/run) because sbt uses custom ClassLoader.
-    // 'Asmble' code required for loading some classes (like RuntimeHelpers)
-    // only with system ClassLoader.
-    assemblyJarName in assembly := "counter.jar",
+    // It has to build a fat jar because is not possible to simply run [[CounterRunner]] with sbt
+    // (like sbt vm-counter/run) since sbt uses their own ClassLoader. But Asmble requires system
+    // ClassLoader for some inner logic (for more details please see RuntimeHelpers.java file)
+    assemblyJarName in assembly := "example.jar",
     assemblyMergeStrategy in assembly := {
       // a module definition fails compilation for java 8, just skip it
       case PathList("module-info.class", xs @ _*) => MergeStrategy.first
@@ -56,42 +49,20 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
-    // override `run` task
-    run := {
-      val log = streams.value.log
-      log.info("Compiling counter.rs to counter.wasm and running with Fluence.")
-
-      val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
-      val projectRoot = file("").getAbsolutePath
-      val cmd = s"sh vm/examples/run_example.sh counter $projectRoot $scalaVer"
-
-      log.info(s"Running $cmd")
-
-      assert(cmd ! log == 0, "Compile Rust to Wasm failed.")
-    }
-  )
-  .dependsOn(compile_to_wasm)
-  .enablePlugins(AutomateHeaderPlugin)
-
-lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
-  .settings(
-    commons,
-    assemblyJarName in assembly := "llamadb.jar",
-    assemblyMergeStrategy in assembly := {
-      // a module definition fails compilation for java 8, just skip it
-      case PathList("module-info.class", xs @ _*) => MergeStrategy.first
-      case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
-        oldStrategy(x)
+    exampleName := {
+      import sbt.complete.Parsers.spaceDelimited
+      val args = spaceDelimited("<args>").parsed
+      args.head
     },
-    // override `run` task
     run := {
       val log = streams.value.log
-      log.info("Compiling llamadb.rs to llama_db.wasm and running with Fluence.")
+      val compiledExampleName = exampleName.evaluated
+
+      log.info(s"Compiling $compiledExampleName.rs to $compiledExampleName.wasm and running with Fluence.")
 
       val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
       val projectRoot = file("").getAbsolutePath
-      val cmd = s"sh vm/examples/run_example.sh llama_db $projectRoot $scalaVer"
+      val cmd = s"sh vm/examples/run_example.sh $compiledExampleName $projectRoot $scalaVer"
 
       log.info(s"Running $cmd")
 

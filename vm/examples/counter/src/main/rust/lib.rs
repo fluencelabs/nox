@@ -16,7 +16,7 @@
 
 //! Wrapper for counter (a test for Fluence network).
 //!
-//! This example has capabilities only for incrementing counter and getting its current state.
+//! This example can only increment a counter and get its current state.
 
 #![feature(allocator_api)]
 #![feature(alloc)]
