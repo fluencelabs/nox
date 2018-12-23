@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 
-compile_example.sh
-
 exampleName=${1/_/} # replace underscores "_" from example name
 projectDir=$2
-scalaVer=$3
 
 exampleFolder="$projectDir/vm/examples/$exampleName"
 prefix="<run_example.sh>"
@@ -14,7 +11,7 @@ if [ ! -d "$exampleFolder" ]; then
   exit 1;
 fi
 
-printf "$prefix Compiling Rust to Wasm.\n"
+printf "$prefix: Compiling Rust to Wasm.\n"
 
 docker run --rm -w /work -v "$exampleFolder:/work" tomaka/rustc-emscripten \
     cargo +nightly build --target wasm32-unknown-unknown --release
@@ -24,10 +21,7 @@ if [ $? -ne 0 ]; then
    exit 1;
 fi
 
-printf "$prefix Build from WASM code executable WasmVM jar\n"
+printf "$prefix: Build from WASM code executable WasmVM jar\n"
 
 sbt "vm-$exampleName"/assembly
 
-printf "$prefix Run example $exampleName.jar\n"
-
-java -jar "$exampleFolder/target/scala-$scalaVer/$exampleName.jar" "$exampleFolder/target/wasm32-unknown-unknown/release/$1.wasm"
