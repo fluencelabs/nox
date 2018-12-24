@@ -3,6 +3,7 @@ import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
 import sbt._
+import sys.process._
 
 object SbtCommons {
 
@@ -32,12 +33,14 @@ object SbtCommons {
   def compileRustVmExample(exampleName: String) = Seq(
       run := {
         val log = streams.value.log
-        log.info(s"Compiling $exampleName.rs to $exampleName.wasm and running with Fluence.")
+        log.info(s"Compiling $exampleName.rs to $exampleName.wasm")
 
         val projectRoot = file("").getAbsolutePath
-        val exampleDir = s"$projectRoot/vm/examples/$exampleName"
+        val exampleFolder = s"${projectRoot}/vm/examples/${exampleName}"
+        val compileCmd = s"docker run --rm -w /work -v ${exampleFolder}:/work tomaka/rustc-emscripten " +
+          s"cargo +nightly build --target wasm32-unknown-unknown --release"
 
-        s"docker run --rm -w /work -v $exampleDir:/work tomaka/rustc-emscripten cargo +nightly build --target wasm32-unknown-unknown --release"
+        assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
       }
   )
 
