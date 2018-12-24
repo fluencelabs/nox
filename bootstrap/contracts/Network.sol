@@ -39,11 +39,11 @@ contract Network is Deployer {
     returns (bytes32[])
     {
         Node memory node = nodes[nodeID];
-        bytes32[] memory clusterIDs = new bytes32[](node.currentPort - node.startPort);
+        bytes32[] memory clusterIDs = new bytes32[](0);
         uint count = 0;
 
         for (uint i = 1; i < clusterCount; i++) {
-            BusyCluster memory cluster = busyClusters[bytes32(i)];
+            Cluster memory cluster = clusters[bytes32(i)];
             for (uint j = 0; j < cluster.nodeAddresses.length; j++) {
                 if (cluster.nodeAddresses[j] == node.nodeAddress) {
                     clusterIDs[count++] = cluster.clusterID;
@@ -53,33 +53,33 @@ contract Network is Deployer {
         return clusterIDs;
     }
 
-    /** @dev Allows anyone with clusterID to retrieve assigned Code
+    /** @dev Allows anyone with clusterID to retrieve assigned App
      * @param clusterID unique id of cluster
-     * returns tuple representation of a BusyCluster
+     * returns tuple representation of a Cluster
      */
     function getCluster(bytes32 clusterID)
     external
     view
     returns (bytes32, bytes32, uint, bytes32[], bytes24[], uint16[], address[], bool)
     {
-        BusyCluster memory cluster = busyClusters[clusterID];
+        Cluster memory cluster = clusters[clusterID];
         require(cluster.clusterID > 0, "there is no such cluster");
 
         return (
-            cluster.code.storageHash,
-            cluster.code.storageReceipt,
+            cluster.app.storageHash,
+            cluster.app.storageReceipt,
             cluster.genesisTime,
             cluster.nodeIDs,
             cluster.nodeAddresses,
             cluster.ports,
             cluster.owners,
-            cluster.code.pinnedNodes.length > 0
+            cluster.app.pinToNodes.length > 0
         );
     }
 
     /** @dev Gets info about registered clusters
      * For full network state, use this method in conjunction with `getClustersNodes`
-     * returns tuple representation of an array of cluster-related data from BusyClusters
+     * returns tuple representation of an array of cluster-related data from Clusters
      * (cluster IDs, genesis times, codes' Swarm hashes, receipts, clusters' sizes, developers of codes deployed on clusters)
      */
     function getClustersInfo()
@@ -96,14 +96,14 @@ contract Network is Deployer {
         bool[] memory isPrivate = new bool[](clusterCount - 1);
 
         for (uint k = 1; k < clusterCount; k++) {
-            BusyCluster memory cluster = busyClusters[bytes32(k)];
+            Cluster memory cluster = clusters[bytes32(k)];
             clusterIDs[k - 1] = cluster.clusterID;
             genesisTimes[k - 1] = cluster.genesisTime;
-            storageHashes[k - 1] = cluster.code.storageHash;
-            storageReceipts[k - 1] = cluster.code.storageReceipt;
-            clusterSizes[k - 1] = cluster.code.clusterSize;
-            developers[k - 1] = cluster.code.developer;
-            isPrivate[k - 1] = cluster.code.pinnedNodes.length > 0;
+            storageHashes[k - 1] = cluster.app.storageHash;
+            storageReceipts[k - 1] = cluster.app.storageReceipt;
+            clusterSizes[k - 1] = cluster.app.clusterSize;
+            developers[k - 1] = cluster.app.owner;
+            isPrivate[k - 1] = cluster.app.pinToNodes.length > 0;
         }
 
         return (clusterIDs, genesisTimes, storageHashes, storageReceipts, clusterSizes, developers, isPrivate);
@@ -111,7 +111,7 @@ contract Network is Deployer {
 
     /** @dev Gets nodes that already members in all registered clusters
      * For full network state, use this method in conjunction with `getClustersInfo`
-     * returns tuple representation of an array of nodes-related data from BusyClusters
+     * returns tuple representation of an array of nodes-related data from Clusters
      * (ids, node addresses, ports, node owners ethereum addresses)
      */
     function getClustersNodes()
@@ -119,13 +119,13 @@ contract Network is Deployer {
     view
     returns (bytes32[], bytes24[], uint16[], address[])
     {
-        BusyCluster[] memory clusters = new BusyCluster[](clusterCount - 1);
+        Cluster[] memory _clusters = new Cluster[](clusterCount - 1);
         uint solversCount = 0;
         for (uint i = 1; i < clusterCount; i++) {
             uint key = i-1;
-            BusyCluster memory cl = busyClusters[bytes32(i)];
-            clusters[key] = cl;
-            solversCount = solversCount + cl.code.clusterSize;
+            Cluster memory cl = clusters[bytes32(i)];
+            _clusters[key] = cl;
+            solversCount = solversCount + cl.app.clusterSize;
         }
 
         bytes32[] memory ids = new bytes32[](solversCount);
@@ -136,8 +136,8 @@ contract Network is Deployer {
         // solversCount is reused here to reduce stack depth
         solversCount = 0;
 
-        for (uint k = 0; k < clusters.length; k++) {
-            BusyCluster memory cluster = clusters[k];
+        for (uint k = 0; k < _clusters.length; k++) {
+            Cluster memory cluster = _clusters[k];
 
             for (uint n = 0; n < cluster.nodeAddresses.length; n++) {
                 ids[solversCount] = cluster.nodeIDs[n];
@@ -154,37 +154,37 @@ contract Network is Deployer {
     /** @dev Gets codes which not yet deployed anywhere
      * return (codes' Swarm hashes, receipts, clusters' sizes, developers' addresses)
      */
-    function getEnqueuedCodes()
+    function getEnqueuedApps()
     external
     view
     returns(bytes32[], bytes32[], uint8[], address[], bool[], bytes32[])
     {
         uint pinnedCount;
 
-        for (uint i = 0; i < enqueuedCodes.length; i++) {
-            pinnedCount += code.pinnedNodes.length;
+        for (uint i = 0; i < enqueuedApps.length; i++) {
+            pinnedCount += app.pinToNodes.length;
         }
 
-        bytes32[] memory storageHashes = new bytes32[](enqueuedCodes.length);
-        bytes32[] memory storageReceipts = new bytes32[](enqueuedCodes.length);
-        uint8[] memory clusterSizes = new uint8[](enqueuedCodes.length);
-        address[] memory developers = new address[](enqueuedCodes.length);
-        bool[] memory pinned = new bool[](enqueuedCodes.length);
+        bytes32[] memory storageHashes = new bytes32[](enqueuedApps.length);
+        bytes32[] memory storageReceipts = new bytes32[](enqueuedApps.length);
+        uint8[] memory clusterSizes = new uint8[](enqueuedApps.length);
+        address[] memory developers = new address[](enqueuedApps.length);
+        bool[] memory pinned = new bool[](enqueuedApps.length);
         bytes32[] memory pinnedNodes = new bytes32[](pinnedCount);
 
         pinnedCount = 0;
 
-        for (i = 0; i < enqueuedCodes.length; i++) {
-            Code memory code = enqueuedCodes[i];
+        for (i = 0; i < enqueuedApps.length; i++) {
+            App memory app = enqueuedApps[i];
 
-            storageHashes[i] = code.storageHash;
-            storageReceipts[i] = code.storageReceipt;
-            clusterSizes[i] = code.clusterSize;
-            developers[i] = code.developer;
-            pinned[i] = code.pinnedNodes.length > 0;
+            storageHashes[i] = app.storageHash;
+            storageReceipts[i] = app.storageReceipt;
+            clusterSizes[i] = app.clusterSize;
+            developers[i] = app.owner;
+            pinned[i] = app.pinToNodes.length > 0;
 
-            for (uint j = 0; j < code.pinnedNodes.length; j++) {
-                pinnedNodes[pinnedCount] = code.pinnedNodes[j];
+            for (uint j = 0; j < app.pinToNodes.length; j++) {
+                pinnedNodes[pinnedCount] = app.pinToNodes[j];
                 pinnedCount++;
             }
         }
@@ -201,25 +201,26 @@ contract Network is Deployer {
     view
     returns (bytes32[], bytes24[], uint16[], uint16[], uint16[], address[], bool[])
     {
-        bytes32[] memory ids = new bytes32[](nodesIndices.length);
-        bytes24[] memory nodeAddresses = new bytes24[](nodesIndices.length);
-        uint16[] memory startPorts = new uint16[](nodesIndices.length);
-        uint16[] memory endPorts = new uint16[](nodesIndices.length);
-        uint16[] memory currentPorts = new uint16[](nodesIndices.length);
-        address[] memory owners = new address[](nodesIndices.length);
-        bool[] memory isPrivate = new bool[](nodesIndices.length);
+        bytes32[] memory ids = new bytes32[](nodesIds.length);
+        bytes24[] memory nodeAddresses = new bytes24[](nodesIds.length);
+        uint16[] memory startPorts = new uint16[](nodesIds.length);
+        uint16[] memory lastPorts = new uint16[](nodesIds.length);
+        uint16[] memory nextPorts = new uint16[](nodesIds.length);
+        address[] memory owners = new address[](nodesIds.length);
+        bool[] memory isPrivate = new bool[](nodesIds.length);
 
-        for (uint i = 0; i < nodesIndices.length; ++i) {
-            Node memory node = nodes[nodesIndices[i]];
+        for (uint i = 0; i < nodesIds.length; ++i) {
+            Node memory node = nodes[nodesIds[i]];
             ids[i] = node.id;
             nodeAddresses[i] = node.nodeAddress;
-            startPorts[i] = node.startPort;
-            endPorts[i] = node.endPort;
-            currentPorts[i] = node.currentPort;
+            // TODO remove start ports?
+            //startPorts[i] = node.startPort;
+            lastPorts[i] = node.lastPort;
+            nextPorts[i] = node.nextPort;
             owners[i] = node.owner;
             isPrivate[i] = node.isPrivate;
         }
 
-        return (ids, nodeAddresses, startPorts, endPorts, currentPorts, owners, isPrivate);
+        return (ids, nodeAddresses, startPorts, lastPorts, nextPorts, owners, isPrivate);
     }
 }
