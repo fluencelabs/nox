@@ -11,9 +11,9 @@ commons
 
 initialize := {
   val _ = initialize.value // run the previous initialization
-  //val required = "1.8" // counter.wast cannot be run under Java 9. Remove this check after fixes.
-  //val current = sys.props("java.specification.version")
-  //assert(current == required, s"Unsupported JDK: java.specification.version $current != $required")
+  val required = "1.8" // counter.wast cannot be run under Java 9. Remove this check after fixes.
+  val current = sys.props("java.specification.version")
+  assert(current == required, s"Unsupported JDK: java.specification.version $current != $required")
 }
 
 /* Projects */
@@ -35,13 +35,14 @@ lazy val vm = (project in file("vm"))
 
 lazy val exampleName = inputKey[String]("Name of the example that has to be compiled or ran")
 
-lazy val `run-vm-example` = (project in file("vm/examples"))
+lazy val `wasm` = (project in file("vm/examples"))
   .settings(
     commons,
-    // It has to build a fat jar because is not possible to simply run [[CounterRunner]] with sbt
-    // (like sbt vm-counter/run) since sbt uses their own ClassLoader. But Asmble requires system
-    // ClassLoader for some inner logic (for more details please see RuntimeHelpers.java file)
+    // It has to build a fat jar because of is not possible to merely run [[CounterRunner]] with sbt
+    // (like sbt wasm-vm-example/run testname) since sbt uses its own ClassLoader. But Asmble requires system
+    // ClassLoader for some inner logic (for more details please see RuntimeHelpers.java file in Asmble)
     assemblyJarName in assembly := "example.jar",
+//    mainClass in assembly := Some("fluence.vm.examples.CounterRunner"),
     assemblyMergeStrategy in assembly := {
       // a module definition fails compilation for java 8, just skip it
       case PathList("module-info.class", xs @ _*) => MergeStrategy.first
@@ -72,16 +73,16 @@ lazy val `run-vm-example` = (project in file("vm/examples"))
   .dependsOn(vm)
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `counter` = (project in file("vm/examples/counter"))
+  .settings(commons)
+  .dependsOn(wasm)
+
 lazy val statemachine = (project in file("statemachine"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      cats,
-      catsEffect,
       circeGeneric,
       circeParser,
-      pureConfig,
-      cryptoHashing,
       slogging,
       scodecBits,
       prometheusClient,
@@ -90,8 +91,7 @@ lazy val statemachine = (project in file("statemachine"))
       // Despite tmVersion is updated to 0.25.0, jtendermint:0.24.0 is the latest available and compatible with it.
       "com.github.jtendermint" % "jabci"          % "0.24.0",
       "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
-      "net.i2p.crypto"         % "eddsa"          % "0.3.0",
-      scalaTest
+      "net.i2p.crypto"         % "eddsa"          % "0.3.0"
     ),
     assemblyJarName in assembly := "statemachine.jar",
     assemblyMergeStrategy in assembly := {
