@@ -32,15 +32,15 @@ lazy val vm = (project in file("vm"))
   )
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `counter` = (project in file("vm/examples/counter"))
+lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .settings(
-    compileRustProject("counter")
+    compileRustVmExample("counter")
   )
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `llamadb` = (project in file("vm/examples/llamadb"))
+lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
-    compileRustProject("llamadb")
+    compileRustVmExample("llamadb")
   )
   .enablePlugins(AutomateHeaderPlugin)
 

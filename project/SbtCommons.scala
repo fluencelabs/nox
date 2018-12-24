@@ -2,9 +2,7 @@ import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.headerLicense
 import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
-import sbt.{Def, _}
-import sbtassembly.{MergeStrategy, PathList}
-import sbtassembly.AssemblyPlugin.autoImport._
+import sbt._
 
 object SbtCommons {
 
@@ -31,20 +29,15 @@ object SbtCommons {
     addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8")
   )
 
-  def compileRustProject(exampleName: String) = Seq(
+  def compileRustVmExample(exampleName: String) = Seq(
       run := {
         val log = streams.value.log
-        val compiledExampleName = exampleName
+        log.info(s"Compiling $exampleName.rs to $exampleName.wasm and running with Fluence.")
 
-        log.info(s"Compiling $compiledExampleName.rs to $compiledExampleName.wasm and running with Fluence.")
-
-        val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
         val projectRoot = file("").getAbsolutePath
-        val cmd = s"sh vm/examples/run_example.sh $compiledExampleName $projectRoot $scalaVer"
+        val exampleDir = s"$projectRoot/vm/examples/$exampleName"
 
-        log.info(s"Running $cmd")
-
-        //assert(cmd ! log == 0, "Compile Rust to Wasm failed.")
+        s"docker run --rm -w /work -v $exampleDir:/work tomaka/rustc-emscripten cargo +nightly build --target wasm32-unknown-unknown --release"
       }
   )
 
