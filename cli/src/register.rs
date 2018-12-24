@@ -222,7 +222,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         eth_url,
         credentials,
         wait_syncing,
-        gas
+        gas,
     )
 }
 
@@ -330,7 +330,7 @@ mod tests {
             String::from("http://localhost:8545/"),
             credentials,
             false,
-            1_000_000
+            1_000_000,
         )
         .unwrap()
     }
@@ -367,10 +367,12 @@ mod tests {
 
     #[test]
     fn register_out_of_gas() -> Result<(), Box<Error>> {
-        let register = generate_with( |r| {
-            r.gas = 1;
-
-        }, Credentials::No);
+        let register = generate_with(
+            |r| {
+                r.gas = 1;
+            },
+            Credentials::No,
+        );
 
         let result = register.register(false);
 

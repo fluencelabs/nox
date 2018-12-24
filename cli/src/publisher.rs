@@ -284,7 +284,7 @@ mod tests {
             String::from("http://localhost:8545/"),
             creds,
             5,
-            1000000
+            1000000,
         )
     }
 
