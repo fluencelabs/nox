@@ -28,6 +28,7 @@ use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use utils;
 use web3::transports::Http;
 use web3::types::{Address, H256};
+use base64::decode;
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
@@ -39,6 +40,7 @@ const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
 const WAIT_SYNCING: &str = "wait_syncing";
+const BASE64_TENDERMINT_KEY: &str = "base64";
 const GAS: &str = "gas";
 
 #[derive(Debug)]
@@ -180,12 +182,10 @@ impl Register {
 pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let node_address: IpAddr = matches.value_of(ADDRESS).unwrap().parse()?;
 
-    let tendermint_key = matches
+    let mut tendermint_key = matches
         .value_of(TENDERMINT_KEY)
         .unwrap()
         .trim_left_matches("0x");
-
-    let tendermint_key: H256 = tendermint_key.parse()?;
 
     let min_port: u16 = matches.value_of(MIN_PORT).unwrap().parse()?;
     let max_port: u16 = matches.value_of(MAX_PORT).unwrap().parse()?;
@@ -209,6 +209,14 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let credentials = Credentials::get(secret_key, password);
 
     let wait_syncing = matches.is_present(WAIT_SYNCING);
+    if matches.is_present(BASE64_TENDERMINT_KEY) {
+        let arr = decode(tendermint_key)?;
+        //TODO avoid using box here, fix liveness of borrowed value
+        let hex = Box::new(hex::encode(arr));
+        tendermint_key = Box::leak(hex);
+    };
+
+    let tendermint_key: H256 = tendermint_key.parse()?;
 
     let gas: u32 = matches.value_of(GAS).unwrap().parse()?;
 
@@ -291,6 +299,10 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .alias(WAIT_SYNCING)
                 .long(WAIT_SYNCING)
                 .help("waits until ethereum node will be synced, executes a command after this"),
+            Arg::with_name(BASE64_TENDERMINT_KEY)
+                .alias(BASE64_TENDERMINT_KEY)
+                .long(BASE64_TENDERMINT_KEY)
+                .help("allows to use base64 tendermint key"),
             Arg::with_name(GAS)
                 .alias(GAS)
                 .long(GAS)
