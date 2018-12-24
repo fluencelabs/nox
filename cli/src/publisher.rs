@@ -20,16 +20,16 @@ extern crate web3;
 use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
 use contract_func::ContractFunc;
+use credentials::Credentials;
+use ethkey::Secret;
 use reqwest::Client;
 use std::boxed::Box;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
+use std::str::FromStr;
 use utils;
 use web3::types::{Address, H256};
-use credentials::Credentials;
-use ethkey::Secret;
-use std::str::FromStr;
 
 const PATH: &str = "path";
 const ACCOUNT: &str = "account";
@@ -104,7 +104,7 @@ impl Publisher {
                 &self.credentials,
                 "addCode",
                 (hash, receipt, u64::from(self.cluster_size)),
-                2_000_000
+                2_000_000,
             )
         };
 
@@ -138,7 +138,8 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
     let swarm_url = matches.value_of(SWARM_URL).unwrap().to_string();
     let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
-    let secret_key = matches.value_of(SECRET_KEY)
+    let secret_key = matches
+        .value_of(SECRET_KEY)
         .map(|s| Secret::from_str(s.trim_left_matches("0x")).unwrap());
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
@@ -245,13 +246,13 @@ fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Box<Error>> {
 
 #[cfg(test)]
 mod tests {
+    use credentials::Credentials;
+    use ethkey::Secret;
     use publisher::Publisher;
     use std::error::Error;
     use web3;
     use web3::futures::Future;
     use web3::types::*;
-    use credentials::Credentials;
-    use ethkey::Secret;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
@@ -343,7 +344,10 @@ mod tests {
 
     #[test]
     fn publish_to_contract_success() -> Result<(), Box<Error>> {
-        let publisher = generate_publisher("64b8f12d14925394ae0119466dff6ff2b021a3e9", Credentials::No());
+        let publisher = generate_publisher(
+            "64b8f12d14925394ae0119466dff6ff2b021a3e9",
+            Credentials::No(),
+        );
 
         publisher.publish(false)?;
 
@@ -352,9 +356,13 @@ mod tests {
 
     #[test]
     fn publish_to_contract_with_secret_success() -> Result<(), Box<Error>> {
-        let secret_arr: H256 = "647334ad14cda7f79fecdf2b9e0bb2a0904856c36f175f97c83db181c1060414".parse()?;
+        let secret_arr: H256 =
+            "647334ad14cda7f79fecdf2b9e0bb2a0904856c36f175f97c83db181c1060414".parse()?;
         let secret = Secret::from(secret_arr);
-        let publisher = generate_publisher("ee75d7d2f7286dfa893f7ff58323917902889afe", Credentials::Secret(secret));
+        let publisher = generate_publisher(
+            "ee75d7d2f7286dfa893f7ff58323917902889afe",
+            Credentials::Secret(secret),
+        );
 
         publisher.publish(false)?;
 

@@ -20,23 +20,22 @@ use ethkey::Secret;
 pub enum Credentials {
     No(),
     Password(String),
-    Secret(Secret)
+    Secret(Secret),
 }
 
 impl Credentials {
-
     /// usage of secret key is priority
     pub fn get(secret: Option<Secret>, password: Option<String>) -> Credentials {
         match (secret, password) {
             (Some(secret), _) => Credentials::Secret(secret),
-            (_, password) => Credentials::from_password(password)
+            (_, password) => Credentials::from_password(password),
         }
     }
 
     pub fn from_password(pass: Option<String>) -> Credentials {
         match pass {
             Some(p) => Credentials::Password(p.to_owned()),
-            None => Credentials::No()
+            None => Credentials::No(),
         }
     }
 }

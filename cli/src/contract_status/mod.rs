@@ -63,12 +63,12 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
 #[cfg(test)]
 mod tests {
     use super::get_status;
+    use credentials::Credentials;
     use publisher::Publisher;
     use rand::prelude::*;
     use register::Register;
     use std::error::Error;
     use web3::types::*;
-    use credentials::Credentials;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
     const CONTRACT_ADDR: &str = "9995882876ae612bfd829498ccd73dd962ec950a";

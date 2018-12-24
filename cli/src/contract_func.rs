@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use credentials::Credentials;
 use ethcore_transaction::{Action, Transaction};
 use ethkey::Secret;
 use std::error::Error;
@@ -21,11 +22,9 @@ use utils;
 use web3::contract::tokens::{Detokenize, Tokenize};
 use web3::contract::Options;
 use web3::futures::Future;
+use web3::transports::Http;
 use web3::types::{Address, Bytes, H256};
 use web3::Web3;
-use web3::transports::Http;
-use credentials::Credentials;
-
 
 pub struct ContractFunc {
     eth_url: String,
@@ -49,22 +48,32 @@ impl ContractFunc {
         params: P,
         gas: u32,
     ) -> Result<H256, Box<Error>>
-        where
-            P: Tokenize,
+    where
+        P: Tokenize,
     {
         let (_eloop, transport) = Http::new(&self.eth_url)?;
         let web3 = web3::Web3::new(transport);
 
         match credentials {
-            Credentials::No() => {
-                self.call_contract(web3, account, None, utils::options_with_gas(gas), func, params)
-            },
-            Credentials::Password(pass) => {
-                self.call_contract(web3, account, Some(&pass), utils::options_with_gas(gas), func, params)
-            },
+            Credentials::No() => self.call_contract(
+                web3,
+                account,
+                None,
+                utils::options_with_gas(gas),
+                func,
+                params,
+            ),
+            Credentials::Password(pass) => self.call_contract(
+                web3,
+                account,
+                Some(&pass),
+                utils::options_with_gas(gas),
+                func,
+                params,
+            ),
             Credentials::Secret(secret) => {
-                self.call_contract_trusted(web3, account, &secret, func, params)
-            },
+                self.call_contract_trusted(web3, account, &secret, func, params, gas)
+            }
         }
     }
 
@@ -75,6 +84,7 @@ impl ContractFunc {
         secret: &Secret,
         func: &str,
         params: P,
+        gas: u32,
     ) -> Result<H256, Box<Error>>
     where
         P: Tokenize,
@@ -92,7 +102,7 @@ impl ContractFunc {
             value: "0".parse()?,
             action: Action::Call(self.contract_address.clone()),
             data: encoded,
-            gas: 300000.into(),
+            gas: gas.into(),
             gas_price: gas_price,
         };
 
@@ -123,9 +133,7 @@ impl ContractFunc {
         P: Tokenize,
     {
         if let Some(p) = password {
-                web3.personal()
-                .unlock_account(account, p, None)
-                .wait()?;
+            web3.personal().unlock_account(account, p, None).wait()?;
         }
 
         let contract = utils::init_contract(&web3, self.contract_address)?;

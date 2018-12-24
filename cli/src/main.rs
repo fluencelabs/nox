@@ -47,11 +47,11 @@ extern crate rand;
 mod check;
 mod contract_func;
 mod contract_status;
+mod credentials;
 mod publisher;
 mod register;
 mod types;
 mod utils;
-mod credentials;
 
 use clap::App;
 use clap::AppSettings;

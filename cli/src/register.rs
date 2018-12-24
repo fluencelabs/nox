@@ -16,16 +16,16 @@
 
 use clap::{App, Arg, ArgMatches, SubCommand};
 use contract_func::ContractFunc;
+use credentials::Credentials;
+use ethkey::Secret;
 use hex;
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
+use std::str::FromStr;
 use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use utils;
 use web3::types::{Address, H256};
-use credentials::Credentials;
-use ethkey::Secret;
-use std::str::FromStr;
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
@@ -122,7 +122,7 @@ impl Register {
                     u64::from(self.min_port),
                     u64::from(self.max_port),
                 ),
-                2_000_000
+                1_000_000,
             )
         };
 
@@ -164,9 +164,9 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
 
     let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
-    let secret_key = matches.value_of(SECRET_KEY).map(|s| {
-        Secret::from_str(s.trim_left_matches("0x")).unwrap()
-    });
+    let secret_key = matches
+        .value_of(SECRET_KEY)
+        .map(|s| Secret::from_str(s.trim_left_matches("0x")).unwrap());
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
     let credentials = Credentials::get(secret_key, password);
@@ -250,11 +250,11 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 #[cfg(test)]
 mod tests {
     use super::Register;
+    use credentials::Credentials;
+    use ethkey::Secret;
     use rand::prelude::*;
     use std::error::Error;
     use web3::types::*;
-    use credentials::Credentials;
-    use ethkey::Secret;
 
     fn generate_register(credentials: Credentials) -> Register {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
@@ -288,14 +288,20 @@ mod tests {
     }
 
     pub fn generate_with_account(account: Address, credentials: Credentials) -> Register {
-        generate_with(|r| {
-            r.account = account;
-        }, credentials)
+        generate_with(
+            |r| {
+                r.account = account;
+            },
+            credentials,
+        )
     }
 
     #[test]
     fn register_success() -> Result<(), Box<Error>> {
-        let register = generate_with_account("fa0de43c68bea2167181cd8a83f990d02a049336".parse()?, Credentials::No());
+        let register = generate_with_account(
+            "fa0de43c68bea2167181cd8a83f990d02a049336".parse()?,
+            Credentials::No(),
+        );
 
         register.register(false)?;
 
@@ -304,9 +310,13 @@ mod tests {
 
     #[test]
     fn register_success_with_secret() -> Result<(), Box<Error>> {
-        let secret_arr: H256 = "a349fe22d5c6f8ad3a1ad91ddb65e8946435b52254ce8c330f7ed796e83bfd92".parse()?;
+        let secret_arr: H256 =
+            "a349fe22d5c6f8ad3a1ad91ddb65e8946435b52254ce8c330f7ed796e83bfd92".parse()?;
         let secret = Secret::from(secret_arr);
-        let register = generate_with_account("dce48d51717ad5eb87fb56ff55ec609cf37b9aad".parse()?, Credentials::Secret(secret));
+        let register = generate_with_account(
+            "dce48d51717ad5eb87fb56ff55ec609cf37b9aad".parse()?,
+            Credentials::Secret(secret),
+        );
 
         register.register(false)?;
 
