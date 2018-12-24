@@ -2,7 +2,9 @@ import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.headerLicense
 import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
-import sbt._
+import sbt.{Def, _}
+import sbtassembly.{MergeStrategy, PathList}
+import sbtassembly.AssemblyPlugin.autoImport._
 
 object SbtCommons {
 
@@ -27,6 +29,23 @@ object SbtCommons {
   val kindProjector = Seq(
     resolvers += Resolver.sonatypeRepo("releases"),
     addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8")
+  )
+
+  def compileRustProject(exampleName: String) = Seq(
+      run := {
+        val log = streams.value.log
+        val compiledExampleName = exampleName
+
+        log.info(s"Compiling $compiledExampleName.rs to $compiledExampleName.wasm and running with Fluence.")
+
+        val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
+        val projectRoot = file("").getAbsolutePath
+        val cmd = s"sh vm/examples/run_example.sh $compiledExampleName $projectRoot $scalaVer"
+
+        log.info(s"Running $cmd")
+
+        //assert(cmd ! log == 0, "Compile Rust to Wasm failed.")
+      }
   )
 
   /* Common deps */

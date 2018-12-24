@@ -1,5 +1,4 @@
 import SbtCommons._
-import sbt.complete.DefaultParsers._
 import sbt.Keys._
 import sbt._
 
@@ -33,56 +32,28 @@ lazy val vm = (project in file("vm"))
   )
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val exampleName = inputKey[String]("Name of the example that has to be compiled or ran")
-
-lazy val `wasm` = (project in file("vm/examples"))
+lazy val `counter` = (project in file("vm/examples/counter"))
   .settings(
-    commons,
-    // It has to build a fat jar because of is not possible to merely run [[CounterRunner]] with sbt
-    // (like sbt wasm-vm-example/run testname) since sbt uses its own ClassLoader. But Asmble requires system
-    // ClassLoader for some inner logic (for more details please see RuntimeHelpers.java file in Asmble)
-    assemblyJarName in assembly := "example.jar",
-//    mainClass in assembly := Some("fluence.vm.examples.CounterRunner"),
-    assemblyMergeStrategy in assembly := {
-      // a module definition fails compilation for java 8, just skip it
-      case PathList("module-info.class", xs @ _*) => MergeStrategy.first
-      case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
-        oldStrategy(x)
-    },
-    exampleName := {
-      import sbt.complete.Parsers.spaceDelimited
-      val args = spaceDelimited("<args>").parsed
-      args.head
-    },
-    run := {
-      val log = streams.value.log
-      val compiledExampleName = exampleName.evaluated
-
-      log.info(s"Compiling $compiledExampleName.rs to $compiledExampleName.wasm and running with Fluence.")
-
-      val scalaVer = scalaVersion.value.slice(0, scalaVersion.value.lastIndexOf("."))
-      val projectRoot = file("").getAbsolutePath
-      val cmd = s"sh vm/examples/run_example.sh $compiledExampleName $projectRoot $scalaVer"
-
-      log.info(s"Running $cmd")
-
-      assert(cmd ! log == 0, "Compile Rust to Wasm failed.")
-    }
+    compileRustProject("counter")
   )
-  .dependsOn(vm)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `counter` = (project in file("vm/examples/counter"))
-  .settings(commons)
-  .dependsOn(wasm)
+lazy val `llamadb` = (project in file("vm/examples/llamadb"))
+  .settings(
+    compileRustProject("llamadb")
+  )
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val statemachine = (project in file("statemachine"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
       circeGeneric,
       circeParser,
+      pureConfig,
+      cryptoHashing,
       slogging,
       scodecBits,
       prometheusClient,
