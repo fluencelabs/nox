@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+use contract_func::ContractCaller;
 use std::error::Error;
 use types::NodeAddress;
-use utils;
 use web3::types::{Address, H256};
 
 /// Represents Fluence node registered in ethereum contract.
@@ -56,27 +56,15 @@ impl Node {
 }
 
 /// Gets list of ready-to-work nodes from Fluence contract
-pub fn get_ready_nodes(contract_address: Address, eth_url: &str) -> Result<Vec<Node>, Box<Error>> {
-    let options = utils::options();
-
-    // TODO: handle isPrivate
-    let (
-        nodes_indices,
-        node_addresses,
-        start_ports,
-        end_ports,
-        current_ports,
-        owners,
-        _, /* isPrivate */
-    ): (
+pub fn get_ready_nodes(contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
+    let (nodes_indices, node_addresses, start_ports, end_ports, current_ports, owners): (
         Vec<H256>,
         Vec<NodeAddress>,
         Vec<u64>,
         Vec<u64>,
         Vec<u64>,
         Vec<Address>,
-        Vec<bool>,
-    ) = utils::query_contract(contract_address, eth_url, "getReadyNodes", (), options)?;
+    ) = contract.query_contract("getReadyNodes", ())?;
 
     let mut nodes: Vec<Node> = Vec::new();
     for i in 0..nodes_indices.len() {

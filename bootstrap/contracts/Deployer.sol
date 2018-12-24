@@ -43,10 +43,6 @@ pragma solidity ^0.4.24;
 // TODO: there should be timeout on deployment status, and it should be confirmed periodically
 // cuz it is possible for Solvers to ignore `CodeDeploying` while code is marked as deployed=true
 
-// implementation is at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/access/Whitelist.sol
-// example tests are at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/test/ownership/Whitelist.test.js
-import "openzeppelin-solidity/contracts/access/Whitelist.sol";
-
 /*
  * This contract allows to:
  *  - register a node in Fluence network by submitting IP address and port range
@@ -58,7 +54,7 @@ import "openzeppelin-solidity/contracts/access/Whitelist.sol";
  * is expected to trigger real-time cluster creation when received by matched Fluence nodes
  *
  */
-contract Deployer is Whitelist {
+contract Deployer {
     // Represents a Fluence Node which already is running or ready to run Solvers within the port range
     // Node's Solvers share the same Tendermint ID (consensus key) and nodeAddress
     struct Node {
@@ -164,7 +160,6 @@ contract Deployer is Whitelist {
     function addNode(bytes32 nodeID, bytes24 nodeAddress, uint16 startPort, uint16 endPort, bool isPrivate)
         external
     {
-        require(whitelist(msg.sender), "The sender is not in whitelist");
         require(nodes[nodeID].id == 0, "This node is already registered");
 
         // port range is inclusive
@@ -202,7 +197,6 @@ contract Deployer is Whitelist {
     function addApp(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize, bytes32[] pinToNodes)
         external
     {
-        require(whitelist(msg.sender), "The sender is not in whitelist");
         require(clusterSize >= pinToNodes.length,
             "number of pinned nodes should be less or equal to the desired clusterSize");
 

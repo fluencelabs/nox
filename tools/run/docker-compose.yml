@@ -12,11 +12,13 @@ services:
 
   node1:
     container_name: node1
-    image: fluencelabs/node:2018-dec-demo
+    image: fluencelabs/node:latest
     environment:
       - TENDERMINT_IP=$DOCKER_IP
       - ETHEREUM_IP=$HOST_IP
-      - SWARM_IP=$HOST_IP
+      - SWARM_HOST=http://$HOST_IP
+      - CONTRACT_ADDRESS=0x61cB67eFc24911cE1cEa96ea76320DE11383B9b5
+      - OWNER_ADDRESS=0x7aD615F735528C8c975777e83befFe8042Ad8Ffb
       - PORTS=25000:25003
     ports:
       - 25400:5678

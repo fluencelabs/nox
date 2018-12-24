@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+use contract_func::ContractCaller;
 use contract_status::code::Code;
 use std::error::Error;
 use types::NodeAddress;
-use utils;
 use web3::types::{Address, H256, U256};
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
@@ -72,32 +72,17 @@ impl Cluster {
 }
 
 /// Gets list of formed clusters from Fluence contract
-pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Cluster>, Box<Error>> {
-    let options = utils::options();
-
-    // TODO: handle isPrivate
-    let (
-        cluster_ids,
-        genesis_times,
-        code_addresses,
-        storage_receipts,
-        cluster_sizes,
-        developers,
-        _, /* isPrivate */
-    ): (
+pub fn get_clusters(contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error>> {
+    let (cluster_ids, genesis_times, code_addresses, storage_receipts, cluster_sizes, developers): (
         Vec<H256>,
         Vec<U256>,
         Vec<H256>,
         Vec<H256>,
         Vec<u64>,
         Vec<Address>,
-        Vec<bool>,
-    ) = utils::query_contract(
-        contract_address,
-        eth_url,
+    ) = contract.query_contract(
         "getClustersInfo",
         (),
-        options.to_owned(),
     )?;
 
     let (nodes_ids, nodes_addresses, ports, owners): (
@@ -105,13 +90,7 @@ pub fn get_clusters(contract_address: Address, eth_url: &str) -> Result<Vec<Clus
         Vec<NodeAddress>,
         Vec<u64>,
         Vec<Address>,
-    ) = utils::query_contract(
-        contract_address,
-        eth_url,
-        "getClustersNodes",
-        (),
-        options.to_owned(),
-    )?;
+    ) = contract.query_contract("getClustersNodes", ())?;
 
     let mut clusters: Vec<Cluster> = Vec::new();
     let mut nodes_counter = 0;

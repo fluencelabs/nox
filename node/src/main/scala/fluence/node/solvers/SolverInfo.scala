@@ -17,7 +17,7 @@
 package fluence.node.solvers
 
 import fluence.node.solvers.SolverResponse.SolverTendermintInfo
-import io.circe.{Encoder, Json}
+import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
 
 /**
@@ -51,6 +51,7 @@ object RunningSolverInfo {
     )
 
   implicit val encodeSolverInfo: Encoder[RunningSolverInfo] = deriveEncoder
+  implicit val decodeSolverInfo: Decoder[RunningSolverInfo] = deriveDecoder
 }
 
 /**
@@ -78,6 +79,7 @@ object StoppedSolverInfo {
     )
 
   implicit val encodeSolverInfo: Encoder[StoppedSolverInfo] = deriveEncoder
+  implicit val decodeSolverInfo: Decoder[StoppedSolverInfo] = deriveDecoder
 }
 
 sealed trait SolverInfo {
@@ -85,12 +87,12 @@ sealed trait SolverInfo {
 }
 
 object SolverInfo {
-  implicit val encodeThrowable: Encoder[Throwable] = new Encoder[Throwable] {
-    final def apply(a: Throwable): Json = Json.fromString(a.getLocalizedMessage)
-  }
+  implicit val encodeThrowable: Encoder[Throwable] = Encoder[String].contramap(_.getLocalizedMessage)
 
-  import RunningSolverInfo._
+  implicit val decodeThrowable: Decoder[Throwable] = Decoder[String].map(s => new Exception(s))
+
   implicit val encoderSolverHealth: Encoder[SolverInfo] = deriveEncoder
+  implicit val decoderSolverHealth: Decoder[SolverInfo] = deriveDecoder
 }
 
 sealed trait SolverHealthy extends SolverInfo {

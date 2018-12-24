@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+use contract_func::ContractCaller;
 use std::error::Error;
-use utils;
 use web3::types::{Address, H256};
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
@@ -42,28 +42,13 @@ impl Code {
     }
 }
 
-pub fn get_enqueued_codes(
-    contract_address: Address,
-    eth_url: &str,
-) -> Result<Vec<Code>, Box<Error>> {
-    let options = utils::options();
-
-    // TODO: handle pinned & pinnedNodes
-    let (
-        storage_hashes,
-        storage_receipts,
-        cluster_sizes,
-        developers,
-        _, /* pinned */
-        _, /* pinnedNodes */
-    ): (
+pub fn get_enqueued_codes(contract: &ContractCaller) -> Result<Vec<Code>, Box<Error>> {
+    let (storage_hashes, storage_receipts, cluster_sizes, developers): (
         Vec<H256>,
         Vec<H256>,
         Vec<u64>,
         Vec<Address>,
-        Vec<bool>,
-        Vec<H256>,
-    ) = utils::query_contract(contract_address, eth_url, "getEnqueuedCodes", (), options)?;
+    ) = contract.query_contract("getEnqueuedCodes", ())?;
 
     let mut codes: Vec<Code> = Vec::new();
     for i in 0..storage_hashes.len() {
