@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use contract_func::ContractFunc;
+use contract_func::ContractCaller;
 use std::error::Error;
 use types::NodeAddress;
 use web3::types::{Address, H256};
@@ -56,7 +56,7 @@ impl Node {
 }
 
 /// Gets list of ready-to-work nodes from Fluence contract
-pub fn get_ready_nodes(contract: &ContractFunc) -> Result<Vec<Node>, Box<Error>> {
+pub fn get_ready_nodes(contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
     let (nodes_indices, node_addresses, start_ports, end_ports, current_ports, owners): (
         Vec<H256>,
         Vec<NodeAddress>,

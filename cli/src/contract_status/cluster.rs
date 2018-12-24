@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use contract_func::ContractFunc;
+use contract_func::ContractCaller;
 use contract_status::code::Code;
 use std::error::Error;
 use types::NodeAddress;
@@ -72,7 +72,7 @@ impl Cluster {
 }
 
 /// Gets list of formed clusters from Fluence contract
-pub fn get_clusters(contract: &ContractFunc) -> Result<Vec<Cluster>, Box<Error>> {
+pub fn get_clusters(contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error>> {
     let (cluster_ids, genesis_times, code_addresses, storage_receipts, cluster_sizes, developers): (
         Vec<H256>,
         Vec<U256>,

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use contract_func::ContractFunc;
+use contract_func::ContractCaller;
 use std::error::Error;
 use web3::types::{Address, H256};
 
@@ -42,7 +42,7 @@ impl Code {
     }
 }
 
-pub fn get_enqueued_codes(contract: &ContractFunc) -> Result<Vec<Code>, Box<Error>> {
+pub fn get_enqueued_codes(contract: &ContractCaller) -> Result<Vec<Code>, Box<Error>> {
     let (storage_hashes, storage_receipts, cluster_sizes, developers): (
         Vec<H256>,
         Vec<H256>,

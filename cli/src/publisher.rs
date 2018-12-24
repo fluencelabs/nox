@@ -19,7 +19,7 @@ extern crate web3;
 
 use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
-use contract_func::ContractFunc;
+use contract_func::ContractCaller;
 use credentials::Credentials;
 use ethkey::Secret;
 use reqwest::Client;
@@ -97,9 +97,9 @@ impl Publisher {
             let receipt: H256 =
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
 
-            let contract = ContractFunc::new(self.contract_address, &self.eth_url)?;
+            let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
 
-            contract.call_contract_new(
+            contract.call_contract(
                 self.account,
                 &self.credentials,
                 "addCode",

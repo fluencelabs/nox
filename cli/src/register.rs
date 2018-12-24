@@ -15,7 +15,7 @@
  */
 
 use clap::{App, Arg, ArgMatches, SubCommand};
-use contract_func::ContractFunc;
+use contract_func::ContractCaller;
 use credentials::Credentials;
 use ethkey::Secret;
 use hex;
@@ -110,9 +110,9 @@ impl Register {
         let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
             let hash_addr = self.serialize_node_address()?;
 
-            let contract = ContractFunc::new(self.contract_address, &self.eth_url)?;
+            let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
 
-            contract.call_contract_new(
+            contract.call_contract(
                 self.account,
                 &self.credentials,
                 "addNode",

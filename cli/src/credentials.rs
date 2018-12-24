@@ -16,6 +16,7 @@
 
 use ethkey::Secret;
 
+/// Authorization to call contract methods
 #[derive(Debug)]
 pub enum Credentials {
     No(),

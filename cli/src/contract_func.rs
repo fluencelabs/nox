@@ -26,21 +26,23 @@ use web3::transports::Http;
 use web3::types::{Address, Bytes, H256};
 use web3::Web3;
 
-pub struct ContractFunc {
+/// Interacts with contract
+pub struct ContractCaller {
     eth_url: String,
     contract_address: Address,
 }
 
-impl ContractFunc {
-    pub fn new(contract_address: Address, eth_url: &str) -> Result<ContractFunc, Box<Error>> {
+impl ContractCaller {
+    pub fn new(contract_address: Address, eth_url: &str) -> Result<ContractCaller, Box<Error>> {
         let eth_url = eth_url.to_owned();
-        Ok(ContractFunc {
+        Ok(ContractCaller {
             eth_url,
             contract_address,
         })
     }
 
-    pub fn call_contract_new<P>(
+    /// Calls contract method and returns hash of the transaction
+    pub fn call_contract<P>(
         &self,
         account: Address,
         credentials: &Credentials,
@@ -55,7 +57,7 @@ impl ContractFunc {
         let web3 = web3::Web3::new(transport);
 
         match credentials {
-            Credentials::No() => self.call_contract(
+            Credentials::No() => self.call_contract_trusted_node(
                 web3,
                 account,
                 None,
@@ -63,7 +65,7 @@ impl ContractFunc {
                 func,
                 params,
             ),
-            Credentials::Password(pass) => self.call_contract(
+            Credentials::Password(pass) => self.call_contract_trusted_node(
                 web3,
                 account,
                 Some(&pass),
@@ -72,12 +74,13 @@ impl ContractFunc {
                 params,
             ),
             Credentials::Secret(secret) => {
-                self.call_contract_trusted(web3, account, &secret, func, params, gas)
+                self.call_contract_local_sign(web3, account, &secret, func, params, gas)
             }
         }
     }
 
-    fn call_contract_trusted<P>(
+    /// Signs transaction with a secret key and sends a raw transaction to Ethereum node
+    fn call_contract_local_sign<P>(
         &self,
         web3: Web3<Http>,
         account: Address,
@@ -106,9 +109,6 @@ impl ContractFunc {
             gas_price: gas_price,
         };
 
-        //    let priv_key: H256 = "cb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133".parse()?;
-        //    let secret = Secret::from(priv_key);
-
         let tx_signed = tx.sign(secret, None);
 
         let resp = web3
@@ -119,8 +119,8 @@ impl ContractFunc {
         Ok(resp)
     }
 
-    /// Calls contract method and returns hash of the transaction
-    fn call_contract<P>(
+    /// Sends a transaction to a trusted node with an unlocked account (or, firstly, unlocks account with password)
+    fn call_contract_trusted_node<P>(
         &self,
         web3: Web3<Http>,
         account: Address,
