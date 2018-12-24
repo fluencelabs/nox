@@ -138,12 +138,8 @@ impl ContractCaller {
 
         let contract = utils::init_contract(&web3, self.contract_address)?;
 
-        let result_code_publish = contract.call(func, params, account, options);
-        let res = result_code_publish.wait().map_err(|er| {
-            println!("{:?}", er);
-            er
-        });
-        Ok(res?)
+        let result = contract.call(func, params, account, options);
+        Ok(result.wait()?)
     }
 
     /// Calls contract method and returns some result
@@ -157,8 +153,7 @@ impl ContractCaller {
 
         let contract = utils::init_contract(&web3, self.contract_address)?;
 
-        let result_code_publish = contract.query(func, params, None, utils::options(), None);
-        let res = result_code_publish.wait()?;
-        Ok(res)
+        let result = contract.query(func, params, None, utils::options(), None);
+        Ok(result.wait()?)
     }
 }
