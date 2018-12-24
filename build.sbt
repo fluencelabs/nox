@@ -2,8 +2,6 @@ import SbtCommons._
 import sbt.Keys._
 import sbt._
 
-import scala.sys.process._
-
 name := "fluence"
 
 commons
