@@ -150,21 +150,6 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .map(BigInt(_))
 
   /**
-   * Add this address to whitelist
-   *
-   * TODO should not be called from scala
-   * @param address Address to add
-   * @tparam F Effect
-   * @return The block number where transaction has been mined
-   */
-  def addAddressToWhitelist[F[_]: Async](address: String): F[BigInt] =
-    contract
-      .addAddressToWhitelist(new Address(address))
-      .call[F]
-      .map(_.getBlockNumber)
-      .map(BigInt(_))
-
-  /**
    * Adds a new code to be launched with a new cluster
    *
    * TODO should not be called from scala
@@ -173,7 +158,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * @tparam F Effect
    * @return The block number where transaction has been mined
    */
-  def addCode[F[_]: Async](code: String = "llamadb", clusterSize: Short = 1): F[BigInt] =
+  def addCode[F[_]: Async](code: String, clusterSize: Short = 1): F[BigInt] =
     contract
       .addCode(stringToBytes32(code), stringToBytes32("receipt_stub"), new Uint8(clusterSize))
       .call[F]

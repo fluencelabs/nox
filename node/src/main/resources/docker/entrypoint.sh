@@ -57,6 +57,14 @@ if [ ! -z "$SWARM_HOST" ]; then
     SWARM_HOST="swarm.host = \"$SWARM_HOST\""
 fi
 
+if [ ! -z "$CONTRACT_ADDRESS" ]; then
+    CONTRACT_ADDRESS="contract.address = \"$CONTRACT_ADDRESS\""
+fi
+
+if [ ! -z "$OWNER_ADDRESS" ]; then
+    OWNER_ADDRESS="contract.owner-account = \"$OWNER_ADDRESS\""
+fi
+
 # Running master-node.jar, that means running default CMD
 if [ "$3" = "/master-node.jar" ]; then
     CONTAINER_ID=$(cat /proc/1/cpuset)
@@ -72,6 +80,9 @@ ethereum {
 $SWARM_HOST
 tendermint-path = "/master"
 master-container-id = "${CONTAINER_ID#"/docker/"}"
+$CONTRACT_ADDRESS
+$OWNER_ADDRESS
+
 EOF
 fi
 

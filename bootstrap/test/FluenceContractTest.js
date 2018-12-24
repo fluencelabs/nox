@@ -55,7 +55,6 @@ async function addNodes(contract, count, nodeIP, ownerAddress, portCount = 2) {
 contract('Fluence', function ([_, owner, whitelisted, anyone]) {
     beforeEach(async function() {
       this.contract = await FluenceContract.new({ from: owner });
-      await this.contract.addAddressToWhitelist(whitelisted, { from: owner })
     });
 
     it("Should send event about new Node", async function() {
@@ -220,24 +219,4 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         truffleAssert.eventEmitted(firstCluster, clusterFormedEvent, _ => true);
         truffleAssert.eventEmitted(secondCluster, clusterFormedEvent, _ => true)
     });
-
-    it("Should revert if anyone tries to add code", async function() {
-        await expectThrow(
-            this.contract.addCode("storageHash", "storageReceipt", 100)
-        );
-
-        await expectThrow(
-            this.contract.addCode("storageHash", "storageReceipt", 100, { from: anyone })
-        )
-    });
-
-    it("Should revert if anyone tries to add node", async function() {
-        await expectThrow(
-            this.contract.addNode("id", "address", 1000, 1001)
-        );
-
-        await expectThrow(
-            this.contract.addNode("id", "address", 1000, 1001, { from: anyone })
-        )
-    })
 });

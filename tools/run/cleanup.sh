@@ -1,14 +1,6 @@
 #!/bin/bash
 
-case "$(uname -s)" in
-   Darwin)
-     docker-compose -f macos/docker-compose.yml kill
-     ;;
-
-   Linux)
-     docker-compose -f linux/docker-compose.yml kill
-     ;;
-esac
+docker-compose -f docker-compose.yml kill
 
 pkill -f ganache
 
