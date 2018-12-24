@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-compile_example.sh
-
 exampleName=${1/_/} # replace underscores "_" from example name
 projectDir=$2
 scalaVer=$3
@@ -26,8 +24,8 @@ fi
 
 printf "$prefix Build from WASM code executable WasmVM jar\n"
 
-sbt "vm-$exampleName"/assembly
+sbt "wasm/assembly"
 
-printf "$prefix Run example $exampleName.jar\n"
+printf "$prefix Run example $exampleName\n"
 
-java -jar "$exampleFolder/target/scala-$scalaVer/$exampleName.jar" "$exampleFolder/target/wasm32-unknown-unknown/release/$1.wasm"
+java -jar "$projectDir/vm/examples/target/scala-$scalaVer/example.jar" "$exampleFolder/target/wasm32-unknown-unknown/release/$1.wasm"

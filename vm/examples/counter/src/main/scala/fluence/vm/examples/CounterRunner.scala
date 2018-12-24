@@ -18,7 +18,7 @@ package fluence.vm.examples
 import cats.data.EitherT
 import cats.effect.{ExitCode, IO, IOApp}
 import fluence.vm.VmError.InternalVmError
-import fluence.vm.{VmError, WasmVm}
+import fluence.vm.WasmVm
 
 import scala.language.higherKinds
 
