@@ -19,7 +19,7 @@ use ethkey::Secret;
 /// Authorization to call contract methods
 #[derive(Debug)]
 pub enum Credentials {
-    No(),
+    No,
     Password(String),
     Secret(Secret),
 }
@@ -36,7 +36,7 @@ impl Credentials {
     pub fn from_password(pass: Option<String>) -> Credentials {
         match pass {
             Some(p) => Credentials::Password(p.to_owned()),
-            None => Credentials::No(),
+            None => Credentials::No,
         }
     }
 }

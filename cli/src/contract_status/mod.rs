@@ -78,7 +78,7 @@ mod tests {
     fn generate_publisher(bytes: Vec<u8>, cluster_size: &u8) -> Publisher {
         let contract_address: Address = CONTRACT_ADDR.parse().unwrap();
 
-        let creds: Credentials = Credentials::No();
+        let creds: Credentials = Credentials::No;
 
         Publisher::new(
             bytes,
@@ -108,7 +108,8 @@ mod tests {
             contract_address,
             account,
             String::from(ETH_URL),
-            Credentials::No(),
+            Credentials::No,
+            false,
         )
         .unwrap()
     }

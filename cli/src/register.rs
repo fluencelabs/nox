@@ -23,8 +23,10 @@ use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
 use std::str::FromStr;
+use std::{thread, time};
 use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use utils;
+use web3::transports::Http;
 use web3::types::{Address, H256};
 
 const ADDRESS: &str = "address";
@@ -36,6 +38,7 @@ const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
+const WAIT_SYNCING: &str = "wait_syncing";
 
 #[derive(Debug)]
 pub struct Register {
@@ -47,6 +50,7 @@ pub struct Register {
     account: Address,
     eth_url: String,
     credentials: Credentials,
+    wait_syncing: bool,
 }
 
 impl Register {
@@ -60,6 +64,7 @@ impl Register {
         account: Address,
         eth_url: String,
         credentials: Credentials,
+        wait_syncing: bool,
     ) -> Result<Register, Box<Error>> {
         if max_port < min_port {
             let err: Box<Error> = From::from("max_port should be bigger than min_port".to_string());
@@ -75,6 +80,7 @@ impl Register {
             account,
             eth_url,
             credentials,
+            wait_syncing,
         })
     }
 
@@ -107,6 +113,23 @@ impl Register {
 
     /// Registers a node in Fluence smart contract
     pub fn register(&self, show_progress: bool) -> Result<H256, Box<Error>> {
+        let wait_syncing_fn = || -> Result<(), Box<Error>> {
+            let (_eloop, transport) = Http::new(&self.eth_url)?;
+            let web3 = &web3::Web3::new(transport);
+
+            let mut sync = utils::check_sync(web3)?;
+
+            let ten_seconds = time::Duration::from_secs(10);
+
+            while sync {
+                thread::sleep(ten_seconds);
+
+                sync = utils::check_sync(web3)?;
+            }
+
+            Ok(())
+        };
+
         let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
             let hash_addr = self.serialize_node_address()?;
 
@@ -128,10 +151,20 @@ impl Register {
 
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
+            if self.wait_syncing {
+                utils::with_progress(
+                    "Waiting for the node is syncing",
+                    "1/2",
+                    "Node synced.",
+                    wait_syncing_fn,
+                )?;
+            };
+
+            let prefix = if self.wait_syncing { "2/2" } else { "1/1" };
             utils::with_progress(
-                "Adding a solver to the smart contract...",
-                "1/1",
-                "The solver added.",
+                "Adding the solver to the smart contract...",
+                prefix,
+                "Solver added.",
                 publish_to_contract_fn,
             )
         } else {
@@ -171,6 +204,8 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
 
     let credentials = Credentials::get(secret_key, password);
 
+    let wait_syncing = matches.is_present(WAIT_SYNCING);
+
     Register::new(
         node_address,
         tendermint_key,
@@ -180,6 +215,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         account,
         eth_url,
         credentials,
+        wait_syncing,
     )
 }
 
@@ -244,6 +280,10 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(false)
                 .takes_value(true)
                 .help("the secret key to sign transactions"),
+            Arg::with_name(WAIT_SYNCING)
+                .alias(WAIT_SYNCING)
+                .long(WAIT_SYNCING)
+                .help("waits until ethereum node will be synced, executes a command after this"),
         ])
 }
 
@@ -274,6 +314,7 @@ mod tests {
             account,
             String::from("http://localhost:8545/"),
             credentials,
+            false,
         )
         .unwrap()
     }
@@ -300,7 +341,7 @@ mod tests {
     fn register_success() -> Result<(), Box<Error>> {
         let register = generate_with_account(
             "fa0de43c68bea2167181cd8a83f990d02a049336".parse()?,
-            Credentials::No(),
+            Credentials::No,
         );
 
         register.register(false)?;

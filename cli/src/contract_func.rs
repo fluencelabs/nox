@@ -57,7 +57,7 @@ impl ContractCaller {
         let web3 = web3::Web3::new(transport);
 
         match credentials {
-            Credentials::No() => self.call_contract_trusted_node(
+            Credentials::No => self.call_contract_trusted_node(
                 web3,
                 account,
                 None,

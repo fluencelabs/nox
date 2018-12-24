@@ -276,7 +276,7 @@ mod tests {
     where
         F: FnOnce(&mut Publisher),
     {
-        let mut publisher = generate_publisher(account, Credentials::No());
+        let mut publisher = generate_publisher(account, Credentials::No);
         func(&mut publisher);
         publisher
     }
@@ -344,10 +344,8 @@ mod tests {
 
     #[test]
     fn publish_to_contract_success() -> Result<(), Box<Error>> {
-        let publisher = generate_publisher(
-            "64b8f12d14925394ae0119466dff6ff2b021a3e9",
-            Credentials::No(),
-        );
+        let publisher =
+            generate_publisher("64b8f12d14925394ae0119466dff6ff2b021a3e9", Credentials::No);
 
         publisher.publish(false)?;
 

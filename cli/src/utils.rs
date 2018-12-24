@@ -18,7 +18,10 @@ use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError};
 use std::error::Error;
 use web3::contract::{Contract, Options};
+use web3::futures::Future;
+use web3::transports::Http;
 use web3::types::Address;
+use web3::types::SyncState;
 use web3::{Transport, Web3};
 
 /// Creates progress bar in the console until the work is over
@@ -89,6 +92,14 @@ pub fn parse_url(url: &str) -> Result<Url, UrlError> {
             Url::parse(url_with_base.as_str())
         }
         Err(error) => Err(error),
+    }
+}
+
+pub fn check_sync(web3: &Web3<Http>) -> Result<bool, Box<Error>> {
+    let sync_state = web3.eth().syncing().wait()?;
+    match sync_state {
+        SyncState::Syncing(_) => Ok(true),
+        SyncState::NotSyncing => Ok(false),
     }
 }
 
