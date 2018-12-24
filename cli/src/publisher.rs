@@ -39,6 +39,7 @@ const PASSWORD: &str = "password";
 const CLUSTER_SIZE: &str = "cluster_size";
 const SWARM_URL: &str = "swarm_url";
 const SECRET_KEY: &str = "secret_key";
+const GAS: &str = "gas";
 
 #[derive(Debug)]
 pub struct Publisher {
@@ -49,6 +50,7 @@ pub struct Publisher {
     eth_url: String,
     credentials: Credentials,
     cluster_size: u8,
+    gas: u32,
 }
 
 impl Publisher {
@@ -61,6 +63,7 @@ impl Publisher {
         eth_url: String,
         credentials: Credentials,
         cluster_size: u8,
+        gas: u32,
     ) -> Publisher {
         Publisher {
             bytes,
@@ -70,6 +73,7 @@ impl Publisher {
             eth_url,
             credentials,
             cluster_size,
+            gas,
         }
     }
 
@@ -104,7 +108,7 @@ impl Publisher {
                 &self.credentials,
                 "addCode",
                 (hash, receipt, u64::from(self.cluster_size)),
-                2_000_000,
+                self.gas,
             )
         };
 
@@ -152,6 +156,8 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
 
+    let gas: u32 = matches.value_of(GAS).unwrap().parse()?;
+
     Ok(Publisher::new(
         buf.to_owned(),
         contract_address,
@@ -160,6 +166,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
         eth_url,
         credentials,
         cluster_size,
+        gas,
     ))
 }
 
@@ -225,6 +232,14 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .takes_value(true)
                 .default_value("3")
                 .help("cluster's size that needed to deploy this code"),
+            Arg::with_name(GAS)
+                .alias(GAS)
+                .long(GAS)
+                .short("g")
+                .required(false)
+                .takes_value(true)
+                .default_value("1_000_000")
+                .help("maximum gas to spend"),
         ])
 }
 
@@ -269,6 +284,7 @@ mod tests {
             String::from("http://localhost:8545/"),
             creds,
             5,
+            1000000
         )
     }
 
@@ -333,6 +349,19 @@ mod tests {
     fn publish_wrong_eth_url() -> Result<(), Box<Error>> {
         let publisher = generate_with("fa0de43c68bea2167181cd8a83f990d02a049336", |p| {
             p.eth_url = String::from("http://117.2.6.7:4476");
+        });
+
+        let result = publisher.publish(false);
+
+        assert_eq!(result.is_err(), true);
+
+        Ok(())
+    }
+
+    #[test]
+    fn publish_out_of_gas() -> Result<(), Box<Error>> {
+        let publisher = generate_with("fa0de43c68bea2167181cd8a83f990d02a049336", |p| {
+            p.gas = 1;
         });
 
         let result = publisher.publish(false);

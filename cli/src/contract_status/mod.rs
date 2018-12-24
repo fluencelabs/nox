@@ -88,6 +88,7 @@ mod tests {
             String::from(ETH_URL),
             creds,
             cluster_size.to_owned(),
+            1_000_000
         )
     }
 
@@ -110,6 +111,7 @@ mod tests {
             String::from(ETH_URL),
             Credentials::No,
             false,
+            1_000_000
         )
         .unwrap()
     }

@@ -39,6 +39,7 @@ const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
 const WAIT_SYNCING: &str = "wait_syncing";
+const GAS: &str = "gas";
 
 #[derive(Debug)]
 pub struct Register {
@@ -51,6 +52,7 @@ pub struct Register {
     eth_url: String,
     credentials: Credentials,
     wait_syncing: bool,
+    gas: u32,
 }
 
 impl Register {
@@ -65,6 +67,7 @@ impl Register {
         eth_url: String,
         credentials: Credentials,
         wait_syncing: bool,
+        gas: u32,
     ) -> Result<Register, Box<Error>> {
         if max_port < min_port {
             let err: Box<Error> = From::from("max_port should be bigger than min_port".to_string());
@@ -81,6 +84,7 @@ impl Register {
             eth_url,
             credentials,
             wait_syncing,
+            gas,
         })
     }
 
@@ -145,7 +149,7 @@ impl Register {
                     u64::from(self.min_port),
                     u64::from(self.max_port),
                 ),
-                1_000_000,
+                self.gas,
             )
         };
 
@@ -206,6 +210,8 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
 
     let wait_syncing = matches.is_present(WAIT_SYNCING);
 
+    let gas: u32 = matches.value_of(GAS).unwrap().parse()?;
+
     Register::new(
         node_address,
         tendermint_key,
@@ -216,6 +222,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         eth_url,
         credentials,
         wait_syncing,
+        gas
     )
 }
 
@@ -284,6 +291,14 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .alias(WAIT_SYNCING)
                 .long(WAIT_SYNCING)
                 .help("waits until ethereum node will be synced, executes a command after this"),
+            Arg::with_name(GAS)
+                .alias(GAS)
+                .long(GAS)
+                .short("g")
+                .required(false)
+                .takes_value(true)
+                .default_value("1_000_000")
+                .help("maximum gas to spend"),
         ])
 }
 
@@ -315,6 +330,7 @@ mod tests {
             String::from("http://localhost:8545/"),
             credentials,
             false,
+            1_000_000
         )
         .unwrap()
     }
@@ -345,6 +361,20 @@ mod tests {
         );
 
         register.register(false)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn register_out_of_gas() -> Result<(), Box<Error>> {
+        let register = generate_with( |r| {
+            r.gas = 1;
+
+        }, Credentials::No);
+
+        let result = register.register(false);
+
+        assert_eq!(result.is_err(), true);
 
         Ok(())
     }
