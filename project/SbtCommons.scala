@@ -31,7 +31,8 @@ object SbtCommons {
   )
 
   def compileRustVmExample(exampleName: String) = Seq(
-      run := {
+    publishArtifact := false,
+    run := {
         val log = streams.value.log
         log.info(s"Compiling $exampleName.rs to $exampleName.wasm")
 
@@ -40,10 +41,6 @@ object SbtCommons {
         val compileCmd = s"docker run --rm -w /work -v ${exampleFolder}:/work tomaka/rustc-emscripten " +
           s"cargo +nightly build --target wasm32-unknown-unknown --release"
         
-        val (art, file_) = packagedArtifact.in(Compile, packageBin).value
-        println("Artifact definition: " + art)
-        println("Packaged file: " + file_.getAbsolutePath)
-
         assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
       }
   )

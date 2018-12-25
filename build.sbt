@@ -58,7 +58,8 @@ lazy val statemachine = (project in file("statemachine"))
       // Despite tmVersion is updated to 0.25.0, jtendermint:0.24.0 is the latest available and compatible with it.
       "com.github.jtendermint" % "jabci"          % "0.24.0",
       "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
-      "net.i2p.crypto"         % "eddsa"          % "0.3.0"
+      "net.i2p.crypto"         % "eddsa"          % "0.3.0",
+      scalaTest
     ),
     assemblyJarName in assembly := "statemachine.jar",
     assemblyMergeStrategy in assembly := {
@@ -92,6 +93,9 @@ lazy val statemachine = (project in file("statemachine"))
       val stateMachinePrometheusPort = 26661
 
       val vmDataRoot = "/vmcode"
+
+      val projectRoot = file("").getAbsolutePath
+      s"cp ${projectRoot}/vm/examples/llamadb/target/wasm32-unknown-unknown/llama_db.wasm $vmDataRoot" !
 
       new Dockerfile {
         from("openjdk:8-jre-alpine")
@@ -201,6 +205,9 @@ lazy val node = project
       // The assembly task generates a fat JAR file
       val artifact: File = assembly.value
       val artifactTargetPath = s"/${artifact.name}"
+
+      val projectRoot = file("").getAbsolutePath
+      s"cp ${projectRoot}/vm/examples/llamadb/target/wasm32-unknown-unknown/llama_db.wasm /vmcode" !
 
       new Dockerfile {
         // docker is needed in image so it can connect to host's docker.sock and run solvers on host
