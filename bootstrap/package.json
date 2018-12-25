@@ -9,6 +9,7 @@
     "test": "truffle test",
     "migrate": "truffle migrate",
     "ganache": "ganache-cli -m \"indicate toward book great daring meat tooth bid finger banana witness episode\" -h 0.0.0.0 &",
+    "ganache-bind": "ganache-cli -m \"indicate toward book great daring meat tooth bid finger banana witness episode\" -h 0.0.0.0",
     "getEthAccount": "echo 'web3.eth.accounts[0]' | truffle console | grep -o \"0x.*\" | tr -d \\'",
     "generate-java-wrapper": "scripts/generate_java_wrapper.sh",
     "compile-sol": "node scripts/compile_sol.js",

@@ -187,16 +187,15 @@ contract Network is Deployer {
 
     /** @dev Gets nodes that have free ports to host code
      * returns tuple representation of a list of Node structs
-     * (node IDs, nodes' addresses, starting ports, ending ports, current ports, nodes' owners)
+     * (node IDs, nodes' addresses, ending ports, current ports, nodes' owners, isPrivate)
      */
     function getReadyNodes()
     external
     view
-    returns (bytes32[], bytes24[], uint16[], uint16[], uint16[], address[], bool[])
+    returns (bytes32[], bytes24[], uint16[], uint16[], address[], bool[])
     {
         bytes32[] memory ids = new bytes32[](nodesIds.length);
         bytes24[] memory nodeAddresses = new bytes24[](nodesIds.length);
-        uint16[] memory startPorts = new uint16[](nodesIds.length);
         uint16[] memory lastPorts = new uint16[](nodesIds.length);
         uint16[] memory nextPorts = new uint16[](nodesIds.length);
         address[] memory owners = new address[](nodesIds.length);
@@ -206,14 +205,12 @@ contract Network is Deployer {
             Node memory node = nodes[nodesIds[i]];
             ids[i] = node.id;
             nodeAddresses[i] = node.nodeAddress;
-            // TODO remove start ports?
-            //startPorts[i] = node.startPort;
             lastPorts[i] = node.lastPort;
             nextPorts[i] = node.nextPort;
             owners[i] = node.owner;
             isPrivate[i] = node.isPrivate;
         }
 
-        return (ids, nodeAddresses, startPorts, lastPorts, nextPorts, owners, isPrivate);
+        return (ids, nodeAddresses, lastPorts, nextPorts, owners, isPrivate);
     }
 }
