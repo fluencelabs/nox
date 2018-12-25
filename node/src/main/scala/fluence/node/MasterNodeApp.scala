@@ -21,7 +21,7 @@ import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
-import fluence.node.eth.DeployerContract
+import fluence.node.eth.FluenceContract
 import fluence.node.solvers.{CodeManager, SolversPool, SwarmCodeManager, TestCodeManager}
 import fluence.swarm.SwarmClient
 import slogging.MessageFormatter.DefaultPrefixFormatter
@@ -46,8 +46,13 @@ object MasterNodeApp extends IOApp with LazyLogging {
     }
 
   /**
-   * Launches a Master node connecting to ethereum blockchain with Deployer contract.
+   * Launches a Master Node instance
+   * Assuming to be launched inside Docker image
    *
+   * - Adds contractOwnerAccount to whitelist
+   * - Starts to listen Ethereum for ClusterFormed event
+   * - On ClusterFormed event, launches Solver Docker container
+   * - Starts HTTP API serving status information
    */
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
@@ -63,24 +68,15 @@ object MasterNodeApp extends IOApp with LazyLogging {
           } yield (ethClientResource, sttpBackend)
 
           resources.use {
-            case (ethClient, sttpBackend) ⇒
+            // Type annotations are here to make IDEA's type inference happy
+            case (ethClient: EthClient, sttpBackend: SttpBackend[IO, Nothing]) ⇒
               implicit val backend: SttpBackend[IO, Nothing] = sttpBackend
               for {
                 version ← ethClient.clientVersion[IO]()
                 _ = logger.info("eth client version {}", version)
                 _ = logger.debug("eth config {}", contractConfig)
 
-                contract = DeployerContract(ethClient, contractConfig)
-
-                // TODO: should check that node is registered, but should not send transactions
-                _ <- contract
-                  .addAddressToWhitelist[IO](contractConfig.contractOwnerAccount)
-                  .attempt
-                  .map(r ⇒ logger.debug(s"Whitelisting address: $r"))
-                _ <- contract
-                  .addNode[IO](nodeConfig)
-                  .attempt
-                  .map(r ⇒ logger.debug(s"Adding node: $r"))
+                contract = FluenceContract(ethClient, contractConfig)
 
                 pool ← SolversPool[IO]()
 
@@ -89,9 +85,10 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterContainerId)
 
                 currentTime <- timer.clock.monotonic(MILLISECONDS)
-                result <- StatusAggregator.makeHttpResource(statsServerConfig, rawConfig, node, currentTime).use { status =>
-                  logger.info("Status server has started on: " + status.address)
-                  node.run
+                result <- StatusAggregator.makeHttpResource(statsServerConfig, rawConfig, node, currentTime).use {
+                  status =>
+                    logger.info("Status server has started on: " + status.address)
+                    node.run
                 }
               } yield result
           }

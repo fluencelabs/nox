@@ -39,4 +39,4 @@ cp -rf "$CODE_DIR/." "/vmcode/"
 tendermint node "--home=/tendermint" &
 
 # run State machine
-java -Dconfig.file="/solver/sm.config" -jar "$JAR"
+java -jar "$JAR"

@@ -15,14 +15,18 @@
  */
 
 use clap::{App, Arg, ArgMatches, SubCommand};
-use ethabi::Token;
+use contract_func::ContractCaller;
+use credentials::Credentials;
+use ethkey::Secret;
 use hex;
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
+use std::str::FromStr;
+use std::{thread, time};
+use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use utils;
-use web3::contract::tokens::Tokenizable;
-use web3::contract::{Error as ContractError, ErrorKind};
+use web3::transports::Http;
 use web3::types::{Address, H256};
 
 const ADDRESS: &str = "address";
@@ -33,44 +37,9 @@ const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
-
-/// number of bytes for encoding an IP address
-const IP_LEN: usize = 4;
-
-/// number of bytes for encoding tendermint key
-const TENDERMINT_KEY_LEN: usize = 20;
-
-/// number of bytes for encoding IP address and tendermint key
-const NODE_ADDR_LEN: usize = IP_LEN + TENDERMINT_KEY_LEN;
-construct_fixed_hash! { pub struct H192(NODE_ADDR_LEN); }
-
-/// Helper for converting the hash structure to web3 format
-impl Tokenizable for H192 {
-    fn from_token(token: Token) -> Result<Self, ContractError> {
-        match token {
-            Token::FixedBytes(mut s) => {
-                if s.len() != NODE_ADDR_LEN {
-                    bail!(ErrorKind::InvalidOutputType(format!(
-                        "Expected `H192`, got {:?}",
-                        s
-                    )));
-                }
-                let mut data = [0; NODE_ADDR_LEN];
-                for (idx, val) in s.drain(..).enumerate() {
-                    data[idx] = val;
-                }
-                Ok(data.into())
-            }
-            other => Err(
-                ErrorKind::InvalidOutputType(format!("Expected `H192`, got {:?}", other)).into(),
-            ),
-        }
-    }
-
-    fn into_token(self) -> Token {
-        Token::FixedBytes(self.0.to_vec())
-    }
-}
+const SECRET_KEY: &str = "secret_key";
+const WAIT_SYNCING: &str = "wait_syncing";
+const GAS: &str = "gas";
 
 #[derive(Debug)]
 pub struct Register {
@@ -81,7 +50,9 @@ pub struct Register {
     contract_address: Address,
     account: Address,
     eth_url: String,
-    password: Option<String>,
+    credentials: Credentials,
+    wait_syncing: bool,
+    gas: u32,
 }
 
 impl Register {
@@ -94,7 +65,9 @@ impl Register {
         contract_address: Address,
         account: Address,
         eth_url: String,
-        password: Option<String>,
+        credentials: Credentials,
+        wait_syncing: bool,
+        gas: u32,
     ) -> Result<Register, Box<Error>> {
         if max_port < min_port {
             let err: Box<Error> = From::from("max_port should be bigger than min_port".to_string());
@@ -109,12 +82,14 @@ impl Register {
             contract_address,
             account,
             eth_url,
-            password,
+            credentials,
+            wait_syncing,
+            gas,
         })
     }
 
     /// Serializes a node IP address and a tendermint key into the hash of node's key address
-    fn serialize_node_address(&self) -> Result<H192, Box<Error>> {
+    fn serialize_node_address(&self) -> Result<NodeAddress, Box<Error>> {
         let ip_str = self.node_ip.to_string();
         let split = ip_str.split('.');
 
@@ -130,30 +105,43 @@ impl Register {
         let key_str = key_str.as_str().trim_left_matches("0x");
 
         let key_bytes = hex::decode(key_str.to_owned())?;
-        let mut key_bytes = key_bytes.as_slice()[0..20].to_vec();
+        let mut key_bytes = key_bytes.as_slice()[0..TENDERMINT_KEY_LEN].to_vec();
         key_bytes.append(&mut addr_vec);
 
         let serialized = hex::encode(key_bytes);
 
-        let hash_addr: H192 = serialized.parse()?;
+        let hash_addr: NodeAddress = serialized.parse()?;
 
         Ok(hash_addr)
     }
 
     /// Registers a node in Fluence smart contract
     pub fn register(&self, show_progress: bool) -> Result<H256, Box<Error>> {
+        let wait_syncing_fn = || -> Result<(), Box<Error>> {
+            let (_eloop, transport) = Http::new(&self.eth_url)?;
+            let web3 = &web3::Web3::new(transport);
+
+            let mut sync = utils::check_sync(web3)?;
+
+            let ten_seconds = time::Duration::from_secs(10);
+
+            while sync {
+                thread::sleep(ten_seconds);
+
+                sync = utils::check_sync(web3)?;
+            }
+
+            Ok(())
+        };
+
         let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
-            let pass = self.password.as_ref().map(|s| s.as_str());
-
-            let options = utils::options_with_gas(300_000);
-
             let hash_addr = self.serialize_node_address()?;
 
-            utils::call_contract(
+            let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
+
+            contract.call_contract(
                 self.account,
-                self.contract_address,
-                pass,
-                &self.eth_url,
+                &self.credentials,
                 "addNode",
                 (
                     self.tendermint_key,
@@ -161,16 +149,26 @@ impl Register {
                     u64::from(self.min_port),
                     u64::from(self.max_port),
                 ),
-                options,
+                self.gas,
             )
         };
 
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
+            if self.wait_syncing {
+                utils::with_progress(
+                    "Waiting for the node is syncing",
+                    "1/2",
+                    "Node synced.",
+                    wait_syncing_fn,
+                )?;
+            };
+
+            let prefix = if self.wait_syncing { "2/2" } else { "1/1" };
             utils::with_progress(
-                "Adding a solver to the smart contract...",
-                "1/1",
-                "The solver added.",
+                "Adding the solver to the smart contract...",
+                prefix,
+                "Solver added.",
                 publish_to_contract_fn,
             )
         } else {
@@ -203,7 +201,16 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
 
     let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
+    let secret_key = matches
+        .value_of(SECRET_KEY)
+        .map(|s| Secret::from_str(s.trim_left_matches("0x")).unwrap());
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
+
+    let credentials = Credentials::get(secret_key, password);
+
+    let wait_syncing = matches.is_present(WAIT_SYNCING);
+
+    let gas: u32 = matches.value_of(GAS).unwrap().parse()?;
 
     Register::new(
         node_address,
@@ -213,7 +220,9 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         contract_address,
         account,
         eth_url,
-        password,
+        credentials,
+        wait_syncing,
+        gas,
     )
 }
 
@@ -245,7 +254,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(true)
                 .takes_value(true)
                 .index(4)
-                .help("deployer contract address"),
+                .help("fluence contract address"),
             Arg::with_name(MIN_PORT)
                 .alias(MIN_PORT)
                 .default_value("20096")
@@ -271,20 +280,38 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(false)
                 .takes_value(true)
                 .help("password to unlock account in ethereum client"),
+            Arg::with_name(SECRET_KEY)
+                .alias(SECRET_KEY)
+                .long(SECRET_KEY)
+                .short("s")
+                .required(false)
+                .takes_value(true)
+                .help("the secret key to sign transactions"),
+            Arg::with_name(WAIT_SYNCING)
+                .alias(WAIT_SYNCING)
+                .long(WAIT_SYNCING)
+                .help("waits until ethereum node will be synced, executes a command after this"),
+            Arg::with_name(GAS)
+                .alias(GAS)
+                .long(GAS)
+                .short("g")
+                .required(false)
+                .takes_value(true)
+                .default_value("1000000")
+                .help("maximum gas to spend"),
         ])
 }
 
 #[cfg(test)]
 mod tests {
     use super::Register;
+    use credentials::Credentials;
+    use ethkey::Secret;
     use rand::prelude::*;
     use std::error::Error;
-    use utils;
     use web3::types::*;
 
-    const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
-
-    fn generate_register() -> Register {
+    fn generate_register(credentials: Credentials) -> Register {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
 
         let mut rng = rand::thread_rng();
@@ -301,39 +328,68 @@ mod tests {
             contract_address,
             account,
             String::from("http://localhost:8545/"),
-            None,
+            credentials,
+            false,
+            1_000_000,
         )
         .unwrap()
     }
 
-    pub fn generate_with<F>(func: F) -> Register
+    pub fn generate_with<F>(func: F, credentials: Credentials) -> Register
     where
         F: FnOnce(&mut Register),
     {
-        let mut register = generate_register();
+        let mut register = generate_register(credentials);
         func(&mut register);
         register
     }
 
-    pub fn generate_with_account(account: Address) -> Register {
-        generate_with(|r| {
-            r.account = account;
-        })
+    pub fn generate_with_account(account: Address, credentials: Credentials) -> Register {
+        generate_with(
+            |r| {
+                r.account = account;
+            },
+            credentials,
+        )
     }
 
     #[test]
     fn register_success() -> Result<(), Box<Error>> {
-        let register = generate_with_account("02f906f8b3b932fd282109a5b8dc732ba2329888".parse()?);
+        let register = generate_with_account(
+            "fa0de43c68bea2167181cd8a83f990d02a049336".parse()?,
+            Credentials::No,
+        );
 
-        let pass = register.password.as_ref().map(|s| s.as_str());
+        register.register(false)?;
 
-        utils::add_to_white_list(
-            &register.eth_url,
-            register.account,
-            register.contract_address,
-            OWNER.parse()?,
-            pass,
-        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn register_out_of_gas() -> Result<(), Box<Error>> {
+        let register = generate_with(
+            |r| {
+                r.gas = 1;
+            },
+            Credentials::No,
+        );
+
+        let result = register.register(false);
+
+        assert_eq!(result.is_err(), true);
+
+        Ok(())
+    }
+
+    #[test]
+    fn register_success_with_secret() -> Result<(), Box<Error>> {
+        let secret_arr: H256 =
+            "a349fe22d5c6f8ad3a1ad91ddb65e8946435b52254ce8c330f7ed796e83bfd92".parse()?;
+        let secret = Secret::from(secret_arr);
+        let register = generate_with_account(
+            "dce48d51717ad5eb87fb56ff55ec609cf37b9aad".parse()?,
+            Credentials::Secret(secret),
+        );
 
         register.register(false)?;
 
