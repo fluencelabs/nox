@@ -15,9 +15,8 @@
  */
 
 package fluence.node.tendermint
-import fluence.ethclient.Deployer.ClusterFormedEventResponse
 import fluence.node.config.NodeConfig
-import fluence.node.eth.DeployerContract.ContractClusterTuple
+import fluence.node.eth.FluenceContract.ContractClusterTuple
 import fluence.node.solvers.CodePath
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
@@ -47,29 +46,6 @@ case class ClusterData(
 }
 
 object ClusterData {
-
-  /**
-   * Tries to convert `ClusterFormedEvent` response to [[ClusterData]] with all information to launch cluster.
-   * TODO this method couples ClusterData with Ethereum's Deployer structure, consider moving it to DeployerContract instead
-   *
-   * @param event event response
-   * @param nodeConfig information about current node
-   * @return true if provided node key belongs to the cluster from the event
-   */
-  def fromClusterFormedEvent(
-    event: ClusterFormedEventResponse,
-    nodeConfig: NodeConfig
-  ): Option[ClusterData] = {
-    build(
-      event.clusterID,
-      event.solverIDs,
-      event.genesisTime,
-      event.storageHash,
-      event.solverAddrs,
-      event.solverPorts,
-      nodeConfig
-    )
-  }
 
   def fromTuple(clusterID: Bytes32, tuple: ContractClusterTuple, nodeConfig: NodeConfig): Option[ClusterData] = {
     build(

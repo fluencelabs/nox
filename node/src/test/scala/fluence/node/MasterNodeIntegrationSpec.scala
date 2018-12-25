@@ -26,13 +26,15 @@ import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.docker.{DockerIO, DockerParams}
-import fluence.node.eth.{DeployerContract, DeployerContractConfig}
+import fluence.node.eth.{FluenceContract, FluenceContractConfig}
 import org.scalactic.source.Position
 import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
 import org.scalatest.time.Span
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers, OptionValues}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
+import com.softwaremill.sttp._
+import com.softwaremill.sttp.circe.asJson
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -43,7 +45,7 @@ import scala.util.Try
 
 /**
  * This test contains a single test method that checks:
- * - MasterNode connectivity with ganache-hosted Deployer smart contract
+ * - MasterNode connectivity with ganache-hosted Fluence smart contract
  * - MasterNode ability to load previous node clusters and subscribe to new clusters
  * - Successful cluster formation and starting blocks creation
  */
@@ -52,8 +54,6 @@ class MasterNodeIntegrationSpec
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
-
-  private val url = sys.props.get("ethereum.url")
 
   val bootstrapDir = new File("../bootstrap")
   def run(cmd: String): Unit = Process(cmd, bootstrapDir).!(ProcessLogger(_ => ()))
@@ -78,7 +78,7 @@ class MasterNodeIntegrationSpec
     logger.info("starting Ganache")
     runBackground("npm run ganache")
 
-    logger.info("deploying Deployer.sol Ganache")
+    logger.info("deploying contract to Ganache")
     run("npm run migrate")
   }
 
@@ -104,9 +104,9 @@ class MasterNodeIntegrationSpec
     val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
       Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
-    val contractConfig = DeployerContractConfig(owner, contractAddress)
+    val contractConfig = FluenceContractConfig(owner, contractAddress)
 
-    def runMaster(portFrom: Int, portTo: Int, name: String): IO[String] = {
+    def runMaster(portFrom: Short, portTo: Short, name: String, statusPort: Short): IO[String] = {
       DockerIO
         .run[IO](
           DockerParams
@@ -114,12 +114,20 @@ class MasterNodeIntegrationSpec
             .option("-e", s"TENDERMINT_IP=$dockerHost")
             .option("-e", s"ETHEREUM_IP=$ethereumHost")
             .option("-e", s"PORTS=$portFrom:$portTo")
+            .port(statusPort, 5678)
             .option("--name", name)
             .volume("/var/run/docker.sock", "/var/run/docker.sock")
             .image("fluencelabs/node:latest")
         )
         .compile
         .lastOrError
+    }
+
+    def getStatus(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[MasterStatus] = {
+      import MasterStatus._
+      for {
+        resp <- sttp.response(asJson[MasterStatus]).get(uri"http://localhost:$statusPort/status").send()
+      } yield resp.unsafeBody.right.get
     }
 
     //TODO: change check to Master's HTTP API
@@ -137,15 +145,21 @@ class MasterNodeIntegrationSpec
       .makeHttpResource[IO]()
       .use { ethClient ⇒
         sttpResource.use { implicit sttpBackend ⇒
+          val status1Port: Short = 25400
+          val status2Port: Short = 25403
           for {
-            master1 <- runMaster(25000, 25002, "master1")
-            master2 <- runMaster(25003, 25005, "master2")
+            master1 <- runMaster(25000, 25002, "master1", status1Port)
+            master2 <- runMaster(25003, 25005, "master2", status2Port)
 
             _ <- eventually[IO](checkMasterRunning(master1))
             _ <- eventually[IO](checkMasterRunning(master2))
 
-            contract = DeployerContract(ethClient, contractConfig)
-            _ <- contract.addCode[IO](clusterSize = 2)
+            contract = FluenceContract(ethClient, contractConfig)
+            status1 <- getStatus(status1Port)
+            status2 <- getStatus(status2Port)
+            _ <- contract.addNode[IO](status1.nodeConfig).attempt
+            _ <- contract.addNode[IO](status2.nodeConfig).attempt
+            _ <- contract.addCode[IO]("llamadb", clusterSize = 2)
 
             _ <- eventually[IO](
               for {

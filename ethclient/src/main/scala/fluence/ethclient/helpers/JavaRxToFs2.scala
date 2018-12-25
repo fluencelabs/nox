@@ -17,47 +17,46 @@
 package fluence.ethclient.helpers
 
 import cats.effect._
-import cats.syntax.functor._
-import cats.syntax.apply._
 import cats.effect.syntax.effect._
+import cats.syntax.apply._
+import cats.syntax.functor._
 import fs2.concurrent.Queue
-import rx.Observer
+import io.reactivex.Flowable
 
 import scala.language.higherKinds
 
 object JavaRxToFs2 {
 
-  implicit class ObservableToStream[T](observable: rx.Observable[T]) {
+  implicit class FlowableToStream[T](flowable: Flowable[T]) {
 
     /**
-     * Convert the observable to fs2.Stream, using F[_] effect.
+     * Convert the flowable to fs2.Stream, using F[_] effect.
      * No backpressure is applied; input is bufferized in a queue.
      *
      * @tparam F The effect type; it's Concurrent to enable Queue, and Effect to push to that queue from an Observer
      * @return A stream
      */
-    def toFS2[F[_]: ConcurrentEffect]: fs2.Stream[F, T] =
+    def toFS2[F[_]: ConcurrentEffect]: fs2.Stream[F, T] = {
       fs2.Stream
         .bracket(
-          // Acquire: make an unbounded queue, subscribe with that queue to the observable
-          Queue.noneTerminated[F, Either[Throwable, T]].map { queue ⇒
-            (queue, observable.subscribe(new Observer[T] {
-              override def onCompleted(): Unit =
-                queue.enqueue1(None).toIO.unsafeRunAsyncAndForget()
-
-              override def onError(e: Throwable): Unit =
-                queue.enqueue1(Some(Left(e))).toIO.unsafeRunAsyncAndForget()
-
-              override def onNext(t: T): Unit =
-                queue.enqueue1(Some(Right(t))).toIO.unsafeRunAsyncAndForget()
-            }))
-          }
-        ) {
-          // Release: unsubscribe
-          case (queue, subscription) ⇒
+          Queue
+            .noneTerminated[F, Either[Throwable, T]]
+            .map { queue ⇒
+              queue ->
+                flowable.subscribe(
+                  (t: T) => queue.enqueue1(Some(Right(t))).toIO.unsafeRunAsyncAndForget(),
+                  (e: Throwable) => queue.enqueue1(Some(Left(e))).toIO.unsafeRunAsyncAndForget(),
+                  () => queue.enqueue1(None).toIO.unsafeRunAsyncAndForget()
+                )
+            }
+        )({
+          // Release: dispose
+          case (queue, disposable) ⇒
             queue.enqueue1(None) *>
-              Sync[F].catchNonFatal(subscription.unsubscribe())
-        }
+              Sync[F].catchNonFatal(disposable.dispose())
+        })
         .flatMap(_._1.dequeue.rethrow)
+
+    }
   }
 }

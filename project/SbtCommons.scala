@@ -51,7 +51,7 @@ object SbtCommons {
   val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
 
   val http4sVersion = "0.20.0-M3"
-  val http4sDsl = "org.http4s" %% "http4s-dsl" % http4sVersion
+  val http4sDsl = "org.http4s"    %% "http4s-dsl"          % http4sVersion
   val http4sServer = "org.http4s" %% "http4s-blaze-server" % http4sVersion
 
   val circeVersion = "0.10.0"
@@ -63,7 +63,7 @@ object SbtCommons {
   val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.6"
   val scodecCore = "org.scodec" %% "scodec-core" % "1.10.3"
 
-  val web3jVersion = "3.6.0"
+  val web3jVersion = "4.0.1"
   val web3jCrypto = "org.web3j" % "crypto" % web3jVersion
   val web3jCore = "org.web3j"   % "core"   % web3jVersion
 

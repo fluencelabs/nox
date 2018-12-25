@@ -91,7 +91,11 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
       .response(asByteArray)
       .get(downloadURI)
       .send()
-      .toEitherT(er => SwarmError(s"Error on downloading from $downloadURI. $er"))
+      .toEitherT { er =>
+        val errorMessage = s"Error on downloading from $downloadURI. $er"
+        logger.error(errorMessage)
+        SwarmError(errorMessage)
+      }
       .map { r =>
         logger.info(s"The resource has been downloaded.")
         logger.debug(s"Resource size: ${r.length} bytes.")

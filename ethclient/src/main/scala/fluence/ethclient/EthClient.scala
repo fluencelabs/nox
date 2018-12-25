@@ -76,7 +76,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
     topic: String
   ): fs2.Stream[F, Log] =
     web3
-      .ethLogObservable(
+      .ethLogFlowable(
         new SingleAddressEthFilter(
           DefaultBlockParameterName.LATEST,
           DefaultBlockParameterName.LATEST,

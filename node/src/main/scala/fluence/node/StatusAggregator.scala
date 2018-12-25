@@ -19,18 +19,20 @@ package fluence.node
 import cats.Parallel
 import cats.data.Kleisli
 import cats.effect.{ContextShift, IO, Resource, Timer}
-import fluence.node.config.{MasterConfig, StatusServerConfig}
+import fluence.node.config.{MasterConfig, NodeConfig, StatusServerConfig}
 import fluence.node.solvers.SolverInfo
 import org.http4s._
 import org.http4s.implicits._
+import scala.concurrent.duration._
 import org.http4s.dsl.io._
 import io.circe.syntax._
 import io.circe.generic.semiauto._
-import io.circe.Encoder
+import io.circe.{Decoder, Encoder}
 import org.http4s.server.Server
-import scala.concurrent.duration.MILLISECONDS
 
+import scala.concurrent.duration.MILLISECONDS
 import org.http4s.server.blaze._
+import org.http4s.server.middleware.{CORS, CORSConfig}
 
 import scala.language.higherKinds
 
@@ -48,6 +50,7 @@ case class MasterStatus(
   ip: String,
   listOfPorts: String,
   uptime: Long,
+  nodeConfig: NodeConfig,
   numberOfSolvers: Int,
   solvers: List[SolverInfo],
   config: MasterConfig
@@ -55,6 +58,7 @@ case class MasterStatus(
 
 object MasterStatus {
   implicit val encodeMasterState: Encoder[MasterStatus] = deriveEncoder
+  implicit val decodeMasterState: Decoder[MasterStatus] = deriveDecoder
 }
 
 /**
@@ -83,6 +87,7 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode, startT
         config.endpoints.ip.getHostName,
         ports,
         currentTime - startTimeMillis,
+        masterNode.nodeConfig,
         solversStatus.size,
         solverInfos,
         config
@@ -92,13 +97,26 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode, startT
 
 object StatusAggregator {
 
-  private def statusService(sm: StatusAggregator)(implicit cs: ContextShift[IO]): Kleisli[IO, Request[IO], Response[IO]] =
-    HttpRoutes
-      .of[IO] {
-        case GET -> Root / "status" =>
-          sm.getStatus.flatMap(state => Ok(state.asJson.spaces2))
-      }
-      .orNotFound
+  val corsConfig = CORSConfig(
+    anyOrigin = true,
+    anyMethod = true,
+    allowedMethods = Some(Set("GET", "POST")),
+    allowCredentials = true,
+    maxAge = 1.day.toSeconds
+  )
+
+  private def statusService(
+    sm: StatusAggregator
+  )(implicit cs: ContextShift[IO]): Kleisli[IO, Request[IO], Response[IO]] =
+    CORS(
+      HttpRoutes
+        .of[IO] {
+          case GET -> Root / "status" =>
+            sm.getStatus.flatMap(state => Ok(state.asJson.spaces2))
+        }
+        .orNotFound,
+      corsConfig
+    )
 
   /**
    * Makes the server that gives gathered information about a master node and solvers.

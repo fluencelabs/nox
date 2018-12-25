@@ -1,0 +1,10 @@
+.idea
+.gitignore
+node_modules
+
+src
+
+tsconfig.json
+webpack.config.js
+
+*.js.map

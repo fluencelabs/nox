@@ -16,6 +16,7 @@
 extern crate clap;
 extern crate console;
 extern crate ethabi;
+extern crate ethkey;
 extern crate hex;
 extern crate indicatif;
 extern crate reqwest;
@@ -24,6 +25,19 @@ extern crate web3;
 extern crate fixed_hash;
 #[macro_use]
 extern crate error_chain;
+#[macro_use]
+extern crate derive_getters;
+
+extern crate ethcore_transaction;
+extern crate rlp;
+
+extern crate ethereum_types_serialize;
+
+extern crate serde;
+extern crate serde_json;
+
+#[macro_use]
+extern crate serde_derive;
 
 extern crate core;
 extern crate parity_wasm;
@@ -31,11 +45,13 @@ extern crate parity_wasm;
 extern crate rand;
 
 mod check;
+mod contract_func;
+mod contract_status;
+mod credentials;
 mod publisher;
 mod register;
-mod status;
+mod types;
 mod utils;
-mod whitelist;
 
 use clap::App;
 use clap::AppSettings;
@@ -51,8 +67,7 @@ fn main() {
         .about("Console utility for deploying code to fluence cluster")
         .subcommand(publisher::subcommand())
         .subcommand(register::subcommand())
-        .subcommand(status::subcommand())
-        .subcommand(whitelist::subcommand())
+        .subcommand(contract_status::subcommand())
         .subcommand(check::subcommand());
 
     match app.get_matches().subcommand() {
@@ -78,22 +93,12 @@ fn main() {
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);
         }
 
-        ("add-to-whitelist", Some(args)) => {
-            let add_to_whitelist = whitelist::parse(args).unwrap();
-
-            let transaction = add_to_whitelist.add_to_whitelist(true);
-
-            let formatted_finish_msg =
-                style("Address added to whitelist. Submitted transaction").blue();
-            let formatted_tx = style(transaction.unwrap()).red().bold();
-
-            println!("{}: {:?}", formatted_finish_msg, formatted_tx);
-        }
-
         ("status", Some(args)) => {
-            let status = status::get_status_by_args(args).unwrap();
+            let status = contract_status::get_status_by_args(args).unwrap();
 
-            println!("Status of Fluence smart contract:\n{}", status);
+            let json = serde_json::to_string_pretty(&status).unwrap();
+
+            println!("{}", json);
         }
 
         ("check", Some(args)) => {

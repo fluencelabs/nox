@@ -35,7 +35,7 @@ sealed trait CodeManager[F[_]] {
 
   /**
    * Downloads code from Swarm and manages paths to the code.
-   * @param path a path to a code from the deployer smart contract
+   * @param path a path to a code from the smart contract
    * @param storagePath a path to a solver working directory
    * @return
    */
@@ -50,7 +50,7 @@ class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
 
   /**
    * Downloads code from Swarm and manages paths to the code.
-   * @param path a path to a code from the deployer smart contract
+   * @param path a path to a code from the smart contract
    * @param solverPath a path to a solver working directory
    * @return
    */
@@ -103,7 +103,7 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
 
   /**
    * Downloads code from Swarm and manages paths to the code.
-   * @param path a path to a code from the deployer smart contract
+   * @param path a path to a code from the smart contract
    * @param solverPath a path to a solver working directory
    * @return
    */

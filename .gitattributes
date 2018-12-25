@@ -1,1 +1,2 @@
 *.wasm filter=lfs diff=lfs merge=lfs -text
+bench/* linguist-detectable=false

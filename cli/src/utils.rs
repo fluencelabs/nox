@@ -17,10 +17,11 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError};
 use std::error::Error;
-use web3::contract::tokens::{Detokenize, Tokenize};
 use web3::contract::{Contract, Options};
 use web3::futures::Future;
-use web3::types::{Address, H256};
+use web3::transports::Http;
+use web3::types::Address;
+use web3::types::SyncState;
 use web3::{Transport, Web3};
 
 /// Creates progress bar in the console until the work is over
@@ -67,88 +68,19 @@ fn create_progress_bar(prefix: &str, msg: &str) -> ProgressBar {
 }
 
 /// Initializes contract from `ABI` file
-fn init_contract<T: Transport>(
+pub fn init_contract<T: Transport>(
     web3: &Web3<T>,
     contract_address: Address,
 ) -> Result<Contract<T>, Box<Error>> {
-    let json = include_bytes!("../../bootstrap/contracts/compiled/Deployer.abi");
+    let json = include_bytes!("../../bootstrap/contracts/compiled/Network.abi");
 
     Ok(Contract::from_json(web3.eth(), contract_address, json)?)
 }
 
-/// Calls contract method and returns hash of the transaction
-pub fn call_contract<P>(
-    account: Address,
-    contract_address: Address,
-    password: Option<&str>,
-    eth_url: &str,
-    func: &str,
-    params: P,
-    options: Options,
-) -> Result<H256, Box<Error>>
-where
-    P: Tokenize,
-{
-    let (_eloop, transport) = web3::transports::Http::new(&eth_url)?;
-    let web3 = web3::Web3::new(transport);
+pub fn init_raw_contract() -> Result<ethabi::Contract, Box<Error>> {
+    let json: &[u8] = include_bytes!("../../bootstrap/contracts/compiled/Network.abi");
 
-    if let Some(p) = password {
-        web3.personal().unlock_account(account, p, None).wait()?;
-    }
-
-    let contract = init_contract(&web3, contract_address)?;
-
-    let result_code_publish = contract.call(func, params, account, options);
-    Ok(result_code_publish.wait()?)
-}
-
-/// Calls contract method and returns some result
-pub fn query_contract<P, R>(
-    contract_address: Address,
-    eth_url: &str,
-    func: &str,
-    params: P,
-    options: Options,
-) -> Result<R, Box<Error>>
-where
-    P: Tokenize,
-    R: Detokenize,
-{
-    let (_eloop, transport) = web3::transports::Http::new(&eth_url)?;
-    let web3 = web3::Web3::new(transport);
-
-    let contract = init_contract(&web3, contract_address)?;
-
-    let result_code_publish = contract.query(func, params, None, options, None);
-    let res = result_code_publish.wait()?;
-    Ok(res)
-}
-
-/// Adds `account_to_add` to smart contract's whitelist
-pub fn add_to_white_list(
-    eth_url: &str,
-    account_to_add: Address,
-    contract_address: Address,
-    account: Address,
-    password: Option<&str>,
-) -> Result<H256, Box<Error>> {
-    let (_eloop, transport) = web3::transports::Http::new(eth_url)?;
-    let web3 = web3::Web3::new(transport);
-
-    if let Some(p) = password {
-        web3.personal().unlock_account(account, p, None).wait()?;
-    }
-
-    let contract = init_contract(&web3, contract_address)?;
-
-    Ok(contract
-        .call(
-            "addAddressToWhitelist",
-            account_to_add,
-            account,
-            Options::default(),
-        )
-        .wait()?)
+    Ok(ethabi::Contract::load(json)?)
 }
 
 /// Parses URL from the string
@@ -163,9 +95,21 @@ pub fn parse_url(url: &str) -> Result<Url, UrlError> {
     }
 }
 
+pub fn check_sync(web3: &Web3<Http>) -> Result<bool, Box<Error>> {
+    let sync_state = web3.eth().syncing().wait()?;
+    match sync_state {
+        SyncState::Syncing(_) => Ok(true),
+        SyncState::NotSyncing => Ok(false),
+    }
+}
+
 /// Creates options for transaction to ethereum
 pub fn options_with_gas(gas_limit: u32) -> Options {
     Options::with(|default| {
         default.gas = Some(gas_limit.into());
     })
+}
+
+pub fn options() -> Options {
+    Options::default()
 }

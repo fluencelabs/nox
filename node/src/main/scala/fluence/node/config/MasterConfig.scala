@@ -18,11 +18,11 @@ package fluence.node.config
 
 import java.net.InetAddress
 
-import fluence.node.eth.{DeployerContractConfig, EthereumRPCConfig}
+import fluence.node.eth.{EthereumRPCConfig, FluenceContractConfig}
 import fluence.node.solvers.SolverImage
 import fluence.node.tendermint.ValidatorKey
-import io.circe.{Encoder, Json}
-import io.circe.generic.semiauto.deriveEncoder
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 /**
  * Main config class for master node.
@@ -30,14 +30,14 @@ import io.circe.generic.semiauto.deriveEncoder
  * @param tendermintPath a path to all system files
  * @param endpoints information about a node possible endpoints (IP and ports) that will be used as addresses
  *                  for requests after a cluster will be formed
- * @param deployer information about deployer smart contract
+ * @param contract information about Fluence smart contract
  * @param swarm information about Swarm node
  * @param statusServer information about master node status server
  */
 case class MasterConfig(
   tendermintPath: String,
   endpoints: EndpointsConfig,
-  deployer: DeployerContractConfig,
+  contract: FluenceContractConfig,
   swarm: Option[SwarmConfig],
   statusServer: StatusServerConfig,
   masterContainerId: String,
@@ -56,16 +56,16 @@ case class SwarmConfig(host: String)
 case class StatusServerConfig(port: Int)
 
 object MasterConfig {
-  implicit val encodeThrowable: Encoder[InetAddress] = new Encoder[InetAddress] {
-    final def apply(a: InetAddress): Json = Json.fromString(a.getHostAddress)
-  }
-  implicit val encodeSolverImage: Encoder[SolverImage] = deriveEncoder
   implicit val encodeEthereumConfig: Encoder[EthereumRPCConfig] = deriveEncoder
-  implicit val encodeEndpointConfig: Encoder[EndpointsConfig] = deriveEncoder
-  implicit val encodeDeployerConfig: Encoder[DeployerContractConfig] = deriveEncoder
+  implicit val decodeEthereumConfig: Decoder[EthereumRPCConfig] = deriveDecoder
+  implicit val encodeContractConfig: Encoder[FluenceContractConfig] = deriveEncoder
+  implicit val decodeContractConfig: Decoder[FluenceContractConfig] = deriveDecoder
   implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
+  implicit val decodeSwarmConfig: Decoder[SwarmConfig] = deriveDecoder
   implicit val encodeStatConfig: Encoder[StatusServerConfig] = deriveEncoder
+  implicit val decodeStatConfig: Decoder[StatusServerConfig] = deriveDecoder
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
+  implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
 }
 
 /**
@@ -82,6 +82,13 @@ case class EndpointsConfig(
   maxPort: Short
 )
 
+object EndpointsConfig {
+  implicit val encodeInetAddress: Encoder[InetAddress] = Encoder[String].contramap(_.getHostAddress)
+  implicit val decodeInetAddress: Decoder[InetAddress] = Decoder[String].map(InetAddress.getByName)
+  implicit val encodeEndpointConfig: Encoder[EndpointsConfig] = deriveEncoder
+  implicit val decodeEndpointConfig: Decoder[EndpointsConfig] = deriveDecoder
+}
+
 /**
  * Information about a node willing to run solvers to join Fluence clusters.
  *
@@ -96,3 +103,8 @@ case class NodeConfig(
   nodeAddress: String,
   solverImage: SolverImage
 )
+
+object NodeConfig {
+  implicit val encodeNodeConfig: Encoder[NodeConfig] = deriveEncoder
+  implicit val decodeNodeConfig: Decoder[NodeConfig] = deriveDecoder
+}
