@@ -16,8 +16,8 @@
 
 //! Wrapper for counter (a test for Fluence network).
 //!
-//! Provides the public method for increment a counter and get its current state, and
-//! `allocation`, `deallocation` methods to use from a Wasm host environment.
+//! Provides the public method for increment a counter and get its current state and some
+//! public service methods (`allocation`, `deallocation`).
 
 #![feature(allocator_api)]
 #![feature(alloc)]

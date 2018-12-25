@@ -16,9 +16,8 @@
 
 //! Wrapper for Llamadb (a test for Fluence network).
 //!
-//! Provides the public method for work with Llamadb, and `allocation`, `deallocation`
-//! methods to use from a Wasm host environment. Also contains functions for reading from
-//! and writing strings to the raw memory.
+//! Provides the public method (`do_query`) for work with Llamadb and some public service
+//! methods (`allocation`, `deallocation`, `init_logger`).
 
 #![feature(allocator_api)]
 #![allow(dead_code)]

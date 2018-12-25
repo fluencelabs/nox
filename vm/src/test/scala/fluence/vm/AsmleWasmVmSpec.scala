@@ -31,15 +31,15 @@ import scala.language.{higherKinds, implicitConversions}
 class AsmleWasmVmSpec extends WordSpec with Matchers {
 
   /**
-    * Converts ints to byte array by supplied byte order.
-    *
-    * @param ints array of int
-    * @param byteOrder byte order that used for int converting
-    */
+   * Converts ints to byte array by supplied byte order.
+   *
+   * @param ints array of int
+   * @param byteOrder byte order that used for int converting
+   */
   private def intsToBytes(
-                           ints: List[Int],
-                           byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN
-                         ): ByteBuffer = {
+    ints: List[Int],
+    byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN
+  ): ByteBuffer = {
     val intBytesSize = 4
     val converter = ByteBuffer.allocate(intBytesSize * ints.length)
 
