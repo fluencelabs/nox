@@ -166,10 +166,10 @@ object ServerRunner extends IOApp with LazyLogging {
     WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
 
   /**
-   * Recursively collects and returns all files in given folder.
+   * Collects and returns all files in given folder.
    *
    * @param pathName the name of a folder where files should be listed.
-   *                 @return a list of files in given directory or provided file if the exact file has has been given
+   * @return a list of files in given directory or provided file if the path to file has has been given
    */
   def listFiles(pathName: File): List[File] = pathName match {
     case file if pathName.isFile => file :: Nil
@@ -181,8 +181,7 @@ object ServerRunner extends IOApp with LazyLogging {
         rawPathNames.toList
       }
 
-      val theseFiles = pathNames.map(new File(pathName, _))
-      theseFiles ++ theseFiles.filter(_.isDirectory).flatMap(listFiles)
+      pathNames.map(new File(pathName, _))
     }
   }
 
