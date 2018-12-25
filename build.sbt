@@ -1,6 +1,7 @@
 import SbtCommons._
 import sbt.Keys._
 import sbt._
+import sys.process._
 
 name := "fluence"
 
