@@ -212,7 +212,7 @@ lazy val node = project
         * The following directory structure is assumed in node/src/main/resources:
         *    docker/
         *      tendermint/config/default_config.toml
-        *    entrypoint.sh
+        *      entrypoint.sh
         */
         copy((resourceDirectory in Compile).value / "docker", "/master/")
 

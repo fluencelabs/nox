@@ -5,7 +5,6 @@ import sbt.Keys._
 import sbt._
 
 import sys.process._
-import sbtassembly.AssemblyKeys.{assembly, assemblyExcludedJars, assemblyJarName}
 
 object SbtCommons {
 
