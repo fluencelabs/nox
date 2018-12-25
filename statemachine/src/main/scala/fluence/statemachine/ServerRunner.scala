@@ -16,7 +16,7 @@
 
 package fluence.statemachine
 
-import java.io.{File, FileNotFoundException}
+import java.io.File
 
 import cats.Monad
 import cats.data.EitherT
@@ -34,7 +34,6 @@ import fluence.vm.WasmVm
 import io.prometheus.client.exporter.MetricsServlet
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.servlet.{ServletContextHandler, ServletHolder}
-import pureconfig.generic.auto._
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
 
