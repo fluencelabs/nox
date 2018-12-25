@@ -297,7 +297,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .short("g")
                 .required(false)
                 .takes_value(true)
-                .default_value("1_000_000")
+                .default_value("1000000")
                 .help("maximum gas to spend"),
         ])
 }
