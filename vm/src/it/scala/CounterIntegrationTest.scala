@@ -56,7 +56,7 @@ class COUNTERIntegrationTest extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(llamadbFilePath))
-        // allocate 1 МБ memory
+        // allocate 1 Mb memory
         _ <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
         result <- vm.invoke[IO](None, "do_query", ("insert into USERS values('A')" + ",('1')"*1024*10).getBytes())
         state <- vm.getVmState[IO].toVmError

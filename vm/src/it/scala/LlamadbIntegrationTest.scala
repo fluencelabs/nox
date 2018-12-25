@@ -40,7 +40,7 @@ class LlamadbIntegrationTest extends WordSpec with Matchers {
         _ <- vm.invoke[IO](None, "do_query", "".getBytes())
         result <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
         _ <- vm.invoke[IO](None, "do_query", "".getBytes())
-        state <- vm.getVmState[IO].toVmError
+        _ <- vm.getVmState[IO].toVmError
       } yield {
         result should not be None
 
@@ -56,10 +56,10 @@ class LlamadbIntegrationTest extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(llamadbFilePath))
-        // allocate 1 МБ memory
+        // allocate 1 Mb memory
         _ <- vm.invoke[IO](None, "do_query", "create table USERS(name varchar(1))".getBytes())
         result <- vm.invoke[IO](None, "do_query", ("insert into USERS values('A')" + ",('1')"*1024*10).getBytes())
-        state <- vm.getVmState[IO].toVmError
+        _ <- vm.getVmState[IO].toVmError
       } yield {
         result should not be None
 
@@ -154,10 +154,10 @@ class LlamadbIntegrationTest extends WordSpec with Matchers {
         val result3AsString = new String(result3.get)
         val result4AsString = new String(result4.get)
 
-        result1AsString startsWith "rows inserted"
-        result2AsString startsWith "rows inserted"
-        result3AsString startsWith "rows inserted"
-        result4AsString startsWith "rows inserted"
+        result1AsString should startsWith "rows inserted"
+        result2AsString should startsWith "rows inserted"
+        result3AsString should startsWith "rows inserted"
+        result4AsString should startsWith "rows inserted"
       }
 
       res.success()
