@@ -117,10 +117,10 @@ class MasterNodeIntegrationSpec
             // statemachine expects wasm binaries in /vmcode folder
             .volume(
               // by defaults user.dir in sbt is a submodule directory while in Idea is the project root
-              if (System.getProperty("user.dir").endsWith("/node")) "../"
-              else
-                "./"
-                  + "vm/examples/llamadb/target/wasm32-unknown-unknown/release",
+              (if (System.getProperty("user.dir").endsWith("/node")) "../"
+               else
+                 "./")
+                + "vm/examples/llamadb/target/wasm32-unknown-unknown/release",
               "/master/vmcode/vmcode-llamadb"
             )
             .image("fluencelabs/node:latest")
