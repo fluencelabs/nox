@@ -34,13 +34,11 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .settings(
     compileRustVmExample("counter")
   )
-  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
     compileRustVmExample("llamadb")
   )
-  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val statemachine = (project in file("statemachine"))
   .settings(
@@ -118,9 +116,14 @@ lazy val statemachine = (project in file("statemachine"))
       }
     }
   )
-  .enablePlugins(AutomateHeaderPlugin)
-  .enablePlugins(DockerPlugin)
-  .dependsOn(vm)
+  .enablePlugins(
+    AutomateHeaderPlugin,
+    DockerPlugin
+  )
+  .dependsOn(
+    vm,
+    `vm-llamadb`
+  )
 
 lazy val externalstorage = (project in file("externalstorage"))
   .settings(
@@ -223,5 +226,12 @@ lazy val node = project
       }
     }
   )
-  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, externalstorage)
+  .enablePlugins(
+    AutomateHeaderPlugin,
+    DockerPlugin
+  )
+  .dependsOn(
+    ethclient,
+    externalstorage,
+    `vm-llamadb`
+  )
