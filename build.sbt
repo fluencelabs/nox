@@ -8,7 +8,7 @@ commons
 
 initialize := {
   val _ = initialize.value // run the previous initialization
-  val required = "1.8" // counter.wast cannot be run under Java 9. Remove this check after fixes.
+  val required = "1.8" // Asmble works only on Java 8.
   val current = sys.props("java.specification.version")
   assert(current == required, s"Unsupported JDK: java.specification.version $current != $required")
 }

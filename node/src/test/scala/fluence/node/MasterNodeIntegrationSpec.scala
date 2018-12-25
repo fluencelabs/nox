@@ -116,7 +116,7 @@ class MasterNodeIntegrationSpec
             .volume("/var/run/docker.sock", "/var/run/docker.sock")
             // statemachine expects wasm binaries in /vmcode folder
             .volume(
-              // by defaults sbt user directory is a submodule directory while Idea is project root
+              // by defaults user.dir in sbt is a submodule directory while in Idea is the project root
               if (System.getProperty("user.dir").endsWith("/node")) "../"
               else
                 "./"
