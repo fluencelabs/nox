@@ -74,6 +74,9 @@ contract Deployer {
 
         // True if this node can be used only by `owner`
         bool isPrivate;
+
+        // Clusters where this node participate
+        bytes32[] clusters;
     }
 
     // Represents deployed or enqueued (waiting to be deployed) code
@@ -125,7 +128,13 @@ contract Deployer {
     );
 
     // Emitted when Code is enqueued, telling that there is not enough Workers yet
-    event AppEnqueued(bytes32 storageHash);
+    event AppEnqueued(
+        bytes32 storageHash,
+        bytes32 storageReceipt,
+        uint8 clusterSize,
+        address owner,
+        bytes32[] pinToNodes
+    );
 
     // Emitted on every new Node
     event NewNode(bytes32 id);
@@ -167,11 +176,14 @@ contract Deployer {
         require(startPort <= endPort, "Port range is empty or incorrect");
 
         // Save the node
-        nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, msg.sender, isPrivate);
+        Node memory node = Node(nodeID, nodeAddress, startPort, endPort, msg.sender, isPrivate, new bytes32[](0));
+        nodes[nodeID] = node;
         nodesIds.push(nodeID);
 
         // No need to add private nodes to readyNodes, as they could only used with by-id pinning
         if(!isPrivate) readyNodes.push(nodeID);
+
+        emit NewNode(nodeID);
 
         // match apps to the node until no matches left, or until this node ports range is exhausted
         for(uint i = 0; i < enqueuedApps.length;) {
@@ -181,12 +193,10 @@ contract Deployer {
                 removeApp(i);
 
                 // We should stop if there's no more ports in this node -- its addition has no more effect
-                Node memory node = nodes[nodeID];
+                node = nodes[nodeID];
                 if(node.nextPort > node.lastPort) break;
             } else i++;
         }
-
-        emit NewNode(nodeID);
     }
 
     /** @dev Adds new App to be deployed on Nodes when there are enough of them
@@ -219,8 +229,7 @@ contract Deployer {
         if(!tryDeployApp(app)) {
             // App is not deployed -- enqueue it to have it deployed later
             enqueuedApps.push(app);
-            enqueuedApps.length++;
-            emit AppEnqueued(app.storageHash);
+            emit AppEnqueued(app.storageHash, app.storageReceipt, app.clusterSize, app.owner, app.pinToNodes);
         }
     }
 
@@ -262,7 +271,7 @@ contract Deployer {
             }
 
             // Find ready nodes to pin to
-            for(uint j = 0; j < readyNodes.length && workers.length < app.clusterSize; j++) {
+            for(uint j = 0; j < readyNodes.length && workersCount < app.clusterSize; j++) {
                 node = nodes[readyNodes[j]];
 
                 // Deduplicate nodes in case a pinTo node is not private
@@ -295,6 +304,9 @@ contract Deployer {
     {
         require(app.clusterSize == workers.length, "There should be enough nodes to form a cluster");
 
+        // clusterID generation could be arbitrary, it doesn't depend on actual cluster count
+        bytes32 clusterID = bytes32(clusterCount++);
+
         // arrays containing nodes' data to be sent in a `ClusterFormed` event
         bytes32[] memory nodeIDs = new bytes32[](app.clusterSize);
         bytes24[] memory workerAddrs = new bytes24[](app.clusterSize);
@@ -310,10 +322,9 @@ contract Deployer {
             workerPorts[j] = node.nextPort;
 
             useNodePort(node.id);
+            nodes[node.id].clusters.push(clusterID);
         }
 
-        // clusterID generation could be arbitrary, it doesn't depend on actual cluster count
-        bytes32 clusterID = bytes32(clusterCount++);
         uint genesisTime = now;
 
         // saving selected nodes as a cluster with assigned code

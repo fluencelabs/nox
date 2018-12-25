@@ -38,18 +38,7 @@ contract Network is Deployer {
     view
     returns (bytes32[])
     {
-        bytes32[] memory clusterIDs = new bytes32[](0);
-        uint count = 0;
-
-        for (uint i = 1; i < clusterCount; i++) {
-            Cluster memory cluster = clusters[bytes32(i)];
-            for (uint j = 0; j < cluster.nodeIDs.length; j++) {
-                if (cluster.nodeIDs[j] == nodeID) {
-                    clusterIDs[count++] = cluster.clusterID;
-                }
-            }
-        }
-        return clusterIDs;
+        return nodes[nodeID].clusters;
     }
 
     /** @dev Allows anyone with clusterID to retrieve assigned App
@@ -59,18 +48,24 @@ contract Network is Deployer {
     function getCluster(bytes32 clusterID)
     external
     view
-    returns (bytes32, bytes32, uint, bytes32[], uint16[], bool)
+    returns (bytes32, bytes32, uint, bytes32[], bytes24[], uint16[], bytes32[])
     {
         Cluster memory cluster = clusters[clusterID];
         require(cluster.clusterID > 0, "there is no such cluster");
+
+        bytes24[] memory addresses = new bytes24[](cluster.nodeIDs.length);
+        for(uint8 i = 0; i < cluster.nodeIDs.length; i++) {
+            addresses[i] = nodes[cluster.nodeIDs[i]].nodeAddress;
+        }
 
         return (
             cluster.app.storageHash,
             cluster.app.storageReceipt,
             cluster.genesisTime,
             cluster.nodeIDs,
+            addresses,
             cluster.ports,
-            cluster.app.pinToNodes.length > 0
+            cluster.app.pinToNodes
         );
     }
 
@@ -156,6 +151,7 @@ contract Network is Deployer {
         uint pinnedCount;
 
         for (uint i = 0; i < enqueuedApps.length; i++) {
+            // What is it? What good it does?
             pinnedCount += app.pinToNodes.length;
         }
 
