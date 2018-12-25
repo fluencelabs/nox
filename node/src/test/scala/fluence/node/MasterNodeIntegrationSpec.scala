@@ -143,7 +143,7 @@ class MasterNodeIntegrationSpec
             _ <- eventually[IO](checkMasterRunning(master2))
 
             contract = FluenceContract(ethClient, contractConfig)
-            _ <- contract.addCode[IO](clusterSize = 2)
+            _ <- contract.addCode[IO]("llamadb", clusterSize = 2)
 
             _ <- eventually[IO](
               for {
