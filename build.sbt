@@ -183,11 +183,7 @@ lazy val node = project
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
-    test in Test := {
-      docker.value
-      (docker in statemachine).value
-      (test in Test).value
-    },
+    //test in Test := (test in Test).dependsOn(compile in vm_llamadb).value,
     mainClass in assembly := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly := "master-node.jar",
     test in assembly := {},
@@ -222,4 +218,4 @@ lazy val node = project
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(ethclient, externalstorage)
-  .dependsOn(vm_llamadb % Test)
+  .aggregate(vm_llamadb)

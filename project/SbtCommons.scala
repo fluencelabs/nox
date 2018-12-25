@@ -3,8 +3,9 @@ import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
 import sbt._
+
 import sys.process._
-import sbtassembly.AssemblyKeys.{assembly, assemblyJarName, assemblyExcludedJars}
+import sbtassembly.AssemblyKeys.{assembly, assemblyExcludedJars, assemblyJarName}
 
 object SbtCommons {
 
@@ -33,7 +34,6 @@ object SbtCommons {
 
   def rustVmExample(exampleName: String) = Seq(
     publishArtifact := false,
-    //test in Test := run.inputTaskValue,
     compile := (compile in Compile).dependsOn(Def.task {
         val log = streams.value.log
         log.info(s"Compiling $exampleName.rs to $exampleName.wasm")
