@@ -165,16 +165,19 @@ object ServerRunner extends IOApp with LazyLogging {
   private def buildVm[F[_]: Monad](moduleFiles: Seq[String]): EitherT[F, StateMachineError, WasmVm] =
     WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
 
-  def listFiles(fileFilter: File => Boolean)(file: File): List[File] = {
-    val rawFileNames = file.list()
-    val fileNames = if (rawFileNames == null) {
-      Nil
-    } else {
-      rawFileNames.toList
-    }
+  def getFilesInFolder(fileFilter: File => Boolean)(pathName: File): List[File] = pathName match {
+    case file if pathName.isFile => List(file).filter(fileFilter)
+    case dir if pathName.isDirectory => {
+      val rawPathNames = dir.list()
+      val pathNames = if (rawPathNames == null) {
+        Nil
+      } else {
+        rawPathNames.toList
+      }
 
-    val theseFiles = fileNames.map(new File(file, _))
-    theseFiles.filter(fileFilter) ++ theseFiles.filter(_.isDirectory).flatMap(listFiles(fileFilter))
+      val theseFiles = pathNames.map(new File(pathName, _))
+      theseFiles.filter(fileFilter) ++ theseFiles.filter(_.isDirectory).flatMap(getFilesInFolder(fileFilter))
+    }
   }
 
   /**
@@ -192,7 +195,7 @@ object ServerRunner extends IOApp with LazyLogging {
         Try(
           config.moduleFiles
             .map(
-              name => listFiles(_.getName endsWith ".wast")(new File(name))
+              pathName => getFilesInFolder(_.getPath endsWith ".wast")(new File(pathName))
             )
             .flatMap(_.map(_.getPath))
         ).toEither
