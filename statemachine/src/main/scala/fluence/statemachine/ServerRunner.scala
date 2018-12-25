@@ -201,11 +201,10 @@ object ServerRunner extends IOApp with LazyLogging {
         Try(
           config.moduleFiles
             .map(
-              pathName =>
-                listFiles(new File(pathName))
-                  .filter(fileName => fileName.getPath.endsWith(".wasm") || fileName.getPath.endsWith(".wast"))
+              pathName => listFiles(new File(pathName))
             )
             .flatMap(_.map(_.getPath))
+            .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
         ).toEither
       )
       .leftMap { e =>
