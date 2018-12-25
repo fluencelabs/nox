@@ -210,7 +210,7 @@ contract Deployer {
     returns(bool)
     {
         Node[] memory solvers = new Node[](app.clusterSize);
-        uint8 solversLength = 0;
+        uint8 solversCount = 0;
 
         bool skip = false;
 
@@ -229,8 +229,8 @@ contract Deployer {
             }
             node = nodes[app.pinToNodes[i]];
             if(node.owner == msg.sender) {
-                solvers[solversLength] = node;
-                solversLength++;
+                solvers[solversCount] = node;
+                solversCount++;
             }
         }
 
@@ -246,11 +246,11 @@ contract Deployer {
             if(skip) {
                 continue;
             }
-            solvers[solversLength] = node;
-            solversLength++;
+            solvers[solversCount] = node;
+            solversCount++;
         }
 
-        if(solversLength == app.clusterSize) {
+        if(solversCount == app.clusterSize) {
             formCluster(app, solvers);
             return true;
         } else {
