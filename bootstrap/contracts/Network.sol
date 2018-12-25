@@ -29,7 +29,7 @@ import "./Deployer.sol";
  */
 contract Network is Deployer {
 
-    /** @dev Allows to track currently running clusters for specified node's solvers
+    /** @dev Allows to track currently running clusters for specified node's workers
      *  @param nodeID ID of node (Tendermint consensus key)
      *  returns IDs of clusters where the node is a member.
      */
@@ -117,27 +117,27 @@ contract Network is Deployer {
     returns (bytes32[], uint16[])
     {
         Cluster[] memory _clusters = new Cluster[](clusterCount - 1);
-        uint solversCount = 0;
+        uint workersCount = 0;
         for (uint i = 1; i < clusterCount; i++) {
             uint key = i-1;
             Cluster memory cl = clusters[bytes32(i)];
             _clusters[key] = cl;
-            solversCount = solversCount + cl.app.clusterSize;
+            workersCount = workersCount + cl.app.clusterSize;
         }
 
-        bytes32[] memory ids = new bytes32[](solversCount);
-        uint16[] memory ports = new uint16[](solversCount);
+        bytes32[] memory ids = new bytes32[](workersCount);
+        uint16[] memory ports = new uint16[](workersCount);
 
-        // solversCount is reused here to reduce stack depth
-        solversCount = 0;
+        // workersCount is reused here to reduce stack depth
+        workersCount = 0;
 
         for (uint k = 0; k < _clusters.length; k++) {
             Cluster memory cluster = _clusters[k];
 
             for (uint n = 0; n < cluster.nodeIDs.length; n++) {
-                ids[solversCount] = cluster.nodeIDs[n];
-                ports[solversCount] = cluster.ports[n];
-                solversCount++;
+                ids[workersCount] = cluster.nodeIDs[n];
+                ports[workersCount] = cluster.ports[n];
+                workersCount++;
             }
         }
 

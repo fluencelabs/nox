@@ -41,7 +41,7 @@ pragma solidity ^0.4.24;
 // maybe how many times it gets deployed, if that's the case
 
 // TODO: there should be timeout on deployment status, and it should be confirmed periodically
-// cuz it is possible for Solvers to ignore `CodeDeploying` while code is marked as deployed=true
+// cuz it is possible for Workers to ignore `CodeDeploying` while code is marked as deployed=true
 
 /*
  * This contract allows to:
@@ -55,8 +55,8 @@ pragma solidity ^0.4.24;
  *
  */
 contract Deployer {
-    // Represents a Fluence Node which already is running or ready to run Solvers within the port range
-    // Node's Solvers share the same Tendermint ID (consensus key) and nodeAddress
+    // Represents a Fluence Node which already is running or ready to run Workers within the port range
+    // Node's Workers share the same Tendermint ID (consensus key) and nodeAddress
     struct Node {
         // Unique node's ID, user provided; actually it's Tendermint's ValidatorKey
         bytes32 id;
@@ -64,7 +64,7 @@ contract Deployer {
         // Publicly reachable & verifiable node address; has `node` prefix as `address` is a reserved word
         bytes24 nodeAddress;
 
-        // Next port that could be used for running solver
+        // Next port that could be used for running worker
         uint16 nextPort;
         // The last port of Node's dedicated range
         uint16 lastPort;
@@ -107,12 +107,12 @@ contract Deployer {
         // IDs of participating nodes
         bytes32[] nodeIDs;
 
-        // Solver's ports for each node
+        // Worker's ports for each node
         uint16[] ports;
     }
 
     // Emitted when there is enough ready Nodes for some Code
-    // Nodes' solvers should form a cluster in reaction to this event
+    // Nodes' workers should form a cluster in reaction to this event
     event ClusterFormed(
         bytes32 clusterID,
 
@@ -124,7 +124,7 @@ contract Deployer {
         uint16[] ports
     );
 
-    // Emitted when Code is enqueued, telling that there is not enough Solvers yet
+    // Emitted when Code is enqueued, telling that there is not enough Workers yet
     event AppEnqueued(bytes32 storageHash);
 
     // Emitted on every new Node
@@ -166,15 +166,17 @@ contract Deployer {
         // if startPort == endPort, then node can host just a single code
         require(startPort <= endPort, "Port range is empty or incorrect");
 
+        // Save the node
         nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, msg.sender, isPrivate);
-        readyNodes.push(nodeID);
         nodesIds.push(nodeID);
 
-        // match apps to the node until no matches left
-        // TODO make a better data structure for enqueuedApps
+        // No need to add private nodes to readyNodes, as they could only used with by-id pinning
+        if(!isPrivate) readyNodes.push(nodeID);
+
+        // match apps to the node until no matches left, or until this node ports range is exhausted
         for(uint i = 0; i < enqueuedApps.length;) {
             App memory app = enqueuedApps[i];
-            if(tryToDeployApp(app)) {
+            if(tryDeployApp(app)) {
                 // Once an app is deployed, we already have a new app on i-th position, so no need to increment i
                 removeApp(i);
 
@@ -190,97 +192,122 @@ contract Deployer {
     /** @dev Adds new App to be deployed on Nodes when there are enough of them
       * @param storageHash Swarm storage hash; allows code distributed and downloaded through it
       * @param storageReceipt Swarm receipt, serves as a proof that code is stored
-      * @param clusterSize specifies number of Solvers that must serve the App
+      * @param clusterSize specifies number of Workers that must serve the App
       * @param pinToNodes list of msg.sender's nodes where the App must reside
-      * emits ClusterFormed event when there is enough nodes for the App and emits CodeEnqueued otherwise, subject to change
+      * emits ClusterFormed event when there is enough nodes for the App and
+      * emits AppEnqueued otherwise, subject to change
       */
     function addApp(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize, bytes32[] pinToNodes)
         external
     {
+        require(clusterSize > 0, "Cluster size must be a positive number");
+
         require(clusterSize >= pinToNodes.length,
-            "number of pinned nodes should be less or equal to the desired clusterSize");
+            "number of pinTo nodes should be less or equal to the desired clusterSize");
+
+        // Check that pinToNodes are distinct nodes owned by msg.sender
+        for(uint8 i = 0; i < pinToNodes.length; i++) {
+            for(uint8 j = 0; j <= i; j++) {
+                if(i == j) {
+                    require(nodes[pinToNodes[i]].owner == msg.sender, "Can pin only to nodes you own");
+                } else require(pinToNodes[i] != pinToNodes[j], "Node ids to pin to must be unique, otherwise the deployment result could be unpredictable and unexpected");
+            }
+        }
 
         App memory app = App(storageHash, storageReceipt, clusterSize, msg.sender, pinToNodes);
 
-        tryToDeployApp(app);
+        if(!tryDeployApp(app)) {
+            // App is not deployed -- enqueue it to have it deployed later
+            enqueuedApps.push(app);
+            enqueuedApps.length++;
+            emit AppEnqueued(app.storageHash);
+        }
     }
 
-    function tryToDeployApp(App memory app)
+    /** @dev Tries to deploy an app, using ready nodes and their ports
+      * @param app Application to deploy
+      * emits ClusterFormed when App is deployed
+      */
+    function tryDeployApp(App memory app)
         internal
     returns(bool)
     {
-        Node[] memory solvers = new Node[](app.clusterSize);
-        uint8 solversCount = 0;
+        // Number of already collected workers
+        uint8 workersCount = 0;
 
-        bool skip = false;
+        // Prepare an array of workers to collect
+        Node[] memory workers = new Node[](app.clusterSize);
 
-        uint8 i = 0;
-        uint j = 0;
-        Node memory node;
+        // There must be enough readyNodes to try to deploy the app
+        if(readyNodes.length >= app.clusterSize - app.pinToNodes.length) {
+            // Index up to pinToNodes length
+            uint8 i = 0;
 
-        for(; i < app.pinToNodes.length; i++) {
-            skip = false;
-            // It should be better then making a custom data structure due to small expected size of pinToNodes
-            for(; j < i && !skip; j++) {
-                skip = app.pinToNodes[i] == app.pinToNodes[j];
+            // Current node to check
+            Node memory node;
+
+            // Find all the nodes where code should be pinned
+            // We have already checked that all the nodes belong to app owner
+            // We have already deduplicated pinToNodes
+            for(; i < app.pinToNodes.length; i++) {
+                node = nodes[app.pinToNodes[i]];
+
+                // There's no capacity on pin-to node to deploy the app
+                if(node.nextPort > node.lastPort) {
+                    return false;
+                }
+
+                workers[workersCount] = node;
+                workersCount++;
             }
-            if(skip) {
-                continue;
-            }
-            node = nodes[app.pinToNodes[i]];
-            if(node.owner == msg.sender) {
-                solvers[solversCount] = node;
-                solversCount++;
+
+            // Find ready nodes to pin to
+            for(uint j = 0; j < readyNodes.length && workers.length < app.clusterSize; j++) {
+                node = nodes[readyNodes[j]];
+
+                // Deduplicate nodes in case a pinTo node is not private
+                bool skip = false;
+                // It should work better then a custom data structure due to high storage costs & small workers size expectations
+                for(i = 0; i < workers.length && !skip; i++) {
+                    if(workers[i].id == node.id) skip = true;
+                }
+                if(skip) {
+                    continue;
+                }
+                workers[workersCount] = node;
+                workersCount++;
             }
         }
 
-        for(j = 0; j < readyNodes.length && solvers.length < app.clusterSize; j++) {
-            node = nodes[readyNodes[j]];
-
-            // Skip all the private nodes; they should be used only with explicit pinning
-            skip = node.isPrivate;
-            // It should work better then a custom data structure due to high storage costs & small solvers size expectations
-            for(i = 0; i < solvers.length && !skip; i++) {
-                if(solvers[i].id == node.id) skip = true;
-            }
-            if(skip) {
-                continue;
-            }
-            solvers[solversCount] = node;
-            solversCount++;
-        }
-
-        if(solversCount == app.clusterSize) {
-            formCluster(app, solvers);
+        if(workersCount == app.clusterSize) {
+            formCluster(app, workers);
             return true;
-        } else {
-            enqueuedApps.push(app);
-            emit AppEnqueued(app.storageHash);
-            return false;
         }
+
+        return false;
     }
 
     /**
      * @dev Forms a cluster, emits ClusterFormed event
      */
-    function formCluster(App memory app, Node[] memory solvers)
+    function formCluster(App memory app, Node[] memory workers)
         internal
     {
-        require(app.clusterSize == solvers.length, "There should be enough nodes to form a cluster");
+        require(app.clusterSize == workers.length, "There should be enough nodes to form a cluster");
 
         // arrays containing nodes' data to be sent in a `ClusterFormed` event
         bytes32[] memory nodeIDs = new bytes32[](app.clusterSize);
-        bytes24[] memory solverAddrs = new bytes24[](app.clusterSize);
-        uint16[] memory solverPorts = new uint16[](app.clusterSize);
+        bytes24[] memory workerAddrs = new bytes24[](app.clusterSize);
+        uint16[] memory workerPorts = new uint16[](app.clusterSize);
 
         // j holds the number of currently collected nodes and a position in event data arrays
         for (uint8 j = 0; j < app.clusterSize; j++) {
-            Node memory node = solvers[j];
+            Node memory node = workers[j];
 
             // copy node's data to arrays so it can be sent in event
             nodeIDs[j] = node.id;
-            solverAddrs[j] = node.nodeAddress;
-            solverPorts[j] = node.nextPort;
+            workerAddrs[j] = node.nodeAddress;
+            workerPorts[j] = node.nextPort;
 
             useNodePort(node.id);
         }
@@ -290,11 +317,11 @@ contract Deployer {
         uint genesisTime = now;
 
         // saving selected nodes as a cluster with assigned code
-        clusters[clusterID] = Cluster(clusterID, app, genesisTime, nodeIDs, solverPorts);
+        clusters[clusterID] = Cluster(clusterID, app, genesisTime, nodeIDs, workerPorts);
 
         // notify Fluence node it's time to run real-time nodes and
         // create a Tendermint cluster hosting selected code
-        emit ClusterFormed(clusterID, app.storageHash, genesisTime, nodeIDs, solverAddrs, solverPorts);
+        emit ClusterFormed(clusterID, app.storageHash, genesisTime, nodeIDs, workerAddrs, workerPorts);
     }
 
     /** @dev increments node's currentPort
