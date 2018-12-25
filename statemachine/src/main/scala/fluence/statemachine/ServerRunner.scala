@@ -126,7 +126,6 @@ object ServerRunner extends IOApp with LazyLogging {
   private[statemachine] def buildAbciHandler(config: StateMachineConfig): EitherT[IO, StateMachineError, AbciHandler] =
     for {
       moduleFilenames <- moduleFilesFromConfig[IO](config)
-
       _ = logger.info("Loading VM modules from " + moduleFilenames)
       vm <- buildVm[IO](moduleFilenames)
 
@@ -166,8 +165,14 @@ object ServerRunner extends IOApp with LazyLogging {
   private def buildVm[F[_]: Monad](moduleFiles: Seq[String]): EitherT[F, StateMachineError, WasmVm] =
     WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
 
-  def getFilesInFolder(fileFilter: File => Boolean)(pathName: File): List[File] = pathName match {
-    case file if pathName.isFile => List(file).filter(fileFilter)
+  /**
+   * Recursively collects and returns all files in given folder.
+   *
+   * @param pathName the name of a folder where files should be listed.
+   *                 @return a list of files in given directory or provided file if the exact file has has been given
+   */
+  def listFiles(pathName: File): List[File] = pathName match {
+    case file if pathName.isFile => file :: Nil
     case dir if pathName.isDirectory => {
       val rawPathNames = dir.list()
       val pathNames = if (rawPathNames == null) {
@@ -177,7 +182,7 @@ object ServerRunner extends IOApp with LazyLogging {
       }
 
       val theseFiles = pathNames.map(new File(pathName, _))
-      theseFiles.filter(fileFilter) ++ theseFiles.filter(_.isDirectory).flatMap(getFilesInFolder(fileFilter))
+      theseFiles ++ theseFiles.filter(_.isDirectory).flatMap(listFiles)
     }
   }
 
@@ -197,7 +202,8 @@ object ServerRunner extends IOApp with LazyLogging {
           config.moduleFiles
             .map(
               pathName =>
-                getFilesInFolder(x => x.getPath.endsWith(".wasm") || x.getPath.endsWith(".wast"))(new File(pathName))
+                listFiles(new File(pathName))
+                  .filter(fileName => fileName.getPath.endsWith(".wasm") || fileName.getPath.endsWith(".wast"))
             )
             .flatMap(_.map(_.getPath))
         ).toEither

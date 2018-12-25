@@ -116,7 +116,12 @@ class MasterNodeIntegrationSpec
             .volume("/var/run/docker.sock", "/var/run/docker.sock")
             // statemachine expects wasm binaries in /vmcode folder
             .volume(
-              System.getProperty("user.dir") + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
+              // sbt defaults user directory to submodule directory
+              // while Idea defaults to project root
+              if (System.getProperty("user.dir").endsWith("/statemachine")) "../"
+              else
+                "./"
+                  + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
               "/master/vmcode/vmcode-llamadb"
             )
             .image("fluencelabs/node:latest")

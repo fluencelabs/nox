@@ -31,15 +31,15 @@ import scala.language.{higherKinds, implicitConversions}
 class AsmleWasmVmSpec extends WordSpec with Matchers {
 
   /**
-   * Converts ints to byte array by supplied byte order.
-   *
-   * @param ints array of int
-   * @param byteOrder byte order that used for int converting
-   */
+    * Converts ints to byte array by supplied byte order.
+    *
+    * @param ints array of int
+    * @param byteOrder byte order that used for int converting
+    */
   private def intsToBytes(
-    ints: List[Int],
-    byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN
-  ): ByteBuffer = {
+                           ints: List[Int],
+                           byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN
+                         ): ByteBuffer = {
     val intBytesSize = 4
     val converter = ByteBuffer.allocate(intBytesSize * ints.length)
 
@@ -57,7 +57,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm <- WasmVm[IO](Seq(sumTestFile))
-          result <- vm.invoke[IO](None, "wrongFnName").toVmError
+          result ← vm.invoke[IO](None, "wrongFnName").toVmError
         } yield result
         val error = res.failed()
         error shouldBe a[NoSuchFnError]
@@ -68,7 +68,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         val sumTestFile = getClass.getResource("/wast/sum-with-trap.wast").getPath
         val res = for {
           vm <- WasmVm[IO](Seq(sumTestFile))
-          result <- vm.invoke[IO](None, "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError // Integer overflow
+          result ← vm.invoke[IO](None, "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError // Integer overflow
         } yield result
         val error = res.failed()
         error shouldBe a[TrapError]
@@ -82,7 +82,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         val res = for {
           vm <- WasmVm[IO](Seq(noGetMemoryTestFile))
           result <- vm.invoke[IO](None, "test", "test".getBytes())
-          state <- vm.getVmState[IO].toVmError
+          state ← vm.getVmState[IO].toVmError
         } yield state
 
         val error = res.failed()
@@ -96,7 +96,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         val res = for {
           vm <- WasmVm[IO](Seq(badAllocationFunctionFile))
           result <- vm.invoke[IO](None, "test", "test".getBytes())
-          state <- vm.getVmState[IO].toVmError
+          state ← vm.getVmState[IO].toVmError
         } yield state
 
         val error = res.failed()
@@ -110,7 +110,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm <- WasmVm[IO](Seq(simpleArrayPassingTestFile))
-          result <- vm.invoke[IO](None, "incorrectLengthResult").toVmError
+          result ← vm.invoke[IO](None, "incorrectLengthResult").toVmError
         } yield result
 
         val error = res.failed()
@@ -127,7 +127,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(sumTestFile))
-        result <- vm.invoke[IO](Some("SumModule"), "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError
+        result ← vm.invoke[IO](Some("SumModule"), "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError
       } yield {
         result should not be None
         result.get.deep shouldBe Array[Byte](113, 0, 0, 0).deep
@@ -142,8 +142,8 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(mulTestFile, sumTestFile))
-        mulResult <- vm.invoke[IO](Some("MulModule"), "mul", intsToBytes(100 :: 13 :: Nil).array())
-        sumResult <- vm.invoke[IO](Some("SumModule"), "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError
+        mulResult ← vm.invoke[IO](Some("MulModule"), "mul", intsToBytes(100 :: 13 :: Nil).array())
+        sumResult ← vm.invoke[IO](Some("SumModule"), "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError
       } yield {
         mulResult should not be None
         sumResult should not be None
@@ -160,12 +160,12 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](Seq(counterTestFile))
-        get0 <- vm.invoke[IO](None, "get") // read 0
-        _ <- vm.invoke[IO](None, "inc") // 0 -> 1
-        get1 <- vm.invoke[IO](None, "get") // read 1
-        _ <- vm.invoke[IO](None, "inc") // 1 -> 2
-        _ <- vm.invoke[IO](None, "inc") // 2 -> 3
-        get3 <- vm.invoke[IO](None, "get").toVmError //read 3
+        get0 ← vm.invoke[IO](None, "get") // read 0
+        _ ← vm.invoke[IO](None, "inc") // 0 -> 1
+        get1 ← vm.invoke[IO](None, "get") // read 1
+        _ ← vm.invoke[IO](None, "inc") // 1 -> 2
+        _ ← vm.invoke[IO](None, "inc") // 2 -> 3
+        get3 ← vm.invoke[IO](None, "get").toVmError //read 3
       } yield {
         get0 should not be None
         get1 should not be None
@@ -183,12 +183,12 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       val simpleStringPassingTestFile = getClass.getResource("/wast/simple-string-passing.wast").getPath
 
       val res = for {
-        vm <- WasmVm[IO](Seq(simpleStringPassingTestFile))
-        value1 <- vm.invoke[IO](None, "circular_xor", "test_argument".getBytes())
-        value2 <- vm.invoke[IO](None, "circular_xor", "XX".getBytes())
-        value3 <- vm.invoke[IO](None, "circular_xor", "XXX".getBytes())
-        value4 <- vm.invoke[IO](None, "circular_xor", "".getBytes()) // empty string
-        value5 <- vm.invoke[IO](None, "circular_xor", "\"".getBytes()).toVmError // " string
+        vm ← WasmVm[IO](Seq(simpleStringPassingTestFile))
+        value1 ← vm.invoke[IO](None, "circular_xor", "test_argument".getBytes())
+        value2 ← vm.invoke[IO](None, "circular_xor", "XX".getBytes())
+        value3 ← vm.invoke[IO](None, "circular_xor", "XXX".getBytes())
+        value4 ← vm.invoke[IO](None, "circular_xor", "".getBytes()) // empty string
+        value5 ← vm.invoke[IO](None, "circular_xor", "\"".getBytes()).toVmError // " string
       } yield {
         value1 should not be None
         value2 should not be None
@@ -210,9 +210,9 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
 
       val res = for {
-        vm <- WasmVm[IO](Seq(simpleArrayPassingTestFile))
-        value1 <- vm.invoke[IO](None, "hello")
-        state <- vm.getVmState[IO].toVmError
+        vm ← WasmVm[IO](Seq(simpleArrayPassingTestFile))
+        value1 ← vm.invoke[IO](None, "hello")
+        state ← vm.getVmState[IO].toVmError
       } yield {
         value1 should not be None
 
@@ -227,9 +227,9 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
       val simpleArrayMutationTestFile = getClass.getResource("/wast/simple-array-mutation.wast").getPath
 
       val res = for {
-        vm <- WasmVm[IO](Seq(simpleArrayMutationTestFile))
-        value1 <- vm.invoke[IO](None, "mutateArray", "AAAAAAA".getBytes())
-        state <- vm.getVmState[IO].toVmError
+        vm ← WasmVm[IO](Seq(simpleArrayMutationTestFile))
+        value1 ← vm.invoke[IO](None, "mutateArray", "AAAAAAA".getBytes())
+        state ← vm.getVmState[IO].toVmError
       } yield {
         value1 should not be None
 
@@ -239,6 +239,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
       res.success()
     }
+
   }
 
   "getVmState" should {
@@ -251,7 +252,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         }
         val res = for {
           vm <- WasmVm[IO](Seq(counterTestFile), cryptoHasher = badHasher)
-          state <- vm.getVmState[IO].toVmError
+          state ← vm.getVmState[IO].toVmError
         } yield state
 
         val error = res.failed()
@@ -270,7 +271,7 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm <- WasmVm[IO](Seq(sumTestFile), cryptoHasher = testHasher)
-          state <- vm.getVmState[IO].toVmError
+          state ← vm.getVmState[IO].toVmError
         } yield {
           state.toArray shouldBe testHasher.unsafe(Array.emptyByteArray)
         }
@@ -284,14 +285,14 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm <- WasmVm[IO](Seq(counterTestFile))
-          _ <- vm.invoke[IO](None, "inc") // 0 -> 1
-          get1 <- vm.invoke[IO](None, "get") // read 1
-          state1 <- vm.getVmState[IO]
-          get1AfterGettingState <- vm.invoke[IO](None, "get") // read 1
+          _ ← vm.invoke[IO](None, "inc") // 0 -> 1
+          get1 ← vm.invoke[IO](None, "get") // read 1
+          state1 ← vm.getVmState[IO]
+          get1AfterGettingState ← vm.invoke[IO](None, "get") // read 1
 
-          _ <- vm.invoke[IO](None, "inc") // 1 -> 2
-          state2 <- vm.getVmState[IO]
-          get2AfterGettingState <- vm.invoke[IO](None, "get").toVmError // read 2
+          _ ← vm.invoke[IO](None, "inc") // 1 -> 2
+          state2 ← vm.getVmState[IO]
+          get2AfterGettingState ← vm.invoke[IO](None, "get").toVmError // read 2
         } yield {
           get1 should not be None
           get1AfterGettingState should not be None
@@ -316,18 +317,18 @@ class AsmleWasmVmSpec extends WordSpec with Matchers {
         val res = for {
           vm <- WasmVm[IO](Seq(counterTestFile, counterCopyTestFile, mulTestFile))
 
-          _ <- vm.invoke[IO](None, "inc") // 0 -> 1
-          get1 <- vm.invoke[IO](None, "get") // read 1
-          _ <- vm.invoke[IO](Some("CounterCopyModule"), "inc") // 0 -> 1
-          getFromCopy1 <- vm.invoke[IO](Some("CounterCopyModule"), "get") // read 1
-          mul <- vm.invoke[IO](Some("MulModule"), "mul", intsToBytes(100 :: 13 :: Nil).array())
+          _ ← vm.invoke[IO](None, "inc") // 0 -> 1
+          get1 ← vm.invoke[IO](None, "get") // read 1
+          _ ← vm.invoke[IO](Some("CounterCopyModule"), "inc") // 0 -> 1
+          getFromCopy1 ← vm.invoke[IO](Some("CounterCopyModule"), "get") // read 1
+          mul ← vm.invoke[IO](Some("MulModule"), "mul", intsToBytes(100 :: 13 :: Nil).array())
 
-          state1 <- vm.getVmState[IO]
+          state1 ← vm.getVmState[IO]
 
-          _ <- vm.invoke[IO](None, "inc") // 1 -> 2
-          _ <- vm.invoke[IO](Some("CounterCopyModule"), "inc") // 1 -> 2
+          _ ← vm.invoke[IO](None, "inc") // 1 -> 2
+          _ ← vm.invoke[IO](Some("CounterCopyModule"), "inc") // 1 -> 2
 
-          state2 <- vm.getVmState[IO].toVmError
+          state2 ← vm.getVmState[IO].toVmError
 
         } yield {
           get1 should not be None
