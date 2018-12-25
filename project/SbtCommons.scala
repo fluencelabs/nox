@@ -34,6 +34,7 @@ object SbtCommons {
 
   def rustVmExample(exampleName: String) = Seq(
     publishArtifact := false,
+    test := (test in Test).dependsOn(compile).value,
     compile := (compile in Compile).dependsOn(Def.task {
         val log = streams.value.log
         log.info(s"Compiling $exampleName.rs to $exampleName.wasm")

@@ -10,6 +10,6 @@ Check that you've installed Java 8, `docker` and `docker` is running.
 
 For example compilation simply run
 
-        sbt vm-{EXAMPLE_NAME}/run
+        sbt vm-{EXAMPLE_NAME}/compile
         
 from project root folder.
