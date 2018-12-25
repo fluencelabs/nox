@@ -107,6 +107,7 @@ contract Network is Deployer {
     }
 
     /** @dev Gets nodes that already members in all registered clusters
+     * TODO do we really need this method? Its return type is very obscure
      * For full network state, use this method in conjunction with `getClustersInfo`
      * returns tuple representation of an array of nodes-related data from Clusters
      * (ids, node addresses, ports, node owners ethereum addresses)
@@ -116,12 +117,12 @@ contract Network is Deployer {
     view
     returns (bytes32[], uint16[])
     {
-        Cluster[] memory _clusters = new Cluster[](clusterCount - 1);
+        Cluster[] memory collectedClusters = new Cluster[](clusterCount - 1);
         uint workersCount = 0;
         for (uint i = 1; i < clusterCount; i++) {
             uint key = i-1;
             Cluster memory cl = clusters[bytes32(i)];
-            _clusters[key] = cl;
+            collectedClusters[key] = cl;
             workersCount = workersCount + cl.app.clusterSize;
         }
 
@@ -131,8 +132,8 @@ contract Network is Deployer {
         // workersCount is reused here to reduce stack depth
         workersCount = 0;
 
-        for (uint k = 0; k < _clusters.length; k++) {
-            Cluster memory cluster = _clusters[k];
+        for (uint k = 0; k < collectedClusters.length; k++) {
+            Cluster memory cluster = collectedClusters[k];
 
             for (uint n = 0; n < cluster.nodeIDs.length; n++) {
                 ids[workersCount] = cluster.nodeIDs[n];
