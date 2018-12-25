@@ -1,7 +1,6 @@
 import SbtCommons._
 import sbt.Keys._
 import sbt._
-import sys.process._
 
 name := "fluence"
 
@@ -188,9 +187,8 @@ lazy val node = project
         oldStrategy(x)
     },
     test in Test := {
-/*      docker.value
+      docker.value
       (docker in statemachine).value
-      */
       (test in Test).value
     },
     mainClass in assembly := Some("fluence.node.MasterNodeApp"),

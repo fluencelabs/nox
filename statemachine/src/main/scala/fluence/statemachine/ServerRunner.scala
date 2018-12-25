@@ -126,6 +126,7 @@ object ServerRunner extends IOApp with LazyLogging {
   private[statemachine] def buildAbciHandler(config: StateMachineConfig): EitherT[IO, StateMachineError, AbciHandler] =
     for {
       moduleFilenames <- moduleFilesFromConfig[IO](config)
+
       _ = logger.info("Loading VM modules from " + moduleFilenames)
       vm <- buildVm[IO](moduleFilenames)
 
@@ -195,13 +196,14 @@ object ServerRunner extends IOApp with LazyLogging {
         Try(
           config.moduleFiles
             .map(
-              pathName => getFilesInFolder(_.getPath endsWith ".wast")(new File(pathName))
+              pathName =>
+                getFilesInFolder(x => x.getPath.endsWith(".wasm") || x.getPath.endsWith(".wast"))(new File(pathName))
             )
             .flatMap(_.map(_.getPath))
         ).toEither
       )
       .leftMap { e =>
-        VmModuleLocationError("Error during locating VM module files and directories", e)
+        VmModuleLocationError("Error during locating VM module files and directories", Some(e))
       }
 
   /**
