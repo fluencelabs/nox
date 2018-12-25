@@ -113,11 +113,11 @@ class MasterNodeIntegrationSpec
             .option("-e", s"ETHEREUM_IP=$ethereumHost")
             .option("-e", s"PORTS=$portFrom:$portTo")
             .option("--name", name)
-            .volume("/var/run/docker.sock", "/var/run/docker.sock")
+            .volume("/var/run/docker.sock", "/var/run/docke≈r.sock")
             // statemachine expects wasm binaries in /vmcode folder
             .volume(
               // by defaults user.dir in sbt is a submodule directory while in Idea is the project root
-              if (System.getProperty("user.dir")
+              System.getProperty("user.dir")
                 + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
               "/master/vmcode/vmcode-llamadb"
             )
