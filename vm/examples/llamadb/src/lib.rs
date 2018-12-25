@@ -16,8 +16,8 @@
 
 //! Wrapper for Llamadb (a test for Fluence network).
 //!
-//! Provides public methods for work with Llamadb, `allocation` and `deallocation`
-//! memory from a Wasm host environment. Also contains functions for reading from
+//! Provides the public method for work with Llamadb, and `allocation`, `deallocation`
+//! methods to use from a Wasm host environment. Also contains functions for reading from
 //! and writing strings to the raw memory.
 
 #![feature(allocator_api)]
@@ -44,7 +44,7 @@ use std::sync::Mutex;
 type GenResult<T> = Result<T, Box<Error>>;
 
 //
-// FFI for interact with Llamadb module.
+// FFI for interaction with Llamadb module.
 //
 
 /// Initializes `WasmLogger` instance and returns a pointer to error message as a string

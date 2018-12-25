@@ -16,7 +16,8 @@
 
 //! Wrapper for counter (a test for Fluence network).
 //!
-//! This example can only increment a counter and get its current state.
+//! Provides the public method for increment a counter and get its current state, and
+//! `allocation`, `deallocation` methods to use from a Wasm host environment.
 
 #![feature(allocator_api)]
 #![feature(alloc)]
@@ -30,7 +31,7 @@ use std::ptr::NonNull;
 mod counter;
 
 //
-// FFI for interact with counter module
+// FFI for interaction with counter module
 //
 
 static mut COUNTER: counter::Counter = counter::Counter { counter: 0 };
