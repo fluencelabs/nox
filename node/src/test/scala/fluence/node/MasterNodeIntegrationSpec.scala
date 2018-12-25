@@ -70,6 +70,7 @@ class MasterNodeIntegrationSpec
   }
 
   override protected def beforeAll(): Unit = {
+    // TODO : copy llamadb to vmcode
     logger.info("bootstrapping npm")
     run("npm install")
 
@@ -114,6 +115,11 @@ class MasterNodeIntegrationSpec
             .option("-e", s"PORTS=$portFrom:$portTo")
             .option("--name", name)
             .volume("/var/run/docker.sock", "/var/run/docker.sock")
+            // statemachine expects wasm binaries in /vmcode in folder
+            .volume(
+              System.getProperty("user.dir") + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
+              "/master/vmcode/vmcode-llamadb"
+            )
             .image("fluencelabs/node:latest")
         )
         .compile

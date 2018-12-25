@@ -31,7 +31,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
   // sbt defaults user directory to submodule directory
   // while Idea defaults to project root
   private val moduleDirPrefix = if (System.getProperty("user.dir").endsWith("/statemachine")) "../" else "./"
-  private val moduleFiles = List("mul.wast", "counter.wast").map(moduleDirPrefix + "vm/src/test/resources/wast/" + _)
+  private val moduleFiles = moduleDirPrefix + "vm/src/test/resources/wast/" :: Nil
   private val config = StateMachineConfig(8, moduleFiles, "OFF")
 
   val abciHandler: AbciHandler = ServerRunner

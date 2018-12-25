@@ -33,12 +33,12 @@ lazy val vm = (project in file("vm"))
 
 lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .settings(
-    compileRustVmExample("counter")
+    rustVmExample("counter")
   )
 
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
-    compileRustVmExample("llamadb")
+    rustVmExample("llamadb")
   )
 
 lazy val statemachine = (project in file("statemachine"))
@@ -95,9 +95,6 @@ lazy val statemachine = (project in file("statemachine"))
 
       val vmDataRoot = "/vmcode"
 
-      val projectRoot = file("").getAbsolutePath
-      s"cp ${projectRoot}/vm/examples/llamadb/target/wasm32-unknown-unknown/llama_db.wasm $vmDataRoot" !
-
       new Dockerfile {
         from("openjdk:8-jre-alpine")
         // TODO: merge all these `run`s into a single run
@@ -125,10 +122,7 @@ lazy val statemachine = (project in file("statemachine"))
     AutomateHeaderPlugin,
     DockerPlugin
   )
-  .dependsOn(
-    vm,
-    `vm-llamadb`
-  )
+  .dependsOn(vm)
 
 lazy val externalstorage = (project in file("externalstorage"))
   .settings(
@@ -194,8 +188,9 @@ lazy val node = project
         oldStrategy(x)
     },
     test in Test := {
-      docker.value
+/*      docker.value
       (docker in statemachine).value
+      */
       (test in Test).value
     },
     mainClass in assembly := Some("fluence.node.MasterNodeApp"),
@@ -206,9 +201,6 @@ lazy val node = project
       // The assembly task generates a fat JAR file
       val artifact: File = assembly.value
       val artifactTargetPath = s"/${artifact.name}"
-
-      val projectRoot = file("").getAbsolutePath
-      s"cp ${projectRoot}/vm/examples/llamadb/target/wasm32-unknown-unknown/llama_db.wasm /vmcode" !
 
       new Dockerfile {
         // docker is needed in image so it can connect to host's docker.sock and run solvers on host
@@ -222,7 +214,6 @@ lazy val node = project
         * The following directory structure is assumed in node/src/main/resources:
         *    docker/
         *      tendermint/config/default_config.toml
-        *      vmcode/vmcode-llamadb/llama_db.wasm
         *    entrypoint.sh
         */
         copy((resourceDirectory in Compile).value / "docker", "/master/")
@@ -241,5 +232,5 @@ lazy val node = project
   .dependsOn(
     ethclient,
     externalstorage,
-    `vm-llamadb`
+    `vm-llamadb` % Test
   )

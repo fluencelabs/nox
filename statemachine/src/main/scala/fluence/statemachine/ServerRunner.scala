@@ -165,6 +165,18 @@ object ServerRunner extends IOApp with LazyLogging {
   private def buildVm[F[_]: Monad](moduleFiles: Seq[String]): EitherT[F, StateMachineError, WasmVm] =
     WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
 
+  def listFiles(fileFilter: File => Boolean)(file: File): List[File] = {
+    val rawFileNames = file.list()
+    val fileNames = if (rawFileNames == null) {
+      Nil
+    } else {
+      rawFileNames.toList
+    }
+
+    val theseFiles = fileNames.map(new File(file, _))
+    theseFiles.filter(fileFilter) ++ theseFiles.filter(_.isDirectory).flatMap(listFiles(fileFilter))
+  }
+
   /**
    * Extracts module filenames from config with particular files and directories with files mixed.
    *
@@ -174,29 +186,20 @@ object ServerRunner extends IOApp with LazyLogging {
    */
   private def moduleFilesFromConfig[F[_]: Monad](
     config: StateMachineConfig
-  ): EitherT[F, StateMachineError, Seq[String]] =
-    EitherT.fromEither[F](
-      config.moduleFiles
-        .map(
-          name =>
-            Try({
-              val file = new File(name)
-              if (!file.exists())
-                Left(new FileNotFoundException(name))
-              else if (file.isDirectory)
-                Right(file.listFiles().toList)
-              else
-                Right(List(file))
-            }).toEither
-              .flatMap(identity)
-              .left
-              .map(x => VmModuleLocationError("Error during locating VM module files and directories", x))
-        )
-        .partition(_.isLeft) match {
-        case (Nil, files) => Right(for (Right(f) <- files) yield f).map(_.flatten.map(_.getPath))
-        case (errors, _) => Left(for (Left(s) <- errors) yield s).left.map(_.head)
+  ): EitherT[F, StateMachineError, List[String]] =
+    EitherT
+      .fromEither[F](
+        Try(
+          config.moduleFiles
+            .map(
+              name => listFiles(_.getName endsWith ".wast")(new File(name))
+            )
+            .flatMap(_.map(_.getPath))
+        ).toEither
+      )
+      .leftMap { e =>
+        VmModuleLocationError("Error during locating VM module files and directories", e)
       }
-    )
 
   /**
    * Configures `slogging` logger.

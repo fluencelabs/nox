@@ -30,15 +30,15 @@ object SbtCommons {
     addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8")
   )
 
-  def compileRustVmExample(exampleName: String) = Seq(
+  def rustVmExample(exampleName: String) = Seq(
     publishArtifact := false,
     run := {
         val log = streams.value.log
         log.info(s"Compiling $exampleName.rs to $exampleName.wasm")
 
         val projectRoot = file("").getAbsolutePath
-        val exampleFolder = s"${projectRoot}/vm/examples/${exampleName}"
-        val compileCmd = s"docker run --rm -w /work -v ${exampleFolder}:/work tomaka/rustc-emscripten " +
+        val exampleFolder = s"$projectRoot/vm/examples/$exampleName"
+        val compileCmd = s"docker run --rm -w /work -v $exampleFolder:/work tomaka/rustc-emscripten " +
           s"cargo +nightly build --target wasm32-unknown-unknown --release"
         
         assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
