@@ -38,14 +38,13 @@ contract Network is Deployer {
     view
     returns (bytes32[])
     {
-        Node memory node = nodes[nodeID];
         bytes32[] memory clusterIDs = new bytes32[](0);
         uint count = 0;
 
         for (uint i = 1; i < clusterCount; i++) {
             Cluster memory cluster = clusters[bytes32(i)];
-            for (uint j = 0; j < cluster.nodeAddresses.length; j++) {
-                if (cluster.nodeAddresses[j] == node.nodeAddress) {
+            for (uint j = 0; j < cluster.nodeIDs.length; j++) {
+                if (cluster.nodeIDs[j] == nodeID) {
                     clusterIDs[count++] = cluster.clusterID;
                 }
             }
@@ -60,7 +59,7 @@ contract Network is Deployer {
     function getCluster(bytes32 clusterID)
     external
     view
-    returns (bytes32, bytes32, uint, bytes32[], bytes24[], uint16[], address[], bool)
+    returns (bytes32, bytes32, uint, bytes32[], uint16[], bool)
     {
         Cluster memory cluster = clusters[clusterID];
         require(cluster.clusterID > 0, "there is no such cluster");
@@ -70,9 +69,7 @@ contract Network is Deployer {
             cluster.app.storageReceipt,
             cluster.genesisTime,
             cluster.nodeIDs,
-            cluster.nodeAddresses,
             cluster.ports,
-            cluster.owners,
             cluster.app.pinToNodes.length > 0
         );
     }
@@ -117,7 +114,7 @@ contract Network is Deployer {
     function getClustersNodes()
     external
     view
-    returns (bytes32[], bytes24[], uint16[], address[])
+    returns (bytes32[], uint16[])
     {
         Cluster[] memory _clusters = new Cluster[](clusterCount - 1);
         uint solversCount = 0;
@@ -129,9 +126,7 @@ contract Network is Deployer {
         }
 
         bytes32[] memory ids = new bytes32[](solversCount);
-        bytes24[] memory addresses = new bytes24[](solversCount);
         uint16[] memory ports = new uint16[](solversCount);
-        address[] memory owners = new address[](solversCount);
 
         // solversCount is reused here to reduce stack depth
         solversCount = 0;
@@ -139,16 +134,14 @@ contract Network is Deployer {
         for (uint k = 0; k < _clusters.length; k++) {
             Cluster memory cluster = _clusters[k];
 
-            for (uint n = 0; n < cluster.nodeAddresses.length; n++) {
+            for (uint n = 0; n < cluster.nodeIDs.length; n++) {
                 ids[solversCount] = cluster.nodeIDs[n];
-                addresses[solversCount] = cluster.nodeAddresses[n];
                 ports[solversCount] = cluster.ports[n];
-                owners[solversCount] = cluster.owners[n];
                 solversCount++;
             }
         }
 
-        return (ids, addresses, ports, owners);
+        return (ids, ports);
     }
 
     /** @dev Gets codes which not yet deployed anywhere

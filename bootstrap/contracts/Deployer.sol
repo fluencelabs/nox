@@ -101,14 +101,14 @@ contract Deployer {
 
         App app;
 
+        // Cluster created at
         uint genesisTime;
 
+        // IDs of participating nodes
         bytes32[] nodeIDs;
-        bytes24[] nodeAddresses;
-        uint16[] ports;
 
-        // TODO explain
-        address[] owners;
+        // Solver's ports for each node
+        uint16[] ports;
     }
 
     // Emitted when there is enough ready Nodes for some Code
@@ -272,7 +272,6 @@ contract Deployer {
         bytes32[] memory nodeIDs = new bytes32[](app.clusterSize);
         bytes24[] memory solverAddrs = new bytes24[](app.clusterSize);
         uint16[] memory solverPorts = new uint16[](app.clusterSize);
-        address[] memory solverOwners = new address[](app.clusterSize);
 
         // j holds the number of currently collected nodes and a position in event data arrays
         for (uint8 j = 0; j < app.clusterSize; j++) {
@@ -282,7 +281,6 @@ contract Deployer {
             nodeIDs[j] = node.id;
             solverAddrs[j] = node.nodeAddress;
             solverPorts[j] = node.nextPort;
-            solverOwners[j] = node.owner;
 
             useNodePort(node.id);
         }
@@ -292,7 +290,7 @@ contract Deployer {
         uint genesisTime = now;
 
         // saving selected nodes as a cluster with assigned code
-        clusters[clusterID] = Cluster(clusterID, app, genesisTime, nodeIDs, solverAddrs, solverPorts, solverOwners);
+        clusters[clusterID] = Cluster(clusterID, app, genesisTime, nodeIDs, solverPorts);
 
         // notify Fluence node it's time to run real-time nodes and
         // create a Tendermint cluster hosting selected code
