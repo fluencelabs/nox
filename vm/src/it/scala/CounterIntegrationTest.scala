@@ -28,7 +28,7 @@ import org.scalatest.{Matchers, WordSpec}
 
 import scala.language.{higherKinds, implicitConversions}
 
-class COUNTERIntegrationTest extends WordSpec with Matchers {
+class CounterIntegrationTest extends WordSpec with Matchers {
 
   "llamadb integration tests" should {
 

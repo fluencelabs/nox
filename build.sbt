@@ -16,8 +16,11 @@ initialize := {
 /* Projects */
 
 lazy val vm = (project in file("vm"))
+  .configs(IntegrationTest)
+  .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
+//    Defaults.itSettings,
     libraryDependencies ++= Seq(
       "com.github.cretz.asmble" % "asmble-compiler" % "0.4.2-fl",
       cats,
@@ -25,6 +28,7 @@ lazy val vm = (project in file("vm"))
       pureConfig,
       cryptoHashing,
       scalaTest,
+      scalaIntegrationTest,
       mockito
     )
   )

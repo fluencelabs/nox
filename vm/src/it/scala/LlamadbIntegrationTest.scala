@@ -24,11 +24,11 @@ import cats.effect.IO
 import fluence.crypto.{Crypto, CryptoError, DumbCrypto}
 import fluence.vm.TestUtils._
 import fluence.vm.VmError._
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 
 import scala.language.{higherKinds, implicitConversions}
 
-class LlamadbIntegrationTest extends WordSpec with Matchers {
+class LlamadbIntegrationTest extends WordSpec with Matchers with EitherValues with OptionValues {
 
   "llamadb integration tests" should {
 
@@ -154,10 +154,10 @@ class LlamadbIntegrationTest extends WordSpec with Matchers {
         val result3AsString = new String(result3.get)
         val result4AsString = new String(result4.get)
 
-        result1AsString should startsWith "rows inserted"
-        result2AsString should startsWith "rows inserted"
-        result3AsString should startsWith "rows inserted"
-        result4AsString should startsWith "rows inserted"
+        result1AsString startsWith "rows inserted"
+        result2AsString startsWith "rows inserted"
+        result3AsString startsWith "rows inserted"
+        result4AsString startsWith "rows inserted"
       }
 
       res.success()
