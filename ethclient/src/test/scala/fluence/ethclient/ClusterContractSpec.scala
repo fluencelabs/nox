@@ -94,10 +94,6 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
           par.parallel {
             val contract = ethClient.getContract(contractAddress, owner, Network.load)
             for {
-
-              txReceipt <- contract.addAddressToWhitelist(new Address(owner)).call[IO]
-              _ = assert(txReceipt.isStatusOK)
-
               _ <- contract.addCode(bytes, bytes, new Uint8(2)).call[IO]
 
               _ <- contract

@@ -63,11 +63,11 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
 #[cfg(test)]
 mod tests {
     use super::get_status;
+    use credentials::Credentials;
     use publisher::Publisher;
     use rand::prelude::*;
     use register::Register;
     use std::error::Error;
-    use utils;
     use web3::types::*;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
@@ -78,14 +78,17 @@ mod tests {
     fn generate_publisher(bytes: Vec<u8>, cluster_size: &u8) -> Publisher {
         let contract_address: Address = CONTRACT_ADDR.parse().unwrap();
 
+        let creds: Credentials = Credentials::No;
+
         Publisher::new(
             bytes,
             contract_address,
             OWNER.parse().unwrap(),
             String::from(SWARM_URL),
             String::from(ETH_URL),
-            None,
+            creds,
             cluster_size.to_owned(),
+            1_000_000,
         )
     }
 
@@ -106,7 +109,9 @@ mod tests {
             contract_address,
             account,
             String::from(ETH_URL),
-            None,
+            Credentials::No,
+            false,
+            1_000_000,
         )
         .unwrap()
     }
@@ -122,14 +127,6 @@ mod tests {
         let reg2_start_port = 5207;
         let reg2_end_port = 6118;
         let register2 = generate_register(reg2_ip, reg2_start_port, reg2_end_port);
-
-        utils::add_to_white_list(
-            ETH_URL,
-            OWNER.parse().unwrap(),
-            CONTRACT_ADDR.parse().unwrap(),
-            OWNER.parse()?,
-            None,
-        )?;
 
         register1.register(false)?;
         register2.register(false)?;

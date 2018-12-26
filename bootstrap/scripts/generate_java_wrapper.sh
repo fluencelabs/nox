@@ -1,5 +1,6 @@
 #!/bin/bash -e
 
+# Version of web3j should be >= 4.0.0
 command -v web3j >/dev/null 2>&1 || { 
     echo >&2 "web3j is not installed. See https://web3j.readthedocs.io/en/latest/command_line.html" 
     exit 1 

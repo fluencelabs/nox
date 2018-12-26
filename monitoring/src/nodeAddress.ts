@@ -22,6 +22,9 @@ const IP_LEN = 4;
 
 const TENDERMINT_KEY_LEN = 20;
 
+/**
+ * Address of a node in Fluence contract. Contains tendermint key and IP address of the node.
+ */
 interface NodeAddress {
     tendermint_key: string,
     ip_addr: string

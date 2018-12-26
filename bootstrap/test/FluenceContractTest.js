@@ -55,7 +55,6 @@ async function addNodes(contract, count, nodeIP, ownerAddress, portCount = 2) {
 contract('Fluence', function ([_, owner, whitelisted, anyone]) {
     beforeEach(async function() {
       this.contract = await FluenceContract.new({ from: owner });
-      await this.contract.addAddressToWhitelist(whitelisted, { from: owner })
     });
 
     it("Should send event about new Node", async function() {
@@ -125,9 +124,10 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
 
         let nodeID = crypto.randomBytes(16).hexSlice();
 
-        await this.contract.addNode(nodeID, "127.0.0.1", 1000, 1002, {from: whitelisted});
+        await this.contract.addNode(nodeID, "127.0.0.1", 1000, 1001, {from: whitelisted});
 
         let receipt1 = await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
+
         truffleAssert.eventNotEmitted(receipt1, codeEnqueuedEvent);
         truffleAssert.eventEmitted(receipt1, clusterFormedEvent, (ev) => {
             assert.equal(ev.solverAddrs.length, count);
@@ -213,30 +213,10 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
         await this.contract.addCode(storageHash, storageReceipt, count, {from: whitelisted});
 
-        let firstCluster = (await addNodes(this.contract, count, "127.0.0.1", whitelisted)).pop();
-        let secondCluster = (await addNodes(this.contract, count, "127.0.0.1", whitelisted)).pop();
+        let firstCluster = (await addNodes(this.contract, count, "127.0.0.1", whitelisted, portCount = 1)).pop();
+        let secondCluster = (await addNodes(this.contract, count, "127.0.0.1", whitelisted, portCount = 1)).pop();
 
         truffleAssert.eventEmitted(firstCluster, clusterFormedEvent, _ => true);
         truffleAssert.eventEmitted(secondCluster, clusterFormedEvent, _ => true)
     });
-
-    it("Should revert if anyone tries to add code", async function() {
-        await expectThrow(
-            this.contract.addCode("storageHash", "storageReceipt", 100)
-        );
-
-        await expectThrow(
-            this.contract.addCode("storageHash", "storageReceipt", 100, { from: anyone })
-        )
-    });
-
-    it("Should revert if anyone tries to add node", async function() {
-        await expectThrow(
-            this.contract.addNode("id", "address", 1000, 1001)
-        );
-
-        await expectThrow(
-            this.contract.addNode("id", "address", 1000, 1001, { from: anyone })
-        )
-    })
 });

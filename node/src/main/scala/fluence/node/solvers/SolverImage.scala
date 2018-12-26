@@ -15,7 +15,14 @@
  */
 
 package fluence.node.solvers
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 case class SolverImage(image: String, tag: String) {
   val imageName = s"$image:$tag"
+}
+
+object SolverImage {
+  implicit val encodeSolverImage: Encoder[SolverImage] = deriveEncoder
+  implicit val decodeSolverImage: Decoder[SolverImage] = deriveDecoder
 }

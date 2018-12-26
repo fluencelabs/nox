@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-pragma solidity ^0.4.0;
+pragma solidity ^0.4.24;
 
 import "./Deployer.sol";
 
