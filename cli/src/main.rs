@@ -28,9 +28,9 @@ extern crate error_chain;
 #[macro_use]
 extern crate derive_getters;
 
+extern crate base64;
 extern crate ethcore_transaction;
 extern crate rlp;
-extern crate base64;
 
 extern crate ethereum_types_serialize;
 

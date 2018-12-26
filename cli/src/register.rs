@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use base64::decode;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use contract_func::ContractCaller;
 use credentials::Credentials;
@@ -28,7 +29,6 @@ use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use utils;
 use web3::transports::Http;
 use web3::types::{Address, H256};
-use base64::decode;
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
@@ -185,7 +185,8 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let tendermint_key = matches
         .value_of(TENDERMINT_KEY)
         .unwrap()
-        .trim_left_matches("0x").to_owned();
+        .trim_left_matches("0x")
+        .to_owned();
 
     let min_port: u16 = matches.value_of(MIN_PORT).unwrap().parse()?;
     let max_port: u16 = matches.value_of(MAX_PORT).unwrap().parse()?;
