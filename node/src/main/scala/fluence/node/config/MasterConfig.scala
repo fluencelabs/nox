@@ -102,7 +102,7 @@ case class NodeConfig(
   validatorKey: ValidatorKey,
   nodeAddress: String,
   solverImage: SolverImage,
-  pinned: Boolean = false // TODO: implement pinning
+  isPrivate: Boolean = false
 )
 
 object NodeConfig {

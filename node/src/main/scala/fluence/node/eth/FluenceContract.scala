@@ -28,7 +28,7 @@ import fluence.node.config.NodeConfig
 import fluence.node.tendermint.ClusterData
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated.{Uint8, _}
-import org.web3j.abi.datatypes.{Address, DynamicArray}
+import org.web3j.abi.datatypes.{Bool, DynamicArray}
 import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 import org.web3j.tuples.generated
@@ -132,6 +132,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   /**
    * Register the node in the contract.
    * TODO check permissions, Ethereum public key should match
+   * TODO should not be called from scala, use CLI to register the node
    *
    * @param nodeConfig Node to add
    * @tparam F Effect
@@ -143,7 +144,8 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
         nodeConfig.validatorKeyBytes32,
         nodeConfig.addressBytes24,
         nodeConfig.startPortUint16,
-        nodeConfig.endPortUint16
+        nodeConfig.endPortUint16,
+        nodeConfig.isPrivateBool
       )
       .call[F]
       .map(_.getBlockNumber)
@@ -158,9 +160,9 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * @tparam F Effect
    * @return The block number where transaction has been mined
    */
-  def addCode[F[_]: Async](code: String, clusterSize: Short = 1): F[BigInt] =
+  def addApp[F[_]: Async](code: String, clusterSize: Short = 1): F[BigInt] =
     contract
-      .addCode(stringToBytes32(code), stringToBytes32("receipt_stub"), new Uint8(clusterSize))
+      .addApp(stringToBytes32(code), stringToBytes32("receipt_stub"), new Uint8(clusterSize), new DynamicArray())
       .call[F]
       .map(_.getBlockNumber)
       .map(BigInt(_))
@@ -171,15 +173,16 @@ object FluenceContract {
   /**
    * Corresponds to return type for the getCluster method.
    */
-  type ContractClusterTuple = generated.Tuple7[
-    Bytes32,
-    Bytes32,
-    Uint256,
-    DynamicArray[Bytes32],
-    DynamicArray[Bytes24],
-    DynamicArray[Uint16],
-    DynamicArray[Address]
-  ]
+  type ContractClusterTuple =
+    generated.Tuple7[
+      Bytes32, //storageHash
+      Bytes32, //storageReceipt
+      Uint256, //genesisTime
+      DynamicArray[Bytes32], //nodeIDs
+      DynamicArray[Bytes24], //addresses
+      DynamicArray[Uint16], //ports
+      DynamicArray[Bytes32] //pinToNodes
+    ]
 
   /**
    * Tries to convert `ClusterFormedEvent` response to [[ClusterData]] with all information to launch cluster.
@@ -191,17 +194,16 @@ object FluenceContract {
   def eventToClusterData(
     event: ClusterFormedEventResponse,
     nodeConfig: NodeConfig
-  ): Option[ClusterData] = {
+  ): Option[ClusterData] =
     ClusterData.build(
       event.clusterID,
-      event.solverIDs,
+      event.nodeIDs,
       event.genesisTime,
       event.storageHash,
-      event.solverAddrs,
-      event.solverPorts,
+      event.nodeAddresses,
+      event.ports,
       nodeConfig
     )
-  }
 
   /**
    * Loads contract
@@ -243,5 +245,7 @@ object FluenceContract {
      * Returns ending port as uint16.
      */
     def endPortUint16: Uint16 = new Uint16(endpoints.maxPort)
+
+    def isPrivateBool: Bool = new Bool(isPrivate)
   }
 }

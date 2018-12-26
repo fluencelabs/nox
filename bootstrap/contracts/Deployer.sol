@@ -155,7 +155,8 @@ contract Deployer {
     // if (busyCluster[someId].clusterID > 0)
     uint256 clusterCount = 1;
 
-    // Codes waiting for nodes
+    // Apps waiting for nodes
+    // TODO: should they have IDs? so that app owner could cancel deployment of enqueued app, before cluster gets formed
     App[] internal enqueuedApps;
 
     /** @dev Adds node with specified port range to the work-waiting queue
