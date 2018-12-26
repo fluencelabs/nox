@@ -168,21 +168,15 @@ object ServerRunner extends IOApp with LazyLogging {
   /**
    * Collects and returns all files in given folder.
    *
-   * @param pathName the name of a folder where files should be listed.
+   * @param pathName the name of the folder where files should be listed
    * @return a list of files in given directory or provided file if the path to file has has been given
    */
-  def listFiles[F[_]: Monad](pathName: File): List[File] = pathName match {
-    case file if pathName.isFile => file :: Nil
-    case dir if pathName.isDirectory =>
-      val rawPathNames = dir.list()
-      val pathNames = if (rawPathNames == null) {
-        Nil
-      } else {
-        rawPathNames.toList
-      }
-
-      pathNames.map(new File(pathName, _))
-  }
+  def listFiles(pathName: File): IO[List[File]] = IO(
+    pathName match {
+      case file if pathName.isFile => file :: Nil
+      case dir if pathName.isDirectory => Option(dir.listFiles).fold(List.empty[File])(_.toList)
+    }
+  )
 
   /**
    * Extracts module filenames from config with particular files and directories with files mixed.
@@ -199,9 +193,9 @@ object ServerRunner extends IOApp with LazyLogging {
         Try(
           config.moduleFiles
             .map(
-              pathName => listFiles[F](new File(pathName))
+              pathName => listFiles(new File(pathName))
             )
-            .flatMap(_.map(_.getPath))
+            .map(_.flatMap(_.map(_.getPath)))
             .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
         ).toEither
       )
