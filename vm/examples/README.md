@@ -12,4 +12,4 @@ For example compilation simply run
 
         sbt vm-{EXAMPLE_NAME}/compile
         
-from project root folder.
+from the project root folder.
