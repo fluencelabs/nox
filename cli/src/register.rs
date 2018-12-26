@@ -40,7 +40,7 @@ const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
 const WAIT_SYNCING: &str = "wait_syncing";
-const BASE64_TENDERMINT_KEY: &str = "base64";
+const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const GAS: &str = "gas";
 
 #[derive(Debug)]
@@ -213,7 +213,6 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
 
     let tendermint_key = if matches.is_present(BASE64_TENDERMINT_KEY) {
         let arr = decode(&tendermint_key)?;
-        //TODO avoid using box here, fix liveness of borrowed value
         hex::encode(arr)
     } else {
         tendermint_key
