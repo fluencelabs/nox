@@ -43,10 +43,6 @@ pragma solidity ^0.4.24;
 // TODO: there should be timeout on deployment status, and it should be confirmed periodically
 // cuz it is possible for Solvers to ignore `CodeDeploying` while code is marked as deployed=true
 
-// implementation is at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/access/Whitelist.sol
-// example tests are at https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/test/ownership/Whitelist.test.js
-import "openzeppelin-solidity/contracts/access/Whitelist.sol";
-
 /*
  * This contract allows to:
  *  - register a node in Fluence network by submitting IP address and port range
@@ -58,7 +54,7 @@ import "openzeppelin-solidity/contracts/access/Whitelist.sol";
  * is expected to trigger real-time cluster creation when received by matched Fluence nodes
  *
  */
-contract Deployer is Whitelist {
+contract Deployer {
     // Represents a Fluence Node which already is running or ready to run Solvers within the port range
     // Node's Solvers share the same Tendermint ID (consensus key) and nodeAddress
     struct Node {
@@ -127,9 +123,11 @@ contract Deployer is Whitelist {
     function addNode(bytes32 nodeID, bytes24 nodeAddress, uint16 startPort, uint16 endPort)
         external
     {
-        require(whitelist(msg.sender), "The sender is not in whitelist");
         require(nodes[nodeID].id == 0, "This node is already registered");
-        require(startPort < endPort, "Port range is empty or incorrect");
+
+        // port range is inclusive
+        // if startPort == endPort, then node can host just a single code
+        require(startPort <= endPort, "Port range is empty or incorrect");
 
         nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, startPort, msg.sender);
         readyNodes.push(nodeID);
@@ -150,8 +148,8 @@ contract Deployer is Whitelist {
     function addCode(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize)
         external
     {
-        require(whitelist(msg.sender), "The sender is not in whitelist");
         enqueuedCodes.push(Code(storageHash, storageReceipt, clusterSize, msg.sender));
+
         if (!matchWork()) {
             emit CodeEnqueued(storageHash);
         }
@@ -165,51 +163,73 @@ contract Deployer is Whitelist {
         returns (bool)
     {
         uint idx = 0;
+        Code memory code;
+
         // TODO: better control enqueuedCodes.length so we don't exceed gasLimit
-        // maybe separate deployed and undeployed code in two arrays
-        for (; idx < enqueuedCodes.length; ++idx) {
-            if (readyNodes.length >= enqueuedCodes[idx].clusterSize) {
+
+        // looking for a code that can be deployed given current number of readyNodes
+        for (; idx < enqueuedCodes.length; idx++) {
+            code = enqueuedCodes[idx];
+            if (readyNodes.length >= code.clusterSize) {
+                // suitable code found, stop on current idx
                 break;
             }
         }
 
-        // check if we hit the condition `readyNodes.length >= enqueuedCodes[idx].clusterSize` above
+        // check if we hit the condition `readyNodes.length >= code.clusterSize` above
         // idx >= enqueuedCodes.length means that we skipped through enqueuedCodes array without hitting condition
         if (idx >= enqueuedCodes.length) {
             return false;
         }
 
-        Code memory code = enqueuedCodes[idx];
+        // as code is found, remove it from enqueuedCodes
         removeCode(idx);
 
-        bytes32 clusterID = bytes32(clusterCount++);
-        uint time = now;
-
-        bytes32[] memory solverIDs = new bytes32[](code.clusterSize);
+        // arrays containing nodes' data to be sent in a `ClusterFormed` event
+        bytes32[] memory nodeIDs = new bytes32[](code.clusterSize);
         bytes24[] memory solverAddrs = new bytes24[](code.clusterSize);
         uint16[] memory solverPorts = new uint16[](code.clusterSize);
         address[] memory solverOwners = new address[](code.clusterSize);
 
-        uint nodeIndex = 0;
-        for (uint j = 0; j < code.clusterSize; j++) {
-            bytes32 nodeID = readyNodes[nodeIndex];
+        // i holds a position in readyNodes array
+        uint i = 0;
+
+        // j holds the number of currently collected nodes and a position in event data arrays
+        for (uint8 j = 0; j < code.clusterSize; j++) {
+            bytes32 nodeID = readyNodes[i];
             Node memory node = nodes[nodeID];
 
-            solverIDs[j] = nodeID;
+            // copy node's data to arrays so it can be sent in event
+            nodeIDs[j] = nodeID;
             solverAddrs[j] = node.nodeAddress;
             solverPorts[j] = node.currentPort;
             solverOwners[j] = node.owner;
 
-            if (nextPort(nodeID)) {
-                ++nodeIndex;
+            // increment port, it will be used for the next code
+            // using nodes[nodeID] instead of local variable is intended
+            nodes[nodeID].currentPort++;
+
+            // check if node will be able to host a code next time; if no, remove it
+            if (nodes[nodeID].currentPort > node.endPort) {
+                // removeReadyNode puts last node in the array to i-th position
+                // so after removal, readyNodes[i] contains 'new' node, so no need to increment i
+                removeReadyNode(i);
             } else {
-                removeNode(nodeIndex);
+                // go to next position in readyNodes array
+                i++;
             }
         }
 
-        busyClusters[clusterID] = BusyCluster(clusterID, code, time, solverIDs, solverAddrs, solverPorts, solverOwners);
+        // clusterID generation could be arbitrary, it doesn't depend on actual cluster count
+        bytes32 clusterID = bytes32(clusterCount++);
+        uint genesisTime = now;
 
-        emit ClusterFormed(clusterID, code.storageHash, time, solverIDs, solverAddrs, solverPorts);
+        // saving selected nodes as a cluster with assigned code
+        busyClusters[clusterID] = BusyCluster(clusterID, code, genesisTime, nodeIDs, solverAddrs, solverPorts, solverOwners);
+
+        // notify Fluence node it's time to run real-time nodes and
+        // create a Tendermint cluster hosting selected code
+        emit ClusterFormed(clusterID, code.storageHash, genesisTime, nodeIDs, solverAddrs, solverPorts);
         return true;
     }
 
@@ -229,7 +249,7 @@ contract Deployer is Whitelist {
     /** @dev Removes an element on specified position from 'readyNodes'
      * @param index position in 'readyNodes' to remove
      */
-    function removeNode(uint index)
+    function removeReadyNode(uint index)
         internal
     {
         if (index != readyNodes.length - 1) {
@@ -237,17 +257,5 @@ contract Deployer is Whitelist {
             readyNodes[index] = readyNodes[readyNodes.length - 1];
         }
         --readyNodes.length;
-    }
-
-    /** @dev Switches 'currentPort' for specified node
-     * @param nodeID of target node
-     * returns whether there are more available ports
-     */
-    function nextPort(bytes32 nodeID)
-        internal
-        returns (bool)
-    {
-        nodes[nodeID].currentPort++;
-        return nodes[nodeID].currentPort != nodes[nodeID].endPort;
     }
 }

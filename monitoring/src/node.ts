@@ -36,7 +36,7 @@ export interface Node {
 /**
  * Gets list of ready-to-work nodes from Fluence contract
  */
-export async function getReadyNodes(contract: Network): Promise<Node[]> {
+export async function getNodes(contract: Network): Promise<Node[]> {
     let unparsedNodes = await contract.methods.getReadyNodes().call();
     let nodes: Node[] = [];
 

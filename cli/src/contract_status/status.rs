@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use contract_func::ContractCaller;
 use contract_status::cluster::{get_clusters, Cluster};
 use contract_status::code::{get_enqueued_codes, Code};
 use contract_status::node::{get_ready_nodes, Node};
@@ -44,10 +45,12 @@ impl Status {
 
 /// Gets status about Fluence contract from ethereum blockchain.
 pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Box<Error>> {
-    let nodes = get_ready_nodes(contract_address, eth_url)?;
+    let contract = ContractCaller::new(contract_address, eth_url)?;
 
-    let clusters = get_clusters(contract_address, eth_url)?;
-    let codes = get_enqueued_codes(contract_address, eth_url)?;
+    let nodes = get_ready_nodes(&contract)?;
+
+    let clusters = get_clusters(&contract)?;
+    let codes = get_enqueued_codes(&contract)?;
 
     Ok(Status::new(clusters, codes, nodes))
 }

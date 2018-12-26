@@ -16,28 +16,31 @@
  */
 
 import {Network} from "../types/web3-contracts/Network";
-import {getReadyNodes, Node} from "./node";
+import {getNodes, Node} from "./node";
 import {Code, getEnqueuedCodes} from "./code";
 import {Cluster, getClusters} from "./cluster";
 
-export interface Status {
+/**
+ * Status about Fluence network from ethereum contract.
+ */
+export interface ContractStatus {
     clusters: Cluster[],
     enqueued_codes: Code[],
-    ready_nodes: Node[]
+    nodes: Node[]
 }
 
 /**
  * Get the full status of Fluence contract from ethereum blockchain.
  * @param contract Fluence contract API
  */
-export async function getStatus(contract: Network): Promise<Status> {
+export async function getContractStatus(contract: Network): Promise<ContractStatus> {
     let codes = await getEnqueuedCodes(contract);
-    let readyNodes = await getReadyNodes(contract);
+    let nodes = await getNodes(contract);
     let clusters = await getClusters(contract);
 
     return {
         clusters: clusters,
         enqueued_codes: codes,
-        ready_nodes: readyNodes
+        nodes: nodes
     };
 }

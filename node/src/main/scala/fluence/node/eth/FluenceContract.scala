@@ -150,21 +150,6 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .map(BigInt(_))
 
   /**
-   * Add this address to whitelist
-   *
-   * TODO should not be called from scala
-   * @param address Address to add
-   * @tparam F Effect
-   * @return The block number where transaction has been mined
-   */
-  def addAddressToWhitelist[F[_]: Async](address: String): F[BigInt] =
-    contract
-      .addAddressToWhitelist(new Address(address))
-      .call[F]
-      .map(_.getBlockNumber)
-      .map(BigInt(_))
-
-  /**
    * Adds a new code to be launched with a new cluster
    *
    * TODO should not be called from scala

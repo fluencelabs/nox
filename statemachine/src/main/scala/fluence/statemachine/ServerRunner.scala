@@ -16,7 +16,7 @@
 
 package fluence.statemachine
 
-import java.io.{File, FileNotFoundException}
+import java.io.File
 
 import cats.Monad
 import cats.data.EitherT
@@ -166,6 +166,22 @@ object ServerRunner extends IOApp with LazyLogging {
     WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
 
   /**
+   * Collects and returns all files in given folder.
+   *
+   * @param path the path to the folder where files should be listed
+   * @return a list of files in given directory or provided file if the path to a file has has been given
+   */
+  def listFiles(path: String): IO[List[File]] = IO(
+    {
+      val pathName = new File(path)
+      pathName match {
+        case file if pathName.isFile => file :: Nil
+        case dir if pathName.isDirectory => Option(dir.listFiles).fold(List.empty[File])(_.toList)
+      }
+    }
+  )
+
+  /**
    * Extracts module filenames from config with particular files and directories with files mixed.
    *
    * @param config config object to load VM setting
@@ -174,29 +190,22 @@ object ServerRunner extends IOApp with LazyLogging {
    */
   private def moduleFilesFromConfig[F[_]: Monad](
     config: StateMachineConfig
-  ): EitherT[F, StateMachineError, Seq[String]] =
-    EitherT.fromEither[F](
-      config.moduleFiles
-        .map(
-          name =>
-            Try({
-              val file = new File(name)
-              if (!file.exists())
-                Left(new FileNotFoundException(name))
-              else if (file.isDirectory)
-                Right(file.listFiles().toList)
-              else
-                Right(List(file))
-            }).toEither
-              .flatMap(identity)
-              .left
-              .map(x => VmModuleLocationError("Error during locating VM module files and directories", x))
-        )
-        .partition(_.isLeft) match {
-        case (Nil, files) => Right(for (Right(f) <- files) yield f).map(_.flatten.map(_.getPath))
-        case (errors, _) => Left(for (Left(s) <- errors) yield s).left.map(_.head)
+  ): EitherT[F, StateMachineError, List[String]] =
+    EitherT
+      .fromEither[F](
+        Try(
+          config.moduleFiles
+            .map(
+              path => listFiles(path)
+            )
+            .map(_.unsafeRunSync)
+            .flatMap(_.map(_.getPath))
+            .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
+        ).toEither
+      )
+      .leftMap { e =>
+        VmModuleLocationError("Error during locating VM module files and directories", Some(e))
       }
-    )
 
   /**
    * Configures `slogging` logger.

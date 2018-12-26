@@ -8,7 +8,7 @@ commons
 
 initialize := {
   val _ = initialize.value // run the previous initialization
-  val required = "1.8" // counter.wast cannot be run under Java 9. Remove this check after fixes.
+  val required = "1.8" // Asmble works only on Java 8.
   val current = sys.props("java.specification.version")
   assert(current == required, s"Unsupported JDK: java.specification.version $current != $required")
 }
@@ -32,12 +32,12 @@ lazy val vm = (project in file("vm"))
 
 lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .settings(
-    compileRustVmExample("counter")
+    rustVmExample("counter")
   )
 
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
-    compileRustVmExample("llamadb")
+    rustVmExample("llamadb")
   )
 
 lazy val statemachine = (project in file("statemachine"))
@@ -94,9 +94,6 @@ lazy val statemachine = (project in file("statemachine"))
 
       val vmDataRoot = "/vmcode"
 
-      val projectRoot = file("").getAbsolutePath
-      s"cp ${projectRoot}/vm/examples/llamadb/target/wasm32-unknown-unknown/llama_db.wasm $vmDataRoot" !
-
       new Dockerfile {
         from("openjdk:8-jre-alpine")
         // TODO: merge all these `run`s into a single run
@@ -120,14 +117,8 @@ lazy val statemachine = (project in file("statemachine"))
       }
     }
   )
-  .enablePlugins(
-    AutomateHeaderPlugin,
-    DockerPlugin
-  )
-  .dependsOn(
-    vm,
-    `vm-llamadb`
-  )
+  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+  .dependsOn(vm)
 
 lazy val externalstorage = (project in file("externalstorage"))
   .settings(
@@ -206,9 +197,6 @@ lazy val node = project
       val artifact: File = assembly.value
       val artifactTargetPath = s"/${artifact.name}"
 
-      val projectRoot = file("").getAbsolutePath
-      s"cp ${projectRoot}/vm/examples/llamadb/target/wasm32-unknown-unknown/llama_db.wasm /vmcode" !
-
       new Dockerfile {
         // docker is needed in image so it can connect to host's docker.sock and run solvers on host
         val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
@@ -221,8 +209,7 @@ lazy val node = project
         * The following directory structure is assumed in node/src/main/resources:
         *    docker/
         *      tendermint/config/default_config.toml
-        *      vmcode/vmcode-llamadb/llama_db.wasm
-        *    entrypoint.sh
+        *      entrypoint.sh
         */
         copy((resourceDirectory in Compile).value / "docker", "/master/")
 
@@ -233,12 +220,5 @@ lazy val node = project
       }
     }
   )
-  .enablePlugins(
-    AutomateHeaderPlugin,
-    DockerPlugin
-  )
-  .dependsOn(
-    ethclient,
-    externalstorage,
-    `vm-llamadb`
-  )
+  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+  .dependsOn(ethclient, externalstorage)

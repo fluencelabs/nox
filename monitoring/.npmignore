@@ -1,7 +1,6 @@
 .idea
 .gitignore
 node_modules
-bundle
 
 src
 
