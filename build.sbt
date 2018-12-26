@@ -117,10 +117,7 @@ lazy val statemachine = (project in file("statemachine"))
       }
     }
   )
-  .enablePlugins(
-    AutomateHeaderPlugin, 
-    DockerPlugin
-  )
+  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(vm)
 
 lazy val externalstorage = (project in file("externalstorage"))
@@ -223,12 +220,5 @@ lazy val node = project
       }
     }
   )
-  .enablePlugins(
-    AutomateHeaderPlugin, 
-    DockerPlugin
-  )
-  .dependsOn(
-    ethclient, 
-    externalstorage,
-    `vm-llamadb` % Test
-  )
+  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+  .dependsOn(ethclient, externalstorage)
