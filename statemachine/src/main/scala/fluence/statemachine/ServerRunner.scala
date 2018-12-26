@@ -171,10 +171,13 @@ object ServerRunner extends IOApp with LazyLogging {
    * @param pathName the name of the folder where files should be listed
    * @return a list of files in given directory or provided file if the path to file has has been given
    */
-  def listFiles(pathName: File): IO[List[File]] = IO(
-    pathName match {
-      case file if pathName.isFile => file :: Nil
-      case dir if pathName.isDirectory => Option(dir.listFiles).fold(List.empty[File])(_.toList)
+  def listFiles(path: String): IO[List[File]] = IO(
+    {
+      val pathName = new File(path)
+      pathName match {
+        case file if pathName.isFile => file :: Nil
+        case dir if pathName.isDirectory => Option(dir.listFiles).fold(List.empty[File])(_.toList)
+      }
     }
   )
 
@@ -193,9 +196,10 @@ object ServerRunner extends IOApp with LazyLogging {
         Try(
           config.moduleFiles
             .map(
-              pathName => listFiles(new File(pathName))
+              pathName => listFiles(pathName)
             )
-            .map(_.flatMap(_.map(_.getPath)))
+            .map(_.unsafeRunSync())
+            .flatMap(_.map(_.getPath))
             .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
         ).toEither
       )
