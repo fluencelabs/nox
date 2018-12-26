@@ -168,8 +168,8 @@ object ServerRunner extends IOApp with LazyLogging {
   /**
    * Collects and returns all files in given folder.
    *
-   * @param pathName the name of the folder where files should be listed
-   * @return a list of files in given directory or provided file if the path to file has has been given
+   * @param path the path to the folder where files should be listed
+   * @return a list of files in given directory or provided file if the path to a file has has been given
    */
   def listFiles(path: String): IO[List[File]] = IO(
     {
@@ -196,9 +196,9 @@ object ServerRunner extends IOApp with LazyLogging {
         Try(
           config.moduleFiles
             .map(
-              pathName => listFiles(pathName)
+              path => listFiles(path)
             )
-            .map(_.unsafeRunSync())
+            .map(_.unsafeRunSync)
             .flatMap(_.map(_.getPath))
             .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
         ).toEither
