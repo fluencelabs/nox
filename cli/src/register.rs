@@ -182,10 +182,10 @@ impl Register {
 pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let node_address: IpAddr = matches.value_of(ADDRESS).unwrap().parse()?;
 
-    let mut tendermint_key = matches
+    let tendermint_key = matches
         .value_of(TENDERMINT_KEY)
         .unwrap()
-        .trim_left_matches("0x");
+        .trim_left_matches("0x").to_owned();
 
     let min_port: u16 = matches.value_of(MIN_PORT).unwrap().parse()?;
     let max_port: u16 = matches.value_of(MAX_PORT).unwrap().parse()?;
@@ -209,11 +209,13 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let credentials = Credentials::get(secret_key, password);
 
     let wait_syncing = matches.is_present(WAIT_SYNCING);
-    if matches.is_present(BASE64_TENDERMINT_KEY) {
-        let arr = decode(tendermint_key)?;
+
+    let tendermint_key = if matches.is_present(BASE64_TENDERMINT_KEY) {
+        let arr = decode(&tendermint_key)?;
         //TODO avoid using box here, fix liveness of borrowed value
-        let hex = Box::new(hex::encode(arr));
-        tendermint_key = Box::leak(hex);
+        hex::encode(arr)
+    } else {
+        tendermint_key
     };
 
     let tendermint_key: H256 = tendermint_key.parse()?;
