@@ -86,7 +86,7 @@ object Web3jConverters {
    * @param ip solver host IP
    * @param nodeAddressHex Tendermint p2p public key
    */
-  def solverAddressToBytes24(ip: String, nodeAddressHex: String): Bytes24 = {
+  def nodeAddressToBytes24(ip: String, nodeAddressHex: String): Bytes24 = {
     val buffer = new Array[Byte](24)
 
     Array.copy(hexToBinary(nodeAddressHex), 0, buffer, 0, 20)

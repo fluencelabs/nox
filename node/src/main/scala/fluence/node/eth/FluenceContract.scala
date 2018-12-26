@@ -162,7 +162,12 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    */
   def addApp[F[_]: Async](code: String, clusterSize: Short = 1): F[BigInt] =
     contract
-      .addApp(stringToBytes32(code), stringToBytes32("receipt_stub"), new Uint8(clusterSize), new DynamicArray())
+      .addApp(
+        stringToBytes32(code),
+        stringToBytes32("receipt_stub"),
+        new Uint8(clusterSize),
+        DynamicArray.empty("bytes32[]").asInstanceOf[DynamicArray[Bytes32]]
+      )
       .call[F]
       .map(_.getBlockNumber)
       .map(BigInt(_))
@@ -223,7 +228,7 @@ object FluenceContract {
     )
 
   implicit class NodeConfigEthOps(nodeConfig: NodeConfig) {
-    import fluence.ethclient.helpers.Web3jConverters.{base64ToBytes32, solverAddressToBytes24}
+    import fluence.ethclient.helpers.Web3jConverters.{base64ToBytes32, nodeAddressToBytes24}
     import nodeConfig._
 
     /**
@@ -234,7 +239,7 @@ object FluenceContract {
     /**
      * Returns node's address information (host, Tendermint p2p key) in format ready to pass to the contract.
      */
-    def addressBytes24: Bytes24 = solverAddressToBytes24(endpoints.ip.getHostAddress, nodeAddress)
+    def addressBytes24: Bytes24 = nodeAddressToBytes24(endpoints.ip.getHostAddress, nodeAddress)
 
     /**
      * Returns starting port as uint16.

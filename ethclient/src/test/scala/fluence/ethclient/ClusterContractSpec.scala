@@ -27,7 +27,7 @@ import fluence.ethclient.helpers.Web3jConverters._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.{Bool, DynamicArray}
-import org.web3j.abi.datatypes.generated.{Uint16, Uint8}
+import org.web3j.abi.datatypes.generated.{Bytes32, Uint16, Uint8}
 import org.web3j.protocol.core.methods.response.Log
 import slogging.LazyLogging
 
@@ -93,27 +93,32 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
           // Delayed unsubscribe
           par.parallel {
             val contract = ethClient.getContract(contractAddress, owner, Network.load)
+
             for {
-              _ <- contract.addApp(bytes, bytes, new Uint8(2), new DynamicArray()).call[IO]
+              _ <- contract
+                .addApp(bytes, bytes, new Uint8(2), DynamicArray.empty("bytes32[]").asInstanceOf[DynamicArray[Bytes32]])
+                .call[IO]
 
               _ <- contract
                 .addNode(
                   base64ToBytes32("RK34j5RkudeS0GuTaeJSoZzg/U5z/Pd73zvTLfZKU2w="),
-                  solverAddressToBytes24("192.168.0.1", "99d76509fe9cb6e8cd5fc6497819eeabb2498106"),
+                  nodeAddressToBytes24("192.168.0.1", "99d76509fe9cb6e8cd5fc6497819eeabb2498106"),
                   new Uint16(26056),
                   new Uint16(26057),
                   new Bool(false)
                 )
                 .call[IO]
+
               txReceipt <- contract
                 .addNode(
                   base64ToBytes32("LUMshgzPigL9jDYTCrMADlMyrJs1LIqfIlHCOlf7lOc="),
-                  solverAddressToBytes24("192.168.0.1", "1ef149b8ca80086350397bb6a02f2a172d013309"),
+                  nodeAddressToBytes24("192.168.0.1", "1ef149b8ca80086350397bb6a02f2a172d013309"),
                   new Uint16(26156),
                   new Uint16(26157),
                   new Bool(false)
                 )
                 .call[IO]
+
               _ = assert(txReceipt.isStatusOK)
 
               clusterFormedEvents <- contract.getEvent[IO, ClusterFormedEventResponse](
