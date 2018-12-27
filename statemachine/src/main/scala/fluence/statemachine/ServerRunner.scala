@@ -18,10 +18,11 @@ package fluence.statemachine
 
 import java.io.File
 
-import cats.Monad
+import cats.{Monad, Traverse}
 import cats.data.EitherT
+import cats.instances.list._
 import cats.effect.concurrent.MVar
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect.{ExitCode, IO, IOApp, LiftIO}
 import com.github.jtendermint.jabci.socket.TSocket
 import com.github.jtendermint.jabci.types.Request.ValueCase.{CHECK_TX, DELIVER_TX}
 import fluence.statemachine.config.StateMachineConfig
@@ -39,7 +40,6 @@ import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Main class for the State machine.
@@ -171,15 +171,13 @@ object ServerRunner extends IOApp with LazyLogging {
    * @param path a path to a folder where files should be listed
    * @return a list of files in given directory or provided file if the path to a file has has been given
    */
-  def listFiles(path: String): IO[List[File]] = IO(
-    {
-      val pathName = new File(path)
-      pathName match {
-        case file if pathName.isFile => file :: Nil
-        case dir if pathName.isDirectory => Option(dir.listFiles).fold(List.empty[File])(_.toList)
-      }
+  def listFiles(path: String): IO[List[File]] = IO {
+    val pathName = new File(path)
+    pathName match {
+      case file if pathName.isFile => file :: Nil
+      case dir if pathName.isDirectory => Option(dir.listFiles).fold(List.empty[File])(_.toList)
     }
-  )
+  }
 
   /**
    * Extracts module filenames from config with particular files and directories with files mixed.
@@ -188,24 +186,21 @@ object ServerRunner extends IOApp with LazyLogging {
    * @return either a sequence of filenames found in directories and among files provided in config
    *         or error denoting a specific problem with locating one of directories and files from config
    */
-  private def moduleFilesFromConfig[F[_]: Monad](
+  private def moduleFilesFromConfig[F[_]: LiftIO: Monad](
     config: StateMachineConfig
   ): EitherT[F, StateMachineError, List[String]] =
-    EitherT
-      .fromEither[F](
-        Try(
-          config.moduleFiles
-            .map(
-              path => listFiles(path)
-            )
-            .map(_.unsafeRunSync)
-            .flatMap(_.map(_.getPath))
+    EitherT(
+      Traverse[List]
+        .flatTraverse(config.moduleFiles)(listFiles _)
+        .map(
+          _.map(_.getPath)
             .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
-        ).toEither
-      )
-      .leftMap { e =>
-        VmModuleLocationError("Error during locating VM module files and directories", Some(e))
-      }
+        )
+        .attempt
+        .to[F]
+    ).leftMap { e =>
+      VmModuleLocationError("Error during locating VM module files and directories", Some(e))
+    }
 
   /**
    * Configures `slogging` logger.
