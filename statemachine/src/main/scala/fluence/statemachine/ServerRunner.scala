@@ -18,10 +18,11 @@ package fluence.statemachine
 
 import java.io.File
 
-import cats.Monad
+import cats.{Monad, Traverse}
 import cats.data.EitherT
+import cats.instances.list._
 import cats.effect.concurrent.MVar
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect.{ExitCode, IO, IOApp, LiftIO}
 import com.github.jtendermint.jabci.socket.TSocket
 import com.github.jtendermint.jabci.types.Request.ValueCase.{CHECK_TX, DELIVER_TX}
 import fluence.statemachine.config.StateMachineConfig
@@ -39,15 +40,14 @@ import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
- * Main class for the State machine.
- *
- * Launches JVM ABCI Server by instantiating jTendermint's `TSocket` registering `ABCIHandler` as handler.
- * jTendermint implements RPC layer, provides dedicated threads (`Consensus`, `Mempool` and `Query` thread
- * according to Tendermint specification) and sends ABCI requests to `ABCIHandler`.
- */
+  * Main class for the State machine.
+  *
+  * Launches JVM ABCI Server by instantiating jTendermint's `TSocket` registering `ABCIHandler` as handler.
+  * jTendermint implements RPC layer, provides dedicated threads (`Consensus`, `Mempool` and `Query` thread
+  * according to Tendermint specification) and sends ABCI requests to `ABCIHandler`.
+  */
 object ServerRunner extends IOApp with LazyLogging {
   val DefaultABCIPort: Int = 26658 // default Tendermint ABCI port
   val DefaultMetricsPort: Int = 26661 // default Prometheus metrics port
@@ -65,11 +65,11 @@ object ServerRunner extends IOApp with LazyLogging {
   }
 
   /**
-   * Starts the State machine.
-   *
-   * @param abciPort port used to listen to Tendermint requests
-   * @param metricsPort port used to provide Prometheus metrics
-   */
+    * Starts the State machine.
+    *
+    * @param abciPort port used to listen to Tendermint requests
+    * @param metricsPort port used to provide Prometheus metrics
+    */
   private def start(abciPort: Int, metricsPort: Int): EitherT[IO, StateMachineError, Unit] =
     for {
       _ <- EitherT.right(IO { configureLogging() })
@@ -94,10 +94,10 @@ object ServerRunner extends IOApp with LazyLogging {
     } yield ()
 
   /**
-   * Starts metrics servlet on provided port
-   *
-   * @param metricsPort port to expose Prometheus metrics
-   */
+    * Starts metrics servlet on provided port
+    *
+    * @param metricsPort port to expose Prometheus metrics
+    */
   private def startMetricsServer(metricsPort: Int): Unit = {
     val server = new Server(metricsPort)
     val context = new ServletContextHandler
@@ -109,8 +109,8 @@ object ServerRunner extends IOApp with LazyLogging {
   }
 
   /**
-   * Loads State machine config using `pureconfig` Scala config loading mechanism.
-   */
+    * Loads State machine config using `pureconfig` Scala config loading mechanism.
+    */
   private def loadConfig(): EitherT[IO, StateMachineError, StateMachineConfig] =
     EitherT
       .fromEither[IO](pureconfig.loadConfig[StateMachineConfig])
@@ -119,10 +119,10 @@ object ServerRunner extends IOApp with LazyLogging {
       )
 
   /**
-   * Builds [[AbciHandler]], used to serve all Tendermint requests.
-   *
-   * @param config config object to load various settings
-   */
+    * Builds [[AbciHandler]], used to serve all Tendermint requests.
+    *
+    * @param config config object to load various settings
+    */
   private[statemachine] def buildAbciHandler(config: StateMachineConfig): EitherT[IO, StateMachineError, AbciHandler] =
     for {
       moduleFilenames <- moduleFilesFromConfig[IO](config)
@@ -158,58 +158,53 @@ object ServerRunner extends IOApp with LazyLogging {
     } yield abciHandler
 
   /**
-   * Builds a VM instance used to perform function calls from the clients.
-   *
-   * @param moduleFiles module filenames with VM code
-   */
+    * Builds a VM instance used to perform function calls from the clients.
+    *
+    * @param moduleFiles module filenames with VM code
+    */
   private def buildVm[F[_]: Monad](moduleFiles: Seq[String]): EitherT[F, StateMachineError, WasmVm] =
     WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
 
   /**
-   * Collects and returns all files in given folder.
-   *
-   * @param path the path to the folder where files should be listed
-   * @return a list of files in given directory or provided file if the path to a file has has been given
-   */
-  def listFiles(path: String): IO[List[File]] = IO(
-    {
-      val pathName = new File(path)
-      pathName match {
-        case file if pathName.isFile => file :: Nil
-        case dir if pathName.isDirectory => Option(dir.listFiles).fold(List.empty[File])(_.toList)
-      }
+    * Collects and returns all files in given folder.
+    *
+    * @param path a path to a folder where files should be listed
+    * @return a list of files in given directory or provided file if the path to a file has has been given
+    */
+  def listFiles(path: String): IO[List[File]] = IO {
+    val pathName = new File(path)
+    pathName match {
+      case file if pathName.isFile => file :: Nil
+      case dir if pathName.isDirectory => Option(dir.listFiles).fold(List.empty[File])(_.toList)
     }
-  )
+  }
 
   /**
-   * Extracts module filenames from config with particular files and directories with files mixed.
-   *
-   * @param config config object to load VM setting
-   * @return either a sequence of filenames found in directories and among files provided in config
-   *         or error denoting a specific problem with locating one of directories and files from config
-   */
-  private def moduleFilesFromConfig[F[_]: Monad](
-    config: StateMachineConfig
-  ): EitherT[F, StateMachineError, List[String]] =
-    EitherT
-      .fromEither[F](
-        Try(
-          config.moduleFiles
-            .map(
-              path => listFiles(path)
-            )
-            .map(_.unsafeRunSync)
-            .flatMap(_.map(_.getPath))
+    * Extracts module filenames from config with particular files and directories with files mixed.
+    *
+    * @param config config object to load VM setting
+    * @return either a sequence of filenames found in directories and among files provided in config
+    *         or error denoting a specific problem with locating one of directories and files from config
+    */
+  private def moduleFilesFromConfig[F[_]: LiftIO: Monad](
+                                                          config: StateMachineConfig
+                                                        ): EitherT[F, StateMachineError, List[String]] =
+    EitherT(
+      Traverse[List]
+        .flatTraverse(config.moduleFiles)(listFiles _)
+        .map(
+          _.map(_.getPath)
             .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
-        ).toEither
-      )
-      .leftMap { e =>
-        VmModuleLocationError("Error during locating VM module files and directories", Some(e))
-      }
+        )
+        .attempt
+        .to[F]
+    ).leftMap { e =>
+      VmModuleLocationError("Error during locating VM module files and directories", Some(e))
+    }
 
   /**
-   * Configures `slogging` logger.
-   */
+    * Configures `slogging` logger.
+    */
   private def configureLogging(): Unit = {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, false)
     LoggerConfig.factory = PrintLoggerFactory()
@@ -217,10 +212,10 @@ object ServerRunner extends IOApp with LazyLogging {
   }
 
   /**
-   * Configures `slogging` log level.
-   *
-   * @param logLevel level of logging
-   */
+    * Configures `slogging` log level.
+    *
+    * @param logLevel level of logging
+    */
   private def configureLogLevel(logLevel: String): Unit =
     LoggerConfig.level = logLevel.toUpperCase match {
       case "OFF" => LogLevel.OFF
