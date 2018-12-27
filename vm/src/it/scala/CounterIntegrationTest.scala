@@ -24,30 +24,45 @@ import scala.language.{higherKinds, implicitConversions}
 // TODO: now for run this test from IDE It is needed to build vm-counter project explicitly
 class CounterIntegrationTest extends WordSpec with Matchers with EitherValues with OptionValues {
 
+  val moduleDirPrefix =
+    if (System.getProperty("user.dir").endsWith("/vm"))
+      System.getProperty("user.dir")
+    else
+      System.getProperty("user.dir") + "/vm/"
+
+  val counterFilePath =
+    moduleDirPrefix + "/examples/counter/target/wasm32-unknown-unknown/release/counter.wasm"
+
   "counter example" should {
 
-    "increment counter and returns its state" in {
-      val moduleDirPrefix = if (System.getProperty("user.dir").endsWith("/vm")) System.getProperty("user.dir")
-        else System.getProperty("user.dir") + "/vm/"
+    "be able to instantiate" in {
+      (for {
+        vm <- WasmVm[IO](Seq(counterFilePath))
+        state <- vm.getVmState[IO].toVmError
+      } yield {
+        state should not be None
 
-      val counterFilePath =
-        moduleDirPrefix+ "/examples/counter/target/wasm32-unknown-unknown/release/counter.wasm"
+      }).value.unsafeRunSync().right.value
+
+    }
+
+    "increment counter and returns its state" in {
 
       (for {
         vm <- WasmVm[IO](Seq(counterFilePath))
-        _ ← vm.getVmState[IO]
-        _ ← vm.invoke[IO](None, "inc")
-        getResult1 ← vm.invoke[IO](None, "get")
-        _ ← vm.invoke[IO](None, "inc")
-        _ ← vm.invoke[IO](None, "inc")
-        getResult2 ← vm.invoke[IO](None, "get")
-        state ← vm.getVmState[IO].toVmError
+        _ <- vm.invoke[IO](None, "inc")
+        getResult1 <- vm.invoke[IO](None, "get")
+        _ <- vm.invoke[IO](None, "inc")
+        _ <- vm.invoke[IO](None, "inc")
+        getResult2 <- vm.invoke[IO](None, "get")
+        _ <- vm.getVmState[IO].toVmError
+
       } yield {
         getResult1 shouldBe defined
 
         val resultAsString = new String(getResult1.value)
         resultAsString equals "1"
-      }).value.unsafeRunSync().right.value
+      }).value.unsafeRunSync.right.value
 
     }
 
