@@ -2,7 +2,7 @@
 
 name = "counter"
 version = "0.1.0"
-authors = ["C.Solovev <constantine@fluence.one>"]
+authors = ["Fluence Labs"]
 publish = false
 
 [profile.release]
@@ -13,7 +13,7 @@ lto = true
 [lib]
 
 name = "counter"
-path = "src/main/rust/lib.rs"
+path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]

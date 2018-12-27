@@ -2,7 +2,7 @@
 
 name = "llama_db"
 version = "0.1.0"
-authors = ["C.Solovev <constantine@fluence.one>"]
+authors = ["Fluence Labs"]
 publish = false
 description = "LlamaDb wrapper for running into Fluence WasmVm"
 
@@ -16,7 +16,7 @@ panic = "abort"
 [lib]
 
 name = "llama_db"
-path = "src/main/rust/lib.rs"
+path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use base64::decode;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use contract_func::ContractCaller;
 use credentials::Credentials;
@@ -39,6 +40,7 @@ const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
 const WAIT_SYNCING: &str = "wait_syncing";
+const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const GAS: &str = "gas";
 
 #[derive(Debug)]
@@ -184,9 +186,8 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let tendermint_key = matches
         .value_of(TENDERMINT_KEY)
         .unwrap()
-        .trim_left_matches("0x");
-
-    let tendermint_key: H256 = tendermint_key.parse()?;
+        .trim_left_matches("0x")
+        .to_owned();
 
     let min_port: u16 = matches.value_of(MIN_PORT).unwrap().parse()?;
     let max_port: u16 = matches.value_of(MAX_PORT).unwrap().parse()?;
@@ -210,6 +211,15 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let credentials = Credentials::get(secret_key, password);
 
     let wait_syncing = matches.is_present(WAIT_SYNCING);
+
+    let tendermint_key = if matches.is_present(BASE64_TENDERMINT_KEY) {
+        let arr = decode(&tendermint_key)?;
+        hex::encode(arr)
+    } else {
+        tendermint_key
+    };
+
+    let tendermint_key: H256 = tendermint_key.parse()?;
 
     let gas: u32 = matches.value_of(GAS).unwrap().parse()?;
 
@@ -292,6 +302,10 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .alias(WAIT_SYNCING)
                 .long(WAIT_SYNCING)
                 .help("waits until ethereum node will be synced, executes a command after this"),
+            Arg::with_name(BASE64_TENDERMINT_KEY)
+                .alias(BASE64_TENDERMINT_KEY)
+                .long(BASE64_TENDERMINT_KEY)
+                .help("allows to use base64 tendermint key"),
             Arg::with_name(GAS)
                 .alias(GAS)
                 .long(GAS)

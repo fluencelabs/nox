@@ -4,6 +4,8 @@ import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
 import sbt._
 
+import sys.process._
+
 object SbtCommons {
 
   val scalaV = scalaVersion := "2.12.7"
@@ -27,6 +29,23 @@ object SbtCommons {
   val kindProjector = Seq(
     resolvers += Resolver.sonatypeRepo("releases"),
     addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8")
+  )
+
+  def rustVmExample(exampleName: String) = Seq(
+    publishArtifact := false,
+    test := (test in Test).dependsOn(compile).value,
+    compile := (compile in Compile).dependsOn(Def.task {
+        val log = streams.value.log
+        log.info(s"Compiling $exampleName.rs to $exampleName.wasm")
+
+        val projectRoot = file("").getAbsolutePath
+        val exampleFolder = s"$projectRoot/vm/examples/$exampleName"
+        val compileCmd = s"docker run --rm -w /work -v $exampleFolder:/work tomaka/rustc-emscripten " +
+          s"cargo +nightly build --target wasm32-unknown-unknown --release"
+        
+        assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
+      }
+    ).value
   )
 
   /* Common deps */
