@@ -20,7 +20,6 @@ lazy val vm = (project in file("vm"))
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
-//    Defaults.itSettings,
     libraryDependencies ++= Seq(
       "com.github.cretz.asmble" % "asmble-compiler" % "0.4.2-fl",
       cats,
@@ -30,7 +29,11 @@ lazy val vm = (project in file("vm"))
       scalaTest,
       scalaIntegrationTest,
       mockito
-    )
+    ),
+    (test in IntegrationTest) := (test in IntegrationTest)
+      .dependsOn(compile in `vm-counter`)
+      .dependsOn(compile in `vm-llamadb`)
+      .value
   )
   .enablePlugins(AutomateHeaderPlugin)
 
