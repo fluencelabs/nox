@@ -17,20 +17,21 @@
 package fluence.vm
 
 import cats.effect.IO
-import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
+import fluence.vm.utils.IntegrationTest
+import org.scalatest.{EitherValues}
 
 import scala.language.{higherKinds, implicitConversions}
 
 // TODO: now for run this test from IDE It is needed to build vm-counter project explicitly
-class CounterIntegrationTest extends WordSpec with Matchers with EitherValues with OptionValues {
+class CounterBasicIntegrationTests extends IntegrationTest with EitherValues {
 
-  val moduleDirPrefix =
+  private val moduleDirPrefix =
     if (System.getProperty("user.dir").endsWith("/vm"))
       System.getProperty("user.dir")
     else
       System.getProperty("user.dir") + "/vm/"
 
-  val counterFilePath =
+  private val counterFilePath =
     moduleDirPrefix + "/examples/counter/target/wasm32-unknown-unknown/release/counter.wasm"
 
   "counter example" should {
@@ -39,6 +40,7 @@ class CounterIntegrationTest extends WordSpec with Matchers with EitherValues wi
       (for {
         vm <- WasmVm[IO](Seq(counterFilePath))
         state <- vm.getVmState[IO].toVmError
+
       } yield {
         state should not be None
 
@@ -58,10 +60,8 @@ class CounterIntegrationTest extends WordSpec with Matchers with EitherValues wi
         _ <- vm.getVmState[IO].toVmError
 
       } yield {
-        getResult1 shouldBe defined
-
-        val resultAsString = new String(getResult1.value)
-        resultAsString equals "1"
+        checkTestResult(getResult1, "1")
+        checkTestResult(getResult2, "3")
       }).value.unsafeRunSync.right.value
 
     }
