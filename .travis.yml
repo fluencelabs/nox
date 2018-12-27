@@ -41,7 +41,7 @@ matrix:
         - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
         - find $HOME/.sbt        -name "*.lock"               -print -delete
 
-      # LlamadbIntegrationTest requires 2 Gb RAM and should be run only during PR
+      # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
       script: 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then "sbt ++$TRAVIS_SCALA_VERSION -J-Xms2048M -J-Xmx2048M it:test"; fi'
 
     - name: bootstrap
