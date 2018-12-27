@@ -1,6 +1,7 @@
 matrix:
   include:
-    - language: scala
+    - name: Fluence
+      language: scala
       scala: 2.12.7
       jdk: oraclejdk8
 
@@ -20,7 +21,31 @@ matrix:
         - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
         - find $HOME/.sbt        -name "*.lock"               -print -delete
 
-    - language: node_js
+    - name: Fluence integration tests
+      language: scala
+      scala: 2.12.7
+      jdk: oraclejdk8
+      sudo: false
+      services:
+        - docker
+
+      cache:
+        directories:
+          - $HOME/.ivy2/cache
+          - $HOME/.sbt/boot
+          - $HOME/.sbt/launchers
+          - bootstrap/node_modules
+
+      before_cache:
+        - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
+        - find $HOME/.sbt        -name "*.lock"               -print -delete
+
+      # LlamadbIntegrationTest requires 2 Gb RAM
+      script: 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then '
+        'bash "sbt ++$TRAVIS_SCALA_VERSION -J-Xms2048M -J-Xmx2048M it:test"; fi'
+
+    - name: bootstrap
+      language: node_js
       node_js: v10.9.0
       before_install: cd bootstrap
       before_script: npm run ganache
@@ -28,7 +53,8 @@ matrix:
         directories:
             - bootstrap/node_modules
 
-    - language: node_js
+    - name: js-client
+      language: node_js
       node_js:
         - "5"
         - "6"
@@ -87,4 +113,3 @@ matrix:
         - popd
         - cargo fmt --all -- --check -v
         - cargo test
-

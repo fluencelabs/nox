@@ -44,13 +44,13 @@ import scala.sys.process.{Process, ProcessLogger}
 import scala.util.Try
 
 /**
-  * This test contains a single test method that checks:
-  * - MasterNode connectivity with ganache-hosted Fluence smart contract
-  * - MasterNode ability to load previous node clusters and subscribe to new clusters
-  * - Successful cluster formation and starting blocks creation
-  */
+ * This test contains a single test method that checks:
+ * - MasterNode connectivity with ganache-hosted Fluence smart contract
+ * - MasterNode ability to load previous node clusters and subscribe to new clusters
+ * - Successful cluster formation and starting blocks creation
+ */
 class MasterNodeIntegrationSpec
-  extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues {
+    extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -110,23 +110,23 @@ class MasterNodeIntegrationSpec
     def runMaster(portFrom: Short, portTo: Short, name: String, statusPort: Short): IO[String] = {
       DockerIO
         .run[IO](
-        DockerParams
-          .daemonRun()
-          .option("-e", s"TENDERMINT_IP=$dockerHost")
-          .option("-e", s"ETHEREUM_IP=$ethereumHost")
-          .option("-e", s"PORTS=$portFrom:$portTo")
-          .port(statusPort, 5678)
-          .option("--name", name)
-          .volume("/var/run/docker.sock", "/var/run/docker.sock")
-          // statemachine expects wasm binaries in /vmcode folder
-          .volume(
-            // TODO: by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
-            System.getProperty("user.dir")
-              + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
-          "/master/vmcode/vmcode-llamadb"
-          )
-          .image("fluencelabs/node:latest")
-      )
+          DockerParams
+            .daemonRun()
+            .option("-e", s"TENDERMINT_IP=$dockerHost")
+            .option("-e", s"ETHEREUM_IP=$ethereumHost")
+            .option("-e", s"PORTS=$portFrom:$portTo")
+            .port(statusPort, 5678)
+            .option("--name", name)
+            .volume("/var/run/docker.sock", "/var/run/docker.sock")
+            // statemachine expects wasm binaries in /vmcode folder
+            .volume(
+              // TODO: by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
+              System.getProperty("user.dir")
+                + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
+              "/master/vmcode/vmcode-llamadb"
+            )
+            .image("fluencelabs/node:latest")
+        )
         .compile
         .lastOrError
     }
@@ -186,10 +186,10 @@ class MasterNodeIntegrationSpec
   }
 
   private def eventually[F[_]: Sync: Timer](
-                                             p: => F[Unit],
-                                             period: FiniteDuration = 1.second,
-                                             maxWait: FiniteDuration = 10.seconds
-                                           )(implicit pos: Position): F[_] = {
+    p: => F[Unit],
+    period: FiniteDuration = 1.second,
+    maxWait: FiniteDuration = 10.seconds
+  )(implicit pos: Position): F[_] = {
     fs2.Stream
       .awakeEvery[F](period)
       .take((maxWait / period).toLong)
