@@ -59,5 +59,5 @@ case class ConfigLoadingError(override val message: String)
  * @param message detailed error message
  * @param throwable caught [[Throwable]]
  */
-case class VmModuleLocationError(override val message: String, throwable: Throwable)
-    extends StateMachineError("VmModuleLocationError", message, Some(throwable))
+case class VmModuleLocationError(override val message: String, throwable: Option[Throwable] = None)
+    extends StateMachineError("VmModuleLocationError", message, throwable)

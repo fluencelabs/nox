@@ -72,6 +72,7 @@ class MasterNodeIntegrationSpec
   }
 
   override protected def beforeAll(): Unit = {
+    // TODO: It is needed to build vm-llamadb project explicitly for launch this test from Idea
     logger.info("bootstrapping npm")
     run("npm install")
 
@@ -117,6 +118,13 @@ class MasterNodeIntegrationSpec
             .port(statusPort, 5678)
             .option("--name", name)
             .volume("/var/run/docker.sock", "/var/run/docker.sock")
+            // statemachine expects wasm binaries in /vmcode folder
+            .volume(
+              // TODO: by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
+              System.getProperty("user.dir")
+                + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
+              "/master/vmcode/vmcode-llamadb"
+            )
             .image("fluencelabs/node:latest")
         )
         .compile
