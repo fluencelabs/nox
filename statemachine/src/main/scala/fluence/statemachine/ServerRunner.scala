@@ -168,7 +168,7 @@ object ServerRunner extends IOApp with LazyLogging {
   /**
    * Collects and returns all files in given folder.
    *
-   * @param path the path to the folder where files should be listed
+   * @param path a path to a folder where files should be listed
    * @return a list of files in given directory or provided file if the path to a file has has been given
    */
   def listFiles(path: String): IO[List[File]] = IO(
