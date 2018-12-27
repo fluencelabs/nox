@@ -72,7 +72,7 @@ class MasterNodeIntegrationSpec
   }
 
   override protected def beforeAll(): Unit = {
-    // TODO: It is need to build vm-llamadb project explicitly for launch this test from Idea
+    // TODO: It is needed to build vm-llamadb project explicitly for launch this test from Idea
     logger.info("bootstrapping npm")
     run("npm install")
 
