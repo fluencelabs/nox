@@ -25,7 +25,7 @@ import cats.{Functor, Monad}
 import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.VmError.{NoSuchFnError, _}
-import fluence.vm.AsmleWasmVm._
+import fluence.vm.AsmbleWasmVm._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -275,7 +275,7 @@ class AsmbleWasmVm(
 
 }
 
-object AsmleWasmVm {
+object AsmbleWasmVm {
 
   type WasmModules = List[ModuleInstance]
   type WasmFnIndex = Map[FunctionId, WasmFunction]

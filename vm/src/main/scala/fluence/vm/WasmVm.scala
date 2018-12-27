@@ -29,7 +29,7 @@ import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.AsmleWasmVm._
+import fluence.vm.AsmbleWasmVm._
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
 import fluence.vm.config.VmConfig.ConfigError
@@ -131,7 +131,7 @@ object WasmVm {
       vmProps ← initializeModules(scriptCxt)
 
     } yield
-      new AsmleWasmVm(
+      new AsmbleWasmVm(
         vmProps.functions,
         vmProps.modules,
         cryptoHasher,
