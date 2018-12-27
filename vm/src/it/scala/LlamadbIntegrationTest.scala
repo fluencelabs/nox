@@ -36,7 +36,7 @@ class LlamadbIntegrationTest extends WordSpec with Matchers with EitherValues wi
     resultAsString should (startWith (expectedString))
   }
 
-  private def executeSql(vm: WasmVm, sql: String): EitherT[IO, VmError, Option[Array[Byte]]] =
+  private def executeSql(implicit vm: WasmVm, sql: String): EitherT[IO, VmError, Option[Array[Byte]]] =
     for {
       result <- vm.invoke[IO](None, "do_query", sql.getBytes())
       _ <- vm.getVmState[IO].toVmError
@@ -46,13 +46,11 @@ class LlamadbIntegrationTest extends WordSpec with Matchers with EitherValues wi
     for {
       _ <- executeSql(vm, "CREATE TABLE Users(id INT, name TEXT, age INT)")
       insertResult <- executeSql(vm, "INSERT INTO Users VALUES(1, 'Monad', 23)(2, 'Applicative Functor', 19), (3, 'Free Monad', 31), (4, 'Tagless Final', 25)")
-      _ <- vm.getVmState[IO].toVmError
     } yield insertResult
 
   private def executeInsert(vm: WasmVm, recordsCount: Int): EitherT[IO, VmError, Option[Array[Byte]]] =
     for {
       result <- executeSql(vm, "insert into USERS values(1, 'A', 1)" + ",(1, 'A', 1)"*recordsCount)
-      //_ <- vm.getVmState[IO].toVmError
   } yield result
 
 
@@ -217,7 +215,7 @@ class LlamadbIntegrationTest extends WordSpec with Matchers with EitherValues wi
         _ <- createTestTable(vm)
         // allocate 25 Mb memory two times
         insertResult1 <- executeInsert(vm, 1024*2*25*19)
-        state <- vm.getVmState[IO].toVmError
+        _ <- vm.getVmState[IO].toVmError
       } yield {
         checkTestResult(insertResult1)
 
@@ -228,23 +226,15 @@ class LlamadbIntegrationTest extends WordSpec with Matchers with EitherValues wi
 
       (for {
         vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
-        _ <- createTestTable(vm)
-
         _ <- executeSql(vm, "create table USERS(name varchar(" + 1024*1024*1024 + "))")
 
-        // trying to insert 256 Mb memory four times
-        insertResult1 <- executeSql(vm, "insert into USERS values(" + "A"*(1024*1024*256) + ")")
-        insertResult2 <- executeSql(vm, "insert into USERS values(" + "A"*(1024*1024*256) + ")")
-        insertResult3 <- executeSql(vm, "insert into USERS values(" + "A"*(1024*1024*256) + ")")
-        insertResult4 <- executeSql(vm, "insert into USERS values(" + "A"*(1024*1024*256) + ")")
-        insertResult5 <- executeSql(vm, "insert into USERS values(" + "A"*(1024*1024*256) + ")")
+        // trying to insert 256 Mb memory five times
+        _ = for (_ <- 1 to 4) yield { executeSql(vm, "insert into USERS values(" + "A"*(1024*1024*256) + ")") }
+        insertResult <- executeSql(vm, "insert into USERS values(" + "A"*(1024*1024*256) + ")")
+
         _ <- vm.getVmState[IO].toVmError
       } yield {
-        checkTestResult(insertResult1)
-        checkTestResult(insertResult2)
-        checkTestResult(insertResult3)
-        checkTestResult(insertResult4)
-        checkTestResult(insertResult5)
+        checkTestResult(insertResult)
 
       }).value.unsafeRunSync().right.value
     }
