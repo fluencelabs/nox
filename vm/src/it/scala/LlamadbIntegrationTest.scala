@@ -103,7 +103,7 @@ class LlamadbIntegrationTest extends WordSpec with Matchers with EitherValues wi
       } yield {
         checkTestResult(createResult1)
         checkTestResult(deleteResult)
-        checkTestResult(selectAfterDeleteTable)
+        checkTestResult(select AfterDeleteTable)
         checkTestResult(truncateResult)
         checkTestResult(selectFromTruncatedTableResult)
         checkTestResult(createResult2)
