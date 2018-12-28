@@ -8,16 +8,16 @@ Check that you've installed Java 8, `docker` and `docker` is running. Also you n
 
 ```shell
 # download and install rustup
-curl -sSf https://static.rust-lang.org/rustup.sh | sh
+curl https://sh.rustup.rs -sSf | sh -s -- -y
 
 # install the latest nightly toolchain
 ~/.cargo/bin/rustup toolchain install nightly
 
 # make shure that Rust is up to date
-rustup update
+~/.cargo/bin/rustup update
 
 # install the Webassembly target for Rust
-rustup target add wasm32-unknown-unknown --toolchain nightly
+~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
 ```
 
 
