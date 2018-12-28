@@ -15,10 +15,10 @@ matrix:
           - $HOME/.sbt/launchers
           - bootstrap/node_modules
 
-      before_script:
+      before_install:
         - curl https://sh.rustup.rs -sSf | sh -s -- -y
-        - ls -la ~/.cargo/bin
         - export PATH="$PATH:~/.cargo/bin/"
+        - export PATH="$PATH:/home/travis/.cargo/bin/"
         - rustup toolchain install nightly
         - rustup update
         - rustup target add wasm32-unknown-unknown --toolchain nightly

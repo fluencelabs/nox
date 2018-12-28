@@ -43,6 +43,9 @@ object SbtCommons {
         val compileCmd = s"`which cargo` +nightly build --manifest-path $exampleFolder/Cargo.toml " +
           s"--target wasm32-unknown-unknown --release"
 
+        "ls -la ~/" !
+        //s"echo $PATH" !
+
         assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
       }
     ).value
