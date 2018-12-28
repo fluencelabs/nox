@@ -28,183 +28,104 @@ import "./Deployer.sol";
  *
  */
 contract Network is Deployer {
+    function getNode(bytes32 nodeID)
+        external
+        view
+    returns (bytes24, uint16, uint16, address, bool, bytes32[])
+    {
+        Node memory node = nodes[nodeID];
+        return (
+            node.nodeAddress,
+            node.nextPort,
+            node.lastPort,
+            node.owner,
+            node.isPrivate,
+            node.clusters
+        );
+    }
 
-    /** @dev Allows to track currently running clusters for specified node's solvers
+
+    /** @dev Allows to track currently running clusters for specified node's workers
      *  @param nodeID ID of node (Tendermint consensus key)
      *  returns IDs of clusters where the node is a member.
      */
     function getNodeClusters(bytes32 nodeID)
-    external
-    view
+        external
+        view
     returns (bytes32[])
     {
-        Node memory node = nodes[nodeID];
-        bytes32[] memory clusterIDs = new bytes32[](node.currentPort - node.startPort);
-        uint count = 0;
-
-        for (uint i = 1; i < clusterCount; i++) {
-            BusyCluster memory cluster = busyClusters[bytes32(i)];
-            for (uint j = 0; j < cluster.nodeAddresses.length; j++) {
-                if (cluster.nodeAddresses[j] == node.nodeAddress) {
-                    clusterIDs[count++] = cluster.clusterID;
-                }
-            }
-        }
-        return clusterIDs;
+        return nodes[nodeID].clusters;
     }
 
-    /** @dev Allows anyone with clusterID to retrieve assigned Code
+    /** @dev Allows anyone with clusterID to retrieve assigned App
      * @param clusterID unique id of cluster
-     * returns tuple representation of a BusyCluster
+     * returns tuple representation of a Cluster
      */
     function getCluster(bytes32 clusterID)
-    external
-    view
-    returns (bytes32, bytes32, uint, bytes32[], bytes24[], uint16[], address[])
+        external
+        view
+    returns (bytes32, bytes32, uint8, address, bytes32[], uint, bytes32[], uint16[])
     {
-        BusyCluster memory cluster = busyClusters[clusterID];
+        Cluster memory cluster = clusters[clusterID];
         require(cluster.clusterID > 0, "there is no such cluster");
 
         return (
-            cluster.code.storageHash,
-            cluster.code.storageReceipt,
+            cluster.app.storageHash,
+            cluster.app.storageReceipt,
+            cluster.app.clusterSize,
+            cluster.app.owner,
+            cluster.app.pinToNodes,
+
             cluster.genesisTime,
             cluster.nodeIDs,
-            cluster.nodeAddresses,
-            cluster.ports,
-            cluster.owners
+            cluster.ports
         );
     }
 
-    /** @dev Gets info about registered clusters
-     * For full network state, use this method in conjunction with `getClustersNodes`
-     * returns tuple representation of an array of cluster-related data from BusyClusters
-     * (cluster IDs, genesis times, codes' Swarm hashes, receipts, clusters' sizes, developers of codes deployed on clusters)
-     */
-    function getClustersInfo()
-    external
-    view
-    returns (bytes32[], uint[], bytes32[], bytes32[], uint8[], address[])
+    function getClusterWorkers(bytes32 clusterID)
+        external
+        view
+    returns (bytes24[], uint16[])
     {
-        BusyCluster[] memory clusters = new BusyCluster[](clusterCount - 1);
+        Cluster memory cluster = clusters[clusterID];
+        require(cluster.clusterID > 0, "there is no such cluster");
 
-        for (uint i = 1; i < clusterCount; i++) {
-            clusters[i-1] = busyClusters[bytes32(i)];
+        bytes24[] memory addresses = new bytes24[](cluster.nodeIDs.length);
+        for(uint8 i = 0; i < cluster.nodeIDs.length; i++) {
+            addresses[i] = nodes[cluster.nodeIDs[i]].nodeAddress;
         }
 
-        bytes32[] memory clusterIDs = new bytes32[](clusters.length);
-        uint[] memory genesisTimes = new uint[](clusters.length);
-        bytes32[] memory storageHashes = new bytes32[](clusters.length);
-        bytes32[] memory storageReceipts = new bytes32[](clusters.length);
-        uint8[] memory clusterSizes = new uint8[](clusters.length);
-        address[] memory developers = new address[](clusters.length);
-
-        for (uint k = 0; k < clusters.length; k++) {
-            BusyCluster memory cluster = clusters[k];
-            clusterIDs[k] = cluster.clusterID;
-            genesisTimes[k] = cluster.genesisTime;
-            storageHashes[k] = cluster.code.storageHash;
-            storageReceipts[k] = cluster.code.storageReceipt;
-            clusterSizes[k] = cluster.code.clusterSize;
-            developers[k] = cluster.code.developer;
-        }
-
-        return (clusterIDs, genesisTimes, storageHashes, storageReceipts, clusterSizes, developers);
+        return (
+            addresses,
+            cluster.ports
+        );
     }
 
-    /** @dev Gets nodes that already members in all registered clusters
-     * For full network state, use this method in conjunction with `getClustersInfo`
-     * returns tuple representation of an array of nodes-related data from BusyClusters
-     * (ids, node addresses, ports, node owners ethereum addresses)
-     */
-    function getClustersNodes()
-    external
-    view
-    returns (bytes32[], bytes24[], uint16[], address[])
-    {
-        BusyCluster[] memory clusters = new BusyCluster[](clusterCount - 1);
-        uint solversCount = 0;
-        for (uint i = 1; i < clusterCount; i++) {
-            uint key = i-1;
-            BusyCluster memory cl = busyClusters[bytes32(i)];
-            clusters[key] = cl;
-            solversCount = solversCount + cl.code.clusterSize;
-        }
-
-        bytes32[] memory ids = new bytes32[](solversCount);
-        bytes24[] memory addresses = new bytes24[](solversCount);
-        uint16[] memory ports = new uint16[](solversCount);
-        address[] memory owners = new address[](solversCount);
-
-        // solversCount is reused here to reduce stack depth
-        solversCount = 0;
-
-        for (uint k = 0; k < clusters.length; k++) {
-            BusyCluster memory cluster = clusters[k];
-
-            for (uint n = 0; n < cluster.nodeAddresses.length; n++) {
-                ids[solversCount] = cluster.nodeIDs[n];
-                addresses[solversCount] = cluster.nodeAddresses[n];
-                ports[solversCount] = cluster.ports[n];
-                owners[solversCount] = cluster.owners[n];
-                solversCount++;
-            }
-        }
-
-        return (ids, addresses, ports, owners);
-    }
 
     /** @dev Gets codes which not yet deployed anywhere
      * return (codes' Swarm hashes, receipts, clusters' sizes, developers' addresses)
+     * TODO as there's no app ids, we can't retrieve additional info about an app, like pin_to_nodes
      */
-    function getEnqueuedCodes()
-    external
-    view
+    function getEnqueuedApps()
+        external
+        view
     returns(bytes32[], bytes32[], uint8[], address[])
     {
-        bytes32[] memory storageHashes = new bytes32[](enqueuedCodes.length);
-        bytes32[] memory storageReceipts = new bytes32[](enqueuedCodes.length);
-        uint8[] memory clusterSizes = new uint8[](enqueuedCodes.length);
-        address[] memory developers = new address[](enqueuedCodes.length);
+        bytes32[] memory storageHashes = new bytes32[](enqueuedApps.length);
+        bytes32[] memory storageReceipts = new bytes32[](enqueuedApps.length);
+        uint8[] memory clusterSizes = new uint8[](enqueuedApps.length);
+        address[] memory owners = new address[](enqueuedApps.length);
 
-        for (uint i = 0; i < enqueuedCodes.length; i++) {
-            Code memory code = enqueuedCodes[i];
+        for (uint i = 0; i < enqueuedApps.length; i++) {
+            App memory app = enqueuedApps[i];
 
-            storageHashes[i] = code.storageHash;
-            storageReceipts[i] = code.storageReceipt;
-            clusterSizes[i] = code.clusterSize;
-            developers[i] = code.developer;
+            storageHashes[i] = app.storageHash;
+            storageReceipts[i] = app.storageReceipt;
+            clusterSizes[i] = app.clusterSize;
+            owners[i] = app.owner;
         }
 
-        return (storageHashes, storageReceipts, clusterSizes, developers);
+        return (storageHashes, storageReceipts, clusterSizes, owners);
     }
 
-    /** @dev Gets nodes that have free ports to host code
-     * returns tuple representation of a list of Node structs
-     * (node IDs, nodes' addresses, starting ports, ending ports, current ports, nodes' owners)
-     */
-    function getReadyNodes()
-    external
-    view
-    returns (bytes32[], bytes24[], uint16[], uint16[], uint16[], address[])
-    {
-        bytes32[] memory ids = new bytes32[](nodesIndices.length);
-        bytes24[] memory nodeAddresses = new bytes24[](nodesIndices.length);
-        uint16[] memory startPorts = new uint16[](nodesIndices.length);
-        uint16[] memory endPorts = new uint16[](nodesIndices.length);
-        uint16[] memory currentPorts = new uint16[](nodesIndices.length);
-        address[] memory owners = new address[](nodesIndices.length);
-
-        for (uint i = 0; i < nodesIndices.length; ++i) {
-            Node memory node = nodes[nodesIndices[i]];
-            ids[i] = node.id;
-            nodeAddresses[i] = node.nodeAddress;
-            startPorts[i] = node.startPort;
-            endPorts[i] = node.endPort;
-            currentPorts[i] = node.currentPort;
-            owners[i] = node.owner;
-        }
-
-        return (ids, nodeAddresses, startPorts, endPorts, currentPorts, owners);
-    }
 }

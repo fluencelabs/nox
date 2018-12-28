@@ -167,7 +167,7 @@ class MasterNodeIntegrationSpec
             status2 <- getStatus(status2Port)
             _ <- contract.addNode[IO](status1.nodeConfig).attempt
             _ <- contract.addNode[IO](status2.nodeConfig).attempt
-            _ <- contract.addCode[IO]("llamadb", clusterSize = 2)
+            _ <- contract.addApp[IO]("llamadb", clusterSize = 2)
 
             _ <- eventually[IO](
               for {
