@@ -71,18 +71,18 @@ pub fn get_nodes(contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
     ) = contract.query_contract("getNodes", ())?;
 
     let nodes: Vec<Node> = Vec::new();
-//    for i in 0..nodes_indices.len() {
-//        let node = Node::new(
-//            ids[i],
-//            addresses[i],
-//            next_ports[i] as u16,
-//            last_ports[i] as u16,
-//            owners[i],
-//            is_private[i] as Bool,
-//            None,
-//        )?;
-//        nodes.push(node);
-//    }
+    //    for i in 0..nodes_indices.len() {
+    //        let node = Node::new(
+    //            ids[i],
+    //            addresses[i],
+    //            next_ports[i] as u16,
+    //            last_ports[i] as u16,
+    //            owners[i],
+    //            is_private[i] as Bool,
+    //            None,
+    //        )?;
+    //        nodes.push(node);
+    //    }
 
     Ok(nodes)
 }

@@ -28,14 +28,8 @@ pub struct Worker {
 }
 
 impl Worker {
-    pub fn new(
-        node_id: H256,
-        port: u16,
-    ) -> Result<Worker, Box<Error>> {
-        Ok(Worker {
-            node_id,
-            port,
-        })
+    pub fn new(node_id: H256, port: u16) -> Result<Worker, Box<Error>> {
+        Ok(Worker { node_id, port })
     }
 }
 
@@ -48,12 +42,7 @@ pub struct Cluster {
 }
 
 impl Cluster {
-    pub fn new(
-        id: H256,
-        app: App,
-        genesis_time: U256,
-        workers: Vec<Worker>,
-    ) -> Cluster {
+    pub fn new(id: H256, app: App, genesis_time: U256, workers: Vec<Worker>) -> Cluster {
         Cluster {
             id,
             genesis_time,
@@ -72,10 +61,7 @@ pub fn get_clusters(contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error
         Vec<H256>,
         Vec<u64>,
         Vec<Address>,
-    ) = contract.query_contract(
-        "getClustersInfo",
-        (),
-    )?;
+    ) = contract.query_contract("getClustersInfo", ())?;
 
     let (nodes_ids, nodes_addresses, ports, owners): (
         Vec<H256>,
@@ -85,37 +71,37 @@ pub fn get_clusters(contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error
     ) = contract.query_contract("getClustersNodes", ())?;
 
     let clusters: Vec<Cluster> = Vec::new();
-//    let mut nodes_counter = 0;
+    //    let mut nodes_counter = 0;
 
-//    for i in 0..code_addresses.len() {
-//        let cluster_size = cluster_sizes[i];
-//
-//        let mut cluster_members: Vec<Worker> = Vec::new();
-//
-//        for _j in 0..cluster_size {
-//            let id = nodes_ids[nodes_counter];
-//            let address = nodes_addresses[nodes_counter];
-//            let port = ports[nodes_counter] as u16;
-//            let owner = owners[nodes_counter];
-//
-//            let cluster_member = Worker::new(id, port)?;
-//
-//            cluster_members.push(cluster_member);
-//
-//            nodes_counter = nodes_counter + 1;
-//        }
-//
-//        let app = App::new(
-//            code_addresses[i],
-//            storage_receipts[i],
-//            cluster_sizes[i] as u8,
-//            owners[i],
-//        );
-//
-//        let cluster = Cluster::new(cluster_ids[i], genesis_times[i], app, cluster_members);
-//
-//        clusters.push(cluster);
-//    }
+    //    for i in 0..code_addresses.len() {
+    //        let cluster_size = cluster_sizes[i];
+    //
+    //        let mut cluster_members: Vec<Worker> = Vec::new();
+    //
+    //        for _j in 0..cluster_size {
+    //            let id = nodes_ids[nodes_counter];
+    //            let address = nodes_addresses[nodes_counter];
+    //            let port = ports[nodes_counter] as u16;
+    //            let owner = owners[nodes_counter];
+    //
+    //            let cluster_member = Worker::new(id, port)?;
+    //
+    //            cluster_members.push(cluster_member);
+    //
+    //            nodes_counter = nodes_counter + 1;
+    //        }
+    //
+    //        let app = App::new(
+    //            code_addresses[i],
+    //            storage_receipts[i],
+    //            cluster_sizes[i] as u8,
+    //            owners[i],
+    //        );
+    //
+    //        let cluster = Cluster::new(cluster_ids[i], genesis_times[i], app, cluster_members);
+    //
+    //        clusters.push(cluster);
+    //    }
 
     Ok(clusters)
 }

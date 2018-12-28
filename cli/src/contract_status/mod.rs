@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-mod cluster;
 mod app;
+mod cluster;
 mod node;
 mod status;
 
@@ -148,27 +148,27 @@ mod tests {
         let apps = status.enqueued_apps();
         //let nodes = status.ready_nodes();
 
-//        let cluster = clusters
-//            .iter()
-//            .find(|&cl| cl.code().cluster_size() == cluster_size1);
-//
-//        println!("{:?}", clusters);
-//
-//        assert_eq!(cluster.is_some(), true);
-//
-//        let node1 = nodes.iter().find(|&n| n.ip_addr() == reg1_ip);
-//
-//        assert_eq!(node1.is_some(), true);
-//        let node1 = node1.unwrap();
-//        assert_eq!(node1.start_port(), &reg1_start_port);
-//        assert_eq!(node1.end_port(), &reg1_end_port);
-//
-//        let node2 = nodes.iter().find(|&n| n.ip_addr() == reg2_ip);
-//
-//        assert_eq!(node2.is_some(), true);
-//        let node2 = node2.unwrap();
-//        assert_eq!(node2.start_port(), &reg2_start_port);
-//        assert_eq!(node2.end_port(), &reg2_end_port);
+        //        let cluster = clusters
+        //            .iter()
+        //            .find(|&cl| cl.code().cluster_size() == cluster_size1);
+        //
+        //        println!("{:?}", clusters);
+        //
+        //        assert_eq!(cluster.is_some(), true);
+        //
+        //        let node1 = nodes.iter().find(|&n| n.ip_addr() == reg1_ip);
+        //
+        //        assert_eq!(node1.is_some(), true);
+        //        let node1 = node1.unwrap();
+        //        assert_eq!(node1.start_port(), &reg1_start_port);
+        //        assert_eq!(node1.end_port(), &reg1_end_port);
+        //
+        //        let node2 = nodes.iter().find(|&n| n.ip_addr() == reg2_ip);
+        //
+        //        assert_eq!(node2.is_some(), true);
+        //        let node2 = node2.unwrap();
+        //        assert_eq!(node2.start_port(), &reg2_start_port);
+        //        assert_eq!(node2.end_port(), &reg2_end_port);
 
         let app = apps.iter().find(|&c| c.cluster_size() == cluster_size2);
         assert_eq!(app.is_some(), true);

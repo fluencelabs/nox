@@ -26,12 +26,8 @@ pub struct Status {
 }
 
 impl Status {
-    pub fn new(
-        enqueued_apps: Vec<App>,
-    ) -> Status {
-        Status {
-            enqueued_apps,
-        }
+    pub fn new(enqueued_apps: Vec<App>) -> Status {
+        Status { enqueued_apps }
     }
 }
 
