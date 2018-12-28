@@ -101,7 +101,8 @@ case class NodeConfig(
   endpoints: EndpointsConfig,
   validatorKey: ValidatorKey,
   nodeAddress: String,
-  solverImage: SolverImage
+  solverImage: SolverImage,
+  isPrivate: Boolean = false
 )
 
 object NodeConfig {

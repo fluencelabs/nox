@@ -103,11 +103,13 @@ impl Publisher {
 
             let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
 
+            let pin_to_nodes: Vec<H256> = [].to_vec();
+
             contract.call_contract(
                 self.account,
                 &self.credentials,
-                "addCode",
-                (hash, receipt, u64::from(self.cluster_size)),
+                "addApp",
+                (hash, receipt, u64::from(self.cluster_size), pin_to_nodes),
                 self.gas,
             )
         };
