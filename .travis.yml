@@ -17,7 +17,10 @@ matrix:
           - bootstrap/node_modules
 
       before_install:
-          - rustup component add rustfmt-preview --toolchain nightly
+        - curl -sSf https://static.rust-lang.org/rustup.sh | sh
+        - ~/.cargo/bin/rustup toolchain install nightly
+        - rustup update
+        - rustup target add wasm32-unknown-unknown --toolchain nightly
 
       before_cache:
         # Cleanup the cached directories to avoid unnecessary cache updates
