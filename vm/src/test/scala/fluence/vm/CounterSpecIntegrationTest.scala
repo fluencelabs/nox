@@ -23,7 +23,7 @@ import org.scalatest.{EitherValues}
 import scala.language.{higherKinds, implicitConversions}
 
 // TODO: for a run this test from IDE It needs to build vm-counter project explicitly at first
-class CounterBasicIntegrationTest extends AppIntegrationTest with EitherValues {
+class CounterSpecIntegrationTest extends AppIntegrationTest with EitherValues {
 
   private val moduleDirPrefix =
     if (System.getProperty("user.dir").endsWith("/vm"))
