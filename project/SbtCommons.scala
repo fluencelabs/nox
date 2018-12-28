@@ -40,9 +40,10 @@ object SbtCommons {
 
         val projectRoot = file("").getAbsolutePath
         val exampleFolder = s"$projectRoot/vm/examples/$exampleName"
-        val compileCmd = s"cargo +nightly build --manifest-path $exampleFolder/Cargo.toml " +
+        val compileCmd = s"`which cargo` +nightly build --manifest-path $exampleFolder/Cargo.toml " +
           s"--target wasm32-unknown-unknown --release"
-      
+      "which cargo" !
+
         assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
       }
     ).value
