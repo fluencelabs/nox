@@ -3,7 +3,6 @@ matrix:
     - language: scala
       scala: 2.12.7
       jdk: oraclejdk8
-      rust: nightly
 
       services:
         - docker
@@ -17,7 +16,7 @@ matrix:
           - bootstrap/node_modules
 
       before_install:
-        - curl -sSf https://static.rust-lang.org/rustup.sh | sh
+        - curl -sSf https://static.rust-lang.org/rustup.sh | sh -s -- -y
         - ~/.cargo/bin/rustup toolchain install nightly
         - rustup update
         - rustup target add wasm32-unknown-unknown --toolchain nightly
