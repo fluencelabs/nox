@@ -17,24 +17,17 @@
 package fluence.vm
 
 import cats.effect.IO
-import fluence.vm.utils.AppIntegrationTest
 import org.scalatest.EitherValues
 
 import scala.language.{higherKinds, implicitConversions}
 
 // TODO: for a run this test from IDE It needs to build vm-counter project explicitly at first
-class CounterSpecIntegrationTest extends AppIntegrationTest with EitherValues {
-
-  private val moduleDirPrefix =
-    if (System.getProperty("user.dir").endsWith("/vm"))
-      System.getProperty("user.dir")
-    else
-      System.getProperty("user.dir") + "/vm/"
+class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
 
   private val counterFilePath =
-    moduleDirPrefix + "/examples/counter/target/wasm32-unknown-unknown/release/counter.wasm"
+    getModuleDirPrefix() + "/examples/counter/target/wasm32-unknown-unknown/release/counter.wasm"
 
-  "counter example" should {
+  "counter app" should {
 
     "be able to instantiate" in {
       (for {
