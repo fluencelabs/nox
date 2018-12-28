@@ -283,8 +283,8 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
         _ <- executeSql(vm, "create table USERS(name varchar(" + 256*1024*1024 + "))")
 
         // trying to insert two records to ~256 MiB field
-        insertResult1 <- executeSql(vm, "insert into USERS values(" + "A"*1024 + ")")
-        insertResult2 <- executeSql(vm, "insert into USERS values(" + "A"*1024 + ")")
+        insertResult1 <- executeSql(vm, "insert into USERS values(\"" + "A"*1024 + "\")")
+        insertResult2 <- executeSql(vm, "insert into USERS values(\"" + "A"*1024 + "\")")
 
       } yield {
         checkTestResult(insertResult1, "rows inserted")
