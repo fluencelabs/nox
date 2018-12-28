@@ -212,7 +212,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
         }).success()
       }
 
-    "be able to launch VM with 4 MiB memory and inserts a lot of data" in {
+    "be able to launch VM with 4 MiB memory and to insert a lot of data" in {
       (for {
         vm <- WasmVm[IO](Seq(llamadbFilePath))
         _ <- createTestTable(vm)
@@ -245,14 +245,14 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
     }
 
-    "be able to launch VM with 100 MiB memory and inserts a lot of data" in {
+    "be able to launch VM with 100 MiB memory and to insert a lot of data" in {
       (for {
         vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.100Mb")
         _ <- createTestTable(vm)
 
-        // allocate ~1 MiB memory
-        insertResult1 <- executeInsert(vm, 512)
-        insertResult2 <- executeInsert(vm, 512)
+        // allocate ~30 MiB memory
+        insertResult1 <- executeInsert(vm, 15*1024)
+        insertResult2 <- executeInsert(vm, 15*1024)
 
       } yield {
         checkTestResult(insertResult1, "rows inserted")
@@ -266,8 +266,8 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
         vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.100Mb")
         _ <- createTestTable(vm)
 
-        // trying to insert 1024 time by ~10 KiB
-        _ = for (_ <- 1 to 1024) yield { executeInsert(vm, 10) }.value.unsafeRunSync
+        // trying to insert 30 time by ~100 KiB
+        _ = for (_ <- 1 to 30) yield { executeInsert(vm, 100) }.value.unsafeRunSync
         insertResult <- executeInsert(vm, 1)
 
       } yield {
@@ -277,7 +277,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
     }
 
-    "be able to launch VM with 2 GiB memory and allocate 256 MiB of continuously memory" in {
+    "be able to launch VM with 2 GiB memory and to allocate 256 MiB of continuously memory" in {
       (for {
         vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
         _ <- executeSql(vm, "create table USERS(name varchar(" + 256*1024*1024 + "))")
@@ -293,13 +293,13 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
       }).success()
     }
 
-    "be able to launch VM with 2 GiB memory and inserts a lot of data" in {
+    "be able to launch VM with 2 GiB memory and a lot of data inserts" in {
       (for {
         vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
         _ <- createTestTable(vm)
 
-        // trying to insert 1024 time by ~30 KiB
-        _ = for (_ <- 1 to 1024) yield { executeInsert(vm, 30) }.value.unsafeRunSync
+        // trying to insert 30 time by ~200 KiB
+        _ = for (_ <- 1 to 30) yield { executeInsert(vm, 200) }.value.unsafeRunSync
         insertResult <- executeInsert(vm, 1)
 
       } yield {
