@@ -17,7 +17,7 @@ Current code deployment process to the Fluence network looks like this:
 
 Requirements: [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [`npm`](https://www.npmjs.com/get-npm) are needed.
 
-- clone repo and `cd` to `publisher` folder
+- clone repo and `cd` to `cli` folder
 - run `cargo build`
 - go to `target/debug`
 - there is an executable file `fluence` to work with

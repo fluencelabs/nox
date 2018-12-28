@@ -150,6 +150,7 @@ impl Register {
                     hash_addr,
                     u64::from(self.min_port),
                     u64::from(self.max_port),
+                    false,
                 ),
                 self.gas,
             )

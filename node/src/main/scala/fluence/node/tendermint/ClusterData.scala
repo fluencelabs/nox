@@ -16,7 +16,6 @@
 
 package fluence.node.tendermint
 import fluence.node.config.NodeConfig
-import fluence.node.eth.FluenceContract.ContractClusterTuple
 import fluence.node.solvers.CodePath
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
@@ -47,34 +46,22 @@ case class ClusterData(
 
 object ClusterData {
 
-  def fromTuple(clusterID: Bytes32, tuple: ContractClusterTuple, nodeConfig: NodeConfig): Option[ClusterData] = {
-    build(
-      clusterID,
-      solverIDs = tuple.getValue4,
-      genesisTime = tuple.getValue3,
-      storageHash = tuple.getValue1,
-      solverAddrs = tuple.getValue5,
-      solverPorts = tuple.getValue6,
-      nodeConfig = nodeConfig
-    )
-  }
-
   def build(
     clusterID: Bytes32,
-    solverIDs: DynamicArray[Bytes32],
+    nodeIds: DynamicArray[Bytes32],
     genesisTime: Uint256,
     storageHash: Bytes32,
-    solverAddrs: DynamicArray[Bytes24],
-    solverPorts: DynamicArray[Uint16],
+    nodeAddrs: DynamicArray[Bytes24],
+    workerPorts: DynamicArray[Uint16],
     nodeConfig: NodeConfig
   ): Option[ClusterData] = {
-    val genesis = Genesis.fromClusterData(clusterID, solverIDs, genesisTime)
+    val genesis = Genesis.fromClusterData(clusterID, nodeIds, genesisTime)
     val nodeIndex = genesis.validators.indexWhere(_.pub_key == nodeConfig.validatorKey)
     if (nodeIndex == -1)
       None
     else {
       val storage = CodePath(storageHash)
-      val persistentPeers = PersistentPeers.fromAddrsAndPorts(solverAddrs, solverPorts)
+      val persistentPeers = PersistentPeers.fromAddrsAndPorts(nodeAddrs, workerPorts)
       val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
       val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
       Some(ClusterData(nodeInfo, persistentPeers, storage))
