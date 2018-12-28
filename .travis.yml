@@ -18,7 +18,7 @@ matrix:
         - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
         - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
 
-        # These directories are cached to S3 at the end of the build
+      # These directories are cached to S3 at the end of the build
       cache:
         directories:
           - $HOME/.ivy2/cache
@@ -54,7 +54,7 @@ matrix:
       # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
       script: 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then "sbt ++$TRAVIS_SCALA_VERSION -J-Xms2048M -J-Xmx2048M it:test"; fi'
 
-    - name: bootstrap
+    - name: smart contract
       language: node_js
       node_js: v10.9.0
       before_install: cd bootstrap
@@ -74,7 +74,7 @@ matrix:
       before_script: npm install
       script: npm test
 
-    - name: Rust SDK
+    - name: rust App SDK
       language: rust
       # todo enable 'stable' and 'beta' when `allocator_api` will become stable
       rust: nightly
@@ -89,7 +89,7 @@ matrix:
         - cargo doc -v --all-features
         - cargo test -v --all-features
 
-    - name: LlamaDb VM example
+    - name: llamaDb VM App
       language: rust
       rust: nightly
       cache: cargo
