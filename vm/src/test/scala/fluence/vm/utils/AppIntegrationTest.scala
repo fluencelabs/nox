@@ -17,7 +17,7 @@
 package fluence.vm.utils
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 
-class IntegrationTest extends WordSpec with Matchers with OptionValues {
+class AppIntegrationTest extends WordSpec with Matchers with OptionValues {
 
   def getModuleDirPrefix() =
     if (System.getProperty("user.dir").endsWith("/vm"))

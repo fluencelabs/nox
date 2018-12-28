@@ -23,7 +23,7 @@ import org.scalatest.{EitherValues, OptionValues}
 import scala.language.{higherKinds, implicitConversions}
 
 // TODO: now for run this test from IDE It is needed to build vm-llamadb project explicitly
-class LlamadbIntegrationTests extends LlamadbIntegrationTest with EitherValues {
+class LlamadbComplexIntegrationTest extends LlamadbIntegrationTest with EitherValues {
 
   "llamadb example" should {
 

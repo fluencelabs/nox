@@ -22,7 +22,7 @@ import org.scalatest.{EitherValues}
 
 import scala.language.{higherKinds, implicitConversions}
 
-class LlamadbBasicIntegrationTests extends LlamadbIntegrationTest with EitherValues {
+class LlamadbBasicIntegrationTests extends LlamadbComplexIntegrationTest with EitherValues {
 
   "llamadb example" should {
 

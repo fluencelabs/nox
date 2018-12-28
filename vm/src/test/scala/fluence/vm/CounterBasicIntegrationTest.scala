@@ -17,13 +17,13 @@
 package fluence.vm
 
 import cats.effect.IO
-import fluence.vm.utils.IntegrationTest
+import fluence.vm.utils.AppIntegrationTest
 import org.scalatest.{EitherValues}
 
 import scala.language.{higherKinds, implicitConversions}
 
 // TODO: now for run this test from IDE It is needed to build vm-counter project explicitly
-class CounterBasicIntegrationTests extends IntegrationTest with EitherValues {
+class CounterBasicIntegrationTest extends AppIntegrationTest with EitherValues {
 
   private val moduleDirPrefix =
     if (System.getProperty("user.dir").endsWith("/vm"))

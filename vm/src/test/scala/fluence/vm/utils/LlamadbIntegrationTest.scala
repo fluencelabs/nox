@@ -20,7 +20,7 @@ import cats.effect.IO
 import fluence.vm.{VmError, WasmVm}
 
 // TODO: now for run this test from IDE It is needed to build vm-llamadb project explicitly
-class LlamadbIntegrationTest extends IntegrationTest {
+class LlamadbIntegrationTest extends AppIntegrationTest {
 
   val llamadbFilePath = getModuleDirPrefix() + "/examples/llamadb/target/wasm32-unknown-unknown/release/llama_db.wasm"
 
