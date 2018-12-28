@@ -17,10 +17,6 @@ matrix:
 
       before_install:
         - curl https://sh.rustup.rs -sSf | sh -s -- -y
-        - ls -la ~/
-        - ls -la ~/bin
-        - ls -la ~/build
-        - find / -name rust
         - rustup toolchain install nightly
         - rustup update
         - rustup target add wasm32-unknown-unknown --toolchain nightly
