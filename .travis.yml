@@ -18,8 +18,9 @@ matrix:
       before_install:
         - curl -sSf https://static.rust-lang.org/rustup.sh | sh -s -- -y
         - ls -la ~/
-        - ls -la ~/.cargo
-        - ~/.cargo/bin/rustup toolchain install nightly
+        - ls -la ~/.bin
+        - ls -la ~/.build
+        - rustup toolchain install nightly
         - rustup update
         - rustup target add wasm32-unknown-unknown --toolchain nightly
 
