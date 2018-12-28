@@ -40,9 +40,9 @@ object SbtCommons {
 
         val projectRoot = file("").getAbsolutePath
         val exampleFolder = s"$projectRoot/vm/examples/$exampleName"
-        val compileCmd = s"docker run --rm -w /work -v $exampleFolder:/work tomaka/rustc-emscripten " +
-          s"cargo +nightly build --target wasm32-unknown-unknown --release"
-        
+        val compileCmd = s"cargo +nightly build --manifest-path $exampleFolder/Cargo.toml " +
+          s"--target wasm32-unknown-unknown --release"
+
         assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
       }
     ).value
