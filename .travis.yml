@@ -7,7 +7,17 @@ matrix:
       services:
         - docker
 
-      # These directories are cached to S3 at the end of the build
+      before_install:
+        - curl https://sh.rustup.rs -sSf | sh -s -- -y
+        - ~/.cargo/bin/rustup toolchain install nightly
+        - ~/.cargo/bin/rustup update
+        - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
+
+      script:
+        - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
+        - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
+
+        # These directories are cached to S3 at the end of the build
       cache:
         directories:
           - $HOME/.ivy2/cache
@@ -87,4 +97,3 @@ matrix:
         - popd
         - cargo fmt --all -- --check -v
         - cargo test
-
