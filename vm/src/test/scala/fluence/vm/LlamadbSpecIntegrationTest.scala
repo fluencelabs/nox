@@ -18,7 +18,7 @@ package fluence.vm
 
 import cats.effect.IO
 import fluence.vm.utils.LlamadbIntegrationTest
-import org.scalatest.{EitherValues}
+import org.scalatest.EitherValues
 
 import scala.language.{higherKinds, implicitConversions}
 

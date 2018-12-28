@@ -15,6 +15,7 @@
  */
 
 package fluence.vm.utils
+
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 
 class AppIntegrationTest extends WordSpec with Matchers with OptionValues {

@@ -15,6 +15,7 @@
  */
 
 package fluence.vm.utils
+
 import cats.data.EitherT
 import cats.effect.IO
 import fluence.vm.{VmError, WasmVm}
@@ -22,7 +23,8 @@ import fluence.vm.{VmError, WasmVm}
 // TODO: for run this test from IDE It is needed to build vm-llamadb project explicitly
 class LlamadbIntegrationTest extends AppIntegrationTest {
 
-  val llamadbFilePath = getModuleDirPrefix() + "/examples/llamadb/target/wasm32-unknown-unknown/release/llama_db.wasm"
+  val llamadbFilePath: String = getModuleDirPrefix() +
+    "/examples/llamadb/target/wasm32-unknown-unknown/release/llama_db.wasm"
 
   def executeSql(implicit vm: WasmVm, sql: String): EitherT[IO, VmError, Option[Array[Byte]]] =
     for {
