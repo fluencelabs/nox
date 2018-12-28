@@ -1,6 +1,6 @@
 matrix:
   include:
-    - language: scala, rust
+    - language: scala
       scala: 2.12.7
       jdk: oraclejdk8
       rust: nightly
