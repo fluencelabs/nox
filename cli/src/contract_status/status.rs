@@ -15,9 +15,7 @@
  */
 
 use contract_func::ContractCaller;
-use contract_status::cluster::{get_clusters, Cluster};
 use contract_status::app::{get_enqueued_apps, App};
-use contract_status::node::{get_nodes, Node};
 use std::boxed::Box;
 use std::error::Error;
 use web3::types::Address;
