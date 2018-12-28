@@ -52,7 +52,9 @@ matrix:
         - find $HOME/.sbt        -name "*.lock"               -print -delete
 
       # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
-      script: 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then "sbt ++$TRAVIS_SCALA_VERSION -J-Xms2048M -J-Xmx2048M it:test"; fi'
+      script:
+        - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms2048M -J-Xmx2048M compile; fi'
+        - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms2048M -J-Xmx2048M it:test; fi'
 
     - name: smart contract
       language: node_js
