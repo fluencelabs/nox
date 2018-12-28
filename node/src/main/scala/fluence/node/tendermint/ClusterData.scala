@@ -16,7 +16,6 @@
 
 package fluence.node.tendermint
 import fluence.node.config.NodeConfig
-import fluence.node.eth.FluenceContract.ContractClusterTuple
 import fluence.node.solvers.CodePath
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
@@ -46,17 +45,6 @@ case class ClusterData(
 }
 
 object ClusterData {
-
-  def fromTuple(clusterID: Bytes32, tuple: ContractClusterTuple, nodeConfig: NodeConfig): Option[ClusterData] =
-    build(
-      clusterID,
-      nodeIds = tuple.getValue4,
-      genesisTime = tuple.getValue3,
-      storageHash = tuple.getValue1,
-      nodeAddrs = tuple.getValue5,
-      workerPorts = tuple.getValue6,
-      nodeConfig = nodeConfig
-    )
 
   def build(
     clusterID: Bytes32,

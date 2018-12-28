@@ -140,20 +140,21 @@ contract Deployer {
     event NewNode(bytes32 id);
 
     // Nodes ready to join new clusters
-    bytes32[] internal readyNodes;
+    bytes32[] public readyNodes;
 
     // All nodes
     mapping(bytes32 => Node) internal nodes;
     // Store nodes indices to traverse nodes mapping
-    bytes32[] internal nodesIds;
+    bytes32[] public nodesIds;
 
-    // Cluster with assigned Code
+    // Cluster with assigned App
     mapping(bytes32 => Cluster) internal clusters;
+    // Store cluster indices to traverse clusters mapping
+    bytes32[] public clustersIds;
 
     // Number of existing clusters, used for clusterID generation
-    // starting with 1, so we could check existence of cluster in the mapping, e.g:
-    // if (busyCluster[someId].clusterID > 0)
-    uint256 clusterCount = 1;
+    // TODO find a better way to generate cluster id
+    uint256 internal clusterCount = 1;
 
     // Apps waiting for nodes
     // TODO: should they have IDs? so that app owner could cancel deployment of enqueued app, before cluster gets formed
@@ -330,6 +331,7 @@ contract Deployer {
 
         // saving selected nodes as a cluster with assigned code
         clusters[clusterID] = Cluster(clusterID, app, genesisTime, nodeIDs, workerPorts);
+        clustersIds.push(clusterID);
 
         // notify Fluence node it's time to run real-time nodes and
         // create a Tendermint cluster hosting selected code

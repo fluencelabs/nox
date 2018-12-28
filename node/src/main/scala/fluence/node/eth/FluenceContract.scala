@@ -16,7 +16,8 @@
 
 package fluence.node.eth
 
-import cats.effect.{Async, ConcurrentEffect}
+import cats.Apply
+import cats.effect.{Async, ConcurrentEffect, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.ethclient.Network.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
@@ -31,7 +32,6 @@ import org.web3j.abi.datatypes.generated.{Uint8, _}
 import org.web3j.abi.datatypes.{Bool, DynamicArray}
 import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
-import org.web3j.tuples.generated
 
 import scala.collection.JavaConverters._
 import scala.language.higherKinds
@@ -94,10 +94,19 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .evalUnChunk(getNodeClusterIds[F](nodeConfig).map(cs ⇒ fs2.Chunk(cs: _*)))
       .evalMap(
         clusterId ⇒
-          contract
-            .getCluster(clusterId)
-            .call[F]
-            .map(ClusterData.fromTuple(clusterId, _, nodeConfig))
+          Apply[F].map2(
+            contract
+              .getCluster(clusterId)
+              .call[F]
+              .map(tuple ⇒ (tuple.getValue1, tuple.getValue6, tuple.getValue7)),
+            contract
+              .getClusterWorkers(clusterId)
+              .call[F]
+              .map(tuple ⇒ (tuple.getValue1, tuple.getValue2))
+          ) {
+            case ((storageHash, genesisTime, nodeIds), (addrs, ports)) ⇒
+              ClusterData.build(clusterId, nodeIds, genesisTime, storageHash, addrs, ports, nodeConfig)
+        }
       )
       .unNone
 
@@ -126,7 +135,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   def getAllNodeClusters[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
     getNodeClusters[F](nodeConfig)
       .onFinalize(
-        Async[F].delay(logger.debug("Got all the previously prepared clusters. Now switching to the new clusters"))
+        Sync[F].delay(logger.info("Got all the previously prepared clusters. Now switching to the new clusters"))
       ) ++ getNodeClustersFormed(nodeConfig)
 
   /**
@@ -174,20 +183,6 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
 }
 
 object FluenceContract {
-
-  /**
-   * Corresponds to return type for the getCluster method.
-   */
-  type ContractClusterTuple =
-    generated.Tuple7[
-      Bytes32, //storageHash
-      Bytes32, //storageReceipt
-      Uint256, //genesisTime
-      DynamicArray[Bytes32], //nodeIDs
-      DynamicArray[Bytes24], //addresses
-      DynamicArray[Uint16], //ports
-      DynamicArray[Bytes32] //pinToNodes
-    ]
 
   /**
    * Tries to convert `ClusterFormedEvent` response to [[ClusterData]] with all information to launch cluster.

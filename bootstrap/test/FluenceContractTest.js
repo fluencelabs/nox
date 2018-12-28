@@ -172,7 +172,7 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
 
         let enqueuedApps = await this.contract.getEnqueuedApps();
 
-        assert.equal(enqueuedApps.length, 6); // storageHashes, storageReceipts, clusterSizes, developerAddresses, pinned, pinnedNodes
+        assert.equal(enqueuedApps.length, 4); // storageHashes, storageReceipts, clusterSizes, developerAddresses, pinned, pinnedNodes
 
         let storageHashes = enqueuedApps[0];
         let storageReceipts = enqueuedApps[1];
@@ -195,6 +195,7 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         assert.equal(developerAddresses[0], whitelisted);
         assert.equal(developerAddresses[1], whitelisted);
 
+        // FIXME
         // let clustersInfos = await this.contract.getClustersInfo();
         // let clustersNodes = await this.contract.getClustersNodes();
         //

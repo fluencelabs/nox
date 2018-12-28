@@ -19,47 +19,51 @@ use std::error::Error;
 use web3::types::{Address, H256};
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
-pub struct Code {
+pub struct App {
     storage_hash: H256,
     storage_receipt: H256,
     cluster_size: u8,
-    developer: Address,
+    owner: Address,
+    pin_to_nodes: Option<Vec<H256>>,
 }
 
-impl Code {
+impl App {
     pub fn new(
         storage_hash: H256,
         storage_receipt: H256,
         cluster_size: u8,
-        developer: Address,
-    ) -> Code {
-        Code {
+        owner: Address,
+        pin_to_nodes: Option<Vec<H256>>,
+    ) -> App {
+        App {
             storage_hash,
             storage_receipt,
             cluster_size,
-            developer,
+            owner,
+            pin_to_nodes,
         }
     }
 }
 
-pub fn get_enqueued_codes(contract: &ContractCaller) -> Result<Vec<Code>, Box<Error>> {
-    let (storage_hashes, storage_receipts, cluster_sizes, developers): (
+pub fn get_enqueued_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Error>> {
+    let (storage_hashes, storage_receipts, cluster_sizes, owners): (
         Vec<H256>,
         Vec<H256>,
         Vec<u64>,
         Vec<Address>,
-    ) = contract.query_contract("getEnqueuedCodes", ())?;
+    ) = contract.query_contract("getEnqueuedApps", ())?;
 
-    let mut codes: Vec<Code> = Vec::new();
+    let mut apps: Vec<App> = Vec::new();
     for i in 0..storage_hashes.len() {
-        let code = Code::new(
+        let code = App::new(
             storage_hashes[i],
             storage_receipts[i],
             cluster_sizes[i] as u8,
-            developers[i],
+            owners[i],
+            None,
         );
-        codes.push(code);
+        apps.push(code);
     }
 
-    Ok(codes)
+    Ok(apps)
 }

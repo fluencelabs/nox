@@ -15,7 +15,7 @@
  */
 
 mod cluster;
-mod code;
+mod app;
 mod node;
 mod status;
 
