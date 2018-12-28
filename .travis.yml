@@ -20,6 +20,7 @@ matrix:
         - ls -la ~/
         - ls -la ~/bin
         - ls -la ~/build
+        - find / -name rust
         - rustup toolchain install nightly
         - rustup update
         - rustup target add wasm32-unknown-unknown --toolchain nightly
