@@ -22,8 +22,8 @@ import org.scalatest.{EitherValues, OptionValues}
 
 import scala.language.{higherKinds, implicitConversions}
 
-// TODO: now for run this test from IDE It is needed to build vm-llamadb project explicitly
-class LlamadbComplexIntegrationTest extends LlamadbIntegrationTest with EitherValues {
+// TODO: now for a run this test from IDE It needs to build vm-llamadb project explicitly at first
+class LlamadbAuxiliaryIntegrationTest extends LlamadbIntegrationTest with EitherValues {
 
   "llamadb example" should {
 
@@ -85,8 +85,8 @@ class LlamadbComplexIntegrationTest extends LlamadbIntegrationTest with EitherVa
         vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.100Mb")
         _ <- createTestTable(vm)
 
-        // trying to insert 1024 time by 30 KiB
-        _ = for (_ <- 1 to 1024) yield { executeInsert(vm, 30) }.value.unsafeRunSync
+        // trying to insert 1024 time by 10 KiB
+        _ = for (_ <- 1 to 1024) yield { executeInsert(vm, 10) }.value.unsafeRunSync
         insertResult <- executeInsert(vm, 1)
 
       } yield {
@@ -96,30 +96,30 @@ class LlamadbComplexIntegrationTest extends LlamadbIntegrationTest with EitherVa
 
     }
 
+    "be able to launch VM with 2 Gb memory and allocate 256MiB of continuously memory" in {
+
+      (for {
+        vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
+        _ <- executeSql(vm, "create table USERS(name varchar(" + 256*1024*1024 + "))")
+
+        // trying to insert one string memory to 256 MiB field
+        insertResult <- executeSql(vm, "insert into USERS values(" + "A"*(256*1024*1024) + ")")
+
+      } yield {
+        checkTestResult(insertResult, "rows inserted")
+
+      }).value.unsafeRunSync().right.value
+    }
+
     "be able to launch VM with 2 Gb memory and inserts a lot of data" in {
 
       (for {
         vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
         _ <- createTestTable(vm)
 
-        // allocate 25 Mb memory two times
-        insertResult1 <- executeInsert(vm, 1024*2*25*19)
-
-      } yield {
-        checkTestResult(insertResult1, "rows inserted")
-
-      }).value.unsafeRunSync().right.value
-    }
-
-    "be able to launch VM with 2 Gb memory and inserts huge values" in {
-
-      (for {
-        vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
-        _ <- executeSql(vm, "create table USERS(name varchar(" + 1024*1024*1024 + "))")
-
-        // trying to insert 256 Mb memory five times
-        _ = for (_ <- 1 to 4) yield { executeSql(vm, "insert into USERS values(" + "A"*(1024*1024*256) + ")") }
-        insertResult <- executeSql(vm, "insert into USERS values(" + "A"*(1024*1024*256) + ")")
+        // trying to insert 1024 time by 30 KiB
+        _ = for (_ <- 1 to 1024) yield { executeInsert(vm, 30) }.value.unsafeRunSync
+        insertResult <- executeInsert(vm, 1)
 
       } yield {
         checkTestResult(insertResult, "rows inserted")
