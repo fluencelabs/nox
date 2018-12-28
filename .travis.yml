@@ -21,8 +21,6 @@ matrix:
 
       before_install:
         - curl https://sh.rustup.rs -sSf | sh -s -- -y
-        - export PATH="$PATH:~/.cargo/bin/"
-        - export PATH="$PATH:/home/travis/.cargo/bin/"
         - rustup toolchain install nightly
         - rustup update
         - rustup target add wasm32-unknown-unknown --toolchain nightly
