@@ -1,3 +1,5 @@
+package fluence.vm
+
 /*
  * Copyright 2018 Fluence Labs Limited
  *
@@ -14,11 +16,11 @@
  * limitations under the License.
  */
 
-package fluence.vm
+import cats.data.EitherT
+import cats.effect.IO
+import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 
-import org.scalatest.{Matchers, OptionValues, WordSpec}
-
-class AppIntegrationTest extends WordSpec with Matchers with OptionValues {
+class AppIntegrationTest extends WordSpec with Matchers with OptionValues with EitherValues {
 
   def getModuleDirPrefix() =
     if (System.getProperty("user.dir").endsWith("/vm"))
@@ -28,7 +30,17 @@ class AppIntegrationTest extends WordSpec with Matchers with OptionValues {
 
   def checkTestResult(result: Option[Array[Byte]], expectedString: String) = {
     result shouldBe defined
-    new String(result.value) should startWith(expectedString)
+    val resultAsString = new String(result.value)
+    resultAsString should startWith (expectedString)
+  }
+
+  implicit class EitherTValueReader[E, V](origin: EitherT[IO, E, V]) {
+
+    def success(): V =
+      origin.value.unsafeRunSync().right.value
+
+    def failed(): E =
+      origin.value.unsafeRunSync().left.value
   }
 
 }

@@ -1,3 +1,5 @@
+package fluence.vm
+
 /*
  * Copyright 2018 Fluence Labs Limited
  *
@@ -13,8 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package fluence.vm
 
 import cats.effect.IO
 import org.scalatest.EitherValues
@@ -37,12 +37,11 @@ class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
       } yield {
         state should not be None
 
-      }).value.unsafeRunSync().right.value
+      }).success()
 
     }
 
     "increment counter and returns its state" in {
-
       (for {
         vm <- WasmVm[IO](Seq(counterFilePath))
         _ <- vm.invoke[IO](None, "inc")
@@ -55,7 +54,7 @@ class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
       } yield {
         checkTestResult(getResult1, "1")
         checkTestResult(getResult2, "3")
-      }).value.unsafeRunSync.right.value
+      }).success()
 
     }
 

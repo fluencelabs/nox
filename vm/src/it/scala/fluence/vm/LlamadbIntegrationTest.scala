@@ -1,3 +1,5 @@
+package fluence.vm
+
 /*
  * Copyright 2018 Fluence Labs Limited
  *
@@ -13,8 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package fluence.vm
 
 import cats.data.EitherT
 import cats.effect.IO
@@ -64,7 +64,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
         } yield {
           state should not be None
 
-        }).value.unsafeRunSync().right.value
+        }).success()
 
       }
 
@@ -76,7 +76,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
         } yield {
           checkTestResult(createResult, "rows inserted")
 
-        }).value.unsafeRunSync().right.value
+        }).success()
 
       }
 
@@ -106,7 +106,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
               "    (column-field :source-id 0 :column-offset 1)))"
           )
 
-        }).value.unsafeRunSync().right.value
+        }).success()
 
       }
 
@@ -134,7 +134,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
           checkTestResult(dropTableResult, "table was dropped")
           checkTestResult(selectFromDroppedTableResult, "[Error] table does not exist: users")
 
-        }).value.unsafeRunSync().right.value
+        }).success()
 
       }
 
@@ -173,7 +173,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
           checkTestResult(deleteResult, "rows deleted: 1")
           checkTestResult(updateResult, "[Error] subquery must yield exactly one row")
 
-        }).value.unsafeRunSync().right.value
+        }).success()
 
       }
 
@@ -191,7 +191,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
             "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got no more tokens"
           )
 
-        }).value.unsafeRunSync().right.value
+        }).success()
       }
 
       "doesn't fail with incorrect queries" in {
@@ -211,7 +211,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
           )
           checkTestResult(incompatibleTypeResult, "[Error] 'Bob' cannot be cast to Integer { signed: true, bytes: 8 }")
 
-        }).value.unsafeRunSync().right.value
+        }).success()
       }
 
     "be able to launch VM with 4 Mb memory and inserts a lot of data" in {
@@ -228,7 +228,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
         checkTestResult(insertResult1, "rows inserted")
         checkTestResult(insertResult2, "rows inserted")
 
-      }).value.unsafeRunSync().right.value
+      }).success()
 
     }
 
@@ -245,7 +245,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
       } yield {
         checkTestResult(insertResult,  "rows inserted")
 
-      }).value.unsafeRunSync().leftSideValue
+      }).success()
 
     }
 
@@ -263,7 +263,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
         checkTestResult(insertResult1, "rows inserted")
         checkTestResult(insertResult2, "rows inserted")
 
-      }).value.unsafeRunSync().right.value
+      }).success()
     }
 
     "be able to launch VM with 100 Mb memory and a lot of data inserts" in {
@@ -279,7 +279,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
       } yield {
         checkTestResult(insertResult, "rows inserted")
 
-      }).value.unsafeRunSync().right.value
+      }).success()
 
     }
 
@@ -295,7 +295,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
       } yield {
         checkTestResult(insertResult, "rows inserted")
 
-      }).value.unsafeRunSync().right.value
+      }).success()
     }
 
     "be able to launch VM with 2 Gb memory and inserts a lot of data" in {
@@ -311,7 +311,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
       } yield {
         checkTestResult(insertResult, "rows inserted")
 
-      }).value.unsafeRunSync().right.value
+      }).success()
     }
 
   }
