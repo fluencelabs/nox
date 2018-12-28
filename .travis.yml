@@ -15,6 +15,10 @@ matrix:
           - $HOME/.sbt/launchers
           - bootstrap/node_modules
 
+      env:
+        global:
+          - PATH=$PATH:$HOME/.cargo/bin/
+
       before_install:
         - curl https://sh.rustup.rs -sSf | sh -s -- -y
         - export PATH="$PATH:~/.cargo/bin/"
