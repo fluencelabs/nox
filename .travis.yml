@@ -15,8 +15,9 @@ matrix:
           - $HOME/.sbt/launchers
           - bootstrap/node_modules
 
-      before_install:
+      before_script:
         - curl https://sh.rustup.rs -sSf | sh -s -- -y
+        - ls -la ~/.cargo/bin
         - export PATH="$PATH:~/.cargo/bin/"
         - rustup toolchain install nightly
         - rustup update
