@@ -16,7 +16,7 @@ matrix:
           - bootstrap/node_modules
 
       before_install:
-        - curl -sSf https://static.rust-lang.org/rustup.sh | sh -s -- -y
+        - curl https://sh.rustup.rs -sSf | sh -s -- -y
         - ls -la ~/
         - ls -la ~/bin
         - ls -la ~/build
