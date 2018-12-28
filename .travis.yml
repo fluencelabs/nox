@@ -17,9 +17,10 @@ matrix:
 
       before_install:
         - curl https://sh.rustup.rs -sSf | sh -s -- -y
-        - ~/.cargo/bin/rustup toolchain install nightly
-        - ~/.cargo/bin/rustup update
-        - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
+        - export PATH="$PATH:~/.cargo/bin/"
+        - rustup toolchain install nightly
+        - rustup update
+        - rustup target add wasm32-unknown-unknown --toolchain nightly
 
       before_cache:
         # Cleanup the cached directories to avoid unnecessary cache updates
