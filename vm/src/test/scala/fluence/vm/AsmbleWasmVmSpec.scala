@@ -28,7 +28,7 @@ import org.scalatest.{Matchers, WordSpec}
 
 import scala.language.{higherKinds, implicitConversions}
 
-class AsmleWasmVmSpec extends WordSpec with Matchers {
+class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
   /**
    * Converts ints to byte array by supplied byte order.

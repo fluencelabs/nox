@@ -16,6 +16,8 @@ initialize := {
 /* Projects */
 
 lazy val vm = (project in file("vm"))
+  .configs(IntegrationTest)
+  .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -25,8 +27,13 @@ lazy val vm = (project in file("vm"))
       pureConfig,
       cryptoHashing,
       scalaTest,
+      scalaIntegrationTest,
       mockito
-    )
+    ),
+    (test in IntegrationTest) := (test in IntegrationTest)
+      .dependsOn(compile in `vm-counter`)
+      .dependsOn(compile in `vm-llamadb`)
+      .value
   )
   .enablePlugins(AutomateHeaderPlugin)
 

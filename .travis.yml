@@ -1,6 +1,7 @@
 matrix:
   include:
-    - language: scala
+    - name: Fluence
+      language: scala
       scala: 2.12.7
       jdk: oraclejdk8
 
@@ -17,7 +18,7 @@ matrix:
         - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
         - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
 
-        # These directories are cached to S3 at the end of the build
+      # These directories are cached to S3 at the end of the build
       cache:
         directories:
           - $HOME/.ivy2/cache
@@ -30,7 +31,40 @@ matrix:
         - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
         - find $HOME/.sbt        -name "*.lock"               -print -delete
 
-    - language: node_js
+    # These tests takes a lot of time and runs only while PR
+    - name: Fluence integration tests
+      language: scala
+      scala: 2.12.7
+      jdk: oraclejdk8
+      sudo: false
+
+      services:
+        - docker
+
+      before_install:
+        - curl https://sh.rustup.rs -sSf | sh -s -- -y
+        - ~/.cargo/bin/rustup toolchain install nightly
+        - ~/.cargo/bin/rustup update
+        - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
+
+      # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
+      script:
+        - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
+        - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
+
+      cache:
+        directories:
+          - $HOME/.ivy2/cache
+          - $HOME/.sbt/boot
+          - $HOME/.sbt/launchers
+          - bootstrap/node_modules
+
+      before_cache:
+        - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
+        - find $HOME/.sbt        -name "*.lock"               -print -delete
+
+    - name: smart contract
+      language: node_js
       node_js: v10.9.0
       before_install: cd bootstrap
       before_script: npm run ganache
@@ -38,7 +72,8 @@ matrix:
         directories:
             - bootstrap/node_modules
 
-    - language: node_js
+    - name: js-client
+      language: node_js
       node_js:
         - "5"
         - "6"
@@ -48,7 +83,7 @@ matrix:
       before_script: npm install
       script: npm test
 
-    - name: Rust SDK
+    - name: rust App SDK
       language: rust
       # todo enable 'stable' and 'beta' when `allocator_api` will become stable
       rust: nightly
@@ -63,7 +98,7 @@ matrix:
         - cargo doc -v --all-features
         - cargo test -v --all-features
 
-    - name: LlamaDb VM example
+    - name: llamaDb VM App
       language: rust
       rust: nightly
       cache: cargo

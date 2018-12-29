@@ -25,7 +25,7 @@ import cats.{Functor, Monad}
 import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.VmError.{NoSuchFnError, _}
-import fluence.vm.AsmleWasmVm._
+import fluence.vm.AsmbleWasmVm._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -46,7 +46,7 @@ import scala.util.Try
  * @param deallocateFunctionName name of a function that will be used for freeing memory
  *                               that was previously allocated by allocateFunction
  */
-class AsmleWasmVm(
+class AsmbleWasmVm(
   private val functionsIndex: WasmFnIndex,
   private val modules: WasmModules,
   private val hasher: Hasher[Array[Byte], Array[Byte]],
@@ -275,7 +275,7 @@ class AsmleWasmVm(
 
 }
 
-object AsmleWasmVm {
+object AsmbleWasmVm {
 
   type WasmModules = List[ModuleInstance]
   type WasmFnIndex = Map[FunctionId, WasmFunction]

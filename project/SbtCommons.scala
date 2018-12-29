@@ -12,12 +12,14 @@ object SbtCommons {
 
   val commons = Seq(
     scalaV,
-    version                   := "0.1",
-    fork in Test              := true,
-    parallelExecution in Test := false,
-    organizationName          := "Fluence Labs Limited",
-    organizationHomepage      := Some(new URL("https://fluence.one")),
-    startYear                 := Some(2018),
+    version                              := "0.1",
+    fork in Test                         := true,
+    parallelExecution in Test            := false,
+    fork in IntegrationTest              := true,
+    parallelExecution in IntegrationTest := false,
+    organizationName                     := "Fluence Labs Limited",
+    organizationHomepage                 := Some(new URL("https://fluence.one")),
+    startYear                            := Some(2018),
     licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
     headerLicense := Some(License.ALv2("2018", organizationName.value)),
     resolvers += Resolver.bintrayRepo("fluencelabs", "releases"),
@@ -93,6 +95,7 @@ object SbtCommons {
 
   /* Test deps*/
 
-  val scalaTest = "org.scalatest" %% "scalatest"   % "3.0.5"  % Test
-  val mockito = "org.mockito"     % "mockito-core" % "2.21.0" % Test
+  val scalaTest = "org.scalatest" %% "scalatest"   % "3.0.5"            % Test
+  val scalaIntegrationTest = "org.scalatest" %% "scalatest"   % "3.0.5" % IntegrationTest
+  val mockito = "org.mockito"     % "mockito-core" % "2.21.0"           % Test
 }
