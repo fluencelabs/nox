@@ -28,6 +28,10 @@ import "./Deployer.sol";
  *
  */
 contract Network is Deployer {
+    /** @dev Allows to retrieve node's info
+     * @param nodeID ID of node (Tendermint consensus key)
+     * returns tuple representation of Node structure
+     */
     function getNode(bytes32 nodeID)
         external
         view
@@ -57,7 +61,7 @@ contract Network is Deployer {
         return nodes[nodeID].clusters;
     }
 
-    /** @dev Allows anyone with clusterID to retrieve assigned App
+    /** @dev Allows anyone with clusterID to retrieve assigned App and other cluster info
      * @param clusterID unique id of cluster
      * returns tuple representation of a Cluster
      */
@@ -82,6 +86,9 @@ contract Network is Deployer {
         );
     }
 
+    /** @dev Returns addresses and ports of cluster's real-time workers
+     * @param clusterID unique id of cluster
+     */
     function getClusterWorkers(bytes32 clusterID)
         external
         view
@@ -102,8 +109,8 @@ contract Network is Deployer {
     }
 
 
-    /** @dev Gets codes which not yet deployed anywhere
-     * return (codes' Swarm hashes, receipts, clusters' sizes, developers' addresses)
+    /** @dev Gets apps which not yet deployed anywhere
+     * return (apps' Swarm hashes, receipts, clusters' sizes, developers' addresses)
      * TODO as there's no app ids, we can't retrieve additional info about an app, like pin_to_nodes
      */
     function getEnqueuedApps()
