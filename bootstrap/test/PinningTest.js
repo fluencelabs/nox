@@ -19,11 +19,9 @@ var FluenceContract = artifacts.require("./Network.sol");
 const utils = require("./Utils.js");
 const truffleAssert = require('truffle-assertions');
 const assert = require("chai").assert;
-const crypto = require("crypto");
-const should = require('chai').should();
 const { expectThrow } = require('openzeppelin-solidity/test/helpers/expectThrow');
 
-contract('Fluence', function ([_, owner, whitelisted, anyone]) {
+contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
     beforeEach(async function() {
       global.contract = await FluenceContract.new({ from: owner });
     });
