@@ -1,0 +1,104 @@
+/*
+ * Copyright (C) 2017  Fluence Labs Limited
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+var FluenceContract = artifacts.require("./Network.sol");
+const utils = require("./Utils.js");
+const truffleAssert = require('truffle-assertions');
+const assert = require("chai").assert;
+const crypto = require("crypto");
+const should = require('chai').should();
+const { expectThrow } = require('openzeppelin-solidity/test/helpers/expectThrow');
+
+contract('Fluence', function ([_, owner, whitelisted, anyone]) {
+    beforeEach(async function() {
+      global.contract = await FluenceContract.new({ from: owner });
+    });
+
+    async function addPinnedNodes(count) {
+        return utils.addPinnedNodes(global.contract, count, "127.0.0.1", owner, 1);
+    }
+
+    async function addNodes(count) {
+        return utils.addNodes(global.contract, count, "127.0.0.1", anyone, 1);
+    }
+
+    async function addApp(count, ids = []) {
+        return await utils.addApp(global.contract, count, owner, ids);
+    }
+    
+    it("Should form cluster of pinned nodes and ignore other nodes", async function() {
+        // add some nodes before pinned so order doesn't matter
+        await addNodes(5);
+        
+        var result = await addPinnedNodes(3);
+        
+        // add some nodes in the middle of pinned nodes so order doesn't matter
+        await addNodes(1);
+        
+        // add pinned nodes & concatenate result
+        result = [...(await addPinnedNodes(2)), ...result];
+
+        // add some nodes after pinned so order doesn't matter
+        await addNodes(5);
+        
+        let pinnedNodes = result.map(r => r.nodeID);
+        let receipt = (await addApp(5, pinnedNodes)).receipt;
+        
+        var clusterID;
+        truffleAssert.eventEmitted(receipt, utils.clusterFormedEvent, (ev) => {
+            assert.deepEqual(ev.nodeIDs, pinnedNodes);
+            clusterID = ev.clusterID;
+            return true
+        });
+
+        let cluster = await global.contract.getCluster(clusterID);
+        let clusterSize = cluster[2];
+        let appPinToNodes = cluster[4];
+        let nodeIDs = cluster[6];
+
+        assert.equal(clusterSize, 5);
+        assert.deepEqual(appPinToNodes, pinnedNodes);
+        assert.deepEqual(nodeIDs, pinnedNodes);
+    });
+
+    it("Should use both public & private nodes for pinned app", async function() {
+        let count = 5;
+        let pinnedCount = 2;
+
+        let pinned = await addPinnedNodes(pinnedCount);
+        let pinnedNodeIDs = pinned.map(r => r.nodeID);
+        let add = await addApp(count, pinnedNodeIDs);
+
+        // Cluster isn't formed yet
+        truffleAssert.eventNotEmitted(add.receipt, utils.clusterFormedEvent, _ => true);
+
+        // App is enqueued
+        truffleAssert.eventEmitted(add.receipt, utils.appEnqueuedEvent, ev => {
+            assert.equal(ev.storageHash, add.storageHash);
+            return true
+        })
+
+        let result = await addNodes(count - pinnedCount);
+        let receipt = result.pop();
+        truffleAssert.eventEmitted(receipt, utils.clusterFormedEvent, ev => {
+            pinnedNodeIDs.forEach(id => {                
+                assert.include(ev.nodeIDs, id);
+            });
+            return true
+        });
+    });
+});
