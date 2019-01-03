@@ -121,45 +121,39 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
     });
 
     it("Should get correct list of clusters and enqueued codes", async function() {
-        let [count1, count2, count3, count4] = [1, 2, 3, 4];
+        let clusterSizes = [1, 2, 3, 4];
 
-        let [storageHash1, storageHash2, storageHash3, storageHash4] =
-            ["abc","abcd","abcde","abcdef"].map(s => utils.string2Bytes32(s));
-
-        let [storageReceipt1, storageReceipt2, storageReceipt3, storageReceipt4] =
-            ["xyz","xyzd","xyzde","xyzdef"].map(s => utils.string2Bytes32(s));
-
-        await this.contract.addApp(storageHash1, storageReceipt1, count1, [], {from: whitelisted});
-        await this.contract.addApp(storageHash2, storageReceipt2, count2, [], {from: whitelisted});
-        await this.contract.addApp(storageHash3, storageReceipt3, count3, [], {from: whitelisted});
-        await this.contract.addApp(storageHash4, storageReceipt4, count4, [], {from: whitelisted});
+        // add 4 apps with different cluster sizes
+        let addApps = await Promise.all(clusterSizes.map(async size => {
+            return await utils.addApp(this.contract, size, whitelisted);
+        }));
 
         await utils.addNodes(this.contract, 3, "127.0.0.1", whitelisted, portCount = 2);
 
         let enqueuedApps = await this.contract.getEnqueuedApps();
 
-        assert.equal(enqueuedApps.length, 4); // storageHashes, storageReceipts, clusterSizes, developerAddresses, pinned, pinnedNodes
+        // number of returned fields
+        assert.equal(enqueuedApps.length, 4); // storageHashes, storageReceipts, sizes, developerAddresses, pinned, pinnedNodes
 
         let storageHashes = enqueuedApps[0];
         let storageReceipts = enqueuedApps[1];
-        let clusterSizes = enqueuedApps[2];
+        let sizes = enqueuedApps[2];
         let developerAddresses = enqueuedApps[3];
-
+        
+        // only two apps were depoyed
         assert.equal(storageHashes.length, 2);
-        assert.equal(storageHashes[0], storageHash4);
-        assert.equal(storageHashes[1], storageHash3);
-
         assert.equal(storageReceipts.length, 2);
-        assert.equal(storageReceipts[0], storageReceipt4);
-        assert.equal(storageReceipts[1], storageReceipt3);
-
-        assert.equal(clusterSizes.length, 2);
-        assert.equal(clusterSizes[0], count4);
-        assert.equal(clusterSizes[1], count3);
-
+        assert.equal(sizes.length, 2);
         assert.equal(developerAddresses.length, 2);
-        assert.equal(developerAddresses[0], whitelisted);
-        assert.equal(developerAddresses[1], whitelisted);
+
+        // looking for app deployments corresponding to enqueuedApps
+        storageHashes.forEach((hash, idx) => {
+            let addApp = addApps.find(add => add.storageHash == hash);
+            assert.notEqual(addApp, undefined);
+            assert.equal(storageReceipts[idx], addApp.storageReceipt);
+            assert.equal(sizes[idx], addApp.clusterSize);
+            assert.equal(developerAddresses[idx], whitelisted);
+        });
 
         // FIXME
         // let clustersInfos = await this.contract.getClustersInfo();

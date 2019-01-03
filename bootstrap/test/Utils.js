@@ -89,6 +89,7 @@ async function addApp (contract, count, owner, pinToNodes = []) {
     return {
         storageHash: storageHash, 
         storageReceipt: storageReceipt,
+        clusterSize: count,
         receipt: receipt
     }
 }
