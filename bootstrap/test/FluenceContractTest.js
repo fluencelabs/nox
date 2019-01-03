@@ -124,9 +124,9 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         let clusterSizes = [1, 2, 3, 4];
 
         // add 4 apps with different cluster sizes
-        let addApps = await Promise.all(clusterSizes.map(async size => {
-            return await utils.addApp(this.contract, size, whitelisted);
-        }));
+        let addApps = await Promise.all(clusterSizes.map(size => 
+            utils.addApp(this.contract, size, whitelisted)
+        ));
 
         await utils.addNodes(this.contract, 3, "127.0.0.1", whitelisted, portCount = 2);
 
