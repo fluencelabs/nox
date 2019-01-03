@@ -30,6 +30,12 @@ function string2Bytes32 (str) {
 
 exports.string2Bytes32 = string2Bytes32;
 
+function bytes32ToString (hex) {
+    return web3.toUtf8(hex);
+}
+
+exports.bytes32ToString = bytes32ToString;
+
 function generateNodeIDs(count) {
     return Array(count).fill(0).map(_ => string2Bytes32(crypto.randomBytes(16).hexSlice()));
 }

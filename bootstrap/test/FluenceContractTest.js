@@ -29,19 +29,18 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
 
     it("Should send event about new Node", async function() {
         let id = utils.string2Bytes32("1");
-        let receipt = await this.contract.addNode(id, "127.0.0.1", 1000, 1001, false, {from: whitelisted});
-        truffleAssert.eventEmitted(receipt, utils.newNodeEvent, (ev) => {
-            assert.equal(ev.id, id);
+        let result = (await utils.addNodesFull(this.contract, 1, "127.0.0.1", whitelisted, 1)).pop();
+        truffleAssert.eventEmitted(result.receipt, utils.newNodeEvent, (ev) => {
+            assert.equal(ev.id, result.nodeID);
             return true
         })
     });
 
     it("Should send event about enqueued App", async function() {
-        let storageHash = utils.string2Bytes32("abc");
-        let receipt = await this.contract.addApp(storageHash, "bca", 5, [], {from: whitelisted});
+        let result = await utils.addApp(this.contract, 5, whitelisted);
 
-        truffleAssert.eventEmitted(receipt, utils.appEnqueuedEvent, (ev) => {
-            assert.equal(ev.storageHash, storageHash);
+        truffleAssert.eventEmitted(result.receipt, utils.appEnqueuedEvent, (ev) => {
+            assert.equal(ev.storageHash, result.storageHash);
             return true
         })
     });
@@ -54,73 +53,71 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
 
     it("Should deploy an app when there are enough nodes", async function() {
         let count = 5;
-        let storageHash = utils.string2Bytes32("abc");
-        let storageReceipt = utils.string2Bytes32("bca");
-        await this.contract.addApp(storageHash, storageReceipt, count, [], {from: whitelisted});
+        let addApp = await utils.addApp(this.contract, count, whitelisted);
 
-        let receipts = await utils.addNodes(this.contract, count, "127.0.0.1", whitelisted);
+        let addNodes = await utils.addNodesFull(this.contract, count, "127.0.0.1", whitelisted);
+        let nodeIDs = addNodes.map(r => r.nodeID);
+        let receipt = addNodes.pop().receipt;
 
         let clusterID;
 
-        truffleAssert.eventEmitted(receipts.pop(), utils.clusterFormedEvent, (ev) => {
+        truffleAssert.eventEmitted(receipt, utils.clusterFormedEvent, (ev) => {
             assert.equal(ev.nodeAddresses.length, count);
+            assert.deepEqual(ev.nodeIDs, nodeIDs);
             clusterID = ev.clusterID;
             return true;
         });
 
         let cluster = await this.contract.getCluster(clusterID);
-        assert.equal(cluster[0], storageHash);
-        assert.equal(cluster[1], storageReceipt);
+        assert.equal(cluster[0], addApp.storageHash);
+        assert.equal(cluster[1], addApp.storageReceipt);
     });
 
     it("Should not form cluster from workers of same node", async function() {
-        await this.contract.addNode(crypto.randomBytes(16).hexSlice(), "127.0.0.1", 1000, 1002, false, {from: whitelisted});
-
         let count = 2;
-        let storageHash = utils.string2Bytes32("abc");
-        let storageReceipt = utils.string2Bytes32("bca");
-        let receipt = await this.contract.addApp(storageHash, storageReceipt, count, [], {from: whitelisted});
+        
+        await utils.addNodes(this.contract, 1, "127.0.0.1", whitelisted, count)
 
-        truffleAssert.eventEmitted(receipt, utils.appEnqueuedEvent);
-        truffleAssert.eventNotEmitted(receipt, utils.clusterFormedEvent)
+        let addApp = await utils.addApp(this.contract, count, whitelisted);
+
+        truffleAssert.eventEmitted(addApp.receipt, utils.appEnqueuedEvent);
+        truffleAssert.eventNotEmitted(addApp.receipt, utils.clusterFormedEvent)
     });
 
     it("Should reuse node until the port range is exhausted", async function() {
         let count = 1;
-        let storageHash = utils.string2Bytes32("abc");
-        let storageReceipt = utils.string2Bytes32("bca");
+        let ports = 2;
 
-        let nodeID = crypto.randomBytes(16).hexSlice();
+        let addNodes = await utils.addNodesFull(this.contract, count, "127.0.0.1", whitelisted, ports);
+        let nodeIDs = addNodes.map(r => r.nodeID);
 
-        await this.contract.addNode(nodeID, "127.0.0.1", 1000, 1001, false, {from: whitelisted});
+        for (let i = 0; i < ports; i++) {
+            let addApp = await utils.addApp(this.contract, count, whitelisted);
 
-        let receipt1 = await this.contract.addApp(storageHash, storageReceipt, count, [], {from: whitelisted});
+            var clusterID;
 
-        truffleAssert.eventNotEmitted(receipt1, utils.appEnqueuedEvent);
-        truffleAssert.eventEmitted(receipt1, utils.clusterFormedEvent, (ev) => {
-            assert.equal(ev.nodeAddresses.length, count);
-            assert.equal(ev.ports[0], 1000);
-            clusterID1 = ev.clusterID;
-            return true;
-        });
+            truffleAssert.eventNotEmitted(addApp.receipt, utils.appEnqueuedEvent);
+            truffleAssert.eventEmitted(addApp.receipt, utils.clusterFormedEvent, (ev) => {
+                assert.equal(ev.nodeAddresses.length, count);
+                ev.nodeAddresses.forEach(addr => 
+                    assert.equal(utils.bytes32ToString(addr), "127.0.0.1")
+                );
+                assert.deepEqual(ev.nodeIDs, nodeIDs);
+                
+                clusterID = ev.clusterID;
+                return true;
+            });
 
-        let receipt2 = await this.contract.addApp(storageHash, storageReceipt, count, [], {from: whitelisted});
-        truffleAssert.eventNotEmitted(receipt2, utils.appEnqueuedEvent);
-        truffleAssert.eventEmitted(receipt2, utils.clusterFormedEvent, (ev) => {
-            assert.equal(ev.nodeAddresses.length, count);
-            assert.equal(ev.ports[0], 1001);
-            clusterID2 = ev.clusterID;
-            return true;
-        });
+            nodeIDs.forEach(async id => {
+                let nodeClusters = await this.contract.getNodeClusters(id);
+                assert.equal(nodeClusters.length, i + 1);
+                assert.equal(nodeClusters[i], clusterID);
+            });
+        }
 
-        let receipt3 = await this.contract.addApp(storageHash, storageReceipt, count, [], {from: whitelisted});
-        truffleAssert.eventEmitted(receipt3, utils.appEnqueuedEvent);
-        truffleAssert.eventNotEmitted(receipt3, utils.clusterFormedEvent);
-
-        let nodeClusters = await this.contract.getNodeClusters(nodeID);
-
-        assert.equal(nodeClusters[0], clusterID1);
-        assert.equal(nodeClusters[1], clusterID2);
+        let addApp = await utils.addApp(this.contract, count, whitelisted);
+        truffleAssert.eventEmitted(addApp.receipt, utils.appEnqueuedEvent);
+        truffleAssert.eventNotEmitted(addApp.receipt, utils.clusterFormedEvent);
     });
 
     it("Should get correct list of clusters and enqueued codes", async function() {
