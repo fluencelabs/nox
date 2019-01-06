@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-use contract_func::ContractCaller;
 use std::error::Error;
+
 use web3::types::{Address, H256};
+
+use contract_func::contract::functions::get_enqueued_apps;
+use contract_func::ContractCaller;
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct App {
@@ -46,19 +49,20 @@ impl App {
 }
 
 pub fn get_enqueued_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Error>> {
-    let (storage_hashes, storage_receipts, cluster_sizes, owners): (
-        Vec<H256>,
-        Vec<H256>,
-        Vec<u64>,
-        Vec<Address>,
-    ) = contract.query_contract("getEnqueuedApps", ())?;
+    let (call_data, decoder) = get_enqueued_apps::call();
+    let (storage_hashes, storage_receipts, cluster_sizes, owners) =
+        contract.query_contract(call_data, Box::new(decoder))?;
 
     let mut apps: Vec<App> = Vec::new();
     for i in 0..storage_hashes.len() {
+        /// TODO: fix generator macro & remove that line
+        /// TODO: use try_into when Rust 1.33 is stable
+        let cluster_size: u8 = cluster_sizes[i].0[0] as u8; /// converting H256 to u8 due to generator error
+
         let code = App::new(
             storage_hashes[i],
             storage_receipts[i],
-            cluster_sizes[i] as u8,
+            cluster_size,
             owners[i],
             None,
         );

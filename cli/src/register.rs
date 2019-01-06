@@ -14,21 +14,24 @@
  * limitations under the License.
  */
 
-use base64::decode;
-use clap::{App, Arg, ArgMatches, SubCommand};
-use contract_func::ContractCaller;
-use credentials::Credentials;
-use ethkey::Secret;
-use hex;
+use std::{thread, time};
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
 use std::str::FromStr;
-use std::{thread, time};
-use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
-use utils;
+
+use base64::decode;
+use clap::{App, Arg, ArgMatches, SubCommand};
+use ethkey::Secret;
+use hex;
 use web3::transports::Http;
 use web3::types::{Address, H256};
+
+use contract_func::contract::functions::add_node;
+use contract_func::ContractCaller;
+use credentials::Credentials;
+use types::{IP_LEN, NodeAddress, TENDERMINT_KEY_LEN};
+use utils;
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
@@ -141,17 +144,18 @@ impl Register {
 
             let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
 
+            let (call_data, _) = add_node::call(
+                self.tendermint_key,
+                hash_addr,
+                u64::from(self.min_port),
+                u64::from(self.max_port),
+                false,
+            );
+
             contract.call_contract(
                 self.account,
                 &self.credentials,
-                "addNode",
-                (
-                    self.tendermint_key,
-                    hash_addr,
-                    u64::from(self.min_port),
-                    u64::from(self.max_port),
-                    false,
-                ),
+                call_data,
                 self.gas,
             )
         };
@@ -319,12 +323,15 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 
 #[cfg(test)]
 mod tests {
-    use super::Register;
-    use credentials::Credentials;
+    use std::error::Error;
+
     use ethkey::Secret;
     use rand::prelude::*;
-    use std::error::Error;
     use web3::types::*;
+
+    use credentials::Credentials;
+
+    use super::Register;
 
     fn generate_register(credentials: Credentials) -> Register {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
