@@ -107,7 +107,7 @@ impl Register {
         let mut addr_vec = addr_bytes.to_vec();
 
         let key_str = format!("{:?}", &self.tendermint_key);
-        let key_str = key_str.as_str().trim_left_matches("0x");
+        let key_str = key_str.as_str().trim_start_matches("0x");
 
         let key_bytes = hex::decode(key_str.to_owned())?;
         let mut key_bytes = key_bytes.as_slice()[0..TENDERMINT_KEY_LEN].to_vec();
@@ -190,7 +190,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let tendermint_key = matches
         .value_of(TENDERMINT_KEY)
         .unwrap()
-        .trim_left_matches("0x")
+        .trim_start_matches("0x")
         .to_owned();
 
     let min_port: u16 = matches.value_of(MIN_PORT).unwrap().parse()?;
@@ -199,17 +199,17 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let contract_address = matches
         .value_of(CONTRACT_ADDRESS)
         .unwrap()
-        .trim_left_matches("0x");
+        .trim_start_matches("0x");
     let contract_address: Address = contract_address.parse()?;
 
-    let account = matches.value_of(ACCOUNT).unwrap().trim_left_matches("0x");
+    let account = matches.value_of(ACCOUNT).unwrap().trim_start_matches("0x");
     let account: Address = account.parse()?;
 
     let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
     let secret_key = matches
         .value_of(SECRET_KEY)
-        .map(|s| Secret::from_str(s.trim_left_matches("0x")).unwrap());
+        .map(|s| Secret::from_str(s.trim_start_matches("0x")).unwrap());
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
     let credentials = Credentials::get(secret_key, password);

@@ -15,11 +15,12 @@
  */
 #![allow(dead_code)]
 
+use std::error::Error;
+
+use web3::types::{H256, U256};
+
 use contract_func::ContractCaller;
 use contract_status::app::App;
-use std::error::Error;
-use types::NodeAddress;
-use web3::types::{Address, H256, U256};
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Worker {
@@ -53,7 +54,7 @@ impl Cluster {
 }
 
 /// Gets list of formed clusters from Fluence contract
-pub fn get_clusters(contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error>> {
+pub fn get_clusters(_contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error>> {
     let clusters: Vec<Cluster> = Vec::new();
     Ok(clusters)
 }

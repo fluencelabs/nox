@@ -60,7 +60,7 @@ impl Node {
 }
 
 /// Gets list of nodes from Fluence contract
-pub fn get_nodes(contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
+pub fn get_nodes(_contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
     let nodes: Vec<Node> = Vec::new();
     Ok(nodes)
 }

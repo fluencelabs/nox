@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+use std::error::Error;
+
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError};
-use std::error::Error;
-use web3::contract::{Contract, Options};
+use web3::{Web3};
+use web3::contract::{Options};
 use web3::futures::Future;
 use web3::transports::Http;
-use web3::types::Address;
 use web3::types::SyncState;
-use web3::{Transport, Web3};
 
 /// Creates progress bar in the console until the work is over
 ///
@@ -67,22 +67,6 @@ fn create_progress_bar(prefix: &str, msg: &str) -> ProgressBar {
     bar
 }
 
-/// Initializes contract from `ABI` file
-pub fn init_contract<T: Transport>(
-    web3: &Web3<T>,
-    contract_address: Address,
-) -> Result<Contract<T>, Box<Error>> {
-    let json = include_bytes!("../../bootstrap/contracts/compiled/Network.abi");
-
-    Ok(Contract::from_json(web3.eth(), contract_address, json)?)
-}
-
-pub fn init_raw_contract() -> Result<ethabi::Contract, Box<Error>> {
-    let json: &[u8] = include_bytes!("../../bootstrap/contracts/compiled/Network.abi");
-
-    Ok(ethabi::Contract::load(json)?)
-}
-
 /// Parses URL from the string
 pub fn parse_url(url: &str) -> Result<Url, UrlError> {
     match Url::parse(url) {
@@ -110,6 +94,7 @@ pub fn options_with_gas(gas_limit: u32) -> Options {
     })
 }
 
+#[allow(unused)]
 pub fn options() -> Options {
     Options::default()
 }

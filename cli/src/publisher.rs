@@ -142,10 +142,10 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
     let contract_address = matches
         .value_of(CONTRACT_ADDRESS)
         .unwrap()
-        .trim_left_matches("0x");
+        .trim_start_matches("0x");
     let contract_address: Address = contract_address.parse()?;
 
-    let account = matches.value_of(ACCOUNT).unwrap().trim_left_matches("0x");
+    let account = matches.value_of(ACCOUNT).unwrap().trim_start_matches("0x");
     let account: Address = account.parse()?;
 
     let swarm_url = matches.value_of(SWARM_URL).unwrap().to_string();
@@ -153,7 +153,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 
     let secret_key = matches
         .value_of(SECRET_KEY)
-        .map(|s| Secret::from_str(s.trim_left_matches("0x")).unwrap());
+        .map(|s| Secret::from_str(s.trim_start_matches("0x")).unwrap());
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
     let credentials = Credentials::get(secret_key, password);

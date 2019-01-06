@@ -18,9 +18,7 @@ use std::error::Error;
 
 use ethcore_transaction::{Action, Transaction};
 use ethkey::Secret;
-use rlp::Encodable;
 use web3::contract::Options;
-use web3::contract::tokens::{Detokenize, Tokenize};
 use web3::futures::Future;
 use web3::transports::Http;
 use web3::types::{Address, Bytes, H256};
