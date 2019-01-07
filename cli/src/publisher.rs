@@ -19,8 +19,8 @@ extern crate web3;
 
 use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
-use contract_func::ContractCaller;
 use contract_func::contract::functions::add_app;
+use contract_func::ContractCaller;
 use credentials::Credentials;
 use ethkey::Secret;
 use reqwest::Client;
@@ -106,19 +106,10 @@ impl Publisher {
 
             let pin_to_nodes: Vec<H256> = [].to_vec();
 
-            let (call_data, _) = add_app::call(
-                hash,
-                receipt,
-                u64::from(self.cluster_size),
-                pin_to_nodes
-            );
+            let (call_data, _) =
+                add_app::call(hash, receipt, u64::from(self.cluster_size), pin_to_nodes);
 
-            contract.call_contract(
-                self.account,
-                &self.credentials,
-                call_data,
-                self.gas,
-            )
+            contract.call_contract(self.account, &self.credentials, call_data, self.gas)
         };
 
         // sending transaction with the hash of file with code to ethereum

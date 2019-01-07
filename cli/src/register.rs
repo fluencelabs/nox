@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-use std::{thread, time};
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
 use std::str::FromStr;
+use std::{thread, time};
 
 use base64::decode;
 use clap::{App, Arg, ArgMatches, SubCommand};
@@ -30,7 +30,7 @@ use web3::types::{Address, H256};
 use contract_func::contract::functions::add_node;
 use contract_func::ContractCaller;
 use credentials::Credentials;
-use types::{IP_LEN, NodeAddress, TENDERMINT_KEY_LEN};
+use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use utils;
 
 const ADDRESS: &str = "address";
@@ -152,12 +152,7 @@ impl Register {
                 false,
             );
 
-            contract.call_contract(
-                self.account,
-                &self.credentials,
-                call_data,
-                self.gas,
-            )
+            contract.call_contract(self.account, &self.credentials, call_data, self.gas)
         };
 
         // sending transaction with the hash of file with code to ethereum
