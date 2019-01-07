@@ -48,13 +48,15 @@ object MasterNodeApp extends IOApp with LazyLogging {
     }
 
   /**
-    * Checks node for syncing status every 10 seconds until node will be synchronized.
-    */
+   * Checks node for syncing status every 10 seconds until node will be synchronized.
+   */
   private def waitEthSyncing(ethClient: EthClient): IO[Unit] = {
     logger.info("Checking if ethereum node is synced.")
     ethClient.isSyncing[IO].flatMap {
       case resp: Syncing =>
-        logger.info(s"Ethereum node is syncing. Current block: ${resp.getCurrentBlock}, highest block: ${resp.getHighestBlock}")
+        logger.info(
+          s"Ethereum node is syncing. Current block: ${resp.getCurrentBlock}, highest block: ${resp.getHighestBlock}"
+        )
         logger.info("Waiting 10 seconds for next attempt.")
         IO.sleep(10.seconds).flatMap(_ => waitEthSyncing(ethClient))
       case _ =>

@@ -63,8 +63,8 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
     request(_.ethBlockNumber()).map(_.getBlockNumber).map(BigInt(_))
 
   /**
-    * Checking if ethereum node is syncing or not.
-    */
+   * Checking if ethereum node is syncing or not.
+   */
   def isSyncing[F[_]: Async]: F[EthSyncing.Result] =
     request(_.ethSyncing()).map(_.getResult)
 
