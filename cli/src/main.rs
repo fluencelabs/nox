@@ -45,6 +45,12 @@ extern crate parity_wasm;
 #[cfg(test)]
 extern crate rand;
 
+#[macro_use]
+extern crate ethabi_contract;
+
+#[macro_use]
+extern crate ethabi_derive;
+
 mod check;
 mod contract_func;
 mod contract_status;

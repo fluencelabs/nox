@@ -19,6 +19,7 @@ extern crate web3;
 
 use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
+use contract_func::contract::functions::add_app;
 use contract_func::ContractCaller;
 use credentials::Credentials;
 use ethkey::Secret;
@@ -105,13 +106,10 @@ impl Publisher {
 
             let pin_to_nodes: Vec<H256> = [].to_vec();
 
-            contract.call_contract(
-                self.account,
-                &self.credentials,
-                "addApp",
-                (hash, receipt, u64::from(self.cluster_size), pin_to_nodes),
-                self.gas,
-            )
+            let (call_data, _) =
+                add_app::call(hash, receipt, u64::from(self.cluster_size), pin_to_nodes);
+
+            contract.call_contract(self.account, &self.credentials, call_data, self.gas)
         };
 
         // sending transaction with the hash of file with code to ethereum
@@ -135,10 +133,10 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
     let contract_address = matches
         .value_of(CONTRACT_ADDRESS)
         .unwrap()
-        .trim_left_matches("0x");
+        .trim_start_matches("0x");
     let contract_address: Address = contract_address.parse()?;
 
-    let account = matches.value_of(ACCOUNT).unwrap().trim_left_matches("0x");
+    let account = matches.value_of(ACCOUNT).unwrap().trim_start_matches("0x");
     let account: Address = account.parse()?;
 
     let swarm_url = matches.value_of(SWARM_URL).unwrap().to_string();
@@ -146,7 +144,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 
     let secret_key = matches
         .value_of(SECRET_KEY)
-        .map(|s| Secret::from_str(s.trim_left_matches("0x")).unwrap());
+        .map(|s| Secret::from_str(s.trim_start_matches("0x")).unwrap());
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
     let credentials = Credentials::get(secret_key, password);
