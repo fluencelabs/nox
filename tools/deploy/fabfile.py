@@ -3,10 +3,12 @@ from fabric.api import *
 
 # owners and private keys for specific ip addresses
 # todo get this info from some sources
+# TO USE: replace values inside <> with your actual values
 info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>'},
         '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>'}}
 
 # change this if you want to deploy on another hosts
+# TO USE: replace values inside <> with your actual values
 env.hosts = ['<ip1>', "<ip2>"]
 
 # Set the username
@@ -28,7 +30,7 @@ def deploy():
 
         # change for another chain
         # todo changing this variable should recreate parity container
-        # todo ability to deploy contract if chain will be `dev`
+        # todo support/implement contract deployment on 'dev' chain
         chain='kovan'
 
         # actual fluence contract address
