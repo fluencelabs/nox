@@ -54,6 +54,7 @@ impl Cluster {
 }
 
 /// Gets list of formed clusters from Fluence contract
+// TODO: implement
 pub fn get_clusters(_contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error>> {
     let clusters: Vec<Cluster> = Vec::new();
     Ok(clusters)

@@ -60,6 +60,7 @@ impl Node {
 }
 
 /// Gets list of nodes from Fluence contract
+// TODO: implement
 pub fn get_nodes(_contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
     let nodes: Vec<Node> = Vec::new();
     Ok(nodes)
