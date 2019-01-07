@@ -30,7 +30,7 @@ def deploy():
 
         # change for another chain
         # todo changing this variable should recreate parity container
-        # todo support/implement contract deployment on 'dev' chain
+        # todo support contract deployment on 'dev' chain
         chain='kovan'
 
         # actual fluence contract address
