@@ -39,8 +39,9 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
     }
     
     it("Should form cluster of pinned nodes and ignore other nodes", async function() {
+        let cluster = 5;
         // add some nodes before pinned so order doesn't matter
-        await addNodes(5);
+        await addNodes(cluster);
         
         var result = await addPinnedNodes(3);
         
@@ -48,13 +49,13 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         await addNodes(1);
         
         // add pinned nodes & concatenate results
-        result = [...(await addPinnedNodes(2)), ...result];
+        result = [...(await addPinnedNodes(cluster - 3)), ...result];
 
         // add some nodes after pinned so order doesn't matter
-        await addNodes(5);
+        await addNodes(cluster);
         
         let pinnedNodes = result.map(r => r.nodeID);
-        let receipt = (await addApp(5, pinnedNodes)).receipt;
+        let receipt = (await addApp(cluster, pinnedNodes)).receipt;
         
         var clusterID;
         truffleAssert.eventEmitted(receipt, utils.clusterFormedEvent, (ev) => {
@@ -68,7 +69,7 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let appPinToNodes = cluster[4];
         let nodeIDs = cluster[6];
 
-        assert.equal(clusterSize, 5);
+        assert.equal(clusterSize, cluster);
         assert.deepEqual(appPinToNodes, pinnedNodes);
         assert.deepEqual(nodeIDs, pinnedNodes);
     });
