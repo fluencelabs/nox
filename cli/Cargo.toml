@@ -20,7 +20,7 @@ serde_json = "1.0"
 serde_derive = "1.0"
 ethereum-types-serialize = "0.2.1"
 derive-getters = "0.0.7"
-ethcore-transaction = { git = "https://github.com/paritytech/parity.git" }
+common-types = { git = "https://github.com/paritytech/parity.git" }
 ethkey = { git = "https://github.com/paritytech/parity.git" }
 rlp = "0.3.0"
 base64 = "0.10.0"

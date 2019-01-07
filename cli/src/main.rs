@@ -29,7 +29,7 @@ extern crate error_chain;
 extern crate derive_getters;
 
 extern crate base64;
-extern crate ethcore_transaction;
+extern crate common_types;
 extern crate rlp;
 
 extern crate ethereum_types_serialize;
