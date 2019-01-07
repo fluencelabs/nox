@@ -219,10 +219,13 @@ contract Deployer {
 
         // Check that pinToNodes are distinct nodes owned by msg.sender
         for(uint8 i = 0; i < pinToNodes.length; i++) {
+            require(nodes[pinToNodes[i]].owner != 0, "Can pin only to registered nodes");
+            require(nodes[pinToNodes[i]].owner == msg.sender, "Can pin only to nodes you own");
+            
             for(uint8 j = 0; j <= i; j++) {
-                if(i == j) {
-                    require(nodes[pinToNodes[i]].owner == msg.sender, "Can pin only to nodes you own");
-                } else require(pinToNodes[i] != pinToNodes[j], "Node ids to pin to must be unique, otherwise the deployment result could be unpredictable and unexpected");
+                if(i != j) {
+                    require(pinToNodes[i] != pinToNodes[j], "Node ids to pin to must be unique, otherwise the deployment result could be unpredictable and unexpected");
+                }
             }
         }
 
