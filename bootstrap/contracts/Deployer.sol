@@ -220,11 +220,12 @@ contract Deployer {
 
         // Check that pinToNodes are distinct nodes owned by msg.sender
         for(uint8 i = 0; i < pinToNodes.length; i++) {
-            require(nodes[pinToNodes[i]].owner == msg.sender, "Can pin only to nodes you own");
+            bytes32 memory nodeID_i = pinToNodes[i];
+            require(nodes[nodeID_i].owner == msg.sender, "Can pin only to nodes you own");
 
             for(uint8 j = 0; j <= i; j++) {
                 if(i != j) {
-                    require(pinToNodes[i] != pinToNodes[j], "Node ids to pin to must be unique, otherwise the deployment result could be unpredictable and unexpected");
+                    require(nodeID_i != pinToNodes[j], "Node ids to pin to must be unique, otherwise the deployment result could be unpredictable and unexpected");
                 }
             }
         }
@@ -254,7 +255,7 @@ contract Deployer {
 
         // There must be enough readyNodes to try to deploy the app
         if(readyNodes.length >= app.clusterSize - app.pinToNodes.length) {
-            // Index in pinToNodes
+            // Index used to iterate through pinToNodes and then workers
             uint8 i = 0;
 
             // Current node to check
@@ -281,6 +282,7 @@ contract Deployer {
 
                 // True if node is already in workers array. That could happen if
                 // app.owner pinned app to non-private node
+                // skip is used to avoid including such nodes twice
                 bool skip = false;
 
                 // That algorithm should work better than a custom data structure

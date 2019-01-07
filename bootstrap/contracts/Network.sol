@@ -20,7 +20,7 @@ pragma solidity ^0.4.24;
 import "./Deployer.sol";
 
 /*
- * This contract allows to inspect Fluence network state by providing different getter methods.
+ * This contract provides different getter methods for inspection of the Fluence network state.
  *
  * All information is stored in the Deployer and this contract just transforms it into tool-readable form.
  * Main consumers of this contract are Fluence command line utilities and web interfaces. So while it can be used by
@@ -28,7 +28,7 @@ import "./Deployer.sol";
  *
  */
 contract Network is Deployer {
-    /** @dev Allows to retrieve node's info
+    /** @dev Retrieves node's info
      * @param nodeID ID of node (Tendermint consensus key)
      * returns tuple representation of Node structure
      */
@@ -49,7 +49,7 @@ contract Network is Deployer {
     }
 
 
-    /** @dev Allows to track currently running clusters for specified node's workers
+    /** @dev Retrieves currently running clusters for specified node's workers
      *  @param nodeID ID of node (Tendermint consensus key)
      *  returns IDs of clusters where the node is a member.
      */
@@ -61,7 +61,7 @@ contract Network is Deployer {
         return nodes[nodeID].clusters;
     }
 
-    /** @dev Allows anyone with clusterID to retrieve assigned App and other cluster info
+    /** @dev Retrieves assigned App and other cluster info by clusterID
      * @param clusterID unique id of cluster
      * returns tuple representation of a Cluster
      */
@@ -86,7 +86,7 @@ contract Network is Deployer {
         );
     }
 
-    /** @dev Returns addresses and ports of cluster's real-time workers
+    /** @dev Retrieves addresses and ports of cluster's workers
      * @param clusterID unique id of cluster
      */
     function getClusterWorkers(bytes32 clusterID)
