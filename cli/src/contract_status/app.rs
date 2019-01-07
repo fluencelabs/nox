@@ -56,7 +56,7 @@ pub fn get_enqueued_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Erro
     let mut apps: Vec<App> = Vec::new();
     for i in 0..storage_hashes.len() {
         // TODO: use try_into when Rust 1.33 is stable
-        let cluster_size: u64 = cluster_sizes[i].0.into();
+        let cluster_size: u64 = cluster_sizes[i].into();
 
         let code = App::new(
             storage_hashes[i],

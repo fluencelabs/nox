@@ -16,7 +16,7 @@
 
 use std::error::Error;
 
-use common_types::transaction::{Action, Transaction};
+use ethcore_transaction::{Action, Transaction};
 use ethkey::Secret;
 use web3::contract::Options;
 use web3::futures::Future;
