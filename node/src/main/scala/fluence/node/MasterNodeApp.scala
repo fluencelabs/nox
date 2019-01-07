@@ -27,7 +27,9 @@ import fluence.swarm.SwarmClient
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 import fluence.node.config.SwarmConfig
-import scala.concurrent.duration.MILLISECONDS
+import org.web3j.protocol.core.methods.response.EthSyncing.Syncing
+
+import scala.concurrent.duration._
 
 object MasterNodeApp extends IOApp with LazyLogging {
 
@@ -44,6 +46,22 @@ object MasterNodeApp extends IOApp with LazyLogging {
       case None =>
         IO(new TestCodeManager[IO]())
     }
+
+  /**
+    * Checks node for syncing status every 10 seconds until node will be synchronized.
+    */
+  private def waitEthSyncing(ethClient: EthClient): IO[Unit] = {
+    logger.info("Checking if ethereum node is synced.")
+    ethClient.isSyncing[IO].flatMap {
+      case resp: Syncing =>
+        logger.info(s"Ethereum node is syncing. Current block: ${resp.getCurrentBlock}, highest block: ${resp.getHighestBlock}")
+        logger.info("Waiting 10 seconds for next attempt.")
+        IO.sleep(10.seconds).flatMap(_ => waitEthSyncing(ethClient))
+      case _ =>
+        logger.info("Ethereum node is synchronized.")
+        IO.unit
+    }
+  }
 
   /**
    * Launches a Master Node instance
@@ -75,6 +93,8 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 version ← ethClient.clientVersion[IO]()
                 _ = logger.info("eth client version {}", version)
                 _ = logger.debug("eth config {}", contractConfig)
+
+                _ <- waitEthSyncing(ethClient)
 
                 contract = FluenceContract(ethClient, contractConfig)
 
