@@ -14,17 +14,22 @@
  * limitations under the License.
  */
 
-use credentials::Credentials;
+use std::error::Error;
+
 use ethcore_transaction::{Action, Transaction};
 use ethkey::Secret;
-use std::error::Error;
-use utils;
-use web3::contract::tokens::{Detokenize, Tokenize};
 use web3::contract::Options;
 use web3::futures::Future;
 use web3::transports::Http;
+use web3::types::CallRequest;
+use web3::types::TransactionRequest;
 use web3::types::{Address, Bytes, H256};
 use web3::Web3;
+
+use credentials::Credentials;
+use utils;
+
+use_contract!(contract, "../bootstrap/contracts/compiled/Network.abi");
 
 /// Interacts with contract
 pub struct ContractCaller {
@@ -42,17 +47,13 @@ impl ContractCaller {
     }
 
     /// Calls contract method and returns hash of the transaction
-    pub fn call_contract<P>(
+    pub fn call_contract(
         &self,
         account: Address,
         credentials: &Credentials,
-        func: &str,
-        params: P,
+        call_data: ethabi::Bytes,
         gas: u32,
-    ) -> Result<H256, Box<Error>>
-    where
-        P: Tokenize,
-    {
+    ) -> Result<H256, Box<Error>> {
         let (_eloop, transport) = Http::new(&self.eth_url)?;
         let web3 = web3::Web3::new(transport);
 
@@ -62,51 +63,39 @@ impl ContractCaller {
                 account,
                 None,
                 utils::options_with_gas(gas),
-                func,
-                params,
+                call_data,
             ),
             Credentials::Password(pass) => self.call_contract_trusted_node(
                 web3,
                 account,
                 Some(&pass),
                 utils::options_with_gas(gas),
-                func,
-                params,
+                call_data,
             ),
             Credentials::Secret(secret) => {
-                self.call_contract_local_sign(web3, account, &secret, func, params, gas)
+                self.call_contract_local_sign(web3, account, &secret, call_data, gas)
             }
         }
     }
 
     /// Signs transaction with a secret key and sends a raw transaction to Ethereum node
-    fn call_contract_local_sign<P>(
+    fn call_contract_local_sign(
         &self,
         web3: Web3<Http>,
         account: Address,
         secret: &Secret,
-        func: &str,
-        params: P,
+        call_data: ethabi::Bytes,
         gas: u32,
-    ) -> Result<H256, Box<Error>>
-    where
-        P: Tokenize,
-    {
-        let raw_contract = utils::init_raw_contract()?;
-
-        let func = raw_contract.function(func)?;
-
-        let encoded = func.encode_input(&params.into_tokens())?;
-
+    ) -> Result<H256, Box<Error>> {
         let gas_price = web3.eth().gas_price().wait()?;
 
         let tx = Transaction {
             nonce: web3.eth().transaction_count(account, None).wait()?,
             value: "0".parse()?,
             action: Action::Call(self.contract_address.clone()),
-            data: encoded,
+            data: call_data,
             gas: gas.into(),
-            gas_price: gas_price,
+            gas_price,
         };
 
         let tx_signed = tx.sign(secret, None);
@@ -120,40 +109,56 @@ impl ContractCaller {
     }
 
     /// Sends a transaction to a trusted node with an unlocked account (or, firstly, unlocks account with password)
-    fn call_contract_trusted_node<P>(
+    fn call_contract_trusted_node(
         &self,
         web3: Web3<Http>,
         account: Address,
         password: Option<&str>,
         options: Options,
-        func: &str,
-        params: P,
-    ) -> Result<H256, Box<Error>>
-    where
-        P: Tokenize,
-    {
-        if let Some(p) = password {
-            web3.personal().unlock_account(account, p, None).wait()?;
-        }
+        call_data: ethabi::Bytes,
+    ) -> Result<H256, Box<Error>> {
+        let tx_request = TransactionRequest {
+            from: account,
+            to: Some(self.contract_address.clone()),
+            data: Some(Bytes(call_data)),
+            gas: options.gas,
+            gas_price: options.gas_price,
+            value: options.value,
+            nonce: options.nonce,
+            condition: options.condition,
+        };
 
-        let contract = utils::init_contract(&web3, self.contract_address)?;
+        let result = match password {
+            Some(p) => web3.personal().send_transaction(tx_request, p),
+            None => web3.eth().send_transaction(tx_request),
+        };
 
-        let result = contract.call(func, params, account, options);
         Ok(result.wait()?)
     }
 
     /// Calls contract method and returns some result
-    pub fn query_contract<P, R>(&self, func: &str, params: P) -> Result<R, Box<Error>>
+    pub fn query_contract<R>(
+        &self,
+        call_data: ethabi::Bytes,
+        decoder: Box<R>,
+    ) -> Result<R::Output, Box<Error>>
     where
-        P: Tokenize,
-        R: Detokenize,
+        R: ethabi::FunctionOutputDecoder,
     {
         let (_eloop, transport) = web3::transports::Http::new(&self.eth_url)?;
         let web3 = web3::Web3::new(transport);
+        let call_request = CallRequest {
+            to: self.contract_address.clone(),
+            data: Some(Bytes(call_data)),
+            gas: None,
+            gas_price: None,
+            value: None,
+            from: None,
+        };
+        let result = web3.eth().call(call_request, None).wait()?;
+        let result: Result<<R as ethabi::FunctionOutputDecoder>::Output, Box<Error>> =
+            decoder.decode(result.0.as_slice()).map_err(|e| e.into());
 
-        let contract = utils::init_contract(&web3, self.contract_address)?;
-
-        let result = contract.query(func, params, None, utils::options(), None);
-        Ok(result.wait()?)
+        result
     }
 }

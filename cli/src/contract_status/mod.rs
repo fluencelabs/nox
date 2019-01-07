@@ -53,7 +53,7 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
     let contract_address: Address = args
         .value_of(CONTRACT_ADDRESS)
         .unwrap()
-        .trim_left_matches("0x")
+        .trim_start_matches("0x")
         .parse()?;
     let eth_url: &str = args.value_of(ETH_URL).unwrap();
 
