@@ -14,21 +14,24 @@
  * limitations under the License.
  */
 
-use base64::decode;
-use clap::{App, Arg, ArgMatches, SubCommand};
-use contract_func::ContractCaller;
-use credentials::Credentials;
-use ethkey::Secret;
-use hex;
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::{thread, time};
-use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
-use utils;
+
+use base64::decode;
+use clap::{App, Arg, ArgMatches, SubCommand};
+use ethkey::Secret;
+use hex;
 use web3::transports::Http;
 use web3::types::{Address, H256};
+
+use contract_func::contract::functions::add_node;
+use contract_func::ContractCaller;
+use credentials::Credentials;
+use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
+use utils;
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
@@ -104,7 +107,7 @@ impl Register {
         let mut addr_vec = addr_bytes.to_vec();
 
         let key_str = format!("{:?}", &self.tendermint_key);
-        let key_str = key_str.as_str().trim_left_matches("0x");
+        let key_str = key_str.as_str().trim_start_matches("0x");
 
         let key_bytes = hex::decode(key_str.to_owned())?;
         let mut key_bytes = key_bytes.as_slice()[0..TENDERMINT_KEY_LEN].to_vec();
@@ -141,19 +144,15 @@ impl Register {
 
             let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
 
-            contract.call_contract(
-                self.account,
-                &self.credentials,
-                "addNode",
-                (
-                    self.tendermint_key,
-                    hash_addr,
-                    u64::from(self.min_port),
-                    u64::from(self.max_port),
-                    false,
-                ),
-                self.gas,
-            )
+            let (call_data, _) = add_node::call(
+                self.tendermint_key,
+                hash_addr,
+                u64::from(self.min_port),
+                u64::from(self.max_port),
+                false,
+            );
+
+            contract.call_contract(self.account, &self.credentials, call_data, self.gas)
         };
 
         // sending transaction with the hash of file with code to ethereum
@@ -186,7 +185,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let tendermint_key = matches
         .value_of(TENDERMINT_KEY)
         .unwrap()
-        .trim_left_matches("0x")
+        .trim_start_matches("0x")
         .to_owned();
 
     let min_port: u16 = matches.value_of(MIN_PORT).unwrap().parse()?;
@@ -195,17 +194,17 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let contract_address = matches
         .value_of(CONTRACT_ADDRESS)
         .unwrap()
-        .trim_left_matches("0x");
+        .trim_start_matches("0x");
     let contract_address: Address = contract_address.parse()?;
 
-    let account = matches.value_of(ACCOUNT).unwrap().trim_left_matches("0x");
+    let account = matches.value_of(ACCOUNT).unwrap().trim_start_matches("0x");
     let account: Address = account.parse()?;
 
     let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
     let secret_key = matches
         .value_of(SECRET_KEY)
-        .map(|s| Secret::from_str(s.trim_left_matches("0x")).unwrap());
+        .map(|s| Secret::from_str(s.trim_start_matches("0x")).unwrap());
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
     let credentials = Credentials::get(secret_key, password);
@@ -319,12 +318,15 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 
 #[cfg(test)]
 mod tests {
-    use super::Register;
-    use credentials::Credentials;
+    use std::error::Error;
+
     use ethkey::Secret;
     use rand::prelude::*;
-    use std::error::Error;
     use web3::types::*;
+
+    use credentials::Credentials;
+
+    use super::Register;
 
     fn generate_register(credentials: Credentials) -> Register {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
