@@ -1,0 +1,11 @@
+version: '3.4'
+
+services:
+  swarm:
+    container_name: swarm
+    image: ethdevops/swarm:latest
+    environment:
+      - PASSWORD=password123
+    ports:
+      - 8500:8500
+    command: --httpaddr 0.0.0.0 --bzzport 8500

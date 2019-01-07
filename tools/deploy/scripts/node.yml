@@ -1,0 +1,17 @@
+version: '3.4'
+
+services:
+  node1:
+    container_name: node1
+    image: fluencelabs/node:latest
+    environment:
+      - TENDERMINT_IP=$DOCKER_IP
+      - ETHEREUM_IP=$HOST_IP
+      - SWARM_HOST=http://$HOST_IP:8500
+      - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
+      - OWNER_ADDRESS=$OWNER_ADDRESS
+      - PORTS=25000:25003
+    ports:
+      - 25400:5678
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
