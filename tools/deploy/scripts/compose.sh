@@ -65,4 +65,3 @@ echo "TENDERMINT_KEY="$TENDERMINT_KEY
 # check if node is already registered
 # todo build fluence CLI in fly, use cargo from cli directory, or run from target cli directory?
 ./fluence register $HOST_IP $TENDERMINT_KEY $OWNER_ADDRESS $CONTRACT_ADDRESS -s $PRIVATE_KEY --wait_syncing --base64
-
