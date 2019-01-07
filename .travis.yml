@@ -20,6 +20,8 @@ matrix:
 
       # These directories are cached to S3 at the end of the build
       cache:
+        npm: true
+        cargo: true
         directories:
           - $HOME/.ivy2/cache
           - $HOME/.sbt/boot
@@ -53,6 +55,8 @@ matrix:
         - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
 
       cache:
+        npm: true
+        cargo: true
         directories:
           - $HOME/.ivy2/cache
           - $HOME/.sbt/boot
@@ -69,8 +73,9 @@ matrix:
       before_install: cd bootstrap
       before_script: npm run ganache
       cache:
+        npm: true
         directories:
-            - bootstrap/node_modules
+          - bootstrap/node_modules
 
     - name: js-client
       language: node_js
@@ -79,6 +84,7 @@ matrix:
         - "6"
         - "7"
         - "8"
+      cache: npm
       before_install: cd js-client
       before_script: npm install
       script: npm test
@@ -87,7 +93,10 @@ matrix:
       language: rust
       # todo enable 'stable' and 'beta' when `allocator_api` will become stable
       rust: nightly
-      cache: cargo
+      cache:
+        - cargo
+        - npm
+
       before_install:
         - rustup component add rustfmt --toolchain nightly
         - cd sdk/rust
@@ -116,7 +125,9 @@ matrix:
     - name: Fluence CLI
       language: rust
       rust: stable
-      cache: cargo
+      cache:
+        - cargo
+        - npm
 
       before_install:
         - rustup component add rustfmt-preview
