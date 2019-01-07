@@ -60,29 +60,8 @@ impl Node {
 }
 
 /// Gets list of nodes from Fluence contract
-pub fn get_nodes(contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
-    let (ids, addresses, next_ports, last_ports, owners, is_private): (
-        Vec<H256>,
-        Vec<NodeAddress>,
-        Vec<u64>,
-        Vec<u64>,
-        Vec<Address>,
-        Vec<bool>,
-    ) = contract.query_contract("getNodes", ())?;
-
+// TODO: implement
+pub fn get_nodes(_contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
     let nodes: Vec<Node> = Vec::new();
-    //    for i in 0..nodes_indices.len() {
-    //        let node = Node::new(
-    //            ids[i],
-    //            addresses[i],
-    //            next_ports[i] as u16,
-    //            last_ports[i] as u16,
-    //            owners[i],
-    //            is_private[i] as Bool,
-    //            None,
-    //        )?;
-    //        nodes.push(node);
-    //    }
-
     Ok(nodes)
 }
