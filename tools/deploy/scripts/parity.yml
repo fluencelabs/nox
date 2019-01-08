@@ -1,0 +1,12 @@
+version: '3.4'
+
+services:
+  parity:
+    container_name: parity
+    image: parity/parity:v2.1.3
+    ports:
+      - 8545:8545
+      - 8180:8180
+      - 8080:8080
+      - 8546:8546
+    command: --light --chain $CHAIN --unsafe-expose

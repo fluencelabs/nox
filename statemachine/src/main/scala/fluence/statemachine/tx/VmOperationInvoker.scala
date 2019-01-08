@@ -36,8 +36,8 @@ import scala.language.higherKinds
  */
 class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends slogging.LazyLogging {
 
-  private val vmInvokeCounter: Counter = Metrics.registerCounter("solver_vm_invoke_counter", "method")
-  private val vmInvokeTimeCounter: Counter = Metrics.registerCounter("solver_vm_invoke_time_sum", "method")
+  private val vmInvokeCounter: Counter = Metrics.registerCounter("worker_vm_invoke_counter", "method")
+  private val vmInvokeTimeCounter: Counter = Metrics.registerCounter("worker_vm_invoke_time_sum", "method")
 
   /**
    * Invokes the provided invocation description using the underlying VM.

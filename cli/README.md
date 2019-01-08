@@ -43,7 +43,7 @@ SUBCOMMANDS:
     check               Verifies wasm file, issue warning for using functions from banned modules.
     help                Prints this message or the help of the given subcommand(s)
     publish             Publish code to ethereum blockchain
-    register            Register solver in smart contract
+    register            Register worker in smart contract
     status              Get status of smart contract
 ```
 

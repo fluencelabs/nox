@@ -81,9 +81,9 @@ object Web3jConverters {
     ByteVector.fromHex(hex, Bases.Alphabets.HexUppercase).map(_.toArray).getOrElse(new Array[Byte](hex.length / 2))
 
   /**
-   * Encodes solver address information to web3j's Bytes32.
+   * Encodes worker address information to web3j's Bytes32.
    *
-   * @param ip solver host IP
+   * @param ip worker host IP
    * @param nodeAddressHex Tendermint p2p public key
    */
   def nodeAddressToBytes24(ip: String, nodeAddressHex: String): Bytes24 = {

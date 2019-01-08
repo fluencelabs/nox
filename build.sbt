@@ -77,7 +77,7 @@ lazy val statemachine = (project in file("statemachine"))
         oldStrategy(x)
     },
     test in assembly := {},
-    imageNames in docker := Seq(ImageName("fluencelabs/solver")),
+    imageNames in docker := Seq(ImageName("fluencelabs/worker")),
     dockerfile in docker := {
       // Run `sbt docker` to create image
 
@@ -95,8 +95,8 @@ lazy val statemachine = (project in file("statemachine"))
       val tmPrometheusPort = 26660
 
       // State machine constants
-      val solverDataRoot = "/solver"
-      val solverRunScript = s"$solverDataRoot/run.sh"
+      val workerDataRoot = "/worker"
+      val workerRunScript = s"$workerDataRoot/run.sh"
       val stateMachinePrometheusPort = 26661
 
       val vmDataRoot = "/vmcode"
@@ -112,15 +112,15 @@ lazy val statemachine = (project in file("statemachine"))
         expose(stateMachinePrometheusPort)
 
         volume(tmDataRoot)
-        volume(solverDataRoot)
+        volume(workerDataRoot)
         volume(vmDataRoot)
 
-        // includes solver run script and default configs in the image
-        copy(baseDirectory.value / "docker" / "solver", solverDataRoot)
+        // includes worker run script and default configs in the image
+        copy(baseDirectory.value / "docker" / "worker", workerDataRoot)
 
         copy(artifact, artifactTargetPath)
 
-        entryPoint("sh", solverRunScript, artifactTargetPath)
+        entryPoint("sh", workerRunScript, artifactTargetPath)
       }
     }
   )
@@ -205,7 +205,7 @@ lazy val node = project
       val artifactTargetPath = s"/${artifact.name}"
 
       new Dockerfile {
-        // docker is needed in image so it can connect to host's docker.sock and run solvers on host
+        // docker is needed in image so it can connect to host's docker.sock and run workers on host
         val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
         from("openjdk:8-jre-alpine")
         runRaw(s"wget -q $dockerBinary -O- | tar -C /usr/bin/ -zxv docker/docker --strip-components=1")

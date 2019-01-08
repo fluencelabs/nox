@@ -22,12 +22,14 @@ import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.eth.FluenceContract
-import fluence.node.solvers.{CodeManager, SolversPool, SwarmCodeManager, TestCodeManager}
+import fluence.node.workers.{CodeManager, SwarmCodeManager, TestCodeManager, WorkersPool}
 import fluence.swarm.SwarmClient
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 import fluence.node.config.SwarmConfig
-import scala.concurrent.duration.MILLISECONDS
+import org.web3j.protocol.core.methods.response.EthSyncing.Syncing
+
+import scala.concurrent.duration._
 
 object MasterNodeApp extends IOApp with LazyLogging {
 
@@ -46,12 +48,30 @@ object MasterNodeApp extends IOApp with LazyLogging {
     }
 
   /**
+   * Checks node for syncing status every 10 seconds until node will be synchronized.
+   */
+  private def waitEthSyncing(ethClient: EthClient): IO[Unit] = {
+    logger.info("Checking if ethereum node is synced.")
+    ethClient.isSyncing[IO].flatMap {
+      case resp: Syncing =>
+        logger.info(
+          s"Ethereum node is syncing. Current block: ${resp.getCurrentBlock}, highest block: ${resp.getHighestBlock}"
+        )
+        logger.info("Waiting 10 seconds for next attempt.")
+        IO.sleep(10.seconds).flatMap(_ => waitEthSyncing(ethClient))
+      case _ =>
+        logger.info("Ethereum node is synchronized.")
+        IO.unit
+    }
+  }
+
+  /**
    * Launches a Master Node instance
    * Assuming to be launched inside Docker image
    *
    * - Adds contractOwnerAccount to whitelist
    * - Starts to listen Ethereum for ClusterFormed event
-   * - On ClusterFormed event, launches Solver Docker container
+   * - On ClusterFormed event, launches Worker Docker container
    * - Starts HTTP API serving status information
    */
   override def run(args: List[String]): IO[ExitCode] = {
@@ -76,9 +96,11 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 _ = logger.info("eth client version {}", version)
                 _ = logger.debug("eth config {}", contractConfig)
 
+                _ <- waitEthSyncing(ethClient)
+
                 contract = FluenceContract(ethClient, contractConfig)
 
-                pool ← SolversPool[IO]()
+                pool ← WorkersPool[IO]()
 
                 codeManager <- getCodeManager(swarmConfig)
 

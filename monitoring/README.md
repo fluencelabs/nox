@@ -6,7 +6,7 @@
 
 ## Goal
 
-To give a possibility to observe whole Fluence network parts (contract, registered nodes, solvers, validators, etc.) from one place.
+To give a possibility to observe whole Fluence network parts (contract, registered nodes, workers, validators, etc.) from one place.
 
 ## Usage
 

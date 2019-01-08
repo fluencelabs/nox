@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.solvers
+package fluence.node.workers
 
 import cats.Applicative
 import cats.effect._
@@ -31,38 +31,38 @@ import slogging.LazyLogging
 import scala.language.higherKinds
 
 /**
- * Single running solver's datatype
+ * Single running worker's datatype
  *
  * @param healthReportRef a reference to the last healthcheck, updated every time a new healthcheck is being made
- * @param stop stops the solver, should be launched only once
- * @param fiber a fiber for the cuncurrently launched stream of healthchecks for this solver
+ * @param stop stops the worker, should be launched only once
+ * @param fiber a fiber for the cuncurrently launched stream of healthchecks for this worker
  * @tparam F the effect
  */
-case class Solver[F[_]](
-  params: SolverParams,
-  private val healthReportRef: Ref[F, SolverInfo],
+case class Worker[F[_]](
+  params: WorkerParams,
+  private val healthReportRef: Ref[F, WorkerInfo],
   stop: F[Unit],
   fiber: Fiber[F, Unit]
 ) {
 
   // Getter for the last healthcheck
-  val healthReport: F[SolverInfo] = healthReportRef.get
+  val healthReport: F[WorkerInfo] = healthReportRef.get
 
 }
 
-object Solver extends LazyLogging {
+object Worker extends LazyLogging {
 
-  import SolverResponse._
+  import WorkerResponse._
 
   /**
-   * Gets health state from a solver via HTTP.
+   * Gets health state from a worker via HTTP.
    *
    */
   private def getHealthState[F[_]: Concurrent: ContextShift: Timer](
-    params: SolverParams,
+    params: WorkerParams,
     httpPath: String,
     uptime: Long
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[SolverInfo] = {
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[WorkerInfo] = {
 
     val url = uri"http://${params.clusterData.rpcHost}:${params.rpcPort}/$httpPath"
 
@@ -72,11 +72,11 @@ object Solver extends LazyLogging {
     )
     sttp
       .get(url)
-      .response(asJson[SolverResponse])
+      .response(asJson[WorkerResponse])
       .send()
       .attempt
-      // converting Either[Throwable, Response[Either[DeserializationError[circe.Error], SolverResponse]]]
-      // to Either[Throwable, SolverResponse]
+      // converting Either[Throwable, Response[Either[DeserializationError[circe.Error], WorkerResponse]]]
+      // to Either[Throwable, WorkerResponse]
       .map(
         _.flatMap(
           _.body
@@ -87,11 +87,11 @@ object Solver extends LazyLogging {
       .map {
         case Right(status) ⇒
           val tendermintInfo = status.result
-          val info = RunningSolverInfo.fromParams(params, tendermintInfo)
-          SolverRunning(uptime, info)
+          val info = RunningWorkerInfo.fromParams(params, tendermintInfo)
+          WorkerRunning(uptime, info)
         case Left(err) ⇒
-          logger.error("Solver HTTP check failed: " + err.getLocalizedMessage, err)
-          SolverHttpCheckFailed(StoppedSolverInfo(params), err)
+          logger.error("Worker HTTP check failed: " + err.getLocalizedMessage, err)
+          WorkerHttpCheckFailed(StoppedWorkerInfo(params), err)
       }
       .map { health ⇒
         logger.debug(s"HTTP health is: $health")
@@ -103,8 +103,8 @@ object Solver extends LazyLogging {
    * Runs health checker.
    */
   private def runHealthCheck[F[_]: Concurrent: ContextShift: Timer](
-    params: SolverParams,
-    healthReportRef: Ref[F, SolverInfo],
+    params: WorkerParams,
+    healthReportRef: Ref[F, WorkerInfo],
     stop: Deferred[F, Either[Throwable, Unit]],
     healthcheck: HealthCheckConfig
   )(implicit sttpBackend: SttpBackend[F, Nothing]): F[Unit] =
@@ -114,12 +114,12 @@ object Solver extends LazyLogging {
         // Check that container is running every healthcheck.period
         DockerIO.check[F](healthcheck.period)
       )
-      .evalMap[F, SolverInfo] {
+      .evalMap[F, WorkerInfo] {
         case (uptime, true) ⇒
           getHealthState(params, healthcheck.httpPath, uptime)
         case (_, false) ⇒
-          logger.error(s"Healthcheck is failing for solver: $params")
-          Applicative[F].pure(SolverContainerNotRunning(StoppedSolverInfo(params)))
+          logger.error(s"Healthcheck is failing for worker: $params")
+          Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo(params)))
       }
       .evalTap(healthReportRef.set)
       .interruptWhen(stop)
@@ -128,21 +128,21 @@ object Solver extends LazyLogging {
       .drain
 
   /**
-   * Runs a single solver
+   * Runs a single worker
    *
-   * @param params Solver's running params
+   * @param params Worker's running params
    * @param healthcheck see [[HealthCheckConfig]]
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks
-   * @return the solver instance
+   * @return the [[Worker]] instance
    */
-  def run[F[_]: Concurrent: ContextShift: Timer](params: SolverParams, healthcheck: HealthCheckConfig)(
+  def run[F[_]: Concurrent: ContextShift: Timer](params: WorkerParams, healthcheck: HealthCheckConfig)(
     implicit sttpBackend: SttpBackend[F, Nothing]
-  ): F[Solver[F]] =
+  ): F[Worker[F]] =
     for {
-      healthReportRef ← Ref.of[F, SolverInfo](SolverNotYetLaunched(StoppedSolverInfo(params)))
+      healthReportRef ← Ref.of[F, WorkerInfo](WorkerNotYetLaunched(StoppedWorkerInfo(params)))
       stop ← Deferred[F, Either[Throwable, Unit]]
 
       fiber ← Concurrent[F].start(runHealthCheck(params, healthReportRef, stop, healthcheck))
-    } yield Solver[F](params, healthReportRef, stop.complete(Right(())), fiber)
+    } yield Worker[F](params, healthReportRef, stop.complete(Right(())), fiber)
 
 }

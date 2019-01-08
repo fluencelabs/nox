@@ -45,6 +45,12 @@ extern crate parity_wasm;
 #[cfg(test)]
 extern crate rand;
 
+#[macro_use]
+extern crate ethabi_contract;
+
+#[macro_use]
+extern crate ethabi_derive;
+
 mod check;
 mod contract_func;
 mod contract_status;
@@ -88,7 +94,7 @@ fn main() {
 
             let transaction = register.register(true);
 
-            let formatted_finish_msg = style("Solver added. Submitted transaction").blue();
+            let formatted_finish_msg = style("Node registered. Submitted transaction").blue();
             let formatted_tx = style(transaction.unwrap()).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);

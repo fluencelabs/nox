@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.solvers
+package fluence.node.workers
 import java.nio.file.{Files, Path, Paths}
 
 import cats.effect.Sync
@@ -36,7 +36,7 @@ sealed trait CodeManager[F[_]] {
   /**
    * Downloads code from Swarm and manages paths to the code.
    * @param path a path to a code from the smart contract
-   * @param storagePath a path to a solver working directory
+   * @param storagePath a path to a worker's working directory
    * @return
    */
   def prepareCode(path: CodePath, storagePath: Path): F[String]
@@ -51,12 +51,12 @@ class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
   /**
    * Downloads code from Swarm and manages paths to the code.
    * @param path a path to a code from the smart contract
-   * @param solverPath a path to a solver working directory
+   * @param workerPath a path to a worker's working directory
    * @return
    */
   override def prepareCode(
     path: CodePath,
-    solverPath: Path
+    workerPath: Path
   ): F[String] = F.pure("/master/vmcode/vmcode-" + path.asString) // preloaded code in master's docker container
 }
 
@@ -81,16 +81,16 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
 
   /**
    * Checks if there is no code already then download a file from the Swarm and store it to a disk.
-   * @param solverPath a path to solver's directory
+   * @param workerPath a path to worker's directory
    * @param swarmPath a code address and a Swarm URL address
    * @return a path to a code
    */
   private def downloadAndWriteCodeToFile(
-    solverPath: Path,
+    workerPath: Path,
     swarmPath: String
   ): F[String] =
     for {
-      dirPath <- F.delay(solverPath.resolve("vmcode"))
+      dirPath <- F.delay(workerPath.resolve("vmcode"))
       _ <- if (dirPath.toFile.exists()) F.unit else F.delay(Files.createDirectory(dirPath))
       //TODO check if file's Swarm hash corresponds to the address
       filePath <- F.delay(dirPath.resolve(swarmPath + ".wasm"))
@@ -104,10 +104,10 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
   /**
    * Downloads code from Swarm and manages paths to the code.
    * @param path a path to a code from the smart contract
-   * @param solverPath a path to a solver working directory
+   * @param workerPath a path to a worker's working directory
    * @return
    */
-  override def prepareCode(path: CodePath, solverPath: Path): F[String] = {
-    downloadAndWriteCodeToFile(solverPath, path.asHex)
+  override def prepareCode(path: CodePath, workerPath: Path): F[String] = {
+    downloadAndWriteCodeToFile(workerPath, path.asHex)
   }
 }
