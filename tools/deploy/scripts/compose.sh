@@ -23,23 +23,7 @@ echo 'Parity and Swarm containers are started.'
 
 # waiting that API of parity start working
 # todo get rid of all `sleep`
-sleep 20
-
-echo 'Check if Parity node is synced.'
-
-# waiting that parity synced
-# todo add this logic to CLI
-syncing=false
-while [ $syncing == false ]
-do
-    result=$(curl -s -X POST --data '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}' -H "Content-Type: application/json" http://localhost:8545)
-    if [[ $result == *"result\":false"* ]]; then
-        syncing=true
-    else
-        echo 'Parity node is not synced. New attempt after 20 seconds.'
-        sleep 20
-    fi
-done
+sleep 10
 
 # starting node container
 docker-compose -f node.yml up -d --force-recreate
