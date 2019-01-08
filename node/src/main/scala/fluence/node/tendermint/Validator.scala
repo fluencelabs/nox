@@ -19,7 +19,7 @@ import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 
 /**
- * Cluster's solver (validator) information in Tendermint-compatible format.
+ * Cluster's worker (tendermint's validator) information in Tendermint-compatible format.
  *
  * @param pub_key public key
  * @param power initial voting power

@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-package fluence.node.solvers
+package fluence.node.workers
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.extras.Configuration
 import io.circe.generic.semiauto._
 
 /**
  * Status information from a tendermint node.
+  * TODO consider moving it to [[fluence.node.tendermint]] package
  */
-object SolverResponse {
+object WorkerResponse {
 
   case class OtherInfo(
     amino_version: String,
@@ -55,9 +56,9 @@ object SolverResponse {
 
   case class ValidatorInfo(address: String, pub_key: PubKey, voting_power: String)
 
-  case class SolverTendermintInfo(node_info: NodeInfo, sync_info: SyncInfo, validator_info: ValidatorInfo)
+  case class WorkerTendermintInfo(node_info: NodeInfo, sync_info: SyncInfo, validator_info: ValidatorInfo)
 
-  case class SolverResponse(result: SolverTendermintInfo)
+  case class WorkerResponse(result: WorkerTendermintInfo)
 
   implicit val configuration: Configuration =
     Configuration.default.withSnakeCaseMemberNames.withSnakeCaseConstructorNames
@@ -67,14 +68,14 @@ object SolverResponse {
   implicit val decodeSyncInfo: Decoder[SyncInfo] = deriveDecoder
   implicit val decodePubKey: Decoder[PubKey] = deriveDecoder
   implicit val decodeValidatorInfo: Decoder[ValidatorInfo] = deriveDecoder
-  implicit val decodeCheck: Decoder[SolverTendermintInfo] = deriveDecoder
-  implicit val decodeResponse: Decoder[SolverResponse] = deriveDecoder
+  implicit val decodeCheck: Decoder[WorkerTendermintInfo] = deriveDecoder
+  implicit val decodeResponse: Decoder[WorkerResponse] = deriveDecoder
 
   implicit val encodeOtherInfo: Encoder[OtherInfo] = deriveEncoder
   implicit val encodeNodeInfo: Encoder[NodeInfo] = deriveEncoder
   implicit val encodeSyncInfo: Encoder[SyncInfo] = deriveEncoder
   implicit val encodePubKey: Encoder[PubKey] = deriveEncoder
   implicit val encodeValidatorInfo: Encoder[ValidatorInfo] = deriveEncoder
-  implicit val encodeCheck: Encoder[SolverTendermintInfo] = deriveEncoder
-  implicit val encodeResponse: Encoder[SolverResponse] = deriveEncoder
+  implicit val encodeCheck: Encoder[WorkerTendermintInfo] = deriveEncoder
+  implicit val encodeResponse: Encoder[WorkerResponse] = deriveEncoder
 }

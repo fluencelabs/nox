@@ -23,9 +23,9 @@ cd fluence/tools/node
 docker-compose -f single-master.yml up -dV
 ```
 
-`single-master.yml` runs one Swarm container and one master node container with solver ports 25000-25003.
+`single-master.yml` runs one Swarm container and one master node container with worker ports 25000-25003.
 
-## How to run solvers
+## How to run workers
 
 After having run master node, you need to upload and publish your WASM code to Swarm. In this example we will use `llamadb` that can be built by 
 ```bash
@@ -50,8 +50,8 @@ You can take a look at `target/release/fluence publish --help` to get the idea o
 - `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` is an Ethereum account address that's used for publishing code
 - `--cluster_size 1` specifies number of nodes required to run this code. We ran single master node, so we specify 1 here.
 
-## How to check solver is running fine
-You can check solver's logs by issuing `docker logs 01_node0` (you may need to replace `01_node0` with the name of the solver container, see `docker ps`). Look for `Commit: processTime=23 height=2`, `processTime` could be anything, you're looking for `height=2`. It can appear after some time, usually 10-60 seconds, depending on your hardware.
+## How to check worker is running fine
+You can check worker's logs by issuing `docker logs 01_node0` (you may need to replace `01_node0` with the name of the solver container, see `docker ps`). Look for `Commit: processTime=23 height=2`, `processTime` could be anything, you're looking for `height=2`. It can appear after some time, usually 10-60 seconds, depending on your hardware.
 
 ## Cleaning up
 - To clean up ALL docker containers, including volumes: `docker ps -a | awk '{print $1}' | xargs docker rm -f ; docker volume prune -f`

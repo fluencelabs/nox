@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package fluence.node.solvers
+package fluence.node.workers
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
-case class SolverImage(image: String, tag: String) {
+case class WorkerImage(image: String, tag: String) {
   val imageName = s"$image:$tag"
 }
 
-object SolverImage {
-  implicit val encodeSolverImage: Encoder[SolverImage] = deriveEncoder
-  implicit val decodeSolverImage: Decoder[SolverImage] = deriveDecoder
+object WorkerImage {
+  implicit val encodeWorkerImage: Encoder[WorkerImage] = deriveEncoder
+  implicit val decodeWorkerImage: Decoder[WorkerImage] = deriveDecoder
 }

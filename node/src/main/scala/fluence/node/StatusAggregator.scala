@@ -20,7 +20,7 @@ import cats.Parallel
 import cats.data.Kleisli
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import fluence.node.config.{MasterConfig, NodeConfig, StatusServerConfig}
-import fluence.node.solvers.SolverInfo
+import fluence.node.workers.WorkerInfo
 import org.http4s._
 import org.http4s.implicits._
 import scala.concurrent.duration._
@@ -42,8 +42,8 @@ import scala.language.higherKinds
  * @param ip master node ip address
  * @param listOfPorts all available ports to use by code developers
  * @param uptime working time of master node
- * @param numberOfSolvers number of registered solvers
- * @param solvers info about solvers
+ * @param numberOfWorkers number of registered workers
+ * @param workers info about workers
  * @param config config file
  */
 case class MasterStatus(
@@ -51,8 +51,8 @@ case class MasterStatus(
   listOfPorts: String,
   uptime: Long,
   nodeConfig: NodeConfig,
-  numberOfSolvers: Int,
-  solvers: List[SolverInfo],
+  numberOfWorkers: Int,
+  workers: List[WorkerInfo],
   config: MasterConfig
 )
 
@@ -62,7 +62,7 @@ object MasterStatus {
 }
 
 /**
- * The manager that able to get information about master node and all solvers.
+ * The manager that able to get information about master node and all workers.
  *
  * @param config config file about a master node
  * @param masterNode initialized master node
@@ -72,7 +72,7 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode, startT
 ) {
 
   /**
-   * Gets all state information about master node and solvers.
+   * Gets all state information about master node and workers.
    * @return gathered information
    */
   def getStatus[G[_]](implicit P: Parallel[IO, G]): IO[MasterStatus] = {
@@ -80,16 +80,16 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode, startT
     val ports = s"${endpoints.minPort}:${endpoints.maxPort}"
     for {
       currentTime <- timer.clock.monotonic(MILLISECONDS)
-      solversStatus <- masterNode.pool.healths
-      solverInfos = solversStatus.values.toList
+      workersStatus <- masterNode.pool.healths
+      workerInfos = workersStatus.values.toList
     } yield
       MasterStatus(
         config.endpoints.ip.getHostName,
         ports,
         currentTime - startTimeMillis,
         masterNode.nodeConfig,
-        solversStatus.size,
-        solverInfos,
+        workersStatus.size,
+        workerInfos,
         config
       )
   }
@@ -119,7 +119,7 @@ object StatusAggregator {
     )
 
   /**
-   * Makes the server that gives gathered information about a master node and solvers.
+   * Makes the server that gives gathered information about a master node and workers.
    *
    * @param statServerConfig server's parameters
    * @param masterConfig parameters about a master node

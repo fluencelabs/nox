@@ -35,11 +35,11 @@ class TxStateDependentChecker[F[_]: Monad](val method: ValueCase, state: F[TreeN
   private val methodName = method.name().toLowerCase.replace("_", "")
 
   private val txCounter: Counter =
-    Metrics.registerCounter(s"solver_${methodName}_count")
+    Metrics.registerCounter(s"worker_${methodName}_count")
   private val txLatencyCounter: Counter =
-    Metrics.registerCounter(s"solver_${methodName}_latency_sum")
+    Metrics.registerCounter(s"worker_${methodName}_latency_sum")
   private val txValidationTimeCounter: Counter =
-    Metrics.registerCounter(s"solver_${methodName}_validation_time_sum")
+    Metrics.registerCounter(s"worker_${methodName}_validation_time_sum")
 
   /**
    * Checks whether given `tx` is unique and its state is active against provided [[state]].
