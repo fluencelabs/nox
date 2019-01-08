@@ -19,8 +19,8 @@ package fluence.statemachine
 import java.io.File
 
 import cats.{Monad, Traverse}
-import cats.data.EitherT
 import cats.instances.list._
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.concurrent.MVar
 import cats.effect.{ExitCode, IO, IOApp, LiftIO}
 import com.github.jtendermint.jabci.socket.TSocket
@@ -162,7 +162,7 @@ object ServerRunner extends IOApp with LazyLogging {
    *
    * @param moduleFiles module filenames with VM code
    */
-  private def buildVm[F[_]: Monad](moduleFiles: Seq[String]): EitherT[F, StateMachineError, WasmVm] =
+  private def buildVm[F[_]: Monad](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
     WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
 
   /**
@@ -188,19 +188,24 @@ object ServerRunner extends IOApp with LazyLogging {
    */
   private def moduleFilesFromConfig[F[_]: LiftIO: Monad](
     config: StateMachineConfig
-  ): EitherT[F, StateMachineError, List[String]] =
-    EitherT(
-      Traverse[List]
-        .flatTraverse(config.moduleFiles)(listFiles _)
-        .map(
-          _.map(_.getPath)
-            .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
-        )
-        .attempt
-        .to[F]
-    ).leftMap { e =>
-      VmModuleLocationError("Error during locating VM module files and directories", Some(e))
-    }
+  ): EitherT[F, StateMachineError, NonEmptyList[String]] =
+    for {
+      moduleFiles <- EitherT(
+        Traverse[List]
+          .flatTraverse(config.moduleFiles)(listFiles _)
+          .map(
+            _.map(_.getPath)
+              .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
+          )
+          .attempt
+          .to[F]
+      ).leftMap(e => VmModuleLocationError("Error during locating VM module files and directories", Some(e)))
+
+      moduleFilesNel <- EitherT.fromOption(
+        moduleFiles.toNel,
+        VmModuleLocationError("Provided directories don't contain any wasm or wast files")
+      )
+    } yield moduleFilesNel
 
   /**
    * Configures `slogging` logger.

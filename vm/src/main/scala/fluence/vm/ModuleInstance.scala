@@ -57,16 +57,11 @@ case class ModuleInstance(
           memoryAsArray ← EitherT
             .fromEither[F](
               Try {
-                // Duplicate is required for reaching idempotent reading ByteBuffer(BB).
-                // ''ByteBuffer.get'' change inner BB state, for preventing this
-                // we create a thin copy of this BB. The new buffer's capacity,
-                // limit, position, and mark values will be identical to those of
-                // original buffer, but the content(bytes) will be shared (bytes won't be copied).
-                // After reading all bytes, duplicate will be collected by GC
-                val view = mem.duplicate()
-                view.clear()
-                val arr = new Array[Byte](view.capacity())
-                view.get(arr)
+                // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
+                val wasmMemoryView = mem.duplicate()
+                wasmMemoryView.clear()
+                val arr = new Array[Byte](wasmMemoryView.capacity())
+                wasmMemoryView.get(arr)
                 arr
               }.toEither
             )
@@ -87,7 +82,7 @@ case class ModuleInstance(
         } yield vmStateAsHash
 
       case None ⇒
-        // Returning empty array is temporal solution.
+        // Returning empty array is a temporal solution.
         // It's valid situation when a module doesn't have a memory.
         // When the Stack will be accessible we will return hash of the Stack with registers.
         EitherT.rightT(Array.emptyByteArray)
