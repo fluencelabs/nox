@@ -9,4 +9,4 @@ services:
       - 8180:8180
       - 8080:8080
       - 8546:8546
-    command: --light --chain $CHAIN --unsafe-expose
+    command: $PARITY_ARGS
