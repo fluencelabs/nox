@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-package fluence.node.solvers
+package fluence.node.workers
 
-import fluence.node.solvers.SolverResponse.SolverTendermintInfo
+import fluence.node.workers.WorkerResponse.WorkerTendermintInfo
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
 
 /**
- * Collected information about running solver.
+ * Collected information about running worker.
  */
-case class RunningSolverInfo(
+case class RunningWorkerInfo(
   rpcPort: Short,
   p2pPort: Short,
   stateMachinePrometheusPort: Short,
@@ -35,10 +35,10 @@ case class RunningSolverInfo(
   lastBlockHeight: Int
 )
 
-object RunningSolverInfo {
+object RunningWorkerInfo {
 
-  def fromParams(params: SolverParams, tendermintInfo: SolverTendermintInfo) =
-    RunningSolverInfo(
+  def fromParams(params: WorkerParams, tendermintInfo: WorkerTendermintInfo) =
+    RunningWorkerInfo(
       params.clusterData.rpcPort,
       params.clusterData.p2pPort,
       params.clusterData.smPrometheusPort,
@@ -50,14 +50,14 @@ object RunningSolverInfo {
       tendermintInfo.sync_info.latest_block_height
     )
 
-  implicit val encodeSolverInfo: Encoder[RunningSolverInfo] = deriveEncoder
-  implicit val decodeSolverInfo: Decoder[RunningSolverInfo] = deriveDecoder
+  implicit val encodeRunningWorkerInfo: Encoder[RunningWorkerInfo] = deriveEncoder
+  implicit val decodeRunningWorkerInfo: Decoder[RunningWorkerInfo] = deriveDecoder
 }
 
 /**
- * Collected information about stopped solver.
+ * Collected information about a stopped worker.
  */
-case class StoppedSolverInfo(
+case class StoppedWorkerInfo(
   rpcPort: Short,
   p2pPort: Short,
   stateMachinePrometheusPort: Short,
@@ -65,12 +65,12 @@ case class StoppedSolverInfo(
   codeId: String
 )
 
-object StoppedSolverInfo {
+object StoppedWorkerInfo {
 
   def apply(
-    params: SolverParams
-  ): StoppedSolverInfo =
-    new StoppedSolverInfo(
+    params: WorkerParams
+  ): StoppedWorkerInfo =
+    new StoppedWorkerInfo(
       params.clusterData.rpcPort,
       params.clusterData.p2pPort,
       params.clusterData.smPrometheusPort,
@@ -78,35 +78,35 @@ object StoppedSolverInfo {
       params.clusterData.code.asHex
     )
 
-  implicit val encodeSolverInfo: Encoder[StoppedSolverInfo] = deriveEncoder
-  implicit val decodeSolverInfo: Decoder[StoppedSolverInfo] = deriveDecoder
+  implicit val encodeStoppedWorkerInfo: Encoder[StoppedWorkerInfo] = deriveEncoder
+  implicit val decodeStoppedWorkerInfo: Decoder[StoppedWorkerInfo] = deriveDecoder
 }
 
-sealed trait SolverInfo {
+sealed trait WorkerInfo {
   def isHealthy: Boolean
 }
 
-object SolverInfo {
+object WorkerInfo {
   implicit val encodeThrowable: Encoder[Throwable] = Encoder[String].contramap(_.getLocalizedMessage)
 
   implicit val decodeThrowable: Decoder[Throwable] = Decoder[String].map(s => new Exception(s))
 
-  implicit val encoderSolverHealth: Encoder[SolverInfo] = deriveEncoder
-  implicit val decoderSolverHealth: Decoder[SolverInfo] = deriveDecoder
+  implicit val encoderWorkerInfo: Encoder[WorkerInfo] = deriveEncoder
+  implicit val decoderWorkerInfo: Decoder[WorkerInfo] = deriveDecoder
 }
 
-sealed trait SolverHealthy extends SolverInfo {
+sealed trait WorkerHealthy extends WorkerInfo {
   override def isHealthy: Boolean = true
 }
 
-sealed trait SolverIll extends SolverInfo {
+sealed trait WorkerIll extends WorkerInfo {
   override def isHealthy: Boolean = false
 }
 
-case class SolverRunning(uptime: Long, info: RunningSolverInfo) extends SolverHealthy
+case class WorkerRunning(uptime: Long, info: RunningWorkerInfo) extends WorkerHealthy
 
-case class SolverNotYetLaunched(info: StoppedSolverInfo) extends SolverIll
+case class WorkerNotYetLaunched(info: StoppedWorkerInfo) extends WorkerIll
 
-case class SolverContainerNotRunning(info: StoppedSolverInfo) extends SolverIll
+case class WorkerContainerNotRunning(info: StoppedWorkerInfo) extends WorkerIll
 
-case class SolverHttpCheckFailed(info: StoppedSolverInfo, causedBy: Throwable) extends SolverIll
+case class WorkerHttpCheckFailed(info: StoppedWorkerInfo, causedBy: Throwable) extends WorkerIll

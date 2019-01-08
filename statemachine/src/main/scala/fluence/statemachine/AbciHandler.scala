@@ -45,8 +45,8 @@ class AbciHandler(
   private val txProcessor: TxProcessor[IO]
 ) extends LazyLogging with ICheckTx with IDeliverTx with ICommit with IQuery {
 
-  private val queryCounter: Counter = Metrics.registerCounter("solver_query_count")
-  private val queryProcessTimeCounter: Counter = Metrics.registerCounter("solver_query_process_time_sum")
+  private val queryCounter: Counter = Metrics.registerCounter("worker_query_count")
+  private val queryProcessTimeCounter: Counter = Metrics.registerCounter("worker_query_process_time_sum")
 
   /**
    * Handler for `Commit` ABCI method (processed in Consensus thread).

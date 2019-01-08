@@ -168,9 +168,9 @@ impl Register {
 
             let prefix = if self.wait_syncing { "2/2" } else { "1/1" };
             utils::with_progress(
-                "Adding the solver to the smart contract...",
+                "Adding the node to the smart contract...",
                 prefix,
-                "Solver added.",
+                "Node added.",
                 publish_to_contract_fn,
             )
         } else {
@@ -239,7 +239,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("register")
-        .about("Register solver in smart contract")
+        .about("Register a node in the smart contract")
         .args(&[
             Arg::with_name(ADDRESS)
                 .alias(ADDRESS)

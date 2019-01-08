@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package fluence.node.solvers
+package fluence.node.workers
 import scala.concurrent.duration._
 
 /**
  * Configures the healthcheck process
  *
- * @param period How often to check solver's health
+ * @param period How often to check worker's health
  * @param slide How many checks to slide over
- * @param failOn Solver will be considered dead if ''failOn'' checks within the last ''slide'' ones are failures
+ * @param failOn Worker will be considered dead if ''failOn'' checks within the last ''slide'' ones are failures
  * @param httpPath What to call to check for health, should not contain leading slash /
  */
 case class HealthCheckConfig(

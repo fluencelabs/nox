@@ -54,14 +54,14 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "solver_delivertx_count{instance=~\".*host.docker.internal.*\"}",
+          "expr": "worker_delivertx_count{instance=~\".*host.docker.internal.*\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Txs {{instance}}",
           "refId": "A"
         },
         {
-          "expr": "solver_commit_count{instance=~\".*host.docker.internal.*\"}",
+          "expr": "worker_commit_count{instance=~\".*host.docker.internal.*\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Commits {{instance}}",
@@ -145,7 +145,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "solver_query_count{instance=~\".*host.docker.internal.*\"}",
+          "expr": "worker_query_count{instance=~\".*host.docker.internal.*\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{instance}}",
@@ -229,7 +229,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "  rate(solver_checktx_latency_sum{instance=~\".*host.docker.internal.*\"}[1m])\n/\n  rate(solver_checktx_count{instance=~\".*host.docker.internal.*\"}[1m])",
+          "expr": "  rate(worker_checktx_latency_sum{instance=~\".*host.docker.internal.*\"}[1m])\n/\n  rate(worker_checktx_count{instance=~\".*host.docker.internal.*\"}[1m])",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{instance}}",
@@ -313,7 +313,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "  rate(solver_delivertx_latency_sum{instance=~\".*host.docker.internal.*\"}[1m])\n/\n  rate(solver_delivertx_count{instance=~\".*host.docker.internal.*\"}[1m])",
+          "expr": "  rate(worker_delivertx_latency_sum{instance=~\".*host.docker.internal.*\"}[1m])\n/\n  rate(worker_delivertx_count{instance=~\".*host.docker.internal.*\"}[1m])",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{instance}}",
@@ -397,7 +397,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "  rate(solver_checktx_validation_time_sum{instance=~\".*host.docker.internal.*\"}[1m])\n/\n  rate(solver_checktx_count{instance=~\".*host.docker.internal.*\"}[1m])",
+          "expr": "  rate(worker_checktx_validation_time_sum{instance=~\".*host.docker.internal.*\"}[1m])\n/\n  rate(worker_checktx_count{instance=~\".*host.docker.internal.*\"}[1m])",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{instance}}",
@@ -481,7 +481,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "  rate(solver_delivertx_validation_time_sum{instance=~\".*host.docker.internal.*\"}[1m])\n/\n  rate(solver_delivertx_count{instance=~\".*host.docker.internal.*\"}[1m])",
+          "expr": "  rate(worker_delivertx_validation_time_sum{instance=~\".*host.docker.internal.*\"}[1m])\n/\n  rate(worker_delivertx_count{instance=~\".*host.docker.internal.*\"}[1m])",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{instance}}",
@@ -565,7 +565,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "  rate(solver_vm_invoke_time_sum{instance=~\".*host.docker.internal.*\"}[1m])\n/\n  rate(solver_vm_invoke_counter{instance=~\".*host.docker.internal.*\"}[1m])",
+          "expr": "  rate(worker_vm_invoke_time_sum{instance=~\".*host.docker.internal.*\"}[1m])\n/\n  rate(worker_vm_invoke_counter{instance=~\".*host.docker.internal.*\"}[1m])",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{method}} {{instance}}",
@@ -649,7 +649,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "  rate(solver_query_process_time_sum{instance=~\".*host.docker.internal.*\"}[1m])\n/\n  rate(solver_query_count{instance=~\".*host.docker.internal.*\"}[1m])",
+          "expr": "  rate(worker_query_process_time_sum{instance=~\".*host.docker.internal.*\"}[1m])\n/\n  rate(worker_query_count{instance=~\".*host.docker.internal.*\"}[1m])",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{method}} {{instance}}",

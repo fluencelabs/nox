@@ -19,7 +19,7 @@ package fluence.node.config
 import java.net.InetAddress
 
 import fluence.node.eth.{EthereumRPCConfig, FluenceContractConfig}
-import fluence.node.solvers.SolverImage
+import fluence.node.workers.WorkerImage
 import fluence.node.tendermint.ValidatorKey
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
@@ -40,8 +40,8 @@ case class MasterConfig(
   contract: FluenceContractConfig,
   swarm: Option[SwarmConfig],
   statusServer: StatusServerConfig,
-  masterContainerId: String,
-  solver: SolverImage,
+  masterContainerId: Option[String],
+  worker: WorkerImage,
   ethereum: EthereumRPCConfig
 )
 
@@ -90,7 +90,7 @@ object EndpointsConfig {
 }
 
 /**
- * Information about a node willing to run solvers to join Fluence clusters.
+ * Information about a node willing to run workers to join Fluence clusters.
  *
  * @param endpoints information about a node possible endpoints (IP and ports) that will be used as addresses
  *                 for requests after a cluster will be formed
@@ -101,7 +101,7 @@ case class NodeConfig(
   endpoints: EndpointsConfig,
   validatorKey: ValidatorKey,
   nodeAddress: String,
-  solverImage: SolverImage,
+  workerImage: WorkerImage,
   isPrivate: Boolean = false
 )
 

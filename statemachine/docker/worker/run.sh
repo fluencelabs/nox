@@ -25,14 +25,14 @@ EOF
   exit 1
 fi
 
-if [ -z "$SOLVER_DIR" ]; then
+if [ -z "$WORKER_DIR" ]; then
   cat >&2 <<EOF
-error: \`-e "SOLVER_DIR=path_to_solver_config"\` was not specified.
+error: \`-e "WORKER_DIR=path_to_worker_config"\` was not specified.
 EOF
   exit 1
 fi
 
-cp -rf "$SOLVER_DIR/." "/tendermint/"
+cp -rf "$WORKER_DIR/." "/tendermint/"
 cp -rf "$CODE_DIR/." "/vmcode/"
 
 # run Tendermint with disabled output

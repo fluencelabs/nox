@@ -22,7 +22,7 @@ import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.eth.FluenceContract
-import fluence.node.solvers.{CodeManager, SolversPool, SwarmCodeManager, TestCodeManager}
+import fluence.node.workers.{CodeManager, SwarmCodeManager, TestCodeManager, WorkersPool}
 import fluence.swarm.SwarmClient
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
@@ -71,7 +71,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
    *
    * - Adds contractOwnerAccount to whitelist
    * - Starts to listen Ethereum for ClusterFormed event
-   * - On ClusterFormed event, launches Solver Docker container
+   * - On ClusterFormed event, launches Worker Docker container
    * - Starts HTTP API serving status information
    */
   override def run(args: List[String]): IO[ExitCode] = {
@@ -100,7 +100,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 contract = FluenceContract(ethClient, contractConfig)
 
-                pool ← SolversPool[IO]()
+                pool ← WorkersPool[IO]()
 
                 codeManager <- getCodeManager(swarmConfig)
 
