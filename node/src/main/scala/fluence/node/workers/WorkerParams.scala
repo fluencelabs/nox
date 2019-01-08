@@ -25,8 +25,8 @@ case class WorkerParams(
   clusterData: ClusterData,
   workerPath: String,
   vmCodePath: String,
-  masterNodeContainerId: String,
-  workerImage: WorkerImage
+  masterNodeContainerId: Option[String],
+  image: WorkerImage
 ) {
 
   override def toString =
@@ -38,15 +38,20 @@ case class WorkerParams(
    * [[fluence.node.docker.DockerIO.run]]'s command for launching a configured worker
    */
   val dockerCommand: DockerParams.Sealed =
-    DockerParams
-      .daemonRun()
-      .option("-e", s"""CODE_DIR=$vmCodePath""")
-      .option("-e", s"""WORKER_DIR=$workerPath""")
-      .port(clusterData.p2pPort, 26656)
-      .port(rpcPort, 26657)
-      .port(clusterData.tmPrometheusPort, 26660)
-      .port(clusterData.smPrometheusPort, 26661)
-      .option("--volumes-from", masterNodeContainerId + ":ro")
+    masterNodeContainerId
+      .map(_ + ":ro")
+      .foldLeft(
+        DockerParams
+          .daemonRun()
+          .option("-e", s"""CODE_DIR=$vmCodePath""")
+          .option("-e", s"""WORKER_DIR=$workerPath""")
+          .port(clusterData.p2pPort, 26656)
+          .port(rpcPort, 26657)
+          .port(clusterData.tmPrometheusPort, 26660)
+          .port(clusterData.smPrometheusPort, 26661)
+      )(
+        _.option("--volumes-from", _)
+      )
       .option("--name", clusterData.nodeInfo.nodeName)
-      .image(workerImage.imageName)
+      .image(image.imageName)
 }

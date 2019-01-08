@@ -40,7 +40,7 @@ case class MasterNode(
   pool: WorkersPool[IO],
   codeManager: CodeManager[IO],
   rootPath: Path,
-  masterNodeContainerId: String
+  masterNodeContainerId: Option[String]
 )(implicit ce: ConcurrentEffect[IO])
     extends slogging.LazyLogging {
 

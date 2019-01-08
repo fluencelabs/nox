@@ -21,7 +21,7 @@ import io.circe.generic.semiauto._
 
 /**
  * Status information from a tendermint node.
-  * TODO consider moving it to [[fluence.node.tendermint]] package
+ * TODO consider moving it to [[fluence.node.tendermint]] package
  */
 object WorkerResponse {
 

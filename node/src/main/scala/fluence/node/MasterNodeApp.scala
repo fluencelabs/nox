@@ -22,7 +22,7 @@ import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.eth.FluenceContract
-import fluence.node.workers.{CodeManager, WorkersPool, SwarmCodeManager, TestCodeManager}
+import fluence.node.workers.{CodeManager, SwarmCodeManager, TestCodeManager, WorkersPool}
 import fluence.swarm.SwarmClient
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}

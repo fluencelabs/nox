@@ -86,7 +86,7 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
    * @return a path to a code
    */
   private def downloadAndWriteCodeToFile(
-                                          workerPath: Path,
+    workerPath: Path,
     swarmPath: String
   ): F[String] =
     for {

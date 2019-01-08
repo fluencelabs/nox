@@ -40,8 +40,8 @@ case class MasterConfig(
   contract: FluenceContractConfig,
   swarm: Option[SwarmConfig],
   statusServer: StatusServerConfig,
-  masterContainerId: String,
-  workerImage: WorkerImage,
+  masterContainerId: Option[String],
+  worker: WorkerImage,
   ethereum: EthereumRPCConfig
 )
 
