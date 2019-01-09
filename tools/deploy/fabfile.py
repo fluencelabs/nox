@@ -9,7 +9,7 @@ info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>'},
 
 # change this if you want to deploy on another hosts
 # TO USE: replace values inside <> with your actual values
-env.hosts = ['<ip1>', "<ip2>"]
+env.hosts = info.keys
 
 # Set the username
 env.user = "root"
