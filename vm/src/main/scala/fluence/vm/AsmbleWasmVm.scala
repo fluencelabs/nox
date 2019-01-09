@@ -198,8 +198,6 @@ class AsmbleWasmVm(
       resultOffset <- EitherT
         .fromEither(Try {
           val convertedOffset = offset.toString.toInt
-
-          // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
           val wasmMemoryView = wasmMemory.duplicate()
 
           wasmMemoryView.position(convertedOffset)
