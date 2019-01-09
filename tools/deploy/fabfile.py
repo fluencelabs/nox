@@ -42,9 +42,12 @@ def deploy():
         current_key = info[current_host]['key']
 
         with shell_env(CHAIN=chain,
+                       PROD="true",
                        CONTRACT_ADDRESS=contract_address,
                        BZZ_KEY=current_owner,
                        OWNER_ADDRESS=current_owner,
+                       PORTS="25000:25003",
+                       NAME="node1",
                        PRIVATE_KEY=current_key):
             run('chmod +x compose.sh')
             run('chmod +x fluence')
