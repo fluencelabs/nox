@@ -23,11 +23,12 @@ import fluence.node.eth.{EthereumRPCConfig, FluenceContractConfig}
 import ConfigOps._
 import com.typesafe.config.Config
 import fluence.node.docker.{DockerIO, DockerParams}
-import fluence.node.solvers.SolverImage
+import fluence.node.workers.WorkerImage
 import fluence.node.tendermint.ValidatorKey
 import io.circe.parser._
 import pureconfig.generic.auto._
 
+// TODO this is the configuration for what? why so many fields are taken from MasterConfig? could we simplify?
 case class Configuration(
   rootPath: Path,
   nodeConfig: NodeConfig,
@@ -35,7 +36,7 @@ case class Configuration(
   swarmConfig: Option[SwarmConfig],
   statsServerConfig: StatusServerConfig,
   ethereumRPCConfig: EthereumRPCConfig,
-  masterContainerId: String
+  masterContainerId: Option[String]
 )
 
 object Configuration {
@@ -58,9 +59,9 @@ object Configuration {
       config <- loadConfig()
       masterConfig <- pureconfig.loadConfig[MasterConfig](config).toIO
       rootPath <- IO(Paths.get(masterConfig.tendermintPath).toAbsolutePath)
-      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.solver)
+      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.worker)
       (nodeId, validatorKey) = t
-      nodeConfig = NodeConfig(masterConfig.endpoints, validatorKey, nodeId, masterConfig.solver)
+      nodeConfig = NodeConfig(masterConfig.endpoints, validatorKey, nodeId, masterConfig.worker)
     } yield
       (
         masterConfig,
@@ -78,22 +79,23 @@ object Configuration {
 
   /**
    * Run `tendermint --init` in container to initialize /master/tendermint/config with configuration files.
-   * Later, files /master/tendermint/config are used to run and configure solvers
-   * @param masterContainer id of master docker container (container running this code)
+   * Later, files /master/tendermint/config are used to run and configure workers
+   * @param masterContainerId id of master docker container (container running this code), if it's run inside Docker
    * @return nodeId and validator key
    */
-  def tendermintInit(masterContainer: String, rootPath: Path, solverImage: SolverImage)(
+  def tendermintInit(masterContainerId: Option[String], rootPath: Path, workerImage: WorkerImage)(
     implicit c: ContextShift[IO]
   ): IO[(String, ValidatorKey)] = {
 
     val tendermintDir = rootPath.resolve("tendermint") // /master/tendermint
-    def tendermint(cmd: String, uid: String) = {
-      DockerParams
-        .run("tendermint", cmd, s"--home=$tendermintDir")
-        .user(uid)
-        .option("--volumes-from", masterContainer)
-        .image(solverImage.imageName)
-    }
+    def tendermint(cmd: String, uid: String) =
+      masterContainerId
+        .foldLeft(
+          DockerParams
+            .run("tendermint", cmd, s"--home=$tendermintDir")
+            .user(uid)
+        )(_.option("--volumes-from", _))
+        .image(workerImage.imageName)
 
     for {
       uid <- IO(scala.sys.process.Process("id -u").!!.trim)

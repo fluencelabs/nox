@@ -18,14 +18,14 @@
 import {Node} from './node';
 
 /**
- * Status of a Fluence node with all its solvers.
+ * Status of a Fluence node with all its workers.
  */
 export interface NodeStatus {
     ip: string,
     listOfPorts: string,
     uptime: number,
-    numberOfSolvers: number,
-    solvers: SolverStatus[]
+    numberOfWorkers: number,
+    workers: WorkerStatus[]
 }
 
 /**
@@ -36,34 +36,34 @@ export interface UnavailableNode {
 }
 
 /**
- * Status of a solver. It can exists but not available or turned off.
+ * Status of a worker. It can exists but not available or turned off.
  */
-export interface SolverStatus {
-    SolverRunning?: SolverRunning,
-    SolverContainerNotRunning?: SolverContainerNotRunning
-    SolverNotYetLaunched?: SolverNotYetLaunched
-    SolverHttpCheckFailed?: SolverHttpCheckFailed
+export interface WorkerStatus {
+    WorkerRunning?: WorkerRunning,
+    WorkerContainerNotRunning?: WorkerContainerNotRunning
+    WorkerNotYetLaunched?: WorkerNotYetLaunched
+    WorkerHttpCheckFailed?: WorkerHttpCheckFailed
 }
 
-export interface SolverRunning {
-    info: SolverInfo,
+export interface WorkerRunning {
+    info: WorkerInfo,
     uptime: number
 }
 
-export interface SolverContainerNotRunning {
-    info: SolverInfo
+export interface WorkerContainerNotRunning {
+    info: WorkerInfo
 }
 
-export interface SolverNotYetLaunched {
-    info: SolverInfo
+export interface WorkerNotYetLaunched {
+    info: WorkerInfo
 }
 
-export interface SolverHttpCheckFailed {
-    info: SolverInfo,
+export interface WorkerHttpCheckFailed {
+    info: WorkerInfo,
     causedBy: string
 }
 
-export interface SolverInfo {
+export interface WorkerInfo {
     clusterId?: string,
     codeId: string,
     lastAppHash?: string,

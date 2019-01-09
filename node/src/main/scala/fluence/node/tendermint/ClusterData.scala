@@ -16,14 +16,14 @@
 
 package fluence.node.tendermint
 import fluence.node.config.NodeConfig
-import fluence.node.solvers.CodePath
+import fluence.node.workers.CodePath
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
 
 /**
- * All the information required to launch solver.
+ * All the information required to launch a worker.
  *
- * @param nodeInfo information about node in a format compatible with `master-run-node.sh` script
+ * @param nodeInfo information about the tendermint node
  * @param persistentPeers cluster peers information
  * @param code code ID
  */

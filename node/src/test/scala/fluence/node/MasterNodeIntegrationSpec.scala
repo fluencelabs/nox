@@ -92,7 +92,7 @@ class MasterNodeIntegrationSpec
     run("docker rm -f 01_node0 01_node1 master1 master2")
   }
 
-  "MasterNodes" should "sync their solvers with contract clusters" in {
+  "MasterNodes" should "sync their workers with contract clusters" in {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, false)
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.INFO

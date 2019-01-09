@@ -41,8 +41,8 @@ class Committer[F[_]](
     extends slogging.LazyLogging {
   private val WrongVmHashValue: StoreValue = "wrong_vm_hash"
 
-  private val commitCounter: Counter = Metrics.registerCounter("solver_commit_count")
-  private val commitTimeCounter: Counter = Metrics.registerCounter("solver_commit_time_sum")
+  private val commitCounter: Counter = Metrics.registerCounter("worker_commit_count")
+  private val commitTimeCounter: Counter = Metrics.registerCounter("worker_commit_time_sum")
 
   /**
    * Handles `Commit` ABCI method (in Consensus thread).
