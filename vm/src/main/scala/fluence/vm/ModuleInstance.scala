@@ -82,7 +82,7 @@ case class ModuleInstance(
         } yield vmStateAsHash
 
       case None ⇒
-        // Returning empty array is a temporal solution.
+        // Returning empty array is a temporary solution.
         // It's valid situation when a module doesn't have a memory.
         // When the Stack will be accessible we will return hash of the Stack with registers.
         EitherT.rightT(Array.emptyByteArray)

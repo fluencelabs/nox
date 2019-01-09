@@ -16,6 +16,7 @@ package fluence.vm
  * limitations under the License.
  */
 
+import cats.data.NonEmptyList
 import cats.effect.IO
 import org.scalatest.EitherValues
 
@@ -31,7 +32,7 @@ class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "be able to instantiate" in {
       (for {
-        vm <- WasmVm[IO](Seq(counterFilePath))
+        vm <- WasmVm[IO](NonEmptyList.one(counterFilePath))
         state <- vm.getVmState[IO].toVmError
 
       } yield {
@@ -43,7 +44,7 @@ class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "increment counter and returns its state" in {
       (for {
-        vm <- WasmVm[IO](Seq(counterFilePath))
+        vm <- WasmVm[IO](NonEmptyList.one(counterFilePath))
         _ <- vm.invoke[IO](None, "inc")
         getResult1 <- vm.invoke[IO](None, "get")
         _ <- vm.invoke[IO](None, "inc")
