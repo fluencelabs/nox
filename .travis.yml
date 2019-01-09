@@ -1,7 +1,6 @@
 matrix:
   include:
-    - name: Fluence
-      language: scala
+    - language: scala
       scala: 2.12.7
       jdk: oraclejdk8
 
@@ -13,10 +12,6 @@ matrix:
         - ~/.cargo/bin/rustup toolchain install nightly
         - ~/.cargo/bin/rustup update
         - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
-
-      script:
-        - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
-        - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
 
       # These directories are cached to S3 at the end of the build
       cache:
@@ -33,39 +28,18 @@ matrix:
         - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
         - find $HOME/.sbt        -name "*.lock"               -print -delete
 
-    # These tests takes a lot of time and runs only while PR
-    - name: Fluence integration tests
-      language: scala
-      scala: 2.12.7
-      jdk: oraclejdk8
-      sudo: false
+      matrix:
+        include:
+        - name: Fluence
+          script:
+          - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
+          - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
 
-      services:
-        - docker
-
-      before_install:
-        - curl https://sh.rustup.rs -sSf | sh -s -- -y
-        - ~/.cargo/bin/rustup toolchain install nightly
-        - ~/.cargo/bin/rustup update
-        - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
-
-      # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
-      script:
-        - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
-        - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
-
-      cache:
-        npm: true
-        cargo: true
-        directories:
-          - $HOME/.ivy2/cache
-          - $HOME/.sbt/boot
-          - $HOME/.sbt/launchers
-          - bootstrap/node_modules
-
-      before_cache:
-        - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
-        - find $HOME/.sbt        -name "*.lock"               -print -delete
+        - name: Fluence integration tests
+          # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
+          script:
+          - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
+          - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
 
     - name: smart contract
       language: node_js
