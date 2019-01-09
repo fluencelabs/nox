@@ -16,7 +16,7 @@
 
 package fluence.vm
 
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.IO
 import fluence.vm.VmError._
 import fluence.vm.TestUtils._
@@ -34,7 +34,7 @@ class WasmVmSpec extends WordSpec with Matchers {
 
       "config error" in {
         val res = for {
-          vm <- WasmVm[IO](Seq("unknown file"), "wrong config namespace")
+          vm <- WasmVm[IO](NonEmptyList.one("unknown file"), "wrong config namespace")
         } yield vm
 
         val error = res.failed()
@@ -44,7 +44,7 @@ class WasmVmSpec extends WordSpec with Matchers {
 
       "file not found" in {
         val res = for {
-          vm <- WasmVm[IO](Seq("unknown file"))
+          vm <- WasmVm[IO](NonEmptyList.one("unknown file"))
         } yield vm
 
         val error = res.failed()
@@ -59,7 +59,7 @@ class WasmVmSpec extends WordSpec with Matchers {
         val sum2File = getClass.getResource("/wast/bad-allocation-function.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](Seq(sum1File, sum2File))
+          vm <- WasmVm[IO](NonEmptyList.of(sum1File, sum2File))
         } yield vm
 
         val error = res.failed()
@@ -76,14 +76,14 @@ class WasmVmSpec extends WordSpec with Matchers {
     "there is one file" in {
       val sumFile = getClass.getResource("/wast/sum.wast").getPath
 
-      WasmVm[IO](Seq(sumFile)).success()
+      WasmVm[IO](NonEmptyList.one(sumFile)).success()
     }
 
     "there are two files" in {
       val sumFile = getClass.getResource("/wast/sum.wast").getPath
       val mulFile = getClass.getResource("/wast/mul.wast").getPath
 
-      WasmVm[IO](Seq(mulFile, sumFile)).success()
+      WasmVm[IO](NonEmptyList.of(mulFile, sumFile)).success()
     }
 
   }
