@@ -209,7 +209,7 @@ object ServerRunner extends IOApp with LazyLogging {
     ).leftMap { e =>
       VmModuleLocationError("Error during locating VM module files and directories", Some(e))
     }.subflatMap(
-      // EitherT[Option[NonEmptyList[String]]]] => EitherT[NonEmptyList[String]]]
+      // EitherT[F, E, Option[NonEmptyList[String]]]] => EitherT[F, E, NonEmptyList[String]]]
       _.toRight[StateMachineError](
         VmModuleLocationError("Provided directories don't contain any wasm or wast files")
       )
