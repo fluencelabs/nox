@@ -16,7 +16,7 @@ package fluence.vm
  * limitations under the License.
  */
 
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.IO
 import org.scalatest.EitherValues
 
@@ -59,7 +59,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
       "be able to instantiate" in {
         (for {
-          vm <- WasmVm[IO](Seq(llamadbFilePath))
+          vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath))
           state <- vm.getVmState[IO].toVmError
         } yield {
           state should not be None
@@ -70,7 +70,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
       "be able to create table and insert to it" in {
         (for {
-          vm <- WasmVm[IO](Seq(llamadbFilePath))
+          vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath))
           createResult <- createTestTable(vm)
 
         } yield {
@@ -82,7 +82,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
       "be able to select records" in {
         (for {
-          vm <- WasmVm[IO](Seq(llamadbFilePath))
+          vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath))
           createResult <- createTestTable(vm)
           emptySelectResult <- executeSql(vm, "SELECT * FROM Users WHERE name = 'unknown'")
           selectAllResult <- executeSql(vm, "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users")
@@ -112,7 +112,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
       "be able to delete records and drop table" in {
         (for {
-          vm <- WasmVm[IO](Seq(llamadbFilePath))
+          vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath))
           createResult1 <- createTestTable(vm)
           deleteResult <- executeSql(vm, "DELETE FROM Users WHERE id = 1")
           selectAfterDeleteTable <- executeSql(vm, "SELECT * FROM Users WHERE id = 1")
@@ -140,7 +140,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
       "be able to manipulate with 2 tables and selects records with join" in {
         (for {
-          vm <- WasmVm[IO](Seq(llamadbFilePath))
+          vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath))
           createResult <- createTestTable(vm)
           createRoleResult <- executeSql(vm, "CREATE TABLE Roles(user_id INT, role VARCHAR(128))")
           roleInsertResult <- executeSql(
@@ -179,7 +179,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
       "be able to operate with empty strings" in {
         (for {
-          vm <- WasmVm[IO](Seq(llamadbFilePath))
+          vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath))
           _ <- executeSql(vm, "")
           _ <- createTestTable(vm)
           emptyQueryResult <- executeSql(vm, "")
@@ -195,7 +195,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
       "doesn't fail with incorrect queries" in {
         (for {
-          vm <- WasmVm[IO](Seq(llamadbFilePath))
+          vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath))
           _ <- createTestTable(vm)
           invalidQueryResult <- executeSql(vm, "SELECT salary FROM Users")
           parserErrorResult <- executeSql(vm, "123")
@@ -214,7 +214,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "be able to launch VM with 4 MiB memory and to insert a lot of data" in {
       (for {
-        vm <- WasmVm[IO](Seq(llamadbFilePath))
+        vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath))
         _ <- createTestTable(vm)
 
         // allocate ~1 MiB memory
@@ -231,7 +231,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "be able to launch VM with 4 MiB memory and a lot of data inserts" in {
       (for {
-        vm <- WasmVm[IO](Seq(llamadbFilePath))
+        vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath))
         _ <- createTestTable(vm)
 
         // trying to insert 1024 time by 1 KiB
@@ -247,7 +247,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "be able to launch VM with 100 MiB memory and to insert a lot of data" in {
       (for {
-        vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.100Mb")
+        vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.100Mb")
         _ <- createTestTable(vm)
 
         // allocate ~30 MiB memory
@@ -263,7 +263,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "be able to launch VM with 100 MiB memory and a lot of data inserts" in {
       (for {
-        vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.100Mb")
+        vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.100Mb")
         _ <- createTestTable(vm)
 
         // trying to insert 30 time by ~100 KiB
@@ -279,7 +279,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "be able to launch VM with 2 GiB memory and to allocate 256 MiB of continuously memory" in {
       (for {
-        vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
+        vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.2Gb")
         _ <- executeSql(vm, "create table USERS(name varchar(" + 256*1024*1024 + "))")
 
         // trying to insert two records to ~256 MiB field
@@ -295,7 +295,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "be able to launch VM with 2 GiB memory and a lot of data inserts" in {
       (for {
-        vm <- WasmVm[IO](Seq(llamadbFilePath), "fluence.vm.client.2Gb")
+        vm <- WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.2Gb")
         _ <- createTestTable(vm)
 
         // trying to insert 30 time by ~200 KiB
