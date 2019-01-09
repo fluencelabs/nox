@@ -20,6 +20,7 @@ import java.io.File
 
 import cats.{Monad, Traverse}
 import cats.instances.list._
+import cats.syntax.list._
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.concurrent.MVar
 import cats.effect.{ExitCode, IO, IOApp, LiftIO}
@@ -171,7 +172,7 @@ object ServerRunner extends IOApp with LazyLogging {
    * @param path a path to a folder where files should be listed
    * @return a list of files in given directory or provided file if the path to a file has has been given
    */
-  def listFiles(path: String): IO[List[File]] = IO {
+  private def listFiles(path: String): IO[List[File]] = IO {
     val pathName = new File(path)
     pathName match {
       case file if pathName.isFile => file :: Nil
@@ -189,23 +190,23 @@ object ServerRunner extends IOApp with LazyLogging {
   private def moduleFilesFromConfig[F[_]: LiftIO: Monad](
     config: StateMachineConfig
   ): EitherT[F, StateMachineError, NonEmptyList[String]] =
-    for {
-      moduleFiles <- EitherT(
-        Traverse[List]
-          .flatTraverse(config.moduleFiles)(listFiles _)
-          .map(
-            _.map(_.getPath)
-              .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
-          )
-          .attempt
-          .to[F]
-      ).leftMap(e => VmModuleLocationError("Error during locating VM module files and directories", Some(e)))
-
-      moduleFilesNel <- EitherT.fromOption(
-        moduleFiles.toNel,
+    EitherT(
+      Traverse[List]
+        .flatTraverse(config.moduleFiles)(listFiles _)
+        .map(
+          _.map(_.getPath)
+            .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
+        )
+        .map(_.toNel)
+        .attempt
+        .to[F]
+    ).leftMap { e =>
+      VmModuleLocationError("Error during locating VM module files and directories", Some(e))
+    }.subflatMap(
+      _.toRight[StateMachineError](
         VmModuleLocationError("Provided directories don't contain any wasm or wast files")
       )
-    } yield moduleFilesNel
+    )
 
   /**
    * Configures `slogging` logger.
