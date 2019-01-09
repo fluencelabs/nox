@@ -17,7 +17,7 @@
 
 import {Network} from "../types/web3-contracts/Network";
 import {decodeNodeAddress} from "./nodeAddress";
-import {Code, parseCodes} from "./code";
+import {App, parseCodes} from "./app";
 
 export interface ClusterMember {
     id: string,
@@ -30,7 +30,7 @@ export interface ClusterMember {
 export interface Cluster {
     id: string,
     genesis_time: number,
-    code: Code,
+    code: App,
     cluster_members: ClusterMember[]
 }
 
@@ -38,6 +38,20 @@ export interface Cluster {
  * Gets list of formed clusters from Fluence contract
  */
 export async function getClusters(contract: Network): Promise<Cluster[]> {
+
+    /*let allIds = await contract.methods.getIds().call();
+
+    let nodeIds: string[] = allIds["0"];
+    let clusterIds = allIds["1"];
+
+    let nodeCalls = nodeIds.map((id, _) => {
+        return contract.methods.getNode(id).call()
+            .then((res) => {
+                let a: { "0": string; "1": string; "2": string; "3": string; "4": boolean; "5": string[] } = res;
+
+            });
+    });
+
     let unparsedClustersInfo = await contract.methods.getClustersInfo().call();
     let unparsedClustersNodes = await contract.methods.getClustersNodes().call();
     let clusters: Cluster[] = [];
@@ -51,7 +65,7 @@ export async function getClusters(contract: Network): Promise<Cluster[]> {
     let storageReceipts = unparsedClustersInfo["3"];
     let clusterSizes = unparsedClustersInfo["4"];
     let developers = unparsedClustersInfo["5"];
-    let codes: Code[] = parseCodes(codeAddresses, storageReceipts, clusterSizes, developers);
+    let codes: App[] = parseCodes(codeAddresses, storageReceipts, clusterSizes, developers);
 
     // nodes info
     let node_ids = unparsedClustersNodes["0"];
@@ -87,5 +101,7 @@ export async function getClusters(contract: Network): Promise<Cluster[]> {
         };
         clusters.push(cluster);
     });
-    return clusters;
+    return clusters;*/
+
+    return Promise.resolve([])
 }

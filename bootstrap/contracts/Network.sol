@@ -128,4 +128,15 @@ contract Network is Deployer {
         return (storageHashes, storageReceipts, clusterSizes, owners);
     }
 
+    /** @dev Gets nodes and clusters IDs
+     * return (node IDs, cluster IDs)
+     */
+    function getIds()
+        external
+        view
+    returns(bytes32[], bytes32[])
+    {
+        return (nodesIds, clustersIds);
+    }
+
 }

@@ -22,8 +22,8 @@ import {Network} from "../types/web3-contracts/Network";
  * In Fluence contract it represents as a Swarm address to the WASM file
  * and a requirement of how many nodes will be in the cluster.
  */
-export interface Code {
-    code_address: string,
+export interface App {
+    app_address: string,
     storage_receipt: string,
     cluster_size: number,
     developer: string
@@ -32,29 +32,33 @@ export interface Code {
 /**
  * Gets list of enqueued codes from Fluence contract
  */
-export async function getEnqueuedCodes(contract: Network): Promise<Code[]> {
-    let unparsedCodes = await contract.methods.getEnqueuedCodes().call();
+export async function getEnqueuedApps(contract: Network): Promise<App[]> {
 
-    let codeAddresses = unparsedCodes["0"];
+    let unparsedCodes = await contract.methods.getEnqueuedApps().call();
+
+    console.log(JSON.stringify(unparsedCodes));
+
+
+    let storageHashes = unparsedCodes["0"];
     let storageReceipts = unparsedCodes["1"];
     let clusterSizes = unparsedCodes["2"];
     let developers = unparsedCodes["3"];
 
-    return parseCodes(codeAddresses, storageReceipts, clusterSizes, developers);
+    return parseCodes(storageHashes, storageReceipts, clusterSizes, developers);
 }
 
 /**
  * Collects codes from response format of Fluence contract.
  */
-export function parseCodes(codeAddresses: string[],
+export function parseCodes(appAddresses: string[],
                     storageReceipts: string[],
                     clusterSizes: string[],
-                    developers: string[]): Code[] {
-    let codes: Code[] = [];
+                    developers: string[]): App[] {
+    let codes: App[] = [];
 
-    codeAddresses.forEach((address, index) => {
-        let code: Code = {
-            code_address: address,
+    appAddresses.forEach((address, index) => {
+        let code: App = {
+            app_address: address,
             storage_receipt: storageReceipts[index],
             cluster_size: parseInt(clusterSizes[index]),
             developer: developers[index]
