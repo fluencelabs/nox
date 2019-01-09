@@ -37,6 +37,7 @@ echo 'Parity and Swarm containers are started.'
 # todo get rid of all `sleep`
 sleep 10
 
+# deploy contract if there is new dev ethereum node
 if [ -z "$PROD" ]
 then
     export CONTRACT_ADDRESS=$(node deploy-contract.js)
