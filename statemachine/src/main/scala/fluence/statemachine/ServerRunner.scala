@@ -181,7 +181,8 @@ object ServerRunner extends IOApp with LazyLogging {
   }
 
   /**
-   * Extracts module filenames from config with particular files and directories with files mixed.
+   * Extracts module filenames that have wast or wasm extension from config with particular files
+   * and directories with files mixed.
    *
    * @param config config object to load VM setting
    * @return either a sequence of filenames found in directories and among files provided in config
@@ -192,17 +193,23 @@ object ServerRunner extends IOApp with LazyLogging {
   ): EitherT[F, StateMachineError, NonEmptyList[String]] =
     EitherT(
       Traverse[List]
-        .flatTraverse(config.moduleFiles)(listFiles _)
-        .map(
-          _.map(_.getPath)
-            .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
+        .flatTraverse(config.moduleFiles)(
+          listFiles(_)
+            .map(
+              // converts File objects to their absolute path
+              _.map(_.getPath)
+              // filters out non-Wasm files
+                .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
+            )
         )
+        // convert flattened list of file paths to nel (IO[List[String]] => IO[Option[NonEmptyList[String]]])
         .map(_.toNel)
         .attempt
         .to[F]
     ).leftMap { e =>
       VmModuleLocationError("Error during locating VM module files and directories", Some(e))
     }.subflatMap(
+      // EitherT[Option[NonEmptyList[String]]]] => EitherT[NonEmptyList[String]]]
       _.toRight[StateMachineError](
         VmModuleLocationError("Provided directories don't contain any wasm or wast files")
       )
