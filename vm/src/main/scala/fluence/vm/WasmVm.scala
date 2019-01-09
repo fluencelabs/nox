@@ -143,7 +143,7 @@ object WasmVm {
   /**
    * Returns [[ScriptContext]] - context for uploaded Wasm modules.
    * Compiles Wasm modules to JVM bytecode and registering derived classes
-   * in the Asmble engine. Every Wasm module is compiled to exactly one JVM class
+   * in the Asmble engine. Every Wasm module is compiles to exactly one JVM class
    */
   private def prepareContext(
     inFiles: NonEmptyList[String],

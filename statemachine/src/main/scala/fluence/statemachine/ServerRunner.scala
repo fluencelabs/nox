@@ -181,8 +181,7 @@ object ServerRunner extends IOApp with LazyLogging {
   }
 
   /**
-   * Extracts module filenames that have wast or wasm extension from config with particular files
-   * and directories with files mixed.
+   * Extracts module filenames that have wast or wasm extensions from the module-files section of a given config.
    *
    * @param config config object to load VM setting
    * @return either a sequence of filenames found in directories and among files provided in config
