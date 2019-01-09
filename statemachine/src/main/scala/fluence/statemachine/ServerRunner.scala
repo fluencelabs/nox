@@ -195,7 +195,7 @@ object ServerRunner extends IOApp with LazyLogging {
         .flatTraverse(config.moduleFiles)(
           listFiles(_)
             .map(
-              // converts File objects to their absolute path
+              // converts File objects to their path
               _.map(_.getPath)
               // filters out non-Wasm files
                 .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
