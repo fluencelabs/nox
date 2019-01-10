@@ -1,45 +1,71 @@
 matrix:
   include:
-    - language: scala
+    - name: Fluence
+      language: scala
       scala: 2.12.7
       jdk: oraclejdk8
 
       services:
-        - docker
+      - docker
 
       before_install:
-        - curl https://sh.rustup.rs -sSf | sh -s -- -y
-        - ~/.cargo/bin/rustup toolchain install nightly
-        - ~/.cargo/bin/rustup update
-        - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
+      - curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - ~/.cargo/bin/rustup toolchain install nightly-2019-01-08
+      - ~/.cargo/bin/rustup update
+      - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-08
+
+      script:
+      - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
+      - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
 
       # These directories are cached to S3 at the end of the build
       cache:
         npm: true
         cargo: true
         directories:
-          - $HOME/.ivy2/cache
-          - $HOME/.sbt/boot
-          - $HOME/.sbt/launchers
-          - bootstrap/node_modules
+        - $HOME/.ivy2/cache
+        - $HOME/.sbt/boot
+        - $HOME/.sbt/launchers
+        - bootstrap/node_modules
 
       before_cache:
-        # Cleanup the cached directories to avoid unnecessary cache updates
-        - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
-        - find $HOME/.sbt        -name "*.lock"               -print -delete
+      # Cleanup the cached directories to avoid unnecessary cache updates
+      - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
+      - find $HOME/.sbt        -name "*.lock"               -print -delete
 
-      matrix:
-        include:
-        - name: Fluence
-          script:
-          - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
-          - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
+    # These tests takes a lot of time and runs only while PR
+    - name: Fluence integration tests
+      language: scala
+      scala: 2.12.7
+      jdk: oraclejdk8
+      sudo: false
 
-        - name: Fluence integration tests
-          # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
-          script:
-          - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
-          - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
+      services:
+      - docker
+
+      before_install:
+      - curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - ~/.cargo/bin/rustup toolchain install nightly-2019-01-08
+      - ~/.cargo/bin/rustup update
+      - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-08
+
+      # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
+      script:
+      - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
+      - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
+
+      cache:
+        npm: true
+        cargo: true
+        directories:
+        - $HOME/.ivy2/cache
+        - $HOME/.sbt/boot
+        - $HOME/.sbt/launchers
+        - bootstrap/node_modules
+
+      before_cache:
+      - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
+      - find $HOME/.sbt        -name "*.lock"               -print -delete
 
     - name: smart contract
       language: node_js
@@ -49,15 +75,15 @@ matrix:
       cache:
         npm: true
         directories:
-          - bootstrap/node_modules
+        - bootstrap/node_modules
 
     - name: js-client
       language: node_js
       node_js:
-        - "5"
-        - "6"
-        - "7"
-        - "8"
+      - "5"
+      - "6"
+      - "7"
+      - "8"
       cache: npm
       before_install: cd js-client
       before_script: npm install
@@ -66,54 +92,56 @@ matrix:
     - name: rust App SDK
       language: rust
       # todo enable 'stable' and 'beta' when `allocator_api` will become stable
-      rust: nightly
+      rust: nightly-2019-01-08
       cache:
-        - cargo
-        - npm
+      - cargo
+      - npm
 
       before_install:
-        - rustup component add rustfmt --toolchain nightly
-        - cd sdk/rust
+      - rustup component add rustfmt --toolchain nightly-2019-01-08
+      - cd sdk/rust
 
       script:
-        - cargo fmt --all -- --check -v
-        - cargo build -v --all-features
-        - cargo doc -v --all-features
-        - cargo test -v --all-features
+      - cargo fmt --all -- --check -v
+      - cargo build -v --all-features
+      - cargo doc -v --all-features
+      - cargo test -v --all-features
 
     - name: llamaDb VM App
       language: rust
-      rust: nightly
+      rust: nightly-2019-01-08
       cache: cargo
       sudo: false
       before_install:
-        - rustup component add rustfmt-preview --toolchain nightly
-        - cd vm/examples/llamadb
+      - rustup toolchain list
+      - rustup default nightly-2019-01-08
+      - rustup component add rustfmt
+      - cd vm/examples/llamadb
 
       script:
-        - cargo fmt --all -- --check -v
-        - cargo build -v
-        - cargo doc -v
-        - cargo test -v
+      - cargo +nightly-2019-01-08 fmt --all -- --check -v
+      - cargo +nightly-2019-01-08 build -v
+      - cargo +nightly-2019-01-08 doc -v
+      - cargo +nightly-2019-01-08 test -v
 
     - name: Fluence CLI
       language: rust
       rust: stable
       cache:
-        - cargo
-        - npm
+      - cargo
+      - npm
 
       before_install:
-        - rustup component add rustfmt-preview
-        - cd cli
+      - rustup component add rustfmt-preview
+      - cd cli
 
       script:
-        - pushd ../bootstrap
-        - npm install
-        - npm run swarm-simulation &
-        - npm run ganache > /dev/null
-        - sleep 1
-        - npm run migrate
-        - popd
-        - cargo fmt --all -- --check -v
-        - cargo test
+      - pushd ../bootstrap
+      - npm install
+      - npm run swarm-simulation &
+      - npm run ganache > /dev/null
+      - sleep 1
+      - npm run migrate
+      - popd
+      - cargo fmt --all -- --check -v
+      - cargo test

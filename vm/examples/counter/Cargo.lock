@@ -1,0 +1,14 @@
+[[package]]
+name = "counter"
+version = "0.1.0"
+dependencies = [
+ "fluence_sdk 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "fluence_sdk"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[metadata]
+"checksum fluence_sdk 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "38d0387a42e8876fe352beaf5a01d15f73370c6adc637a298077d8fb8a5ac957"

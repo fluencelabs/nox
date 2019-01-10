@@ -79,7 +79,11 @@ class AbciHandler(
       .setInfo(responseData.info)
       .setHeight(responseData.height)
       .setValue(ByteString.copyFromUtf8(responseData.result.getOrElse("")))
-      .setProof(ByteString.copyFromUtf8(responseData.proof.getOrElse("")))
+      .setProof(
+        Proof
+          .newBuilder()
+          .addOps(ProofOp.newBuilder().setData(ByteString.copyFromUtf8(responseData.proof.getOrElse(""))))
+      )
       .build
   }
 

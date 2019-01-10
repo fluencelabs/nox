@@ -7,9 +7,8 @@ from fabric.api import *
 info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>'},
         '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>'}}
 
-# change this if you want to deploy on another hosts
-# TO USE: replace values inside <> with your actual values
-env.hosts = ['<ip1>', "<ip2>"]
+# Fluence will be deployed on all hosts from `info`
+env.hosts = info.keys()
 
 # Set the username
 env.user = "root"
@@ -42,9 +41,12 @@ def deploy():
         current_key = info[current_host]['key']
 
         with shell_env(CHAIN=chain,
+                       PROD="true",
                        CONTRACT_ADDRESS=contract_address,
                        BZZ_KEY=current_owner,
                        OWNER_ADDRESS=current_owner,
+                       PORTS="25000:25003",
+                       NAME="node1",
                        PRIVATE_KEY=current_key):
             run('chmod +x compose.sh')
             run('chmod +x fluence')
