@@ -76,7 +76,7 @@ lazy val statemachine = (project in file("statemachine"))
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
-    test in assembly := {},
+    test in assembly     := {},
     imageNames in docker := Seq(ImageName("fluencelabs/worker")),
     dockerfile in docker := {
       // Run `sbt docker` to create image
@@ -190,16 +190,14 @@ lazy val node = project
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
-    test in Test :=
-      (test in Test)
-        .dependsOn(docker)
-        .dependsOn(docker in statemachine)
-        .value
-    ,
-    mainClass in assembly := Some("fluence.node.MasterNodeApp"),
+    test in Test := (test in Test)
+      .dependsOn(docker)
+      .dependsOn(docker in statemachine)
+      .value,
+    mainClass in assembly       := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly := "master-node.jar",
-    test in assembly := {},
-    imageNames in docker := Seq(ImageName("fluencelabs/node")),
+    test in assembly            := {},
+    imageNames in docker        := Seq(ImageName("fluencelabs/node")),
     dockerfile in docker := {
       // The assembly task generates a fat JAR file
       val artifact: File = assembly.value
@@ -214,11 +212,11 @@ lazy val node = project
         volume("/master") // anonymous volume to store all data
 
         /*
-        * The following directory structure is assumed in node/src/main/resources:
-        *    docker/
-        *      tendermint/config/default_config.toml
-        *      entrypoint.sh
-        */
+         * The following directory structure is assumed in node/src/main/resources:
+         *    docker/
+         *      tendermint/config/default_config.toml
+         *      entrypoint.sh
+         */
         copy((resourceDirectory in Compile).value / "docker", "/master/")
 
         copy(artifact, artifactTargetPath)
