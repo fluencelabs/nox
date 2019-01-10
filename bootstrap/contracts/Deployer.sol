@@ -221,8 +221,9 @@ contract Deployer {
         // Check that pinToNodes are distinct nodes owned by msg.sender
         for(uint8 i = 0; i < pinToNodes.length; i++) {
             bytes32 nodeID_i = pinToNodes[i];
-            require(nodes[nodeID_i].owner != 0, "Can pin only to registered nodes");
-            require(nodes[nodeID_i].owner == msg.sender, "Can pin only to nodes you own");
+            Node memory node = nodes[nodeID_i];
+            require(node.owner != 0, "Can pin only to registered nodes");
+            require(node.owner == msg.sender, "Can pin only to nodes you own");
 
             for(uint8 j = 0; j <= i; j++) {
                 if(i != j) {
