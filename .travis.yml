@@ -12,10 +12,6 @@ _fluence_test_template: &_fluence_test_template
     - ~/.cargo/bin/rustup update
     - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-08
 
-  script:
-    - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
-    - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
-
   # These directories are cached to S3 at the end of the build
   cache:
     npm: true
@@ -35,13 +31,16 @@ matrix:
   include:
     - <<: *_fluence_test_template
       name: Fluence
+      script:
+        - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
+        - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
 
-    # These tests take a lot of time and runs only while PR
+  # These tests take a lot of time and runs only while PR
     - <<: *_fluence_test_template
       name: Fluence integration tests
-      condition: "'$TRAVIS_PULL_REQUEST' != 'false'"
+      condition: '"$TRAVIS_PULL_REQUEST" == "false"'
 
-        # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
+      # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
       script:
         - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
         - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
