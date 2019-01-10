@@ -119,10 +119,10 @@ matrix:
         - cd vm/examples/llamadb
 
       script:
-        - cargo fmt --all -- --check -v
-        - cargo build -v
-        - cargo doc -v
-        - cargo test -v
+        - cargo +nightly-2019-01-08 fmt --all -- --check -v
+        - cargo +nightly-2019-01-08 build -v
+        - cargo +nightly-2019-01-08 doc -v
+        - cargo +nightly-2019-01-08 test -v
 
     - name: Fluence CLI
       language: rust
