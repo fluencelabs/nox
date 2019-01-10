@@ -2,7 +2,7 @@ version: '3.4'
 
 services:
   node1:
-    container_name: node1
+    container_name: $NAME
     image: fluencelabs/node:latest
     environment:
       - TENDERMINT_IP=$DOCKER_IP
@@ -12,6 +12,7 @@ services:
       - OWNER_ADDRESS=$OWNER_ADDRESS
       - PORTS=$PORTS
     ports:
+      # port for status API
       - $STATUS_PORT:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
