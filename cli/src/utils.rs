@@ -103,12 +103,15 @@ pub fn options() -> Options {
 
 /// Gets the value of option `key` and removes '0x' prefix
 pub fn parse_hex_opt(matches: &ArgMatches, key: &str) -> Result<String, Box<Error>> {
-    Ok(value_t!(matches, key, String)?.trim_start_matches("0x").to_string())
+    value_t!(matches, key, String)
+        .map(|v| v.trim_start_matches("0x").to_string())
+        .map_err(|e| e.into())
 }
 
 pub fn parse_secret_key(matches: &ArgMatches, key: &str) -> Result<Option<Secret>, Box<Error>> {
     matches
-        .value_of(SECRET_KEY)
+        .value_of(key)
         .map(|s| s.trim_start_matches("0x").parse::<Secret>())
-        .map_or(Ok(None), |r| r.map(Some))? // Option<Result> -> Result<Option>
+        .map_or(Ok(None), |r| r.map(Some).into()) // Option<Result> -> Result<Option>
+        .map_err(|e| e.into())
 }

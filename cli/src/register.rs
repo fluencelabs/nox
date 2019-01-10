@@ -18,11 +18,9 @@ use std::{thread, time};
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
-use std::str::FromStr;
 
 use base64::decode;
 use clap::{App, Arg, ArgMatches, SubCommand};
-use ethkey::Secret;
 use hex;
 use web3::transports::Http;
 use web3::types::{Address, H256};
@@ -205,7 +203,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
 
     let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
-    let secret_key = utils::parse_secret_key(matches, SECRET_KEY);
+    let secret_key = utils::parse_secret_key(matches, SECRET_KEY)?;
 
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
@@ -213,7 +211,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
 
     let wait_syncing = matches.is_present(WAIT_SYNCING);
 
-    let gas = value_t!(matches, GAS, u32);
+    let gas = value_t!(matches, GAS, u32)?;
 
     let private: bool = matches.is_present(PRIVATE);
 
@@ -311,6 +309,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             Arg::with_name(PRIVATE)
                 .alias(PRIVATE)
                 .long(PRIVATE)
+                .short("P")
                 .takes_value(false)
         ])
 }

@@ -17,20 +17,20 @@
 extern crate clap;
 extern crate web3;
 
-use clap::ArgMatches;
-use clap::{App, Arg, SubCommand};
-use contract_func::contract::functions::add_app;
-use contract_func::ContractCaller;
-use credentials::Credentials;
-use ethkey::Secret;
-use reqwest::Client;
 use std::boxed::Box;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
-use std::str::FromStr;
-use utils;
+
+use clap::{App, Arg, SubCommand};
+use clap::ArgMatches;
+use reqwest::Client;
 use web3::types::{Address, H256};
+
+use contract_func::contract::functions::add_app;
+use contract_func::ContractCaller;
+use credentials::Credentials;
+use utils;
 
 const PATH: &str = "path";
 const ACCOUNT: &str = "account";
@@ -41,6 +41,7 @@ const CLUSTER_SIZE: &str = "cluster_size";
 const SWARM_URL: &str = "swarm_url";
 const SECRET_KEY: &str = "secret_key";
 const GAS: &str = "gas";
+const PINNED: &str = "pinned_nodes";
 
 #[derive(Debug)]
 pub struct Publisher {
@@ -126,9 +127,22 @@ impl Publisher {
     }
 }
 
+//fn validate_args(matches: &ArgMatches) -> Result<SomeDTO, AppError> {
+//    let wasm = matches.value_of(WASM_PATH).unwrap().to_string();
+//    let mut wasm = File::open(wasm).map_err(|e| format!("can't open WASM file: {}", e))?;
+//    ...
+//
+//    let archive = matches.value_of(ARCHIVE_PATH).unwrap().to_string();
+//    let mut archive = File::open(archive).map_err(|e| format!("can't open archive file, check if it exists: {}", e))?;
+//    ...
+//}
+
 /// Creates `Publisher` from arguments
 pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
     let path = matches.value_of(PATH).unwrap().to_string(); //TODO use is_file from clap_validators
+    let mut file = File::open(path).map_err(|e| format!("can't open WASM file: {}", e))?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf)?;
 
     let contract_address: Address = utils::parse_hex_opt(matches, CONTRACT_ADDRESS)?.parse()?;
 
@@ -137,19 +151,16 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
     let swarm_url = matches.value_of(SWARM_URL).unwrap().to_string();
     let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
-    let secret_key = utils::parse_secret_key(matches, SECRET_KEY);
+    let secret_key = utils::parse_secret_key(matches, SECRET_KEY)?;
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
     let credentials = Credentials::get(secret_key, password);
 
-    let cluster_size = value_t!(matches, CLUSTER_SIZE, u8);
-
-    let mut file = File::open(path)?;
-
-    let mut buf = Vec::new();
-    file.read_to_end(&mut buf)?;
+    let cluster_size = value_t!(matches, CLUSTER_SIZE, u8)?;
 
     let gas: u32 = matches.value_of(GAS).unwrap().parse()?;
+
+    let pin_to_nodes = values_t!(matches, PINNED, String)?;
 
     Ok(Publisher::new(
         buf.to_owned(),
@@ -233,6 +244,12 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .takes_value(true)
                 .default_value("1000000")
                 .help("maximum gas to spend"),
+            Arg::with_name(PINNED)
+                .long(PINNED)
+                .short("P")
+                .required(false)
+                .takes_value(true)
+                .multiple(true)
         ])
 }
 
@@ -254,13 +271,15 @@ fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Box<Error>> {
 
 #[cfg(test)]
 mod tests {
-    use credentials::Credentials;
-    use ethkey::Secret;
-    use publisher::Publisher;
     use std::error::Error;
+
+    use ethkey::Secret;
     use web3;
     use web3::futures::Future;
     use web3::types::*;
+
+    use credentials::Credentials;
+    use publisher::Publisher;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
