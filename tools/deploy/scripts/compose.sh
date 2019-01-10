@@ -7,7 +7,9 @@ set -e
 if [ -z "$PROD" ]
 then
     export NAME='node1'
+    # 10 solvers possible
     export PORTS='25000:25010'
+    # an account in `dev` mode Parity with eth
     export OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
     export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
     export PARITY_ARGS='--config dev --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
@@ -46,9 +48,8 @@ then
     sleep 1
 fi
 
-echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
-
 # check all variables exists
+echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
 echo "NAME="$NAME
 echo "PORTS="$PORTS
 echo "HOST_IP="$HOST_IP
@@ -60,6 +61,7 @@ MIN_PORT=${PORTS%:*}
 MAX_PORT=${PORTS#*:}
 export STATUS_PORT=$((MAX_PORT+400))
 
+# port for status API
 echo "STATUS_PORT="$STATUS_PORT
 
 # starting node container
