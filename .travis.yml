@@ -32,20 +32,19 @@ matrix:
     - <<: *_fluence_test_template
       name: Fluence
       script:
-        - $HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -jvm-opts travis/jvmopts.compile compile
-        - $HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -jvm-opts travis/jvmopts.test test
+        - "$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -jvm-opts travis/jvmopts.compile compile"
+        - "$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -jvm-opts travis/jvmopts.test test"
 
     - <<: *_fluence_test_template
       name: Fluence integration tests
-
       script:
-        - $HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile
+        - "$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile"
         # Some tests in LlamadbIntegrationTest require 2 Gb RAM
-        - $HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test
+        - "$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test"
 
       on:
         # These tests take a lot of time and runs only while PR
-        condition: $TRAVIS_PULL_REQUEST == true
+        condition: "$TRAVIS_PULL_REQUEST == true"
 
     - name: smart contract
       language: node_js
