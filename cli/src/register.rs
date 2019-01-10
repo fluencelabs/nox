@@ -59,6 +59,7 @@ pub struct Register {
     credentials: Credentials,
     wait_syncing: bool,
     gas: u32,
+    private: bool
 }
 
 impl Register {
@@ -74,6 +75,7 @@ impl Register {
         credentials: Credentials,
         wait_syncing: bool,
         gas: u32,
+        private: bool
     ) -> Result<Register, Box<Error>> {
         if max_port < min_port {
             let err: Box<Error> = From::from("max_port should be bigger than min_port".to_string());
@@ -91,6 +93,7 @@ impl Register {
             credentials,
             wait_syncing,
             gas,
+            private
         })
     }
 
@@ -150,7 +153,7 @@ impl Register {
                 hash_addr,
                 u64::from(self.min_port),
                 u64::from(self.max_port),
-                false,
+                self.private,
             );
 
             contract.call_contract(self.account, &self.credentials, call_data, self.gas)
@@ -181,37 +184,13 @@ impl Register {
 }
 
 pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
-    let node_address: IpAddr = matches.value_of(ADDRESS).unwrap().parse()?;
+    fn parse_hex_arg<'a>(matches: &ArgMatches, key: &'a str) -> Result<String, Box<Error>> {
+        Ok(value_t!(matches, key, String)?.trim_start_matches("0x").to_string())
+    }
 
-    let tendermint_key = matches
-        .value_of(TENDERMINT_KEY)
-        .unwrap()
-        .trim_start_matches("0x")
-        .to_owned();
+    let node_address: IpAddr = value_t!(matches, ADDRESS, IpAddr)?;
 
-    let min_port: u16 = matches.value_of(MIN_PORT).unwrap().parse()?;
-    let max_port: u16 = matches.value_of(MAX_PORT).unwrap().parse()?;
-
-    let contract_address = matches
-        .value_of(CONTRACT_ADDRESS)
-        .unwrap()
-        .trim_start_matches("0x");
-    let contract_address: Address = contract_address.parse()?;
-
-    let account = matches.value_of(ACCOUNT).unwrap().trim_start_matches("0x");
-    let account: Address = account.parse()?;
-
-    let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
-
-    let secret_key = matches
-        .value_of(SECRET_KEY)
-        .map(|s| Secret::from_str(s.trim_start_matches("0x")).unwrap());
-    let password = matches.value_of(PASSWORD).map(|s| s.to_string());
-
-    let credentials = Credentials::get(secret_key, password);
-
-    let wait_syncing = matches.is_present(WAIT_SYNCING);
-
+    let tendermint_key = parse_hex_arg(matches, TENDERMINT_KEY)?.to_owned();
     let tendermint_key = if matches.is_present(BASE64_TENDERMINT_KEY) {
         let arr = decode(&tendermint_key)?;
         hex::encode(arr)
@@ -219,9 +198,31 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         tendermint_key
     };
 
-    let tendermint_key: H256 = tendermint_key.parse()?;
+    let tendermint_key: H256 = tendermint_key.parse().map_err(|e| format!("error parsing tendermint key: {}", e))?;
 
-    let gas: u32 = matches.value_of(GAS).unwrap().parse()?;
+    let min_port = value_t!(matches, MIN_PORT, u16)?;
+    let max_port = value_t!(matches, MAX_PORT, u16)?;
+
+    let contract_address: Address = parse_hex_arg(matches, CONTRACT_ADDRESS)?.parse()?;
+
+    let account: Address = parse_hex_arg(matches, ACCOUNT)?.parse()?;
+
+    let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
+
+    let secret_key = matches
+        .value_of(SECRET_KEY)
+        .map(|s| s.trim_start_matches("0x").parse::<Secret>())
+        .map_or(Ok(None), |r| r.map(Some))?; // Option<Result> -> Result<Option>
+
+    let password = matches.value_of(PASSWORD).map(|s| s.to_string());
+
+    let credentials = Credentials::get(secret_key, password);
+
+    let wait_syncing = matches.is_present(WAIT_SYNCING);
+
+    let gas = value_t!(matches, GAS, u32);
+
+    let private: bool = matches.is_present(PRIVATE);
 
     Register::new(
         node_address,
@@ -234,6 +235,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         credentials,
         wait_syncing,
         gas,
+        private
     )
 }
 
@@ -310,7 +312,6 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .alias(GAS)
                 .long(GAS)
                 .short("g")
-                .required(false)
                 .takes_value(true)
                 .default_value("1000000")
                 .help("maximum gas to spend"),
@@ -353,6 +354,7 @@ mod tests {
             credentials,
             false,
             1_000_000,
+            false
         )
         .unwrap()
     }

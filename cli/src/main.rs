@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[macro_use]
 extern crate clap;
 extern crate console;
 extern crate ethabi;
@@ -90,12 +91,12 @@ fn main() {
         }
 
         ("register", Some(args)) => {
-            let register = register::parse(args).unwrap();
+            let register = register::parse(args).expect("Error parsing arguments");
 
-            let transaction = register.register(true);
+            let transaction = register.register(true).expect("Error sending transaction");
 
             let formatted_finish_msg = style("Node registered. Submitted transaction").blue();
-            let formatted_tx = style(transaction.unwrap()).red().bold();
+            let formatted_tx = style(transaction).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);
         }
