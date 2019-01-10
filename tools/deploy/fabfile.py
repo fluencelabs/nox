@@ -7,8 +7,7 @@ from fabric.api import *
 info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>'},
         '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>'}}
 
-# change this if you want to deploy on another hosts
-# TO USE: replace values inside <> with your actual values
+# Fluence will be deployed on all hosts from `info`
 env.hosts = info.keys()
 
 # Set the username
