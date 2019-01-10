@@ -63,7 +63,7 @@ lazy val statemachine = (project in file("statemachine"))
       prometheusClientJetty,
       prometheusClientServlet,
       // Despite tmVersion is updated to 0.25.0, jtendermint:0.24.0 is the latest available and compatible with it.
-      "com.github.jtendermint" % "jabci"          % "0.24.0",
+      "com.github.jtendermint" % "jabci"          % "0.26.0",
       "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
       scalaTest
@@ -86,7 +86,7 @@ lazy val statemachine = (project in file("statemachine"))
       val artifactTargetPath = s"/${artifact.name}"
 
       // Tendermint constants
-      val tmVersion = "0.25.0"
+      val tmVersion = "0.27.4"
       val tmDataRoot = "/tendermint"
       val tmBinaryArchive = s"tendermint_${tmVersion}_linux_amd64.zip"
       val tmBinaryUrl = s"https://github.com/tendermint/tendermint/releases/download/v$tmVersion/$tmBinaryArchive"
@@ -190,11 +190,12 @@ lazy val node = project
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
-    test in Test := {
-      docker.value
-      (docker in statemachine).value
-      (test in Test).value
-    },
+    test in Test :=
+      (test in Test)
+        .dependsOn(docker)
+        .dependsOn(docker in statemachine)
+        .value
+    ,
     mainClass in assembly := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly := "master-node.jar",
     test in assembly := {},
