@@ -18,7 +18,7 @@
 import {Network} from "../types/web3-contracts/Network";
 
 /**
- * A code is a WASM file. It can be deployed on a real-time cluster and run.
+ * An app is a WASM file. It can be deployed on a real-time cluster and run.
  * In Fluence contract it represents as a Swarm address to the WASM file
  * and a requirement of how many nodes will be in the cluster.
  */
@@ -26,7 +26,8 @@ export interface App {
     app_address: string,
     storage_receipt: string,
     cluster_size: number,
-    developer: string
+    developer: string,
+    pinToNodes: string[]
 }
 
 /**
@@ -36,15 +37,14 @@ export async function getEnqueuedApps(contract: Network): Promise<App[]> {
 
     let unparsedCodes = await contract.methods.getEnqueuedApps().call();
 
-    console.log(JSON.stringify(unparsedCodes));
-
-
     let storageHashes = unparsedCodes["0"];
     let storageReceipts = unparsedCodes["1"];
     let clusterSizes = unparsedCodes["2"];
     let developers = unparsedCodes["3"];
+    let numberOfPinned: number[] = unparsedCodes["4"].map((n) => {return parseInt(n);});
+    let allPinned: string[] = unparsedCodes["5"];
 
-    return parseCodes(storageHashes, storageReceipts, clusterSizes, developers);
+    return parseCodes(storageHashes, storageReceipts, clusterSizes, developers, numberOfPinned, allPinned);
 }
 
 /**
@@ -53,17 +53,30 @@ export async function getEnqueuedApps(contract: Network): Promise<App[]> {
 export function parseCodes(appAddresses: string[],
                     storageReceipts: string[],
                     clusterSizes: string[],
-                    developers: string[]): App[] {
-    let codes: App[] = [];
+                    developers: string[],
+                    numberOfPinned: number[],
+                    allPinned: string[]): App[] {
+    let apps: App[] = [];
+
+    let count = 0;
 
     appAddresses.forEach((address, index) => {
-        let code: App = {
+
+        let pinned: string[] = [];
+
+        for(var i = 0; i < numberOfPinned[index]; i++){
+            pinned.push(allPinned[count]);
+            count++;
+        }
+
+        let app: App = {
             app_address: address,
             storage_receipt: storageReceipts[index],
             cluster_size: parseInt(clusterSizes[index]),
-            developer: developers[index]
+            developer: developers[index],
+            pinToNodes: pinned
         };
-        codes.push(code);
+        apps.push(app);
     });
-    return codes;
+    return apps;
 }

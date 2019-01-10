@@ -51,18 +51,11 @@ export async function getStatus(contractAddress: string): Promise<Status> {
 
     let contract: Network = new web3js.eth.Contract(abi, contractAddress) as Network;
 
-    console.log("b");
-
     let contractStatus = await getContractStatus(contract);
-
-    console.log("a");
-
-    console.log(JSON.stringify(contractStatus));
 
     let responses = contractStatus.nodes.map((node) => {
         // todo: `+400` is a temporary solution, fix it after implementing correct port management
-        // let url = `http://${node.ip_addr}:${node.start_port + 400}/status`;
-        let url = `http://localhost:5678/status`;
+        let url = `http://${node.ip_addr}:${node.last_port + 400}/status`;
         return axios.get(url).then((res) => {
             res.data.status = "ok";
             return <NodeStatus>res.data;

@@ -21,7 +21,7 @@ import {decodeNodeAddress} from "./nodeAddress";
 /**
  * Represents Fluence node registered in ethereum contract.
  * The node listens to contract events and runs real-time nodes.
- * The purpose of real-time nodes is to host developer's [`App`], e.g., backend code.
+ * The purpose of real-time nodes is to host developer's [`App`], e.g., backend app.
  */
 export interface Node {
     id: string,
@@ -39,19 +39,13 @@ export interface Node {
  */
 export async function getNodes(contract: Network): Promise<Node[]> {
 
-
-
     let allIds = await contract.methods.getIds().call();
-
 
     let nodeIds: string[] = allIds["0"];
     let clusterIds = allIds["1"];
 
-    console.log("nodeids: " + nodeIds);
-
     let nodeCalls: Promise<Node>[] = nodeIds.map((id, _) => {
         return contract.methods.getNode(id).call().then((res) => {
-            console.log(res);
             let addr = decodeNodeAddress(res["0"]);
             return {
                 id: id,

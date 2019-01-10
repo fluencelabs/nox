@@ -104,28 +104,43 @@ contract Network is Deployer {
 
     /** @dev Gets codes which not yet deployed anywhere
      * return (codes' Swarm hashes, receipts, clusters' sizes, developers' addresses)
-     * TODO as there's no app ids, we can't retrieve additional info about an app, like pin_to_nodes
      */
     function getEnqueuedApps()
         external
         view
-    returns(bytes32[], bytes32[], uint8[], address[])
+    returns(bytes32[], bytes32[], uint8[], address[], uint256[], bytes32[])
     {
         bytes32[] memory storageHashes = new bytes32[](enqueuedApps.length);
         bytes32[] memory storageReceipts = new bytes32[](enqueuedApps.length);
         uint8[] memory clusterSizes = new uint8[](enqueuedApps.length);
         address[] memory owners = new address[](enqueuedApps.length);
+        uint256[] memory numberOfPinnedNodes = new uint256[](enqueuedApps.length);
 
+        uint256 count = 0;
         for (uint i = 0; i < enqueuedApps.length; i++) {
+            count = count + app.pinToNodes.length;
+        }
+
+        bytes32[] memory allPinToNodes = new bytes32[](count);
+
+        count = 0;
+
+        for (i = 0; i < enqueuedApps.length; i++) {
             App memory app = enqueuedApps[i];
 
             storageHashes[i] = app.storageHash;
             storageReceipts[i] = app.storageReceipt;
             clusterSizes[i] = app.clusterSize;
             owners[i] = app.owner;
+            numberOfPinnedNodes[i] = app.pinToNodes.length;
+
+            for (uint j = 0; j < app.pinToNodes.length; j++) {
+                allPinToNodes[count] = app.pinToNodes[j];
+                count = count + 1;
+            }
         }
 
-        return (storageHashes, storageReceipts, clusterSizes, owners);
+        return (storageHashes, storageReceipts, clusterSizes, owners, numberOfPinnedNodes, allPinToNodes);
     }
 
     /** @dev Gets nodes and clusters IDs

@@ -267,12 +267,14 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .help("fluence contract address"),
             Arg::with_name(MIN_PORT)
                 .alias(MIN_PORT)
+                .long(MIN_PORT)
                 .default_value("20096")
                 .takes_value(true)
                 .help("minimum port in the port range"),
             Arg::with_name(MAX_PORT)
                 .alias(MAX_PORT)
                 .default_value("20196")
+                .long(MAX_PORT)
                 .takes_value(true)
                 .help("maximum port in the port range"),
             Arg::with_name(ETH_URL)
