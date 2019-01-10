@@ -19,8 +19,9 @@ package fluence.statemachine
 import java.io.File
 
 import cats.{Monad, Traverse}
-import cats.data.EitherT
 import cats.instances.list._
+import cats.syntax.list._
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.concurrent.MVar
 import cats.effect.{ExitCode, IO, IOApp, LiftIO}
 import com.github.jtendermint.jabci.socket.TSocket
@@ -162,7 +163,7 @@ object ServerRunner extends IOApp with LazyLogging {
    *
    * @param moduleFiles module filenames with VM code
    */
-  private def buildVm[F[_]: Monad](moduleFiles: Seq[String]): EitherT[F, StateMachineError, WasmVm] =
+  private def buildVm[F[_]: Monad](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
     WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
 
   /**
@@ -171,7 +172,7 @@ object ServerRunner extends IOApp with LazyLogging {
    * @param path a path to a folder where files should be listed
    * @return a list of files in given directory or provided file if the path to a file has has been given
    */
-  def listFiles(path: String): IO[List[File]] = IO {
+  private def listFiles(path: String): IO[List[File]] = IO {
     val pathName = new File(path)
     pathName match {
       case file if pathName.isFile => file :: Nil
@@ -180,7 +181,7 @@ object ServerRunner extends IOApp with LazyLogging {
   }
 
   /**
-   * Extracts module filenames from config with particular files and directories with files mixed.
+   * Extracts module filenames that have wast or wasm extensions from the module-files section of a given config.
    *
    * @param config config object to load VM setting
    * @return either a sequence of filenames found in directories and among files provided in config
@@ -188,19 +189,30 @@ object ServerRunner extends IOApp with LazyLogging {
    */
   private def moduleFilesFromConfig[F[_]: LiftIO: Monad](
     config: StateMachineConfig
-  ): EitherT[F, StateMachineError, List[String]] =
+  ): EitherT[F, StateMachineError, NonEmptyList[String]] =
     EitherT(
       Traverse[List]
-        .flatTraverse(config.moduleFiles)(listFiles _)
-        .map(
-          _.map(_.getPath)
-            .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
+        .flatTraverse(config.moduleFiles)(
+          listFiles(_)
+            .map(
+              // converts File objects to their path
+              _.map(_.getPath)
+              // filters out non-Wasm files
+                .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
+            )
         )
+        // convert flattened list of file paths to nel (IO[List[String]] => IO[Option[NonEmptyList[String]]])
+        .map(_.toNel)
         .attempt
         .to[F]
     ).leftMap { e =>
       VmModuleLocationError("Error during locating VM module files and directories", Some(e))
-    }
+    }.subflatMap(
+      // EitherT[F, E, Option[NonEmptyList[String]]]] => EitherT[F, E, NonEmptyList[String]]]
+      _.toRight[StateMachineError](
+        VmModuleLocationError("Provided directories don't contain any wasm or wast files")
+      )
+    )
 
   /**
    * Configures `slogging` logger.
