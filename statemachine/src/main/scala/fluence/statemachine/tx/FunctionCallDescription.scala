@@ -30,7 +30,7 @@ import scala.language.higherKinds
  * @param functionName name of the invoked function
  * @param arg argument for the invoked function
  */
-case class FunctionCallDescription(module: Option[String], functionName: String, arg: Array[Byte])
+case class FunctionCallDescription(module: Option[String], arg: Array[Byte])
 
 object FunctionCallDescription {
 

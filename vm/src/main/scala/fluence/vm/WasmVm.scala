@@ -60,7 +60,6 @@ trait WasmVm {
    */
   def invoke[F[_]: LiftIO: Monad](
     module: Option[String],
-    fnName: String,
     fnArgument: Array[Byte] = Array.emptyByteArray
   ): EitherT[F, InvokeError, Option[Array[Byte]]]
 
@@ -117,7 +116,7 @@ object WasmVm {
         }
 
       // Compiling Wasm modules to JVM bytecode and registering derived classes
-      // in the Asmble engine. Every Wasm module compiles to exactly one JVM class
+      // in the Asmble engine. Every Wasm module is compiles to exactly one JVM class
       scriptCxt ← run(
         prepareContext(inFiles, config),
         err ⇒

@@ -50,7 +50,7 @@ class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends
 
     val result = for {
       invocationValue <- vm
-        .invoke(callDescription.module, callDescription.functionName, callDescription.arg)
+        .invoke(callDescription.module, callDescription.arg)
         .bimap(VmOperationInvoker.convertToStateMachineError, _.map(ByteVector(_).toHex(HexUppercase)))
         .value
 

@@ -50,13 +50,12 @@ class AsmbleWasmVm(
   private val functionsIndex: WasmFnIndex,
   private val modules: WasmModules,
   private val hasher: Hasher[Array[Byte], Array[Byte]],
-  private val allocateFunctionName: String,
-  private val deallocateFunctionName: String
+  private val allocateFunctionName: Option[WasmFunction],
+  private val deallocateFunctionName: Option[WasmFunction]
 ) extends WasmVm {
 
   // TODO: now it is assumed that allocation/deallocation functions placed together in the first module.
   // In the future it has to be refactored.
-  // TODO: add handling of empty modules list.
   private val allocateFunction: Option[WasmFunction] =
     functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent(allocateFunctionName)))
 
@@ -65,7 +64,6 @@ class AsmbleWasmVm(
 
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
-    fnName: String,
     fnArgument: Array[Byte]
   ): EitherT[F, InvokeError, Option[Array[Byte]]] = {
     val functionId = FunctionId(moduleName, AsmExtKt.getJavaIdent(fnName))
