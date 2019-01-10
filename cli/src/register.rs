@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-use std::{thread, time};
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
+use std::{thread, time};
 
 use base64::decode;
 use clap::{App, Arg, ArgMatches, SubCommand};
@@ -28,7 +28,7 @@ use web3::types::{Address, H256};
 use contract_func::contract::functions::add_node;
 use contract_func::ContractCaller;
 use credentials::Credentials;
-use types::{IP_LEN, NodeAddress, TENDERMINT_KEY_LEN};
+use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use utils;
 
 const ADDRESS: &str = "address";
@@ -57,7 +57,7 @@ pub struct Register {
     credentials: Credentials,
     wait_syncing: bool,
     gas: u32,
-    private: bool
+    private: bool,
 }
 
 impl Register {
@@ -73,7 +73,7 @@ impl Register {
         credentials: Credentials,
         wait_syncing: bool,
         gas: u32,
-        private: bool
+        private: bool,
     ) -> Result<Register, Box<Error>> {
         if max_port < min_port {
             let err: Box<Error> = From::from("max_port should be bigger than min_port".to_string());
@@ -91,7 +91,7 @@ impl Register {
             credentials,
             wait_syncing,
             gas,
-            private
+            private,
         })
     }
 
@@ -192,7 +192,9 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         tendermint_key
     };
 
-    let tendermint_key: H256 = tendermint_key.parse().map_err(|e| format!("error parsing tendermint key: {}", e))?;
+    let tendermint_key: H256 = tendermint_key
+        .parse()
+        .map_err(|e| format!("error parsing tendermint key: {}", e))?;
 
     let min_port = value_t!(matches, MIN_PORT, u16)?;
     let max_port = value_t!(matches, MAX_PORT, u16)?;
@@ -226,7 +228,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         credentials,
         wait_syncing,
         gas,
-        private
+        private,
     )
 }
 
@@ -311,6 +313,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .long(PRIVATE)
                 .short("P")
                 .takes_value(false)
+                .help("marks node as private, used for pinning apps to nodes"),
         ])
 }
 
@@ -346,7 +349,7 @@ mod tests {
             credentials,
             false,
             1_000_000,
-            false
+            false,
         )
         .unwrap()
     }

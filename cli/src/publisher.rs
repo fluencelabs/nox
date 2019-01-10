@@ -22,8 +22,8 @@ use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 
-use clap::{App, Arg, SubCommand};
 use clap::ArgMatches;
+use clap::{App, Arg, SubCommand};
 use reqwest::Client;
 use web3::types::{Address, H256};
 
@@ -41,7 +41,7 @@ const CLUSTER_SIZE: &str = "cluster_size";
 const SWARM_URL: &str = "swarm_url";
 const SECRET_KEY: &str = "secret_key";
 const GAS: &str = "gas";
-const PINNED: &str = "pinned_nodes";
+const PINNED: &str = "pin_to";
 
 #[derive(Debug)]
 pub struct Publisher {
@@ -53,6 +53,7 @@ pub struct Publisher {
     credentials: Credentials,
     cluster_size: u8,
     gas: u32,
+    pin_to_nodes: Vec<H256>,
 }
 
 impl Publisher {
@@ -66,6 +67,7 @@ impl Publisher {
         credentials: Credentials,
         cluster_size: u8,
         gas: u32,
+        pin_to_nodes: Vec<H256>,
     ) -> Publisher {
         Publisher {
             bytes,
@@ -76,6 +78,7 @@ impl Publisher {
             credentials,
             cluster_size,
             gas,
+            pin_to_nodes,
         }
     }
 
@@ -105,10 +108,8 @@ impl Publisher {
 
             let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
 
-            let pin_to_nodes: Vec<H256> = [].to_vec();
-
             let (call_data, _) =
-                add_app::call(hash, receipt, u64::from(self.cluster_size), pin_to_nodes);
+                add_app::call(hash, receipt, u64::from(self.cluster_size), self.pin_to_nodes.clone());
 
             contract.call_contract(self.account, &self.credentials, call_data, self.gas)
         };
@@ -162,6 +163,17 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 
     let pin_to_nodes = values_t!(matches, PINNED, String)?;
 
+    let pin_to_nodes: Result<Vec<H256>, _> = pin_to_nodes
+        .into_iter()
+        .map(|node_id| node_id.trim_start_matches("0x").parse::<H256>())
+        .collect();
+
+    let pin_to_nodes = pin_to_nodes.map_err(|e| format!("unable to parse {}: {}", PINNED, e))?;
+
+    if pin_to_nodes.len() != cluster_size {
+        return Err(format!("number of pin_to nodes should be less or equal to the desired clusterSize"))
+    }
+
     Ok(Publisher::new(
         buf.to_owned(),
         contract_address,
@@ -171,6 +183,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
         credentials,
         cluster_size,
         gas,
+        pin_to_nodes,
     ))
 }
 
@@ -250,6 +263,8 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(false)
                 .takes_value(true)
                 .multiple(true)
+                .value_name("<key>")
+                .help("Tendermint public keys of pinned workers for application (space-separated list)"),
         ])
 }
 
@@ -297,6 +312,7 @@ mod tests {
             creds,
             5,
             1000000,
+            vec![]
         )
     }
 

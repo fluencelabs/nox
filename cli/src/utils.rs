@@ -17,6 +17,7 @@
 use std::error::Error;
 
 use clap::ArgMatches;
+use ethkey::Secret;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError};
 use web3::contract::Options;
@@ -24,7 +25,6 @@ use web3::futures::Future;
 use web3::transports::Http;
 use web3::types::SyncState;
 use web3::Web3;
-use ethkey::Secret;
 
 /// Creates progress bar in the console until the work is over
 ///
