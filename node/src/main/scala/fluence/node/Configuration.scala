@@ -23,8 +23,8 @@ import fluence.node.eth.{EthereumRPCConfig, FluenceContractConfig}
 import ConfigOps._
 import com.typesafe.config.Config
 import fluence.node.docker.{DockerIO, DockerParams}
+import fluence.node.tendermint.json.ValidatorKey
 import fluence.node.workers.WorkerImage
-import fluence.node.tendermint.ValidatorKey
 import io.circe.parser._
 import pureconfig.generic.auto._
 

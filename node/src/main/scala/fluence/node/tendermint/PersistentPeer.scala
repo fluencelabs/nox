@@ -15,8 +15,6 @@
  */
 
 package fluence.node.tendermint
-import io.circe.Encoder
-import io.circe.generic.semiauto.deriveEncoder
 
 /**
  * Information about a single Tendermint peer
@@ -25,11 +23,6 @@ import io.circe.generic.semiauto.deriveEncoder
  * @param host host
  * @param port port
  */
-case class PersistentPeer(address: String, host: String, port: Short) {
+private[tendermint] case class PersistentPeer(address: String, host: String, port: Short) {
   override def toString: String = s"$address@$host:$port"
-}
-
-object PersistentPeer {
-  implicit val persistentPeerEncoder: Encoder[PersistentPeer] =
-    deriveEncoder[PersistentPeer]
 }
