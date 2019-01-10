@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint
+package fluence.node.tendermint.json
+
 import java.text.SimpleDateFormat
 import java.util.{Base64, Calendar, TimeZone}
 
