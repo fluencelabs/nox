@@ -19,8 +19,8 @@ package fluence.node.config
 import java.net.InetAddress
 
 import fluence.node.eth.{EthereumRPCConfig, FluenceContractConfig}
+import fluence.node.tendermint.json.ValidatorKey
 import fluence.node.workers.WorkerImage
-import fluence.node.tendermint.ValidatorKey
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
