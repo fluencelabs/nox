@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint
+package fluence.node.tendermint.json
+
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 
 /**
- * Information about the cluster without node-specific data.
+ * Cluster's worker (tendermint's validator) information in Tendermint-compatible format.
  *
- * @param genesis genesis in Tendermint format
- * @param persistent_peers p2p peers in Tendermint format
- * @param external_addrs external address used to initialize advertised address in launching scripts
+ * @param pub_key public key
+ * @param power initial voting power
+ * @param name validator name
  */
-case class Cluster(genesis: Genesis, persistent_peers: String, external_addrs: Seq[String])
+case class Validator(pub_key: ValidatorKey, power: String, name: String)
 
-object Cluster {
-  implicit val clusterEncoder: Encoder[Cluster] = deriveEncoder[Cluster]
+object Validator {
+  implicit val validatorEncoder: Encoder[Validator] = deriveEncoder[Validator]
 }

@@ -14,19 +14,23 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint
-import io.circe.Encoder
-import io.circe.generic.semiauto.deriveEncoder
+package fluence.node.tendermint.json
+
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
 
 /**
- * Cluster's worker (tendermint's validator) information in Tendermint-compatible format.
+ * Validator's public key in Tendermint-compatible format.
  *
- * @param pub_key public key
- * @param power initial voting power
- * @param name validator name
+ * @param `type` key type
+ * @param value 32-byte public key in base64 representation
  */
-case class Validator(pub_key: ValidatorKey, power: String, name: String)
+case class ValidatorKey(`type`: String, value: String)
 
-object Validator {
-  implicit val validatorEncoder: Encoder[Validator] = deriveEncoder[Validator]
+object ValidatorKey {
+  implicit val validatorKeyDecoder: Decoder[ValidatorKey] =
+    deriveDecoder[ValidatorKey]
+
+  implicit val validatorKeyEncoder: Encoder[ValidatorKey] = deriveEncoder[ValidatorKey]
+
 }

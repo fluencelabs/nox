@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint
+package fluence.node.tendermint.json
+
 import io.circe.Encoder
 import io.circe.generic.semiauto._
 
