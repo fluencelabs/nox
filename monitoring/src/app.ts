@@ -35,14 +35,14 @@ export interface App {
  */
 export async function getEnqueuedApps(contract: Network): Promise<App[]> {
 
-    let unparsedCodes = await contract.methods.getEnqueuedApps().call();
+    let unparsedApps = await contract.methods.getEnqueuedApps().call();
 
-    let storageHashes = unparsedCodes["0"];
-    let storageReceipts = unparsedCodes["1"];
-    let clusterSizes = unparsedCodes["2"];
-    let developers = unparsedCodes["3"];
-    let numberOfPinned: number[] = unparsedCodes["4"].map((n) => {return parseInt(n);});
-    let allPinned: string[] = unparsedCodes["5"];
+    let storageHashes = unparsedApps["0"];
+    let storageReceipts = unparsedApps["1"];
+    let clusterSizes = unparsedApps["2"];
+    let developers = unparsedApps["3"];
+    let numberOfPinned: number[] = unparsedApps["4"].map((n) => {return parseInt(n);});
+    let allPinned: string[] = unparsedApps["5"];
 
     return parseCodes(storageHashes, storageReceipts, clusterSizes, developers, numberOfPinned, allPinned);
 }
@@ -56,12 +56,9 @@ export function parseCodes(appAddresses: string[],
                     developers: string[],
                     numberOfPinned: number[],
                     allPinned: string[]): App[] {
-    let apps: App[] = [];
-
     let count = 0;
 
-    appAddresses.forEach((address, index) => {
-
+    return appAddresses.map((address, index) => {
         let pinned: string[] = [];
 
         for(var i = 0; i < numberOfPinned[index]; i++){
@@ -69,14 +66,12 @@ export function parseCodes(appAddresses: string[],
             count++;
         }
 
-        let app: App = {
+        return {
             app_address: address,
             storage_receipt: storageReceipts[index],
             cluster_size: parseInt(clusterSizes[index]),
             developer: developers[index],
             pinToNodes: pinned
         };
-        apps.push(app);
     });
-    return apps;
 }

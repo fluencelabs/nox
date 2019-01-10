@@ -39,7 +39,7 @@ export async function getContractStatus(contract: Network): Promise<ContractStat
     let nodeIds = ids["0"];
     let clusterIds = ids["1"];
 
-    let codes: App[] = await getEnqueuedApps(contract);
+    let codes = await getEnqueuedApps(contract);
     let nodes = await getNodes(contract, nodeIds);
     let clusters = await getClusters(contract, clusterIds);
 

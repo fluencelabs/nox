@@ -52,13 +52,13 @@ export async function getClusters(contract: Network, ids: string[]): Promise<Clu
                 pinToNodes: pinToNodes
             };
 
-            let member_ids = res["6"];
-            let member_ports = res["7"];
+            let memberIds = res["6"];
+            let memberPorts = res["7"];
 
-            let cluster_members: ClusterMember[] = member_ids.map((member_id, idx) => {
+            let cluster_members: ClusterMember[] = memberIds.map((member_id, idx) => {
                 return {
                     id: member_id,
-                    port: parseInt(member_ports[idx])
+                    port: parseInt(memberPorts[idx])
                 }
             });
 
