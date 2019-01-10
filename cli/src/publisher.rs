@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-extern crate clap;
-extern crate web3;
-
 use std::boxed::Box;
 use std::error::Error;
 use std::fs::File;
@@ -108,8 +105,12 @@ impl Publisher {
 
             let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
 
-            let (call_data, _) =
-                add_app::call(hash, receipt, u64::from(self.cluster_size), self.pin_to_nodes.clone());
+            let (call_data, _) = add_app::call(
+                hash,
+                receipt,
+                u64::from(self.cluster_size),
+                self.pin_to_nodes.clone(),
+            );
 
             contract.call_contract(self.account, &self.credentials, call_data, self.gas)
         };
@@ -171,7 +172,10 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
     let pin_to_nodes = pin_to_nodes.map_err(|e| format!("unable to parse {}: {}", PINNED, e))?;
 
     if pin_to_nodes.len() != (cluster_size as usize) {
-        return Err(format!("number of pin_to nodes should be less or equal to the desired cluster_size").into());
+        return Err(format!(
+            "number of pin_to nodes should be less or equal to the desired cluster_size"
+        )
+        .into());
     }
 
     Ok(Publisher::new(
@@ -287,6 +291,7 @@ mod tests {
 
     use credentials::Credentials;
     use publisher::Publisher;
+    use web3::types::H256;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
@@ -304,7 +309,7 @@ mod tests {
             creds,
             5,
             1000000,
-            vec![]
+            vec![],
         )
     }
 
@@ -414,5 +419,26 @@ mod tests {
         publisher.publish(false)?;
 
         Ok(())
+    }
+
+    #[test]
+    fn publish_pinned_to_unknown_nodes() -> () {
+        let mut publisher =
+            generate_publisher("64b8f12d14925394ae0119466dff6ff2b021a3e9", Credentials::No);
+        publisher.pin_to_nodes = vec![
+            "0xbcb36bd30c5d9fa7c4e6c21d07be39e1d617ea0547f0c2eeb9f66619c2500000",
+            "0xabdec4300c5d9fa7c4e6c21d07be39e1d617ea0547f0c2eeb9f66619c25aaaaa",
+            "0xada710010c5d9fa7c4e6c21d07be39e1d617ea0547f0c2eeb9f66619c25bbbbb",
+        ]
+        .into_iter()
+        .map(|v| v.into())
+        .collect();
+
+        let result = publisher.publish(false);
+        assert!(result.is_err());
+
+        if let Result::Err(e) = result {
+            assert!(e.to_string().contains("Can pin only to registered nodes"))
+        }
     }
 }

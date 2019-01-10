@@ -52,6 +52,8 @@ extern crate ethabi_contract;
 #[macro_use]
 extern crate ethabi_derive;
 
+//extern crate jsonrpc_core as jsonrpc;
+
 mod check;
 mod contract_func;
 mod contract_status;
