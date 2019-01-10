@@ -35,12 +35,13 @@ matrix:
         - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
         - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
 
-  # These tests take a lot of time and runs only while PR
     - <<: *_fluence_test_template
       name: Fluence integration tests
-      condition: '"$TRAVIS_PULL_REQUEST" == "false"'
 
-      # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
+      # These tests take a lot of time and runs only while PR
+      condition: '"$TRAVIS_PULL_REQUEST" != "false"'
+
+      # Some tests in LlamadbIntegrationTest require 2 Gb RAM
       script:
         - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
         - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
