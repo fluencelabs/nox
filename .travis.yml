@@ -113,7 +113,9 @@ matrix:
       cache: cargo
       sudo: false
       before_install:
-        - rustup component add rustfmt-preview --toolchain nightly-2019-01-08
+        - rustup toolchain list
+        - rustup default nightly-2019-01-08
+        - rustup component add rustfmt
         - cd vm/examples/llamadb
 
       script:
