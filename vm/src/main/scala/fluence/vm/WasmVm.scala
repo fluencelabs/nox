@@ -22,7 +22,7 @@ import asmble.cli.Invoke
 import asmble.cli.ScriptCommand.ScriptArgs
 import asmble.run.jvm.ScriptContext
 import asmble.util.Logger
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.LiftIO
 import cats.{Applicative, Id, Monad}
 import fluence.crypto.Crypto
@@ -100,7 +100,7 @@ object WasmVm {
    * @param cryptoHasher a hash function provider
    */
   def apply[F[_]: Monad](
-    inFiles: Seq[String],
+    inFiles: NonEmptyList[String],
     configNamespace: String = "fluence.vm.client",
     cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
   ): EitherT[F, ApplyError, WasmVm] = {
@@ -143,10 +143,10 @@ object WasmVm {
   /**
    * Returns [[ScriptContext]] - context for uploaded Wasm modules.
    * Compiles Wasm modules to JVM bytecode and registering derived classes
-   * in the Asmble engine. Every Wasm module compiles to exactly one JVM class
+   * in the Asmble engine. Every Wasm module is compiles to exactly one JVM class
    */
   private def prepareContext(
-    inFiles: Seq[String],
+    inFiles: NonEmptyList[String],
     config: VmConfig
   ): ScriptContext = {
     val invoke = new Invoke()
@@ -155,7 +155,7 @@ object WasmVm {
     invoke.setLogger(logger)
     invoke.prepareContext(
       new ScriptArgs(
-        inFiles,
+        inFiles.toList,
         Nil, // registrations
         false, // disableAutoRegister
         config.specTestRegister,

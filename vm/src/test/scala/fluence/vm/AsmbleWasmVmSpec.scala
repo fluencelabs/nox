@@ -19,7 +19,7 @@ package fluence.vm
 import java.nio.{ByteBuffer, ByteOrder}
 
 import cats.Monad
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.IO
 import fluence.crypto.{Crypto, CryptoError, DumbCrypto}
 import fluence.vm.TestUtils._
@@ -56,7 +56,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val sumTestFile = getClass.getResource("/wast/sum.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](Seq(sumTestFile))
+          vm <- WasmVm[IO](NonEmptyList.one(sumTestFile))
           result ← vm.invoke[IO](None, "wrongFnName").toVmError
         } yield result
         val error = res.failed()
@@ -67,7 +67,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       "wasm code fell into the trap" in {
         val sumTestFile = getClass.getResource("/wast/sum-with-trap.wast").getPath
         val res = for {
-          vm <- WasmVm[IO](Seq(sumTestFile))
+          vm <- WasmVm[IO](NonEmptyList.one(sumTestFile))
           result ← vm.invoke[IO](None, "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError // Integer overflow
         } yield result
         val error = res.failed()
@@ -80,7 +80,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val noGetMemoryTestFile = getClass.getResource("/wast/no-getMemory.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](Seq(noGetMemoryTestFile))
+          vm <- WasmVm[IO](NonEmptyList.one(noGetMemoryTestFile))
           result <- vm.invoke[IO](None, "test", "test".getBytes())
           state ← vm.getVmState[IO].toVmError
         } yield state
@@ -94,7 +94,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val badAllocationFunctionFile = getClass.getResource("/wast/bad-allocation-function.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](Seq(badAllocationFunctionFile))
+          vm <- WasmVm[IO](NonEmptyList.one(badAllocationFunctionFile))
           result <- vm.invoke[IO](None, "test", "test".getBytes())
           state ← vm.getVmState[IO].toVmError
         } yield state
@@ -109,7 +109,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](Seq(simpleArrayPassingTestFile))
+          vm <- WasmVm[IO](NonEmptyList.one(simpleArrayPassingTestFile))
           result ← vm.invoke[IO](None, "incorrectLengthResult").toVmError
         } yield result
 
@@ -126,7 +126,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val sumTestFile = getClass.getResource("/wast/sum.wast").getPath
 
       val res = for {
-        vm <- WasmVm[IO](Seq(sumTestFile))
+        vm <- WasmVm[IO](NonEmptyList.one(sumTestFile))
         result ← vm.invoke[IO](Some("SumModule"), "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError
       } yield {
         result should not be None
@@ -141,7 +141,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val mulTestFile = getClass.getResource("/wast/mul.wast").getPath
 
       val res = for {
-        vm <- WasmVm[IO](Seq(mulTestFile, sumTestFile))
+        vm <- WasmVm[IO](NonEmptyList.of(mulTestFile, sumTestFile))
         mulResult ← vm.invoke[IO](Some("MulModule"), "mul", intsToBytes(100 :: 13 :: Nil).array())
         sumResult ← vm.invoke[IO](Some("SumModule"), "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError
       } yield {
@@ -159,7 +159,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
 
       val res = for {
-        vm <- WasmVm[IO](Seq(counterTestFile))
+        vm <- WasmVm[IO](NonEmptyList.one(counterTestFile))
         get0 ← vm.invoke[IO](None, "get") // read 0
         _ ← vm.invoke[IO](None, "inc") // 0 -> 1
         get1 ← vm.invoke[IO](None, "get") // read 1
@@ -183,7 +183,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val simpleStringPassingTestFile = getClass.getResource("/wast/simple-string-passing.wast").getPath
 
       val res = for {
-        vm ← WasmVm[IO](Seq(simpleStringPassingTestFile))
+        vm ← WasmVm[IO](NonEmptyList.one(simpleStringPassingTestFile))
         value1 ← vm.invoke[IO](None, "circular_xor", "test_argument".getBytes())
         value2 ← vm.invoke[IO](None, "circular_xor", "XX".getBytes())
         value3 ← vm.invoke[IO](None, "circular_xor", "XXX".getBytes())
@@ -210,7 +210,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
 
       val res = for {
-        vm ← WasmVm[IO](Seq(simpleArrayPassingTestFile))
+        vm ← WasmVm[IO](NonEmptyList.one(simpleArrayPassingTestFile))
         value1 ← vm.invoke[IO](None, "hello")
         state ← vm.getVmState[IO].toVmError
       } yield {
@@ -227,7 +227,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val simpleArrayMutationTestFile = getClass.getResource("/wast/simple-array-mutation.wast").getPath
 
       val res = for {
-        vm ← WasmVm[IO](Seq(simpleArrayMutationTestFile))
+        vm ← WasmVm[IO](NonEmptyList.one(simpleArrayMutationTestFile))
         value1 ← vm.invoke[IO](None, "mutateArray", "AAAAAAA".getBytes())
         state ← vm.getVmState[IO].toVmError
       } yield {
@@ -251,7 +251,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
             EitherT.leftT(CryptoError("error!"))
         }
         val res = for {
-          vm <- WasmVm[IO](Seq(counterTestFile), cryptoHasher = badHasher)
+          vm <- WasmVm[IO](NonEmptyList.one(counterTestFile), cryptoHasher = badHasher)
           state ← vm.getVmState[IO].toVmError
         } yield state
 
@@ -270,7 +270,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val sumTestFile = getClass.getResource("/wast/no-getMemory.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](Seq(sumTestFile), cryptoHasher = testHasher)
+          vm <- WasmVm[IO](NonEmptyList.one(sumTestFile), cryptoHasher = testHasher)
           state ← vm.getVmState[IO].toVmError
         } yield {
           state.toArray shouldBe testHasher.unsafe(Array.emptyByteArray)
@@ -284,7 +284,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](Seq(counterTestFile))
+          vm <- WasmVm[IO](NonEmptyList.one(counterTestFile))
           _ ← vm.invoke[IO](None, "inc") // 0 -> 1
           get1 ← vm.invoke[IO](None, "get") // read 1
           state1 ← vm.getVmState[IO]
@@ -315,7 +315,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val mulTestFile = getClass.getResource("/wast/mul.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](Seq(counterTestFile, counterCopyTestFile, mulTestFile))
+          vm <- WasmVm[IO](NonEmptyList.of(counterTestFile, counterCopyTestFile, mulTestFile))
 
           _ ← vm.invoke[IO](None, "inc") // 0 -> 1
           get1 ← vm.invoke[IO](None, "get") // read 1
