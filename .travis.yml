@@ -38,12 +38,12 @@ matrix:
         <<: *_fluence_test_template
         name: Fluence
 
-  # These tests take a lot of time and runs only while PR
+    # These tests take a lot of time and runs only while PR
     - <<: *_fluence_test_template
       on:
         <<: *_fluence_test_template
         name: Fluence integration tests
-        condition: "$TRAVIS_PULL_REQUEST != false"
+        condition: "'$TRAVIS_PULL_REQUEST' != 'false'"
 
         # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
         script:
@@ -67,7 +67,7 @@ matrix:
         - "6"
         - "7"
         - "8"
-        cache: npm
+      cache: npm
       before_install: cd js-client
       before_script: npm install
       script: npm test
