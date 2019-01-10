@@ -36,12 +36,12 @@ import scala.util.Try
 /**
  * Wasm Module instance wrapper.
  *
- * @param name optional module name
+ * @param name module name (can be empty)
  * @param instance wrapped instance of module
  * @param memory memory of this module
  */
 case class ModuleInstance(
-  name: Option[String],
+  name: String,
   instance: Any,
   private[vm] val memory: Option[ByteBuffer]
 ) {

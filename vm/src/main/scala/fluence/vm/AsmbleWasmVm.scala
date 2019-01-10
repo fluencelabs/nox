@@ -19,7 +19,7 @@ import java.lang.reflect.Method
 import java.nio.ByteOrder
 
 import asmble.compile.jvm.AsmExtKt
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{IO, LiftIO}
 import cats.{Functor, Monad}
 import fluence.crypto.Crypto.Hasher
@@ -47,7 +47,7 @@ import scala.util.Try
  *                               that was previously allocated by allocateFunction
  */
 class AsmbleWasmVm(
-  private val modules: WasmModules,
+  private val modules: NonEmptyList[ModuleInstance],
   private val hasher: Hasher[Array[Byte], Array[Byte]],
 ) extends WasmVm {
 
@@ -228,18 +228,5 @@ class AsmbleWasmVm(
         }: EitherT[F, InvokeError, Array[Byte]]
 
     } yield readResult
-
-}
-
-object AsmbleWasmVm {
-
-  type WasmModules = List[ModuleInstance]
-  type WasmFnIndex = Map[FunctionId, WasmFunction]
-
-  /** Function id contains two components: optional module name and function name. */
-  case class FunctionId(moduleName: Option[String], functionName: String) {
-    override def toString =
-      s"'${ModuleInstance.nameAsStr(moduleName)}.$functionName'"
-  }
 
 }
