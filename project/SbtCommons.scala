@@ -35,19 +35,20 @@ object SbtCommons {
 
   def rustVmExample(exampleName: String) = Seq(
     publishArtifact := false,
-    test := (test in Test).dependsOn(compile).value,
-    compile := (compile in Compile).dependsOn(Def.task {
+    test            := (test in Test).dependsOn(compile).value,
+    compile := (compile in Compile)
+      .dependsOn(Def.task {
         val log = streams.value.log
         log.info(s"Compiling $exampleName.rs to $exampleName.wasm")
 
         val projectRoot = file("").getAbsolutePath
         val exampleFolder = s"$projectRoot/vm/examples/$exampleName"
-        val compileCmd = s"cargo +nightly build --manifest-path $exampleFolder/Cargo.toml " +
+        val compileCmd = s"cargo +nightly-2019-01-08 build --manifest-path $exampleFolder/Cargo.toml " +
           s"--target wasm32-unknown-unknown --release"
 
         assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
-      }
-    ).value
+      })
+      .value
   )
 
   /* Common deps */
@@ -95,7 +96,7 @@ object SbtCommons {
 
   /* Test deps*/
 
-  val scalaTest = "org.scalatest" %% "scalatest"   % "3.0.5"            % Test
-  val scalaIntegrationTest = "org.scalatest" %% "scalatest"   % "3.0.5" % IntegrationTest
-  val mockito = "org.mockito"     % "mockito-core" % "2.21.0"           % Test
+  val scalaTest = "org.scalatest"            %% "scalatest"   % "3.0.5"  % Test
+  val scalaIntegrationTest = "org.scalatest" %% "scalatest"   % "3.0.5"  % IntegrationTest
+  val mockito = "org.mockito"                % "mockito-core" % "2.21.0" % Test
 }
