@@ -2,6 +2,8 @@
 
 set -e
 
+# `PROD` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
+#  the network will be started in development mode locally
 if [ -z "$PROD" ]
 then
     export NAME='node1'
