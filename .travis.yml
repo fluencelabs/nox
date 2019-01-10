@@ -10,9 +10,9 @@ matrix:
 
       before_install:
         - curl https://sh.rustup.rs -sSf | sh -s -- -y
-        - ~/.cargo/bin/rustup toolchain install nightly
+        - ~/.cargo/bin/rustup toolchain install nightly-2019-01-09
         - ~/.cargo/bin/rustup update
-        - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
+        - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-09
 
       script:
         - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
@@ -45,9 +45,9 @@ matrix:
 
       before_install:
         - curl https://sh.rustup.rs -sSf | sh -s -- -y
-        - ~/.cargo/bin/rustup toolchain install nightly
+        - ~/.cargo/bin/rustup toolchain install nightly-2019-01-09
         - ~/.cargo/bin/rustup update
-        - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
+        - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-09
 
       # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
       script:
@@ -92,13 +92,13 @@ matrix:
     - name: rust App SDK
       language: rust
       # todo enable 'stable' and 'beta' when `allocator_api` will become stable
-      rust: nightly
+      rust: nightly-2019-01-09
       cache:
         - cargo
         - npm
 
       before_install:
-        - rustup component add rustfmt --toolchain nightly
+        - rustup component add rustfmt --toolchain nightly-2019-01-09
         - cd sdk/rust
 
       script:
@@ -109,11 +109,11 @@ matrix:
 
     - name: llamaDb VM App
       language: rust
-      rust: nightly
+      rust: nightly-2019-01-09
       cache: cargo
       sudo: false
       before_install:
-        - rustup component add rustfmt-preview --toolchain nightly
+        - rustup component add rustfmt-preview --toolchain nightly-2019-01-09
         - cd vm/examples/llamadb
 
       script:
