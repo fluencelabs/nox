@@ -34,9 +34,14 @@ export interface ContractStatus {
  * @param contract Fluence contract API
  */
 export async function getContractStatus(contract: Network): Promise<ContractStatus> {
+
+    let ids = await contract.methods.getIds().call();
+    let nodeIds = ids["0"];
+    let clusterIds = ids["1"];
+
     let codes: App[] = await getEnqueuedApps(contract);
-    let nodes = await getNodes(contract);
-    let clusters = await getClusters(contract);
+    let nodes = await getNodes(contract, nodeIds);
+    let clusters = await getClusters(contract, clusterIds);
 
     return {
         clusters: clusters,

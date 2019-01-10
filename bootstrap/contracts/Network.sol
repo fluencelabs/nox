@@ -103,7 +103,7 @@ contract Network is Deployer {
 
 
     /** @dev Gets codes which not yet deployed anywhere
-     * return (codes' Swarm hashes, receipts, clusters' sizes, developers' addresses)
+     * return (codes' Swarm hashes, receipts, clusters' sizes, developers' addresses, number of pinned nodes, all pinned nodes)
      */
     function getEnqueuedApps()
         external
@@ -116,6 +116,7 @@ contract Network is Deployer {
         address[] memory owners = new address[](enqueuedApps.length);
         uint256[] memory numberOfPinnedNodes = new uint256[](enqueuedApps.length);
 
+        // count all pinned nodes to create an array for them
         uint256 count = 0;
         for (uint i = 0; i < enqueuedApps.length; i++) {
             count = count + app.pinToNodes.length;
@@ -123,6 +124,7 @@ contract Network is Deployer {
 
         bytes32[] memory allPinToNodes = new bytes32[](count);
 
+        // reuse variable to iterate over all pinned nodes
         count = 0;
 
         for (i = 0; i < enqueuedApps.length; i++) {

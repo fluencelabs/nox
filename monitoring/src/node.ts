@@ -37,25 +37,25 @@ export interface Node {
 /**
  * Gets list of ready-to-work nodes from Fluence contract
  */
-export async function getNodes(contract: Network): Promise<Node[]> {
-
-    let allIds = await contract.methods.getIds().call();
-
-    let nodeIds: string[] = allIds["0"];
-    let clusterIds = allIds["1"];
-
-    let nodeCalls: Promise<Node>[] = nodeIds.map((id, _) => {
+export async function getNodes(contract: Network, ids: string[]): Promise<Node[]> {
+    let nodeCalls: Promise<Node>[] = ids.map((id) => {
         return contract.methods.getNode(id).call().then((res) => {
             let addr = decodeNodeAddress(res["0"]);
+            let nextPort = parseInt(res["1"]);
+            let lastPort = parseInt(res["2"]);
+            let owner = res["3"];
+            let isPrivate = res["4"];
+            let clusterIds = res["5"];
+
             return {
                 id: id,
                 tendermint_key: addr.tendermint_key,
                 ip_addr: addr.ip_addr,
-                next_port: parseInt(res["1"]),
-                last_port: parseInt(res["2"]),
-                owner: res["3"],
-                is_private: res["4"],
-                clusters_ids: res["5"]
+                next_port: nextPort,
+                last_port: lastPort,
+                owner: owner,
+                is_private: isPrivate,
+                clusters_ids: clusterIds
             };
         });
     });

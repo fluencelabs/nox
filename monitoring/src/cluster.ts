@@ -16,8 +16,7 @@
  */
 
 import {Network} from "../types/web3-contracts/Network";
-import {decodeNodeAddress} from "./nodeAddress";
-import {App, parseCodes} from "./app";
+import {App} from "./app";
 
 export interface ClusterMember {
     id: string,
@@ -34,33 +33,40 @@ export interface Cluster {
 /**
  * Gets list of formed clusters from Fluence contract
  */
-export async function getClusters(contract: Network): Promise<Cluster[]> {
+export async function getClusters(contract: Network, ids: string[]): Promise<Cluster[]> {
 
-    let allIds = await contract.methods.getIds().call();
-
-    let clusterIds = allIds["1"];
-
-    let clusterCalls: Promise<Cluster>[] = clusterIds.map((id, _) => {
+    let clusterCalls: Promise<Cluster>[] = ids.map((id) => {
         return contract.methods.getCluster(id).call().then((res) => {
-            let addr = decodeNodeAddress(res["0"]);
+
+            let appAddress = res["0"];
+            let storageReceipt = res["1"];
+            let clusterSize = parseInt(res["2"]);
+            let developer = res["3"];
+            let pinToNodes = res["4"];
+
             let app: App = {
-                app_address: res["0"],
-                storage_receipt: res["1"],
-                cluster_size: parseInt(res["2"]),
-                developer: res["3"],
-                pinToNodes: res["4"]
+                app_address: appAddress,
+                storage_receipt: storageReceipt,
+                cluster_size: clusterSize,
+                developer: developer,
+                pinToNodes: pinToNodes
             };
 
-            let cluster_members: ClusterMember[] = res["6"].map((member_id, idx) => {
+            let member_ids = res["6"];
+            let member_ports = res["7"];
+
+            let cluster_members: ClusterMember[] = member_ids.map((member_id, idx) => {
                 return {
                     id: member_id,
-                    port: parseInt(res["7"][idx])
+                    port: parseInt(member_ports[idx])
                 }
             });
 
+            let genesisTime = parseInt(res["5"]);
+
             return {
                 id: id,
-                genesis_time: parseInt(res["5"]),
+                genesis_time: genesisTime,
                 app: app,
                 cluster_members: cluster_members
             };

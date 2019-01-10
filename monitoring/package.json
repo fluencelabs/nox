@@ -49,7 +49,7 @@
     "web3-typescript-typings": "^0.10.2"
   },
   "dependencies": {
-    "web3": "1.0.0-beta.35",
+    "web3": "^1.0.0-beta.37",
     "typechain": "^0.3.9",
     "array-buffer-to-hex": "^1.0.0",
     "hex-to-array-buffer": "^1.1.0",
