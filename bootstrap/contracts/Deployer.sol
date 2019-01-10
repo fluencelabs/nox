@@ -95,7 +95,8 @@ contract Deployer {
         // ethereum address of the developer submitted that code
         address owner;
 
-        // list of owner's nodes where this code must be placed; length <= clusterSize
+        // list of owner's nodes where this code must be deployed; length <= clusterSize
+        // can contain both private & non-private nodes
         bytes32[] pinToNodes;
     }
 
@@ -114,7 +115,7 @@ contract Deployer {
         uint16[] ports;
     }
 
-    // Emitted when there is enough ready Nodes for some Code
+    // Emitted when there is enough Workers for some App
     // Nodes' workers should form a cluster in reaction to this event
     event ClusterFormed(
         bytes32 clusterID,
@@ -127,7 +128,7 @@ contract Deployer {
         uint16[] ports
     );
 
-    // Emitted when Code is enqueued, telling that there is not enough Workers yet
+    // Emitted when App is enqueued, telling that there is not enough Workers yet
     event AppEnqueued(
         bytes32 storageHash,
         bytes32 storageReceipt,
@@ -147,7 +148,7 @@ contract Deployer {
     // Store nodes indices to traverse nodes mapping
     bytes32[] public nodesIds;
 
-    // Cluster with assigned App
+    // Clusters with assigned App
     mapping(bytes32 => Cluster) internal clusters;
     // Store cluster indices to traverse clusters mapping
     bytes32[] public clustersIds;
@@ -219,12 +220,14 @@ contract Deployer {
 
         // Check that pinToNodes are distinct nodes owned by msg.sender
         for(uint8 i = 0; i < pinToNodes.length; i++) {
-            require(nodes[pinToNodes[i]].owner != 0, "Can pin only to registered nodes");
-            require(nodes[pinToNodes[i]].owner == msg.sender, "Can pin only to nodes you own");
-            
+            bytes32 nodeID_i = pinToNodes[i];
+            Node memory node = nodes[nodeID_i];
+            require(node.owner != 0, "Can pin only to registered nodes");
+            require(node.owner == msg.sender, "Can pin only to nodes you own");
+
             for(uint8 j = 0; j <= i; j++) {
                 if(i != j) {
-                    require(pinToNodes[i] != pinToNodes[j], "Node ids to pin to must be unique, otherwise the deployment result could be unpredictable and unexpected");
+                    require(nodeID_i != pinToNodes[j], "Node ids to pin to must be unique, otherwise the deployment result could be unpredictable and unexpected");
                 }
             }
         }
@@ -232,7 +235,7 @@ contract Deployer {
         App memory app = App(storageHash, storageReceipt, clusterSize, msg.sender, pinToNodes);
 
         if(!tryDeployApp(app)) {
-            // App is not deployed -- enqueue it to have it deployed later
+            // App hasn't been deployed -- enqueue it to have it deployed later
             enqueuedApps.push(app);
             emit AppEnqueued(app.storageHash, app.storageReceipt, app.clusterSize, app.owner, app.pinToNodes);
         }
@@ -246,27 +249,27 @@ contract Deployer {
         internal
     returns(bool)
     {
-        // Number of already collected workers
+        // Number of collected workers
         uint8 workersCount = 0;
 
-        // Prepare an array of workers to collect
+        // Array of workers that will be used to form a cluster
         Node[] memory workers = new Node[](app.clusterSize);
 
         // There must be enough readyNodes to try to deploy the app
         if(readyNodes.length >= app.clusterSize - app.pinToNodes.length) {
-            // Index up to pinToNodes length
+            // Index used to iterate through pinToNodes and then workers
             uint8 i = 0;
 
             // Current node to check
             Node memory node;
 
             // Find all the nodes where code should be pinned
-            // We have already checked that all the nodes belong to app owner
-            // We have already deduplicated pinToNodes
+            // Nodes in pinToNodes are already checked to belong to app owner
+            // pinToNodes is already deduplicated in addApp
             for(; i < app.pinToNodes.length; i++) {
                 node = nodes[app.pinToNodes[i]];
 
-                // There's no capacity on pin-to node to deploy the app
+                // Return false if there's not enough capacity on pin-to node to deploy the app
                 if(node.nextPort > node.lastPort) {
                     return false;
                 }
@@ -279,15 +282,19 @@ contract Deployer {
             for(uint j = 0; j < readyNodes.length && workersCount < app.clusterSize; j++) {
                 node = nodes[readyNodes[j]];
 
-                // Deduplicate nodes in case a pinTo node is not private
+                // True if node is already in workers array. That could happen if
+                // app.owner pinned app to non-private node
+                // skip is used to avoid including such nodes twice
                 bool skip = false;
-                // It should work better then a custom data structure due to high storage costs & small workers size expectations
+
+                // That algorithm should work better than a custom data structure
+                // due to high storage costs & small workers size expectations
                 for(i = 0; i < workers.length && !skip; i++) {
                     if(workers[i].id == node.id) skip = true;
                 }
-                if(skip) {
-                    continue;
-                }
+
+                if(skip) continue;
+
                 workers[workersCount] = node;
                 workersCount++;
             }
@@ -302,7 +309,7 @@ contract Deployer {
     }
 
     /**
-     * @dev Forms a cluster, emits ClusterFormed event
+     * @dev Forms a cluster, emits ClusterFormed event, marks workers' ports as used
      */
     function formCluster(App memory app, Node[] memory workers)
         internal
@@ -332,12 +339,12 @@ contract Deployer {
 
         uint genesisTime = now;
 
-        // saving selected nodes as a cluster with assigned code
+        // saving selected nodes as a cluster with assigned app
         clusters[clusterID] = Cluster(clusterID, app, genesisTime, nodeIDs, workerPorts);
         clustersIds.push(clusterID);
 
-        // notify Fluence node it's time to run real-time nodes and
-        // create a Tendermint cluster hosting selected code
+        // notify Fluence node it's time to run real-time workers and
+        // create a Tendermint cluster hosting selected App (defined by storageHash)
         emit ClusterFormed(clusterID, app.storageHash, genesisTime, nodeIDs, workerAddrs, workerPorts);
     }
 
@@ -395,7 +402,7 @@ contract Deployer {
         internal
     {
         if (index != enqueuedApps.length - 1) {
-            // remove index-th code from enqueuedApps replacing it by the last code in the array
+            // remove index-th app from enqueuedApps replacing it by the last app in the array
             enqueuedApps[index] = enqueuedApps[enqueuedApps.length - 1];
         }
         // release the storage
