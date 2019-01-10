@@ -15,16 +15,20 @@
  */
 
 package fluence.vm
+import java.lang.reflect.Method
 import java.nio.{ByteBuffer, ByteOrder}
 
+import asmble.compile.jvm.AsmExtKt
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
-import cats.Monad
+import cats.{Functor, Monad}
 import cats.data.EitherT
+import cats.effect.{IO, LiftIO}
 import fluence.crypto.CryptoError
+import fluence.vm.AsmbleWasmVm.FunctionId
 import fluence.vm.ModuleInstance.nameAsStr
-import fluence.vm.VmError.WasmVmError.ApplyError
-import fluence.vm.VmError.{InitializationError, InternalVmError}
+import fluence.vm.VmError.WasmVmError.{ApplyError, InvokeError}
+import fluence.vm.VmError.{InitializationError, InternalVmError, NoSuchFnError, TrapError}
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -41,6 +45,49 @@ case class ModuleInstance(
   instance: Any,
   private[vm] val memory: Option[ByteBuffer]
 ) {
+
+  private val allocateFunction: Option[WasmFunction] =
+    functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent(allocateFunctionName)))
+
+  private val deallocateFunction: Option[WasmFunction] =
+    functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent(deallocateFunctionName)))
+
+  private val invokeFunction: Option[WasmFunction] =
+    functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent("invoke")))
+
+  // TODO : In the future, it should be rewritten with cats.effect.resource
+  /**
+    * Allocates memory in Wasm module of supplied size by allocateFunction.
+    *
+    * @param size size of memory that need to be allocated
+    * @tparam F a monad with an ability to absorb 'IO'
+    */
+  private def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] = {
+    allocateFunction match {
+      case Some(fn) => fn(size.asInstanceOf[AnyRef] :: Nil)
+      case _ =>
+        EitherT.leftT(
+          NoSuchFnError(s"Unable to find the function for memory allocation with the name=$allocateFunctionName")
+        )
+    }
+  }
+
+  /**
+    * Deallocates previously allocated memory in Wasm module by deallocateFunction.
+    *
+    * @param offset address of memory to deallocate
+    * @tparam F a monad with an ability to absorb 'IO'
+    */
+  private def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, AnyRef] = {
+    deallocateFunction match {
+      case Some(fn) => fn(offset.asInstanceOf[AnyRef] :: size.asInstanceOf[AnyRef] :: Nil)
+      case _ =>
+        EitherT.leftT(
+          NoSuchFnError(s"Unable to find the function for memory deallocation with the name=$deallocateFunctionName")
+        )
+    }
+  }
+
 
   /**
    * Returns hash of all significant inner state of this VM.
@@ -128,6 +175,34 @@ object ModuleInstance {
       }
 
     } yield ModuleInstance(Option(moduleDescription.getName), moduleInstance, memory)
+
+  /**
+    * Representation for each Wasm function. Contains reference to module instance
+    * and java method [[java.lang.reflect.Method]].
+    *
+    * @param javaMethod a java method [[java.lang.reflect.Method]] for calling function.
+    * @param module the object the underlying method is invoked from.
+    *               This is an instance for the current module, it contains
+    *               all inner state of the module, like memory.
+    */
+  case class WasmFunction(
+   fnId: FunctionId,
+   javaMethod: Method,
+   module: ModuleInstance
+  ) {
+
+    /**
+      * Invokes this function with arguments.
+      *
+      * @param args arguments for calling this function.
+      * @tparam F a monad with an ability to absorb 'IO'
+      */
+    def apply[F[_]: Functor: LiftIO](args: List[AnyRef]): EitherT[F, InvokeError, AnyRef] =
+      EitherT(IO(javaMethod.invoke(module.instance, args: _*)).attempt.to[F])
+        .leftMap(e ⇒ TrapError(s"Function $this with args: $args was failed", Some(e)))
+
+    override def toString: String = fnId.toString
+  }
 
   def nameAsStr(moduleName: Option[String]): String = moduleName.getOrElse("<no-name>")
 

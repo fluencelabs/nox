@@ -33,8 +33,7 @@ abstract class VmErrorProxy(
 object VmError {
 
   /**
-   * This type of error indicates some unexpected internal error has occurred in
-   * the Virtual Machine.
+   * Indicates some unexpected internal error has occurred in the VM.
    */
   case class InternalVmError(
     override val message: String,
