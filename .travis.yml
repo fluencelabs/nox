@@ -34,21 +34,17 @@ _fluence_test_template: &_fluence_test_template
 matrix:
   include:
     - <<: *_fluence_test_template
-      on:
-        <<: *_fluence_test_template
-        name: Fluence
+      name: Fluence
 
     # These tests take a lot of time and runs only while PR
     - <<: *_fluence_test_template
-      on:
-        <<: *_fluence_test_template
-        name: Fluence integration tests
-        condition: "'$TRAVIS_PULL_REQUEST' != 'false'"
+      name: Fluence integration tests
+      condition: "'$TRAVIS_PULL_REQUEST' != 'false'"
 
         # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
-        script:
-          - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
-          - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
+      script:
+        - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
+        - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
 
     - name: smart contract
       language: node_js
