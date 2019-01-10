@@ -16,6 +16,7 @@
 
 use std::error::Error;
 
+use clap::ArgMatches;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError};
 use web3::contract::Options;
@@ -23,6 +24,7 @@ use web3::futures::Future;
 use web3::transports::Http;
 use web3::types::SyncState;
 use web3::Web3;
+use ethkey::Secret;
 
 /// Creates progress bar in the console until the work is over
 ///
@@ -97,4 +99,16 @@ pub fn options_with_gas(gas_limit: u32) -> Options {
 #[allow(unused)]
 pub fn options() -> Options {
     Options::default()
+}
+
+/// Gets the value of option `key` and removes '0x' prefix
+pub fn parse_hex_opt(matches: &ArgMatches, key: &str) -> Result<String, Box<Error>> {
+    Ok(value_t!(matches, key, String)?.trim_start_matches("0x").to_string())
+}
+
+pub fn parse_secret_key(matches: &ArgMatches, key: &str) -> Result<Option<Secret>, Box<Error>> {
+    matches
+        .value_of(SECRET_KEY)
+        .map(|s| s.trim_start_matches("0x").parse::<Secret>())
+        .map_or(Ok(None), |r| r.map(Some))? // Option<Result> -> Result<Option>
 }

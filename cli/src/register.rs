@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+use std::{thread, time};
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
 use std::str::FromStr;
-use std::{thread, time};
 
 use base64::decode;
 use clap::{App, Arg, ArgMatches, SubCommand};
@@ -30,7 +30,7 @@ use web3::types::{Address, H256};
 use contract_func::contract::functions::add_node;
 use contract_func::ContractCaller;
 use credentials::Credentials;
-use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
+use types::{IP_LEN, NodeAddress, TENDERMINT_KEY_LEN};
 use utils;
 
 const ADDRESS: &str = "address";
@@ -184,13 +184,9 @@ impl Register {
 }
 
 pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
-    fn parse_hex_arg<'a>(matches: &ArgMatches, key: &'a str) -> Result<String, Box<Error>> {
-        Ok(value_t!(matches, key, String)?.trim_start_matches("0x").to_string())
-    }
-
     let node_address: IpAddr = value_t!(matches, ADDRESS, IpAddr)?;
 
-    let tendermint_key = parse_hex_arg(matches, TENDERMINT_KEY)?.to_owned();
+    let tendermint_key = utils::parse_hex_opt(matches, TENDERMINT_KEY)?.to_owned();
     let tendermint_key = if matches.is_present(BASE64_TENDERMINT_KEY) {
         let arr = decode(&tendermint_key)?;
         hex::encode(arr)
@@ -203,16 +199,13 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let min_port = value_t!(matches, MIN_PORT, u16)?;
     let max_port = value_t!(matches, MAX_PORT, u16)?;
 
-    let contract_address: Address = parse_hex_arg(matches, CONTRACT_ADDRESS)?.parse()?;
+    let contract_address: Address = utils::parse_hex_opt(matches, CONTRACT_ADDRESS)?.parse()?;
 
-    let account: Address = parse_hex_arg(matches, ACCOUNT)?.parse()?;
+    let account: Address = utils::parse_hex_opt(matches, ACCOUNT)?.parse()?;
 
     let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
-    let secret_key = matches
-        .value_of(SECRET_KEY)
-        .map(|s| s.trim_start_matches("0x").parse::<Secret>())
-        .map_or(Ok(None), |r| r.map(Some))?; // Option<Result> -> Result<Option>
+    let secret_key = utils::parse_secret_key(matches, SECRET_KEY);
 
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 

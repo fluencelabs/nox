@@ -128,28 +128,21 @@ impl Publisher {
 
 /// Creates `Publisher` from arguments
 pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
-    let path = matches.value_of(PATH).unwrap().to_string();
+    let path = matches.value_of(PATH).unwrap().to_string(); //TODO use is_file from clap_validators
 
-    let contract_address = matches
-        .value_of(CONTRACT_ADDRESS)
-        .unwrap()
-        .trim_start_matches("0x");
-    let contract_address: Address = contract_address.parse()?;
+    let contract_address: Address = utils::parse_hex_opt(matches, CONTRACT_ADDRESS)?.parse()?;
 
-    let account = matches.value_of(ACCOUNT).unwrap().trim_start_matches("0x");
-    let account: Address = account.parse()?;
+    let account: Address = utils::parse_hex_opt(matches, ACCOUNT)?.parse()?;
 
     let swarm_url = matches.value_of(SWARM_URL).unwrap().to_string();
     let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
 
-    let secret_key = matches
-        .value_of(SECRET_KEY)
-        .map(|s| Secret::from_str(s.trim_start_matches("0x")).unwrap());
+    let secret_key = utils::parse_secret_key(matches, SECRET_KEY);
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
     let credentials = Credentials::get(secret_key, password);
 
-    let cluster_size: u8 = matches.value_of(CLUSTER_SIZE).unwrap().parse()?;
+    let cluster_size = value_t!(matches, CLUSTER_SIZE, u8);
 
     let mut file = File::open(path)?;
 
