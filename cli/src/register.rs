@@ -45,6 +45,7 @@ const SECRET_KEY: &str = "secret_key";
 const WAIT_SYNCING: &str = "wait_syncing";
 const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const GAS: &str = "gas";
+const PRIVATE: &str = "private";
 
 #[derive(Debug)]
 pub struct Register {
@@ -313,6 +314,10 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .takes_value(true)
                 .default_value("1000000")
                 .help("maximum gas to spend"),
+            Arg::with_name(PRIVATE)
+                .alias(PRIVATE)
+                .long(PRIVATE)
+                .takes_value(false)
         ])
 }
 
