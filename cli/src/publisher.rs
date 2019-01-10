@@ -170,8 +170,8 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 
     let pin_to_nodes = pin_to_nodes.map_err(|e| format!("unable to parse {}: {}", PINNED, e))?;
 
-    if pin_to_nodes.len() != cluster_size {
-        return Err(format!("number of pin_to nodes should be less or equal to the desired clusterSize"))
+    if pin_to_nodes.len() != (cluster_size as usize) {
+        return Err(format!("number of pin_to nodes should be less or equal to the desired cluster_size").into());
     }
 
     Ok(Publisher::new(
@@ -198,19 +198,16 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .index(1)
                 .help("path to compiled `wasm` code"),
             Arg::with_name(CONTRACT_ADDRESS)
-                .alias(CONTRACT_ADDRESS)
                 .required(true)
                 .takes_value(true)
                 .index(2)
                 .help("fluence contract address"),
             Arg::with_name(ACCOUNT)
-                .alias(ACCOUNT)
                 .required(true)
                 .index(3)
                 .takes_value(true)
                 .help("ethereum account"),
             Arg::with_name(SWARM_URL)
-                .alias(SWARM_URL)
                 .long(SWARM_URL)
                 .short("w")
                 .required(false)
@@ -219,7 +216,6 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .default_value("http://localhost:8500/"),
             //todo: use public gateway
             Arg::with_name(ETH_URL)
-                .alias(ETH_URL)
                 .long(ETH_URL)
                 .short("e")
                 .required(false)
@@ -228,21 +224,18 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .default_value("http://localhost:8545/"),
             //todo: use public node or add light client
             Arg::with_name(PASSWORD)
-                .alias(PASSWORD)
                 .long(PASSWORD)
                 .short("p")
                 .required(false)
                 .takes_value(true)
                 .help("password to unlock account in ethereum client"),
             Arg::with_name(SECRET_KEY)
-                .alias(SECRET_KEY)
                 .long(SECRET_KEY)
                 .short("s")
                 .required(false)
                 .takes_value(true)
                 .help("the secret key to sign transactions"),
             Arg::with_name(CLUSTER_SIZE)
-                .alias(CLUSTER_SIZE)
                 .long(CLUSTER_SIZE)
                 .short("cs")
                 .required(false)
@@ -250,7 +243,6 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .default_value("3")
                 .help("cluster's size that needed to deploy this code"),
             Arg::with_name(GAS)
-                .alias(GAS)
                 .long(GAS)
                 .short("g")
                 .required(false)
