@@ -35,8 +35,8 @@ use utils;
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
-const MIN_PORT: &str = "min_port";
-const MAX_PORT: &str = "max_port";
+const START_PORT: &str = "start_port";
+const LAST_PORT: &str = "last_port";
 const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
@@ -188,8 +188,8 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         .trim_start_matches("0x")
         .to_owned();
 
-    let min_port: u16 = matches.value_of(MIN_PORT).unwrap().parse()?;
-    let max_port: u16 = matches.value_of(MAX_PORT).unwrap().parse()?;
+    let min_port: u16 = matches.value_of(START_PORT).unwrap().parse()?;
+    let max_port: u16 = matches.value_of(LAST_PORT).unwrap().parse()?;
 
     let contract_address = matches
         .value_of(CONTRACT_ADDRESS)
@@ -265,16 +265,16 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .takes_value(true)
                 .index(4)
                 .help("fluence contract address"),
-            Arg::with_name(MIN_PORT)
-                .alias(MIN_PORT)
-                .long(MIN_PORT)
+            Arg::with_name(START_PORT)
+                .alias(START_PORT)
+                .long(START_PORT)
                 .default_value("20096")
                 .takes_value(true)
                 .help("minimum port in the port range"),
-            Arg::with_name(MAX_PORT)
-                .alias(MAX_PORT)
+            Arg::with_name(LAST_PORT)
+                .alias(LAST_PORT)
                 .default_value("20196")
-                .long(MAX_PORT)
+                .long(LAST_PORT)
                 .takes_value(true)
                 .help("maximum port in the port range"),
             Arg::with_name(ETH_URL)

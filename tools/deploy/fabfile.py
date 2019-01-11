@@ -47,7 +47,8 @@ def deploy():
                        OWNER_ADDRESS=current_owner,
                        PORTS="25000:25003",
                        NAME="node1",
-                       PRIVATE_KEY=current_key):
+                       PRIVATE_KEY=current_key,
+                       HOST_IP=current_host):
             run('chmod +x compose.sh')
             run('chmod +x fluence')
             run('./compose.sh')

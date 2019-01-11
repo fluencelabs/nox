@@ -18,18 +18,30 @@ else
 
 fi
 
-# getting external ip address and docker ip address
+# getting docker ip address
 case "$(uname -s)" in
    Darwin)
      export DOCKER_IP=host.docker.internal
-     export HOST_IP=host.docker.internal
      ;;
 
    Linux)
      export DOCKER_IP=$(ifconfig docker0 | grep 'inet ' | awk '{print $2}' | grep -Po "[0-9\.]+")
-     export HOST_IP=$(ip route get 8.8.8.8 | grep -Po "(?<=src )[0-9\.]+")
      ;;
 esac
+
+# use exported external ip address or get it from OS
+if [ -z "$HOST_IP" ]
+then
+    case "$(uname -s)" in
+       Darwin)
+         export HOST_IP=host.docker.internal
+         ;;
+
+       Linux)
+         export HOST_IP=$(ip route get 8.8.8.8 | grep -Po "(?<=src )[0-9\.]+")
+         ;;
+    esac
+fi
 
 # running parity and swarm containers
 docker-compose -f parity.yml up -d
@@ -57,9 +69,9 @@ echo "OWNER_ADDRESS="$OWNER_ADDRESS
 echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
 echo "PRIVATE_KEY="$PRIVATE_KEY
 
-MIN_PORT=${PORTS%:*}
-MAX_PORT=${PORTS#*:}
-export STATUS_PORT=$((MAX_PORT+400))
+START_PORT=${PORTS%:*}
+LAST_PORT=${PORTS#*:}
+export STATUS_PORT=$((LAST_PORT+400))
 
 # port for status API
 echo "STATUS_PORT="$STATUS_PORT
@@ -81,4 +93,4 @@ echo "TENDERMINT_KEY="$TENDERMINT_KEY
 
 # check if node is already registered
 # todo build fluence CLI in fly, use cargo from cli directory, or run from target cli directory?
-./fluence register $HOST_IP $TENDERMINT_KEY $OWNER_ADDRESS $CONTRACT_ADDRESS -s $PRIVATE_KEY --wait_syncing --min_port $MIN_PORT --max_port $MAX_PORT --base64_tendermint_key
+./fluence register $HOST_IP $TENDERMINT_KEY $OWNER_ADDRESS $CONTRACT_ADDRESS -s $PRIVATE_KEY --wait_syncing --start_port $START_PORT --last_port $LAST_PORT --base64_tendermint_key
