@@ -2,7 +2,7 @@
 
 set -e
 
-# `PROD` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
+# `REMOTE_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
 if [ -z "$REMOTE_DEPLOY" ]
 then
