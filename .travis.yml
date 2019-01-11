@@ -31,7 +31,6 @@ _rust_wasm_template: &_rust_wasm_template
   rust: nightly-2019-01-08
   cache:
     - cargo
-    - npm
 
   install:
     - rustup component add rustfmt
