@@ -32,7 +32,7 @@ _scala_fluence_template: &_scala_fluence_template
 _rust_wasm_template: &_rust_wasm_template
   language: rust
   # todo enable 'stable' and 'beta' when `allocator_api` will become stable
-  rust: $TRAVIS_RUST_VERSION
+  rust: "$TRAVIS_RUST_VERSION"
   cache:
     - cargo
     - npm
