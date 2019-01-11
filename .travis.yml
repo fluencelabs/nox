@@ -1,7 +1,3 @@
-env:
-  global:
-    - $TRAVIS_RUST_VERSION=nightly-2019-01-08
-
 _scala_fluence_template: &_scala_fluence_template
   language: scala
   scala: 2.12.7
@@ -11,8 +7,8 @@ _scala_fluence_template: &_scala_fluence_template
     - docker
 
   install:
-    - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain $TRAVIS_RUST_VERSION
-    - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain $TRAVIS_RUST_VERSION
+    - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-01-08
+    - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-08
 
   # These directories are cached to S3 at the end of the build
   cache:
@@ -92,7 +88,6 @@ matrix:
     - <<: *_rust_wasm_template
       name: llamaDb VM App
       before_script:
-        - rustup component add rustfmt
         - cd vm/examples/llamadb
 
     - name: Fluence CLI
