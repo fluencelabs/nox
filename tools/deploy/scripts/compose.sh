@@ -4,12 +4,12 @@ set -e
 
 # `PROD` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
-if [ -z "$PROD" ]
+if [ -z "$REMOTE_DEPLOY" ]
 then
     export NAME='node1'
-    # 10 solvers possible
+    # open 10 ports, so it's possible to create 10 workers
     export PORTS='25000:25010'
-    # an account in `dev` mode Parity with eth
+    # eth address in `dev` mode Parity with eth
     export OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
     export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
     export PARITY_ARGS='--config dev --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
@@ -31,7 +31,7 @@ esac
 
 # use exported external ip address or get it from OS
 # todo rewrite this
-if [ -z "$HOST_IP" ]
+if [ -z "$REMOTE_DEPLOY" ]
 then
     EXTERNAL_HOST_IP="127.0.0.1"
     case "$(uname -s)" in
@@ -58,7 +58,7 @@ echo 'Parity and Swarm containers are started.'
 sleep 10
 
 # deploy contract if there is new dev ethereum node
-if [ -z "$PROD" ]
+if [ -z "$REMOTE_DEPLOY" ]
 then
     export CONTRACT_ADDRESS=$(node deploy-contract.js)
     sleep 1
@@ -69,6 +69,7 @@ echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
 echo "NAME="$NAME
 echo "PORTS="$PORTS
 echo "HOST_IP="$HOST_IP
+echo "EXTERNAL_HOST_IP="$EXTERNAL_HOST_IP
 echo "OWNER_ADDRESS="$OWNER_ADDRESS
 echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
 echo "PRIVATE_KEY="$PRIVATE_KEY
