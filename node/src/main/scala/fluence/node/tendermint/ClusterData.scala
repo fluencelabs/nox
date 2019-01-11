@@ -16,23 +16,27 @@
 
 package fluence.node.tendermint
 import fluence.node.config.NodeConfig
+import fluence.node.tendermint.json.{Cluster, Genesis, NodeInfo}
 import fluence.node.workers.CodePath
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint256}
+
+import scodec.bits.ByteVector
+
+import scala.collection.JavaConverters._
 
 /**
  * All the information required to launch a worker.
  *
  * @param nodeInfo information about the tendermint node
- * @param persistentPeers cluster peers information
+ * @param nodePeer node persistent peer address
  * @param code code ID
  */
 case class ClusterData(
   nodeInfo: NodeInfo,
-  persistentPeers: PersistentPeers,
+  private[tendermint] val nodePeer: PersistentPeer,
   code: CodePath
 ) {
-  private val nodePeer = persistentPeers.peers(nodeInfo.node_index.toInt) //TODO: catch OutOfBounds exception
   val p2pPort: Short = nodePeer.port
   val rpcPort: Short = (p2pPort + 100).toShort //TODO: reserve service ports sequentially, right after p2p port
   val rpcHost: String = nodePeer.host
@@ -45,6 +49,46 @@ case class ClusterData(
 }
 
 object ClusterData {
+
+  /**
+   * Information about Tendermint peers.
+   *
+   * @param peers peer list
+   */
+  private case class PersistentPeers(peers: Vector[PersistentPeer]) {
+
+    /**
+     * Obtains Tendermint-compatible comma-separater peer list.
+     */
+    override def toString: String = peers.mkString(",")
+
+    /**
+     * Obtains external addresses (host:port) from peer list.
+     */
+    def externalAddrs: Seq[String] = peers.map(x => x.host + ":" + x.port)
+  }
+
+  /**
+   * Obtains persistent peers from their encoded web3j's representation.
+   *
+   * @param addrs web3j's array of encoded addresses
+   * @param ports web3j's array of ports
+   */
+  private def peersFromAddrsAndPorts(addrs: DynamicArray[Bytes24], ports: DynamicArray[Uint16]): PersistentPeers =
+    PersistentPeers(
+      addrs.getValue.asScala
+        .map(_.getValue)
+        .zip(ports.getValue.asScala.map(_.getValue))
+        .map(
+          x =>
+            PersistentPeer(
+              ByteVector(x._1, 0, 20).toHex,
+              ByteVector(x._1, 20, 4).toArray.map(x => (x & 0xFF).toString).mkString("."),
+              x._2.shortValue()
+          )
+        )
+        .toVector
+    )
 
   def build(
     clusterID: Bytes32,
@@ -61,10 +105,15 @@ object ClusterData {
       None
     else {
       val storage = CodePath(storageHash)
-      val persistentPeers = PersistentPeers.fromAddrsAndPorts(nodeAddrs, workerPorts)
+      val persistentPeers = peersFromAddrsAndPorts(nodeAddrs, workerPorts)
       val cluster = Cluster(genesis, persistentPeers.toString, persistentPeers.externalAddrs)
       val nodeInfo = NodeInfo(cluster, nodeIndex.toString)
-      Some(ClusterData(nodeInfo, persistentPeers, storage))
+
+      persistentPeers.peers
+        .lift(nodeInfo.node_index.toInt)
+        .map(
+          ClusterData(nodeInfo, _, storage)
+        )
     }
   }
 }

@@ -15,12 +15,14 @@
  */
 
 
+let fs = require("fs");
+
 // the script gets private key from ethereum keystore
 var keythereum = require("keythereum");
-const password = "PASSWORD";
+const password = "";
 
-let keyStr = 'PRIVATE_KEY'
-let key = JSON.parse(keyStr);
+let source = fs.readFileSync("key.json");
+let key = JSON.parse(source);
 
 var privateKey = keythereum.recover(password, key);
 console.log(privateKey.toString('hex'));

@@ -12,9 +12,6 @@ target/
 # MacOS folder metadata
 .DS_Store
 
-# Rust
-Cargo.lock
-
 # Text writing
 *.scriv
 
