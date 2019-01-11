@@ -50,8 +50,8 @@ const GAS: &str = "gas";
 pub struct Register {
     node_ip: IpAddr,
     tendermint_key: H256,
-    min_port: u16,
-    max_port: u16,
+    start_port: u16,
+    last_port: u16,
     contract_address: Address,
     account: Address,
     eth_url: String,
@@ -65,8 +65,8 @@ impl Register {
     pub fn new(
         node_address: IpAddr,
         tendermint_key: H256,
-        min_port: u16,
-        max_port: u16,
+        start_port: u16,
+        last_port: u16,
         contract_address: Address,
         account: Address,
         eth_url: String,
@@ -74,16 +74,16 @@ impl Register {
         wait_syncing: bool,
         gas: u32,
     ) -> Result<Register, Box<Error>> {
-        if max_port < min_port {
-            let err: Box<Error> = From::from("max_port should be bigger than min_port".to_string());
+        if last_port < start_port {
+            let err: Box<Error> = From::from("last_port should be bigger than start_port".to_string());
             return Err(err);
         }
 
         Ok(Register {
             node_ip: node_address,
             tendermint_key,
-            min_port,
-            max_port,
+            start_port,
+            last_port,
             contract_address,
             account,
             eth_url,
@@ -147,8 +147,8 @@ impl Register {
             let (call_data, _) = add_node::call(
                 self.tendermint_key,
                 hash_addr,
-                u64::from(self.min_port),
-                u64::from(self.max_port),
+                u64::from(self.start_port),
+                u64::from(self.last_port),
                 false,
             );
 
@@ -188,8 +188,8 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         .trim_start_matches("0x")
         .to_owned();
 
-    let min_port: u16 = matches.value_of(START_PORT).unwrap().parse()?;
-    let max_port: u16 = matches.value_of(LAST_PORT).unwrap().parse()?;
+    let start_port: u16 = matches.value_of(START_PORT).unwrap().parse()?;
+    let last_port: u16 = matches.value_of(LAST_PORT).unwrap().parse()?;
 
     let contract_address = matches
         .value_of(CONTRACT_ADDRESS)
@@ -225,8 +225,8 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     Register::new(
         node_address,
         tendermint_key,
-        min_port,
-        max_port,
+        start_port,
+        last_port,
         contract_address,
         account,
         eth_url,
