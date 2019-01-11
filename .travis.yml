@@ -37,10 +37,10 @@ _rust_wasm_template: &_rust_wasm_template
     - rustup component add rustfmt
 
   script:
-    - cargo fmt --all -- --check -v
-    - cargo build -v --all-features
-    - cargo doc -v --all-features
-    - cargo test -v --all-features
+    - cargo +$TRAVIS_RUST_VERSION fmt --all -- --check -v
+    - cargo +$TRAVIS_RUST_VERSION build -v --all-features
+    - cargo +$TRAVIS_RUST_VERSION doc -v --all-features
+    - cargo +$TRAVIS_RUST_VERSION test -v --all-features
 
 matrix:
   include:
