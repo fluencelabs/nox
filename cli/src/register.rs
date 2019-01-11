@@ -203,7 +203,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
 
     let account: Address = utils::parse_hex_opt(matches, ACCOUNT)?.parse()?;
 
-    let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
+    let eth_url = value_t!(matches, ETH_URL, String)?;
 
     let secret_key = utils::parse_secret_key(matches, SECRET_KEY)?;
 

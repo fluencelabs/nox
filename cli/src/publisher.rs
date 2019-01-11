@@ -141,7 +141,7 @@ impl Publisher {
 
 /// Creates `Publisher` from arguments
 pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
-    let path = matches.value_of(PATH).unwrap().to_string(); //TODO use is_file from clap_validators
+    let path = value_t!(matches, PATH, String)?; //TODO use is_file from clap_validators
     let mut file = File::open(path).map_err(|e| format!("can't open WASM file: {}", e))?;
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
@@ -150,8 +150,8 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 
     let account: Address = utils::parse_hex_opt(matches, ACCOUNT)?.parse()?;
 
-    let swarm_url = matches.value_of(SWARM_URL).unwrap().to_string();
-    let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
+    let swarm_url = value_t!(matches, SWARM_URL, String)?;
+    let eth_url = value_t!(matches, ETH_URL, String)?;
 
     let secret_key = utils::parse_secret_key(matches, SECRET_KEY)?;
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
@@ -441,4 +441,6 @@ mod tests {
             assert!(e.to_string().contains("Can pin only to registered nodes"))
         }
     }
+
+    // TODO: add tests on successful pinning
 }
