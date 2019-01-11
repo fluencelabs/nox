@@ -32,6 +32,7 @@ esac
 # use exported external ip address or get it from OS
 if [ -z "$HOST_IP" ]
 then
+    EXTERNAL_HOST_IP="127.0.0.1"
     case "$(uname -s)" in
        Darwin)
          export HOST_IP=host.docker.internal
@@ -41,6 +42,8 @@ then
          export HOST_IP=$(ip route get 8.8.8.8 | grep -Po "(?<=src )[0-9\.]+")
          ;;
     esac
+else
+    EXTERNAL_HOST_IP=$HOST_IP
 fi
 
 # running parity and swarm containers
@@ -93,4 +96,4 @@ echo "TENDERMINT_KEY="$TENDERMINT_KEY
 
 # check if node is already registered
 # todo build fluence CLI in fly, use cargo from cli directory, or run from target cli directory?
-./fluence register $HOST_IP $TENDERMINT_KEY $OWNER_ADDRESS $CONTRACT_ADDRESS -s $PRIVATE_KEY --wait_syncing --start_port $START_PORT --last_port $LAST_PORT --base64_tendermint_key
+./fluence register $EXTERNAL_HOST_IP $TENDERMINT_KEY $OWNER_ADDRESS $CONTRACT_ADDRESS -s $PRIVATE_KEY --wait_syncing --start_port $START_PORT --last_port $LAST_PORT --base64_tendermint_key
