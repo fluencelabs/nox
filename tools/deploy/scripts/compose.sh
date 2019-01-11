@@ -30,6 +30,7 @@ case "$(uname -s)" in
 esac
 
 # use exported external ip address or get it from OS
+# todo rewrite this
 if [ -z "$HOST_IP" ]
 then
     EXTERNAL_HOST_IP="127.0.0.1"
