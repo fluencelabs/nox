@@ -35,13 +35,13 @@ export interface ContractStatus {
  */
 export async function getContractStatus(contract: Network): Promise<ContractStatus> {
 
-    let ids = await contract.methods.getIds().call();
-    let nodeIds = ids["0"];
-    let clusterIds = ids["1"];
+    let nodesIds = await contract.methods.getNodesIds().call();
+
+    let clustersIds = await contract.methods.getClustersIds().call();
 
     let codes = await getEnqueuedApps(contract);
-    let nodes = await getNodes(contract, nodeIds);
-    let clusters = await getClusters(contract, clusterIds);
+    let nodes = await getNodes(contract, nodesIds);
+    let clusters = await getClusters(contract, clustersIds);
 
     return {
         clusters: clusters,

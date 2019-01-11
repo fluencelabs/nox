@@ -110,7 +110,7 @@ contract Network is Deployer {
 
 
     /** @dev Gets apps which not yet deployed anywhere
-     * return (apps' Swarm hashes, receipts, clusters' sizes, developers' addresses)
+     * return (apps Swarm hashes, receipts, clusters sizes, developers addresses, number of pinned nodes, all pinned nodes)
      */
     function getEnqueuedApps()
         external
@@ -126,7 +126,7 @@ contract Network is Deployer {
         // count all pinned nodes to create an array for them
         uint256 count = 0;
         for (uint i = 0; i < enqueuedApps.length; i++) {
-            count = count + app.pinToNodes.length;
+            count = count + enqueuedApps[i].pinToNodes.length;
         }
 
         bytes32[] memory allPinToNodes = new bytes32[](count);
@@ -145,7 +145,7 @@ contract Network is Deployer {
 
             for (uint j = 0; j < app.pinToNodes.length; j++) {
                 allPinToNodes[count] = app.pinToNodes[j];
-                count = count + 1;
+                count++;
             }
         }
 
@@ -155,12 +155,19 @@ contract Network is Deployer {
     /** @dev Gets nodes and clusters IDs
      * return (node IDs, cluster IDs)
      */
-    function getIds()
+    function getNodesIds()
         external
         view
-    returns(bytes32[], bytes32[])
+    returns(bytes32[])
     {
-        return (nodesIds, clustersIds);
+        return nodesIds;
     }
 
+    function getClustersIds()
+    external
+    view
+    returns(bytes32[])
+    {
+        return clustersIds;
+    }
 }
