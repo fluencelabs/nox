@@ -67,52 +67,6 @@ case class WasmModule(
   private def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, AnyRef] =
     deallocateFunction(offset.asInstanceOf[AnyRef] :: size.asInstanceOf[AnyRef] :: Nil)
 
-  /**
-   * Returns hash of all significant inner state of this VM.
-   *
-   * @param hashFn a hash function
-   */
-  def computeStateHash[F[_]: Monad](
-    hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]
-  ): EitherT[F, InternalVmError, Array[Byte]] =
-    memory match {
-      case Some(mem) ⇒
-        for {
-
-          memoryAsArray ← EitherT
-            .fromEither[F](
-              Try {
-                // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
-                val wasmMemoryView = mem.duplicate()
-                wasmMemoryView.clear()
-                val arr = new Array[Byte](wasmMemoryView.capacity())
-                wasmMemoryView.get(arr)
-                arr
-              }.toEither
-            )
-            .leftMap { e ⇒
-              InternalVmError(
-                s"Presenting memory as an array for module=${nameAsStr(name)} failed",
-                Some(e)
-              )
-            }
-
-          vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
-            InternalVmError(
-              s"Getting internal state for module=${nameAsStr(name)} failed",
-              Some(e)
-            )
-          }
-
-        } yield vmStateAsHash
-
-      case None ⇒
-        // Returning empty array is a temporary solution.
-        // It's valid situation when a module doesn't have a memory.
-        // When the Stack will be accessible we will return hash of the Stack with registers.
-        EitherT.rightT(Array.emptyByteArray)
-    }
-
   override def toString: String = s"Module(${nameAsStr(name)}, memory=$memory)"
 }
 
