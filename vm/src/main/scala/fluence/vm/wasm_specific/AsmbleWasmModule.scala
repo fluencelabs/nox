@@ -39,7 +39,7 @@ import scala.util.Try
  * @param instance wrapped instance of module
  * @param memory memory of this module
  */
-class WasmModule(
+class AsmbleWasmModule(
   private val name: Option[String],
   private val moduleState: WasmModuleState,
   private val instance: Any,
@@ -94,7 +94,7 @@ class WasmModule(
   override def toString: String = name.getOrElse("<no-name>")
 }
 
-object WasmModule {
+object AsmbleWasmModule {
 
   /**
    * Creates instance for specified module.
@@ -105,7 +105,7 @@ object WasmModule {
   def apply(
     moduleDescription: Compiled,
     scriptContext: ScriptContext
-  ): Either[ApplyError, WasmModule] =
+  ): Either[ApplyError, AsmbleWasmModule] =
     for {
 
       // creating module instance
@@ -130,7 +130,7 @@ object WasmModule {
         )
       }
 
-    } yield WasmModule(Option(moduleDescription.getName), moduleInstance, WasmModuleState(memory), )
+    } yield WasmModule(Option(moduleDescription.getName), moduleInstance, WasmModuleState(memory))
 
   def nameAsStr(moduleName: Option[String]): String = moduleName.getOrElse("<no-name>")
 
