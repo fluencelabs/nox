@@ -76,6 +76,14 @@ object VmError {
   ) extends VmErrorProxy(message, cause) with InvocationError with ApplyError
 
   /**
+    * Indicates that module with specified name wasn't found in the instance of VM.
+    */
+  case class NoSuchModuleError(
+    override val message: String,
+    override val cause: Option[Throwable] = None
+  ) extends VmErrorProxy(message, cause) with InvocationError with ApplyError
+
+  /**
    * Indicates all possible errors with Wasm memory:
    *  - errors when accessing absent memory;
    *  - allocation function returns offset that doesn't correspond to the ByteBuffer

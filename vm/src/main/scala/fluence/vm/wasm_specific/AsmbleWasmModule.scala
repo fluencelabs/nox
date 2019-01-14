@@ -19,15 +19,13 @@ package fluence.vm.wasm_specific
 import java.lang.reflect.{Method, Modifier}
 import java.nio.ByteBuffer
 
-import asmble.compile.jvm.AsmExtKt
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
 import cats.data.EitherT
-import cats.effect.{IO, LiftIO}
-import cats.{Functor, Monad}
-import fluence.crypto.CryptoError
+import cats.effect.LiftIO
+import cats.Monad
 import fluence.vm.VmError.WasmVmError.{ApplyError, InvokeError}
-import fluence.vm.VmError.{InitializationError, InternalVmError, NoSuchFnError, TrapError}
+import fluence.vm.VmError.{InitializationError, InternalVmError, NoSuchFnError}
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -43,7 +41,6 @@ class AsmbleWasmModule(
   private val name: Option[String],
   private val moduleState: WasmModuleState,
   private val instance: Any,
-
   private val allocateFunction: Option[WasmFunction],
   private val deallocateFunction: Option[WasmFunction],
   private val invokeFunction: Option[WasmFunction]
@@ -53,41 +50,36 @@ class AsmbleWasmModule(
     * Allocates a memory region in Wasm module of supplied size by allocateFunction.
     *
     * @param size size of memory that need to be allocated
-    * @tparam F a monad with an ability to absorb 'IO'
     */
-  private def allocate[F[_]: LiftIO: Monad](size: Int)
-  : EitherT[F, InvokeError, AnyRef] =
-    allocateFunction match {
-      case Some(fn) => fn(instance, size.asInstanceOf[AnyRef] :: Nil)
-      case _ =>
-        EitherT.leftT(
-          NoSuchFnError(s"Unable to find the function for memory allocation with the name=$allocateFunction in module $this")
-        )
-    }
+  def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] =
+    invokeWasmFunction(allocateFunction, size.asInstanceOf[AnyRef] :: Nil)
 
   /**
     * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
     *
-    * @param offset address of memory to deallocate
-    * @tparam F a monad with an ability to absorb 'IO'
+    * @param offset address of the memory region to deallocate
+    * @param size size of memory region to deallocate
     */
-  private def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int)
-  : EitherT[F, InvokeError, AnyRef] =
-    deallocateFunction match {
-      case Some(fn) => fn(instance, offset.asInstanceOf[AnyRef] :: size.asInstanceOf[AnyRef] :: Nil)
-      case _ =>
-        EitherT.leftT(
-          NoSuchFnError(s"Unable to find the function for memory allocation with the name=$deallocateFunction in module $this")
-        )
-    }
+  def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, AnyRef] =
+    invokeWasmFunction(deallocateFunction, offset.asInstanceOf[AnyRef] :: size.asInstanceOf[AnyRef] :: Nil)
 
-  private def invoke[F[_]: LiftIO: Monad](args: List[AnyRef])
-  : EitherT[F, InvokeError, AnyRef] =
-    invokeFunction match {
+  /**
+    * Invokes invokeFunctionName which exported from Wasm module function with provided arguments.
+    *
+    * @param args arguments for invokeFunction
+    */
+  def invoke[F[_]: LiftIO: Monad](args: List[AnyRef]): EitherT[F, InvokeError, AnyRef] =
+    invokeWasmFunction(invokeFunction, args)
+
+  private def invokeWasmFunction[F[_]: LiftIO: Monad](
+    wasmFunction: Option[WasmFunction],
+    args: List[AnyRef]
+  ): EitherT[F, InvokeError, AnyRef] =
+    wasmFunction match {
       case Some(fn) => fn(instance, args)
       case _ =>
         EitherT.leftT(
-          NoSuchFnError(s"Unable to find the function for memory allocation with the name=$invokeFunction in module $this")
+          NoSuchFnError(s"Unable to find the function with name=$wasmFunction in module with name=$this")
         )
     }
 
@@ -132,12 +124,13 @@ object AsmbleWasmModule {
         )
       }
 
+      // create a temporary map
       wasmExportFns: Map[String, Method] = moduleDescription
         .getCls
         .getDeclaredMethods
         .foldLeft(Map.empty[String, Method]) ((map, value) => value match {
           // choose only exported wasm functions
-          case publicMethod if Modifier.isPublic(value.getModifiers) => map + (value.getName -> value)
+          case publicMethod if Modifier.isPublic(value.getModifiers) => map + (publicMethod.getName -> publicMethod)
           case _ => map
         }
       )
@@ -146,12 +139,12 @@ object AsmbleWasmModule {
       Option(moduleDescription.getName),
       WasmModuleState(memory),
       moduleInstance,
-      createWasmFunction(wasmExportFns, allocationFunctionName),
-      createWasmFunction(wasmExportFns, deallocationFunctionName),
-      createWasmFunction(wasmExportFns, invokeFunctionName)
+      constructWasmFunction(wasmExportFns, allocationFunctionName),
+      constructWasmFunction(wasmExportFns, deallocationFunctionName),
+      constructWasmFunction(wasmExportFns, invokeFunctionName)
   )
 
-  private def createWasmFunction(wasmFns: Map[String, Method], fnName: String) : Option[WasmFunction] =
+  private def constructWasmFunction(wasmFns: Map[String, Method], fnName: String) : Option[WasmFunction] =
     wasmFns.get(fnName).map(method => WasmFunction(method.getName, method))
 
   def nameAsStr(moduleName: Option[String]): String = moduleName.getOrElse("<no-name>")

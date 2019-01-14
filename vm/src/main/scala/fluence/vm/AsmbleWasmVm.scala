@@ -15,18 +15,15 @@
  */
 
 package fluence.vm
-import java.lang.reflect.Method
 import java.nio.ByteOrder
 
-import asmble.compile.jvm.AsmExtKt
-import cats.data.{EitherT, NonEmptyList}
-import cats.effect.{IO, LiftIO}
-import cats.{Functor, Monad}
+import cats.data.{EitherT, NonEmptyMap}
+import cats.effect.LiftIO
+import cats.Monad
 import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
-import fluence.vm.VmError.{NoSuchFnError, _}
-import fluence.vm.AsmbleWasmVm._
-import fluence.vm.wasm_specific.{AsmbleWasmModule, ModuleInstance}
+import fluence.vm.VmError.{NoSuchModuleError, _}
+import fluence.vm.wasm_specific.AsmbleWasmModule
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -38,34 +35,30 @@ import scala.util.Try
  * '''Note!!! This implementation isn't thread-safe. The provision of calls
  * linearization is the task of the caller side.'''
  *
- * @param functionsIndex the index for fast function searching. Contains all the
- *                     information needed to execute any function.
  * @param modules list of Wasm modules
  * @param hasher a hash function provider
  */
 class AsmbleWasmVm(
-  private val modules: NonEmptyList[AsmbleWasmModule],
-  private val hasher: Hasher[Array[Byte], Array[Byte]],
+  private val modules: Map[Option[String], AsmbleWasmModule],
+  private val hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
 
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
-    fnArgument: Array[Byte]
-  ): EitherT[F, InvokeError, Option[Array[Byte]]] = {
-    val functionId = FunctionId(moduleName, AsmExtKt.getJavaIdent("invoke"))
-
+    fnArguments: Array[Byte]
+  ): EitherT[F, InvokeError, Option[Array[Byte]]] =
     for {
       // Finds java method(Wasm function) in the index by function id
-      wasmFn <- EitherT
+      wasmModule <- EitherT
         .fromOption(
-          functionsIndex.get(functionId),
-          NoSuchFnError(s"Unable to find a function with the name=$functionId")
+          modules.get(moduleName),
+          NoSuchModuleError(s"Unable to find a module with the name=$moduleName")
         )
 
-      preprocessedArguments <- preprocessFnArgument(fnArgument, wasmFn.module)
+      preprocessedArguments <- preprocessFnArgument(fnArguments, wasmModule)
 
       // invoke the function
-      invocationResult <- wasmFn[F](preprocessedArguments)
+      invocationResult <- wasmModule.invoke(preprocessedArguments)
 
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
       // there can be some non-determinism (deterministic execution is very important for verification game
@@ -81,8 +74,6 @@ class AsmbleWasmVm(
         } yield extractedResult
       }
     } yield extractedResult
-
-  }
 
   override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] =
     modules
@@ -114,7 +105,7 @@ class AsmbleWasmVm(
    */
   private def preprocessFnArgument[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte],
-    moduleInstance: WasmModule
+    moduleInstance: AsmbleWasmModule
   ): EitherT[F, InvokeError, List[AnyRef]] =
     if (fnArgument.isEmpty)
       EitherT.rightT[F, InvokeError](0.asInstanceOf[AnyRef] :: 0.asInstanceOf[AnyRef] :: Nil)
@@ -132,7 +123,7 @@ class AsmbleWasmVm(
    */
   private def injectArrayIntoWasmModule[F[_]: LiftIO: Monad](
     injectedArray: Array[Byte],
-    moduleInstance: WasmModule
+    moduleInstance: AsmbleWasmModule
   ): EitherT[F, InvokeError, Int] =
     for {
       // In the current version, it is possible for Wasm module to have allocation/deallocation

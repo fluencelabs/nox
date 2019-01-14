@@ -23,7 +23,7 @@ import asmble.cli.ScriptCommand.ScriptArgs
 import asmble.run.jvm.ScriptContext
 import asmble.util.Logger
 import cats.syntax.list._
-import cats.data.{EitherT, NonEmptyList}
+import cats.data.{EitherT, NonEmptyList, NonEmptyMap}
 import cats.effect.LiftIO
 import cats.{Applicative, Monad}
 import fluence.crypto.Crypto
@@ -117,7 +117,7 @@ object WasmVm {
       )
 
       // initializing all modules, build index for all Wasm functions
-      modules ← initializeModules(scriptCxt)
+      modules ← initializeModules(scriptCxt, config)
 
     } yield
       new AsmbleWasmVm(
@@ -159,8 +159,9 @@ object WasmVm {
    * same names, otherwise, an error will be thrown.
    */
   private def initializeModules[F[_]: Applicative](
-    scriptCxt: ScriptContext
-  ): EitherT[F, ApplyError, NonEmptyList[AsmbleWasmModule]] = {
+    scriptCxt: ScriptContext,
+    config: VmConfig
+  ): EitherT[F, ApplyError, NonEmptyMap[String, AsmbleWasmModule]] = {
 
     val emptyIndex: Either[ApplyError, List[AsmbleWasmModule]] = Right(List.empty[AsmbleWasmModule])
 
@@ -171,7 +172,13 @@ object WasmVm {
 
       case (Right(index), moduleDescription) ⇒
         for {
-          wasmModule <- AsmbleWasmModule(moduleDescription, scriptCxt)
+          wasmModule <- AsmbleWasmModule(
+            moduleDescription,
+            scriptCxt,
+            config.allocateFunctionName,
+            config.deallocateFunctionName,
+            config.invokeFunctionName
+          )
         } yield index :+ wasmModule
     }
       .map(_.toNel)
@@ -188,7 +195,6 @@ object WasmVm {
       .fromEither(
         Try(action)
           .toEither
-      )
-      .leftMap(mapError)
+      ).leftMap(mapError)
 
 }
