@@ -35,12 +35,11 @@ case class WasmModuleState(
     * @param hashFn a hash function
     */
   def computeHash[F[_]: Monad](
-    hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]):
-  EitherT[F, InternalVmError, Array[Byte]] =
+    hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]])
+  : EitherT[F, InternalVmError, Array[Byte]] =
     memory match {
       case Some(mem) ⇒
         for {
-
           memoryAsArray ← EitherT
             .fromEither[F](
             Try {
@@ -51,17 +50,13 @@ case class WasmModuleState(
               wasmMemoryView.get(arr)
               arr
             }.toEither
-          )
-            .leftMap { e ⇒
-              InternalVmError(
-                s"Presenting memory as an array for module=${nameAsStr(name)} failed",
-                Some(e)
-              )
+          ).leftMap { e ⇒
+              InternalVmError(s"Presenting memory as an array for module failed", Some(e))
             }
 
           vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
             InternalVmError(
-              s"Getting internal state for module=${nameAsStr(name)} failed",
+              s"Getting internal state for module failed",
               Some(e)
             )
           }

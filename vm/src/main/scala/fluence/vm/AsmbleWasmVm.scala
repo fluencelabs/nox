@@ -26,7 +26,7 @@ import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.VmError.{NoSuchFnError, _}
 import fluence.vm.AsmbleWasmVm._
-import fluence.vm.wasm_specific.ModuleInstance
+import fluence.vm.wasm_specific.{AsmbleWasmModule, ModuleInstance}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -42,13 +42,9 @@ import scala.util.Try
  *                     information needed to execute any function.
  * @param modules list of Wasm modules
  * @param hasher a hash function provider
- * @param allocateFunctionName name of function that will be used for allocation
- *                             memory in the Wasm part
- * @param deallocateFunctionName name of a function that will be used for freeing memory
- *                               that was previously allocated by allocateFunction
  */
 class AsmbleWasmVm(
-  private val modules: NonEmptyList[WasmModule],
+  private val modules: NonEmptyList[AsmbleWasmModule],
   private val hasher: Hasher[Array[Byte], Array[Byte]],
 ) extends WasmVm {
 

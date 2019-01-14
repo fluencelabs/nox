@@ -26,11 +26,10 @@ import fluence.vm.VmError.WasmVmError.InvokeError
 import scala.language.higherKinds
 
 /**
-  * Representation for each Wasm function. Contains reference to module instance
-  * and java method [[java.lang.reflect.Method]].
+  * Represent a Wasm function exported from a Wasm Module.
   *
-  * @param fnName a name of function.
-  * @param javaMethod a java method [[java.lang.reflect.Method]] for calling function.
+  * @param fnName a name of the function.
+  * @param javaMethod a java method [[java.lang.reflect.Method]] used for calling the function.
   */
 case class WasmFunction(
   private val fnName: String,
@@ -38,7 +37,7 @@ case class WasmFunction(
 ) {
 
   /**
-    * Invokes this function with arguments.
+    * Invokes the function with provided arguments.
     *
     * @param module the object the underlying method is invoked from.
     *               This is an instance for the current module, it contains
@@ -46,7 +45,10 @@ case class WasmFunction(
     * @param args arguments for calling this function.
     * @tparam F a monad with an ability to absorb 'IO'
     */
-  def apply[F[_]: Functor: LiftIO](module: Any, args: List[AnyRef]): EitherT[F, InvokeError, AnyRef] =
+  def apply[F[_]: Functor: LiftIO](
+    module: Any,
+    args: List[AnyRef]
+  ): EitherT[F, InvokeError, AnyRef] =
     EitherT(
       IO(
         javaMethod.invoke(module, args: _*))

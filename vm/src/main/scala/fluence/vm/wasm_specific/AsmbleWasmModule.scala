@@ -16,7 +16,7 @@
 
 package fluence.vm.wasm_specific
 
-import java.lang.reflect.Method
+import java.lang.reflect.{Method, Modifier}
 import java.nio.ByteBuffer
 
 import asmble.compile.jvm.AsmExtKt
@@ -104,11 +104,13 @@ object AsmbleWasmModule {
    */
   def apply(
     moduleDescription: Compiled,
-    scriptContext: ScriptContext
+    scriptContext: ScriptContext,
+    allocationFunctionName: String,
+    deallocationFunctionName: String,
+    invokeFunctionName: String
   ): Either[ApplyError, AsmbleWasmModule] =
     for {
 
-      // creating module instance
       moduleInstance <- Try(moduleDescription.instance(scriptContext)).toEither.left.map { e ⇒
         // todo method 'instance' must throw both an initialization error and a
         // Trap error, but now they can't be separated
@@ -130,7 +132,27 @@ object AsmbleWasmModule {
         )
       }
 
-    } yield WasmModule(Option(moduleDescription.getName), moduleInstance, WasmModuleState(memory))
+      wasmExportFns: Map[String, Method] = moduleDescription
+        .getCls
+        .getDeclaredMethods
+        .foldLeft(Map.empty[String, Method]) ((map, value) => value match {
+          // choose only exported wasm functions
+          case publicMethod if Modifier.isPublic(value.getModifiers) => map + (value.getName -> value)
+          case _ => map
+        }
+      )
+
+    } yield new AsmbleWasmModule(
+      Option(moduleDescription.getName),
+      WasmModuleState(memory),
+      moduleInstance,
+      createWasmFunction(wasmExportFns, allocationFunctionName),
+      createWasmFunction(wasmExportFns, deallocationFunctionName),
+      createWasmFunction(wasmExportFns, invokeFunctionName)
+  )
+
+  private def createWasmFunction(wasmFns: Map[String, Method], fnName: String) : Option[WasmFunction] =
+    wasmFns.get(fnName).map(method => WasmFunction(method.getName, method))
 
   def nameAsStr(moduleName: Option[String]): String = moduleName.getOrElse("<no-name>")
 
