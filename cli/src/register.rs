@@ -75,7 +75,8 @@ impl Register {
         gas: u32,
     ) -> Result<Register, Box<Error>> {
         if last_port < start_port {
-            let err: Box<Error> = From::from("last_port should be bigger than start_port".to_string());
+            let err: Box<Error> =
+                From::from("last_port should be bigger than start_port".to_string());
             return Err(err);
         }
 
