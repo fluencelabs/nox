@@ -55,7 +55,8 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         await addNodes(cluster);
         
         let pinnedNodes = result.map(r => r.nodeID);
-        let receipt = (await addApp(cluster, pinnedNodes)).receipt;
+        let app = await addApp(cluster, pinnedNodes);
+        let receipt = app.receipt;
         
         var clusterID;
         truffleAssert.eventEmitted(receipt, utils.clusterFormedEvent, (ev) => {
@@ -72,6 +73,26 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         assert.equal(clusterSize, cluster);
         assert.deepEqual(appPinToNodes, pinnedNodes);
         assert.deepEqual(nodeIDs, pinnedNodes);
+    });
+
+    it("Should get correct enqueued apps after adding", async function() {
+        let count = 5;
+        let pinnedCount = 2;
+        let pinned = await addPinnedNodes(pinnedCount);
+        let pinnedNodeIDs = pinned.map(r => r.nodeID);
+        let appWithPins = await addApp(count, pinnedNodeIDs);
+        let app = await addApp(count, []);
+
+        let apps = await global.contract.getEnqueuedApps();
+        assert.equal(apps.length, 6); // apps' Swarm hashes, receipts, clusters' sizes, developers' addresses, number of pinned nodes, all pinned nodes
+
+        assert.equal(apps[0][0], appWithPins.storageHash)
+        assert.equal(apps[4][0], pinnedCount)
+        assert.deepEqual(apps[5], pinnedNodeIDs)
+
+        assert.equal(apps[0][1], app.storageHash)
+        assert.equal(apps[4][1], 0)
+
     });
 
     it("Should use both public & private nodes for pinned app", async function() {

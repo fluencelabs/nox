@@ -33,7 +33,7 @@ def deploy():
         chain='kovan'
 
         # actual fluence contract address
-        contract_address='0x8013D56197629180ABd69e8e24556054016B693f'
+        contract_address='0xd5D58ABc1839628b3EaC364B801Cf13D510Ad6a9'
 
         # getting owner and private key from `info` dictionary
         current_host = env.host_string
@@ -41,13 +41,15 @@ def deploy():
         current_key = info[current_host]['key']
 
         with shell_env(CHAIN=chain,
-                       PROD="true",
+                       REMOTE_DEPLOY="true",
                        CONTRACT_ADDRESS=contract_address,
                        BZZ_KEY=current_owner,
                        OWNER_ADDRESS=current_owner,
                        PORTS="25000:25003",
                        NAME="node1",
-                       PRIVATE_KEY=current_key):
+                       PRIVATE_KEY=current_key,
+                       HOST_IP=current_host,
+                       PARITY_ARGS='--light --chain kovan --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'):
             run('chmod +x compose.sh')
             run('chmod +x fluence')
             run('./compose.sh')

@@ -21,44 +21,44 @@ import {decodeNodeAddress} from "./nodeAddress";
 /**
  * Represents Fluence node registered in ethereum contract.
  * The node listens to contract events and runs real-time nodes.
- * The purpose of real-time nodes is to host developer's [`Code`], e.g., backend code.
+ * The purpose of real-time nodes is to host developer's [`App`], e.g., backend app.
  */
 export interface Node {
     id: string,
     tendermint_key: string,
     ip_addr: string,
-    start_port: number,
-    end_port: number,
-    current_port: number,
-    owner: string
+    next_port: number,
+    last_port: number,
+    owner: string,
+    is_private: boolean,
+    clusters_ids: string[]
 }
 
 /**
  * Gets list of ready-to-work nodes from Fluence contract
  */
-export async function getNodes(contract: Network): Promise<Node[]> {
-    let unparsedNodes = await contract.methods.getReadyNodes().call();
-    let nodes: Node[] = [];
+export async function getNodes(contract: Network, ids: string[]): Promise<Node[]> {
+    let nodeCalls: Promise<Node>[] = ids.map((id) => {
+        return contract.methods.getNode(id).call().then((res) => {
+            let addr = decodeNodeAddress(res["0"]);
+            let nextPort = parseInt(res["1"]);
+            let lastPort = parseInt(res["2"]);
+            let owner = res["3"];
+            let isPrivate = res["4"];
+            let clusterIds = res["5"];
 
-    let ids = unparsedNodes["0"];
-    let addresses = unparsedNodes["1"];
-    let startPorts = unparsedNodes["2"];
-    let endPorts = unparsedNodes["3"];
-    let currentPorts = unparsedNodes["4"];
-    let owners = unparsedNodes["5"];
-
-    ids.forEach((id, index) => {
-        let addr = decodeNodeAddress(addresses[index]);
-        let node: Node = {
-            id: id,
-            tendermint_key: addr.tendermint_key,
-            ip_addr: addr.ip_addr,
-            start_port: parseInt(startPorts[index]),
-            end_port: parseInt(endPorts[index]),
-            current_port: parseInt(currentPorts[index]),
-            owner: owners[index]
-        };
-        nodes.push(node);
+            return {
+                id: id,
+                tendermint_key: addr.tendermint_key,
+                ip_addr: addr.ip_addr,
+                next_port: nextPort,
+                last_port: lastPort,
+                owner: owner,
+                is_private: isPrivate,
+                clusters_ids: clusterIds
+            };
+        });
     });
-    return nodes;
+
+    return Promise.all(nodeCalls);
 }

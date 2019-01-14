@@ -87,7 +87,7 @@ async function addApp (contract, count, owner, pinToNodes = []) {
     let storageReceipt = string2Bytes32(crypto.randomBytes(16).hexSlice());
     let receipt = await contract.addApp(storageHash, storageReceipt, count, pinToNodes, {from: owner});
     return {
-        storageHash: storageHash, 
+        storageHash: storageHash,
         storageReceipt: storageReceipt,
         clusterSize: count,
         receipt: receipt
