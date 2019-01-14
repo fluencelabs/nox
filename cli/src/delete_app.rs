@@ -32,25 +32,41 @@ const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
 const GAS: &str = "gas";
 const ACCOUNT: &str = "account";
+const CONTRACT_ADDRESS: &str = "contract_address";
+const ETH_URL: &str = "eth_url";
 
 #[derive(Debug)]
-struct DeleteApp {
+pub struct DeleteApp {
     app_id: H256,
     cluster_id: Option<H256>,
     credentials: Credentials,
     gas: u32,
-    account: Address
+    account: Address,
+    contract_address: Address,
+    eth_url: String
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("delete_app")
         .about("Delete app from smart-contract")
         .args(&[
+            Arg::with_name(CONTRACT_ADDRESS)
+                .required(true)
+                .takes_value(true)
+                .index(1)
+                .help("fluence contract address"),
             Arg::with_name(ACCOUNT)
                 .required(true)
-                .index(1)
+                .index(2)
                 .takes_value(true)
                 .help("ethereum account"),
+            Arg::with_name(ETH_URL)
+                .long(ETH_URL)
+                .short("e")
+                .required(false)
+                .takes_value(true)
+                .help("http address to ethereum node")
+                .default_value("http://localhost:8545/"),
             Arg::with_name(APP_ID)
                 .required(true)
                 .takes_value(true)
@@ -88,28 +104,36 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
         .map(|v| v.trim_start_matches("0x").parse::<H256>())
         .map_or(Ok(None), |r| r.map(Some).into())?;
 
-    let secret_key = utils::parse_secret_key(matches, SECRET_KEY)?;
-    let password = matches.value_of(PASSWORD).map(|s| s.to_string());
+    let secret_key = utils::parse_secret_key(args, SECRET_KEY)?;
+    let password = args.value_of(PASSWORD).map(|s| s.to_string());
 
     let credentials = Credentials::get(secret_key, password);
 
-    let gas: u32 = matches.value_of(GAS).unwrap().parse()?;
-    let account: Address = utils::parse_hex_opt(matches, ACCOUNT)?.parse()?;
+    let gas: u32 = args.value_of(GAS).unwrap().parse()?;
+    let account: Address = utils::parse_hex_opt(args, ACCOUNT)?.parse()?;
 
-    return DeleteApp {
+    let contract_address: Address = utils::parse_hex_opt(args, CONTRACT_ADDRESS)?.parse()?;
+
+    let eth_url = value_t!(args, ETH_URL, String)?;
+
+    return Ok(DeleteApp {
         app_id,
         cluster_id,
         credentials,
         gas,
-        account
-    };
+        account,
+        contract_address,
+        eth_url
+    });
 }
 
 impl DeleteApp {
-    pub fn delete_app(self, show_progress: bool) {
+    pub fn delete_app(self, show_progress: bool) -> Result<H256, Box<Error>> {
         let delete_app_fn = || -> Result<H256, Box<Error>> {
             let cluster_id = self.cluster_id.unwrap_or(H256::default());
             let (call_data, _) = delete_app::call(self.app_id, cluster_id);
+
+            let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
 
             contract.call_contract(self.account, &self.credentials, call_data, self.gas)
         };

@@ -116,8 +116,13 @@ fn main() {
         }
 
         ("delete_app", Some(args)) => {
-            let delete_app = delete_app::parse(args).expect("Error parsing arguments"));
-            delete_app.delete_app(true);
+            let delete_app = delete_app::parse(args).expect("Error parsing arguments");
+            let transaction = delete_app.delete_app(true);
+
+            let formatted_finish_msg = style("App deleted. Submitted transaction").blue();
+            let formatted_tx = style(transaction).red().bold();
+
+            println!("{}: {:?}", formatted_finish_msg, formatted_tx);
         }
 
         c => panic!("Unexpected command: {}", c.0),
