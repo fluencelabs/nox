@@ -18,48 +18,60 @@
 import {Network} from "../types/web3-contracts/Network";
 
 /**
- * A code is a WASM file. It can be deployed on a real-time cluster and run.
+ * An app is a WASM file. It can be deployed on a real-time cluster and run.
  * In Fluence contract it represents as a Swarm address to the WASM file
  * and a requirement of how many nodes will be in the cluster.
  */
-export interface Code {
-    code_address: string,
+export interface App {
+    app_address: string,
     storage_receipt: string,
     cluster_size: number,
-    developer: string
+    developer: string,
+    pinToNodes: string[]
 }
 
 /**
  * Gets list of enqueued codes from Fluence contract
  */
-export async function getEnqueuedCodes(contract: Network): Promise<Code[]> {
-    let unparsedCodes = await contract.methods.getEnqueuedCodes().call();
+export async function getEnqueuedApps(contract: Network): Promise<App[]> {
 
-    let codeAddresses = unparsedCodes["0"];
-    let storageReceipts = unparsedCodes["1"];
-    let clusterSizes = unparsedCodes["2"];
-    let developers = unparsedCodes["3"];
+    let unparsedApps = await contract.methods.getEnqueuedApps().call();
 
-    return parseCodes(codeAddresses, storageReceipts, clusterSizes, developers);
+    let storageHashes = unparsedApps["0"];
+    let storageReceipts = unparsedApps["1"];
+    let clusterSizes = unparsedApps["2"];
+    let developers = unparsedApps["3"];
+    let numberOfPinned: number[] = unparsedApps["4"].map((n) => {return parseInt(n);});
+    let allPinned: string[] = unparsedApps["5"];
+
+    return parseCodes(storageHashes, storageReceipts, clusterSizes, developers, numberOfPinned, allPinned);
 }
 
 /**
  * Collects codes from response format of Fluence contract.
  */
-export function parseCodes(codeAddresses: string[],
+export function parseCodes(appAddresses: string[],
                     storageReceipts: string[],
                     clusterSizes: string[],
-                    developers: string[]): Code[] {
-    let codes: Code[] = [];
+                    developers: string[],
+                    numberOfPinned: number[],
+                    allPinned: string[]): App[] {
+    let count = 0;
 
-    codeAddresses.forEach((address, index) => {
-        let code: Code = {
-            code_address: address,
+    return appAddresses.map((address, index) => {
+        let pinned: string[] = [];
+
+        for(var i = 0; i < numberOfPinned[index]; i++){
+            pinned.push(allPinned[count]);
+            count++;
+        }
+
+        return {
+            app_address: address,
             storage_receipt: storageReceipts[index],
             cluster_size: parseInt(clusterSizes[index]),
-            developer: developers[index]
+            developer: developers[index],
+            pinToNodes: pinned
         };
-        codes.push(code);
     });
-    return codes;
 }

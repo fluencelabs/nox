@@ -16,76 +16,62 @@
  */
 
 import {Network} from "../types/web3-contracts/Network";
-import {decodeNodeAddress} from "./nodeAddress";
-import {Code, parseCodes} from "./code";
+import {App} from "./app";
 
 export interface ClusterMember {
     id: string,
-    tendermint_key: string,
-    ip_addr: string,
-    port: number,
-    owner: string
+    port: number
 }
 
 export interface Cluster {
     id: string,
     genesis_time: number,
-    code: Code,
+    app: App,
     cluster_members: ClusterMember[]
 }
 
 /**
  * Gets list of formed clusters from Fluence contract
  */
-export async function getClusters(contract: Network): Promise<Cluster[]> {
-    let unparsedClustersInfo = await contract.methods.getClustersInfo().call();
-    let unparsedClustersNodes = await contract.methods.getClustersNodes().call();
-    let clusters: Cluster[] = [];
+export async function getClusters(contract: Network, ids: string[]): Promise<Cluster[]> {
 
-    // clusters info
-    let cluster_ids = unparsedClustersInfo["0"];
-    let genesis_times = unparsedClustersInfo["1"];
+    let clusterCalls: Promise<Cluster>[] = ids.map((id) => {
+        return contract.methods.getCluster(id).call().then((res) => {
 
-    // codes info
-    let codeAddresses = unparsedClustersInfo["2"];
-    let storageReceipts = unparsedClustersInfo["3"];
-    let clusterSizes = unparsedClustersInfo["4"];
-    let developers = unparsedClustersInfo["5"];
-    let codes: Code[] = parseCodes(codeAddresses, storageReceipts, clusterSizes, developers);
+            let appAddress = res["0"];
+            let storageReceipt = res["1"];
+            let clusterSize = parseInt(res["2"]);
+            let developer = res["3"];
+            let pinToNodes = res["4"];
 
-    // nodes info
-    let node_ids = unparsedClustersNodes["0"];
-    let node_addresses = unparsedClustersNodes["1"];
-    let node_ports = unparsedClustersNodes["2"];
-    let node_owners = unparsedClustersNodes["3"];
-
-    var membersCounter = 0;
-    cluster_ids.forEach((id, index) => {
-
-        let code = codes[index];
-
-        let clustersMembers: ClusterMember[] = [];
-
-        for(var i = 0; i < code.cluster_size; i++){
-            let addr = decodeNodeAddress(node_addresses[index]);
-            let member: ClusterMember = {
-                id: node_ids[membersCounter],
-                tendermint_key: addr.tendermint_key,
-                ip_addr: addr.ip_addr,
-                port: parseInt(node_ports[membersCounter]),
-                owner: node_owners[membersCounter]
+            let app: App = {
+                app_address: appAddress,
+                storage_receipt: storageReceipt,
+                cluster_size: clusterSize,
+                developer: developer,
+                pinToNodes: pinToNodes
             };
-            clustersMembers.push(member);
-            membersCounter++;
-        }
 
-        let cluster: Cluster = {
-            id: cluster_ids[index],
-            genesis_time: parseInt(genesis_times[index]),
-            code: code,
-            cluster_members: clustersMembers
-        };
-        clusters.push(cluster);
+            let memberIds = res["6"];
+            let memberPorts = res["7"];
+
+            let cluster_members: ClusterMember[] = memberIds.map((member_id, idx) => {
+                return {
+                    id: member_id,
+                    port: parseInt(memberPorts[idx])
+                }
+            });
+
+            let genesisTime = parseInt(res["5"]);
+
+            return {
+                id: id,
+                genesis_time: genesisTime,
+                app: app,
+                cluster_members: cluster_members
+            };
+        });
     });
-    return clusters;
+
+    return Promise.all(clusterCalls);
 }

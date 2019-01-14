@@ -13,6 +13,6 @@ services:
       - PORTS=$PORTS
     ports:
       # port for status API
-      - 25400:5678
+      - $STATUS_PORT:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

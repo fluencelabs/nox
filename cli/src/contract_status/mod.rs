@@ -92,7 +92,7 @@ mod tests {
         )
     }
 
-    fn generate_register(address: &str, min_port: u16, max_port: u16) -> Register {
+    fn generate_register(address: &str, start_port: u16, last_port: u16) -> Register {
         let contract_address: Address = CONTRACT_ADDR.parse().unwrap();
 
         let mut rng = rand::thread_rng();
@@ -104,8 +104,8 @@ mod tests {
         Register::new(
             address.parse().unwrap(),
             tendermint_key,
-            min_port,
-            max_port,
+            start_port,
+            last_port,
             contract_address,
             account,
             String::from(ETH_URL),
