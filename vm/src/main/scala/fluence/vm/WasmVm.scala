@@ -33,6 +33,7 @@ import fluence.vm.AsmbleWasmVm._
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
 import fluence.vm.config.VmConfig.ConfigError
+import fluence.vm.wasm_specific.ModuleInstance
 import scodec.bits.ByteVector
 import pureconfig.generic.auto._
 
@@ -85,7 +86,7 @@ object WasmVm {
    * @param functions an index for fast searching public Wasm functions
    */
   private[vm] case class VmProps(
-    modules: List[ModuleInstance] = Nil,
+    modules: List[WasmModule] = Nil,
     functions: WasmFnIndex = Map()
   )
 
@@ -187,7 +188,7 @@ object WasmVm {
       case (Right(vmProps), moduleDesc) ⇒
         for {
           // initialization of module instance
-          moduleInstance <- ModuleInstance(moduleDesc, scriptCxt)
+          moduleInstance <- WasmModule(moduleDesc, scriptCxt)
           // building module index for fast access to functions
           methodsAsWasmFns = moduleDesc.getCls.getDeclaredMethods
             .withFilter(m ⇒ Modifier.isPublic(m.getModifiers))

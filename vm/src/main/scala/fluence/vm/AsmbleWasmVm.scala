@@ -26,6 +26,7 @@ import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.VmError.{NoSuchFnError, _}
 import fluence.vm.AsmbleWasmVm._
+import fluence.vm.wasm_specific.ModuleInstance
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -47,7 +48,7 @@ import scala.util.Try
  *                               that was previously allocated by allocateFunction
  */
 class AsmbleWasmVm(
-  private val modules: NonEmptyList[ModuleInstance],
+  private val modules: NonEmptyList[WasmModule],
   private val hasher: Hasher[Array[Byte], Array[Byte]],
 ) extends WasmVm {
 
@@ -117,7 +118,7 @@ class AsmbleWasmVm(
    */
   private def preprocessFnArgument[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte],
-    moduleInstance: ModuleInstance
+    moduleInstance: WasmModule
   ): EitherT[F, InvokeError, List[AnyRef]] =
     if (fnArgument.isEmpty)
       EitherT.rightT[F, InvokeError](0.asInstanceOf[AnyRef] :: 0.asInstanceOf[AnyRef] :: Nil)
@@ -135,7 +136,7 @@ class AsmbleWasmVm(
    */
   private def injectArrayIntoWasmModule[F[_]: LiftIO: Monad](
     injectedArray: Array[Byte],
-    moduleInstance: ModuleInstance
+    moduleInstance: WasmModule
   ): EitherT[F, InvokeError, Int] =
     for {
       // In the current version, it is possible for Wasm module to have allocation/deallocation
@@ -176,7 +177,7 @@ class AsmbleWasmVm(
    */
   private def extractResultFromWasmModule[F[_]: LiftIO: Monad](
     offset: Int,
-    moduleInstance: ModuleInstance
+    moduleInstance: WasmModule
   ): EitherT[F, InvokeError, Array[Byte]] =
     for {
       extractedResult <- readResultFromWasmModule(offset, moduleInstance)
@@ -195,7 +196,7 @@ class AsmbleWasmVm(
    */
   private def readResultFromWasmModule[F[_]: LiftIO: Monad](
     offset: Int,
-    moduleInstance: ModuleInstance
+    moduleInstance: WasmModule
   ): EitherT[F, InvokeError, Array[Byte]] =
     for {
       wasmMemory <- EitherT.fromOption(

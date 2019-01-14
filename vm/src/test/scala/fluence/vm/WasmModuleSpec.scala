@@ -23,11 +23,12 @@ import asmble.run.jvm.ScriptContext
 import cats.data.EitherT
 import fluence.crypto.CryptoError
 import fluence.vm.VmError.{InitializationError, InternalVmError}
+import fluence.vm.wasm_specific.ModuleInstance
 import org.mockito.Mockito
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 
-class ModuleInstanceSpec extends WordSpec with Matchers with MockitoSugar {
+class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
 
   "apply" should {
     "returns an error" when {
@@ -37,7 +38,7 @@ class ModuleInstanceSpec extends WordSpec with Matchers with MockitoSugar {
         Mockito.when(module.getName).thenReturn("test-module-name")
         Mockito.when(module.instance(scriptCtx)).thenThrow(new RuntimeException("boom!"))
 
-        ModuleInstance(module, scriptCtx) match {
+        WasmModule(module, scriptCtx) match {
           case Right(_) ⇒
             fail("Should be error appeared")
           case Left(e) ⇒
@@ -54,7 +55,7 @@ class ModuleInstanceSpec extends WordSpec with Matchers with MockitoSugar {
         val scriptCtx = mock[ScriptContext]
         Mockito.when(module.instance(scriptCtx)).thenReturn(instance, null)
 
-        ModuleInstance(module, scriptCtx) match {
+        WasmModule(module, scriptCtx) match {
           case Right(_) ⇒
             fail("Should be error appeared")
           case Left(e) ⇒
@@ -73,7 +74,7 @@ class ModuleInstanceSpec extends WordSpec with Matchers with MockitoSugar {
         val scriptCtx = mock[ScriptContext]
         Mockito.when(module.instance(scriptCtx)).thenReturn(instance, null)
 
-        ModuleInstance(module, scriptCtx) match {
+        WasmModule(module, scriptCtx) match {
           case Right(moduleInstance) ⇒
             moduleInstance.memory shouldBe None
           case Left(e) ⇒
@@ -88,7 +89,7 @@ class ModuleInstanceSpec extends WordSpec with Matchers with MockitoSugar {
         val scriptCtx = mock[ScriptContext]
         Mockito.when(module.instance(scriptCtx)).thenReturn(instance, null)
 
-        ModuleInstance(module, scriptCtx) match {
+        WasmModule(module, scriptCtx) match {
           case Right(moduleInstance) ⇒
             moduleInstance.memory.get.array() should contain allOf (1, 2, 3)
           case Left(e) ⇒
@@ -163,13 +164,13 @@ class ModuleInstanceSpec extends WordSpec with Matchers with MockitoSugar {
 
   }
 
-  private def createInstance(instance: AnyRef): ModuleInstance = {
+  private def createInstance(instance: AnyRef): WasmModule = {
     val module = mock[Compiled]
     Mockito.when(module.getName).thenReturn("test-module-name")
     val scriptCtx = mock[ScriptContext]
     Mockito.when(module.instance(scriptCtx)).thenReturn(instance, null)
 
-    ModuleInstance(module, scriptCtx).right.get
+    WasmModule(module, scriptCtx).right.get
   }
 
 }
