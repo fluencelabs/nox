@@ -67,7 +67,7 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let clusterInfo = await global.contract.getCluster(clusterID);
         let clusterSize = clusterInfo[2];
         let appPinToNodes = clusterInfo[4];
-        let nodeIDs = clusterInfo[6];
+        let nodeIDs = clusterInfo[7];
 
         assert.equal(clusterSize, cluster);
         assert.deepEqual(appPinToNodes, pinnedNodes);

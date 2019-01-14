@@ -68,7 +68,7 @@ contract Network is Deployer {
     function getCluster(bytes32 clusterID)
         external
         view
-    returns (bytes32, bytes32, uint8, address, bytes32[], uint, bytes32[], uint16[])
+    returns (bytes32, bytes32, uint8, address, bytes32[], bytes32, uint, bytes32[], uint16[])
     {
         Cluster memory cluster = clusters[clusterID];
         require(cluster.clusterID > 0, "there is no such cluster");
@@ -79,6 +79,7 @@ contract Network is Deployer {
             cluster.app.clusterSize,
             cluster.app.owner,
             cluster.app.pinToNodes,
+            cluster.app.appID,
 
             cluster.genesisTime,
             cluster.nodeIDs,
@@ -116,10 +117,11 @@ contract Network is Deployer {
     function getEnqueuedApps()
         external
         view
-    returns(bytes32[], bytes32[], uint8[], address[])
+    returns(bytes32[], bytes32[], bytes32[], uint8[], address[])
     {
         bytes32[] memory storageHashes = new bytes32[](enqueuedApps.length);
         bytes32[] memory storageReceipts = new bytes32[](enqueuedApps.length);
+        bytes32[] memory appIDs = new bytes32[](enqueuedApps.length);
         uint8[] memory clusterSizes = new uint8[](enqueuedApps.length);
         address[] memory owners = new address[](enqueuedApps.length);
 
@@ -128,11 +130,12 @@ contract Network is Deployer {
 
             storageHashes[i] = app.storageHash;
             storageReceipts[i] = app.storageReceipt;
+            appIDs[i] = app.appID;
             clusterSizes[i] = app.clusterSize;
             owners[i] = app.owner;
         }
 
-        return (storageHashes, storageReceipts, clusterSizes, owners);
+        return (storageHashes, storageReceipts, appIDs, clusterSizes, owners);
     }
 
 }

@@ -3,6 +3,7 @@ name = "fluence"
 version = "0.1.0" # don't forget to change in README.md too
 authors = ["Fluence Labs"]
 publish=false
+#include = ["../bootstrap/contracts/*.sol"] # rebuild on changes in contracts
 
 [profile.release]
 debug = false

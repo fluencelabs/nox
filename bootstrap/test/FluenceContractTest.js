@@ -54,6 +54,12 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
     it("Should deploy an app when there are enough nodes", async function() {
         let count = 5;
         let addApp = await utils.addApp(this.contract, count, whitelisted);
+        var appID;
+        truffleAssert.eventEmitted(addApp.receipt, utils.appEnqueuedEvent, ev => {
+            appID = ev.appID;
+            return true;
+        })
+        assert.notEqual(appID, undefined);
 
         let addNodes = await utils.addNodesFull(this.contract, count, "127.0.0.1", whitelisted);
         let nodeIDs = addNodes.map(r => r.nodeID);
@@ -64,6 +70,7 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         truffleAssert.eventEmitted(receipt, utils.clusterFormedEvent, (ev) => {
             assert.equal(ev.nodeAddresses.length, count);
             assert.deepEqual(ev.nodeIDs, nodeIDs);
+            assert.equal(ev.appID, appID);
             clusterID = ev.clusterID;
             return true;
         });
@@ -71,6 +78,7 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         let cluster = await this.contract.getCluster(clusterID);
         assert.equal(cluster[0], addApp.storageHash);
         assert.equal(cluster[1], addApp.storageReceipt);
+        assert.equal(cluster[5], appID);
     });
 
     it("Should not form cluster from workers of same node", async function() {
@@ -116,7 +124,18 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         }
 
         let addApp = await utils.addApp(this.contract, count, whitelisted);
-        truffleAssert.eventEmitted(addApp.receipt, utils.appEnqueuedEvent);
+        var appID;
+        truffleAssert.eventEmitted(addApp.receipt, utils.appEnqueuedEvent, (ev) => {
+            appID = ev.appID;
+            return true;
+        });
+
+        // check app with that ID is in enqueued apps list
+        let enqueuedApps = await this.contract.getEnqueuedApps();
+        let appIDs = enqueuedApps[2];
+        let enqueuedApp = appIDs.find(app => app == appID);
+        assert.notEqual(enqueuedApp, undefined);
+
         truffleAssert.eventNotEmitted(addApp.receipt, utils.clusterFormedEvent);
     });
 
@@ -133,18 +152,20 @@ contract('Fluence', function ([_, owner, whitelisted, anyone]) {
         let enqueuedApps = await this.contract.getEnqueuedApps();
 
         // number of returned fields
-        assert.equal(enqueuedApps.length, 4); // storageHashes, storageReceipts, sizes, developerAddresses, pinned, pinnedNodes
+        assert.equal(enqueuedApps.length, 5); // storageHashes, storageReceipts, sizes, developerAddresses, pinned, pinnedNodes, appIDs
 
         let storageHashes = enqueuedApps[0];
         let storageReceipts = enqueuedApps[1];
-        let sizes = enqueuedApps[2];
-        let developerAddresses = enqueuedApps[3];
-        
-        // only two apps were depoyed
+        let appIDs = enqueuedApps[2];
+        let sizes = enqueuedApps[3];
+        let developerAddresses = enqueuedApps[4];
+
+        // two apps were deployed, two left enqueued
         assert.equal(storageHashes.length, 2);
         assert.equal(storageReceipts.length, 2);
         assert.equal(sizes.length, 2);
         assert.equal(developerAddresses.length, 2);
+        assert.equal(appIDs.length, 2);
 
         // looking for app deployments corresponding to enqueuedApps
         storageHashes.forEach((hash, idx) => {

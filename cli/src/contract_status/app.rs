@@ -23,6 +23,7 @@ use contract_func::ContractCaller;
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct App {
+    app_id: H256,
     storage_hash: H256,
     storage_receipt: H256,
     cluster_size: u8,
@@ -32,6 +33,7 @@ pub struct App {
 
 impl App {
     pub fn new(
+        app_id: H256,
         storage_hash: H256,
         storage_receipt: H256,
         cluster_size: u8,
@@ -39,6 +41,7 @@ impl App {
         pin_to_nodes: Option<Vec<H256>>,
     ) -> App {
         App {
+            app_id,
             storage_hash,
             storage_receipt,
             cluster_size,
@@ -50,7 +53,7 @@ impl App {
 
 pub fn get_enqueued_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Error>> {
     let (call_data, decoder) = get_enqueued_apps::call();
-    let (storage_hashes, storage_receipts, cluster_sizes, owners) =
+    let (storage_hashes, storage_receipts, app_ids, cluster_sizes, owners) =
         contract.query_contract(call_data, Box::new(decoder))?;
 
     let mut apps: Vec<App> = Vec::new();
@@ -58,14 +61,15 @@ pub fn get_enqueued_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Erro
         // TODO: use try_into when Rust 1.33 is stable
         let cluster_size: u64 = cluster_sizes[i].into();
 
-        let code = App::new(
+        let app = App::new(
+            app_ids[i],
             storage_hashes[i],
             storage_receipts[i],
             cluster_size as u8,
             owners[i],
             None,
         );
-        apps.push(code);
+        apps.push(app);
     }
 
     Ok(apps)

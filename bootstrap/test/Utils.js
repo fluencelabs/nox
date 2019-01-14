@@ -21,6 +21,7 @@ const assert = require("chai").assert;
 exports.newNodeEvent = 'NewNode';
 exports.appEnqueuedEvent = 'AppEnqueued';
 exports.clusterFormedEvent = 'ClusterFormed';
+exports.appDeletedEvent = 'AppDeleted';
 
 function string2Bytes32 (str) {
     // 64 is for 32 bytes, 2 chars each
