@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[macro_use]
 extern crate clap;
 extern crate console;
 extern crate ethabi;
@@ -51,6 +52,8 @@ extern crate ethabi_contract;
 #[macro_use]
 extern crate ethabi_derive;
 
+//extern crate jsonrpc_core as jsonrpc;
+
 mod check;
 mod contract_func;
 mod contract_status;
@@ -79,23 +82,21 @@ fn main() {
 
     match app.get_matches().subcommand() {
         ("publish", Some(args)) => {
-            let publisher = publisher::parse(args).unwrap();
-
-            let transaction = publisher.publish(true);
+            let publisher = publisher::parse(args).expect("Error parsing arguments");
+            let transaction = publisher.publish(true).expect("Error sending transaction");
 
             let formatted_finish_msg = style("Code published. Submitted transaction").blue();
-            let formatted_tx = style(transaction.unwrap()).red().bold();
+            let formatted_tx = style(transaction).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);
         }
 
         ("register", Some(args)) => {
-            let register = register::parse(args).unwrap();
-
-            let transaction = register.register(true);
+            let register = register::parse(args).expect("Error parsing arguments");
+            let transaction = register.register(true).expect("Error sending transaction");
 
             let formatted_finish_msg = style("Node registered. Submitted transaction").blue();
-            let formatted_tx = style(transaction.unwrap()).red().bold();
+            let formatted_tx = style(transaction).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);
         }

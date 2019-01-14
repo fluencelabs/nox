@@ -89,6 +89,7 @@ mod tests {
             creds,
             cluster_size.to_owned(),
             1_000_000,
+            vec![],
         )
     }
 
@@ -112,6 +113,7 @@ mod tests {
             Credentials::No,
             false,
             1_000_000,
+            false,
         )
         .unwrap()
     }
