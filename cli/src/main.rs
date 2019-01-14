@@ -59,6 +59,7 @@ mod contract_func;
 mod contract_status;
 mod credentials;
 mod publisher;
+mod delete_app;
 mod register;
 mod types;
 mod utils;
@@ -78,7 +79,8 @@ fn main() {
         .subcommand(publisher::subcommand())
         .subcommand(register::subcommand())
         .subcommand(contract_status::subcommand())
-        .subcommand(check::subcommand());
+        .subcommand(check::subcommand())
+        .subcommand(delete_app::subcommand());
 
     match app.get_matches().subcommand() {
         ("publish", Some(args)) => {
@@ -111,6 +113,11 @@ fn main() {
 
         ("check", Some(args)) => {
             handle_error(check::process(args));
+        }
+
+        ("delete_app", Some(args)) => {
+            let delete_app = delete_app::parse(args).expect("Error parsing arguments"));
+            delete_app.delete_app(true);
         }
 
         c => panic!("Unexpected command: {}", c.0),

@@ -18,41 +18,12 @@ use std::boxed::Box;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
-
-use std::boxed::Box;
-use std::error::Error;
-use std::fs::File;
-use std::io::prelude::*;
 use std::str::FromStr;
 
 use clap::{App, Arg, SubCommand};
 use clap::ArgMatches;
 use ethkey::Secret;
 use reqwest::Client;
-use web3::types::{Address, H256};
-
-use clap::ArgMatches;
-use clap::{App, Arg, SubCommand};
-use reqwest::Client;
-use web3::types::{Address, H256};
-
-use contract_func::contract::functions::add_app;
-use contract_func::ContractCaller;
-use credentials::Credentials;
-use utils;
-use clap::ArgMatches;
-use clap::{App, Arg, SubCommand};
-use contract_func::contract::functions::add_app;
-use contract_func::ContractCaller;
-use credentials::Credentials;
-use ethkey::Secret;
-use reqwest::Client;
-use std::boxed::Box;
-use std::error::Error;
-use std::fs::File;
-use std::io::prelude::*;
-use std::str::FromStr;
-use utils;
 use web3::types::{Address, H256};
 
 use contract_func::contract::functions::add_app;
@@ -65,9 +36,9 @@ const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 const PASSWORD: &str = "password";
+const SECRET_KEY: &str = "secret_key";
 const CLUSTER_SIZE: &str = "cluster_size";
 const SWARM_URL: &str = "swarm_url";
-const SECRET_KEY: &str = "secret_key";
 const GAS: &str = "gas";
 const PINNED: &str = "pin_to";
 
@@ -206,7 +177,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
         return Err(format!(
             "number of pin_to nodes should be less or equal to the desired cluster_size"
         )
-        .into());
+            .into());
     }
 
     Ok(Publisher::new(
@@ -319,10 +290,10 @@ mod tests {
     use web3;
     use web3::futures::Future;
     use web3::types::*;
+    use web3::types::H256;
 
     use credentials::Credentials;
     use publisher::Publisher;
-    use web3::types::H256;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
@@ -345,8 +316,8 @@ mod tests {
     }
 
     pub fn generate_with<F>(account: &str, func: F) -> Publisher
-    where
-        F: FnOnce(&mut Publisher),
+        where
+            F: FnOnce(&mut Publisher),
     {
         let mut publisher = generate_publisher(account, Credentials::No);
         func(&mut publisher);
