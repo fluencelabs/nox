@@ -33,7 +33,7 @@ def deploy():
         chain='kovan'
 
         # actual fluence contract address
-        contract_address='0x77888DdBb192C28Ef053B0d957e4173276D0117A'
+        contract_address='0xd5D58ABc1839628b3EaC364B801Cf13D510Ad6a9'
 
         # getting owner and private key from `info` dictionary
         current_host = env.host_string
