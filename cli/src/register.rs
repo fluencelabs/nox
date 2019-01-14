@@ -150,8 +150,8 @@ impl Register {
             let (call_data, _) = add_node::call(
                 self.tendermint_key,
                 hash_addr,
-                u64::from(self.min_port),
-                u64::from(self.max_port),
+                u64::from(self.start_port),
+                u64::from(self.last_port),
                 self.private,
             );
 

@@ -43,7 +43,7 @@ contract('Fluence (app deletion)', function ([_, owner, whitelisted, anyone]) {
         });
 
         let enqueuedApps = await global.contract.getEnqueuedApps();
-        let appIDs = enqueuedApps[2];
+        let appIDs = enqueuedApps[1];
         let app = appIDs.find(app => app == appID);
         assert.notEqual(app, undefined);
 

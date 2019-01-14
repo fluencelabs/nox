@@ -53,7 +53,7 @@ impl App {
 
 pub fn get_enqueued_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Error>> {
     let (call_data, decoder) = get_enqueued_apps::call();
-    let (storage_hashes, storage_receipts, app_ids, cluster_sizes, owners, _, _) =
+    let (storage_hashes, app_ids, cluster_sizes, owners, _, _) =
         contract.query_contract(call_data, Box::new(decoder))?;
 
     let mut apps: Vec<App> = Vec::new();
@@ -64,7 +64,7 @@ pub fn get_enqueued_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Erro
         let app = App::new(
             app_ids[i],
             storage_hashes[i],
-            storage_receipts[i],
+            H256::zero(), // storage_receipts was deleted since it was wasting stack in Solidity and wasn't used yet
             cluster_size as u8,
             owners[i],
             None,

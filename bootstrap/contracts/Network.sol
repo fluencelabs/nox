@@ -116,10 +116,9 @@ contract Network is Deployer {
     function getEnqueuedApps()
         external
         view
-    returns(bytes32[], bytes32[], bytes32[], uint8[], address[], uint256[], bytes32[])
+    returns(bytes32[], bytes32[], uint8[], address[], uint256[], bytes32[])
     {
         bytes32[] memory storageHashes = new bytes32[](enqueuedApps.length);
-        bytes32[] memory storageReceipts = new bytes32[](enqueuedApps.length);
         bytes32[] memory appIDs = new bytes32[](enqueuedApps.length);
         uint8[] memory clusterSizes = new uint8[](enqueuedApps.length);
         address[] memory owners = new address[](enqueuedApps.length);
@@ -140,7 +139,6 @@ contract Network is Deployer {
             App memory app = enqueuedApps[i];
 
             storageHashes[i] = app.storageHash;
-            storageReceipts[i] = app.storageReceipt;
             appIDs[i] = app.appID;
             clusterSizes[i] = app.clusterSize;
             owners[i] = app.owner;
@@ -152,7 +150,7 @@ contract Network is Deployer {
             }
         }
 
-        return (storageHashes, storageReceipts, appIDs, clusterSizes, owners, numberOfPinnedNodes, allPinToNodes);
+        return (storageHashes, appIDs, clusterSizes, owners, numberOfPinnedNodes, allPinToNodes);
     }
 
     /** @dev Gets nodes and clusters IDs

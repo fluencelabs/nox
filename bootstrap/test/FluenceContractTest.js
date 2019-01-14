@@ -132,7 +132,7 @@ contract('Fluence', function ([_, owner, anyone]) {
 
         // check app with that ID is in enqueued apps list
         let enqueuedApps = await this.contract.getEnqueuedApps();
-        let appIDs = enqueuedApps[2];
+        let appIDs = enqueuedApps[1];
         let enqueuedApp = appIDs.find(app => app == appID);
         assert.notEqual(enqueuedApp, undefined);
         truffleAssert.eventNotEmitted(addApp.receipt, utils.clusterFormedEvent);
@@ -151,19 +151,17 @@ contract('Fluence', function ([_, owner, anyone]) {
         let enqueuedApps = await this.contract.getEnqueuedApps();
 
         // number of returned fields
-        assert.equal(enqueuedApps.length, 5); // storageHashes, storageReceipts, sizes, developerAddresses, pinned, pinnedNodes, appIDs
+        assert.equal(enqueuedApps.length, 6); // storageHashes, appIDs, clusterSizes, owners, numberOfPinnedNodes, allPinToNodes
 
         let storageHashes = enqueuedApps[0];
-        let storageReceipts = enqueuedApps[1];
-        let appIDs = enqueuedApps[2];
-        let sizes = enqueuedApps[3];
-        let developerAddresses = enqueuedApps[4];
-let pinnedSize = enqueuedApps[4];
+        let appIDs = enqueuedApps[1];
+        let sizes = enqueuedApps[2];
+        let developerAddresses = enqueuedApps[3];
+        let pinnedSize = enqueuedApps[4];
         let pinnedNodes = enqueuedApps[5];
 
         // two apps were deployed, two left enqueued
         assert.equal(storageHashes.length, 2);
-        assert.equal(storageReceipts.length, 2);
         assert.equal(sizes.length, 2);
         assert.equal(developerAddresses.length, 2);
         assert.equal(appIDs.length, 2);
@@ -176,7 +174,6 @@ let pinnedSize = enqueuedApps[4];
         storageHashes.forEach((hash, idx) => {
             let addApp = addApps.find(add => add.storageHash == hash);
             assert.notEqual(addApp, undefined);
-            assert.equal(storageReceipts[idx], addApp.storageReceipt);
             assert.equal(sizes[idx], addApp.clusterSize);
             assert.equal(developerAddresses[idx], anyone);
             assert.equal(pinnedSize[idx], 0);
