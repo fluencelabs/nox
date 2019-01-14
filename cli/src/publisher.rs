@@ -18,11 +18,9 @@ use std::boxed::Box;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
-use std::str::FromStr;
 
-use clap::{App, Arg, SubCommand};
 use clap::ArgMatches;
-use ethkey::Secret;
+use clap::{App, Arg, SubCommand};
 use reqwest::Client;
 use web3::types::{Address, H256};
 
@@ -41,6 +39,7 @@ const CLUSTER_SIZE: &str = "cluster_size";
 const SWARM_URL: &str = "swarm_url";
 const GAS: &str = "gas";
 const PINNED: &str = "pin_to";
+const PIN_BASE64: &str = "base64";
 
 #[derive(Debug)]
 pub struct Publisher {
@@ -141,6 +140,30 @@ impl Publisher {
 //    ...
 //}
 
+fn parse_pinned(matches: &ArgMatches) -> Result<Vec<H256>, Box<Error>> {
+    let pin_to_nodes = matches.values_of(PINNED).unwrap_or_default();
+
+    let pin_to_nodes = pin_to_nodes.into_iter();
+
+    let pin_to_nodes: Result<Vec<H256>, Box<Error>> = pin_to_nodes
+        .map(|node_id| {
+            let node_id = if matches.is_present(PIN_BASE64) {
+                let arr = base64::decode(node_id)?;
+                hex::encode(arr)
+            } else {
+                node_id.trim_start_matches("0x").into()
+            };
+
+            let node_id = node_id.parse::<H256>()?;
+            Ok(node_id)
+        })
+        .collect();
+
+    let pin_to_nodes = pin_to_nodes.map_err(|e| format!("unable to parse {}: {}", PINNED, e))?;
+
+    Ok(pin_to_nodes)
+}
+
 /// Creates `Publisher` from arguments
 pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
     let path = value_t!(matches, PATH, String)?; //TODO use is_file from clap_validators
@@ -164,16 +187,9 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 
     let gas: u32 = matches.value_of(GAS).unwrap().parse()?;
 
-    let pin_to_nodes = values_t!(matches, PINNED, String)?;
+    let pin_to_nodes = parse_pinned(matches)?;
 
-    let pin_to_nodes: Result<Vec<H256>, _> = pin_to_nodes
-        .into_iter()
-        .map(|node_id| node_id.trim_start_matches("0x").parse::<H256>())
-        .collect();
-
-    let pin_to_nodes = pin_to_nodes.map_err(|e| format!("unable to parse {}: {}", PINNED, e))?;
-
-    if pin_to_nodes.len() != (cluster_size as usize) {
+    if pin_to_nodes.len() > 0 && pin_to_nodes.len() != (cluster_size as usize) {
         return Err(format!(
             "number of pin_to nodes should be less or equal to the desired cluster_size"
         )
@@ -263,6 +279,11 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .multiple(true)
                 .value_name("<key>")
                 .help("Tendermint public keys of pinned workers for application (space-separated list)"),
+            Arg::with_name(PIN_BASE64)
+                .long(PIN_BASE64)
+                .required(false)
+                .takes_value(false)
+                .help("If specified, tendermint keys for pin_to flag treated as base64"),
         ])
 }
 
@@ -289,8 +310,8 @@ mod tests {
     use ethkey::Secret;
     use web3;
     use web3::futures::Future;
-    use web3::types::*;
     use web3::types::H256;
+    use web3::types::*;
 
     use credentials::Credentials;
     use publisher::Publisher;
@@ -316,8 +337,8 @@ mod tests {
     }
 
     pub fn generate_with<F>(account: &str, func: F) -> Publisher
-        where
-            F: FnOnce(&mut Publisher),
+    where
+        F: FnOnce(&mut Publisher),
     {
         let mut publisher = generate_publisher(account, Credentials::No);
         func(&mut publisher);

@@ -16,15 +16,15 @@
 
 extern crate clap;
 
-use clap::{App, Arg, SubCommand};
 use clap::ArgMatches;
+use clap::{App, Arg, SubCommand};
 use contract_func::contract::functions::delete_app;
 use contract_func::ContractCaller;
 use credentials::Credentials;
 use std::boxed::Box;
 use std::error::Error;
 use utils;
-use web3::types::{H256, Address};
+use web3::types::{Address, H256};
 
 const APP_ID: &str = "app_id";
 const CLUSTER_ID: &str = "cluster_id";
@@ -43,7 +43,7 @@ pub struct DeleteApp {
     gas: u32,
     account: Address,
     contract_address: Address,
-    eth_url: String
+    eth_url: String,
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
@@ -123,7 +123,7 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
         gas,
         account,
         contract_address,
-        eth_url
+        eth_url,
     });
 }
 

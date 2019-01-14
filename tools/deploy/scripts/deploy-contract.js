@@ -8,11 +8,11 @@ let web3 = new Web3();
 web3.setProvider(new web3.providers.HttpProvider('http://localhost:8545'));
 
 // Get ABI from compiled contract
-let source = fs.readFileSync("../../bootstrap/contracts/compiled/Network.abi");
+let source = fs.readFileSync("../../../bootstrap/contracts/compiled/Network.abi");
 let abi = JSON.parse(source);
 
 // Get bytecode from compiled contract
-let sourceBin = fs.readFileSync("../../bootstrap/contracts/compiled/Network.bin");
+let sourceBin = fs.readFileSync("../../../bootstrap/contracts/compiled/Network.bin");
 let bytecode = '0x' + sourceBin;
 
 // Create Contract proxy class

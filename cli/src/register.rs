@@ -19,7 +19,6 @@ use std::error::Error;
 use std::net::IpAddr;
 use std::{thread, time};
 
-use base64::decode;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use hex;
 use web3::transports::Http;
@@ -187,7 +186,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
 
     let tendermint_key = utils::parse_hex_opt(matches, TENDERMINT_KEY)?.to_owned();
     let tendermint_key = if matches.is_present(BASE64_TENDERMINT_KEY) {
-        let arr = decode(&tendermint_key)?;
+        let arr = base64::decode(&tendermint_key)?;
         hex::encode(arr)
     } else {
         tendermint_key
@@ -196,7 +195,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let tendermint_key: H256 = tendermint_key
         .parse()
         .map_err(|e| format!("error parsing tendermint key: {}", e))?;
-    
+
     let start_port = value_t!(matches, START_PORT, u16)?;
     let last_port = value_t!(matches, LAST_PORT, u16)?;
 
