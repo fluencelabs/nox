@@ -83,6 +83,8 @@ contract Deployer {
     // code is stored in Swarm at storageHash, is deployed by developer
     // and requires to be hosted on cluster of clusterSize nodes
     struct App {
+        bytes32 appID;
+
         // WASM code address in Swarm; also SwarmHash of the code
         bytes32 storageHash;
 
@@ -119,6 +121,7 @@ contract Deployer {
     // Nodes' workers should form a cluster in reaction to this event
     event ClusterFormed(
         bytes32 clusterID,
+        bytes32 appID,
 
         bytes32 storageHash,
         uint genesisTime,
@@ -130,6 +133,7 @@ contract Deployer {
 
     // Emitted when App is enqueued, telling that there is not enough Workers yet
     event AppEnqueued(
+        bytes32 appID,
         bytes32 storageHash,
         bytes32 storageReceipt,
         uint8 clusterSize,
@@ -139,6 +143,9 @@ contract Deployer {
 
     // Emitted on every new Node
     event NewNode(bytes32 id);
+
+    // Emitted on app deletion. clusterID could be zero if app wasn't yet deployed.
+    event AppDeleted(bytes32 appID, bytes32 clusterID);
 
     // Nodes ready to join new clusters
     bytes32[] public readyNodes;
@@ -153,13 +160,16 @@ contract Deployer {
     // Store cluster indices to traverse clusters mapping
     bytes32[] public clustersIds;
 
-    // Number of existing clusters, used for clusterID generation
+    // Number of all ever existed clusters, used for clusterID generation
     // TODO find a better way to generate cluster id
     uint256 internal clusterCount = 1;
 
     // Apps waiting for nodes
     // TODO: should they have IDs? so that app owner could cancel deployment of enqueued app, before cluster gets formed
     App[] internal enqueuedApps;
+
+    // Number of all ever existed apps, used for appID generation
+    uint256 internal appsCount = 1;
 
     /** @dev Adds node with specified port range to the work-waiting queue
       * @param nodeID Tendermint's ValidatorKey
@@ -193,7 +203,7 @@ contract Deployer {
             App memory app = enqueuedApps[i];
             if(tryDeployApp(app)) {
                 // Once an app is deployed, we already have a new app on i-th position, so no need to increment i
-                removeApp(i);
+                removeEnqueuedApp(i);
 
                 // We should stop if there's no more ports in this node -- its addition has no more effect
                 node = nodes[nodeID];
@@ -232,13 +242,53 @@ contract Deployer {
             }
         }
 
-        App memory app = App(storageHash, storageReceipt, clusterSize, msg.sender, pinToNodes);
+        App memory app = App(bytes32(appsCount++), storageHash, storageReceipt, clusterSize, msg.sender, pinToNodes);
 
         if(!tryDeployApp(app)) {
             // App hasn't been deployed -- enqueue it to have it deployed later
             enqueuedApps.push(app);
-            emit AppEnqueued(app.storageHash, app.storageReceipt, app.clusterSize, app.owner, app.pinToNodes);
+            emit AppEnqueued(app.appID, app.storageHash, app.storageReceipt, app.clusterSize, app.owner, app.pinToNodes);
         }
+    }
+
+    /** @dev Deletes app with appID either from enqueued apps or from clusters mapping
+      * You must be app's owner to delete it. Currently, nodes' ports aren't freed.
+      * @param appID app to be deleted
+      * @param clusterID (optional) if specified, cluster with app will be deleted. Otherwise, delete from enqueued apps.
+      * emits AppDeleted event on successful deletion
+      * reverts if you're not app owner
+      * reverts if app or cluster aren't found
+      * TODO: free nodes' ports after app deletion
+      */
+    function deleteApp(bytes32 appID, bytes32 clusterID)
+        external
+    {
+        // if clusterID is 0, then app isn't expected to be deployed, so remove from enqueuedApps
+        if (clusterID == 0) {
+            App memory app;
+            uint8 i = 0;
+
+            for (;i < enqueuedApps.length; i++) {
+                app = enqueuedApps[i];
+                if (app.appID == appID) {
+                    break;
+                }
+            }
+
+            require(i < enqueuedApps.length, "error deleting app: app not found");
+            require(app.owner == msg.sender, "error deleting app: you must own app to delete it");
+            removeEnqueuedApp(i);
+        } else {
+            Cluster memory cluster = clusters[clusterID];
+            require(cluster.clusterID != 0, "error deleting app: cluster not found");
+            require(cluster.app.appID == appID, "error deleting app: cluster hosts another app");
+            require(cluster.app.owner == msg.sender, "error deleting app: you must own app to delete it");
+
+            bool removed = removeCluster(clusterID);
+            require(removed, "error deleting app: cluster not found in clusterIds array");
+        }
+
+        emit AppDeleted(appID, clusterID);
     }
 
     /** @dev Tries to deploy an app, using ready nodes and their ports
@@ -345,7 +395,7 @@ contract Deployer {
 
         // notify Fluence node it's time to run real-time workers and
         // create a Tendermint cluster hosting selected App (defined by storageHash)
-        emit ClusterFormed(clusterID, app.storageHash, genesisTime, nodeIDs, workerAddrs, workerPorts);
+        emit ClusterFormed(clusterID, app.appID, app.storageHash, genesisTime, nodeIDs, workerAddrs, workerPorts);
     }
 
     /** @dev increments node's currentPort
@@ -398,7 +448,7 @@ contract Deployer {
     /** @dev Removes an element on specified position from 'enqueuedApps'
      * @param index position in 'enqueuedApps' to remove
      */
-    function removeApp(uint index)
+    function removeEnqueuedApp(uint index)
         internal
     {
         if (index != enqueuedApps.length - 1) {
@@ -409,5 +459,38 @@ contract Deployer {
         delete enqueuedApps[enqueuedApps.length - 1];
 
         enqueuedApps.length--;
+    }
+
+    /** @dev Removes cluster from clustersIds array and clusters mapping
+     *  @param clusterID ID of the cluster to be removed
+     *  returns true if cluster was deleted, false otherwise
+     */
+    function removeCluster(bytes32 clusterID)
+        internal
+    returns (bool)
+    {
+        // look for clusterID in clusterIds array
+        uint8 index = 0;
+        uint len = clustersIds.length;
+        for (; index < len; index++) {
+            if (clustersIds[index] == clusterID) {
+                break;
+            }
+        }
+
+        // flag we didn't find such clusterID
+        if (index >= len) return false;
+
+        if (index != len - 1) {
+            // remove index-th ID by replacing it with the last element in the array
+            clustersIds[index] = clustersIds[len - 1];
+        }
+        delete clustersIds[len - 1];
+        clustersIds.length--;
+
+        // also remove cluster from mapping
+        delete clusters[clusterID];
+
+        return true;
     }
 }
