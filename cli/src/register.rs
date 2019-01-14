@@ -33,8 +33,8 @@ use utils;
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
-const MIN_PORT: &str = "min_port";
-const MAX_PORT: &str = "max_port";
+const START_PORT: &str = "start_port";
+const LAST_PORT: &str = "last_port";
 const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
@@ -49,8 +49,8 @@ const PRIVATE: &str = "private";
 pub struct Register {
     node_ip: IpAddr,
     tendermint_key: H256,
-    min_port: u16,
-    max_port: u16,
+    start_port: u16,
+    last_port: u16,
     contract_address: Address,
     account: Address,
     eth_url: String,
@@ -65,8 +65,8 @@ impl Register {
     pub fn new(
         node_address: IpAddr,
         tendermint_key: H256,
-        min_port: u16,
-        max_port: u16,
+        start_port: u16,
+        last_port: u16,
         contract_address: Address,
         account: Address,
         eth_url: String,
@@ -75,16 +75,17 @@ impl Register {
         gas: u32,
         private: bool,
     ) -> Result<Register, Box<Error>> {
-        if max_port < min_port {
-            let err: Box<Error> = From::from("max_port should be bigger than min_port".to_string());
+        if last_port < start_port {
+            let err: Box<Error> =
+                From::from("last_port should be bigger than start_port".to_string());
             return Err(err);
         }
 
         Ok(Register {
             node_ip: node_address,
             tendermint_key,
-            min_port,
-            max_port,
+            start_port,
+            last_port,
             contract_address,
             account,
             eth_url,
@@ -195,9 +196,9 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     let tendermint_key: H256 = tendermint_key
         .parse()
         .map_err(|e| format!("error parsing tendermint key: {}", e))?;
-
-    let min_port = value_t!(matches, MIN_PORT, u16)?;
-    let max_port = value_t!(matches, MAX_PORT, u16)?;
+    
+    let start_port = value_t!(matches, START_PORT, u16)?;
+    let last_port = value_t!(matches, LAST_PORT, u16)?;
 
     let contract_address: Address = utils::parse_hex_opt(matches, CONTRACT_ADDRESS)?.parse()?;
 
@@ -220,8 +221,8 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
     Register::new(
         node_address,
         tendermint_key,
-        min_port,
-        max_port,
+        start_port,
+        last_port,
         contract_address,
         account,
         eth_url,
@@ -257,14 +258,16 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .takes_value(true)
                 .index(4)
                 .help("fluence contract address"),
-            Arg::with_name(MIN_PORT)
-                .long(MIN_PORT)
+            Arg::with_name(START_PORT)
+                .alias(START_PORT)
+                .long(START_PORT)
                 .default_value("20096")
                 .takes_value(true)
                 .help("minimum port in the port range"),
-            Arg::with_name(MAX_PORT)
-                .long(MAX_PORT)
+            Arg::with_name(LAST_PORT)
+                .alias(LAST_PORT)
                 .default_value("20196")
+                .long(LAST_PORT)
                 .takes_value(true)
                 .help("maximum port in the port range"),
             Arg::with_name(ETH_URL)

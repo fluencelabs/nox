@@ -53,7 +53,7 @@ impl App {
 
 pub fn get_enqueued_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Error>> {
     let (call_data, decoder) = get_enqueued_apps::call();
-    let (storage_hashes, storage_receipts, app_ids, cluster_sizes, owners) =
+    let (storage_hashes, storage_receipts, app_ids, cluster_sizes, owners, _, _) =
         contract.query_contract(call_data, Box::new(decoder))?;
 
     let mut apps: Vec<App> = Vec::new();
