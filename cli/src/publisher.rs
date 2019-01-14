@@ -17,20 +17,22 @@
 extern crate clap;
 extern crate web3;
 
-use clap::ArgMatches;
-use clap::{App, Arg, SubCommand};
-use contract_func::contract::functions::add_app;
-use contract_func::ContractCaller;
-use credentials::Credentials;
-use ethkey::Secret;
-use reqwest::Client;
 use std::boxed::Box;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::str::FromStr;
-use utils;
+
+use clap::{App, Arg, SubCommand};
+use clap::ArgMatches;
+use ethkey::Secret;
+use reqwest::Client;
 use web3::types::{Address, H256};
+
+use contract_func::contract::functions::add_app;
+use contract_func::ContractCaller;
+use credentials::Credentials;
+use utils;
 
 const PATH: &str = "path";
 const ACCOUNT: &str = "account";
@@ -261,13 +263,15 @@ fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Box<Error>> {
 
 #[cfg(test)]
 mod tests {
-    use credentials::Credentials;
-    use ethkey::Secret;
-    use publisher::Publisher;
     use std::error::Error;
+
+    use ethkey::Secret;
     use web3;
     use web3::futures::Future;
     use web3::types::*;
+
+    use credentials::Credentials;
+    use publisher::Publisher;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
