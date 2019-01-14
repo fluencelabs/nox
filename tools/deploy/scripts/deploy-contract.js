@@ -8,11 +8,11 @@ let web3 = new Web3();
 web3.setProvider(new web3.providers.HttpProvider('http://localhost:8545'));
 
 // Get ABI from compiled contract
-let source = fs.readFileSync("../../../bootstrap/contracts/compiled/Network.abi");
+let source = fs.readFileSync("../../bootstrap/contracts/compiled/Network.abi");
 let abi = JSON.parse(source);
 
 // Get bytecode from compiled contract
-let sourceBin = fs.readFileSync("../../../bootstrap/contracts/compiled/Network.bin");
+let sourceBin = fs.readFileSync("../../bootstrap/contracts/compiled/Network.bin");
 let bytecode = '0x' + sourceBin;
 
 // Create Contract proxy class
@@ -36,7 +36,7 @@ request.post(
     'http://localhost:8545/',
     { json: composeRequest },
     function (error, response, body) {
-        // sign transaction with private key
+        // sign transaction with the private key of default parity account
         web3.eth.accounts.signTransaction(body.result, '0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7')
             .then((resp) => {
                 // send sign transaction to the node

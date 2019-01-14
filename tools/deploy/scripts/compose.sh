@@ -4,8 +4,7 @@ set -e
 
 # `REMOTE_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
-if [ -z "$REMOTE_DEPLOY" ]
-then
+if [ -z "$REMOTE_DEPLOY" ]; then
     export NAME='node1'
     # open 10 ports, so it's possible to create 10 workers
     export PORTS='25000:25010'
@@ -31,8 +30,7 @@ esac
 
 # use exported external ip address or get it from OS
 # todo rewrite this
-if [ -z "$REMOTE_DEPLOY" ]
-then
+if [ -z "$REMOTE_DEPLOY" ]; then
     EXTERNAL_HOST_IP="127.0.0.1"
     case "$(uname -s)" in
        Darwin)
@@ -58,9 +56,13 @@ echo 'Parity and Swarm containers are started.'
 sleep 10
 
 # deploy contract if there is new dev ethereum node
-if [ -z "$REMOTE_DEPLOY" ]
-then
-    export CONTRACT_ADDRESS=$(node deploy-contract.js)
+if [ -z "$REMOTE_DEPLOY" ]; then
+    if [ ! -d "../node_modules" ]; then
+        npm install
+    fi
+    RESULT=$(npm run deploy)
+    # get last word from script output
+    export CONTRACT_ADDRESS=`echo ${RESULT} | awk '{print $NF}'`
     sleep 1
 fi
 
