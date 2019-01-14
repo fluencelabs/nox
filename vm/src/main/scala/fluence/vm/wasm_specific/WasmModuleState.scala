@@ -25,14 +25,16 @@ import fluence.vm.VmError.InternalVmError
 import scala.language.higherKinds
 import scala.util.Try
 
-case class WasmModuleState(private[vm] val memory: ByteBuffer) {
+case class WasmModuleState(
+  private[vm] val memory: Option[ByteBuffer]
+) {
 
   /**
     * Returns hash of all significant inner state of this VM.
     *
     * @param hashFn a hash function
     */
-  def computeStateHash[F[_]: Monad](
+  def computeHash[F[_]: Monad](
     hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]):
   EitherT[F, InternalVmError, Array[Byte]] =
     memory match {

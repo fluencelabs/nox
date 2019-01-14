@@ -56,5 +56,5 @@ case class WasmFunction(
       TrapError(s"Function $this with args: $args was failed", Some(e))
     )
 
-  override def toString: String = fnId.toString
+  override def toString: String = fnName
 }

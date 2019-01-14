@@ -28,7 +28,6 @@ import cats.{Functor, Monad}
 import fluence.crypto.CryptoError
 import fluence.vm.VmError.WasmVmError.{ApplyError, InvokeError}
 import fluence.vm.VmError.{InitializationError, InternalVmError, NoSuchFnError, TrapError}
-import fluence.vm.wasm_specific.ModuleInstance.WasmFunction
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -40,34 +39,59 @@ import scala.util.Try
  * @param instance wrapped instance of module
  * @param memory memory of this module
  */
-case class WasmModule(
-  private val name: String,
+class WasmModule(
+  private val name: Option[String],
+  private val moduleState: WasmModuleState,
   private val instance: Any,
-  private[vm] val memory: ByteBuffer,
-  private val allocateFunction: WasmFunction,
-  private val deallocateFunction: WasmFunction,
-  private val invokeFunction: WasmFunction
+
+  private val allocateFunction: Option[WasmFunction],
+  private val deallocateFunction: Option[WasmFunction],
+  private val invokeFunction: Option[WasmFunction]
 ) {
 
   /**
-    * Allocates memory in Wasm module of supplied size by allocateFunction.
+    * Allocates a memory region in Wasm module of supplied size by allocateFunction.
     *
     * @param size size of memory that need to be allocated
     * @tparam F a monad with an ability to absorb 'IO'
     */
-  private def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] =
-    allocateFunction(size.asInstanceOf[AnyRef] :: Nil)
+  private def allocate[F[_]: LiftIO: Monad](size: Int)
+  : EitherT[F, InvokeError, AnyRef] =
+    allocateFunction match {
+      case Some(fn) => fn(instance, size.asInstanceOf[AnyRef] :: Nil)
+      case _ =>
+        EitherT.leftT(
+          NoSuchFnError(s"Unable to find the function for memory allocation with the name=$allocateFunction in module $this")
+        )
+    }
 
   /**
-    * Deallocates previously allocated memory in Wasm module by deallocateFunction.
+    * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
     *
     * @param offset address of memory to deallocate
     * @tparam F a monad with an ability to absorb 'IO'
     */
-  private def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, AnyRef] =
-    deallocateFunction(offset.asInstanceOf[AnyRef] :: size.asInstanceOf[AnyRef] :: Nil)
+  private def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int)
+  : EitherT[F, InvokeError, AnyRef] =
+    deallocateFunction match {
+      case Some(fn) => fn(instance, offset.asInstanceOf[AnyRef] :: size.asInstanceOf[AnyRef] :: Nil)
+      case _ =>
+        EitherT.leftT(
+          NoSuchFnError(s"Unable to find the function for memory allocation with the name=$deallocateFunction in module $this")
+        )
+    }
 
-  override def toString: String = s"Module(${nameAsStr(name)}, memory=$memory)"
+  private def invoke[F[_]: LiftIO: Monad](args: List[AnyRef])
+  : EitherT[F, InvokeError, AnyRef] =
+    invokeFunction match {
+      case Some(fn) => fn(instance, args)
+      case _ =>
+        EitherT.leftT(
+          NoSuchFnError(s"Unable to find the function for memory allocation with the name=$invokeFunction in module $this")
+        )
+    }
+
+  override def toString: String = name.getOrElse("<no-name>")
 }
 
 object WasmModule {
@@ -106,7 +130,7 @@ object WasmModule {
         )
       }
 
-    } yield ModuleInstance(Option(moduleDescription.getName), moduleInstance, memory)
+    } yield WasmModule(Option(moduleDescription.getName), moduleInstance, WasmModuleState(memory), )
 
   def nameAsStr(moduleName: Option[String]): String = moduleName.getOrElse("<no-name>")
 
