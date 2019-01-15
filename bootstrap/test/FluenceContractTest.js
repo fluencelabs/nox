@@ -47,7 +47,7 @@ contract('Fluence', function ([_, owner, anyone]) {
 
     it("Should throw an error if asking about non-existent cluster", async function() {
         await expectThrow(
-            this.contract.getCluster("abc")
+            this.contract.getApp("abc")
         )
     });
 
@@ -65,14 +65,14 @@ contract('Fluence', function ([_, owner, anyone]) {
         let nodeIDs = addNodes.map(r => r.nodeID);
         let receipt = addNodes.pop().receipt;
 
-        truffleAssert.eventEmitted(receipt, utils.clusterFormedEvent, (ev) => {
+        truffleAssert.eventEmitted(receipt, utils.appDeployedEvent, (ev) => {
             assert.equal(ev.nodeAddresses.length, count);
             assert.deepEqual(ev.nodeIDs, nodeIDs);
             assert.equal(ev.appID, appID);
             return true;
         });
 
-        let cluster = await this.contract.getCluster(appID);
+        let cluster = await this.contract.getApp(appID);
         assert.equal(cluster[0], addApp.storageHash);
         assert.equal(cluster[1], addApp.storageReceipt);
     });
@@ -85,7 +85,7 @@ contract('Fluence', function ([_, owner, anyone]) {
         let addApp = await utils.addApp(this.contract, count, anyone);
 
         truffleAssert.eventEmitted(addApp.receipt, utils.appEnqueuedEvent);
-        truffleAssert.eventNotEmitted(addApp.receipt, utils.clusterFormedEvent)
+        truffleAssert.eventNotEmitted(addApp.receipt, utils.appDeployedEvent)
     });
 
     it("Should reuse node until the port range is exhausted", async function() {
@@ -101,7 +101,7 @@ contract('Fluence', function ([_, owner, anyone]) {
             var appID;
 
             truffleAssert.eventNotEmitted(addApp.receipt, utils.appEnqueuedEvent);
-            truffleAssert.eventEmitted(addApp.receipt, utils.clusterFormedEvent, (ev) => {
+            truffleAssert.eventEmitted(addApp.receipt, utils.appDeployedEvent, (ev) => {
                 assert.equal(ev.nodeAddresses.length, count);
                 ev.nodeAddresses.forEach(addr => 
                     assert.equal(utils.bytes32ToString(addr), "127.0.0.1")
@@ -127,11 +127,10 @@ contract('Fluence', function ([_, owner, anyone]) {
         });
 
         // check app with that ID is in enqueued apps list
-        let enqueuedApps = await this.contract.getEnqueuedApps();
-        let appIDs = enqueuedApps[1];
+        let appIDs = await this.contract.getAppIDs();
         let enqueuedApp = appIDs.find(app => app == appID);
         assert.notEqual(enqueuedApp, undefined);
-        truffleAssert.eventNotEmitted(addApp.receipt, utils.clusterFormedEvent);
+        truffleAssert.eventNotEmitted(addApp.receipt, utils.appDeployedEvent);
     });
 
     it("Should get correct list of clusters and enqueued codes", async function() {
@@ -144,44 +143,40 @@ contract('Fluence', function ([_, owner, anyone]) {
 
         let allNodes = await utils.addNodesFull(this.contract, 3, "127.0.0.1", anyone, portCount = 2);
 
-        let enqueuedApps = await this.contract.getEnqueuedApps();
+        let appIDs = await this.contract.getAppIDs();
+        assert.equal(appIDs.length, 4);
 
-        // number of returned fields
-        assert.equal(enqueuedApps.length, 6); // storageHashes, appIDs, clusterSizes, owners, numberOfPinnedNodes, allPinToNodes
+        let deployedApps = appIDs.filter(async (appID) => {
+            let app = await this.contract.getApp(appID);
 
-        let storageHashes = enqueuedApps[0];
-        let appIDs = enqueuedApps[1];
-        let sizes = enqueuedApps[2];
-        let developerAddresses = enqueuedApps[3];
-        let pinnedSize = enqueuedApps[4];
-        let pinnedNodes = enqueuedApps[5];
+            let storageHash = app[0];
+            let storageReceipt = app[1];
+            let clusterSize = app[2];
+            let owner = app[3];
+            let pin_to = app[4];
 
-        // two apps were deployed, two left enqueued
-        assert.equal(storageHashes.length, 2);
-        assert.equal(sizes.length, 2);
-        assert.equal(developerAddresses.length, 2);
-        assert.equal(appIDs.length, 2);
-
-        assert.equal(pinnedSize.length, 2);
-        // no pinned nodes in this apps
-        assert.equal(pinnedNodes.length, 0);
-
-        // looking for app deployments corresponding to enqueuedApps
-        storageHashes.forEach((hash, idx) => {
-            let addApp = addApps.find(add => add.storageHash == hash);
+            let addApp = addApps.find(add => add.storageHash == storageHash);
             assert.notEqual(addApp, undefined);
-            assert.equal(sizes[idx], addApp.clusterSize);
-            assert.equal(developerAddresses[idx], anyone);
-            assert.equal(pinnedSize[idx], 0);
+
+            assert.equal(addApp.storageHash, storageHash);
+            assert.equal(addApp.storageReceipt, storageReceipt);
+            assert.equal(addApp.clusterSize, clusterSize);
+            assert.equal(anyone, owner);
+            assert.equal(0, pin_to.length);
+
+            let genesis = app[5];
+            let nodeIDs = app[6];
+            let ports = app[7];
+
+            return genesis > 0 && nodeIDs.length > 0 && ports.length > 0;
         });
+
+        assert(deployedApps.length, 2);
 
         let nodesIds = await this.contract.getNodesIds();
         assert.equal(nodesIds.length, 3);
         assert.equal(nodesIds[0], allNodes[0].nodeID);
         assert.equal(nodesIds[1], allNodes[1].nodeID);
-
-        let allAppIDs = await this.contract.getAppIDs();
-        assert.equal(allAppIDs.length, 2);
     });
 
     it("Should deploy same code twice", async function() {
@@ -194,7 +189,7 @@ contract('Fluence', function ([_, owner, anyone]) {
         let firstCluster = (await utils.addNodes(this.contract, count, "127.0.0.1", anyone, portCount = 1)).pop();
         let secondCluster = (await utils.addNodes(this.contract, count, "127.0.0.1", anyone, portCount = 1)).pop();
 
-        truffleAssert.eventEmitted(firstCluster, utils.clusterFormedEvent, _ => true);
-        truffleAssert.eventEmitted(secondCluster, utils.clusterFormedEvent, _ => true)
+        truffleAssert.eventEmitted(firstCluster, utils.appDeployedEvent, _ => true);
+        truffleAssert.eventEmitted(secondCluster, utils.appDeployedEvent, _ => true)
     });
 });

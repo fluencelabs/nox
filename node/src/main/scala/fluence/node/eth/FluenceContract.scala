@@ -20,7 +20,7 @@ import cats.Apply
 import cats.effect.{Async, ConcurrentEffect, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.ethclient.Network.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
+import fluence.ethclient.Network.{APPDEPLOYED_EVENT, AppDeployedEventResponse}
 import fluence.ethclient.helpers.JavaRxToFs2._
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
@@ -46,11 +46,11 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   import FluenceContract.NodeConfigEthOps
 
   /**
-   * Builds an actual filter for CLUSTERFORMED event.
+   * Builds an actual filter for APP_DEPLOYED event.
    *
    * @tparam F Effect, used to query Ethereum for the last block number
    */
-  private def clusterFormedFilter[F[_]: Async]: F[EthFilter] =
+  private def appDeployedFilter[F[_]: Async]: F[EthFilter] =
     ethClient
       .getBlockNumber[F]
       .map(
@@ -59,7 +59,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
             DefaultBlockParameter.valueOf(currentBlock.bigInteger),
             DefaultBlockParameterName.LATEST,
             contract.getContractAddress
-          ).addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
+          ).addSingleTopic(EventEncoder.encode(APPDEPLOYED_EVENT))
       )
 
   /**
@@ -89,14 +89,14 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * @param nodeConfig Node to pick validatorKey from to lookup the clusters for
    * @tparam F Effect
    */
-  def getNodeClusters[F[_]: Async](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
+  def getNodeApps[F[_]: Async](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
     fs2.Stream
       .evalUnChunk(getNodeAppIds[F](nodeConfig).map(cs ⇒ fs2.Chunk(cs: _*)))
       .evalMap(
         appId ⇒
           Apply[F].map2(
             contract
-              .getCluster(appId)
+              .getApp(appId)
               .call[F]
               .map(tuple ⇒ (tuple.getValue1, tuple.getValue6, tuple.getValue7)),
             contract
@@ -111,16 +111,16 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .unNone
 
   /**
-   * Returns a stream derived from the new ClusterFormed events, showing that this node should join new clusters.
+   * Returns a stream derived from the new AppDeployed events, showing that this node should join new clusters.
    *
    * @param nodeConfig Node to pick validatorKey from to lookup the clusters for
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of ClusterData
    */
-  def getNodeClustersFormed[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
+  def getNodeAppDeployed[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
     fs2.Stream
-      .eval(clusterFormedFilter[F])
-      .flatMap(filter ⇒ contract.clusterFormedEventFlowable(filter).toFS2[F]) // TODO: we should filter by verifier id! Now node will join all the clusters
+      .eval(appDeployedFilter[F])
+      .flatMap(filter ⇒ contract.appDeployedEventFlowable(filter).toFS2[F]) // TODO: we should filter by verifier id! Now node will join all the clusters
       .map(FluenceContract.eventToClusterData(_, nodeConfig))
       .unNone
 
@@ -132,11 +132,11 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of ClusterData
    */
-  def getAllNodeClusters[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
-    getNodeClusters[F](nodeConfig)
+  def getAllNodeApps[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
+    getNodeApps[F](nodeConfig)
       .onFinalize(
         Sync[F].delay(logger.info("Got all the previously prepared clusters. Now switching to the new clusters"))
-      ) ++ getNodeClustersFormed(nodeConfig)
+      ) ++ getNodeAppDeployed(nodeConfig)
 
   /**
    * Register the node in the contract.
@@ -192,7 +192,7 @@ object FluenceContract {
    * @return true if provided node key belongs to the cluster from the event
    */
   def eventToClusterData(
-    event: ClusterFormedEventResponse,
+    event: AppDeployedEventResponse,
     nodeConfig: NodeConfig
   ): Option[ClusterData] =
     ClusterData.build(

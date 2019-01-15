@@ -19,8 +19,7 @@ use std::error::Error;
 use web3::types::{Address, H256};
 
 use contract_func::contract::functions::get_app_i_ds;
-use contract_func::contract::functions::get_cluster;
-use contract_func::contract::functions::get_enqueued_apps;
+use contract_func::contract::functions::get_app;
 use contract_func::ContractCaller;
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
@@ -31,6 +30,7 @@ pub struct App {
     cluster_size: u8,
     owner: Address,
     pin_to_nodes: Option<Vec<H256>>,
+    cluster: Option<Cluster>
 }
 
 impl App {
@@ -41,6 +41,7 @@ impl App {
         cluster_size: u8,
         owner: Address,
         pin_to_nodes: Option<Vec<H256>>,
+        cluster: Option<Cluster>
     ) -> App {
         App {
             app_id,
@@ -49,22 +50,21 @@ impl App {
             cluster_size,
             owner,
             pin_to_nodes,
+            cluster
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Cluster {
-    app: App,
     genesis_time: u32,
     node_ids: Vec<H256>,
     ports: Vec<u16>,
 }
 
 impl Cluster {
-    pub fn new(app: App, genesis_time: u32, node_ids: Vec<H256>, ports: Vec<u16>) -> Cluster {
+    pub fn new(genesis_time: u32, node_ids: Vec<H256>, ports: Vec<u16>) -> Cluster {
         Cluster {
-            app,
             genesis_time,
             node_ids,
             ports,
@@ -72,38 +72,14 @@ impl Cluster {
     }
 }
 
-pub fn get_enqueued_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Error>> {
-    let (call_data, decoder) = get_enqueued_apps::call();
-    let (storage_hashes, app_ids, cluster_sizes, owners, _, _) =
-        contract.query_contract(call_data, Box::new(decoder))?;
-
-    let mut apps: Vec<App> = Vec::new();
-    for i in 0..storage_hashes.len() {
-        // TODO: use try_into when Rust 1.33 is stable
-        let cluster_size: u64 = cluster_sizes[i].into();
-
-        let app = App::new(
-            app_ids[i],
-            storage_hashes[i],
-            H256::zero(), // storage_receipts was deleted since it was wasting stack in Solidity and wasn't used yet
-            cluster_size as u8,
-            owners[i],
-            None,
-        );
-        apps.push(app);
-    }
-
-    Ok(apps)
-}
-
-pub fn get_clusters(contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error>> {
+pub fn get_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Error>> {
     let (call_data, decoder) = get_app_i_ds::call();
     let app_ids: Vec<H256> = contract.query_contract(call_data, Box::new(decoder))?;
 
-    let clusters: Result<Vec<Cluster>, Box<Error>> = app_ids
+    let apps: Result<Vec<App>, Box<Error>> = app_ids
         .iter()
         .map(|id| {
-            let (call_data, decoder) = get_cluster::call(*id);
+            let (call_data, decoder) = get_app::call(*id);
             let (
                 storage_hash,
                 storage_receipt,
@@ -115,6 +91,18 @@ pub fn get_clusters(contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error
                 ports,
             ) = contract.query_contract(call_data, Box::new(decoder))?;
 
+            let cluster = if !genesis.is_zero() {
+                let genesis: u64 = genesis.into();
+                let ports = ports
+                    .iter()
+                    .map(|p| (Into::<u64>::into(*p) as u16))
+                    .collect();
+
+                Some(Cluster::new(genesis as u32, node_ids, ports))
+            } else {
+                None
+            };
+
             let cluster_size: u64 = cluster_size.into();
 
             let app = App::new(
@@ -124,17 +112,12 @@ pub fn get_clusters(contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error
                 cluster_size as u8,
                 owner,
                 Some(pin_to),
+                cluster
             );
 
-            let genesis: u64 = genesis.into();
-            let ports = ports
-                .iter()
-                .map(|p| (Into::<u64>::into(*p) as u16))
-                .collect();
-
-            Ok(Cluster::new(app, genesis as u32, node_ids, ports))
+            Ok(app)
         })
         .collect();
 
-    Ok(clusters?)
+    Ok(apps?)
 }

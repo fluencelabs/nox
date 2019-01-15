@@ -140,7 +140,7 @@ case class MasterNode(
    */
   val run: IO[ExitCode] =
     contract
-      .getAllNodeClusters(nodeConfig)
+      .getAllNodeApps(nodeConfig)
       .through(prepareWorkerParams)
       .evalTap[IO] { params ⇒
         logger.info("Running worker `{}`", params)

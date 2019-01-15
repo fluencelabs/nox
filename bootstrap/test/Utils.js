@@ -20,7 +20,7 @@ const assert = require("chai").assert;
 
 exports.newNodeEvent = 'NewNode';
 exports.appEnqueuedEvent = 'AppEnqueued';
-exports.clusterFormedEvent = 'ClusterFormed';
+exports.appDeployedEvent = 'AppDeployed';
 exports.appDeletedEvent = 'AppDeleted';
 exports.appDequeuedEvent = 'AppDequeued';
 

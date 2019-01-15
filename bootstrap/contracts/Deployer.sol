@@ -100,11 +100,11 @@ contract Deployer {
         // list of owner's nodes where this code must be deployed; length <= clusterSize
         // can contain both private & non-private nodes
         bytes32[] pinToNodes;
+
+        Cluster cluster;
     }
 
     struct Cluster {
-        App app;
-
         // Cluster created at
         uint genesisTime;
 
@@ -117,7 +117,7 @@ contract Deployer {
 
     // Emitted when there is enough Workers for some App
     // Nodes' workers should form a cluster in reaction to this event
-    event ClusterFormed(
+    event AppDeployed(
         bytes32 appID,
 
         bytes32 storageHash,
@@ -144,7 +144,7 @@ contract Deployer {
     // Emitted when app is removed from enqueuedApps by owner
     event AppDequeued(bytes32 appID);
 
-    // Emitted when app & cluster were removed by app owner
+    // Emitted when running app was removed by app owner
     event AppDeleted(bytes32 appID);
 
     // Nodes ready to join new clusters
@@ -155,14 +155,14 @@ contract Deployer {
     // Store nodes indices to traverse nodes mapping
     bytes32[] public nodesIds;
 
-    // mapping of appID to Clusters
-    mapping(bytes32 => Cluster) internal clusters;
+    // mapping of appID to App
+    mapping(bytes32 => App) internal apps;
     // Store app ids to traverse clusters mapping
     bytes32[] public appIDs;
 
     // Apps waiting for nodes
     // TODO: should they have IDs? so that app owner could cancel deployment of enqueued app, before cluster gets formed
-    App[] internal enqueuedApps;
+    bytes32[] internal enqueuedApps;
 
     // Number of all ever existed apps, used for appID generation
     uint256 internal appsCount = 1;
@@ -196,7 +196,8 @@ contract Deployer {
 
         // match apps to the node until no matches left, or until this node ports range is exhausted
         for(uint i = 0; i < enqueuedApps.length;) {
-            App memory app = enqueuedApps[i];
+            bytes32 appID = enqueuedApps[i];
+            App memory app = apps[appID];
             if(tryDeployApp(app)) {
                 // Once an app is deployed, we already have a new app on i-th position, so no need to increment i
                 removeEnqueuedApp(i);
@@ -238,11 +239,21 @@ contract Deployer {
             }
         }
 
-        App memory app = App(bytes32(appsCount++), storageHash, storageReceipt, clusterSize, msg.sender, pinToNodes);
+        App memory app = App(
+            bytes32(appsCount++),
+            storageHash,
+            storageReceipt,
+            clusterSize,
+            msg.sender,
+            pinToNodes,
+            Cluster(0, new bytes32[](0), new uint16[](0)) // TODO: this is awful
+        );
+        apps[app.appID] = app;
+        appIDs.push(app.appID);
 
         if(!tryDeployApp(app)) {
             // App hasn't been deployed -- enqueue it to have it deployed later
-            enqueuedApps.push(app);
+            enqueuedApps.push(app.appID);
             emit AppEnqueued(app.appID, app.storageHash, app.storageReceipt, app.clusterSize, app.owner, app.pinToNodes);
         }
     }
@@ -257,18 +268,21 @@ contract Deployer {
     function dequeueApp(bytes32 appID)
         external
     {
-        App memory app;
+        bytes32 enqueuedAppID;
         uint8 i = 0;
 
         for (;i < enqueuedApps.length; i++) {
-            app = enqueuedApps[i];
-            if (app.appID == appID) {
+            enqueuedAppID = enqueuedApps[i];
+            if (enqueuedAppID == appID) {
                 break;
             }
         }
 
         require(i < enqueuedApps.length, "error deleting app: app not found");
+
+        App memory app = apps[enqueuedAppID];
         require(app.owner == msg.sender, "error deleting app: you must own the app to delete it");
+
         removeEnqueuedApp(i);
 
         emit AppDequeued(appID);
@@ -285,10 +299,10 @@ contract Deployer {
     function deleteApp(bytes32 appID)
         external
     {
-        Cluster memory cluster = clusters[appID];
-        require(cluster.app.appID != 0, "error deleting app: cluster not found");
-        require(cluster.app.appID == appID, "error deleting app: cluster hosts another app");
-        require(cluster.app.owner == msg.sender, "error deleting app: you must own app to delete it");
+        App memory app = apps[appID];
+        require(app.appID != 0, "error deleting app: cluster not found");
+        require(app.appID == appID, "error deleting app: cluster hosts another app");
+        require(app.owner == msg.sender, "error deleting app: you must own app to delete it");
 
         bool removed = removeApp(appID);
         require(removed, "error deleting app: app not found in appIDs array");
@@ -298,7 +312,7 @@ contract Deployer {
 
     /** @dev Tries to deploy an app, using ready nodes and their ports
       * @param app Application to deploy
-      * emits ClusterFormed when App is deployed
+      * emits AppDeployed when App is deployed
       */
     function tryDeployApp(App memory app)
         internal
@@ -392,12 +406,12 @@ contract Deployer {
         uint genesisTime = now;
 
         // saving selected nodes as a cluster with assigned app
-        clusters[app.appID] = Cluster(app, genesisTime, nodeIDs, workerPorts);
-        appIDs.push(app.appID);
+        app.cluster = Cluster(genesisTime, nodeIDs, workerPorts);
+        apps[app.appID] = app;
 
         // notify Fluence node it's time to run real-time workers and
         // create a Tendermint cluster hosting selected App (defined by storageHash)
-        emit ClusterFormed(app.appID, app.storageHash, genesisTime, nodeIDs, workerAddrs, workerPorts);
+        emit AppDeployed(app.appID, app.storageHash, genesisTime, nodeIDs, workerAddrs, workerPorts);
     }
 
     /** @dev increments node's currentPort
@@ -491,7 +505,7 @@ contract Deployer {
         appIDs.length--;
 
         // also remove cluster from mapping
-        delete clusters[appID];
+        delete apps[appID];
 
         return true;
     }

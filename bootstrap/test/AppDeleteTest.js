@@ -42,10 +42,10 @@ contract('Fluence (app deletion)', function ([_, owner, whitelisted, anyone]) {
             return true;
         });
 
-        let enqueuedApps = await global.contract.getEnqueuedApps();
-        let appIDs = enqueuedApps[1];
-        let app = appIDs.find(app => app == appID);
+        let app = await global.contract.getApp(appID);
         assert.notEqual(app, undefined);
+        let storageHash = app[0];
+        assert.equal(storageHash, add.storageHash);
 
         // only app owner can delete app
         await expectThrow(global.contract.dequeueApp(appID, { from: anyone }));
@@ -67,12 +67,12 @@ contract('Fluence (app deletion)', function ([_, owner, whitelisted, anyone]) {
         });
 
         let nodesReceipts = await addNodes(5);
-        truffleAssert.eventEmitted(nodesReceipts.pop(), utils.clusterFormedEvent, ev => {
+        truffleAssert.eventEmitted(nodesReceipts.pop(), utils.appDeployedEvent, ev => {
             assert.equal(ev.appID, appID);
             return true;
         });
 
-        let cluster = await global.contract.getCluster(appID);
+        let cluster = await global.contract.getApp(appID);
         let storageHash = cluster[0];
         assert.equal(storageHash, add.storageHash);
 
@@ -89,6 +89,6 @@ contract('Fluence (app deletion)', function ([_, owner, whitelisted, anyone]) {
             return true;
         });
 
-        await expectThrow(global.contract.getCluster(appID));
+        await expectThrow(global.contract.getApp(appID));
     });
 });

@@ -65,24 +65,24 @@ contract Network is Deployer {
      * @param appID unique id of cluster
      * returns tuple representation of a Cluster
      */
-    function getCluster(bytes32 appID)
+    function getApp(bytes32 appID)
         external
         view
     returns (bytes32, bytes32, uint8, address, bytes32[], uint, bytes32[], uint16[])
     {
-        Cluster memory cluster = clusters[appID];
-        require(cluster.app.appID > 0, "there is no such cluster");
+        App memory app = apps[appID];
+        require(app.appID > 0, "there is no such cluster");
 
         return (
-            cluster.app.storageHash,
-            cluster.app.storageReceipt,
-            cluster.app.clusterSize,
-            cluster.app.owner,
-            cluster.app.pinToNodes,
+            app.storageHash,
+            app.storageReceipt,
+            app.clusterSize,
+            app.owner,
+            app.pinToNodes,
 
-            cluster.genesisTime,
-            cluster.nodeIDs,
-            cluster.ports
+            app.cluster.genesisTime,
+            app.cluster.nodeIDs,
+            app.cluster.ports
         );
     }
 
@@ -94,63 +94,18 @@ contract Network is Deployer {
         view
     returns (bytes24[], uint16[])
     {
-        Cluster memory cluster = clusters[appID];
-        require(cluster.app.appID > 0, "there is no such cluster");
+        App memory app = apps[appID];
+        require(app.appID > 0, "there is no such cluster");
 
-        bytes24[] memory addresses = new bytes24[](cluster.nodeIDs.length);
-        for(uint8 i = 0; i < cluster.nodeIDs.length; i++) {
-            addresses[i] = nodes[cluster.nodeIDs[i]].nodeAddress;
+        bytes24[] memory addresses = new bytes24[](app.cluster.nodeIDs.length);
+        for(uint8 i = 0; i < app.cluster.nodeIDs.length; i++) {
+            addresses[i] = nodes[app.cluster.nodeIDs[i]].nodeAddress;
         }
 
         return (
             addresses,
-            cluster.ports
+            app.cluster.ports
         );
-    }
-
-
-    /** @dev Gets apps which not yet deployed anywhere
-     * return (apps Swarm hashes, receipts, clusters sizes, developers addresses, number of pinned nodes, all pinned nodes)
-     */
-    // TODO: return storageReceipts as it was deleted to mitigate 'stack is too deep'
-    function getEnqueuedApps()
-        external
-        view
-    returns(bytes32[], bytes32[], uint8[], address[], uint256[], bytes32[])
-    {
-        bytes32[] memory storageHashes = new bytes32[](enqueuedApps.length);
-        bytes32[] memory appIDs = new bytes32[](enqueuedApps.length);
-        uint8[] memory clusterSizes = new uint8[](enqueuedApps.length);
-        address[] memory owners = new address[](enqueuedApps.length);
-        uint256[] memory numberOfPinnedNodes = new uint256[](enqueuedApps.length);
-
-        // count all pinned nodes to create an array for them
-        uint256 count = 0;
-        for (uint i = 0; i < enqueuedApps.length; i++) {
-            count = count + enqueuedApps[i].pinToNodes.length;
-        }
-
-        bytes32[] memory allPinToNodes = new bytes32[](count);
-
-        // reuse variable to iterate over all pinned nodes
-        count = 0;
-
-        for (i = 0; i < enqueuedApps.length; i++) {
-            App memory app = enqueuedApps[i];
-
-            storageHashes[i] = app.storageHash;
-            appIDs[i] = app.appID;
-            clusterSizes[i] = app.clusterSize;
-            owners[i] = app.owner;
-            numberOfPinnedNodes[i] = app.pinToNodes.length;
-
-            for (uint j = 0; j < app.pinToNodes.length; j++) {
-                allPinToNodes[count] = app.pinToNodes[j];
-                count++;
-            }
-        }
-
-        return (storageHashes, appIDs, clusterSizes, owners, numberOfPinnedNodes, allPinToNodes);
     }
 
     /** @dev Gets nodes and clusters IDs
