@@ -253,7 +253,6 @@ contract Deployer {
       * emits AppDequeued event on successful deletion
       * reverts if you're not app owner
       * reverts if app not found
-      * TODO: free nodes' ports after app deletion
       */
     function dequeueApp(bytes32 appID)
         external
@@ -269,7 +268,7 @@ contract Deployer {
         }
 
         require(i < enqueuedApps.length, "error deleting app: app not found");
-        require(app.owner == msg.sender, "error deleting app: you must own app to delete it");
+        require(app.owner == msg.sender, "error deleting app: you must own the app to delete it");
         removeEnqueuedApp(i);
 
         emit AppDequeued(appID);
