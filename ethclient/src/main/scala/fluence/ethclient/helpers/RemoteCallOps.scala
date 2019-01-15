@@ -15,13 +15,10 @@
  */
 
 package fluence.ethclient.helpers
-import cats.effect.{Async, Sync}
+import cats.effect.Async
 import cats.syntax.flatMap._
 import fluence.ethclient.helpers.JavaFutureConversion._
 import org.web3j.protocol.core.RemoteCall
-import org.web3j.tx.Contract
-
-import scala.collection.JavaConverters._
 import scala.language.higherKinds
 
 object RemoteCallOps {
@@ -29,26 +26,15 @@ object RemoteCallOps {
 
     /**
      * Call sendAsync on RemoteCall and delay it's side effects
+     *
      * @tparam F effect
      * @return Result of the call
      */
-    def call[F[_]: Async]: F[T] = {
-      Async[F].delay(call).flatMap(_.sendAsync().asAsync[F])
-    }
+    def call[F[_]: Async]: F[T] =
+      Async[F]
+        .delay(call)
+        .flatMap(_.sendAsync().asAsync[F])
+
   }
 
-  implicit class RichContract[T <: Contract](contract: T) {
-
-    /**
-     * Execute callback on the contract and convert result to scala List
-     * expected usage is to retrieve events from contract
-     * @param get Callback
-     * @tparam F Effect
-     * @tparam E Type of the event
-     * @return
-     */
-    def getEvent[F[_]: Sync, E](get: T => java.util.List[E]): F[List[E]] = Sync[F].delay {
-      get(contract).asScala.toList
-    }
-  }
 }
