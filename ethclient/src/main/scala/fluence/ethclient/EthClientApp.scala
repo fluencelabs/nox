@@ -37,18 +37,19 @@ object EthClientApp extends IOApp {
           isSyncing ← ethClient.isSyncing[IO].map(_.isSyncing)
           _ ← IO(println(s"isSyncing: $isSyncing"))
 
+          version ← ethClient.clientVersion[IO]()
+          _ = println(s"Client version: $version")
+
           _ ← ethClient.blockStream[IO]().map(println).compile.drain
 
           unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
 
-          version ← ethClient.clientVersion[IO]()
-          _ = println(s"Client version: $version")
           _ ← par sequential par.apply.product(
             // Subscription stream
             par parallel ethClient
               .subscribeToLogsTopic[IO](
                 "0x9995882876ae612bfd829498ccd73dd962ec950a",
-                EventEncoder.encode(Network.NEWNODE_EVENT)
+                Network.NEWNODE_EVENT
               )
               .map(log ⇒ println(s"Log message: $log"))
               .interruptWhen(unsubscribe)
