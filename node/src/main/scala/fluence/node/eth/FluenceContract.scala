@@ -98,7 +98,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
             contract
               .getCluster(clusterId)
               .call[F]
-              .map(tuple ⇒ (tuple.getValue1, tuple.getValue6, tuple.getValue7)),
+              .map(tuple ⇒ (tuple.getValue1, tuple.getValue7, tuple.getValue8)),
             contract
               .getClusterWorkers(clusterId)
               .call[F]
