@@ -90,8 +90,20 @@ object ClusterData {
         .toVector
     )
 
+  /**
+   * Builds a ClusterData for a given data and NodeConfig. Removes ClusterData where the node does not participate.
+   *
+   * @param clusterID Cluster ID
+   * @param nodeIds IDs of the nodes which participate in the cluster, order matters
+   * @param genesisTime Unix timestamp for genesis block
+   * @param storageHash Hash for the app in Swarm
+   * @param nodeAddrs Addresses of the nodes in the same order as IDs
+   * @param workerPorts Worker parts on the nodes in the same order as nodes and IDs
+   * @param nodeConfig Current node's config
+   * @return Some ClusterData if this node participates and data is well formed, None otherwise
+   */
   def build(
-    clusterID: Bytes32,
+    appId: Bytes32,
     nodeIds: DynamicArray[Bytes32],
     genesisTime: Uint256,
     storageHash: Bytes32,
@@ -99,7 +111,7 @@ object ClusterData {
     workerPorts: DynamicArray[Uint16],
     nodeConfig: NodeConfig
   ): Option[ClusterData] = {
-    val genesis = Genesis.fromClusterData(clusterID, nodeIds, genesisTime)
+    val genesis = Genesis.fromClusterData(appId, nodeIds, genesisTime)
     val nodeIndex = genesis.validators.indexWhere(_.pub_key == nodeConfig.validatorKey)
     if (nodeIndex == -1)
       None

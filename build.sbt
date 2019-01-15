@@ -160,6 +160,7 @@ lazy val ethclient = (project in file("ethclient"))
       cats,
       catsEffect,
       fs2,
+      fs2rx,
       scalaTest
     ),
   )

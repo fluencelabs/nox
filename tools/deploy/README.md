@@ -10,5 +10,7 @@ To deploy Fluence, Parity and Swarm nodes on remote machines:
 
 To start it locally with Parity in `dev` mode:
 - `docker` and `docker-compose` should be installed on a local machine
-- run `./scripts/compose.sh` and wait
+- `cd scripts` and run `./compose.sh` and wait
+- to start 4 nodes locally use flag `multiple`: `./compose.sh multiple`
+
  
