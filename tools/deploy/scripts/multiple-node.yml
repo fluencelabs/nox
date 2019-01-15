@@ -1,0 +1,63 @@
+version: '3.4'
+
+services:
+  node1:
+    container_name: node1
+    image: fluencelabs/node:latest
+    environment:
+      - TENDERMINT_IP=$DOCKER_IP
+      - ETHEREUM_IP=$HOST_IP
+      - SWARM_HOST=http://$HOST_IP:8500
+      - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
+      - OWNER_ADDRESS=$OWNER_ADDRESS
+      - PORTS=25100:25110
+    ports:
+      # port for status API
+      - 25510:5678
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  node2:
+    container_name: node2
+    image: fluencelabs/node:latest
+    environment:
+      - TENDERMINT_IP=$DOCKER_IP
+      - ETHEREUM_IP=$HOST_IP
+      - SWARM_HOST=http://$HOST_IP:8500
+      - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
+      - OWNER_ADDRESS=$OWNER_ADDRESS
+      - PORTS=25200:25210
+    ports:
+      # port for status API
+      - 25610:5678
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  node3:
+    container_name: node3
+    image: fluencelabs/node:latest
+    environment:
+      - TENDERMINT_IP=$DOCKER_IP
+      - ETHEREUM_IP=$HOST_IP
+      - SWARM_HOST=http://$HOST_IP:8500
+      - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
+      - OWNER_ADDRESS=$OWNER_ADDRESS
+      - PORTS=25300:25310
+    ports:
+      # port for status API
+      - 25710:5678
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  node4:
+    container_name: node4
+    image: fluencelabs/node:latest
+    environment:
+      - TENDERMINT_IP=$DOCKER_IP
+      - ETHEREUM_IP=$HOST_IP
+      - SWARM_HOST=http://$HOST_IP:8500
+      - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
+      - OWNER_ADDRESS=$OWNER_ADDRESS
+      - PORTS=25400:25410
+    ports:
+      # port for status API
+      - 25810:5678
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

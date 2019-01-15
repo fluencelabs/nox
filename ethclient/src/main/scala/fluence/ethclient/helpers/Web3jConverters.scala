@@ -95,11 +95,11 @@ object Web3jConverters {
     new Bytes24(buffer)
   }
 
-  def listToDynamicArray[T <: Type[_]](list: List[T]): DynamicArray[T] = {
+  def listToDynamicArray[T <: Type[_]](list: List[T]): DynamicArray[T] =
     if (list.isEmpty) {
       DynamicArray.empty("bytes32[]").asInstanceOf[DynamicArray[T]]
     } else {
       new DynamicArray[T](list: _*)
     }
-  }
+
 }

@@ -1,6 +1,25 @@
+# Copyright 2018 Fluence Labs Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 #!/bin/bash
 
 set -e
+
+# The script uses for deploying Parity, Swarm, and Fluence containers.
+# If `REMOTE_DEPLOY` is set in env, the script will also expect the following env variables: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
+# Without `REMOTE_DEPLOY` exported flag the script will use default arguments
+# If first arg is `multiple`, script will start 4 fluence node along with Swarm & Parity nodes
 
 # `REMOTE_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
@@ -83,21 +102,44 @@ export STATUS_PORT=$((LAST_PORT+400))
 # port for status API
 echo "STATUS_PORT="$STATUS_PORT
 
+COUNTER=1
+
 # starting node container
-docker-compose -f node.yml up -d --force-recreate
+# if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
+if [ "$1" = "multiple" ]; then
+    docker-compose -f multiple-node.yml up -d --force-recreate
+    NUMBER_OF_NODES=4
+else
+    docker-compose -f node.yml up -d --force-recreate
+    NUMBER_OF_NODES=1
+fi
 
 echo 'Node container is started.'
 
-# get tendermint key from node logs
-# todo get this from `status` API by CLI
-while [ -z "$TENDERMINT_KEY" ]
-do
-    sleep 3
-    TENDERMINT_KEY=$(docker logs node1 2>&1 | grep PubKey | sed 's/.*value\":\"\([^ ]*\).*/\1/' | sed 's/\"},//g')
+while [ $COUNTER -le $NUMBER_OF_NODES ]; do
+        # get tendermint key from node logs
+        # todo get this from `status` API by CLI
+        while [ -z "$TENDERMINT_KEY" ]; do
+            TENDERMINT_KEY=$(docker logs node$COUNTER 2>&1 | grep PubKey | sed 's/.*value\":\"\([^ ]*\).*/\1/' | sed 's/\"},//g')
+            sleep 3
+        done
+
+    echo "CURRENT NODE = "$COUNTER
+    echo "TENDERMINT_KEY="$TENDERMINT_KEY
+
+    # use hardcoded ports for multiple nodes
+    if [ "$1" = "multiple" ]; then
+        START_PORT="25"$COUNTER"00"
+        LAST_PORT="25"$COUNTER"10"
+    fi
+
+    echo "START_PORT="$START_PORT
+    echo "LAST_PORT="$LAST_PORT
+
+    # check if node is already registered
+    # todo build fluence CLI in fly, use cargo from cli directory, or run from target cli directory?
+    ./fluence register $EXTERNAL_HOST_IP $TENDERMINT_KEY $OWNER_ADDRESS $CONTRACT_ADDRESS -s $PRIVATE_KEY --wait_syncing --start_port $START_PORT --last_port $LAST_PORT --base64_tendermint_key
+
+    COUNTER=$[$COUNTER+1]
+    TENDERMINT_KEY=""
 done
-
-echo "TENDERMINT_KEY="$TENDERMINT_KEY
-
-# check if node is already registered
-# todo build fluence CLI in fly, use cargo from cli directory, or run from target cli directory?
-./fluence register $EXTERNAL_HOST_IP $TENDERMINT_KEY $OWNER_ADDRESS $CONTRACT_ADDRESS -s $PRIVATE_KEY --wait_syncing --start_port $START_PORT --last_port $LAST_PORT --base64_tendermint_key
