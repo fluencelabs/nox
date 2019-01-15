@@ -16,10 +16,10 @@
 
 extern crate fluence;
 
-use fluence::*;
 use fluence::clap::App;
 use fluence::clap::AppSettings;
 use fluence::console::style;
+use fluence::*;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 

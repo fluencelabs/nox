@@ -2,8 +2,8 @@ extern crate fluence;
 
 mod utils;
 
-use utils::generate_register;
 use fluence::credentials::Credentials;
+use utils::generate_register;
 
 #[test]
 fn publish_pinned() -> () {
