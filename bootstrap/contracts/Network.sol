@@ -112,7 +112,7 @@ contract Network is Deployer {
     /** @dev Gets apps which not yet deployed anywhere
      * return (apps Swarm hashes, receipts, clusters sizes, developers addresses, number of pinned nodes, all pinned nodes)
      */
-    // TODO: return storageReceipts
+    // TODO: return storageReceipts as it was deleted to mitigate 'stack is too deep'
     function getEnqueuedApps()
         external
         view
