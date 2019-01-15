@@ -40,31 +40,32 @@ object FunctionCallDescription {
   val CloseSession = "@closeSession"
 
   // ^ start of the line, needed to capture whole string, not just substring
-  // (\w+(?:\.))* optional module name, must be followed by dot. dot isn't captured. ?= is called lookahead.
-  // (@?\w+) function name, optionally prefixed by @
+  // (\w+)* optional module name
   // \((.*?)\) anything inside parentheses, will be parsed later by argRx
   // $ end of the line, needed to capture whole string, not just substring
-  private val payloadPattern = """^(\w+(?:\.))*(@?\w+)\((.*?)\)$""".r
+  private val payloadPattern = """^(\w+)*\((.*?)\)$""".r
 
   /**
-   * Parses text payload in `[moduleName].functionName(arg1, ..., argN)` format to a typed function call description.
+   * Parses text payload in `[moduleName](arg)` format to a typed function call description.
    *
    * @param payload text representation of the function invocation
    */
   def parse[F[_]](payload: String)(implicit F: Monad[F]): EitherT[F, StateMachineError, FunctionCallDescription] =
-    EitherT.fromEither(for {
-      parsedPayload <- payload match {
-        case payloadPattern(m, f, args) => Either.right((Option(m).map(_.filter(_ != '.')), f, args))
-        case _ => Either.left(wrongPayloadFormatError(payload))
-      }
-      (module, functionName, unparsedArg) = parsedPayload
+    EitherT.fromEither(
+      for {
+        parsedPayload <- payload match {
+          case payloadPattern(m, args) => Either.right((Option(m).map(_.filter(_ != '.')), args))
+          case _ => Either.left(wrongPayloadFormatError(payload))
+        }
+        (module, unparsedArg) = parsedPayload
 
-      // each public Wasm function receives byte array - so returns an empty array in case of empty argument
-      parsedArg <- if (unparsedArg.isEmpty) Either.right(Array[Byte]())
-      else
-        hexToArray(unparsedArg).left.map(parseErrorMsg => wrongPayloadArgumentFormatError(unparsedArg, parseErrorMsg))
+        // each public Wasm function receives byte array - so returns an empty array in case of empty argument
+        parsedArg <- if (unparsedArg.isEmpty) Either.right(Array[Byte]())
+        else
+          hexToArray(unparsedArg).left.map(parseErrorMsg => wrongPayloadArgumentFormatError(unparsedArg, parseErrorMsg))
 
-    } yield FunctionCallDescription(module, functionName, parsedArg))
+      } yield FunctionCallDescription(module, parsedArg)
+    )
 
   /**
    * Produces [[StateMachineError]] corresponding to payload that cannot be parsed to a function call.
