@@ -21,7 +21,6 @@ import cats.effect.{Async, ConcurrentEffect, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.ethclient.Network.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
-import fluence.ethclient.helpers.JavaRxToFs2._
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
 import fluence.ethclient.{EthClient, Network}
@@ -32,6 +31,7 @@ import org.web3j.abi.datatypes.generated.{Uint8, _}
 import org.web3j.abi.datatypes.{Bool, DynamicArray}
 import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
+import fs2.interop.reactivestreams._
 
 import scala.collection.JavaConverters._
 import scala.language.higherKinds
@@ -120,8 +120,8 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   def getNodeClustersFormed[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
     fs2.Stream
       .eval(clusterFormedFilter[F])
-      .flatMap(filter ⇒ contract.clusterFormedEventFlowable(filter).toFS2[F]) // TODO: we should filter by verifier id! Now node will join all the clusters
-      .map(FluenceContract.eventToClusterData(_, nodeConfig))
+      .flatMap(filter ⇒ contract.clusterFormedEventFlowable(filter).toStream[F]())
+      .map(FluenceContract.eventToClusterData(_, nodeConfig)) // It's checked that current node participates in a cluster there
       .unNone
 
   /**
