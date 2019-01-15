@@ -133,7 +133,7 @@ impl DeleteApp {
         let delete_app_fn = || -> Result<H256, Box<Error>> {
             let call_data = match self.cluster_id {
                 Some(cluster_id) => delete_app::call(self.app_id, cluster_id).0,
-                None => dequeue_app::call(self.app_id).0
+                None => dequeue_app::call(self.app_id).0,
             };
 
             let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
