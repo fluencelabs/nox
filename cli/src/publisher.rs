@@ -193,7 +193,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
         return Err(format!(
             "number of pin_to nodes should be less or equal to the desired cluster_size"
         )
-            .into());
+        .into());
     }
 
     Ok(Publisher::new(
