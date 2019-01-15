@@ -18,6 +18,11 @@
 
 set -e
 
+# The script used for deploying Parity, Swarm, and Fluence containers.
+# With `REMOTE_DEPLOY` exported flag the script will use exported arguments: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
+# Without `REMOTE_DEPLOY` exported flag the script will use default arguments
+# With `multiple` flag 4 nodes will be started
+
 # `REMOTE_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
 if [ -z "$REMOTE_DEPLOY" ]; then
@@ -63,7 +68,7 @@ fi
 
 # running parity and swarm containers
 docker-compose -f parity.yml up -d
-# docker-compose -f swarm.yml up -d
+docker-compose -f swarm.yml up -d
 
 echo 'Parity and Swarm containers are started.'
 
