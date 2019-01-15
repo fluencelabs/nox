@@ -23,24 +23,24 @@ case class Block(
   hash: String,
   parentHash: String,
   nonce: String,
-  sha3Uncles: String, // WTF
+  sha3Uncles: String,
   logsBloom: String,
   transactionsRoot: String,
   stateRoot: String,
   receiptsRoot: String,
-  author: String, // is it an address?
+  author: String,
   miner: String,
-  mixHash: String, // WTF
+  mixHash: String,
   difficulty: BigInt,
   totalDifficulty: BigInt,
-  extraData: String, // WTF
+  extraData: String,
   size: BigInt,
   gasLimit: BigInt,
   gasUsed: BigInt,
   timestamp: BigInt,
   transactions: Seq[Transaction],
   uncles: Seq[String],
-  sealFields: Seq[String] // WTF
+  sealFields: Seq[String]
 ) {}
 
 object Block {
