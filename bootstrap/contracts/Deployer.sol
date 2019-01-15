@@ -144,7 +144,10 @@ contract Deployer {
     // Emitted on every new Node
     event NewNode(bytes32 id);
 
-    // Emitted on app deletion. clusterID could be zero if app wasn't yet deployed.
+    // Emitted when app is removed from enqueuedApps by owner
+    event AppDequeued(bytes32 appID);
+
+    // Emitted when app & cluster were removed by app owner
     event AppDeleted(bytes32 appID, bytes32 clusterID);
 
     // Nodes ready to join new clusters
@@ -251,42 +254,53 @@ contract Deployer {
         }
     }
 
-    /** @dev Deletes app with appID either from enqueued apps or from clusters mapping
+    /** @dev Deletes app with appID from enqueued apps
       * You must be app's owner to delete it. Currently, nodes' ports aren't freed.
       * @param appID app to be deleted
-      * @param clusterID (optional) if specified, cluster with app will be deleted. Otherwise, delete from enqueued apps.
-      * emits AppDeleted event on successful deletion
+      * emits AppDequeued event on successful deletion
       * reverts if you're not app owner
-      * reverts if app or cluster aren't found
+      * reverts if app not found
+      * TODO: free nodes' ports after app deletion
+      */
+    function dequeueApp(bytes32 appID)
+        external
+    {
+        App memory app;
+        uint8 i = 0;
+
+        for (;i < enqueuedApps.length; i++) {
+            app = enqueuedApps[i];
+            if (app.appID == appID) {
+                break;
+            }
+        }
+
+        require(i < enqueuedApps.length, "error deleting app: app not found");
+        require(app.owner == msg.sender, "error deleting app: you must own app to delete it");
+        removeEnqueuedApp(i);
+
+        emit AppDequeued(appID);
+    }
+
+    /** @dev Deletes cluster clusterID that hosts app appID
+      * You must be app's owner to delete it. Currently, nodes' ports aren't freed.
+      * @param appID app to be deleted
+      * @param clusterID cluster that hosts the app
+      * emits AppRemoved event on successful deletion
+      * reverts if you're not app owner
+      * reverts if app or cluster aren't not found
       * TODO: free nodes' ports after app deletion
       */
     function deleteApp(bytes32 appID, bytes32 clusterID)
         external
     {
-        // if clusterID is 0, then app isn't expected to be deployed, so remove from enqueuedApps
-        if (clusterID == 0) {
-            App memory app;
-            uint8 i = 0;
+        Cluster memory cluster = clusters[clusterID];
+        require(cluster.clusterID != 0, "error deleting app: cluster not found");
+        require(cluster.app.appID == appID, "error deleting app: cluster hosts another app");
+        require(cluster.app.owner == msg.sender, "error deleting app: you must own app to delete it");
 
-            for (;i < enqueuedApps.length; i++) {
-                app = enqueuedApps[i];
-                if (app.appID == appID) {
-                    break;
-                }
-            }
-
-            require(i < enqueuedApps.length, "error deleting app: app not found");
-            require(app.owner == msg.sender, "error deleting app: you must own app to delete it");
-            removeEnqueuedApp(i);
-        } else {
-            Cluster memory cluster = clusters[clusterID];
-            require(cluster.clusterID != 0, "error deleting app: cluster not found");
-            require(cluster.app.appID == appID, "error deleting app: cluster hosts another app");
-            require(cluster.app.owner == msg.sender, "error deleting app: you must own app to delete it");
-
-            bool removed = removeCluster(clusterID);
-            require(removed, "error deleting app: cluster not found in clusterIds array");
-        }
+        bool removed = removeCluster(clusterID);
+        require(removed, "error deleting app: cluster not found in clusterIds array");
 
         emit AppDeleted(appID, clusterID);
     }

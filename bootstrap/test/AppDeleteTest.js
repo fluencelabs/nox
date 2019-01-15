@@ -48,12 +48,11 @@ contract('Fluence (app deletion)', function ([_, owner, whitelisted, anyone]) {
         assert.notEqual(app, undefined);
 
         // only app owner can delete app
-        await expectThrow(global.contract.deleteApp(appID, 0, { from: anyone }));
+        await expectThrow(global.contract.dequeueApp(appID, { from: anyone }));
 
-        let deleteApp = await global.contract.deleteApp(appID, 0, { from: owner });
-        truffleAssert.eventEmitted(deleteApp, utils.appDeletedEvent, ev => {
+        let dequeueApp = await global.contract.dequeueApp(appID, { from: owner });
+        truffleAssert.eventEmitted(dequeueApp, utils.appDequeuedEvent, ev => {
             assert.equal(ev.appID, appID);
-            assert.equal(ev.clusterID, 0);
 
             return true;
         });
@@ -79,9 +78,9 @@ contract('Fluence (app deletion)', function ([_, owner, whitelisted, anyone]) {
         assert.equal(cluster[5], appID);
 
         // only app owner can delete app
-        await expectThrow(global.contract.deleteApp(appID, 0, { from: anyone }));
+        await expectThrow(global.contract.deleteApp(appID, clusterID, { from: anyone }));
 
-        // app was deployed, can't delete without clusterID
+        // can't delete with wrong clusterID
         await expectThrow(global.contract.deleteApp(appID, 0, { from: owner }));
 
         let deleteApp = await global.contract.deleteApp(appID, clusterID, { from: owner });

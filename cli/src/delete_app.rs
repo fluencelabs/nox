@@ -19,6 +19,7 @@ extern crate clap;
 use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
 use contract_func::contract::functions::delete_app;
+use contract_func::contract::functions::dequeue_app;
 use contract_func::ContractCaller;
 use credentials::Credentials;
 use std::boxed::Box;
@@ -130,8 +131,10 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
 impl DeleteApp {
     pub fn delete_app(self, show_progress: bool) -> Result<H256, Box<Error>> {
         let delete_app_fn = || -> Result<H256, Box<Error>> {
-            let cluster_id = self.cluster_id.unwrap_or(H256::default());
-            let (call_data, _) = delete_app::call(self.app_id, cluster_id);
+            let call_data = match self.cluster_id {
+                Some(cluster_id) => delete_app::call(self.app_id, cluster_id).0,
+                None => dequeue_app::call(self.app_id).0
+            };
 
             let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
 
