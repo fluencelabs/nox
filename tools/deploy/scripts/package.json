@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "helper to deploy nodes",
   "scripts": {
-    "deploy": "node ./deploy-contract.js"
+    "deploy": "node deploy-contract.js"
   },
   "author": "Fluence Labs",
   "license": "AGPL-3.0",
