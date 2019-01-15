@@ -47,7 +47,7 @@ fi
 
 # running parity and swarm containers
 docker-compose -f parity.yml up -d
-docker-compose -f swarm.yml up -d
+# docker-compose -f swarm.yml up -d
 
 echo 'Parity and Swarm containers are started.'
 
@@ -83,21 +83,43 @@ export STATUS_PORT=$((LAST_PORT+400))
 # port for status API
 echo "STATUS_PORT="$STATUS_PORT
 
+COUNTER=1
+
 # starting node container
-docker-compose -f node.yml up -d --force-recreate
+# if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
+if [ "$1" = "multiple" ]; then
+    docker-compose -f multiple-node.yml up -d --force-recreate
+    NUMBER_OF_NODES=4
+else
+    docker-compose -f node.yml up -d --force-recreate
+    NUMBER_OF_NODES=1
+fi
 
 echo 'Node container is started.'
 
-# get tendermint key from node logs
-# todo get this from `status` API by CLI
-while [ -z "$TENDERMINT_KEY" ]
-do
-    sleep 3
-    TENDERMINT_KEY=$(docker logs node1 2>&1 | grep PubKey | sed 's/.*value\":\"\([^ ]*\).*/\1/' | sed 's/\"},//g')
+while [ $COUNTER -le $NUMBER_OF_NODES ]; do
+        # get tendermint key from node logs
+        # todo get this from `status` API by CLI
+        while [ -z "$TENDERMINT_KEY" ]; do
+            TENDERMINT_KEY=$(docker logs node$COUNTER 2>&1 | grep PubKey | sed 's/.*value\":\"\([^ ]*\).*/\1/' | sed 's/\"},//g')
+            sleep 3
+        done
+
+    echo "TENDERMINT_KEY="$TENDERMINT_KEY
+
+    # use hardcoded ports for multiple nodes
+    if [ "$1" = "multiple" ]; then
+        START_PORT="25"$COUNTER"00"
+        LAST_PORT="25"$COUNTER"10"
+    fi
+
+    echo "START_PORT="$START_PORT
+    echo "LAST_PORT="$LAST_PORT
+
+    # check if node is already registered
+    # todo build fluence CLI in fly, use cargo from cli directory, or run from target cli directory?
+    ./fluence register $EXTERNAL_HOST_IP $TENDERMINT_KEY $OWNER_ADDRESS $CONTRACT_ADDRESS -s $PRIVATE_KEY --wait_syncing --start_port $START_PORT --last_port $LAST_PORT --base64_tendermint_key
+
+    COUNTER=$[$COUNTER+1]
+    TENDERMINT_KEY=""
 done
-
-echo "TENDERMINT_KEY="$TENDERMINT_KEY
-
-# check if node is already registered
-# todo build fluence CLI in fly, use cargo from cli directory, or run from target cli directory?
-./fluence register $EXTERNAL_HOST_IP $TENDERMINT_KEY $OWNER_ADDRESS $CONTRACT_ADDRESS -s $PRIVATE_KEY --wait_syncing --start_port $START_PORT --last_port $LAST_PORT --base64_tendermint_key
