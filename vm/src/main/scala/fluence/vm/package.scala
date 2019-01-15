@@ -30,7 +30,7 @@ package object vm {
     import cats.instances.list._
     import cats.syntax.traverse._
     import cats.instances.either._
-    // unfortunately Idea don't understand this and show error in Editor
+    // unfortunately Idea doesn't understand this and shows error in Editor
     val either: Either[A, List[B]] = list.sequence
     EitherT.fromEither[F](either)
   }

@@ -26,37 +26,33 @@ import fluence.vm.VmError.WasmVmError.InvokeError
 import scala.language.higherKinds
 
 /**
-  * Represent a Wasm function exported from a Wasm Module.
-  *
-  * @param fnName a name of the function.
-  * @param javaMethod a java method [[java.lang.reflect.Method]] used for calling the function.
-  */
+ * Represent a Wasm function exported from a Wasm Module.
+ *
+ * @param fnName a name of the function.
+ * @param javaMethod a java method [[java.lang.reflect.Method]] used for calling the function.
+ */
 case class WasmFunction(
   fnName: String,
   javaMethod: Method,
 ) {
 
   /**
-    * Invokes the function with provided arguments.
-    *
-    * @param module the object the underlying method is invoked from.
-    *               This is an instance for the current module, it contains
-    *               all inner state of the module, like memory.
-    * @param args arguments for calling this function.
-    * @tparam F a monad with an ability to absorb 'IO'
-    */
+   * Invokes the function with provided arguments.
+   *
+   * @param module the object the underlying method is invoked from.
+   *               This is an instance for the current module, it contains
+   *               all inner state of the module, like memory.
+   * @param args arguments for calling this function.
+   * @tparam F a monad with an ability to absorb 'IO'
+   */
   def apply[F[_]: Functor: LiftIO](
     module: Any,
     args: List[AnyRef]
   ): EitherT[F, InvokeError, AnyRef] =
     EitherT(
-      IO(
-        javaMethod.invoke(module, args: _*))
-        .attempt
+      IO(javaMethod.invoke(module, args: _*)).attempt
         .to[F]
-    ).leftMap(e ⇒
-      TrapError(s"Function $this with args: $args was failed", Some(e))
-    )
+    ).leftMap(e ⇒ TrapError(s"Function $this with args: $args was failed", Some(e)))
 
   override def toString: String = fnName
 }

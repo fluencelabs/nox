@@ -165,22 +165,23 @@ object WasmVm {
 
     val emptyIndex: Either[ApplyError, List[WasmModule]] = Right(List.empty[WasmModule])
 
-    val filledIndex = scriptCxt.getModules.foldLeft(emptyIndex) {
-      // if an error has already occurred, skip the next module and return the previous error
-      case (error @ Left(_), _) ⇒
-        error
+    val filledIndex = scriptCxt.getModules
+      .foldLeft(emptyIndex) {
+        // if an error has already occurred, skip the next module and return the previous error
+        case (error @ Left(_), _) ⇒
+          error
 
-      case (Right(index), moduleDescription) ⇒
-        for {
-          wasmModule <- WasmModule(
-            moduleDescription,
-            scriptCxt,
-            config.allocateFunctionName,
-            config.deallocateFunctionName,
-            config.invokeFunctionName
-          )
-        } yield index :+ wasmModule
-    }
+        case (Right(index), moduleDescription) ⇒
+          for {
+            wasmModule <- WasmModule(
+              moduleDescription,
+              scriptCxt,
+              config.allocateFunctionName,
+              config.deallocateFunctionName,
+              config.invokeFunctionName
+            )
+          } yield index :+ wasmModule
+      }
       .map(_.toNel)
 
     EitherT.fromEither[F](filledIndex)
@@ -193,8 +194,8 @@ object WasmVm {
   ): EitherT[F, E, T] =
     EitherT
       .fromEither(
-        Try(action)
-          .toEither
-      ).leftMap(mapError)
+        Try(action).toEither
+      )
+      .leftMap(mapError)
 
 }

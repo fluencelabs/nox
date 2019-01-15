@@ -76,8 +76,8 @@ object VmError {
   ) extends VmErrorProxy(message, cause) with InvocationError with ApplyError
 
   /**
-    * Indicates that module with specified name wasn't found in the instance of VM.
-    */
+   * Indicates that module with specified name wasn't found in the instance of VM.
+   */
   case class NoSuchModuleError(
     override val message: String,
     override val cause: Option[Throwable] = None

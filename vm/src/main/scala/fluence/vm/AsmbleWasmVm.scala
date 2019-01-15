@@ -78,10 +78,10 @@ class AsmbleWasmVm(
   override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] =
     modules
       .foldLeft(EitherT.rightT[F, GetVmStateError](Array[Byte]())) {
-        case (acc, instance) ⇒
+        case (acc, (moduleName, module)) ⇒
           for {
-            moduleStateHash ← instance
-              .innerState(arr ⇒ hasher[F](arr))
+            moduleStateHash ← module
+              .computeHash(arr ⇒ hasher[F](arr))
 
             prevModulesHash ← acc
 
@@ -111,49 +111,9 @@ class AsmbleWasmVm(
       EitherT.rightT[F, InvokeError](0.asInstanceOf[AnyRef] :: 0.asInstanceOf[AnyRef] :: Nil)
     else
       for {
-        offset <- injectArrayIntoWasmModule(fnArgument, moduleInstance)
+        offset <- moduleInstance.allocate(fnArgument.length)
+        _ <- moduleInstance.writeMemory(offset, fnArgument)
       } yield offset.asInstanceOf[AnyRef] :: fnArgument.length.asInstanceOf[AnyRef] :: Nil
-
-  /**
-   * Injects given string into Wasm module memory.
-   *
-   * @param injectedArray array that should be inserted into Wasm module memory
-   * @param moduleInstance module instance used as a provider for Wasm module memory access
-   * @tparam F a monad with an ability to absorb 'IO'
-   */
-  private def injectArrayIntoWasmModule[F[_]: LiftIO: Monad](
-    injectedArray: Array[Byte],
-    moduleInstance: WasmModule
-  ): EitherT[F, InvokeError, Int] =
-    for {
-      // In the current version, it is possible for Wasm module to have allocation/deallocation
-      // functions but doesn't have memory (ByteBuffer instance). Also since it is used getMemory
-      // Wasm function for getting ByteBuffer instance, it is also possible to don't have memory
-      // due to possible absence of this function in the Wasm module.
-      wasmMemory <- EitherT.fromOption(
-        moduleInstance.memory,
-        VmMemoryError(s"Trying to use absent Wasm memory while injecting array=$injectedArray")
-      )
-
-      offset <- allocate(injectedArray.length)
-
-      resultOffset <- EitherT
-        .fromEither(Try {
-          val convertedOffset = offset.toString.toInt
-
-          // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
-          val wasmMemoryView = wasmMemory.duplicate()
-
-          wasmMemoryView.position(convertedOffset)
-          wasmMemoryView.put(injectedArray)
-
-          convertedOffset
-        }.toEither)
-        .leftMap { e ⇒
-          VmMemoryError(s"The Wasm allocation function returned incorrect offset=$offset", Some(e))
-        }: EitherT[F, InvokeError, Int]
-
-    } yield resultOffset
 
   /**
    * Extracts (reads and deletes) result from the given offset from Wasm module memory.
@@ -167,54 +127,14 @@ class AsmbleWasmVm(
     moduleInstance: WasmModule
   ): EitherT[F, InvokeError, Array[Byte]] =
     for {
-      extractedResult <- readResultFromWasmModule(offset, moduleInstance)
+      // each result has the next structure in Wasm memory: | size (4 bytes) | result buffer (size bytes) |
+      resultSize <- moduleInstance.readMemory(offset, 4)
+      extractedResult <- moduleInstance.readMemory(offset + 4, resultSize)
+
       // TODO : string deallocation from scala-part should be additionally investigated - it seems
       // that this version of deletion doesn't compatible with current idea of verification game
       intBytesSize = 4
-      _ <- deallocate(offset, extractedResult.length + intBytesSize)
+      _ <- moduleInstance.deallocate(offset, extractedResult.length + intBytesSize)
     } yield extractedResult
-
-  /**
-   * Reads result from the given offset from Wasm module memory.
-   *
-   * @param offset offset into Wasm module memory where a string is located
-   * @param moduleInstance module instance used as a provider for Wasm module memory access
-   * @tparam F a monad with an ability to absorb 'IO'
-   */
-  private def readResultFromWasmModule[F[_]: LiftIO: Monad](
-    offset: Int,
-    moduleInstance: WasmModule
-  ): EitherT[F, InvokeError, Array[Byte]] =
-    for {
-      wasmMemory <- EitherT.fromOption(
-        moduleInstance.memory,
-        VmMemoryError(s"Trying to use absent Wasm memory while reading string from the offset=$offset")
-      )
-
-      readResult <- EitherT
-        .fromEither(
-          Try {
-            val wasmMemoryView = wasmMemory.duplicate()
-            wasmMemoryView.order(ByteOrder.LITTLE_ENDIAN)
-
-            // each result has the next structure in Wasm memory: | size (4 bytes) | result buffer (size bytes) |
-            val resultSize = wasmMemoryView.getInt(offset)
-            // size of Int in bytes
-            val intBytesSize = 4
-
-            val resultBuffer = new Array[Byte](resultSize)
-            wasmMemoryView.position(offset + intBytesSize)
-            wasmMemoryView.get(resultBuffer)
-            resultBuffer
-          }.toEither
-        )
-        .leftMap { e =>
-          VmMemoryError(
-            s"String reading from offset=$offset failed",
-            Some(e)
-          )
-        }: EitherT[F, InvokeError, Array[Byte]]
-
-    } yield readResult
 
 }
