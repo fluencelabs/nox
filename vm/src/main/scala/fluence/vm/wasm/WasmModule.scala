@@ -23,7 +23,7 @@ import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
 import cats.data.EitherT
 import cats.effect.LiftIO
-import cats.{Functor, Monad}
+import cats.{Applicative, Functor, Monad}
 import fluence.crypto.CryptoError
 import fluence.vm.VmError.WasmVmError.{ApplyError, InvokeError}
 import fluence.vm.VmError.{InitializationError, InternalVmError, NoSuchFnError, VmMemoryError}
@@ -47,6 +47,8 @@ class WasmModule(
   private val deallocateFunction: Option[WasmFunction],
   private val invokeFunction: Option[WasmFunction]
 ) {
+
+  def getName: Option[String] = name
 
   /**
    * Allocates a memory region in Wasm module of supplied size by allocateFunction.
@@ -154,43 +156,35 @@ object WasmModule {
    * @param moduleDescription a description of the module
    * @param scriptContext a context for the module operation
    */
-  def apply[F[_]: LiftIO: Monad](
+  def apply(
     moduleDescription: Compiled,
     scriptContext: ScriptContext,
     allocationFunctionName: String,
     deallocationFunctionName: String,
     invokeFunctionName: String
-  ): EitherT[F, ApplyError, WasmModule] =
+  ): Either[ApplyError, WasmModule] =
     for {
 
-      moduleInstance <- EitherT
-        .fromEither(
-          Try(moduleDescription.instance(scriptContext)).toEither
+      moduleInstance <- Try(moduleDescription.instance(scriptContext)).toEither.left.map { e ⇒
+        // TODO: method 'instance' must throw both an initialization error and a
+        // Trap error, but now they can't be separated
+        VmMemoryError(
+          s"Unable to initialize module=${nameAsStr(moduleDescription.getName)}",
+          Some(e)
         )
-        .leftMap { e ⇒
-          // TODO: method 'instance' must throw both an initialization error and a
-          // Trap error, but now they can't be separated
-          VmMemoryError(
-            s"Unable to initialize module=${nameAsStr(moduleDescription.getName)}",
-            Some(e)
-          )
-        }
+      }
 
       // getting memory field with reflection from module instance
-      memory ← EitherT
-        .fromEither(
-          Try {
-            // It's ok if a module doesn't have a memory
-            val memoryMethod = Try(moduleInstance.getClass.getMethod("getMemory")).toOption
-            memoryMethod.map(_.invoke(moduleInstance).asInstanceOf[ByteBuffer])
-          }.toEither
-        )
-        .leftMap { e ⇒
-          InternalVmError(
-            s"Unable to getting memory from module=${nameAsStr(moduleDescription.getName)}",
-            Some(e)
-          ): ApplyError
-        }
+      memory ← Try {
+        // It's ok if a module doesn't have a memory
+        val memoryMethod = Try(moduleInstance.getClass.getMethod("getMemory")).toOption
+        memoryMethod.map(_.invoke(moduleInstance).asInstanceOf[ByteBuffer])
+      }.toEither.left.map { e ⇒
+        InternalVmError(
+          s"Unable to getting memory from module=${nameAsStr(moduleDescription.getName)}",
+          Some(e)
+        ): ApplyError
+      }
 
       (allocMethod, deallocMethod, invokeMethod) = moduleDescription.getCls.getDeclaredMethods.toStream
         .filter(method => Modifier.isPublic(method.getModifiers))

@@ -156,32 +156,31 @@ object WasmVm {
    * there aren't to be two modules without names that contain functions with the
    * same names, otherwise, an error will be thrown.
    */
-  private def initializeModules[F[_]: LiftIO: Monad](
+  private def initializeModules[F[_]: Applicative](
     scriptCxt: ScriptContext,
     config: VmConfig
   ): EitherT[F, ApplyError, ModuleIndex] = {
+    val emptyIndex: Either[ApplyError, Map[Option[String], WasmModule]] = Right(Map[Option[String], WasmModule]())
 
-    val emptyIndex = EitherT.rightT[F, ApplyError](Map[Option[String], WasmModule]())
-
-    val filledIndex = scriptCxt.getModules
+    val moduleIndex = scriptCxt.getModules
       .foldLeft(emptyIndex) {
-        // if an error has already occurred, skip the next module and return the previous error
-        case (error @ Left(_), _) ⇒
+        case (error @ Left(_), _) =>
           error
 
-        case (Right(index), moduleDescription) ⇒
+        case (Right(moduleIndex), moduleDescription) =>
           for {
-            wasmModule <- WasmModule[F](
+            wasmModule <- WasmModule(
               moduleDescription,
               scriptCxt,
               config.allocateFunctionName,
               config.deallocateFunctionName,
               config.invokeFunctionName
             )
-          } yield index + wasmModule.name -> wasmModule
+
+          } yield moduleIndex + (wasmModule.getName -> wasmModule)
       }
 
-    EitherT.fromEither[F](filledIndex)
+    EitherT.fromEither[F](moduleIndex)
   }
 
   /** Helper method. Run ''action'' inside Try block, convert to EitherT with specified effect F */
