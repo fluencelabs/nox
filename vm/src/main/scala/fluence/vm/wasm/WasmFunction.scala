@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.vm.wasm_specific
+package fluence.vm.wasm
 import java.lang.reflect.Method
 
 import cats.Functor
@@ -32,8 +32,8 @@ import scala.language.higherKinds
   * @param javaMethod a java method [[java.lang.reflect.Method]] used for calling the function.
   */
 case class WasmFunction(
-  private val fnName: String,
-  private val javaMethod: Method,
+  fnName: String,
+  javaMethod: Method,
 ) {
 
   /**

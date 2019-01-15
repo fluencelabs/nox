@@ -23,7 +23,7 @@ import cats.Monad
 import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.VmError.{NoSuchModuleError, _}
-import fluence.vm.wasm_specific.AsmbleWasmModule
+import fluence.vm.wasm.WasmModule
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -39,7 +39,7 @@ import scala.util.Try
  * @param hasher a hash function provider
  */
 class AsmbleWasmVm(
-  private val modules: Map[Option[String], AsmbleWasmModule],
+  private val modules: Map[Option[String], WasmModule],
   private val hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
 
@@ -105,7 +105,7 @@ class AsmbleWasmVm(
    */
   private def preprocessFnArgument[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte],
-    moduleInstance: AsmbleWasmModule
+    moduleInstance: WasmModule
   ): EitherT[F, InvokeError, List[AnyRef]] =
     if (fnArgument.isEmpty)
       EitherT.rightT[F, InvokeError](0.asInstanceOf[AnyRef] :: 0.asInstanceOf[AnyRef] :: Nil)
@@ -123,7 +123,7 @@ class AsmbleWasmVm(
    */
   private def injectArrayIntoWasmModule[F[_]: LiftIO: Monad](
     injectedArray: Array[Byte],
-    moduleInstance: AsmbleWasmModule
+    moduleInstance: WasmModule
   ): EitherT[F, InvokeError, Int] =
     for {
       // In the current version, it is possible for Wasm module to have allocation/deallocation

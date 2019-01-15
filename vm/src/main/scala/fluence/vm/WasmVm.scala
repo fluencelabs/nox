@@ -31,11 +31,11 @@ import fluence.crypto.hash.JdkCryptoHasher
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.AsmbleWasmVm._
-import fluence.vm.wasm_specific.WasmFunction
+import fluence.vm.wasm.WasmFunction
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
 import fluence.vm.config.VmConfig.ConfigError
-import fluence.vm.wasm_specific.AsmbleWasmModule
+import fluence.vm.wasm.WasmModule
 import scodec.bits.ByteVector
 import pureconfig.generic.auto._
 
@@ -161,9 +161,9 @@ object WasmVm {
   private def initializeModules[F[_]: Applicative](
     scriptCxt: ScriptContext,
     config: VmConfig
-  ): EitherT[F, ApplyError, NonEmptyMap[String, AsmbleWasmModule]] = {
+  ): EitherT[F, ApplyError, NonEmptyMap[String, WasmModule]] = {
 
-    val emptyIndex: Either[ApplyError, List[AsmbleWasmModule]] = Right(List.empty[AsmbleWasmModule])
+    val emptyIndex: Either[ApplyError, List[WasmModule]] = Right(List.empty[WasmModule])
 
     val filledIndex = scriptCxt.getModules.foldLeft(emptyIndex) {
       // if an error has already occurred, skip the next module and return the previous error
@@ -172,7 +172,7 @@ object WasmVm {
 
       case (Right(index), moduleDescription) ⇒
         for {
-          wasmModule <- AsmbleWasmModule(
+          wasmModule <- WasmModule(
             moduleDescription,
             scriptCxt,
             config.allocateFunctionName,

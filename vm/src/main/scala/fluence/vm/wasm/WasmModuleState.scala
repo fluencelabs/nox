@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.vm.wasm_specific
+package fluence.vm.wasm
 import java.nio.ByteBuffer
 
 import cats.Monad

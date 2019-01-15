@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.vm.wasm_specific
+package fluence.vm.wasm
 
 import java.lang.reflect.{Method, Modifier}
 import java.nio.ByteBuffer
@@ -37,7 +37,7 @@ import scala.util.Try
  * @param instance wrapped instance of module
  * @param memory memory of this module
  */
-class AsmbleWasmModule(
+class WasmModule(
   private val name: Option[String],
   private val moduleState: WasmModuleState,
   private val instance: Any,
@@ -74,8 +74,7 @@ class AsmbleWasmModule(
   private def invokeWasmFunction[F[_]: LiftIO: Monad](
     wasmFunction: Option[WasmFunction],
     args: List[AnyRef]
-  ): EitherT[F, InvokeError, AnyRef] =
-    wasmFunction match {
+  ): EitherT[F, InvokeError, AnyRef] = wasmFunction match {
       case Some(fn) => fn(instance, args)
       case _ =>
         EitherT.leftT(
@@ -86,7 +85,7 @@ class AsmbleWasmModule(
   override def toString: String = name.getOrElse("<no-name>")
 }
 
-object AsmbleWasmModule {
+object WasmModule {
 
   /**
    * Creates instance for specified module.
@@ -94,17 +93,19 @@ object AsmbleWasmModule {
    * @param moduleDescription a description of the module
    * @param scriptContext a context for the module operation
    */
-  def apply(
+  def apply[F[_]: Monad](
     moduleDescription: Compiled,
     scriptContext: ScriptContext,
     allocationFunctionName: String,
     deallocationFunctionName: String,
     invokeFunctionName: String
-  ): Either[ApplyError, AsmbleWasmModule] =
+  ): EitherT[F, ApplyError, WasmModule] =
     for {
 
-      moduleInstance <- Try(moduleDescription.instance(scriptContext)).toEither.left.map { e ⇒
-        // todo method 'instance' must throw both an initialization error and a
+      moduleInstance <- EitherT.fromEither(
+        Try(moduleDescription.instance(scriptContext)).toEither
+      ).leftMap { e ⇒
+        // TODO: method 'instance' must throw both an initialization error and a
         // Trap error, but now they can't be separated
         InitializationError(
           s"Unable to initialize module=${nameAsStr(moduleDescription.getName)}",
@@ -113,35 +114,44 @@ object AsmbleWasmModule {
       }
 
       // getting memory field with reflection from module instance
-      memory ← Try {
-        // It's ok if a module doesn't have a memory
-        val memoryMethod = Try(moduleInstance.getClass.getMethod("getMemory")).toOption
-        memoryMethod.map(_.invoke(moduleInstance).asInstanceOf[ByteBuffer])
-      }.toEither.left.map { e ⇒
+      memory ← EitherT.fromEither(
+        Try {
+          // It's ok if a module doesn't have a memory
+          val memoryMethod = Try(moduleInstance.getClass.getMethod("getMemory")).toOption
+          memoryMethod.map(_.invoke(moduleInstance).asInstanceOf[ByteBuffer])
+        }.toEither
+      ).leftMap { e ⇒
         InternalVmError(
           s"Unable to getting memory from module=${nameAsStr(moduleDescription.getName)}",
           Some(e)
         )
       }
 
-      // create a temporary map
-      wasmExportFns: Map[String, Method] = moduleDescription
+      (allocMethod, deallocMethod, invokeMethod) = moduleDescription
         .getCls
         .getDeclaredMethods
-        .foldLeft(Map.empty[String, Method]) ((map, value) => value match {
-          // choose only exported wasm functions
-          case publicMethod if Modifier.isPublic(value.getModifiers) => map + (publicMethod.getName -> publicMethod)
-          case _ => map
-        }
-      )
+        .toStream
+        .filter(method => Modifier.isPublic(method.getModifiers))
+        .map(method => WasmFunction(method.getName, method))
+        .foldLeft((Option.empty[WasmFunction], Option.empty[WasmFunction], Option.empty[WasmFunction])) {
+          case (acc @ (None, _, _), m@WasmFunction(`allocationFunctionName`, _)) =>
+            acc.copy(_1 = Some(m))
 
-    } yield new AsmbleWasmModule(
+          case (acc @ (_, None, _), m@WasmFunction(`deallocationFunctionName`, _)) =>
+            acc.copy(_2 = Some(m))
+
+          case (acc @ (_, _, None), m@WasmFunction(`invokeFunctionName`, _)) =>
+            acc.copy(_3 = Some(m))
+        }
+
+    } yield new WasmModule(
       Option(moduleDescription.getName),
       WasmModuleState(memory),
       moduleInstance,
-      constructWasmFunction(wasmExportFns, allocationFunctionName),
-      constructWasmFunction(wasmExportFns, deallocationFunctionName),
-      constructWasmFunction(wasmExportFns, invokeFunctionName)
+      allocMethod,
+      deallocMethod,
+      invokeMethod
+    )
   )
 
   private def constructWasmFunction(wasmFns: Map[String, Method], fnName: String) : Option[WasmFunction] =

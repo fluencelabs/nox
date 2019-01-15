@@ -23,12 +23,12 @@ import asmble.run.jvm.ScriptContext
 import cats.data.EitherT
 import fluence.crypto.CryptoError
 import fluence.vm.VmError.{InitializationError, InternalVmError}
-import fluence.vm.wasm_specific.ModuleInstance
+import fluence.vm.wasm.ModuleInstance
 import org.mockito.Mockito
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 
-class AsmbleWasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
+class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
 
   "apply" should {
     "returns an error" when {
