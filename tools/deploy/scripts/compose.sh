@@ -16,7 +16,7 @@
 
 set -e
 
-# The script used for deploying Parity, Swarm, and Fluence containers.
+# The script uses for deploying Parity, Swarm, and Fluence containers.
 # With `REMOTE_DEPLOY` exported flag the script will use exported arguments: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
 # Without `REMOTE_DEPLOY` exported flag the script will use default arguments
 # With `multiple` flag 4 nodes will be started
