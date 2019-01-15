@@ -17,9 +17,9 @@
 set -e
 
 # The script uses for deploying Parity, Swarm, and Fluence containers.
-# With `REMOTE_DEPLOY` exported flag the script will use exported arguments: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
+# If `REMOTE_DEPLOY` is set in env, the script will also expect the following env variables: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
 # Without `REMOTE_DEPLOY` exported flag the script will use default arguments
-# With `multiple` flag 4 nodes will be started
+# If first arg is `multiple`, script will start 4 fluence node along with Swarm & Parity nodes
 
 # `REMOTE_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
@@ -124,6 +124,7 @@ while [ $COUNTER -le $NUMBER_OF_NODES ]; do
             sleep 3
         done
 
+    echo "CURRENT NODE = "$COUNTER
     echo "TENDERMINT_KEY="$TENDERMINT_KEY
 
     # use hardcoded ports for multiple nodes
