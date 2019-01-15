@@ -15,7 +15,7 @@
  */
 
 use contract_func::ContractCaller;
-use contract_status::app::{get_apps, App, Cluster};
+use contract_status::app::{get_apps, App};
 use std::boxed::Box;
 use std::error::Error;
 use web3::types::Address;
@@ -27,9 +27,7 @@ pub struct Status {
 
 impl Status {
     pub fn new(apps: Vec<App>) -> Status {
-        Status {
-            apps,
-        }
+        Status { apps }
     }
 }
 

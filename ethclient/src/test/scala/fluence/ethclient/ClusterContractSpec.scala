@@ -21,6 +21,7 @@ import java.io.File
 import cats.Parallel
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{ContextShift, IO, Timer}
+import fluence.ethclient.Network.{AppDeletedEventResponse, AppDeployedEventResponse}
 import fluence.ethclient.data.Log
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters._
@@ -81,7 +82,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
           par parallel ethClient
             .subscribeToLogsTopic[IO](
               contractAddress,
-              Network.CLUSTERFORMED_EVENT
+              Network.APPDEPLOYED_EVENT
             )
             .interruptWhen(unsubscribe)
             .head
@@ -120,7 +121,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
 
               _ = assert(txReceipt.isStatusOK)
 
-              clusterFormedEvents <- IO(contract.getClusterFormedEvents(txReceipt).asScala.toList)
+              clusterFormedEvents <- IO(contract.getAppDeployedEvents(txReceipt).asScala.toList)
 
               // TODO: currently it takes more than 10 seconds to receive the event from the blockchain (Ganache), optimize
               e <- event.take

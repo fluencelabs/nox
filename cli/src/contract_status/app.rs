@@ -18,8 +18,8 @@ use std::error::Error;
 
 use web3::types::{Address, H256};
 
-use contract_func::contract::functions::get_app_i_ds;
 use contract_func::contract::functions::get_app;
+use contract_func::contract::functions::get_app_i_ds;
 use contract_func::ContractCaller;
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
@@ -30,7 +30,7 @@ pub struct App {
     cluster_size: u8,
     owner: Address,
     pin_to_nodes: Option<Vec<H256>>,
-    cluster: Option<Cluster>
+    cluster: Option<Cluster>,
 }
 
 impl App {
@@ -41,7 +41,7 @@ impl App {
         cluster_size: u8,
         owner: Address,
         pin_to_nodes: Option<Vec<H256>>,
-        cluster: Option<Cluster>
+        cluster: Option<Cluster>,
     ) -> App {
         App {
             app_id,
@@ -50,7 +50,7 @@ impl App {
             cluster_size,
             owner,
             pin_to_nodes,
-            cluster
+            cluster,
         }
     }
 }
@@ -112,7 +112,7 @@ pub fn get_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Error>> {
                 cluster_size as u8,
                 owner,
                 Some(pin_to),
-                cluster
+                cluster,
             );
 
             Ok(app)
