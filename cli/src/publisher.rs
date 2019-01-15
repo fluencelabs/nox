@@ -130,16 +130,6 @@ impl Publisher {
     }
 }
 
-//fn validate_args(matches: &ArgMatches) -> Result<SomeDTO, AppError> {
-//    let wasm = matches.value_of(WASM_PATH).unwrap().to_string();
-//    let mut wasm = File::open(wasm).map_err(|e| format!("can't open WASM file: {}", e))?;
-//    ...
-//
-//    let archive = matches.value_of(ARCHIVE_PATH).unwrap().to_string();
-//    let mut archive = File::open(archive).map_err(|e| format!("can't open archive file, check if it exists: {}", e))?;
-//    ...
-//}
-
 fn parse_pinned(matches: &ArgMatches) -> Result<Vec<H256>, Box<Error>> {
     let pin_to_nodes = matches.values_of(PINNED).unwrap_or_default();
 
