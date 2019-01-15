@@ -52,28 +52,16 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
   "invoke" should {
     "raise error" when {
 
-      "unable to find a function" in {
-        val sumTestFile = getClass.getResource("/wast/sum.wast").getPath
+      "trying to invoke when a module doesn't have one" in {
+        val noInvokeTestFile = getClass.getResource("/wast/no-invoke.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](NonEmptyList.one(sumTestFile))
-          result ← vm.invoke[IO](None, "wrongFnName").toVmError
+          vm <- WasmVm[IO](NonEmptyList.one(noInvokeTestFile))
+          result ← vm.invoke[IO]().toVmError
         } yield result
         val error = res.failed()
         error shouldBe a[NoSuchFnError]
         error.getMessage should startWith("Unable to find a function with the name='<no-name>.wrongFnName'")
-      }
-
-      "wasm code fell into the trap" in {
-        val sumTestFile = getClass.getResource("/wast/sum-with-trap.wast").getPath
-        val res = for {
-          vm <- WasmVm[IO](NonEmptyList.one(sumTestFile))
-          result ← vm.invoke[IO](None, "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError // Integer overflow
-        } yield result
-        val error = res.failed()
-        error shouldBe a[TrapError]
-        error.getMessage should startWith("Function '<no-name>.sum' with args:")
-        error.getMessage should endWith("was failed")
       }
 
       "trying to use Wasm memory when getMemory function isn't defined" in {
@@ -81,7 +69,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm <- WasmVm[IO](NonEmptyList.one(noGetMemoryTestFile))
-          result <- vm.invoke[IO](None, "test", "test".getBytes())
+          result <- vm.invoke[IO](None, "test".getBytes())
           state ← vm.getVmState[IO].toVmError
         } yield state
 
@@ -90,12 +78,24 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         error shouldBe a[VmMemoryError]
       }
 
+      "wasm code falls into the trap" in {
+        val sumTestFile = getClass.getResource("/wast/sum-with-trap.wast").getPath
+        val res = for {
+          vm <- WasmVm[IO](NonEmptyList.one(sumTestFile))
+          result ← vm.invoke[IO](fnArgument = intsToBytes(100 :: 13 :: Nil).array()).toVmError // Integer overflow
+        } yield result
+        val error = res.failed()
+        error shouldBe a[TrapError]
+        error.getMessage should startWith("Function '<no-name>.sum' with args:")
+        error.getMessage should endWith("was failed")
+      }
+
       "Wasm allocate function returns an incorrect value" in {
         val badAllocationFunctionFile = getClass.getResource("/wast/bad-allocation-function.wast").getPath
 
         val res = for {
           vm <- WasmVm[IO](NonEmptyList.one(badAllocationFunctionFile))
-          result <- vm.invoke[IO](None, "test", "test".getBytes())
+          result <- vm.invoke[IO](None, "test".getBytes())
           state ← vm.getVmState[IO].toVmError
         } yield state
 
@@ -110,7 +110,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm <- WasmVm[IO](NonEmptyList.one(simpleArrayPassingTestFile))
-          result ← vm.invoke[IO](None, "incorrectLengthResult").toVmError
+          result ← vm.invoke[IO]().toVmError
         } yield result
 
         val error = res.failed()
@@ -127,7 +127,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](NonEmptyList.one(sumTestFile))
-        result ← vm.invoke[IO](Some("SumModule"), "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError
+        result ← vm.invoke[IO](Some("SumModule"), intsToBytes(100 :: 13 :: Nil).array()).toVmError
       } yield {
         result should not be None
         result.get.deep shouldBe Array[Byte](113, 0, 0, 0).deep
@@ -142,8 +142,8 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](NonEmptyList.of(mulTestFile, sumTestFile))
-        mulResult ← vm.invoke[IO](Some("MulModule"), "mul", intsToBytes(100 :: 13 :: Nil).array())
-        sumResult ← vm.invoke[IO](Some("SumModule"), "sum", intsToBytes(100 :: 13 :: Nil).array()).toVmError
+        mulResult ← vm.invoke[IO](Some("MulModule"), intsToBytes(100 :: 13 :: Nil).array())
+        sumResult ← vm.invoke[IO](Some("SumModule"), intsToBytes(100 :: 13 :: Nil).array()).toVmError
       } yield {
         mulResult should not be None
         sumResult should not be None
@@ -160,19 +160,16 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](NonEmptyList.one(counterTestFile))
-        get0 ← vm.invoke[IO](None, "get") // read 0
-        _ ← vm.invoke[IO](None, "inc") // 0 -> 1
-        get1 ← vm.invoke[IO](None, "get") // read 1
-        _ ← vm.invoke[IO](None, "inc") // 1 -> 2
-        _ ← vm.invoke[IO](None, "inc") // 2 -> 3
-        get3 ← vm.invoke[IO](None, "get").toVmError //read 3
+        get1 ← vm.invoke[IO]()           // 0 -> 1
+        get2 ← vm.invoke[IO]()           // 0 -> 1
+        get3 ← vm.invoke[IO]().toVmError // 0 -> 1
       } yield {
-        get0 should not be None
         get1 should not be None
+        get2 should not be None
         get3 should not be None
 
-        get0.get.deep shouldBe Array[Byte](0, 0, 0, 0).deep
-        get1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
+        get1.get.deep shouldBe Array[Byte](0, 0, 0, 0).deep
+        get2.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
         get3.get.deep shouldBe Array[Byte](3, 0, 0, 0).deep
       }
 
@@ -184,11 +181,11 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm ← WasmVm[IO](NonEmptyList.one(simpleStringPassingTestFile))
-        value1 ← vm.invoke[IO](None, "circular_xor", "test_argument".getBytes())
-        value2 ← vm.invoke[IO](None, "circular_xor", "XX".getBytes())
-        value3 ← vm.invoke[IO](None, "circular_xor", "XXX".getBytes())
-        value4 ← vm.invoke[IO](None, "circular_xor", "".getBytes()) // empty string
-        value5 ← vm.invoke[IO](None, "circular_xor", "\"".getBytes()).toVmError // " string
+        value1 ← vm.invoke[IO](None, "test_argument".getBytes())
+        value2 ← vm.invoke[IO](None, "XX".getBytes())
+        value3 ← vm.invoke[IO](None, "XXX".getBytes())
+        value4 ← vm.invoke[IO](None, "".getBytes()) // empty string
+        value5 ← vm.invoke[IO](None, "\"".getBytes()).toVmError // " string
       } yield {
         value1 should not be None
         value2 should not be None
@@ -211,7 +208,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm ← WasmVm[IO](NonEmptyList.one(simpleArrayPassingTestFile))
-        value1 ← vm.invoke[IO](None, "hello")
+        value1 ← vm.invoke[IO]()
         state ← vm.getVmState[IO].toVmError
       } yield {
         value1 should not be None
@@ -228,7 +225,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm ← WasmVm[IO](NonEmptyList.one(simpleArrayMutationTestFile))
-        value1 ← vm.invoke[IO](None, "mutateArray", "AAAAAAA".getBytes())
+        value1 ← vm.invoke[IO](None, "AAAAAAA".getBytes())
         state ← vm.getVmState[IO].toVmError
       } yield {
         value1 should not be None
@@ -285,22 +282,23 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm <- WasmVm[IO](NonEmptyList.one(counterTestFile))
-          _ ← vm.invoke[IO](None, "inc") // 0 -> 1
-          get1 ← vm.invoke[IO](None, "get") // read 1
+          get1 ← vm.invoke[IO]() // 0 -> 1; return 1
           state1 ← vm.getVmState[IO]
-          get1AfterGettingState ← vm.invoke[IO](None, "get") // read 1
+          get2 ← vm.invoke[IO]() // 1 -> 2; return 2
 
-          _ ← vm.invoke[IO](None, "inc") // 1 -> 2
+          get3 ← vm.invoke[IO]() // 2 -> 3; return 3
           state2 ← vm.getVmState[IO]
-          get2AfterGettingState ← vm.invoke[IO](None, "get").toVmError // read 2
+          get4 ← vm.invoke[IO]().toVmError // 3 -> 4; return 4
         } yield {
           get1 should not be None
-          get1AfterGettingState should not be None
-          get2AfterGettingState should not be None
+          get2 should not be None
+          get3 should not be None
+          get4 should not be None
 
           get1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
-          get1AfterGettingState.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
-          get2AfterGettingState.get.deep shouldBe Array[Byte](2, 0, 0, 0).deep
+          get2.get.deep shouldBe Array[Byte](2, 0, 0, 0).deep
+          get3.get.deep shouldBe Array[Byte](3, 0, 0, 0).deep
+          get4.get.deep shouldBe Array[Byte](4, 0, 0, 0).deep
           state1.size shouldBe 32
           state2.size shouldBe 32
           state1 should not be state2
@@ -317,16 +315,14 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val res = for {
           vm <- WasmVm[IO](NonEmptyList.of(counterTestFile, counterCopyTestFile, mulTestFile))
 
-          _ ← vm.invoke[IO](None, "inc") // 0 -> 1
-          get1 ← vm.invoke[IO](None, "get") // read 1
-          _ ← vm.invoke[IO](Some("CounterCopyModule"), "inc") // 0 -> 1
-          getFromCopy1 ← vm.invoke[IO](Some("CounterCopyModule"), "get") // read 1
-          mul ← vm.invoke[IO](Some("MulModule"), "mul", intsToBytes(100 :: 13 :: Nil).array())
+          get1 ← vm.invoke[IO]() // 0 -> 1; read 1
+          getFromCopy1 ← vm.invoke[IO](Some("CounterCopyModule")) // read 1
+          mul ← vm.invoke[IO](Some("MulModule"), intsToBytes(100 :: 13 :: Nil).array())
 
           state1 ← vm.getVmState[IO]
 
-          _ ← vm.invoke[IO](None, "inc") // 1 -> 2
-          _ ← vm.invoke[IO](Some("CounterCopyModule"), "inc") // 1 -> 2
+          _ ← vm.invoke[IO]() // 1 -> 2
+          _ ← vm.invoke[IO](Some("CounterCopyModule")) // 1 -> 2
 
           state2 ← vm.getVmState[IO].toVmError
 

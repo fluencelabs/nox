@@ -22,7 +22,7 @@ import org.scalatest.EitherValues
 
 import scala.language.{higherKinds, implicitConversions}
 
-// TODO: now for a run this test from IDE It needs to build vm-llamadb project explicitly at first
+// TODO: to run this test from IDE It needs to build vm-llamadb project explicitly at first
 class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
   private val llamadbFilePath: String = getModuleDirPrefix() +
@@ -30,7 +30,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
   private def executeSql(implicit vm: WasmVm, sql: String): EitherT[IO, VmError, Option[Array[Byte]]] =
     for {
-      result <- vm.invoke[IO](None, "do_query", sql.getBytes())
+      result <- vm.invoke[IO](fnArgument = sql.getBytes())
       _ <- vm.getVmState[IO].toVmError
     } yield result
 

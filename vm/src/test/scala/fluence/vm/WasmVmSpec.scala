@@ -73,13 +73,13 @@ class WasmVmSpec extends WordSpec with Matchers {
   }
 
   "initialize Vm success" when {
-    "there is one file" in {
+    "with one file" in {
       val sumFile = getClass.getResource("/wast/sum.wast").getPath
 
       WasmVm[IO](NonEmptyList.one(sumFile)).success()
     }
 
-    "there are two files" in {
+    "with two files with different module name" in {
       val sumFile = getClass.getResource("/wast/sum.wast").getPath
       val mulFile = getClass.getResource("/wast/mul.wast").getPath
 
