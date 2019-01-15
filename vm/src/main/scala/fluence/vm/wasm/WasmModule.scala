@@ -26,7 +26,8 @@ import cats.effect.LiftIO
 import cats.{Functor, Monad}
 import fluence.crypto.CryptoError
 import fluence.vm.VmError.WasmVmError.{ApplyError, InvokeError}
-import fluence.vm.VmError.{InitializationError, InternalVmError, NoSuchFnError}
+import fluence.vm.VmError.{InitializationError, InternalVmError, NoSuchFnError, VmMemoryError}
+import shapeless.Tuple
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -39,7 +40,7 @@ import scala.util.Try
  * @param memory memory of this module
  */
 class WasmModule(
-  private val name: Option[String],
+  name: Option[String],
   private val memory: Option[WasmModuleMemory],
   private val instance: Any,
   private val allocateFunction: Option[WasmFunction],
@@ -52,8 +53,8 @@ class WasmModule(
    *
    * @param size size of memory that need to be allocated
    */
-  def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] =
-    invokeWasmFunction(allocateFunction, size.asInstanceOf[AnyRef] :: Nil)
+  def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, Int] =
+    invokeWasmFunction(allocateFunction, size.asInstanceOf[AnyRef] :: Nil).map(_.asInstanceOf[Int])
 
   /**
    * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
@@ -72,17 +73,17 @@ class WasmModule(
   def invoke[F[_]: LiftIO: Monad](args: List[AnyRef]): EitherT[F, InvokeError, AnyRef] =
     invokeWasmFunction(invokeFunction, args)
 
-  def readMemory[F[_]: Functor](offset: Int, size: Int): EitherT[F, InvokeError, Array[Byte]] = memory match {
-    case `memory` => memory.readBytes(offset, size)
+  def readMemory[F[_]: Monad](offset: Int, size: Int): EitherT[F, InvokeError, Array[Byte]] = memory match {
+    case Some(wasmMemory) => wasmMemory.readBytes(offset, size)
     case _ =>
       EitherT.leftT(
         NoSuchFnError(s"Unable to find the function with name readMemory in module with name=$this")
       )
   }
 
-  def writeMemory[F[_]: Functor](offset: Int, injectedArray: Array[Byte]): EitherT[F, InvokeError, Array[Byte]] =
+  def writeMemory[F[_]: Monad](offset: Int, injectedArray: Array[Byte]): EitherT[F, InvokeError, Unit] =
     memory match {
-      case `memory` => memory.writeBytes(offset, injectedArray)
+      case Some(wasmMemory) => wasmMemory.writeBytes(offset, injectedArray)
       case _ =>
         EitherT.leftT(
           NoSuchFnError(s"Unable to find the function with name readMemory in module with name=$this")
@@ -98,13 +99,13 @@ class WasmModule(
     hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]
   ): EitherT[F, InternalVmError, Array[Byte]] =
     memory match {
-      case Some(mem) ⇒
+      case Some(wasmMemory) ⇒
         for {
           memoryAsArray ← EitherT
             .fromEither[F](
               Try {
                 // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
-                val wasmMemoryView = mem.duplicate()
+                val wasmMemoryView = wasmMemory.memory.duplicate()
                 wasmMemoryView.clear()
                 val arr = new Array[Byte](wasmMemoryView.capacity())
                 wasmMemoryView.get(arr)
@@ -153,7 +154,7 @@ object WasmModule {
    * @param moduleDescription a description of the module
    * @param scriptContext a context for the module operation
    */
-  def apply[F[_]: Monad](
+  def apply[F[_]: LiftIO: Monad](
     moduleDescription: Compiled,
     scriptContext: ScriptContext,
     allocationFunctionName: String,
@@ -169,14 +170,14 @@ object WasmModule {
         .leftMap { e ⇒
           // TODO: method 'instance' must throw both an initialization error and a
           // Trap error, but now they can't be separated
-          InitializationError(
+          VmMemoryError(
             s"Unable to initialize module=${nameAsStr(moduleDescription.getName)}",
             Some(e)
           )
         }
 
       // getting memory field with reflection from module instance
-      memory: Option[ByteBuffer] ← EitherT
+      memory ← EitherT
         .fromEither(
           Try {
             // It's ok if a module doesn't have a memory
@@ -188,7 +189,7 @@ object WasmModule {
           InternalVmError(
             s"Unable to getting memory from module=${nameAsStr(moduleDescription.getName)}",
             Some(e)
-          )
+          ): ApplyError
         }
 
       (allocMethod, deallocMethod, invokeMethod) = moduleDescription.getCls.getDeclaredMethods.toStream
@@ -206,7 +207,7 @@ object WasmModule {
         }
 
     } yield
-      WasmModule(
+      new WasmModule(
         Option(moduleDescription.getName),
         memory.map(memory => WasmModuleMemory(memory)),
         moduleInstance,

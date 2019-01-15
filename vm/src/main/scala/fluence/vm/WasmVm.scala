@@ -16,21 +16,17 @@
 
 package fluence.vm
 
-import java.lang.reflect.Modifier
-
 import asmble.cli.Invoke
 import asmble.cli.ScriptCommand.ScriptArgs
 import asmble.run.jvm.ScriptContext
 import asmble.util.Logger
-import cats.syntax.list._
-import cats.data.{EitherT, NonEmptyList, NonEmptyMap}
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.LiftIO
 import cats.{Applicative, Monad}
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.AsmbleWasmVm._
 import fluence.vm.wasm.WasmFunction
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
@@ -79,6 +75,8 @@ trait WasmVm {
 }
 
 object WasmVm {
+
+  type ModuleIndex = Map[Option[String], WasmModule]
 
   /**
    * Main method factory for building VM.
@@ -158,12 +156,12 @@ object WasmVm {
    * there aren't to be two modules without names that contain functions with the
    * same names, otherwise, an error will be thrown.
    */
-  private def initializeModules[F[_]: Applicative](
+  private def initializeModules[F[_]: LiftIO: Monad](
     scriptCxt: ScriptContext,
     config: VmConfig
-  ): EitherT[F, ApplyError, NonEmptyMap[String, WasmModule]] = {
+  ): EitherT[F, ApplyError, ModuleIndex] = {
 
-    val emptyIndex: Either[ApplyError, List[WasmModule]] = Right(List.empty[WasmModule])
+    val emptyIndex = EitherT.rightT[F, ApplyError](Map[Option[String], WasmModule]())
 
     val filledIndex = scriptCxt.getModules
       .foldLeft(emptyIndex) {
@@ -173,16 +171,15 @@ object WasmVm {
 
         case (Right(index), moduleDescription) ⇒
           for {
-            wasmModule <- WasmModule(
+            wasmModule <- WasmModule[F](
               moduleDescription,
               scriptCxt,
               config.allocateFunctionName,
               config.deallocateFunctionName,
               config.invokeFunctionName
             )
-          } yield index :+ wasmModule
+          } yield index + wasmModule.name -> wasmModule
       }
-      .map(_.toNel)
 
     EitherT.fromEither[F](filledIndex)
   }

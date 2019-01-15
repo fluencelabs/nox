@@ -15,9 +15,8 @@
  */
 
 package fluence.vm
-import java.nio.ByteOrder
 
-import cats.data.{EitherT, NonEmptyMap}
+import cats.data.EitherT
 import cats.effect.LiftIO
 import cats.Monad
 import fluence.crypto.Crypto.Hasher
@@ -25,6 +24,7 @@ import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.VmError.{NoSuchModuleError, _}
 import fluence.vm.wasm.WasmModule
 import scodec.bits.ByteVector
+import WasmVm._
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -39,7 +39,7 @@ import scala.util.Try
  * @param hasher a hash function provider
  */
 class AsmbleWasmVm(
-  private val modules: Map[Option[String], WasmModule],
+  private val modules: ModuleIndex,
   private val hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
 
@@ -63,16 +63,11 @@ class AsmbleWasmVm(
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
       // there can be some non-determinism (deterministic execution is very important for verification game
       // and this kind of non-determinism can break all verification game).
-      extractedResult <- if (wasmFn.javaMethod.getReturnType == Void.TYPE) {
-        EitherT.rightT[F, InvokeError](None)
-      } else {
-        for {
-          offset <- EitherT.fromEither(Try(invocationResult.toString.toInt).toEither).leftMap { e ⇒
-            VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
-          }
-          extractedResult <- extractResultFromWasmModule(offset, wasmFn.module).map(Option(_))
-        } yield extractedResult
+      offset <- EitherT.fromEither(Try(invocationResult.toString.toInt).toEither).leftMap { e ⇒
+        VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
       }
+      extractedResult <- extractResultFromWasmModule(offset, wasmModule).map(Option(_))
+
     } yield extractedResult
 
   override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] =
@@ -87,8 +82,9 @@ class AsmbleWasmVm(
 
             concatHashes = Array.concat(moduleStateHash, prevModulesHash)
 
-            resultHash ← hasher(concatHashes)
-              .leftMap(e ⇒ InternalVmError(s"Getting VM state for module=$instance failed", Some(e)): GetVmStateError)
+            resultHash ← hasher(concatHashes).leftMap { e ⇒
+              InternalVmError(s"Getting VM state for module=$moduleName failed", Some(e)): GetVmStateError
+            }
 
           } yield resultHash
       }
@@ -129,6 +125,10 @@ class AsmbleWasmVm(
     for {
       // each result has the next structure in Wasm memory: | size (4 bytes) | result buffer (size bytes) |
       resultSize <- moduleInstance.readMemory(offset, 4)
+      // convert ArrayByte to Int
+      resultSize <- EitherT.fromEither(Try(resultSize.toString.toInt).toEither).leftMap { e ⇒
+        VmMemoryError(s"Trying to extract result from incorrect offset=$resultSize", Some(e))
+      }
       extractedResult <- moduleInstance.readMemory(offset + 4, resultSize)
 
       // TODO : string deallocation from scala-part should be additionally investigated - it seems

@@ -17,7 +17,7 @@
 package fluence.vm.wasm
 import java.nio.{ByteBuffer, ByteOrder}
 
-import cats.Functor
+import cats.{Functor, Monad}
 import cats.data.EitherT
 import fluence.vm.VmError.VmMemoryError
 import fluence.vm.VmError.WasmVmError.InvokeError
@@ -32,7 +32,7 @@ case class WasmModuleMemory(memory: ByteBuffer) {
    *
    * @param offset arguments for invokeFunction
    */
-  def readBytes[F[_]: Functor](
+  def readBytes[F[_]: Monad](
     offset: Int,
     size: Int
   ): EitherT[F, InvokeError, Array[Byte]] =
@@ -40,7 +40,7 @@ case class WasmModuleMemory(memory: ByteBuffer) {
       .fromEither(
         Try {
           // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
-          val wasmMemoryView = wasmMemory.duplicate()
+          val wasmMemoryView = memory.duplicate()
           wasmMemoryView.order(ByteOrder.LITTLE_ENDIAN)
 
           val resultBuffer = new Array[Byte](size)
@@ -61,17 +61,18 @@ case class WasmModuleMemory(memory: ByteBuffer) {
    *
    * @param args arguments for invokeFunction
    */
-  def writeBytes[F[_]: Functor](
+  def writeBytes[F[_]: Monad](
     offset: Int,
     injectedArray: Array[Byte]
   ): EitherT[F, InvokeError, Unit] =
     EitherT
       .fromEither(Try {
         // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
-        val wasmMemoryView = wasmMemory.duplicate()
+        val wasmMemoryView = memory.duplicate()
 
         wasmMemoryView.position(offset)
         wasmMemoryView.put(injectedArray)
+        ()
       }.toEither)
       .leftMap { e ⇒
         VmMemoryError(s"Writing to $offset failed", Some(e))
