@@ -309,7 +309,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use std::error::Error;
 
     use ethkey::Secret;
@@ -320,7 +320,7 @@ mod tests {
 
     use super::Register;
 
-    fn generate_register(credentials: Credentials) -> Register {
+    pub fn generate_register(credentials: Credentials) -> Register {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
 
         let mut rng = rand::thread_rng();
