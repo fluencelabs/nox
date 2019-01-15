@@ -24,11 +24,11 @@ use hex;
 use web3::transports::Http;
 use web3::types::{Address, H256};
 
-use contract_func::contract::functions::add_node;
-use contract_func::ContractCaller;
-use credentials::Credentials;
-use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
-use utils;
+use crate::contract_func::contract::functions::add_node;
+use crate::contract_func::ContractCaller;
+use crate::credentials::Credentials;
+use crate::types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
+use crate::utils;
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
@@ -44,7 +44,7 @@ const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const GAS: &str = "gas";
 const PRIVATE: &str = "private";
 
-#[derive(Debug)]
+#[derive(Debug, Getters)]
 pub struct Register {
     node_ip: IpAddr,
     tendermint_key: H256,
@@ -316,7 +316,7 @@ pub mod tests {
     use rand::prelude::*;
     use web3::types::*;
 
-    use credentials::Credentials;
+    use crate::credentials::Credentials;
 
     use super::Register;
 

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-mod app;
+pub mod app;
+pub mod status;
 mod cluster;
 mod node;
-mod status;
 
 use self::status::{get_status, Status};
 use clap::{App, Arg, ArgMatches, SubCommand};
@@ -63,10 +63,10 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
 #[cfg(test)]
 mod tests {
     use super::get_status;
-    use credentials::Credentials;
-    use publisher::Publisher;
+    use crate::credentials::Credentials;
+    use crate::publisher::Publisher;
+    use crate::register::Register;
     use rand::prelude::*;
-    use register::Register;
     use std::error::Error;
     use web3::types::*;
 

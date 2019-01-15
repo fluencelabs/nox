@@ -1,26 +1,28 @@
 use fluence::credentials::Credentials;
-use fluence::register::Register;
 use fluence::publisher::Publisher;
+use fluence::register::Register;
 
 use std::error::Error;
+use std::result::Result as StdResult;
 
 use rand::Rng;
-use ethkey::Secret;
 use web3::types::{Address, H256};
 
-type Result<T> = std::result::Result<T, Box<Error>>;
+use derive_getters::Getters;
 
-#[derive(Debug)]
+pub type Result<T> = StdResult<T, Box<Error>>;
+
+#[derive(Debug, Getters)]
 pub struct TestOpts {
-    pub contract_address: Address,
-    pub account: Address,
-    pub start_port: u16,
-    pub credentials: Credentials,
-    pub eth_url: String,
-    pub last_used_port: Option<u16>,
-    pub gas: u32,
-    pub code_bytes: Vec<u8>,
-    pub swarm_url: String,
+    contract_address: Address,
+    account: Address,
+    start_port: u16,
+    credentials: Credentials,
+    eth_url: String,
+    last_used_port: Option<u16>,
+    gas: u32,
+    code_bytes: Vec<u8>,
+    swarm_url: String,
 }
 
 impl TestOpts {
@@ -61,7 +63,7 @@ impl TestOpts {
         }
     }
 
-    pub fn register_node(&mut self, ports: u8, private: bool) -> Result<Register> {
+    pub fn register_node(&mut self, ports: u16, private: bool) -> Result<Register> {
         let mut rng = rand::thread_rng();
         let rnd_num: u64 = rng.gen();
         let tendermint_key: H256 = H256::from(rnd_num);
@@ -78,32 +80,33 @@ impl TestOpts {
             end_port,
             self.contract_address,
             self.account,
-            self.eth_url,
-            self.credentials,
+            self.eth_url.clone(),
+            self.credentials.clone(),
             false,
             self.gas,
             private,
-        ).unwrap();
+        )
+        .unwrap();
 
-        reg.register(false);
+        reg.register(false)?;
 
         Ok(reg)
     }
 
-    pub fn publish_app(self, cluster_size: u8, pin_to: Vec<H256>) -> Result<Publisher> {
+    pub fn publish_app(&self, cluster_size: u8, pin_to: Vec<H256>) -> Result<Publisher> {
         let publish = Publisher::new(
-            self.code_bytes,
+            self.code_bytes.clone(),
             self.contract_address,
             self.account,
-            self.swarm_url,
-            self.eth_url,
-            self.credentials,
+            self.swarm_url.clone(),
+            self.eth_url.clone(),
+            self.credentials.clone(),
             cluster_size,
             self.gas,
-            pin_to
+            pin_to,
         );
 
-        publish.publish(false);
+        publish.publish(false)?;
 
         Ok(publish)
     }

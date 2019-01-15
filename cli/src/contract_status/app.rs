@@ -18,9 +18,9 @@ use std::error::Error;
 
 use web3::types::{Address, H256};
 
-use contract_func::contract::functions::get_app;
-use contract_func::contract::functions::get_app_i_ds;
-use contract_func::ContractCaller;
+use crate::contract_func::contract::functions::get_app;
+use crate::contract_func::contract::functions::get_app_i_ds;
+use crate::contract_func::ContractCaller;
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct App {

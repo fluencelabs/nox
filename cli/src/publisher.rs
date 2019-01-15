@@ -24,10 +24,10 @@ use clap::{App, Arg, SubCommand};
 use reqwest::Client;
 use web3::types::{Address, H256};
 
-use contract_func::contract::functions::add_app;
-use contract_func::ContractCaller;
-use credentials::Credentials;
-use utils;
+use crate::contract_func::contract::functions::add_app;
+use crate::contract_func::ContractCaller;
+use crate::credentials::Credentials;
+use crate::utils;
 
 const PATH: &str = "path";
 const ACCOUNT: &str = "account";
@@ -41,7 +41,7 @@ const GAS: &str = "gas";
 const PINNED: &str = "pin_to";
 const PIN_BASE64: &str = "base64";
 
-#[derive(Debug)]
+#[derive(Debug, Getters)]
 pub struct Publisher {
     bytes: Vec<u8>,
     contract_address: Address,
@@ -303,8 +303,8 @@ mod tests {
     use web3::types::H256;
     use web3::types::*;
 
-    use credentials::Credentials;
-    use publisher::Publisher;
+    use crate::credentials::Credentials;
+    use crate::publisher::Publisher;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 

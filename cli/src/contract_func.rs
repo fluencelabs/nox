@@ -26,8 +26,8 @@ use web3::types::TransactionRequest;
 use web3::types::{Address, Bytes, H256};
 use web3::Web3;
 
-use credentials::Credentials;
-use utils;
+use crate::credentials::Credentials;
+use crate::utils;
 
 use_contract!(contract, "../bootstrap/contracts/compiled/Network.abi");
 

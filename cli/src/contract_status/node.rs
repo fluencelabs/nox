@@ -15,9 +15,9 @@
  */
 #![allow(dead_code)]
 
-use contract_func::ContractCaller;
+use crate::contract_func::ContractCaller;
+use crate::types::NodeAddress;
 use std::error::Error;
-use types::NodeAddress;
 use web3::types::{Address, H256};
 
 /// Represents Fluence node registered in ethereum contract.

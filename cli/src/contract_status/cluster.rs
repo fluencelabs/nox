@@ -19,8 +19,8 @@ use std::error::Error;
 
 use web3::types::{H256, U256};
 
-use contract_func::ContractCaller;
-use contract_status::app::App;
+use crate::contract_func::ContractCaller;
+use crate::contract_status::app::App;
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Worker {

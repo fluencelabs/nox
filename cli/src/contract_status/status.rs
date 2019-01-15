@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use contract_func::ContractCaller;
-use contract_status::app::{get_apps, App};
+use crate::contract_func::ContractCaller;
+use crate::contract_status::app::{get_apps, App};
 use std::boxed::Box;
 use std::error::Error;
 use web3::types::Address;
