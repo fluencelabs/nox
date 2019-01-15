@@ -17,5 +17,3 @@ target/
 
 # Temp
 docs/checklist.md
-
-vm/examples/counter/Cargo.lock
