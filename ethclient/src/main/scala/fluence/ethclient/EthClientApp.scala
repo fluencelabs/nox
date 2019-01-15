@@ -31,8 +31,13 @@ object EthClientApp extends IOApp {
       .use { ethClient ⇒
         val par = Parallel[IO, IO.Par]
 
-        for {
+        (for {
           _ ← IO(println("Launching w3j"))
+
+          isSyncing ← ethClient.isSyncing[IO].map(_.isSyncing)
+          _ ← IO(println(s"isSyncing: $isSyncing"))
+
+          _ ← ethClient.blockStream[IO]().map(println).compile.drain
 
           unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
 
@@ -58,11 +63,17 @@ object EthClientApp extends IOApp {
               _ ← unsubscribe.complete(Right(()))
             } yield ())
           )
-        } yield ()
+        } yield ()).attempt
       }
-      .map { _ ⇒
-        println("okay that's all")
-        ExitCode.Success
+      .map {
+        case Right(_) ⇒
+          println("okay that's all")
+          ExitCode.Success
+
+        case Left(err) ⇒
+          println("hell, doesn't work: " + err)
+          err.printStackTrace()
+          ExitCode.Error
       }
 
 }

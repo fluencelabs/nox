@@ -20,17 +20,18 @@ import cats.ApplicativeError
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.ethclient.data.Block
 import fluence.ethclient.helpers.JavaFutureConversion._
 import org.web3j.abi.EventEncoder
 import org.web3j.protocol.core._
 import org.web3j.protocol.core.methods.request.SingleAddressEthFilter
-import org.web3j.protocol.core.methods.response.{EthSyncing, Log}
+import org.web3j.protocol.core.methods.response.{EthBlock, EthSyncing, Log}
 import org.web3j.protocol.http.HttpService
 import org.web3j.protocol.{Web3j, Web3jService}
 import org.web3j.tx.{ClientTransactionManager, TransactionManager}
 import org.web3j.tx.gas.{ContractGasProvider, DefaultGasProvider}
 import slogging._
-import fluence.ethclient.helpers.JavaRxToFs2._
+import fs2.interop.reactivestreams._
 
 import scala.language.higherKinds
 
@@ -89,7 +90,10 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
           contractAddress
         ).addSingleTopic(topic)
       )
-      .toFS2[F]
+      .toStream[F]
+
+  def blockStream[F[_]: ConcurrentEffect](): fs2.Stream[F, Block] =
+    web3.blockFlowable(false).toStream[F].map(_.getBlock).map(Block.apply)
 
   /**
    * Helper for retrieving a web3j-prepared contract

@@ -29,12 +29,15 @@ object RemoteCallOps {
 
     /**
      * Call sendAsync on RemoteCall and delay it's side effects
+     *
      * @tparam F effect
      * @return Result of the call
      */
-    def call[F[_]: Async]: F[T] = {
-      Async[F].delay(call).flatMap(_.sendAsync().asAsync[F])
-    }
+    def call[F[_]: Async]: F[T] =
+      Async[F]
+        .delay(call)
+        .flatMap(_.sendAsync().asAsync[F])
+
   }
 
   implicit class RichContract[T <: Contract](contract: T) {
@@ -42,13 +45,14 @@ object RemoteCallOps {
     /**
      * Execute callback on the contract and convert result to scala List
      * expected usage is to retrieve events from contract
+     *
      * @param get Callback
      * @tparam F Effect
      * @tparam E Type of the event
-     * @return
      */
-    def getEvent[F[_]: Sync, E](get: T => java.util.List[E]): F[List[E]] = Sync[F].delay {
-      get(contract).asScala.toList
-    }
+    def getEvent[F[_]: Sync, E](get: T => java.util.List[E]): F[List[E]] =
+      Sync[F].delay {
+        get(contract).asScala.toList
+      }
   }
 }
