@@ -60,9 +60,9 @@ object Web3jConverters {
    * Interprets web3j's Bytes32 as Tendermint chain ID.
    * TODO: currently only the lowermost byte used
    *
-   * @param clusterId Bytes32 encoding
+   * @param appId Bytes32 encoding
    */
-  def bytes32ClusterIdToChainId(clusterId: Bytes32): String = binaryToHex(clusterId.getValue.reverse.take(1))
+  def bytes32AppIdToChainId(appId: Bytes32): String = binaryToHex(appId.getValue.reverse.take(1))
 
   /**
    * Converts non-zero bytes of web3j's Bytes32 to string.

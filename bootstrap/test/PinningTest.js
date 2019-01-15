@@ -58,17 +58,17 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let app = await addApp(cluster, pinnedNodes);
         let receipt = app.receipt;
         
-        var clusterID;
+        var appID;
         truffleAssert.eventEmitted(receipt, utils.clusterFormedEvent, (ev) => {
             assert.deepEqual(ev.nodeIDs, pinnedNodes);
-            clusterID = ev.clusterID;
+            appID = ev.appID;
             return true
         });
 
-        let clusterInfo = await global.contract.getCluster(clusterID);
+        let clusterInfo = await global.contract.getCluster(appID);
         let clusterSize = clusterInfo[2];
         let appPinToNodes = clusterInfo[4];
-        let nodeIDs = clusterInfo[7];
+        let nodeIDs = clusterInfo[6];
 
         assert.equal(clusterSize, cluster);
         assert.deepEqual(appPinToNodes, pinnedNodes);

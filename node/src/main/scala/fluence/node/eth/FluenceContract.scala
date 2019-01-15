@@ -68,9 +68,9 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * @param nodeConfig Node to pick validatorKey from to lookup the clusters for
    * @tparam F Effect
    */
-  def getNodeClusterIds[F[_]](nodeConfig: NodeConfig)(implicit F: Async[F]): F[List[Bytes32]] =
+  def getNodeAppIds[F[_]](nodeConfig: NodeConfig)(implicit F: Async[F]): F[List[Bytes32]] =
     contract
-      .getNodeClusters(nodeConfig.validatorKeyBytes32)
+      .getNodeApps(nodeConfig.validatorKeyBytes32)
       .call[F]
       .flatMap {
         case arr if arr != null && arr.getValue != null => F.point(arr.getValue.asScala.toList)
@@ -91,21 +91,21 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    */
   def getNodeClusters[F[_]: Async](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
     fs2.Stream
-      .evalUnChunk(getNodeClusterIds[F](nodeConfig).map(cs ⇒ fs2.Chunk(cs: _*)))
+      .evalUnChunk(getNodeAppIds[F](nodeConfig).map(cs ⇒ fs2.Chunk(cs: _*)))
       .evalMap(
-        clusterId ⇒
+        appId ⇒
           Apply[F].map2(
             contract
-              .getCluster(clusterId)
+              .getCluster(appId)
               .call[F]
-              .map(tuple ⇒ (tuple.getValue1, tuple.getValue7, tuple.getValue8)),
+              .map(tuple ⇒ (tuple.getValue1, tuple.getValue6, tuple.getValue7)),
             contract
-              .getClusterWorkers(clusterId)
+              .getAppWorkers(appId)
               .call[F]
               .map(tuple ⇒ (tuple.getValue1, tuple.getValue2))
           ) {
             case ((storageHash, genesisTime, nodeIds), (addrs, ports)) ⇒
-              ClusterData.build(clusterId, nodeIds, genesisTime, storageHash, addrs, ports, nodeConfig)
+              ClusterData.build(appId, nodeIds, genesisTime, storageHash, addrs, ports, nodeConfig)
         }
       )
       .unNone
@@ -196,7 +196,7 @@ object FluenceContract {
     nodeConfig: NodeConfig
   ): Option[ClusterData] =
     ClusterData.build(
-      event.clusterID,
+      event.appID,
       event.nodeIDs,
       event.genesisTime,
       event.storageHash,

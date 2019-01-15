@@ -67,30 +67,28 @@ contract('Fluence (app deletion)', function ([_, owner, whitelisted, anyone]) {
         });
 
         let nodesReceipts = await addNodes(5);
-        var clusterID;
         truffleAssert.eventEmitted(nodesReceipts.pop(), utils.clusterFormedEvent, ev => {
             assert.equal(ev.appID, appID);
-            clusterID = ev.clusterID;
             return true;
         });
 
-        let cluster = await global.contract.getCluster(clusterID);
-        assert.equal(cluster[5], appID);
+        let cluster = await global.contract.getCluster(appID);
+        let storageHash = cluster[0];
+        assert.equal(storageHash, add.storageHash);
 
         // only app owner can delete app
-        await expectThrow(global.contract.deleteApp(appID, clusterID, { from: anyone }));
+        await expectThrow(global.contract.deleteApp(appID, { from: anyone }));
 
         // can't delete with wrong clusterID
-        await expectThrow(global.contract.deleteApp(appID, 0, { from: owner }));
+        await expectThrow(global.contract.deleteApp(0, { from: owner }));
 
-        let deleteApp = await global.contract.deleteApp(appID, clusterID, { from: owner });
+        let deleteApp = await global.contract.deleteApp(appID, { from: owner });
         truffleAssert.eventEmitted(deleteApp, utils.appDeletedEvent, ev => {
             assert.equal(ev.appID, appID);
-            assert.equal(ev.clusterID, clusterID);
 
             return true;
         });
 
-        await expectThrow(global.contract.getCluster(clusterID));
+        await expectThrow(global.contract.getCluster(appID));
     });
 });

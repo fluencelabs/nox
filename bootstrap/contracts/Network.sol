@@ -44,34 +44,34 @@ contract Network is Deployer {
             node.lastPort,
             node.owner,
             node.isPrivate,
-            node.clusters
+            node.apps
         );
     }
 
 
-    /** @dev Retrieves currently running clusters for specified node's workers
+    /** @dev Retrieves currently running apps for specified node's workers
      *  @param nodeID ID of node (Tendermint consensus key)
-     *  returns IDs of clusters where the node is a member.
+     *  returns IDs apps hosted by this node
      */
-    function getNodeClusters(bytes32 nodeID)
+    function getNodeApps(bytes32 nodeID)
         external
         view
     returns (bytes32[])
     {
-        return nodes[nodeID].clusters;
+        return nodes[nodeID].apps;
     }
 
     /** @dev Retrieves assigned App and other cluster info by clusterID
-     * @param clusterID unique id of cluster
+     * @param appID unique id of cluster
      * returns tuple representation of a Cluster
      */
-    function getCluster(bytes32 clusterID)
+    function getCluster(bytes32 appID)
         external
         view
-    returns (bytes32, bytes32, uint8, address, bytes32[], bytes32, uint, bytes32[], uint16[])
+    returns (bytes32, bytes32, uint8, address, bytes32[], uint, bytes32[], uint16[])
     {
-        Cluster memory cluster = clusters[clusterID];
-        require(cluster.clusterID > 0, "there is no such cluster");
+        Cluster memory cluster = clusters[appID];
+        require(cluster.app.appID > 0, "there is no such cluster");
 
         return (
             cluster.app.storageHash,
@@ -79,7 +79,6 @@ contract Network is Deployer {
             cluster.app.clusterSize,
             cluster.app.owner,
             cluster.app.pinToNodes,
-            cluster.app.appID,
 
             cluster.genesisTime,
             cluster.nodeIDs,
@@ -88,15 +87,15 @@ contract Network is Deployer {
     }
 
     /** @dev Retrieves addresses and ports of cluster's workers
-     * @param clusterID unique id of cluster
+     * @param appID unique id of app
      */
-    function getClusterWorkers(bytes32 clusterID)
+    function getAppWorkers(bytes32 appID)
         external
         view
     returns (bytes24[], uint16[])
     {
-        Cluster memory cluster = clusters[clusterID];
-        require(cluster.clusterID > 0, "there is no such cluster");
+        Cluster memory cluster = clusters[appID];
+        require(cluster.app.appID > 0, "there is no such cluster");
 
         bytes24[] memory addresses = new bytes24[](cluster.nodeIDs.length);
         for(uint8 i = 0; i < cluster.nodeIDs.length; i++) {
@@ -165,11 +164,11 @@ contract Network is Deployer {
         return nodesIds;
     }
 
-    function getClustersIds()
+    function getAppIDs()
     external
     view
     returns(bytes32[])
     {
-        return clustersIds;
+        return appIDs;
     }
 }

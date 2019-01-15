@@ -65,20 +65,16 @@ contract('Fluence', function ([_, owner, anyone]) {
         let nodeIDs = addNodes.map(r => r.nodeID);
         let receipt = addNodes.pop().receipt;
 
-        let clusterID;
-
         truffleAssert.eventEmitted(receipt, utils.clusterFormedEvent, (ev) => {
             assert.equal(ev.nodeAddresses.length, count);
             assert.deepEqual(ev.nodeIDs, nodeIDs);
             assert.equal(ev.appID, appID);
-            clusterID = ev.clusterID;
             return true;
         });
 
-        let cluster = await this.contract.getCluster(clusterID);
+        let cluster = await this.contract.getCluster(appID);
         assert.equal(cluster[0], addApp.storageHash);
         assert.equal(cluster[1], addApp.storageReceipt);
-        assert.equal(cluster[5], appID);
     });
 
     it("Should not form cluster from workers of same node", async function() {
@@ -102,7 +98,7 @@ contract('Fluence', function ([_, owner, anyone]) {
         for (let i = 0; i < ports; i++) {
             let addApp = await utils.addApp(this.contract, count, anyone);
 
-            var clusterID;
+            var appID;
 
             truffleAssert.eventNotEmitted(addApp.receipt, utils.appEnqueuedEvent);
             truffleAssert.eventEmitted(addApp.receipt, utils.clusterFormedEvent, (ev) => {
@@ -112,14 +108,14 @@ contract('Fluence', function ([_, owner, anyone]) {
                 );
                 assert.deepEqual(ev.nodeIDs, nodeIDs);
                 
-                clusterID = ev.clusterID;
+                appID = ev.appID;
                 return true;
             });
 
             nodeIDs.forEach(async id => {
-                let nodeClusters = await this.contract.getNodeClusters(id);
-                assert.equal(nodeClusters.length, i + 1);
-                assert.equal(nodeClusters[i], clusterID);
+                let nodeApps = await this.contract.getNodeApps(id);
+                assert.equal(nodeApps.length, i + 1);
+                assert.equal(nodeApps[i], appID);
             });
         }
 
@@ -184,8 +180,8 @@ contract('Fluence', function ([_, owner, anyone]) {
         assert.equal(nodesIds[0], allNodes[0].nodeID);
         assert.equal(nodesIds[1], allNodes[1].nodeID);
 
-        let clustersIds = await this.contract.getClustersIds();
-        assert.equal(clustersIds.length, 2);
+        let allAppIDs = await this.contract.getAppIDs();
+        assert.equal(allAppIDs.length, 2);
     });
 
     it("Should deploy same code twice", async function() {

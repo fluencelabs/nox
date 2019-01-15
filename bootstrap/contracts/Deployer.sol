@@ -75,8 +75,8 @@ contract Deployer {
         // True if this node can be used only by `owner`
         bool isPrivate;
 
-        // Clusters where this node participate
-        bytes32[] clusters;
+        // Apps hosted by this node
+        bytes32[] apps;
     }
 
     // Represents deployed or enqueued (waiting to be deployed) code
@@ -103,8 +103,6 @@ contract Deployer {
     }
 
     struct Cluster {
-        bytes32 clusterID;
-
         App app;
 
         // Cluster created at
@@ -120,7 +118,6 @@ contract Deployer {
     // Emitted when there is enough Workers for some App
     // Nodes' workers should form a cluster in reaction to this event
     event ClusterFormed(
-        bytes32 clusterID,
         bytes32 appID,
 
         bytes32 storageHash,
@@ -148,7 +145,7 @@ contract Deployer {
     event AppDequeued(bytes32 appID);
 
     // Emitted when app & cluster were removed by app owner
-    event AppDeleted(bytes32 appID, bytes32 clusterID);
+    event AppDeleted(bytes32 appID);
 
     // Nodes ready to join new clusters
     bytes32[] public readyNodes;
@@ -158,14 +155,10 @@ contract Deployer {
     // Store nodes indices to traverse nodes mapping
     bytes32[] public nodesIds;
 
-    // Clusters with assigned App
+    // mapping of appID to Clusters
     mapping(bytes32 => Cluster) internal clusters;
-    // Store cluster indices to traverse clusters mapping
-    bytes32[] public clustersIds;
-
-    // Number of all ever existed clusters, used for clusterID generation
-    // TODO find a better way to generate cluster id
-    uint256 internal clusterCount = 1;
+    // Store app ids to traverse clusters mapping
+    bytes32[] public appIDs;
 
     // Apps waiting for nodes
     // TODO: should they have IDs? so that app owner could cancel deployment of enqueued app, before cluster gets formed
@@ -282,27 +275,26 @@ contract Deployer {
         emit AppDequeued(appID);
     }
 
-    /** @dev Deletes cluster clusterID that hosts app appID
+    /** @dev Deletes cluster that hosts app appID
       * You must be app's owner to delete it. Currently, nodes' ports aren't freed.
       * @param appID app to be deleted
-      * @param clusterID cluster that hosts the app
       * emits AppRemoved event on successful deletion
       * reverts if you're not app owner
       * reverts if app or cluster aren't not found
       * TODO: free nodes' ports after app deletion
       */
-    function deleteApp(bytes32 appID, bytes32 clusterID)
+    function deleteApp(bytes32 appID)
         external
     {
-        Cluster memory cluster = clusters[clusterID];
-        require(cluster.clusterID != 0, "error deleting app: cluster not found");
+        Cluster memory cluster = clusters[appID];
+        require(cluster.app.appID != 0, "error deleting app: cluster not found");
         require(cluster.app.appID == appID, "error deleting app: cluster hosts another app");
         require(cluster.app.owner == msg.sender, "error deleting app: you must own app to delete it");
 
-        bool removed = removeCluster(clusterID);
-        require(removed, "error deleting app: cluster not found in clusterIds array");
+        bool removed = removeApp(appID);
+        require(removed, "error deleting app: app not found in appIDs array");
 
-        emit AppDeleted(appID, clusterID);
+        emit AppDeleted(appID);
     }
 
     /** @dev Tries to deploy an app, using ready nodes and their ports
@@ -380,9 +372,6 @@ contract Deployer {
     {
         require(app.clusterSize == workers.length, "There should be enough nodes to form a cluster");
 
-        // clusterID generation could be arbitrary, it doesn't depend on actual cluster count
-        bytes32 clusterID = bytes32(clusterCount++);
-
         // arrays containing nodes' data to be sent in a `ClusterFormed` event
         bytes32[] memory nodeIDs = new bytes32[](app.clusterSize);
         bytes24[] memory workerAddrs = new bytes24[](app.clusterSize);
@@ -398,18 +387,18 @@ contract Deployer {
             workerPorts[j] = node.nextPort;
 
             useNodePort(node.id);
-            nodes[node.id].clusters.push(clusterID);
+            nodes[node.id].apps.push(app.appID);
         }
 
         uint genesisTime = now;
 
         // saving selected nodes as a cluster with assigned app
-        clusters[clusterID] = Cluster(clusterID, app, genesisTime, nodeIDs, workerPorts);
-        clustersIds.push(clusterID);
+        clusters[app.appID] = Cluster(app, genesisTime, nodeIDs, workerPorts);
+        appIDs.push(app.appID);
 
         // notify Fluence node it's time to run real-time workers and
         // create a Tendermint cluster hosting selected App (defined by storageHash)
-        emit ClusterFormed(clusterID, app.appID, app.storageHash, genesisTime, nodeIDs, workerAddrs, workerPorts);
+        emit ClusterFormed(app.appID, app.storageHash, genesisTime, nodeIDs, workerAddrs, workerPorts);
     }
 
     /** @dev increments node's currentPort
@@ -476,34 +465,34 @@ contract Deployer {
     }
 
     /** @dev Removes cluster from clustersIds array and clusters mapping
-     *  @param clusterID ID of the cluster to be removed
+     *  @param appID ID of the app to be removed
      *  returns true if cluster was deleted, false otherwise
      */
-    function removeCluster(bytes32 clusterID)
+    function removeApp(bytes32 appID)
         internal
     returns (bool)
     {
-        // look for clusterID in clusterIds array
+        // look for appID in appIDs array
         uint8 index = 0;
-        uint len = clustersIds.length;
+        uint len = appIDs.length;
         for (; index < len; index++) {
-            if (clustersIds[index] == clusterID) {
+            if (appIDs[index] == appID) {
                 break;
             }
         }
 
-        // flag we didn't find such clusterID
+        // flag we didn't find such appID
         if (index >= len) return false;
 
         if (index != len - 1) {
             // remove index-th ID by replacing it with the last element in the array
-            clustersIds[index] = clustersIds[len - 1];
+            appIDs[index] = appIDs[len - 1];
         }
-        delete clustersIds[len - 1];
-        clustersIds.length--;
+        delete appIDs[len - 1];
+        appIDs.length--;
 
         // also remove cluster from mapping
-        delete clusters[clusterID];
+        delete clusters[appID];
 
         return true;
     }

@@ -19,7 +19,7 @@ use std::error::Error;
 use web3::types::{Address, H256};
 
 use contract_func::contract::functions::get_cluster;
-use contract_func::contract::functions::get_clusters_ids;
+use contract_func::contract::functions::get_app_i_ds;
 use contract_func::contract::functions::get_enqueued_apps;
 use contract_func::ContractCaller;
 
@@ -55,7 +55,6 @@ impl App {
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Cluster {
-    cluster_id: H256,
     app: App,
     genesis_time: u32,
     node_ids: Vec<H256>,
@@ -64,14 +63,12 @@ pub struct Cluster {
 
 impl Cluster {
     pub fn new(
-        cluster_id: H256,
         app: App,
         genesis_time: u32,
         node_ids: Vec<H256>,
         ports: Vec<u16>,
     ) -> Cluster {
         Cluster {
-            cluster_id,
             app,
             genesis_time,
             node_ids,
@@ -105,10 +102,10 @@ pub fn get_enqueued_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Erro
 }
 
 pub fn get_clusters(contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error>> {
-    let (call_data, decoder) = get_clusters_ids::call();
-    let clusters_ids: Vec<H256> = contract.query_contract(call_data, Box::new(decoder))?;
+    let (call_data, decoder) = get_app_i_ds::call();
+    let app_ids: Vec<H256> = contract.query_contract(call_data, Box::new(decoder))?;
 
-    let clusters: Result<Vec<Cluster>, Box<Error>> = clusters_ids
+    let clusters: Result<Vec<Cluster>, Box<Error>> = app_ids
         .iter()
         .map(|id| {
             let (call_data, decoder) = get_cluster::call(*id);
@@ -118,7 +115,6 @@ pub fn get_clusters(contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error
                 cluster_size,
                 owner,
                 pin_to,
-                app_id,
                 genesis,
                 node_ids,
                 ports,
@@ -127,7 +123,7 @@ pub fn get_clusters(contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error
             let cluster_size: u64 = cluster_size.into();
 
             let app = App::new(
-                app_id,
+                *id,
                 storage_hash,
                 storage_receipt,
                 cluster_size as u8,
@@ -141,7 +137,7 @@ pub fn get_clusters(contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error
                 .map(|p| (Into::<u64>::into(*p) as u16))
                 .collect();
 
-            Ok(Cluster::new(*id, app, genesis as u32, node_ids, ports))
+            Ok(Cluster::new(app, genesis as u32, node_ids, ports))
         })
         .collect();
 

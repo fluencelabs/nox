@@ -28,23 +28,23 @@ use utils;
 use web3::types::{Address, H256};
 
 const APP_ID: &str = "app_id";
-const CLUSTER_ID: &str = "cluster_id";
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
 const GAS: &str = "gas";
 const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
+const DEPLOYED: &str = "deployed";
 
 #[derive(Debug)]
 pub struct DeleteApp {
     app_id: H256,
-    cluster_id: Option<H256>,
     credentials: Credentials,
     gas: u32,
     account: Address,
     contract_address: Address,
     eth_url: String,
+    deployed: bool
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
@@ -61,6 +61,12 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .index(2)
                 .takes_value(true)
                 .help("ethereum account"),
+            Arg::with_name(DEPLOYED)
+                .long(DEPLOYED)
+                .short("D")
+                .required(false)
+                .takes_value(false)
+                .help("if not specified, enqueued app will be dequeued, otherwise deployed app will be removed"),
             Arg::with_name(ETH_URL)
                 .long(ETH_URL)
                 .short("e")
@@ -72,10 +78,6 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(true)
                 .takes_value(true)
                 .help("app to be removed"),
-            Arg::with_name(CLUSTER_ID)
-                .required(false)
-                .takes_value(true)
-                .help("ID of cluster hosting the app"),
             Arg::with_name(PASSWORD)
                 .long(PASSWORD)
                 .short("p")
@@ -100,10 +102,6 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 
 pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
     let app_id: H256 = utils::parse_hex_opt(args, APP_ID)?.parse()?;
-    let cluster_id = args
-        .value_of(CLUSTER_ID)
-        .map(|v| v.trim_start_matches("0x").parse::<H256>())
-        .map_or(Ok(None), |r| r.map(Some).into())?;
 
     let secret_key = utils::parse_secret_key(args, SECRET_KEY)?;
     let password = args.value_of(PASSWORD).map(|s| s.to_string());
@@ -117,23 +115,25 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
 
     let eth_url = value_t!(args, ETH_URL, String)?;
 
+    let deployed = args.is_present(DEPLOYED);
+
     return Ok(DeleteApp {
         app_id,
-        cluster_id,
         credentials,
         gas,
         account,
         contract_address,
         eth_url,
+        deployed
     });
 }
 
 impl DeleteApp {
     pub fn delete_app(self, show_progress: bool) -> Result<H256, Box<Error>> {
         let delete_app_fn = || -> Result<H256, Box<Error>> {
-            let call_data = match self.cluster_id {
-                Some(cluster_id) => delete_app::call(self.app_id, cluster_id).0,
-                None => dequeue_app::call(self.app_id).0,
+            let call_data = match self.deployed {
+                true => delete_app::call(self.app_id).0,
+                false => dequeue_app::call(self.app_id).0,
             };
 
             let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
