@@ -110,7 +110,7 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
 
     let credentials = Credentials::get(secret_key, password);
 
-    let gas: u32 = args.value_of(GAS).unwrap().parse()?;
+    let gas = value_t!(args, GAS, u32)?;
     let account: Address = utils::parse_hex_opt(args, ACCOUNT)?.parse()?;
 
     let contract_address: Address = utils::parse_hex_opt(args, CONTRACT_ADDRESS)?.parse()?;

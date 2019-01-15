@@ -175,7 +175,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 
     let cluster_size = value_t!(matches, CLUSTER_SIZE, u8)?;
 
-    let gas: u32 = matches.value_of(GAS).unwrap().parse()?;
+    let gas = value_t!(matches, GAS, u32)?;
 
     let pin_to_nodes = parse_pinned(matches)?;
 
