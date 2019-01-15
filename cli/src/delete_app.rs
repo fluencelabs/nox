@@ -44,7 +44,7 @@ pub struct DeleteApp {
     account: Address,
     contract_address: Address,
     eth_url: String,
-    deployed: bool
+    deployed: bool,
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
@@ -124,7 +124,7 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
         account,
         contract_address,
         eth_url,
-        deployed
+        deployed,
     });
 }
 

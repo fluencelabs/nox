@@ -18,8 +18,8 @@ use std::error::Error;
 
 use web3::types::{Address, H256};
 
-use contract_func::contract::functions::get_cluster;
 use contract_func::contract::functions::get_app_i_ds;
+use contract_func::contract::functions::get_cluster;
 use contract_func::contract::functions::get_enqueued_apps;
 use contract_func::ContractCaller;
 
@@ -62,12 +62,7 @@ pub struct Cluster {
 }
 
 impl Cluster {
-    pub fn new(
-        app: App,
-        genesis_time: u32,
-        node_ids: Vec<H256>,
-        ports: Vec<u16>,
-    ) -> Cluster {
+    pub fn new(app: App, genesis_time: u32, node_ids: Vec<H256>, ports: Vec<u16>) -> Cluster {
         Cluster {
             app,
             genesis_time,
