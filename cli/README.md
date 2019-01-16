@@ -1,11 +1,6 @@
 ## Fluence CLI
 
-Current code deployment process to the Fluence network looks like this:
-
-- Upload code to Swarm. Swarm will return the code hash.
-- Publish the received hash to a default Fluence contract in a blockchain (ethereum as a default).
-
-**Fluence CLI** is a console automation utility that will take the code as an input, go through the publishing process and return a hash of transaction of publishing to the developer, if successful.
+**Fluence CLI** is an automation tool for tasks of app management (deployment and deletion), computation resource sharing (node registration), and monitoring Fluence network state (status).
 
 ## Requirements
 
@@ -71,4 +66,60 @@ Note `-D` at the end. It means that app is deployed and cluster hosting it shoul
 ```
 ./fluence delete_app 0x9995882876ae612bfd829498ccd73dd962ec950a 0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d 0x0000000000000000000000000000000000000000000000000000000000000002 --secret-key 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 -D
 ```
+
+### Retrieve Fluence network state as JSON
+To inspect what apps are in queue, what clusters are working out there and what nodes are participating in them, you can use `status` command as follows:
+```
+./fluence status 0x9995882876ae612bfd829498ccd73dd962ec950a
+```
+
+The results will be in JSON and should resemble the following
+```json
+{
+  "apps": [
+    {
+      "app_id": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "storage_hash": "0xeb2a623210c080d0702cc520b790151861601c46d90179a6e8efe6bda8ac5477",
+      "storage_receipt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "cluster_size": 5,
+      "owner": "0x64b8f12d14925394ae0119466dff6ff2b021a3e9",
+      "pin_to_nodes": [],
+      "cluster": null
+    },
+    {
+      "app_id": "0x0000000000000000000000000000000000000000000000000000000000000005",
+      "storage_hash": "0xeb2a623210c080d0702cc520b790151861601c46d90179a6e8efe6bda8ac5477",
+      "storage_receipt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "cluster_size": 5,
+      "owner": "0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d",
+      "pin_to_nodes": [
+        "0x000000000000000000000000000000000000000000000000ef0f3348eb26bcc5",
+        "0x0000000000000000000000000000000000000000000000009d0b83faa72e0948",
+        "0x0000000000000000000000000000000000000000000000003b0222f266098324",
+        "0x000000000000000000000000000000000000000000000000d4cbdb932f4294d6",
+        "0x0000000000000000000000000000000000000000000000005aaa1fdc5999eacb"
+      ],
+      "cluster": {
+        "genesis_time": 1547643251,
+        "node_ids": [
+          "0x000000000000000000000000000000000000000000000000ef0f3348eb26bcc5",
+          "0x0000000000000000000000000000000000000000000000009d0b83faa72e0948",
+          "0x0000000000000000000000000000000000000000000000003b0222f266098324",
+          "0x000000000000000000000000000000000000000000000000d4cbdb932f4294d6",
+          "0x0000000000000000000000000000000000000000000000005aaa1fdc5999eacb"
+        ],
+        "ports": [
+          25000,
+          25002,
+          25004,
+          25006,
+          25008
+        ]
+      }
+    }
+  ]
+}
+```
+
+Here you can see two apps, the first one is enqueued (cluster is `null`) and waiting for enough nodes to host it, and the second one is already hosted on top of 5 nodes. Second app also specified all 5 nodes in `pin_to_nodes`, and you can see the same nodes in `cluster.node_ids`.
 
