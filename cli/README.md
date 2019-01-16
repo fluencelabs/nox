@@ -26,26 +26,35 @@ Requirements: [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installa
 
 To look at all possible arguments and options use `./fluence --help`:
 
-```
-Fluence CLI 0.1.0
-Fluence Labs
-Console utility for deploying code to fluence cluster
-
-USAGE:
-    fluence [SUBCOMMAND]
-
-FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
-
-SUBCOMMANDS:
-    add-to-whitelist    Adds an address to the whitelist of Fluence smart contract
-    check               Verifies wasm file, issue warning for using functions from banned modules.
-    help                Prints this message or the help of the given subcommand(s)
-    publish             Publish code to ethereum blockchain
-    register            Register worker in smart contract
-    status              Get status of smart contract
-```
-
 You can use `./fluence [SUBCOMMAND] --help` to learn how to use commands.
+
+## Usage examples
+### Register a node (usually happens automatically via compose.sh)
+The following command will register a node with the following parameters:
+- advertised address `127.0.0.1`
+- Tendermint key (also used to identify node) `1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=`, note base64 format
+    - flag `--base64_tendermint_key` passed so tendermint key is treated as base64-encoded as opposed to hex-encoded
+-  `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions
+- `0x9995882876ae612bfd829498ccd73dd962ec950a` is a contract address, register transaction will be sent there
+- `--secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing
+- `--wait_syncing` so CLI waits until Ethereum node is fully synced
+- `--start_port 25000` and `--last_port 25010` denote ports where apps (workers) will be hosted. 25000:25010 is inclusive, so 10 workers could be started on such a node
+```
+./fluence register 127.0.0.1 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= 0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d 0x9995882876ae612bfd829498ccd73dd962ec950a --base64_tendermint_key --secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 --wait_syncing --start_port 25000 --last_port 25010
+```
+
+### Publish app
+The following command will publish app `counter.wasm`. Interesting bits:
+- `--cluster_size 4` requires cluster of 4 workers to host this app
+- `--pin_to 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= --base64` requires that one of the node in cluster must be `1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=`
+```
+./fluence publish fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm 0x9995882876ae612bfd829498ccd73dd962ec950a 0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d --cluster_size 4 --secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 --pin_to 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= --base64
+```
+
+### Delete app
+The following will delete app with id `0x0000000000000000000000000000000000000000000000000000000000000002`. App id could be retrieved either from status (see below) or from smart-contract
+Note `-D` at the end. It means that app is deployed and cluster hosting it should be deleted as well. Without that flag, app would be removed only if there is no assigned cluster (i.e., app is not yet deployed).
+```
+./fluence delete_app 0x9995882876ae612bfd829498ccd73dd962ec950a 0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d 0x0000000000000000000000000000000000000000000000000000000000000002 --secret-key 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 -D
+```
 
