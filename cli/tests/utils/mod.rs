@@ -45,6 +45,7 @@ impl TestOpts {
         }
     }
 
+    #[allow(dead_code)]
     pub fn new(
         contract_address: Address,
         account: Address,

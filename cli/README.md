@@ -29,7 +29,7 @@ To look at all possible arguments and options use `./fluence --help`:
 You can use `./fluence [SUBCOMMAND] --help` to learn how to use commands.
 
 ## Usage examples
-### Register a node (usually happens automatically via compose.sh)
+### Register a node
 The following command will register a node with the following parameters:
 - advertised address `127.0.0.1`
 - Tendermint key (also used to identify node) `1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=`, note base64 format

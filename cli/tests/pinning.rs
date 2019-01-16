@@ -19,6 +19,7 @@ fn integration_publish_pinned() -> () {
 
     let logs = opts.get_logs(app_deployed::filter(), app_deployed::parse_log);
     let log = logs.first().unwrap();
+    let app_id = log.app_id;
 
     assert_eq!(log.node_i_ds.len(), count);
 
@@ -26,7 +27,8 @@ fn integration_publish_pinned() -> () {
 
     let target = status
         .apps()
-        .first()
+        .into_iter()
+        .find(|a| *a.app_id() == app_id)
         .unwrap();
     let pins = target.pin_to_nodes().as_ref().unwrap();
     assert_eq!(pins.len(), count);
