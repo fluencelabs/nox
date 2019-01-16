@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
+use std::error::Error;
+
+use error_chain::bail;
 use ethabi::Token;
 use ethereum_types_serialize::{deserialize_check_len, serialize};
+use fixed_hash::construct_fixed_hash;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::error::Error;
-use web3::contract::tokens::Tokenizable;
 use web3::contract::{Error as ContractError, ErrorKind};
+use web3::contract::tokens::Tokenizable;
 
 /// number of bytes for encoding an IP address
 pub const IP_LEN: usize = 4;

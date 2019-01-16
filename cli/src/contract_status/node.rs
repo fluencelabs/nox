@@ -15,10 +15,14 @@
  */
 #![allow(dead_code)]
 
+use std::error::Error;
+
+use derive_getters::Getters;
+use serde_derive::{Deserialize, Serialize};
+use web3::types::{Address, H256};
+
 use crate::contract_func::ContractCaller;
 use crate::types::NodeAddress;
-use std::error::Error;
-use web3::types::{Address, H256};
 
 /// Represents Fluence node registered in ethereum contract.
 /// The node listens to contract events and runs real-time nodes.

@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-use fluence::clap::App;
-use fluence::clap::AppSettings;
-use fluence::console::style;
-use fluence::*;
+use clap::App;
+use clap::AppSettings;
+use console::style;
+
+use fluence::{check, contract_status, delete_app, publisher, register};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 

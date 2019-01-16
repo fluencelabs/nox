@@ -17,6 +17,8 @@
 
 use std::error::Error;
 
+use derive_getters::Getters;
+use serde_derive::{Deserialize, Serialize};
 use web3::types::{H256, U256};
 
 use crate::contract_func::ContractCaller;

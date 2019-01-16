@@ -16,16 +16,19 @@
 
 extern crate clap;
 
+use std::boxed::Box;
+use std::error::Error;
+
+use clap::{App, Arg, SubCommand};
+use clap::ArgMatches;
+use clap::value_t;
+use web3::types::{Address, H256};
+
 use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
 use crate::contract_func::ContractCaller;
 use crate::credentials::Credentials;
 use crate::utils;
-use clap::ArgMatches;
-use clap::{App, Arg, SubCommand};
-use std::boxed::Box;
-use std::error::Error;
-use web3::types::{Address, H256};
 
 const APP_ID: &str = "app_id";
 const PASSWORD: &str = "password";

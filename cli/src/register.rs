@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+use std::{thread, time};
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
-use std::{thread, time};
 
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{App, Arg, ArgMatches, SubCommand, value_t};
+use derive_getters::Getters;
 use hex;
 use web3::transports::Http;
 use web3::types::{Address, H256};
@@ -27,7 +28,7 @@ use web3::types::{Address, H256};
 use crate::contract_func::contract::functions::add_node;
 use crate::contract_func::ContractCaller;
 use crate::credentials::Credentials;
-use crate::types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
+use crate::types::{IP_LEN, NodeAddress, TENDERMINT_KEY_LEN};
 use crate::utils;
 
 const ADDRESS: &str = "address";

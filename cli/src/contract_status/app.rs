@@ -16,6 +16,8 @@
 
 use std::error::Error;
 
+use derive_getters::Getters;
+use serde_derive::{Deserialize, Serialize};
 use web3::types::{Address, H256};
 
 use crate::contract_func::contract::functions::get_app;
