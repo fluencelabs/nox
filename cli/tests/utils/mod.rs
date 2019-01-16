@@ -162,7 +162,7 @@ impl TestOpts {
         logs
     }
 
-    #[cfg(test)]
+    #[allow(dead_code)]
     pub fn delete_app(&self, app_id: H256, deployed: bool) -> Result<H256> {
         let delete = DeleteApp::new(
             app_id,
