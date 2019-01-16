@@ -160,7 +160,7 @@ object WasmVm {
     scriptCxt: ScriptContext,
     config: VmConfig
   ): EitherT[F, ApplyError, ModuleIndex] = {
-    val emptyIndex: Either[ApplyError, Map[Option[String], WasmModule]] = Right(Map[Option[String], WasmModule]())
+    val emptyIndex: Either[ApplyError, ModuleIndex] = Right(Map[Option[String], WasmModule]())
 
     val moduleIndex = scriptCxt.getModules
       .foldLeft(emptyIndex) {

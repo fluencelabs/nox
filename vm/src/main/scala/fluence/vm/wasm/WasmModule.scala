@@ -16,7 +16,7 @@
 
 package fluence.vm.wasm
 
-import java.lang.reflect.Modifier
+import java.lang.reflect.{Method, Modifier}
 import java.nio.ByteBuffer
 
 import asmble.run.jvm.Module.Compiled
@@ -40,7 +40,7 @@ import scala.util.Try
  * @param memory memory of this module
  */
 class WasmModule(
-  name: Option[String],
+  private val name: Option[String],
   private val memory: Option[WasmModuleMemory],
   private val instance: Any,
   private val allocateFunction: Option[WasmFunction],
@@ -56,7 +56,9 @@ class WasmModule(
    * @param size size of memory that need to be allocated
    */
   def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, Int] =
-    invokeWasmFunction(allocateFunction, size.asInstanceOf[AnyRef] :: Nil).map(_.asInstanceOf[Int])
+    invokeWasmFunction(allocateFunction, size.asInstanceOf[AnyRef] :: Nil)
+      // by specification, Wasm can return value only i32, i64, f32, f64 types
+      .map(_.asInstanceOf[Number].intValue)
 
   /**
    * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
@@ -120,7 +122,7 @@ class WasmModule(
 
           vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
             InternalVmError(
-              s"Getting internal state for module failed",
+              s"Getting internal state for module=$this failed",
               Some(e)
             )
           }
@@ -141,7 +143,7 @@ class WasmModule(
     case Some(fn) => fn(instance, args)
     case _ =>
       EitherT.leftT(
-        NoSuchFnError(s"Unable to find the function with name=$wasmFunction in module with name=$this")
+        NoSuchFnError(s"Unable to find a function in module with name=$this")
       )
   }
 
@@ -169,7 +171,7 @@ object WasmModule {
         // TODO: method 'instance' must throw both an initialization error and a
         // Trap error, but now they can't be separated
         InitializationError(
-          s"Unable to initialize module=${nameAsStr(moduleDescription.getName)}",
+          s"Unable to initialize module=${moduleDescription.getName}",
           Some(e)
         )
       }
@@ -181,20 +183,15 @@ object WasmModule {
         memoryMethod.map(_.invoke(moduleInstance).asInstanceOf[ByteBuffer])
       }.toEither.left.map { e ⇒
         InitializationError(
-          s"Unable to getting memory from module=${nameAsStr(moduleDescription.getName)}",
+          s"Unable to getting memory from module=${moduleDescription.getName}",
           Some(e)
         ): ApplyError
       }
 
-      moduleMethods <- Try(moduleDescription.getCls.getDeclaredMethods).toEither.left.map(
-        e =>
-          InitializationError(
-            "Unable to iterate over exported module function (it seems that it is malformed)",
-            Some(e)
-        )
-      )
-
-      (allocMethod, deallocMethod, invokeMethod) = moduleMethods.toStream
+      (allocMethod, deallocMethod, invokeMethod) = moduleDescription
+        .getCls
+        .getDeclaredMethods
+        .toStream
         .filter(method => Modifier.isPublic(method.getModifiers))
         .map(method => WasmFunction(method.getName, method))
         .foldLeft((Option.empty[WasmFunction], Option.empty[WasmFunction], Option.empty[WasmFunction])) {
@@ -219,9 +216,5 @@ object WasmModule {
         deallocMethod,
         invokeMethod
       )
-
-  def nameAsStr(moduleName: Option[String]): String = moduleName.getOrElse("<no-name>")
-
-  private def nameAsStr(moduleName: String): String = nameAsStr(Option(moduleName))
 
 }

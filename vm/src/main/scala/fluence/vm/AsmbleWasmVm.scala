@@ -16,6 +16,8 @@
 
 package fluence.vm
 
+import java.nio.{ByteBuffer, ByteOrder}
+
 import cats.data.EitherT
 import cats.effect.LiftIO
 import cats.Monad
@@ -43,7 +45,8 @@ class AsmbleWasmVm(
   private val hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
 
-  val
+  // size in bytes of pointer of Wasm VM (can be bigger then 4 after Wasm64 release)
+  private val WasmPointerSize = 4
 
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
@@ -109,7 +112,16 @@ class AsmbleWasmVm(
       EitherT.rightT[F, InvokeError](0.asInstanceOf[AnyRef] :: 0.asInstanceOf[AnyRef] :: Nil)
     else
       for {
-        offset <- moduleInstance.allocate(fnArgument.length)
+        offset <- moduleInstance.allocate(fnArgument.length + WasmPointerSize)
+        /*
+        // convert ArrayByte to Int
+        resultSize <- EitherT.fromEither(
+          Try(
+            ByteBuffer.allocate(WasmPointerSize).order(ByteOrder.LITTLE_ENDIAN).putInt(WasmPointerSize).as
+          ).toEither).leftMap { e ⇒
+          VmMemoryError(s"Trying to extract result from incorrect offset=$resultSize", Some(e))
+        }
+         */
         _ <- moduleInstance.writeMemory(offset, fnArgument)
       } yield offset.asInstanceOf[AnyRef] :: fnArgument.length.asInstanceOf[AnyRef] :: Nil
 
@@ -125,18 +137,25 @@ class AsmbleWasmVm(
     moduleInstance: WasmModule
   ): EitherT[F, InvokeError, Array[Byte]] =
     for {
-      // each result has the next structure in Wasm memory: | size (4 bytes) | result buffer (size bytes) |
-      resultSize <- moduleInstance.readMemory(offset, 4)
+      // each result has the next structure in Wasm memory: | size (wasmPointerSize bytes) | result buffer (size bytes) |
+      resultSize <- moduleInstance.readMemory(offset, WasmPointerSize)
+
       // convert ArrayByte to Int
-      resultSize <- EitherT.fromEither(Try(resultSize.toString.toInt).toEither).leftMap { e ⇒
-        VmMemoryError(s"Trying to extract result from incorrect offset=$resultSize", Some(e))
-      }
-      extractedResult <- moduleInstance.readMemory(offset + 4, resultSize)
+      resultSize <- EitherT
+        .fromEither(
+          Try(
+            ByteBuffer.wrap(resultSize).order(ByteOrder.LITTLE_ENDIAN).getInt()
+          ).toEither
+        )
+        .leftMap { e ⇒
+          VmMemoryError(s"Trying to extract result from incorrect offset=$resultSize", Some(e))
+        }
+
+      extractedResult <- moduleInstance.readMemory(offset + WasmPointerSize, resultSize)
 
       // TODO : string deallocation from scala-part should be additionally investigated - it seems
       // that this version of deletion doesn't compatible with current idea of verification game
-      intBytesSize = 4
-      _ <- moduleInstance.deallocate(offset, extractedResult.length + intBytesSize)
+      _ <- moduleInstance.deallocate(offset, extractedResult.length + WasmPointerSize)
     } yield extractedResult
 
 }

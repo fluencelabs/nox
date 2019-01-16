@@ -61,7 +61,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         } yield result
         val error = res.failed()
         error shouldBe a[NoSuchFnError]
-        error.getMessage should startWith("Unable to find a function with the name='<no-name>.wrongFnName'")
+        error.getMessage should startWith("Unable to find a function in module with name")
       }
 
       "trying to use Wasm memory when getMemory function isn't defined" in {
@@ -74,8 +74,9 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         } yield state
 
         val error = res.failed()
-        error.getMessage should startWith("Trying to use absent Wasm memory while injecting")
-        error shouldBe a[VmMemoryError]
+        error.getMessage should
+          startWith("Unable to find the function with name=writeMemory in module with name=<no-name>")
+        error shouldBe a[NoSuchFnError]
       }
 
       "wasm code falls into the trap" in {
@@ -86,7 +87,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         } yield result
         val error = res.failed()
         error shouldBe a[TrapError]
-        error.getMessage should startWith("Function '<no-name>.sum' with args:")
+        error.getMessage should startWith("Function invoke with args:")
         error.getMessage should endWith("was failed")
       }
 
@@ -101,21 +102,21 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val error = res.failed()
         error.getMessage shouldBe
-          "The Wasm allocation function returned incorrect offset=9223372036854775807"
+          "Writing to -1 failed"
         error shouldBe a[VmMemoryError]
       }
 
       "trying to extract array with incorrect size from Wasm memory" in {
-        val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
+        val incorrectArrayReturningTestFile = getClass.getResource("/wast/incorrect-array-returning.wast").getPath
 
         val res = for {
-          vm <- WasmVm[IO](NonEmptyList.one(simpleArrayPassingTestFile))
+          vm <- WasmVm[IO](NonEmptyList.one(incorrectArrayReturningTestFile))
           result ← vm.invoke[IO]().toVmError
         } yield result
 
         val error = res.failed()
         error shouldBe a[VmMemoryError]
-        error.getMessage shouldBe "String reading from offset=1048592 failed"
+        error.getMessage shouldBe "Reading from offset 1048596 16777215 bytes failed"
       }
 
     }
@@ -168,8 +169,8 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         get2 should not be None
         get3 should not be None
 
-        get1.get.deep shouldBe Array[Byte](0, 0, 0, 0).deep
-        get2.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
+        get1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
+        get2.get.deep shouldBe Array[Byte](2, 0, 0, 0).deep
         get3.get.deep shouldBe Array[Byte](3, 0, 0, 0).deep
       }
 

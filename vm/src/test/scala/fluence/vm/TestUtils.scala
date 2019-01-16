@@ -22,7 +22,7 @@ import cats.effect.IO
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration._
 
-object TestUtils extends {
+object TestUtils {
 
   implicit class EitherTValueReader[E, V](origin: EitherT[IO, E, V]) {
 
