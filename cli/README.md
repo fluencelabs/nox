@@ -30,17 +30,19 @@ You can use `./fluence [SUBCOMMAND] --help` to learn how to use commands.
 
 ## Usage examples
 ### Register a node
+To provide your computation resources to Fluence network, you need to register your computer within smart-contract. The simplest way to do that is through CLI.
 The following command will register a node with the following parameters:
-- advertised address `127.0.0.1`
+- advertised address `85.82.118.4`, please note that this address should be available from Internet as it will be used to connect with other workers in a future cluster
 - Tendermint key (also used to identify node) `1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=`, note base64 format
     - flag `--base64_tendermint_key` passed so tendermint key is treated as base64-encoded as opposed to hex-encoded
+    - currently, Tendermint key can be found in logs of `fluencelabs/node` Docker container
 -  `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions
 - `0x9995882876ae612bfd829498ccd73dd962ec950a` is a contract address, register transaction will be sent there
 - `--secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing
 - `--wait_syncing` so CLI waits until Ethereum node is fully synced
 - `--start_port 25000` and `--last_port 25010` denote ports where apps (workers) will be hosted. 25000:25010 is inclusive, so 10 workers could be started on such a node
 ```
-./fluence register 127.0.0.1 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= 0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d 0x9995882876ae612bfd829498ccd73dd962ec950a --base64_tendermint_key --secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 --wait_syncing --start_port 25000 --last_port 25010
+./fluence register 85.82.118.4 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= 0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d 0x9995882876ae612bfd829498ccd73dd962ec950a --base64_tendermint_key --secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 --wait_syncing --start_port 25000 --last_port 25010
 ```
 
 ### Publish app
