@@ -4,7 +4,6 @@ use crate::utils::*;
 use fluence::contract_status::status::{get_status, Status};
 use fluence::register::Register;
 use web3::types::H256;
-use fluence::contract_func::contract::logs::AppDeployed;
 use fluence::contract_func::contract::events::app_deployed;
 
 #[test]
@@ -19,8 +18,9 @@ fn integration_publish_pinned() -> () {
     opts.publish_app(5, node_ids).unwrap();
 
     let logs = opts.get_logs(app_deployed::filter(), app_deployed::parse_log);
+    let log = logs.first().unwrap();
 
-    println!("logs are {:?}", logs);
+    assert_eq!(log.node_i_ds.len(), count);
 
     let status: Status = get_status(*opts.contract_address(), opts.eth_url()).unwrap();
 

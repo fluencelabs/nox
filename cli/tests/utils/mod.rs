@@ -116,7 +116,9 @@ impl TestOpts {
         Ok(publish)
     }
 
+    // retrieves all events matching `filter`, parsing them through `parse_log`
     // Example usage:
+    // use fluence::contract_func::contract::events::app_deployed;
     // get_logs(app_deployed::filter(), app_deployed::parse_log);
     pub fn get_logs<T, F>(&self, filter: TopicFilter, parse_log: F) -> Vec<T>
     where
@@ -124,14 +126,12 @@ impl TestOpts {
     {
         let (_eloop, transport) = Http::new(&self.eth_url).unwrap();
         let web3 = web3::Web3::new(transport);
-//        let filter = app_deployed::filter();
         let filter = FilterBuilder::default().address(vec![self.contract_address]).topic_filter(filter).build();
         let filter = web3.eth_filter().create_logs_filter(filter).wait().unwrap();
         let logs = filter.logs().wait().unwrap();
         let logs: Vec<T> = logs.into_iter().map(|l| {
             let raw = RawLog::from((l.topics, l.data.0));
             parse_log(raw).unwrap()
-//            app_deployed::parse_log(raw).unwrap()
         }).collect();
 
         logs
