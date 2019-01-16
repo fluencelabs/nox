@@ -132,6 +132,24 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
 }
 
 impl DeleteApp {
+    pub fn new(app_id: H256,
+               credentials: Credentials,
+               gas: u32,
+               account: Address,
+               contract_address: Address,
+               eth_url: String,
+               deployed: bool,) -> DeleteApp {
+        DeleteApp {
+            app_id,
+            credentials,
+            gas,
+            account,
+            contract_address,
+            eth_url,
+            deployed,
+        }
+    }
+
     pub fn delete_app(self, show_progress: bool) -> Result<H256, Box<Error>> {
         let delete_app_fn = || -> Result<H256, Box<Error>> {
             let call_data = match self.deployed {

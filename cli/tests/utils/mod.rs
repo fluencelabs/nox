@@ -14,6 +14,7 @@ use ethabi::TopicFilter;
 use futures::future::Future;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
+use fluence::delete_app::DeleteApp;
 
 pub type Result<T> = StdResult<T, Box<Error>>;
 
@@ -99,7 +100,7 @@ impl TestOpts {
         Ok(reg)
     }
 
-    pub fn publish_app(&self, cluster_size: u8, pin_to: Vec<H256>) -> Result<Publisher> {
+    pub fn publish_app(&self, cluster_size: u8, pin_to: Vec<H256>) -> Result<H256> {
         let publish = Publisher::new(
             self.code_bytes.clone(),
             self.contract_address,
@@ -112,9 +113,7 @@ impl TestOpts {
             pin_to,
         );
 
-        publish.publish(false)?;
-
-        Ok(publish)
+        publish.publish(false)?
     }
 
     // retrieves all events matching `filter`, parsing them through `parse_log`
@@ -142,5 +141,20 @@ impl TestOpts {
             .collect();
 
         logs
+    }
+
+    #[cfg(test)]
+    pub fn delete_app(&self, app_id: H256, deployed: bool) {
+        let delete = DeleteApp::new(
+            app_id,
+            self.credentials.clone(),
+            self.gas,
+            self.account,
+            self.contract_address,
+            self.eth_url.clone(),
+            deployed,
+        );
+
+        delete.delete_app(false).unwrap();
     }
 }

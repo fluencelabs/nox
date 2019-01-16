@@ -7,7 +7,7 @@ use fluence::register::Register;
 use web3::types::H256;
 
 #[test]
-fn integration_publish_pinned() -> () {
+fn integration_publish_pinned() {
     let mut opts = TestOpts::default();
 
     let count = 5;
@@ -15,13 +15,13 @@ fn integration_publish_pinned() -> () {
     let nodes = nodes.unwrap();
     let node_ids: Vec<H256> = nodes.iter().map(|n| *n.tendermint_key()).collect();
 
-    opts.publish_app(5, node_ids).unwrap();
+    opts.publish_app(count, node_ids).unwrap();
 
     let logs = opts.get_logs(app_deployed::filter(), app_deployed::parse_log);
     let log = logs.first().unwrap();
     let app_id = log.app_id;
 
-    assert_eq!(log.node_i_ds.len(), count);
+    assert_eq!(log.node_i_ds.len(), count as usize);
 
     let status: Status = get_status(*opts.contract_address(), opts.eth_url()).unwrap();
 
@@ -31,5 +31,6 @@ fn integration_publish_pinned() -> () {
         .find(|a| *a.app_id() == app_id)
         .unwrap();
     let pins = target.pin_to_nodes().as_ref().unwrap();
-    assert_eq!(pins.len(), count);
+    assert_eq!(pins.len(), count as usize);
 }
+
