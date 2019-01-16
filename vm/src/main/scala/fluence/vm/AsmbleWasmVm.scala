@@ -43,6 +43,8 @@ class AsmbleWasmVm(
   private val hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
 
+  val
+
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
     fnArguments: Array[Byte]

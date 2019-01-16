@@ -52,21 +52,6 @@ class WasmVmSpec extends WordSpec with Matchers {
         error.getMessage should startWith("Preparing execution context before execution was failed for")
       }
 
-      "2 module has function with equal name" in {
-        // module without name and with some functions with the same name ("allocate", "deallocate", "test", ...)
-        val sum1File = getClass.getResource("/wast/no-getMemory.wast").getPath
-        // module without name and with some functions with the same name ("allocate", "deallocate", "test", ...)
-        val sum2File = getClass.getResource("/wast/bad-allocation-function.wast").getPath
-
-        val res = for {
-          vm <- WasmVm[IO](NonEmptyList.of(sum1File, sum2File))
-        } yield vm
-
-        val error = res.failed()
-        error shouldBe a[InitializationError]
-        error.getMessage should endWith("was already registered")
-      }
-
       // todo add more error cases with prepareContext and module initialization
       // (f.e. test case with two modules with the same module name - sum.wast and sum-copy.wast)
     }
@@ -84,6 +69,19 @@ class WasmVmSpec extends WordSpec with Matchers {
       val mulFile = getClass.getResource("/wast/mul.wast").getPath
 
       WasmVm[IO](NonEmptyList.of(mulFile, sumFile)).success()
+    }
+
+    "2 module has function with equal name" in {
+      // module without name and with some functions with the same name ("allocate", "deallocate", "invoke", ...)
+      val sum1File = getClass.getResource("/wast/no-getMemory.wast").getPath
+      // module without name and with some functions with the same name ("allocate", "deallocate", "invoke", ...)
+      val sum2File = getClass.getResource("/wast/bad-allocation-function.wast").getPath
+
+      val res = for {
+        vm <- WasmVm[IO](NonEmptyList.of(sum1File, sum2File))
+      } yield vm
+
+      res.success()
     }
 
   }

@@ -167,7 +167,7 @@ object WasmVm {
         case (error @ Left(_), _) =>
           error
 
-        case (Right(moduleIndex), moduleDescription) =>
+        case (Right(acc), moduleDescription) =>
           for {
             wasmModule <- WasmModule(
               moduleDescription,
@@ -177,7 +177,7 @@ object WasmVm {
               config.invokeFunctionName
             )
 
-          } yield moduleIndex + (wasmModule.getName -> wasmModule)
+          } yield acc + (wasmModule.getName -> wasmModule)
       }
 
     EitherT.fromEither[F](moduleIndex)
