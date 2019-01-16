@@ -70,7 +70,7 @@ impl TestOpts {
         }
     }
 
-    pub fn register_node(&mut self, ports: u16, private: bool) -> Result<Register> {
+    pub fn register_node(&mut self, ports: u16, private: bool) -> Result<(H256, Register)> {
         let mut rng = rand::thread_rng();
         let rnd_num: u64 = rng.gen();
         let tendermint_key: H256 = H256::from(rnd_num);
@@ -95,9 +95,9 @@ impl TestOpts {
         )
         .unwrap();
 
-        reg.register(false)?;
+        let tx = reg.register(false)?;
 
-        Ok(reg)
+        Ok((tx, reg))
     }
 
     pub fn publish_app(&self, cluster_size: u8, pin_to: Vec<H256>) -> Result<H256> {
@@ -113,13 +113,14 @@ impl TestOpts {
             pin_to,
         );
 
-        publish.publish(false)?
+        publish.publish(false)
     }
 
     // retrieves all events matching `filter`, parsing them through `parse_log`
     // Example usage:
     // use fluence::contract_func::contract::events::app_deployed;
     // get_logs(app_deployed::filter(), app_deployed::parse_log);
+    #[allow(dead_code)]
     pub fn get_logs<T, F>(&self, filter: TopicFilter, parse_log: F) -> Vec<T>
     where
         F: Fn(RawLog) -> ethabi::Result<T>,
@@ -143,8 +144,26 @@ impl TestOpts {
         logs
     }
 
+    pub fn get_transaction_logs<T, F>(&self, tx: H256, parse_log: F) -> Vec<T>
+    where
+        F: Fn(RawLog) -> ethabi::Result<T>,
+    {
+        let (_eloop, transport) = Http::new(&self.eth_url).unwrap();
+        let web3 = web3::Web3::new(transport);
+        let receipt = web3.eth().transaction_receipt(tx).wait().unwrap().unwrap();
+        let logs: Vec<T> = receipt.logs
+            .into_iter()
+            .map(|l| {
+                let raw = RawLog::from((l.topics, l.data.0));
+                parse_log(raw).unwrap()
+            })
+            .collect();
+
+        logs
+    }
+
     #[cfg(test)]
-    pub fn delete_app(&self, app_id: H256, deployed: bool) {
+    pub fn delete_app(&self, app_id: H256, deployed: bool) -> Result<H256> {
         let delete = DeleteApp::new(
             app_id,
             self.credentials.clone(),
@@ -155,6 +174,6 @@ impl TestOpts {
             deployed,
         );
 
-        delete.delete_app(false).unwrap();
+        delete.delete_app(false)
     }
 }

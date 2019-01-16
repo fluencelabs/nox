@@ -11,13 +11,13 @@ fn integration_publish_pinned() {
     let mut opts = TestOpts::default();
 
     let count = 5;
-    let nodes: Result<Vec<Register>> = (0..count).map(|_| opts.register_node(1, true)).collect();
+    let nodes: Result<Vec<(H256, Register)>> = (0..count).map(|_| opts.register_node(1, true)).collect();
     let nodes = nodes.unwrap();
-    let node_ids: Vec<H256> = nodes.iter().map(|n| *n.tendermint_key()).collect();
+    let node_ids: Vec<H256> = nodes.iter().map(|(_, n)| *n.tendermint_key()).collect();
 
-    opts.publish_app(count, node_ids).unwrap();
+    let tx = opts.publish_app(count, node_ids).unwrap();
 
-    let logs = opts.get_logs(app_deployed::filter(), app_deployed::parse_log);
+    let logs = opts.get_transaction_logs(tx, app_deployed::parse_log);
     let log = logs.first().unwrap();
     let app_id = log.app_id;
 
