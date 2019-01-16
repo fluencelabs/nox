@@ -29,7 +29,21 @@ You can use `./fluence [SUBCOMMAND] --help` to learn how to use commands.
 ## Usage examples
 ### Register a node
 To provide your computation resources to Fluence network, you need to register your computer within smart-contract. The simplest way to do that is through CLI.
-The following command will register a node with the following parameters:
+The following command will register a node:
+```
+./fluence register \
+            85.82.118.4 \
+            1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --base64_tendermint_key \
+            --secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --wait_syncing \
+            --start_port 25000 \
+            --last_port 25010
+```
+
+Parameters are:
 - advertised address `85.82.118.4`, please note that this address should be available from Internet as it will be used to connect with other workers in a future cluster
 - Tendermint key (used to identify node) `1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=`, note base64 format
     - flag `--base64_tendermint_key` passed so tendermint key is treated as base64-encoded as opposed to hex-encoded
@@ -41,32 +55,45 @@ The following command will register a node with the following parameters:
     - using `--password` is possible instead of private key, but private key is preferred
 - `--wait_syncing` so CLI waits until Ethereum node is fully synced
 - `--start_port 25000` and `--last_port 25010` denote ports where apps (workers) will be hosted. 25000:25010 is inclusive, so 10 workers could be started on such a node
-```
-./fluence register 85.82.118.4 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= 0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d 0x9995882876ae612bfd829498ccd73dd962ec950a --base64_tendermint_key --secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 --wait_syncing --start_port 25000 --last_port 25010
-```
+
 
 ### Publish app
 To deploy your app on Fluence network, you must upload it to Swarm and publish hash to smart-contract. The simplest way to achieve that is to use CLI command `publish`.
 
-The following command will publish app `counter.wasm`. Interesting bits:
+The following command will publish app `counter.wasm`.
+```
+./fluence publish \
+            fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \
+            0x9995882876ae612bfd829498ccd73dd962ec950a \
+            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --cluster_size 4 \
+            --secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --pin_to 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+            --base64
+```
+
+Interesting bits:
 - `--cluster_size 4` requires cluster of 4 workers to host this app
 - `--pin_to 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= --base64` requires that one of the node in cluster must be `1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=`
     - note that to be used in `pin_to` node must be already registered in smart-contract
 - `fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm` is just an example path and doesn't exist in project
     - however, you can build it by issuing `sbt vm-counter/compile` in project root
-```
-./fluence publish fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm 0x9995882876ae612bfd829498ccd73dd962ec950a 0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d --cluster_size 4 --secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 --pin_to 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= --base64
-```
 
 ### Delete app
 If you want to delete your app from smart contract, you can use `delete_app` command.
 
 The following will delete app with id `0x0000000000000000000000000000000000000000000000000000000000000002`. App id could be retrieved either from status (see below) or from smart-contract.
 
+```
+./fluence delete_app \
+            0x9995882876ae612bfd829498ccd73dd962ec950a \
+            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            0x0000000000000000000000000000000000000000000000000000000000000002 \
+            --secret-key 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 \
+            -D
+```
+
 Note `-D` at the end. It means that app is deployed and cluster hosting it should be deleted as well. Without that flag, app would be removed only if there is no assigned cluster (i.e., app is not yet deployed).
-```
-./fluence delete_app 0x9995882876ae612bfd829498ccd73dd962ec950a 0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d 0x0000000000000000000000000000000000000000000000000000000000000002 --secret-key 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 -D
-```
 
 See below on how to know if your app is deployed.
 
