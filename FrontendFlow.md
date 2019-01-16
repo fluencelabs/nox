@@ -1,22 +1,18 @@
-Fluence Prerequisites:
+## Fluence Prerequisites:
 - deployed public nodes with LlamaDB
 - published info about nodes (hardcoded or dashboard)
 
-User prerequisites:
+## User prerequisites
 - `npm`
 
-
-
-FrontEnd Developer Flow
-steps:
-- install fluence js SDK
+# FrontEnd Developer Flow
 - create directory `mkdir fluence-frontend`
 - `cd fluence-frontend`
-- `npm init -y`
-- `npm install js-fluence-client`
+- `npm init -y` to silently init project
+- `npm install --save js-fluence-client`
 - to quick run in browser we can use webpack, so run `npm install --save-dev webpack-cli html-webpack-plugin` or if you expierenced in some other tools, feel free to use what is convenient for you
 - create file `webpack.config.js` 
-- add in this file
+- add code in this file:
 ```
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
@@ -38,11 +34,11 @@ module.exports = {
     ]
 };
 ```
-- add in `package.json` in scripts `"build": "webpack"` to build the project
+- add to `package.json` in the `scripts` part `"build": "webpack"` to build the project
 - create file `index.js` and open it in any editor or IDE
-- import fluence client on top of the file `import * as fluence from "js-fluence-client"`
+- import fluence client `import * as fluence from "js-fluence-client"`
 - to create session to interact with fluence cluster
-- `const fluenceSession = fluence.createDefaultSession("<ip-to-node>", <port-to-node> todo: p2pPort+100, use some tweaks in dashboard);`
+- `const fluenceSession = fluence.createDefaultSession("<ip-to-node>", <port-to-node> todo: p2pPort+100, TODO add some tweaks in dashboard to find this info);`
 - ip and port get from dashboard for public nodes with Llamadb
 - let's try to use this session directly in browser
 - add this to `index.js`: `window.fluenceSession = fluenceSession;`
@@ -58,3 +54,17 @@ module.exports = {
 - and select them `fluenceSession.invoke("do_query", "select * from <some-unique-name>").result().then((r) => console.log(r.asString()));`
 - based on these requests we can write some simple app, storing values in LlamaDB
 - interact with results on web page, add some buttons and text fields
+
+# Examples
+
+Simple `todo-list` based on Fluence:
+https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples/todo-list
+
+Naive integration with streamr:
+https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples/fluence-streamr
+
+App to write SQL requests from a browser (also gets info about Fluence nodes) written on TypeScript:
+https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples/fluence-sqldb
+
+A step-by-step guide to deploying nodes locally, publish a rust-based app to Fluence contract (to run cluster) and write a simple app on JavaScript: 
+https://github.com/fluencelabs/workshop-2018-dec
