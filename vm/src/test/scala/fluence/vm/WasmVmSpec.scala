@@ -75,7 +75,7 @@ class WasmVmSpec extends WordSpec with Matchers {
       // module without name and with some functions with the same name ("allocate", "deallocate", "invoke", ...)
       val sum1File = getClass.getResource("/wast/no-getMemory.wast").getPath
       // module without name and with some functions with the same name ("allocate", "deallocate", "invoke", ...)
-      val sum2File = getClass.getResource("/wast/bad-allocation-function.wast").getPath
+      val sum2File = getClass.getResource("/wast/bad-allocation-function-i64.wast").getPath
 
       val res = for {
         vm <- WasmVm[IO](NonEmptyList.of(sum1File, sum2File))

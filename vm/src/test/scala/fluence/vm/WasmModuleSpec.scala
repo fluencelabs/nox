@@ -73,7 +73,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
 
     "return module instance" when {
       "there is no module memory" in {
-        val instance = new {val cls: java.lang.Class[_] = this.getClass}
+        val instance = new { val cls: java.lang.Class[_] = this.getClass }
         val module = mock[Compiled]
         Mockito.when(module.getName).thenReturn("test-module-name")
         val scriptCtx = mock[ScriptContext]

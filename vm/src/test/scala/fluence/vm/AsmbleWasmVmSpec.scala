@@ -91,8 +91,8 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         error.getMessage should endWith("was failed")
       }
 
-      "Wasm allocate function returns an incorrect value" in {
-        val badAllocationFunctionFile = getClass.getResource("/wast/bad-allocation-function.wast").getPath
+      "Wasm allocate function returns an incorrect i64 value" in {
+        val badAllocationFunctionFile = getClass.getResource("/wast/bad-allocation-function-i64.wast").getPath
 
         val res = for {
           vm <- WasmVm[IO](NonEmptyList.one(badAllocationFunctionFile))
@@ -101,8 +101,21 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         } yield state
 
         val error = res.failed()
-        error.getMessage shouldBe
-          "Writing to -1 failed"
+        error.getMessage shouldBe "Writing to -1 failed"
+        error shouldBe a[VmMemoryError]
+      }
+
+      "Wasm allocate function returns an incorrect f64 value" in {
+        val badAllocationFunctionFile = getClass.getResource("/wast/bad-allocation-function-f64.wast").getPath
+
+        val res = for {
+          vm <- WasmVm[IO](NonEmptyList.one(badAllocationFunctionFile))
+          result <- vm.invoke[IO](None, "test".getBytes())
+          state ← vm.getVmState[IO].toVmError
+        } yield state
+
+        val error = res.failed()
+        error.getMessage shouldBe "Writing to 200000000 failed"
         error shouldBe a[VmMemoryError]
       }
 
@@ -161,8 +174,8 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](NonEmptyList.one(counterTestFile))
-        get1 ← vm.invoke[IO]()           // 0 -> 1
-        get2 ← vm.invoke[IO]()           // 0 -> 1
+        get1 ← vm.invoke[IO]() // 0 -> 1
+        get2 ← vm.invoke[IO]() // 0 -> 1
         get3 ← vm.invoke[IO]().toVmError // 0 -> 1
       } yield {
         get1 should not be None

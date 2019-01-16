@@ -57,7 +57,7 @@ class WasmModule(
    */
   def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, Int] =
     invokeWasmFunction(allocateFunction, size.asInstanceOf[AnyRef] :: Nil)
-      // by specification, Wasm can return value only i32, i64, f32, f64 types
+    // by specification, Wasm can return value only i32, i64, f32, f64 types
       .map(_.asInstanceOf[Number].intValue)
 
   /**
@@ -188,10 +188,7 @@ object WasmModule {
         ): ApplyError
       }
 
-      (allocMethod, deallocMethod, invokeMethod) = moduleDescription
-        .getCls
-        .getDeclaredMethods
-        .toStream
+      (allocMethod, deallocMethod, invokeMethod) = moduleDescription.getCls.getDeclaredMethods.toStream
         .filter(method => Modifier.isPublic(method.getModifiers))
         .map(method => WasmFunction(method.getName, method))
         .foldLeft((Option.empty[WasmFunction], Option.empty[WasmFunction], Option.empty[WasmFunction])) {
