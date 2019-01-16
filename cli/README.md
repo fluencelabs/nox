@@ -8,7 +8,7 @@ CLI assumes a running Ethereum & Swarm on `http://localhost:8545/` and `http://l
 
 Please note, that your Ethereum account should have sufficient funds for issuing transactions to smart-contract. It's only for transaction fees, Fluence itself doesn't currently charge miners or developers. That could change in the future, for example when miners' deposits are implemented.
 
-Also, take a look at [deployment scripts](tools/deploy/README.md), they will assist you in running Swarm, Ethereum and Fluence nodes.
+Also, take a look at [deployment scripts](../tools/deploy/README.md), they will assist you in running Swarm, Ethereum and Fluence nodes.
 
 
 ## Installation
