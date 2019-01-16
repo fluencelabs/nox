@@ -17,13 +17,13 @@
 package fluence.vm.wasm
 import java.nio.{ByteBuffer, ByteOrder}
 
+import fluence.vm.runThrowable
 import cats.{Functor, Monad}
 import cats.data.EitherT
 import fluence.vm.VmError.VmMemoryError
 import fluence.vm.VmError.WasmVmError.InvokeError
 
 import scala.language.higherKinds
-import scala.util.Try
 
 case class WasmModuleMemory(memory: ByteBuffer) {
 
@@ -36,25 +36,20 @@ case class WasmModuleMemory(memory: ByteBuffer) {
     offset: Int,
     size: Int
   ): EitherT[F, InvokeError, Array[Byte]] =
-    EitherT
-      .fromEither(
-        Try {
-          // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
-          val wasmMemoryView = memory.duplicate()
-          wasmMemoryView.order(ByteOrder.LITTLE_ENDIAN)
+    runThrowable( {
+      // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
+      val wasmMemoryView = memory.duplicate()
+      wasmMemoryView.order(ByteOrder.LITTLE_ENDIAN)
 
-          val resultBuffer = new Array[Byte](size)
-          wasmMemoryView.position(offset)
-          wasmMemoryView.get(resultBuffer)
-          resultBuffer
-        }.toEither
-      )
-      .leftMap { e =>
+      val resultBuffer = new Array[Byte](size)
+      wasmMemoryView.position(offset)
+      wasmMemoryView.get(resultBuffer)
+      resultBuffer
+    }, e =>
         VmMemoryError(
-          s"Reading from offset $offset $size bytes failed",
-          Some(e)
+          s"Reading from offset $offset $size bytes failed", Some(e)
         )
-      }
+    )
 
   /**
    * Invokes invokeFunctionName which exported from Wasm module function with provided arguments.
@@ -65,16 +60,14 @@ case class WasmModuleMemory(memory: ByteBuffer) {
     offset: Int,
     injectedArray: Array[Byte]
   ): EitherT[F, InvokeError, Unit] =
-    EitherT
-      .fromEither(Try {
-        // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
-        val wasmMemoryView = memory.duplicate()
+    runThrowable( {
+      // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
+      val wasmMemoryView = memory.duplicate()
 
-        wasmMemoryView.position(offset)
-        wasmMemoryView.put(injectedArray)
-        ()
-      }.toEither)
-      .leftMap { e ⇒
-        VmMemoryError(s"Writing to $offset failed", Some(e))
-      }
+      wasmMemoryView.position(offset)
+      wasmMemoryView.put(injectedArray)
+      ()
+    }, e ⇒
+      VmMemoryError(s"Writing to $offset failed", Some(e))
+    )
 }

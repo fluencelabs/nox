@@ -29,7 +29,6 @@ import scodec.bits.ByteVector
 import WasmVm._
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Base implementation of [[WasmVm]].
@@ -68,9 +67,11 @@ class AsmbleWasmVm(
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
       // there can be some non-determinism (deterministic execution is very important for verification game
       // and this kind of non-determinism can break all verification game).
-      offset <- EitherT.fromEither(Try(invocationResult.toString.toInt).toEither).leftMap { e ⇒
-        VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
-      }
+      offset <- runThrowable(
+        invocationResult.toString.toInt,
+        e ⇒
+          VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
+      )
       extractedResult <- extractResultFromWasmModule(offset, wasmModule).map(Option(_))
 
     } yield extractedResult
@@ -141,15 +142,11 @@ class AsmbleWasmVm(
       resultSize <- moduleInstance.readMemory(offset, WasmPointerSize)
 
       // convert ArrayByte to Int
-      resultSize <- EitherT
-        .fromEither(
-          Try(
-            ByteBuffer.wrap(resultSize).order(ByteOrder.LITTLE_ENDIAN).getInt()
-          ).toEither
-        )
-        .leftMap { e ⇒
+      resultSize <- runThrowable(
+        ByteBuffer.wrap(resultSize).order(ByteOrder.LITTLE_ENDIAN).getInt(),
+        e ⇒
           VmMemoryError(s"Trying to extract result from incorrect offset=$resultSize", Some(e))
-        }
+      )
 
       extractedResult <- moduleInstance.readMemory(offset + WasmPointerSize, resultSize)
 

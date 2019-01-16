@@ -50,9 +50,12 @@ case class WasmFunction(
     args: List[AnyRef]
   ): EitherT[F, InvokeError, AnyRef] =
     EitherT(
-      IO(javaMethod.invoke(module, args: _*)).attempt
+      IO(javaMethod.invoke(module, args: _*))
+        .attempt
         .to[F]
-    ).leftMap(e ⇒ TrapError(s"Function $this with args: $args was failed", Some(e)))
+    ).leftMap(e
+      ⇒ TrapError(s"Function $this with args: $args was failed", Some(e))
+    )
 
   override def toString: String = fnName
 }

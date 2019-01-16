@@ -38,7 +38,6 @@ import pureconfig.generic.auto._
 import scala.collection.convert.ImplicitConversionsToJava.`seq AsJavaList`
 import scala.collection.convert.ImplicitConversionsToScala.`list asScalaBuffer`
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Virtual Machine api.
@@ -68,7 +67,7 @@ trait WasmVm {
    * {{{
    *   vmState = hash(hash(module1 state), hash(module2 state), ...))
    * }}}
-   * '''Note!''' It's very expensive operation try to avoid frequent use.
+   * '''Note!''' It's very expensive operation, try to avoid frequent use.
    */
   def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector]
 
@@ -105,12 +104,11 @@ object WasmVm {
 
       // Compiling Wasm modules to JVM bytecode and registering derived classes
       // in the Asmble engine. Every Wasm module is compiles to exactly one JVM class
-      scriptCxt ← run(
+      scriptCxt ← runThrowable(
         prepareContext(inFiles, config),
         err ⇒
           InitializationError(
-            s"Preparing execution context before execution was failed for $inFiles.",
-            Some(err)
+            s"Preparing execution context before execution was failed for $inFiles.", Some(err)
         )
       )
 
@@ -182,16 +180,5 @@ object WasmVm {
 
     EitherT.fromEither[F](moduleIndex)
   }
-
-  /** Helper method. Run ''action'' inside Try block, convert to EitherT with specified effect F */
-  private def run[F[_]: Applicative, T, E <: VmError](
-    action: ⇒ T,
-    mapError: Throwable ⇒ E
-  ): EitherT[F, E, T] =
-    EitherT
-      .fromEither(
-        Try(action).toEither
-      )
-      .leftMap(mapError)
 
 }

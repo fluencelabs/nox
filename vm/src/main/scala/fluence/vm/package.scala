@@ -17,23 +17,11 @@
 package fluence
 import cats.{Applicative, Functor}
 import cats.data.EitherT
-import cats.effect.IO
 
 import scala.language.higherKinds
+import scala.util.Try
 
 package object vm {
-
-  /** Helper method. Converts List of Either to Either of List. */
-  def list2Either[F[_]: Applicative, A, B](
-    list: List[Either[A, B]]
-  ): EitherT[F, A, List[B]] = {
-    import cats.instances.list._
-    import cats.syntax.traverse._
-    import cats.instances.either._
-    // unfortunately Idea doesn't understand this and shows error in Editor
-    val either: Either[A, List[B]] = list.sequence
-    EitherT.fromEither[F](either)
-  }
 
   implicit class VmErrorMapper[F[_]: Functor, E <: VmError, T](eitherT: EitherT[F, E, T]) {
 
@@ -43,5 +31,17 @@ package object vm {
       }
     }
   }
+
+  /**
+    *  Runs action inside Try block, convert to EitherT with specified effect F.
+    */
+  def runThrowable[F[_]: Applicative, T, E <: VmError](
+    action: ⇒ T,
+    mapError: Throwable ⇒ E
+  ): EitherT[F, E, T] =
+    EitherT.fromEither(
+        Try(action).toEither
+      )
+      .leftMap(mapError)
 
 }

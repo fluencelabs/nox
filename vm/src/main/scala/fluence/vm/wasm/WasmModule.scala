@@ -26,8 +26,8 @@ import cats.effect.LiftIO
 import cats.{Applicative, Functor, Monad}
 import fluence.crypto.CryptoError
 import fluence.vm.VmError.WasmVmError.{ApplyError, InvokeError}
-import fluence.vm.VmError.{InitializationError, InternalVmError, NoSuchFnError, VmMemoryError}
-import shapeless.Tuple
+import fluence.vm.VmError.{InitializationError, InternalVmError, NoSuchFnError}
+import fluence.vm.runThrowable
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -105,20 +105,16 @@ class WasmModule(
     memory match {
       case Some(wasmMemory) ⇒
         for {
-          memoryAsArray ← EitherT
-            .fromEither[F](
-              Try {
-                // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
-                val wasmMemoryView = wasmMemory.memory.duplicate()
-                wasmMemoryView.clear()
-                val arr = new Array[Byte](wasmMemoryView.capacity())
-                wasmMemoryView.get(arr)
-                arr
-              }.toEither
-            )
-            .leftMap { e ⇒
+          memoryAsArray ← runThrowable( {
+            // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
+            val wasmMemoryView = wasmMemory.memory.duplicate()
+            wasmMemoryView.clear()
+            val arr = new Array[Byte](wasmMemoryView.capacity())
+            wasmMemoryView.get(arr)
+            arr
+          }, e ⇒
               InternalVmError(s"Copying memory to an array for module=$this failed", Some(e))
-            }
+          )
 
           vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
             InternalVmError(
