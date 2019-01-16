@@ -79,6 +79,8 @@ Interesting bits:
 - `fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm` is just an example path and doesn't exist in project
     - however, you can build it by issuing `sbt vm-counter/compile` in project root
 
+Please refer to [Fluence Rust SDK](../sdk/rust/README.md) to get information about developing apps with Fluence.
+
 ### Delete app
 If you want to delete your app from smart contract, you can use `delete_app` command.
 
