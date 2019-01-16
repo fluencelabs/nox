@@ -9,6 +9,11 @@ use rand::Rng;
 use web3::types::{Address, H256};
 
 use derive_getters::Getters;
+use ethabi::TopicFilter;
+use web3::transports::Http;
+use futures::future::Future;
+use ethabi::RawLog;
+use web3::types::FilterBuilder;
 
 pub type Result<T> = StdResult<T, Box<Error>>;
 
@@ -109,5 +114,26 @@ impl TestOpts {
         publish.publish(false)?;
 
         Ok(publish)
+    }
+
+    // Example usage:
+    // get_logs(app_deployed::filter(), app_deployed::parse_log);
+    pub fn get_logs<T, F>(&self, filter: TopicFilter, parse_log: F) -> Vec<T>
+    where
+        F: Fn(RawLog) -> ethabi::Result<T>
+    {
+        let (_eloop, transport) = Http::new(&self.eth_url).unwrap();
+        let web3 = web3::Web3::new(transport);
+//        let filter = app_deployed::filter();
+        let filter = FilterBuilder::default().address(vec![self.contract_address]).topic_filter(filter).build();
+        let filter = web3.eth_filter().create_logs_filter(filter).wait().unwrap();
+        let logs = filter.logs().wait().unwrap();
+        let logs: Vec<T> = logs.into_iter().map(|l| {
+            let raw = RawLog::from((l.topics, l.data.0));
+            parse_log(raw).unwrap()
+//            app_deployed::parse_log(raw).unwrap()
+        }).collect();
+
+        logs
     }
 }
