@@ -51,6 +51,8 @@ The following command will publish app `counter.wasm`. Interesting bits:
 - `--cluster_size 4` requires cluster of 4 workers to host this app
 - `--pin_to 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= --base64` requires that one of the node in cluster must be `1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=`
     - note that to be used in `pin_to` node must be already registered in smart-contract
+- `fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm` is just an example path and doesn't exist in project
+    - however, you can build it by issuing `sbt vm-counter/compile` in project root
 ```
 ./fluence publish fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm 0x9995882876ae612bfd829498ccd73dd962ec950a 0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d --cluster_size 4 --secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 --pin_to 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= --base64
 ```
