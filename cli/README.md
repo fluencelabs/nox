@@ -37,7 +37,7 @@ The following command will register a node:
             0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             0x9995882876ae612bfd829498ccd73dd962ec950a \
             --base64_tendermint_key \
-            --secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --secret_key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
             --wait_syncing \
             --start_port 25000 \
             --last_port 25010
@@ -51,7 +51,7 @@ Parameters are:
     - note that key should be unique, i.e. you can't register several nodes with the same key
 - `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions. _Use your Ethereum account here_
 - `0x9995882876ae612bfd829498ccd73dd962ec950a` is a contract address, register transaction will be sent there
-- `--secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing. _Use your Ethereum private key here_
+- `--secret_key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing. _Use your Ethereum private key here_
     - using `--password` is possible instead of private key, but private key is preferred
 - `--wait_syncing` so CLI waits until Ethereum node is fully synced
 - `--start_port 25000` and `--last_port 25010` denote ports where apps (workers) will be hosted. 25000:25010 is inclusive, so 10 workers could be started on such a node
@@ -67,7 +67,7 @@ The following command will publish app `counter.wasm`.
             0x9995882876ae612bfd829498ccd73dd962ec950a \
             0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --cluster_size 4 \
-            --secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --secret_key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
             --pin_to 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
             --base64
 ```
@@ -89,7 +89,7 @@ The following will delete app with id `0x000000000000000000000000000000000000000
             0x9995882876ae612bfd829498ccd73dd962ec950a \
             0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             0x0000000000000000000000000000000000000000000000000000000000000002 \
-            --secret-key 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 \
+            --secret_key 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 \
             -D
 ```
 
