@@ -19,9 +19,9 @@ extern crate clap;
 use std::boxed::Box;
 use std::error::Error;
 
-use clap::{App, Arg, SubCommand};
-use clap::ArgMatches;
 use clap::value_t;
+use clap::ArgMatches;
+use clap::{App, Arg, SubCommand};
 use web3::types::{Address, H256};
 
 use crate::contract_func::contract::functions::delete_app;

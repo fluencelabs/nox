@@ -1,10 +1,10 @@
 mod utils;
 
 use crate::utils::*;
+use fluence::contract_func::contract::events::app_deployed;
 use fluence::contract_status::status::{get_status, Status};
 use fluence::register::Register;
 use web3::types::H256;
-use fluence::contract_func::contract::events::app_deployed;
 
 #[test]
 fn integration_publish_pinned() -> () {

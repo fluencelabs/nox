@@ -19,8 +19,8 @@ use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 
-use clap::{App, Arg, SubCommand, value_t};
 use clap::ArgMatches;
+use clap::{value_t, App, Arg, SubCommand};
 use derive_getters::Getters;
 use reqwest::Client;
 use web3::types::{Address, H256};
@@ -301,8 +301,8 @@ mod tests {
     use ethkey::Secret;
     use web3;
     use web3::futures::Future;
-    use web3::types::*;
     use web3::types::H256;
+    use web3::types::*;
 
     use crate::credentials::Credentials;
     use crate::publisher::Publisher;

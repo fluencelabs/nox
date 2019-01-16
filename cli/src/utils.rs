@@ -16,7 +16,7 @@
 
 use std::error::Error;
 
-use clap::{ArgMatches, value_t};
+use clap::{value_t, ArgMatches};
 use ethkey::Secret;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError};

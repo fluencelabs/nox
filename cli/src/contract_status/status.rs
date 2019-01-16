@@ -22,7 +22,7 @@ use serde_derive::{Deserialize, Serialize};
 use web3::types::Address;
 
 use crate::contract_func::ContractCaller;
-use crate::contract_status::app::{App, get_apps};
+use crate::contract_status::app::{get_apps, App};
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Status {

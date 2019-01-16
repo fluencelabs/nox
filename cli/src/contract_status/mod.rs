@@ -15,9 +15,9 @@
  */
 
 pub mod app;
-pub mod status;
 mod cluster;
 mod node;
+pub mod status;
 
 use self::status::{get_status, Status};
 use clap::{App, Arg, ArgMatches, SubCommand};

@@ -9,10 +9,10 @@ use rand::Rng;
 use web3::types::{Address, H256};
 
 use derive_getters::Getters;
-use ethabi::TopicFilter;
-use web3::transports::Http;
-use futures::future::Future;
 use ethabi::RawLog;
+use ethabi::TopicFilter;
+use futures::future::Future;
+use web3::transports::Http;
 use web3::types::FilterBuilder;
 
 pub type Result<T> = StdResult<T, Box<Error>>;
@@ -123,17 +123,23 @@ impl TestOpts {
     // get_logs(app_deployed::filter(), app_deployed::parse_log);
     pub fn get_logs<T, F>(&self, filter: TopicFilter, parse_log: F) -> Vec<T>
     where
-        F: Fn(RawLog) -> ethabi::Result<T>
+        F: Fn(RawLog) -> ethabi::Result<T>,
     {
         let (_eloop, transport) = Http::new(&self.eth_url).unwrap();
         let web3 = web3::Web3::new(transport);
-        let filter = FilterBuilder::default().address(vec![self.contract_address]).topic_filter(filter).build();
+        let filter = FilterBuilder::default()
+            .address(vec![self.contract_address])
+            .topic_filter(filter)
+            .build();
         let filter = web3.eth_filter().create_logs_filter(filter).wait().unwrap();
         let logs = filter.logs().wait().unwrap();
-        let logs: Vec<T> = logs.into_iter().map(|l| {
-            let raw = RawLog::from((l.topics, l.data.0));
-            parse_log(raw).unwrap()
-        }).collect();
+        let logs: Vec<T> = logs
+            .into_iter()
+            .map(|l| {
+                let raw = RawLog::from((l.topics, l.data.0));
+                parse_log(raw).unwrap()
+            })
+            .collect();
 
         logs
     }

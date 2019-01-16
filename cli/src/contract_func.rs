@@ -22,9 +22,9 @@ use ethkey::Secret;
 use web3::contract::Options;
 use web3::futures::Future;
 use web3::transports::Http;
-use web3::types::{Address, Bytes, H256};
 use web3::types::CallRequest;
 use web3::types::TransactionRequest;
+use web3::types::{Address, Bytes, H256};
 use web3::Web3;
 
 use crate::credentials::Credentials;
