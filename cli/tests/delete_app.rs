@@ -1,10 +1,10 @@
 mod utils;
 
 use crate::utils::*;
-use fluence::contract_func::contract::events::app_deployed;
-use fluence::contract_func::contract::events::app_enqueued;
-use fluence::contract_func::contract::events::app_dequeued;
 use fluence::contract_func::contract::events::app_deleted;
+use fluence::contract_func::contract::events::app_deployed;
+use fluence::contract_func::contract::events::app_dequeued;
+use fluence::contract_func::contract::events::app_enqueued;
 
 #[test]
 fn integration_delete_app() {

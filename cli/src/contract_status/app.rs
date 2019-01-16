@@ -21,9 +21,9 @@ use serde_derive::{Deserialize, Serialize};
 use web3::types::{Address, H256};
 
 use crate::contract_func::contract::functions::get_app;
-use crate::contract_func::contract::functions::get_nodes_ids;
-use crate::contract_func::contract::functions::get_node;
 use crate::contract_func::contract::functions::get_app_i_ds;
+use crate::contract_func::contract::functions::get_node;
+use crate::contract_func::contract::functions::get_nodes_ids;
 use crate::contract_func::ContractCaller;
 use crate::contract_status::node::Node;
 
@@ -85,23 +85,17 @@ pub fn get_nodes(contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
         .iter()
         .map(|id| {
             let (call_data, decoder) = get_node::call(*id);
-            let (
-                ip_addr,
-                next_port,
-                last_port,
-                owner,
-                is_private,
-                app_ids
-            ) = contract.query_contract(call_data, Box::new(decoder))?;
+            let (ip_addr, next_port, last_port, owner, is_private, app_ids) =
+                contract.query_contract(call_data, Box::new(decoder))?;
 
-            Node::new (
+            Node::new(
                 *id,
                 ip_addr.into(),
                 Into::<u64>::into(next_port) as u16,
                 Into::<u64>::into(last_port) as u16,
                 owner,
                 is_private,
-                Some(app_ids)
+                Some(app_ids),
             )
         })
         .collect();

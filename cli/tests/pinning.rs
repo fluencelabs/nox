@@ -11,7 +11,8 @@ fn integration_publish_pinned() {
     let mut opts = TestOpts::default();
 
     let count = 5;
-    let nodes: Result<Vec<(H256, Register)>> = (0..count).map(|_| opts.register_node(1, true)).collect();
+    let nodes: Result<Vec<(H256, Register)>> =
+        (0..count).map(|_| opts.register_node(1, true)).collect();
     let nodes = nodes.unwrap();
     let node_ids: Vec<H256> = nodes.iter().map(|(_, n)| *n.tendermint_key()).collect();
 
@@ -33,4 +34,3 @@ fn integration_publish_pinned() {
     let pins = target.pin_to_nodes().as_ref().unwrap();
     assert_eq!(pins.len(), count as usize);
 }
-

@@ -11,10 +11,10 @@ use web3::types::{Address, H256};
 use derive_getters::Getters;
 use ethabi::RawLog;
 use ethabi::TopicFilter;
+use fluence::delete_app::DeleteApp;
 use futures::future::Future;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
-use fluence::delete_app::DeleteApp;
 
 pub type Result<T> = StdResult<T, Box<Error>>;
 
@@ -151,7 +151,8 @@ impl TestOpts {
         let (_eloop, transport) = Http::new(&self.eth_url).unwrap();
         let web3 = web3::Web3::new(transport);
         let receipt = web3.eth().transaction_receipt(tx).wait().unwrap().unwrap();
-        let logs: Vec<T> = receipt.logs
+        let logs: Vec<T> = receipt
+            .logs
             .into_iter()
             .map(|l| {
                 let raw = RawLog::from((l.topics, l.data.0));

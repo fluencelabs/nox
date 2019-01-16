@@ -28,7 +28,7 @@ use crate::contract_status::node::Node;
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Status {
     apps: Vec<App>,
-    nodes: Vec<Node>
+    nodes: Vec<Node>,
 }
 
 impl Status {
