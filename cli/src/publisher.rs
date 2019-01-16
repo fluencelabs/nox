@@ -180,7 +180,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 
     let pin_to_nodes = parse_pinned(matches)?;
 
-    if pin_to_nodes.len() > 0 && pin_to_nodes.len() != (cluster_size as usize) {
+    if pin_to_nodes.len() > 0 && pin_to_nodes.len() > (cluster_size as usize) {
         return Err(format!(
             "number of pin_to nodes should be less or equal to the desired cluster_size"
         )
