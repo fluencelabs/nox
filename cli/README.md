@@ -29,13 +29,19 @@ To look at all possible arguments and options use `./fluence --help`:
 You can use `./fluence [SUBCOMMAND] --help` to learn how to use commands.
 
 ## Usage examples
+### Requirements
+CLI assumes a running Ethereum & Swarm on `http://localhost:8545/` and `http://localhost:8500/` respectively. Use `--eth_url` and `--swarm_url` to change that.
+
+Also, take a look at [deployment scripts](tools/deploy/README.md), they will assist you in running Swarm, Ethereum and Fluence nodes.
+
 ### Register a node
 To provide your computation resources to Fluence network, you need to register your computer within smart-contract. The simplest way to do that is through CLI.
 The following command will register a node with the following parameters:
 - advertised address `85.82.118.4`, please note that this address should be available from Internet as it will be used to connect with other workers in a future cluster
-- Tendermint key (also used to identify node) `1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=`, note base64 format
+- Tendermint key (used to identify node) `1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=`, note base64 format
     - flag `--base64_tendermint_key` passed so tendermint key is treated as base64-encoded as opposed to hex-encoded
     - currently, Tendermint key can be found in logs of `fluencelabs/node` Docker container
+    - note that key should be unique, i.e. you can't register several nodes with the same key
 - `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions. _Use your Ethereum account here_
 - `0x9995882876ae612bfd829498ccd73dd962ec950a` is a contract address, register transaction will be sent there
 - `--secret-key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing. _Use your Ethereum private key here_
@@ -47,6 +53,8 @@ The following command will register a node with the following parameters:
 ```
 
 ### Publish app
+To deploy your app on Fluence network, you must upload it to Swarm and publish hash to smart-contract. The simplest way to achieve that is to use CLI command `publish`.
+
 The following command will publish app `counter.wasm`. Interesting bits:
 - `--cluster_size 4` requires cluster of 4 workers to host this app
 - `--pin_to 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= --base64` requires that one of the node in cluster must be `1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=`
