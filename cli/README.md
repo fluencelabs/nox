@@ -1,10 +1,10 @@
 ## Fluence CLI
 
-**Fluence CLI** is an automation tool for tasks of app management (deployment and deletion), computation resource sharing (node registration), and monitoring Fluence network state (status).
+Fluence CLI is an automation tool for tasks of app management (deployment and deletion), computation resource sharing (node registration), and monitoring Fluence network state (status). See usage for more info.
 
 ## Requirements
 
-CLI assumes a running Ethereum & Swarm on `http://localhost:8545/` and `http://localhost:8500/` respectively. Use `--eth_url` and `--swarm_url` to specify actual addresses as you need.
+CLI assumes running Ethereum and Swarm on `http://localhost:8545/` and `http://localhost:8500/` respectively. Use `--eth_url` and `--swarm_url` to specify actual addresses as you need.
 
 Please note, that your Ethereum account should have sufficient funds for issuing transactions to smart-contract. It's only for transaction fees, Fluence itself doesn't currently charge miners or developers. That could change in the future, for example when miners' deposits are implemented.
 
@@ -15,7 +15,7 @@ Also, take a look at [deployment scripts](../tools/deploy/README.md), they will 
 
 Requirements: [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [`npm`](https://www.npmjs.com/get-npm) are needed.
 
-- clone repo and `cd` to `cli` folder
+- clone this repo and `cd` to `cli` folder
 - run `cargo build`
 - go to `target/debug`
 - there is an executable file `fluence` to work with
@@ -61,11 +61,14 @@ The following command will publish app `counter.wasm`. Interesting bits:
 ### Delete app
 If you want to delete your app from smart contract, you can use `delete_app` command.
 
-The following will delete app with id `0x0000000000000000000000000000000000000000000000000000000000000002`. App id could be retrieved either from status (see below) or from smart-contract
+The following will delete app with id `0x0000000000000000000000000000000000000000000000000000000000000002`. App id could be retrieved either from status (see below) or from smart-contract.
+
 Note `-D` at the end. It means that app is deployed and cluster hosting it should be deleted as well. Without that flag, app would be removed only if there is no assigned cluster (i.e., app is not yet deployed).
 ```
 ./fluence delete_app 0x9995882876ae612bfd829498ccd73dd962ec950a 0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d 0x0000000000000000000000000000000000000000000000000000000000000002 --secret-key 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 -D
 ```
+
+See below on how to know if your app is deployed.
 
 ### Retrieve Fluence network state as JSON
 To inspect what apps are in queue, what clusters are working out there and what nodes are participating in them, you can use `status` command as follows:
@@ -121,5 +124,5 @@ The results will be in JSON and should resemble the following
 }
 ```
 
-Here you can see two apps, the first one is enqueued (cluster is `null`) and waiting for enough nodes to host it, and the second one is already hosted on top of 5 nodes. Second app also specified all 5 nodes in `pin_to_nodes`, and you can see the same nodes in `cluster.node_ids`.
+Here you can see two apps, the first one is enqueued (cluster is `null`) and waiting for enough nodes to host it, and the second one is already hosted on top of 5 nodes. Second app also specifies all 5 nodes in `pin_to_nodes`, and you can see the same nodes in `cluster.node_ids`.
 
