@@ -1,17 +1,20 @@
-## Fluence Publisher
+## Fluence CLI
 
 Current code deployment process to the Fluence network looks like this:
 
 - Upload code to Swarm. Swarm will return the code hash.
 - Publish the received hash to a default Fluence contract in a blockchain (ethereum as a default).
 
-**Fluence Publisher** is a console automation utility that will take the code as an input, go through the publishing process and return a hash of transaction of publishing to the developer, if successful.
+**Fluence CLI** is a console automation utility that will take the code as an input, go through the publishing process and return a hash of transaction of publishing to the developer, if successful.
 
- ## Requirements
- 
-- a connection to the Ethereum node (including light client) that is able to broadcast a transaction
-- Ethereum account with a balance sufficient to pay for gas
-- address of the Swarm node
+## Requirements
+
+CLI assumes a running Ethereum & Swarm on `http://localhost:8545/` and `http://localhost:8500/` respectively. Use `--eth_url` and `--swarm_url` to specify actual addresses as you need.
+
+Please note, that your Ethereum account should have sufficient funds for issuing transactions to smart-contract. It's only for transaction fees, Fluence itself doesn't currently charge miners or developers. That could change in the future, for example when miners' deposits are implemented.
+
+Also, take a look at [deployment scripts](tools/deploy/README.md), they will assist you in running Swarm, Ethereum and Fluence nodes.
+
 
 ## Installation
 
@@ -29,11 +32,6 @@ To look at all possible arguments and options use `./fluence --help`:
 You can use `./fluence [SUBCOMMAND] --help` to learn how to use commands.
 
 ## Usage examples
-### Requirements
-CLI assumes a running Ethereum & Swarm on `http://localhost:8545/` and `http://localhost:8500/` respectively. Use `--eth_url` and `--swarm_url` to change that.
-
-Also, take a look at [deployment scripts](tools/deploy/README.md), they will assist you in running Swarm, Ethereum and Fluence nodes.
-
 ### Register a node
 To provide your computation resources to Fluence network, you need to register your computer within smart-contract. The simplest way to do that is through CLI.
 The following command will register a node with the following parameters:
