@@ -44,7 +44,7 @@ contract Network is Deployer {
             node.lastPort,
             node.owner,
             node.isPrivate,
-            node.apps
+            node.appIDs
         );
     }
 
@@ -58,7 +58,7 @@ contract Network is Deployer {
         view
     returns (bytes32[])
     {
-        return nodes[nodeID].apps;
+        return nodes[nodeID].appIDs;
     }
 
     /** @dev Retrieves assigned App and other cluster info by clusterID

@@ -76,7 +76,7 @@ contract Deployer {
         bool isPrivate;
 
         // Apps hosted by this node
-        bytes32[] apps;
+        bytes32[] appIDs;
     }
 
     // Represents deployed or enqueued (waiting to be deployed) code
@@ -161,8 +161,7 @@ contract Deployer {
     bytes32[] public appIDs;
 
     // Apps waiting for nodes
-    // TODO: should they have IDs? so that app owner could cancel deployment of enqueued app, before cluster gets formed
-    bytes32[] internal enqueuedApps;
+    bytes32[] public enqueuedApps;
 
     // Number of all ever existed apps, used for appID generation
     uint256 internal appsCount = 1;
@@ -400,7 +399,7 @@ contract Deployer {
             workerPorts[j] = node.nextPort;
 
             useNodePort(node.id);
-            nodes[node.id].apps.push(app.appID);
+            nodes[node.id].appIDs.push(app.appID);
         }
 
         uint genesisTime = now;
