@@ -17,12 +17,9 @@
 use std::boxed::Box;
 use std::error::Error;
 use std::net::IpAddr;
-use std::str::FromStr;
 use std::{thread, time};
 
-use base64::decode;
 use clap::{App, Arg, ArgMatches, SubCommand};
-use ethkey::Secret;
 use hex;
 use web3::transports::Http;
 use web3::types::{Address, H256};
@@ -45,6 +42,7 @@ const SECRET_KEY: &str = "secret_key";
 const WAIT_SYNCING: &str = "wait_syncing";
 const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const GAS: &str = "gas";
+const PRIVATE: &str = "private";
 
 #[derive(Debug)]
 pub struct Register {
@@ -58,6 +56,7 @@ pub struct Register {
     credentials: Credentials,
     wait_syncing: bool,
     gas: u32,
+    private: bool,
 }
 
 impl Register {
@@ -73,6 +72,7 @@ impl Register {
         credentials: Credentials,
         wait_syncing: bool,
         gas: u32,
+        private: bool,
     ) -> Result<Register, Box<Error>> {
         if last_port < start_port {
             let err: Box<Error> =
@@ -91,6 +91,7 @@ impl Register {
             credentials,
             wait_syncing,
             gas,
+            private,
         })
     }
 
@@ -150,7 +151,7 @@ impl Register {
                 hash_addr,
                 u64::from(self.start_port),
                 u64::from(self.last_port),
-                false,
+                self.private,
             );
 
             contract.call_contract(self.account, &self.credentials, call_data, self.gas)
@@ -181,47 +182,40 @@ impl Register {
 }
 
 pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
-    let node_address: IpAddr = matches.value_of(ADDRESS).unwrap().parse()?;
+    let node_address: IpAddr = value_t!(matches, ADDRESS, IpAddr)?;
 
-    let tendermint_key = matches
-        .value_of(TENDERMINT_KEY)
-        .unwrap()
-        .trim_start_matches("0x")
-        .to_owned();
+    let tendermint_key = utils::parse_hex_opt(matches, TENDERMINT_KEY)?.to_owned();
+    let tendermint_key = if matches.is_present(BASE64_TENDERMINT_KEY) {
+        let arr = base64::decode(&tendermint_key)?;
+        hex::encode(arr)
+    } else {
+        tendermint_key
+    };
 
-    let start_port: u16 = matches.value_of(START_PORT).unwrap().parse()?;
-    let last_port: u16 = matches.value_of(LAST_PORT).unwrap().parse()?;
+    let tendermint_key: H256 = tendermint_key
+        .parse()
+        .map_err(|e| format!("error parsing tendermint key: {}", e))?;
 
-    let contract_address = matches
-        .value_of(CONTRACT_ADDRESS)
-        .unwrap()
-        .trim_start_matches("0x");
-    let contract_address: Address = contract_address.parse()?;
+    let start_port = value_t!(matches, START_PORT, u16)?;
+    let last_port = value_t!(matches, LAST_PORT, u16)?;
 
-    let account = matches.value_of(ACCOUNT).unwrap().trim_start_matches("0x");
-    let account: Address = account.parse()?;
+    let contract_address: Address = utils::parse_hex_opt(matches, CONTRACT_ADDRESS)?.parse()?;
 
-    let eth_url = matches.value_of(ETH_URL).unwrap().to_string();
+    let account: Address = utils::parse_hex_opt(matches, ACCOUNT)?.parse()?;
 
-    let secret_key = matches
-        .value_of(SECRET_KEY)
-        .map(|s| Secret::from_str(s.trim_start_matches("0x")).unwrap());
+    let eth_url = value_t!(matches, ETH_URL, String)?;
+
+    let secret_key = utils::parse_secret_key(matches, SECRET_KEY)?;
+
     let password = matches.value_of(PASSWORD).map(|s| s.to_string());
 
     let credentials = Credentials::get(secret_key, password);
 
     let wait_syncing = matches.is_present(WAIT_SYNCING);
 
-    let tendermint_key = if matches.is_present(BASE64_TENDERMINT_KEY) {
-        let arr = decode(&tendermint_key)?;
-        hex::encode(arr)
-    } else {
-        tendermint_key
-    };
+    let gas = value_t!(matches, GAS, u32)?;
 
-    let tendermint_key: H256 = tendermint_key.parse()?;
-
-    let gas: u32 = matches.value_of(GAS).unwrap().parse()?;
+    let private: bool = matches.is_present(PRIVATE);
 
     Register::new(
         node_address,
@@ -234,6 +228,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Register, Box<Error>> {
         credentials,
         wait_syncing,
         gas,
+        private,
     )
 }
 
@@ -243,25 +238,21 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         .about("Register a node in the smart contract")
         .args(&[
             Arg::with_name(ADDRESS)
-                .alias(ADDRESS)
                 .required(true)
                 .index(1)
                 .takes_value(true)
                 .help("node's IP address"),
             Arg::with_name(TENDERMINT_KEY)
-                .alias(TENDERMINT_KEY)
                 .required(true)
                 .index(2)
                 .takes_value(true)
                 .help("public key of tendermint node"),
             Arg::with_name(ACCOUNT)
-                .alias(ACCOUNT)
                 .required(true)
                 .takes_value(true)
                 .index(3)
                 .help("ethereum account"),
             Arg::with_name(CONTRACT_ADDRESS)
-                .alias(CONTRACT_ADDRESS)
                 .required(true)
                 .takes_value(true)
                 .index(4)
@@ -279,7 +270,6 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .takes_value(true)
                 .help("maximum port in the port range"),
             Arg::with_name(ETH_URL)
-                .alias(ETH_URL)
                 .long("eth_url")
                 .short("e")
                 .required(false)
@@ -287,35 +277,34 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .help("http address to ethereum node")
                 .default_value("http://localhost:8545/"),
             Arg::with_name(PASSWORD)
-                .alias(PASSWORD)
                 .long("password")
                 .short("p")
                 .required(false)
                 .takes_value(true)
                 .help("password to unlock account in ethereum client"),
             Arg::with_name(SECRET_KEY)
-                .alias(SECRET_KEY)
                 .long(SECRET_KEY)
                 .short("s")
                 .required(false)
                 .takes_value(true)
                 .help("the secret key to sign transactions"),
             Arg::with_name(WAIT_SYNCING)
-                .alias(WAIT_SYNCING)
                 .long(WAIT_SYNCING)
                 .help("waits until ethereum node will be synced, executes a command after this"),
             Arg::with_name(BASE64_TENDERMINT_KEY)
-                .alias(BASE64_TENDERMINT_KEY)
                 .long(BASE64_TENDERMINT_KEY)
                 .help("allows to use base64 tendermint key"),
             Arg::with_name(GAS)
-                .alias(GAS)
                 .long(GAS)
                 .short("g")
-                .required(false)
                 .takes_value(true)
                 .default_value("1000000")
                 .help("maximum gas to spend"),
+            Arg::with_name(PRIVATE)
+                .long(PRIVATE)
+                .short("P")
+                .takes_value(false)
+                .help("marks node as private, used for pinning apps to nodes"),
         ])
 }
 
@@ -351,6 +340,7 @@ mod tests {
             credentials,
             false,
             1_000_000,
+            false,
         )
         .unwrap()
     }

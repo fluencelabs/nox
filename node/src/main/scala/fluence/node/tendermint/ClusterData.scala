@@ -103,7 +103,7 @@ object ClusterData {
    * @return Some ClusterData if this node participates and data is well formed, None otherwise
    */
   def build(
-    clusterID: Bytes32,
+    appId: Bytes32,
     nodeIds: DynamicArray[Bytes32],
     genesisTime: Uint256,
     storageHash: Bytes32,
@@ -111,7 +111,7 @@ object ClusterData {
     workerPorts: DynamicArray[Uint16],
     nodeConfig: NodeConfig
   ): Option[ClusterData] = {
-    val genesis = Genesis.fromClusterData(clusterID, nodeIds, genesisTime)
+    val genesis = Genesis.fromClusterData(appId, nodeIds, genesisTime)
     val nodeIndex = genesis.validators.indexWhere(_.pub_key == nodeConfig.validatorKey)
     if (nodeIndex == -1)
       None

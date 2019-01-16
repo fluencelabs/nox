@@ -15,19 +15,19 @@
  */
 
 use contract_func::ContractCaller;
-use contract_status::app::{get_enqueued_apps, App};
+use contract_status::app::{get_apps, App};
 use std::boxed::Box;
 use std::error::Error;
 use web3::types::Address;
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Status {
-    enqueued_apps: Vec<App>,
+    apps: Vec<App>,
 }
 
 impl Status {
-    pub fn new(enqueued_apps: Vec<App>) -> Status {
-        Status { enqueued_apps }
+    pub fn new(apps: Vec<App>) -> Status {
+        Status { apps }
     }
 }
 
@@ -36,7 +36,8 @@ pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Bo
     let contract = ContractCaller::new(contract_address, eth_url)?;
 
     // TODO get more data
-    let apps = get_enqueued_apps(&contract)?;
+
+    let apps = get_apps(&contract)?;
 
     Ok(Status::new(apps))
 }
