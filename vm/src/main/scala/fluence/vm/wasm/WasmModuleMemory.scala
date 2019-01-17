@@ -36,19 +36,22 @@ case class WasmModuleMemory(memory: ByteBuffer) {
     offset: Int,
     size: Int
   ): EitherT[F, InvokeError, Array[Byte]] =
-    runThrowable( {
-      // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
-      val wasmMemoryView = memory.duplicate()
-      wasmMemoryView.order(ByteOrder.LITTLE_ENDIAN)
+    runThrowable(
+      {
+        // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
+        val wasmMemoryView = memory.duplicate()
+        wasmMemoryView.order(ByteOrder.LITTLE_ENDIAN)
 
-      val resultBuffer = new Array[Byte](size)
-      wasmMemoryView.position(offset)
-      wasmMemoryView.get(resultBuffer)
-      resultBuffer
-    }, e =>
+        val resultBuffer = new Array[Byte](size)
+        wasmMemoryView.position(offset)
+        wasmMemoryView.get(resultBuffer)
+        resultBuffer
+      },
+      e =>
         VmMemoryError(
-          s"Reading from offset $offset $size bytes failed", Some(e)
-        )
+          s"Reading from offset $offset $size bytes failed",
+          Some(e)
+      )
     )
 
   /**
@@ -60,14 +63,15 @@ case class WasmModuleMemory(memory: ByteBuffer) {
     offset: Int,
     injectedArray: Array[Byte]
   ): EitherT[F, InvokeError, Unit] =
-    runThrowable( {
-      // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
-      val wasmMemoryView = memory.duplicate()
+    runThrowable(
+      {
+        // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
+        val wasmMemoryView = memory.duplicate()
 
-      wasmMemoryView.position(offset)
-      wasmMemoryView.put(injectedArray)
-      ()
-    }, e ⇒
-      VmMemoryError(s"Writing to $offset failed", Some(e))
+        wasmMemoryView.position(offset)
+        wasmMemoryView.put(injectedArray)
+        ()
+      },
+      e ⇒ VmMemoryError(s"Writing to $offset failed", Some(e))
     )
 }

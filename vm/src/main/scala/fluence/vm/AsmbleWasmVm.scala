@@ -47,7 +47,7 @@ class AsmbleWasmVm(
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
     fnArgument: Array[Byte]
-  ): EitherT[F, InvokeError, Option[Array[Byte]]] =
+  ): EitherT[F, InvokeError, Array[Byte]] =
     for {
       wasmModule <- EitherT
         .fromOption(
@@ -64,7 +64,7 @@ class AsmbleWasmVm(
         invocationResult.toString.toInt,
         e ⇒ VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
       )
-      extractedResult <- extractResultFromWasmModule(offset, wasmModule).map(Option(_))
+      extractedResult <- extractResultFromWasmModule(offset, wasmModule)
 
     } yield extractedResult
 

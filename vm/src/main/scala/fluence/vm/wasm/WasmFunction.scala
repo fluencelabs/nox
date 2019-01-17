@@ -49,16 +49,16 @@ case class WasmFunction(
     module: Any,
     args: List[AnyRef]
   ): EitherT[F, InvokeError, Option[Number]] =
-    EitherT(IO(javaMethod.invoke(module, args: _*))
-        .map(result =>
-          // by specification currently Wasm method can return one value of i32, i64, f32, f64 type
-          if (javaMethod.getReturnType == Void.TYPE) Option(result.asInstanceOf[Number]) else None
+    EitherT(
+      IO(javaMethod.invoke(module, args: _*))
+        .map(
+          result =>
+            // by specification currently Wasm method can return one value of i32, i64, f32, f64 type
+            if (javaMethod.getReturnType == Void.TYPE) Option(result.asInstanceOf[Number]) else None
         )
         .attempt
         .to[F]
-    ).leftMap(e ⇒
-      TrapError(s"Function $this with args: $args was failed", Some(e))
-    )
+    ).leftMap(e ⇒ TrapError(s"Function $this with args: $args was failed", Some(e)))
 
   override def toString: String = fnName
 }

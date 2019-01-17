@@ -61,7 +61,7 @@ trait WasmVm {
   def invoke[F[_]: LiftIO: Monad](
     module: Option[String] = None,
     fnArgument: Array[Byte] = Array.emptyByteArray
-  ): EitherT[F, InvokeError, Option[Array[Byte]]]
+  ): EitherT[F, InvokeError, Array[Byte]]
 
   /**
    * Returns hash of significant inner state of this VM. This function calculates
@@ -100,7 +100,8 @@ object WasmVm {
         .fromEither(pureconfig.loadConfig[VmConfig](configNamespace))
         .leftMap { e ⇒
           InternalVmError(
-            s"Unable to read a config for the namespace=$configNamespace", Some(ConfigError(e))
+            s"Unable to read a config for the namespace=$configNamespace",
+            Some(ConfigError(e))
           )
         }
 
@@ -110,16 +111,18 @@ object WasmVm {
         prepareContext(inFiles, config),
         err ⇒
           InitializationError(
-            s"Preparing execution context before execution was failed for $inFiles.", Some(err)
+            s"Preparing execution context before execution was failed for $inFiles.",
+            Some(err)
         )
       )
 
       modules ← initializeModules(scriptCxt, config)
 
-    } yield new AsmbleWasmVm(
-      modules,
-      cryptoHasher
-    )
+    } yield
+      new AsmbleWasmVm(
+        modules,
+        cryptoHasher
+      )
 
   /**
    * Returns [[ScriptContext]] - context for uploaded Wasm modules.
@@ -141,7 +144,7 @@ object WasmVm {
         false, // disableAutoRegister
         config.specTestRegister,
         config.defaultMaxMemPages,
-        config.loggerRegister,
+        config.loggerRegister
       )
     )
   }

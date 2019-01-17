@@ -131,14 +131,11 @@ class TxProcessor[F[_]](
     FunctionCallDescription
       .parse[F](tx.payload)
       .flatMap {
-        // TODO : in future there should be a handler responses for returning result from VM
+        // TODO : in future there should be a handler responsible for returning result from VM
         case callDescription =>
           vmInvoker
             .invoke(callDescription)
-            .map {
-              case None => Empty
-              case Some(value) => Computed(value)
-            }
+            .map(Computed)
             .flatMap(result => EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, result)))
       }
       .valueOrF(error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message)))

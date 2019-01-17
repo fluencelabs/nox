@@ -33,13 +33,14 @@ package object vm {
   }
 
   /**
-    *  Runs action inside Try block, convert to EitherT with specified effect F.
-    */
+   *  Runs action inside Try block, convert to EitherT with specified effect F.
+   */
   def runThrowable[F[_]: Applicative, T, E <: VmError](
     action: ⇒ T,
     mapError: Throwable ⇒ E
   ): EitherT[F, E, T] =
-    EitherT.fromEither(
+    EitherT
+      .fromEither(
         Try(action).toEither
       )
       .leftMap(mapError)

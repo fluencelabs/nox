@@ -37,7 +37,7 @@ import scala.util.Try
  *
  * @param name optional module name (can be empty)
  * @param wasmMemory memory of this module
-  * @param instance wrapped instance of module
+ * @param instance wrapped instance of module
  */
 class WasmModule(
   private val name: Option[String],
@@ -60,8 +60,8 @@ class WasmModule(
 
   /**
    * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
-    * This function is a temporary solution and should be removed in the nearest future (that why
-    * it retuns Int not Unit).
+   * This function is a temporary solution and should be removed in the nearest future (that why
+   * it returns Int not Unit).
    *
    * @param offset address of the memory region to deallocate
    * @param size size of memory region to deallocate
@@ -70,26 +70,31 @@ class WasmModule(
     invokeWasmFunction(deallocateFunction, offset.asInstanceOf[AnyRef] :: size.asInstanceOf[AnyRef] :: Nil)
 
   /**
-   * Invokes invokeFunction which exported from Wasm module function with provided arguments.
+   * Invokes invokeFunction which exported from Wasm module with provided arguments.
    *
    * @param args arguments for invokeFunction
    */
   def invoke[F[_]: LiftIO: Monad](args: List[AnyRef]): EitherT[F, InvokeError, Int] =
     invokeWasmFunction(invokeFunction, args)
 
+  /**
+   * Invokes invokeFunction which exported from Wasm module with provided arguments.
+   *
+   * @param args arguments for invokeFunction
+   */
   def readMemory[F[_]: Monad](offset: Int, size: Int): EitherT[F, InvokeError, Array[Byte]] =
     wasmMemory.fold(
-      EitherT.leftT[Array[Byte]](
-        VmMemoryError(s"Unable to find the function with name=readMemory in module with name=$this") : InvokeError
+      EitherT.leftT[F, Array[Byte]](
+        VmMemoryError(s"Unable to find the function with name=readMemory in module with name=$this"): InvokeError
       )
-    ) (_.readBytes(offset, size))
+    )(_.readBytes(offset, size))
 
   def writeMemory[F[_]: Monad](offset: Int, injectedArray: Array[Byte]): EitherT[F, InvokeError, Unit] =
     wasmMemory.fold(
-      EitherT.leftT[Unit](
-        VmMemoryError(s"Unable to find the function with name=readMemory in module with name=$this") : InvokeError
+      EitherT.leftT[F, Unit](
+        VmMemoryError(s"Unable to find the function with name=readMemory in module with name=$this"): InvokeError
       )
-    ) (_.writeBytes(offset, injectedArray))
+    )(_.writeBytes(offset, injectedArray))
 
   /**
    * Returns hash of all significant inner state of this VM.
@@ -100,50 +105,56 @@ class WasmModule(
     hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]
   ): EitherT[F, InternalVmError, Array[Byte]] =
     wasmMemory.fold(
-      EitherT.rightT[InternalVmError](
+      EitherT.rightT[F, InternalVmError](
         Array.emptyByteArray
       )
-    )( wasmMemory =>
-      for {
-        memoryAsArray ← runThrowable( {
-          // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
-          val wasmMemoryView = wasmMemory.memory.duplicate()
-          wasmMemoryView.clear()
-          val arr = new Array[Byte](wasmMemoryView.capacity())
-          wasmMemoryView.get(arr)
-          arr
-        }, e ⇒
-          InternalVmError(s"Copying memory to an array for module=$this failed", Some(e))
-        )
+    )(
+      wasmMemory =>
+        for {
+          memoryAsArray ← runThrowable(
+            {
+              // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
+              val wasmMemoryView = wasmMemory.memory.duplicate()
+              wasmMemoryView.clear()
+              val arr = new Array[Byte](wasmMemoryView.capacity())
+              wasmMemoryView.get(arr)
+              arr
+            },
+            e ⇒ InternalVmError(s"Copying memory to an array for module=$this failed", Some(e))
+          )
 
-        vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
-          InternalVmError(s"Getting internal state for module=$this failed", Some(e))
-        }
-      } yield vmStateAsHash)
+          vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
+            InternalVmError(s"Getting internal state for module=$this failed", Some(e))
+          }
+        } yield vmStateAsHash
+    )
 
   private def invokeWasmFunction[F[_]: LiftIO: Monad](
     wasmFunction: Option[WasmFunction],
     args: List[AnyRef]
-  ): EitherT[F, InvokeError, Int] = wasmFunction.fold(
-    EitherT.leftT[Int](
-      NoSuchFnError(s"Unable to find a function in module with name=$this") : InvokeError
-    )
-  ) (fn =>
-    for {
-      rawResult <- fn(instance, args)
-
-      // Despite our way of thinking about wasm function return value type as one of (i32, i64, f32, f64) in WasmModule
-      // context, there we can operate with Int (i32) values. It comes from our conventions about Wasm modules design:
-      // they have to has only one export function as a user interface and a one for memory allocation. The first one
-      // receives and returns byte array by a pointer and the second one used for allocating memory for array
-      // passing. Since Webassembly is only 32-bit now, Int(i32) is used as a return value type. And after Wasm64
-      // release, there should be additional logic to operate both with 32 and 64-bit modules (TODO).
-      result <- EitherT.fromOption(
-        rawResult,
-        InternalVmError(s"Returned value of function=${fn.fnName} from module=$this is None") : InvokeError
+  ): EitherT[F, InvokeError, Int] =
+    wasmFunction.fold(
+      EitherT.leftT[F, Int](
+        NoSuchFnError(s"Unable to find a function in module with name=$this"): InvokeError
       )
-    } yield result.intValue
-  )
+    )(
+      fn =>
+        for {
+          rawResult <- fn(instance, args)
+
+          // Despite our way of thinking about wasm function return value type as one of (i32, i64, f32, f64) in
+          // WasmModule context, there we can operate with Int (i32) values. It comes from our conventions about
+          // Wasm modules design: they have to has only one export function as a user interface and one for memory
+          // allocation. The first one receives and returns byte array by a pointer and the second one used for
+          // allocating memory for array passing. Since Webassembly is only 32-bit now, Int(i32) is used as a
+          // return value type. And after Wasm64 release, there should be additional logic to operate both with
+          // 32 and 64-bit modules (TODO).
+          result <- EitherT.fromOption(
+            rawResult,
+            InternalVmError(s"Returned value of function=${fn.fnName} from module=$this is None"): InvokeError
+          )
+        } yield result.intValue
+    )
 
   override def toString: String = name.getOrElse("<no-name>")
 }
@@ -169,15 +180,22 @@ object WasmModule {
         // TODO: method 'instance' can throw both an initialization error and a
         // Trap error, but now they can't be separated
         InitializationError(
-          s"Unable to initialize module=${moduleDescription.getName}", Some(e)
+          s"Unable to initialize module=${moduleDescription.getName}",
+          Some(e)
         )
       }
 
-      // getting memory field with reflection from module instance
-      // There are two ways of getting memory from module: by exported getMemory function or directly by accessing
-      // public memory field. Also and It can be that memory  It seems that
+      // TODO: there are two ways of getting memory from Wasm module: by exported getMemory function or
+      // through moduleInstance.getMem interface. Based on Asmble source code It seems that the behavior
+      // of getMemory is returning smth like 'export memory' in terms of Wasm specification. getMemory
+      // is more suitable for the scenario when at first Wasm module translates to Java class and then
+      // compiled with the rest of Java code. In our approach, it needs to use reflection for invocation.
+      // Another issue lies in the fact that Asmble may not generate this function. But ByteBuffer presence
+      // in every translated module (it is created in ctors of generated Java class). The second approach
+      // of accessing is more complicated because Mem provides a more low level and nonsuitable interface
+      // for use, but it gives us the capability for getting memory for any module. And in the future, we
+      // should move to it.
       memory ← Try {
-        // It's ok if a module doesn't have a memory
         val getMemoryMethod = Try(
           moduleInstance.getClass.getMethod("getMemory")
         ).toOption
