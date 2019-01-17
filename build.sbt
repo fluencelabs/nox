@@ -42,6 +42,11 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
     rustVmExample("counter")
   )
 
+lazy val `vm-fleth` = (project in file("vm/examples/fleth"))
+  .settings(
+    rustVmExample("fleth")
+  )
+
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
     rustVmExample("llamadb")
