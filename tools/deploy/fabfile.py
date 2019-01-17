@@ -56,7 +56,7 @@ def deploy():
         current_owner = info[current_host]['owner']
         current_key = info[current_host]['key']
 
-        with shell_env(CHAIN="kovan",
+        with shell_env(CHAIN=chain,
                        PROD_DEPLOY="true",
                        CONTRACT_ADDRESS=contract_address,
                        OWNER_ADDRESS=current_owner,
