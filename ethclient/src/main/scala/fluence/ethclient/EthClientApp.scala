@@ -27,7 +27,7 @@ object EthClientApp extends IOApp {
   // EthClientApp is to play during development only
   override def run(args: List[String]): IO[ExitCode] =
     EthClient
-      .makeHttpResource[IO]()
+      .makeHttpResource[IO](includeRaw = true)
       .use { ethClient ⇒
         val par = Parallel[IO, IO.Par]
 
@@ -40,7 +40,7 @@ object EthClientApp extends IOApp {
           version ← ethClient.clientVersion[IO]()
           _ = println(s"Client version: $version")
 
-          _ ← ethClient.blockStream[IO]().map(println).compile.drain
+          _ ← ethClient.blockStream[IO].map(println).compile.drain
 
           unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
 

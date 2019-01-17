@@ -94,8 +94,23 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
       .toStream[F]
       .map(Log.apply)
 
-  def blockStream[F[_]: ConcurrentEffect](): fs2.Stream[F, Block] =
-    web3.blockFlowable(false).toStream[F].map(_.getBlock).map(Block.apply)
+  /**
+   * Provides a stream of newly received blocks, with no transaction objects included
+   *
+   * @tparam F Effect
+   * @return Stream of Raw Responses (if provided) and delayed Block data class (to avoid parsing it if it's not necessary)
+   */
+  def blockStream[F[_]: ConcurrentEffect]: fs2.Stream[F, (Option[String], F[Block])] =
+    web3
+      .blockFlowable(false)
+      .toStream[F]
+      .map(
+        ethBlock ⇒
+          (
+            Option(ethBlock.getRawResponse),
+            Sync[F].delay(Block(ethBlock.getBlock))
+        )
+      )
 
   /**
    * Helper for retrieving a web3j-prepared contract
@@ -145,11 +160,13 @@ object EthClient {
   /**
    * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.
    * @param url optional url, http://localhost:8545/ is used by default
+   * @param includeRaw Whether to include unparsed JSON strings in the web3j's response objects
    */
   def makeHttpResource[F[_]](
-    url: Option[String] = None
+    url: Option[String] = None,
+    includeRaw: Boolean = false
   )(implicit F: Sync[F]): Resource[F, EthClient] =
-    makeResource(new HttpService(url.getOrElse(HttpService.DEFAULT_URL)))
+    makeResource(new HttpService(url.getOrElse(HttpService.DEFAULT_URL), includeRaw))
 
   /**
    * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.

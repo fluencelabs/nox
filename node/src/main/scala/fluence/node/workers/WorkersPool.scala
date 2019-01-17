@@ -18,11 +18,10 @@ package fluence.node.workers
 
 import cats.Parallel
 import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, ContextShift, Timer}
+import cats.effect.{Concurrent, ContextShift, Sync, Timer}
 import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
-import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
@@ -34,12 +33,10 @@ import scala.language.higherKinds
  * Wraps several [[Worker]]s in a pool, providing running and monitoring functionality.
  *
  * @param workers a storage for running [[Worker]]s
- * @param cleanups a storage for cleanup fibers to be able to "block" until [[Worker]]s are stopped and removed
  * @param healthCheckConfig see [[HealthCheckConfig]]
  */
 class WorkersPool[F[_]: ContextShift: Timer](
   workers: Ref[F, Map[WorkerParams, Worker[F]]],
-  cleanups: Ref[F, Map[WorkerParams, F[Unit]]],
   healthCheckConfig: HealthCheckConfig
 )(
   implicit sttpBackend: SttpBackend[F, Nothing],
@@ -72,13 +69,11 @@ class WorkersPool[F[_]: ContextShift: Timer](
         for {
           // stop an old worker
           _ <- oldWorker.map(stop).getOrElse(F.unit)
-          worker <- Worker.run(params, healthCheckConfig)
-          _ ← workers.update(_.updated(params, worker))
-          cleanupFiber ← Concurrent[F].start(worker.fiber.join.attempt.flatMap { r ⇒
-            logger.info(s"Removing worker from a pool: $worker due to $r")
-            workers.update(_ - params) *> cleanups.update(_ - params)
+          worker <- Worker.run[F](params, healthCheckConfig, Sync[F].delay {
+            logger.info(s"Removing worker from a pool: $params")
+            workers.update(_ - params)
           })
-          _ ← cleanups.update(_ + (params → cleanupFiber.join))
+          _ ← workers.update(_.updated(params, worker))
         } yield true
       case (true, _) ⇒
         logger.info(s"Worker $params was already ran")
@@ -86,12 +81,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
     }
 
   def stop(worker: Worker[F]): F[Unit] =
-    for {
-      cleanupsMap ← cleanups.get
-      _ <- worker.stop
-      fiberJoin <- worker.fiber.join.attempt
-      cleanupJoin <- cleanupsMap.getOrElse(worker.params, F.unit).attempt
-    } yield logger.info(s"Stopped: $fiberJoin $cleanupJoin")
+    worker.stop.attempt.map(stopped ⇒ logger.info(s"Stopped: ${worker.params} => $stopped"))
 
   /**
    * Stops all the registered workers. They should unregister themselves.
@@ -102,14 +92,10 @@ class WorkersPool[F[_]: ContextShift: Timer](
   def stopAll[G[_]](implicit P: Parallel[F, G]): F[Unit] =
     for {
       workersMap ← workers.get
-      cleanupsMap ← cleanups.get
       workers = workersMap.values.toList
 
-      _ ← Parallel.parTraverse(workers)(_.stop)
-      fiberJoins ← Parallel.parTraverse(workers)(s ⇒ s.fiber.join.attempt.map(s.params → _))
-
-      cleanupsJoins ← Parallel.parTraverse(cleanupsMap.toList)(_._2.attempt)
-    } yield logger.info(s"Stopped: $fiberJoins $cleanupsJoins")
+      stops ← Parallel.parTraverse(workers)(_.stop.attempt)
+    } yield logger.info(s"Stopped: ${workers.map(_.params) zip stops}")
 
   /**
    * Returns a map of all currently registered workers, along with theirs health
@@ -133,6 +119,5 @@ object WorkersPool {
   ): F[WorkersPool[F]] =
     for {
       workers ← Ref.of[F, Map[WorkerParams, Worker[F]]](Map.empty)
-      cleanups ← Ref.of[F, Map[WorkerParams, F[Unit]]](Map.empty)
-    } yield new WorkersPool[F](workers, cleanups, HealthCheckConfig())
+    } yield new WorkersPool[F](workers, HealthCheckConfig())
 }

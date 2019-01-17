@@ -18,7 +18,7 @@ package fluence.node.config
 
 import java.net.InetAddress
 
-import fluence.node.eth.{EthereumRPCConfig, FluenceContractConfig}
+import fluence.node.eth.{EthereumRpcConfig, FluenceContractConfig}
 import fluence.node.tendermint.json.ValidatorKey
 import fluence.node.workers.WorkerImage
 import io.circe.{Decoder, Encoder}
@@ -42,7 +42,7 @@ case class MasterConfig(
   statusServer: StatusServerConfig,
   masterContainerId: Option[String],
   worker: WorkerImage,
-  ethereum: EthereumRPCConfig
+  ethereum: EthereumRpcConfig
 )
 
 /**
@@ -56,8 +56,8 @@ case class SwarmConfig(host: String)
 case class StatusServerConfig(port: Int)
 
 object MasterConfig {
-  implicit val encodeEthereumConfig: Encoder[EthereumRPCConfig] = deriveEncoder
-  implicit val decodeEthereumConfig: Decoder[EthereumRPCConfig] = deriveDecoder
+  implicit val encodeEthereumConfig: Encoder[EthereumRpcConfig] = deriveEncoder
+  implicit val decodeEthereumConfig: Decoder[EthereumRpcConfig] = deriveDecoder
   implicit val encodeContractConfig: Encoder[FluenceContractConfig] = deriveEncoder
   implicit val decodeContractConfig: Decoder[FluenceContractConfig] = deriveDecoder
   implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
