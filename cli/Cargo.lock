@@ -528,6 +528,7 @@ dependencies = [
  "ethereum-types-serialize 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethkey 0.3.0 (git+https://github.com/paritytech/parity.git?tag=v2.1.10)",
  "fixed-hash 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "indicatif 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-wasm 0.35.4 (registry+https://github.com/rust-lang/crates.io-index)",

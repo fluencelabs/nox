@@ -58,14 +58,14 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let app = await addApp(cluster, pinnedNodes);
         let receipt = app.receipt;
         
-        var clusterID;
-        truffleAssert.eventEmitted(receipt, utils.clusterFormedEvent, (ev) => {
+        var appID;
+        truffleAssert.eventEmitted(receipt, utils.appDeployedEvent, (ev) => {
             assert.deepEqual(ev.nodeIDs, pinnedNodes);
-            clusterID = ev.clusterID;
+            appID = ev.appID;
             return true
         });
 
-        let clusterInfo = await global.contract.getCluster(clusterID);
+        let clusterInfo = await global.contract.getApp(appID);
         let clusterSize = clusterInfo[2];
         let appPinToNodes = clusterInfo[4];
         let nodeIDs = clusterInfo[6];
@@ -75,7 +75,7 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         assert.deepEqual(nodeIDs, pinnedNodes);
     });
 
-    it("Should get correct enqueued apps after adding", async function() {
+    it("Should get correct apps after adding", async function() {
         let count = 5;
         let pinnedCount = 2;
         let pinned = await addPinnedNodes(pinnedCount);
@@ -83,16 +83,19 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let appWithPins = await addApp(count, pinnedNodeIDs);
         let app = await addApp(count, []);
 
-        let apps = await global.contract.getEnqueuedApps();
-        assert.equal(apps.length, 6); // apps' Swarm hashes, receipts, clusters' sizes, developers' addresses, number of pinned nodes, all pinned nodes
+        let appIDs = await global.contract.getAppIDs();
+        assert.equal(appIDs.length, 2); // deployed 2 apps
 
-        assert.equal(apps[0][0], appWithPins.storageHash)
-        assert.equal(apps[4][0], pinnedCount)
-        assert.deepEqual(apps[5], pinnedNodeIDs)
+        let apps = await Promise.all(appIDs.map(async id => global.contract.getApp(id)));
+        assert.equal(apps.length, 2);
 
-        assert.equal(apps[0][1], app.storageHash)
-        assert.equal(apps[4][1], 0)
+        let pinnedApp = apps.find(a => a[0] == appWithPins.storageHash);
+        assert.notEqual(pinnedApp, undefined);
+        assert.deepEqual(pinnedApp[4], pinnedNodeIDs);
 
+        let unpinnedApp = apps.find(a => a[0] == app.storageHash);
+        assert.notEqual(unpinnedApp, undefined);
+        assert.equal(unpinnedApp[4].length, 0);
     });
 
     it("Should use both public & private nodes for pinned app", async function() {
@@ -104,7 +107,7 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let add = await addApp(count, pinnedNodeIDs);
 
         // Cluster isn't formed yet
-        truffleAssert.eventNotEmitted(add.receipt, utils.clusterFormedEvent, _ => true);
+        truffleAssert.eventNotEmitted(add.receipt, utils.appDeployedEvent, _ => true);
 
         // App is enqueued
         truffleAssert.eventEmitted(add.receipt, utils.appEnqueuedEvent, ev => {
@@ -117,7 +120,7 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let receipt = result.pop();
 
         // Cluster is formed
-        truffleAssert.eventEmitted(receipt, utils.clusterFormedEvent, ev => {
+        truffleAssert.eventEmitted(receipt, utils.appDeployedEvent, ev => {
             pinnedNodeIDs.forEach(id => 
                 assert.include(ev.nodeIDs, id)
             );
@@ -151,7 +154,7 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let receipts = await addNodes(1, ports = apps);
 
         var eventCount = 0;
-        truffleAssert.eventEmitted(receipts.pop(), utils.clusterFormedEvent, ev => {
+        truffleAssert.eventEmitted(receipts.pop(), utils.appDeployedEvent, ev => {
             assert.equal(ev.nodeIDs.length, count);
             // should be deployed on all pinned nodes + one public node (not checked here)
             pinnedNodeIDs.forEach(id => 

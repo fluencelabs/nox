@@ -14,20 +14,26 @@
  * limitations under the License.
  */
 
-use contract_func::ContractCaller;
-use contract_status::app::{get_enqueued_apps, App};
 use std::boxed::Box;
 use std::error::Error;
+
+use derive_getters::Getters;
+use serde_derive::{Deserialize, Serialize};
 use web3::types::Address;
+
+use crate::contract_func::ContractCaller;
+use crate::contract_status::app::{get_apps, get_nodes, App};
+use crate::contract_status::node::Node;
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Status {
-    enqueued_apps: Vec<App>,
+    apps: Vec<App>,
+    nodes: Vec<Node>,
 }
 
 impl Status {
-    pub fn new(enqueued_apps: Vec<App>) -> Status {
-        Status { enqueued_apps }
+    pub fn new(apps: Vec<App>, nodes: Vec<Node>) -> Status {
+        Status { apps, nodes }
     }
 }
 
@@ -36,7 +42,10 @@ pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Bo
     let contract = ContractCaller::new(contract_address, eth_url)?;
 
     // TODO get more data
-    let apps = get_enqueued_apps(&contract)?;
 
-    Ok(Status::new(apps))
+    let apps = get_apps(&contract)?;
+
+    let nodes = get_nodes(&contract)?;
+
+    Ok(Status::new(apps, nodes))
 }
