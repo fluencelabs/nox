@@ -21,12 +21,14 @@ from fabric.api import *
 info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>'},
         '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>'}}
 
+file = open("scripts/contract.txt", "r")
+contract=file.read()
+
 # Fluence will be deployed on all hosts from `info`
 env.hosts = info.keys()
 
 # Set the username
 env.user = "root"
- 
  
 def copy_resources():
 
@@ -47,25 +49,25 @@ def deploy():
         chain='kovan'
 
         # actual fluence contract address
-        contract_address='0xd5D58ABc1839628b3EaC364B801Cf13D510Ad6a9'
+        contract_address=contract
 
         # getting owner and private key from `info` dictionary
         current_host = env.host_string
         current_owner = info[current_host]['owner']
         current_key = info[current_host]['key']
 
-        with shell_env(CHAIN=chain,
-                       REMOTE_DEPLOY="true",
+        with shell_env(PROD_DEPLOY="true",
                        CONTRACT_ADDRESS=contract_address,
-                       BZZ_KEY=current_owner,
                        OWNER_ADDRESS=current_owner,
-                       PORTS="25000:25003",
+                       PORTS="25000:25099",
                        NAME="node1",
                        PRIVATE_KEY=current_key,
-                       HOST_IP=current_host,
-                       PARITY_ARGS='--light --chain kovan --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'):
+                       HOST_IP=current_host):
             run('chmod +x compose.sh')
             run('chmod +x fluence')
             run('docker pull fluencelabs/node')
             run('docker pull fluencelabs/worker')
+            # delete all workers
+            # TODO reuse old volumes if possible
+            run('docker ps -a | grep _node | awk \'{print $1}\' | xargs docker rm -f ; docker volume prune -f')
             run('./compose.sh')

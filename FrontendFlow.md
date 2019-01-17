@@ -1,6 +1,7 @@
 ## Fluence Prerequisites:
 - deployed public nodes with LlamaDB
 - published info about nodes (hardcoded or dashboard)
+- js client
 
 ## User prerequisites
 - `npm`

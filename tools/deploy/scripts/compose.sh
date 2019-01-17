@@ -23,7 +23,7 @@ set -e
 
 # `REMOTE_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
-if [ -z "$REMOTE_DEPLOY" ]; then
+if [ -z "$PROD_DEPLOY" ]; then
     export NAME='node1'
     # open 10 ports, so it's possible to create 10 workers
     export PORTS='25000:25010'
@@ -32,7 +32,7 @@ if [ -z "$REMOTE_DEPLOY" ]; then
     export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
     export PARITY_ARGS='--config dev --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
 else
-    export PARITY_ARGS='--light --chain kovan --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
+    export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
 
 fi
 
@@ -49,7 +49,7 @@ esac
 
 # use exported external ip address or get it from OS
 # todo rewrite this
-if [ -z "$REMOTE_DEPLOY" ]; then
+if [ -z "$PROD_DEPLOY" ]; then
     EXTERNAL_HOST_IP="127.0.0.1"
     case "$(uname -s)" in
        Darwin)
@@ -75,8 +75,8 @@ echo 'Parity and Swarm containers are started.'
 sleep 10
 
 # deploy contract if there is new dev ethereum node
-if [ -z "$REMOTE_DEPLOY" ]; then
-    if [ ! -d "../node_modules" ]; then
+if [ -z "$PROD_DEPLOY" ]; then
+    if [ ! -d "node_modules" ]; then
         npm install
     fi
     RESULT=$(npm run deploy)
