@@ -302,6 +302,7 @@ contract Deployer {
         require(app.appID != 0, "error deleting app: cluster not found");
         require(app.appID == appID, "error deleting app: cluster hosts another app");
         require(app.owner == msg.sender, "error deleting app: you must own app to delete it");
+        require(app.cluster.genesisTime != 0, "error deleting app: app must be deployed, use dequeueApp");
 
         bool removed = removeApp(appID);
         require(removed, "error deleting app: app not found in appIDs array");

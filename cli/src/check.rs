@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-use self::errors::*;
+use std::collections::HashMap;
+
 use clap::{App, Arg, ArgMatches, SubCommand};
 use console::style;
 use parity_wasm::elements::Error as ParityError;
 use parity_wasm::elements::Module;
-use std::collections::HashMap;
+
+use self::errors::*;
 
 const INPUT_ARG: &str = "input";
 
@@ -124,6 +126,8 @@ fn find_banned_fns_idxs<'a>(
 }
 
 mod errors {
+    use error_chain::*;
+
     error_chain! {
          foreign_links {
             ParityErr(parity_wasm::elements::Error);

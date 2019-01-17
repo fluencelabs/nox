@@ -3,6 +3,7 @@ name = "fluence"
 version = "0.1.0" # don't forget to change in README.md too
 authors = ["Fluence Labs"]
 publish=false
+edition = "2018"
 
 [profile.release]
 debug = false
@@ -34,4 +35,5 @@ error-chain = "0.12.0"
 parity-wasm = "0.35"
 
 [dev-dependencies]
+futures = "0.1"
 rand = "0.6.0"
