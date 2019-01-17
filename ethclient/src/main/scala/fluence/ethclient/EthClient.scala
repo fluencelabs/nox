@@ -160,6 +160,7 @@ object EthClient {
   /**
    * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.
    * @param url optional url, http://localhost:8545/ is used by default
+   * @param includeRaw Whether to include unparsed JSON strings in the web3j's response objects
    */
   def makeHttpResource[F[_]](
     url: Option[String] = None,

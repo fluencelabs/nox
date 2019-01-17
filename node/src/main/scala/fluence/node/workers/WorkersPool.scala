@@ -81,7 +81,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
     }
 
   def stop(worker: Worker[F]): F[Unit] =
-    worker.stop.attempt.map(stopped ⇒ logger.info(s"Stopped: $stopped"))
+    worker.stop.attempt.map(stopped ⇒ logger.info(s"Stopped: ${worker.params} => $stopped"))
 
   /**
    * Stops all the registered workers. They should unregister themselves.
@@ -95,7 +95,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
       workers = workersMap.values.toList
 
       stops ← Parallel.parTraverse(workers)(_.stop.attempt)
-    } yield logger.info(s"Stopped: $stops")
+    } yield logger.info(s"Stopped: ${workers.map(_.params) zip stops}")
 
   /**
    * Returns a map of all currently registered workers, along with theirs health

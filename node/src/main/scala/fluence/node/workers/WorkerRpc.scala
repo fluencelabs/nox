@@ -38,7 +38,8 @@ case class WorkerRpc[F[_]] private (
 ) {
 
   /**
-   * Make a single RPC call. It's response is to be dropped, so you should take care of `id` in the request if you need to
+   * Make a single RPC call in a fire-and-forget manner.
+   * Response is to be dropped, so you should take care of `id` in the request if you need to get it
    *
    * @param req The Tendermint request
    * @param F Concurrent effect
