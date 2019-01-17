@@ -27,7 +27,6 @@ import scala.language.higherKinds
  * Description of a function invocation with concrete arguments.
  *
  * @param module VM module containing the invoked function
- * @param functionName name of the invoked function
  * @param arg argument for the invoked function
  */
 case class FunctionCallDescription(module: Option[String], arg: Array[Byte])

@@ -38,12 +38,14 @@ import pureconfig.generic.auto._
 import scala.collection.convert.ImplicitConversionsToJava.`seq AsJavaList`
 import scala.collection.convert.ImplicitConversionsToScala.`list asScalaBuffer`
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Virtual Machine api.
  */
 trait WasmVm {
+
+  // size in bytes of pointer type in Wasm VM (can be different after Wasm64 release)
+  val WasmPointerSize = 4
 
   /**
    * Invokes ''function'' from specified ''module'' with provided arguments.
@@ -68,7 +70,7 @@ trait WasmVm {
    * {{{
    *   vmState = hash(hash(module1 state), hash(module2 state), ...))
    * }}}
-   * '''Note!''' It's very expensive operation try to avoid frequent use.
+   * '''Note!''' It's very expensive operation, try to avoid frequent use.
    */
   def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector]
 
@@ -98,30 +100,26 @@ object WasmVm {
         .fromEither(pureconfig.loadConfig[VmConfig](configNamespace))
         .leftMap { e ⇒
           InternalVmError(
-            s"Unable to read a config for the namespace=$configNamespace",
-            Some(ConfigError(e))
+            s"Unable to read a config for the namespace=$configNamespace", Some(ConfigError(e))
           )
         }
 
       // Compiling Wasm modules to JVM bytecode and registering derived classes
       // in the Asmble engine. Every Wasm module is compiles to exactly one JVM class
-      scriptCxt ← run(
+      scriptCxt ← runThrowable(
         prepareContext(inFiles, config),
         err ⇒
           InitializationError(
-            s"Preparing execution context before execution was failed for $inFiles.",
-            Some(err)
+            s"Preparing execution context before execution was failed for $inFiles.", Some(err)
         )
       )
 
-      // initializing all modules, build index for all Wasm functions
       modules ← initializeModules(scriptCxt, config)
 
-    } yield
-      new AsmbleWasmVm(
-        modules,
-        cryptoHasher,
-      )
+    } yield new AsmbleWasmVm(
+      modules,
+      cryptoHasher
+    )
 
   /**
    * Returns [[ScriptContext]] - context for uploaded Wasm modules.
@@ -133,7 +131,7 @@ object WasmVm {
     config: VmConfig
   ): ScriptContext = {
     val invoke = new Invoke()
-    // todo in future common logger for this project should be used
+    // TODO: in future common logger for this project should be used
     val logger = new Logger.Print(Logger.Level.WARN)
     invoke.setLogger(logger)
     invoke.prepareContext(
@@ -182,16 +180,5 @@ object WasmVm {
 
     EitherT.fromEither[F](moduleIndex)
   }
-
-  /** Helper method. Run ''action'' inside Try block, convert to EitherT with specified effect F */
-  private def run[F[_]: Applicative, T, E <: VmError](
-    action: ⇒ T,
-    mapError: Throwable ⇒ E
-  ): EitherT[F, E, T] =
-    EitherT
-      .fromEither(
-        Try(action).toEither
-      )
-      .leftMap(mapError)
 
 }
