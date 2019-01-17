@@ -19,16 +19,17 @@ use std::error::Error;
 use std::net::IpAddr;
 use std::{thread, time};
 
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{value_t, App, Arg, ArgMatches, SubCommand};
+use derive_getters::Getters;
 use hex;
 use web3::transports::Http;
 use web3::types::{Address, H256};
 
-use contract_func::contract::functions::add_node;
-use contract_func::ContractCaller;
-use credentials::Credentials;
-use types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
-use utils;
+use crate::contract_func::contract::functions::add_node;
+use crate::contract_func::ContractCaller;
+use crate::credentials::Credentials;
+use crate::types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
+use crate::utils;
 
 const ADDRESS: &str = "address";
 const TENDERMINT_KEY: &str = "tendermint_key";
@@ -44,7 +45,7 @@ const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const GAS: &str = "gas";
 const PRIVATE: &str = "private";
 
-#[derive(Debug)]
+#[derive(Debug, Getters)]
 pub struct Register {
     node_ip: IpAddr,
     tendermint_key: H256,
@@ -309,18 +310,18 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use std::error::Error;
 
     use ethkey::Secret;
     use rand::prelude::*;
     use web3::types::*;
 
-    use credentials::Credentials;
+    use crate::credentials::Credentials;
 
     use super::Register;
 
-    fn generate_register(credentials: Credentials) -> Register {
+    pub fn generate_register(credentials: Credentials) -> Register {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
 
         let mut rng = rand::thread_rng();

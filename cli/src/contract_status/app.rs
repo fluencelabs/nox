@@ -16,11 +16,16 @@
 
 use std::error::Error;
 
+use derive_getters::Getters;
+use serde_derive::{Deserialize, Serialize};
 use web3::types::{Address, H256};
 
-use contract_func::contract::functions::get_app;
-use contract_func::contract::functions::get_app_i_ds;
-use contract_func::ContractCaller;
+use crate::contract_func::contract::functions::get_app;
+use crate::contract_func::contract::functions::get_app_i_ds;
+use crate::contract_func::contract::functions::get_node;
+use crate::contract_func::contract::functions::get_nodes_ids;
+use crate::contract_func::ContractCaller;
+use crate::contract_status::node::Node;
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct App {
@@ -70,6 +75,32 @@ impl Cluster {
             ports,
         }
     }
+}
+
+pub fn get_nodes(contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
+    let (call_data, decoder) = get_nodes_ids::call();
+    let node_ids: Vec<H256> = contract.query_contract(call_data, Box::new(decoder))?;
+
+    let nodes: Result<Vec<Node>, Box<Error>> = node_ids
+        .iter()
+        .map(|id| {
+            let (call_data, decoder) = get_node::call(*id);
+            let (ip_addr, next_port, last_port, owner, is_private, app_ids) =
+                contract.query_contract(call_data, Box::new(decoder))?;
+
+            Node::new(
+                *id,
+                ip_addr.into(),
+                Into::<u64>::into(next_port) as u16,
+                Into::<u64>::into(last_port) as u16,
+                owner,
+                is_private,
+                Some(app_ids),
+            )
+        })
+        .collect();
+
+    Ok(nodes?)
 }
 
 pub fn get_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Error>> {

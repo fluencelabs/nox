@@ -16,16 +16,19 @@
 
 extern crate clap;
 
-use clap::ArgMatches;
-use clap::{App, Arg, SubCommand};
-use contract_func::contract::functions::delete_app;
-use contract_func::contract::functions::dequeue_app;
-use contract_func::ContractCaller;
-use credentials::Credentials;
 use std::boxed::Box;
 use std::error::Error;
-use utils;
+
+use clap::value_t;
+use clap::ArgMatches;
+use clap::{App, Arg, SubCommand};
 use web3::types::{Address, H256};
+
+use crate::contract_func::contract::functions::delete_app;
+use crate::contract_func::contract::functions::dequeue_app;
+use crate::contract_func::ContractCaller;
+use crate::credentials::Credentials;
+use crate::utils;
 
 const APP_ID: &str = "app_id";
 const PASSWORD: &str = "password";
@@ -129,6 +132,26 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
 }
 
 impl DeleteApp {
+    pub fn new(
+        app_id: H256,
+        credentials: Credentials,
+        gas: u32,
+        account: Address,
+        contract_address: Address,
+        eth_url: String,
+        deployed: bool,
+    ) -> DeleteApp {
+        DeleteApp {
+            app_id,
+            credentials,
+            gas,
+            account,
+            contract_address,
+            eth_url,
+            deployed,
+        }
+    }
+
     pub fn delete_app(self, show_progress: bool) -> Result<H256, Box<Error>> {
         let delete_app_fn = || -> Result<H256, Box<Error>> {
             let call_data = match self.deployed {

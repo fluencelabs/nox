@@ -20,14 +20,15 @@ use std::fs::File;
 use std::io::prelude::*;
 
 use clap::ArgMatches;
-use clap::{App, Arg, SubCommand};
+use clap::{value_t, App, Arg, SubCommand};
+use derive_getters::Getters;
 use reqwest::Client;
 use web3::types::{Address, H256};
 
-use contract_func::contract::functions::add_app;
-use contract_func::ContractCaller;
-use credentials::Credentials;
-use utils;
+use crate::contract_func::contract::functions::add_app;
+use crate::contract_func::ContractCaller;
+use crate::credentials::Credentials;
+use crate::utils;
 
 const PATH: &str = "path";
 const ACCOUNT: &str = "account";
@@ -41,7 +42,7 @@ const GAS: &str = "gas";
 const PINNED: &str = "pin_to";
 const PIN_BASE64: &str = "base64";
 
-#[derive(Debug)]
+#[derive(Debug, Getters)]
 pub struct Publisher {
     bytes: Vec<u8>,
     contract_address: Address,
@@ -179,7 +180,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 
     let pin_to_nodes = parse_pinned(matches)?;
 
-    if pin_to_nodes.len() > 0 && pin_to_nodes.len() != (cluster_size as usize) {
+    if pin_to_nodes.len() > 0 && pin_to_nodes.len() > (cluster_size as usize) {
         return Err(format!(
             "number of pin_to nodes should be less or equal to the desired cluster_size"
         )
@@ -303,8 +304,8 @@ mod tests {
     use web3::types::H256;
     use web3::types::*;
 
-    use credentials::Credentials;
-    use publisher::Publisher;
+    use crate::credentials::Credentials;
+    use crate::publisher::Publisher;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
