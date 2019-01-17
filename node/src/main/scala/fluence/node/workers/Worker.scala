@@ -21,6 +21,7 @@ import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.apply._
 import cats.syntax.either._
 import cats.syntax.applicativeError._
 import com.softwaremill.sttp._
@@ -33,16 +34,17 @@ import scala.language.higherKinds
 /**
  * Single running worker's datatype
  *
+ * @param params this worker's description
+ * @param rpc RPC endpoints for the worker
  * @param healthReportRef a reference to the last healthcheck, updated every time a new healthcheck is being made
  * @param stop stops the worker, should be launched only once
- * @param fiber a fiber for the cuncurrently launched stream of healthchecks for this worker
  * @tparam F the effect
  */
-case class Worker[F[_]](
+case class Worker[F[_]] private (
   params: WorkerParams,
+  rpc: WorkerRpc[F],
   private val healthReportRef: Ref[F, WorkerInfo],
-  stop: F[Unit],
-  fiber: Fiber[F, Unit]
+  stop: F[Unit]
 ) {
 
   // Getter for the last healthcheck
@@ -132,10 +134,11 @@ object Worker extends LazyLogging {
    *
    * @param params Worker's running params
    * @param healthcheck see [[HealthCheckConfig]]
-   * @param sttpBackend Sttp Backend to launch HTTP healthchecks
+   * @param onStop A callback to launch when this worker is stopped
+   * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[Worker]] instance
    */
-  def run[F[_]: Concurrent: ContextShift: Timer](params: WorkerParams, healthcheck: HealthCheckConfig)(
+  def run[F[_]: Concurrent: ContextShift: Timer](params: WorkerParams, healthcheck: HealthCheckConfig, onStop: F[Unit])(
     implicit sttpBackend: SttpBackend[F, Nothing]
   ): F[Worker[F]] =
     for {
@@ -143,6 +146,9 @@ object Worker extends LazyLogging {
       stop ← Deferred[F, Either[Throwable, Unit]]
 
       fiber ← Concurrent[F].start(runHealthCheck(params, healthReportRef, stop, healthcheck))
-    } yield Worker[F](params, healthReportRef, stop.complete(Right(())), fiber)
+
+      rpc ← WorkerRpc[F](params)
+
+    } yield new Worker[F](params, rpc, healthReportRef, stop.complete(Right(())) *> rpc.stop *> fiber.join *> onStop)
 
 }
