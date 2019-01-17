@@ -44,33 +44,25 @@ class AsmbleWasmVm(
   private val hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
 
-  // size in bytes of pointer of Wasm VM (can be bigger then 4 after Wasm64 release)
-  private val WasmPointerSize = 4
-
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
-    fnArguments: Array[Byte]
+    fnArgument: Array[Byte]
   ): EitherT[F, InvokeError, Option[Array[Byte]]] =
     for {
-      // Finds java method(Wasm function) in the index by function id
       wasmModule <- EitherT
         .fromOption(
           modules.get(moduleName),
           NoSuchModuleError(s"Unable to find a module with the name=$moduleName")
         )
-
-      preprocessedArguments <- preprocessFnArgument(fnArguments, wasmModule)
-
-      // invoke the function
-      invocationResult <- wasmModule.invoke(preprocessedArguments)
+      preprocessedArgument <- preprocessFnArgument(fnArgument, wasmModule)
+      invocationResult <- wasmModule.invoke(preprocessedArgument)
 
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
       // there can be some non-determinism (deterministic execution is very important for verification game
       // and this kind of non-determinism can break all verification game).
       offset <- runThrowable(
         invocationResult.toString.toInt,
-        e ⇒
-          VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
+        e ⇒ VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
       )
       extractedResult <- extractResultFromWasmModule(offset, wasmModule).map(Option(_))
 
@@ -82,12 +74,14 @@ class AsmbleWasmVm(
         case (acc, (moduleName, module)) ⇒
           for {
             moduleStateHash ← module
-              .computeHash(arr ⇒ hasher[F](arr))
+              .computeStateHash(arr ⇒ hasher[F](arr))
 
             prevModulesHash ← acc
 
             concatHashes = Array.concat(moduleStateHash, prevModulesHash)
 
+            // TODO : There is known the 2nd preimage attack to such scheme with the same hash function
+            //  for leaves and nodes.
             resultHash ← hasher(concatHashes).leftMap { e ⇒
               InternalVmError(s"Getting VM state for module=$moduleName failed", Some(e)): GetVmStateError
             }
@@ -144,8 +138,7 @@ class AsmbleWasmVm(
       // convert ArrayByte to Int
       resultSize <- runThrowable(
         ByteBuffer.wrap(resultSize).order(ByteOrder.LITTLE_ENDIAN).getInt(),
-        e ⇒
-          VmMemoryError(s"Trying to extract result from incorrect offset=$resultSize", Some(e))
+        e ⇒ VmMemoryError(s"Trying to extract result from incorrect offset=$resultSize", Some(e))
       )
 
       extractedResult <- moduleInstance.readMemory(offset + WasmPointerSize, resultSize)

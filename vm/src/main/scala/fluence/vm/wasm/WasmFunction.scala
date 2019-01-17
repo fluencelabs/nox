@@ -26,7 +26,7 @@ import fluence.vm.VmError.WasmVmError.InvokeError
 import scala.language.higherKinds
 
 /**
- * Represent a Wasm function exported from a Wasm Module.
+ * Represent a Wasm function exported from a Wasm module.
  *
  * @param fnName a name of the function.
  * @param javaMethod a java method [[java.lang.reflect.Method]] used for calling the function.
@@ -37,7 +37,7 @@ case class WasmFunction(
 ) {
 
   /**
-   * Invokes the function with provided arguments.
+   * Invokes the export from Wasm function with provided arguments.
    *
    * @param module the object the underlying method is invoked from.
    *               This is an instance for the current module, it contains
@@ -48,13 +48,16 @@ case class WasmFunction(
   def apply[F[_]: Functor: LiftIO](
     module: Any,
     args: List[AnyRef]
-  ): EitherT[F, InvokeError, AnyRef] =
-    EitherT(
-      IO(javaMethod.invoke(module, args: _*))
+  ): EitherT[F, InvokeError, Option[Number]] =
+    EitherT(IO(javaMethod.invoke(module, args: _*))
+        .map(result =>
+          // by specification currently Wasm method can return one value of i32, i64, f32, f64 type
+          if (javaMethod.getReturnType == Void.TYPE) Option(result.asInstanceOf[Number]) else None
+        )
         .attempt
         .to[F]
-    ).leftMap(e
-      ⇒ TrapError(s"Function $this with args: $args was failed", Some(e))
+    ).leftMap(e ⇒
+      TrapError(s"Function $this with args: $args was failed", Some(e))
     )
 
   override def toString: String = fnName

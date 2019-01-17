@@ -44,6 +44,9 @@ import scala.language.higherKinds
  */
 trait WasmVm {
 
+  // size in bytes of pointer type in Wasm VM (can be different after Wasm64 release)
+  val WasmPointerSize = 4
+
   /**
    * Invokes ''function'' from specified ''module'' with provided arguments.
    * Returns ''None'' if the function doesn't return the result, ''Some(Any)''
@@ -97,8 +100,7 @@ object WasmVm {
         .fromEither(pureconfig.loadConfig[VmConfig](configNamespace))
         .leftMap { e ⇒
           InternalVmError(
-            s"Unable to read a config for the namespace=$configNamespace",
-            Some(ConfigError(e))
+            s"Unable to read a config for the namespace=$configNamespace", Some(ConfigError(e))
           )
         }
 
@@ -112,14 +114,12 @@ object WasmVm {
         )
       )
 
-      // initializing all modules, build index for all Wasm functions
       modules ← initializeModules(scriptCxt, config)
 
-    } yield
-      new AsmbleWasmVm(
-        modules,
-        cryptoHasher,
-      )
+    } yield new AsmbleWasmVm(
+      modules,
+      cryptoHasher
+    )
 
   /**
    * Returns [[ScriptContext]] - context for uploaded Wasm modules.
@@ -131,7 +131,7 @@ object WasmVm {
     config: VmConfig
   ): ScriptContext = {
     val invoke = new Invoke()
-    // todo in future common logger for this project should be used
+    // TODO: in future common logger for this project should be used
     val logger = new Logger.Print(Logger.Level.WARN)
     invoke.setLogger(logger)
     invoke.prepareContext(
