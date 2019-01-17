@@ -15,33 +15,22 @@
  */
 
 package fluence.node
-import java.io.File
-import java.net.InetAddress
 
 import cats.effect._
-import cats.syntax.applicativeError._
-import cats.syntax.functor._
-import cats.syntax.monadError._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.docker.{DockerIO, DockerParams}
 import fluence.node.eth.{FluenceContract, FluenceContractConfig}
-import org.scalactic.source.Position
-import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
-import org.scalatest.time.Span
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers, OptionValues}
+import org.scalatest.{FlatSpec, Matchers}
 import slogging.MessageFormatter.DefaultPrefixFormatter
-import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe.asJson
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.io.Source
 import scala.language.higherKinds
-import scala.sys.process.{Process, ProcessLogger}
-import scala.util.Try
+import scala.sys.process.ProcessLogger
 
 /**
  * This test contains a single test method that checks:
@@ -49,48 +38,7 @@ import scala.util.Try
  * - MasterNode ability to load previous node clusters and subscribe to new clusters
  * - Successful cluster formation and starting blocks creation
  */
-class MasterNodeIntegrationSpec
-    extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues {
-
-  implicit private val ioTimer: Timer[IO] = IO.timer(global)
-  implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
-
-  val bootstrapDir = new File("../bootstrap")
-  def run(cmd: String): Unit = Process(cmd, bootstrapDir).!(ProcessLogger(_ => ()))
-  def runBackground(cmd: String): Unit = Process(cmd, bootstrapDir).run(ProcessLogger(_ => ()))
-
-  private val dockerHost = getOS match {
-    case "linux" => ifaceIP("docker0")
-    case "mac" => "host.docker.internal"
-    case os => throw new RuntimeException(s"$os isn't supported")
-  }
-
-  private val ethereumHost = getOS match {
-    case "linux" => linuxHostIP
-    case "mac" => "host.docker.internal"
-    case os => throw new RuntimeException(s"$os isn't supported")
-  }
-
-  override protected def beforeAll(): Unit = {
-    // TODO: It is needed to build vm-llamadb project explicitly for launch this test from Idea
-    logger.info("bootstrapping npm")
-    run("npm install")
-
-    logger.info("starting Ganache")
-    runBackground("npm run ganache")
-
-    logger.info("deploying contract to Ganache")
-    run("npm run migrate")
-  }
-
-  override protected def afterAll(): Unit = {
-    logger.info("killing ganache")
-    run("pkill -f ganache")
-
-    logger.info("stopping containers")
-    // TODO: kill containers through Master's HTTP API
-    run("docker rm -f 01_node0 01_node1 master1 master2")
-  }
+class MasterNodeIntegrationSpec extends FlatSpec with Matchers with Integration {
 
   "MasterNodes" should "sync their workers with contract clusters" in {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, false)
@@ -184,78 +132,4 @@ class MasterNodeIntegrationSpec
       .unsafeRunSync()
   }
 
-  private def eventually[F[_]: Sync: Timer](
-    p: => F[Unit],
-    period: FiniteDuration = 1.second,
-    maxWait: FiniteDuration = 10.seconds
-  )(implicit pos: Position): F[_] = {
-    fs2.Stream
-      .awakeEvery[F](period)
-      .take((maxWait / period).toLong)
-      .evalMap(_ => p.attempt)
-      .takeThrough(_.isLeft) // until p returns Right(Unit)
-      .compile
-      .last
-      .map {
-        case Some(Right(_)) =>
-        case Some(Left(e)) => throw e
-        case _ => throw new RuntimeException(s"eventually timed out after $maxWait")
-      }
-      .adaptError {
-        case e: TestFailedException =>
-          e.modifyMessage(m => Some(s"eventually timed out after $maxWait" + m.map(": " + _).getOrElse("")))
-        case e =>
-          new TestFailedDueToTimeoutException(
-            _ => Some(s"eventually timed out after $maxWait" + Option(e.getMessage).map(": " + _).getOrElse("")),
-            Some(e),
-            pos,
-            None,
-            Span.convertDurationToSpan(maxWait)
-          )
-      }
-  }
-
-  private def heightFromTendermintStatus(startPort: Int): IO[Option[Long]] = IO {
-    import io.circe._
-    import io.circe.parser._
-    val port = startPort + 100 // +100 corresponds to port mapping scheme from `ClusterData`
-    val source = Source.fromURL(s"http://localhost:$port/status").mkString
-    val height = parse(source)
-      .getOrElse(Json.Null)
-      .asObject
-      .flatMap(_("result"))
-      .flatMap(_.asObject)
-      .flatMap(_("sync_info"))
-      .flatMap(_.asObject)
-      .flatMap(_("latest_block_height"))
-      .flatMap(_.asString)
-      .flatMap(x => Try(x.toLong).toOption)
-    height
-  }
-
-  // return IP address of the `interface`
-  private def ifaceIP(interface: String): String = {
-    import sys.process._
-    val ifconfigCmd = Seq("ifconfig", interface)
-    val grepCmd = Seq("grep", "inet ")
-    val awkCmd = Seq("awk", "{print $2}")
-    InetAddress.getByName((ifconfigCmd #| grepCmd #| awkCmd).!!.replaceAll("[^0-9\\.]", "")).getHostAddress
-  }
-
-  private def linuxHostIP = {
-    import sys.process._
-    val ipR = "(?<=src )[0-9\\.]+".r
-    ipR.findFirstIn("ip route get 8.8.8.8".!!.trim).value
-  }
-
-  private def getOS: String = {
-    // TODO: should use more comprehensive and reliable OS detection
-    val osName = System.getProperty("os.name").toLowerCase()
-    if (osName.contains("windows"))
-      "windows"
-    else if (osName.contains("mac") || osName.contains("darwin"))
-      "mac"
-    else
-      "linux"
-  }
 }
