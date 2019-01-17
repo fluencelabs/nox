@@ -9,8 +9,11 @@
 - external IP
 
 ## Node Owner Flow
-- download script and fluence CLI
-- to run nodes run script... 
+- download script and fluence CLI (todo: add links in release, script in archive?)
+- move CLI to scripts directory `mv fluence path/to/scripts/`
+- run `./kovan-compose.sh <your-external-ip> <wallet-address> <secret-key>`
+- secret key needed to sign transactions locally
+- remember TENDERMINT_KEY from logs, this is the identity of your node
 - check that your node is registered here: ...
 
 ## Advanced

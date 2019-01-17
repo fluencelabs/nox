@@ -32,8 +32,13 @@ env.user = "root"
  
 def copy_resources():
 
+    run('mkdir scripts -p')
     # copy local directory `script` to remote machine
-    put('scripts', '.')
+    put('scripts/compose.sh', '.')
+    put('scripts/node.yml', '.')
+    put('scripts/parity.yml', '.')
+    put('scripts/swarm.yml', '.')
+    put('scripts/fluence', '.')
 
 # comment this annotation to deploy sequentially
 @parallel
