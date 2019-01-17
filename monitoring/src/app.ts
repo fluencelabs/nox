@@ -16,6 +16,8 @@
  */
 
 import {Network} from "../types/web3-contracts/Network";
+import {Option} from "ts-option";
+import {Cluster, parseCluster} from "./cluster";
 
 /**
  * An app is a WASM file. It can be deployed on a real-time cluster and run.
@@ -23,55 +25,45 @@ import {Network} from "../types/web3-contracts/Network";
  * and a requirement of how many nodes will be in the cluster.
  */
 export interface App {
-    app_address: string,
+    app_id: string,
+    storage_hash: string,
     storage_receipt: string,
     cluster_size: number,
-    developer: string,
-    pinToNodes: string[]
+    owner: string,
+    pinToNodes: string[],
+    cluster: Option<Cluster>
 }
 
 /**
  * Gets list of enqueued codes from Fluence contract
  */
-export async function getEnqueuedApps(contract: Network): Promise<App[]> {
+export async function getApps(contract: Network, ids: string[]): Promise<App[]> {
 
-    let unparsedApps = await contract.methods.getEnqueuedApps().call();
+    let appCalls: Promise<App>[] = ids.map((id) => {
+        return contract.methods.getApp(id).call().then((unparsedApp) => {
+            let appAddress: string = unparsedApp["0"];
+            let storageReceipt: string = unparsedApp["1"];
+            let clusterSize: number = parseInt(unparsedApp["2"]);
+            let owner: string = unparsedApp["3"];
+            let pinToNodes: string[] = unparsedApp["4"];
 
-    let storageHashes = unparsedApps["0"];
-    let storageReceipts = unparsedApps["1"];
-    let clusterSizes = unparsedApps["2"];
-    let developers = unparsedApps["3"];
-    let numberOfPinned: number[] = unparsedApps["4"].map((n) => {return parseInt(n);});
-    let allPinned: string[] = unparsedApps["5"];
+            let genesisTime: number = parseInt(unparsedApp["5"]);
+            let nodeIds: string[] = unparsedApp["6"];
+            let ports: number[] = unparsedApp["7"].map(parseInt);
 
-    return parseCodes(storageHashes, storageReceipts, clusterSizes, developers, numberOfPinned, allPinned);
-}
+            let clusterOpt = parseCluster(genesisTime, nodeIds, ports);
 
-/**
- * Collects codes from response format of Fluence contract.
- */
-export function parseCodes(appAddresses: string[],
-                    storageReceipts: string[],
-                    clusterSizes: string[],
-                    developers: string[],
-                    numberOfPinned: number[],
-                    allPinned: string[]): App[] {
-    let count = 0;
-
-    return appAddresses.map((address, index) => {
-        let pinned: string[] = [];
-
-        for(var i = 0; i < numberOfPinned[index]; i++){
-            pinned.push(allPinned[count]);
-            count++;
-        }
-
-        return {
-            app_address: address,
-            storage_receipt: storageReceipts[index],
-            cluster_size: parseInt(clusterSizes[index]),
-            developer: developers[index],
-            pinToNodes: pinned
-        };
+            return {
+                app_id: id,
+                storage_hash: appAddress,
+                storage_receipt: storageReceipt,
+                cluster_size: clusterSize,
+                owner: owner,
+                pinToNodes: pinToNodes,
+                cluster: clusterOpt
+            };
+        });
     });
+
+    return Promise.all(appCalls);
 }

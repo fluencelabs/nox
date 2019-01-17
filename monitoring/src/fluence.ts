@@ -76,7 +76,7 @@ export async function getStatus(contractAddress: string): Promise<Status> {
 /**
  * Show rendered status of Fluence network.
  */
-export function showStatus(contractAddress: string = "0x9995882876ae612bfd829498ccd73dd962ec950a") {
+export function showStatus(contractAddress: string) {
     let status = getStatus(contractAddress);
     status.then((st) => {
         const formatter = new JSONFormatter(st);
